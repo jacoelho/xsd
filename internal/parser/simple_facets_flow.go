@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 type facetAttributePolicy int
@@ -16,14 +15,14 @@ const (
 )
 
 // parseFacetsWithPolicy parses facet elements from a restriction element.
-func parseFacetsWithPolicy(doc *xmltree.Document, restrictionElem xmltree.NodeID, restriction *model.Restriction, st *model.SimpleType, schema *Schema, policy facetAttributePolicy) error {
+func parseFacetsWithPolicy(doc *Document, restrictionElem NodeID, restriction *model.Restriction, st *model.SimpleType, schema *Schema, policy facetAttributePolicy) error {
 	baseType := tryResolveBaseType(restriction, schema)
 	if st != nil && st.Restriction != nil {
 		baseType = tryResolveBaseType(st.Restriction, schema)
 	}
 
 	for _, child := range doc.Children(restrictionElem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 

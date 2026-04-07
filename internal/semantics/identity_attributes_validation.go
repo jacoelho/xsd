@@ -8,27 +8,53 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
+
+func resolveElementType(schema *parser.Schema, elementDecl *model.ElementDecl) (model.Type, error) {
+	if elementDecl == nil {
+		return nil, fmt.Errorf("cannot resolve element type")
+	}
+	elementType := parser.ResolveTypeReference(schema, elementDecl.Type)
+	if elementType == nil {
+		return nil, fmt.Errorf("cannot resolve element type")
+	}
+	return elementType, nil
+}
+
+func resolveElementComplexType(schema *parser.Schema, elementDecl *model.ElementDecl) (*model.ComplexType, error) {
+	elementType, err := resolveElementType(schema, elementDecl)
+	if err != nil {
+		return nil, err
+	}
+	ct, ok := elementType.(*model.ComplexType)
+	if !ok {
+		return nil, fmt.Errorf("element does not have complex type")
+	}
+	return ct, nil
+}
+
+func resolveAttributeType(schema *parser.Schema, typ model.Type, message string, test runtime.NodeTest) (model.Type, error) {
+	resolvedType := parser.ResolveTypeReference(schema, typ)
+	if resolvedType == nil {
+		return nil, fmt.Errorf(message, formatNodeTest(test))
+	}
+	return resolvedType, nil
+}
 
 func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, test runtime.NodeTest) (model.Type, error) {
 	if isWildcardNodeTest(test) {
 		return nil, fmt.Errorf("%w: wildcard attribute", ErrXPathUnresolvable)
 	}
 	elementDecl = resolveElementReference(schema, elementDecl)
-	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
-	if elementType == nil {
-		return nil, fmt.Errorf("cannot resolve element type")
-	}
-	ct, ok := elementType.(*model.ComplexType)
-	if !ok {
-		return nil, fmt.Errorf("element does not have complex type")
+	ct, err := resolveElementComplexType(schema, elementDecl)
+	if err != nil {
+		return nil, err
 	}
 	for _, attrUse := range ct.Attributes() {
 		if nodeTestMatchesQName(test, attrUse.Name) {
-			resolvedType := typeresolve.ResolveTypeReference(schema, attrUse.Type, typeresolve.TypeReferenceMustExist)
-			if resolvedType == nil {
-				return nil, fmt.Errorf("cannot resolve attribute type for '%s'", formatNodeTest(test))
+			resolvedType, err := resolveAttributeType(schema, attrUse.Type, "cannot resolve attribute type for '%s'", test)
+			if err != nil {
+				return nil, err
 			}
 			return resolvedType, nil
 		}
@@ -37,9 +63,9 @@ func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, te
 		if attrGroup, ok := schema.AttributeGroups[attrGroupQName]; ok {
 			for _, attr := range attrGroup.Attributes {
 				if nodeTestMatchesQName(test, attr.Name) {
-					resolvedType := typeresolve.ResolveTypeReference(schema, attr.Type, typeresolve.TypeReferenceMustExist)
-					if resolvedType == nil {
-						return nil, fmt.Errorf("cannot resolve attribute type for '%s' in attribute group", formatNodeTest(test))
+					resolvedType, err := resolveAttributeType(schema, attr.Type, "cannot resolve attribute type for '%s' in attribute group", test)
+					if err != nil {
+						return nil, err
 					}
 					return resolvedType, nil
 				}
@@ -48,9 +74,9 @@ func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, te
 				if nestedAttrGroup, ok := schema.AttributeGroups[nestedAttrGroupQName]; ok {
 					for _, attr := range nestedAttrGroup.Attributes {
 						if nodeTestMatchesQName(test, attr.Name) {
-							resolvedType := typeresolve.ResolveTypeReference(schema, attr.Type, typeresolve.TypeReferenceMustExist)
-							if resolvedType == nil {
-								return nil, fmt.Errorf("cannot resolve attribute type for '%s' in nested attribute group", formatNodeTest(test))
+							resolvedType, err := resolveAttributeType(schema, attr.Type, "cannot resolve attribute type for '%s' in nested attribute group", test)
+							if err != nil {
+								return nil, err
 							}
 							return resolvedType, nil
 						}
@@ -73,13 +99,9 @@ func findAttributeTypeDescendant(schema *parser.Schema, elementDecl *model.Eleme
 	if attrType, err := findAttributeType(schema, elementDecl, test); err == nil {
 		return attrType, nil
 	}
-	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
-	if elementType == nil {
-		return nil, fmt.Errorf("cannot resolve element type")
-	}
-	ct, ok := elementType.(*model.ComplexType)
-	if !ok {
-		return nil, fmt.Errorf("element does not have complex type")
+	ct, err := resolveElementComplexType(schema, elementDecl)
+	if err != nil {
+		return nil, err
 	}
 	visited := map[*model.ComplexType]struct{}{ct: {}}
 	return findAttributeTypeInContentDescendant(schema, ct.Content(), test, visited)
@@ -116,7 +138,7 @@ func findAttributeTypeInParticleDescendant(schema *parser.Schema, particle model
 			return attrType, nil
 		}
 		if elem.Type != nil {
-			if resolvedType := typeresolve.ResolveTypeReference(schema, elem.Type, typeresolve.TypeReferenceMustExist); resolvedType != nil {
+			if resolvedType := parser.ResolveTypeReference(schema, elem.Type); resolvedType != nil {
 				if ct, ok := resolvedType.(*model.ComplexType); ok {
 					if _, seen := visited[ct]; !seen {
 						visited[ct] = struct{}{}
@@ -169,9 +191,9 @@ func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *model.Elem
 		}
 		return attrType, nil
 	}
-	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
-	if elementType == nil {
-		return nil, fmt.Errorf("cannot resolve element type")
+	elementType, err := resolveElementType(schema, elementDecl)
+	if err != nil {
+		return nil, err
 	}
 	if elementDecl.Nillable {
 		return elementType, ErrFieldSelectsNillable

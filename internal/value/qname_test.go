@@ -3,8 +3,6 @@ package value
 import (
 	"bytes"
 	"testing"
-
-	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 type mapResolver map[string]string
@@ -75,7 +73,7 @@ func TestCanonicalQNameXMLPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CanonicalQName() error = %v", err)
 	}
-	want := append([]byte(xmlnames.XMLNamespace), 0)
+	want := append([]byte(XMLNamespace), 0)
 	want = append(want, []byte("lang")...)
 	if !bytes.Equal(got, want) {
 		t.Fatalf("CanonicalQName(xml) = %q, want %q", string(got), string(want))

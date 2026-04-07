@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 var validNotationAttributes = map[string]bool{
@@ -15,56 +14,53 @@ var validNotationAttributes = map[string]bool{
 	"system": true,
 }
 
-func parseTopLevelComponent(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
-	switch doc.LocalName(elem) {
+func parseTopLevelComponent(doc *Document, elem NodeID, schema *Schema) error {
+	localName := doc.LocalName(elem)
+	var (
+		parseFn   func(*Document, NodeID, *Schema) error
+		parseName string
+	)
+
+	switch localName {
 	case "annotation", "import", "include":
 		return nil
 	case "element":
-		if err := parseTopLevelElement(doc, elem, schema); err != nil {
-			return fmt.Errorf("parse element: %w", err)
-		}
-		return nil
+		parseFn = parseTopLevelElement
+		parseName = "element"
 	case "complexType":
-		if err := parseComplexType(doc, elem, schema); err != nil {
-			return fmt.Errorf("parse complexType: %w", err)
-		}
-		return nil
+		parseFn = parseComplexType
+		parseName = "complexType"
 	case "simpleType":
-		if err := parseSimpleType(doc, elem, schema); err != nil {
-			return fmt.Errorf("parse simpleType: %w", err)
-		}
-		return nil
+		parseFn = parseSimpleType
+		parseName = "simpleType"
 	case "group":
-		if err := parseTopLevelGroup(doc, elem, schema); err != nil {
-			return fmt.Errorf("parse group: %w", err)
-		}
-		return nil
+		parseFn = parseTopLevelGroup
+		parseName = "group"
 	case "attribute":
-		if err := parseTopLevelAttribute(doc, elem, schema); err != nil {
-			return fmt.Errorf("parse attribute: %w", err)
-		}
-		return nil
+		parseFn = parseTopLevelAttribute
+		parseName = "attribute"
 	case "attributeGroup":
-		if err := parseTopLevelAttributeGroup(doc, elem, schema); err != nil {
-			return fmt.Errorf("parse attributeGroup: %w", err)
-		}
-		return nil
+		parseFn = parseTopLevelAttributeGroup
+		parseName = "attributeGroup"
 	case "notation":
-		if err := parseTopLevelNotation(doc, elem, schema); err != nil {
-			return fmt.Errorf("parse notation: %w", err)
-		}
-		return nil
+		parseFn = parseTopLevelNotation
+		parseName = "notation"
 	case "key", "keyref", "unique":
-		return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(elem))
+		return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", localName)
 	case "redefine":
 		return fmt.Errorf("redefine is not supported")
 	default:
-		return fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(elem))
+		return fmt.Errorf("unexpected top-level element '%s'", localName)
 	}
+
+	if err := parseFn(doc, elem, schema); err != nil {
+		return fmt.Errorf("parse %s: %w", parseName, err)
+	}
+	return nil
 }
 
 // parseTopLevelNotation parses a top-level notation declaration
-func parseTopLevelNotation(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
+func parseTopLevelNotation(doc *Document, elem NodeID, schema *Schema) error {
 	if err := validateAllowedAttributes(doc, elem, "notation", validNotationAttributes); err != nil {
 		return err
 	}
@@ -88,27 +84,20 @@ func parseTopLevelNotation(doc *xmltree.Document, elem xmltree.NodeID, schema *S
 
 	public := doc.GetAttribute(elem, "public")
 	system := doc.GetAttribute(elem, "system")
-	hasPublic := doc.HasAttribute(elem, "public")
-	hasSystem := doc.HasAttribute(elem, "system")
-	if !hasPublic && !hasSystem {
+	if !doc.HasAttribute(elem, "public") && !doc.HasAttribute(elem, "system") {
 		return fmt.Errorf("notation must have either 'public' or 'system' attribute")
 	}
 
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
-			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, doc.LocalName(child))
+		childName := doc.LocalName(child)
+		if doc.NamespaceURI(child) != value.XSDNamespace || childName != "annotation" {
+			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, childName)
 		}
-
-		switch doc.LocalName(child) {
-		case "annotation":
-			if hasAnnotation {
-				return fmt.Errorf("notation '%s': at most one annotation is allowed", name)
-			}
-			hasAnnotation = true
-		default:
-			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, doc.LocalName(child))
+		if hasAnnotation {
+			return fmt.Errorf("notation '%s': at most one annotation is allowed", name)
 		}
+		hasAnnotation = true
 	}
 
 	notationQName := model.QName{Local: name, Namespace: schema.TargetNamespace}

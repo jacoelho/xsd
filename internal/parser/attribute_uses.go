@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 type attributeUses struct {
@@ -14,22 +13,21 @@ type attributeUses struct {
 	attrGroups   []model.QName
 }
 
-func parseAttributeUses(doc *xmltree.Document, children []xmltree.NodeID, schema *Schema, context string) (attributeUses, error) {
+func parseAttributeUses(doc *Document, children []NodeID, schema *Schema, context string) (attributeUses, error) {
 	uses := attributeUses{
 		attributes: []*model.AttributeDecl{},
 		attrGroups: []model.QName{},
 	}
-	hasAnyAttribute := false
 
 	for _, child := range children {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
 		case "annotation":
 			continue
 		case "attribute":
-			if hasAnyAttribute {
+			if uses.anyAttribute != nil {
 				return uses, fmt.Errorf("%s: anyAttribute must appear after all attributes", context)
 			}
 			attr, err := parseAttribute(doc, child, schema, true)
@@ -38,7 +36,7 @@ func parseAttributeUses(doc *xmltree.Document, children []xmltree.NodeID, schema
 			}
 			uses.attributes = append(uses.attributes, attr)
 		case "attributeGroup":
-			if hasAnyAttribute {
+			if uses.anyAttribute != nil {
 				return uses, fmt.Errorf("%s: anyAttribute must appear after all attributes", context)
 			}
 			refQName, err := parseAttributeGroupRefQName(doc, child, schema)
@@ -47,10 +45,9 @@ func parseAttributeUses(doc *xmltree.Document, children []xmltree.NodeID, schema
 			}
 			uses.attrGroups = append(uses.attrGroups, refQName)
 		case "anyAttribute":
-			if hasAnyAttribute {
+			if uses.anyAttribute != nil {
 				return uses, fmt.Errorf("%s: at most one anyAttribute is allowed", context)
 			}
-			hasAnyAttribute = true
 			anyAttr, err := parseAnyAttribute(doc, child, schema)
 			if err != nil {
 				return uses, fmt.Errorf("parse anyAttribute in %s: %w", context, err)

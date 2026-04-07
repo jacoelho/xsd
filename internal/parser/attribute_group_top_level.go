@@ -4,13 +4,12 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // parseTopLevelAttributeGroup parses a top-level <attributeGroup> definition
 // Content model: (annotation?, ((attribute | attributeGroup)*, anyAttribute?))
-func parseTopLevelAttributeGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
+func parseTopLevelAttributeGroup(doc *Document, elem NodeID, schema *Schema) error {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("attributeGroup missing name attribute")
@@ -32,10 +31,9 @@ func parseTopLevelAttributeGroup(doc *xmltree.Document, elem xmltree.NodeID, sch
 
 	hasAnnotation := false
 	hasNonAnnotation := false
-	hasAnyAttribute := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 
@@ -76,10 +74,9 @@ func parseTopLevelAttributeGroup(doc *xmltree.Document, elem xmltree.NodeID, sch
 
 		case "anyAttribute":
 			hasNonAnnotation = true
-			if hasAnyAttribute {
+			if attrGroup.AnyAttribute != nil {
 				return fmt.Errorf("attributeGroup '%s': at most one anyAttribute is allowed", name)
 			}
-			hasAnyAttribute = true
 			anyAttr, err := parseAnyAttribute(doc, child, schema)
 			if err != nil {
 				return fmt.Errorf("parse anyAttribute in attributeGroup: %w", err)
@@ -87,9 +84,9 @@ func parseTopLevelAttributeGroup(doc *xmltree.Document, elem xmltree.NodeID, sch
 			attrGroup.AnyAttribute = anyAttr
 
 		case "key", "keyref", "unique":
-			return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
+			return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", childName)
 		default:
-			return fmt.Errorf("invalid child element <%s> in <attributeGroup> declaration", doc.LocalName(child))
+			return fmt.Errorf("invalid child element <%s> in <attributeGroup> declaration", childName)
 		}
 	}
 

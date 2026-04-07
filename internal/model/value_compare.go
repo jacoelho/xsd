@@ -4,8 +4,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // CompareTypedValues reports whether two typed values are equal in the value space.

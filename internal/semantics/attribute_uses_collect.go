@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // CollectAttributeUses resolves effective attribute uses and wildcard.
@@ -40,8 +39,8 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 		out = append(out, decl)
 	}
 	slices.SortFunc(out, func(a, b *model.AttributeDecl) int {
-		left := typeresolve.EffectiveAttributeQName(schema, a)
-		right := typeresolve.EffectiveAttributeQName(schema, b)
+		left := parser.EffectiveAttributeQName(schema, a)
+		right := parser.EffectiveAttributeQName(schema, b)
 		return model.Compare(left, right)
 	})
 	return out, wildcard, nil

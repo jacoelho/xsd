@@ -10,12 +10,14 @@ import (
 
 func detectTypeCycles(schema *parser.Schema) error {
 	starts := make([]model.QName, 0, len(schema.TypeDefs))
-	if err := parser.ForEachGlobalType(&schema.SchemaGraph, func(name model.QName, typ model.Type) error {
-		if typ == nil {
-			return fmt.Errorf("missing global type %s", name)
-		}
-		starts = append(starts, name)
-		return nil
+	if err := parser.ForEachGlobalDecl(&schema.SchemaGraph, parser.GlobalDeclHandlers{
+		Type: func(name model.QName, typ model.Type) error {
+			if typ == nil {
+				return fmt.Errorf("missing global type %s", name)
+			}
+			starts = append(starts, name)
+			return nil
+		},
 	}); err != nil {
 		return err
 	}

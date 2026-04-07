@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 func TestIntegerKindCompileRuntimeParity(t *testing.T) {

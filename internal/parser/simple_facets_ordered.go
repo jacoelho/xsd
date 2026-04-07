@@ -5,10 +5,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseOrderedFacet(doc *xmltree.Document, elem xmltree.NodeID, restriction *model.Restriction, baseType model.Type, facetName string, constructor orderedFacetConstructor) (model.Facet, error) {
+func parseOrderedFacet(doc *Document, elem NodeID, restriction *model.Restriction, baseType model.Type, facetName string, constructor orderedFacetConstructor) (model.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, facetName); err != nil {
 		return nil, err
 	}

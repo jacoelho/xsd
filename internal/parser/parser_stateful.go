@@ -1,16 +1,14 @@
 package parser
 
 import (
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 	"io"
 	"slices"
-
-	"github.com/jacoelho/xsd/internal/xmltree"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 // Parser parses schemas with reusable parse options and document pool.
 type Parser struct {
-	pool *xmltree.DocumentPool
+	pool *DocumentPool
 	opts []xmlstream.Option
 }
 
@@ -21,7 +19,7 @@ func NewParser(opts ...xmlstream.Option) *Parser {
 		parseOpts = slices.Clone(opts)
 	}
 	return &Parser{
-		pool: xmltree.NewDocumentPool(),
+		pool: NewDocumentPool(),
 		opts: parseOpts,
 	}
 }
@@ -33,7 +31,7 @@ func (p *Parser) Parse(r io.Reader) (*ParseResult, error) {
 	}
 	pool := p.pool
 	if pool == nil {
-		pool = xmltree.NewDocumentPool()
+		pool = NewDocumentPool()
 		p.pool = pool
 	}
 	return ParseWithImportsOptionsWithPool(r, pool, p.opts...)

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 type unionOutcome struct {
@@ -82,7 +82,7 @@ func matchUnion(
 	if !ok || len(members) == 0 {
 		return unionOutcome{FirstErr: invalid("union validator out of range")}
 	}
-	program, err := facets.RuntimeProgramSlice(meta, facetCode)
+	program, err := semantics.RuntimeProgramSlice(meta, facetCode)
 	if err != nil {
 		return unionOutcome{FirstErr: invalid(err.Error())}
 	}
@@ -90,7 +90,7 @@ func matchUnion(
 	if err != nil {
 		return unionOutcome{FirstErr: err}
 	}
-	enumIDs := facets.RuntimeProgramEnumIDs(program)
+	enumIDs := semantics.RuntimeProgramEnumIDs(program)
 	memberLexical := lexical
 	if memberLexical == nil {
 		memberLexical = normalized

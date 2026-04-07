@@ -36,9 +36,8 @@ func (c *compiler) compileType(typ model.Type) (runtime.ValidatorID, error) {
 		}
 		c.validatorByType[key] = id
 		return id, nil
-	default:
-		return 0, nil
 	}
+	return 0, nil
 }
 
 func (c *compiler) canonicalTypeKey(typ model.Type) model.Type {

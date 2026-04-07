@@ -41,11 +41,11 @@ func TestBuildRuntimeIDPlanDeterministicOrdering(t *testing.T) {
 
 	plan1, err := semantics.BuildRuntimeIDPlan(reg1)
 	if err != nil {
-		t.Fatalf("BuildRuntimeIDPlan(reg1) error = %v", err)
+		t.Fatalf("semantics.BuildRuntimeIDPlan(reg1) error = %v", err)
 	}
 	plan2, err := semantics.BuildRuntimeIDPlan(reg2)
 	if err != nil {
-		t.Fatalf("BuildRuntimeIDPlan(reg2) error = %v", err)
+		t.Fatalf("semantics.BuildRuntimeIDPlan(reg2) error = %v", err)
 	}
 
 	if len(plan1.BuiltinTypeNames) == 0 || len(plan1.BuiltinTypeNames) != len(plan1.BuiltinTypeIDs) {

@@ -4,22 +4,19 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-func parseModelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.ModelGroup, error) {
+func parseModelGroup(doc *Document, elem NodeID, schema *Schema) (*model.ModelGroup, error) {
 	kind, err := parseModelGroupKind(doc, elem)
 	if err != nil {
 		return nil, err
 	}
 
-	err = validateModelGroupAttributes(doc, elem)
-	if err != nil {
+	if err := validateModelGroupAttributes(doc, elem); err != nil {
 		return nil, err
 	}
-	err = validateOptionalID(doc, elem, doc.LocalName(elem), schema)
-	if err != nil {
+	if err := validateOptionalID(doc, elem, doc.LocalName(elem), schema); err != nil {
 		return nil, err
 	}
 
@@ -51,7 +48,7 @@ func parseModelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema)
 	hasNonAnnotation := false
 	parentName := doc.LocalName(elem)
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 
@@ -82,7 +79,7 @@ func parseModelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema)
 	return mg, nil
 }
 
-func parseModelGroupKind(doc *xmltree.Document, elem xmltree.NodeID) (model.GroupKind, error) {
+func parseModelGroupKind(doc *Document, elem NodeID) (model.GroupKind, error) {
 	switch doc.LocalName(elem) {
 	case "sequence":
 		return model.Sequence, nil
@@ -95,20 +92,18 @@ func parseModelGroupKind(doc *xmltree.Document, elem xmltree.NodeID) (model.Grou
 	}
 }
 
-func validateModelGroupAttributes(doc *xmltree.Document, elem xmltree.NodeID) error {
+func validateModelGroupAttributes(doc *Document, elem NodeID) error {
+	elementName := doc.LocalName(elem)
 	for _, attr := range doc.Attributes(elem) {
 		if attr.NamespaceURI() != "" {
 			continue
 		}
 		attrName := attr.LocalName()
 		if !validAttributeNames[attrSetModelGroup][attrName] {
-			return fmt.Errorf("invalid attribute '%s' on <%s> (only id, minOccurs, maxOccurs allowed)", attrName, doc.LocalName(elem))
+			return fmt.Errorf("invalid attribute '%s' on <%s> (only id, minOccurs, maxOccurs allowed)", attrName, elementName)
 		}
-		switch attrName {
-		case "minOccurs", "maxOccurs":
-			if attr.Value() == "" {
-				return fmt.Errorf("%s: %s attribute cannot be empty", doc.LocalName(elem), attrName)
-			}
+		if (attrName == "minOccurs" || attrName == "maxOccurs") && attr.Value() == "" {
+			return fmt.Errorf("%s: %s attribute cannot be empty", elementName, attrName)
 		}
 	}
 	return nil

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // TypedValue represents a value with its XSD type

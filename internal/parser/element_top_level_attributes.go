@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func applyTopLevelElementAttributes(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementAttributes(doc *Document, elem NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if ok, value, err := parseBoolAttribute(doc, elem, "nillable"); err != nil {
 		return err
 	} else if ok {
@@ -20,15 +19,13 @@ func applyTopLevelElementAttributes(doc *xmltree.Document, elem xmltree.NodeID, 
 		decl.Abstract = value
 	}
 
-	hasDefault := doc.HasAttribute(elem, "default")
-	hasFixed := doc.HasAttribute(elem, "fixed")
 	applyElementValueConstraintFields(
 		doc,
 		elem,
 		schema,
-		hasDefault,
+		doc.HasAttribute(elem, "default"),
 		doc.GetAttribute(elem, "default"),
-		hasFixed,
+		doc.HasAttribute(elem, "fixed"),
 		doc.GetAttribute(elem, "fixed"),
 		decl,
 	)
@@ -39,14 +36,10 @@ func applyTopLevelElementAttributes(doc *xmltree.Document, elem xmltree.NodeID, 
 	if err := applyTopLevelElementSubstitutionGroup(doc, elem, schema, decl); err != nil {
 		return err
 	}
-	if err := applyTopLevelElementConstraints(doc, elem, schema, decl); err != nil {
-		return err
-	}
-
-	return nil
+	return applyTopLevelElementConstraints(doc, elem, schema, decl)
 }
 
-func applyTopLevelElementDerivations(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementDerivations(doc *Document, elem NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if err := applyElementBlockDerivation(schema, decl, doc.HasAttribute(elem, "block"), doc.GetAttribute(elem, "block")); err != nil {
 		return err
 	}
@@ -68,7 +61,7 @@ func applyTopLevelElementDerivations(doc *xmltree.Document, elem xmltree.NodeID,
 	return nil
 }
 
-func applyTopLevelElementSubstitutionGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementSubstitutionGroup(doc *Document, elem NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if subGroup := doc.GetAttribute(elem, "substitutionGroup"); subGroup != "" {
 		subGroupQName, err := resolveQNameWithPolicy(doc, subGroup, elem, schema, useDefaultNamespace)
 		if err != nil {
@@ -84,6 +77,6 @@ func applyTopLevelElementSubstitutionGroup(doc *xmltree.Document, elem xmltree.N
 	return nil
 }
 
-func applyTopLevelElementConstraints(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementConstraints(doc *Document, elem NodeID, schema *Schema, decl *model.ElementDecl) error {
 	return appendElementIdentityConstraints(doc, elem, schema, decl)
 }

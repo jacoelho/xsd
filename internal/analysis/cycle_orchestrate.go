@@ -23,8 +23,5 @@ func DetectCycles(schema *parser.Schema) error {
 	if err := detectAttributeGroupCycles(schema); err != nil {
 		return err
 	}
-	if err := detectSubstitutionGroupCycles(schema); err != nil {
-		return err
-	}
-	return nil
+	return detectSubstitutionGroupCycles(schema)
 }

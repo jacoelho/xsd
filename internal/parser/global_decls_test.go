@@ -50,7 +50,7 @@ func TestForEachGlobalDeclDispatchesInOrder(t *testing.T) {
 	}
 }
 
-func TestForEachGlobalTypeFiltersKinds(t *testing.T) {
+func TestForEachGlobalDeclTypeHandlerFiltersKinds(t *testing.T) {
 	s := NewSchema()
 	typeA := model.QName{Namespace: "urn:test", Local: "A"}
 	typeB := model.QName{Namespace: "urn:test", Local: "B"}
@@ -65,46 +65,49 @@ func TestForEachGlobalTypeFiltersKinds(t *testing.T) {
 	}
 
 	var got []string
-	err := ForEachGlobalType(&s.SchemaGraph, func(name model.QName, typ model.Type) error {
-		if typ == nil {
-			t.Fatalf("type %s missing", name)
-		}
-		got = append(got, name.Local)
-		return nil
+	err := ForEachGlobalDecl(&s.SchemaGraph, GlobalDeclHandlers{
+		Type: func(name model.QName, typ model.Type) error {
+			if typ == nil {
+				t.Fatalf("type %s missing", name)
+			}
+			got = append(got, name.Local)
+			return nil
+		},
 	})
 	if err != nil {
-		t.Fatalf("ForEachGlobalType() error = %v", err)
+		t.Fatalf("ForEachGlobalDecl() error = %v", err)
 	}
 	want := []string{"A", "B"}
 	if len(got) != len(want) {
-		t.Fatalf("ForEachGlobalType() count = %d, want %d", len(got), len(want))
+		t.Fatalf("ForEachGlobalDecl() count = %d, want %d", len(got), len(want))
 	}
 	for i := range want {
 		if got[i] != want[i] {
-			t.Fatalf("ForEachGlobalType() order[%d] = %q, want %q", i, got[i], want[i])
+			t.Fatalf("ForEachGlobalDecl() order[%d] = %q, want %q", i, got[i], want[i])
 		}
 	}
 }
 
-func TestDispatchGlobalDeclUnknownKindWithoutHandlerErrors(t *testing.T) {
+func TestForEachGlobalDeclUnknownKindWithoutHandlerErrors(t *testing.T) {
 	s := NewSchema()
-	decl := GlobalDecl{
+	s.GlobalDecls = []GlobalDecl{{
 		Kind: GlobalDeclKind(255),
 		Name: model.QName{Namespace: "urn:test", Local: "x"},
-	}
-	if err := DispatchGlobalDecl(&s.SchemaGraph, decl, GlobalDeclHandlers{}); err == nil {
-		t.Fatalf("DispatchGlobalDecl() expected error for unknown kind without handler")
+	}}
+	if err := ForEachGlobalDecl(&s.SchemaGraph, GlobalDeclHandlers{}); err == nil {
+		t.Fatalf("ForEachGlobalDecl() expected error for unknown kind without handler")
 	}
 }
 
-func TestDispatchGlobalDeclUnknownKindUsesHandler(t *testing.T) {
+func TestForEachGlobalDeclUnknownKindUsesHandler(t *testing.T) {
 	s := NewSchema()
 	decl := GlobalDecl{
 		Kind: GlobalDeclKind(255),
 		Name: model.QName{Namespace: "urn:test", Local: "x"},
 	}
+	s.GlobalDecls = []GlobalDecl{decl}
 	called := false
-	err := DispatchGlobalDecl(&s.SchemaGraph, decl, GlobalDeclHandlers{
+	err := ForEachGlobalDecl(&s.SchemaGraph, GlobalDeclHandlers{
 		Unknown: func(kind GlobalDeclKind, name model.QName) error {
 			called = true
 			if kind != decl.Kind {
@@ -117,22 +120,22 @@ func TestDispatchGlobalDeclUnknownKindUsesHandler(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("DispatchGlobalDecl() error = %v", err)
+		t.Fatalf("ForEachGlobalDecl() error = %v", err)
 	}
 	if !called {
 		t.Fatalf("unknown handler was not called")
 	}
 }
 
-func TestDispatchGlobalDeclMissingDeclarationPassesNilValue(t *testing.T) {
+func TestForEachGlobalDeclMissingDeclarationPassesNilValue(t *testing.T) {
 	s := NewSchema()
 	name := model.QName{Namespace: "urn:test", Local: "missingType"}
-	decl := GlobalDecl{
+	s.GlobalDecls = []GlobalDecl{{
 		Kind: GlobalDeclType,
 		Name: name,
-	}
+	}}
 	called := false
-	err := DispatchGlobalDecl(&s.SchemaGraph, decl, GlobalDeclHandlers{
+	err := ForEachGlobalDecl(&s.SchemaGraph, GlobalDeclHandlers{
 		Type: func(gotName model.QName, typ model.Type) error {
 			called = true
 			if gotName != name {
@@ -145,7 +148,7 @@ func TestDispatchGlobalDeclMissingDeclarationPassesNilValue(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("DispatchGlobalDecl() error = %v", err)
+		t.Fatalf("ForEachGlobalDecl() error = %v", err)
 	}
 	if !called {
 		t.Fatalf("type handler was not called")

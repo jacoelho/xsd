@@ -7,7 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl, steps []runtime.Step) (*model.ElementDecl, error) {
@@ -108,7 +107,7 @@ const (
 
 func resolveComplexTypeForElementSearch(schema *parser.Schema, elementDecl *model.ElementDecl) (*model.ComplexType, error) {
 	elementDecl = resolveElementReference(schema, elementDecl)
-	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
+	elementType := parser.ResolveTypeReference(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -180,7 +179,7 @@ func findElementDeclInParticleWithMode(schema *parser.Schema, particle model.Par
 			if visited == nil {
 				visited = make(map[*model.ComplexType]struct{})
 			}
-			if resolvedType := typeresolve.ResolveTypeReference(schema, elem.Type, typeresolve.TypeReferenceMustExist); resolvedType != nil {
+			if resolvedType := parser.ResolveTypeReference(schema, elem.Type); resolvedType != nil {
 				if ct, ok := resolvedType.(*model.ComplexType); ok {
 					if _, seen := visited[ct]; !seen {
 						visited[ct] = struct{}{}

@@ -2,7 +2,7 @@ package analysis
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/typeresolve"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (r *referenceResolver) resolveType(typ model.Type) error {
@@ -18,9 +18,8 @@ func (r *referenceResolver) resolveType(typ model.Type) error {
 		return r.resolveSimpleType(typed)
 	case *model.ComplexType:
 		return r.resolveComplexType(typed)
-	default:
-		return nil
 	}
+	return nil
 }
 
 func (r *referenceResolver) resolveSimpleType(st *model.SimpleType) error {
@@ -88,10 +87,7 @@ func (r *referenceResolver) resolveComplexType(ct *model.ComplexType) error {
 			// no-op
 		}
 
-		if err := r.resolveAttributes(ct.Attributes(), ct.AttrGroups); err != nil {
-			return err
-		}
-		return nil
+		return r.resolveAttributes(ct.Attributes(), ct.AttrGroups)
 	})
 }
 
@@ -155,5 +151,5 @@ func (r *referenceResolver) resolveComplexContent(content *model.ComplexContent)
 }
 
 func (r *referenceResolver) resolveTypeQName(qname model.QName) error {
-	return typeresolve.ValidateTypeQName(r.schema, qname)
+	return parser.ValidateTypeQName(r.schema, qname)
 }

@@ -66,7 +66,6 @@ func (c *compiler) canonicalizeNormalizedCore(lexical, normalized string, typ mo
 			}
 		}
 		return nil, fmt.Errorf("union value does not match any member type")
-	default:
-		return c.canonicalizeAtomic(normalized, typ, ctx)
 	}
+	return c.canonicalizeAtomic(normalized, typ, ctx)
 }

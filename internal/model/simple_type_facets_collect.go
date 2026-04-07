@@ -8,7 +8,7 @@ type FacetTypeResolver func(QName) Type
 // DeferredFacetConverter converts deferred facets once base type is known.
 type DeferredFacetConverter func(df *DeferredFacet, baseType Type) (Facet, error)
 
-// CollectSimpleTypeFacetsWithResolver collects inherited and local simple-type facets.
+// CollectSimpleTypeFacetsWithResolver collects inherited and local simple-type semantics.
 func CollectSimpleTypeFacetsWithResolver(st *SimpleType, resolve FacetTypeResolver, convert DeferredFacetConverter) ([]Facet, error) {
 	visited := make(map[*SimpleType]bool)
 	var visit func(current *SimpleType) ([]Facet, error)

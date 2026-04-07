@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseModelGroupChildParticle(doc *xmltree.Document, child xmltree.NodeID, schema *Schema, parentKind model.GroupKind, parentName string) (model.Particle, error) {
+func parseModelGroupChildParticle(doc *Document, child NodeID, schema *Schema, parentKind model.GroupKind, parentName string) (model.Particle, error) {
 	childName := doc.LocalName(child)
 	switch childName {
 	case "element":
@@ -48,7 +47,7 @@ func parseModelGroupChildParticle(doc *xmltree.Document, child xmltree.NodeID, s
 	}
 }
 
-func parseModelGroupGroupRef(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (model.Particle, error) {
+func parseModelGroupGroupRef(doc *Document, elem NodeID, schema *Schema) (model.Particle, error) {
 	if err := validateElementConstraints(doc, elem, "group", schema); err != nil {
 		return nil, err
 	}

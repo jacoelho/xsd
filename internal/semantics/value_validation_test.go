@@ -25,7 +25,7 @@ func TestValidateDefaultOrFixedResolvedUnionAllowsIDMember(t *testing.T) {
 		t.Fatal("missing root element")
 	}
 	if err := semantics.ValidateDefaultOrFixedResolved(schema, root.Fixed, root.Type, root.FixedContext, semantics.IDPolicyDisallow); err != nil {
-		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v", err)
+		t.Fatalf("semantics.ValidateDefaultOrFixedResolved() error = %v", err)
 	}
 }
 
@@ -45,7 +45,7 @@ func TestValidateDefaultOrFixedResolvedDisallowsDerivedID(t *testing.T) {
 	}
 	err := semantics.ValidateDefaultOrFixedResolved(schema, "abc", typ, nil, semantics.IDPolicyDisallow)
 	if err == nil {
-		t.Fatal("ValidateDefaultOrFixedResolved() expected error")
+		t.Fatal("semantics.ValidateDefaultOrFixedResolved() expected error")
 	}
 }
 
@@ -59,7 +59,7 @@ func TestValidateDefaultOrFixedResolvedRejectsListItemBuiltinID(t *testing.T) {
 
 	err = semantics.ValidateDefaultOrFixedResolved(nil, "abc", list, nil, semantics.IDPolicyDisallow)
 	if err == nil || !strings.Contains(err.Error(), "cannot have default or fixed values") {
-		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want ID policy error", err)
+		t.Fatalf("semantics.ValidateDefaultOrFixedResolved() error = %v, want ID policy error", err)
 	}
 }
 
@@ -73,7 +73,7 @@ func TestValidateDefaultOrFixedResolvedRejectsPlaceholderUnionMember(t *testing.
 
 	err := semantics.ValidateDefaultOrFixedResolved(nil, "abc", union, nil, semantics.IDPolicyDisallow)
 	if err == nil || !strings.Contains(err.Error(), "not resolved") {
-		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want unresolved type error", err)
+		t.Fatalf("semantics.ValidateDefaultOrFixedResolved() error = %v, want unresolved type error", err)
 	}
 }
 
@@ -86,7 +86,7 @@ func TestValidateWithFacetsAllowsPlaceholderUnionMember(t *testing.T) {
 	}
 
 	if err := semantics.ValidateWithFacets(nil, "abc", union, nil, nil); err != nil {
-		t.Fatalf("ValidateWithFacets() error = %v, want nil", err)
+		t.Fatalf("semantics.ValidateWithFacets() error = %v, want nil", err)
 	}
 }
 
@@ -97,7 +97,7 @@ func TestValidateWithFacetsRequiresQNameContext(t *testing.T) {
 	}
 	err := semantics.ValidateWithFacets(nil, "p:name", qnameType, nil, nil)
 	if err == nil {
-		t.Fatal("ValidateWithFacets() expected QName context error")
+		t.Fatal("semantics.ValidateWithFacets() expected QName context error")
 	}
 }
 
@@ -111,7 +111,7 @@ func TestValidateDefaultOrFixedResolvedRejectsDerivedQNameWithUnboundPrefix(t *t
 
 	err = semantics.ValidateDefaultOrFixedResolved(nil, "p:name", typ, nil, semantics.IDPolicyDisallow)
 	if err == nil || !strings.Contains(err.Error(), "prefix p not found") {
-		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want unbound prefix error", err)
+		t.Fatalf("semantics.ValidateDefaultOrFixedResolved() error = %v, want unbound prefix error", err)
 	}
 }
 
@@ -123,7 +123,7 @@ func TestValidateDefaultOrFixedResolvedRejectsEmptyUnion(t *testing.T) {
 
 	err := semantics.ValidateDefaultOrFixedResolved(nil, "abc", union, nil, semantics.IDPolicyDisallow)
 	if err == nil || !strings.Contains(err.Error(), "union has no member types") {
-		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want union member error", err)
+		t.Fatalf("semantics.ValidateDefaultOrFixedResolved() error = %v, want union member error", err)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestValidateWithFacetsRejectsEmptyUnion(t *testing.T) {
 
 	err := semantics.ValidateWithFacets(nil, "abc", union, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "union has no member types") {
-		t.Fatalf("ValidateWithFacets() error = %v, want union member error", err)
+		t.Fatalf("semantics.ValidateWithFacets() error = %v, want union member error", err)
 	}
 }
 
@@ -147,7 +147,7 @@ func TestValidateDefaultOrFixedResolvedRejectsMissingListItemType(t *testing.T) 
 
 	err := semantics.ValidateDefaultOrFixedResolved(nil, "1 2", list, nil, semantics.IDPolicyDisallow)
 	if err == nil || !strings.Contains(err.Error(), "list item type is missing") {
-		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want list item error", err)
+		t.Fatalf("semantics.ValidateDefaultOrFixedResolved() error = %v, want list item error", err)
 	}
 }
 
@@ -159,7 +159,7 @@ func TestValidateWithFacetsRejectsMissingListItemType(t *testing.T) {
 
 	err := semantics.ValidateWithFacets(nil, "1 2", list, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "list item type is missing") {
-		t.Fatalf("ValidateWithFacets() error = %v, want list item error", err)
+		t.Fatalf("semantics.ValidateWithFacets() error = %v, want list item error", err)
 	}
 }
 

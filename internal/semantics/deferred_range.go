@@ -3,10 +3,8 @@ package semantics
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // ValidateDeferredRangeFacetValues validates deferred range facets once bases
@@ -22,7 +20,7 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeresolve.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
+			baseType = parser.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
@@ -44,7 +42,7 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 					continue
 				}
 				seenDeferred = true
-				resolved, err := typeresolve.DefaultDeferredFacetConverter(f, baseType)
+				resolved, err := parser.DefaultDeferredFacetConverter(f, baseType)
 				if err != nil {
 					errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
 					continue
@@ -63,15 +61,15 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 		if baseQName.IsZero() {
 			baseQName = baseType.Name()
 		}
-		if err := facets.ValidateSchemaConstraints(
-			facets.SchemaConstraintInput{
+		if err := ValidateSchemaConstraints(
+			SchemaConstraintInput{
 				FacetList: rangeFacets,
 				BaseType:  baseType,
 				BaseQName: baseQName,
 			},
-			facets.SchemaConstraintCallbacks{
-				ValidateRangeConsistency: facets.ValidateRangeConsistency,
-				ValidateRangeValues:      facets.ValidateRangeValues,
+			SchemaConstraintCallbacks{
+				ValidateRangeConsistency: ValidateRangeConsistency,
+				ValidateRangeValues:      ValidateRangeValues,
 				ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
 					return ValidateWithFacets(sch, value, baseType, context, nil)
 				},
@@ -88,9 +86,8 @@ func isRangeFacetName(name string) bool {
 	switch name {
 	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
 		return true
-	default:
-		return false
 	}
+	return false
 }
 
 func sortedTypeQNames[V any](m map[model.QName]V) []model.QName {

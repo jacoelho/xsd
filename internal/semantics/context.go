@@ -103,7 +103,7 @@ func (c *Context) CompiledValidators() (*CompiledValidators, error) {
 	return c.compiled, nil
 }
 
-// Particles returns particle preparation and validation semantics.
+// Particles returns particle preparation and validation
 func (c *Context) Particles() *Particles {
 	if c == nil {
 		return nil
@@ -190,7 +190,7 @@ type ComplexTypeEntry struct {
 	Attributes     []*model.AttributeDecl
 }
 
-// Particles exposes particle preparation and validation semantics.
+// Particles exposes particle preparation and validation
 type Particles struct {
 	ctx *Context
 }

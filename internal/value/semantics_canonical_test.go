@@ -3,7 +3,7 @@ package value
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 func TestCanonicalizeBoolean(t *testing.T) {
