@@ -98,3 +98,32 @@ func mergeNamed[V any](
 	}
 	return nil
 }
+
+func mergeNamedGlobalDecl[V any](
+	c *mergeContext,
+	kind parser.GlobalDeclKind,
+	source map[model.QName]V,
+	target map[model.QName]V,
+	targetOrigins map[model.QName]string,
+	ensureTarget func() map[model.QName]V,
+	ensureTargetOrigins func() map[model.QName]string,
+	sourceOrigins map[model.QName]string,
+	insert func(V) V,
+	kindName string,
+) error {
+	return mergeNamed(
+		orderedDeclNames(c.sourceGraph, kind, source),
+		source,
+		target,
+		targetOrigins,
+		ensureTarget,
+		ensureTargetOrigins,
+		func(name model.QName) { c.recordInsertedGlobalDecl(kind, name) },
+		c.remapQName,
+		func(name model.QName) string { return c.originFor(sourceOrigins, name) },
+		insert,
+		nil,
+		nil,
+		kindName,
+	)
+}

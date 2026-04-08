@@ -39,19 +39,16 @@ func sortAndDedupeQNames(names []model.QName) []model.QName {
 }
 
 func (c *mergeContext) mergeNotationDecls() error {
-	return mergeNamed(
-		orderedDeclNames(c.sourceGraph, parser.GlobalDeclNotation, c.sourceGraph.NotationDecls),
+	return mergeNamedGlobalDecl(
+		c,
+		parser.GlobalDeclNotation,
 		c.sourceGraph.NotationDecls,
 		c.targetGraph.NotationDecls,
 		c.targetMeta.NotationOrigins,
 		c.notationDeclsForInsert,
 		c.notationOriginsForInsert,
-		func(name model.QName) { c.recordInsertedGlobalDecl(parser.GlobalDeclNotation, name) },
-		c.remapQName,
-		func(name model.QName) string { return c.originFor(c.sourceMeta.NotationOrigins, name) },
+		c.sourceMeta.NotationOrigins,
 		func(notation *model.NotationDecl) *model.NotationDecl { return notation.Copy(c.opts) },
-		nil,
-		nil,
 		"notation",
 	)
 }

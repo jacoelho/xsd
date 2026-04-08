@@ -65,19 +65,16 @@ func (c *mergeContext) mergeAttributeGroups() error {
 }
 
 func (c *mergeContext) mergeGroups() error {
-	return mergeNamed(
-		orderedDeclNames(c.sourceGraph, parser.GlobalDeclGroup, c.sourceGraph.Groups),
+	return mergeNamedGlobalDecl(
+		c,
+		parser.GlobalDeclGroup,
 		c.sourceGraph.Groups,
 		c.targetGraph.Groups,
 		c.targetMeta.GroupOrigins,
 		c.groupsForInsert,
 		c.groupOriginsForInsert,
-		func(name model.QName) { c.recordInsertedGlobalDecl(parser.GlobalDeclGroup, name) },
-		c.remapQName,
-		func(qname model.QName) string { return c.originFor(c.sourceMeta.GroupOrigins, qname) },
+		c.sourceMeta.GroupOrigins,
 		func(group *model.ModelGroup) *model.ModelGroup { return group.Copy(c.opts) },
-		nil,
-		nil,
 		"group",
 	)
 }
