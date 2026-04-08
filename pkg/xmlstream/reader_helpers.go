@@ -20,9 +20,9 @@ func resolveElementParts(ns *nsStack, dec *xmltext.Decoder, name []byte, nameCol
 	return namespace, local, nil
 }
 
-func popQName(stack []QName, depth int) (QName, []QName, error) {
+func popElementStack(stack []elementStackEntry, depth int) (elementStackEntry, []elementStackEntry, error) {
 	if len(stack) == 0 {
-		return QName{}, nil, fmt.Errorf("unexpected end element at depth %d", depth)
+		return elementStackEntry{}, nil, fmt.Errorf("unexpected end element at depth %d", depth)
 	}
 	name := stack[len(stack)-1]
 	stack = stack[:len(stack)-1]

@@ -29,7 +29,7 @@ type Reader struct {
 	resolvedAttr  []ResolvedAttr
 	attrBuf       []Attr
 	lastRawInfo   []rawAttrInfo
-	elemStack     []QName
+	elemStack     []elementStackEntry
 	valueBuf      []byte
 	nsBuf         []byte
 	lastRawAttrs  []RawAttr
@@ -156,6 +156,11 @@ type startElementCore struct {
 	namespace  string
 	local      []byte
 	scopeDepth int
+}
+
+type elementStackEntry struct {
+	qname  QName
+	nameID NameID
 }
 
 func (r *Reader) next(mode nextMode, event *Event, raw *RawEvent, resolved *ResolvedEvent) error {
@@ -359,7 +364,7 @@ func (r *Reader) startEvent(tok *xmltext.RawTokenSpan, line, column int) (Event,
 		return Event{}, err
 	}
 
-	_ = r.commitStartEvent(name, line, column, core.scopeDepth)
+	_ = r.commitStartEvent(name, 0, line, column, core.scopeDepth)
 	r.lastStart.Attrs = r.attrBuf
 	r.lastRawAttrs = nil
 	r.lastRawInfo = nil
@@ -405,7 +410,7 @@ func (r *Reader) startRawEvent(tok *xmltext.RawTokenSpan, line, column int) (Raw
 		return RawEvent{}, err
 	}
 
-	id := r.commitStartEvent(name, line, column, core.scopeDepth)
+	id := r.commitStartEvent(name, 0, line, column, core.scopeDepth)
 	r.lastStart.Attrs = r.attrBuf
 	r.lastRawAttrs = r.rawAttrBuf
 	r.lastRawInfo = r.rawAttrInfo
@@ -455,7 +460,7 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 		return ResolvedEvent{}, err
 	}
 
-	id := r.commitStartEvent(name.qname, line, column, core.scopeDepth)
+	id := r.commitStartEvent(name.qname, name.id, line, column, core.scopeDepth)
 	r.lastRawAttrs = nil
 	r.lastRawInfo = nil
 
@@ -506,10 +511,13 @@ func (r *Reader) markAttrSeen(namespace string, local []byte, line, column int) 
 	return nil
 }
 
-func (r *Reader) commitStartEvent(name QName, line, column, scopeDepth int) ElementID {
+func (r *Reader) commitStartEvent(name QName, nameID NameID, line, column, scopeDepth int) ElementID {
 	id := r.nextID
 	r.nextID++
-	r.elemStack = append(r.elemStack, name)
+	r.elemStack = append(r.elemStack, elementStackEntry{
+		qname:  name,
+		nameID: nameID,
+	})
 	r.lastWasStart = true
 	r.lastStart = Event{
 		Kind:       EventStartElement,
@@ -587,7 +595,7 @@ func (r *Reader) endEvent(_ *xmltext.RawTokenSpan, line, column int) (Event, err
 	}
 	return Event{
 		Kind:       EventEndElement,
-		Name:       name,
+		Name:       name.qname,
 		Line:       line,
 		Column:     column,
 		ScopeDepth: scopeDepth,
@@ -615,12 +623,11 @@ func (r *Reader) endResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (
 	}
 
 	_, local, _ := splitQNameWithColon(tok.Name, tok.NameColon)
-	namespace := name.Namespace
-	resolvedName := r.resolvedNames.internBytes(namespace, local)
+	namespace := name.qname.Namespace
 	nsBytes := r.nsBytes.intern(namespace)
 	return ResolvedEvent{
 		Kind:       EventEndElement,
-		NameID:     resolvedName.id,
+		NameID:     name.nameID,
 		NS:         nsBytes,
 		Local:      local,
 		Line:       line,
@@ -629,11 +636,11 @@ func (r *Reader) endResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (
 	}, nil
 }
 
-func (r *Reader) beginEndElement() (QName, int, error) {
+func (r *Reader) beginEndElement() (elementStackEntry, int, error) {
 	scopeDepth := r.ns.depth() - 1
 	name, err := r.popElementName()
 	if err != nil {
-		return QName{}, 0, err
+		return elementStackEntry{}, 0, err
 	}
 	r.pendingPop = true
 	return name, scopeDepth, nil
@@ -748,10 +755,10 @@ func (r *Reader) CurrentNamespaceDeclsSeq() iter.Seq[NamespaceDecl] {
 	return r.NamespaceDeclsSeq(r.ns.depth() - 1)
 }
 
-func (r *Reader) popElementName() (QName, error) {
-	var name QName
+func (r *Reader) popElementName() (elementStackEntry, error) {
+	var name elementStackEntry
 	var err error
-	name, r.elemStack, err = popQName(r.elemStack, r.ns.depth())
+	name, r.elemStack, err = popElementStack(r.elemStack, r.ns.depth())
 	return name, err
 }
 

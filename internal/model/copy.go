@@ -176,12 +176,19 @@ func copyValueNamespaceContext(src map[string]string, opts CopyOptions) map[stri
 	if src == nil {
 		return nil
 	}
+	if shareImmutableNamespaceContext(opts) {
+		return src
+	}
 	clone := maps.Clone(src)
 	if !isChameleonRemap(opts) {
 		return clone
 	}
 	clone[""] = opts.SourceNamespace
 	return clone
+}
+
+func shareImmutableNamespaceContext(opts CopyOptions) bool {
+	return !opts.PreserveSourceNamespace && !isChameleonRemap(opts)
 }
 
 func isChameleonRemap(opts CopyOptions) bool {
@@ -211,7 +218,11 @@ func copyIdentityConstraints(constraints []*IdentityConstraint, opts CopyOptions
 			clone.ReferQName = opts.RemapQName(constraint.ReferQName)
 		}
 		clone.Fields = slices.Clone(constraint.Fields)
-		clone.NamespaceContext = maps.Clone(constraint.NamespaceContext)
+		if shareImmutableNamespaceContext(opts) {
+			clone.NamespaceContext = constraint.NamespaceContext
+		} else {
+			clone.NamespaceContext = maps.Clone(constraint.NamespaceContext)
+		}
 		out = append(out, &clone)
 	}
 	if len(out) == 0 {

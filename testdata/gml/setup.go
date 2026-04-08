@@ -138,6 +138,10 @@ func runPrepareWithDeps(cfg commonFlags, stdout io.Writer, deps prepareDeps) err
 
 	switch state.kind {
 	case preparedGMLRemoteRoots:
+		if !cfg.forceDownload && validateExistingLocalSchemaSet(cfg.gmlPath, cfg.xsdDir) == nil {
+			_, _ = fmt.Fprintln(stdout, "local xsd dir already valid; skipping schema refresh")
+			return nil
+		}
 		return rebuildFromRoots(state.data, state.roots, cfg, stdout, deps)
 	case preparedGMLLocalizedValid:
 		_, _ = fmt.Fprintln(stdout, "gml schemaLocation already points to local xsd; skipping schema refresh")
@@ -291,7 +295,7 @@ func downloadFile(rawURL, out string) error {
 	return err
 }
 
-func detectEntrypointSchema(gmlPath string) (string, error) {
+func detectEntrypointSchema(gmlPath, xsdDir string) (string, error) {
 	b, err := os.ReadFile(gmlPath)
 	if err != nil {
 		return "", err
@@ -306,6 +310,9 @@ func detectEntrypointSchema(gmlPath string) (string, error) {
 	}
 	loc := tok[1]
 	if isRemoteSchemaLocation(loc) {
+		if xsdDir != "" {
+			return filepath.Clean(filepath.Join(xsdDir, path.Base(loc))), nil
+		}
 		loc = path.Base(loc)
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(gmlPath), filepath.FromSlash(loc))), nil
@@ -340,9 +347,26 @@ func validateLocalPreparedState(gmlPath string) error {
 		return err
 	}
 
-	entry, err := detectEntrypointSchema(gmlPath)
+	entry, err := detectEntrypointSchema(gmlPath, "")
 	if err != nil {
 		return err
+	}
+	if _, err := xsd.CompileFile(entry, xsd.NewSourceOptions(), xsd.NewBuildOptions()); err != nil {
+		return fmt.Errorf("entry schema compile check failed: %w", err)
+	}
+	return nil
+}
+
+func validateExistingLocalSchemaSet(gmlPath, xsdDir string) error {
+	if strings.TrimSpace(xsdDir) == "" {
+		return fmt.Errorf("empty xsd dir")
+	}
+	entry, err := detectEntrypointSchema(gmlPath, xsdDir)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(entry); err != nil {
+		return fmt.Errorf("missing local entry schema %s: %w", entry, err)
 	}
 	if _, err := xsd.CompileFile(entry, xsd.NewSourceOptions(), xsd.NewBuildOptions()); err != nil {
 		return fmt.Errorf("entry schema compile check failed: %w", err)

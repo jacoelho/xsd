@@ -237,6 +237,52 @@ func TestValidateLocalPreparedState(t *testing.T) {
 	}
 }
 
+func TestValidateExistingLocalSchemaSet(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		setup           func(gmlFixture)
+		wantErrContains string
+	}{
+		{
+			name: "valid remote-root gml with local xsd dir",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeGML(remoteRootGML(testSchemaURL))
+			},
+		},
+		{
+			name: "missing local entry schema fails",
+			setup: func(fx gmlFixture) {
+				fx.writeGML(remoteRootGML(testSchemaURL))
+			},
+			wantErrContains: "missing local entry schema",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fx := newGMLFixture(t)
+			tt.setup(fx)
+
+			err := validateExistingLocalSchemaSet(fx.gmlPath, fx.xsdDir)
+			if tt.wantErrContains != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Fatalf("validateExistingLocalSchemaSet() error = %v, want substring %q", err, tt.wantErrContains)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("validateExistingLocalSchemaSet() error = %v", err)
+			}
+		})
+	}
+}
+
 func TestRunPrepare(t *testing.T) {
 	t.Parallel()
 
@@ -273,6 +319,17 @@ func TestRunPrepare(t *testing.T) {
 			wantCrawlRoots:  []string{testSchemaURL},
 			wantGMLContains: []string{`xsi:schemaLocation="` + testNamespace + ` xsd/root.xsd"`},
 			wantXSDNames:    []string{"root.xsd"},
+		},
+		{
+			name: "remote-root gml with valid local xsd dir skips refresh",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeGML(remoteRootGML(testSchemaURL))
+			},
+			wantStdout: func(gmlFixture) []string {
+				return []string{"local xsd dir already valid; skipping schema refresh"}
+			},
+			wantGMLContains: []string{`xsi:schemaLocation="` + testNamespace + ` ` + testSchemaURL + `"`},
 		},
 		{
 			name: "already localized valid gml skips refresh",

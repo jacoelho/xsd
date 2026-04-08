@@ -24,6 +24,28 @@ func TestNormalizeWhitespaceCollapse(t *testing.T) {
 	}
 }
 
+func TestNeedsWhitespaceNormalization(t *testing.T) {
+	tests := []struct {
+		name string
+		mode WhitespaceMode
+		in   string
+		want bool
+	}{
+		{name: "preserve never changes", mode: WhitespacePreserve, in: "a\tb", want: false},
+		{name: "replace unchanged", mode: WhitespaceReplace, in: "a b", want: false},
+		{name: "replace changes tabs", mode: WhitespaceReplace, in: "a\tb", want: true},
+		{name: "collapse unchanged", mode: WhitespaceCollapse, in: "a b c", want: false},
+		{name: "collapse changes leading", mode: WhitespaceCollapse, in: " a b", want: true},
+		{name: "collapse changes tabs", mode: WhitespaceCollapse, in: "a\tb", want: true},
+		{name: "collapse changes double spaces", mode: WhitespaceCollapse, in: "a  b", want: true},
+	}
+	for _, tc := range tests {
+		if got := NeedsWhitespaceNormalization(tc.mode, []byte(tc.in)); got != tc.want {
+			t.Fatalf("NeedsWhitespaceNormalization(%v, %q) = %v, want %v", tc.mode, tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestTrimXMLWhitespace(t *testing.T) {
 	in := []byte("\t abc \n")
 	got := TrimXMLWhitespace(in)

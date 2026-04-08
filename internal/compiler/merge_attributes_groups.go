@@ -7,9 +7,13 @@ import (
 
 func (c *mergeContext) mergeAttributeDecls() error {
 	return mergeNamed(
+		orderedDeclNames(c.sourceGraph, parser.GlobalDeclAttribute, c.sourceGraph.AttributeDecls),
 		c.sourceGraph.AttributeDecls,
 		c.targetGraph.AttributeDecls,
 		c.targetMeta.AttributeOrigins,
+		c.attributeDeclsForInsert,
+		c.attributeOriginsForInsert,
+		func(name model.QName) { c.recordInsertedGlobalDecl(parser.GlobalDeclAttribute, name) },
 		c.remapQName,
 		func(qname model.QName) string { return c.originFor(c.sourceMeta.AttributeOrigins, qname) },
 		c.copyAttributeDecl,
@@ -44,9 +48,13 @@ func (c *mergeContext) mergeAttributeGroups() error {
 		return groupCopy
 	}
 	return mergeNamed(
+		orderedDeclNames(c.sourceGraph, parser.GlobalDeclAttributeGroup, c.sourceGraph.AttributeGroups),
 		c.sourceGraph.AttributeGroups,
 		c.targetGraph.AttributeGroups,
 		c.targetMeta.AttributeGroupOrigins,
+		c.attributeGroupsForInsert,
+		c.attributeGroupOriginsForInsert,
+		func(name model.QName) { c.recordInsertedGlobalDecl(parser.GlobalDeclAttributeGroup, name) },
 		c.remapQName,
 		func(qname model.QName) string { return c.originFor(c.sourceMeta.AttributeGroupOrigins, qname) },
 		insert,
@@ -58,9 +66,13 @@ func (c *mergeContext) mergeAttributeGroups() error {
 
 func (c *mergeContext) mergeGroups() error {
 	return mergeNamed(
+		orderedDeclNames(c.sourceGraph, parser.GlobalDeclGroup, c.sourceGraph.Groups),
 		c.sourceGraph.Groups,
 		c.targetGraph.Groups,
 		c.targetMeta.GroupOrigins,
+		c.groupsForInsert,
+		c.groupOriginsForInsert,
+		func(name model.QName) { c.recordInsertedGlobalDecl(parser.GlobalDeclGroup, name) },
 		c.remapQName,
 		func(qname model.QName) string { return c.originFor(c.sourceMeta.GroupOrigins, qname) },
 		func(group *model.ModelGroup) *model.ModelGroup { return group.Copy(c.opts) },

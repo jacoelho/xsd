@@ -13,6 +13,7 @@ func (s *Session) validateComplexWildcardAttr(
 	attr Start,
 	resolver value.NSResolver,
 	storeAttrs bool,
+	storeValues bool,
 	anyAttr runtime.WildcardID,
 	seenID *bool,
 ) ([]Start, error) {
@@ -26,14 +27,17 @@ func (s *Session) validateComplexWildcardAttr(
 		return nil, err
 	}
 	if !resolved {
-		return StoreRaw(validated, attr, storeAttrs, s.ensureAttrNameStable, s.storeValue), nil
+		if storeValues {
+			return StoreRaw(validated, attr, storeAttrs, s.ensureAttrNameStable, s.storeValue), nil
+		}
+		return StoreRawIdentity(validated, attr, storeAttrs, s.ensureAttrNameStable), nil
 	}
 	if int(wildcardAttr) >= len(s.rt.Attributes) {
 		return nil, fmt.Errorf("attribute %d out of range", wildcardAttr)
 	}
 
 	globalAttr := s.rt.Attributes[wildcardAttr]
-	return s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, attrValidationSpecFromRuntimeAttribute(globalAttr), seenID)
+	return s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, storeValues, attrValidationSpecFromRuntimeAttribute(globalAttr), seenID)
 }
 
 func (s *Session) resolveWildcardAttrID(pc runtime.ProcessContents, sym runtime.SymbolID) (runtime.AttrID, bool, error) {

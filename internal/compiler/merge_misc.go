@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (c *mergeContext) mergeSubstitutionGroups() {
@@ -39,9 +40,13 @@ func sortAndDedupeQNames(names []model.QName) []model.QName {
 
 func (c *mergeContext) mergeNotationDecls() error {
 	return mergeNamed(
+		orderedDeclNames(c.sourceGraph, parser.GlobalDeclNotation, c.sourceGraph.NotationDecls),
 		c.sourceGraph.NotationDecls,
 		c.targetGraph.NotationDecls,
 		c.targetMeta.NotationOrigins,
+		c.notationDeclsForInsert,
+		c.notationOriginsForInsert,
+		func(name model.QName) { c.recordInsertedGlobalDecl(parser.GlobalDeclNotation, name) },
 		c.remapQName,
 		func(name model.QName) string { return c.originFor(c.sourceMeta.NotationOrigins, name) },
 		func(notation *model.NotationDecl) *model.NotationDecl { return notation.Copy(c.opts) },
