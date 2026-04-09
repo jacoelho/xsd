@@ -127,12 +127,46 @@ func (c *mergeContext) insertedGlobalDeclCount() int {
 	return total
 }
 
+type insertedGlobalDeclKey struct {
+	kind parser.GlobalDeclKind
+	name model.QName
+}
+
+func (c *mergeContext) insertedGlobalDeclsInOrder() []parser.GlobalDecl {
+	if c == nil || c.sourceGraph == nil || len(c.sourceGraph.GlobalDecls) == 0 {
+		return nil
+	}
+
+	decls := make([]parser.GlobalDecl, 0, c.insertedGlobalDeclCount())
+	seen := make(map[insertedGlobalDeclKey]struct{}, c.insertedGlobalDeclCount())
+	for _, decl := range c.sourceGraph.GlobalDecls {
+		mappedName := c.remapQName(decl.Name)
+		if !c.insertedGlobalDecls[decl.Kind].contains(mappedName) {
+			continue
+		}
+
+		key := insertedGlobalDeclKey{
+			kind: decl.Kind,
+			name: mappedName,
+		}
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		decls = append(decls, parser.GlobalDecl{
+			Kind: decl.Kind,
+			Name: mappedName,
+		})
+	}
+	return decls
+}
+
 func (c *mergeContext) mergeGlobalDecls(insertAt int) {
 	if c.sourceGraph.GlobalDecls == nil {
 		return
 	}
-	insertedCount := c.insertedGlobalDeclCount()
-	if insertedCount == 0 {
+	newDecls := c.insertedGlobalDeclsInOrder()
+	if len(newDecls) == 0 {
 		return
 	}
 	if insertAt < 0 || insertAt > len(c.targetGraph.GlobalDecls) {
@@ -140,37 +174,9 @@ func (c *mergeContext) mergeGlobalDecls(insertAt int) {
 	}
 	if insertAt == len(c.targetGraph.GlobalDecls) {
 		targetDecls := slices.Clip(c.targetGraph.GlobalDecls)
-		grew := false
-		for _, decl := range c.sourceGraph.GlobalDecls {
-			mappedName := c.remapQName(decl.Name)
-			if !c.insertedGlobalDecls[decl.Kind].contains(mappedName) {
-				continue
-			}
-			if !grew {
-				targetDecls = slices.Grow(targetDecls, insertedCount)
-				grew = true
-			}
-			targetDecls = append(targetDecls, parser.GlobalDecl{
-				Kind: decl.Kind,
-				Name: mappedName,
-			})
-		}
+		targetDecls = slices.Grow(targetDecls, len(newDecls))
+		targetDecls = append(targetDecls, newDecls...)
 		c.targetGraph.GlobalDecls = targetDecls
-		return
-	}
-
-	newDecls := make([]parser.GlobalDecl, 0, insertedCount)
-	for _, decl := range c.sourceGraph.GlobalDecls {
-		mappedName := c.remapQName(decl.Name)
-		if !c.insertedGlobalDecls[decl.Kind].contains(mappedName) {
-			continue
-		}
-		newDecls = append(newDecls, parser.GlobalDecl{
-			Kind: decl.Kind,
-			Name: mappedName,
-		})
-	}
-	if len(newDecls) == 0 {
 		return
 	}
 	c.targetGraph.GlobalDecls = insertGlobalDecls(c.targetGraph.GlobalDecls, insertAt, newDecls)

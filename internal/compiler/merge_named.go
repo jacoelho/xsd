@@ -16,11 +16,16 @@ func orderedDeclNames[V any](graph *parser.SchemaGraph, kind parser.GlobalDeclKi
 	}
 
 	names := make([]model.QName, 0, len(decls))
+	seen := make(map[model.QName]struct{}, len(decls))
 	for _, decl := range graph.GlobalDecls {
 		if decl.Kind != kind {
 			continue
 		}
 		if _, ok := decls[decl.Name]; ok {
+			if _, duplicate := seen[decl.Name]; duplicate {
+				continue
+			}
+			seen[decl.Name] = struct{}{}
 			names = append(names, decl.Name)
 		}
 	}
@@ -28,12 +33,11 @@ func orderedDeclNames[V any](graph *parser.SchemaGraph, kind parser.GlobalDeclKi
 		return names
 	}
 
-	seen := make(map[model.QName]struct{}, len(names))
-	for _, name := range names {
-		seen[name] = struct{}{}
+	extraCap := 0
+	if len(decls) > len(names) {
+		extraCap = len(decls) - len(names)
 	}
-
-	extra := make([]model.QName, 0, len(decls)-len(names))
+	extra := make([]model.QName, 0, extraCap)
 	for name := range decls {
 		if _, ok := seen[name]; ok {
 			continue
