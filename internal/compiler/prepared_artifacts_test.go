@@ -1,51 +1,40 @@
 package compiler
 
 import (
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, *analysis.Registry, *analysis.ResolvedReferences) {
 	t.Helper()
-	sch := mustResolveSchema(t, schemaXML)
-	reg, err := analysis.AssignIDs(sch)
+	prepared := mustPrepared(t, schemaXML)
+	artifacts, err := prepared.ensureBuildArtifacts()
 	if err != nil {
-		t.Fatalf("AssignIDs() error = %v", err)
+		t.Fatalf("ensureBuildArtifacts() error = %v", err)
 	}
-	refs, err := analysis.ResolveReferences(sch, reg)
-	if err != nil {
-		t.Fatalf("ResolveReferences() error = %v", err)
-	}
-	validators := mustCompiledValidators(t, sch, reg)
-	prepared, err := PrepareBuildArtifacts(sch, reg, refs, validators)
-	if err != nil {
-		t.Fatalf("PrepareBuildArtifacts() error = %v", err)
-	}
-	return prepared, reg, refs
+	return artifacts, prepared.Registry(), prepared.References()
 }
 
-func mustCompiledValidators(t *testing.T, sch *parser.Schema, reg *analysis.Registry) *semantics.CompiledValidators {
+func mustPrepared(t *testing.T, schemaXML string) *Prepared {
 	t.Helper()
-	refs, err := analysis.ResolveReferences(sch, reg)
+	prepared, err := Prepare(mustParsedSchema(t, schemaXML))
 	if err != nil {
-		t.Fatalf("ResolveReferences() error = %v", err)
+		t.Fatalf("Prepare() error = %v", err)
 	}
-	sem, err := semantics.Build(sch, reg, refs)
+	return prepared
+}
+
+func mustParsedSchema(t *testing.T, schemaXML string) *parser.Schema {
+	t.Helper()
+	sch, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
-		t.Fatalf("semantics.Build() error = %v", err)
+		t.Fatalf("Parse() error = %v", err)
 	}
-	if err := sem.Particles().ValidateUPA(); err != nil {
-		t.Fatalf("Particles().ValidateUPA() error = %v", err)
-	}
-	validators, err := sem.CompiledValidators()
-	if err != nil {
-		t.Fatalf("CompiledValidators() error = %v", err)
-	}
-	return validators
+	return sch
 }
 
 func TestPrepareBuildArtifactsRejectsNilInputs(t *testing.T) {
@@ -53,17 +42,15 @@ func TestPrepareBuildArtifactsRejectsNilInputs(t *testing.T) {
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`
-	sch := mustResolveSchema(t, schemaXML)
-	reg, err := analysis.AssignIDs(sch)
+	prepared := mustPrepared(t, schemaXML)
+	artifacts, err := prepared.ensureBuildArtifacts()
 	if err != nil {
-		t.Fatalf("AssignIDs() error = %v", err)
+		t.Fatalf("ensureBuildArtifacts() error = %v", err)
 	}
-	refs, err := analysis.ResolveReferences(sch, reg)
-	if err != nil {
-		t.Fatalf("ResolveReferences() error = %v", err)
-	}
-
-	validators := mustCompiledValidators(t, sch, reg)
+	sch := prepared.Schema()
+	reg := prepared.Registry()
+	refs := prepared.References()
+	validators := artifacts.Validators()
 
 	if _, err := PrepareBuildArtifacts(nil, reg, refs, validators); err == nil {
 		t.Fatal("PrepareBuildArtifacts(nil schema) expected error")
@@ -148,31 +135,16 @@ func TestPrepareBuildArtifactsWithPrecomputedValidatorsSimpleContentRestriction(
   <xs:element name="root" type="tns:LengthType"/>
 </xs:schema>`
 
-	sch := mustResolveSchema(t, schemaXML)
-	reg, err := analysis.AssignIDs(sch)
+	preparedState := mustPrepared(t, schemaXML)
+	validatorsPrepared, err := preparedState.ensureBuildArtifacts()
 	if err != nil {
-		t.Fatalf("AssignIDs() error = %v", err)
+		t.Fatalf("ensureBuildArtifacts() error = %v", err)
 	}
-	refs, err := analysis.ResolveReferences(sch, reg)
-	if err != nil {
-		t.Fatalf("ResolveReferences() error = %v", err)
-	}
-	sem, err := semantics.Build(sch, reg, refs)
-	if err != nil {
-		t.Fatalf("semantics.Build() error = %v", err)
-	}
-	if err := sem.Particles().ValidateUPA(); err != nil {
-		t.Fatalf("Particles().ValidateUPA() error = %v", err)
-	}
-	validators, err := sem.CompiledValidators()
-	if err != nil {
-		t.Fatalf("CompiledValidators() error = %v", err)
-	}
-	prepared, err := PrepareBuildArtifacts(sch, reg, refs, validators)
-	if err != nil {
-		t.Fatalf("PrepareBuildArtifacts() error = %v", err)
-	}
-	rtPrepared, err := prepared.Build(BuildConfig{})
+	sch := preparedState.Schema()
+	reg := preparedState.Registry()
+	refs := preparedState.References()
+	validators := validatorsPrepared.Validators()
+	rtPrepared, err := validatorsPrepared.Build(BuildConfig{})
 	if err != nil {
 		t.Fatalf("prepared.Build() error = %v", err)
 	}

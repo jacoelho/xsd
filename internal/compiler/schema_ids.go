@@ -3,13 +3,13 @@ package compiler
 import (
 	"maps"
 
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func (b *schemaBuilder) initIDs() error {
-	plan, err := semantics.BuildRuntimeIDPlan(b.registry)
+	plan, err := analysis.BuildRuntimeIDPlan(b.registry)
 	if err != nil {
 		return err
 	}

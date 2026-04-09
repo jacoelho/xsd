@@ -1,7 +1,5 @@
 package semantics
 
-import "github.com/jacoelho/xsd/internal/runtime"
-
 type cmpRule uint8
 
 const (
@@ -17,24 +15,11 @@ type RestrictionRangeRule struct {
 	rule       cmpRule
 }
 
-// RuntimeRangeRule defines runtime bound-check policy for range facet ops.
-type RuntimeRangeRule struct {
-	Violation string
-	rule      cmpRule
-}
-
 var restrictionRangeRules = map[string]RestrictionRangeRule{
 	"maxInclusive": {Comparator: "<=", rule: cmpLE},
 	"maxExclusive": {Comparator: "<=", rule: cmpLE},
 	"minInclusive": {Comparator: ">=", rule: cmpGE},
 	"minExclusive": {Comparator: ">=", rule: cmpGE},
-}
-
-var runtimeRangeRules = map[runtime.FacetOp]RuntimeRangeRule{
-	runtime.FMinInclusive: {Violation: "minInclusive violation", rule: cmpGE},
-	runtime.FMaxInclusive: {Violation: "maxInclusive violation", rule: cmpLE},
-	runtime.FMinExclusive: {Violation: "minExclusive violation", rule: cmpGT},
-	runtime.FMaxExclusive: {Violation: "maxExclusive violation", rule: cmpLT},
 }
 
 // RestrictionRange returns range restriction policy for facetName.
@@ -46,21 +31,6 @@ func RestrictionRange(facetName string) (RestrictionRangeRule, bool) {
 // RestrictionRangeSatisfied reports whether cmp satisfies derived-vs-base restriction policy.
 func RestrictionRangeSatisfied(facetName string, cmp int) (bool, bool) {
 	rule, ok := RestrictionRange(facetName)
-	if !ok {
-		return false, false
-	}
-	return compareMatches(rule.rule, cmp), true
-}
-
-// RuntimeRange returns runtime range-check policy for op.
-func RuntimeRange(op runtime.FacetOp) (RuntimeRangeRule, bool) {
-	rule, ok := runtimeRangeRules[op]
-	return rule, ok
-}
-
-// RuntimeRangeSatisfied reports whether cmp satisfies runtime range-check policy.
-func RuntimeRangeSatisfied(op runtime.FacetOp, cmp int) (bool, bool) {
-	rule, ok := RuntimeRange(op)
 	if !ok {
 		return false, false
 	}
