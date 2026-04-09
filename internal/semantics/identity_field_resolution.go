@@ -3,6 +3,7 @@ package semantics
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -231,4 +232,100 @@ func resolveFieldTypeBranches(schema *parser.Schema, selectorDecls []*model.Elem
 		return nil, false, false, err
 	}
 	return resolvedTypes, unresolved, nillableFound, nil
+}
+
+func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *model.ElementDecl, fieldPath runtime.Path) (model.Type, error) {
+	if selectedElementDecl == nil {
+		return nil, fmt.Errorf("cannot resolve field without selector element")
+	}
+	if fieldPath.Attribute != nil && isDescendantOnlySteps(fieldPath.Steps) {
+		attrType, attrErr := findAttributeTypeDescendant(schema, selectedElementDecl, *fieldPath.Attribute)
+		if attrErr != nil {
+			return nil, fmt.Errorf("resolve attribute field '%s': %w", formatNodeTest(*fieldPath.Attribute), attrErr)
+		}
+		return attrType, nil
+	}
+	elementDecl, err := resolvePathElementDecl(schema, selectedElementDecl, fieldPath.Steps)
+	if err != nil {
+		return nil, fmt.Errorf("resolve field path: %w", err)
+	}
+	elementDecl = resolveElementReference(schema, elementDecl)
+	if fieldPath.Attribute != nil {
+		attrType, err := findAttributeType(schema, elementDecl, *fieldPath.Attribute)
+		if err != nil {
+			return nil, fmt.Errorf("resolve attribute field '%s': %w", formatNodeTest(*fieldPath.Attribute), err)
+		}
+		return attrType, nil
+	}
+	elementType, err := resolveIdentityElementType(schema, elementDecl)
+	if err != nil {
+		return nil, err
+	}
+	if elementDecl.Nillable {
+		return elementType, ErrFieldSelectsNillable
+	}
+	if ct, ok := elementType.(*model.ComplexType); ok {
+		if _, ok := ct.Content().(*model.SimpleContent); ok {
+			baseType := ct.BaseType()
+			if baseType != nil {
+				return baseType, nil
+			}
+		}
+		return nil, ErrFieldSelectsComplexContent
+	}
+	return elementType, nil
+}
+
+// ValidateIdentityConstraintResolution validates that identity-constraint
+// selectors and fields can be resolved against the schema.
+func ValidateIdentityConstraintResolution(sch *parser.Schema, constraint *model.IdentityConstraint, decl *model.ElementDecl) error {
+	for i := range constraint.Fields {
+		field := &constraint.Fields[i]
+		hasUnion := strings.Contains(field.XPath, "|") || strings.Contains(constraint.Selector.XPath, "|")
+		resolved, err := ResolveFieldType(sch, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+		switch {
+		case err == nil:
+			field.ResolvedType = resolved
+		case errors.Is(err, ErrFieldSelectsNillable):
+			if resolved != nil {
+				field.ResolvedType = resolved
+			}
+			if constraint.Type == model.KeyConstraint {
+				return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
+			}
+			continue
+		case errors.Is(err, ErrFieldSelectsComplexContent):
+			continue
+		case hasUnion:
+			if !errors.Is(err, ErrXPathUnresolvable) && !errors.Is(err, ErrFieldXPathIncompatibleTypes) {
+				return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
+			}
+		default:
+			if !errors.Is(err, ErrXPathUnresolvable) && !errors.Is(err, ErrFieldXPathIncompatibleTypes) {
+				return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
+			}
+		}
+		if constraint.Type == model.KeyConstraint {
+			if hasUnion {
+				elemDecls, err := ResolveFieldElementDecls(sch, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+				if err != nil {
+					if errors.Is(err, ErrXPathUnresolvable) {
+						continue
+					}
+					continue
+				}
+				for _, elemDecl := range elemDecls {
+					if elemDecl != nil && elemDecl.Nillable {
+						return fmt.Errorf("field %d '%s' selects nillable element '%s'", i+1, field.XPath, elemDecl.Name)
+					}
+				}
+				continue
+			}
+			elemDecl, err := ResolveFieldElementDecl(sch, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+			if err == nil && elemDecl != nil && elemDecl.Nillable {
+				return fmt.Errorf("field %d '%s' selects nillable element '%s'", i+1, field.XPath, elemDecl.Name)
+			}
+		}
+	}
+	return nil
 }
