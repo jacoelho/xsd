@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,6 +27,8 @@ const (
 	defaultGMLURL  = "https://download.data.public.lu/resources/inspire-annex-ii-theme-land-cover-landcoversurfaces-land-information-system-for-luxembourg-lis-l-2021/20251127-085716/lc.lisl-landcover2021-redange.gml"
 	defaultGMLPath = "testdata/gml/example.gml"
 	defaultXSDDir  = "testdata/gml/xsd"
+	schemaMapFile  = ".schema-map.json"
+	schemaMapV1    = 1
 )
 
 var schemaLocAttrRe = regexp.MustCompile(`xsi:schemaLocation="([^"]+)"`)
@@ -37,6 +40,16 @@ type doc struct {
 	Content []byte
 	Hash    string
 	Name    string
+}
+
+type schemaMap struct {
+	Version int              `json:"version"`
+	Schemas []schemaMapEntry `json:"schemas"`
+}
+
+type schemaMapEntry struct {
+	URL  string `json:"url"`
+	Name string `json:"name"`
 }
 
 type commonFlags struct {
@@ -295,7 +308,7 @@ func downloadFile(rawURL, out string) error {
 	return err
 }
 
-func detectEntrypointSchema(gmlPath, xsdDir string) (string, error) {
+func detectEntrypointSchema(gmlPath string) (string, error) {
 	b, err := os.ReadFile(gmlPath)
 	if err != nil {
 		return "", err
@@ -310,9 +323,6 @@ func detectEntrypointSchema(gmlPath, xsdDir string) (string, error) {
 	}
 	loc := tok[1]
 	if isRemoteSchemaLocation(loc) {
-		if xsdDir != "" {
-			return filepath.Clean(filepath.Join(xsdDir, path.Base(loc))), nil
-		}
 		loc = path.Base(loc)
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(gmlPath), filepath.FromSlash(loc))), nil
@@ -347,7 +357,7 @@ func validateLocalPreparedState(gmlPath string) error {
 		return err
 	}
 
-	entry, err := detectEntrypointSchema(gmlPath, "")
+	entry, err := detectEntrypointSchema(gmlPath)
 	if err != nil {
 		return err
 	}
@@ -361,15 +371,17 @@ func validateExistingLocalSchemaSet(gmlPath, xsdDir string) error {
 	if strings.TrimSpace(xsdDir) == "" {
 		return fmt.Errorf("empty xsd dir")
 	}
-	entry, err := detectEntrypointSchema(gmlPath, xsdDir)
+	entries, err := localSchemaPathsForRemoteRoots(gmlPath, xsdDir)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(entry); err != nil {
-		return fmt.Errorf("missing local entry schema %s: %w", entry, err)
-	}
-	if _, err := xsd.CompileFile(entry, xsd.NewSourceOptions(), xsd.NewBuildOptions()); err != nil {
-		return fmt.Errorf("entry schema compile check failed: %w", err)
+	for _, entry := range entries {
+		if _, err := os.Stat(entry); err != nil {
+			return fmt.Errorf("missing local schema %s: %w", entry, err)
+		}
+		if _, err := xsd.CompileFile(entry, xsd.NewSourceOptions(), xsd.NewBuildOptions()); err != nil {
+			return fmt.Errorf("schema compile check failed for %s: %w", entry, err)
+		}
 	}
 	return nil
 }
@@ -412,6 +424,9 @@ func rebuildFromRoots(gml []byte, roots []string, cfg commonFlags, stdout io.Wri
 		if writeErr := os.WriteFile(filepath.Join(cfg.xsdDir, d.Name), d.Content, 0o644); writeErr != nil {
 			return fmt.Errorf("write %s: %w", d.Name, writeErr)
 		}
+	}
+	if err := writeSchemaMap(cfg.xsdDir, docs); err != nil {
+		return err
 	}
 	gmlUpdated := rewriteGMLSchemaLocation(string(gml), docs)
 	if writeErr := os.WriteFile(cfg.gmlPath, []byte(gmlUpdated), 0o644); writeErr != nil {
@@ -556,6 +571,102 @@ func assignFlatNames(docs []*doc) {
 		hashName[d.Hash] = name
 		d.Name = name
 	}
+}
+
+func schemaMapPath(xsdDir string) string {
+	return filepath.Join(xsdDir, schemaMapFile)
+}
+
+func writeSchemaMap(xsdDir string, docs []*doc) error {
+	schemas := make([]schemaMapEntry, 0, len(docs))
+	for _, d := range docs {
+		rawURL, err := canonicalizeURL(d.URL)
+		if err != nil {
+			return fmt.Errorf("schema map url %q: %w", d.URL, err)
+		}
+		schemas = append(schemas, schemaMapEntry{
+			URL:  rawURL,
+			Name: d.Name,
+		})
+	}
+	data, err := json.MarshalIndent(schemaMap{
+		Version: schemaMapV1,
+		Schemas: schemas,
+	}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal schema map: %w", err)
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(schemaMapPath(xsdDir), data, 0o644); err != nil {
+		return fmt.Errorf("write schema map: %w", err)
+	}
+	return nil
+}
+
+func readSchemaMap(xsdDir string) (schemaMap, error) {
+	data, err := os.ReadFile(schemaMapPath(xsdDir))
+	if err != nil {
+		return schemaMap{}, fmt.Errorf("read schema map: %w", err)
+	}
+	var m schemaMap
+	if err := json.Unmarshal(data, &m); err != nil {
+		return schemaMap{}, fmt.Errorf("parse schema map: %w", err)
+	}
+	if m.Version != schemaMapV1 {
+		return schemaMap{}, fmt.Errorf("unsupported schema map version %d", m.Version)
+	}
+	return m, nil
+}
+
+func localSchemaNameForRemoteURL(xsdDir, rawURL string) (string, error) {
+	urlKey, err := canonicalizeURL(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid remote schema location %q: %w", rawURL, err)
+	}
+	m, err := readSchemaMap(xsdDir)
+	if err != nil {
+		return "", err
+	}
+	for _, entry := range m.Schemas {
+		if entry.URL == urlKey {
+			if strings.TrimSpace(entry.Name) == "" {
+				return "", fmt.Errorf("empty schema map entry for %s", urlKey)
+			}
+			return entry.Name, nil
+		}
+	}
+	return "", fmt.Errorf("missing schema map entry for %s", urlKey)
+}
+
+func localSchemaPathsForRemoteRoots(gmlPath, xsdDir string) ([]string, error) {
+	gml, err := os.ReadFile(gmlPath)
+	if err != nil {
+		return nil, fmt.Errorf("read gml: %w", err)
+	}
+	roots, err := parseSchemaLocationRoots(gml)
+	if err != nil {
+		return nil, err
+	}
+
+	paths := make([]string, 0, len(roots))
+	seen := make(map[string]struct{}, len(roots))
+	for _, root := range roots {
+		urlKey, err := canonicalizeURL(root)
+		if err != nil {
+			return nil, fmt.Errorf("invalid remote schema location %q: %w", root, err)
+		}
+		if _, ok := seen[urlKey]; ok {
+			continue
+		}
+		seen[urlKey] = struct{}{}
+
+		name, err := localSchemaNameForRemoteURL(xsdDir, urlKey)
+		if err != nil {
+			return nil, fmt.Errorf("resolve local schema for remote root %s: %w", urlKey, err)
+		}
+		paths = append(paths, filepath.Clean(filepath.Join(xsdDir, name)))
+	}
+	return paths, nil
 }
 
 func rewriteSchemaLocations(docs []*doc) {
