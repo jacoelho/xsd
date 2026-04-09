@@ -501,6 +501,13 @@ func (r *Reader) attrID(namespace string, local []byte) (NameID, error) {
 	return entry.id, nil
 }
 
+func (r *Reader) resolvedNameID(name QName) NameID {
+	if r.resolvedNames == nil {
+		r.resolvedNames = newResolvedNameCache()
+	}
+	return r.resolvedNames.intern(name.Namespace, name.Local).id
+}
+
 func (r *Reader) markAttrSeen(namespace string, local []byte, line, column int) error {
 	if r.resolvedNames == nil {
 		r.resolvedNames = newResolvedNameCache()
@@ -621,13 +628,17 @@ func (r *Reader) endResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (
 	if err != nil {
 		return ResolvedEvent{}, err
 	}
+	nameID := name.nameID
+	if nameID == 0 {
+		nameID = r.resolvedNameID(name.qname)
+	}
 
 	_, local, _ := splitQNameWithColon(tok.Name, tok.NameColon)
 	namespace := name.qname.Namespace
 	nsBytes := r.nsBytes.intern(namespace)
 	return ResolvedEvent{
 		Kind:       EventEndElement,
-		NameID:     name.nameID,
+		NameID:     nameID,
 		NS:         nsBytes,
 		Local:      local,
 		Line:       line,
