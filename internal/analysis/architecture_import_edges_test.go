@@ -36,10 +36,43 @@ func TestCorePhaseImportEdges(t *testing.T) {
 	assertNoExactImports(
 		t,
 		imports,
+		internalPkg("contentmodel"),
+		internalPkg("parser"),
+		internalPkg("analysis"),
+		internalPkg("complexplan"),
+		internalPkg("compiler"),
+		internalPkg("semantics"),
+		internalPkg("validator"),
+	)
+
+	assertNoExactImports(
+		t,
+		imports,
+		internalPkg("complexplan"),
+		internalPkg("parser"),
+		internalPkg("contentmodel"),
+		internalPkg("compiler"),
+		internalPkg("semantics"),
+		internalPkg("validator"),
+	)
+
+	assertNoExactImports(
+		t,
+		imports,
 		internalPkg("validator"),
 		internalPkg("parser"),
 		internalPkg("analysis"),
 		internalPkg("compiler"),
+		internalPkg("semantics"),
+	)
+
+	assertNoExactImports(
+		t,
+		imports,
+		internalPkg("validatorbuild"),
+		internalPkg("compiler"),
+		internalPkg("semantics"),
+		internalPkg("validator"),
 	)
 
 	assertPrefixPackagesDoNotImportExact(
@@ -49,6 +82,39 @@ func TestCorePhaseImportEdges(t *testing.T) {
 		internalPkg("parser"),
 		internalPkg("analysis"),
 		internalPkg("compiler"),
+		internalPkg("semantics"),
+	)
+
+	assertPrefixPackagesDoNotImportExact(
+		t,
+		imports,
+		internalPkg("validatorbuild"),
+		internalPkg("compiler"),
+		internalPkg("semantics"),
+		internalPkg("validator"),
+	)
+
+	assertPrefixPackagesDoNotImportExact(
+		t,
+		imports,
+		internalPkg("contentmodel"),
+		internalPkg("parser"),
+		internalPkg("analysis"),
+		internalPkg("complexplan"),
+		internalPkg("compiler"),
+		internalPkg("semantics"),
+		internalPkg("validator"),
+	)
+
+	assertPrefixPackagesDoNotImportExact(
+		t,
+		imports,
+		internalPkg("complexplan"),
+		internalPkg("parser"),
+		internalPkg("contentmodel"),
+		internalPkg("compiler"),
+		internalPkg("semantics"),
+		internalPkg("validator"),
 	)
 }
 

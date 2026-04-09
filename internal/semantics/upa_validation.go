@@ -3,6 +3,7 @@ package semantics
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -15,7 +16,7 @@ func ValidateUPA(schema *parser.Schema, content model.Content, _ model.Namespace
 		return nil
 	}
 
-	expandOptions := ExpandGroupRefsOptions{
+	expandOptions := contentmodel.ExpandGroupRefsOptions{
 		Lookup: func(ref *model.GroupRef) *model.ModelGroup {
 			if schema == nil || ref == nil {
 				return nil
@@ -31,8 +32,8 @@ func ValidateUPA(schema *parser.Schema, content model.Content, _ model.Namespace
 		CycleError: func(ref model.QName) error {
 			return fmt.Errorf("circular group reference detected for %s", ref)
 		},
-		AllGroupMode: AllGroupAsChoice,
-		LeafClone:    LeafClone,
+		AllGroupMode: contentmodel.AllGroupAsChoice,
+		LeafClone:    contentmodel.LeafClone,
 	}
 
 	var err error
@@ -50,12 +51,12 @@ func ValidateUPA(schema *parser.Schema, content model.Content, _ model.Namespace
 		return nil
 	}
 
-	glu, err := BuildGlushkov(particle)
+	glu, err := contentmodel.BuildGlushkov(particle)
 	if err != nil {
 		return err
 	}
 	checker := newUPAChecker(schema)
-	return CheckDeterminism(glu, checker.positionsOverlap)
+	return contentmodel.CheckDeterminism(glu, checker.positionsOverlap)
 }
 
 func upaParticles(schema *parser.Schema, content model.Content) (model.Particle, model.Particle) {
@@ -84,11 +85,11 @@ func upaParticles(schema *parser.Schema, content model.Content) (model.Particle,
 	return particle, baseParticle
 }
 
-func expandAndRelaxParticle(particle model.Particle, opts ExpandGroupRefsOptions) (model.Particle, error) {
+func expandAndRelaxParticle(particle model.Particle, opts contentmodel.ExpandGroupRefsOptions) (model.Particle, error) {
 	if particle == nil {
 		return nil, nil
 	}
-	expanded, err := ExpandGroupRefs(particle, opts)
+	expanded, err := contentmodel.ExpandGroupRefs(particle, opts)
 	if err != nil {
 		return nil, err
 	}

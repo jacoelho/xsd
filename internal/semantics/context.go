@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/complexplan"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -15,17 +16,14 @@ type Context struct {
 	registry *analysis.Registry
 	refs     *analysis.ResolvedReferences
 
-	complex      *ComplexTypes
-	compiled     *CompiledValidators
+	complex      *complexplan.ComplexTypes
 	particles    *Particles
 	simpleTypes  *SimpleTypes
 	substitution *Substitution
 
-	complexErr  error
-	compiledErr error
+	complexErr error
 
 	complexOnce      sync.Once
-	compiledOnce     sync.Once
 	particlesOnce    sync.Once
 	simpleTypesOnce  sync.Once
 	substitutionOnce sync.Once
@@ -59,14 +57,12 @@ func (c *Context) Registry() *analysis.Registry { return c.registry }
 func (c *Context) References() *analysis.ResolvedReferences { return c.refs }
 
 // ComplexTypes returns effective complex-type semantics for the prepared schema graph.
-func (c *Context) ComplexTypes() (*ComplexTypes, error) {
+func (c *Context) ComplexTypes() (*complexplan.ComplexTypes, error) {
 	if c == nil {
 		return nil, fmt.Errorf("semantics: context is nil")
 	}
 	c.complexOnce.Do(func() {
-		comp := newCompiler(c.schema)
-		comp.registry = c.registry
-		complexTypes, err := comp.buildComplexTypes(c.registry)
+		complexTypes, err := buildComplexTypes(c.schema, c.registry, nil)
 		if err != nil {
 			c.complexErr = err
 			return
@@ -77,30 +73,6 @@ func (c *Context) ComplexTypes() (*ComplexTypes, error) {
 		return nil, c.complexErr
 	}
 	return c.complex, nil
-}
-
-// CompiledValidators returns the current compiled validator/default semantic artifact.
-func (c *Context) CompiledValidators() (*CompiledValidators, error) {
-	if c == nil {
-		return nil, fmt.Errorf("semantics: context is nil")
-	}
-	c.compiledOnce.Do(func() {
-		complexTypes, err := c.ComplexTypes()
-		if err != nil {
-			c.compiledErr = err
-			return
-		}
-		validators, err := CompileWithComplexTypePlan(c.schema, c.registry, complexTypes)
-		if err != nil {
-			c.compiledErr = err
-			return
-		}
-		c.compiled = validators
-	})
-	if c.compiledErr != nil {
-		return nil, c.compiledErr
-	}
-	return c.compiled, nil
 }
 
 // Particles returns particle preparation and validation
@@ -136,60 +108,6 @@ func (c *Context) Substitution() *Substitution {
 	return c.substitution
 }
 
-// ComplexTypes exposes effective complex-type semantic entries.
-type ComplexTypes struct {
-	plan *ComplexTypePlan
-}
-
-// Entry returns the effective entry for ct.
-func (c *ComplexTypes) Entry(ct *model.ComplexType) (ComplexTypeEntry, bool) {
-	if c == nil || c.plan == nil {
-		return ComplexTypeEntry{}, false
-	}
-	entry, ok := c.plan.Entry(ct)
-	if !ok {
-		return ComplexTypeEntry{}, false
-	}
-	return ComplexTypeEntry{
-		Content:        entry.ContentParticle,
-		Attributes:     entry.Attributes,
-		Wildcard:       entry.Wildcard,
-		SimpleTextType: entry.SimpleTextType,
-	}, true
-}
-
-// AttributeUses returns precomputed effective attribute uses and wildcard for ct.
-func (c *ComplexTypes) AttributeUses(ct *model.ComplexType) ([]*model.AttributeDecl, *model.AnyAttribute, bool) {
-	if c == nil || c.plan == nil {
-		return nil, nil, false
-	}
-	return c.plan.AttributeUses(ct)
-}
-
-// Content returns the precomputed effective content particle for ct.
-func (c *ComplexTypes) Content(ct *model.ComplexType) (model.Particle, bool) {
-	if c == nil || c.plan == nil {
-		return nil, false
-	}
-	return c.plan.Content(ct)
-}
-
-// SimpleContentType returns the precomputed simple-content text type for ct.
-func (c *ComplexTypes) SimpleContentType(ct *model.ComplexType) (model.Type, bool) {
-	if c == nil || c.plan == nil {
-		return nil, false
-	}
-	return c.plan.SimpleContentType(ct)
-}
-
-// ComplexTypeEntry is the effective semantic view of one complex type.
-type ComplexTypeEntry struct {
-	Content        model.Particle
-	SimpleTextType model.Type
-	Wildcard       *model.AnyAttribute
-	Attributes     []*model.AttributeDecl
-}
-
 // Particles exposes particle preparation and validation
 type Particles struct {
 	ctx *Context
@@ -218,14 +136,6 @@ func (p *Particles) ValidateUPA() error {
 // SimpleTypes exposes simple-type semantic compilation.
 type SimpleTypes struct {
 	ctx *Context
-}
-
-// CompiledValidators returns the current compiled validator/default semantic artifact.
-func (s *SimpleTypes) CompiledValidators() (*CompiledValidators, error) {
-	if s == nil || s.ctx == nil {
-		return nil, fmt.Errorf("semantics: simple types context is nil")
-	}
-	return s.ctx.CompiledValidators()
 }
 
 // ValidateDefaultOrFixed validates a default/fixed value against the prepared

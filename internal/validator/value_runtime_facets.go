@@ -3,7 +3,6 @@ package validator
 import (
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 // validateRuntimeFacets evaluates one validator's runtime facet program and returns the
@@ -20,8 +19,8 @@ func validateRuntimeFacets(
 ) ([]byte, error) {
 	state := metrics.result()
 	cache := metrics.cache()
-	err := semantics.ValidateRuntimeProgram(
-		semantics.RuntimeProgram{
+	err := ValidateRuntimeProgram(
+		RuntimeProgram{
 			Meta:       meta,
 			Facets:     facetCode,
 			Patterns:   patterns,
@@ -30,7 +29,7 @@ func validateRuntimeFacets(
 			Normalized: normalized,
 			Canonical:  canonical,
 		},
-		semantics.RuntimeCallbacks{
+		RuntimeCallbacks{
 			SkipPattern: func() bool {
 				return state.PatternChecked()
 			},

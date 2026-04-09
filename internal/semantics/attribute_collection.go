@@ -1,8 +1,6 @@
 package semantics
 
 import (
-	"slices"
-
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -11,21 +9,14 @@ import (
 // collectAllAttributesForValidation collects all attributes from a complex type.
 // This includes attributes from extensions, restrictions, and attribute groups.
 func collectAllAttributesForValidation(schema *parser.Schema, ct *model.ComplexType) []*model.AttributeDecl {
-	allAttrs := slices.Clone(ct.Attributes())
-	allAttrs = append(allAttrs, collectAttributesFromGroups(schema, ct.AttrGroups)...)
-
-	content := ct.Content()
-	if content != nil {
-		if ext := content.ExtensionDef(); ext != nil {
-			allAttrs = append(allAttrs, ext.Attributes...)
-			allAttrs = append(allAttrs, collectAttributesFromGroups(schema, ext.AttrGroups)...)
-		}
-		if restr := content.RestrictionDef(); restr != nil {
-			allAttrs = append(allAttrs, restr.Attributes...)
-			allAttrs = append(allAttrs, collectAttributesFromGroups(schema, restr.AttrGroups)...)
-		}
-	}
-
+	var allAttrs []*model.AttributeDecl
+	_ = walkComplexTypeLocalAttributes(schema, ct, analysis.AttributeGroupWalkOptions{
+		Missing: analysis.MissingIgnore,
+		Cycles:  analysis.CycleIgnore,
+	}, func(attr *model.AttributeDecl, _ bool) error {
+		allAttrs = append(allAttrs, attr)
+		return nil
+	})
 	return allAttrs
 }
 
@@ -33,79 +24,57 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *model.ComplexType)
 	if ct == nil {
 		return nil
 	}
-	chain := CollectComplexTypeChain(schema, ct, ComplexTypeChainExplicitBaseOnly)
 	attrMap := make(map[model.QName]*model.AttributeDecl)
-	for i := len(chain) - 1; i >= 0; i-- {
-		mergeAttributesFromTypeForValidation(schema, chain[i], attrMap)
-	}
+	_ = walkComplexTypeAttributeChain(schema, ct, analysis.AttributeGroupWalkOptions{
+		Missing: analysis.MissingIgnore,
+		Cycles:  analysis.CycleIgnore,
+	}, func(_ *model.ComplexType, attr *model.AttributeDecl, _ bool) error {
+		mergeValidationAttribute(schema, attr, attrMap)
+		return nil
+	})
 	return attrMap
 }
 
 func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *model.ComplexType, attrMap map[model.QName]*model.AttributeDecl) {
-	addAttr := func(attr *model.AttributeDecl) {
-		key := parser.EffectiveAttributeQName(schema, attr)
-		if attr.Use == model.Prohibited && !attr.HasFixed {
-			delete(attrMap, key)
-			return
-		}
-		attrMap[key] = attr
-	}
-
-	for _, attr := range ct.Attributes() {
-		addAttr(attr)
-	}
-	mergeAttributesFromGroupsForValidation(schema, ct.AttrGroups, attrMap)
-
-	content := ct.Content()
-	if content == nil {
-		return
-	}
-	if ext := content.ExtensionDef(); ext != nil {
-		for _, attr := range ext.Attributes {
-			addAttr(attr)
-		}
-		mergeAttributesFromGroupsForValidation(schema, ext.AttrGroups, attrMap)
-	}
-	if restr := content.RestrictionDef(); restr != nil {
-		for _, attr := range restr.Attributes {
-			addAttr(attr)
-		}
-		mergeAttributesFromGroupsForValidation(schema, restr.AttrGroups, attrMap)
-	}
+	_ = walkComplexTypeLocalAttributes(schema, ct, analysis.AttributeGroupWalkOptions{
+		Missing: analysis.MissingIgnore,
+		Cycles:  analysis.CycleIgnore,
+	}, func(attr *model.AttributeDecl, _ bool) error {
+		mergeValidationAttribute(schema, attr, attrMap)
+		return nil
+	})
 }
 
 func mergeAttributesFromGroupsForValidation(schema *parser.Schema, agRefs []model.QName, attrMap map[model.QName]*model.AttributeDecl) {
-	ctx := analysis.NewAttributeGroupContext(schema, analysis.AttributeGroupWalkOptions{
+	_ = walkAttributeGroupAttributes(schema, agRefs, analysis.AttributeGroupWalkOptions{
 		Missing: analysis.MissingIgnore,
 		Cycles:  analysis.CycleIgnore,
+	}, func(attr *model.AttributeDecl, _ bool) error {
+		mergeValidationAttribute(schema, attr, attrMap)
+		return nil
 	})
-	for _, agRef := range agRefs {
-		_ = ctx.Walk([]model.QName{agRef}, func(_ model.QName, current *model.AttributeGroup) error {
-			for _, attr := range current.Attributes {
-				if attr == nil {
-					continue
-				}
-				key := parser.EffectiveAttributeQName(schema, attr)
-				if attr.Use == model.Prohibited && !attr.HasFixed {
-					delete(attrMap, key)
-					continue
-				}
-				attrMap[key] = attr
-			}
-			return nil
-		})
+}
+
+func mergeValidationAttribute(schema *parser.Schema, attr *model.AttributeDecl, attrMap map[model.QName]*model.AttributeDecl) {
+	if attr == nil {
+		return
 	}
+	key := parser.EffectiveAttributeQName(schema, attr)
+	if attr.Use == model.Prohibited && !attr.HasFixed {
+		delete(attrMap, key)
+		return
+	}
+	attrMap[key] = attr
 }
 
 // collectAttributesFromGroups collects attributes from attribute group references.
 func collectAttributesFromGroups(schema *parser.Schema, agRefs []model.QName) []*model.AttributeDecl {
-	ctx := analysis.NewAttributeGroupContext(schema, analysis.AttributeGroupWalkOptions{
+	var result []*model.AttributeDecl
+	_ = walkAttributeGroupAttributes(schema, agRefs, analysis.AttributeGroupWalkOptions{
 		Missing: analysis.MissingIgnore,
 		Cycles:  analysis.CycleIgnore,
-	})
-	var result []*model.AttributeDecl
-	_ = ctx.Walk(agRefs, func(_ model.QName, ag *model.AttributeGroup) error {
-		result = append(result, ag.Attributes...)
+	}, func(attr *model.AttributeDecl, _ bool) error {
+		result = append(result, attr)
 		return nil
 	})
 	return result

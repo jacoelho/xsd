@@ -7,7 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func (b *schemaBuilder) initSymbols() error {
@@ -18,7 +17,7 @@ func (b *schemaBuilder) initSymbols() error {
 		return fmt.Errorf("runtime build: complex types are nil")
 	}
 	xsdNS := model.XSDNamespace
-	for _, name := range semantics.BuiltinTypeNames() {
+	for _, name := range analysis.BuiltinTypeNames() {
 		b.internQName(model.QName{Namespace: xsdNS, Local: string(name)})
 	}
 

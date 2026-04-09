@@ -98,6 +98,21 @@ type RawName struct {
 	Local  []byte
 }
 
+func rawNameFromBytes(full []byte) RawName {
+	if len(full) == 0 {
+		return RawName{}
+	}
+	prefix, local, hasPrefix := splitQName(full)
+	if !hasPrefix {
+		prefix = nil
+	}
+	return RawName{
+		Full:   full,
+		Prefix: prefix,
+		Local:  local,
+	}
+}
+
 // HasLocal reports whether the local name matches.
 func (n RawName) HasLocal(local []byte) bool {
 	return bytes.Equal(n.Local, local)

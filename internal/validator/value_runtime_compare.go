@@ -6,7 +6,6 @@ import (
 	xsderrors "github.com/jacoelho/xsd/errors"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/num"
 )
@@ -123,7 +122,7 @@ func checkFloat(op runtime.FacetOp, kind runtime.ValidatorKind, canonical, bound
 }
 
 func checkRange(op runtime.FacetOp, cmp int) error {
-	matches, ok := semantics.RuntimeRangeSatisfied(op, cmp)
+	matches, ok := RuntimeRangeSatisfied(op, cmp)
 	if !ok || !matches {
 		return rangeViolation(op)
 	}
@@ -131,7 +130,7 @@ func checkRange(op runtime.FacetOp, cmp int) error {
 }
 
 func rangeViolation(op runtime.FacetOp) error {
-	if rule, ok := semantics.RuntimeRange(op); ok {
+	if rule, ok := RuntimeRange(op); ok {
 		return xsderrors.Facet(rule.Violation)
 	}
 	return xsderrors.Facet("range violation")

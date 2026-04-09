@@ -1,7 +1,9 @@
 package xmlstream
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/jacoelho/xsd/pkg/xmltext"
 )
@@ -81,4 +83,27 @@ func decodeTextBytes(dec *xmltext.Decoder, buf, text []byte) ([]byte, []byte, er
 		return next, nil, nil
 	}
 	return next, next[start:], nil
+}
+
+func unescapeIntoBuffer(dec *xmltext.Decoder, buf []byte, start int, data []byte) ([]byte, error) {
+	for {
+		scratch := buf[start:cap(buf)]
+		n, err := dec.UnescapeInto(scratch, data)
+		if err == nil {
+			end := start + n
+			buf = buf[:end]
+			return buf, nil
+		}
+		if !errors.Is(err, io.ErrShortBuffer) {
+			return buf[:start], err
+		}
+		newCap := cap(buf) * 2
+		minCap := start + len(data)
+		if newCap < minCap {
+			newCap = minCap
+		}
+		next := make([]byte, start, newCap)
+		copy(next, buf[:start])
+		buf = next
+	}
 }
