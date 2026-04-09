@@ -501,9 +501,9 @@ func shouldSkipSchemaError(err error) (bool, string) {
 		return true, "schemaLocation resolution requires referenced files to exist"
 	case strings.Contains(msg, "not imported for") || strings.Contains(msg, "must be imported by schema"):
 		return true, "namespace import constraints are enforced"
-	case strings.Contains(msg, "resolve selector xpath") && strings.Contains(msg, "not found in model group"):
+	case strings.Contains(msg, "resolve selector xpath") && isConservativeIdentityLookupError(msg):
 		return true, "identity constraint XPath resolution is conservative"
-	case strings.Contains(msg, "resolve field xpath") && strings.Contains(msg, "not found in model group"):
+	case strings.Contains(msg, "resolve field xpath") && isConservativeIdentityLookupError(msg):
 		return true, "identity constraint XPath resolution is conservative"
 	case strings.Contains(msg, "element does not have complex type"):
 		return true, "identity constraint XPath resolution is conservative"
@@ -520,6 +520,14 @@ func shouldSkipSchemaError(err error) (bool, string) {
 	default:
 		return false, ""
 	}
+}
+
+func isConservativeIdentityLookupError(msg string) bool {
+	return strings.Contains(msg, "not found in model group") ||
+		strings.Contains(msg, "not found in content model") ||
+		strings.Contains(msg, "not found in particle") ||
+		strings.Contains(msg, "not found in simple content") ||
+		strings.Contains(msg, "not found in empty content")
 }
 
 // W3CTestSet represents a test set from the W3C XSD test suite

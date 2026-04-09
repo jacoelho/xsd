@@ -22,6 +22,17 @@ func buildOptions(opts ...Option) []xmltext.Options {
 	return out
 }
 
+func qnameCacheLimit(opts []xmltext.Options) int {
+	merged := xmltext.JoinOptions(opts...)
+	if limit, ok := merged.QNameInternEntries(); ok {
+		if limit < 0 {
+			return 0
+		}
+		return limit
+	}
+	return qnameCacheMaxEntries
+}
+
 // JoinOptions merges xmlstream options into a single xmltext options struct.
 func JoinOptions(opts ...Option) xmltext.Options {
 	joined := buildOptions(opts...)

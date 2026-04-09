@@ -4,10 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
+	"github.com/jacoelho/xsd/internal/validatorbuild"
 )
 
 // Config configures runtime-schema lowering.
@@ -34,7 +35,7 @@ func Build(
 	sch *parser.Schema,
 	reg *analysis.Registry,
 	refs *analysis.ResolvedReferences,
-	validators *semantics.CompiledValidators,
+	validators *validatorbuild.ValidatorArtifacts,
 	cfg Config,
 ) (*runtime.Schema, error) {
 	if err := validateBuildInputs(sch, reg, refs); err != nil {
@@ -53,7 +54,7 @@ func Build(
 		registry:     reg,
 		refs:         refs,
 		validators:   validators,
-		limits:       semantics.Limits{MaxDFAStates: cfg.MaxDFAStates},
+		limits:       contentmodel.Limits{MaxDFAStates: cfg.MaxDFAStates},
 		builder:      runtime.NewBuilder(),
 		typeIDs:      make(map[analysis.TypeID]runtime.TypeID),
 		elemIDs:      make(map[analysis.ElemID]runtime.ElemID),

@@ -26,8 +26,8 @@ func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte, re
 	return trackDefault(id, s.rt.Validators, canonical, member, s.idTrackCallbacks(resolver))
 }
 
-func (s *Session) idTrackCallbacks(resolver value.NSResolver) Callbacks {
-	return Callbacks{
+func (s *Session) idTrackCallbacks(resolver value.NSResolver) idTrackCallbacks {
+	return idTrackCallbacks{
 		Meta:        s.validatorMetaIfPresent,
 		StringKind:  s.stringKind,
 		TrackString: s.trackIDs,

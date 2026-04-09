@@ -3,7 +3,6 @@ package value
 import (
 	"bytes"
 	"fmt"
-	"unicode/utf8"
 )
 
 const (
@@ -78,99 +77,4 @@ func ValidateNamespaceDeclBinding(prefix, uri string) error {
 		}
 	}
 	return nil
-}
-
-// DocumentState tracks document-boundary lexical state shared by XML token loops.
-type DocumentState struct {
-	allowBOM   bool
-	rootSeen   bool
-	rootClosed bool
-}
-
-// NewDocumentState returns an initialized document-boundary state.
-func NewDocumentState() DocumentState {
-	return DocumentState{allowBOM: true}
-}
-
-// RootSeen reports whether a root start element has been seen.
-func (s *DocumentState) RootSeen() bool {
-	return s != nil && s.rootSeen
-}
-
-// RootClosed reports whether the root element has been closed.
-func (s *DocumentState) RootClosed() bool {
-	return s != nil && s.rootClosed
-}
-
-// StartElementAllowed reports whether a start element may appear at this point.
-func (s *DocumentState) StartElementAllowed() bool {
-	return s == nil || !s.rootClosed
-}
-
-// OnStartElement advances state for a start-element token.
-func (s *DocumentState) OnStartElement() {
-	if s == nil {
-		return
-	}
-	s.rootSeen = true
-	s.allowBOM = false
-}
-
-// OnEndElement advances state for an end-element token.
-// closeRoot should be true only when this token closes the document root element.
-func (s *DocumentState) OnEndElement(closeRoot bool) {
-	if s == nil {
-		return
-	}
-	if closeRoot {
-		s.rootClosed = true
-	}
-	s.allowBOM = false
-}
-
-// ValidateOutsideCharData reports whether character data outside root is ignorable.
-func (s *DocumentState) ValidateOutsideCharData(data []byte) bool {
-	if s == nil {
-		return IsIgnorableOutsideRoot(data, true)
-	}
-	ok := IsIgnorableOutsideRoot(data, s.allowBOM)
-	if ok {
-		s.allowBOM = false
-	}
-	return ok
-}
-
-// OnOutsideMarkup advances state for comments/PI/directives outside root.
-func (s *DocumentState) OnOutsideMarkup() {
-	if s == nil {
-		return
-	}
-	s.allowBOM = false
-}
-
-// IsIgnorableOutsideRoot reports whether data contains only XML whitespace.
-// If allowBOM is true, a leading BOM is permitted before any other character.
-func IsIgnorableOutsideRoot(data []byte, allowBOM bool) bool {
-	sawNonBOM := false
-	for len(data) > 0 {
-		r, size := utf8.DecodeRune(data)
-		if r == utf8.RuneError && size == 1 {
-			return false
-		}
-		if r == '\uFEFF' {
-			if !allowBOM || sawNonBOM {
-				return false
-			}
-			allowBOM = false
-			data = data[size:]
-			continue
-		}
-		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
-			return false
-		}
-		sawNonBOM = true
-		allowBOM = false
-		data = data[size:]
-	}
-	return true
 }

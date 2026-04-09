@@ -16,7 +16,7 @@ This validator implements W3C XML Schema 1.0 validation with the following prior
 
 Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored.
 Validation always uses the compiled schema created by
-`xsd.NewSchemaSet().WithLoadOptions(...).Compile(...)`, `xsd.LoadWithOptions`, or `xsd.LoadFile`.
+`xsd.Compile`, `xsd.CompileFile`, or `xsd.NewSourceSet().Prepare().Build(...)`.
 This keeps validation deterministic and goroutine-safe.
 
 ## Processing Pipeline
@@ -47,7 +47,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   subgraph PublicAPI["Public API"]
-    Load["xsd.NewSchemaSet / xsd.LoadWithOptions"] --> Compile["internal/compiler.PrepareRoots / Prepare<br/>(load + merge + resolve + validate + index)"] --> Build["internal/compiler.Prepared.Build"] --> Runtime["internal/runtime.Schema"]
+    Load["xsd.Compile / xsd.CompileFile / xsd.SourceSet"] --> Compile["internal/compiler.PrepareRoots / Prepare<br/>(load + merge + resolve + validate + index)"] --> Build["internal/compiler.Prepared.Build"] --> Runtime["internal/runtime.Schema"]
   end
   subgraph Validation
     Validate["Schema.Validate"] --> ValidatorPkg["internal/validator<br/>(engine, session, streaming checks)"]
@@ -62,24 +62,22 @@ flowchart TD
 The codebase uses concern-owned package boundaries instead of type-name parity.
 Each package owns one durable workflow boundary:
 
-- `internal/preprocessor`: source loading, include/import resolution, origin tracking.
 - `internal/parser`: raw XSD component parsing with symbolic references.
-- `internal/semanticresolve`: schema reference wiring and semantic link resolution.
-- `internal/semanticcheck`: structural/spec validation (`cvc-*`/schema rules).
-- `internal/analysis`: deterministic IDs, ordering, and resolved-reference indexes.
-- `internal/semantics`: compile-time semantic artifacts, validator compilation, particle preparation, and UPA checks.
-- `internal/compiler`: schema-root loading, prepared-schema ownership, runtime assembly, and reusable build artifacts.
-- `internal/validator`: mutable runtime session execution over immutable runtime schema.
+- `internal/analysis`: deterministic IDs, runtime ID plans, ordering, and resolved-reference indexes.
+- `internal/semantics`: compile-time semantic preparation, particle work, substitution, and UPA checks.
+- `internal/compiler`: schema-root loading, prepared-schema ownership, and runtime assembly.
+- `internal/validatorbuild`: validator-artifact compilation from prepared schema state.
+- `internal/validator`: mutable runtime session execution and runtime facet/value evaluation over immutable runtime schema.
 
 Public package organization follows the same single-responsibility rule:
 
 - `schema_types.go`: public schema/QName types.
 - `load.go`: schema loading entrypoints.
 - `schema_validate.go`: validation entrypoints and file-reader plumbing.
-- `schemaset_*.go`: schema-set ingestion, prepare/compile orchestration, and merge flow.
+- `sourceset*.go`: source-set ingestion, prepare/build orchestration, and source-entry flow.
 - `options_*.go`: option types, fluent API, and resolution/defaulting.
 
-Architecture boundaries are enforced by tests in `internal/architecture/`:
+Architecture boundaries are enforced by tests in `internal/analysis/`:
 
 - import-edge checks for core phases (`import_edges_test.go`)
 - public export allowlist checks (`public_api_allowlist_test.go`)
@@ -99,7 +97,7 @@ Compile-time schema meaning should flow through `internal/semantics.Context` and
 
 ## Phase 1: Load + Parse
 
-Schema loading uses `internal/preprocessor` and `internal/parser` to parse XSD documents,
+Schema loading uses `internal/compiler` and `internal/parser` to parse XSD documents,
 resolve includes/imports, and build a single parser.Schema. QName references and
 origin locations are recorded, but no runtime IDs or compiled models exist yet.
 
@@ -138,8 +136,9 @@ group/type references and run structure/reference checks.
 
 ## Phase 3: Assign IDs
 
-`internal/compiler` (via registry planning passes) walks the validated schema in deterministic order and
+`internal/analysis` walks the validated schema in deterministic order and
 assigns stable IDs to globally visible declarations plus local/anonymous components.
+It also derives the deterministic runtime ID plan used during runtime assembly.
 These IDs back the runtime registry.
 
 ```go
@@ -183,10 +182,11 @@ the validated schema and assigned registry.
 compiles prepared artifacts into an optimized runtime representation. The runtime schema is
 dense, ID-based, and immutable so it can be shared across goroutines.
 
-At the public API layer, `xsd.SchemaSet.Compile`/`CompileWithRuntimeOptions`
-compile runtime schemas from the set’s added roots using compile-affecting
-runtime options (`maxDFAStates`, `maxOccursLimit`). Instance XML parse limits
-are applied per engine/session and do not change schema semantics.
+At the public API layer, `xsd.Compile`, `xsd.CompileFile`, and
+`(*xsd.SourceSet).Build` compile runtime schemas from explicit roots using
+compile-affecting runtime options (`maxDFAStates`, `maxOccursLimit`).
+Instance XML parse limits are applied per engine/session and do not change
+schema semantics.
 
 runtime.Schema contains:
 
@@ -224,7 +224,7 @@ runtime.Schema; no DOM build is required.
 
 ```mermaid
 flowchart TD
-  Reader["Input XML Reader"] --> Next["xmlstream.Reader.Next()<br/>pkg/xmlstream/reader.go<br/>(start/end/char)"] --> Start["Start element<br/>Lookup decl, attrs, content model<br/>Push frame<br/>Track identity scopes"]
+  Reader["Input XML Reader"] --> Next["xmlstream.Reader.Next()<br/>pkg/xmlstream/reader.go + reader_*.go<br/>(API + dispatch, start/end/text split)"] --> Start["Start element<br/>Lookup decl, attrs, content model<br/>Push frame<br/>Track identity scopes"]
   Start --> Attrs["Validate attributes (pre-merged list)"]
   Start --> Content["Validate content model (DFA)"]
   Start --> Collect["Collect text/ID/IDREFs"]
@@ -237,8 +237,12 @@ flowchart TD
 
 ## DFA Content Model Validation
 
-Content models are compiled to Deterministic Finite Automata using
-Glushkov construction followed by subset construction.
+Content models are compiled to Deterministic Finite Automata by the shared
+`internal/contentmodel` package using Glushkov construction followed by subset
+construction.
+
+The precomputed effective complex-type view shared between semantics and
+compiler lives in `internal/complexplan`.
 
 ```mermaid
 flowchart LR

@@ -3,6 +3,7 @@ package semantics
 import (
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -18,7 +19,7 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 	var wildcard *model.AnyAttribute
 	for i := len(chain) - 1; i >= 0; i-- {
 		current := chain[i]
-		if err := mergeAttributesFromComplexType(schema, current, attrMap); err != nil {
+		if err := mergeEffectiveAttributeUsesFromType(schema, current, attrMap); err != nil {
 			return nil, nil, err
 		}
 		localWildcard, err := localAttributeWildcard(schema, current)
@@ -46,26 +47,17 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 	return out, wildcard, nil
 }
 
-func mergeAttributesFromComplexType(schema *parser.Schema, ct *model.ComplexType, attrMap map[model.QName]*model.AttributeDecl) error {
-	if ct == nil {
-		return nil
-	}
-	if err := mergeAttributes(schema, ct.Attributes(), ct.AttrGroups, attrMap); err != nil {
-		return err
-	}
-	content := ct.Content()
-	if content == nil {
-		return nil
-	}
-	if ext := content.ExtensionDef(); ext != nil {
-		if err := mergeAttributes(schema, ext.Attributes, ext.AttrGroups, attrMap); err != nil {
-			return err
+func mergeEffectiveAttributeUsesFromType(schema *parser.Schema, ct *model.ComplexType, attrMap map[model.QName]*model.AttributeDecl) error {
+	return walkComplexTypeLocalAttributes(schema, ct, analysis.AttributeGroupWalkOptions{
+		Missing: analysis.MissingError,
+		Cycles:  analysis.CycleIgnore,
+	}, func(attr *model.AttributeDecl, fromGroup bool) error {
+		if fromGroup && attr.Use == model.Prohibited {
+			// W3C attZ015: ignore prohibited uses from attribute groups.
+			return nil
 		}
-	}
-	if restr := content.RestrictionDef(); restr != nil {
-		if err := mergeAttributes(schema, restr.Attributes, restr.AttrGroups, attrMap); err != nil {
-			return err
-		}
-	}
-	return nil
+		key := parser.EffectiveAttributeQName(schema, attr)
+		attrMap[key] = attr
+		return nil
+	})
 }

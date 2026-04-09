@@ -3,16 +3,16 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.ModelRef, runtime.ContentKind, error) {
 	if particle == nil {
 		return runtime.ModelRef{Kind: runtime.ModelNone}, runtime.ContentEmpty, nil
 	}
-	resolved, err := semantics.ExpandGroupRefs(particle, b.groupRefExpansionOptions())
+	resolved, err := contentmodel.ExpandGroupRefs(particle, b.groupRefExpansionOptions())
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
@@ -32,11 +32,11 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 		return ref, runtime.ContentAll, nil
 	}
 
-	glu, err := semantics.BuildGlushkov(particle)
+	glu, err := contentmodel.BuildGlushkov(particle)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
-	glu, err = semantics.ExpandSubstitution(glu, b.resolveSubstitutionHead, b.substitutionMembers)
+	glu, err = contentmodel.ExpandSubstitution(glu, b.resolveSubstitutionHead, b.substitutionMembers)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
@@ -44,7 +44,7 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
-	compiled, err := semantics.CompileContentModel(glu, matchers, b.limits)
+	compiled, err := contentmodel.CompileContentModel(glu, matchers, b.limits)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
@@ -62,8 +62,8 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 	}
 }
 
-func (b *schemaBuilder) groupRefExpansionOptions() semantics.ExpandGroupRefsOptions {
-	return semantics.ExpandGroupRefsOptions{
+func (b *schemaBuilder) groupRefExpansionOptions() contentmodel.ExpandGroupRefsOptions {
+	return contentmodel.ExpandGroupRefsOptions{
 		Lookup: func(ref *model.GroupRef) *model.ModelGroup {
 			if ref == nil {
 				return nil
@@ -89,8 +89,8 @@ func (b *schemaBuilder) groupRefExpansionOptions() semantics.ExpandGroupRefsOpti
 		CycleError: func(ref model.QName) error {
 			return fmt.Errorf("group ref cycle detected: %s", ref)
 		},
-		AllGroupMode: semantics.AllGroupKeep,
-		LeafClone:    semantics.LeafReuse,
+		AllGroupMode: contentmodel.AllGroupKeep,
+		LeafClone:    contentmodel.LeafReuse,
 	}
 }
 

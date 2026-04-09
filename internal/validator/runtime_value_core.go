@@ -2,7 +2,6 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -27,6 +26,6 @@ func hasLengthFacet(meta runtime.ValidatorMeta, facetCode []runtime.FacetInstr) 
 	if meta.Facets.Len == 0 {
 		return false
 	}
-	ok, err := semantics.RuntimeProgramHasOp(meta, facetCode, runtime.FLength, runtime.FMinLength, runtime.FMaxLength)
+	ok, err := RuntimeProgramHasOp(meta, facetCode, runtime.FLength, runtime.FMinLength, runtime.FMaxLength)
 	return err == nil && ok
 }

@@ -3,19 +3,19 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 )
 
-func (b *schemaBuilder) buildMatchers(glu *semantics.Glushkov) ([]runtime.PosMatcher, error) {
+func (b *schemaBuilder) buildMatchers(glu *contentmodel.Glushkov) ([]runtime.PosMatcher, error) {
 	if glu == nil {
 		return nil, fmt.Errorf("runtime build: glushkov model missing")
 	}
 	matchers := make([]runtime.PosMatcher, len(glu.Positions))
 	for i, pos := range glu.Positions {
 		switch pos.Kind {
-		case semantics.PositionElement:
+		case contentmodel.PositionElement:
 			if pos.Element == nil {
 				return nil, fmt.Errorf("runtime build: position %d missing element", i)
 			}
@@ -29,7 +29,7 @@ func (b *schemaBuilder) buildMatchers(glu *semantics.Glushkov) ([]runtime.PosMat
 				Sym:  sym,
 				Elem: elemID,
 			}
-		case semantics.PositionWildcard:
+		case contentmodel.PositionWildcard:
 			if pos.Wildcard == nil {
 				return nil, fmt.Errorf("runtime build: position %d missing wildcard", i)
 			}

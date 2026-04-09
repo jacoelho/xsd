@@ -3,6 +3,7 @@ package semantics
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -13,7 +14,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		return nil
 	}
 
-	options := ExpandGroupRefsOptions{
+	options := contentmodel.ExpandGroupRefsOptions{
 		Lookup: func(ref *model.GroupRef) *model.ModelGroup {
 			if ref == nil {
 				return nil
@@ -26,8 +27,8 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		CycleError: func(ref model.QName) error {
 			return fmt.Errorf("circular group reference detected: %s", ref)
 		},
-		AllGroupMode: AllGroupKeep,
-		LeafClone:    LeafReuse,
+		AllGroupMode: contentmodel.AllGroupKeep,
+		LeafClone:    contentmodel.LeafReuse,
 	}
 
 	for _, name := range model.SortedMapKeys(sch.Groups) {
@@ -35,7 +36,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		if group == nil {
 			continue
 		}
-		expanded, err := ExpandGroupRefs(group, options)
+		expanded, err := contentmodel.ExpandGroupRefs(group, options)
 		if err != nil {
 			return fmt.Errorf("resolve group refs in group %s: %w", name, err)
 		}
@@ -71,13 +72,13 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 	return nil
 }
 
-func resolveGroupRefsInContent(content model.Content, options ExpandGroupRefsOptions) error {
+func resolveGroupRefsInContent(content model.Content, options contentmodel.ExpandGroupRefsOptions) error {
 	switch c := content.(type) {
 	case *model.ElementContent:
 		if c.Particle == nil {
 			return nil
 		}
-		expanded, err := ExpandGroupRefs(c.Particle, options)
+		expanded, err := contentmodel.ExpandGroupRefs(c.Particle, options)
 		if err != nil {
 			return err
 		}
@@ -86,7 +87,7 @@ func resolveGroupRefsInContent(content model.Content, options ExpandGroupRefsOpt
 		}
 	case *model.ComplexContent:
 		if c.Restriction != nil && c.Restriction.Particle != nil {
-			expanded, err := ExpandGroupRefs(c.Restriction.Particle, options)
+			expanded, err := contentmodel.ExpandGroupRefs(c.Restriction.Particle, options)
 			if err != nil {
 				return err
 			}
@@ -95,7 +96,7 @@ func resolveGroupRefsInContent(content model.Content, options ExpandGroupRefsOpt
 			}
 		}
 		if c.Extension != nil && c.Extension.Particle != nil {
-			expanded, err := ExpandGroupRefs(c.Extension.Particle, options)
+			expanded, err := contentmodel.ExpandGroupRefs(c.Extension.Particle, options)
 			if err != nil {
 				return err
 			}

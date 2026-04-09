@@ -33,13 +33,16 @@ func (s *Session) canonicalizeAtomicString(meta runtime.ValidatorMeta, normalize
 	if !ok {
 		return nil, xsderrors.Invalid("string validator out of range")
 	}
-	if err := runtime.ValidateStringKind(kind, normalized); err != nil {
+	canonical, err := value.CanonicalizeString(normalized, func(data []byte) error {
+		return runtime.ValidateStringKind(kind, data)
+	})
+	if err != nil {
 		return nil, xsderrors.Invalid(err.Error())
 	}
 	if needKey && s != nil {
-		s.setAtomicKey(metrics, runtime.VKString, runtime.StringKeyBytes(s.keyTmp[:0], 0, normalized))
+		s.setAtomicKey(metrics, runtime.VKString, runtime.StringKeyBytes(s.keyTmp[:0], 0, canonical))
 	}
-	return normalized, nil
+	return canonical, nil
 }
 
 func (s *Session) canonicalizeAtomicBoolean(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {

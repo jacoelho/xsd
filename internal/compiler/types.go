@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/complexplan"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -34,13 +34,13 @@ type BuildConfig struct {
 
 // Prepared stores normalized artifacts and lazy build state.
 type Prepared struct {
-	schema    *parser.Schema
-	registry  *analysis.Registry
-	refs      *analysis.ResolvedReferences
-	semantics *semantics.Context
-	prepared  *PreparedArtifacts
-	prepErr   error
-	buildOnce sync.Once
+	schema       *parser.Schema
+	registry     *analysis.Registry
+	refs         *analysis.ResolvedReferences
+	complexTypes *complexplan.ComplexTypes
+	prepared     *PreparedArtifacts
+	prepErr      error
+	buildOnce    sync.Once
 }
 
 // Schema returns the prepared schema graph.
@@ -67,10 +67,10 @@ func (p *Prepared) References() *analysis.ResolvedReferences {
 	return p.refs
 }
 
-// Semantics returns prepared compile-time semantic state for the schema graph.
-func (p *Prepared) Semantics() *semantics.Context {
+// ComplexTypes returns the prepared effective complex-type plan.
+func (p *Prepared) ComplexTypes() *complexplan.ComplexTypes {
 	if p == nil {
 		return nil
 	}
-	return p.semantics
+	return p.complexTypes
 }

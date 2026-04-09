@@ -3,15 +3,15 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func (b *schemaBuilder) buildTypes() error {
 	xsdNS := model.XSDNamespace
 	nextComplex := uint32(1)
-	for _, name := range semantics.BuiltinTypeNames() {
+	for _, name := range analysis.BuiltinTypeNames() {
 		id := b.builtinIDs[name]
 		sym := b.internQName(model.QName{Namespace: xsdNS, Local: string(name)})
 		typ := runtime.Type{Name: sym}

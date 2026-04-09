@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/complexplan"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
+	"github.com/jacoelho/xsd/internal/validatorbuild"
 )
 
 // PreparedArtifacts stores immutable runtime-build prerequisites.
@@ -14,7 +15,7 @@ type PreparedArtifacts struct {
 	schema     *parser.Schema
 	registry   *analysis.Registry
 	refs       *analysis.ResolvedReferences
-	validators *semantics.CompiledValidators
+	validators *validatorbuild.ValidatorArtifacts
 }
 
 // PrepareBuildArtifacts packages compiler-owned artifacts for repeated runtime builds.
@@ -22,7 +23,7 @@ func PrepareBuildArtifacts(
 	sch *parser.Schema,
 	reg *analysis.Registry,
 	refs *analysis.ResolvedReferences,
-	validators *semantics.CompiledValidators,
+	validators *validatorbuild.ValidatorArtifacts,
 ) (*PreparedArtifacts, error) {
 	if err := validateBuildInputs(sch, reg, refs); err != nil {
 		return nil, err
@@ -63,7 +64,7 @@ func (p *PreparedArtifacts) References() *analysis.ResolvedReferences {
 }
 
 // Validators returns the compiled validator bundle for the prepared schema.
-func (p *PreparedArtifacts) Validators() *semantics.CompiledValidators {
+func (p *PreparedArtifacts) Validators() *validatorbuild.ValidatorArtifacts {
 	if p == nil {
 		return nil
 	}
@@ -78,21 +79,21 @@ func (p *PreparedArtifacts) Build(cfg BuildConfig) (*runtime.Schema, error) {
 	return Build(p.schema, p.registry, p.refs, p.validators, Config(cfg))
 }
 
-func prepareBuildArtifactsFromSemantics(
+func prepareBuildArtifactsFromComplexTypes(
 	sch *parser.Schema,
 	reg *analysis.Registry,
 	refs *analysis.ResolvedReferences,
-	sem *semantics.Context,
+	complexTypes *complexplan.ComplexTypes,
 ) (*PreparedArtifacts, error) {
 	if err := validateBuildInputs(sch, reg, refs); err != nil {
 		return nil, err
 	}
-	if sem == nil {
-		return nil, fmt.Errorf("runtime build: semantics are nil")
+	if complexTypes == nil {
+		return nil, fmt.Errorf("runtime build: complex types are nil")
 	}
-	validators, err := sem.CompiledValidators()
+	validators, err := validatorbuild.Compile(sch, reg, complexTypes)
 	if err != nil {
-		return nil, fmt.Errorf("runtime build: compile validators: %w", err)
+		return nil, err
 	}
 	return PrepareBuildArtifacts(sch, reg, refs, validators)
 }
