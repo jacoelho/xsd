@@ -8,19 +8,22 @@ import (
 	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
-func TestPopQName(t *testing.T) {
+func TestPopElementStack(t *testing.T) {
 	root := QName{Local: "root"}
 	child := QName{Namespace: "urn:test", Local: "child"}
-	stack := []QName{root, child}
-	got, rest, err := popQName(stack, 2)
+	stack := []elementStackEntry{
+		{qname: root, nameID: 1},
+		{qname: child, nameID: 2},
+	}
+	got, rest, err := popElementStack(stack, 2)
 	if err != nil {
-		t.Fatalf("popQName error = %v", err)
+		t.Fatalf("popElementStack error = %v", err)
 	}
-	if got != child {
-		t.Fatalf("popQName = %v, want %v", got, child)
+	if got.qname != child || got.nameID != 2 {
+		t.Fatalf("popped = %#v, want child with NameID 2", got)
 	}
-	if len(rest) != 1 || rest[0] != root {
-		t.Fatalf("rest = %v, want [%v]", rest, root)
+	if len(rest) != 1 || rest[0].qname != root || rest[0].nameID != 1 {
+		t.Fatalf("rest = %#v, want root with NameID 1", rest)
 	}
 }
 

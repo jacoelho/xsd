@@ -1161,12 +1161,6 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 
 		actual := "valid"
 		violations := []xsderrors.Validation(nil)
-		if err != nil {
-			actual = "invalid"
-			if list, ok := xsderrors.AsValidations(err); ok {
-				violations = list
-			}
-		}
 		passed := (expected.Validity == actual)
 
 		if !passed {
@@ -1465,8 +1459,6 @@ func TestW3CConformance(t *testing.T) {
 		t.Skip("W3C test suite not found at", testSuiteDir)
 	}
 
-	runner := NewW3CTestRunner(testSuiteDir)
-
 	// build list of metadata files from hardcoded list
 	metadataFiles := GetW3CTestSetFilePaths(testSuiteDir, t)
 
@@ -1478,8 +1470,16 @@ func TestW3CConformance(t *testing.T) {
 
 	// run all test sets
 	for _, metadataPath := range metadataFiles {
-		if err := runner.RunMetadataFile(t, metadataPath); err != nil {
-			t.Errorf("Error running test set %s: %v", filepath.Base(metadataPath), err)
+		subtestName := metadataPath
+		if rel, err := filepath.Rel(testSuiteDir, metadataPath); err == nil {
+			subtestName = filepath.ToSlash(rel)
 		}
+		t.Run(subtestName, func(t *testing.T) {
+			t.Parallel()
+			runner := NewW3CTestRunner(testSuiteDir)
+			if err := runner.RunMetadataFile(t, metadataPath); err != nil {
+				t.Errorf("Error running test set %s: %v", filepath.Base(metadataPath), err)
+			}
+		})
 	}
 }

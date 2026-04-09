@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,7 +13,9 @@ import (
 const (
 	testGMLSourceURL = "https://example.com/example.gml"
 	testSchemaURL    = "https://example.com/root.xsd"
+	testSchemaURLAlt = "https://example.com/other.xsd"
 	testNamespace    = "urn:test"
+	testNamespaceAlt = "urn:alt"
 	legacyMetaSuffix = ".source-url"
 )
 
@@ -22,6 +25,14 @@ const testRootXSD = `<?xml version="1.0" encoding="UTF-8"?>
     xmlns:t="urn:test"
     elementFormDefault="qualified">
   <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+const testAltRootXSD = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="urn:alt"
+    xmlns:a="urn:alt"
+    elementFormDefault="qualified">
+  <xs:element name="alt-root" type="xs:string"/>
 </xs:schema>`
 
 type gmlFixture struct {
@@ -56,6 +67,10 @@ func (f gmlFixture) xsdPath(name string) string {
 	return filepath.Join(f.xsdDir, name)
 }
 
+func (f gmlFixture) schemaMapPath() string {
+	return schemaMapPath(f.xsdDir)
+}
+
 func (f gmlFixture) legacyMetaPath() string {
 	return f.gmlPath + legacyMetaSuffix
 }
@@ -67,6 +82,15 @@ func (f gmlFixture) writeGML(content string) {
 func (f gmlFixture) writeXSD(name, content string) {
 	f.mkdirAll(f.xsdDir)
 	f.writeFile(f.xsdPath(name), content)
+}
+
+func (f gmlFixture) writeSchemaMap(docs ...*doc) {
+	f.t.Helper()
+
+	f.mkdirAll(f.xsdDir)
+	if err := writeSchemaMap(f.xsdDir, docs); err != nil {
+		f.t.Fatalf("write schema map: %v", err)
+	}
 }
 
 func (f gmlFixture) readGML() string {
@@ -237,15 +261,118 @@ func TestValidateLocalPreparedState(t *testing.T) {
 	}
 }
 
+func TestValidateExistingLocalSchemaSet(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		setup           func(gmlFixture)
+		wantErrContains string
+	}{
+		{
+			name: "valid remote-root gml with local xsd dir",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeSchemaMap(&doc{URL: testSchemaURL, Name: "root.xsd"})
+				fx.writeGML(remoteRootGML(testSchemaURL))
+			},
+		},
+		{
+			name: "missing local entry schema fails",
+			setup: func(fx gmlFixture) {
+				fx.writeSchemaMap(&doc{URL: testSchemaURL, Name: "root.xsd"})
+				fx.writeGML(remoteRootGML(testSchemaURL))
+			},
+			wantErrContains: "missing local schema",
+		},
+		{
+			name: "query string entry uses mapped flattened name",
+			setup: func(fx gmlFixture) {
+				const entryURL = "https://example.com/root.xsd?rev=2#entry"
+				fx.writeXSD("root-a1b2c3d4e5.xsd", testRootXSD)
+				fx.writeSchemaMap(&doc{URL: entryURL, Name: "root-a1b2c3d4e5.xsd"})
+				fx.writeGML(remoteRootGML(entryURL))
+			},
+		},
+		{
+			name: "basename collision entry uses mapped hashed name",
+			setup: func(fx gmlFixture) {
+				const entryURL = "https://example.com/a/root.xsd"
+				const siblingURL = "https://example.com/b/root.xsd"
+				fx.writeXSD("root-1234567890.xsd", testRootXSD)
+				fx.writeSchemaMap(
+					&doc{URL: entryURL, Name: "root-1234567890.xsd"},
+					&doc{URL: siblingURL, Name: "root.xsd"},
+				)
+				fx.writeGML(remoteRootGML(entryURL))
+			},
+		},
+		{
+			name: "multi-root remote gml validates all mapped roots",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeXSD("other.xsd", testAltRootXSD)
+				fx.writeSchemaMap(
+					&doc{URL: testSchemaURL, Name: "root.xsd"},
+					&doc{URL: testSchemaURLAlt, Name: "other.xsd"},
+				)
+				fx.writeGML(remoteRootsGML(
+					[2]string{testNamespace, testSchemaURL},
+					[2]string{testNamespaceAlt, testSchemaURLAlt},
+				))
+			},
+		},
+		{
+			name: "multi-root remote gml fails when later root is missing",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeSchemaMap(
+					&doc{URL: testSchemaURL, Name: "root.xsd"},
+					&doc{URL: testSchemaURLAlt, Name: "other.xsd"},
+				)
+				fx.writeGML(remoteRootsGML(
+					[2]string{testNamespace, testSchemaURL},
+					[2]string{testNamespaceAlt, testSchemaURLAlt},
+				))
+			},
+			wantErrContains: "missing local schema",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fx := newGMLFixture(t)
+			tt.setup(fx)
+
+			err := validateExistingLocalSchemaSet(fx.gmlPath, fx.xsdDir)
+			if tt.wantErrContains != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Fatalf("validateExistingLocalSchemaSet() error = %v, want substring %q", err, tt.wantErrContains)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("validateExistingLocalSchemaSet() error = %v", err)
+			}
+		})
+	}
+}
+
 func TestRunPrepare(t *testing.T) {
 	t.Parallel()
 
-	rebuildOutput := func(fx gmlFixture) []string {
+	rebuildOutputCount := func(fx gmlFixture, count int) []string {
 		return []string{
-			"schemas downloaded: 1",
+			fmt.Sprintf("schemas downloaded: %d", count),
 			"gml updated: " + fx.gmlPath,
 			"xsd dir: " + fx.xsdDir,
 		}
+	}
+	rebuildOutput := func(fx gmlFixture) []string {
+		return rebuildOutputCount(fx, 1)
 	}
 
 	tests := []struct {
@@ -273,6 +400,86 @@ func TestRunPrepare(t *testing.T) {
 			wantCrawlRoots:  []string{testSchemaURL},
 			wantGMLContains: []string{`xsi:schemaLocation="` + testNamespace + ` xsd/root.xsd"`},
 			wantXSDNames:    []string{"root.xsd"},
+		},
+		{
+			name: "remote-root gml with valid local xsd dir skips refresh",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeSchemaMap(&doc{URL: testSchemaURL, Name: "root.xsd"})
+				fx.writeGML(remoteRootGML(testSchemaURL))
+			},
+			wantStdout: func(gmlFixture) []string {
+				return []string{"local xsd dir already valid; skipping schema refresh"}
+			},
+			wantGMLContains: []string{`xsi:schemaLocation="` + testNamespace + ` ` + testSchemaURL + `"`},
+		},
+		{
+			name: "remote-root gml without schema map rebuilds localized schema set",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeGML(remoteRootGML(testSchemaURL))
+			},
+			crawlDocs:       []*doc{{URL: testSchemaURL, Content: []byte(testRootXSD)}},
+			wantStdout:      rebuildOutput,
+			wantCrawlCalls:  1,
+			wantCrawlRoots:  []string{testSchemaURL},
+			wantGMLContains: []string{`xsi:schemaLocation="` + testNamespace + ` xsd/root.xsd"`},
+			wantXSDNames:    []string{"root.xsd"},
+		},
+		{
+			name: "remote-root gml with query entry and schema map skips refresh",
+			setup: func(fx gmlFixture) {
+				const entryURL = "https://example.com/root.xsd?rev=2#entry"
+				fx.writeXSD("root-a1b2c3d4e5.xsd", testRootXSD)
+				fx.writeSchemaMap(&doc{URL: entryURL, Name: "root-a1b2c3d4e5.xsd"})
+				fx.writeGML(remoteRootGML(entryURL))
+			},
+			wantStdout: func(gmlFixture) []string {
+				return []string{"local xsd dir already valid; skipping schema refresh"}
+			},
+			wantGMLContains: []string{`xsi:schemaLocation="` + testNamespace + ` https://example.com/root.xsd?rev=2#entry"`},
+		},
+		{
+			name: "remote-root gml with valid multi-root local xsd dir skips refresh",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeXSD("other.xsd", testAltRootXSD)
+				fx.writeSchemaMap(
+					&doc{URL: testSchemaURL, Name: "root.xsd"},
+					&doc{URL: testSchemaURLAlt, Name: "other.xsd"},
+				)
+				fx.writeGML(remoteRootsGML(
+					[2]string{testNamespace, testSchemaURL},
+					[2]string{testNamespaceAlt, testSchemaURLAlt},
+				))
+			},
+			wantStdout: func(gmlFixture) []string {
+				return []string{"local xsd dir already valid; skipping schema refresh"}
+			},
+			wantGMLContains: []string{`xsi:schemaLocation="` + testNamespace + ` ` + testSchemaURL + ` ` + testNamespaceAlt + ` ` + testSchemaURLAlt + `"`},
+		},
+		{
+			name: "remote-root gml with missing later local root rebuilds localized schema set",
+			setup: func(fx gmlFixture) {
+				fx.writeXSD("root.xsd", testRootXSD)
+				fx.writeSchemaMap(
+					&doc{URL: testSchemaURL, Name: "root.xsd"},
+					&doc{URL: testSchemaURLAlt, Name: "other.xsd"},
+				)
+				fx.writeGML(remoteRootsGML(
+					[2]string{testNamespace, testSchemaURL},
+					[2]string{testNamespaceAlt, testSchemaURLAlt},
+				))
+			},
+			crawlDocs: []*doc{
+				{URL: testSchemaURL, Hash: "root-hash", Content: []byte(testRootXSD)},
+				{URL: testSchemaURLAlt, Hash: "other-hash", Content: []byte(testAltRootXSD)},
+			},
+			wantStdout:      func(fx gmlFixture) []string { return rebuildOutputCount(fx, 2) },
+			wantCrawlCalls:  1,
+			wantCrawlRoots:  []string{testSchemaURL, testSchemaURLAlt},
+			wantGMLContains: []string{`xsi:schemaLocation="` + testNamespace + ` xsd/root.xsd ` + testNamespaceAlt + ` xsd/other.xsd"`},
+			wantXSDNames:    []string{"root.xsd", "other.xsd"},
 		},
 		{
 			name: "already localized valid gml skips refresh",
@@ -424,13 +631,24 @@ func TestRunPrepare(t *testing.T) {
 			for _, name := range tt.wantXSDNames {
 				fx.requireFile(fx.xsdPath(name))
 			}
+			if tt.wantCrawlCalls > 0 {
+				fx.requireFile(fx.schemaMapPath())
+			}
 			fx.requireNoFile(fx.legacyMetaPath())
 		})
 	}
 }
 
 func remoteRootGML(schemaURL string) string {
-	return `<root xmlns="` + testNamespace + `" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="` + testNamespace + ` ` + schemaURL + `">ok</root>`
+	return remoteRootsGML([2]string{testNamespace, schemaURL})
+}
+
+func remoteRootsGML(pairs ...[2]string) string {
+	tokens := make([]string, 0, len(pairs)*2)
+	for _, pair := range pairs {
+		tokens = append(tokens, pair[0], pair[1])
+	}
+	return `<root xmlns="` + testNamespace + `" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="` + strings.Join(tokens, " ") + `">ok</root>`
 }
 
 func localRootGML(schemaLocation string) string {

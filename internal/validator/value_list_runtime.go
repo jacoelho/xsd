@@ -203,51 +203,55 @@ func parseCollapsedFloatSpecialRuntime(normalized []byte, start int) (int, bool,
 
 func parseCollapsedFloatNumberRuntime(normalized []byte, start int) (int, bool) {
 	i := start
+	n := len(normalized)
 	if hasFloatSignRuntime(normalized[i]) {
 		i++
-		if i >= len(normalized) || normalized[i] == ' ' {
+		if i >= n || normalized[i] == ' ' {
 			return 0, false
 		}
 	}
-	wholeDigits := consumeDigitsRuntime(normalized, &i)
-	fractionDigits := 0
-	if i < len(normalized) && normalized[i] == '.' {
+
+	wholeStart := i
+	for i < n && isDigitByteRuntime(normalized[i]) {
 		i++
-		fractionDigits = consumeDigitsRuntime(normalized, &i)
+	}
+	wholeDigits := i - wholeStart
+
+	fractionDigits := 0
+	if i < n && normalized[i] == '.' {
+		i++
+		fractionStart := i
+		for i < n && isDigitByteRuntime(normalized[i]) {
+			i++
+		}
+		fractionDigits = i - fractionStart
 	}
 	if wholeDigits == 0 && fractionDigits == 0 {
 		return 0, false
 	}
-	return consumeCollapsedExponentRuntime(normalized, i)
-}
-
-func consumeCollapsedExponentRuntime(normalized []byte, start int) (int, bool) {
-	i := start
-	if i >= len(normalized) || (normalized[i] != 'e' && normalized[i] != 'E') {
+	if i >= n || (normalized[i] != 'e' && normalized[i] != 'E') {
 		return i, true
 	}
+
 	i++
-	if i >= len(normalized) || normalized[i] == ' ' {
+	if i >= n || normalized[i] == ' ' {
 		return 0, false
 	}
 	if hasFloatSignRuntime(normalized[i]) {
 		i++
-		if i >= len(normalized) || normalized[i] == ' ' {
+		if i >= n || normalized[i] == ' ' {
 			return 0, false
 		}
 	}
-	if consumeDigitsRuntime(normalized, &i) == 0 {
+
+	exponentStart := i
+	for i < n && isDigitByteRuntime(normalized[i]) {
+		i++
+	}
+	if i == exponentStart {
 		return 0, false
 	}
 	return i, true
-}
-
-func consumeDigitsRuntime(normalized []byte, i *int) int {
-	start := *i
-	for *i < len(normalized) && isDigitByteRuntime(normalized[*i]) {
-		*i++
-	}
-	return *i - start
 }
 
 func hasFloatSignRuntime(b byte) bool {

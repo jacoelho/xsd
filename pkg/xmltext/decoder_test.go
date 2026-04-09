@@ -858,6 +858,51 @@ func TestDecoderSyntaxErrorLineNumber(t *testing.T) {
 	}
 }
 
+func TestDecoderChunkedPrefixedEndTags(t *testing.T) {
+	dec := NewDecoder(&chunkReader{data: []byte("<x:root><x:child>text</x:child></x:root>")})
+	reader := newTokenReader(dec)
+
+	tok, err := reader.Next()
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	if got := string(tok.Name); got != "x:root" {
+		t.Fatalf("root start name = %q, want x:root", got)
+	}
+
+	tok, err = reader.Next()
+	if err != nil {
+		t.Fatalf("child start error = %v", err)
+	}
+	if got := string(tok.Name); got != "x:child" {
+		t.Fatalf("child start name = %q, want x:child", got)
+	}
+
+	tok, err = reader.Next()
+	if err != nil {
+		t.Fatalf("text error = %v", err)
+	}
+	if got := string(tok.Text); got != "text" {
+		t.Fatalf("text = %q, want text", got)
+	}
+
+	tok, err = reader.Next()
+	if err != nil {
+		t.Fatalf("child end error = %v", err)
+	}
+	if got := string(tok.Name); got != "x:child" {
+		t.Fatalf("child end name = %q, want x:child", got)
+	}
+
+	tok, err = reader.Next()
+	if err != nil {
+		t.Fatalf("root end error = %v", err)
+	}
+	if got := string(tok.Name); got != "x:root" {
+		t.Fatalf("root end name = %q, want x:root", got)
+	}
+}
+
 func TestDecoderIncompleteRootSyntaxErrors(t *testing.T) {
 	tests := []string{
 		"<root>",

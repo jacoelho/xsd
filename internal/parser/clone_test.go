@@ -84,6 +84,10 @@ func TestCloneSchemaForMergeCopiesMetadataAndSlices(t *testing.T) {
 	head := model.QName{Namespace: schema.TargetNamespace, Local: "head"}
 	member := model.QName{Namespace: schema.TargetNamespace, Local: "member"}
 	schema.SubstitutionGroups[head] = []model.QName{member}
+	schema.GlobalDecls = []GlobalDecl{{
+		Kind: GlobalDeclElement,
+		Name: head,
+	}}
 
 	cloned := CloneSchemaForMerge(schema)
 
@@ -101,5 +105,9 @@ func TestCloneSchemaForMergeCopiesMetadataAndSlices(t *testing.T) {
 	}
 	if got := cloned.SubstitutionGroups[head][0]; got != member {
 		t.Fatalf("cloned substitution group member = %v, want %v", got, member)
+	}
+	cloned.GlobalDecls = append(cloned.GlobalDecls, GlobalDecl{Kind: GlobalDeclType, Name: member})
+	if len(schema.GlobalDecls) != 1 {
+		t.Fatalf("original GlobalDecls len = %d, want 1", len(schema.GlobalDecls))
 	}
 }

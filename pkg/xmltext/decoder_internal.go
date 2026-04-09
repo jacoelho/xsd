@@ -65,6 +65,15 @@ var charDataByteClassLUT = func() [256]charDataByteClass {
 	return lut
 }()
 
+var plainCharDataASCIIByteLUT = func() [256]bool {
+	var lut [256]bool
+	for i := range len(lut) {
+		class := charDataByteClassLUT[i]
+		lut[i] = class == charDataByteOK || class == charDataByteGreater
+	}
+	return lut
+}()
+
 // scanPlainCharDataASCII skips a run of safe ASCII char-data bytes while bracketRun == 0.
 // It stops before '&', ']', invalid control bytes, or non-ASCII input.
 func scanPlainCharDataASCII(data []byte, start int) int {
@@ -78,32 +87,22 @@ func scanPlainCharDataASCII(data []byte, start int) int {
 		b5 := data[i+5]
 		b6 := data[i+6]
 		b7 := data[i+7]
-		if !isPlainCharDataASCIIByte(b0) ||
-			!isPlainCharDataASCIIByte(b1) ||
-			!isPlainCharDataASCIIByte(b2) ||
-			!isPlainCharDataASCIIByte(b3) ||
-			!isPlainCharDataASCIIByte(b4) ||
-			!isPlainCharDataASCIIByte(b5) ||
-			!isPlainCharDataASCIIByte(b6) ||
-			!isPlainCharDataASCIIByte(b7) {
+		if !plainCharDataASCIIByteLUT[b0] ||
+			!plainCharDataASCIIByteLUT[b1] ||
+			!plainCharDataASCIIByteLUT[b2] ||
+			!plainCharDataASCIIByteLUT[b3] ||
+			!plainCharDataASCIIByteLUT[b4] ||
+			!plainCharDataASCIIByteLUT[b5] ||
+			!plainCharDataASCIIByteLUT[b6] ||
+			!plainCharDataASCIIByteLUT[b7] {
 			break
 		}
 		i += 8
 	}
-	for i < len(data) && isPlainCharDataASCIIByte(data[i]) {
+	for i < len(data) && plainCharDataASCIIByteLUT[data[i]] {
 		i++
 	}
 	return i
-}
-
-func isPlainCharDataASCIIByte(b byte) bool {
-	if b >= utf8.RuneSelf {
-		return false
-	}
-	if b == '&' || b == ']' {
-		return false
-	}
-	return b >= 0x20 || b == '\t' || b == '\n' || b == '\r'
 }
 
 func validateCharDataRune(data []byte, i int) (int, error) {
@@ -1085,9 +1084,29 @@ func (d *Decoder) scanEndTagInto(dst *rawToken, allowCompact bool) (bool, error)
 	startLine, startColumn := d.line, d.column
 	rawStart := d.pos
 	d.advanceRaw(2)
-	name, err := d.scanQName(allowCompact)
-	if err != nil {
-		return false, err
+	var (
+		name qnameSpan
+		err  error
+	)
+	if len(d.stack) > 0 {
+		name = d.stack[len(d.stack)-1].name
+		matched, matchErr := d.matchExpectedQName(name.Full.bytesUnsafe(), allowCompact)
+		if matchErr != nil {
+			return false, matchErr
+		}
+		if matched {
+			d.advanceName(len(name.Full.bytesUnsafe()))
+		} else {
+			name, err = d.scanQName(allowCompact)
+			if err != nil {
+				return false, err
+			}
+		}
+	} else {
+		name, err = d.scanQName(allowCompact)
+		if err != nil {
+			return false, err
+		}
 	}
 	d.skipWhitespace(allowCompact)
 	if err := d.expectByte('>', allowCompact); err != nil {
@@ -1111,6 +1130,33 @@ func (d *Decoder) scanEndTagInto(dst *rawToken, allowCompact bool) (bool, error)
 	dst.raw = makeSpan(&d.buf, rawStart, rawEnd)
 	dst.isXMLDecl = false
 	return false, nil
+}
+
+func (d *Decoder) matchExpectedQName(expected []byte, allowCompact bool) (bool, error) {
+	if len(expected) == 0 {
+		return false, nil
+	}
+	end := d.pos + len(expected)
+	if err := d.ensureIndex(end-1, allowCompact); err != nil {
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !bytes.Equal(d.buf.data[d.pos:end], expected) {
+		return false, nil
+	}
+	if err := d.ensureIndex(end, allowCompact); err != nil {
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		}
+		return false, err
+	}
+	next := d.buf.data[end]
+	if next >= utf8.RuneSelf {
+		return false, nil
+	}
+	return !nameByteLUT[next], nil
 }
 
 func (d *Decoder) scanPIInto(dst *rawToken, allowCompact bool) (bool, error) {

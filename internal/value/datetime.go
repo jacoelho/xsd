@@ -66,12 +66,12 @@ func parseDateTimeLexical(lexical []byte) (parsedDateTime, error) {
 		return parsedDateTime{}, err
 	}
 	main, tz := SplitTimezone(trimmed)
-	timeIndex := strings.IndexByte(main, 'T')
-	if timeIndex == -1 {
+	before, after, ok := strings.Cut(main, "T")
+	if !ok {
 		return parsedDateTime{}, invalidDateTimeValue(trimmed)
 	}
-	datePart := main[:timeIndex]
-	timePart := main[timeIndex+1:]
+	datePart := before
+	timePart := after
 	year, month, day, ok := ParseDateParts(datePart)
 	if !ok {
 		return parsedDateTime{}, invalidDateTimeValue(trimmed)

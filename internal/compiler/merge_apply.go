@@ -6,7 +6,6 @@ import "github.com/jacoelho/xsd/internal/parser"
 func Apply(target, source *parser.Schema, kind Kind, remap NamespaceMode, insertAt int) error {
 	staging := parser.CloneSchemaForMerge(target)
 	ctx := newMergeContext(staging, source, kind, remap)
-	existingDecls := existingGlobalDecls(&staging.SchemaGraph)
 	ctx.mergeImportedNamespaces()
 	ctx.mergeImportContexts()
 	if err := ctx.mergeElementDecls(); err != nil {
@@ -31,7 +30,7 @@ func Apply(target, source *parser.Schema, kind Kind, remap NamespaceMode, insert
 	if err := ctx.mergeIDAttributes(); err != nil {
 		return err
 	}
-	ctx.mergeGlobalDecls(existingDecls, insertAt)
+	ctx.mergeGlobalDecls(insertAt)
 	*target = *staging
 	return nil
 }

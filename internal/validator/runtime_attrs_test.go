@@ -97,6 +97,77 @@ func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
 	}
 }
 
+func TestValidateAttributesSimpleTypeKeepsAppliedBuffer(t *testing.T) {
+	schema, ids := buildAttrFixtureNoRequired(t)
+	sess := NewSession(schema)
+
+	result, err := sess.ValidateAttributes(ids.typeBase, nil, nil)
+	if err != nil {
+		t.Fatalf("ValidateAttributes complex: %v", err)
+	}
+	if len(result.Applied) == 0 {
+		t.Fatalf("expected applied defaults to seed attrAppliedBuf")
+	}
+	beforeCap := cap(sess.attrAppliedBuf)
+	if beforeCap == 0 {
+		t.Fatalf("attrAppliedBuf cap = 0 after complex validation")
+	}
+
+	xsiAttrs := []Start{{
+		Sym:     schema.Predef.XsiType,
+		NS:      schema.PredefNS.Xsi,
+		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
+		Local:   []byte("type"),
+	}}
+	if _, err := sess.ValidateAttributes(ids.typeSimple, xsiAttrs, nil); err != nil {
+		t.Fatalf("ValidateAttributes simple: %v", err)
+	}
+	if got := cap(sess.attrAppliedBuf); got != beforeCap {
+		t.Fatalf("attrAppliedBuf cap = %d after simple validation, want %d", got, beforeCap)
+	}
+}
+
+func TestValidateAttributesClassifiedWithoutIdentityStorageSkipsStoredAttrs(t *testing.T) {
+	schema, ids := buildAttrFixtureNoRequired(t)
+	sess := NewSession(schema)
+
+	classified, err := sess.classifyAttrs(nil, true)
+	if err != nil {
+		t.Fatalf("classifyAttrs() error = %v", err)
+	}
+	result, err := sess.validateAttributesClassifiedWithStorage(ids.typeBase, nil, nil, classified, false, false)
+	if err != nil {
+		t.Fatalf("validateAttributesClassifiedWithStorage() error = %v", err)
+	}
+	if len(result.Attrs) != 0 {
+		t.Fatalf("stored attrs = %d, want 0", len(result.Attrs))
+	}
+	if len(result.Applied) != 1 {
+		t.Fatalf("applied attrs = %d, want 1", len(result.Applied))
+	}
+	if result.Applied[0].KeyKind != runtime.VKInvalid || result.Applied[0].KeyBytes != nil {
+		t.Fatalf("applied key = (%v, %v), want invalid with nil bytes", result.Applied[0].KeyKind, result.Applied[0].KeyBytes)
+	}
+}
+
+func TestNeedsIdentityAttrs(t *testing.T) {
+	sess := &Session{rt: &runtime.Schema{Elements: make([]runtime.Element, 3)}}
+	if sess.needsIdentityAttrs(1) {
+		t.Fatalf("needsIdentityAttrs() = true without scopes or element constraints")
+	}
+
+	sess.rt.Elements[1].ICLen = 1
+	if !sess.needsIdentityAttrs(1) {
+		t.Fatalf("needsIdentityAttrs() = false for element with constraints")
+	}
+
+	sess.rt.Elements[1].ICLen = 0
+	sess.icState.Scopes.Push(Scope{})
+	if !sess.needsIdentityAttrs(1) {
+		t.Fatalf("needsIdentityAttrs() = false with active scopes")
+	}
+}
+
 func TestValidateAttributesRejectsUnknownXsiAttribute(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)

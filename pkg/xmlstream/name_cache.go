@@ -56,6 +56,35 @@ func (c *resolvedNameCache) rememberRecent(entry resolvedNameEntry) {
 	}
 }
 
+func (c *resolvedNameCache) insert(namespace, local string) resolvedNameEntry {
+	c.nextID++
+	entry := resolvedNameEntry{
+		qname: QName{Namespace: namespace, Local: local},
+		id:    c.nextID,
+	}
+	c.table[qnameKey{namespace: namespace, local: local}] = entry
+	c.rememberRecent(entry)
+	return entry
+}
+
+func (c *resolvedNameCache) intern(namespace, local string) resolvedNameEntry {
+	if c == nil {
+		return resolvedNameEntry{}
+	}
+	if c.table == nil {
+		c.table = make(map[qnameKey]resolvedNameEntry, 32)
+	}
+	if entry, ok := c.lookupRecent(namespace, local); ok {
+		return entry
+	}
+	key := qnameKey{namespace: namespace, local: local}
+	if entry, ok := c.table[key]; ok {
+		c.rememberRecent(entry)
+		return entry
+	}
+	return c.insert(namespace, local)
+}
+
 func (c *resolvedNameCache) internBytes(namespace string, local []byte) resolvedNameEntry {
 	if c == nil {
 		return resolvedNameEntry{}
@@ -64,22 +93,7 @@ func (c *resolvedNameCache) internBytes(namespace string, local []byte) resolved
 		c.table = make(map[qnameKey]resolvedNameEntry, 32)
 	}
 	if len(local) == 0 {
-		if entry, ok := c.lookupRecent(namespace, ""); ok {
-			return entry
-		}
-		key := qnameKey{namespace: namespace, local: ""}
-		if entry, ok := c.table[key]; ok {
-			c.rememberRecent(entry)
-			return entry
-		}
-		c.nextID++
-		entry := resolvedNameEntry{
-			qname: QName{Namespace: namespace, Local: ""},
-			id:    c.nextID,
-		}
-		c.table[key] = entry
-		c.rememberRecent(entry)
-		return entry
+		return c.intern(namespace, "")
 	}
 	localKey := unsafeString(local)
 	if entry, ok := c.lookupRecent(namespace, localKey); ok {
@@ -90,13 +104,5 @@ func (c *resolvedNameCache) internBytes(namespace string, local []byte) resolved
 		c.rememberRecent(entry)
 		return entry
 	}
-	localStable := string(local)
-	c.nextID++
-	entry := resolvedNameEntry{
-		qname: QName{Namespace: namespace, Local: localStable},
-		id:    c.nextID,
-	}
-	c.table[qnameKey{namespace: namespace, local: localStable}] = entry
-	c.rememberRecent(entry)
-	return entry
+	return c.insert(namespace, string(local))
 }

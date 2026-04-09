@@ -120,6 +120,56 @@ func TestApplyDefaultsStoresKeysAndTracksValues(t *testing.T) {
 	}
 }
 
+func TestApplyDefaultsWithoutStoreAttrsSkipsKeyMaterialization(t *testing.T) {
+	t.Parallel()
+
+	uses := []runtime.AttrUse{{
+		Name:      11,
+		Validator: 21,
+	}}
+	selection := Selection{
+		Present: true,
+		Value:   runtime.ValueRef{Present: true, Off: 3, Len: 4},
+	}
+
+	tracked := 0
+	materializeCalls := 0
+	applied, err := ApplyDefaults(
+		uses,
+		nil,
+		false,
+		false,
+		make([]Applied, 0, 8),
+		func(*runtime.AttrUse) Selection { return selection },
+		func(runtime.ValidatorID) bool { return false },
+		func(runtime.ValueRef) []byte { return []byte("canon") },
+		func(runtime.ValidatorID, []byte, runtime.ValidatorID) error {
+			tracked++
+			return nil
+		},
+		func(runtime.ValidatorID, []byte, runtime.ValidatorID, runtime.ValueKeyRef) (runtime.ValueKind, []byte, error) {
+			materializeCalls++
+			return runtime.VKString, []byte("derived"), nil
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("ApplyDefaults() error = %v", err)
+	}
+	if tracked != 1 {
+		t.Fatalf("tracked = %d, want 1", tracked)
+	}
+	if materializeCalls != 0 {
+		t.Fatalf("materializeCalls = %d, want 0", materializeCalls)
+	}
+	if len(applied) != 1 {
+		t.Fatalf("len(applied) = %d, want 1", len(applied))
+	}
+	if got := applied[0]; got.Name != 11 || got.KeyKind != runtime.VKInvalid || len(got.KeyBytes) != 0 {
+		t.Fatalf("applied[0] = %+v", got)
+	}
+}
+
 func TestApplyDefaultsPropagatesTrackError(t *testing.T) {
 	t.Parallel()
 

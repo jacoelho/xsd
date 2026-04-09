@@ -18,12 +18,16 @@ func (s *Session) normalizeValueInput(meta runtime.ValidatorMeta, lexical []byte
 	if !opts.ApplyWhitespace {
 		return lexical, func() {}
 	}
+	mode := runtimeWhitespaceValueMode(meta.WhiteSpace)
 	if !plan.UseScratchNormalization {
-		normalized := value.NormalizeWhitespace(runtimeWhitespaceValueMode(meta.WhiteSpace), lexical, s.normBuf)
+		normalized := value.NormalizeWhitespace(mode, lexical, s.normBuf)
 		return normalized, func() {}
 	}
+	if !value.NeedsWhitespaceNormalization(mode, lexical) {
+		return lexical, func() {}
+	}
 	buf := s.pushNormBuf(len(lexical))
-	normalized := value.NormalizeWhitespace(runtimeWhitespaceValueMode(meta.WhiteSpace), lexical, buf)
+	normalized := value.NormalizeWhitespace(mode, lexical, buf)
 	return normalized, s.popNormBuf
 }
 
@@ -32,7 +36,7 @@ func (s *Session) validateValueWithoutCanonical(id runtime.ValidatorID, meta run
 	if err != nil {
 		return nil, err
 	}
-	if err := s.trackValueIDs(id, canon, resolver, opts, metrics); err != nil {
+	if err := s.trackValueIDs(id, meta, canon, resolver, opts, metrics); err != nil {
 		return nil, err
 	}
 	return canon, nil
@@ -68,7 +72,7 @@ func (s *Session) validateValueWithCanonical(
 	}
 	s.keyTmp = keyBuf
 	canon = s.finishCanonicalValue(canon, opts, plan, metrics, metricsInternal)
-	if err := s.trackValueIDs(id, canon, resolver, opts, metrics); err != nil {
+	if err := s.trackValueIDs(id, meta, canon, resolver, opts, metrics); err != nil {
 		return nil, err
 	}
 	return canon, nil
@@ -81,8 +85,11 @@ func (s *Session) finishCanonicalValue(canonical []byte, opts valueOptions, plan
 	return s.finalizeValue(canonical, opts, metrics, metricsInternal)
 }
 
-func (s *Session) trackValueIDs(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, opts valueOptions, metrics *ValueMetrics) error {
+func (s *Session) trackValueIDs(id runtime.ValidatorID, meta runtime.ValidatorMeta, canonical []byte, resolver value.NSResolver, opts valueOptions, metrics *ValueMetrics) error {
 	if !opts.TrackIDs {
+		return nil
+	}
+	if meta.Flags&runtime.ValidatorMayTrackIDs == 0 {
 		return nil
 	}
 	return s.trackValidatedIDs(id, canonical, resolver, metrics)

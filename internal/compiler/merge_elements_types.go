@@ -1,12 +1,19 @@
 package compiler
 
-import "github.com/jacoelho/xsd/internal/model"
+import (
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
+)
 
 func (c *mergeContext) mergeElementDecls() error {
 	return mergeNamed(
+		orderedDeclNames(c.sourceGraph, parser.GlobalDeclElement, c.sourceGraph.ElementDecls),
 		c.sourceGraph.ElementDecls,
 		c.targetGraph.ElementDecls,
 		c.targetMeta.ElementOrigins,
+		c.elementDeclsForInsert,
+		c.elementOriginsForInsert,
+		func(name model.QName) { c.recordInsertedGlobalDecl(parser.GlobalDeclElement, name) },
 		c.remapQName,
 		func(qname model.QName) string { return c.originFor(c.sourceMeta.ElementOrigins, qname) },
 		c.elementDeclForInsert,
@@ -41,9 +48,13 @@ func (c *mergeContext) elementDeclForInsert(decl *model.ElementDecl) *model.Elem
 
 func (c *mergeContext) mergeTypeDefs() error {
 	return mergeNamed(
+		orderedDeclNames(c.sourceGraph, parser.GlobalDeclType, c.sourceGraph.TypeDefs),
 		c.sourceGraph.TypeDefs,
 		c.targetGraph.TypeDefs,
 		c.targetMeta.TypeOrigins,
+		c.typeDefsForInsert,
+		c.typeOriginsForInsert,
+		func(name model.QName) { c.recordInsertedGlobalDecl(parser.GlobalDeclType, name) },
 		c.remapQName,
 		func(qname model.QName) string { return c.originFor(c.sourceMeta.TypeOrigins, qname) },
 		c.copyType,

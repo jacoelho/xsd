@@ -72,27 +72,32 @@ func CloneSchema(sch *Schema) *Schema {
 
 func cloneSchemaGraphForMerge(src SchemaGraph) SchemaGraph {
 	return SchemaGraph{
-		Groups:             maps.Clone(src.Groups),
-		TypeDefs:           maps.Clone(src.TypeDefs),
-		AttributeDecls:     maps.Clone(src.AttributeDecls),
+		// Merge staging only mutates declaration maps when a merge inserts new entries.
+		// Keep them shared here and let the compiler take a copy on first write.
+		Groups:             src.Groups,
+		TypeDefs:           src.TypeDefs,
+		AttributeDecls:     src.AttributeDecls,
 		SubstitutionGroups: copyQNameSliceMap(src.SubstitutionGroups),
-		AttributeGroups:    maps.Clone(src.AttributeGroups),
-		ElementDecls:       maps.Clone(src.ElementDecls),
-		NotationDecls:      maps.Clone(src.NotationDecls),
-		GlobalDecls:        slices.Clone(src.GlobalDecls),
+		AttributeGroups:    src.AttributeGroups,
+		ElementDecls:       src.ElementDecls,
+		NotationDecls:      src.NotationDecls,
+		// Merge staging only needs copy-on-write semantics for GlobalDecls.
+		GlobalDecls: src.GlobalDecls,
 	}
 }
 
 func cloneSchemaMeta(src SchemaMeta) SchemaMeta {
 	return SchemaMeta{
-		ImportContexts:        copyImportContexts(src.ImportContexts),
-		ElementOrigins:        maps.Clone(src.ElementOrigins),
-		TypeOrigins:           maps.Clone(src.TypeOrigins),
-		AttributeOrigins:      maps.Clone(src.AttributeOrigins),
-		AttributeGroupOrigins: maps.Clone(src.AttributeGroupOrigins),
+		ImportContexts: copyImportContexts(src.ImportContexts),
+		// Merge staging only mutates origin maps when new declarations are inserted.
+		// Keep them shared here and let the compiler take a copy on first write.
+		ElementOrigins:        src.ElementOrigins,
+		TypeOrigins:           src.TypeOrigins,
+		AttributeOrigins:      src.AttributeOrigins,
+		AttributeGroupOrigins: src.AttributeGroupOrigins,
 		ImportedNamespaces:    copyImportedNamespaces(src.ImportedNamespaces),
-		GroupOrigins:          maps.Clone(src.GroupOrigins),
-		NotationOrigins:       maps.Clone(src.NotationOrigins),
+		GroupOrigins:          src.GroupOrigins,
+		NotationOrigins:       src.NotationOrigins,
 		IDAttributes:          maps.Clone(src.IDAttributes),
 		NamespaceDecls:        maps.Clone(src.NamespaceDecls),
 		Location:              src.Location,

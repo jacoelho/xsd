@@ -30,6 +30,18 @@ func NormalizeWhitespace(mode WhitespaceMode, in, dst []byte) []byte {
 	}
 }
 
+// NeedsWhitespaceNormalization reports whether NormalizeWhitespace would change the input.
+func NeedsWhitespaceNormalization(mode WhitespaceMode, in []byte) bool {
+	switch mode {
+	case WhitespaceReplace:
+		return needsReplaceWhitespace(in)
+	case WhitespaceCollapse:
+		return needsCollapse(in)
+	default:
+		return false
+	}
+}
+
 // TrimXMLWhitespace removes leading and trailing XML whitespace without allocation.
 func TrimXMLWhitespace(in []byte) []byte {
 	start := 0
@@ -135,14 +147,7 @@ func SplitXMLWhitespace(in []byte) [][]byte {
 }
 
 func replaceWhitespace(in, dst []byte) []byte {
-	needs := false
-	for _, b := range in {
-		if IsXMLWhitespaceByte(b) && b != ' ' {
-			needs = true
-			break
-		}
-	}
-	if !needs {
+	if !needsReplaceWhitespace(in) {
 		return in
 	}
 	out := grow(dst, len(in))
@@ -153,6 +158,15 @@ func replaceWhitespace(in, dst []byte) []byte {
 		}
 	}
 	return out
+}
+
+func needsReplaceWhitespace(in []byte) bool {
+	for _, b := range in {
+		if IsXMLWhitespaceByte(b) && b != ' ' {
+			return true
+		}
+	}
+	return false
 }
 
 func collapseWhitespace(in, dst []byte) []byte {
