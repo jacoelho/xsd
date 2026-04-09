@@ -8,78 +8,8 @@ import (
 )
 
 func (c *artifactCompiler) addAtomicValidator(kind runtime.ValidatorKind, ws runtime.WhitespaceMode, facets runtime.FacetProgramRef, stringKind runtime.StringKind, intKind runtime.IntegerKind) runtime.ValidatorID {
-	index := uint32(0)
-	switch kind {
-	case runtime.VString:
-		index = uint32(len(c.bundle.String))
-		if stringKind == 0 {
-			stringKind = runtime.StringAny
-		}
-		c.bundle.String = append(c.bundle.String, runtime.StringValidator{Kind: stringKind})
-	case runtime.VBoolean:
-		index = uint32(len(c.bundle.Boolean))
-		c.bundle.Boolean = append(c.bundle.Boolean, runtime.BooleanValidator{})
-	case runtime.VDecimal:
-		index = uint32(len(c.bundle.Decimal))
-		c.bundle.Decimal = append(c.bundle.Decimal, runtime.DecimalValidator{})
-	case runtime.VInteger:
-		index = uint32(len(c.bundle.Integer))
-		if intKind == 0 {
-			intKind = runtime.IntegerAny
-		}
-		c.bundle.Integer = append(c.bundle.Integer, runtime.IntegerValidator{Kind: intKind})
-	case runtime.VFloat:
-		index = uint32(len(c.bundle.Float))
-		c.bundle.Float = append(c.bundle.Float, runtime.FloatValidator{})
-	case runtime.VDouble:
-		index = uint32(len(c.bundle.Double))
-		c.bundle.Double = append(c.bundle.Double, runtime.DoubleValidator{})
-	case runtime.VDuration:
-		index = uint32(len(c.bundle.Duration))
-		c.bundle.Duration = append(c.bundle.Duration, runtime.DurationValidator{})
-	case runtime.VDateTime:
-		index = uint32(len(c.bundle.DateTime))
-		c.bundle.DateTime = append(c.bundle.DateTime, runtime.DateTimeValidator{})
-	case runtime.VTime:
-		index = uint32(len(c.bundle.Time))
-		c.bundle.Time = append(c.bundle.Time, runtime.TimeValidator{})
-	case runtime.VDate:
-		index = uint32(len(c.bundle.Date))
-		c.bundle.Date = append(c.bundle.Date, runtime.DateValidator{})
-	case runtime.VGYearMonth:
-		index = uint32(len(c.bundle.GYearMonth))
-		c.bundle.GYearMonth = append(c.bundle.GYearMonth, runtime.GYearMonthValidator{})
-	case runtime.VGYear:
-		index = uint32(len(c.bundle.GYear))
-		c.bundle.GYear = append(c.bundle.GYear, runtime.GYearValidator{})
-	case runtime.VGMonthDay:
-		index = uint32(len(c.bundle.GMonthDay))
-		c.bundle.GMonthDay = append(c.bundle.GMonthDay, runtime.GMonthDayValidator{})
-	case runtime.VGDay:
-		index = uint32(len(c.bundle.GDay))
-		c.bundle.GDay = append(c.bundle.GDay, runtime.GDayValidator{})
-	case runtime.VGMonth:
-		index = uint32(len(c.bundle.GMonth))
-		c.bundle.GMonth = append(c.bundle.GMonth, runtime.GMonthValidator{})
-	case runtime.VAnyURI:
-		index = uint32(len(c.bundle.AnyURI))
-		c.bundle.AnyURI = append(c.bundle.AnyURI, runtime.AnyURIValidator{})
-	case runtime.VQName:
-		index = uint32(len(c.bundle.QName))
-		c.bundle.QName = append(c.bundle.QName, runtime.QNameValidator{})
-	case runtime.VNotation:
-		index = uint32(len(c.bundle.Notation))
-		c.bundle.Notation = append(c.bundle.Notation, runtime.NotationValidator{})
-	case runtime.VHexBinary:
-		index = uint32(len(c.bundle.HexBinary))
-		c.bundle.HexBinary = append(c.bundle.HexBinary, runtime.HexBinaryValidator{})
-	case runtime.VBase64Binary:
-		index = uint32(len(c.bundle.Base64Binary))
-		c.bundle.Base64Binary = append(c.bundle.Base64Binary, runtime.Base64BinaryValidator{})
-	default:
-		index = uint32(len(c.bundle.String))
-		c.bundle.String = append(c.bundle.String, runtime.StringValidator{})
-	}
+	stringKind, intKind = normalizeAtomicValidatorKinds(kind, stringKind, intKind)
+	index := c.appendAtomicValidator(kind, stringKind, intKind)
 
 	id := runtime.ValidatorID(len(c.bundle.Meta))
 	flags := c.validatorFlags(facets)
@@ -94,6 +24,189 @@ func (c *artifactCompiler) addAtomicValidator(kind runtime.ValidatorKind, ws run
 		Flags:      flags,
 	})
 	return id
+}
+
+func normalizeAtomicValidatorKinds(kind runtime.ValidatorKind, stringKind runtime.StringKind, intKind runtime.IntegerKind) (runtime.StringKind, runtime.IntegerKind) {
+	if kind == runtime.VString && stringKind == 0 {
+		stringKind = runtime.StringAny
+	}
+	if kind == runtime.VInteger && intKind == 0 {
+		intKind = runtime.IntegerAny
+	}
+	return stringKind, intKind
+}
+
+func appendValidatorSlot[T any](dst []T, value T) ([]T, uint32) {
+	index := uint32(len(dst))
+	dst = append(dst, value)
+	return dst, index
+}
+
+func (c *artifactCompiler) appendAtomicValidator(kind runtime.ValidatorKind, stringKind runtime.StringKind, intKind runtime.IntegerKind) uint32 {
+	switch kind {
+	case runtime.VString:
+		return c.appendStringValidator(runtime.StringValidator{Kind: stringKind})
+	case runtime.VBoolean:
+		return c.appendBooleanValidator(runtime.BooleanValidator{})
+	case runtime.VDecimal:
+		return c.appendDecimalValidator(runtime.DecimalValidator{})
+	case runtime.VInteger:
+		return c.appendIntegerValidator(runtime.IntegerValidator{Kind: intKind})
+	case runtime.VFloat:
+		return c.appendFloatValidator(runtime.FloatValidator{})
+	case runtime.VDouble:
+		return c.appendDoubleValidator(runtime.DoubleValidator{})
+	case runtime.VDuration:
+		return c.appendDurationValidator(runtime.DurationValidator{})
+	case runtime.VDateTime:
+		return c.appendDateTimeValidator(runtime.DateTimeValidator{})
+	case runtime.VTime:
+		return c.appendTimeValidator(runtime.TimeValidator{})
+	case runtime.VDate:
+		return c.appendDateValidator(runtime.DateValidator{})
+	case runtime.VGYearMonth:
+		return c.appendGYearMonthValidator(runtime.GYearMonthValidator{})
+	case runtime.VGYear:
+		return c.appendGYearValidator(runtime.GYearValidator{})
+	case runtime.VGMonthDay:
+		return c.appendGMonthDayValidator(runtime.GMonthDayValidator{})
+	case runtime.VGDay:
+		return c.appendGDayValidator(runtime.GDayValidator{})
+	case runtime.VGMonth:
+		return c.appendGMonthValidator(runtime.GMonthValidator{})
+	case runtime.VAnyURI:
+		return c.appendAnyURIValidator(runtime.AnyURIValidator{})
+	case runtime.VQName:
+		return c.appendQNameValidator(runtime.QNameValidator{})
+	case runtime.VNotation:
+		return c.appendNotationValidator(runtime.NotationValidator{})
+	case runtime.VHexBinary:
+		return c.appendHexBinaryValidator(runtime.HexBinaryValidator{})
+	case runtime.VBase64Binary:
+		return c.appendBase64BinaryValidator(runtime.Base64BinaryValidator{})
+	default:
+		return c.appendStringValidator(runtime.StringValidator{})
+	}
+}
+
+func (c *artifactCompiler) appendStringValidator(value runtime.StringValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.String, valueIndex = appendValidatorSlot(c.bundle.String, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendBooleanValidator(value runtime.BooleanValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Boolean, valueIndex = appendValidatorSlot(c.bundle.Boolean, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendDecimalValidator(value runtime.DecimalValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Decimal, valueIndex = appendValidatorSlot(c.bundle.Decimal, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendIntegerValidator(value runtime.IntegerValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Integer, valueIndex = appendValidatorSlot(c.bundle.Integer, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendFloatValidator(value runtime.FloatValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Float, valueIndex = appendValidatorSlot(c.bundle.Float, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendDoubleValidator(value runtime.DoubleValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Double, valueIndex = appendValidatorSlot(c.bundle.Double, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendDurationValidator(value runtime.DurationValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Duration, valueIndex = appendValidatorSlot(c.bundle.Duration, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendDateTimeValidator(value runtime.DateTimeValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.DateTime, valueIndex = appendValidatorSlot(c.bundle.DateTime, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendTimeValidator(value runtime.TimeValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Time, valueIndex = appendValidatorSlot(c.bundle.Time, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendDateValidator(value runtime.DateValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Date, valueIndex = appendValidatorSlot(c.bundle.Date, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendGYearMonthValidator(value runtime.GYearMonthValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.GYearMonth, valueIndex = appendValidatorSlot(c.bundle.GYearMonth, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendGYearValidator(value runtime.GYearValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.GYear, valueIndex = appendValidatorSlot(c.bundle.GYear, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendGMonthDayValidator(value runtime.GMonthDayValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.GMonthDay, valueIndex = appendValidatorSlot(c.bundle.GMonthDay, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendGDayValidator(value runtime.GDayValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.GDay, valueIndex = appendValidatorSlot(c.bundle.GDay, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendGMonthValidator(value runtime.GMonthValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.GMonth, valueIndex = appendValidatorSlot(c.bundle.GMonth, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendAnyURIValidator(value runtime.AnyURIValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.AnyURI, valueIndex = appendValidatorSlot(c.bundle.AnyURI, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendQNameValidator(value runtime.QNameValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.QName, valueIndex = appendValidatorSlot(c.bundle.QName, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendNotationValidator(value runtime.NotationValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Notation, valueIndex = appendValidatorSlot(c.bundle.Notation, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendHexBinaryValidator(value runtime.HexBinaryValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.HexBinary, valueIndex = appendValidatorSlot(c.bundle.HexBinary, value)
+	return valueIndex
+}
+
+func (c *artifactCompiler) appendBase64BinaryValidator(value runtime.Base64BinaryValidator) uint32 {
+	var valueIndex uint32
+	c.bundle.Base64Binary, valueIndex = appendValidatorSlot(c.bundle.Base64Binary, value)
+	return valueIndex
 }
 
 func (c *artifactCompiler) addListValidator(ws runtime.WhitespaceMode, facets runtime.FacetProgramRef, item runtime.ValidatorID) runtime.ValidatorID {

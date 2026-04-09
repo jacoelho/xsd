@@ -29,108 +29,133 @@ func (d *Decoder) scanStartTagInto(dst *rawToken, allowCompact bool) (bool, erro
 	rawStart := d.pos
 	d.advanceRaw(1)
 
-	d.attrBuf = d.attrBuf[:0]
-	d.attrNeeds = d.attrNeeds[:0]
-	d.attrRaw = d.attrRaw[:0]
-	d.attrRawNeeds = d.attrRawNeeds[:0]
-	d.attrValueBuf.data = d.attrValueBuf.data[:0]
-	d.resetAttrSeen()
+	d.resetStartTagState()
 
 	name, err := d.scanQName(allowCompact)
 	if err != nil {
 		return false, err
 	}
 
-	space := d.skipWhitespace(allowCompact)
-	for {
-		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-			if errors.Is(err, io.EOF) {
-				return false, errUnexpectedEOF
-			}
-			return false, err
-		}
-		b := d.buf.data[d.pos]
-		if b == '/' || b == '>' {
-			break
-		}
-		if !space {
-			return false, errInvalidToken
-		}
-		attrName, err := d.scanQName(allowCompact)
-		if err != nil {
-			return false, err
-		}
-		hash, err := d.markAttrSeen(&attrName)
-		if err != nil {
-			return false, err
-		}
-		d.skipWhitespace(allowCompact)
-		err = d.expectByte('=', allowCompact)
-		if err != nil {
-			return false, err
-		}
-		d.skipWhitespace(allowCompact)
-		err = d.ensureIndex(d.pos, allowCompact)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return false, errUnexpectedEOF
-			}
-			return false, err
-		}
-		quote := d.buf.data[d.pos]
-		if quote != '\'' && quote != '"' {
-			return false, errInvalidToken
-		}
-		d.advance(1)
-		rawSpan, valueSpan, needs, rawNeeds, err := d.scanAttrValue(quote, allowCompact)
-		if err != nil {
-			return false, err
-		}
-
-		attrName = d.internQNameHash(&attrName, hash)
-		d.attrBuf = append(d.attrBuf, attrSpan{Name: attrName, ValueSpan: valueSpan})
-		d.attrNeeds = append(d.attrNeeds, needs)
-		d.attrRaw = append(d.attrRaw, rawSpan)
-		d.attrRawNeeds = append(d.attrRawNeeds, rawNeeds)
-		if d.opts.maxAttrs > 0 && len(d.attrBuf) > d.opts.maxAttrs {
-			return false, errAttrLimit
-		}
-		space = d.skipWhitespace(allowCompact)
+	if err := d.scanStartTagAttributes(allowCompact); err != nil {
+		return false, err
 	}
 
-	selfClosing := false
-	switch d.buf.data[d.pos] {
-	case '/':
-		selfClosing = true
-		d.advance(1)
-		if err := d.expectByte('>', allowCompact); err != nil {
-			return false, err
-		}
-	case '>':
-		d.advance(1)
-	default:
-		return false, errInvalidToken
+	selfClosing, err := d.scanStartTagClose(allowCompact)
+	if err != nil {
+		return false, err
 	}
 
 	rawEnd := d.pos
 	if d.opts.maxTokenSize > 0 && rawEnd-rawStart > d.opts.maxTokenSize {
 		return false, errTokenTooLarge
 	}
+	setStartElementToken(dst, name, d.attrBuf, d.attrNeeds, d.attrRaw, d.attrRawNeeds, startLine, startColumn, makeSpan(&d.buf, rawStart, rawEnd))
+	return selfClosing, nil
+}
 
+func (d *Decoder) resetStartTagState() {
+	d.attrBuf = d.attrBuf[:0]
+	d.attrNeeds = d.attrNeeds[:0]
+	d.attrRaw = d.attrRaw[:0]
+	d.attrRawNeeds = d.attrRawNeeds[:0]
+	d.attrValueBuf.data = d.attrValueBuf.data[:0]
+	d.resetAttrSeen()
+}
+
+func (d *Decoder) scanStartTagAttributes(allowCompact bool) error {
+	space := d.skipWhitespace(allowCompact)
+	for {
+		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
+			if errors.Is(err, io.EOF) {
+				return errUnexpectedEOF
+			}
+			return err
+		}
+		b := d.buf.data[d.pos]
+		if b == '/' || b == '>' {
+			return nil
+		}
+		if !space {
+			return errInvalidToken
+		}
+		if err := d.scanStartTagAttribute(allowCompact); err != nil {
+			return err
+		}
+		space = d.skipWhitespace(allowCompact)
+	}
+}
+
+func (d *Decoder) scanStartTagAttribute(allowCompact bool) error {
+	attrName, err := d.scanQName(allowCompact)
+	if err != nil {
+		return err
+	}
+	hash, err := d.markAttrSeen(&attrName)
+	if err != nil {
+		return err
+	}
+	d.skipWhitespace(allowCompact)
+	if err := d.expectByte('=', allowCompact); err != nil {
+		return err
+	}
+	d.skipWhitespace(allowCompact)
+	if err := d.ensureIndex(d.pos, allowCompact); err != nil {
+		if errors.Is(err, io.EOF) {
+			return errUnexpectedEOF
+		}
+		return err
+	}
+	quote := d.buf.data[d.pos]
+	if quote != '\'' && quote != '"' {
+		return errInvalidToken
+	}
+	d.advance(1)
+	rawSpan, valueSpan, needs, rawNeeds, err := d.scanAttrValue(quote, allowCompact)
+	if err != nil {
+		return err
+	}
+
+	attrName = d.internQNameHash(&attrName, hash)
+	d.attrBuf = append(d.attrBuf, attrSpan{Name: attrName, ValueSpan: valueSpan})
+	d.attrNeeds = append(d.attrNeeds, needs)
+	d.attrRaw = append(d.attrRaw, rawSpan)
+	d.attrRawNeeds = append(d.attrRawNeeds, rawNeeds)
+	if d.opts.maxAttrs > 0 && len(d.attrBuf) > d.opts.maxAttrs {
+		return errAttrLimit
+	}
+	return nil
+}
+
+func (d *Decoder) scanStartTagClose(allowCompact bool) (bool, error) {
+	switch d.buf.data[d.pos] {
+	case '/':
+		d.advance(1)
+		if err := d.expectByte('>', allowCompact); err != nil {
+			return false, err
+		}
+		return true, nil
+	case '>':
+		d.advance(1)
+		return false, nil
+	default:
+		return false, errInvalidToken
+	}
+}
+
+func setStartElementToken(dst *rawToken, name qnameSpan, attrs []attrSpan, attrNeeds []bool, attrRaw []span, attrRawNeeds []bool, line, column int, raw span) {
 	dst.kind = KindStartElement
 	dst.name = name
-	dst.attrs = d.attrBuf
-	dst.attrNeeds = d.attrNeeds
-	dst.attrRaw = d.attrRaw
-	dst.attrRawNeeds = d.attrRawNeeds
+	dst.attrs = attrs
+	dst.attrNeeds = attrNeeds
+	dst.attrRaw = attrRaw
+	dst.attrRawNeeds = attrRawNeeds
 	dst.text = span{}
 	dst.textNeeds = false
 	dst.textRawNeeds = false
-	dst.line = startLine
-	dst.column = startColumn
-	dst.raw = makeSpan(&d.buf, rawStart, rawEnd)
+	dst.line = line
+	dst.column = column
+	dst.raw = raw
 	dst.isXMLDecl = false
-	return selfClosing, nil
 }
 
 func (d *Decoder) scanAttrValue(quote byte, allowCompact bool) (span, span, bool, bool, error) {
