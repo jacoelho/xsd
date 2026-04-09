@@ -48,6 +48,7 @@ func TestValidateComplexAttrsMarksPresent(t *testing.T) {
 		classified.Classes,
 		nil,
 		true,
+		true,
 		sess.attrState.PrepareValidated(true, len(startAttrs)),
 	)
 	if err != nil {

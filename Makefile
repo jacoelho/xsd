@@ -5,13 +5,17 @@ export GOBIN = $(CURDIR)/bin
 GML_INSTANCE_PATH = testdata/gml/example.gml
 GML_ENTRY_SCHEMA = testdata/gml/xsd/LandCoverVector.xsd
 GML_INSTANCE_MAX_TOKEN_SIZE = 134217728
+XMLLINT_SOURCE_DIRS = . cmd errors internal pkg
+XMLLINT_SOURCES = $(shell find cmd errors internal pkg -type f -name '*.go') $(shell find . -maxdepth 1 -type f -name '*.go')
 
 $(GOBIN)/staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 
 .PHONY: xmllint
-xmllint:
-	go build -o $(GOBIN)/xmllint ./cmd/xmllint
+xmllint: $(GOBIN)/xmllint
+
+$(GOBIN)/xmllint: $(XMLLINT_SOURCE_DIRS) $(XMLLINT_SOURCES) go.mod
+	go build -o $@ ./cmd/xmllint
 
 .PHONY: staticcheck
 staticcheck: $(GOBIN)/staticcheck
@@ -29,6 +33,6 @@ test: testdata/xsdtests
 	go test -timeout 2m -race -shuffle=on ./...
 
 .PHONY: gml
-gml: xmllint
+gml: $(GOBIN)/xmllint
 	go run ./testdata/gml/setup.go prepare
 	/usr/bin/time $(GOBIN)/xmllint --schema "$(GML_ENTRY_SCHEMA)" --instance-max-token-size "$(GML_INSTANCE_MAX_TOKEN_SIZE)" "$(GML_INSTANCE_PATH)"

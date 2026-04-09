@@ -1,14 +1,46 @@
 package parser
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
+
+// Match pkg/xmlstream.readerBufferSize so xmlstream.NewReader can reuse
+// the buffered reader instead of allocating a second one per schema parse.
+const parseReaderBufferSize = 256 * 1024
+
+type emptySource struct{}
+
+func (emptySource) Read([]byte) (int, error) {
+	return 0, io.EOF
+}
+
+var parseReaderPool = sync.Pool{
+	New: func() any {
+		return bufio.NewReaderSize(emptySource{}, parseReaderBufferSize)
+	},
+}
+
+func acquireParseReader(src io.Reader) *bufio.Reader {
+	reader := parseReaderPool.Get().(*bufio.Reader)
+	reader.Reset(src)
+	return reader
+}
+
+func releaseParseReader(reader *bufio.Reader) {
+	if reader == nil {
+		return
+	}
+	reader.Reset(emptySource{})
+	parseReaderPool.Put(reader)
+}
 
 // ParseError represents a schema parsing error with an error code
 type ParseError struct {
@@ -107,7 +139,10 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *DocumentPool, opts ...xm
 	if pool == nil {
 		pool = NewDocumentPool()
 	}
-	reader, err := xmlstream.NewReader(r, opts...)
+	buffered := acquireParseReader(r)
+	defer releaseParseReader(buffered)
+
+	reader, err := xmlstream.NewReader(buffered, opts...)
 	if err != nil {
 		return nil, newParseError(fmt.Errorf("xml reader: %w", err))
 	}

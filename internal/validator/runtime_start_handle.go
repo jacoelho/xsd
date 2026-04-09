@@ -61,7 +61,7 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 	}
 	result := event.Result
 
-	attrResult, err := s.validateAttributesClassified(result.Type, attrs, resolver, classified)
+	attrResult, err := s.validateAttributesClassifiedWithStorage(result.Type, attrs, resolver, classified, s.needsIdentityAttrs(result.Elem), false)
 	if err != nil {
 		s.popNamespaceScope()
 		return err

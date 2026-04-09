@@ -62,7 +62,7 @@ func ApplyDefaults(
 	materializeKey func(runtime.ValidatorID, []byte, runtime.ValidatorID, runtime.ValueKeyRef) (runtime.ValueKind, []byte, error),
 	storeKey func([]byte) []byte,
 ) ([]Applied, error) {
-	applied = prepareApplied(applied, len(uses))
+	applied = prepareApplied(applied, selectedAppliedCount(uses, present, selectAttr))
 
 	for i := range uses {
 		use := &uses[i]
@@ -112,6 +112,26 @@ func ApplyDefaults(
 	}
 
 	return applied, nil
+}
+
+func selectedAppliedCount(uses []runtime.AttrUse, present []bool, selectAttr func(*runtime.AttrUse) Selection) int {
+	count := 0
+	for i := range uses {
+		use := &uses[i]
+		if use.Use == runtime.AttrProhibited {
+			continue
+		}
+		if i < len(present) && present[i] {
+			continue
+		}
+		if use.Use == runtime.AttrRequired {
+			continue
+		}
+		if selectAttr(use).Present {
+			count++
+		}
+	}
+	return count
 }
 
 func prepareApplied(applied []Applied, count int) []Applied {
