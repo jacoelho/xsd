@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
@@ -24,17 +25,17 @@ func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl,
 			descendantNext = true
 			continue
 
-		case runtime.AxisSelf:
-			if descendantNext {
-				if step.Test.Any {
-					return nil, fmt.Errorf("%w: descendant self step", ErrXPathUnresolvable)
+			case runtime.AxisSelf:
+				if descendantNext {
+					if step.Test.Any {
+						return nil, fmt.Errorf("%w: descendant self step", ErrXPathUnresolvable)
+					}
+					return nil, fmt.Errorf("xpath step is missing a node test")
 				}
-				return nil, fmt.Errorf("xpath step is missing a node test")
-			}
-			if !step.Test.Any && current != nil && !nodeTestMatchesQName(step.Test, current.Name) {
-				return nil, fmt.Errorf("xpath self step does not match current element")
-			}
-			continue
+				if !step.Test.Any && current != nil && !nodeTestMatchesQName(step.Test, current.Name) {
+					return nil, errors.New("xpath self step does not match current element")
+				}
+				continue
 
 		case runtime.AxisChild:
 		default:
@@ -68,13 +69,12 @@ func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl,
 }
 
 func findElementDeclDescendant(schema *parser.Schema, elementDecl *model.ElementDecl, test runtime.NodeTest) (*model.ElementDecl, error) {
-	ct, err := resolveIdentityElementComplexType(schema, elementDecl)
+	ct, err := resolveComplexTypeForElementSearch(schema, elementDecl)
 	if err != nil {
 		return nil, err
 	}
-	state := newIdentitySearchState()
-	state.visitedTypes[ct] = true
-	decl, err := findElementDeclInContentWithMode(schema, ct.Content(), test, identitySearchDescendant, state)
+	visited := map[*model.ComplexType]struct{}{ct: {}}
+	decl, err := findElementDeclInContentDescendant(schema, ct.Content(), test, visited)
 	if err != nil && ct.Abstract {
 		return nil, fmt.Errorf("%w: %w", ErrXPathUnresolvable, err)
 	}
@@ -82,111 +82,124 @@ func findElementDeclDescendant(schema *parser.Schema, elementDecl *model.Element
 }
 
 func findElementDeclInContentDescendant(schema *parser.Schema, content model.Content, test runtime.NodeTest, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
-	state := newIdentitySearchState()
-	for ct := range visited {
-		state.visitedTypes[ct] = true
-	}
-	return findElementDeclInContentWithMode(schema, content, test, identitySearchDescendant, state)
+	return findElementDeclInContentWithMode(schema, content, test, elementPathSearchDescendant, visited)
 }
 
 func findElementDecl(schema *parser.Schema, elementDecl *model.ElementDecl, test runtime.NodeTest) (*model.ElementDecl, error) {
 	if isWildcardNodeTest(test) {
 		return nil, fmt.Errorf("%w: wildcard element", ErrXPathUnresolvable)
 	}
-	ct, err := resolveIdentityElementComplexType(schema, elementDecl)
+	ct, err := resolveComplexTypeForElementSearch(schema, elementDecl)
 	if err != nil {
 		return nil, err
 	}
-	return findElementDeclInContentWithMode(schema, ct.Content(), test, identitySearchDirect, newIdentitySearchState())
+	return findElementDeclInContent(ct.Content(), test)
 }
 
 func findElementDeclInContent(content model.Content, test runtime.NodeTest) (*model.ElementDecl, error) {
-	return findElementDeclInContentWithMode(nil, content, test, identitySearchDirect, newIdentitySearchState())
+	return findElementDeclInContentWithMode(nil, content, test, elementPathSearchDirect, nil)
 }
 
-func findElementDeclInContentWithMode(schema *parser.Schema, content model.Content, test runtime.NodeTest, mode identitySearchMode, state *identitySearchState) (*model.ElementDecl, error) {
-	var result *model.ElementDecl
-	visit := func(elem *model.ElementDecl) bool {
-		candidate := elem
-		if mode == identitySearchDescendant {
-			candidate = resolveElementReference(schema, elem)
-		}
-		if candidate == nil || !nodeTestMatchesQName(test, candidate.Name) {
-			return false
-		}
-		result = candidate
-		return true
-	}
-	searchParticle := func(particle model.Particle) (bool, bool) {
-		if particle == nil {
-			return false, false
-		}
-		return searchIdentityParticle(schema, particle, mode, state, visit)
-	}
-	notFound := func(scope string) error {
-		return fmt.Errorf("element '%s' not found in %s", formatNodeTest(test), scope)
-	}
-	wildcardErr := func() error {
-		return fmt.Errorf("%w: wildcard element", ErrXPathUnresolvable)
-	}
+type elementPathSearchMode uint8
+
+const (
+	elementPathSearchDirect elementPathSearchMode = iota
+	elementPathSearchDescendant
+)
+
+func resolveComplexTypeForElementSearch(schema *parser.Schema, elementDecl *model.ElementDecl) (*model.ComplexType, error) {
+	return resolveIdentityElementComplexType(schema, elementDecl)
+}
+
+func findElementDeclInContentWithMode(schema *parser.Schema, content model.Content, test runtime.NodeTest, mode elementPathSearchMode, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
 
 	switch c := content.(type) {
 	case *model.ElementContent:
-		found, unresolved := searchParticle(c.Particle)
-		if found {
-			return result, nil
+		if c.Particle != nil {
+			return findElementDeclInParticleWithMode(schema, c.Particle, test, mode, visited)
 		}
-		if unresolved {
-			return nil, wildcardErr()
-		}
-		return nil, notFound("content model")
-
 	case *model.SimpleContent:
-		return nil, notFound("simple content")
-
+		return nil, fmt.Errorf("element '%s' not found in simple content", formatNodeTest(test))
 	case *model.ComplexContent:
 		switch mode {
-		case identitySearchDescendant:
+		case elementPathSearchDescendant:
 			if c.Extension != nil && c.Extension.Particle != nil {
-				if found, _ := searchParticle(c.Extension.Particle); found {
-					return result, nil
+				if decl, err := findElementDeclInParticleWithMode(schema, c.Extension.Particle, test, mode, visited); err == nil {
+					return decl, nil
 				}
 			}
 			if c.Restriction != nil && c.Restriction.Particle != nil {
-				found, unresolved := searchParticle(c.Restriction.Particle)
-				if found {
-					return result, nil
-				}
-				if unresolved {
-					return nil, wildcardErr()
-				}
+				return findElementDeclInParticleWithMode(schema, c.Restriction.Particle, test, mode, visited)
 			}
-
 		default:
-			unresolved := false
+			var resultErr error
 			if c.Extension != nil && c.Extension.Particle != nil {
-				found, childUnresolved := searchParticle(c.Extension.Particle)
-				if found {
-					return result, nil
+				decl, err := findElementDeclInParticleWithMode(schema, c.Extension.Particle, test, mode, visited)
+				if err == nil {
+					return decl, nil
 				}
-				unresolved = unresolved || childUnresolved
+				resultErr = err
 			}
 			if c.Restriction != nil && c.Restriction.Particle != nil {
-				found, childUnresolved := searchParticle(c.Restriction.Particle)
-				if found {
-					return result, nil
+				decl, err := findElementDeclInParticleWithMode(schema, c.Restriction.Particle, test, mode, visited)
+				if err == nil {
+					return decl, nil
 				}
-				unresolved = unresolved || childUnresolved
+				if resultErr == nil {
+					resultErr = err
+				}
 			}
-			if unresolved {
-				return nil, wildcardErr()
+			if resultErr != nil {
+				return nil, resultErr
 			}
 		}
-		return nil, notFound("content model")
-
 	case *model.EmptyContent:
-		return nil, notFound("empty content")
+		return nil, fmt.Errorf("element '%s' not found in empty content", formatNodeTest(test))
 	}
 
-	return nil, notFound("content model")
+	return nil, fmt.Errorf("element '%s' not found in content model", formatNodeTest(test))
+}
+
+func findElementDeclInParticleWithMode(schema *parser.Schema, particle model.Particle, test runtime.NodeTest, mode elementPathSearchMode, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
+	switch p := particle.(type) {
+	case *model.ElementDecl:
+		elem := p
+		if mode == elementPathSearchDescendant {
+			elem = resolveElementReference(schema, p)
+		}
+		if elem != nil && nodeTestMatchesQName(test, elem.Name) {
+			return elem, nil
+		}
+		if mode == elementPathSearchDescendant && elem != nil && elem.Type != nil {
+			if visited == nil {
+				visited = make(map[*model.ComplexType]struct{})
+			}
+			if resolvedType := parser.ResolveTypeReference(schema, elem.Type); resolvedType != nil {
+				if ct, ok := resolvedType.(*model.ComplexType); ok {
+					if _, seen := visited[ct]; !seen {
+						visited[ct] = struct{}{}
+						if decl, err := findElementDeclInContentWithMode(schema, ct.Content(), test, mode, visited); err == nil {
+							return decl, nil
+						}
+					}
+				}
+			}
+		}
+	case *model.ModelGroup:
+		var unresolvedErr error
+		for _, childParticle := range p.Particles {
+			if decl, err := findElementDeclInParticleWithMode(schema, childParticle, test, mode, visited); err == nil {
+				return decl, nil
+			} else if errors.Is(err, ErrXPathUnresolvable) && unresolvedErr == nil {
+				unresolvedErr = err
+			}
+		}
+		if unresolvedErr != nil {
+			return nil, unresolvedErr
+		}
+		return nil, fmt.Errorf("element '%s' not found in model group", formatNodeTest(test))
+	case *model.AnyElement:
+		return nil, fmt.Errorf("%w: wildcard element", ErrXPathUnresolvable)
+	}
+	return nil, fmt.Errorf("element '%s' not found in particle", formatNodeTest(test))
 }
