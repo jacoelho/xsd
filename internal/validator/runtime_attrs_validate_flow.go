@@ -32,54 +32,47 @@ func (s *Session) validateAttributesClassified(typeID runtime.TypeID, inputAttrs
 }
 
 func (s *Session) validateAttributesClassifiedWithStorage(typeID runtime.TypeID, inputAttrs []Start, resolver value.NSResolver, classified Classification, storeAttrs, storeValues bool) (AttrResult, error) {
+	if classified.DuplicateErr != nil {
+		return AttrResult{}, classified.DuplicateErr
+	}
+
 	typ, ok := s.typeByID(typeID)
 	if !ok {
 		return AttrResult{}, fmt.Errorf("type %d not found", typeID)
 	}
-	result, err := ValidateType(
-		s.rt,
-		typ,
-		classified,
-		inputAttrs,
-		storeAttrs,
-		TypeCallbacks{
-			PrepareValidated: s.attrState.PrepareValidated,
-			PreparePresent:   s.attrState.PreparePresent,
-			ValidateSimple: func(input []Start, classes []Class, store bool, validated []Start) ([]Start, error) {
-				storeRaw := StoreRaw
-				if !storeValues {
-					storeRaw = func(validated []Start, attr Start, storeAttrs bool, _ func(*Start), _ func([]byte) []byte) []Start {
-						return StoreRawIdentity(validated, attr, storeAttrs, s.ensureAttrNameStable)
-					}
-				}
-				return ValidateSimple(
-					s.rt,
-					input,
-					classes,
-					store,
-					validated,
-					func(validated []Start, attr Start, storeAttrs bool) []Start {
-						return storeRaw(validated, attr, storeAttrs, s.ensureAttrNameStable, s.storeValue)
-					},
-				)
-			},
-			ValidateComplex: func(ct *runtime.ComplexType, present []bool, input []Start, classes []Class, store bool, validated []Start) ([]Start, bool, error) {
-				return s.validateComplexAttrsClassified(ct, present, input, classes, resolver, store, storeValues, validated)
-			},
-			ApplyDefaults: s.applyDefaultAttrs,
-		},
+
+	validated := s.attrState.PrepareValidated(storeAttrs, len(inputAttrs))
+	var (
+		applied []Applied
+		err     error
 	)
+	if typ.Kind != runtime.TypeComplex {
+		validated, err = s.validateSimpleAttrs(inputAttrs, classified.Classes, storeAttrs, storeValues, validated)
+	} else {
+		if int(typ.Complex.ID) >= len(s.rt.ComplexTypes) {
+			return AttrResult{}, fmt.Errorf("complex type %d not found", typ.Complex.ID)
+		}
+		ct := &s.rt.ComplexTypes[typ.Complex.ID]
+		uses := Uses(s.rt.AttrIndex.Uses, ct.Attrs)
+		present := s.attrState.PreparePresent(len(uses))
+
+		seenID := false
+		validated, seenID, err = s.validateComplexAttrsClassified(ct, present, inputAttrs, classified.Classes, resolver, storeAttrs, storeValues, validated)
+		if err == nil {
+			applied, err = s.applyDefaultAttrs(uses, present, storeAttrs, seenID)
+		}
+	}
 	if err != nil {
 		return AttrResult{}, err
 	}
 
 	if storeAttrs {
-		s.attrState.Validated = result.Attrs[:0]
+		s.attrState.Validated = validated[:0]
 	}
-	if cap(result.Applied) > 0 {
-		s.attrAppliedBuf = result.Applied[:0]
+	if cap(applied) > 0 {
+		s.attrAppliedBuf = applied[:0]
 	}
-	return AttrResult{Attrs: result.Attrs, Applied: result.Applied}, nil
+	return AttrResult{Attrs: validated, Applied: applied}, nil
 }
 
 func (s *Session) classifyAttrs(input []Start, checkDuplicates bool) (Classification, error) {
@@ -89,12 +82,28 @@ func (s *Session) classifyAttrs(input []Start, checkDuplicates bool) (Classifica
 	return s.attrState.Classify(s.rt, input, checkDuplicates)
 }
 
-func attrValidationSpecFromAttrUse(use runtime.AttrUse) ValueSpec {
-	return SpecFromUse(use)
-}
-
-func attrValidationSpecFromRuntimeAttribute(attr runtime.Attribute) ValueSpec {
-	return SpecFromAttribute(attr)
+func (s *Session) validateSimpleAttrs(input []Start, classes []Class, storeAttrs, storeValues bool, validated []Start) ([]Start, error) {
+	for i, attr := range input {
+		switch classifyFor(s.rt, classes, i, attr) {
+		case ClassXSIUnknown:
+			return nil, xsderrors.New(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "unknown xsi attribute")
+		case ClassXSIKnown, ClassXML:
+			continue
+		default:
+			return nil, xsderrors.New(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "attribute not allowed on simple type")
+		}
+	}
+	if !storeAttrs {
+		return nil, nil
+	}
+	for _, attr := range input {
+		if storeValues {
+			validated = StoreRaw(validated, attr, true, s.ensureAttrNameStable, s.storeValue)
+			continue
+		}
+		validated = StoreRawIdentity(validated, attr, true, s.ensureAttrNameStable)
+	}
+	return validated, nil
 }
 
 func (s *Session) validateComplexAttrsClassified(ct *runtime.ComplexType, present []bool, inputAttrs []Start, classes []Class, resolver value.NSResolver, storeAttrs, storeValues bool, validated []Start) ([]Start, bool, error) {
@@ -154,7 +163,7 @@ func (s *Session) validateComplexAttrUse(
 	use runtime.AttrUse,
 	seenID *bool,
 ) ([]Start, error) {
-	return s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, storeValues, attrValidationSpecFromAttrUse(use), seenID)
+	return s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, storeValues, SpecFromUse(use), seenID)
 }
 
 func (s *Session) validateComplexAttrValue(
@@ -260,7 +269,7 @@ func (s *Session) validateComplexWildcardAttr(
 	}
 
 	globalAttr := s.rt.Attributes[wildcardAttr]
-	return s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, storeValues, attrValidationSpecFromRuntimeAttribute(globalAttr), seenID)
+	return s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, storeValues, SpecFromAttribute(globalAttr), seenID)
 }
 
 func (s *Session) resolveWildcardAttrID(pc runtime.ProcessContents, sym runtime.SymbolID) (runtime.AttrID, bool, error) {

@@ -33,21 +33,45 @@ type parseLimitOptions struct {
 	maxQNameInternEntries intOption
 }
 
-// SourceOptions configures schema loading and schema XML parsing.
-type SourceOptions struct {
+// CompileOption configures schema loading and runtime-schema compilation.
+type CompileOption interface {
+	applyCompile(*compileConfig)
+}
+
+// SourceOption configures schema loading and schema XML parsing.
+type SourceOption interface {
+	CompileOption
+	applySource(*sourceConfig)
+}
+
+// BuildOption configures immutable runtime-schema compilation.
+type BuildOption interface {
+	CompileOption
+	applyBuild(*buildConfig)
+}
+
+// ValidateOption configures instance XML parsing and validator sessions.
+type ValidateOption interface {
+	applyValidate(*validateConfig)
+}
+
+type sourceConfig struct {
 	allowMissingImportLocations bool
 	parseLimits                 parseLimitOptions
 }
 
-// BuildOptions configures immutable runtime-schema compilation.
-type BuildOptions struct {
+type buildConfig struct {
 	maxDFAStates   uint32Option
 	maxOccursLimit uint32Option
 }
 
-// ValidateOptions configures instance XML parsing and validator sessions.
-type ValidateOptions struct {
+type validateConfig struct {
 	parseLimits parseLimitOptions
+}
+
+type compileConfig struct {
+	source sourceConfig
+	build  buildConfig
 }
 
 type resolvedSourceOptions struct {

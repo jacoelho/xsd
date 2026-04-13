@@ -12,11 +12,11 @@ import (
 )
 
 // NewValidator creates a validator with explicit instance-validation options.
-func (s *Schema) NewValidator(opts ValidateOptions) (*Validator, error) {
+func (s *Schema) NewValidator(opts ...ValidateOption) (*Validator, error) {
 	if s == nil || s.rt == nil {
 		return nil, schemaNotLoadedError()
 	}
-	resolved, err := opts.withDefaults()
+	resolved, err := resolveValidateOptions(opts)
 	if err != nil {
 		return nil, fmt.Errorf("validate schema: %w", err)
 	}

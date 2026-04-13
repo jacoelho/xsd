@@ -41,7 +41,7 @@ func main() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.Compile(fsys, "simple.xsd")
 	if err != nil {
 		fmt.Printf("Compile schema: %v\n", err)
 		return
@@ -73,20 +73,19 @@ func main() {
 Single-root compile:
 
 ```go
-schema, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+schema, err := xsd.Compile(fsys, "schema.xsd")
 ```
 
 File-based compile:
 
 ```go
-schema, err := xsd.CompileFile("schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+schema, err := xsd.CompileFile("schema.xsd")
 ```
 
 Multi-root or reusable prepared build:
 
 ```go
-set := xsd.NewSourceSet().
-	WithSourceOptions(xsd.NewSourceOptions())
+set := xsd.NewSourceSet(xsd.AllowMissingImportLocations())
 
 if err := set.AddFS(fsysA, "schema-a.xsd"); err != nil {
 	// handle
@@ -100,7 +99,7 @@ if err != nil {
 	// handle
 }
 
-schema, err := prepared.Build(xsd.NewBuildOptions())
+schema, err := prepared.Build()
 if err != nil {
 	// handle
 }
@@ -120,9 +119,8 @@ Explicit validator configuration:
 
 ```go
 validator, err := schema.NewValidator(
-	xsd.NewValidateOptions().
-		WithInstanceMaxDepth(512).
-		WithInstanceMaxTokenSize(1 << 20),
+	xsd.InstanceMaxDepth(512),
+	xsd.InstanceMaxTokenSize(1<<20),
 )
 if err != nil {
 	// handle
@@ -146,29 +144,44 @@ if err := validator.ValidateFSFile(fsys, "document.xml"); err != nil {
 
 ## Options
 
-Source options control schema loading and schema XML parsing:
+`Compile` and `CompileFile` accept source and build options in one vararg list:
 
 ```go
-sourceOpts := xsd.NewSourceOptions().
-	WithAllowMissingImportLocations(true).
-	WithSchemaMaxDepth(512)
+schema, err := xsd.Compile(
+	fsys,
+	"schema.xsd",
+	xsd.AllowMissingImportLocations(),
+	xsd.SchemaMaxDepth(512),
+	xsd.MaxDFAStates(4096),
+)
 ```
 
-Build options control immutable runtime compilation:
+`NewSourceSet` and `WithOptions` accept source options:
 
 ```go
-buildOpts := xsd.NewBuildOptions().
-	WithMaxDFAStates(4096).
-	WithMaxOccursLimit(1_000_000)
+set := xsd.NewSourceSet(
+	xsd.AllowMissingImportLocations(),
+	xsd.SchemaMaxDepth(512),
+)
 ```
 
-Validate options control instance XML parsing and validator sessions:
+`PreparedSchema.Build` accepts build options:
 
 ```go
-validateOpts := xsd.NewValidateOptions().
-	WithInstanceMaxDepth(512).
-	WithInstanceMaxAttrs(256).
-	WithInstanceMaxTokenSize(1 << 20)
+schema, err := prepared.Build(
+	xsd.MaxDFAStates(4096),
+	xsd.MaxOccursLimit(1_000_000),
+)
+```
+
+`Schema.NewValidator` accepts validate options:
+
+```go
+validator, err := schema.NewValidator(
+	xsd.InstanceMaxDepth(512),
+	xsd.InstanceMaxAttrs(256),
+	xsd.InstanceMaxTokenSize(1<<20),
+)
 ```
 
 ## Loading behavior
@@ -176,7 +189,7 @@ validateOpts := xsd.NewValidateOptions().
 - `Compile` and `SourceSet` accept any `fs.FS`; include/import locations resolve relative to the including schema path.
 - `CompileFile` loads the explicit entry path as requested and confines nested include/import resolution to that path's containing directory tree.
 - Includes must resolve successfully.
-- Imports without `schemaLocation` are rejected unless `WithAllowMissingImportLocations(true)` is set.
+- Imports without `schemaLocation` are rejected unless `AllowMissingImportLocations()` is set.
 
 ## Validation behavior
 

@@ -21,7 +21,7 @@ func ExampleCompile() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.Compile(fsys, "simple.xsd")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -53,7 +53,7 @@ func ExampleSchema_Validate() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.Compile(fsys, "simple.xsd")
 	if err != nil {
 		fmt.Printf("Error loading schema: %v\n", err)
 		return
@@ -91,13 +91,13 @@ func ExampleSchema_NewValidator() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.Compile(fsys, "simple.xsd")
 	if err != nil {
 		fmt.Printf("Error loading schema: %v\n", err)
 		return
 	}
 
-	v, err := schema.NewValidator(xsd.NewValidateOptions())
+	v, err := schema.NewValidator()
 	if err != nil {
 		fmt.Printf("Error creating validator: %v\n", err)
 		return
