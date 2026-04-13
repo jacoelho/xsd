@@ -12,25 +12,17 @@ import (
 
 // Compile loads, prepares, and builds one schema root with explicit source/build options.
 func Compile(fsys fs.FS, location string, opts ...CompileOption) (*Schema, error) {
-	entry, err := newSourceEntry(fsys, location)
+	root, err := newCompileRoot(fsys, location)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", location, err)
 	}
-	return compileSourceEntry(entry, location, opts)
-}
-
-func compileSourceEntry(entry sourceEntry, displayLocation string, opts []CompileOption) (*Schema, error) {
-	source, build, err := resolveCompileOptions(opts)
+	req, err := newCompileRequest([]compiler.Root{root}, opts)
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", displayLocation, err)
+		return nil, fmt.Errorf("compile schema %s: %w", location, err)
 	}
-	prepared, err := prepareEntries([]sourceEntry{entry}, source)
+	schema, err := req.compile()
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", displayLocation, err)
-	}
-	schema, err := buildSchema(prepared, build, defaultResolvedValidateOptions())
-	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", displayLocation, err)
+		return nil, fmt.Errorf("compile schema %s: %w", location, err)
 	}
 	return schema, nil
 }
@@ -50,16 +42,24 @@ func CompileFile(path string, opts ...CompileOption) (*Schema, error) {
 		_ = root.Close()
 	}()
 
-	entry, err := newSourceEntry(root.FS(), base)
+	compileRoot, err := newCompileRoot(root.FS(), base)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", base, err)
 	}
-	entry.resolver = &compileFileResolver{
+	compileRoot.Resolver = &compileFileResolver{
 		path:     path,
 		systemID: base,
 		nested:   compiler.NewFSResolver(root.FS()),
 	}
-	return compileSourceEntry(entry, base, opts)
+	req, err := newCompileRequest([]compiler.Root{compileRoot}, opts)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", base, err)
+	}
+	schema, err := req.compile()
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", base, err)
+	}
+	return schema, nil
 }
 
 type compileFileResolver struct {

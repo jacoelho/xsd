@@ -35,8 +35,7 @@ func BenchmarkPrepareRootsAndBuildRuntime(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
-			FS:       fsys,
-			Location: "schema.xsd",
+			Roots: []compiler.Root{{FS: fsys, Location: "schema.xsd"}},
 		})
 		if err != nil {
 			b.Fatalf("prepare roots: %v", err)
@@ -58,8 +57,7 @@ func BenchmarkBuildRuntimeFromPreparedRoots(b *testing.B) {
 </xs:schema>`)},
 	}
 	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
-		FS:       fsys,
-		Location: "schema.xsd",
+		Roots: []compiler.Root{{FS: fsys, Location: "schema.xsd"}},
 	})
 	if err != nil {
 		b.Fatalf("prepare roots: %v", err)

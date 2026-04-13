@@ -6,45 +6,10 @@ import (
 	"github.com/jacoelho/xsd/internal/compiler"
 )
 
-func prepareEntries(entries []sourceEntry, source resolvedSourceOptions) (*compiler.Prepared, error) {
-	if len(entries) == 1 {
-		entry := entries[0]
-		return compiler.PrepareRoots(compiler.LoadConfig{
-			FS:                          entry.fsys,
-			Location:                    entry.location,
-			Resolver:                    entry.resolver,
-			AllowMissingImportLocations: source.allowMissingImportLocations,
-			SchemaParseOptions:          source.schemaLimits.options(),
-		})
-	}
-
-	roots := make([]compiler.Root, 0, len(entries))
-	for _, entry := range entries {
-		roots = append(roots, compiler.Root{
-			FS:       entry.fsys,
-			Location: entry.location,
-		})
-	}
-	return compiler.PrepareRoots(compiler.LoadConfig{
-		Roots:                       roots,
-		AllowMissingImportLocations: source.allowMissingImportLocations,
-		SchemaParseOptions:          source.schemaLimits.options(),
-	})
-}
-
-func preparePreparedSchema(entries []sourceEntry, source sourceConfig) (*PreparedSchema, error) {
-	if len(entries) == 0 {
-		return nil, fmt.Errorf("prepare source set: no schema roots added")
-	}
-
-	resolvedSource, err := source.withDefaults()
+func preparePreparedSchema(req compileRequest) (*PreparedSchema, error) {
+	prepared, err := req.prepare()
 	if err != nil {
-		return nil, fmt.Errorf("prepare source set: %w", err)
-	}
-
-	prepared, err := prepareEntries(entries, resolvedSource)
-	if err != nil {
-		return nil, fmt.Errorf("prepare source set: %w", err)
+		return nil, err
 	}
 	return &PreparedSchema{prepared: prepared}, nil
 }

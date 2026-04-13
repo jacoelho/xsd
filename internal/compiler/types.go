@@ -14,15 +14,13 @@ import (
 // Root identifies one schema root document.
 type Root struct {
 	FS       fs.FS
+	Resolver SchemaResolver
 	Location string
 }
 
 // LoadConfig configures schema load and normalization.
 type LoadConfig struct {
 	Roots                       []Root
-	FS                          fs.FS
-	Location                    string
-	Resolver                    SchemaResolver
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
 }

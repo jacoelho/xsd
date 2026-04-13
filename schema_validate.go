@@ -16,11 +16,11 @@ func (s *Schema) NewValidator(opts ...ValidateOption) (*Validator, error) {
 	if s == nil || s.rt == nil {
 		return nil, schemaNotLoadedError()
 	}
-	resolved, err := resolveValidateOptions(opts)
+	req, err := newValidateRequest(opts)
 	if err != nil {
 		return nil, fmt.Errorf("validate schema: %w", err)
 	}
-	return newValidator(s.rt, resolved), nil
+	return req.newValidator(s.rt), nil
 }
 
 // Validate validates a document against the schema using default validate options.

@@ -14,7 +14,7 @@ type PreparedSchema struct {
 
 // SourceSet owns schema sources and prepares/builds them through explicit phases.
 type SourceSet struct {
-	entries []sourceEntry
+	entries []compiler.Root
 	source  sourceConfig
 }
 
@@ -40,11 +40,11 @@ func (s *SourceSet) AddFS(fsys fs.FS, location string) error {
 	if s == nil {
 		return fmt.Errorf("source set: nil set")
 	}
-	entry, err := newSourceEntry(fsys, location)
+	root, err := newCompileRoot(fsys, location)
 	if err != nil {
 		return err
 	}
-	s.entries = append(s.entries, entry)
+	s.entries = append(s.entries, root)
 	return nil
 }
 
@@ -53,7 +53,11 @@ func (s *SourceSet) Prepare() (*PreparedSchema, error) {
 	if s == nil {
 		return nil, fmt.Errorf("prepare source set: nil set")
 	}
-	return preparePreparedSchema(s.entries, s.source)
+	req, err := newSourceCompileRequest(s.entries, s.source)
+	if err != nil {
+		return nil, fmt.Errorf("prepare source set: %w", err)
+	}
+	return preparePreparedSchema(req)
 }
 
 // Build compiles all added schema roots into an immutable runtime schema.
@@ -74,5 +78,5 @@ func (p *PreparedSchema) Build(opts ...BuildOption) (*Schema, error) {
 	if p == nil {
 		return nil, fmt.Errorf("build prepared schema: nil prepared schema")
 	}
-	return buildSchema(p.prepared, resolveBuildOptions(opts), defaultResolvedValidateOptions())
+	return newBuildCompileRequest(opts).buildPrepared(p.prepared)
 }
