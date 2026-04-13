@@ -20,7 +20,7 @@ func PrepareRoots(cfg LoadConfig) (*Prepared, error) {
 }
 
 func loadRoots(cfg LoadConfig) (*parser.Schema, error) {
-	roots, err := prepareRoots(cfg)
+	roots, err := normalizeRoots(cfg.Roots)
 	if err != nil {
 		return nil, err
 	}
@@ -36,33 +36,27 @@ func loadRoots(cfg LoadConfig) (*parser.Schema, error) {
 	return loadAndMergeRoots(roots, cfg)
 }
 
-func prepareRoots(cfg LoadConfig) ([]Root, error) {
-	if len(cfg.Roots) > 0 {
-		if cfg.FS != nil || strings.TrimSpace(cfg.Location) != "" || cfg.Resolver != nil {
-			return nil, fmt.Errorf("prepare schema: roots and fs/location/resolver are mutually exclusive")
-		}
-		roots := make([]Root, 0, len(cfg.Roots))
-		for i, root := range cfg.Roots {
-			if root.FS == nil {
-				return nil, fmt.Errorf("prepare schema: roots[%d]: nil fs", i)
-			}
-			location := strings.TrimSpace(root.Location)
-			if location == "" {
-				return nil, fmt.Errorf("prepare schema: roots[%d]: empty location", i)
-			}
-			roots = append(roots, Root{FS: root.FS, Location: location})
-		}
-		return roots, nil
+func normalizeRoots(input []Root) ([]Root, error) {
+	if len(input) == 0 {
+		return nil, fmt.Errorf("prepare schema: no roots")
 	}
 
-	if cfg.FS == nil {
-		return nil, fmt.Errorf("prepare schema: nil fs")
+	roots := make([]Root, 0, len(input))
+	for i, root := range input {
+		if root.FS == nil {
+			return nil, fmt.Errorf("prepare schema: roots[%d]: nil fs", i)
+		}
+		location := strings.TrimSpace(root.Location)
+		if location == "" {
+			return nil, fmt.Errorf("prepare schema: roots[%d]: empty location", i)
+		}
+		roots = append(roots, Root{
+			FS:       root.FS,
+			Resolver: root.Resolver,
+			Location: location,
+		})
 	}
-	location := strings.TrimSpace(cfg.Location)
-	if location == "" {
-		return nil, fmt.Errorf("prepare schema: empty location")
-	}
-	return []Root{{FS: cfg.FS, Location: location}}, nil
+	return roots, nil
 }
 
 func loadAndMergeRoots(roots []Root, cfg LoadConfig) (*parser.Schema, error) {
@@ -102,7 +96,7 @@ func loadAndMergeRoots(roots []Root, cfg LoadConfig) (*parser.Schema, error) {
 func newLoader(root Root, cfg LoadConfig) *Loader {
 	return NewLoader(LoaderConfig{
 		FS:                          root.FS,
-		Resolver:                    cfg.Resolver,
+		Resolver:                    root.Resolver,
 		AllowMissingImportLocations: cfg.AllowMissingImportLocations,
 		SchemaParseOptions:          cfg.SchemaParseOptions,
 		DocumentPool:                parser.NewDocumentPool(),

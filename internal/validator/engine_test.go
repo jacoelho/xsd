@@ -70,16 +70,18 @@ func TestEngineConcurrentValidation(t *testing.T) {
 func buildRuntimeForTest(t *testing.T) *runtime.Schema {
 	t.Helper()
 	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
-		FS: fstest.MapFS{
-			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+		Roots: []compiler.Root{{
+			FS: fstest.MapFS{
+				"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
 	targetNamespace="urn:test"
 	xmlns:tns="urn:test"
 	elementFormDefault="qualified">
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`)},
-		},
-		Location: "schema.xsd",
+			},
+			Location: "schema.xsd",
+		}},
 	})
 	if err != nil {
 		t.Fatalf("Prepare() error = %v", err)
@@ -94,8 +96,9 @@ func buildRuntimeForTest(t *testing.T) *runtime.Schema {
 func buildConcurrentRuntimeForTest(t *testing.T) *runtime.Schema {
 	t.Helper()
 	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
-		FS: fstest.MapFS{
-			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+		Roots: []compiler.Root{{
+			FS: fstest.MapFS{
+				"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
            xmlns:tns="urn:test"
@@ -108,8 +111,9 @@ func buildConcurrentRuntimeForTest(t *testing.T) *runtime.Schema {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)},
-		},
-		Location: "schema.xsd",
+			},
+			Location: "schema.xsd",
+		}},
 	})
 	if err != nil {
 		t.Fatalf("prepare schema: %v", err)

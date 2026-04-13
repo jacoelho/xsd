@@ -1033,8 +1033,7 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 		entryPath := r.resolvePath(metadataDir, entryDoc.Href)
 		fsys, entryFile := r.schemaFSForPath(entryPath)
 		_, err := compiler.PrepareRoots(compiler.LoadConfig{
-			FS:                          fsys,
-			Location:                    entryFile,
+			Roots:                       []compiler.Root{{FS: fsys, Location: entryFile}},
 			AllowMissingImportLocations: true,
 		})
 		schemaPath := entryDoc.Href
@@ -1315,8 +1314,7 @@ func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*runtime.Schema, 
 	}
 	fsys, relPath := r.schemaFSForPath(schemaPath)
 	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
-		FS:                          fsys,
-		Location:                    relPath,
+		Roots:                       []compiler.Root{{FS: fsys, Location: relPath}},
 		AllowMissingImportLocations: true,
 	})
 	if err != nil {
