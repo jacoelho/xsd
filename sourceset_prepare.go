@@ -32,29 +32,29 @@ func prepareEntries(entries []sourceEntry, source resolvedSourceOptions) (*compi
 	})
 }
 
-func preparePreparedSchema(entries []sourceEntry, sourceOpts SourceOptions) (*PreparedSchema, error) {
+func preparePreparedSchema(entries []sourceEntry, source sourceConfig) (*PreparedSchema, error) {
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("prepare source set: no schema roots added")
 	}
 
-	source, err := sourceOpts.withDefaults()
+	resolvedSource, err := source.withDefaults()
 	if err != nil {
 		return nil, fmt.Errorf("prepare source set: %w", err)
 	}
 
-	prepared, err := prepareEntries(entries, source)
+	prepared, err := prepareEntries(entries, resolvedSource)
 	if err != nil {
 		return nil, fmt.Errorf("prepare source set: %w", err)
 	}
 	return &PreparedSchema{prepared: prepared}, nil
 }
 
-func buildSchema(prepared *compiler.Prepared, buildOpts BuildOptions, validateDefaults resolvedValidateOptions) (*Schema, error) {
+func buildSchema(prepared *compiler.Prepared, buildOpts resolvedBuildOptions, validateDefaults resolvedValidateOptions) (*Schema, error) {
 	if prepared == nil {
 		return nil, fmt.Errorf("build prepared schema: nil prepared schema")
 	}
 
-	rt, err := prepared.Build(toCompileConfig(buildOpts.withDefaults()))
+	rt, err := prepared.Build(toCompileConfig(buildOpts))
 	if err != nil {
 		return nil, fmt.Errorf("build prepared schema: build runtime: %w", err)
 	}

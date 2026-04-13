@@ -13,13 +13,6 @@ type SchemaConstraintInput struct {
 	FacetList []model.Facet
 }
 
-// SchemaConstraintCallbacks provides semantic checks delegated to callers.
-type SchemaConstraintCallbacks struct {
-	ValidateRangeConsistency func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType model.Type, baseQName model.QName) error
-	ValidateRangeValues      func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType model.Type, bt *model.BuiltinType) error
-	ValidateEnumerationValue func(value string, baseType model.Type, context map[string]string) error
-}
-
 type facetConstraintState struct {
 	minExclusive   *string
 	maxExclusive   *string
@@ -34,7 +27,7 @@ type facetConstraintState struct {
 }
 
 // ValidateSchemaConstraints validates schema-time facet consistency for a base type.
-func ValidateSchemaConstraints(in SchemaConstraintInput, cb SchemaConstraintCallbacks) error {
+func ValidateSchemaConstraints(in SchemaConstraintInput) error {
 	baseTypeName := in.BaseQName.Local
 	isBuiltin := in.BaseQName.Namespace == model.XSDNamespace
 	var bt *model.BuiltinType
@@ -60,24 +53,14 @@ func ValidateSchemaConstraints(in SchemaConstraintInput, cb SchemaConstraintCall
 	if err := validateLengthFacetConstraints(&state, in.BaseType, in.BaseQName, baseTypeName); err != nil {
 		return err
 	}
-	if cb.ValidateRangeConsistency != nil {
-		if err := cb.ValidateRangeConsistency(state.minExclusive, state.maxExclusive, state.minInclusive, state.maxInclusive, in.BaseType, in.BaseQName); err != nil {
-			return err
-		}
+	if err := ValidateRangeConsistency(state.minExclusive, state.maxExclusive, state.minInclusive, state.maxInclusive, in.BaseType, in.BaseQName); err != nil {
+		return err
 	}
-	if cb.ValidateRangeValues != nil {
-		if err := cb.ValidateRangeValues(state.minExclusive, state.maxExclusive, state.minInclusive, state.maxInclusive, in.BaseType, bt); err != nil {
-			return err
-		}
+	if err := ValidateRangeValues(state.minExclusive, state.maxExclusive, state.minInclusive, state.maxInclusive, in.BaseType, bt); err != nil {
+		return err
 	}
 	if err := validateDigitsConstraints(&state, in.BaseType, baseTypeName, isBuiltin); err != nil {
 		return err
-	}
-
-	if state.hasEnumeration && in.BaseType != nil {
-		if err := validateEnumerationValues(in.FacetList, in.BaseType, cb.ValidateEnumerationValue); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -254,8 +237,12 @@ func shouldDeferEnumerationValidation(baseType model.Type) bool {
 	return st.Restriction.Base.Namespace != model.XSDNamespace
 }
 
-func validateEnumerationValues(facetList []model.Facet, baseType model.Type, validateValue func(value string, baseType model.Type, context map[string]string) error) error {
-	if model.IsNilType(baseType) || validateValue == nil {
+func validateEnumerationValues(
+	facetList []model.Facet,
+	baseType model.Type,
+	validateValueAgainstType func(value string, baseType model.Type, context map[string]string) error,
+) error {
+	if model.IsNilType(baseType) || validateValueAgainstType == nil {
 		return nil
 	}
 	if shouldDeferEnumerationValidation(baseType) {
@@ -272,7 +259,7 @@ func validateEnumerationValues(facetList []model.Facet, baseType model.Type, val
 		values := enum.Values()
 		for i, val := range values {
 			ctx := enumContext(enum, i)
-			if err := validateValue(val, baseType, ctx); err != nil {
+			if err := validateValueAgainstType(val, baseType, ctx); err != nil {
 				return fmt.Errorf("enumeration value %d (%q) is not valid for base type %s: %w", i+1, val, baseType.Name().Local, err)
 			}
 		}

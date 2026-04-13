@@ -28,6 +28,15 @@ const (
 	valueValidationFacet
 )
 
+type schemaValueValidator struct {
+	schema              *parser.Schema
+	convert             model.DeferredFacetConverter
+	mode                valueValidationMode
+	idPolicy            IDPolicy
+	errorOnPlaceholder  bool
+	requireQNameContext bool
+}
+
 // ValidateDefaultOrFixedResolved validates default/fixed lexical values
 // against resolved schema-time type
 func ValidateDefaultOrFixedResolved(
@@ -37,13 +46,14 @@ func ValidateDefaultOrFixedResolved(
 	context map[string]string,
 	policy IDPolicy,
 ) error {
-	settings := validationSettings{
+	validator := schemaValueValidator{
+		schema:              schema,
 		mode:                valueValidationDefaultFixed,
 		idPolicy:            policy,
 		errorOnPlaceholder:  true,
 		requireQNameContext: false,
 	}
-	return validateValue(schema, value, typ, context, make(map[model.Type]bool), settings)
+	return validator.validateValue(value, typ, context, make(map[model.Type]bool))
 }
 
 // ValidateWithFacets validates lexical values with schema-time facet
@@ -55,36 +65,27 @@ func ValidateWithFacets(
 	context map[string]string,
 	convert model.DeferredFacetConverter,
 ) error {
-	settings := validationSettings{
+	validator := schemaValueValidator{
+		schema:              schema,
+		convert:             convert,
 		mode:                valueValidationFacet,
 		idPolicy:            IDPolicyAllow,
 		errorOnPlaceholder:  false,
 		requireQNameContext: true,
-		convert:             convert,
 	}
-	return validateValue(schema, value, typ, context, make(map[model.Type]bool), settings)
+	return validator.validateValue(value, typ, context, make(map[model.Type]bool))
 }
 
-type validationSettings struct {
-	convert             model.DeferredFacetConverter
-	mode                valueValidationMode
-	idPolicy            IDPolicy
-	errorOnPlaceholder  bool
-	requireQNameContext bool
-}
-
-func validateValue(
-	schema *parser.Schema,
+func (v schemaValueValidator) validateValue(
 	value string,
 	typ model.Type,
 	context map[string]string,
 	visited map[model.Type]bool,
-	settings validationSettings,
 ) error {
 	if typ == nil {
 		return nil
 	}
-	if err := validateTypePolicies(schema, typ, settings.errorOnPlaceholder, settings.idPolicy); err != nil {
+	if err := v.validateTypePolicies(typ, v.idPolicy); err != nil {
 		return err
 	}
 	if ct, ok := typ.(*model.ComplexType); ok {
@@ -93,22 +94,22 @@ func validateValue(
 		}
 		visited[typ] = true
 		defer delete(visited, typ)
-		return validateComplexType(schema, value, ct, context, visited, settings)
+		return v.validateComplexType(value, ct, context, visited)
 	}
 	if typ.IsBuiltin() {
-		return validateBuiltinValue(typ, value, context, settings.requireQNameContext)
+		return v.validateBuiltinValue(typ, value, context)
 	}
 	st, ok := typ.(*model.SimpleType)
 	if !ok {
 		return nil
 	}
-	return validateSimpleTypeValue(schema, value, st, context, settings)
+	return v.validateSimpleTypeValue(value, st, context)
 }
 
-func validateBuiltinValue(typ model.Type, lexical string, context map[string]string, requireQNameContext bool) error {
+func (v schemaValueValidator) validateBuiltinValue(typ model.Type, lexical string, context map[string]string) error {
 	normalized := model.NormalizeWhiteSpace(lexical, typ)
 	if model.IsQNameOrNotationType(typ) {
-		if requireQNameContext && context == nil {
+		if v.requireQNameContext && context == nil {
 			return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
 		}
 		if err := ValidateQNameContext(normalized, context); err != nil {
@@ -118,46 +119,44 @@ func validateBuiltinValue(typ model.Type, lexical string, context map[string]str
 	return validateBuiltin(typ, normalized)
 }
 
-func validateSimpleTypeValue(
-	schema *parser.Schema,
+func (v schemaValueValidator) validateSimpleTypeValue(
 	lexical string,
 	st *model.SimpleType,
 	context map[string]string,
-	settings validationSettings,
 ) error {
-	opts := buildSimpleTypeValidationOptions(schema, settings)
+	opts := v.buildSimpleTypeValidationOptions()
 	return model.ValidateSimpleTypeWithOptions(st, lexical, context, opts)
 }
 
-func buildSimpleTypeValidationOptions(schema *parser.Schema, settings validationSettings) model.SimpleTypeValidationOptions {
+func (v schemaValueValidator) buildSimpleTypeValidationOptions() model.SimpleTypeValidationOptions {
 	validateTypeWithPolicy := func(current model.Type, scope model.SimpleTypeValidationScope) error {
-		idPolicy := settings.idPolicy
-		if settings.mode == valueValidationDefaultFixed && scope == model.SimpleTypeValidationScopeUnionMember {
+		idPolicy := v.idPolicy
+		if v.mode == valueValidationDefaultFixed && scope == model.SimpleTypeValidationScopeUnionMember {
 			idPolicy = IDPolicyAllow
 		}
-		return validateTypePolicies(schema, current, settings.errorOnPlaceholder, idPolicy)
+		return v.validateTypePolicies(current, idPolicy)
 	}
 
 	opts := model.SimpleTypeValidationOptions{
 		ResolveListItem: func(current *model.SimpleType) model.Type {
-			return parser.ResolveListItemType(schema, current)
+			return parser.ResolveListItemType(v.schema, current)
 		},
 		ResolveUnionMembers: func(current *model.SimpleType) []model.Type {
-			return parser.ResolveUnionMemberTypes(schema, current)
+			return parser.ResolveUnionMemberTypes(v.schema, current)
 		},
 		ResolveFacetType: func(name model.QName) model.Type {
-			return parser.ResolveSimpleTypeReferenceAllowMissing(schema, name)
+			return parser.ResolveSimpleTypeReferenceAllowMissing(v.schema, name)
 		},
-		ConvertDeferredFacets: settings.convert,
-		RequireQNameContext:   settings.requireQNameContext,
+		ConvertDeferredFacets: v.convert,
+		RequireQNameContext:   v.requireQNameContext,
 		CycleError:            ErrCircularReference,
 		ValidateType:          validateTypeWithPolicy,
 		ValidateFacets: func(normalized string, current *model.SimpleType, ctx map[string]string) error {
-			return ValidateSimpleTypeFacets(schema, current, normalized, ctx, settings.convert)
+			return ValidateSimpleTypeFacets(v.schema, current, normalized, ctx, v.convert)
 		},
 	}
 
-	configureSimpleTypeMode(&opts, settings.mode)
+	configureSimpleTypeMode(&opts, v.mode)
 	return opts
 }
 
@@ -189,39 +188,37 @@ func configureSimpleTypeMode(opts *model.SimpleTypeValidationOptions, mode value
 	}
 }
 
-func validateComplexType(
-	schema *parser.Schema,
+func (v schemaValueValidator) validateComplexType(
 	value string,
 	ct *model.ComplexType,
 	context map[string]string,
 	visited map[model.Type]bool,
-	settings validationSettings,
 ) error {
 	sc, ok := ct.Content().(*model.SimpleContent)
 	if !ok {
 		return nil
 	}
-	baseType := parser.ResolveSimpleContentBaseTypeFromContent(schema, sc)
+	baseType := parser.ResolveSimpleContentBaseTypeFromContent(v.schema, sc)
 	if baseType == nil {
 		return nil
 	}
 
-	if settings.mode == valueValidationDefaultFixed {
+	if v.mode == valueValidationDefaultFixed {
 		if sc.Restriction != nil {
-			if err := validateValue(schema, value, baseType, context, visited, settings); err != nil {
+			if err := v.validateValue(value, baseType, context, visited); err != nil {
 				return err
 			}
-			return ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert)
+			return ValidateRestrictionFacets(v.schema, sc.Restriction, baseType, value, context, v.convert)
 		}
-		return validateValue(schema, value, baseType, context, visited, settings)
+		return v.validateValue(value, baseType, context, visited)
 	}
 
 	if sc.Restriction != nil {
-		if err := ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert); err != nil {
+		if err := ValidateRestrictionFacets(v.schema, sc.Restriction, baseType, value, context, v.convert); err != nil {
 			return err
 		}
 	}
-	return validateValue(schema, value, baseType, context, visited, settings)
+	return v.validateValue(value, baseType, context, visited)
 }
 
 func validateBuiltin(typ model.Type, normalizedValue string) error {
@@ -232,11 +229,11 @@ func validateBuiltin(typ model.Type, normalizedValue string) error {
 	return bt.Validate(normalizedValue)
 }
 
-func validateTypePolicies(schema *parser.Schema, typ model.Type, errorOnPlaceholder bool, policy IDPolicy) error {
+func (v schemaValueValidator) validateTypePolicies(typ model.Type, policy IDPolicy) error {
 	if typ == nil {
 		return nil
 	}
-	if errorOnPlaceholder {
+	if v.errorOnPlaceholder {
 		if st, ok := typ.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) {
 			return fmt.Errorf("type %s not resolved", st.QName)
 		}
@@ -254,7 +251,7 @@ func validateTypePolicies(schema *parser.Schema, typ model.Type, errorOnPlacehol
 	if !ok {
 		return nil
 	}
-	if parser.IsIDOnlyDerivedType(schema, st) {
+	if parser.IsIDOnlyDerivedType(v.schema, st) {
 		return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", st.Name().Local)
 	}
 	return nil

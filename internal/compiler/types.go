@@ -7,6 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complexplan"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/validatorbuild"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -38,7 +39,7 @@ type Prepared struct {
 	registry     *analysis.Registry
 	refs         *analysis.ResolvedReferences
 	complexTypes *complexplan.ComplexTypes
-	prepared     *PreparedArtifacts
+	validators   *validatorbuild.ValidatorArtifacts
 	prepErr      error
 	buildOnce    sync.Once
 }

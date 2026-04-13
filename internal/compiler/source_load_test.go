@@ -2,10 +2,10 @@ package compiler
 
 import (
 	"errors"
-	"io"
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -14,35 +14,25 @@ func TestLoadResolvedReturnsCachedSchema(t *testing.T) {
 
 	doc := &testReadCloser{Reader: strings.NewReader("")}
 	want := parser.NewSchema()
+	loader := NewLoader(LoaderConfig{})
+	key := loadKey{systemID: "schema.xsd"}
+	entry := loader.state.ensureEntry(key)
+	entry.state = schemaStateLoaded
+	entry.schema = want
 
-	got, err := LoadResolved(doc, "schema.xsd", LoadCallbacks{
-		Loaded: func() (*parser.Schema, bool) {
-			return want, true
-		},
-		Close: func(doc io.Closer, _ string) error {
-			return doc.Close()
-		},
-		Parse: func(io.ReadCloser, string) (*parser.ParseResult, error) {
-			t.Fatal("Parse callback should not be called for cached schemas")
-			return nil, nil
-		},
-		ApplyParsed: func(*parser.ParseResult, string) (*parser.Schema, error) {
-			t.Fatal("ApplyParsed callback should not be called for cached schemas")
-			return nil, nil
-		},
-	})
+	got, err := newLoadSession(loader, "schema.xsd", key, doc).loadResolved()
 	if err != nil {
-		t.Fatalf("LoadResolved() error = %v", err)
+		t.Fatalf("loadResolved() error = %v", err)
 	}
 	if got != want {
-		t.Fatalf("LoadResolved() schema = %p, want %p", got, want)
+		t.Fatalf("loadResolved() schema = %p, want %p", got, want)
 	}
 	if !doc.closed {
-		t.Fatal("LoadResolved() did not close cached document")
+		t.Fatal("loadResolved() did not close cached document")
 	}
 }
 
-func TestLoadResolvedReturnsCircularResultAndCloseError(t *testing.T) {
+func TestLoadResolvedReturnsLoadingSchemaAndCloseError(t *testing.T) {
 	t.Parallel()
 
 	doc := &testReadCloser{
@@ -50,67 +40,42 @@ func TestLoadResolvedReturnsCircularResultAndCloseError(t *testing.T) {
 		closeErr: errors.New("close failed"),
 	}
 	wantSchema := parser.NewSchema()
-	wantErr := errors.New("circular")
+	loader := NewLoader(LoaderConfig{})
+	key := loadKey{systemID: "schema.xsd"}
+	entry := loader.state.ensureEntry(key)
+	entry.state = schemaStateLoading
+	entry.schema = wantSchema
 
-	got, err := LoadResolved(doc, "schema.xsd", LoadCallbacks{
-		Circular: func() (*parser.Schema, error) {
-			return wantSchema, wantErr
-		},
-		Close: func(doc io.Closer, _ string) error {
-			return doc.Close()
-		},
-		Parse: func(io.ReadCloser, string) (*parser.ParseResult, error) {
-			t.Fatal("Parse callback should not be called for circular results")
-			return nil, nil
-		},
-		ApplyParsed: func(*parser.ParseResult, string) (*parser.Schema, error) {
-			t.Fatal("ApplyParsed callback should not be called for circular results")
-			return nil, nil
-		},
-	})
+	got, err := newLoadSession(loader, "schema.xsd", key, doc).loadResolved()
 	if got != wantSchema {
-		t.Fatalf("LoadResolved() schema = %p, want %p", got, wantSchema)
+		t.Fatalf("loadResolved() schema = %p, want %p", got, wantSchema)
 	}
-	if !errors.Is(err, wantErr) || !errors.Is(err, doc.closeErr) {
-		t.Fatalf("LoadResolved() error = %v, want joined circular and close errors", err)
+	if !errors.Is(err, doc.closeErr) {
+		t.Fatalf("loadResolved() error = %v, want close error", err)
 	}
 }
 
 func TestLoadResolvedParsesAndApplies(t *testing.T) {
 	t.Parallel()
 
-	doc := io.NopCloser(strings.NewReader(""))
-	parsed := &parser.ParseResult{Schema: parser.NewSchema()}
-	want := parser.NewSchema()
+	doc := &testReadCloser{Reader: strings.NewReader(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)}
+	loader := NewLoader(LoaderConfig{})
+	key := loadKey{systemID: "schema.xsd"}
 
-	got, err := LoadResolved(doc, "schema.xsd", LoadCallbacks{
-		Close: func(io.Closer, string) error {
-			t.Fatal("Close callback should not be called after Parse takes ownership")
-			return nil
-		},
-		Parse: func(gotDoc io.ReadCloser, gotSystemID string) (*parser.ParseResult, error) {
-			if gotDoc != doc {
-				t.Fatalf("Parse() doc = %v, want original doc", gotDoc)
-			}
-			if gotSystemID != "schema.xsd" {
-				t.Fatalf("Parse() systemID = %q, want schema.xsd", gotSystemID)
-			}
-			return parsed, nil
-		},
-		ApplyParsed: func(result *parser.ParseResult, gotSystemID string) (*parser.Schema, error) {
-			if result != parsed {
-				t.Fatalf("ApplyParsed() result = %p, want %p", result, parsed)
-			}
-			if gotSystemID != "schema.xsd" {
-				t.Fatalf("ApplyParsed() systemID = %q, want schema.xsd", gotSystemID)
-			}
-			return want, nil
-		},
-	})
+	got, err := newLoadSession(loader, "schema.xsd", key, doc).loadResolved()
 	if err != nil {
-		t.Fatalf("LoadResolved() error = %v", err)
+		t.Fatalf("loadResolved() error = %v", err)
 	}
-	if got != want {
-		t.Fatalf("LoadResolved() schema = %p, want %p", got, want)
+	if got == nil {
+		t.Fatal("loadResolved() schema = nil")
+	}
+	if got.ElementDecls[model.QName{Local: "root"}] == nil {
+		t.Fatal("loadResolved() missing parsed root element")
+	}
+	if !doc.closed {
+		t.Fatal("loadResolved() did not close parsed document")
 	}
 }

@@ -11,20 +11,24 @@ import (
 )
 
 // Compile loads, prepares, and builds one schema root with explicit source/build options.
-func Compile(fsys fs.FS, location string, sourceOpts SourceOptions, buildOpts BuildOptions) (*Schema, error) {
+func Compile(fsys fs.FS, location string, opts ...CompileOption) (*Schema, error) {
 	entry, err := newSourceEntry(fsys, location)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", location, err)
 	}
-	return compileSourceEntry(entry, location, sourceOpts, buildOpts)
+	return compileSourceEntry(entry, location, opts)
 }
 
-func compileSourceEntry(entry sourceEntry, displayLocation string, sourceOpts SourceOptions, buildOpts BuildOptions) (*Schema, error) {
-	prepared, err := preparePreparedSchema([]sourceEntry{entry}, sourceOpts)
+func compileSourceEntry(entry sourceEntry, displayLocation string, opts []CompileOption) (*Schema, error) {
+	source, build, err := resolveCompileOptions(opts)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", displayLocation, err)
 	}
-	schema, err := prepared.Build(buildOpts)
+	prepared, err := prepareEntries([]sourceEntry{entry}, source)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", displayLocation, err)
+	}
+	schema, err := buildSchema(prepared, build, defaultResolvedValidateOptions())
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", displayLocation, err)
 	}
@@ -34,7 +38,7 @@ func compileSourceEntry(entry sourceEntry, displayLocation string, sourceOpts So
 // CompileFile loads, prepares, and builds one schema file with explicit source/build options.
 // The explicit entry path is loaded as requested, and nested include/import loads
 // are confined to the selected file's containing directory tree.
-func CompileFile(path string, sourceOpts SourceOptions, buildOpts BuildOptions) (*Schema, error) {
+func CompileFile(path string, opts ...CompileOption) (*Schema, error) {
 	dir := filepath.Dir(path)
 	base := filepath.Base(path)
 
@@ -55,7 +59,7 @@ func CompileFile(path string, sourceOpts SourceOptions, buildOpts BuildOptions) 
 		systemID: base,
 		nested:   compiler.NewFSResolver(root.FS()),
 	}
-	return compileSourceEntry(entry, base, sourceOpts, buildOpts)
+	return compileSourceEntry(entry, base, opts)
 }
 
 type compileFileResolver struct {

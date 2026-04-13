@@ -67,13 +67,6 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 				BaseType:  baseType,
 				BaseQName: baseQName,
 			},
-			SchemaConstraintCallbacks{
-				ValidateRangeConsistency: ValidateRangeConsistency,
-				ValidateRangeValues:      ValidateRangeValues,
-				ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
-					return ValidateWithFacets(sch, value, baseType, context, nil)
-				},
-			},
 		); err != nil {
 			errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
 		}
