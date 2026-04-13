@@ -10,10 +10,9 @@ import (
 
 // Schema wraps a compiled runtime schema with convenience methods.
 type Schema struct {
-	rt                   *runtime.Schema
-	defaultValidator     *Validator
-	validateDefaults     resolvedValidateOptions
-	defaultValidatorOnce sync.Once
+	rt               *runtime.Schema
+	defaultValidator func() *Validator
+	validateDefaults resolvedValidateOptions
 }
 
 // Validator validates XML documents against one compiled schema.
@@ -28,8 +27,12 @@ func newSchema(rt *runtime.Schema, validateDefaults resolvedValidateOptions) *Sc
 	if rt == nil {
 		return &Schema{}
 	}
+	defaultValidator := sync.OnceValue(func() *Validator {
+		return newValidator(rt, validateDefaults)
+	})
 	return &Schema{
 		rt:               rt,
+		defaultValidator: defaultValidator,
 		validateDefaults: validateDefaults,
 	}
 }

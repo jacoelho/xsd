@@ -76,3 +76,50 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 	s.popNamespaceScope()
 	return errs, path
 }
+
+func (s *Session) appendEndError(errs []error, path *string, err error) []error {
+	if err == nil {
+		return errs
+	}
+	if path != nil && *path == "" {
+		*path = s.pathString()
+	}
+	return append(errs, err)
+}
+
+func (s *Session) ensurePath(path *string) {
+	if path == nil || *path != "" {
+		return
+	}
+	*path = s.pathString()
+}
+
+func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, typeOK bool, elem runtime.Element, elemOK bool, resolver sessionResolver, path *string) ([]error, endTextState) {
+	result := endTextState{}
+	if frame.nilled || !typeOK || (typ.Kind != runtime.TypeSimple && typ.Kind != runtime.TypeBuiltin && frame.content != runtime.ContentSimple) {
+		return nil, result
+	}
+
+	var errs []error
+	if frame.hasChildElements && !frame.childErrorReported {
+		s.ensurePath(path)
+		errs = append(errs, newValidationError(xsderrors.ErrTextInElementOnly, "element not allowed in simple content"))
+	}
+
+	rawText := s.TextSlice(frame.text)
+	hasContent := frame.text.HasText || frame.hasChildElements
+	ct, hasComplexText, textValidator, typeErr := s.resolveEndTextType(frame, typ)
+	if typeErr != nil {
+		s.ensurePath(path)
+		errs = append(errs, typeErr)
+	}
+	result.textValidator = textValidator
+
+	valueErrs := s.resolveEndTextValue(&result, frame, rawText, hasContent, elem, elemOK, ct, hasComplexText, resolver, path)
+	errs = append(errs, valueErrs...)
+
+	fixedErrs := s.validateEndTextFixed(result, hasContent, elem, elemOK, ct, hasComplexText, resolver, path)
+	errs = append(errs, fixedErrs...)
+
+	return errs, result
+}

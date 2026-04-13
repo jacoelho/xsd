@@ -41,25 +41,25 @@ func (o SourceOptions) WithAllowMissingImportLocations(value bool) SourceOptions
 
 // WithSchemaMaxDepth sets the schema XML max depth limit (0 uses default).
 func (o SourceOptions) WithSchemaMaxDepth(value int) SourceOptions {
-	o.schemaMaxDepth = intOption{value: value, set: true}
+	o.parseLimits.maxDepth = intOption{value: value, set: true}
 	return o
 }
 
 // WithSchemaMaxAttrs sets the schema XML max attributes limit (0 uses default).
 func (o SourceOptions) WithSchemaMaxAttrs(value int) SourceOptions {
-	o.schemaMaxAttrs = intOption{value: value, set: true}
+	o.parseLimits.maxAttrs = intOption{value: value, set: true}
 	return o
 }
 
 // WithSchemaMaxTokenSize sets the schema XML max token size limit (0 uses default).
 func (o SourceOptions) WithSchemaMaxTokenSize(value int) SourceOptions {
-	o.schemaMaxTokenSize = intOption{value: value, set: true}
+	o.parseLimits.maxTokenSize = intOption{value: value, set: true}
 	return o
 }
 
 // WithSchemaMaxQNameInternEntries sets the schema QName interning cache size (0 leaves xmlstream default).
 func (o SourceOptions) WithSchemaMaxQNameInternEntries(value int) SourceOptions {
-	o.schemaMaxQNameInternEntries = intOption{value: value, set: true}
+	o.parseLimits.maxQNameInternEntries = intOption{value: value, set: true}
 	return o
 }
 
@@ -77,24 +77,24 @@ func (o BuildOptions) WithMaxOccursLimit(value uint32) BuildOptions {
 
 // WithInstanceMaxDepth sets the instance XML max depth limit (0 uses default).
 func (o ValidateOptions) WithInstanceMaxDepth(value int) ValidateOptions {
-	o.instanceMaxDepth = intOption{value: value, set: true}
+	o.parseLimits.maxDepth = intOption{value: value, set: true}
 	return o
 }
 
 // WithInstanceMaxAttrs sets the instance XML max attributes limit (0 uses default).
 func (o ValidateOptions) WithInstanceMaxAttrs(value int) ValidateOptions {
-	o.instanceMaxAttrs = intOption{value: value, set: true}
+	o.parseLimits.maxAttrs = intOption{value: value, set: true}
 	return o
 }
 
 // WithInstanceMaxTokenSize sets the instance XML max token size limit (0 uses default).
 func (o ValidateOptions) WithInstanceMaxTokenSize(value int) ValidateOptions {
-	o.instanceMaxTokenSize = intOption{value: value, set: true}
+	o.parseLimits.maxTokenSize = intOption{value: value, set: true}
 	return o
 }
 
 // WithInstanceMaxQNameInternEntries sets the instance QName interning cache size (0 leaves xmlstream default).
 func (o ValidateOptions) WithInstanceMaxQNameInternEntries(value int) ValidateOptions {
-	o.instanceMaxQNameInternEntries = intOption{value: value, set: true}
+	o.parseLimits.maxQNameInternEntries = intOption{value: value, set: true}
 	return o
 }

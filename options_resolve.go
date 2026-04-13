@@ -2,15 +2,23 @@ package xsd
 
 import "fmt"
 
-func (o SourceOptions) withDefaults() (resolvedSourceOptions, error) {
-	schemaLimits, err := resolveXMLParseLimits(
-		o.schemaMaxDepth.resolved(),
-		o.schemaMaxAttrs.resolved(),
-		o.schemaMaxTokenSize.resolved(),
-		o.schemaMaxQNameInternEntries.resolved(),
+func (o parseLimitOptions) resolve(label string) (xmlParseLimits, error) {
+	limits, err := resolveXMLParseLimits(
+		o.maxDepth.resolved(),
+		o.maxAttrs.resolved(),
+		o.maxTokenSize.resolved(),
+		o.maxQNameInternEntries.resolved(),
 	)
 	if err != nil {
-		return resolvedSourceOptions{}, fmt.Errorf("schema xml limits: %w", err)
+		return xmlParseLimits{}, fmt.Errorf("%s xml limits: %w", label, err)
+	}
+	return limits, nil
+}
+
+func (o SourceOptions) withDefaults() (resolvedSourceOptions, error) {
+	schemaLimits, err := o.parseLimits.resolve("schema")
+	if err != nil {
+		return resolvedSourceOptions{}, err
 	}
 	return resolvedSourceOptions{
 		allowMissingImportLocations: o.allowMissingImportLocations,
@@ -26,14 +34,9 @@ func (o BuildOptions) withDefaults() resolvedBuildOptions {
 }
 
 func (o ValidateOptions) withDefaults() (resolvedValidateOptions, error) {
-	instanceLimits, err := resolveXMLParseLimits(
-		o.instanceMaxDepth.resolved(),
-		o.instanceMaxAttrs.resolved(),
-		o.instanceMaxTokenSize.resolved(),
-		o.instanceMaxQNameInternEntries.resolved(),
-	)
+	instanceLimits, err := o.parseLimits.resolve("instance")
 	if err != nil {
-		return resolvedValidateOptions{}, fmt.Errorf("instance xml limits: %w", err)
+		return resolvedValidateOptions{}, err
 	}
 	return resolvedValidateOptions{
 		instanceLimits:       instanceLimits,

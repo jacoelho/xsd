@@ -77,13 +77,10 @@ func (v *Validator) ValidateFile(path string) (err error) {
 }
 
 func (s *Schema) defaultValidatorForSchema() (*Validator, error) {
-	if s == nil || s.rt == nil {
+	if s == nil || s.rt == nil || s.defaultValidator == nil {
 		return nil, schemaNotLoadedError()
 	}
-	s.defaultValidatorOnce.Do(func() {
-		s.defaultValidator = newValidator(s.rt, s.validateDefaults)
-	})
-	return s.defaultValidator, nil
+	return s.defaultValidator(), nil
 }
 
 func newValidator(rt *runtime.Schema, opts resolvedValidateOptions) *Validator {

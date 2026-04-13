@@ -7,16 +7,17 @@ import (
 
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/validatorbuild"
 )
 
-func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, *analysis.Registry, *analysis.ResolvedReferences) {
+func mustPreparedValidators(t *testing.T, schemaXML string) (*Prepared, *analysis.Registry, *analysis.ResolvedReferences, *validatorbuild.ValidatorArtifacts) {
 	t.Helper()
 	prepared := mustPrepared(t, schemaXML)
-	artifacts, err := prepared.ensureBuildArtifacts()
+	validators, err := prepared.ensureValidators()
 	if err != nil {
-		t.Fatalf("ensureBuildArtifacts() error = %v", err)
+		t.Fatalf("ensureValidators() error = %v", err)
 	}
-	return artifacts, prepared.Registry(), prepared.References()
+	return prepared, prepared.Registry(), prepared.References(), validators
 }
 
 func mustPrepared(t *testing.T, schemaXML string) *Prepared {
@@ -37,47 +38,49 @@ func mustParsedSchema(t *testing.T, schemaXML string) *parser.Schema {
 	return sch
 }
 
-func TestPrepareBuildArtifactsRejectsNilInputs(t *testing.T) {
+func TestPrepareValidatorsRejectsNilInputs(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`
 	prepared := mustPrepared(t, schemaXML)
-	artifacts, err := prepared.ensureBuildArtifacts()
+	validators, err := prepared.ensureValidators()
 	if err != nil {
-		t.Fatalf("ensureBuildArtifacts() error = %v", err)
+		t.Fatalf("ensureValidators() error = %v", err)
 	}
 	sch := prepared.Schema()
 	reg := prepared.Registry()
 	refs := prepared.References()
-	validators := artifacts.Validators()
 
-	if _, err := PrepareBuildArtifacts(nil, reg, refs, validators); err == nil {
-		t.Fatal("PrepareBuildArtifacts(nil schema) expected error")
+	if _, err := prepareValidators(nil, reg, refs, prepared.ComplexTypes()); err == nil {
+		t.Fatal("prepareValidators(nil schema) expected error")
 	}
-	if _, err := PrepareBuildArtifacts(sch, nil, refs, validators); err == nil {
-		t.Fatal("PrepareBuildArtifacts(nil registry) expected error")
+	if _, err := prepareValidators(sch, nil, refs, prepared.ComplexTypes()); err == nil {
+		t.Fatal("prepareValidators(nil registry) expected error")
 	}
-	if _, err := PrepareBuildArtifacts(sch, reg, nil, validators); err == nil {
-		t.Fatal("PrepareBuildArtifacts(nil refs) expected error")
+	if _, err := prepareValidators(sch, reg, nil, prepared.ComplexTypes()); err == nil {
+		t.Fatal("prepareValidators(nil refs) expected error")
 	}
-	if _, err := PrepareBuildArtifacts(sch, reg, refs, nil); err == nil {
-		t.Fatal("PrepareBuildArtifacts(nil validators) expected error")
+	if _, err := Build(sch, reg, refs, nil, Config{}); err == nil {
+		t.Fatal("Build(nil validators) expected error")
+	}
+	if validators == nil {
+		t.Fatal("ensureValidators() returned nil validators")
 	}
 }
 
-func TestPreparedArtifactsBuildMatchesDirectBuild(t *testing.T) {
+func TestPreparedBuildMatchesDirectBuild(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`
-	prepared, reg, refs := mustPreparedArtifacts(t, schemaXML)
+	prepared, reg, refs, validators := mustPreparedValidators(t, schemaXML)
 
 	rtPrepared, err := prepared.Build(BuildConfig{})
 	if err != nil {
 		t.Fatalf("prepared.Build() error = %v", err)
 	}
-	rtDirect, err := Build(prepared.Schema(), reg, refs, prepared.Validators(), Config{})
+	rtDirect, err := Build(prepared.Schema(), reg, refs, validators, Config{})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
@@ -90,12 +93,12 @@ func TestPreparedArtifactsBuildMatchesDirectBuild(t *testing.T) {
 	}
 }
 
-func TestPreparedArtifactsBuildConcurrent(t *testing.T) {
+func TestPreparedBuildConcurrent(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`
-	prepared, _, _ := mustPreparedArtifacts(t, schemaXML)
+	prepared, _, _, _ := mustPreparedValidators(t, schemaXML)
 
 	const workers = 8
 	var wg sync.WaitGroup
@@ -116,7 +119,7 @@ func TestPreparedArtifactsBuildConcurrent(t *testing.T) {
 	}
 }
 
-func TestPrepareBuildArtifactsWithPrecomputedValidatorsSimpleContentRestriction(t *testing.T) {
+func TestPreparedBuildWithPrecomputedValidatorsSimpleContentRestriction(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:sc"
@@ -136,15 +139,14 @@ func TestPrepareBuildArtifactsWithPrecomputedValidatorsSimpleContentRestriction(
 </xs:schema>`
 
 	preparedState := mustPrepared(t, schemaXML)
-	validatorsPrepared, err := preparedState.ensureBuildArtifacts()
+	validators, err := preparedState.ensureValidators()
 	if err != nil {
-		t.Fatalf("ensureBuildArtifacts() error = %v", err)
+		t.Fatalf("ensureValidators() error = %v", err)
 	}
 	sch := preparedState.Schema()
 	reg := preparedState.Registry()
 	refs := preparedState.References()
-	validators := validatorsPrepared.Validators()
-	rtPrepared, err := validatorsPrepared.Build(BuildConfig{})
+	rtPrepared, err := preparedState.Build(BuildConfig{})
 	if err != nil {
 		t.Fatalf("prepared.Build() error = %v", err)
 	}
