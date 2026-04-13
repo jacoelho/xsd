@@ -117,9 +117,8 @@ type Restriction struct {
 
 Import and include resolution happens during loading to assemble all schema
 documents. Includes must resolve successfully. Imports without a schemaLocation
-are rejected unless `LoadOptions.WithAllowMissingImportLocations(true)` is used.
-Missing import files are only skipped when that option is enabled; otherwise
-they are errors.
+are rejected unless `xsd.AllowMissingImportLocations()` is used. Missing import
+files are only skipped when that option is enabled; otherwise they are errors.
 
 ```mermaid
 flowchart TD

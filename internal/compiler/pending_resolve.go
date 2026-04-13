@@ -1,83 +1,152 @@
 package compiler
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
 
-// PendingResolveCallbacks supplies the caller-owned state and side effects needed to
-// resolve one source's deferred directives.
-type PendingResolveCallbacks[K comparable, S any, T any] struct {
-	Inputs         func(K) (*Tracking[K], []Directive[K], S, error)
-	Stage          func([]Directive[K]) (T, error)
-	Apply          func([]Directive[K], S, T) error
-	Commit         func(T) error
-	MarkMerged     func(K, []Directive[K])
-	ResolveTargets func([]Directive[K]) error
+	"github.com/jacoelho/xsd/internal/parser"
+)
+
+type stagedPendingTarget struct {
+	schema          *parser.Schema
+	includeInserted []int
 }
 
-// ResolvePending handles the generic staged-apply-commit flow for one source's
-// deferred directives.
-func ResolvePending[K comparable, S any, T any](sourceKey K, callbacks PendingResolveCallbacks[K, S, T]) error {
-	tracking, directives, source, err := callbacks.Inputs(sourceKey)
-	if err != nil || len(directives) == 0 {
-		return err
+func (l *Loader) applyPendingInclude(directive Directive[loadKey], source *parser.Schema, target *stagedPendingTarget) error {
+	includingNS := directive.TargetKey.etn
+	includeInfo := parser.IncludeInfo{
+		SchemaLocation: directive.SchemaLocation,
+		DeclIndex:      directive.IncludeDeclIndex,
+		IncludeIndex:   directive.IncludeIndex,
 	}
-
-	staged, err := callbacks.Stage(directives)
+	plan, err := PlanInclude(includingNS, target.includeInserted, target.schema, includeInfo, directive.SchemaLocation, source)
 	if err != nil {
 		return err
 	}
-	if err := callbacks.Apply(directives, source, staged); err != nil {
+	inserted, err := ApplyPlanned(target.schema, source, plan, "included", directive.SchemaLocation)
+	if err != nil {
 		return err
 	}
-	if err := callbacks.Commit(staged); err != nil {
+	return RecordIncludeInserted(target.includeInserted, directive.IncludeIndex, inserted)
+}
+
+func (l *Loader) applyPendingImport(directive Directive[loadKey], source *parser.Schema, target *stagedPendingTarget) error {
+	plan, err := PlanImport(directive.SchemaLocation, directive.ExpectedNamespace, source, len(target.schema.GlobalDecls))
+	if err != nil {
 		return err
 	}
-	if callbacks.MarkMerged != nil {
-		callbacks.MarkMerged(sourceKey, directives)
-	}
-	if tracking != nil {
-		tracking.Clear()
-	}
-	if callbacks.ResolveTargets != nil {
-		return callbacks.ResolveTargets(directives)
+	if _, err := ApplyPlanned(target.schema, source, plan, "imported", directive.SchemaLocation); err != nil {
+		return err
 	}
 	return nil
 }
 
-// PendingTargetCallbacks supplies the caller-owned tracking and recursive resolution
-// behavior for one set of deferred directive targets.
-type PendingTargetCallbacks[K comparable] struct {
-	Tracking func(K) (*Tracking[K], error)
-	Resolve  func(K) error
-	Label    func(K) string
-}
-
-// PendingApplyCallbacks supplies caller-owned staged-target lookup and per-kind merge behavior.
-type PendingApplyCallbacks[K comparable, S any, T any, U any] struct {
-	Target  func(T, K) (U, error)
-	Include func(Directive[K], S, U) error
-	Import  func(Directive[K], S, U) error
-}
-
-// ApplyPending looks up each staged target and dispatches deferred directives by kind.
-func ApplyPending[K comparable, S any, T any, U any](directives []Directive[K], source S, staged T, callbacks PendingApplyCallbacks[K, S, T, U]) error {
-	for _, directive := range directives {
-		target, err := callbacks.Target(staged, directive.TargetKey)
+func (l *Loader) commitStagedTargets(staged map[loadKey]*stagedPendingTarget) error {
+	for key, stagedTarget := range staged {
+		target, err := l.schemaForKeyStrict(key)
 		if err != nil {
 			return err
 		}
-		switch directive.Kind {
-		case 0:
-			if callbacks.Include == nil {
-				return fmt.Errorf("missing include callback")
-			}
-			if err := callbacks.Include(directive, source, target); err != nil {
+		*target = *stagedTarget.schema
+		if entry, ok := l.state.entry(key); ok && entry != nil {
+			entry.includeInserted = stagedTarget.includeInserted
+		}
+	}
+	return nil
+}
+
+func (l *Loader) markPendingMerged(sourceKey loadKey, pendingDirectives []Directive[loadKey]) {
+	for _, directive := range pendingDirectives {
+		l.imports.MarkMerged(directive.Kind, directive.TargetKey, sourceKey)
+	}
+}
+
+func (l *Loader) deferDirective(sourceKey loadKey, directive Directive[loadKey], journal *Journal[loadKey]) bool {
+	sourceEntry := l.state.ensureEntry(sourceKey)
+	if !sourceEntry.pending.Append(directive) {
+		return false
+	}
+	if journal != nil {
+		journal.RecordAppendPendingDirective(directive.Kind, sourceKey, directive.TargetKey)
+	}
+
+	targetEntry := l.state.ensureEntry(directive.TargetKey)
+	targetEntry.pending.Increment()
+	if journal != nil {
+		journal.RecordIncPendingCount(directive.TargetKey)
+	}
+	return true
+}
+
+func (l *Loader) resolvePendingImportsFor(sourceKey loadKey) error {
+	sourceEntry, pendingDirectives, source, err := l.pendingResolutionInputs(sourceKey)
+	if err != nil || len(pendingDirectives) == 0 {
+		return err
+	}
+
+	staged, err := l.stagePendingTargets(pendingDirectives)
+	if err != nil {
+		return err
+	}
+	if err := l.applyPendingDirectives(pendingDirectives, source, staged); err != nil {
+		return err
+	}
+	if err := l.commitStagedTargets(staged); err != nil {
+		return err
+	}
+	l.markPendingMerged(sourceKey, pendingDirectives)
+	sourceEntry.pending.Clear()
+	return l.resolvePendingTargets(pendingDirectives)
+}
+
+func (l *Loader) resolvePendingTargets(pendingDirectives []Directive[loadKey]) error {
+	for _, directive := range pendingDirectives {
+		targetEntry := l.state.ensureEntry(directive.TargetKey)
+		if err := targetEntry.pending.Decrement(directive.TargetKey.systemID); err != nil {
+			return err
+		}
+		if targetEntry.pending.Count == 0 {
+			if err := l.resolvePendingImportsFor(directive.TargetKey); err != nil {
 				return err
 			}
-		case 1:
-			if callbacks.Import == nil {
-				return fmt.Errorf("missing import callback")
+		}
+	}
+	return nil
+}
+
+func (l *Loader) pendingResolutionInputs(sourceKey loadKey) (*schemaEntry, []Directive[loadKey], *parser.Schema, error) {
+	sourceEntry := l.state.ensureEntry(sourceKey)
+	if sourceEntry.pending.Count > 0 {
+		return sourceEntry, nil, nil, nil
+	}
+	pendingDirectives := sourceEntry.pending.Directives
+	if len(pendingDirectives) == 0 {
+		return sourceEntry, nil, nil, nil
+	}
+	source := l.state.schemaForKey(sourceKey)
+	if source == nil {
+		return nil, nil, nil, fmt.Errorf("pending import source not found: %s", sourceKey.systemID)
+	}
+	return sourceEntry, pendingDirectives, source, nil
+}
+
+func (l *Loader) applyPendingDirectives(
+	pendingDirectives []Directive[loadKey],
+	source *parser.Schema,
+	staged map[loadKey]*stagedPendingTarget,
+) error {
+	for _, directive := range pendingDirectives {
+		target := staged[directive.TargetKey]
+		if target == nil {
+			return fmt.Errorf("pending directive target not staged: %s", directive.TargetKey.systemID)
+		}
+		switch directive.Kind {
+		case parser.DirectiveInclude:
+			if err := l.applyPendingInclude(directive, source, target); err != nil {
+				return err
 			}
-			if err := callbacks.Import(directive, source, target); err != nil {
+		case parser.DirectiveImport:
+			if err := l.applyPendingImport(directive, source, target); err != nil {
 				return err
 			}
 		default:
@@ -87,26 +156,32 @@ func ApplyPending[K comparable, S any, T any, U any](directives []Directive[K], 
 	return nil
 }
 
-// ResolvePendingTargets decrements unresolved target counts and triggers recursive
-// resolution when a target becomes ready.
-func ResolvePendingTargets[K comparable](directives []Directive[K], callbacks PendingTargetCallbacks[K]) error {
-	for _, directive := range directives {
-		tracking, err := callbacks.Tracking(directive.TargetKey)
+func (l *Loader) stagePendingTargets(pendingDirectives []Directive[loadKey]) (map[loadKey]*stagedPendingTarget, error) {
+	staged := make(map[loadKey]*stagedPendingTarget, len(pendingDirectives))
+	for _, directive := range pendingDirectives {
+		if _, ok := staged[directive.TargetKey]; ok {
+			continue
+		}
+		target, err := l.schemaForKeyStrict(directive.TargetKey)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		label := ""
-		if callbacks.Label != nil {
-			label = callbacks.Label(directive.TargetKey)
+		entry, ok := l.state.entry(directive.TargetKey)
+		if !ok || entry == nil {
+			return nil, fmt.Errorf("pending directive tracking missing for %s", directive.TargetKey.systemID)
 		}
-		if err := tracking.Decrement(label); err != nil {
-			return err
-		}
-		if tracking.Count == 0 && callbacks.Resolve != nil {
-			if err := callbacks.Resolve(directive.TargetKey); err != nil {
-				return err
-			}
+		staged[directive.TargetKey] = &stagedPendingTarget{
+			schema:          parser.CloneSchemaForMerge(target),
+			includeInserted: slices.Clone(entry.includeInserted),
 		}
 	}
-	return nil
+	return staged, nil
+}
+
+func (l *Loader) schemaForKeyStrict(key loadKey) (*parser.Schema, error) {
+	target := l.state.schemaForKey(key)
+	if target == nil {
+		return nil, fmt.Errorf("pending directive target not found: %s", key.systemID)
+	}
+	return target, nil
 }

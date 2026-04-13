@@ -14,21 +14,24 @@ type PreparedSchema struct {
 
 // SourceSet owns schema sources and prepares/builds them through explicit phases.
 type SourceSet struct {
-	entries    []sourceEntry
-	sourceOpts SourceOptions
+	entries []sourceEntry
+	source  sourceConfig
 }
 
 // NewSourceSet creates an empty source set.
-func NewSourceSet() *SourceSet {
-	return &SourceSet{sourceOpts: NewSourceOptions()}
+func NewSourceSet(opts ...SourceOption) *SourceSet {
+	set := &SourceSet{}
+	applySourceOptions(&set.source, opts)
+	return set
 }
 
-// WithSourceOptions replaces source-set options.
-func (s *SourceSet) WithSourceOptions(opts SourceOptions) *SourceSet {
+// WithOptions replaces source-set options.
+func (s *SourceSet) WithOptions(opts ...SourceOption) *SourceSet {
 	if s == nil {
 		return nil
 	}
-	s.sourceOpts = opts
+	s.source = sourceConfig{}
+	applySourceOptions(&s.source, opts)
 	return s
 }
 
@@ -50,16 +53,16 @@ func (s *SourceSet) Prepare() (*PreparedSchema, error) {
 	if s == nil {
 		return nil, fmt.Errorf("prepare source set: nil set")
 	}
-	return preparePreparedSchema(s.entries, s.sourceOpts)
+	return preparePreparedSchema(s.entries, s.source)
 }
 
 // Build compiles all added schema roots into an immutable runtime schema.
-func (s *SourceSet) Build(opts BuildOptions) (*Schema, error) {
+func (s *SourceSet) Build(opts ...BuildOption) (*Schema, error) {
 	prepared, err := s.Prepare()
 	if err != nil {
 		return nil, err
 	}
-	schema, err := prepared.Build(opts)
+	schema, err := prepared.Build(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("build source set: %w", err)
 	}
@@ -67,9 +70,9 @@ func (s *SourceSet) Build(opts BuildOptions) (*Schema, error) {
 }
 
 // Build compiles prepared schema artifacts into an immutable runtime schema.
-func (p *PreparedSchema) Build(opts BuildOptions) (*Schema, error) {
+func (p *PreparedSchema) Build(opts ...BuildOption) (*Schema, error) {
 	if p == nil {
 		return nil, fmt.Errorf("build prepared schema: nil prepared schema")
 	}
-	return buildSchema(p.prepared, opts, defaultResolvedValidateOptions())
+	return buildSchema(p.prepared, resolveBuildOptions(opts), defaultResolvedValidateOptions())
 }

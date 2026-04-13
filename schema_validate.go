@@ -12,11 +12,11 @@ import (
 )
 
 // NewValidator creates a validator with explicit instance-validation options.
-func (s *Schema) NewValidator(opts ValidateOptions) (*Validator, error) {
+func (s *Schema) NewValidator(opts ...ValidateOption) (*Validator, error) {
 	if s == nil || s.rt == nil {
 		return nil, schemaNotLoadedError()
 	}
-	resolved, err := opts.withDefaults()
+	resolved, err := resolveValidateOptions(opts)
 	if err != nil {
 		return nil, fmt.Errorf("validate schema: %w", err)
 	}
@@ -77,13 +77,10 @@ func (v *Validator) ValidateFile(path string) (err error) {
 }
 
 func (s *Schema) defaultValidatorForSchema() (*Validator, error) {
-	if s == nil || s.rt == nil {
+	if s == nil || s.rt == nil || s.defaultValidator == nil {
 		return nil, schemaNotLoadedError()
 	}
-	s.defaultValidatorOnce.Do(func() {
-		s.defaultValidator = newValidator(s.rt, s.validateDefaults)
-	})
-	return s.defaultValidator, nil
+	return s.defaultValidator(), nil
 }
 
 func newValidator(rt *runtime.Schema, opts resolvedValidateOptions) *Validator {

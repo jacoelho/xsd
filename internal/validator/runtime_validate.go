@@ -2,9 +2,11 @@ package validator
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 // Validate validates an XML document using the runtime schema.
@@ -44,4 +46,15 @@ func (s *Session) ValidateWithDocument(r io.Reader, document string) error {
 	}
 
 	return executor.finalize()
+}
+
+func (s *Session) handleCharData(ev *xmlstream.ResolvedEvent) error {
+	if ev == nil {
+		return fmt.Errorf("character data event missing")
+	}
+	if len(s.elemStack) == 0 {
+		return nil
+	}
+	frame := &s.elemStack[len(s.elemStack)-1]
+	return s.ConsumeText(&frame.text, frame.content, frame.mixed, frame.nilled, ev.Text)
 }

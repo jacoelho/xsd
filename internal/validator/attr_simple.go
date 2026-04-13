@@ -33,3 +33,10 @@ func ValidateSimple(
 	}
 	return validated, nil
 }
+
+func classifyFor(rt *runtime.Schema, classes []Class, index int, attr Start) Class {
+	if index < len(classes) {
+		return classes[index]
+	}
+	return ClassifyOne(rt, &attr)
+}

@@ -31,14 +31,10 @@ func validateRestriction(schema *parser.Schema, st *model.SimpleType, restrictio
 			BaseType:  baseType,
 			BaseQName: baseQName,
 		},
-		SchemaConstraintCallbacks{
-			ValidateRangeConsistency: ValidateRangeConsistency,
-			ValidateRangeValues:      ValidateRangeValues,
-			ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
-				return validateValueAgainstTypeWithFacets(schema, value, baseType, context)
-			},
-		},
 	); err != nil {
+		return err
+	}
+	if err := validateSchemaEnumerationValues(schema, facetList, baseType); err != nil {
 		return err
 	}
 
@@ -207,14 +203,10 @@ func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *
 			BaseType:  baseType,
 			BaseQName: baseQName,
 		},
-		SchemaConstraintCallbacks{
-			ValidateRangeConsistency: ValidateRangeConsistency,
-			ValidateRangeValues:      ValidateRangeValues,
-			ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
-				return validateValueAgainstTypeWithFacets(schema, value, baseType, context)
-			},
-		},
 	); err != nil {
+		return err
+	}
+	if err := validateSchemaEnumerationValues(schema, facetList, baseType); err != nil {
 		return err
 	}
 

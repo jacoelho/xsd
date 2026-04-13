@@ -17,21 +17,25 @@ func (l *Loader) loadParsedWithJournal(
 
 	sch = result.Schema
 	lifecycle := l.parsedEntryLifecycle(key, systemID, sch, result.Includes, result.Imports)
-	return ApplyParsed(sch, ApplyCallbacks[schemaEntry]{
-		Begin: lifecycle.Begin,
-		Init:  lifecycle.Init,
-		ApplyDirectives: func() error {
-			return l.applyParsedDirectives(systemID, key, sch, result.Directives, parentJournal)
-		},
-		Commit: lifecycle.Commit,
-		ResolvePending: func() error {
-			return l.resolvePendingImportsFor(key)
-		},
-		RollbackPending: func() {
-			rollbackSourcePending(l, key)
-		},
-		Rollback: lifecycle.Rollback,
-	})
+	entry, cleanup, err := lifecycle.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	if err := lifecycle.Init(entry); err != nil {
+		return nil, err
+	}
+	if err := l.applyParsedDirectives(systemID, key, sch, result.Directives, parentJournal); err != nil {
+		return nil, err
+	}
+	lifecycle.Commit(entry)
+	if err := l.resolvePendingImportsFor(key); err != nil {
+		rollbackSourcePending(l, key)
+		lifecycle.Rollback(entry)
+		return nil, err
+	}
+	return sch, nil
 }
 
 func (l *Loader) cachedOrCircularSchema(key loadKey, systemID string) (*parser.Schema, error) {

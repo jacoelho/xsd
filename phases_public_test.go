@@ -26,12 +26,12 @@ func TestCompileAppliesSourceOptions(t *testing.T) {
 		"main.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	if _, err := xsd.Compile(fsys, "main.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions()); err == nil {
+	if _, err := xsd.Compile(fsys, "main.xsd"); err == nil {
 		t.Fatal("Compile() error = nil, want missing import error")
 	}
 
-	sourceOpts := xsd.NewSourceOptions().WithAllowMissingImportLocations(true)
-	schema, err := xsd.Compile(fsys, "main.xsd", sourceOpts, xsd.NewBuildOptions())
+	sourceOpts := xsd.AllowMissingImportLocations()
+	schema, err := xsd.Compile(fsys, "main.xsd", sourceOpts)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -51,10 +51,27 @@ func TestCompileRejectsInvalidSourceOptions(t *testing.T) {
 	if _, err := xsd.Compile(
 		fsys,
 		"schema.xsd",
-		xsd.NewSourceOptions().WithSchemaMaxDepth(-1),
-		xsd.NewBuildOptions(),
+		xsd.SchemaMaxDepth(-1),
 	); err == nil {
 		t.Fatal("Compile() error = nil, want invalid schema options error")
+	}
+}
+
+func TestCompileUsesLastSourceOption(t *testing.T) {
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)},
+	}
+
+	if _, err := xsd.Compile(
+		fsys,
+		"schema.xsd",
+		xsd.SchemaMaxDepth(-1),
+		xsd.SchemaMaxDepth(32),
+	); err != nil {
+		t.Fatalf("Compile() error = %v, want last source option to win", err)
 	}
 }
 
@@ -69,7 +86,7 @@ func TestSourceSetPrepareBuild(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	set := xsd.NewSourceSet().WithSourceOptions(xsd.NewSourceOptions())
+	set := xsd.NewSourceSet()
 	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
 		t.Fatalf("AddFS() error = %v", err)
 	}
@@ -79,12 +96,12 @@ func TestSourceSetPrepareBuild(t *testing.T) {
 		t.Fatalf("Prepare() error = %v", err)
 	}
 
-	schema, err := prepared.Build(xsd.NewBuildOptions().WithMaxDFAStates(512))
+	schema, err := prepared.Build(xsd.MaxDFAStates(512))
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	v, err := schema.NewValidator(xsd.NewValidateOptions())
+	v, err := schema.NewValidator()
 	if err != nil {
 		t.Fatalf("NewValidator() error = %v", err)
 	}
@@ -121,7 +138,7 @@ func TestSourceSetBuildMultipleRoots(t *testing.T) {
 		t.Fatalf("AddFS(b) error = %v", err)
 	}
 
-	schema, err := set.Build(xsd.NewBuildOptions())
+	schema, err := set.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
@@ -161,7 +178,7 @@ func TestSourceSetBuildMultipleRootsSameLocationDistinctFS(t *testing.T) {
 		t.Fatalf("AddFS(b) error = %v", err)
 	}
 
-	schema, err := set.Build(xsd.NewBuildOptions())
+	schema, err := set.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
@@ -201,7 +218,7 @@ func TestSourceSetBuildMultipleRootsSameLocationConflict(t *testing.T) {
 		t.Fatalf("AddFS(b) error = %v", err)
 	}
 
-	_, err := set.Build(xsd.NewBuildOptions())
+	_, err := set.Build()
 	if err == nil {
 		t.Fatal("Build() error = nil, want duplicate declaration error")
 	}
@@ -212,7 +229,7 @@ func TestSourceSetBuildMultipleRootsSameLocationConflict(t *testing.T) {
 
 func TestSourceSetBuildWithoutRoots(t *testing.T) {
 	set := xsd.NewSourceSet()
-	if _, err := set.Build(xsd.NewBuildOptions()); err == nil {
+	if _, err := set.Build(); err == nil {
 		t.Fatal("Build() error = nil, want no roots error")
 	}
 }
@@ -225,16 +242,16 @@ func TestSchemaNewValidatorAppliesValidateOptions(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	schema, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.Compile(fsys, "schema.xsd")
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
-	tight, err := schema.NewValidator(xsd.NewValidateOptions().WithInstanceMaxDepth(4))
+	tight, err := schema.NewValidator(xsd.InstanceMaxDepth(4))
 	if err != nil {
 		t.Fatalf("NewValidator(tight) error = %v", err)
 	}
-	loose, err := schema.NewValidator(xsd.NewValidateOptions().WithInstanceMaxDepth(64))
+	loose, err := schema.NewValidator(xsd.InstanceMaxDepth(64))
 	if err != nil {
 		t.Fatalf("NewValidator(loose) error = %v", err)
 	}
@@ -256,13 +273,36 @@ func TestSchemaNewValidatorRejectsInvalidValidateOptions(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	schema, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.Compile(fsys, "schema.xsd")
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
-	if _, err := schema.NewValidator(xsd.NewValidateOptions().WithInstanceMaxDepth(-1)); err == nil {
+	if _, err := schema.NewValidator(xsd.InstanceMaxDepth(-1)); err == nil {
 		t.Fatal("NewValidator() error = nil, want invalid validate options error")
+	}
+}
+
+func TestSchemaNewValidatorUsesLastValidateOption(t *testing.T) {
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`)},
+	}
+
+	schema, err := xsd.Compile(fsys, "schema.xsd")
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	validator, err := schema.NewValidator(xsd.InstanceMaxDepth(4), xsd.InstanceMaxDepth(64))
+	if err != nil {
+		t.Fatalf("NewValidator() error = %v", err)
+	}
+
+	if err := validator.Validate(strings.NewReader(deepAnyTypeDocument(8))); err != nil {
+		t.Fatalf("Validate() error = %v, want last validate option to win", err)
 	}
 }
 
@@ -286,7 +326,7 @@ func TestCompileFileResolvesRelativeImport(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`)
 
-	schema, err := xsd.CompileFile(schemaPath, xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.CompileFile(schemaPath)
 	if err != nil {
 		t.Fatalf("CompileFile() error = %v", err)
 	}
@@ -316,7 +356,7 @@ func TestCompileFileAllowsSymlinkRootAndResolvesNestedImportsInRequestedTree(t *
 </xs:schema>`)
 	linkPath := writePhaseTempSymlink(t, tempDir, "links/current.xsd", schemaPath)
 
-	schema, err := xsd.CompileFile(linkPath, xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.CompileFile(linkPath)
 	if err != nil {
 		t.Fatalf("CompileFile() error = %v", err)
 	}
@@ -346,7 +386,7 @@ func TestCompileFileRejectsSymlinkImportEscape(t *testing.T) {
 </xs:schema>`)
 	writePhaseTempSymlink(t, tempDir, "schemas/deps/dep.xsd", outsidePath)
 
-	_, err := xsd.CompileFile(schemaPath, xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	_, err := xsd.CompileFile(schemaPath)
 	if err == nil {
 		t.Fatal("CompileFile() error = nil, want symlink escape rejection")
 	}
@@ -358,7 +398,7 @@ func TestCompileFileRejectsSymlinkImportEscape(t *testing.T) {
 func TestCompileFileMissingFile(t *testing.T) {
 	missingPath := filepath.Join(t.TempDir(), "missing.xsd")
 
-	_, err := xsd.CompileFile(missingPath, xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	_, err := xsd.CompileFile(missingPath)
 	if err == nil {
 		t.Fatal("CompileFile() error = nil, want missing file error")
 	}
@@ -378,12 +418,12 @@ func TestValidatorValidateFileAppliesValidateOptions(t *testing.T) {
 </xs:schema>`)
 	docPath := writePhaseTempFile(t, tempDir, "document.xml", `<root>abcdefghijklmnopqrstuvwxyz</root>`)
 
-	schema, err := xsd.CompileFile(schemaPath, xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	schema, err := xsd.CompileFile(schemaPath)
 	if err != nil {
 		t.Fatalf("CompileFile() error = %v", err)
 	}
 
-	v, err := schema.NewValidator(xsd.NewValidateOptions().WithInstanceMaxTokenSize(8))
+	v, err := schema.NewValidator(xsd.InstanceMaxTokenSize(8))
 	if err != nil {
 		t.Fatalf("NewValidator() error = %v", err)
 	}

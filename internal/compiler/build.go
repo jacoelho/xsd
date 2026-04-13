@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validatorbuild"
 )
 
 // Build compiles prepared artifacts into an immutable runtime schema.
@@ -13,11 +14,11 @@ func (p *Prepared) Build(cfg BuildConfig) (*runtime.Schema, error) {
 	if p == nil || p.schema == nil || p.registry == nil || p.refs == nil {
 		return nil, fmt.Errorf("runtime build: prepared artifacts are nil")
 	}
-	prepared, err := p.ensureBuildArtifacts()
+	validators, err := p.ensureValidators()
 	if err != nil {
 		return nil, err
 	}
-	return prepared.Build(cfg)
+	return Build(p.schema, p.registry, p.refs, validators, Config(cfg))
 }
 
 // GlobalElementOrderSeq yields deterministic global element order.
@@ -38,17 +39,17 @@ func (p *Prepared) GlobalElementOrderSeq() iter.Seq[model.QName] {
 	}
 }
 
-func (p *Prepared) ensureBuildArtifacts() (*PreparedArtifacts, error) {
+func (p *Prepared) ensureValidators() (*validatorbuild.ValidatorArtifacts, error) {
 	p.buildOnce.Do(func() {
-		prepared, err := prepareBuildArtifactsFromComplexTypes(p.schema, p.registry, p.refs, p.complexTypes)
+		validators, err := prepareValidators(p.schema, p.registry, p.refs, p.complexTypes)
 		if err != nil {
 			p.prepErr = err
 			return
 		}
-		p.prepared = prepared
+		p.validators = validators
 	})
 	if p.prepErr != nil {
 		return nil, p.prepErr
 	}
-	return p.prepared, nil
+	return p.validators, nil
 }

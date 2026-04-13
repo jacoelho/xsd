@@ -1,7 +1,7 @@
 package semantics
 
 import (
-	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
@@ -21,7 +21,6 @@ func TestValidateSchemaConstraintsRejectsInvalidFacetName(t *testing.T) {
 			BaseType:  model.GetBuiltin(model.TypeNameString),
 			BaseQName: model.QName{Namespace: model.XSDNamespace, Local: string(model.TypeNameString)},
 		},
-		SchemaConstraintCallbacks{},
 	)
 	if err == nil {
 		t.Fatal("expected invalid facet name error")
@@ -42,32 +41,15 @@ func TestValidateSchemaConstraintsDelegatesRangeChecks(t *testing.T) {
 		t.Fatalf("maxInclusive: %v", err)
 	}
 
-	wantErr := errors.New("range consistency")
-	rangeCalled := false
 	err = ValidateSchemaConstraints(
 		SchemaConstraintInput{
 			FacetList: []model.Facet{minFacet, maxFacet},
 			BaseType:  base,
 			BaseQName: base.Name(),
 		},
-		SchemaConstraintCallbacks{
-			ValidateRangeConsistency: func(_, _, minInclusive, maxInclusive *string, _ model.Type, _ model.QName) error {
-				rangeCalled = true
-				if minInclusive == nil || *minInclusive != "1" {
-					t.Fatalf("minInclusive = %v, want 1", minInclusive)
-				}
-				if maxInclusive == nil || *maxInclusive != "0" {
-					t.Fatalf("maxInclusive = %v, want 0", maxInclusive)
-				}
-				return wantErr
-			},
-		},
 	)
-	if !rangeCalled {
-		t.Fatal("expected range callback to run")
-	}
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("error = %v, want %v", err, wantErr)
+	if err == nil || !strings.Contains(err.Error(), "minInclusive (1) must be <= maxInclusive (0)") {
+		t.Fatalf("error = %v, want range consistency failure", err)
 	}
 }
 
@@ -78,30 +60,23 @@ func TestValidateSchemaConstraintsValidatesEnumerationValues(t *testing.T) {
 		{"p": "urn:b"},
 	})
 
-	seen := make([]string, 0, 2)
-	contexts := make([]map[string]string, 0, 2)
-	err := ValidateSchemaConstraints(
-		SchemaConstraintInput{
-			FacetList: []model.Facet{enum},
-			BaseType:  model.GetBuiltin(model.TypeNameString),
-			BaseQName: model.QName{Namespace: model.XSDNamespace, Local: string(model.TypeNameString)},
-		},
-		SchemaConstraintCallbacks{
-			ValidateEnumerationValue: func(value string, _ model.Type, context map[string]string) error {
-				seen = append(seen, value)
-				contexts = append(contexts, context)
-				return nil
-			},
-		},
-	)
+	err := validateEnumerationValues([]model.Facet{enum}, model.GetBuiltin(model.TypeNameString), func(value string, _ model.Type, context map[string]string) error {
+		switch value {
+		case "a":
+			if context["p"] != "urn:a" {
+				t.Fatalf("context for a = %v", context)
+			}
+		case "b":
+			if context["p"] != "urn:b" {
+				t.Fatalf("context for b = %v", context)
+			}
+		default:
+			t.Fatalf("unexpected enumeration value %q", value)
+		}
+		return nil
+	})
 	if err != nil {
-		t.Fatalf("ValidateSchemaConstraints() error = %v", err)
-	}
-	if len(seen) != 2 || seen[0] != "a" || seen[1] != "b" {
-		t.Fatalf("enumeration values = %v, want [a b]", seen)
-	}
-	if len(contexts) != 2 || contexts[0]["p"] != "urn:a" || contexts[1]["p"] != "urn:b" {
-		t.Fatalf("enumeration contexts = %v", contexts)
+		t.Fatalf("validateEnumerationValues() error = %v", err)
 	}
 }
 
@@ -115,21 +90,12 @@ func TestValidateSchemaConstraintsDefersEnumerationForUnresolvedBase(t *testing.
 	}
 
 	calls := 0
-	err := ValidateSchemaConstraints(
-		SchemaConstraintInput{
-			FacetList: []model.Facet{enum},
-			BaseType:  base,
-			BaseQName: base.Name(),
-		},
-		SchemaConstraintCallbacks{
-			ValidateEnumerationValue: func(string, model.Type, map[string]string) error {
-				calls++
-				return nil
-			},
-		},
-	)
+	err := validateEnumerationValues([]model.Facet{enum}, base, func(string, model.Type, map[string]string) error {
+		calls++
+		return nil
+	})
 	if err != nil {
-		t.Fatalf("ValidateSchemaConstraints() error = %v", err)
+		t.Fatalf("validateEnumerationValues() error = %v", err)
 	}
 	if calls != 0 {
 		t.Fatalf("enumeration callback calls = %d, want 0", calls)
