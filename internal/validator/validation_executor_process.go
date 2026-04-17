@@ -45,12 +45,12 @@ func (e *validationExecutor) finalize() error {
 			return fatal
 		}
 	}
-	if errs := e.s.icState.DrainUncommitted(); len(errs) > 0 {
+	if errs := e.s.identity.icState.DrainUncommitted(); len(errs) > 0 {
 		if fatal := e.s.recordValidationErrors(errs, 0, 0); fatal != nil {
 			return fatal
 		}
 	}
-	if errs := xsderrors.AppendIssues(nil, e.s.icState.DrainCommitted()); len(errs) > 0 {
+	if errs := xsderrors.AppendIssues(nil, e.s.identity.icState.DrainCommitted()); len(errs) > 0 {
 		if fatal := e.s.recordValidationErrors(errs, 0, 0); fatal != nil {
 			return fatal
 		}
@@ -63,7 +63,7 @@ func (e *validationExecutor) processStartElement(ev *xmlstream.ResolvedEvent) er
 		if fatal := e.s.recordValidationError(err, ev.Line, ev.Column); fatal != nil {
 			return fatal
 		}
-		if skipErr := e.s.reader.SkipSubtree(); skipErr != nil {
+		if skipErr := e.s.io.reader.SkipSubtree(); skipErr != nil {
 			return xsderrors.ValidationList{e.s.newValidation(xsderrors.ErrXMLParse, skipErr.Error(), e.s.pathString(), 0, 0)}
 		}
 	}
@@ -79,8 +79,8 @@ func (e *validationExecutor) processEndElement(ev *xmlstream.ResolvedEvent) erro
 			return fatal
 		}
 	}
-	if e.s.icState.HasCommitted() {
-		if pending := xsderrors.AppendIssues(nil, e.s.icState.DrainCommitted()); len(pending) > 0 {
+	if e.s.identity.icState.HasCommitted() {
+		if pending := xsderrors.AppendIssues(nil, e.s.identity.icState.DrainCommitted()); len(pending) > 0 {
 			if fatal := e.s.recordValidationErrorsAtPath(pending, path, ev.Line, ev.Column); fatal != nil {
 				return fatal
 			}

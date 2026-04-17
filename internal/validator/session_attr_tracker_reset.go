@@ -8,3 +8,11 @@ func (t *AttributeTracker) Reset() {
 	t.attrAppliedBuf = t.attrAppliedBuf[:0]
 	t.attrState.Reset()
 }
+
+func (t *AttributeTracker) Shrink(entryLimit int) {
+	if t == nil {
+		return
+	}
+	t.attrAppliedBuf = shrinkSliceCap(t.attrAppliedBuf, entryLimit)
+	t.attrState.Shrink(entryLimit)
+}

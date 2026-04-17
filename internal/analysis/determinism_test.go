@@ -1,10 +1,11 @@
-package analysis
+package analysis_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func TestDetectCyclesDeterministic(t *testing.T) {
@@ -29,7 +30,7 @@ func TestDetectCyclesDeterministic(t *testing.T) {
 
 	var first string
 	for i := range 5 {
-		err := DetectCycles(sch)
+		err := semantics.DetectCycles(sch)
 		if err == nil {
 			t.Fatalf("expected cycle detection error")
 		}

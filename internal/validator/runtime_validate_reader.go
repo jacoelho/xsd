@@ -11,19 +11,19 @@ func (s *Session) ensureReader(r io.Reader) error {
 	if s == nil {
 		return nil
 	}
-	if s.reader == nil {
-		factory := s.readerFactory
+	if s.io.reader == nil {
+		factory := s.io.readerFactory
 		if factory == nil {
 			factory = xmlstream.NewReader
 		}
-		reader, err := factory(r, s.parseOptions...)
+		reader, err := factory(r, s.io.parseOptions...)
 		if err != nil {
 			return err
 		}
-		s.reader = reader
+		s.io.reader = reader
 		return nil
 	}
-	return s.reader.Reset(r, s.parseOptions...)
+	return s.io.reader.Reset(r, s.io.parseOptions...)
 }
 
 func readerSetupError(err error, document string) error {

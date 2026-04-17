@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -16,7 +15,7 @@ func (r *Resolver) resolveSimpleType(qname model.QName, st *model.SimpleType) er
 			return r.doResolveSimpleType(qname, st)
 		})
 	}
-	return analysis.ResolveNamed[model.QName](r.detector, qname, func() error {
+	return ResolveNamed[model.QName](r.detector, qname, func() error {
 		return r.doResolveSimpleType(qname, st)
 	})
 }

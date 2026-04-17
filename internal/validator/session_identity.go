@@ -36,21 +36,67 @@ type identityEndInput struct {
 	KeyKind   runtime.ValueKind
 }
 
+func (id *SessionIdentity) Reset(arena *Arena, entryLimit, idTableLimit int) {
+	if id == nil {
+		return
+	}
+	id.icState.Reset(arena)
+	id.resetIDTable(idTableLimit)
+	id.idRefs = id.idRefs[:0]
+	id.identityAttrs.Reset(entryLimit)
+}
+
+func (id *SessionIdentity) Shrink(entryLimit int) {
+	if id == nil {
+		return
+	}
+	id.idRefs = shrinkSliceCap(id.idRefs, entryLimit)
+	id.icState.Shrink(entryLimit)
+}
+
+func (id *SessionIdentity) resetIDTable(limit int) {
+	if id == nil || id.idTable == nil {
+		return
+	}
+	if len(id.idTable) > limit {
+		id.idTable = nil
+		return
+	}
+	clear(id.idTable)
+}
+
+func (s *identityState) Reset(arena *Arena) {
+	if s == nil {
+		return
+	}
+	s.arena = arena
+	s.State.Reset()
+}
+
+func (s *identityState) Shrink(entryLimit int) {
+	if s == nil {
+		return
+	}
+	s.Uncommitted = shrinkSliceCap(s.Uncommitted, entryLimit)
+	s.Committed = shrinkSliceCap(s.Committed, entryLimit)
+	dropStacksOverCap(entryLimit, &s.Frames, &s.Scopes)
+}
+
 func (s *Session) internIdentityAttrName(ns, local []byte) AttrNameID {
 	if s == nil {
 		return 0
 	}
-	return s.identityAttrs.Intern(NameHash(ns, local), ns, local)
+	return s.identity.identityAttrs.Intern(NameHash(ns, local), ns, local)
 }
 
 func (s *Session) identityStart(in identityStartInput) error {
 	if s == nil {
 		return nil
 	}
-	snapshot := s.icState.Checkpoint()
-	err := s.icState.start(s, in)
+	snapshot := s.identity.icState.Checkpoint()
+	err := s.identity.icState.start(s, in)
 	if err != nil {
-		s.icState.Rollback(snapshot)
+		s.identity.icState.Rollback(snapshot)
 	}
 	return err
 }

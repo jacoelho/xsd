@@ -17,7 +17,7 @@ type Config struct {
 	MaxOccursLimit uint32
 }
 
-func validateBuildInputs(sch *parser.Schema, reg *analysis.Registry, refs *analysis.ResolvedReferences) error {
+func validateBuildInputs(sch *parser.Schema, reg *analysis.Registry, refs *ResolvedReferences) error {
 	if sch == nil {
 		return fmt.Errorf("runtime build: schema is nil")
 	}
@@ -30,11 +30,11 @@ func validateBuildInputs(sch *parser.Schema, reg *analysis.Registry, refs *analy
 	return nil
 }
 
-// Build lowers prepared schema artifacts into an immutable runtime schema.
-func Build(
+// buildRuntimeSchema lowers prepared schema artifacts into an immutable runtime schema.
+func buildRuntimeSchema(
 	sch *parser.Schema,
 	reg *analysis.Registry,
-	refs *analysis.ResolvedReferences,
+	refs *ResolvedReferences,
 	validators *validatorbuild.ValidatorArtifacts,
 	cfg Config,
 ) (*runtime.Schema, error) {

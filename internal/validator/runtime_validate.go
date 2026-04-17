@@ -23,9 +23,9 @@ func (s *Session) ValidateWithDocument(r io.Reader, document string) error {
 		return readerSetupError(errors.New("nil reader"), document)
 	}
 	s.Reset()
-	s.documentURI = document
+	s.io.documentURI = document
 	if err := s.ensureReader(r); err != nil {
-		return readerSetupError(err, s.documentURI)
+		return readerSetupError(err, s.io.documentURI)
 	}
 
 	executor := validationExecutor{
@@ -33,7 +33,7 @@ func (s *Session) ValidateWithDocument(r io.Reader, document string) error {
 		allowBOM: true,
 	}
 	for {
-		ev, err := s.reader.NextResolved()
+		ev, err := s.io.reader.NextResolved()
 		if errors.Is(err, io.EOF) {
 			break
 		}

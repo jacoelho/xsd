@@ -1,20 +1,20 @@
-package analysis_test
+package semantics_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
-func mustParsedResolved(t *testing.T, schemaXML string) *parser.Schema {
+func mustParsedPreparedSchema(t *testing.T, schemaXML string) *parser.Schema {
 	t.Helper()
-	parsedSchema, err := parser.Parse(strings.NewReader(schemaXML))
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	return parsedSchema
+	return schema
 }
 
 func TestDetectTypeCycle(t *testing.T) {
@@ -30,8 +30,8 @@ func TestDetectTypeCycle(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	sch := mustParsedResolved(t, schemaXML)
-	if err := analysis.DetectCycles(sch); err == nil {
+	sch := mustParsedPreparedSchema(t, schemaXML)
+	if err := semantics.DetectCycles(sch); err == nil {
 		t.Fatalf("expected type cycle error")
 	}
 }
@@ -53,8 +53,8 @@ func TestDetectGroupCycle(t *testing.T) {
   </xs:group>
 </xs:schema>`
 
-	sch := mustParsedResolved(t, schemaXML)
-	if err := analysis.DetectCycles(sch); err == nil {
+	sch := mustParsedPreparedSchema(t, schemaXML)
+	if err := semantics.DetectCycles(sch); err == nil {
 		t.Fatalf("expected group cycle error")
 	}
 }
@@ -72,8 +72,8 @@ func TestDetectAttributeGroupCycle(t *testing.T) {
   </xs:attributeGroup>
 </xs:schema>`
 
-	sch := mustParsedResolved(t, schemaXML)
-	if err := analysis.DetectCycles(sch); err == nil {
+	sch := mustParsedPreparedSchema(t, schemaXML)
+	if err := semantics.DetectCycles(sch); err == nil {
 		t.Fatalf("expected attributeGroup cycle error")
 	}
 }
@@ -88,8 +88,8 @@ func TestDetectAttributeGroupMissingReference(t *testing.T) {
   </xs:attributeGroup>
 </xs:schema>`
 
-	sch := mustParsedResolved(t, schemaXML)
-	if err := analysis.DetectCycles(sch); err == nil {
+	sch := mustParsedPreparedSchema(t, schemaXML)
+	if err := semantics.DetectCycles(sch); err == nil {
 		t.Fatalf("expected missing attributeGroup reference error")
 	}
 }
@@ -104,8 +104,8 @@ func TestDetectSubstitutionGroupCycle(t *testing.T) {
   <xs:element name="B" type="xs:string" substitutionGroup="tns:A"/>
 </xs:schema>`
 
-	sch := mustParsedResolved(t, schemaXML)
-	if err := analysis.DetectCycles(sch); err == nil {
+	sch := mustParsedPreparedSchema(t, schemaXML)
+	if err := semantics.DetectCycles(sch); err == nil {
 		t.Fatalf("expected substitutionGroup cycle error")
 	}
 }
@@ -119,8 +119,8 @@ func TestDetectSubstitutionGroupMissingHead(t *testing.T) {
   <xs:element name="Member" type="xs:string" substitutionGroup="tns:Missing"/>
 </xs:schema>`
 
-	sch := mustParsedResolved(t, schemaXML)
-	if err := analysis.DetectCycles(sch); err == nil {
+	sch := mustParsedPreparedSchema(t, schemaXML)
+	if err := semantics.DetectCycles(sch); err == nil {
 		t.Fatalf("expected missing substitutionGroup head error")
 	}
 }

@@ -142,7 +142,7 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart item: %v", err)
 	}
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd item: %v", err)
 	}
 
@@ -151,18 +151,18 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart item missing: %v", err)
 	}
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd item missing: %v", err)
 	}
 
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if len(sess.icState.Uncommitted) != 0 {
-		t.Fatalf("violations = %d, want 0", len(sess.icState.Uncommitted))
+	if len(sess.identity.icState.Uncommitted) != 0 {
+		t.Fatalf("violations = %d, want 0", len(sess.identity.icState.Uncommitted))
 	}
-	if pending := xsderrors.AppendIssues(nil, sess.icState.DrainCommitted()); len(pending) != 0 {
+	if pending := xsderrors.AppendIssues(nil, sess.identity.icState.DrainCommitted()); len(pending) != 0 {
 		t.Fatalf("pending errors = %d, want 0", len(pending))
 	}
 }
@@ -197,14 +197,14 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart item: %v", err)
 	}
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd item: %v", err)
 	}
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	pending := xsderrors.AppendIssues(nil, sess.icState.DrainCommitted())
+	pending := xsderrors.AppendIssues(nil, sess.identity.icState.DrainCommitted())
 	if len(pending) == 0 {
 		t.Fatalf("expected missing field violation")
 	}
@@ -282,17 +282,17 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart item: %v", err)
 	}
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd item: %v", err)
 	}
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd group: %v", err)
 	}
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if pending := xsderrors.AppendIssues(nil, sess.icState.DrainCommitted()); len(pending) != 0 {
+	if pending := xsderrors.AppendIssues(nil, sess.identity.icState.DrainCommitted()); len(pending) != 0 {
 		t.Fatalf("pending errors = %d, want 0", len(pending))
 	}
 }
@@ -333,9 +333,9 @@ func TestIdentityStartRollbackOnError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("xml reader: %v", err)
 	}
-	sess.reader = reader
+	sess.io.reader = reader
 
-	ev, err := sess.reader.NextResolved()
+	ev, err := sess.io.reader.NextResolved()
 	if err != nil {
 		t.Fatalf("NextResolved: %v", err)
 	}
@@ -377,23 +377,23 @@ func TestIdentityStartNoConstraintsSkipsAttrMaterialization(t *testing.T) {
 		t.Fatalf("identityStart: %v", err)
 	}
 
-	if sess.icState.Active {
+	if sess.identity.icState.Active {
 		t.Fatalf("identity state unexpectedly active")
 	}
-	if sess.icState.Frames.Len() != 0 {
-		t.Fatalf("identity frames len = %d, want 0", sess.icState.Frames.Len())
+	if sess.identity.icState.Frames.Len() != 0 {
+		t.Fatalf("identity frames len = %d, want 0", sess.identity.icState.Frames.Len())
 	}
-	if sess.icState.Scopes.Len() != 0 {
-		t.Fatalf("identity scopes len = %d, want 0", sess.icState.Scopes.Len())
+	if sess.identity.icState.Scopes.Len() != 0 {
+		t.Fatalf("identity scopes len = %d, want 0", sess.identity.icState.Scopes.Len())
 	}
-	if sess.icState.NextNodeID != 0 {
-		t.Fatalf("identity nextNodeID = %d, want 0", sess.icState.NextNodeID)
+	if sess.identity.icState.NextNodeID != 0 {
+		t.Fatalf("identity nextNodeID = %d, want 0", sess.identity.icState.NextNodeID)
 	}
-	if len(sess.identityAttrs.Names) != 0 {
-		t.Fatalf("identity attr names materialized: %d", len(sess.identityAttrs.Names))
+	if len(sess.identity.identityAttrs.Names) != 0 {
+		t.Fatalf("identity attr names materialized: %d", len(sess.identity.identityAttrs.Names))
 	}
-	if len(sess.identityAttrs.Buckets) != 0 {
-		t.Fatalf("identity attr buckets materialized: %d", len(sess.identityAttrs.Buckets))
+	if len(sess.identity.identityAttrs.Buckets) != 0 {
+		t.Fatalf("identity attr buckets materialized: %d", len(sess.identity.identityAttrs.Buckets))
 	}
 }
 
@@ -444,13 +444,13 @@ func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 		}); err != nil {
 			panic(err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			panic(err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			panic(err)
 		}
-		if pending := xsderrors.AppendIssues(nil, sess.icState.DrainCommitted()); len(pending) != 0 {
+		if pending := xsderrors.AppendIssues(nil, sess.identity.icState.DrainCommitted()); len(pending) != 0 {
 			panic(pending[0])
 		}
 	}

@@ -18,7 +18,7 @@ func TestValidateSimpleTypeAttrsRejectsNonXsi(t *testing.T) {
 		startAttrs,
 		classified.Classes,
 		false,
-		sess.attrState.PrepareValidated(false, len(startAttrs)),
+		sess.attrs.attrState.PrepareValidated(false, len(startAttrs)),
 		func(validated []Start, attr Start, storeAttrs bool) []Start {
 			return StoreRaw(validated, attr, storeAttrs, sess.ensureAttrNameStable, sess.storeValue)
 		},
@@ -34,7 +34,7 @@ func TestValidateComplexAttrsMarksPresent(t *testing.T) {
 
 	ct := &schema.ComplexTypes[1]
 	uses := Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
-	present := sess.attrState.PreparePresent(len(uses))
+	present := sess.attrs.attrState.PreparePresent(len(uses))
 
 	startAttrs := []Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
 	classified, err := sess.classifyAttrs(startAttrs, false)
@@ -49,7 +49,7 @@ func TestValidateComplexAttrsMarksPresent(t *testing.T) {
 		nil,
 		true,
 		true,
-		sess.attrState.PrepareValidated(true, len(startAttrs)),
+		sess.attrs.attrState.PrepareValidated(true, len(startAttrs)),
 	)
 	if err != nil {
 		t.Fatalf("validateComplexAttrs: %v", err)
@@ -71,7 +71,7 @@ func TestApplyDefaultAttrsAddsDefault(t *testing.T) {
 
 	ct := &schema.ComplexTypes[1]
 	uses := Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
-	present := sess.attrState.PreparePresent(len(uses))
+	present := sess.attrs.attrState.PreparePresent(len(uses))
 
 	applied, err := sess.applyDefaultAttrs(uses, present, false, false)
 	if err != nil {
