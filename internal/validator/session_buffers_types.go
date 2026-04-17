@@ -6,12 +6,10 @@ type SessionBuffers struct {
 	valueBuf     []byte
 	valueScratch []byte
 	normStack    [][]byte
-	metricsPool  []*ValueMetrics
 	errBuf       []byte
 	textBuf      []byte
 	keyBuf       []byte
 	keyTmp       []byte
-	metricsDepth int
 }
 
 func (b *SessionBuffers) Reset() {
@@ -22,7 +20,6 @@ func (b *SessionBuffers) Reset() {
 	b.keyBuf = b.keyBuf[:0]
 	b.keyTmp = b.keyTmp[:0]
 	b.normBuf = b.normBuf[:0]
-	b.metricsDepth = 0
 	b.errBuf = b.errBuf[:0]
 	b.valueBuf = b.valueBuf[:0]
 	b.valueScratch = b.valueScratch[:0]
@@ -40,5 +37,4 @@ func (b *SessionBuffers) Shrink(bufferLimit, entryLimit int) {
 	b.keyBuf = shrinkSliceCap(b.keyBuf, bufferLimit)
 	b.keyTmp = shrinkSliceCap(b.keyTmp, bufferLimit)
 	b.normStack = shrinkNormStack(b.normStack, bufferLimit, entryLimit)
-	b.metricsPool = shrinkSliceCap(b.metricsPool, entryLimit)
 }

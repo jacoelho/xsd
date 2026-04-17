@@ -26,14 +26,6 @@ func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver
 	return validated.Canonical, validated.Metrics, nil
 }
 
-func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions, metricState *ValueMetrics) ([]byte, error) {
-	canonical, err := newValueRunner(s).run(id, lexical, resolver, opts, metricState)
-	if err != nil {
-		return nil, err
-	}
-	return canonical, nil
-}
-
 func hasLengthFacet(meta runtime.ValidatorMeta, facetCode []runtime.FacetInstr) bool {
 	if meta.Facets.Len == 0 {
 		return false
