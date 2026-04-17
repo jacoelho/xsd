@@ -1,4 +1,4 @@
-package analysis_test
+package semantics_test
 
 import (
 	"reflect"
@@ -6,12 +6,26 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/semantics"
 )
 
-func findElementRef(t *testing.T, group *model.ModelGroup) *model.ElementDecl {
+func mustPreparedSchema(t *testing.T, schemaXML string) *parser.Schema {
+	t.Helper()
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	prepared, err := compiler.Prepare(schema)
+	if err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+	return prepared.Schema()
+}
+
+func findPreparedElementRef(t *testing.T, group *model.ModelGroup) *model.ElementDecl {
 	t.Helper()
 	for _, particle := range group.Particles {
 		decl, ok := particle.(*model.ElementDecl)
@@ -26,7 +40,7 @@ func findElementRef(t *testing.T, group *model.ModelGroup) *model.ElementDecl {
 	return nil
 }
 
-func findGroupRef(t *testing.T, group *model.ModelGroup) *model.GroupRef {
+func findPreparedGroupRef(t *testing.T, group *model.ModelGroup) *model.GroupRef {
 	t.Helper()
 	for _, particle := range group.Particles {
 		ref, ok := particle.(*model.GroupRef)
@@ -38,7 +52,7 @@ func findGroupRef(t *testing.T, group *model.ModelGroup) *model.GroupRef {
 	return nil
 }
 
-func findAttributeRef(t *testing.T, attrs []*model.AttributeDecl) *model.AttributeDecl {
+func findPreparedAttributeRef(t *testing.T, attrs []*model.AttributeDecl) *model.AttributeDecl {
 	t.Helper()
 	for _, attr := range attrs {
 		if attr.IsReference {
@@ -94,7 +108,7 @@ func TestReferenceResolution(t *testing.T) {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	refs, err := analysis.ResolveReferences(sch, registry)
+	refs, err := semantics.ResolveReferences(sch, registry)
 	if err != nil {
 		t.Fatalf("ResolveReferences error = %v", err)
 	}
@@ -122,9 +136,9 @@ func TestReferenceResolution(t *testing.T) {
 		t.Fatalf("type T particle = %T, want *model.ModelGroup", content.Particle)
 	}
 
-	elemRef := findElementRef(t, group)
-	groupRef := findGroupRef(t, group)
-	attrRef := findAttributeRef(t, ct.Attributes())
+	elemRef := findPreparedElementRef(t, group)
+	groupRef := findPreparedGroupRef(t, group)
+	attrRef := findPreparedAttributeRef(t, ct.Attributes())
 
 	leafID := registry.Elements[model.QName{Namespace: "urn:ref", Local: "leaf"}]
 	if refs.ElementRefs[elemRef.Name] != leafID {
@@ -176,13 +190,13 @@ func TestReferenceResolutionRecursiveType(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	sch := mustResolveSchema(t, schemaXML)
+	sch := mustPreparedSchema(t, schemaXML)
 	registry, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	if _, err := analysis.ResolveReferences(sch, registry); err != nil {
+	if _, err := semantics.ResolveReferences(sch, registry); err != nil {
 		t.Fatalf("ResolveReferences error = %v", err)
 	}
 }
@@ -196,12 +210,12 @@ func TestReferenceResolutionMissingSubstitutionGroupHead(t *testing.T) {
   <xs:element name="member" type="xs:string" substitutionGroup="tns:missingHead"/>
 </xs:schema>`
 
-	sch := mustParsedResolved(t, schemaXML)
+	sch := mustParsedPreparedSchema(t, schemaXML)
 	registry, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
-	if _, err := analysis.ResolveReferences(sch, registry); err == nil {
+	if _, err := semantics.ResolveReferences(sch, registry); err == nil {
 		t.Fatalf("expected missing substitutionGroup head to fail reference resolution")
 	}
 }
@@ -228,12 +242,12 @@ func TestResolvedReferencesStableAcrossEquivalentClones(t *testing.T) {
   </xs:group>
 </xs:schema>`
 
-	original := mustResolveSchema(t, schemaXML)
+	original := mustPreparedSchema(t, schemaXML)
 	regA, err := analysis.AssignIDs(original)
 	if err != nil {
 		t.Fatalf("AssignIDs(original) error = %v", err)
 	}
-	refsA, err := analysis.ResolveReferences(original, regA)
+	refsA, err := semantics.ResolveReferences(original, regA)
 	if err != nil {
 		t.Fatalf("ResolveReferences(original) error = %v", err)
 	}
@@ -243,7 +257,7 @@ func TestResolvedReferencesStableAcrossEquivalentClones(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AssignIDs(clone) error = %v", err)
 	}
-	refsB, err := analysis.ResolveReferences(cloned, regB)
+	refsB, err := semantics.ResolveReferences(cloned, regB)
 	if err != nil {
 		t.Fatalf("ResolveReferences(clone) error = %v", err)
 	}
