@@ -40,12 +40,12 @@ func TestResolveMatchWildcardStrictUnresolved(t *testing.T) {
 func TestResolveChildNilled(t *testing.T) {
 	t.Parallel()
 
-	out, err := ResolveStartChild(StartChildInput{Nilled: true}, 1, 1, []byte("urn:test"), nil)
+	out, err := resolveStartChild(startChildInput{Nilled: true}, 1, 1, []byte("urn:test"), nil)
 	if code, ok := xsderrors.Info(err); !ok || code != xsderrors.ErrValidateNilledNotEmpty {
-		t.Fatalf("ResolveStartChild() error = %v, want %s", err, xsderrors.ErrValidateNilledNotEmpty)
+		t.Fatalf("resolveStartChild() error = %v, want %s", err, xsderrors.ErrValidateNilledNotEmpty)
 	}
 	if !out.ChildErrorReported {
-		t.Fatal("ResolveStartChild() ChildErrorReported = false, want true")
+		t.Fatal("resolveStartChild() ChildErrorReported = false, want true")
 	}
 }
 
@@ -53,8 +53,8 @@ func TestResolveChildDelegatesToStepper(t *testing.T) {
 	t.Parallel()
 
 	called := false
-	out, err := ResolveStartChild(
-		StartChildInput{Content: runtime.ContentElementOnly, Model: runtime.ModelRef{Kind: runtime.ModelDFA, ID: 7}},
+	out, err := resolveStartChild(
+		startChildInput{Content: runtime.ContentElementOnly, Model: runtime.ModelRef{Kind: runtime.ModelDFA, ID: 7}},
 		11,
 		12,
 		[]byte("urn:test"),
@@ -67,52 +67,56 @@ func TestResolveChildDelegatesToStepper(t *testing.T) {
 		},
 	)
 	if err != nil {
-		t.Fatalf("ResolveStartChild() error = %v", err)
+		t.Fatalf("resolveStartChild() error = %v", err)
 	}
 	if !called {
-		t.Fatal("ResolveStartChild() did not call stepper")
+		t.Fatal("resolveStartChild() did not call stepper")
 	}
 	if out.ChildErrorReported {
-		t.Fatal("ResolveStartChild() ChildErrorReported = true, want false")
+		t.Fatal("resolveStartChild() ChildErrorReported = true, want false")
 	}
 	if out.Match.Kind != StartMatchElem || out.Match.Elem != 21 {
-		t.Fatalf("ResolveStartChild() match = %+v, want elem 21", out.Match)
+		t.Fatalf("resolveStartChild() match = %+v, want elem 21", out.Match)
 	}
 }
 
-func TestResolveEventRootSkip(t *testing.T) {
+func TestPlanStartElementRootSkip(t *testing.T) {
 	t.Parallel()
 
 	rt, nsID, _ := buildSchema(t)
 	rt.RootPolicy = runtime.RootAny
 
-	out, err := ResolveStartEvent(rt, StartEventInput{Root: true, NSID: nsID}, nil, nil)
+	sess := NewSession(rt)
+	out, err := sess.planStartElement(startPlanInput{
+		Entry: NameEntry{NS: nsID},
+		Root:  true,
+	})
 	if err != nil {
-		t.Fatalf("ResolveStartEvent() error = %v", err)
+		t.Fatalf("planStartElement() error = %v", err)
 	}
-	if !out.Result.Skip {
-		t.Fatal("ResolveStartEvent() skip = false, want true")
+	if !out.Skip {
+		t.Fatal("planStartElement() skip = false, want true")
 	}
 }
 
-func TestResolveEventChildPropagatesReportedError(t *testing.T) {
+func TestPlanStartElementChildPropagatesReportedError(t *testing.T) {
 	t.Parallel()
 
 	rt, nsID, sym := buildSchema(t)
+	sess := NewSession(rt)
 
-	out, err := ResolveStartEvent(rt, StartEventInput{
-		Sym:  sym,
-		NSID: nsID,
-		NS:   []byte("urn:test"),
-		Parent: StartChildInput{
-			Nilled: true,
+	out, err := sess.planStartElement(startPlanInput{
+		Entry: NameEntry{Sym: sym, NS: nsID},
+		NS:    []byte("urn:test"),
+		Parent: &elemFrame{
+			nilled: true,
 		},
-	}, nil, nil)
+	})
 	if code, ok := xsderrors.Info(err); !ok || code != xsderrors.ErrValidateNilledNotEmpty {
-		t.Fatalf("ResolveStartEvent() error = %v, want %s", err, xsderrors.ErrValidateNilledNotEmpty)
+		t.Fatalf("planStartElement() error = %v, want %s", err, xsderrors.ErrValidateNilledNotEmpty)
 	}
 	if !out.ChildErrorReported {
-		t.Fatal("ResolveStartEvent() ChildErrorReported = false, want true")
+		t.Fatal("planStartElement() ChildErrorReported = false, want true")
 	}
 }
 

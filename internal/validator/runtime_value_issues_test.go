@@ -27,15 +27,16 @@ func TestUnionStoredValueIsStable(t *testing.T) {
 		RequireCanonical: true,
 		StoreValue:       true,
 	}
-	canon, err := sess.validateValueCore(validatorID, []byte("  a  "), nil, opts, nil)
+	first, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: []byte("  a  "), Options: opts})
 	if err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
+	canon := first.Canonical
 	if string(canon) != "  a  " {
 		t.Fatalf("canonical = %q, want %q", string(canon), "  a  ")
 	}
 
-	if _, err := sess.validateValueCore(validatorID, []byte("  b  "), nil, opts, nil); err != nil {
+	if _, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: []byte("  b  "), Options: opts}); err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
 	if string(canon) != "  a  " {
@@ -63,15 +64,16 @@ func TestListNormalizedValueIsStable(t *testing.T) {
 		RequireCanonical: false,
 		StoreValue:       false,
 	}
-	canon, err := sess.validateValueCore(validatorID, []byte("  a   b  "), nil, opts, nil)
+	first, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: []byte("  a   b  "), Options: opts})
 	if err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
+	canon := first.Canonical
 	if string(canon) != "a b" {
 		t.Fatalf("normalized = %q, want %q", string(canon), "a b")
 	}
 
-	if _, err := sess.validateValueCore(validatorID, []byte("c d"), nil, opts, nil); err != nil {
+	if _, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: []byte("c d"), Options: opts}); err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
 	if string(canon) != "a b" {
@@ -99,15 +101,16 @@ func TestHexBinaryCanonicalValueIsStable(t *testing.T) {
 		RequireCanonical: true,
 		StoreValue:       false,
 	}
-	canon, err := sess.validateValueCore(validatorID, []byte("0a"), nil, opts, nil)
+	first, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: []byte("0a"), Options: opts})
 	if err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
+	canon := first.Canonical
 	if string(canon) != "0A" {
 		t.Fatalf("canonical = %q, want %q", string(canon), "0A")
 	}
 
-	if _, err := sess.validateValueCore(validatorID, []byte("0b"), nil, opts, nil); err != nil {
+	if _, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: []byte("0b"), Options: opts}); err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
 	if string(canon) != "0A" {
@@ -135,15 +138,16 @@ func TestBase64BinaryCanonicalValueIsStable(t *testing.T) {
 		RequireCanonical: true,
 		StoreValue:       false,
 	}
-	canon, err := sess.validateValueCore(validatorID, []byte(" YQ== "), nil, opts, nil)
+	first, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: []byte(" YQ== "), Options: opts})
 	if err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
+	canon := first.Canonical
 	if string(canon) != "YQ==" {
 		t.Fatalf("canonical = %q, want %q", string(canon), "YQ==")
 	}
 
-	if _, err := sess.validateValueCore(validatorID, []byte(" Yg== "), nil, opts, nil); err != nil {
+	if _, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: []byte(" Yg== "), Options: opts}); err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
 	if string(canon) != "YQ==" {

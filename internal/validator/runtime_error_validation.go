@@ -6,7 +6,7 @@ func (s *Session) newValidation(code xsderrors.ErrorCode, msg, path string, line
 	return xsderrors.Validation{
 		Code:     string(code),
 		Message:  msg,
-		Document: s.documentURI,
+		Document: s.io.documentURI,
 		Path:     path,
 		Line:     line,
 		Column:   column,

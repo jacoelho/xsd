@@ -4,16 +4,16 @@ func (s *Session) acquireMetricsState() *ValueMetrics {
 	if s == nil {
 		return &ValueMetrics{}
 	}
-	idx := s.metricsDepth
-	if idx < len(s.metricsPool) {
-		state := s.metricsPool[idx]
+	idx := s.buffers.metricsDepth
+	if idx < len(s.buffers.metricsPool) {
+		state := s.buffers.metricsPool[idx]
 		*state = ValueMetrics{}
-		s.metricsDepth++
+		s.buffers.metricsDepth++
 		return state
 	}
 	state := &ValueMetrics{}
-	s.metricsPool = append(s.metricsPool, state)
-	s.metricsDepth++
+	s.buffers.metricsPool = append(s.buffers.metricsPool, state)
+	s.buffers.metricsDepth++
 	return state
 }
 
@@ -21,7 +21,7 @@ func (s *Session) releaseMetricsState() {
 	if s == nil {
 		return
 	}
-	if s.metricsDepth > 0 {
-		s.metricsDepth--
+	if s.buffers.metricsDepth > 0 {
+		s.buffers.metricsDepth--
 	}
 }

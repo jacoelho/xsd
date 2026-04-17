@@ -10,14 +10,14 @@ func (s *Session) recordID(valueBytes []byte) error {
 	if s == nil {
 		return nil
 	}
-	if s.idTable == nil {
-		s.idTable = make(map[string]struct{}, 32)
+	if s.identity.idTable == nil {
+		s.identity.idTable = make(map[string]struct{}, 32)
 	}
 	key := unsafeBytesString(valueBytes)
-	if _, ok := s.idTable[key]; ok {
+	if _, ok := s.identity.idTable[key]; ok {
 		return newValidationError(xsderrors.ErrDuplicateID, "duplicate ID value")
 	}
-	s.idTable[s.storeIDString(valueBytes)] = struct{}{}
+	s.identity.idTable[s.storeIDString(valueBytes)] = struct{}{}
 	return nil
 }
 
@@ -25,19 +25,19 @@ func (s *Session) recordIDRef(valueBytes []byte) {
 	if s == nil {
 		return
 	}
-	s.idRefs = append(s.idRefs, s.storeIDString(valueBytes))
+	s.identity.idRefs = append(s.identity.idRefs, s.storeIDString(valueBytes))
 }
 
 func (s *Session) validateIDRefs() []error {
 	if s == nil {
 		return nil
 	}
-	if len(s.idRefs) == 0 {
+	if len(s.identity.idRefs) == 0 {
 		return nil
 	}
 	var errs []error
-	for _, ref := range s.idRefs {
-		if _, ok := s.idTable[ref]; !ok {
+	for _, ref := range s.identity.idRefs {
+		if _, ok := s.identity.idTable[ref]; !ok {
 			errs = append(errs, newValidationError(xsderrors.ErrIDRefNotFound, "IDREF value not found"))
 		}
 	}

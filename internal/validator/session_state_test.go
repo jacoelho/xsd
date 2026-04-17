@@ -15,24 +15,24 @@ func TestSessionReset(t *testing.T) {
 	s.Names.Sparse = map[NameID]NameEntry{1: {LocalOff: 1, LocalLen: 2}}
 	s.Names.Local = []byte("local")
 	s.Names.NS = []byte("ns")
-	s.textBuf = []byte("text")
-	s.normBuf = []byte("norm")
-	s.errBuf = []byte("err")
+	s.buffers.textBuf = []byte("text")
+	s.buffers.normBuf = []byte("norm")
+	s.buffers.errBuf = []byte("err")
 	s.validationErrors = []xsderrors.Validation{{Code: "x"}}
-	s.icState.Active = true
-	s.icState.Frames.Push(RuntimeFrame{ID: 1})
-	s.icState.Frames.Push(RuntimeFrame{ID: 2})
-	s.icState.Scopes.Push(Scope{RootID: 1})
-	s.icState.Uncommitted = []error{dummyError{}}
-	s.icState.Committed = []Violation{{Code: "x"}}
+	s.identity.icState.Active = true
+	s.identity.icState.Frames.Push(RuntimeFrame{ID: 1})
+	s.identity.icState.Frames.Push(RuntimeFrame{ID: 2})
+	s.identity.icState.Scopes.Push(Scope{RootID: 1})
+	s.identity.icState.Uncommitted = []error{dummyError{}}
+	s.identity.icState.Committed = []Violation{{Code: "x"}}
 	s.Names.PrefixCache = []prefixCacheEntry{{Hash: 1}}
-	s.attrState.Seen = []SeenEntry{{Hash: 1, Index: 1}}
-	s.attrState.Classes = []Class{ClassOther}
-	s.attrState.Present = []bool{true}
-	s.attrState.Starts = []Start{{Local: []byte("raw")}}
-	s.attrState.Validated = []Start{{Local: []byte("validated")}}
-	s.identityAttrs.Buckets = map[uint64][]AttrNameID{1: {1}}
-	s.identityAttrs.Names = []AttrName{{NS: []byte("urn"), Local: []byte("id")}}
+	s.attrs.attrState.Seen = []SeenEntry{{Hash: 1, Index: 1}}
+	s.attrs.attrState.Classes = []Class{ClassOther}
+	s.attrs.attrState.Present = []bool{true}
+	s.attrs.attrState.Starts = []Start{{Local: []byte("raw")}}
+	s.attrs.attrState.Validated = []Start{{Local: []byte("validated")}}
+	s.identity.identityAttrs.Buckets = map[uint64][]AttrNameID{1: {1}}
+	s.identity.identityAttrs.Names = []AttrName{{NS: []byte("urn"), Local: []byte("id")}}
 
 	s.Reset()
 
@@ -54,31 +54,31 @@ func TestSessionReset(t *testing.T) {
 	if len(s.Names.NS) != 0 {
 		t.Fatalf("name namespace buffer len = %d, want 0", len(s.Names.NS))
 	}
-	if len(s.textBuf) != 0 || len(s.normBuf) != 0 || len(s.errBuf) != 0 {
+	if len(s.buffers.textBuf) != 0 || len(s.buffers.normBuf) != 0 || len(s.buffers.errBuf) != 0 {
 		t.Fatalf("expected buffers to be cleared")
 	}
 	if len(s.validationErrors) != 0 {
 		t.Fatalf("expected validation errors to be cleared")
 	}
-	if s.icState.Active {
+	if s.identity.icState.Active {
 		t.Fatalf("identity state not reset")
 	}
-	if s.icState.Frames.Len() != 0 || s.icState.Scopes.Len() != 0 {
+	if s.identity.icState.Frames.Len() != 0 || s.identity.icState.Scopes.Len() != 0 {
 		t.Fatalf("identity stacks not reset")
 	}
-	if len(s.icState.Uncommitted) != 0 || len(s.icState.Committed) != 0 {
+	if len(s.identity.icState.Uncommitted) != 0 || len(s.identity.icState.Committed) != 0 {
 		t.Fatalf("identity state results not reset")
 	}
-	if len(s.Names.PrefixCache) != 0 || len(s.attrState.Seen) != 0 {
+	if len(s.Names.PrefixCache) != 0 || len(s.attrs.attrState.Seen) != 0 {
 		t.Fatalf("session caches not reset")
 	}
-	if len(s.attrState.Classes) != 0 {
-		t.Fatalf("attrState.Classes len = %d, want 0", len(s.attrState.Classes))
+	if len(s.attrs.attrState.Classes) != 0 {
+		t.Fatalf("attrState.Classes len = %d, want 0", len(s.attrs.attrState.Classes))
 	}
-	if len(s.attrState.Present) != 0 || len(s.attrState.Starts) != 0 || len(s.attrState.Validated) != 0 {
+	if len(s.attrs.attrState.Present) != 0 || len(s.attrs.attrState.Starts) != 0 || len(s.attrs.attrState.Validated) != 0 {
 		t.Fatalf("attribute tracker buffers not reset")
 	}
-	if len(s.identityAttrs.Buckets) != 0 || len(s.identityAttrs.Names) != 0 {
+	if len(s.identity.identityAttrs.Buckets) != 0 || len(s.identity.identityAttrs.Names) != 0 {
 		t.Fatalf("identity attr interner not reset")
 	}
 }
@@ -91,18 +91,18 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	s := &Session{}
 	s.Names.Local = make([]byte, maxSessionBuffer+1)
 	s.elemStack = make([]elemFrame, maxSessionEntries+1)
-	s.attrState.Present = make([]bool, maxSessionEntries+1)
-	s.attrState.Starts = make([]Start, maxSessionEntries+1)
-	s.attrState.Validated = make([]Start, maxSessionEntries+1)
-	s.attrState.Classes = make([]Class, maxSessionEntries+1)
-	s.idTable = make(map[string]struct{}, maxSessionIDTableEntries+1)
-	s.identityAttrs.Names = make([]AttrName, maxSessionEntries+1)
-	s.identityAttrs.Buckets = make(map[uint64][]AttrNameID, maxSessionEntries+1)
+	s.attrs.attrState.Present = make([]bool, maxSessionEntries+1)
+	s.attrs.attrState.Starts = make([]Start, maxSessionEntries+1)
+	s.attrs.attrState.Validated = make([]Start, maxSessionEntries+1)
+	s.attrs.attrState.Classes = make([]Class, maxSessionEntries+1)
+	s.identity.idTable = make(map[string]struct{}, maxSessionIDTableEntries+1)
+	s.identity.identityAttrs.Names = make([]AttrName, maxSessionEntries+1)
+	s.identity.identityAttrs.Buckets = make(map[uint64][]AttrNameID, maxSessionEntries+1)
 	for i := range maxSessionIDTableEntries + 1 {
-		s.idTable[strconv.Itoa(i)] = struct{}{}
+		s.identity.idTable[strconv.Itoa(i)] = struct{}{}
 	}
 	for i := range maxSessionEntries + 1 {
-		s.identityAttrs.Buckets[uint64(i)] = []AttrNameID{AttrNameID(i + 1)}
+		s.identity.identityAttrs.Buckets[uint64(i)] = []AttrNameID{AttrNameID(i + 1)}
 	}
 
 	s.Reset()
@@ -113,25 +113,25 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	if s.elemStack != nil {
 		t.Fatalf("expected elemStack to be shrunk")
 	}
-	if s.attrState.Present != nil {
+	if s.attrs.attrState.Present != nil {
 		t.Fatalf("expected attrState.Present to be shrunk")
 	}
-	if s.attrState.Starts != nil {
+	if s.attrs.attrState.Starts != nil {
 		t.Fatalf("expected attrState.Starts to be shrunk")
 	}
-	if s.attrState.Validated != nil {
+	if s.attrs.attrState.Validated != nil {
 		t.Fatalf("expected attrState.Validated to be shrunk")
 	}
-	if s.attrState.Classes != nil {
+	if s.attrs.attrState.Classes != nil {
 		t.Fatalf("expected attrState.Classes to be shrunk")
 	}
-	if s.idTable != nil {
+	if s.identity.idTable != nil {
 		t.Fatalf("expected idTable to be dropped")
 	}
-	if s.identityAttrs.Names != nil {
+	if s.identity.identityAttrs.Names != nil {
 		t.Fatalf("expected identityAttrs.Names to be shrunk")
 	}
-	if s.identityAttrs.Buckets != nil {
+	if s.identity.identityAttrs.Buckets != nil {
 		t.Fatalf("expected identityAttrs.Buckets to be dropped")
 	}
 }
@@ -140,18 +140,18 @@ func TestSessionResetDropsOversizedStacks(t *testing.T) {
 	s := &Session{}
 	for range maxSessionEntries + 1 {
 		s.Names.Scopes.Push(NamespaceScopeFrame{})
-		s.icState.Frames.Push(RuntimeFrame{})
-		s.icState.Scopes.Push(Scope{})
+		s.identity.icState.Frames.Push(RuntimeFrame{})
+		s.identity.icState.Scopes.Push(Scope{})
 	}
 
 	if s.Names.Scopes.Cap() <= maxSessionEntries {
 		t.Fatalf("test setup failed: namespace scope cap = %d, want > %d", s.Names.Scopes.Cap(), maxSessionEntries)
 	}
-	if s.icState.Frames.Cap() <= maxSessionEntries {
-		t.Fatalf("test setup failed: frames cap = %d, want > %d", s.icState.Frames.Cap(), maxSessionEntries)
+	if s.identity.icState.Frames.Cap() <= maxSessionEntries {
+		t.Fatalf("test setup failed: frames cap = %d, want > %d", s.identity.icState.Frames.Cap(), maxSessionEntries)
 	}
-	if s.icState.Scopes.Cap() <= maxSessionEntries {
-		t.Fatalf("test setup failed: scopes cap = %d, want > %d", s.icState.Scopes.Cap(), maxSessionEntries)
+	if s.identity.icState.Scopes.Cap() <= maxSessionEntries {
+		t.Fatalf("test setup failed: scopes cap = %d, want > %d", s.identity.icState.Scopes.Cap(), maxSessionEntries)
 	}
 
 	s.Reset()
@@ -159,11 +159,11 @@ func TestSessionResetDropsOversizedStacks(t *testing.T) {
 	if s.Names.Scopes.Cap() != 0 {
 		t.Fatalf("namespace scope cap = %d, want 0", s.Names.Scopes.Cap())
 	}
-	if s.icState.Frames.Cap() != 0 {
-		t.Fatalf("frames cap = %d, want 0", s.icState.Frames.Cap())
+	if s.identity.icState.Frames.Cap() != 0 {
+		t.Fatalf("frames cap = %d, want 0", s.identity.icState.Frames.Cap())
 	}
-	if s.icState.Scopes.Cap() != 0 {
-		t.Fatalf("scopes cap = %d, want 0", s.icState.Scopes.Cap())
+	if s.identity.icState.Scopes.Cap() != 0 {
+		t.Fatalf("scopes cap = %d, want 0", s.identity.icState.Scopes.Cap())
 	}
 }
 

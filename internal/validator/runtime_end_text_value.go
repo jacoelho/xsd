@@ -44,9 +44,14 @@ func (s *Session) resolveEndTextValue(
 	}
 
 	requireCanonical := (elemOK && elem.Fixed.Present) || (hasComplexText && ct.TextFixed.Present)
-	canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, TextValueOptions{
-		RequireCanonical: requireCanonical,
-		NeedKey:          requireCanonical,
+	validated, err := newValueRunner(s).validateText(textValueRequest{
+		Type:     frame.typ,
+		Lexical:  rawText,
+		Resolver: resolver,
+		Options: TextValueOptions{
+			RequireCanonical: requireCanonical,
+			NeedKey:          requireCanonical || s.hasIdentityConstraints(),
+		},
 	})
 	if err != nil {
 		s.ensurePath(path)
@@ -54,7 +59,8 @@ func (s *Session) resolveEndTextValue(
 		return errs
 	}
 
-	result.canonText = canon
-	result.textKeyKind, result.textKeyBytes, _ = metrics.State.Key()
+	result.canonText = validated.Canonical
+	result.textKeyKind = validated.KeyKind
+	result.textKeyBytes = validated.KeyBytes
 	return errs
 }

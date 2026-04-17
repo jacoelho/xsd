@@ -41,7 +41,7 @@ func (s *Session) validateAttributesClassifiedWithStorage(typeID runtime.TypeID,
 		return AttrResult{}, fmt.Errorf("type %d not found", typeID)
 	}
 
-	validated := s.attrState.PrepareValidated(storeAttrs, len(inputAttrs))
+	validated := s.attrs.attrState.PrepareValidated(storeAttrs, len(inputAttrs))
 	var (
 		applied []Applied
 		err     error
@@ -54,7 +54,7 @@ func (s *Session) validateAttributesClassifiedWithStorage(typeID runtime.TypeID,
 		}
 		ct := &s.rt.ComplexTypes[typ.Complex.ID]
 		uses := Uses(s.rt.AttrIndex.Uses, ct.Attrs)
-		present := s.attrState.PreparePresent(len(uses))
+		present := s.attrs.attrState.PreparePresent(len(uses))
 
 		seenID := false
 		validated, seenID, err = s.validateComplexAttrsClassified(ct, present, inputAttrs, classified.Classes, resolver, storeAttrs, storeValues, validated)
@@ -67,10 +67,10 @@ func (s *Session) validateAttributesClassifiedWithStorage(typeID runtime.TypeID,
 	}
 
 	if storeAttrs {
-		s.attrState.Validated = validated[:0]
+		s.attrs.attrState.Validated = validated[:0]
 	}
 	if cap(applied) > 0 {
-		s.attrAppliedBuf = applied[:0]
+		s.attrs.attrAppliedBuf = applied[:0]
 	}
 	return AttrResult{Attrs: validated, Applied: applied}, nil
 }
@@ -79,7 +79,7 @@ func (s *Session) classifyAttrs(input []Start, checkDuplicates bool) (Classifica
 	if s == nil {
 		return Classification{}, nil
 	}
-	return s.attrState.Classify(s.rt, input, checkDuplicates)
+	return s.attrs.attrState.Classify(s.rt, input, checkDuplicates)
 }
 
 func (s *Session) validateSimpleAttrs(input []Start, classes []Class, storeAttrs, storeValues bool, validated []Start) ([]Start, error) {
@@ -182,15 +182,16 @@ func (s *Session) validateComplexAttrValue(
 		StoreValue:       storeAttrs && storeValues,
 		NeedKey:          spec.Fixed.Present || storeAttrs,
 	}
-	var metrics *ValueMetrics
-	if storeAttrs || spec.Fixed.Present {
-		metrics = s.acquireMetricsState()
-		defer s.releaseMetricsState()
-	}
-	canonical, err := s.validateValueCore(spec.Validator, attr.Value, resolver, opts, metrics)
+	valueResult, err := newValueRunner(s).validate(valueRequest{
+		Validator: spec.Validator,
+		Lexical:   attr.Value,
+		Resolver:  resolver,
+		Options:   opts,
+	})
 	if err != nil {
 		return nil, err
 	}
+	canonical := valueResult.Canonical
 
 	if s.isIDValidator(spec.Validator) {
 		if *seenID {
@@ -199,12 +200,9 @@ func (s *Session) validateComplexAttrValue(
 		*seenID = true
 	}
 
-	keyKind := runtime.VKInvalid
-	var keyBytes []byte
-	hasKey := false
-	if metrics != nil {
-		keyKind, keyBytes, hasKey = metrics.State.Key()
-	}
+	keyKind := valueResult.KeyKind
+	keyBytes := valueResult.KeyBytes
+	hasKey := valueResult.HasKey
 	if storeAttrs {
 		if storeValues {
 			validated = StoreCanonical(validated, attr, true, s.ensureAttrNameStable, canonical, keyKind, keyBytes)
@@ -312,7 +310,7 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 		present,
 		storeAttrs,
 		seenID,
-		s.attrAppliedBuf[:0],
+		s.attrs.attrAppliedBuf[:0],
 		SelectDefaultOrFixed,
 		s.isIDValidator,
 		readValue,
@@ -350,7 +348,7 @@ func (s *Session) needsIdentityAttrs(elemID runtime.ElemID) bool {
 	if s == nil || s.rt == nil {
 		return false
 	}
-	if s.icState.Scopes.Len() > 0 {
+	if s.identity.icState.Scopes.Len() > 0 {
 		return true
 	}
 	elem, ok := s.element(elemID)

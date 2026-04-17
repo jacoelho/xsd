@@ -30,13 +30,17 @@ func (s *Session) validatorMetaIfPresent(id runtime.ValidatorID) (runtime.Valida
 }
 
 func (s *Session) lookupActualUnionValidator(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver) (runtime.ValidatorID, error) {
-	var memberMetrics ValueMetrics
-	if _, err := s.validateValueCore(id, canonical, resolver, valueOptions{
-		ApplyWhitespace:  true,
-		RequireCanonical: true,
-	}, &memberMetrics); err == nil {
-		_, actual := memberMetrics.State.Actual()
-		return actual, nil
+	result, err := s.validateValue(valueRequest{
+		Validator: id,
+		Lexical:   canonical,
+		Resolver:  resolver,
+		Options: valueOptions{
+			ApplyWhitespace:  true,
+			RequireCanonical: true,
+		},
+	})
+	if err == nil {
+		return result.ActualValidator, nil
 	}
 	return 0, xsderrors.Invalid("union value does not match any member type")
 }

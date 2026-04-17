@@ -21,14 +21,11 @@ func TestUnionIntegerDecimalNoMemberMatch(t *testing.T) {
 	}
 	validator := rt.Types[typeID].Validator
 
-	var metrics ValueMetrics
-	_, err := sess.validateValueCore(
-		validator,
-		[]byte("abc"),
-		nil,
-		valueOptions{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
-		&metrics,
-	)
+	_, err := sess.validateValue(valueRequest{
+		Validator: validator,
+		Lexical:   []byte("abc"),
+		Options:   valueOptions{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
+	})
 	if err == nil {
 		t.Fatalf("expected error for value that matches no union member")
 	}
@@ -61,19 +58,16 @@ func TestUnionIntegerDecimalSelectsMatchingMember(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.lexical, func(t *testing.T) {
-			var metrics ValueMetrics
-			canon, err := sess.validateValueCore(
-				validator,
-				[]byte(tc.lexical),
-				nil,
-				valueOptions{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
-				&metrics,
-			)
+			result, err := sess.validateValue(valueRequest{
+				Validator: validator,
+				Lexical:   []byte(tc.lexical),
+				Options:   valueOptions{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
+			})
 			if err != nil {
 				t.Fatalf("validate union %q: %v", tc.lexical, err)
 			}
-			if string(canon) != tc.wantCanonical {
-				t.Fatalf("canonical %q = %q, want %q", tc.lexical, canon, tc.wantCanonical)
+			if string(result.Canonical) != tc.wantCanonical {
+				t.Fatalf("canonical %q = %q, want %q", tc.lexical, result.Canonical, tc.wantCanonical)
 			}
 		})
 	}

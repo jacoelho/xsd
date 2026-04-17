@@ -31,8 +31,8 @@ func TestCanonicalizeTemporalCanonicalAndKey(t *testing.T) {
 	if len(keyBytes) == 0 {
 		t.Fatal("canonicalizeTemporal() key bytes should be non-empty")
 	}
-	if !bytes.Equal(sess.keyTmp, keyBytes) {
-		t.Fatalf("canonicalizeTemporal() session key scratch = %v, want %v", sess.keyTmp, keyBytes)
+	if !bytes.Equal(sess.buffers.keyTmp, keyBytes) {
+		t.Fatalf("canonicalizeTemporal() session key scratch = %v, want %v", sess.buffers.keyTmp, keyBytes)
 	}
 }
 
