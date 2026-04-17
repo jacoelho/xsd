@@ -5,7 +5,7 @@ func (s *Session) ResetText(state *TextState) {
 	if s == nil || state == nil {
 		return
 	}
-	state.Off = uint32(len(s.textBuf))
+	state.Off = uint32(len(s.buffers.textBuf))
 	state.Len = 0
 	state.HasText = false
 	state.HasNonWS = false
@@ -18,10 +18,10 @@ func (s *Session) TextSlice(state TextState) []byte {
 	}
 	start := int(state.Off)
 	end := start + int(state.Len)
-	if start < 0 || end < start || end > len(s.textBuf) {
+	if start < 0 || end < start || end > len(s.buffers.textBuf) {
 		return nil
 	}
-	return s.textBuf[start:end]
+	return s.buffers.textBuf[start:end]
 }
 
 func (s *Session) releaseText(state TextState) {
@@ -30,8 +30,8 @@ func (s *Session) releaseText(state TextState) {
 	}
 	start := int(state.Off)
 	end := start + int(state.Len)
-	if start < 0 || end < start || end != len(s.textBuf) {
+	if start < 0 || end < start || end != len(s.buffers.textBuf) {
 		return
 	}
-	s.textBuf = s.textBuf[:start]
+	s.buffers.textBuf = s.buffers.textBuf[:start]
 }

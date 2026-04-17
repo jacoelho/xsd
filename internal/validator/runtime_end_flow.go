@@ -45,20 +45,8 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 	canonText := textState.canonText
 	textKeyKind := textState.textKeyKind
 	textKeyBytes := textState.textKeyBytes
-	textValidator := textState.textValidator
-	textMember := textState.textMember
 
-	if s.hasIdentityConstraints() && textKeyKind == runtime.VKInvalid && canonText != nil && textValidator != 0 {
-		kind, key, err := s.keyForCanonicalValue(textValidator, canonText, resolver, textMember)
-		if err != nil {
-			errs = s.appendEndError(errs, &path, err)
-		} else {
-			textKeyKind = kind
-			textKeyBytes = s.storeKey(key)
-		}
-	}
-
-	if err := s.icState.end(s.rt, identityEndInput{
+	if err := s.identity.icState.end(s.rt, identityEndInput{
 		Text:      canonText,
 		TextState: frame.text,
 		KeyKind:   textKeyKind,
@@ -67,7 +55,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 		errs = s.appendEndError(errs, &path, err)
 	}
 
-	if path == "" && s.icState.HasCommitted() {
+	if path == "" && s.identity.icState.HasCommitted() {
 		path = s.pathString()
 	}
 

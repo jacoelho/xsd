@@ -1,4 +1,4 @@
-package analysis
+package semantics
 
 import (
 	"fmt"
@@ -19,8 +19,8 @@ const (
 type CyclePolicy uint8
 
 const (
-	CycleIgnore CyclePolicy = iota
-	CycleError
+	CyclePolicyIgnore CyclePolicy = iota
+	CyclePolicyError
 )
 
 // AttributeGroupWalkOptions configures attribute-group traversal behavior.
@@ -84,7 +84,7 @@ func WalkAttributeGroups(
 ) error {
 	return WalkAttributeGroupsWithOptions(schema, refs, AttributeGroupWalkOptions{
 		Missing: missing,
-		Cycles:  CycleIgnore,
+		Cycles:  CyclePolicyIgnore,
 	}, visit)
 }
 
@@ -149,7 +149,7 @@ func (c *AttributeGroupContext) walkClosure(
 	case attributeGroupWalkStateDone:
 		return nil, nil
 	case attributeGroupWalkStateVisiting:
-		if c.opts.Cycles == CycleError {
+		if c.opts.Cycles == CyclePolicyError {
 			return nil, AttributeGroupCycleError{QName: ref}
 		}
 		return nil, nil

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -19,15 +18,15 @@ type Resolver struct {
 
 	// Pointer-based tracking for anonymous types (which have empty QNames) to
 	// avoid false cycle matches while still detecting self-references.
-	anonymousTypeGuard *analysis.Pointer[model.Type]
+	anonymousTypeGuard *Pointer[model.Type]
 }
 
 // NewResolver creates a new resolver for the given schema.
 func NewResolver(sch *parser.Schema) *Resolver {
-	return &Resolver{
+		return &Resolver{
 		schema:             sch,
 		detector:           NewCycleDetector[model.QName](),
-		anonymousTypeGuard: analysis.NewPointer[model.Type](),
+		anonymousTypeGuard: NewPointer[model.Type](),
 	}
 }
 
@@ -110,7 +109,7 @@ func (r *Resolver) resolveComplexTypesPhase(index *iterationIndex) error {
 func (r *Resolver) resolveGroupsPhase(index *iterationIndex) error {
 	for _, qname := range index.groupQNames {
 		grp := r.schema.Groups[qname]
-		if err := analysis.ResolveNamed[model.QName](r.detector, qname, func() error {
+		if err := ResolveNamed[model.QName](r.detector, qname, func() error {
 			return r.resolveParticles(grp.Particles)
 		}); err != nil {
 			return err
@@ -263,7 +262,7 @@ func (r *Resolver) resolveGroupRefParticle(ref *model.GroupRef) error {
 	if !ok {
 		return fmt.Errorf("group %s not found", ref.RefQName)
 	}
-	return analysis.ResolveNamed[model.QName](r.detector, ref.RefQName, func() error {
+	return ResolveNamed[model.QName](r.detector, ref.RefQName, func() error {
 		return r.resolveParticles(group.Particles)
 	})
 }

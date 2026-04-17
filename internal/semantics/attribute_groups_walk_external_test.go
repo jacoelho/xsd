@@ -1,4 +1,4 @@
-package analysis
+package semantics_test
 
 import (
 	"errors"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func TestWalkAttributeGroupsDeterministicDedup(t *testing.T) {
@@ -16,7 +17,7 @@ func TestWalkAttributeGroupsDeterministicDedup(t *testing.T) {
 	schema.AttributeGroups[b] = &model.AttributeGroup{}
 
 	var seen []model.QName
-	if err := WalkAttributeGroups(schema, []model.QName{a, b}, MissingIgnore, func(q model.QName, _ *model.AttributeGroup) error {
+	if err := semantics.WalkAttributeGroups(schema, []model.QName{a, b}, semantics.MissingIgnore, func(q model.QName, _ *model.AttributeGroup) error {
 		seen = append(seen, q)
 		return nil
 	}); err != nil {
@@ -31,15 +32,15 @@ func TestWalkAttributeGroupsMissingPolicy(t *testing.T) {
 	schema := parser.NewSchema()
 	ref := model.QName{Local: "missing"}
 
-	if err := WalkAttributeGroups(schema, []model.QName{ref}, MissingIgnore, nil); err != nil {
+	if err := semantics.WalkAttributeGroups(schema, []model.QName{ref}, semantics.MissingIgnore, nil); err != nil {
 		t.Fatalf("WalkAttributeGroups missing ignore error = %v", err)
 	}
 
-	err := WalkAttributeGroups(schema, []model.QName{ref}, MissingError, nil)
+	err := semantics.WalkAttributeGroups(schema, []model.QName{ref}, semantics.MissingError, nil)
 	if err == nil {
 		t.Fatal("expected missing error")
 	}
-	var missing AttributeGroupMissingError
+	var missing semantics.AttributeGroupMissingError
 	if !errors.As(err, &missing) {
 		t.Fatalf("expected AttributeGroupMissingError, got %T", err)
 	}
@@ -55,15 +56,15 @@ func TestAttributeGroupContextDetectsCycles(t *testing.T) {
 	schema.AttributeGroups[a] = &model.AttributeGroup{AttrGroups: []model.QName{b}}
 	schema.AttributeGroups[b] = &model.AttributeGroup{AttrGroups: []model.QName{a}}
 
-	ctx := NewAttributeGroupContext(schema, AttributeGroupWalkOptions{
-		Missing: MissingError,
-		Cycles:  CycleError,
+	ctx := semantics.NewAttributeGroupContext(schema, semantics.AttributeGroupWalkOptions{
+		Missing: semantics.MissingError,
+		Cycles:  semantics.CyclePolicyError,
 	})
 	err := ctx.Walk([]model.QName{a}, nil)
 	if err == nil {
 		t.Fatal("expected cycle error")
 	}
-	var cycle AttributeGroupCycleError
+	var cycle semantics.AttributeGroupCycleError
 	if !errors.As(err, &cycle) {
 		t.Fatalf("expected AttributeGroupCycleError, got %T", err)
 	}

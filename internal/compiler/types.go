@@ -2,12 +2,11 @@ package compiler
 
 import (
 	"io/fs"
-	"sync"
 
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complexplan"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/validatorbuild"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -31,15 +30,20 @@ type BuildConfig struct {
 	MaxOccursLimit uint32
 }
 
+// ResolvedReferences stores resolved reference indexes consumed by runtime lowering.
+type ResolvedReferences struct {
+	ElementRefs   map[model.QName]analysis.ElemID
+	AttributeRefs map[model.QName]analysis.AttrID
+	GroupRefs     map[model.QName]model.QName
+}
+
 // Prepared stores normalized artifacts and lazy build state.
 type Prepared struct {
 	schema       *parser.Schema
 	registry     *analysis.Registry
-	refs         *analysis.ResolvedReferences
+	refs         *ResolvedReferences
 	complexTypes *complexplan.ComplexTypes
-	validators   *validatorbuild.ValidatorArtifacts
-	prepErr      error
-	buildOnce    sync.Once
+	build        preparedBuildState
 }
 
 // Schema returns the prepared schema graph.
@@ -59,7 +63,7 @@ func (p *Prepared) Registry() *analysis.Registry {
 }
 
 // References returns the resolved reference index for the prepared schema.
-func (p *Prepared) References() *analysis.ResolvedReferences {
+func (p *Prepared) References() *ResolvedReferences {
 	if p == nil {
 		return nil
 	}

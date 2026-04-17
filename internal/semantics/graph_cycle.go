@@ -1,4 +1,4 @@
-package analysis
+package semantics
 
 import "fmt"
 

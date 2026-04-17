@@ -71,9 +71,9 @@ func Benchmark_SessionShrinkPolicy(b *testing.B) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		sess.textBuf = append(sess.textBuf[:0], large...)
+		sess.buffers.textBuf = append(sess.buffers.textBuf[:0], large...)
 		sess.Reset()
-		sess.textBuf = append(sess.textBuf[:0], small...)
+		sess.buffers.textBuf = append(sess.buffers.textBuf[:0], small...)
 		sess.Reset()
 	}
 }
@@ -99,8 +99,7 @@ func Benchmark_UnionValidation_Overlap(b *testing.B) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		var metrics ValueMetrics
-		if _, err := sess.validateValueCore(validator, input, nil, opts, &metrics); err != nil {
+		if _, err := sess.validateValue(valueRequest{Validator: validator, Lexical: input, Options: opts}); err != nil {
 			b.Fatalf("validate union: %v", err)
 		}
 	}
@@ -115,7 +114,7 @@ func Benchmark_ListValidation_DoubleCollapsed(b *testing.B) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(input)))
 	for b.Loop() {
-		if _, err := sess.validateValueCore(validator, input, nil, opts, nil); err != nil {
+		if _, err := sess.validateValue(valueRequest{Validator: validator, Lexical: input, Options: opts}); err != nil {
 			b.Fatalf("validate collapsed list: %v", err)
 		}
 	}
@@ -198,12 +197,15 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 	if enumID == 0 {
 		b.Fatalf("enum facet missing")
 	}
-	var metrics ValueMetrics
-	_, err := sess.validateValueCore(validator, []byte("one"), nil, valueOptions{ApplyWhitespace: true}, &metrics)
+	result, err := sess.validateValue(valueRequest{
+		Validator: validator,
+		Lexical:   []byte("one"),
+		Options:   valueOptions{ApplyWhitespace: true},
+	})
 	if err != nil {
 		b.Fatalf("enum validate: %v", err)
 	}
-	kind, key, ok := metrics.State.Key()
+	kind, key, ok := result.Metrics.State.Key()
 	if !ok {
 		b.Fatal("enum key missing")
 	}
@@ -258,13 +260,13 @@ func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 		}); err != nil {
 			b.Fatalf("identityStart item: %v", err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			b.Fatalf("identityEnd item: %v", err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			b.Fatalf("identityEnd root: %v", err)
 		}
-		if pending := xsderrors.AppendIssues(nil, sess.icState.DrainCommitted()); len(pending) != 0 {
+		if pending := xsderrors.AppendIssues(nil, sess.identity.icState.DrainCommitted()); len(pending) != 0 {
 			b.Fatalf("identity violations: %v", pending[0])
 		}
 	}

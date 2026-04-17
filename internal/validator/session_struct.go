@@ -19,10 +19,10 @@ type SessionIO struct {
 
 // Session holds per-document runtime validation state.
 type Session struct {
-	SessionIO
-	SessionBuffers
-	SessionIdentity
-	AttributeTracker
+	io       SessionIO
+	buffers  SessionBuffers
+	identity SessionIdentity
+	attrs    AttributeTracker
 
 	Names            NameState
 	rt               *runtime.Schema
@@ -37,10 +37,10 @@ type Session struct {
 func NewSession(rt *runtime.Schema, opts ...xmlstream.Option) *Session {
 	sess := &Session{rt: rt}
 	if len(opts) > 0 {
-		sess.parseOptions = slices.Clone(opts)
+		sess.io.parseOptions = slices.Clone(opts)
 	}
-	sess.readerFactory = xmlstream.NewReader
-	sess.icState.arena = &sess.Arena
+	sess.io.readerFactory = xmlstream.NewReader
+	sess.identity.icState.arena = &sess.Arena
 	return sess
 }
 
@@ -51,35 +51,20 @@ func (s *Session) Reset() {
 	}
 	s.Arena.Reset()
 	s.Scratch.Reset()
-	s.icState.arena = &s.Arena
 	s.elemStack = s.elemStack[:0]
 	s.Names.Reset()
-	s.textBuf = s.textBuf[:0]
-	s.keyBuf = s.keyBuf[:0]
-	s.keyTmp = s.keyTmp[:0]
-	s.normBuf = s.normBuf[:0]
+	s.buffers.Reset()
 	s.normDepth = 0
-	s.metricsDepth = 0
-	s.errBuf = s.errBuf[:0]
 	s.validationErrors = s.validationErrors[:0]
-	s.valueBuf = s.valueBuf[:0]
-	s.valueScratch = s.valueScratch[:0]
-	s.AttributeTracker.Reset()
-	s.icState.Reset()
-	s.documentURI = ""
-	s.resetIDTable()
-	s.idRefs = s.idRefs[:0]
-	s.identityAttrs.Reset(maxSessionEntries)
+	s.attrs.Reset()
+	s.identity.Reset(&s.Arena, maxSessionEntries, maxSessionIDTableEntries)
+	s.io.Reset()
 	s.shrinkBuffers()
 }
 
-func (s *Session) resetIDTable() {
-	if s == nil || s.idTable == nil {
+func (io *SessionIO) Reset() {
+	if io == nil {
 		return
 	}
-	if len(s.idTable) > maxSessionIDTableEntries {
-		s.idTable = nil
-		return
-	}
-	clear(s.idTable)
+	io.documentURI = ""
 }

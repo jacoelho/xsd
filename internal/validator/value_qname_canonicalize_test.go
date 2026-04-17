@@ -38,11 +38,11 @@ func TestCanonicalizeQNameSetsCanonicalAndKey(t *testing.T) {
 	if !bytes.Equal(keyBytes, wantKey) {
 		t.Fatalf("canonicalizeQName() key = %v, want %v", keyBytes, wantKey)
 	}
-	if !bytes.Equal(sess.valueScratch, canonical) {
-		t.Fatalf("canonicalizeQName() session value scratch = %v, want %v", sess.valueScratch, canonical)
+	if !bytes.Equal(sess.buffers.valueScratch, canonical) {
+		t.Fatalf("canonicalizeQName() session value scratch = %v, want %v", sess.buffers.valueScratch, canonical)
 	}
-	if !bytes.Equal(sess.keyTmp, keyBytes) {
-		t.Fatalf("canonicalizeQName() session key scratch = %v, want %v", sess.keyTmp, keyBytes)
+	if !bytes.Equal(sess.buffers.keyTmp, keyBytes) {
+		t.Fatalf("canonicalizeQName() session key scratch = %v, want %v", sess.buffers.keyTmp, keyBytes)
 	}
 }
 

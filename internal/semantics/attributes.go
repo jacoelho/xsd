@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/value"
@@ -15,9 +14,9 @@ import (
 // This includes attributes from extensions, restrictions, and attribute groups.
 func collectAllAttributesForValidation(schema *parser.Schema, ct *model.ComplexType) []*model.AttributeDecl {
 	var allAttrs []*model.AttributeDecl
-	_ = walkComplexTypeLocalAttributes(schema, ct, analysis.AttributeGroupWalkOptions{
-		Missing: analysis.MissingIgnore,
-		Cycles:  analysis.CycleIgnore,
+	_ = walkComplexTypeLocalAttributes(schema, ct, AttributeGroupWalkOptions{
+		Missing: MissingIgnore,
+		Cycles:  CyclePolicyIgnore,
 	}, func(attr *model.AttributeDecl, _ bool) error {
 		allAttrs = append(allAttrs, attr)
 		return nil
@@ -30,9 +29,9 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *model.ComplexType)
 		return nil
 	}
 	attrMap := make(map[model.QName]*model.AttributeDecl)
-	_ = walkComplexTypeAttributeChain(schema, ct, analysis.AttributeGroupWalkOptions{
-		Missing: analysis.MissingIgnore,
-		Cycles:  analysis.CycleIgnore,
+	_ = walkComplexTypeAttributeChain(schema, ct, AttributeGroupWalkOptions{
+		Missing: MissingIgnore,
+		Cycles:  CyclePolicyIgnore,
 	}, func(_ *model.ComplexType, attr *model.AttributeDecl, _ bool) error {
 		mergeValidationAttribute(schema, attr, attrMap)
 		return nil
@@ -41,9 +40,9 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *model.ComplexType)
 }
 
 func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *model.ComplexType, attrMap map[model.QName]*model.AttributeDecl) {
-	_ = walkComplexTypeLocalAttributes(schema, ct, analysis.AttributeGroupWalkOptions{
-		Missing: analysis.MissingIgnore,
-		Cycles:  analysis.CycleIgnore,
+	_ = walkComplexTypeLocalAttributes(schema, ct, AttributeGroupWalkOptions{
+		Missing: MissingIgnore,
+		Cycles:  CyclePolicyIgnore,
 	}, func(attr *model.AttributeDecl, _ bool) error {
 		mergeValidationAttribute(schema, attr, attrMap)
 		return nil
@@ -51,9 +50,9 @@ func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *model.Compl
 }
 
 func mergeAttributesFromGroupsForValidation(schema *parser.Schema, agRefs []model.QName, attrMap map[model.QName]*model.AttributeDecl) {
-	_ = walkAttributeGroupAttributes(schema, agRefs, analysis.AttributeGroupWalkOptions{
-		Missing: analysis.MissingIgnore,
-		Cycles:  analysis.CycleIgnore,
+	_ = walkAttributeGroupAttributes(schema, agRefs, AttributeGroupWalkOptions{
+		Missing: MissingIgnore,
+		Cycles:  CyclePolicyIgnore,
 	}, func(attr *model.AttributeDecl, _ bool) error {
 		mergeValidationAttribute(schema, attr, attrMap)
 		return nil
@@ -75,9 +74,9 @@ func mergeValidationAttribute(schema *parser.Schema, attr *model.AttributeDecl, 
 // collectAttributesFromGroups collects attributes from attribute group references.
 func collectAttributesFromGroups(schema *parser.Schema, agRefs []model.QName) []*model.AttributeDecl {
 	var result []*model.AttributeDecl
-	_ = walkAttributeGroupAttributes(schema, agRefs, analysis.AttributeGroupWalkOptions{
-		Missing: analysis.MissingIgnore,
-		Cycles:  analysis.CycleIgnore,
+	_ = walkAttributeGroupAttributes(schema, agRefs, AttributeGroupWalkOptions{
+		Missing: MissingIgnore,
+		Cycles:  CyclePolicyIgnore,
 	}, func(attr *model.AttributeDecl, _ bool) error {
 		result = append(result, attr)
 		return nil
@@ -125,9 +124,9 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 }
 
 func mergeEffectiveAttributeUsesFromType(schema *parser.Schema, ct *model.ComplexType, attrMap map[model.QName]*model.AttributeDecl) error {
-	return walkComplexTypeLocalAttributes(schema, ct, analysis.AttributeGroupWalkOptions{
-		Missing: analysis.MissingError,
-		Cycles:  analysis.CycleIgnore,
+	return walkComplexTypeLocalAttributes(schema, ct, AttributeGroupWalkOptions{
+		Missing: MissingError,
+		Cycles:  CyclePolicyIgnore,
 	}, func(attr *model.AttributeDecl, fromGroup bool) error {
 		if fromGroup && attr.Use == model.Prohibited {
 			return nil
@@ -139,16 +138,16 @@ func mergeEffectiveAttributeUsesFromType(schema *parser.Schema, ct *model.Comple
 }
 
 func localAttributeWildcard(schema *parser.Schema, ct *model.ComplexType) (*model.AnyAttribute, error) {
-	wildcard, err := analysis.CollectComplexTypeWildcard(schema, ct, analysis.AttributeGroupCollectOptions{
-		Missing:      analysis.MissingError,
-		Cycles:       analysis.CycleIgnore,
+	wildcard, err := CollectComplexTypeWildcard(schema, ct, AttributeGroupCollectOptions{
+		Missing:      MissingError,
+		Cycles:       CyclePolicyIgnore,
 		EmptyIsError: true,
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, analysis.ErrAttributeWildcardIntersectionNotExpressible):
+		case errors.Is(err, ErrAttributeWildcardIntersectionNotExpressible):
 			return nil, fmt.Errorf("attribute wildcard intersection not expressible")
-		case errors.Is(err, analysis.ErrAttributeWildcardIntersectionEmpty):
+		case errors.Is(err, ErrAttributeWildcardIntersectionEmpty):
 			return nil, nil
 		default:
 			return nil, err
@@ -171,16 +170,16 @@ func applyDerivedWildcard(base, local *model.AnyAttribute, ct *model.ComplexType
 			}
 		}
 	}
-	out, err := analysis.ApplyAttributeWildcardDerivation(base, local, method)
+	out, err := ApplyAttributeWildcardDerivation(base, local, method)
 	if err != nil {
 		switch {
-		case errors.Is(err, analysis.ErrAttributeWildcardUnionNotExpressible):
+		case errors.Is(err, ErrAttributeWildcardUnionNotExpressible):
 			return nil, fmt.Errorf("attribute wildcard union not expressible")
-		case errors.Is(err, analysis.ErrAttributeWildcardRestrictionAddsWildcard):
+		case errors.Is(err, ErrAttributeWildcardRestrictionAddsWildcard):
 			return nil, fmt.Errorf("attribute wildcard restriction adds wildcard")
-		case errors.Is(err, analysis.ErrAttributeWildcardRestrictionNotExpressible):
+		case errors.Is(err, ErrAttributeWildcardRestrictionNotExpressible):
 			return nil, fmt.Errorf("attribute wildcard restriction not expressible")
-		case errors.Is(err, analysis.ErrAttributeWildcardRestrictionEmpty):
+		case errors.Is(err, ErrAttributeWildcardRestrictionEmpty):
 			return nil, fmt.Errorf("attribute wildcard restriction empty")
 		default:
 			return nil, err
@@ -194,7 +193,7 @@ type attributeVisitFunc func(attr *model.AttributeDecl, fromGroup bool) error
 func walkComplexTypeLocalAttributes(
 	schema *parser.Schema,
 	ct *model.ComplexType,
-	opts analysis.AttributeGroupWalkOptions,
+	opts AttributeGroupWalkOptions,
 	visit attributeVisitFunc,
 ) error {
 	if ct == nil || visit == nil {
@@ -233,7 +232,7 @@ func walkComplexTypeLocalAttributes(
 func walkComplexTypeAttributeChain(
 	schema *parser.Schema,
 	ct *model.ComplexType,
-	opts analysis.AttributeGroupWalkOptions,
+	opts AttributeGroupWalkOptions,
 	visit func(current *model.ComplexType, attr *model.AttributeDecl, fromGroup bool) error,
 ) error {
 	if ct == nil || visit == nil {
@@ -254,13 +253,13 @@ func walkComplexTypeAttributeChain(
 func walkAttributeGroupAttributes(
 	schema *parser.Schema,
 	refs []model.QName,
-	opts analysis.AttributeGroupWalkOptions,
+	opts AttributeGroupWalkOptions,
 	visit attributeVisitFunc,
 ) error {
 	if visit == nil {
 		return nil
 	}
-	ctx := analysis.NewAttributeGroupContext(schema, opts)
+	ctx := NewAttributeGroupContext(schema, opts)
 	return ctx.Walk(refs, func(_ model.QName, group *model.AttributeGroup) error {
 		if group == nil {
 			return nil
@@ -415,14 +414,14 @@ func validateAttributeGroupUniqueness(schema *parser.Schema, ag *model.Attribute
 
 // validateNoCyclicAttributeGroups detects cycles between attribute group definitions.
 func validateNoCyclicAttributeGroups(sch *parser.Schema) error {
-	ctx := analysis.NewAttributeGroupContext(sch, analysis.AttributeGroupWalkOptions{
-		Missing: analysis.MissingIgnore,
-		Cycles:  analysis.CycleError,
+	ctx := NewAttributeGroupContext(sch, AttributeGroupWalkOptions{
+		Missing: MissingIgnore,
+		Cycles:  CyclePolicyError,
 	})
 
 	for _, qname := range model.SortedMapKeys(sch.AttributeGroups) {
 		if err := ctx.Walk([]model.QName{qname}, nil); err != nil {
-			var cycleErr analysis.AttributeGroupCycleError
+			var cycleErr AttributeGroupCycleError
 			if errors.As(err, &cycleErr) {
 				return CycleError[model.QName]{Key: cycleErr.QName}
 			}

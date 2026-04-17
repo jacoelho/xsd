@@ -22,7 +22,7 @@ type schemaBuilder struct {
 	complexIDs      map[runtime.TypeID]uint32
 	complexTypes    *complexplan.ComplexTypes
 	builtinIDs      map[model.TypeName]runtime.TypeID
-	refs            *analysis.ResolvedReferences
+	refs            *ResolvedReferences
 	anyElementRules map[*model.AnyElement]runtime.WildcardID
 	rt              *runtime.Schema
 	paths           []runtime.PathProgram

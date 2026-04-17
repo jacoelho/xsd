@@ -3,7 +3,6 @@ package validator
 import (
 	"fmt"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -11,14 +10,19 @@ import (
 
 // StartElement validates one start-element event and returns resolved runtime metadata.
 func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runtime.NamespaceID, nsBytes []byte, inputAttrs []Start, resolver value.NSResolver) (StartResult, error) {
-	if s == nil || s.rt == nil {
-		return StartResult{}, newValidationError(xsderrors.ErrSchemaNotLoaded, "schema not loaded")
-	}
-	classified, err := s.classifyAttrs(inputAttrs, false)
+	plan, err := s.planStartElement(startPlanInput{
+		Match:               match,
+		Entry:               NameEntry{Sym: sym, NS: nsID},
+		NS:                  nsBytes,
+		Resolver:            resolver,
+		HasMatch:            true,
+		CheckAttrDuplicates: false,
+		Attrs:               inputAttrs,
+	})
 	if err != nil {
 		return StartResult{}, err
 	}
-	return ResolveStartResult(s.rt, match, sym, nsID, nsBytes, classified, resolver)
+	return plan.Result, nil
 }
 
 func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessionResolver) error {
@@ -26,84 +30,48 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		return fmt.Errorf("start element event missing")
 	}
 	entry := s.internName(ev.NameID, ev.NS, ev.Local)
-	sym := entry.Sym
-	nsID := entry.NS
 
-	s.pushNamespaceScope(s.reader.NamespaceDecls(ev.ScopeDepth))
+	s.pushNamespaceScope(s.io.reader.NamespaceDecls(ev.ScopeDepth))
 
-	eventInput := StartEventInput{
-		Root: len(s.elemStack) == 0,
-		Sym:  sym,
-		NSID: nsID,
-		NS:   ev.NS,
-	}
 	var parent *elemFrame
-	if !eventInput.Root {
+	if len(s.elemStack) != 0 {
 		parent = &s.elemStack[len(s.elemStack)-1]
 		parent.hasChildElements = true
-		eventInput.Parent = StartChildInput{
-			Content: parent.content,
-			Model:   parent.model,
-			Nilled:  parent.nilled,
-		}
 	}
 
 	attrs := s.makeStartAttrs(ev.Attrs)
-	classified, err := s.classifyAttrs(attrs, true)
+	plan, err := s.planStartElement(startPlanInput{
+		Entry:                entry,
+		Local:                ev.Local,
+		NS:                   ev.NS,
+		Name:                 NameID(ev.NameID),
+		Resolver:             resolver,
+		Parent:               parent,
+		Root:                 len(s.elemStack) == 0,
+		CheckAttrDuplicates:  true,
+		TrackIdentityAttrs:   true,
+		ValidateAttrs:        true,
+		BuildFrame:           true,
+		StoreAttributeValues: false,
+		Attrs:                attrs,
+	})
 	if err != nil {
-		s.popNamespaceScope()
-		return err
-	}
-	eventInput.Attrs = classified
-	event, err := ResolveStartEvent(
-		s.rt,
-		eventInput,
-		resolver,
-		func(ref runtime.ModelRef, sym runtime.SymbolID, nsID runtime.NamespaceID, ns []byte) (StartMatch, error) {
-			return s.StepModel(ref, &parent.modelState, sym, nsID, ns)
-		},
-	)
-	if err != nil {
-		if parent != nil && event.ChildErrorReported {
+		if parent != nil && plan.ChildErrorReported {
 			parent.childErrorReported = true
 		}
 		s.popNamespaceScope()
 		return err
 	}
-	if event.Result.Skip {
+	if plan.Skip {
 		return s.skipSubtreeAndPopScope()
 	}
-	result := event.Result
-
-	attrResult, err := s.validateAttributesClassifiedWithStorage(result.Type, attrs, resolver, classified, s.needsIdentityAttrs(result.Elem), false)
-	if err != nil {
-		s.popNamespaceScope()
-		return err
-	}
-
-	typ, ok := s.typeByID(result.Type)
-	if !ok {
-		s.popNamespaceScope()
-		return fmt.Errorf("type %d not found", result.Type)
-	}
-	frame, err := s.buildStartFrame(entry, ev, result, typ)
-	if err != nil {
-		s.popNamespaceScope()
-		return err
-	}
-
+	frame := plan.Frame
 	s.ResetText(&frame.text)
 	s.elemStack = append(s.elemStack, frame)
 
-	if err := s.identityStart(identityStartInput{
-		Elem:    result.Elem,
-		Type:    result.Type,
-		Sym:     sym,
-		NS:      nsID,
-		Attrs:   attrResult.Attrs,
-		Applied: attrResult.Applied,
-		Nilled:  result.Nilled,
-	}); err != nil {
+	plan.Identity.Attrs = plan.Attrs.Attrs
+	plan.Identity.Applied = plan.Attrs.Applied
+	if err := s.identityStart(plan.Identity); err != nil {
 		s.releaseText(frame.text)
 		s.elemStack = s.elemStack[:len(s.elemStack)-1]
 		s.popNamespaceScope()
@@ -117,7 +85,7 @@ func (s *Session) makeStartAttrs(resolvedAttrs []xmlstream.ResolvedAttr) []Start
 	if len(resolvedAttrs) == 0 {
 		return nil
 	}
-	out := s.attrState.Starts[:0]
+	out := s.attrs.attrState.Starts[:0]
 	if cap(out) < len(resolvedAttrs) {
 		out = make([]Start, 0, len(resolvedAttrs))
 	}
@@ -144,49 +112,12 @@ func (s *Session) makeStartAttrs(resolvedAttrs []xmlstream.ResolvedAttr) []Start
 			Value:      attr.Value,
 		})
 	}
-	s.attrState.Starts = out[:0]
+	s.attrs.attrState.Starts = out[:0]
 	return out
 }
 
-func (s *Session) buildStartFrame(entry NameEntry, ev *xmlstream.ResolvedEvent, result StartResult, typ runtime.Type) (elemFrame, error) {
-	plan, err := PlanStartFrame(
-		StartNameInput{
-			Local:  ev.Local,
-			NS:     ev.NS,
-			Cached: entry.LocalLen != 0 || entry.NSLen != 0,
-		},
-		result,
-		typ,
-		s.rt.ComplexTypes,
-	)
-	if err != nil {
-		return elemFrame{}, err
-	}
-
-	frame := elemFrame{
-		local:   plan.Local,
-		ns:      plan.NS,
-		model:   plan.Model,
-		name:    NameID(ev.NameID),
-		elem:    result.Elem,
-		typ:     result.Type,
-		content: plan.Content,
-		mixed:   plan.Mixed,
-		nilled:  result.Nilled,
-	}
-	if frame.model.Kind != runtime.ModelNone {
-		state, err := s.InitModelState(frame.model)
-		if err != nil {
-			return elemFrame{}, err
-		}
-		frame.modelState = state
-	}
-
-	return frame, nil
-}
-
 func (s *Session) skipSubtreeAndPopScope() error {
-	if err := s.reader.SkipSubtree(); err != nil {
+	if err := s.io.reader.SkipSubtree(); err != nil {
 		s.popNamespaceScope()
 		return err
 	}

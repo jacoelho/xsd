@@ -5,19 +5,19 @@ func (s *Session) pushNormBuf(size int) []byte {
 		return nil
 	}
 	idx := s.normDepth
-	if idx < len(s.normStack) {
-		buf := s.normStack[idx]
+	if idx < len(s.buffers.normStack) {
+		buf := s.buffers.normStack[idx]
 		if cap(buf) < size {
 			buf = make([]byte, 0, size)
 		} else {
 			buf = buf[:0]
 		}
-		s.normStack[idx] = buf
+		s.buffers.normStack[idx] = buf
 		s.normDepth++
 		return buf
 	}
 	buf := make([]byte, 0, size)
-	s.normStack = append(s.normStack, buf)
+	s.buffers.normStack = append(s.buffers.normStack, buf)
 	s.normDepth++
 	return buf
 }

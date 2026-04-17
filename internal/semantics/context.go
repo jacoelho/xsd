@@ -14,7 +14,7 @@ import (
 type Context struct {
 	schema   *parser.Schema
 	registry *analysis.Registry
-	refs     *analysis.ResolvedReferences
+	refs     *ResolvedReferences
 
 	complex      *complexplan.ComplexTypes
 	particles    *Particles
@@ -30,7 +30,18 @@ type Context struct {
 }
 
 // Build creates a compile-time semantics context for a prepared schema graph.
-func Build(schema *parser.Schema, registry *analysis.Registry, refs *analysis.ResolvedReferences) (*Context, error) {
+func Build(schema *parser.Schema, registry *analysis.Registry, refs *ResolvedReferences) (*Context, error) {
+	ctx, err := newContext(schema, registry, refs)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.prepare(); err != nil {
+		return nil, err
+	}
+	return ctx, nil
+}
+
+func newContext(schema *parser.Schema, registry *analysis.Registry, refs *ResolvedReferences) (*Context, error) {
 	if schema == nil {
 		return nil, fmt.Errorf("semantics: schema is nil")
 	}
@@ -47,6 +58,22 @@ func Build(schema *parser.Schema, registry *analysis.Registry, refs *analysis.Re
 	}, nil
 }
 
+func (c *Context) prepare() error {
+	if c == nil {
+		return fmt.Errorf("semantics: context is nil")
+	}
+	complexTypes, err := buildComplexTypes(c.schema, c.registry, nil)
+	if err != nil {
+		c.complexErr = err
+		return fmt.Errorf("semantics: complex types: %w", err)
+	}
+	c.complex = complexTypes
+	if err := c.Particles().ValidateUPA(); err != nil {
+		return fmt.Errorf("semantics: validate UPA: %w", err)
+	}
+	return nil
+}
+
 // Schema returns the prepared schema graph.
 func (c *Context) Schema() *parser.Schema { return c.schema }
 
@@ -54,12 +81,18 @@ func (c *Context) Schema() *parser.Schema { return c.schema }
 func (c *Context) Registry() *analysis.Registry { return c.registry }
 
 // References returns resolved runtime references for the prepared schema graph.
-func (c *Context) References() *analysis.ResolvedReferences { return c.refs }
+func (c *Context) References() *ResolvedReferences { return c.refs }
 
 // ComplexTypes returns effective complex-type semantics for the prepared schema graph.
 func (c *Context) ComplexTypes() (*complexplan.ComplexTypes, error) {
 	if c == nil {
 		return nil, fmt.Errorf("semantics: context is nil")
+	}
+	if c.complex != nil || c.complexErr != nil {
+		if c.complexErr != nil {
+			return nil, c.complexErr
+		}
+		return c.complex, nil
 	}
 	c.complexOnce.Do(func() {
 		complexTypes, err := buildComplexTypes(c.schema, c.registry, nil)

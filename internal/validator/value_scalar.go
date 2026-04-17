@@ -45,7 +45,7 @@ func (s *Session) canonicalizeAtomicString(meta runtime.ValidatorMeta, normalize
 		return nil, xsderrors.Invalid(err.Error())
 	}
 	if needKey && s != nil {
-		s.setAtomicKey(metrics, runtime.VKString, runtime.StringKeyBytes(s.keyTmp[:0], 0, canonical))
+		s.setAtomicKey(metrics, runtime.VKString, runtime.StringKeyBytes(s.buffers.keyTmp[:0], 0, canonical))
 	}
 	return canonical, nil
 }
@@ -56,7 +56,7 @@ func (s *Session) canonicalizeAtomicBoolean(normalized []byte, needKey bool, met
 		return nil, xsderrors.Invalid(err.Error())
 	}
 	if needKey && s != nil {
-		key := s.keyTmp[:0]
+		key := s.buffers.keyTmp[:0]
 		key = append(key, 0)
 		if v {
 			key[0] = 1
@@ -90,7 +90,7 @@ func (s *Session) canonicalizeAtomicDecimal(normalized []byte, needKey bool, met
 		s.Scratch.Buf2 = canonical
 	}
 	if needKey && s != nil {
-		s.setAtomicKey(metrics, runtime.VKDecimal, num.EncodeDecKey(s.keyTmp[:0], dec))
+		s.setAtomicKey(metrics, runtime.VKDecimal, num.EncodeDecKey(s.buffers.keyTmp[:0], dec))
 	}
 	return canonical, nil
 }
@@ -121,7 +121,7 @@ func (s *Session) canonicalizeAtomicInteger(meta runtime.ValidatorMeta, normaliz
 		s.Scratch.Buf2 = canonical
 	}
 	if needKey && s != nil {
-		s.setAtomicKey(metrics, runtime.VKDecimal, num.EncodeDecKey(s.keyTmp[:0], intVal.AsDec()))
+		s.setAtomicKey(metrics, runtime.VKDecimal, num.EncodeDecKey(s.buffers.keyTmp[:0], intVal.AsDec()))
 	}
 	return canonical, nil
 }
@@ -135,7 +135,7 @@ func (s *Session) canonicalizeAtomicFloat(normalized []byte, needKey bool, metri
 		cache.SetFloat32(v, class)
 	}
 	if needKey && s != nil {
-		s.setAtomicKey(metrics, runtime.VKFloat32, runtime.Float32Key(s.keyTmp[:0], v, class))
+		s.setAtomicKey(metrics, runtime.VKFloat32, runtime.Float32Key(s.buffers.keyTmp[:0], v, class))
 	}
 	return canonical, nil
 }
@@ -149,7 +149,7 @@ func (s *Session) canonicalizeAtomicDouble(normalized []byte, needKey bool, metr
 		cache.SetFloat64(v, class)
 	}
 	if needKey && s != nil {
-		s.setAtomicKey(metrics, runtime.VKFloat64, runtime.Float64Key(s.keyTmp[:0], v, class))
+		s.setAtomicKey(metrics, runtime.VKFloat64, runtime.Float64Key(s.buffers.keyTmp[:0], v, class))
 	}
 	return canonical, nil
 }
@@ -160,7 +160,7 @@ func (s *Session) canonicalizeAtomicDuration(normalized []byte, needKey bool, me
 		return nil, xsderrors.Invalid(err.Error())
 	}
 	if needKey && s != nil {
-		s.setAtomicKey(metrics, runtime.VKDuration, runtime.DurationKeyBytes(s.keyTmp[:0], dur))
+		s.setAtomicKey(metrics, runtime.VKDuration, runtime.DurationKeyBytes(s.buffers.keyTmp[:0], dur))
 	}
 	return canonical, nil
 }
@@ -169,7 +169,7 @@ func (s *Session) setAtomicKey(metrics *ValueMetrics, kind runtime.ValueKind, ke
 	if s == nil {
 		return
 	}
-	s.keyTmp = key
+	s.buffers.keyTmp = key
 	s.setKey(metrics, kind, key, false)
 }
 
@@ -241,11 +241,11 @@ func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics
 		cache.SetLength(len(decoded))
 	}
 
-	canonical := value.UpperHex(s.valueScratch[:0], decoded)
-	s.valueScratch = canonical
+	canonical := value.UpperHex(s.buffers.valueScratch[:0], decoded)
+	s.buffers.valueScratch = canonical
 	if needKey {
-		key := runtime.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
-		s.keyTmp = key
+		key := runtime.BinaryKeyBytes(s.buffers.keyTmp[:0], 0, decoded)
+		s.buffers.keyTmp = key
 		s.setKey(metrics, runtime.VKBinary, key, false)
 	}
 	return canonical, nil
@@ -261,17 +261,17 @@ func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metr
 	}
 
 	canonicalLen := base64.StdEncoding.EncodedLen(len(decoded))
-	canonical := s.valueScratch[:0]
+	canonical := s.buffers.valueScratch[:0]
 	if cap(canonical) < canonicalLen {
 		canonical = make([]byte, canonicalLen)
 	} else {
 		canonical = canonical[:canonicalLen]
 	}
 	base64.StdEncoding.Encode(canonical, decoded)
-	s.valueScratch = canonical
+	s.buffers.valueScratch = canonical
 	if needKey {
-		key := runtime.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
-		s.keyTmp = key
+		key := runtime.BinaryKeyBytes(s.buffers.keyTmp[:0], 1, decoded)
+		s.buffers.keyTmp = key
 		s.setKey(metrics, runtime.VKBinary, key, false)
 	}
 	return canonical, nil
@@ -288,8 +288,8 @@ func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []
 	}
 	canonical := []byte(value.Canonical(tv))
 	if needKey && s != nil {
-		key := runtime.TemporalKeyBytes(s.keyTmp[:0], spec.KeyTag, tv.Time, tv.TimezoneKind, tv.LeapSecond)
-		s.keyTmp = key
+		key := runtime.TemporalKeyBytes(s.buffers.keyTmp[:0], spec.KeyTag, tv.Time, tv.TimezoneKind, tv.LeapSecond)
+		s.buffers.keyTmp = key
 		s.setKey(metrics, runtime.VKDateTime, key, false)
 	}
 	return canonical, nil
@@ -298,14 +298,14 @@ func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []
 func (s *Session) canonicalizeQName(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	canonicalBuf := []byte(nil)
 	if s != nil {
-		canonicalBuf = s.valueScratch[:0]
+		canonicalBuf = s.buffers.valueScratch[:0]
 	}
 	canon, err := value.CanonicalQName(normalized, resolver, canonicalBuf)
 	if err != nil {
 		return nil, xsderrors.Invalid(err.Error())
 	}
 	if s != nil {
-		s.valueScratch = canon
+		s.buffers.valueScratch = canon
 	}
 
 	if meta.Kind == runtime.VNotation && !s.notationDeclared(canon) {
@@ -319,14 +319,14 @@ func (s *Session) canonicalizeQName(meta runtime.ValidatorMeta, normalized []byt
 		}
 		keyBuf := []byte(nil)
 		if s != nil {
-			keyBuf = s.keyTmp[:0]
+			keyBuf = s.buffers.keyTmp[:0]
 		}
 		key := runtime.QNameKeyCanonical(keyBuf, tag, canon)
 		if len(key) == 0 {
 			return nil, xsderrors.Invalid("invalid QName key")
 		}
 		if s != nil {
-			s.keyTmp = key
+			s.buffers.keyTmp = key
 			s.setKey(metrics, runtime.VKQName, key, false)
 		}
 	}

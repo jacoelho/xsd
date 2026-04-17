@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -37,16 +36,16 @@ func (r *Resolver) resolveAttributeGroupClosure(roots []model.QName) error {
 	if len(roots) == 0 {
 		return nil
 	}
-	err := analysis.WalkAttributeGroupsWithOptions(r.schema, roots, analysis.AttributeGroupWalkOptions{
-		Missing: analysis.MissingError,
-		Cycles:  analysis.CycleError,
+	err := WalkAttributeGroupsWithOptions(r.schema, roots, AttributeGroupWalkOptions{
+		Missing: MissingError,
+		Cycles:  CyclePolicyError,
 	}, func(_ model.QName, ag *model.AttributeGroup) error {
 		return r.resolveAttributeDecls(ag.Attributes)
 	})
 	if err == nil {
 		return nil
 	}
-	var cycleErr analysis.AttributeGroupCycleError
+	var cycleErr AttributeGroupCycleError
 	if errors.As(err, &cycleErr) {
 		return CycleError[model.QName]{Key: cycleErr.QName}
 	}
@@ -108,7 +107,7 @@ func (r *Resolver) resolveComplexType(qname model.QName, ct *model.ComplexType) 
 			return r.doResolveComplexType(qname, ct)
 		})
 	}
-	return analysis.ResolveNamed[model.QName](r.detector, qname, func() error {
+	return ResolveNamed[model.QName](r.detector, qname, func() error {
 		return r.doResolveComplexType(qname, ct)
 	})
 }

@@ -3,78 +3,51 @@ package compiler
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/complexplan"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
-
-type prepareResult struct {
-	schema       *parser.Schema
-	registry     *analysis.Registry
-	refs         *analysis.ResolvedReferences
-	complexTypes *complexplan.ComplexTypes
-}
 
 // Prepare clones, normalizes, and validates a parsed schema.
 func Prepare(parsed *parser.Schema) (*Prepared, error) {
-	result, err := prepareParsedSchema(parsed, true)
+	ctx, err := semantics.Prepare(parsed)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("prepare schema: %w", err)
 	}
-	return preparedFromResult(result), nil
+	return preparedFromContext(ctx), nil
 }
 
 // PrepareOwned normalizes and validates a parsed schema in place.
 func PrepareOwned(parsed *parser.Schema) (*Prepared, error) {
-	result, err := prepareParsedSchema(parsed, false)
-	if err != nil {
-		return nil, err
-	}
-	return preparedFromResult(result), nil
-}
-
-func prepareParsedSchema(parsed *parser.Schema, clone bool) (*prepareResult, error) {
-	if parsed == nil {
-		return nil, fmt.Errorf("prepare schema: schema is nil")
-	}
-	if clone {
-		parsed = parser.CloneSchema(parsed)
-	}
-	if err := resolveAndValidateOwned(parsed); err != nil {
-		return nil, fmt.Errorf("prepare schema: %w", err)
-	}
-	registry, err := analysis.AssignIDs(parsed)
-	if err != nil {
-		return nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
-	}
-	err = analysis.DetectCycles(parsed)
-	if err != nil {
-		return nil, fmt.Errorf("prepare schema: detect cycles: %w", err)
-	}
-	refs, err := analysis.ResolveReferences(parsed, registry)
-	if err != nil {
-		return nil, fmt.Errorf("prepare schema: resolve references: %w", err)
-	}
-	complexTypes, err := buildPreparedComplexTypes(parsed, registry, refs)
+	ctx, err := semantics.PrepareOwned(parsed)
 	if err != nil {
 		return nil, fmt.Errorf("prepare schema: %w", err)
 	}
-	return &prepareResult{
-		schema:       parsed,
-		registry:     registry,
-		refs:         refs,
-		complexTypes: complexTypes,
-	}, nil
+	return preparedFromContext(ctx), nil
 }
 
-func preparedFromResult(result *prepareResult) *Prepared {
-	if result == nil {
+func preparedFromContext(ctx *semantics.Context) *Prepared {
+	if ctx == nil {
 		return nil
 	}
+	complexTypes, err := ctx.ComplexTypes()
+	if err != nil {
+		panic(fmt.Sprintf("compiler: prepared semantics context missing complex types: %v", err))
+	}
 	return &Prepared{
-		schema:       result.schema,
-		registry:     result.registry,
-		refs:         result.refs,
-		complexTypes: result.complexTypes,
+		schema:       ctx.Schema(),
+		registry:     ctx.Registry(),
+		refs:         resolvedReferencesFromSemantics(ctx.References()),
+		complexTypes: complexTypes,
+	}
+}
+
+func resolvedReferencesFromSemantics(refs *semantics.ResolvedReferences) *ResolvedReferences {
+	if refs == nil {
+		return nil
+	}
+	return &ResolvedReferences{
+		ElementRefs:   refs.ElementRefs,
+		AttributeRefs: refs.AttributeRefs,
+		GroupRefs:     refs.GroupRefs,
 	}
 }

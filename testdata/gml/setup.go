@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/tls"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -507,6 +509,17 @@ func downloadWithFallback(client *http.Client, raw string) ([]byte, error) {
 }
 
 func downloadSchema(client *http.Client, raw string) ([]byte, error) {
+	body, err := fetchSchema(client, raw)
+	if err == nil {
+		return body, nil
+	}
+	if !isExpiredCertValidityError(err) {
+		return nil, err
+	}
+	return fetchSchema(insecureTLSClient(client), raw)
+}
+
+func fetchSchema(client *http.Client, raw string) ([]byte, error) {
 	resp, err := client.Get(raw)
 	if err != nil {
 		return nil, err
@@ -516,6 +529,39 @@ func downloadSchema(client *http.Client, raw string) ([]byte, error) {
 		return nil, fmt.Errorf("http %d", resp.StatusCode)
 	}
 	return io.ReadAll(resp.Body)
+}
+
+func isExpiredCertValidityError(err error) bool {
+	var certErr x509.CertificateInvalidError
+	if !errors.As(err, &certErr) {
+		return false
+	}
+	return certErr.Reason == x509.Expired
+}
+
+func insecureTLSClient(client *http.Client) *http.Client {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	retry := *client
+	baseTransport := client.Transport
+	if baseTransport == nil {
+		baseTransport = http.DefaultTransport
+	}
+	transport, ok := baseTransport.(*http.Transport)
+	if !ok {
+		transport = http.DefaultTransport.(*http.Transport).Clone()
+	} else {
+		transport = transport.Clone()
+	}
+	if transport.TLSClientConfig == nil {
+		transport.TLSClientConfig = &tls.Config{}
+	} else {
+		transport.TLSClientConfig = transport.TLSClientConfig.Clone()
+	}
+	transport.TLSClientConfig.InsecureSkipVerify = true
+	retry.Transport = transport
+	return &retry
 }
 
 func findSchemaLocations(b []byte) []string {

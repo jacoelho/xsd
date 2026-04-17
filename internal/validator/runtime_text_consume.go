@@ -27,7 +27,7 @@ func (s *Session) ConsumeText(state *TextState, kind runtime.ContentKind, mixed,
 
 	switch kind {
 	case runtime.ContentSimple:
-		s.textBuf = append(s.textBuf, text...)
+		s.buffers.textBuf = append(s.buffers.textBuf, text...)
 		state.Len += uint32(len(text))
 		return nil
 	case runtime.ContentMixed:

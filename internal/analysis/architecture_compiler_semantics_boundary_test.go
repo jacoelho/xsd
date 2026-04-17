@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestCompilerInternalFilesAvoidSemanticsImports(t *testing.T) {
+func TestCompilerSemanticsImportsStayInPrepareBoundary(t *testing.T) {
 	root := repoRoot(t)
 	compilerDir := filepath.Join(root, "internal", "compiler")
 
@@ -22,16 +22,20 @@ func TestCompilerInternalFilesAvoidSemanticsImports(t *testing.T) {
 		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
-		if name == "prepare_semantics.go" {
-			continue
-		}
 		path := filepath.Join(compilerDir, name)
 		src, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}
-		if bytes.Contains(src, []byte(`"github.com/jacoelho/xsd/internal/semantics"`)) {
-			t.Fatalf("%s must not import internal/semantics", path)
+		hasSemanticsImport := bytes.Contains(src, []byte(`"github.com/jacoelho/xsd/internal/semantics"`))
+		if name == "prepare.go" {
+			if !hasSemanticsImport {
+				t.Fatalf("%s must import internal/semantics", path)
+			}
+			continue
+		}
+		if hasSemanticsImport {
+			t.Fatalf("%s must not import internal/semantics outside prepare boundary", path)
 		}
 	}
 }

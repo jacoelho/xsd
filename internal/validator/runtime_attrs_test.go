@@ -108,7 +108,7 @@ func TestValidateAttributesSimpleTypeKeepsAppliedBuffer(t *testing.T) {
 	if len(result.Applied) == 0 {
 		t.Fatalf("expected applied defaults to seed attrAppliedBuf")
 	}
-	beforeCap := cap(sess.attrAppliedBuf)
+	beforeCap := cap(sess.attrs.attrAppliedBuf)
 	if beforeCap == 0 {
 		t.Fatalf("attrAppliedBuf cap = 0 after complex validation")
 	}
@@ -122,7 +122,7 @@ func TestValidateAttributesSimpleTypeKeepsAppliedBuffer(t *testing.T) {
 	if _, err := sess.ValidateAttributes(ids.typeSimple, xsiAttrs, nil); err != nil {
 		t.Fatalf("ValidateAttributes simple: %v", err)
 	}
-	if got := cap(sess.attrAppliedBuf); got != beforeCap {
+	if got := cap(sess.attrs.attrAppliedBuf); got != beforeCap {
 		t.Fatalf("attrAppliedBuf cap = %d after simple validation, want %d", got, beforeCap)
 	}
 }
@@ -162,7 +162,7 @@ func TestNeedsIdentityAttrs(t *testing.T) {
 	}
 
 	sess.rt.Elements[1].ICLen = 0
-	sess.icState.Scopes.Push(Scope{})
+	sess.identity.icState.Scopes.Push(Scope{})
 	if !sess.needsIdentityAttrs(1) {
 		t.Fatalf("needsIdentityAttrs() = false with active scopes")
 	}

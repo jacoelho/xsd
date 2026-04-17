@@ -46,15 +46,15 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd item: %v", err)
 		}
 	}
-	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+	if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	pending := xsderrors.AppendIssues(nil, sess.icState.DrainCommitted())
+	pending := xsderrors.AppendIssues(nil, sess.identity.icState.DrainCommitted())
 	if len(pending) != 1 {
 		t.Fatalf("violations = %d, want 1", len(pending))
 	}
@@ -111,7 +111,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd item: %v", err)
 		}
 		if err := sess.identityStart(identityStartInput{
@@ -132,16 +132,16 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd item: %v", err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd group: %v", err)
 		}
-		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+		if err := sess.identity.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd root: %v", err)
 		}
-		return len(xsderrors.AppendIssues(nil, sess.icState.DrainCommitted()))
+		return len(xsderrors.AppendIssues(nil, sess.identity.icState.DrainCommitted()))
 	}
 
 	if got := runCase("two", "one"); got != 1 {

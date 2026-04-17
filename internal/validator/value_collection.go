@@ -7,6 +7,7 @@ import (
 )
 
 func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	runner := newValueRunner(s)
 	out, bufs, err := canonicalizeListRuntime(
 		meta,
 		s.rt.Validators,
@@ -14,8 +15,8 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 		opts.ApplyWhitespace,
 		needKey,
 		listBuffers{
-			Value: s.valueScratch,
-			Key:   s.keyTmp,
+			Value: s.buffers.valueScratch,
+			Key:   s.buffers.keyTmp,
 		},
 		func(itemValidator runtime.ValidatorID, item []byte, needItemKey bool) ([]byte, runtime.ValueKind, []byte, bool, error) {
 			itemOpts := opts
@@ -24,17 +25,20 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 			itemOpts.RequireCanonical = true
 			itemOpts.StoreValue = false
 			itemOpts.NeedKey = needItemKey
-			var itemMetrics ValueMetrics
-			canon, err := s.validateValueCore(itemValidator, item, resolver, itemOpts, &itemMetrics)
+			result, err := runner.validate(valueRequest{
+				Validator: itemValidator,
+				Lexical:   item,
+				Resolver:  resolver,
+				Options:   itemOpts,
+			})
 			if err != nil {
 				return nil, runtime.VKInvalid, nil, false, err
 			}
-			itemKind, itemKey, ok := itemMetrics.State.Key()
-			return canon, itemKind, itemKey, ok, nil
+			return result.Canonical, result.KeyKind, result.KeyBytes, result.HasKey, nil
 		},
 	)
-	s.valueScratch = bufs.Value
-	s.keyTmp = bufs.Key
+	s.buffers.valueScratch = bufs.Value
+	s.buffers.keyTmp = bufs.Key
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +52,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 }
 
 func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions) error {
+	runner := newValueRunner(s)
 	itemOpts := opts
 	itemOpts.ApplyWhitespace = false
 	itemOpts.TrackIDs = false
@@ -60,7 +65,12 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 		normalized,
 		opts.ApplyWhitespace,
 		func(itemValidator runtime.ValidatorID, itemValue []byte) error {
-			if _, err := s.validateValueCore(itemValidator, itemValue, resolver, itemOpts, nil); err != nil {
+			if _, err := runner.validate(valueRequest{
+				Validator: itemValidator,
+				Lexical:   itemValue,
+				Resolver:  resolver,
+				Options:   itemOpts,
+			}); err != nil {
 				return err
 			}
 			return nil
@@ -72,6 +82,7 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 	if s == nil || s.rt == nil {
 		return nil, xsderrors.Invalid("runtime schema missing")
 	}
+	runner := newValueRunner(s)
 	return Union(
 		s.rt.Patterns,
 		s.rt.Facets,
@@ -90,13 +101,16 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 			memberOpts.RequireCanonical = true
 			memberOpts.StoreValue = false
 			memberOpts.NeedKey = needKey
-			var memberMetrics ValueMetrics
-			canon, err := s.validateValueCore(member, memberLex, resolver, memberOpts, &memberMetrics)
+			result, err := runner.validate(valueRequest{
+				Validator: member,
+				Lexical:   memberLex,
+				Resolver:  resolver,
+				Options:   memberOpts,
+			})
 			if err != nil {
 				return nil, runtime.VKInvalid, nil, false, err
 			}
-			keyKind, keyBytes, keySet := memberMetrics.State.Key()
-			return canon, keyKind, keyBytes, keySet, nil
+			return result.Canonical, result.KeyKind, result.KeyBytes, result.HasKey, nil
 		},
 	)
 }

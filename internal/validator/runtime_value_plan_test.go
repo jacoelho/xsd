@@ -6,13 +6,13 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-func TestBuildValueExecutionPlan(t *testing.T) {
+func TestBuildValuePlan(t *testing.T) {
 	tests := []struct {
 		name           string
 		meta           runtime.ValidatorMeta
 		opts           valueOptions
 		hasLengthFacet bool
-		want           valueExecutionPlan
+		want           valuePlan
 	}{
 		{
 			name: "enum forces key and local metrics",
@@ -21,7 +21,7 @@ func TestBuildValueExecutionPlan(t *testing.T) {
 				Flags: runtime.ValidatorHasEnum,
 			},
 			opts: valueOptions{ApplyWhitespace: true},
-			want: valueExecutionPlan{
+			want: valuePlan{
 				NeedKey:          true,
 				NeedLocalMetrics: true,
 			},
@@ -33,7 +33,7 @@ func TestBuildValueExecutionPlan(t *testing.T) {
 			},
 			opts:           valueOptions{RequireCanonical: true},
 			hasLengthFacet: true,
-			want: valueExecutionPlan{
+			want: valuePlan{
 				NeedCanonical:    true,
 				NeedLocalMetrics: true,
 				CloneCanonical:   true,
@@ -49,7 +49,7 @@ func TestBuildValueExecutionPlan(t *testing.T) {
 				ApplyWhitespace: true,
 				TrackIDs:        true,
 			},
-			want: valueExecutionPlan{
+			want: valuePlan{
 				NeedCanonical:           true,
 				NeedLocalMetrics:        true,
 				UseScratchNormalization: true,
@@ -63,7 +63,7 @@ func TestBuildValueExecutionPlan(t *testing.T) {
 			opts: valueOptions{
 				StoreValue: true,
 			},
-			want: valueExecutionPlan{
+			want: valuePlan{
 				NeedCanonical: true,
 				NeedKey:       true,
 			},
@@ -74,7 +74,7 @@ func TestBuildValueExecutionPlan(t *testing.T) {
 				Kind: runtime.VNotation,
 			},
 			opts: valueOptions{},
-			want: valueExecutionPlan{
+			want: valuePlan{
 				NeedCanonical: true,
 			},
 		},
@@ -82,8 +82,8 @@ func TestBuildValueExecutionPlan(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := buildValueExecutionPlan(tc.meta, tc.opts, tc.hasLengthFacet); got != tc.want {
-				t.Fatalf("buildValueExecutionPlan() = %+v, want %+v", got, tc.want)
+			if got := buildValuePlan(tc.meta, tc.opts, tc.hasLengthFacet); got != tc.want {
+				t.Fatalf("buildValuePlan() = %+v, want %+v", got, tc.want)
 			}
 		})
 	}

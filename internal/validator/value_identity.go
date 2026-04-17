@@ -129,13 +129,13 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte,
 	}
 	switch meta.Kind {
 	case runtime.VList:
-		keyKind, listKey, err := deriveCanonicalListKey(meta, s.rt.Validators, canonical, s.keyTmp[:0], func(itemValidator runtime.ValidatorID, itemValue []byte) (runtime.ValueKind, []byte, error) {
+		keyKind, listKey, err := deriveCanonicalListKey(meta, s.rt.Validators, canonical, s.buffers.keyTmp[:0], func(itemValidator runtime.ValidatorID, itemValue []byte) (runtime.ValueKind, []byte, error) {
 			return s.keyForCanonicalValue(itemValidator, itemValue, resolver, 0)
 		})
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		s.keyTmp = listKey
+		s.buffers.keyTmp = listKey
 		return keyKind, listKey, nil
 	case runtime.VUnion:
 		if member != 0 {
@@ -147,11 +147,11 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte,
 		}
 		return runtime.VKInvalid, nil, xsderrors.Invalid("union value does not match any member type")
 	default:
-		keyKind, keyBytes, err := deriveCanonicalPrimitiveKey(meta.Kind, canonical, s.keyTmp[:0])
+		keyKind, keyBytes, err := deriveCanonicalPrimitiveKey(meta.Kind, canonical, s.buffers.keyTmp[:0])
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		s.keyTmp = keyBytes
+		s.buffers.keyTmp = keyBytes
 		return keyKind, keyBytes, nil
 	}
 }
@@ -210,9 +210,9 @@ func (s *Session) storeValue(data []byte) []byte {
 	if s == nil {
 		return nil
 	}
-	start := len(s.valueBuf)
-	s.valueBuf = append(s.valueBuf, data...)
-	return s.valueBuf[start:len(s.valueBuf)]
+	start := len(s.buffers.valueBuf)
+	s.buffers.valueBuf = append(s.buffers.valueBuf, data...)
+	return s.buffers.valueBuf[start:len(s.buffers.valueBuf)]
 }
 
 func (s *Session) maybeStore(data []byte, store bool) []byte {
@@ -226,9 +226,9 @@ func (s *Session) storeKey(data []byte) []byte {
 	if s == nil {
 		return nil
 	}
-	start := len(s.keyBuf)
-	s.keyBuf = append(s.keyBuf, data...)
-	return s.keyBuf[start:len(s.keyBuf)]
+	start := len(s.buffers.keyBuf)
+	s.buffers.keyBuf = append(s.buffers.keyBuf, data...)
+	return s.buffers.keyBuf[start:len(s.buffers.keyBuf)]
 }
 
 func (s *Session) finalizeValue(canonical []byte, opts valueOptions, metrics *ValueMetrics, metricsInternal bool) []byte {

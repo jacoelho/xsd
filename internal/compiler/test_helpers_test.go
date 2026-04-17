@@ -7,6 +7,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func resolveSchema(schemaXML string) (*parser.Schema, error) {
@@ -14,7 +15,7 @@ func resolveSchema(schemaXML string) (*parser.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := resolveAndValidateOwned(sch); err != nil {
+	if _, err := semantics.PrepareOwned(sch); err != nil {
 		return nil, err
 	}
 	return sch, nil

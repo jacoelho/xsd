@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -17,9 +16,9 @@ func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
 			continue
 		}
 
-		err := analysis.DetectGraphCycle(analysis.GraphCycleConfig[model.QName]{
+		err := DetectGraphCycle(GraphCycleConfig[model.QName]{
 			Starts:  []model.QName{startQName},
-			Missing: analysis.GraphCycleMissingPolicyIgnore,
+			Missing: GraphCycleMissingPolicyIgnore,
 			Exists: func(name model.QName) bool {
 				return sch.ElementDecls[name] != nil
 			},
@@ -32,7 +31,7 @@ func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
 			},
 		})
 		if err != nil {
-			var cycleErr analysis.GraphCycleError[model.QName]
+			var cycleErr GraphCycleError[model.QName]
 			if errors.As(err, &cycleErr) {
 				return fmt.Errorf("cyclic substitution group detected: element %s is part of a cycle", startQName)
 			}
