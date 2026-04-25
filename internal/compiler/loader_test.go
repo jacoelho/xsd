@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -13,6 +14,17 @@ type resolverFunc func(req ResolveRequest) (io.ReadCloser, string, error)
 
 func (f resolverFunc) Resolve(req ResolveRequest) (io.ReadCloser, string, error) {
 	return f(req)
+}
+
+type closeTrackingReader struct {
+	*strings.Reader
+	closeErr error
+	closes   int
+}
+
+func (r *closeTrackingReader) Close() error {
+	r.closes++
+	return r.closeErr
 }
 
 func TestLoaderLoadNilLoader(t *testing.T) {
@@ -152,6 +164,115 @@ func TestLoaderLoadIsIsolatedPerCall(t *testing.T) {
 	}
 	if !documentSetHasElement(second, schemaast.QName{Namespace: "urn:test", Local: "second"}) {
 		t.Fatal("second LoadDocuments() did not reflect second resolver document")
+	}
+}
+
+func TestLoaderLoadDocumentsClosesResolverReaderOnSuccess(t *testing.T) {
+	reader := &closeTrackingReader{Reader: strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)}
+	loader := NewLoader(LoaderConfig{
+		Resolver: resolverFunc(func(req ResolveRequest) (io.ReadCloser, string, error) {
+			return reader, "schema.xsd", nil
+		}),
+	})
+
+	if _, err := loader.LoadDocuments("schema.xsd"); err != nil {
+		t.Fatalf("LoadDocuments() error = %v", err)
+	}
+	if reader.closes != 1 {
+		t.Fatalf("Close() calls = %d, want 1", reader.closes)
+	}
+}
+
+func TestLoaderLoadDocumentsClosesResolverReaderOnParseError(t *testing.T) {
+	reader := &closeTrackingReader{Reader: strings.NewReader(`<xs:schema`)}
+	loader := NewLoader(LoaderConfig{
+		Resolver: resolverFunc(func(req ResolveRequest) (io.ReadCloser, string, error) {
+			return reader, "schema.xsd", nil
+		}),
+	})
+
+	if _, err := loader.LoadDocuments("schema.xsd"); err == nil {
+		t.Fatal("LoadDocuments() error = nil, want error")
+	}
+	if reader.closes != 1 {
+		t.Fatalf("Close() calls = %d, want 1", reader.closes)
+	}
+}
+
+func TestLoaderLoadDocumentsReturnsCloseErrorAfterSuccess(t *testing.T) {
+	closeErr := errors.New("close failed")
+	reader := &closeTrackingReader{
+		Reader: strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		closeErr: closeErr,
+	}
+	loader := NewLoader(LoaderConfig{
+		Resolver: resolverFunc(func(req ResolveRequest) (io.ReadCloser, string, error) {
+			return reader, "schema.xsd", nil
+		}),
+	})
+
+	_, err := loader.LoadDocuments("schema.xsd")
+	if !errors.Is(err, closeErr) {
+		t.Fatalf("LoadDocuments() error = %v, want close error", err)
+	}
+	if got, want := err.Error(), "close schema.xsd: close failed"; got != want {
+		t.Fatalf("LoadDocuments() error = %q, want %q", got, want)
+	}
+	if reader.closes != 1 {
+		t.Fatalf("Close() calls = %d, want 1", reader.closes)
+	}
+}
+
+func TestLoaderLoadDocumentsParseErrorWinsOverCloseError(t *testing.T) {
+	closeErr := errors.New("close failed")
+	reader := &closeTrackingReader{
+		Reader:   strings.NewReader(`<xs:schema`),
+		closeErr: closeErr,
+	}
+	loader := NewLoader(LoaderConfig{
+		Resolver: resolverFunc(func(req ResolveRequest) (io.ReadCloser, string, error) {
+			return reader, "schema.xsd", nil
+		}),
+	})
+
+	_, err := loader.LoadDocuments("schema.xsd")
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want parse error")
+	}
+	if errors.Is(err, closeErr) {
+		t.Fatalf("LoadDocuments() error = %v, want parse error to win over close error", err)
+	}
+	if reader.closes != 1 {
+		t.Fatalf("Close() calls = %d, want 1", reader.closes)
+	}
+}
+
+func TestLoaderLoadDocumentsClosesResolverReaderOnDirectiveLoadError(t *testing.T) {
+	reader := &closeTrackingReader{Reader: strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="missing.xsd"/>
+</xs:schema>`)}
+	loader := NewLoader(LoaderConfig{
+		Resolver: resolverFunc(func(req ResolveRequest) (io.ReadCloser, string, error) {
+			if req.SchemaLocation == "schema.xsd" {
+				return reader, "schema.xsd", nil
+			}
+			return nil, "", errors.New("missing schema")
+		}),
+	})
+
+	_, err := loader.LoadDocuments("schema.xsd")
+	if err == nil || !strings.Contains(err.Error(), "load included schema missing.xsd") {
+		t.Fatalf("LoadDocuments() error = %v, want include load error", err)
+	}
+	if reader.closes != 1 {
+		t.Fatalf("Close() calls = %d, want 1", reader.closes)
 	}
 }
 
