@@ -147,11 +147,11 @@ func (p *documentParser) parseAttributeGroup(elem NodeID, topLevel bool) (*Attri
 			group.AttributeGroups = append(group.AttributeGroups, ref.Ref)
 		case "anyAttribute":
 			seenNonAnnotation = true
-			any, err := p.parseWildcard(child, false)
+			wildcard, err := p.parseWildcard(child, false)
 			if err != nil {
 				return nil, err
 			}
-			group.AnyAttribute = any
+			group.AnyAttribute = wildcard
 		default:
 			return nil, fmt.Errorf("attributeGroup has unexpected child element '%s'", childName)
 		}
@@ -194,15 +194,15 @@ func (p *documentParser) parseParticle(elem NodeID) (*ParticleDecl, error) {
 			Max:      group.MaxOccurs,
 		}, nil
 	case "any":
-		any, err := p.parseWildcard(elem, true)
+		wildcard, err := p.parseWildcard(elem, true)
 		if err != nil {
 			return nil, err
 		}
 		return &ParticleDecl{
 			Kind:     ParticleWildcard,
-			Wildcard: any,
-			Min:      any.MinOccurs,
-			Max:      any.MaxOccurs,
+			Wildcard: wildcard,
+			Min:      wildcard.MinOccurs,
+			Max:      wildcard.MaxOccurs,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported particle '%s'", p.doc.LocalName(elem))
@@ -281,7 +281,7 @@ func (p *documentParser) parseWildcard(elem NodeID, withOccurs bool) (*WildcardD
 	if err != nil {
 		return nil, fmt.Errorf("parse namespace constraint: %w", err)
 	}
-	any := &WildcardDecl{
+	wildcard := &WildcardDecl{
 		TargetNamespace: p.result.TargetNamespace,
 		Namespace:       nsConstraint,
 		NamespaceList:   nsList,
@@ -294,11 +294,11 @@ func (p *documentParser) parseWildcard(elem NodeID, withOccurs bool) (*WildcardD
 	}
 	switch pc := p.attr(elem, "processContents"); pc {
 	case "", "strict":
-		any.ProcessContents = Strict
+		wildcard.ProcessContents = Strict
 	case "lax":
-		any.ProcessContents = Lax
+		wildcard.ProcessContents = Lax
 	case "skip":
-		any.ProcessContents = Skip
+		wildcard.ProcessContents = Skip
 	default:
 		return nil, fmt.Errorf("invalid processContents value '%s': must be 'strict', 'lax', or 'skip'", pc)
 	}
@@ -306,12 +306,12 @@ func (p *documentParser) parseWildcard(elem NodeID, withOccurs bool) (*WildcardD
 		if occ, ok, err := p.parseOccursAttr(elem, "minOccurs"); err != nil {
 			return nil, err
 		} else if ok {
-			any.MinOccurs = occ
+			wildcard.MinOccurs = occ
 		}
 		if occ, ok, err := p.parseOccursAttr(elem, "maxOccurs"); err != nil {
 			return nil, err
 		} else if ok {
-			any.MaxOccurs = occ
+			wildcard.MaxOccurs = occ
 		}
 	}
 	var seenAnnotation, seenNonAnnotation bool
@@ -331,8 +331,7 @@ func (p *documentParser) parseWildcard(elem NodeID, withOccurs bool) (*WildcardD
 		if handled {
 			continue
 		}
-		seenNonAnnotation = true
 		return nil, fmt.Errorf("%s has unexpected child element '%s'", wildcardName, childName)
 	}
-	return any, nil
+	return wildcard, nil
 }

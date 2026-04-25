@@ -73,7 +73,7 @@ func (r *docResolver) resolveIdentitySelectorElements(element ElementID, xpath s
 	return uniqueElementIDs(out), nil
 }
 
-func (r *docResolver) resolveIdentityFieldTypes(selectorElems []ElementID, xpath string, expr xsdpath.Expression) ([]TypeRef, bool, bool, error) {
+func (r *docResolver) resolveIdentityFieldTypes(selectorElems []ElementID, _ string, expr xsdpath.Expression) ([]TypeRef, bool, bool, error) {
 	var out []TypeRef
 	unresolved := false
 	nillable := false

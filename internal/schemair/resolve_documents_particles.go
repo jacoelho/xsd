@@ -422,8 +422,8 @@ func (r *docResolver) particleNullable(particleID ParticleID) bool {
 	if err != nil || !ok {
 		return false
 	}
-	min, _, err := r.effectiveParticleOccurrence(particle)
-	return err == nil && !min.Unbounded && min.Value == 0
+	minOccurs, _, err := r.effectiveParticleOccurrence(particle)
+	return err == nil && !minOccurs.Unbounded && minOccurs.Value == 0
 }
 
 func (r *docResolver) particleCanCompeteWithFollowing(particleID ParticleID) bool {
@@ -548,74 +548,10 @@ func (r *docResolver) validateParticleRestrictionValue(base Particle, restrictio
 		if handled, err := r.validateSingleWildcardGroupRestriction(base, restriction); handled {
 			return err
 		}
-	}
-	if base.Kind == ParticleGroup && restriction.Kind == ParticleGroup && base.Group == restriction.Group {
-		if base.Group == GroupChoice {
-			return r.validateChoiceParticleRestriction(base, restriction)
+		if base.Group == restriction.Group {
+			return r.validateSameGroupParticleRestriction(base, restriction)
 		}
-		if err := r.validateChoiceSubsetRestriction(base, restriction); err != nil {
-			return err
-		}
-		if base.Group == GroupSequence {
-			return r.validateSequenceParticleRestriction(base, restriction)
-		}
-		if base.Group == GroupAll {
-			return r.validateSameAllGroupRestriction(base, restriction)
-		}
-		limit := min(len(base.Children), len(restriction.Children))
-		for i := 0; i < limit; i++ {
-			if base.Group == GroupChoice {
-				child, ok, err := r.particle(restriction.Children[i])
-				if err != nil || !ok {
-					return err
-				}
-				if particleIsExcluded(child) {
-					continue
-				}
-			}
-			if err := r.validateParticleRestriction(base.Children[i], restriction.Children[i]); err != nil {
-				return err
-			}
-		}
-		if base.Group != GroupChoice {
-			for i := limit; i < len(base.Children); i++ {
-				child, ok, err := r.particle(base.Children[i])
-				if err != nil || !ok {
-					return err
-				}
-				if r.particleIsRequired(child) {
-					return fmt.Errorf("ComplexContent restriction: required base particle not present in element restriction")
-				}
-			}
-		}
-		return nil
-	}
-	if base.Kind == ParticleGroup && restriction.Kind == ParticleGroup && base.Group != restriction.Group {
-		if handled, err := r.validateGroupKindChangeWithWildcard(base, restriction); handled {
-			return err
-		}
-		if base.Group == GroupSequence && restriction.Group == GroupAll {
-			count, err := r.activeGroupChildCount(restriction)
-			if err != nil {
-				return err
-			}
-			if count != 1 {
-				return fmt.Errorf("ComplexContent restriction: cannot restrict sequence to xs:all")
-			}
-		}
-		if base.Group == GroupSequence && restriction.Group == GroupChoice {
-			return fmt.Errorf("ComplexContent restriction: cannot restrict sequence to choice")
-		}
-		if base.Group == GroupSequence {
-			return r.validateSequenceParticleRestriction(base, restriction)
-		}
-		if base.Group == GroupChoice {
-			return r.validateChoiceGroupRestriction(base, restriction)
-		}
-		if base.Group == GroupAll {
-			return r.validateAllGroupBaseRestriction(base, restriction)
-		}
-		return fmt.Errorf("ComplexContent restriction: model group kind mismatch")
+		return r.validateGroupKindChangeRestriction(base, restriction)
 	}
 	if base.Kind == ParticleElement && restriction.Kind == ParticleElement {
 		return r.validateElementParticleRestriction(base, restriction)
@@ -627,6 +563,76 @@ func (r *docResolver) validateParticleRestrictionValue(base Particle, restrictio
 		return fmt.Errorf("ComplexContent restriction: particle kind mismatch")
 	}
 	return nil
+}
+
+func (r *docResolver) validateSameGroupParticleRestriction(base, restriction Particle) error {
+	if base.Group == GroupChoice {
+		return r.validateChoiceParticleRestriction(base, restriction)
+	}
+	if err := r.validateChoiceSubsetRestriction(base, restriction); err != nil {
+		return err
+	}
+	if base.Group == GroupSequence {
+		return r.validateSequenceParticleRestriction(base, restriction)
+	}
+	if base.Group == GroupAll {
+		return r.validateSameAllGroupRestriction(base, restriction)
+	}
+	limit := min(len(base.Children), len(restriction.Children))
+	if err := r.validateParticleRestrictionPairs(base, restriction, limit); err != nil {
+		return err
+	}
+	return r.validateRemainingBaseParticles(base, limit)
+}
+
+func (r *docResolver) validateParticleRestrictionPairs(base, restriction Particle, limit int) error {
+	for i := 0; i < limit; i++ {
+		if err := r.validateParticleRestriction(base.Children[i], restriction.Children[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *docResolver) validateRemainingBaseParticles(base Particle, start int) error {
+	for i := start; i < len(base.Children); i++ {
+		child, ok, err := r.particle(base.Children[i])
+		if err != nil || !ok {
+			return err
+		}
+		if r.particleIsRequired(child) {
+			return fmt.Errorf("ComplexContent restriction: required base particle not present in element restriction")
+		}
+	}
+	return nil
+}
+
+func (r *docResolver) validateGroupKindChangeRestriction(base, restriction Particle) error {
+	if handled, err := r.validateGroupKindChangeWithWildcard(base, restriction); handled {
+		return err
+	}
+	if base.Group == GroupSequence && restriction.Group == GroupAll {
+		count, err := r.activeGroupChildCount(restriction)
+		if err != nil {
+			return err
+		}
+		if count != 1 {
+			return fmt.Errorf("ComplexContent restriction: cannot restrict sequence to xs:all")
+		}
+	}
+	switch base.Group {
+	case GroupSequence:
+		if restriction.Group == GroupChoice {
+			return fmt.Errorf("ComplexContent restriction: cannot restrict sequence to choice")
+		}
+		return r.validateSequenceParticleRestriction(base, restriction)
+	case GroupChoice:
+		return r.validateChoiceGroupRestriction(base, restriction)
+	case GroupAll:
+		return r.validateAllGroupBaseRestriction(base, restriction)
+	default:
+		return fmt.Errorf("ComplexContent restriction: model group kind mismatch")
+	}
 }
 
 func (r *docResolver) validateChoiceParticleRestriction(base, restriction Particle) error {

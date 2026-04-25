@@ -413,87 +413,60 @@ func validationBuiltinName(spec SimpleTypeSpec) string {
 
 func validateAtomicLexicalValue(name, lexical string, ctx map[string]string) error {
 	switch name {
-	case "anyType", "anySimpleType", "string":
-		return nil
-	case "boolean":
-		return value.ValidateXSDBoolean(lexical)
-	case "decimal":
-		return value.ValidateXSDDecimal(lexical)
-	case "float":
-		return value.ValidateXSDFloat(lexical)
-	case "double":
-		return value.ValidateXSDDouble(lexical)
-	case "duration":
-		return value.ValidateXSDDuration(lexical)
-	case "dateTime":
-		return value.ValidateXSDDateTime(lexical)
-	case "time":
-		return value.ValidateXSDTime(lexical)
-	case "date":
-		return value.ValidateXSDDate(lexical)
-	case "gYearMonth":
-		return value.ValidateXSDGYearMonth(lexical)
-	case "gYear":
-		return value.ValidateXSDGYear(lexical)
-	case "gMonthDay":
-		return value.ValidateXSDGMonthDay(lexical)
-	case "gDay":
-		return value.ValidateXSDGDay(lexical)
-	case "gMonth":
-		return value.ValidateXSDGMonth(lexical)
-	case "hexBinary":
-		return value.ValidateXSDHexBinary(lexical)
-	case "base64Binary":
-		return value.ValidateXSDBase64Binary(lexical)
-	case "anyURI":
-		return value.ValidateXSDAnyURI(lexical)
 	case "QName", "NOTATION":
 		if err := value.ValidateXSDQName(lexical); err != nil {
 			return err
 		}
 		_, err := xsdlex.ParseQNameValue(lexical, ctx)
 		return err
-	case "normalizedString":
-		return value.ValidateXSDNormalizedString(lexical)
-	case "token":
-		return value.ValidateXSDToken(lexical)
-	case "language":
-		return value.ValidateXSDLanguage(lexical)
-	case "Name":
-		return value.ValidateXSDName(lexical)
-	case "NCName", "ID", "IDREF", "ENTITY":
-		return value.ValidateXSDNCName(lexical)
-	case "NMTOKEN":
-		return value.ValidateXSDNMTOKEN(lexical)
-	case "integer":
-		return value.ValidateXSDInteger(lexical)
-	case "long":
-		return value.ValidateXSDLong(lexical)
-	case "int":
-		return value.ValidateXSDInt(lexical)
-	case "short":
-		return value.ValidateXSDShort(lexical)
-	case "byte":
-		return value.ValidateXSDByte(lexical)
-	case "nonNegativeInteger":
-		return value.ValidateXSDNonNegativeInteger(lexical)
-	case "positiveInteger":
-		return value.ValidateXSDPositiveInteger(lexical)
-	case "unsignedLong":
-		return value.ValidateXSDUnsignedLong(lexical)
-	case "unsignedInt":
-		return value.ValidateXSDUnsignedInt(lexical)
-	case "unsignedShort":
-		return value.ValidateXSDUnsignedShort(lexical)
-	case "unsignedByte":
-		return value.ValidateXSDUnsignedByte(lexical)
-	case "nonPositiveInteger":
-		return value.ValidateXSDNonPositiveInteger(lexical)
-	case "negativeInteger":
-		return value.ValidateXSDNegativeInteger(lexical)
-	default:
-		return nil
 	}
+	if validate, ok := atomicLexicalValidators[name]; ok {
+		return validate(lexical)
+	}
+	return nil
+}
+
+type atomicLexicalValidator func(string) error
+
+var atomicLexicalValidators = map[string]atomicLexicalValidator{
+	"boolean":            value.ValidateXSDBoolean,
+	"decimal":            value.ValidateXSDDecimal,
+	"float":              value.ValidateXSDFloat,
+	"double":             value.ValidateXSDDouble,
+	"duration":           value.ValidateXSDDuration,
+	"dateTime":           value.ValidateXSDDateTime,
+	"time":               value.ValidateXSDTime,
+	"date":               value.ValidateXSDDate,
+	"gYearMonth":         value.ValidateXSDGYearMonth,
+	"gYear":              value.ValidateXSDGYear,
+	"gMonthDay":          value.ValidateXSDGMonthDay,
+	"gDay":               value.ValidateXSDGDay,
+	"gMonth":             value.ValidateXSDGMonth,
+	"hexBinary":          value.ValidateXSDHexBinary,
+	"base64Binary":       value.ValidateXSDBase64Binary,
+	"anyURI":             value.ValidateXSDAnyURI,
+	"normalizedString":   value.ValidateXSDNormalizedString,
+	"token":              value.ValidateXSDToken,
+	"language":           value.ValidateXSDLanguage,
+	"Name":               value.ValidateXSDName,
+	"NCName":             value.ValidateXSDNCName,
+	"ID":                 value.ValidateXSDNCName,
+	"IDREF":              value.ValidateXSDNCName,
+	"ENTITY":             value.ValidateXSDNCName,
+	"NMTOKEN":            value.ValidateXSDNMTOKEN,
+	"integer":            value.ValidateXSDInteger,
+	"long":               value.ValidateXSDLong,
+	"int":                value.ValidateXSDInt,
+	"short":              value.ValidateXSDShort,
+	"byte":               value.ValidateXSDByte,
+	"nonNegativeInteger": value.ValidateXSDNonNegativeInteger,
+	"positiveInteger":    value.ValidateXSDPositiveInteger,
+	"unsignedLong":       value.ValidateXSDUnsignedLong,
+	"unsignedInt":        value.ValidateXSDUnsignedInt,
+	"unsignedShort":      value.ValidateXSDUnsignedShort,
+	"unsignedByte":       value.ValidateXSDUnsignedByte,
+	"nonPositiveInteger": value.ValidateXSDNonPositiveInteger,
+	"negativeInteger":    value.ValidateXSDNegativeInteger,
 }
 
 func validateFacetApplicability(spec SimpleTypeSpec, facets []FacetSpec) error {

@@ -86,91 +86,99 @@ func (p *documentParser) parseComplexChild(child NodeID, decl *ComplexTypeDecl) 
 	case "annotation":
 		return nil
 	case "sequence", "choice", "all":
-		if decl.Content != ComplexContentNone {
-			return fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
-		}
-		if len(decl.Attributes) > 0 || len(decl.AttributeGroups) > 0 || decl.AnyAttribute != nil {
-			return fmt.Errorf("complexType: content model must appear before attributes")
-		}
-		if decl.Particle != nil {
-			return fmt.Errorf("complexType: only one content model is allowed")
-		}
-		particle, err := p.parseParticle(child)
-		if err != nil {
-			return err
-		}
-		decl.Particle = particle
+		return p.parseComplexParticleChild(child, decl)
 	case "group":
-		if decl.Content != ComplexContentNone {
-			return fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
-		}
-		if len(decl.Attributes) > 0 || len(decl.AttributeGroups) > 0 || decl.AnyAttribute != nil {
-			return fmt.Errorf("complexType: content model must appear before attributes")
-		}
-		if decl.Particle != nil {
-			return fmt.Errorf("complexType: only one content model is allowed")
-		}
-		particle, err := p.parseParticle(child)
-		if err != nil {
-			return err
-		}
-		decl.Particle = particle
+		return p.parseComplexParticleChild(child, decl)
 	case "attribute":
-		if decl.Content != ComplexContentNone {
-			return fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
-		}
-		if decl.AnyAttribute != nil {
-			return fmt.Errorf("complexType: anyAttribute must appear after all attributes")
-		}
-		attr, err := p.parseAttribute(child, false)
-		if err != nil {
-			return err
-		}
-		decl.Attributes = append(decl.Attributes, AttributeUseDecl{Attribute: attr})
+		return p.parseComplexAttributeChild(child, decl)
 	case "attributeGroup":
-		if decl.Content != ComplexContentNone {
-			return fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
-		}
-		if decl.AnyAttribute != nil {
-			return fmt.Errorf("complexType: anyAttribute must appear after all attributes")
-		}
-		group, err := p.parseAttributeGroup(child, false)
-		if err != nil {
-			return err
-		}
-		decl.AttributeGroups = append(decl.AttributeGroups, group.Ref)
+		return p.parseComplexAttributeGroupChild(child, decl)
 	case "anyAttribute":
-		if decl.Content != ComplexContentNone {
-			return fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
-		}
-		if decl.AnyAttribute != nil {
-			return fmt.Errorf("complexType: at most one anyAttribute is allowed")
-		}
-		any, err := p.parseWildcard(child, false)
-		if err != nil {
-			return err
-		}
-		decl.AnyAttribute = any
+		return p.parseComplexAnyAttributeChild(child, decl)
 	case "simpleContent":
-		if decl.Particle != nil || len(decl.Attributes) > 0 || len(decl.AttributeGroups) > 0 || decl.AnyAttribute != nil {
-			return fmt.Errorf("complexType: simpleContent must be the only content model")
-		}
-		if decl.Content != ComplexContentNone {
-			return fmt.Errorf("complexType: only one content model is allowed")
-		}
-		return p.parseDerivationContent(child, decl, ComplexContentSimple)
+		return p.parseComplexContentChild(child, decl, ComplexContentSimple)
 	case "complexContent":
-		if decl.Particle != nil || len(decl.Attributes) > 0 || len(decl.AttributeGroups) > 0 || decl.AnyAttribute != nil {
-			return fmt.Errorf("complexType: complexContent must be the only content model")
-		}
-		if decl.Content != ComplexContentNone {
-			return fmt.Errorf("complexType: only one content model is allowed")
-		}
-		return p.parseDerivationContent(child, decl, ComplexContentComplex)
+		return p.parseComplexContentChild(child, decl, ComplexContentComplex)
 	default:
 		return fmt.Errorf("complexType has unexpected child element '%s'", p.doc.LocalName(child))
 	}
+}
+
+func (p *documentParser) parseComplexParticleChild(child NodeID, decl *ComplexTypeDecl) error {
+	if decl.Content != ComplexContentNone {
+		return fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
+	}
+	if len(decl.Attributes) > 0 || len(decl.AttributeGroups) > 0 || decl.AnyAttribute != nil {
+		return fmt.Errorf("complexType: content model must appear before attributes")
+	}
+	if decl.Particle != nil {
+		return fmt.Errorf("complexType: only one content model is allowed")
+	}
+	particle, err := p.parseParticle(child)
+	if err != nil {
+		return err
+	}
+	decl.Particle = particle
 	return nil
+}
+
+func validateComplexAttributePosition(decl *ComplexTypeDecl) error {
+	if decl.Content != ComplexContentNone {
+		return fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
+	}
+	if decl.AnyAttribute != nil {
+		return fmt.Errorf("complexType: anyAttribute must appear after all attributes")
+	}
+	return nil
+}
+
+func (p *documentParser) parseComplexAttributeChild(child NodeID, decl *ComplexTypeDecl) error {
+	if err := validateComplexAttributePosition(decl); err != nil {
+		return err
+	}
+	attr, err := p.parseAttribute(child, false)
+	if err != nil {
+		return err
+	}
+	decl.Attributes = append(decl.Attributes, AttributeUseDecl{Attribute: attr})
+	return nil
+}
+
+func (p *documentParser) parseComplexAttributeGroupChild(child NodeID, decl *ComplexTypeDecl) error {
+	if err := validateComplexAttributePosition(decl); err != nil {
+		return err
+	}
+	group, err := p.parseAttributeGroup(child, false)
+	if err != nil {
+		return err
+	}
+	decl.AttributeGroups = append(decl.AttributeGroups, group.Ref)
+	return nil
+}
+
+func (p *documentParser) parseComplexAnyAttributeChild(child NodeID, decl *ComplexTypeDecl) error {
+	if decl.Content != ComplexContentNone {
+		return fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
+	}
+	if decl.AnyAttribute != nil {
+		return fmt.Errorf("complexType: at most one anyAttribute is allowed")
+	}
+	wildcard, err := p.parseWildcard(child, false)
+	if err != nil {
+		return err
+	}
+	decl.AnyAttribute = wildcard
+	return nil
+}
+
+func (p *documentParser) parseComplexContentChild(child NodeID, decl *ComplexTypeDecl, content ComplexContentKind) error {
+	if decl.Particle != nil || len(decl.Attributes) > 0 || len(decl.AttributeGroups) > 0 || decl.AnyAttribute != nil {
+		return fmt.Errorf("complexType: %s must be the only content model", p.doc.LocalName(child))
+	}
+	if decl.Content != ComplexContentNone {
+		return fmt.Errorf("complexType: only one content model is allowed")
+	}
+	return p.parseDerivationContent(child, decl, content)
 }
 
 func (p *documentParser) parseDerivationContent(elem NodeID, decl *ComplexTypeDecl, content ComplexContentKind) error {
@@ -208,71 +216,8 @@ func (p *documentParser) parseDerivationContent(elem NodeID, decl *ComplexTypeDe
 				return fmt.Errorf("%s must have exactly one derivation child (restriction or extension)", context)
 			}
 			seenDerivation = true
-			if err := validateAnnotationOrder(p.doc, child); err != nil {
+			if err := p.parseDerivationChild(child, childName, decl, content); err != nil {
 				return err
-			}
-			if childName == "extension" {
-				decl.Derivation = ComplexDerivationExtension
-			} else {
-				decl.Derivation = ComplexDerivationRestriction
-			}
-			base, err := p.resolveQName(child, p.attr(child, "base"), true)
-			if err != nil {
-				return fmt.Errorf("resolve %s base: %w", childName, err)
-			}
-			decl.Base = base
-			var seenSimpleType, seenFacet, seenAttributeLike bool
-			for _, body := range p.xsdChildren(child) {
-				bodyName := p.doc.LocalName(body)
-				if bodyName == "annotation" {
-					continue
-				}
-				if content == ComplexContentSimple && bodyName == "simpleType" {
-					if decl.Derivation != ComplexDerivationRestriction {
-						return fmt.Errorf("simpleContent extension has unexpected child element 'simpleType'")
-					}
-					if seenSimpleType || seenFacet || seenAttributeLike {
-						return fmt.Errorf("simpleContent restriction: simpleType must appear before facets and attributes")
-					}
-					inline, err := p.parseSimpleType(body, false)
-					if err != nil {
-						return fmt.Errorf("parse nested simpleType: %w", err)
-					}
-					decl.SimpleType = inline
-					seenSimpleType = true
-					continue
-				}
-				if content == ComplexContentSimple && p.isFacet(body) {
-					if decl.Derivation != ComplexDerivationRestriction {
-						return fmt.Errorf("simpleContent extension has unexpected child element '%s'", bodyName)
-					}
-					if seenAttributeLike {
-						return fmt.Errorf("simpleContent restriction: facets must appear before attributes")
-					}
-					facet, err := p.parseFacet(body)
-					if err != nil {
-						return err
-					}
-					decl.SimpleFacets = append(decl.SimpleFacets, facet)
-					seenFacet = true
-					continue
-				}
-				switch bodyName {
-				case "attribute", "attributeGroup", "anyAttribute":
-					seenAttributeLike = true
-				case "simpleContent", "complexContent":
-					return fmt.Errorf("%s has unexpected child element '%s'", childName, bodyName)
-				default:
-					if content == ComplexContentSimple && decl.Derivation == ComplexDerivationExtension {
-						return fmt.Errorf("simpleContent extension has unexpected child element '%s'", bodyName)
-					}
-					if content == ComplexContentSimple && decl.Derivation == ComplexDerivationRestriction {
-						return fmt.Errorf("parse facets: unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", bodyName)
-					}
-				}
-				if err := p.parseComplexDerivationChild(body, decl); err != nil {
-					return err
-				}
 			}
 		default:
 			return fmt.Errorf("%s has unexpected child element '%s'", context, childName)
@@ -281,6 +226,101 @@ func (p *documentParser) parseDerivationContent(elem NodeID, decl *ComplexTypeDe
 	if !seenDerivation {
 		return fmt.Errorf("%s must have exactly one derivation child (restriction or extension)", context)
 	}
+	return nil
+}
+
+func (p *documentParser) parseDerivationChild(child NodeID, childName string, decl *ComplexTypeDecl, content ComplexContentKind) error {
+	if err := validateAnnotationOrder(p.doc, child); err != nil {
+		return err
+	}
+	if childName == "extension" {
+		decl.Derivation = ComplexDerivationExtension
+	} else {
+		decl.Derivation = ComplexDerivationRestriction
+	}
+	base, err := p.resolveQName(child, p.attr(child, "base"), true)
+	if err != nil {
+		return fmt.Errorf("resolve %s base: %w", childName, err)
+	}
+	decl.Base = base
+	var state derivationBodyState
+	for _, body := range p.xsdChildren(child) {
+		bodyName := p.doc.LocalName(body)
+		if bodyName == "annotation" {
+			continue
+		}
+		if err := p.parseDerivationBodyChild(body, bodyName, childName, decl, content, &state); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type derivationBodyState struct {
+	seenSimpleType    bool
+	seenFacet         bool
+	seenAttributeLike bool
+}
+
+func (p *documentParser) parseDerivationBodyChild(
+	body NodeID,
+	bodyName string,
+	childName string,
+	decl *ComplexTypeDecl,
+	content ComplexContentKind,
+	state *derivationBodyState,
+) error {
+	if content == ComplexContentSimple && bodyName == "simpleType" {
+		return p.parseSimpleContentInlineType(body, decl, state)
+	}
+	if content == ComplexContentSimple && p.isFacet(body) {
+		return p.parseSimpleContentFacet(body, bodyName, decl, state)
+	}
+	switch bodyName {
+	case "attribute", "attributeGroup", "anyAttribute":
+		state.seenAttributeLike = true
+	case "simpleContent", "complexContent":
+		return fmt.Errorf("%s has unexpected child element '%s'", childName, bodyName)
+	default:
+		if content == ComplexContentSimple && decl.Derivation == ComplexDerivationExtension {
+			return fmt.Errorf("simpleContent extension has unexpected child element '%s'", bodyName)
+		}
+		if content == ComplexContentSimple && decl.Derivation == ComplexDerivationRestriction {
+			return fmt.Errorf("parse facets: unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", bodyName)
+		}
+	}
+	return p.parseComplexDerivationChild(body, decl)
+}
+
+func (p *documentParser) parseSimpleContentInlineType(body NodeID, decl *ComplexTypeDecl, state *derivationBodyState) error {
+	if decl.Derivation != ComplexDerivationRestriction {
+		return fmt.Errorf("simpleContent extension has unexpected child element 'simpleType'")
+	}
+	if state.seenSimpleType || state.seenFacet || state.seenAttributeLike {
+		return fmt.Errorf("simpleContent restriction: simpleType must appear before facets and attributes")
+	}
+	inline, err := p.parseSimpleType(body, false)
+	if err != nil {
+		return fmt.Errorf("parse nested simpleType: %w", err)
+	}
+	decl.SimpleType = inline
+	state.seenSimpleType = true
+	return nil
+}
+
+func (p *documentParser) parseSimpleContentFacet(body NodeID, bodyName string, decl *ComplexTypeDecl, state *derivationBodyState) error {
+	if decl.Derivation != ComplexDerivationRestriction {
+		return fmt.Errorf("simpleContent extension has unexpected child element '%s'", bodyName)
+	}
+	if state.seenAttributeLike {
+		return fmt.Errorf("simpleContent restriction: facets must appear before attributes")
+	}
+	facet, err := p.parseFacet(body)
+	if err != nil {
+		return err
+	}
+	decl.SimpleFacets = append(decl.SimpleFacets, facet)
+	state.seenFacet = true
 	return nil
 }
 

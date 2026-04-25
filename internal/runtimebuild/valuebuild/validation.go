@@ -12,7 +12,7 @@ import (
 	"github.com/jacoelho/xsd/internal/value/num"
 )
 
-func (c *artifactCompiler) validatePartialFacets(normalized string, spec schemair.SimpleTypeSpec, facets []schemair.FacetSpec, ctx map[string]string) error {
+func (c *artifactCompiler) validatePartialFacets(normalized string, spec schemair.SimpleTypeSpec, facets []schemair.FacetSpec, _ map[string]string) error {
 	for _, facet := range facets {
 		if shouldSkipLengthFacet(spec, facet) {
 			continue

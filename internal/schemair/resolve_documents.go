@@ -854,26 +854,13 @@ func (r *docResolver) ensureSimpleType(decl *ast.SimpleTypeDecl, global bool) (T
 		return 0, nil
 	}
 	handle := r.simpleDeclHandle(decl)
-	if id, ok := r.simpleIDs[handle]; ok {
-		if r.emittedTypes[id] {
-			return id, nil
-		}
-		if r.emittingTypes[id] {
-			return 0, fmt.Errorf("schema ir: type derivation cycle at %s", formatName(nameFromQName(decl.Name)))
-		}
-		if err := r.emitSimpleType(id, decl, global); err != nil {
-			return 0, err
-		}
-		return id, nil
-	}
-	id := r.nextType
-	r.nextType++
-	r.simpleIDs[handle] = id
-	r.simpleByID[id] = handle
-	if err := r.emitSimpleType(id, decl, false); err != nil {
-		return 0, err
-	}
-	return id, nil
+	id, ok := r.simpleIDs[handle]
+	return r.ensureType(global, nameFromQName(decl.Name), id, ok, func(id TypeID) {
+		r.simpleIDs[handle] = id
+		r.simpleByID[id] = handle
+	}, func(id TypeID, global bool) error {
+		return r.emitSimpleType(id, decl, global)
+	})
 }
 
 func (r *docResolver) ensureComplexType(decl *ast.ComplexTypeDecl, global bool) (TypeID, error) {
@@ -881,23 +868,49 @@ func (r *docResolver) ensureComplexType(decl *ast.ComplexTypeDecl, global bool) 
 		return 0, nil
 	}
 	handle := r.complexDeclHandle(decl)
-	if id, ok := r.complexIDs[handle]; ok {
-		if r.emittedTypes[id] {
-			return id, nil
-		}
-		if r.emittingTypes[id] {
-			return 0, fmt.Errorf("schema ir: type derivation cycle at %s", formatName(nameFromQName(decl.Name)))
-		}
-		if err := r.emitComplexType(id, decl, global); err != nil {
-			return 0, err
-		}
-		return id, nil
+	id, ok := r.complexIDs[handle]
+	return r.ensureType(global, nameFromQName(decl.Name), id, ok, func(id TypeID) {
+		r.complexIDs[handle] = id
+		r.complexByID[id] = handle
+	}, func(id TypeID, global bool) error {
+		return r.emitComplexType(id, decl, global)
+	})
+}
+
+func (r *docResolver) ensureType(
+	global bool,
+	name Name,
+	id TypeID,
+	ok bool,
+	reserve func(TypeID),
+	emit func(TypeID, bool) error,
+) (TypeID, error) {
+	if ok {
+		return r.emitPendingType(id, global, name, func(global bool) error {
+			return emit(id, global)
+		})
 	}
+	id = r.allocateTypeID()
+	reserve(id)
+	return r.emitPendingType(id, false, name, func(global bool) error {
+		return emit(id, global)
+	})
+}
+
+func (r *docResolver) allocateTypeID() TypeID {
 	id := r.nextType
 	r.nextType++
-	r.complexIDs[handle] = id
-	r.complexByID[id] = handle
-	if err := r.emitComplexType(id, decl, false); err != nil {
+	return id
+}
+
+func (r *docResolver) emitPendingType(id TypeID, global bool, name Name, emit func(bool) error) (TypeID, error) {
+	if r.emittedTypes[id] {
+		return id, nil
+	}
+	if r.emittingTypes[id] {
+		return 0, fmt.Errorf("schema ir: type derivation cycle at %s", formatName(name))
+	}
+	if err := emit(global); err != nil {
 		return 0, err
 	}
 	return id, nil
@@ -1073,170 +1086,261 @@ func (r *docResolver) emitComplexPlan(id TypeID, decl *ast.ComplexTypeDecl) erro
 		Mixed:    decl.Mixed,
 		Content:  ContentEmpty,
 	}
-	var inheritedAny WildcardID
-	var restrictionAttrs []AttributeUseID
-	baseRef := r.typeRefZero(decl.Base)
-	var basePlan ComplexTypePlan
-	var hasBasePlan bool
-	if !isZeroTypeRef(baseRef) {
-		var err error
-		basePlan, hasBasePlan, err = r.ensureBaseComplexPlan(baseRef)
-		if err != nil {
-			return err
-		}
-		if isBuiltinAnyType(baseRef) && decl.Derivation == ast.ComplexDerivationExtension && decl.Content == ast.ComplexContentComplex {
-			plan.Particle = r.addAnyTypeContentParticle()
-			plan.Content = ContentElement
-		}
-		if hasBasePlan && decl.Derivation == ast.ComplexDerivationExtension {
-			plan.Attrs = r.appendNonProhibitedAttributeUses(plan.Attrs, basePlan.Attrs)
-			inheritedAny = basePlan.AnyAttr
-		}
-		if hasBasePlan && decl.Derivation == ast.ComplexDerivationRestriction {
-			plan.Attrs = append(plan.Attrs, basePlan.Attrs...)
-			inheritedAny = basePlan.AnyAttr
-		}
-		if hasBasePlan && decl.Derivation == ast.ComplexDerivationExtension &&
-			(basePlan.Content != ContentSimple || decl.Content == ast.ComplexContentSimple) {
-			plan.Particle = basePlan.Particle
-			plan.Content = basePlan.Content
-			plan.TextType = basePlan.TextType
-			plan.TextSpec = basePlan.TextSpec
-		}
-		if hasBasePlan && decl.Derivation == ast.ComplexDerivationExtension && decl.Particle != nil && basePlan.Content == ContentSimple {
-			return fmt.Errorf("schema ir: cannot extend simpleContent type %s with particles", formatName(baseRef.Name))
-		}
-		if hasBasePlan && decl.Content == ast.ComplexContentSimple && isZeroTypeRef(plan.TextType) {
-			plan.TextType = basePlan.TextType
-		}
-		if hasBasePlan && decl.Content == ast.ComplexContentComplex {
-			if err := r.validateMixedContentDerivation(decl, baseRef, basePlan); err != nil {
-				return err
-			}
-			if decl.Derivation == ast.ComplexDerivationRestriction && basePlan.Content == ContentSimple {
-				return fmt.Errorf("schema ir: complexContent restriction cannot derive from simpleContent type '%s'", baseRef.Name.Local)
-			}
-		}
+	base, err := r.applyComplexPlanBase(&plan, decl)
+	if err != nil {
+		return err
 	}
-	for i := range decl.Attributes {
-		ids, err := r.attributeUses(&decl.Attributes[i], nil, false)
-		if err != nil {
-			return err
-		}
-		if decl.Derivation == ast.ComplexDerivationRestriction && hasBasePlan {
-			restrictionAttrs = append(restrictionAttrs, ids...)
-		}
-		plan.Attrs = r.appendAttributeUses(plan.Attrs, ids, decl.Derivation == ast.ComplexDerivationRestriction)
+	restrictionAttrs, localAny, hasLocalAny, err := r.applyComplexPlanAttributes(&plan, decl, base)
+	if err != nil {
+		return err
 	}
-	var localAny WildcardID
-	var hasLocalAny bool
-	for _, group := range decl.AttributeGroups {
-		ids, err := r.attributeGroupUses(nameFromQName(group), nil)
-		if err != nil {
-			return err
-		}
-		if decl.Derivation == ast.ComplexDerivationRestriction && hasBasePlan {
-			restrictionAttrs = append(restrictionAttrs, ids...)
-		}
-		plan.Attrs = r.appendAttributeUses(plan.Attrs, ids, decl.Derivation == ast.ComplexDerivationRestriction)
-		groupWildcard, hasGroupWildcard, err := r.attributeGroupWildcard(nameFromQName(group), nil)
-		if err != nil {
-			return err
-		}
-		if hasGroupWildcard {
-			localAny, hasLocalAny = r.intersectLocalWildcards(localAny, hasLocalAny, groupWildcard)
-		}
-	}
-	if decl.AnyAttribute != nil {
-		own := r.addWildcard(decl.AnyAttribute)
-		localAny, hasLocalAny = r.intersectLocalWildcards(localAny, hasLocalAny, own)
-	}
-	if decl.Derivation == ast.ComplexDerivationRestriction && hasBasePlan {
-		if err := r.validateAttributeRestriction(basePlan.Attrs, restrictionAttrs, inheritedAny, complexAttributeRestrictionContext(decl)); err != nil {
+	if decl.Derivation == ast.ComplexDerivationRestriction && base.hasPlan {
+		if err := r.validateAttributeRestriction(base.plan.Attrs, restrictionAttrs, base.inheritedAny, complexAttributeRestrictionContext(decl)); err != nil {
 			return err
 		}
 	}
-	switch decl.Derivation {
-	case ast.ComplexDerivationExtension:
-		if hasLocalAny {
-			anyAttr, err := r.unionWildcards(localAny, inheritedAny)
-			if err != nil {
-				return err
-			}
-			plan.AnyAttr = anyAttr
-		} else if inheritedAny != 0 {
-			plan.AnyAttr = r.cloneWildcard(inheritedAny)
-		} else {
-			plan.AnyAttr = 0
-		}
-	case ast.ComplexDerivationRestriction:
-		if hasLocalAny && localAny != 0 {
-			if inheritedAny == 0 {
-				return fmt.Errorf("schema ir: complex type %d restricts absent anyAttribute", id)
-			}
-			if err := r.validateAnyAttributeRestriction(inheritedAny, localAny); err != nil {
-				return err
-			}
-			plan.AnyAttr = r.intersectWildcards(inheritedAny, localAny)
-		}
-	default:
-		if hasLocalAny {
-			plan.AnyAttr = localAny
-		}
+	if err := r.applyComplexPlanAnyAttribute(&plan, decl, id, base, localAny, hasLocalAny); err != nil {
+		return err
 	}
-	if decl.Content == ast.ComplexContentSimple {
-		plan.Content = ContentSimple
-		textType, textSpec, err := r.simpleContentText(decl, baseRef, basePlan, hasBasePlan)
-		if err != nil {
-			return err
-		}
-		plan.TextType = textType
-		plan.TextSpec = textSpec
-	} else if decl.Particle != nil {
-		if decl.Derivation == ast.ComplexDerivationExtension && decl.Particle.Kind == ast.ParticleAll && hasBasePlan && basePlan.Content != ContentAll && basePlan.Particle != 0 {
-			return fmt.Errorf("schema ir: cannot extend non-empty content model with all content model")
-		}
-		particle, err := r.addParticle(decl.Particle, nil)
-		if err != nil {
-			return err
-		}
-		if decl.Derivation == ast.ComplexDerivationRestriction && particle != 0 {
-			if hasBasePlan && basePlan.Particle != 0 {
-				if err := r.validateParticleRestriction(basePlan.Particle, particle); err != nil {
-					return err
-				}
-			} else if !isZeroTypeRef(baseRef) && !baseRef.Builtin {
-				r.particleChecks = append(r.particleChecks, pendingParticleRestriction{
-					base:        baseRef,
-					restriction: particle,
-				})
-			}
-		}
-		if decl.Derivation == ast.ComplexDerivationExtension && basePlan.Content == ContentAll && particle != 0 {
-			count, err := r.activeParticleChildCount(basePlan.Particle)
-			if err != nil {
-				return err
-			}
-			if count > 0 {
-				return fmt.Errorf("schema ir: cannot extend all content model with additional particles")
-			}
-		}
-		if decl.Derivation == ast.ComplexDerivationExtension && plan.Particle != 0 && particle != 0 {
-			plan.Particle = r.addSequenceParticle(plan.Particle, particle)
-		} else {
-			plan.Particle = particle
-		}
-		if decl.Particle.Kind == ast.ParticleAll && decl.Derivation != ast.ComplexDerivationExtension {
-			plan.Content = ContentAll
-		} else if plan.Particle != 0 {
-			plan.Content = ContentElement
-		}
+	if err := r.applyComplexPlanContent(&plan, decl, base); err != nil {
+		return err
 	}
 	r.sortAttributeUses(plan.Attrs)
 	if err := r.validateComplexPlan(plan); err != nil {
 		return err
 	}
 	r.out.ComplexTypes = append(r.out.ComplexTypes, plan)
+	return nil
+}
+
+type complexPlanBase struct {
+	ref          TypeRef
+	plan         ComplexTypePlan
+	hasPlan      bool
+	inheritedAny WildcardID
+}
+
+func (r *docResolver) applyComplexPlanBase(plan *ComplexTypePlan, decl *ast.ComplexTypeDecl) (complexPlanBase, error) {
+	base := complexPlanBase{ref: r.typeRefZero(decl.Base)}
+	if isZeroTypeRef(base.ref) {
+		return base, nil
+	}
+	var err error
+	base.plan, base.hasPlan, err = r.ensureBaseComplexPlan(base.ref)
+	if err != nil {
+		return base, err
+	}
+	if isBuiltinAnyType(base.ref) && decl.Derivation == ast.ComplexDerivationExtension && decl.Content == ast.ComplexContentComplex {
+		plan.Particle = r.addAnyTypeContentParticle()
+		plan.Content = ContentElement
+	}
+	if !base.hasPlan {
+		return base, nil
+	}
+	switch decl.Derivation {
+	case ast.ComplexDerivationExtension:
+		plan.Attrs = r.appendNonProhibitedAttributeUses(plan.Attrs, base.plan.Attrs)
+		base.inheritedAny = base.plan.AnyAttr
+		if base.plan.Content != ContentSimple || decl.Content == ast.ComplexContentSimple {
+			copyComplexPlanContent(plan, base.plan)
+		}
+		if decl.Particle != nil && base.plan.Content == ContentSimple {
+			return base, fmt.Errorf("schema ir: cannot extend simpleContent type %s with particles", formatName(base.ref.Name))
+		}
+	case ast.ComplexDerivationRestriction:
+		plan.Attrs = append(plan.Attrs, base.plan.Attrs...)
+		base.inheritedAny = base.plan.AnyAttr
+	}
+	if decl.Content == ast.ComplexContentSimple && isZeroTypeRef(plan.TextType) {
+		plan.TextType = base.plan.TextType
+	}
+	if decl.Content == ast.ComplexContentComplex {
+		if err := r.validateMixedContentDerivation(decl, base.ref, base.plan); err != nil {
+			return base, err
+		}
+		if decl.Derivation == ast.ComplexDerivationRestriction && base.plan.Content == ContentSimple {
+			return base, fmt.Errorf("schema ir: complexContent restriction cannot derive from simpleContent type '%s'", base.ref.Name.Local)
+		}
+	}
+	return base, nil
+}
+
+func copyComplexPlanContent(dst *ComplexTypePlan, src ComplexTypePlan) {
+	dst.Particle = src.Particle
+	dst.Content = src.Content
+	dst.TextType = src.TextType
+	dst.TextSpec = src.TextSpec
+}
+
+func (r *docResolver) applyComplexPlanAttributes(
+	plan *ComplexTypePlan,
+	decl *ast.ComplexTypeDecl,
+	base complexPlanBase,
+) ([]AttributeUseID, WildcardID, bool, error) {
+	var restrictionAttrs []AttributeUseID
+	isRestriction := decl.Derivation == ast.ComplexDerivationRestriction
+	trackRestriction := isRestriction && base.hasPlan
+	for i := range decl.Attributes {
+		ids, err := r.attributeUses(&decl.Attributes[i], nil, false)
+		if err != nil {
+			return nil, 0, false, err
+		}
+		if trackRestriction {
+			restrictionAttrs = append(restrictionAttrs, ids...)
+		}
+		plan.Attrs = r.appendAttributeUses(plan.Attrs, ids, isRestriction)
+	}
+	restrictionAttrs, localAny, hasLocalAny, err := r.applyComplexPlanAttributeGroups(plan, decl, trackRestriction, isRestriction, restrictionAttrs)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	if decl.AnyAttribute != nil {
+		own := r.addWildcard(decl.AnyAttribute)
+		localAny, hasLocalAny = r.intersectLocalWildcards(localAny, hasLocalAny, own)
+	}
+	return restrictionAttrs, localAny, hasLocalAny, nil
+}
+
+func (r *docResolver) applyComplexPlanAttributeGroups(
+	plan *ComplexTypePlan,
+	decl *ast.ComplexTypeDecl,
+	trackRestriction bool,
+	isRestriction bool,
+	restrictionAttrs []AttributeUseID,
+) ([]AttributeUseID, WildcardID, bool, error) {
+	var localAny WildcardID
+	var hasLocalAny bool
+	for _, group := range decl.AttributeGroups {
+		groupName := nameFromQName(group)
+		ids, err := r.attributeGroupUses(groupName, nil)
+		if err != nil {
+			return nil, 0, false, err
+		}
+		if trackRestriction {
+			restrictionAttrs = append(restrictionAttrs, ids...)
+		}
+		plan.Attrs = r.appendAttributeUses(plan.Attrs, ids, isRestriction)
+		groupWildcard, hasGroupWildcard, err := r.attributeGroupWildcard(groupName, nil)
+		if err != nil {
+			return nil, 0, false, err
+		}
+		if hasGroupWildcard {
+			localAny, hasLocalAny = r.intersectLocalWildcards(localAny, hasLocalAny, groupWildcard)
+		}
+	}
+	return restrictionAttrs, localAny, hasLocalAny, nil
+}
+
+func (r *docResolver) applyComplexPlanAnyAttribute(
+	plan *ComplexTypePlan,
+	decl *ast.ComplexTypeDecl,
+	id TypeID,
+	base complexPlanBase,
+	localAny WildcardID,
+	hasLocalAny bool,
+) error {
+	switch decl.Derivation {
+	case ast.ComplexDerivationExtension:
+		if hasLocalAny {
+			anyAttr, err := r.unionWildcards(localAny, base.inheritedAny)
+			if err != nil {
+				return err
+			}
+			plan.AnyAttr = anyAttr
+		} else if base.inheritedAny != 0 {
+			plan.AnyAttr = r.cloneWildcard(base.inheritedAny)
+		} else {
+			plan.AnyAttr = 0
+		}
+	case ast.ComplexDerivationRestriction:
+		if hasLocalAny && localAny != 0 {
+			if base.inheritedAny == 0 {
+				return fmt.Errorf("schema ir: complex type %d restricts absent anyAttribute", id)
+			}
+			if err := r.validateAnyAttributeRestriction(base.inheritedAny, localAny); err != nil {
+				return err
+			}
+			plan.AnyAttr = r.intersectWildcards(base.inheritedAny, localAny)
+		}
+	default:
+		if hasLocalAny {
+			plan.AnyAttr = localAny
+		}
+	}
+	return nil
+}
+
+func (r *docResolver) applyComplexPlanContent(plan *ComplexTypePlan, decl *ast.ComplexTypeDecl, base complexPlanBase) error {
+	if decl.Content == ast.ComplexContentSimple {
+		plan.Content = ContentSimple
+		textType, textSpec, err := r.simpleContentText(decl, base.ref, base.plan, base.hasPlan)
+		if err != nil {
+			return err
+		}
+		plan.TextType = textType
+		plan.TextSpec = textSpec
+		return nil
+	}
+	if decl.Particle == nil {
+		return nil
+	}
+	return r.applyComplexPlanParticleContent(plan, decl, base)
+}
+
+func (r *docResolver) applyComplexPlanParticleContent(plan *ComplexTypePlan, decl *ast.ComplexTypeDecl, base complexPlanBase) error {
+	if decl.Derivation == ast.ComplexDerivationExtension && decl.Particle.Kind == ast.ParticleAll && base.hasPlan && base.plan.Content != ContentAll && base.plan.Particle != 0 {
+		return fmt.Errorf("schema ir: cannot extend non-empty content model with all content model")
+	}
+	particle, err := r.addParticle(decl.Particle, nil)
+	if err != nil {
+		return err
+	}
+	if err := r.validateComplexPlanParticleRestriction(decl, base, particle); err != nil {
+		return err
+	}
+	if err := r.validateComplexPlanAllExtension(base, decl, particle); err != nil {
+		return err
+	}
+	if decl.Derivation == ast.ComplexDerivationExtension && plan.Particle != 0 && particle != 0 {
+		plan.Particle = r.addSequenceParticle(plan.Particle, particle)
+	} else {
+		plan.Particle = particle
+	}
+	if decl.Particle.Kind == ast.ParticleAll && decl.Derivation != ast.ComplexDerivationExtension {
+		plan.Content = ContentAll
+	} else if plan.Particle != 0 {
+		plan.Content = ContentElement
+	}
+	return nil
+}
+
+func (r *docResolver) validateComplexPlanParticleRestriction(decl *ast.ComplexTypeDecl, base complexPlanBase, particle ParticleID) error {
+	if decl.Derivation != ast.ComplexDerivationRestriction || particle == 0 {
+		return nil
+	}
+	if base.hasPlan && base.plan.Particle != 0 {
+		return r.validateParticleRestriction(base.plan.Particle, particle)
+	}
+	if !isZeroTypeRef(base.ref) && !base.ref.Builtin {
+		r.particleChecks = append(r.particleChecks, pendingParticleRestriction{
+			base:        base.ref,
+			restriction: particle,
+		})
+	}
+	return nil
+}
+
+func (r *docResolver) validateComplexPlanAllExtension(base complexPlanBase, decl *ast.ComplexTypeDecl, particle ParticleID) error {
+	if decl.Derivation != ast.ComplexDerivationExtension || base.plan.Content != ContentAll || particle == 0 {
+		return nil
+	}
+	count, err := r.activeParticleChildCount(base.plan.Particle)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("schema ir: cannot extend all content model with additional particles")
+	}
 	return nil
 }
 
@@ -1623,15 +1727,15 @@ func (r *docResolver) anyAttributeFromWildcard(id WildcardID) *ast.AnyAttribute 
 		return nil
 	}
 	wildcard := r.out.Wildcards[id-1]
-	any := &ast.AnyAttribute{
+	anyAttr := &ast.AnyAttribute{
 		Namespace:       astNamespaceKind(wildcard.NamespaceKind),
 		TargetNamespace: ast.NamespaceURI(wildcard.TargetNamespace),
 		ProcessContents: astProcessContents(wildcard.ProcessContents),
 	}
 	for _, ns := range wildcard.Namespaces {
-		any.NamespaceList = append(any.NamespaceList, ast.NamespaceURI(ns))
+		anyAttr.NamespaceList = append(anyAttr.NamespaceList, ast.NamespaceURI(ns))
 	}
-	return any
+	return anyAttr
 }
 
 func (r *docResolver) anyElementFromWildcard(id WildcardID) *ast.AnyElement {
@@ -1639,7 +1743,7 @@ func (r *docResolver) anyElementFromWildcard(id WildcardID) *ast.AnyElement {
 		return nil
 	}
 	wildcard := r.out.Wildcards[id-1]
-	any := &ast.AnyElement{
+	anyElem := &ast.AnyElement{
 		Namespace:       astNamespaceKind(wildcard.NamespaceKind),
 		TargetNamespace: ast.NamespaceURI(wildcard.TargetNamespace),
 		ProcessContents: astProcessContents(wildcard.ProcessContents),
@@ -1647,23 +1751,23 @@ func (r *docResolver) anyElementFromWildcard(id WildcardID) *ast.AnyElement {
 		MaxOccurs:       ast.OccursFromInt(1),
 	}
 	for _, ns := range wildcard.Namespaces {
-		any.NamespaceList = append(any.NamespaceList, ast.NamespaceURI(ns))
+		anyElem.NamespaceList = append(anyElem.NamespaceList, ast.NamespaceURI(ns))
 	}
-	return any
+	return anyElem
 }
 
-func (r *docResolver) addAnyAttributeWildcard(any *ast.AnyAttribute) WildcardID {
-	if any == nil {
+func (r *docResolver) addAnyAttributeWildcard(anyAttr *ast.AnyAttribute) WildcardID {
+	if anyAttr == nil {
 		return 0
 	}
 	id := WildcardID(len(r.out.Wildcards) + 1)
 	wildcard := Wildcard{
 		ID:              id,
-		NamespaceKind:   namespaceKind(any.Namespace),
-		TargetNamespace: string(any.TargetNamespace),
-		ProcessContents: processContents(any.ProcessContents),
+		NamespaceKind:   namespaceKind(anyAttr.Namespace),
+		TargetNamespace: string(anyAttr.TargetNamespace),
+		ProcessContents: processContents(anyAttr.ProcessContents),
 	}
-	for _, ns := range any.NamespaceList {
+	for _, ns := range anyAttr.NamespaceList {
 		wildcard.Namespaces = append(wildcard.Namespaces, string(ns))
 	}
 	r.out.Wildcards = append(r.out.Wildcards, wildcard)
