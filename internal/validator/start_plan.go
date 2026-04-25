@@ -3,9 +3,9 @@ package validator
 import (
 	"fmt"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 type startPlanInput struct {

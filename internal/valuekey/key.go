@@ -1,0 +1,262 @@
+package valuekey
+
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"math"
+	"time"
+
+	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
+)
+
+// Kind identifies the primitive value space used for comparisons.
+type Kind uint8
+
+const (
+	Invalid Kind = iota
+	Bool
+	Decimal
+	Float32
+	Float64
+	String
+	Binary
+	QName
+	DateTime
+	Duration
+	List
+)
+
+// StringBytes writes a tagged string key into dst, reusing capacity; dst is overwritten from the start.
+func StringBytes(dst []byte, tag byte, data []byte) []byte {
+	dst = append(dst[:0], tag)
+	dst = append(dst, data...)
+	return dst
+}
+
+// StringString returns a tagged string key for a Go string.
+func StringString(tag byte, data string) []byte {
+	out := make([]byte, 1+len(data))
+	out[0] = tag
+	copy(out[1:], data)
+	return out
+}
+
+// BinaryBytes writes a tagged binary key into dst, reusing capacity; dst is overwritten from the start.
+func BinaryBytes(dst []byte, tag byte, data []byte) []byte {
+	dst = append(dst[:0], tag)
+	dst = append(dst, data...)
+	return dst
+}
+
+// QNameStrings returns a tagged QName key from namespace/local strings.
+func QNameStrings(tag byte, ns, local string) []byte {
+	out := make([]byte, 0, 1+binary.MaxVarintLen64*2+len(ns)+len(local))
+	out = append(out, tag)
+	out = AppendUvarint(out, uint64(len(ns)))
+	out = append(out, ns...)
+	out = AppendUvarint(out, uint64(len(local)))
+	out = append(out, local...)
+	return out
+}
+
+// QNameCanonical writes a tagged QName key into dst, reusing capacity; dst is overwritten from the start.
+func QNameCanonical(dst []byte, tag byte, canonical []byte) []byte {
+	before, after, ok := bytes.Cut(canonical, []byte{0})
+	if !ok {
+		return nil
+	}
+	ns := before
+	local := after
+	dst = append(dst[:0], tag)
+	dst = AppendUvarint(dst, uint64(len(ns)))
+	dst = append(dst, ns...)
+	dst = AppendUvarint(dst, uint64(len(local)))
+	dst = append(dst, local...)
+	return dst
+}
+
+const (
+	canonicalNaN32 = 0x7fc00000
+	canonicalNaN64 = 0x7ff8000000000000
+)
+
+// Float32Bytes appends the canonical float32 key encoding to dst.
+func Float32Bytes(dst []byte, floatVal float32, class num.FloatClass) []byte {
+	var bits uint32
+	switch class {
+	case num.FloatNaN:
+		bits = canonicalNaN32
+	default:
+		if floatVal == 0 {
+			bits = 0
+		} else {
+			bits = math.Float32bits(floatVal)
+		}
+	}
+	dst = ensureLen(dst[:0], 4)
+	binary.BigEndian.PutUint32(dst, bits)
+	return dst
+}
+
+// Float64Bytes appends the canonical float64 key encoding to dst.
+func Float64Bytes(dst []byte, floatVal float64, class num.FloatClass) []byte {
+	var bits uint64
+	switch class {
+	case num.FloatNaN:
+		bits = canonicalNaN64
+	default:
+		if floatVal == 0 {
+			bits = 0
+		} else {
+			bits = math.Float64bits(floatVal)
+		}
+	}
+	dst = ensureLen(dst[:0], 8)
+	binary.BigEndian.PutUint64(dst, bits)
+	return dst
+}
+
+// TemporalBytes appends a canonical temporal key encoding to dst.
+func TemporalBytes(dst []byte, subkind byte, t time.Time, tzKind value.TimezoneKind, leapSecond bool) []byte {
+	tzFlag := timezoneFlag(tzKind)
+	if tzKind == value.TZKnown {
+		t = t.UTC()
+	}
+	if subkind == 2 {
+		seconds := t.Hour()*3600 + t.Minute()*60 + t.Second()
+		dst = ensureLen(dst[:0], 11)
+		dst[0] = subkind
+		dst[1] = tzFlag
+		binary.BigEndian.PutUint32(dst[2:], uint32(seconds))
+		binary.BigEndian.PutUint32(dst[6:], uint32(t.Nanosecond()))
+		dst[10] = leapSecondFlag(leapSecond)
+		return dst
+	}
+	year, month, day := t.Date()
+	hour, minute, sec := t.Clock()
+	nanos := t.Nanosecond()
+	keyLen := 20
+	if subkind == 0 {
+		keyLen = 21
+	}
+	dst = ensureLen(dst[:0], keyLen)
+	dst[0] = subkind
+	dst[1] = tzFlag
+	binary.BigEndian.PutUint32(dst[2:], uint32(int32(year)))
+	binary.BigEndian.PutUint16(dst[6:], uint16(month))
+	binary.BigEndian.PutUint16(dst[8:], uint16(day))
+	binary.BigEndian.PutUint16(dst[10:], uint16(hour))
+	binary.BigEndian.PutUint16(dst[12:], uint16(minute))
+	binary.BigEndian.PutUint16(dst[14:], uint16(sec))
+	binary.BigEndian.PutUint32(dst[16:], uint32(nanos))
+	if subkind == 0 {
+		dst[20] = leapSecondFlag(leapSecond)
+	}
+	return dst
+}
+
+// TemporalSubkind maps a temporal kind to its compact key subkind.
+func TemporalSubkind(kind value.Kind) (byte, bool) {
+	switch kind {
+	case value.KindDateTime:
+		return 0, true
+	case value.KindDate:
+		return 1, true
+	case value.KindTime:
+		return 2, true
+	case value.KindGYearMonth:
+		return 3, true
+	case value.KindGYear:
+		return 4, true
+	case value.KindGMonthDay:
+		return 5, true
+	case value.KindGDay:
+		return 6, true
+	case value.KindGMonth:
+		return 7, true
+	default:
+		return 0, false
+	}
+}
+
+// TemporalFromValue appends a canonical temporal key for v to dst.
+func TemporalFromValue(dst []byte, v value.Value) ([]byte, error) {
+	subkind, ok := TemporalSubkind(v.Kind)
+	if !ok {
+		return nil, fmt.Errorf("unsupported temporal kind %d", v.Kind)
+	}
+	return TemporalBytes(dst, subkind, v.Time, v.TimezoneKind, v.LeapSecond), nil
+}
+
+// DurationBytes appends a canonical duration key encoding to dst.
+func DurationBytes(dst []byte, dur value.Duration) []byte {
+	months := durationMonthsTotal(dur)
+	seconds := durationSecondsTotal(dur)
+	sign := byte(1)
+	if dur.Negative {
+		sign = 2
+	}
+	if months.Sign == 0 && seconds.Sign == 0 {
+		sign = 0
+	}
+	dst = append(dst[:0], sign)
+	dst = num.EncodeDecKey(dst, months.AsDec())
+	dst = num.EncodeDecKey(dst, seconds)
+	return dst
+}
+
+func durationMonthsTotal(dur value.Duration) num.Int {
+	years := num.FromInt64(int64(dur.Years))
+	months := num.FromInt64(int64(dur.Months))
+	if years.Sign == 0 {
+		return months
+	}
+	return num.Add(num.Mul(years, num.FromInt64(12)), months)
+}
+
+func durationSecondsTotal(dur value.Duration) num.Dec {
+	total := dur.Seconds
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Minutes)), num.FromInt64(60)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Hours)), num.FromInt64(3600)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Days)), num.FromInt64(86400)))
+	return total
+}
+
+// AppendUvarint appends v as a varint-encoded uint64.
+func AppendUvarint(dst []byte, v uint64) []byte {
+	var buf [binary.MaxVarintLen64]byte
+	n := binary.PutUvarint(buf[:], v)
+	return append(dst, buf[:n]...)
+}
+
+// AppendListEntry appends one typed list item: kind (1 byte), len (uvarint), key bytes.
+func AppendListEntry(dst []byte, kind byte, key []byte) []byte {
+	dst = append(dst, kind)
+	dst = AppendUvarint(dst, uint64(len(key)))
+	return append(dst, key...)
+}
+
+func ensureLen(dst []byte, n int) []byte {
+	if cap(dst) < n {
+		return make([]byte, n)
+	}
+	return dst[:n]
+}
+
+func timezoneFlag(kind value.TimezoneKind) byte {
+	switch kind {
+	case value.TZKnown:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func leapSecondFlag(leapSecond bool) byte {
+	if leapSecond {
+		return 1
+	}
+	return 0
+}

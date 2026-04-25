@@ -10,10 +10,9 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd"
-	xsderrors "github.com/jacoelho/xsd/errors"
 )
 
-func TestCompileAppliesSourceOptions(t *testing.T) {
+func TestCompileFSAppliesSourceConfig(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:main"
@@ -26,21 +25,22 @@ func TestCompileAppliesSourceOptions(t *testing.T) {
 		"main.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	if _, err := xsd.Compile(fsys, "main.xsd"); err == nil {
-		t.Fatal("Compile() error = nil, want missing import error")
+	if _, err := xsd.CompileFS(fsys, "main.xsd", xsd.CompileConfig{}); err == nil {
+		t.Fatal("CompileFS() error = nil, want missing import error")
 	}
 
-	sourceOpts := xsd.AllowMissingImportLocations()
-	schema, err := xsd.Compile(fsys, "main.xsd", sourceOpts)
+	schema, err := xsd.CompileFS(fsys, "main.xsd", xsd.CompileConfig{
+		Source: xsd.SourceConfig{AllowMissingImportLocations: true},
+	})
 	if err != nil {
-		t.Fatalf("Compile() error = %v", err)
+		t.Fatalf("CompileFS() error = %v", err)
 	}
 	if err := schema.Validate(strings.NewReader(`<root xmlns="urn:main">ok</root>`)); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
 }
 
-func TestCompileRejectsInvalidSourceOptions(t *testing.T) {
+func TestCompileFSRejectsInvalidSourceConfig(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -48,69 +48,15 @@ func TestCompileRejectsInvalidSourceOptions(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	if _, err := xsd.Compile(
-		fsys,
-		"schema.xsd",
-		xsd.SchemaMaxDepth(-1),
-	); err == nil {
-		t.Fatal("Compile() error = nil, want invalid schema options error")
+	_, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{
+		Source: xsd.SourceConfig{XML: xsd.XMLConfig{MaxDepth: -1}},
+	})
+	if err == nil {
+		t.Fatal("CompileFS() error = nil, want invalid source config error")
 	}
 }
 
-func TestCompileUsesLastSourceOption(t *testing.T) {
-	fsys := fstest.MapFS{
-		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`)},
-	}
-
-	if _, err := xsd.Compile(
-		fsys,
-		"schema.xsd",
-		xsd.SchemaMaxDepth(-1),
-		xsd.SchemaMaxDepth(32),
-	); err != nil {
-		t.Fatalf("Compile() error = %v, want last source option to win", err)
-	}
-}
-
-func TestSourceSetPrepareBuild(t *testing.T) {
-	fsys := fstest.MapFS{
-		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="urn:test"
-           xmlns:tns="urn:test"
-           elementFormDefault="qualified">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`)},
-	}
-
-	set := xsd.NewSourceSet()
-	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
-		t.Fatalf("AddFS() error = %v", err)
-	}
-
-	prepared, err := set.Prepare()
-	if err != nil {
-		t.Fatalf("Prepare() error = %v", err)
-	}
-
-	schema, err := prepared.Build(xsd.MaxDFAStates(512))
-	if err != nil {
-		t.Fatalf("Build() error = %v", err)
-	}
-
-	v, err := schema.NewValidator()
-	if err != nil {
-		t.Fatalf("NewValidator() error = %v", err)
-	}
-	if err := v.Validate(strings.NewReader(`<root xmlns="urn:test">ok</root>`)); err != nil {
-		t.Fatalf("Validate() error = %v", err)
-	}
-}
-
-func TestSourceSetBuildMultipleRoots(t *testing.T) {
+func TestCompilerCompileSourcesMultipleRoots(t *testing.T) {
 	fsysA := fstest.MapFS{
 		"a.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -130,17 +76,12 @@ func TestSourceSetBuildMultipleRoots(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	set := xsd.NewSourceSet()
-	if err := set.AddFS(fsysA, "a.xsd"); err != nil {
-		t.Fatalf("AddFS(a) error = %v", err)
-	}
-	if err := set.AddFS(fsysB, "b.xsd"); err != nil {
-		t.Fatalf("AddFS(b) error = %v", err)
-	}
-
-	schema, err := set.Build()
+	schema, err := xsd.NewCompiler(xsd.CompileConfig{}).CompileSources([]xsd.Source{
+		{FS: fsysA, Path: "a.xsd"},
+		{FS: fsysB, Path: "b.xsd"},
+	})
 	if err != nil {
-		t.Fatalf("Build() error = %v", err)
+		t.Fatalf("CompileSources() error = %v", err)
 	}
 	if err := schema.Validate(strings.NewReader(`<rootA xmlns="urn:test">ok</rootA>`)); err != nil {
 		t.Fatalf("Validate(rootA) error = %v", err)
@@ -150,7 +91,52 @@ func TestSourceSetBuildMultipleRoots(t *testing.T) {
 	}
 }
 
-func TestSourceSetBuildMultipleRootsSameLocationDistinctFS(t *testing.T) {
+func TestCompilerCompileSourcesDeduplicatesSharedInclude(t *testing.T) {
+	fsys := fstest.MapFS{
+		"a.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="rootA" type="xs:string"/>
+</xs:schema>`)},
+		"b.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="rootB" type="xs:string"/>
+</xs:schema>`)},
+		"common.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`)},
+	}
+
+	schema, err := xsd.NewCompiler(xsd.CompileConfig{}).CompileSources([]xsd.Source{
+		{FS: fsys, Path: "a.xsd"},
+		{FS: fsys, Path: "b.xsd"},
+	})
+	if err != nil {
+		t.Fatalf("CompileSources() error = %v", err)
+	}
+	if err := schema.Validate(strings.NewReader(`<rootA xmlns="urn:test">ok</rootA>`)); err != nil {
+		t.Fatalf("Validate(rootA) error = %v", err)
+	}
+	if err := schema.Validate(strings.NewReader(`<rootB xmlns="urn:test">ok</rootB>`)); err != nil {
+		t.Fatalf("Validate(rootB) error = %v", err)
+	}
+	if err := schema.Validate(strings.NewReader(`<common xmlns="urn:test">ok</common>`)); err != nil {
+		t.Fatalf("Validate(common) error = %v", err)
+	}
+}
+
+func TestCompilerCompileSourcesSameLocationDistinctFS(t *testing.T) {
 	fsysA := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -170,17 +156,12 @@ func TestSourceSetBuildMultipleRootsSameLocationDistinctFS(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	set := xsd.NewSourceSet()
-	if err := set.AddFS(fsysA, "schema.xsd"); err != nil {
-		t.Fatalf("AddFS(a) error = %v", err)
-	}
-	if err := set.AddFS(fsysB, "schema.xsd"); err != nil {
-		t.Fatalf("AddFS(b) error = %v", err)
-	}
-
-	schema, err := set.Build()
+	schema, err := xsd.NewCompiler(xsd.CompileConfig{}).CompileSources([]xsd.Source{
+		{FS: fsysA, Path: "schema.xsd"},
+		{FS: fsysB, Path: "schema.xsd"},
+	})
 	if err != nil {
-		t.Fatalf("Build() error = %v", err)
+		t.Fatalf("CompileSources() error = %v", err)
 	}
 	if err := schema.Validate(strings.NewReader(`<rootA xmlns="urn:test">ok</rootA>`)); err != nil {
 		t.Fatalf("Validate(rootA) error = %v", err)
@@ -190,7 +171,7 @@ func TestSourceSetBuildMultipleRootsSameLocationDistinctFS(t *testing.T) {
 	}
 }
 
-func TestSourceSetBuildMultipleRootsSameLocationConflict(t *testing.T) {
+func TestCompilerCompileSourcesSameLocationConflict(t *testing.T) {
 	fsysA := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -210,31 +191,25 @@ func TestSourceSetBuildMultipleRootsSameLocationConflict(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	set := xsd.NewSourceSet()
-	if err := set.AddFS(fsysA, "schema.xsd"); err != nil {
-		t.Fatalf("AddFS(a) error = %v", err)
-	}
-	if err := set.AddFS(fsysB, "schema.xsd"); err != nil {
-		t.Fatalf("AddFS(b) error = %v", err)
-	}
-
-	_, err := set.Build()
+	_, err := xsd.NewCompiler(xsd.CompileConfig{}).CompileSources([]xsd.Source{
+		{FS: fsysA, Path: "schema.xsd"},
+		{FS: fsysB, Path: "schema.xsd"},
+	})
 	if err == nil {
-		t.Fatal("Build() error = nil, want duplicate declaration error")
+		t.Fatal("CompileSources() error = nil, want duplicate declaration error")
 	}
 	if !strings.Contains(err.Error(), "duplicate element") {
-		t.Fatalf("Build() error = %v, want duplicate element", err)
+		t.Fatalf("CompileSources() error = %v, want duplicate element", err)
 	}
 }
 
-func TestSourceSetBuildWithoutRoots(t *testing.T) {
-	set := xsd.NewSourceSet()
-	if _, err := set.Build(); err == nil {
-		t.Fatal("Build() error = nil, want no roots error")
+func TestCompilerCompileSourcesWithoutRoots(t *testing.T) {
+	if _, err := xsd.NewCompiler(xsd.CompileConfig{}).CompileSources(nil); err == nil {
+		t.Fatal("CompileSources() error = nil, want no roots error")
 	}
 }
 
-func TestSchemaNewValidatorAppliesValidateOptions(t *testing.T) {
+func TestSchemaNewValidatorAppliesValidateConfig(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -242,16 +217,16 @@ func TestSchemaNewValidatorAppliesValidateOptions(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	schema, err := xsd.Compile(fsys, "schema.xsd")
+	schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
-		t.Fatalf("Compile() error = %v", err)
+		t.Fatalf("CompileFS() error = %v", err)
 	}
 
-	tight, err := schema.NewValidator(xsd.InstanceMaxDepth(4))
+	tight, err := schema.NewValidator(xsd.ValidateConfig{XML: xsd.XMLConfig{MaxDepth: 4}})
 	if err != nil {
 		t.Fatalf("NewValidator(tight) error = %v", err)
 	}
-	loose, err := schema.NewValidator(xsd.InstanceMaxDepth(64))
+	loose, err := schema.NewValidator(xsd.ValidateConfig{XML: xsd.XMLConfig{MaxDepth: 64}})
 	if err != nil {
 		t.Fatalf("NewValidator(loose) error = %v", err)
 	}
@@ -265,7 +240,7 @@ func TestSchemaNewValidatorAppliesValidateOptions(t *testing.T) {
 	}
 }
 
-func TestSchemaNewValidatorRejectsInvalidValidateOptions(t *testing.T) {
+func TestSchemaNewValidatorRejectsInvalidValidateConfig(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -273,36 +248,29 @@ func TestSchemaNewValidatorRejectsInvalidValidateOptions(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	schema, err := xsd.Compile(fsys, "schema.xsd")
+	schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
-		t.Fatalf("Compile() error = %v", err)
+		t.Fatalf("CompileFS() error = %v", err)
 	}
 
-	if _, err := schema.NewValidator(xsd.InstanceMaxDepth(-1)); err == nil {
-		t.Fatal("NewValidator() error = nil, want invalid validate options error")
+	if _, err := schema.NewValidator(xsd.ValidateConfig{XML: xsd.XMLConfig{MaxDepth: -1}}); err == nil {
+		t.Fatal("NewValidator() error = nil, want invalid validate config error")
 	}
 }
 
-func TestSchemaNewValidatorUsesLastValidateOption(t *testing.T) {
-	fsys := fstest.MapFS{
-		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:anyType"/>
-</xs:schema>`)},
+func TestSchemaNotLoadedErrorIsCallerError(t *testing.T) {
+	err := new(xsd.Schema).Validate(strings.NewReader(`<root/>`))
+	if err == nil {
+		t.Fatal("Validate() error = nil, want schema-not-loaded error")
 	}
-
-	schema, err := xsd.Compile(fsys, "schema.xsd")
-	if err != nil {
-		t.Fatalf("Compile() error = %v", err)
+	if kind, ok := xsd.KindOf(err); !ok || kind != xsd.KindCaller {
+		t.Fatalf("KindOf() = %v, %v; want KindCaller", kind, ok)
 	}
-
-	validator, err := schema.NewValidator(xsd.InstanceMaxDepth(4), xsd.InstanceMaxDepth(64))
-	if err != nil {
-		t.Fatalf("NewValidator() error = %v", err)
+	if !errors.Is(err, xsd.Error{Kind: xsd.KindCaller, Code: xsd.ErrSchemaNotLoaded}) {
+		t.Fatalf("errors.Is(%v, schema-not-loaded caller target) = false", err)
 	}
-
-	if err := validator.Validate(strings.NewReader(deepAnyTypeDocument(8))); err != nil {
-		t.Fatalf("Validate() error = %v, want last validate option to win", err)
+	if _, ok := xsd.AsValidations(err); ok {
+		t.Fatal("AsValidations() ok = true, want caller error outside validation list")
 	}
 }
 
@@ -326,7 +294,7 @@ func TestCompileFileResolvesRelativeImport(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`)
 
-	schema, err := xsd.CompileFile(schemaPath)
+	schema, err := xsd.CompileFile(schemaPath, xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("CompileFile() error = %v", err)
 	}
@@ -356,7 +324,7 @@ func TestCompileFileAllowsSymlinkRootAndResolvesNestedImportsInRequestedTree(t *
 </xs:schema>`)
 	linkPath := writePhaseTempSymlink(t, tempDir, "links/current.xsd", schemaPath)
 
-	schema, err := xsd.CompileFile(linkPath)
+	schema, err := xsd.CompileFile(linkPath, xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("CompileFile() error = %v", err)
 	}
@@ -386,7 +354,7 @@ func TestCompileFileRejectsSymlinkImportEscape(t *testing.T) {
 </xs:schema>`)
 	writePhaseTempSymlink(t, tempDir, "schemas/deps/dep.xsd", outsidePath)
 
-	_, err := xsd.CompileFile(schemaPath)
+	_, err := xsd.CompileFile(schemaPath, xsd.CompileConfig{})
 	if err == nil {
 		t.Fatal("CompileFile() error = nil, want symlink escape rejection")
 	}
@@ -398,7 +366,7 @@ func TestCompileFileRejectsSymlinkImportEscape(t *testing.T) {
 func TestCompileFileMissingFile(t *testing.T) {
 	missingPath := filepath.Join(t.TempDir(), "missing.xsd")
 
-	_, err := xsd.CompileFile(missingPath)
+	_, err := xsd.CompileFile(missingPath, xsd.CompileConfig{})
 	if err == nil {
 		t.Fatal("CompileFile() error = nil, want missing file error")
 	}
@@ -410,7 +378,7 @@ func TestCompileFileMissingFile(t *testing.T) {
 	}
 }
 
-func TestValidatorValidateFileAppliesValidateOptions(t *testing.T) {
+func TestValidatorValidateFileAppliesValidateConfig(t *testing.T) {
 	tempDir := t.TempDir()
 	schemaPath := writePhaseTempFile(t, tempDir, "schema.xsd", `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -418,16 +386,16 @@ func TestValidatorValidateFileAppliesValidateOptions(t *testing.T) {
 </xs:schema>`)
 	docPath := writePhaseTempFile(t, tempDir, "document.xml", `<root>abcdefghijklmnopqrstuvwxyz</root>`)
 
-	schema, err := xsd.CompileFile(schemaPath)
+	schema, err := xsd.CompileFile(schemaPath, xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("CompileFile() error = %v", err)
 	}
 
-	v, err := schema.NewValidator(xsd.InstanceMaxTokenSize(8))
+	v, err := schema.NewValidator(xsd.ValidateConfig{XML: xsd.XMLConfig{MaxTokenSize: 8}})
 	if err != nil {
 		t.Fatalf("NewValidator() error = %v", err)
 	}
-	requireContainsViolationCode(t, v.ValidateFile(docPath), xsderrors.ErrXMLParse)
+	requireContainsViolationCode(t, v.ValidateFile(docPath), xsd.ErrXMLParse)
 }
 
 func writePhaseTempFile(t *testing.T, root, name, content string) string {
@@ -469,11 +437,11 @@ func deepAnyTypeDocument(depth int) string {
 	}
 	var b strings.Builder
 	b.WriteString(`<root>`)
-	for i := 1; i < depth; i++ {
+	for range depth - 1 {
 		b.WriteString(`<n>`)
 	}
 	b.WriteString(`v`)
-	for i := 1; i < depth; i++ {
+	for range depth - 1 {
 		b.WriteString(`</n>`)
 	}
 	b.WriteString(`</root>`)

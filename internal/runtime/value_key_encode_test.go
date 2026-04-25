@@ -49,8 +49,8 @@ func TestQNameKeyBytes(t *testing.T) {
 
 func TestFloatKeyBytes(t *testing.T) {
 	key32 := Float32Key(nil, float32(math.NaN()), num.FloatNaN)
-	if got := binary.BigEndian.Uint32(key32); got != canonicalNaN32 {
-		t.Fatalf("float32 NaN bits = %#x, want %#x", got, canonicalNaN32)
+	if got := binary.BigEndian.Uint32(key32); got != 0x7fc00000 {
+		t.Fatalf("float32 NaN bits = %#x, want %#x", got, uint32(0x7fc00000))
 	}
 	negZero32 := Float32Key(nil, float32(math.Copysign(0, -1)), num.FloatFinite)
 	if got := binary.BigEndian.Uint32(negZero32); got != 0 {
@@ -58,8 +58,8 @@ func TestFloatKeyBytes(t *testing.T) {
 	}
 
 	key64 := Float64Key(nil, math.NaN(), num.FloatNaN)
-	if got := binary.BigEndian.Uint64(key64); got != canonicalNaN64 {
-		t.Fatalf("float64 NaN bits = %#x, want %#x", got, canonicalNaN64)
+	if got := binary.BigEndian.Uint64(key64); got != 0x7ff8000000000000 {
+		t.Fatalf("float64 NaN bits = %#x, want %#x", got, uint64(0x7ff8000000000000))
 	}
 	negZero64 := Float64Key(nil, math.Copysign(0, -1), num.FloatFinite)
 	if got := binary.BigEndian.Uint64(negZero64); got != 0 {

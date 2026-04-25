@@ -9,7 +9,7 @@ import (
 
 func TestComputeReachable(t *testing.T) {
 	group := sequence(elem("a", 1, 1), elem("b", 1, 1))
-	glu, err := BuildGlushkov(group)
+	glu, err := BuildGlushkovTree(group)
 	if err != nil {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}

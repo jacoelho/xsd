@@ -2,6 +2,7 @@ package xsd_test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd"
-	"github.com/jacoelho/xsd/errors"
 )
 
 const testSchema = `<?xml version="1.0"?>
@@ -44,7 +44,7 @@ func loadSchema(t *testing.T) *xsd.Schema {
 		"simple.xsd": &fstest.MapFile{Data: []byte(testSchema)},
 	}
 
-	s, err := xsd.Compile(fsys, "simple.xsd")
+	s, err := xsd.CompileFS(fsys, "simple.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -52,52 +52,52 @@ func loadSchema(t *testing.T) *xsd.Schema {
 	return s
 }
 
-func requireSingleViolation(t *testing.T, err error, code errors.ErrorCode) {
+func requireSingleViolation(t *testing.T, err error, code xsd.ErrorCode) {
 	t.Helper()
 
 	if err == nil {
 		t.Fatalf("Validate() err = nil, want %s", code)
 	}
-	violations, ok := errors.AsValidations(err)
+	violations, ok := xsd.AsValidations(err)
 	if !ok {
 		t.Fatalf("AsValidations() ok = false, want true")
 	}
 	if len(violations) != 1 {
 		t.Fatalf("Validate() violations = %v, want 1", violations)
 	}
-	if violations[0].Code != string(code) {
+	if violations[0].Code != code {
 		t.Fatalf("Validate() code = %q, want %q", violations[0].Code, code)
 	}
 }
 
-func requireContainsViolationCode(t *testing.T, err error, code errors.ErrorCode) {
+func requireContainsViolationCode(t *testing.T, err error, code xsd.ErrorCode) {
 	t.Helper()
 	if err == nil {
 		t.Fatalf("Validate() err = nil, want code %s", code)
 	}
-	violations, ok := errors.AsValidations(err)
+	violations, ok := xsd.AsValidations(err)
 	if !ok {
 		t.Fatalf("AsValidations() ok = false, want true")
 	}
 	for _, violation := range violations {
-		if violation.Code == string(code) {
+		if violation.Code == code {
 			return
 		}
 	}
 	t.Fatalf("Validate() codes = %v, want %q", violations, code)
 }
 
-func requireViolationExpectedContainsLocal(t *testing.T, err error, code errors.ErrorCode, local string) {
+func requireViolationExpectedContainsLocal(t *testing.T, err error, code xsd.ErrorCode, local string) {
 	t.Helper()
 	if err == nil {
 		t.Fatalf("Validate() err = nil, want code %s", code)
 	}
-	violations, ok := errors.AsValidations(err)
+	violations, ok := xsd.AsValidations(err)
 	if !ok {
 		t.Fatalf("AsValidations() ok = false, want true")
 	}
 	for _, violation := range violations {
-		if violation.Code != string(code) {
+		if violation.Code != code {
 			continue
 		}
 		for _, expected := range violation.Expected {
@@ -108,6 +108,23 @@ func requireViolationExpectedContainsLocal(t *testing.T, err error, code errors.
 		t.Fatalf("violation expected = %v, want local name %q", violation.Expected, local)
 	}
 	t.Fatalf("Validate() codes = %v, want %q", violations, code)
+}
+
+func requireCallerError(t *testing.T, err error, code xsd.ErrorCode) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("err = nil, want caller error %s", code)
+	}
+	var xsdErr xsd.Error
+	if !errors.As(err, &xsdErr) {
+		t.Fatalf("error = %T, want xsd.Error", err)
+	}
+	if xsdErr.Kind != xsd.KindCaller || xsdErr.Code != code {
+		t.Fatalf("xsd error = {%v %v}, want {%v %v}", xsdErr.Kind, xsdErr.Code, xsd.KindCaller, code)
+	}
+	if _, ok := xsd.AsValidations(err); ok {
+		t.Fatal("AsValidations() ok = true, want caller error")
+	}
 }
 
 func TestSchemaValidateFileValid(t *testing.T) {
@@ -163,7 +180,7 @@ func TestSchemaValidateIDREFResolvedByLaterID(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -191,13 +208,13 @@ func TestSchemaValidateIDREFSReportsMissingTargets(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root><item id="id-1"/><item refs="id-1 missing-id"/></root>`
-	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), errors.ErrIDRefNotFound)
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), xsd.ErrIDRefNotFound)
 }
 
 func TestSchemaValidateIDClosureMatrix(t *testing.T) {
@@ -218,7 +235,7 @@ func TestSchemaValidateIDClosureMatrix(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -226,7 +243,7 @@ func TestSchemaValidateIDClosureMatrix(t *testing.T) {
 	tests := []struct {
 		name      string
 		doc       string
-		wantCode  errors.ErrorCode
+		wantCode  xsd.ErrorCode
 		expectErr bool
 	}{
 		{
@@ -243,7 +260,7 @@ func TestSchemaValidateIDClosureMatrix(t *testing.T) {
 			name:      "idref-missing-target",
 			doc:       `<root><item ref="missing"/></root>`,
 			expectErr: true,
-			wantCode:  errors.ErrIDRefNotFound,
+			wantCode:  xsd.ErrIDRefNotFound,
 		},
 		{
 			name:      "idrefs-all-resolved",
@@ -254,13 +271,13 @@ func TestSchemaValidateIDClosureMatrix(t *testing.T) {
 			name:      "idrefs-missing-target",
 			doc:       `<root><item id="a"/><item refs="a c"/></root>`,
 			expectErr: true,
-			wantCode:  errors.ErrIDRefNotFound,
+			wantCode:  xsd.ErrIDRefNotFound,
 		},
 		{
 			name:      "duplicate-id-rejected",
 			doc:       `<root><item id="dup"/><item id="dup"/></root>`,
 			expectErr: true,
-			wantCode:  errors.ErrDuplicateID,
+			wantCode:  xsd.ErrDuplicateID,
 		},
 	}
 
@@ -295,7 +312,7 @@ func TestSchemaValidateSubstitutionGroupBehavior(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -306,7 +323,7 @@ func TestSchemaValidateSubstitutionGroupBehavior(t *testing.T) {
 	}
 
 	invalidDoc := `<root xmlns="urn:test"><unknown>bad</unknown></root>`
-	requireContainsViolationCode(t, s.Validate(strings.NewReader(invalidDoc)), errors.ErrUnexpectedElement)
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(invalidDoc)), xsd.ErrUnexpectedElement)
 }
 
 func TestSchemaValidateExpectedElementsForUnexpectedChild(t *testing.T) {
@@ -325,13 +342,13 @@ func TestSchemaValidateExpectedElementsForUnexpectedChild(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root xmlns="urn:test"><c>bad</c></root>`
-	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), errors.ErrUnexpectedElement, "a")
+	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), xsd.ErrUnexpectedElement, "a")
 }
 
 func TestSchemaValidateExpectedElementsForIncompleteContent(t *testing.T) {
@@ -350,13 +367,13 @@ func TestSchemaValidateExpectedElementsForIncompleteContent(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root xmlns="urn:test"><a>ok</a></root>`
-	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), errors.ErrContentModelInvalid, "b")
+	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), xsd.ErrContentModelInvalid, "b")
 }
 
 func TestSchemaValidateExpectedElementsIncludeSubstitutionMembers(t *testing.T) {
@@ -376,13 +393,13 @@ func TestSchemaValidateExpectedElementsIncludeSubstitutionMembers(t *testing.T) 
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root xmlns="urn:test"><unknown>bad</unknown></root>`
-	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), errors.ErrUnexpectedElement, "member")
+	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), xsd.ErrUnexpectedElement, "member")
 }
 
 func TestSchemaValidateDoesNotProcessInlineSchemaDeclarations(t *testing.T) {
@@ -391,13 +408,13 @@ func TestSchemaValidateDoesNotProcessInlineSchemaDeclarations(t *testing.T) {
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:schema/></root>`
-	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), errors.ErrTextInElementOnly)
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), xsd.ErrTextInElementOnly)
 }
 
 func TestSchemaValidateNoPartialValidationMode(t *testing.T) {
@@ -412,26 +429,26 @@ func TestSchemaValidateNoPartialValidationMode(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<child xmlns="urn:test">ok</child>`
-	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), errors.ErrValidateRootNotDeclared)
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), xsd.ErrValidateRootNotDeclared)
 }
 
 func TestSchemaValidateNoWarningModeForUndeclaredRoot(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.Compile(fsys, "schema.xsd")
+	s, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root/>`
-	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), errors.ErrValidateRootNotDeclared)
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), xsd.ErrValidateRootNotDeclared)
 }
 
 func TestSchemaValidateFileSetsDocument(t *testing.T) {
@@ -452,7 +469,7 @@ func TestSchemaValidateFileSetsDocument(t *testing.T) {
 	if err == nil {
 		t.Fatalf("ValidateFile() err = nil, want validation error")
 	}
-	violations, ok := errors.AsValidations(err)
+	violations, ok := xsd.AsValidations(err)
 	if !ok {
 		t.Fatalf("AsValidations() ok = false, want true")
 	}
@@ -466,25 +483,25 @@ func TestSchemaValidateFileSetsDocument(t *testing.T) {
 func TestSchemaValidateParseError(t *testing.T) {
 	s := loadSchema(t)
 
-	requireSingleViolation(t, s.Validate(strings.NewReader("<broken")), errors.ErrXMLParse)
+	requireSingleViolation(t, s.Validate(strings.NewReader("<broken")), xsd.ErrXMLParse)
 }
 
 func TestSchemaValidateNilSchema(t *testing.T) {
 	var s *xsd.Schema
 
-	requireSingleViolation(t, s.Validate(strings.NewReader("<root/>")), errors.ErrSchemaNotLoaded)
+	requireCallerError(t, s.Validate(strings.NewReader("<root/>")), xsd.ErrSchemaNotLoaded)
 }
 
 func TestSchemaValidateFileNilSchemaReturnsSchemaNotLoaded(t *testing.T) {
 	var s *xsd.Schema
 
-	requireSingleViolation(t, s.ValidateFile(filepath.Join(t.TempDir(), "missing.xml")), errors.ErrSchemaNotLoaded)
+	requireCallerError(t, s.ValidateFile(filepath.Join(t.TempDir(), "missing.xml")), xsd.ErrSchemaNotLoaded)
 }
 
 func TestSchemaValidateFSFileNilSchemaReturnsSchemaNotLoaded(t *testing.T) {
 	var s *xsd.Schema
 
-	requireSingleViolation(t, s.ValidateFSFile(nil, "missing.xml"), errors.ErrSchemaNotLoaded)
+	requireCallerError(t, s.ValidateFSFile(nil, "missing.xml"), xsd.ErrSchemaNotLoaded)
 }
 
 func TestSchemaValidateFSFileNilFSReturnsOpenErrorWhenSchemaLoaded(t *testing.T) {
@@ -494,7 +511,7 @@ func TestSchemaValidateFSFileNilFSReturnsOpenErrorWhenSchemaLoaded(t *testing.T)
 	if err == nil {
 		t.Fatal("ValidateFSFile() err = nil, want open-file error")
 	}
-	if _, ok := errors.AsValidations(err); ok {
+	if _, ok := xsd.AsValidations(err); ok {
 		t.Fatalf("ValidateFSFile() returned validation list for nil fs: %v", err)
 	}
 	if !strings.Contains(err.Error(), "nil fs") {
@@ -505,7 +522,7 @@ func TestSchemaValidateFSFileNilFSReturnsOpenErrorWhenSchemaLoaded(t *testing.T)
 func TestSchemaValidateNilReader(t *testing.T) {
 	s := loadSchema(t)
 
-	requireSingleViolation(t, s.Validate(nil), errors.ErrXMLParse)
+	requireSingleViolation(t, s.Validate(nil), xsd.ErrXMLParse)
 }
 
 func TestSchemaValidateConcurrent(t *testing.T) {
@@ -533,7 +550,7 @@ func TestSchemaValidateConcurrent(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.Compile(fsys, "schema.xsd")
+	schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -599,7 +616,7 @@ func TestSchemaValidateConcurrentIdentityConstraints(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.Compile(fsys, "schema.xsd")
+	schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -714,7 +731,7 @@ func TestStreamValidatorConstantMemory(t *testing.T) {
 	fsys := fstest.MapFS{
 		"stream.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.Compile(fsys, "stream.xsd")
+	schema, err := xsd.CompileFS(fsys, "stream.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -1754,13 +1771,13 @@ func TestSchemaValidatePain008(t *testing.T) {
 		"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
 	}
 
-	s, err := xsd.Compile(fsys, "pain.008.001.02.xsd")
+	s, err := xsd.CompileFS(fsys, "pain.008.001.02.xsd", xsd.CompileConfig{})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	if err := s.Validate(strings.NewReader(pain008XML)); err != nil {
-		if violations, ok := errors.AsValidations(err); ok {
+		if violations, ok := xsd.AsValidations(err); ok {
 			for _, v := range violations {
 				t.Logf("violation: %s at %s: %s", v.Code, v.Path, v.Message)
 			}
@@ -1784,7 +1801,7 @@ func loadPain008Schema(tb testing.TB) *xsd.Schema {
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
 		}
 
-		pain008SchemaInstance, errPain008Schema = xsd.Compile(fsys, "pain.008.001.02.xsd")
+		pain008SchemaInstance, errPain008Schema = xsd.CompileFS(fsys, "pain.008.001.02.xsd", xsd.CompileConfig{})
 	})
 
 	if errPain008Schema != nil {
@@ -1819,7 +1836,7 @@ func BenchmarkPain008Load(b *testing.B) {
 		fsys := fstest.MapFS{
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: schemaBytes},
 		}
-		if _, err := xsd.Compile(fsys, "pain.008.001.02.xsd"); err != nil {
+		if _, err := xsd.CompileFS(fsys, "pain.008.001.02.xsd", xsd.CompileConfig{}); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -26,29 +26,30 @@ type FieldCapture struct {
 
 // FieldState stores the current runtime state for one selected field.
 type FieldState struct {
-	Nodes    map[FieldNodeKey]struct{}
-	KeyBytes []byte
-	Count    int
-	KeyKind  runtime.ValueKind
-	Multiple bool
-	Missing  bool
-	Invalid  bool
-	HasValue bool
+	FirstNode FieldNodeKey
+	KeyBytes  []byte
+	Count     int
+	KeyKind   runtime.ValueKind
+	HasNode   bool
+	Multiple  bool
+	Missing   bool
+	Invalid   bool
+	HasValue  bool
 }
 
 // AddNode records one matched node and reports whether it was newly added.
 func (s *FieldState) AddNode(key FieldNodeKey) bool {
-	if s.Nodes == nil {
-		s.Nodes = make(map[FieldNodeKey]struct{})
+	if !s.HasNode {
+		s.FirstNode = key
+		s.HasNode = true
+		s.Count = 1
+		return true
 	}
-	if _, ok := s.Nodes[key]; ok {
+	if s.FirstNode == key {
 		return false
 	}
-	s.Nodes[key] = struct{}{}
-	s.Count++
-	if s.Count > 1 {
-		s.Multiple = true
-	}
+	s.Count = 2
+	s.Multiple = true
 	return true
 }
 
@@ -59,6 +60,7 @@ type Match struct {
 	ID         uint64
 	Depth      int
 	Invalid    bool
+	fields     [1]FieldState
 }
 
 // Row stores one finalized identity-constraint row.
@@ -76,6 +78,7 @@ type ConstraintState struct {
 	Rows       []Row
 	KeyrefRows []Row
 	Violations []Violation
+	rowValues  []runtime.ValueKey
 	ID         runtime.ICID
 	Referenced runtime.ICID
 	Category   runtime.ICCategory

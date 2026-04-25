@@ -1,77 +1,37 @@
 package xsd
 
-import "github.com/jacoelho/xsd/pkg/xmlstream"
+import "github.com/jacoelho/xsd/internal/xmlstream"
 
-type intOption struct {
-	value int
-	set   bool
+// XMLConfig configures XML parsing limits. Zero values use defaults.
+type XMLConfig struct {
+	MaxDepth             int
+	MaxAttrs             int
+	MaxTokenSize         int
+	MaxNameInternEntries int
 }
 
-func (o intOption) resolved() int {
-	if !o.set {
-		return 0
-	}
-	return o.value
+// SourceConfig configures schema source loading and schema XML parsing.
+type SourceConfig struct {
+	XML                         XMLConfig
+	AllowMissingImportLocations bool
 }
 
-type uint32Option struct {
-	value uint32
-	set   bool
+// BuildConfig configures runtime schema construction. Zero values use defaults.
+type BuildConfig struct {
+	MaxDFAStates   uint32
+	MaxOccursLimit uint32
 }
 
-func (o uint32Option) resolved() uint32 {
-	if !o.set {
-		return 0
-	}
-	return o.value
+// ValidateConfig configures instance XML parsing.
+type ValidateConfig struct {
+	XML XMLConfig
 }
 
-type parseLimitOptions struct {
-	maxDepth              intOption
-	maxAttrs              intOption
-	maxTokenSize          intOption
-	maxQNameInternEntries intOption
-}
-
-// CompileOption configures schema loading and runtime-schema compilation.
-type CompileOption interface {
-	applyCompile(*compileConfig)
-}
-
-// SourceOption configures schema loading and schema XML parsing.
-type SourceOption interface {
-	CompileOption
-	applySource(*sourceConfig)
-}
-
-// BuildOption configures immutable runtime-schema compilation.
-type BuildOption interface {
-	CompileOption
-	applyBuild(*buildConfig)
-}
-
-// ValidateOption configures instance XML parsing and validator sessions.
-type ValidateOption interface {
-	applyValidate(*validateConfig)
-}
-
-type sourceConfig struct {
-	allowMissingImportLocations bool
-	parseLimits                 parseLimitOptions
-}
-
-type buildConfig struct {
-	maxDFAStates   uint32Option
-	maxOccursLimit uint32Option
-}
-
-type validateConfig struct {
-	parseLimits parseLimitOptions
-}
-
-type compileConfig struct {
-	source sourceConfig
-	build  buildConfig
+// CompileConfig configures schema loading, runtime construction, and default validation.
+type CompileConfig struct {
+	Source   SourceConfig
+	Build    BuildConfig
+	Validate ValidateConfig
 }
 
 type resolvedSourceOptions struct {

@@ -2,8 +2,6 @@ package runtime
 
 import (
 	"bytes"
-
-	"github.com/jacoelho/xsd/internal/model"
 )
 
 // Accepts reports whether the namespace is allowed by the wildcard rule.
@@ -18,30 +16,23 @@ func (w WildcardRule) Accepts(nsBytes []byte, nsID NamespaceID, nsTable *Namespa
 			break
 		}
 	}
-	return model.AllowsRuntimeNamespace(
-		model.RuntimeNamespaceConstraint{
-			Kind:      runtimeConstraintToPolicy(w.NS.Kind),
-			HasTarget: w.NS.HasTarget,
-			HasLocal:  w.NS.HasLocal,
-		},
-		targetMatch,
-		localMatch,
-		enumMatch,
-	)
-}
-
-func runtimeConstraintToPolicy(kind NSConstraintKind) model.RuntimeNamespaceConstraintKind {
-	switch kind {
+	switch w.NS.Kind {
 	case NSAny:
-		return model.RuntimeNamespaceAny
+		return true
 	case NSOther:
-		return model.RuntimeNamespaceOther
-	case NSEnumeration:
-		return model.RuntimeNamespaceEnumeration
+		return !targetMatch && !localMatch
 	case NSNotAbsent:
-		return model.RuntimeNamespaceNotAbsent
+		return !localMatch
+	case NSEnumeration:
+		if w.NS.HasLocal && localMatch {
+			return true
+		}
+		if w.NS.HasTarget && targetMatch {
+			return true
+		}
+		return enumMatch
 	default:
-		return model.RuntimeNamespaceAny + 255
+		return false
 	}
 }
 

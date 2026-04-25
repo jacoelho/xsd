@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestSessionReset(t *testing.T) {

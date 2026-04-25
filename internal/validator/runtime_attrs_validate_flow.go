@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // AttrResult holds validated input attributes and applied default/fixed attributes.
@@ -182,7 +182,7 @@ func (s *Session) validateComplexAttrValue(
 		StoreValue:       storeAttrs && storeValues,
 		NeedKey:          spec.Fixed.Present || storeAttrs,
 	}
-	valueResult, err := newValueRunner(s).validate(valueRequest{
+	valueResult, err := newValueRunner(s).validateSession(valueRequest{
 		Validator: spec.Validator,
 		Lexical:   attr.Value,
 		Resolver:  resolver,

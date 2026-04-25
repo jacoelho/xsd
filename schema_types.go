@@ -3,7 +3,6 @@ package xsd
 import (
 	"sync"
 
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
 )
@@ -20,8 +19,30 @@ type Validator struct {
 	engine *validator.Engine
 }
 
-// QName is a public qualified name with namespace and local part.
-type QName = model.QName
+// NamespaceURI identifies an XML namespace URI.
+type NamespaceURI string
+
+// LocalName identifies a local XML name.
+type LocalName string
+
+// Name is a public namespace-qualified name.
+type Name struct {
+	Namespace NamespaceURI
+	Local     LocalName
+}
+
+// IsZero reports whether the name has no namespace and no local part.
+func (n Name) IsZero() bool {
+	return n.Namespace == "" && n.Local == ""
+}
+
+// String formats the name as local or {namespace}local.
+func (n Name) String() string {
+	if n.Namespace == "" {
+		return string(n.Local)
+	}
+	return "{" + string(n.Namespace) + "}" + string(n.Local)
+}
 
 func newSchema(rt *runtime.Schema, validateDefaults resolvedValidateOptions) *Schema {
 	if rt == nil {

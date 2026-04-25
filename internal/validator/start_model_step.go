@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // InitStartModelState allocates and initializes model state for one compiled model reference.

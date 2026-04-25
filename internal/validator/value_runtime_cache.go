@@ -3,7 +3,7 @@ package validator
 import (
 	"unicode/utf8"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"

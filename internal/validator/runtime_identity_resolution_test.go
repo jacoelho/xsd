@@ -3,8 +3,8 @@ package validator
 import (
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestIdentityDuplicateUnique(t *testing.T) {
