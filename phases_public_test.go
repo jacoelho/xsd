@@ -91,6 +91,51 @@ func TestCompilerCompileSourcesMultipleRoots(t *testing.T) {
 	}
 }
 
+func TestCompilerCompileSourcesDeduplicatesSharedInclude(t *testing.T) {
+	fsys := fstest.MapFS{
+		"a.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="rootA" type="xs:string"/>
+</xs:schema>`)},
+		"b.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="rootB" type="xs:string"/>
+</xs:schema>`)},
+		"common.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`)},
+	}
+
+	schema, err := xsd.NewCompiler(xsd.CompileConfig{}).CompileSources([]xsd.Source{
+		{FS: fsys, Path: "a.xsd"},
+		{FS: fsys, Path: "b.xsd"},
+	})
+	if err != nil {
+		t.Fatalf("CompileSources() error = %v", err)
+	}
+	if err := schema.Validate(strings.NewReader(`<rootA xmlns="urn:test">ok</rootA>`)); err != nil {
+		t.Fatalf("Validate(rootA) error = %v", err)
+	}
+	if err := schema.Validate(strings.NewReader(`<rootB xmlns="urn:test">ok</rootB>`)); err != nil {
+		t.Fatalf("Validate(rootB) error = %v", err)
+	}
+	if err := schema.Validate(strings.NewReader(`<common xmlns="urn:test">ok</common>`)); err != nil {
+		t.Fatalf("Validate(common) error = %v", err)
+	}
+}
+
 func TestCompilerCompileSourcesSameLocationDistinctFS(t *testing.T) {
 	fsysA := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>

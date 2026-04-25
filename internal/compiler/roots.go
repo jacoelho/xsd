@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/schemaast"
@@ -57,7 +58,7 @@ func normalizeRoots(input []Root) ([]Root, error) {
 }
 
 func loadDocumentRoots(roots []Root, cfg LoadConfig) (*schemaast.DocumentSet, error) {
-	seen := make(map[documentRootKey]bool)
+	seen := make(map[documentRootKey][]schemaast.SchemaDocument)
 	var out schemaast.DocumentSet
 
 	for i, root := range roots {
@@ -68,17 +69,16 @@ func loadDocumentRoots(roots []Root, cfg LoadConfig) (*schemaast.DocumentSet, er
 		}
 		for _, doc := range docs.Documents {
 			key := documentRootKey{
-				root:      i,
 				location:  doc.Location,
 				namespace: doc.TargetNamespace,
 			}
 			if key.location == "" {
 				key.location = fmt.Sprintf("root:%d", i)
 			}
-			if seen[key] {
+			if documentSeen(seen[key], doc) {
 				continue
 			}
-			seen[key] = true
+			seen[key] = append(seen[key], doc)
 			out.Documents = append(out.Documents, doc)
 		}
 	}
@@ -90,9 +90,17 @@ func loadDocumentRoots(roots []Root, cfg LoadConfig) (*schemaast.DocumentSet, er
 }
 
 type documentRootKey struct {
-	root      int
 	location  string
 	namespace schemaast.NamespaceURI
+}
+
+func documentSeen(seen []schemaast.SchemaDocument, doc schemaast.SchemaDocument) bool {
+	for _, existing := range seen {
+		if reflect.DeepEqual(existing, doc) {
+			return true
+		}
+	}
+	return false
 }
 
 func newLoader(root Root, cfg LoadConfig) *Loader {
