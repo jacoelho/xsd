@@ -276,6 +276,39 @@ func TestLoaderLoadDocumentsClosesResolverReaderOnDirectiveLoadError(t *testing.
 	}
 }
 
+func TestLoaderLoadDocumentsClosesResolverReaderBeforeDirectiveLoad(t *testing.T) {
+	parent := &closeTrackingReader{Reader: strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="child.xsd"/>
+</xs:schema>`)}
+	child := &closeTrackingReader{Reader: strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="child" type="xs:string"/>
+</xs:schema>`)}
+	loader := NewLoader(LoaderConfig{
+		Resolver: resolverFunc(func(req ResolveRequest) (io.ReadCloser, string, error) {
+			switch req.SchemaLocation {
+			case "schema.xsd":
+				return parent, "schema.xsd", nil
+			case "child.xsd":
+				if parent.closes != 1 {
+					t.Fatalf("parent Close() calls before child resolve = %d, want 1", parent.closes)
+				}
+				return child, "child.xsd", nil
+			default:
+				return nil, "", errors.New("unexpected schema")
+			}
+		}),
+	})
+
+	if _, err := loader.LoadDocuments("schema.xsd"); err != nil {
+		t.Fatalf("LoadDocuments() error = %v", err)
+	}
+	if child.closes != 1 {
+		t.Fatalf("child Close() calls = %d, want 1", child.closes)
+	}
+}
+
 func TestLoaderLoadDocumentsCollectsIncludesAndImports(t *testing.T) {
 	loader := NewLoader(LoaderConfig{
 		FS: fstest.MapFS{

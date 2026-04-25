@@ -49,13 +49,11 @@ func (s *documentLoadState) load(baseSystemID, location string, kind ResolveKind
 	if doc == nil {
 		return fmt.Errorf("resolve %s: document is nil", systemID)
 	}
-	defer func() {
-		if closeErr := doc.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("close %s: %w", systemID, closeErr)
-		}
-	}()
 
 	result, err := schemaast.ParseDocumentWithImportsOptionsWithPool(doc, s.loader.config.DocumentPool, s.loader.config.SchemaParseOptions...)
+	if closeErr := doc.Close(); closeErr != nil && err == nil {
+		return fmt.Errorf("close %s: %w", systemID, closeErr)
+	}
 	if err != nil {
 		return err
 	}
