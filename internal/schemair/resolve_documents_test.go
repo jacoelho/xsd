@@ -1403,6 +1403,62 @@ func TestResolveDocumentSetRejectsEnumerationRestrictionOutsideBaseValueSpace(t 
 	}
 }
 
+func TestResolveDocumentSetRejectsEnumerationOutsideIntermediateValueSpace(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:int">
+      <xs:enumeration value="1"/>
+      <xs:enumeration value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Mid">
+    <xs:restriction base="Base">
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Bad">
+    <xs:restriction base="Mid">
+      <xs:enumeration value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), `value not in enumeration`; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
+func TestResolveDocumentSetAllowsEnumerationInsideIntermediateValueSpace(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:int">
+      <xs:enumeration value="1"/>
+      <xs:enumeration value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Mid">
+    <xs:restriction base="Base">
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Good">
+    <xs:restriction base="Mid">
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
 func TestResolveDocumentSetAllowsQNameEnumerationRestrictionByExpandedName(t *testing.T) {
 	doc := parseDocumentForIRTest(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:q" xmlns:b="urn:q">

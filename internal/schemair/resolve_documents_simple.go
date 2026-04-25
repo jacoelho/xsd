@@ -1,7 +1,6 @@
 package schemair
 
 import (
-	"bytes"
 	"cmp"
 	"errors"
 	"fmt"
@@ -183,10 +182,10 @@ func (r *docResolver) applyRestrictionFacets(
 	if err := r.validateEnumerationLexicalValues(spec, ownFacets); err != nil {
 		return SimpleTypeSpec{}, err
 	}
-	spec.Facets = append(spec.Facets, ownFacets...)
-	if err := r.validateRestrictionEnumerations(spec); err != nil {
+	if err := r.validateRestrictionEnumerations(spec, ownFacets); err != nil {
 		return SimpleTypeSpec{}, err
 	}
+	spec.Facets = append(spec.Facets, ownFacets...)
 	if spec.Primitive == "" {
 		spec.Primitive = fallbackSpecName(spec)
 	}
@@ -314,8 +313,11 @@ func validateSpecConstrainingFacets(spec SimpleTypeSpec, normalized string, ctx 
 }
 
 func validateSpecEnumerationFacets(spec SimpleTypeSpec, normalized string, ctx map[string]string, resolve ValueSpecResolver) error {
-	values := enumFacetValues(spec.Facets)
-	if len(values) == 0 {
+	lookup, constrained, err := effectiveEnumValueKeys(spec, resolve)
+	if err != nil {
+		return err
+	}
+	if !constrained {
 		return nil
 	}
 	keys, err := ValueKeysForNormalized(normalized, normalized, spec, ctx, resolve)
@@ -323,27 +325,11 @@ func validateSpecEnumerationFacets(spec SimpleTypeSpec, normalized string, ctx m
 		return err
 	}
 	for _, key := range keys {
-		for _, value := range values {
-			enumNorm := NormalizeValueLexical(value.Lexical, spec)
-			enumKeys, err := ValueKeysForNormalized(value.Lexical, enumNorm, spec, value.Context, resolve)
-			if err != nil {
-				return err
-			}
-			if valueKeySetContains(enumKeys, key) {
-				return nil
-			}
+		if _, ok := lookup[valueKeyLookup(key)]; ok {
+			return nil
 		}
 	}
 	return fmt.Errorf("value not in enumeration")
-}
-
-func valueKeySetContains(values []ValueKey, candidate ValueKey) bool {
-	for _, value := range values {
-		if value.Kind == candidate.Kind && bytes.Equal(value.Bytes, candidate.Bytes) {
-			return true
-		}
-	}
-	return false
 }
 
 func validateSpecPatternFacets(spec SimpleTypeSpec, normalized string) error {
@@ -1088,6 +1074,16 @@ func enumFacetValues(facets []FacetSpec) []FacetValue {
 	return values
 }
 
+func enumFacetValueGroups(facets []FacetSpec) [][]FacetValue {
+	var groups [][]FacetValue
+	for _, facet := range facets {
+		if facet.Kind == FacetEnumeration && len(facet.Values) > 0 {
+			groups = append(groups, facet.Values)
+		}
+	}
+	return groups
+}
+
 func coalesceFacetSpecs(facets []FacetSpec) []FacetSpec {
 	var out []FacetSpec
 	var pattern *FacetSpec
@@ -1115,13 +1111,16 @@ func coalesceFacetSpecs(facets []FacetSpec) []FacetSpec {
 	return out
 }
 
-func (r *docResolver) validateRestrictionEnumerations(spec SimpleTypeSpec) error {
-	values := enumFacetValues(spec.Facets)
+func (r *docResolver) validateRestrictionEnumerations(spec SimpleTypeSpec, ownFacets []FacetSpec) error {
+	values := enumFacetValues(ownFacets)
 	if len(values) == 0 || isZeroTypeRef(spec.Base) {
 		return nil
 	}
-	allowed := r.allowedEnumValueKeys(spec.Base, make(map[TypeRef]bool))
-	if len(allowed) == 0 {
+	allowed, constrained, err := r.allowedEnumValueKeys(spec.Base, make(map[TypeRef]bool))
+	if err != nil {
+		return err
+	}
+	if !constrained {
 		return nil
 	}
 	for _, value := range values {
@@ -1136,40 +1135,73 @@ func (r *docResolver) validateRestrictionEnumerations(spec SimpleTypeSpec) error
 	return nil
 }
 
-func (r *docResolver) allowedEnumValueKeys(ref TypeRef, seen map[TypeRef]bool) map[string]struct{} {
+func (r *docResolver) allowedEnumValueKeys(ref TypeRef, seen map[TypeRef]bool) (map[string]struct{}, bool, error) {
 	if seen[ref] {
-		return nil
+		return nil, false, nil
 	}
 	seen[ref] = true
 	spec, ok := r.specForRef(ref)
 	if !ok {
-		return nil
+		return nil, false, nil
 	}
-	if values := enumFacetValues(spec.Facets); len(values) > 0 {
-		out := make(map[string]struct{}, len(values))
-		for _, value := range values {
-			keys, err := ValueKeysForLexical(value.Lexical, spec, value.Context, r.specForRef)
-			if err != nil {
-				return nil
-			}
-			addValueKeysToLookup(out, keys)
-		}
-		return out
+	if len(enumFacetValueGroups(spec.Facets)) > 0 {
+		out, _, err := effectiveEnumValueKeys(spec, r.specForRef)
+		return out, true, err
 	}
 	if spec.Variety != TypeVarietyUnion {
-		return nil
+		return nil, false, nil
 	}
 	out := make(map[string]struct{})
 	for _, member := range spec.Members {
-		values := r.allowedEnumValueKeys(member, seen)
-		if len(values) == 0 {
-			return nil
+		values, constrained, err := r.allowedEnumValueKeys(member, seen)
+		if err != nil || !constrained {
+			return nil, constrained, err
 		}
 		for value := range values {
 			out[value] = struct{}{}
 		}
 	}
-	return out
+	return out, true, nil
+}
+
+func effectiveEnumValueKeys(spec SimpleTypeSpec, resolve ValueSpecResolver) (map[string]struct{}, bool, error) {
+	groups := enumFacetValueGroups(spec.Facets)
+	if len(groups) == 0 {
+		return nil, false, nil
+	}
+	var out map[string]struct{}
+	for _, group := range groups {
+		groupLookup, err := enumFacetGroupValueKeys(group, spec, resolve)
+		if err != nil {
+			return nil, false, err
+		}
+		if out == nil {
+			out = groupLookup
+			continue
+		}
+		intersectEnumKeySets(out, groupLookup)
+	}
+	return out, true, nil
+}
+
+func enumFacetGroupValueKeys(group []FacetValue, spec SimpleTypeSpec, resolve ValueSpecResolver) (map[string]struct{}, error) {
+	out := make(map[string]struct{}, len(group))
+	for _, value := range group {
+		keys, err := ValueKeysForLexical(value.Lexical, spec, value.Context, resolve)
+		if err != nil {
+			return nil, err
+		}
+		addValueKeysToLookup(out, keys)
+	}
+	return out, nil
+}
+
+func intersectEnumKeySets(dst, allowed map[string]struct{}) {
+	for key := range dst {
+		if _, ok := allowed[key]; !ok {
+			delete(dst, key)
+		}
+	}
 }
 
 func addValueKeysToLookup(dst map[string]struct{}, keys []ValueKey) {
