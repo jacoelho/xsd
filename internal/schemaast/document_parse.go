@@ -177,6 +177,12 @@ func (p *documentParser) parseSchemaAttrs(root NodeID) (NamespaceURI, SchemaDefa
 }
 
 func (p *documentParser) parseImport(elem NodeID) error {
+	if err := validateElementAttributes(p.doc, elem, importDirectiveAttributeProfile.allowed, "import"); err != nil {
+		return err
+	}
+	if err := validateOnlyAnnotationChildren(p.doc, elem, "import"); err != nil {
+		return err
+	}
 	info := ImportInfo{
 		Namespace:      p.attr(elem, "namespace"),
 		SchemaLocation: p.attr(elem, "schemaLocation"),
@@ -190,6 +196,15 @@ func (p *documentParser) parseImport(elem NodeID) error {
 }
 
 func (p *documentParser) parseInclude(elem NodeID) error {
+	if err := validateElementAttributes(p.doc, elem, includeDirectiveAttributeProfile.allowed, "include"); err != nil {
+		return err
+	}
+	if err := validateOnlyAnnotationChildren(p.doc, elem, "include"); err != nil {
+		return err
+	}
+	if p.attr(elem, "schemaLocation") == "" {
+		return fmt.Errorf("include missing schemaLocation")
+	}
 	info := IncludeInfo{
 		SchemaLocation: p.attr(elem, "schemaLocation"),
 		DeclIndex:      len(p.result.Decls),

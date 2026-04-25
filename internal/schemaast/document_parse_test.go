@@ -219,6 +219,40 @@ func TestParseDocumentRejectsInvalidTopLevelElementAttribute(t *testing.T) {
 	}
 }
 
+func TestParseDocumentRejectsInvalidImportDirectiveContent(t *testing.T) {
+	_, err := ParseDocumentWithImportsOptions(strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="urn:dep">
+    <xs:element name="illegal" type="xs:string"/>
+  </xs:import>
+</xs:schema>`))
+	if err == nil || !strings.Contains(err.Error(), "import: unexpected child element 'element'") {
+		t.Fatalf("ParseDocumentWithImportsOptions() error = %v", err)
+	}
+}
+
+func TestParseDocumentRejectsInvalidIncludeDirectiveContent(t *testing.T) {
+	_, err := ParseDocumentWithImportsOptions(strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="common.xsd">
+    <xs:complexType name="Illegal"/>
+  </xs:include>
+</xs:schema>`))
+	if err == nil || !strings.Contains(err.Error(), "include: unexpected child element 'complexType'") {
+		t.Fatalf("ParseDocumentWithImportsOptions() error = %v", err)
+	}
+}
+
+func TestParseDocumentRejectsIncludeMissingSchemaLocation(t *testing.T) {
+	_, err := ParseDocumentWithImportsOptions(strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include/>
+</xs:schema>`))
+	if err == nil || !strings.Contains(err.Error(), "include missing schemaLocation") {
+		t.Fatalf("ParseDocumentWithImportsOptions() error = %v", err)
+	}
+}
+
 func TestParseDocumentRejectsNamedInlineTypes(t *testing.T) {
 	tests := []struct {
 		name string

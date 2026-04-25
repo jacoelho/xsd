@@ -65,4 +65,15 @@ var (
 		"name",
 		"refer",
 	)
+
+	importDirectiveAttributeProfile = newAttributeProfile(
+		"id",
+		"namespace",
+		"schemaLocation",
+	)
+
+	includeDirectiveAttributeProfile = newAttributeProfile(
+		"id",
+		"schemaLocation",
+	)
 )
