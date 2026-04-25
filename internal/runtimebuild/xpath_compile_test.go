@@ -1,24 +1,27 @@
-package runtime
+package runtimebuild
 
 import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/xsdpath"
 )
 
 type runtimeIDs struct {
-	ns        NamespaceID
-	emptyNS   NamespaceID
-	symA      SymbolID
-	symB      SymbolID
-	symAttr   SymbolID
-	symID     SymbolID
-	symAEmpty SymbolID
+	ns        runtime.NamespaceID
+	emptyNS   runtime.NamespaceID
+	symA      runtime.SymbolID
+	symB      runtime.SymbolID
+	symAttr   runtime.SymbolID
+	symID     runtime.SymbolID
+	symAEmpty runtime.SymbolID
 }
 
-func buildRuntimeXPathFixture(tb testing.TB) (*Schema, runtimeIDs) {
+func buildRuntimeXPathFixture(tb testing.TB) (*runtime.Schema, runtimeIDs) {
 	tb.Helper()
-	builder := NewBuilder()
+	builder := runtime.NewBuilder()
 	emptyNS, err := builder.InternNamespace(nil)
 	if err != nil {
 		tb.Fatalf("InternNamespace: %v", err)
@@ -66,18 +69,18 @@ func TestCompileProgramsDescend(t *testing.T) {
 	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
-	programs, err := CompilePrograms(".//t:a/t:b", nsContext, AttributesDisallowed, schema)
+	programs, err := compileXPathPrograms(".//t:a/t:b", nsContext, xsdpath.AttributesDisallowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
 	if len(programs) != 1 {
 		t.Fatalf("programs = %d, want 1", len(programs))
 	}
 
-	want := []PathOp{
-		{Op: OpDescend},
-		{Op: OpChildName, Sym: ids.symA, NS: ids.ns},
-		{Op: OpChildName, Sym: ids.symB, NS: ids.ns},
+	want := []runtime.PathOp{
+		{Op: runtime.OpDescend},
+		{Op: runtime.OpChildName, Sym: ids.symA, NS: ids.ns},
+		{Op: runtime.OpChildName, Sym: ids.symB, NS: ids.ns},
 	}
 	if !reflect.DeepEqual(programs[0].Ops, want) {
 		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
@@ -88,18 +91,18 @@ func TestCompileProgramsDescendMidPath(t *testing.T) {
 	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
-	programs, err := CompilePrograms("t:a//t:b", nsContext, AttributesDisallowed, schema)
+	programs, err := compileXPathPrograms("t:a//t:b", nsContext, xsdpath.AttributesDisallowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
 	if len(programs) != 1 {
 		t.Fatalf("programs = %d, want 1", len(programs))
 	}
 
-	want := []PathOp{
-		{Op: OpChildName, Sym: ids.symA, NS: ids.ns},
-		{Op: OpDescend},
-		{Op: OpChildName, Sym: ids.symB, NS: ids.ns},
+	want := []runtime.PathOp{
+		{Op: runtime.OpChildName, Sym: ids.symA, NS: ids.ns},
+		{Op: runtime.OpDescend},
+		{Op: runtime.OpChildName, Sym: ids.symB, NS: ids.ns},
 	}
 	if !reflect.DeepEqual(programs[0].Ops, want) {
 		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
@@ -109,11 +112,11 @@ func TestCompileProgramsDescendMidPath(t *testing.T) {
 func TestCompileProgramsRootSelf(t *testing.T) {
 	schema, _ := buildRuntimeXPathFixture(t)
 
-	programs, err := CompilePrograms(".", nil, AttributesDisallowed, schema)
+	programs, err := compileXPathPrograms(".", nil, xsdpath.AttributesDisallowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
-	want := []PathOp{{Op: OpRootSelf}}
+	want := []runtime.PathOp{{Op: runtime.OpRootSelf}}
 	if !reflect.DeepEqual(programs[0].Ops, want) {
 		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
 	}
@@ -123,13 +126,13 @@ func TestCompileProgramsSelfStep(t *testing.T) {
 	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
-	programs, err := CompilePrograms("t:a/.", nsContext, AttributesDisallowed, schema)
+	programs, err := compileXPathPrograms("t:a/.", nsContext, xsdpath.AttributesDisallowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
-	want := []PathOp{
-		{Op: OpChildName, Sym: ids.symA, NS: ids.ns},
-		{Op: OpSelf},
+	want := []runtime.PathOp{
+		{Op: runtime.OpChildName, Sym: ids.symA, NS: ids.ns},
+		{Op: runtime.OpSelf},
 	}
 	if !reflect.DeepEqual(programs[0].Ops, want) {
 		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
@@ -140,13 +143,13 @@ func TestCompileProgramsAttribute(t *testing.T) {
 	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
-	programs, err := CompilePrograms("t:a/@id", nsContext, AttributesAllowed, schema)
+	programs, err := compileXPathPrograms("t:a/@id", nsContext, xsdpath.AttributesAllowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
-	want := []PathOp{
-		{Op: OpChildName, Sym: ids.symA, NS: ids.ns},
-		{Op: OpAttrName, Sym: ids.symID, NS: ids.emptyNS},
+	want := []runtime.PathOp{
+		{Op: runtime.OpChildName, Sym: ids.symA, NS: ids.ns},
+		{Op: runtime.OpAttrName, Sym: ids.symID, NS: ids.emptyNS},
 	}
 	if !reflect.DeepEqual(programs[0].Ops, want) {
 		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
@@ -154,17 +157,17 @@ func TestCompileProgramsAttribute(t *testing.T) {
 }
 
 func TestCompileProgramsErrorsAreWrapped(t *testing.T) {
-	if _, err := CompilePrograms(".", nil, AttributesDisallowed, nil); err == nil {
+	if _, err := compileXPathPrograms(".", nil, xsdpath.AttributesDisallowed, nil); err == nil {
 		t.Fatal("expected error for nil schema")
-	} else if !errors.Is(err, ErrInvalidXPath) {
-		t.Fatalf("nil schema error = %v, want ErrInvalidXPath", err)
+	} else if !errors.Is(err, xsdpath.ErrInvalidXPath) {
+		t.Fatalf("nil schema error = %v, want xsdpath.ErrInvalidXPath", err)
 	}
 
-	schema := &Schema{}
-	if _, err := CompilePrograms("[invalid", nil, AttributesDisallowed, schema); err == nil {
+	schema := &runtime.Schema{}
+	if _, err := compileXPathPrograms("[invalid", nil, xsdpath.AttributesDisallowed, schema); err == nil {
 		t.Fatal("expected error for invalid xpath")
-	} else if !errors.Is(err, ErrInvalidXPath) {
-		t.Fatalf("invalid xpath error = %v, want ErrInvalidXPath", err)
+	} else if !errors.Is(err, xsdpath.ErrInvalidXPath) {
+		t.Fatalf("invalid xpath error = %v, want xsdpath.ErrInvalidXPath", err)
 	}
 }
 
@@ -172,11 +175,11 @@ func TestCompileProgramsNamespaceWildcard(t *testing.T) {
 	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
-	programs, err := CompilePrograms("t:*", nsContext, AttributesDisallowed, schema)
+	programs, err := compileXPathPrograms("t:*", nsContext, xsdpath.AttributesDisallowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
-	want := []PathOp{{Op: OpChildNSAny, NS: ids.ns}}
+	want := []runtime.PathOp{{Op: runtime.OpChildNSAny, NS: ids.ns}}
 	if !reflect.DeepEqual(programs[0].Ops, want) {
 		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
 	}
@@ -185,11 +188,11 @@ func TestCompileProgramsNamespaceWildcard(t *testing.T) {
 func TestCompileProgramsUnprefixedNameUsesEmptyNamespace(t *testing.T) {
 	schema, ids := buildRuntimeXPathFixture(t)
 
-	programs, err := CompilePrograms("a", nil, AttributesDisallowed, schema)
+	programs, err := compileXPathPrograms("a", nil, xsdpath.AttributesDisallowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
-	want := []PathOp{{Op: OpChildName, Sym: ids.symAEmpty, NS: ids.emptyNS}}
+	want := []runtime.PathOp{{Op: runtime.OpChildName, Sym: ids.symAEmpty, NS: ids.emptyNS}}
 	if !reflect.DeepEqual(programs[0].Ops, want) {
 		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
 	}
@@ -199,15 +202,15 @@ func TestCompileProgramsUnion(t *testing.T) {
 	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
-	programs, err := CompilePrograms("t:a|t:b", nsContext, AttributesDisallowed, schema)
+	programs, err := compileXPathPrograms("t:a|t:b", nsContext, xsdpath.AttributesDisallowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
 	if len(programs) != 2 {
 		t.Fatalf("programs = %d, want 2", len(programs))
 	}
-	want0 := []PathOp{{Op: OpChildName, Sym: ids.symA, NS: ids.ns}}
-	want1 := []PathOp{{Op: OpChildName, Sym: ids.symB, NS: ids.ns}}
+	want0 := []runtime.PathOp{{Op: runtime.OpChildName, Sym: ids.symA, NS: ids.ns}}
+	want1 := []runtime.PathOp{{Op: runtime.OpChildName, Sym: ids.symB, NS: ids.ns}}
 	if !reflect.DeepEqual(programs[0].Ops, want0) || !reflect.DeepEqual(programs[1].Ops, want1) {
 		t.Fatalf("ops = %#v, %#v, want %#v, %#v", programs[0].Ops, programs[1].Ops, want0, want1)
 	}
@@ -217,7 +220,7 @@ func TestCompileProgramsMissingSymbol(t *testing.T) {
 	schema, _ := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
-	if _, err := CompilePrograms("t:missing", nsContext, AttributesDisallowed, schema); err == nil {
+	if _, err := compileXPathPrograms("t:missing", nsContext, xsdpath.AttributesDisallowed, schema); err == nil {
 		t.Fatalf("expected missing symbol error")
 	}
 }
@@ -227,18 +230,18 @@ func TestCompileExpressionParity(t *testing.T) {
 	nsContext := map[string]string{"t": "urn:test"}
 	expr := "t:a|t:b"
 
-	parsed, err := Parse(expr, nsContext, AttributesDisallowed)
+	parsed, err := xsdpath.Parse(expr, nsContext, xsdpath.AttributesDisallowed)
 	if err != nil {
-		t.Fatalf("Parse: %v", err)
+		t.Fatalf("xsdpath.Parse: %v", err)
 	}
 
-	fromParsed, err := CompileExpression(parsed, schema)
+	fromParsed, err := compileXPathExpression(parsed, schema)
 	if err != nil {
-		t.Fatalf("CompileExpression: %v", err)
+		t.Fatalf("compileXPathExpression: %v", err)
 	}
-	direct, err := CompilePrograms(expr, nsContext, AttributesDisallowed, schema)
+	direct, err := compileXPathPrograms(expr, nsContext, xsdpath.AttributesDisallowed, schema)
 	if err != nil {
-		t.Fatalf("CompilePrograms: %v", err)
+		t.Fatalf("compileXPathPrograms: %v", err)
 	}
 
 	if !reflect.DeepEqual(fromParsed, direct) {

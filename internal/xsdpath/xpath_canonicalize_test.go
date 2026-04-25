@@ -1,9 +1,9 @@
-package runtime
+package xsdpath
 
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/schemaast"
+	"github.com/jacoelho/xsd/internal/xsdlex"
 )
 
 func TestCanonicalizeNodeTestUnprefixed(t *testing.T) {
@@ -12,7 +12,7 @@ func TestCanonicalizeNodeTestUnprefixed(t *testing.T) {
 	if !canon.NamespaceSpecified {
 		t.Fatalf("expected NamespaceSpecified to be true")
 	}
-	if canon.Namespace != schemaast.NamespaceEmpty {
+	if canon.Namespace != xsdlex.NamespaceEmpty {
 		t.Fatalf("expected empty namespace, got %q", canon.Namespace)
 	}
 }

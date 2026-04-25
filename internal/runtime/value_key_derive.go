@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/jacoelho/xsd/internal/schemaast"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/num"
+	"github.com/jacoelho/xsd/internal/xsdlex"
 )
 
 // KeyForValidatorKind derives deterministic value-key encoding from canonical lexical bytes.
@@ -120,13 +120,13 @@ func KeyForPrimitiveName(primitive, normalized string, ctx map[string]string) (V
 		}
 		return VKBinary, BinaryKeyBytes(nil, 1, b), nil
 	case "QName":
-		qn, err := schemaast.ParseQNameValue(normalized, ctx)
+		qn, err := xsdlex.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return VKInvalid, nil, err
 		}
 		return VKQName, QNameKeyStrings(0, qn.Namespace, qn.Local), nil
 	case "NOTATION":
-		qn, err := schemaast.ParseQNameValue(normalized, ctx)
+		qn, err := xsdlex.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return VKInvalid, nil, err
 		}

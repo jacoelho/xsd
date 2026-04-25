@@ -70,6 +70,51 @@ func TestCompilePackagesUseSchemaASTBoundary(t *testing.T) {
 	}
 }
 
+func TestIRRuntimeBoundaryImportEdges(t *testing.T) {
+	imports := collectPackageImports(t)
+
+	assertNoExactImports(
+		t,
+		imports,
+		internalPkg("schemair"),
+		internalPkg("runtime"),
+		internalPkg("contentmodel"),
+		internalPkg("runtimebuild"),
+		internalPkg("runtimebuild/valuebuild"),
+	)
+	assertNoExactImports(
+		t,
+		imports,
+		internalPkg("xsdpath"),
+		internalPkg("runtime"),
+		internalPkg("schemaast"),
+	)
+	assertNoExactImports(
+		t,
+		imports,
+		internalPkg("runtime"),
+		internalPkg("schemaast"),
+		internalPkg("schemair"),
+		internalPkg("runtimebuild"),
+		internalPkg("xsdpath"),
+	)
+	assertNoExactImports(
+		t,
+		imports,
+		internalPkg("validator"),
+		internalPkg("schemaast"),
+		internalPkg("schemair"),
+		internalPkg("runtimebuild"),
+		internalPkg("xsdpath"),
+	)
+	assertNoExactImports(
+		t,
+		imports,
+		internalPkg("runtimebuild/valuebuild"),
+		internalPkg("schemaast"),
+	)
+}
+
 func TestRetiredArchitecturePackagesStayGone(t *testing.T) {
 	imports := collectPackageImports(t)
 	for _, pkg := range []string{

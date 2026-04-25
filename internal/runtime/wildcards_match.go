@@ -2,8 +2,6 @@ package runtime
 
 import (
 	"bytes"
-
-	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 // Accepts reports whether the namespace is allowed by the wildcard rule.
@@ -18,30 +16,23 @@ func (w WildcardRule) Accepts(nsBytes []byte, nsID NamespaceID, nsTable *Namespa
 			break
 		}
 	}
-	return schemaast.AllowsRuntimeNamespace(
-		schemaast.RuntimeNamespaceConstraint{
-			Kind:      runtimeConstraintToPolicy(w.NS.Kind),
-			HasTarget: w.NS.HasTarget,
-			HasLocal:  w.NS.HasLocal,
-		},
-		targetMatch,
-		localMatch,
-		enumMatch,
-	)
-}
-
-func runtimeConstraintToPolicy(kind NSConstraintKind) schemaast.RuntimeNamespaceConstraintKind {
-	switch kind {
+	switch w.NS.Kind {
 	case NSAny:
-		return schemaast.RuntimeNamespaceAny
+		return true
 	case NSOther:
-		return schemaast.RuntimeNamespaceOther
-	case NSEnumeration:
-		return schemaast.RuntimeNamespaceEnumeration
+		return !targetMatch && !localMatch
 	case NSNotAbsent:
-		return schemaast.RuntimeNamespaceNotAbsent
+		return !localMatch
+	case NSEnumeration:
+		if w.NS.HasLocal && localMatch {
+			return true
+		}
+		if w.NS.HasTarget && targetMatch {
+			return true
+		}
+		return enumMatch
 	default:
-		return schemaast.RuntimeNamespaceAny + 255
+		return false
 	}
 }
 

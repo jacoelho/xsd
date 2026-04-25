@@ -10,6 +10,7 @@ import (
 	ast "github.com/jacoelho/xsd/internal/schemaast"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/num"
+	"github.com/jacoelho/xsd/internal/xsdlex"
 )
 
 func (r *docResolver) simpleBaseAndDerivation(decl *ast.SimpleTypeDecl) (TypeRef, Derivation, error) {
@@ -206,7 +207,7 @@ func (r *docResolver) validateNotationRestriction(spec SimpleTypeSpec, ownFacets
 		return nil
 	}
 	for _, value := range values {
-		qname, err := ast.ParseQNameValue(value.Lexical, value.Context)
+		qname, err := xsdlex.ParseQNameValue(value.Lexical, value.Context)
 		if err != nil {
 			return err
 		}
@@ -318,8 +319,8 @@ func specEnumerationValueMatches(spec SimpleTypeSpec, normalized string, ctx map
 	enumNormalized := value.NormalizeWhitespace(valueWhitespaceMode(spec.Whitespace), []byte(candidate.Lexical), nil)
 	enumValue := string(enumNormalized)
 	if spec.QNameOrNotation || validationBuiltinName(spec) == "QName" || validationBuiltinName(spec) == "NOTATION" {
-		left, leftErr := ast.ParseQNameValue(normalized, ctx)
-		right, rightErr := ast.ParseQNameValue(enumValue, candidate.Context)
+		left, leftErr := xsdlex.ParseQNameValue(normalized, ctx)
+		right, rightErr := xsdlex.ParseQNameValue(enumValue, candidate.Context)
 		return leftErr == nil && rightErr == nil && left == right
 	}
 	if cmp, err := compareRangeFacetValues(spec, normalized, enumValue); err == nil {
@@ -447,7 +448,7 @@ func validateAtomicLexicalValue(name, lexical string, ctx map[string]string) err
 		if err := value.ValidateXSDQName(lexical); err != nil {
 			return err
 		}
-		_, err := ast.ParseQNameValue(lexical, ctx)
+		_, err := xsdlex.ParseQNameValue(lexical, ctx)
 		return err
 	case "normalizedString":
 		return value.ValidateXSDNormalizedString(lexical)
