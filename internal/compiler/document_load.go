@@ -16,10 +16,9 @@ func (l *Loader) LoadDocuments(location string) (*schemaast.DocumentSet, error) 
 		return nil, fmt.Errorf("no resolver configured")
 	}
 	state := documentLoadState{
-		loader:   l,
-		seen:     make(map[loadKey]bool),
-		active:   make(map[loadKey]bool),
-		activeNS: make(map[schemaast.NamespaceURI]bool),
+		loader: l,
+		seen:   make(map[loadKey]bool),
+		active: make(map[loadKey]bool),
 	}
 	if err := state.load("", location, ResolveInclude, schemaast.NamespaceEmpty); err != nil {
 		return nil, err
@@ -31,14 +30,10 @@ type documentLoadState struct {
 	loader    *Loader
 	seen      map[loadKey]bool
 	active    map[loadKey]bool
-	activeNS  map[schemaast.NamespaceURI]bool
 	documents []schemaast.SchemaDocument
 }
 
 func (s *documentLoadState) load(baseSystemID, location string, kind ResolveKind, expectedNS schemaast.NamespaceURI) (err error) {
-	if kind == ResolveImport && s.activeNS[expectedNS] {
-		return nil
-	}
 	req := ResolveRequest{
 		BaseSystemID:   baseSystemID,
 		SchemaLocation: location,
@@ -89,9 +84,7 @@ func (s *documentLoadState) load(baseSystemID, location string, kind ResolveKind
 		return nil
 	}
 	s.active[key] = true
-	s.activeNS[parsed.TargetNamespace] = true
 	defer delete(s.active, key)
-	defer delete(s.activeNS, parsed.TargetNamespace)
 
 	for _, directive := range parsed.Directives {
 		if directive.Kind != schemaast.DirectiveInclude {

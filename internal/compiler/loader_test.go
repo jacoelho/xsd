@@ -103,7 +103,7 @@ func TestLoaderLoadDocumentsRejectsIncludeWithDifferentNamespace(t *testing.T) {
 	}
 }
 
-func TestLoaderLoadDocumentsIgnoresImportOfActiveNamespace(t *testing.T) {
+func TestLoaderLoadDocumentsTerminatesResolvedImportCycle(t *testing.T) {
 	loader := NewLoader(LoaderConfig{
 		FS: fstest.MapFS{
 			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
