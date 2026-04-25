@@ -363,6 +363,9 @@ func (p *documentParser) parseTypeUse(elem NodeID, allowComplex, allowSimple boo
 			typ.Complex = inline
 		}
 	}
+	if typ.Simple != nil && typ.Complex != nil {
+		return TypeUse{}, fmt.Errorf("%s cannot have more than one inline type definition", p.doc.LocalName(elem))
+	}
 	if !typ.Name.IsZero() && (typ.Simple != nil || typ.Complex != nil) {
 		return TypeUse{}, fmt.Errorf("%s cannot have both 'type' attribute and inline type", p.doc.LocalName(elem))
 	}

@@ -1308,6 +1308,36 @@ func TestParseDocumentRejectsElementTypeAndInlineType(t *testing.T) {
 	}
 }
 
+func TestParseDocumentRejectsElementSimpleTypeAndComplexType(t *testing.T) {
+	_, err := ParseDocumentWithImportsOptions(strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+    <xs:complexType/>
+  </xs:element>
+</xs:schema>`))
+	if err == nil || !strings.Contains(err.Error(), "element cannot have more than one inline type definition") {
+		t.Fatalf("ParseDocumentWithImportsOptions() error = %v", err)
+	}
+}
+
+func TestParseDocumentRejectsElementComplexTypeAndSimpleType(t *testing.T) {
+	_, err := ParseDocumentWithImportsOptions(strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:element name="root">
+    <xs:complexType/>
+    <xs:simpleType>
+      <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`))
+	if err == nil || !strings.Contains(err.Error(), "element cannot have more than one inline type definition") {
+		t.Fatalf("ParseDocumentWithImportsOptions() error = %v", err)
+	}
+}
+
 func TestParseDocumentRejectsNonPositiveTotalDigits(t *testing.T) {
 	_, err := ParseDocumentWithImportsOptions(strings.NewReader(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
