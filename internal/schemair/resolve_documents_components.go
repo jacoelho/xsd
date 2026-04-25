@@ -32,13 +32,6 @@ func (r *docResolver) ensureElement(decl *ast.ElementDecl, global bool) (Element
 		if err := r.validateIdentityNames(nameFromQName(decl.Name), decl.Identity); err != nil {
 			return 0, err
 		}
-		for _, identity := range decl.Identity {
-			constraint, err := r.identity(id, identity)
-			if err != nil {
-				return 0, err
-			}
-			r.out.IdentityConstraints = append(r.out.IdentityConstraints, constraint)
-		}
 		typeRef, err := r.typeUseRef(decl.Type, true)
 		if err != nil {
 			return 0, err
@@ -74,6 +67,13 @@ func (r *docResolver) ensureElement(decl *ast.ElementDecl, global bool) (Element
 			r.elements[nameFromQName(decl.Name)] = id
 		}
 		r.out.Elements = append(r.out.Elements, elem)
+		for _, identity := range decl.Identity {
+			constraint, err := r.identity(id, identity)
+			if err != nil {
+				return 0, err
+			}
+			r.out.IdentityConstraints = append(r.out.IdentityConstraints, constraint)
+		}
 		return id, nil
 	}
 	id := r.nextElem
@@ -869,7 +869,8 @@ func (r *docResolver) identity(element ElementID, decl ast.IdentityDecl) (Identi
 			name.Local, name.Namespace)
 	}
 	nsContext := r.contextMap(decl.NamespaceContextID)
-	if _, err := xsdpath.Parse(decl.Selector, nsContext, xsdpath.AttributesDisallowed); err != nil {
+	selectorExpr, err := xsdpath.Parse(decl.Selector, nsContext, xsdpath.AttributesDisallowed)
+	if err != nil {
 		return IdentityConstraint{}, fmt.Errorf("schema ir: selector xpath %q is invalid: %w", decl.Selector, err)
 	}
 	identity := IdentityConstraint{
@@ -889,10 +890,15 @@ func (r *docResolver) identity(element ElementID, decl ast.IdentityDecl) (Identi
 		identity.Kind = IdentityUnique
 	}
 	for _, field := range decl.Fields {
-		if _, err := xsdpath.Parse(field, nsContext, xsdpath.AttributesAllowed); err != nil {
+		fieldExpr, err := xsdpath.Parse(field, nsContext, xsdpath.AttributesAllowed)
+		if err != nil {
 			return IdentityConstraint{}, fmt.Errorf("schema ir: field xpath %q is invalid: %w", field, err)
 		}
-		identity.Fields = append(identity.Fields, IdentityField{XPath: field})
+		resolved, err := r.resolveIdentityField(element, identity.Kind, decl.Selector, selectorExpr, field, fieldExpr)
+		if err != nil {
+			return IdentityConstraint{}, err
+		}
+		identity.Fields = append(identity.Fields, IdentityField{XPath: field, TypeDecl: resolved.TypeDecl})
 	}
 	r.identityNames[name] = id
 	if identity.Kind == IdentityKey || identity.Kind == IdentityUnique {
@@ -907,6 +913,10 @@ func (r *docResolver) resolveIdentityReferences() error {
 		if constraint.Kind != IdentityKeyRef {
 			continue
 		}
+		if constraint.Refer.Namespace != constraint.Name.Namespace {
+			return fmt.Errorf("schema ir: keyref constraint %q refers to %s in namespace %q, which does not match target namespace %q",
+				constraint.Name.Local, constraint.Refer.Local, constraint.Refer.Namespace, constraint.Name.Namespace)
+		}
 		id, ok := r.identityKeys[constraint.Refer]
 		if !ok {
 			return fmt.Errorf("schema ir: keyref %s refers to missing key", formatName(constraint.Name))
@@ -918,6 +928,21 @@ func (r *docResolver) resolveIdentityReferences() error {
 		if len(constraint.Fields) != len(target.Fields) {
 			return fmt.Errorf("schema ir: keyref constraint %q has %d fields but referenced constraint %q has %d fields",
 				constraint.Name.Local, len(constraint.Fields), target.Name.Local, len(target.Fields))
+		}
+		for field := range constraint.Fields {
+			keyrefType := constraint.Fields[field].TypeDecl
+			keyType := target.Fields[field].TypeDecl
+			if isZeroTypeRef(keyrefType) || isZeroTypeRef(keyType) {
+				continue
+			}
+			ok, err := r.identityFieldTypesCompatible(keyrefType, keyType)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("schema ir: keyref constraint %q field %d type %s is not compatible with referenced constraint %q field %d type %s",
+					constraint.Name.Local, field+1, formatName(keyrefType.Name), target.Name.Local, field+1, formatName(keyType.Name))
+			}
 		}
 		constraint.ReferID = id
 	}

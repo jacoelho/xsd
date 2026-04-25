@@ -3441,6 +3441,111 @@ func TestResolveDocumentSetRejectsKeyrefFieldCountMismatch(t *testing.T) {
 	}
 }
 
+func TestResolveDocumentSetRejectsKeyrefReferNamespaceMismatch(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a" xmlns:a="urn:a" xmlns:b="urn:b">
+  <xs:import namespace="urn:b"/>
+  <xs:element name="root">
+    <xs:keyref name="kr" refer="b:k">
+      <xs:selector xpath="."/>
+      <xs:field xpath="@id"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), `does not match target namespace`; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
+func TestResolveDocumentSetRejectsKeyrefFieldTypeMismatch(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="keyItem" type="xs:int" maxOccurs="unbounded"/>
+        <xs:element name="refItem" type="xs:string" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k">
+      <xs:selector xpath="keyItem"/>
+      <xs:field xpath="."/>
+    </xs:key>
+    <xs:keyref name="kr" refer="k">
+      <xs:selector xpath="refItem"/>
+      <xs:field xpath="."/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), `field 1 type`; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
+func TestResolveDocumentSetRejectsKeyFieldSelectingNillableElement(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:string" nillable="true" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="."/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), `selects nillable element`; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
+func TestResolveDocumentSetAllowsKeyrefFieldPrimitiveCompatibleTypes(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Code">
+    <xs:restriction base="xs:long"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="keyItem" type="xs:int" maxOccurs="unbounded"/>
+        <xs:element name="refItem" type="Code" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k">
+      <xs:selector xpath="keyItem"/>
+      <xs:field xpath="."/>
+    </xs:key>
+    <xs:keyref name="kr" refer="k">
+      <xs:selector xpath="refItem"/>
+      <xs:field xpath="."/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
 func TestResolveDocumentSetRejectsSimpleRestrictionBlockedByFinal(t *testing.T) {
 	doc := parseDocumentForIRTest(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:test" targetNamespace="urn:test">
