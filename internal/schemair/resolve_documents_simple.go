@@ -121,10 +121,25 @@ func (r *docResolver) simpleSpec(id TypeID, name Name, decl *ast.SimpleTypeDecl)
 		spec.BuiltinBase = "string"
 		spec.Whitespace = WhitespaceCollapse
 	}
+	return r.applyRestrictionFacets(spec, decl.Facets, restrictionFacetOptions{
+		context: "restriction",
+	})
+}
+
+type restrictionFacetOptions struct {
+	context               string
+	rejectAnySimpleFacets bool
+}
+
+func (r *docResolver) applyRestrictionFacets(
+	spec SimpleTypeSpec,
+	facets []ast.FacetDecl,
+	opts restrictionFacetOptions,
+) (SimpleTypeSpec, error) {
 	baseWhitespace := spec.Whitespace
 	ownWhitespace := false
 	var ownFacets []FacetSpec
-	for _, facet := range decl.Facets {
+	for _, facet := range facets {
 		if facet.Name == "whiteSpace" {
 			spec.Whitespace = whitespaceModeFromString(facet.Lexical)
 			ownWhitespace = true
@@ -140,7 +155,10 @@ func (r *docResolver) simpleSpec(id TypeID, name Name, decl *ast.SimpleTypeDecl)
 	}
 	ownFacets = coalesceFacetSpecs(ownFacets)
 	if ownWhitespace && !validWhitespaceRestriction(baseWhitespace, spec.Whitespace) {
-		return SimpleTypeSpec{}, fmt.Errorf("schema ir: restriction: whiteSpace facet value '%s' cannot be less restrictive than base type's '%s'", whitespaceModeString(spec.Whitespace), whitespaceModeString(baseWhitespace))
+		return SimpleTypeSpec{}, fmt.Errorf("schema ir: %s: whiteSpace facet value '%s' cannot be less restrictive than base type's '%s'", opts.context, whitespaceModeString(spec.Whitespace), whitespaceModeString(baseWhitespace))
+	}
+	if opts.rejectAnySimpleFacets && len(ownFacets) > 0 && spec.Primitive == "anySimpleType" {
+		return SimpleTypeSpec{}, fmt.Errorf("schema ir: %s cannot apply facets to base type anySimpleType", opts.context)
 	}
 	if err := validateFacetApplicability(spec, ownFacets); err != nil {
 		return SimpleTypeSpec{}, err

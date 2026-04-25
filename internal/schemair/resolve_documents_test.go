@@ -3018,6 +3018,81 @@ func TestResolveDocumentSetRejectsUndeclaredNotationEnumeration(t *testing.T) {
 	}
 }
 
+func TestResolveDocumentSetRejectsSimpleContentNotationRestrictionWithoutEnumeration(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:test" targetNamespace="urn:test">
+  <xs:notation name="png" public="image/png"/>
+  <xs:complexType name="Base">
+    <xs:simpleContent>
+      <xs:extension base="xs:NOTATION"/>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="Base"/>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), "NOTATION restriction must have enumeration facet"; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
+func TestResolveDocumentSetRejectsSimpleContentNotationRestrictionUndeclaredEnumeration(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:test" targetNamespace="urn:test">
+  <xs:notation name="png" public="image/png"/>
+  <xs:complexType name="Base">
+    <xs:simpleContent>
+      <xs:extension base="xs:NOTATION"/>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:enumeration value="jpeg"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), "enumeration value \"jpeg\" does not reference a declared notation"; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
+func TestResolveDocumentSetAllowsSimpleContentNotationRestrictionDeclaredEnumeration(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:test" targetNamespace="urn:test">
+  <xs:notation name="jpeg" public="image/jpeg"/>
+  <xs:complexType name="Base">
+    <xs:simpleContent>
+      <xs:extension base="xs:NOTATION"/>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="Base">
+        <xs:enumeration value="jpeg"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
 func TestResolveDocumentSetAllowsDerivedNotationRestrictionWithoutOwnEnumeration(t *testing.T) {
 	doc := parseDocumentForIRTest(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

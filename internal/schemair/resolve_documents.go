@@ -1260,58 +1260,12 @@ func (r *docResolver) simpleContentText(
 	if err != nil {
 		return TypeRef{}, SimpleTypeSpec{}, err
 	}
-
-	baseWhitespace := spec.Whitespace
-	ownWhitespace := false
-	var ownFacets []FacetSpec
-	for _, facet := range decl.SimpleFacets {
-		if facet.Name == "whiteSpace" {
-			spec.Whitespace = whitespaceModeFromString(facet.Lexical)
-			ownWhitespace = true
-			continue
-		}
-		converted, ok, err := r.facetSpec(facet)
-		if err != nil {
-			return TypeRef{}, SimpleTypeSpec{}, err
-		}
-		if ok {
-			ownFacets = append(ownFacets, converted)
-		}
-	}
-	ownFacets = coalesceFacetSpecs(ownFacets)
-	if ownWhitespace && !validWhitespaceRestriction(baseWhitespace, spec.Whitespace) {
-		return TypeRef{}, SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent restriction: whiteSpace facet value '%s' cannot be less restrictive than base type's '%s'", whitespaceModeString(spec.Whitespace), whitespaceModeString(baseWhitespace))
-	}
-	if len(ownFacets) > 0 && spec.Primitive == "anySimpleType" {
-		return TypeRef{}, SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent restriction cannot apply facets to base type anySimpleType")
-	}
-	if err := validateFacetApplicability(spec, ownFacets); err != nil {
+	spec, err = r.applyRestrictionFacets(spec, decl.SimpleFacets, restrictionFacetOptions{
+		context:               "simpleContent restriction",
+		rejectAnySimpleFacets: true,
+	})
+	if err != nil {
 		return TypeRef{}, SimpleTypeSpec{}, err
-	}
-	if err := validateIRLengthFacetConsistency(spec, ownFacets); err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
-	}
-	if err := validateIRDigitsFacetConsistency(spec, ownFacets); err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
-	}
-	if err := validateRangeFacetConsistency(spec, ownFacets); err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
-	}
-	if err := validateIRFacetRestriction(spec, ownFacets); err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
-	}
-	if err := r.validateEnumerationLexicalValues(spec, ownFacets); err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
-	}
-	spec.Facets = append(spec.Facets, ownFacets...)
-	if err := r.validateRestrictionEnumerations(spec); err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
-	}
-	if spec.Primitive == "" {
-		spec.Primitive = fallbackSpecName(spec)
-	}
-	if spec.BuiltinBase == "" {
-		spec.BuiltinBase = spec.Primitive
 	}
 	return TypeRef{}, spec, nil
 }
