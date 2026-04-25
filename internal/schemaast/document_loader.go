@@ -1,94 +1,9 @@
 package schemaast
 
 import (
-	"fmt"
-	"io/fs"
-	"path"
 	"slices"
 	"strings"
-
-	"github.com/jacoelho/xsd/internal/xmlstream"
 )
-
-// LoadDocumentSetFS loads a root schema and referenced import/include documents into parse-only documents.
-func LoadDocumentSetFS(fsys fs.FS, location string, opts ...xmlstream.Option) (*DocumentSet, error) {
-	if fsys == nil {
-		return nil, fmt.Errorf("schema document set: nil fs")
-	}
-	if strings.TrimSpace(location) == "" {
-		return nil, fmt.Errorf("schema document set: empty location")
-	}
-	loader := documentSetLoader{
-		fsys:    fsys,
-		options: opts,
-		seen:    make(map[string]bool),
-	}
-	if err := loader.load(location, NamespaceEmpty); err != nil {
-		return nil, err
-	}
-	return &DocumentSet{Documents: loader.documents}, nil
-}
-
-type documentSetLoader struct {
-	fsys      fs.FS
-	options   []xmlstream.Option
-	seen      map[string]bool
-	documents []SchemaDocument
-}
-
-func (l *documentSetLoader) load(location string, includingNamespace NamespaceURI) error {
-	location = path.Clean(location)
-	if l.seen[location] {
-		return nil
-	}
-	l.seen[location] = true
-
-	file, err := l.fsys.Open(location)
-	if err != nil {
-		return fmt.Errorf("open schema %s: %w", location, err)
-	}
-	defer file.Close()
-
-	result, err := ParseDocumentWithImportsOptions(file, l.options...)
-	if err != nil {
-		return fmt.Errorf("parse schema %s: %w", location, err)
-	}
-	doc := *result.Document
-	doc.Location = location
-	if doc.TargetNamespace == NamespaceEmpty && includingNamespace != NamespaceEmpty {
-		remapDocumentNamespace(&doc, includingNamespace)
-	}
-	l.documents = append(l.documents, doc)
-
-	for _, directive := range doc.Directives {
-		switch directive.Kind {
-		case DirectiveInclude:
-			target := strings.TrimSpace(directive.Include.SchemaLocation)
-			if target == "" {
-				return fmt.Errorf("include missing schemaLocation")
-			}
-			if err := l.load(resolveDocumentLocation(location, target), doc.TargetNamespace); err != nil {
-				return err
-			}
-		case DirectiveImport:
-			target := strings.TrimSpace(directive.Import.SchemaLocation)
-			if target == "" {
-				continue
-			}
-			if err := l.load(resolveDocumentLocation(location, target), NamespaceEmpty); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func resolveDocumentLocation(base, loc string) string {
-	if loc == "" || path.IsAbs(loc) {
-		return path.Clean(loc)
-	}
-	return path.Clean(path.Join(path.Dir(base), loc))
-}
 
 func remapDocumentNamespace(doc *SchemaDocument, target NamespaceURI) {
 	doc.TargetNamespace = target

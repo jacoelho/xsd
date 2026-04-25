@@ -2,7 +2,6 @@ package schemaast
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -122,12 +121,6 @@ func (p *documentParser) parseIdentity(elem NodeID) (IdentityDecl, error) {
 			if identity.Selector == "" {
 				return IdentityDecl{}, fmt.Errorf("selector missing xpath attribute")
 			}
-			if strings.HasPrefix(strings.TrimSpace(identity.Selector), "/") {
-				return IdentityDecl{}, fmt.Errorf("selector xpath must be a relative path: %s", identity.Selector)
-			}
-			if strings.ContainsAny(identity.Selector, "()") {
-				return IdentityDecl{}, fmt.Errorf("selector xpath cannot use functions or parentheses: %s", identity.Selector)
-			}
 			seenSelector = true
 		case "field":
 			if !seenSelector {
@@ -143,12 +136,6 @@ func (p *documentParser) parseIdentity(elem NodeID) (IdentityDecl, error) {
 				return IdentityDecl{}, fmt.Errorf("field missing xpath attribute")
 			}
 			field := p.attr(child, "xpath")
-			if strings.HasPrefix(strings.TrimSpace(field), "/") {
-				return IdentityDecl{}, fmt.Errorf("field xpath must be a relative path: %s", field)
-			}
-			if strings.ContainsAny(field, "()") {
-				return IdentityDecl{}, fmt.Errorf("field xpath cannot use functions or parentheses: %s", field)
-			}
 			identity.Fields = append(identity.Fields, field)
 		default:
 			return IdentityDecl{}, fmt.Errorf("identity constraint has unexpected child element '%s'", p.doc.LocalName(child))

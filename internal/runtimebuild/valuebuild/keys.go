@@ -38,26 +38,17 @@ func (c *artifactCompiler) makeValueKey(kind runtime.ValueKind, bytes []byte) ru
 
 func runtimeValueKind(kind schemair.ValueKeyKind) (runtime.ValueKind, error) {
 	switch kind {
-	case schemair.ValueKeyBool:
-		return runtime.VKBool, nil
-	case schemair.ValueKeyDecimal:
-		return runtime.VKDecimal, nil
-	case schemair.ValueKeyFloat32:
-		return runtime.VKFloat32, nil
-	case schemair.ValueKeyFloat64:
-		return runtime.VKFloat64, nil
-	case schemair.ValueKeyString:
-		return runtime.VKString, nil
-	case schemair.ValueKeyBinary:
-		return runtime.VKBinary, nil
-	case schemair.ValueKeyQName:
-		return runtime.VKQName, nil
-	case schemair.ValueKeyDateTime:
-		return runtime.VKDateTime, nil
-	case schemair.ValueKeyDuration:
-		return runtime.VKDuration, nil
-	case schemair.ValueKeyList:
-		return runtime.VKList, nil
+	case schemair.ValueKeyBool,
+		schemair.ValueKeyDecimal,
+		schemair.ValueKeyFloat32,
+		schemair.ValueKeyFloat64,
+		schemair.ValueKeyString,
+		schemair.ValueKeyBinary,
+		schemair.ValueKeyQName,
+		schemair.ValueKeyDateTime,
+		schemair.ValueKeyDuration,
+		schemair.ValueKeyList:
+		return runtime.ValueKind(kind), nil
 	default:
 		return runtime.VKInvalid, fmt.Errorf("unsupported value key kind %d", kind)
 	}

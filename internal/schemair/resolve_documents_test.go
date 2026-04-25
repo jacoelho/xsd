@@ -538,6 +538,46 @@ func TestResolveDocumentSetRejectsInvalidIdentitySelectorXPath(t *testing.T) {
 	}
 }
 
+func TestResolveDocumentSetRejectsAbsoluteIdentitySelectorXPath(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:unique name="u">
+      <xs:selector xpath="/item"/>
+      <xs:field xpath="@id"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), "xpath must be a relative path"; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
+func TestResolveDocumentSetRejectsIdentityFieldFunctionXPath(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:key name="k">
+      <xs:selector xpath=".//item"/>
+      <xs:field xpath="document('')"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), "xpath cannot use functions or parentheses"; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
 func TestResolveDocumentSetRejectsAllModelExtensionWithAdditionalParticles(t *testing.T) {
 	doc := parseDocumentForIRTest(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -3004,12 +3044,30 @@ func TestResolveDocumentSetSimpleContentRestrictionInlineSimpleType(t *testing.T
 	if plan.Content != ContentSimple {
 		t.Fatalf("content = %v, want simple", plan.Content)
 	}
-	if plan.TextSpec.Base.Name.Local != "decimal" {
-		t.Fatalf("text spec base = %v, want base simple content type", plan.TextSpec.Base)
+	// XSD 1.0 §3.4.2 maps nested simpleType as the starting content type,
+	// then applies sibling simpleContent facets.
+	if plan.TextSpec.Base.ID == 0 {
+		t.Fatalf("text spec base = %v, want nested simpleType ref", plan.TextSpec.Base)
+	}
+	baseSpec, ok := specByID(ir, plan.TextSpec.Base.ID)
+	if !ok {
+		t.Fatalf("nested simpleType spec %d not found", plan.TextSpec.Base.ID)
+	}
+	if baseSpec.BuiltinBase != "integer" || !baseSpec.IntegerDerived {
+		t.Fatalf("nested simpleType spec = %#v, want integer-derived base", baseSpec)
 	}
 	if len(plan.TextSpec.Facets) == 0 || plan.TextSpec.Facets[len(plan.TextSpec.Facets)-1].Name != "maxInclusive" {
 		t.Fatalf("text spec facets = %#v", plan.TextSpec.Facets)
 	}
+}
+
+func specByID(schema *Schema, id TypeID) (SimpleTypeSpec, bool) {
+	for _, spec := range schema.SimpleTypes {
+		if spec.TypeDecl == id {
+			return spec, true
+		}
+	}
+	return SimpleTypeSpec{}, false
 }
 
 func TestResolveDocumentSetComplexContentExtensionFromSimpleContentIsEmpty(t *testing.T) {

@@ -115,6 +115,20 @@ func TestIRRuntimeBoundaryImportEdges(t *testing.T) {
 	)
 }
 
+func TestRuntimeTestImportEdges(t *testing.T) {
+	imports := collectPackageImportsWithTests(t)
+	assertNoExactImports(
+		t,
+		imports,
+		internalPkg("runtime"),
+		internalPkg("schemaast"),
+		internalPkg("schemair"),
+		internalPkg("runtimebuild"),
+		internalPkg("runtimebuild/valuebuild"),
+		internalPkg("xsdpath"),
+	)
+}
+
 func TestRetiredArchitecturePackagesStayGone(t *testing.T) {
 	imports := collectPackageImports(t)
 	for _, pkg := range []string{

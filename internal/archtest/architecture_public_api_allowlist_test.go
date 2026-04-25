@@ -68,6 +68,20 @@ func TestPublicAPIAllowlist(t *testing.T) {
 		"const KindIO":                                  {},
 		"const KindSchema":                              {},
 		"const KindValidation":                          {},
+		"field Error.Actual":                            {},
+		"field Error.Code":                              {},
+		"field Error.Err":                               {},
+		"field Error.Expected":                          {},
+		"field Error.Kind":                              {},
+		"field Error.Message":                           {},
+		"field Validation.Actual":                       {},
+		"field Validation.Code":                         {},
+		"field Validation.Column":                       {},
+		"field Validation.Document":                     {},
+		"field Validation.Expected":                     {},
+		"field Validation.Line":                         {},
+		"field Validation.Message":                      {},
+		"field Validation.Path":                         {},
 		"func AsValidations":                            {},
 		"func CompileFS":                                {},
 		"func CompileFile":                              {},
@@ -76,12 +90,18 @@ func TestPublicAPIAllowlist(t *testing.T) {
 		"method Compiler.CompileFS":                     {},
 		"method Compiler.CompileFile":                   {},
 		"method Compiler.CompileSources":                {},
+		"method Error.Error":                            {},
+		"method Error.Is":                               {},
+		"method Error.Unwrap":                           {},
 		"method Name.IsZero":                            {},
 		"method Name.String":                            {},
 		"method Schema.NewValidator":                    {},
 		"method Schema.Validate":                        {},
 		"method Schema.ValidateFSFile":                  {},
 		"method Schema.ValidateFile":                    {},
+		"method Validation.Error":                       {},
+		"method ValidationList.Error":                   {},
+		"method ValidationList.Sort":                    {},
 		"method Validator.Validate":                     {},
 		"method Validator.ValidateFSFile":               {},
 		"method Validator.ValidateFile":                 {},
@@ -95,6 +115,27 @@ func TestPublicAPIAllowlist(t *testing.T) {
 	for item := range got {
 		if _, ok := want[item]; !ok {
 			t.Errorf("unexpected public export: %s", item)
+		}
+	}
+}
+
+func TestPublicAPIInternalAliasesAreExplicit(t *testing.T) {
+	got := collectRootInternalAliases(t)
+	want := map[string]struct{}{
+		"ErrorKind":      {},
+		"ErrorCode":      {},
+		"Error":          {},
+		"Validation":     {},
+		"ValidationList": {},
+	}
+	for alias := range want {
+		if _, ok := got[alias]; !ok {
+			t.Errorf("missing internal alias: %s", alias)
+		}
+	}
+	for alias := range got {
+		if _, ok := want[alias]; !ok {
+			t.Errorf("unexpected public internal alias: %s", alias)
 		}
 	}
 }

@@ -12,9 +12,6 @@ func (l *Loader) LoadDocuments(location string) (*schemaast.DocumentSet, error) 
 	if err := l.beginLocationLoad(); err != nil {
 		return nil, err
 	}
-	if l == nil || l.resolver == nil {
-		return nil, fmt.Errorf("no resolver configured")
-	}
 	state := documentLoadState{
 		loader: l,
 		seen:   make(map[loadKey]bool),
@@ -72,7 +69,7 @@ func (s *documentLoadState) load(baseSystemID, location string, kind ResolveKind
 			return err
 		}
 	}
-	if err := validateDocumentImports(&parsed); err != nil {
+	if err := validateDocumentImports(parsed); err != nil {
 		return err
 	}
 
@@ -122,10 +119,7 @@ func (s *documentLoadState) load(baseSystemID, location string, kind ResolveKind
 	return nil
 }
 
-func validateDocumentImports(doc *schemaast.SchemaDocument) error {
-	if doc == nil {
-		return nil
-	}
+func validateDocumentImports(doc schemaast.SchemaDocument) error {
 	if doc.TargetNamespace == schemaast.NamespaceEmpty {
 		for _, imp := range doc.Imports {
 			if imp.Namespace == schemaast.NamespaceEmpty {
@@ -145,9 +139,6 @@ func validateDocumentImports(doc *schemaast.SchemaDocument) error {
 }
 
 func validateDocumentNamespace(kind ResolveKind, expectedNS schemaast.NamespaceURI, doc *schemaast.SchemaDocument) error {
-	if doc == nil {
-		return fmt.Errorf("schema document is nil")
-	}
 	switch kind {
 	case ResolveInclude:
 		if expectedNS != schemaast.NamespaceEmpty && doc.TargetNamespace == schemaast.NamespaceEmpty {

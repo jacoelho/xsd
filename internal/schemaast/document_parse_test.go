@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"testing/fstest"
 )
 
 func TestParseDocumentSimpleTypeDecls(t *testing.T) {
@@ -828,32 +827,30 @@ func TestParseDocumentRejectsEmptyElementName(t *testing.T) {
 	}
 }
 
-func TestParseDocumentRejectsAbsoluteIdentitySelector(t *testing.T) {
-	_, err := ParseDocumentWithImportsOptions(strings.NewReader(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:unique name="u">
-      <xs:selector xpath="/item"/>
-      <xs:field xpath="@id"/>
-    </xs:unique>
-  </xs:element>
-</xs:schema>`))
-	if err == nil || !strings.Contains(err.Error(), "selector xpath must be a relative path") {
+func TestParseDocumentKeepsAbsoluteIdentitySelectorLexical(t *testing.T) {
+	if _, err := ParseDocumentWithImportsOptions(strings.NewReader(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
+	    <xs:unique name="u">
+	      <xs:selector xpath="/item"/>
+	      <xs:field xpath="@id"/>
+	    </xs:unique>
+	  </xs:element>
+	</xs:schema>`)); err != nil {
 		t.Fatalf("ParseDocumentWithImportsOptions() error = %v", err)
 	}
 }
 
-func TestParseDocumentRejectsIdentityFieldFunction(t *testing.T) {
-	_, err := ParseDocumentWithImportsOptions(strings.NewReader(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:key name="k">
-      <xs:selector xpath=".//item"/>
-      <xs:field xpath="document('')"/>
-    </xs:key>
-  </xs:element>
-</xs:schema>`))
-	if err == nil || !strings.Contains(err.Error(), "field xpath cannot use functions or parentheses") {
+func TestParseDocumentKeepsIdentityFieldFunctionLexical(t *testing.T) {
+	if _, err := ParseDocumentWithImportsOptions(strings.NewReader(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
+	    <xs:key name="k">
+	      <xs:selector xpath=".//item"/>
+	      <xs:field xpath="document('')"/>
+	    </xs:key>
+	  </xs:element>
+	</xs:schema>`)); err != nil {
 		t.Fatalf("ParseDocumentWithImportsOptions() error = %v", err)
 	}
 }
@@ -1399,69 +1396,6 @@ func TestParseDocumentDeclGraphContainsNoGraphTypes(t *testing.T) {
 </xs:schema>`)
 
 	assertNoGraphTypeRefs(t, reflect.TypeOf(*doc), map[reflect.Type]bool{})
-}
-
-func TestLoadDocumentSetFSOrderAndLexicalChameleonRemap(t *testing.T) {
-	fsys := fstest.MapFS{
-		"root.xsd": {Data: []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root">
-  <xs:include schemaLocation="common.xsd"/>
-  <xs:include schemaLocation="common.xsd"/>
-  <xs:import namespace="urn:dep" schemaLocation="dep.xsd"/>
-  <xs:element name="root" type="Included"/>
-</xs:schema>`)},
-		"common.xsd": {Data: []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Included"><xs:restriction base="xs:string"/></xs:simpleType>
-  <xs:element name="includedRoot" type="Included"/>
-  <xs:attributeGroup name="attrs">
-    <xs:attribute name="localAttr" type="Included"/>
-  </xs:attributeGroup>
-</xs:schema>`)},
-		"dep.xsd": {Data: []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:dep">
-  <xs:element name="depRoot" type="xs:string"/>
-</xs:schema>`)},
-	}
-
-	docs, err := LoadDocumentSetFS(fsys, "root.xsd")
-	if err != nil {
-		t.Fatalf("LoadDocumentSetFS() error = %v", err)
-	}
-	if len(docs.Documents) != 3 {
-		t.Fatalf("document count = %d, want 3", len(docs.Documents))
-	}
-	wantLocations := []string{"root.xsd", "common.xsd", "dep.xsd"}
-	for i, want := range wantLocations {
-		if docs.Documents[i].Location != want {
-			t.Fatalf("document %d location = %q, want %q", i, docs.Documents[i].Location, want)
-		}
-	}
-	common := docs.Documents[1]
-	if common.TargetNamespace != "urn:root" {
-		t.Fatalf("common target namespace = %q, want urn:root", common.TargetNamespace)
-	}
-	if !contextHasBinding(common.NamespaceContexts[0], "", "urn:root") {
-		t.Fatalf("common namespace context lacks remapped default binding: %#v", common.NamespaceContexts[0])
-	}
-	if common.Decls[0].Name != (QName{Namespace: "urn:root", Local: "Included"}) {
-		t.Fatalf("included simple type name = %v", common.Decls[0].Name)
-	}
-	includedElem := common.Decls[1].Element
-	if includedElem.Type.Name != (QName{Namespace: "urn:root", Local: "Included"}) {
-		t.Fatalf("included element type = %v, want remapped Included", includedElem.Type.Name)
-	}
-	attrGroup := common.Decls[2].AttributeGroup
-	if attrGroup == nil || len(attrGroup.Attributes) != 1 || attrGroup.Attributes[0].Attribute == nil {
-		t.Fatalf("included attribute group = %#v", attrGroup)
-	}
-	localAttr := attrGroup.Attributes[0].Attribute
-	if localAttr.Name != (QName{Local: "localAttr"}) {
-		t.Fatalf("local attribute name = %v, want unqualified localAttr", localAttr.Name)
-	}
-	if localAttr.Type.Name != (QName{Namespace: "urn:root", Local: "Included"}) {
-		t.Fatalf("local attribute type = %v, want remapped Included", localAttr.Type.Name)
-	}
 }
 
 func parseSchemaDocumentForTest(t *testing.T, schema string) *SchemaDocument {

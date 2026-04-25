@@ -9,12 +9,24 @@ import (
 )
 
 type docResolver struct {
+	docResolverDocs
+	docResolverGlobals
+	docResolverDecls
+	docResolverIDs
+	docResolverState
+	docResolverIdentity
+	docResolverCounters
+}
+
+type docResolverDocs struct {
 	docs []ast.SchemaDocument
 	out  Schema
 
 	names    map[Name]struct{}
 	contexts map[ast.NamespaceContextID]ast.NamespaceContext
+}
 
+type docResolverGlobals struct {
 	builtins    map[Name]TypeRef
 	types       map[Name]TypeID
 	elements    map[Name]ElementID
@@ -24,7 +36,9 @@ type docResolver struct {
 	notations   map[Name]struct{}
 	globalElems map[Name]*ast.ElementDecl
 	globalAttrs map[Name]*ast.AttributeDecl
+}
 
+type docResolverDecls struct {
 	simpleDecls    map[simpleDeclID]*ast.SimpleTypeDecl
 	complexDecls   map[complexDeclID]*ast.ComplexTypeDecl
 	elementDecls   map[elementDeclID]*ast.ElementDecl
@@ -34,7 +48,9 @@ type docResolver struct {
 	complexDeclHandles   map[*ast.ComplexTypeDecl]complexDeclID
 	elementDeclHandles   map[*ast.ElementDecl]elementDeclID
 	attributeDeclHandles map[*ast.AttributeDecl]attributeDeclID
+}
 
+type docResolverIDs struct {
 	simpleIDs   map[simpleDeclID]TypeID
 	simpleByID  map[TypeID]simpleDeclID
 	complexIDs  map[complexDeclID]TypeID
@@ -43,7 +59,9 @@ type docResolver struct {
 	attrByID    map[AttributeID]attributeDeclID
 	localElems  map[elementDeclID]ElementID
 	localAttrs  map[attributeDeclID]AttributeID
+}
 
+type docResolverState struct {
 	assignedSimpleTrees   map[simpleDeclID]bool
 	assigningSimpleTrees  map[simpleDeclID]bool
 	assignedComplexTrees  map[complexDeclID]bool
@@ -53,12 +71,18 @@ type docResolver struct {
 	emittedComplex        map[TypeID]bool
 	emittedElems          map[ElementID]bool
 	emittedAttrs          map[AttributeID]bool
-	identityNames         map[Name]IdentityID
-	identityKeys          map[Name]IdentityID
-	particleChecks        []pendingParticleRestriction
-	nextType              TypeID
-	nextElem              ElementID
-	nextAttr              AttributeID
+}
+
+type docResolverIdentity struct {
+	identityNames  map[Name]IdentityID
+	identityKeys   map[Name]IdentityID
+	particleChecks []pendingParticleRestriction
+}
+
+type docResolverCounters struct {
+	nextType TypeID
+	nextElem ElementID
+	nextAttr AttributeID
 }
 
 type pendingParticleRestriction struct {
@@ -131,54 +155,73 @@ func resolveDocuments(docs *ast.DocumentSet) (*Schema, error) {
 		return nil, fmt.Errorf("schema ir: document set is empty")
 	}
 	normalizedDocs, contexts := normalizeDocumentContextIDs(docs.Documents)
-	r := &docResolver{
-		docs:                  normalizedDocs,
-		names:                 make(map[Name]struct{}),
-		contexts:              contexts,
-		builtins:              make(map[Name]TypeRef),
-		types:                 make(map[Name]TypeID),
-		elements:              make(map[Name]ElementID),
-		attrs:                 make(map[Name]AttributeID),
-		groups:                make(map[Name]*ast.GroupDecl),
-		attrgrps:              make(map[Name]*ast.AttributeGroupDecl),
-		notations:             make(map[Name]struct{}),
-		globalElems:           make(map[Name]*ast.ElementDecl),
-		globalAttrs:           make(map[Name]*ast.AttributeDecl),
-		simpleDecls:           make(map[simpleDeclID]*ast.SimpleTypeDecl),
-		complexDecls:          make(map[complexDeclID]*ast.ComplexTypeDecl),
-		elementDecls:          make(map[elementDeclID]*ast.ElementDecl),
-		attributeDecls:        make(map[attributeDeclID]*ast.AttributeDecl),
-		simpleDeclHandles:     make(map[*ast.SimpleTypeDecl]simpleDeclID),
-		complexDeclHandles:    make(map[*ast.ComplexTypeDecl]complexDeclID),
-		elementDeclHandles:    make(map[*ast.ElementDecl]elementDeclID),
-		attributeDeclHandles:  make(map[*ast.AttributeDecl]attributeDeclID),
-		simpleIDs:             make(map[simpleDeclID]TypeID),
-		simpleByID:            make(map[TypeID]simpleDeclID),
-		complexIDs:            make(map[complexDeclID]TypeID),
-		complexByID:           make(map[TypeID]complexDeclID),
-		elemByID:              make(map[ElementID]elementDeclID),
-		attrByID:              make(map[AttributeID]attributeDeclID),
-		localElems:            make(map[elementDeclID]ElementID),
-		localAttrs:            make(map[attributeDeclID]AttributeID),
-		assignedSimpleTrees:   make(map[simpleDeclID]bool),
-		assigningSimpleTrees:  make(map[simpleDeclID]bool),
-		assignedComplexTrees:  make(map[complexDeclID]bool),
-		assigningComplexTrees: make(map[complexDeclID]bool),
-		emittedTypes:          make(map[TypeID]bool),
-		emittingTypes:         make(map[TypeID]bool),
-		emittedComplex:        make(map[TypeID]bool),
-		emittedElems:          make(map[ElementID]bool),
-		emittedAttrs:          make(map[AttributeID]bool),
-		identityNames:         make(map[Name]IdentityID),
-		identityKeys:          make(map[Name]IdentityID),
-		nextType:              1,
-		nextElem:              1,
-		nextAttr:              1,
-	}
+	r := newDocResolver(normalizedDocs, contexts)
 	if err := r.resolve(); err != nil {
 		return nil, err
 	}
 	return &r.out, nil
+}
+
+func newDocResolver(docs []ast.SchemaDocument, contexts map[ast.NamespaceContextID]ast.NamespaceContext) *docResolver {
+	return &docResolver{
+		docResolverDocs: docResolverDocs{
+			docs:     docs,
+			names:    make(map[Name]struct{}),
+			contexts: contexts,
+		},
+		docResolverGlobals: docResolverGlobals{
+			builtins:    make(map[Name]TypeRef),
+			types:       make(map[Name]TypeID),
+			elements:    make(map[Name]ElementID),
+			attrs:       make(map[Name]AttributeID),
+			groups:      make(map[Name]*ast.GroupDecl),
+			attrgrps:    make(map[Name]*ast.AttributeGroupDecl),
+			notations:   make(map[Name]struct{}),
+			globalElems: make(map[Name]*ast.ElementDecl),
+			globalAttrs: make(map[Name]*ast.AttributeDecl),
+		},
+		docResolverDecls: docResolverDecls{
+			simpleDecls:          make(map[simpleDeclID]*ast.SimpleTypeDecl),
+			complexDecls:         make(map[complexDeclID]*ast.ComplexTypeDecl),
+			elementDecls:         make(map[elementDeclID]*ast.ElementDecl),
+			attributeDecls:       make(map[attributeDeclID]*ast.AttributeDecl),
+			simpleDeclHandles:    make(map[*ast.SimpleTypeDecl]simpleDeclID),
+			complexDeclHandles:   make(map[*ast.ComplexTypeDecl]complexDeclID),
+			elementDeclHandles:   make(map[*ast.ElementDecl]elementDeclID),
+			attributeDeclHandles: make(map[*ast.AttributeDecl]attributeDeclID),
+		},
+		docResolverIDs: docResolverIDs{
+			simpleIDs:   make(map[simpleDeclID]TypeID),
+			simpleByID:  make(map[TypeID]simpleDeclID),
+			complexIDs:  make(map[complexDeclID]TypeID),
+			complexByID: make(map[TypeID]complexDeclID),
+			elemByID:    make(map[ElementID]elementDeclID),
+			attrByID:    make(map[AttributeID]attributeDeclID),
+			localElems:  make(map[elementDeclID]ElementID),
+			localAttrs:  make(map[attributeDeclID]AttributeID),
+		},
+		docResolverState: docResolverState{
+			assignedSimpleTrees:   make(map[simpleDeclID]bool),
+			assigningSimpleTrees:  make(map[simpleDeclID]bool),
+			assignedComplexTrees:  make(map[complexDeclID]bool),
+			assigningComplexTrees: make(map[complexDeclID]bool),
+			emittedTypes:          make(map[TypeID]bool),
+			emittingTypes:         make(map[TypeID]bool),
+			emittedComplex:        make(map[TypeID]bool),
+			emittedElems:          make(map[ElementID]bool),
+			emittedAttrs:          make(map[AttributeID]bool),
+		},
+		docResolverIdentity: docResolverIdentity{
+			identityNames:  make(map[Name]IdentityID),
+			identityKeys:   make(map[Name]IdentityID),
+			particleChecks: nil,
+		},
+		docResolverCounters: docResolverCounters{
+			nextType: 1,
+			nextElem: 1,
+			nextAttr: 1,
+		},
+	}
 }
 
 func (r *docResolver) resolve() error {
@@ -1288,6 +1331,8 @@ func (r *docResolver) simpleContentRestrictionSpec(
 	baseTextRef TypeRef,
 	baseSpec SimpleTypeSpec,
 ) (SimpleTypeSpec, error) {
+	specRef := baseTextRef
+	source := baseSpec
 	if decl.SimpleType != nil {
 		inlineID, err := r.ensureSimpleType(decl.SimpleType, false)
 		if err != nil {
@@ -1304,32 +1349,22 @@ func (r *docResolver) simpleContentRestrictionSpec(
 		if !ok {
 			return SimpleTypeSpec{}, fmt.Errorf("schema ir: nested simpleContent simpleType %d has no simple value type", inlineID)
 		}
-		inlineSpec.IntegerDerived = false
-		inlineSpec.Whitespace = WhitespacePreserve
-		r.setSimpleTypeSpec(inlineSpec)
+		specRef = inlineRef
+		source = inlineSpec
 	}
 	spec := SimpleTypeSpec{
-		Base:            baseTextRef,
-		Variety:         baseSpec.Variety,
-		Item:            baseSpec.Item,
-		Primitive:       baseSpec.Primitive,
-		BuiltinBase:     baseSpec.BuiltinBase,
-		Whitespace:      baseSpec.Whitespace,
-		QNameOrNotation: baseSpec.QNameOrNotation,
-		IntegerDerived:  baseSpec.IntegerDerived,
+		Base:            specRef,
+		Variety:         source.Variety,
+		Item:            source.Item,
+		Primitive:       source.Primitive,
+		BuiltinBase:     source.BuiltinBase,
+		Whitespace:      source.Whitespace,
+		QNameOrNotation: source.QNameOrNotation,
+		IntegerDerived:  source.IntegerDerived,
 	}
-	spec.Members = append(spec.Members, baseSpec.Members...)
-	spec.Facets = append(spec.Facets, baseSpec.Facets...)
+	spec.Members = append(spec.Members, source.Members...)
+	spec.Facets = append(spec.Facets, source.Facets...)
 	return spec, nil
-}
-
-func (r *docResolver) setSimpleTypeSpec(spec SimpleTypeSpec) {
-	for i := range r.out.SimpleTypes {
-		if r.out.SimpleTypes[i].TypeDecl == spec.TypeDecl {
-			r.out.SimpleTypes[i] = spec
-			return
-		}
-	}
 }
 
 func (r *docResolver) validateSimpleContentInlineRestriction(base TypeRef, inline TypeRef) error {

@@ -320,6 +320,47 @@ func TestLoaderLoadDocumentsCollectsIncludesAndImports(t *testing.T) {
 	}
 }
 
+func TestLoaderLoadDocumentsRemapsChameleonIncludePerNamespace(t *testing.T) {
+	loader := NewLoader(LoaderConfig{
+		FS: fstest.MapFS{
+			"root.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+		targetNamespace="urn:a"
+		xmlns:a="urn:a"
+		elementFormDefault="qualified">
+	  <xs:include schemaLocation="common.xsd"/>
+	  <xs:import namespace="urn:b" schemaLocation="b.xsd"/>
+	  <xs:element name="rootA" type="xs:string"/>
+	</xs:schema>`)},
+			"b.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+		targetNamespace="urn:b"
+		xmlns:b="urn:b"
+		elementFormDefault="qualified">
+	  <xs:include schemaLocation="common.xsd"/>
+	  <xs:element name="rootB" type="xs:string"/>
+	</xs:schema>`)},
+			"common.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="common" type="xs:string"/>
+	</xs:schema>`)},
+		},
+	})
+
+	docs, err := loader.LoadDocuments("root.xsd")
+	if err != nil {
+		t.Fatalf("LoadDocuments() error = %v", err)
+	}
+	for _, qname := range []schemaast.QName{
+		{Namespace: "urn:a", Local: "common"},
+		{Namespace: "urn:b", Local: "common"},
+	} {
+		if !documentSetHasElement(docs, qname) {
+			t.Fatalf("LoadDocuments() missing remapped chameleon element %v", qname)
+		}
+	}
+}
+
 func documentSetHasElement(docs *schemaast.DocumentSet, name schemaast.QName) bool {
 	if docs == nil {
 		return false

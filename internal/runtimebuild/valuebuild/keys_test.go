@@ -58,6 +58,86 @@ func TestValueKeysForNormalizedUseRuntimeEncoding(t *testing.T) {
 			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "boolean", "1", nil)},
 		},
 		{
+			name:       "string",
+			lexical:    "abc",
+			normalized: "abc",
+			spec: schemair.SimpleTypeSpec{
+				Primitive:  "string",
+				Whitespace: schemair.WhitespacePreserve,
+			},
+			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "string", "abc", nil)},
+		},
+		{
+			name:       "anyURI",
+			lexical:    "urn:item",
+			normalized: "urn:item",
+			spec: schemair.SimpleTypeSpec{
+				Primitive:  "anyURI",
+				Whitespace: schemair.WhitespaceCollapse,
+			},
+			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "anyURI", "urn:item", nil)},
+		},
+		{
+			name:       "hexBinary",
+			lexical:    "0a0B",
+			normalized: "0a0B",
+			spec: schemair.SimpleTypeSpec{
+				Primitive:  "hexBinary",
+				Whitespace: schemair.WhitespaceCollapse,
+			},
+			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "hexBinary", "0a0B", nil)},
+		},
+		{
+			name:       "base64Binary",
+			lexical:    "AQID",
+			normalized: "AQID",
+			spec: schemair.SimpleTypeSpec{
+				Primitive:  "base64Binary",
+				Whitespace: schemair.WhitespaceCollapse,
+			},
+			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "base64Binary", "AQID", nil)},
+		},
+		{
+			name:       "float",
+			lexical:    "-0",
+			normalized: "-0",
+			spec: schemair.SimpleTypeSpec{
+				Primitive:  "float",
+				Whitespace: schemair.WhitespaceCollapse,
+			},
+			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "float", "-0", nil)},
+		},
+		{
+			name:       "double",
+			lexical:    "NaN",
+			normalized: "NaN",
+			spec: schemair.SimpleTypeSpec{
+				Primitive:  "double",
+				Whitespace: schemair.WhitespaceCollapse,
+			},
+			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "double", "NaN", nil)},
+		},
+		{
+			name:       "duration",
+			lexical:    "P1Y2M3DT4H5M6S",
+			normalized: "P1Y2M3DT4H5M6S",
+			spec: schemair.SimpleTypeSpec{
+				Primitive:  "duration",
+				Whitespace: schemair.WhitespaceCollapse,
+			},
+			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "duration", "P1Y2M3DT4H5M6S", nil)},
+		},
+		{
+			name:       "dateTime",
+			lexical:    "2024-01-02T03:04:05Z",
+			normalized: "2024-01-02T03:04:05Z",
+			spec: schemair.SimpleTypeSpec{
+				Primitive:  "dateTime",
+				Whitespace: schemair.WhitespaceCollapse,
+			},
+			want: []runtime.ValueKey{runtimeKeyForPrimitive(t, "dateTime", "2024-01-02T03:04:05Z", nil)},
+		},
+		{
 			name:       "list",
 			lexical:    "01 1",
 			normalized: "01 1",

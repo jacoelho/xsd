@@ -1,10 +1,6 @@
 package runtime
 
-import (
-	"testing"
-
-	"github.com/jacoelho/xsd/internal/schemaast"
-)
+import "testing"
 
 func TestWildcardAcceptsEnumerationWithBytesFallback(t *testing.T) {
 	builder := NewBuilder()
@@ -152,61 +148,83 @@ func TestSchemaWildcardAccepts(t *testing.T) {
 	}
 }
 
-func TestWildcardAcceptsModelParity(t *testing.T) {
+func TestWildcardAcceptsExpectedNamespaces(t *testing.T) {
 	tests := []struct {
-		name       string
-		constraint schemaast.NamespaceConstraint
-		list       []schemaast.NamespaceURI
-		target     schemaast.NamespaceURI
+		name string
+		rule WildcardRule
+		list []string
+		want map[string]bool
 	}{
 		{
-			name:       "any",
-			constraint: schemaast.NSCAny,
+			name: "any",
+			rule: WildcardRule{NS: NSConstraint{Kind: NSAny}},
+			want: map[string]bool{
+				"":           true,
+				"urn:target": true,
+				"urn:list":   true,
+				"urn:other":  true,
+			},
 		},
 		{
-			name:       "other",
-			constraint: schemaast.NSCOther,
-			target:     "urn:target",
+			name: "other",
+			rule: WildcardRule{NS: NSConstraint{Kind: NSOther, HasTarget: true}},
+			want: map[string]bool{
+				"":           false,
+				"urn:target": false,
+				"urn:list":   true,
+				"urn:other":  true,
+			},
 		},
 		{
-			name:       "not absent",
-			constraint: schemaast.NSCNotAbsent,
-			target:     "urn:target",
+			name: "not absent",
+			rule: WildcardRule{NS: NSConstraint{Kind: NSNotAbsent}},
+			want: map[string]bool{
+				"":           false,
+				"urn:target": true,
+				"urn:list":   true,
+				"urn:other":  true,
+			},
 		},
 		{
-			name:       "target namespace",
-			constraint: schemaast.NSCTargetNamespace,
-			target:     "urn:target",
+			name: "target namespace",
+			rule: WildcardRule{NS: NSConstraint{Kind: NSEnumeration, HasTarget: true}},
+			want: map[string]bool{
+				"":           false,
+				"urn:target": true,
+				"urn:list":   false,
+				"urn:other":  false,
+			},
 		},
 		{
-			name:       "local",
-			constraint: schemaast.NSCLocal,
-			target:     "urn:target",
+			name: "local",
+			rule: WildcardRule{NS: NSConstraint{Kind: NSEnumeration, HasLocal: true}},
+			want: map[string]bool{
+				"":           true,
+				"urn:target": false,
+				"urn:list":   false,
+				"urn:other":  false,
+			},
 		},
 		{
-			name:       "list with placeholder and local",
-			constraint: schemaast.NSCList,
-			target:     "urn:target",
-			list: []schemaast.NamespaceURI{
-				schemaast.NamespaceTargetPlaceholder,
-				schemaast.NamespaceURI("urn:list"),
-				schemaast.NamespaceEmpty,
+			name: "list with target and local",
+			rule: WildcardRule{NS: NSConstraint{Kind: NSEnumeration, HasTarget: true, HasLocal: true}},
+			list: []string{"urn:list"},
+			want: map[string]bool{
+				"":           true,
+				"urn:target": true,
+				"urn:list":   true,
+				"urn:other":  false,
 			},
 		},
 	}
 
-	candidates := []schemaast.NamespaceURI{
-		schemaast.NamespaceEmpty,
-		schemaast.NamespaceURI("urn:target"),
-		schemaast.NamespaceURI("urn:list"),
-		schemaast.NamespaceURI("urn:other"),
-	}
+	candidates := []string{"", "urn:target", "urn:list", "urn:other"}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := NewBuilder()
-			nsIDs := make(map[schemaast.NamespaceURI]NamespaceID)
-			register := func(ns schemaast.NamespaceURI) {
+			nsIDs := make(map[string]NamespaceID)
+			register := func(ns string) {
 				if ns == "" {
 					return
 				}
@@ -219,11 +237,8 @@ func TestWildcardAcceptsModelParity(t *testing.T) {
 				}
 				nsIDs[ns] = id
 			}
-			register(tc.target)
+			register("urn:target")
 			for _, ns := range tc.list {
-				if ns == schemaast.NamespaceTargetPlaceholder {
-					continue
-				}
 				register(ns)
 			}
 			for _, ns := range candidates {
@@ -235,12 +250,16 @@ func TestWildcardAcceptsModelParity(t *testing.T) {
 				t.Fatalf("Build() error = %v", err)
 			}
 
-			rule, nsList := runtimeRuleFromModel(tc.constraint, tc.list, tc.target, nsIDs)
+			rule := tc.rule
+			if rule.NS.HasTarget {
+				rule.TargetNS = nsIDs["urn:target"]
+			}
+			nsList := namespaceIDList(tc.list, nsIDs)
 			for _, ns := range candidates {
-				want := schemaast.AllowsNamespace(tc.constraint, tc.list, tc.target, ns)
+				want := tc.want[ns]
 
 				var nsID NamespaceID
-				if ns == schemaast.NamespaceEmpty {
+				if ns == "" {
 					nsID = schema.PredefNS.Empty
 				} else {
 					nsID = nsIDs[ns]
@@ -251,7 +270,7 @@ func TestWildcardAcceptsModelParity(t *testing.T) {
 				}
 
 				nsBytes := []byte(ns)
-				if ns == schemaast.NamespaceEmpty {
+				if ns == "" {
 					nsBytes = nil
 				}
 				gotByBytes := rule.Accepts(nsBytes, 0, &schema.Namespaces, nsList)
@@ -263,47 +282,10 @@ func TestWildcardAcceptsModelParity(t *testing.T) {
 	}
 }
 
-func runtimeRuleFromModel(
-	constraint schemaast.NamespaceConstraint,
-	list []schemaast.NamespaceURI,
-	target schemaast.NamespaceURI,
-	nsIDs map[schemaast.NamespaceURI]NamespaceID,
-) (WildcardRule, []NamespaceID) {
-	rule := WildcardRule{}
-	if target != "" {
-		rule.TargetNS = nsIDs[target]
+func namespaceIDList(list []string, nsIDs map[string]NamespaceID) []NamespaceID {
+	out := make([]NamespaceID, 0, len(list))
+	for _, ns := range list {
+		out = append(out, nsIDs[ns])
 	}
-	var nsList []NamespaceID
-
-	switch constraint {
-	case schemaast.NSCAny:
-		rule.NS.Kind = NSAny
-	case schemaast.NSCOther:
-		rule.NS.Kind = NSOther
-		rule.NS.HasTarget = true
-	case schemaast.NSCNotAbsent:
-		rule.NS.Kind = NSNotAbsent
-	case schemaast.NSCTargetNamespace:
-		rule.NS.Kind = NSEnumeration
-		rule.NS.HasTarget = true
-	case schemaast.NSCLocal:
-		rule.NS.Kind = NSEnumeration
-		rule.NS.HasLocal = true
-	case schemaast.NSCList:
-		rule.NS.Kind = NSEnumeration
-		for _, ns := range list {
-			switch ns {
-			case schemaast.NamespaceTargetPlaceholder:
-				rule.NS.HasTarget = true
-			case schemaast.NamespaceEmpty:
-				rule.NS.HasLocal = true
-			default:
-				nsList = append(nsList, nsIDs[ns])
-			}
-		}
-	default:
-		rule.NS.Kind = NSAny
-	}
-
-	return rule, nsList
+	return out
 }
