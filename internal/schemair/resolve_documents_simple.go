@@ -1,6 +1,7 @@
 package schemair
 
 import (
+	"bytes"
 	"cmp"
 	"errors"
 	"fmt"
@@ -234,27 +235,37 @@ func (r *docResolver) validateEnumerationLexicalValues(spec SimpleTypeSpec, ownF
 }
 
 func (r *docResolver) validateSpecLexicalValue(spec SimpleTypeSpec, lexical string, ctx map[string]string, seen map[TypeRef]bool) error {
+	return validateSpecLexicalValueWithResolver(spec, lexical, ctx, r.specForRef, seen)
+}
+
+func validateSpecLexicalValueWithResolver(
+	spec SimpleTypeSpec,
+	lexical string,
+	ctx map[string]string,
+	resolve ValueSpecResolver,
+	seen map[TypeRef]bool,
+) error {
 	normalized := value.NormalizeWhitespace(valueWhitespaceMode(spec.Whitespace), []byte(lexical), nil)
 	switch spec.Variety {
 	case TypeVarietyList:
 		if isZeroTypeRef(spec.Item) {
 			return nil
 		}
-		item, ok := r.specForRef(spec.Item)
+		item, ok := resolve(spec.Item)
 		if !ok {
 			return fmt.Errorf("list item type %s not found", formatName(spec.Item.Name))
 		}
 		count := 0
 		for itemLex := range value.FieldsXMLWhitespaceStringSeq(string(normalized)) {
 			count++
-			if err := r.validateSpecLexicalValue(item, itemLex, ctx, seen); err != nil {
+			if err := validateSpecLexicalValueWithResolver(item, itemLex, ctx, resolve, seen); err != nil {
 				return err
 			}
 		}
 		if err := validateListValueLength(spec, count); err != nil {
 			return err
 		}
-		return validateSpecConstrainingFacets(spec, string(normalized), ctx)
+		return validateSpecConstrainingFacets(spec, string(normalized), ctx, resolve)
 	case TypeVarietyUnion:
 		var lastErr error
 		for _, memberRef := range spec.Members {
@@ -266,16 +277,16 @@ func (r *docResolver) validateSpecLexicalValue(spec SimpleTypeSpec, lexical stri
 				branchSeen[ref] = ok
 			}
 			branchSeen[memberRef] = true
-			member, ok := r.specForRef(memberRef)
+			member, ok := resolve(memberRef)
 			if !ok {
 				lastErr = fmt.Errorf("union member type %s not found", formatName(memberRef.Name))
 				continue
 			}
-			if err := r.validateSpecLexicalValue(member, lexical, ctx, branchSeen); err != nil {
+			if err := validateSpecLexicalValueWithResolver(member, lexical, ctx, resolve, branchSeen); err != nil {
 				lastErr = err
 				continue
 			}
-			if err := validateSpecConstrainingFacets(spec, string(normalized), ctx); err != nil {
+			if err := validateSpecConstrainingFacets(spec, string(normalized), ctx, resolve); err != nil {
 				return err
 			}
 			return nil
@@ -288,12 +299,12 @@ func (r *docResolver) validateSpecLexicalValue(spec SimpleTypeSpec, lexical stri
 		if err := validateAtomicLexicalValue(validationBuiltinName(spec), string(normalized), ctx); err != nil {
 			return err
 		}
-		return validateSpecConstrainingFacets(spec, string(normalized), ctx)
+		return validateSpecConstrainingFacets(spec, string(normalized), ctx, resolve)
 	}
 }
 
-func validateSpecConstrainingFacets(spec SimpleTypeSpec, normalized string, ctx map[string]string) error {
-	if err := validateSpecEnumerationFacets(spec, normalized, ctx); err != nil {
+func validateSpecConstrainingFacets(spec SimpleTypeSpec, normalized string, ctx map[string]string, resolve ValueSpecResolver) error {
+	if err := validateSpecEnumerationFacets(spec, normalized, ctx, resolve); err != nil {
 		return err
 	}
 	if err := validateSpecPatternFacets(spec, normalized); err != nil {
@@ -302,31 +313,37 @@ func validateSpecConstrainingFacets(spec SimpleTypeSpec, normalized string, ctx 
 	return validateSpecRangeFacets(spec, normalized)
 }
 
-func validateSpecEnumerationFacets(spec SimpleTypeSpec, normalized string, ctx map[string]string) error {
+func validateSpecEnumerationFacets(spec SimpleTypeSpec, normalized string, ctx map[string]string, resolve ValueSpecResolver) error {
 	values := enumFacetValues(spec.Facets)
 	if len(values) == 0 {
 		return nil
 	}
-	for _, value := range values {
-		if specEnumerationValueMatches(spec, normalized, ctx, value) {
-			return nil
+	keys, err := ValueKeysForNormalized(normalized, normalized, spec, ctx, resolve)
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		for _, value := range values {
+			enumNorm := NormalizeValueLexical(value.Lexical, spec)
+			enumKeys, err := ValueKeysForNormalized(value.Lexical, enumNorm, spec, value.Context, resolve)
+			if err != nil {
+				return err
+			}
+			if valueKeySetContains(enumKeys, key) {
+				return nil
+			}
 		}
 	}
 	return fmt.Errorf("value not in enumeration")
 }
 
-func specEnumerationValueMatches(spec SimpleTypeSpec, normalized string, ctx map[string]string, candidate FacetValue) bool {
-	enumNormalized := value.NormalizeWhitespace(valueWhitespaceMode(spec.Whitespace), []byte(candidate.Lexical), nil)
-	enumValue := string(enumNormalized)
-	if spec.QNameOrNotation || validationBuiltinName(spec) == "QName" || validationBuiltinName(spec) == "NOTATION" {
-		left, leftErr := xsdlex.ParseQNameValue(normalized, ctx)
-		right, rightErr := xsdlex.ParseQNameValue(enumValue, candidate.Context)
-		return leftErr == nil && rightErr == nil && left == right
+func valueKeySetContains(values []ValueKey, candidate ValueKey) bool {
+	for _, value := range values {
+		if value.Kind == candidate.Kind && bytes.Equal(value.Bytes, candidate.Bytes) {
+			return true
+		}
 	}
-	if cmp, err := compareRangeFacetValues(spec, normalized, enumValue); err == nil {
-		return cmp == 0
-	}
-	return normalized == enumValue
+	return false
 }
 
 func validateSpecPatternFacets(spec SimpleTypeSpec, normalized string) error {
@@ -1099,36 +1116,27 @@ func coalesceFacetSpecs(facets []FacetSpec) []FacetSpec {
 }
 
 func (r *docResolver) validateRestrictionEnumerations(spec SimpleTypeSpec) error {
-	values := enumValues(spec.Facets)
+	values := enumFacetValues(spec.Facets)
 	if len(values) == 0 || isZeroTypeRef(spec.Base) {
 		return nil
 	}
-	allowed := r.allowedEnumValues(spec.Base, make(map[TypeRef]bool))
+	allowed := r.allowedEnumValueKeys(spec.Base, make(map[TypeRef]bool))
 	if len(allowed) == 0 {
 		return nil
 	}
-	for value := range values {
-		if !allowed[value] {
-			return fmt.Errorf("schema ir: enumeration value %q is not valid for base type %s", value, formatName(spec.Base.Name))
+	for _, value := range values {
+		keys, err := ValueKeysForLexical(value.Lexical, spec, value.Context, r.specForRef)
+		if err != nil {
+			return err
+		}
+		if !valueKeysIntersectLookup(keys, allowed) {
+			return fmt.Errorf("schema ir: enumeration value %q is not valid for base type %s", value.Lexical, formatName(spec.Base.Name))
 		}
 	}
 	return nil
 }
 
-func enumValues(facets []FacetSpec) map[string]bool {
-	values := make(map[string]bool)
-	for _, facet := range facets {
-		if facet.Kind != FacetEnumeration {
-			continue
-		}
-		for _, value := range facet.Values {
-			values[value.Lexical] = true
-		}
-	}
-	return values
-}
-
-func (r *docResolver) allowedEnumValues(ref TypeRef, seen map[TypeRef]bool) map[string]bool {
+func (r *docResolver) allowedEnumValueKeys(ref TypeRef, seen map[TypeRef]bool) map[string]struct{} {
 	if seen[ref] {
 		return nil
 	}
@@ -1137,23 +1145,53 @@ func (r *docResolver) allowedEnumValues(ref TypeRef, seen map[TypeRef]bool) map[
 	if !ok {
 		return nil
 	}
-	if values := enumValues(spec.Facets); len(values) > 0 {
-		return values
+	if values := enumFacetValues(spec.Facets); len(values) > 0 {
+		out := make(map[string]struct{}, len(values))
+		for _, value := range values {
+			keys, err := ValueKeysForLexical(value.Lexical, spec, value.Context, r.specForRef)
+			if err != nil {
+				return nil
+			}
+			addValueKeysToLookup(out, keys)
+		}
+		return out
 	}
 	if spec.Variety != TypeVarietyUnion {
 		return nil
 	}
-	out := make(map[string]bool)
+	out := make(map[string]struct{})
 	for _, member := range spec.Members {
-		values := r.allowedEnumValues(member, seen)
+		values := r.allowedEnumValueKeys(member, seen)
 		if len(values) == 0 {
 			return nil
 		}
 		for value := range values {
-			out[value] = true
+			out[value] = struct{}{}
 		}
 	}
 	return out
+}
+
+func addValueKeysToLookup(dst map[string]struct{}, keys []ValueKey) {
+	for _, key := range keys {
+		dst[valueKeyLookup(key)] = struct{}{}
+	}
+}
+
+func valueKeysIntersectLookup(keys []ValueKey, lookup map[string]struct{}) bool {
+	for _, key := range keys {
+		if _, ok := lookup[valueKeyLookup(key)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func valueKeyLookup(key ValueKey) string {
+	buf := make([]byte, 1, 1+len(key.Bytes))
+	buf[0] = byte(key.Kind)
+	buf = append(buf, key.Bytes...)
+	return string(buf)
 }
 
 func (r *docResolver) simpleItemRef(decl *ast.SimpleTypeDecl) (TypeRef, error) {

@@ -182,19 +182,19 @@ func (c *artifactCompiler) validateRangeFacet(op runtime.FacetOp, normalized str
 }
 
 func validateEnumerationFacet(c *artifactCompiler, facet schemair.FacetSpec, normalized string, spec schemair.SimpleTypeSpec, ctx map[string]string) error {
-	keys, err := c.keyBytesForNormalized(normalized, normalized, spec, ctx)
+	keys, err := c.irValueKeysForNormalized(normalized, normalized, spec, ctx)
 	if err != nil {
 		return err
 	}
 	for _, candidate := range keys {
 		for _, value := range facet.Values {
 			enumNorm := c.normalizeLexical(value.Lexical, spec)
-			enumKeys, err := c.keyBytesForNormalized(value.Lexical, enumNorm, spec, value.Context)
+			enumKeys, err := c.irValueKeysForNormalized(value.Lexical, enumNorm, spec, value.Context)
 			if err != nil {
 				return err
 			}
 			for _, enumKey := range enumKeys {
-				if candidate.kind == enumKey.kind && bytes.Equal(candidate.bytes, enumKey.bytes) {
+				if candidate.Kind == enumKey.Kind && bytes.Equal(candidate.Bytes, enumKey.Bytes) {
 					return nil
 				}
 			}
@@ -212,7 +212,7 @@ func (c *artifactCompiler) validateEnumSets(lexical, normalized string, spec sch
 	if len(enumIDs) == 0 {
 		return nil
 	}
-	keys, err := c.keyBytesForNormalized(lexical, normalized, spec, ctx)
+	keys, err := c.irValueKeysForNormalized(lexical, normalized, spec, ctx)
 	if err != nil {
 		return err
 	}
@@ -221,9 +221,13 @@ func (c *artifactCompiler) validateEnumSets(lexical, normalized string, spec sch
 	}
 	table := c.enums.table()
 	for _, key := range keys {
+		kind, err := runtimeValueKind(key.Kind)
+		if err != nil {
+			return err
+		}
 		matched := true
 		for _, enumID := range enumIDs {
-			if !runtime.EnumContains(&table, enumID, key.kind, key.bytes) {
+			if !runtime.EnumContains(&table, enumID, kind, key.Bytes) {
 				matched = false
 				break
 			}

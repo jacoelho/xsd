@@ -1256,6 +1256,154 @@ func TestResolveDocumentSetRejectsInvalidEnumerationLexicalValue(t *testing.T) {
 	}
 }
 
+func TestResolveDocumentSetAllowsDecimalEnumerationRestrictionByValue(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:decimal">
+      <xs:enumeration value="1.0"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="Base">
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
+func TestResolveDocumentSetAllowsBooleanEnumerationRestrictionByValue(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:boolean">
+      <xs:enumeration value="true"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="Base">
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
+func TestResolveDocumentSetAllowsIntegerEnumerationRestrictionByValue(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:int">
+      <xs:enumeration value="01"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="Base">
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
+func TestResolveDocumentSetAllowsListEnumerationRestrictionByValue(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="IntList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="Base">
+    <xs:restriction base="IntList">
+      <xs:enumeration value=" 01  2 "/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="Base">
+      <xs:enumeration value="1 2"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
+func TestResolveDocumentSetRejectsEnumerationRestrictionOutsideBaseValueSpace(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:decimal">
+      <xs:enumeration value="1.0"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="Base">
+      <xs:enumeration value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	_, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{})
+	if err == nil {
+		t.Fatal("Resolve() expected error")
+	}
+	if got, want := err.Error(), `value not in enumeration`; !strings.Contains(got, want) {
+		t.Fatalf("Resolve() error = %q, want %q", got, want)
+	}
+}
+
+func TestResolveDocumentSetAllowsQNameEnumerationRestrictionByExpandedName(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:q" xmlns:b="urn:q">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:QName">
+      <xs:enumeration value="a:item"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="Base">
+      <xs:enumeration value="b:item"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
+func TestResolveDocumentSetAllowsNotationEnumerationRestrictionByExpandedName(t *testing.T) {
+	doc := parseDocumentForIRTest(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:n" xmlns:b="urn:n" targetNamespace="urn:n">
+  <xs:notation name="item" public="urn:item"/>
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:NOTATION">
+      <xs:enumeration value="a:item"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="a:Base">
+      <xs:enumeration value="b:item"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`)
+
+	if _, err := Resolve(&schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*doc}}, ResolveConfig{}); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+}
+
 func TestResolveDocumentSetRejectsEmptyListEnumerationLexicalValue(t *testing.T) {
 	doc := parseDocumentForIRTest(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
