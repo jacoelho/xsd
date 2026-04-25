@@ -3371,7 +3371,7 @@ func TestResolveDocumentSetRejectsComplexContentExtensionSimpleBase(t *testing.T
 	}
 }
 
-func parseDocumentForIRTest(t *testing.T, src string) *schemaast.SchemaDocument {
+func parseDocumentForIRTest(t testing.TB, src string) *schemaast.SchemaDocument {
 	t.Helper()
 	result, err := schemaast.ParseDocumentWithImportsOptions(strings.NewReader(src))
 	if err != nil {

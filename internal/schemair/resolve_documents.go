@@ -30,6 +30,11 @@ type docResolver struct {
 	elementDecls   map[elementDeclID]*ast.ElementDecl
 	attributeDecls map[attributeDeclID]*ast.AttributeDecl
 
+	simpleDeclHandles    map[*ast.SimpleTypeDecl]simpleDeclID
+	complexDeclHandles   map[*ast.ComplexTypeDecl]complexDeclID
+	elementDeclHandles   map[*ast.ElementDecl]elementDeclID
+	attributeDeclHandles map[*ast.AttributeDecl]attributeDeclID
+
 	simpleIDs   map[simpleDeclID]TypeID
 	simpleByID  map[TypeID]simpleDeclID
 	complexIDs  map[complexDeclID]TypeID
@@ -70,13 +75,12 @@ func (r *docResolver) simpleDeclHandle(decl *ast.SimpleTypeDecl) simpleDeclID {
 	if decl == nil {
 		return 0
 	}
-	for id, existing := range r.simpleDecls {
-		if existing == decl {
-			return id
-		}
+	if id, ok := r.simpleDeclHandles[decl]; ok {
+		return id
 	}
 	id := simpleDeclID(len(r.simpleDecls) + 1)
 	r.simpleDecls[id] = decl
+	r.simpleDeclHandles[decl] = id
 	return id
 }
 
@@ -84,13 +88,12 @@ func (r *docResolver) complexDeclHandle(decl *ast.ComplexTypeDecl) complexDeclID
 	if decl == nil {
 		return 0
 	}
-	for id, existing := range r.complexDecls {
-		if existing == decl {
-			return id
-		}
+	if id, ok := r.complexDeclHandles[decl]; ok {
+		return id
 	}
 	id := complexDeclID(len(r.complexDecls) + 1)
 	r.complexDecls[id] = decl
+	r.complexDeclHandles[decl] = id
 	return id
 }
 
@@ -98,13 +101,12 @@ func (r *docResolver) elementDeclHandle(decl *ast.ElementDecl) elementDeclID {
 	if decl == nil {
 		return 0
 	}
-	for id, existing := range r.elementDecls {
-		if existing == decl {
-			return id
-		}
+	if id, ok := r.elementDeclHandles[decl]; ok {
+		return id
 	}
 	id := elementDeclID(len(r.elementDecls) + 1)
 	r.elementDecls[id] = decl
+	r.elementDeclHandles[decl] = id
 	return id
 }
 
@@ -112,13 +114,12 @@ func (r *docResolver) attributeDeclHandle(decl *ast.AttributeDecl) attributeDecl
 	if decl == nil {
 		return 0
 	}
-	for id, existing := range r.attributeDecls {
-		if existing == decl {
-			return id
-		}
+	if id, ok := r.attributeDeclHandles[decl]; ok {
+		return id
 	}
 	id := attributeDeclID(len(r.attributeDecls) + 1)
 	r.attributeDecls[id] = decl
+	r.attributeDeclHandles[decl] = id
 	return id
 }
 
@@ -147,6 +148,10 @@ func resolveDocuments(docs *ast.DocumentSet) (*Schema, error) {
 		complexDecls:          make(map[complexDeclID]*ast.ComplexTypeDecl),
 		elementDecls:          make(map[elementDeclID]*ast.ElementDecl),
 		attributeDecls:        make(map[attributeDeclID]*ast.AttributeDecl),
+		simpleDeclHandles:     make(map[*ast.SimpleTypeDecl]simpleDeclID),
+		complexDeclHandles:    make(map[*ast.ComplexTypeDecl]complexDeclID),
+		elementDeclHandles:    make(map[*ast.ElementDecl]elementDeclID),
+		attributeDeclHandles:  make(map[*ast.AttributeDecl]attributeDeclID),
 		simpleIDs:             make(map[simpleDeclID]TypeID),
 		simpleByID:            make(map[TypeID]simpleDeclID),
 		complexIDs:            make(map[complexDeclID]TypeID),
