@@ -1,7 +1,7 @@
 package validator
 
 import (
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func newValidationError(code xsderrors.ErrorCode, msg string) error {

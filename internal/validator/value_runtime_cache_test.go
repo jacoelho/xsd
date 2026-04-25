@@ -3,9 +3,9 @@ package validator
 import (
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value/num"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestLengthListCountsItems(t *testing.T) {

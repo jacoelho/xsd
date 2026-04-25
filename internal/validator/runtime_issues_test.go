@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestValidateRootSeenOnError(t *testing.T) {
@@ -825,7 +825,7 @@ func mustValidationList(t *testing.T, err error) xsderrors.ValidationList {
 
 func hasValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) bool {
 	for _, v := range list {
-		if v.Code == string(code) {
+		if v.Code == code {
 			return true
 		}
 	}
@@ -835,7 +835,7 @@ func hasValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) 
 func countValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) int {
 	count := 0
 	for _, v := range list {
-		if v.Code == string(code) {
+		if v.Code == code {
 			count++
 		}
 	}

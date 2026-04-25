@@ -1,10 +1,10 @@
 package validator
 
-import "github.com/jacoelho/xsd/errors"
+import "github.com/jacoelho/xsd/internal/xsderrors"
 
-func hasViolationCode(violations []errors.Validation, code errors.ErrorCode) bool {
+func hasViolationCode(violations []xsderrors.Validation, code xsderrors.ErrorCode) bool {
 	for _, v := range violations {
-		if v.Code == string(code) {
+		if v.Code == code {
 			return true
 		}
 	}

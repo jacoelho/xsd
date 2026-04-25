@@ -1,16 +1,13 @@
-package compiler_test
+package compiler
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/compiler"
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
-func TestPrepareParityWithPrepareOwned(t *testing.T) {
+func TestPrepareDeterministicAcrossParses(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -25,50 +22,50 @@ func TestPrepareParityWithPrepareOwned(t *testing.T) {
   <xs:element name="root" type="tns:T"/>
 </xs:schema>`
 
-	parsedCloned, err := parser.Parse(strings.NewReader(schemaXML))
+	parsedCloned, err := parseDocumentSet(schemaXML)
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	parsedOwned, err := parser.Parse(strings.NewReader(schemaXML))
+	parsedSecond, err := parseDocumentSet(schemaXML)
 	if err != nil {
-		t.Fatalf("parse owned schema: %v", err)
+		t.Fatalf("parse second schema: %v", err)
 	}
 
-	preparedCloned, err := compiler.Prepare(parsedCloned)
+	preparedFirst, err := Prepare(parsedCloned)
 	if err != nil {
-		t.Fatalf("prepare cloned: %v", err)
+		t.Fatalf("prepare first: %v", err)
 	}
-	preparedOwned, err := compiler.PrepareOwned(parsedOwned)
+	preparedSecond, err := Prepare(parsedSecond)
 	if err != nil {
-		t.Fatalf("prepare owned: %v", err)
+		t.Fatalf("prepare second: %v", err)
 	}
 
-	cfg := compiler.BuildConfig{MaxDFAStates: 2048, MaxOccursLimit: 2048}
-	runtimeCloned, err := preparedCloned.Build(cfg)
+	cfg := BuildConfig{MaxDFAStates: 2048, MaxOccursLimit: 2048}
+	runtimeFirst, err := preparedFirst.Build(cfg)
 	if err != nil {
-		t.Fatalf("build runtime cloned: %v", err)
+		t.Fatalf("build runtime first: %v", err)
 	}
-	runtimeOwned, err := preparedOwned.Build(cfg)
+	runtimeSecond, err := preparedSecond.Build(cfg)
 	if err != nil {
-		t.Fatalf("build runtime owned: %v", err)
+		t.Fatalf("build runtime second: %v", err)
 	}
 
-	if runtimeOwned.BuildHash != runtimeCloned.BuildHash {
-		t.Fatalf("build hash mismatch: owned=%x cloned=%x", runtimeOwned.BuildHash, runtimeCloned.BuildHash)
+	if runtimeSecond.BuildHash != runtimeFirst.BuildHash {
+		t.Fatalf("build hash mismatch: second=%x first=%x", runtimeSecond.BuildHash, runtimeFirst.BuildHash)
 	}
-	if got, want := runtimeOwned.CanonicalDigest(), runtimeCloned.CanonicalDigest(); got != want {
-		t.Fatalf("canonical digest mismatch: owned=%x cloned=%x", got, want)
+	if got, want := runtimeSecond.CanonicalDigest(), runtimeFirst.CanonicalDigest(); got != want {
+		t.Fatalf("canonical digest mismatch: second=%x first=%x", got, want)
 	}
 }
 
 func TestPrepareRejectsNilSchema(t *testing.T) {
-	if _, err := compiler.Prepare(nil); err == nil {
+	if _, err := Prepare(nil); err == nil {
 		t.Fatal("Prepare(nil) expected error")
 	}
 }
 
 func TestPrepareResolvesTypeReferences(t *testing.T) {
-	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
+	docs, err := parseDocumentSet(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
            xmlns:tns="urn:test"
@@ -83,106 +80,91 @@ func TestPrepareResolvesTypeReferences(t *testing.T) {
       <xs:extension base="tns:Base"/>
     </xs:complexContent>
   </xs:complexType>
-</xs:schema>`))
+</xs:schema>`)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	prepared, err := compiler.Prepare(sch)
+	prepared, err := Prepare(docs)
 	if err != nil {
 		t.Fatalf("Prepare() error = %v", err)
 	}
-	derivedQName := model.QName{Namespace: "urn:test", Local: "Derived"}
+	derivedQName := schemaast.QName{Namespace: "urn:test", Local: "Derived"}
 
-	derived, ok := sch.TypeDefs[derivedQName].(*model.ComplexType)
-	if !ok || derived == nil {
+	var derived *schemaast.ComplexTypeDecl
+	for i := range docs.Documents[0].Decls {
+		decl := &docs.Documents[0].Decls[i]
+		if decl.Name == derivedQName {
+			derived = decl.ComplexType
+			break
+		}
+	}
+	if derived == nil {
 		t.Fatalf("expected complex type %s", derivedQName)
 	}
-	if derived.ResolvedBase != nil {
-		t.Fatal("expected input schema to remain unresolved")
+	if derived.Base != derivedQName && derived.Base.Local != "Base" {
+		t.Fatalf("expected lexical base to remain in input, got %s", derived.Base)
 	}
 
-	resolvedDerived, ok := prepared.Schema().TypeDefs[derivedQName].(*model.ComplexType)
-	if !ok || resolvedDerived == nil {
-		t.Fatalf("expected resolved complex type %s", derivedQName)
+	var found bool
+	for _, typ := range prepared.ir.Types {
+		if typ.Name.Namespace != derivedQName.Namespace || typ.Name.Local != derivedQName.Local {
+			continue
+		}
+		found = true
+		if typ.Base.ID == 0 && !typ.Base.Builtin {
+			t.Fatal("expected resolved base in IR")
+		}
 	}
-	if resolvedDerived.ResolvedBase == nil {
-		t.Fatal("expected ResolvedBase after Prepare()")
+	if !found {
+		t.Fatalf("expected IR type %s", derivedQName)
 	}
 }
 
 func TestPrepareReturnsIndependentClone(t *testing.T) {
-	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
+	docs, err := parseDocumentSet(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
-</xs:schema>`))
+</xs:schema>`)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	prepared, err := compiler.Prepare(sch)
+	prepared, err := Prepare(docs)
 	if err != nil {
 		t.Fatalf("Prepare() error = %v", err)
 	}
 
-	delete(sch.ElementDecls, model.QName{Local: "root"})
-	if _, ok := prepared.Schema().ElementDecls[model.QName{Local: "root"}]; !ok {
+	docs.Documents[0].Decls = nil
+	rt, err := prepared.Build(BuildConfig{})
+	if err != nil {
+		t.Fatalf("Build() after caller mutation error = %v", err)
+	}
+	if len(rt.GlobalElements) == 0 {
 		t.Fatal("prepared clone should remain independent from caller mutations")
 	}
 }
 
 func TestPrepareReturnsResolveErrors(t *testing.T) {
-	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
+	docs, err := parseDocumentSet(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="MissingType"/>
-</xs:schema>`))
+</xs:schema>`)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	_, err = compiler.Prepare(sch)
+	_, err = Prepare(docs)
 	if err == nil {
 		t.Fatal("Prepare() expected error for unresolved type")
 	}
-	if !strings.Contains(err.Error(), "prepare schema: resolve type references:") {
+	if !strings.Contains(err.Error(), "prepare schema: schema ir: type") {
 		t.Fatalf("error = %v, want resolve type references prefix", err)
 	}
 }
 
-func TestPrepareOwnedMatchesClonePath(t *testing.T) {
-	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="urn:test"
-           xmlns:tns="urn:test"
-           elementFormDefault="qualified">
-  <xs:complexType name="Base">
-    <xs:sequence>
-      <xs:element name="value" type="xs:string"/>
-    </xs:sequence>
-  </xs:complexType>
-  <xs:element name="root" type="tns:Base"/>
-</xs:schema>`))
-	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
-	}
-
-	clonedPrepared, err := compiler.Prepare(sch)
-	if err != nil {
-		t.Fatalf("Prepare() error = %v", err)
-	}
-	owned := parser.CloneSchema(sch)
-	ownedPrepared, err := compiler.PrepareOwned(owned)
-	if err != nil {
-		t.Fatalf("PrepareOwned() error = %v", err)
-	}
-
-	if !reflect.DeepEqual(clonedPrepared.Schema(), ownedPrepared.Schema()) {
-		t.Fatal("PrepareOwned() diverged from Prepare() clone behavior")
-	}
-}
-
-func TestPrepareOwnedAllocatesLessThanClonePath(t *testing.T) {
-	base, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
+func TestPrepareDoesNotMutateParsedSchema(t *testing.T) {
+	base, err := parseDocumentSet(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:alloc"
            xmlns:tns="urn:alloc"
@@ -202,26 +184,17 @@ func TestPrepareOwnedAllocatesLessThanClonePath(t *testing.T) {
     <xs:attribute name="a1" type="xs:string"/>
   </xs:complexType>
   <xs:element name="root" type="tns:T"/>
-</xs:schema>`))
+</xs:schema>`)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	const runs = 40
-	cloneAllocs := testing.AllocsPerRun(runs, func() {
-		input := parser.CloneSchema(base)
-		if _, prepareErr := compiler.Prepare(input); prepareErr != nil {
-			panic(prepareErr)
-		}
-	})
-	ownedAllocs := testing.AllocsPerRun(runs, func() {
-		input := parser.CloneSchema(base)
-		if _, prepareErr := compiler.PrepareOwned(input); prepareErr != nil {
-			panic(prepareErr)
-		}
-	})
-
-	if ownedAllocs >= cloneAllocs {
-		t.Fatalf("expected owned path to allocate less than clone path: owned=%.2f clone=%.2f", ownedAllocs, cloneAllocs)
+	root := base.Documents[0].Decls[len(base.Documents[0].Decls)-1].Element
+	before := root.Type
+	if _, err := Prepare(base); err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+	if root.Type != before {
+		t.Fatalf("Prepare() mutated parsed root type")
 	}
 }

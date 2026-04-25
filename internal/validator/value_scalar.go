@@ -6,10 +6,10 @@ import (
 	"slices"
 	"unsafe"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/num"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {

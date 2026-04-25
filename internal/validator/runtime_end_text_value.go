@@ -43,8 +43,21 @@ func (s *Session) resolveEndTextValue(
 		return errs
 	}
 
+	if result.textValidator == 0 {
+		if elemOK && elem.Fixed.Present {
+			result.canonText = rawText
+			if elem.FixedKey.Ref.Present {
+				key := runtime.StringKeyBytes(s.buffers.keyTmp[:0], 0, rawText)
+				s.buffers.keyTmp = key
+				result.textKeyKind = runtime.VKString
+				result.textKeyBytes = key
+			}
+		}
+		return errs
+	}
+
 	requireCanonical := (elemOK && elem.Fixed.Present) || (hasComplexText && ct.TextFixed.Present)
-	validated, err := newValueRunner(s).validateText(textValueRequest{
+	validated, err := newValueRunner(s).validateTextSession(textValueRequest{
 		Type:     frame.typ,
 		Lexical:  rawText,
 		Resolver: resolver,

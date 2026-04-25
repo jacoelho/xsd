@@ -1,10 +1,10 @@
 package validator
 
-import xsderrors "github.com/jacoelho/xsd/errors"
+import xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 
 func (s *Session) newValidation(code xsderrors.ErrorCode, msg, path string, line, column int) xsderrors.Validation {
 	return xsderrors.Validation{
-		Code:     string(code),
+		Code:     code,
 		Message:  msg,
 		Document: s.io.documentURI,
 		Path:     path,

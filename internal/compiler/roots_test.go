@@ -47,6 +47,82 @@ func TestPrepareRootsBuildsRuntime(t *testing.T) {
 	}
 }
 
+func TestPrepareRootsLoadsImportCycleDocumentInActiveNamespace(t *testing.T) {
+	t.Parallel()
+
+	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
+		Roots: []compiler.Root{{
+			FS: fstest.MapFS{
+				"a.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:a"
+           xmlns:a="urn:a"
+           xmlns:b="urn:b">
+  <xs:import namespace="urn:b" schemaLocation="b.xsd"/>
+  <xs:element name="a" type="xs:string"/>
+</xs:schema>`)},
+				"b.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:b"
+           xmlns:a="urn:a"
+           xmlns:b="urn:b">
+  <xs:import namespace="urn:a" schemaLocation="c.xsd"/>
+  <xs:element name="b" type="a:CType"/>
+</xs:schema>`)},
+				"c.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:a"
+           xmlns:a="urn:a">
+  <xs:complexType name="CType">
+    <xs:sequence/>
+  </xs:complexType>
+</xs:schema>`)},
+			},
+			Location: "a.xsd",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("PrepareRoots() error = %v", err)
+	}
+	if _, err := prepared.Build(compiler.BuildConfig{}); err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+}
+
+func TestPrepareRootsTerminatesSameDocumentImportCycle(t *testing.T) {
+	t.Parallel()
+
+	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
+		Roots: []compiler.Root{{
+			FS: fstest.MapFS{
+				"a.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:a"
+           xmlns:a="urn:a"
+           xmlns:b="urn:b">
+  <xs:import namespace="urn:b" schemaLocation="b.xsd"/>
+  <xs:element name="a" type="xs:string"/>
+</xs:schema>`)},
+				"b.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:b"
+           xmlns:a="urn:a"
+           xmlns:b="urn:b">
+  <xs:import namespace="urn:a" schemaLocation="a.xsd"/>
+  <xs:element name="b" type="xs:string"/>
+</xs:schema>`)},
+			},
+			Location: "a.xsd",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("PrepareRoots() error = %v", err)
+	}
+	if _, err := prepared.Build(compiler.BuildConfig{}); err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+}
+
 func TestPrepareRootsAllowsMissingImportLocation(t *testing.T) {
 	t.Parallel()
 

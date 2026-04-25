@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 )
 
 func TestPathStackStringIncludesNamespace(t *testing.T) {

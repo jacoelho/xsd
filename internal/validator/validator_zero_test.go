@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/pkg/xmltext"
+	"github.com/jacoelho/xsd/internal/xmltext"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestValidatorZeroRejected(t *testing.T) {
@@ -68,7 +68,7 @@ func TestValidatorZeroRejected(t *testing.T) {
 	if len(list) == 0 {
 		t.Fatalf("expected validation errors")
 	}
-	if list[0].Code != string(xsderrors.ErrDatatypeInvalid) {
+	if list[0].Code != xsderrors.ErrDatatypeInvalid {
 		t.Fatalf("expected ErrDatatypeInvalid, got %v", list)
 	}
 	if !strings.Contains(list[0].Message, "validator missing") {

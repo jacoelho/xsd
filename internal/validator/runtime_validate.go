@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // Validate validates an XML document using the runtime schema.

@@ -1,32 +1,24 @@
 package compiler
 
 import (
-	"strings"
 	"sync"
 	"testing"
-
-	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func mustPrepared(t *testing.T, schemaXML string) *Prepared {
 	t.Helper()
-	prepared, err := Prepare(mustParsedSchema(t, schemaXML))
+	docs, err := parseDocumentSet(schemaXML)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	prepared, err := Prepare(docs)
 	if err != nil {
 		t.Fatalf("Prepare() error = %v", err)
 	}
 	return prepared
 }
 
-func mustParsedSchema(t *testing.T, schemaXML string) *parser.Schema {
-	t.Helper()
-	sch, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
-	}
-	return sch
-}
-
-func TestPrepareValidatorsRejectsNilInputs(t *testing.T) {
+func TestPreparedBuildRejectsNilInputs(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
@@ -37,43 +29,17 @@ func TestPrepareValidatorsRejectsNilInputs(t *testing.T) {
 	}
 
 	prepared := mustPrepared(t, schemaXML)
-	if prepared.build.validators != nil {
-		t.Fatal("validators should be lazy before Build()")
-	}
 	if _, err := prepared.Build(BuildConfig{}); err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
-	if prepared.build.validators == nil {
-		t.Fatal("Build() did not populate cached validators")
-	}
 
-	broken := &Prepared{
-		registry:     prepared.registry,
-		refs:         prepared.refs,
-		complexTypes: prepared.complexTypes,
-	}
+	broken := &Prepared{}
 	if _, err := broken.Build(BuildConfig{}); err == nil {
-		t.Fatal("Build(nil schema) expected error")
-	}
-	broken = &Prepared{
-		schema:       prepared.schema,
-		refs:         prepared.refs,
-		complexTypes: prepared.complexTypes,
-	}
-	if _, err := broken.Build(BuildConfig{}); err == nil {
-		t.Fatal("Build(nil registry) expected error")
-	}
-	broken = &Prepared{
-		schema:       prepared.schema,
-		registry:     prepared.registry,
-		complexTypes: prepared.complexTypes,
-	}
-	if _, err := broken.Build(BuildConfig{}); err == nil {
-		t.Fatal("Build(nil references) expected error")
+		t.Fatal("Build(nil IR) expected error")
 	}
 }
 
-func TestPreparedBuildCachesValidators(t *testing.T) {
+func TestPreparedBuildIsPure(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
@@ -84,17 +50,9 @@ func TestPreparedBuildCachesValidators(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first Build() error = %v", err)
 	}
-	cachedValidators := prepared.build.validators
-	if cachedValidators == nil {
-		t.Fatal("Build() did not cache validators")
-	}
-
 	rtSecond, err := prepared.Build(BuildConfig{})
 	if err != nil {
 		t.Fatalf("second Build() error = %v", err)
-	}
-	if prepared.build.validators != cachedValidators {
-		t.Fatal("Build() replaced cached validators")
 	}
 	if rtFirst.BuildHash != rtSecond.BuildHash {
 		t.Fatalf("build hash mismatch: first=%x second=%x", rtFirst.BuildHash, rtSecond.BuildHash)
@@ -154,16 +112,9 @@ func TestPreparedBuildSimpleContentRestriction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first Build() error = %v", err)
 	}
-	cachedValidators := preparedState.build.validators
-	if cachedValidators == nil {
-		t.Fatal("Build() did not cache validators")
-	}
 	rtSecond, err := preparedState.Build(BuildConfig{})
 	if err != nil {
 		t.Fatalf("second Build() error = %v", err)
-	}
-	if preparedState.build.validators != cachedValidators {
-		t.Fatal("Build() replaced cached validators")
 	}
 	if len(rtFirst.Elements) != len(rtSecond.Elements) {
 		t.Fatalf("element count mismatch: first=%d second=%d", len(rtFirst.Elements), len(rtSecond.Elements))

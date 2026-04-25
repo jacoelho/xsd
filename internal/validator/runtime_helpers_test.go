@@ -5,16 +5,17 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/compiler"
-	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
+	result, err := schemaast.ParseDocumentWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		return nil, err
 	}
-	prepared, err := compiler.Prepare(parsed)
+	docs := &schemaast.DocumentSet{Documents: []schemaast.SchemaDocument{*result.Document}}
+	prepared, err := compiler.Prepare(docs)
 	if err != nil {
 		return nil, err
 	}

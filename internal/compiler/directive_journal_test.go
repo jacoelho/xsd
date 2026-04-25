@@ -4,21 +4,21 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 func TestJournalRollbackReplaysOperationsInReverse(t *testing.T) {
 	var got []string
 	journal := Journal[string]{}
-	journal.RecordMarkMerged(parser.DirectiveImport, "base", "target")
-	journal.RecordAppendPendingDirective(parser.DirectiveInclude, "source", "dep")
+	journal.RecordMarkMerged(schemaast.DirectiveImport, "base", "target")
+	journal.RecordAppendPendingDirective(schemaast.DirectiveInclude, "source", "dep")
 	journal.RecordIncPendingCount("dep")
 
 	journal.Rollback(RollbackCallbacks[string]{
-		UnmarkMerged: func(kind parser.DirectiveKind, baseKey, targetKey string) {
+		UnmarkMerged: func(kind schemaast.DirectiveKind, baseKey, targetKey string) {
 			got = append(got, "unmark:"+baseKey+"->"+targetKey+":"+string(rune('0'+kind)))
 		},
-		RemovePendingDirective: func(kind parser.DirectiveKind, sourceKey, targetKey string) {
+		RemovePendingDirective: func(kind schemaast.DirectiveKind, sourceKey, targetKey string) {
 			got = append(got, "remove:"+sourceKey+"->"+targetKey+":"+string(rune('0'+kind)))
 		},
 		DecPendingCount: func(targetKey string) {
@@ -45,12 +45,12 @@ func TestJournalAppendPreservesOperationOrder(t *testing.T) {
 	var got []string
 	var left Journal[string]
 	var right Journal[string]
-	left.RecordMarkMerged(parser.DirectiveInclude, "left", "dep")
+	left.RecordMarkMerged(schemaast.DirectiveInclude, "left", "dep")
 	right.RecordIncPendingCount("dep")
 
 	left.Append(&right)
 	left.Rollback(RollbackCallbacks[string]{
-		UnmarkMerged: func(kind parser.DirectiveKind, baseKey, targetKey string) {
+		UnmarkMerged: func(kind schemaast.DirectiveKind, baseKey, targetKey string) {
 			got = append(got, "unmark:"+baseKey+"->"+targetKey)
 		},
 		DecPendingCount: func(targetKey string) {

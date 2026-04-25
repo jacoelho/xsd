@@ -6,17 +6,17 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
+	"github.com/jacoelho/xsd/internal/xsderrors"
 )
 
-// NewValidator creates a validator with explicit instance-validation options.
-func (s *Schema) NewValidator(opts ...ValidateOption) (*Validator, error) {
+// NewValidator creates a validator with explicit instance-validation config.
+func (s *Schema) NewValidator(config ValidateConfig) (*Validator, error) {
 	if s == nil || s.rt == nil {
 		return nil, schemaNotLoadedError()
 	}
-	req, err := newValidateRequest(opts)
+	req, err := newValidateRequest(config)
 	if err != nil {
 		return nil, fmt.Errorf("validate schema: %w", err)
 	}
@@ -116,5 +116,5 @@ func (v *Validator) validateReader(r io.Reader, document string) error {
 }
 
 func schemaNotLoadedError() error {
-	return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
+	return xsderrors.NewKind(xsderrors.KindCaller, xsderrors.ErrSchemaNotLoaded, "schema not loaded")
 }

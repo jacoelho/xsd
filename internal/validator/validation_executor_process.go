@@ -3,9 +3,9 @@ package validator
 import (
 	"fmt"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 type validationExecutor struct {

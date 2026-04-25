@@ -6,14 +6,6 @@ import (
 	"github.com/jacoelho/xsd/internal/compiler"
 )
 
-func preparePreparedSchema(req compileRequest) (*PreparedSchema, error) {
-	prepared, err := req.prepare()
-	if err != nil {
-		return nil, err
-	}
-	return &PreparedSchema{prepared: prepared}, nil
-}
-
 func buildSchema(prepared *compiler.Prepared, buildOpts resolvedBuildOptions, validateDefaults resolvedValidateOptions) (*Schema, error) {
 	if prepared == nil {
 		return nil, fmt.Errorf("build prepared schema: nil prepared schema")

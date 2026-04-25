@@ -1,15 +1,12 @@
 package compiler
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/validatorbuild"
+	"github.com/jacoelho/xsd/internal/schemair"
 )
 
-func TestValidatorBuildPreservesEffectiveSemantics(t *testing.T) {
+func TestSchemaIRPreservesEffectiveSemantics(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="urn:plan"
@@ -46,73 +43,67 @@ func TestValidatorBuildPreservesEffectiveSemantics(t *testing.T) {
   <xs:element name="root" type="tns:Derived"/>
 </xs:schema>`
 
-	prepared, err := Prepare(mustSemanticsParsedSchema(t, schemaXML))
-	if err != nil {
-		t.Fatalf("Prepare() error = %v", err)
-	}
-	sch := prepared.Schema()
-	reg := prepared.Registry()
-	complexTypes := prepared.ComplexTypes()
-	validators, err := validatorbuild.Compile(sch, reg, complexTypes)
-	if err != nil {
-		t.Fatalf("validatorbuild.Compile() error = %v", err)
-	}
-	if validators.ComplexTypes != complexTypes {
-		t.Fatal("compiled validators did not retain the supplied complex-type plan")
-	}
-
-	derivedType, ok := sch.TypeDefs[model.QName{Namespace: "urn:plan", Local: "Derived"}]
-	if !ok {
-		t.Fatal("missing Derived type")
-	}
-	derived, ok := model.AsComplexType(derivedType)
-	if !ok || derived == nil {
-		t.Fatalf("Derived type = %T, want *model.ComplexType", derivedType)
-	}
-	entry, ok := validators.ComplexTypes.Entry(derived)
-	if !ok {
-		t.Fatal("missing complex-type entry for Derived")
-	}
-	group, ok := entry.Content.(*model.ModelGroup)
-	if !ok || len(group.Particles) != 2 {
-		t.Fatalf("Derived content = %#v, want 2-particle sequence", entry.Content)
-	}
-	if len(entry.Attributes) != 2 {
-		t.Fatalf("Derived attributes = %d, want 2", len(entry.Attributes))
-	}
-	if entry.Attributes[0].Name.Local != "baseAttr" || entry.Attributes[1].Name.Local != "extra" {
-		t.Fatalf("Derived attribute order = [%s %s], want [baseAttr extra]", entry.Attributes[0].Name.Local, entry.Attributes[1].Name.Local)
-	}
-	if entry.Wildcard == nil {
-		t.Fatal("Derived wildcard = nil, want extension anyAttribute")
-	}
-
-	lengthType, ok := sch.TypeDefs[model.QName{Namespace: "urn:plan", Local: "LengthType"}]
-	if !ok {
-		t.Fatal("missing LengthType")
-	}
-	lengthCT, ok := model.AsComplexType(lengthType)
-	if !ok || lengthCT == nil {
-		t.Fatalf("LengthType = %T, want *model.ComplexType", lengthType)
-	}
-	entry, ok = validators.ComplexTypes.Entry(lengthCT)
-	if !ok {
-		t.Fatal("missing complex-type entry for LengthType")
-	}
-	if entry.SimpleTextType == nil {
-		t.Fatal("LengthType simple text type = nil")
-	}
-	primitive := entry.SimpleTextType.PrimitiveType()
-	if primitive == nil || primitive.Name().Local != "double" {
-		t.Fatalf("LengthType primitive text type = %v, want xs:double", primitive)
-	}
-}
-
-func mustSemanticsParsedSchema(t *testing.T, schemaXML string) *parser.Schema {
-	t.Helper()
-	sch, err := parser.Parse(strings.NewReader(schemaXML))
+	docs, err := parseDocumentSet(schemaXML)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	return sch
+	prepared, err := Prepare(docs)
+	if err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+	derived := mustIRTypeID(t, prepared, "urn:plan", "Derived")
+	derivedPlan := mustIRComplexPlan(t, prepared, derived)
+	if derivedPlan.Particle == 0 {
+		t.Fatal("Derived particle = 0")
+	}
+	if len(derivedPlan.Attrs) != 2 {
+		t.Fatalf("Derived attributes = %d, want 2", len(derivedPlan.Attrs))
+	}
+	first := prepared.ir.AttributeUses[derivedPlan.Attrs[0]-1].Name.Local
+	second := prepared.ir.AttributeUses[derivedPlan.Attrs[1]-1].Name.Local
+	if first != "baseAttr" || second != "extra" {
+		t.Fatalf("Derived attribute order = [%s %s], want [baseAttr extra]", first, second)
+	}
+	if derivedPlan.AnyAttr == 0 {
+		t.Fatal("Derived wildcard = nil, want extension anyAttribute")
+	}
+
+	length := mustIRTypeID(t, prepared, "urn:plan", "LengthType")
+	rt, err := prepared.Build(BuildConfig{})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	runtimeTypeID := int(len(prepared.ir.BuiltinTypes) + int(length))
+	if runtimeTypeID <= 0 || runtimeTypeID >= len(rt.Types) {
+		t.Fatalf("LengthType runtime type ID %d out of range", runtimeTypeID)
+	}
+	complexID := rt.Types[runtimeTypeID].Complex.ID
+	if complexID == 0 || int(complexID) >= len(rt.ComplexTypes) {
+		t.Fatalf("LengthType complex ID %d out of range", complexID)
+	}
+	if rt.ComplexTypes[complexID].TextValidator == 0 {
+		t.Fatal("LengthType text validator = 0")
+	}
+}
+
+func mustIRTypeID(t *testing.T, prepared *Prepared, namespace, local string) uint32 {
+	t.Helper()
+	for _, typ := range prepared.ir.Types {
+		if typ.Name.Namespace == namespace && typ.Name.Local == local {
+			return uint32(typ.ID)
+		}
+	}
+	t.Fatalf("missing IR type {%s}%s", namespace, local)
+	return 0
+}
+
+func mustIRComplexPlan(t *testing.T, prepared *Prepared, id uint32) schemair.ComplexTypePlan {
+	t.Helper()
+	for _, plan := range prepared.ir.ComplexTypes {
+		if uint32(plan.TypeDecl) == id {
+			return plan
+		}
+	}
+	t.Fatalf("missing complex plan %d", id)
+	return schemair.ComplexTypePlan{}
 }

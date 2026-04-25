@@ -10,6 +10,7 @@ import (
 type SessionIdentity struct {
 	idTable       map[string]struct{}
 	identityAttrs AttrNames
+	attrScratch   []Attr
 	idRefs        []string
 	icState       identityState
 }
@@ -43,6 +44,7 @@ func (id *SessionIdentity) Reset(arena *Arena, entryLimit, idTableLimit int) {
 	id.icState.Reset(arena)
 	id.resetIDTable(idTableLimit)
 	id.idRefs = id.idRefs[:0]
+	id.attrScratch = id.attrScratch[:0]
 	id.identityAttrs.Reset(entryLimit)
 }
 
@@ -51,6 +53,7 @@ func (id *SessionIdentity) Shrink(entryLimit int) {
 		return
 	}
 	id.idRefs = shrinkSliceCap(id.idRefs, entryLimit)
+	id.attrScratch = shrinkSliceCap(id.attrScratch, entryLimit)
 	id.icState.Shrink(entryLimit)
 }
 
@@ -115,7 +118,7 @@ func (s *identityState) start(sess *Session, in identityStartInput) error {
 		if len(in.Attrs) == 0 && len(in.Applied) == 0 {
 			return nil
 		}
-		return collectIdentityAttrs(sess.rt, in.Attrs, in.Applied, sess.internIdentityAttrName)
+		return sess.collectIdentityAttrs(in.Attrs, in.Applied)
 	})
 }
 
@@ -137,28 +140,51 @@ func (s *identityState) end(rt *runtime.Schema, in identityEndInput) error {
 	return nil
 }
 
-func collectIdentityAttrs(rt *runtime.Schema, startAttrs []Start, applied []Applied, intern func(ns, local []byte) AttrNameID) []Attr {
-	if len(startAttrs) == 0 && len(applied) == 0 {
+func (s *Session) collectIdentityAttrs(startAttrs []Start, applied []Applied) []Attr {
+	if s == nil || s.rt == nil || len(startAttrs) == 0 && len(applied) == 0 {
 		return nil
 	}
-	rawAttrs := make([]RawAttr, 0, len(startAttrs))
+	out := s.identity.attrScratch[:0]
 	for _, attr := range startAttrs {
-		rawAttrs = append(rawAttrs, RawAttr{
-			NSBytes:  attr.NSBytes,
-			Local:    attr.Local,
-			KeyBytes: attr.KeyBytes,
+		local := attr.Local
+		if len(local) == 0 && attr.Sym != 0 {
+			local = s.rt.Symbols.LocalBytes(attr.Sym)
+		}
+		nsBytes := attr.NSBytes
+		if len(nsBytes) == 0 && attr.NS != 0 {
+			nsBytes = s.rt.Namespaces.Bytes(attr.NS)
+		}
+		nameID := AttrNameID(0)
+		if attr.Sym == 0 {
+			nameID = s.internIdentityAttrName(nsBytes, local)
+		}
+		out = append(out, Attr{
 			Sym:      attr.Sym,
 			NS:       attr.NS,
+			NSBytes:  nsBytes,
+			Local:    local,
 			KeyKind:  attr.KeyKind,
+			KeyBytes: attr.KeyBytes,
+			NameID:   nameID,
 		})
 	}
-	appliedAttrs := make([]AppliedAttr, 0, len(applied))
-	for _, ap := range applied {
-		appliedAttrs = append(appliedAttrs, AppliedAttr{
-			Name:     ap.Name,
-			KeyBytes: ap.KeyBytes,
-			KeyKind:  ap.KeyKind,
+	for _, attr := range applied {
+		if attr.Name == 0 {
+			continue
+		}
+		nsID := runtime.NamespaceID(0)
+		if int(attr.Name) < len(s.rt.Symbols.NS) {
+			nsID = s.rt.Symbols.NS[attr.Name]
+		}
+		out = append(out, Attr{
+			Sym:      attr.Name,
+			NS:       nsID,
+			NSBytes:  s.rt.Namespaces.Bytes(nsID),
+			Local:    s.rt.Symbols.LocalBytes(attr.Name),
+			KeyKind:  attr.KeyKind,
+			KeyBytes: attr.KeyBytes,
 		})
 	}
-	return CollectAttrs(rt, rawAttrs, appliedAttrs, intern)
+	s.identity.attrScratch = out
+	return out
 }

@@ -35,7 +35,7 @@ type ModelsBundle struct {
 	AllSubst []ElemID
 }
 
-// DFAModel stores a deterministic content model.
+// DFAModel stores a deterministic content schemaast.
 type DFAModel struct {
 	States      []DFAState
 	Transitions []DFATransition
@@ -72,7 +72,7 @@ type AllModel struct {
 	Mixed     bool
 }
 
-// AllMember stores one member constraint in an xs:all model.
+// AllMember stores one member constraint in an xs:all schemaast.
 type AllMember struct {
 	Elem        ElemID
 	Optional    bool
@@ -100,7 +100,7 @@ const (
 	PosWildcard
 )
 
-// PosMatcher describes one position matcher in the Glushkov/NFA model.
+// PosMatcher describes one position matcher in the Glushkov/NFA schemaast.
 type PosMatcher struct {
 	Kind PosMatchKind
 	Sym  SymbolID
@@ -108,7 +108,7 @@ type PosMatcher struct {
 	Rule WildcardID
 }
 
-// NFAModel stores a nondeterministic content model.
+// NFAModel stores a nondeterministic content schemaast.
 type NFAModel struct {
 	Bitsets   BitsetBlob
 	Matchers  []PosMatcher

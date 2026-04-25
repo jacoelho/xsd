@@ -83,9 +83,9 @@ func StartFrame(rt *runtime.Schema, state *State[RuntimeFrame], in StartInput, l
 	if loadAttrs != nil {
 		attrs = loadAttrs()
 	}
-	current.Matches = append(current.Matches, MatchSelectors(rt, state.Scopes.Items(), state.Frames.Items(), current.ID, current.Depth)...)
-	captures, errs := ApplySelections(rt, state.Scopes.Items(), state.Frames.Items(), current.Depth, current.ID, current.Type, attrs)
-	current.Captures = append(current.Captures, captures...)
+	current.Matches = MatchSelectors(rt, state.Scopes.Items(), state.Frames.Items(), current.ID, current.Depth, current.Matches)
+	captures, errs := ApplySelections(rt, state.Scopes.Items(), state.Frames.Items(), current.Depth, current.ID, current.Type, attrs, current.Captures)
+	current.Captures = captures
 	state.Uncommitted = append(state.Uncommitted, errs...)
 	return nil
 }

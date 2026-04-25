@@ -1,11 +1,6 @@
 package compiler
 
-import (
-	"strings"
-	"testing"
-
-	"github.com/jacoelho/xsd/internal/parser"
-)
+import "testing"
 
 func TestBuildSchemaMissingElementTypeFails(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
@@ -13,11 +8,11 @@ func TestBuildSchemaMissingElementTypeFails(t *testing.T) {
   <xs:element name="root" type="MissingType"/>
 </xs:schema>`
 
-	sch, err := parser.Parse(strings.NewReader(schemaXML))
+	docs, err := parseDocumentSet(schemaXML)
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	if _, err := buildSchemaForTest(sch, BuildConfig{}); err == nil {
+	if _, err := buildSchemaForTest(docs, BuildConfig{}); err == nil {
 		t.Fatalf("expected missing element type to fail build")
 	}
 }

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestRuntimeAnyTypeAllowsAnyContent(t *testing.T) {
@@ -471,7 +471,7 @@ func TestRuntimeSubstitutionGroupXsiTypeDerivedFromHeadInvalid(t *testing.T) {
 	if !errors.As(err, &violations) {
 		t.Fatalf("expected ValidationList error, got %T", err)
 	}
-	if len(violations) == 0 || violations[0].Code != string(xsderrors.ErrValidateXsiTypeDerivationBlocked) {
+	if len(violations) == 0 || violations[0].Code != xsderrors.ErrValidateXsiTypeDerivationBlocked {
 		t.Fatalf("expected code %s, got %v", xsderrors.ErrValidateXsiTypeDerivationBlocked, violations)
 	}
 }

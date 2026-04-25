@@ -1,22 +1,22 @@
 package runtime
 
-import "encoding/binary"
+import "github.com/jacoelho/xsd/internal/valuekey"
 
 // ValueKind identifies the primitive value space used for comparisons.
-type ValueKind uint8
+type ValueKind = valuekey.Kind
 
 const (
-	VKInvalid ValueKind = iota
-	VKBool
-	VKDecimal
-	VKFloat32
-	VKFloat64
-	VKString
-	VKBinary
-	VKQName
-	VKDateTime
-	VKDuration
-	VKList
+	VKInvalid  = valuekey.Invalid
+	VKBool     = valuekey.Bool
+	VKDecimal  = valuekey.Decimal
+	VKFloat32  = valuekey.Float32
+	VKFloat64  = valuekey.Float64
+	VKString   = valuekey.String
+	VKBinary   = valuekey.Binary
+	VKQName    = valuekey.QName
+	VKDateTime = valuekey.DateTime
+	VKDuration = valuekey.Duration
+	VKList     = valuekey.List
 )
 
 // ValueKey is the canonical, immutable representation of a value.
@@ -35,11 +35,5 @@ type ValueKeyRef struct {
 // AppendListKey appends a typed key entry to a list key buffer.
 // The format is: kind (1 byte) + varint(len) + key bytes.
 func AppendListKey(dst []byte, kind ValueKind, key []byte) []byte {
-	out := dst
-	out = append(out, byte(kind))
-	var buf [binary.MaxVarintLen64]byte
-	n := binary.PutUvarint(buf[:], uint64(len(key)))
-	out = append(out, buf[:n]...)
-	out = append(out, key...)
-	return out
+	return valuekey.AppendListEntry(dst, byte(kind), key)
 }

@@ -62,7 +62,7 @@ func TestRunWithArgs(t *testing.T) {
 			args:        []string{"--schema", schemaPath, invalidDocPath},
 			wantCode:    1,
 			wantStderr: []string{
-				"[VALIDATE_ROOT_NOT_DECLARED]",
+				"[xsd-root-not-declared]",
 				invalidDocPath + " fails to validate",
 			},
 		},

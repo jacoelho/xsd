@@ -16,7 +16,7 @@ This validator implements W3C XML Schema 1.0 validation with the following prior
 
 Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored.
 Validation always uses the compiled schema created by
-`xsd.Compile`, `xsd.CompileFile`, or `xsd.NewSourceSet().Prepare().Build(...)`.
+`xsd.CompileFS`, `xsd.CompileFile`, or `xsd.NewCompiler(...).CompileSources(...)`.
 This keeps validation deterministic and goroutine-safe.
 
 ## Processing Pipeline
@@ -27,8 +27,8 @@ Schema loading and validation follows six compile-time phases plus streaming val
 flowchart TD
   subgraph SchemaLoading["Schema Loading"]
     direction LR
-    P1["Phase 1: Load + Parse<br/>- Parse XSD XML<br/>- Resolve imports/includes<br/>- Build parser.Schema<br/>- Record origins"]
-    P2["Phase 2: Resolve + Validate<br/>- Clone parser.Schema<br/>- Resolve group/type refs<br/>- Structural checks"]
+    P1["Phase 1: Load + Parse<br/>- Parse XSD XML<br/>- Resolve imports/includes<br/>- Build schemaast schema<br/>- Record origins"]
+    P2["Phase 2: Resolve + Validate<br/>- Clone owned schema state<br/>- Resolve group/type refs<br/>- Structural checks"]
     P3["Phase 3: Assign IDs<br/>- Deterministic registry<br/>- Stable component IDs"]
     P4["Phase 4: Resolve References<br/>- Map refs to IDs<br/>- Validate QName targets"]
     P5["Phase 5: Semantic Checks<br/>- Detect derivation/group cycles<br/>- Enforce UPA"]
@@ -47,13 +47,13 @@ flowchart TD
 ```mermaid
 flowchart TD
   subgraph PublicAPI["Public API"]
-    Load["xsd.Compile / xsd.CompileFile / xsd.SourceSet"] --> Compile["internal/compiler.PrepareRoots / Prepare<br/>(load + merge + resolve + validate + index)"] --> Build["internal/compiler.Prepared.Build"] --> Runtime["internal/runtime.Schema"]
+    Load["xsd.CompileFS / xsd.CompileFile / xsd.Compiler"] --> Compile["internal/compiler.PrepareRoots / Prepare<br/>(load + merge + resolve + validate + index)"] --> Build["internal/runtimebuild.Build"] --> Runtime["internal/runtime.Schema"]
   end
   subgraph Validation
     Validate["Schema.Validate"] --> ValidatorPkg["internal/validator<br/>(engine, session, streaming checks)"]
     ValidatorPkg --> Runtime
-    ValidatorPkg --> XMLPkg["pkg/xmlstream.Reader"]
-    XMLPkg --> XMLText["pkg/xmltext.Decoder"]
+    ValidatorPkg --> XMLPkg["internal/xmlstream.Reader"]
+    XMLPkg --> XMLText["internal/xmltext.Decoder"]
   end
 ```
 
@@ -62,22 +62,21 @@ flowchart TD
 The codebase uses concern-owned package boundaries instead of type-name parity.
 Each package owns one durable workflow boundary:
 
-- `internal/parser`: raw XSD component parsing with symbolic references.
-- `internal/analysis`: deterministic IDs, runtime ID plans, ordering, and resolved-reference indexes.
-- `internal/semantics`: compile-time semantic preparation, particle work, substitution, and UPA checks.
-- `internal/compiler`: schema-root loading, prepared-schema ownership, and runtime assembly.
-- `internal/validatorbuild`: validator-artifact compilation from prepared schema state.
+- `internal/schemaast`: compile-front-end schema representation and parser/model compatibility boundary.
+- `internal/compiler`: schema-root loading and prepared-schema ownership.
+- `internal/schemair`: semantic preparation, deterministic IDs, immutable resolved schema projection, and value specs.
+- `internal/runtimebuild`: runtime table lowering from schema IR.
 - `internal/validator`: mutable runtime session execution and runtime facet/value evaluation over immutable runtime schema.
 
 Public package organization follows the same single-responsibility rule:
 
-- `schema_types.go`: public schema/QName types.
+- `schema_types.go`: public schema/name types.
 - `load.go`: schema loading entrypoints.
 - `schema_validate.go`: validation entrypoints and file-reader plumbing.
-- `sourceset*.go`: source-set ingestion, prepare/build orchestration, and source-entry flow.
-- `options_*.go`: option types, fluent API, and resolution/defaulting.
+- `sourceset_*.go`: source ingestion, prepare/build orchestration, and source-entry flow.
+- `options_*.go`: config types and resolution/defaulting.
 
-Architecture boundaries are enforced by tests in `internal/analysis/`:
+Architecture boundaries are enforced by tests in `internal/archtest/`:
 
 - import-edge checks for core phases (`import_edges_test.go`)
 - public export allowlist checks (`public_api_allowlist_test.go`)
@@ -91,18 +90,20 @@ dependency-light:
 - `internal/qname`: deterministic QName ordering helpers used by schema preparation and validation passes.
 - `internal/graphcycle`: generic cycle detection used by semantic resolution and analysis passes.
 
-Compile-time schema meaning should flow through `internal/semantics.Context` and
-`internal/compiler.Prepared`, not through ad hoc helper-package recomposition.
+Compile-time schema meaning should flow through `internal/schemaast`,
+`internal/schemair`, and `internal/compiler.Prepared`, not through ad hoc
+helper-package recomposition.
 
 
 ## Phase 1: Load + Parse
 
-Schema loading uses `internal/compiler` and `internal/parser` to parse XSD documents,
-resolve includes/imports, and build a single parser.Schema. QName references and
-origin locations are recorded, but no runtime IDs or compiled models exist yet.
+Schema loading uses `internal/compiler` and `internal/schemaast` to parse XSD
+documents, resolve includes/imports, and build a single schema-front-end graph.
+QName references and origin locations are recorded, but no runtime IDs or
+compiled models exist yet.
 
 ```go
-// parser creates components with unresolved QName references
+// schemaast creates components with unresolved QName references
 type SimpleType struct {
     QName       QName
     Restriction *Restriction  // Contains Base QName, not resolved type
@@ -117,8 +118,9 @@ type Restriction struct {
 
 Import and include resolution happens during loading to assemble all schema
 documents. Includes must resolve successfully. Imports without a schemaLocation
-are rejected unless `xsd.AllowMissingImportLocations()` is used. Missing import
-files are only skipped when that option is enabled; otherwise they are errors.
+are rejected unless `xsd.SourceConfig.AllowMissingImportLocations` is enabled.
+Missing import files are only skipped when that policy is enabled; otherwise
+they are errors.
 
 ```mermaid
 flowchart TD
@@ -129,22 +131,21 @@ flowchart TD
 
 ## Phase 2: Resolve + Validate
 
-`internal/compiler.Prepare` clones the parsed schema for defensive callers,
-while `PrepareOwned` validates in-place for owned pipeline paths. Both resolve
-group/type references and run structure/reference checks.
+`internal/compiler.Prepare` treats the parsed schema as caller-owned input.
+Resolution works on an internal clone, then runs group/type reference checks and
+structure validation before emitting IR.
 
 ## Phase 3: Assign IDs
 
-`internal/analysis` walks the validated schema in deterministic order and
+`internal/schemair` walks the validated schema in deterministic order and
 assigns stable IDs to globally visible declarations plus local/anonymous components.
-It also derives the deterministic runtime ID plan used during runtime assembly.
 These IDs back the runtime registry.
 
 ```go
 type Registry struct {
-    Types        map[model.QName]TypeID
-    Elements     map[model.QName]ElemID
-    Attributes   map[model.QName]AttrID
+    Types        map[schemaast.QName]TypeID
+    Elements     map[schemaast.QName]ElemID
+    Attributes   map[schemaast.QName]AttrID
     TypeOrder    []TypeEntry
     ElementOrder []ElementEntry
     AttributeOrder []AttributeEntry
@@ -154,13 +155,13 @@ type Registry struct {
 ## Phase 4: Resolve References
 
 `internal/compiler` validates QName references against the
-registry and builds ID-based lookup maps without mutating parser.Schema.
+registry and builds ID-based lookup maps without mutating schemaast-owned schema state.
 
 ```go
-type ResolvedReferences struct {
-    ElementRefs   map[model.QName]ElemID
-    AttributeRefs map[model.QName]AttrID
-    GroupRefs     map[model.QName]model.QName
+type References struct {
+    ElementRefs   map[schemaast.QName]ElemID
+    AttributeRefs map[schemaast.QName]AttrID
+    GroupRefs     map[schemaast.QName]schemaast.QName
 }
 ```
 
@@ -176,14 +177,13 @@ the validated schema and assigned registry.
 
 ## Phase 6: Build Runtime Schema
 
-`internal/compiler.Prepared.Build` (backed by
-`internal/compiler`)
-compiles prepared artifacts into an optimized runtime representation. The runtime schema is
+`internal/compiler.Prepared.Build` delegates to `internal/runtimebuild.Build`,
+which compiles prepared artifacts into an optimized runtime representation. The runtime schema is
 dense, ID-based, and immutable so it can be shared across goroutines.
 
-At the public API layer, `xsd.Compile`, `xsd.CompileFile`, and
-`(*xsd.SourceSet).Build` compile runtime schemas from explicit roots using
-compile-affecting runtime options (`maxDFAStates`, `maxOccursLimit`).
+At the public API layer, `xsd.CompileFS`, `xsd.CompileFile`, and
+`(*xsd.Compiler).CompileSources` compile runtime schemas from explicit roots
+using compile-affecting config (`MaxDFAStates`, `MaxOccursLimit`).
 Instance XML parse limits are applied per engine/session and do not change
 schema semantics.
 
@@ -223,7 +223,7 @@ runtime.Schema; no DOM build is required.
 
 ```mermaid
 flowchart TD
-  Reader["Input XML Reader"] --> Next["xmlstream.Reader.Next()<br/>pkg/xmlstream/reader.go + reader_*.go<br/>(API + dispatch, start/end/text split)"] --> Start["Start element<br/>Lookup decl, attrs, content model<br/>Push frame<br/>Track identity scopes"]
+  Reader["Input XML Reader"] --> Next["xmlstream.Reader.Next()<br/>internal/xmlstream/reader.go + reader_*.go<br/>(API + dispatch, start/end/text split)"] --> Start["Start element<br/>Lookup decl, attrs, content model<br/>Push frame<br/>Track identity scopes"]
   Start --> Attrs["Validate attributes (pre-merged list)"]
   Start --> Content["Validate content model (DFA)"]
   Start --> Collect["Collect text/ID/IDREFs"]
@@ -240,8 +240,7 @@ Content models are compiled to Deterministic Finite Automata by the shared
 `internal/contentmodel` package using Glushkov construction followed by subset
 construction.
 
-The precomputed effective complex-type view shared between semantics and
-compiler lives in `internal/complexplan`.
+The precomputed effective complex-type view is projected into `internal/schemair`.
 
 ```mermaid
 flowchart LR
@@ -352,7 +351,7 @@ which keeps validation deterministic.
 XSD patterns are translated to Go regexp (RE2) using fail-closed semantics:
 either produce a valid translation or return an error.
 
-Source of truth: `internal/model/TranslateXSDPatternToGo`.
+Source of truth: `internal/schemaast/TranslateXSDPatternToGo`.
 
 ### Key behavior
 

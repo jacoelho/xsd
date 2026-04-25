@@ -4,9 +4,9 @@ import (
 	"io"
 	"slices"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // SessionIO owns reader state and parsing options for one validator session.
@@ -21,11 +21,13 @@ type SessionIO struct {
 type Session struct {
 	io       SessionIO
 	buffers  SessionBuffers
+	metrics  ValueMetrics
 	identity SessionIdentity
 	attrs    AttributeTracker
 
 	Names            NameState
 	rt               *runtime.Schema
+	plan             runtime.SessionPlan
 	Scratch          Scratch
 	elemStack        []elemFrame
 	validationErrors []xsderrors.Validation
@@ -35,12 +37,18 @@ type Session struct {
 
 // NewSession creates a new runtime validation session.
 func NewSession(rt *runtime.Schema, opts ...xmlstream.Option) *Session {
-	sess := &Session{rt: rt}
+	return NewSessionWithPlan(rt, runtime.NewSessionPlan(rt), opts...)
+}
+
+// NewSessionWithPlan creates a validation session with caller-supplied buffer sizing hints.
+func NewSessionWithPlan(rt *runtime.Schema, plan runtime.SessionPlan, opts ...xmlstream.Option) *Session {
+	sess := &Session{rt: rt, plan: plan}
 	if len(opts) > 0 {
 		sess.io.parseOptions = slices.Clone(opts)
 	}
 	sess.io.readerFactory = xmlstream.NewReader
 	sess.identity.icState.arena = &sess.Arena
+	sess.applySessionPlan()
 	return sess
 }
 
@@ -51,6 +59,7 @@ func (s *Session) Reset() {
 	}
 	s.Arena.Reset()
 	s.Scratch.Reset()
+	s.metrics = ValueMetrics{}
 	s.elemStack = s.elemStack[:0]
 	s.Names.Reset()
 	s.buffers.Reset()

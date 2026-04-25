@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // ByteArena provides stable byte storage for one validation session.
@@ -66,8 +66,8 @@ func ResolveScope(scope *Scope) []Violation {
 			ID:         constraint.ID,
 			Category:   constraint.Category,
 			Referenced: constraint.Referenced,
-			Rows:       slices.Clone(constraint.Rows),
-			Keyrefs:    slices.Clone(constraint.KeyrefRows),
+			Rows:       constraint.Rows,
+			Keyrefs:    constraint.KeyrefRows,
 		}
 		if constraint.Name != "" {
 			names[constraint.ID] = constraint.Name
@@ -113,27 +113,32 @@ func ResolveScope(scope *Scope) []Violation {
 
 func finalizeMatch(arena ByteArena, match *Match) {
 	state := match.Constraint
-	values := make([]runtime.ValueKey, 0, len(match.Fields))
+	valueStart := len(state.rowValues)
 	for i := range match.Fields {
 		field := match.Fields[i]
 		switch {
 		case field.Multiple:
+			state.rowValues = state.rowValues[:valueStart]
 			state.Violations = append(state.Violations, violation(state.Category, "identity constraint field selects multiple nodes"))
 			return
 		case field.Count == 0 || field.Missing:
 			if state.Category == runtime.ICUnique || state.Category == runtime.ICKeyRef {
+				state.rowValues = state.rowValues[:valueStart]
 				return
 			}
+			state.rowValues = state.rowValues[:valueStart]
 			state.Violations = append(state.Violations, violation(state.Category, "identity constraint field is missing"))
 			return
 		case field.Invalid || !field.HasValue:
+			state.rowValues = state.rowValues[:valueStart]
 			state.Violations = append(state.Violations, violation(state.Category, "identity constraint field selects non-simple content"))
 			return
 		default:
-			values = append(values, freezeKey(arena, field.KeyKind, field.KeyBytes))
+			state.rowValues = append(state.rowValues, freezeKey(arena, field.KeyKind, field.KeyBytes))
 		}
 	}
 
+	values := state.rowValues[valueStart:]
 	row := Row{Values: values, Hash: hashRow(values)}
 	if state.Category == runtime.ICKeyRef {
 		state.KeyrefRows = append(state.KeyrefRows, row)

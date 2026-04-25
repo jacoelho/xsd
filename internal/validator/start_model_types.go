@@ -18,7 +18,7 @@ type StartMatch struct {
 	Wildcard runtime.WildcardID
 }
 
-// StartModelState tracks the runtime state of one compiled content model.
+// StartModelState tracks the runtime state of one compiled content schemaast.
 type StartModelState struct {
 	NFA        []uint64
 	nfaScratch []uint64

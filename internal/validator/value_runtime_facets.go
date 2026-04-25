@@ -1,8 +1,8 @@
 package validator
 
 import (
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // validateRuntimeFacets evaluates one validator's runtime facet program and returns the
@@ -43,12 +43,12 @@ type runtimeFacetValidator struct {
 	keyBuf  []byte
 }
 
-func newRuntimeFacetValidator(in RuntimeProgram, state *ValueState, cache *ValueCache, keyBuf []byte) (*runtimeFacetValidator, error) {
+func newRuntimeFacetValidator(in RuntimeProgram, state *ValueState, cache *ValueCache, keyBuf []byte) (runtimeFacetValidator, error) {
 	program, err := RuntimeProgramSlice(in.Meta, in.Facets)
 	if err != nil {
-		return nil, xsderrors.Invalidf("%v", err)
+		return runtimeFacetValidator{}, xsderrors.Invalidf("%v", err)
 	}
-	return &runtimeFacetValidator{
+	return runtimeFacetValidator{
 		program: program,
 		in:      in,
 		state:   state,

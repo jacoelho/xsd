@@ -1,19 +1,19 @@
 package compiler
 
-import "github.com/jacoelho/xsd/internal/parser"
+import "github.com/jacoelho/xsd/internal/schemaast"
 
 // Tracker records which directive edges have already been merged.
 type Tracker[K comparable] struct {
-	merged map[parser.DirectiveKind]map[K]map[K]bool
+	merged map[schemaast.DirectiveKind]map[K]map[K]bool
 }
 
 // NewTracker returns an initialized directive merge tracker.
 func NewTracker[K comparable]() Tracker[K] {
-	return Tracker[K]{merged: make(map[parser.DirectiveKind]map[K]map[K]bool)}
+	return Tracker[K]{merged: make(map[schemaast.DirectiveKind]map[K]map[K]bool)}
 }
 
 // AlreadyMerged reports whether one base -> target directive edge was merged.
-func (t *Tracker[K]) AlreadyMerged(kind parser.DirectiveKind, baseKey, targetKey K) bool {
+func (t *Tracker[K]) AlreadyMerged(kind schemaast.DirectiveKind, baseKey, targetKey K) bool {
 	if t == nil || len(t.merged) == 0 {
 		return false
 	}
@@ -26,9 +26,9 @@ func (t *Tracker[K]) AlreadyMerged(kind parser.DirectiveKind, baseKey, targetKey
 }
 
 // MarkMerged records one merged base -> target directive edge.
-func (t *Tracker[K]) MarkMerged(kind parser.DirectiveKind, baseKey, targetKey K) {
+func (t *Tracker[K]) MarkMerged(kind schemaast.DirectiveKind, baseKey, targetKey K) {
 	if t.merged == nil {
-		t.merged = make(map[parser.DirectiveKind]map[K]map[K]bool)
+		t.merged = make(map[schemaast.DirectiveKind]map[K]map[K]bool)
 	}
 	byKind := t.merged[kind]
 	if byKind == nil {
@@ -44,7 +44,7 @@ func (t *Tracker[K]) MarkMerged(kind parser.DirectiveKind, baseKey, targetKey K)
 }
 
 // UnmarkMerged removes one merged base -> target directive edge.
-func (t *Tracker[K]) UnmarkMerged(kind parser.DirectiveKind, baseKey, targetKey K) {
+func (t *Tracker[K]) UnmarkMerged(kind schemaast.DirectiveKind, baseKey, targetKey K) {
 	if t == nil || len(t.merged) == 0 {
 		return
 	}

@@ -1,6 +1,6 @@
 package validator
 
-import xsderrors "github.com/jacoelho/xsd/errors"
+import xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 
 func (s *Session) validationList() error {
 	if s == nil || len(s.validationErrors) == 0 {

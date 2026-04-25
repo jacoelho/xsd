@@ -3,8 +3,8 @@ package validator
 import (
 	"io"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func (s *Session) ensureReader(r io.Reader) error {
@@ -31,12 +31,12 @@ func readerSetupError(err error, document string) error {
 		return nil
 	}
 	return xsderrors.ValidationList{{
-		Code:     string(xsderrors.ErrXMLParse),
+		Code:     xsderrors.ErrXMLParse,
 		Message:  err.Error(),
 		Document: document,
 	}}
 }
 
 func schemaNotLoadedError() error {
-	return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrSchemaNotLoaded, "schema not loaded", "")}
+	return xsderrors.NewKind(xsderrors.KindCaller, xsderrors.ErrSchemaNotLoaded, "schema not loaded")
 }

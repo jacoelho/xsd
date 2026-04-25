@@ -1,7 +1,7 @@
 package validator
 
 import (
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 )
 
 func (s *Session) internName(id xmlstream.NameID, nsBytes, local []byte) NameEntry {

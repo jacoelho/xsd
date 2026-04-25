@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestValidationDocumentURISet(t *testing.T) {

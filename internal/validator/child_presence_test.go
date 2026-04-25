@@ -3,7 +3,7 @@ package validator
 import (
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestChildPresenceRecordedOnStartElementError(t *testing.T) {

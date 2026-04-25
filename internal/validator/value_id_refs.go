@@ -3,7 +3,7 @@ package validator
 import (
 	"unsafe"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func (s *Session) recordID(valueBytes []byte) error {

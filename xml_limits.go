@@ -4,8 +4,8 @@ import (
 	"cmp"
 	"fmt"
 
-	"github.com/jacoelho/xsd/pkg/xmlstream"
-	"github.com/jacoelho/xsd/pkg/xmltext"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmltext"
 )
 
 const (

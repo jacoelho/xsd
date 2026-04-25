@@ -296,7 +296,7 @@ func TestUnionWhitespaceNormalizationDuringCompile(t *testing.T) {
 	}
 }
 
-func TestUnionPatternCollapseDuringCompile(t *testing.T) {
+func TestUnionPatternCollapseAppliesAtRuntime(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="urn:union"
@@ -312,11 +312,17 @@ func TestUnionPatternCollapseDuringCompile(t *testing.T) {
       <xs:enumeration value="a  b"/>
     </xs:restriction>
   </xs:simpleType>
+  <xs:element name="root" type="tns:R"/>
 </xs:schema>`
 
 	parsed := mustResolveSchema(t, schemaXML)
-	if _, err := buildSchemaForTest(parsed, BuildConfig{}); err == nil {
-		t.Fatalf("expected compile error for union pattern violating collapsed lexical form")
+	rt, err := buildSchemaForTest(parsed, BuildConfig{})
+	if err != nil {
+		t.Fatalf("build schema: %v", err)
+	}
+	sess := validator.NewSession(rt)
+	if err := sess.Validate(strings.NewReader(`<root xmlns="urn:union">a  b</root>`)); err == nil {
+		t.Fatalf("expected validation error for union pattern violating collapsed lexical form")
 	}
 }
 
@@ -403,6 +409,39 @@ func TestUnionDefaultUsesMemberWhitespace(t *testing.T) {
 		return
 	}
 	t.Fatalf("attribute use not found")
+}
+
+func TestSimpleContentRestrictionNestedSimpleTypeValidatesRuntimeText(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:simple-content"
+           targetNamespace="urn:simple-content"
+           elementFormDefault="qualified">
+  <xs:complexType name="Base">
+    <xs:simpleContent>
+      <xs:extension base="xs:decimal"/>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:simpleContent>
+      <xs:restriction base="tns:Base">
+        <xs:simpleType>
+          <xs:restriction base="xs:integer"/>
+        </xs:simpleType>
+        <xs:maxInclusive value="16"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="root" type="tns:Restricted"/>
+</xs:schema>`
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	sess := validator.NewSession(rt)
+	if err := sess.Validate(strings.NewReader(`<root xmlns="urn:simple-content">1</root>`)); err != nil {
+		t.Fatalf("Validate(integer) error = %v", err)
+	}
+	if err := sess.Validate(strings.NewReader(`<root xmlns="urn:simple-content">1.5</root>`)); err == nil {
+		t.Fatal("Validate(decimal) error = nil, want nested integer restriction failure")
+	}
 }
 
 func mustBuildRuntimeSchema(t *testing.T, schemaXML string) *runtime.Schema {

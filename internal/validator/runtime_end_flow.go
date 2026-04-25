@@ -3,9 +3,9 @@ package validator
 import (
 	"fmt"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver sessionResolver) ([]error, string) {
@@ -84,7 +84,8 @@ func (s *Session) ensurePath(path *string) {
 
 func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, typeOK bool, elem runtime.Element, elemOK bool, resolver sessionResolver, path *string) ([]error, endTextState) {
 	result := endTextState{}
-	if frame.nilled || !typeOK || (typ.Kind != runtime.TypeSimple && typ.Kind != runtime.TypeBuiltin && frame.content != runtime.ContentSimple) {
+	hasValueConstraint := elemOK && (elem.Default.Present || elem.Fixed.Present)
+	if frame.nilled || !typeOK || (typ.Kind != runtime.TypeSimple && typ.Kind != runtime.TypeBuiltin && frame.content != runtime.ContentSimple && !hasValueConstraint) {
 		return nil, result
 	}
 
@@ -108,6 +109,10 @@ func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, type
 
 	fixedErrs := s.validateEndTextFixed(result, hasContent, elem, elemOK, ct, hasComplexText, resolver, path)
 	errs = append(errs, fixedErrs...)
+	if len(fixedErrs) == 0 && frame.hasChildElements && elemOK && elem.Fixed.Present && typ.Kind == runtime.TypeComplex {
+		s.ensurePath(path)
+		errs = append(errs, newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch"))
+	}
 
 	return errs, result
 }

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/num"
+	"github.com/jacoelho/xsd/internal/xsdlex"
 )
 
 // KeyForValidatorKind derives deterministic value-key encoding from canonical lexical bytes.
@@ -70,7 +70,7 @@ func KeyForValidatorKind(kind ValidatorKind, canonical []byte) (ValueKind, []byt
 // KeyForPrimitiveName derives deterministic value-key encoding from normalized lexical text.
 func KeyForPrimitiveName(primitive, normalized string, ctx map[string]string) (ValueKind, []byte, error) {
 	switch primitive {
-	case "string", "normalizedString", "token", "language", "Name", "NCName", "ID", "IDREF", "ENTITY", "NMTOKEN":
+	case "anySimpleType", "string", "normalizedString", "token", "language", "Name", "NCName", "ID", "IDREF", "ENTITY", "NMTOKEN":
 		return VKString, StringKeyString(0, normalized), nil
 	case "anyURI":
 		return VKString, StringKeyString(1, normalized), nil
@@ -120,13 +120,13 @@ func KeyForPrimitiveName(primitive, normalized string, ctx map[string]string) (V
 		}
 		return VKBinary, BinaryKeyBytes(nil, 1, b), nil
 	case "QName":
-		qn, err := model.ParseQNameValue(normalized, ctx)
+		qn, err := xsdlex.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return VKInvalid, nil, err
 		}
 		return VKQName, QNameKeyStrings(0, qn.Namespace, qn.Local), nil
 	case "NOTATION":
-		qn, err := model.ParseQNameValue(normalized, ctx)
+		qn, err := xsdlex.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return VKInvalid, nil, err
 		}

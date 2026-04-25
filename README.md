@@ -19,7 +19,6 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd"
-	"github.com/jacoelho/xsd/errors"
 )
 
 func main() {
@@ -41,7 +40,7 @@ func main() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Compile(fsys, "simple.xsd")
+	schema, err := xsd.CompileFS(fsys, "simple.xsd", xsd.CompileConfig{})
 	if err != nil {
 		fmt.Printf("Compile schema: %v\n", err)
 		return
@@ -54,7 +53,7 @@ func main() {
 </person>`
 
 	if err := schema.Validate(strings.NewReader(xmlDoc)); err != nil {
-		if violations, ok := errors.AsValidations(err); ok {
+		if violations, ok := xsd.AsValidations(err); ok {
 			for _, v := range violations {
 				fmt.Println(v.Error())
 			}
@@ -68,38 +67,30 @@ func main() {
 }
 ```
 
-## Phased API
+## Compile API
 
 Single-root compile:
 
 ```go
-schema, err := xsd.Compile(fsys, "schema.xsd")
+schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
 ```
 
 File-based compile:
 
 ```go
-schema, err := xsd.CompileFile("schema.xsd")
+schema, err := xsd.CompileFile("schema.xsd", xsd.CompileConfig{})
 ```
 
-Multi-root or reusable prepared build:
+Multi-root compile:
 
 ```go
-set := xsd.NewSourceSet(xsd.AllowMissingImportLocations())
-
-if err := set.AddFS(fsysA, "schema-a.xsd"); err != nil {
-	// handle
-}
-if err := set.AddFS(fsysB, "schema-b.xsd"); err != nil {
-	// handle
-}
-
-prepared, err := set.Prepare()
-if err != nil {
-	// handle
-}
-
-schema, err := prepared.Build()
+compiler := xsd.NewCompiler(xsd.CompileConfig{
+	Source: xsd.SourceConfig{AllowMissingImportLocations: true},
+})
+schema, err := compiler.CompileSources([]xsd.Source{
+	{FS: fsysA, Path: "schema-a.xsd"},
+	{FS: fsysB, Path: "schema-b.xsd"},
+})
 if err != nil {
 	// handle
 }
@@ -119,8 +110,10 @@ Explicit validator configuration:
 
 ```go
 validator, err := schema.NewValidator(
-	xsd.InstanceMaxDepth(512),
-	xsd.InstanceMaxTokenSize(1<<20),
+	xsd.ValidateConfig{XML: xsd.XMLConfig{
+		MaxDepth:     512,
+		MaxTokenSize: 1 << 20,
+	}},
 )
 if err != nil {
 	// handle
@@ -142,54 +135,36 @@ if err := validator.ValidateFSFile(fsys, "document.xml"); err != nil {
 }
 ```
 
-## Options
+## Config
 
-`Compile` and `CompileFile` accept source and build options in one vararg list:
-
-```go
-schema, err := xsd.Compile(
-	fsys,
-	"schema.xsd",
-	xsd.AllowMissingImportLocations(),
-	xsd.SchemaMaxDepth(512),
-	xsd.MaxDFAStates(4096),
-)
-```
-
-`NewSourceSet` and `WithOptions` accept source options:
+Zero-value config uses defaults. Set only limits or policies that need to differ.
 
 ```go
-set := xsd.NewSourceSet(
-	xsd.AllowMissingImportLocations(),
-	xsd.SchemaMaxDepth(512),
-)
-```
-
-`PreparedSchema.Build` accepts build options:
-
-```go
-schema, err := prepared.Build(
-	xsd.MaxDFAStates(4096),
-	xsd.MaxOccursLimit(1_000_000),
-)
-```
-
-`Schema.NewValidator` accepts validate options:
-
-```go
-validator, err := schema.NewValidator(
-	xsd.InstanceMaxDepth(512),
-	xsd.InstanceMaxAttrs(256),
-	xsd.InstanceMaxTokenSize(1<<20),
-)
+schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{
+	Source: xsd.SourceConfig{
+		AllowMissingImportLocations: true,
+		XML: xsd.XMLConfig{
+			MaxDepth: 512,
+		},
+	},
+	Build: xsd.BuildConfig{
+		MaxDFAStates: 4096,
+	},
+	Validate: xsd.ValidateConfig{
+		XML: xsd.XMLConfig{
+			MaxAttrs:     256,
+			MaxTokenSize: 1 << 20,
+		},
+	},
+})
 ```
 
 ## Loading behavior
 
-- `Compile` and `SourceSet` accept any `fs.FS`; include/import locations resolve relative to the including schema path.
+- `CompileFS` and `Compiler.CompileSources` accept any `fs.FS`; include/import locations resolve relative to the including schema path.
 - `CompileFile` loads the explicit entry path as requested and confines nested include/import resolution to that path's containing directory tree.
 - Includes must resolve successfully.
-- Imports without `schemaLocation` are rejected unless `AllowMissingImportLocations()` is set.
+- Imports without `schemaLocation` are rejected unless `SourceConfig.AllowMissingImportLocations` is set.
 
 ## Validation behavior
 
@@ -199,10 +174,11 @@ validator, err := schema.NewValidator(
 
 ## Error handling
 
-`Schema.Validate` returns `errors.ValidationList` for validation failures, XML parsing failures, and validation calls made without a loaded schema.
+`Schema.Validate` returns `xsd.ValidationList` for validation failures and XML parsing failures.
+Validation calls made without a loaded schema return a caller-classified `xsd.Error`.
 `Schema.ValidateFile` can return file I/O errors before validation starts.
 
-Each `errors.Validation` includes:
+Each `xsd.Validation` includes:
 
 - `Code`
 - `Message`

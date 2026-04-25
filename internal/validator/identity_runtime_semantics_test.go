@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestIdentityUnprefixedSelectorRuntimeSemantics(t *testing.T) {

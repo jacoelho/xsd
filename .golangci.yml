@@ -59,25 +59,25 @@ linters:
           - nestif
           - dupl
           - maintidx
-      - path: ^(internal/model/(value_compare|wildcard)\.go|internal/semanticcheck/simple_types_restriction\.go)$
+      - path: ^(internal/schemaast/(value_compare|wildcard)\.go|internal/semanticcheck/simple_types_restriction\.go)$
         linters:
           - maintidx
-      - path: ^internal/model/
+      - path: ^internal/schemaast/
         linters:
           - iface
       - path: ^internal/preprocessor/resolve/types\.go$
         linters:
           - iface
-      - path: ^(internal/model/(simple_type_core|value_compare|wildcard)\.go|internal/semanticcheck/(facets_inheritance|simple_types_restriction)\.go|pkg/xmltext/decoder\.go)$
+      - path: ^(internal/schemaast/(simple_type_core|value_compare|wildcard)\.go|internal/semanticcheck/(facets_inheritance|simple_types_restriction)\.go|internal/xmltext/decoder\.go)$
         linters:
           - cyclop
       - path: ^internal/semanticresolve/type_derivation_validation\.go$
         linters:
           - gocognit
-      - path: ^(cmd/xmllint/main\.go|internal/compiler/schema_constraints\.go|internal/semanticcheck/schema_validator\.go|internal/semantics/compiler_emit\.go|pkg/xmltext/decoder_internal\.go)$
+      - path: ^(cmd/xmllint/main\.go|internal/compiler/schema_constraints\.go|internal/semanticcheck/schema_validator\.go|internal/schemair/check/compiler_emit\.go|internal/xmltext/decoder_internal\.go)$
         linters:
           - funlen
-      - path: ^(internal/model/(value_compare|wildcard)\.go|internal/semanticcheck/simple_types_restriction\.go|pkg/xmltext/decoder\.go)$
+      - path: ^(internal/schemaast/(value_compare|wildcard)\.go|internal/semanticcheck/simple_types_restriction\.go|internal/xmltext/decoder\.go)$
         linters:
           - funlen
       - path: ^internal/semanticresolve/(resolver_simple_types_restriction|validation_facets_inline)\.go$

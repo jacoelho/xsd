@@ -6,10 +6,9 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd"
-	"github.com/jacoelho/xsd/errors"
 )
 
-func ExampleCompile() {
+func ExampleCompileFS() {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/simple"
@@ -21,7 +20,7 @@ func ExampleCompile() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Compile(fsys, "simple.xsd")
+	schema, err := xsd.CompileFS(fsys, "simple.xsd", xsd.CompileConfig{})
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -53,7 +52,7 @@ func ExampleSchema_Validate() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Compile(fsys, "simple.xsd")
+	schema, err := xsd.CompileFS(fsys, "simple.xsd", xsd.CompileConfig{})
 	if err != nil {
 		fmt.Printf("Error loading schema: %v\n", err)
 		return
@@ -66,7 +65,7 @@ func ExampleSchema_Validate() {
 </person>`
 
 	if err := schema.Validate(strings.NewReader(xmlDoc)); err != nil {
-		if violations, ok := errors.AsValidations(err); ok {
+		if violations, ok := xsd.AsValidations(err); ok {
 			for _, v := range violations {
 				fmt.Printf("Validation: %s\n", v.Error())
 			}
@@ -91,13 +90,13 @@ func ExampleSchema_NewValidator() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Compile(fsys, "simple.xsd")
+	schema, err := xsd.CompileFS(fsys, "simple.xsd", xsd.CompileConfig{})
 	if err != nil {
 		fmt.Printf("Error loading schema: %v\n", err)
 		return
 	}
 
-	v, err := schema.NewValidator()
+	v, err := schema.NewValidator(xsd.ValidateConfig{})
 	if err != nil {
 		fmt.Printf("Error creating validator: %v\n", err)
 		return

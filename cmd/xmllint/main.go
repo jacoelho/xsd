@@ -10,7 +10,6 @@ import (
 	"runtime/pprof"
 
 	"github.com/jacoelho/xsd"
-	xsderrors "github.com/jacoelho/xsd/errors"
 )
 
 func main() {
@@ -99,7 +98,12 @@ func runWithArgs(programName string, args []string, stdout, stderr io.Writer) in
 		}()
 	}
 
-	schema, err := xsd.CompileFile(*schemaPath)
+	config := xsd.CompileConfig{}
+	if *instanceMaxTokenSize > 0 {
+		config.Validate.XML.MaxTokenSize = *instanceMaxTokenSize
+	}
+
+	schema, err := xsd.CompileFile(*schemaPath, config)
 	if err != nil {
 		if writeErr := writef(stderr, "error loading schema: %v\n", err); writeErr != nil {
 			return 1
@@ -107,11 +111,7 @@ func runWithArgs(programName string, args []string, stdout, stderr io.Writer) in
 		return 1
 	}
 
-	var validateOpts []xsd.ValidateOption
-	if *instanceMaxTokenSize > 0 {
-		validateOpts = append(validateOpts, xsd.InstanceMaxTokenSize(*instanceMaxTokenSize))
-	}
-	v, err := schema.NewValidator(validateOpts...)
+	v, err := schema.NewValidator(config.Validate)
 	if err != nil {
 		if writeErr := writef(stderr, "error creating validator: %v\n", err); writeErr != nil {
 			return 1
@@ -120,7 +120,7 @@ func runWithArgs(programName string, args []string, stdout, stderr io.Writer) in
 	}
 
 	if err := v.ValidateFile(xmlPath); err != nil {
-		if violations, ok := xsderrors.AsValidations(err); ok {
+		if violations, ok := xsd.AsValidations(err); ok {
 			for _, v := range violations {
 				if writeErr := writeln(stderr, v.Error()); writeErr != nil {
 					return 1

@@ -2,12 +2,12 @@ package xsd
 
 import "fmt"
 
-func (o parseLimitOptions) resolve(label string) (xmlParseLimits, error) {
+func (c XMLConfig) resolve(label string) (xmlParseLimits, error) {
 	limits, err := resolveXMLParseLimits(
-		o.maxDepth.resolved(),
-		o.maxAttrs.resolved(),
-		o.maxTokenSize.resolved(),
-		o.maxQNameInternEntries.resolved(),
+		c.MaxDepth,
+		c.MaxAttrs,
+		c.MaxTokenSize,
+		c.MaxNameInternEntries,
 	)
 	if err != nil {
 		return xmlParseLimits{}, fmt.Errorf("%s xml limits: %w", label, err)
@@ -15,26 +15,26 @@ func (o parseLimitOptions) resolve(label string) (xmlParseLimits, error) {
 	return limits, nil
 }
 
-func (o sourceConfig) withDefaults() (resolvedSourceOptions, error) {
-	schemaLimits, err := o.parseLimits.resolve("schema")
+func (c SourceConfig) withDefaults() (resolvedSourceOptions, error) {
+	schemaLimits, err := c.XML.resolve("schema")
 	if err != nil {
 		return resolvedSourceOptions{}, err
 	}
 	return resolvedSourceOptions{
-		allowMissingImportLocations: o.allowMissingImportLocations,
+		allowMissingImportLocations: c.AllowMissingImportLocations,
 		schemaLimits:                schemaLimits,
 	}, nil
 }
 
-func (o buildConfig) withDefaults() resolvedBuildOptions {
+func (c BuildConfig) withDefaults() resolvedBuildOptions {
 	return resolvedBuildOptions{
-		maxDFAStates:   o.maxDFAStates.resolved(),
-		maxOccursLimit: o.maxOccursLimit.resolved(),
+		maxDFAStates:   c.MaxDFAStates,
+		maxOccursLimit: c.MaxOccursLimit,
 	}
 }
 
-func (o validateConfig) withDefaults() (resolvedValidateOptions, error) {
-	instanceLimits, err := o.parseLimits.resolve("instance")
+func (c ValidateConfig) withDefaults() (resolvedValidateOptions, error) {
+	instanceLimits, err := c.XML.resolve("instance")
 	if err != nil {
 		return resolvedValidateOptions{}, err
 	}
@@ -44,33 +44,14 @@ func (o validateConfig) withDefaults() (resolvedValidateOptions, error) {
 	}, nil
 }
 
-func resolveCompileOptions(opts []CompileOption) (resolvedSourceOptions, resolvedBuildOptions, error) {
-	var cfg compileConfig
-	applyCompileOptions(&cfg, opts)
-
-	source, err := cfg.source.withDefaults()
+func (c CompileConfig) withDefaults() (resolvedSourceOptions, resolvedBuildOptions, resolvedValidateOptions, error) {
+	source, err := c.Source.withDefaults()
 	if err != nil {
-		return resolvedSourceOptions{}, resolvedBuildOptions{}, err
+		return resolvedSourceOptions{}, resolvedBuildOptions{}, resolvedValidateOptions{}, err
 	}
-	return source, cfg.build.withDefaults(), nil
-}
-
-func resolveBuildOptions(opts []BuildOption) resolvedBuildOptions {
-	var cfg buildConfig
-	applyBuildOptions(&cfg, opts)
-	return cfg.withDefaults()
-}
-
-func resolveValidateOptions(opts []ValidateOption) (resolvedValidateOptions, error) {
-	var cfg validateConfig
-	applyValidateOptions(&cfg, opts)
-	return cfg.withDefaults()
-}
-
-func defaultResolvedValidateOptions() resolvedValidateOptions {
-	opts, err := resolveValidateOptions(nil)
+	validate, err := c.Validate.withDefaults()
 	if err != nil {
-		panic(err)
+		return resolvedSourceOptions{}, resolvedBuildOptions{}, resolvedValidateOptions{}, err
 	}
-	return opts
+	return source, c.Build.withDefaults(), validate, nil
 }

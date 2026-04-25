@@ -19,17 +19,20 @@ type compileRequest struct {
 
 func newCompileRoot(fsys fs.FS, location string) (compiler.Root, error) {
 	if fsys == nil {
-		return compiler.Root{}, fmt.Errorf("source set: nil fs")
+		return compiler.Root{}, fmt.Errorf("nil fs")
 	}
 	location = strings.TrimSpace(location)
 	if location == "" {
-		return compiler.Root{}, fmt.Errorf("source set: empty location")
+		return compiler.Root{}, fmt.Errorf("empty location")
 	}
 	return compiler.Root{FS: fsys, Location: location}, nil
 }
 
-func newCompileRequest(roots []compiler.Root, opts []CompileOption) (compileRequest, error) {
-	source, build, err := resolveCompileOptions(opts)
+func newCompileRequest(roots []compiler.Root, config CompileConfig) (compileRequest, error) {
+	if len(roots) == 0 {
+		return compileRequest{}, fmt.Errorf("no schema roots")
+	}
+	source, build, validate, err := config.withDefaults()
 	if err != nil {
 		return compileRequest{}, err
 	}
@@ -37,30 +40,8 @@ func newCompileRequest(roots []compiler.Root, opts []CompileOption) (compileRequ
 		roots:            cloneCompileRoots(roots),
 		source:           source,
 		build:            build,
-		validateDefaults: defaultResolvedValidateOptions(),
+		validateDefaults: validate,
 	}, nil
-}
-
-func newSourceCompileRequest(roots []compiler.Root, sourceCfg sourceConfig) (compileRequest, error) {
-	if len(roots) == 0 {
-		return compileRequest{}, fmt.Errorf("no schema roots added")
-	}
-	source, err := sourceCfg.withDefaults()
-	if err != nil {
-		return compileRequest{}, err
-	}
-	return compileRequest{
-		roots:            cloneCompileRoots(roots),
-		source:           source,
-		validateDefaults: defaultResolvedValidateOptions(),
-	}, nil
-}
-
-func newBuildCompileRequest(opts []BuildOption) compileRequest {
-	return compileRequest{
-		build:            resolveBuildOptions(opts),
-		validateDefaults: defaultResolvedValidateOptions(),
-	}
 }
 
 func (r compileRequest) prepare() (*compiler.Prepared, error) {
@@ -91,8 +72,8 @@ type validateRequest struct {
 	options resolvedValidateOptions
 }
 
-func newValidateRequest(opts []ValidateOption) (validateRequest, error) {
-	resolved, err := resolveValidateOptions(opts)
+func newValidateRequest(config ValidateConfig) (validateRequest, error) {
+	resolved, err := config.withDefaults()
 	if err != nil {
 		return validateRequest{}, err
 	}

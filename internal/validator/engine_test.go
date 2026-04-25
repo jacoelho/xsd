@@ -7,21 +7,22 @@ import (
 	"testing"
 	"testing/fstest"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestEngineValidateNilSchema(t *testing.T) {
 	engine := validator.NewEngine(nil)
 	err := engine.Validate(strings.NewReader(`<root/>`))
-	validations, ok := xsderrors.AsValidations(err)
-	if !ok || len(validations) == 0 {
-		t.Fatalf("Validate() errors = %v, want schema-not-loaded validation", err)
+	kind, ok := xsderrors.KindOf(err)
+	if !ok || kind != xsderrors.KindCaller {
+		t.Fatalf("Validate() error kind = %v, %v; want caller", kind, ok)
 	}
-	if got, want := validations[0].Code, string(xsderrors.ErrSchemaNotLoaded); got != want {
-		t.Fatalf("Validate() code = %q, want %q", got, want)
+	code, ok := xsderrors.Info(err)
+	if !ok || code != xsderrors.ErrSchemaNotLoaded {
+		t.Fatalf("Validate() code = %q, %v; want %q", code, ok, xsderrors.ErrSchemaNotLoaded)
 	}
 }
 
@@ -135,7 +136,7 @@ func sortedValidationCodes(err error) []string {
 	}
 	codes := make([]string, 0, len(violations))
 	for _, violation := range violations {
-		codes = append(codes, violation.Code)
+		codes = append(codes, string(violation.Code))
 	}
 	slices.Sort(codes)
 	return codes

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"slices"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 type valueRequest struct {
@@ -53,21 +53,49 @@ func (s *Session) validateValue(req valueRequest) (validatedValue, error) {
 }
 
 func (r valueRunner) validate(req valueRequest) (validatedValue, error) {
-	out := validatedValue{}
-	canonical, err := r.run(req.Validator, req.Lexical, req.Resolver, req.Options, &out.Metrics)
+	var metrics ValueMetrics
+	canonical, err := r.run(req.Validator, req.Lexical, req.Resolver, req.Options, &metrics)
 	if err != nil {
 		return validatedValue{}, err
 	}
+	out := validatedValue{Metrics: metrics}
 	return finalizeValidatedValue(out, canonical), nil
 }
 
-func (r valueRunner) validateText(req textValueRequest) (validatedValue, error) {
-	out := validatedValue{}
-	canonical, err := r.validateTextCore(req.Type, req.Lexical, req.Resolver, req.Options, &out.Metrics)
+func (r valueRunner) validateSession(req valueRequest) (validatedValue, error) {
+	s := r.session
+	if s == nil {
+		return r.validate(req)
+	}
+	s.metrics = ValueMetrics{}
+	canonical, err := r.run(req.Validator, req.Lexical, req.Resolver, req.Options, &s.metrics)
 	if err != nil {
 		return validatedValue{}, err
 	}
+	return finishValidatedValue(validatedValue{}, canonical, &s.metrics), nil
+}
+
+func (r valueRunner) validateText(req textValueRequest) (validatedValue, error) {
+	var metrics ValueMetrics
+	canonical, err := r.validateTextCore(req.Type, req.Lexical, req.Resolver, req.Options, &metrics)
+	if err != nil {
+		return validatedValue{}, err
+	}
+	out := validatedValue{Metrics: metrics}
 	return finalizeValidatedValue(out, canonical), nil
+}
+
+func (r valueRunner) validateTextSession(req textValueRequest) (validatedValue, error) {
+	s := r.session
+	if s == nil {
+		return r.validateText(req)
+	}
+	s.metrics = ValueMetrics{}
+	canonical, err := r.validateTextCore(req.Type, req.Lexical, req.Resolver, req.Options, &s.metrics)
+	if err != nil {
+		return validatedValue{}, err
+	}
+	return finishValidatedValue(validatedValue{}, canonical, &s.metrics), nil
 }
 
 func (r valueRunner) validateTextCore(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions, metrics *ValueMetrics) ([]byte, error) {
@@ -117,14 +145,28 @@ func (r valueRunner) run(id runtime.ValidatorID, lexical []byte, resolver value.
 	}
 
 	plan := buildValuePlan(meta, opts, hasLengthFacet(meta, s.rt.Facets))
-	metrics, metricsInternal := r.prepareMetrics(plan, metricState)
-	normalized, finishNormalize := r.normalizeInput(meta, lexical, opts, plan)
-	defer finishNormalize()
+	metrics := metricState
+	metricsInternal := false
+	if metrics == nil && plan.NeedLocalMetrics {
+		s.metrics = ValueMetrics{}
+		metrics = &s.metrics
+		metricsInternal = true
+	}
+
+	normalized, popNormalize := r.normalizeInput(meta, lexical, opts, plan)
 
 	if !plan.NeedCanonical {
-		return r.validateWithoutCanonical(id, meta, normalized, resolver, opts, metrics)
+		canonical, err := r.validateWithoutCanonical(id, meta, normalized, resolver, opts, metrics)
+		if popNormalize {
+			s.popNormBuf()
+		}
+		return canonical, err
 	}
-	return r.validateWithCanonical(id, meta, lexical, normalized, resolver, opts, plan, metrics, metricsInternal)
+	canonical, err := r.validateWithCanonical(id, meta, lexical, normalized, resolver, opts, plan, metrics, metricsInternal)
+	if popNormalize {
+		s.popNormBuf()
+	}
+	return canonical, err
 }
 
 func buildValuePlan(meta runtime.ValidatorMeta, opts valueOptions, hasLengthFacet bool) valuePlan {
@@ -151,29 +193,22 @@ func buildValuePlan(meta runtime.ValidatorMeta, opts valueOptions, hasLengthFace
 	}
 }
 
-func (r valueRunner) prepareMetrics(plan valuePlan, metricState *ValueMetrics) (*ValueMetrics, bool) {
-	if metricState != nil || !plan.NeedLocalMetrics {
-		return metricState, false
-	}
-	return &ValueMetrics{}, true
-}
-
-func (r valueRunner) normalizeInput(meta runtime.ValidatorMeta, lexical []byte, opts valueOptions, plan valuePlan) ([]byte, func()) {
+func (r valueRunner) normalizeInput(meta runtime.ValidatorMeta, lexical []byte, opts valueOptions, plan valuePlan) ([]byte, bool) {
 	s := r.session
 	if !opts.ApplyWhitespace {
-		return lexical, func() {}
+		return lexical, false
 	}
 	mode := valueWhitespaceMode(meta.WhiteSpace)
 	if !plan.UseScratchNormalization {
 		normalized := value.NormalizeWhitespace(mode, lexical, s.buffers.normBuf)
-		return normalized, func() {}
+		return normalized, false
 	}
 	if !value.NeedsWhitespaceNormalization(mode, lexical) {
-		return lexical, func() {}
+		return lexical, false
 	}
 	buf := s.pushNormBuf(len(lexical))
 	normalized := value.NormalizeWhitespace(mode, lexical, buf)
-	return normalized, s.popNormBuf
+	return normalized, true
 }
 
 func (r valueRunner) validateWithoutCanonical(id runtime.ValidatorID, meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, metrics *ValueMetrics) ([]byte, error) {
@@ -307,8 +342,14 @@ func (r valueRunner) trackIDs(id runtime.ValidatorID, meta runtime.ValidatorMeta
 }
 
 func finalizeValidatedValue(out validatedValue, canonical []byte) validatedValue {
+	return finishValidatedValue(out, canonical, &out.Metrics)
+}
+
+func finishValidatedValue(out validatedValue, canonical []byte, metrics *ValueMetrics) validatedValue {
 	out.Canonical = canonical
-	out.KeyKind, out.KeyBytes, out.HasKey = out.Metrics.State.Key()
-	_, out.ActualValidator = out.Metrics.State.Actual()
+	if metrics != nil {
+		out.KeyKind, out.KeyBytes, out.HasKey = metrics.State.Key()
+		_, out.ActualValidator = metrics.State.Actual()
+	}
 	return out
 }

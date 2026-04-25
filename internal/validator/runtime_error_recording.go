@@ -3,7 +3,7 @@ package validator
 import (
 	"slices"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func (s *Session) recordValidationError(err error, line, column int) error {

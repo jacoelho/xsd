@@ -1,8 +1,8 @@
 package main
 
 import (
-	"crypto/tls"
 	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
@@ -363,7 +363,7 @@ func validateLocalPreparedState(gmlPath string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := xsd.CompileFile(entry); err != nil {
+	if _, err := xsd.CompileFile(entry, xsd.CompileConfig{}); err != nil {
 		return fmt.Errorf("entry schema compile check failed: %w", err)
 	}
 	return nil
@@ -381,7 +381,7 @@ func validateExistingLocalSchemaSet(gmlPath, xsdDir string) error {
 		if _, err := os.Stat(entry); err != nil {
 			return fmt.Errorf("missing local schema %s: %w", entry, err)
 		}
-		if _, err := xsd.CompileFile(entry); err != nil {
+		if _, err := xsd.CompileFile(entry, xsd.CompileConfig{}); err != nil {
 			return fmt.Errorf("schema compile check failed for %s: %w", entry, err)
 		}
 	}
