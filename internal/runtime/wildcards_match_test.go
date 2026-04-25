@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 func TestWildcardAcceptsEnumerationWithBytesFallback(t *testing.T) {
@@ -155,58 +155,58 @@ func TestSchemaWildcardAccepts(t *testing.T) {
 func TestWildcardAcceptsModelParity(t *testing.T) {
 	tests := []struct {
 		name       string
-		constraint model.NamespaceConstraint
-		list       []model.NamespaceURI
-		target     model.NamespaceURI
+		constraint schemaast.NamespaceConstraint
+		list       []schemaast.NamespaceURI
+		target     schemaast.NamespaceURI
 	}{
 		{
 			name:       "any",
-			constraint: model.NSCAny,
+			constraint: schemaast.NSCAny,
 		},
 		{
 			name:       "other",
-			constraint: model.NSCOther,
+			constraint: schemaast.NSCOther,
 			target:     "urn:target",
 		},
 		{
 			name:       "not absent",
-			constraint: model.NSCNotAbsent,
+			constraint: schemaast.NSCNotAbsent,
 			target:     "urn:target",
 		},
 		{
 			name:       "target namespace",
-			constraint: model.NSCTargetNamespace,
+			constraint: schemaast.NSCTargetNamespace,
 			target:     "urn:target",
 		},
 		{
 			name:       "local",
-			constraint: model.NSCLocal,
+			constraint: schemaast.NSCLocal,
 			target:     "urn:target",
 		},
 		{
 			name:       "list with placeholder and local",
-			constraint: model.NSCList,
+			constraint: schemaast.NSCList,
 			target:     "urn:target",
-			list: []model.NamespaceURI{
-				model.NamespaceTargetPlaceholder,
-				model.NamespaceURI("urn:list"),
-				model.NamespaceEmpty,
+			list: []schemaast.NamespaceURI{
+				schemaast.NamespaceTargetPlaceholder,
+				schemaast.NamespaceURI("urn:list"),
+				schemaast.NamespaceEmpty,
 			},
 		},
 	}
 
-	candidates := []model.NamespaceURI{
-		model.NamespaceEmpty,
-		model.NamespaceURI("urn:target"),
-		model.NamespaceURI("urn:list"),
-		model.NamespaceURI("urn:other"),
+	candidates := []schemaast.NamespaceURI{
+		schemaast.NamespaceEmpty,
+		schemaast.NamespaceURI("urn:target"),
+		schemaast.NamespaceURI("urn:list"),
+		schemaast.NamespaceURI("urn:other"),
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := NewBuilder()
-			nsIDs := make(map[model.NamespaceURI]NamespaceID)
-			register := func(ns model.NamespaceURI) {
+			nsIDs := make(map[schemaast.NamespaceURI]NamespaceID)
+			register := func(ns schemaast.NamespaceURI) {
 				if ns == "" {
 					return
 				}
@@ -221,7 +221,7 @@ func TestWildcardAcceptsModelParity(t *testing.T) {
 			}
 			register(tc.target)
 			for _, ns := range tc.list {
-				if ns == model.NamespaceTargetPlaceholder {
+				if ns == schemaast.NamespaceTargetPlaceholder {
 					continue
 				}
 				register(ns)
@@ -237,10 +237,10 @@ func TestWildcardAcceptsModelParity(t *testing.T) {
 
 			rule, nsList := runtimeRuleFromModel(tc.constraint, tc.list, tc.target, nsIDs)
 			for _, ns := range candidates {
-				want := model.AllowsNamespace(tc.constraint, tc.list, tc.target, ns)
+				want := schemaast.AllowsNamespace(tc.constraint, tc.list, tc.target, ns)
 
 				var nsID NamespaceID
-				if ns == model.NamespaceEmpty {
+				if ns == schemaast.NamespaceEmpty {
 					nsID = schema.PredefNS.Empty
 				} else {
 					nsID = nsIDs[ns]
@@ -251,7 +251,7 @@ func TestWildcardAcceptsModelParity(t *testing.T) {
 				}
 
 				nsBytes := []byte(ns)
-				if ns == model.NamespaceEmpty {
+				if ns == schemaast.NamespaceEmpty {
 					nsBytes = nil
 				}
 				gotByBytes := rule.Accepts(nsBytes, 0, &schema.Namespaces, nsList)
@@ -264,10 +264,10 @@ func TestWildcardAcceptsModelParity(t *testing.T) {
 }
 
 func runtimeRuleFromModel(
-	constraint model.NamespaceConstraint,
-	list []model.NamespaceURI,
-	target model.NamespaceURI,
-	nsIDs map[model.NamespaceURI]NamespaceID,
+	constraint schemaast.NamespaceConstraint,
+	list []schemaast.NamespaceURI,
+	target schemaast.NamespaceURI,
+	nsIDs map[schemaast.NamespaceURI]NamespaceID,
 ) (WildcardRule, []NamespaceID) {
 	rule := WildcardRule{}
 	if target != "" {
@@ -276,26 +276,26 @@ func runtimeRuleFromModel(
 	var nsList []NamespaceID
 
 	switch constraint {
-	case model.NSCAny:
+	case schemaast.NSCAny:
 		rule.NS.Kind = NSAny
-	case model.NSCOther:
+	case schemaast.NSCOther:
 		rule.NS.Kind = NSOther
 		rule.NS.HasTarget = true
-	case model.NSCNotAbsent:
+	case schemaast.NSCNotAbsent:
 		rule.NS.Kind = NSNotAbsent
-	case model.NSCTargetNamespace:
+	case schemaast.NSCTargetNamespace:
 		rule.NS.Kind = NSEnumeration
 		rule.NS.HasTarget = true
-	case model.NSCLocal:
+	case schemaast.NSCLocal:
 		rule.NS.Kind = NSEnumeration
 		rule.NS.HasLocal = true
-	case model.NSCList:
+	case schemaast.NSCList:
 		rule.NS.Kind = NSEnumeration
 		for _, ns := range list {
 			switch ns {
-			case model.NamespaceTargetPlaceholder:
+			case schemaast.NamespaceTargetPlaceholder:
 				rule.NS.HasTarget = true
-			case model.NamespaceEmpty:
+			case schemaast.NamespaceEmpty:
 				rule.NS.HasLocal = true
 			default:
 				nsList = append(nsList, nsIDs[ns])

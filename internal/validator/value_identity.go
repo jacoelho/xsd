@@ -1,9 +1,9 @@
 package validator
 
 import (
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func (s *Session) trackIDs(kind runtime.StringKind, canonical []byte) error {

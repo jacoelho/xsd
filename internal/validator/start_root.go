@@ -1,8 +1,8 @@
 package validator
 
 import (
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // StartRootDecision describes the selected root-element start match or skip outcome.

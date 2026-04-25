@@ -2,7 +2,6 @@ package validator
 
 import (
 	"bytes"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
@@ -19,8 +18,11 @@ type AttrName struct {
 
 // AttrNames owns the session-local attribute-name interner.
 type AttrNames struct {
-	Buckets map[uint64][]AttrNameID
-	Names   []AttrName
+	Buckets    map[uint64][]AttrNameID
+	Names      []AttrName
+	NS         []byte
+	Local      []byte
+	usedHashes []uint64
 }
 
 // Intern returns a stable session-local ID for the attribute name.
@@ -31,7 +33,10 @@ func (s *AttrNames) Intern(hash uint64, ns, local []byte) AttrNameID {
 	if s.Buckets == nil {
 		s.Buckets = make(map[uint64][]AttrNameID)
 	}
-	bucket := s.Buckets[hash]
+	bucket, seenHash := s.Buckets[hash]
+	if !seenHash || len(bucket) == 0 {
+		s.usedHashes = append(s.usedHashes, hash)
+	}
 	for _, id := range bucket {
 		if id == 0 {
 			continue
@@ -41,10 +46,14 @@ func (s *AttrNames) Intern(hash uint64, ns, local []byte) AttrNameID {
 			return id
 		}
 	}
+	nsStart := len(s.NS)
+	s.NS = append(s.NS, ns...)
+	localStart := len(s.Local)
+	s.Local = append(s.Local, local...)
 	id := AttrNameID(len(s.Names) + 1)
 	s.Names = append(s.Names, AttrName{
-		NS:    slices.Clone(ns),
-		Local: slices.Clone(local),
+		NS:    s.NS[nsStart:len(s.NS)],
+		Local: s.Local[localStart:len(s.Local)],
 	})
 	s.Buckets[hash] = append(bucket, id)
 	return id
@@ -60,14 +69,34 @@ func (s *AttrNames) Reset(entryLimit int) {
 	} else {
 		s.Names = s.Names[:0]
 	}
+	if cap(s.NS) > entryLimit*64 {
+		s.NS = nil
+	} else {
+		s.NS = s.NS[:0]
+	}
+	if cap(s.Local) > entryLimit*64 {
+		s.Local = nil
+	} else {
+		s.Local = s.Local[:0]
+	}
 	if s.Buckets == nil {
 		return
 	}
 	if len(s.Buckets) > entryLimit {
 		s.Buckets = nil
+		s.usedHashes = s.usedHashes[:0]
 		return
 	}
-	clear(s.Buckets)
+	if len(s.usedHashes) == 0 {
+		clear(s.Buckets)
+		return
+	}
+	for _, hash := range s.usedHashes {
+		if bucket, ok := s.Buckets[hash]; ok {
+			s.Buckets[hash] = bucket[:0]
+		}
+	}
+	s.usedHashes = s.usedHashes[:0]
 }
 
 // Attr is the normalized identity-constraint view of one attribute.

@@ -296,7 +296,7 @@ func TestUnionWhitespaceNormalizationDuringCompile(t *testing.T) {
 	}
 }
 
-func TestUnionPatternCollapseDuringCompile(t *testing.T) {
+func TestUnionPatternCollapseAppliesAtRuntime(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="urn:union"
@@ -312,11 +312,17 @@ func TestUnionPatternCollapseDuringCompile(t *testing.T) {
       <xs:enumeration value="a  b"/>
     </xs:restriction>
   </xs:simpleType>
+  <xs:element name="root" type="tns:R"/>
 </xs:schema>`
 
 	parsed := mustResolveSchema(t, schemaXML)
-	if _, err := buildSchemaForTest(parsed, BuildConfig{}); err == nil {
-		t.Fatalf("expected compile error for union pattern violating collapsed lexical form")
+	rt, err := buildSchemaForTest(parsed, BuildConfig{})
+	if err != nil {
+		t.Fatalf("build schema: %v", err)
+	}
+	sess := validator.NewSession(rt)
+	if err := sess.Validate(strings.NewReader(`<root xmlns="urn:union">a  b</root>`)); err == nil {
+		t.Fatalf("expected validation error for union pattern violating collapsed lexical form")
 	}
 }
 

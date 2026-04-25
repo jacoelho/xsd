@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 type resolverFunc func(req ResolveRequest) (io.ReadCloser, string, error)
@@ -17,12 +17,12 @@ func (f resolverFunc) Resolve(req ResolveRequest) (io.ReadCloser, string, error)
 
 func TestLoaderLoadNilLoader(t *testing.T) {
 	var loader *Loader
-	if _, err := loader.Load("schema.xsd"); err == nil {
-		t.Fatal("Load() error = nil, want error")
+	if _, err := loader.LoadDocuments("schema.xsd"); err == nil {
+		t.Fatal("LoadDocuments() error = nil, want error")
 	}
 }
 
-func TestLoaderLoad(t *testing.T) {
+func TestLoaderLoadDocuments(t *testing.T) {
 	loader := NewLoader(LoaderConfig{
 		FS: fstest.MapFS{
 			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
@@ -34,12 +34,85 @@ func TestLoaderLoad(t *testing.T) {
 </xs:schema>`)},
 		},
 	})
-	schema, err := loader.Load("schema.xsd")
+	docs, err := loader.LoadDocuments("schema.xsd")
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Fatalf("LoadDocuments() error = %v", err)
 	}
-	if schema == nil {
-		t.Fatal("Load() returned nil schema")
+	if docs == nil || len(docs.Documents) != 1 {
+		t.Fatalf("LoadDocuments() documents = %v, want one document", docs)
+	}
+}
+
+func TestLoaderLoadDocumentsRejectsImportWithoutNamespaceInNoNamespaceSchema(t *testing.T) {
+	loader := NewLoader(LoaderConfig{
+		FS: fstest.MapFS{
+			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import schemaLocation="dep.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)},
+			"dep.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="dep" type="xs:string"/>
+</xs:schema>`)},
+		},
+	})
+
+	_, err := loader.LoadDocuments("schema.xsd")
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want error")
+	}
+	if got, want := err.Error(), "schema without targetNamespace cannot use import without namespace attribute"; !strings.Contains(got, want) {
+		t.Fatalf("LoadDocuments() error = %q, want %q", got, want)
+	}
+}
+
+func TestLoaderLoadDocumentsRejectsIncludeWithDifferentNamespace(t *testing.T) {
+	loader := NewLoader(LoaderConfig{
+		FS: fstest.MapFS{
+			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="dep.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)},
+			"dep.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:dep">
+  <xs:element name="dep" type="xs:string"/>
+</xs:schema>`)},
+		},
+	})
+
+	_, err := loader.LoadDocuments("schema.xsd")
+	if err == nil {
+		t.Fatal("LoadDocuments() error = nil, want error")
+	}
+	if got, want := err.Error(), "included schema namespace"; !strings.Contains(got, want) {
+		t.Fatalf("LoadDocuments() error = %q, want %q", got, want)
+	}
+}
+
+func TestLoaderLoadDocumentsIgnoresImportOfActiveNamespace(t *testing.T) {
+	loader := NewLoader(LoaderConfig{
+		FS: fstest.MapFS{
+			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a" xmlns="urn:a">
+  <xs:import schemaLocation="dep.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)},
+			"dep.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="urn:a" schemaLocation="schema.xsd"/>
+  <xs:element name="dep" type="xs:string"/>
+</xs:schema>`)},
+		},
+	})
+
+	docs, err := loader.LoadDocuments("schema.xsd")
+	if err != nil {
+		t.Fatalf("LoadDocuments() error = %v", err)
+	}
+	if got, want := len(docs.Documents), 2; got != want {
+		t.Fatalf("documents = %d, want %d", got, want)
 	}
 }
 
@@ -66,23 +139,23 @@ func TestLoaderLoadIsIsolatedPerCall(t *testing.T) {
 		}),
 	})
 
-	first, err := loader.Load("schema.xsd")
+	first, err := loader.LoadDocuments("schema.xsd")
 	if err != nil {
-		t.Fatalf("first Load() error = %v", err)
+		t.Fatalf("first LoadDocuments() error = %v", err)
 	}
-	second, err := loader.Load("schema.xsd")
+	second, err := loader.LoadDocuments("schema.xsd")
 	if err != nil {
-		t.Fatalf("second Load() error = %v", err)
+		t.Fatalf("second LoadDocuments() error = %v", err)
 	}
 	if first == second {
-		t.Fatal("Load() reused cached schema across top-level calls")
+		t.Fatal("LoadDocuments() reused document set across top-level calls")
 	}
-	if second.ElementDecls[model.QName{Namespace: "urn:test", Local: "second"}] == nil {
-		t.Fatal("second Load() did not reflect second resolver document")
+	if !documentSetHasElement(second, schemaast.QName{Namespace: "urn:test", Local: "second"}) {
+		t.Fatal("second LoadDocuments() did not reflect second resolver document")
 	}
 }
 
-func TestLoaderLoadMergesIncludesAndImports(t *testing.T) {
+func TestLoaderLoadDocumentsCollectsIncludesAndImports(t *testing.T) {
 	loader := NewLoader(LoaderConfig{
 		FS: fstest.MapFS{
 			"main.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
@@ -111,17 +184,31 @@ func TestLoaderLoadMergesIncludesAndImports(t *testing.T) {
 		},
 	})
 
-	schema, err := loader.Load("main.xsd")
+	docs, err := loader.LoadDocuments("main.xsd")
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Fatalf("LoadDocuments() error = %v", err)
 	}
-	for _, qname := range []model.QName{
+	for _, qname := range []schemaast.QName{
 		{Namespace: "urn:main", Local: "root"},
 		{Namespace: "urn:main", Local: "common"},
 		{Namespace: "urn:dep", Local: "dep"},
 	} {
-		if schema.ElementDecls[qname] == nil {
-			t.Fatalf("Load() missing merged element %v", qname)
+		if !documentSetHasElement(docs, qname) {
+			t.Fatalf("LoadDocuments() missing element %v", qname)
 		}
 	}
+}
+
+func documentSetHasElement(docs *schemaast.DocumentSet, name schemaast.QName) bool {
+	if docs == nil {
+		return false
+	}
+	for _, doc := range docs.Documents {
+		for _, decl := range doc.Decls {
+			if decl.Kind == schemaast.DeclElement && decl.Name == name {
+				return true
+			}
+		}
+	}
+	return false
 }

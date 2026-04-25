@@ -57,11 +57,10 @@ func OpenScope(rt *runtime.Schema, frameID uint64, frameDepth int, elemID runtim
 }
 
 // MatchSelectors starts any selector matches rooted at the current frame.
-func MatchSelectors[F Frame](rt *runtime.Schema, scopes []Scope, frames []F, frameID uint64, currentDepth int) []*Match {
+func MatchSelectors[F Frame](rt *runtime.Schema, scopes []Scope, frames []F, frameID uint64, currentDepth int, dst []*Match) []*Match {
 	if currentDepth < 0 || currentDepth >= len(frames) {
-		return nil
+		return dst
 	}
-	out := make([]*Match, 0, 4)
 	for scopeIdx := range scopes {
 		scope := &scopes[scopeIdx]
 		for cidx := range scope.Constraints {
@@ -76,26 +75,26 @@ func MatchSelectors[F Frame](rt *runtime.Schema, scopes []Scope, frames []F, fra
 				Constraint: state,
 				ID:         frameID,
 				Depth:      currentDepth,
-				Fields:     make([]FieldState, len(state.Fields)),
+			}
+			if len(state.Fields) <= len(match.fields) {
+				match.Fields = match.fields[:len(state.Fields)]
+			} else {
+				match.Fields = make([]FieldState, len(state.Fields))
 			}
 			state.Matches[frameID] = match
-			out = append(out, match)
+			dst = append(dst, match)
 		}
 	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return dst
 }
 
 // ApplySelections evaluates field paths for the current frame and returns any
 // deferred element-value captures plus internal invariant errors.
-func ApplySelections[F Frame](rt *runtime.Schema, scopes []Scope, frames []F, currentDepth int, frameID uint64, frameType runtime.TypeID, attrs []Attr) ([]FieldCapture, []error) {
+func ApplySelections[F Frame](rt *runtime.Schema, scopes []Scope, frames []F, currentDepth int, frameID uint64, frameType runtime.TypeID, attrs []Attr, captures []FieldCapture) ([]FieldCapture, []error) {
 	if currentDepth < 0 || currentDepth >= len(frames) {
-		return nil, nil
+		return captures, nil
 	}
 
-	var captures []FieldCapture
 	var errs []error
 
 	for scopeIdx := range scopes {

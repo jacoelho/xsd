@@ -3,7 +3,7 @@ package compiler
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 // Directive records one deferred include or import against a target key.
@@ -13,7 +13,7 @@ type Directive[K comparable] struct {
 	ExpectedNamespace string
 	IncludeDeclIndex  int
 	IncludeIndex      int
-	Kind              parser.DirectiveKind
+	Kind              schemaast.DirectiveKind
 }
 
 // Tracking stores deferred directives plus the number of unresolved inbound
@@ -55,7 +55,7 @@ func (t *Tracking[K]) Reset() {
 }
 
 // Remove deletes one matching deferred directive when present.
-func (t *Tracking[K]) Remove(kind parser.DirectiveKind, targetKey K) {
+func (t *Tracking[K]) Remove(kind schemaast.DirectiveKind, targetKey K) {
 	if t == nil {
 		return
 	}

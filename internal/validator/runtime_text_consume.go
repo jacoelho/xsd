@@ -3,9 +3,9 @@ package validator
 import (
 	"fmt"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // ConsumeText updates text state and enforces content-kind text constraints.
@@ -31,6 +31,8 @@ func (s *Session) ConsumeText(state *TextState, kind runtime.ContentKind, mixed,
 		state.Len += uint32(len(text))
 		return nil
 	case runtime.ContentMixed:
+		s.buffers.textBuf = append(s.buffers.textBuf, text...)
+		state.Len += uint32(len(text))
 		return nil
 	case runtime.ContentEmpty:
 		return newValidationError(xsderrors.ErrTextInElementOnly, "character data not allowed in empty content")

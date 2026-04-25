@@ -14,17 +14,23 @@ import (
 	"testing"
 	"unicode"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/compiler"
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaast"
 	"github.com/jacoelho/xsd/internal/validator"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // We support XSD 1.0
 const processorVersion = "1.0"
+
+func w3cBuildConfig() compiler.BuildConfig {
+	return compiler.BuildConfig{
+		MaxOccursLimit: 4096,
+	}
+}
 
 var w3cTestSetFiles = []string{
 	// Common (1 file)
@@ -478,7 +484,8 @@ func shouldSkipSchemaError(err error) (bool, string) {
 	if err == nil {
 		return false, ""
 	}
-	if errors.Is(err, model.ErrOccursOverflow) || errors.Is(err, model.ErrOccursTooLarge) {
+	if errors.Is(err, schemaast.ErrOccursOverflow) || errors.Is(err, schemaast.ErrOccursTooLarge) ||
+		strings.Contains(err.Error(), "SCHEMA_OCCURS_TOO_LARGE") {
 		return true, "occurrence bounds exceed compile limits"
 	}
 	msg := err.Error()
@@ -870,7 +877,7 @@ func NewW3CTestRunner(testSuiteDir string) *W3CTestRunner {
 	filter := NewFilter(&FilterOptions{
 		IncludeVersion:  processorVersion,
 		ExcludeVersion:  []string{"1.1"}, // exclude XSD 1.1 tests (we only support XSD 1.0)
-		ExcludePatterns: excludePatterns,
+		ExcludePatterns: w3cExclusionManifest.Entries,
 		ExcludeStatus: []string{
 			"disputed-test", // tests with disputed-test status - may not be reliable indicators of conformance
 			"disputed-spec", // tests with disputed-spec status - may not be reliable indicators of conformance
@@ -1237,7 +1244,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 		return "", nil
 	}
 	rootNS := info.rootNS
-	rootQName := model.QName{
+	rootQName := schemaast.QName{
 		Namespace: rootNS,
 		Local:     info.rootLocal,
 	}
@@ -1283,7 +1290,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 	return "", nil
 }
 
-func runtimeDeclaresElement(schema *runtime.Schema, root model.QName) bool {
+func runtimeDeclaresElement(schema *runtime.Schema, root schemaast.QName) bool {
 	if schema == nil {
 		return false
 	}
@@ -1322,7 +1329,7 @@ func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*runtime.Schema, 
 		r.schemaCache[key] = schemaCacheEntry{err: err}
 		return nil, err
 	}
-	schema, err := prepared.Build(compiler.BuildConfig{})
+	schema, err := prepared.Build(w3cBuildConfig())
 	if err != nil {
 		err = fmt.Errorf("build runtime schema %s: %w", schemaPath, err)
 		r.schemaCache[key] = schemaCacheEntry{err: err}
@@ -1383,7 +1390,7 @@ func (r *W3CTestRunner) formatViolations(violations []xsderrors.Validation) stri
 		b.WriteString("    ")
 		b.WriteString(strconv.Itoa(i + 1))
 		b.WriteString(". [")
-		b.WriteString(v.Code)
+		b.WriteString(string(v.Code))
 		b.WriteString("] ")
 		b.WriteString(v.Message)
 		if v.Path != "" {

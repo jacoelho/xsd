@@ -1,6 +1,6 @@
 package compiler
 
-import "github.com/jacoelho/xsd/internal/parser"
+import "github.com/jacoelho/xsd/internal/schemaast"
 
 type journalOpKind uint8
 
@@ -14,7 +14,7 @@ type journalOp[K comparable] struct {
 	sourceKey     K
 	targetKey     K
 	kind          journalOpKind
-	directiveKind parser.DirectiveKind
+	directiveKind schemaast.DirectiveKind
 }
 
 // Journal records rollback operations for directive processing.
@@ -24,8 +24,8 @@ type Journal[K comparable] struct {
 
 // RollbackCallbacks describes root-owned rollback side effects.
 type RollbackCallbacks[K comparable] struct {
-	UnmarkMerged           func(parser.DirectiveKind, K, K)
-	RemovePendingDirective func(parser.DirectiveKind, K, K)
+	UnmarkMerged           func(schemaast.DirectiveKind, K, K)
+	RemovePendingDirective func(schemaast.DirectiveKind, K, K)
 	DecPendingCount        func(K)
 	CleanupKey             func(K)
 }
@@ -39,7 +39,7 @@ func (j *Journal[K]) Append(other *Journal[K]) {
 }
 
 // RecordMarkMerged records the inverse of one merge marker update.
-func (j *Journal[K]) RecordMarkMerged(kind parser.DirectiveKind, baseKey, targetKey K) {
+func (j *Journal[K]) RecordMarkMerged(kind schemaast.DirectiveKind, baseKey, targetKey K) {
 	j.ops = append(j.ops, journalOp[K]{
 		kind:          journalOpUnmarkMerged,
 		directiveKind: kind,
@@ -49,7 +49,7 @@ func (j *Journal[K]) RecordMarkMerged(kind parser.DirectiveKind, baseKey, target
 }
 
 // RecordAppendPendingDirective records the inverse of one pending directive append.
-func (j *Journal[K]) RecordAppendPendingDirective(kind parser.DirectiveKind, sourceKey, targetKey K) {
+func (j *Journal[K]) RecordAppendPendingDirective(kind schemaast.DirectiveKind, sourceKey, targetKey K) {
 	j.ops = append(j.ops, journalOp[K]{
 		kind:          journalOpRemovePendingDirective,
 		directiveKind: kind,

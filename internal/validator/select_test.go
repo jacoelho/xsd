@@ -140,7 +140,7 @@ func TestMatchSelectorsAndApplySelections(t *testing.T) {
 		{sym: fx.itemSym, ns: fx.nsID},
 	}
 
-	matches := MatchSelectors(fx.rt, scopes, frames, 2, 1)
+	matches := MatchSelectors(fx.rt, scopes, frames, 2, 1, nil)
 	if len(matches) != 1 {
 		t.Fatalf("matches = %d, want 1", len(matches))
 	}
@@ -151,7 +151,7 @@ func TestMatchSelectorsAndApplySelections(t *testing.T) {
 		KeyKind:  runtime.VKString,
 		KeyBytes: []byte("one"),
 	}}
-	captures, errs := ApplySelections(fx.rt, scopes, frames, 1, 2, fx.itemType, attrs)
+	captures, errs := ApplySelections(fx.rt, scopes, frames, 1, 2, fx.itemType, attrs, nil)
 	if len(errs) != 0 {
 		t.Fatalf("errs = %v, want none", errs)
 	}

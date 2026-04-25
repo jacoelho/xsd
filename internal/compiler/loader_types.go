@@ -3,16 +3,15 @@ package compiler
 import (
 	"io/fs"
 
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/schemaast"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 )
 
 // LoaderConfig holds configuration for the schema loader.
 type LoaderConfig struct {
 	FS                          fs.FS
 	Resolver                    SchemaResolver
-	DocumentPool                *parser.DocumentPool
+	DocumentPool                *schemaast.DocumentPool
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
 }
@@ -21,8 +20,6 @@ type LoaderConfig struct {
 // It is not safe for concurrent use.
 type Loader struct {
 	resolver SchemaResolver
-	imports  Tracker[loadKey]
-	state    loadState
 	config   LoaderConfig
 }
 
@@ -33,30 +30,19 @@ func NewLoader(cfg LoaderConfig) *Loader {
 		res = NewFSResolver(cfg.FS)
 	}
 	if cfg.DocumentPool == nil {
-		cfg.DocumentPool = parser.NewDocumentPool()
+		cfg.DocumentPool = schemaast.NewDocumentPool()
 	}
 	return &Loader{
 		config:   cfg,
-		state:    newLoadState(),
-		imports:  NewTracker[loadKey](),
 		resolver: res,
 	}
 }
 
-func (l *Loader) loadKey(systemID string, etn model.NamespaceURI) loadKey {
+func (l *Loader) loadKey(systemID string, etn schemaast.NamespaceURI) loadKey {
 	return loadKey{systemID: systemID, etn: etn}
 }
 
-func (l *Loader) cleanupEntryIfUnused(key loadKey) {
-	entry, ok := l.state.entry(key)
-	if !ok || entry == nil {
-		return
-	}
-	if entry.state != schemaStateUnknown || entry.schema != nil {
-		return
-	}
-	if entry.pending.Count != 0 || len(entry.pending.Directives) != 0 {
-		return
-	}
-	l.state.deleteEntry(key)
+type loadKey struct {
+	systemID string
+	etn      schemaast.NamespaceURI
 }

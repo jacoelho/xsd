@@ -3,8 +3,8 @@ package validator
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 // ResolveStartSymbol applies strict/lax/skip wildcard resolution to one symbol.
@@ -14,7 +14,7 @@ func ResolveStartSymbol(
 	resolve func(runtime.SymbolID) bool,
 	strictError func() error,
 ) (bool, error) {
-	resolved, strictUnresolved, err := model.ResolveSymbolByProcessContents(
+	resolved, strictUnresolved, err := schemaast.ResolveSymbolByProcessContents(
 		runtimeProcessContentsToModel(pc),
 		sym != 0,
 		func() bool {
@@ -36,15 +36,15 @@ func ResolveStartSymbol(
 	return false, fmt.Errorf("wildcard strict unresolved")
 }
 
-func runtimeProcessContentsToModel(pc runtime.ProcessContents) model.ProcessContents {
+func runtimeProcessContentsToModel(pc runtime.ProcessContents) schemaast.ProcessContents {
 	switch pc {
 	case runtime.PCStrict:
-		return model.Strict
+		return schemaast.Strict
 	case runtime.PCLax:
-		return model.Lax
+		return schemaast.Lax
 	case runtime.PCSkip:
-		return model.Skip
+		return schemaast.Skip
 	default:
-		return model.Strict + 255
+		return schemaast.Strict + 255
 	}
 }

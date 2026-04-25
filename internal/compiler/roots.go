@@ -2,24 +2,21 @@ package compiler
 
 import (
 	"fmt"
-	"maps"
-	"strconv"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 // PrepareRoots loads one or more schema roots and normalizes them for runtime builds.
 func PrepareRoots(cfg LoadConfig) (*Prepared, error) {
-	parsed, err := loadRoots(cfg)
+	docs, err := loadRoots(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return PrepareOwned(parsed)
+	return Prepare(docs)
 }
 
-func loadRoots(cfg LoadConfig) (*parser.Schema, error) {
+func loadRoots(cfg LoadConfig) (*schemaast.DocumentSet, error) {
 	roots, err := normalizeRoots(cfg.Roots)
 	if err != nil {
 		return nil, err
@@ -27,13 +24,13 @@ func loadRoots(cfg LoadConfig) (*parser.Schema, error) {
 	if len(roots) == 1 {
 		root := roots[0]
 		loader := newLoader(root, cfg)
-		parsed, err := loader.Load(root.Location)
+		docs, err := loader.LoadDocuments(root.Location)
 		if err != nil {
 			return nil, fmt.Errorf("load parsed schema: %w", err)
 		}
-		return parsed, nil
+		return docs, nil
 	}
-	return loadAndMergeRoots(roots, cfg)
+	return loadDocumentRoots(roots, cfg)
 }
 
 func normalizeRoots(input []Root) ([]Root, error) {
@@ -59,38 +56,43 @@ func normalizeRoots(input []Root) ([]Root, error) {
 	return roots, nil
 }
 
-func loadAndMergeRoots(roots []Root, cfg LoadConfig) (*parser.Schema, error) {
-	var merged *parser.Schema
-	insertAt := 0
+func loadDocumentRoots(roots []Root, cfg LoadConfig) (*schemaast.DocumentSet, error) {
+	seen := make(map[documentRootKey]bool)
+	var out schemaast.DocumentSet
 
 	for i, root := range roots {
 		loader := newLoader(root, cfg)
-		parsed, err := loader.Load(root.Location)
+		docs, err := loader.LoadDocuments(root.Location)
 		if err != nil {
 			return nil, fmt.Errorf("load parsed schema %s: %w", root.Location, err)
 		}
-
-		disambiguateSchemaOriginsForRoot(parsed, schemaRootKey(i))
-		if i == 0 {
-			merged = parsed
-			insertAt = len(merged.GlobalDecls)
-			continue
+		for _, doc := range docs.Documents {
+			key := documentRootKey{
+				root:      i,
+				location:  doc.Location,
+				namespace: doc.TargetNamespace,
+			}
+			if key.location == "" {
+				key.location = fmt.Sprintf("root:%d", i)
+			}
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			out.Documents = append(out.Documents, doc)
 		}
-
-		kind := Import
-		if parsed.TargetNamespace == merged.TargetNamespace {
-			kind = Include
-		}
-		if err := Apply(merged, parsed, kind, KeepNamespace, insertAt); err != nil {
-			return nil, fmt.Errorf("merge schema %s: %w", root.Location, err)
-		}
-		insertAt = len(merged.GlobalDecls)
 	}
 
-	if merged == nil {
+	if len(out.Documents) == 0 {
 		return nil, fmt.Errorf("no schema roots loaded")
 	}
-	return merged, nil
+	return &out, nil
+}
+
+type documentRootKey struct {
+	root      int
+	location  string
+	namespace schemaast.NamespaceURI
 }
 
 func newLoader(root Root, cfg LoadConfig) *Loader {
@@ -99,63 +101,6 @@ func newLoader(root Root, cfg LoadConfig) *Loader {
 		Resolver:                    root.Resolver,
 		AllowMissingImportLocations: cfg.AllowMissingImportLocations,
 		SchemaParseOptions:          cfg.SchemaParseOptions,
-		DocumentPool:                parser.NewDocumentPool(),
+		DocumentPool:                schemaast.NewDocumentPool(),
 	})
-}
-
-func schemaRootKey(index int) string {
-	return "root:" + strconv.Itoa(index)
-}
-
-func disambiguateSchemaOriginsForRoot(sch *parser.Schema, rootKey string) {
-	if sch == nil || rootKey == "" {
-		return
-	}
-
-	sch.Location = remapOriginKey(rootKey, sch.Location)
-	remapOriginMap(sch.ElementOrigins, rootKey)
-	remapOriginMap(sch.TypeOrigins, rootKey)
-	remapOriginMap(sch.AttributeOrigins, rootKey)
-	remapOriginMap(sch.AttributeGroupOrigins, rootKey)
-	remapOriginMap(sch.GroupOrigins, rootKey)
-	remapOriginMap(sch.NotationOrigins, rootKey)
-	sch.ImportContexts = remapImportContexts(sch.ImportContexts, rootKey)
-}
-
-func remapOriginKey(rootKey, key string) string {
-	if key == "" {
-		return ""
-	}
-	location := parser.ImportContextLocation(key)
-	return parser.ImportContextKey(rootKey, location)
-}
-
-func remapOriginMap[K comparable](origins map[K]string, rootKey string) {
-	for key, value := range origins {
-		origins[key] = remapOriginKey(rootKey, value)
-	}
-}
-
-func remapImportContexts(contexts map[string]parser.ImportContext, rootKey string) map[string]parser.ImportContext {
-	if len(contexts) == 0 {
-		return contexts
-	}
-
-	remapped := make(map[string]parser.ImportContext, len(contexts))
-	for key, ctx := range contexts {
-		newKey := remapOriginKey(rootKey, key)
-		if existing, ok := remapped[newKey]; ok {
-			if existing.Imports == nil {
-				existing.Imports = make(map[model.NamespaceURI]bool)
-			}
-			maps.Copy(existing.Imports, ctx.Imports)
-			if existing.TargetNamespace == "" {
-				existing.TargetNamespace = ctx.TargetNamespace
-			}
-			remapped[newKey] = existing
-			continue
-		}
-		remapped[newKey] = ctx
-	}
-	return remapped
 }

@@ -1,0 +1,30 @@
+package schemaast
+
+// DerivationMethod represents a derivation method
+type DerivationMethod int
+
+const (
+	// DerivationExtension indicates derivation by extension.
+	DerivationExtension DerivationMethod = 1 << iota
+	// DerivationRestriction indicates derivation by restriction.
+	DerivationRestriction
+	// DerivationList indicates derivation by list.
+	DerivationList
+	// DerivationUnion indicates derivation by union.
+	DerivationUnion
+	// DerivationSubstitution indicates derivation by substitution.
+	DerivationSubstitution
+)
+
+// DerivationSet represents a set of derivation methods
+type DerivationSet int
+
+// Has checks if a derivation method is in the set
+func (d DerivationSet) Has(method DerivationMethod) bool {
+	return int(d)&int(method) != 0
+}
+
+// Add adds a derivation method to the set
+func (d DerivationSet) Add(method DerivationMethod) DerivationSet {
+	return DerivationSet(int(d) | int(method))
+}

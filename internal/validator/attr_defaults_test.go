@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestApplyDefaultsRequiredMissing(t *testing.T) {

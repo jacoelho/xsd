@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 type modelFixture struct {

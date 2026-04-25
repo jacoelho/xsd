@@ -1,8 +1,8 @@
 package validator
 
 import (
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 // Applied records one defaulted or fixed attribute emitted by validation.

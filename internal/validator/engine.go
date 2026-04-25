@@ -6,24 +6,25 @@ import (
 	"sync"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 )
 
 // Engine validates XML documents against an immutable runtime schema.
 type Engine struct {
 	rt   *runtime.Schema
+	plan runtime.SessionPlan
 	pool sync.Pool
 	opts []xmlstream.Option
 }
 
 // NewEngine creates an engine backed by pooled validation sessions.
 func NewEngine(schema *runtime.Schema, opts ...xmlstream.Option) *Engine {
-	engine := &Engine{rt: schema}
+	engine := &Engine{rt: schema, plan: runtime.NewSessionPlan(schema)}
 	if len(opts) != 0 {
 		engine.opts = slices.Clone(opts)
 	}
 	engine.pool.New = func() any {
-		return NewSession(schema, engine.opts...)
+		return NewSessionWithPlan(schema, engine.plan, engine.opts...)
 	}
 	return engine
 }
@@ -51,7 +52,7 @@ func (e *Engine) acquire() *Session {
 	if session := e.pool.Get(); session != nil {
 		return session.(*Session)
 	}
-	return NewSession(e.rt, e.opts...)
+	return NewSessionWithPlan(e.rt, e.plan, e.opts...)
 }
 
 func (e *Engine) release(session *Session) {

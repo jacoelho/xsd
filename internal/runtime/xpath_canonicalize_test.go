@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 func TestCanonicalizeNodeTestUnprefixed(t *testing.T) {
@@ -12,7 +12,7 @@ func TestCanonicalizeNodeTestUnprefixed(t *testing.T) {
 	if !canon.NamespaceSpecified {
 		t.Fatalf("expected NamespaceSpecified to be true")
 	}
-	if canon.Namespace != model.NamespaceEmpty {
+	if canon.Namespace != schemaast.NamespaceEmpty {
 		t.Fatalf("expected empty namespace, got %q", canon.Namespace)
 	}
 }

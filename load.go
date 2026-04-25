@@ -10,13 +10,39 @@ import (
 	"github.com/jacoelho/xsd/internal/compiler"
 )
 
-// Compile loads, prepares, and builds one schema root with explicit source/build options.
-func Compile(fsys fs.FS, location string, opts ...CompileOption) (*Schema, error) {
+// Source identifies one schema root.
+type Source struct {
+	FS   fs.FS
+	Path string
+}
+
+// Compiler compiles schemas with immutable configuration.
+type Compiler struct {
+	config CompileConfig
+}
+
+// NewCompiler returns a compiler with the provided configuration.
+func NewCompiler(config CompileConfig) Compiler {
+	return Compiler{config: config}
+}
+
+// CompileFS loads, prepares, and builds one schema root.
+func CompileFS(fsys fs.FS, location string, config CompileConfig) (*Schema, error) {
+	return NewCompiler(config).CompileFS(fsys, location)
+}
+
+// CompileFile loads, prepares, and builds one schema file.
+func CompileFile(path string, config CompileConfig) (*Schema, error) {
+	return NewCompiler(config).CompileFile(path)
+}
+
+// CompileFS loads, prepares, and builds one schema root.
+func (c Compiler) CompileFS(fsys fs.FS, location string) (*Schema, error) {
 	root, err := newCompileRoot(fsys, location)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", location, err)
 	}
-	req, err := newCompileRequest([]compiler.Root{root}, opts)
+	req, err := newCompileRequest([]compiler.Root{root}, c.config)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", location, err)
 	}
@@ -27,10 +53,10 @@ func Compile(fsys fs.FS, location string, opts ...CompileOption) (*Schema, error
 	return schema, nil
 }
 
-// CompileFile loads, prepares, and builds one schema file with explicit source/build options.
+// CompileFile loads, prepares, and builds one schema file.
 // The explicit entry path is loaded as requested, and nested include/import loads
 // are confined to the selected file's containing directory tree.
-func CompileFile(path string, opts ...CompileOption) (*Schema, error) {
+func (c Compiler) CompileFile(path string) (*Schema, error) {
 	dir := filepath.Dir(path)
 	base := filepath.Base(path)
 
@@ -51,13 +77,37 @@ func CompileFile(path string, opts ...CompileOption) (*Schema, error) {
 		systemID: base,
 		nested:   compiler.NewFSResolver(root.FS()),
 	}
-	req, err := newCompileRequest([]compiler.Root{compileRoot}, opts)
+	req, err := newCompileRequest([]compiler.Root{compileRoot}, c.config)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", base, err)
 	}
 	schema, err := req.compile()
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", base, err)
+	}
+	return schema, nil
+}
+
+// CompileSources loads, prepares, and builds multiple schema roots.
+func (c Compiler) CompileSources(sources []Source) (*Schema, error) {
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("compile schema sources: no sources")
+	}
+	roots := make([]compiler.Root, 0, len(sources))
+	for _, source := range sources {
+		root, err := newCompileRoot(source.FS, source.Path)
+		if err != nil {
+			return nil, fmt.Errorf("compile schema source %s: %w", source.Path, err)
+		}
+		roots = append(roots, root)
+	}
+	req, err := newCompileRequest(roots, c.config)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema sources: %w", err)
+	}
+	schema, err := req.compile()
+	if err != nil {
+		return nil, fmt.Errorf("compile schema sources: %w", err)
 	}
 	return schema, nil
 }

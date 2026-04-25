@@ -3,8 +3,8 @@ package validator
 import (
 	"fmt"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 type unionOutcome struct {

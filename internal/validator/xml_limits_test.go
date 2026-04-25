@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
-	"github.com/jacoelho/xsd/pkg/xmltext"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	"github.com/jacoelho/xsd/internal/xmltext"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func TestValidateMaxDepth(t *testing.T) {

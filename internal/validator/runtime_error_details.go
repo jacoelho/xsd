@@ -1,7 +1,7 @@
 package validator
 
 import (
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
 func validationErrorDetails(err error) validationDetails {

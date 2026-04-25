@@ -5,8 +5,8 @@ export GOBIN = $(CURDIR)/bin
 GML_INSTANCE_PATH = testdata/gml/example.gml
 GML_ENTRY_SCHEMA = testdata/gml/xsd/LandCoverVector.xsd
 GML_INSTANCE_MAX_TOKEN_SIZE = 134217728
-XMLLINT_SOURCE_DIRS = . cmd errors internal pkg
-XMLLINT_SOURCES = $(shell find cmd errors internal pkg -type f -name '*.go') $(shell find . -maxdepth 1 -type f -name '*.go')
+XMLLINT_SOURCE_DIRS = . cmd internal
+XMLLINT_SOURCES = $(shell find cmd internal -type f -name '*.go') $(shell find . -maxdepth 1 -type f -name '*.go')
 
 $(GOBIN)/staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@latest

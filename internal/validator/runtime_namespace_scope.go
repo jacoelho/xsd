@@ -1,6 +1,6 @@
 package validator
 
-import "github.com/jacoelho/xsd/pkg/xmlstream"
+import "github.com/jacoelho/xsd/internal/xmlstream"
 
 func (s *Session) pushNamespaceScope(decls []xmlstream.NamespaceDecl) {
 	if s == nil {

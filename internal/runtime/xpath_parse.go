@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaast"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -25,7 +25,7 @@ const AxisAttribute Axis = -1
 // NodeTest matches element or attribute names.
 type NodeTest struct {
 	Local              string
-	Namespace          model.NamespaceURI
+	Namespace          schemaast.NamespaceURI
 	Any                bool
 	NamespaceSpecified bool
 }
@@ -39,7 +39,7 @@ func CanonicalizeNodeTest(test NodeTest) NodeTest {
 		return test
 	}
 	test.NamespaceSpecified = true
-	test.Namespace = model.NamespaceEmpty
+	test.Namespace = schemaast.NamespaceEmpty
 	return test
 }
 
@@ -299,10 +299,10 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 		if prefix == "" {
 			return NodeTest{}, xpathErrorf("xpath step has empty prefix: %s", token)
 		}
-		if !model.IsValidNCName(prefix) {
+		if !schemaast.IsValidNCName(prefix) {
 			return NodeTest{}, xpathErrorf("xpath step has invalid prefix %q", token)
 		}
-		nsURI, ok := model.ResolveNamespace(prefix, nsContext)
+		nsURI, ok := schemaast.ResolveNamespace(prefix, nsContext)
 		if !ok {
 			return NodeTest{}, xpathErrorf("xpath step uses undeclared prefix %q", prefix)
 		}
@@ -313,13 +313,13 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 		}, nil
 	}
 
-	if !model.IsValidQName(token) {
+	if !schemaast.IsValidQName(token) {
 		return NodeTest{}, xpathErrorf("xpath step has invalid QName %q", token)
 	}
 
-	prefix, local, hasPrefix := model.SplitQName(token)
+	prefix, local, hasPrefix := schemaast.SplitQName(token)
 	if hasPrefix {
-		nsURI, ok := model.ResolveNamespace(prefix, nsContext)
+		nsURI, ok := schemaast.ResolveNamespace(prefix, nsContext)
 		if !ok {
 			return NodeTest{}, xpathErrorf("xpath step uses undeclared prefix %q", prefix)
 		}

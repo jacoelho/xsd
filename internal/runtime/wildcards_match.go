@@ -3,7 +3,7 @@ package runtime
 import (
 	"bytes"
 
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaast"
 )
 
 // Accepts reports whether the namespace is allowed by the wildcard rule.
@@ -18,8 +18,8 @@ func (w WildcardRule) Accepts(nsBytes []byte, nsID NamespaceID, nsTable *Namespa
 			break
 		}
 	}
-	return model.AllowsRuntimeNamespace(
-		model.RuntimeNamespaceConstraint{
+	return schemaast.AllowsRuntimeNamespace(
+		schemaast.RuntimeNamespaceConstraint{
 			Kind:      runtimeConstraintToPolicy(w.NS.Kind),
 			HasTarget: w.NS.HasTarget,
 			HasLocal:  w.NS.HasLocal,
@@ -30,18 +30,18 @@ func (w WildcardRule) Accepts(nsBytes []byte, nsID NamespaceID, nsTable *Namespa
 	)
 }
 
-func runtimeConstraintToPolicy(kind NSConstraintKind) model.RuntimeNamespaceConstraintKind {
+func runtimeConstraintToPolicy(kind NSConstraintKind) schemaast.RuntimeNamespaceConstraintKind {
 	switch kind {
 	case NSAny:
-		return model.RuntimeNamespaceAny
+		return schemaast.RuntimeNamespaceAny
 	case NSOther:
-		return model.RuntimeNamespaceOther
+		return schemaast.RuntimeNamespaceOther
 	case NSEnumeration:
-		return model.RuntimeNamespaceEnumeration
+		return schemaast.RuntimeNamespaceEnumeration
 	case NSNotAbsent:
-		return model.RuntimeNamespaceNotAbsent
+		return schemaast.RuntimeNamespaceNotAbsent
 	default:
-		return model.RuntimeNamespaceAny + 255
+		return schemaast.RuntimeNamespaceAny + 255
 	}
 }
 
