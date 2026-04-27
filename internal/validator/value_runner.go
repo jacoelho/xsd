@@ -215,12 +215,6 @@ func (r valueRunner) normalizeInput(meta runtime.ValidatorMeta, lexical []byte, 
 }
 
 func ownsNormalizedBuffer(normalized, lexical []byte) bool {
-	if cap(normalized) == 0 {
-		return len(lexical) == 0
-	}
-	if cap(lexical) == 0 {
-		return true
-	}
 	if len(normalized) == 0 || len(lexical) == 0 {
 		return true
 	}
