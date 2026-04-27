@@ -19,11 +19,11 @@ func (s *Session) trackIDs(kind runtime.StringKind, canonical []byte) error {
 
 func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, metrics *ValueMetrics) error {
 	actual := metricsActualValidator(metrics)
-	return trackValidated(id, s.rt.Validators, canonical, actual, s.idTrackCallbacks(resolver))
+	return trackValidated(id, s.rt.ValidatorBundle(), canonical, actual, s.idTrackCallbacks(resolver))
 }
 
 func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, member runtime.ValidatorID) error {
-	return trackDefault(id, s.rt.Validators, canonical, member, s.idTrackCallbacks(resolver))
+	return trackDefault(id, s.rt.ValidatorBundle(), canonical, member, s.idTrackCallbacks(resolver))
 }
 
 func (s *Session) idTrackCallbacks(resolver value.NSResolver) idTrackCallbacks {
@@ -129,7 +129,7 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte,
 	}
 	switch meta.Kind {
 	case runtime.VList:
-		keyKind, listKey, err := deriveCanonicalListKey(meta, s.rt.Validators, canonical, s.buffers.keyTmp[:0], func(itemValidator runtime.ValidatorID, itemValue []byte) (runtime.ValueKind, []byte, error) {
+		keyKind, listKey, err := deriveCanonicalListKey(meta, s.rt.ValidatorBundle(), canonical, s.buffers.keyTmp[:0], func(itemValidator runtime.ValidatorID, itemValue []byte) (runtime.ValueKind, []byte, error) {
 			return s.keyForCanonicalValue(itemValidator, itemValue, resolver, 0)
 		})
 		if err != nil {

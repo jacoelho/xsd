@@ -20,7 +20,7 @@ func ResolveStartRoot(rt *runtime.Schema, sym runtime.SymbolID, nsID runtime.Nam
 	actual := StartActualElementName(rt, sym, nsID)
 	expected := ExpectedStartGlobalElements(rt)
 
-	switch rt.RootPolicy {
+	switch rt.RootMode() {
 	case runtime.RootAny:
 		if sym == 0 {
 			return StartRootDecision{Skip: true}, nil

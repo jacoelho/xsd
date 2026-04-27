@@ -1655,8 +1655,8 @@ func assertEntrypointRuntimeDigest(t *testing.T, roots *runtime.Schema, rootsErr
 	if rootsErr != nil {
 		return
 	}
-	if roots.BuildHash != loadDocs.BuildHash {
-		t.Fatalf("build hash mismatch: PrepareRoots=%x LoadDocuments=%x\n%s", roots.BuildHash, loadDocs.BuildHash, entrypointRuntimeDiff(roots, loadDocs))
+	if roots.BuildHashValue() != loadDocs.BuildHashValue() {
+		t.Fatalf("build hash mismatch: PrepareRoots=%x LoadDocuments=%x\n%s", roots.BuildHashValue(), loadDocs.BuildHashValue(), entrypointRuntimeDiff(roots, loadDocs))
 	}
 	if got, want := loadDocs.CanonicalDigest(), roots.CanonicalDigest(); got != want {
 		t.Fatalf("canonical digest mismatch: PrepareRoots=%x LoadDocuments=%x\n%s", want, got, entrypointRuntimeDiff(roots, loadDocs))
@@ -1672,41 +1672,41 @@ func entrypointRuntimeDiff(roots, loadDocs *runtime.Schema) string {
 		name          string
 		roots, loaded int
 	}{
-		{"symbols", roots.Symbols.Count(), loadDocs.Symbols.Count()},
-		{"namespaces", roots.Namespaces.Count(), loadDocs.Namespaces.Count()},
-		{"global types", len(roots.GlobalTypes), len(loadDocs.GlobalTypes)},
-		{"global elements", len(roots.GlobalElements), len(loadDocs.GlobalElements)},
-		{"global attributes", len(roots.GlobalAttributes), len(loadDocs.GlobalAttributes)},
-		{"types", len(roots.Types), len(loadDocs.Types)},
-		{"ancestors", len(roots.Ancestors.IDs), len(loadDocs.Ancestors.IDs)},
-		{"ancestor masks", len(roots.Ancestors.Masks), len(loadDocs.Ancestors.Masks)},
-		{"complex types", len(roots.ComplexTypes), len(loadDocs.ComplexTypes)},
-		{"elements", len(roots.Elements), len(loadDocs.Elements)},
-		{"attributes", len(roots.Attributes), len(loadDocs.Attributes)},
-		{"attr uses", len(roots.AttrIndex.Uses), len(loadDocs.AttrIndex.Uses)},
-		{"attr hash tables", len(roots.AttrIndex.HashTables), len(loadDocs.AttrIndex.HashTables)},
-		{"dfa models", len(roots.Models.DFA), len(loadDocs.Models.DFA)},
-		{"nfa models", len(roots.Models.NFA), len(loadDocs.Models.NFA)},
-		{"all models", len(roots.Models.All), len(loadDocs.Models.All)},
-		{"all substitutions", len(roots.Models.AllSubst), len(loadDocs.Models.AllSubst)},
-		{"wildcards", len(roots.Wildcards), len(loadDocs.Wildcards)},
-		{"wildcard namespaces", len(roots.WildcardNS), len(loadDocs.WildcardNS)},
-		{"identity constraints", len(roots.ICs), len(loadDocs.ICs)},
-		{"element identity refs", len(roots.ElemICs), len(loadDocs.ElemICs)},
-		{"identity selectors", len(roots.ICSelectors), len(loadDocs.ICSelectors)},
-		{"identity fields", len(roots.ICFields), len(loadDocs.ICFields)},
-		{"paths", len(roots.Paths), len(loadDocs.Paths)},
-		{"validator meta", len(roots.Validators.Meta), len(loadDocs.Validators.Meta)},
-		{"string validators", len(roots.Validators.String), len(loadDocs.Validators.String)},
-		{"list validators", len(roots.Validators.List), len(loadDocs.Validators.List)},
-		{"union validators", len(roots.Validators.Union), len(loadDocs.Validators.Union)},
-		{"union members", len(roots.Validators.UnionMembers), len(loadDocs.Validators.UnionMembers)},
-		{"facets", len(roots.Facets), len(loadDocs.Facets)},
-		{"patterns", len(roots.Patterns), len(loadDocs.Patterns)},
-		{"enum keys", len(roots.Enums.Keys), len(loadDocs.Enums.Keys)},
-		{"enum hashes", len(roots.Enums.Hashes), len(loadDocs.Enums.Hashes)},
-		{"values bytes", len(roots.Values.Blob), len(loadDocs.Values.Blob)},
-		{"notations", len(roots.Notations), len(loadDocs.Notations)},
+		{"symbols", roots.SymbolCount(), loadDocs.SymbolCount()},
+		{"namespaces", roots.NamespaceCount(), loadDocs.NamespaceCount()},
+		{"global types", len(roots.GlobalTypeIDs()), len(loadDocs.GlobalTypeIDs())},
+		{"global elements", len(roots.GlobalElementIDs()), len(loadDocs.GlobalElementIDs())},
+		{"global attributes", len(roots.GlobalAttributeIDs()), len(loadDocs.GlobalAttributeIDs())},
+		{"types", len(roots.TypeTable()), len(loadDocs.TypeTable())},
+		{"ancestors", len(roots.AncestorTable().IDs), len(loadDocs.AncestorTable().IDs)},
+		{"ancestor masks", len(roots.AncestorTable().Masks), len(loadDocs.AncestorTable().Masks)},
+		{"complex types", len(roots.ComplexTypeTable()), len(loadDocs.ComplexTypeTable())},
+		{"elements", len(roots.ElementTable()), len(loadDocs.ElementTable())},
+		{"attributes", len(roots.AttributeTable()), len(loadDocs.AttributeTable())},
+		{"attr uses", len(roots.AttributeIndex().Uses), len(loadDocs.AttributeIndex().Uses)},
+		{"attr hash tables", len(roots.AttributeIndex().HashTables), len(loadDocs.AttributeIndex().HashTables)},
+		{"dfa models", len(roots.ModelBundle().DFA), len(loadDocs.ModelBundle().DFA)},
+		{"nfa models", len(roots.ModelBundle().NFA), len(loadDocs.ModelBundle().NFA)},
+		{"all models", len(roots.ModelBundle().All), len(loadDocs.ModelBundle().All)},
+		{"all substitutions", len(roots.ModelBundle().AllSubst), len(loadDocs.ModelBundle().AllSubst)},
+		{"wildcards", len(roots.WildcardTable()), len(loadDocs.WildcardTable())},
+		{"wildcard namespaces", len(roots.WildcardNamespaces()), len(loadDocs.WildcardNamespaces())},
+		{"identity constraints", len(roots.IdentityConstraints()), len(loadDocs.IdentityConstraints())},
+		{"element identity refs", len(roots.ElementIdentityConstraints()), len(loadDocs.ElementIdentityConstraints())},
+		{"identity selectors", len(roots.IdentitySelectors()), len(loadDocs.IdentitySelectors())},
+		{"identity fields", len(roots.IdentityFields()), len(loadDocs.IdentityFields())},
+		{"paths", len(roots.PathPrograms()), len(loadDocs.PathPrograms())},
+		{"validator meta", len(roots.ValidatorBundle().Meta), len(loadDocs.ValidatorBundle().Meta)},
+		{"string validators", len(roots.ValidatorBundle().String), len(loadDocs.ValidatorBundle().String)},
+		{"list validators", len(roots.ValidatorBundle().List), len(loadDocs.ValidatorBundle().List)},
+		{"union validators", len(roots.ValidatorBundle().Union), len(loadDocs.ValidatorBundle().Union)},
+		{"union members", len(roots.ValidatorBundle().UnionMembers), len(loadDocs.ValidatorBundle().UnionMembers)},
+		{"facets", len(roots.FacetTable()), len(loadDocs.FacetTable())},
+		{"patterns", len(roots.PatternTable()), len(loadDocs.PatternTable())},
+		{"enum keys", len(roots.EnumTable().Keys), len(loadDocs.EnumTable().Keys)},
+		{"enum hashes", len(roots.EnumTable().Hashes), len(loadDocs.EnumTable().Hashes)},
+		{"values bytes", len(roots.ValueBlob().Blob), len(loadDocs.ValueBlob().Blob)},
+		{"notations", len(roots.NotationSymbols()), len(loadDocs.NotationSymbols())},
 	}
 	for _, check := range checks {
 		if check.roots != check.loaded {
@@ -1751,8 +1751,8 @@ func entrypointRuntimeDiff(roots, loadDocs *runtime.Schema) string {
 	if diff := runtimeValueBlobDiff(roots, loadDocs, 8); diff != "" {
 		out.WriteString(diff)
 	}
-	if !reflect.DeepEqual(roots.Facets, loadDocs.Facets) {
-		fmt.Fprintf(&out, "facets: roots=%v LoadDocuments=%v\n", roots.Facets, loadDocs.Facets)
+	if !reflect.DeepEqual(roots.FacetTable(), loadDocs.FacetTable()) {
+		fmt.Fprintf(&out, "facets: roots=%v LoadDocuments=%v\n", roots.FacetTable(), loadDocs.FacetTable())
 	}
 	return out.String()
 }
@@ -1764,7 +1764,7 @@ type entrypointTableCheck struct {
 
 func runtimeSymbolDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(roots.Symbols.Count(), loadDocs.Symbols.Count())
+	n := min(roots.SymbolCount(), loadDocs.SymbolCount())
 	for id := 1; id < n && limit > 0; id++ {
 		g := runtimeSymbolName(roots, runtime.SymbolID(id))
 		d := runtimeSymbolName(loadDocs, runtime.SymbolID(id))
@@ -1774,12 +1774,12 @@ func runtimeSymbolDiff(roots, loadDocs *runtime.Schema, limit int) string {
 		fmt.Fprintf(&out, "symbol[%d]: roots=%s LoadDocuments=%s\n", id, g, d)
 		limit--
 	}
-	if roots.Symbols.Count() != loadDocs.Symbols.Count() && limit > 0 {
-		for id := n; id < roots.Symbols.Count() && limit > 0; id++ {
+	if roots.SymbolCount() != loadDocs.SymbolCount() && limit > 0 {
+		for id := n; id < roots.SymbolCount() && limit > 0; id++ {
 			fmt.Fprintf(&out, "symbol[%d]: roots=%s LoadDocuments=<missing>\n", id, runtimeSymbolName(roots, runtime.SymbolID(id)))
 			limit--
 		}
-		for id := n; id < loadDocs.Symbols.Count() && limit > 0; id++ {
+		for id := n; id < loadDocs.SymbolCount() && limit > 0; id++ {
 			fmt.Fprintf(&out, "symbol[%d]: roots=<missing> LoadDocuments=%s\n", id, runtimeSymbolName(loadDocs, runtime.SymbolID(id)))
 			limit--
 		}
@@ -1789,10 +1789,10 @@ func runtimeSymbolDiff(roots, loadDocs *runtime.Schema, limit int) string {
 
 func runtimeTypeDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(len(roots.Types), len(loadDocs.Types))
+	n := min(len(roots.TypeTable()), len(loadDocs.TypeTable()))
 	for id := 1; id < n && limit > 0; id++ {
-		g := roots.Types[id]
-		d := loadDocs.Types[id]
+		g := roots.TypeTable()[id]
+		d := loadDocs.TypeTable()[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1807,20 +1807,20 @@ func runtimeTypeDiff(roots, loadDocs *runtime.Schema, limit int) string {
 }
 
 func runtimeSymbolName(schema *runtime.Schema, id runtime.SymbolID) string {
-	if schema == nil || id == 0 || int(id) >= len(schema.Symbols.NS) {
+	if schema == nil || id == 0 || int(id) >= len(schema.SymbolsTable().NS) {
 		return ""
 	}
-	ns := schema.Namespaces.Bytes(schema.Symbols.NS[id])
-	local := schema.Symbols.LocalBytes(id)
+	ns := schema.NamespaceBytes(schema.SymbolsTable().NS[id])
+	local := schema.SymbolLocalBytes(id)
 	return string(ns) + ":" + string(local)
 }
 
 func runtimeValidatorDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(len(roots.Validators.Meta), len(loadDocs.Validators.Meta))
+	n := min(len(roots.ValidatorBundle().Meta), len(loadDocs.ValidatorBundle().Meta))
 	for id := 1; id < n && limit > 0; id++ {
-		g := roots.Validators.Meta[id]
-		d := loadDocs.Validators.Meta[id]
+		g := roots.ValidatorBundle().Meta[id]
+		d := loadDocs.ValidatorBundle().Meta[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1836,10 +1836,10 @@ func runtimeValidatorDiff(roots, loadDocs *runtime.Schema, limit int) string {
 
 func runtimeElementDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(len(roots.Elements), len(loadDocs.Elements))
+	n := min(len(roots.ElementTable()), len(loadDocs.ElementTable()))
 	for id := 1; id < n && limit > 0; id++ {
-		g := roots.Elements[id]
-		d := loadDocs.Elements[id]
+		g := roots.ElementTable()[id]
+		d := loadDocs.ElementTable()[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1855,10 +1855,10 @@ func runtimeElementDiff(roots, loadDocs *runtime.Schema, limit int) string {
 
 func runtimeComplexTypeDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(len(roots.ComplexTypes), len(loadDocs.ComplexTypes))
+	n := min(len(roots.ComplexTypeTable()), len(loadDocs.ComplexTypeTable()))
 	for id := 1; id < n && limit > 0; id++ {
-		g := roots.ComplexTypes[id]
-		d := loadDocs.ComplexTypes[id]
+		g := roots.ComplexTypeTable()[id]
+		d := loadDocs.ComplexTypeTable()[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1877,7 +1877,7 @@ func runtimeComplexTypeName(schema *runtime.Schema, ref runtime.ComplexTypeRef) 
 	if schema == nil || ref.ID == 0 {
 		return ""
 	}
-	for _, typ := range schema.Types {
+	for _, typ := range schema.TypeTable() {
 		if typ.Complex.ID == ref.ID {
 			return runtimeSymbolName(schema, typ.Name)
 		}
@@ -1887,10 +1887,10 @@ func runtimeComplexTypeName(schema *runtime.Schema, ref runtime.ComplexTypeRef) 
 
 func runtimeAttributeDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(len(roots.Attributes), len(loadDocs.Attributes))
+	n := min(len(roots.AttributeTable()), len(loadDocs.AttributeTable()))
 	for id := 1; id < n && limit > 0; id++ {
-		g := roots.Attributes[id]
-		d := loadDocs.Attributes[id]
+		g := roots.AttributeTable()[id]
+		d := loadDocs.AttributeTable()[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1906,10 +1906,10 @@ func runtimeAttributeDiff(roots, loadDocs *runtime.Schema, limit int) string {
 
 func runtimeAttrIndexDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(len(roots.AttrIndex.Uses), len(loadDocs.AttrIndex.Uses))
+	n := min(len(roots.AttributeIndex().Uses), len(loadDocs.AttributeIndex().Uses))
 	for id := 0; id < n && limit > 0; id++ {
-		g := roots.AttrIndex.Uses[id]
-		d := loadDocs.AttrIndex.Uses[id]
+		g := roots.AttributeIndex().Uses[id]
+		d := loadDocs.AttributeIndex().Uses[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1925,10 +1925,10 @@ func runtimeAttrIndexDiff(roots, loadDocs *runtime.Schema, limit int) string {
 
 func runtimeWildcardDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(len(roots.Wildcards), len(loadDocs.Wildcards))
+	n := min(len(roots.WildcardTable()), len(loadDocs.WildcardTable()))
 	for id := 1; id < n && limit > 0; id++ {
-		g := roots.Wildcards[id]
-		d := loadDocs.Wildcards[id]
+		g := roots.WildcardTable()[id]
+		d := loadDocs.WildcardTable()[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1940,10 +1940,10 @@ func runtimeWildcardDiff(roots, loadDocs *runtime.Schema, limit int) string {
 
 func runtimePathDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	n := min(len(roots.Paths), len(loadDocs.Paths))
+	n := min(len(roots.PathPrograms()), len(loadDocs.PathPrograms()))
 	for id := 1; id < n && limit > 0; id++ {
-		g := roots.Paths[id]
-		d := loadDocs.Paths[id]
+		g := roots.PathPrograms()[id]
+		d := loadDocs.PathPrograms()[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1955,20 +1955,20 @@ func runtimePathDiff(roots, loadDocs *runtime.Schema, limit int) string {
 
 func runtimeValueBlobDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	_ = limit
-	if reflect.DeepEqual(roots.Values, loadDocs.Values) {
+	if reflect.DeepEqual(roots.ValueBlob(), loadDocs.ValueBlob()) {
 		return ""
 	}
 	var out strings.Builder
-	fmt.Fprintf(&out, "values blob: roots=%q LoadDocuments=%q\n", roots.Values.Blob, loadDocs.Values.Blob)
+	fmt.Fprintf(&out, "values blob: roots=%q LoadDocuments=%q\n", roots.ValueBlob().Blob, loadDocs.ValueBlob().Blob)
 	return out.String()
 }
 
 func runtimeModelDiff(roots, loadDocs *runtime.Schema, limit int) string {
 	var out strings.Builder
-	nfaN := min(len(roots.Models.NFA), len(loadDocs.Models.NFA))
+	nfaN := min(len(roots.ModelBundle().NFA), len(loadDocs.ModelBundle().NFA))
 	for id := 1; id < nfaN && limit > 0; id++ {
-		g := roots.Models.NFA[id]
-		d := loadDocs.Models.NFA[id]
+		g := roots.ModelBundle().NFA[id]
+		d := loadDocs.ModelBundle().NFA[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -1979,10 +1979,10 @@ func runtimeModelDiff(roots, loadDocs *runtime.Schema, limit int) string {
 		)
 		limit--
 	}
-	dfaN := min(len(roots.Models.DFA), len(loadDocs.Models.DFA))
+	dfaN := min(len(roots.ModelBundle().DFA), len(loadDocs.ModelBundle().DFA))
 	for id := 1; id < dfaN && limit > 0; id++ {
-		g := roots.Models.DFA[id]
-		d := loadDocs.Models.DFA[id]
+		g := roots.ModelBundle().DFA[id]
+		d := loadDocs.ModelBundle().DFA[id]
 		if reflect.DeepEqual(g, d) {
 			continue
 		}
@@ -2007,30 +2007,30 @@ func hasRuntimeNameSymbol(plan schemair.RuntimeNamePlan, name schemair.Name) boo
 
 func runtimeTableEqualityChecks(roots, loadDocs *runtime.Schema) []entrypointTableCheck {
 	return []entrypointTableCheck{
-		{"symbols table", reflect.DeepEqual(roots.Symbols, loadDocs.Symbols)},
-		{"namespace table", reflect.DeepEqual(roots.Namespaces, loadDocs.Namespaces)},
-		{"global types", reflect.DeepEqual(roots.GlobalTypes, loadDocs.GlobalTypes)},
-		{"global elements", reflect.DeepEqual(roots.GlobalElements, loadDocs.GlobalElements)},
-		{"global attributes", reflect.DeepEqual(roots.GlobalAttributes, loadDocs.GlobalAttributes)},
-		{"types", reflect.DeepEqual(roots.Types, loadDocs.Types)},
-		{"ancestors", reflect.DeepEqual(roots.Ancestors, loadDocs.Ancestors)},
-		{"complex types", reflect.DeepEqual(roots.ComplexTypes, loadDocs.ComplexTypes)},
-		{"elements", reflect.DeepEqual(roots.Elements, loadDocs.Elements)},
-		{"attributes", reflect.DeepEqual(roots.Attributes, loadDocs.Attributes)},
-		{"attr index", reflect.DeepEqual(roots.AttrIndex, loadDocs.AttrIndex)},
-		{"validators", reflect.DeepEqual(roots.Validators, loadDocs.Validators)},
-		{"facets", reflect.DeepEqual(roots.Facets, loadDocs.Facets)},
-		{"patterns", len(roots.Patterns) == len(loadDocs.Patterns)},
-		{"enums", reflect.DeepEqual(roots.Enums, loadDocs.Enums)},
-		{"values", reflect.DeepEqual(roots.Values, loadDocs.Values)},
-		{"models", reflect.DeepEqual(roots.Models, loadDocs.Models)},
-		{"wildcards", reflect.DeepEqual(roots.Wildcards, loadDocs.Wildcards)},
-		{"wildcard namespaces", reflect.DeepEqual(roots.WildcardNS, loadDocs.WildcardNS)},
-		{"identity constraints", reflect.DeepEqual(roots.ICs, loadDocs.ICs)},
-		{"element identity refs", reflect.DeepEqual(roots.ElemICs, loadDocs.ElemICs)},
-		{"identity selectors", reflect.DeepEqual(roots.ICSelectors, loadDocs.ICSelectors)},
-		{"identity fields", reflect.DeepEqual(roots.ICFields, loadDocs.ICFields)},
-		{"paths", reflect.DeepEqual(roots.Paths, loadDocs.Paths)},
-		{"notations", reflect.DeepEqual(roots.Notations, loadDocs.Notations)},
+		{"symbols table", reflect.DeepEqual(roots.SymbolsTable(), loadDocs.SymbolsTable())},
+		{"namespace table", reflect.DeepEqual(roots.NamespaceTable(), loadDocs.NamespaceTable())},
+		{"global types", reflect.DeepEqual(roots.GlobalTypeIDs(), loadDocs.GlobalTypeIDs())},
+		{"global elements", reflect.DeepEqual(roots.GlobalElementIDs(), loadDocs.GlobalElementIDs())},
+		{"global attributes", reflect.DeepEqual(roots.GlobalAttributeIDs(), loadDocs.GlobalAttributeIDs())},
+		{"types", reflect.DeepEqual(roots.TypeTable(), loadDocs.TypeTable())},
+		{"ancestors", reflect.DeepEqual(roots.AncestorTable(), loadDocs.AncestorTable())},
+		{"complex types", reflect.DeepEqual(roots.ComplexTypeTable(), loadDocs.ComplexTypeTable())},
+		{"elements", reflect.DeepEqual(roots.ElementTable(), loadDocs.ElementTable())},
+		{"attributes", reflect.DeepEqual(roots.AttributeTable(), loadDocs.AttributeTable())},
+		{"attr index", reflect.DeepEqual(roots.AttributeIndex(), loadDocs.AttributeIndex())},
+		{"validators", reflect.DeepEqual(roots.ValidatorBundle(), loadDocs.ValidatorBundle())},
+		{"facets", reflect.DeepEqual(roots.FacetTable(), loadDocs.FacetTable())},
+		{"patterns", len(roots.PatternTable()) == len(loadDocs.PatternTable())},
+		{"enums", reflect.DeepEqual(roots.EnumTable(), loadDocs.EnumTable())},
+		{"values", reflect.DeepEqual(roots.ValueBlob(), loadDocs.ValueBlob())},
+		{"models", reflect.DeepEqual(roots.ModelBundle(), loadDocs.ModelBundle())},
+		{"wildcards", reflect.DeepEqual(roots.WildcardTable(), loadDocs.WildcardTable())},
+		{"wildcard namespaces", reflect.DeepEqual(roots.WildcardNamespaces(), loadDocs.WildcardNamespaces())},
+		{"identity constraints", reflect.DeepEqual(roots.IdentityConstraints(), loadDocs.IdentityConstraints())},
+		{"element identity refs", reflect.DeepEqual(roots.ElementIdentityConstraints(), loadDocs.ElementIdentityConstraints())},
+		{"identity selectors", reflect.DeepEqual(roots.IdentitySelectors(), loadDocs.IdentitySelectors())},
+		{"identity fields", reflect.DeepEqual(roots.IdentityFields(), loadDocs.IdentityFields())},
+		{"paths", reflect.DeepEqual(roots.PathPrograms(), loadDocs.PathPrograms())},
+		{"notations", reflect.DeepEqual(roots.NotationSymbols(), loadDocs.NotationSymbols())},
 	}
 }

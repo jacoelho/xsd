@@ -5,6 +5,7 @@ func (s *Session) shrinkBuffers() {
 		return
 	}
 	s.buffers.Shrink(maxSessionBuffer, maxSessionEntries)
+	s.Scratch.Shrink(maxSessionBuffer)
 	s.attrs.Shrink(maxSessionEntries)
 	s.identity.Shrink(maxSessionEntries)
 	s.Names.Shrink(maxSessionBuffer, maxSessionEntries)

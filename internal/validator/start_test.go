@@ -12,8 +12,8 @@ func TestStartFrameBuildsRuntimeState(t *testing.T) {
 
 	if err := StartFrame(fx.rt, &state, StartInput{
 		Elem: fx.rootElem,
-		Type: fx.rt.Elements[fx.rootElem].Type,
-		Sym:  fx.rt.Elements[fx.rootElem].Name,
+		Type: fx.rt.ElementTable()[fx.rootElem].Type,
+		Sym:  fx.rt.ElementTable()[fx.rootElem].Name,
 		NS:   fx.nsID,
 	}, nil); err != nil {
 		t.Fatalf("StartFrame(root): %v", err)

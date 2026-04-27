@@ -38,24 +38,13 @@ func (w WildcardRule) Accepts(nsBytes []byte, nsID NamespaceID, nsTable *Namespa
 
 // WildcardAccepts reports whether a wildcard rule accepts the namespace.
 func (s *Schema) WildcardAccepts(ruleID WildcardID, nsBytes []byte, nsID NamespaceID) bool {
-	if s == nil || ruleID == 0 || int(ruleID) >= len(s.Wildcards) {
+	rule, ok := s.Wildcard(ruleID)
+	if !ok {
 		return false
 	}
-	rule := s.Wildcards[ruleID]
-	nsList := sliceWildcardNS(rule.NS, s.WildcardNS)
-	return rule.Accepts(nsBytes, nsID, &s.Namespaces, nsList)
-}
-
-func sliceWildcardNS(ns NSConstraint, list []NamespaceID) []NamespaceID {
-	if ns.Len == 0 {
-		return nil
-	}
-	off := ns.Off
-	end := off + ns.Len
-	if int(off) >= len(list) || int(end) > len(list) {
-		return nil
-	}
-	return list[off:end]
+	nsList := s.WildcardNamespaceSpan(rule.NS)
+	namespaces := s.NamespaceTable()
+	return rule.Accepts(nsBytes, nsID, &namespaces, nsList)
 }
 
 func matchesNamespace(id NamespaceID, nsBytes []byte, nsID NamespaceID, nsTable *NamespaceTable) bool {

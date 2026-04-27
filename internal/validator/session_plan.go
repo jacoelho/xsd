@@ -42,6 +42,9 @@ func (s *Session) applySessionPlan() {
 	if namespaceBytes := sessionHint(plan.NamespaceBytesHint, maxSessionBuffer); namespaceBytes > 0 {
 		s.Names.NS = make([]byte, 0, namespaceBytes)
 	}
+	if plan.MaxModelWords > 0 {
+		s.buffers.modelWords = make([]uint64, 0, plan.MaxModelWords)
+	}
 }
 
 func sessionHint(value, limit int) int {

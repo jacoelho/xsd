@@ -10,7 +10,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	runner := newValueRunner(s)
 	out, bufs, err := canonicalizeListRuntime(
 		meta,
-		s.rt.Validators,
+		s.rt.ValidatorBundle(),
 		normalized,
 		opts.ApplyWhitespace,
 		needKey,
@@ -61,7 +61,7 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	itemOpts.NeedKey = false
 	return validateListNoCanonicalRuntime(
 		meta,
-		s.rt.Validators,
+		s.rt.ValidatorBundle(),
 		normalized,
 		opts.ApplyWhitespace,
 		func(itemValidator runtime.ValidatorID, itemValue []byte) error {
@@ -83,13 +83,14 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 		return nil, xsderrors.Invalid("runtime schema missing")
 	}
 	runner := newValueRunner(s)
+	enums := s.rt.EnumTable()
 	return Union(
-		s.rt.Patterns,
-		s.rt.Facets,
+		s.rt.PatternTable(),
+		s.rt.FacetTable(),
 		normalized,
 		lexical,
-		&s.rt.Enums,
-		s.rt.Validators,
+		&enums,
+		s.rt.ValidatorBundle(),
 		meta,
 		opts.ApplyWhitespace,
 		needKey,

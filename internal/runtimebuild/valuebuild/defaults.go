@@ -11,19 +11,19 @@ func (c *artifactCompiler) compileDefaults() error {
 	for _, entry := range c.schema.Elements {
 		spec, err := c.valueSpecForElement(entry)
 		if err != nil {
-			if entry.Default.Present || entry.Fixed.Present {
+			if entry.Default.IsPresent() || entry.Fixed.IsPresent() {
 				return fmt.Errorf("element %s: %w", formatName(entry.Name), err)
 			}
 			continue
 		}
-		if entry.Default.Present {
+		if entry.Default.IsPresent() {
 			value, err := c.compileDefaultFixedValue(entry.Default, spec)
 			if err != nil {
 				return fmt.Errorf("element %s default: %w", formatName(entry.Name), err)
 			}
 			c.out.ElementDefaults[entry.ID] = value
 		}
-		if entry.Fixed.Present {
+		if entry.Fixed.IsPresent() {
 			value, err := c.compileDefaultFixedValue(entry.Fixed, spec)
 			if err != nil {
 				return fmt.Errorf("element %s fixed: %w", formatName(entry.Name), err)
@@ -34,19 +34,19 @@ func (c *artifactCompiler) compileDefaults() error {
 	for _, entry := range c.schema.Attributes {
 		spec, ok := c.specForRef(entry.TypeDecl)
 		if !ok {
-			if entry.Default.Present || entry.Fixed.Present {
+			if entry.Default.IsPresent() || entry.Fixed.IsPresent() {
 				return fmt.Errorf("attribute %s missing value type", formatName(entry.Name))
 			}
 			continue
 		}
-		if entry.Default.Present {
+		if entry.Default.IsPresent() {
 			value, err := c.compileDefaultFixedValue(entry.Default, spec)
 			if err != nil {
 				return fmt.Errorf("attribute %s default: %w", formatName(entry.Name), err)
 			}
 			c.out.AttributeDefaults[entry.ID] = value
 		}
-		if entry.Fixed.Present {
+		if entry.Fixed.IsPresent() {
 			value, err := c.compileDefaultFixedValue(entry.Fixed, spec)
 			if err != nil {
 				return fmt.Errorf("attribute %s fixed: %w", formatName(entry.Name), err)
@@ -81,19 +81,19 @@ func (c *artifactCompiler) compileAttributeUseDefaultFixed(id schemair.Attribute
 	entry := c.schema.AttributeUses[id-1]
 	spec, ok := c.specForRef(entry.TypeDecl)
 	if !ok {
-		if entry.Default.Present || entry.Fixed.Present {
+		if entry.Default.IsPresent() || entry.Fixed.IsPresent() {
 			return fmt.Errorf("attribute use %s missing value type", formatName(entry.Name))
 		}
 		return nil
 	}
-	if entry.Default.Present {
+	if entry.Default.IsPresent() {
 		value, err := c.compileDefaultFixedValue(entry.Default, spec)
 		if err != nil {
 			return fmt.Errorf("attribute use %s default: %w", formatName(entry.Name), err)
 		}
 		c.out.AttrUseDefaults[entry.ID] = value
 	}
-	if entry.Fixed.Present {
+	if entry.Fixed.IsPresent() {
 		value, err := c.compileDefaultFixedValue(entry.Fixed, spec)
 		if err != nil {
 			return fmt.Errorf("attribute use %s fixed: %w", formatName(entry.Name), err)
@@ -104,8 +104,8 @@ func (c *artifactCompiler) compileAttributeUseDefaultFixed(id schemair.Attribute
 }
 
 func (c *artifactCompiler) valueSpecForElement(entry schemair.Element) (schemair.SimpleTypeSpec, error) {
-	if entry.TypeDecl.Builtin {
-		if entry.TypeDecl.Name.Local == "anyType" {
+	if entry.TypeDecl.IsBuiltin() {
+		if entry.TypeDecl.TypeName().Local == "anyType" {
 			if spec, ok := c.builtinSpecs["anySimpleType"]; ok {
 				return spec, nil
 			}
@@ -115,18 +115,18 @@ func (c *artifactCompiler) valueSpecForElement(entry schemair.Element) (schemair
 		}
 		return schemair.SimpleTypeSpec{}, fmt.Errorf("missing value type")
 	}
-	switch c.typeKinds[entry.TypeDecl.ID] {
+	switch c.typeKinds[entry.TypeDecl.TypeID()] {
 	case schemair.TypeSimple:
 		if spec, ok := c.specForRef(entry.TypeDecl); ok {
 			return spec, nil
 		}
 	case schemair.TypeComplex:
-		plan, ok := c.complexPlans[entry.TypeDecl.ID]
+		plan, ok := c.complexPlans[entry.TypeDecl.TypeID()]
 		if !ok {
 			return schemair.SimpleTypeSpec{}, fmt.Errorf("complex type missing plan")
 		}
 		if plan.Content == schemair.ContentSimple {
-			if isZeroRef(plan.TextType) {
+			if plan.TextType.IsZero() {
 				if !isZeroSpec(plan.TextSpec) {
 					return plan.TextSpec, nil
 				}
@@ -148,7 +148,7 @@ func (c *artifactCompiler) valueSpecForElement(entry schemair.Element) (schemair
 }
 
 func (c *artifactCompiler) compileDefaultFixedValue(constraint schemair.ValueConstraint, spec schemair.SimpleTypeSpec) (DefaultFixedValue, error) {
-	canon, member, key, err := c.canonicalizeDefaultFixed(constraint.Lexical, spec, constraint.Context)
+	canon, member, key, err := c.canonicalizeDefaultFixed(constraint.LexicalValue(), spec, constraint.NamespaceContext())
 	if err != nil {
 		return DefaultFixedValue{}, err
 	}
@@ -246,8 +246,8 @@ func isZeroSpec(spec schemair.SimpleTypeSpec) bool {
 		spec.Primitive == "" &&
 		spec.BuiltinBase == "" &&
 		spec.Variety == schemair.TypeVarietyAtomic &&
-		isZeroRef(spec.Base) &&
-		isZeroRef(spec.Item) &&
+		spec.Base.IsZero() &&
+		spec.Item.IsZero() &&
 		len(spec.Members) == 0 &&
 		len(spec.Facets) == 0
 }

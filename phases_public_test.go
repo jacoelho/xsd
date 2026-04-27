@@ -54,6 +54,86 @@ func TestCompileFSRejectsInvalidSourceConfig(t *testing.T) {
 	if err == nil {
 		t.Fatal("CompileFS() error = nil, want invalid source config error")
 	}
+	_ = requireClassifiedError(t, err, xsd.KindCaller, xsd.ErrCaller)
+}
+
+func TestCompilePublicErrorsAreClassified(t *testing.T) {
+	tests := []struct {
+		name      string
+		run       func() error
+		wantKind  xsd.ErrorKind
+		wantCode  xsd.ErrorCode
+		wantCause error
+	}{
+		{
+			name:     "nil fs",
+			run:      func() error { _, err := xsd.CompileFS(nil, "schema.xsd", xsd.CompileConfig{}); return err },
+			wantKind: xsd.KindCaller,
+			wantCode: xsd.ErrCaller,
+		},
+		{
+			name:     "empty location",
+			run:      func() error { _, err := xsd.CompileFS(fstest.MapFS{}, "  ", xsd.CompileConfig{}); return err },
+			wantKind: xsd.KindCaller,
+			wantCode: xsd.ErrCaller,
+		},
+		{
+			name: "missing file",
+			run: func() error {
+				_, err := xsd.CompileFile(filepath.Join(t.TempDir(), "missing.xsd"), xsd.CompileConfig{})
+				return err
+			},
+			wantKind:  xsd.KindIO,
+			wantCode:  xsd.ErrIO,
+			wantCause: fs.ErrNotExist,
+		},
+		{
+			name: "malformed schema",
+			run: func() error {
+				_, err := xsd.CompileFS(fstest.MapFS{
+					"schema.xsd": &fstest.MapFile{Data: []byte(`<xs:schema`)},
+				}, "schema.xsd", xsd.CompileConfig{})
+				return err
+			},
+			wantKind: xsd.KindSchema,
+			wantCode: xsd.ErrSchemaParse,
+		},
+		{
+			name: "unresolved type",
+			run: func() error {
+				_, err := xsd.CompileFS(fstest.MapFS{
+					"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:element name="root" type="tns:Missing"/>
+</xs:schema>`)},
+				}, "schema.xsd", xsd.CompileConfig{})
+				return err
+			},
+			wantKind: xsd.KindSchema,
+			wantCode: xsd.ErrSchemaSemantic,
+		},
+		{
+			name: "compile sources no roots",
+			run: func() error {
+				_, err := xsd.NewCompiler(xsd.CompileConfig{}).CompileSources(nil)
+				return err
+			},
+			wantKind: xsd.KindCaller,
+			wantCode: xsd.ErrCaller,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.run()
+			_ = requireClassifiedError(t, err, tt.wantKind, tt.wantCode)
+			if tt.wantCause != nil && !errors.Is(err, tt.wantCause) {
+				t.Fatalf("error = %v, want cause %v", err, tt.wantCause)
+			}
+		})
+	}
 }
 
 func TestCompilerCompileSourcesMultipleRoots(t *testing.T) {
@@ -206,6 +286,8 @@ func TestCompilerCompileSourcesSameLocationConflict(t *testing.T) {
 func TestCompilerCompileSourcesWithoutRoots(t *testing.T) {
 	if _, err := xsd.NewCompiler(xsd.CompileConfig{}).CompileSources(nil); err == nil {
 		t.Fatal("CompileSources() error = nil, want no roots error")
+	} else {
+		_ = requireClassifiedError(t, err, xsd.KindCaller, xsd.ErrCaller)
 	}
 }
 
@@ -373,6 +455,7 @@ func TestCompileFileMissingFile(t *testing.T) {
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("CompileFile() error = %v, want fs.ErrNotExist", err)
 	}
+	_ = requireClassifiedError(t, err, xsd.KindIO, xsd.ErrIO)
 	if !strings.Contains(err.Error(), "compile schema missing.xsd") {
 		t.Fatalf("CompileFile() error = %v, want wrapped schema location", err)
 	}

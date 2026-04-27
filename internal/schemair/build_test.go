@@ -150,20 +150,20 @@ func TestBuildTypeDescriptors(t *testing.T) {
 	if got := ir.BuiltinTypes[0]; !got.AnyType || got.Name != (Name{Namespace: xsdNamespace, Local: "anyType"}) {
 		t.Fatalf("first builtin = %+v, want xs:anyType", got)
 	}
-	if got := ir.BuiltinTypes[1]; !got.AnySimpleType || got.Base.Name != (Name{Namespace: xsdNamespace, Local: "anyType"}) {
+	if got := ir.BuiltinTypes[1]; !got.AnySimpleType || got.Base.TypeName() != (Name{Namespace: xsdNamespace, Local: "anyType"}) {
 		t.Fatalf("second builtin = %+v, want xs:anySimpleType derived from xs:anyType", got)
 	}
 
 	code := mustType(t, ir, "Code")
-	if code.Kind != TypeSimple || code.Base.Name != (Name{Namespace: xsdNamespace, Local: "string"}) || code.Derivation != DerivationRestriction {
+	if code.Kind != TypeSimple || code.Base.TypeName() != (Name{Namespace: xsdNamespace, Local: "string"}) || code.Derivation != DerivationRestriction {
 		t.Fatalf("Code descriptor = %+v", code)
 	}
 	codes := mustType(t, ir, "Codes")
-	if codes.Kind != TypeSimple || codes.Base.Name != (Name{Namespace: xsdNamespace, Local: "anySimpleType"}) || codes.Derivation != DerivationList {
+	if codes.Kind != TypeSimple || codes.Base.TypeName() != (Name{Namespace: xsdNamespace, Local: "anySimpleType"}) || codes.Derivation != DerivationList {
 		t.Fatalf("Codes descriptor = %+v", codes)
 	}
 	either := mustType(t, ir, "Either")
-	if either.Kind != TypeSimple || either.Base.Name != (Name{Namespace: xsdNamespace, Local: "anySimpleType"}) || either.Derivation != DerivationUnion {
+	if either.Kind != TypeSimple || either.Base.TypeName() != (Name{Namespace: xsdNamespace, Local: "anySimpleType"}) || either.Derivation != DerivationUnion {
 		t.Fatalf("Either descriptor = %+v", either)
 	}
 	flagged := mustType(t, ir, "Flagged")
@@ -171,11 +171,11 @@ func TestBuildTypeDescriptors(t *testing.T) {
 		t.Fatalf("Flagged descriptor = %+v", flagged)
 	}
 	extended := mustType(t, ir, "Extended")
-	if extended.Kind != TypeComplex || extended.Base.Name != (Name{Namespace: "urn:types", Local: "Base"}) || extended.Derivation != DerivationExtension {
+	if extended.Kind != TypeComplex || extended.Base.TypeName() != (Name{Namespace: "urn:types", Local: "Base"}) || extended.Derivation != DerivationExtension {
 		t.Fatalf("Extended descriptor = %+v", extended)
 	}
 	restricted := mustType(t, ir, "Restricted")
-	if restricted.Kind != TypeComplex || restricted.Base.Name != (Name{Namespace: "urn:types", Local: "Base"}) || restricted.Derivation != DerivationRestriction {
+	if restricted.Kind != TypeComplex || restricted.Base.TypeName() != (Name{Namespace: "urn:types", Local: "Base"}) || restricted.Derivation != DerivationRestriction {
 		t.Fatalf("Restricted descriptor = %+v", restricted)
 	}
 
@@ -216,7 +216,7 @@ func TestBuildElementDescriptors(t *testing.T) {
 
 	ir := mustIR(t, schemaXML)
 	root := mustElement(t, ir, "root")
-	if root.TypeDecl.Name != (Name{Namespace: "urn:elements", Local: "ItemType"}) ||
+	if root.TypeDecl.TypeName() != (Name{Namespace: "urn:elements", Local: "ItemType"}) ||
 		!root.Nillable ||
 		root.Abstract ||
 		root.Final != DerivationExtension ||
@@ -232,11 +232,11 @@ func TestBuildElementDescriptors(t *testing.T) {
 		t.Fatalf("member substitution head = %d, want %d", member.SubstitutionHead, head.ID)
 	}
 	localSimple := mustElement(t, ir, "localSimple")
-	if localSimple.TypeDecl.ID == 0 || localSimple.TypeDecl.Builtin {
+	if localSimple.TypeDecl.TypeID() == 0 || localSimple.TypeDecl.IsBuiltin() {
 		t.Fatalf("localSimple type ref = %+v, want anonymous user type", localSimple.TypeDecl)
 	}
 	localComplex := mustElement(t, ir, "localComplex")
-	if localComplex.TypeDecl.ID == 0 || localComplex.TypeDecl.Builtin {
+	if localComplex.TypeDecl.TypeID() == 0 || localComplex.TypeDecl.IsBuiltin() {
 		t.Fatalf("localComplex type ref = %+v, want anonymous user type", localComplex.TypeDecl)
 	}
 
@@ -275,19 +275,19 @@ func TestBuildAttributeDescriptors(t *testing.T) {
 
 	ir := mustIR(t, schemaXML)
 	globalString := mustAttribute(t, ir, "globalString")
-	if !globalString.Global || !globalString.TypeDecl.Builtin || globalString.TypeDecl.Name != (Name{Namespace: xsdNamespace, Local: "string"}) {
+	if !globalString.Global || !globalString.TypeDecl.IsBuiltin() || globalString.TypeDecl.TypeName() != (Name{Namespace: xsdNamespace, Local: "string"}) {
 		t.Fatalf("globalString descriptor = %+v", globalString)
 	}
 	globalCode := mustAttribute(t, ir, "globalCode")
-	if !globalCode.Global || globalCode.TypeDecl.ID == 0 || globalCode.TypeDecl.Name != (Name{Namespace: "urn:attrs", Local: "Code"}) {
+	if !globalCode.Global || globalCode.TypeDecl.TypeID() == 0 || globalCode.TypeDecl.TypeName() != (Name{Namespace: "urn:attrs", Local: "Code"}) {
 		t.Fatalf("globalCode descriptor = %+v", globalCode)
 	}
 	groupBuiltin := mustAttribute(t, ir, "groupBuiltin")
-	if groupBuiltin.Global || !groupBuiltin.TypeDecl.Builtin || groupBuiltin.TypeDecl.Name != (Name{Namespace: xsdNamespace, Local: "int"}) {
+	if groupBuiltin.Global || !groupBuiltin.TypeDecl.IsBuiltin() || groupBuiltin.TypeDecl.TypeName() != (Name{Namespace: xsdNamespace, Local: "int"}) {
 		t.Fatalf("groupBuiltin descriptor = %+v", groupBuiltin)
 	}
 	groupInline := mustAttribute(t, ir, "groupInline")
-	if groupInline.Global || groupInline.TypeDecl.ID == 0 || groupInline.TypeDecl.Builtin {
+	if groupInline.Global || groupInline.TypeDecl.TypeID() == 0 || groupInline.TypeDecl.IsBuiltin() {
 		t.Fatalf("groupInline descriptor = %+v", groupInline)
 	}
 

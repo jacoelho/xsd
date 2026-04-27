@@ -32,8 +32,8 @@ func TestValidateComplexAttrsMarksPresent(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	ct := &schema.ComplexTypes[1]
-	uses := Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
+	ct := &schema.ComplexTypeTable()[1]
+	uses := Uses(sess.rt.AttributeIndex().Uses, ct.Attrs)
 	present := sess.attrs.attrState.PreparePresent(len(uses))
 
 	startAttrs := []Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
@@ -69,8 +69,8 @@ func TestApplyDefaultAttrsAddsDefault(t *testing.T) {
 	schema, _ := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	ct := &schema.ComplexTypes[1]
-	uses := Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
+	ct := &schema.ComplexTypeTable()[1]
+	uses := Uses(sess.rt.AttributeIndex().Uses, ct.Attrs)
 	present := sess.attrs.attrState.PreparePresent(len(uses))
 
 	applied, err := sess.applyDefaultAttrs(uses, present, false, false)

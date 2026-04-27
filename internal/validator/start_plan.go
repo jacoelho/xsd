@@ -148,7 +148,7 @@ func (s *Session) planStartFrame(in startPlanInput, result StartResult) (elemFra
 		},
 		result,
 		typ,
-		s.rt.ComplexTypes,
+		s.rt.ComplexTypeTable(),
 	)
 	if err != nil {
 		return elemFrame{}, err

@@ -7,15 +7,15 @@ import (
 
 const expectedW3CExclusionCount = 286
 
-type exclusionCategory string
+type ExclusionCategory string
 
 const (
-	exclusionXML11                exclusionCategory = "xml_1_1"
-	exclusionXSD11                exclusionCategory = "xsd_1_1"
-	exclusionUnsupportedImport    exclusionCategory = "unsupported_import"
-	exclusionUnsupportedRegex     exclusionCategory = "unsupported_regex"
-	exclusionUnsupportedRedefine  exclusionCategory = "unsupported_redefine"
-	exclusionImplementationPolicy exclusionCategory = "implementation_policy"
+	ExclusionCategoryXML11                ExclusionCategory = "xml_1_1"
+	ExclusionCategoryXSD11                ExclusionCategory = "xsd_1_1"
+	ExclusionCategoryUnsupportedImport    ExclusionCategory = "unsupported_import"
+	ExclusionCategoryUnsupportedRegex     ExclusionCategory = "unsupported_regex"
+	ExclusionCategoryUnsupportedRedefine  ExclusionCategory = "unsupported_redefine"
+	ExclusionCategoryImplementationPolicy ExclusionCategory = "implementation_policy"
 )
 
 type exclusionManifest struct {
@@ -35,7 +35,7 @@ func TestW3CExclusionManifestIsAuditable(t *testing.T) {
 	}
 
 	seen := make(map[string]struct{}, len(manifest.Entries))
-	categories := make(map[exclusionCategory]int)
+	categories := make(map[ExclusionCategory]int)
 	for _, entry := range manifest.Entries {
 		if strings.TrimSpace(entry.Pattern) == "" {
 			t.Fatal("W3C exclusion has empty pattern")
@@ -48,43 +48,23 @@ func TestW3CExclusionManifestIsAuditable(t *testing.T) {
 			t.Fatalf("duplicate W3C exclusion pattern %q", entry.Pattern)
 		}
 		seen[pattern] = struct{}{}
-		categories[entry.Category()]++
+		if entry.Category == "" {
+			t.Fatalf("W3C exclusion %q has empty category", entry.Pattern)
+		}
+		categories[entry.Category]++
 	}
 
-	required := []exclusionCategory{
-		exclusionXML11,
-		exclusionXSD11,
-		exclusionUnsupportedImport,
-		exclusionUnsupportedRegex,
-		exclusionUnsupportedRedefine,
-		exclusionImplementationPolicy,
+	required := []ExclusionCategory{
+		ExclusionCategoryXML11,
+		ExclusionCategoryXSD11,
+		ExclusionCategoryUnsupportedImport,
+		ExclusionCategoryUnsupportedRegex,
+		ExclusionCategoryUnsupportedRedefine,
+		ExclusionCategoryImplementationPolicy,
 	}
 	for _, category := range required {
 		if categories[category] == 0 {
 			t.Fatalf("W3C exclusion category %s has no entries", category)
 		}
-	}
-}
-
-func (e ExclusionReason) Category() exclusionCategory {
-	reason := strings.ToLower(e.Reason)
-	switch {
-	case strings.Contains(reason, "xml 1.1"):
-		return exclusionXML11
-	case strings.Contains(reason, "xsd 1.1"):
-		return exclusionXSD11
-	case strings.Contains(reason, "http schema imports"):
-		return exclusionUnsupportedImport
-	case strings.Contains(reason, "redefine"):
-		return exclusionUnsupportedRedefine
-	case strings.Contains(reason, "regexp"),
-		strings.Contains(reason, "\\p{"),
-		strings.Contains(reason, "\\i"),
-		strings.Contains(reason, "\\c"),
-		strings.Contains(reason, "character class subtraction"),
-		strings.Contains(reason, "unicode property"):
-		return exclusionUnsupportedRegex
-	default:
-		return exclusionImplementationPolicy
 	}
 }

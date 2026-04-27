@@ -27,15 +27,15 @@ func OpenScope(rt *runtime.Schema, frameID uint64, frameDepth int, elemID runtim
 		Constraints: make([]ConstraintState, 0, len(icIDs)),
 	}
 	for _, id := range icIDs {
-		if id == 0 || int(id) >= len(rt.ICs) {
+		constraint, ok := rt.IdentityConstraint(id)
+		if !ok {
 			return Scope{}, false, fmt.Errorf("identity: constraint %d out of range", id)
 		}
-		constraint := rt.ICs[id]
-		selectors, err := slicePathIDs(rt.ICSelectors, constraint.SelectorOff, constraint.SelectorLen)
+		selectors, err := slicePathIDs(rt.IdentitySelectors(), constraint.SelectorOff, constraint.SelectorLen)
 		if err != nil {
 			return Scope{}, false, err
 		}
-		fieldsFlat, err := slicePathIDs(rt.ICFields, constraint.FieldOff, constraint.FieldLen)
+		fieldsFlat, err := slicePathIDs(rt.IdentityFields(), constraint.FieldOff, constraint.FieldLen)
 		if err != nil {
 			return Scope{}, false, err
 		}
@@ -234,18 +234,14 @@ func applyElementSelection(state *FieldState, elemID uint64, frameType runtime.T
 }
 
 func constraintName(rt *runtime.Schema, sym runtime.SymbolID) string {
-	if rt == nil || sym == 0 {
+	if rt == nil {
 		return ""
 	}
-	if int(sym) >= len(rt.Symbols.NS) {
+	nsID, local, ok := rt.SymbolBytes(sym)
+	if !ok || len(local) == 0 {
 		return ""
 	}
-	local := rt.Symbols.LocalBytes(sym)
-	if len(local) == 0 {
-		return ""
-	}
-	nsID := rt.Symbols.NS[sym]
-	ns := rt.Namespaces.Bytes(nsID)
+	ns := rt.NamespaceBytes(nsID)
 	if len(ns) == 0 {
 		return string(local)
 	}
@@ -253,18 +249,18 @@ func constraintName(rt *runtime.Schema, sym runtime.SymbolID) string {
 }
 
 func isSimpleContent(rt *runtime.Schema, typeID runtime.TypeID) bool {
-	if typeID == 0 || int(typeID) >= len(rt.Types) {
+	typ, ok := rt.Type(typeID)
+	if !ok {
 		return false
 	}
-	typ := rt.Types[typeID]
 	switch typ.Kind {
 	case runtime.TypeSimple, runtime.TypeBuiltin:
 		return true
 	case runtime.TypeComplex:
-		if typ.Complex.ID == 0 || int(typ.Complex.ID) >= len(rt.ComplexTypes) {
+		ct, ok := rt.ComplexType(typ.Complex.ID)
+		if !ok {
 			return false
 		}
-		ct := rt.ComplexTypes[typ.Complex.ID]
 		return ct.Content == runtime.ContentSimple
 	default:
 		return false
@@ -278,11 +274,11 @@ func sliceElemICs(rt *runtime.Schema, elem *runtime.Element) ([]runtime.ICID, er
 	if elem.ICLen == 0 {
 		return nil, nil
 	}
-	start, end, ok := checkedSpan(elem.ICOff, elem.ICLen, len(rt.ElemICs))
-	if !ok {
+	ids := rt.ElementIdentityConstraintIDs(*elem)
+	if ids == nil {
 		return nil, fmt.Errorf("identity: elem ICs out of range")
 	}
-	return rt.ElemICs[start:end], nil
+	return ids, nil
 }
 
 func slicePathIDs(list []runtime.PathID, off, ln uint32) ([]runtime.PathID, error) {

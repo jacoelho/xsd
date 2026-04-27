@@ -33,20 +33,21 @@ type identityFixture struct {
 	pathGroupItem runtime.PathID
 }
 
-func configureRootUniqueAttrConstraint(schema *runtime.Schema, root runtime.ElemID, selector, field runtime.PathID) {
-	schema.ICs = make([]runtime.IdentityConstraint, 2)
-	schema.ICs[1] = runtime.IdentityConstraint{
+func configureRootUniqueAttrConstraint(tb testing.TB, schema *runtime.Schema, root runtime.ElemID, selector, field runtime.PathID) {
+	tb.Helper()
+	setRuntimeIdentityConstraints(tb, schema, make([]runtime.IdentityConstraint, 2))
+	schema.IdentityConstraints()[1] = runtime.IdentityConstraint{
 		Category:    runtime.ICUnique,
 		SelectorOff: 0,
 		SelectorLen: 1,
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	schema.ICSelectors = []runtime.PathID{selector}
-	schema.ICFields = []runtime.PathID{field}
-	schema.ElemICs = []runtime.ICID{1}
-	schema.Elements[root].ICOff = 0
-	schema.Elements[root].ICLen = 1
+	setRuntimeIdentitySelectors(tb, schema, []runtime.PathID{selector})
+	setRuntimeIdentityFields(tb, schema, []runtime.PathID{field})
+	setRuntimeElementIdentityConstraints(tb, schema, []runtime.ICID{1})
+	schema.ElementTable()[root].ICOff = 0
+	schema.ElementTable()[root].ICLen = 1
 }
 
 func buildIdentityFixture(tb testing.TB) identityFixture {
@@ -63,22 +64,22 @@ func buildIdentityFixture(tb testing.TB) identityFixture {
 		tb.Fatalf("Build() error = %v", err)
 	}
 
-	schema.Types = make([]runtime.Type, 3)
-	schema.Types[1] = runtime.Type{Kind: runtime.TypeSimple}
-	schema.Types[2] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
-	schema.ComplexTypes = make([]runtime.ComplexType, 2)
-	schema.ComplexTypes[1] = runtime.ComplexType{Content: runtime.ContentElementOnly}
+	setRuntimeTypes(tb, schema, make([]runtime.Type, 3))
+	schema.TypeTable()[1] = runtime.Type{Kind: runtime.TypeSimple}
+	schema.TypeTable()[2] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
+	setRuntimeComplexTypes(tb, schema, make([]runtime.ComplexType, 2))
+	schema.ComplexTypeTable()[1] = runtime.ComplexType{Content: runtime.ContentElementOnly}
 
-	schema.Elements = make([]runtime.Element, 4)
-	schema.Elements[1] = runtime.Element{Name: symRoot, Type: 2}
-	schema.Elements[2] = runtime.Element{Name: symGroup, Type: 2}
-	schema.Elements[3] = runtime.Element{Name: symItem, Type: 1}
+	setRuntimeElements(tb, schema, make([]runtime.Element, 4))
+	schema.ElementTable()[1] = runtime.Element{Name: symRoot, Type: 2}
+	schema.ElementTable()[2] = runtime.Element{Name: symGroup, Type: 2}
+	schema.ElementTable()[3] = runtime.Element{Name: symItem, Type: 1}
 
-	schema.Paths = make([]runtime.PathProgram, 5)
-	schema.Paths[1] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpChildName, Sym: symItem, NS: ns}}}
-	schema.Paths[2] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpDescend}, {Op: runtime.OpChildName, Sym: symItem, NS: ns}}}
-	schema.Paths[3] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpAttrName, Sym: symID, NS: empty}}}
-	schema.Paths[4] = runtime.PathProgram{Ops: []runtime.PathOp{
+	setRuntimePaths(tb, schema, make([]runtime.PathProgram, 5))
+	schema.PathPrograms()[1] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpChildName, Sym: symItem, NS: ns}}}
+	schema.PathPrograms()[2] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpDescend}, {Op: runtime.OpChildName, Sym: symItem, NS: ns}}}
+	schema.PathPrograms()[3] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpAttrName, Sym: symID, NS: empty}}}
+	schema.PathPrograms()[4] = runtime.PathProgram{Ops: []runtime.PathOp{
 		{Op: runtime.OpChildName, Sym: symGroup, NS: ns},
 		{Op: runtime.OpChildName, Sym: symItem, NS: ns},
 	}}
@@ -107,19 +108,19 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
-	schema.ICs = make([]runtime.IdentityConstraint, 2)
-	schema.ICs[1] = runtime.IdentityConstraint{
+	setRuntimeIdentityConstraints(t, schema, make([]runtime.IdentityConstraint, 2))
+	schema.IdentityConstraints()[1] = runtime.IdentityConstraint{
 		Category:    runtime.ICUnique,
 		SelectorOff: 0,
 		SelectorLen: 1,
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	schema.ICSelectors = []runtime.PathID{fx.pathChild}
-	schema.ICFields = []runtime.PathID{fx.pathAttrID}
-	schema.ElemICs = []runtime.ICID{1}
-	schema.Elements[fx.elemRoot].ICOff = 0
-	schema.Elements[fx.elemRoot].ICLen = 1
+	setRuntimeIdentitySelectors(t, schema, []runtime.PathID{fx.pathChild})
+	setRuntimeIdentityFields(t, schema, []runtime.PathID{fx.pathAttrID})
+	setRuntimeElementIdentityConstraints(t, schema, []runtime.ICID{1})
+	schema.ElementTable()[fx.elemRoot].ICOff = 0
+	schema.ElementTable()[fx.elemRoot].ICLen = 1
 
 	sess := NewSession(schema)
 
@@ -171,19 +172,19 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
-	schema.ICs = make([]runtime.IdentityConstraint, 2)
-	schema.ICs[1] = runtime.IdentityConstraint{
+	setRuntimeIdentityConstraints(t, schema, make([]runtime.IdentityConstraint, 2))
+	schema.IdentityConstraints()[1] = runtime.IdentityConstraint{
 		Category:    runtime.ICKey,
 		SelectorOff: 0,
 		SelectorLen: 1,
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	schema.ICSelectors = []runtime.PathID{fx.pathChild}
-	schema.ICFields = []runtime.PathID{fx.pathAttrID}
-	schema.ElemICs = []runtime.ICID{1}
-	schema.Elements[fx.elemRoot].ICOff = 0
-	schema.Elements[fx.elemRoot].ICLen = 1
+	setRuntimeIdentitySelectors(t, schema, []runtime.PathID{fx.pathChild})
+	setRuntimeIdentityFields(t, schema, []runtime.PathID{fx.pathAttrID})
+	setRuntimeElementIdentityConstraints(t, schema, []runtime.ICID{1})
+	schema.ElementTable()[fx.elemRoot].ICOff = 0
+	schema.ElementTable()[fx.elemRoot].ICLen = 1
 
 	sess := NewSession(schema)
 
@@ -218,15 +219,15 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
-	schema.ICs = make([]runtime.IdentityConstraint, 5)
-	schema.ICs[1] = runtime.IdentityConstraint{
+	setRuntimeIdentityConstraints(t, schema, make([]runtime.IdentityConstraint, 5))
+	schema.IdentityConstraints()[1] = runtime.IdentityConstraint{
 		Category:    runtime.ICKey,
 		SelectorOff: 0,
 		SelectorLen: 1,
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	schema.ICs[2] = runtime.IdentityConstraint{
+	schema.IdentityConstraints()[2] = runtime.IdentityConstraint{
 		Category:    runtime.ICKeyRef,
 		SelectorOff: 0,
 		SelectorLen: 1,
@@ -234,14 +235,14 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 		FieldLen:    1,
 		Referenced:  1,
 	}
-	schema.ICs[3] = runtime.IdentityConstraint{
+	schema.IdentityConstraints()[3] = runtime.IdentityConstraint{
 		Category:    runtime.ICKey,
 		SelectorOff: 0,
 		SelectorLen: 1,
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	schema.ICs[4] = runtime.IdentityConstraint{
+	schema.IdentityConstraints()[4] = runtime.IdentityConstraint{
 		Category:    runtime.ICKeyRef,
 		SelectorOff: 0,
 		SelectorLen: 1,
@@ -249,13 +250,13 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 		FieldLen:    1,
 		Referenced:  3,
 	}
-	schema.ICSelectors = []runtime.PathID{fx.pathDescend}
-	schema.ICFields = []runtime.PathID{fx.pathAttrID}
-	schema.ElemICs = []runtime.ICID{1, 2, 3, 4}
-	schema.Elements[fx.elemRoot].ICOff = 0
-	schema.Elements[fx.elemRoot].ICLen = 2
-	schema.Elements[fx.elemGroup].ICOff = 2
-	schema.Elements[fx.elemGroup].ICLen = 2
+	setRuntimeIdentitySelectors(t, schema, []runtime.PathID{fx.pathDescend})
+	setRuntimeIdentityFields(t, schema, []runtime.PathID{fx.pathAttrID})
+	setRuntimeElementIdentityConstraints(t, schema, []runtime.ICID{1, 2, 3, 4})
+	schema.ElementTable()[fx.elemRoot].ICOff = 0
+	schema.ElementTable()[fx.elemRoot].ICLen = 2
+	schema.ElementTable()[fx.elemGroup].ICOff = 2
+	schema.ElementTable()[fx.elemGroup].ICLen = 2
 
 	sess := NewSession(schema)
 
@@ -306,25 +307,25 @@ func TestIdentityStartRollbackOnError(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	schema.Types = make([]runtime.Type, 2)
-	schema.ComplexTypes = make([]runtime.ComplexType, 2)
-	schema.Types[1] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
-	schema.ComplexTypes[1] = runtime.ComplexType{Content: runtime.ContentEmpty}
+	setRuntimeTypes(t, schema, make([]runtime.Type, 2))
+	setRuntimeComplexTypes(t, schema, make([]runtime.ComplexType, 2))
+	schema.TypeTable()[1] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
+	schema.ComplexTypeTable()[1] = runtime.ComplexType{Content: runtime.ContentEmpty}
 
-	schema.Elements = make([]runtime.Element, 2)
-	schema.Elements[1] = runtime.Element{Name: symRoot, Type: 1, ICOff: 0, ICLen: 1}
-	schema.GlobalElements = make([]runtime.ElemID, schema.Symbols.Count()+1)
-	schema.GlobalElements[symRoot] = 1
+	setRuntimeElements(t, schema, make([]runtime.Element, 2))
+	schema.ElementTable()[1] = runtime.Element{Name: symRoot, Type: 1, ICOff: 0, ICLen: 1}
+	setRuntimeGlobalElements(t, schema, make([]runtime.ElemID, schema.SymbolCount()+1))
+	schema.GlobalElementIDs()[symRoot] = 1
 
-	schema.ICs = make([]runtime.IdentityConstraint, 2)
-	schema.ICs[1] = runtime.IdentityConstraint{
+	setRuntimeIdentityConstraints(t, schema, make([]runtime.IdentityConstraint, 2))
+	schema.IdentityConstraints()[1] = runtime.IdentityConstraint{
 		Category:    runtime.ICKey,
 		SelectorOff: 0,
 		SelectorLen: 1,
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	schema.ElemICs = []runtime.ICID{1}
+	setRuntimeElementIdentityConstraints(t, schema, []runtime.ICID{1})
 
 	sess := NewSession(schema)
 	sess.Reset()
@@ -400,11 +401,11 @@ func TestIdentityStartNoConstraintsSkipsAttrMaterialization(t *testing.T) {
 func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 	fx := buildIdentityFixture(t)
 	schema := fx.schema
-	pathAttrNSAny := runtime.PathID(len(schema.Paths))
-	schema.Paths = append(schema.Paths, runtime.PathProgram{
+	pathAttrNSAny := runtime.PathID(len(schema.PathPrograms()))
+	setRuntimePaths(t, schema, append(schema.PathPrograms(), runtime.PathProgram{
 		Ops: []runtime.PathOp{{Op: runtime.OpAttrNSAny, NS: fx.empty}},
-	})
-	configureRootUniqueAttrConstraint(schema, fx.elemRoot, fx.pathChild, pathAttrNSAny)
+	}))
+	configureRootUniqueAttrConstraint(t, schema, fx.elemRoot, fx.pathChild, pathAttrNSAny)
 
 	buildAttrs := func(extra int) []Start {
 		out := make([]Start, 0, extra+1)

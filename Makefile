@@ -5,6 +5,8 @@ export GOBIN = $(CURDIR)/bin
 GML_INSTANCE_PATH = testdata/gml/example.gml
 GML_ENTRY_SCHEMA = testdata/gml/xsd/LandCoverVector.xsd
 GML_INSTANCE_MAX_TOKEN_SIZE = 134217728
+GML_CACHE_PATH ?=
+GML_FORCE_DOWNLOAD ?= false
 XMLLINT_SOURCE_DIRS = . cmd internal
 XMLLINT_SOURCES = $(shell find cmd internal -type f -name '*.go') $(shell find . -maxdepth 1 -type f -name '*.go')
 
@@ -34,5 +36,18 @@ test: testdata/xsdtests
 
 .PHONY: gml
 gml: $(GOBIN)/xmllint
-	go run ./testdata/gml/setup.go prepare
+	@cacheArgs=""; \
+	if [ -n "$(GML_CACHE_PATH)" ]; then \
+		cacheArgs="-gml-cache '$(GML_CACHE_PATH)'"; \
+	fi; \
+	if [ "$(GML_FORCE_DOWNLOAD)" = "true" ] || [ "$(GML_FORCE_DOWNLOAD)" = "1" ]; then \
+		go run ./testdata/gml/setup.go prepare -force-download $$cacheArgs; \
+	else \
+		go run ./testdata/gml/setup.go prepare -skip-download $$cacheArgs; \
+	fi
+	/usr/bin/time $(GOBIN)/xmllint --schema "$(GML_ENTRY_SCHEMA)" --instance-max-token-size "$(GML_INSTANCE_MAX_TOKEN_SIZE)" "$(GML_INSTANCE_PATH)"
+
+.PHONY: gml-download
+gml-download: $(GOBIN)/xmllint
+	go run ./testdata/gml/setup.go prepare -force-download
 	/usr/bin/time $(GOBIN)/xmllint --schema "$(GML_ENTRY_SCHEMA)" --instance-max-token-size "$(GML_INSTANCE_MAX_TOKEN_SIZE)" "$(GML_INSTANCE_PATH)"

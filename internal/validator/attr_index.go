@@ -19,7 +19,7 @@ func LookupUse(rt *runtime.Schema, ref runtime.AttrIndexRef, sym runtime.SymbolI
 	if rt == nil {
 		return runtime.AttrUse{}, -1, false
 	}
-	uses := Uses(rt.AttrIndex.Uses, ref)
+	uses := rt.AttributeUses(ref)
 	switch ref.Mode {
 	case runtime.AttrIndexSortedBinary:
 		return lookupUseBinary(uses, sym)
@@ -32,14 +32,7 @@ func LookupUse(rt *runtime.Schema, ref runtime.AttrIndexRef, sym runtime.SymbolI
 
 // GlobalAttributeBySymbol resolves one global attribute identifier by symbol.
 func GlobalAttributeBySymbol(rt *runtime.Schema, sym runtime.SymbolID) (runtime.AttrID, bool) {
-	if sym == 0 {
-		return 0, false
-	}
-	if rt == nil || int(sym) >= len(rt.GlobalAttributes) {
-		return 0, false
-	}
-	id := rt.GlobalAttributes[sym]
-	return id, id != 0
+	return rt.GlobalAttribute(sym)
 }
 
 func lookupUseBinary(uses []runtime.AttrUse, sym runtime.SymbolID) (runtime.AttrUse, int, bool) {
@@ -61,10 +54,11 @@ func lookupUseBinary(uses []runtime.AttrUse, sym runtime.SymbolID) (runtime.Attr
 }
 
 func lookupUseHash(rt *runtime.Schema, ref runtime.AttrIndexRef, sym runtime.SymbolID) (runtime.AttrUse, int, bool) {
-	if int(ref.HashTable) >= len(rt.AttrIndex.HashTables) {
+	table, ok := rt.AttributeHashTable(ref.HashTable)
+	if !ok {
 		return runtime.AttrUse{}, -1, false
 	}
-	table := rt.AttrIndex.HashTables[ref.HashTable]
+	attrIndex := rt.AttributeIndex()
 	if len(table.Hash) == 0 || len(table.Slot) == 0 {
 		return runtime.AttrUse{}, -1, false
 	}
@@ -81,8 +75,8 @@ func lookupUseHash(rt *runtime.Schema, ref runtime.AttrIndexRef, sym runtime.Sym
 		}
 		if table.Hash[slot] == hash {
 			useIndex := int(idx - 1)
-			if useIndex >= int(ref.Off) && useIndex < int(ref.Off+ref.Len) && useIndex < len(rt.AttrIndex.Uses) {
-				use := rt.AttrIndex.Uses[useIndex]
+			if useIndex >= int(ref.Off) && useIndex < int(ref.Off+ref.Len) && useIndex < len(attrIndex.Uses) {
+				use := attrIndex.Uses[useIndex]
 				if use.Name == sym {
 					return use, useIndex - int(ref.Off), true
 				}

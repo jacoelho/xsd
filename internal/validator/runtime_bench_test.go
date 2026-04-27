@@ -88,12 +88,12 @@ func Benchmark_UnionValidation_Overlap(b *testing.B) {
 
 	rt := mustBuildRuntimeSchema(b, schema)
 	sess := NewSession(rt)
-	sym := rt.Symbols.Lookup(rt.PredefNS.Empty, []byte("U"))
-	typeID := rt.GlobalTypes[sym]
+	sym := rt.SymbolLookup(rt.KnownNamespaces().Empty, []byte("U"))
+	typeID := rt.GlobalTypeIDs()[sym]
 	if typeID == 0 {
 		b.Fatalf("union type not found")
 	}
-	validator := rt.Types[typeID].Validator
+	validator := rt.TypeTable()[typeID].Validator
 	input := []byte("12.5")
 	opts := valueOptions{ApplyWhitespace: true}
 
@@ -106,7 +106,7 @@ func Benchmark_UnionValidation_Overlap(b *testing.B) {
 }
 
 func Benchmark_ListValidation_DoubleCollapsed(b *testing.B) {
-	rt, validator := benchmarkCollapsedDoubleListRuntime()
+	rt, validator := benchmarkCollapsedDoubleListRuntime(b)
 	sess := NewSession(rt)
 	input := benchmarkCollapsedDoubleList(4096)
 	opts := valueOptions{ApplyWhitespace: true}
@@ -121,7 +121,7 @@ func Benchmark_ListValidation_DoubleCollapsed(b *testing.B) {
 }
 
 func Benchmark_TrackValidatedIDs_NonIDList(b *testing.B) {
-	rt, validator := benchmarkCollapsedDoubleListRuntime()
+	rt, validator := benchmarkCollapsedDoubleListRuntime(b)
 	sess := NewSession(rt)
 	input := benchmarkCollapsedDoubleList(4096)
 
@@ -178,17 +178,17 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 
 	rt := mustBuildRuntimeSchema(b, schema)
 	sess := NewSession(rt)
-	sym := rt.Symbols.Lookup(rt.PredefNS.Empty, []byte("E"))
-	typeID := rt.GlobalTypes[sym]
+	sym := rt.SymbolLookup(rt.KnownNamespaces().Empty, []byte("E"))
+	typeID := rt.GlobalTypeIDs()[sym]
 	if typeID == 0 {
 		b.Fatalf("enum type not found")
 	}
-	validator := rt.Types[typeID].Validator
-	meta := rt.Validators.Meta[validator]
+	validator := rt.TypeTable()[typeID].Validator
+	meta := rt.ValidatorBundle().Meta[validator]
 	start := int(meta.Facets.Off)
 	end := start + int(meta.Facets.Len)
 	enumID := runtime.EnumID(0)
-	for _, instr := range rt.Facets[start:end] {
+	for _, instr := range rt.FacetTable()[start:end] {
 		if instr.Op == runtime.FEnum {
 			enumID = runtime.EnumID(instr.Arg0)
 			break
@@ -212,8 +212,9 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 	key = slices.Clone(key)
 
 	b.ReportAllocs()
+	enumTable := rt.EnumTable()
 	for b.Loop() {
-		if !runtime.EnumContains(&rt.Enums, enumID, kind, key) {
+		if !runtime.EnumContains(&enumTable, enumID, kind, key) {
 			b.Fatalf("enum lookup failed")
 		}
 	}
@@ -222,11 +223,11 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 	fx := buildIdentityFixture(b)
 	schema := fx.schema
-	pathAttrNSAny := runtime.PathID(len(schema.Paths))
-	schema.Paths = append(schema.Paths, runtime.PathProgram{
+	pathAttrNSAny := runtime.PathID(len(schema.PathPrograms()))
+	setRuntimePaths(b, schema, append(schema.PathPrograms(), runtime.PathProgram{
 		Ops: []runtime.PathOp{{Op: runtime.OpAttrNSAny, NS: fx.empty}},
-	})
-	configureRootUniqueAttrConstraint(schema, fx.elemRoot, fx.pathChild, pathAttrNSAny)
+	}))
+	configureRootUniqueAttrConstraint(b, schema, fx.elemRoot, fx.pathChild, pathAttrNSAny)
 
 	inputAttrs := make([]Start, 0, 65)
 	for i := range 64 {
@@ -281,23 +282,24 @@ func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 	}
 }
 
-func benchmarkCollapsedDoubleListRuntime() (*runtime.Schema, runtime.ValidatorID) {
+func benchmarkCollapsedDoubleListRuntime(tb testing.TB) (*runtime.Schema, runtime.ValidatorID) {
+	tb.Helper()
 	const (
 		doubleValidatorID = runtime.ValidatorID(1)
 		listValidatorID   = runtime.ValidatorID(2)
 	)
 
-	return &runtime.Schema{
-		Validators: runtime.ValidatorsBundle{
-			Double: []runtime.DoubleValidator{{}},
-			List:   []runtime.ListValidator{{Item: doubleValidatorID}},
-			Meta: []runtime.ValidatorMeta{
-				{},
-				{Kind: runtime.VDouble, Index: 0, WhiteSpace: runtime.WSCollapse},
-				{Kind: runtime.VList, Index: 0, WhiteSpace: runtime.WSCollapse},
-			},
+	schema := newRuntimeSchema(tb)
+	setRuntimeValidators(tb, schema, runtime.ValidatorsBundle{
+		Double: []runtime.DoubleValidator{{}},
+		List:   []runtime.ListValidator{{Item: doubleValidatorID}},
+		Meta: []runtime.ValidatorMeta{
+			{},
+			{Kind: runtime.VDouble, Index: 0, WhiteSpace: runtime.WSCollapse},
+			{Kind: runtime.VList, Index: 0, WhiteSpace: runtime.WSCollapse},
 		},
-	}, listValidatorID
+	})
+	return schema, listValidatorID
 }
 
 func benchmarkCollapsedDoubleList(items int) []byte {

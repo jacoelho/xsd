@@ -106,7 +106,3 @@ func (c *artifactCompiler) finish() *Artifacts {
 	c.out.Values = c.values.table()
 	return &c.out
 }
-
-func isZeroRef(ref schemair.TypeRef) bool {
-	return ref.ID == 0 && ref.Name.Local == "" && ref.Name.Namespace == "" && !ref.Builtin
-}

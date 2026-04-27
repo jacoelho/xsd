@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/runtime"
 	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
@@ -136,6 +137,25 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	}
 }
 
+func TestSessionResetShrinksOversizedScratchBuffers(t *testing.T) {
+	s := &Session{}
+	s.Scratch.Buf1 = make([]byte, maxSessionBuffer+1)
+	s.Scratch.Buf2 = make([]byte, maxSessionBuffer+1)
+	s.Scratch.Buf3 = make([]byte, maxSessionBuffer+1)
+
+	s.Reset()
+
+	if s.Scratch.Buf1 != nil {
+		t.Fatalf("expected Scratch.Buf1 to be shrunk")
+	}
+	if s.Scratch.Buf2 != nil {
+		t.Fatalf("expected Scratch.Buf2 to be shrunk")
+	}
+	if s.Scratch.Buf3 != nil {
+		t.Fatalf("expected Scratch.Buf3 to be shrunk")
+	}
+}
+
 func TestSessionResetDropsOversizedStacks(t *testing.T) {
 	s := &Session{}
 	for range maxSessionEntries + 1 {
@@ -195,5 +215,51 @@ func TestShrinkNormStackDropsOversizedEntries(t *testing.T) {
 	got := shrinkNormStack(stack, maxSessionBuffer, maxSessionEntries)
 	if got != nil {
 		t.Fatalf("expected oversized normStack to be dropped")
+	}
+}
+
+func TestSessionBuffersModelWordSliceNoAliasAndResetZeroes(t *testing.T) {
+	var buffers SessionBuffers
+	first := buffers.modelWordSlice(2)
+	second := buffers.modelWordSlice(2)
+	if len(first) != 2 || len(second) != 2 {
+		t.Fatalf("modelWordSlice lens = %d, %d; want 2, 2", len(first), len(second))
+	}
+	if &first[0] == &second[0] {
+		t.Fatal("sequential model word slices alias")
+	}
+	if cap(first) != len(first) || cap(second) != len(second) {
+		t.Fatalf("model word slice caps = %d, %d; want %d, %d", cap(first), cap(second), len(first), len(second))
+	}
+
+	first[0] = 11
+	first[1] = 22
+	second[0] = 33
+	second[1] = 44
+	appended := append(first, 55)
+	if len(appended) != 3 {
+		t.Fatalf("appended len = %d, want 3", len(appended))
+	}
+	if second[0] != 33 || second[1] != 44 {
+		t.Fatalf("append to first mutated second = %v", second)
+	}
+	buffers.Reset()
+
+	reused := buffers.modelWordSlice(4)
+	if len(reused) != 4 {
+		t.Fatalf("reused len = %d, want 4", len(reused))
+	}
+	for i, word := range reused {
+		if word != 0 {
+			t.Fatalf("reused[%d] = %d, want 0", i, word)
+		}
+	}
+}
+
+func TestSessionPlanPreallocatesModelWords(t *testing.T) {
+	want := maxSessionEntries + 1
+	s := NewSessionWithPlan(nil, runtime.SessionPlan{MaxModelWords: want})
+	if cap(s.buffers.modelWords) != want {
+		t.Fatalf("modelWords cap = %d, want %d", cap(s.buffers.modelWords), want)
 	}
 }

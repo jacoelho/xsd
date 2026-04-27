@@ -13,6 +13,7 @@ type schemaBuilder struct {
 	schema         *schemair.Schema
 	artifacts      runtimeArtifacts
 	rt             *runtime.Schema
+	assembler      *runtime.Assembler
 	paths          []runtime.PathProgram
 	wildcards      []runtime.WildcardRule
 	wildcardIDs    map[schemair.WildcardID]runtime.WildcardID

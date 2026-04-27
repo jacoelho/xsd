@@ -32,38 +32,38 @@ func TestBuildSchema_LocalElementShadowsGlobalByQName(t *testing.T) {
 		t.Fatalf("BuildSchema error = %v", err)
 	}
 
-	nsID := rt.Namespaces.Lookup([]byte("urn:local"))
+	nsID := rt.NamespaceLookup([]byte("urn:local"))
 	if nsID == 0 {
 		t.Fatalf("namespace not found")
 	}
-	symContainer := rt.Symbols.Lookup(nsID, []byte("container"))
-	symExterior := rt.Symbols.Lookup(nsID, []byte("exterior"))
-	symLocalT := rt.Symbols.Lookup(nsID, []byte("LocalT"))
+	symContainer := rt.SymbolLookup(nsID, []byte("container"))
+	symExterior := rt.SymbolLookup(nsID, []byte("exterior"))
+	symLocalT := rt.SymbolLookup(nsID, []byte("LocalT"))
 	if symContainer == 0 || symExterior == 0 || symLocalT == 0 {
 		t.Fatalf("symbols missing (container=%d exterior=%d LocalT=%d)", symContainer, symExterior, symLocalT)
 	}
 
 	var containerElem runtimeElementRef
-	for i := 1; i < len(rt.Elements); i++ {
-		if rt.Elements[i].Name == symContainer {
-			containerElem = runtimeElementRef{id: uint32(i), elem: rt.Elements[i]}
+	for i := 1; i < len(rt.ElementTable()); i++ {
+		if rt.ElementTable()[i].Name == symContainer {
+			containerElem = runtimeElementRef{id: uint32(i), elem: rt.ElementTable()[i]}
 			break
 		}
 	}
 	if containerElem.id == 0 {
 		t.Fatalf("container element not found")
 	}
-	containerType := rt.Types[containerElem.elem.Type]
+	containerType := rt.TypeTable()[containerElem.elem.Type]
 	if containerType.Kind != runtime.TypeComplex {
 		t.Fatalf("container type kind = %d, want complex", containerType.Kind)
 	}
-	ct := rt.ComplexTypes[containerType.Complex.ID]
+	ct := rt.ComplexTypeTable()[containerType.Complex.ID]
 
 	var matcher runtime.PosMatcher
 	found := false
 	switch ct.Model.Kind {
 	case runtime.ModelDFA:
-		model := rt.Models.DFA[ct.Model.ID]
+		model := rt.ModelBundle().DFA[ct.Model.ID]
 		for _, tr := range model.Transitions {
 			if tr.Sym == symExterior {
 				matcher = runtime.PosMatcher{Kind: runtime.PosExact, Sym: tr.Sym, Elem: tr.Elem}
@@ -72,7 +72,7 @@ func TestBuildSchema_LocalElementShadowsGlobalByQName(t *testing.T) {
 			}
 		}
 	case runtime.ModelNFA:
-		model := rt.Models.NFA[ct.Model.ID]
+		model := rt.ModelBundle().NFA[ct.Model.ID]
 		for _, m := range model.Matchers {
 			if m.Kind == runtime.PosExact && m.Sym == symExterior {
 				matcher = m
@@ -87,11 +87,11 @@ func TestBuildSchema_LocalElementShadowsGlobalByQName(t *testing.T) {
 		t.Fatalf("no matcher for local exterior")
 	}
 
-	if int(matcher.Elem) >= len(rt.Elements) {
+	if int(matcher.Elem) >= len(rt.ElementTable()) {
 		t.Fatalf("matcher elem %d out of range", matcher.Elem)
 	}
-	matchedElem := rt.Elements[matcher.Elem]
-	matchedType := rt.Types[matchedElem.Type]
+	matchedElem := rt.ElementTable()[matcher.Elem]
+	matchedType := rt.TypeTable()[matchedElem.Type]
 	if matchedType.Name != symLocalT {
 		t.Fatalf("matcher element type = %d, want LocalT symbol %d", matchedType.Name, symLocalT)
 	}

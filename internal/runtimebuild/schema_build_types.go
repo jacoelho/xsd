@@ -11,18 +11,26 @@ func (b *schemaBuilder) buildTypes() error {
 	if b.schema == nil {
 		return fmt.Errorf("runtime build: schema ir is nil")
 	}
-	nextComplex := uint32(1)
+	nextComplex, err := b.buildBuiltinTypes(1)
+	if err != nil {
+		return err
+	}
+	return b.buildUserTypes(nextComplex)
+}
+
+func (b *schemaBuilder) buildBuiltinTypes(startComplexID uint32) (uint32, error) {
+	nextComplex := startComplexID
 	for i, entry := range b.schema.BuiltinTypes {
 		id := runtime.TypeID(i + 1)
 		if id == 0 {
-			return fmt.Errorf("runtime build: builtin type %s missing ID", entry.Name.Local)
+			return 0, fmt.Errorf("runtime build: builtin type %s missing ID", entry.Name.Local)
 		}
 		sym := b.internIRName(entry.Name)
 		typ := runtime.Type{Name: sym}
-		if !isZeroTypeRef(entry.Base) {
+		if !entry.Base.IsZero() {
 			baseID, ok := b.runtimeTypeIDFromIRRef(entry.Base)
 			if !ok {
-				return fmt.Errorf("runtime build: builtin type %s base %s not found", entry.Name.Local, formatIRName(entry.Base.Name))
+				return 0, fmt.Errorf("runtime build: builtin type %s base %s not found", entry.Name.Local, formatIRName(entry.Base.TypeName()))
 			}
 			typ.Base = baseID
 			typ.Derivation = runtime.DerRestriction
@@ -36,16 +44,31 @@ func (b *schemaBuilder) buildTypes() error {
 			typ.Kind = runtime.TypeBuiltin
 			typ.Validator = b.artifacts.BuiltinValidators[entry.Name.Local]
 		}
-		b.rt.Types[id] = typ
-		b.rt.GlobalTypes[sym] = id
+		if err := b.assembler.SetType(id, typ); err != nil {
+			return 0, err
+		}
+		if err := b.assembler.SetGlobalType(sym, id); err != nil {
+			return 0, err
+		}
 		if entry.AnyType {
-			b.rt.Builtin.AnyType = id
+			builtin := b.rt.BuiltinTypes()
+			builtin.AnyType = id
+			if err := b.assembler.SetBuiltin(builtin); err != nil {
+				return 0, err
+			}
 		}
 		if entry.AnySimpleType {
-			b.rt.Builtin.AnySimpleType = id
+			builtin := b.rt.BuiltinTypes()
+			builtin.AnySimpleType = id
+			if err := b.assembler.SetBuiltin(builtin); err != nil {
+				return 0, err
+			}
 		}
 	}
+	return nextComplex, nil
+}
 
+func (b *schemaBuilder) buildUserTypes(nextComplex uint32) error {
 	for _, entry := range b.schema.Types {
 		id := b.userTypeRuntimeID(entry.ID)
 		if id == 0 {
@@ -64,10 +87,10 @@ func (b *schemaBuilder) buildTypes() error {
 			if vid, ok := b.artifacts.TypeValidators[entry.ID]; ok {
 				typ.Validator = vid
 			}
-			if !isZeroTypeRef(entry.Base) {
+			if !entry.Base.IsZero() {
 				baseID, ok := b.runtimeTypeIDFromIRRef(entry.Base)
 				if !ok {
-					return fmt.Errorf("runtime build: type %s base %s not found", formatIRName(entry.Name), formatIRName(entry.Base.Name))
+					return fmt.Errorf("runtime build: type %s base %s not found", formatIRName(entry.Name), formatIRName(entry.Base.TypeName()))
 				}
 				typ.Base = baseID
 				typ.Derivation = toRuntimeIRDerivation(entry.Derivation)
@@ -78,10 +101,10 @@ func (b *schemaBuilder) buildTypes() error {
 			if entry.Abstract {
 				typ.Flags |= runtime.TypeAbstract
 			}
-			if !isZeroTypeRef(entry.Base) {
+			if !entry.Base.IsZero() {
 				baseID, ok := b.runtimeTypeIDFromIRRef(entry.Base)
 				if !ok {
-					return fmt.Errorf("runtime build: type %s base %s not found", formatIRName(entry.Name), formatIRName(entry.Base.Name))
+					return fmt.Errorf("runtime build: type %s base %s not found", formatIRName(entry.Name), formatIRName(entry.Base.TypeName()))
 				}
 				typ.Base = baseID
 			}
@@ -95,23 +118,27 @@ func (b *schemaBuilder) buildTypes() error {
 			return fmt.Errorf("runtime build: unsupported IR type kind %d", entry.Kind)
 		}
 
-		b.rt.Types[id] = typ
+		if err := b.assembler.SetType(id, typ); err != nil {
+			return err
+		}
 		if entry.Global {
-			b.rt.GlobalTypes[sym] = id
+			if err := b.assembler.SetGlobalType(sym, id); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 func (b *schemaBuilder) runtimeTypeIDFromIRRef(ref schemair.TypeRef) (runtime.TypeID, bool) {
-	if isZeroTypeRef(ref) {
+	if ref.IsZero() {
 		return 0, false
 	}
-	if ref.Builtin {
-		id := b.builtinRuntimeID(ref.Name.Local)
+	if ref.IsBuiltin() {
+		id := b.builtinRuntimeID(ref.TypeName().Local)
 		return id, id != 0
 	}
-	id := b.userTypeRuntimeID(ref.ID)
+	id := b.userTypeRuntimeID(ref.TypeID())
 	return id, id != 0
 }
 
@@ -146,10 +173,6 @@ func toRuntimeIRDerivation(value schemair.Derivation) runtime.DerivationMethod {
 		out |= runtime.DerUnion
 	}
 	return out
-}
-
-func isZeroTypeRef(ref schemair.TypeRef) bool {
-	return ref.ID == 0 && !ref.Builtin && isZeroName(ref.Name)
 }
 
 func isZeroName(name schemair.Name) bool {

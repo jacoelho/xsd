@@ -14,28 +14,33 @@ func WriteFingerprint(w FingerprintWriter, s *Schema) {
 	if w == nil || s == nil {
 		return
 	}
-	digestNamespaces(w, &s.Namespaces)
-	digestSymbols(w, &s.Symbols)
+	namespaces := s.NamespaceTable()
+	symbols := s.SymbolsTable()
+	validators := s.ValidatorBundle()
+	enums := s.EnumTable()
 
-	digestPredef(w, s.Predef, s.PredefNS, s.Builtin, s.RootPolicy)
-	digestGlobalIndices(w, s.GlobalTypes, s.GlobalElements, s.GlobalAttributes)
+	digestNamespaces(w, &namespaces)
+	digestSymbols(w, &symbols)
 
-	digestTypes(w, s.Types)
-	digestAncestors(w, s.Ancestors)
-	digestComplexTypes(w, s.ComplexTypes)
-	digestElements(w, s.Elements)
-	digestAttributes(w, s.Attributes)
-	digestAttrIndex(w, s.AttrIndex)
+	digestPredef(w, s.PredefinedSymbols(), s.PredefinedNamespaces(), s.BuiltinTypes(), s.RootPolicyValue())
+	digestGlobalIndices(w, s.GlobalTypeIDs(), s.GlobalElementIDs(), s.GlobalAttributeIDs())
 
-	digestValidators(w, &s.Validators)
-	digestFacets(w, s.Facets)
-	digestPatterns(w, s.Patterns)
-	digestEnums(w, &s.Enums)
-	digestValues(w, s.Values)
-	digestSymbolIDs(w, s.Notations)
+	digestTypes(w, s.TypeTable())
+	digestAncestors(w, s.AncestorTable())
+	digestComplexTypes(w, s.ComplexTypeTable())
+	digestElements(w, s.ElementTable())
+	digestAttributes(w, s.AttributeTable())
+	digestAttrIndex(w, s.AttributeIndex())
 
-	digestModels(w, s.Models)
-	digestWildcards(w, s.Wildcards, s.WildcardNS)
+	digestValidators(w, &validators)
+	digestFacets(w, s.FacetTable())
+	digestPatterns(w, s.PatternTable())
+	digestEnums(w, &enums)
+	digestValues(w, s.ValueBlob())
+	digestSymbolIDs(w, s.NotationSymbols())
 
-	digestIdentity(w, s.ICs, s.ElemICs, s.ICSelectors, s.ICFields, s.Paths)
+	digestModels(w, s.ModelBundle())
+	digestWildcards(w, s.WildcardTable(), s.WildcardNamespaces())
+
+	digestIdentity(w, s.IdentityConstraints(), s.ElementIdentityConstraints(), s.IdentitySelectors(), s.IdentityFields(), s.PathPrograms())
 }

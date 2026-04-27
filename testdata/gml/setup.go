@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"flag"
 	"fmt"
@@ -37,6 +39,10 @@ var schemaLocAttrRe = regexp.MustCompile(`xsi:schemaLocation="([^"]+)"`)
 var schemaLocRe = regexp.MustCompile(`schemaLocation\s*=\s*"([^"]+)"`)
 var targetNSRe = regexp.MustCompile(`targetNamespace\s*=\s*"([^"]+)"`)
 
+func logf(format string, args ...any) {
+	_, _ = fmt.Fprintf(os.Stderr, "gml setup: "+format+"\n", args...)
+}
+
 type doc struct {
 	URL     string
 	Content []byte
@@ -57,6 +63,7 @@ type schemaMapEntry struct {
 type commonFlags struct {
 	gmlURL        string
 	gmlPath       string
+	gmlCachePath  string
 	xsdDir        string
 	skipDownload  bool
 	forceDownload bool
@@ -100,7 +107,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if err := fs.Parse(args[1:]); err != nil {
 			return 2
 		}
-		if err := runPrepare(cfg, stdout); err != nil {
+		if err := runPrepare(*cfg, stdout); err != nil {
 			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
@@ -111,10 +118,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
-func bindCommonFlags(fs *flag.FlagSet) commonFlags {
-	cfg := commonFlags{}
+func bindCommonFlags(fs *flag.FlagSet) *commonFlags {
+	cfg := &commonFlags{}
 	fs.StringVar(&cfg.gmlURL, "gml-url", defaultGMLURL, "source URL for example.gml")
 	fs.StringVar(&cfg.gmlPath, "gml-path", defaultGMLPath, "path to local GML file")
+	fs.StringVar(&cfg.gmlCachePath, "gml-cache", "", "optional local GML file copied before downloading")
 	fs.StringVar(&cfg.xsdDir, "xsd-dir", defaultXSDDir, "target directory for flattened XSD files")
 	fs.BoolVar(&cfg.skipDownload, "skip-download", false, "never re-download gml when local file exists")
 	fs.BoolVar(&cfg.forceDownload, "force-download", false, "always re-download gml file")
@@ -133,6 +141,7 @@ func runPrepare(cfg commonFlags, stdout io.Writer) error {
 }
 
 func runPrepareWithDeps(cfg commonFlags, stdout io.Writer, deps prepareDeps) error {
+	logf("prepare start: gml=%s xsd-dir=%s", cfg.gmlPath, cfg.xsdDir)
 	if deps.downloadFile == nil {
 		deps.downloadFile = downloadFile
 	}
@@ -153,6 +162,7 @@ func runPrepareWithDeps(cfg commonFlags, stdout io.Writer, deps prepareDeps) err
 
 	switch state.kind {
 	case preparedGMLRemoteRoots:
+		logf("prepared gml has remote schema roots: %d", len(state.roots))
 		if !cfg.forceDownload && validateExistingLocalSchemaSet(cfg.gmlPath, cfg.xsdDir) == nil {
 			_, _ = fmt.Fprintln(stdout, "local xsd dir already valid; skipping schema refresh")
 			return nil
@@ -162,6 +172,7 @@ func runPrepareWithDeps(cfg commonFlags, stdout io.Writer, deps prepareDeps) err
 		_, _ = fmt.Fprintln(stdout, "gml schemaLocation already points to local xsd; skipping schema refresh")
 		return nil
 	case preparedGMLLocalizedInvalid:
+		logf("prepared gml invalid: %v", state.validationErr)
 		if cfg.skipDownload {
 			return fmt.Errorf("local schema state invalid and --skip-download is set: %w", state.validationErr)
 		}
@@ -176,14 +187,80 @@ func runPrepareWithDeps(cfg commonFlags, stdout io.Writer, deps prepareDeps) err
 }
 
 func ensureCurrentGML(cfg commonFlags, deps prepareDeps) error {
+	logf("checking local gml state: %s", cfg.gmlPath)
+	if !cfg.forceDownload && cfg.gmlCachePath != "" {
+		if err := restoreFromCacheIfNeeded(cfg.gmlCachePath, cfg.gmlPath, cfg.skipDownload); err != nil {
+			return err
+		}
+	}
 	needsDownload, err := shouldDownloadGML(cfg)
 	if err != nil {
 		return err
 	}
 	if !needsDownload {
+		logf("local gml valid for current policy; skipping download")
 		return nil
 	}
-	return downloadPreparedGML(cfg, deps, "download gml")
+	logf("downloading gml from %s", cfg.gmlURL)
+	if err := downloadPreparedGML(cfg, deps, "download gml"); err != nil {
+		return err
+	}
+	return validateXMLPathWellFormed(cfg.gmlPath)
+}
+
+func restoreFromCacheIfNeeded(gmlCachePath, gmlPath string, skipDownload bool) error {
+	if gmlCachePath == "" {
+		return nil
+	}
+	if _, err := os.Stat(gmlPath); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat %s: %w", gmlPath, err)
+	}
+
+	if _, err := os.Stat(gmlCachePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			if skipDownload {
+				return fmt.Errorf("gml file %s does not exist and --skip-download is set", gmlPath)
+			}
+			return nil
+		}
+		return fmt.Errorf("stat cached gml %s: %w", gmlCachePath, err)
+	}
+
+	if err := copyFile(gmlCachePath, gmlPath); err != nil {
+		return fmt.Errorf("copy cache %s -> %s: %w", gmlCachePath, gmlPath, err)
+	}
+	logf("copied cached gml %s -> %s", gmlCachePath, gmlPath)
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open source %s: %w", src, err)
+	}
+	defer in.Close()
+
+	outPath := filepath.Dir(dst)
+	tmp, err := os.CreateTemp(outPath, ".gml-copy-*")
+	if err != nil {
+		return fmt.Errorf("create temp in %s: %w", outPath, err)
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+
+	if _, err := io.Copy(tmp, in); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("copy body: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp: %w", err)
+	}
+	if err := os.Rename(tmpName, dst); err != nil {
+		return fmt.Errorf("rename temp: %w", err)
+	}
+	return nil
 }
 
 func classifyPreparedGML(gmlPath string) (preparedGML, error) {
@@ -244,14 +321,26 @@ func downloadPreparedGML(cfg commonFlags, deps prepareDeps, action string) error
 
 func shouldDownloadGML(cfg commonFlags) (bool, error) {
 	if cfg.forceDownload {
+		logf("policy: force download enabled")
 		return true, nil
 	}
 	if _, err := os.Stat(cfg.gmlPath); errors.Is(err, os.ErrNotExist) {
 		if cfg.skipDownload {
+			logf("policy: gml missing and skip-download is set")
 			return false, fmt.Errorf("gml file %s does not exist and --skip-download is set", cfg.gmlPath)
 		}
+		logf("policy: gml missing; download needed")
 		return true, nil
 	}
+	if err := validateXMLPathWellFormed(cfg.gmlPath); err != nil {
+		if cfg.skipDownload {
+			logf("policy: existing gml invalid and skip-download is set")
+			return false, err
+		}
+		logf("policy: existing gml invalid; refresh needed")
+		return true, nil
+	}
+	logf("policy: existing gml is well-formed; skipping")
 	return false, nil
 }
 
@@ -292,7 +381,34 @@ func canonicalizeURL(raw string) (string, error) {
 }
 
 func downloadFile(rawURL, out string) error {
-	client := &http.Client{Timeout: 2 * time.Minute}
+	logf("download file: %s -> %s", rawURL, out)
+	client := &http.Client{
+		Timeout: 10 * time.Minute,
+		Transport: &http.Transport{
+			// Force HTTP/1.1 to avoid intermittent HTTP/2 stream failures on some endpoints.
+			TLSNextProto: make(map[string]func(string, *tls.Conn) http.RoundTripper),
+		},
+	}
+	var lastErr error
+	for i := range 3 {
+		if i > 0 {
+			time.Sleep(time.Duration(i+1) * time.Second)
+		}
+		logf("download file %s: attempt %d/3", rawURL, i+1)
+		outErr := downloadFileOnce(client, rawURL, out)
+		if outErr == nil {
+			logf("download file %s: success", rawURL)
+			return nil
+		}
+		logf("download file %s: attempt %d failed: %v", rawURL, i+1, outErr)
+		lastErr = outErr
+		_ = os.Remove(out)
+	}
+	return fmt.Errorf("download failed after retries: %w", lastErr)
+}
+
+func downloadFileOnce(client *http.Client, rawURL, out string) error {
+	logf("http GET %s", rawURL)
 	resp, err := client.Get(rawURL)
 	if err != nil {
 		return err
@@ -301,13 +417,24 @@ func downloadFile(rawURL, out string) error {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("http %d", resp.StatusCode)
 	}
-	f, err := os.Create(out)
+
+	tmp, err := os.CreateTemp(filepath.Dir(out), ".gml-*")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = io.Copy(f, resp.Body)
-	return err
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+
+	written, err := io.Copy(tmp, resp.Body)
+	if err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	logf("download file %s: %d bytes", rawURL, written)
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, out)
 }
 
 func detectEntrypointSchema(gmlPath string) (string, error) {
@@ -351,6 +478,9 @@ func validateLocalPreparedState(gmlPath string) error {
 	if err != nil {
 		return fmt.Errorf("read gml: %w", err)
 	}
+	if err := validateXMLWellFormed(gml); err != nil {
+		return fmt.Errorf("xml parse failed: %w", err)
+	}
 	pairs, err := parseSchemaLocationPairs(gml)
 	if err != nil {
 		return err
@@ -367,6 +497,29 @@ func validateLocalPreparedState(gmlPath string) error {
 		return fmt.Errorf("entry schema compile check failed: %w", err)
 	}
 	return nil
+}
+
+func validateXMLPathWellFormed(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read gml: %w", err)
+	}
+	if err := validateXMLWellFormed(data); err != nil {
+		return fmt.Errorf("gml is not well-formed: %w", err)
+	}
+	return nil
+}
+
+func validateXMLWellFormed(data []byte) error {
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		if _, err := dec.Token(); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+	}
 }
 
 func validateExistingLocalSchemaSet(gmlPath, xsdDir string) error {
@@ -445,6 +598,7 @@ func isRemoteSchemaLocation(loc string) bool {
 }
 
 func crawlSchemas(roots []string) ([]*doc, error) {
+	logf("crawl schemas start: %d roots", len(roots))
 	client := &http.Client{Timeout: 60 * time.Second}
 	seen := map[string]bool{}
 	queue := slices.Clone(roots)
@@ -457,11 +611,13 @@ func crawlSchemas(roots []string) ([]*doc, error) {
 			continue
 		}
 		seen[raw] = true
+		logf("crawl: fetching %s", raw)
 
 		body, err := downloadWithFallback(client, raw)
 		if err != nil {
 			return nil, fmt.Errorf("download %s: %w", raw, err)
 		}
+		logf("crawl: fetched %d bytes from %s", len(body), raw)
 		sum := sha256.Sum256(body)
 		d := &doc{
 			URL:     raw,
@@ -471,6 +627,7 @@ func crawlSchemas(roots []string) ([]*doc, error) {
 		byURL[raw] = d
 
 		for _, loc := range findSchemaLocations(body) {
+			logf("crawl: discovered schema location %s in %s", loc, raw)
 			resolved, ok := resolveRef(raw, loc)
 			if !ok || !strings.HasSuffix(strings.ToLower(path.Base(resolved)), ".xsd") {
 				continue
@@ -481,12 +638,14 @@ func crawlSchemas(roots []string) ([]*doc, error) {
 		}
 	}
 
+	logf("crawl schemas complete: %d docs", len(byURL))
 	docs := slices.Collect(maps.Values(byURL))
 	sort.Slice(docs, func(i, j int) bool { return docs[i].URL < docs[j].URL })
 	return docs, nil
 }
 
 func downloadWithFallback(client *http.Client, raw string) ([]byte, error) {
+	logf("download schema with fallback: %s", raw)
 	candidates := []string{raw}
 	if raw == "http://portele.de/ShapeChangeAppinfo.xsd" {
 		candidates = append(candidates,
@@ -497,10 +656,12 @@ func downloadWithFallback(client *http.Client, raw string) ([]byte, error) {
 	var lastErr error
 	for _, c := range candidates {
 		for i := range 3 {
+			logf("download schema %s via %s: attempt %d/3", raw, c, i+1)
 			b, err := downloadSchema(client, c)
 			if err == nil {
 				return b, nil
 			}
+			logf("download schema %s via %s: attempt %d failed: %v", raw, c, i+1, err)
 			lastErr = err
 			time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
 		}
@@ -509,6 +670,7 @@ func downloadWithFallback(client *http.Client, raw string) ([]byte, error) {
 }
 
 func downloadSchema(client *http.Client, raw string) ([]byte, error) {
+	logf("download schema: %s", raw)
 	body, err := fetchSchema(client, raw)
 	if err == nil {
 		return body, nil
@@ -516,6 +678,7 @@ func downloadSchema(client *http.Client, raw string) ([]byte, error) {
 	if !isExpiredCertValidityError(err) {
 		return nil, err
 	}
+	logf("download schema: retrying %s with insecure TLS", raw)
 	return fetchSchema(insecureTLSClient(client), raw)
 }
 

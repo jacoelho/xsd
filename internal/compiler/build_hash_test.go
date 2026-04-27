@@ -18,7 +18,7 @@ func TestBuildHashDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
 	}
-	if rt1.BuildHash == 0 {
+	if rt1.BuildHashValue() == 0 {
 		t.Fatalf("expected non-zero build hash")
 	}
 
@@ -27,8 +27,8 @@ func TestBuildHashDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
 	}
-	if rt1.BuildHash != rt2.BuildHash {
-		t.Fatalf("build hash mismatch: %d vs %d", rt1.BuildHash, rt2.BuildHash)
+	if rt1.BuildHashValue() != rt2.BuildHashValue() {
+		t.Fatalf("build hash mismatch: %d vs %d", rt1.BuildHashValue(), rt2.BuildHashValue())
 	}
 
 	changedXML := strings.Replace(schemaXML, "root", "root2", 1)
@@ -37,7 +37,7 @@ func TestBuildHashDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
 	}
-	if rt1.BuildHash == rt3.BuildHash {
+	if rt1.BuildHashValue() == rt3.BuildHashValue() {
 		t.Fatalf("expected build hash to change when schema changes")
 	}
 }

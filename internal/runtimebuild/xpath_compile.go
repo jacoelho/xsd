@@ -116,7 +116,7 @@ func compileNodeTest(test xsdpath.NodeTest, schema *runtime.Schema, attribute bo
 		return runtime.PathOp{}, err
 	}
 
-	sym := schema.Symbols.Lookup(nsID, []byte(test.Local))
+	sym := schema.SymbolLookup(nsID, []byte(test.Local))
 	if sym == 0 {
 		return runtime.PathOp{}, xpathErrorf("xpath name %q not found in schema", test.Local)
 	}
@@ -130,10 +130,10 @@ func resolveNamespace(schema *runtime.Schema, uri string) (runtime.NamespaceID, 
 	if schema == nil {
 		return 0, xpathErrorf("xpath namespace resolve missing schema")
 	}
-	if uri == "" && schema.PredefNS.Empty != 0 {
-		return schema.PredefNS.Empty, nil
+	if namespaces := schema.KnownNamespaces(); uri == "" && namespaces.Empty != 0 {
+		return namespaces.Empty, nil
 	}
-	nsID := schema.Namespaces.Lookup([]byte(uri))
+	nsID := schema.NamespaceLookup([]byte(uri))
 	if nsID == 0 {
 		return 0, xpathErrorf("xpath namespace %q not found in schema", uri)
 	}

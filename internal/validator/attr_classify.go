@@ -172,7 +172,7 @@ func xsiAttributeRole(rt *runtime.Schema, attr *Start) xsiRole {
 	if rt == nil || attr == nil {
 		return xsiNone
 	}
-	predef := rt.Predef
+	predef := rt.KnownSymbols()
 	switch {
 	case attr.Sym != 0 && predef.XsiType != 0 && attr.Sym == predef.XsiType:
 		return xsiType
@@ -212,7 +212,7 @@ func namesEqual(rt *runtime.Schema, a, b *Start) bool {
 
 func namespaceBytes(rt *runtime.Schema, attr *Start) []byte {
 	if rt != nil && attr != nil && attr.NS != 0 {
-		return rt.Namespaces.Bytes(attr.NS)
+		return rt.NamespaceBytes(attr.NS)
 	}
 	if attr == nil {
 		return nil
@@ -224,10 +224,11 @@ func isXSINamespaceAttr(rt *runtime.Schema, attr *Start) bool {
 	if rt == nil || attr == nil {
 		return false
 	}
+	predefNS := rt.KnownNamespaces()
 	if attr.NS != 0 {
-		return attr.NS == rt.PredefNS.Xsi
+		return attr.NS == predefNS.Xsi
 	}
-	target := rt.Namespaces.Bytes(rt.PredefNS.Xsi)
+	target := rt.NamespaceBytes(predefNS.Xsi)
 	if len(target) == 0 {
 		return false
 	}
@@ -238,10 +239,11 @@ func isXMLAttribute(rt *runtime.Schema, attr *Start) bool {
 	if rt == nil || attr == nil {
 		return false
 	}
+	predefNS := rt.KnownNamespaces()
 	if attr.NS != 0 {
-		return attr.NS == rt.PredefNS.XML
+		return attr.NS == predefNS.XML
 	}
-	target := rt.Namespaces.Bytes(rt.PredefNS.XML)
+	target := rt.NamespaceBytes(predefNS.XML)
 	if len(target) == 0 {
 		return false
 	}

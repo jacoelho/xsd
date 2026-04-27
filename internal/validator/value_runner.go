@@ -120,10 +120,10 @@ func (r valueRunner) validateTextCore(typeID runtime.TypeID, text []byte, resolv
 	case runtime.TypeSimple, runtime.TypeBuiltin:
 		validatorID = typ.Validator
 	case runtime.TypeComplex:
-		if typ.Complex.ID == 0 || int(typ.Complex.ID) >= len(s.rt.ComplexTypes) {
+		ct, ok := s.rt.ComplexType(typ.Complex.ID)
+		if !ok {
 			return nil, fmt.Errorf("complex type %d missing", typeID)
 		}
-		ct := s.rt.ComplexTypes[typ.Complex.ID]
 		if ct.Content != runtime.ContentSimple {
 			return nil, fmt.Errorf("type %d does not have simple content", typeID)
 		}
@@ -144,7 +144,7 @@ func (r valueRunner) run(id runtime.ValidatorID, lexical []byte, resolver value.
 		return nil, err
 	}
 
-	plan := buildValuePlan(meta, opts, hasLengthFacet(meta, s.rt.Facets))
+	plan := buildValuePlan(meta, opts, hasLengthFacet(meta, s.rt.FacetTable()))
 	metrics := metricState
 	metricsInternal := false
 	if metrics == nil && plan.NeedLocalMetrics {
@@ -201,6 +201,9 @@ func (r valueRunner) normalizeInput(meta runtime.ValidatorMeta, lexical []byte, 
 	mode := valueWhitespaceMode(meta.WhiteSpace)
 	if !plan.UseScratchNormalization {
 		normalized := value.NormalizeWhitespace(mode, lexical, s.buffers.normBuf)
+		if ownsNormalizedBuffer(normalized, lexical) {
+			s.buffers.normBuf = normalized
+		}
 		return normalized, false
 	}
 	if !value.NeedsWhitespaceNormalization(mode, lexical) {
@@ -209,6 +212,16 @@ func (r valueRunner) normalizeInput(meta runtime.ValidatorMeta, lexical []byte, 
 	buf := s.pushNormBuf(len(lexical))
 	normalized := value.NormalizeWhitespace(mode, lexical, buf)
 	return normalized, true
+}
+
+func ownsNormalizedBuffer(normalized, lexical []byte) bool {
+	if cap(normalized) == 0 {
+		return false
+	}
+	if cap(lexical) == 0 {
+		return true
+	}
+	return &normalized[:1][0] != &lexical[:1][0]
 }
 
 func (r valueRunner) validateWithoutCanonical(id runtime.ValidatorID, meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, metrics *ValueMetrics) ([]byte, error) {
@@ -239,10 +252,10 @@ func (r valueRunner) validateWithCanonical(
 	}
 	keyBuf, err := validateRuntimeFacets(
 		meta,
-		s.rt.Facets,
-		s.rt.Patterns,
-		s.rt.Enums,
-		s.rt.Values,
+		s.rt.FacetTable(),
+		s.rt.PatternTable(),
+		s.rt.EnumTable(),
+		s.rt.ValueBlob(),
 		normalized,
 		canon,
 		metrics,

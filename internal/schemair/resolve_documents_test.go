@@ -3102,12 +3102,12 @@ func TestResolveDocumentSetSimpleContentRestrictionInlineSimpleType(t *testing.T
 	}
 	// XSD 1.0 §3.4.2 maps nested simpleType as the starting content type,
 	// then applies sibling simpleContent facets.
-	if plan.TextSpec.Base.ID == 0 {
+	if plan.TextSpec.Base.TypeID() == 0 {
 		t.Fatalf("text spec base = %v, want nested simpleType ref", plan.TextSpec.Base)
 	}
-	baseSpec, ok := specByID(ir, plan.TextSpec.Base.ID)
+	baseSpec, ok := specByID(ir, plan.TextSpec.Base.TypeID())
 	if !ok {
-		t.Fatalf("nested simpleType spec %d not found", plan.TextSpec.Base.ID)
+		t.Fatalf("nested simpleType spec %d not found", plan.TextSpec.Base.TypeID())
 	}
 	if baseSpec.BuiltinBase != "integer" || !baseSpec.IntegerDerived {
 		t.Fatalf("nested simpleType spec = %#v, want integer-derived base", baseSpec)
@@ -3159,7 +3159,7 @@ func TestResolveDocumentSetComplexContentExtensionFromSimpleContentIsEmpty(t *te
 	if plan.TypeDecl == 0 {
 		t.Fatal("Type2 complex plan not found")
 	}
-	if plan.Content != ContentEmpty || !isZeroTypeRef(plan.TextType) || !isZeroSimpleTypeSpec(plan.TextSpec) {
+	if plan.Content != ContentEmpty || !plan.TextType.IsZero() || !isZeroSimpleTypeSpec(plan.TextSpec) {
 		t.Fatalf("complex plan = %#v, want empty content without text", plan)
 	}
 }
