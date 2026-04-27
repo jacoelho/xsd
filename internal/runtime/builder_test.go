@@ -26,16 +26,16 @@ func TestNamespaceInterner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
-	if schema.PredefNS.Empty != emptyID {
-		t.Fatalf("PredefNS.Empty = %d, want %d", schema.PredefNS.Empty, emptyID)
+	if schema.predefNS.Empty != emptyID {
+		t.Fatalf("PredefNS.Empty = %d, want %d", schema.predefNS.Empty, emptyID)
 	}
-	if schema.PredefNS.XML == 0 || schema.PredefNS.Xsi == 0 {
+	if schema.predefNS.XML == 0 || schema.predefNS.Xsi == 0 {
 		t.Fatalf("expected predefined XML/XSI namespaces")
 	}
-	if got := schema.Namespaces.Lookup([]byte("urn:a")); got != aID {
+	if got := schema.namespaces.Lookup([]byte("urn:a")); got != aID {
 		t.Fatalf("Lookup(urn:a) = %d, want %d", got, aID)
 	}
-	if got := schema.Namespaces.Lookup([]byte("missing")); got != 0 {
+	if got := schema.namespaces.Lookup([]byte("missing")); got != 0 {
 		t.Fatalf("Lookup(missing) = %d, want 0", got)
 	}
 }
@@ -47,33 +47,33 @@ func TestPredefinedSymbols(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	if schema.PredefNS.XML == 0 || schema.PredefNS.Xsi == 0 {
+	if schema.predefNS.XML == 0 || schema.predefNS.Xsi == 0 {
 		t.Fatalf("expected predefined XML/XSI namespaces")
 	}
 
-	if got := schema.Symbols.Lookup(schema.PredefNS.Xsi, []byte("type")); got != schema.Predef.XsiType {
-		t.Fatalf("predef xsi:type = %d, lookup = %d", schema.Predef.XsiType, got)
+	if got := schema.symbols.Lookup(schema.predefNS.Xsi, []byte("type")); got != schema.predef.XsiType {
+		t.Fatalf("predef xsi:type = %d, lookup = %d", schema.predef.XsiType, got)
 	}
-	if got := schema.Symbols.Lookup(schema.PredefNS.Xsi, []byte("nil")); got != schema.Predef.XsiNil {
-		t.Fatalf("predef xsi:nil = %d, lookup = %d", schema.Predef.XsiNil, got)
+	if got := schema.symbols.Lookup(schema.predefNS.Xsi, []byte("nil")); got != schema.predef.XsiNil {
+		t.Fatalf("predef xsi:nil = %d, lookup = %d", schema.predef.XsiNil, got)
 	}
-	if got := schema.Symbols.Lookup(schema.PredefNS.Xsi, []byte("schemaLocation")); got != schema.Predef.XsiSchemaLocation {
-		t.Fatalf("predef xsi:schemaLocation = %d, lookup = %d", schema.Predef.XsiSchemaLocation, got)
+	if got := schema.symbols.Lookup(schema.predefNS.Xsi, []byte("schemaLocation")); got != schema.predef.XsiSchemaLocation {
+		t.Fatalf("predef xsi:schemaLocation = %d, lookup = %d", schema.predef.XsiSchemaLocation, got)
 	}
-	if got := schema.Symbols.Lookup(schema.PredefNS.Xsi, []byte("noNamespaceSchemaLocation")); got != schema.Predef.XsiNoNamespaceSchemaLocation {
-		t.Fatalf("predef xsi:noNamespaceSchemaLocation = %d, lookup = %d", schema.Predef.XsiNoNamespaceSchemaLocation, got)
+	if got := schema.symbols.Lookup(schema.predefNS.Xsi, []byte("noNamespaceSchemaLocation")); got != schema.predef.XsiNoNamespaceSchemaLocation {
+		t.Fatalf("predef xsi:noNamespaceSchemaLocation = %d, lookup = %d", schema.predef.XsiNoNamespaceSchemaLocation, got)
 	}
-	if got := schema.Symbols.Lookup(schema.PredefNS.XML, []byte("lang")); got != schema.Predef.XMLLang {
-		t.Fatalf("predef xml:lang = %d, lookup = %d", schema.Predef.XMLLang, got)
+	if got := schema.symbols.Lookup(schema.predefNS.XML, []byte("lang")); got != schema.predef.XMLLang {
+		t.Fatalf("predef xml:lang = %d, lookup = %d", schema.predef.XMLLang, got)
 	}
-	if got := schema.Symbols.Lookup(schema.PredefNS.XML, []byte("space")); got != schema.Predef.XMLSpace {
-		t.Fatalf("predef xml:space = %d, lookup = %d", schema.Predef.XMLSpace, got)
+	if got := schema.symbols.Lookup(schema.predefNS.XML, []byte("space")); got != schema.predef.XMLSpace {
+		t.Fatalf("predef xml:space = %d, lookup = %d", schema.predef.XMLSpace, got)
 	}
 
-	if schema.Namespaces.Lookup([]byte(value.XMLNamespace)) != schema.PredefNS.XML {
+	if schema.namespaces.Lookup([]byte(value.XMLNamespace)) != schema.predefNS.XML {
 		t.Fatalf("xml namespace lookup mismatch")
 	}
-	if schema.Namespaces.Lookup([]byte(value.XSINamespace)) != schema.PredefNS.Xsi {
+	if schema.namespaces.Lookup([]byte(value.XSINamespace)) != schema.predefNS.Xsi {
 		t.Fatalf("xsi namespace lookup mismatch")
 	}
 }
@@ -96,13 +96,13 @@ func TestSymbolInterner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
-	if got := schema.Symbols.Lookup(aNS, []byte("root")); got != rootA {
+	if got := schema.symbols.Lookup(aNS, []byte("root")); got != rootA {
 		t.Fatalf("Lookup(ns=a, root) = %d, want %d", got, rootA)
 	}
-	if got := schema.Symbols.Lookup(bNS, []byte("root")); got != rootB {
+	if got := schema.symbols.Lookup(bNS, []byte("root")); got != rootB {
 		t.Fatalf("Lookup(ns=b, root) = %d, want %d", got, rootB)
 	}
-	if got := schema.Symbols.Lookup(aNS, []byte("missing")); got != 0 {
+	if got := schema.symbols.Lookup(aNS, []byte("missing")); got != 0 {
 		t.Fatalf("Lookup(ns=a, missing) = %d, want 0", got)
 	}
 }
@@ -131,10 +131,10 @@ func TestInternerDeterminism(t *testing.T) {
 	if a1 != a2 || b1ns != b2ns || sym1 != sym1b || sym2 != sym2b {
 		t.Fatalf("interned IDs differ across identical builds")
 	}
-	if !reflect.DeepEqual(s1.Namespaces, s2.Namespaces) {
+	if !reflect.DeepEqual(s1.namespaces, s2.namespaces) {
 		t.Fatalf("namespace tables differ across identical builds")
 	}
-	if !reflect.DeepEqual(s1.Symbols, s2.Symbols) {
+	if !reflect.DeepEqual(s1.symbols, s2.symbols) {
 		t.Fatalf("symbol tables differ across identical builds")
 	}
 }

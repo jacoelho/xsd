@@ -27,7 +27,8 @@ func TestApplyElementCapturesRecordsValue(t *testing.T) {
 
 func TestCloseFrameFinalizesMatchesAndClosesScopes(t *testing.T) {
 	var state State[int]
-	rt := &runtime.Schema{Elements: make([]runtime.Element, 2)}
+	rt := newRuntimeSchema(t)
+	setRuntimeElements(t, rt, make([]runtime.Element, 2))
 	state.Scopes.Push(Scope{
 		RootID: 7,
 		Constraints: []ConstraintState{{
@@ -62,7 +63,7 @@ func TestCloseFrameFinalizesMatchesAndClosesScopes(t *testing.T) {
 }
 
 func TestCloseFrameRejectsUnknownElement(t *testing.T) {
-	err := CloseFrame(&runtime.Schema{}, nil, &State[int]{}, 1, 1, false, nil, nil, runtime.VKString, nil)
+	err := CloseFrame(newRuntimeSchema(t), nil, &State[int]{}, 1, 1, false, nil, nil, runtime.VKString, nil)
 	if err == nil {
 		t.Fatalf("expected missing element error")
 	}

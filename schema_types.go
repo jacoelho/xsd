@@ -1,8 +1,6 @@
 package xsd
 
 import (
-	"sync"
-
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
 )
@@ -10,11 +8,11 @@ import (
 // Schema wraps a compiled runtime schema with convenience methods.
 type Schema struct {
 	rt               *runtime.Schema
-	defaultValidator func() *Validator
+	defaultEngine    *validator.Engine
 	validateDefaults resolvedValidateOptions
 }
 
-// Validator validates XML documents against one compiled schema.
+// Validator validates XML documents against one compiled schema and is safe for concurrent use.
 type Validator struct {
 	engine *validator.Engine
 }
@@ -48,12 +46,9 @@ func newSchema(rt *runtime.Schema, validateDefaults resolvedValidateOptions) *Sc
 	if rt == nil {
 		return &Schema{}
 	}
-	defaultValidator := sync.OnceValue(func() *Validator {
-		return newValidator(rt, validateDefaults)
-	})
 	return &Schema{
 		rt:               rt,
-		defaultValidator: defaultValidator,
+		defaultEngine:    validator.NewEngine(rt, validateDefaults.instanceParseOptions...),
 		validateDefaults: validateDefaults,
 	}
 }

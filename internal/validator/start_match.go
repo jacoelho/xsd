@@ -29,7 +29,10 @@ func ResolveStartMatch(rt *runtime.Schema, match StartMatch, sym runtime.SymbolI
 			return 0, xsderrors.New(xsderrors.ErrUnexpectedElement, "wildcard rejected namespace")
 		}
 
-		rule := rt.Wildcards[match.Wildcard]
+		rule, ok := rt.Wildcard(match.Wildcard)
+		if !ok {
+			return 0, xsderrors.New(xsderrors.ErrWildcardNotDeclared, "wildcard match invalid")
+		}
 		var wildcardElem runtime.ElemID
 		resolved, err := ResolveStartSymbol(
 			rule.PC,

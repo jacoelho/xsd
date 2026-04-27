@@ -82,7 +82,7 @@ func (s *Session) ensurePath(path *string) {
 	*path = s.pathString()
 }
 
-func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, typeOK bool, elem runtime.Element, elemOK bool, resolver sessionResolver, path *string) ([]error, endTextState) {
+func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, typeOK bool, elem *runtime.Element, elemOK bool, resolver sessionResolver, path *string) ([]error, endTextState) {
 	result := endTextState{}
 	hasValueConstraint := elemOK && (elem.Default.Present || elem.Fixed.Present)
 	if frame.nilled || !typeOK || (typ.Kind != runtime.TypeSimple && typ.Kind != runtime.TypeBuiltin && frame.content != runtime.ContentSimple && !hasValueConstraint) {

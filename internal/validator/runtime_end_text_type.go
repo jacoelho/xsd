@@ -15,10 +15,11 @@ func (s *Session) resolveEndTextType(frame elemFrame, typ runtime.Type) (runtime
 	case runtime.TypeSimple, runtime.TypeBuiltin:
 		textValidator = typ.Validator
 	case runtime.TypeComplex:
-		if typ.Complex.ID == 0 || int(typ.Complex.ID) >= len(s.rt.ComplexTypes) {
+		var ok bool
+		ct, ok = s.rt.ComplexType(typ.Complex.ID)
+		if !ok {
 			return ct, false, 0, fmt.Errorf("complex type %d missing", frame.typ)
 		}
-		ct = s.rt.ComplexTypes[typ.Complex.ID]
 		hasComplexText = true
 		textValidator = ct.TextValidator
 	}

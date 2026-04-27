@@ -75,10 +75,6 @@ func docIsZeroName(name Name) bool {
 	return name.Namespace == "" && name.Local == ""
 }
 
-func isZeroTypeRef(ref TypeRef) bool {
-	return ref.ID == 0 && ref.Name.Local == "" && ref.Name.Namespace == "" && !ref.Builtin
-}
-
 func derivationSet(set ast.DerivationSet) Derivation {
 	var out Derivation
 	if set.Has(ast.DerivationExtension) {

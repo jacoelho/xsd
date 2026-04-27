@@ -30,24 +30,24 @@ func TestAnyAttributeUnionNamespaceList(t *testing.T) {
 		t.Fatalf("build runtime: %v", err)
 	}
 
-	nsID := rt.Namespaces.Lookup([]byte("urn:foo"))
+	nsID := rt.NamespaceLookup([]byte("urn:foo"))
 	if nsID == 0 {
 		t.Fatalf("namespace urn:foo not interned")
 	}
-	sym := rt.Symbols.Lookup(nsID, []byte("extension"))
+	sym := rt.SymbolLookup(nsID, []byte("extension"))
 	if sym == 0 {
 		t.Fatalf("symbol for extension not found")
 	}
-	elemID := rt.GlobalElements[sym]
+	elemID := rt.GlobalElementIDs()[sym]
 	if elemID == 0 {
 		t.Fatalf("global element extension not found")
 	}
-	elem := rt.Elements[elemID]
-	typ := rt.Types[elem.Type]
+	elem := rt.ElementTable()[elemID]
+	typ := rt.TypeTable()[elem.Type]
 	if typ.Kind != runtime.TypeComplex {
 		t.Fatalf("extension type kind = %d, want complex", typ.Kind)
 	}
-	ct := rt.ComplexTypes[typ.Complex.ID]
+	ct := rt.ComplexTypeTable()[typ.Complex.ID]
 	if ct.AnyAttr == 0 {
 		t.Fatalf("extension anyAttribute missing")
 	}

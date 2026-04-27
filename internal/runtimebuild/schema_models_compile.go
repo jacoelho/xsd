@@ -21,7 +21,8 @@ func (b *schemaBuilder) compileParticleModel(id schemair.ParticleID) (runtime.Mo
 
 func (b *schemaBuilder) compileParticleTree(particle contentmodel.TreeParticle) (runtime.ModelRef, runtime.ContentKind, error) {
 	if isEmptyChoice(particle) {
-		return b.addRejectAllModel(), runtime.ContentElementOnly, nil
+		ref, err := b.addRejectAllModel()
+		return ref, runtime.ContentElementOnly, err
 	}
 	if err := b.validateOccursLimit(particle); err != nil {
 		return runtime.ModelRef{}, 0, err
@@ -52,13 +53,11 @@ func (b *schemaBuilder) compileParticleTree(particle contentmodel.TreeParticle) 
 	}
 	switch compiled.Kind {
 	case runtime.ModelDFA:
-		id := uint32(len(b.rt.Models.DFA))
-		b.rt.Models.DFA = append(b.rt.Models.DFA, compiled.DFA)
-		return runtime.ModelRef{Kind: runtime.ModelDFA, ID: id}, runtime.ContentElementOnly, nil
+		ref, err := b.assembler.AppendDFAModel(compiled.DFA)
+		return ref, runtime.ContentElementOnly, err
 	case runtime.ModelNFA:
-		id := uint32(len(b.rt.Models.NFA))
-		b.rt.Models.NFA = append(b.rt.Models.NFA, compiled.NFA)
-		return runtime.ModelRef{Kind: runtime.ModelNFA, ID: id}, runtime.ContentElementOnly, nil
+		ref, err := b.assembler.AppendNFAModel(compiled.NFA)
+		return ref, runtime.ContentElementOnly, err
 	default:
 		return runtime.ModelRef{Kind: runtime.ModelNone}, runtime.ContentEmpty, nil
 	}
@@ -115,22 +114,23 @@ func (b *schemaBuilder) particleTree(id schemair.ParticleID) (contentmodel.TreeP
 		return contentmodel.TreeParticle{}, fmt.Errorf("runtime build: particle %d out of range", id)
 	}
 	particle := b.schema.Particles[id-1]
+	minOccurs, maxOccurs := particle.OccursRange()
 	out := contentmodel.TreeParticle{
-		ElementID:          uint32(particle.Element),
-		WildcardID:         uint32(particle.Wildcard),
-		Min:                treeOccurs(particle.Min),
-		Max:                treeOccurs(particle.Max),
-		AllowsSubstitution: particle.AllowsSubstitution,
+		ElementID:          uint32(particle.ElementRef()),
+		WildcardID:         uint32(particle.WildcardRef()),
+		Min:                treeOccurs(minOccurs),
+		Max:                treeOccurs(maxOccurs),
+		AllowsSubstitution: particle.AllowsSubstitutionGroup(),
 	}
-	switch particle.Kind {
+	switch kind := particle.ParticleKind(); kind {
 	case schemair.ParticleElement:
 		out.Kind = contentmodel.TreeElement
 	case schemair.ParticleWildcard:
 		out.Kind = contentmodel.TreeWildcard
 	case schemair.ParticleGroup:
 		out.Kind = contentmodel.TreeGroup
-		out.Group = treeGroup(particle.Group)
-		for _, child := range particle.Children {
+		out.Group = treeGroup(particle.GroupKind())
+		for _, child := range particle.ChildParticles() {
 			childTree, err := b.particleTree(child)
 			if err != nil {
 				return contentmodel.TreeParticle{}, err
@@ -138,7 +138,7 @@ func (b *schemaBuilder) particleTree(id schemair.ParticleID) (contentmodel.TreeP
 			out.Children = append(out.Children, childTree)
 		}
 	default:
-		return contentmodel.TreeParticle{}, fmt.Errorf("runtime build: unsupported particle kind %d", particle.Kind)
+		return contentmodel.TreeParticle{}, fmt.Errorf("runtime build: unsupported particle kind %d", kind)
 	}
 	return out, nil
 }

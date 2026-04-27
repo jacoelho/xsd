@@ -13,20 +13,22 @@ func (s *Session) validatorMeta(id runtime.ValidatorID) (runtime.ValidatorMeta, 
 	if id == 0 {
 		return runtime.ValidatorMeta{}, xsderrors.Invalid("validator missing")
 	}
-	if int(id) >= len(s.rt.Validators.Meta) {
+	meta, ok := s.rt.ValidatorMeta(id)
+	if !ok {
 		return runtime.ValidatorMeta{}, xsderrors.Invalidf("validator %d out of range", id)
 	}
-	return s.rt.Validators.Meta[id], nil
+	return meta, nil
 }
 
 func (s *Session) validatorMetaIfPresent(id runtime.ValidatorID) (runtime.ValidatorMeta, bool, error) {
 	if s == nil || s.rt == nil || id == 0 {
 		return runtime.ValidatorMeta{}, false, nil
 	}
-	if int(id) >= len(s.rt.Validators.Meta) {
+	meta, ok := s.rt.ValidatorMeta(id)
+	if !ok {
 		return runtime.ValidatorMeta{}, false, xsderrors.Invalidf("validator %d out of range", id)
 	}
-	return s.rt.Validators.Meta[id], true, nil
+	return meta, true, nil
 }
 
 func (s *Session) lookupActualUnionValidator(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver) (runtime.ValidatorID, error) {

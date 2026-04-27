@@ -25,15 +25,15 @@ func ResolveStartXSIType(rt *runtime.Schema, valueBytes []byte, resolver value.N
 
 	var nsID runtime.NamespaceID
 	if len(ns) == 0 {
-		nsID = rt.PredefNS.Empty
+		nsID = rt.KnownNamespaces().Empty
 	} else {
-		nsID = rt.Namespaces.Lookup(ns)
+		nsID = rt.NamespaceLookup(ns)
 		if nsID == 0 {
 			return 0, fmt.Errorf("xsi:type namespace not found")
 		}
 	}
 
-	sym := rt.Symbols.Lookup(nsID, local)
+	sym := rt.SymbolLookup(nsID, local)
 	if sym == 0 {
 		return 0, fmt.Errorf("xsi:type symbol not found")
 	}
@@ -46,14 +46,7 @@ func ResolveStartXSIType(rt *runtime.Schema, valueBytes []byte, resolver value.N
 }
 
 func typeBySymbolID(rt *runtime.Schema, sym runtime.SymbolID) (runtime.TypeID, bool) {
-	if sym == 0 {
-		return 0, false
-	}
-	if rt == nil || int(sym) >= len(rt.GlobalTypes) {
-		return 0, false
-	}
-	id := rt.GlobalTypes[sym]
-	return id, id != 0
+	return rt.GlobalType(sym)
 }
 
 func splitCanonicalQName(canonical []byte) ([]byte, []byte, error) {

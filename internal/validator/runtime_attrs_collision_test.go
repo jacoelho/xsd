@@ -23,12 +23,12 @@ func collisionSchemaSession(tb testing.TB) (*Session, runtime.TypeID) {
 
 	rt := mustBuildRuntimeSchema(tb, schema)
 	sess := NewSession(rt)
-	sym := rt.Symbols.Lookup(rt.PredefNS.Empty, []byte("root"))
+	sym := rt.SymbolLookup(rt.KnownNamespaces().Empty, []byte("root"))
 	elemID, ok := LookupStartGlobalElement(rt, sym)
 	if !ok {
 		tb.Fatalf("root element symbol not found")
 	}
-	elem := rt.Elements[elemID]
+	elem := rt.ElementTable()[elemID]
 	return sess, elem.Type
 }
 

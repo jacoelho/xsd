@@ -91,8 +91,8 @@ func StartFrame(rt *runtime.Schema, state *State[RuntimeFrame], in StartInput, l
 }
 
 func elementByID(rt *runtime.Schema, id runtime.ElemID) (*runtime.Element, bool) {
-	if rt == nil || id == 0 || int(id) >= len(rt.Elements) {
+	if rt == nil {
 		return nil, false
 	}
-	return &rt.Elements[id], true
+	return rt.ElementRef(id)
 }

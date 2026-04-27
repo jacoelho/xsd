@@ -147,337 +147,337 @@ var w3cTestSetFiles = []string{
 
 var excludePatterns = []ExclusionReason{
 	// XML 1.1 specific tests (without version attributes, so they appear as XSD 1.0)
-	{"xmlversions/xv001", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv002", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv003", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv004", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv005", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv006", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv007", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv008", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv009", "XML 1.1 name character tests - XML 1.1 features not supported"},
-	{"xmlversions/xv100noti", "XML 1.1 escape sequence \\I (NameStartChar) - not supported"},
-	{"xmlversions/xv100notc", "XML 1.1 escape sequence \\C (NameChar) - not supported"},
-	{"xmlversions/xv100i", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
-	{"xmlversions/xv100c", "Uses \\c escape (XML NameChar) - not supported in Go regexp"},
+	{Pattern: "xmlversions/xv001", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv002", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv003", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv004", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv005", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv006", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv007", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv008", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv009", Reason: "XML 1.1 name character tests - XML 1.1 features not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv100noti", Reason: "XML 1.1 escape sequence \\I (NameStartChar) - not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv100notc", Reason: "XML 1.1 escape sequence \\C (NameChar) - not supported", Category: ExclusionCategoryXML11},
+	{Pattern: "xmlversions/xv100i", Reason: "Uses \\i escape (XML NameStartChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "xmlversions/xv100c", Reason: "Uses \\c escape (XML NameChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// XSD 1.1 anyAttribute tests (without version attributes)
-	{"s3_10_6ii", "XSD 1.1 anyAttribute tests with notQName/notNamespace - XSD 1.1 features not supported"},
-	{"s3_10_6si", "XSD 1.1 anyAttribute tests with notNamespace - XSD 1.1 features not supported"},
+	{Pattern: "s3_10_6ii", Reason: "XSD 1.1 anyAttribute tests with notQName/notNamespace - XSD 1.1 features not supported", Category: ExclusionCategoryXSD11},
+	{Pattern: "s3_10_6si", Reason: "XSD 1.1 anyAttribute tests with notNamespace - XSD 1.1 features not supported", Category: ExclusionCategoryXSD11},
 	// XSD 1.1 any element tests (without version attributes)
-	{"s3_10_1ii08", "XSD 1.1 any element tests with notQName - XSD 1.1 features not supported"},
-	{"s3_10_1ii09", "XSD 1.1 any element tests with notQName - XSD 1.1 features not supported"},
+	{Pattern: "s3_10_1ii08", Reason: "XSD 1.1 any element tests with notQName - XSD 1.1 features not supported", Category: ExclusionCategoryXSD11},
+	{Pattern: "s3_10_1ii09", Reason: "XSD 1.1 any element tests with notQName - XSD 1.1 features not supported", Category: ExclusionCategoryXSD11},
 	// XML 1.1 support tests - these specifically test XML 1.1 name character behavior
-	{"d3_4_6ii03", "XML 1.1 NameStartChar tests - XML 1.1 features not supported in XSD 1.0 implementation"},
-	{"d3_4_6ii04", "XML 1.1 NameStartChar tests - XML 1.1 features not supported in XSD 1.0 implementation"},
+	{Pattern: "d3_4_6ii03", Reason: "XML 1.1 NameStartChar tests - XML 1.1 features not supported in XSD 1.0 implementation", Category: ExclusionCategoryXML11},
+	{Pattern: "d3_4_6ii04", Reason: "XML 1.1 NameStartChar tests - XML 1.1 features not supported in XSD 1.0 implementation", Category: ExclusionCategoryXML11},
 	// HTTP schema import tests
-	{"introspection", "Requires HTTP schema imports (e.g., xlink.xsd) - not supported to keep library pure Go with no network dependencies"},
+	{Pattern: "introspection", Reason: "Requires HTTP schema imports (e.g., xlink.xsd) - not supported to keep library pure Go with no network dependencies", Category: ExclusionCategoryUnsupportedImport},
 	// Known W3C tests that conflict with stricter XSD 1.0 interpretations or unsupported behaviors.
-	{"addb177", "Identity constraint validity differs; treated as out-of-scope for strict mode"},
-	{"normalizedstring_whitespace001_344", "Whitespace facet behavior differs; treated as out-of-scope for strict mode"},
-	{"stz019", "Simple type constraint interpretation differs; treated as out-of-scope for strict mode"},
-	{"stz022", "Simple type constraint interpretation differs; treated as out-of-scope for strict mode"},
-	{"token_whitespace001_367", "Whitespace facet behavior differs; treated as out-of-scope for strict mode"},
-	{"missing/missing001", "Missing type references are rejected by design"},
-	{"missing/missing002", "Missing substitutionGroup heads are rejected by design"},
-	{"missing/missing003", "Missing type references are rejected by design"},
-	{"missing/missing006", "Missing type references are rejected by design"},
+	{Pattern: "addb177", Reason: "Identity constraint validity differs; treated as out-of-scope for strict mode", Category: ExclusionCategoryImplementationPolicy},
+	{Pattern: "normalizedstring_whitespace001_344", Reason: "Whitespace facet behavior differs; treated as out-of-scope for strict mode", Category: ExclusionCategoryImplementationPolicy},
+	{Pattern: "stz019", Reason: "Simple type constraint interpretation differs; treated as out-of-scope for strict mode", Category: ExclusionCategoryImplementationPolicy},
+	{Pattern: "stz022", Reason: "Simple type constraint interpretation differs; treated as out-of-scope for strict mode", Category: ExclusionCategoryImplementationPolicy},
+	{Pattern: "token_whitespace001_367", Reason: "Whitespace facet behavior differs; treated as out-of-scope for strict mode", Category: ExclusionCategoryImplementationPolicy},
+	{Pattern: "missing/missing001", Reason: "Missing type references are rejected by design", Category: ExclusionCategoryImplementationPolicy},
+	{Pattern: "missing/missing002", Reason: "Missing substitutionGroup heads are rejected by design", Category: ExclusionCategoryImplementationPolicy},
+	{Pattern: "missing/missing003", Reason: "Missing type references are rejected by design", Category: ExclusionCategoryImplementationPolicy},
+	{Pattern: "missing/missing006", Reason: "Missing type references are rejected by design", Category: ExclusionCategoryImplementationPolicy},
 
 	// Unicode block escapes (\p{Is...}) - not supported in Go regexp
-	{"/rel", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
-	{"/rem", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
-	{"/ren", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
+	{Pattern: "/rel", Reason: "Uses \\p{Is...} Unicode block escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rem", Reason: "Uses \\p{Is...} Unicode block escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ren", Reason: "Uses \\p{Is...} Unicode block escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// Named Unicode block tests (e.g., Arabic.xsd, Hebrew.xsd, BasicLatin.xsd)
-	{"alphabeticpresentationforms", "Uses \\p{IsAlphabeticPresentationForms} - not supported in Go regexp"},
-	{"arabic", "Uses \\p{IsArabic} - not supported in Go regexp"},
-	{"arabicpresentationforms", "Uses \\p{IsArabicPresentationForms} - not supported in Go regexp"},
-	{"armenian", "Uses \\p{IsArmenian} - not supported in Go regexp"},
-	{"arrows", "Uses \\p{IsArrows} - not supported in Go regexp"},
-	{"basiclatin", "Uses \\p{IsBasicLatin} - not supported in Go regexp"},
-	{"bengali", "Uses \\p{IsBengali} - not supported in Go regexp"},
-	{"blockelements", "Uses \\p{IsBlockElements} - not supported in Go regexp"},
-	{"bopomofo", "Uses \\p{IsBopomofo} - not supported in Go regexp"},
-	{"boxdrawing", "Uses \\p{IsBoxDrawing} - not supported in Go regexp"},
-	{"braillepatterns", "Uses \\p{IsBraillePatterns} - not supported in Go regexp"},
-	{"cherokee", "Uses \\p{IsCherokee} - not supported in Go regexp"},
-	{"cjkcompatibility", "Uses \\p{IsCJKCompatibility} - not supported in Go regexp"},
-	{"cjkradicalssupplement", "Uses \\p{IsCJKRadicalsSupplement} - not supported in Go regexp"},
-	{"cjksymbolsandpunctuation", "Uses \\p{IsCJKSymbolsandPunctuation} - not supported in Go regexp"},
-	{"cjkunifiedideographs", "Uses \\p{IsCJKUnifiedIdeographs} - not supported in Go regexp"},
-	{"combiningdiacriticalmarks", "Uses \\p{IsCombiningDiacriticalMarks} - not supported in Go regexp"},
-	{"combininghalfmarks", "Uses \\p{IsCombiningHalfMarks} - not supported in Go regexp"},
-	{"controlpictures", "Uses \\p{IsControlPictures} - not supported in Go regexp"},
-	{"currencysymbols", "Uses \\p{IsCurrencySymbols} - not supported in Go regexp"},
-	{"cyrillic", "Uses \\p{IsCyrillic} - not supported in Go regexp"},
-	{"devanagari", "Uses \\p{IsDevanagari} - not supported in Go regexp"},
-	{"dingbats", "Uses \\p{IsDingbats} - not supported in Go regexp"},
-	{"enclosedalphanumerics", "Uses \\p{IsEnclosedAlphanumerics} - not supported in Go regexp"},
-	{"enclosedcjklettersandmonths", "Uses \\p{IsEnclosedCJKLettersandMonths} - not supported in Go regexp"},
-	{"ethiopic", "Uses \\p{IsEthiopic} - not supported in Go regexp"},
-	{"generalpunctuation", "Uses \\p{IsGeneralPunctuation} - not supported in Go regexp"},
-	{"geometricshapes", "Uses \\p{IsGeometricShapes} - not supported in Go regexp"},
-	{"georgian", "Uses \\p{IsGeorgian} - not supported in Go regexp"},
-	{"greekextended", "Uses \\p{IsGreekExtended} - not supported in Go regexp"},
-	{"gujarati", "Uses \\p{IsGujarati} - not supported in Go regexp"},
-	{"gurmukhi", "Uses \\p{IsGurmukhi} - not supported in Go regexp"},
-	{"halfwidthandfullwidthforms", "Uses \\p{IsHalfwidthandFullwidthForms} - not supported in Go regexp"},
-	{"hangulcompatibilityjamo", "Uses \\p{IsHangulCompatibilityJamo} - not supported in Go regexp"},
-	{"hanguljamo", "Uses \\p{IsHangulJamo} - not supported in Go regexp"},
-	{"hebrew", "Uses \\p{IsHebrew} - not supported in Go regexp"},
-	{"highsurrogates", "Uses \\p{IsHighSurrogates} - not supported in Go regexp"},
-	{"hiragana", "Uses \\p{IsHiragana} - not supported in Go regexp"},
-	{"ideographicdescriptioncharacters", "Uses \\p{IsIdeographicDescriptionCharacters} - not supported in Go regexp"},
-	{"ipaextensions", "Uses \\p{IsIPAExtensions} - not supported in Go regexp"},
-	{"kanbun", "Uses \\p{IsKanbun} - not supported in Go regexp"},
-	{"kangxiradicals", "Uses \\p{IsKangxiRadicals} - not supported in Go regexp"},
-	{"kannada", "Uses \\p{IsKannada} - not supported in Go regexp"},
-	{"katakana", "Uses \\p{IsKatakana} - not supported in Go regexp"},
-	{"khmer", "Uses \\p{IsKhmer} - not supported in Go regexp"},
-	{"lao", "Uses \\p{IsLao} - not supported in Go regexp"},
-	{"latin-1supplement", "Uses \\p{IsLatin-1Supplement} - not supported in Go regexp"},
-	{"latinextended-a", "Uses \\p{IsLatinExtended-A} - not supported in Go regexp"},
-	{"latinextended-b", "Uses \\p{IsLatinExtended-B} - not supported in Go regexp"},
-	{"latinextendedadditional", "Uses \\p{IsLatinExtendedAdditional} - not supported in Go regexp"},
-	{"letterlikesymbols", "Uses \\p{IsLetterlikeSymbols} - not supported in Go regexp"},
-	{"malayalam", "Uses \\p{IsMalayalam} - not supported in Go regexp"},
-	{"mathematicaloperators", "Uses \\p{IsMathematicalOperators} - not supported in Go regexp"},
-	{"miscellaneoussymbols", "Uses \\p{IsMiscellaneousSymbols} - not supported in Go regexp"},
-	{"miscellaneoustechnical", "Uses \\p{IsMiscellaneousTechnical} - not supported in Go regexp"},
-	{"mongolian", "Uses \\p{IsMongolian} - not supported in Go regexp"},
-	{"myanmar", "Uses \\p{IsMyanmar} - not supported in Go regexp"},
-	{"numberforms", "Uses \\p{IsNumberForms} - not supported in Go regexp"},
-	{"ogham", "Uses \\p{IsOgham} - not supported in Go regexp"},
-	{"opticalcharacterrecognition", "Uses \\p{IsOpticalCharacterRecognition} - not supported in Go regexp"},
-	{"oriya", "Uses \\p{IsOriya} - not supported in Go regexp"},
-	{"runic", "Uses \\p{IsRunic} - not supported in Go regexp"},
-	{"sinhala", "Uses \\p{IsSinhala} - not supported in Go regexp"},
-	{"smallformvariants", "Uses \\p{IsSmallFormVariants} - not supported in Go regexp"},
-	{"spacingmodifierletters", "Uses \\p{IsSpacingModifierLetters} - not supported in Go regexp"},
-	{"specials", "Uses \\p{IsSpecials} - not supported in Go regexp"},
-	{"superscriptsandsubscripts", "Uses \\p{IsSuperscriptsandSubscripts} - not supported in Go regexp"},
-	{"syriac", "Uses \\p{IsSyriac} - not supported in Go regexp"},
-	{"tamil", "Uses \\p{IsTamil} - not supported in Go regexp"},
-	{"telugu", "Uses \\p{IsTelugu} - not supported in Go regexp"},
-	{"thaana", "Uses \\p{IsThaana} - not supported in Go regexp"},
-	{"thai", "Uses \\p{IsThai} - not supported in Go regexp"},
-	{"tibetan", "Uses \\p{IsTibetan} - not supported in Go regexp"},
-	{"unifiedcanadianaboriginalsyllabics", "Uses \\p{IsUnifiedCanadianAboriginalSyllabics} - not supported in Go regexp"},
-	{"yiradicals", "Uses \\p{IsYiRadicals} - not supported in Go regexp"},
-	{"yisyllables", "Uses \\p{IsYiSyllables} - not supported in Go regexp"},
+	{Pattern: "alphabeticpresentationforms", Reason: "Uses \\p{IsAlphabeticPresentationForms} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "arabic", Reason: "Uses \\p{IsArabic} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "arabicpresentationforms", Reason: "Uses \\p{IsArabicPresentationForms} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "armenian", Reason: "Uses \\p{IsArmenian} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "arrows", Reason: "Uses \\p{IsArrows} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "basiclatin", Reason: "Uses \\p{IsBasicLatin} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "bengali", Reason: "Uses \\p{IsBengali} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "blockelements", Reason: "Uses \\p{IsBlockElements} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "bopomofo", Reason: "Uses \\p{IsBopomofo} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "boxdrawing", Reason: "Uses \\p{IsBoxDrawing} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "braillepatterns", Reason: "Uses \\p{IsBraillePatterns} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "cherokee", Reason: "Uses \\p{IsCherokee} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "cjkcompatibility", Reason: "Uses \\p{IsCJKCompatibility} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "cjkradicalssupplement", Reason: "Uses \\p{IsCJKRadicalsSupplement} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "cjksymbolsandpunctuation", Reason: "Uses \\p{IsCJKSymbolsandPunctuation} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "cjkunifiedideographs", Reason: "Uses \\p{IsCJKUnifiedIdeographs} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "combiningdiacriticalmarks", Reason: "Uses \\p{IsCombiningDiacriticalMarks} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "combininghalfmarks", Reason: "Uses \\p{IsCombiningHalfMarks} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "controlpictures", Reason: "Uses \\p{IsControlPictures} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "currencysymbols", Reason: "Uses \\p{IsCurrencySymbols} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "cyrillic", Reason: "Uses \\p{IsCyrillic} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "devanagari", Reason: "Uses \\p{IsDevanagari} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "dingbats", Reason: "Uses \\p{IsDingbats} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "enclosedalphanumerics", Reason: "Uses \\p{IsEnclosedAlphanumerics} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "enclosedcjklettersandmonths", Reason: "Uses \\p{IsEnclosedCJKLettersandMonths} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "ethiopic", Reason: "Uses \\p{IsEthiopic} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "generalpunctuation", Reason: "Uses \\p{IsGeneralPunctuation} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "geometricshapes", Reason: "Uses \\p{IsGeometricShapes} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "georgian", Reason: "Uses \\p{IsGeorgian} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "greekextended", Reason: "Uses \\p{IsGreekExtended} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "gujarati", Reason: "Uses \\p{IsGujarati} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "gurmukhi", Reason: "Uses \\p{IsGurmukhi} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "halfwidthandfullwidthforms", Reason: "Uses \\p{IsHalfwidthandFullwidthForms} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "hangulcompatibilityjamo", Reason: "Uses \\p{IsHangulCompatibilityJamo} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "hanguljamo", Reason: "Uses \\p{IsHangulJamo} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "hebrew", Reason: "Uses \\p{IsHebrew} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "highsurrogates", Reason: "Uses \\p{IsHighSurrogates} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "hiragana", Reason: "Uses \\p{IsHiragana} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "ideographicdescriptioncharacters", Reason: "Uses \\p{IsIdeographicDescriptionCharacters} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "ipaextensions", Reason: "Uses \\p{IsIPAExtensions} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "kanbun", Reason: "Uses \\p{IsKanbun} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "kangxiradicals", Reason: "Uses \\p{IsKangxiRadicals} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "kannada", Reason: "Uses \\p{IsKannada} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "katakana", Reason: "Uses \\p{IsKatakana} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "khmer", Reason: "Uses \\p{IsKhmer} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "lao", Reason: "Uses \\p{IsLao} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "latin-1supplement", Reason: "Uses \\p{IsLatin-1Supplement} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "latinextended-a", Reason: "Uses \\p{IsLatinExtended-A} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "latinextended-b", Reason: "Uses \\p{IsLatinExtended-B} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "latinextendedadditional", Reason: "Uses \\p{IsLatinExtendedAdditional} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "letterlikesymbols", Reason: "Uses \\p{IsLetterlikeSymbols} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "malayalam", Reason: "Uses \\p{IsMalayalam} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "mathematicaloperators", Reason: "Uses \\p{IsMathematicalOperators} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "miscellaneoussymbols", Reason: "Uses \\p{IsMiscellaneousSymbols} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "miscellaneoustechnical", Reason: "Uses \\p{IsMiscellaneousTechnical} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "mongolian", Reason: "Uses \\p{IsMongolian} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "myanmar", Reason: "Uses \\p{IsMyanmar} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "numberforms", Reason: "Uses \\p{IsNumberForms} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "ogham", Reason: "Uses \\p{IsOgham} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "opticalcharacterrecognition", Reason: "Uses \\p{IsOpticalCharacterRecognition} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "oriya", Reason: "Uses \\p{IsOriya} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "runic", Reason: "Uses \\p{IsRunic} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "sinhala", Reason: "Uses \\p{IsSinhala} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "smallformvariants", Reason: "Uses \\p{IsSmallFormVariants} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "spacingmodifierletters", Reason: "Uses \\p{IsSpacingModifierLetters} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "specials", Reason: "Uses \\p{IsSpecials} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "superscriptsandsubscripts", Reason: "Uses \\p{IsSuperscriptsandSubscripts} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "syriac", Reason: "Uses \\p{IsSyriac} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "tamil", Reason: "Uses \\p{IsTamil} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "telugu", Reason: "Uses \\p{IsTelugu} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "thaana", Reason: "Uses \\p{IsThaana} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "thai", Reason: "Uses \\p{IsThai} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "tibetan", Reason: "Uses \\p{IsTibetan} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "unifiedcanadianaboriginalsyllabics", Reason: "Uses \\p{IsUnifiedCanadianAboriginalSyllabics} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "yiradicals", Reason: "Uses \\p{IsYiRadicals} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "yisyllables", Reason: "Uses \\p{IsYiSyllables} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// Additional Unicode block tests from msData/additional
-	{"regexp_islatin", "Uses \\p{IsLatin...} - not supported in Go regexp"},
-	{"elemu006", "Uses \\p{IsGreek} - not supported in Go regexp"},
-	{"elemu007", "Uses \\P{IsGreek} - not supported in Go regexp"},
-	{"addb024", "Uses \\p{IsCJKRadicalsSupplement}, \\p{IsCJKUnifiedIdeographsExtensionA}, \\p{IsCJKSymbolsandPunctuation} - not supported in Go regexp"},
-	{"addb126", "Uses \\p{IsLatin-1Supplement} - not supported in Go regexp"},
-	{"addb127", "Uses \\p{IsLatinExtended-A} - not supported in Go regexp"},
-	{"addb128", "Uses \\p{IsLatinExtended-A} - not supported in Go regexp"},
-	{"rek87", "Uses \\P{Is} - not supported in Go regexp"},
+	{Pattern: "regexp_islatin", Reason: "Uses \\p{IsLatin...} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "elemu006", Reason: "Uses \\p{IsGreek} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "elemu007", Reason: "Uses \\P{IsGreek} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "addb024", Reason: "Uses \\p{IsCJKRadicalsSupplement}, \\p{IsCJKUnifiedIdeographsExtensionA}, \\p{IsCJKSymbolsandPunctuation} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "addb126", Reason: "Uses \\p{IsLatin-1Supplement} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "addb127", Reason: "Uses \\p{IsLatinExtended-A} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "addb128", Reason: "Uses \\p{IsLatinExtended-A} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rek87", Reason: "Uses \\P{Is} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 
 	// --- XML NameChar escapes (\i, \c, \I, \C) - not implemented ---
 	// These escape sequences represent XML NameStartChar and NameChar
-	{"/req", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
-	{"/rer", "Uses \\c escape (XML NameChar) - not supported in Go regexp"},
-	{"addb058", "Uses \\C escape (XML NameChar) - not supported in Go regexp"},
+	{Pattern: "/req", Reason: "Uses \\i escape (XML NameStartChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rer", Reason: "Uses \\c escape (XML NameChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "addb058", Reason: "Uses \\C escape (XML NameChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// reP tests with \i/\c
-	{"/rep6", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/rep7", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/rep8", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/rep9", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/rep10", "Uses \\i/\\c escape - not supported in Go regexp"},
+	{Pattern: "/rep6", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rep7", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rep8", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rep9", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rep10", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// reDC, reDH, reDF tests with \i/\c
-	{"/redc", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/redh", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/redf", "Uses \\i/\\c escape - not supported in Go regexp"},
+	{Pattern: "/redc", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/redh", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/redf", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// reG tests with \i/\c (reG18-reG29)
-	{"/reg18", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/reg19", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/reg2", "Uses \\i/\\c escape - not supported in Go regexp"},
+	{Pattern: "/reg18", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/reg19", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/reg2", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// reI tests with escape sequence documentation
-	{"/rei78", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/rei79", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/rei82", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/rei83", "Uses \\i/\\c escape - not supported in Go regexp"},
+	{Pattern: "/rei78", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rei79", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rei82", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/rei83", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// reF tests with \i/\c (reF40-reF51)
-	{"/ref42", "Uses \\P{IsBasicLatin} - not supported in Go regexp"},
-	{"/ref43", "Uses \\P{IsBasicLatin} - not supported in Go regexp"},
-	{"/ref4", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"/ref5", "Uses \\i/\\c escape - not supported in Go regexp"},
+	{Pattern: "/ref42", Reason: "Uses \\P{IsBasicLatin} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ref43", Reason: "Uses \\P{IsBasicLatin} - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ref4", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ref5", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// Schema files using \i\c* patterns
-	{"schema_i", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
-	{"schema_c", "Uses \\c escape (XML NameChar) - not supported in Go regexp"},
-	{"rez001", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
-	{"rez002", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
-	{"rez003", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
-	{"rez004", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
-	{"rez005", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
-	{"rez006", "Uses \\c escape (XML NameChar) - not supported in Go regexp"},
+	{Pattern: "schema_i", Reason: "Uses \\i escape (XML NameStartChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "schema_c", Reason: "Uses \\c escape (XML NameChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rez001", Reason: "Uses \\i escape (XML NameStartChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rez002", Reason: "Uses \\i escape (XML NameStartChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rez003", Reason: "Uses \\i escape (XML NameStartChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rez004", Reason: "Uses \\i escape (XML NameStartChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rez005", Reason: "Uses \\i escape (XML NameStartChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rez006", Reason: "Uses \\c escape (XML NameChar) - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// NIST tests using patterns with \i/\c (NCName, Name, ID, QName, anyURI, NMTOKEN)
-	{"atomic-ncname-pattern", "Uses [\\i-[:]][\\c-[:]]* pattern - not supported in Go regexp"},
-	{"atomic-name-pattern", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"atomic-id-pattern", "Uses [\\i-[:]][\\c-[:]]* pattern - not supported in Go regexp"},
-	{"atomic-qname-pattern", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"atomic-anyuri-pattern", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"atomic-nmtoken-pattern", "Uses \\c+ pattern - not supported in Go regexp"},
-	{"list-ncname-pattern", "Uses [\\i-[:]][\\c-[:]]* pattern - not supported in Go regexp"},
-	{"list-name-pattern", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"list-id-pattern", "Uses [\\i-[:]][\\c-[:]]* pattern - not supported in Go regexp"},
-	{"list-qname-pattern", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"list-anyuri-pattern", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"list-nmtoken-pattern", "Uses \\c+ pattern - not supported in Go regexp"},
-	{"list-nmtokens-pattern", "Uses \\c+ pattern - not supported in Go regexp"},
-	{"union-anyuri-float-pattern", "Uses \\i\\c* pattern - not supported in Go regexp"},
+	{Pattern: "atomic-ncname-pattern", Reason: "Uses [\\i-[:]][\\c-[:]]* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "atomic-name-pattern", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "atomic-id-pattern", Reason: "Uses [\\i-[:]][\\c-[:]]* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "atomic-qname-pattern", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "atomic-anyuri-pattern", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "atomic-nmtoken-pattern", Reason: "Uses \\c+ pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "list-ncname-pattern", Reason: "Uses [\\i-[:]][\\c-[:]]* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "list-name-pattern", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "list-id-pattern", Reason: "Uses [\\i-[:]][\\c-[:]]* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "list-qname-pattern", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "list-anyuri-pattern", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "list-nmtoken-pattern", Reason: "Uses \\c+ pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "list-nmtokens-pattern", Reason: "Uses \\c+ pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "union-anyuri-float-pattern", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// MS additional tests with \i\c patterns
-	{"test65699", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"test73665", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"test73715", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"test73722", "Uses \\i\\c* pattern - not supported in Go regexp"},
-	{"xsd.xsd", "Uses \\i\\c* pattern - not supported in Go regexp"},
+	{Pattern: "test65699", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "test73665", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "test73715", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "test73722", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "xsd.xsd", Reason: "Uses \\i\\c* pattern - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// IBM \i/\c tests
-	{"d3_4_6v", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"d6_gv02", "Uses character class subtraction with \\i/\\c - not supported in Go regexp"},
-	{"d6_gv03", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"d6_gv04", "Uses \\i/\\c escape - not supported in Go regexp"},
-	{"d6_gii02", "Uses character class subtraction with \\i/\\c - not supported in Go regexp"},
+	{Pattern: "d3_4_6v", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "d6_gv02", Reason: "Uses character class subtraction with \\i/\\c - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "d6_gv03", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "d6_gv04", Reason: "Uses \\i/\\c escape - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "d6_gii02", Reason: "Uses character class subtraction with \\i/\\c - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 
 	// --- Character class subtraction (-[...]) - not supported in Go regexp ---
 	// XSD allows [a-z-[aeiou]] syntax which Go RE2 doesn't support
 	// reF tests with subtraction
-	{"/ref17", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"/ref18", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"/ref34", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"/ref36", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"/ref39", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"/ref56", "Uses character class subtraction -[...] - not supported in Go regexp"},
+	{Pattern: "/ref17", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ref18", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ref34", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ref36", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ref39", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "/ref56", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// RegexTest_ series with subtraction (322-478)
-	{"regextest_32", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_33", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_34", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_35", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_36", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_37", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_42", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_43", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_44", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_45", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_46", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"regextest_47", "Uses character class subtraction -[...] - not supported in Go regexp"},
+	{Pattern: "regextest_32", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_33", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_34", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_35", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_36", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_37", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_42", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_43", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_44", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_45", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_46", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "regextest_47", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// Saxon simple tests with subtraction
-	{"simple040", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"simple046", "Uses character class subtraction -[...] - not supported in Go regexp"},
+	{Pattern: "simple040", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "simple046", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// NIST language pattern tests use character class subtraction in some schemas
-	{"atomic-language-pattern", "Uses character class subtraction -[...] - not supported in Go regexp"},
-	{"list-language-pattern", "Uses character class subtraction -[...] - not supported in Go regexp"},
+	{Pattern: "atomic-language-pattern", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "list-language-pattern", Reason: "Uses character class subtraction -[...] - not supported in Go regexp", Category: ExclusionCategoryUnsupportedRegex},
 	// Unicode property matching edge cases - Go's \p{Lu} includes mathematical symbols
 	// that XSD may exclude, causing differences in validation results
-	{"rej11.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej13.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej19.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej21.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej23.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej25.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej29.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej31.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej33.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej35.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej61.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej69.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
-	{"rej75.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
+	{Pattern: "rej11.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej13.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej19.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej21.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej23.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej25.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej29.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej31.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej33.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej35.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej61.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej69.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
+	{Pattern: "rej75.i", Reason: "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols", Category: ExclusionCategoryUnsupportedRegex},
 
 	// MS additional tests using redefine (test names differ from schema names)
-	{"addb007", "Uses xs:redefine - not supported"},
-	{"addb094", "Uses xs:redefine - not supported"},
-	{"addb117", "Uses xs:redefine - not supported"},
+	{Pattern: "addb007", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "addb094", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "addb117", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS annotation tests using redefine
-	{"annota019", "Uses xs:redefine - not supported"},
-	{"annotb025", "Uses xs:redefine - not supported"},
+	{Pattern: "annota019", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "annotb025", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS attribute tests using redefine
-	{"attp032", "Uses xs:redefine - not supported"},
-	{"attz001", "Uses xs:redefine - not supported"},
-	{"attq011", "Uses xs:redefine - not supported"},
-	{"attq017", "Uses xs:redefine - not supported"},
+	{Pattern: "attp032", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attz001", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attq011", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attq017", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS attributeGroup tests using redefine
-	{"attgb005", "Uses xs:redefine - not supported"},
-	{"attgc006", "Uses xs:redefine - not supported"},
-	{"attgc007", "Uses xs:redefine - not supported"},
-	{"attgc017", "Uses xs:redefine - not supported"},
-	{"attgc034", "Uses xs:redefine - not supported"},
-	{"attgc035", "Uses xs:redefine - not supported"},
-	{"attgc036", "Uses xs:redefine - not supported"},
-	{"attgc037", "Uses xs:redefine - not supported"},
-	{"attgc038", "Uses xs:redefine - not supported"},
-	{"attgc041", "Uses xs:redefine - not supported"},
-	{"attgc043", "Uses xs:redefine - not supported"},
-	{"attgc045", "Uses xs:redefine - not supported"},
-	{"attgd035", "Uses xs:redefine - not supported"},
-	{"attgd036", "Uses xs:redefine - not supported"},
+	{Pattern: "attgb005", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc006", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc007", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc017", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc034", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc035", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc036", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc037", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc038", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc041", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc043", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgc045", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgd035", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "attgd036", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS datatypes tests using redefine
-	{"anyuri_a002", "Uses xs:redefine - not supported"},
-	{"anyuri_a004", "Uses xs:redefine - not supported"},
-	{"anyuri_a009", "Uses xs:redefine - not supported"},
+	{Pattern: "anyuri_a002", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "anyuri_a004", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "anyuri_a009", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS group tests using redefine
-	{"groupa006", "Uses xs:redefine - not supported"},
-	{"groupb007", "Uses xs:redefine - not supported"},
-	{"groupb018", "Uses xs:redefine - not supported"},
-	{"groupc003", "Uses xs:redefine - not supported"},
-	{"groupd002", "Uses xs:redefine - not supported"},
-	{"groupd004", "Uses xs:redefine - not supported"},
+	{Pattern: "groupa006", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "groupb007", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "groupb018", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "groupc003", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "groupd002", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "groupd004", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS identityConstraint tests using redefine
-	{"ida005", "Uses xs:redefine - not supported"},
-	{"idc005", "Uses xs:redefine - not supported"},
-	{"idf025", "Uses xs:redefine - not supported"},
-	{"idf030", "Uses xs:redefine - not supported"},
-	{"idf034", "Uses xs:redefine - not supported"},
-	{"idg019", "Uses xs:redefine - not supported"},
-	{"idg024", "Uses xs:redefine - not supported"},
-	{"idg028", "Uses xs:redefine - not supported"},
-	{"idh023", "Uses xs:redefine - not supported"},
-	{"idh028", "Uses xs:redefine - not supported"},
-	{"idh032", "Uses xs:redefine - not supported"},
+	{Pattern: "ida005", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idc005", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idf025", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idf030", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idf034", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idg019", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idg024", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idg028", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idh023", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idh028", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "idh032", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS modelGroups tests using redefine
-	{"mgo006", "Uses xs:redefine - not supported"},
-	{"mgo013", "Uses xs:redefine - not supported"},
-	{"mgo020", "Uses xs:redefine - not supported"},
-	{"mgo027", "Uses xs:redefine - not supported"},
-	{"mgo034", "Uses xs:redefine - not supported"},
-	{"mgp041", "Uses xs:redefine - not supported"},
-	{"mgp050", "Uses xs:redefine - not supported"},
-	{"mgp058", "Uses xs:redefine - not supported"},
+	{Pattern: "mgo006", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "mgo013", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "mgo020", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "mgo027", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "mgo034", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "mgp041", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "mgp050", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "mgp058", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS notations tests using redefine
-	{"notatf055", "Uses xs:redefine - not supported"},
-	{"notatf056", "Uses xs:redefine - not supported"},
+	{Pattern: "notatf055", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "notatf056", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS schema tests using redefine (test names: schH1, schH2, etc.)
-	{"/schh1/", "Uses xs:redefine - not supported"},
-	{"/schh2/", "Uses xs:redefine - not supported"},
-	{"/schh9/", "Uses xs:redefine - not supported"},
-	{"/schm9/", "Uses xs:redefine - not supported"},
-	{"/schn11/", "Uses xs:redefine - not supported"},
-	{"/schn13", "Uses xs:redefine - not supported"},
-	{"/schp2/", "Uses xs:redefine - not supported"},
-	{"/schq1/", "Uses xs:redefine - not supported"},
-	{"/schq3/", "Uses xs:redefine - not supported"},
-	{"/schr2/", "Uses xs:redefine - not supported"},
-	{"/scht10/", "Uses xs:redefine - not supported"},
-	{"/scht3/", "Uses xs:redefine - not supported"},
-	{"/scht6/", "Uses xs:redefine - not supported"},
-	{"/scht9/", "Uses xs:redefine - not supported"},
-	{"/schu2/", "Uses xs:redefine - not supported"},
-	{"schz007", "Uses xs:redefine - not supported"},
+	{Pattern: "/schh1/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schh2/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schh9/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schm9/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schn11/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schn13", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schp2/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schq1/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schq3/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schr2/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/scht10/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/scht3/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/scht6/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/scht9/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/schu2/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "schz007", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// MS simpleType tests using redefine (test name: stZ034)
-	{"/stz032/", "Uses xs:redefine - not supported"},
-	{"/stz033/", "Uses xs:redefine - not supported"},
-	{"/stz034/", "Uses xs:redefine - not supported"},
+	{Pattern: "/stz032/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/stz033/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "/stz034/", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// Saxon tests using redefine
-	{"complex016", "Uses xs:redefine - not supported"},
-	{"open042", "Uses xs:redefine - not supported"},
-	{"open044", "Uses xs:redefine - not supported"},
-	{"open048", "Uses xs:redefine - not supported"},
+	{Pattern: "complex016", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "open042", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "open044", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "open048", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// Sun tests using redefine
-	{"xsd003a", "Uses xs:redefine - not supported"},
-	{"xsd003b", "Uses xs:redefine - not supported"},
-	{"xsd003-1", "Uses xs:redefine - not supported"},
-	{"xsd003-2", "Uses xs:redefine - not supported"},
+	{Pattern: "xsd003a", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "xsd003b", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "xsd003-1", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
+	{Pattern: "xsd003-2", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 	// Boeing tests using redefine
-	{"boeingxsdtestcases/ipo4", "Uses xs:redefine - not supported"},
+	{Pattern: "boeingxsdtestcases/ipo4", Reason: "Uses xs:redefine - not supported", Category: ExclusionCategoryUnsupportedRedefine},
 }
 
 func shouldSkipSchemaError(err error) (bool, string) {
@@ -490,10 +490,13 @@ func shouldSkipSchemaError(err error) (bool, string) {
 	}
 	msg := err.Error()
 	switch {
+	// Missing structured signal: derivation-set lexical validation category.
 	case strings.Contains(msg, "attribute cannot be empty"):
 		return true, "empty derivation set attributes are rejected"
+	// Missing structured signal: fixed list whitespace facet category.
 	case strings.Contains(msg, "list whiteSpace facet must be 'collapse'"):
 		return true, "list whiteSpace is fixed to collapse"
+	// Missing structured signal: schemaLocation policy category.
 	case strings.Contains(msg, "unsupported schema location"):
 		return true, "HTTP schema locations are unsupported"
 	case strings.Contains(msg, "schema location must be relative"):
@@ -506,22 +509,27 @@ func shouldSkipSchemaError(err error) (bool, string) {
 		return true, "schemaLocation resolution requires referenced files to exist"
 	case strings.Contains(msg, "file does not exist"):
 		return true, "schemaLocation resolution requires referenced files to exist"
+	// Missing structured signal: import visibility semantic category.
 	case strings.Contains(msg, "not imported for") || strings.Contains(msg, "must be imported by schema"):
 		return true, "namespace import constraints are enforced"
+	// Missing structured signal: identity XPath lookup policy category.
 	case strings.Contains(msg, "resolve selector xpath") && isConservativeIdentityLookupError(msg):
 		return true, "identity constraint XPath resolution is conservative"
 	case strings.Contains(msg, "resolve field xpath") && isConservativeIdentityLookupError(msg):
 		return true, "identity constraint XPath resolution is conservative"
 	case strings.Contains(msg, "element does not have complex type"):
 		return true, "identity constraint XPath resolution is conservative"
+	// Missing structured signal: predefined XML attribute synthesis category.
 	case strings.Contains(msg, "attribute ref {http://www.w3.org/XML/1998/namespace}base not found"):
 		return true, "xml:base predefined attribute declarations are not synthesized"
 	case strings.Contains(msg, "attribute ref {http://www.w3.org/XML/1998/namespace}space not found"):
 		return true, "xml:space predefined attribute declarations are not synthesized"
+	// Missing structured signal: recursive schema component category.
 	case strings.Contains(msg, "circular anonymous type definition"):
 		return true, "anonymous type recursion rejected"
 	case strings.Contains(msg, "circular reference detected"):
 		return true, "circular reference rejected"
+	// Missing structured signal: UPA semantic category.
 	case strings.Contains(msg, "UPA violation"):
 		return true, "UPA determinism enforcement differs"
 	default:
@@ -615,8 +623,16 @@ type W3CCurrentStatus struct {
 
 // ExclusionReason maps exclusion patterns to human-readable reasons
 type ExclusionReason struct {
-	Pattern string
-	Reason  string
+	Pattern  string
+	Reason   string
+	Category ExclusionCategory
+}
+
+func (e ExclusionReason) SkipReason() string {
+	if e.Category == "" {
+		return e.Reason
+	}
+	return fmt.Sprintf("%s: %s", e.Category, e.Reason)
 }
 
 // FilterOptions configures test filtering criteria
@@ -663,15 +679,25 @@ func (f *Filter) ShouldIncludeVersion(versionAttr string) bool {
 	return true
 }
 
-// GetExclusionReason returns the exclusion reason if the test should be excluded, and a bool indicating exclusion
-func (f *Filter) GetExclusionReason(testSet, testGroup, testName, status string) (string, bool) {
+// GetExclusion returns the manifest exclusion if the test should be excluded.
+func (f *Filter) GetExclusion(testSet, testGroup, testName, status string) (ExclusionReason, bool) {
 	fullName := strings.ToLower(testSet + "/" + testGroup + "/" + testName)
 
 	for _, exclusion := range f.opts.ExcludePatterns {
 		if strings.Contains(fullName, strings.ToLower(exclusion.Pattern)) {
-			return exclusion.Reason, true
+			return exclusion, true
 		}
 	}
+
+	return ExclusionReason{}, false
+}
+
+// GetExclusionReason returns the exclusion reason if the test should be excluded, and a bool indicating exclusion.
+func (f *Filter) GetExclusionReason(testSet, testGroup, testName, status string) (string, bool) {
+	if exclusion, ok := f.GetExclusion(testSet, testGroup, testName, status); ok {
+		return exclusion.SkipReason(), true
+	}
+	fullName := strings.ToLower(testSet + "/" + testGroup + "/" + testName)
 
 	if slices.Contains(f.opts.ExcludeStatus, status) {
 		return fmt.Sprintf("excluded status: %s", status), true
@@ -1296,21 +1322,19 @@ func runtimeDeclaresElement(schema *runtime.Schema, root schemaast.QName) bool {
 	}
 	nsID := runtime.NamespaceID(0)
 	if root.Namespace == "" {
-		nsID = schema.PredefNS.Empty
+		nsID = schema.KnownNamespaces().Empty
 	} else {
-		nsID = schema.Namespaces.Lookup([]byte(root.Namespace))
+		nsID = schema.NamespaceLookup([]byte(root.Namespace))
 	}
 	if nsID == 0 {
 		return false
 	}
-	sym := schema.Symbols.Lookup(nsID, []byte(root.Local))
+	sym := schema.SymbolLookup(nsID, []byte(root.Local))
 	if sym == 0 {
 		return false
 	}
-	if int(sym) >= len(schema.GlobalElements) {
-		return false
-	}
-	return schema.GlobalElements[sym] != 0
+	_, ok := schema.GlobalElement(sym)
+	return ok
 }
 
 // loadSchemaFromPath loads and compiles a schema from the given path.

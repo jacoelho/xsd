@@ -18,10 +18,10 @@ func TestSliceAttrUsesOverflowReturnsNil(t *testing.T) {
 
 func TestValidateAttributesOutOfRangeComplexID(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
-	schema.Types[ids.typeBase] = runtime.Type{
+	schema.TypeTable()[ids.typeBase] = runtime.Type{
 		Kind: runtime.TypeComplex,
 		Complex: runtime.ComplexTypeRef{
-			ID: uint32(len(schema.ComplexTypes) + 1),
+			ID: uint32(len(schema.ComplexTypeTable()) + 1),
 		},
 	}
 

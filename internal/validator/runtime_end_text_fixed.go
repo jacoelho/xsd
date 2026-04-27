@@ -8,7 +8,7 @@ import (
 func (s *Session) validateEndTextFixed(
 	result endTextState,
 	hasContent bool,
-	elem runtime.Element,
+	elem *runtime.Element,
 	elemOK bool,
 	ct runtime.ComplexType,
 	hasComplexText bool,
@@ -33,7 +33,7 @@ func (s *Session) validateEndTextFixed(
 		result.textKeyKind != runtime.VKInvalid,
 		fixed.Value,
 		fixed.Key,
-		func(ref runtime.ValueRef) []byte { return valueBytes(s.rt.Values, ref) },
+		func(ref runtime.ValueRef) []byte { return s.rt.Value(ref) },
 		func(validator runtime.ValidatorID, canonical []byte, member runtime.ValidatorID) (runtime.ValueKind, []byte, error) {
 			return s.keyForCanonicalValue(validator, canonical, resolver, member)
 		},

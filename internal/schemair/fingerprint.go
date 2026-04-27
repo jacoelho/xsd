@@ -69,9 +69,9 @@ func (w *fingerprintWriter) writeName(v Name) {
 }
 
 func (w *fingerprintWriter) writeTypeRef(v TypeRef) {
-	w.writeU32(uint32(v.ID))
-	w.writeName(v.Name)
-	w.writeBool(v.Builtin)
+	w.writeU32(uint32(v.TypeID()))
+	w.writeName(v.TypeName())
+	w.writeBool(v.IsBuiltin())
 }
 
 func (w *fingerprintWriter) writeBuiltinTypes(values []BuiltinType) {
@@ -198,9 +198,9 @@ func (w *fingerprintWriter) writeComplexTypes(values []ComplexTypePlan) {
 }
 
 func (w *fingerprintWriter) writeValueConstraint(value ValueConstraint) {
-	w.writeBool(value.Present)
-	w.writeString(value.Lexical)
-	w.writeStringMap(value.Context)
+	w.writeBool(value.IsPresent())
+	w.writeString(value.LexicalValue())
+	w.writeStringMap(value.NamespaceContext())
 }
 
 func (w *fingerprintWriter) writeStringMap(values map[string]string) {

@@ -168,15 +168,15 @@ schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{
 
 ## Validation behavior
 
-- `Schema.Validate` is safe for concurrent use.
+- `Schema.Validate` and `Validator.Validate` are safe for concurrent use.
 - Validation is streaming; the document is not loaded into a DOM.
 - Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored.
 
 ## Error handling
 
-`Schema.Validate` returns `xsd.ValidationList` for validation failures and XML parsing failures.
-Validation calls made without a loaded schema return a caller-classified `xsd.Error`.
-`Schema.ValidateFile` can return file I/O errors before validation starts.
+`Schema.Validate` and `Validator.Validate` return `xsd.ValidationList` for validation failures and XML parsing failures.
+Caller, compile, I/O, and internal failures return classified `xsd.Error` values.
+`ValidateFile` and `ValidateFSFile` return `KindIO`/`ErrIO` for file errors before validation starts.
 
 Each `xsd.Validation` includes:
 

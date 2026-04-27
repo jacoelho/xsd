@@ -9,7 +9,7 @@ func (s *Session) resolveEndTextValue(
 	frame elemFrame,
 	rawText []byte,
 	hasContent bool,
-	elem runtime.Element,
+	elem *runtime.Element,
 	elemOK bool,
 	ct runtime.ComplexType,
 	hasComplexText bool,
@@ -33,11 +33,11 @@ func (s *Session) resolveEndTextValue(
 
 	fallback := selectTextDefaultOrFixed(hasContent, elem, elemOK, ct, hasComplexText)
 	if fallback.Present {
-		result.canonText = valueBytes(s.rt.Values, fallback.Value)
+		result.canonText = s.rt.Value(fallback.Value)
 		result.textMember = fallback.Member
 		if fallback.Key.Ref.Present {
 			result.textKeyKind = fallback.Key.Kind
-			result.textKeyBytes = valueBytes(s.rt.Values, fallback.Key.Ref)
+			result.textKeyBytes = s.rt.Value(fallback.Key.Ref)
 		}
 		trackDefault(result.canonText, result.textMember)
 		return errs

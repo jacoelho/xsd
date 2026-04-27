@@ -11,19 +11,19 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
-	schema.ICs = make([]runtime.IdentityConstraint, 2)
-	schema.ICs[1] = runtime.IdentityConstraint{
+	setRuntimeIdentityConstraints(t, schema, make([]runtime.IdentityConstraint, 2))
+	schema.IdentityConstraints()[1] = runtime.IdentityConstraint{
 		Category:    runtime.ICUnique,
 		SelectorOff: 0,
 		SelectorLen: 1,
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	schema.ICSelectors = []runtime.PathID{fx.pathChild}
-	schema.ICFields = []runtime.PathID{fx.pathAttrID}
-	schema.ElemICs = []runtime.ICID{1}
-	schema.Elements[fx.elemRoot].ICOff = 0
-	schema.Elements[fx.elemRoot].ICLen = 1
+	setRuntimeIdentitySelectors(t, schema, []runtime.PathID{fx.pathChild})
+	setRuntimeIdentityFields(t, schema, []runtime.PathID{fx.pathAttrID})
+	setRuntimeElementIdentityConstraints(t, schema, []runtime.ICID{1})
+	schema.ElementTable()[fx.elemRoot].ICOff = 0
+	schema.ElementTable()[fx.elemRoot].ICLen = 1
 
 	sess := NewSession(schema)
 
@@ -68,15 +68,15 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
-	schema.ICs = make([]runtime.IdentityConstraint, 3)
-	schema.ICs[1] = runtime.IdentityConstraint{
+	setRuntimeIdentityConstraints(t, schema, make([]runtime.IdentityConstraint, 3))
+	schema.IdentityConstraints()[1] = runtime.IdentityConstraint{
 		Category:    runtime.ICKey,
 		SelectorOff: 0,
 		SelectorLen: 1,
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	schema.ICs[2] = runtime.IdentityConstraint{
+	schema.IdentityConstraints()[2] = runtime.IdentityConstraint{
 		Category:    runtime.ICKeyRef,
 		SelectorOff: 1,
 		SelectorLen: 1,
@@ -84,11 +84,11 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		FieldLen:    1,
 		Referenced:  1,
 	}
-	schema.ICSelectors = []runtime.PathID{fx.pathGroupItem, fx.pathChild}
-	schema.ICFields = []runtime.PathID{fx.pathAttrID, fx.pathAttrID}
-	schema.ElemICs = []runtime.ICID{1, 2}
-	schema.Elements[fx.elemRoot].ICOff = 0
-	schema.Elements[fx.elemRoot].ICLen = 2
+	setRuntimeIdentitySelectors(t, schema, []runtime.PathID{fx.pathGroupItem, fx.pathChild})
+	setRuntimeIdentityFields(t, schema, []runtime.PathID{fx.pathAttrID, fx.pathAttrID})
+	setRuntimeElementIdentityConstraints(t, schema, []runtime.ICID{1, 2})
+	schema.ElementTable()[fx.elemRoot].ICOff = 0
+	schema.ElementTable()[fx.elemRoot].ICLen = 2
 
 	runCase := func(keyValue, refValue string) int {
 		sess := NewSession(schema)

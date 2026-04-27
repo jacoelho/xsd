@@ -59,7 +59,7 @@ func (c *artifactCompiler) compileTextValidators() error {
 			id  runtime.ValidatorID
 			err error
 		)
-		if isZeroRef(plan.TextType) {
+		if plan.TextType.IsZero() {
 			id, err = c.compileSpec(plan.TextSpec)
 		} else {
 			id, err = c.compileRef(plan.TextType)
@@ -136,7 +136,7 @@ func (c *artifactCompiler) compileUnion(spec schemair.SimpleTypeSpec, facets run
 		}
 		typeID, ok := c.runtimeTypeID(ref)
 		if !ok {
-			return 0, fmt.Errorf("union member %s type id not found", formatName(ref.Name))
+			return 0, fmt.Errorf("union member %s type id not found", formatName(ref.TypeName()))
 		}
 		memberIDs = append(memberIDs, id)
 		memberTypes = append(memberTypes, typeID)
@@ -148,32 +148,33 @@ func (c *artifactCompiler) compileUnion(spec schemair.SimpleTypeSpec, facets run
 func (c *artifactCompiler) compileRef(ref schemair.TypeRef) (runtime.ValidatorID, error) {
 	spec, ok := c.specForRef(ref)
 	if !ok {
-		return 0, fmt.Errorf("validator for type %s not found", formatName(ref.Name))
+		return 0, fmt.Errorf("validator for type %s not found", formatName(ref.TypeName()))
 	}
 	return c.compileSpec(spec)
 }
 
 func (c *artifactCompiler) specForRef(ref schemair.TypeRef) (schemair.SimpleTypeSpec, bool) {
-	if ref.Builtin {
-		spec, ok := c.builtinSpecs[ref.Name.Local]
+	if ref.IsBuiltin() {
+		spec, ok := c.builtinSpecs[ref.TypeName().Local]
 		return spec, ok
 	}
-	spec, ok := c.simpleSpecs[ref.ID]
+	spec, ok := c.simpleSpecs[ref.TypeID()]
 	return spec, ok
 }
 
 func (c *artifactCompiler) runtimeTypeID(ref schemair.TypeRef) (runtime.TypeID, bool) {
-	if isZeroRef(ref) {
+	if ref.IsZero() {
 		return 0, false
 	}
-	if ref.Builtin {
-		id := c.builtinRuntimeIDs[ref.Name.Local]
+	if ref.IsBuiltin() {
+		id := c.builtinRuntimeIDs[ref.TypeName().Local]
 		return id, id != 0
 	}
-	if ref.ID == 0 {
+	refID := ref.TypeID()
+	if refID == 0 {
 		return 0, false
 	}
-	return runtime.TypeID(len(c.schema.BuiltinTypes)) + runtime.TypeID(ref.ID), true
+	return runtime.TypeID(len(c.schema.BuiltinTypes)) + runtime.TypeID(refID), true
 }
 
 func specKey(spec schemair.SimpleTypeSpec) typeKey {
@@ -184,9 +185,8 @@ func specKey(spec schemair.SimpleTypeSpec) typeKey {
 }
 
 func typeRefForSpec(spec schemair.SimpleTypeSpec) schemair.TypeRef {
-	return schemair.TypeRef{
-		ID:      spec.TypeDecl,
-		Name:    spec.Name,
-		Builtin: spec.Builtin,
+	if spec.Builtin {
+		return schemair.BuiltinTypeRef(spec.TypeDecl, spec.Name)
 	}
+	return schemair.UserTypeRef(spec.TypeDecl, spec.Name)
 }

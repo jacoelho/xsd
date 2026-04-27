@@ -80,6 +80,34 @@ func TestValidateNilReaderWrapped(t *testing.T) {
 	}
 }
 
+func TestRecordValidationErrorUnstructuredErrorIsInternal(t *testing.T) {
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
+
+	sentinel := errors.New("model invariant failed")
+	err = sess.recordValidationErrorAtPath(sentinel, "/root", 12, 3)
+	if err == nil {
+		t.Fatal("recordValidationErrorAtPath() error = nil, want internal error")
+	}
+	if _, ok := err.(xsderrors.ValidationList); ok {
+		t.Fatalf("recordValidationErrorAtPath() error = %T, want classified internal error", err)
+	}
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("recordValidationErrorAtPath() error = %v, want cause %v", err, sentinel)
+	}
+	kind, ok := xsderrors.KindOf(err)
+	if !ok || kind != xsderrors.KindInternal {
+		t.Fatalf("KindOf() = %v, %v; want KindInternal", kind, ok)
+	}
+	code, ok := xsderrors.Info(err)
+	if !ok || code != xsderrors.ErrValidationInternal {
+		t.Fatalf("Info() = %v, %v; want %v", code, ok, xsderrors.ErrValidationInternal)
+	}
+}
+
 func TestAttZ015ProhibitedAttributeGroup(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
@@ -117,7 +145,7 @@ func TestRootAnyAllowsUndeclaredRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
-	schema.RootPolicy = runtime.RootAny
+	setRuntimeRootPolicy(t, schema, runtime.RootAny)
 	sess := NewSession(schema)
 	err = sess.Validate(strings.NewReader("<root/>"))
 	if err != nil {

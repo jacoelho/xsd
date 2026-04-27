@@ -15,27 +15,27 @@ type docResolver struct {
 	docResolverIDs
 	docResolverState
 	docResolverIdentity
-	docResolverCounters
 }
 
 type docResolverDocs struct {
 	docs []ast.SchemaDocument
 	out  Schema
 
-	names    map[Name]struct{}
 	contexts map[ast.NamespaceContextID]ast.NamespaceContext
 }
 
 type docResolverGlobals struct {
-	builtins    map[Name]TypeRef
-	types       map[Name]TypeID
-	elements    map[Name]ElementID
-	attrs       map[Name]AttributeID
-	groups      map[Name]*ast.GroupDecl
-	attrgrps    map[Name]*ast.AttributeGroupDecl
-	notations   map[Name]struct{}
-	globalElems map[Name]*ast.ElementDecl
-	globalAttrs map[Name]*ast.AttributeDecl
+	builtins map[Name]TypeRef
+	globals  globalIndex
+}
+
+type globalIndex struct {
+	typeNames       map[Name]struct{}
+	groups          map[Name]*ast.GroupDecl
+	attributeGroups map[Name]*ast.AttributeGroupDecl
+	notations       map[Name]struct{}
+	elementDecls    map[Name]*ast.ElementDecl
+	attributeDecls  map[Name]*ast.AttributeDecl
 }
 
 type docResolverDecls struct {
@@ -51,43 +51,64 @@ type docResolverDecls struct {
 }
 
 type docResolverIDs struct {
-	simpleIDs   map[simpleDeclID]TypeID
-	simpleByID  map[TypeID]simpleDeclID
-	complexIDs  map[complexDeclID]TypeID
-	complexByID map[TypeID]complexDeclID
-	elemByID    map[ElementID]elementDeclID
-	attrByID    map[AttributeID]attributeDeclID
-	localElems  map[elementDeclID]ElementID
-	localAttrs  map[attributeDeclID]AttributeID
+	ids idPlan
 }
 
-type docResolverState struct {
+type idPlan struct {
+	simpleTypes      map[simpleDeclID]TypeID
+	simpleByID       map[TypeID]simpleDeclID
+	complexTypes     map[complexDeclID]TypeID
+	complexByID      map[TypeID]complexDeclID
+	elements         map[elementDeclID]ElementID
+	elementByID      map[ElementID]elementDeclID
+	attributes       map[attributeDeclID]AttributeID
+	attributeByID    map[AttributeID]attributeDeclID
+	globalTypes      map[Name]TypeID
+	globalElements   map[Name]ElementID
+	globalAttributes map[Name]AttributeID
+}
+
+func newIDPlan() idPlan {
+	return idPlan{
+		simpleTypes:      make(map[simpleDeclID]TypeID),
+		simpleByID:       make(map[TypeID]simpleDeclID),
+		complexTypes:     make(map[complexDeclID]TypeID),
+		complexByID:      make(map[TypeID]complexDeclID),
+		elements:         make(map[elementDeclID]ElementID),
+		elementByID:      make(map[ElementID]elementDeclID),
+		attributes:       make(map[attributeDeclID]AttributeID),
+		attributeByID:    make(map[AttributeID]attributeDeclID),
+		globalTypes:      make(map[Name]TypeID),
+		globalElements:   make(map[Name]ElementID),
+		globalAttributes: make(map[Name]AttributeID),
+	}
+}
+
+type idPlanBuilder struct {
+	resolver *docResolver
+	globals  globalIndex
+	plan     idPlan
+
 	assignedSimpleTrees   map[simpleDeclID]bool
 	assigningSimpleTrees  map[simpleDeclID]bool
 	assignedComplexTrees  map[complexDeclID]bool
 	assigningComplexTrees map[complexDeclID]bool
-	emittedTypes          map[TypeID]bool
-	emittingTypes         map[TypeID]bool
-	emittedComplex        map[TypeID]bool
-	emittedElems          map[ElementID]bool
-	emittedAttrs          map[AttributeID]bool
-}
 
-type docResolverIdentity struct {
-	identityNames  map[Name]IdentityID
-	identityKeys   map[Name]IdentityID
-	particleChecks []pendingParticleRestriction
-}
-
-type docResolverCounters struct {
 	nextType TypeID
 	nextElem ElementID
 	nextAttr AttributeID
 }
 
-type pendingParticleRestriction struct {
-	base        TypeRef
-	restriction ParticleID
+type docResolverState struct {
+	emittedTypes   map[TypeID]bool
+	emittingTypes  map[TypeID]bool
+	emittedComplex map[TypeID]bool
+	emittedElems   map[ElementID]bool
+	emittedAttrs   map[AttributeID]bool
+}
+
+type docResolverIdentity struct {
+	identityNames map[Name]IdentityID
 }
 
 type simpleDeclID uint32
@@ -166,19 +187,10 @@ func newDocResolver(docs []ast.SchemaDocument, contexts map[ast.NamespaceContext
 	return &docResolver{
 		docResolverDocs: docResolverDocs{
 			docs:     docs,
-			names:    make(map[Name]struct{}),
 			contexts: contexts,
 		},
 		docResolverGlobals: docResolverGlobals{
-			builtins:    make(map[Name]TypeRef),
-			types:       make(map[Name]TypeID),
-			elements:    make(map[Name]ElementID),
-			attrs:       make(map[Name]AttributeID),
-			groups:      make(map[Name]*ast.GroupDecl),
-			attrgrps:    make(map[Name]*ast.AttributeGroupDecl),
-			notations:   make(map[Name]struct{}),
-			globalElems: make(map[Name]*ast.ElementDecl),
-			globalAttrs: make(map[Name]*ast.AttributeDecl),
+			builtins: make(map[Name]TypeRef),
 		},
 		docResolverDecls: docResolverDecls{
 			simpleDecls:          make(map[simpleDeclID]*ast.SimpleTypeDecl),
@@ -190,36 +202,15 @@ func newDocResolver(docs []ast.SchemaDocument, contexts map[ast.NamespaceContext
 			elementDeclHandles:   make(map[*ast.ElementDecl]elementDeclID),
 			attributeDeclHandles: make(map[*ast.AttributeDecl]attributeDeclID),
 		},
-		docResolverIDs: docResolverIDs{
-			simpleIDs:   make(map[simpleDeclID]TypeID),
-			simpleByID:  make(map[TypeID]simpleDeclID),
-			complexIDs:  make(map[complexDeclID]TypeID),
-			complexByID: make(map[TypeID]complexDeclID),
-			elemByID:    make(map[ElementID]elementDeclID),
-			attrByID:    make(map[AttributeID]attributeDeclID),
-			localElems:  make(map[elementDeclID]ElementID),
-			localAttrs:  make(map[attributeDeclID]AttributeID),
-		},
 		docResolverState: docResolverState{
-			assignedSimpleTrees:   make(map[simpleDeclID]bool),
-			assigningSimpleTrees:  make(map[simpleDeclID]bool),
-			assignedComplexTrees:  make(map[complexDeclID]bool),
-			assigningComplexTrees: make(map[complexDeclID]bool),
-			emittedTypes:          make(map[TypeID]bool),
-			emittingTypes:         make(map[TypeID]bool),
-			emittedComplex:        make(map[TypeID]bool),
-			emittedElems:          make(map[ElementID]bool),
-			emittedAttrs:          make(map[AttributeID]bool),
+			emittedTypes:   make(map[TypeID]bool),
+			emittingTypes:  make(map[TypeID]bool),
+			emittedComplex: make(map[TypeID]bool),
+			emittedElems:   make(map[ElementID]bool),
+			emittedAttrs:   make(map[AttributeID]bool),
 		},
 		docResolverIdentity: docResolverIdentity{
-			identityNames:  make(map[Name]IdentityID),
-			identityKeys:   make(map[Name]IdentityID),
-			particleChecks: nil,
-		},
-		docResolverCounters: docResolverCounters{
-			nextType: 1,
-			nextElem: 1,
-			nextAttr: 1,
+			identityNames: make(map[Name]IdentityID),
 		},
 	}
 }
@@ -229,30 +220,60 @@ func (r *docResolver) resolve() error {
 	if err := r.validateImportVisibility(); err != nil {
 		return err
 	}
-	if err := r.indexGlobals(); err != nil {
+	globals, err := buildGlobalIndex(r.docs)
+	if err != nil {
 		return err
 	}
-	r.assignDeclarationIDs()
+	r.globals = globals
+	r.ids = r.buildIDPlan()
 	if err := r.validateTypeDerivationCycles(); err != nil {
 		return err
 	}
 	if err := r.emitGlobalDeclarations(); err != nil {
 		return err
 	}
-	if err := r.validatePendingParticleRestrictions(); err != nil {
+	restrictions := buildParticleRestrictionPhase(particleRestrictionPhaseInput{
+		Types: r.out.Types,
+		Plans: r.out.ComplexTypes,
+	})
+	if err := restrictions.validate(r); err != nil {
 		return err
 	}
 	r.sortComponents()
-	if err := r.validateSubstitutionCycles(); err != nil {
+	if err := validateSubstitutionCycles(substitutionCyclePhaseInput{
+		Elements: r.out.Elements,
+		Globals:  r.globals,
+	}); err != nil {
 		return err
 	}
-	if err := r.resolveIdentityReferences(); err != nil {
+	identityRefs, err := resolveIdentityReferences(identityReferencePhaseInput{
+		Constraints: r.out.IdentityConstraints,
+		Elements:    r.out.Elements,
+	}, r.identityFieldTypesCompatible)
+	if err != nil {
 		return err
 	}
-	r.emitReferences()
-	r.emitGlobalIndexes()
-	r.emitRuntimeNamePlan()
-	r.emitNames()
+	r.out.IdentityConstraints = identityRefs.Constraints
+	metadata := buildRuntimeEmission(runtimeEmissionPhaseInput{
+		BuiltinTypes:        r.out.BuiltinTypes,
+		Types:               r.out.Types,
+		Elements:            r.out.Elements,
+		Attributes:          r.out.Attributes,
+		AttributeUses:       r.out.AttributeUses,
+		ComplexTypes:        r.out.ComplexTypes,
+		Particles:           r.out.Particles,
+		Wildcards:           r.out.Wildcards,
+		IdentityConstraints: r.out.IdentityConstraints,
+		Docs:                r.docs,
+		Globals:             r.globals,
+		IDs:                 r.ids,
+	})
+	r.out.ElementRefs = metadata.ElementRefs
+	r.out.AttributeRefs = metadata.AttributeRefs
+	r.out.GroupRefs = metadata.GroupRefs
+	r.out.GlobalIndexes = metadata.GlobalIndexes
+	r.out.RuntimeNames = metadata.RuntimeNames
+	r.out.Names = metadata.Names
 	return nil
 }
 
@@ -277,10 +298,15 @@ func (r *docResolver) sortComponents() {
 	})
 }
 
-func (r *docResolver) validateSubstitutionCycles() error {
-	elements := make(map[ElementID]Element, len(r.out.Elements))
-	starts := make([]ElementID, 0, len(r.out.Elements))
-	for _, elem := range r.out.Elements {
+type substitutionCyclePhaseInput struct {
+	Elements []Element
+	Globals  globalIndex
+}
+
+func validateSubstitutionCycles(input substitutionCyclePhaseInput) error {
+	elements := make(map[ElementID]Element, len(input.Elements))
+	starts := make([]ElementID, 0, len(input.Elements))
+	for _, elem := range input.Elements {
 		elements[elem.ID] = elem
 		if elem.SubstitutionHead != 0 {
 			starts = append(starts, elem.ID)
@@ -320,7 +346,7 @@ func (r *docResolver) validateSubstitutionCycles() error {
 func (r *docResolver) emitBuiltins() {
 	for i, typ := range builtinTypes() {
 		name := nameFromQName(ast.QName{Namespace: ast.XSDNamespace, Local: typ.Name})
-		ref := TypeRef{Name: name, Builtin: true}
+		ref := BuiltinTypeRef(TypeID(i+1), name)
 		r.builtins[name] = ref
 
 		spec := SimpleTypeSpec{
@@ -350,152 +376,196 @@ func (r *docResolver) emitBuiltins() {
 	}
 }
 
-func (r *docResolver) indexGlobals() error {
-	for di := range r.docs {
-		doc := &r.docs[di]
+func buildGlobalIndex(docs []ast.SchemaDocument) (globalIndex, error) {
+	index := newGlobalIndex()
+	for di := range docs {
+		doc := &docs[di]
 		for i := range doc.Decls {
 			decl := &doc.Decls[i]
-			switch decl.Kind {
-			case ast.DeclSimpleType:
-				if decl.SimpleType == nil {
-					return fmt.Errorf("schema ir: simple type declaration %s is nil", formatName(nameFromQName(decl.Name)))
-				}
-				if err := r.assignGlobalSimple(decl.SimpleType); err != nil {
-					return err
-				}
-			case ast.DeclComplexType:
-				if decl.ComplexType == nil {
-					return fmt.Errorf("schema ir: complex type declaration %s is nil", formatName(nameFromQName(decl.Name)))
-				}
-				if err := r.assignGlobalComplex(decl.ComplexType); err != nil {
-					return err
-				}
-			case ast.DeclElement:
-				if decl.Element == nil {
-					return fmt.Errorf("schema ir: element declaration %s is nil", formatName(nameFromQName(decl.Name)))
-				}
-				if err := r.assignGlobalElement(decl.Element); err != nil {
-					return err
-				}
-			case ast.DeclAttribute:
-				if decl.Attribute == nil {
-					return fmt.Errorf("schema ir: attribute declaration %s is nil", formatName(nameFromQName(decl.Name)))
-				}
-				if err := r.assignGlobalAttribute(decl.Attribute); err != nil {
-					return err
-				}
-			case ast.DeclGroup:
-				if decl.Group == nil {
-					return fmt.Errorf("schema ir: group declaration %s is nil", formatName(nameFromQName(decl.Name)))
-				}
-				name := nameFromQName(decl.Group.Name)
-				if _, exists := r.groups[name]; exists {
-					return fmt.Errorf("schema ir: duplicate group %s", formatName(name))
-				}
-				r.groups[name] = decl.Group
-			case ast.DeclAttributeGroup:
-				if decl.AttributeGroup == nil {
-					return fmt.Errorf("schema ir: attributeGroup declaration %s is nil", formatName(nameFromQName(decl.Name)))
-				}
-				name := nameFromQName(decl.AttributeGroup.Name)
-				if _, exists := r.attrgrps[name]; exists {
-					return fmt.Errorf("schema ir: duplicate attributeGroup %s", formatName(name))
-				}
-				r.attrgrps[name] = decl.AttributeGroup
-			case ast.DeclNotation:
-				if decl.Notation == nil {
-					return fmt.Errorf("schema ir: notation declaration %s is nil", formatName(nameFromQName(decl.Name)))
-				}
-				name := nameFromQName(decl.Notation.Name)
-				if docIsZeroName(name) {
-					return fmt.Errorf("schema ir: notation missing name")
-				}
-				if _, exists := r.notations[name]; exists {
-					return fmt.Errorf("schema ir: duplicate notation %s", formatName(name))
-				}
-				r.notations[name] = struct{}{}
+			if err := index.addTopLevelDecl(decl); err != nil {
+				return globalIndex{}, err
 			}
 		}
 	}
-	return nil
+	return index, nil
 }
 
-func (r *docResolver) assignGlobalSimple(decl *ast.SimpleTypeDecl) error {
+func newGlobalIndex() globalIndex {
+	return globalIndex{
+		typeNames:       make(map[Name]struct{}),
+		groups:          make(map[Name]*ast.GroupDecl),
+		attributeGroups: make(map[Name]*ast.AttributeGroupDecl),
+		notations:       make(map[Name]struct{}),
+		elementDecls:    make(map[Name]*ast.ElementDecl),
+		attributeDecls:  make(map[Name]*ast.AttributeDecl),
+	}
+}
+
+func (g *globalIndex) addTopLevelDecl(decl *ast.TopLevelDecl) error {
+	switch decl.Kind {
+	case ast.DeclSimpleType:
+		if decl.SimpleType == nil {
+			return fmt.Errorf("schema ir: simple type declaration %s is nil", formatName(nameFromQName(decl.Name)))
+		}
+		return g.addSimpleType(decl.SimpleType)
+	case ast.DeclComplexType:
+		if decl.ComplexType == nil {
+			return fmt.Errorf("schema ir: complex type declaration %s is nil", formatName(nameFromQName(decl.Name)))
+		}
+		return g.addComplexType(decl.ComplexType)
+	case ast.DeclElement:
+		if decl.Element == nil {
+			return fmt.Errorf("schema ir: element declaration %s is nil", formatName(nameFromQName(decl.Name)))
+		}
+		return g.addElement(decl.Element)
+	case ast.DeclAttribute:
+		if decl.Attribute == nil {
+			return fmt.Errorf("schema ir: attribute declaration %s is nil", formatName(nameFromQName(decl.Name)))
+		}
+		return g.addAttribute(decl.Attribute)
+	case ast.DeclGroup:
+		if decl.Group == nil {
+			return fmt.Errorf("schema ir: group declaration %s is nil", formatName(nameFromQName(decl.Name)))
+		}
+		return g.addGroup(decl.Group)
+	case ast.DeclAttributeGroup:
+		if decl.AttributeGroup == nil {
+			return fmt.Errorf("schema ir: attributeGroup declaration %s is nil", formatName(nameFromQName(decl.Name)))
+		}
+		return g.addAttributeGroup(decl.AttributeGroup)
+	case ast.DeclNotation:
+		if decl.Notation == nil {
+			return fmt.Errorf("schema ir: notation declaration %s is nil", formatName(nameFromQName(decl.Name)))
+		}
+		return g.addNotation(decl.Notation)
+	default:
+		return nil
+	}
+}
+
+func (g *globalIndex) addSimpleType(decl *ast.SimpleTypeDecl) error {
 	name := nameFromQName(decl.Name)
 	if docIsZeroName(name) {
 		return fmt.Errorf("schema ir: global simple type missing name")
 	}
-	if _, exists := r.types[name]; exists {
+	if _, exists := g.typeNames[name]; exists {
 		return fmt.Errorf("schema ir: duplicate type %s", formatName(name))
 	}
-	r.types[name] = 0
+	g.typeNames[name] = struct{}{}
 	return nil
 }
 
-func (r *docResolver) assignGlobalComplex(decl *ast.ComplexTypeDecl) error {
+func (g *globalIndex) addComplexType(decl *ast.ComplexTypeDecl) error {
 	name := nameFromQName(decl.Name)
 	if docIsZeroName(name) {
 		return fmt.Errorf("schema ir: global complex type missing name")
 	}
-	if _, exists := r.types[name]; exists {
+	if _, exists := g.typeNames[name]; exists {
 		return fmt.Errorf("schema ir: duplicate type %s", formatName(name))
 	}
-	r.types[name] = 0
+	g.typeNames[name] = struct{}{}
 	return nil
 }
 
-func (r *docResolver) assignGlobalElement(decl *ast.ElementDecl) error {
+func (g *globalIndex) addElement(decl *ast.ElementDecl) error {
 	name := nameFromQName(decl.Name)
 	if docIsZeroName(name) {
 		return fmt.Errorf("schema ir: global element missing name")
 	}
-	if _, exists := r.globalElems[name]; exists {
+	if _, exists := g.elementDecls[name]; exists {
 		return fmt.Errorf("schema ir: duplicate element %s", formatName(name))
 	}
-	r.globalElems[name] = decl
+	g.elementDecls[name] = decl
 	return nil
 }
 
-func (r *docResolver) assignGlobalAttribute(decl *ast.AttributeDecl) error {
+func (g *globalIndex) addAttribute(decl *ast.AttributeDecl) error {
 	name := nameFromQName(decl.Name)
 	if docIsZeroName(name) {
 		return fmt.Errorf("schema ir: global attribute missing name")
 	}
-	if _, exists := r.globalAttrs[name]; exists {
+	if _, exists := g.attributeDecls[name]; exists {
 		return fmt.Errorf("schema ir: duplicate attribute %s", formatName(name))
 	}
-	r.globalAttrs[name] = decl
+	g.attributeDecls[name] = decl
 	return nil
 }
 
-func (r *docResolver) assignDeclarationIDs() {
-	for di := range r.docs {
-		doc := &r.docs[di]
+func (g *globalIndex) addGroup(decl *ast.GroupDecl) error {
+	name := nameFromQName(decl.Name)
+	if _, exists := g.groups[name]; exists {
+		return fmt.Errorf("schema ir: duplicate group %s", formatName(name))
+	}
+	g.groups[name] = decl
+	return nil
+}
+
+func (g *globalIndex) addAttributeGroup(decl *ast.AttributeGroupDecl) error {
+	name := nameFromQName(decl.Name)
+	if _, exists := g.attributeGroups[name]; exists {
+		return fmt.Errorf("schema ir: duplicate attributeGroup %s", formatName(name))
+	}
+	g.attributeGroups[name] = decl
+	return nil
+}
+
+func (g *globalIndex) addNotation(decl *ast.NotationDecl) error {
+	name := nameFromQName(decl.Name)
+	if docIsZeroName(name) {
+		return fmt.Errorf("schema ir: notation missing name")
+	}
+	if _, exists := g.notations[name]; exists {
+		return fmt.Errorf("schema ir: duplicate notation %s", formatName(name))
+	}
+	g.notations[name] = struct{}{}
+	return nil
+}
+
+func (r *docResolver) buildIDPlan() idPlan {
+	builder := idPlanBuilder{
+		resolver:              r,
+		globals:               r.globals,
+		plan:                  newIDPlan(),
+		assignedSimpleTrees:   make(map[simpleDeclID]bool),
+		assigningSimpleTrees:  make(map[simpleDeclID]bool),
+		assignedComplexTrees:  make(map[complexDeclID]bool),
+		assigningComplexTrees: make(map[complexDeclID]bool),
+		nextType:              1,
+		nextElem:              1,
+		nextAttr:              1,
+	}
+	builder.assignDeclarationIDs(r.docs)
+	return builder.plan
+}
+
+func (b *idPlanBuilder) assignDeclarationIDs(docs []ast.SchemaDocument) {
+	for di := range docs {
+		doc := &docs[di]
 		for i := range doc.Decls {
 			decl := &doc.Decls[i]
 			switch decl.Kind {
 			case ast.DeclSimpleType:
-				r.assignSimpleTypeTree(decl.SimpleType, true)
+				b.assignSimpleTypeTree(decl.SimpleType, true)
 			case ast.DeclComplexType:
-				r.assignComplexTypeTree(decl.ComplexType, true)
+				b.assignComplexTypeTree(decl.ComplexType, true)
 			case ast.DeclElement:
-				r.assignElementID(decl.Element, true)
+				b.assignElementID(decl.Element, true)
 				if decl.Element != nil {
-					r.assignTypeUseInlineIDs(decl.Element.Type)
+					b.assignTypeUseInlineIDs(decl.Element.Type)
 				}
 			case ast.DeclAttribute:
-				r.assignAttributeID(decl.Attribute, true)
+				b.assignAttributeID(decl.Attribute, true)
 				if decl.Attribute != nil {
-					r.assignTypeUseInlineIDs(decl.Attribute.Type)
+					b.assignTypeUseInlineIDs(decl.Attribute.Type)
 				}
 			case ast.DeclGroup:
 				if decl.Group != nil {
-					r.assignParticleInlineIDs(decl.Group.Particle)
+					b.assignParticleInlineIDs(decl.Group.Particle)
 				}
 			case ast.DeclAttributeGroup:
 				if decl.AttributeGroup != nil {
 					for i := range decl.AttributeGroup.Attributes {
-						r.assignAttributeUseInlineIDs(&decl.AttributeGroup.Attributes[i], true)
+						b.assignAttributeUseInlineIDs(&decl.AttributeGroup.Attributes[i], true)
 					}
 				}
 			}
@@ -503,68 +573,68 @@ func (r *docResolver) assignDeclarationIDs() {
 	}
 }
 
-func (r *docResolver) assignSimpleTypeTree(decl *ast.SimpleTypeDecl, global bool) {
+func (b *idPlanBuilder) assignSimpleTypeTree(decl *ast.SimpleTypeDecl, global bool) {
 	if decl == nil {
 		return
 	}
-	handle := r.simpleDeclHandle(decl)
-	if r.assignedSimpleTrees[handle] || r.assigningSimpleTrees[handle] {
+	handle := b.resolver.simpleDeclHandle(decl)
+	if b.assignedSimpleTrees[handle] || b.assigningSimpleTrees[handle] {
 		return
 	}
-	r.assigningSimpleTrees[handle] = true
-	defer delete(r.assigningSimpleTrees, handle)
-	r.assignSimpleTypeID(decl, global)
-	r.assignSimpleTypeTree(decl.InlineBase, false)
-	r.assignSimpleTypeTree(decl.InlineItem, false)
+	b.assigningSimpleTrees[handle] = true
+	defer delete(b.assigningSimpleTrees, handle)
+	b.assignSimpleTypeID(decl, global)
+	b.assignSimpleTypeTree(decl.InlineBase, false)
+	b.assignSimpleTypeTree(decl.InlineItem, false)
 	for i := range decl.InlineMembers {
-		r.assignSimpleTypeTree(&decl.InlineMembers[i], false)
+		b.assignSimpleTypeTree(&decl.InlineMembers[i], false)
 	}
-	r.assignedSimpleTrees[handle] = true
+	b.assignedSimpleTrees[handle] = true
 }
 
-func (r *docResolver) assignSimpleTypeID(decl *ast.SimpleTypeDecl, global bool) {
+func (b *idPlanBuilder) assignSimpleTypeID(decl *ast.SimpleTypeDecl, global bool) {
 	if decl == nil {
 		return
 	}
-	handle := r.simpleDeclHandle(decl)
-	if _, exists := r.simpleIDs[handle]; exists {
+	handle := b.resolver.simpleDeclHandle(decl)
+	if _, exists := b.plan.simpleTypes[handle]; exists {
 		return
 	}
-	id := r.nextType
-	r.nextType++
-	r.simpleIDs[handle] = id
-	r.simpleByID[id] = handle
+	id := b.nextType
+	b.nextType++
+	b.plan.simpleTypes[handle] = id
+	b.plan.simpleByID[id] = handle
 	if global {
-		r.types[nameFromQName(decl.Name)] = id
+		b.plan.globalTypes[nameFromQName(decl.Name)] = id
 	}
 }
 
-func (r *docResolver) assignComplexTypeTree(decl *ast.ComplexTypeDecl, global bool) {
+func (b *idPlanBuilder) assignComplexTypeTree(decl *ast.ComplexTypeDecl, global bool) {
 	if decl == nil {
 		return
 	}
-	handle := r.complexDeclHandle(decl)
-	if r.assignedComplexTrees[handle] || r.assigningComplexTrees[handle] {
+	handle := b.resolver.complexDeclHandle(decl)
+	if b.assignedComplexTrees[handle] || b.assigningComplexTrees[handle] {
 		return
 	}
-	r.assigningComplexTrees[handle] = true
-	defer delete(r.assigningComplexTrees, handle)
-	r.assignComplexTypeID(decl, global)
-	r.assignSimpleTypeTree(decl.SimpleType, false)
-	r.assignParticleInlineIDs(decl.Particle)
+	b.assigningComplexTrees[handle] = true
+	defer delete(b.assigningComplexTrees, handle)
+	b.assignComplexTypeID(decl, global)
+	b.assignSimpleTypeTree(decl.SimpleType, false)
+	b.assignParticleInlineIDs(decl.Particle)
 	for i := range decl.Attributes {
-		r.assignAttributeUseInlineIDs(&decl.Attributes[i], false)
+		b.assignAttributeUseInlineIDs(&decl.Attributes[i], false)
 	}
-	r.assignedComplexTrees[handle] = true
+	b.assignedComplexTrees[handle] = true
 }
 
 func (r *docResolver) validateTypeDerivationCycles() error {
-	state := make(map[TypeID]uint8, len(r.simpleByID)+len(r.complexByID))
-	ids := make([]TypeID, 0, len(r.simpleByID)+len(r.complexByID))
-	for id := range r.simpleByID {
+	state := make(map[TypeID]uint8, len(r.ids.simpleByID)+len(r.ids.complexByID))
+	ids := make([]TypeID, 0, len(r.ids.simpleByID)+len(r.ids.complexByID))
+	for id := range r.ids.simpleByID {
 		ids = append(ids, id)
 	}
-	for id := range r.complexByID {
+	for id := range r.ids.complexByID {
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
@@ -579,10 +649,11 @@ func (r *docResolver) validateTypeDerivationCycles() error {
 		}
 		state[id] = 1
 		for _, ref := range r.typeDerivationRefs(id) {
-			if ref.Builtin || ref.ID == 0 {
+			refID := ref.TypeID()
+			if ref.IsBuiltin() || refID == 0 {
 				continue
 			}
-			if err := visit(ref.ID); err != nil {
+			if err := visit(refID); err != nil {
 				return err
 			}
 		}
@@ -599,14 +670,15 @@ func (r *docResolver) validateTypeDerivationCycles() error {
 }
 
 func (r *docResolver) typeDerivationRefs(id TypeID) []TypeRef {
-	if decl := r.simpleDecls[r.simpleByID[id]]; decl != nil {
+	if decl := r.simpleDecls[r.ids.simpleByID[id]]; decl != nil {
 		return r.simpleDerivationRefs(decl)
 	}
-	if decl := r.complexDecls[r.complexByID[id]]; decl != nil {
+	if decl := r.complexDecls[r.ids.complexByID[id]]; decl != nil {
 		if decl.Base.IsZero() {
 			return nil
 		}
-		return []TypeRef{r.typeRefZero(decl.Base)}
+		refs := make([]TypeRef, 0, 1)
+		return append(refs, r.typeRefZero(decl.Base))
 	}
 	return nil
 }
@@ -622,14 +694,14 @@ func (r *docResolver) simpleDerivationRefs(decl *ast.SimpleTypeDecl) []TypeRef {
 			refs = append(refs, r.typeRefZero(decl.Base))
 		}
 		if decl.InlineBase != nil {
-			refs = append(refs, TypeRef{ID: r.simpleIDs[r.simpleDeclHandle(decl.InlineBase)], Name: nameFromQName(decl.InlineBase.Name)})
+			refs = append(refs, UserTypeRef(r.ids.simpleTypes[r.simpleDeclHandle(decl.InlineBase)], nameFromQName(decl.InlineBase.Name)))
 		}
 	case ast.SimpleDerivationList:
 		if !decl.ItemType.IsZero() {
 			refs = append(refs, r.typeRefZero(decl.ItemType))
 		}
 		if decl.InlineItem != nil {
-			refs = append(refs, TypeRef{ID: r.simpleIDs[r.simpleDeclHandle(decl.InlineItem)], Name: nameFromQName(decl.InlineItem.Name)})
+			refs = append(refs, UserTypeRef(r.ids.simpleTypes[r.simpleDeclHandle(decl.InlineItem)], nameFromQName(decl.InlineItem.Name)))
 		}
 	case ast.SimpleDerivationUnion:
 		for _, member := range decl.MemberTypes {
@@ -637,49 +709,49 @@ func (r *docResolver) simpleDerivationRefs(decl *ast.SimpleTypeDecl) []TypeRef {
 		}
 		for i := range decl.InlineMembers {
 			member := &decl.InlineMembers[i]
-			refs = append(refs, TypeRef{ID: r.simpleIDs[r.simpleDeclHandle(member)], Name: nameFromQName(member.Name)})
+			refs = append(refs, UserTypeRef(r.ids.simpleTypes[r.simpleDeclHandle(member)], nameFromQName(member.Name)))
 		}
 	}
 	return refs
 }
 
 func (r *docResolver) typeNameByID(id TypeID) Name {
-	if decl := r.simpleDecls[r.simpleByID[id]]; decl != nil {
+	if decl := r.simpleDecls[r.ids.simpleByID[id]]; decl != nil {
 		return nameFromQName(decl.Name)
 	}
-	if decl := r.complexDecls[r.complexByID[id]]; decl != nil {
+	if decl := r.complexDecls[r.ids.complexByID[id]]; decl != nil {
 		return nameFromQName(decl.Name)
 	}
 	return Name{}
 }
 
-func (r *docResolver) assignComplexTypeID(decl *ast.ComplexTypeDecl, global bool) {
+func (b *idPlanBuilder) assignComplexTypeID(decl *ast.ComplexTypeDecl, global bool) {
 	if decl == nil {
 		return
 	}
-	handle := r.complexDeclHandle(decl)
-	if _, exists := r.complexIDs[handle]; exists {
+	handle := b.resolver.complexDeclHandle(decl)
+	if _, exists := b.plan.complexTypes[handle]; exists {
 		return
 	}
-	id := r.nextType
-	r.nextType++
-	r.complexIDs[handle] = id
-	r.complexByID[id] = handle
+	id := b.nextType
+	b.nextType++
+	b.plan.complexTypes[handle] = id
+	b.plan.complexByID[id] = handle
 	if global {
-		r.types[nameFromQName(decl.Name)] = id
+		b.plan.globalTypes[nameFromQName(decl.Name)] = id
 	}
 }
 
-func (r *docResolver) assignTypeUseInlineIDs(use ast.TypeUse) {
-	r.assignSimpleTypeTree(use.Simple, false)
-	r.assignComplexTypeTree(use.Complex, false)
+func (b *idPlanBuilder) assignTypeUseInlineIDs(use ast.TypeUse) {
+	b.assignSimpleTypeTree(use.Simple, false)
+	b.assignComplexTypeTree(use.Complex, false)
 }
 
-func (r *docResolver) assignParticleInlineIDs(decl *ast.ParticleDecl) {
-	r.assignParticleInlineIDsWithStack(decl, nil)
+func (b *idPlanBuilder) assignParticleInlineIDs(decl *ast.ParticleDecl) {
+	b.assignParticleInlineIDsWithStack(decl, nil)
 }
 
-func (r *docResolver) assignParticleInlineIDsWithStack(decl *ast.ParticleDecl, stack []Name) {
+func (b *idPlanBuilder) assignParticleInlineIDsWithStack(decl *ast.ParticleDecl, stack []Name) {
 	if decl == nil {
 		return
 	}
@@ -688,62 +760,62 @@ func (r *docResolver) assignParticleInlineIDsWithStack(decl *ast.ParticleDecl, s
 		if slices.Contains(stack, groupName) {
 			return
 		}
-		group := r.groups[groupName]
+		group := b.globals.groups[groupName]
 		if group != nil {
-			r.assignParticleInlineIDsWithStack(group.Particle, append(stack, groupName))
+			b.assignParticleInlineIDsWithStack(group.Particle, append(stack, groupName))
 		}
 		return
 	}
 	if decl.Element != nil {
-		r.assignElementID(decl.Element, false)
-		r.assignTypeUseInlineIDs(decl.Element.Type)
+		b.assignElementID(decl.Element, false)
+		b.assignTypeUseInlineIDs(decl.Element.Type)
 	}
 	for i := range decl.Children {
-		r.assignParticleInlineIDsWithStack(&decl.Children[i], stack)
+		b.assignParticleInlineIDsWithStack(&decl.Children[i], stack)
 	}
 }
 
-func (r *docResolver) assignAttributeUseInlineIDs(use *ast.AttributeUseDecl, emitLocalDecl bool) {
+func (b *idPlanBuilder) assignAttributeUseInlineIDs(use *ast.AttributeUseDecl, emitLocalDecl bool) {
 	if use == nil || use.Attribute == nil {
 		return
 	}
 	if emitLocalDecl {
-		r.assignAttributeID(use.Attribute, false)
+		b.assignAttributeID(use.Attribute, false)
 	}
-	r.assignTypeUseInlineIDs(use.Attribute.Type)
+	b.assignTypeUseInlineIDs(use.Attribute.Type)
 }
 
-func (r *docResolver) assignElementID(decl *ast.ElementDecl, global bool) {
+func (b *idPlanBuilder) assignElementID(decl *ast.ElementDecl, global bool) {
 	if decl == nil || !decl.Ref.IsZero() {
 		return
 	}
-	handle := r.elementDeclHandle(decl)
-	if _, exists := r.localElems[handle]; exists {
+	handle := b.resolver.elementDeclHandle(decl)
+	if _, exists := b.plan.elements[handle]; exists {
 		return
 	}
-	id := r.nextElem
-	r.nextElem++
-	r.localElems[handle] = id
-	r.elemByID[id] = handle
+	id := b.nextElem
+	b.nextElem++
+	b.plan.elements[handle] = id
+	b.plan.elementByID[id] = handle
 	if global {
-		r.elements[nameFromQName(decl.Name)] = id
+		b.plan.globalElements[nameFromQName(decl.Name)] = id
 	}
 }
 
-func (r *docResolver) assignAttributeID(decl *ast.AttributeDecl, global bool) {
+func (b *idPlanBuilder) assignAttributeID(decl *ast.AttributeDecl, global bool) {
 	if decl == nil || !decl.Ref.IsZero() {
 		return
 	}
-	handle := r.attributeDeclHandle(decl)
-	if _, exists := r.localAttrs[handle]; exists {
+	handle := b.resolver.attributeDeclHandle(decl)
+	if _, exists := b.plan.attributes[handle]; exists {
 		return
 	}
-	id := r.nextAttr
-	r.nextAttr++
-	r.localAttrs[handle] = id
-	r.attrByID[id] = handle
+	id := b.nextAttr
+	b.nextAttr++
+	b.plan.attributes[handle] = id
+	b.plan.attributeByID[id] = handle
 	if global {
-		r.attrs[nameFromQName(decl.Name)] = id
+		b.plan.globalAttributes[nameFromQName(decl.Name)] = id
 	}
 }
 
@@ -799,7 +871,7 @@ func (r *docResolver) emitParticleDeclarations(decl *ast.ParticleDecl, stack []N
 	}
 	if decl.Kind == ast.ParticleGroup {
 		groupName := nameFromQName(decl.GroupRef)
-		group, ok := r.groups[groupName]
+		group, ok := r.globals.groups[groupName]
 		if !ok {
 			return fmt.Errorf("schema ir: group ref %s not found", formatName(groupName))
 		}
@@ -838,7 +910,7 @@ func (r *docResolver) emitAttributeGroupDeclarations(group *ast.AttributeGroupDe
 	}
 	for _, ref := range group.AttributeGroups {
 		nestedName := nameFromQName(ref)
-		nested, ok := r.attrgrps[nestedName]
+		nested, ok := r.globals.attributeGroups[nestedName]
 		if !ok {
 			return fmt.Errorf("schema ir: attributeGroup ref %s not found", formatName(nestedName))
 		}
@@ -854,11 +926,8 @@ func (r *docResolver) ensureSimpleType(decl *ast.SimpleTypeDecl, global bool) (T
 		return 0, nil
 	}
 	handle := r.simpleDeclHandle(decl)
-	id, ok := r.simpleIDs[handle]
-	return r.ensureType(global, nameFromQName(decl.Name), id, ok, func(id TypeID) {
-		r.simpleIDs[handle] = id
-		r.simpleByID[id] = handle
-	}, func(id TypeID, global bool) error {
+	id, ok := r.ids.simpleTypes[handle]
+	return r.ensureType(global, nameFromQName(decl.Name), id, ok, func(id TypeID, global bool) error {
 		return r.emitSimpleType(id, decl, global)
 	})
 }
@@ -868,11 +937,8 @@ func (r *docResolver) ensureComplexType(decl *ast.ComplexTypeDecl, global bool) 
 		return 0, nil
 	}
 	handle := r.complexDeclHandle(decl)
-	id, ok := r.complexIDs[handle]
-	return r.ensureType(global, nameFromQName(decl.Name), id, ok, func(id TypeID) {
-		r.complexIDs[handle] = id
-		r.complexByID[id] = handle
-	}, func(id TypeID, global bool) error {
+	id, ok := r.ids.complexTypes[handle]
+	return r.ensureType(global, nameFromQName(decl.Name), id, ok, func(id TypeID, global bool) error {
 		return r.emitComplexType(id, decl, global)
 	})
 }
@@ -882,25 +948,14 @@ func (r *docResolver) ensureType(
 	name Name,
 	id TypeID,
 	ok bool,
-	reserve func(TypeID),
 	emit func(TypeID, bool) error,
 ) (TypeID, error) {
-	if ok {
-		return r.emitPendingType(id, global, name, func(global bool) error {
-			return emit(id, global)
-		})
+	if !ok {
+		return 0, fmt.Errorf("schema ir: type %s missing ID", formatName(name))
 	}
-	id = r.allocateTypeID()
-	reserve(id)
-	return r.emitPendingType(id, false, name, func(global bool) error {
+	return r.emitPendingType(id, global, name, func(global bool) error {
 		return emit(id, global)
 	})
-}
-
-func (r *docResolver) allocateTypeID() TypeID {
-	id := r.nextType
-	r.nextType++
-	return id
 }
 
 func (r *docResolver) emitPendingType(id TypeID, global bool, name Name, emit func(bool) error) (TypeID, error) {
@@ -924,7 +979,7 @@ func (r *docResolver) emitSimpleType(id TypeID, decl *ast.SimpleTypeDecl, global
 	if err != nil {
 		return err
 	}
-	if !base.Builtin && base.ID == id {
+	if !base.IsBuiltin() && base.TypeID() == id {
 		return fmt.Errorf("schema ir: type derivation cycle at %s", formatName(name))
 	}
 	if err := r.validateSimpleDerivationFinal(decl, base, derivation); err != nil {
@@ -974,7 +1029,7 @@ func (r *docResolver) validateSimpleDerivationFinal(decl *ast.SimpleTypeDecl, ba
 }
 
 func (r *docResolver) validateSimpleRefFinal(ref TypeRef, derivation Derivation, action string) error {
-	if isZeroTypeRef(ref) || ref.Builtin || derivation == DerivationNone {
+	if ref.IsZero() || ref.IsBuiltin() || derivation == DerivationNone {
 		return nil
 	}
 	baseDecl, ok, err := r.typeInfoForRef(ref)
@@ -984,7 +1039,7 @@ func (r *docResolver) validateSimpleRefFinal(ref TypeRef, derivation Derivation,
 	if baseDecl.Final&derivation == 0 {
 		return nil
 	}
-	return fmt.Errorf("schema ir: cannot %s type %s: base type is final for %s", action, formatName(ref.Name), derivationLabel(derivation))
+	return fmt.Errorf("schema ir: cannot %s type %s: base type is final for %s", action, formatName(ref.TypeName()), derivationLabel(derivation))
 }
 
 func (r *docResolver) emitComplexType(id TypeID, decl *ast.ComplexTypeDecl, global bool) error {
@@ -997,7 +1052,7 @@ func (r *docResolver) emitComplexType(id TypeID, decl *ast.ComplexTypeDecl, glob
 		if err != nil {
 			return err
 		}
-		if !resolved.Builtin && resolved.ID == id {
+		if !resolved.IsBuiltin() && resolved.TypeID() == id {
 			return fmt.Errorf("schema ir: type derivation cycle at %s", formatName(nameFromQName(decl.Name)))
 		}
 		base = resolved
@@ -1047,30 +1102,31 @@ func (r *docResolver) validateComplexContentBaseKind(decl *ast.ComplexTypeDecl, 
 	}
 	switch decl.Derivation {
 	case ast.ComplexDerivationExtension:
-		return fmt.Errorf("schema ir: complexContent extension cannot derive from simpleType '%s'", base.Name.Local)
+		return fmt.Errorf("schema ir: complexContent extension cannot derive from simpleType '%s'", base.TypeName().Local)
 	case ast.ComplexDerivationRestriction:
-		return fmt.Errorf("schema ir: complexContent restriction cannot derive from simpleType '%s'", base.Name.Local)
+		return fmt.Errorf("schema ir: complexContent restriction cannot derive from simpleType '%s'", base.TypeName().Local)
 	default:
 		return nil
 	}
 }
 
 func (r *docResolver) validateComplexDerivationFinal(decl *ast.ComplexTypeDecl, base TypeRef) error {
-	if decl == nil || base.Builtin || base.ID == 0 {
+	baseID := base.TypeID()
+	if decl == nil || base.IsBuiltin() || baseID == 0 {
 		return nil
 	}
-	baseDecl := r.complexDecls[r.complexByID[base.ID]]
+	baseDecl := r.complexDecls[r.ids.complexByID[baseID]]
 	if baseDecl == nil {
 		return nil
 	}
 	switch decl.Derivation {
 	case ast.ComplexDerivationExtension:
 		if baseDecl.Final.Has(ast.DerivationExtension) {
-			return fmt.Errorf("schema ir: cannot extend type %s: base type is final for extension", formatName(base.Name))
+			return fmt.Errorf("schema ir: cannot extend type %s: base type is final for extension", formatName(base.TypeName()))
 		}
 	case ast.ComplexDerivationRestriction:
 		if baseDecl.Final.Has(ast.DerivationRestriction) {
-			return fmt.Errorf("schema ir: cannot restrict type %s: base type is final for restriction", formatName(base.Name))
+			return fmt.Errorf("schema ir: cannot restrict type %s: base type is final for restriction", formatName(base.TypeName()))
 		}
 	}
 	return nil
@@ -1122,7 +1178,7 @@ type complexPlanBase struct {
 
 func (r *docResolver) applyComplexPlanBase(plan *ComplexTypePlan, decl *ast.ComplexTypeDecl) (complexPlanBase, error) {
 	base := complexPlanBase{ref: r.typeRefZero(decl.Base)}
-	if isZeroTypeRef(base.ref) {
+	if base.ref.IsZero() {
 		return base, nil
 	}
 	var err error
@@ -1145,13 +1201,13 @@ func (r *docResolver) applyComplexPlanBase(plan *ComplexTypePlan, decl *ast.Comp
 			copyComplexPlanContent(plan, base.plan)
 		}
 		if decl.Particle != nil && base.plan.Content == ContentSimple {
-			return base, fmt.Errorf("schema ir: cannot extend simpleContent type %s with particles", formatName(base.ref.Name))
+			return base, fmt.Errorf("schema ir: cannot extend simpleContent type %s with particles", formatName(base.ref.TypeName()))
 		}
 	case ast.ComplexDerivationRestriction:
 		plan.Attrs = append(plan.Attrs, base.plan.Attrs...)
 		base.inheritedAny = base.plan.AnyAttr
 	}
-	if decl.Content == ast.ComplexContentSimple && isZeroTypeRef(plan.TextType) {
+	if decl.Content == ast.ComplexContentSimple && plan.TextType.IsZero() {
 		plan.TextType = base.plan.TextType
 	}
 	if decl.Content == ast.ComplexContentComplex {
@@ -1159,7 +1215,7 @@ func (r *docResolver) applyComplexPlanBase(plan *ComplexTypePlan, decl *ast.Comp
 			return base, err
 		}
 		if decl.Derivation == ast.ComplexDerivationRestriction && base.plan.Content == ContentSimple {
-			return base, fmt.Errorf("schema ir: complexContent restriction cannot derive from simpleContent type '%s'", base.ref.Name.Local)
+			return base, fmt.Errorf("schema ir: complexContent restriction cannot derive from simpleContent type '%s'", base.ref.TypeName().Local)
 		}
 	}
 	return base, nil
@@ -1295,9 +1351,6 @@ func (r *docResolver) applyComplexPlanParticleContent(plan *ComplexTypePlan, dec
 	if err != nil {
 		return err
 	}
-	if err := r.validateComplexPlanParticleRestriction(decl, base, particle); err != nil {
-		return err
-	}
 	if err := r.validateComplexPlanAllExtension(base, decl, particle); err != nil {
 		return err
 	}
@@ -1310,22 +1363,6 @@ func (r *docResolver) applyComplexPlanParticleContent(plan *ComplexTypePlan, dec
 		plan.Content = ContentAll
 	} else if plan.Particle != 0 {
 		plan.Content = ContentElement
-	}
-	return nil
-}
-
-func (r *docResolver) validateComplexPlanParticleRestriction(decl *ast.ComplexTypeDecl, base complexPlanBase, particle ParticleID) error {
-	if decl.Derivation != ast.ComplexDerivationRestriction || particle == 0 {
-		return nil
-	}
-	if base.hasPlan && base.plan.Particle != 0 {
-		return r.validateParticleRestriction(base.plan.Particle, particle)
-	}
-	if !isZeroTypeRef(base.ref) && !base.ref.Builtin {
-		r.particleChecks = append(r.particleChecks, pendingParticleRestriction{
-			base:        base.ref,
-			restriction: particle,
-		})
 	}
 	return nil
 }
@@ -1356,14 +1393,14 @@ func (r *docResolver) validateMixedContentDerivation(decl *ast.ComplexTypeDecl, 
 			return nil
 		}
 		if baseMixed && !derivedMixed {
-			return fmt.Errorf("schema ir: mixed content derivation: cannot extend mixed content type '%s' to element-only content", baseRef.Name.Local)
+			return fmt.Errorf("schema ir: mixed content derivation: cannot extend mixed content type '%s' to element-only content", baseRef.TypeName().Local)
 		}
 		if !baseMixed && derivedMixed {
-			return fmt.Errorf("schema ir: mixed content derivation: cannot extend element-only content type '%s' to mixed content", baseRef.Name.Local)
+			return fmt.Errorf("schema ir: mixed content derivation: cannot extend element-only content type '%s' to mixed content", baseRef.TypeName().Local)
 		}
 	case ast.ComplexDerivationRestriction:
 		if !baseMixed && derivedMixed {
-			return fmt.Errorf("schema ir: mixed content derivation: cannot restrict element-only content type '%s' to mixed content", baseRef.Name.Local)
+			return fmt.Errorf("schema ir: mixed content derivation: cannot restrict element-only content type '%s' to mixed content", baseRef.TypeName().Local)
 		}
 	}
 	return nil
@@ -1383,49 +1420,49 @@ func (r *docResolver) simpleContentText(
 	hasBasePlan bool,
 ) (TypeRef, SimpleTypeSpec, error) {
 	if decl.Derivation == ast.ComplexDerivationExtension && isBuiltinAnyType(baseRef) {
-		return TypeRef{}, SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent extension cannot have base type anyType")
+		return NoTypeRef(), SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent extension cannot have base type anyType")
 	}
 	baseTextRef, baseTextSpec, err := r.simpleContentBaseText(baseRef, basePlan, hasBasePlan)
 	if err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
+		return NoTypeRef(), SimpleTypeSpec{}, err
 	}
 	if decl.Derivation != ast.ComplexDerivationRestriction {
 		return baseTextRef, baseTextSpec, nil
 	}
 	if err := r.validateSimpleContentRestrictionBase(baseRef); err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
+		return NoTypeRef(), SimpleTypeSpec{}, err
 	}
 
 	baseSpec, ok, err := r.simpleContentBaseSpec(baseTextRef, baseTextSpec)
 	if err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
+		return NoTypeRef(), SimpleTypeSpec{}, err
 	}
 	if !ok {
-		return TypeRef{}, SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent restriction base %s has no simple value type", formatName(baseRef.Name))
+		return NoTypeRef(), SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent restriction base %s has no simple value type", formatName(baseRef.TypeName()))
 	}
 	spec, err := r.simpleContentRestrictionSpec(decl, baseTextRef, baseSpec)
 	if err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
+		return NoTypeRef(), SimpleTypeSpec{}, err
 	}
 	spec, err = r.applyRestrictionFacets(spec, decl.SimpleFacets, restrictionFacetOptions{
 		context:               "simpleContent restriction",
 		rejectAnySimpleFacets: true,
 	})
 	if err != nil {
-		return TypeRef{}, SimpleTypeSpec{}, err
+		return NoTypeRef(), SimpleTypeSpec{}, err
 	}
-	return TypeRef{}, spec, nil
+	return NoTypeRef(), spec, nil
 }
 
 func (r *docResolver) validateSimpleContentRestrictionBase(baseRef TypeRef) error {
-	if isZeroTypeRef(baseRef) {
+	if baseRef.IsZero() {
 		return nil
 	}
-	if baseRef.Builtin {
-		return fmt.Errorf("schema ir: simpleContent restriction cannot have simpleType base '%s'", formatName(baseRef.Name))
+	if baseRef.IsBuiltin() {
+		return fmt.Errorf("schema ir: simpleContent restriction cannot have simpleType base '%s'", formatName(baseRef.TypeName()))
 	}
-	if r.simpleDecls[r.simpleByID[baseRef.ID]] != nil {
-		return fmt.Errorf("schema ir: simpleContent restriction cannot have simpleType base '%s'", formatName(baseRef.Name))
+	if r.simpleDecls[r.ids.simpleByID[baseRef.TypeID()]] != nil {
+		return fmt.Errorf("schema ir: simpleContent restriction cannot have simpleType base '%s'", formatName(baseRef.TypeName()))
 	}
 	return nil
 }
@@ -1442,7 +1479,7 @@ func (r *docResolver) simpleContentRestrictionSpec(
 		if err != nil {
 			return SimpleTypeSpec{}, err
 		}
-		inlineRef := TypeRef{ID: inlineID, Name: nameFromQName(decl.SimpleType.Name)}
+		inlineRef := UserTypeRef(inlineID, nameFromQName(decl.SimpleType.Name))
 		if err := r.validateSimpleContentInlineRestriction(baseTextRef, inlineRef); err != nil {
 			return SimpleTypeSpec{}, err
 		}
@@ -1472,13 +1509,13 @@ func (r *docResolver) simpleContentRestrictionSpec(
 }
 
 func (r *docResolver) validateSimpleContentInlineRestriction(base TypeRef, inline TypeRef) error {
-	if isZeroTypeRef(base) || isZeroTypeRef(inline) {
+	if base.IsZero() || inline.IsZero() {
 		return nil
 	}
 	if r.typeRefDerivesFrom(inline, base, make(map[TypeRef]bool)) {
 		return nil
 	}
-	return fmt.Errorf("schema ir: simpleContent nested simpleType %s does not derive from %s", formatName(inline.Name), formatName(base.Name))
+	return fmt.Errorf("schema ir: simpleContent nested simpleType %s does not derive from %s", formatName(inline.TypeName()), formatName(base.TypeName()))
 }
 
 func (r *docResolver) typeRefDerivesFrom(ref, target TypeRef, seen map[TypeRef]bool) bool {
@@ -1490,7 +1527,7 @@ func (r *docResolver) typeRefDerivesFrom(ref, target TypeRef, seen map[TypeRef]b
 	}
 	seen[ref] = true
 	spec, ok := r.specForRef(ref)
-	if !ok || isZeroTypeRef(spec.Base) {
+	if !ok || spec.Base.IsZero() {
 		return false
 	}
 	return r.typeRefDerivesFrom(spec.Base, target, seen)
@@ -1502,37 +1539,37 @@ func (r *docResolver) simpleContentBaseText(
 	hasBasePlan bool,
 ) (TypeRef, SimpleTypeSpec, error) {
 	if hasBasePlan {
-		if !isZeroTypeRef(basePlan.TextType) {
+		if !basePlan.TextType.IsZero() {
 			return basePlan.TextType, SimpleTypeSpec{}, nil
 		}
 		if !isZeroSimpleTypeSpec(basePlan.TextSpec) {
-			return TypeRef{}, basePlan.TextSpec, nil
+			return NoTypeRef(), basePlan.TextSpec, nil
 		}
 	}
-	if isZeroTypeRef(baseRef) {
-		return TypeRef{}, SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent base missing")
+	if baseRef.IsZero() {
+		return NoTypeRef(), SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent base missing")
 	}
-	if baseRef.Builtin {
+	if baseRef.IsBuiltin() {
 		return baseRef, SimpleTypeSpec{}, nil
 	}
-	if decl := r.simpleDecls[r.simpleByID[baseRef.ID]]; decl != nil {
+	if decl := r.simpleDecls[r.ids.simpleByID[baseRef.TypeID()]]; decl != nil {
 		if _, err := r.ensureSimpleType(decl, !decl.Name.IsZero()); err != nil {
-			return TypeRef{}, SimpleTypeSpec{}, err
+			return NoTypeRef(), SimpleTypeSpec{}, err
 		}
 		return baseRef, SimpleTypeSpec{}, nil
 	}
-	return TypeRef{}, SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent base %s is not simple", formatName(baseRef.Name))
+	return NoTypeRef(), SimpleTypeSpec{}, fmt.Errorf("schema ir: simpleContent base %s is not simple", formatName(baseRef.TypeName()))
 }
 
 func (r *docResolver) simpleContentBaseSpec(ref TypeRef, spec SimpleTypeSpec) (SimpleTypeSpec, bool, error) {
 	if !isZeroSimpleTypeSpec(spec) {
 		return spec, true, nil
 	}
-	if isZeroTypeRef(ref) {
+	if ref.IsZero() {
 		return SimpleTypeSpec{}, false, nil
 	}
-	if !ref.Builtin {
-		if decl := r.simpleDecls[r.simpleByID[ref.ID]]; decl != nil {
+	if !ref.IsBuiltin() {
+		if decl := r.simpleDecls[r.ids.simpleByID[ref.TypeID()]]; decl != nil {
 			if _, err := r.ensureSimpleType(decl, !decl.Name.IsZero()); err != nil {
 				return SimpleTypeSpec{}, false, err
 			}
@@ -1550,21 +1587,21 @@ func isZeroSimpleTypeSpec(spec SimpleTypeSpec) bool {
 		spec.Primitive == "" &&
 		spec.BuiltinBase == "" &&
 		spec.Variety == TypeVarietyAtomic &&
-		isZeroTypeRef(spec.Base) &&
-		isZeroTypeRef(spec.Item) &&
+		spec.Base.IsZero() &&
+		spec.Item.IsZero() &&
 		len(spec.Members) == 0 &&
 		len(spec.Facets) == 0
 }
 
 func (r *docResolver) isIDType(ref TypeRef, seen map[TypeRef]bool) (bool, error) {
-	if ref.Builtin {
-		return ref.Name.Local == "ID", nil
+	if ref.IsBuiltin() {
+		return ref.TypeName().Local == "ID", nil
 	}
 	if seen[ref] {
 		return false, nil
 	}
 	seen[ref] = true
-	if decl := r.simpleDecls[r.simpleByID[ref.ID]]; decl != nil {
+	if decl := r.simpleDecls[r.ids.simpleByID[ref.TypeID()]]; decl != nil {
 		if _, err := r.ensureSimpleType(decl, !decl.Name.IsZero()); err != nil {
 			return false, err
 		}
@@ -1576,7 +1613,7 @@ func (r *docResolver) isIDType(ref TypeRef, seen map[TypeRef]bool) (bool, error)
 	if spec.Name.Local == "ID" || spec.BuiltinBase == "ID" {
 		return true, nil
 	}
-	if !isZeroTypeRef(spec.Base) {
+	if !spec.Base.IsZero() {
 		return r.isIDType(spec.Base, seen)
 	}
 	return false, nil
@@ -1622,19 +1659,20 @@ func (r *docResolver) attributeUseName(id AttributeUseID) Name {
 }
 
 func (r *docResolver) ensureBaseComplexPlan(ref TypeRef) (ComplexTypePlan, bool, error) {
-	if ref.Builtin || ref.ID == 0 {
+	refID := ref.TypeID()
+	if ref.IsBuiltin() || refID == 0 {
 		return ComplexTypePlan{}, false, nil
 	}
-	if r.emittingTypes[ref.ID] {
+	if r.emittingTypes[refID] {
 		return ComplexTypePlan{}, false, nil
 	}
-	if decl := r.complexDecls[r.complexByID[ref.ID]]; decl != nil {
+	if decl := r.complexDecls[r.ids.complexByID[refID]]; decl != nil {
 		if _, err := r.ensureComplexType(decl, !decl.Name.IsZero()); err != nil {
 			return ComplexTypePlan{}, false, err
 		}
 	}
 	for _, plan := range r.out.ComplexTypes {
-		if plan.TypeDecl == ref.ID {
+		if plan.TypeDecl == refID {
 			return plan, true, nil
 		}
 	}
@@ -1642,7 +1680,8 @@ func (r *docResolver) ensureBaseComplexPlan(ref TypeRef) (ComplexTypePlan, bool,
 }
 
 func isBuiltinAnyType(ref TypeRef) bool {
-	return ref.Builtin && ref.Name.Namespace == ast.XSDNamespace && ref.Name.Local == "anyType"
+	name := ref.TypeName()
+	return ref.IsBuiltin() && name.Namespace == ast.XSDNamespace && name.Local == "anyType"
 }
 
 func (r *docResolver) addAnyTypeContentParticle() ParticleID {
@@ -1653,26 +1692,13 @@ func (r *docResolver) addAnyTypeContentParticle() ParticleID {
 		MaxOccurs:       ast.OccursUnbounded,
 	})
 	id := ParticleID(len(r.out.Particles) + 1)
-	r.out.Particles = append(r.out.Particles, Particle{
-		ID:       id,
-		Kind:     ParticleWildcard,
-		Wildcard: wildcardID,
-		Min:      Occurs{Value: 0},
-		Max:      Occurs{Unbounded: true},
-	})
+	r.out.Particles = append(r.out.Particles, WildcardParticle(id, wildcardID, Occurs{Value: 0}, Occurs{Unbounded: true}))
 	return id
 }
 
 func (r *docResolver) addSequenceParticle(left, right ParticleID) ParticleID {
 	id := ParticleID(len(r.out.Particles) + 1)
-	r.out.Particles = append(r.out.Particles, Particle{
-		ID:       id,
-		Kind:     ParticleGroup,
-		Group:    GroupSequence,
-		Children: []ParticleID{left, right},
-		Min:      Occurs{Value: 1},
-		Max:      Occurs{Value: 1},
-	})
+	r.out.Particles = append(r.out.Particles, GroupParticle(id, GroupSequence, []ParticleID{left, right}, Occurs{Value: 1}, Occurs{Value: 1}))
 	return id
 }
 

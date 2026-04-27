@@ -32,19 +32,19 @@ func TestWildcardAcceptsEnumerationWithBytesFallback(t *testing.T) {
 	}
 	list := []NamespaceID{other}
 
-	if !rule.Accepts(nil, target, &schema.Namespaces, list) {
+	if !rule.Accepts(nil, target, &schema.namespaces, list) {
 		t.Fatalf("expected target namespace to be accepted")
 	}
-	if !rule.Accepts([]byte("urn:target"), 0, &schema.Namespaces, list) {
+	if !rule.Accepts([]byte("urn:target"), 0, &schema.namespaces, list) {
 		t.Fatalf("expected byte-compare target namespace to be accepted")
 	}
-	if !rule.Accepts(nil, 0, &schema.Namespaces, list) {
+	if !rule.Accepts(nil, 0, &schema.namespaces, list) {
 		t.Fatalf("expected local namespace to be accepted")
 	}
-	if !rule.Accepts([]byte("urn:other"), 0, &schema.Namespaces, list) {
+	if !rule.Accepts([]byte("urn:other"), 0, &schema.namespaces, list) {
 		t.Fatalf("expected byte-compare list namespace to be accepted")
 	}
-	if rule.Accepts([]byte("urn:unknown"), 0, &schema.Namespaces, list) {
+	if rule.Accepts([]byte("urn:unknown"), 0, &schema.namespaces, list) {
 		t.Fatalf("expected unknown namespace to be rejected")
 	}
 }
@@ -68,19 +68,19 @@ func TestWildcardAcceptsOther(t *testing.T) {
 		NS:       NSConstraint{Kind: NSOther},
 		TargetNS: target,
 	}
-	if rule.Accepts(nil, target, &schema.Namespaces, nil) {
+	if rule.Accepts(nil, target, &schema.namespaces, nil) {
 		t.Fatalf("expected target namespace to be rejected")
 	}
-	if rule.Accepts(nil, 0, &schema.Namespaces, nil) {
+	if rule.Accepts(nil, 0, &schema.namespaces, nil) {
 		t.Fatalf("expected local namespace to be rejected")
 	}
-	if !rule.Accepts(nil, other, &schema.Namespaces, nil) {
+	if !rule.Accepts(nil, other, &schema.namespaces, nil) {
 		t.Fatalf("expected other namespace to be accepted")
 	}
-	if !rule.Accepts([]byte("urn:other"), 0, &schema.Namespaces, nil) {
+	if !rule.Accepts([]byte("urn:other"), 0, &schema.namespaces, nil) {
 		t.Fatalf("expected byte-compare other namespace to be accepted")
 	}
-	if rule.Accepts([]byte("urn:target"), 0, &schema.Namespaces, nil) {
+	if rule.Accepts([]byte("urn:target"), 0, &schema.namespaces, nil) {
 		t.Fatalf("expected byte-compare target namespace to be rejected")
 	}
 }
@@ -99,13 +99,13 @@ func TestWildcardAcceptsNotAbsent(t *testing.T) {
 	rule := WildcardRule{
 		NS: NSConstraint{Kind: NSNotAbsent},
 	}
-	if rule.Accepts(nil, 0, &schema.Namespaces, nil) {
+	if rule.Accepts(nil, 0, &schema.namespaces, nil) {
 		t.Fatalf("expected local namespace to be rejected")
 	}
-	if !rule.Accepts(nil, other, &schema.Namespaces, nil) {
+	if !rule.Accepts(nil, other, &schema.namespaces, nil) {
 		t.Fatalf("expected other namespace to be accepted")
 	}
-	if !rule.Accepts([]byte("urn:other"), 0, &schema.Namespaces, nil) {
+	if !rule.Accepts([]byte("urn:other"), 0, &schema.namespaces, nil) {
 		t.Fatalf("expected byte-compare other namespace to be accepted")
 	}
 }
@@ -125,14 +125,14 @@ func TestSchemaWildcardAccepts(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	schema.Wildcards = []WildcardRule{
+	schema.wildcards = []WildcardRule{
 		{},
 		{
 			NS:       NSConstraint{Kind: NSEnumeration, HasTarget: true, HasLocal: true, Off: 0, Len: 1},
 			TargetNS: target,
 		},
 	}
-	schema.WildcardNS = []NamespaceID{other}
+	schema.wildcardNS = []NamespaceID{other}
 
 	if !schema.WildcardAccepts(1, nil, other) {
 		t.Fatalf("expected schema wildcard to accept list namespace")
@@ -143,7 +143,7 @@ func TestSchemaWildcardAccepts(t *testing.T) {
 	if !schema.WildcardAccepts(1, nil, 0) {
 		t.Fatalf("expected schema wildcard to accept local namespace")
 	}
-	if !schema.WildcardAccepts(1, nil, schema.PredefNS.Empty) {
+	if !schema.WildcardAccepts(1, nil, schema.predefNS.Empty) {
 		t.Fatalf("expected schema wildcard to accept empty namespace ID")
 	}
 }
@@ -260,11 +260,11 @@ func TestWildcardAcceptsExpectedNamespaces(t *testing.T) {
 
 				var nsID NamespaceID
 				if ns == "" {
-					nsID = schema.PredefNS.Empty
+					nsID = schema.predefNS.Empty
 				} else {
 					nsID = nsIDs[ns]
 				}
-				gotByID := rule.Accepts(nil, nsID, &schema.Namespaces, nsList)
+				gotByID := rule.Accepts(nil, nsID, &schema.namespaces, nsList)
 				if gotByID != want {
 					t.Fatalf("id path allows(%q) = %v, want %v", ns, gotByID, want)
 				}
@@ -273,7 +273,7 @@ func TestWildcardAcceptsExpectedNamespaces(t *testing.T) {
 				if ns == "" {
 					nsBytes = nil
 				}
-				gotByBytes := rule.Accepts(nsBytes, 0, &schema.Namespaces, nsList)
+				gotByBytes := rule.Accepts(nsBytes, 0, &schema.namespaces, nsList)
 				if gotByBytes != want {
 					t.Fatalf("bytes path allows(%q) = %v, want %v", ns, gotByBytes, want)
 				}

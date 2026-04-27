@@ -21,32 +21,32 @@ func TestValidatorZeroRejected(t *testing.T) {
 </xs:schema>`
 
 	rt := mustBuildRuntimeSchema(t, schemaXML)
-	ns := rt.PredefNS.Empty
-	rootSym := rt.Symbols.Lookup(ns, []byte("root"))
-	if rootSym == 0 || int(rootSym) >= len(rt.GlobalElements) {
+	ns := rt.KnownNamespaces().Empty
+	rootSym := rt.SymbolLookup(ns, []byte("root"))
+	if rootSym == 0 || int(rootSym) >= len(rt.GlobalElementIDs()) {
 		t.Fatalf("root symbol not found")
 	}
-	rootID := rt.GlobalElements[rootSym]
-	if int(rootID) >= len(rt.Elements) {
+	rootID := rt.GlobalElementIDs()[rootSym]
+	if int(rootID) >= len(rt.ElementTable()) {
 		t.Fatalf("root element not found")
 	}
-	root := rt.Elements[rootID]
-	if int(root.Type) >= len(rt.Types) {
+	root := rt.ElementTable()[rootID]
+	if int(root.Type) >= len(rt.TypeTable()) {
 		t.Fatalf("root type out of range")
 	}
-	rootType := rt.Types[root.Type]
+	rootType := rt.TypeTable()[root.Type]
 	if rootType.Kind != runtime.TypeComplex {
 		t.Fatalf("expected root to be complex type")
 	}
-	if rootType.Complex.ID == 0 || int(rootType.Complex.ID) >= len(rt.ComplexTypes) {
+	if rootType.Complex.ID == 0 || int(rootType.Complex.ID) >= len(rt.ComplexTypeTable()) {
 		t.Fatalf("root complex type not found")
 	}
-	attrSym := rt.Symbols.Lookup(ns, []byte("a"))
+	attrSym := rt.SymbolLookup(ns, []byte("a"))
 	if attrSym == 0 {
 		t.Fatalf("attribute symbol not found")
 	}
-	attrIndex := rt.ComplexTypes[rootType.Complex.ID].Attrs
-	uses := Uses(rt.AttrIndex.Uses, attrIndex)
+	attrIndex := rt.ComplexTypeTable()[rootType.Complex.ID].Attrs
+	uses := Uses(rt.AttributeIndex().Uses, attrIndex)
 	if len(uses) == 0 {
 		t.Fatalf("expected attribute uses")
 	}

@@ -124,7 +124,7 @@ func TestTrackDefaultRecursesThroughListItems(t *testing.T) {
 func TestTrackValidatedIDsNilMetricsDoesNotPanic(t *testing.T) {
 	t.Parallel()
 
-	rt, validator := benchmarkCollapsedDoubleListRuntime()
+	rt, validator := benchmarkCollapsedDoubleListRuntime(t)
 	sess := NewSession(rt)
 	input := benchmarkCollapsedDoubleList(16)
 

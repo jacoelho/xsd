@@ -74,14 +74,14 @@ func TestSchemaIRPreservesEffectiveSemantics(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 	runtimeTypeID := int(len(prepared.ir.BuiltinTypes) + int(length))
-	if runtimeTypeID <= 0 || runtimeTypeID >= len(rt.Types) {
+	if runtimeTypeID <= 0 || runtimeTypeID >= len(rt.TypeTable()) {
 		t.Fatalf("LengthType runtime type ID %d out of range", runtimeTypeID)
 	}
-	complexID := rt.Types[runtimeTypeID].Complex.ID
-	if complexID == 0 || int(complexID) >= len(rt.ComplexTypes) {
+	complexID := rt.TypeTable()[runtimeTypeID].Complex.ID
+	if complexID == 0 || int(complexID) >= len(rt.ComplexTypeTable()) {
 		t.Fatalf("LengthType complex ID %d out of range", complexID)
 	}
-	if rt.ComplexTypes[complexID].TextValidator == 0 {
+	if rt.ComplexTypeTable()[complexID].TextValidator == 0 {
 		t.Fatal("LengthType text validator = 0")
 	}
 }

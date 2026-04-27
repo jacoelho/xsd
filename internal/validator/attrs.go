@@ -136,11 +136,11 @@ func CollectAttrs(rt *runtime.Schema, attrs []RawAttr, applied []AppliedAttr, in
 	for _, attr := range attrs {
 		local := attr.Local
 		if len(local) == 0 && attr.Sym != 0 {
-			local = rt.Symbols.LocalBytes(attr.Sym)
+			local = rt.SymbolLocalBytes(attr.Sym)
 		}
 		nsBytes := attr.NSBytes
 		if len(nsBytes) == 0 && attr.NS != 0 {
-			nsBytes = rt.Namespaces.Bytes(attr.NS)
+			nsBytes = rt.NamespaceBytes(attr.NS)
 		}
 		nameID := AttrNameID(0)
 		if attr.Sym == 0 && intern != nil {
@@ -161,14 +161,14 @@ func CollectAttrs(rt *runtime.Schema, attrs []RawAttr, applied []AppliedAttr, in
 			continue
 		}
 		nsID := runtime.NamespaceID(0)
-		if int(attr.Name) < len(rt.Symbols.NS) {
-			nsID = rt.Symbols.NS[attr.Name]
+		if symbolNS, ok := rt.SymbolNamespace(attr.Name); ok {
+			nsID = symbolNS
 		}
 		out = append(out, Attr{
 			Sym:      attr.Name,
 			NS:       nsID,
-			NSBytes:  rt.Namespaces.Bytes(nsID),
-			Local:    rt.Symbols.LocalBytes(attr.Name),
+			NSBytes:  rt.NamespaceBytes(nsID),
+			Local:    rt.SymbolLocalBytes(attr.Name),
 			KeyKind:  attr.KeyKind,
 			KeyBytes: attr.KeyBytes,
 		})
@@ -182,7 +182,7 @@ func IsXMLNSAttr(attr *Attr, rt *runtime.Schema) bool {
 		return false
 	}
 	if attr.NS != 0 {
-		nsBytes := rt.Namespaces.Bytes(attr.NS)
+		nsBytes := rt.NamespaceBytes(attr.NS)
 		return bytes.Equal(nsBytes, []byte(value.XMLNSNamespace))
 	}
 	return bytes.Equal(attr.NSBytes, []byte(value.XMLNSNamespace))
@@ -199,7 +199,7 @@ func AttrNamespaceMatches(attr *Attr, ns runtime.NamespaceID, rt *runtime.Schema
 	if rt == nil {
 		return false
 	}
-	return bytes.Equal(attr.NSBytes, rt.Namespaces.Bytes(ns))
+	return bytes.Equal(attr.NSBytes, rt.NamespaceBytes(ns))
 }
 
 // AttrNameMatches reports whether the attribute matches the path op QName.
@@ -213,7 +213,7 @@ func AttrNameMatches(attr *Attr, op runtime.PathOp, rt *runtime.Schema) bool {
 	if rt == nil {
 		return false
 	}
-	targetLocal := rt.Symbols.LocalBytes(op.Sym)
+	targetLocal := rt.SymbolLocalBytes(op.Sym)
 	if !bytes.Equal(attr.Local, targetLocal) {
 		return false
 	}

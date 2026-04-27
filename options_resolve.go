@@ -1,6 +1,10 @@
 package xsd
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/xmltext"
+)
 
 func (c XMLConfig) resolve(label string) (xmlParseLimits, error) {
 	limits, err := resolveXMLParseLimits(
@@ -38,9 +42,13 @@ func (c ValidateConfig) withDefaults() (resolvedValidateOptions, error) {
 	if err != nil {
 		return resolvedValidateOptions{}, err
 	}
+	opts := instanceLimits.options()
+	if c.FastValidation {
+		opts = append(opts, xmltext.TrackLineColumn(false), xmltext.ResolveEntities(false))
+	}
 	return resolvedValidateOptions{
 		instanceLimits:       instanceLimits,
-		instanceParseOptions: instanceLimits.options(),
+		instanceParseOptions: opts,
 	}, nil
 }
 

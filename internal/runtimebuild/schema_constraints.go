@@ -9,33 +9,41 @@ import (
 )
 
 func (b *schemaBuilder) buildIdentityConstraints() error {
-	b.rt.ICSelectors = nil
-	b.rt.ICFields = nil
-	b.rt.ElemICs = nil
+	if err := b.assembler.SetIdentitySelectors(nil); err != nil {
+		return err
+	}
+	if err := b.assembler.SetIdentityFields(nil); err != nil {
+		return err
+	}
+	if err := b.assembler.SetElementIdentityConstraints(nil); err != nil {
+		return err
+	}
 
 	for _, constraint := range b.schema.IdentityConstraints {
 		elemID := runtime.ElemID(constraint.Element)
-		if elemID == 0 || int(elemID) >= len(b.rt.Elements) {
+		elem, ok := b.rt.Element(elemID)
+		if !ok {
 			return fmt.Errorf("runtime build: identity constraint %d element out of range", constraint.ID)
 		}
-		elem := b.rt.Elements[elemID]
 		if elem.ICLen == 0 {
-			elem.ICOff = uint32(len(b.rt.ElemICs))
+			elem.ICOff = uint32(b.rt.ElementIdentityConstraintCount())
 		}
 
-		icID := runtime.ICID(len(b.rt.ICs))
-		selectorOff := uint32(len(b.rt.ICSelectors))
+		icID := runtime.ICID(b.rt.IdentityConstraintCount())
+		selectorOff := uint32(b.rt.IdentitySelectorCount())
 		selectorPrograms, err := compileXPathPrograms(constraint.Selector, constraint.NamespaceContext, xsdpath.AttributesDisallowed, b.rt)
 		if err != nil {
 			return fmt.Errorf("runtime build: selector %s: %w", formatIRName(constraint.Name), err)
 		}
 		for _, program := range selectorPrograms {
 			pathID := b.addPath(program)
-			b.rt.ICSelectors = append(b.rt.ICSelectors, pathID)
+			if _, err := b.assembler.AppendIdentitySelector(pathID); err != nil {
+				return err
+			}
 		}
-		selectorLen := uint32(len(b.rt.ICSelectors)) - selectorOff
+		selectorLen := uint32(b.rt.IdentitySelectorCount()) - selectorOff
 
-		fieldOff := uint32(len(b.rt.ICFields))
+		fieldOff := uint32(b.rt.IdentityFieldCount())
 		for fieldIdx, field := range constraint.Fields {
 			fieldPrograms, err := compileXPathPrograms(field.XPath, constraint.NamespaceContext, xsdpath.AttributesAllowed, b.rt)
 			if err != nil {
@@ -43,13 +51,17 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 			}
 			for _, program := range fieldPrograms {
 				pathID := b.addPath(program)
-				b.rt.ICFields = append(b.rt.ICFields, pathID)
+				if _, err := b.assembler.AppendIdentityField(pathID); err != nil {
+					return err
+				}
 			}
 			if fieldIdx < len(constraint.Fields)-1 {
-				b.rt.ICFields = append(b.rt.ICFields, 0)
+				if _, err := b.assembler.AppendIdentityField(0); err != nil {
+					return err
+				}
 			}
 		}
-		fieldLen := uint32(len(b.rt.ICFields)) - fieldOff
+		fieldLen := uint32(b.rt.IdentityFieldCount()) - fieldOff
 
 		nameSym, err := b.lookupIRSymbol(constraint.Name)
 		if err != nil {
@@ -66,11 +78,17 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 		if constraint.Kind == schemair.IdentityKeyRef {
 			ic.Referenced = runtime.ICID(constraint.ReferID)
 		}
-		b.rt.ICs = append(b.rt.ICs, ic)
-		b.rt.ElemICs = append(b.rt.ElemICs, icID)
+		if _, err := b.assembler.AppendIdentityConstraint(ic); err != nil {
+			return err
+		}
+		if _, err := b.assembler.AppendElementIdentityConstraint(icID); err != nil {
+			return err
+		}
 
-		elem.ICLen = uint32(len(b.rt.ElemICs)) - elem.ICOff
-		b.rt.Elements[elemID] = elem
+		elem.ICLen = uint32(b.rt.ElementIdentityConstraintCount()) - elem.ICOff
+		if err := b.assembler.SetElement(elemID, elem); err != nil {
+			return err
+		}
 	}
 
 	return nil

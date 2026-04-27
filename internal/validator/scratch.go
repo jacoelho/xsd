@@ -16,3 +16,13 @@ func (s *Scratch) Reset() {
 	s.Buf2 = s.Buf2[:0]
 	s.Buf3 = s.Buf3[:0]
 }
+
+// Shrink drops scratch buffers that exceed limit.
+func (s *Scratch) Shrink(limit int) {
+	if s == nil {
+		return
+	}
+	s.Buf1 = shrinkSliceCap(s.Buf1, limit)
+	s.Buf2 = shrinkSliceCap(s.Buf2, limit)
+	s.Buf3 = shrinkSliceCap(s.Buf3, limit)
+}

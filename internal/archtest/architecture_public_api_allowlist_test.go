@@ -27,6 +27,7 @@ func TestPublicAPIAllowlist(t *testing.T) {
 		"const ErrAttributeFixedValue":                  {},
 		"const ErrAttributeNotDeclared":                 {},
 		"const ErrAttributeProhibited":                  {},
+		"const ErrCaller":                               {},
 		"const ErrContentModelInvalid":                  {},
 		"const ErrDatatypeInvalid":                      {},
 		"const ErrDuplicateID":                          {},
@@ -37,15 +38,19 @@ func TestPublicAPIAllowlist(t *testing.T) {
 		"const ErrElementTypeAbstract":                  {},
 		"const ErrFacetViolation":                       {},
 		"const ErrIDRefNotFound":                        {},
+		"const ErrIO":                                   {},
 		"const ErrIdentityAbsent":                       {},
 		"const ErrIdentityDuplicate":                    {},
 		"const ErrIdentityKeyRefFailed":                 {},
+		"const ErrInternal":                             {},
 		"const ErrMultipleIDAttr":                       {},
 		"const ErrNilElementNotEmpty":                   {},
 		"const ErrNoRoot":                               {},
 		"const ErrRequiredAttributeMissing":             {},
 		"const ErrRequiredElementMissing":               {},
 		"const ErrSchemaNotLoaded":                      {},
+		"const ErrSchemaParse":                          {},
+		"const ErrSchemaSemantic":                       {},
 		"const ErrTextInElementOnly":                    {},
 		"const ErrUnexpectedElement":                    {},
 		"const ErrValidateElementAbstract":              {},
@@ -60,6 +65,7 @@ func TestPublicAPIAllowlist(t *testing.T) {
 		"const ErrValidateXsiNilNotNillable":            {},
 		"const ErrValidateXsiTypeDerivationBlocked":     {},
 		"const ErrValidateXsiTypeUnresolved":            {},
+		"const ErrValidationInternal":                   {},
 		"const ErrWildcardNotDeclared":                  {},
 		"const ErrXMLParse":                             {},
 		"const ErrXsiTypeInvalid":                       {},
@@ -119,23 +125,9 @@ func TestPublicAPIAllowlist(t *testing.T) {
 	}
 }
 
-func TestPublicAPIInternalAliasesAreExplicit(t *testing.T) {
+func TestPublicAPIHasNoInternalAliases(t *testing.T) {
 	got := collectRootInternalAliases(t)
-	want := map[string]struct{}{
-		"ErrorKind":      {},
-		"ErrorCode":      {},
-		"Error":          {},
-		"Validation":     {},
-		"ValidationList": {},
-	}
-	for alias := range want {
-		if _, ok := got[alias]; !ok {
-			t.Errorf("missing internal alias: %s", alias)
-		}
-	}
 	for alias := range got {
-		if _, ok := want[alias]; !ok {
-			t.Errorf("unexpected public internal alias: %s", alias)
-		}
+		t.Errorf("unexpected public internal alias: %s", alias)
 	}
 }

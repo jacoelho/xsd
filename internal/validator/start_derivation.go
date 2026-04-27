@@ -25,9 +25,9 @@ func CheckStartTypeDerivation(rt *runtime.Schema, derived, base runtime.TypeID, 
 	if ln == 0 {
 		return fmt.Errorf("type %d not derived from %d", derived, base)
 	}
-	startIDs, endIDs, okIDs := checkedTypeSpan(off, ln, len(rt.Ancestors.IDs))
-	startMasks, endMasks, okMasks := checkedTypeSpan(off, ln, len(rt.Ancestors.Masks))
-	if !okIDs || !okMasks {
+	ancestorIDs := rt.AncestorIDs(off, ln)
+	ancestorMasks := rt.AncestorMasks(off, ln)
+	if len(ancestorIDs) != int(ln) || len(ancestorMasks) != int(ln) {
 		return fmt.Errorf("ancestor data out of range")
 	}
 
@@ -36,16 +36,11 @@ func CheckStartTypeDerivation(rt *runtime.Schema, derived, base runtime.TypeID, 
 		blocked |= baseType.Block
 	}
 	found := false
-	for i := startIDs; i < endIDs; i++ {
-		ancID := rt.Ancestors.IDs[i]
+	for i, ancID := range ancestorIDs {
 		if ancID == 0 {
 			continue
 		}
-		maskIndex := startMasks + (i - startIDs)
-		if maskIndex < startMasks || maskIndex >= endMasks {
-			return fmt.Errorf("ancestor data out of range")
-		}
-		mask := rt.Ancestors.Masks[maskIndex]
+		mask := ancestorMasks[i]
 		ancType, ok := typeByID(rt, ancID)
 		if !ok {
 			return fmt.Errorf("type %d not found", ancID)
@@ -79,26 +74,5 @@ func derivationBlockMask(block runtime.ElemBlock) runtime.DerivationMethod {
 }
 
 func typeByID(rt *runtime.Schema, id runtime.TypeID) (runtime.Type, bool) {
-	if id == 0 || rt == nil || int(id) >= len(rt.Types) {
-		return runtime.Type{}, false
-	}
-	return rt.Types[id], true
-}
-
-func checkedTypeSpan(off, ln uint32, size int) (start, end int, ok bool) {
-	start = int(off)
-	if ln == 0 {
-		return start, start, start <= size
-	}
-	if start < 0 || start > size {
-		return 0, 0, false
-	}
-	if off > ^uint32(0)-ln {
-		return 0, 0, false
-	}
-	end = start + int(ln)
-	if end < start || end > size {
-		return 0, 0, false
-	}
-	return start, end, true
+	return rt.Type(id)
 }

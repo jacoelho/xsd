@@ -32,5 +32,5 @@ func (s *Session) popNormBuf() {
 }
 
 func (s *Session) hasIdentityConstraints() bool {
-	return s != nil && s.rt != nil && len(s.rt.ICs) > 1
+	return s != nil && s.rt != nil && s.rt.IdentityConstraintCount() > 1
 }

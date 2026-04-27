@@ -33,8 +33,8 @@ func TestBuildHashIdentityConstraintsDeterministic(t *testing.T) {
 
 	rt1 := mustBuildRuntimeSchema(t, schemaXML)
 	rt2 := mustBuildRuntimeSchema(t, schemaXML)
-	if rt1.BuildHash != rt2.BuildHash {
-		t.Fatalf("build hash mismatch: %d vs %d", rt1.BuildHash, rt2.BuildHash)
+	if rt1.BuildHashValue() != rt2.BuildHashValue() {
+		t.Fatalf("build hash mismatch: %d vs %d", rt1.BuildHashValue(), rt2.BuildHashValue())
 	}
 }
 
@@ -53,18 +53,18 @@ func TestAttributeUsesSortedByQName(t *testing.T) {
 
 	rt := mustBuildRuntimeSchema(t, schemaXML)
 	elemID := mustElemID(t, rt, "urn:attr", "root")
-	elem := rt.Elements[elemID]
-	typ := rt.Types[elem.Type]
-	ct := rt.ComplexTypes[typ.Complex.ID]
+	elem := rt.ElementTable()[elemID]
+	typ := rt.TypeTable()[elem.Type]
+	ct := rt.ComplexTypeTable()[typ.Complex.ID]
 	off := int(ct.Attrs.Off)
 	end := off + int(ct.Attrs.Len)
-	if end > len(rt.AttrIndex.Uses) {
+	if end > len(rt.AttributeIndex().Uses) {
 		t.Fatalf("attr uses out of range")
 	}
 
 	var names []string
-	for _, use := range rt.AttrIndex.Uses[off:end] {
-		names = append(names, string(rt.Symbols.LocalBytes(use.Name)))
+	for _, use := range rt.AttributeIndex().Uses[off:end] {
+		names = append(names, string(rt.SymbolLocalBytes(use.Name)))
 	}
 	if len(names) != 2 || names[0] != "a" || names[1] != "b" {
 		t.Fatalf("attribute order = %v, want [a b]", names)
@@ -125,10 +125,10 @@ func TestKeyrefResolutionScopedToElement(t *testing.T) {
 	if keyA == 0 || keyB == 0 || keyRefB == 0 {
 		t.Fatalf("expected key/keyref constraints, got keyA=%d keyB=%d keyRefB=%d", keyA, keyB, keyRefB)
 	}
-	if rt.ICs[keyRefB].Referenced != keyB {
-		t.Fatalf("keyref referenced %d, want %d", rt.ICs[keyRefB].Referenced, keyB)
+	if rt.IdentityConstraints()[keyRefB].Referenced != keyB {
+		t.Fatalf("keyref referenced %d, want %d", rt.IdentityConstraints()[keyRefB].Referenced, keyB)
 	}
-	if rt.ICs[keyRefB].Referenced == keyA {
+	if rt.IdentityConstraints()[keyRefB].Referenced == keyA {
 		t.Fatalf("keyref incorrectly resolved to key on element a")
 	}
 }
@@ -155,25 +155,25 @@ func TestProhibitedAttributeUsePreserved(t *testing.T) {
 
 	rt := mustBuildRuntimeSchema(t, schemaXML)
 	elemID := mustElemID(t, rt, "urn:attr", "root")
-	elem := rt.Elements[elemID]
-	typ := rt.Types[elem.Type]
-	ct := rt.ComplexTypes[typ.Complex.ID]
+	elem := rt.ElementTable()[elemID]
+	typ := rt.TypeTable()[elem.Type]
+	ct := rt.ComplexTypeTable()[typ.Complex.ID]
 	off := int(ct.Attrs.Off)
 	end := off + int(ct.Attrs.Len)
-	if end > len(rt.AttrIndex.Uses) {
+	if end > len(rt.AttributeIndex().Uses) {
 		t.Fatalf("attr uses out of range")
 	}
-	nsID := rt.Namespaces.Lookup([]byte("urn:attr"))
+	nsID := rt.NamespaceLookup([]byte("urn:attr"))
 	if nsID == 0 {
 		t.Fatalf("namespace urn:attr not found")
 	}
-	fooSym := rt.Symbols.Lookup(nsID, []byte("foo"))
+	fooSym := rt.SymbolLookup(nsID, []byte("foo"))
 	if fooSym == 0 {
 		t.Fatalf("symbol foo not found")
 	}
 
 	found := false
-	for _, use := range rt.AttrIndex.Uses[off:end] {
+	for _, use := range rt.AttributeIndex().Uses[off:end] {
 		if use.Name == fooSym {
 			found = true
 			if use.Use != runtime.AttrProhibited {
@@ -207,25 +207,25 @@ func TestProhibitedAttributeGroupUseIgnored(t *testing.T) {
 
 	rt := mustBuildRuntimeSchema(t, schemaXML)
 	elemID := mustElemID(t, rt, "", "doc")
-	elem := rt.Elements[elemID]
-	typ := rt.Types[elem.Type]
-	ct := rt.ComplexTypes[typ.Complex.ID]
+	elem := rt.ElementTable()[elemID]
+	typ := rt.TypeTable()[elem.Type]
+	ct := rt.ComplexTypeTable()[typ.Complex.ID]
 	off := int(ct.Attrs.Off)
 	end := off + int(ct.Attrs.Len)
-	if end > len(rt.AttrIndex.Uses) {
+	if end > len(rt.AttributeIndex().Uses) {
 		t.Fatalf("attr uses out of range")
 	}
-	nsID := rt.Namespaces.Lookup([]byte(""))
+	nsID := rt.NamespaceLookup([]byte(""))
 	if nsID == 0 {
 		t.Fatalf("empty namespace not found")
 	}
-	attrSym := rt.Symbols.Lookup(nsID, []byte("a"))
+	attrSym := rt.SymbolLookup(nsID, []byte("a"))
 	if attrSym == 0 {
 		t.Fatalf("symbol a not found")
 	}
 
 	found := false
-	for _, use := range rt.AttrIndex.Uses[off:end] {
+	for _, use := range rt.AttributeIndex().Uses[off:end] {
 		if use.Name == attrSym {
 			found = true
 			if use.Use == runtime.AttrProhibited {
@@ -376,26 +376,26 @@ func TestUnionDefaultUsesMemberWhitespace(t *testing.T) {
 
 	rt := mustBuildRuntimeSchema(t, schemaXML)
 	elemID := mustElemID(t, rt, "urn:union", "root")
-	elem := rt.Elements[elemID]
-	typ := rt.Types[elem.Type]
+	elem := rt.ElementTable()[elemID]
+	typ := rt.TypeTable()[elem.Type]
 	if typ.Kind != runtime.TypeComplex {
 		t.Fatalf("root type is not complex")
 	}
-	ct := rt.ComplexTypes[typ.Complex.ID]
+	ct := rt.ComplexTypeTable()[typ.Complex.ID]
 	off := int(ct.Attrs.Off)
 	end := off + int(ct.Attrs.Len)
-	if off < 0 || end > len(rt.AttrIndex.Uses) {
+	if off < 0 || end > len(rt.AttributeIndex().Uses) {
 		t.Fatalf("attr uses out of range")
 	}
-	nsID := rt.Namespaces.Lookup([]byte("urn:union"))
+	nsID := rt.NamespaceLookup([]byte("urn:union"))
 	if nsID == 0 {
 		t.Fatalf("namespace urn:union not found")
 	}
-	attrSym := rt.Symbols.Lookup(nsID, []byte("u"))
+	attrSym := rt.SymbolLookup(nsID, []byte("u"))
 	if attrSym == 0 {
 		t.Fatalf("attribute symbol not found")
 	}
-	for _, use := range rt.AttrIndex.Uses[off:end] {
+	for _, use := range rt.AttributeIndex().Uses[off:end] {
 		if use.Name != attrSym {
 			continue
 		}
@@ -456,18 +456,18 @@ func mustBuildRuntimeSchema(t *testing.T, schemaXML string) *runtime.Schema {
 
 func mustElemID(t *testing.T, rt *runtime.Schema, ns, local string) runtime.ElemID {
 	t.Helper()
-	nsID := rt.Namespaces.Lookup([]byte(ns))
+	nsID := rt.NamespaceLookup([]byte(ns))
 	if nsID == 0 {
 		t.Fatalf("namespace %q not found", ns)
 	}
-	sym := rt.Symbols.Lookup(nsID, []byte(local))
+	sym := rt.SymbolLookup(nsID, []byte(local))
 	if sym == 0 {
 		t.Fatalf("symbol %q not found", local)
 	}
-	if int(sym) >= len(rt.GlobalElements) {
+	if int(sym) >= len(rt.GlobalElementIDs()) {
 		t.Fatalf("global elements missing for symbol %d", sym)
 	}
-	elemID := rt.GlobalElements[sym]
+	elemID := rt.GlobalElementIDs()[sym]
 	if elemID == 0 {
 		t.Fatalf("element %q not found", local)
 	}
@@ -475,20 +475,20 @@ func mustElemID(t *testing.T, rt *runtime.Schema, ns, local string) runtime.Elem
 }
 
 func findConstraintID(rt *runtime.Schema, elemID runtime.ElemID, cat runtime.ICCategory) runtime.ICID {
-	if rt == nil || elemID == 0 || int(elemID) >= len(rt.Elements) {
+	if rt == nil || elemID == 0 || int(elemID) >= len(rt.ElementTable()) {
 		return 0
 	}
-	elem := rt.Elements[elemID]
+	elem := rt.ElementTable()[elemID]
 	off := int(elem.ICOff)
 	end := off + int(elem.ICLen)
-	if off < 0 || end > len(rt.ElemICs) {
+	if off < 0 || end > len(rt.ElementIdentityConstraints()) {
 		return 0
 	}
-	for _, id := range rt.ElemICs[off:end] {
-		if id == 0 || int(id) >= len(rt.ICs) {
+	for _, id := range rt.ElementIdentityConstraints()[off:end] {
+		if id == 0 || int(id) >= len(rt.IdentityConstraints()) {
 			continue
 		}
-		if rt.ICs[id].Category == cat {
+		if rt.IdentityConstraints()[id].Category == cat {
 			return id
 		}
 	}
@@ -504,8 +504,8 @@ func valueRefBytes(rt *runtime.Schema, ref runtime.ValueRef) []byte {
 	}
 	start := int(ref.Off)
 	end := start + int(ref.Len)
-	if start < 0 || end < 0 || end > len(rt.Values.Blob) {
+	if start < 0 || end < 0 || end > len(rt.ValueBlob().Blob) {
 		return nil
 	}
-	return rt.Values.Blob[start:end]
+	return rt.ValueBlob().Blob[start:end]
 }

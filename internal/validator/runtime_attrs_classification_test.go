@@ -12,21 +12,21 @@ func TestClassifyAttrsClasses(t *testing.T) {
 
 	inputAttrs := []Start{
 		{
-			Sym:     schema.Predef.XsiType,
-			NS:      schema.PredefNS.Xsi,
+			Sym:     schema.KnownSymbols().XsiType,
+			NS:      schema.KnownNamespaces().Xsi,
 			NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 			Local:   []byte("type"),
 			Value:   []byte("t:Derived"),
 		},
 		{
-			NS:      schema.PredefNS.Xsi,
+			NS:      schema.KnownNamespaces().Xsi,
 			NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 			Local:   []byte("unknown"),
 			Value:   []byte("1"),
 		},
 		{
-			Sym:     schema.Predef.XMLLang,
-			NS:      schema.PredefNS.XML,
+			Sym:     schema.KnownSymbols().XMLLang,
+			NS:      schema.KnownNamespaces().XML,
 			NSBytes: []byte("http://www.w3.org/XML/1998/namespace"),
 			Local:   []byte("lang"),
 			Value:   []byte("en"),
@@ -123,9 +123,9 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 
 	t.Run("xsiType", func(t *testing.T) {
 		inputAttrs := []Start{
-			{Sym: schema.Predef.XsiType, Value: []byte("t:Derived")},
+			{Sym: schema.KnownSymbols().XsiType, Value: []byte("t:Derived")},
 			{
-				NS:      schema.PredefNS.Xsi,
+				NS:      schema.KnownNamespaces().Xsi,
 				NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 				Local:   []byte("type"),
 				Value:   []byte("t:Derived"),
@@ -143,9 +143,9 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 
 	t.Run("xsiNil", func(t *testing.T) {
 		inputAttrs := []Start{
-			{Sym: schema.Predef.XsiNil, Value: []byte("true")},
+			{Sym: schema.KnownSymbols().XsiNil, Value: []byte("true")},
 			{
-				NS:      schema.PredefNS.Xsi,
+				NS:      schema.KnownNamespaces().Xsi,
 				NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 				Local:   []byte("nil"),
 				Value:   []byte("true"),

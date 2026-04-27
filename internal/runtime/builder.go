@@ -71,16 +71,24 @@ func (b *Builder) Build() (*Schema, error) {
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: symbols: %w", err)
 	}
-	return &Schema{
-		Namespaces: namespaces,
-		Symbols:    symbols,
-		Predef:     b.predef,
-		PredefNS: PredefinedNamespaces{
-			Empty: b.emptyNS,
-			XML:   b.xmlNS,
-			Xsi:   b.xsiNS,
-		},
-	}, nil
+	asm := NewSchemaAssembler()
+	if err := asm.SetNamespaces(namespaces); err != nil {
+		return nil, err
+	}
+	if err := asm.SetSymbols(symbols); err != nil {
+		return nil, err
+	}
+	if err := asm.SetPredefinedSymbols(b.predef); err != nil {
+		return nil, err
+	}
+	if err := asm.SetPredefinedNamespaces(PredefinedNamespaces{
+		Empty: b.emptyNS,
+		XML:   b.xmlNS,
+		Xsi:   b.xsiNS,
+	}); err != nil {
+		return nil, err
+	}
+	return asm.Seal()
 }
 
 func (b *Builder) ensureMutable() error {

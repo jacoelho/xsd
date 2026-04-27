@@ -81,6 +81,87 @@ func TestListNormalizedValueIsStable(t *testing.T) {
 	}
 }
 
+func TestScalarWhitespaceNormalizationRetainsSessionBuffer(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test">
+  <xs:simpleType name="Collapsed">
+    <xs:restriction base="xs:string">
+      <xs:whiteSpace value="collapse"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	validatorID := mustValidatorID(t, rt, "Collapsed")
+	sess := NewSession(rt)
+	opts := valueOptions{
+		ApplyWhitespace:  true,
+		RequireCanonical: false,
+		StoreValue:       false,
+	}
+
+	lexical := []byte("      ")
+	if _, err := sess.validateValue(valueRequest{Validator: validatorID, Lexical: lexical, Options: opts}); err != nil {
+		t.Fatalf("validate all-whitespace value: %v", err)
+	}
+	if cap(sess.buffers.normBuf) < len(lexical) {
+		t.Fatalf("normBuf cap = %d, want at least %d", cap(sess.buffers.normBuf), len(lexical))
+	}
+}
+
+func TestScalarWhitespaceNormalizationEmptyCanBeNormalized(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test">
+  <xs:simpleType name="Collapsed">
+    <xs:restriction base="xs:string">
+      <xs:whiteSpace value="collapse"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	validatorID := mustValidatorID(t, rt, "Collapsed")
+	sess := NewSession(rt)
+	opts := valueOptions{
+		ApplyWhitespace:  true,
+		RequireCanonical: false,
+		StoreValue:       false,
+	}
+
+	normalized, err := sess.validateValue(valueRequest{
+		Validator: validatorID,
+		Lexical:   []byte("   "),
+		Options:   opts,
+	})
+	if err != nil {
+		t.Fatalf("validate all-whitespace value: %v", err)
+	}
+	if len(normalized.Canonical) != 0 {
+		t.Fatalf("normalized len = %d, want 0", len(normalized.Canonical))
+	}
+}
+
+func TestOwnsNormalizedBufferZeroLengthLexicalCases(t *testing.T) {
+	nonZeroLen := []byte("x")
+	if !ownsNormalizedBuffer([]byte{}, nonZeroLen) {
+		t.Fatalf("empty normalized buffer should be treated as owned with non-empty lexical")
+	}
+
+	sameBuffer := []byte("abc")
+	if ownsNormalizedBuffer(sameBuffer, sameBuffer) {
+		t.Fatalf("identical normalized and lexical buffer should not be considered owned")
+	}
+
+	nonNilLexical := make([]byte, 3)
+	if !ownsNormalizedBuffer(nonNilLexical[:0], nonNilLexical) {
+		t.Fatalf("empty normalized buffer should be treated as owned when aliasing lexical slice")
+	}
+}
+
 func TestHexBinaryCanonicalValueIsStable(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -204,20 +285,20 @@ func TestBinaryOctetLengthAllocationsStayAtParserBaseline(t *testing.T) {
 
 func mustValidatorID(t *testing.T, rt *runtime.Schema, local string) runtime.ValidatorID {
 	t.Helper()
-	nsID := rt.Namespaces.Lookup([]byte("urn:test"))
+	nsID := rt.NamespaceLookup([]byte("urn:test"))
 	if nsID == 0 {
 		t.Fatalf("namespace %q not found", "urn:test")
 	}
-	sym := rt.Symbols.Lookup(nsID, []byte(local))
+	sym := rt.SymbolLookup(nsID, []byte(local))
 	if sym == 0 {
 		t.Fatalf("symbol %q not found", local)
 	}
-	if int(sym) >= len(rt.GlobalTypes) {
+	if int(sym) >= len(rt.GlobalTypeIDs()) {
 		t.Fatalf("global types missing for symbol %d", sym)
 	}
-	typID := rt.GlobalTypes[sym]
-	if typID == 0 || int(typID) >= len(rt.Types) {
+	typID := rt.GlobalTypeIDs()[sym]
+	if typID == 0 || int(typID) >= len(rt.TypeTable()) {
 		t.Fatalf("type for %q not found", local)
 	}
-	return rt.Types[typID].Validator
+	return rt.TypeTable()[typID].Validator
 }

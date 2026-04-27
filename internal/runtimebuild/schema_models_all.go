@@ -31,7 +31,7 @@ func (b *schemaBuilder) addAllModel(group contentmodel.TreeParticle) (runtime.Mo
 			return runtime.ModelRef{}, fmt.Errorf("runtime build: all group member must be element")
 		}
 		elemID := runtime.ElemID(child.ElementID)
-		if elemID == 0 || int(elemID) >= len(b.rt.Elements) {
+		if _, ok := b.rt.Element(elemID); !ok {
 			return runtime.ModelRef{}, fmt.Errorf("runtime build: all group element %d missing ID", child.ElementID)
 		}
 		member := runtime.AllMember{
@@ -45,31 +45,29 @@ func (b *schemaBuilder) addAllModel(group contentmodel.TreeParticle) (runtime.Mo
 				return runtime.ModelRef{}, err
 			}
 			if len(list) > 0 {
-				member.SubstOff = uint32(len(b.rt.Models.AllSubst))
+				member.SubstOff = uint32(b.rt.AllSubstitutionCount())
 				for _, id := range list {
-					b.rt.Models.AllSubst = append(b.rt.Models.AllSubst, runtime.ElemID(id))
+					if _, err := b.assembler.AppendAllSubstitution(runtime.ElemID(id)); err != nil {
+						return runtime.ModelRef{}, err
+					}
 				}
-				member.SubstLen = uint32(len(b.rt.Models.AllSubst)) - member.SubstOff
+				member.SubstLen = uint32(b.rt.AllSubstitutionCount()) - member.SubstOff
 			}
 		}
 		allModel.Members = append(allModel.Members, member)
 	}
 
-	id := uint32(len(b.rt.Models.All))
-	b.rt.Models.All = append(b.rt.Models.All, allModel)
-	return runtime.ModelRef{Kind: runtime.ModelAll, ID: id}, nil
+	return b.assembler.AppendAllModel(allModel)
 }
 
-func (b *schemaBuilder) addRejectAllModel() runtime.ModelRef {
-	id := uint32(len(b.rt.Models.NFA))
-	b.rt.Models.NFA = append(b.rt.Models.NFA, runtime.NFAModel{
+func (b *schemaBuilder) addRejectAllModel() (runtime.ModelRef, error) {
+	return b.assembler.AppendNFAModel(runtime.NFAModel{
 		Nullable:  false,
 		Start:     runtime.BitsetRef{},
 		Accept:    runtime.BitsetRef{},
 		FollowOff: 0,
 		FollowLen: 0,
 	})
-	return runtime.ModelRef{Kind: runtime.ModelNFA, ID: id}
 }
 
 func (b *schemaBuilder) substitutionMembers(head uint32) ([]uint32, error) {
@@ -84,7 +82,11 @@ func (b *schemaBuilder) substitutionMembers(head uint32) ([]uint32, error) {
 		return []uint32{head}, nil
 	}
 
-	blocked := blockedDerivations(b.rt.Types[b.mustTypeID(headElem.TypeDecl)], headElem.Block)
+	headType, ok := b.rt.Type(b.mustTypeID(headElem.TypeDecl))
+	if !ok {
+		return nil, fmt.Errorf("runtime build: substitution head type out of range")
+	}
+	blocked := blockedDerivations(headType, headElem.Block)
 	seen := map[schemaElementKey]bool{{id: head}: true}
 	out := make([]uint32, 0)
 	if !headElem.Abstract {
@@ -137,11 +139,20 @@ func (b *schemaBuilder) derivationAllowed(derived, base schemair.TypeRef, blocke
 	if !ok {
 		return true
 	}
-	for i := b.rt.Types[derivedID].AncOff; i < b.rt.Types[derivedID].AncOff+b.rt.Types[derivedID].AncLen; i++ {
-		if b.rt.Ancestors.IDs[i] != baseID {
+	derivedType, ok := b.rt.Type(derivedID)
+	if !ok {
+		return true
+	}
+	ids := b.rt.AncestorIDs(derivedType.AncOff, derivedType.AncLen)
+	masks := b.rt.AncestorMasks(derivedType.AncMaskOff, derivedType.AncLen)
+	for i, id := range ids {
+		if id != baseID {
 			continue
 		}
-		return b.rt.Ancestors.Masks[i]&blocked == 0
+		if i >= len(masks) {
+			return true
+		}
+		return masks[i]&blocked == 0
 	}
 	return true
 }

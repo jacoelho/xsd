@@ -248,23 +248,27 @@ func (r *docResolver) findIdentityElementInParticle(id ParticleID, test xsdpath.
 	if err != nil || !ok {
 		return 0, false, err
 	}
-	switch particle.Kind {
+	switch particle.ParticleKind() {
 	case ParticleElement:
-		elem, ok := r.emittedElement(particle.Element)
+		elemID, ok := particle.ElementID()
+		if !ok {
+			return 0, false, nil
+		}
+		elem, ok := r.emittedElement(elemID)
 		if ok && identityNodeTestMatchesName(test, elem.Name) {
-			return particle.Element, false, nil
+			return elemID, false, nil
 		}
 		if mode != identitySearchDescendant {
 			return 0, false, nil
 		}
-		found, unresolved, err := r.findIdentityDescendantElementContent(particle.Element, test, visited)
+		found, unresolved, err := r.findIdentityDescendantElementContent(elemID, test, visited)
 		if err != nil || found != 0 {
 			return found, unresolved, err
 		}
 		return 0, unresolved, nil
 	case ParticleGroup:
 		unresolved := false
-		for _, child := range particle.Children {
+		for _, child := range particle.ChildParticles() {
 			found, childUnresolved, err := r.findIdentityElementInParticle(child, test, mode, visited)
 			if err != nil {
 				return 0, false, err
@@ -299,14 +303,14 @@ func (r *docResolver) findIdentityDescendantElementContent(element ElementID, te
 
 func (r *docResolver) findIdentityAttributeType(element ElementID, test xsdpath.NodeTest) (TypeRef, error) {
 	if identityWildcardTest(test) {
-		return TypeRef{}, fmt.Errorf("%w: wildcard attribute", errIdentityXPathUnresolvable)
+		return NoTypeRef(), fmt.Errorf("%w: wildcard attribute", errIdentityXPathUnresolvable)
 	}
 	plan, ok, err := r.identityElementComplexPlan(element)
 	if err != nil {
-		return TypeRef{}, err
+		return NoTypeRef(), err
 	}
 	if !ok {
-		return TypeRef{}, fmt.Errorf("attribute %s not found in element type", formatIdentityNodeTest(test))
+		return NoTypeRef(), fmt.Errorf("attribute %s not found in element type", formatIdentityNodeTest(test))
 	}
 	for _, id := range plan.Attrs {
 		if id == 0 || int(id) > len(r.out.AttributeUses) {
@@ -321,9 +325,9 @@ func (r *docResolver) findIdentityAttributeType(element ElementID, test xsdpath.
 		}
 	}
 	if plan.AnyAttr != 0 {
-		return TypeRef{}, fmt.Errorf("%w: anyAttribute", errIdentityXPathUnresolvable)
+		return NoTypeRef(), fmt.Errorf("%w: anyAttribute", errIdentityXPathUnresolvable)
 	}
-	return TypeRef{}, fmt.Errorf("attribute %s not found in element type", formatIdentityNodeTest(test))
+	return NoTypeRef(), fmt.Errorf("attribute %s not found in element type", formatIdentityNodeTest(test))
 }
 
 func (r *docResolver) findIdentityAttributeTypeDescendant(element ElementID, test xsdpath.NodeTest) (TypeRef, error) {
@@ -332,59 +336,63 @@ func (r *docResolver) findIdentityAttributeTypeDescendant(element ElementID, tes
 	}
 	plan, ok, err := r.identityElementComplexPlan(element)
 	if err != nil || !ok || plan.Particle == 0 {
-		return TypeRef{}, err
+		return NoTypeRef(), err
 	}
 	found, unresolved, err := r.findIdentityAttributeInParticle(plan.Particle, test, make(map[TypeID]bool))
 	if err != nil {
-		return TypeRef{}, err
+		return NoTypeRef(), err
 	}
-	if !isZeroTypeRef(found) {
+	if !found.IsZero() {
 		return found, nil
 	}
 	if unresolved {
-		return TypeRef{}, fmt.Errorf("%w: wildcard attribute", errIdentityXPathUnresolvable)
+		return NoTypeRef(), fmt.Errorf("%w: wildcard attribute", errIdentityXPathUnresolvable)
 	}
-	return TypeRef{}, fmt.Errorf("attribute %s not found in content model", formatIdentityNodeTest(test))
+	return NoTypeRef(), fmt.Errorf("attribute %s not found in content model", formatIdentityNodeTest(test))
 }
 
 func (r *docResolver) findIdentityAttributeInParticle(id ParticleID, test xsdpath.NodeTest, visited map[TypeID]bool) (TypeRef, bool, error) {
 	particle, ok, err := r.particle(id)
 	if err != nil || !ok {
-		return TypeRef{}, false, err
+		return NoTypeRef(), false, err
 	}
-	switch particle.Kind {
+	switch particle.ParticleKind() {
 	case ParticleElement:
-		if ref, err := r.findIdentityAttributeType(particle.Element, test); err == nil {
+		elemID, ok := particle.ElementID()
+		if !ok {
+			return NoTypeRef(), false, nil
+		}
+		if ref, err := r.findIdentityAttributeType(elemID, test); err == nil {
 			return ref, false, nil
 		} else if errors.Is(err, errIdentityXPathUnresolvable) {
-			return TypeRef{}, true, nil
+			return NoTypeRef(), true, nil
 		}
-		plan, ok, err := r.identityElementComplexPlan(particle.Element)
+		plan, ok, err := r.identityElementComplexPlan(elemID)
 		if err != nil || !ok || plan.Particle == 0 {
-			return TypeRef{}, false, err
+			return NoTypeRef(), false, err
 		}
 		if visited[plan.TypeDecl] {
-			return TypeRef{}, false, nil
+			return NoTypeRef(), false, nil
 		}
 		visited[plan.TypeDecl] = true
 		return r.findIdentityAttributeInParticle(plan.Particle, test, visited)
 	case ParticleGroup:
 		unresolved := false
-		for _, child := range particle.Children {
+		for _, child := range particle.ChildParticles() {
 			ref, childUnresolved, err := r.findIdentityAttributeInParticle(child, test, visited)
 			if err != nil {
-				return TypeRef{}, false, err
+				return NoTypeRef(), false, err
 			}
-			if !isZeroTypeRef(ref) {
+			if !ref.IsZero() {
 				return ref, false, nil
 			}
 			unresolved = unresolved || childUnresolved
 		}
-		return TypeRef{}, unresolved, nil
+		return NoTypeRef(), unresolved, nil
 	case ParticleWildcard:
-		return TypeRef{}, true, nil
+		return NoTypeRef(), true, nil
 	default:
-		return TypeRef{}, false, nil
+		return NoTypeRef(), false, nil
 	}
 }
 
@@ -393,8 +401,8 @@ func (r *docResolver) identityElementComplexPlan(element ElementID) (ComplexType
 	if !ok {
 		return ComplexTypePlan{}, false, fmt.Errorf("element %d not emitted", element)
 	}
-	if elem.TypeDecl.Builtin {
-		if elem.TypeDecl.Name.Local == "anyType" {
+	if elem.TypeDecl.IsBuiltin() {
+		if elem.TypeDecl.TypeName().Local == "anyType" {
 			return ComplexTypePlan{}, false, fmt.Errorf("%w: anyType content", errIdentityXPathUnresolvable)
 		}
 		return ComplexTypePlan{}, false, nil
@@ -406,50 +414,51 @@ func (r *docResolver) identityElementComplexPlan(element ElementID) (ComplexType
 	if info.Kind != TypeComplex {
 		return ComplexTypePlan{}, false, nil
 	}
-	plan, ok := r.complexPlan(elem.TypeDecl.ID)
+	typeID := elem.TypeDecl.TypeID()
+	plan, ok := r.complexPlan(typeID)
 	if ok {
 		return plan, true, nil
 	}
-	if decl := r.complexDecls[r.complexByID[elem.TypeDecl.ID]]; decl != nil {
+	if decl := r.complexDecls[r.ids.complexByID[typeID]]; decl != nil {
 		if _, err := r.ensureComplexType(decl, !decl.Name.IsZero()); err != nil {
 			return ComplexTypePlan{}, false, err
 		}
 	}
-	plan, ok = r.complexPlan(elem.TypeDecl.ID)
+	plan, ok = r.complexPlan(typeID)
 	return plan, ok, nil
 }
 
 func (r *docResolver) identityElementValueType(elem Element) (TypeRef, error) {
-	if elem.TypeDecl.Builtin {
-		if elem.TypeDecl.Name.Local == "anyType" {
-			return TypeRef{}, errIdentityFieldSelectsComplexContent
+	if elem.TypeDecl.IsBuiltin() {
+		if elem.TypeDecl.TypeName().Local == "anyType" {
+			return NoTypeRef(), errIdentityFieldSelectsComplexContent
 		}
 		return elem.TypeDecl, nil
 	}
 	info, ok, err := r.typeInfoForRef(elem.TypeDecl)
 	if err != nil || !ok {
-		return TypeRef{}, err
+		return NoTypeRef(), err
 	}
 	if info.Kind != TypeComplex {
 		return elem.TypeDecl, nil
 	}
 	plan, ok, err := r.identityElementComplexPlan(elem.ID)
 	if err != nil || !ok {
-		return TypeRef{}, errIdentityFieldSelectsComplexContent
+		return NoTypeRef(), errIdentityFieldSelectsComplexContent
 	}
-	if !isZeroTypeRef(plan.TextType) {
+	if !plan.TextType.IsZero() {
 		return plan.TextType, nil
 	}
 	if !isZeroSimpleTypeSpec(plan.TextSpec) {
-		return TypeRef{}, nil
+		return NoTypeRef(), nil
 	}
-	return TypeRef{}, errIdentityFieldSelectsComplexContent
+	return NoTypeRef(), errIdentityFieldSelectsComplexContent
 }
 
 func (r *docResolver) combineIdentityFieldTypes(xpath string, values []TypeRef) (TypeRef, error) {
 	unique := uniqueTypeRefs(values)
 	if len(unique) == 0 {
-		return TypeRef{}, fmt.Errorf("field xpath %q resolves to no types", xpath)
+		return NoTypeRef(), fmt.Errorf("field xpath %q resolves to no types", xpath)
 	}
 	if len(unique) == 1 {
 		return unique[0], nil
@@ -458,11 +467,11 @@ func (r *docResolver) combineIdentityFieldTypes(xpath string, values []TypeRef) 
 		for j := i + 1; j < len(unique); j++ {
 			ok, err := r.identityFieldTypesCompatible(unique[i], unique[j])
 			if err != nil {
-				return TypeRef{}, err
+				return NoTypeRef(), err
 			}
 			if !ok {
-				return TypeRef{}, fmt.Errorf("%w: field xpath %q selects incompatible types %s and %s",
-					errIdentityFieldIncompatibleTypes, xpath, formatName(unique[i].Name), formatName(unique[j].Name))
+				return NoTypeRef(), fmt.Errorf("%w: field xpath %q selects incompatible types %s and %s",
+					errIdentityFieldIncompatibleTypes, xpath, formatName(unique[i].TypeName()), formatName(unique[j].TypeName()))
 			}
 		}
 	}
@@ -473,7 +482,7 @@ func uniqueTypeRefs(values []TypeRef) []TypeRef {
 	seen := make(map[TypeRef]struct{}, len(values))
 	out := make([]TypeRef, 0, len(values))
 	for _, value := range values {
-		if isZeroTypeRef(value) {
+		if value.IsZero() {
 			continue
 		}
 		if _, ok := seen[value]; ok {
@@ -486,7 +495,7 @@ func uniqueTypeRefs(values []TypeRef) []TypeRef {
 }
 
 func (r *docResolver) identityFieldTypesCompatible(a, b TypeRef) (bool, error) {
-	if isZeroTypeRef(a) || isZeroTypeRef(b) {
+	if a.IsZero() || b.IsZero() {
 		return false, nil
 	}
 	if sameTypeRef(a, b) {

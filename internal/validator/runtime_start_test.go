@@ -25,7 +25,7 @@ func TestStartElementXsiTypeRetarget(t *testing.T) {
 	sess := NewSession(schema)
 
 	startAttrs := []Start{{
-		Sym:   schema.Predef.XsiType,
+		Sym:   schema.KnownSymbols().XsiType,
 		Value: []byte("t:Derived"),
 	}}
 	result, err := sess.StartElement(StartMatch{Kind: StartMatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, mapResolver{"t": "urn:test"})
@@ -71,11 +71,11 @@ func TestStartElementXsiTypeNamespaceFallback(t *testing.T) {
 
 func TestStartElementXsiTypeBlocked(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
-	schema.Elements[ids.elemBase].Block = runtime.ElemBlockExtension
+	schema.ElementTable()[ids.elemBase].Block = runtime.ElemBlockExtension
 	sess := NewSession(schema)
 
 	startAttrs := []Start{{
-		Sym:   schema.Predef.XsiType,
+		Sym:   schema.KnownSymbols().XsiType,
 		Value: []byte("t:Derived"),
 	}}
 	_, err := sess.StartElement(StartMatch{Kind: StartMatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, mapResolver{"t": "urn:test"})
@@ -86,11 +86,11 @@ func TestStartElementXsiTypeBlocked(t *testing.T) {
 
 func TestStartElementXsiNil(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
-	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
+	schema.ElementTable()[ids.elemBase].Flags |= runtime.ElemNillable
 	sess := NewSession(schema)
 
 	startAttrs := []Start{{
-		Sym:   schema.Predef.XsiNil,
+		Sym:   schema.KnownSymbols().XsiNil,
 		Value: []byte("true"),
 	}}
 	result, err := sess.StartElement(StartMatch{Kind: StartMatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, nil)
@@ -104,7 +104,7 @@ func TestStartElementXsiNil(t *testing.T) {
 
 func TestStartElementXsiNilNamespaceFallback(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
-	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
+	schema.ElementTable()[ids.elemBase].Flags |= runtime.ElemNillable
 	sess := NewSession(schema)
 
 	startAttrs := []Start{{
@@ -126,7 +126,7 @@ func TestStartElementXsiNilNotAllowed(t *testing.T) {
 	sess := NewSession(schema)
 
 	startAttrs := []Start{{
-		Sym:   schema.Predef.XsiNil,
+		Sym:   schema.KnownSymbols().XsiNil,
 		Value: []byte("1"),
 	}}
 	_, err := sess.StartElement(StartMatch{Kind: StartMatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, nil)
@@ -141,7 +141,7 @@ func TestStartElementXsiTypeDuplicateMixed(t *testing.T) {
 
 	startAttrs := []Start{
 		{
-			Sym:   schema.Predef.XsiType,
+			Sym:   schema.KnownSymbols().XsiType,
 			Value: []byte("t:Derived"),
 		},
 		{
@@ -158,12 +158,12 @@ func TestStartElementXsiTypeDuplicateMixed(t *testing.T) {
 
 func TestStartElementXsiNilDuplicateMixed(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
-	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
+	schema.ElementTable()[ids.elemBase].Flags |= runtime.ElemNillable
 	sess := NewSession(schema)
 
 	startAttrs := []Start{
 		{
-			Sym:   schema.Predef.XsiNil,
+			Sym:   schema.KnownSymbols().XsiNil,
 			Value: []byte("true"),
 		},
 		{
@@ -180,7 +180,7 @@ func TestStartElementXsiNilDuplicateMixed(t *testing.T) {
 
 func TestStartElementAbstract(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
-	schema.Elements[ids.elemBase].Flags |= runtime.ElemAbstract
+	schema.ElementTable()[ids.elemBase].Flags |= runtime.ElemAbstract
 	sess := NewSession(schema)
 
 	_, err := sess.StartElement(StartMatch{Kind: StartMatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), nil, nil)
@@ -191,13 +191,13 @@ func TestStartElementAbstract(t *testing.T) {
 
 func TestStartElementWildcardStrictUnresolved(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
-	schema.Wildcards = []runtime.WildcardRule{
+	setRuntimeWildcards(t, schema, []runtime.WildcardRule{
 		{},
 		{
 			NS: runtime.NSConstraint{Kind: runtime.NSAny},
 			PC: runtime.PCStrict,
 		},
-	}
+	})
 	sess := NewSession(schema)
 
 	_, err := sess.StartElement(StartMatch{Kind: StartMatchWildcard, Wildcard: 1}, 0, ids.nsID, []byte("urn:test"), nil, nil)
@@ -208,13 +208,13 @@ func TestStartElementWildcardStrictUnresolved(t *testing.T) {
 
 func TestStartElementWildcardLaxSkip(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
-	schema.Wildcards = []runtime.WildcardRule{
+	setRuntimeWildcards(t, schema, []runtime.WildcardRule{
 		{},
 		{
 			NS: runtime.NSConstraint{Kind: runtime.NSAny},
 			PC: runtime.PCLax,
 		},
-	}
+	})
 	sess := NewSession(schema)
 
 	result, err := sess.StartElement(StartMatch{Kind: StartMatchWildcard, Wildcard: 1}, 0, ids.nsID, []byte("urn:test"), nil, nil)
@@ -228,13 +228,13 @@ func TestStartElementWildcardLaxSkip(t *testing.T) {
 
 func TestStartElementWildcardResolvesGlobal(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
-	schema.Wildcards = []runtime.WildcardRule{
+	setRuntimeWildcards(t, schema, []runtime.WildcardRule{
 		{},
 		{
 			NS: runtime.NSConstraint{Kind: runtime.NSAny},
 			PC: runtime.PCLax,
 		},
-	}
+	})
 	sess := NewSession(schema)
 
 	result, err := sess.StartElement(StartMatch{Kind: StartMatchWildcard, Wildcard: 1}, ids.elemSym, ids.nsID, []byte("urn:test"), nil, nil)
@@ -258,24 +258,24 @@ func buildRuntimeFixture(tb testing.TB) (*runtime.Schema, fixtureIDs) {
 		tb.Fatalf("Build() error = %v", err)
 	}
 
-	schema.Types = make([]runtime.Type, 3)
-	schema.Types[1] = runtime.Type{Name: baseSym, Kind: runtime.TypeComplex}
-	schema.Types[2] = runtime.Type{Name: derivedSym, Kind: runtime.TypeComplex, Base: 1, Derivation: runtime.DerExtension}
-	schema.Ancestors = runtime.TypeAncestors{
+	setRuntimeTypes(tb, schema, make([]runtime.Type, 3))
+	schema.TypeTable()[1] = runtime.Type{Name: baseSym, Kind: runtime.TypeComplex}
+	schema.TypeTable()[2] = runtime.Type{Name: derivedSym, Kind: runtime.TypeComplex, Base: 1, Derivation: runtime.DerExtension}
+	setRuntimeAncestors(tb, schema, runtime.TypeAncestors{
 		IDs:   []runtime.TypeID{1},
 		Masks: []runtime.DerivationMethod{runtime.DerExtension},
-	}
-	schema.Types[2].AncOff = 0
-	schema.Types[2].AncLen = 1
-	schema.Types[2].AncMaskOff = 0
-	schema.GlobalTypes = make([]runtime.TypeID, schema.Symbols.Count()+1)
-	schema.GlobalTypes[baseSym] = 1
-	schema.GlobalTypes[derivedSym] = 2
+	})
+	schema.TypeTable()[2].AncOff = 0
+	schema.TypeTable()[2].AncLen = 1
+	schema.TypeTable()[2].AncMaskOff = 0
+	setRuntimeGlobalTypes(tb, schema, make([]runtime.TypeID, schema.SymbolCount()+1))
+	schema.GlobalTypeIDs()[baseSym] = 1
+	schema.GlobalTypeIDs()[derivedSym] = 2
 
-	schema.Elements = make([]runtime.Element, 2)
-	schema.Elements[1] = runtime.Element{Name: elemSym, Type: 1}
-	schema.GlobalElements = make([]runtime.ElemID, schema.Symbols.Count()+1)
-	schema.GlobalElements[elemSym] = 1
+	setRuntimeElements(tb, schema, make([]runtime.Element, 2))
+	schema.ElementTable()[1] = runtime.Element{Name: elemSym, Type: 1}
+	setRuntimeGlobalElements(tb, schema, make([]runtime.ElemID, schema.SymbolCount()+1))
+	schema.GlobalElementIDs()[elemSym] = 1
 
 	return schema, fixtureIDs{
 		nsID:        nsID,

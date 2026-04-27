@@ -25,6 +25,9 @@ type BuildConfig struct {
 // ValidateConfig configures instance XML parsing.
 type ValidateConfig struct {
 	XML XMLConfig
+	// FastValidation lowers per-parse overhead by disabling
+	// line/column tracking and entity expansion.
+	FastValidation bool
 }
 
 // CompileConfig configures schema loading, runtime construction, and default validation.

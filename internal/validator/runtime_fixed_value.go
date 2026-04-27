@@ -16,7 +16,7 @@ type selectedValue struct {
 
 func selectTextDefaultOrFixed(
 	hasContent bool,
-	elem runtime.Element,
+	elem *runtime.Element,
 	elemOK bool,
 	ct runtime.ComplexType,
 	hasComplexText bool,
@@ -59,7 +59,7 @@ func selectTextDefaultOrFixed(
 }
 
 func selectTextFixedConstraint(
-	elem runtime.Element,
+	elem *runtime.Element,
 	elemOK bool,
 	ct runtime.ComplexType,
 	hasComplexText bool,

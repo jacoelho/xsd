@@ -25,11 +25,10 @@ func ResolveStartResult(
 	if decl == 0 {
 		return StartResult{Skip: true}, nil
 	}
-	if int(decl) >= len(rt.Elements) {
+	elem, ok := rt.Element(decl)
+	if !ok {
 		return StartResult{}, fmt.Errorf("element %d out of range", decl)
 	}
-
-	elem := rt.Elements[decl]
 	if elem.Flags&runtime.ElemAbstract != 0 {
 		return StartResult{}, xsderrors.New(xsderrors.ErrElementAbstract, "element is abstract")
 	}
@@ -63,7 +62,7 @@ func ResolveStartResult(
 		}
 	}
 
-	if int(actualType) < len(rt.Types) && rt.Types[actualType].Flags&runtime.TypeAbstract != 0 {
+	if typ, ok := rt.Type(actualType); ok && typ.Flags&runtime.TypeAbstract != 0 {
 		return StartResult{}, xsderrors.New(xsderrors.ErrElementTypeAbstract, "type is abstract")
 	}
 

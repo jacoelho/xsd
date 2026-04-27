@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/runtimetest"
 	"github.com/jacoelho/xsd/internal/xsdpath"
 )
 
@@ -163,7 +164,7 @@ func TestCompileProgramsErrorsAreWrapped(t *testing.T) {
 		t.Fatalf("nil schema error = %v, want xsdpath.ErrInvalidXPath", err)
 	}
 
-	schema := &runtime.Schema{}
+	schema := runtimetest.EmptySchema(t)
 	if _, err := compileXPathPrograms("[invalid", nil, xsdpath.AttributesDisallowed, schema); err == nil {
 		t.Fatal("expected error for invalid xpath")
 	} else if !errors.Is(err, xsdpath.ErrInvalidXPath) {

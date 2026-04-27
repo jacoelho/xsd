@@ -2,16 +2,16 @@ package validator
 
 import "github.com/jacoelho/xsd/internal/runtime"
 
-func (s *Session) element(id runtime.ElemID) (runtime.Element, bool) {
-	if id == 0 || int(id) >= len(s.rt.Elements) {
-		return runtime.Element{}, false
+func (s *Session) element(id runtime.ElemID) (*runtime.Element, bool) {
+	if s == nil || s.rt == nil {
+		return nil, false
 	}
-	return s.rt.Elements[id], true
+	return s.rt.ElementRef(id)
 }
 
 func (s *Session) typeByID(id runtime.TypeID) (runtime.Type, bool) {
-	if id == 0 || int(id) >= len(s.rt.Types) {
+	if s == nil || s.rt == nil {
 		return runtime.Type{}, false
 	}
-	return s.rt.Types[id], true
+	return s.rt.Type(id)
 }

@@ -49,11 +49,12 @@ func (s *Session) validateAttributesClassifiedWithStorage(typeID runtime.TypeID,
 	if typ.Kind != runtime.TypeComplex {
 		validated, err = s.validateSimpleAttrs(inputAttrs, classified.Classes, storeAttrs, storeValues, validated)
 	} else {
-		if int(typ.Complex.ID) >= len(s.rt.ComplexTypes) {
+		ctValue, ok := s.rt.ComplexType(typ.Complex.ID)
+		if !ok {
 			return AttrResult{}, fmt.Errorf("complex type %d not found", typ.Complex.ID)
 		}
-		ct := &s.rt.ComplexTypes[typ.Complex.ID]
-		uses := Uses(s.rt.AttrIndex.Uses, ct.Attrs)
+		ct := &ctValue
+		uses := s.rt.AttributeUses(ct.Attrs)
 		present := s.attrs.attrState.PreparePresent(len(uses))
 
 		seenID := false
@@ -226,13 +227,13 @@ func (s *Session) validateComplexAttrValue(
 				return nil, err
 			}
 		}
-		if actualKind != spec.FixedKey.Kind || !bytes.Equal(actualKey, valueBytes(s.rt.Values, spec.FixedKey.Ref)) {
+		if actualKind != spec.FixedKey.Kind || !bytes.Equal(actualKey, s.rt.Value(spec.FixedKey.Ref)) {
 			return nil, xsderrors.New(xsderrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
 		}
 		return validated, nil
 	}
 
-	if !bytes.Equal(canonical, valueBytes(s.rt.Values, spec.Fixed)) {
+	if !bytes.Equal(canonical, s.rt.Value(spec.Fixed)) {
 		return nil, xsderrors.New(xsderrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
 	}
 	return validated, nil
@@ -251,7 +252,10 @@ func (s *Session) validateComplexWildcardAttr(
 		return nil, newValidationError(xsderrors.ErrAttributeNotDeclared, "attribute wildcard rejected namespace")
 	}
 
-	rule := s.rt.Wildcards[anyAttr]
+	rule, ok := s.rt.Wildcard(anyAttr)
+	if !ok {
+		return nil, fmt.Errorf("attribute wildcard %d out of range", anyAttr)
+	}
 	wildcardAttr, resolved, err := s.resolveWildcardAttrID(rule.PC, attr.Sym)
 	if err != nil {
 		return nil, err
@@ -262,11 +266,11 @@ func (s *Session) validateComplexWildcardAttr(
 		}
 		return StoreRawIdentity(validated, attr, storeAttrs, s.ensureAttrNameStable), nil
 	}
-	if int(wildcardAttr) >= len(s.rt.Attributes) {
+	globalAttr, ok := s.rt.Attribute(wildcardAttr)
+	if !ok {
 		return nil, fmt.Errorf("attribute %d out of range", wildcardAttr)
 	}
 
-	globalAttr := s.rt.Attributes[wildcardAttr]
 	return s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, storeValues, SpecFromAttribute(globalAttr), seenID)
 }
 
@@ -292,7 +296,7 @@ func (s *Session) resolveWildcardAttrID(pc runtime.ProcessContents, sym runtime.
 }
 
 func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, storeAttrs, seenID bool) ([]Applied, error) {
-	readValue := func(ref runtime.ValueRef) []byte { return valueBytes(s.rt.Values, ref) }
+	readValue := func(ref runtime.ValueRef) []byte { return s.rt.Value(ref) }
 	materializeKey := func(validator runtime.ValidatorID, canonical []byte, member runtime.ValidatorID, stored runtime.ValueKeyRef) (runtime.ValueKind, []byte, error) {
 		return materializeValueKey(
 			validator,
@@ -352,5 +356,5 @@ func (s *Session) needsIdentityAttrs(elemID runtime.ElemID) bool {
 		return true
 	}
 	elem, ok := s.element(elemID)
-	return ok && elem.ICLen > 0
+	return ok && elem != nil && elem.ICLen > 0
 }

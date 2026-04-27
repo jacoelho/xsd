@@ -17,7 +17,7 @@ func (b *schemaBuilder) buildMatchers(glu *contentmodel.Glushkov) ([]runtime.Pos
 		switch pos.Kind {
 		case contentmodel.PositionElement:
 			elemID := runtime.ElemID(pos.ElementID)
-			if elemID == 0 || int(elemID) >= len(b.rt.Elements) {
+			if _, ok := b.rt.Element(elemID); !ok {
 				return nil, fmt.Errorf("runtime build: element %d missing ID", pos.ElementID)
 			}
 			elem := b.schema.Elements[elemID-1]

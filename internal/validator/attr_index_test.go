@@ -16,7 +16,8 @@ func TestUsesOverflowReturnsNil(t *testing.T) {
 }
 
 func TestGlobalAttributeBySymbolOutOfRange(t *testing.T) {
-	rt := &runtime.Schema{GlobalAttributes: []runtime.AttrID{0, 3}}
+	rt := newRuntimeSchema(t)
+	setRuntimeGlobalAttributes(t, rt, []runtime.AttrID{0, 3})
 	got, ok := GlobalAttributeBySymbol(rt, 2)
 	if ok || got != 0 {
 		t.Fatalf("GlobalAttributeBySymbol() = (%d, %v), want (0, false)", got, ok)
@@ -24,14 +25,11 @@ func TestGlobalAttributeBySymbolOutOfRange(t *testing.T) {
 }
 
 func TestLookupUseFindsMatchingSymbol(t *testing.T) {
-	rt := &runtime.Schema{
-		AttrIndex: runtime.ComplexAttrIndex{
-			Uses: []runtime.AttrUse{
-				{Name: 7},
-				{Name: 9},
-			},
-		},
-	}
+	rt := newRuntimeSchema(t)
+	setRuntimeAttrIndex(t, rt, runtime.ComplexAttrIndex{Uses: []runtime.AttrUse{
+		{Name: 7},
+		{Name: 9},
+	}})
 	use, idx, ok := LookupUse(rt, runtime.AttrIndexRef{Off: 0, Len: 2}, 9)
 	if !ok {
 		t.Fatal("LookupUse() ok = false, want true")

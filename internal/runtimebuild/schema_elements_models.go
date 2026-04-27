@@ -54,9 +54,13 @@ func (b *schemaBuilder) buildElements() error {
 			elem.FixedMember = fixed.Member
 		}
 
-		b.rt.Elements[id] = elem
+		if err := b.assembler.SetElement(id, elem); err != nil {
+			return err
+		}
 		if entry.Global {
-			b.rt.GlobalElements[sym] = id
+			if err := b.assembler.SetGlobalElement(sym, id); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -87,7 +91,10 @@ func (b *schemaBuilder) buildModels() error {
 			continue
 		}
 
-		complexModel := &b.rt.ComplexTypes[complexID]
+		complexModel, ok := b.rt.ComplexType(complexID)
+		if !ok {
+			return fmt.Errorf("runtime build: complex type %d out of range", complexID)
+		}
 		complexModel.Mixed = plan.Mixed
 		switch plan.Content {
 		case schemair.ContentSimple:
@@ -114,16 +121,18 @@ func (b *schemaBuilder) buildModels() error {
 			complexModel.Content = kind
 			complexModel.Model = ref
 		}
-
+		if err := b.assembler.SetComplexType(complexID, complexModel); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (b *schemaBuilder) buildAnyTypeModel() error {
-	if b.anyTypeComplex == 0 || int(b.anyTypeComplex) >= len(b.rt.ComplexTypes) {
+	complexModel, ok := b.rt.ComplexType(b.anyTypeComplex)
+	if !ok {
 		return nil
 	}
-	complexModel := &b.rt.ComplexTypes[b.anyTypeComplex]
 	complexModel.Mixed = true
 
 	wildcard := b.addWildcardRule(schemair.Wildcard{
@@ -147,5 +156,5 @@ func (b *schemaBuilder) buildAnyTypeModel() error {
 		NamespaceKind:   schemair.NamespaceAny,
 		ProcessContents: schemair.ProcessLax,
 	})
-	return nil
+	return b.assembler.SetComplexType(b.anyTypeComplex, complexModel)
 }

@@ -69,13 +69,13 @@ func TestWildcardProcessParityElementAndAttribute(t *testing.T) {
 func runElementWildcardPolicyCase(t *testing.T, pc runtime.ProcessContents, withSymbol bool) (xsderrors.ErrorCode, bool) {
 	t.Helper()
 	schema, ids := buildRuntimeFixture(t)
-	schema.Wildcards = []runtime.WildcardRule{
+	setRuntimeWildcards(t, schema, []runtime.WildcardRule{
 		{},
 		{
 			NS: runtime.NSConstraint{Kind: runtime.NSAny},
 			PC: pc,
 		},
-	}
+	})
 	sess := NewSession(schema)
 
 	sym := runtime.SymbolID(0)
@@ -103,14 +103,14 @@ func runElementWildcardPolicyCase(t *testing.T, pc runtime.ProcessContents, with
 func runAttributeWildcardPolicyCase(t *testing.T, pc runtime.ProcessContents, withSymbol bool) xsderrors.ErrorCode {
 	t.Helper()
 	schema, ids := buildAttrFixtureNoRequired(t)
-	schema.ComplexTypes[1].AnyAttr = 1
-	schema.Wildcards = []runtime.WildcardRule{
+	schema.ComplexTypeTable()[1].AnyAttr = 1
+	setRuntimeWildcards(t, schema, []runtime.WildcardRule{
 		{},
 		{
 			NS: runtime.NSConstraint{Kind: runtime.NSAny},
 			PC: pc,
 		},
-	}
+	})
 	sess := NewSession(schema)
 
 	attrSym := runtime.SymbolID(0)

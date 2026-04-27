@@ -14,13 +14,28 @@ func (b *schemaBuilder) build() (*runtime.Schema, error) {
 		return nil, err
 	}
 	b.rt = rt
-	b.rt.RootPolicy = runtime.RootStrict
-	b.rt.Validators = b.artifacts.Validators
-	b.rt.Facets = b.artifacts.Facets
-	b.rt.Patterns = b.artifacts.Patterns
-	b.rt.Enums = b.artifacts.Enums
-	b.rt.Values = b.artifacts.Values
-	b.rt.Notations = b.notations
+	b.assembler = runtime.NewAssembler(rt)
+	if err := b.assembler.SetRootPolicy(runtime.RootStrict); err != nil {
+		return nil, err
+	}
+	if err := b.assembler.SetValidators(b.artifacts.Validators); err != nil {
+		return nil, err
+	}
+	if err := b.assembler.SetFacets(b.artifacts.Facets); err != nil {
+		return nil, err
+	}
+	if err := b.assembler.SetPatterns(b.artifacts.Patterns); err != nil {
+		return nil, err
+	}
+	if err := b.assembler.SetEnums(b.artifacts.Enums); err != nil {
+		return nil, err
+	}
+	if err := b.assembler.SetValues(b.artifacts.Values); err != nil {
+		return nil, err
+	}
+	if err := b.assembler.SetNotations(b.notations); err != nil {
+		return nil, err
+	}
 	b.wildcards = make([]runtime.WildcardRule, 1)
 
 	if err := b.initIDs(); err != nil {
@@ -48,11 +63,19 @@ func (b *schemaBuilder) build() (*runtime.Schema, error) {
 		return nil, err
 	}
 
-	b.rt.Wildcards = b.wildcards
-	b.rt.WildcardNS = b.wildcardNS
-	b.rt.Paths = b.paths
+	if err := b.assembler.SetWildcards(b.wildcards); err != nil {
+		return nil, err
+	}
+	if err := b.assembler.SetWildcardNS(b.wildcardNS); err != nil {
+		return nil, err
+	}
+	if err := b.assembler.SetPaths(b.paths); err != nil {
+		return nil, err
+	}
 
-	b.rt.BuildHash = computeBuildHash(b.rt)
+	if err := b.assembler.SetBuildHash(computeBuildHash(b.rt)); err != nil {
+		return nil, err
+	}
 
-	return b.rt, nil
+	return b.assembler.Seal()
 }

@@ -40,15 +40,15 @@ func CompileFile(path string, config CompileConfig) (*Schema, error) {
 func (c Compiler) CompileFS(fsys fs.FS, location string) (*Schema, error) {
 	root, err := newCompileRoot(fsys, location)
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", location, err)
+		return nil, classifyCallerError(fmt.Errorf("compile schema %s: %w", location, err))
 	}
 	req, err := newCompileRequest([]compiler.Root{root}, c.config)
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", location, err)
+		return nil, classifyCallerError(fmt.Errorf("compile schema %s: %w", location, err))
 	}
 	schema, err := req.compile()
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", location, err)
+		return nil, classifySchemaError(fmt.Errorf("compile schema %s: %w", location, err))
 	}
 	return schema, nil
 }
@@ -62,7 +62,7 @@ func (c Compiler) CompileFile(path string) (*Schema, error) {
 
 	root, err := os.OpenRoot(dir)
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", base, err)
+		return nil, classifyIOError(fmt.Errorf("compile schema %s: %w", base, err))
 	}
 	defer func() {
 		_ = root.Close()
@@ -70,7 +70,7 @@ func (c Compiler) CompileFile(path string) (*Schema, error) {
 
 	compileRoot, err := newCompileRoot(root.FS(), base)
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", base, err)
+		return nil, classifyCallerError(fmt.Errorf("compile schema %s: %w", base, err))
 	}
 	compileRoot.Resolver = &compileFileResolver{
 		path:     path,
@@ -79,11 +79,11 @@ func (c Compiler) CompileFile(path string) (*Schema, error) {
 	}
 	req, err := newCompileRequest([]compiler.Root{compileRoot}, c.config)
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", base, err)
+		return nil, classifyCallerError(fmt.Errorf("compile schema %s: %w", base, err))
 	}
 	schema, err := req.compile()
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", base, err)
+		return nil, classifySchemaError(fmt.Errorf("compile schema %s: %w", base, err))
 	}
 	return schema, nil
 }
@@ -91,23 +91,23 @@ func (c Compiler) CompileFile(path string) (*Schema, error) {
 // CompileSources loads, prepares, and builds multiple schema roots.
 func (c Compiler) CompileSources(sources []Source) (*Schema, error) {
 	if len(sources) == 0 {
-		return nil, fmt.Errorf("compile schema sources: no sources")
+		return nil, classifyCallerError(fmt.Errorf("compile schema sources: no sources"))
 	}
 	roots := make([]compiler.Root, 0, len(sources))
 	for _, source := range sources {
 		root, err := newCompileRoot(source.FS, source.Path)
 		if err != nil {
-			return nil, fmt.Errorf("compile schema source %s: %w", source.Path, err)
+			return nil, classifyCallerError(fmt.Errorf("compile schema source %s: %w", source.Path, err))
 		}
 		roots = append(roots, root)
 	}
 	req, err := newCompileRequest(roots, c.config)
 	if err != nil {
-		return nil, fmt.Errorf("compile schema sources: %w", err)
+		return nil, classifyCallerError(fmt.Errorf("compile schema sources: %w", err))
 	}
 	schema, err := req.compile()
 	if err != nil {
-		return nil, fmt.Errorf("compile schema sources: %w", err)
+		return nil, classifySchemaError(fmt.Errorf("compile schema sources: %w", err))
 	}
 	return schema, nil
 }

@@ -62,18 +62,18 @@ func TestAtomicCanonicalCompileRuntimeParity(t *testing.T) {
 
 func mustRootTypeID(t *testing.T, rt *runtime.Schema) runtime.TypeID {
 	t.Helper()
-	if rt == nil || len(rt.Elements) <= 1 {
+	if rt == nil || len(rt.ElementTable()) <= 1 {
 		t.Fatal("runtime schema missing root element")
 	}
-	return rt.Elements[1].Type
+	return rt.ElementTable()[1].Type
 }
 
 func mustRootDefaultValue(t *testing.T, rt *runtime.Schema) []byte {
 	t.Helper()
-	if rt == nil || len(rt.Elements) <= 1 {
+	if rt == nil || len(rt.ElementTable()) <= 1 {
 		t.Fatal("runtime schema missing root element")
 	}
-	value := valueRefBytes(rt, rt.Elements[1].Default)
+	value := valueRefBytes(rt, rt.ElementTable()[1].Default)
 	if value == nil {
 		t.Fatal("runtime schema missing root default value")
 	}

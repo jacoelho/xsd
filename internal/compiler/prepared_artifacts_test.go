@@ -54,11 +54,11 @@ func TestPreparedBuildIsPure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second Build() error = %v", err)
 	}
-	if rtFirst.BuildHash != rtSecond.BuildHash {
-		t.Fatalf("build hash mismatch: first=%x second=%x", rtFirst.BuildHash, rtSecond.BuildHash)
+	if rtFirst.BuildHashValue() != rtSecond.BuildHashValue() {
+		t.Fatalf("build hash mismatch: first=%x second=%x", rtFirst.BuildHashValue(), rtSecond.BuildHashValue())
 	}
-	if len(rtFirst.Types) != len(rtSecond.Types) {
-		t.Fatalf("type count mismatch: first=%d second=%d", len(rtFirst.Types), len(rtSecond.Types))
+	if len(rtFirst.TypeTable()) != len(rtSecond.TypeTable()) {
+		t.Fatalf("type count mismatch: first=%d second=%d", len(rtFirst.TypeTable()), len(rtSecond.TypeTable()))
 	}
 }
 
@@ -116,21 +116,21 @@ func TestPreparedBuildSimpleContentRestriction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second Build() error = %v", err)
 	}
-	if len(rtFirst.Elements) != len(rtSecond.Elements) {
-		t.Fatalf("element count mismatch: first=%d second=%d", len(rtFirst.Elements), len(rtSecond.Elements))
+	if len(rtFirst.ElementTable()) != len(rtSecond.ElementTable()) {
+		t.Fatalf("element count mismatch: first=%d second=%d", len(rtFirst.ElementTable()), len(rtSecond.ElementTable()))
 	}
-	rootFirst := rtFirst.Elements[1]
-	rootSecond := rtSecond.Elements[1]
+	rootFirst := rtFirst.ElementTable()[1]
+	rootSecond := rtSecond.ElementTable()[1]
 	if rootFirst.Type != rootSecond.Type {
 		t.Fatalf("root type mismatch: first=%d second=%d", rootFirst.Type, rootSecond.Type)
 	}
-	typFirst := rtFirst.Types[rootFirst.Type]
-	typSecond := rtSecond.Types[rootSecond.Type]
+	typFirst := rtFirst.TypeTable()[rootFirst.Type]
+	typSecond := rtSecond.TypeTable()[rootSecond.Type]
 	if typFirst.Validator != typSecond.Validator {
 		t.Fatalf("root validator mismatch: first=%d second=%d", typFirst.Validator, typSecond.Validator)
 	}
-	ctFirst := rtFirst.ComplexTypes[typFirst.Complex.ID]
-	ctSecond := rtSecond.ComplexTypes[typSecond.Complex.ID]
+	ctFirst := rtFirst.ComplexTypeTable()[typFirst.Complex.ID]
+	ctSecond := rtSecond.ComplexTypeTable()[typSecond.Complex.ID]
 	if ctFirst.TextValidator != ctSecond.TextValidator {
 		t.Fatalf("simple-content text validator mismatch: first=%d second=%d", ctFirst.TextValidator, ctSecond.TextValidator)
 	}

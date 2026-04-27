@@ -62,22 +62,22 @@ func buildSelectionFixture(tb testing.TB) selectionFixture {
 		tb.Fatalf("Build(): %v", err)
 	}
 
-	rt.Types = make([]runtime.Type, 3)
-	rt.Types[1] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
-	rt.Types[2] = runtime.Type{Kind: runtime.TypeSimple}
-	rt.ComplexTypes = make([]runtime.ComplexType, 2)
-	rt.ComplexTypes[1] = runtime.ComplexType{Content: runtime.ContentElementOnly}
+	setRuntimeTypes(tb, rt, make([]runtime.Type, 3))
+	rt.TypeTable()[1] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
+	rt.TypeTable()[2] = runtime.Type{Kind: runtime.TypeSimple}
+	setRuntimeComplexTypes(tb, rt, make([]runtime.ComplexType, 2))
+	rt.ComplexTypeTable()[1] = runtime.ComplexType{Content: runtime.ContentElementOnly}
 
-	rt.Elements = make([]runtime.Element, 3)
-	rt.Elements[1] = runtime.Element{Name: rootSym, Type: 1, ICOff: 0, ICLen: 1}
-	rt.Elements[2] = runtime.Element{Name: itemSym, Type: 2}
+	setRuntimeElements(tb, rt, make([]runtime.Element, 3))
+	rt.ElementTable()[1] = runtime.Element{Name: rootSym, Type: 1, ICOff: 0, ICLen: 1}
+	rt.ElementTable()[2] = runtime.Element{Name: itemSym, Type: 2}
 
-	rt.Paths = make([]runtime.PathProgram, 3)
-	rt.Paths[1] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpChildName, Sym: itemSym, NS: nsID}}}
-	rt.Paths[2] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpAttrName, Sym: attrSym, NS: emptyNS}}}
+	setRuntimePaths(tb, rt, make([]runtime.PathProgram, 3))
+	rt.PathPrograms()[1] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpChildName, Sym: itemSym, NS: nsID}}}
+	rt.PathPrograms()[2] = runtime.PathProgram{Ops: []runtime.PathOp{{Op: runtime.OpAttrName, Sym: attrSym, NS: emptyNS}}}
 
-	rt.ICs = make([]runtime.IdentityConstraint, 2)
-	rt.ICs[1] = runtime.IdentityConstraint{
+	setRuntimeIdentityConstraints(tb, rt, make([]runtime.IdentityConstraint, 2))
+	rt.IdentityConstraints()[1] = runtime.IdentityConstraint{
 		Name:        nameSym,
 		Category:    runtime.ICUnique,
 		SelectorOff: 0,
@@ -85,9 +85,9 @@ func buildSelectionFixture(tb testing.TB) selectionFixture {
 		FieldOff:    0,
 		FieldLen:    1,
 	}
-	rt.ElemICs = []runtime.ICID{1}
-	rt.ICSelectors = []runtime.PathID{1}
-	rt.ICFields = []runtime.PathID{2}
+	setRuntimeElementIdentityConstraints(tb, rt, []runtime.ICID{1})
+	setRuntimeIdentitySelectors(tb, rt, []runtime.PathID{1})
+	setRuntimeIdentityFields(tb, rt, []runtime.PathID{2})
 
 	return selectionFixture{
 		rt:       rt,
@@ -103,7 +103,7 @@ func buildSelectionFixture(tb testing.TB) selectionFixture {
 func TestOpenScopeBuildsConstraintState(t *testing.T) {
 	fx := buildSelectionFixture(t)
 
-	scope, ok, err := OpenScope(fx.rt, 7, 0, fx.rootElem, &fx.rt.Elements[fx.rootElem])
+	scope, ok, err := OpenScope(fx.rt, 7, 0, fx.rootElem, &fx.rt.ElementTable()[fx.rootElem])
 	if err != nil {
 		t.Fatalf("OpenScope(): %v", err)
 	}
@@ -127,7 +127,7 @@ func TestOpenScopeBuildsConstraintState(t *testing.T) {
 
 func TestMatchSelectorsAndApplySelections(t *testing.T) {
 	fx := buildSelectionFixture(t)
-	scope, ok, err := OpenScope(fx.rt, 1, 0, fx.rootElem, &fx.rt.Elements[fx.rootElem])
+	scope, ok, err := OpenScope(fx.rt, 1, 0, fx.rootElem, &fx.rt.ElementTable()[fx.rootElem])
 	if err != nil {
 		t.Fatalf("OpenScope(): %v", err)
 	}
@@ -136,7 +136,7 @@ func TestMatchSelectorsAndApplySelections(t *testing.T) {
 	}
 	scopes := []Scope{scope}
 	frames := []testFrame{
-		{sym: fx.rt.Elements[fx.rootElem].Name, ns: fx.nsID},
+		{sym: fx.rt.ElementTable()[fx.rootElem].Name, ns: fx.nsID},
 		{sym: fx.itemSym, ns: fx.nsID},
 	}
 

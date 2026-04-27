@@ -16,12 +16,12 @@ func TestLookupActualUnionValidator(t *testing.T) {
 
 	rt := mustBuildRuntimeSchema(t, schema)
 	sess := NewSession(rt)
-	sym := rt.Symbols.Lookup(rt.PredefNS.Empty, []byte("U"))
-	typeID := rt.GlobalTypes[sym]
+	sym := rt.SymbolLookup(rt.KnownNamespaces().Empty, []byte("U"))
+	typeID := rt.GlobalTypeIDs()[sym]
 	if typeID == 0 {
 		t.Fatalf("union type not found")
 	}
-	unionValidator := rt.Types[typeID].Validator
+	unionValidator := rt.TypeTable()[typeID].Validator
 
 	actual, err := sess.lookupActualUnionValidator(unionValidator, []byte("12.5"), nil)
 	if err != nil {

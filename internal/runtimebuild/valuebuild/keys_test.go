@@ -143,7 +143,7 @@ func TestValueKeysForNormalizedUseRuntimeEncoding(t *testing.T) {
 			normalized: "01 1",
 			spec: schemair.SimpleTypeSpec{
 				Variety:    schemair.TypeVarietyList,
-				Item:       schemair.TypeRef{ID: 1, Name: schemair.Name{Local: "Int"}},
+				Item:       schemair.UserTypeRef(1, schemair.Name{Local: "Int"}),
 				Whitespace: schemair.WhitespaceCollapse,
 			},
 			want: []runtime.ValueKey{runtimeListKey(t,
@@ -157,10 +157,10 @@ func TestValueKeysForNormalizedUseRuntimeEncoding(t *testing.T) {
 			normalized: "1",
 			spec: schemair.SimpleTypeSpec{
 				Variety: schemair.TypeVarietyUnion,
-				Members: []schemair.TypeRef{
-					{ID: 2, Name: schemair.Name{Local: "Boolean"}},
-					{ID: 1, Name: schemair.Name{Local: "Int"}},
-				},
+				Members: append([]schemair.TypeRef(nil),
+					schemair.UserTypeRef(2, schemair.Name{Local: "Boolean"}),
+					schemair.UserTypeRef(1, schemair.Name{Local: "Int"}),
+				),
 				Whitespace: schemair.WhitespaceCollapse,
 			},
 			want: []runtime.ValueKey{

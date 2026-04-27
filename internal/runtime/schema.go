@@ -2,44 +2,44 @@ package runtime
 
 // Schema is the immutable runtime representation used by validation sessions.
 type Schema struct {
-	Symbols    SymbolsTable
-	Namespaces NamespaceTable
+	symbols    SymbolsTable
+	namespaces NamespaceTable
 
-	GlobalTypes      []TypeID
-	GlobalElements   []ElemID
-	GlobalAttributes []AttrID
+	globalTypes      []TypeID
+	globalElements   []ElemID
+	globalAttributes []AttrID
 
-	Types        []Type
-	Ancestors    TypeAncestors
-	ComplexTypes []ComplexType
-	Elements     []Element
-	Attributes   []Attribute
-	AttrIndex    ComplexAttrIndex
+	types        []Type
+	ancestors    TypeAncestors
+	complexTypes []ComplexType
+	elements     []Element
+	attributes   []Attribute
+	attrIndex    ComplexAttrIndex
 
-	Validators ValidatorsBundle
-	Facets     []FacetInstr
-	Patterns   []Pattern
-	Enums      EnumTable
-	Values     ValueBlob
-	Notations  []SymbolID
+	validators ValidatorsBundle
+	facets     []FacetInstr
+	patterns   []Pattern
+	enums      EnumTable
+	values     ValueBlob
+	notations  []SymbolID
 
-	Models     ModelsBundle
-	Wildcards  []WildcardRule
-	WildcardNS []NamespaceID
+	models     ModelsBundle
+	wildcards  []WildcardRule
+	wildcardNS []NamespaceID
 
-	ICs         []IdentityConstraint
-	ElemICs     []ICID
-	ICSelectors []PathID
-	ICFields    []PathID
-	Paths       []PathProgram
+	identityConstraints        []IdentityConstraint
+	elementIdentityConstraints []ICID
+	identitySelectors          []PathID
+	identityFields             []PathID
+	paths                      []PathProgram
 
-	Predef   PredefinedSymbols
-	PredefNS PredefinedNamespaces
-	Builtin  BuiltinIDs
+	predef   PredefinedSymbols
+	predefNS PredefinedNamespaces
+	builtin  BuiltinIDs
 
-	RootPolicy RootPolicy
+	rootPolicy RootPolicy
 
-	BuildHash uint64
+	buildHash uint64
 }
 
 // BuiltinIDs caches frequently accessed built-in type IDs.

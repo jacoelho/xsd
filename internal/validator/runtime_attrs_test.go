@@ -67,7 +67,7 @@ func TestValidateAttributesAllowsXMLNamespace(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	xmlAttrs := []Start{{Sym: schema.Predef.XMLLang, NS: schema.PredefNS.XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
+	xmlAttrs := []Start{{Sym: schema.KnownSymbols().XMLLang, NS: schema.KnownNamespaces().XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
 	_, err := sess.ValidateAttributes(ids.typeBase, xmlAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xml attribute to be allowed, got %v", err)
@@ -84,13 +84,13 @@ func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
 		t.Fatalf("expected simple type attribute error")
 	}
 
-	xsiAttrs := []Start{{Sym: schema.Predef.XsiType, NS: schema.PredefNS.Xsi, NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"), Local: []byte("type")}}
+	xsiAttrs := []Start{{Sym: schema.KnownSymbols().XsiType, NS: schema.KnownNamespaces().Xsi, NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"), Local: []byte("type")}}
 	_, err = sess.ValidateAttributes(ids.typeSimple, xsiAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xsi attribute to be allowed")
 	}
 
-	xmlAttrs := []Start{{Sym: schema.Predef.XMLLang, NS: schema.PredefNS.XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
+	xmlAttrs := []Start{{Sym: schema.KnownSymbols().XMLLang, NS: schema.KnownNamespaces().XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
 	_, err = sess.ValidateAttributes(ids.typeSimple, xmlAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xml attribute to be allowed")
@@ -114,8 +114,8 @@ func TestValidateAttributesSimpleTypeKeepsAppliedBuffer(t *testing.T) {
 	}
 
 	xsiAttrs := []Start{{
-		Sym:     schema.Predef.XsiType,
-		NS:      schema.PredefNS.Xsi,
+		Sym:     schema.KnownSymbols().XsiType,
+		NS:      schema.KnownNamespaces().Xsi,
 		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 		Local:   []byte("type"),
 	}}
@@ -151,17 +151,19 @@ func TestValidateAttributesClassifiedWithoutIdentityStorageSkipsStoredAttrs(t *t
 }
 
 func TestNeedsIdentityAttrs(t *testing.T) {
-	sess := &Session{rt: &runtime.Schema{Elements: make([]runtime.Element, 3)}}
+	rt := newRuntimeSchema(t)
+	setRuntimeElements(t, rt, make([]runtime.Element, 3))
+	sess := &Session{rt: rt}
 	if sess.needsIdentityAttrs(1) {
 		t.Fatalf("needsIdentityAttrs() = true without scopes or element constraints")
 	}
 
-	sess.rt.Elements[1].ICLen = 1
+	sess.rt.ElementTable()[1].ICLen = 1
 	if !sess.needsIdentityAttrs(1) {
 		t.Fatalf("needsIdentityAttrs() = false for element with constraints")
 	}
 
-	sess.rt.Elements[1].ICLen = 0
+	sess.rt.ElementTable()[1].ICLen = 0
 	sess.identity.icState.Scopes.Push(Scope{})
 	if !sess.needsIdentityAttrs(1) {
 		t.Fatalf("needsIdentityAttrs() = false with active scopes")
@@ -173,7 +175,7 @@ func TestValidateAttributesRejectsUnknownXsiAttribute(t *testing.T) {
 	sess := NewSession(schema)
 
 	unknown := []Start{{
-		NS:      schema.PredefNS.Xsi,
+		NS:      schema.KnownNamespaces().Xsi,
 		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 		Local:   []byte("unknown"),
 		Value:   []byte("1"),
@@ -186,7 +188,7 @@ func TestValidateAttributesRejectsUnknownXsiAttribute(t *testing.T) {
 	}
 
 	known := []Start{{
-		NS:      schema.PredefNS.Xsi,
+		NS:      schema.KnownNamespaces().Xsi,
 		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 		Local:   []byte("nil"),
 		Value:   []byte("true"),
@@ -198,11 +200,11 @@ func TestValidateAttributesRejectsUnknownXsiAttribute(t *testing.T) {
 
 func TestValidateAttributesWildcardStrictUnresolved(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
-	schema.ComplexTypes[1].AnyAttr = 1
-	schema.Wildcards = []runtime.WildcardRule{
+	schema.ComplexTypeTable()[1].AnyAttr = 1
+	setRuntimeWildcards(t, schema, []runtime.WildcardRule{
 		{},
 		{NS: runtime.NSConstraint{Kind: runtime.NSAny}, PC: runtime.PCStrict},
-	}
+	})
 	sess := NewSession(schema)
 
 	inputAttrs := []Start{{Sym: 0, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("unknown")}}
@@ -214,11 +216,11 @@ func TestValidateAttributesWildcardStrictUnresolved(t *testing.T) {
 
 func TestValidateAttributesWildcardLaxSkip(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
-	schema.ComplexTypes[1].AnyAttr = 1
-	schema.Wildcards = []runtime.WildcardRule{
+	schema.ComplexTypeTable()[1].AnyAttr = 1
+	setRuntimeWildcards(t, schema, []runtime.WildcardRule{
 		{},
 		{NS: runtime.NSConstraint{Kind: runtime.NSAny}, PC: runtime.PCLax},
-	}
+	})
 	sess := NewSession(schema)
 
 	inputAttrs := []Start{{Sym: 0, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("unknown")}}
@@ -230,11 +232,11 @@ func TestValidateAttributesWildcardLaxSkip(t *testing.T) {
 
 func TestValidateAttributesWildcardResolvesGlobal(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
-	schema.ComplexTypes[1].AnyAttr = 1
-	schema.Wildcards = []runtime.WildcardRule{
+	schema.ComplexTypeTable()[1].AnyAttr = 1
+	setRuntimeWildcards(t, schema, []runtime.WildcardRule{
 		{},
 		{NS: runtime.NSConstraint{Kind: runtime.NSAny}, PC: runtime.PCStrict},
-	}
+	})
 	sess := NewSession(schema)
 
 	inputAttrs := []Start{{Sym: ids.attrSymGlobal, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("global")}}
@@ -257,7 +259,7 @@ func TestValidateAttributesDuplicate(t *testing.T) {
 
 func TestValidateAttributesCopiesUncachedNamesWhenStored(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
-	schema.ICs = make([]runtime.IdentityConstraint, 2)
+	setRuntimeIdentityConstraints(t, schema, make([]runtime.IdentityConstraint, 2))
 	sess := NewSession(schema)
 
 	nsBuf := []byte("urn:test")
@@ -291,8 +293,10 @@ func buildAttrFixture(tb testing.TB) (*runtime.Schema, attrFixtureIDs) {
 	tb.Helper()
 	schema, ids := buildAttrFixtureNoRequired(tb)
 	// add required attribute use
-	schema.AttrIndex.Uses = append(schema.AttrIndex.Uses, runtime.AttrUse{Name: ids.attrSymRequired, Validator: 1, Use: runtime.AttrRequired})
-	schema.ComplexTypes[1].Attrs.Len++
+	attrIndex := schema.AttributeIndex()
+	attrIndex.Uses = append(attrIndex.Uses, runtime.AttrUse{Name: ids.attrSymRequired, Validator: 1, Use: runtime.AttrRequired})
+	setRuntimeAttrIndex(tb, schema, attrIndex)
+	schema.ComplexTypeTable()[1].Attrs.Len++
 	return schema, ids
 }
 
@@ -315,7 +319,7 @@ func buildAttrFixtureNoRequired(tb testing.TB) (*runtime.Schema, attrFixtureIDs)
 	if err != nil {
 		tb.Fatalf("Build() error = %v", err)
 	}
-	schema.Validators = runtime.ValidatorsBundle{
+	setRuntimeValidators(tb, schema, runtime.ValidatorsBundle{
 		String: []runtime.StringValidator{{Kind: runtime.StringAny}},
 		Meta: []runtime.ValidatorMeta{
 			{},
@@ -325,25 +329,25 @@ func buildAttrFixtureNoRequired(tb testing.TB) (*runtime.Schema, attrFixtureIDs)
 				WhiteSpace: runtime.WSPreserve,
 			},
 		},
-	}
+	})
 
-	schema.Types = make([]runtime.Type, 3)
-	schema.Types[1] = runtime.Type{Name: typeSym, Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
-	schema.Types[2] = runtime.Type{Name: 0, Kind: runtime.TypeSimple}
-	schema.GlobalTypes = make([]runtime.TypeID, schema.Symbols.Count()+1)
-	schema.GlobalTypes[typeSym] = 1
+	setRuntimeTypes(tb, schema, make([]runtime.Type, 3))
+	schema.TypeTable()[1] = runtime.Type{Name: typeSym, Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
+	schema.TypeTable()[2] = runtime.Type{Name: 0, Kind: runtime.TypeSimple}
+	setRuntimeGlobalTypes(tb, schema, make([]runtime.TypeID, schema.SymbolCount()+1))
+	schema.GlobalTypeIDs()[typeSym] = 1
 
-	schema.ComplexTypes = make([]runtime.ComplexType, 2)
-	schema.AttrIndex = runtime.ComplexAttrIndex{Uses: []runtime.AttrUse{
+	setRuntimeComplexTypes(tb, schema, make([]runtime.ComplexType, 2))
+	setRuntimeAttrIndex(tb, schema, runtime.ComplexAttrIndex{Uses: []runtime.AttrUse{
 		{Name: attrDefault, Validator: 1, Use: runtime.AttrOptional, Default: runtime.ValueRef{Present: true}},
 		{Name: attrProhib, Validator: 1, Use: runtime.AttrProhibited},
-	}}
-	schema.ComplexTypes[1].Attrs = runtime.AttrIndexRef{Off: 0, Len: 2, Mode: runtime.AttrIndexSmallLinear}
+	}})
+	schema.ComplexTypeTable()[1].Attrs = runtime.AttrIndexRef{Off: 0, Len: 2, Mode: runtime.AttrIndexSmallLinear}
 
-	schema.Attributes = make([]runtime.Attribute, 2)
-	schema.Attributes[1] = runtime.Attribute{Name: attrGlobal, Validator: 1}
-	schema.GlobalAttributes = make([]runtime.AttrID, schema.Symbols.Count()+1)
-	schema.GlobalAttributes[attrGlobal] = 1
+	setRuntimeAttributes(tb, schema, make([]runtime.Attribute, 2))
+	schema.AttributeTable()[1] = runtime.Attribute{Name: attrGlobal, Validator: 1}
+	setRuntimeGlobalAttributes(tb, schema, make([]runtime.AttrID, schema.SymbolCount()+1))
+	schema.GlobalAttributeIDs()[attrGlobal] = 1
 
 	return schema, attrFixtureIDs{
 		nsID:              nsID,

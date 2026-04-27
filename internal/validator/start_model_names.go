@@ -46,8 +46,9 @@ func ExpectedStartGlobalElements(rt *runtime.Schema) []string {
 	if rt == nil {
 		return nil
 	}
-	names := make([]string, 0, len(rt.GlobalElements))
-	for sym, elem := range rt.GlobalElements {
+	globalElements := rt.GlobalElementIDs()
+	names := make([]string, 0, len(globalElements))
+	for sym, elem := range globalElements {
 		if sym == 0 || elem == 0 {
 			continue
 		}
@@ -68,12 +69,7 @@ func expectedAllMemberNames(rt *runtime.Schema, member runtime.AllMember) []stri
 	if rt == nil || !member.AllowsSubst || member.SubstLen == 0 {
 		return names
 	}
-	start := int(member.SubstOff)
-	end := start + int(member.SubstLen)
-	if start < 0 || end < 0 || end > len(rt.Models.AllSubst) {
-		return names
-	}
-	for _, elem := range rt.Models.AllSubst[start:end] {
+	for _, elem := range rt.AllSubstitutions(member.SubstOff, member.SubstLen) {
 		names = append(names, elementName(rt, elem))
 	}
 	return names
@@ -175,12 +171,11 @@ func symbolName(rt *runtime.Schema, sym runtime.SymbolID) string {
 	if rt == nil || sym == 0 {
 		return ""
 	}
-	local := rt.Symbols.LocalBytes(sym)
-	if len(local) == 0 {
+	nsID, local, ok := rt.SymbolBytes(sym)
+	if !ok || len(local) == 0 {
 		return ""
 	}
-	nsID := rt.Symbols.NS[sym]
-	ns := rt.Namespaces.Bytes(nsID)
+	ns := rt.NamespaceBytes(nsID)
 	if len(ns) == 0 {
 		return string(local)
 	}
@@ -188,8 +183,9 @@ func symbolName(rt *runtime.Schema, sym runtime.SymbolID) string {
 }
 
 func elementName(rt *runtime.Schema, elem runtime.ElemID) string {
-	if rt == nil || elem == 0 || int(elem) >= len(rt.Elements) {
+	element, ok := rt.Element(elem)
+	if !ok {
 		return ""
 	}
-	return symbolName(rt, rt.Elements[elem].Name)
+	return symbolName(rt, element.Name)
 }

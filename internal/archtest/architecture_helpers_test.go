@@ -197,15 +197,30 @@ func collectRootExports(t *testing.T) map[string]struct{} {
 		}
 	}
 	pkg := typeCheckRootPackage(t, fset)
+	for name := range rootSurfaceTypes() {
+		obj, ok := pkg.Scope().Lookup(name).(*types.TypeName)
+		if !ok {
+			t.Fatalf("root type %s not found in type-checked package", name)
+		}
+		collectTypeSurface(exports, name, obj.Type())
+	}
 	for alias := range collectRootInternalAliases(t) {
 		obj, ok := pkg.Scope().Lookup(alias).(*types.TypeName)
 		if !ok {
 			t.Fatalf("root alias %s not found in type-checked package", alias)
 		}
-		collectAliasSurface(exports, alias, obj.Type())
+		collectTypeSurface(exports, alias, obj.Type())
 	}
 
 	return exports
+}
+
+func rootSurfaceTypes() map[string]struct{} {
+	return map[string]struct{}{
+		"Error":          {},
+		"Validation":     {},
+		"ValidationList": {},
+	}
 }
 
 func collectRootInternalAliases(t *testing.T) map[string]struct{} {
@@ -317,7 +332,7 @@ func typeCheckRootPackage(t *testing.T, fset *token.FileSet) *types.Package {
 	return pkg
 }
 
-func collectAliasSurface(exports map[string]struct{}, name string, typ types.Type) {
+func collectTypeSurface(exports map[string]struct{}, name string, typ types.Type) {
 	unalias := types.Unalias(typ)
 	if st, ok := unalias.Underlying().(*types.Struct); ok {
 		for i := range st.NumFields() {

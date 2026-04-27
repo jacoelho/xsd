@@ -50,8 +50,8 @@ func TestPrepareDeterministicAcrossParses(t *testing.T) {
 		t.Fatalf("build runtime second: %v", err)
 	}
 
-	if runtimeSecond.BuildHash != runtimeFirst.BuildHash {
-		t.Fatalf("build hash mismatch: second=%x first=%x", runtimeSecond.BuildHash, runtimeFirst.BuildHash)
+	if runtimeSecond.BuildHashValue() != runtimeFirst.BuildHashValue() {
+		t.Fatalf("build hash mismatch: second=%x first=%x", runtimeSecond.BuildHashValue(), runtimeFirst.BuildHashValue())
 	}
 	if got, want := runtimeSecond.CanonicalDigest(), runtimeFirst.CanonicalDigest(); got != want {
 		t.Fatalf("canonical digest mismatch: second=%x first=%x", got, want)
@@ -112,7 +112,7 @@ func TestPrepareResolvesTypeReferences(t *testing.T) {
 			continue
 		}
 		found = true
-		if typ.Base.ID == 0 && !typ.Base.Builtin {
+		if typ.Base.TypeID() == 0 && !typ.Base.IsBuiltin() {
 			t.Fatal("expected resolved base in IR")
 		}
 	}
@@ -140,7 +140,7 @@ func TestPrepareReturnsIndependentClone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build() after caller mutation error = %v", err)
 	}
-	if len(rt.GlobalElements) == 0 {
+	if len(rt.GlobalElementIDs()) == 0 {
 		t.Fatal("prepared clone should remain independent from caller mutations")
 	}
 }

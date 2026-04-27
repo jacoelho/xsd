@@ -39,10 +39,11 @@ func MatchesAnySelector[F Frame](rt *runtime.Schema, selectors []runtime.PathID,
 
 // PathOps returns the compiled operations for one path program.
 func PathOps(rt *runtime.Schema, id runtime.PathID) ([]runtime.PathOp, bool) {
-	if id == 0 || int(id) >= len(rt.Paths) {
+	path, ok := rt.Path(id)
+	if !ok {
 		return nil, false
 	}
-	return rt.Paths[id].Ops, true
+	return path.Ops, true
 }
 
 // SplitAttrOp removes a trailing attribute step from a path program.
