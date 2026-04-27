@@ -11,8 +11,8 @@ func TestResolveResultRejectsAbstractElement(t *testing.T) {
 	t.Parallel()
 
 	rt, nsID, sym := buildSchema(t)
-	rt.Types = make([]runtime.Type, 2)
-	rt.Elements[1] = runtime.Element{
+	setRuntimeTypes(t, rt, make([]runtime.Type, 2))
+	rt.ElementTable()[1] = runtime.Element{
 		Name:  sym,
 		Type:  1,
 		Flags: runtime.ElemAbstract,
@@ -28,9 +28,9 @@ func TestResolveResultRejectsNonNillableXsiNil(t *testing.T) {
 	t.Parallel()
 
 	rt, nsID, sym := buildSchema(t)
-	rt.Types = make([]runtime.Type, 2)
-	rt.Types[1] = runtime.Type{Kind: runtime.TypeSimple}
-	rt.Elements[1] = runtime.Element{
+	setRuntimeTypes(t, rt, make([]runtime.Type, 2))
+	rt.TypeTable()[1] = runtime.Type{Kind: runtime.TypeSimple}
+	rt.ElementTable()[1] = runtime.Element{
 		Name: sym,
 		Type: 1,
 	}
@@ -53,12 +53,12 @@ func TestResolveResultRejectsAbstractType(t *testing.T) {
 	t.Parallel()
 
 	rt, nsID, sym := buildSchema(t)
-	rt.Types = make([]runtime.Type, 2)
-	rt.Types[1] = runtime.Type{
+	setRuntimeTypes(t, rt, make([]runtime.Type, 2))
+	rt.TypeTable()[1] = runtime.Type{
 		Kind:  runtime.TypeSimple,
 		Flags: runtime.TypeAbstract,
 	}
-	rt.Elements[1] = runtime.Element{
+	rt.ElementTable()[1] = runtime.Element{
 		Name: sym,
 		Type: 1,
 	}

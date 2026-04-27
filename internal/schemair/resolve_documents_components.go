@@ -17,70 +17,64 @@ func (r *docResolver) ensureElement(decl *ast.ElementDecl, global bool) (Element
 		return r.elementID(decl.Ref)
 	}
 	handle := r.elementDeclHandle(decl)
-	if id, ok := r.localElems[handle]; ok {
-		if r.emittedElems[id] {
-			return id, nil
-		}
-		if err := validateDefaultFixed("element", nameFromQName(decl.Name), decl.Default, decl.Fixed); err != nil {
-			return 0, err
-		}
-		r.emittedElems[id] = true
-		head, err := r.elementID(decl.SubstitutionGroup)
-		if err != nil {
-			return 0, err
-		}
-		if err := r.validateIdentityNames(nameFromQName(decl.Name), decl.Identity); err != nil {
-			return 0, err
-		}
-		typeRef, err := r.typeUseRef(decl.Type, true)
-		if err != nil {
-			return 0, err
-		}
-		if typeUseIsZero(decl.Type) && head != 0 {
-			if headElem, ok := r.emittedElement(head); ok {
-				typeRef = headElem.TypeDecl
-			}
-		}
-		if err := r.validateValueConstraintType("element", nameFromQName(decl.Name), typeRef, decl.Default, decl.Fixed); err != nil {
-			return 0, err
-		}
-		if head != 0 {
-			if err := r.validateSubstitutionFinal(nameFromQName(decl.Name), typeRef, head); err != nil {
-				return 0, err
-			}
-		}
-		elem := Element{
-			ID:               id,
-			Name:             nameFromQName(decl.Name),
-			TypeDecl:         typeRef,
-			SubstitutionHead: head,
-			Default:          r.valueConstraint(decl.Default),
-			Fixed:            r.valueConstraint(decl.Fixed),
-			Final:            derivationSet(decl.Final),
-			Block:            elementBlock(decl.Block),
-			Nillable:         decl.Nillable,
-			Abstract:         decl.Abstract,
-			Global:           global,
-			Origin:           decl.Origin,
-		}
-		if global {
-			r.elements[nameFromQName(decl.Name)] = id
-		}
-		r.out.Elements = append(r.out.Elements, elem)
-		for _, identity := range decl.Identity {
-			constraint, err := r.identity(id, identity)
-			if err != nil {
-				return 0, err
-			}
-			r.out.IdentityConstraints = append(r.out.IdentityConstraints, constraint)
-		}
+	id, ok := r.ids.elements[handle]
+	if !ok {
+		return 0, fmt.Errorf("schema ir: element %s missing ID", formatName(nameFromQName(decl.Name)))
+	}
+	if r.emittedElems[id] {
 		return id, nil
 	}
-	id := r.nextElem
-	r.nextElem++
-	r.localElems[handle] = id
-	r.elemByID[id] = handle
-	return r.ensureElement(decl, global)
+	if err := validateDefaultFixed("element", nameFromQName(decl.Name), decl.Default, decl.Fixed); err != nil {
+		return 0, err
+	}
+	r.emittedElems[id] = true
+	head, err := r.elementID(decl.SubstitutionGroup)
+	if err != nil {
+		return 0, err
+	}
+	if err := r.validateIdentityNames(nameFromQName(decl.Name), decl.Identity); err != nil {
+		return 0, err
+	}
+	typeRef, err := r.typeUseRef(decl.Type, true)
+	if err != nil {
+		return 0, err
+	}
+	if typeUseIsZero(decl.Type) && head != 0 {
+		if headElem, ok := r.emittedElement(head); ok {
+			typeRef = headElem.TypeDecl
+		}
+	}
+	if err := r.validateValueConstraintType("element", nameFromQName(decl.Name), typeRef, decl.Default, decl.Fixed); err != nil {
+		return 0, err
+	}
+	if head != 0 {
+		if err := r.validateSubstitutionFinal(nameFromQName(decl.Name), typeRef, head); err != nil {
+			return 0, err
+		}
+	}
+	elem := Element{
+		ID:               id,
+		Name:             nameFromQName(decl.Name),
+		TypeDecl:         typeRef,
+		SubstitutionHead: head,
+		Default:          r.valueConstraint(ValueConstraintDefault, decl.Default),
+		Fixed:            r.valueConstraint(ValueConstraintFixed, decl.Fixed),
+		Final:            derivationSet(decl.Final),
+		Block:            elementBlock(decl.Block),
+		Nillable:         decl.Nillable,
+		Abstract:         decl.Abstract,
+		Global:           global,
+		Origin:           decl.Origin,
+	}
+	r.out.Elements = append(r.out.Elements, elem)
+	for _, identity := range decl.Identity {
+		constraint, err := r.identity(id, identity)
+		if err != nil {
+			return 0, err
+		}
+		r.out.IdentityConstraints = append(r.out.IdentityConstraints, constraint)
+	}
+	return id, nil
 }
 
 func typeUseIsZero(use ast.TypeUse) bool {
@@ -109,7 +103,7 @@ func (r *docResolver) validateSubstitutionFinal(memberName Name, memberType Type
 	}
 	if !ok {
 		return fmt.Errorf("schema ir: element %s: type '%s' is not derived from substitution group head type '%s'",
-			formatName(memberName), formatName(memberType.Name), formatName(head.TypeDecl.Name))
+			formatName(memberName), formatName(memberType.TypeName()), formatName(head.TypeDecl.TypeName()))
 	}
 	if head.Final == 0 {
 		return nil
@@ -124,10 +118,10 @@ func (r *docResolver) validateSubstitutionFinal(memberName Name, memberType Type
 }
 
 func (r *docResolver) headTypeAllowsSubstitution(head, member TypeRef) bool {
-	if head.Builtin && head.Name.Local == "anyType" {
+	if head.IsBuiltin() && head.TypeName().Local == "anyType" {
 		return true
 	}
-	if !head.Builtin || head.Name.Local != "anySimpleType" {
+	if !head.IsBuiltin() || head.TypeName().Local != "anySimpleType" {
 		return false
 	}
 	info, ok, err := r.typeInfoForRef(member)
@@ -182,14 +176,14 @@ func (r *docResolver) elementTypeAllowsValueConstraint(ref TypeRef) (bool, error
 	if info.Kind == TypeSimple {
 		return true, nil
 	}
-	if ref.Builtin {
-		return ref.Name.Local != "anyType", nil
+	if ref.IsBuiltin() {
+		return ref.TypeName().Local != "anyType", nil
 	}
 	plan, ok, err := r.ensureBaseComplexPlan(ref)
 	if err != nil || !ok {
 		return ok, err
 	}
-	return plan.Mixed || plan.Content == ContentSimple || !isZeroTypeRef(plan.TextType) || !isZeroSimpleTypeSpec(plan.TextSpec), nil
+	return plan.Mixed || plan.Content == ContentSimple || !plan.TextType.IsZero() || !isZeroSimpleTypeSpec(plan.TextSpec), nil
 }
 
 func (r *docResolver) validateValueConstraintLexical(
@@ -220,7 +214,7 @@ func (r *docResolver) valueConstraintSpecForType(ref TypeRef) (SimpleTypeSpec, b
 	if spec, ok := r.specForRef(ref); ok {
 		return spec, true, nil
 	}
-	if ref.Builtin {
+	if ref.IsBuiltin() {
 		return SimpleTypeSpec{}, false, nil
 	}
 	info, ok, err := r.typeInfoForRef(ref)
@@ -262,19 +256,19 @@ func (r *docResolver) derivationMask(member, base TypeRef) (Derivation, bool, er
 	var mask Derivation
 	seen := make(map[TypeRef]bool)
 	current := member
-	for !isZeroTypeRef(current) {
+	for !current.IsZero() {
 		if sameTypeRef(current, base) {
 			return mask, true, nil
 		}
 		if seen[current] {
-			return 0, false, fmt.Errorf("type derivation cycle at %s", formatName(current.Name))
+			return 0, false, fmt.Errorf("type derivation cycle at %s", formatName(current.TypeName()))
 		}
 		seen[current] = true
 		info, ok, err := r.typeInfoForRef(current)
 		if err != nil || !ok {
 			return 0, false, err
 		}
-		if isZeroTypeRef(info.Base) {
+		if info.Base.IsZero() {
 			return 0, false, nil
 		}
 		mask |= info.Derivation
@@ -284,34 +278,35 @@ func (r *docResolver) derivationMask(member, base TypeRef) (Derivation, bool, er
 }
 
 func (r *docResolver) typeInfoForRef(ref TypeRef) (TypeDecl, bool, error) {
-	if ref.Builtin {
+	if ref.IsBuiltin() {
 		for _, builtin := range r.out.BuiltinTypes {
-			if builtin.Name == ref.Name {
+			if builtin.Name == ref.TypeName() {
 				return TypeDecl{ID: 0, Name: builtin.Name, Kind: TypeSimple, Base: builtin.Base, Derivation: DerivationRestriction}, true, nil
 			}
 		}
 		return TypeDecl{}, false, nil
 	}
-	if r.emittingTypes[ref.ID] {
+	refID := ref.TypeID()
+	if r.emittingTypes[refID] {
 		for _, typ := range r.out.Types {
-			if typ.ID == ref.ID {
+			if typ.ID == refID {
 				return typ, true, nil
 			}
 		}
 		return TypeDecl{}, false, nil
 	}
-	if decl := r.simpleDecls[r.simpleByID[ref.ID]]; decl != nil {
+	if decl := r.simpleDecls[r.ids.simpleByID[refID]]; decl != nil {
 		if _, err := r.ensureSimpleType(decl, !decl.Name.IsZero()); err != nil {
 			return TypeDecl{}, false, err
 		}
 	}
-	if decl := r.complexDecls[r.complexByID[ref.ID]]; decl != nil {
+	if decl := r.complexDecls[r.ids.complexByID[refID]]; decl != nil {
 		if _, err := r.ensureComplexType(decl, !decl.Name.IsZero()); err != nil {
 			return TypeDecl{}, false, err
 		}
 	}
 	for _, typ := range r.out.Types {
-		if typ.ID == ref.ID {
+		if typ.ID == refID {
 			return typ, true, nil
 		}
 	}
@@ -319,13 +314,13 @@ func (r *docResolver) typeInfoForRef(ref TypeRef) (TypeDecl, bool, error) {
 }
 
 func sameTypeRef(a, b TypeRef) bool {
-	if a.Builtin != b.Builtin {
+	if a.IsBuiltin() != b.IsBuiltin() {
 		return false
 	}
-	if a.Builtin {
-		return a.Name == b.Name
+	if a.IsBuiltin() {
+		return a.TypeName() == b.TypeName()
 	}
-	return a.ID == b.ID && a.ID != 0
+	return a.TypeID() == b.TypeID() && a.TypeID() != 0
 }
 
 func derivationLabel(method Derivation) string {
@@ -354,41 +349,35 @@ func (r *docResolver) ensureAttribute(decl *ast.AttributeDecl, global bool) (Att
 		return 0, err
 	}
 	handle := r.attributeDeclHandle(decl)
-	if id, ok := r.localAttrs[handle]; ok {
-		if r.emittedAttrs[id] {
-			return id, nil
-		}
-		if err := validateDefaultFixed("attribute", nameFromQName(decl.Name), decl.Default, decl.Fixed); err != nil {
-			return 0, err
-		}
-		r.emittedAttrs[id] = true
-		typeRef, err := r.typeUseRef(decl.Type, false)
-		if err != nil {
-			return 0, err
-		}
-		if err := r.validateValueConstraintType("attribute", nameFromQName(decl.Name), typeRef, decl.Default, decl.Fixed); err != nil {
-			return 0, err
-		}
-		attr := Attribute{
-			ID:       id,
-			Name:     documentAttributeDeclName(decl, global),
-			TypeDecl: typeRef,
-			Default:  r.valueConstraint(decl.Default),
-			Fixed:    r.valueConstraint(decl.Fixed),
-			Global:   global,
-			Origin:   decl.Origin,
-		}
-		if global {
-			r.attrs[attr.Name] = id
-		}
-		r.out.Attributes = append(r.out.Attributes, attr)
+	id, ok := r.ids.attributes[handle]
+	if !ok {
+		return 0, fmt.Errorf("schema ir: attribute %s missing ID", formatName(documentAttributeDeclName(decl, global)))
+	}
+	if r.emittedAttrs[id] {
 		return id, nil
 	}
-	id := r.nextAttr
-	r.nextAttr++
-	r.localAttrs[handle] = id
-	r.attrByID[id] = handle
-	return r.ensureAttribute(decl, global)
+	if err := validateDefaultFixed("attribute", nameFromQName(decl.Name), decl.Default, decl.Fixed); err != nil {
+		return 0, err
+	}
+	r.emittedAttrs[id] = true
+	typeRef, err := r.typeUseRef(decl.Type, false)
+	if err != nil {
+		return 0, err
+	}
+	if err := r.validateValueConstraintType("attribute", nameFromQName(decl.Name), typeRef, decl.Default, decl.Fixed); err != nil {
+		return 0, err
+	}
+	attr := Attribute{
+		ID:       id,
+		Name:     documentAttributeDeclName(decl, global),
+		TypeDecl: typeRef,
+		Default:  r.valueConstraint(ValueConstraintDefault, decl.Default),
+		Fixed:    r.valueConstraint(ValueConstraintFixed, decl.Fixed),
+		Global:   global,
+		Origin:   decl.Origin,
+	}
+	r.out.Attributes = append(r.out.Attributes, attr)
+	return id, nil
 }
 
 func documentAttributeDeclName(decl *ast.AttributeDecl, global bool) Name {
@@ -418,11 +407,11 @@ func (r *docResolver) typeUseRef(use ast.TypeUse, allowComplex bool) (TypeRef, e
 	if !use.Name.IsZero() {
 		ref, err := r.typeRef(use.Name)
 		if err != nil {
-			return TypeRef{}, err
+			return NoTypeRef(), err
 		}
 		if !allowComplex {
 			if err := r.requireSimpleTypeRef(ref, fmt.Sprintf("type %s", formatName(nameFromQName(use.Name)))); err != nil {
-				return TypeRef{}, err
+				return NoTypeRef(), err
 			}
 		}
 		return ref, nil
@@ -430,19 +419,19 @@ func (r *docResolver) typeUseRef(use ast.TypeUse, allowComplex bool) (TypeRef, e
 	if use.Simple != nil {
 		id, err := r.ensureSimpleType(use.Simple, false)
 		if err != nil {
-			return TypeRef{}, err
+			return NoTypeRef(), err
 		}
-		return TypeRef{ID: id, Name: nameFromQName(use.Simple.Name)}, nil
+		return UserTypeRef(id, nameFromQName(use.Simple.Name)), nil
 	}
 	if !allowComplex && use.Complex != nil {
-		return TypeRef{}, fmt.Errorf("schema ir: inline complex type is not allowed where a simple type is required")
+		return NoTypeRef(), fmt.Errorf("schema ir: inline complex type is not allowed where a simple type is required")
 	}
 	if allowComplex && use.Complex != nil {
 		id, err := r.ensureComplexType(use.Complex, false)
 		if err != nil {
-			return TypeRef{}, err
+			return NoTypeRef(), err
 		}
-		return TypeRef{ID: id, Name: nameFromQName(use.Complex.Name)}, nil
+		return UserTypeRef(id, nameFromQName(use.Complex.Name)), nil
 	}
 	if allowComplex {
 		return r.builtinRef("anyType"), nil
@@ -451,7 +440,7 @@ func (r *docResolver) typeUseRef(use ast.TypeUse, allowComplex bool) (TypeRef, e
 }
 
 func (r *docResolver) requireSimpleTypeRef(ref TypeRef, context string) error {
-	if ref.Builtin && ref.Name.Local == "anyType" {
+	if ref.IsBuiltin() && ref.TypeName().Local == "anyType" {
 		return fmt.Errorf("schema ir: %s must reference a simple type", context)
 	}
 	info, ok, err := r.typeInfoForRef(ref)
@@ -472,12 +461,10 @@ func (r *docResolver) addParticle(decl *ast.ParticleDecl, stack []Name) (Particl
 		return 0, err
 	}
 	id := ParticleID(len(r.out.Particles) + 1)
-	r.out.Particles = append(r.out.Particles, Particle{
-		ID:  id,
-		Min: occurs(decl.Min),
-		Max: occurs(decl.Max),
-	})
+	r.out.Particles = append(r.out.Particles, NoParticle(id))
 	idx := len(r.out.Particles) - 1
+	minOccurs := occurs(decl.Min)
+	maxOccurs := occurs(decl.Max)
 
 	switch decl.Kind {
 	case ast.ParticleElement:
@@ -485,15 +472,12 @@ func (r *docResolver) addParticle(decl *ast.ParticleDecl, stack []Name) (Particl
 		if err != nil {
 			return 0, err
 		}
-		r.out.Particles[idx].Kind = ParticleElement
-		r.out.Particles[idx].Element = elemID
-		r.out.Particles[idx].AllowsSubstitution = decl.Element != nil && !decl.Element.Ref.IsZero()
+		r.out.Particles[idx] = ElementParticle(id, elemID, minOccurs, maxOccurs, decl.Element != nil && !decl.Element.Ref.IsZero())
 	case ast.ParticleWildcard:
-		r.out.Particles[idx].Kind = ParticleWildcard
-		r.out.Particles[idx].Wildcard = r.addWildcard(decl.Wildcard)
+		r.out.Particles[idx] = WildcardParticle(id, r.addWildcard(decl.Wildcard), minOccurs, maxOccurs)
 	case ast.ParticleGroup:
 		groupName := nameFromQName(decl.GroupRef)
-		group, ok := r.groups[groupName]
+		group, ok := r.globals.groups[groupName]
 		if !ok {
 			return 0, fmt.Errorf("schema ir: group ref %s not found", formatName(groupName))
 		}
@@ -511,8 +495,7 @@ func (r *docResolver) addParticle(decl *ast.ParticleDecl, stack []Name) (Particl
 		if err := validateDocumentParticleGroup(decl); err != nil {
 			return 0, err
 		}
-		r.out.Particles[idx].Kind = ParticleGroup
-		r.out.Particles[idx].Group = groupKindFromAST(decl.Kind)
+		var children []ParticleID
 		for i := range decl.Children {
 			if decl.Kind == ast.ParticleAll && !ast.IsAllGroupChildMaxValid(decl.Children[i].Max) {
 				return 0, fmt.Errorf("schema ir: xs:all: all particles must have maxOccurs <= 1 (got %s)", decl.Children[i].Max)
@@ -525,11 +508,12 @@ func (r *docResolver) addParticle(decl *ast.ParticleDecl, stack []Name) (Particl
 				return 0, err
 			}
 			if childID != 0 {
-				r.out.Particles[idx].Children = append(r.out.Particles[idx].Children, childID)
+				children = append(children, childID)
 			}
 		}
+		r.out.Particles[idx] = GroupParticle(id, groupKindFromAST(decl.Kind), children, minOccurs, maxOccurs)
 		if decl.Kind == ast.ParticleAll {
-			if err := r.validateAllGroupUniqueElements(r.out.Particles[idx].Children); err != nil {
+			if err := r.validateAllGroupUniqueElements(children); err != nil {
 				return 0, err
 			}
 		}
@@ -546,10 +530,11 @@ func (r *docResolver) validateAllGroupUniqueElements(children []ParticleID) erro
 		if err != nil || !ok {
 			return err
 		}
-		if child.Kind != ParticleElement {
+		elemID, ok := child.ElementID()
+		if !ok {
 			continue
 		}
-		elem, ok := r.emittedElement(child.Element)
+		elem, ok := r.emittedElement(elemID)
 		if !ok {
 			continue
 		}
@@ -565,7 +550,7 @@ func (r *docResolver) groupRefUsesAllParticle(decl *ast.ParticleDecl) bool {
 	if decl == nil || decl.Kind != ast.ParticleGroup {
 		return false
 	}
-	group := r.groups[nameFromQName(decl.GroupRef)]
+	group := r.globals.groups[nameFromQName(decl.GroupRef)]
 	return group != nil && group.Particle != nil && group.Particle.Kind == ast.ParticleAll
 }
 
@@ -670,8 +655,8 @@ func (r *docResolver) attributeUses(use *ast.AttributeUseDecl, stack []Name, emi
 		TypeDecl: typeRef,
 		Use:      attributeUseKind(use.Attribute.Use),
 		Decl:     attrID,
-		Default:  r.valueConstraint(use.Attribute.Default),
-		Fixed:    r.valueConstraint(use.Attribute.Fixed),
+		Default:  r.valueConstraint(ValueConstraintDefault, use.Attribute.Default),
+		Fixed:    r.valueConstraint(ValueConstraintFixed, use.Attribute.Fixed),
 	})
 	return []AttributeUseID{id}, nil
 }
@@ -689,15 +674,15 @@ func validateDocumentAttributeReferenceValueCompatibility(
 	fixed ast.ValueConstraintDecl,
 	targetFixed ValueConstraint,
 ) error {
-	if !targetFixed.Present {
+	if !targetFixed.IsPresent() {
 		return nil
 	}
 	if def.Present {
 		return fmt.Errorf("schema ir: attribute reference '%s' cannot specify a default when declaration is fixed", name.Local)
 	}
-	if fixed.Present && fixed.Lexical != targetFixed.Lexical {
+	if fixed.Present && fixed.Lexical != targetFixed.LexicalValue() {
 		return fmt.Errorf("schema ir: attribute reference '%s' fixed value '%s' conflicts with declaration fixed value '%s'",
-			name.Local, fixed.Lexical, targetFixed.Lexical)
+			name.Local, fixed.Lexical, targetFixed.LexicalValue())
 	}
 	return nil
 }
@@ -719,7 +704,7 @@ func (r *docResolver) attributeByID(id AttributeID) (Attribute, bool) {
 }
 
 func (r *docResolver) attributeGroupUses(name Name, stack []Name) ([]AttributeUseID, error) {
-	group, ok := r.attrgrps[name]
+	group, ok := r.globals.attributeGroups[name]
 	if !ok {
 		return nil, fmt.Errorf("schema ir: attributeGroup ref %s not found", formatName(name))
 	}
@@ -746,7 +731,7 @@ func (r *docResolver) attributeGroupUses(name Name, stack []Name) ([]AttributeUs
 }
 
 func (r *docResolver) attributeGroupWildcard(name Name, stack []Name) (WildcardID, bool, error) {
-	group, ok := r.attrgrps[name]
+	group, ok := r.globals.attributeGroups[name]
 	if !ok {
 		return 0, false, fmt.Errorf("schema ir: attributeGroup ref %s not found", formatName(name))
 	}
@@ -804,10 +789,10 @@ func (r *docResolver) addWildcard(decl *ast.WildcardDecl) WildcardID {
 
 func (r *docResolver) typeRef(qname ast.QName) (TypeRef, error) {
 	ref := r.typeRefZero(qname)
-	if !isZeroTypeRef(ref) {
+	if !ref.IsZero() {
 		return ref, nil
 	}
-	return TypeRef{}, fmt.Errorf("schema ir: type %s not found", qname)
+	return NoTypeRef(), fmt.Errorf("schema ir: type %s not found", qname)
 }
 
 func (r *docResolver) typeRefZero(qname ast.QName) TypeRef {
@@ -815,10 +800,10 @@ func (r *docResolver) typeRefZero(qname ast.QName) TypeRef {
 	if ref, ok := r.builtins[name]; ok {
 		return ref
 	}
-	if id, ok := r.types[name]; ok {
-		return TypeRef{ID: id, Name: name}
+	if id, ok := r.ids.globalTypes[name]; ok {
+		return UserTypeRef(id, name)
 	}
-	return TypeRef{}
+	return NoTypeRef()
 }
 
 func (r *docResolver) elementID(qname ast.QName) (ElementID, error) {
@@ -826,15 +811,15 @@ func (r *docResolver) elementID(qname ast.QName) (ElementID, error) {
 		return 0, nil
 	}
 	name := nameFromQName(qname)
-	if id, ok := r.elements[name]; ok {
+	if id, ok := r.ids.globalElements[name]; ok {
 		if !r.emittedElems[id] {
-			if decl, ok := r.globalElems[name]; ok {
+			if decl, ok := r.globals.elementDecls[name]; ok {
 				return r.ensureElement(decl, true)
 			}
 		}
 		return id, nil
 	}
-	decl, ok := r.globalElems[name]
+	decl, ok := r.globals.elementDecls[name]
 	if !ok {
 		return 0, fmt.Errorf("schema ir: element %s not found", qname)
 	}
@@ -846,15 +831,15 @@ func (r *docResolver) attributeID(qname ast.QName) (AttributeID, error) {
 		return 0, nil
 	}
 	name := nameFromQName(qname)
-	if id, ok := r.attrs[name]; ok {
+	if id, ok := r.ids.globalAttributes[name]; ok {
 		if !r.emittedAttrs[id] {
-			if decl, ok := r.globalAttrs[name]; ok {
+			if decl, ok := r.globals.attributeDecls[name]; ok {
 				return r.ensureAttribute(decl, true)
 			}
 		}
 		return id, nil
 	}
-	decl, ok := r.globalAttrs[name]
+	decl, ok := r.globals.attributeDecls[name]
 	if !ok {
 		return 0, fmt.Errorf("schema ir: attribute ref %s not found", qname)
 	}
@@ -901,133 +886,191 @@ func (r *docResolver) identity(element ElementID, decl ast.IdentityDecl) (Identi
 		identity.Fields = append(identity.Fields, IdentityField{XPath: field, TypeDecl: resolved.TypeDecl})
 	}
 	r.identityNames[name] = id
-	if identity.Kind == IdentityKey || identity.Kind == IdentityUnique {
-		r.identityKeys[name] = id
-	}
 	return identity, nil
 }
 
-func (r *docResolver) resolveIdentityReferences() error {
-	for i := range r.out.IdentityConstraints {
-		constraint := &r.out.IdentityConstraints[i]
+type identityReferencePhaseInput struct {
+	Constraints []IdentityConstraint
+	Elements    []Element
+}
+
+type identityReferencePhaseOutput struct {
+	Constraints []IdentityConstraint
+}
+
+type identityTypeCompatibility func(TypeRef, TypeRef) (bool, error)
+
+func resolveIdentityReferences(input identityReferencePhaseInput, compatible identityTypeCompatibility) (identityReferencePhaseOutput, error) {
+	constraints := slices.Clone(input.Constraints)
+	keys := make(map[Name]IdentityID, len(constraints))
+	for _, constraint := range constraints {
+		if constraint.Kind == IdentityKey || constraint.Kind == IdentityUnique {
+			keys[constraint.Name] = constraint.ID
+		}
+	}
+
+	for i := range constraints {
+		constraint := &constraints[i]
 		if constraint.Kind != IdentityKeyRef {
 			continue
 		}
 		if constraint.Refer.Namespace != constraint.Name.Namespace {
-			return fmt.Errorf("schema ir: keyref constraint %q refers to %s in namespace %q, which does not match target namespace %q",
+			return identityReferencePhaseOutput{}, fmt.Errorf("schema ir: keyref constraint %q refers to %s in namespace %q, which does not match target namespace %q",
 				constraint.Name.Local, constraint.Refer.Local, constraint.Refer.Namespace, constraint.Name.Namespace)
 		}
-		id, ok := r.identityKeys[constraint.Refer]
+		id, ok := keys[constraint.Refer]
 		if !ok {
-			return fmt.Errorf("schema ir: keyref %s refers to missing key", formatName(constraint.Name))
+			return identityReferencePhaseOutput{}, fmt.Errorf("schema ir: keyref %s refers to missing key", formatName(constraint.Name))
 		}
-		if int(id) > len(r.out.IdentityConstraints) {
-			return fmt.Errorf("schema ir: keyref %s refers to missing key", formatName(constraint.Name))
+		if int(id) > len(constraints) {
+			return identityReferencePhaseOutput{}, fmt.Errorf("schema ir: keyref %s refers to missing key", formatName(constraint.Name))
 		}
-		target := r.out.IdentityConstraints[id-1]
+		target := constraints[id-1]
 		if len(constraint.Fields) != len(target.Fields) {
-			return fmt.Errorf("schema ir: keyref constraint %q has %d fields but referenced constraint %q has %d fields",
+			return identityReferencePhaseOutput{}, fmt.Errorf("schema ir: keyref constraint %q has %d fields but referenced constraint %q has %d fields",
 				constraint.Name.Local, len(constraint.Fields), target.Name.Local, len(target.Fields))
 		}
 		for field := range constraint.Fields {
 			keyrefType := constraint.Fields[field].TypeDecl
 			keyType := target.Fields[field].TypeDecl
-			if isZeroTypeRef(keyrefType) || isZeroTypeRef(keyType) {
+			if keyrefType.IsZero() || keyType.IsZero() {
 				continue
 			}
-			ok, err := r.identityFieldTypesCompatible(keyrefType, keyType)
+			ok, err := compatible(keyrefType, keyType)
 			if err != nil {
-				return err
+				return identityReferencePhaseOutput{}, err
 			}
 			if !ok {
-				return fmt.Errorf("schema ir: keyref constraint %q field %d type %s is not compatible with referenced constraint %q field %d type %s",
-					constraint.Name.Local, field+1, formatName(keyrefType.Name), target.Name.Local, field+1, formatName(keyType.Name))
+				return identityReferencePhaseOutput{}, fmt.Errorf("schema ir: keyref constraint %q field %d type %s is not compatible with referenced constraint %q field %d type %s",
+					constraint.Name.Local, field+1, formatName(keyrefType.TypeName()), target.Name.Local, field+1, formatName(keyType.TypeName()))
 			}
 		}
 		constraint.ReferID = id
 	}
-	return nil
+	return identityReferencePhaseOutput{Constraints: constraints}, nil
 }
 
-func (r *docResolver) emitReferences() {
-	for name, id := range r.elements {
-		r.out.ElementRefs = append(r.out.ElementRefs, ElementReference{Name: name, Element: id})
+type runtimeEmissionPhaseInput struct {
+	BuiltinTypes        []BuiltinType
+	Types               []TypeDecl
+	Elements            []Element
+	Attributes          []Attribute
+	AttributeUses       []AttributeUse
+	ComplexTypes        []ComplexTypePlan
+	Particles           []Particle
+	Wildcards           []Wildcard
+	IdentityConstraints []IdentityConstraint
+	Docs                []ast.SchemaDocument
+	Globals             globalIndex
+	IDs                 idPlan
+}
+
+type runtimeEmissionPhaseOutput struct {
+	ElementRefs   []ElementReference
+	AttributeRefs []AttributeReference
+	GroupRefs     []GroupReference
+	GlobalIndexes GlobalIndexes
+	RuntimeNames  RuntimeNamePlan
+	Names         Names
+}
+
+type runtimeEmissionBuilder struct {
+	input runtimeEmissionPhaseInput
+	out   runtimeEmissionPhaseOutput
+	names map[Name]struct{}
+}
+
+func buildRuntimeEmission(input runtimeEmissionPhaseInput) runtimeEmissionPhaseOutput {
+	builder := runtimeEmissionBuilder{
+		input: input,
+		names: make(map[Name]struct{}),
 	}
-	slices.SortFunc(r.out.ElementRefs, func(a, b ElementReference) int {
+	builder.emitReferences()
+	builder.emitGlobalIndexes()
+	builder.emitRuntimeNamePlan()
+	builder.emitNames()
+	return builder.out
+}
+
+func (b *runtimeEmissionBuilder) emitReferences() {
+	for name, id := range b.input.IDs.globalElements {
+		b.out.ElementRefs = append(b.out.ElementRefs, ElementReference{Name: name, Element: id})
+	}
+	slices.SortFunc(b.out.ElementRefs, func(a, b ElementReference) int {
 		return compareName(a.Name, b.Name)
 	})
-	for name, id := range r.attrs {
-		r.out.AttributeRefs = append(r.out.AttributeRefs, AttributeReference{Name: name, Attribute: id})
+	for name, id := range b.input.IDs.globalAttributes {
+		b.out.AttributeRefs = append(b.out.AttributeRefs, AttributeReference{Name: name, Attribute: id})
 	}
-	slices.SortFunc(r.out.AttributeRefs, func(a, b AttributeReference) int {
+	slices.SortFunc(b.out.AttributeRefs, func(a, b AttributeReference) int {
 		return compareName(a.Name, b.Name)
 	})
-	for name, group := range r.groups {
-		r.out.GroupRefs = append(r.out.GroupRefs, GroupReference{Name: name, Target: nameFromQName(group.Name)})
+	for name, group := range b.input.Globals.groups {
+		b.out.GroupRefs = append(b.out.GroupRefs, GroupReference{Name: name, Target: nameFromQName(group.Name)})
 	}
-	slices.SortFunc(r.out.GroupRefs, func(a, b GroupReference) int {
+	slices.SortFunc(b.out.GroupRefs, func(a, b GroupReference) int {
 		return compareName(a.Name, b.Name)
 	})
 }
 
-func (r *docResolver) emitGlobalIndexes() {
-	for _, builtin := range r.out.BuiltinTypes {
-		r.out.GlobalIndexes.Types = append(r.out.GlobalIndexes.Types, GlobalTypeIndex{Name: builtin.Name, Builtin: true})
+func (b *runtimeEmissionBuilder) emitGlobalIndexes() {
+	for _, builtin := range b.input.BuiltinTypes {
+		b.out.GlobalIndexes.Types = append(b.out.GlobalIndexes.Types, GlobalTypeIndex{Name: builtin.Name, Builtin: true})
 	}
-	for _, typ := range r.out.Types {
+	for _, typ := range b.input.Types {
 		if typ.Global {
-			r.out.GlobalIndexes.Types = append(r.out.GlobalIndexes.Types, GlobalTypeIndex{Name: typ.Name, TypeDecl: typ.ID})
+			b.out.GlobalIndexes.Types = append(b.out.GlobalIndexes.Types, GlobalTypeIndex{Name: typ.Name, TypeDecl: typ.ID})
 		}
 	}
-	for _, elem := range r.out.Elements {
+	for _, elem := range b.input.Elements {
 		if elem.Global {
-			r.out.GlobalIndexes.Elements = append(r.out.GlobalIndexes.Elements, GlobalElementIndex{Name: elem.Name, Element: elem.ID})
+			b.out.GlobalIndexes.Elements = append(b.out.GlobalIndexes.Elements, GlobalElementIndex{Name: elem.Name, Element: elem.ID})
 		}
 	}
-	for _, attr := range r.out.Attributes {
+	for _, attr := range b.input.Attributes {
 		if attr.Global {
-			r.out.GlobalIndexes.Attributes = append(r.out.GlobalIndexes.Attributes, GlobalAttributeIndex{Name: attr.Name, Attribute: attr.ID})
+			b.out.GlobalIndexes.Attributes = append(b.out.GlobalIndexes.Attributes, GlobalAttributeIndex{Name: attr.Name, Attribute: attr.ID})
 		}
 	}
 }
 
-func (r *docResolver) emitRuntimeNamePlan() {
-	for _, builtin := range r.out.BuiltinTypes {
-		r.addRuntimeSymbol(builtin.Name)
+func (b *runtimeEmissionBuilder) emitRuntimeNamePlan() {
+	for _, builtin := range b.input.BuiltinTypes {
+		b.addRuntimeSymbol(builtin.Name)
 	}
-	for _, typ := range r.out.Types {
+	for _, typ := range b.input.Types {
 		if !docIsZeroName(typ.Name) {
-			r.addRuntimeSymbol(typ.Name)
+			b.addRuntimeSymbol(typ.Name)
 		}
 	}
-	for _, elem := range r.out.Elements {
-		r.addRuntimeSymbol(elem.Name)
+	for _, elem := range b.input.Elements {
+		b.addRuntimeSymbol(elem.Name)
 	}
-	for _, attr := range r.out.Attributes {
-		r.addRuntimeSymbol(attr.Name)
+	for _, attr := range b.input.Attributes {
+		b.addRuntimeSymbol(attr.Name)
 	}
 	seenWildcards := make(map[WildcardID]bool)
-	for _, plan := range r.out.ComplexTypes {
+	for _, plan := range b.input.ComplexTypes {
 		for _, id := range plan.Attrs {
-			if id == 0 || int(id) > len(r.out.AttributeUses) {
+			if id == 0 || int(id) > len(b.input.AttributeUses) {
 				continue
 			}
-			r.addRuntimeSymbol(r.out.AttributeUses[id-1].Name)
+			b.addRuntimeSymbol(b.input.AttributeUses[id-1].Name)
 		}
-		r.addRuntimeWildcardNamespaces(plan.AnyAttr, seenWildcards)
+		b.addRuntimeWildcardNamespaces(plan.AnyAttr, seenWildcards)
 	}
-	for _, particle := range r.out.Particles {
-		if particle.Kind == ParticleWildcard {
-			r.addRuntimeWildcardNamespaces(particle.Wildcard, seenWildcards)
+	for _, particle := range b.input.Particles {
+		if wildcard, ok := particle.WildcardID(); ok {
+			b.addRuntimeWildcardNamespaces(wildcard, seenWildcards)
 		}
 	}
-	for _, constraint := range r.out.IdentityConstraints {
-		r.addRuntimeSymbol(constraint.Name)
+	for _, constraint := range b.input.IdentityConstraints {
+		b.addRuntimeSymbol(constraint.Name)
 	}
 	var notations []Name
-	for di := range r.docs {
-		for i := range r.docs[di].Decls {
-			decl := &r.docs[di].Decls[i]
+	for di := range b.input.Docs {
+		for i := range b.input.Docs[di].Decls {
+			decl := &b.input.Docs[di].Decls[i]
 			if decl.Notation != nil {
 				name := nameFromQName(decl.Notation.Name)
 				notations = append(notations, name)
@@ -1036,34 +1079,34 @@ func (r *docResolver) emitRuntimeNamePlan() {
 	}
 	slices.SortFunc(notations, compareName)
 	for _, name := range notations {
-		r.out.RuntimeNames.Notations = append(r.out.RuntimeNames.Notations, name)
-		r.addRuntimeSymbol(name)
+		b.out.RuntimeNames.Notations = append(b.out.RuntimeNames.Notations, name)
+		b.addRuntimeSymbol(name)
 	}
 }
 
-func (r *docResolver) addRuntimeSymbol(name Name) {
+func (b *runtimeEmissionBuilder) addRuntimeSymbol(name Name) {
 	if docIsZeroName(name) {
 		return
 	}
-	r.name(name)
-	r.out.RuntimeNames.Ops = append(r.out.RuntimeNames.Ops, RuntimeNameOp{Kind: RuntimeNameSymbol, Name: name})
+	b.name(name)
+	b.out.RuntimeNames.Ops = append(b.out.RuntimeNames.Ops, RuntimeNameOp{Kind: RuntimeNameSymbol, Name: name})
 }
 
-func (r *docResolver) addRuntimeNamespace(ns string) {
-	r.name(Name{Namespace: ns})
-	r.out.RuntimeNames.Ops = append(r.out.RuntimeNames.Ops, RuntimeNameOp{Kind: RuntimeNameNamespace, Namespace: ns})
+func (b *runtimeEmissionBuilder) addRuntimeNamespace(ns string) {
+	b.name(Name{Namespace: ns})
+	b.out.RuntimeNames.Ops = append(b.out.RuntimeNames.Ops, RuntimeNameOp{Kind: RuntimeNameNamespace, Namespace: ns})
 }
 
-func (r *docResolver) addRuntimeWildcardNamespaces(id WildcardID, seen map[WildcardID]bool) {
-	if id == 0 || seen[id] || int(id) > len(r.out.Wildcards) {
+func (b *runtimeEmissionBuilder) addRuntimeWildcardNamespaces(id WildcardID, seen map[WildcardID]bool) {
+	if id == 0 || seen[id] || int(id) > len(b.input.Wildcards) {
 		return
 	}
 	seen[id] = true
-	wildcard := r.out.Wildcards[id-1]
+	wildcard := b.input.Wildcards[id-1]
 	switch wildcard.NamespaceKind {
 	case NamespaceTarget, NamespaceOther:
 		if wildcard.TargetNamespace != "" {
-			r.addRuntimeNamespace(wildcard.TargetNamespace)
+			b.addRuntimeNamespace(wildcard.TargetNamespace)
 		}
 	case NamespaceList:
 		for _, ns := range wildcard.Namespaces {
@@ -1072,54 +1115,63 @@ func (r *docResolver) addRuntimeWildcardNamespaces(id WildcardID, seen map[Wildc
 				continue
 			case ast.NamespaceTargetPlaceholder:
 				if wildcard.TargetNamespace != "" {
-					r.addRuntimeNamespace(wildcard.TargetNamespace)
+					b.addRuntimeNamespace(wildcard.TargetNamespace)
 				}
 			default:
-				r.addRuntimeNamespace(ns)
+				b.addRuntimeNamespace(ns)
 			}
 		}
 	}
 }
 
-func (r *docResolver) emitNames() {
-	r.out.Names.Values = r.out.Names.Values[:0]
-	for name := range r.names {
-		r.out.Names.Values = append(r.out.Names.Values, name)
+func (b *runtimeEmissionBuilder) emitNames() {
+	for name := range b.names {
+		b.out.Names.Values = append(b.out.Names.Values, name)
 	}
-	slices.SortFunc(r.out.Names.Values, compareName)
+	slices.SortFunc(b.out.Names.Values, compareName)
 }
 
-func (r *docResolver) name(name Name) Name {
-	r.names[name] = struct{}{}
-	return name
+func (b *runtimeEmissionBuilder) name(name Name) {
+	b.names[name] = struct{}{}
 }
 
 func (r *docResolver) builtinRef(local string) TypeRef {
-	return TypeRef{Name: Name{Namespace: ast.XSDNamespace, Local: local}, Builtin: true}
+	name := Name{Namespace: ast.XSDNamespace, Local: local}
+	if ref, ok := r.builtins[name]; ok {
+		return ref
+	}
+	return BuiltinTypeRef(0, name)
 }
 
 func (r *docResolver) specForRef(ref TypeRef) (SimpleTypeSpec, bool) {
-	if ref.Builtin {
+	if ref.IsBuiltin() {
 		for _, builtin := range r.out.BuiltinTypes {
-			if builtin.Name == ref.Name {
+			if builtin.Name == ref.TypeName() {
 				return builtin.Value, true
 			}
 		}
 		return SimpleTypeSpec{}, false
 	}
+	refID := ref.TypeID()
 	for _, spec := range r.out.SimpleTypes {
-		if spec.TypeDecl == ref.ID {
+		if spec.TypeDecl == refID {
 			return spec, true
 		}
 	}
 	return SimpleTypeSpec{}, false
 }
 
-func (r *docResolver) valueConstraint(value ast.ValueConstraintDecl) ValueConstraint {
-	return ValueConstraint{
-		Lexical: value.Lexical,
-		Context: r.contextMap(value.NamespaceContextID),
-		Present: value.Present,
+func (r *docResolver) valueConstraint(kind ValueConstraintKind, value ast.ValueConstraintDecl) ValueConstraint {
+	if !value.Present {
+		return NoValueConstraint()
+	}
+	switch kind {
+	case ValueConstraintDefault:
+		return DefaultValueConstraint(value.Lexical, r.contextMap(value.NamespaceContextID))
+	case ValueConstraintFixed:
+		return FixedValueConstraint(value.Lexical, r.contextMap(value.NamespaceContextID))
+	default:
+		return NoValueConstraint()
 	}
 }
 

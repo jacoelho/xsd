@@ -19,9 +19,9 @@ func (b *schemaBuilder) internNamespace(ns string) runtime.NamespaceID {
 	}
 	if b.rt != nil {
 		if ns == "" {
-			return b.rt.PredefNS.Empty
+			return b.rt.KnownNamespaces().Empty
 		}
-		return b.rt.Namespaces.Lookup([]byte(ns))
+		return b.rt.NamespaceLookup([]byte(ns))
 	}
 	if b.builder == nil {
 		return 0
@@ -48,7 +48,7 @@ func (b *schemaBuilder) internName(name schemair.Name) runtime.SymbolID {
 		return 0
 	}
 	if b.rt != nil {
-		return b.rt.Symbols.Lookup(nsID, []byte(name.Local))
+		return b.rt.SymbolLookup(nsID, []byte(name.Local))
 	}
 	if b.builder == nil {
 		return 0

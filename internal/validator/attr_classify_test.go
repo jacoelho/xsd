@@ -8,21 +8,20 @@ import (
 )
 
 func TestTrackerClassifyCapturesClassesAndXSIValues(t *testing.T) {
-	rt := &runtime.Schema{
-		Predef: runtime.PredefinedSymbols{
-			XsiType: 1,
-			XsiNil:  2,
-			XMLLang: 3,
-		},
-		PredefNS: runtime.PredefinedNamespaces{
-			Xsi: 1,
-			XML: 2,
-		},
-	}
+	rt := newRuntimeSchema(t)
+	setRuntimePredefinedSymbols(t, rt, runtime.PredefinedSymbols{
+		XsiType: 1,
+		XsiNil:  2,
+		XMLLang: 3,
+	})
+	setRuntimePredefinedNamespaces(t, rt, runtime.PredefinedNamespaces{
+		Xsi: 1,
+		XML: 2,
+	})
 	input := []Start{
-		{Sym: rt.Predef.XsiType, NS: rt.PredefNS.Xsi, Local: []byte("type"), Value: []byte("t:Derived")},
-		{NS: rt.PredefNS.Xsi, Local: []byte("unknown"), Value: []byte("1")},
-		{Sym: rt.Predef.XMLLang, NS: rt.PredefNS.XML, Local: []byte("lang"), Value: []byte("en")},
+		{Sym: rt.KnownSymbols().XsiType, NS: rt.KnownNamespaces().Xsi, Local: []byte("type"), Value: []byte("t:Derived")},
+		{NS: rt.KnownNamespaces().Xsi, Local: []byte("unknown"), Value: []byte("1")},
+		{Sym: rt.KnownSymbols().XMLLang, NS: rt.KnownNamespaces().XML, Local: []byte("lang"), Value: []byte("en")},
 		{NSBytes: []byte("urn:test"), Local: []byte("default"), Value: []byte("ok")},
 	}
 
@@ -55,7 +54,7 @@ func TestTrackerClassifyReportsDuplicateAttribute(t *testing.T) {
 	}
 
 	var tracker Tracker
-	classified, err := tracker.Classify(&runtime.Schema{}, input, true)
+	classified, err := tracker.Classify(newRuntimeSchema(t), input, true)
 	if err != nil {
 		t.Fatalf("Classify() error = %v", err)
 	}

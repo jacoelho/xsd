@@ -30,7 +30,13 @@ const (
 	// ErrSchemaNotLoaded indicates validation was attempted without a loaded schema.
 	ErrSchemaNotLoaded ErrorCode = "xsd-schema-not-loaded"
 	// ErrXMLParse indicates the XML document could not be parsed.
-	ErrXMLParse ErrorCode = "xml-parse-error"
+	ErrXMLParse           ErrorCode = "xml-parse-error"
+	ErrCaller             ErrorCode = "xsd-caller-error"
+	ErrIO                 ErrorCode = "xsd-io-error"
+	ErrSchemaParse        ErrorCode = "xsd-schema-parse-error"
+	ErrSchemaSemantic     ErrorCode = "xsd-schema-semantic-error"
+	ErrInternal           ErrorCode = "xsd-internal-error"
+	ErrValidationInternal ErrorCode = "xsd-validation-internal"
 
 	// ErrElementNotDeclared indicates an element has no declaration.
 	ErrElementNotDeclared ErrorCode = "cvc-elt.1"

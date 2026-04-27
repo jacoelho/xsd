@@ -3,7 +3,6 @@ package validator
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/runtime"
 	xsderrors "github.com/jacoelho/xsd/internal/xsderrors"
 )
 
@@ -11,7 +10,7 @@ func TestValidateSimpleRejectsNonSpecialAttribute(t *testing.T) {
 	t.Parallel()
 
 	_, err := ValidateSimple(
-		&runtime.Schema{},
+		newRuntimeSchema(t),
 		[]Start{{Sym: 11}},
 		[]Class{ClassOther},
 		false,
@@ -28,7 +27,7 @@ func TestValidateSimpleStoresAllowedAttributes(t *testing.T) {
 
 	var appended []Start
 	got, err := ValidateSimple(
-		&runtime.Schema{},
+		newRuntimeSchema(t),
 		[]Start{{Sym: 1}, {Sym: 2}},
 		[]Class{ClassXSIKnown, ClassXML},
 		true,
@@ -51,7 +50,7 @@ func TestValidateSimpleSkipsStorageWhenDisabled(t *testing.T) {
 
 	called := false
 	got, err := ValidateSimple(
-		&runtime.Schema{},
+		newRuntimeSchema(t),
 		[]Start{{Sym: 1}},
 		[]Class{ClassXML},
 		false,

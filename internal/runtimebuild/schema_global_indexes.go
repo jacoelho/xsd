@@ -14,9 +14,16 @@ func (b *schemaBuilder) applyGlobalIndexes() error {
 	if b.schema == nil {
 		return fmt.Errorf("runtime build: schema ir is nil")
 	}
-	clear(b.rt.GlobalTypes)
-	clear(b.rt.GlobalElements)
-	clear(b.rt.GlobalAttributes)
+	symbols := b.rt.SymbolCount()
+	if err := b.assembler.SetGlobalTypes(make([]runtime.TypeID, symbols+1)); err != nil {
+		return err
+	}
+	if err := b.assembler.SetGlobalElements(make([]runtime.ElemID, symbols+1)); err != nil {
+		return err
+	}
+	if err := b.assembler.SetGlobalAttributes(make([]runtime.AttrID, symbols+1)); err != nil {
+		return err
+	}
 
 	for _, entry := range b.schema.GlobalIndexes.Types {
 		sym, err := b.lookupIRSymbol(entry.Name)
@@ -27,10 +34,9 @@ func (b *schemaBuilder) applyGlobalIndexes() error {
 		if err != nil {
 			return err
 		}
-		if int(sym) >= len(b.rt.GlobalTypes) {
-			return fmt.Errorf("runtime build: global type symbol %d out of range", sym)
+		if err := b.assembler.SetGlobalType(sym, id); err != nil {
+			return err
 		}
-		b.rt.GlobalTypes[sym] = id
 	}
 	for _, entry := range b.schema.GlobalIndexes.Elements {
 		sym, err := b.lookupIRSymbol(entry.Name)
@@ -41,10 +47,9 @@ func (b *schemaBuilder) applyGlobalIndexes() error {
 		if id == 0 {
 			return fmt.Errorf("runtime build: global element %s missing runtime ID", formatIRName(entry.Name))
 		}
-		if int(sym) >= len(b.rt.GlobalElements) {
-			return fmt.Errorf("runtime build: global element symbol %d out of range", sym)
+		if err := b.assembler.SetGlobalElement(sym, id); err != nil {
+			return err
 		}
-		b.rt.GlobalElements[sym] = id
 	}
 	for _, entry := range b.schema.GlobalIndexes.Attributes {
 		sym, err := b.lookupIRSymbol(entry.Name)
@@ -55,10 +60,9 @@ func (b *schemaBuilder) applyGlobalIndexes() error {
 		if id == 0 {
 			return fmt.Errorf("runtime build: global attribute %s missing runtime ID", formatIRName(entry.Name))
 		}
-		if int(sym) >= len(b.rt.GlobalAttributes) {
-			return fmt.Errorf("runtime build: global attribute symbol %d out of range", sym)
+		if err := b.assembler.SetGlobalAttribute(sym, id); err != nil {
+			return err
 		}
-		b.rt.GlobalAttributes[sym] = id
 	}
 	return nil
 }
@@ -84,14 +88,14 @@ func (b *schemaBuilder) lookupIRSymbol(name schemair.Name) (runtime.SymbolID, er
 	}
 	var nsID runtime.NamespaceID
 	if name.Namespace == "" {
-		nsID = b.rt.PredefNS.Empty
+		nsID = b.rt.KnownNamespaces().Empty
 	} else {
-		nsID = b.rt.Namespaces.Lookup([]byte(name.Namespace))
+		nsID = b.rt.NamespaceLookup([]byte(name.Namespace))
 	}
 	if nsID == 0 {
 		return 0, fmt.Errorf("runtime build: namespace %q missing for %s", name.Namespace, formatIRName(name))
 	}
-	sym := b.rt.Symbols.Lookup(nsID, []byte(name.Local))
+	sym := b.rt.SymbolLookup(nsID, []byte(name.Local))
 	if sym == 0 {
 		return 0, fmt.Errorf("runtime build: symbol %s missing", formatIRName(name))
 	}

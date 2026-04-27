@@ -73,7 +73,7 @@ func TestCanonicalizeQNameNotationDeclaredSetsKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
-	schema.Notations = []runtime.SymbolID{notationSym}
+	setRuntimeNotations(t, schema, []runtime.SymbolID{notationSym})
 
 	sess := NewSession(schema)
 	metrics := &ValueMetrics{}

@@ -62,7 +62,7 @@ func TestSelectTextDefaultOrFixed(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := selectTextDefaultOrFixed(tc.hasContent, elem, tc.elemOK, ct, tc.hasComplexText)
+			got := selectTextDefaultOrFixed(tc.hasContent, &elem, tc.elemOK, ct, tc.hasComplexText)
 			if got != tc.want {
 				t.Fatalf("selectTextDefaultOrFixed() = %+v, want %+v", got, tc.want)
 			}
@@ -81,7 +81,7 @@ func TestSelectTextFixedConstraint(t *testing.T) {
 		TextFixedMember: 5,
 	}
 
-	got := selectTextFixedConstraint(elem, true, ct, true)
+	got := selectTextFixedConstraint(&elem, true, ct, true)
 	want := selectedValue{
 		Value:   elem.Fixed,
 		Key:     elem.FixedKey,
@@ -93,7 +93,7 @@ func TestSelectTextFixedConstraint(t *testing.T) {
 		t.Fatalf("selectTextFixedConstraint(element) = %+v, want %+v", got, want)
 	}
 
-	got = selectTextFixedConstraint(elem, false, ct, true)
+	got = selectTextFixedConstraint(&elem, false, ct, true)
 	want = selectedValue{
 		Value:   ct.TextFixed,
 		Member:  ct.TextFixedMember,

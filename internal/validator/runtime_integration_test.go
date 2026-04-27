@@ -24,22 +24,22 @@ func TestRuntimeAnyTypeAllowsAnyContent(t *testing.T) {
 </tns:root>`
 
 	rt := mustBuildRuntimeSchema(t, schema)
-	anyType := rt.Types[rt.Builtin.AnyType]
+	anyType := rt.TypeTable()[rt.BuiltinTypeIDs().AnyType]
 	if anyType.Kind != runtime.TypeComplex {
 		t.Fatalf("anyType kind = %d, want complex", anyType.Kind)
 	}
-	if anyType.Complex.ID == 0 || int(anyType.Complex.ID) >= len(rt.ComplexTypes) {
+	if anyType.Complex.ID == 0 || int(anyType.Complex.ID) >= len(rt.ComplexTypeTable()) {
 		t.Fatalf("anyType complex ref missing")
 	}
-	ct := rt.ComplexTypes[anyType.Complex.ID]
+	ct := rt.ComplexTypeTable()[anyType.Complex.ID]
 	if ct.AnyAttr == 0 {
 		t.Fatalf("anyType missing anyAttribute wildcard")
 	}
-	if int(ct.AnyAttr) >= len(rt.Wildcards) {
+	if int(ct.AnyAttr) >= len(rt.WildcardTable()) {
 		t.Fatalf("anyType wildcard out of range")
 	}
-	if rt.Wildcards[ct.AnyAttr].NS.Kind != runtime.NSAny {
-		t.Fatalf("anyType wildcard kind = %d, want NSAny", rt.Wildcards[ct.AnyAttr].NS.Kind)
+	if rt.WildcardTable()[ct.AnyAttr].NS.Kind != runtime.NSAny {
+		t.Fatalf("anyType wildcard kind = %d, want NSAny", rt.WildcardTable()[ct.AnyAttr].NS.Kind)
 	}
 
 	sess := NewSession(rt)

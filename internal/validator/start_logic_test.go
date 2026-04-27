@@ -11,7 +11,7 @@ func TestResolveRootStrictUnknown(t *testing.T) {
 	t.Parallel()
 
 	rt, nsID, _ := buildSchema(t)
-	rt.RootPolicy = runtime.RootStrict
+	setRuntimeRootPolicy(t, rt, runtime.RootStrict)
 
 	_, err := ResolveStartRoot(rt, 0, nsID)
 	if code, ok := xsderrors.Info(err); !ok || code != xsderrors.ErrValidateRootNotDeclared {
@@ -23,13 +23,13 @@ func TestResolveMatchWildcardStrictUnresolved(t *testing.T) {
 	t.Parallel()
 
 	rt, nsID, _ := buildSchema(t)
-	rt.Wildcards = []runtime.WildcardRule{
+	setRuntimeWildcards(t, rt, []runtime.WildcardRule{
 		{},
 		{
 			NS: runtime.NSConstraint{Kind: runtime.NSAny},
 			PC: runtime.PCStrict,
 		},
-	}
+	})
 
 	_, err := ResolveStartMatch(rt, StartMatch{Kind: StartMatchWildcard, Wildcard: 1}, 0, nsID, []byte("urn:test"))
 	if code, ok := xsderrors.Info(err); !ok || code != xsderrors.ErrValidateWildcardElemStrictUnresolved {
@@ -84,7 +84,7 @@ func TestPlanStartElementRootSkip(t *testing.T) {
 	t.Parallel()
 
 	rt, nsID, _ := buildSchema(t)
-	rt.RootPolicy = runtime.RootAny
+	setRuntimeRootPolicy(t, rt, runtime.RootAny)
 
 	sess := NewSession(rt)
 	out, err := sess.planStartElement(startPlanInput{
@@ -137,9 +137,9 @@ func buildSchema(t *testing.T) (*runtime.Schema, runtime.NamespaceID, runtime.Sy
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	rt.Elements = make([]runtime.Element, 2)
-	rt.Elements[1] = runtime.Element{Name: sym}
-	rt.GlobalElements = make([]runtime.ElemID, rt.Symbols.Count()+1)
-	rt.GlobalElements[sym] = 1
+	setRuntimeElements(t, rt, make([]runtime.Element, 2))
+	rt.ElementTable()[1] = runtime.Element{Name: sym}
+	setRuntimeGlobalElements(t, rt, make([]runtime.ElemID, rt.SymbolCount()+1))
+	rt.GlobalElementIDs()[sym] = 1
 	return rt, nsID, sym
 }

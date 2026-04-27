@@ -49,7 +49,7 @@ func TestCanonicalizeAtomicStringRequiresKindResolver(t *testing.T) {
 	t.Parallel()
 
 	var sess Session
-	sess.rt = &runtime.Schema{}
+	sess.rt = newRuntimeSchema(t)
 
 	_, err := sess.canonicalizeAtomic(
 		runtime.ValidatorMeta{Kind: runtime.VString},

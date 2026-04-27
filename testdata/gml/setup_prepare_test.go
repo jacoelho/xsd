@@ -208,6 +208,28 @@ func TestShouldDownloadGML(t *testing.T) {
 	}
 }
 
+func TestRunPrepareSkipDownloadRequiresExistingGML(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	gmlPath := filepath.Join(tmpDir, "example.gml")
+	xsdDir := filepath.Join(tmpDir, "xsd")
+	var stdout, stderr bytes.Buffer
+
+	exitCode := run(
+		[]string{"prepare", "-skip-download", "-gml-path", gmlPath, "-xsd-dir", xsdDir},
+		&stdout,
+		&stderr,
+	)
+
+	if exitCode != 1 {
+		t.Fatalf("run() = %d, want 1", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "gml file "+gmlPath+" does not exist and --skip-download is set") {
+		t.Fatalf("stderr = %q, want missing-file message", stderr.String())
+	}
+}
+
 func TestValidateLocalPreparedState(t *testing.T) {
 	t.Parallel()
 

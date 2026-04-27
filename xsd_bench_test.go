@@ -85,6 +85,23 @@ func BenchmarkValidateUnionListFacet(b *testing.B) {
 	benchValidate(b, schema, `<root xmlns="urn:bench">1 2 3 4 5 6 7 8 9 10</root>`)
 }
 
+func BenchmarkValidateScalarWhitespace(b *testing.B) {
+	schema := compileBenchSchema(b, `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:bench"
+           xmlns:tns="urn:bench"
+           elementFormDefault="qualified">
+  <xs:simpleType name="CollapsedString">
+    <xs:restriction base="xs:string">
+      <xs:whiteSpace value="collapse"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:CollapsedString"/>
+</xs:schema>`)
+	benchValidate(b, schema, `<root xmlns="urn:bench">  alpha   beta
+ gamma  </root>`)
+}
+
 func BenchmarkCompileSmallSchema(b *testing.B) {
 	schemaXML := []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

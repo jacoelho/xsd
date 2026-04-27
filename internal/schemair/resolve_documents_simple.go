@@ -23,27 +23,27 @@ func (r *docResolver) simpleBaseAndDerivation(decl *ast.SimpleTypeDecl) (TypeRef
 		if decl.InlineBase != nil {
 			id, err := r.ensureSimpleType(decl.InlineBase, false)
 			if err != nil {
-				return TypeRef{}, 0, err
+				return NoTypeRef(), 0, err
 			}
-			return TypeRef{ID: id, Name: nameFromQName(decl.InlineBase.Name)}, DerivationRestriction, nil
+			return UserTypeRef(id, nameFromQName(decl.InlineBase.Name)), DerivationRestriction, nil
 		}
 		if !decl.Base.IsZero() {
 			ref, err := r.typeRef(decl.Base)
 			if err != nil {
-				return TypeRef{}, 0, err
+				return NoTypeRef(), 0, err
 			}
 			if err := r.validateSimpleRestrictionBase(ref); err != nil {
-				return TypeRef{}, 0, err
+				return NoTypeRef(), 0, err
 			}
 			return ref, DerivationRestriction, nil
 		}
 	}
-	return TypeRef{}, DerivationRestriction, nil
+	return NoTypeRef(), DerivationRestriction, nil
 }
 
 func (r *docResolver) validateSimpleRestrictionBase(ref TypeRef) error {
-	if ref.Builtin {
-		switch ref.Name.Local {
+	if ref.IsBuiltin() {
+		switch ref.TypeName().Local {
 		case "anyType":
 			return fmt.Errorf("schema ir: simpleType restriction cannot have base type anyType")
 		case "anySimpleType":
@@ -57,7 +57,7 @@ func (r *docResolver) validateSimpleRestrictionBase(ref TypeRef) error {
 		return err
 	}
 	if info.Kind == TypeComplex {
-		return fmt.Errorf("schema ir: simpleType restriction cannot have complex base type '%s'", formatName(ref.Name))
+		return fmt.Errorf("schema ir: simpleType restriction cannot have complex base type '%s'", formatName(ref.TypeName()))
 	}
 	return nil
 }
@@ -74,7 +74,7 @@ func (r *docResolver) simpleSpec(id TypeID, name Name, decl *ast.SimpleTypeDecl)
 		Base:       base,
 		Whitespace: WhitespacePreserve,
 	}
-	if !isZeroTypeRef(base) {
+	if !base.IsZero() {
 		if baseSpec, ok := r.specForRef(base); ok {
 			spec.Primitive = baseSpec.Primitive
 			spec.BuiltinBase = baseSpec.BuiltinBase
@@ -88,7 +88,7 @@ func (r *docResolver) simpleSpec(id TypeID, name Name, decl *ast.SimpleTypeDecl)
 				spec.Members = append(spec.Members, baseSpec.Members...)
 			}
 		}
-		if base.Builtin && ast.IsBuiltinListTypeName(base.Name.Local) {
+		if base.IsBuiltin() && ast.IsBuiltinListTypeName(base.TypeName().Local) {
 			spec.Facets = append(spec.Facets, FacetSpec{Kind: FacetMinLength, Name: "minLength", IntValue: 1})
 		}
 	}
@@ -211,7 +211,7 @@ func (r *docResolver) validateNotationRestriction(spec SimpleTypeSpec, ownFacets
 		if err != nil {
 			return err
 		}
-		if _, ok := r.notations[nameFromQName(qname)]; !ok {
+		if _, ok := r.globals.notations[nameFromQName(qname)]; !ok {
 			return fmt.Errorf("schema ir: enumeration value %q does not reference a declared notation", value.Lexical)
 		}
 	}
@@ -219,7 +219,8 @@ func (r *docResolver) validateNotationRestriction(spec SimpleTypeSpec, ownFacets
 }
 
 func directNotationRestriction(ref TypeRef) bool {
-	return ref.Builtin && ref.Name.Namespace == ast.XSDNamespace && ref.Name.Local == "NOTATION"
+	name := ref.TypeName()
+	return ref.IsBuiltin() && name.Namespace == ast.XSDNamespace && name.Local == "NOTATION"
 }
 
 func (r *docResolver) validateEnumerationLexicalValues(spec SimpleTypeSpec, ownFacets []FacetSpec) error {
@@ -247,12 +248,12 @@ func validateSpecLexicalValueWithResolver(
 	normalized := value.NormalizeWhitespace(valueWhitespaceMode(spec.Whitespace), []byte(lexical), nil)
 	switch spec.Variety {
 	case TypeVarietyList:
-		if isZeroTypeRef(spec.Item) {
+		if spec.Item.IsZero() {
 			return nil
 		}
 		item, ok := resolve(spec.Item)
 		if !ok {
-			return fmt.Errorf("list item type %s not found", formatName(spec.Item.Name))
+			return fmt.Errorf("list item type %s not found", formatName(spec.Item.TypeName()))
 		}
 		count := 0
 		for itemLex := range value.FieldsXMLWhitespaceStringSeq(string(normalized)) {
@@ -278,7 +279,7 @@ func validateSpecLexicalValueWithResolver(
 			branchSeen[memberRef] = true
 			member, ok := resolve(memberRef)
 			if !ok {
-				lastErr = fmt.Errorf("union member type %s not found", formatName(memberRef.Name))
+				lastErr = fmt.Errorf("union member type %s not found", formatName(memberRef.TypeName()))
 				continue
 			}
 			if err := validateSpecLexicalValueWithResolver(member, lexical, ctx, resolve, branchSeen); err != nil {
@@ -782,10 +783,10 @@ func validateIRRangeFacetRestriction(spec SimpleTypeSpec, ownFacets []FacetSpec)
 
 func baseIRRangeFacetInfo(spec SimpleTypeSpec) rangeFacetInfo {
 	info := extractIRRangeFacetInfo(spec.Facets)
-	if !spec.Base.Builtin {
+	if !spec.Base.IsBuiltin() {
 		return info
 	}
-	implicit, ok := builtinRangeFacetInfoFor(spec.Base.Name.Local)
+	implicit, ok := builtinRangeFacetInfoFor(spec.Base.TypeName().Local)
 	if !ok {
 		return info
 	}
@@ -1086,7 +1087,7 @@ func coalesceFacetSpecs(facets []FacetSpec) []FacetSpec {
 
 func (r *docResolver) validateRestrictionEnumerations(spec SimpleTypeSpec, ownFacets []FacetSpec) error {
 	values := enumFacetValues(ownFacets)
-	if len(values) == 0 || isZeroTypeRef(spec.Base) {
+	if len(values) == 0 || spec.Base.IsZero() {
 		return nil
 	}
 	allowed, constrained, err := r.allowedEnumValueKeys(spec.Base, make(map[TypeRef]bool))
@@ -1102,7 +1103,7 @@ func (r *docResolver) validateRestrictionEnumerations(spec SimpleTypeSpec, ownFa
 			return err
 		}
 		if !valueKeysIntersectLookup(keys, allowed) {
-			return fmt.Errorf("schema ir: enumeration value %q is not valid for base type %s", value.Lexical, formatName(spec.Base.Name))
+			return fmt.Errorf("schema ir: enumeration value %q is not valid for base type %s", value.Lexical, formatName(spec.Base.TypeName()))
 		}
 	}
 	return nil
@@ -1203,12 +1204,12 @@ func (r *docResolver) simpleItemRef(decl *ast.SimpleTypeDecl) (TypeRef, error) {
 	if decl.InlineItem != nil {
 		id, err := r.ensureSimpleType(decl.InlineItem, false)
 		if err != nil {
-			return TypeRef{}, err
+			return NoTypeRef(), err
 		}
-		return TypeRef{ID: id, Name: nameFromQName(decl.InlineItem.Name)}, nil
+		return UserTypeRef(id, nameFromQName(decl.InlineItem.Name)), nil
 	}
 	if decl.ItemType.IsZero() {
-		return TypeRef{}, nil
+		return NoTypeRef(), nil
 	}
 	return r.typeRef(decl.ItemType)
 }
@@ -1227,15 +1228,15 @@ func (r *docResolver) simpleMemberRefs(decl *ast.SimpleTypeDecl) ([]TypeRef, err
 		if err != nil {
 			return nil, err
 		}
-		refs = append(refs, TypeRef{ID: id, Name: nameFromQName(decl.InlineMembers[i].Name)})
+		refs = append(refs, UserTypeRef(id, nameFromQName(decl.InlineMembers[i].Name)))
 	}
 	return refs, nil
 }
 
 func (r *docResolver) validateListItemRef(ref TypeRef) error {
-	if isZeroTypeRef(ref) || ref.Builtin {
-		if ref.Builtin && ref.Name.Local == "anyType" {
-			return fmt.Errorf("schema ir: list itemType must be a simple type, got %s", formatName(ref.Name))
+	if ref.IsZero() || ref.IsBuiltin() {
+		if ref.IsBuiltin() && ref.TypeName().Local == "anyType" {
+			return fmt.Errorf("schema ir: list itemType must be a simple type, got %s", formatName(ref.TypeName()))
 		}
 		return nil
 	}
@@ -1244,14 +1245,14 @@ func (r *docResolver) validateListItemRef(ref TypeRef) error {
 		return err
 	}
 	if !ok {
-		return fmt.Errorf("schema ir: list itemType %s not found", formatName(ref.Name))
+		return fmt.Errorf("schema ir: list itemType %s not found", formatName(ref.TypeName()))
 	}
 	if info.Kind != TypeSimple {
-		return fmt.Errorf("schema ir: list itemType must be a simple type, got %s", formatName(ref.Name))
+		return fmt.Errorf("schema ir: list itemType must be a simple type, got %s", formatName(ref.TypeName()))
 	}
 	spec, ok := r.specForRef(ref)
 	if !ok {
-		return fmt.Errorf("schema ir: list itemType %s missing simple type spec", formatName(ref.Name))
+		return fmt.Errorf("schema ir: list itemType %s missing simple type spec", formatName(ref.TypeName()))
 	}
 	if spec.Variety == TypeVarietyList {
 		return fmt.Errorf("schema ir: list itemType must be atomic or union, got list")
@@ -1260,10 +1261,10 @@ func (r *docResolver) validateListItemRef(ref TypeRef) error {
 }
 
 func (r *docResolver) validateUnionMemberRef(ref TypeRef) error {
-	if isZeroTypeRef(ref) {
+	if ref.IsZero() {
 		return nil
 	}
-	if err := r.requireSimpleTypeRef(ref, fmt.Sprintf("union memberType %s", formatName(ref.Name))); err != nil {
+	if err := r.requireSimpleTypeRef(ref, fmt.Sprintf("union memberType %s", formatName(ref.TypeName()))); err != nil {
 		return err
 	}
 	return nil

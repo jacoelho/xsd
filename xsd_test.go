@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -58,6 +59,7 @@ func requireSingleViolation(t *testing.T, err error, code xsd.ErrorCode) {
 	if err == nil {
 		t.Fatalf("Validate() err = nil, want %s", code)
 	}
+	_ = requireRootValidationList(t, err)
 	violations, ok := xsd.AsValidations(err)
 	if !ok {
 		t.Fatalf("AsValidations() ok = false, want true")
@@ -112,19 +114,74 @@ func requireViolationExpectedContainsLocal(t *testing.T, err error, code xsd.Err
 
 func requireCallerError(t *testing.T, err error, code xsd.ErrorCode) {
 	t.Helper()
+	xsdErr := requireClassifiedError(t, err, xsd.KindCaller, code)
+	if xsdErr.Code != code {
+		t.Fatalf("xsd error code = %v, want %v", xsdErr.Code, code)
+	}
+}
+
+func requireClassifiedError(t *testing.T, err error, kind xsd.ErrorKind, code xsd.ErrorCode) xsd.Error {
+	t.Helper()
 	if err == nil {
-		t.Fatalf("err = nil, want caller error %s", code)
+		t.Fatalf("err = nil, want xsd error {%v %v}", kind, code)
 	}
 	var xsdErr xsd.Error
 	if !errors.As(err, &xsdErr) {
 		t.Fatalf("error = %T, want xsd.Error", err)
 	}
-	if xsdErr.Kind != xsd.KindCaller || xsdErr.Code != code {
-		t.Fatalf("xsd error = {%v %v}, want {%v %v}", xsdErr.Kind, xsdErr.Code, xsd.KindCaller, code)
+	if xsdErr.Kind != kind || xsdErr.Code != code {
+		t.Fatalf("xsd error = {%v %v}, want {%v %v}", xsdErr.Kind, xsdErr.Code, kind, code)
+	}
+	if !errors.Is(err, xsd.Error{Kind: kind, Code: code}) {
+		t.Fatalf("errors.Is(%v, target {%v %v}) = false", err, kind, code)
 	}
 	if _, ok := xsd.AsValidations(err); ok {
-		t.Fatal("AsValidations() ok = true, want caller error")
+		t.Fatal("AsValidations() ok = true, want classified error")
 	}
+	return xsdErr
+}
+
+func requireRootValidationList(t *testing.T, err error) xsd.ValidationList {
+	t.Helper()
+	var list xsd.ValidationList
+	if !errors.As(err, &list) {
+		t.Fatalf("error = %T, want xsd.ValidationList", err)
+	}
+	return list
+}
+
+func hasRootViolationCode(list xsd.ValidationList, code xsd.ErrorCode) bool {
+	for _, violation := range list {
+		if violation.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+type closeFailFS struct {
+	data     string
+	closeErr error
+}
+
+func (f closeFailFS) Open(string) (fs.File, error) {
+	return &closeFailFile{
+		Reader:   strings.NewReader(f.data),
+		closeErr: f.closeErr,
+	}, nil
+}
+
+type closeFailFile struct {
+	*strings.Reader
+	closeErr error
+}
+
+func (f *closeFailFile) Stat() (fs.FileInfo, error) {
+	return nil, nil
+}
+
+func (f *closeFailFile) Close() error {
+	return f.closeErr
 }
 
 func TestSchemaValidateFileValid(t *testing.T) {
@@ -132,6 +189,73 @@ func TestSchemaValidateFileValid(t *testing.T) {
 
 	if err := s.Validate(strings.NewReader(validPersonXML)); err != nil {
 		t.Fatalf("Validate() err = %v, want nil", err)
+	}
+}
+
+func TestSchemaAndValidatorValidateConcurrent(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+		xml    string
+	}{
+		{
+			name:   "simple",
+			schema: "simple.xsd",
+			xml:    "simple.xml",
+		},
+		{
+			name:   "identity",
+			schema: "identity.xsd",
+			xml:    "identity.xml",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			schema, err := xsd.CompileFS(os.DirFS("testdata/bench"), tc.schema, xsd.CompileConfig{})
+			if err != nil {
+				t.Fatalf("CompileFS() error = %v", err)
+			}
+			validator, err := schema.NewValidator(xsd.ValidateConfig{})
+			if err != nil {
+				t.Fatalf("NewValidator() error = %v", err)
+			}
+			doc, err := os.ReadFile(filepath.Join("testdata", "bench", tc.xml))
+			if err != nil {
+				t.Fatalf("ReadFile() error = %v", err)
+			}
+
+			const workers = 8
+			const iterations = 50
+			errs := make(chan error, workers*2)
+			var wg sync.WaitGroup
+			wg.Add(workers * 2)
+			for range workers {
+				go func() {
+					defer wg.Done()
+					for range iterations {
+						if err := schema.Validate(bytes.NewReader(doc)); err != nil {
+							errs <- err
+							return
+						}
+					}
+				}()
+				go func() {
+					defer wg.Done()
+					for range iterations {
+						if err := validator.Validate(bytes.NewReader(doc)); err != nil {
+							errs <- err
+							return
+						}
+					}
+				}()
+			}
+			wg.Wait()
+			close(errs)
+			for err := range errs {
+				t.Fatalf("concurrent Validate() error = %v", err)
+			}
+		})
 	}
 }
 
@@ -486,6 +610,89 @@ func TestSchemaValidateParseError(t *testing.T) {
 	requireSingleViolation(t, s.Validate(strings.NewReader("<broken")), xsd.ErrXMLParse)
 }
 
+func TestPublicValidationErrorsAreRootOwned(t *testing.T) {
+	s := loadSchema(t)
+	v, err := s.NewValidator(xsd.ValidateConfig{})
+	if err != nil {
+		t.Fatalf("NewValidator() err = %v", err)
+	}
+
+	closeErr := errors.New("close failed")
+	missingPath := filepath.Join(t.TempDir(), "missing.xml")
+	badPerson := `<?xml version="1.0"?>
+<person xmlns="http://example.com/simple">
+  <name>John Doe</name>
+  <age>bad</age>
+</person>`
+
+	tests := []struct {
+		name      string
+		run       func() error
+		wantList  bool
+		wantKind  xsd.ErrorKind
+		wantCode  xsd.ErrorCode
+		wantCause error
+	}{
+		{
+			name:     "schema invalid XML",
+			run:      func() error { return s.Validate(strings.NewReader("<broken")) },
+			wantList: true,
+			wantCode: xsd.ErrXMLParse,
+		},
+		{
+			name:     "validator schema validation",
+			run:      func() error { return v.Validate(strings.NewReader(badPerson)) },
+			wantList: true,
+			wantCode: xsd.ErrDatatypeInvalid,
+		},
+		{
+			name:     "validator nil reader",
+			run:      func() error { return v.Validate(nil) },
+			wantKind: xsd.KindCaller,
+			wantCode: xsd.ErrCaller,
+		},
+		{
+			name:     "schema nil fs",
+			run:      func() error { return s.ValidateFSFile(nil, "missing.xml") },
+			wantKind: xsd.KindCaller,
+			wantCode: xsd.ErrCaller,
+		},
+		{
+			name:      "validator missing file",
+			run:       func() error { return v.ValidateFile(missingPath) },
+			wantKind:  xsd.KindIO,
+			wantCode:  xsd.ErrIO,
+			wantCause: fs.ErrNotExist,
+		},
+		{
+			name: "validator file close",
+			run: func() error {
+				return v.ValidateFSFile(closeFailFS{data: validPersonXML, closeErr: closeErr}, "person.xml")
+			},
+			wantKind:  xsd.KindIO,
+			wantCode:  xsd.ErrIO,
+			wantCause: closeErr,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.run()
+			if tt.wantList {
+				list := requireRootValidationList(t, err)
+				if !hasRootViolationCode(list, tt.wantCode) {
+					t.Fatalf("ValidationList = %v, want code %s", list, tt.wantCode)
+				}
+				return
+			}
+			_ = requireClassifiedError(t, err, tt.wantKind, tt.wantCode)
+			if tt.wantCause != nil && !errors.Is(err, tt.wantCause) {
+				t.Fatalf("error = %v, want cause %v", err, tt.wantCause)
+			}
+		})
+	}
+}
+
 func TestSchemaValidateNilSchema(t *testing.T) {
 	var s *xsd.Schema
 
@@ -508,12 +715,7 @@ func TestSchemaValidateFSFileNilFSReturnsOpenErrorWhenSchemaLoaded(t *testing.T)
 	s := loadSchema(t)
 
 	err := s.ValidateFSFile(nil, "missing.xml")
-	if err == nil {
-		t.Fatal("ValidateFSFile() err = nil, want open-file error")
-	}
-	if _, ok := xsd.AsValidations(err); ok {
-		t.Fatalf("ValidateFSFile() returned validation list for nil fs: %v", err)
-	}
+	_ = requireClassifiedError(t, err, xsd.KindCaller, xsd.ErrCaller)
 	if !strings.Contains(err.Error(), "nil fs") {
 		t.Fatalf("ValidateFSFile() err = %v, want nil fs message", err)
 	}
@@ -522,7 +724,7 @@ func TestSchemaValidateFSFileNilFSReturnsOpenErrorWhenSchemaLoaded(t *testing.T)
 func TestSchemaValidateNilReader(t *testing.T) {
 	s := loadSchema(t)
 
-	requireSingleViolation(t, s.Validate(nil), xsd.ErrXMLParse)
+	_ = requireClassifiedError(t, s.Validate(nil), xsd.KindCaller, xsd.ErrCaller)
 }
 
 func TestSchemaValidateConcurrent(t *testing.T) {

@@ -44,8 +44,12 @@ func InitStartModelState(rt *runtime.Schema, ref runtime.ModelRef) (StartModelSt
 			All:  make([]uint64, size),
 		}, nil
 	default:
-		return StartModelState{}, fmt.Errorf("unknown model kind %d", ref.Kind)
+		return StartModelState{}, unknownModelKindError(ref.Kind)
 	}
+}
+
+func unknownModelKindError(kind runtime.ModelKind) error {
+	return fmt.Errorf("unknown model kind %d", kind)
 }
 
 // StepStartModel advances one content-model state with one element symbol.

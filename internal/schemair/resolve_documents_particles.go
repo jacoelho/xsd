@@ -95,10 +95,10 @@ func (r *docResolver) validateAttributeRestriction(baseIDs, restrictionIDs []Att
 		if use.Use == AttributeProhibited {
 			continue
 		}
-		if base.Fixed.Present {
+		if base.Fixed.IsPresent() {
 			baseFixed := r.normalizeValueConstraintLexical(base.TypeDecl, base.Fixed)
 			useFixed := r.normalizeValueConstraintLexical(base.TypeDecl, use.Fixed)
-			if !use.Fixed.Present || useFixed != baseFixed {
+			if !use.Fixed.IsPresent() || useFixed != baseFixed {
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, use.Name.Local)
 			}
 		}
@@ -112,7 +112,7 @@ func (r *docResolver) validateAttributeRestriction(baseIDs, restrictionIDs []Att
 func (r *docResolver) validateAttributeTypeRestriction(base, restriction AttributeUse, context string) error {
 	baseType := base.TypeDecl
 	restrictionType := restriction.TypeDecl
-	if isZeroTypeRef(baseType) || isZeroTypeRef(restrictionType) {
+	if baseType.IsZero() || restrictionType.IsZero() {
 		return nil
 	}
 	if sameTypeRef(baseType, restrictionType) {
@@ -128,12 +128,12 @@ func (r *docResolver) validateAttributeTypeRestriction(base, restriction Attribu
 	} else if ok {
 		if mask&DerivationExtension != 0 {
 			return fmt.Errorf("%s: attribute '%s' type cannot be changed from '%s' to '%s' in restriction (only use can differ)",
-				context, restriction.Name.Local, formatName(baseType.Name), formatName(restrictionType.Name))
+				context, restriction.Name.Local, formatName(baseType.TypeName()), formatName(restrictionType.TypeName()))
 		}
 		return nil
 	}
 	return fmt.Errorf("%s: attribute '%s' type cannot be changed from '%s' to '%s' in restriction (only use can differ)",
-		context, restriction.Name.Local, formatName(baseType.Name), formatName(restrictionType.Name))
+		context, restriction.Name.Local, formatName(baseType.TypeName()), formatName(restrictionType.TypeName()))
 }
 
 func (r *docResolver) wildcardAllowsAttribute(id WildcardID, name Name) bool {
@@ -161,14 +161,14 @@ func (r *docResolver) validateAnyAttributeRestriction(base, derived WildcardID) 
 }
 
 func (r *docResolver) normalizeValueConstraintLexical(ref TypeRef, constraint ValueConstraint) string {
-	if !constraint.Present {
+	if !constraint.IsPresent() {
 		return ""
 	}
 	spec, ok := r.specForRef(ref)
 	if !ok {
-		return constraint.Lexical
+		return constraint.LexicalValue()
 	}
-	normalized := value.NormalizeWhitespace(valueWhitespaceMode(spec.Whitespace), []byte(constraint.Lexical), nil)
+	normalized := value.NormalizeWhitespace(valueWhitespaceMode(spec.Whitespace), []byte(constraint.LexicalValue()), nil)
 	return string(normalized)
 }
 
@@ -205,9 +205,13 @@ func (r *docResolver) validateElementDeclarationsConsistentParticle(
 	}
 	visiting[particleID] = true
 	particle := r.out.Particles[particleID-1]
-	switch particle.Kind {
+	switch particle.ParticleKind() {
 	case ParticleElement:
-		elem, ok := r.emittedElement(particle.Element)
+		elemID, ok := particle.ElementID()
+		if !ok {
+			return nil
+		}
+		elem, ok := r.emittedElement(elemID)
 		if !ok {
 			return nil
 		}
@@ -219,7 +223,7 @@ func (r *docResolver) validateElementDeclarationsConsistentParticle(
 		}
 		seen[elem.Name] = elem.TypeDecl
 	case ParticleGroup:
-		for _, childID := range particle.Children {
+		for _, childID := range particle.ChildParticles() {
 			if err := r.validateElementDeclarationsConsistentParticle(childID, seen, visiting); err != nil {
 				return err
 			}
@@ -243,20 +247,22 @@ func (r *docResolver) validateUniqueParticleAttribution(particleID ParticleID) e
 	if err != nil || !ok {
 		return err
 	}
-	if particle.Kind != ParticleGroup {
+	if particle.ParticleKind() != ParticleGroup {
 		return nil
 	}
-	switch particle.Group {
+	children := particle.ChildParticles()
+	group, _ := particle.GroupKindValue()
+	switch group {
 	case GroupChoice, GroupAll:
-		if err := r.validateChoiceUPA(particle.Children); err != nil {
+		if err := r.validateChoiceUPA(children); err != nil {
 			return err
 		}
 	case GroupSequence:
-		if err := r.validateSequenceUPA(particle.Children); err != nil {
+		if err := r.validateSequenceUPA(children); err != nil {
 			return err
 		}
 	}
-	for _, child := range particle.Children {
+	for _, child := range children {
 		if err := r.validateUniqueParticleAttribution(child); err != nil {
 			return err
 		}
@@ -332,7 +338,7 @@ func (r *docResolver) trailingCompetingUPATerms(particleID ParticleID) ([]upaTer
 	if particleIsExcluded(particle) {
 		return nil, nil
 	}
-	if particle.Kind != ParticleGroup {
+	if particle.ParticleKind() != ParticleGroup {
 		if !r.particleCanCompeteWithFollowing(particleID) {
 			return nil, nil
 		}
@@ -348,20 +354,22 @@ func (r *docResolver) trailingCompetingUPATerms(particleID ParticleID) ([]upaTer
 		out = append(out, terms...)
 	}
 
-	switch particle.Group {
+	children := particle.ChildParticles()
+	group, _ := particle.GroupKindValue()
+	switch group {
 	case GroupSequence:
-		for i := len(particle.Children) - 1; i >= 0; i-- {
-			terms, err := r.trailingCompetingUPATerms(particle.Children[i])
+		for i := len(children) - 1; i >= 0; i-- {
+			terms, err := r.trailingCompetingUPATerms(children[i])
 			if err != nil {
 				return nil, err
 			}
 			out = append(out, terms...)
-			if !r.particleNullable(particle.Children[i]) {
+			if !r.particleNullable(children[i]) {
 				break
 			}
 		}
 	default:
-		for _, child := range particle.Children {
+		for _, child := range children {
 			terms, err := r.trailingCompetingUPATerms(child)
 			if err != nil {
 				return nil, err
@@ -380,19 +388,23 @@ func (r *docResolver) firstUPATerms(particleID ParticleID) ([]upaTerm, error) {
 	if particleIsExcluded(particle) {
 		return nil, nil
 	}
-	switch particle.Kind {
+	switch particle.ParticleKind() {
 	case ParticleElement:
+		elemID, _ := particle.ElementID()
 		return []upaTerm{{
-			element:            particle.Element,
-			allowsSubstitution: particle.AllowsSubstitution,
+			element:            elemID,
+			allowsSubstitution: particle.AllowsSubstitutionGroup(),
 		}}, nil
 	case ParticleWildcard:
-		return []upaTerm{{wildcard: particle.Wildcard}}, nil
+		wildcardID, _ := particle.WildcardID()
+		return []upaTerm{{wildcard: wildcardID}}, nil
 	case ParticleGroup:
 		var out []upaTerm
-		switch particle.Group {
+		children := particle.ChildParticles()
+		group, _ := particle.GroupKindValue()
+		switch group {
 		case GroupSequence:
-			for _, child := range particle.Children {
+			for _, child := range children {
 				terms, err := r.firstUPATerms(child)
 				if err != nil {
 					return nil, err
@@ -403,7 +415,7 @@ func (r *docResolver) firstUPATerms(particleID ParticleID) ([]upaTerm, error) {
 				}
 			}
 		default:
-			for _, child := range particle.Children {
+			for _, child := range children {
 				terms, err := r.firstUPATerms(child)
 				if err != nil {
 					return nil, err
@@ -522,42 +534,42 @@ func (r *docResolver) validateParticleRestrictionValue(base Particle, restrictio
 	if err != nil {
 		return err
 	}
-	if base.Kind == ParticleGroup && restriction.Kind != ParticleGroup {
+	if base.ParticleKind() == ParticleGroup && restriction.ParticleKind() != ParticleGroup {
 		return r.validateParticleAgainstGroupRestriction(base, restriction)
 	}
-	if base.Kind == ParticleWildcard && restriction.Kind == ParticleGroup {
+	if base.ParticleKind() == ParticleWildcard && restriction.ParticleKind() == ParticleGroup {
 		return r.validateWildcardToGroupParticleRestriction(base, restriction)
 	}
-	if base.Kind == ParticleGroup && restriction.Kind == ParticleGroup && base.Group == GroupChoice && base.Group != restriction.Group {
+	if base.ParticleKind() == ParticleGroup && restriction.ParticleKind() == ParticleGroup && base.GroupKind() == GroupChoice && base.GroupKind() != restriction.GroupKind() {
 		return r.validateChoiceGroupRestriction(base, restriction)
 	}
-	if err := validateDocumentOccurrenceRestriction(base.Min, base.Max, restriction.Min, restriction.Max); err != nil {
+	if err := validateDocumentOccurrenceRestriction(base.MinOccurs(), base.MaxOccurs(), restriction.MinOccurs(), restriction.MaxOccurs()); err != nil {
 		return err
 	}
-	if base.Kind == ParticleWildcard {
+	if base.ParticleKind() == ParticleWildcard {
 		return r.validateWildcardParticleRestriction(base, restriction)
 	}
-	if base.Kind == ParticleElement && restriction.Kind == ParticleGroup && restriction.Group == GroupChoice {
+	if base.ParticleKind() == ParticleElement && restriction.ParticleKind() == ParticleGroup && restriction.GroupKind() == GroupChoice {
 		ok, err := r.choiceRestrictsElement(base, restriction)
 		if err != nil || ok {
 			return err
 		}
 		return fmt.Errorf("ComplexContent restriction: choice is not a valid restriction of element")
 	}
-	if base.Kind == ParticleGroup && restriction.Kind == ParticleGroup {
+	if base.ParticleKind() == ParticleGroup && restriction.ParticleKind() == ParticleGroup {
 		if handled, err := r.validateSingleWildcardGroupRestriction(base, restriction); handled {
 			return err
 		}
-		if base.Group == restriction.Group {
+		if base.GroupKind() == restriction.GroupKind() {
 			return r.validateSameGroupParticleRestriction(base, restriction)
 		}
 		return r.validateGroupKindChangeRestriction(base, restriction)
 	}
-	if base.Kind == ParticleElement && restriction.Kind == ParticleElement {
+	if base.ParticleKind() == ParticleElement && restriction.ParticleKind() == ParticleElement {
 		return r.validateElementParticleRestriction(base, restriction)
 	}
-	if base.Kind != restriction.Kind {
-		if restriction.Kind == ParticleWildcard {
+	if base.ParticleKind() != restriction.ParticleKind() {
+		if restriction.ParticleKind() == ParticleWildcard {
 			return fmt.Errorf("ComplexContent restriction: cannot restrict non-wildcard to wildcard")
 		}
 		return fmt.Errorf("ComplexContent restriction: particle kind mismatch")
@@ -566,19 +578,19 @@ func (r *docResolver) validateParticleRestrictionValue(base Particle, restrictio
 }
 
 func (r *docResolver) validateSameGroupParticleRestriction(base, restriction Particle) error {
-	if base.Group == GroupChoice {
+	if base.GroupKind() == GroupChoice {
 		return r.validateChoiceParticleRestriction(base, restriction)
 	}
 	if err := r.validateChoiceSubsetRestriction(base, restriction); err != nil {
 		return err
 	}
-	if base.Group == GroupSequence {
+	if base.GroupKind() == GroupSequence {
 		return r.validateSequenceParticleRestriction(base, restriction)
 	}
-	if base.Group == GroupAll {
+	if base.GroupKind() == GroupAll {
 		return r.validateSameAllGroupRestriction(base, restriction)
 	}
-	limit := min(len(base.Children), len(restriction.Children))
+	limit := min(len(base.ChildParticles()), len(restriction.ChildParticles()))
 	if err := r.validateParticleRestrictionPairs(base, restriction, limit); err != nil {
 		return err
 	}
@@ -587,7 +599,7 @@ func (r *docResolver) validateSameGroupParticleRestriction(base, restriction Par
 
 func (r *docResolver) validateParticleRestrictionPairs(base, restriction Particle, limit int) error {
 	for i := 0; i < limit; i++ {
-		if err := r.validateParticleRestriction(base.Children[i], restriction.Children[i]); err != nil {
+		if err := r.validateParticleRestriction(base.ChildParticles()[i], restriction.ChildParticles()[i]); err != nil {
 			return err
 		}
 	}
@@ -595,8 +607,8 @@ func (r *docResolver) validateParticleRestrictionPairs(base, restriction Particl
 }
 
 func (r *docResolver) validateRemainingBaseParticles(base Particle, start int) error {
-	for i := start; i < len(base.Children); i++ {
-		child, ok, err := r.particle(base.Children[i])
+	for i := start; i < len(base.ChildParticles()); i++ {
+		child, ok, err := r.particle(base.ChildParticles()[i])
 		if err != nil || !ok {
 			return err
 		}
@@ -611,7 +623,7 @@ func (r *docResolver) validateGroupKindChangeRestriction(base, restriction Parti
 	if handled, err := r.validateGroupKindChangeWithWildcard(base, restriction); handled {
 		return err
 	}
-	if base.Group == GroupSequence && restriction.Group == GroupAll {
+	if base.GroupKind() == GroupSequence && restriction.GroupKind() == GroupAll {
 		count, err := r.activeGroupChildCount(restriction)
 		if err != nil {
 			return err
@@ -620,9 +632,9 @@ func (r *docResolver) validateGroupKindChangeRestriction(base, restriction Parti
 			return fmt.Errorf("ComplexContent restriction: cannot restrict sequence to xs:all")
 		}
 	}
-	switch base.Group {
+	switch base.GroupKind() {
 	case GroupSequence:
-		if restriction.Group == GroupChoice {
+		if restriction.GroupKind() == GroupChoice {
 			return fmt.Errorf("ComplexContent restriction: cannot restrict sequence to choice")
 		}
 		return r.validateSequenceParticleRestriction(base, restriction)
@@ -637,7 +649,7 @@ func (r *docResolver) validateGroupKindChangeRestriction(base, restriction Parti
 
 func (r *docResolver) validateChoiceParticleRestriction(base, restriction Particle) error {
 	baseIndex := 0
-	for _, restrictionChildID := range restriction.Children {
+	for _, restrictionChildID := range restriction.ChildParticles() {
 		child, ok, err := r.particle(restrictionChildID)
 		if err != nil || !ok {
 			return err
@@ -645,14 +657,14 @@ func (r *docResolver) validateChoiceParticleRestriction(base, restriction Partic
 		if particleIsExcluded(child) {
 			continue
 		}
-		if child.Kind == ParticleGroup && len(restriction.Children) < len(base.Children) {
-			if err := validateDocumentOccurrenceRestriction(base.Min, base.Max, child.Min, child.Max); err != nil {
+		if child.ParticleKind() == ParticleGroup && len(restriction.ChildParticles()) < len(base.ChildParticles()) {
+			if err := validateDocumentOccurrenceRestriction(base.MinOccurs(), base.MaxOccurs(), child.MinOccurs(), child.MaxOccurs()); err != nil {
 				return err
 			}
 		}
 		matched := false
-		for baseIndex < len(base.Children) {
-			baseChildID := base.Children[baseIndex]
+		for baseIndex < len(base.ChildParticles()) {
+			baseChildID := base.ChildParticles()[baseIndex]
 			baseIndex++
 			compatible, err := r.particlesCanRestrict(baseChildID, restrictionChildID)
 			if err != nil {
@@ -686,14 +698,14 @@ func (r *docResolver) validateSameAllGroupRestriction(base, restriction Particle
 	if err := validateDocumentOccurrenceRestriction(baseMin, baseMax, restrictionMin, restrictionMax); err != nil {
 		return err
 	}
-	limit := min(len(base.Children), len(restriction.Children))
+	limit := min(len(base.ChildParticles()), len(restriction.ChildParticles()))
 	for i := 0; i < limit; i++ {
-		if err := r.validateParticleRestriction(base.Children[i], restriction.Children[i]); err != nil {
+		if err := r.validateParticleRestriction(base.ChildParticles()[i], restriction.ChildParticles()[i]); err != nil {
 			return err
 		}
 	}
-	for i := limit; i < len(restriction.Children); i++ {
-		child, ok, err := r.particle(restriction.Children[i])
+	for i := limit; i < len(restriction.ChildParticles()); i++ {
+		child, ok, err := r.particle(restriction.ChildParticles()[i])
 		if err != nil || !ok {
 			return err
 		}
@@ -701,8 +713,8 @@ func (r *docResolver) validateSameAllGroupRestriction(base, restriction Particle
 			return fmt.Errorf("ComplexContent restriction: restriction particle is not a valid restriction of any base particle")
 		}
 	}
-	for i := limit; i < len(base.Children); i++ {
-		child, ok, err := r.particle(base.Children[i])
+	for i := limit; i < len(base.ChildParticles()); i++ {
+		child, ok, err := r.particle(base.ChildParticles()[i])
 		if err != nil || !ok {
 			return err
 		}
@@ -714,15 +726,15 @@ func (r *docResolver) validateSameAllGroupRestriction(base, restriction Particle
 }
 
 func (r *docResolver) validateElementParticleRestriction(base, restriction Particle) error {
-	baseElem, ok := r.emittedElement(base.Element)
+	baseElem, ok := r.emittedElement(base.ElementRef())
 	if !ok {
 		return nil
 	}
-	restrictionElem, ok := r.emittedElement(restriction.Element)
+	restrictionElem, ok := r.emittedElement(restriction.ElementRef())
 	if !ok {
 		return nil
 	}
-	if baseElem.Name != restrictionElem.Name && !r.elementSubstitutesFor(restriction.Element, base.Element) {
+	if baseElem.Name != restrictionElem.Name && !r.elementSubstitutesFor(restriction.ElementRef(), base.ElementRef()) {
 		return fmt.Errorf("ComplexContent restriction: element name mismatch (%s vs %s)",
 			formatName(baseElem.Name), formatName(restrictionElem.Name))
 	}
@@ -730,16 +742,16 @@ func (r *docResolver) validateElementParticleRestriction(base, restriction Parti
 		return fmt.Errorf("ComplexContent restriction: element '%s' nillable cannot be true when base element nillable is false",
 			formatName(restrictionElem.Name))
 	}
-	if baseElem.Fixed.Present {
-		if !restrictionElem.Fixed.Present {
+	if baseElem.Fixed.IsPresent() {
+		if !restrictionElem.Fixed.IsPresent() {
 			return fmt.Errorf("ComplexContent restriction: element '%s' must have fixed value matching base fixed value '%s'",
-				formatName(restrictionElem.Name), baseElem.Fixed.Lexical)
+				formatName(restrictionElem.Name), baseElem.Fixed.LexicalValue())
 		}
 		baseFixed := r.normalizeValueConstraintLexical(baseElem.TypeDecl, baseElem.Fixed)
 		restrictionFixed := r.normalizeValueConstraintLexical(restrictionElem.TypeDecl, restrictionElem.Fixed)
 		if baseFixed != restrictionFixed {
 			return fmt.Errorf("ComplexContent restriction: element '%s' fixed value '%s' must match base fixed value '%s'",
-				formatName(restrictionElem.Name), restrictionElem.Fixed.Lexical, baseElem.Fixed.Lexical)
+				formatName(restrictionElem.Name), restrictionElem.Fixed.LexicalValue(), baseElem.Fixed.LexicalValue())
 		}
 	}
 	if restrictionElem.Block&baseElem.Block != baseElem.Block {
@@ -752,13 +764,13 @@ func (r *docResolver) validateElementParticleRestriction(base, restriction Parti
 func (r *docResolver) validateElementTypeRestriction(baseElem, restrictionElem Element) error {
 	baseType := baseElem.TypeDecl
 	restrictionType := restrictionElem.TypeDecl
-	if isZeroTypeRef(baseType) || isZeroTypeRef(restrictionType) {
+	if baseType.IsZero() || restrictionType.IsZero() {
 		return nil
 	}
-	if baseType.Builtin && baseType.Name.Local == "anyType" {
+	if baseType.IsBuiltin() && baseType.TypeName().Local == "anyType" {
 		return nil
 	}
-	if baseType.Builtin && baseType.Name.Local == "anySimpleType" {
+	if baseType.IsBuiltin() && baseType.TypeName().Local == "anySimpleType" {
 		info, ok, err := r.typeInfoForRef(restrictionType)
 		if err != nil || !ok {
 			return err
@@ -780,12 +792,12 @@ func (r *docResolver) validateElementTypeRestriction(baseElem, restrictionElem E
 	} else if ok {
 		if mask&DerivationExtension != 0 {
 			return fmt.Errorf("ComplexContent restriction: element '%s' type '%s' must be same as or restriction-derived from base type '%s'",
-				formatName(restrictionElem.Name), formatName(restrictionType.Name), formatName(baseType.Name))
+				formatName(restrictionElem.Name), formatName(restrictionType.TypeName()), formatName(baseType.TypeName()))
 		}
 		return nil
 	}
 	return fmt.Errorf("ComplexContent restriction: element '%s' type '%s' must be same as or derived from base type '%s'",
-		formatName(restrictionElem.Name), formatName(restrictionType.Name), formatName(baseType.Name))
+		formatName(restrictionElem.Name), formatName(restrictionType.TypeName()), formatName(baseType.TypeName()))
 }
 
 func (r *docResolver) typeRestrictsUnionMember(restriction, base TypeRef) (bool, error) {
@@ -810,21 +822,22 @@ func (r *docResolver) typeRestrictsUnionMember(restriction, base TypeRef) (bool,
 }
 
 func (r *docResolver) simpleTypeSpecForRef(ref TypeRef) (SimpleTypeSpec, bool, error) {
-	if ref.Builtin {
+	if ref.IsBuiltin() {
 		for _, builtin := range r.out.BuiltinTypes {
-			if builtin.Name == ref.Name {
+			if builtin.Name == ref.TypeName() {
 				return builtin.Value, true, nil
 			}
 		}
 		return SimpleTypeSpec{}, false, nil
 	}
-	if decl := r.simpleDecls[r.simpleByID[ref.ID]]; decl != nil {
+	refID := ref.TypeID()
+	if decl := r.simpleDecls[r.ids.simpleByID[refID]]; decl != nil {
 		if _, err := r.ensureSimpleType(decl, !decl.Name.IsZero()); err != nil {
 			return SimpleTypeSpec{}, false, err
 		}
 	}
 	for _, spec := range r.out.SimpleTypes {
-		if spec.TypeDecl == ref.ID {
+		if spec.TypeDecl == refID {
 			return spec, true, nil
 		}
 	}
@@ -832,29 +845,29 @@ func (r *docResolver) simpleTypeSpecForRef(ref TypeRef) (SimpleTypeSpec, bool, e
 }
 
 func (r *docResolver) validateSingleWildcardGroupRestriction(base, restriction Particle) (bool, error) {
-	if len(base.Children) != 1 {
+	if len(base.ChildParticles()) != 1 {
 		return false, nil
 	}
-	child, ok, err := r.particle(base.Children[0])
+	child, ok, err := r.particle(base.ChildParticles()[0])
 	if err != nil || !ok {
 		return true, err
 	}
-	if child.Kind != ParticleWildcard {
+	if child.ParticleKind() != ParticleWildcard {
 		return false, nil
 	}
-	return true, r.validateParticleRestriction(child.ID, restriction.ID)
+	return true, r.validateParticleRestriction(child.ID(), restriction.ID())
 }
 
 func (r *docResolver) validateGroupKindChangeWithWildcard(base, restriction Particle) (bool, error) {
-	for _, childID := range base.Children {
+	for _, childID := range base.ChildParticles() {
 		child, ok, err := r.particle(childID)
 		if err != nil || !ok {
 			return true, err
 		}
-		if child.Kind != ParticleWildcard {
+		if child.ParticleKind() != ParticleWildcard {
 			continue
 		}
-		if err := r.validateParticleRestriction(childID, restriction.ID); err != nil {
+		if err := r.validateParticleRestriction(childID, restriction.ID()); err != nil {
 			return true, err
 		}
 		return true, nil
@@ -863,17 +876,17 @@ func (r *docResolver) validateGroupKindChangeWithWildcard(base, restriction Part
 }
 
 func (r *docResolver) normalizePointlessIRParticle(p Particle) (Particle, error) {
-	for p.Kind == ParticleGroup && occursIsOne(p.Min) && occursIsOne(p.Max) {
+	for p.ParticleKind() == ParticleGroup && occursIsOne(p.MinOccurs()) && occursIsOne(p.MaxOccurs()) {
 		children, err := r.derivationChildIDs(p)
 		if err != nil {
-			return Particle{}, err
+			return NoParticle(0), err
 		}
 		if len(children) != 1 {
 			return p, nil
 		}
 		child, ok, err := r.particle(children[0])
 		if err != nil || !ok {
-			return Particle{}, err
+			return NoParticle(0), err
 		}
 		p = child
 	}
@@ -881,9 +894,9 @@ func (r *docResolver) normalizePointlessIRParticle(p Particle) (Particle, error)
 }
 
 func (r *docResolver) derivationChildIDs(group Particle) ([]ParticleID, error) {
-	children := make([]ParticleID, 0, len(group.Children))
-	for _, childID := range group.Children {
-		childIDs, err := r.gatherPointlessIRChildIDs(group.Group, childID)
+	children := make([]ParticleID, 0, len(group.ChildParticles()))
+	for _, childID := range group.ChildParticles() {
+		childIDs, err := r.gatherPointlessIRChildIDs(group.GroupKind(), childID)
 		if err != nil {
 			return nil, err
 		}
@@ -897,15 +910,15 @@ func (r *docResolver) gatherPointlessIRChildIDs(parent GroupKind, childID Partic
 	if err != nil || !ok {
 		return nil, err
 	}
-	if child.Kind != ParticleGroup || !occursIsOne(child.Min) || !occursIsOne(child.Max) {
+	if child.ParticleKind() != ParticleGroup || !occursIsOne(child.MinOccurs()) || !occursIsOne(child.MaxOccurs()) {
 		return []ParticleID{childID}, nil
 	}
-	if len(child.Children) == 1 {
-		return r.gatherPointlessIRChildIDs(parent, child.Children[0])
+	if len(child.ChildParticles()) == 1 {
+		return r.gatherPointlessIRChildIDs(parent, child.ChildParticles()[0])
 	}
-	if child.Group == parent {
+	if child.GroupKind() == parent {
 		var out []ParticleID
-		for _, nestedID := range child.Children {
+		for _, nestedID := range child.ChildParticles() {
 			nested, err := r.gatherPointlessIRChildIDs(parent, nestedID)
 			if err != nil {
 				return nil, err
@@ -919,7 +932,7 @@ func (r *docResolver) gatherPointlessIRChildIDs(parent GroupKind, childID Partic
 
 func (r *docResolver) activeGroupChildCount(group Particle) (int, error) {
 	var count int
-	for _, childID := range group.Children {
+	for _, childID := range group.ChildParticles() {
 		child, ok, err := r.particle(childID)
 		if err != nil || !ok {
 			return 0, err
@@ -937,7 +950,7 @@ func (r *docResolver) activeParticleChildCount(id ParticleID) (int, error) {
 	if err != nil || !ok {
 		return 0, err
 	}
-	if particle.Kind != ParticleGroup {
+	if particle.ParticleKind() != ParticleGroup {
 		if particleIsExcluded(particle) {
 			return 0, nil
 		}
@@ -1002,10 +1015,10 @@ func (r *docResolver) validateChoiceGroupRestriction(base, restriction Particle)
 	if err != nil {
 		return err
 	}
-	if err := validateDocumentOccurrenceRestriction(base.Min, base.Max, minOcc, maxOcc); err != nil {
+	if err := validateDocumentOccurrenceRestriction(base.MinOccurs(), base.MaxOccurs(), minOcc, maxOcc); err != nil {
 		return err
 	}
-	for _, restrictionChildID := range restriction.Children {
+	for _, restrictionChildID := range restriction.ChildParticles() {
 		child, ok, err := r.particle(restrictionChildID)
 		if err != nil || !ok {
 			return err
@@ -1014,7 +1027,7 @@ func (r *docResolver) validateChoiceGroupRestriction(base, restriction Particle)
 			continue
 		}
 		matched := false
-		for _, baseChildID := range base.Children {
+		for _, baseChildID := range base.ChildParticles() {
 			compatible, err := r.particlesCanRestrict(baseChildID, restrictionChildID)
 			if err != nil {
 				return err
@@ -1047,8 +1060,8 @@ func (r *docResolver) validateAllGroupBaseRestriction(base, restriction Particle
 	if err := validateDocumentOccurrenceRestriction(baseMin, baseMax, restrictionMin, restrictionMax); err != nil {
 		return err
 	}
-	matchedBase := make([]bool, len(base.Children))
-	for _, restrictionChildID := range restriction.Children {
+	matchedBase := make([]bool, len(base.ChildParticles()))
+	for _, restrictionChildID := range restriction.ChildParticles() {
 		child, ok, err := r.particle(restrictionChildID)
 		if err != nil || !ok {
 			return err
@@ -1057,7 +1070,7 @@ func (r *docResolver) validateAllGroupBaseRestriction(base, restriction Particle
 			continue
 		}
 		matched := false
-		for i, baseChildID := range base.Children {
+		for i, baseChildID := range base.ChildParticles() {
 			compatible, err := r.particlesCanRestrict(baseChildID, restrictionChildID)
 			if err != nil {
 				return err
@@ -1076,7 +1089,7 @@ func (r *docResolver) validateAllGroupBaseRestriction(base, restriction Particle
 			return fmt.Errorf("ComplexContent restriction: restriction particle is not a valid restriction of any base particle")
 		}
 	}
-	for i, childID := range base.Children {
+	for i, childID := range base.ChildParticles() {
 		if matchedBase[i] {
 			continue
 		}
@@ -1093,7 +1106,7 @@ func (r *docResolver) validateAllGroupBaseRestriction(base, restriction Particle
 
 func (r *docResolver) groupChildCountOccurrence(group Particle) (Occurs, Occurs, error) {
 	var count uint32
-	for _, childID := range group.Children {
+	for _, childID := range group.ChildParticles() {
 		child, ok, err := r.particle(childID)
 		if err != nil || !ok {
 			return Occurs{}, Occurs{}, err
@@ -1104,7 +1117,7 @@ func (r *docResolver) groupChildCountOccurrence(group Particle) (Occurs, Occurs,
 		count++
 	}
 	countOccurs := Occurs{Value: count}
-	return multiplyOccurs(group.Min, countOccurs), multiplyOccurs(group.Max, countOccurs), nil
+	return multiplyOccurs(group.MinOccurs(), countOccurs), multiplyOccurs(group.MaxOccurs(), countOccurs), nil
 }
 
 func (r *docResolver) particlesCanRestrict(baseID, restrictionID ParticleID) (bool, error) {
@@ -1116,42 +1129,42 @@ func (r *docResolver) particlesCanRestrict(baseID, restrictionID ParticleID) (bo
 	if err != nil || !ok {
 		return false, err
 	}
-	if base.Kind == ParticleWildcard {
+	if base.ParticleKind() == ParticleWildcard {
 		return true, nil
 	}
-	if base.Kind == ParticleElement && restriction.Kind == ParticleGroup && restriction.Group == GroupChoice {
+	if base.ParticleKind() == ParticleElement && restriction.ParticleKind() == ParticleGroup && restriction.GroupKind() == GroupChoice {
 		return r.choiceRestrictsElement(base, restriction)
 	}
-	if base.Kind == ParticleGroup && restriction.Kind != ParticleGroup {
+	if base.ParticleKind() == ParticleGroup && restriction.ParticleKind() != ParticleGroup {
 		return r.particleCanRestrictGroup(base, restriction)
 	}
-	if base.Kind != restriction.Kind {
+	if base.ParticleKind() != restriction.ParticleKind() {
 		return false, nil
 	}
-	if base.Kind == ParticleGroup && base.Group != restriction.Group && base.Group == GroupChoice {
+	if base.ParticleKind() == ParticleGroup && base.GroupKind() != restriction.GroupKind() && base.GroupKind() == GroupChoice {
 		return true, nil
 	}
-	if base.Kind == ParticleElement {
-		baseElem, ok := r.emittedElement(base.Element)
+	if base.ParticleKind() == ParticleElement {
+		baseElem, ok := r.emittedElement(base.ElementRef())
 		if !ok {
 			return false, nil
 		}
-		restrictionElem, ok := r.emittedElement(restriction.Element)
+		restrictionElem, ok := r.emittedElement(restriction.ElementRef())
 		if !ok {
 			return false, nil
 		}
-		return baseElem.Name == restrictionElem.Name || r.elementSubstitutesFor(restriction.Element, base.Element), nil
+		return baseElem.Name == restrictionElem.Name || r.elementSubstitutesFor(restriction.ElementRef(), base.ElementRef()), nil
 	}
-	if base.Kind == ParticleGroup {
-		return base.Group == restriction.Group, nil
+	if base.ParticleKind() == ParticleGroup {
+		return base.GroupKind() == restriction.GroupKind(), nil
 	}
 	return true, nil
 }
 
 func (r *docResolver) validateParticleAgainstGroupRestriction(base Particle, restriction Particle) error {
-	if base.Group == GroupChoice {
+	if base.GroupKind() == GroupChoice {
 		one := Occurs{Value: 1}
-		if err := validateDocumentOccurrenceRestriction(base.Min, base.Max, one, one); err != nil {
+		if err := validateDocumentOccurrenceRestriction(base.MinOccurs(), base.MaxOccurs(), one, one); err != nil {
 			return err
 		}
 	}
@@ -1160,7 +1173,7 @@ func (r *docResolver) validateParticleAgainstGroupRestriction(base Particle, res
 		return err
 	}
 	if !ok {
-		if restriction.Kind == ParticleWildcard {
+		if restriction.ParticleKind() == ParticleWildcard {
 			return fmt.Errorf("ComplexContent restriction: cannot restrict non-wildcard to wildcard")
 		}
 		return fmt.Errorf("ComplexContent restriction: restriction particle has no matching base particle")
@@ -1169,8 +1182,9 @@ func (r *docResolver) validateParticleAgainstGroupRestriction(base Particle, res
 	if err != nil || !ok {
 		return err
 	}
-	if base.Group == GroupChoice && !occursIsOne(base.Max) {
-		child.Min, child.Max = r.choiceChildOccurrenceRange(base, child)
+	if base.GroupKind() == GroupChoice && !occursIsOne(base.MaxOccurs()) {
+		minOcc, maxOcc := r.choiceChildOccurrenceRange(base, child)
+		child = child.WithOccurs(minOcc, maxOcc)
 	}
 	return r.validateParticleRestrictionValue(child, restriction)
 }
@@ -1181,10 +1195,10 @@ func occursIsOne(o Occurs) bool {
 
 func (r *docResolver) choiceChildOccurrenceRange(base Particle, child Particle) (Occurs, Occurs) {
 	minOcc := Occurs{}
-	if len(base.Children) == 1 {
-		minOcc = multiplyOccurs(base.Min, child.Min)
+	if len(base.ChildParticles()) == 1 {
+		minOcc = multiplyOccurs(base.MinOccurs(), child.MinOccurs())
 	}
-	return minOcc, multiplyOccurs(base.Max, child.Max)
+	return minOcc, multiplyOccurs(base.MaxOccurs(), child.MaxOccurs())
 }
 
 func (r *docResolver) particleCanRestrictGroup(base Particle, restriction Particle) (bool, error) {
@@ -1193,8 +1207,8 @@ func (r *docResolver) particleCanRestrictGroup(base Particle, restriction Partic
 }
 
 func (r *docResolver) groupParticleRestrictionMatch(base Particle, restriction Particle) (ParticleID, bool, error) {
-	if base.Group == GroupChoice {
-		for _, childID := range base.Children {
+	if base.GroupKind() == GroupChoice {
+		for _, childID := range base.ChildParticles() {
 			child, ok, err := r.particle(childID)
 			if err != nil || !ok {
 				return 0, false, err
@@ -1202,7 +1216,7 @@ func (r *docResolver) groupParticleRestrictionMatch(base Particle, restriction P
 			if particleIsExcluded(child) {
 				continue
 			}
-			compatible, err := r.particlesCanRestrict(childID, restriction.ID)
+			compatible, err := r.particlesCanRestrict(childID, restriction.ID())
 			if err != nil || compatible {
 				return childID, compatible, err
 			}
@@ -1211,12 +1225,12 @@ func (r *docResolver) groupParticleRestrictionMatch(base Particle, restriction P
 	}
 
 	var match ParticleID
-	for _, childID := range base.Children {
+	for _, childID := range base.ChildParticles() {
 		child, ok, err := r.particle(childID)
 		if err != nil || !ok {
 			return 0, false, err
 		}
-		compatible, err := r.particlesCanRestrict(childID, restriction.ID)
+		compatible, err := r.particlesCanRestrict(childID, restriction.ID())
 		if err != nil {
 			return 0, false, err
 		}
@@ -1232,11 +1246,11 @@ func (r *docResolver) groupParticleRestrictionMatch(base Particle, restriction P
 }
 
 func (r *docResolver) choiceRestrictsElement(base Particle, restriction Particle) (bool, error) {
-	baseElem, ok := r.emittedElement(base.Element)
+	baseElem, ok := r.emittedElement(base.ElementRef())
 	if !ok {
 		return false, nil
 	}
-	for _, childID := range restriction.Children {
+	for _, childID := range restriction.ChildParticles() {
 		child, ok, err := r.particle(childID)
 		if err != nil || !ok {
 			return false, err
@@ -1244,17 +1258,17 @@ func (r *docResolver) choiceRestrictsElement(base Particle, restriction Particle
 		if particleIsExcluded(child) {
 			continue
 		}
-		if child.Kind != ParticleElement {
+		if child.ParticleKind() != ParticleElement {
 			return false, nil
 		}
-		elem, ok := r.emittedElement(child.Element)
+		elem, ok := r.emittedElement(child.ElementRef())
 		if !ok {
 			return false, nil
 		}
 		if elem.Name == baseElem.Name {
 			continue
 		}
-		if !r.elementSubstitutesFor(child.Element, base.Element) {
+		if !r.elementSubstitutesFor(child.ElementRef(), base.ElementRef()) {
 			return false, nil
 		}
 	}
@@ -1280,9 +1294,46 @@ func (r *docResolver) elementSubstitutesFor(memberID, headID ElementID) bool {
 	return false
 }
 
-func (r *docResolver) validatePendingParticleRestrictions() error {
-	for _, check := range r.particleChecks {
-		plan, ok := r.complexPlan(check.base.ID)
+type particleRestrictionPhaseInput struct {
+	Types []TypeDecl
+	Plans []ComplexTypePlan
+}
+
+type particleRestrictionPhaseOutput struct {
+	checks []pendingParticleRestriction
+}
+
+type pendingParticleRestriction struct {
+	base        TypeRef
+	restriction ParticleID
+}
+
+func buildParticleRestrictionPhase(input particleRestrictionPhaseInput) particleRestrictionPhaseOutput {
+	plans := make(map[TypeID]ComplexTypePlan, len(input.Plans))
+	for _, plan := range input.Plans {
+		plans[plan.TypeDecl] = plan
+	}
+
+	var out particleRestrictionPhaseOutput
+	for _, typ := range input.Types {
+		if typ.Kind != TypeComplex || typ.Derivation != DerivationRestriction || typ.Base.IsZero() || typ.Base.IsBuiltin() {
+			continue
+		}
+		plan := plans[typ.ID]
+		if plan.Particle == 0 {
+			continue
+		}
+		out.checks = append(out.checks, pendingParticleRestriction{
+			base:        typ.Base,
+			restriction: plan.Particle,
+		})
+	}
+	return out
+}
+
+func (p particleRestrictionPhaseOutput) validate(r *docResolver) error {
+	for _, check := range p.checks {
+		plan, ok := r.complexPlan(check.base.TypeID())
 		if !ok || plan.Particle == 0 || check.restriction == 0 {
 			continue
 		}
@@ -1290,7 +1341,6 @@ func (r *docResolver) validatePendingParticleRestrictions() error {
 			return err
 		}
 	}
-	r.particleChecks = nil
 	return nil
 }
 
@@ -1304,10 +1354,10 @@ func (r *docResolver) complexPlan(typeID TypeID) (ComplexTypePlan, bool) {
 }
 
 func (r *docResolver) validateChoiceSubsetRestriction(base, restriction Particle) error {
-	if base.Group != GroupChoice || len(restriction.Children) >= len(base.Children) {
+	if base.GroupKind() != GroupChoice || len(restriction.ChildParticles()) >= len(base.ChildParticles()) {
 		return nil
 	}
-	for _, childID := range restriction.Children {
+	for _, childID := range restriction.ChildParticles() {
 		child, ok, err := r.particle(childID)
 		if err != nil || !ok {
 			return err
@@ -1315,7 +1365,7 @@ func (r *docResolver) validateChoiceSubsetRestriction(base, restriction Particle
 		if particleIsExcluded(child) {
 			continue
 		}
-		if err := validateDocumentOccurrenceRestriction(base.Min, base.Max, child.Min, child.Max); err != nil {
+		if err := validateDocumentOccurrenceRestriction(base.MinOccurs(), base.MaxOccurs(), child.MinOccurs(), child.MaxOccurs()); err != nil {
 			return err
 		}
 	}
@@ -1323,7 +1373,7 @@ func (r *docResolver) validateChoiceSubsetRestriction(base, restriction Particle
 }
 
 func particleIsExcluded(p Particle) bool {
-	return !p.Max.Unbounded && p.Max.Value == 0
+	return !p.MaxOccurs().Unbounded && p.MaxOccurs().Value == 0
 }
 
 func multiplyOccurs(a, b Occurs) Occurs {
@@ -1355,18 +1405,18 @@ func (r *docResolver) particleIsRequired(p Particle) bool {
 }
 
 func (r *docResolver) particleCanBeEmpty(p Particle) bool {
-	if !p.Max.Unbounded && p.Max.Value == 0 {
+	if !p.MaxOccurs().Unbounded && p.MaxOccurs().Value == 0 {
 		return true
 	}
-	if p.Min.Value == 0 {
+	if p.MinOccurs().Value == 0 {
 		return true
 	}
-	if p.Kind != ParticleGroup {
+	if p.ParticleKind() != ParticleGroup {
 		return false
 	}
-	switch p.Group {
+	switch p.GroupKind() {
 	case GroupChoice:
-		for _, childID := range p.Children {
+		for _, childID := range p.ChildParticles() {
 			child, ok, err := r.particle(childID)
 			if err != nil || !ok {
 				continue
@@ -1375,9 +1425,9 @@ func (r *docResolver) particleCanBeEmpty(p Particle) bool {
 				return true
 			}
 		}
-		return len(p.Children) == 0
+		return len(p.ChildParticles()) == 0
 	default:
-		for _, childID := range p.Children {
+		for _, childID := range p.ChildParticles() {
 			child, ok, err := r.particle(childID)
 			if err != nil || !ok {
 				return false
@@ -1392,17 +1442,17 @@ func (r *docResolver) particleCanBeEmpty(p Particle) bool {
 
 func (r *docResolver) validateWildcardParticleRestriction(base, restriction Particle) error {
 	if particleIsExcluded(restriction) {
-		return validateDocumentOccurrenceRestriction(base.Min, base.Max, restriction.Min, restriction.Max)
+		return validateDocumentOccurrenceRestriction(base.MinOccurs(), base.MaxOccurs(), restriction.MinOccurs(), restriction.MaxOccurs())
 	}
-	switch restriction.Kind {
+	switch restriction.ParticleKind() {
 	case ParticleWildcard:
-		return r.validateWildcardToWildcardRestriction(base.Wildcard, restriction.Wildcard)
+		return r.validateWildcardToWildcardRestriction(base.WildcardRef(), restriction.WildcardRef())
 	case ParticleElement:
-		elem, ok := r.emittedElement(restriction.Element)
+		elem, ok := r.emittedElement(restriction.ElementRef())
 		if !ok {
 			return nil
 		}
-		if !r.wildcardAllowsNamespace(base.Wildcard, elem.Name.Namespace) {
+		if !r.wildcardAllowsNamespace(base.WildcardRef(), elem.Name.Namespace) {
 			return fmt.Errorf("ComplexContent restriction: element namespace %q not allowed by base wildcard", elem.Name.Namespace)
 		}
 	}
@@ -1410,23 +1460,23 @@ func (r *docResolver) validateWildcardParticleRestriction(base, restriction Part
 }
 
 func (r *docResolver) validateWildcardToGroupParticleRestriction(base, restriction Particle) error {
-	if err := r.validateWildcardNamespaceParticleRestriction(base.Wildcard, restriction); err != nil {
+	if err := r.validateWildcardNamespaceParticleRestriction(base.WildcardRef(), restriction); err != nil {
 		return err
 	}
 	minOcc, maxOcc, err := r.effectiveParticleOccurrence(restriction)
 	if err != nil {
 		return err
 	}
-	return validateDocumentOccurrenceRestriction(base.Min, base.Max, minOcc, maxOcc)
+	return validateDocumentOccurrenceRestriction(base.MinOccurs(), base.MaxOccurs(), minOcc, maxOcc)
 }
 
 func (r *docResolver) validateWildcardNamespaceParticleRestriction(baseID WildcardID, restriction Particle) error {
 	if particleIsExcluded(restriction) {
 		return nil
 	}
-	switch restriction.Kind {
+	switch restriction.ParticleKind() {
 	case ParticleElement:
-		elem, ok := r.emittedElement(restriction.Element)
+		elem, ok := r.emittedElement(restriction.ElementRef())
 		if !ok {
 			return nil
 		}
@@ -1434,9 +1484,9 @@ func (r *docResolver) validateWildcardNamespaceParticleRestriction(baseID Wildca
 			return fmt.Errorf("ComplexContent restriction: element namespace %q not allowed by base wildcard", elem.Name.Namespace)
 		}
 	case ParticleWildcard:
-		return r.validateWildcardToWildcardRestriction(baseID, restriction.Wildcard)
+		return r.validateWildcardToWildcardRestriction(baseID, restriction.WildcardRef())
 	case ParticleGroup:
-		for _, childID := range restriction.Children {
+		for _, childID := range restriction.ChildParticles() {
 			child, ok, err := r.particle(childID)
 			if err != nil || !ok {
 				return err
@@ -1453,18 +1503,18 @@ func (r *docResolver) effectiveParticleOccurrence(p Particle) (Occurs, Occurs, e
 	if particleIsExcluded(p) {
 		return Occurs{}, Occurs{}, nil
 	}
-	if p.Kind != ParticleGroup {
-		return p.Min, p.Max, nil
+	if p.ParticleKind() != ParticleGroup {
+		return p.MinOccurs(), p.MaxOccurs(), nil
 	}
-	if len(p.Children) == 0 {
+	if len(p.ChildParticles()) == 0 {
 		return Occurs{}, Occurs{}, nil
 	}
-	switch p.Group {
+	switch p.GroupKind() {
 	case GroupChoice:
 		var minOcc Occurs
 		var minSet bool
 		var maxOcc Occurs
-		for _, childID := range p.Children {
+		for _, childID := range p.ChildParticles() {
 			child, ok, err := r.particle(childID)
 			if err != nil || !ok {
 				return Occurs{}, Occurs{}, err
@@ -1482,11 +1532,11 @@ func (r *docResolver) effectiveParticleOccurrence(p Particle) (Occurs, Occurs, e
 			}
 			maxOcc = maxOccurs(maxOcc, childMax)
 		}
-		return multiplyOccurs(p.Min, minOcc), multiplyOccurs(p.Max, maxOcc), nil
+		return multiplyOccurs(p.MinOccurs(), minOcc), multiplyOccurs(p.MaxOccurs(), maxOcc), nil
 	default:
 		var minOcc Occurs
 		var maxOcc Occurs
-		for _, childID := range p.Children {
+		for _, childID := range p.ChildParticles() {
 			child, ok, err := r.particle(childID)
 			if err != nil || !ok {
 				return Occurs{}, Occurs{}, err
@@ -1498,7 +1548,7 @@ func (r *docResolver) effectiveParticleOccurrence(p Particle) (Occurs, Occurs, e
 			minOcc = addOccurs(minOcc, childMin)
 			maxOcc = addOccurs(maxOcc, childMax)
 		}
-		return multiplyOccurs(p.Min, minOcc), multiplyOccurs(p.Max, maxOcc), nil
+		return multiplyOccurs(p.MinOccurs(), minOcc), multiplyOccurs(p.MaxOccurs(), maxOcc), nil
 	}
 }
 
@@ -1566,10 +1616,10 @@ func astNamespaceList(namespaces []string) []ast.NamespaceURI {
 
 func (r *docResolver) particle(id ParticleID) (Particle, bool, error) {
 	if id == 0 {
-		return Particle{}, false, nil
+		return NoParticle(0), false, nil
 	}
 	if int(id) > len(r.out.Particles) {
-		return Particle{}, false, fmt.Errorf("schema ir: particle %d not found", id)
+		return NoParticle(0), false, fmt.Errorf("schema ir: particle %d not found", id)
 	}
 	return r.out.Particles[id-1], true, nil
 }

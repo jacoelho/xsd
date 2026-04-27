@@ -35,7 +35,7 @@ func TestBuildFromDocumentSetIRCoreSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
-	if rt == nil || len(rt.Elements) < 2 {
-		t.Fatalf("runtime elements = %d, want root element", len(rt.Elements))
+	if rt == nil || rt.ElementCount() < 2 {
+		t.Fatalf("runtime elements = %d, want root element", rt.ElementCount())
 	}
 }

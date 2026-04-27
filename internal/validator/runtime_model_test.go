@@ -31,14 +31,14 @@ func buildModelFixture(tb testing.TB) modelFixture {
 		tb.Fatalf("Build() error = %v", err)
 	}
 
-	schema.Elements = make([]runtime.Element, 4)
-	schema.Elements[1] = runtime.Element{Name: symA}
-	schema.Elements[2] = runtime.Element{Name: symB}
-	schema.Elements[3] = runtime.Element{Name: symC, SubstHead: 1}
-	schema.GlobalElements = make([]runtime.ElemID, schema.Symbols.Count()+1)
-	schema.GlobalElements[symA] = 1
-	schema.GlobalElements[symB] = 2
-	schema.GlobalElements[symC] = 3
+	setRuntimeElements(tb, schema, make([]runtime.Element, 4))
+	schema.ElementTable()[1] = runtime.Element{Name: symA}
+	schema.ElementTable()[2] = runtime.Element{Name: symB}
+	schema.ElementTable()[3] = runtime.Element{Name: symC, SubstHead: 1}
+	setRuntimeGlobalElements(tb, schema, make([]runtime.ElemID, schema.SymbolCount()+1))
+	schema.GlobalElementIDs()[symA] = 1
+	schema.GlobalElementIDs()[symB] = 2
+	schema.GlobalElementIDs()[symC] = 3
 
 	return modelFixture{
 		schema: schema,
@@ -54,8 +54,8 @@ func buildModelFixture(tb testing.TB) modelFixture {
 
 func TestModelStateDFASequence(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
-	fx.schema.Models.DFA[1] = runtime.DFAModel{
+	setRuntimeDFAModels(t, fx.schema, make([]runtime.DFAModel, 2))
+	fx.schema.ModelBundle().DFA[1] = runtime.DFAModel{
 		Start: 0,
 		States: []runtime.DFAState{
 			{Accept: false, TransOff: 0, TransLen: 1},
@@ -99,12 +99,12 @@ func TestModelStateDFASequence(t *testing.T) {
 
 func TestModelStateDFAWildcardMatch(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Wildcards = []runtime.WildcardRule{
+	setRuntimeWildcards(t, fx.schema, []runtime.WildcardRule{
 		{},
 		{NS: runtime.NSConstraint{Kind: runtime.NSAny}, PC: runtime.PCSkip},
-	}
-	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
-	fx.schema.Models.DFA[1] = runtime.DFAModel{
+	})
+	setRuntimeDFAModels(t, fx.schema, make([]runtime.DFAModel, 2))
+	fx.schema.ModelBundle().DFA[1] = runtime.DFAModel{
 		Start: 0,
 		States: []runtime.DFAState{
 			{Accept: false, WildOff: 0, WildLen: 1},
@@ -131,13 +131,13 @@ func TestModelStateDFAWildcardMatch(t *testing.T) {
 
 func TestModelStateDFAWildcardAmbiguous(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Wildcards = []runtime.WildcardRule{
+	setRuntimeWildcards(t, fx.schema, []runtime.WildcardRule{
 		{},
 		{NS: runtime.NSConstraint{Kind: runtime.NSAny}, PC: runtime.PCSkip},
 		{NS: runtime.NSConstraint{Kind: runtime.NSAny}, PC: runtime.PCSkip},
-	}
-	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
-	fx.schema.Models.DFA[1] = runtime.DFAModel{
+	})
+	setRuntimeDFAModels(t, fx.schema, make([]runtime.DFAModel, 2))
+	fx.schema.ModelBundle().DFA[1] = runtime.DFAModel{
 		Start: 0,
 		States: []runtime.DFAState{
 			{Accept: false, WildOff: 0, WildLen: 2},
@@ -161,8 +161,8 @@ func TestModelStateDFAWildcardAmbiguous(t *testing.T) {
 
 func TestModelStateDFANoMatchErrorCode(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
-	fx.schema.Models.DFA[1] = runtime.DFAModel{
+	setRuntimeDFAModels(t, fx.schema, make([]runtime.DFAModel, 2))
+	fx.schema.ModelBundle().DFA[1] = runtime.DFAModel{
 		Start: 0,
 		States: []runtime.DFAState{
 			{Accept: true},
@@ -187,8 +187,8 @@ func TestModelStateDFANoMatchErrorCode(t *testing.T) {
 
 func TestModelStateDFANoMatchIncludesExpectedAndActual(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
-	fx.schema.Models.DFA[1] = runtime.DFAModel{
+	setRuntimeDFAModels(t, fx.schema, make([]runtime.DFAModel, 2))
+	fx.schema.ModelBundle().DFA[1] = runtime.DFAModel{
 		Start: 0,
 		States: []runtime.DFAState{
 			{Accept: false, TransOff: 0, TransLen: 1},
@@ -225,8 +225,8 @@ func TestModelStateDFANoMatchIncludesExpectedAndActual(t *testing.T) {
 
 func TestModelStateDFAAcceptIncludesExpected(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
-	fx.schema.Models.DFA[1] = runtime.DFAModel{
+	setRuntimeDFAModels(t, fx.schema, make([]runtime.DFAModel, 2))
+	fx.schema.ModelBundle().DFA[1] = runtime.DFAModel{
 		Start: 0,
 		States: []runtime.DFAState{
 			{Accept: false, TransOff: 0, TransLen: 1},
@@ -261,8 +261,8 @@ func TestModelStateDFAAcceptIncludesExpected(t *testing.T) {
 
 func TestModelStateNFASequence(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.NFA = make([]runtime.NFAModel, 2)
-	fx.schema.Models.NFA[1] = buildNFASequence(fx.symA, fx.symB, fx.elemA, fx.elemB)
+	setRuntimeNFAModels(t, fx.schema, make([]runtime.NFAModel, 2))
+	fx.schema.ModelBundle().NFA[1] = buildNFASequence(fx.symA, fx.symB, fx.elemA, fx.elemB)
 	ref := runtime.ModelRef{Kind: runtime.ModelNFA, ID: 1}
 	sess := NewSession(fx.schema)
 
@@ -293,10 +293,74 @@ func TestModelStateNFASequence(t *testing.T) {
 	}
 }
 
+func TestSessionModelStatesDoNotAlias(t *testing.T) {
+	fx := buildModelFixture(t)
+	setRuntimeNFAModels(t, fx.schema, make([]runtime.NFAModel, 2))
+	fx.schema.ModelBundle().NFA[1] = buildNFASequence(fx.symA, fx.symB, fx.elemA, fx.elemB)
+	setRuntimeAllModels(t, fx.schema, make([]runtime.AllModel, 2))
+	fx.schema.ModelBundle().All[1] = runtime.AllModel{
+		Members: []runtime.AllMember{
+			{Elem: fx.elemA},
+			{Elem: fx.elemB},
+		},
+	}
+	sess := NewSession(fx.schema)
+
+	nfaRef := runtime.ModelRef{Kind: runtime.ModelNFA, ID: 1}
+	firstNFA, err := sess.InitModelState(nfaRef)
+	if err != nil {
+		t.Fatalf("InitModelState first NFA: %v", err)
+	}
+	secondNFA, err := sess.InitModelState(nfaRef)
+	if err != nil {
+		t.Fatalf("InitModelState second NFA: %v", err)
+	}
+	firstNFA.NFA[0] = 1
+	firstNFA.nfaScratch[0] = 2
+	secondNFA.NFA[0] = 3
+	secondNFA.nfaScratch[0] = 4
+	if firstNFA.NFA[0] != 1 || firstNFA.nfaScratch[0] != 2 {
+		t.Fatalf("second NFA state aliased first: first=%v scratch=%v second=%v secondScratch=%v", firstNFA.NFA, firstNFA.nfaScratch, secondNFA.NFA, secondNFA.nfaScratch)
+	}
+
+	allRef := runtime.ModelRef{Kind: runtime.ModelAll, ID: 1}
+	firstAll, err := sess.InitModelState(allRef)
+	if err != nil {
+		t.Fatalf("InitModelState first all: %v", err)
+	}
+	secondAll, err := sess.InitModelState(allRef)
+	if err != nil {
+		t.Fatalf("InitModelState second all: %v", err)
+	}
+	firstAll.All[0] = 1
+	secondAll.All[0] = 2
+	if firstAll.All[0] != 1 {
+		t.Fatalf("second all state aliased first: first=%v second=%v", firstAll.All, secondAll.All)
+	}
+}
+
+func TestSessionValidateNestedNFAAndAllFramesUseIndependentArenaState(t *testing.T) {
+	rt := buildNestedNFAAllRuntimeSchema(t)
+	plan := runtime.NewSessionPlan(rt)
+	if plan.MaxModelWords != 3 {
+		t.Fatalf("MaxModelWords = %d, want 3", plan.MaxModelWords)
+	}
+
+	sess := NewSession(rt)
+	initialCap := cap(sess.buffers.modelWords)
+	doc := `<tns:root xmlns:tns="urn:test"><tns:a/><tns:child><tns:d/><tns:c/></tns:child><tns:b/></tns:root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if cap(sess.buffers.modelWords) != initialCap {
+		t.Fatalf("modelWords cap = %d, want unchanged %d", cap(sess.buffers.modelWords), initialCap)
+	}
+}
+
 func TestModelStateNFANullableAcceptsEmpty(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.NFA = make([]runtime.NFAModel, 2)
-	fx.schema.Models.NFA[1] = buildNFANullable(fx.symA, fx.elemA)
+	setRuntimeNFAModels(t, fx.schema, make([]runtime.NFAModel, 2))
+	fx.schema.ModelBundle().NFA[1] = buildNFANullable(fx.symA, fx.elemA)
 	ref := runtime.ModelRef{Kind: runtime.ModelNFA, ID: 1}
 	sess := NewSession(fx.schema)
 
@@ -311,8 +375,8 @@ func TestModelStateNFANullableAcceptsEmpty(t *testing.T) {
 
 func TestModelStateNFAAmbiguousErrorCode(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.NFA = make([]runtime.NFAModel, 2)
-	fx.schema.Models.NFA[1] = runtime.NFAModel{
+	setRuntimeNFAModels(t, fx.schema, make([]runtime.NFAModel, 2))
+	fx.schema.ModelBundle().NFA[1] = runtime.NFAModel{
 		Bitsets: runtime.BitsetBlob{
 			Words: []uint64{3},
 		},
@@ -346,9 +410,9 @@ func TestModelStateNFAAmbiguousErrorCode(t *testing.T) {
 
 func TestModelStateAllGroup(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.All = make([]runtime.AllModel, 2)
-	fx.schema.Models.AllSubst = []runtime.ElemID{fx.elemA, fx.elemC}
-	fx.schema.Models.All[1] = runtime.AllModel{
+	setRuntimeAllModels(t, fx.schema, make([]runtime.AllModel, 2))
+	setRuntimeAllSubstitutions(t, fx.schema, []runtime.ElemID{fx.elemA, fx.elemC})
+	fx.schema.ModelBundle().All[1] = runtime.AllModel{
 		MinOccurs: 1,
 		Mixed:     false,
 		Members: []runtime.AllMember{
@@ -409,7 +473,7 @@ func TestModelStateAllGroup(t *testing.T) {
 		t.Fatalf("expected missing required error")
 	}
 
-	fx.schema.Models.All[1] = runtime.AllModel{
+	fx.schema.ModelBundle().All[1] = runtime.AllModel{
 		MinOccurs: 0,
 		Mixed:     false,
 		Members: []runtime.AllMember{
@@ -424,9 +488,9 @@ func TestModelStateAllGroup(t *testing.T) {
 
 func TestModelStateAllMissingRequiredIncludesExpectedMembers(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.All = make([]runtime.AllModel, 2)
-	fx.schema.Models.AllSubst = []runtime.ElemID{fx.elemA, fx.elemC}
-	fx.schema.Models.All[1] = runtime.AllModel{
+	setRuntimeAllModels(t, fx.schema, make([]runtime.AllModel, 2))
+	setRuntimeAllSubstitutions(t, fx.schema, []runtime.ElemID{fx.elemA, fx.elemC})
+	fx.schema.ModelBundle().All[1] = runtime.AllModel{
 		MinOccurs: 1,
 		Members: []runtime.AllMember{
 			{Elem: fx.elemA, Optional: false, AllowsSubst: true, SubstOff: 0, SubstLen: 2},
@@ -460,12 +524,12 @@ func TestModelStateAllMissingRequiredIncludesExpectedMembers(t *testing.T) {
 
 func TestModelStateAllAmbiguousErrorCode(t *testing.T) {
 	fx := buildModelFixture(t)
-	fx.schema.Models.All = make([]runtime.AllModel, 2)
-	fx.schema.Models.AllSubst = []runtime.ElemID{
+	setRuntimeAllModels(t, fx.schema, make([]runtime.AllModel, 2))
+	setRuntimeAllSubstitutions(t, fx.schema, []runtime.ElemID{
 		fx.elemA, fx.elemC,
 		fx.elemB, fx.elemC,
-	}
-	fx.schema.Models.All[1] = runtime.AllModel{
+	})
+	fx.schema.ModelBundle().All[1] = runtime.AllModel{
 		Members: []runtime.AllMember{
 			{Elem: fx.elemA, AllowsSubst: true, SubstOff: 0, SubstLen: 2},
 			{Elem: fx.elemB, AllowsSubst: true, SubstOff: 2, SubstLen: 2},
@@ -518,6 +582,97 @@ func buildNFASequence(symA, symB runtime.SymbolID, elemA, elemB runtime.ElemID) 
 			{},
 		},
 	}
+}
+
+func buildNFASequence3(symA, symB, symC runtime.SymbolID, elemA, elemB, elemC runtime.ElemID) runtime.NFAModel {
+	blob := runtime.BitsetBlob{Words: []uint64{1, 4, 2, 4}}
+	return runtime.NFAModel{
+		Bitsets:   blob,
+		Start:     runtime.BitsetRef{Off: 0, Len: 1},
+		Accept:    runtime.BitsetRef{Off: 1, Len: 1},
+		Nullable:  false,
+		FollowOff: 0,
+		FollowLen: 3,
+		Matchers: []runtime.PosMatcher{
+			{Kind: runtime.PosExact, Sym: symA, Elem: elemA},
+			{Kind: runtime.PosExact, Sym: symB, Elem: elemB},
+			{Kind: runtime.PosExact, Sym: symC, Elem: elemC},
+		},
+		Follow: []runtime.BitsetRef{
+			{Off: 2, Len: 1},
+			{Off: 3, Len: 1},
+			{},
+		},
+	}
+}
+
+func buildNestedNFAAllRuntimeSchema(t *testing.T) *runtime.Schema {
+	t.Helper()
+
+	builder := runtime.NewBuilder()
+	ns := mustInternNamespace(t, builder, []byte("urn:test"))
+	symRoot := mustInternSymbol(t, builder, ns, []byte("root"))
+	symA := mustInternSymbol(t, builder, ns, []byte("a"))
+	symChild := mustInternSymbol(t, builder, ns, []byte("child"))
+	symC := mustInternSymbol(t, builder, ns, []byte("c"))
+	symD := mustInternSymbol(t, builder, ns, []byte("d"))
+	symB := mustInternSymbol(t, builder, ns, []byte("b"))
+
+	schema, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+
+	const (
+		rootType  runtime.TypeID = 1
+		childType runtime.TypeID = 2
+		emptyType runtime.TypeID = 3
+
+		rootElem  runtime.ElemID = 1
+		aElem     runtime.ElemID = 2
+		childElem runtime.ElemID = 3
+		cElem     runtime.ElemID = 4
+		dElem     runtime.ElemID = 5
+		bElem     runtime.ElemID = 6
+	)
+
+	setRuntimeRootPolicy(t, schema, runtime.RootStrict)
+	setRuntimeTypes(t, schema, make([]runtime.Type, 4))
+	schema.TypeTable()[rootType] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
+	schema.TypeTable()[childType] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 2}}
+	schema.TypeTable()[emptyType] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 3}}
+	setRuntimeComplexTypes(t, schema, make([]runtime.ComplexType, 4))
+	schema.ComplexTypeTable()[1] = runtime.ComplexType{
+		Model:   runtime.ModelRef{Kind: runtime.ModelNFA, ID: 1},
+		Content: runtime.ContentElementOnly,
+	}
+	schema.ComplexTypeTable()[2] = runtime.ComplexType{
+		Model:   runtime.ModelRef{Kind: runtime.ModelAll, ID: 1},
+		Content: runtime.ContentAll,
+	}
+	schema.ComplexTypeTable()[3] = runtime.ComplexType{Content: runtime.ContentEmpty}
+
+	setRuntimeElements(t, schema, make([]runtime.Element, 7))
+	schema.ElementTable()[rootElem] = runtime.Element{Name: symRoot, Type: rootType}
+	schema.ElementTable()[aElem] = runtime.Element{Name: symA, Type: emptyType}
+	schema.ElementTable()[childElem] = runtime.Element{Name: symChild, Type: childType}
+	schema.ElementTable()[cElem] = runtime.Element{Name: symC, Type: emptyType}
+	schema.ElementTable()[dElem] = runtime.Element{Name: symD, Type: emptyType}
+	schema.ElementTable()[bElem] = runtime.Element{Name: symB, Type: emptyType}
+	setRuntimeGlobalElements(t, schema, make([]runtime.ElemID, schema.SymbolCount()+1))
+	schema.GlobalElementIDs()[symRoot] = rootElem
+
+	setRuntimeNFAModels(t, schema, make([]runtime.NFAModel, 2))
+	schema.ModelBundle().NFA[1] = buildNFASequence3(symA, symChild, symB, aElem, childElem, bElem)
+	setRuntimeAllModels(t, schema, make([]runtime.AllModel, 2))
+	schema.ModelBundle().All[1] = runtime.AllModel{
+		MinOccurs: 1,
+		Members: []runtime.AllMember{
+			{Elem: cElem},
+			{Elem: dElem},
+		},
+	}
+	return schema
 }
 
 func buildNFANullable(sym runtime.SymbolID, elem runtime.ElemID) runtime.NFAModel {

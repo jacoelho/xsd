@@ -148,11 +148,11 @@ func (s *Session) collectIdentityAttrs(startAttrs []Start, applied []Applied) []
 	for _, attr := range startAttrs {
 		local := attr.Local
 		if len(local) == 0 && attr.Sym != 0 {
-			local = s.rt.Symbols.LocalBytes(attr.Sym)
+			local = s.rt.SymbolLocalBytes(attr.Sym)
 		}
 		nsBytes := attr.NSBytes
 		if len(nsBytes) == 0 && attr.NS != 0 {
-			nsBytes = s.rt.Namespaces.Bytes(attr.NS)
+			nsBytes = s.rt.NamespaceBytes(attr.NS)
 		}
 		nameID := AttrNameID(0)
 		if attr.Sym == 0 {
@@ -173,14 +173,14 @@ func (s *Session) collectIdentityAttrs(startAttrs []Start, applied []Applied) []
 			continue
 		}
 		nsID := runtime.NamespaceID(0)
-		if int(attr.Name) < len(s.rt.Symbols.NS) {
-			nsID = s.rt.Symbols.NS[attr.Name]
+		if symbolNS, ok := s.rt.SymbolNamespace(attr.Name); ok {
+			nsID = symbolNS
 		}
 		out = append(out, Attr{
 			Sym:      attr.Name,
 			NS:       nsID,
-			NSBytes:  s.rt.Namespaces.Bytes(nsID),
-			Local:    s.rt.Symbols.LocalBytes(attr.Name),
+			NSBytes:  s.rt.NamespaceBytes(nsID),
+			Local:    s.rt.SymbolLocalBytes(attr.Name),
 			KeyKind:  attr.KeyKind,
 			KeyBytes: attr.KeyBytes,
 		})

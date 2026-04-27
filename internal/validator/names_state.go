@@ -59,14 +59,14 @@ type NameState struct {
 func schemaNamespaceID(rt *runtime.Schema, nsBytes []byte) runtime.NamespaceID {
 	if len(nsBytes) == 0 {
 		if rt != nil {
-			return rt.PredefNS.Empty
+			return rt.KnownNamespaces().Empty
 		}
 		return 0
 	}
 	if rt == nil {
 		return 0
 	}
-	return rt.Namespaces.Lookup(nsBytes)
+	return rt.NamespaceLookup(nsBytes)
 }
 
 func (s *NameState) Intern(rt *runtime.Schema, id xmlstream.NameID, nsBytes, local []byte) NameEntry {
@@ -103,7 +103,7 @@ func (s *NameState) internSparse(rt *runtime.Schema, id NameID, nsBytes, local [
 		nsID := schemaNamespaceID(rt, nsBytes)
 		sym := runtime.SymbolID(0)
 		if nsID != 0 && rt != nil {
-			sym = rt.Symbols.Lookup(nsID, local)
+			sym = rt.SymbolLookup(nsID, local)
 		}
 		return NameEntry{Sym: sym, NS: nsID}
 	}
@@ -120,7 +120,7 @@ func (s *NameState) storeEntry(rt *runtime.Schema, nsBytes, local []byte) NameEn
 	nsID := schemaNamespaceID(rt, nsBytes)
 	sym := runtime.SymbolID(0)
 	if nsID != 0 && rt != nil {
-		sym = rt.Symbols.Lookup(nsID, local)
+		sym = rt.SymbolLookup(nsID, local)
 	}
 	return NameEntry{
 		Sym:      sym,

@@ -7,11 +7,11 @@ import (
 )
 
 func (s *Session) recordValidationError(err error, line, column int) error {
-	return s.recordValidationErrorAtPath(err, s.pathString(), line, column)
+	return s.recordValidationErrorAtPath(err, "", line, column)
 }
 
 func (s *Session) recordValidationErrors(errs []error, line, column int) error {
-	return s.recordValidationErrorsAtPath(errs, s.pathString(), line, column)
+	return s.recordValidationErrorsAtPath(errs, "", line, column)
 }
 
 func (s *Session) recordValidationErrorAtPath(err error, path string, line, column int) error {
@@ -20,7 +20,15 @@ func (s *Session) recordValidationErrorAtPath(err error, path string, line, colu
 	}
 	details := validationErrorDetails(err)
 	if !details.ok {
-		return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, details.msg, path, line, column)}
+		return xsderrors.Error{
+			Kind:    xsderrors.KindInternal,
+			Code:    xsderrors.ErrValidationInternal,
+			Message: details.msg,
+			Err:     err,
+		}
+	}
+	if path == "" {
+		path = s.pathString()
 	}
 	validation := s.newValidation(details.code, details.msg, path, line, column)
 	validation.Actual = details.actual
