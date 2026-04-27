@@ -111,6 +111,57 @@ func TestScalarWhitespaceNormalizationRetainsSessionBuffer(t *testing.T) {
 	}
 }
 
+func TestScalarWhitespaceNormalizationEmptyCanBeNormalized(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test">
+  <xs:simpleType name="Collapsed">
+    <xs:restriction base="xs:string">
+      <xs:whiteSpace value="collapse"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	validatorID := mustValidatorID(t, rt, "Collapsed")
+	sess := NewSession(rt)
+	opts := valueOptions{
+		ApplyWhitespace:  true,
+		RequireCanonical: false,
+		StoreValue:       false,
+	}
+
+	normalized, err := sess.validateValue(valueRequest{
+		Validator: validatorID,
+		Lexical:   []byte("   "),
+		Options:   opts,
+	})
+	if err != nil {
+		t.Fatalf("validate all-whitespace value: %v", err)
+	}
+	if len(normalized.Canonical) != 0 {
+		t.Fatalf("normalized len = %d, want 0", len(normalized.Canonical))
+	}
+}
+
+func TestOwnsNormalizedBufferZeroLengthLexicalCases(t *testing.T) {
+	nonZeroLen := []byte("x")
+	if !ownsNormalizedBuffer([]byte{}, nonZeroLen) {
+		t.Fatalf("empty normalized buffer should be treated as owned with non-empty lexical")
+	}
+
+	sameBuffer := []byte("abc")
+	if ownsNormalizedBuffer(sameBuffer, sameBuffer) {
+		t.Fatalf("identical normalized and lexical buffer should not be considered owned")
+	}
+
+	nonNilLexical := make([]byte, 3)
+	if !ownsNormalizedBuffer(nonNilLexical[:0], nonNilLexical) {
+		t.Fatalf("empty normalized buffer should be treated as owned when aliasing lexical slice")
+	}
+}
+
 func TestHexBinaryCanonicalValueIsStable(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

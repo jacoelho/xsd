@@ -216,12 +216,15 @@ func (r valueRunner) normalizeInput(meta runtime.ValidatorMeta, lexical []byte, 
 
 func ownsNormalizedBuffer(normalized, lexical []byte) bool {
 	if cap(normalized) == 0 {
-		return false
+		return len(lexical) == 0
 	}
 	if cap(lexical) == 0 {
 		return true
 	}
-	return &normalized[:1][0] != &lexical[:1][0]
+	if len(normalized) == 0 || len(lexical) == 0 {
+		return true
+	}
+	return &normalized[0] != &lexical[0]
 }
 
 func (r valueRunner) validateWithoutCanonical(id runtime.ValidatorID, meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, metrics *ValueMetrics) ([]byte, error) {
