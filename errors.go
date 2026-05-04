@@ -70,6 +70,9 @@ type Error struct {
 	Column   int
 }
 
+// Errors is returned when validation finds multiple recoverable errors.
+type Errors []error
+
 func (e *Error) Error() string {
 	if e == nil {
 		return "<nil>"
@@ -102,11 +105,26 @@ func (e *Error) Error() string {
 	return b.String()
 }
 
+func (e Errors) Error() string {
+	switch len(e) {
+	case 0:
+		return "<nil>"
+	case 1:
+		return e[0].Error()
+	default:
+		return fmt.Sprintf("%d validation errors: %s", len(e), e[0])
+	}
+}
+
 func (e *Error) Unwrap() error {
 	if e == nil {
 		return nil
 	}
 	return e.Err
+}
+
+func (e Errors) Unwrap() []error {
+	return []error(e)
 }
 
 // IsUnsupported reports whether err represents an unsupported feature.

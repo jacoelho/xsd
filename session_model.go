@@ -17,14 +17,14 @@ func noMatch() matchResult {
 
 func (m matchResult) child(rt *runtimeSchema) acceptedChild {
 	if m.element == noElement {
-		return acceptedChild{element: noElement, typ: typeID{Kind: typeComplex, ID: uint32(rt.Builtin.AnyType)}, skip: m.skip}
+		return acceptedChild{element: noElement, typ: anyType(rt), skip: m.skip}
 	}
 	decl := rt.Elements[m.element]
 	return acceptedChild{element: m.element, typ: decl.Type, skip: m.skip}
 }
 
 func anyTypeChild(rt *runtimeSchema, skip bool) acceptedChild {
-	return acceptedChild{element: noElement, typ: typeID{Kind: typeComplex, ID: uint32(rt.Builtin.AnyType)}, skip: skip}
+	return acceptedChild{element: noElement, typ: anyType(rt), skip: skip}
 }
 
 type acceptedChild struct {
@@ -539,39 +539,9 @@ func (s *session) end(line, col int, ee xml.EndElement) error {
 		return validation(ErrValidationXML, line, col, s.pathString(), "end element </"+formatXMLName(ee.Name)+"> does not match start element <"+formatXMLName(expected)+">")
 	}
 	f := &s.stack[len(s.stack)-1]
-	if !f.Skip {
-		if f.Nilled && (f.HasChild || f.HasText) {
-			return validation(ErrValidationNil, line, col, s.pathString(), "nilled element must be empty")
-		}
-		if !f.Nilled {
-			if err := s.completeFrame(f, line, col); err != nil {
-				return err
-			}
-		}
-		canon, typeID, captured, err := s.validateSimpleContent(f, line, col)
-		if err != nil {
-			return err
-		}
-		if captured {
-			if err := s.captureIdentityElement(typeID, canon, line, col); err != nil {
-				return err
-			}
-		} else if f.Nilled && f.Element != noElement {
-			if err := s.captureIdentityElement(noSimpleType, "\x00nil", line, col); err != nil {
-				return err
-			}
-		} else if f.Type.Kind == typeComplex && !s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue {
-			rawText := string(s.text[f.TextStart:])
-			if err := s.captureIdentityComplexElement(rawText, line, col); err != nil {
-				return err
-			}
-		}
-	}
-	if err := s.finishIdentitySelections(len(s.namePath), line, col); err != nil {
-		return err
-	}
-	if err := s.closeIdentityScopes(len(s.namePath)); err != nil {
-		return err
+	stop := s.validateFrameEnd(f, line, col)
+	if stop == nil {
+		stop = s.finishFrameIdentity(line, col)
 	}
 	s.counters = s.counters[:f.CounterBase]
 	s.text = s.text[:f.TextStart]
@@ -586,7 +556,51 @@ func (s *session) end(line, col int, ee xml.EndElement) error {
 		s.elementNames = s.elementNames[:len(s.elementNames)-1]
 	}
 	s.ns.pop()
-	return nil
+	return stop
+}
+
+func (s *session) validateFrameEnd(f *frame, line, col int) error {
+	if f.Skip {
+		return nil
+	}
+	if f.Nilled && (f.HasChild || f.HasText) {
+		err := validation(ErrValidationNil, line, col, s.pathString(), "nilled element must be empty")
+		if recoverErr := s.recover(err); recoverErr != nil {
+			return recoverErr
+		}
+	}
+	if !f.Nilled {
+		if err := s.completeFrame(f, line, col); err != nil {
+			if recoverErr := s.recover(err); recoverErr != nil {
+				return recoverErr
+			}
+		}
+	}
+	canon, typeID, captured, err := s.validateSimpleContent(f, line, col)
+	if err != nil {
+		return s.recover(err)
+	}
+	return s.captureEndIdentity(f, canon, typeID, captured, line, col)
+}
+
+func (s *session) captureEndIdentity(f *frame, canon string, typeID simpleTypeID, captured bool, line, col int) error {
+	var err error
+	switch {
+	case captured:
+		err = s.captureIdentityElement(typeID, canon, line, col)
+	case f.Nilled && f.Element != noElement:
+		err = s.captureIdentityElement(noSimpleType, "\x00nil", line, col)
+	case f.Type.Kind == typeComplex && !s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue:
+		err = s.captureIdentityComplexElement(string(s.text[f.TextStart:]), line, col)
+	}
+	return s.recover(err)
+}
+
+func (s *session) finishFrameIdentity(line, col int) error {
+	if err := s.finishIdentitySelections(len(s.namePath), line, col); err != nil {
+		return err
+	}
+	return s.closeIdentityScopes(len(s.namePath))
 }
 
 func (s *session) completeFrame(f *frame, line, col int) error {

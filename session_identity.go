@@ -143,10 +143,15 @@ func (s *session) checkIDRefs() error {
 	}
 	for _, ref := range s.idrefs {
 		if s.ids == nil {
-			return validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)
+			if err := s.recover(validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)); err != nil {
+				return err
+			}
+			continue
 		}
 		if _, ok := s.ids[ref.Value]; !ok {
-			return validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)
+			if err := s.recover(validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -371,8 +376,11 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 			continue
 		}
 		if err := s.finishIdentitySelection(sel, line, col); err != nil {
-			s.idSelections = append(dst, s.idSelections[i+1:]...)
-			return err
+			recoverErr := s.recover(err)
+			if recoverErr != nil {
+				s.idSelections = append(dst, s.idSelections[i+1:]...)
+				return recoverErr
+			}
 		}
 	}
 	s.idSelections = dst
@@ -427,11 +435,17 @@ func (s *session) closeIdentityScopes(depth int) error {
 		for _, ref := range scope.Refs {
 			table := scope.Tables[ref.Refer]
 			if table == nil {
-				return validation(ErrValidationIdentity, ref.Line, ref.Col, ref.Path, "keyref does not resolve")
+				recoverErr := s.recover(validation(ErrValidationIdentity, ref.Line, ref.Col, ref.Path, "keyref does not resolve"))
+				if recoverErr != nil {
+					return recoverErr
+				}
+				continue
 			}
 			path, ok := table[ref.Key]
 			if !ok || path == identityConflictPath {
-				return validation(ErrValidationIdentity, ref.Line, ref.Col, ref.Path, "keyref does not resolve")
+				if err := s.recover(validation(ErrValidationIdentity, ref.Line, ref.Col, ref.Path, "keyref does not resolve")); err != nil {
+					return err
+				}
 			}
 		}
 		if len(s.idScopes) > 1 {

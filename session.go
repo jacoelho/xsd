@@ -6,28 +6,43 @@ import (
 	"io"
 )
 
+var errStopValidation = errors.New("validation stopped after maximum errors")
+
+// ValidateOptions controls instance validation.
+type ValidateOptions struct {
+	// MaxErrors limits collected validation errors. Zero means unlimited.
+	MaxErrors int
+}
+
 // Validate validates one XML instance document.
 func (e *Engine) Validate(r io.Reader) error {
-	return (&session{engine: e}).validate(r)
+	return e.ValidateWithOptions(r, ValidateOptions{})
+}
+
+// ValidateWithOptions validates one XML instance document with options.
+func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
+	return (&session{engine: e, maxErrors: opts.MaxErrors}).validate(r)
 }
 
 type session struct {
-	schemaLocationNamespaces map[string]bool
 	ids                      map[string]string
 	engine                   *Engine
+	schemaLocationNamespaces map[string]bool
 	ns                       namespaceStack
-	idrefs                   []identityRef
-	namePath                 []runtimeName
 	stack                    []frame
+	counters                 []uint32
+	counterScratch           []uint32
+	namePath                 []runtimeName
+	errors                   []error
 	elementNames             []xml.Name
 	path                     []string
-	counters                 []uint32
+	idrefs                   []identityRef
 	idScopes                 []identityScope
 	idSelections             []identitySelection
 	text                     []byte
-	counterScratch           []uint32
 	nameStrings              byteStringCache
 	valueStrings             byteStringCache
+	maxErrors                int
 }
 
 type identityRef struct {
@@ -118,16 +133,28 @@ func (s *session) validate(r io.Reader) error {
 		switch tok.kind {
 		case streamTokenStart:
 			if err := s.start(tok.line, tok.col, tok.start, seenRoot); err != nil {
+				if errors.Is(err, errStopValidation) {
+					return s.result()
+				}
 				return err
 			}
 			seenRoot = true
 		case streamTokenEnd:
 			if err := s.end(tok.line, tok.col, tok.end); err != nil {
+				if errors.Is(err, errStopValidation) {
+					return s.result()
+				}
 				return err
 			}
 		case streamTokenCharData:
 			if err := s.chars(tok.line, tok.col, tok.data, tok.cdata); err != nil {
-				return err
+				recoverErr := s.recover(err)
+				if recoverErr != nil {
+					if errors.Is(recoverErr, errStopValidation) {
+						return s.result()
+					}
+					return recoverErr
+				}
 			}
 		case streamTokenDirective:
 			if isDOCTYPEDeclaration(tok.directive) {
@@ -142,12 +169,16 @@ func (s *session) validate(r io.Reader) error {
 		return validation(ErrValidationXML, 0, 0, s.pathString(), "unclosed element")
 	}
 	if err := s.checkIDRefs(); err != nil {
+		if errors.Is(err, errStopValidation) {
+			return s.result()
+		}
 		return err
 	}
-	return nil
+	return s.result()
 }
 
 func (s *session) reset() {
+	s.errors = s.errors[:0]
 	s.stack = s.stack[:0]
 	s.ns.frames = s.ns.frames[:0]
 	s.ns.bindings = s.ns.bindings[:0]
@@ -168,6 +199,38 @@ func (s *session) reset() {
 	s.counterScratch = s.counterScratch[:0]
 }
 
+func (s *session) result() error {
+	switch len(s.errors) {
+	case 0:
+		return nil
+	case 1:
+		return s.errors[0]
+	default:
+		errs := make(Errors, len(s.errors))
+		copy(errs, s.errors)
+		return errs
+	}
+}
+
+func (s *session) recover(err error) error {
+	if err == nil {
+		return nil
+	}
+	if !isRecoverableValidation(err) {
+		return err
+	}
+	s.errors = append(s.errors, err)
+	if s.maxErrors > 0 && len(s.errors) >= s.maxErrors {
+		return errStopValidation
+	}
+	return nil
+}
+
+func isRecoverableValidation(err error) bool {
+	x, ok := errors.AsType[*Error](err)
+	return ok && x.Category == ValidationErrorCategory && x.Code != ErrValidationXML
+}
+
 func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error {
 	rt := s.engine.rt
 	if err := s.ns.push(se.Attr); err != nil {
@@ -180,55 +243,28 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 	}
 	s.recordSchemaLocationHints(se.Attr)
 	rn := s.runtimeName(se.Name)
-	var elem elementID
-	var typ typeID
-	hasType := false
-	skip := false
-	if !seenRoot {
-		if rn.Known {
-			if id, ok := rt.GlobalElements[rn.Name]; ok {
-				elem = id
-				typ = rt.Elements[id].Type
-				hasType = true
-			}
-		}
-		if !hasType {
-			rootType, ok, err := s.rootTypeFromXSIType(se.Attr, line, col)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				if s.hasSchemaLocationHint(rn.NS) {
-					return s.unsupportedSchemaLocation(line, col, "element", rn)
-				}
-				return validation(ErrValidationRoot, line, col, s.pathString(), "root element is not declared: "+formatXMLName(se.Name))
-			}
-			elem = noElement
-			typ = rootType
-		}
-	} else {
-		if len(s.stack) == 0 {
-			return validation(ErrValidationXML, line, col, s.pathString(), "multiple root elements")
-		}
-		parent := &s.stack[len(s.stack)-1]
-		parent.HasChild = true
-		accepted, err := s.acceptChild(parent, rn, se.Attr, line, col)
-		if err != nil {
-			return err
-		}
-		elem = accepted.element
-		typ = accepted.typ
-		skip = accepted.skip
+	elem, typ, skip, err := s.startType(rt, rn, se, line, col, seenRoot)
+	if err != nil {
+		return err
 	}
 	if elem != noElement && rt.Elements[elem].Abstract {
-		return validation(ErrValidationElement, line, col, s.pathString(), "abstract element cannot appear directly")
+		recoverErr := s.recover(validation(ErrValidationElement, line, col, s.pathString(), "abstract element cannot appear directly"))
+		if recoverErr != nil {
+			return recoverErr
+		}
+		elem = noElement
+		typ = anyType(rt)
+		skip = true
 	}
 	nilled := false
 	if !skip {
 		var err error
 		typ, nilled, err = s.effectiveType(elem, typ, se.Attr, line, col)
 		if err != nil {
-			return err
+			recoverErr := s.recover(err)
+			if recoverErr != nil {
+				return recoverErr
+			}
 		}
 	}
 	s.pushFrame(elem, typ, nilled, skip)
@@ -243,6 +279,54 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 		}
 	}
 	return nil
+}
+
+func (s *session) startType(rt *runtimeSchema, rn runtimeName, se xml.StartElement, line, col int, seenRoot bool) (elementID, typeID, bool, error) {
+	if !seenRoot {
+		return s.rootStartType(rt, rn, se, line, col)
+	}
+	if len(s.stack) == 0 {
+		return noElement, typeID{}, false, validation(ErrValidationXML, line, col, s.pathString(), "multiple root elements")
+	}
+	parent := &s.stack[len(s.stack)-1]
+	parent.HasChild = true
+	accepted, err := s.acceptChild(parent, rn, se.Attr, line, col)
+	if err == nil {
+		return accepted.element, accepted.typ, accepted.skip, nil
+	}
+	recoverErr := s.recover(err)
+	if recoverErr != nil {
+		return noElement, typeID{}, false, recoverErr
+	}
+	accepted = anyTypeChild(rt, true)
+	return accepted.element, accepted.typ, accepted.skip, nil
+}
+
+func (s *session) rootStartType(rt *runtimeSchema, rn runtimeName, se xml.StartElement, line, col int) (elementID, typeID, bool, error) {
+	if rn.Known {
+		if id, ok := rt.GlobalElements[rn.Name]; ok {
+			return id, rt.Elements[id].Type, false, nil
+		}
+	}
+	rootType, ok, err := s.rootTypeFromXSIType(se.Attr, line, col)
+	if err != nil {
+		return noElement, typeID{}, false, err
+	}
+	if ok {
+		return noElement, rootType, false, nil
+	}
+	if s.hasSchemaLocationHint(rn.NS) {
+		return noElement, typeID{}, false, s.unsupportedSchemaLocation(line, col, "element", rn)
+	}
+	err = validation(ErrValidationRoot, line, col, s.pathString(), "root element is not declared: "+formatXMLName(se.Name))
+	if recoverErr := s.recover(err); recoverErr != nil {
+		return noElement, typeID{}, false, recoverErr
+	}
+	return noElement, anyType(rt), true, nil
+}
+
+func anyType(rt *runtimeSchema) typeID {
+	return typeID{Kind: typeComplex, ID: uint32(rt.Builtin.AnyType)}
 }
 
 func (s *session) pushFrame(elem elementID, typ typeID, nilled, skip bool) {

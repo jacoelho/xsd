@@ -1,7 +1,10 @@
 package xsd
 
 import (
+	"bytes"
+	"errors"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -676,6 +679,127 @@ func TestRejectDTDAndNonUTF8Instances(t *testing.T) {
 
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`<?xml version="1.1" encoding="UTF-8"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)))
 	expectCode(t, err, ErrUnsupportedXML11)
+}
+
+func TestValidateCollectsRecoverableErrors(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:int"/>
+        <xs:element name="b" type="xs:int"/>
+      </xs:sequence>
+      <xs:attribute name="code" type="xs:int"/>
+      <xs:attribute name="req" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<root code="x"><a>bad</a><b>bad</b></root>`))
+	errs, ok := err.(Errors)
+	if !ok {
+		t.Fatalf("Validate() error type = %T, want Errors; err=%v", err, err)
+	}
+	if len(errs) != 4 {
+		t.Fatalf("len(Errors) = %d, want 4; err=%v", len(errs), err)
+	}
+	var xerr *Error
+	if !errors.As(err, &xerr) {
+		t.Fatalf("errors.As(*Error) failed for %v", err)
+	}
+	if xerr.Code != ErrValidationFacet {
+		t.Fatalf("first error code = %s, want %s", xerr.Code, ErrValidationFacet)
+	}
+}
+
+func TestValidateWithOptionsLimitsErrors(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:int"/>
+        <xs:element name="b" type="xs:int"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	err := engine.ValidateWithOptions(strings.NewReader(`<root><a>x</a><b>y</b></root>`), ValidateOptions{MaxErrors: 1})
+	if err == nil {
+		t.Fatal("ValidateWithOptions() succeeded")
+	}
+	if _, ok := err.(Errors); ok {
+		t.Fatalf("ValidateWithOptions() returned aggregate despite MaxErrors=1: %v", err)
+	}
+	expectCode(t, err, ErrValidationFacet)
+}
+
+func TestValidateKeepsMalformedXMLFatal(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType></xs:element></xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<root><a></root>`))
+	if err == nil {
+		t.Fatal("Validate() succeeded")
+	}
+	if _, ok := err.(Errors); ok {
+		t.Fatalf("Validate() returned aggregate for malformed XML: %v", err)
+	}
+	expectCode(t, err, ErrValidationXML)
+}
+
+func TestValidateCollectsIDREFErrors(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="node" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:ID"/>
+            <xs:attribute name="ref" type="xs:IDREF"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<root><node ref="missing1"/><node ref="missing2"/></root>`))
+	errs, ok := err.(Errors)
+	if !ok {
+		t.Fatalf("Validate() error type = %T, want Errors; err=%v", err, err)
+	}
+	if len(errs) != 2 {
+		t.Fatalf("len(Errors) = %d, want 2; err=%v", len(errs), err)
+	}
+	for _, err := range errs {
+		expectCode(t, err, ErrValidationType)
+	}
+}
+
+func TestRequiredFixedIDREFAttributeDoesNotDefaultWhenAbsent(t *testing.T) {
+	schema, err := os.ReadFile("tests/corpus/project/attribute-required-fixed-idref-no-default/schema.xsd")
+	if err != nil {
+		t.Fatalf("ReadFile(schema) error = %v", err)
+	}
+	engine, err := Compile(sourceBytes("schema.xsd", schema))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	doc, err := os.ReadFile("tests/corpus/project/attribute-required-fixed-idref-no-default/missing-required-fixed-idref.xml")
+	if err != nil {
+		t.Fatalf("ReadFile(instance) error = %v", err)
+	}
+	err = engine.Validate(bytes.NewReader(doc))
+	if err == nil {
+		t.Fatal("Validate() succeeded")
+	}
+	errs := []error{err}
+	if all, ok := err.(Errors); ok {
+		errs = all
+	}
+	if len(errs) != 1 {
+		t.Fatalf("len(errors) = %d, want 1; err=%v", len(errs), err)
+	}
+	expectCode(t, errs[0], ErrValidationAttribute)
 }
 
 func TestEngineConcurrentValidation(t *testing.T) {

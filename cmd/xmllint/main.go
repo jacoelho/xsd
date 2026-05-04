@@ -12,10 +12,11 @@ import (
 )
 
 type config struct {
-	schema string
-	doc    string
-	noout  bool
-	huge   bool
+	schema    string
+	doc       string
+	noout     bool
+	huge      bool
+	maxErrors int
 }
 
 func main() {
@@ -39,8 +40,9 @@ func run(args []string, stderr io.Writer) int {
 		return 1
 	}
 	defer func() { _ = f.Close() }()
-	if err := engine.Validate(f); err != nil {
-		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err)
+	if err := engine.ValidateWithOptions(f, xsd.ValidateOptions{MaxErrors: cfg.maxErrors}); err != nil {
+		printValidationErrors(stderr, err)
+		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n", cfg.doc)
 		return 1
 	}
 	_, _ = fmt.Fprintf(stderr, "%s validates\n", cfg.doc)
@@ -53,6 +55,7 @@ func parseArgs(args []string) (config, error) {
 	fs.SetOutput(io.Discard)
 	fs.BoolVar(&cfg.noout, "noout", false, "suppress document output")
 	fs.BoolVar(&cfg.huge, "huge", false, "accepted for xmllint compatibility")
+	fs.IntVar(&cfg.maxErrors, "max-errors", 0, "maximum validation errors to collect")
 	fs.StringVar(&cfg.schema, "schema", "", "schema path")
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
@@ -65,4 +68,14 @@ func parseArgs(args []string) (config, error) {
 	}
 	cfg.doc = fs.Arg(0)
 	return cfg, nil
+}
+
+func printValidationErrors(w io.Writer, err error) {
+	if errs, ok := err.(xsd.Errors); ok {
+		for _, child := range errs {
+			_, _ = fmt.Fprintln(w, child)
+		}
+		return
+	}
+	_, _ = fmt.Fprintln(w, err)
 }

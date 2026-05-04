@@ -23,25 +23,37 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 		}
 		if isXSIAttr(a) {
 			if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
-				return err
+				recoverErr := s.recover(err)
+				if recoverErr != nil {
+					return recoverErr
+				}
 			}
 			continue
 		}
 		rn := s.runtimeName(a.Name)
 		if slot := attributeUseSlot(set, rn); slot >= 0 {
 			if err := s.validateDeclaredAttribute(rt, set.Uses[slot], &seen, slot, rn, a.Value, line, col, &seenIDAttr); err != nil {
-				return err
+				recoverErr := s.recover(err)
+				if recoverErr != nil {
+					return recoverErr
+				}
 			}
 			continue
 		}
 		handled, err := s.validateWildcardAttribute(rt, set, rn, a.Value, line, col, &seenIDAttr)
 		if err != nil {
-			return err
+			recoverErr := s.recover(err)
+			if recoverErr != nil {
+				return recoverErr
+			}
+			continue
 		}
 		if handled {
 			continue
 		}
-		return validation(ErrValidationAttribute, line, col, s.pathString(), "attribute is not declared: "+rn.Local)
+		if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "attribute is not declared: "+rn.Local)); err != nil {
+			return err
+		}
 	}
 	if err := s.validateRequiredAndDefaultAttributes(rt, set, seen, line, col, &seenIDAttr); err != nil {
 		return err
@@ -91,11 +103,16 @@ func (s *session) validateSimpleTypeAttributes(attrs []xml.Attr, line, col int) 
 		}
 		if isXSIAttr(a) {
 			if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
-				return err
+				recoverErr := s.recover(err)
+				if recoverErr != nil {
+					return recoverErr
+				}
 			}
 			continue
 		}
-		return validation(ErrValidationAttribute, line, col, s.pathString(), "simple type does not allow attributes")
+		if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "simple type does not allow attributes")); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -195,7 +212,10 @@ func (s *session) validateRequiredAndDefaultAttributes(rt *runtimeSchema, set at
 	for i, use := range set.Uses {
 		wasSeen := seen.has(i)
 		if use.Required && !wasSeen {
-			return validation(ErrValidationAttribute, line, col, s.pathString(), "missing required attribute")
+			if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "missing required attribute")); err != nil {
+				return err
+			}
+			continue
 		}
 		if !wasSeen && (use.HasDefault || use.HasFixed) {
 			value := use.Default
@@ -207,13 +227,23 @@ func (s *session) validateRequiredAndDefaultAttributes(rt *runtimeSchema, set at
 				if IsUnsupported(err) {
 					return err
 				}
-				return validation(ErrValidationFacet, line, col, s.pathString(), "invalid default attribute value")
+				if err := s.recover(validation(ErrValidationFacet, line, col, s.pathString(), "invalid default attribute value")); err != nil {
+					return err
+				}
+				continue
 			}
 			if err := s.recordAttributeIdentity(use.Type, canon, line, col, seenIDAttr); err != nil {
-				return err
+				recoverErr := s.recover(err)
+				if recoverErr != nil {
+					return recoverErr
+				}
+				continue
 			}
 			if err := s.captureIdentityAttribute(use.Name, use.Type, canon, line, col); err != nil {
-				return err
+				recoverErr := s.recover(err)
+				if recoverErr != nil {
+					return recoverErr
+				}
 			}
 		}
 	}
