@@ -187,15 +187,11 @@ func (s *session) reset() {
 	s.namePath = s.namePath[:0]
 	s.elementNames = s.elementNames[:0]
 	s.counters = s.counters[:0]
-	for k := range s.ids {
-		delete(s.ids, k)
-	}
+	clear(s.ids)
 	s.idrefs = s.idrefs[:0]
 	s.idScopes = s.idScopes[:0]
 	s.idSelections = s.idSelections[:0]
-	for ns := range s.schemaLocationNamespaces {
-		delete(s.schemaLocationNamespaces, ns)
-	}
+	clear(s.schemaLocationNamespaces)
 	s.counterScratch = s.counterScratch[:0]
 }
 

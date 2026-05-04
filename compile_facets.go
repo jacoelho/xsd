@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 )
 
@@ -46,7 +47,7 @@ func facetAllowedForType(st simpleType, name string) bool {
 func (c *compiler) compileFacets(parent *rawNode, st *simpleType, base simpleTypeID) error {
 	baseFacets := c.rt.SimpleTypes[base].Facets
 	state := compiledFacetState{
-		inheritedEnumeration: append([]compiledLiteral(nil), st.Facets.Enumeration...),
+		inheritedEnumeration: slices.Clone(st.Facets.Enumeration),
 	}
 	if err := c.compileFacetChildren(parent, st, base, &state); err != nil {
 		return err
