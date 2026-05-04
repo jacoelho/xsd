@@ -1,0 +1,7 @@
+<tns:root xmlns:tns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <tns:member xsi:type="tns:DerivedFromMember">
+    <tns:a>ok</tns:a>
+    <tns:b>ok</tns:b>
+    <tns:c>ok</tns:c>
+  </tns:member>
+</tns:root>

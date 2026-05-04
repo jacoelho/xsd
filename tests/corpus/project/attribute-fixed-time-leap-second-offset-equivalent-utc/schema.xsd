@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="t" type="xs:time" fixed="23:59:60+02:00"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

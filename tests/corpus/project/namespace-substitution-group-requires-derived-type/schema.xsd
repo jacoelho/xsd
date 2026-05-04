@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test">
+  <xs:complexType name="A"><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence></xs:complexType>
+  <xs:complexType name="B"><xs:sequence><xs:element name="b" type="xs:string"/></xs:sequence></xs:complexType>
+  <xs:element name="head" type="tns:A"/>
+  <xs:element name="member" type="tns:B" substitutionGroup="tns:head"/>
+</xs:schema>

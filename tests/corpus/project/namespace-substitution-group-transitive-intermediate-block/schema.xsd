@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test" elementFormDefault="qualified">
+  <xs:complexType name="Base"/>
+  <xs:complexType name="Mid" block="restriction"><xs:complexContent><xs:extension base="t:Base"/></xs:complexContent></xs:complexType>
+  <xs:complexType name="Leaf"><xs:complexContent><xs:restriction base="t:Mid"/></xs:complexContent></xs:complexType>
+  <xs:element name="head" type="t:Base"/>
+  <xs:element name="mid" type="t:Mid" substitutionGroup="t:head"/>
+  <xs:element name="leaf" type="t:Leaf" substitutionGroup="t:mid"/>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="t:head"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

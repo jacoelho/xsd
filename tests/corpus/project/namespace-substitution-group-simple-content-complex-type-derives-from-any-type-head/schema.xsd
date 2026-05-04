@@ -1,0 +1,15 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:anyType"/>
+  <xs:element name="member" substitutionGroup="head">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:boolean">
+          <xs:attribute name="nilReason" type="xs:string"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element ref="head"/></xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>

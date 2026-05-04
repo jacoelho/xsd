@@ -1,0 +1,1 @@
+<root><item id="a"/><item id="b" ref="a"/></root>

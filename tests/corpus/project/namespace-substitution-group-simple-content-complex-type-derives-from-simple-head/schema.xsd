@@ -1,0 +1,13 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:anySimpleType"/>
+  <xs:complexType name="base">
+    <xs:simpleContent><xs:extension base="xs:anySimpleType"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="derived">
+    <xs:simpleContent><xs:restriction base="base"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="member" type="derived" substitutionGroup="head"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element ref="head"/></xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>

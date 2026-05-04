@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="urn:f" processContents="strict"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

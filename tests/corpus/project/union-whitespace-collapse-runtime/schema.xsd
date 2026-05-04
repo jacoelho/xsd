@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="E">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:E"/>
+</xs:schema>

@@ -1,0 +1,4 @@
+<tns:root xmlns:tns="urn:test">
+  <tns:a>one</tns:a>
+  <tns:b>two</tns:b>
+</tns:root>

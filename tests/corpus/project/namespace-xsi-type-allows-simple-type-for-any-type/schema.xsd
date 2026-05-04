@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="any" type="xs:anyType"/>
+  <xs:element name="blocked" type="xs:anyType" block="restriction"/>
+</xs:schema>

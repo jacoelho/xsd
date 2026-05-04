@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
+  <xs:element name="root" fixed="p:name">
+    <xs:simpleType>
+      <xs:union memberTypes="xs:int xs:QName"/>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>

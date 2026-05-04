@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:complexType name="bad">
+    <xs:sequence maxOccurs="10">
+      <xs:any namespace="##other" maxOccurs="2" processContents="lax"/>
+      <xs:any namespace="urn:other" processContents="lax"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
