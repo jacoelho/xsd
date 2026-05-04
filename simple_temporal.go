@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"regexp"
@@ -96,7 +97,7 @@ func hasXSDTimezone(s string) bool {
 
 func compareXSDTemporal(a, b xsdTemporalValue) (int, bool) {
 	if a.hasTZ == b.hasTZ {
-		return compareTime(a.instant, b.instant), true
+		return a.instant.Compare(b.instant), true
 	}
 	if !a.hasTZ {
 		lo := a.instant.Add(-xsdTimezoneUncertainty)
@@ -118,16 +119,6 @@ func compareXSDTemporal(a, b xsdTemporalValue) (int, bool) {
 		return 1, true
 	}
 	return 0, false
-}
-
-func compareTime(a, b time.Time) int {
-	if a.Before(b) {
-		return -1
-	}
-	if a.After(b) {
-		return 1
-	}
-	return 0
 }
 
 const dayNanos int64 = 24 * 60 * 60 * 1e9
@@ -346,21 +337,21 @@ func parseXSDGYearMonth(s string) error {
 
 func parseXSDGYearMonthValue(s string) (int, error) {
 	main := stripTimezone(s)
-	parts := strings.Split(main, "-")
-	if len(parts) != 2 {
+	yearText, monthText, ok := strings.Cut(main, "-")
+	if !ok || strings.Contains(monthText, "-") {
 		return 0, fmt.Errorf("invalid gYearMonth")
 	}
-	if err := validateYear(parts[0]); err != nil {
+	if err := validateYear(yearText); err != nil {
 		return 0, err
 	}
-	month, err := strconv.Atoi(parts[1])
+	month, err := strconv.Atoi(monthText)
 	if err != nil || month < 1 || month > 12 {
 		return 0, fmt.Errorf("invalid gYearMonth")
 	}
 	if err := validateTimezoneSuffix(s); err != nil {
 		return 0, err
 	}
-	year, _ := strconv.Atoi(parts[0])
+	year, _ := strconv.Atoi(yearText)
 	return year*12 + month, nil
 }
 
@@ -391,15 +382,16 @@ func parseXSDGMonthDay(s string) error {
 
 func parseXSDGMonthDayValue(s string) (int, error) {
 	main := stripTimezone(s)
-	if !strings.HasPrefix(main, "--") {
+	rest, ok := strings.CutPrefix(main, "--")
+	if !ok {
 		return 0, fmt.Errorf("invalid gMonthDay")
 	}
-	parts := strings.Split(strings.TrimPrefix(main, "--"), "-")
-	if len(parts) != 2 {
+	monthText, dayText, ok := strings.Cut(rest, "-")
+	if !ok || strings.Contains(dayText, "-") {
 		return 0, fmt.Errorf("invalid gMonthDay")
 	}
-	month, err1 := strconv.Atoi(parts[0])
-	day, err2 := strconv.Atoi(parts[1])
+	month, err1 := strconv.Atoi(monthText)
+	day, err2 := strconv.Atoi(dayText)
 	if err1 != nil || err2 != nil || month < 1 || month > 12 || day < 1 || day > maxGMonthDayOfMonth(month) {
 		return 0, fmt.Errorf("invalid gMonthDay")
 	}
@@ -416,10 +408,11 @@ func parseXSDGDay(s string) error {
 
 func parseXSDGDayValue(s string) (int, error) {
 	main := stripTimezone(s)
-	if !strings.HasPrefix(main, "---") {
+	rest, ok := strings.CutPrefix(main, "---")
+	if !ok {
 		return 0, fmt.Errorf("invalid gDay")
 	}
-	day, err := strconv.Atoi(strings.TrimPrefix(main, "---"))
+	day, err := strconv.Atoi(rest)
 	if err != nil || day < 1 || day > 31 {
 		return 0, fmt.Errorf("invalid gDay")
 	}
@@ -436,10 +429,11 @@ func parseXSDGMonth(s string) error {
 
 func parseXSDGMonthValue(s string) (int, error) {
 	main := stripTimezone(s)
-	if !strings.HasPrefix(main, "--") || strings.HasPrefix(main, "---") {
+	rest, ok := strings.CutPrefix(main, "--")
+	if !ok || strings.HasPrefix(rest, "-") {
 		return 0, fmt.Errorf("invalid gMonth")
 	}
-	month, err := strconv.Atoi(strings.TrimPrefix(main, "--"))
+	month, err := strconv.Atoi(rest)
 	if err != nil || month < 1 || month > 12 {
 		return 0, fmt.Errorf("invalid gMonth")
 	}
@@ -610,7 +604,7 @@ func durationUpperBound(f facetSet) (xsdDurationValue, bool, bool, error) {
 }
 
 func compareXSDDuration(a, b xsdDurationValue) (int, bool) {
-	months := cmpInt64(a.months, b.months)
+	months := cmp.Compare(a.months, b.months)
 	nanos := cmpFloat64(a.nanos, b.nanos)
 	if months == 0 {
 		return nanos, true

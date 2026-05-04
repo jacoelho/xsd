@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strconv"
@@ -757,11 +758,8 @@ func occurrenceUint32(digits string) uint32 {
 }
 
 func compareDecimalDigits(a, b string) int {
-	if len(a) != len(b) {
-		if len(a) < len(b) {
-			return -1
-		}
-		return 1
+	if n := cmp.Compare(len(a), len(b)); n != 0 {
+		return n
 	}
-	return strings.Compare(a, b)
+	return cmp.Compare(a, b)
 }

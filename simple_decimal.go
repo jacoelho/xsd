@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 )
@@ -161,17 +162,11 @@ func compareCanonicalDecimal(a, b string) int {
 func comparePositiveCanonicalDecimal(a, b string) int {
 	aInt, aFrac, _ := strings.Cut(a, ".")
 	bInt, bFrac, _ := strings.Cut(b, ".")
-	if len(aInt) != len(bInt) {
-		if len(aInt) < len(bInt) {
-			return -1
-		}
-		return 1
+	if n := cmp.Compare(len(aInt), len(bInt)); n != 0 {
+		return n
 	}
 	if aInt != bInt {
-		if aInt < bInt {
-			return -1
-		}
-		return 1
+		return cmp.Compare(aInt, bInt)
 	}
 	n := max(len(aFrac), len(bFrac))
 	for i := range n {

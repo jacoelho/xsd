@@ -257,9 +257,16 @@ func (s *session) recordSchemaLocationHints(attrs []xml.Attr) {
 		}
 		switch a.Name.Local {
 		case "schemaLocation":
-			fields := strings.Fields(a.Value)
-			for i := 0; i+1 < len(fields); i += 2 {
-				s.addSchemaLocationHint(fields[i])
+			var namespace string
+			haveNamespace := false
+			for field := range strings.FieldsSeq(a.Value) {
+				if !haveNamespace {
+					namespace = field
+					haveNamespace = true
+					continue
+				}
+				s.addSchemaLocationHint(namespace)
+				haveNamespace = false
 			}
 		case "noNamespaceSchemaLocation":
 			if strings.TrimSpace(a.Value) != "" {

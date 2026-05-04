@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -385,11 +386,15 @@ func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivati
 
 func parseSimpleFinalMaskChecked(v string) (derivationMask, error) {
 	var m derivationMask
-	fields := strings.Fields(v)
-	for i, p := range fields {
+	fieldCount := 0
+	for range strings.FieldsSeq(v) {
+		fieldCount++
+	}
+	i := 0
+	for p := range strings.FieldsSeq(v) {
 		switch p {
 		case "#all":
-			if len(fields) != 1 || i != 0 {
+			if fieldCount != 1 || i != 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, "simpleType final cannot combine #all with other values")
 			}
 			return blockRestriction | blockList | blockUnion, nil
@@ -402,17 +407,22 @@ func parseSimpleFinalMaskChecked(v string) (derivationMask, error) {
 		default:
 			return 0, schemaCompile(ErrSchemaInvalidAttribute, "invalid simpleType final value "+p)
 		}
+		i++
 	}
 	return m, nil
 }
 
 func parseDerivationMaskChecked(v string, allowSubstitution bool, label string) (derivationMask, error) {
 	var m derivationMask
-	fields := strings.Fields(v)
-	for i, p := range fields {
+	fieldCount := 0
+	for range strings.FieldsSeq(v) {
+		fieldCount++
+	}
+	i := 0
+	for p := range strings.FieldsSeq(v) {
 		switch p {
 		case "#all":
-			if len(fields) != 1 || i != 0 {
+			if fieldCount != 1 || i != 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot combine #all with other values")
 			}
 			all := blockExtension | blockRestriction
@@ -432,6 +442,7 @@ func parseDerivationMaskChecked(v string, allowSubstitution bool, label string) 
 		default:
 			return 0, schemaCompile(ErrSchemaInvalidAttribute, "invalid "+label+" value "+p)
 		}
+		i++
 	}
 	return m, nil
 }
@@ -616,7 +627,7 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 	st.Base = baseID
 	st.Final = 0
 	st.Facets = cloneFacetSet(base.Facets)
-	st.Union = append([]simpleTypeID(nil), base.Union...)
+	st.Union = slices.Clone(base.Union)
 	if ws, ok := n.attr("whiteSpace"); ok {
 		mode, ok := parseWhitespaceChecked(ws)
 		if !ok {
@@ -635,10 +646,10 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 
 func cloneFacetSet(f facetSet) facetSet {
 	out := f
-	out.Enumeration = append([]compiledLiteral(nil), f.Enumeration...)
+	out.Enumeration = slices.Clone(f.Enumeration)
 	out.Patterns = make([]patternGroup, len(f.Patterns))
 	for i := range f.Patterns {
-		out.Patterns[i].Patterns = append([]pattern(nil), f.Patterns[i].Patterns...)
+		out.Patterns[i].Patterns = slices.Clone(f.Patterns[i].Patterns)
 	}
 	return out
 }
