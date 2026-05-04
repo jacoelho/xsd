@@ -1,5 +1,7 @@
 package xsd
 
+import "slices"
+
 func (c *compiler) compileAttributeByQName(q qName) (attributeID, error) {
 	if id, ok := c.attributeDone[q]; ok {
 		return id, nil
@@ -134,7 +136,7 @@ func (c *compiler) schemaQNameResolver(n *rawNode) qnameResolver {
 }
 
 func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inherited []attributeUse, inheritedWildcard wildcardID, allowOverride bool) (attributeUseSetID, error) {
-	uses := append([]attributeUse(nil), inherited...)
+	uses := slices.Clone(inherited)
 	completeWildcard := noWildcard
 	for _, child := range parent.xsContentChildren() {
 		switch child.Name.Local {
@@ -431,5 +433,5 @@ func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildca
 		return nil, noWildcard, err
 	}
 	set := c.rt.AttributeUseSets[id]
-	return append([]attributeUse(nil), set.Uses...), set.wildcard, nil
+	return slices.Clone(set.Uses), set.wildcard, nil
 }

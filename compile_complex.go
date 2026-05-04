@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -99,11 +100,15 @@ func validateComplexTypeDerivationAttrs(n *rawNode) error {
 		if !ok {
 			continue
 		}
-		fields := strings.Fields(v)
-		for i, field := range fields {
+		fieldCount := 0
+		for range strings.FieldsSeq(v) {
+			fieldCount++
+		}
+		i := 0
+		for field := range strings.FieldsSeq(v) {
 			switch field {
 			case "#all":
-				if len(fields) != 1 {
+				if fieldCount != 1 {
 					return schemaCompile(ErrSchemaInvalidAttribute, attr+" cannot combine #all with other values")
 				}
 			case "extension", "restriction":
@@ -115,6 +120,7 @@ func validateComplexTypeDerivationAttrs(n *rawNode) error {
 			if field == "#all" && i != 0 {
 				return schemaCompile(ErrSchemaInvalidAttribute, attr+" cannot combine #all with other values")
 			}
+			i++
 		}
 	}
 	return nil
@@ -599,7 +605,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(n *rawNode, baseID simpl
 	st.Base = baseID
 	st.Final = 0
 	st.Facets = cloneFacetSet(base.Facets)
-	st.Union = append([]simpleTypeID(nil), base.Union...)
+	st.Union = slices.Clone(base.Union)
 	if err := c.compileFacets(facetChildrenNode(n), &st, baseID); err != nil {
 		return noSimpleType, err
 	}

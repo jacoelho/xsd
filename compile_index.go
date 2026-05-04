@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"cmp"
 	"maps"
 	"slices"
 	"strings"
@@ -330,8 +331,8 @@ func sortedQNames[T any](m map[qName]T, names nameTable) []qName {
 		aNS := names.Namespace(a.Namespace)
 		bNS := names.Namespace(b.Namespace)
 		if aNS != bNS {
-			return strings.Compare(aNS, bNS)
+			return cmp.Compare(aNS, bNS)
 		}
-		return strings.Compare(names.Local(a.Local), names.Local(b.Local))
+		return cmp.Compare(names.Local(a.Local), names.Local(b.Local))
 	})
 }

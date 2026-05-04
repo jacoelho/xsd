@@ -81,8 +81,8 @@ func isLanguage(s string) bool {
 	if s == "" {
 		return false
 	}
-	parts := strings.Split(s, "-")
-	for i, part := range parts {
+	i := 0
+	for part := range strings.SplitSeq(s, "-") {
 		if part == "" || len(part) > 8 {
 			return false
 		}
@@ -97,6 +97,7 @@ func isLanguage(s string) bool {
 				return false
 			}
 		}
+		i++
 	}
 	return true
 }

@@ -58,8 +58,7 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext, attr bool) (w
 		namespaces = append(namespaces, c.rt.Names.InternNamespace(ctx.targetNS))
 	default:
 		mode = wildList
-		parts := strings.Fields(nsSpec)
-		for _, part := range parts {
+		for part := range strings.FieldsSeq(nsSpec) {
 			switch part {
 			case "##local":
 				namespaces = append(namespaces, c.rt.Names.InternNamespace(""))
@@ -234,9 +233,9 @@ func (c *compiler) wildcardFiniteNamespaces(w wildcard) []namespaceID {
 	case wildLocal:
 		return []namespaceID{c.rt.Names.InternNamespace("")}
 	case wildTargetNamespace:
-		return append([]namespaceID(nil), w.Namespaces...)
+		return slices.Clone(w.Namespaces)
 	case wildList:
-		return append([]namespaceID(nil), w.Namespaces...)
+		return slices.Clone(w.Namespaces)
 	default:
 		return nil
 	}

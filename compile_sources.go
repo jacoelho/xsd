@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"cmp"
 	"errors"
 	"maps"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 )
 
 func (c *compiler) load(sources []SchemaSource) error {
-	queue := append([]SchemaSource(nil), sources...)
+	queue := slices.Clone(sources)
 	for len(queue) != 0 {
 		s := queue[0]
 		queue = queue[1:]
@@ -67,7 +68,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 		c.docs = append(c.docs, doc)
 	}
 	slices.SortFunc(c.docs, func(a, b *rawDoc) int {
-		return strings.Compare(a.name, b.name)
+		return cmp.Compare(a.name, b.name)
 	})
 	return c.checkExplicitSchemaReferences()
 }

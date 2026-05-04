@@ -303,14 +303,3 @@ func intLowerBound(f facetSet, parse intValueParser) (int, bool, bool, error) {
 func intUpperBound(f facetSet, parse intValueParser) (int, bool, bool, error) {
 	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parse, func(other, out int) bool { return other <= out })
 }
-
-func cmpInt64(a, b int64) int {
-	switch {
-	case a < b:
-		return -1
-	case a > b:
-		return 1
-	default:
-		return 0
-	}
-}

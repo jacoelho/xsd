@@ -391,11 +391,8 @@ func validateComponentAnnotationPlacement(n *rawNode) error {
 }
 
 func validLanguageTag(v string) bool {
-	parts := strings.Split(v, "-")
-	if len(parts) == 0 {
-		return false
-	}
-	for i, part := range parts {
+	i := 0
+	for part := range strings.SplitSeq(v, "-") {
 		if len(part) == 0 || len(part) > 8 {
 			return false
 		}
@@ -410,6 +407,7 @@ func validLanguageTag(v string) bool {
 				return false
 			}
 		}
+		i++
 	}
 	return true
 }

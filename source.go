@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net/url"
@@ -69,7 +70,7 @@ func (s SchemaSource) read() ([]byte, error) {
 		return nil, s.err
 	}
 	if s.data != nil {
-		return append([]byte(nil), s.data...), nil
+		return bytes.Clone(s.data), nil
 	}
 	if s.open == nil {
 		return nil, schemaCompile(ErrSchemaRead, "schema source has no data or opener")

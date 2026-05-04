@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"encoding/xml"
+	"maps"
 	"strings"
 )
 
@@ -466,8 +467,8 @@ func (s *session) mergeIdentityTables(dst, src *identityScope) {
 	for id, srcTable := range src.Tables {
 		dstTable := dst.Tables[id]
 		if dstTable == nil {
-			dstTable = make(map[string]string, len(srcTable))
-			dst.Tables[id] = dstTable
+			dst.Tables[id] = maps.Clone(srcTable)
+			continue
 		}
 		for key, path := range srcTable {
 			prev, exists := dstTable[key]
