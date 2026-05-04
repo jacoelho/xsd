@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:p="urn:p">
+  <xs:simpleType name="q">
+    <xs:restriction base="xs:QName">
+      <xs:enumeration value="p:name"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="q"/>
+</xs:schema>

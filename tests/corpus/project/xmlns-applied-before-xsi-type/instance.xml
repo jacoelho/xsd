@@ -1,0 +1,7 @@
+<tns:root xmlns:tns="urn:test"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:p="urn:test"
+                  xsi:type="p:DerivedType">
+  <tns:value>test</tns:value>
+  <tns:extra>42</tns:extra>
+</tns:root>

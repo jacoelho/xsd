@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:complexType name="Base" block="restriction"/>
+  <xs:complexType name="Restricted"><xs:complexContent><xs:restriction base="tns:Base"/></xs:complexContent></xs:complexType>
+  <xs:element name="head" type="tns:Base"/>
+  <xs:element name="member" type="tns:Restricted" substitutionGroup="tns:head"/>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="tns:head"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:complexType name="Base" block="extension">
+    <xs:sequence>
+      <xs:element name="foo" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent>
+      <xs:extension base="tns:Base"/>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="tns:Base"/>
+</xs:schema>

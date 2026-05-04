@@ -1,9 +1,6 @@
-bin/
-testdata/xsdtests/
-testdata/gml/example.gml
-testdata/gml/*.gml
-testdata/gml/.gml-*
-testdata/gml/testdata/
-testdata/gml/xsd/
 .lab/
 run.log
+cpu.pprof
+heap.pprof
+bin/*
+!bin/.gitkeep

@@ -1,0 +1,1 @@
+<tns:root xmlns:tns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tns:Derived"><tns:foo>ok</tns:foo></tns:root>

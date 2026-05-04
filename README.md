@@ -1,221 +1,206 @@
-# XSD 1.0 Validator for Go
+# xsd
 
-XSD 1.0 validation for Go with `io/fs` schema loading and streaming XML validation.
+Pure Go XML Schema 1.0 validator.
+
+The public API is intentionally small:
+
+- compile schemas once with `xsd.Compile`
+- pass schema sources with `xsd.File` or `xsd.Reader`
+- validate each XML document with `Engine.Validate`
+- inspect failures with `errors.AsType[*xsd.Error]`
+
+Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document.
+
+`File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file. `Reader` uses only sources passed to `Compile` unless paired with a `Resolver`. HTTP and network schema loading are not performed by default.
 
 ## Install
 
-```bash
+```sh
 go get github.com/jacoelho/xsd
 ```
 
-## Quickstart
+## Compile From Reader
 
 ```go
-package main
+schema := strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:int"/>
+</xs:schema>`)
 
-import (
-	"fmt"
-	"strings"
-	"testing/fstest"
-
-	"github.com/jacoelho/xsd"
-)
-
-func main() {
-	schemaXML := `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="http://example.com/simple"
-           elementFormDefault="qualified">
-  <xs:element name="person">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="name" type="xs:string"/>
-        <xs:element name="age" type="xs:integer"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-
-	fsys := fstest.MapFS{
-		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
-	}
-
-	schema, err := xsd.CompileFS(fsys, "simple.xsd", xsd.CompileConfig{})
-	if err != nil {
-		fmt.Printf("Compile schema: %v\n", err)
-		return
-	}
-
-	xmlDoc := `<?xml version="1.0"?>
-<person xmlns="http://example.com/simple">
-  <name>John Doe</name>
-  <age>30</age>
-</person>`
-
-	if err := schema.Validate(strings.NewReader(xmlDoc)); err != nil {
-		if violations, ok := xsd.AsValidations(err); ok {
-			for _, v := range violations {
-				fmt.Println(v.Error())
-			}
-			return
-		}
-		fmt.Printf("Validate: %v\n", err)
-		return
-	}
-
-	fmt.Println("Document is valid")
-}
-```
-
-## Compile API
-
-Single-root compile:
-
-```go
-schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{})
-```
-
-File-based compile:
-
-```go
-schema, err := xsd.CompileFile("schema.xsd", xsd.CompileConfig{})
-```
-
-Multi-root compile:
-
-```go
-compiler := xsd.NewCompiler(xsd.CompileConfig{
-	Source: xsd.SourceConfig{AllowMissingImportLocations: true},
-})
-schema, err := compiler.CompileSources([]xsd.Source{
-	{FS: fsysA, Path: "schema-a.xsd"},
-	{FS: fsysB, Path: "schema-b.xsd"},
-})
+engine, err := xsd.Compile(xsd.Reader("schema.xsd", schema))
 if err != nil {
-	// handle
+    return err
+}
+
+err = engine.Validate(strings.NewReader(`<root>7</root>`))
+if err != nil {
+    return err
 }
 ```
 
-## Validation
-
-Default validation:
+## Compile From File
 
 ```go
-if err := schema.Validate(strings.NewReader(xmlDoc)); err != nil {
-	// handle
+engine, err := xsd.Compile(xsd.File("schema.xsd"))
+if err != nil {
+    return err
+}
+
+f, err := os.Open("document.xml")
+if err != nil {
+    return err
+}
+defer f.Close()
+
+err = engine.Validate(f)
+if err != nil {
+    return err
 }
 ```
 
-Explicit validator configuration:
+## Compile Options
+
+Use `CompileWithOptions` to override schema compile limits:
 
 ```go
-validator, err := schema.NewValidator(
-	xsd.ValidateConfig{XML: xsd.XMLConfig{
-		MaxDepth:     512,
-		MaxTokenSize: 1 << 20,
-	}},
+schema := strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:int"/>
+</xs:schema>`)
+
+engine, err := xsd.CompileWithOptions(
+    xsd.CompileOptions{
+        MaxSchemaDepth:      256,
+        MaxSchemaAttributes: 256,
+        MaxSchemaTokenBytes: 4 << 20,
+        MaxSchemaNames:      0,
+        MaxFiniteOccurs:     1_000_000,
+    },
+    xsd.Reader("schema.xsd", schema),
 )
 if err != nil {
-	// handle
-}
-
-if err := validator.Validate(strings.NewReader(xmlDoc)); err != nil {
-	// handle
+    return err
 }
 ```
 
-Validate files:
+Available options:
+
+| Option | Default | Meaning |
+| --- | ---: | --- |
+| `MaxSchemaDepth` | `256` | Max nested schema XML elements. |
+| `MaxSchemaAttributes` | `256` | Max attributes on one schema XML element. |
+| `MaxSchemaTokenBytes` | `4 << 20` | Max retained schema XML token payload. |
+| `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
+| `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` means no explicit limit. |
+
+Negative integer limits are schema compile errors.
+
+## Resolve Includes From Reader
 
 ```go
-if err := schema.ValidateFile("document.xml"); err != nil {
-	// handle
+type mapResolver map[string]string
+
+func (r mapResolver) ResolveSchema(base, location string) (xsd.SchemaSource, error) {
+    data, ok := r[location]
+    if !ok {
+        return xsd.SchemaSource{}, xsd.ErrSchemaNotFound
+    }
+    return xsd.Reader(location, strings.NewReader(data)), nil
 }
-if err := validator.ValidateFSFile(fsys, "document.xml"); err != nil {
-	// handle
+
+schema := strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="types.xsd"/>
+  <xs:element name="root" type="Root"/>
+</xs:schema>`)
+
+engine, err := xsd.Compile(xsd.Reader("schema.xsd", schema).WithResolver(mapResolver{
+    "types.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Root"><xs:sequence/></xs:complexType>
+</xs:schema>`,
+}))
+if err != nil {
+    return err
+}
+
+err = engine.Validate(strings.NewReader(`<root/>`))
+if err != nil {
+    return err
 }
 ```
 
-## Config
-
-Zero-value config uses defaults. Set only limits or policies that need to differ.
+## Inspect Errors
 
 ```go
-schema, err := xsd.CompileFS(fsys, "schema.xsd", xsd.CompileConfig{
-	Source: xsd.SourceConfig{
-		AllowMissingImportLocations: true,
-		XML: xsd.XMLConfig{
-			MaxDepth: 512,
-		},
-	},
-	Build: xsd.BuildConfig{
-		MaxDFAStates: 4096,
-	},
-	Validate: xsd.ValidateConfig{
-		XML: xsd.XMLConfig{
-			MaxAttrs:     256,
-			MaxTokenSize: 1 << 20,
-		},
-	},
-})
+err := engine.Validate(strings.NewReader(`<root>x</root>`))
+
+if xerr, ok := errors.AsType[*xsd.Error](err); ok {
+    fmt.Println(xerr.Category)
+    fmt.Println(xerr.Code)
+    fmt.Println(xerr.Line, xerr.Column)
+    fmt.Println(xerr.Path)
+}
 ```
 
-## Loading behavior
+Error categories:
 
-- `CompileFS` and `Compiler.CompileSources` accept any `fs.FS`; include/import locations resolve relative to the including schema path.
-- `CompileFile` loads the explicit entry path as requested and confines nested include/import resolution to that path's containing directory tree.
-- Includes must resolve successfully.
-- Imports without `schemaLocation` are rejected unless `SourceConfig.AllowMissingImportLocations` is set.
+- `schema_parse`
+- `schema_compile`
+- `unsupported`
+- `validation`
+- `internal`
 
-## Validation behavior
+Use `xsd.IsUnsupported(err)` when only unsupported-feature detection matters.
 
-- `Schema.Validate` and `Validator.Validate` are safe for concurrent use.
-- Validation is streaming; the document is not loaded into a DOM.
-- Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored.
+## Reuse Engine Concurrently
 
-## Error handling
+`Engine` is immutable after compile. Share it across goroutines. `Validate` creates isolated per-document state for each call.
 
-`Schema.Validate` and `Validator.Validate` return `xsd.ValidationList` for validation failures and XML parsing failures.
-Caller, compile, I/O, and internal failures return classified `xsd.Error` values.
-`ValidateFile` and `ValidateFSFile` return `KindIO`/`ErrIO` for file errors before validation starts.
+```go
+docs := []string{`<root>1</root>`, `<root>2</root>`, `<root>3</root>`}
 
-Each `xsd.Validation` includes:
+var wg sync.WaitGroup
+errs := make(chan error, len(docs))
+for _, doc := range docs {
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        errs <- engine.Validate(strings.NewReader(doc))
+    }()
+}
+wg.Wait()
+close(errs)
 
-- `Code`
-- `Message`
-- `Path`
-- `Line` and `Column` when available
-- `Expected` and `Actual` when available
+for err := range errs {
+    if err != nil {
+        return err
+    }
+}
+```
 
-## Constraints and limits
+## xmllint-Compatible CLI
+
+The repository includes a small CLI for xmllint-style validation:
+
+```sh
+go run ./cmd/xmllint --noout --huge \
+  --schema schema.xsd \
+  document.xml
+```
+
+Available flags:
+
+| Flag | Required | Meaning |
+| --- | --- | --- |
+| `--schema path` | yes | Schema file path. |
+| `--noout` | no | Accepted for compatibility. Document output is always suppressed. |
+| `--huge` | no | Accepted for compatibility. |
+
+## Constraints
 
 - XSD 1.0 only.
-- No HTTP imports.
-- Regex patterns must be compatible with Go's `regexp`.
-- `xs:redefine` is not supported.
-- DateTime parsing uses `time.Parse` (years 0001-9999; no year 0, BCE, or >9999).
-- DTDs and external entity resolution are not supported.
+- Schema sources are explicit. No HTTP or network fetching.
 - Instance documents must be UTF-8.
+- DTDs and external entities are rejected.
+- `xsi:schemaLocation` never triggers dynamic loading.
+- Regex support is limited to patterns representable by Go `regexp`.
+- Date/time values using BCE years or years outside `0001..9999` are unsupported for `xs:date` and `xs:dateTime`.
+- `xs:redefine` is unsupported.
 
-## CLI (`xmllint`)
-
-```bash
-make xmllint
-./bin/xmllint --schema schema.xsd document.xml
-```
-
-Options:
-
-- `--schema` (required): path to the XSD schema file
-- `--cpuprofile`: write a CPU profile to a file
-- `--memprofile`: write a heap profile to a file
-
-## Testing
-
-```bash
-go test -timeout 60s ./...
-make w3c
-```
-
-## License
-
-MIT
