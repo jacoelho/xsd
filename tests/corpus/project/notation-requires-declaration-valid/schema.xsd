@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	           xmlns:tns="urn:test"
+	           targetNamespace="urn:test"
+	           elementFormDefault="qualified">
+	  <xs:notation name="gif" public="image/gif"/>
+	  <xs:simpleType name="NotationType">
+	    <xs:restriction base="xs:NOTATION">
+	      <xs:enumeration value="tns:gif"/>
+	    </xs:restriction>
+	  </xs:simpleType>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:attribute name="kind" type="tns:NotationType" use="required"/>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>

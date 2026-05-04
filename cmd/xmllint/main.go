@@ -1,3 +1,4 @@
+// Package main implements an xmllint-compatible validation CLI.
 package main
 
 import (
@@ -6,187 +7,62 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
-	"runtime/pprof"
 
 	"github.com/jacoelho/xsd"
 )
 
+type config struct {
+	schema string
+	doc    string
+	noout  bool
+	huge   bool
+}
+
 func main() {
-	os.Exit(run())
+	os.Exit(run(os.Args[1:], os.Stderr))
 }
 
-func run() int {
-	return runWithArgs(os.Args[0], os.Args[1:], os.Stdout, os.Stderr)
-}
-
-func runWithArgs(programName string, args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("xmllint", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	schemaPath := fs.String("schema", "", "path to XSD schema file")
-	instanceMaxTokenSize := fs.Int("instance-max-token-size", 0, "instance XML max token size in bytes (0 uses default)")
-	cpuProfilePath := fs.String("cpuprofile", "", "write CPU profile to file")
-	memProfilePath := fs.String("memprofile", "", "write memory profile to file")
-	if programName == "" {
-		programName = fs.Name()
-	}
-	var usageErr error
-	fs.Usage = func() {
-		usageErr = errors.Join(
-			usageErr,
-			writef(stderr, "Usage: %s --schema <schema.xsd> <document.xml>\n\n", programName),
-			writeln(stderr, "Validates an XML document against an XSD schema."),
-			writeln(stderr),
-			writeln(stderr, "Options:"),
-		)
-		fs.PrintDefaults()
-	}
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
-
-	if *schemaPath == "" {
-		if err := writeln(stderr, "error: --schema is required"); err != nil {
-			return 1
-		}
-		fs.Usage()
-		if usageErr != nil {
-			return 1
-		}
-		return 2
-	}
-
-	remaining := fs.Args()
-	if len(remaining) != 1 {
-		if err := writeln(stderr, "error: exactly one XML file argument is required"); err != nil {
-			return 1
-		}
-		fs.Usage()
-		if usageErr != nil {
-			return 1
-		}
-		return 2
-	}
-	xmlPath := remaining[0]
-	if *instanceMaxTokenSize < 0 {
-		if err := writeln(stderr, "error: --instance-max-token-size must be >= 0"); err != nil {
-			return 1
-		}
-		return 2
-	}
-
-	if *cpuProfilePath != "" {
-		stopCPUProfile, err := startCPUProfile(*cpuProfilePath)
-		if err != nil {
-			if writeErr := writef(stderr, "error starting CPU profile: %v\n", err); writeErr != nil {
-				return 1
-			}
-			return 1
-		}
-		defer func() {
-			if err := stopCPUProfile(); err != nil {
-				_ = writef(stderr, "error stopping CPU profile: %v\n", err)
-			}
-		}()
-	}
-
-	if *memProfilePath != "" {
-		defer func() {
-			if err := writeMemProfile(*memProfilePath); err != nil {
-				_ = writef(stderr, "error writing memory profile: %v\n", err)
-			}
-		}()
-	}
-
-	config := xsd.CompileConfig{}
-	if *instanceMaxTokenSize > 0 {
-		config.Validate.XML.MaxTokenSize = *instanceMaxTokenSize
-	}
-
-	schema, err := xsd.CompileFile(*schemaPath, config)
+func run(args []string, stderr io.Writer) int {
+	cfg, err := parseArgs(args)
 	if err != nil {
-		if writeErr := writef(stderr, "error loading schema: %v\n", err); writeErr != nil {
-			return 1
-		}
-		return 1
+		_, _ = fmt.Fprintln(stderr, err)
+		return 2
 	}
-
-	v, err := schema.NewValidator(config.Validate)
+	engine, err := xsd.Compile(xsd.File(cfg.schema))
 	if err != nil {
-		if writeErr := writef(stderr, "error creating validator: %v\n", err); writeErr != nil {
-			return 1
-		}
+		_, _ = fmt.Fprintf(stderr, "%s fails to compile\n%v\n", cfg.schema, err)
 		return 1
 	}
-
-	if err := v.ValidateFile(xmlPath); err != nil {
-		if violations, ok := xsd.AsValidations(err); ok {
-			for _, v := range violations {
-				if writeErr := writeln(stderr, v.Error()); writeErr != nil {
-					return 1
-				}
-			}
-			if writeErr := writef(stderr, "%s fails to validate\n", xmlPath); writeErr != nil {
-				return 1
-			}
-			return 1
-		}
-		if writeErr := writef(stderr, "error validating: %v\n", err); writeErr != nil {
-			return 1
-		}
+	f, err := os.Open(cfg.doc)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err)
 		return 1
 	}
-
-	if err := writef(stdout, "%s validates\n", xmlPath); err != nil {
+	defer func() { _ = f.Close() }()
+	if err := engine.Validate(f); err != nil {
+		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err)
 		return 1
 	}
+	_, _ = fmt.Fprintf(stderr, "%s validates\n", cfg.doc)
 	return 0
 }
 
-func writef(w io.Writer, format string, args ...any) error {
-	_, err := fmt.Fprintf(w, format, args...)
-	return err
-}
-
-func writeln(w io.Writer, args ...any) error {
-	_, err := fmt.Fprintln(w, args...)
-	return err
-}
-
-func startCPUProfile(path string) (func() error, error) {
-	f, err := os.Create(path)
-	if err != nil {
-		return nil, fmt.Errorf("create cpu profile %s: %w", path, err)
+func parseArgs(args []string) (config, error) {
+	var cfg config
+	fs := flag.NewFlagSet("xmllint", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.BoolVar(&cfg.noout, "noout", false, "suppress document output")
+	fs.BoolVar(&cfg.huge, "huge", false, "accepted for xmllint compatibility")
+	fs.StringVar(&cfg.schema, "schema", "", "schema path")
+	if err := fs.Parse(args); err != nil {
+		return cfg, err
 	}
-	if err := pprof.StartCPUProfile(f); err != nil {
-		if closeErr := f.Close(); closeErr != nil {
-			return nil, fmt.Errorf("start cpu profile %s: %w (close failed: %w)", path, err, closeErr)
-		}
-		return nil, fmt.Errorf("start cpu profile %s: %w", path, err)
+	if cfg.schema == "" {
+		return cfg, errors.New("--schema is required")
 	}
-	return func() error {
-		pprof.StopCPUProfile()
-		if err := f.Close(); err != nil {
-			return fmt.Errorf("close cpu profile %s: %w", path, err)
-		}
-		return nil
-	}, nil
-}
-
-func writeMemProfile(path string) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create mem profile %s: %w", path, err)
+	if fs.NArg() != 1 {
+		return cfg, errors.New("one XML document path is required")
 	}
-	runtime.GC()
-	if err := pprof.WriteHeapProfile(f); err != nil {
-		if closeErr := f.Close(); closeErr != nil {
-			return fmt.Errorf("write mem profile %s: %w (close failed: %w)", path, err, closeErr)
-		}
-		return fmt.Errorf("write mem profile %s: %w", path, err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("close mem profile %s: %w", path, err)
-	}
-	return nil
+	cfg.doc = fs.Arg(0)
+	return cfg, nil
 }

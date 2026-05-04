@@ -1,0 +1,3 @@
+<tns:root xmlns:tns="urn:test" xmlns:foo="urn:foo" foo:attr="1">
+  <tns:child>ok</tns:child>
+</tns:root>

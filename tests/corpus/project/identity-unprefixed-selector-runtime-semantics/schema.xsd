@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element name="item" type="xs:string" form="qualified"/>
+          <xs:element name="item" type="xs:string" form="unqualified"/>
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="."/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>
