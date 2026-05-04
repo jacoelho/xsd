@@ -1,0 +1,20 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:complexType name="Base">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="item" type="tns:Base" abstract="true"/>
+  <xs:element name="book" type="tns:Base" substitutionGroup="tns:item"/>
+  <xs:element name="paperback" type="tns:Base" substitutionGroup="tns:book"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tns:item"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

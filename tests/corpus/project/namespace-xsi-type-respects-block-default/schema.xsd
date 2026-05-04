@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified"
+           blockDefault="extension">
+  <xs:complexType name="Base"><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType>
+  <xs:complexType name="Ext"><xs:complexContent><xs:extension base="tns:Base"/></xs:complexContent></xs:complexType>
+  <xs:element name="root" type="tns:Base" block=""/>
+</xs:schema>

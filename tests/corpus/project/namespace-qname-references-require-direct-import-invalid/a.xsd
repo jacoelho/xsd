@@ -1,0 +1,3 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a">
+  <xs:import namespace="urn:b" schemaLocation="b.xsd"/>
+</xs:schema>
