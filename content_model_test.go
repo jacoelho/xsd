@@ -84,6 +84,67 @@ func TestCompatibleLengthFacetBoundsAreAllowed(t *testing.T) {
 	mustNotValidate(t, engine, `<v>a</v>`, ErrValidationFacet)
 }
 
+func TestContentModelCounterIndexInvariantError(t *testing.T) {
+	s := &session{}
+	f := &frame{CounterLen: 0}
+
+	_, err := s.counter(f, 0)
+	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+
+	err = s.setCounter(f, 0, 1)
+	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+
+	f.CounterLen = 1
+	_, err = s.counter(f, 0)
+	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+
+	err = s.setCounter(f, 0, 1)
+	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+}
+
+func TestContentModelCounterWindowInvariantError(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="a" minOccurs="2" maxOccurs="3"/>
+        <xs:sequence>
+          <xs:element name="b"/>
+          <xs:element name="c"/>
+        </xs:sequence>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	modelID := rootContentModel(t, engine, "r")
+	s := &session{engine: engine}
+	f := &frame{CounterLen: 1}
+	s.counters = []uint32{0}
+
+	_, _, err := s.withModelSnapshot(f, modelID, 0, func() (matchResult, bool, error) {
+		return noMatch(), false, nil
+	})
+	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+}
+
+func rootContentModel(t *testing.T, engine *Engine, local string) contentModelID {
+	t.Helper()
+	q, ok := engine.rt.Names.LookupQName("", local)
+	if !ok {
+		t.Fatalf("LookupQName(%q) failed", local)
+	}
+	elem, ok := engine.rt.GlobalElements[q]
+	if !ok {
+		t.Fatalf("global element %q not found", local)
+	}
+	typ := engine.rt.Elements[elem].Type
+	if typ.Kind != typeComplex {
+		t.Fatalf("root type kind = %v, want complex", typ.Kind)
+	}
+	return engine.rt.ComplexTypes[typ.ID].Content
+}
+
 func TestAttributeRestrictionMustRespectBaseWildcard(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

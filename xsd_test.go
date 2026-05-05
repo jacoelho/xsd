@@ -44,6 +44,22 @@ func mustNotValidate(t *testing.T, engine *Engine, doc string, code ErrorCode) {
 	expectCode(t, err, code)
 }
 
+func TestNilReadersReturnStructuredErrors(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+
+	err := engine.Validate(nil)
+	expectCategoryCode(t, err, ValidationErrorCategory, ErrValidationXML)
+
+	err = engine.ValidateWithOptions(nil, ValidateOptions{})
+	expectCategoryCode(t, err, ValidationErrorCategory, ErrValidationXML)
+
+	_, err = Compile(Reader("schema.xsd", nil))
+	expectCategoryCode(t, err, SchemaParseErrorCategory, ErrSchemaRead)
+	if !strings.Contains(err.Error(), "nil schema reader") {
+		t.Fatalf("Compile() error = %v, want nil schema reader", err)
+	}
+}
+
 func expectCode(t *testing.T, err error, code ErrorCode) {
 	t.Helper()
 	x, ok := errors.AsType[*Error](err)
