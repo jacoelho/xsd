@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"encoding/xml"
+	"fmt"
 	"slices"
 )
 
@@ -52,7 +53,10 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []xml.Attr, l
 	if model.Kind == modelAny {
 		return s.acceptAny(rn, wildcard{Mode: wildAny, Process: processLax}, line, col)
 	}
-	match, ok := s.matchModel(parent, parent.Model, rn, attrs)
+	match, ok, err := s.matchModel(parent, parent.Model, rn, attrs)
+	if err != nil {
+		return acceptedChild{}, err
+	}
 	if !ok {
 		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "unexpected child element "+rn.Local)
 	}
@@ -90,16 +94,16 @@ func (s *session) acceptAny(rn runtimeName, w wildcard, line, col int) (accepted
 	return anyTypeChild(rt, false), nil
 }
 
-func (s *session) matchModel(f *frame, modelID contentModelID, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchModel(f *frame, modelID contentModelID, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	return s.matchModelState(f, modelID, 0, rn, attrs)
 }
 
-func (s *session) matchModelState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchModelState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	rt := s.engine.rt
 	model := rt.Models[modelID]
 	switch model.Kind {
 	case modelEmpty:
-		return noMatch(), false
+		return noMatch(), false, nil
 	case modelSequence:
 		return s.matchSequenceState(f, modelID, base, rn, attrs)
 	case modelChoice:
@@ -107,205 +111,339 @@ func (s *session) matchModelState(f *frame, modelID contentModelID, base int, rn
 	case modelAll:
 		return s.matchAllState(f, modelID, base, rn, attrs)
 	}
-	return noMatch(), false
+	return noMatch(), false, nil
 }
 
-func (s *session) matchSequenceState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchSequenceState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	model := s.engine.rt.Models[modelID]
 	for {
-		if !model.occurs.isExactlyOne() && !s.modelCurrentProgress(f, model, base) && !model.occurs.canAdd(s.modelOccurs(f, base)) {
-			return noMatch(), false
+		progress, err := s.modelCurrentProgress(f, model, base)
+		if err != nil {
+			return noMatch(), false, err
 		}
-		if s.shouldStartNextSequenceOccurrenceState(f, modelID, base, rn, attrs) {
-			s.finishModelOccurrence(f, modelID, base)
+		occurs, err := s.modelOccurs(f, base)
+		if err != nil {
+			return noMatch(), false, err
+		}
+		if !model.occurs.isExactlyOne() && !progress && !model.occurs.canAdd(occurs) {
+			return noMatch(), false, nil
+		}
+		startNext, err := s.shouldStartNextSequenceOccurrenceState(f, modelID, base, rn, attrs)
+		if err != nil {
+			return noMatch(), false, err
+		}
+		if startNext {
+			if err := s.finishModelOccurrence(f, modelID, base); err != nil {
+				return noMatch(), false, err
+			}
 			continue
 		}
-		index := s.modelIndex(f, base)
+		index, err := s.modelIndex(f, base)
+		if err != nil {
+			return noMatch(), false, err
+		}
 		for index < len(model.Particles) {
-			if match, ok := s.matchSequenceParticleState(f, model, base, index, rn, attrs); ok {
-				return match, true
+			if match, ok, err := s.matchSequenceParticleState(f, model, base, index, rn, attrs); err != nil {
+				return noMatch(), false, err
+			} else if ok {
+				return match, true, nil
 			}
-			if s.particleSatisfiedState(f, model, base, index) {
+			satisfied, err := s.particleSatisfiedState(f, model, base, index)
+			if err != nil {
+				return noMatch(), false, err
+			}
+			if satisfied {
 				index++
-				s.setModelIndex(f, base, index)
+				if err := s.setModelIndex(f, base, index); err != nil {
+					return noMatch(), false, err
+				}
 				continue
 			}
-			return noMatch(), false
+			return noMatch(), false, nil
 		}
 		if model.occurs.isExactlyOne() {
-			return noMatch(), false
+			return noMatch(), false, nil
 		}
-		if !s.modelOccurrenceComplete(f, modelID, base) || !s.modelCurrentProgress(f, model, base) {
-			return noMatch(), false
+		complete, err := s.modelOccurrenceComplete(f, modelID, base)
+		if err != nil {
+			return noMatch(), false, err
 		}
-		s.finishModelOccurrence(f, modelID, base)
+		progress, err = s.modelCurrentProgress(f, model, base)
+		if err != nil {
+			return noMatch(), false, err
+		}
+		if !complete || !progress {
+			return noMatch(), false, nil
+		}
+		if err := s.finishModelOccurrence(f, modelID, base); err != nil {
+			return noMatch(), false, err
+		}
 	}
 }
 
-func (s *session) shouldStartNextSequenceOccurrenceState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) bool {
+func (s *session) shouldStartNextSequenceOccurrenceState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (bool, error) {
 	model := s.engine.rt.Models[modelID]
-	if model.occurs.isExactlyOne() || !s.modelCurrentProgress(f, model, base) {
-		return false
+	progress, err := s.modelCurrentProgress(f, model, base)
+	if err != nil {
+		return false, err
 	}
-	if s.modelOccurs(f, base)+1 >= model.occurs.Min {
-		return false
+	if model.occurs.isExactlyOne() || !progress {
+		return false, nil
 	}
-	if !s.modelOccurrenceComplete(f, modelID, base) || len(model.Particles) == 0 {
-		return false
+	occurs, err := s.modelOccurs(f, base)
+	if err != nil {
+		return false, err
+	}
+	if occurs+1 >= model.occurs.Min {
+		return false, nil
+	}
+	complete, err := s.modelOccurrenceComplete(f, modelID, base)
+	if err != nil {
+		return false, err
+	}
+	if !complete || len(model.Particles) == 0 {
+		return false, nil
 	}
 	return s.sequenceWouldMatchAfterFinish(f, modelID, base, rn, attrs)
 }
 
-func (s *session) sequenceWouldMatchAfterFinish(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) bool {
+func (s *session) sequenceWouldMatchAfterFinish(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (bool, error) {
 	n := modelCounterLen(s.engine.rt, s.engine.rt.Models[modelID])
 	start := len(s.counterScratch)
 	for range n {
 		s.counterScratch = append(s.counterScratch, 0)
 	}
 	snapshot := s.counterScratch[start:]
-	copy(snapshot, s.counters[f.CounterBase+base:f.CounterBase+base+n])
-	s.finishModelOccurrence(f, modelID, base)
+	window, err := s.counterWindow(f, base, n)
+	if err != nil {
+		s.counterScratch = s.counterScratch[:start]
+		return false, err
+	}
+	copy(snapshot, window)
+	if err := s.finishModelOccurrence(f, modelID, base); err != nil {
+		s.counterScratch = s.counterScratch[:start]
+		return false, err
+	}
 	model := s.engine.rt.Models[modelID]
-	_, ok := s.matchSequenceParticleState(f, model, base, 0, rn, attrs)
-	copy(s.counters[f.CounterBase+base:f.CounterBase+base+n], snapshot)
+	_, ok, err := s.matchSequenceParticleState(f, model, base, 0, rn, attrs)
+	copy(window, snapshot)
 	s.counterScratch = s.counterScratch[:start]
-	return ok
+	return ok, err
 }
 
-func (s *session) matchSequenceParticleState(f *frame, model contentModel, base, i int, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchSequenceParticleState(f *frame, model contentModel, base, i int, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	p := model.Particles[i]
 	if p.Kind == particleModel {
 		return s.matchParticleModelState(f, model, base, i, rn, attrs)
 	}
-	count := s.particleCount(f, base, i)
+	count, err := s.particleCount(f, base, i)
+	if err != nil {
+		return noMatch(), false, err
+	}
 	if !p.occurs.canAdd(count) {
-		return noMatch(), false
+		return noMatch(), false, nil
 	}
 	match, ok := s.matchDirectParticle(p, rn, attrs)
 	if ok {
-		s.setParticleCount(f, base, i, count+1)
+		if err := s.setParticleCount(f, base, i, count+1); err != nil {
+			return noMatch(), false, err
+		}
 	}
-	return match, ok
+	return match, ok, nil
 }
 
-func (s *session) matchChoiceState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchChoiceState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	model := s.engine.rt.Models[modelID]
 	for {
-		if !model.occurs.isExactlyOne() && !s.modelCurrentProgress(f, model, base) && !model.occurs.canAdd(s.modelOccurs(f, base)) {
-			return noMatch(), false
+		progress, err := s.modelCurrentProgress(f, model, base)
+		if err != nil {
+			return noMatch(), false, err
 		}
-		selected := s.modelIndex(f, base)
+		occurs, err := s.modelOccurs(f, base)
+		if err != nil {
+			return noMatch(), false, err
+		}
+		if !model.occurs.isExactlyOne() && !progress && !model.occurs.canAdd(occurs) {
+			return noMatch(), false, nil
+		}
+		selected, err := s.modelIndex(f, base)
+		if err != nil {
+			return noMatch(), false, err
+		}
 		if selected != 0 {
 			i := selected - 1
 			if i < 0 || i >= len(model.Particles) {
-				return noMatch(), false
+				return noMatch(), false, nil
 			}
-			if match, ok := s.matchChoiceParticleState(f, model, base, i, rn, attrs); ok {
-				return match, true
+			if match, ok, err := s.matchChoiceParticleState(f, model, base, i, rn, attrs); err != nil {
+				return noMatch(), false, err
+			} else if ok {
+				return match, true, nil
 			}
-			if !s.particleSatisfiedState(f, model, base, i) || model.occurs.isExactlyOne() {
-				return noMatch(), false
+			satisfied, err := s.particleSatisfiedState(f, model, base, i)
+			if err != nil {
+				return noMatch(), false, err
 			}
-			s.finishModelOccurrence(f, modelID, base)
+			if !satisfied || model.occurs.isExactlyOne() {
+				return noMatch(), false, nil
+			}
+			if err := s.finishModelOccurrence(f, modelID, base); err != nil {
+				return noMatch(), false, err
+			}
 			continue
 		}
 		for i := range model.Particles {
-			if match, ok := s.matchChoiceParticleState(f, model, base, i, rn, attrs); ok {
-				s.setModelIndex(f, base, i+1)
-				return match, true
+			if match, ok, err := s.matchChoiceParticleState(f, model, base, i, rn, attrs); err != nil {
+				return noMatch(), false, err
+			} else if ok {
+				if err := s.setModelIndex(f, base, i+1); err != nil {
+					return noMatch(), false, err
+				}
+				return match, true, nil
 			}
 		}
-		return noMatch(), false
+		return noMatch(), false, nil
 	}
 }
 
-func (s *session) matchChoiceParticleState(f *frame, model contentModel, base, i int, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchChoiceParticleState(f *frame, model contentModel, base, i int, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	p := model.Particles[i]
 	if p.Kind == particleModel {
 		return s.matchParticleModelState(f, model, base, i, rn, attrs)
 	}
-	count := s.particleCount(f, base, i)
+	count, err := s.particleCount(f, base, i)
+	if err != nil {
+		return noMatch(), false, err
+	}
 	if !p.occurs.canAdd(count) {
-		return noMatch(), false
+		return noMatch(), false, nil
 	}
 	match, ok := s.matchDirectParticle(p, rn, attrs)
 	if ok {
-		s.setParticleCount(f, base, i, count+1)
-	}
-	return match, ok
-}
-
-func (s *session) matchAllState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
-	model := s.engine.rt.Models[modelID]
-	if !model.occurs.isExactlyOne() && !s.modelCurrentProgress(f, model, base) && !model.occurs.canAdd(s.modelOccurs(f, base)) {
-		return noMatch(), false
-	}
-	for i := range model.Particles {
-		if match, ok := s.matchAllParticleState(f, model, base, i, rn, attrs); ok {
-			return match, true
+		if err := s.setParticleCount(f, base, i, count+1); err != nil {
+			return noMatch(), false, err
 		}
 	}
-	return noMatch(), false
+	return match, ok, nil
 }
 
-func (s *session) matchAllParticleState(f *frame, model contentModel, base, i int, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchAllState(f *frame, modelID contentModelID, base int, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
+	model := s.engine.rt.Models[modelID]
+	progress, err := s.modelCurrentProgress(f, model, base)
+	if err != nil {
+		return noMatch(), false, err
+	}
+	occurs, err := s.modelOccurs(f, base)
+	if err != nil {
+		return noMatch(), false, err
+	}
+	if !model.occurs.isExactlyOne() && !progress && !model.occurs.canAdd(occurs) {
+		return noMatch(), false, nil
+	}
+	for i := range model.Particles {
+		if match, ok, err := s.matchAllParticleState(f, model, base, i, rn, attrs); err != nil {
+			return noMatch(), false, err
+		} else if ok {
+			return match, true, nil
+		}
+	}
+	return noMatch(), false, nil
+}
+
+func (s *session) matchAllParticleState(f *frame, model contentModel, base, i int, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	p := model.Particles[i]
 	if p.Kind == particleModel {
 		return s.matchParticleModelState(f, model, base, i, rn, attrs)
 	}
-	count := s.particleCount(f, base, i)
+	count, err := s.particleCount(f, base, i)
+	if err != nil {
+		return noMatch(), false, err
+	}
 	if !p.occurs.canAdd(count) {
-		return noMatch(), false
+		return noMatch(), false, nil
 	}
 	match, ok := s.matchDirectParticle(p, rn, attrs)
 	if ok {
-		s.setParticleCount(f, base, i, count+1)
+		if err := s.setParticleCount(f, base, i, count+1); err != nil {
+			return noMatch(), false, err
+		}
 	}
-	return match, ok
+	return match, ok, nil
 }
 
-func (s *session) matchParticleModelState(f *frame, parent contentModel, parentBase, i int, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchParticleModelState(f *frame, parent contentModel, parentBase, i int, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	p := parent.Particles[i]
 	childBase := modelChildBase(s.engine.rt, parent, parentBase, i)
 	child := s.engine.rt.Models[p.Model]
-	count := s.particleCount(f, parentBase, i)
-	if s.modelCurrentProgress(f, child, childBase) {
-		if s.modelOccurrenceComplete(f, p.Model, childBase) && count < p.occurs.Min && p.occurs.canAdd(count) {
-			if match, ok := s.restartParticleModelState(f, parent, parentBase, i, childBase, count, rn, attrs); ok {
-				return match, true
+	count, err := s.particleCount(f, parentBase, i)
+	if err != nil {
+		return noMatch(), false, err
+	}
+	progress, err := s.modelCurrentProgress(f, child, childBase)
+	if err != nil {
+		return noMatch(), false, err
+	}
+	if progress {
+		complete, err := s.modelOccurrenceComplete(f, p.Model, childBase)
+		if err != nil {
+			return noMatch(), false, err
+		}
+		if complete && count < p.occurs.Min && p.occurs.canAdd(count) {
+			if match, ok, err := s.restartParticleModelState(f, parent, parentBase, i, childBase, count, rn, attrs); err != nil {
+				return noMatch(), false, err
+			} else if ok {
+				return match, true, nil
 			}
 		}
-		if match, ok := s.withModelSnapshot(f, p.Model, childBase, func() (matchResult, bool) {
+		if match, ok, err := s.withModelSnapshot(f, p.Model, childBase, func() (matchResult, bool, error) {
 			return s.matchModelState(f, p.Model, childBase, rn, attrs)
-		}); ok {
-			return match, true
+		}); err != nil {
+			return noMatch(), false, err
+		} else if ok {
+			return match, true, nil
 		}
-		if s.modelOccurrenceComplete(f, p.Model, childBase) && p.occurs.canAdd(count) {
+		complete, err = s.modelOccurrenceComplete(f, p.Model, childBase)
+		if err != nil {
+			return noMatch(), false, err
+		}
+		if complete && p.occurs.canAdd(count) {
 			return s.restartParticleModelState(f, parent, parentBase, i, childBase, count, rn, attrs)
 		}
-		return noMatch(), false
+		return noMatch(), false, nil
 	}
 	if !p.occurs.canAdd(count) {
-		return noMatch(), false
+		return noMatch(), false, nil
 	}
-	match, ok := s.withModelSnapshot(f, p.Model, childBase, func() (matchResult, bool) {
+	match, ok, err := s.withModelSnapshot(f, p.Model, childBase, func() (matchResult, bool, error) {
 		return s.matchModelState(f, p.Model, childBase, rn, attrs)
 	})
-	if ok {
-		s.setParticleCount(f, parentBase, i, count+1)
+	if err != nil {
+		return noMatch(), false, err
 	}
-	return match, ok
+	if ok {
+		if err := s.setParticleCount(f, parentBase, i, count+1); err != nil {
+			return noMatch(), false, err
+		}
+	}
+	return match, ok, nil
 }
 
-func (s *session) restartParticleModelState(f *frame, parent contentModel, parentBase, i, childBase int, count uint32, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) restartParticleModelState(f *frame, parent contentModel, parentBase, i, childBase int, count uint32, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
 	p := parent.Particles[i]
-	return s.withModelSnapshot(f, p.Model, childBase, func() (matchResult, bool) {
-		s.resetModelState(f, p.Model, childBase)
-		match, ok := s.matchModelState(f, p.Model, childBase, rn, attrs)
-		if ok {
-			s.setParticleCount(f, parentBase, i, count+1)
+	return s.withModelSnapshot(f, p.Model, childBase, func() (matchResult, bool, error) {
+		if err := s.resetModelState(f, p.Model, childBase); err != nil {
+			return noMatch(), false, err
 		}
-		return match, ok
+		match, ok, err := s.matchModelState(f, p.Model, childBase, rn, attrs)
+		if err != nil {
+			return noMatch(), false, err
+		}
+		if ok {
+			if err := s.setParticleCount(f, parentBase, i, count+1); err != nil {
+				return noMatch(), false, err
+			}
+		}
+		return match, ok, nil
 	})
 }
 
@@ -351,122 +489,169 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []xml.At
 	return noMatch(), false
 }
 
-func (s *session) withModelSnapshot(f *frame, modelID contentModelID, base int, fn func() (matchResult, bool)) (matchResult, bool) {
+func (s *session) withModelSnapshot(f *frame, modelID contentModelID, base int, fn func() (matchResult, bool, error)) (matchResult, bool, error) {
 	n := modelCounterLen(s.engine.rt, s.engine.rt.Models[modelID])
 	start := len(s.counterScratch)
 	for range n {
 		s.counterScratch = append(s.counterScratch, 0)
 	}
 	snapshot := s.counterScratch[start:]
-	copy(snapshot, s.counters[f.CounterBase+base:f.CounterBase+base+n])
-	match, ok := fn()
-	if !ok {
-		copy(s.counters[f.CounterBase+base:f.CounterBase+base+n], snapshot)
+	window, err := s.counterWindow(f, base, n)
+	if err != nil {
+		s.counterScratch = s.counterScratch[:start]
+		return noMatch(), false, err
+	}
+	copy(snapshot, window)
+	match, ok, err := fn()
+	if err != nil || !ok {
+		copy(window, snapshot)
 	}
 	s.counterScratch = s.counterScratch[:start]
-	return match, ok
+	return match, ok, err
 }
 
-func (s *session) modelIndex(f *frame, base int) int {
-	return int(s.counter(f, base))
+func (s *session) modelIndex(f *frame, base int) (int, error) {
+	v, err := s.counter(f, base)
+	return int(v), err
 }
 
-func (s *session) setModelIndex(f *frame, base int, v int) {
-	s.setCounter(f, base, uint32(v))
+func (s *session) setModelIndex(f *frame, base int, v int) error {
+	return s.setCounter(f, base, uint32(v))
 }
 
-func (s *session) modelOccurs(f *frame, base int) uint32 {
+func (s *session) modelOccurs(f *frame, base int) (uint32, error) {
 	return s.counter(f, base+1)
 }
 
-func (s *session) setModelOccurs(f *frame, base int, v uint32) {
-	s.setCounter(f, base+1, v)
+func (s *session) setModelOccurs(f *frame, base int, v uint32) error {
+	return s.setCounter(f, base+1, v)
 }
 
-func (s *session) particleCount(f *frame, base, i int) uint32 {
+func (s *session) particleCount(f *frame, base, i int) (uint32, error) {
 	return s.counter(f, base+modelStateHeaderLen+i)
 }
 
-func (s *session) setParticleCount(f *frame, base, i int, v uint32) {
-	s.setCounter(f, base+modelStateHeaderLen+i, v)
+func (s *session) setParticleCount(f *frame, base, i int, v uint32) error {
+	return s.setCounter(f, base+modelStateHeaderLen+i, v)
 }
 
-func (s *session) modelCurrentProgress(f *frame, model contentModel, base int) bool {
+func (s *session) modelCurrentProgress(f *frame, model contentModel, base int) (bool, error) {
 	for i := range model.Particles {
-		if s.particleCount(f, base, i) != 0 {
-			return true
+		count, err := s.particleCount(f, base, i)
+		if err != nil {
+			return false, err
+		}
+		if count != 0 {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
-func (s *session) finishModelOccurrence(f *frame, modelID contentModelID, base int) {
-	count := s.modelOccurs(f, base)
-	s.resetModelState(f, modelID, base)
-	s.setModelOccurs(f, base, count+1)
+func (s *session) finishModelOccurrence(f *frame, modelID contentModelID, base int) error {
+	count, err := s.modelOccurs(f, base)
+	if err != nil {
+		return err
+	}
+	if err := s.resetModelState(f, modelID, base); err != nil {
+		return err
+	}
+	return s.setModelOccurs(f, base, count+1)
 }
 
-func (s *session) resetModelState(f *frame, modelID contentModelID, base int) {
+func (s *session) resetModelState(f *frame, modelID contentModelID, base int) error {
 	n := modelCounterLen(s.engine.rt, s.engine.rt.Models[modelID])
 	for i := range n {
-		s.setCounter(f, base+i, 0)
+		if err := s.setCounter(f, base+i, 0); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (s *session) modelOccurrenceComplete(f *frame, modelID contentModelID, base int) bool {
+func (s *session) modelOccurrenceComplete(f *frame, modelID contentModelID, base int) (bool, error) {
 	model := s.engine.rt.Models[modelID]
 	switch model.Kind {
 	case modelEmpty, modelAny:
-		return true
+		return true, nil
 	case modelSequence:
-		for i := s.modelIndex(f, base); i < len(model.Particles); i++ {
-			if !s.particleSatisfiedState(f, model, base, i) {
-				return false
+		index, err := s.modelIndex(f, base)
+		if err != nil {
+			return false, err
+		}
+		for i := index; i < len(model.Particles); i++ {
+			satisfied, err := s.particleSatisfiedState(f, model, base, i)
+			if err != nil {
+				return false, err
+			}
+			if !satisfied {
+				return false, nil
 			}
 		}
-		return true
+		return true, nil
 	case modelChoice:
-		selected := s.modelIndex(f, base)
+		selected, err := s.modelIndex(f, base)
+		if err != nil {
+			return false, err
+		}
 		if selected != 0 {
 			i := selected - 1
-			return i >= 0 && i < len(model.Particles) && s.particleSatisfiedState(f, model, base, i)
+			if i < 0 || i >= len(model.Particles) {
+				return false, nil
+			}
+			return s.particleSatisfiedState(f, model, base, i)
 		}
 		for i, p := range model.Particles {
-			if p.occurs.Min == 0 || s.particleTermEmptiableState(model, i) {
-				return true
+			emptiable, err := s.particleTermEmptiableState(model, i)
+			if err != nil {
+				return false, err
+			}
+			if p.occurs.Min == 0 || emptiable {
+				return true, nil
 			}
 		}
-		return len(model.Particles) == 0 && model.occurs.Min == 0
+		return len(model.Particles) == 0 && model.occurs.Min == 0, nil
 	case modelAll:
 		for i := range model.Particles {
-			if !s.particleSatisfiedState(f, model, base, i) {
-				return false
+			satisfied, err := s.particleSatisfiedState(f, model, base, i)
+			if err != nil {
+				return false, err
+			}
+			if !satisfied {
+				return false, nil
 			}
 		}
-		return true
+		return true, nil
 	}
-	return false
+	return false, nil
 }
 
-func (s *session) particleSatisfiedState(f *frame, model contentModel, base, i int) bool {
+func (s *session) particleSatisfiedState(f *frame, model contentModel, base, i int) (bool, error) {
 	p := model.Particles[i]
-	count := s.particleCount(f, base, i)
-	if count < p.occurs.Min && !s.particleTermEmptiableState(model, i) {
-		return false
+	count, err := s.particleCount(f, base, i)
+	if err != nil {
+		return false, err
+	}
+	emptiable, err := s.particleTermEmptiableState(model, i)
+	if err != nil {
+		return false, err
+	}
+	if count < p.occurs.Min && !emptiable {
+		return false, nil
 	}
 	if p.Kind != particleModel || count == 0 {
-		return true
+		return true, nil
 	}
 	childBase := modelChildBase(s.engine.rt, model, base, i)
 	return s.modelOccurrenceComplete(f, p.Model, childBase)
 }
 
-func (s *session) particleTermEmptiableState(model contentModel, i int) bool {
+func (s *session) particleTermEmptiableState(model contentModel, i int) (bool, error) {
 	p := model.Particles[i]
 	if p.Kind != particleModel {
-		return false
+		return false, nil
 	}
-	return s.modelEmptiable(p.Model)
+	return s.modelEmptiable(p.Model), nil
 }
 
 func (s *session) substitutionAllowed(headID, memberID elementID) bool {
@@ -488,18 +673,48 @@ func hasXSIType(attrs []xml.Attr) bool {
 	return false
 }
 
-func (s *session) counter(f *frame, i int) uint32 {
+func (s *session) counter(f *frame, i int) (uint32, error) {
 	if i < 0 || i >= f.CounterLen {
-		return 0
+		return 0, s.counterInvariantError("content model counter index out of range", i, f.CounterLen)
 	}
-	return s.counters[f.CounterBase+i]
+	idx := f.CounterBase + i
+	if idx < 0 || idx >= len(s.counters) {
+		return 0, s.counterInvariantError("content model counter storage out of range", idx, len(s.counters))
+	}
+	return s.counters[idx], nil
 }
 
-func (s *session) setCounter(f *frame, i int, v uint32) {
+func (s *session) setCounter(f *frame, i int, v uint32) error {
 	if i < 0 || i >= f.CounterLen {
-		return
+		return s.counterInvariantError("content model counter index out of range", i, f.CounterLen)
 	}
-	s.counters[f.CounterBase+i] = v
+	idx := f.CounterBase + i
+	if idx < 0 || idx >= len(s.counters) {
+		return s.counterInvariantError("content model counter storage out of range", idx, len(s.counters))
+	}
+	s.counters[idx] = v
+	return nil
+}
+
+func (s *session) counterWindow(f *frame, base, n int) ([]uint32, error) {
+	if base < 0 || n < 0 || base+n > f.CounterLen {
+		return nil, s.counterInvariantError("content model counter window out of range", base+n, f.CounterLen)
+	}
+	start := f.CounterBase + base
+	end := start + n
+	if start < 0 || end < start || end > len(s.counters) {
+		return nil, s.counterInvariantError("content model counter storage out of range", end, len(s.counters))
+	}
+	return s.counters[start:end], nil
+}
+
+func (s *session) counterInvariantError(msg string, got, limit int) error {
+	return &Error{
+		Category: InternalErrorCategory,
+		Code:     ErrInternalInvariant,
+		Path:     s.pathString(),
+		Message:  fmt.Sprintf("%s: %d not in [0,%d)", msg, got, limit),
+	}
 }
 
 const modelStateHeaderLen = 2
@@ -631,7 +846,11 @@ func (s *session) validateRestrictionCountLimits(f *frame, line, col int) error 
 		if i < 0 || i >= len(model.Particles) {
 			return &Error{Category: InternalErrorCategory, Code: ErrInternalInvariant, Line: line, Column: col, Path: s.pathString(), Message: "restriction count limit references missing particle"}
 		}
-		if s.particleCount(f, 0, i) > limit.Max {
+		count, err := s.particleCount(f, 0, i)
+		if err != nil {
+			return err
+		}
+		if count > limit.Max {
 			return validation(ErrValidationContent, line, col, s.pathString(), "content restriction occurrence is not subset of base")
 		}
 	}
@@ -643,14 +862,26 @@ func (s *session) completeModelState(f *frame, modelID contentModelID, base, lin
 	if model.Kind == modelEmpty || model.Kind == modelAny {
 		return nil
 	}
-	progress := s.modelCurrentProgress(f, model, base)
+	progress, err := s.modelCurrentProgress(f, model, base)
+	if err != nil {
+		return err
+	}
 	if !progress && (model.occurs.Min == 0 || s.modelEmptiable(modelID)) {
 		return nil
 	}
-	if progress && !s.modelOccurrenceComplete(f, modelID, base) {
-		return validation(ErrValidationContent, line, col, s.pathString(), "missing required child element")
+	if progress {
+		complete, err := s.modelOccurrenceComplete(f, modelID, base)
+		if err != nil {
+			return err
+		}
+		if !complete {
+			return validation(ErrValidationContent, line, col, s.pathString(), "missing required child element")
+		}
 	}
-	completed := s.modelOccurs(f, base)
+	completed, err := s.modelOccurs(f, base)
+	if err != nil {
+		return err
+	}
 	if progress {
 		completed++
 	} else if s.modelEmptiable(modelID) {

@@ -13,6 +13,8 @@ import (
 // ErrSchemaNotFound reports that a resolver could not resolve a schema.
 var ErrSchemaNotFound = errors.New("schema not found")
 
+var errNilSchemaReader = errors.New("nil schema reader")
+
 // SchemaSource identifies a schema document passed to Compile.
 type SchemaSource struct {
 	err      error
@@ -52,6 +54,9 @@ func File(path string) SchemaSource {
 
 // Reader reads r into an in-memory schema source.
 func Reader(name string, r io.Reader) SchemaSource {
+	if r == nil {
+		return SchemaSource{name: name, err: errNilSchemaReader}
+	}
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return SchemaSource{name: name, err: err}
