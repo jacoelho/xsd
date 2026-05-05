@@ -76,263 +76,352 @@ func TestInstanceAttributeCRLFMatchesSchemaLineEndingNormalization(t *testing.T)
 }
 
 func TestInvalidSchemaAttributeCombinations(t *testing.T) {
-	_, err := Compile(sourceBytes("schema.xsd", []byte(`
+	tests := []struct {
+		name   string
+		schema string
+		code   ErrorCode
+	}{
+		{
+			name: "duplicate_schema_id",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r"><xs:complexType><xs:simpleContent id="dup"><xs:extension id="dup" base="xs:string"/></xs:simpleContent></xs:complexType></xs:element>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "top_level_attribute_cannot_have_form",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a" form="qualified" type="xs:string"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "element_ref_cannot_have_form",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="head"/>
   <xs:element name="r"><xs:complexType><xs:sequence><xs:element ref="head" form="qualified"/></xs:sequence></xs:complexType></xs:element>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "schema_namespace_attribute_rejected",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xs:targetNamespace="urn:bad">
   <xs:element name="r"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "fixed_id_attribute_rejected",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r"><xs:complexType><xs:attribute name="id" type="xs:ID" fixed="a"/></xs:complexType></xs:element>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_cannot_have_type_and_simple_type",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r"><xs:complexType><xs:attribute name="a" type="xs:string"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType></xs:attribute></xs:complexType></xs:element>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_ref_fixed_conflicts_with_global_fixed",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a" fixed="base"/>
   <xs:element name="r"><xs:complexType><xs:attribute ref="a" fixed="local"/></xs:complexType></xs:element>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_group_name_must_be_ncname",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup name="0"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_group_id_must_be_ncname",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup name="g" id=":bad"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_group_use_cannot_have_name",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup name="g"><xs:attributeGroup name="nested"/></xs:attributeGroup>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "top_level_attribute_group_cannot_have_ref",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup ref="g"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_group_ref_cannot_be_empty",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup name="g"><xs:attributeGroup ref=""/></xs:attributeGroup>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaReference)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaReference,
+		},
+		{
+			name: "attribute_group_rejects_duplicate_attribute_use",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a"/>
   <xs:attributeGroup name="g"><xs:attribute ref="a"/><xs:attribute ref="a"/></xs:attributeGroup>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaDuplicate)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaDuplicate,
+		},
+		{
+			name: "attribute_ref_cannot_have_type",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a"/>
   <xs:attributeGroup name="g"><xs:attribute ref="a" type="xs:string"/></xs:attributeGroup>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_group_cannot_contain_element",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup name="g"><xs:element name="bad"/></xs:attributeGroup>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaContentModel)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaContentModel,
+		},
+		{
+			name: "attribute_group_ref_cannot_have_attribute_child",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup name="g"/>
   <xs:complexType name="t"><xs:attributeGroup ref="g"><xs:attribute name="bad"/></xs:attributeGroup></xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaContentModel)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaContentModel,
+		},
+		{
+			name: "attribute_form_is_case_sensitive",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="t"><xs:attribute name="a" form="Qualified"/></xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_form_cannot_be_empty",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="t"><xs:attribute name="a" form=""/></xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "top_level_attribute_cannot_be_required",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a" use="required"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "required_attribute_cannot_have_default",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="t"><xs:attribute name="a" use="required" default="abc"/></xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_rejects_unknown_value_attribute",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="t"><xs:attribute name="a" value="x"/></xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_annotation_must_precede_simple_type",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType><xs:annotation/></xs:attribute>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaContentModel)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaContentModel,
+		},
+		{
+			name: "attribute_can_contain_one_simple_type",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType></xs:attribute>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaContentModel)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaContentModel,
+		},
+		{
+			name: "attribute_ref_cannot_contain_simple_type",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a"/>
   <xs:complexType name="t"><xs:attribute ref="a"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType></xs:attribute></xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaContentModel)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaContentModel,
+		},
+		{
+			name: "attribute_name_cannot_be_xmlns",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="t"><xs:attribute name="xmlns"/></xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "schema_cannot_declare_xsi_attributes",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.w3.org/2001/XMLSchema-instance">
   <xs:attribute name="bad"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "top_level_attribute_cannot_have_ref",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="a"/>
   <xs:attribute ref="a"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "complex_type_abstract_is_case_sensitive",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="bad" abstract="TRUE"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "top_level_element_requires_name",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaReference)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaReference,
+		},
+		{
+			name: "element_block_rejects_unknown_token",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad" block="foo"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "element_block_all_token_is_case_sensitive",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad" block="#All"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "element_final_cannot_include_substitution",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad" final="substitution"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "element_final_all_token_is_case_sensitive",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad" final="#All"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "top_level_element_cannot_have_min_occurs",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad" minOccurs="0"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "local_element_cannot_have_final",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root"><xs:complexType><xs:sequence><xs:element name="bad" final="restriction"/></xs:sequence></xs:complexType></xs:element>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "complex_typed_element_cannot_have_default",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="c"><xs:sequence><xs:element name="child"/></xs:sequence></xs:complexType>
   <xs:element name="bad" type="c" default="x"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "element_form_default_is_case_sensitive",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="Qualified">
   <xs:element name="bad"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "element_rejects_nullable_attribute",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad" nullable="true"/>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "element_ref_cannot_have_type",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="e"/>
   <xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="e" type="xs:string"/></xs:sequence></xs:complexType></xs:element>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "local_element_form_is_case_sensitive",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root"><xs:complexType><xs:sequence><xs:element name="e" form="Qualified"/></xs:sequence></xs:complexType></xs:element>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "simple_type_cannot_restrict_itself",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="e" type="Self"/>
   <xs:simpleType name="Self"><xs:restriction base="Self"/></xs:simpleType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaReference)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaReference,
+		},
+		{
+			name: "wildcard_restriction_cannot_loosen_process_contents",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:sequence><xs:any processContents="strict"/></xs:sequence>
@@ -344,10 +433,12 @@ func TestInvalidSchemaAttributeCombinations(t *testing.T) {
       </xs:restriction>
     </xs:complexContent>
   </xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaContentModel)
-
-	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+</xs:schema>`,
+			code: ErrSchemaContentModel,
+		},
+		{
+			name: "attribute_wildcard_restriction_cannot_loosen_process_contents",
+			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:anyAttribute processContents="strict"/>
@@ -359,8 +450,17 @@ func TestInvalidSchemaAttributeCombinations(t *testing.T) {
       </xs:restriction>
     </xs:complexContent>
   </xs:complexType>
-</xs:schema>`)))
-	expectCode(t, err, ErrSchemaInvalidAttribute)
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(test.schema)))
+			expectCode(t, err, test.code)
+		})
+	}
 }
 
 func TestAttributeRestrictionMustPreserveRequiredAndFixed(t *testing.T) {
