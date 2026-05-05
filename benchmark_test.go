@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -80,7 +81,10 @@ func BenchmarkValidateSmallInvalidDocument(b *testing.B) {
 
 func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	const depth = 128
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(deepSchema(depth))))
+	engine, err := CompileWithOptions(
+		CompileOptions{MaxSchemaDepth: depth*3 + 16},
+		sourceBytes("schema.xsd", []byte(deepSchema(depth))),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -90,6 +94,38 @@ func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	for b.Loop() {
 		if err := engine.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
+	schema := os.Getenv("XSD_LARGE_SCHEMA")
+	doc := os.Getenv("XSD_LARGE_XML")
+	if schema == "" || doc == "" {
+		b.Skip("set XSD_LARGE_SCHEMA and XSD_LARGE_XML")
+	}
+	engine, err := Compile(File(schema))
+	if err != nil {
+		b.Fatal(err)
+	}
+	info, err := os.Stat(doc)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(info.Size())
+	b.ReportAllocs()
+	for b.Loop() {
+		f, err := os.Open(doc)
+		if err != nil {
+			b.Fatal(err)
+		}
+		validateErr := engine.Validate(f)
+		closeErr := f.Close()
+		if validateErr != nil {
+			b.Fatal(validateErr)
+		}
+		if closeErr != nil {
+			b.Fatal(closeErr)
 		}
 	}
 }

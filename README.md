@@ -193,6 +193,53 @@ Available flags:
 | `--noout` | no | Accepted for compatibility. Document output is always suppressed. |
 | `--huge` | no | Accepted for compatibility. |
 
+## Benchmark Against libxml2
+
+Build the Go `xmllint` binary into `bin`, and make sure libxml2 `xmllint` resolves from `PATH`:
+
+```sh
+make xmllint
+command -v xmllint
+```
+
+`command -v xmllint` must not point at `./bin/xmllint`; the benchmark compares `bin/xmllint` with the libxml2 binary from `PATH`.
+
+Run full comparison:
+
+```sh
+XSD_LARGE_COMPARE=1 go test -run TestLargeXMLLintComparison -timeout=0 -v
+```
+
+By default this generates streaming XML documents at `100MB`, `500MB`, `1GB`, and `2GB`, plus an identity-constraint document. Generated files use `t.TempDir()` and are removed after each subtest. Set `XSD_LARGE_DIR=/path/to/dir` to keep generated files. Set `XSD_LARGE_SIZE_BYTES=1048576` for a quick single-size smoke run.
+
+The command comparison reports elapsed time and max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
+
+Latest local run:
+
+```text
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+
+                         | libxml2 xmllint |             go xmllint             |
+                         | sec/op          | sec/op          vs base           |
+streaming/100MB                   1.694s          2.901s      +71.28%
+streaming/500MB                   8.536s         14.519s      +70.10%
+streaming/1GB                    25.552s         29.540s      +15.61%
+streaming/2GB                    53.424s         60.001s      +12.31%
+identity                       574.678ms       277.868ms      -51.65%
+geomean                           6.470s          7.301s      +12.84%
+
+                         | libxml2 xmllint |             go xmllint             |
+                         | rss/op          | rss/op          vs base           |
+streaming/100MB                  1.17GiB        12.30MiB      -98.97%
+streaming/500MB                  5.81GiB        12.77MiB      -99.79%
+streaming/1GB                   11.18GiB        12.62MiB      -99.89%
+streaming/2GB                   11.93GiB        13.23MiB      -99.89%
+identity                       186.05MiB        79.42MiB      -57.31%
+geomean                          2.78GiB        18.35MiB      -99.35%
+```
+
 ## Constraints
 
 - XSD 1.0 only.
@@ -203,4 +250,3 @@ Available flags:
 - Regex support is limited to patterns representable by Go `regexp`.
 - Date/time values using BCE years or years outside `0001..9999` are unsupported for `xs:date` and `xs:dateTime`.
 - `xs:redefine` is unsupported.
-
