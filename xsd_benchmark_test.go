@@ -483,7 +483,7 @@ func measuredCommand(name string, args ...string) (string, []string) {
 }
 
 func parseMaxRSS(goos, out string) uint64 {
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		line = strings.TrimSpace(line)
 		switch {
 		case goos == "darwin" && strings.Contains(line, "maximum resident set size"):
