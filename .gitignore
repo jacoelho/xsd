@@ -4,3 +4,4 @@ cpu.pprof
 heap.pprof
 bin/*
 !bin/.gitkeep
+docs/wasm_exec.js
