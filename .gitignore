@@ -4,3 +4,5 @@ cpu.pprof
 heap.pprof
 bin/*
 !bin/.gitkeep
+docs/xsd.wasm
+docs/wasm_exec.js

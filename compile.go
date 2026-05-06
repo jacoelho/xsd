@@ -647,7 +647,7 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 func cloneFacetSet(f facetSet) facetSet {
 	out := f
 	out.Enumeration = slices.Clone(f.Enumeration)
-	out.Patterns = make([]patternGroup, len(f.Patterns))
+	out.Patterns = slices.Clone(f.Patterns)
 	for i := range f.Patterns {
 		out.Patterns[i].Patterns = slices.Clone(f.Patterns[i].Patterns)
 	}

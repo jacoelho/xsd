@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -130,7 +131,7 @@ func largeCompareSizesFromEnv(t *testing.T) []largeCompareSize {
 	t.Helper()
 	sizeBytes := os.Getenv("XSD_LARGE_SIZE_BYTES")
 	if sizeBytes == "" {
-		return append([]largeCompareSize(nil), defaultLargeCompareSizes...)
+		return slices.Clone(defaultLargeCompareSizes)
 	}
 	n := envInt64(t, "XSD_LARGE_SIZE_BYTES", 0)
 	return []largeCompareSize{{name: sizeLabel(n), bytes: n}}

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XSD Validator</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #111827;
+      --muted: #667085;
+      --border: #d8dee8;
+      --border-strong: #c5ccd8;
+      --accent: #4f46e5;
+      --accent-dark: #3730a3;
+      --success: #15803d;
+      --success-bg: #dcfce7;
+      --error: #dc2626;
+      --error-bg: #fee2e2;
+      --error-line: rgba(254, 226, 226, 0.72);
+      --warn: #8a5a00;
+      --warn-bg: #fff7d6;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --line: 22px;
+      --pad: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 22px 14px;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand,
+    .header-actions,
+    .local-note,
+    .panel-title,
+    .panel-actions,
+    .result-header {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand {
+      gap: 12px;
+      min-width: 220px;
+    }
+
+    .logo {
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent), #6d5dfc);
+      font-family: var(--mono);
+      font-weight: 800;
+      box-shadow: 0 8px 20px rgba(79, 70, 229, 0.25);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .local-note {
+      justify-content: center;
+      flex: 1;
+      gap: 8px;
+      color: #4b5563;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .header-actions {
+      gap: 10px;
+    }
+
+    button,
+    .file-button {
+      min-height: 38px;
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--text);
+      padding: 8px 14px;
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 1px 1px rgba(16, 24, 40, 0.03);
+    }
+
+    button.primary {
+      min-width: 132px;
+      color: #fff;
+      border-color: var(--accent);
+      background: var(--accent);
+      font-weight: 700;
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    button:hover:not(:disabled),
+    .file-button:hover {
+      border-color: #98a2b3;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    main {
+      padding: 14px 20px 0;
+    }
+
+    .workbench {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 980px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .local-note {
+        justify-content: flex-start;
+      }
+
+      .workbench {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel,
+    .result-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 58px;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-title {
+      gap: 8px;
+      min-width: 0;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .panel-actions {
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .editor {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr);
+      height: calc(100vh - 286px);
+      min-height: 470px;
+      background: #fff;
+    }
+
+    .gutter {
+      overflow: hidden;
+      padding-top: var(--pad);
+      padding-bottom: var(--pad);
+      border-right: 1px solid var(--border);
+      background: #fbfcfe;
+      color: #64748b;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: var(--line);
+      text-align: right;
+      user-select: none;
+    }
+
+    .gutter-line {
+      height: var(--line);
+      padding-right: 10px;
+      border-left: 3px solid transparent;
+    }
+
+    .gutter-line.error {
+      color: var(--error);
+      background: var(--error-line);
+      border-left-color: var(--error);
+      font-weight: 800;
+    }
+
+    .code-wrap {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .syntax-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      min-width: 100%;
+      min-height: calc(100% + 160px);
+      margin: 0;
+      padding: var(--pad) 12px 160px;
+      pointer-events: none;
+      color: #0f172a;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: var(--line);
+      white-space: pre;
+      tab-size: 2;
+      z-index: 1;
+    }
+
+    .tok-tag,
+    .tok-punc {
+      color: #1d4ed8;
+    }
+
+    .tok-name {
+      color: #7c3aed;
+    }
+
+    .tok-attr {
+      color: #dc2626;
+    }
+
+    .tok-string {
+      color: #0369a1;
+    }
+
+    .tok-comment {
+      color: #64748b;
+      font-style: italic;
+    }
+
+    .tok-decl {
+      color: #0f766e;
+    }
+
+    .line-highlights {
+      position: absolute;
+      inset: 0;
+      padding-top: var(--pad);
+      padding-bottom: var(--pad);
+      pointer-events: none;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: var(--line);
+      transform: translateY(0);
+      z-index: 2;
+    }
+
+    .line-mark {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: var(--line);
+      background: var(--error-line);
+    }
+
+    textarea {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      padding: var(--pad) 12px 160px;
+      resize: none;
+      outline: none;
+      overflow: auto;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      background: transparent;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: var(--line);
+      white-space: pre;
+      tab-size: 2;
+      caret-color: var(--accent-dark);
+      z-index: 3;
+    }
+
+    textarea::placeholder {
+      color: #94a3b8;
+      -webkit-text-fill-color: #94a3b8;
+    }
+
+    .result-panel {
+      margin-top: 10px;
+    }
+
+    .result-header {
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+    }
+
+    .result-title.ok {
+      color: var(--success);
+    }
+
+    .result-title.err {
+      color: var(--error);
+    }
+
+    .result-body {
+      min-height: 74px;
+      padding: 0 12px 12px;
+    }
+
+    .empty-result {
+      padding-top: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--border);
+      padding: 7px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    th {
+      color: #344054;
+      background: #fbfcfe;
+      font-weight: 700;
+    }
+
+    .severity {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 1px 7px;
+      border: 1px solid #fca5a5;
+      border-radius: 4px;
+      color: var(--error);
+      background: #fff5f5;
+      font-weight: 700;
+    }
+
+    .message {
+      font-family: var(--mono);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .repo-footer {
+      padding: 10px 20px 14px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .repo-footer a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .repo-footer a:hover {
+      color: var(--accent-dark);
+      text-decoration: underline;
+    }
+
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">&lt;/&gt;</div>
+      <h1>XSD Validator</h1>
+    </div>
+
+    <div class="local-note">
+      <span>All files stay on your device. Nothing is uploaded.</span>
+    </div>
+
+    <div class="header-actions">
+      <button id="validate-button" class="primary" type="button" disabled>Validate</button>
+      <button id="clear-button" type="button">Clear</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="workbench">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">XSD (Schema)</div>
+          <div class="panel-actions">
+            <label class="file-button" for="xsd-files">Open XSD</label>
+            <input id="xsd-files" type="file" accept=".xsd,text/xml,application/xml">
+          </div>
+        </div>
+        <div class="editor">
+          <div id="xsd-gutter" class="gutter"></div>
+          <div class="code-wrap">
+            <pre id="xsd-syntax" class="syntax-layer" aria-hidden="true"></pre>
+            <div id="xsd-highlights" class="line-highlights"></div>
+            <textarea id="xsd-editor" spellcheck="false" autocomplete="off" placeholder="Paste XSD"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">XML (Instance)</div>
+          <div class="panel-actions">
+            <label class="file-button" for="xml-file">Open XML</label>
+            <input id="xml-file" type="file" accept=".xml,text/xml,application/xml">
+          </div>
+        </div>
+        <div class="editor">
+          <div id="xml-gutter" class="gutter"></div>
+          <div class="code-wrap">
+            <pre id="xml-syntax" class="syntax-layer" aria-hidden="true"></pre>
+            <div id="xml-highlights" class="line-highlights"></div>
+            <textarea id="xml-editor" spellcheck="false" autocomplete="off" placeholder="Paste XML"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="result-panel">
+      <div class="result-header">
+        <div id="result-title" class="result-title">Validation result</div>
+        <button id="copy-errors-button" type="button" disabled>Copy</button>
+      </div>
+      <div id="result-body" class="result-body">
+        <div class="empty-result">Run validation to see errors.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="repo-footer">
+    <a href="https://github.com/jacoelho/xsd" target="_blank" rel="noreferrer">github.com/jacoelho/xsd</a>
+  </footer>
+
+  <script src="wasm_exec.js"></script>
+  <script>
+    const fallbackLimits = {
+      maxXMLBytes: 2 * 1024 * 1024,
+      maxXSDBytes: 1 * 1024 * 1024
+    };
+
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder("utf-8", { fatal: true });
+    let limits = { ...fallbackLimits };
+    let wasmReady = false;
+    let xmlErrors = [];
+    let xsdErrors = [];
+    let lastCopyText = null;
+
+    const xsdEditor = document.getElementById("xsd-editor");
+    const xmlEditor = document.getElementById("xml-editor");
+    const xsdGutter = document.getElementById("xsd-gutter");
+    const xmlGutter = document.getElementById("xml-gutter");
+    const xsdHighlights = document.getElementById("xsd-highlights");
+    const xmlHighlights = document.getElementById("xml-highlights");
+    const xsdSyntax = document.getElementById("xsd-syntax");
+    const xmlSyntax = document.getElementById("xml-syntax");
+    const xsdFiles = document.getElementById("xsd-files");
+    const xmlFile = document.getElementById("xml-file");
+    const clearButton = document.getElementById("clear-button");
+    const validateButton = document.getElementById("validate-button");
+    const copyErrorsButton = document.getElementById("copy-errors-button");
+    const resultTitle = document.getElementById("result-title");
+    const resultBody = document.getElementById("result-body");
+    renderAllEditors();
+    loadWASM();
+
+    xsdEditor.addEventListener("input", () => {
+      clearMarkers();
+      renderAllEditors();
+      showEmptyResult();
+    });
+    xmlEditor.addEventListener("input", () => {
+      clearMarkers();
+      renderAllEditors();
+      showEmptyResult();
+    });
+
+    xsdEditor.addEventListener("scroll", () => syncScroll(xsdEditor, xsdGutter, xsdHighlights, xsdSyntax));
+    xmlEditor.addEventListener("scroll", () => syncScroll(xmlEditor, xmlGutter, xmlHighlights, xmlSyntax));
+
+    xsdFiles.addEventListener("change", async () => {
+      const file = xsdFiles.files[0];
+      if (!file) return;
+      const err = xsdFileError(file);
+      if (err) {
+        showStatusError("XSD input failed", err);
+        xsdFiles.value = "";
+        return;
+      }
+      let text;
+      try {
+        text = await readUTF8File(file);
+      } catch (readErr) {
+        showStatusError("XSD input failed", readErr.message);
+        xsdFiles.value = "";
+        return;
+      }
+      setEditorValue(xsdEditor, text);
+      clearMarkers();
+      renderAllEditors();
+      xsdFiles.value = "";
+      showEmptyResult();
+    });
+
+    xmlFile.addEventListener("change", async () => {
+      const file = xmlFile.files[0];
+      if (!file) return;
+      if (file.size > limits.maxXMLBytes) {
+        showStatusError("XML input failed", `Max XML size is ${formatBytes(limits.maxXMLBytes)}.`);
+        xmlFile.value = "";
+        return;
+      }
+      let text;
+      try {
+        text = await readUTF8File(file);
+      } catch (readErr) {
+        showStatusError("XML input failed", readErr.message);
+        xmlFile.value = "";
+        return;
+      }
+      setEditorValue(xmlEditor, text);
+      clearMarkers();
+      renderAllEditors();
+      xmlFile.value = "";
+      showEmptyResult();
+    });
+
+    clearButton.addEventListener("click", () => {
+      setEditorValue(xsdEditor, "");
+      setEditorValue(xmlEditor, "");
+      lastCopyText = null;
+      copyErrorsButton.disabled = true;
+      clearMarkers();
+      renderAllEditors();
+      showEmptyResult();
+    });
+
+    validateButton.addEventListener("click", validate);
+
+    copyErrorsButton.addEventListener("click", async () => {
+      if (!lastCopyText) return;
+      await copyText(lastCopyText);
+      const label = copyErrorsButton.textContent;
+      copyErrorsButton.textContent = "Copied";
+      setTimeout(() => {
+        copyErrorsButton.textContent = label;
+      }, 1200);
+    });
+
+    async function loadWASM() {
+      try {
+        const go = new Go();
+        let result;
+        if (WebAssembly.instantiateStreaming) {
+          try {
+            result = await WebAssembly.instantiateStreaming(fetch("xsd.wasm"), go.importObject);
+          } catch (_) {
+            result = await instantiateFromBytes(go);
+          }
+        } else {
+          result = await instantiateFromBytes(go);
+        }
+        go.run(result.instance);
+        limits = { ...limits, ...(window.xsdLimits || {}) };
+        wasmReady = true;
+        validateButton.disabled = false;
+      } catch (err) {
+        showStatusError("WASM failed", String(err));
+      }
+    }
+
+    async function instantiateFromBytes(go) {
+      const response = await fetch("xsd.wasm");
+      const bytes = await response.arrayBuffer();
+      return WebAssembly.instantiate(bytes, go.importObject);
+    }
+
+    function validate() {
+      if (!wasmReady) {
+        showStatusError("Validator loading", "Try again when the validator has loaded.");
+        return;
+      }
+      if (!hasValidationInput()) {
+        showEmptyResult();
+        return;
+      }
+
+      clearMarkers();
+
+      const xml = editorContent(xmlEditor);
+      const xmlLimit = xmlLimitError(xml);
+      if (xmlLimit) {
+        showStatusError("XML input failed", xmlLimit);
+        return;
+      }
+
+      let xsd;
+      try {
+        xsd = collectXSD();
+      } catch (err) {
+        showStatusError("XSD input failed", err.message);
+        return;
+      }
+
+      const formatted = parseJSON(window.formatXML(xml));
+      if (formatted.error) {
+        xmlErrors = [{ line: formatted.line || 0, column: formatted.column || 0, message: formatted.error, code: "format" }];
+        renderAllEditors();
+        showStatusError("XML format failed", lineMessage(formatted));
+        return;
+      }
+
+      setEditorValue(xmlEditor, formatted.xml || "");
+      const result = parseJSON(window.validateXML(editorContent(xmlEditor), xsd));
+      if (result.error) {
+        showStatusError("Validation failed", result.error);
+        return;
+      }
+
+      const errors = result.errors || [];
+      if (result.valid) {
+        showValidResult();
+        return;
+      }
+
+      xmlErrors = errors.filter((err) => err.line && errorSource(err) === "xml");
+      xsdErrors = errors.filter((err) => err.line && errorSource(err) === "xsd");
+      renderAllEditors();
+      showErrorTable(errors);
+    }
+
+    function hasValidationInput() {
+      if (!editorContent(xmlEditor).trim()) return false;
+      return editorContent(xsdEditor).trim() !== "";
+    }
+
+    function collectXSD() {
+      const xsd = editorContent(xsdEditor);
+      if (!xsd.trim()) {
+        throw new Error("XSD is required.");
+      }
+      if (byteLength(xsd) > limits.maxXSDBytes) {
+        throw new Error(`XSD exceeds ${formatBytes(limits.maxXSDBytes)}.`);
+      }
+      return xsd;
+    }
+
+    function xsdFileError(file) {
+      return file && file.size > limits.maxXSDBytes ? `${file.name} exceeds ${formatBytes(limits.maxXSDBytes)}.` : "";
+    }
+
+    async function readUTF8File(file) {
+      const bytes = await file.arrayBuffer();
+      try {
+        return decoder.decode(bytes);
+      } catch (_) {
+        throw new Error(`${file.name} is not valid UTF-8.`);
+      }
+    }
+
+    function setEditorValue(editor, value) {
+      editor.value = value || "";
+    }
+
+    function editorContent(editor) {
+      return editor.value;
+    }
+
+    function renderAllEditors() {
+      renderEditor(xsdEditor, xsdGutter, xsdHighlights, xsdSyntax, xsdErrors);
+      renderEditor(xmlEditor, xmlGutter, xmlHighlights, xmlSyntax, xmlErrors);
+    }
+
+    function renderEditor(editor, gutter, highlights, syntax, errors) {
+      syntax.innerHTML = highlightXML(editor.value);
+      const byLine = new Map();
+      for (const err of errors || []) {
+        if (!err.line) continue;
+        const list = byLine.get(err.line) || [];
+        list.push(err);
+        byLine.set(err.line, list);
+      }
+
+      const lineCount = Math.max(1, editor.value.split("\n").length);
+      const gutterFrag = document.createDocumentFragment();
+      for (let i = 1; i <= lineCount; i++) {
+        const line = document.createElement("div");
+        line.className = byLine.has(i) ? "gutter-line error" : "gutter-line";
+        line.textContent = i;
+        if (byLine.has(i)) line.title = byLine.get(i).map(errorSummary).join("\n");
+        gutterFrag.append(line);
+      }
+      gutter.replaceChildren(gutterFrag);
+
+      const markFrag = document.createDocumentFragment();
+      for (const [line, errs] of byLine) {
+        const mark = document.createElement("div");
+        mark.className = "line-mark";
+        mark.style.top = `${(line - 1) * 22 + 12}px`;
+        mark.title = errs.map(errorSummary).join("\n");
+        markFrag.append(mark);
+      }
+      highlights.replaceChildren(markFrag);
+      syncScroll(editor, gutter, highlights, syntax);
+    }
+
+    function syncScroll(editor, gutter, highlights, syntax) {
+      gutter.scrollTop = editor.scrollTop;
+      highlights.style.transform = `translateY(${-editor.scrollTop}px)`;
+      syntax.style.transform = `translate(${-editor.scrollLeft}px, ${-editor.scrollTop}px)`;
+    }
+
+    function showValidResult() {
+      xmlErrors = [];
+      xsdErrors = [];
+      renderAllEditors();
+      resultTitle.className = "result-title ok";
+      resultTitle.textContent = "Valid XML";
+      resultBody.replaceChildren(textBlock("Document matches schema."));
+      lastCopyText = null;
+      copyErrorsButton.disabled = true;
+    }
+
+    function showErrorTable(errors) {
+      resultTitle.className = "result-title err";
+      resultTitle.textContent = `${errors.length} validation error${errors.length === 1 ? "" : "s"}`;
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const tr = document.createElement("tr");
+      ["Line", "Column", "Severity", "Message"].forEach((label) => {
+        const th = document.createElement("th");
+        th.textContent = label;
+        tr.append(th);
+      });
+      thead.append(tr);
+      table.append(thead);
+
+      const tbody = document.createElement("tbody");
+      for (const err of errors) {
+        const row = document.createElement("tr");
+        row.append(cell(err.line || ""), cell(err.column || ""));
+        const sev = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = "severity";
+        badge.textContent = "Error";
+        sev.append(badge);
+        row.append(sev);
+        const msg = cell(errorSummary(err));
+        msg.className = "message";
+        row.append(msg);
+        tbody.append(row);
+      }
+      table.append(tbody);
+      resultBody.replaceChildren(table);
+      lastCopyText = errors.map(errorSummary).join("\n") + "\n";
+      copyErrorsButton.disabled = false;
+    }
+
+    function showStatusError(title, message) {
+      resultTitle.className = "result-title err";
+      resultTitle.textContent = title;
+      resultBody.replaceChildren(textBlock(message));
+      lastCopyText = `${title}\n${message}\n`;
+      copyErrorsButton.disabled = false;
+    }
+
+    function showEmptyResult() {
+      resultTitle.className = "result-title";
+      resultTitle.textContent = "Validation result";
+      lastCopyText = null;
+      copyErrorsButton.disabled = true;
+      const div = document.createElement("div");
+      div.className = "empty-result";
+      div.textContent = "Run validation to see errors.";
+      resultBody.replaceChildren(div);
+    }
+
+    function clearMarkers() {
+      xmlErrors = [];
+      xsdErrors = [];
+    }
+
+    function textBlock(text) {
+      const div = document.createElement("div");
+      div.className = "empty-result";
+      div.textContent = text;
+      return div;
+    }
+
+    function cell(value) {
+      const td = document.createElement("td");
+      td.textContent = value;
+      return td;
+    }
+
+    function highlightXML(xml) {
+      if (!xml) return "";
+      const parts = xml.split(/(<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<\/?[^<>]+?>)/g);
+      return parts.map((part) => {
+        if (!part) return "";
+        if (part.startsWith("<!--")) {
+          return `<span class="tok-comment">${escapeHTML(part)}</span>`;
+        }
+        if (part.startsWith("<![CDATA[")) {
+          return `<span class="tok-decl">${escapeHTML(part)}</span>`;
+        }
+        if (part.startsWith("<")) {
+          return highlightTag(part);
+        }
+        return escapeHTML(part);
+      }).join("");
+    }
+
+    function highlightTag(tag) {
+      const match = tag.match(/^<(\/?)([^\s/>?]+)([\s\S]*?)(\/?\??)>$/);
+      if (!match) {
+        return `<span class="tok-punc">${escapeHTML(tag)}</span>`;
+      }
+
+      const [, slash, name, rest, close] = match;
+      let out = `<span class="tok-punc">&lt;${slash}</span><span class="tok-tag">${escapeHTML(name)}</span>`;
+      out += highlightAttrs(rest);
+      out += `<span class="tok-punc">${escapeHTML(close)}&gt;</span>`;
+      return out;
+    }
+
+    function highlightAttrs(text) {
+      let out = "";
+      let offset = 0;
+      const attrRe = /([A-Za-z_:][A-Za-z0-9_:.-]*)(\s*=\s*)("[^"]*"|'[^']*')/g;
+      for (const match of text.matchAll(attrRe)) {
+        out += highlightPunc(text.slice(offset, match.index));
+        out += `<span class="tok-attr">${escapeHTML(match[1])}</span>`;
+        out += `<span class="tok-punc">${escapeHTML(match[2])}</span>`;
+        out += `<span class="tok-string">${escapeHTML(match[3])}</span>`;
+        offset = match.index + match[0].length;
+      }
+      out += highlightPunc(text.slice(offset));
+      return out;
+    }
+
+    function highlightPunc(text) {
+      return escapeHTML(text).replace(/([/?=])/g, '<span class="tok-punc">$1</span>');
+    }
+
+    function escapeHTML(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (_) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.append(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      }
+    }
+
+    function parseJSON(text) {
+      try {
+        return JSON.parse(text || "{}");
+      } catch (err) {
+        return { error: `Invalid WASM response: ${err}` };
+      }
+    }
+
+    function xmlLimitError(xml) {
+      if (!xml) return "XML cannot be empty.";
+      if (byteLength(xml) > limits.maxXMLBytes) {
+        return `Max XML size is ${formatBytes(limits.maxXMLBytes)}.`;
+      }
+      return "";
+    }
+
+    function byteLength(text) {
+      return encoder.encode(text).length;
+    }
+
+    function formatBytes(n) {
+      if (n % (1024 * 1024) === 0) return `${n / (1024 * 1024)} MiB`;
+      if (n % 1024 === 0) return `${n / 1024} KiB`;
+      return `${n} bytes`;
+    }
+
+    function lineMessage(err) {
+      if (err.line) return `${err.error} at ${err.line}:${err.column || 0}.`;
+      return err.error || "validation failed";
+    }
+
+    function errorSource(err) {
+      if (err.source) return err.source;
+      return err.category === "schema_parse" || err.category === "schema_compile" ? "xsd" : "xml";
+    }
+
+    function errorSummary(err) {
+      const parts = [];
+      if (err.source) parts.push(err.source.toUpperCase());
+      if (err.line) parts.push(err.column ? `${err.line}:${err.column}` : `line ${err.line}`);
+      if (err.code) parts.push(err.code);
+      if (err.path) parts.push(err.path);
+      if (err.message) parts.push(err.message);
+      return parts.join(" | ");
+    }
+
+  </script>
+</body>
+</html>

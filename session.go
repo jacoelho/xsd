@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"slices"
 )
 
 var errStopValidation = errors.New("validation stopped after maximum errors")
@@ -202,9 +203,7 @@ func (s *session) result() error {
 	case 1:
 		return s.errors[0]
 	default:
-		errs := make(Errors, len(s.errors))
-		copy(errs, s.errors)
-		return errs
+		return Errors(slices.Clone(s.errors))
 	}
 }
 
