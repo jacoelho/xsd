@@ -18,6 +18,8 @@ const (
 	streamTokenEnd
 	streamTokenCharData
 	streamTokenDirective
+	streamTokenComment
+	streamTokenPI
 )
 
 type streamToken struct {
@@ -44,18 +46,20 @@ var (
 )
 
 type xmlStreamParser struct {
-	names      *byteStringCache
-	values     *byteStringCache
-	pendingEnd xml.EndElement
-	nameBuf    []byte
-	valueBuf   []byte
-	entityBuf  []byte
-	textBuf    []byte
-	directive  []byte
-	attrs      []xml.Attr
-	br         byteStream
-	hasEnd     bool
-	atStart    bool
+	names        *byteStringCache
+	values       *byteStringCache
+	pendingEnd   xml.EndElement
+	nameBuf      []byte
+	valueBuf     []byte
+	entityBuf    []byte
+	textBuf      []byte
+	directive    []byte
+	attrs        []xml.Attr
+	br           byteStream
+	hasEnd       bool
+	atStart      bool
+	emitComments bool
+	emitPI       bool
 }
 
 func newXMLStreamParser(r io.Reader, names, values *byteStringCache) *xmlStreamParser {
@@ -106,11 +110,15 @@ func (p *xmlStreamParser) next() (streamToken, error) {
 			}
 			return tok, nil
 		case '?':
-			if err := p.skipPI(p.atStart); err != nil {
+			tok, skip, err := p.readPI(p.atStart, line, col)
+			if err != nil {
 				return streamToken{}, err
 			}
 			p.atStart = false
-			continue
+			if skip {
+				continue
+			}
+			return tok, nil
 		default:
 			start, selfClosing, err := p.readStartElement(next)
 			if err != nil {
@@ -304,16 +312,29 @@ func (p *xmlStreamParser) readMarkup(line, col int) (streamToken, bool, error) {
 		if next != '-' {
 			return streamToken{}, false, fmt.Errorf("invalid XML comment")
 		}
-		return streamToken{}, true, p.skipComment()
+		if !p.emitComments {
+			if err := p.skipComment(); err != nil {
+				return streamToken{}, false, err
+			}
+			return streamToken{}, true, nil
+		}
+		p.directive = p.directive[:0]
+		data, err := p.readComment(p.directive)
+		if err != nil {
+			return streamToken{}, false, err
+		}
+		p.directive = data
+		return streamToken{kind: streamTokenComment, directive: data, line: line, col: col}, false, nil
 	case '[':
 		if err := p.expectString("CDATA["); err != nil {
 			return streamToken{}, false, err
 		}
 		p.textBuf = p.textBuf[:0]
-		data, err := p.readUntil("]]>", &p.textBuf)
+		data, err := p.readUntil("]]>", p.textBuf)
 		if err != nil {
 			return streamToken{}, false, err
 		}
+		p.textBuf = data
 		if valid, err := validXMLPrefix(data); err != nil {
 			return streamToken{}, false, err
 		} else if valid != len(data) {
@@ -323,10 +344,11 @@ func (p *xmlStreamParser) readMarkup(line, col int) (streamToken, bool, error) {
 	default:
 		p.directive = p.directive[:0]
 		p.directive = append(p.directive, b)
-		data, err := p.readUntil(">", &p.directive)
+		data, err := p.readUntil(">", p.directive)
 		if err != nil {
 			return streamToken{}, false, err
 		}
+		p.directive = data
 		if !isDOCTYPEDeclaration(data) {
 			return streamToken{}, false, fmt.Errorf("invalid markup declaration")
 		}
@@ -484,6 +506,37 @@ func (p *xmlStreamParser) readAttributeValue(quote byte) (string, error) {
 	}
 }
 
+func (p *xmlStreamParser) readComment(dst []byte) ([]byte, error) {
+	prevDash := false
+	for {
+		b, err := p.br.readByte()
+		if err != nil {
+			return nil, p.syntaxError("unexpected EOF in comment", err)
+		}
+		if b == '-' {
+			if prevDash {
+				next, err := p.br.readByte()
+				if err != nil {
+					return nil, p.syntaxError("unexpected EOF in comment", err)
+				}
+				if next == '>' {
+					return dst, nil
+				}
+				return nil, fmt.Errorf("invalid XML comment")
+			}
+			prevDash = true
+			continue
+		}
+		if prevDash {
+			dst = append(dst, '-')
+			prevDash = false
+		}
+		if err := p.appendXMLRune(&dst, b); err != nil {
+			return nil, err
+		}
+	}
+}
+
 func (p *xmlStreamParser) skipComment() error {
 	prevDash := false
 	for {
@@ -505,52 +558,66 @@ func (p *xmlStreamParser) skipComment() error {
 			prevDash = true
 			continue
 		}
+		if prevDash {
+			prevDash = false
+		}
 		if err := p.consumeXMLRune(b); err != nil {
 			return err
 		}
-		prevDash = false
 	}
 }
 
-func (p *xmlStreamParser) skipPI(atDocumentStart bool) error {
+func (p *xmlStreamParser) readPI(atDocumentStart bool, line, col int) (streamToken, bool, error) {
 	p.nameBuf = p.nameBuf[:0]
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
-			return p.syntaxError("unexpected EOF in processing instruction", err)
+			return streamToken{}, false, p.syntaxError("unexpected EOF in processing instruction", err)
 		}
 		if b == '?' {
 			isXMLDecl, err := p.validatePITarget(atDocumentStart)
 			if err != nil {
-				return err
+				return streamToken{}, false, err
 			}
 			if isXMLDecl {
-				return fmt.Errorf("invalid XML declaration")
+				return streamToken{}, false, fmt.Errorf("invalid XML declaration")
 			}
 			next, err := p.br.readByte()
 			if err != nil {
-				return p.syntaxError("unexpected EOF in processing instruction", err)
+				return streamToken{}, false, p.syntaxError("unexpected EOF in processing instruction", err)
 			}
 			if next != '>' {
-				return fmt.Errorf("processing instruction target must be followed by whitespace or ?>")
+				return streamToken{}, false, fmt.Errorf("processing instruction target must be followed by whitespace or ?>")
 			}
-			return nil
+			if !p.emitPI {
+				return streamToken{}, true, nil
+			}
+			return streamToken{kind: streamTokenPI, data: p.nameBuf, line: line, col: col}, false, nil
 		}
 		if isXMLSpaceByte(b) {
 			isXMLDecl, err := p.validatePITarget(atDocumentStart)
 			if err != nil {
-				return err
+				return streamToken{}, false, err
 			}
 			if isXMLDecl {
 				p.directive = p.directive[:0]
-				if _, readErr := p.readPIContent(&p.directive); readErr != nil {
-					return readErr
+				data, readErr := p.readPIContent(p.directive)
+				p.directive = data
+				if readErr != nil {
+					return streamToken{}, false, readErr
 				}
-				return validateXMLDeclContent(p.directive)
+				return streamToken{}, true, validateXMLDeclContent(p.directive)
 			}
 			p.directive = p.directive[:0]
-			_, err = p.readPIContent(&p.directive)
-			return err
+			data, err := p.readPIContent(p.directive)
+			if err != nil {
+				return streamToken{}, false, err
+			}
+			p.directive = data
+			if !p.emitPI {
+				return streamToken{}, true, nil
+			}
+			return streamToken{kind: streamTokenPI, data: p.nameBuf, directive: data, line: line, col: col}, false, nil
 		}
 		p.nameBuf = append(p.nameBuf, b)
 	}
@@ -569,7 +636,7 @@ func (p *xmlStreamParser) validatePITarget(atDocumentStart bool) (bool, error) {
 	return false, nil
 }
 
-func (p *xmlStreamParser) readPIContent(dst *[]byte) ([]byte, error) {
+func (p *xmlStreamParser) readPIContent(dst []byte) ([]byte, error) {
 	data, err := p.readUntil("?>", dst)
 	if err != nil {
 		return nil, p.syntaxError("unexpected EOF in processing instruction", err)
@@ -837,7 +904,7 @@ func (p *xmlStreamParser) readPastSpace() (byte, bool, error) {
 	}
 }
 
-func (p *xmlStreamParser) readUntil(term string, dst *[]byte) ([]byte, error) {
+func (p *xmlStreamParser) readUntil(term string, dst []byte) ([]byte, error) {
 	prefix := termPrefix(term)
 	matched := 0
 	for {
@@ -845,11 +912,11 @@ func (p *xmlStreamParser) readUntil(term string, dst *[]byte) ([]byte, error) {
 		if err != nil {
 			return nil, p.syntaxError("unexpected EOF", err)
 		}
-		*dst = append(*dst, b)
+		dst = append(dst, b)
 		matched = advanceTermMatch(term, prefix, matched, b)
 		if matched == len(term) {
-			*dst = (*dst)[:len(*dst)-len(term)]
-			return *dst, nil
+			dst = dst[:len(dst)-len(term)]
+			return dst, nil
 		}
 	}
 }
@@ -997,6 +1064,12 @@ func (b *byteStream) buffered() ([]byte, error) {
 
 func (b *byteStream) consumeBuffered(n int) {
 	if n <= 0 {
+		return
+	}
+	if b.unread {
+		b.unread = false
+		b.prev = b.lastPos
+		b.advance(b.last)
 		return
 	}
 	b.off += n
