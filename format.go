@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 )
 
 const maxFormatDepth = 4096
@@ -225,10 +226,8 @@ func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
 		if err != nil {
 			return err
 		}
-		for _, other := range seen {
-			if name == other {
-				return errors.New("duplicate attribute " + formatXMLName(name))
-			}
+		if slices.Contains(seen, name) {
+			return errors.New("duplicate attribute " + formatXMLName(name))
 		}
 		seen = append(seen, name)
 	}
@@ -425,17 +424,11 @@ func hasXMLLineBreak(data []byte) bool {
 }
 
 func cloneBytes(data []byte) []byte {
-	if len(data) == 0 {
-		return nil
-	}
-	return append([]byte(nil), data...)
+	return slices.Clone(data)
 }
 
 func cloneStartElement(start xml.StartElement) xml.StartElement {
-	if len(start.Attr) == 0 {
-		return start
-	}
-	start.Attr = append([]xml.Attr(nil), start.Attr...)
+	start.Attr = slices.Clone(start.Attr)
 	return start
 }
 
