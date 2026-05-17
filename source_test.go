@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -102,6 +103,40 @@ func TestExplicitIncludeResolvesProvidedSource(t *testing.T) {
 	mustValidate(t, engine, `<root xmlns="urn:test"><v>X</v></root>`)
 }
 
+func TestChameleonIncludeTargetNamespacePropagatesThroughNestedIncludes(t *testing.T) {
+	engine, err := Compile(
+		sourceBytes("schemas/z-main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="a-mid.xsd"/>
+  <xs:element name="root" type="t:Included"/>
+</xs:schema>`)),
+		sourceBytes("schemas/a-mid.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="base.xsd"/>
+  <xs:complexType name="Included">
+    <xs:sequence>
+      <xs:element name="v" type="Value"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`)),
+		sourceBytes("schemas/base.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Value">
+    <xs:restriction base="xs:int"/>
+  </xs:simpleType>
+</xs:schema>`)),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
+	mustNotValidate(t, engine, `<root xmlns="urn:test"><v>x</v></root>`, ErrValidationFacet)
+}
+
 func TestFileResolvesLocalIncludeAndImport(t *testing.T) {
 	dir := t.TempDir()
 	writeSchemaFile(t, filepath.Join(dir, "main.xsd"), `
@@ -190,4 +225,43 @@ func TestSchemaLocationHintsCanBeUnresolved(t *testing.T) {
 
 	_, err = Compile(sourceBytes("main.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:sequence/></xs:schema>`)))
 	expectCode(t, err, ErrSchemaContentModel)
+}
+
+type countedSchemaRead struct {
+	data  string
+	reads int
+}
+
+func (s *countedSchemaRead) open() (io.ReadCloser, error) {
+	s.reads++
+	return io.NopCloser(strings.NewReader(s.data)), nil
+}
+
+func TestCompileReadsResolvedSchemaSourcesOnce(t *testing.T) {
+	main := &countedSchemaRead{data: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="types.xsd"/>
+  <xs:element name="root" type="Included"/>
+</xs:schema>`}
+	types := &countedSchemaRead{data: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Included"><xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence></xs:complexType>
+</xs:schema>`}
+	resolver := ResolverFunc(func(_, location string) (SchemaSource, error) {
+		if location != "types.xsd" {
+			return SchemaSource{}, ErrSchemaNotFound
+		}
+		return SchemaSource{name: "types.xsd", open: types.open}, nil
+	})
+	engine, err := Compile(SchemaSource{name: "main.xsd", open: main.open, resolver: resolver})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root><v>7</v></root>`)
+	if main.reads != 1 {
+		t.Fatalf("main reads = %d, want 1", main.reads)
+	}
+	if types.reads != 1 {
+		t.Fatalf("types reads = %d, want 1", types.reads)
+	}
 }

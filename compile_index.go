@@ -38,7 +38,11 @@ func (c *compiler) schemaContext(doc *rawDoc) (*schemaContext, error) {
 	if target, ok := root.attr("targetNamespace"); ok && target == "" {
 		return nil, schemaCompile(ErrSchemaInvalidAttribute, "schema targetNamespace cannot be empty")
 	}
-	blockDefault, err := parseDerivationMaskChecked(root.attrDefault("blockDefault", ""), true, "schema blockDefault")
+	blockDefault, err := parseDerivationSet(root.attrDefault("blockDefault", ""), "schema blockDefault", derivationBlockDefaultMask)
+	if err != nil {
+		return nil, err
+	}
+	finalDefault, err := parseDerivationSet(root.attrDefault("finalDefault", ""), "schema finalDefault", derivationFinalDefaultMask)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +60,7 @@ func (c *compiler) schemaContext(doc *rawDoc) (*schemaContext, error) {
 		elementQualified: elementQualified,
 		attrQualified:    attrQualified,
 		blockDefault:     blockDefault,
-		finalDefault:     parseDerivationMask(root.attrDefault("finalDefault", "")),
+		finalDefault:     finalDefault,
 		imports:          c.imports[doc.name],
 	}
 	if ctx.targetNS == "" && c.adoptTarget[doc.name] != "" {

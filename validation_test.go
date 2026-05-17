@@ -479,6 +479,21 @@ func TestAttributeRestrictionMustPreserveRequiredAndFixed(t *testing.T) {
 	expectCode(t, err, ErrSchemaInvalidAttribute)
 }
 
+func TestReferencedAttributeFixedUsesCanonicalValue(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:int" fixed="1"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute ref="a" fixed="01"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root a="1"/>`)
+	mustValidate(t, engine, `<root a="01"/>`)
+	mustNotValidate(t, engine, `<root a="2"/>`, ErrValidationAttribute)
+}
+
 func TestProhibitedFixedAttributeIsValidatedAsFixedForXSD10(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -671,6 +686,33 @@ func TestExplicitEmptyFinalOverridesFinalDefault(t *testing.T) {
 	mustValidate(t, engine, `<root><a/><b/></root>`)
 }
 
+func TestInvalidDerivationSetAttributesAreSchemaErrors(t *testing.T) {
+	tests := []string{
+		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="foo"><xs:element name="r"/></xs:schema>`,
+		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="#all restriction"><xs:element name="r"/></xs:schema>`,
+		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="substitution"><xs:element name="r"/></xs:schema>`,
+		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="t" final="list"/></xs:schema>`,
+		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="t" block="substitution"/></xs:schema>`,
+		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="t" final="extension"><xs:restriction base="xs:string"/></xs:simpleType></xs:schema>`,
+	}
+	for _, schema := range tests {
+		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+		expectCode(t, err, ErrSchemaInvalidAttribute)
+	}
+}
+
+func TestFinalDefaultExtensionDoesNotBlockSimpleContentExtension(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="extension">
+  <xs:simpleType name="base"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:complexType name="derived">
+    <xs:simpleContent><xs:extension base="base"><xs:attribute name="a"/></xs:extension></xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="root" type="derived"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<root a="x">value</root>`)
+}
+
 func TestRestrictionElementFixedUsesCanonicalValue(t *testing.T) {
 	mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -832,6 +874,42 @@ func TestValidateWithOptionsLimitsErrors(t *testing.T) {
 		t.Fatalf("ValidateWithOptions() returned aggregate despite MaxErrors=1: %v", err)
 	}
 	expectCode(t, err, ErrValidationFacet)
+}
+
+func TestSessionValidateResetsDocumentState(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="node" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:ID"/>
+            <xs:attribute name="ref" type="xs:IDREF"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	session := engine.NewSession(ValidateOptions{MaxErrors: 1})
+
+	err := session.Validate(strings.NewReader(`<root><node ref="missing1"/><node ref="missing2"/></root>`))
+	if err == nil {
+		t.Fatal("Session.Validate() succeeded")
+	}
+	if _, ok := err.(Errors); ok {
+		t.Fatalf("Session.Validate() returned aggregate despite MaxErrors=1: %v", err)
+	}
+	expectCode(t, err, ErrValidationType)
+
+	if err := session.Validate(strings.NewReader(`<root><node id="a"/><node ref="a"/></root>`)); err != nil {
+		t.Fatalf("Session.Validate() after error = %v", err)
+	}
+	session.Reset()
+	if err := session.Validate(strings.NewReader(`<root><node id="a"/><node ref="a"/></root>`)); err != nil {
+		t.Fatalf("Session.Validate() after Reset = %v", err)
+	}
 }
 
 func TestValidateKeepsMalformedXMLFatal(t *testing.T) {

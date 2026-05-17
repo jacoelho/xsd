@@ -95,11 +95,7 @@ func (e *Error) Error() string {
 		b.WriteString(e.Message)
 	}
 	if e.Err != nil {
-		if e.Message == "" {
-			b.WriteString(": ")
-		} else {
-			b.WriteString(": ")
-		}
+		b.WriteString(": ")
 		b.WriteString(e.Err.Error())
 	}
 	return b.String()

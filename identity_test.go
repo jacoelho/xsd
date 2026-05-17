@@ -1,6 +1,9 @@
 package xsd
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestIdentityConstraintSchemaShapeIsValidated(t *testing.T) {
 	tests := []struct {
@@ -374,6 +377,75 @@ func TestWildcardAttributesRecordIDValues(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	mustNotValidate(t, engine, `<root local="one" external="two"/>`, ErrValidationType)
+}
+
+func TestValidateOptionsIdentityLimits(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="row" maxOccurs="unbounded">
+          <xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u"><xs:selector xpath="row"/><xs:field xpath="@id"/></xs:unique>
+  </xs:element>
+</xs:schema>`)
+
+	err := engine.ValidateWithOptions(strings.NewReader(`<root><row id="a"/><row id="b"/></root>`), ValidateOptions{MaxIdentityEntries: 1})
+	expectCode(t, err, ErrValidationIdentity)
+
+	err = engine.ValidateWithOptions(strings.NewReader(`<root><row id="abcd"/></root>`), ValidateOptions{MaxIdentityTupleBytes: 5})
+	expectCode(t, err, ErrValidationIdentity)
+
+	engine = mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="row" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="a" type="xs:string"/>
+            <xs:attribute name="b" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u">
+      <xs:selector xpath="row"/>
+      <xs:field xpath="@a"/>
+      <xs:field xpath="@b"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`)
+	err = engine.ValidateWithOptions(strings.NewReader(`<root><row a="ab" b="cd"/></root>`), ValidateOptions{MaxIdentityTupleBytes: 9})
+	if err != nil {
+		t.Fatalf("ValidateWithOptions() error = %v", err)
+	}
+	err = engine.ValidateWithOptions(strings.NewReader(`<root><row a="ab" b="cd"/></root>`), ValidateOptions{MaxIdentityTupleBytes: 8})
+	expectCode(t, err, ErrValidationIdentity)
+
+	engine = mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="child">
+          <xs:complexType>
+            <xs:sequence><xs:element name="grand" minOccurs="0"/></xs:sequence>
+            <xs:attribute name="id" type="xs:string"/>
+          </xs:complexType>
+          <xs:unique name="childUnique"><xs:selector xpath="grand"/><xs:field xpath="@id"/></xs:unique>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="rootUnique"><xs:selector xpath="child"/><xs:field xpath="@id"/></xs:unique>
+  </xs:element>
+</xs:schema>`)
+	err = engine.ValidateWithOptions(strings.NewReader(`<root><child id="a"/></root>`), ValidateOptions{MaxIdentityScopes: 1})
+	expectCode(t, err, ErrValidationIdentity)
 }
 
 func TestMultipleIDAttributeUsesAreSchemaErrors(t *testing.T) {

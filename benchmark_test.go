@@ -64,6 +64,22 @@ func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session := engine.NewSession(ValidateOptions{})
+	doc := benchmarkDoc(100)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateSmallInvalidDocument(b *testing.B) {
 	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {

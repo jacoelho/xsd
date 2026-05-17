@@ -13,6 +13,20 @@ var errStopValidation = errors.New("validation stopped after maximum errors")
 type ValidateOptions struct {
 	// MaxErrors limits collected validation errors. Zero means unlimited.
 	MaxErrors int
+	// MaxIdentityScopes limits active identity-constraint scopes. Zero means unlimited.
+	MaxIdentityScopes int
+	// MaxIdentityEntries limits stored ID, IDREF, key, unique, and keyref entries. Zero means unlimited.
+	MaxIdentityEntries int
+	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero means unlimited.
+	MaxIdentityTupleBytes int
+}
+
+// Session validates XML instance documents against one Engine.
+//
+// A Session is not goroutine-safe. Use Engine.Validate or separate sessions for
+// concurrent validation.
+type Session struct {
+	session session
 }
 
 // Validate validates one XML instance document.
@@ -22,7 +36,36 @@ func (e *Engine) Validate(r io.Reader) error {
 
 // ValidateWithOptions validates one XML instance document with options.
 func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
-	return (&session{engine: e, maxErrors: opts.MaxErrors}).validate(r)
+	return e.NewSession(opts).Validate(r)
+}
+
+// NewSession creates a reusable validation session.
+func (e *Engine) NewSession(opts ValidateOptions) *Session {
+	return &Session{
+		session: session{
+			engine:                e,
+			maxErrors:             opts.MaxErrors,
+			maxIdentityScopes:     opts.MaxIdentityScopes,
+			maxIdentityEntries:    opts.MaxIdentityEntries,
+			maxIdentityTupleBytes: opts.MaxIdentityTupleBytes,
+		},
+	}
+}
+
+// Validate validates one XML instance document and resets document-local state first.
+func (s *Session) Validate(r io.Reader) error {
+	if s == nil {
+		return (*session)(nil).validate(r)
+	}
+	return s.session.validate(r)
+}
+
+// Reset clears document-local validation state while preserving options.
+func (s *Session) Reset() {
+	if s == nil {
+		return
+	}
+	s.session.reset()
 }
 
 type session struct {
@@ -31,8 +74,7 @@ type session struct {
 	schemaLocationNamespaces map[string]bool
 	ns                       namespaceStack
 	stack                    []frame
-	counters                 []uint32
-	counterScratch           []uint32
+	allBits                  []uint64
 	namePath                 []runtimeName
 	errors                   []error
 	elementNames             []xml.Name
@@ -44,6 +86,10 @@ type session struct {
 	nameStrings              byteStringCache
 	valueStrings             byteStringCache
 	maxErrors                int
+	maxIdentityScopes        int
+	maxIdentityEntries       int
+	maxIdentityTupleBytes    int
+	identityEntries          int
 }
 
 type identityRef struct {
@@ -83,19 +129,19 @@ type identitySelection struct {
 }
 
 type frame struct {
-	Children    []runtimeName
-	Index       int
-	CounterBase int
-	CounterLen  int
-	Choice      int
-	TextStart   int
-	Type        typeID
-	Model       contentModelID
-	Element     elementID
-	Nilled      bool
-	Skip        bool
-	HasChild    bool
-	HasText     bool
+	Index     int
+	BitBase   int
+	BitLen    int
+	TextStart int
+	State     uint32
+	Count     uint32
+	Type      typeID
+	Model     contentModelID
+	Element   elementID
+	Nilled    bool
+	Skip      bool
+	HasChild  bool
+	HasText   bool
 }
 
 type namespaceBinding struct {
@@ -187,13 +233,13 @@ func (s *session) reset() {
 	s.path = s.path[:0]
 	s.namePath = s.namePath[:0]
 	s.elementNames = s.elementNames[:0]
-	s.counters = s.counters[:0]
+	s.allBits = s.allBits[:0]
 	clear(s.ids)
 	s.idrefs = s.idrefs[:0]
 	s.idScopes = s.idScopes[:0]
 	s.idSelections = s.idSelections[:0]
+	s.identityEntries = 0
 	clear(s.schemaLocationNamespaces)
-	s.counterScratch = s.counterScratch[:0]
 }
 
 func (s *session) result() error {
@@ -266,7 +312,9 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 	s.path = append(s.path, rn.Local)
 	s.namePath = append(s.namePath, rn)
 	s.elementNames = append(s.elementNames, se.Name)
-	s.startIdentityScope(elem)
+	if err := s.startIdentityScope(elem, line, col); err != nil {
+		return err
+	}
 	s.matchIdentitySelectors(line, col)
 	if !skip {
 		if err := s.validateAttributes(typ, se.Attr, line, col); err != nil {
@@ -327,28 +375,31 @@ func anyType(rt *runtimeSchema) typeID {
 func (s *session) pushFrame(elem elementID, typ typeID, nilled, skip bool) {
 	rt := s.engine.rt
 	modelID := noContentModel
-	counterLen := 0
+	bitLen := 0
+	state := uint32(0)
 	if typ.Kind == typeComplex {
 		ct := rt.ComplexTypes[typ.ID]
 		modelID = ct.Content
 		if modelID != noContentModel {
-			counterLen = modelCounterLen(rt, rt.Models[modelID])
+			model := rt.CompiledModels[modelID]
+			bitLen = int(model.AllBitLen)
+			state = model.Start
 		}
 	}
-	base := len(s.counters)
-	for i := 0; i < counterLen; i++ {
-		s.counters = append(s.counters, 0)
+	bitBase := len(s.allBits)
+	for i := 0; i < bitLen; i++ {
+		s.allBits = append(s.allBits, 0)
 	}
 	s.stack = append(s.stack, frame{
-		Element:     elem,
-		Type:        typ,
-		Model:       modelID,
-		CounterBase: base,
-		CounterLen:  counterLen,
-		TextStart:   len(s.text),
-		Nilled:      nilled,
-		Skip:        skip,
-		Choice:      -1,
+		Element:   elem,
+		Type:      typ,
+		Model:     modelID,
+		BitBase:   bitBase,
+		BitLen:    bitLen,
+		State:     state,
+		TextStart: len(s.text),
+		Nilled:    nilled,
+		Skip:      skip,
 	})
 }
 

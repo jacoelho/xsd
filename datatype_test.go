@@ -54,6 +54,25 @@ func TestPatternFacetTreatsCaretAndDollarAsLiterals(t *testing.T) {
 	mustNotValidate(t, engine, `<root>abc</root>`, ErrValidationFacet)
 }
 
+func TestPatternEscapedUnsupportedEscapesAreLiterals(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:restriction base="xs:string">
+        <xs:pattern value="\\i|\\c|a&amp;&amp;b"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+
+	mustValidate(t, engine, `<root>\i</root>`)
+	mustValidate(t, engine, `<root>\c</root>`)
+	mustValidate(t, engine, `<root>a&amp;&amp;b</root>`)
+	mustNotValidate(t, engine, `<root>i</root>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<root>a&amp;b</root>`, ErrValidationFacet)
+}
+
 func TestInvalidLengthFacetCombinationsAreSchemaErrors(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

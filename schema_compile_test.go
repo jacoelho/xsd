@@ -389,6 +389,7 @@ func TestCompileOptionsRejectNegativeLimits(t *testing.T) {
 		{MaxSchemaAttributes: -1},
 		{MaxSchemaTokenBytes: -1},
 		{MaxSchemaNames: -1},
+		{MaxContentModelStates: -1},
 	}
 	for _, opts := range tests {
 		_, err := CompileWithOptions(opts, source)

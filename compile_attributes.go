@@ -73,7 +73,7 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q qName)
 	if decl.HasDefault && decl.HasFixed {
 		return attributeDecl{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot have both default and fixed")
 	}
-	if err := c.validateAttributeValueConstraints(decl, c.schemaQNameResolver(n)); err != nil {
+	if err := c.validateAttributeValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
 		return attributeDecl{}, err
 	}
 	return decl, nil
@@ -102,25 +102,29 @@ func validateAttributeDeclContent(n *rawNode) error {
 	return nil
 }
 
-func (c *compiler) validateAttributeValueConstraints(decl attributeDecl, resolve qnameResolver) error {
+func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolve qnameResolver) error {
 	if (decl.HasDefault || decl.HasFixed) && c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(decl.Type)}, typeID{Kind: typeSimple, ID: uint32(c.rt.Builtin.ID)}) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed attribute cannot have default or fixed")
 	}
 	if decl.HasDefault {
-		if _, err := validateSimpleValue(&c.rt, decl.Type, decl.Default, resolve); err != nil {
+		canon, err := validateSimpleValue(&c.rt, decl.Type, decl.Default, resolve)
+		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid attribute default value for "+c.rt.Names.Format(decl.Name))
 		}
+		decl.DefaultCanonical = canon
 	}
 	if decl.HasFixed {
-		if _, err := validateSimpleValue(&c.rt, decl.Type, decl.Fixed, resolve); err != nil {
+		canon, err := validateSimpleValue(&c.rt, decl.Type, decl.Fixed, resolve)
+		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid attribute fixed value for "+c.rt.Names.Format(decl.Name))
 		}
+		decl.FixedCanonical = canon
 	}
 	return nil
 }
@@ -220,8 +224,26 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 		return noAttributeUseSet, err
 	}
 	id := attributeUseSetID(len(c.rt.AttributeUseSets))
-	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, attributeUseSet{Uses: finalUses, wildcard: wildcard})
+	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, newAttributeUseSet(finalUses, wildcard))
 	return id, nil
+}
+
+func newAttributeUseSet(uses []attributeUse, wildcard wildcardID) attributeUseSet {
+	set := attributeUseSet{Uses: uses, wildcard: wildcard}
+	if len(uses) != 0 {
+		set.Index = make(map[qName]uint32, len(uses))
+	}
+	for i, use := range uses {
+		slot := uint32(i)
+		set.Index[use.Name] = slot
+		if use.Required {
+			set.Required = append(set.Required, slot)
+		}
+		if use.HasDefault || use.HasFixed {
+			set.ValueConstraints = append(set.ValueConstraints, slot)
+		}
+	}
+	return set
 }
 
 func (c *compiler) mergeAttributeUse(uses []attributeUse, u attributeUse, allowOverride bool, inheritedWildcard wildcardID) ([]attributeUse, error) {
@@ -278,9 +300,7 @@ func (c *compiler) validateAttributeUseRestriction(base, derived attributeUse) e
 		if !derived.HasFixed {
 			return schemaCompile(ErrSchemaInvalidAttribute, "fixed attribute constraint must be preserved by restriction")
 		}
-		baseFixed, baseErr := validateSimpleValue(&c.rt, base.Type, base.Fixed, nil)
-		derivedFixed, derivedErr := validateSimpleValue(&c.rt, base.Type, derived.Fixed, nil)
-		if baseErr != nil || derivedErr != nil || baseFixed != derivedFixed {
+		if base.FixedCanonical != derived.FixedCanonical {
 			return schemaCompile(ErrSchemaInvalidAttribute, "fixed attribute constraint must be preserved by restriction")
 		}
 	}
@@ -307,8 +327,8 @@ func (c *compiler) attrUsesAndWildcard(id attributeUseSetID) ([]attributeUse, wi
 
 func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attributeUse, error) {
 	use := attributeUse{Type: c.rt.Builtin.AnySimpleType}
-	refFixed := ""
 	refHasFixed := false
+	refFixedCanonical := ""
 	if _, ok := n.attr("value"); ok {
 		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot have value")
 	}
@@ -334,10 +354,12 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		use.Type = decl.Type
 		use.Default = decl.Default
 		use.Fixed = decl.Fixed
+		use.DefaultCanonical = decl.DefaultCanonical
+		use.FixedCanonical = decl.FixedCanonical
 		use.HasDefault = decl.HasDefault
 		use.HasFixed = decl.HasFixed
-		refFixed = decl.Fixed
 		refHasFixed = decl.HasFixed
+		refFixedCanonical = decl.FixedCanonical
 	} else {
 		name, ok := n.attr("name")
 		if !ok {
@@ -359,6 +381,8 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		use.Type = decl.Type
 		use.Default = decl.Default
 		use.Fixed = decl.Fixed
+		use.DefaultCanonical = decl.DefaultCanonical
+		use.FixedCanonical = decl.FixedCanonical
 		use.HasDefault = decl.HasDefault
 		use.HasFixed = decl.HasFixed
 	}
@@ -382,13 +406,12 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute use default conflicts with fixed attribute declaration")
 		}
 		use.Default = v
+		use.DefaultCanonical = ""
 		use.HasDefault = true
 	}
 	if v, ok := n.attr("fixed"); ok {
-		if refHasFixed && v != refFixed {
-			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute use fixed value conflicts with fixed attribute declaration")
-		}
 		use.Fixed = v
+		use.FixedCanonical = ""
 		use.HasFixed = true
 	}
 	if use.HasDefault && use.HasFixed {
@@ -397,9 +420,15 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	if use.Prohibited && use.HasFixed {
 		use.Prohibited = false
 	}
-	if err := c.validateAttributeValueConstraints(attributeDecl{Name: use.Name, Type: use.Type, Default: use.Default, Fixed: use.Fixed, HasDefault: use.HasDefault, HasFixed: use.HasFixed}, c.schemaQNameResolver(n)); err != nil {
+	decl := attributeDecl{Name: use.Name, Type: use.Type, Default: use.Default, Fixed: use.Fixed, HasDefault: use.HasDefault, HasFixed: use.HasFixed}
+	if err := c.validateAttributeValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
 		return attributeUse{}, err
 	}
+	if refHasFixed && use.HasFixed && decl.FixedCanonical != refFixedCanonical {
+		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute use fixed value conflicts with fixed attribute declaration")
+	}
+	use.DefaultCanonical = decl.DefaultCanonical
+	use.FixedCanonical = decl.FixedCanonical
 	return use, nil
 }
 

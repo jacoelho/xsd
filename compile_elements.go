@@ -203,12 +203,12 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 		Abstract:  abstract,
 		SubstHead: noElement,
 	}
-	block, err := derivationMaskWithDefaultChecked(n, "block", ctx.blockDefault, true, "element block")
+	block, err := derivationMaskWithDefaultChecked(n, "block", ctx.blockDefault, derivationBlockDefaultMask, "element block")
 	if err != nil {
 		return elementDecl{}, err
 	}
 	decl.Block = block
-	final, err := derivationMaskWithDefaultChecked(n, "final", ctx.finalDefault, false, "element final")
+	final, err := derivationMaskWithDefaultChecked(n, "final", ctx.finalDefault, derivationComplexMask, "element final")
 	if err != nil {
 		return elementDecl{}, err
 	}
@@ -224,7 +224,7 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	if decl.HasDefault && decl.HasFixed {
 		return elementDecl{}, schemaCompile(ErrSchemaInvalidAttribute, "element cannot have both default and fixed")
 	}
-	if err := c.validateElementValueConstraints(decl, c.schemaQNameResolver(n)); err != nil {
+	if err := c.validateElementValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
 		return elementDecl{}, err
 	}
 	if err := c.compileDeclaredIdentityConstraints(identityNodes, identityIDs, ctx); err != nil {
@@ -234,7 +234,7 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	return decl, nil
 }
 
-func (c *compiler) validateElementValueConstraints(decl elementDecl, resolve qnameResolver) error {
+func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qnameResolver) error {
 	simpleID := noSimpleType
 	switch decl.Type.Kind {
 	case typeSimple:
@@ -244,6 +244,8 @@ func (c *compiler) validateElementValueConstraints(decl elementDecl, resolve qna
 		if ct.SimpleValue {
 			simpleID = ct.TextType
 		} else if (decl.HasDefault || decl.HasFixed) && ct.Mixed && c.modelEmptiable(ct.Content) {
+			decl.DefaultCanonical = decl.Default
+			decl.FixedCanonical = decl.Fixed
 			return nil
 		}
 	}
@@ -260,26 +262,30 @@ func (c *compiler) validateElementValueConstraints(decl elementDecl, resolve qna
 		return schemaCompile(ErrSchemaFacet, "NOTATION value constraint requires enumeration")
 	}
 	if decl.HasDefault {
-		if _, err := validateSimpleValue(&c.rt, simpleID, decl.Default, resolve); err != nil {
+		canon, err := validateSimpleValue(&c.rt, simpleID, decl.Default, resolve)
+		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid element default value for "+c.rt.Names.Format(decl.Name))
 		}
+		decl.DefaultCanonical = canon
 	}
 	if decl.HasFixed {
-		if _, err := validateSimpleValue(&c.rt, simpleID, decl.Fixed, resolve); err != nil {
+		canon, err := validateSimpleValue(&c.rt, simpleID, decl.Fixed, resolve)
+		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid element fixed value for "+c.rt.Names.Format(decl.Name))
 		}
+		decl.FixedCanonical = canon
 	}
 	return nil
 }
 
 func (c *compiler) simpleTypeUsesBareNotation(id simpleTypeID, seen map[simpleTypeID]bool) bool {
-	if id == noSimpleType || seen[id] || int(id) >= len(c.rt.SimpleTypes) {
+	if id == noSimpleType || !validUint32Index(uint32(id), len(c.rt.SimpleTypes)) || seen[id] {
 		return false
 	}
 	seen[id] = true
@@ -301,7 +307,7 @@ func (c *compiler) simpleTypeUsesBareNotation(id simpleTypeID, seen map[simpleTy
 }
 
 func (c *compiler) simpleTypeHasListVariety(id simpleTypeID, seen map[simpleTypeID]bool) bool {
-	if id == noSimpleType || seen[id] || int(id) >= len(c.rt.SimpleTypes) {
+	if id == noSimpleType || !validUint32Index(uint32(id), len(c.rt.SimpleTypes)) || seen[id] {
 		return false
 	}
 	seen[id] = true

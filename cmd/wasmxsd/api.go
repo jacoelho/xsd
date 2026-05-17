@@ -1,3 +1,4 @@
+// Package main exposes WASM bindings for browser XSD validation.
 package main
 
 import (
@@ -23,9 +24,9 @@ type formatResponse struct {
 }
 
 type validateResponse struct {
-	Valid  bool          `json:"valid"`
 	Error  string        `json:"error,omitempty"`
 	Errors []errorOutput `json:"errors,omitempty"`
+	Valid  bool          `json:"valid"`
 }
 
 type errorOutput struct {

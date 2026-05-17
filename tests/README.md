@@ -4,13 +4,13 @@ Standalone XSD 1.0 validation corpus plus a Go test runner. This directory conta
 
 ## Contents
 
-- Cases: 14477
+- Cases: 14529
 - W3C cases: 14414
 - Xerces-J cases: 13
-- Project cases: 50
-- Schema checks: 14427
-- Instance checks: 25132
-- Manifest file references: 39614
+- Project cases: 102
+- Schema checks: 14479
+- Instance checks: 25172
+- Manifest file references: 39705
 
 ## Files
 
@@ -53,4 +53,4 @@ A schema document with role `principal` is the entry schema. Files listed with r
 
 ## Export Evidence
 
-- Manifest closure check: 39614 referenced files, all present under `corpus/`.
+- Manifest closure check: 39705 referenced files, all present under `corpus/`.

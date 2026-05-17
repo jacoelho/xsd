@@ -121,10 +121,8 @@ func attributeUseSlot(set attributeUseSet, rn runtimeName) int {
 	if !rn.Known {
 		return -1
 	}
-	for i := range set.Uses {
-		if set.Uses[i].Name == rn.Name {
-			return i
-		}
+	if slot, ok := set.Index[rn.Name]; ok {
+		return int(slot)
 	}
 	return -1
 }
@@ -149,21 +147,14 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse,
 	if err := s.captureIdentityAttribute(use.Name, use.Type, canon, line, col); err != nil {
 		return err
 	}
-	return s.validateFixedAttributeValue(rt, use, canon, rn, line, col)
+	return s.validateFixedAttributeValue(use, canon, rn, line, col)
 }
 
-func (s *session) validateFixedAttributeValue(rt *runtimeSchema, use attributeUse, canon string, rn runtimeName, line, col int) error {
+func (s *session) validateFixedAttributeValue(use attributeUse, canon string, rn runtimeName, line, col int) error {
 	if !use.HasFixed {
 		return nil
 	}
-	fixed, err := validateSimpleValue(rt, use.Type, use.Fixed, s.resolveLexicalQNameValue)
-	if err != nil {
-		if IsUnsupported(err) {
-			return err
-		}
-		return validation(ErrValidationFacet, line, col, s.pathString(), "invalid fixed attribute value")
-	}
-	if canon != fixed {
+	if canon != use.FixedCanonical {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.Local)
 	}
 	return nil
@@ -208,42 +199,37 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 	return s.captureIdentityAttribute(decl.Name, decl.Type, canon, line, col)
 }
 
-func (s *session) validateRequiredAndDefaultAttributes(rt *runtimeSchema, set attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
-	for i, use := range set.Uses {
-		wasSeen := seen.has(i)
-		if use.Required && !wasSeen {
+func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
+	for _, slot := range set.Required {
+		if !seen.has(int(slot)) {
 			if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "missing required attribute")); err != nil {
 				return err
 			}
+		}
+	}
+	for _, slot := range set.ValueConstraints {
+		if seen.has(int(slot)) {
 			continue
 		}
-		if !wasSeen && (use.HasDefault || use.HasFixed) {
-			value := use.Default
-			if use.HasFixed {
-				value = use.Fixed
+		use := set.Uses[slot]
+		if use.Required {
+			continue
+		}
+		canon := use.DefaultCanonical
+		if use.HasFixed {
+			canon = use.FixedCanonical
+		}
+		if err := s.recordAttributeIdentity(use.Type, canon, line, col, seenIDAttr); err != nil {
+			recoverErr := s.recover(err)
+			if recoverErr != nil {
+				return recoverErr
 			}
-			canon, err := validateSimpleValue(rt, use.Type, value, s.resolveLexicalQNameValue)
-			if err != nil {
-				if IsUnsupported(err) {
-					return err
-				}
-				if err := s.recover(validation(ErrValidationFacet, line, col, s.pathString(), "invalid default attribute value")); err != nil {
-					return err
-				}
-				continue
-			}
-			if err := s.recordAttributeIdentity(use.Type, canon, line, col, seenIDAttr); err != nil {
-				recoverErr := s.recover(err)
-				if recoverErr != nil {
-					return recoverErr
-				}
-				continue
-			}
-			if err := s.captureIdentityAttribute(use.Name, use.Type, canon, line, col); err != nil {
-				recoverErr := s.recover(err)
-				if recoverErr != nil {
-					return recoverErr
-				}
+			continue
+		}
+		if err := s.captureIdentityAttribute(use.Name, use.Type, canon, line, col); err != nil {
+			recoverErr := s.recover(err)
+			if recoverErr != nil {
+				return recoverErr
 			}
 		}
 	}
