@@ -38,11 +38,12 @@ func ExampleCompile() {
 func ExampleCompileWithOptions() {
 	engine, err := xsd.CompileWithOptions(
 		xsd.CompileOptions{
-			MaxSchemaDepth:      256,
-			MaxSchemaAttributes: 256,
-			MaxSchemaTokenBytes: 4 << 20,
-			MaxSchemaNames:      0,
-			MaxFiniteOccurs:     1_000_000,
+			MaxSchemaDepth:        256,
+			MaxSchemaAttributes:   256,
+			MaxSchemaTokenBytes:   4 << 20,
+			MaxSchemaNames:        0,
+			MaxFiniteOccurs:       1_000_000,
+			MaxContentModelStates: 16_384,
 		},
 		xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)),
 	)

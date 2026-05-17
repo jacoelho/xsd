@@ -56,7 +56,9 @@ type xmlStreamParser struct {
 	directive    []byte
 	attrs        []xml.Attr
 	br           byteStream
+	cdataMatched int
 	hasEnd       bool
+	inCDATA      bool
 	atStart      bool
 	emitComments bool
 	emitPI       bool
@@ -72,6 +74,9 @@ func newXMLStreamParser(r io.Reader, names, values *byteStringCache) *xmlStreamP
 }
 
 func (p *xmlStreamParser) next() (streamToken, error) {
+	if p.inCDATA {
+		return p.readCDATAChunk(0, 0)
+	}
 	if p.hasEnd {
 		p.hasEnd = false
 		line, col := p.br.pos()
@@ -313,8 +318,8 @@ func (p *xmlStreamParser) readMarkup(line, col int) (streamToken, bool, error) {
 			return streamToken{}, false, fmt.Errorf("invalid XML comment")
 		}
 		if !p.emitComments {
-			if err := p.skipComment(); err != nil {
-				return streamToken{}, false, err
+			if commentErr := p.skipComment(); commentErr != nil {
+				return streamToken{}, false, commentErr
 			}
 			return streamToken{}, true, nil
 		}
@@ -329,30 +334,68 @@ func (p *xmlStreamParser) readMarkup(line, col int) (streamToken, bool, error) {
 		if err := p.expectString("CDATA["); err != nil {
 			return streamToken{}, false, err
 		}
-		p.textBuf = p.textBuf[:0]
-		data, err := p.readUntil("]]>", p.textBuf)
-		if err != nil {
-			return streamToken{}, false, err
-		}
-		p.textBuf = data
-		if valid, err := validXMLPrefix(data); err != nil {
-			return streamToken{}, false, err
-		} else if valid != len(data) {
-			return streamToken{}, false, fmt.Errorf("invalid UTF-8")
-		}
-		return streamToken{kind: streamTokenCharData, data: data, cdata: true, line: line, col: col}, false, nil
+		p.inCDATA = true
+		p.cdataMatched = 0
+		tok, err := p.readCDATAChunk(line, col)
+		return tok, false, err
 	default:
 		p.directive = p.directive[:0]
 		p.directive = append(p.directive, b)
-		data, err := p.readUntil(">", p.directive)
-		if err != nil {
-			return streamToken{}, false, err
+		for len(p.directive) <= len(doctypeDirective) {
+			next, err := p.br.readByte()
+			if err != nil {
+				return streamToken{}, false, p.syntaxError("unexpected EOF in markup declaration", err)
+			}
+			p.directive = append(p.directive, next)
 		}
-		p.directive = data
-		if !isDOCTYPEDeclaration(data) {
+		if !isDOCTYPEDeclaration(p.directive) {
 			return streamToken{}, false, fmt.Errorf("invalid markup declaration")
 		}
-		return streamToken{kind: streamTokenDirective, directive: data, line: line, col: col}, false, nil
+		return streamToken{kind: streamTokenDirective, directive: p.directive, line: line, col: col}, false, nil
+	}
+}
+
+func (p *xmlStreamParser) readCDATAChunk(line, col int) (streamToken, error) {
+	if line == 0 {
+		line, col = p.br.pos()
+	}
+	p.textBuf = p.textBuf[:0]
+	matched := p.cdataMatched
+	appendPending := func() {
+		for ; matched > 0; matched-- {
+			p.textBuf = append(p.textBuf, ']')
+		}
+	}
+	for {
+		b, err := p.br.readByte()
+		if err != nil {
+			return streamToken{}, p.syntaxError("unexpected EOF in CDATA section", err)
+		}
+		switch b {
+		case ']':
+			if matched == 2 {
+				p.textBuf = append(p.textBuf, ']')
+			} else {
+				matched++
+			}
+		case '>':
+			if matched == 2 {
+				p.inCDATA = false
+				p.cdataMatched = 0
+				return streamToken{kind: streamTokenCharData, data: p.textBuf, cdata: true, line: line, col: col}, nil
+			}
+			appendPending()
+			p.textBuf = append(p.textBuf, '>')
+		default:
+			appendPending()
+			if err := p.appendXMLRune(&p.textBuf, b); err != nil {
+				return streamToken{}, err
+			}
+		}
+		if len(p.textBuf) >= len(p.br.buf) {
+			p.cdataMatched = matched
+			return streamToken{kind: streamTokenCharData, data: p.textBuf, cdata: true, line: line, col: col}, nil
+		}
 	}
 }
 
@@ -608,15 +651,21 @@ func (p *xmlStreamParser) readPI(atDocumentStart bool, line, col int) (streamTok
 				}
 				return streamToken{}, true, validateXMLDeclContent(p.directive)
 			}
+			if !p.emitPI {
+				if skipErr := p.skipUntil("?>"); skipErr != nil {
+					if errors.Is(skipErr, io.EOF) {
+						return streamToken{}, false, p.syntaxError("unexpected EOF in processing instruction", skipErr)
+					}
+					return streamToken{}, false, skipErr
+				}
+				return streamToken{}, true, nil
+			}
 			p.directive = p.directive[:0]
 			data, err := p.readPIContent(p.directive)
 			if err != nil {
 				return streamToken{}, false, err
 			}
 			p.directive = data
-			if !p.emitPI {
-				return streamToken{}, true, nil
-			}
 			return streamToken{kind: streamTokenPI, data: p.nameBuf, directive: data, line: line, col: col}, false, nil
 		}
 		p.nameBuf = append(p.nameBuf, b)
@@ -647,6 +696,31 @@ func (p *xmlStreamParser) readPIContent(dst []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid UTF-8")
 	}
 	return data, nil
+}
+
+func (p *xmlStreamParser) skipUntil(term string) error {
+	prefix := termPrefix(term)
+	matched := 0
+	for {
+		b, err := p.br.readByte()
+		if err != nil {
+			return err
+		}
+		if b < utf8.RuneSelf {
+			if !isXMLChar(rune(b)) {
+				return fmt.Errorf("invalid XML character")
+			}
+			matched = advanceTermMatch(term, prefix, matched, b)
+			if matched == len(term) {
+				return nil
+			}
+			continue
+		}
+		matched = 0
+		if err := p.consumeXMLRune(b); err != nil {
+			return err
+		}
+	}
 }
 
 func validateXMLDeclContent(content []byte) error {
@@ -1007,15 +1081,16 @@ func isNCNameBytes(b []byte) bool {
 
 type byteStream struct {
 	r       io.Reader
-	buf     [64 * 1024]byte
+	err     error
+	prev    bytePosition
+	lastPos bytePosition
 	off     int
 	end     int
 	line    int
 	col     int
-	prev    bytePosition
+	buf     [64 * 1024]byte
 	unread  bool
 	last    byte
-	lastPos bytePosition
 }
 
 type bytePosition struct {
@@ -1030,13 +1105,8 @@ func (b *byteStream) readByte() (byte, error) {
 		b.advance(b.last)
 		return b.last, nil
 	}
-	if b.off == b.end {
-		n, err := b.r.Read(b.buf[:])
-		if err != nil {
-			return 0, err
-		}
-		b.off = 0
-		b.end = n
+	if err := b.fill(); err != nil {
+		return 0, err
 	}
 	c := b.buf[b.off]
 	b.off++
@@ -1051,15 +1121,32 @@ func (b *byteStream) buffered() ([]byte, error) {
 	if b.unread {
 		return []byte{b.last}, nil
 	}
-	if b.off == b.end {
-		n, err := b.r.Read(b.buf[:])
-		if err != nil {
-			return nil, err
-		}
-		b.off = 0
-		b.end = n
+	if err := b.fill(); err != nil {
+		return nil, err
 	}
 	return b.buf[b.off:b.end], nil
+}
+
+func (b *byteStream) fill() error {
+	if b.off != b.end {
+		return nil
+	}
+	if b.err != nil {
+		err := b.err
+		b.err = nil
+		return err
+	}
+	n, err := b.r.Read(b.buf[:])
+	if n > 0 {
+		b.off = 0
+		b.end = n
+		b.err = err
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return io.ErrNoProgress
 }
 
 func (b *byteStream) consumeBuffered(n int) {

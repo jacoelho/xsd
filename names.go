@@ -8,6 +8,10 @@ type qName struct {
 	Local     localNameID
 }
 
+func validUint32Index(id uint32, n int) bool {
+	return uint64(id) < uint64(n)
+}
+
 const (
 	emptyNamespaceURI = ""
 	xsdNamespaceURI   = "http://www.w3.org/2001/XMLSchema"
@@ -103,19 +107,17 @@ func (n nameTable) LookupQName(ns, local string) (qName, bool) {
 }
 
 func (n nameTable) Namespace(id namespaceID) string {
-	i := int(id)
-	if i < 0 || i >= len(n.namespaces) {
+	if !validUint32Index(uint32(id), len(n.namespaces)) {
 		return ""
 	}
-	return n.namespaces[i]
+	return n.namespaces[id]
 }
 
 func (n nameTable) Local(id localNameID) string {
-	i := int(id)
-	if i < 0 || i >= len(n.locals) {
+	if !validUint32Index(uint32(id), len(n.locals)) {
 		return ""
 	}
-	return n.locals[i]
+	return n.locals[id]
 }
 
 func (n nameTable) Format(q qName) string {

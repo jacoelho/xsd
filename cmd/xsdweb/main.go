@@ -1,3 +1,4 @@
+// Package main serves local XSD web assets.
 package main
 
 import (

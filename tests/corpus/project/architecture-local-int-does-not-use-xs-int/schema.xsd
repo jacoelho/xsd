@@ -1,0 +1,11 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:architecture:int"
+           targetNamespace="urn:architecture:int"
+           elementFormDefault="qualified">
+  <xs:simpleType name="int">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-z]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="t:int"/>
+</xs:schema>
