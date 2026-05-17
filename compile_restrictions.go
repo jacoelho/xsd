@@ -40,6 +40,12 @@ func (c *compiler) validateContentRestriction(baseID, derivedID contentModelID) 
 	if !occursRangeSubset(c.modelCountRange(derivedID), c.modelCountRange(baseID)) {
 		return schemaCompile(ErrSchemaContentModel, "content restriction is not subset of base")
 	}
+	if base.Kind == modelAny {
+		return nil
+	}
+	if c.modelHasNoParticles(derivedID) {
+		return nil
+	}
 	if len(base.Particles) == 1 && base.Particles[0].Kind == particleWildcard {
 		for _, p := range derived.Particles {
 			if err := c.validateParticleRestrictsWildcard(base.Particles[0], p); err != nil {
@@ -53,6 +59,9 @@ func (c *compiler) validateContentRestriction(baseID, derivedID contentModelID) 
 	}
 	if base.Kind == modelSequence && derived.Kind == modelSequence {
 		return c.validateOrderedGroupRestriction(base, derived, "sequence restriction is not subset of base")
+	}
+	if base.Kind == modelSequence && derived.Kind == modelChoice {
+		return c.validateChoiceRestrictsSequence(base, derived)
 	}
 	if base.Kind == modelAll && derived.Kind == modelAll {
 		return c.validateOrderedGroupRestriction(base, derived, "all restriction is not subset of base")
@@ -73,7 +82,7 @@ func (c *compiler) validateContentRestriction(baseID, derivedID contentModelID) 
 		return schemaCompile(ErrSchemaContentModel, "wildcard restriction is not subset of base")
 	}
 	if base.Kind != derived.Kind || len(base.Particles) != len(derived.Particles) {
-		return nil
+		return schemaCompile(ErrSchemaContentModel, "content restriction is not subset of base")
 	}
 	for i := range base.Particles {
 		if err := c.validateParticleRestriction(base.Particles[i], derived.Particles[i]); err != nil {
@@ -246,26 +255,38 @@ func (c *compiler) validateSequenceRestrictsAll(base, derived contentModel) erro
 	if !occursRangeSubset(derived.occurs, base.occurs) {
 		return schemaCompile(ErrSchemaContentModel, "sequence restriction occurrence is not subset of all")
 	}
+	return c.validateMappedGroupRestriction(base, derived, "sequence restriction particle is not subset of all", "sequence restriction omits required all particle")
+}
+
+func (c *compiler) validateMappedGroupRestriction(base, derived contentModel, particleMsg, omittedMsg string) error {
 	mapped := make([]bool, len(base.Particles))
 	for _, derivedParticle := range derived.Particles {
 		match := -1
+		var unsupportedErr error
 		for i, baseParticle := range base.Particles {
 			if mapped[i] {
 				continue
 			}
-			if c.validateParticleRestriction(baseParticle, derivedParticle) == nil {
+			err := c.validateParticleRestriction(baseParticle, derivedParticle)
+			if err == nil {
 				match = i
 				break
 			}
+			if IsUnsupported(err) {
+				unsupportedErr = err
+			}
 		}
 		if match < 0 {
-			return schemaCompile(ErrSchemaContentModel, "sequence restriction particle is not subset of all")
+			if unsupportedErr != nil {
+				return unsupportedErr
+			}
+			return schemaCompile(ErrSchemaContentModel, particleMsg)
 		}
 		mapped[match] = true
 	}
 	for i, baseParticle := range base.Particles {
 		if !mapped[i] && !c.particleEmptiable(baseParticle) {
-			return schemaCompile(ErrSchemaContentModel, "sequence restriction omits required all particle")
+			return schemaCompile(ErrSchemaContentModel, omittedMsg)
 		}
 	}
 	return nil
@@ -281,6 +302,50 @@ func (c *compiler) validateSequenceRestrictsChoice(base, derived contentModel) e
 		}
 	}
 	return nil
+}
+
+func (c *compiler) validateChoiceRestrictsSequence(base, derived contentModel) error {
+	if derived.occurs.Max == 0 && !derived.occurs.Unbounded {
+		return nil
+	}
+	if derived.occurs.Unbounded || derived.occurs.Max > 1 {
+		return schemaCompile(ErrSchemaContentModel, "choice restriction occurrence is not subset of sequence")
+	}
+	for _, derivedParticle := range derived.Particles {
+		if err := c.validateChoiceBranchRestrictsSequence(base, derivedParticle); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) validateChoiceBranchRestrictsSequence(base contentModel, derived particle) error {
+	var unsupportedErr error
+	for i, baseParticle := range base.Particles {
+		err := c.validateParticleRestriction(baseParticle, derived)
+		if err != nil {
+			if IsUnsupported(err) {
+				unsupportedErr = err
+			}
+			continue
+		}
+		if c.sequenceRemainderEmptiable(base.Particles, i) {
+			return nil
+		}
+	}
+	if unsupportedErr != nil {
+		return unsupportedErr
+	}
+	return schemaCompile(ErrSchemaContentModel, "choice restriction branch is not subset of sequence")
+}
+
+func (c *compiler) sequenceRemainderEmptiable(particles []particle, selected int) bool {
+	for i, p := range particles {
+		if i != selected && !c.particleEmptiable(p) {
+			return false
+		}
+	}
+	return true
 }
 
 func sequenceChoiceRange(model contentModel) occurrence {

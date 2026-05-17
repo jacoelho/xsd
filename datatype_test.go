@@ -113,6 +113,59 @@ func TestInvalidDigitFacetCombinationIsSchemaError(t *testing.T) {
 	expectCode(t, err, ErrSchemaFacet)
 }
 
+func TestFacetValueAttributeIsRequired(t *testing.T) {
+	tests := []struct {
+		name  string
+		base  string
+		facet string
+	}{
+		{name: "enumeration", base: "xs:string", facet: `<xs:enumeration/>`},
+		{name: "pattern", base: "xs:string", facet: `<xs:pattern/>`},
+		{name: "bound", base: "xs:int", facet: `<xs:minInclusive/>`},
+		{name: "whiteSpace", base: "xs:string", facet: `<xs:whiteSpace/>`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bad"><xs:restriction base="`+tt.base+`">`+tt.facet+`</xs:restriction></xs:simpleType>
+</xs:schema>`)))
+			expectCode(t, err, ErrSchemaFacet)
+		})
+	}
+}
+
+func TestFacetApplicabilityIsCheckedAtCompileTime(t *testing.T) {
+	tests := []struct {
+		name  string
+		base  string
+		facet string
+	}{
+		{name: "string_bound", base: "xs:string", facet: `<xs:minInclusive value="a"/>`},
+		{name: "boolean_bound", base: "xs:boolean", facet: `<xs:maxInclusive value="true"/>`},
+		{name: "binary_bound", base: "xs:hexBinary", facet: `<xs:minExclusive value="00"/>`},
+		{name: "string_digits", base: "xs:string", facet: `<xs:totalDigits value="1"/>`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bad"><xs:restriction base="`+tt.base+`">`+tt.facet+`</xs:restriction></xs:simpleType>
+</xs:schema>`)))
+			expectCode(t, err, ErrSchemaFacet)
+		})
+	}
+
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType><xs:restriction base="xs:date"><xs:minInclusive value="2020-01-01"/></xs:restriction></xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>2020-01-01</root>`)
+	mustNotValidate(t, engine, `<root>2019-12-31</root>`, ErrValidationFacet)
+}
+
 func TestParseDecimalCanonical(t *testing.T) {
 	tests := []struct {
 		in             string
@@ -928,6 +981,53 @@ func TestInvalidRegexSyntaxIsSchemaError(t *testing.T) {
 		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
 		expectCode(t, err, ErrSchemaFacet)
 	}
+}
+
+func TestUnsupportedRegexClassEscapesAreExplicit(t *testing.T) {
+	tests := []string{
+		`[.\w]`,
+		`[\w:]`,
+		`[\w-]`,
+		`[.\D]`,
+		`[.\W]`,
+		`[.\S]`,
+	}
+	for _, pattern := range tests {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="t"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
+		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+		expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedRegex)
+	}
+}
+
+func TestSingletonRegexClassEscapesRemainSupported(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="word"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\w]"/></xs:restriction></xs:simpleType></xs:element>
+  <xs:element name="notWord"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\W]"/></xs:restriction></xs:simpleType></xs:element>
+  <xs:element name="notDigit"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\D]"/></xs:restriction></xs:simpleType></xs:element>
+  <xs:element name="notSpace"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\S]"/></xs:restriction></xs:simpleType></xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<word>A</word>`)
+	mustNotValidate(t, engine, `<word> </word>`, ErrValidationFacet)
+	mustValidate(t, engine, `<notWord> </notWord>`)
+	mustNotValidate(t, engine, `<notWord>A</notWord>`, ErrValidationFacet)
+	mustValidate(t, engine, `<notDigit>A</notDigit>`)
+	mustNotValidate(t, engine, `<notDigit>1</notDigit>`, ErrValidationFacet)
+	mustValidate(t, engine, `<notSpace>A</notSpace>`)
+	mustNotValidate(t, engine, "<notSpace>\t</notSpace>", ErrValidationFacet)
+}
+
+func TestRegexWhitespaceUsesXMLWhitespace(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="space"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\s"/></xs:restriction></xs:simpleType></xs:element>
+  <xs:element name="notSpace"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\S"/></xs:restriction></xs:simpleType></xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, "<space>\t</space>")
+	mustValidate(t, engine, "<space>\n</space>")
+	mustNotValidate(t, engine, `<space>A</space>`, ErrValidationFacet)
+	mustValidate(t, engine, `<notSpace>A</notSpace>`)
+	mustNotValidate(t, engine, "<notSpace>\t</notSpace>", ErrValidationFacet)
 }
 
 func TestNMTOKENSAndEntityTypes(t *testing.T) {

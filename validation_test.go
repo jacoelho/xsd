@@ -577,6 +577,45 @@ func TestInvalidDefaultAndFixedValuesAreSchemaErrors(t *testing.T) {
 	expectCode(t, err, ErrSchemaInvalidAttribute)
 }
 
+func TestInvalidSchemaQNamesAreSchemaErrors(t *testing.T) {
+	tests := []string{
+		`<xs:element name="root" type="1bad"/>`,
+		`<xs:element name="root" xmlns:t="urn:t" type="t:1bad"/>`,
+	}
+	for _, decl := range tests {
+		t.Run(decl, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+decl+`</xs:schema>`)))
+			expectCode(t, err, ErrSchemaReference)
+			if !strings.Contains(err.Error(), "invalid QName") {
+				t.Fatalf("Compile() error = %v, want invalid QName", err)
+			}
+		})
+	}
+}
+
+func TestInvalidIdentityConstraintQNamesAreSchemaErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		selector string
+		field    string
+	}{
+		{name: "selector", selector: "1bad", field: "@id"},
+		{name: "field", selector: ".", field: "@1bad"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType>
+    <xs:key name="k"><xs:selector xpath="`+tt.selector+`"/><xs:field xpath="`+tt.field+`"/></xs:key>
+  </xs:element>
+</xs:schema>`)))
+			expectCode(t, err, ErrSchemaReference)
+		})
+	}
+}
+
 func TestEmptyFixedValuesAreEnforced(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -635,6 +674,37 @@ func TestXLinkBuiltInAttributesCanBeReferenced(t *testing.T) {
 </xs:schema>`)
 	mustValidate(t, engine, `<root xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="target.xml"/>`)
 	mustNotValidate(t, engine, `<root/>`, ErrValidationAttribute)
+}
+
+func TestChildXSITypeUsesSchemaLocationHintForKnownQNameWithoutType(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t" xmlns:t="urn:t" elementFormDefault="qualified">
+  <xs:element name="HintedType"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence><xs:element name="child" type="xs:anyType"/></xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<t:root xmlns:t="urn:t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><t:child xsi:type="t:HintedType" xsi:schemaLocation="urn:t hinted.xsd"/></t:root>`))
+	expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedSchemaHint)
+}
+
+func TestMalformedXSISchemaLocationIsValidationAttributeError(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	tests := []string{
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:t"/>`,
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:t %zz"/>`,
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:t="urn:t" xsi:type="t:Missing" xsi:schemaLocation="urn:t hinted.xsd urn:u"/>`,
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation=""/>`,
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="%zz"/>`,
+	}
+	for _, doc := range tests {
+		t.Run(doc, func(t *testing.T) {
+			err := engine.Validate(strings.NewReader(doc))
+			expectCode(t, err, ErrValidationAttribute)
+		})
+	}
 }
 
 func TestStandardAttributeSchemasDoNotDuplicateBuiltIns(t *testing.T) {

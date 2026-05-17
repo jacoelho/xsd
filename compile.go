@@ -19,6 +19,8 @@ type CompileOptions struct {
 	MaxSchemaAttributes int
 	// MaxSchemaTokenBytes caps retained schema XML token payloads. Zero uses the default.
 	MaxSchemaTokenBytes int
+	// MaxSchemaSourceBytes caps bytes read from each schema source. Zero uses the default.
+	MaxSchemaSourceBytes int
 	// MaxSchemaNames caps interned schema names, including built-ins. Zero means no explicit limit.
 	MaxSchemaNames int
 	// MaxFiniteOccurs caps finite maxOccurs values. Zero uses the uint32 runtime cap.
@@ -31,6 +33,7 @@ const (
 	defaultMaxSchemaDepth        = 256
 	defaultMaxSchemaAttributes   = 256
 	defaultMaxSchemaTokenBytes   = 4 << 20
+	defaultMaxSchemaSourceBytes  = 64 << 20
 	defaultMaxContentModelStates = 16_384
 )
 
@@ -38,6 +41,7 @@ type compileLimits struct {
 	maxSchemaDepth        int
 	maxSchemaAttributes   int
 	maxSchemaTokenBytes   int
+	maxSchemaSourceBytes  int
 	maxSchemaNames        int
 	maxContentModelStates int
 	maxFiniteOccurs       uint64
@@ -103,6 +107,10 @@ func normalizeCompileOptions(opts CompileOptions) (compileLimits, error) {
 	if err != nil {
 		return compileLimits{}, err
 	}
+	sourceBytes, err := compileLimitOrDefault("MaxSchemaSourceBytes", opts.MaxSchemaSourceBytes, defaultMaxSchemaSourceBytes)
+	if err != nil {
+		return compileLimits{}, err
+	}
 	if opts.MaxSchemaNames < 0 {
 		return compileLimits{}, schemaCompile(ErrSchemaLimit, "MaxSchemaNames cannot be negative")
 	}
@@ -114,6 +122,7 @@ func normalizeCompileOptions(opts CompileOptions) (compileLimits, error) {
 		maxSchemaDepth:        depth,
 		maxSchemaAttributes:   attrs,
 		maxSchemaTokenBytes:   tokenBytes,
+		maxSchemaSourceBytes:  sourceBytes,
 		maxSchemaNames:        opts.MaxSchemaNames,
 		maxContentModelStates: modelStates,
 		maxFiniteOccurs:       opts.MaxFiniteOccurs,

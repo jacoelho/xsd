@@ -21,8 +21,11 @@ func (c *compiler) load(sources []SchemaSource) error {
 		if _, ok := c.sources[name]; ok {
 			continue
 		}
-		data, err := s.read()
+		data, err := s.read(c.limits.maxSchemaSourceBytes)
 		if err != nil {
+			if isSchemaLimitError(err) {
+				return err
+			}
 			return &Error{Category: SchemaParseErrorCategory, Code: ErrSchemaRead, Message: "read schema " + s.name, Err: err}
 		}
 		doc, err := parseSchemaDocument(name, data, c.limits)
@@ -69,6 +72,11 @@ func (c *compiler) load(sources []SchemaSource) error {
 		return cmp.Compare(a.name, b.name)
 	})
 	return c.checkExplicitSchemaReferences()
+}
+
+func isSchemaLimitError(err error) bool {
+	x, ok := errors.AsType[*Error](err)
+	return ok && x.Code == ErrSchemaLimit
 }
 
 type schemaDocumentRef struct {

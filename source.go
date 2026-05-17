@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -64,17 +65,32 @@ func Reader(name string, r io.Reader) SchemaSource {
 	return SchemaSource{name: name, data: data}
 }
 
+// LimitedReader reads at most maxBytes from r into an in-memory schema source.
+func LimitedReader(name string, r io.Reader, maxBytes int) SchemaSource {
+	if r == nil {
+		return SchemaSource{name: name, err: errNilSchemaReader}
+	}
+	data, err := readLimitedSchemaSource(name, r, maxBytes)
+	if err != nil {
+		return SchemaSource{name: name, err: err}
+	}
+	return SchemaSource{name: name, data: data}
+}
+
 // WithResolver returns s with r used for schema include/import resolution.
 func (s SchemaSource) WithResolver(r Resolver) SchemaSource {
 	s.resolver = r
 	return s
 }
 
-func (s SchemaSource) read() ([]byte, error) {
+func (s SchemaSource) read(maxBytes int) ([]byte, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 	if s.data != nil {
+		if len(s.data) > maxBytes {
+			return nil, schemaSourceLimitError(s.name)
+		}
 		return bytes.Clone(s.data), nil
 	}
 	if s.open == nil {
@@ -84,12 +100,37 @@ func (s SchemaSource) read() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, readErr := io.ReadAll(r)
+	data, readErr := readLimitedSchemaSource(s.name, r, maxBytes)
 	closeErr := r.Close()
 	if readErr != nil {
 		return nil, readErr
 	}
 	return data, closeErr
+}
+
+func readLimitedSchemaSource(name string, r io.Reader, maxBytes int) ([]byte, error) {
+	if maxBytes <= 0 {
+		return nil, schemaCompile(ErrSchemaLimit, "schema reader byte limit must be positive")
+	}
+	var reader io.Reader = r
+	if maxBytes < math.MaxInt {
+		reader = io.LimitReader(r, int64(maxBytes)+1)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxBytes {
+		return nil, schemaSourceLimitError(name)
+	}
+	return data, nil
+}
+
+func schemaSourceLimitError(name string) error {
+	if name == "" {
+		return schemaCompile(ErrSchemaLimit, "schema source exceeds MaxSchemaSourceBytes")
+	}
+	return schemaCompile(ErrSchemaLimit, "schema source "+name+" exceeds MaxSchemaSourceBytes")
 }
 
 func resolveFileSchemaSource(base, location string) (SchemaSource, error) {
@@ -110,6 +151,9 @@ func resolveLocalSchemaLocation(base, location string) (string, bool) {
 	u, err := url.Parse(location)
 	if err == nil && u.Scheme != "" {
 		if u.Scheme != "file" {
+			return "", false
+		}
+		if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {
 			return "", false
 		}
 		path, err := url.PathUnescape(u.Path)

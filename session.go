@@ -282,7 +282,12 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 	if err != nil {
 		return err
 	}
-	s.recordSchemaLocationHints(se.Attr)
+	if err := s.recordSchemaLocationHints(se.Attr, line, col); err != nil {
+		recoverErr := s.recover(err)
+		if recoverErr != nil {
+			return recoverErr
+		}
+	}
 	rn := s.runtimeName(se.Name)
 	elem, typ, skip, err := s.startType(rt, rn, se, line, col, seenRoot)
 	if err != nil {

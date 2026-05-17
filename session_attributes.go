@@ -236,30 +236,60 @@ func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set att
 	return nil
 }
 
-func (s *session) recordSchemaLocationHints(attrs []xml.Attr) {
+func (s *session) recordSchemaLocationHints(attrs []xml.Attr, line, col int) error {
 	for _, a := range attrs {
 		if a.Name.Space != xsiNamespaceURI {
 			continue
 		}
 		switch a.Name.Local {
 		case "schemaLocation":
-			var namespace string
-			haveNamespace := false
-			for field := range strings.FieldsSeq(a.Value) {
-				if !haveNamespace {
-					namespace = field
-					haveNamespace = true
-					continue
-				}
-				s.addSchemaLocationHint(namespace)
-				haveNamespace = false
+			if err := s.recordNamespaceSchemaLocationHints(a.Value, line, col); err != nil {
+				return err
 			}
 		case "noNamespaceSchemaLocation":
-			if strings.TrimSpace(a.Value) != "" {
-				s.addSchemaLocationHint("")
+			if err := s.recordNoNamespaceSchemaLocationHint(a.Value, line, col); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+func (s *session) recordNamespaceSchemaLocationHints(value string, line, col int) error {
+	var namespace string
+	var namespaces []string
+	haveNamespace := false
+	for field := range strings.FieldsSeq(value) {
+		if !isAnyURI(field) {
+			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:schemaLocation URI "+field)
+		}
+		if !haveNamespace {
+			namespace = field
+			haveNamespace = true
+			continue
+		}
+		namespaces = append(namespaces, namespace)
+		haveNamespace = false
+	}
+	if haveNamespace {
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:schemaLocation must contain namespace/location pairs")
+	}
+	for _, ns := range namespaces {
+		s.addSchemaLocationHint(ns)
+	}
+	return nil
+}
+
+func (s *session) recordNoNamespaceSchemaLocationHint(value string, line, col int) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:noNamespaceSchemaLocation is empty")
+	}
+	if !isAnyURI(value) {
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:noNamespaceSchemaLocation URI "+value)
+	}
+	s.addSchemaLocationHint("")
+	return nil
 }
 
 func (s *session) addSchemaLocationHint(ns string) {

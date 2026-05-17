@@ -468,22 +468,48 @@ func (n *rawNode) xsContentChildren() []*rawNode {
 }
 
 func (n *rawNode) resolveQName(lexical string) (string, string, error) {
-	lexical = strings.TrimSpace(lexical)
-	if lexical == "" {
-		return "", "", schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	prefix, local, prefixed, err := parseQNameParts(lexical)
+	if err != nil {
+		return "", "", err
 	}
-	prefix, local, ok := strings.Cut(lexical, ":")
-	if !ok {
-		return n.NS[""], lexical, nil
-	}
-	if prefix == "" || local == "" || strings.Contains(local, ":") {
-		return "", "", schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	if !prefixed {
+		return n.NS[""], local, nil
 	}
 	ns, ok := n.NS[prefix]
 	if !ok {
 		return "", "", schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
 	}
 	return ns, local, nil
+}
+
+func parseQNameParts(lexical string) (string, string, bool, error) {
+	lexical = strings.TrimSpace(lexical)
+	if lexical == "" {
+		return "", "", false, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	}
+	prefix, local, ok := strings.Cut(lexical, ":")
+	if !ok {
+		if !isNCName(lexical) {
+			return "", "", false, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+		}
+		return "", lexical, false, nil
+	}
+	if prefix == "" || local == "" || strings.Contains(local, ":") || !isNCName(prefix) || !isNCName(local) {
+		return "", "", false, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	}
+	return prefix, local, true, nil
+}
+
+func parseQNamePrefixWildcard(lexical string) (string, bool, error) {
+	lexical = strings.TrimSpace(lexical)
+	prefix, local, ok := strings.Cut(lexical, ":")
+	if !ok || local != "*" {
+		return "", false, nil
+	}
+	if prefix == "" || !isNCName(prefix) {
+		return "", true, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	}
+	return prefix, true, nil
 }
 
 func parseSchemaBool(v string) (bool, bool) {

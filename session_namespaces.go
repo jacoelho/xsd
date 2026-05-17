@@ -11,19 +11,9 @@ func (s *session) rootTypeFromXSIType(attrs []xml.Attr, line, col int) (typeID, 
 		if a.Name.Space != xsiNamespaceURI || a.Name.Local != "type" {
 			continue
 		}
-		q, ok := s.resolveLexicalQName(a.Value)
-		if !ok {
-			if ns, _, nsOK := s.resolveLexicalQNameParts(a.Value); nsOK && s.hasSchemaLocationHint(ns) {
-				return typeID{}, false, s.unsupportedSchemaLocation(line, col, "type", runtimeName{NS: ns, Local: a.Value})
-			}
-			return typeID{}, false, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+a.Value)
-		}
-		typ, ok := s.engine.rt.GlobalTypes[q]
-		if !ok {
-			if s.hasSchemaLocationHint(s.engine.rt.Names.Namespace(q.Namespace)) {
-				return typeID{}, false, s.unsupportedSchemaLocation(line, col, "type", runtimeName{Name: q, Known: true, NS: s.engine.rt.Names.Namespace(q.Namespace), Local: a.Value})
-			}
-			return typeID{}, false, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+a.Value)
+		typ, err := s.resolveXSIType(a.Value, line, col)
+		if err != nil {
+			return typeID{}, false, err
 		}
 		return typ, true, nil
 	}
@@ -49,16 +39,9 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []xml.Attr, li
 				return typ, false, validation(ErrValidationNil, line, col, s.pathString(), "invalid xsi:nil value")
 			}
 		case "type":
-			q, ok := s.resolveLexicalQName(a.Value)
-			if !ok {
-				if ns, _, nsOK := s.resolveLexicalQNameParts(a.Value); nsOK && s.hasSchemaLocationHint(ns) {
-					return typ, nilled, s.unsupportedSchemaLocation(line, col, "type", runtimeName{NS: ns, Local: a.Value})
-				}
-				return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+a.Value)
-			}
-			override, ok := rt.GlobalTypes[q]
-			if !ok {
-				return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+a.Value)
+			override, err := s.resolveXSIType(a.Value, line, col)
+			if err != nil {
+				return typ, nilled, err
 			}
 			if !s.typeDerivesFrom(override, typ) {
 				return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "xsi:type is not derived from declared type")
@@ -97,6 +80,24 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []xml.Attr, li
 		}
 	}
 	return typ, nilled, nil
+}
+
+func (s *session) resolveXSIType(value string, line, col int) (typeID, error) {
+	q, ok := s.resolveLexicalQName(value)
+	if !ok {
+		if ns, _, nsOK := s.resolveLexicalQNameParts(value); nsOK && s.hasSchemaLocationHint(ns) {
+			return typeID{}, s.unsupportedSchemaLocation(line, col, "type", runtimeName{NS: ns, Local: value})
+		}
+		return typeID{}, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+value)
+	}
+	if typ, ok := s.engine.rt.GlobalTypes[q]; ok {
+		return typ, nil
+	}
+	ns := s.engine.rt.Names.Namespace(q.Namespace)
+	if s.hasSchemaLocationHint(ns) {
+		return typeID{}, s.unsupportedSchemaLocation(line, col, "type", runtimeName{Name: q, Known: true, NS: ns, Local: value})
+	}
+	return typeID{}, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+value)
 }
 
 func (s *session) typeDerivesFrom(t, base typeID) bool {

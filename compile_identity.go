@@ -338,18 +338,15 @@ func parseIdentityDescendantPrefix(path string) (string, bool) {
 
 func (c *compiler) parseIdentityAttributeName(n *rawNode, name string) (qName, bool, bool, namespaceID, error) {
 	name = strings.TrimSpace(name)
-	if strings.ContainsAny(name, " \t\r\n") {
-		return qName{}, false, false, 0, schemaCompile(ErrSchemaReference, "invalid QName "+name)
-	}
 	switch name {
 	case "*":
 		return qName{}, true, false, 0, nil
 	default:
-		prefix, local, ok := strings.Cut(name, ":")
-		if ok && local == "*" {
-			if prefix == "" || strings.Contains(prefix, ":") {
-				return qName{}, false, false, 0, schemaCompile(ErrSchemaReference, "invalid QName "+name)
-			}
+		prefix, wildcard, err := parseQNamePrefixWildcard(name)
+		if err != nil {
+			return qName{}, false, false, 0, err
+		}
+		if wildcard {
 			ns, ok := n.NS[prefix]
 			if !ok {
 				return qName{}, false, false, 0, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
@@ -366,14 +363,11 @@ func (c *compiler) parseIdentityNameTest(n *rawNode, lexical string) (identitySt
 	if lexical == "*" {
 		return identityStep{wildcard: true}, nil
 	}
-	if strings.ContainsAny(lexical, " \t\r\n") {
-		return identityStep{}, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	prefix, wildcard, err := parseQNamePrefixWildcard(lexical)
+	if err != nil {
+		return identityStep{}, err
 	}
-	prefix, local, ok := strings.Cut(lexical, ":")
-	if ok && local == "*" {
-		if prefix == "" || strings.Contains(prefix, ":") {
-			return identityStep{}, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
-		}
+	if wildcard {
 		ns, ok := n.NS[prefix]
 		if !ok {
 			return identityStep{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
@@ -455,12 +449,12 @@ func parseIdentityAxisStep(part, axis string) (string, bool) {
 }
 
 func (c *compiler) resolveXPathQName(n *rawNode, lexical string) (qName, error) {
-	prefix, local, ok := strings.Cut(lexical, ":")
-	if !ok {
-		return c.rt.Names.InternQName("", lexical), nil
+	prefix, local, prefixed, err := parseQNameParts(lexical)
+	if err != nil {
+		return qName{}, err
 	}
-	if prefix == "" || local == "" || strings.Contains(local, ":") {
-		return qName{}, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	if !prefixed {
+		return c.rt.Names.InternQName("", local), nil
 	}
 	ns, ok := n.NS[prefix]
 	if !ok {

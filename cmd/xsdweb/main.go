@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"time"
 )
 
 func main() {
@@ -12,6 +13,11 @@ func main() {
 	dir := flag.String("dir", "docs", "directory to serve")
 	flag.Parse()
 
-	log.Printf("serving %s at http://localhost%s", *dir, *addr)
-	log.Fatal(http.ListenAndServe(*addr, http.FileServer(http.Dir(*dir))))
+	srv := &http.Server{
+		Addr:              *addr,
+		Handler:           http.FileServer(http.Dir(*dir)),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	log.Printf("serving %s on %s", *dir, *addr)
+	log.Fatal(srv.ListenAndServe())
 }

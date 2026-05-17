@@ -382,12 +382,23 @@ func TestCompileOptionsSchemaXMLLimits(t *testing.T) {
 	expectCategoryCode(t, err, SchemaParseErrorCategory, ErrSchemaLimit)
 }
 
+func TestCompileOptionsSchemaSourceByteLimit(t *testing.T) {
+	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
+	if _, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: len(schema)}, sourceBytes("schema.xsd", []byte(schema))); err != nil {
+		t.Fatalf("CompileWithOptions() source byte boundary error = %v", err)
+	}
+
+	_, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: len(schema) - 1}, sourceBytes("schema.xsd", []byte(schema)))
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+}
+
 func TestCompileOptionsRejectNegativeLimits(t *testing.T) {
 	source := sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`))
 	tests := []CompileOptions{
 		{MaxSchemaDepth: -1},
 		{MaxSchemaAttributes: -1},
 		{MaxSchemaTokenBytes: -1},
+		{MaxSchemaSourceBytes: -1},
 		{MaxSchemaNames: -1},
 		{MaxContentModelStates: -1},
 	}

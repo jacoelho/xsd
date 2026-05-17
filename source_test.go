@@ -177,6 +177,62 @@ func TestFileResolvesLocalIncludeAndImport(t *testing.T) {
 	mustNotValidate(t, engine, `<other xmlns="urn:test">bad</other>`, ErrValidationFacet)
 }
 
+func TestCompileOptionsSchemaSourceByteLimitAppliesToFile(t *testing.T) {
+	dir := t.TempDir()
+	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
+	path := filepath.Join(dir, "schema.xsd")
+	writeSchemaFile(t, path, schema)
+
+	_, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: len(schema) - 1}, File(path))
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+}
+
+func TestCompileOptionsSchemaSourceByteLimitAppliesToResolvedInclude(t *testing.T) {
+	included := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:documentation>` + strings.Repeat("x", 128) + `</xs:documentation></xs:annotation></xs:schema>`
+	main := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="types.xsd"/></xs:schema>`
+	_, err := CompileWithOptions(
+		CompileOptions{MaxSchemaSourceBytes: len(included) - 1},
+		Reader("main.xsd", strings.NewReader(main)).WithResolver(mapResolver{
+			"types.xsd": included,
+		}),
+	)
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+}
+
+func TestLimitedReaderRejectsOverLimit(t *testing.T) {
+	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
+	if _, err := Compile(LimitedReader("schema.xsd", strings.NewReader(schema), len(schema))); err != nil {
+		t.Fatalf("Compile() limited reader boundary error = %v", err)
+	}
+
+	_, err := Compile(LimitedReader("schema.xsd", strings.NewReader(schema), len(schema)-1))
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+}
+
+func TestLimitedReaderRejectsInvalidLimit(t *testing.T) {
+	_, err := Compile(LimitedReader("schema.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`), 0))
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+}
+
+func TestResolveLocalSchemaLocationFileURIHost(t *testing.T) {
+	if _, ok := resolveLocalSchemaLocation("/tmp/main.xsd", "file://example.com/tmp/types.xsd"); ok {
+		t.Fatal("resolveLocalSchemaLocation() accepted non-local file URI host")
+	}
+
+	want := filepath.Clean(filepath.FromSlash("/tmp/types.xsd"))
+	for _, location := range []string{"file:///tmp/types.xsd", "file://localhost/tmp/types.xsd"} {
+		t.Run(location, func(t *testing.T) {
+			got, ok := resolveLocalSchemaLocation("/tmp/main.xsd", location)
+			if !ok {
+				t.Fatalf("resolveLocalSchemaLocation() ok = false")
+			}
+			if got != want {
+				t.Fatalf("resolveLocalSchemaLocation() = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestReaderDoesNotResolveSchemaLocationFromName(t *testing.T) {
 	dir := t.TempDir()
 	writeSchemaFile(t, filepath.Join(dir, "types.xsd"), `
