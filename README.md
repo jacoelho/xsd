@@ -7,6 +7,7 @@ The public API is intentionally small:
 - compile schemas once with `xsd.Compile`
 - pass schema sources with `xsd.File` or `xsd.Reader`
 - validate each XML document with `Engine.Validate`
+- reuse document-local state with `Engine.NewSession` when useful
 - inspect failures with `errors.AsType[*xsd.Error]`
 
 Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document.
@@ -68,11 +69,12 @@ schema := strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSche
 
 engine, err := xsd.CompileWithOptions(
     xsd.CompileOptions{
-        MaxSchemaDepth:      256,
-        MaxSchemaAttributes: 256,
-        MaxSchemaTokenBytes: 4 << 20,
-        MaxSchemaNames:      0,
-        MaxFiniteOccurs:     1_000_000,
+        MaxSchemaDepth:        256,
+        MaxSchemaAttributes:   256,
+        MaxSchemaTokenBytes:   4 << 20,
+        MaxSchemaNames:        0,
+        MaxFiniteOccurs:       1_000_000,
+        MaxContentModelStates: 16_384,
     },
     xsd.Reader("schema.xsd", schema),
 )
@@ -89,9 +91,42 @@ Available options:
 | `MaxSchemaAttributes` | `256` | Max attributes on one schema XML element. |
 | `MaxSchemaTokenBytes` | `4 << 20` | Max retained schema XML token payload. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
-| `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` means no explicit limit. |
+| `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
+| `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. |
 
 Negative integer limits are schema compile errors.
+
+Finite `minOccurs` and `maxOccurs` values above `4294967295` are schema compile errors. `MaxFiniteOccurs` can lower the finite `maxOccurs` limit, but it cannot raise it above the runtime `uint32` representation. `maxOccurs="unbounded"` is not affected by this cap.
+
+## Validation Options
+
+Use `ValidateWithOptions` for one validation call, or `NewSession` to reuse document-local buffers across calls:
+
+```go
+session := engine.NewSession(xsd.ValidateOptions{
+    MaxErrors:             1,
+    MaxIdentityScopes:     10_000,
+    MaxIdentityEntries:    100_000,
+    MaxIdentityTupleBytes: 4 << 10,
+})
+
+for _, doc := range docs {
+    if err := session.Validate(strings.NewReader(doc)); err != nil {
+        return err
+    }
+}
+```
+
+Available validation options:
+
+| Option | Default | Meaning |
+| --- | ---: | --- |
+| `MaxErrors` | `0` | Max collected recoverable validation errors. `0` means unlimited. |
+| `MaxIdentityScopes` | `0` | Max active identity-constraint scopes. `0` means unlimited. |
+| `MaxIdentityEntries` | `0` | Max stored ID, IDREF, key, unique, and keyref entries. `0` means unlimited. |
+| `MaxIdentityTupleBytes` | `0` | Max byte length of one stored identity key. `0` means unlimited. |
+
+`Engine` is goroutine-safe. `Session` is not goroutine-safe; use one session per goroutine. `Session.Validate` resets document-local state before every validation.
 
 ## Resolve Includes From Reader
 
@@ -214,7 +249,7 @@ By default this generates streaming XML documents at `100MB`, `500MB`, `1GB`, an
 
 The command comparison reports elapsed time and max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
 
-Latest local run:
+Latest local run (2026-05-17, Go 1.26.2, libxml2 2.9.13):
 
 ```text
 goos: darwin
@@ -223,21 +258,21 @@ pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | sec/op          | sec/op          vs base           |
-streaming/100MB                   1.694s          2.901s      +71.28%
-streaming/500MB                   8.536s         14.519s      +70.10%
-streaming/1GB                    25.552s         29.540s      +15.61%
-streaming/2GB                    53.424s         60.001s      +12.31%
-identity                       574.678ms       277.868ms      -51.65%
-geomean                           6.470s          7.301s      +12.84%
+streaming/100MB                   1.671s          2.775s      +66.02%
+streaming/500MB                  10.432s         13.864s      +32.91%
+streaming/1GB                    25.886s         28.177s       +8.85%
+streaming/2GB                    56.644s         56.764s       +0.21%
+identity                       630.717ms       421.677ms      -33.14%
+geomean                           6.942s          7.635s       +9.98%
 
                          | libxml2 xmllint |             go xmllint             |
                          | rss/op          | rss/op          vs base           |
-streaming/100MB                  1.17GiB        12.30MiB      -98.97%
-streaming/500MB                  5.81GiB        12.77MiB      -99.79%
-streaming/1GB                   11.18GiB        12.62MiB      -99.89%
-streaming/2GB                   11.93GiB        13.23MiB      -99.89%
-identity                       186.05MiB        79.42MiB      -57.31%
-geomean                          2.78GiB        18.35MiB      -99.35%
+streaming/100MB                  1.17GiB        12.72MiB      -98.94%
+streaming/500MB                  5.81GiB        13.00MiB      -99.78%
+streaming/1GB                   11.03GiB        13.72MiB      -99.88%
+streaming/2GB                   11.14GiB        13.30MiB      -99.88%
+identity                       186.89MiB        73.59MiB      -60.62%
+geomean                          2.73GiB        18.59MiB      -99.34%
 ```
 
 ## Constraints
@@ -247,6 +282,6 @@ geomean                          2.78GiB        18.35MiB      -99.35%
 - Instance documents must be UTF-8.
 - DTDs and external entities are rejected.
 - `xsi:schemaLocation` never triggers dynamic loading.
-- Regex support is limited to patterns representable by Go `regexp`.
+- Regex support is limited to patterns representable by Go `regexp`; unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
 - Date/time values using BCE years or years outside `0001..9999` are unsupported for `xs:date` and `xs:dateTime`.
 - `xs:redefine` is unsupported.

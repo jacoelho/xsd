@@ -43,6 +43,7 @@ type runtimeSchema struct {
 	Wildcards        []wildcard
 	AttributeUseSets []attributeUseSet
 	Models           []contentModel
+	CompiledModels   []compiledModel
 	SimpleTypes      []simpleType
 	Attributes       []attributeDecl
 	Elements         []elementDecl
@@ -73,18 +74,20 @@ type builtinIDs struct {
 }
 
 type elementDecl struct {
-	Default    string
-	Fixed      string
-	Identity   []identityConstraintID
-	Name       qName
-	Type       typeID
-	SubstHead  elementID
-	Nillable   bool
-	Abstract   bool
-	HasDefault bool
-	HasFixed   bool
-	Block      derivationMask
-	Final      derivationMask
+	Default          string
+	Fixed            string
+	DefaultCanonical string
+	FixedCanonical   string
+	Identity         []identityConstraintID
+	Name             qName
+	Type             typeID
+	SubstHead        elementID
+	Nillable         bool
+	Abstract         bool
+	HasDefault       bool
+	HasFixed         bool
+	Block            derivationMask
+	Final            derivationMask
 }
 
 type identityKind uint8
@@ -132,28 +135,35 @@ type identityFieldPath struct {
 }
 
 type attributeDecl struct {
-	Default    string
-	Fixed      string
-	Name       qName
-	Type       simpleTypeID
-	HasDefault bool
-	HasFixed   bool
+	Default          string
+	Fixed            string
+	DefaultCanonical string
+	FixedCanonical   string
+	Name             qName
+	Type             simpleTypeID
+	HasDefault       bool
+	HasFixed         bool
 }
 
 type attributeUseSet struct {
-	Uses     []attributeUse
-	wildcard wildcardID
+	Index            map[qName]uint32
+	Uses             []attributeUse
+	Required         []uint32
+	ValueConstraints []uint32
+	wildcard         wildcardID
 }
 
 type attributeUse struct {
-	Default    string
-	Fixed      string
-	Name       qName
-	Type       simpleTypeID
-	Required   bool
-	Prohibited bool
-	HasDefault bool
-	HasFixed   bool
+	Default          string
+	Fixed            string
+	DefaultCanonical string
+	FixedCanonical   string
+	Name             qName
+	Type             simpleTypeID
+	Required         bool
+	Prohibited       bool
+	HasDefault       bool
+	HasFixed         bool
 }
 
 type simpleVariety uint8
@@ -289,7 +299,6 @@ const (
 )
 
 type complexType struct {
-	CountLimits []restrictionCountLimit
 	Name        qName
 	Base        typeID
 	Content     contentModelID
@@ -301,11 +310,6 @@ type complexType struct {
 	Block       derivationMask
 	Final       derivationMask
 	SimpleValue bool
-}
-
-type restrictionCountLimit struct {
-	particle uint32
-	Max      uint32
 }
 
 type modelKind uint8
@@ -337,8 +341,6 @@ type contentModel struct {
 	occurs    occurrence
 	Kind      modelKind
 	Mixed     bool
-	Replay    bool
-	SkipUPA   bool
 }
 
 type particle struct {
@@ -347,6 +349,45 @@ type particle struct {
 	Element  elementID
 	Model    contentModelID
 	wildcard wildcardID
+}
+
+type compiledModelKind uint8
+
+const (
+	compiledModelEmpty compiledModelKind = iota
+	compiledModelAny
+	compiledModelAll
+	compiledModelDFA
+)
+
+type compiledModel struct {
+	Rows      []compiledModelRow
+	All       []compiledAllTerm
+	Start     uint32
+	AllBitLen uint32
+	Kind      compiledModelKind
+	Mixed     bool
+	Empty     bool
+}
+
+type compiledModelRow struct {
+	Edges         []compiledModelEdge
+	CountParticle particle
+	Min           uint32
+	Max           uint32
+	Accept        bool
+	Counted       bool
+	Unbounded     bool
+}
+
+type compiledModelEdge struct {
+	Particle particle
+	To       uint32
+}
+
+type compiledAllTerm struct {
+	Particle particle
+	Required bool
 }
 
 type wildcardMode uint8
@@ -416,7 +457,7 @@ func (rt *runtimeSchema) substitutionDerivationAllowed(t, base typeID, block der
 
 func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 	var blocks derivationMask
-	if base.Kind == typeComplex && int(base.ID) < len(rt.ComplexTypes) {
+	if base.Kind == typeComplex && validUint32Index(base.ID, len(rt.ComplexTypes)) {
 		blocks |= rt.ComplexTypes[base.ID].Block
 	}
 	if t.Kind != typeComplex {
@@ -424,7 +465,7 @@ func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 	}
 	current := complexTypeID(t.ID)
 	for steps := 0; steps < len(rt.ComplexTypes); steps++ {
-		if int(current) >= len(rt.ComplexTypes) {
+		if !validUint32Index(uint32(current), len(rt.ComplexTypes)) {
 			return blocks
 		}
 		ct := rt.ComplexTypes[current]
@@ -435,7 +476,7 @@ func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 			return blocks
 		}
 		parent := complexTypeID(ct.Base.ID)
-		if int(parent) >= len(rt.ComplexTypes) {
+		if !validUint32Index(uint32(parent), len(rt.ComplexTypes)) {
 			return blocks
 		}
 		blocks |= rt.ComplexTypes[parent].Block
@@ -445,7 +486,7 @@ func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 }
 
 func (rt *runtimeSchema) complexSimpleTypeDerivationMask(t complexTypeID, base simpleTypeID) (derivationMask, bool) {
-	if int(t) >= len(rt.ComplexTypes) {
+	if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
 		return 0, false
 	}
 	ct := rt.ComplexTypes[t]
@@ -481,7 +522,7 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 		if t == rt.Builtin.AnyType {
 			return mask, true
 		}
-		if int(t) >= len(rt.ComplexTypes) || seen[t] {
+		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) || seen[t] {
 			return 0, false
 		}
 		seen[t] = true
@@ -506,7 +547,7 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 	if t == base {
 		return 0, true
 	}
-	if int(t) >= len(rt.SimpleTypes) || int(base) >= len(rt.SimpleTypes) {
+	if !validUint32Index(uint32(t), len(rt.SimpleTypes)) || !validUint32Index(uint32(base), len(rt.SimpleTypes)) {
 		return 0, false
 	}
 	pair := [2]simpleTypeID{t, base}
@@ -539,7 +580,7 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 	seen := make(map[complexTypeID]bool)
 	var mask derivationMask
 	for {
-		if int(t) >= len(rt.ComplexTypes) || seen[t] {
+		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) || seen[t] {
 			return 0, false
 		}
 		seen[t] = true
@@ -563,23 +604,6 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 func (rt runtimeSchema) typeLabel(t typeID) string {
 	q := rt.typeName(t)
 	return rt.Names.Format(q)
-}
-
-func (o occurrence) allows(n uint32) bool {
-	if n < o.Min {
-		return false
-	}
-	if o.Unbounded {
-		return true
-	}
-	return n <= o.Max
-}
-
-func (o occurrence) canAdd(n uint32) bool {
-	if o.Unbounded {
-		return true
-	}
-	return n < o.Max
 }
 
 func (o occurrence) isExactlyOne() bool {

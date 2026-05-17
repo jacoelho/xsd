@@ -313,8 +313,8 @@ func writeLargeStreamingXML(t *testing.T, path string, targetBytes int64) int64 
 		writeStreamingRow(t, cw, i)
 	}
 	writeString(t, cw, footer)
-	if err := bw.Flush(); err != nil {
-		t.Fatalf("Flush(%s) error = %v", path, err)
+	if flushErr := bw.Flush(); flushErr != nil {
+		t.Fatalf("Flush(%s) error = %v", path, flushErr)
 	}
 	info, err := f.Stat()
 	if err != nil {
@@ -328,9 +328,10 @@ func writeStreamingRow(t *testing.T, w io.Writer, i int64) {
 	code := i % 1_000_000
 	amount := i % 100_000
 	status := "new"
-	if i%3 == 1 {
+	switch i % 3 {
+	case 1:
 		status = "done"
-	} else if i%3 == 2 {
+	case 2:
 		status = "held"
 	}
 	if i%4 == 0 {
@@ -395,8 +396,8 @@ func writeLargeIdentityXML(t *testing.T, path string, rows int) int64 {
 		writeFormat(t, cw, `<row id="id%d" group="g%d" ref="id%d"/>`, i, i, i-1)
 	}
 	writeString(t, cw, `</rows>`)
-	if err := bw.Flush(); err != nil {
-		t.Fatalf("Flush(%s) error = %v", path, err)
+	if flushErr := bw.Flush(); flushErr != nil {
+		t.Fatalf("Flush(%s) error = %v", path, flushErr)
 	}
 	info, err := f.Stat()
 	if err != nil {

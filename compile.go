@@ -21,22 +21,26 @@ type CompileOptions struct {
 	MaxSchemaTokenBytes int
 	// MaxSchemaNames caps interned schema names, including built-ins. Zero means no explicit limit.
 	MaxSchemaNames int
-	// MaxFiniteOccurs caps finite maxOccurs values. Zero means no explicit limit.
+	// MaxFiniteOccurs caps finite maxOccurs values. Zero uses the uint32 runtime cap.
 	MaxFiniteOccurs uint64
+	// MaxContentModelStates caps compiled content-model DFA states. Zero uses the default.
+	MaxContentModelStates int
 }
 
 const (
-	defaultMaxSchemaDepth      = 256
-	defaultMaxSchemaAttributes = 256
-	defaultMaxSchemaTokenBytes = 4 << 20
+	defaultMaxSchemaDepth        = 256
+	defaultMaxSchemaAttributes   = 256
+	defaultMaxSchemaTokenBytes   = 4 << 20
+	defaultMaxContentModelStates = 16_384
 )
 
 type compileLimits struct {
-	maxSchemaDepth      int
-	maxSchemaAttributes int
-	maxSchemaTokenBytes int
-	maxSchemaNames      int
-	maxFiniteOccurs     uint64
+	maxSchemaDepth        int
+	maxSchemaAttributes   int
+	maxSchemaTokenBytes   int
+	maxSchemaNames        int
+	maxContentModelStates int
+	maxFiniteOccurs       uint64
 }
 
 // Compile compiles schema sources into an immutable validation engine.
@@ -58,29 +62,32 @@ func compileWithOptions(opts CompileOptions, sources []SchemaSource) (*Engine, e
 		return nil, schemaCompile(ErrSchemaNoSources, "at least one schema source is required")
 	}
 	c := newCompiler(limits)
-	if err := c.checkLimits(); err != nil {
+	if err = c.checkLimits(); err != nil {
 		return nil, err
 	}
-	if err := c.load(sources); err != nil {
+	if err = c.load(sources); err != nil {
 		return nil, err
 	}
-	if err := c.checkLimits(); err != nil {
+	if err = c.checkLimits(); err != nil {
 		return nil, err
 	}
-	if err := c.index(); err != nil {
+	if err = c.index(); err != nil {
 		return nil, err
 	}
-	if err := c.checkLimits(); err != nil {
+	if err = c.checkLimits(); err != nil {
 		return nil, err
 	}
-	if err := c.compileGlobals(); err != nil {
+	if err = c.compileGlobals(); err != nil {
 		return nil, err
 	}
-	if err := c.checkLimits(); err != nil {
+	if err = c.checkLimits(); err != nil {
 		return nil, err
 	}
-	rt := c.rt
-	return &Engine{rt: &rt}, nil
+	rt, err := c.freezeRuntime()
+	if err != nil {
+		return nil, err
+	}
+	return &Engine{rt: rt}, nil
 }
 
 func normalizeCompileOptions(opts CompileOptions) (compileLimits, error) {
@@ -99,12 +106,17 @@ func normalizeCompileOptions(opts CompileOptions) (compileLimits, error) {
 	if opts.MaxSchemaNames < 0 {
 		return compileLimits{}, schemaCompile(ErrSchemaLimit, "MaxSchemaNames cannot be negative")
 	}
+	modelStates, err := compileLimitOrDefault("MaxContentModelStates", opts.MaxContentModelStates, defaultMaxContentModelStates)
+	if err != nil {
+		return compileLimits{}, err
+	}
 	return compileLimits{
-		maxSchemaDepth:      depth,
-		maxSchemaAttributes: attrs,
-		maxSchemaTokenBytes: tokenBytes,
-		maxSchemaNames:      opts.MaxSchemaNames,
-		maxFiniteOccurs:     opts.MaxFiniteOccurs,
+		maxSchemaDepth:        depth,
+		maxSchemaAttributes:   attrs,
+		maxSchemaTokenBytes:   tokenBytes,
+		maxSchemaNames:        opts.MaxSchemaNames,
+		maxContentModelStates: modelStates,
+		maxFiniteOccurs:       opts.MaxFiniteOccurs,
 	}, nil
 }
 
@@ -134,36 +146,38 @@ type rawComponent struct {
 }
 
 type compiler struct {
-	elementDone      map[qName]elementID
-	compilingComplex map[qName]bool
-	sources          map[string][]byte
-	imports          map[string]map[string]bool
-	adoptTarget      map[string]string
-	contexts         map[*rawDoc]*schemaContext
-	simpleRaw        map[qName]rawComponent
-	complexRaw       map[qName]rawComponent
-	elementRaw       map[qName]rawComponent
-	attributeRaw     map[qName]rawComponent
-	groupRaw         map[qName]rawComponent
-	attrGroupRaw     map[qName]rawComponent
-	simpleDone       map[qName]simpleTypeID
-	complexDone      map[qName]complexTypeID
-	identityDeclared map[*rawNode]identityConstraintID
-	compilingModel   map[*rawNode]bool
-	compilingAttr    map[qName]bool
-	modelDepth       map[*rawNode]int
-	localDone        map[*rawNode]elementID
-	compilingSimple  map[qName]bool
-	attributeDone    map[qName]attributeID
-	compilingElement map[qName]bool
-	modelDone        map[*rawNode]contentModelID
-	compilingLocal   map[*rawNode]bool
-	compilingAttrGrp map[qName]bool
-	docs             []*rawDoc
-	rt               runtimeSchema
-	limits           compileLimits
-	elementDepth     int
-	missingSimple    simpleTypeID
+	elementDone        map[qName]elementID
+	compilingComplex   map[qName]bool
+	sources            map[string][]byte
+	sourceDocs         map[string]*rawDoc
+	imports            map[string]map[string]bool
+	adoptTarget        map[string]string
+	contexts           map[*rawDoc]*schemaContext
+	choiceLimitByModel map[contentModelID][]uint32
+	simpleRaw          map[qName]rawComponent
+	complexRaw         map[qName]rawComponent
+	elementRaw         map[qName]rawComponent
+	attributeRaw       map[qName]rawComponent
+	groupRaw           map[qName]rawComponent
+	attrGroupRaw       map[qName]rawComponent
+	simpleDone         map[qName]simpleTypeID
+	complexDone        map[qName]complexTypeID
+	identityDeclared   map[*rawNode]identityConstraintID
+	compilingModel     map[*rawNode]bool
+	compilingAttr      map[qName]bool
+	modelDepth         map[*rawNode]int
+	localDone          map[*rawNode]elementID
+	compilingSimple    map[qName]bool
+	attributeDone      map[qName]attributeID
+	compilingElement   map[qName]bool
+	modelDone          map[*rawNode]contentModelID
+	compilingLocal     map[*rawNode]bool
+	compilingAttrGrp   map[qName]bool
+	docs               []*rawDoc
+	rt                 runtimeSchema
+	limits             compileLimits
+	elementDepth       int
+	missingSimple      simpleTypeID
 }
 
 func newCompiler(limits compileLimits) *compiler {
@@ -178,34 +192,36 @@ func newCompiler(limits compileLimits) *compiler {
 		Substitutions:    make(map[elementID][]elementID),
 	}
 	c := &compiler{
-		rt:               rt,
-		sources:          make(map[string][]byte),
-		imports:          make(map[string]map[string]bool),
-		adoptTarget:      make(map[string]string),
-		contexts:         make(map[*rawDoc]*schemaContext),
-		simpleRaw:        make(map[qName]rawComponent),
-		complexRaw:       make(map[qName]rawComponent),
-		elementRaw:       make(map[qName]rawComponent),
-		attributeRaw:     make(map[qName]rawComponent),
-		groupRaw:         make(map[qName]rawComponent),
-		attrGroupRaw:     make(map[qName]rawComponent),
-		simpleDone:       make(map[qName]simpleTypeID),
-		complexDone:      make(map[qName]complexTypeID),
-		elementDone:      make(map[qName]elementID),
-		attributeDone:    make(map[qName]attributeID),
-		modelDone:        make(map[*rawNode]contentModelID),
-		modelDepth:       make(map[*rawNode]int),
-		localDone:        make(map[*rawNode]elementID),
-		compilingSimple:  make(map[qName]bool),
-		compilingComplex: make(map[qName]bool),
-		compilingElement: make(map[qName]bool),
-		compilingAttr:    make(map[qName]bool),
-		compilingLocal:   make(map[*rawNode]bool),
-		compilingAttrGrp: make(map[qName]bool),
-		compilingModel:   make(map[*rawNode]bool),
-		identityDeclared: make(map[*rawNode]identityConstraintID),
-		missingSimple:    noSimpleType,
-		limits:           limits,
+		rt:                 rt,
+		sources:            make(map[string][]byte),
+		sourceDocs:         make(map[string]*rawDoc),
+		imports:            make(map[string]map[string]bool),
+		adoptTarget:        make(map[string]string),
+		contexts:           make(map[*rawDoc]*schemaContext),
+		choiceLimitByModel: make(map[contentModelID][]uint32),
+		simpleRaw:          make(map[qName]rawComponent),
+		complexRaw:         make(map[qName]rawComponent),
+		elementRaw:         make(map[qName]rawComponent),
+		attributeRaw:       make(map[qName]rawComponent),
+		groupRaw:           make(map[qName]rawComponent),
+		attrGroupRaw:       make(map[qName]rawComponent),
+		simpleDone:         make(map[qName]simpleTypeID),
+		complexDone:        make(map[qName]complexTypeID),
+		elementDone:        make(map[qName]elementID),
+		attributeDone:      make(map[qName]attributeID),
+		modelDone:          make(map[*rawNode]contentModelID),
+		modelDepth:         make(map[*rawNode]int),
+		localDone:          make(map[*rawNode]elementID),
+		compilingSimple:    make(map[qName]bool),
+		compilingComplex:   make(map[qName]bool),
+		compilingElement:   make(map[qName]bool),
+		compilingAttr:      make(map[qName]bool),
+		compilingLocal:     make(map[*rawNode]bool),
+		compilingAttrGrp:   make(map[qName]bool),
+		compilingModel:     make(map[*rawNode]bool),
+		identityDeclared:   make(map[*rawNode]identityConstraintID),
+		missingSimple:      noSimpleType,
+		limits:             limits,
 	}
 	c.addBuiltins()
 	return c
@@ -264,6 +280,9 @@ func (c *compiler) compileGlobals() error {
 	if err := c.checkCompiledModelsUPA(); err != nil {
 		return err
 	}
+	if err := c.compileContentModels(); err != nil {
+		return err
+	}
 	c.classifySimpleIdentities()
 	return nil
 }
@@ -277,7 +296,7 @@ func (c *compiler) classifySimpleIdentities() {
 }
 
 func (c *compiler) simpleIdentityKind(id simpleTypeID, memo []simpleIdentityKind, visiting []bool) simpleIdentityKind {
-	if id == noSimpleType || int(id) >= len(c.rt.SimpleTypes) {
+	if id == noSimpleType || !validUint32Index(uint32(id), len(c.rt.SimpleTypes)) {
 		return simpleIdentityNone
 	}
 	if memo[id] != simpleIdentityNone {
@@ -349,70 +368,32 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 	return nil
 }
 
-func parseDerivationMask(v string) derivationMask {
-	var m derivationMask
-	for p := range strings.FieldsSeq(v) {
-		switch p {
-		case "#all":
-			return blockExtension | blockRestriction | blockSubstitution | blockList | blockUnion
-		case "extension":
-			m |= blockExtension
-		case "restriction":
-			m |= blockRestriction
-		case "substitution":
-			m |= blockSubstitution
-		case "list":
-			m |= blockList
-		case "union":
-			m |= blockUnion
-		}
+const (
+	derivationComplexMask      = blockExtension | blockRestriction
+	derivationBlockDefaultMask = blockExtension | blockRestriction | blockSubstitution
+	derivationFinalDefaultMask = blockExtension | blockRestriction | blockList | blockUnion
+	derivationSimpleFinalMask  = blockRestriction | blockList | blockUnion
+)
+
+func complexBlockMaskWithDefault(n *rawNode, def derivationMask) (derivationMask, error) {
+	if v, ok := n.attr("block"); ok {
+		return parseDerivationSet(v, "complexType block", derivationComplexMask)
 	}
-	return m
+	return def & derivationComplexMask, nil
 }
 
-func complexBlockMaskWithDefault(n *rawNode, def derivationMask) derivationMask {
-	if v, ok := n.attr("block"); ok {
-		return parseDerivationMask(v) & (blockExtension | blockRestriction)
-	}
-	return def & (blockExtension | blockRestriction)
+func complexFinalMaskWithDefault(n *rawNode, def derivationMask) (derivationMask, error) {
+	return derivationMaskWithDefaultChecked(n, "final", def, derivationComplexMask, "complexType final")
 }
 
 func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivationMask, error) {
 	if v, ok := n.attr("final"); ok {
-		return parseSimpleFinalMaskChecked(v)
+		return parseDerivationSet(v, "simpleType final", derivationSimpleFinalMask)
 	}
-	return def & (blockRestriction | blockList | blockUnion), nil
+	return def & derivationSimpleFinalMask, nil
 }
 
-func parseSimpleFinalMaskChecked(v string) (derivationMask, error) {
-	var m derivationMask
-	fieldCount := 0
-	for range strings.FieldsSeq(v) {
-		fieldCount++
-	}
-	i := 0
-	for p := range strings.FieldsSeq(v) {
-		switch p {
-		case "#all":
-			if fieldCount != 1 || i != 0 {
-				return 0, schemaCompile(ErrSchemaInvalidAttribute, "simpleType final cannot combine #all with other values")
-			}
-			return blockRestriction | blockList | blockUnion, nil
-		case "restriction":
-			m |= blockRestriction
-		case "list":
-			m |= blockList
-		case "union":
-			m |= blockUnion
-		default:
-			return 0, schemaCompile(ErrSchemaInvalidAttribute, "invalid simpleType final value "+p)
-		}
-		i++
-	}
-	return m, nil
-}
-
-func parseDerivationMaskChecked(v string, allowSubstitution bool, label string) (derivationMask, error) {
+func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask, error) {
 	var m derivationMask
 	fieldCount := 0
 	for range strings.FieldsSeq(v) {
@@ -425,20 +406,32 @@ func parseDerivationMaskChecked(v string, allowSubstitution bool, label string) 
 			if fieldCount != 1 || i != 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot combine #all with other values")
 			}
-			all := blockExtension | blockRestriction
-			if allowSubstitution {
-				all |= blockSubstitution
-			}
-			return all, nil
+			return allowed, nil
 		case "extension":
+			if allowed&blockExtension == 0 {
+				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain extension")
+			}
 			m |= blockExtension
 		case "restriction":
+			if allowed&blockRestriction == 0 {
+				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain restriction")
+			}
 			m |= blockRestriction
 		case "substitution":
-			if !allowSubstitution {
+			if allowed&blockSubstitution == 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain substitution")
 			}
 			m |= blockSubstitution
+		case "list":
+			if allowed&blockList == 0 {
+				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain list")
+			}
+			m |= blockList
+		case "union":
+			if allowed&blockUnion == 0 {
+				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain union")
+			}
+			m |= blockUnion
 		default:
 			return 0, schemaCompile(ErrSchemaInvalidAttribute, "invalid "+label+" value "+p)
 		}
@@ -447,18 +440,11 @@ func parseDerivationMaskChecked(v string, allowSubstitution bool, label string) 
 	return m, nil
 }
 
-func derivationMaskWithDefault(n *rawNode, attr string, def derivationMask) derivationMask {
+func derivationMaskWithDefaultChecked(n *rawNode, attr string, def derivationMask, allowed derivationMask, label string) (derivationMask, error) {
 	if v, ok := n.attr(attr); ok {
-		return parseDerivationMask(v)
+		return parseDerivationSet(v, label, allowed)
 	}
-	return def
-}
-
-func derivationMaskWithDefaultChecked(n *rawNode, attr string, def derivationMask, allowSubstitution bool, label string) (derivationMask, error) {
-	if v, ok := n.attr(attr); ok {
-		return parseDerivationMaskChecked(v, allowSubstitution, label)
-	}
-	return def, nil
+	return def & allowed, nil
 }
 
 func (c *compiler) resolveQNameChecked(n *rawNode, ctx *schemaContext, lexical string) (qName, error) {

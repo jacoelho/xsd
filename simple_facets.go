@@ -6,6 +6,9 @@ import (
 )
 
 func validateBuiltinDerived(rt *runtimeSchema, st simpleType, norm string) error {
+	if rt.Names.Namespace(st.Name.Namespace) != xsdNamespaceURI {
+		return nil
+	}
 	local := rt.Names.Local(st.Name.Local)
 	switch local {
 	case "integer", "nonPositiveInteger", "negativeInteger", "nonNegativeInteger", "positiveInteger",

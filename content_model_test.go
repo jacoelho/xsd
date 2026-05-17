@@ -84,25 +84,25 @@ func TestCompatibleLengthFacetBoundsAreAllowed(t *testing.T) {
 	mustNotValidate(t, engine, `<v>a</v>`, ErrValidationFacet)
 }
 
-func TestContentModelCounterIndexInvariantError(t *testing.T) {
+func TestContentModelAllBitInvariantError(t *testing.T) {
 	s := &session{}
-	f := &frame{CounterLen: 0}
+	f := &frame{BitLen: 0}
 
-	_, err := s.counter(f, 0)
+	_, err := s.allSeen(f, 0)
 	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 
-	err = s.setCounter(f, 0, 1)
+	err = s.setAllSeen(f, 0)
 	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 
-	f.CounterLen = 1
-	_, err = s.counter(f, 0)
+	f.BitLen = 1
+	_, err = s.allSeen(f, 0)
 	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 
-	err = s.setCounter(f, 0, 1)
+	err = s.setAllSeen(f, 0)
 	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 }
 
-func TestContentModelCounterWindowInvariantError(t *testing.T) {
+func TestContentModelDFAStateInvariantError(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
@@ -119,12 +119,8 @@ func TestContentModelCounterWindowInvariantError(t *testing.T) {
 </xs:schema>`)
 	modelID := rootContentModel(t, engine, "r")
 	s := &session{engine: engine}
-	f := &frame{CounterLen: 1}
-	s.counters = []uint32{0}
-
-	_, _, err := s.withModelSnapshot(f, modelID, 0, func() (matchResult, bool, error) {
-		return noMatch(), false, nil
-	})
+	f := &frame{Model: modelID, State: uint32(len(engine.rt.CompiledModels[modelID].Rows))}
+	err := s.completeDFAModel(f, engine.rt.CompiledModels[modelID], 0, 0)
 	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 }
 
@@ -595,7 +591,59 @@ func TestRestrictionRepeatedSequenceCanMapToRepeatedChoiceBranch(t *testing.T) {
       </xs:restriction>
     </xs:complexContent>
   </xs:complexType>
+	</xs:schema>`)
+}
+
+func TestRestrictionRepeatedElementCanRestrictRepeatedChoice(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base">
+    <xs:sequence>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="a"/>
+        <xs:element name="b"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:restriction base="base">
+        <xs:sequence><xs:element name="a" minOccurs="2" maxOccurs="2"/></xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="derived"/>
 </xs:schema>`)
+	mustValidate(t, engine, `<root><a/><a/></root>`)
+	mustNotValidate(t, engine, `<root><a/></root>`, ErrValidationContent)
+	mustNotValidate(t, engine, `<root><b/><b/></root>`, ErrValidationElement)
+}
+
+func TestRestrictionOptionalBoundedElementCanRestrictRepeatedChoice(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="a"/>
+        <xs:element name="b"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:restriction base="base">
+        <xs:sequence><xs:element name="a" minOccurs="0" maxOccurs="2"/></xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="derived"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<root/>`)
+	mustValidate(t, engine, `<root><a/></root>`)
+	mustValidate(t, engine, `<root><a/><a/></root>`)
+	mustNotValidate(t, engine, `<root><a/><a/><a/></root>`, ErrValidationElement)
+	mustNotValidate(t, engine, `<root><b/></root>`, ErrValidationElement)
 }
 
 func TestRestrictionChoiceBranchOccurrenceIsPreserved(t *testing.T) {
@@ -670,7 +718,75 @@ func TestRestrictionRepeatedOptionalElementCanRestrictRepeatedOptionalChoice(t *
   <xs:element name="root" type="t:derived"/>
 </xs:schema>`)
 	mustValidate(t, engine, `<root xmlns="urn:test"><annotation/><element/></root>`)
-	mustNotValidate(t, engine, `<root xmlns="urn:test"><annotation/><element/><element/></root>`, ErrValidationContent)
+	mustNotValidate(t, engine, `<root xmlns="urn:test"><annotation/><element/><element/></root>`, ErrValidationElement)
+	mustNotValidate(t, engine, `<root xmlns="urn:test"><annotation/><any/></root>`, ErrValidationElement)
+}
+
+func TestRestrictionRepeatedChoiceLimitDoesNotApplyToNestedGroup(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="a"/>
+        <xs:element name="any"/>
+      </xs:choice>
+      <xs:sequence>
+        <xs:element name="c" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:restriction base="base">
+        <xs:sequence>
+          <xs:element name="a" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:sequence>
+            <xs:element name="c" minOccurs="0" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="derived"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<root><a/><c/><c/></root>`)
+	mustNotValidate(t, engine, `<root><a/><a/></root>`, ErrValidationElement)
+}
+
+func TestRestrictionParticleLimitDoesNotLeakToSharedGroup(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="G">
+    <xs:sequence>
+      <xs:element name="annotation" minOccurs="0"/>
+      <xs:element name="element" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:complexType name="base">
+    <xs:sequence>
+      <xs:element name="annotation" minOccurs="0"/>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="element"/>
+        <xs:element name="any"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:restriction base="base">
+        <xs:group ref="G"/>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="direct">
+    <xs:complexType><xs:group ref="G"/></xs:complexType>
+  </xs:element>
+  <xs:element name="root" type="derived"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<direct><element/><element/></direct>`)
+	mustValidate(t, engine, `<root><element/></root>`)
+	mustNotValidate(t, engine, `<root><element/><element/></root>`, ErrValidationElement)
 }
 
 func TestRestrictionSequenceToChoiceRequiresValidBranchMap(t *testing.T) {
@@ -1057,17 +1173,6 @@ func TestInvalidOccurrenceIsSchemaCompileError(t *testing.T) {
 	expectCode(t, err, ErrSchemaOccurrence)
 }
 
-func TestLargeOccurrenceValuesAreSchemaValid(t *testing.T) {
-	_, err := Compile(sourceBytes("schema.xsd", []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:group name="g"><xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:group>
-  <xs:element name="r"><xs:complexType><xs:group ref="g" minOccurs="12678967543233" maxOccurs="12678967543234"/></xs:complexType></xs:element>
-</xs:schema>`)))
-	if err != nil {
-		t.Fatalf("Compile() unexpected error: %v", err)
-	}
-}
-
 func TestCompileOptionsNameAndOccurrenceLimits(t *testing.T) {
 	_, err := CompileWithOptions(CompileOptions{MaxSchemaNames: 1}, sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
 	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
@@ -1077,8 +1182,17 @@ func TestCompileOptionsNameAndOccurrenceLimits(t *testing.T) {
 	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
 
 	boundary := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:sequence><xs:element name="a" maxOccurs="10"/><xs:element name="b" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element></xs:schema>`
-	if _, err := CompileWithOptions(CompileOptions{MaxFiniteOccurs: 10}, sourceBytes("schema.xsd", []byte(boundary))); err != nil {
+	_, err = CompileWithOptions(CompileOptions{MaxFiniteOccurs: 10}, sourceBytes("schema.xsd", []byte(boundary)))
+	if err != nil {
 		t.Fatalf("CompileWithOptions() maxOccurs boundary error = %v", err)
+	}
+
+	_, err = CompileWithOptions(CompileOptions{MaxContentModelStates: 1}, sourceBytes("schema.xsd", []byte(boundary)))
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+
+	_, err = CompileWithOptions(CompileOptions{MaxContentModelStates: 32}, sourceBytes("schema.xsd", []byte(boundary)))
+	if err != nil {
+		t.Fatalf("CompileWithOptions() content model state boundary error = %v", err)
 	}
 }
 
@@ -1245,7 +1359,7 @@ func TestRepeatingChoiceWithRepeatedBranchPartitionsAtClose(t *testing.T) {
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
-      <xs:choice maxOccurs="unbounded">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element name="a" minOccurs="3" maxOccurs="5"/>
         <xs:element name="b" minOccurs="3" maxOccurs="5"/>
       </xs:choice>
@@ -1255,6 +1369,238 @@ func TestRepeatingChoiceWithRepeatedBranchPartitionsAtClose(t *testing.T) {
 	mustValidate(t, engine, `<r><a/><a/><a/><a/><a/><a/></r>`)
 	mustValidate(t, engine, `<r><a/><a/><a/><b/><b/><b/></r>`)
 	mustNotValidate(t, engine, `<r><a/><a/></r>`, ErrValidationContent)
+}
+
+func TestRepeatedSingleBranchChoicePartitionsByLength(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="a" minOccurs="3" maxOccurs="5"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	for _, n := range []int{0, 3, 4, 5, 6, 7, 8} {
+		mustValidate(t, engine, repeatedA(n))
+	}
+	for _, n := range []int{1, 2} {
+		mustNotValidate(t, engine, repeatedA(n), ErrValidationContent)
+	}
+}
+
+func TestRepeatedMixedBranchChoicePartitionsByLength(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="a" minOccurs="3" maxOccurs="5"/>
+        <xs:element name="b" minOccurs="3" maxOccurs="5"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<r><a/><a/><a/><a/><b/><b/><b/><b/></r>`)
+	mustValidate(t, engine, `<r><a/><a/><a/><a/><a/><a/><b/><b/><b/></r>`)
+	mustNotValidate(t, engine, `<r><a/><a/><a/><b/><b/></r>`, ErrValidationContent)
+}
+
+func TestLargeMaxOccursUsesCountedState(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" minOccurs="0" maxOccurs="100000"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	modelID := rootContentModel(t, engine, "r")
+	if got := len(engine.rt.CompiledModels[modelID].Rows); got > 3 {
+		t.Fatalf("compiled rows = %d, want compact counted state", got)
+	}
+	mustValidate(t, engine, repeatedA(8))
+}
+
+func TestLargeMinOccursInSequenceUsesCountedState(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" minOccurs="10" maxOccurs="10"/>
+        <xs:element name="b"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	modelID := rootContentModel(t, engine, "r")
+	if got := len(engine.rt.CompiledModels[modelID].Rows); got > 4 {
+		t.Fatalf("compiled rows = %d, want compact counted state", got)
+	}
+	mustValidate(t, engine, repeatedAWithB(10))
+	mustNotValidate(t, engine, repeatedAWithB(9), ErrValidationElement)
+	mustNotValidate(t, engine, repeatedAWithB(11), ErrValidationElement)
+}
+
+func TestFixedRepeatCanBeFollowedBySameElement(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" minOccurs="2" maxOccurs="2"/>
+        <xs:element name="a"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, repeatedA(3))
+	mustNotValidate(t, engine, repeatedA(2), ErrValidationContent)
+	mustNotValidate(t, engine, repeatedA(4), ErrValidationElement)
+}
+
+func TestLargeFiniteNestedRepeatIsExact(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:sequence minOccurs="18" maxOccurs="18">
+          <xs:element name="a"/>
+          <xs:element name="b"/>
+        </xs:sequence>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, repeatedAB(18))
+	mustNotValidate(t, engine, repeatedAB(17), ErrValidationContent)
+	mustNotValidate(t, engine, repeatedAB(19), ErrValidationElement)
+}
+
+func TestNullableNestedRepeatPreservesInnerMinimum(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:sequence minOccurs="2" maxOccurs="2">
+          <xs:sequence minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="b" minOccurs="2" maxOccurs="3"/>
+          </xs:sequence>
+        </xs:sequence>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, repeatedB(0))
+	mustNotValidate(t, engine, repeatedB(1), ErrValidationContent)
+	for _, n := range []int{2, 3, 4, 5, 6} {
+		mustValidate(t, engine, repeatedB(n))
+	}
+}
+
+func TestNullableExactRepeatCanBeSatisfiedByEmptyOccurrences(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:sequence minOccurs="2" maxOccurs="2">
+          <xs:element name="a" minOccurs="0"/>
+        </xs:sequence>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	for _, n := range []int{0, 1, 2} {
+		mustValidate(t, engine, repeatedA(n))
+	}
+	mustNotValidate(t, engine, repeatedA(3), ErrValidationElement)
+}
+
+func TestNullableSingleParticleRepeatCompilesWithoutStateExplosion(t *testing.T) {
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:sequence maxOccurs="100">
+          <xs:element name="a" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:element name="b"/>
+        <xs:sequence maxOccurs="100">
+          <xs:element name="a" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<r><a/><a/><b/><a/></r>`)
+}
+
+func TestLargeFiniteNestedRepeatReturnsSchemaLimit(t *testing.T) {
+	_, err := CompileWithOptions(CompileOptions{MaxContentModelStates: 8}, sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:sequence minOccurs="18" maxOccurs="18">
+          <xs:element name="a"/>
+          <xs:element name="b"/>
+        </xs:sequence>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)))
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+}
+
+func repeatedA(n int) string {
+	var b strings.Builder
+	b.WriteString("<r>")
+	for range n {
+		b.WriteString("<a/>")
+	}
+	b.WriteString("</r>")
+	return b.String()
+}
+
+func repeatedB(n int) string {
+	var b strings.Builder
+	b.WriteString("<r>")
+	for range n {
+		b.WriteString("<b/>")
+	}
+	b.WriteString("</r>")
+	return b.String()
+}
+
+func repeatedAWithB(n int) string {
+	var b strings.Builder
+	b.WriteString("<r>")
+	for range n {
+		b.WriteString("<a/>")
+	}
+	b.WriteString("<b/></r>")
+	return b.String()
+}
+
+func repeatedAB(n int) string {
+	var b strings.Builder
+	b.WriteString("<r>")
+	for range n {
+		b.WriteString("<a/><b/>")
+	}
+	b.WriteString("</r>")
+	return b.String()
 }
 
 func TestRepeatingChoiceRestrictionWithDerivedChoiceValidates(t *testing.T) {

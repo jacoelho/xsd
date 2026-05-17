@@ -25,13 +25,14 @@ func (c *compiler) load(sources []SchemaSource) error {
 		if err != nil {
 			return &Error{Category: SchemaParseErrorCategory, Code: ErrSchemaRead, Message: "read schema " + s.name, Err: err}
 		}
-		c.sources[name] = data
-		if s.resolver == nil {
-			continue
-		}
 		doc, err := parseSchemaDocument(name, data, c.limits)
 		if err != nil {
 			return err
+		}
+		c.sources[name] = data
+		c.sourceDocs[name] = doc
+		if s.resolver == nil {
+			continue
 		}
 		for _, ref := range schemaDocumentRefs(doc) {
 			if ref.namespace == xmlNamespaceURI {
@@ -54,10 +55,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 	seenContent := make(map[string]bool)
 	for _, name := range names {
 		data := c.sources[name]
-		doc, err := parseSchemaDocument(name, data, c.limits)
-		if err != nil {
-			return err
-		}
+		doc := c.sourceDocs[name]
 		if target := doc.root.attrDefault("targetNamespace", ""); target != "" {
 			key := target + "\x00" + string(data)
 			if seenContent[key] {
@@ -101,6 +99,9 @@ func schemaDocumentRefs(doc *rawDoc) []schemaDocumentRef {
 }
 
 func (c *compiler) checkExplicitSchemaReferences() error {
+	if err := c.propagateChameleonTargets(); err != nil {
+		return err
+	}
 	for _, doc := range c.docs {
 		for _, child := range doc.root.Children {
 			if child.Name.Space != xsdNamespaceURI {
@@ -114,10 +115,10 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 					if hasNamespace && namespace == "" {
 						return schemaCompile(ErrSchemaInvalidAttribute, "import namespace cannot be empty")
 					}
-					if !hasNamespace && doc.root.attrDefault("targetNamespace", "") == "" {
+					if !hasNamespace && c.documentTargetNamespace(doc) == "" {
 						return schemaCompile(ErrSchemaReference, "import without namespace requires enclosing schema targetNamespace")
 					}
-					if hasNamespace && namespace == doc.root.attrDefault("targetNamespace", "") {
+					if hasNamespace && namespace == c.documentTargetNamespace(doc) {
 						return schemaCompile(ErrSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
 					}
 					importNamespace = namespace
@@ -136,23 +137,13 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 				if strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
 					continue
 				}
-				resolved := filepath.Clean(filepath.Join(filepath.Dir(doc.name), location))
-				if _, ok := c.sources[resolved]; !ok {
-					if _, ok := c.sources[filepath.Clean(location)]; !ok {
-						continue
-					}
-					resolved = filepath.Clean(location)
-				}
-				referenced, err := parseSchemaDocument(resolved, c.sources[resolved], c.limits)
-				if err != nil {
-					return err
+				referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
+				if !ok {
+					continue
 				}
 				referencedTarget := referenced.root.attrDefault("targetNamespace", "")
 				if child.Name.Local == "include" {
-					target := doc.root.attrDefault("targetNamespace", "")
-					if target == "" {
-						target = c.adoptTarget[doc.name]
-					}
+					target := c.documentTargetNamespace(doc)
 					if referencedTarget != "" && referencedTarget != target {
 						return schemaCompile(ErrSchemaReference, "included schema targetNamespace does not match including schema")
 					}
@@ -172,4 +163,65 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 		}
 	}
 	return nil
+}
+
+func (c *compiler) propagateChameleonTargets() error {
+	for {
+		changed := false
+		for _, doc := range c.docs {
+			target := c.documentTargetNamespace(doc)
+			if target == "" {
+				continue
+			}
+			for _, child := range doc.root.Children {
+				if child.Name.Space != xsdNamespaceURI || child.Name.Local != "include" {
+					continue
+				}
+				location, ok := child.attr("schemaLocation")
+				if !ok || location == "" || strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
+					continue
+				}
+				referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
+				if !ok {
+					continue
+				}
+				referencedTarget := referenced.root.attrDefault("targetNamespace", "")
+				if referencedTarget != "" && referencedTarget != target {
+					return schemaCompile(ErrSchemaReference, "included schema targetNamespace does not match including schema")
+				}
+				if referencedTarget != "" {
+					continue
+				}
+				existing := c.adoptTarget[resolved]
+				if existing != "" && existing != target {
+					return schemaCompile(ErrSchemaReference, "chameleon include used with multiple target namespaces")
+				}
+				if existing == "" {
+					c.adoptTarget[resolved] = target
+					changed = true
+				}
+			}
+		}
+		if !changed {
+			return nil
+		}
+	}
+}
+
+func (c *compiler) documentTargetNamespace(doc *rawDoc) string {
+	if target := doc.root.attrDefault("targetNamespace", ""); target != "" {
+		return target
+	}
+	return c.adoptTarget[doc.name]
+}
+
+func (c *compiler) resolveLoadedSchemaLocation(doc *rawDoc, location string) (*rawDoc, string, bool) {
+	resolved := filepath.Clean(filepath.Join(filepath.Dir(doc.name), location))
+	if _, ok := c.sources[resolved]; !ok {
+		resolved = filepath.Clean(location)
+		if _, ok := c.sources[resolved]; !ok {
+			return nil, "", false
+		}
+	}
+	return c.sourceDocs[resolved], resolved, true
 }

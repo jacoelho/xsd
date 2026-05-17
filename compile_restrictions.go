@@ -83,7 +83,7 @@ func (c *compiler) validateContentRestriction(baseID, derivedID contentModelID) 
 	return nil
 }
 
-func (c *compiler) restrictionCountLimits(baseID, derivedID contentModelID) []restrictionCountLimit {
+func (c *compiler) restrictionRepeatedChoiceParticles(baseID, derivedID contentModelID) []uint32 {
 	if baseID == noContentModel || derivedID == noContentModel {
 		return nil
 	}
@@ -92,7 +92,7 @@ func (c *compiler) restrictionCountLimits(baseID, derivedID contentModelID) []re
 	if base.Kind != modelSequence || derived.Kind != modelSequence {
 		return nil
 	}
-	var limits []restrictionCountLimit
+	var out []uint32
 	baseIndex := 0
 	for derivedIndex, derivedParticle := range derived.Particles {
 		for baseIndex < len(base.Particles) {
@@ -101,38 +101,28 @@ func (c *compiler) restrictionCountLimits(baseID, derivedID contentModelID) []re
 				baseIndex++
 				continue
 			}
-			if limit, ok := c.restrictionCountLimit(baseParticle, derivedParticle, derivedIndex); ok {
-				limits = append(limits, limit)
+			if c.restrictionRepeatedChoiceParticle(baseParticle, derivedParticle) {
+				out = append(out, uint32(derivedIndex))
 			}
 			baseIndex++
 			break
 		}
 	}
-	return limits
+	return out
 }
 
-func (c *compiler) restrictionCountLimit(baseParticle, derivedParticle particle, derivedIndex int) (restrictionCountLimit, bool) {
-	if baseParticle.Kind != particleModel {
-		return restrictionCountLimit{}, false
+func (c *compiler) restrictionRepeatedChoiceParticle(baseParticle, derivedParticle particle) bool {
+	if baseParticle.Kind != particleModel || baseParticle.occurs.isExactlyOne() {
+		return false
 	}
 	model := c.rt.Models[baseParticle.Model]
-	if model.Kind != modelChoice || baseParticle.occurs.isExactlyOne() {
-		return restrictionCountLimit{}, false
+	if model.Kind != modelChoice || derivedParticle.Kind != particleElement {
+		return false
 	}
-	if derivedParticle.Kind == particleModel {
-		derivedModel := c.rt.Models[derivedParticle.Model]
-		if derivedModel.Kind == modelChoice {
-			return restrictionCountLimit{}, false
-		}
+	if derivedParticle.occurs.Min > 1 || !derivedParticle.occurs.Unbounded {
+		return false
 	}
-	if derivedParticle.Kind != particleElement {
-		return restrictionCountLimit{}, false
-	}
-	r := c.particleCountRange(derivedParticle)
-	if !r.Unbounded && r.Max <= 1 {
-		return restrictionCountLimit{}, false
-	}
-	return restrictionCountLimit{particle: uint32(derivedIndex), Max: 1}, true
+	return true
 }
 
 func (c *compiler) choiceRestrictionBranchAllowed(base []particle, derived particle) bool {

@@ -9,9 +9,7 @@ func compilePattern(source string) (pattern, error) {
 	if err := validateXSDRegexSyntax(source); err != nil {
 		return pattern{}, err
 	}
-	if strings.Contains(source, `\i`) || strings.Contains(source, `\c`) ||
-		strings.Contains(source, "&&") ||
-		strings.Contains(source, `\p{Is`) || strings.Contains(source, `\P{Is`) {
+	if containsUnsupportedXSDRegex(source) || containsXSDClassSubtraction(source) {
 		return pattern{}, unsupported(ErrUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source)
 	}
 	goPattern := translateXSDRegexToGo(source)
@@ -21,6 +19,78 @@ func compilePattern(source string) (pattern, error) {
 		return pattern{}, unsupported(ErrUnsupportedRegex, "invalid or unsupported regex "+source)
 	}
 	return pattern{XSDSource: source, GoSource: goSource, RE: re}, nil
+}
+
+func containsUnsupportedXSDRegex(source string) bool {
+	escaped := false
+	for i := 0; i < len(source); i++ {
+		c := source[i]
+		if escaped {
+			switch c {
+			case 'i', 'c':
+				return true
+			case 'p', 'P':
+				if strings.HasPrefix(source[i+1:], "{Is") {
+					return true
+				}
+			}
+			escaped = false
+			continue
+		}
+		if c == '\\' {
+			escaped = true
+		}
+	}
+	return false
+}
+
+func containsXSDClassSubtraction(source string) bool {
+	escaped := false
+	inCategory := false
+	inClass := false
+	lastHyphen := false
+	for _, r := range source {
+		if inCategory {
+			if r == '}' {
+				inCategory = false
+			}
+			continue
+		}
+		if escaped {
+			if r == 'p' || r == 'P' {
+				inCategory = true
+			}
+			escaped = false
+			lastHyphen = false
+			continue
+		}
+		if r == '\\' {
+			escaped = true
+			continue
+		}
+		if !inClass {
+			if r == '[' {
+				inClass = true
+				lastHyphen = false
+			}
+			continue
+		}
+		switch r {
+		case '[':
+			if lastHyphen {
+				return true
+			}
+			lastHyphen = false
+		case ']':
+			inClass = false
+			lastHyphen = false
+		case '-':
+			lastHyphen = true
+		default:
+			lastHyphen = false
+		}
+	}
+	return false
 }
 
 func validateXSDRegexSyntax(source string) error {

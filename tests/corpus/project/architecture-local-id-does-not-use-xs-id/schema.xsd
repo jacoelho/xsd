@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:architecture:id"
+           targetNamespace="urn:architecture:id"
+           elementFormDefault="qualified">
+  <xs:simpleType name="ID">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:element name="root" type="t:ID"/>
+</xs:schema>

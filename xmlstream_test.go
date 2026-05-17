@@ -7,6 +7,46 @@ import (
 	"time"
 )
 
+type eofWithDataReader struct {
+	data []byte
+	done bool
+}
+
+func (r *eofWithDataReader) Read(p []byte) (int, error) {
+	if r.done {
+		return 0, io.EOF
+	}
+	r.done = true
+	return copy(p, r.data), io.EOF
+}
+
+func TestXMLStreamParserConsumesBytesReturnedWithEOF(t *testing.T) {
+	names := newByteStringCache(512, 256)
+	values := newByteStringCache(512, 256)
+	p := newXMLStreamParser(&eofWithDataReader{data: []byte(`<root/>`)}, &names, &values)
+
+	tok, err := p.next()
+	if err != nil {
+		t.Fatalf("next root start error = %v", err)
+	}
+	if tok.kind != streamTokenStart || tok.start.Name.Local != "root" {
+		t.Fatalf("first token = %+v, want root start", tok)
+	}
+
+	tok, err = p.next()
+	if err != nil {
+		t.Fatalf("next root end error = %v", err)
+	}
+	if tok.kind != streamTokenEnd || tok.end.Name.Local != "root" {
+		t.Fatalf("second token = %+v, want root end", tok)
+	}
+
+	_, err = p.next()
+	if err != io.EOF {
+		t.Fatalf("final error = %v, want EOF", err)
+	}
+}
+
 func TestXMLStreamParserSkipsCommentsByDefault(t *testing.T) {
 	names := newByteStringCache(512, 256)
 	values := newByteStringCache(512, 256)
@@ -93,5 +133,49 @@ func TestXMLStreamParserRejectsInvalidSkippedComment(t *testing.T) {
 	_, err := p.next()
 	if err == nil || err == io.EOF {
 		t.Fatalf("invalid comment error = %v", err)
+	}
+}
+
+func TestXMLStreamParserChunksLargeCDATA(t *testing.T) {
+	names := newByteStringCache(512, 256)
+	values := newByteStringCache(512, 256)
+	data := strings.Repeat("x", 70*1024)
+	p := newXMLStreamParser(strings.NewReader(`<root><![CDATA[`+data+`]]></root>`), &names, &values)
+
+	if _, err := p.next(); err != nil {
+		t.Fatalf("next root start error = %v", err)
+	}
+	total := 0
+	chunks := 0
+	for {
+		tok, err := p.next()
+		if err != nil {
+			t.Fatalf("next CDATA chunk error = %v", err)
+		}
+		if tok.kind == streamTokenEnd {
+			break
+		}
+		if tok.kind != streamTokenCharData || !tok.cdata {
+			t.Fatalf("token = %+v, want CDATA char data", tok)
+		}
+		if len(tok.data) > len(p.br.buf) {
+			t.Fatalf("CDATA chunk len = %d, want <= %d", len(tok.data), len(p.br.buf))
+		}
+		total += len(tok.data)
+		chunks++
+	}
+	if total != len(data) {
+		t.Fatalf("CDATA total = %d, want %d", total, len(data))
+	}
+	if chunks < 2 {
+		t.Fatalf("CDATA chunks = %d, want multiple chunks", chunks)
+	}
+}
+
+func TestLargeCDATAValidatesWithoutAccumulatingParserBuffer(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
+	data := strings.Repeat("x", 70*1024)
+	if err := engine.Validate(strings.NewReader(`<root><![CDATA[` + data + `]]></root>`)); err != nil {
+		t.Fatalf("Validate() error = %v", err)
 	}
 }

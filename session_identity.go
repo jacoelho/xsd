@@ -36,8 +36,14 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (string, simple
 	if f.Element != noElement && rawText == "" {
 		decl := rt.Elements[f.Element]
 		if decl.HasFixed {
+			if decl.Type == f.Type {
+				return s.recordElementSimpleContent(typeID, decl.FixedCanonical, line, col)
+			}
 			text = decl.Fixed
 		} else if decl.HasDefault {
+			if decl.Type == f.Type {
+				return s.recordElementSimpleContent(typeID, decl.DefaultCanonical, line, col)
+			}
 			text = decl.Default
 		}
 	}
@@ -54,18 +60,16 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (string, simple
 	}
 	if f.Element != noElement {
 		decl := rt.Elements[f.Element]
-		if decl.HasFixed {
-			fixed, err := validateSimpleValue(rt, typeID, decl.Fixed, s.resolveLexicalQNameValue)
-			if err != nil {
-				if IsUnsupported(err) {
-					return "", noSimpleType, false, err
-				}
-				return "", noSimpleType, false, validation(ErrValidationFacet, line, col, s.pathString(), "invalid fixed value")
-			}
-			if canon != fixed {
-				return "", noSimpleType, false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
-			}
+		if decl.HasFixed && canon != decl.FixedCanonical {
+			return "", noSimpleType, false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 		}
+	}
+	return canon, typeID, true, nil
+}
+
+func (s *session) recordElementSimpleContent(typeID simpleTypeID, canon string, line, col int) (string, simpleTypeID, bool, error) {
+	if err := s.recordIdentity(typeID, canon, line, col); err != nil {
+		return "", noSimpleType, false, err
 	}
 	return canon, typeID, true, nil
 }
@@ -117,13 +121,22 @@ func (s *session) recordIdentity(typeID simpleTypeID, canonical string, line, co
 		if prev, exists := s.ids[canonical]; exists {
 			return validation(ErrValidationType, line, col, s.pathString(), "duplicate ID "+canonical+" first seen at "+prev)
 		}
+		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
+			return err
+		}
 		s.ids[canonical] = s.pathString()
 		return nil
 	case simpleIdentityIDREF:
+		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
+			return err
+		}
 		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: s.pathString(), Line: line, Col: col})
 		return nil
 	case simpleIdentityIDREFList:
 		for item := range strings.FieldsSeq(canonical) {
+			if err := s.reserveIdentityEntry(item, line, col); err != nil {
+				return err
+			}
 			s.idrefs = append(s.idrefs, identityRef{Value: item, Path: s.pathString(), Line: line, Col: col})
 		}
 	}
@@ -132,7 +145,7 @@ func (s *session) recordIdentity(typeID simpleTypeID, canonical string, line, co
 
 func (s *session) simpleIdentityKind(typeID simpleTypeID) simpleIdentityKind {
 	rt := s.engine.rt
-	if typeID == noSimpleType || int(typeID) >= len(rt.SimpleTypes) {
+	if typeID == noSimpleType || !validUint32Index(uint32(typeID), len(rt.SimpleTypes)) {
 		return simpleIdentityNone
 	}
 	return rt.SimpleTypes[typeID].Identity
@@ -158,18 +171,22 @@ func (s *session) checkIDRefs() error {
 	return nil
 }
 
-func (s *session) startIdentityScope(elem elementID) {
+func (s *session) startIdentityScope(elem elementID, line, col int) error {
 	if elem == noElement {
-		return
+		return nil
 	}
 	ids := s.engine.rt.Elements[elem].Identity
 	if len(ids) == 0 {
-		return
+		return nil
+	}
+	if s.maxIdentityScopes > 0 && len(s.idScopes) >= s.maxIdentityScopes {
+		return validation(ErrValidationIdentity, line, col, s.pathString(), "identity scope limit exceeded")
 	}
 	s.idScopes = append(s.idScopes, identityScope{
 		Depth:       len(s.namePath),
 		Constraints: ids,
 	})
+	return nil
 }
 
 func (s *session) matchIdentitySelectors(line, col int) {
@@ -401,6 +418,9 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 		}
 		return nil
 	}
+	if err := s.checkIdentityTupleBytes(sel.Values, line, col); err != nil {
+		return err
+	}
 	key := strings.Join(sel.Values, "\x1f")
 	scope := &s.idScopes[sel.Scope]
 	switch ic.Kind {
@@ -416,8 +436,14 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 		if prev, exists := table[key]; exists {
 			return validation(ErrValidationIdentity, line, col, sel.Path, "duplicate identity value first seen at "+prev)
 		}
+		if err := s.reserveIdentityEntry(key, line, col); err != nil {
+			return err
+		}
 		table[key] = sel.Path
 	case identityKeyRef:
+		if err := s.reserveIdentityEntry(key, line, col); err != nil {
+			return err
+		}
 		scope.Refs = append(scope.Refs, identityTupleRef{
 			Constraint: sel.Constraint,
 			Refer:      ic.Refer,
@@ -427,6 +453,34 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 			Col:        sel.Col,
 		})
 	}
+	return nil
+}
+
+func (s *session) checkIdentityTupleBytes(values []string, line, col int) error {
+	if s.maxIdentityTupleBytes <= 0 {
+		return nil
+	}
+	size := 0
+	for i, v := range values {
+		if i > 0 {
+			size++
+		}
+		size += len(v)
+		if size > s.maxIdentityTupleBytes {
+			return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
+		}
+	}
+	return nil
+}
+
+func (s *session) reserveIdentityEntry(key string, line, col int) error {
+	if s.maxIdentityTupleBytes > 0 && len(key) > s.maxIdentityTupleBytes {
+		return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
+	}
+	if s.maxIdentityEntries > 0 && s.identityEntries >= s.maxIdentityEntries {
+		return validation(ErrValidationIdentity, line, col, s.pathString(), "identity entry limit exceeded")
+	}
+	s.identityEntries++
 	return nil
 }
 

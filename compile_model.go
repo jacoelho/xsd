@@ -20,38 +20,9 @@ func modelChildren(n *rawNode) []*rawNode {
 }
 
 func (c *compiler) addModel(m contentModel) contentModelID {
-	m.Replay = c.modelNeedsReplay(m)
 	id := contentModelID(len(c.rt.Models))
 	c.rt.Models = append(c.rt.Models, m)
 	return id
-}
-
-func (c *compiler) modelNeedsReplay(m contentModel) bool {
-	if c.choiceNeedsReplay(m, m.occurs) {
-		return true
-	}
-	for _, p := range m.Particles {
-		if p.Kind != particleModel {
-			continue
-		}
-		child := c.rt.Models[p.Model]
-		if c.choiceNeedsReplay(child, p.occurs) || child.Replay {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *compiler) choiceNeedsReplay(m contentModel, occurs occurrence) bool {
-	if m.Kind != modelChoice || occurs.isExactlyOne() {
-		return false
-	}
-	for _, p := range m.Particles {
-		if !p.occurs.isExactlyOne() {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *compiler) extendSequence(baseID, extID contentModelID) contentModelID {
@@ -60,16 +31,14 @@ func (c *compiler) extendSequence(baseID, extID contentModelID) contentModelID {
 	}
 	base := c.rt.Models[baseID]
 	ext := c.rt.Models[extID]
-	if base.Kind == modelEmpty {
-		return extID
+	mixed := base.Mixed || ext.Mixed
+	if c.modelHasNoParticles(baseID) {
+		return c.modelWithMixed(extID, mixed)
 	}
-	if ext.Kind == modelEmpty {
-		return baseID
+	if c.modelHasNoParticles(extID) {
+		return c.modelWithMixed(baseID, mixed)
 	}
-	if base.Kind == modelAll && len(base.Particles) == 0 {
-		return extID
-	}
-	m := contentModel{Kind: modelSequence, occurs: occurrence{Min: 1, Max: 1}, Mixed: base.Mixed || ext.Mixed}
+	m := contentModel{Kind: modelSequence, occurs: occurrence{Min: 1, Max: 1}, Mixed: mixed}
 	if base.Kind == modelSequence && base.occurs.isExactlyOne() {
 		m.Particles = append(m.Particles, base.Particles...)
 	} else {
@@ -81,6 +50,18 @@ func (c *compiler) extendSequence(baseID, extID contentModelID) contentModelID {
 		c.appendModelParticle(&m, extID)
 	}
 	return c.addModel(m)
+}
+
+func (c *compiler) modelWithMixed(id contentModelID, mixed bool) contentModelID {
+	if id == noContentModel {
+		return id
+	}
+	model := c.rt.Models[id]
+	if model.Mixed == mixed {
+		return id
+	}
+	model.Mixed = mixed
+	return c.addModel(model)
 }
 
 func (c *compiler) modelHasNoParticles(modelID contentModelID) bool {
@@ -116,10 +97,7 @@ func (c *compiler) modelParticle(id contentModelID) (particle, bool) {
 	if !occurs.isExactlyOne() {
 		normalized := model
 		normalized.occurs = occurrence{Min: 1, Max: 1}
-		normalized.SkipUPA = model.SkipUPA || c.sequenceHasWildcardEquivalentOverlap(normalized)
 		modelID = c.addModel(normalized)
-		c.rt.Models[modelID].Replay = model.Replay || c.choiceNeedsReplay(normalized, occurs)
-		c.rt.Models[modelID].SkipUPA = normalized.SkipUPA
 	}
 	return particle{Kind: particleModel, occurs: occurs, Model: modelID}, true
 }
@@ -161,12 +139,6 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (contentModelID,
 	m := contentModel{Kind: kind, occurs: occurs}
 	if err := c.compileModelChildren(n, ctx, &m); err != nil {
 		return noContentModel, err
-	}
-	m.Replay = c.modelNeedsReplay(m)
-	if !m.Replay {
-		if err := c.checkDirectUPA(m); err != nil {
-			return noContentModel, err
-		}
 	}
 	if err := c.checkElementDeclarationsConsistent(m); err != nil {
 		return noContentModel, err
@@ -295,15 +267,25 @@ func appendFlattenedModelChild(m *contentModel, child contentModel) bool {
 	}
 	if (child.Kind == modelSequence || child.Kind == modelChoice) && len(child.Particles) == 1 {
 		p := child.Particles[0]
-		p.occurs = multiplyOccurs(p.occurs, child.occurs)
-		m.Particles = append(m.Particles, p)
-		return true
+		if canFlattenSingleParticleModel(child.occurs, p.occurs) {
+			p.occurs = multiplyOccurs(p.occurs, child.occurs)
+			m.Particles = append(m.Particles, p)
+			return true
+		}
 	}
 	if child.Kind == modelSequence && len(child.Particles) > 1 && child.occurs.isExactlyOne() {
 		m.Particles = append(m.Particles, child.Particles...)
 		return true
 	}
 	return false
+}
+
+func canFlattenSingleParticleModel(modelOccurs, particleOccurs occurrence) bool {
+	return modelOccurs.isExactlyOne() ||
+		particleOccurs.Min == 0 ||
+		particleOccurs.isExactlyOne() ||
+		(particleOccurs.Unbounded && (modelOccurs.Min > 0 || particleOccurs.Min == 1)) ||
+		(!modelOccurs.Unbounded && modelOccurs.Min == modelOccurs.Max)
 }
 
 func appendParticle(m *contentModel, p particle, err error) error {
@@ -340,13 +322,89 @@ func validateModelOccurrence(n *rawNode, limits compileLimits) error {
 	return validateModelGroupSyntax(n, limits)
 }
 
+func (c *compiler) checkCompiledModelsUPA() error {
+	for i := range c.rt.Models {
+		model := c.rt.Models[i]
+		if c.modelNeedsRuntimeSplit(contentModelID(i), model) || c.sequenceHasWildcardEquivalentOverlap(model) {
+			continue
+		}
+		if err := c.checkDirectUPA(model); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) modelNeedsRuntimeSplit(id contentModelID, model contentModel) bool {
+	seen := make([]bool, len(c.rt.Models))
+	return c.modelNeedsRuntimeSplitSeen(id, model, seen)
+}
+
+func (c *compiler) modelNeedsRuntimeSplitSeen(id contentModelID, model contentModel, seen []bool) bool {
+	if validUint32Index(uint32(id), len(seen)) {
+		if seen[id] {
+			return false
+		}
+		seen[id] = true
+	}
+	if c.choiceNeedsRuntimeSplit(model, model.occurs) {
+		return true
+	}
+	for _, p := range model.Particles {
+		if p.Kind != particleModel {
+			continue
+		}
+		child := c.rt.Models[p.Model]
+		if c.choiceNeedsRuntimeSplit(child, p.occurs) || c.modelNeedsRuntimeSplitSeen(p.Model, child, seen) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *compiler) choiceNeedsRuntimeSplit(model contentModel, occurs occurrence) bool {
+	if model.Kind != modelChoice || occurs.isExactlyOne() {
+		return false
+	}
+	for _, p := range model.Particles {
+		if !p.occurs.isExactlyOne() {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *compiler) checkDirectUPA(m contentModel) error {
 	switch m.Kind {
 	case modelChoice, modelAll:
 		for i, p := range m.Particles {
 			for j := i + 1; j < len(m.Particles); j++ {
-				if name, ok := c.particlesOverlap(p, m.Particles[j]); ok {
-					msg := "UPA violation: overlapping particles in choice"
+				name, ok := c.particlesOverlap(p, m.Particles[j])
+				if !ok {
+					continue
+				}
+				msg := "UPA violation: overlapping particles in choice"
+				if name.Local != 0 || name.Namespace != 0 {
+					msg += " " + c.rt.Names.Format(name)
+				}
+				return schemaCompile(ErrSchemaContentModel, msg)
+			}
+		}
+	case modelSequence:
+		for i, p := range m.Particles {
+			for _, candidate := range c.particleContinuationParticles(p) {
+				for j := i + 1; j < len(m.Particles); j++ {
+					name, ok := c.particlesOverlap(candidate, m.Particles[j])
+					if !ok {
+						if m.Particles[j].occurs.Min > 0 {
+							break
+						}
+						continue
+					}
+					if !m.occurs.isExactlyOne() && c.wildcardEquivalentOverlap(candidate, m.Particles[j]) {
+						continue
+					}
+					msg := "UPA violation: duplicate element in sequence"
 					if name.Local != 0 || name.Namespace != 0 {
 						msg += " " + c.rt.Names.Format(name)
 					}
@@ -354,53 +412,8 @@ func (c *compiler) checkDirectUPA(m contentModel) error {
 				}
 			}
 		}
-	case modelSequence:
-		for i, p := range m.Particles {
-			for _, candidate := range c.particleContinuationParticles(p) {
-				for j := i + 1; j < len(m.Particles); j++ {
-					if name, ok := c.particlesOverlap(candidate, m.Particles[j]); ok {
-						if !m.occurs.isExactlyOne() && c.wildcardEquivalentOverlap(candidate, m.Particles[j]) {
-							continue
-						}
-						return schemaCompile(ErrSchemaContentModel, "UPA violation: duplicate element in sequence "+c.rt.Names.Format(name))
-					}
-					if m.Particles[j].occurs.Min > 0 {
-						break
-					}
-				}
-			}
-		}
 	}
 	return nil
-}
-
-func (c *compiler) wildcardEquivalentOverlap(a, b particle) bool {
-	if a.Kind != particleWildcard || b.Kind != particleWildcard {
-		return false
-	}
-	wa := c.rt.Wildcards[a.wildcard]
-	wb := c.rt.Wildcards[b.wildcard]
-	return wildcardNamespaceEqual(wa, wb)
-}
-
-func wildcardNamespaceEqual(a, b wildcard) bool {
-	if a.Mode != b.Mode || a.OtherThan != b.OtherThan || len(a.Namespaces) != len(b.Namespaces) {
-		return false
-	}
-	for i := range a.Namespaces {
-		if a.Namespaces[i] != b.Namespaces[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func (c *compiler) particleCanOverlapFollowing(p particle) bool {
-	r := c.particleCountRange(p)
-	if r.Unbounded {
-		return true
-	}
-	return r.Max > r.Min
 }
 
 func (c *compiler) particleContinuationParticles(p particle) []particle {
@@ -442,16 +455,12 @@ func (c *compiler) modelContinuationParticles(model contentModel) []particle {
 	return out
 }
 
-func (c *compiler) checkCompiledModelsUPA() error {
-	for _, model := range c.rt.Models {
-		if model.Replay || model.SkipUPA {
-			continue
-		}
-		if err := c.checkDirectUPA(model); err != nil {
-			return err
-		}
+func (c *compiler) particleCanOverlapFollowing(p particle) bool {
+	r := c.particleCountRange(p)
+	if r.Unbounded {
+		return true
 	}
-	return nil
+	return r.Max > r.Min
 }
 
 func (c *compiler) sequenceHasWildcardEquivalentOverlap(m contentModel) bool {
@@ -471,6 +480,27 @@ func (c *compiler) sequenceHasWildcardEquivalentOverlap(m contentModel) bool {
 		}
 	}
 	return false
+}
+
+func (c *compiler) wildcardEquivalentOverlap(a, b particle) bool {
+	if a.Kind != particleWildcard || b.Kind != particleWildcard {
+		return false
+	}
+	wa := c.rt.Wildcards[a.wildcard]
+	wb := c.rt.Wildcards[b.wildcard]
+	return wildcardNamespaceEqual(wa, wb)
+}
+
+func wildcardNamespaceEqual(a, b wildcard) bool {
+	if a.Mode != b.Mode || a.OtherThan != b.OtherThan || len(a.Namespaces) != len(b.Namespaces) {
+		return false
+	}
+	for i := range a.Namespaces {
+		if a.Namespaces[i] != b.Namespaces[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
@@ -699,6 +729,9 @@ func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 			return occurrence{}, schemaCompile(ErrSchemaOccurrence, "invalid minOccurs "+v)
 		}
 		minDigits = digits
+		if occurrenceUint32LimitExceeded(digits) {
+			return occurrence{}, schemaCompile(ErrSchemaLimit, "minOccurs exceeds uint32 limit")
+		}
 		minOccurs = occurrenceUint32(digits)
 	}
 	maxOccurs := uint32(1)
@@ -712,7 +745,7 @@ func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 			return occurrence{}, schemaCompile(ErrSchemaOccurrence, "invalid maxOccurs "+v)
 		}
 		if maxOccursLimitExceeded(digits, limits.maxFiniteOccurs) {
-			return occurrence{}, schemaCompile(ErrSchemaLimit, "maxOccurs exceeds configured limit")
+			return occurrence{}, schemaCompile(ErrSchemaLimit, maxOccursLimitMessage(limits.maxFiniteOccurs))
 		}
 		maxDigits = digits
 		maxOccurs = occurrenceUint32(digits)
@@ -724,10 +757,22 @@ func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 }
 
 func maxOccursLimitExceeded(digits string, limit uint64) bool {
-	if limit == 0 {
-		return false
+	limitCap := uint64(^uint32(0))
+	if limit != 0 && limit < limitCap {
+		limitCap = limit
 	}
-	return compareDecimalDigits(digits, strconv.FormatUint(limit, 10)) > 0
+	return compareDecimalDigits(digits, strconv.FormatUint(limitCap, 10)) > 0
+}
+
+func maxOccursLimitMessage(limit uint64) string {
+	if limit != 0 && limit < uint64(^uint32(0)) {
+		return "maxOccurs exceeds configured limit"
+	}
+	return "maxOccurs exceeds uint32 limit"
+}
+
+func occurrenceUint32LimitExceeded(digits string) bool {
+	return compareDecimalDigits(digits, strconv.FormatUint(uint64(^uint32(0)), 10)) > 0
 }
 
 func parseOccurrenceDigits(v string) (string, error) {

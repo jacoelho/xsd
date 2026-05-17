@@ -1,0 +1,16 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="items">
+    <xs:choice>
+      <xs:element name="a" minOccurs="3" maxOccurs="5"/>
+      <xs:element name="b"/>
+    </xs:choice>
+  </xs:group>
+
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:group ref="items" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

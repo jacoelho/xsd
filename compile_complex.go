@@ -27,9 +27,17 @@ func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	if err != nil {
 		return noComplexType, err
 	}
+	block, err := complexBlockMaskWithDefault(raw.node, raw.ctx.blockDefault)
+	if err != nil {
+		return noComplexType, err
+	}
+	final, err := complexFinalMaskWithDefault(raw.node, raw.ctx.finalDefault)
+	if err != nil {
+		return noComplexType, err
+	}
 	ct.Name = q
-	ct.Block = complexBlockMaskWithDefault(raw.node, raw.ctx.blockDefault)
-	ct.Final = derivationMaskWithDefault(raw.node, "final", raw.ctx.finalDefault)
+	ct.Block = block
+	ct.Final = final
 	c.rt.ComplexTypes[id] = ct
 	return id, nil
 }
@@ -45,8 +53,12 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (comp
 	if err != nil {
 		return noComplexType, err
 	}
+	final, err := complexFinalMaskWithDefault(n, ctx.finalDefault)
+	if err != nil {
+		return noComplexType, err
+	}
 	ct.Name = q
-	ct.Final = derivationMaskWithDefault(n, "final", ctx.finalDefault)
+	ct.Final = final
 	c.rt.ComplexTypes[id] = ct
 	return id, nil
 }
@@ -185,6 +197,10 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 	if err != nil {
 		return complexType{}, err
 	}
+	block, err := complexBlockMaskWithDefault(n, ctx.blockDefault)
+	if err != nil {
+		return complexType{}, err
+	}
 	ct := complexType{
 		Name:       name,
 		Content:    noContentModel,
@@ -194,7 +210,7 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 		Abstract:   abstract,
 		Base:       typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)},
 		Derivation: derivationRestriction,
-		Block:      complexBlockMaskWithDefault(n, ctx.blockDefault),
+		Block:      block,
 	}
 	if cc := n.firstXS("complexContent"); cc != nil {
 		return c.compileComplexContent(cc, ctx, ct)
@@ -369,7 +385,11 @@ func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaC
 	if err := c.validateContentRestriction(base.Content, ct.Content); err != nil {
 		return complexType{}, err
 	}
-	ct.CountLimits = c.restrictionCountLimits(base.Content, ct.Content)
+	repeatedChoice := c.restrictionRepeatedChoiceParticles(base.Content, ct.Content)
+	if len(repeatedChoice) != 0 {
+		ct.Content = c.addModel(c.rt.Models[ct.Content])
+		c.choiceLimitByModel[ct.Content] = append(c.choiceLimitByModel[ct.Content], repeatedChoice...)
+	}
 	ct.Attrs = attrs
 	ct.Mixed = mixed
 	return ct, nil
@@ -519,6 +539,9 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct compl
 		if simpleID, simpleErr := c.compileSimpleByQName(baseQName); simpleErr == nil {
 			if child.Name.Local == "restriction" {
 				return complexType{}, schemaCompile(ErrSchemaContentModel, "simpleContent restriction base must be complex type")
+			}
+			if c.rt.SimpleTypes[simpleID].Final&blockExtension != 0 {
+				return complexType{}, schemaCompile(ErrSchemaReference, "base simple type final blocks extension")
 			}
 			textType = simpleID
 			ct.Base = typeID{Kind: typeSimple, ID: uint32(simpleID)}
