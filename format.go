@@ -286,9 +286,6 @@ func (f *xmlFormatter) collectToken(tok streamToken) error {
 }
 
 func (f *xmlFormatter) collectStart(tok streamToken) error {
-	if err := validateUniqueAttributeNames(tok.start.Attr); err != nil {
-		return xmlFormatErr(tok.line, tok.col, err)
-	}
 	if len(f.stack) >= f.maxDepth {
 		return xmlFormatErr(tok.line, tok.col, fmt.Errorf("XML nesting exceeds %d element limit", f.maxDepth))
 	}
@@ -370,15 +367,16 @@ func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
 	}
 	var seen xmlNameSet
 	for _, attr := range start.Attr {
-		if isNamespaceAttr(attr) {
-			continue
+		name := attr.Name
+		if !isNamespaceAttr(attr) {
+			var err error
+			name, err = f.resolveFormatName(attr.Name, false)
+			if err != nil {
+				return err
+			}
 		}
-		name, err := f.resolveFormatName(attr.Name, false)
-		if err != nil {
+		if err := addUniqueXMLName(&seen, name); err != nil {
 			return err
-		}
-		if !seen.add(name) {
-			return errors.New("duplicate attribute " + formatXMLName(name))
 		}
 	}
 	return nil

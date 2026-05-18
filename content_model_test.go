@@ -1376,6 +1376,24 @@ func TestRecursiveAttributeGroupsAreSchemaErrors(t *testing.T) {
 	expectCode(t, err, ErrSchemaReference)
 }
 
+func TestAttributeGroupCanBeReusedByMultipleTypes(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attributeGroup name="common">
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:attributeGroup>
+  <xs:element name="a">
+    <xs:complexType><xs:attributeGroup ref="common"/></xs:complexType>
+  </xs:element>
+  <xs:element name="b">
+    <xs:complexType><xs:attributeGroup ref="common"/></xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<a id="a1"/>`)
+	mustValidate(t, engine, `<b id="b1"/>`)
+	mustNotValidate(t, engine, `<a/>`, ErrValidationAttribute)
+}
+
 func TestRepeatingChoiceWithRepeatedBranchPartitionsAtClose(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

@@ -321,6 +321,30 @@ func BenchmarkCompileCountedChoiceDFA(b *testing.B) {
 	}
 }
 
+func BenchmarkCompileAttributeGroupFanout(b *testing.B) {
+	for _, refs := range []int{1, 10, 100, 1000} {
+		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
+			schema := attributeGroupFanoutSchema(refs)
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkCompileRegexCategoryEscapes(b *testing.B) {
+	schema := regexCategoryEscapesSchema(100)
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateConcurrent(b *testing.B) {
 	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
@@ -483,5 +507,27 @@ func countedChoiceDFASchema(branches, maxOccurs int) string {
 		fmt.Fprintf(&b, `<xs:element name="e%d" type="xs:string"/>`, i)
 	}
 	b.WriteString(`</xs:choice></xs:complexType></xs:element></xs:schema>`)
+	return b.String()
+}
+
+func attributeGroupFanoutSchema(refs int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	b.WriteString(`<xs:attributeGroup name="common"><xs:attribute name="code" type="xs:string"/></xs:attributeGroup>`)
+	for i := range refs {
+		fmt.Fprintf(&b, `<xs:complexType name="T%d"><xs:attributeGroup ref="common"/></xs:complexType>`, i)
+		fmt.Fprintf(&b, `<xs:element name="e%d" type="T%d"/>`, i, i)
+	}
+	b.WriteString(`</xs:schema>`)
+	return b.String()
+}
+
+func regexCategoryEscapesSchema(types int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	for i := range types {
+		fmt.Fprintf(&b, `<xs:simpleType name="T%d"><xs:restriction base="xs:string"><xs:pattern value="\p{Lu}"/></xs:restriction></xs:simpleType>`, i)
+	}
+	b.WriteString(`</xs:schema>`)
 	return b.String()
 }

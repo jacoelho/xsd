@@ -707,6 +707,19 @@ func TestOrderedFacetsAreRejectedForListAndUnionTypes(t *testing.T) {
 	expectCode(t, err, ErrSchemaFacet)
 }
 
+func TestUnionValueFailureReportsUnionFailure(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U"><xs:union memberTypes="xs:int xs:boolean"/></xs:simpleType>
+  <xs:element name="root" type="U"/>
+</xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<root>nope</root>`))
+	expectCode(t, err, ErrValidationFacet)
+	if !strings.Contains(err.Error(), "value does not match any union member") {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
 func TestTimeRejectsSecondSixty(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

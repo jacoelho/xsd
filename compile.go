@@ -177,6 +177,7 @@ type compilerBuildState struct {
 	simpleDone       map[qName]simpleTypeID
 	complexDone      map[qName]complexTypeID
 	attributeDone    map[qName]attributeID
+	attrGroupDone    map[qName]attributeUseSetID
 	elementDone      map[qName]elementID
 	localDone        map[*rawNode]elementID
 	identityDeclared map[*rawNode]identityConstraintID
@@ -244,6 +245,7 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 			simpleDone:       make(map[qName]simpleTypeID),
 			complexDone:      make(map[qName]complexTypeID),
 			attributeDone:    make(map[qName]attributeID),
+			attrGroupDone:    make(map[qName]attributeUseSetID),
 			elementDone:      make(map[qName]elementID),
 			localDone:        make(map[*rawNode]elementID),
 			identityDeclared: make(map[*rawNode]identityConstraintID),

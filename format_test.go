@@ -190,6 +190,17 @@ func TestFormatXMLRejectsExpandedDuplicateAttributes(t *testing.T) {
 	}
 }
 
+func TestFormatXMLRejectsDuplicateNamespaceDeclarations(t *testing.T) {
+	var out strings.Builder
+	err := FormatXML(&out, strings.NewReader(`<root xmlns:a="urn:x" xmlns:a="urn:y"/>`))
+	if err == nil {
+		t.Fatal("FormatXML() succeeded")
+	}
+	if !strings.Contains(err.Error(), "duplicate attribute") {
+		t.Fatalf("FormatXML() error = %v", err)
+	}
+}
+
 func TestFormatXMLRejectsLargeDuplicateAttributes(t *testing.T) {
 	var input strings.Builder
 	input.WriteString("<root")

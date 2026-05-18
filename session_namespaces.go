@@ -134,9 +134,16 @@ func (s *session) translateStartElement(se xml.StartElement, line, col int) (xml
 func validateUniqueAttributeNames(attrs []xml.Attr) error {
 	var seen xmlNameSet
 	for _, attr := range attrs {
-		if !seen.add(attr.Name) {
-			return errors.New("duplicate attribute " + formatXMLName(attr.Name))
+		if err := addUniqueXMLName(&seen, attr.Name); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+func addUniqueXMLName(seen *xmlNameSet, name xml.Name) error {
+	if !seen.add(name) {
+		return errors.New("duplicate attribute " + formatXMLName(name))
 	}
 	return nil
 }
