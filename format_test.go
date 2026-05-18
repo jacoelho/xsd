@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -185,6 +186,27 @@ func TestFormatXMLRejectsExpandedDuplicateAttributes(t *testing.T) {
 		t.Fatal("FormatXML() succeeded")
 	}
 	if !strings.Contains(err.Error(), "duplicate attribute {urn:x}id") {
+		t.Fatalf("FormatXML() error = %v", err)
+	}
+}
+
+func TestFormatXMLRejectsLargeDuplicateAttributes(t *testing.T) {
+	var input strings.Builder
+	input.WriteString("<root")
+	for i := range 40 {
+		input.WriteString(` a`)
+		input.WriteString(strconv.Itoa(i))
+		input.WriteString(`="`)
+		input.WriteString(strconv.Itoa(i))
+		input.WriteByte('"')
+	}
+	input.WriteString(` a39="dup"/>`)
+	var out strings.Builder
+	err := FormatXML(&out, strings.NewReader(input.String()))
+	if err == nil {
+		t.Fatal("FormatXML() succeeded")
+	}
+	if !strings.Contains(err.Error(), "duplicate attribute a39") {
 		t.Fatalf("FormatXML() error = %v", err)
 	}
 }

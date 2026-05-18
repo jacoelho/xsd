@@ -117,6 +117,85 @@ func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	}
 }
 
+func BenchmarkValidateDuplicateAttributes(b *testing.B) {
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := duplicateAttributeDoc(1000)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := engine.Validate(strings.NewReader(doc)); err == nil {
+			b.Fatal("Validate() succeeded")
+		}
+	}
+}
+
+func BenchmarkFormatXMLDuplicateAttributes(b *testing.B) {
+	doc := duplicateAttributeDoc(1000)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		var out strings.Builder
+		if err := FormatXML(&out, strings.NewReader(doc)); err == nil {
+			b.Fatal("FormatXML() succeeded")
+		}
+	}
+}
+
+func BenchmarkCompileDuplicateSchemaSources(b *testing.B) {
+	schema := largeSchemaWithText(64 << 10)
+	sources := make([]SchemaSource, 8)
+	for i := range sources {
+		sources[i] = sourceBytes(fmt.Sprintf("schema%d.xsd", i), []byte(schema))
+	}
+	b.SetBytes(int64(len(schema) * len(sources)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := Compile(sources...); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkCompileSchemaText(b *testing.B) {
+	schema := largeSchemaWithText(256 << 10)
+	b.SetBytes(int64(len(schema)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkFormatXMLLargeAttribute(b *testing.B) {
+	value := strings.Repeat("a", 64<<10)
+	doc := `<root a="` + value + `"/>`
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		var out strings.Builder
+		if err := FormatXML(&out, strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkFormatXMLMixedEscapedAttribute(b *testing.B) {
+	value := strings.Repeat("abc&amp;&#10;&quot;", 4096)
+	doc := `<root a="` + value + `"/>`
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		var out strings.Builder
+		if err := FormatXML(&out, strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
 	schema := os.Getenv("XSD_LARGE_SCHEMA")
 	doc := os.Getenv("XSD_LARGE_XML")
@@ -290,6 +369,24 @@ func benchmarkIDREFS(refs int) string {
 		}
 		_, _ = fmt.Fprintf(&b, "id%d", i)
 	}
+	return b.String()
+}
+
+func duplicateAttributeDoc(attrs int) string {
+	var b strings.Builder
+	b.WriteString("<root")
+	for i := range attrs {
+		fmt.Fprintf(&b, ` a%d="%d"`, i, i)
+	}
+	fmt.Fprintf(&b, ` a%d="dup"/>`, attrs-1)
+	return b.String()
+}
+
+func largeSchemaWithText(n int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test"><xs:annotation><xs:documentation>`)
+	b.WriteString(strings.Repeat("x", n))
+	b.WriteString(`</xs:documentation></xs:annotation><xs:element name="root" type="xs:string"/></xs:schema>`)
 	return b.String()
 }
 

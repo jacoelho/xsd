@@ -1012,6 +1012,38 @@ func TestValidateWithOptionsInstanceLimits(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsLargeDuplicateAttributes(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	var doc strings.Builder
+	doc.WriteString("<root")
+	for i := range 40 {
+		doc.WriteString(` a`)
+		doc.WriteString(strconv.Itoa(i))
+		doc.WriteString(`="`)
+		doc.WriteString(strconv.Itoa(i))
+		doc.WriteByte('"')
+	}
+	doc.WriteString(` a39="dup"/>`)
+	err := engine.Validate(strings.NewReader(doc.String()))
+	expectCode(t, err, ErrValidationXML)
+}
+
+func TestValidateRejectsExpandedDuplicateAttributes(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	var doc strings.Builder
+	doc.WriteString(`<root xmlns:a="urn:x" xmlns:b="urn:x"`)
+	for i := range 40 {
+		doc.WriteString(` c`)
+		doc.WriteString(strconv.Itoa(i))
+		doc.WriteString(`="`)
+		doc.WriteString(strconv.Itoa(i))
+		doc.WriteByte('"')
+	}
+	doc.WriteString(` a:id="1" b:id="2"/>`)
+	err := engine.Validate(strings.NewReader(doc.String()))
+	expectCode(t, err, ErrValidationXML)
+}
+
 func TestSessionValidateResetsDocumentState(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

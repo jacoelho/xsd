@@ -1,7 +1,9 @@
 package xsd
 
 import (
+	"bytes"
 	"cmp"
+	"crypto/sha256"
 	"errors"
 	"maps"
 	"path/filepath"
@@ -55,16 +57,16 @@ func (c *compiler) load(sources []SchemaSource) error {
 		}
 	}
 	names := slices.Sorted(maps.Keys(c.sources))
-	seenContent := make(map[string]bool)
+	seenContent := make(map[schemaContentKey][][]byte)
 	for _, name := range names {
 		data := c.sources[name]
 		doc := c.sourceDocs[name]
 		if target := doc.root.attrDefault("targetNamespace", ""); target != "" {
-			key := target + "\x00" + string(data)
-			if seenContent[key] {
+			key := schemaContentKey{target: target, sum: sha256.Sum256(data)}
+			if schemaContentSeen(seenContent[key], data) {
 				continue
 			}
-			seenContent[key] = true
+			seenContent[key] = append(seenContent[key], data)
 		}
 		c.docs = append(c.docs, doc)
 	}
@@ -72,6 +74,20 @@ func (c *compiler) load(sources []SchemaSource) error {
 		return cmp.Compare(a.name, b.name)
 	})
 	return c.checkExplicitSchemaReferences()
+}
+
+type schemaContentKey struct {
+	target string
+	sum    [sha256.Size]byte
+}
+
+func schemaContentSeen(bucket [][]byte, data []byte) bool {
+	for _, item := range bucket {
+		if bytes.Equal(item, data) {
+			return true
+		}
+	}
+	return false
 }
 
 func isSchemaLimitError(err error) bool {
@@ -224,12 +240,14 @@ func (c *compiler) documentTargetNamespace(doc *rawDoc) string {
 }
 
 func (c *compiler) resolveLoadedSchemaLocation(doc *rawDoc, location string) (*rawDoc, string, bool) {
-	resolved := filepath.Clean(filepath.Join(filepath.Dir(doc.name), location))
-	if _, ok := c.sources[resolved]; !ok {
-		resolved = filepath.Clean(location)
-		if _, ok := c.sources[resolved]; !ok {
-			return nil, "", false
+	if resolved, ok := resolveLocalSchemaLocation(doc.name, location); ok {
+		if _, loaded := c.sources[resolved]; loaded {
+			return c.sourceDocs[resolved], resolved, true
 		}
+	}
+	resolved := filepath.Clean(location)
+	if _, ok := c.sources[resolved]; !ok {
+		return nil, "", false
 	}
 	return c.sourceDocs[resolved], resolved, true
 }

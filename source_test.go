@@ -233,6 +233,78 @@ func TestResolveLocalSchemaLocationFileURIHost(t *testing.T) {
 	}
 }
 
+func TestFileURIIncludePropagatesChameleonTarget(t *testing.T) {
+	dir := t.TempDir()
+	types := filepath.Join(dir, "types.xsd")
+	writeSchemaFile(t, types, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:complexType name="Included">
+    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`)
+	main := filepath.Join(dir, "main.xsd")
+	writeSchemaFile(t, main, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:t="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="file://`+filepath.ToSlash(types)+`"/>
+  <xs:element name="root" type="t:Included"/>
+</xs:schema>`)
+	engine, err := Compile(File(main))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
+}
+
+func TestFileURIImportNamespaceMismatchIsSchemaError(t *testing.T) {
+	dir := t.TempDir()
+	other := filepath.Join(dir, "other.xsd")
+	writeSchemaFile(t, other, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`)
+	main := filepath.Join(dir, "main.xsd")
+	writeSchemaFile(t, main, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="urn:a" schemaLocation="file://`+filepath.ToSlash(other)+`"/>
+</xs:schema>`)
+	_, err := Compile(File(main))
+	expectCode(t, err, ErrSchemaReference)
+}
+
+func TestURISchemaLocationResolvesProvidedSourceName(t *testing.T) {
+	engine, err := Compile(
+		sourceBytes("main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="urn:types"/>
+  <xs:element name="root" type="t:Included"/>
+</xs:schema>`)),
+		sourceBytes("urn:types", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:complexType name="Included">
+    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`)),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
+}
+
+func TestURISchemaLocationImportNamespaceMismatchIsSchemaError(t *testing.T) {
+	_, err := Compile(
+		sourceBytes("main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="urn:a" schemaLocation="urn:other"/>
+</xs:schema>`)),
+		sourceBytes("urn:other", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`)),
+	)
+	expectCode(t, err, ErrSchemaReference)
+}
+
 func TestReaderDoesNotResolveSchemaLocationFromName(t *testing.T) {
 	dir := t.TempDir()
 	writeSchemaFile(t, filepath.Join(dir, "types.xsd"), `

@@ -1119,6 +1119,49 @@ func TestTimeLeapSecondAndOffsetEquivalence(t *testing.T) {
 	mustNotValidate(t, engine, `<bounded>00:29:59+14:00</bounded>`, ErrValidationFacet)
 }
 
+func TestDateTimeLeapSecondAndOffsetEquivalence(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="plain" type="xs:dateTime"/>
+  <xs:element name="fixed" type="xs:dateTime" fixed="1998-12-31T23:59:60Z"/>
+  <xs:element name="bounded">
+    <xs:simpleType>
+      <xs:restriction base="xs:dateTime">
+        <xs:minInclusive value="1998-12-31T23:59:60Z"/>
+        <xs:maxInclusive value="1998-12-31T23:59:60Z"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<plain>1998-12-31T23:59:60Z</plain>`)
+	mustValidate(t, engine, `<plain>1998-12-31T23:59:60</plain>`)
+	mustValidate(t, engine, `<fixed>1999-01-01T00:00:00Z</fixed>`)
+	mustValidate(t, engine, `<bounded>1999-01-01T00:00:00Z</bounded>`)
+	mustNotValidate(t, engine, `<plain>1998-12-31T22:59:60Z</plain>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<plain>1998-12-31T23:59:61Z</plain>`, ErrValidationFacet)
+}
+
+func TestDateTimeAcceptsArbitraryFractionalPrecision(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="plain" type="xs:dateTime"/>
+  <xs:element name="fixed" type="xs:dateTime" fixed="2000-01-01T00:00:00.1234567891Z"/>
+  <xs:element name="bounded">
+    <xs:simpleType>
+      <xs:restriction base="xs:dateTime">
+        <xs:minInclusive value="2000-01-01T00:00:00.1234567891Z"/>
+        <xs:maxInclusive value="2000-01-01T00:00:00.1234567891Z"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+  <xs:element name="time" type="xs:time"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<plain>2000-01-01T00:00:00.1234567891Z</plain>`)
+	mustValidate(t, engine, `<fixed>2000-01-01T00:00:00.123456789Z</fixed>`)
+	mustValidate(t, engine, `<bounded>2000-01-01T00:00:00.123456789Z</bounded>`)
+	mustValidate(t, engine, `<time>00:00:00.1234567891Z</time>`)
+}
+
 func TestGDateTimeDatatypesAndUnsupportedYears(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

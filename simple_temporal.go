@@ -24,32 +24,62 @@ func parseXSDDate(s string) (time.Time, error) {
 }
 
 func parseXSDDateTime(s string) (time.Time, error) {
-	if err := rejectUnsupportedYear(s); err != nil {
+	v, err := parseXSDDateTimeValue(s)
+	if err != nil {
 		return time.Time{}, err
 	}
-	layouts := []string{time.RFC3339Nano, "2006-01-02T15:04:05", "2006-01-02T15:04:05.999999999"}
-	for _, layout := range layouts {
-		if t, err := time.Parse(layout, s); err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("invalid dateTime")
+	return v.instant, nil
 }
 
 func parseXSDDateTimeCanonical(s string) (string, error) {
-	if err := rejectUnsupportedYear(s); err != nil {
+	v, err := parseXSDDateTimeValue(s)
+	if err != nil {
 		return "", err
 	}
-	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		return formatXSDDateTime(t.UTC(), true), nil
+	return formatXSDDateTime(v.instant, v.hasTZ), nil
+}
+
+var xsdDateTimeRE = regexp.MustCompile(`^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?$`)
+
+type xsdDateTimeValue struct {
+	instant time.Time
+	hasTZ   bool
+}
+
+func parseXSDDateTimeValue(s string) (xsdDateTimeValue, error) {
+	if err := rejectUnsupportedYear(s); err != nil {
+		return xsdDateTimeValue{}, err
 	}
-	layouts := []string{"2006-01-02T15:04:05", "2006-01-02T15:04:05.999999999"}
-	for _, layout := range layouts {
-		if t, err := time.Parse(layout, s); err == nil {
-			return formatXSDDateTime(t, false), nil
+	m := xsdDateTimeRE.FindStringSubmatch(s)
+	if m == nil {
+		return xsdDateTimeValue{}, fmt.Errorf("invalid dateTime")
+	}
+	year, _ := strconv.Atoi(m[1])
+	month, _ := strconv.Atoi(m[2])
+	day, _ := strconv.Atoi(m[3])
+	hour, _ := strconv.Atoi(m[4])
+	minute, _ := strconv.Atoi(m[5])
+	second, _ := strconv.Atoi(m[6])
+	if month < 1 || month > 12 || day < 1 || day > daysInSpecificMonth(year, time.Month(month)) {
+		return xsdDateTimeValue{}, fmt.Errorf("invalid dateTime")
+	}
+	if hour > 23 || minute > 59 || second > 59 && (hour != 23 || minute != 59 || second != 60) {
+		return xsdDateTimeValue{}, fmt.Errorf("invalid dateTime")
+	}
+	nanos, err := parseFractionalNanos(m[7])
+	if err != nil {
+		return xsdDateTimeValue{}, fmt.Errorf("invalid dateTime")
+	}
+	t := time.Date(year, time.Month(month), day, hour, minute, second, int(nanos), time.UTC)
+	tz := m[8]
+	if tz != "" {
+		offset, err := parseTimezoneOffsetNanos(tz)
+		if err != nil {
+			return xsdDateTimeValue{}, err
 		}
+		t = t.Add(-time.Duration(offset))
 	}
-	return "", fmt.Errorf("invalid dateTime")
+	return xsdDateTimeValue{instant: t, hasTZ: tz != ""}, nil
 }
 
 func formatXSDDateTime(t time.Time, withZone bool) string {
@@ -190,9 +220,17 @@ func parseFractionalNanos(s string) (int64, error) {
 	if s == "" {
 		return 0, nil
 	}
-	digits := strings.TrimPrefix(s, ".")
-	if len(digits) > 9 {
+	digits, ok := strings.CutPrefix(s, ".")
+	if !ok || digits == "" {
 		return 0, fmt.Errorf("invalid time")
+	}
+	for _, r := range digits {
+		if r < '0' || r > '9' {
+			return 0, fmt.Errorf("invalid time")
+		}
+	}
+	if len(digits) > 9 {
+		digits = digits[:9]
 	}
 	for len(digits) < 9 {
 		digits += "0"

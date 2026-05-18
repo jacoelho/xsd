@@ -17,6 +17,7 @@ type rawNode struct {
 	NS       map[string]string
 	Name     xml.Name
 	Text     string
+	text     []byte
 	Attr     []xml.Attr
 	Children []*rawNode
 	Line     int
@@ -146,6 +147,11 @@ func (s *schemaParseState) handleEndElement() error {
 		line, col := s.dec.InputPos()
 		return schemaParse(ErrSchemaXML, line, col, "unexpected end element", nil)
 	}
+	n := s.stack[len(s.stack)-1]
+	if len(n.text) != 0 {
+		n.Text = string(n.text)
+		n.text = nil
+	}
 	s.stack = s.stack[:len(s.stack)-1]
 	s.nsStack = s.nsStack[:len(s.nsStack)-1]
 	return nil
@@ -163,10 +169,10 @@ func (s *schemaParseState) handleCharData(t xml.CharData) error {
 		return nil
 	}
 	n := s.stack[len(s.stack)-1]
-	if err := checkSchemaTokenLimit(int64(len(n.Text)+len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
+	if err := checkSchemaTokenLimit(int64(len(n.text)+len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
-	n.Text += string(t)
+	n.text = append(n.text, t...)
 	return nil
 }
 

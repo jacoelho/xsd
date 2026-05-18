@@ -368,7 +368,7 @@ func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
 	if _, err := f.resolveFormatName(start.Name, true); err != nil {
 		return err
 	}
-	seen := make([]xml.Name, 0, len(start.Attr))
+	var seen xmlNameSet
 	for _, attr := range start.Attr {
 		if isNamespaceAttr(attr) {
 			continue
@@ -377,10 +377,9 @@ func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
 		if err != nil {
 			return err
 		}
-		if slices.Contains(seen, name) {
+		if !seen.add(name) {
 			return errors.New("duplicate attribute " + formatXMLName(name))
 		}
-		seen = append(seen, name)
 	}
 	return nil
 }
@@ -636,36 +635,39 @@ func writeXMLIndent(w io.Writer, depth int) error {
 }
 
 func writeXMLAttrValue(w io.Writer, value string) error {
-	for _, r := range value {
-		switch r {
+	start := 0
+	for i := 0; i < len(value); i++ {
+		var esc string
+		switch value[i] {
 		case '&':
-			if _, err := io.WriteString(w, "&amp;"); err != nil {
-				return err
-			}
+			esc = "&amp;"
 		case '<':
-			if _, err := io.WriteString(w, "&lt;"); err != nil {
-				return err
-			}
+			esc = "&lt;"
 		case '"':
-			if _, err := io.WriteString(w, "&quot;"); err != nil {
-				return err
-			}
+			esc = "&quot;"
 		case '\n':
-			if _, err := io.WriteString(w, "&#10;"); err != nil {
-				return err
-			}
+			esc = "&#10;"
 		case '\r':
-			if _, err := io.WriteString(w, "&#13;"); err != nil {
-				return err
-			}
+			esc = "&#13;"
 		case '\t':
-			if _, err := io.WriteString(w, "&#9;"); err != nil {
+			esc = "&#9;"
+		}
+		if esc == "" {
+			continue
+		}
+		if start < i {
+			if _, err := io.WriteString(w, value[start:i]); err != nil {
 				return err
 			}
-		default:
-			if _, err := io.WriteString(w, string(r)); err != nil {
-				return err
-			}
+		}
+		if _, err := io.WriteString(w, esc); err != nil {
+			return err
+		}
+		start = i + 1
+	}
+	if start < len(value) {
+		if _, err := io.WriteString(w, value[start:]); err != nil {
+			return err
 		}
 	}
 	return nil

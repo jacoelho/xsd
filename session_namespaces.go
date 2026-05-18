@@ -132,14 +132,47 @@ func (s *session) translateStartElement(se xml.StartElement, line, col int) (xml
 }
 
 func validateUniqueAttributeNames(attrs []xml.Attr) error {
-	for i, attr := range attrs {
-		for _, other := range attrs[:i] {
-			if attr.Name == other.Name {
-				return errors.New("duplicate attribute " + formatXMLName(attr.Name))
-			}
+	var seen xmlNameSet
+	for _, attr := range attrs {
+		if !seen.add(attr.Name) {
+			return errors.New("duplicate attribute " + formatXMLName(attr.Name))
 		}
 	}
 	return nil
+}
+
+const xmlNameSetLinearLimit = 16
+
+type xmlNameSet struct {
+	index map[xml.Name]struct{}
+	names [xmlNameSetLinearLimit]xml.Name
+	n     int
+}
+
+func (s *xmlNameSet) add(name xml.Name) bool {
+	if s.index != nil {
+		if _, ok := s.index[name]; ok {
+			return false
+		}
+		s.index[name] = struct{}{}
+		return true
+	}
+	for _, existing := range s.names[:s.n] {
+		if existing == name {
+			return false
+		}
+	}
+	if s.n < len(s.names) {
+		s.names[s.n] = name
+		s.n++
+		return true
+	}
+	s.index = make(map[xml.Name]struct{}, s.n+1)
+	for _, existing := range s.names[:s.n] {
+		s.index[existing] = struct{}{}
+	}
+	s.index[name] = struct{}{}
+	return true
 }
 
 func (s *session) translateName(name xml.Name, element bool, line, col int) (xml.Name, error) {
