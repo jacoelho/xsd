@@ -467,7 +467,7 @@ func (c *compiler) compileAttributeGroupUse(n *rawNode, ctx *schemaContext) ([]a
 func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildcardID, error) {
 	if id, ok := c.attrGroupDone[q]; ok {
 		set := c.rt.AttributeUseSets[id]
-		return slices.Clone(set.Uses), set.wildcard, nil
+		return set.Uses, set.wildcard, nil
 	}
 	raw, ok := c.attrGroupRaw[q]
 	if !ok {
@@ -484,5 +484,5 @@ func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildca
 	}
 	c.attrGroupDone[q] = id
 	set := c.rt.AttributeUseSets[id]
-	return slices.Clone(set.Uses), set.wildcard, nil
+	return set.Uses, set.wildcard, nil
 }
