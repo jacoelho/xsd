@@ -68,6 +68,9 @@ func parseXSDDateTimeValue(s string) (xsdDateTimeValue, error) {
 	}
 	nanos, err := parseFractionalNanos(m[7])
 	if err != nil {
+		if IsUnsupported(err) {
+			return xsdDateTimeValue{}, err
+		}
 		return xsdDateTimeValue{}, fmt.Errorf("invalid dateTime")
 	}
 	t := time.Date(year, time.Month(month), day, hour, minute, second, int(nanos), time.UTC)
@@ -230,7 +233,7 @@ func parseFractionalNanos(s string) (int64, error) {
 		}
 	}
 	if len(digits) > 9 {
-		digits = digits[:9]
+		return 0, unsupported(ErrUnsupportedDateTime, "date/time fractional second precision beyond nanoseconds is not supported")
 	}
 	for len(digits) < 9 {
 		digits += "0"

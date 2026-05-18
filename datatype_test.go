@@ -720,6 +720,24 @@ func TestUnionValueFailureReportsUnionFailure(t *testing.T) {
 	}
 }
 
+func TestUnionPropagatesUnsupportedWhenNoMemberMatches(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U"><xs:union memberTypes="xs:date xs:int"/></xs:simpleType>
+  <xs:element name="root" type="U"/>
+</xs:schema>`)
+	mustNotValidate(t, engine, `<root>10000-01-01</root>`, ErrUnsupportedDateTime)
+}
+
+func TestUnionIgnoresUnsupportedWhenLaterMemberMatches(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U"><xs:union memberTypes="xs:date xs:string"/></xs:simpleType>
+  <xs:element name="root" type="U"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>10000-01-01</root>`)
+}
+
 func TestTimeRejectsSecondSixty(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -1154,25 +1172,66 @@ func TestDateTimeLeapSecondAndOffsetEquivalence(t *testing.T) {
 	mustNotValidate(t, engine, `<plain>1998-12-31T23:59:61Z</plain>`, ErrValidationFacet)
 }
 
-func TestDateTimeAcceptsArbitraryFractionalPrecision(t *testing.T) {
+func TestDateTimeAndTimeRejectUnsupportedFractionalPrecision(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="plain" type="xs:dateTime"/>
-  <xs:element name="fixed" type="xs:dateTime" fixed="2000-01-01T00:00:00.1234567891Z"/>
-  <xs:element name="bounded">
-    <xs:simpleType>
-      <xs:restriction base="xs:dateTime">
-        <xs:minInclusive value="2000-01-01T00:00:00.1234567891Z"/>
-        <xs:maxInclusive value="2000-01-01T00:00:00.1234567891Z"/>
-      </xs:restriction>
-    </xs:simpleType>
-  </xs:element>
   <xs:element name="time" type="xs:time"/>
 </xs:schema>`)
-	mustValidate(t, engine, `<plain>2000-01-01T00:00:00.1234567891Z</plain>`)
-	mustValidate(t, engine, `<fixed>2000-01-01T00:00:00.123456789Z</fixed>`)
-	mustValidate(t, engine, `<bounded>2000-01-01T00:00:00.123456789Z</bounded>`)
-	mustValidate(t, engine, `<time>00:00:00.1234567891Z</time>`)
+	mustValidate(t, engine, `<plain>2000-01-01T00:00:00.123456789Z</plain>`)
+	mustValidate(t, engine, `<time>00:00:00.123456789Z</time>`)
+	mustNotValidate(t, engine, `<plain>2000-01-01T00:00:00.1234567891Z</plain>`, ErrUnsupportedDateTime)
+	mustNotValidate(t, engine, `<time>00:00:00.1234567891Z</time>`, ErrUnsupportedDateTime)
+}
+
+func TestTemporalFacetRejectsUnsupportedFractionalPrecision(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+	}{
+		{
+			name: "dateTime fixed",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="fixed" type="xs:dateTime" fixed="2000-01-01T00:00:00.1234567891Z"/>
+</xs:schema>`,
+		},
+		{
+			name: "dateTime facet",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bounded">
+    <xs:restriction base="xs:dateTime">
+      <xs:minInclusive value="2000-01-01T00:00:00.1234567891Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+		},
+		{
+			name: "time fixed",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="fixed" type="xs:time" fixed="00:00:00.1234567891Z"/>
+</xs:schema>`,
+		},
+		{
+			name: "time facet",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bounded">
+    <xs:restriction base="xs:time">
+      <xs:minInclusive value="00:00:00.1234567891Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(tt.schema)))
+			expectCode(t, err, ErrUnsupportedDateTime)
+		})
+	}
 }
 
 func TestGDateTimeDatatypesAndUnsupportedYears(t *testing.T) {

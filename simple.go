@@ -174,6 +174,7 @@ func forEachListItem(lexical string, fn func(string) error) error {
 
 func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needCanonical bool) (simpleValue, error) {
 	needMemberCanon := needCanonical || st.Facets.needsCanonical() || st.Identity != simpleIdentityNone
+	var unsupportedErr error
 	for _, member := range st.Union {
 		value, err := validateSimpleValueMode(rt, member, norm, resolve, needMemberCanon)
 		if err == nil {
@@ -182,6 +183,12 @@ func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve q
 			}
 			return value, nil
 		}
+		if unsupportedErr == nil && IsUnsupported(err) {
+			unsupportedErr = err
+		}
+	}
+	if unsupportedErr != nil {
+		return simpleValue{}, unsupportedErr
 	}
 	return simpleValue{}, fmt.Errorf("value does not match any union member")
 }
