@@ -729,26 +729,26 @@ func parseXSDDurationValue(s string) (xsdDurationValue, error) {
 		return xsdDurationValue{}, fmt.Errorf("invalid duration")
 	}
 	i++
-	years, months, days, seenDate, err := parseXSDDurationDateParts(s, &i)
+	date, err := parseXSDDurationDateParts(s, &i)
 	if err != nil {
 		return xsdDurationValue{}, err
 	}
-	hours, minutes, seconds, frac, seenTime, err := parseXSDDurationTimeParts(s, &i)
+	tm, err := parseXSDDurationTimeParts(s, &i)
 	if err != nil {
 		return xsdDurationValue{}, err
 	}
-	if i != len(s) || !seenDate && !seenTime {
+	if i != len(s) || !date.seen && !tm.seen {
 		return xsdDurationValue{}, fmt.Errorf("invalid duration")
 	}
-	monthTotal, err := checkedMulInt64(years, 12)
+	monthTotal, err := checkedMulInt64(date.years, 12)
 	if err != nil {
 		return xsdDurationValue{}, err
 	}
-	monthTotal, err = checkedAddInt64(monthTotal, months)
+	monthTotal, err = checkedAddInt64(monthTotal, date.months)
 	if err != nil {
 		return xsdDurationValue{}, err
 	}
-	secondTotal, err := checkedDurationWholeSeconds(days, hours, minutes, seconds)
+	secondTotal, err := checkedDurationWholeSeconds(date.days, tm.hours, tm.minutes, tm.seconds)
 	if err != nil {
 		return xsdDurationValue{}, err
 	}
@@ -760,66 +760,78 @@ func parseXSDDurationValue(s string) (xsdDurationValue, error) {
 		secondTotal = -secondTotal
 	}
 	return xsdDurationValue{
-		frac:         frac,
+		frac:         tm.frac,
 		months:       monthTotal,
 		seconds:      secondTotal,
-		negativeFrac: negative && frac != "",
+		negativeFrac: negative && tm.frac != "",
 	}, nil
 }
 
-func parseXSDDurationDateParts(s string, i *int) (int64, int64, int64, bool, error) {
-	var years, months, days int64
+type xsdDurationDateParts struct {
+	years  int64
+	months int64
+	days   int64
+	seen   bool
+}
+
+func parseXSDDurationDateParts(s string, i *int) (xsdDurationDateParts, error) {
+	var out xsdDurationDateParts
 	stage := 0
-	seen := false
 	for *i < len(s) && s[*i] != 'T' {
 		value, err := parseDurationUnsigned(s, i)
 		if err != nil || *i >= len(s) {
-			return 0, 0, 0, false, fmt.Errorf("invalid duration")
+			return xsdDurationDateParts{}, fmt.Errorf("invalid duration")
 		}
 		switch s[*i] {
 		case 'Y':
 			if stage >= 1 {
-				return 0, 0, 0, false, fmt.Errorf("invalid duration")
+				return xsdDurationDateParts{}, fmt.Errorf("invalid duration")
 			}
-			years = value
+			out.years = value
 			stage = 1
 		case 'M':
 			if stage >= 2 {
-				return 0, 0, 0, false, fmt.Errorf("invalid duration")
+				return xsdDurationDateParts{}, fmt.Errorf("invalid duration")
 			}
-			months = value
+			out.months = value
 			stage = 2
 		case 'D':
 			if stage >= 3 {
-				return 0, 0, 0, false, fmt.Errorf("invalid duration")
+				return xsdDurationDateParts{}, fmt.Errorf("invalid duration")
 			}
-			days = value
+			out.days = value
 			stage = 3
 		default:
-			return 0, 0, 0, false, fmt.Errorf("invalid duration")
+			return xsdDurationDateParts{}, fmt.Errorf("invalid duration")
 		}
 		*i++
-		seen = true
+		out.seen = true
 	}
-	return years, months, days, seen, nil
+	return out, nil
 }
 
-func parseXSDDurationTimeParts(s string, i *int) (int64, int64, int64, string, bool, error) {
+type xsdDurationTimeParts struct {
+	frac    string
+	hours   int64
+	minutes int64
+	seconds int64
+	seen    bool
+}
+
+func parseXSDDurationTimeParts(s string, i *int) (xsdDurationTimeParts, error) {
 	if *i == len(s) {
-		return 0, 0, 0, "", false, nil
+		return xsdDurationTimeParts{}, nil
 	}
 	if s[*i] != 'T' {
-		return 0, 0, 0, "", false, fmt.Errorf("invalid duration")
+		return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 	}
 	*i++
-	var hours, minutes, seconds int64
-	frac := ""
+	var out xsdDurationTimeParts
 	stage := 0
-	seen := false
 	for *i < len(s) {
 		value, err := parseDurationUnsigned(s, i)
 		if err != nil {
-			return 0, 0, 0, "", false, err
+			return xsdDurationTimeParts{}, err
 		}
 		partFrac := ""
 		hadFrac := false
@@ -831,43 +843,43 @@ func parseXSDDurationTimeParts(s string, i *int) (int64, int64, int64, string, b
 				*i++
 			}
 			if *i == start {
-				return 0, 0, 0, "", false, fmt.Errorf("invalid duration")
+				return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 			}
 			partFrac = strings.TrimRight(s[start:*i], "0")
 		}
 		if *i >= len(s) {
-			return 0, 0, 0, "", false, fmt.Errorf("invalid duration")
+			return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 		}
 		switch s[*i] {
 		case 'H':
 			if stage >= 1 || hadFrac {
-				return 0, 0, 0, "", false, fmt.Errorf("invalid duration")
+				return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 			}
-			hours = value
+			out.hours = value
 			stage = 1
 		case 'M':
 			if stage >= 2 || hadFrac {
-				return 0, 0, 0, "", false, fmt.Errorf("invalid duration")
+				return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 			}
-			minutes = value
+			out.minutes = value
 			stage = 2
 		case 'S':
 			if stage >= 3 {
-				return 0, 0, 0, "", false, fmt.Errorf("invalid duration")
+				return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 			}
-			seconds = value
-			frac = partFrac
+			out.seconds = value
+			out.frac = partFrac
 			stage = 3
 		default:
-			return 0, 0, 0, "", false, fmt.Errorf("invalid duration")
+			return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 		}
 		*i++
-		seen = true
+		out.seen = true
 	}
-	if !seen {
-		return 0, 0, 0, "", false, fmt.Errorf("invalid duration")
+	if !out.seen {
+		return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 	}
-	return hours, minutes, seconds, frac, true, nil
+	return out, nil
 }
 
 func parseDurationUnsigned(s string, i *int) (int64, error) {
@@ -1693,38 +1705,45 @@ func applyTimeBounds(f facetSet, norm string, actual actualValue) error {
 }
 
 func applyPartialBoundsParsed[T any](f facetSet, value T, parse func(string) (T, error), compare func(T, T) partialCompareResult, actual func(*compiledLiteral) (T, bool)) error {
-	cmpLit := func(l *compiledLiteral) (T, bool, error) {
-		var zero T
-		if l == nil {
-			return zero, false, nil
-		}
-		if actual != nil {
-			if v, ok := actual(l); ok {
-				return v, true, nil
-			}
-		}
-		v, err := parse(l.Canonical)
-		return v, true, err
-	}
-	if lit, ok, err := cmpLit(f.MinInclusive); err != nil {
+	if err := applyPartialBound(f.MinInclusive, "minInclusive", value, parse, compare, actual, partialCompareForMinInclusive); err != nil {
 		return err
-	} else if ok && !partialCompareForMinInclusive(compare(value, lit)) {
-		return fmt.Errorf("minInclusive facet failed")
 	}
-	if lit, ok, err := cmpLit(f.MaxInclusive); err != nil {
+	if err := applyPartialBound(f.MaxInclusive, "maxInclusive", value, parse, compare, actual, partialCompareForMaxInclusive); err != nil {
 		return err
-	} else if ok && !partialCompareForMaxInclusive(compare(value, lit)) {
-		return fmt.Errorf("maxInclusive facet failed")
 	}
-	if lit, ok, err := cmpLit(f.MinExclusive); err != nil {
+	if err := applyPartialBound(f.MinExclusive, "minExclusive", value, parse, compare, actual, partialCompareForMinExclusive); err != nil {
 		return err
-	} else if ok && !partialCompareForMinExclusive(compare(value, lit)) {
-		return fmt.Errorf("minExclusive facet failed")
 	}
-	if lit, ok, err := cmpLit(f.MaxExclusive); err != nil {
+	return applyPartialBound(f.MaxExclusive, "maxExclusive", value, parse, compare, actual, partialCompareForMaxExclusive)
+}
+
+func applyPartialBound[T any](
+	lit *compiledLiteral,
+	name string,
+	value T,
+	parse func(string) (T, error),
+	compare func(T, T) partialCompareResult,
+	actual func(*compiledLiteral) (T, bool),
+	accept func(partialCompareResult) bool,
+) error {
+	if lit == nil {
+		return nil
+	}
+	limit, err := partialBoundLiteral(lit, parse, actual)
+	if err != nil {
 		return err
-	} else if ok && !partialCompareForMaxExclusive(compare(value, lit)) {
-		return fmt.Errorf("maxExclusive facet failed")
+	}
+	if !accept(compare(value, limit)) {
+		return fmt.Errorf("%s facet failed", name)
 	}
 	return nil
+}
+
+func partialBoundLiteral[T any](lit *compiledLiteral, parse func(string) (T, error), actual func(*compiledLiteral) (T, bool)) (T, error) {
+	if actual != nil {
+		if v, ok := actual(lit); ok {
+			return v, nil
+		}
+	}
+	return parse(lit.Canonical)
 }

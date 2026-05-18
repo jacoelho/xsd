@@ -40,8 +40,8 @@ func TestIdentityConstraintSchemaShapeIsValidated(t *testing.T) {
 
 func TestIdentityConstraintsUniqueKeyAndKeyref(t *testing.T) {
 	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="item" maxOccurs="unbounded">
@@ -66,10 +66,30 @@ func TestIdentityConstraintsUniqueKeyAndKeyref(t *testing.T) {
 	mustNotValidate(t, engine, `<root><item id="a"/><item id="b" ref="missing"/></root>`, ErrValidationIdentity)
 }
 
+func TestIdentityConstraintDecimalFieldsUseValueSpace(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="row" maxOccurs="unbounded">
+	          <xs:complexType>
+	            <xs:attribute name="amount" type="xs:decimal"/>
+	          </xs:complexType>
+	        </xs:element>
+	      </xs:sequence>
+	    </xs:complexType>
+	    <xs:unique name="u"><xs:selector xpath="row"/><xs:field xpath="@amount"/></xs:unique>
+	  </xs:element>
+	</xs:schema>`)
+	mustValidate(t, engine, `<root><row amount="1"/><row amount="2.0"/></root>`)
+	mustNotValidate(t, engine, `<root><row amount="1"/><row amount="1.0"/></root>`, ErrValidationIdentity)
+}
+
 func TestIdentitySelectorSelfMatchesConstraintElement(t *testing.T) {
 	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="item" maxOccurs="unbounded">

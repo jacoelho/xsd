@@ -79,12 +79,12 @@ func primitiveHasOrderFacet(kind primitiveKind) bool {
 	}
 }
 
-func (c *compiler) compileFacets(parent *rawNode, st *simpleType, base simpleTypeID) error {
+func (c *compiler) compileFacets(parent *rawNode, st *simpleType, base, literalType simpleTypeID) error {
 	baseFacets := c.rt.SimpleTypes[base].Facets
 	state := compiledFacetState{
 		inheritedEnumeration: slices.Clone(st.Facets.Enumeration),
 	}
-	if err := c.compileFacetChildren(parent, st, base, &state); err != nil {
+	if err := c.compileFacetChildren(parent, st, base, literalType, &state); err != nil {
 		return err
 	}
 	state.apply(st)
@@ -110,7 +110,7 @@ func (s *compiledFacetState) apply(st *simpleType) {
 	}
 }
 
-func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base simpleTypeID, state *compiledFacetState) error {
+func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, literalType simpleTypeID, state *compiledFacetState) error {
 	for _, child := range parent.xsContentChildren() {
 		if child.Name.Local == "simpleType" {
 			continue
@@ -137,7 +137,7 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base si
 			if err != nil {
 				return err
 			}
-			lit, err := c.compileLiteral(base, value, c.schemaQNameResolver(child))
+			lit, err := c.compileLiteral(literalType, value, c.schemaQNameResolver(child))
 			if err != nil {
 				return err
 			}
@@ -190,14 +190,14 @@ func requiredFacetValue(n *rawNode) (string, error) {
 }
 
 func compileSizeFacet(st *simpleType, name, value string) error {
-	n, err := strconv.ParseUint(value, 10, 32)
+	n, err := parseSizeFacetInteger(value)
 	if err != nil {
 		return schemaCompile(ErrSchemaFacet, "invalid "+name+" facet "+value)
 	}
-	v := uint32(n)
-	if name == "totalDigits" && v == 0 {
+	if name == "totalDigits" && n == 0 {
 		return schemaCompile(ErrSchemaFacet, "totalDigits must be positive")
 	}
+	v := uint32(n)
 	switch name {
 	case "length":
 		st.Facets.Length = &v
@@ -211,6 +211,37 @@ func compileSizeFacet(st *simpleType, name, value string) error {
 		st.Facets.FractionDigits = &v
 	}
 	return nil
+}
+
+func parseSizeFacetInteger(value string) (uint64, error) {
+	if value == "" {
+		return 0, strconv.ErrSyntax
+	}
+	start := 0
+	negative := false
+	if value[0] == '+' || value[0] == '-' {
+		negative = value[0] == '-'
+		start = 1
+	}
+	if start == len(value) {
+		return 0, strconv.ErrSyntax
+	}
+	digitStart := start
+	for digitStart < len(value) && value[digitStart] == '0' {
+		digitStart++
+	}
+	if negative && digitStart != len(value) {
+		return 0, strconv.ErrSyntax
+	}
+	if digitStart == len(value) {
+		return 0, nil
+	}
+	for i := start; i < len(value); i++ {
+		if value[i] < '0' || value[i] > '9' {
+			return 0, strconv.ErrSyntax
+		}
+	}
+	return strconv.ParseUint(value[digitStart:], 10, 32)
 }
 
 func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *rawNode, value string, step *orderedFacetStep) error {
@@ -388,7 +419,7 @@ func validateDecimalLowerRestriction(name string, lit *compiledLiteral, exclusiv
 	if lit == nil || !base.ok {
 		return nil
 	}
-	cmp := compareCanonicalDecimal(literalDecimal(lit).Canonical, base.value.Canonical)
+	cmp := compareDecimalValues(literalDecimal(lit), base.value)
 	if cmp < 0 || cmp == 0 && !exclusive && base.exclusive {
 		return fmt.Errorf("%s cannot be less than base lower bound", name)
 	}
@@ -399,7 +430,7 @@ func validateDecimalUpperRestriction(name string, lit *compiledLiteral, exclusiv
 	if lit == nil || !base.ok {
 		return nil
 	}
-	cmp := compareCanonicalDecimal(literalDecimal(lit).Canonical, base.value.Canonical)
+	cmp := compareDecimalValues(literalDecimal(lit), base.value)
 	if cmp > 0 || cmp == 0 && !exclusive && base.exclusive {
 		return fmt.Errorf("%s cannot exceed base upper bound", name)
 	}
@@ -412,7 +443,7 @@ func validateDecimalFacetBounds(f facetSet) error {
 	if !lower.ok || !upper.ok {
 		return nil
 	}
-	cmp := compareCanonicalDecimal(lower.value.Canonical, upper.value.Canonical)
+	cmp := compareDecimalValues(lower.value, upper.value)
 	if cmp > 0 || cmp == 0 && (lower.exclusive || upper.exclusive) {
 		return fmt.Errorf("decimal lower bound cannot exceed upper bound")
 	}
@@ -460,7 +491,7 @@ func decimalUpperBound(f facetSet) decimalBound {
 }
 
 func compareDecimalLowerBound(a, b decimalBound) int {
-	cmp := compareCanonicalDecimal(a.value.Canonical, b.value.Canonical)
+	cmp := compareDecimalValues(a.value, b.value)
 	if cmp != 0 {
 		return cmp
 	}
@@ -474,7 +505,7 @@ func compareDecimalLowerBound(a, b decimalBound) int {
 }
 
 func compareDecimalUpperBound(a, b decimalBound) int {
-	cmp := compareCanonicalDecimal(a.value.Canonical, b.value.Canonical)
+	cmp := compareDecimalValues(a.value, b.value)
 	if cmp != 0 {
 		return cmp
 	}

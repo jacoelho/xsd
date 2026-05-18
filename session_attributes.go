@@ -134,7 +134,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse,
 	if use.Prohibited {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "prohibited attribute "+rn.Local)
 	}
-	simple, err := validateSimpleValueInfo(rt, use.Type, value, s.resolveLexicalQNameValue)
+	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameValue, true, s.needsIdentityAttributeValue(use.Name))
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
@@ -144,7 +144,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse,
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	if err := s.captureIdentityAttribute(use.Name, simple.Type, simple.Canonical, line, col); err != nil {
+	if err := s.captureIdentityAttribute(use.Name, simple, line, col); err != nil {
 		return err
 	}
 	return s.validateFixedAttributeValue(use, simple.Canonical, rn, line, col)
@@ -186,7 +186,7 @@ func (s *session) validateWildcardAttribute(rt *runtimeSchema, set attributeUseS
 }
 
 func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attributeDecl, rn runtimeName, value string, line, col int, seenIDAttr *bool) error {
-	simple, err := validateSimpleValueInfo(rt, decl.Type, value, s.resolveLexicalQNameValue)
+	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameValue, true, s.needsIdentityAttributeValue(decl.Name))
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
@@ -196,7 +196,7 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	return s.captureIdentityAttribute(decl.Name, simple.Type, simple.Canonical, line, col)
+	return s.captureIdentityAttribute(decl.Name, simple, line, col)
 }
 
 func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
@@ -226,7 +226,7 @@ func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set att
 			}
 			continue
 		}
-		if err := s.captureIdentityAttribute(use.Name, simple.Type, simple.Canonical, line, col); err != nil {
+		if err := s.captureIdentityAttribute(use.Name, simple, line, col); err != nil {
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
 				return recoverErr

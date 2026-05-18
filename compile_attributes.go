@@ -107,7 +107,7 @@ func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolv
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed attribute cannot have default or fixed")
 	}
 	if decl.HasDefault {
-		value, err := validateSimpleValueInfo(&c.rt, decl.Type, decl.Default, resolve)
+		value, err := validateSimpleValueIdentityInfo(&c.rt, decl.Type, decl.Default, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
@@ -118,7 +118,7 @@ func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolv
 		decl.DefaultValue = value
 	}
 	if decl.HasFixed {
-		value, err := validateSimpleValueInfo(&c.rt, decl.Type, decl.Fixed, resolve)
+		value, err := validateSimpleValueIdentityInfo(&c.rt, decl.Type, decl.Fixed, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err

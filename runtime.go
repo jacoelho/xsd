@@ -80,11 +80,11 @@ type elementDecl struct {
 	Fixed            string
 	DefaultCanonical string
 	FixedCanonical   string
+	Identity         []identityConstraintID
 	DefaultValue     simpleValue
 	FixedValue       simpleValue
-	Identity         []identityConstraintID
-	Name             qName
 	Type             typeID
+	Name             qName
 	SubstHead        elementID
 	Nillable         bool
 	Abstract         bool
@@ -223,6 +223,18 @@ const (
 	simpleIdentityIDREFList
 )
 
+type builtinValidationKind uint8
+
+const (
+	builtinValidationNone builtinValidationKind = iota
+	builtinValidationInteger
+	builtinValidationName
+	builtinValidationNCName
+	builtinValidationNMTOKEN
+	builtinValidationLanguage
+	builtinValidationEntity
+)
+
 type simpleType struct {
 	Facets     facetSet
 	Union      []simpleTypeID
@@ -233,6 +245,7 @@ type simpleType struct {
 	Primitive  primitiveKind
 	Final      derivationMask
 	Whitespace whitespaceMode
+	Builtin    builtinValidationKind
 	Identity   simpleIdentityKind
 	Missing    bool
 }

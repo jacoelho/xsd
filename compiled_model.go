@@ -647,6 +647,12 @@ type dfaTransitionSet struct {
 	Particle particle
 }
 
+type particleTermKey struct {
+	Element  elementID
+	Wildcard wildcardID
+	Kind     particleKind
+}
+
 func (b *dfaBuilder) compileDeterministicModel(id contentModelID, start uint32) (compiledModel, error) {
 	caps := b.counterCaps()
 	states := make(map[string]uint32)
@@ -698,7 +704,7 @@ func (b *dfaBuilder) compileDeterministicModel(id contentModelID, start uint32) 
 
 func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32, stateID func(dfaDeterministicState) (uint32, error)) (compiledModelRow, error) {
 	var row compiledModelRow
-	groups := make(map[string]*dfaTransitionSet)
+	groups := make(map[particleTermKey]*dfaTransitionSet)
 	for _, config := range state.Configs {
 		if !validUint32Index(config.State, len(b.rows)) {
 			return compiledModelRow{}, internalInvariant("content model DFA state out of range")
@@ -718,7 +724,7 @@ func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32
 			if err != nil {
 				return compiledModelRow{}, err
 			}
-			key := particleKey(edge.Particle)
+			key := particleTermKeyOf(edge.Particle)
 			group := groups[key]
 			if group == nil {
 				group = &dfaTransitionSet{Particle: edge.Particle}
@@ -730,11 +736,11 @@ func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32
 			group.Configs = append(group.Configs, dfaConfig{State: edge.To, Counters: counters})
 		}
 	}
-	keys := make([]string, 0, len(groups))
+	keys := make([]particleTermKey, 0, len(groups))
 	for key := range groups {
 		keys = append(keys, key)
 	}
-	slices.Sort(keys)
+	slices.SortFunc(keys, compareParticleTermKey)
 	for _, key := range keys {
 		group := groups[key]
 		to, err := stateID(dfaDeterministicState{Configs: group.Configs})
@@ -851,22 +857,25 @@ func dfaConfigStateKey(configs []dfaConfig) string {
 	return string(b)
 }
 
-func particleKey(p particle) string {
+func particleTermKeyOf(p particle) particleTermKey {
 	switch p.Kind {
 	case particleElement:
-		return "e" + strconv.FormatUint(uint64(p.Element), 10)
+		return particleTermKey{Kind: p.Kind, Element: p.Element}
 	case particleWildcard:
-		return "w" + strconv.FormatUint(uint64(p.wildcard), 10)
+		return particleTermKey{Kind: p.Kind, Wildcard: p.wildcard}
 	default:
-		var b []byte
-		b = append(b, 'p')
-		b = strconv.AppendUint(b, uint64(p.Kind), 10)
-		b = append(b, '/')
-		b = strconv.AppendUint(b, uint64(p.Element), 10)
-		b = append(b, '/')
-		b = strconv.AppendUint(b, uint64(p.wildcard), 10)
-		return string(b)
+		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.wildcard}
 	}
+}
+
+func compareParticleTermKey(a, b particleTermKey) int {
+	if n := cmp.Compare(a.Kind, b.Kind); n != 0 {
+		return n
+	}
+	if n := cmp.Compare(a.Element, b.Element); n != 0 {
+		return n
+	}
+	return cmp.Compare(a.Wildcard, b.Wildcard)
 }
 
 func (b *dfaBuilder) checkDeterministicUPA(rows []compiledModelRow) error {

@@ -14,16 +14,17 @@ type simpleValue struct {
 	Canonical string
 	IDs       string
 	IDRefs    string
+	Identity  string
 	Type      simpleTypeID
 }
 
 //nolint:govet // Tagged value payload; fields stay grouped by primitive kind.
 type actualValue struct {
-	Decimal  decimalValue
-	Duration xsdDurationValue
-	Temporal xsdTemporalValue
 	Time     xsdTimeValue
 	G        xsdGValue
+	Duration xsdDurationValue
+	Temporal xsdTemporalValue
+	Decimal  decimalValue
 	Float    float64
 	Length   uint32
 	Kind     primitiveKind
@@ -36,6 +37,22 @@ type primitiveActual struct {
 	Actual    actualValue
 }
 
+func simpleIdentityKey(kind primitiveKind, canonical string) string {
+	var b strings.Builder
+	b.Grow(2 + len(canonical))
+	b.WriteByte(byte(kind))
+	b.WriteByte('\x1e')
+	b.WriteString(canonical)
+	return b.String()
+}
+
+func primitiveIdentityKey(kind primitiveKind, canonical string, actual actualValue) string {
+	if kind == primDecimal && actual.Valid && actual.Kind == primDecimal {
+		canonical = actual.Decimal.canonical()
+	}
+	return simpleIdentityKey(kind, canonical)
+}
+
 func validateSimpleValue(rt *runtimeSchema, id simpleTypeID, lexical string, resolve qnameResolver) (string, error) {
 	v, err := validateSimpleValueInfo(rt, id, lexical, resolve)
 	if err != nil {
@@ -45,7 +62,11 @@ func validateSimpleValue(rt *runtimeSchema, id simpleTypeID, lexical string, res
 }
 
 func validateSimpleValueInfo(rt *runtimeSchema, id simpleTypeID, lexical string, resolve qnameResolver) (simpleValue, error) {
-	return validateSimpleValueMode(rt, id, lexical, resolve, true)
+	return validateSimpleValueMode(rt, id, lexical, resolve, true, false)
+}
+
+func validateSimpleValueIdentityInfo(rt *runtimeSchema, id simpleTypeID, lexical string, resolve qnameResolver) (simpleValue, error) {
+	return validateSimpleValueMode(rt, id, lexical, resolve, true, true)
 }
 
 func simpleTypeIdentity(rt *runtimeSchema, id simpleTypeID, st simpleType) simpleIdentityKind {
@@ -82,7 +103,7 @@ func computeSimpleValueIdentity(rt *runtimeSchema, id simpleTypeID) simpleIdenti
 	return simpleIdentityNone
 }
 
-func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string, resolve qnameResolver, needCanonical bool) (simpleValue, error) {
+func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string, resolve qnameResolver, needCanonical, needIdentity bool) (simpleValue, error) {
 	if id == noSimpleType {
 		return simpleValue{Canonical: lexical, Type: noSimpleType}, nil
 	}
@@ -91,25 +112,23 @@ func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string,
 		return simpleValue{}, fmt.Errorf("missing type")
 	}
 	if st.Variety == varietyList {
-		return validateListValue(rt, id, st, lexical, resolve, needCanonical)
+		return validateListValue(rt, id, st, lexical, resolve, needCanonical, needIdentity)
 	}
 	norm := normalizeWhitespace(lexical, st.Whitespace)
 	switch st.Variety {
 	case varietyUnion:
-		return validateUnionValue(rt, st, norm, resolve, needCanonical)
+		return validateUnionValue(rt, st, norm, resolve, needCanonical, needIdentity)
 	default:
-		return validateAtomicValue(rt, id, st, norm, resolve, needCanonical)
+		return validateAtomicValue(rt, id, st, norm, resolve, needCanonical, needIdentity)
 	}
 }
 
-func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm string, resolve qnameResolver, needCanonical bool) (simpleValue, error) {
+func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm string, resolve qnameResolver, needCanonical, needIdentity bool) (simpleValue, error) {
 	identity := simpleTypeIdentity(rt, id, st)
-	if st.Base != noSimpleType && st.Base != id && st.Base != rt.Builtin.AnySimpleType {
-		if _, err := validateSimpleValueMode(rt, st.Base, norm, resolve, false); err != nil {
-			return simpleValue{}, err
-		}
-	}
-	parsed, err := validatePrimitiveActual(rt, st, norm, resolve, needCanonical || st.Facets.needsCanonical() || identity != simpleIdentityNone)
+	needPrimitiveCanonical := needCanonical ||
+		identity != simpleIdentityNone ||
+		st.Primitive != primDecimal && (st.Facets.needsCanonical() || needIdentity)
+	parsed, err := validatePrimitiveActual(rt, st, norm, resolve, needPrimitiveCanonical)
 	if err != nil {
 		return simpleValue{}, err
 	}
@@ -118,15 +137,20 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 		if !parsed.Actual.Decimal.IntegerLexical {
 			return simpleValue{}, fmt.Errorf("invalid integer")
 		}
-		canon = parsed.Actual.Decimal.IntegerCanonical
+		if needPrimitiveCanonical {
+			canon = parsed.Actual.Decimal.integerCanonical()
+		}
 	}
-	if err := validateBuiltinDerived(rt, st, norm, parsed.Actual); err != nil {
+	if err := validateBuiltinDerived(st.Builtin, norm, parsed.Actual); err != nil {
 		return simpleValue{}, err
 	}
 	if err := applyFacets(st, norm, canon, parsed.Actual, false); err != nil {
 		return simpleValue{}, err
 	}
 	v := simpleValue{Canonical: canon, Type: id}
+	if needIdentity {
+		v.Identity = primitiveIdentityKey(st.Primitive, canon, parsed.Actual)
+	}
 	switch identity {
 	case simpleIdentityID:
 		v.IDs = canon
@@ -136,16 +160,16 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 	return v, nil
 }
 
-func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexical string, resolve qnameResolver, needCanonical bool) (simpleValue, error) {
+func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexical string, resolve qnameResolver, needCanonical, needIdentity bool) (simpleValue, error) {
 	identity := simpleTypeIdentity(rt, id, st)
-	needStrings := needCanonical || st.Facets.needsLexical() || st.Facets.needsCanonical() || identity != simpleIdentityNone
+	needStrings := needCanonical || needIdentity || st.Facets.needsLexical() || st.Facets.needsCanonical() || identity != simpleIdentityNone
 	v := simpleValue{Type: id}
 	var canon strings.Builder
 	var norm strings.Builder
 	var idrefs strings.Builder
 	count := uint32(0)
 	if err := forEachListItem(lexical, func(item string) error {
-		itemValue, err := validateSimpleValueMode(rt, st.ListItem, item, resolve, needStrings)
+		itemValue, err := validateSimpleValueMode(rt, st.ListItem, item, resolve, needStrings, false)
 		if err != nil {
 			return err
 		}
@@ -182,6 +206,9 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 			return simpleValue{}, err
 		}
 	}
+	if needIdentity {
+		v.Identity = simpleIdentityKey(primString, v.Canonical)
+	}
 	return v, nil
 }
 
@@ -207,11 +234,11 @@ func forEachListItem(lexical string, fn func(string) error) error {
 	return nil
 }
 
-func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needCanonical bool) (simpleValue, error) {
-	needMemberCanon := needCanonical || st.Facets.needsCanonical() || st.Identity != simpleIdentityNone
+func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needCanonical, needIdentity bool) (simpleValue, error) {
+	needMemberCanon := needCanonical || needIdentity || st.Facets.needsCanonical() || st.Identity != simpleIdentityNone
 	var unsupportedErr error
 	for _, member := range st.Union {
-		value, err := validateSimpleValueMode(rt, member, norm, resolve, needMemberCanon)
+		value, err := validateSimpleValueMode(rt, member, norm, resolve, needMemberCanon, needIdentity)
 		if err == nil {
 			if facetErr := applyPatternAndEnumeration(st.Facets, norm, value.Canonical, actualValue{}); facetErr != nil {
 				return simpleValue{}, facetErr
@@ -248,7 +275,7 @@ func validatePrimitiveActual(rt *runtimeSchema, st simpleType, norm string, reso
 		actual.Boolean = value
 		return primitiveActual{Canonical: canon, Actual: actual}, nil
 	case primDecimal:
-		dec, err := parseDecimal(norm)
+		dec, err := parseDecimalMode(norm, needCanonical)
 		if err != nil {
 			return primitiveActual{}, err
 		}

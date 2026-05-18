@@ -539,7 +539,7 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
-	st, err := c.compileSimpleType(raw.node, raw.ctx, q)
+	st, err := c.compileSimpleType(raw.node, raw.ctx, q, id)
 	if err != nil {
 		return noSimpleType, err
 	}
@@ -563,7 +563,7 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpl
 	}
 	id := simpleTypeID(len(c.rt.SimpleTypes))
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
-	st, err := c.compileSimpleType(n, ctx, q)
+	st, err := c.compileSimpleType(n, ctx, q, id)
 	if err != nil {
 		return noSimpleType, err
 	}
@@ -577,7 +577,7 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpl
 	return id, nil
 }
 
-func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
+func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
 	if err := validateSimpleTypeChildren(n); err != nil {
 		return simpleType{}, err
 	}
@@ -589,9 +589,9 @@ func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName)
 	case "restriction":
 		return c.compileRestriction(children[0], ctx, name)
 	case "list":
-		return c.compileList(children[0], ctx, name)
+		return c.compileList(children[0], ctx, name, selfID)
 	case "union":
-		return c.compileUnion(children[0], ctx, name)
+		return c.compileUnion(children[0], ctx, name, selfID)
 	default:
 		return simpleType{}, schemaCompile(ErrSchemaContentModel, "unsupported simpleType child "+children[0].Name.Local)
 	}
@@ -678,7 +678,7 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 		}
 		st.Whitespace = mode
 	}
-	if err := c.compileFacets(n, &st, baseID); err != nil {
+	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
 		return simpleType{}, err
 	}
 	return st, nil
@@ -694,7 +694,7 @@ func cloneFacetSet(f facetSet) facetSet {
 	return out
 }
 
-func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
+func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
 	if err := validateSimpleDerivationChildren(n, false); err != nil {
 		return simpleType{}, err
 	}
@@ -728,7 +728,8 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName) (simp
 		return simpleType{}, schemaCompile(ErrSchemaContentModel, "list item type cannot be a list type")
 	}
 	st := simpleType{Name: name, Variety: varietyList, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse, ListItem: item}
-	if err := c.compileFacets(n, &st, c.rt.Builtin.AnySimpleType); err != nil {
+	c.rt.SimpleTypes[selfID] = st
+	if err := c.compileFacets(n, &st, c.rt.Builtin.AnySimpleType, selfID); err != nil {
 		return simpleType{}, err
 	}
 	return st, nil
@@ -751,7 +752,7 @@ func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType 
 	return c.missingSimpleType()
 }
 
-func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
+func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
 	if err := validateSimpleDerivationChildren(n, true); err != nil {
 		return simpleType{}, err
 	}
@@ -785,7 +786,8 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName) (sim
 	if len(st.Union) == 0 {
 		return simpleType{}, schemaCompile(ErrSchemaReference, "union missing member types")
 	}
-	if err := c.compileFacets(n, &st, c.rt.Builtin.AnySimpleType); err != nil {
+	c.rt.SimpleTypes[selfID] = st
+	if err := c.compileFacets(n, &st, c.rt.Builtin.AnySimpleType, selfID); err != nil {
 		return simpleType{}, err
 	}
 	return st, nil

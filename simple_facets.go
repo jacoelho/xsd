@@ -6,18 +6,15 @@ import (
 	"unicode/utf8"
 )
 
-func validateBuiltinDerived(rt *runtimeSchema, st simpleType, norm string, actual actualValue) error {
-	if rt.Names.Namespace(st.Name.Namespace) != xsdNamespaceURI {
+func validateBuiltinDerived(kind builtinValidationKind, norm string, actual actualValue) error {
+	switch kind {
+	case builtinValidationNone:
 		return nil
-	}
-	local := rt.Names.Local(st.Name.Local)
-	switch local {
-	case "integer", "nonPositiveInteger", "negativeInteger", "nonNegativeInteger", "positiveInteger",
-		"long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
+	case builtinValidationInteger:
 		dec := actual.Decimal
 		if !actual.Valid || actual.Kind != primDecimal {
 			var err error
-			dec, err = parseDecimal(norm)
+			dec, err = parseDecimalValue(norm)
 			if err != nil {
 				return err
 			}
@@ -25,82 +22,24 @@ func validateBuiltinDerived(rt *runtimeSchema, st simpleType, norm string, actua
 		if !dec.IntegerLexical {
 			return fmt.Errorf("invalid integer")
 		}
-		return validateIntegerRange(local, dec.IntegerCanonical)
-	case "Name":
+	case builtinValidationName:
 		if !isXMLName(norm) {
 			return fmt.Errorf("invalid Name")
 		}
-	case "NCName", "ID", "IDREF", "ENTITY":
+	case builtinValidationNCName, builtinValidationEntity:
 		if !isNCName(norm) {
 			return fmt.Errorf("invalid NCName")
 		}
-		if local == "ENTITY" {
+		if kind == builtinValidationEntity {
 			return unsupported(ErrUnsupportedEntity, "ENTITY requires DTD entity declarations, which are not supported")
 		}
-	case "NMTOKEN":
+	case builtinValidationNMTOKEN:
 		if !isNMTOKEN(norm) {
 			return fmt.Errorf("invalid NMTOKEN")
 		}
-	case "language":
+	case builtinValidationLanguage:
 		if !isLanguage(norm) {
 			return fmt.Errorf("invalid language")
-		}
-	}
-	return nil
-}
-
-func validateIntegerRange(local, value string) error {
-	cmp := func(v string) int {
-		return compareCanonicalDecimal(value, v)
-	}
-	switch local {
-	case "nonPositiveInteger":
-		if cmp("0") > 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "negativeInteger":
-		if cmp("0") >= 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "nonNegativeInteger":
-		if cmp("0") < 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "positiveInteger":
-		if cmp("0") <= 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "long":
-		if cmp("-9223372036854775808") < 0 || cmp("9223372036854775807") > 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "int":
-		if cmp("-2147483648") < 0 || cmp("2147483647") > 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "short":
-		if cmp("-32768") < 0 || cmp("32767") > 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "byte":
-		if cmp("-128") < 0 || cmp("127") > 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "unsignedLong":
-		if cmp("0") < 0 || cmp("18446744073709551615") > 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "unsignedInt":
-		if cmp("0") < 0 || cmp("4294967295") > 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "unsignedShort":
-		if cmp("0") < 0 || cmp("65535") > 0 {
-			return fmt.Errorf("integer out of range")
-		}
-	case "unsignedByte":
-		if cmp("0") < 0 || cmp("255") > 0 {
-			return fmt.Errorf("integer out of range")
 		}
 	}
 	return nil
@@ -127,7 +66,7 @@ func applyAtomicFacets(st simpleType, norm string, actual actualValue) error {
 		dec := actual.Decimal
 		if !actual.Valid || actual.Kind != primDecimal {
 			var err error
-			dec, err = parseDecimal(norm)
+			dec, err = parseDecimalValue(norm)
 			if err != nil {
 				return err
 			}
@@ -249,7 +188,7 @@ func actualEqualsLiteral(actual actualValue, canon string, lit compiledLiteral) 
 	case primBoolean:
 		return actual.Boolean == lit.Actual.Boolean
 	case primDecimal:
-		return compareCanonicalDecimal(actual.Decimal.Canonical, lit.Actual.Decimal.Canonical) == 0
+		return compareDecimalValues(actual.Decimal, lit.Actual.Decimal) == 0
 	case primFloat, primDouble:
 		return actual.Float == lit.Actual.Float || actual.Float != actual.Float && lit.Actual.Float != lit.Actual.Float
 	case primDuration:
@@ -267,16 +206,16 @@ func actualEqualsLiteral(actual actualValue, canon string, lit compiledLiteral) 
 }
 
 func applyDecimalBounds(f facetSet, value decimalValue) error {
-	if f.MinInclusive != nil && compareCanonicalDecimal(value.Canonical, literalDecimal(f.MinInclusive).Canonical) < 0 {
+	if f.MinInclusive != nil && compareDecimalValues(value, literalDecimal(f.MinInclusive)) < 0 {
 		return fmt.Errorf("minInclusive facet failed")
 	}
-	if f.MaxInclusive != nil && compareCanonicalDecimal(value.Canonical, literalDecimal(f.MaxInclusive).Canonical) > 0 {
+	if f.MaxInclusive != nil && compareDecimalValues(value, literalDecimal(f.MaxInclusive)) > 0 {
 		return fmt.Errorf("maxInclusive facet failed")
 	}
-	if f.MinExclusive != nil && compareCanonicalDecimal(value.Canonical, literalDecimal(f.MinExclusive).Canonical) <= 0 {
+	if f.MinExclusive != nil && compareDecimalValues(value, literalDecimal(f.MinExclusive)) <= 0 {
 		return fmt.Errorf("minExclusive facet failed")
 	}
-	if f.MaxExclusive != nil && compareCanonicalDecimal(value.Canonical, literalDecimal(f.MaxExclusive).Canonical) >= 0 {
+	if f.MaxExclusive != nil && compareDecimalValues(value, literalDecimal(f.MaxExclusive)) >= 0 {
 		return fmt.Errorf("maxExclusive facet failed")
 	}
 	return nil
@@ -289,7 +228,7 @@ func literalDecimal(l *compiledLiteral) decimalValue {
 	if l == nil {
 		return decimalValue{}
 	}
-	dec, err := parseDecimal(l.Canonical)
+	dec, err := parseDecimalValue(l.Canonical)
 	if err != nil {
 		return decimalValue{Canonical: l.Canonical, IntegerCanonical: l.Canonical}
 	}

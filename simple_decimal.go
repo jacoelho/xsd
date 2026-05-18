@@ -9,12 +9,27 @@ import (
 type decimalValue struct {
 	Canonical        string
 	IntegerCanonical string
+	text             string
+	start            int
+	intEnd           int
+	intTrimStart     int
+	fracStart        int
+	fracTrimEnd      int
 	IntegerLexical   bool
+	negative         bool
 	TotalDigits      uint32
 	FractionDigits   uint32
 }
 
 func parseDecimal(s string) (decimalValue, error) {
+	return parseDecimalMode(s, true)
+}
+
+func parseDecimalValue(s string) (decimalValue, error) {
+	return parseDecimalMode(s, false)
+}
+
+func parseDecimalMode(s string, needCanonical bool) (decimalValue, error) {
 	if s == "" {
 		return decimalValue{}, fmt.Errorf("invalid decimal")
 	}
@@ -76,31 +91,63 @@ func parseDecimal(s string) (decimalValue, error) {
 		totalDigits = 1
 	}
 
-	return decimalValue{
-		Canonical:        canonicalDecimal(s, negative, intEnd, intTrimStart, fracStart, fracTrimEnd),
-		IntegerCanonical: canonicalIntegerDecimal(s, negative, start, intEnd, intTrimStart),
-		IntegerLexical:   dot < 0,
-		TotalDigits:      uint32(totalDigits),
-		FractionDigits:   uint32(fracDigits),
-	}, nil
+	out := decimalValue{
+		text:           s,
+		start:          start,
+		intEnd:         intEnd,
+		intTrimStart:   intTrimStart,
+		fracStart:      fracStart,
+		fracTrimEnd:    fracTrimEnd,
+		IntegerLexical: dot < 0,
+		negative:       negative,
+		TotalDigits:    uint32(totalDigits),
+		FractionDigits: uint32(fracDigits),
+	}
+	if needCanonical {
+		out.Canonical = out.canonical()
+		out.IntegerCanonical = out.integerCanonical()
+	}
+	return out, nil
 }
 
-func canonicalDecimal(s string, negative bool, intEnd, intTrimStart, fracStart, fracTrimEnd int) string {
-	intDigits := intEnd - intTrimStart
-	fracDigits := fracTrimEnd - fracStart
+func (d decimalValue) canonical() string {
+	if d.Canonical != "" {
+		return d.Canonical
+	}
+	if d.text == "" {
+		return "0.0"
+	}
+	intDigits := d.intDigits()
+	fracDigits := d.fracDigits()
 	if intDigits == 0 && fracDigits == 0 {
 		return "0.0"
 	}
+	if intDigits > 0 && fracDigits > 0 {
+		if d.negative {
+			if d.intTrimStart == d.start {
+				return d.text[:d.fracTrimEnd]
+			}
+			var b strings.Builder
+			b.Grow(1 + intDigits + 1 + fracDigits)
+			b.WriteByte('-')
+			b.WriteString(d.text[d.intTrimStart:d.intEnd])
+			b.WriteByte('.')
+			b.WriteString(d.text[d.fracStart:d.fracTrimEnd])
+			return b.String()
+		}
+		return d.text[d.intTrimStart:d.fracTrimEnd]
+	}
+
 	intPart := "0"
 	if intDigits > 0 {
-		intPart = s[intTrimStart:intEnd]
+		intPart = d.text[d.intTrimStart:d.intEnd]
 	}
 	fracPart := "0"
 	if fracDigits > 0 {
-		fracPart = s[fracStart:fracTrimEnd]
+		fracPart = d.text[d.fracStart:d.fracTrimEnd]
 	}
 	var b strings.Builder
-	if negative && (intDigits != 0 || fracDigits != 0) {
+	if d.negative && (intDigits != 0 || fracDigits != 0) {
 		b.Grow(1 + len(intPart) + 1 + len(fracPart))
 		b.WriteByte('-')
 	} else {
@@ -112,56 +159,82 @@ func canonicalDecimal(s string, negative bool, intEnd, intTrimStart, fracStart, 
 	return b.String()
 }
 
-func canonicalIntegerDecimal(s string, negative bool, start, intEnd, intTrimStart int) string {
-	intDigits := intEnd - intTrimStart
+func (d decimalValue) integerCanonical() string {
+	if d.IntegerCanonical != "" {
+		return d.IntegerCanonical
+	}
+	if d.text == "" {
+		return "0"
+	}
+	intDigits := d.intDigits()
 	if intDigits == 0 {
 		return "0"
 	}
-	if negative {
-		if intTrimStart == start {
-			return s[:intEnd]
+	if d.negative {
+		if d.intTrimStart == d.start {
+			return d.text[:d.intEnd]
 		}
-		return "-" + s[intTrimStart:intEnd]
+		return "-" + d.text[d.intTrimStart:d.intEnd]
 	}
-	return s[intTrimStart:intEnd]
+	return d.text[d.intTrimStart:d.intEnd]
 }
 
-func compareCanonicalDecimal(a, b string) int {
-	if a == b {
+func (d decimalValue) intDigits() int {
+	if d.text == "" {
 		return 0
 	}
-	aNeg := strings.HasPrefix(a, "-")
-	bNeg := strings.HasPrefix(b, "-")
+	return d.intEnd - d.intTrimStart
+}
+
+func (d decimalValue) fracDigits() int {
+	if d.text == "" {
+		return 0
+	}
+	return d.fracTrimEnd - d.fracStart
+}
+
+func (d decimalValue) isZero() bool {
+	return d.intDigits() == 0 && d.fracDigits() == 0
+}
+
+func (d decimalValue) isNegative() bool {
+	return d.negative && !d.isZero()
+}
+
+func compareDecimalValues(a, b decimalValue) int {
+	aNeg := a.isNegative()
+	bNeg := b.isNegative()
 	if aNeg != bNeg {
 		if aNeg {
 			return -1
 		}
 		return 1
 	}
+	n := comparePositiveDecimalValues(a, b)
 	if aNeg {
-		return -comparePositiveCanonicalDecimal(strings.TrimPrefix(a, "-"), strings.TrimPrefix(b, "-"))
+		return -n
 	}
-	return comparePositiveCanonicalDecimal(a, b)
+	return n
 }
 
-func comparePositiveCanonicalDecimal(a, b string) int {
-	aInt, aFrac, _ := strings.Cut(a, ".")
-	bInt, bFrac, _ := strings.Cut(b, ".")
-	if n := cmp.Compare(len(aInt), len(bInt)); n != 0 {
+func comparePositiveDecimalValues(a, b decimalValue) int {
+	if n := cmp.Compare(a.intDigits(), b.intDigits()); n != 0 {
 		return n
 	}
-	if aInt != bInt {
-		return cmp.Compare(aInt, bInt)
+	for i := range a.intDigits() {
+		if n := cmp.Compare(a.text[a.intTrimStart+i], b.text[b.intTrimStart+i]); n != 0 {
+			return n
+		}
 	}
-	n := max(len(aFrac), len(bFrac))
+	n := max(a.fracDigits(), b.fracDigits())
 	for i := range n {
 		ad := byte('0')
-		if i < len(aFrac) {
-			ad = aFrac[i]
+		if i < a.fracDigits() {
+			ad = a.text[a.fracStart+i]
 		}
 		bd := byte('0')
-		if i < len(bFrac) {
-			bd = bFrac[i]
+		if i < b.fracDigits() {
+			bd = b.text[b.fracStart+i]
 		}
 		if ad < bd {
 			return -1

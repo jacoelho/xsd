@@ -95,8 +95,8 @@ func TestInvalidLengthFacetCombinationsAreSchemaErrors(t *testing.T) {
 
 func TestInvalidDigitFacetCombinationIsSchemaError(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Bad"><xs:restriction base="xs:decimal"><xs:totalDigits value="2"/><xs:fractionDigits value="3"/></xs:restriction></xs:simpleType>
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Bad"><xs:restriction base="xs:decimal"><xs:totalDigits value="2"/><xs:fractionDigits value="3"/></xs:restriction></xs:simpleType>
 </xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
 
@@ -109,8 +109,44 @@ func TestInvalidDigitFacetCombinationIsSchemaError(t *testing.T) {
 	_, err = Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="Bad"><xs:restriction base="xs:byte"><xs:fractionDigits value="1"/></xs:restriction></xs:simpleType>
-</xs:schema>`)))
+	</xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
+}
+
+func TestSizeFacetsAcceptXSDIntegerLexicalForms(t *testing.T) {
+	if _, err := Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Length"><xs:restriction base="xs:string"><xs:length value="+1"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="MinLength"><xs:restriction base="xs:string"><xs:minLength value="-0"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="MaxLength"><xs:restriction base="xs:string"><xs:maxLength value="+1"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="FractionDigits"><xs:restriction base="xs:decimal"><xs:fractionDigits value="-0"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="TotalDigits"><xs:restriction base="xs:decimal"><xs:totalDigits value="+1"/></xs:restriction></xs:simpleType>
+	</xs:schema>`))); err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		facet string
+	}{
+		{name: "negative_length", facet: `<xs:length value="-1"/>`},
+		{name: "negative_minLength", facet: `<xs:minLength value="-1"/>`},
+		{name: "zero_totalDigits", facet: `<xs:totalDigits value="0"/>`},
+		{name: "negative_zero_totalDigits", facet: `<xs:totalDigits value="-0"/>`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base := "xs:string"
+			if strings.Contains(tt.facet, "totalDigits") {
+				base = "xs:decimal"
+			}
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Bad"><xs:restriction base="`+base+`">`+tt.facet+`</xs:restriction></xs:simpleType>
+	</xs:schema>`)))
+			expectCode(t, err, ErrSchemaFacet)
+		})
+	}
 }
 
 func TestFacetValueAttributeIsRequired(t *testing.T) {
@@ -214,6 +250,32 @@ func TestDecimalAndIntegerCanonicalValuesDiverge(t *testing.T) {
 	if integer.Canonical != "5" {
 		t.Fatalf("int canonical = %q, want 5", integer.Canonical)
 	}
+}
+
+func TestUserDerivedBuiltinLexicalRulesAreEnforced(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="MyInt"><xs:restriction base="xs:int"/></xs:simpleType>
+	  <xs:simpleType name="MyUnsignedInt"><xs:restriction base="xs:unsignedInt"/></xs:simpleType>
+	  <xs:simpleType name="MyNCName"><xs:restriction base="xs:NCName"/></xs:simpleType>
+	  <xs:simpleType name="MyID"><xs:restriction base="xs:ID"/></xs:simpleType>
+	  <xs:simpleType name="MyLanguage"><xs:restriction base="xs:language"/></xs:simpleType>
+	  <xs:element name="i" type="MyInt"/>
+	  <xs:element name="u" type="MyUnsignedInt"/>
+	  <xs:element name="n" type="MyNCName"/>
+	  <xs:element name="id" type="MyID"/>
+	  <xs:element name="l" type="MyLanguage"/>
+	</xs:schema>`)
+	mustValidate(t, engine, `<i>1</i>`)
+	mustValidate(t, engine, `<u>1</u>`)
+	mustValidate(t, engine, `<n>name</n>`)
+	mustValidate(t, engine, `<id>abc</id>`)
+	mustValidate(t, engine, `<l>en-US</l>`)
+	mustNotValidate(t, engine, `<i>1.0</i>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<u>-1</u>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<n>a:b</n>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<id>a:b</id>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<l>en_US</l>`, ErrValidationFacet)
 }
 
 func TestParseDecimalRejectsInvalidLexicalValues(t *testing.T) {
@@ -844,8 +906,8 @@ func TestInstanceAttributeTabIsPreservedForPatternValidation(t *testing.T) {
 
 func TestOrderedFacetsAreRejectedForListAndUnionTypes(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Ints"><xs:list itemType="xs:int"/></xs:simpleType>
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Ints"><xs:list itemType="xs:int"/></xs:simpleType>
   <xs:simpleType name="Bad"><xs:restriction base="Ints"><xs:minInclusive value="1"/></xs:restriction></xs:simpleType>
 </xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
@@ -854,14 +916,35 @@ func TestOrderedFacetsAreRejectedForListAndUnionTypes(t *testing.T) {
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="U"><xs:union memberTypes="xs:unsignedInt xs:string"/></xs:simpleType>
   <xs:simpleType name="Bad"><xs:restriction base="U"><xs:minInclusive value="1"/></xs:restriction></xs:simpleType>
-</xs:schema>`)))
+	</xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
+}
+
+func TestDirectListAndUnionEnumerationValuesUseMemberValueSpace(t *testing.T) {
+	_, err := Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Bad"><xs:list itemType="xs:int"><xs:enumeration value="x"/></xs:list></xs:simpleType>
+	</xs:schema>`)))
+	expectCode(t, err, ErrSchemaFacet)
+
+	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Bad"><xs:union memberTypes="xs:int"><xs:enumeration value="x"/></xs:union></xs:simpleType>
+	</xs:schema>`)))
+	expectCode(t, err, ErrSchemaFacet)
+
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="One"><xs:union memberTypes="xs:int"><xs:enumeration value="01"/></xs:union></xs:simpleType>
+	  <xs:element name="root" type="One"/>
+	</xs:schema>`)
+	mustValidate(t, engine, `<root>1</root>`)
 }
 
 func TestUnionValueFailureReportsUnionFailure(t *testing.T) {
 	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="U"><xs:union memberTypes="xs:int xs:boolean"/></xs:simpleType>
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="U"><xs:union memberTypes="xs:int xs:boolean"/></xs:simpleType>
   <xs:element name="root" type="U"/>
 </xs:schema>`)
 	err := engine.Validate(strings.NewReader(`<root>nope</root>`))
@@ -1186,6 +1269,45 @@ func TestUnsupportedRegexEscapesAreExplicit(t *testing.T) {
 		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
 		expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedRegex)
 	}
+}
+
+func TestRegexRepeatQuantifiersRespectGoLimit(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:restriction base="xs:string">
+        <xs:pattern value="0{0002}"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>00</root>`)
+	mustNotValidate(t, engine, `<root>0{02}</root>`, ErrValidationFacet)
+
+	if _, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="0{1000}"/></xs:restriction></xs:simpleType>
+</xs:schema>`))); err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	for _, pattern := range []string{
+		`0{1001}`,
+		`0{1001,}`,
+		`0{0,1001}`,
+		`0{0001001}`,
+	} {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
+		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+		expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedRegex)
+	}
+
+	_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="0{1001,1000}"/></xs:restriction></xs:simpleType>
+</xs:schema>`)))
+	expectCode(t, err, ErrSchemaFacet)
 }
 
 func TestSingletonRegexClassEscapesRemainSupported(t *testing.T) {

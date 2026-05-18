@@ -278,7 +278,7 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		return schemaCompile(ErrSchemaFacet, "NOTATION value constraint requires enumeration")
 	}
 	if decl.HasDefault {
-		value, err := validateSimpleValueInfo(&c.rt, simpleID, decl.Default, resolve)
+		value, err := validateSimpleValueIdentityInfo(&c.rt, simpleID, decl.Default, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
@@ -289,7 +289,7 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		decl.DefaultValue = value
 	}
 	if decl.HasFixed {
-		value, err := validateSimpleValueInfo(&c.rt, simpleID, decl.Fixed, resolve)
+		value, err := validateSimpleValueIdentityInfo(&c.rt, simpleID, decl.Fixed, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
