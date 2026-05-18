@@ -57,6 +57,7 @@ const (
 	ErrValidationNil          ErrorCode = "validation.nil"
 	ErrValidationIdentity     ErrorCode = "validation.identity"
 	ErrValidationOption       ErrorCode = "validation.option"
+	ErrValidationLimit        ErrorCode = "validation.limit"
 	ErrInternalInvariant      ErrorCode = "internal.invariant"
 )
 

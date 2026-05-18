@@ -13,11 +13,15 @@ func main() {
 	dir := flag.String("dir", "docs", "directory to serve")
 	flag.Parse()
 
-	srv := &http.Server{
-		Addr:              *addr,
-		Handler:           http.FileServer(http.Dir(*dir)),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	srv := newServer(*addr, *dir)
 	log.Printf("serving %s on %s", *dir, *addr)
 	log.Fatal(srv.ListenAndServe())
+}
+
+func newServer(addr, dir string) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           http.FileServer(http.Dir(dir)),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 }

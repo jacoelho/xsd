@@ -10,6 +10,33 @@ import (
 
 const maxFormatDepth = 4096
 
+var (
+	errFormatInputLimit  = errors.New("XML input byte limit exceeded")
+	errFormatOutputLimit = errors.New("XML formatted output byte limit exceeded")
+)
+
+// FormatOptions controls XML formatting resource limits.
+type FormatOptions struct {
+	// MaxDepth limits nested XML elements. Zero uses the default formatter limit.
+	MaxDepth int
+	// MaxNodes limits retained XML nodes. Zero means unlimited.
+	MaxNodes int
+	// MaxInputBytes limits bytes read from r. Zero means unlimited.
+	MaxInputBytes int64
+	// MaxOutputBytes limits bytes written to w. Zero means unlimited.
+	MaxOutputBytes int64
+	// MaxTokenBytes limits retained XML token payload bytes. Zero means unlimited.
+	MaxTokenBytes int64
+}
+
+type formatOptions struct {
+	maxDepth       int
+	maxNodes       int
+	maxInputBytes  int64
+	maxOutputBytes int64
+	maxTokenBytes  int64
+}
+
 // XMLFormatError reports malformed XML found while formatting.
 type XMLFormatError struct {
 	Err    error
@@ -38,24 +65,139 @@ func (e *XMLFormatError) Unwrap() error {
 //
 // FormatXML builds an in-memory formatting tree before writing.
 func FormatXML(w io.Writer, r io.Reader) error {
+	return FormatXMLWithOptions(w, r, FormatOptions{})
+}
+
+// FormatXMLWithOptions writes a consistently indented XML document with resource limits.
+//
+// FormatXMLWithOptions builds an in-memory formatting tree before writing.
+func FormatXMLWithOptions(w io.Writer, r io.Reader, opts FormatOptions) error {
 	if w == nil {
 		return &XMLFormatError{Err: errors.New("nil writer")}
 	}
 	if r == nil {
 		return &XMLFormatError{Err: errors.New("nil reader")}
 	}
-
-	names := newByteStringCache(512, 256)
-	values := newByteStringCache(512, 256)
-	reader, err := prepareInstanceReader(r)
+	limits, err := normalizeFormatOptions(opts)
 	if err != nil {
 		return &XMLFormatError{Err: err}
 	}
-	p := newXMLStreamParser(reader, &names, &values)
+	reader := io.Reader(r)
+	if limits.maxInputBytes > 0 {
+		reader = &maxBytesReader{r: reader, max: limits.maxInputBytes, err: errFormatInputLimit}
+	}
+	writer := w
+	if limits.maxOutputBytes > 0 {
+		writer = &maxBytesWriter{w: writer, max: limits.maxOutputBytes, err: errFormatOutputLimit}
+	}
+
+	names := newByteStringCache(512, 256)
+	values := newByteStringCache(512, 256)
+	reader, err = prepareInstanceReader(reader)
+	if err != nil {
+		return &XMLFormatError{Err: err}
+	}
+	p := new(xmlStreamParser)
+	p.resetWithLimit(reader, &names, &values, limits.maxTokenBytes)
 	p.emitComments = true
 	p.emitPI = true
-	f := xmlFormatter{w: w, p: p}
-	return f.format()
+	f := xmlFormatter{w: writer, p: p, maxDepth: limits.maxDepth, maxNodes: limits.maxNodes}
+	err = f.format()
+	if _, ok := errors.AsType[*XMLFormatError](err); err != nil && !ok && (errors.Is(err, errFormatInputLimit) || errors.Is(err, errFormatOutputLimit)) {
+		return &XMLFormatError{Err: err}
+	}
+	return err
+}
+
+func normalizeFormatOptions(opts FormatOptions) (formatOptions, error) {
+	if opts.MaxDepth < 0 {
+		return formatOptions{}, errors.New("MaxDepth cannot be negative")
+	}
+	if opts.MaxNodes < 0 {
+		return formatOptions{}, errors.New("MaxNodes cannot be negative")
+	}
+	if opts.MaxInputBytes < 0 {
+		return formatOptions{}, errors.New("MaxInputBytes cannot be negative")
+	}
+	if opts.MaxOutputBytes < 0 {
+		return formatOptions{}, errors.New("MaxOutputBytes cannot be negative")
+	}
+	if opts.MaxTokenBytes < 0 {
+		return formatOptions{}, errors.New("MaxTokenBytes cannot be negative")
+	}
+	maxDepth := opts.MaxDepth
+	if maxDepth == 0 {
+		maxDepth = maxFormatDepth
+	}
+	return formatOptions{
+		maxDepth:       maxDepth,
+		maxNodes:       opts.MaxNodes,
+		maxInputBytes:  opts.MaxInputBytes,
+		maxOutputBytes: opts.MaxOutputBytes,
+		maxTokenBytes:  opts.MaxTokenBytes,
+	}, nil
+}
+
+type maxBytesReader struct {
+	r   io.Reader
+	err error
+	max int64
+	n   int64
+}
+
+func (r *maxBytesReader) Read(p []byte) (int, error) {
+	if r.max <= 0 {
+		return r.r.Read(p)
+	}
+	if r.n >= r.max {
+		var one [1]byte
+		n, err := r.r.Read(one[:])
+		if n > 0 {
+			return 0, r.err
+		}
+		return 0, err
+	}
+	remaining := r.max - r.n
+	if int64(len(p)) > remaining {
+		p = p[:int(remaining)]
+	}
+	n, err := r.r.Read(p)
+	r.n += int64(n)
+	return n, err
+}
+
+type maxBytesWriter struct {
+	w   io.Writer
+	err error
+	max int64
+	n   int64
+}
+
+func (w *maxBytesWriter) Write(p []byte) (int, error) {
+	if w.max <= 0 {
+		n, err := w.w.Write(p)
+		w.n += int64(n)
+		return n, err
+	}
+	remaining := w.max - w.n
+	if int64(len(p)) <= remaining {
+		n, err := w.w.Write(p)
+		w.n += int64(n)
+		return n, err
+	}
+	if remaining <= 0 {
+		return 0, w.err
+	}
+	allowed := int(remaining)
+	n, err := w.w.Write(p[:allowed])
+	w.n += int64(n)
+	if err != nil {
+		return n, err
+	}
+	if n != allowed {
+		return n, io.ErrShortWrite
+	}
+	return allowed, w.err
 }
 
 type xmlFormatter struct {
@@ -64,6 +206,9 @@ type xmlFormatter struct {
 	ns       namespaceStack
 	stack    []*formatElement
 	items    []formatItem
+	nodes    int
+	maxDepth int
+	maxNodes int
 	rootSeen bool
 }
 
@@ -144,8 +289,8 @@ func (f *xmlFormatter) collectStart(tok streamToken) error {
 	if err := validateUniqueAttributeNames(tok.start.Attr); err != nil {
 		return xmlFormatErr(tok.line, tok.col, err)
 	}
-	if len(f.stack) >= maxFormatDepth {
-		return xmlFormatErr(tok.line, tok.col, fmt.Errorf("XML nesting exceeds %d element limit", maxFormatDepth))
+	if len(f.stack) >= f.maxDepth {
+		return xmlFormatErr(tok.line, tok.col, fmt.Errorf("XML nesting exceeds %d element limit", f.maxDepth))
 	}
 	if err := f.ns.push(tok.start.Attr); err != nil {
 		return xmlFormatErr(tok.line, tok.col, err)
@@ -164,7 +309,9 @@ func (f *xmlFormatter) collectStart(tok streamToken) error {
 		preserve = xmlSpacePreserve(tok.start.Attr, parent.preserve)
 	}
 	elem := &formatElement{start: cloneStartElement(tok.start), line: tok.line, col: tok.col, preserve: preserve}
-	f.appendItem(formatItem{kind: formatItemElement, elem: elem, line: tok.line, col: tok.col})
+	if err := f.appendItem(formatItem{kind: formatItemElement, elem: elem, line: tok.line, col: tok.col}); err != nil {
+		return err
+	}
 	f.stack = append(f.stack, elem)
 	return nil
 }
@@ -192,27 +339,29 @@ func (f *xmlFormatter) collectChars(tok streamToken) error {
 		}
 		return xmlFormatErr(tok.line, tok.col, errors.New("text outside root element"))
 	}
-	f.appendItem(formatItem{kind: formatItemText, data: cloneBytes(tok.data), cdata: tok.cdata, line: tok.line, col: tok.col})
-	return nil
+	return f.appendItem(formatItem{kind: formatItemText, data: cloneBytes(tok.data), cdata: tok.cdata, line: tok.line, col: tok.col})
 }
 
 func (f *xmlFormatter) collectComment(tok streamToken) error {
-	f.appendItem(formatItem{kind: formatItemComment, data: cloneBytes(tok.directive), line: tok.line, col: tok.col})
-	return nil
+	return f.appendItem(formatItem{kind: formatItemComment, data: cloneBytes(tok.directive), line: tok.line, col: tok.col})
 }
 
 func (f *xmlFormatter) collectPI(tok streamToken) error {
-	f.appendItem(formatItem{kind: formatItemPI, data: cloneBytes(tok.data), pi: cloneBytes(tok.directive), line: tok.line, col: tok.col})
-	return nil
+	return f.appendItem(formatItem{kind: formatItemPI, data: cloneBytes(tok.data), pi: cloneBytes(tok.directive), line: tok.line, col: tok.col})
 }
 
-func (f *xmlFormatter) appendItem(item formatItem) {
+func (f *xmlFormatter) appendItem(item formatItem) error {
+	if f.maxNodes > 0 && f.nodes+1 > f.maxNodes {
+		return xmlFormatErr(item.line, item.col, errors.New("XML node limit exceeded"))
+	}
+	f.nodes++
 	if len(f.stack) == 0 {
 		f.items = append(f.items, item)
-		return
+		return nil
 	}
 	parent := f.stack[len(f.stack)-1]
 	parent.children = append(parent.children, item)
+	return nil
 }
 
 func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {

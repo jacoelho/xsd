@@ -18,9 +18,9 @@ type CompileOptions struct {
 	// MaxSchemaAttributes caps attributes on one schema XML element. Zero uses the default.
 	MaxSchemaAttributes int
 	// MaxSchemaTokenBytes caps retained schema XML token payloads. Zero uses the default.
-	MaxSchemaTokenBytes int
+	MaxSchemaTokenBytes int64
 	// MaxSchemaSourceBytes caps bytes read from each schema source. Zero uses the default.
-	MaxSchemaSourceBytes int
+	MaxSchemaSourceBytes int64
 	// MaxSchemaNames caps interned schema names, including built-ins. Zero means no explicit limit.
 	MaxSchemaNames int
 	// MaxFiniteOccurs caps finite maxOccurs values. Zero uses the uint32 runtime cap.
@@ -32,16 +32,16 @@ type CompileOptions struct {
 const (
 	defaultMaxSchemaDepth        = 256
 	defaultMaxSchemaAttributes   = 256
-	defaultMaxSchemaTokenBytes   = 4 << 20
-	defaultMaxSchemaSourceBytes  = 64 << 20
+	defaultMaxSchemaTokenBytes   = int64(4 << 20)
+	defaultMaxSchemaSourceBytes  = int64(64 << 20)
 	defaultMaxContentModelStates = 16_384
 )
 
 type compileLimits struct {
 	maxSchemaDepth        int
 	maxSchemaAttributes   int
-	maxSchemaTokenBytes   int
-	maxSchemaSourceBytes  int
+	maxSchemaTokenBytes   int64
+	maxSchemaSourceBytes  int64
 	maxSchemaNames        int
 	maxContentModelStates int
 	maxFiniteOccurs       uint64
@@ -65,26 +65,17 @@ func compileWithOptions(opts CompileOptions, sources []SchemaSource) (*Engine, e
 	if len(sources) == 0 {
 		return nil, schemaCompile(ErrSchemaNoSources, "at least one schema source is required")
 	}
-	c := newCompiler(limits)
-	if err = c.checkLimits(); err != nil {
+	c, err := newCompiler(limits)
+	if err != nil {
 		return nil, err
 	}
 	if err = c.load(sources); err != nil {
 		return nil, err
 	}
-	if err = c.checkLimits(); err != nil {
-		return nil, err
-	}
 	if err = c.index(); err != nil {
 		return nil, err
 	}
-	if err = c.checkLimits(); err != nil {
-		return nil, err
-	}
 	if err = c.compileGlobals(); err != nil {
-		return nil, err
-	}
-	if err = c.checkLimits(); err != nil {
 		return nil, err
 	}
 	rt, err := c.freezeRuntime()
@@ -103,11 +94,11 @@ func normalizeCompileOptions(opts CompileOptions) (compileLimits, error) {
 	if err != nil {
 		return compileLimits{}, err
 	}
-	tokenBytes, err := compileLimitOrDefault("MaxSchemaTokenBytes", opts.MaxSchemaTokenBytes, defaultMaxSchemaTokenBytes)
+	tokenBytes, err := compileByteLimitOrDefault("MaxSchemaTokenBytes", opts.MaxSchemaTokenBytes, defaultMaxSchemaTokenBytes)
 	if err != nil {
 		return compileLimits{}, err
 	}
-	sourceBytes, err := compileLimitOrDefault("MaxSchemaSourceBytes", opts.MaxSchemaSourceBytes, defaultMaxSchemaSourceBytes)
+	sourceBytes, err := compileByteLimitOrDefault("MaxSchemaSourceBytes", opts.MaxSchemaSourceBytes, defaultMaxSchemaSourceBytes)
 	if err != nil {
 		return compileLimits{}, err
 	}
@@ -139,6 +130,16 @@ func compileLimitOrDefault(name string, value, def int) (int, error) {
 	return value, nil
 }
 
+func compileByteLimitOrDefault(name string, value, def int64) (int64, error) {
+	if value < 0 {
+		return 0, schemaCompile(ErrSchemaLimit, name+" cannot be negative")
+	}
+	if value == 0 {
+		return def, nil
+	}
+	return value, nil
+}
+
 type schemaContext struct {
 	doc              *rawDoc
 	imports          map[string]bool
@@ -154,43 +155,66 @@ type rawComponent struct {
 	ctx  *schemaContext
 }
 
-type compiler struct {
-	elementDone        map[qName]elementID
-	compilingComplex   map[qName]bool
-	sources            map[string][]byte
-	sourceDocs         map[string]*rawDoc
-	imports            map[string]map[string]bool
-	adoptTarget        map[string]string
-	contexts           map[*rawDoc]*schemaContext
-	choiceLimitByModel map[contentModelID][]uint32
-	simpleRaw          map[qName]rawComponent
-	complexRaw         map[qName]rawComponent
-	elementRaw         map[qName]rawComponent
-	attributeRaw       map[qName]rawComponent
-	groupRaw           map[qName]rawComponent
-	attrGroupRaw       map[qName]rawComponent
-	simpleDone         map[qName]simpleTypeID
-	complexDone        map[qName]complexTypeID
-	identityDeclared   map[*rawNode]identityConstraintID
-	compilingModel     map[*rawNode]bool
-	compilingAttr      map[qName]bool
-	modelDepth         map[*rawNode]int
-	localDone          map[*rawNode]elementID
-	compilingSimple    map[qName]bool
-	attributeDone      map[qName]attributeID
-	compilingElement   map[qName]bool
-	modelDone          map[*rawNode]contentModelID
-	compilingLocal     map[*rawNode]bool
-	compilingAttrGrp   map[qName]bool
-	docs               []*rawDoc
-	rt                 runtimeSchema
-	limits             compileLimits
-	elementDepth       int
-	missingSimple      simpleTypeID
+type compilerSourceState struct {
+	sources     map[string][]byte
+	sourceDocs  map[string]*rawDoc
+	imports     map[string]map[string]bool
+	adoptTarget map[string]string
+	contexts    map[*rawDoc]*schemaContext
+	docs        []*rawDoc
 }
 
-func newCompiler(limits compileLimits) *compiler {
-	names := newNameTable(limits.maxSchemaNames)
+type compilerIndexState struct {
+	simpleRaw    map[qName]rawComponent
+	complexRaw   map[qName]rawComponent
+	elementRaw   map[qName]rawComponent
+	attributeRaw map[qName]rawComponent
+	groupRaw     map[qName]rawComponent
+	attrGroupRaw map[qName]rawComponent
+}
+
+type compilerBuildState struct {
+	simpleDone       map[qName]simpleTypeID
+	complexDone      map[qName]complexTypeID
+	attributeDone    map[qName]attributeID
+	elementDone      map[qName]elementID
+	localDone        map[*rawNode]elementID
+	identityDeclared map[*rawNode]identityConstraintID
+}
+
+type compilerCycleState struct {
+	compilingSimple  map[qName]bool
+	compilingComplex map[qName]bool
+	compilingElement map[qName]bool
+	compilingAttr    map[qName]bool
+	compilingLocal   map[*rawNode]bool
+	compilingAttrGrp map[qName]bool
+	compilingModel   map[*rawNode]bool
+}
+
+type compilerModelState struct {
+	choiceLimitByModel map[contentModelID][]uint32
+	modelDone          map[*rawNode]contentModelID
+	modelDepth         map[*rawNode]int
+	elementDepth       int
+}
+
+type compiler struct {
+	compilerSourceState
+	compilerIndexState
+	compilerBuildState
+	compilerCycleState
+	compilerModelState
+	rt            runtimeSchema
+	limits        compileLimits
+	missingSimple simpleTypeID
+}
+
+func newCompiler(limits compileLimits) (*compiler, error) {
+	names, err := newNameTable(limits.maxSchemaNames)
+	if err != nil {
+		return nil, err
+	}
 	rt := runtimeSchema{
 		Names:            names,
 		GlobalElements:   make(map[qName]elementID),
@@ -201,43 +225,51 @@ func newCompiler(limits compileLimits) *compiler {
 		Substitutions:    make(map[elementID][]elementID),
 	}
 	c := &compiler{
-		rt:                 rt,
-		sources:            make(map[string][]byte),
-		sourceDocs:         make(map[string]*rawDoc),
-		imports:            make(map[string]map[string]bool),
-		adoptTarget:        make(map[string]string),
-		contexts:           make(map[*rawDoc]*schemaContext),
-		choiceLimitByModel: make(map[contentModelID][]uint32),
-		simpleRaw:          make(map[qName]rawComponent),
-		complexRaw:         make(map[qName]rawComponent),
-		elementRaw:         make(map[qName]rawComponent),
-		attributeRaw:       make(map[qName]rawComponent),
-		groupRaw:           make(map[qName]rawComponent),
-		attrGroupRaw:       make(map[qName]rawComponent),
-		simpleDone:         make(map[qName]simpleTypeID),
-		complexDone:        make(map[qName]complexTypeID),
-		elementDone:        make(map[qName]elementID),
-		attributeDone:      make(map[qName]attributeID),
-		modelDone:          make(map[*rawNode]contentModelID),
-		modelDepth:         make(map[*rawNode]int),
-		localDone:          make(map[*rawNode]elementID),
-		compilingSimple:    make(map[qName]bool),
-		compilingComplex:   make(map[qName]bool),
-		compilingElement:   make(map[qName]bool),
-		compilingAttr:      make(map[qName]bool),
-		compilingLocal:     make(map[*rawNode]bool),
-		compilingAttrGrp:   make(map[qName]bool),
-		compilingModel:     make(map[*rawNode]bool),
-		identityDeclared:   make(map[*rawNode]identityConstraintID),
-		missingSimple:      noSimpleType,
-		limits:             limits,
+		compilerSourceState: compilerSourceState{
+			sources:     make(map[string][]byte),
+			sourceDocs:  make(map[string]*rawDoc),
+			imports:     make(map[string]map[string]bool),
+			adoptTarget: make(map[string]string),
+			contexts:    make(map[*rawDoc]*schemaContext),
+		},
+		compilerIndexState: compilerIndexState{
+			simpleRaw:    make(map[qName]rawComponent),
+			complexRaw:   make(map[qName]rawComponent),
+			elementRaw:   make(map[qName]rawComponent),
+			attributeRaw: make(map[qName]rawComponent),
+			groupRaw:     make(map[qName]rawComponent),
+			attrGroupRaw: make(map[qName]rawComponent),
+		},
+		compilerBuildState: compilerBuildState{
+			simpleDone:       make(map[qName]simpleTypeID),
+			complexDone:      make(map[qName]complexTypeID),
+			attributeDone:    make(map[qName]attributeID),
+			elementDone:      make(map[qName]elementID),
+			localDone:        make(map[*rawNode]elementID),
+			identityDeclared: make(map[*rawNode]identityConstraintID),
+		},
+		compilerCycleState: compilerCycleState{
+			compilingSimple:  make(map[qName]bool),
+			compilingComplex: make(map[qName]bool),
+			compilingElement: make(map[qName]bool),
+			compilingAttr:    make(map[qName]bool),
+			compilingLocal:   make(map[*rawNode]bool),
+			compilingAttrGrp: make(map[qName]bool),
+			compilingModel:   make(map[*rawNode]bool),
+		},
+		compilerModelState: compilerModelState{
+			choiceLimitByModel: make(map[contentModelID][]uint32),
+			modelDone:          make(map[*rawNode]contentModelID),
+			modelDepth:         make(map[*rawNode]int),
+		},
+		rt:            rt,
+		missingSimple: noSimpleType,
+		limits:        limits,
 	}
-	c.addBuiltins()
-	return c
-}
-
-func (c *compiler) checkLimits() error {
-	return c.rt.Names.limitErr
+	if err := c.addBuiltins(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (c *compiler) compileGlobals() error {
@@ -467,7 +499,7 @@ func (c *compiler) resolveQNameChecked(n *rawNode, ctx *schemaContext, lexical s
 	if ctx != nil && !ctx.referenceNamespaceVisible(ns) {
 		return qName{}, schemaCompile(ErrSchemaReference, "namespace is not imported: "+ns)
 	}
-	return c.rt.Names.InternQName(ns, local), nil
+	return c.rt.Names.InternQName(ns, local)
 }
 
 func (ctx *schemaContext) referenceNamespaceVisible(ns string) bool {
@@ -515,7 +547,10 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpl
 	if _, ok := n.attr("name"); ok {
 		return noSimpleType, schemaCompile(ErrSchemaInvalidAttribute, "local simpleType cannot have name")
 	}
-	q := c.rt.Names.InternQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
+	q, err := c.rt.Names.InternQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
+	if err != nil {
+		return noSimpleType, err
+	}
 	id := simpleTypeID(len(c.rt.SimpleTypes))
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
 	st, err := c.compileSimpleType(n, ctx, q)
@@ -659,27 +694,11 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName) (simp
 		if len(simpleTypeChildren) != 0 {
 			return simpleType{}, schemaCompile(ErrSchemaContentModel, "list cannot have both itemType and simpleType")
 		}
-		q, err := c.resolveQNameChecked(n, ctx, itemType)
+		id, err := c.compileListItemType(n, ctx, itemType)
 		if err != nil {
 			return simpleType{}, err
 		}
-		if _, ok := c.simpleDone[q]; ok {
-			id, err := c.compileSimpleByQName(q)
-			if err != nil {
-				return simpleType{}, err
-			}
-			item = id
-		} else if _, ok := c.simpleRaw[q]; ok {
-			id, err := c.compileSimpleByQName(q)
-			if err != nil {
-				return simpleType{}, err
-			}
-			item = id
-		} else if c.typeQNameKnown(q) {
-			return simpleType{}, schemaCompile(ErrSchemaReference, "unknown simple type "+c.rt.Names.Format(q))
-		} else {
-			item = c.missingSimpleType()
-		}
+		item = id
 	} else if len(simpleTypeChildren) == 1 {
 		id, err := c.compileAnonymousSimple(simpleTypeChildren[0], ctx)
 		if err != nil {
@@ -703,6 +722,23 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName) (simp
 		return simpleType{}, err
 	}
 	return st, nil
+}
+
+func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType string) (simpleTypeID, error) {
+	q, err := c.resolveQNameChecked(n, ctx, itemType)
+	if err != nil {
+		return noSimpleType, err
+	}
+	if _, ok := c.simpleDone[q]; ok {
+		return c.compileSimpleByQName(q)
+	}
+	if _, ok := c.simpleRaw[q]; ok {
+		return c.compileSimpleByQName(q)
+	}
+	if c.typeQNameKnown(q) {
+		return noSimpleType, schemaCompile(ErrSchemaReference, "unknown simple type "+c.rt.Names.Format(q))
+	}
+	return c.missingSimpleType()
 }
 
 func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {

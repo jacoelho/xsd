@@ -183,7 +183,7 @@ func TestCompileOptionsSchemaSourceByteLimitAppliesToFile(t *testing.T) {
 	path := filepath.Join(dir, "schema.xsd")
 	writeSchemaFile(t, path, schema)
 
-	_, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: len(schema) - 1}, File(path))
+	_, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: int64(len(schema) - 1)}, File(path))
 	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
 }
 
@@ -191,7 +191,7 @@ func TestCompileOptionsSchemaSourceByteLimitAppliesToResolvedInclude(t *testing.
 	included := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:documentation>` + strings.Repeat("x", 128) + `</xs:documentation></xs:annotation></xs:schema>`
 	main := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="types.xsd"/></xs:schema>`
 	_, err := CompileWithOptions(
-		CompileOptions{MaxSchemaSourceBytes: len(included) - 1},
+		CompileOptions{MaxSchemaSourceBytes: int64(len(included) - 1)},
 		Reader("main.xsd", strings.NewReader(main)).WithResolver(mapResolver{
 			"types.xsd": included,
 		}),
@@ -201,11 +201,11 @@ func TestCompileOptionsSchemaSourceByteLimitAppliesToResolvedInclude(t *testing.
 
 func TestLimitedReaderRejectsOverLimit(t *testing.T) {
 	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
-	if _, err := Compile(LimitedReader("schema.xsd", strings.NewReader(schema), len(schema))); err != nil {
+	if _, err := Compile(LimitedReader("schema.xsd", strings.NewReader(schema), int64(len(schema)))); err != nil {
 		t.Fatalf("Compile() limited reader boundary error = %v", err)
 	}
 
-	_, err := Compile(LimitedReader("schema.xsd", strings.NewReader(schema), len(schema)-1))
+	_, err := Compile(LimitedReader("schema.xsd", strings.NewReader(schema), int64(len(schema)-1)))
 	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
 }
 

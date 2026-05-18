@@ -66,7 +66,7 @@ func Reader(name string, r io.Reader) SchemaSource {
 }
 
 // LimitedReader reads at most maxBytes from r into an in-memory schema source.
-func LimitedReader(name string, r io.Reader, maxBytes int) SchemaSource {
+func LimitedReader(name string, r io.Reader, maxBytes int64) SchemaSource {
 	if r == nil {
 		return SchemaSource{name: name, err: errNilSchemaReader}
 	}
@@ -83,12 +83,12 @@ func (s SchemaSource) WithResolver(r Resolver) SchemaSource {
 	return s
 }
 
-func (s SchemaSource) read(maxBytes int) ([]byte, error) {
+func (s SchemaSource) read(maxBytes int64) ([]byte, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 	if s.data != nil {
-		if len(s.data) > maxBytes {
+		if int64(len(s.data)) > maxBytes {
 			return nil, schemaSourceLimitError(s.name)
 		}
 		return bytes.Clone(s.data), nil
@@ -108,19 +108,19 @@ func (s SchemaSource) read(maxBytes int) ([]byte, error) {
 	return data, closeErr
 }
 
-func readLimitedSchemaSource(name string, r io.Reader, maxBytes int) ([]byte, error) {
+func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, error) {
 	if maxBytes <= 0 {
 		return nil, schemaCompile(ErrSchemaLimit, "schema reader byte limit must be positive")
 	}
 	reader := r
-	if maxBytes < math.MaxInt {
-		reader = io.LimitReader(r, int64(maxBytes)+1)
+	if maxBytes < math.MaxInt64 {
+		reader = io.LimitReader(r, maxBytes+1)
 	}
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
-	if len(data) > maxBytes {
+	if int64(len(data)) > maxBytes {
 		return nil, schemaSourceLimitError(name)
 	}
 	return data, nil

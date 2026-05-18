@@ -81,7 +81,10 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (elementI
 	if form == "qualified" || (form == "" && ctx.elementQualified) {
 		ns = ctx.targetNS
 	}
-	q := c.rt.Names.InternQName(ns, name)
+	q, err := c.rt.Names.InternQName(ns, name)
+	if err != nil {
+		return 0, err
+	}
 	id := elementID(len(c.rt.Elements))
 	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
 	c.localDone[n] = id
@@ -158,19 +161,11 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	}
 	typ := typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}
 	if typeLex, ok := n.attr("type"); ok {
-		typeQName, typeErr := c.resolveQNameChecked(n, ctx, typeLex)
+		attrType, typeErr := c.compileElementTypeAttribute(n, ctx, typeLex)
 		if typeErr != nil {
 			return elementDecl{}, typeErr
 		}
-		if c.typeQNameKnown(typeQName) {
-			t, typeErr := c.resolveTypeQName(typeQName)
-			if typeErr != nil {
-				return elementDecl{}, typeErr
-			}
-			typ = t
-		} else {
-			typ = typeID{Kind: typeSimple, ID: uint32(c.missingSimpleType())}
-		}
+		typ = attrType
 	} else if st := n.firstXS("simpleType"); st != nil {
 		id, simpleErr := c.compileAnonymousSimple(st, ctx)
 		if simpleErr != nil {
@@ -232,6 +227,21 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	}
 	decl.Identity = identityIDs
 	return decl, nil
+}
+
+func (c *compiler) compileElementTypeAttribute(n *rawNode, ctx *schemaContext, typeLex string) (typeID, error) {
+	typeQName, err := c.resolveQNameChecked(n, ctx, typeLex)
+	if err != nil {
+		return typeID{}, err
+	}
+	if c.typeQNameKnown(typeQName) {
+		return c.resolveTypeQName(typeQName)
+	}
+	missing, err := c.missingSimpleType()
+	if err != nil {
+		return typeID{}, err
+	}
+	return typeID{Kind: typeSimple, ID: uint32(missing)}, nil
 }
 
 func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qnameResolver) error {

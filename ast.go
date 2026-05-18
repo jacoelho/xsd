@@ -153,7 +153,7 @@ func (s *schemaParseState) handleEndElement() error {
 
 func (s *schemaParseState) handleCharData(t xml.CharData) error {
 	line, col := s.dec.InputPos()
-	if err := checkSchemaTokenLimit(len(t), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
+	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
 	if len(s.stack) == 0 {
@@ -163,7 +163,7 @@ func (s *schemaParseState) handleCharData(t xml.CharData) error {
 		return nil
 	}
 	n := s.stack[len(s.stack)-1]
-	if err := checkSchemaTokenLimit(len(n.Text)+len(t), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
+	if err := checkSchemaTokenLimit(int64(len(n.Text)+len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
 	n.Text += string(t)
@@ -172,7 +172,7 @@ func (s *schemaParseState) handleCharData(t xml.CharData) error {
 
 func (s *schemaParseState) handleDirective(t xml.Directive) error {
 	line, col := s.dec.InputPos()
-	if err := checkSchemaTokenLimit(len(t), s.limits, line, col, "schema XML directive exceeds configured limit"); err != nil {
+	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML directive exceeds configured limit"); err != nil {
 		return err
 	}
 	if isDOCTYPEDeclaration(t) {
@@ -189,13 +189,13 @@ func (s *schemaParseState) handleDirective(t xml.Directive) error {
 
 func (s *schemaParseState) handleProcInst(t xml.ProcInst) error {
 	line, col := s.dec.InputPos()
-	size := len(t.Target) + len(t.Inst)
+	size := int64(len(t.Target) + len(t.Inst))
 	return checkSchemaTokenLimit(size, s.limits, line, col, "schema XML processing instruction exceeds configured limit")
 }
 
 func (s *schemaParseState) handleComment(t xml.Comment) error {
 	line, col := s.dec.InputPos()
-	return checkSchemaTokenLimit(len(t), s.limits, line, col, "schema XML comment exceeds configured limit")
+	return checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML comment exceeds configured limit")
 }
 
 func validateSchemaRoot(root *rawNode) error {
@@ -212,15 +212,15 @@ func checkSchemaStartElementLimit(start xml.StartElement, limits compileLimits, 
 	if limits.maxSchemaTokenBytes <= 0 {
 		return nil
 	}
-	size := len(start.Name.Space) + len(start.Name.Local)
+	size := int64(len(start.Name.Space) + len(start.Name.Local))
 	if err := checkSchemaTokenLimit(size, limits, line, col, "schema XML start element exceeds configured limit"); err != nil {
 		return err
 	}
 	for _, attr := range start.Attr {
-		if err := checkSchemaTokenLimit(len(attr.Value), limits, line, col, "schema XML attribute value exceeds configured limit"); err != nil {
+		if err := checkSchemaTokenLimit(int64(len(attr.Value)), limits, line, col, "schema XML attribute value exceeds configured limit"); err != nil {
 			return err
 		}
-		size += len(attr.Name.Space) + len(attr.Name.Local) + len(attr.Value)
+		size += int64(len(attr.Name.Space) + len(attr.Name.Local) + len(attr.Value))
 		if err := checkSchemaTokenLimit(size, limits, line, col, "schema XML start element exceeds configured limit"); err != nil {
 			return err
 		}
@@ -228,7 +228,7 @@ func checkSchemaStartElementLimit(start xml.StartElement, limits compileLimits, 
 	return nil
 }
 
-func checkSchemaTokenLimit(size int, limits compileLimits, line, col int, msg string) error {
+func checkSchemaTokenLimit(size int64, limits compileLimits, line, col int, msg string) error {
 	if limits.maxSchemaTokenBytes > 0 && size > limits.maxSchemaTokenBytes {
 		return schemaParse(ErrSchemaLimit, line, col, msg, nil)
 	}

@@ -953,6 +953,10 @@ func TestValidateOptionsRejectNegativeLimits(t *testing.T) {
 		{MaxIdentityScopes: -1},
 		{MaxIdentityEntries: -1},
 		{MaxIdentityTupleBytes: -1},
+		{MaxInstanceDepth: -1},
+		{MaxInstanceAttributes: -1},
+		{MaxInstanceTextBytes: -1},
+		{MaxInstanceTokenBytes: -1},
 	}
 	for _, opts := range tests {
 		err := engine.ValidateWithOptions(strings.NewReader(`<root/>`), opts)
@@ -962,6 +966,49 @@ func TestValidateOptionsRejectNegativeLimits(t *testing.T) {
 		} else {
 			expectCode(t, err, ErrValidationOption)
 		}
+	}
+}
+
+func TestValidateWithOptionsInstanceLimits(t *testing.T) {
+	anyRoot := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	stringRoot := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
+	shortString := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r" type="xs:string"/></xs:schema>`)
+	tests := []struct {
+		name   string
+		engine *Engine
+		doc    string
+		opts   ValidateOptions
+	}{
+		{
+			name:   "depth",
+			engine: anyRoot,
+			doc:    `<root><a><b/></a></root>`,
+			opts:   ValidateOptions{MaxInstanceDepth: 2},
+		},
+		{
+			name:   "attributes",
+			engine: anyRoot,
+			doc:    `<root a="1" b="2"/>`,
+			opts:   ValidateOptions{MaxInstanceAttributes: 1},
+		},
+		{
+			name:   "text",
+			engine: stringRoot,
+			doc:    `<root>abcd</root>`,
+			opts:   ValidateOptions{MaxInstanceTextBytes: 3},
+		},
+		{
+			name:   "token",
+			engine: shortString,
+			doc:    `<r>abcd</r>`,
+			opts:   ValidateOptions{MaxInstanceTokenBytes: 3},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.engine.ValidateWithOptions(strings.NewReader(tt.doc), tt.opts)
+			expectCode(t, err, ErrValidationLimit)
+		})
 	}
 }
 

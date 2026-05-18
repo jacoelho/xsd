@@ -255,21 +255,35 @@ func (s *session) identityStepMatches(rn runtimeName, step identityStep) bool {
 }
 
 func (s *session) captureIdentityAttribute(name qName, typeID simpleTypeID, value string, line, col int) error {
+	return s.captureIdentityFields(
+		func(p identityFieldPath) bool {
+			return s.identityFieldAttributeMatches(p, name)
+		},
+		func(string) (simpleTypeID, string, error) {
+			return typeID, value, nil
+		},
+		line,
+		col,
+	)
+}
+
+func (s *session) captureIdentityFields(match func(identityFieldPath) bool, value func(string) (simpleTypeID, string, error), line, col int) error {
 	for i := range s.idSelections {
 		sel := &s.idSelections[i]
 		ic := s.engine.rt.Identities[sel.Constraint]
 		for fieldIndex, field := range ic.Fields {
 			for _, p := range field.Paths {
-				if !s.identityFieldAttributeMatches(p, name) {
-					continue
-				}
-				if !s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
+				if !match(p) || !s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
 					continue
 				}
 				if sel.Present[fieldIndex] {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
-				sel.Values[fieldIndex] = s.identityValue(typeID, value)
+				typeID, canonical, err := value(sel.Path)
+				if err != nil {
+					return err
+				}
+				sel.Values[fieldIndex] = s.identityValue(typeID, canonical)
 				sel.Present[fieldIndex] = true
 				break
 			}
@@ -315,54 +329,32 @@ func (s *session) identityFieldAttributeMatches(p identityFieldPath, name qName)
 }
 
 func (s *session) captureIdentityElement(typeID simpleTypeID, value string, line, col int) error {
-	for i := range s.idSelections {
-		sel := &s.idSelections[i]
-		ic := s.engine.rt.Identities[sel.Constraint]
-		for fieldIndex, field := range ic.Fields {
-			for _, p := range field.Paths {
-				if p.Attr {
-					continue
-				}
-				if !s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
-					continue
-				}
-				if sel.Present[fieldIndex] {
-					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
-				}
-				sel.Values[fieldIndex] = s.identityValue(typeID, value)
-				sel.Present[fieldIndex] = true
-				break
-			}
-		}
-	}
-	return nil
+	return s.captureIdentityFields(
+		func(p identityFieldPath) bool {
+			return !p.Attr
+		},
+		func(string) (simpleTypeID, string, error) {
+			return typeID, value, nil
+		},
+		line,
+		col,
+	)
 }
 
 func (s *session) captureIdentityComplexElement(rawText string, line, col int) error {
-	for i := range s.idSelections {
-		sel := &s.idSelections[i]
-		ic := s.engine.rt.Identities[sel.Constraint]
-		for fieldIndex, field := range ic.Fields {
-			for _, p := range field.Paths {
-				if p.Attr {
-					continue
-				}
-				if !s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
-					continue
-				}
-				if sel.Present[fieldIndex] {
-					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
-				}
-				if strings.TrimSpace(rawText) == "" {
-					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field has no simple value")
-				}
-				sel.Values[fieldIndex] = s.identityValue(s.engine.rt.Builtin.String, normalizeWhitespace(rawText, whitespaceCollapse))
-				sel.Present[fieldIndex] = true
-				break
+	return s.captureIdentityFields(
+		func(p identityFieldPath) bool {
+			return !p.Attr
+		},
+		func(path string) (simpleTypeID, string, error) {
+			if strings.TrimSpace(rawText) == "" {
+				return noSimpleType, "", validation(ErrValidationIdentity, line, col, path, "identity field has no simple value")
 			}
-		}
-	}
-	return nil
+			return s.engine.rt.Builtin.String, normalizeWhitespace(rawText, whitespaceCollapse), nil
+		},
+		line,
+		col,
+	)
 }
 
 func (s *session) identityValue(typeID simpleTypeID, canonical string) string {
@@ -455,12 +447,12 @@ func (s *session) checkIdentityTupleBytes(values []string, line, col int) error 
 	if s.maxIdentityTupleBytes <= 0 {
 		return nil
 	}
-	size := 0
+	size := int64(0)
 	for i, v := range values {
 		if i > 0 {
 			size++
 		}
-		size += len(v)
+		size += int64(len(v))
 		if size > s.maxIdentityTupleBytes {
 			return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
 		}
@@ -469,7 +461,7 @@ func (s *session) checkIdentityTupleBytes(values []string, line, col int) error 
 }
 
 func (s *session) reserveIdentityEntry(key string, line, col int) error {
-	if s.maxIdentityTupleBytes > 0 && len(key) > s.maxIdentityTupleBytes {
+	if s.maxIdentityTupleBytes > 0 && int64(len(key)) > s.maxIdentityTupleBytes {
 		return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
 	}
 	if s.maxIdentityEntries > 0 && s.identityEntries >= s.maxIdentityEntries {

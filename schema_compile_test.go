@@ -384,11 +384,11 @@ func TestCompileOptionsSchemaXMLLimits(t *testing.T) {
 
 func TestCompileOptionsSchemaSourceByteLimit(t *testing.T) {
 	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
-	if _, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: len(schema)}, sourceBytes("schema.xsd", []byte(schema))); err != nil {
+	if _, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: int64(len(schema))}, sourceBytes("schema.xsd", []byte(schema))); err != nil {
 		t.Fatalf("CompileWithOptions() source byte boundary error = %v", err)
 	}
 
-	_, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: len(schema) - 1}, sourceBytes("schema.xsd", []byte(schema)))
+	_, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: int64(len(schema) - 1)}, sourceBytes("schema.xsd", []byte(schema)))
 	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
 }
 

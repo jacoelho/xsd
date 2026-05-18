@@ -50,26 +50,40 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext, attr bool) (w
 		mode = wildAny
 	case "##other":
 		mode = wildOther
-		other = c.rt.Names.InternNamespace(ctx.targetNS)
+		ns, err := c.rt.Names.InternNamespace(ctx.targetNS)
+		if err != nil {
+			return noWildcard, err
+		}
+		other = ns
 	case "##local":
 		mode = wildLocal
 	case "##targetNamespace":
 		mode = wildTargetNamespace
-		namespaces = append(namespaces, c.rt.Names.InternNamespace(ctx.targetNS))
+		ns, err := c.rt.Names.InternNamespace(ctx.targetNS)
+		if err != nil {
+			return noWildcard, err
+		}
+		namespaces = append(namespaces, ns)
 	default:
 		mode = wildList
 		for part := range strings.FieldsSeq(nsSpec) {
+			var uri string
 			switch part {
 			case "##local":
-				namespaces = append(namespaces, c.rt.Names.InternNamespace(""))
+				uri = ""
 			case "##targetNamespace":
-				namespaces = append(namespaces, c.rt.Names.InternNamespace(ctx.targetNS))
+				uri = ctx.targetNS
 			default:
 				if strings.HasPrefix(part, "##") {
 					return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "invalid wildcard namespace "+part)
 				}
-				namespaces = append(namespaces, c.rt.Names.InternNamespace(part))
+				uri = part
 			}
+			ns, err := c.rt.Names.InternNamespace(uri)
+			if err != nil {
+				return noWildcard, err
+			}
+			namespaces = append(namespaces, ns)
 		}
 	}
 	var process processContents
@@ -98,8 +112,9 @@ func (c *compiler) unionWildcards(a, b wildcardID, process processContents) (wil
 	if wa.Mode == wildAny || wb.Mode == wildAny {
 		return c.addWildcard(wildcard{Mode: wildAny, Process: process}), nil
 	}
+	emptyNS := c.emptyNamespaceID()
 	if wa.Mode == wildOther && wb.Mode == wildOther {
-		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: c.rt.Names.InternNamespace(""), Process: process}), nil
+		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: emptyNS, Process: process}), nil
 	}
 	if wa.Mode == wildOther {
 		return c.unionOtherWithFinite(wa, wb, process)
@@ -112,10 +127,9 @@ func (c *compiler) unionWildcards(a, b wildcardID, process processContents) (wil
 	add := func(w wildcard) {
 		switch w.Mode {
 		case wildLocal:
-			ns := c.rt.Names.InternNamespace("")
-			if !seen[ns] {
-				seen[ns] = true
-				namespaces = append(namespaces, ns)
+			if !seen[emptyNS] {
+				seen[emptyNS] = true
+				namespaces = append(namespaces, emptyNS)
 			}
 		case wildTargetNamespace:
 			if len(w.Namespaces) != 0 && !seen[w.Namespaces[0]] {
@@ -138,9 +152,10 @@ func (c *compiler) unionWildcards(a, b wildcardID, process processContents) (wil
 
 func (c *compiler) unionOtherWithFinite(other, finite wildcard, process processContents) (wildcardID, error) {
 	namespaces := c.wildcardFiniteNamespaces(finite)
-	hasAbsent := slices.Contains(namespaces, c.rt.Names.InternNamespace(""))
+	emptyNS := c.emptyNamespaceID()
+	hasAbsent := slices.Contains(namespaces, emptyNS)
 	hasNegated := slices.Contains(namespaces, other.OtherThan)
-	if other.OtherThan == c.rt.Names.InternNamespace("") {
+	if other.OtherThan == emptyNS {
 		if hasAbsent {
 			return c.addWildcard(wildcard{Mode: wildAny, Process: process}), nil
 		}
@@ -150,7 +165,7 @@ func (c *compiler) unionOtherWithFinite(other, finite wildcard, process processC
 	case hasAbsent && hasNegated:
 		return c.addWildcard(wildcard{Mode: wildAny, Process: process}), nil
 	case hasNegated:
-		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: c.rt.Names.InternNamespace(""), Process: process}), nil
+		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: emptyNS, Process: process}), nil
 	case hasAbsent:
 		return noWildcard, schemaCompile(ErrSchemaContentModel, "attribute wildcard union is not expressible")
 	default:
@@ -173,12 +188,13 @@ func (c *compiler) intersectWildcards(a, b wildcardID, process processContents) 
 		wa.Process = process
 		return c.addWildcard(wa), nil
 	}
+	emptyNS := c.emptyNamespaceID()
 	if wa.Mode == wildOther && wb.Mode == wildOther {
-		if wa.OtherThan == c.rt.Names.InternNamespace("") {
+		if wa.OtherThan == emptyNS {
 			wb.Process = process
 			return c.addWildcard(wb), nil
 		}
-		if wb.OtherThan == c.rt.Names.InternNamespace("") {
+		if wb.OtherThan == emptyNS {
 			wa.Process = process
 			return c.addWildcard(wa), nil
 		}
@@ -231,7 +247,7 @@ func (c *compiler) sameWildcardNamespaceConstraint(a, b wildcard) bool {
 func (c *compiler) wildcardFiniteNamespaces(w wildcard) []namespaceID {
 	switch w.Mode {
 	case wildLocal:
-		return []namespaceID{c.rt.Names.InternNamespace("")}
+		return []namespaceID{c.emptyNamespaceID()}
 	case wildTargetNamespace:
 		return slices.Clone(w.Namespaces)
 	case wildList:
@@ -246,7 +262,7 @@ func (c *compiler) wildcardCoversNamespace(w wildcard, ns namespaceID) bool {
 	case wildAny:
 		return true
 	case wildOther:
-		return ns != c.rt.Names.InternNamespace("") && ns != w.OtherThan
+		return ns != c.emptyNamespaceID() && ns != w.OtherThan
 	case wildLocal:
 		return c.rt.Names.Namespace(ns) == ""
 	case wildTargetNamespace:
@@ -274,7 +290,7 @@ func (c *compiler) wildcardSubset(derivedID, baseID wildcardID) bool {
 	case wildOther:
 		return base.Mode == wildAny || (base.Mode == wildOther && base.OtherThan == derived.OtherThan)
 	case wildLocal:
-		return c.wildcardCoversNamespace(base, c.rt.Names.InternNamespace(""))
+		return c.wildcardCoversNamespace(base, c.emptyNamespaceID())
 	case wildTargetNamespace:
 		return len(derived.Namespaces) != 0 && c.wildcardCoversNamespace(base, derived.Namespaces[0])
 	case wildList:
@@ -287,6 +303,11 @@ func (c *compiler) wildcardSubset(derivedID, baseID wildcardID) bool {
 	default:
 		return false
 	}
+}
+
+func (c *compiler) emptyNamespaceID() namespaceID {
+	id, _ := c.rt.Names.LookupNamespace(emptyNamespaceURI)
+	return id
 }
 
 func (c *compiler) addWildcard(w wildcard) wildcardID {

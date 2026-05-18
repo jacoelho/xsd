@@ -219,6 +219,44 @@ func TestFormatXMLRejectsCDATAOutsideRoot(t *testing.T) {
 	}
 }
 
+func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
+	var out strings.Builder
+	err := FormatXMLWithOptions(&out, strings.NewReader(`<root><a/><b/></root>`), FormatOptions{MaxNodes: 2})
+	if err == nil {
+		t.Fatal("FormatXMLWithOptions() succeeded")
+	}
+	var xerr *XMLFormatError
+	if !errors.As(err, &xerr) {
+		t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
+	}
+	if !strings.Contains(err.Error(), "XML node limit exceeded") {
+		t.Fatalf("FormatXMLWithOptions() error = %v", err)
+	}
+}
+
+func TestFormatXMLWithOptionsAllowsTokenAtLimit(t *testing.T) {
+	var out strings.Builder
+	err := FormatXMLWithOptions(&out, strings.NewReader(`<?pi abc?><r/>`), FormatOptions{MaxTokenBytes: 3})
+	if err != nil {
+		t.Fatalf("FormatXMLWithOptions() error = %v", err)
+	}
+	if out.String() != "<?pi abc?>\n<r></r>" {
+		t.Fatalf("FormatXMLWithOptions() = %q", out.String())
+	}
+}
+
+func TestFormatXMLWithOptionsRejectsNegativeLimits(t *testing.T) {
+	var out strings.Builder
+	err := FormatXMLWithOptions(&out, strings.NewReader(`<root/>`), FormatOptions{MaxNodes: -1})
+	if err == nil {
+		t.Fatal("FormatXMLWithOptions() succeeded")
+	}
+	var xerr *XMLFormatError
+	if !errors.As(err, &xerr) {
+		t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
+	}
+}
+
 func TestFormatXMLRejectsExcessiveDepth(t *testing.T) {
 	var input strings.Builder
 	for range maxFormatDepth + 1 {

@@ -137,7 +137,10 @@ func (c *compiler) schemaQNameResolver(n *rawNode) qnameResolver {
 		if err != nil {
 			return "", false
 		}
-		return c.rt.Names.Format(c.rt.Names.InternQName(ns, local)), true
+		if ns == "" {
+			return local, true
+		}
+		return "{" + ns + "}" + local, true
 	}
 }
 
@@ -377,7 +380,11 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		if form == "qualified" || (!hasForm && ctx.attrQualified) {
 			ns = ctx.targetNS
 		}
-		use.Name = c.rt.Names.InternQName(ns, name)
+		q, err := c.rt.Names.InternQName(ns, name)
+		if err != nil {
+			return attributeUse{}, err
+		}
+		use.Name = q
 		decl, err := c.compileAttributeDecl(n, ctx, use.Name)
 		if err != nil {
 			return attributeUse{}, err
