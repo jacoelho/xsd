@@ -321,16 +321,34 @@ func (c *compiler) setBuiltinIntegerFacets(id simpleTypeID) {
 }
 
 func (c *compiler) setBuiltinMin(id simpleTypeID, v string) {
-	c.rt.SimpleTypes[id].Facets.MinInclusive = &compiledLiteral{Lexical: v, Canonical: v}
+	lit := builtinDecimalLiteral(v)
+	c.rt.SimpleTypes[id].Facets.MinInclusive = &lit
 }
 
 func (c *compiler) setBuiltinMax(id simpleTypeID, v string) {
-	c.rt.SimpleTypes[id].Facets.MaxInclusive = &compiledLiteral{Lexical: v, Canonical: v}
+	lit := builtinDecimalLiteral(v)
+	c.rt.SimpleTypes[id].Facets.MaxInclusive = &lit
 }
 
 func (c *compiler) setBuiltinRange(id simpleTypeID, minValue, maxValue string) {
 	c.setBuiltinMin(id, minValue)
 	c.setBuiltinMax(id, maxValue)
+}
+
+func builtinDecimalLiteral(v string) compiledLiteral {
+	dec, err := parseDecimal(v)
+	if err != nil {
+		return compiledLiteral{Lexical: v, Canonical: v}
+	}
+	return compiledLiteral{
+		Lexical:   v,
+		Canonical: dec.IntegerCanonical,
+		Actual: actualValue{
+			Kind:    primDecimal,
+			Valid:   true,
+			Decimal: dec,
+		},
+	}
 }
 
 func (c *compiler) addBuiltinAttribute(ns, local string, typ simpleTypeID) error {

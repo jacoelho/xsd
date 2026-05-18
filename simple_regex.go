@@ -5,8 +5,12 @@ import (
 	"strings"
 )
 
-func compilePattern(source string) (pattern, error) {
-	if err := validateXSDRegexSyntax(source); err != nil {
+func (c *compiler) compilePattern(source string) (pattern, error) {
+	return compilePatternWithCompiler(source, c)
+}
+
+func compilePatternWithCompiler(source string, c *compiler) (pattern, error) {
+	if err := validateXSDRegexSyntaxWithCompiler(source, c); err != nil {
 		return pattern{}, err
 	}
 	goPattern := translateXSDRegexToGo(source)
@@ -19,7 +23,11 @@ func compilePattern(source string) (pattern, error) {
 }
 
 func validateXSDRegexSyntax(source string) error {
-	var v xsdRegexSyntaxValidator
+	return validateXSDRegexSyntaxWithCompiler(source, nil)
+}
+
+func validateXSDRegexSyntaxWithCompiler(source string, c *compiler) error {
+	v := xsdRegexSyntaxValidator{compiler: c}
 	for _, r := range source {
 		if err := v.consume(r); err != nil {
 			return err
@@ -35,6 +43,7 @@ func validateXSDRegexSyntax(source string) error {
 }
 
 type xsdRegexSyntaxValidator struct {
+	compiler            *compiler
 	categoryName        string
 	classTerms          []bool
 	classFirst          []bool
@@ -98,7 +107,7 @@ func (v *xsdRegexSyntaxValidator) consumeCategory(r rune) error {
 			return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
 		}
 		v.unsupported = true
-	case !validGoRegexCategory(v.categoryName):
+	case !v.validGoRegexCategory(v.categoryName):
 		return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
 	}
 	v.inCategory = false
@@ -138,6 +147,26 @@ func (v *xsdRegexSyntaxValidator) consumePendingCategory(r rune) error {
 func validGoRegexCategory(name string) bool {
 	_, err := regexp.Compile(`\p{` + name + `}`)
 	return err == nil
+}
+
+func (c *compiler) validGoRegexCategory(name string) bool {
+	ok, found := c.regexCategories[name]
+	if found {
+		return ok
+	}
+	if c.regexCategories == nil {
+		c.regexCategories = make(map[string]bool)
+	}
+	ok = validGoRegexCategory(name)
+	c.regexCategories[name] = ok
+	return ok
+}
+
+func (v *xsdRegexSyntaxValidator) validGoRegexCategory(name string) bool {
+	if v.compiler == nil {
+		return validGoRegexCategory(name)
+	}
+	return v.compiler.validGoRegexCategory(name)
 }
 
 func (v *xsdRegexSyntaxValidator) consumeQuantifier(r rune) error {

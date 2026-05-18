@@ -148,7 +148,7 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base si
 			if err != nil {
 				return err
 			}
-			p, err := compilePattern(value)
+			p, err := c.compilePattern(value)
 			if err != nil {
 				return err
 			}
@@ -388,7 +388,7 @@ func validateDecimalLowerRestriction(name string, lit *compiledLiteral, exclusiv
 	if lit == nil || !base.ok {
 		return nil
 	}
-	cmp := compareCanonicalDecimal(lit.Canonical, base.value)
+	cmp := compareCanonicalDecimal(literalDecimal(lit).Canonical, base.value.Canonical)
 	if cmp < 0 || cmp == 0 && !exclusive && base.exclusive {
 		return fmt.Errorf("%s cannot be less than base lower bound", name)
 	}
@@ -399,7 +399,7 @@ func validateDecimalUpperRestriction(name string, lit *compiledLiteral, exclusiv
 	if lit == nil || !base.ok {
 		return nil
 	}
-	cmp := compareCanonicalDecimal(lit.Canonical, base.value)
+	cmp := compareCanonicalDecimal(literalDecimal(lit).Canonical, base.value.Canonical)
 	if cmp > 0 || cmp == 0 && !exclusive && base.exclusive {
 		return fmt.Errorf("%s cannot exceed base upper bound", name)
 	}
@@ -412,7 +412,7 @@ func validateDecimalFacetBounds(f facetSet) error {
 	if !lower.ok || !upper.ok {
 		return nil
 	}
-	cmp := compareCanonicalDecimal(lower.value, upper.value)
+	cmp := compareCanonicalDecimal(lower.value.Canonical, upper.value.Canonical)
 	if cmp > 0 || cmp == 0 && (lower.exclusive || upper.exclusive) {
 		return fmt.Errorf("decimal lower bound cannot exceed upper bound")
 	}
@@ -420,16 +420,16 @@ func validateDecimalFacetBounds(f facetSet) error {
 }
 
 type decimalBound struct {
-	value     string
+	value     decimalValue
 	exclusive bool
 	ok        bool
 }
 
 func decimalLowerBound(f facetSet) decimalBound {
 	if f.MinInclusive != nil {
-		out := decimalBound{value: f.MinInclusive.Canonical, ok: true}
+		out := decimalBound{value: literalDecimal(f.MinInclusive), ok: true}
 		if f.MinExclusive != nil {
-			other := decimalBound{value: f.MinExclusive.Canonical, exclusive: true, ok: true}
+			other := decimalBound{value: literalDecimal(f.MinExclusive), exclusive: true, ok: true}
 			if compareDecimalLowerBound(other, out) > 0 {
 				return other
 			}
@@ -437,16 +437,16 @@ func decimalLowerBound(f facetSet) decimalBound {
 		return out
 	}
 	if f.MinExclusive != nil {
-		return decimalBound{value: f.MinExclusive.Canonical, exclusive: true, ok: true}
+		return decimalBound{value: literalDecimal(f.MinExclusive), exclusive: true, ok: true}
 	}
 	return decimalBound{}
 }
 
 func decimalUpperBound(f facetSet) decimalBound {
 	if f.MaxInclusive != nil {
-		out := decimalBound{value: f.MaxInclusive.Canonical, ok: true}
+		out := decimalBound{value: literalDecimal(f.MaxInclusive), ok: true}
 		if f.MaxExclusive != nil {
-			other := decimalBound{value: f.MaxExclusive.Canonical, exclusive: true, ok: true}
+			other := decimalBound{value: literalDecimal(f.MaxExclusive), exclusive: true, ok: true}
 			if compareDecimalUpperBound(other, out) < 0 {
 				return other
 			}
@@ -454,13 +454,13 @@ func decimalUpperBound(f facetSet) decimalBound {
 		return out
 	}
 	if f.MaxExclusive != nil {
-		return decimalBound{value: f.MaxExclusive.Canonical, exclusive: true, ok: true}
+		return decimalBound{value: literalDecimal(f.MaxExclusive), exclusive: true, ok: true}
 	}
 	return decimalBound{}
 }
 
 func compareDecimalLowerBound(a, b decimalBound) int {
-	cmp := compareCanonicalDecimal(a.value, b.value)
+	cmp := compareCanonicalDecimal(a.value.Canonical, b.value.Canonical)
 	if cmp != 0 {
 		return cmp
 	}
@@ -474,7 +474,7 @@ func compareDecimalLowerBound(a, b decimalBound) int {
 }
 
 func compareDecimalUpperBound(a, b decimalBound) int {
-	cmp := compareCanonicalDecimal(a.value, b.value)
+	cmp := compareCanonicalDecimal(a.value.Canonical, b.value.Canonical)
 	if cmp != 0 {
 		return cmp
 	}
@@ -488,12 +488,35 @@ func compareDecimalUpperBound(a, b decimalBound) int {
 }
 
 func (c *compiler) compileLiteral(base simpleTypeID, lexical string, resolve qnameResolver) (compiledLiteral, error) {
-	canon, err := validateSimpleValue(&c.rt, base, lexical, resolve)
+	value, err := validateSimpleValueInfo(&c.rt, base, lexical, resolve)
 	if err != nil {
 		if IsUnsupported(err) {
 			return compiledLiteral{}, err
 		}
 		return compiledLiteral{}, schemaCompile(ErrSchemaFacet, "invalid facet value "+lexical)
 	}
-	return compiledLiteral{Lexical: lexical, Canonical: canon}, nil
+	return compiledLiteral{
+		Lexical:   lexical,
+		Canonical: value.Canonical,
+		Actual:    literalActualValue(&c.rt, base, lexical, value.Canonical),
+	}, nil
+}
+
+func literalActualValue(rt *runtimeSchema, id simpleTypeID, lexical, canonical string) actualValue {
+	if id == noSimpleType || !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
+		return actualValue{}
+	}
+	st := rt.SimpleTypes[id]
+	if st.Variety != varietyAtomic {
+		return actualValue{}
+	}
+	text := canonical
+	if st.Primitive == primGMonthDay || st.Primitive == primGDay || st.Primitive == primGMonth || st.Primitive == primDuration {
+		text = lexical
+	}
+	parsed, err := validatePrimitiveActual(rt, st, text, nil, true)
+	if err != nil {
+		return actualValue{}
+	}
+	return parsed.Actual
 }

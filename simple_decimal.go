@@ -7,10 +7,11 @@ import (
 )
 
 type decimalValue struct {
-	Canonical      string
-	IntegerLexical bool
-	TotalDigits    uint32
-	FractionDigits uint32
+	Canonical        string
+	IntegerCanonical string
+	IntegerLexical   bool
+	TotalDigits      uint32
+	FractionDigits   uint32
 }
 
 func parseDecimal(s string) (decimalValue, error) {
@@ -76,69 +77,53 @@ func parseDecimal(s string) (decimalValue, error) {
 	}
 
 	return decimalValue{
-		Canonical:      canonicalDecimal(s, negative, start, intEnd, intTrimStart, fracStart, fracTrimEnd),
-		IntegerLexical: dot < 0,
-		TotalDigits:    uint32(totalDigits),
-		FractionDigits: uint32(fracDigits),
+		Canonical:        canonicalDecimal(s, negative, intEnd, intTrimStart, fracStart, fracTrimEnd),
+		IntegerCanonical: canonicalIntegerDecimal(s, negative, start, intEnd, intTrimStart),
+		IntegerLexical:   dot < 0,
+		TotalDigits:      uint32(totalDigits),
+		FractionDigits:   uint32(fracDigits),
 	}, nil
 }
 
-func canonicalDecimal(s string, negative bool, start, intEnd, intTrimStart, fracStart, fracTrimEnd int) string {
+func canonicalDecimal(s string, negative bool, intEnd, intTrimStart, fracStart, fracTrimEnd int) string {
 	intDigits := intEnd - intTrimStart
 	fracDigits := fracTrimEnd - fracStart
 	if intDigits == 0 && fracDigits == 0 {
-		return "0"
+		return "0.0"
 	}
-	if fracDigits == 0 {
-		if intDigits > 0 {
-			if negative {
-				if intTrimStart == start {
-					return s[:intEnd]
-				}
-				return "-" + s[intTrimStart:intEnd]
-			}
-			return s[intTrimStart:intEnd]
-		}
-		return "0"
-	}
+	intPart := "0"
 	if intDigits > 0 {
-		if negative {
-			if intTrimStart == start {
-				return s[:fracTrimEnd]
-			}
-			var b strings.Builder
-			b.Grow(1 + intDigits + 1 + fracDigits)
-			b.WriteByte('-')
-			b.WriteString(s[intTrimStart:intEnd])
-			b.WriteByte('.')
-			b.WriteString(s[fracStart:fracTrimEnd])
-			return b.String()
-		}
-		return s[intTrimStart:fracTrimEnd]
+		intPart = s[intTrimStart:intEnd]
 	}
-	if intEnd > start && s[intEnd-1] == '0' {
-		if negative {
-			if intEnd-1 == start {
-				return s[:fracTrimEnd]
-			}
-			var b strings.Builder
-			b.Grow(3 + fracDigits)
-			b.WriteString("-0.")
-			b.WriteString(s[fracStart:fracTrimEnd])
-			return b.String()
-		}
-		return s[intEnd-1 : fracTrimEnd]
+	fracPart := "0"
+	if fracDigits > 0 {
+		fracPart = s[fracStart:fracTrimEnd]
 	}
 	var b strings.Builder
-	if negative {
-		b.Grow(3 + fracDigits)
-		b.WriteString("-0.")
+	if negative && (intDigits != 0 || fracDigits != 0) {
+		b.Grow(1 + len(intPart) + 1 + len(fracPart))
+		b.WriteByte('-')
 	} else {
-		b.Grow(2 + fracDigits)
-		b.WriteString("0.")
+		b.Grow(len(intPart) + 1 + len(fracPart))
 	}
-	b.WriteString(s[fracStart:fracTrimEnd])
+	b.WriteString(intPart)
+	b.WriteByte('.')
+	b.WriteString(fracPart)
 	return b.String()
+}
+
+func canonicalIntegerDecimal(s string, negative bool, start, intEnd, intTrimStart int) string {
+	intDigits := intEnd - intTrimStart
+	if intDigits == 0 {
+		return "0"
+	}
+	if negative {
+		if intTrimStart == start {
+			return s[:intEnd]
+		}
+		return "-" + s[intTrimStart:intEnd]
+	}
+	return s[intTrimStart:intEnd]
 }
 
 func compareCanonicalDecimal(a, b string) int {

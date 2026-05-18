@@ -355,6 +355,38 @@ func TestSchemaLocationHintsCanBeUnresolved(t *testing.T) {
 	expectCode(t, err, ErrSchemaContentModel)
 }
 
+func TestHTTPResolverImportNamespaceMismatchIsSchemaError(t *testing.T) {
+	_, err := Compile(Reader("main.xsd", strings.NewReader(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:import namespace="urn:a" schemaLocation="http://example.invalid/other.xsd"/>
+	</xs:schema>`)).WithResolver(mapResolver{
+		"http://example.invalid/other.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`,
+	}))
+	expectCode(t, err, ErrSchemaReference)
+}
+
+func TestHTTPResolverChameleonIncludePropagatesTargetNamespace(t *testing.T) {
+	engine, err := Compile(Reader("main.xsd", strings.NewReader(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	           targetNamespace="urn:test"
+	           xmlns:t="urn:test"
+	           elementFormDefault="qualified">
+	  <xs:include schemaLocation="http://example.invalid/types.xsd"/>
+	  <xs:element name="root" type="t:Included"/>
+	</xs:schema>`)).WithResolver(mapResolver{
+		"http://example.invalid/types.xsd": `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	  <xs:complexType name="Included">
+	    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+	  </xs:complexType>
+	</xs:schema>`,
+	}))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
+}
+
 type countedSchemaRead struct {
 	data  string
 	reads int

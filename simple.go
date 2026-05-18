@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 type qnameResolver func(string) (string, bool)
@@ -14,6 +15,25 @@ type simpleValue struct {
 	IDs       string
 	IDRefs    string
 	Type      simpleTypeID
+}
+
+//nolint:govet // Tagged value payload; fields stay grouped by primitive kind.
+type actualValue struct {
+	Decimal  decimalValue
+	Duration xsdDurationValue
+	Temporal xsdTemporalValue
+	Time     xsdTimeValue
+	G        xsdGValue
+	Float    float64
+	Length   uint32
+	Kind     primitiveKind
+	Valid    bool
+	Boolean  bool
+}
+
+type primitiveActual struct {
+	Canonical string
+	Actual    actualValue
 }
 
 func validateSimpleValue(rt *runtimeSchema, id simpleTypeID, lexical string, resolve qnameResolver) (string, error) {
@@ -89,14 +109,21 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 			return simpleValue{}, err
 		}
 	}
-	canon, err := validatePrimitive(rt, st, norm, resolve, needCanonical || st.Facets.needsCanonical() || identity != simpleIdentityNone)
+	parsed, err := validatePrimitiveActual(rt, st, norm, resolve, needCanonical || st.Facets.needsCanonical() || identity != simpleIdentityNone)
 	if err != nil {
 		return simpleValue{}, err
 	}
-	if err := validateBuiltinDerived(rt, st, norm); err != nil {
+	canon := parsed.Canonical
+	if parsed.Actual.Valid && parsed.Actual.Kind == primDecimal && simpleTypeUsesIntegerLexical(rt, id, st) {
+		if !parsed.Actual.Decimal.IntegerLexical {
+			return simpleValue{}, fmt.Errorf("invalid integer")
+		}
+		canon = parsed.Actual.Decimal.IntegerCanonical
+	}
+	if err := validateBuiltinDerived(rt, st, norm, parsed.Actual); err != nil {
 		return simpleValue{}, err
 	}
-	if err := applyFacets(st, norm, canon, false); err != nil {
+	if err := applyFacets(st, norm, canon, parsed.Actual, false); err != nil {
 		return simpleValue{}, err
 	}
 	v := simpleValue{Canonical: canon, Type: id}
@@ -151,7 +178,7 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 		return simpleValue{}, err
 	}
 	if needStrings {
-		if err := applyPatternAndEnumeration(st.Facets, n, v.Canonical); err != nil {
+		if err := applyPatternAndEnumeration(st.Facets, n, v.Canonical, actualValue{}); err != nil {
 			return simpleValue{}, err
 		}
 	}
@@ -186,7 +213,7 @@ func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve q
 	for _, member := range st.Union {
 		value, err := validateSimpleValueMode(rt, member, norm, resolve, needMemberCanon)
 		if err == nil {
-			if facetErr := applyPatternAndEnumeration(st.Facets, norm, value.Canonical); facetErr != nil {
+			if facetErr := applyPatternAndEnumeration(st.Facets, norm, value.Canonical, actualValue{}); facetErr != nil {
 				return simpleValue{}, facetErr
 			}
 			return value, nil
@@ -201,152 +228,206 @@ func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve q
 	return simpleValue{}, fmt.Errorf("value does not match any union member")
 }
 
-func validatePrimitive(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needCanonical bool) (string, error) {
+func validatePrimitiveActual(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needCanonical bool) (primitiveActual, error) {
+	actual := actualValue{Kind: st.Primitive, Valid: true}
 	switch st.Primitive {
 	case primString:
-		return norm, nil
+		actual.Length = uint32(utf8.RuneCountInString(norm))
+		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	case primAnyURI:
-		return validateAnyURIPrimitive(norm)
+		if !isAnyURI(norm) {
+			return primitiveActual{}, fmt.Errorf("invalid anyURI")
+		}
+		actual.Length = uint32(utf8.RuneCountInString(norm))
+		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	case primBoolean:
-		return validateBooleanPrimitive(norm)
+		canon, value, err := parseBooleanPrimitive(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.Boolean = value
+		return primitiveActual{Canonical: canon, Actual: actual}, nil
 	case primDecimal:
 		dec, err := parseDecimal(norm)
 		if err != nil {
-			return "", err
+			return primitiveActual{}, err
 		}
-		return dec.Canonical, nil
+		actual.Decimal = dec
+		return primitiveActual{Canonical: dec.Canonical, Actual: actual}, nil
 	case primFloat:
-		return validateFloatPrimitive(norm, 32, needCanonical)
+		return parseFloatPrimitiveActual(norm, 32, needCanonical)
 	case primDouble:
-		return validateFloatPrimitive(norm, 64, needCanonical)
+		return parseFloatPrimitiveActual(norm, 64, needCanonical)
 	case primDuration:
-		return validateDurationPrimitive(norm)
-	case primDate:
-		return validateDatePrimitive(norm)
-	case primDateTime:
-		canon, err := parseXSDDateTimeCanonical(norm)
+		value, err := parseXSDDurationValue(norm)
 		if err != nil {
-			return "", err
+			return primitiveActual{}, err
 		}
-		return canon, nil
-	case primTime:
-		canon, err := parseXSDTimeCanonical(norm)
-		if err != nil {
-			return "", err
-		}
-		return canon, nil
-	case primGYearMonth:
-		return validateGYearMonthPrimitive(norm)
-	case primGYear:
-		return validateGYearPrimitive(norm)
-	case primGMonthDay:
-		return validateGMonthDayPrimitive(norm)
-	case primGDay:
-		return validateGDayPrimitive(norm)
-	case primGMonth:
-		return validateGMonthPrimitive(norm)
-	case primHexBinary:
-		return validateHexBinaryPrimitive(norm)
-	case primBase64Binary:
-		return validateBase64BinaryPrimitive(norm)
+		actual.Duration = value
+		return primitiveActual{Canonical: norm, Actual: actual}, nil
+	case primDate, primDateTime, primTime, primGYearMonth, primGYear, primGMonthDay, primGDay, primGMonth:
+		return parseTemporalPrimitiveActual(st.Primitive, norm)
+	case primHexBinary, primBase64Binary:
+		return parseBinaryPrimitiveActual(st.Primitive, norm)
 	case primQName:
-		return validateQNamePrimitive(norm, resolve)
+		canon, err := validateQNamePrimitive(norm, resolve)
+		return primitiveActual{Canonical: canon, Actual: actual}, err
 	case primNotation:
-		return validateNotationPrimitive(rt, norm, resolve)
+		canon, err := validateNotationPrimitive(rt, norm, resolve)
+		return primitiveActual{Canonical: canon, Actual: actual}, err
 	default:
-		return norm, nil
+		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	}
 }
 
-func validateAnyURIPrimitive(norm string) (string, error) {
-	if !isAnyURI(norm) {
-		return "", fmt.Errorf("invalid anyURI")
+func parseTemporalPrimitiveActual(kind primitiveKind, norm string) (primitiveActual, error) {
+	actual := actualValue{Kind: kind, Valid: true}
+	switch kind {
+	case primDate:
+		value, err := parseXSDDateValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.Temporal = xsdTemporalValue{instant: value.point, hasTZ: value.hasTZ}
+		return primitiveActual{Canonical: formatXSDDate(value), Actual: actual}, nil
+	case primDateTime:
+		value, err := parseXSDDateTimeValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.Temporal = xsdTemporalValue(value)
+		return primitiveActual{Canonical: formatXSDDateTime(value.instant, value.hasTZ), Actual: actual}, nil
+	case primTime:
+		value, err := parseXSDTimeValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.Time = value
+		return primitiveActual{Canonical: formatXSDTime(value), Actual: actual}, nil
+	case primGYearMonth:
+		value, err := parseXSDGYearMonthValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.G = value
+		return primitiveActual{Canonical: formatXSDGYearMonth(value), Actual: actual}, nil
+	case primGYear:
+		value, err := parseXSDGYearValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.G = value
+		return primitiveActual{Canonical: formatXSDGYear(value), Actual: actual}, nil
+	case primGMonthDay:
+		value, err := parseXSDGMonthDayValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.G = value
+		return primitiveActual{Canonical: formatXSDGMonthDay(value), Actual: actual}, nil
+	case primGDay:
+		value, err := parseXSDGDayValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.G = value
+		return primitiveActual{Canonical: formatXSDGDay(value), Actual: actual}, nil
+	case primGMonth:
+		value, err := parseXSDGMonthValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		actual.G = value
+		return primitiveActual{Canonical: formatXSDGMonth(value), Actual: actual}, nil
+	default:
+		return primitiveActual{}, fmt.Errorf("invalid temporal primitive")
 	}
-	return norm, nil
 }
 
-func validateBooleanPrimitive(norm string) (string, error) {
+func parseBinaryPrimitiveActual(kind primitiveKind, norm string) (primitiveActual, error) {
+	actual := actualValue{Kind: kind, Valid: true}
+	switch kind {
+	case primHexBinary:
+		decoded, err := hex.DecodeString(norm)
+		if err != nil {
+			return primitiveActual{}, fmt.Errorf("invalid hexBinary")
+		}
+		actual.Length = uint32(len(decoded))
+		return primitiveActual{Canonical: strings.ToUpper(norm), Actual: actual}, nil
+	case primBase64Binary:
+		decoded, err := decodeXSDBase64(norm)
+		if err != nil {
+			return primitiveActual{}, fmt.Errorf("invalid base64Binary")
+		}
+		actual.Length = uint32(len(decoded))
+		return primitiveActual{Canonical: base64.StdEncoding.EncodeToString(decoded), Actual: actual}, nil
+	default:
+		return primitiveActual{}, fmt.Errorf("invalid binary primitive")
+	}
+}
+
+func simpleTypeUsesIntegerLexical(rt *runtimeSchema, id simpleTypeID, st simpleType) bool {
+	if isXSDIntegerDatatype(rt, st) {
+		return true
+	}
+	if st.Base == noSimpleType || st.Base == id || st.Base == rt.Builtin.AnySimpleType {
+		return false
+	}
+	if !validUint32Index(uint32(st.Base), len(rt.SimpleTypes)) {
+		return false
+	}
+	return simpleTypeUsesIntegerLexical(rt, st.Base, rt.SimpleTypes[st.Base])
+}
+
+func isXSDIntegerDatatype(rt *runtimeSchema, st simpleType) bool {
+	if rt.Names.Namespace(st.Name.Namespace) != xsdNamespaceURI {
+		return false
+	}
+	return isXSDIntegerDatatypeName(rt.Names.Local(st.Name.Local))
+}
+
+func isXSDIntegerDatatypeName(local string) bool {
+	switch local {
+	case "integer", "nonPositiveInteger", "negativeInteger", "nonNegativeInteger", "positiveInteger",
+		"long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseFloatPrimitiveActual(norm string, bitSize int, needCanonical bool) (primitiveActual, error) {
+	value, err := parseXSDFloat(norm, bitSize)
+	if err != nil {
+		return primitiveActual{}, err
+	}
+	canon := ""
+	if needCanonical {
+		canon = formatXSDFloatCanonical(value, bitSize)
+	}
+	kind := primDouble
+	if bitSize == 32 {
+		kind = primFloat
+	}
+	return primitiveActual{
+		Canonical: canon,
+		Actual: actualValue{
+			Kind:  kind,
+			Valid: true,
+			Float: value,
+		},
+	}, nil
+}
+
+func parseBooleanPrimitive(norm string) (string, bool, error) {
 	switch norm {
 	case "true", "1":
-		return "true", nil
+		return "true", true, nil
 	case "false", "0":
-		return "false", nil
+		return "false", false, nil
 	default:
-		return "", fmt.Errorf("invalid boolean")
+		return "", false, fmt.Errorf("invalid boolean")
 	}
-}
-
-func validateFloatPrimitive(norm string, bitSize int, needCanonical bool) (string, error) {
-	if !needCanonical {
-		_, err := parseXSDFloat(norm, bitSize)
-		return "", err
-	}
-	return parseFloatCanonical(norm, bitSize)
-}
-
-func validateDurationPrimitive(norm string) (string, error) {
-	if err := parseXSDDuration(norm); err != nil {
-		return "", err
-	}
-	return norm, nil
-}
-
-func validateDatePrimitive(norm string) (string, error) {
-	_, err := parseXSDDate(norm)
-	if err != nil {
-		return "", err
-	}
-	return norm, nil
-}
-
-func validateGYearMonthPrimitive(norm string) (string, error) {
-	if err := parseXSDGYearMonth(norm); err != nil {
-		return "", err
-	}
-	return norm, nil
-}
-
-func validateGYearPrimitive(norm string) (string, error) {
-	if err := parseXSDGYear(norm); err != nil {
-		return "", err
-	}
-	return norm, nil
-}
-
-func validateGMonthDayPrimitive(norm string) (string, error) {
-	if err := parseXSDGMonthDay(norm); err != nil {
-		return "", err
-	}
-	return norm, nil
-}
-
-func validateGDayPrimitive(norm string) (string, error) {
-	if err := parseXSDGDay(norm); err != nil {
-		return "", err
-	}
-	return norm, nil
-}
-
-func validateGMonthPrimitive(norm string) (string, error) {
-	if err := parseXSDGMonth(norm); err != nil {
-		return "", err
-	}
-	return norm, nil
-}
-
-func validateHexBinaryPrimitive(norm string) (string, error) {
-	if _, err := hex.DecodeString(norm); err != nil {
-		return "", fmt.Errorf("invalid hexBinary")
-	}
-	return strings.ToUpper(norm), nil
-}
-
-func validateBase64BinaryPrimitive(norm string) (string, error) {
-	decoded, err := decodeXSDBase64(norm)
-	if err != nil {
-		return "", fmt.Errorf("invalid base64Binary")
-	}
-	return base64.StdEncoding.EncodeToString(decoded), nil
 }
 
 func validateQNamePrimitive(norm string, resolve qnameResolver) (string, error) {

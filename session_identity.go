@@ -370,6 +370,12 @@ func (s *session) identityValue(typeID simpleTypeID, canonical string) string {
 		return "\xff\x1e" + canonical
 	}
 	primitive := s.engine.rt.SimpleTypes[typeID].Primitive
+	if primitive == primDecimal {
+		dec, err := parseDecimal(canonical)
+		if err == nil {
+			canonical = dec.Canonical
+		}
+	}
 	return string([]byte{byte(primitive)}) + "\x1e" + canonical
 }
 

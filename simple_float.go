@@ -6,21 +6,17 @@ import (
 	"strconv"
 )
 
-func parseFloatCanonical(s string, bits int) (string, error) {
-	v, err := parseXSDFloat(s, bits)
-	if err != nil {
-		return "", err
-	}
+func formatXSDFloatCanonical(v float64, bits int) string {
 	if math.IsInf(v, 1) {
-		return "INF", nil
+		return "INF"
 	}
 	if math.IsInf(v, -1) {
-		return "-INF", nil
+		return "-INF"
 	}
 	if math.IsNaN(v) {
-		return "NaN", nil
+		return "NaN"
 	}
-	return strconv.FormatFloat(v, 'g', -1, bits), nil
+	return strconv.FormatFloat(v, 'g', -1, bits)
 }
 
 func parseXSDFloat(s string, bits int) (float64, error) {
@@ -92,18 +88,25 @@ func isASCIIDigit(b byte) bool {
 	return b >= '0' && b <= '9'
 }
 
-func applyFloatBounds(kind primitiveKind, f facetSet, norm string) error {
+func applyFloatBounds(kind primitiveKind, f facetSet, norm string, actual actualValue) error {
 	bits := 64
 	if kind == primFloat {
 		bits = 32
 	}
-	value, err := parseXSDFloat(norm, bits)
-	if err != nil {
-		return err
+	value := actual.Float
+	if !actual.Valid || actual.Kind != kind {
+		var err error
+		value, err = parseXSDFloat(norm, bits)
+		if err != nil {
+			return err
+		}
 	}
 	cmpLit := func(l *compiledLiteral) (float64, bool, error) {
 		if l == nil {
 			return 0, false, nil
+		}
+		if l.Actual.Valid && l.Actual.Kind == kind {
+			return l.Actual.Float, true, nil
 		}
 		v, err := parseXSDFloat(l.Canonical, bits)
 		return v, true, err
@@ -197,15 +200,4 @@ func floatLowerBound(bits int, f facetSet) (float64, bool, bool, error) {
 func floatUpperBound(bits int, f facetSet) (float64, bool, bool, error) {
 	parse := func(s string) (float64, error) { return parseXSDFloat(s, bits) }
 	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parse, func(other, out float64) bool { return other <= out })
-}
-
-func cmpFloat64(a, b float64) int {
-	switch {
-	case a < b:
-		return -1
-	case a > b:
-		return 1
-	default:
-		return 0
-	}
 }

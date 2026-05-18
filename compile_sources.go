@@ -8,7 +8,6 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
-	"strings"
 )
 
 func (c *compiler) load(sources []SchemaSource) error {
@@ -186,9 +185,6 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 					}
 					continue
 				}
-				if strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
-					continue
-				}
 				referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
 				if !ok {
 					continue
@@ -230,7 +226,7 @@ func (c *compiler) propagateChameleonTargets() error {
 					continue
 				}
 				location, ok := child.attr("schemaLocation")
-				if !ok || location == "" || strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
+				if !ok || location == "" {
 					continue
 				}
 				referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)

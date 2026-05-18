@@ -181,6 +181,7 @@ type compilerBuildState struct {
 	elementDone      map[qName]elementID
 	localDone        map[*rawNode]elementID
 	identityDeclared map[*rawNode]identityConstraintID
+	regexCategories  map[string]bool
 }
 
 type compilerCycleState struct {

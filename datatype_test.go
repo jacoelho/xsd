@@ -170,18 +170,20 @@ func TestParseDecimalCanonical(t *testing.T) {
 	tests := []struct {
 		in             string
 		canonical      string
+		integer        string
 		integerLexical bool
 		totalDigits    uint32
 		fractionDigits uint32
 	}{
-		{in: "7", canonical: "7", integerLexical: true, totalDigits: 1, fractionDigits: 0},
-		{in: "+000.0100", canonical: "0.01", integerLexical: false, totalDigits: 1, fractionDigits: 2},
-		{in: "-000", canonical: "0", integerLexical: true, totalDigits: 1, fractionDigits: 0},
-		{in: ".50", canonical: "0.5", integerLexical: false, totalDigits: 1, fractionDigits: 1},
-		{in: "-.50", canonical: "-0.5", integerLexical: false, totalDigits: 1, fractionDigits: 1},
-		{in: "5.", canonical: "5", integerLexical: false, totalDigits: 1, fractionDigits: 0},
-		{in: "1000.00", canonical: "1000", integerLexical: false, totalDigits: 4, fractionDigits: 0},
-		{in: "0.0010", canonical: "0.001", integerLexical: false, totalDigits: 1, fractionDigits: 3},
+		{in: "7", canonical: "7.0", integer: "7", integerLexical: true, totalDigits: 1, fractionDigits: 0},
+		{in: "+000.0100", canonical: "0.01", integer: "0", integerLexical: false, totalDigits: 1, fractionDigits: 2},
+		{in: "-000", canonical: "0.0", integer: "0", integerLexical: true, totalDigits: 1, fractionDigits: 0},
+		{in: ".50", canonical: "0.5", integer: "0", integerLexical: false, totalDigits: 1, fractionDigits: 1},
+		{in: "-.50", canonical: "-0.5", integer: "0", integerLexical: false, totalDigits: 1, fractionDigits: 1},
+		{in: "5.", canonical: "5.0", integer: "5", integerLexical: false, totalDigits: 1, fractionDigits: 0},
+		{in: "1000.00", canonical: "1000.0", integer: "1000", integerLexical: false, totalDigits: 4, fractionDigits: 0},
+		{in: "0.0010", canonical: "0.001", integer: "0", integerLexical: false, totalDigits: 1, fractionDigits: 3},
+		{in: "+000000000000000000000001234567890.0000000000001000", canonical: "1234567890.0000000000001", integer: "1234567890", integerLexical: false, totalDigits: 23, fractionDigits: 13},
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
@@ -189,15 +191,33 @@ func TestParseDecimalCanonical(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseDecimal() error = %v", err)
 			}
-			if got.Canonical != tt.canonical || got.IntegerLexical != tt.integerLexical || got.TotalDigits != tt.totalDigits || got.FractionDigits != tt.fractionDigits {
-				t.Fatalf("parseDecimal() = %+v, want canonical=%q integer=%v total=%d fraction=%d", got, tt.canonical, tt.integerLexical, tt.totalDigits, tt.fractionDigits)
+			if got.Canonical != tt.canonical || got.IntegerCanonical != tt.integer || got.IntegerLexical != tt.integerLexical || got.TotalDigits != tt.totalDigits || got.FractionDigits != tt.fractionDigits {
+				t.Fatalf("parseDecimal() = %+v, want canonical=%q integer=%q integerLexical=%v total=%d fraction=%d", got, tt.canonical, tt.integer, tt.integerLexical, tt.totalDigits, tt.fractionDigits)
 			}
 		})
 	}
 }
 
+func TestDecimalAndIntegerCanonicalValuesDiverge(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	decimal, err := validateSimpleValueInfo(engine.rt, engine.rt.Builtin.Decimal, "5", nil)
+	if err != nil {
+		t.Fatalf("validateSimpleValueInfo(decimal) error = %v", err)
+	}
+	if decimal.Canonical != "5.0" {
+		t.Fatalf("decimal canonical = %q, want 5.0", decimal.Canonical)
+	}
+	integer, err := validateSimpleValueInfo(engine.rt, engine.rt.Builtin.Int, "05", nil)
+	if err != nil {
+		t.Fatalf("validateSimpleValueInfo(int) error = %v", err)
+	}
+	if integer.Canonical != "5" {
+		t.Fatalf("int canonical = %q, want 5", integer.Canonical)
+	}
+}
+
 func TestParseDecimalRejectsInvalidLexicalValues(t *testing.T) {
-	for _, in := range []string{"", "+", ".", "1.2.3", "12a"} {
+	for _, in := range []string{"", "+", "-", ".", "+.", "-.", "1.2.3", "12a", "1e2"} {
 		t.Run(in, func(t *testing.T) {
 			if _, err := parseDecimal(in); err == nil {
 				t.Fatal("parseDecimal() error = nil")
@@ -451,6 +471,36 @@ func TestLargeDurationBoundsDoNotOverflow(t *testing.T) {
 </xs:schema>`)
 }
 
+func TestDurationBoundsCompareFractionalSecondsExactly(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:restriction base="xs:duration">
+        <xs:maxInclusive value="PT0.10000000000000000001S"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>PT0.10000000000000000001S</root>`)
+	mustNotValidate(t, engine, `<root>PT0.10000000000000000002S</root>`, ErrValidationFacet)
+}
+
+func TestDurationComparisonUsesBoundedDateArithmetic(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:restriction base="xs:duration">
+        <xs:minInclusive value="P1M"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>P1000000000D</root>`)
+	mustValidate(t, engine, `<root>PT9223372036854775807S</root>`)
+}
+
 func TestGDayBoundsAreValidated(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -587,6 +637,50 @@ func TestInvalidGYearBoundsAreSchemaErrors(t *testing.T) {
 	expectCode(t, err, ErrSchemaFacet)
 }
 
+func TestGDateTimeEnumerationPreservesTimezone(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="GY"><xs:restriction base="xs:gYear"><xs:enumeration value="2000Z"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="GYM"><xs:restriction base="xs:gYearMonth"><xs:enumeration value="2000-01Z"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="GMD"><xs:restriction base="xs:gMonthDay"><xs:enumeration value="--05-01Z"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="GD"><xs:restriction base="xs:gDay"><xs:enumeration value="---01Z"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="GM"><xs:restriction base="xs:gMonth"><xs:enumeration value="--05Z"/></xs:restriction></xs:simpleType>
+  <xs:element name="y" type="GY"/>
+  <xs:element name="ym" type="GYM"/>
+  <xs:element name="md" type="GMD"/>
+  <xs:element name="d" type="GD"/>
+  <xs:element name="m" type="GM"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<y>2000+00:00</y>`)
+	mustNotValidate(t, engine, `<y>2000</y>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<y>2000+14:00</y>`, ErrValidationFacet)
+	mustValidate(t, engine, `<ym>2000-01+00:00</ym>`)
+	mustNotValidate(t, engine, `<ym>2000-01</ym>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<ym>2000-01+14:00</ym>`, ErrValidationFacet)
+	mustValidate(t, engine, `<md>--05-01+00:00</md>`)
+	mustNotValidate(t, engine, `<md>--05-01</md>`, ErrValidationFacet)
+	mustValidate(t, engine, `<d>---01+00:00</d>`)
+	mustNotValidate(t, engine, `<d>---01</d>`, ErrValidationFacet)
+	mustValidate(t, engine, `<m>--05+00:00</m>`)
+	mustNotValidate(t, engine, `<m>--05</m>`, ErrValidationFacet)
+}
+
+func TestGDateTimeBoundsUseTimezoneAwareStartInstant(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:restriction base="xs:gYear">
+        <xs:minInclusive value="2000Z"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>2000Z</root>`)
+	mustNotValidate(t, engine, `<root>2000+14:00</root>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<root>2000</root>`, ErrValidationFacet)
+}
+
 func TestInvalidWhitespaceFacetRestrictionIsSchemaError(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -720,16 +814,16 @@ func TestUnionValueFailureReportsUnionFailure(t *testing.T) {
 	}
 }
 
-func TestUnionPropagatesUnsupportedWhenNoMemberMatches(t *testing.T) {
+func TestUnionReportsFailureWhenNoMemberMatches(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="U"><xs:union memberTypes="xs:date xs:int"/></xs:simpleType>
   <xs:element name="root" type="U"/>
 </xs:schema>`)
-	mustNotValidate(t, engine, `<root>10000-01-01</root>`, ErrUnsupportedDateTime)
+	mustNotValidate(t, engine, `<root>not-a-date-or-int</root>`, ErrValidationFacet)
 }
 
-func TestUnionIgnoresUnsupportedWhenLaterMemberMatches(t *testing.T) {
+func TestUnionAcceptsExpandedYearDateMember(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="U"><xs:union memberTypes="xs:date xs:string"/></xs:simpleType>
@@ -1096,6 +1190,8 @@ func TestDurationDatatype(t *testing.T) {
 	mustNotValidate(t, engine, `<duration>P</duration>`, ErrValidationFacet)
 	mustNotValidate(t, engine, `<duration>PT</duration>`, ErrValidationFacet)
 	mustNotValidate(t, engine, `<duration>P1.5Y</duration>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<duration>PT1.0H</duration>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<duration>PT1.0M</duration>`, ErrValidationFacet)
 	mustNotValidate(t, engine, `<duration>P1H</duration>`, ErrValidationFacet)
 }
 
@@ -1172,7 +1268,7 @@ func TestDateTimeLeapSecondAndOffsetEquivalence(t *testing.T) {
 	mustNotValidate(t, engine, `<plain>1998-12-31T23:59:61Z</plain>`, ErrValidationFacet)
 }
 
-func TestDateTimeAndTimeRejectUnsupportedFractionalPrecision(t *testing.T) {
+func TestDateTimeAndTimeAcceptArbitraryFractionalPrecision(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="plain" type="xs:dateTime"/>
@@ -1180,11 +1276,11 @@ func TestDateTimeAndTimeRejectUnsupportedFractionalPrecision(t *testing.T) {
 </xs:schema>`)
 	mustValidate(t, engine, `<plain>2000-01-01T00:00:00.123456789Z</plain>`)
 	mustValidate(t, engine, `<time>00:00:00.123456789Z</time>`)
-	mustNotValidate(t, engine, `<plain>2000-01-01T00:00:00.1234567891Z</plain>`, ErrUnsupportedDateTime)
-	mustNotValidate(t, engine, `<time>00:00:00.1234567891Z</time>`, ErrUnsupportedDateTime)
+	mustValidate(t, engine, `<plain>2000-01-01T00:00:00.1234567891Z</plain>`)
+	mustValidate(t, engine, `<time>00:00:00.1234567891Z</time>`)
 }
 
-func TestTemporalFacetRejectsUnsupportedFractionalPrecision(t *testing.T) {
+func TestTemporalFacetAcceptsArbitraryFractionalPrecision(t *testing.T) {
 	tests := []struct {
 		name   string
 		schema string
@@ -1229,12 +1325,14 @@ func TestTemporalFacetRejectsUnsupportedFractionalPrecision(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := Compile(sourceBytes("schema.xsd", []byte(tt.schema)))
-			expectCode(t, err, ErrUnsupportedDateTime)
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
 		})
 	}
 }
 
-func TestGDateTimeDatatypesAndUnsupportedYears(t *testing.T) {
+func TestGDateTimeDatatypesAndExpandedYears(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="ym" type="xs:gYearMonth"/>
@@ -1248,6 +1346,8 @@ func TestGDateTimeDatatypesAndUnsupportedYears(t *testing.T) {
 	mustValidate(t, engine, `<y>2026</y>`)
 	mustValidate(t, engine, `<ym>12000-11</ym>`)
 	mustValidate(t, engine, `<y>10000</y>`)
+	mustValidate(t, engine, `<ym>-12000-11</ym>`)
+	mustValidate(t, engine, `<y>-0001</y>`)
 	mustValidate(t, engine, `<md>--02-29</md>`)
 	mustValidate(t, engine, `<d>---31</d>`)
 	mustValidate(t, engine, `<m>--12</m>`)
@@ -1256,5 +1356,50 @@ func TestGDateTimeDatatypesAndUnsupportedYears(t *testing.T) {
 	mustNotValidate(t, engine, `<date>0000-01-01</date>`, ErrValidationFacet)
 	mustNotValidate(t, engine, `<date>+2001-01-01</date>`, ErrValidationFacet)
 	mustNotValidate(t, engine, `<ym>99-10</ym>`, ErrValidationFacet)
-	mustNotValidate(t, engine, `<date>10000-01-01</date>`, ErrUnsupportedDateTime)
+	mustNotValidate(t, engine, `<ym>02026-05</ym>`, ErrValidationFacet)
+	mustValidate(t, engine, `<date>10000-01-01</date>`)
+	mustValidate(t, engine, `<date>-0001-01-01</date>`)
+	mustValidate(t, engine, `<date>-0001-02-29</date>`)
+	mustNotValidate(t, engine, `<date>-0004-02-29</date>`, ErrValidationFacet)
+}
+
+func TestTemporalParsesExactXSDLexicalEdges(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="date" type="xs:date"/>
+  <xs:element name="time" type="xs:time"/>
+  <xs:element name="dateTime" type="xs:dateTime"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<date>2026-05-18+14:00</date>`)
+	mustValidate(t, engine, `<date>2026-05-18-14:00</date>`)
+	mustNotValidate(t, engine, `<date>2026-05-18+14:01</date>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<date>2026-05-18+15:00</date>`, ErrValidationFacet)
+	mustValidate(t, engine, `<time>24:00:00</time>`)
+	mustValidate(t, engine, `<time>24:00:00.0Z</time>`)
+	mustNotValidate(t, engine, `<time>24:00:00.1</time>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<time>24:01:00</time>`, ErrValidationFacet)
+	mustValidate(t, engine, `<dateTime>2026-05-18T24:00:00Z</dateTime>`)
+	mustValidate(t, engine, `<dateTime>-0001-12-31T24:00:00.0</dateTime>`)
+	mustNotValidate(t, engine, `<dateTime>2026-05-18T24:00:01</dateTime>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<dateTime>02026-05-18T00:00:00</dateTime>`, ErrValidationFacet)
+}
+
+func TestTemporalFixedAndEnumerationUseValueKeys(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="dateTimeFixed" type="xs:dateTime" fixed="9999-12-31T24:00:00Z"/>
+  <xs:element name="timeFixed" type="xs:time" fixed="24:00:00.0000000000Z"/>
+  <xs:element name="dateFixed" type="xs:date" fixed="2002-10-10+13:00"/>
+  <xs:element name="dateEnum">
+    <xs:simpleType>
+      <xs:restriction base="xs:date">
+        <xs:enumeration value="2002-10-10+13:00"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<dateTimeFixed>10000-01-01T00:00:00Z</dateTimeFixed>`)
+	mustValidate(t, engine, `<timeFixed>00:00:00Z</timeFixed>`)
+	mustValidate(t, engine, `<dateFixed>2002-10-09-11:00</dateFixed>`)
+	mustValidate(t, engine, `<dateEnum>2002-10-09-11:00</dateEnum>`)
 }

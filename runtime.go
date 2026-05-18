@@ -276,6 +276,7 @@ func (f facetSet) needsCanonical() bool {
 type compiledLiteral struct {
 	Lexical   string
 	Canonical string
+	Actual    actualValue
 }
 
 type patternGroup struct {
