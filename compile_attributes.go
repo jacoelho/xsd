@@ -146,6 +146,10 @@ func (c *compiler) schemaQNameResolver(n *rawNode) qnameResolver {
 
 func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inherited []attributeUse, inheritedWildcard wildcardID, allowOverride bool) (attributeUseSetID, error) {
 	uses := slices.Clone(inherited)
+	seen := make(map[qName]int, len(uses))
+	for i := range uses {
+		seen[uses[i].Name] = i
+	}
 	completeWildcard := noWildcard
 	for _, child := range parent.xsContentChildren() {
 		switch child.Name.Local {
@@ -154,7 +158,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 			if err != nil {
 				return noAttributeUseSet, err
 			}
-			uses, err = c.mergeAttributeUse(uses, u, allowOverride, inheritedWildcard)
+			uses, err = c.mergeAttributeUse(uses, seen, u, allowOverride, inheritedWildcard)
 			if err != nil {
 				return noAttributeUseSet, err
 			}
@@ -164,7 +168,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 				return noAttributeUseSet, err
 			}
 			for _, u := range groupUses {
-				uses, err = c.mergeAttributeUse(uses, u, allowOverride, inheritedWildcard)
+				uses, err = c.mergeAttributeUse(uses, seen, u, allowOverride, inheritedWildcard)
 				if err != nil {
 					return noAttributeUseSet, err
 				}
@@ -251,26 +255,25 @@ func newAttributeUseSet(uses []attributeUse, wildcard wildcardID) attributeUseSe
 	return set
 }
 
-func (c *compiler) mergeAttributeUse(uses []attributeUse, u attributeUse, allowOverride bool, inheritedWildcard wildcardID) ([]attributeUse, error) {
-	for i := range uses {
-		if uses[i].Name == u.Name {
-			if !allowOverride && !uses[i].Prohibited && !u.Prohibited {
-				return nil, schemaCompile(ErrSchemaDuplicate, "duplicate attribute use")
-			}
-			if allowOverride {
-				if err := c.validateAttributeUseRestriction(uses[i], u); err != nil {
-					return nil, err
-				}
-			}
-			uses[i] = u
-			return uses, nil
+func (c *compiler) mergeAttributeUse(uses []attributeUse, seen map[qName]int, u attributeUse, allowOverride bool, inheritedWildcard wildcardID) ([]attributeUse, error) {
+	if i, ok := seen[u.Name]; ok {
+		if !allowOverride && !uses[i].Prohibited && !u.Prohibited {
+			return nil, schemaCompile(ErrSchemaDuplicate, "duplicate attribute use")
 		}
+		if allowOverride {
+			if err := c.validateAttributeUseRestriction(uses[i], u); err != nil {
+				return nil, err
+			}
+		}
+		uses[i] = u
+		return uses, nil
 	}
 	if allowOverride && !u.Prohibited {
 		if inheritedWildcard == noWildcard || !c.wildcardAllowsQName(inheritedWildcard, u.Name) {
 			return nil, schemaCompile(ErrSchemaInvalidAttribute, "new restricted attribute is not allowed by base wildcard")
 		}
 	}
+	seen[u.Name] = len(uses)
 	return append(uses, u), nil
 }
 

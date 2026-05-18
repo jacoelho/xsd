@@ -198,8 +198,7 @@ func (s *session) matchIdentitySelectors(line, col int) {
 				Scope:      scopeIndex,
 				Constraint: id,
 				Depth:      depth,
-				Values:     make([]string, len(ic.Fields)),
-				Present:    make([]bool, len(ic.Fields)),
+				Fields:     make([]identityFieldValue, len(ic.Fields)),
 				Path:       s.pathString(),
 				Line:       line,
 				Col:        col,
@@ -264,11 +263,11 @@ func (s *session) captureIdentityAttribute(name qName, typeID simpleTypeID, valu
 				if !s.identityFieldAttributeMatches(p, name) || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
-				if sel.Present[fieldIndex] {
+				if sel.Fields[fieldIndex].Present {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
-				sel.Values[fieldIndex] = s.identityValue(typeID, value)
-				sel.Present[fieldIndex] = true
+				sel.Fields[fieldIndex].Value = s.identityValue(typeID, value)
+				sel.Fields[fieldIndex].Present = true
 				break
 			}
 		}
@@ -322,11 +321,11 @@ func (s *session) captureIdentityElement(typeID simpleTypeID, value string, line
 				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
-				if sel.Present[fieldIndex] {
+				if sel.Fields[fieldIndex].Present {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
-				sel.Values[fieldIndex] = s.identityValue(typeID, value)
-				sel.Present[fieldIndex] = true
+				sel.Fields[fieldIndex].Value = s.identityValue(typeID, value)
+				sel.Fields[fieldIndex].Present = true
 				break
 			}
 		}
@@ -346,7 +345,7 @@ func (s *session) captureIdentityComplexElement(rawText string, line, col int) e
 				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
-				if sel.Present[fieldIndex] {
+				if sel.Fields[fieldIndex].Present {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
 				if !normalized {
@@ -356,8 +355,8 @@ func (s *session) captureIdentityComplexElement(rawText string, line, col int) e
 					value = normalizeWhitespace(rawText, whitespaceCollapse)
 					normalized = true
 				}
-				sel.Values[fieldIndex] = s.identityValue(s.engine.rt.Builtin.String, value)
-				sel.Present[fieldIndex] = true
+				sel.Fields[fieldIndex].Value = s.identityValue(s.engine.rt.Builtin.String, value)
+				sel.Fields[fieldIndex].Present = true
 				break
 			}
 		}
@@ -410,8 +409,8 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 	rt := s.engine.rt
 	ic := rt.Identities[sel.Constraint]
 	complete := true
-	for _, ok := range sel.Present {
-		complete = complete && ok
+	for _, field := range sel.Fields {
+		complete = complete && field.Present
 	}
 	if !complete {
 		if ic.Kind == identityKey {
@@ -419,10 +418,10 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 		}
 		return nil
 	}
-	if err := s.checkIdentityTupleBytes(sel.Values, line, col); err != nil {
+	key, err := s.identityTupleKey(sel.Fields, line, col)
+	if err != nil {
 		return err
 	}
-	key := strings.Join(sel.Values, "\x1f")
 	scope := &s.idScopes[sel.Scope]
 	switch ic.Kind {
 	case identityUnique, identityKey:
@@ -457,21 +456,29 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 	return nil
 }
 
-func (s *session) checkIdentityTupleBytes(values []string, line, col int) error {
-	if s.maxIdentityTupleBytes <= 0 {
-		return nil
-	}
+func (s *session) identityTupleKey(fields []identityFieldValue, line, col int) (string, error) {
 	size := int64(0)
-	for i, v := range values {
+	for i, field := range fields {
 		if i > 0 {
 			size++
 		}
-		size += int64(len(v))
-		if size > s.maxIdentityTupleBytes {
-			return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
+		size += int64(len(field.Value))
+		if s.maxIdentityTupleBytes > 0 && size > s.maxIdentityTupleBytes {
+			return "", validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
 		}
 	}
-	return nil
+	if len(fields) == 1 {
+		return fields[0].Value, nil
+	}
+	var b strings.Builder
+	b.Grow(int(size))
+	for i, field := range fields {
+		if i > 0 {
+			b.WriteByte('\x1f')
+		}
+		b.WriteString(field.Value)
+	}
+	return b.String(), nil
 }
 
 func (s *session) reserveIdentityEntry(key string, line, col int) error {
