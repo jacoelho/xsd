@@ -255,20 +255,20 @@ func (s *session) validateFrameEnd(f *frame, line, col int) error {
 			}
 		}
 	}
-	canon, typeID, captured, err := s.validateSimpleContent(f, line, col)
+	content, err := s.validateSimpleContent(f, line, col)
 	if err != nil {
 		return s.recover(err)
 	}
-	return s.captureEndIdentity(f, canon, typeID, captured, line, col)
+	return s.captureEndIdentity(f, content, line, col)
 }
 
-func (s *session) captureEndIdentity(f *frame, canon string, typeID simpleTypeID, captured bool, line, col int) error {
+func (s *session) captureEndIdentity(f *frame, content simpleContentValue, line, col int) error {
 	var err error
 	switch {
-	case captured:
-		err = s.captureIdentityElement(typeID, canon, line, col)
+	case content.Captured:
+		err = s.captureIdentityElement(content.Value, line, col)
 	case f.Nilled && f.Element != noElement:
-		err = s.captureIdentityElement(noSimpleType, "\x00nil", line, col)
+		err = s.captureIdentityElement(nilledIdentityValue(), line, col)
 	case f.Type.Kind == typeComplex && !s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue:
 		err = s.captureIdentityComplexElement(string(s.text[f.TextStart:]), line, col)
 	}

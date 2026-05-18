@@ -5,8 +5,14 @@ import (
 	"strings"
 )
 
-func compilePattern(source string) (pattern, error) {
-	if err := validateXSDRegexSyntax(source); err != nil {
+const maxGoRegexpRepeat = "1000"
+
+func (c *compiler) compilePattern(source string) (pattern, error) {
+	return compilePatternWithCompiler(source, c)
+}
+
+func compilePatternWithCompiler(source string, c *compiler) (pattern, error) {
+	if err := validateXSDRegexSyntaxWithCompiler(source, c); err != nil {
 		return pattern{}, err
 	}
 	goPattern := translateXSDRegexToGo(source)
@@ -19,7 +25,11 @@ func compilePattern(source string) (pattern, error) {
 }
 
 func validateXSDRegexSyntax(source string) error {
-	var v xsdRegexSyntaxValidator
+	return validateXSDRegexSyntaxWithCompiler(source, nil)
+}
+
+func validateXSDRegexSyntaxWithCompiler(source string, c *compiler) error {
+	v := xsdRegexSyntaxValidator{compiler: c}
 	for _, r := range source {
 		if err := v.consume(r); err != nil {
 			return err
@@ -34,35 +44,35 @@ func validateXSDRegexSyntax(source string) error {
 	return nil
 }
 
+//nolint:govet // Validator state is grouped by regex construct; not a runtime hot-path type.
 type xsdRegexSyntaxValidator struct {
-	categoryName        string
-	classTerms          []bool
-	classFirst          []bool
-	classTermCount      []int
-	classUnsafeEscape   []bool
-	classNegated        []bool
-	quantifierMin       uint64
-	quantifierMax       uint64
-	quantifierMinDigits int
-	quantifierMaxDigits int
-	groupDepth          int
-	classRangeStart     rune
-	classLastRune       rune
-	escaped             bool
-	inClass             bool
-	classLastHyphen     bool
-	classPendingRange   bool
-	classHasLastRune    bool
-	classJustRange      bool
-	classHyphenAfter    bool
-	inQuantifier        bool
-	quantifierHasDigit  bool
-	quantifierSawComma  bool
-	pendingCategory     bool
-	inCategory          bool
-	canQuantify         bool
-	prevQuantifier      bool
-	unsupported         bool
+	compiler           *compiler
+	categoryName       string
+	classTerms         []bool
+	classFirst         []bool
+	classTermCount     []int
+	classUnsafeEscape  []bool
+	classNegated       []bool
+	quantifierMin      []byte
+	quantifierMax      []byte
+	groupDepth         int
+	classRangeStart    rune
+	classLastRune      rune
+	escaped            bool
+	inClass            bool
+	classLastHyphen    bool
+	classPendingRange  bool
+	classHasLastRune   bool
+	classJustRange     bool
+	classHyphenAfter   bool
+	inQuantifier       bool
+	quantifierHasDigit bool
+	quantifierSawComma bool
+	pendingCategory    bool
+	inCategory         bool
+	canQuantify        bool
+	prevQuantifier     bool
+	unsupported        bool
 }
 
 func (v *xsdRegexSyntaxValidator) consume(r rune) error {
@@ -98,7 +108,7 @@ func (v *xsdRegexSyntaxValidator) consumeCategory(r rune) error {
 			return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
 		}
 		v.unsupported = true
-	case !validGoRegexCategory(v.categoryName):
+	case !v.validGoRegexCategory(v.categoryName):
 		return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
 	}
 	v.inCategory = false
@@ -140,12 +150,32 @@ func validGoRegexCategory(name string) bool {
 	return err == nil
 }
 
+func (c *compiler) validGoRegexCategory(name string) bool {
+	ok, found := c.regexCategories[name]
+	if found {
+		return ok
+	}
+	if c.regexCategories == nil {
+		c.regexCategories = make(map[string]bool)
+	}
+	ok = validGoRegexCategory(name)
+	c.regexCategories[name] = ok
+	return ok
+}
+
+func (v *xsdRegexSyntaxValidator) validGoRegexCategory(name string) bool {
+	if v.compiler == nil {
+		return validGoRegexCategory(name)
+	}
+	return v.compiler.validGoRegexCategory(name)
+}
+
 func (v *xsdRegexSyntaxValidator) consumeQuantifier(r rune) error {
 	switch {
 	case r >= '0' && r <= '9':
 		v.addQuantifierDigit(r)
 	case r == ',':
-		if v.quantifierSawComma || v.quantifierMinDigits == 0 {
+		if v.quantifierSawComma || len(v.quantifierMin) == 0 {
 			return schemaCompile(ErrSchemaFacet, "invalid regex quantifier")
 		}
 		v.quantifierSawComma = true
@@ -159,27 +189,87 @@ func (v *xsdRegexSyntaxValidator) consumeQuantifier(r rune) error {
 
 func (v *xsdRegexSyntaxValidator) addQuantifierDigit(r rune) {
 	v.quantifierHasDigit = true
-	digit := uint64(r - '0')
 	if v.quantifierSawComma {
-		v.quantifierMaxDigits++
-		v.quantifierMax = v.quantifierMax*10 + digit
+		v.quantifierMax = append(v.quantifierMax, byte(r))
 		return
 	}
-	v.quantifierMinDigits++
-	v.quantifierMin = v.quantifierMin*10 + digit
+	v.quantifierMin = append(v.quantifierMin, byte(r))
 }
 
 func (v *xsdRegexSyntaxValidator) finishQuantifier() error {
 	if !v.quantifierHasDigit {
 		return schemaCompile(ErrSchemaFacet, "invalid regex quantifier")
 	}
-	if v.quantifierSawComma && v.quantifierMaxDigits != 0 && v.quantifierMax < v.quantifierMin {
+	if v.quantifierSawComma && len(v.quantifierMax) != 0 && compareRegexQuantity(v.quantifierMax, v.quantifierMin) < 0 {
 		return schemaCompile(ErrSchemaFacet, "invalid regex quantifier")
+	}
+	if regexQuantityExceedsGoLimit(v.quantifierMin) ||
+		v.quantifierSawComma && len(v.quantifierMax) != 0 && regexQuantityExceedsGoLimit(v.quantifierMax) {
+		v.unsupported = true
 	}
 	v.inQuantifier = false
 	v.canQuantify = false
 	v.prevQuantifier = true
 	return nil
+}
+
+func regexQuantityExceedsGoLimit(s []byte) bool {
+	return compareRegexQuantityText(s, maxGoRegexpRepeat) > 0
+}
+
+func compareRegexQuantity(a, b []byte) int {
+	a = trimRegexQuantityBytes(a)
+	b = trimRegexQuantityBytes(b)
+	if len(a) < len(b) {
+		return -1
+	}
+	if len(a) > len(b) {
+		return 1
+	}
+	for i := range a {
+		if a[i] < b[i] {
+			return -1
+		}
+		if a[i] > b[i] {
+			return 1
+		}
+	}
+	return 0
+}
+
+func compareRegexQuantityText(a []byte, b string) int {
+	a = trimRegexQuantityBytes(a)
+	b = trimRegexQuantityText(b)
+	if len(a) < len(b) {
+		return -1
+	}
+	if len(a) > len(b) {
+		return 1
+	}
+	for i := range a {
+		if a[i] < b[i] {
+			return -1
+		}
+		if a[i] > b[i] {
+			return 1
+		}
+	}
+	return 0
+}
+
+func trimRegexQuantityBytes(s []byte) []byte {
+	for len(s) > 1 && s[0] == '0' {
+		s = s[1:]
+	}
+	return s
+}
+
+func trimRegexQuantityText(s string) string {
+	s = strings.TrimLeft(s, "0")
+	if s == "" {
+		return "0"
+	}
+	return s
 }
 
 func (v *xsdRegexSyntaxValidator) consumeEscaped(r rune) error {
@@ -302,6 +392,9 @@ func (v *xsdRegexSyntaxValidator) closeClass() error {
 }
 
 func (v *xsdRegexSyntaxValidator) consumeClassHyphen(last int) error {
+	if v.classPendingRange {
+		return schemaCompile(ErrSchemaFacet, "invalid regex character range")
+	}
 	if v.classJustRange {
 		v.classLastHyphen = true
 		v.classHyphenAfter = true
@@ -423,10 +516,8 @@ func (v *xsdRegexSyntaxValidator) openQuantifier() error {
 	v.inQuantifier = true
 	v.quantifierHasDigit = false
 	v.quantifierSawComma = false
-	v.quantifierMinDigits = 0
-	v.quantifierMaxDigits = 0
-	v.quantifierMin = 0
-	v.quantifierMax = 0
+	v.quantifierMin = v.quantifierMin[:0]
+	v.quantifierMax = v.quantifierMax[:0]
 	return nil
 }
 
@@ -453,9 +544,10 @@ func translateXSDRegexToGo(source string) string {
 	var b strings.Builder
 	escaped := false
 	inClass := false
-	for _, r := range source {
+	for i := 0; i < len(source); i++ {
+		c := source[i]
 		if escaped {
-			switch r {
+			switch c {
 			case 'd':
 				if inClass {
 					b.WriteString(xsdDigitClassInner)
@@ -494,28 +586,51 @@ func translateXSDRegexToGo(source string) string {
 				}
 			default:
 				b.WriteByte('\\')
-				b.WriteRune(r)
+				b.WriteByte(c)
 			}
 			escaped = false
 			continue
 		}
-		if r == '\\' {
+		if c == '\\' {
 			escaped = true
 			continue
 		}
-		if r == '[' {
+		if c == '[' {
 			inClass = true
-		} else if r == ']' {
+		} else if c == ']' {
 			inClass = false
-		} else if !inClass && (r == '^' || r == '$') {
+		} else if !inClass && c == '{' {
+			end := strings.IndexByte(source[i:], '}')
+			if end >= 0 {
+				end += i
+				b.WriteString(normalizeXSDRegexQuantifier(source[i : end+1]))
+				i = end
+				continue
+			}
+		} else if !inClass && (c == '^' || c == '$') {
 			b.WriteByte('\\')
 		}
-		b.WriteRune(r)
+		b.WriteByte(c)
 	}
 	if escaped {
 		b.WriteByte('\\')
 	}
 	return b.String()
+}
+
+func normalizeXSDRegexQuantifier(s string) string {
+	if len(s) < 3 || s[0] != '{' || s[len(s)-1] != '}' {
+		return s
+	}
+	body := s[1 : len(s)-1]
+	lower, upper, found := strings.Cut(body, ",")
+	if !found {
+		return "{" + trimRegexQuantityText(lower) + "}"
+	}
+	if upper == "" {
+		return "{" + trimRegexQuantityText(lower) + ",}"
+	}
+	return "{" + trimRegexQuantityText(lower) + "," + trimRegexQuantityText(upper) + "}"
 }
 
 const xsdDigitClassInner = `\x{0030}-\x{0039}\x{0660}-\x{0669}\x{06F0}-\x{06F9}\x{0966}-\x{096F}\x{09E6}-\x{09EF}\x{0A66}-\x{0A6F}\x{0AE6}-\x{0AEF}\x{0B66}-\x{0B6F}\x{0BE7}-\x{0BEF}\x{0C66}-\x{0C6F}\x{0CE6}-\x{0CEF}\x{0D66}-\x{0D6F}\x{0E50}-\x{0E59}\x{0ED0}-\x{0ED9}\x{0F20}-\x{0F29}\x{1040}-\x{1049}\x{1369}-\x{1371}\x{17E0}-\x{17E9}\x{1810}-\x{1819}\x{1D7CE}-\x{1D7FF}\x{FF10}-\x{FF19}`

@@ -3,6 +3,7 @@ package xsd
 import (
 	"encoding/xml"
 	"errors"
+	"slices"
 	"strings"
 )
 
@@ -164,10 +165,8 @@ func (s *xmlNameSet) add(name xml.Name) bool {
 		s.index[name] = struct{}{}
 		return true
 	}
-	for _, existing := range s.names[:s.n] {
-		if existing == name {
-			return false
-		}
+	if slices.Contains(s.names[:s.n], name) {
+		return false
 	}
 	if s.n < len(s.names) {
 		s.names[s.n] = name

@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func FuzzXMLStreamParser(f *testing.F) {
@@ -109,12 +110,21 @@ func FuzzXSDRegexSyntax(f *testing.F) {
 		`\p{}0`,
 		`\p{Is}`,
 		`\C0`,
+		`0{0002}`,
+		`0{1001}`,
+		`0{1001,}`,
+		`0{0,1001}`,
+		`0{1001,1000}`,
+		`0{0001001}`,
 	} {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, source string) {
 		if len(source) > 256 {
 			t.Skip()
+		}
+		if !utf8.ValidString(source) {
+			return
 		}
 		if err := validateXSDRegexSyntax(source); err != nil {
 			return

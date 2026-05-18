@@ -12,9 +12,24 @@ export GOBIN := $(BIN)
 test:
 	go test ./...
 
+.PHONY: race
+race:
+	go test -race ./...
+
+.PHONY: fuzz-smoke
+fuzz-smoke:
+	go test -run '^$$' -fuzz=FuzzXMLStreamParser -fuzztime=10s .
+	go test -run '^$$' -fuzz=FuzzSchemaParserLimits -fuzztime=10s .
+	go test -run '^$$' -fuzz=FuzzValidateNeverPanics -fuzztime=10s .
+	go test -run '^$$' -fuzz=FuzzXSDRegexSyntax -fuzztime=10s .
+
 .PHONY: bench
 bench:
 	go test -run '^$$' -bench=. -benchmem ./...
+
+.PHONY: bench-smoke
+bench-smoke:
+	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem .
 
 .PHONY: xmllint
 xmllint: $(BIN)/xmllint

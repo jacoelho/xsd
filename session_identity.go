@@ -6,10 +6,21 @@ import (
 	"strings"
 )
 
-func (s *session) validateSimpleContent(f *frame, line, col int) (string, simpleTypeID, bool, error) {
+const nilledIdentityKey = "\xff\x1e\x00nil"
+
+type simpleContentValue struct {
+	Value    simpleValue
+	Captured bool
+}
+
+func nilledIdentityValue() simpleValue {
+	return simpleValue{Identity: nilledIdentityKey}
+}
+
+func (s *session) validateSimpleContent(f *frame, line, col int) (simpleContentValue, error) {
 	rt := s.engine.rt
 	if f.Nilled {
-		return "", noSimpleType, false, nil
+		return simpleContentValue{}, nil
 	}
 	rawBytes := s.text[f.TextStart:]
 	rawText := s.valueStrings.intern(rawBytes)
@@ -22,14 +33,14 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (string, simple
 		if !ct.SimpleValue {
 			if f.Element != noElement && rt.Elements[f.Element].HasFixed {
 				if f.HasChild {
-					return "", noSimpleType, false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
+					return simpleContentValue{}, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 				}
 				fixed := rt.Elements[f.Element].Fixed
 				if text != "" && text != fixed {
-					return "", noSimpleType, false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
+					return simpleContentValue{}, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 				}
 			}
-			return "", noSimpleType, false, nil
+			return simpleContentValue{}, nil
 		}
 		typeID = ct.TextType
 	}
@@ -47,41 +58,42 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (string, simple
 			text = decl.Default
 		}
 	}
-	needCanon := s.needsSimpleContentCanonical(f, typeID)
-	value, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needCanon)
+	needIdentity := s.needsIdentityElementValue()
+	needCanon := s.needsSimpleContentCanonical(f, typeID, needIdentity)
+	value, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needCanon, needIdentity)
 	if err != nil {
 		if IsUnsupported(err) {
-			return "", noSimpleType, false, err
+			return simpleContentValue{}, err
 		}
-		return "", noSimpleType, false, validation(ErrValidationFacet, line, col, s.pathString(), "invalid simple content: "+err.Error())
+		return simpleContentValue{}, validation(ErrValidationFacet, line, col, s.pathString(), "invalid simple content: "+err.Error())
 	}
 	if err := s.recordIdentityValue(value, line, col); err != nil {
-		return "", noSimpleType, false, err
+		return simpleContentValue{}, err
 	}
 	if f.Element != noElement {
 		decl := rt.Elements[f.Element]
 		if decl.HasFixed && value.Canonical != decl.FixedCanonical {
-			return "", noSimpleType, false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
+			return simpleContentValue{}, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 		}
 	}
-	return value.Canonical, value.Type, true, nil
+	return simpleContentValue{Value: value, Captured: true}, nil
 }
 
-func (s *session) recordElementSimpleContent(value simpleValue, line, col int) (string, simpleTypeID, bool, error) {
+func (s *session) recordElementSimpleContent(value simpleValue, line, col int) (simpleContentValue, error) {
 	if err := s.recordIdentityValue(value, line, col); err != nil {
-		return "", noSimpleType, false, err
+		return simpleContentValue{}, err
 	}
-	return value.Canonical, value.Type, true, nil
+	return simpleContentValue{Value: value, Captured: true}, nil
 }
 
-func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID) bool {
+func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID, needIdentity bool) bool {
 	if s.simpleIdentityKind(typeID) != simpleIdentityNone {
 		return true
 	}
 	if f.Element != noElement && s.engine.rt.Elements[f.Element].HasFixed {
 		return true
 	}
-	return s.needsIdentityElementValue()
+	return needIdentity
 }
 
 func (s *session) needsIdentityElementValue() bool {
@@ -94,6 +106,22 @@ func (s *session) needsIdentityElementValue() bool {
 					continue
 				}
 				if s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (s *session) needsIdentityAttributeValue(name qName) bool {
+	depth := len(s.namePath)
+	for i := range s.idSelections {
+		sel := &s.idSelections[i]
+		ic := s.engine.rt.Identities[sel.Constraint]
+		for _, field := range ic.Fields {
+			for _, p := range field.Paths {
+				if s.identityFieldAttributeMatches(p, name) && s.identityFieldPathMatches(sel.Depth, depth, p) {
 					return true
 				}
 			}
@@ -198,8 +226,7 @@ func (s *session) matchIdentitySelectors(line, col int) {
 				Scope:      scopeIndex,
 				Constraint: id,
 				Depth:      depth,
-				Values:     make([]string, len(ic.Fields)),
-				Present:    make([]bool, len(ic.Fields)),
+				Fields:     make([]identityFieldValue, len(ic.Fields)),
 				Path:       s.pathString(),
 				Line:       line,
 				Col:        col,
@@ -254,7 +281,7 @@ func (s *session) identityStepMatches(rn runtimeName, step identityStep) bool {
 	return rn.NS == s.engine.rt.Names.Namespace(step.Namespace)
 }
 
-func (s *session) captureIdentityAttribute(name qName, typeID simpleTypeID, value string, line, col int) error {
+func (s *session) captureIdentityAttribute(name qName, value simpleValue, line, col int) error {
 	depth := len(s.namePath)
 	for i := range s.idSelections {
 		sel := &s.idSelections[i]
@@ -264,11 +291,11 @@ func (s *session) captureIdentityAttribute(name qName, typeID simpleTypeID, valu
 				if !s.identityFieldAttributeMatches(p, name) || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
-				if sel.Present[fieldIndex] {
+				if sel.Fields[fieldIndex].Present {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
-				sel.Values[fieldIndex] = s.identityValue(typeID, value)
-				sel.Present[fieldIndex] = true
+				sel.Fields[fieldIndex].Value = s.identityValue(value)
+				sel.Fields[fieldIndex].Present = true
 				break
 			}
 		}
@@ -281,25 +308,22 @@ func (s *session) captureIdentityXSIAttribute(a xml.Attr, line, col int) error {
 	if !ok {
 		return nil
 	}
-	typeID := s.engine.rt.Builtin.String
-	value := normalizeWhitespace(a.Value, whitespaceCollapse)
+	value := simpleValue{Canonical: normalizeWhitespace(a.Value, whitespaceCollapse), Type: s.engine.rt.Builtin.String}
 	switch a.Name.Local {
 	case "nil":
-		typeID = s.engine.rt.Builtin.Boolean
-		canon, err := validateSimpleValue(s.engine.rt, typeID, a.Value, nil)
+		v, err := validateSimpleValueInfo(s.engine.rt, s.engine.rt.Builtin.Boolean, a.Value, nil)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:nil: "+err.Error())
 		}
-		value = canon
+		value = v
 	case "type":
-		typeID = s.engine.rt.Builtin.qName
-		canon, err := validateSimpleValue(s.engine.rt, typeID, a.Value, s.resolveLexicalQNameValue)
+		v, err := validateSimpleValueInfo(s.engine.rt, s.engine.rt.Builtin.qName, a.Value, s.resolveLexicalQNameValue)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:type: "+err.Error())
 		}
-		value = canon
+		value = v
 	}
-	return s.captureIdentityAttribute(name, typeID, value, line, col)
+	return s.captureIdentityAttribute(name, value, line, col)
 }
 
 func (s *session) identityFieldAttributeMatches(p identityFieldPath, name qName) bool {
@@ -312,7 +336,7 @@ func (s *session) identityFieldAttributeMatches(p identityFieldPath, name qName)
 	return !p.AttrNamespaceSet || p.AttrNamespace == name.Namespace
 }
 
-func (s *session) captureIdentityElement(typeID simpleTypeID, value string, line, col int) error {
+func (s *session) captureIdentityElement(value simpleValue, line, col int) error {
 	depth := len(s.namePath)
 	for i := range s.idSelections {
 		sel := &s.idSelections[i]
@@ -322,11 +346,11 @@ func (s *session) captureIdentityElement(typeID simpleTypeID, value string, line
 				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
-				if sel.Present[fieldIndex] {
+				if sel.Fields[fieldIndex].Present {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
-				sel.Values[fieldIndex] = s.identityValue(typeID, value)
-				sel.Present[fieldIndex] = true
+				sel.Fields[fieldIndex].Value = s.identityValue(value)
+				sel.Fields[fieldIndex].Present = true
 				break
 			}
 		}
@@ -346,7 +370,7 @@ func (s *session) captureIdentityComplexElement(rawText string, line, col int) e
 				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
-				if sel.Present[fieldIndex] {
+				if sel.Fields[fieldIndex].Present {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
 				if !normalized {
@@ -356,8 +380,8 @@ func (s *session) captureIdentityComplexElement(rawText string, line, col int) e
 					value = normalizeWhitespace(rawText, whitespaceCollapse)
 					normalized = true
 				}
-				sel.Values[fieldIndex] = s.identityValue(s.engine.rt.Builtin.String, value)
-				sel.Present[fieldIndex] = true
+				sel.Fields[fieldIndex].Value = s.identityValue(simpleValue{Canonical: value, Type: s.engine.rt.Builtin.String})
+				sel.Fields[fieldIndex].Present = true
 				break
 			}
 		}
@@ -365,12 +389,16 @@ func (s *session) captureIdentityComplexElement(rawText string, line, col int) e
 	return nil
 }
 
-func (s *session) identityValue(typeID simpleTypeID, canonical string) string {
-	if typeID == noSimpleType {
-		return "\xff\x1e" + canonical
+func (s *session) identityValue(value simpleValue) string {
+	if value.Identity != "" {
+		return value.Identity
 	}
-	primitive := s.engine.rt.SimpleTypes[typeID].Primitive
-	return string([]byte{byte(primitive)}) + "\x1e" + canonical
+	if value.Type == noSimpleType {
+		return "\xff\x1e" + value.Canonical
+	}
+	typ := s.engine.rt.SimpleTypes[value.Type]
+	primitive := typ.Primitive
+	return simpleIdentityKey(primitive, value.Canonical)
 }
 
 func (s *session) identityFieldPathMatches(selectedDepth, currentDepth int, p identityFieldPath) bool {
@@ -404,8 +432,8 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 	rt := s.engine.rt
 	ic := rt.Identities[sel.Constraint]
 	complete := true
-	for _, ok := range sel.Present {
-		complete = complete && ok
+	for _, field := range sel.Fields {
+		complete = complete && field.Present
 	}
 	if !complete {
 		if ic.Kind == identityKey {
@@ -413,10 +441,10 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 		}
 		return nil
 	}
-	if err := s.checkIdentityTupleBytes(sel.Values, line, col); err != nil {
+	key, err := s.identityTupleKey(sel.Fields, line, col)
+	if err != nil {
 		return err
 	}
-	key := strings.Join(sel.Values, "\x1f")
 	scope := &s.idScopes[sel.Scope]
 	switch ic.Kind {
 	case identityUnique, identityKey:
@@ -451,21 +479,29 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 	return nil
 }
 
-func (s *session) checkIdentityTupleBytes(values []string, line, col int) error {
-	if s.maxIdentityTupleBytes <= 0 {
-		return nil
-	}
+func (s *session) identityTupleKey(fields []identityFieldValue, line, col int) (string, error) {
 	size := int64(0)
-	for i, v := range values {
+	for i, field := range fields {
 		if i > 0 {
 			size++
 		}
-		size += int64(len(v))
-		if size > s.maxIdentityTupleBytes {
-			return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
+		size += int64(len(field.Value))
+		if s.maxIdentityTupleBytes > 0 && size > s.maxIdentityTupleBytes {
+			return "", validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
 		}
 	}
-	return nil
+	if len(fields) == 1 {
+		return fields[0].Value, nil
+	}
+	var b strings.Builder
+	b.Grow(int(size))
+	for i, field := range fields {
+		if i > 0 {
+			b.WriteByte('\x1f')
+		}
+		b.WriteString(field.Value)
+	}
+	return b.String(), nil
 }
 
 func (s *session) reserveIdentityEntry(key string, line, col int) error {

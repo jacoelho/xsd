@@ -277,31 +277,33 @@ pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | sec/op          | sec/op          vs base           |
+streaming/20MB                  349.423ms       771.566ms     +120.81%
 streaming/100MB                   1.806s          3.321s      +83.92%
 streaming/500MB                  11.204s         15.059s      +34.41%
 streaming/1GB                    25.433s         30.583s      +20.25%
 streaming/2GB                    51.891s         62.161s      +19.79%
 identity                       615.367ms       897.544ms      +45.86%
-geomean                           6.968s          9.688s      +39.03%
+geomean                           4.232s          6.355s      +50.17%
 
                          | libxml2 xmllint |             go xmllint             |
                          | rss/op          | rss/op          vs base           |
+streaming/20MB                 243.17MiB        12.42MiB      -94.89%
 streaming/100MB                  1.17GiB        12.25MiB      -98.98%
 streaming/500MB                  5.81GiB        12.88MiB      -99.78%
 streaming/1GB                    9.50GiB        12.95MiB      -99.87%
 streaming/2GB                   12.44GiB        13.56MiB      -99.89%
 identity                       185.62MiB        72.98MiB      -60.68%
-geomean                          2.71GiB        18.25MiB      -99.34%
+geomean                          1.80GiB        17.11MiB      -99.07%
 ```
 
 ## Constraints
 
 - XSD 1.0 only.
 - Schema sources are explicit. No HTTP or network fetching.
+- `File` resolves local relative refs and absolute local `file:` URIs. For untrusted schemas, use `Reader` or `LimitedReader` with an explicit `WithResolver`.
 - Instance documents must be UTF-8.
 - DTDs and external entities are rejected.
 - `xsi:schemaLocation` never triggers dynamic loading.
 - `FormatXML` builds an in-memory formatting tree; validation is the streaming path.
 - Regex support is limited to patterns representable by Go `regexp`; unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
-- Date/time values using BCE years or years outside `0001..9999` are unsupported for `xs:date` and `xs:dateTime`.
 - `xs:redefine` is unsupported.

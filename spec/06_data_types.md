@@ -133,9 +133,9 @@ Spec refs: docs/spec/xml/datatypes.xml#built-in-primitive-datatypes.
 
 `YYYY` is a four-or-more digit year; an optional leading '-' is allowed, '0000' is not allowed, and a leading '+' is not permitted. All g* types allow an optional time zone. For `duration`, an optional leading '-' is allowed and only the seconds field may be fractional.
 
-Implementation note: fractional seconds are limited to 9 digits (nanosecond precision); longer fractions are rejected with an explicit error.
+Implementation note: date, dateTime, and time parsing does not use Go `time.Time`; years and fractional seconds are preserved with XSD lexical precision.
 
-Implementation note: `xs:time` comparisons and range facets use the full UTC-normalized instant (including the reference date used during parsing). This means timezone offsets that cross midnight can change ordering, and derived facets must respect that ordering to match the W3C XSD 1.0 test suite (for example, a base `maxInclusive` of `12:00:00-10:00` makes a derived `maxInclusive` of `12:00:00-14:00` invalid because it is later when normalized to UTC).
+Implementation note: `xs:time` canonical values normalize to UTC time of day. Derived facet compatibility checks use the raw UTC-normalized seconds on an arbitrary reference day, so a base `maxInclusive` of `12:00:00-10:00` makes a derived `maxInclusive` of `12:00:00-14:00` invalid because it is later on that reference day.
 
 ### Binary Types
 

@@ -41,7 +41,6 @@ const (
 	ErrUnsupportedNonUTF8     ErrorCode = "unsupported.non_utf8"
 	ErrUnsupportedRedefine    ErrorCode = "unsupported.xs_redefine"
 	ErrUnsupportedRegex       ErrorCode = "unsupported.regex"
-	ErrUnsupportedDateTime    ErrorCode = "unsupported.datetime_range"
 	ErrUnsupportedSchemaHint  ErrorCode = "unsupported.xsi_schema_location"
 	ErrUnsupportedXML11       ErrorCode = "unsupported.xml_1_1"
 	ErrUnsupportedXSD11       ErrorCode = "unsupported.xsd_1_1"
