@@ -35,6 +35,7 @@ func validateXSDRegexSyntax(source string) error {
 }
 
 type xsdRegexSyntaxValidator struct {
+	categoryName        string
 	classTerms          []bool
 	classFirst          []bool
 	classTermCount      []int
@@ -59,7 +60,6 @@ type xsdRegexSyntaxValidator struct {
 	quantifierSawComma  bool
 	pendingCategory     bool
 	inCategory          bool
-	categoryPrefix      string
 	canQuantify         bool
 	prevQuantifier      bool
 	unsupported         bool
@@ -87,13 +87,19 @@ func (v *xsdRegexSyntaxValidator) consume(r rune) error {
 
 func (v *xsdRegexSyntaxValidator) consumeCategory(r rune) error {
 	if r != '}' {
-		if len(v.categoryPrefix) < 2 {
-			v.categoryPrefix += string(r)
-			if v.categoryPrefix == "Is" {
-				v.unsupported = true
-			}
-		}
+		v.categoryName += string(r)
 		return nil
+	}
+	switch {
+	case v.categoryName == "":
+		return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
+	case strings.HasPrefix(v.categoryName, "Is"):
+		if len(v.categoryName) == len("Is") {
+			return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
+		}
+		v.unsupported = true
+	case !validGoRegexCategory(v.categoryName):
+		return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
 	}
 	v.inCategory = false
 	if v.inClass {
@@ -125,8 +131,13 @@ func (v *xsdRegexSyntaxValidator) consumePendingCategory(r rune) error {
 	}
 	v.pendingCategory = false
 	v.inCategory = true
-	v.categoryPrefix = ""
+	v.categoryName = ""
 	return nil
+}
+
+func validGoRegexCategory(name string) bool {
+	_, err := regexp.Compile(`\p{` + name + `}`)
+	return err == nil
 }
 
 func (v *xsdRegexSyntaxValidator) consumeQuantifier(r rune) error {
@@ -178,7 +189,7 @@ func (v *xsdRegexSyntaxValidator) consumeEscaped(r rune) error {
 	if err := v.checkEscapedClassRange(r); err != nil {
 		return err
 	}
-	if r == 'i' || r == 'c' {
+	if r == 'i' || r == 'I' || r == 'c' || r == 'C' {
 		v.unsupported = true
 	}
 	if r == 'p' || r == 'P' {

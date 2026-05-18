@@ -112,7 +112,7 @@ func readLimitedSchemaSource(name string, r io.Reader, maxBytes int) ([]byte, er
 	if maxBytes <= 0 {
 		return nil, schemaCompile(ErrSchemaLimit, "schema reader byte limit must be positive")
 	}
-	var reader io.Reader = r
+	reader := r
 	if maxBytes < math.MaxInt {
 		reader = io.LimitReader(r, int64(maxBytes)+1)
 	}

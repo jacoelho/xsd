@@ -113,23 +113,27 @@ func (s *session) recordAttributeIdentity(value simpleValue, line, col int, seen
 }
 
 func (s *session) recordIdentityValue(value simpleValue, line, col int) error {
+	if value.IDs == "" && value.IDRefs == "" {
+		return nil
+	}
+	path := s.pathString()
 	for canonical := range strings.FieldsSeq(value.IDs) {
 		if s.ids == nil {
 			s.ids = make(map[string]string)
 		}
 		if prev, exists := s.ids[canonical]; exists {
-			return validation(ErrValidationType, line, col, s.pathString(), "duplicate ID "+canonical+" first seen at "+prev)
+			return validation(ErrValidationType, line, col, path, "duplicate ID "+canonical+" first seen at "+prev)
 		}
 		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
 			return err
 		}
-		s.ids[canonical] = s.pathString()
+		s.ids[canonical] = path
 	}
 	for canonical := range strings.FieldsSeq(value.IDRefs) {
 		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
 			return err
 		}
-		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: s.pathString(), Line: line, Col: col})
+		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: path, Line: line, Col: col})
 	}
 	return nil
 }

@@ -975,6 +975,9 @@ func TestInvalidRegexSyntaxIsSchemaError(t *testing.T) {
 		`[^a-d-b-c]`,
 		`[a-c-1-4x-z-7-9]*`,
 		`[a-a-x-x]+`,
+		`\p{}0`,
+		`\p{0}`,
+		`\p{Is}`,
 	}
 	for _, pattern := range tests {
 		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="t"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
@@ -983,8 +986,11 @@ func TestInvalidRegexSyntaxIsSchemaError(t *testing.T) {
 	}
 }
 
-func TestUnsupportedRegexClassEscapesAreExplicit(t *testing.T) {
+func TestUnsupportedRegexEscapesAreExplicit(t *testing.T) {
 	tests := []string{
+		`\C0`,
+		`\I0`,
+		`\p{IsBasicLatin}`,
 		`[.\w]`,
 		`[\w:]`,
 		`[\w-]`,

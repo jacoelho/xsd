@@ -309,8 +309,8 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 	if err != nil {
 		return err
 	}
-	if err := s.recordSchemaLocationHints(se.Attr, line, col); err != nil {
-		recoverErr := s.recover(err)
+	if schemaLocationErr := s.recordSchemaLocationHints(se.Attr, line, col); schemaLocationErr != nil {
+		recoverErr := s.recover(schemaLocationErr)
 		if recoverErr != nil {
 			return recoverErr
 		}

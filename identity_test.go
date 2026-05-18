@@ -365,6 +365,24 @@ func TestIDAndIDREFValidation(t *testing.T) {
 	mustNotValidate(t, engine, `<root><node ref="missing"/></root>`, ErrValidationType)
 }
 
+func TestListOfIDValuesDoNotRecordDocumentIDs(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="ids">
+	    <xs:list itemType="xs:ID"/>
+	  </xs:simpleType>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="ids" type="ids"/>
+	        <xs:element name="id" type="xs:ID"/>
+	      </xs:sequence>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustValidate(t, engine, `<root><ids>a b</ids><id>a</id></root>`)
+}
+
 func TestUnionIDTrackingUsesSelectedMember(t *testing.T) {
 	engine := mustCompile(t, `
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

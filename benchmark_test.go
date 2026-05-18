@@ -183,6 +183,23 @@ func BenchmarkValidateIdentityConstraintsRows(b *testing.B) {
 	}
 }
 
+func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
+	for _, refs := range []int{1, 10, 100, 1000} {
+		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
+			value := simpleValue{IDRefs: benchmarkIDREFS(refs)}
+			s := &session{path: []string{"root", "refs"}}
+			b.ReportAllocs()
+			for b.Loop() {
+				s.idrefs = s.idrefs[:0]
+				s.identityEntries = 0
+				if err := s.recordIdentityValue(value, 1, 1); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkValidateIdentityConstraintsFields(b *testing.B) {
 	for _, fields := range []int{1, 3, 8} {
 		b.Run(fmt.Sprintf("fields_%d", fields), func(b *testing.B) {
@@ -262,6 +279,17 @@ func benchmarkDoc(rows int) string {
 		b.WriteString(`</id><name>alpha</name><amount>42.50</amount></row>`)
 	}
 	b.WriteString("</rows>")
+	return b.String()
+}
+
+func benchmarkIDREFS(refs int) string {
+	var b strings.Builder
+	for i := range refs {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		_, _ = fmt.Fprintf(&b, "id%d", i)
+	}
 	return b.String()
 }
 

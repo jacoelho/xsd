@@ -107,7 +107,6 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 	v := simpleValue{Type: id}
 	var canon strings.Builder
 	var norm strings.Builder
-	var ids strings.Builder
 	var idrefs strings.Builder
 	count := uint32(0)
 	if err := forEachListItem(lexical, func(item string) error {
@@ -123,8 +122,12 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 			canon.WriteString(itemValue.Canonical)
 			norm.WriteString(item)
 		}
-		appendIdentityValues(&ids, itemValue.IDs)
-		appendIdentityValues(&idrefs, itemValue.IDRefs)
+		if itemValue.IDRefs != "" {
+			if idrefs.Len() > 0 {
+				idrefs.WriteByte(' ')
+			}
+			idrefs.WriteString(itemValue.IDRefs)
+		}
 		count++
 		return nil
 	}); err != nil {
@@ -135,7 +138,6 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 		v.Canonical = canon.String()
 		n = norm.String()
 	}
-	v.IDs = ids.String()
 	v.IDRefs = idrefs.String()
 	if err := applyLengthFacets(st.Facets, count); err != nil {
 		return simpleValue{}, err
@@ -146,16 +148,6 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 		}
 	}
 	return v, nil
-}
-
-func appendIdentityValues(dst *strings.Builder, values string) {
-	if values == "" {
-		return
-	}
-	if dst.Len() > 0 {
-		dst.WriteByte(' ')
-	}
-	dst.WriteString(values)
 }
 
 func forEachListItem(lexical string, fn func(string) error) error {
