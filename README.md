@@ -298,10 +298,10 @@ geomean                          2.71GiB        18.25MiB      -99.34%
 
 - XSD 1.0 only.
 - Schema sources are explicit. No HTTP or network fetching.
+- `File` resolves local relative refs and absolute local `file:` URIs. For untrusted schemas, use `Reader` or `LimitedReader` with an explicit `WithResolver`.
 - Instance documents must be UTF-8.
 - DTDs and external entities are rejected.
 - `xsi:schemaLocation` never triggers dynamic loading.
 - `FormatXML` builds an in-memory formatting tree; validation is the streaming path.
 - Regex support is limited to patterns representable by Go `regexp`; unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
-- Date/time values using BCE years or years outside `0001..9999` are unsupported for `xs:date` and `xs:dateTime`.
 - `xs:redefine` is unsupported.
