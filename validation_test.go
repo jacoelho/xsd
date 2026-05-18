@@ -926,7 +926,7 @@ func TestValidateCollectsRecoverableErrors(t *testing.T) {
 
 func TestValidateWithOptionsLimitsErrors(t *testing.T) {
 	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
       <xs:sequence>
@@ -946,6 +946,25 @@ func TestValidateWithOptionsLimitsErrors(t *testing.T) {
 	expectCode(t, err, ErrValidationFacet)
 }
 
+func TestValidateOptionsRejectNegativeLimits(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	tests := []ValidateOptions{
+		{MaxErrors: -1},
+		{MaxIdentityScopes: -1},
+		{MaxIdentityEntries: -1},
+		{MaxIdentityTupleBytes: -1},
+	}
+	for _, opts := range tests {
+		err := engine.ValidateWithOptions(strings.NewReader(`<root/>`), opts)
+		expectCode(t, err, ErrValidationOption)
+		if _, err := engine.NewSession(opts); err == nil {
+			t.Fatalf("NewSession(%+v) succeeded", opts)
+		} else {
+			expectCode(t, err, ErrValidationOption)
+		}
+	}
+}
+
 func TestSessionValidateResetsDocumentState(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -962,9 +981,12 @@ func TestSessionValidateResetsDocumentState(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	session := engine.NewSession(ValidateOptions{MaxErrors: 1})
+	session, err := engine.NewSession(ValidateOptions{MaxErrors: 1})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
 
-	err := session.Validate(strings.NewReader(`<root><node ref="missing1"/><node ref="missing2"/></root>`))
+	err = session.Validate(strings.NewReader(`<root><node ref="missing1"/><node ref="missing2"/></root>`))
 	if err == nil {
 		t.Fatal("Session.Validate() succeeded")
 	}

@@ -345,7 +345,7 @@ func TestIdentityFieldSelectingMultipleElementsIsInvalid(t *testing.T) {
 
 func TestIDAndIDREFValidation(t *testing.T) {
 	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
       <xs:sequence>
@@ -365,9 +365,120 @@ func TestIDAndIDREFValidation(t *testing.T) {
 	mustNotValidate(t, engine, `<root><node ref="missing"/></root>`, ErrValidationType)
 }
 
+func TestUnionIDTrackingUsesSelectedMember(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="idOrString">
+	    <xs:union memberTypes="xs:ID xs:string"/>
+	  </xs:simpleType>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="item" type="idOrString" maxOccurs="unbounded"/>
+	      </xs:sequence>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustNotValidate(t, engine, `<root><item>a</item><item>a</item></root>`, ErrValidationType)
+}
+
+func TestUnionIDREFTrackingUsesSelectedMember(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="refOrString">
+	    <xs:union memberTypes="xs:IDREF xs:string"/>
+	  </xs:simpleType>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="ref" type="refOrString"/>
+	      </xs:sequence>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustNotValidate(t, engine, `<root><ref>missing</ref></root>`, ErrValidationType)
+}
+
+func TestNestedUnionIDTrackingUsesSelectedMember(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="idOrString">
+	    <xs:union memberTypes="xs:ID xs:string"/>
+	  </xs:simpleType>
+	  <xs:simpleType name="nested">
+	    <xs:union memberTypes="idOrString xs:int"/>
+	  </xs:simpleType>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="item" type="nested" maxOccurs="unbounded"/>
+	      </xs:sequence>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustNotValidate(t, engine, `<root><item>a</item><item>a</item></root>`, ErrValidationType)
+}
+
+func TestListUnionIDREFTrackingUsesSelectedMember(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="refOrInt">
+	    <xs:union memberTypes="xs:IDREF xs:int"/>
+	  </xs:simpleType>
+	  <xs:simpleType name="refs">
+	    <xs:list itemType="refOrInt"/>
+	  </xs:simpleType>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="id" type="xs:ID"/>
+	        <xs:element name="refs" type="refs"/>
+	      </xs:sequence>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustNotValidate(t, engine, `<root><id>a</id><refs>a 7 missing</refs></root>`, ErrValidationType)
+}
+
+func TestUnionDefaultElementIDTrackingUsesSelectedMember(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="idOrString">
+	    <xs:union memberTypes="xs:ID xs:string"/>
+	  </xs:simpleType>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="item" type="idOrString" default="a"/>
+	        <xs:element name="other" type="xs:ID"/>
+	      </xs:sequence>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustNotValidate(t, engine, `<root><item/><other>a</other></root>`, ErrValidationType)
+}
+
+func TestUnionDefaultAttributeIDTrackingUsesSelectedMember(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="idOrString">
+	    <xs:union memberTypes="xs:ID xs:string"/>
+	  </xs:simpleType>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="item" type="xs:ID"/>
+	      </xs:sequence>
+	      <xs:attribute name="id" type="idOrString" default="a"/>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustNotValidate(t, engine, `<root><item>a</item></root>`, ErrValidationType)
+}
+
 func TestWildcardAttributesRecordIDValues(t *testing.T) {
 	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="external" type="xs:ID"/>
   <xs:element name="root">
     <xs:complexType>

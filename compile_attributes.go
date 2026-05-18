@@ -107,24 +107,26 @@ func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolv
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed attribute cannot have default or fixed")
 	}
 	if decl.HasDefault {
-		canon, err := validateSimpleValue(&c.rt, decl.Type, decl.Default, resolve)
+		value, err := validateSimpleValueInfo(&c.rt, decl.Type, decl.Default, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid attribute default value for "+c.rt.Names.Format(decl.Name))
 		}
-		decl.DefaultCanonical = canon
+		decl.DefaultCanonical = value.Canonical
+		decl.DefaultValue = value
 	}
 	if decl.HasFixed {
-		canon, err := validateSimpleValue(&c.rt, decl.Type, decl.Fixed, resolve)
+		value, err := validateSimpleValueInfo(&c.rt, decl.Type, decl.Fixed, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid attribute fixed value for "+c.rt.Names.Format(decl.Name))
 		}
-		decl.FixedCanonical = canon
+		decl.FixedCanonical = value.Canonical
+		decl.FixedValue = value
 	}
 	return nil
 }
@@ -356,6 +358,8 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		use.Fixed = decl.Fixed
 		use.DefaultCanonical = decl.DefaultCanonical
 		use.FixedCanonical = decl.FixedCanonical
+		use.DefaultValue = decl.DefaultValue
+		use.FixedValue = decl.FixedValue
 		use.HasDefault = decl.HasDefault
 		use.HasFixed = decl.HasFixed
 		refHasFixed = decl.HasFixed
@@ -383,6 +387,8 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		use.Fixed = decl.Fixed
 		use.DefaultCanonical = decl.DefaultCanonical
 		use.FixedCanonical = decl.FixedCanonical
+		use.DefaultValue = decl.DefaultValue
+		use.FixedValue = decl.FixedValue
 		use.HasDefault = decl.HasDefault
 		use.HasFixed = decl.HasFixed
 	}
@@ -407,11 +413,13 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		}
 		use.Default = v
 		use.DefaultCanonical = ""
+		use.DefaultValue = simpleValue{}
 		use.HasDefault = true
 	}
 	if v, ok := n.attr("fixed"); ok {
 		use.Fixed = v
 		use.FixedCanonical = ""
+		use.FixedValue = simpleValue{}
 		use.HasFixed = true
 	}
 	if use.HasDefault && use.HasFixed {
@@ -429,6 +437,8 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	}
 	use.DefaultCanonical = decl.DefaultCanonical
 	use.FixedCanonical = decl.FixedCanonical
+	use.DefaultValue = decl.DefaultValue
+	use.FixedValue = decl.FixedValue
 	return use, nil
 }
 

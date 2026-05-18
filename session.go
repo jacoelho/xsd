@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"bufio"
 	"encoding/xml"
 	"errors"
 	"io"
@@ -36,11 +37,18 @@ func (e *Engine) Validate(r io.Reader) error {
 
 // ValidateWithOptions validates one XML instance document with options.
 func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
-	return e.NewSession(opts).Validate(r)
+	session, err := e.NewSession(opts)
+	if err != nil {
+		return err
+	}
+	return session.Validate(r)
 }
 
 // NewSession creates a reusable validation session.
-func (e *Engine) NewSession(opts ValidateOptions) *Session {
+func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
+	if err := validateOptions(opts); err != nil {
+		return nil, err
+	}
 	return &Session{
 		session: session{
 			engine:                e,
@@ -49,7 +57,23 @@ func (e *Engine) NewSession(opts ValidateOptions) *Session {
 			maxIdentityEntries:    opts.MaxIdentityEntries,
 			maxIdentityTupleBytes: opts.MaxIdentityTupleBytes,
 		},
+	}, nil
+}
+
+func validateOptions(opts ValidateOptions) error {
+	if opts.MaxErrors < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxErrors cannot be negative")
 	}
+	if opts.MaxIdentityScopes < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxIdentityScopes cannot be negative")
+	}
+	if opts.MaxIdentityEntries < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxIdentityEntries cannot be negative")
+	}
+	if opts.MaxIdentityTupleBytes < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxIdentityTupleBytes cannot be negative")
+	}
+	return nil
 }
 
 // Validate validates one XML instance document and resets document-local state first.
@@ -85,6 +109,8 @@ type session struct {
 	text                     []byte
 	nameStrings              byteStringCache
 	valueStrings             byteStringCache
+	reader                   *bufio.Reader
+	parser                   xmlStreamParser
 	maxErrors                int
 	maxIdentityScopes        int
 	maxIdentityEntries       int
@@ -159,14 +185,15 @@ func (s *session) validate(r io.Reader) error {
 		return &Error{Category: InternalErrorCategory, Code: ErrInternalInvariant, Message: "nil validation session"}
 	}
 	s.reset()
-	reader, err := prepareInstanceReader(r)
+	reader, err := prepareInstanceReaderWithBuffer(r, s.reader)
 	if err != nil {
 		return err
 	}
-	parser := newXMLStreamParser(reader, &s.nameStrings, &s.valueStrings)
+	s.reader = reader
+	s.parser.reset(reader, &s.nameStrings, &s.valueStrings)
 	seenRoot := false
 	for {
-		tok, err := parser.next()
+		tok, err := s.parser.next()
 		if err == io.EOF {
 			break
 		}

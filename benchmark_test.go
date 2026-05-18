@@ -69,7 +69,10 @@ func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	session := engine.NewSession(ValidateOptions{})
+	session, err := engine.NewSession(ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
 	doc := benchmarkDoc(100)
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()

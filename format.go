@@ -35,6 +35,8 @@ func (e *XMLFormatError) Unwrap() error {
 }
 
 // FormatXML writes a consistently indented XML document.
+//
+// FormatXML builds an in-memory formatting tree before writing.
 func FormatXML(w io.Writer, r io.Reader) error {
 	if w == nil {
 		return &XMLFormatError{Err: errors.New("nil writer")}

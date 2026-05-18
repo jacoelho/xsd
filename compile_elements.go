@@ -246,6 +246,12 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		} else if (decl.HasDefault || decl.HasFixed) && ct.Mixed && c.modelEmptiable(ct.Content) {
 			decl.DefaultCanonical = decl.Default
 			decl.FixedCanonical = decl.Fixed
+			if decl.HasDefault {
+				decl.DefaultValue = simpleValue{Canonical: decl.Default, Type: noSimpleType}
+			}
+			if decl.HasFixed {
+				decl.FixedValue = simpleValue{Canonical: decl.Fixed, Type: noSimpleType}
+			}
 			return nil
 		}
 	}
@@ -262,24 +268,26 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		return schemaCompile(ErrSchemaFacet, "NOTATION value constraint requires enumeration")
 	}
 	if decl.HasDefault {
-		canon, err := validateSimpleValue(&c.rt, simpleID, decl.Default, resolve)
+		value, err := validateSimpleValueInfo(&c.rt, simpleID, decl.Default, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid element default value for "+c.rt.Names.Format(decl.Name))
 		}
-		decl.DefaultCanonical = canon
+		decl.DefaultCanonical = value.Canonical
+		decl.DefaultValue = value
 	}
 	if decl.HasFixed {
-		canon, err := validateSimpleValue(&c.rt, simpleID, decl.Fixed, resolve)
+		value, err := validateSimpleValueInfo(&c.rt, simpleID, decl.Fixed, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid element fixed value for "+c.rt.Names.Format(decl.Name))
 		}
-		decl.FixedCanonical = canon
+		decl.FixedCanonical = value.Canonical
+		decl.FixedValue = value
 	}
 	return nil
 }

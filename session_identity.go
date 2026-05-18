@@ -37,41 +37,41 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (string, simple
 		decl := rt.Elements[f.Element]
 		if decl.HasFixed {
 			if decl.Type == f.Type {
-				return s.recordElementSimpleContent(typeID, decl.FixedCanonical, line, col)
+				return s.recordElementSimpleContent(decl.FixedValue, line, col)
 			}
 			text = decl.Fixed
 		} else if decl.HasDefault {
 			if decl.Type == f.Type {
-				return s.recordElementSimpleContent(typeID, decl.DefaultCanonical, line, col)
+				return s.recordElementSimpleContent(decl.DefaultValue, line, col)
 			}
 			text = decl.Default
 		}
 	}
 	needCanon := s.needsSimpleContentCanonical(f, typeID)
-	canon, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needCanon)
+	value, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needCanon)
 	if err != nil {
 		if IsUnsupported(err) {
 			return "", noSimpleType, false, err
 		}
 		return "", noSimpleType, false, validation(ErrValidationFacet, line, col, s.pathString(), "invalid simple content: "+err.Error())
 	}
-	if err := s.recordIdentity(typeID, canon, line, col); err != nil {
+	if err := s.recordIdentityValue(value, line, col); err != nil {
 		return "", noSimpleType, false, err
 	}
 	if f.Element != noElement {
 		decl := rt.Elements[f.Element]
-		if decl.HasFixed && canon != decl.FixedCanonical {
+		if decl.HasFixed && value.Canonical != decl.FixedCanonical {
 			return "", noSimpleType, false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 		}
 	}
-	return canon, typeID, true, nil
+	return value.Canonical, value.Type, true, nil
 }
 
-func (s *session) recordElementSimpleContent(typeID simpleTypeID, canon string, line, col int) (string, simpleTypeID, bool, error) {
-	if err := s.recordIdentity(typeID, canon, line, col); err != nil {
+func (s *session) recordElementSimpleContent(value simpleValue, line, col int) (string, simpleTypeID, bool, error) {
+	if err := s.recordIdentityValue(value, line, col); err != nil {
 		return "", noSimpleType, false, err
 	}
-	return canon, typeID, true, nil
+	return value.Canonical, value.Type, true, nil
 }
 
 func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID) bool {
@@ -102,19 +102,18 @@ func (s *session) needsIdentityElementValue() bool {
 	return false
 }
 
-func (s *session) recordAttributeIdentity(typeID simpleTypeID, canonical string, line, col int, seenID *bool) error {
-	if s.simpleIdentityKind(typeID) == simpleIdentityID {
+func (s *session) recordAttributeIdentity(value simpleValue, line, col int, seenID *bool) error {
+	if value.IDs != "" {
 		if *seenID {
 			return validation(ErrValidationType, line, col, s.pathString(), "multiple ID attributes")
 		}
 		*seenID = true
 	}
-	return s.recordIdentity(typeID, canonical, line, col)
+	return s.recordIdentityValue(value, line, col)
 }
 
-func (s *session) recordIdentity(typeID simpleTypeID, canonical string, line, col int) error {
-	switch s.simpleIdentityKind(typeID) {
-	case simpleIdentityID:
+func (s *session) recordIdentityValue(value simpleValue, line, col int) error {
+	for canonical := range strings.FieldsSeq(value.IDs) {
 		if s.ids == nil {
 			s.ids = make(map[string]string)
 		}
@@ -125,20 +124,12 @@ func (s *session) recordIdentity(typeID simpleTypeID, canonical string, line, co
 			return err
 		}
 		s.ids[canonical] = s.pathString()
-		return nil
-	case simpleIdentityIDREF:
+	}
+	for canonical := range strings.FieldsSeq(value.IDRefs) {
 		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
 			return err
 		}
 		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: s.pathString(), Line: line, Col: col})
-		return nil
-	case simpleIdentityIDREFList:
-		for item := range strings.FieldsSeq(canonical) {
-			if err := s.reserveIdentityEntry(item, line, col); err != nil {
-				return err
-			}
-			s.idrefs = append(s.idrefs, identityRef{Value: item, Path: s.pathString(), Line: line, Col: col})
-		}
 	}
 	return nil
 }

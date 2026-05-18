@@ -65,12 +65,28 @@ type xmlStreamParser struct {
 }
 
 func newXMLStreamParser(r io.Reader, names, values *byteStringCache) *xmlStreamParser {
-	return &xmlStreamParser{
-		br:      byteStream{r: r, line: 1},
-		names:   names,
-		values:  values,
-		atStart: true,
-	}
+	p := new(xmlStreamParser)
+	p.reset(r, names, values)
+	return p
+}
+
+func (p *xmlStreamParser) reset(r io.Reader, names, values *byteStringCache) {
+	p.names = names
+	p.values = values
+	p.pendingEnd = xml.EndElement{}
+	p.nameBuf = p.nameBuf[:0]
+	p.valueBuf = p.valueBuf[:0]
+	p.entityBuf = p.entityBuf[:0]
+	p.textBuf = p.textBuf[:0]
+	p.directive = p.directive[:0]
+	p.attrs = p.attrs[:0]
+	p.br.reset(r)
+	p.cdataMatched = 0
+	p.hasEnd = false
+	p.inCDATA = false
+	p.atStart = true
+	p.emitComments = false
+	p.emitPI = false
 }
 
 func (p *xmlStreamParser) next() (streamToken, error) {
@@ -1091,6 +1107,19 @@ type byteStream struct {
 	buf     [64 * 1024]byte
 	unread  bool
 	last    byte
+}
+
+func (b *byteStream) reset(r io.Reader) {
+	b.r = r
+	b.err = nil
+	b.prev = bytePosition{}
+	b.lastPos = bytePosition{}
+	b.off = 0
+	b.end = 0
+	b.line = 1
+	b.col = 0
+	b.unread = false
+	b.last = 0
 }
 
 type bytePosition struct {

@@ -13,10 +13,18 @@ const instanceReaderBufferSize = 64 * 1024
 var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
 
 func prepareInstanceReader(r io.Reader) (io.Reader, error) {
+	return prepareInstanceReaderWithBuffer(r, nil)
+}
+
+func prepareInstanceReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Reader, error) {
 	if r == nil {
 		return nil, validation(ErrValidationXML, 0, 0, "", "instance reader is nil")
 	}
-	br := bufio.NewReaderSize(r, instanceReaderBufferSize)
+	if br == nil {
+		br = bufio.NewReaderSize(r, instanceReaderBufferSize)
+	} else {
+		br.Reset(r)
+	}
 	peek, _ := br.Peek(512)
 	if bytes.HasPrefix(peek, utf8BOM) {
 		if _, err := br.Discard(len(utf8BOM)); err != nil {

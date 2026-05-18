@@ -78,6 +78,8 @@ type elementDecl struct {
 	Fixed            string
 	DefaultCanonical string
 	FixedCanonical   string
+	DefaultValue     simpleValue
+	FixedValue       simpleValue
 	Identity         []identityConstraintID
 	Name             qName
 	Type             typeID
@@ -139,6 +141,8 @@ type attributeDecl struct {
 	Fixed            string
 	DefaultCanonical string
 	FixedCanonical   string
+	DefaultValue     simpleValue
+	FixedValue       simpleValue
 	Name             qName
 	Type             simpleTypeID
 	HasDefault       bool
@@ -158,6 +162,8 @@ type attributeUse struct {
 	Fixed            string
 	DefaultCanonical string
 	FixedCanonical   string
+	DefaultValue     simpleValue
+	FixedValue       simpleValue
 	Name             qName
 	Type             simpleTypeID
 	Required         bool
