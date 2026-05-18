@@ -268,31 +268,32 @@ By default this generates streaming XML documents at `100MB`, `500MB`, `1GB`, an
 
 The command comparison reports elapsed time and max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
 
-Latest local checks (2026-05-18, Apple M2 Max, Go 1.26.2, libxml2 2.9.13) are spot checks, not throughput guarantees.
-
-Bounded libxml2 comparison:
+Latest local run (2026-05-18, Go 1.26.2, libxml2 2.9.13):
 
 ```text
-XSD_LARGE_COMPARE=1 \
-XSD_LARGE_SIZE_BYTES=20971520 \
-XSD_LARGE_IDENTITY_ROWS=20000 \
-go test -run '^TestLargeXMLLintComparison$' -count=1 -v .
-
 goos: darwin
 goarch: arm64
 pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | sec/op          | sec/op          vs base           |
-streaming/20MB                 349.423ms       771.566ms     +120.81%
-identity                        89.239ms        63.491ms      -28.85%
-geomean                        176.585ms       221.331ms      +25.34%
+streaming/20MB                  349.423ms       771.566ms     +120.81%
+streaming/100MB                   1.806s          3.321s      +83.92%
+streaming/500MB                  11.204s         15.059s      +34.41%
+streaming/1GB                    25.433s         30.583s      +20.25%
+streaming/2GB                    51.891s         62.161s      +19.79%
+identity                       615.367ms       897.544ms      +45.86%
+geomean                           4.232s          6.355s      +50.17%
 
                          | libxml2 xmllint |             go xmllint             |
                          | rss/op          | rss/op          vs base           |
 streaming/20MB                 243.17MiB        12.42MiB      -94.89%
-identity                        40.31MiB        22.19MiB      -44.96%
-geomean                         99.01MiB        16.60MiB      -83.23%
+streaming/100MB                  1.17GiB        12.25MiB      -98.98%
+streaming/500MB                  5.81GiB        12.88MiB      -99.78%
+streaming/1GB                    9.50GiB        12.95MiB      -99.87%
+streaming/2GB                   12.44GiB        13.56MiB      -99.89%
+identity                       185.62MiB        72.98MiB      -60.68%
+geomean                          1.80GiB        17.11MiB      -99.07%
 ```
 
 ## Constraints
