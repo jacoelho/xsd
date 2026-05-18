@@ -214,11 +214,9 @@ docs := []string{`<root>1</root>`, `<root>2</root>`, `<root>3</root>`}
 var wg sync.WaitGroup
 errs := make(chan error, len(docs))
 for _, doc := range docs {
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
+    wg.Go(func() {
         errs <- engine.Validate(strings.NewReader(doc))
-    }()
+    })
 }
 wg.Wait()
 close(errs)
@@ -247,6 +245,7 @@ Available flags:
 | `--schema path` | yes | Schema file path. |
 | `--noout` | no | Accepted for compatibility. Document output is always suppressed. |
 | `--huge` | no | Accepted for compatibility. |
+| `--max-errors n` | no | Maximum validation errors to collect. `0` means unlimited. |
 
 ## Benchmark Against libxml2
 
@@ -269,7 +268,7 @@ By default this generates streaming XML documents at `100MB`, `500MB`, `1GB`, an
 
 The command comparison reports elapsed time and max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
 
-Latest local run (2026-05-17, Go 1.26.2, libxml2 2.9.13):
+Latest local run (2026-05-18, Go 1.26.2, libxml2 2.9.13):
 
 ```text
 goos: darwin
@@ -278,21 +277,21 @@ pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | sec/op          | sec/op          vs base           |
-streaming/100MB                   1.671s          2.775s      +66.02%
-streaming/500MB                  10.432s         13.864s      +32.91%
-streaming/1GB                    25.886s         28.177s       +8.85%
-streaming/2GB                    56.644s         56.764s       +0.21%
-identity                       630.717ms       421.677ms      -33.14%
-geomean                           6.942s          7.635s       +9.98%
+streaming/100MB                   1.806s          3.321s      +83.92%
+streaming/500MB                  11.204s         15.059s      +34.41%
+streaming/1GB                    25.433s         30.583s      +20.25%
+streaming/2GB                    51.891s         62.161s      +19.79%
+identity                       615.367ms       897.544ms      +45.86%
+geomean                           6.968s          9.688s      +39.03%
 
                          | libxml2 xmllint |             go xmllint             |
                          | rss/op          | rss/op          vs base           |
-streaming/100MB                  1.17GiB        12.72MiB      -98.94%
-streaming/500MB                  5.81GiB        13.00MiB      -99.78%
-streaming/1GB                   11.03GiB        13.72MiB      -99.88%
-streaming/2GB                   11.14GiB        13.30MiB      -99.88%
-identity                       186.89MiB        73.59MiB      -60.62%
-geomean                          2.73GiB        18.59MiB      -99.34%
+streaming/100MB                  1.17GiB        12.25MiB      -98.98%
+streaming/500MB                  5.81GiB        12.88MiB      -99.78%
+streaming/1GB                    9.50GiB        12.95MiB      -99.87%
+streaming/2GB                   12.44GiB        13.56MiB      -99.89%
+identity                       185.62MiB        72.98MiB      -60.68%
+geomean                          2.71GiB        18.25MiB      -99.34%
 ```
 
 ## Constraints
