@@ -150,6 +150,17 @@ func TestFormatXMLHandlesBareCRText(t *testing.T) {
 	}
 }
 
+func TestFormatXMLNormalizesCDATALineEndings(t *testing.T) {
+	var out strings.Builder
+	err := FormatXML(&out, strings.NewReader("<root><![CDATA[a\rb]]></root>"))
+	if err != nil {
+		t.Fatalf("FormatXML() error = %v", err)
+	}
+	if out.String() != "<root><![CDATA[a\nb]]></root>" {
+		t.Fatalf("FormatXML() = %q", out.String())
+	}
+}
+
 func TestFormatXMLPreservesProcessingInstructions(t *testing.T) {
 	var out strings.Builder
 	err := FormatXML(&out, strings.NewReader(`<?xml version="1.0"?><?xml-stylesheet type="text/xsl" href="style.xsl"?><root><?pi data?><v>1</v></root><?tail?>`))

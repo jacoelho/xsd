@@ -122,6 +122,33 @@ func TestXMLStreamParserHandlesBareCRText(t *testing.T) {
 	}
 }
 
+func TestXMLStreamParserNormalizesCDATALineEndings(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{name: "bare_cr", in: "<root><![CDATA[a\rb]]></root>"},
+		{name: "crlf", in: "<root><![CDATA[a\r\nb]]></root>"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			names := newByteStringCache(512, 256)
+			values := newByteStringCache(512, 256)
+			p := newXMLStreamParser(strings.NewReader(test.in), &names, &values)
+			if _, err := p.next(); err != nil {
+				t.Fatalf("next root start error = %v", err)
+			}
+			tok, err := p.next()
+			if err != nil {
+				t.Fatalf("next CDATA error = %v", err)
+			}
+			if tok.kind != streamTokenCharData || !tok.cdata || string(tok.data) != "a\nb" {
+				t.Fatalf("CDATA token = %+v", tok)
+			}
+		})
+	}
+}
+
 func TestXMLStreamParserRejectsInvalidSkippedComment(t *testing.T) {
 	names := newByteStringCache(512, 256)
 	values := newByteStringCache(512, 256)

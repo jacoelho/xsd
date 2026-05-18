@@ -429,6 +429,14 @@ func (p *xmlStreamParser) readCDATAChunk(line, col int) (streamToken, error) {
 			if err := p.appendTokenByte(&p.textBuf, '>'); err != nil {
 				return streamToken{}, err
 			}
+		case '\r':
+			if err := appendPending(); err != nil {
+				return streamToken{}, err
+			}
+			p.consumeLineFeed()
+			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+				return streamToken{}, err
+			}
 		default:
 			if err := appendPending(); err != nil {
 				return streamToken{}, err

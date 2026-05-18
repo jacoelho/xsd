@@ -75,6 +75,14 @@ func TestInstanceAttributeCRLFMatchesSchemaLineEndingNormalization(t *testing.T)
 	mustValidate(t, engine, "<r a=\"x\r\ny\"/>")
 }
 
+func TestInstanceCDATALineEndingsMatchSchemaLineEndingNormalization(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r" type="xs:string"/></xs:schema>`)
+	err := engine.ValidateWithOptions(strings.NewReader("<r><![CDATA[a\r\nb]]></r>"), ValidateOptions{MaxInstanceTextBytes: 3})
+	if err != nil {
+		t.Fatalf("ValidateWithOptions() error = %v", err)
+	}
+}
+
 func TestInvalidSchemaAttributeCombinations(t *testing.T) {
 	tests := []struct {
 		name   string
