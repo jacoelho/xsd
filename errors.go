@@ -32,7 +32,6 @@ const (
 	ErrSchemaOccurrence       ErrorCode = "schema.occurrence"
 	ErrSchemaContentModel     ErrorCode = "schema.content_model"
 	ErrSchemaNoSources        ErrorCode = "schema.no_sources"
-	ErrSchemaMissingSource    ErrorCode = "schema.missing_source"
 	ErrSchemaInvalidAttribute ErrorCode = "schema.invalid_attribute"
 	ErrSchemaIdentity         ErrorCode = "schema.identity"
 	ErrSchemaLimit            ErrorCode = "schema.limit"
@@ -56,6 +55,8 @@ const (
 	ErrValidationContent      ErrorCode = "validation.content"
 	ErrValidationNil          ErrorCode = "validation.nil"
 	ErrValidationIdentity     ErrorCode = "validation.identity"
+	ErrValidationOption       ErrorCode = "validation.option"
+	ErrValidationLimit        ErrorCode = "validation.limit"
 	ErrInternalInvariant      ErrorCode = "internal.invariant"
 )
 

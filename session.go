@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"bufio"
 	"encoding/xml"
 	"errors"
 	"io"
@@ -18,7 +19,15 @@ type ValidateOptions struct {
 	// MaxIdentityEntries limits stored ID, IDREF, key, unique, and keyref entries. Zero means unlimited.
 	MaxIdentityEntries int
 	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero means unlimited.
-	MaxIdentityTupleBytes int
+	MaxIdentityTupleBytes int64
+	// MaxInstanceDepth limits nested XML elements. Zero means unlimited.
+	MaxInstanceDepth int
+	// MaxInstanceAttributes limits attributes on one XML element. Zero means unlimited.
+	MaxInstanceAttributes int
+	// MaxInstanceTextBytes limits retained character data bytes. Zero means unlimited.
+	MaxInstanceTextBytes int64
+	// MaxInstanceTokenBytes limits retained XML token payload bytes. Zero means unlimited.
+	MaxInstanceTokenBytes int64
 }
 
 // Session validates XML instance documents against one Engine.
@@ -36,11 +45,18 @@ func (e *Engine) Validate(r io.Reader) error {
 
 // ValidateWithOptions validates one XML instance document with options.
 func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
-	return e.NewSession(opts).Validate(r)
+	session, err := e.NewSession(opts)
+	if err != nil {
+		return err
+	}
+	return session.Validate(r)
 }
 
 // NewSession creates a reusable validation session.
-func (e *Engine) NewSession(opts ValidateOptions) *Session {
+func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
+	if err := validateOptions(opts); err != nil {
+		return nil, err
+	}
 	return &Session{
 		session: session{
 			engine:                e,
@@ -48,8 +64,40 @@ func (e *Engine) NewSession(opts ValidateOptions) *Session {
 			maxIdentityScopes:     opts.MaxIdentityScopes,
 			maxIdentityEntries:    opts.MaxIdentityEntries,
 			maxIdentityTupleBytes: opts.MaxIdentityTupleBytes,
+			maxInstanceDepth:      opts.MaxInstanceDepth,
+			maxInstanceAttributes: opts.MaxInstanceAttributes,
+			maxInstanceTextBytes:  opts.MaxInstanceTextBytes,
+			maxInstanceTokenBytes: opts.MaxInstanceTokenBytes,
 		},
+	}, nil
+}
+
+func validateOptions(opts ValidateOptions) error {
+	if opts.MaxErrors < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxErrors cannot be negative")
 	}
+	if opts.MaxIdentityScopes < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxIdentityScopes cannot be negative")
+	}
+	if opts.MaxIdentityEntries < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxIdentityEntries cannot be negative")
+	}
+	if opts.MaxIdentityTupleBytes < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxIdentityTupleBytes cannot be negative")
+	}
+	if opts.MaxInstanceDepth < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxInstanceDepth cannot be negative")
+	}
+	if opts.MaxInstanceAttributes < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxInstanceAttributes cannot be negative")
+	}
+	if opts.MaxInstanceTextBytes < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxInstanceTextBytes cannot be negative")
+	}
+	if opts.MaxInstanceTokenBytes < 0 {
+		return validation(ErrValidationOption, 0, 0, "", "MaxInstanceTokenBytes cannot be negative")
+	}
+	return nil
 }
 
 // Validate validates one XML instance document and resets document-local state first.
@@ -85,10 +133,16 @@ type session struct {
 	text                     []byte
 	nameStrings              byteStringCache
 	valueStrings             byteStringCache
+	reader                   *bufio.Reader
+	parser                   xmlStreamParser
 	maxErrors                int
 	maxIdentityScopes        int
 	maxIdentityEntries       int
-	maxIdentityTupleBytes    int
+	maxIdentityTupleBytes    int64
+	maxInstanceDepth         int
+	maxInstanceAttributes    int
+	maxInstanceTextBytes     int64
+	maxInstanceTokenBytes    int64
 	identityEntries          int
 }
 
@@ -159,19 +213,27 @@ func (s *session) validate(r io.Reader) error {
 		return &Error{Category: InternalErrorCategory, Code: ErrInternalInvariant, Message: "nil validation session"}
 	}
 	s.reset()
-	reader, err := prepareInstanceReader(r)
+	reader, err := prepareInstanceReaderWithBuffer(r, s.reader)
 	if err != nil {
 		return err
 	}
-	parser := newXMLStreamParser(reader, &s.nameStrings, &s.valueStrings)
+	s.reader = reader
+	s.parser.resetWithLimit(reader, &s.nameStrings, &s.valueStrings, s.maxInstanceTokenBytes)
+	s.parser.maxAttrs = s.maxInstanceAttributes
 	seenRoot := false
 	for {
-		tok, err := parser.next()
+		tok, err := s.parser.next()
 		if err == io.EOF {
 			break
 		}
 		line, col := tok.line, tok.col
 		if err != nil {
+			if line == 0 {
+				line, col = s.parser.br.pos()
+			}
+			if errors.Is(err, errXMLTokenLimit) || errors.Is(err, errXMLAttributeLimit) {
+				return validation(ErrValidationLimit, line, col, s.pathString(), err.Error())
+			}
 			if errors.Is(err, errUnsupportedEntityReference) {
 				return &Error{Category: UnsupportedErrorCategory, Code: ErrUnsupportedExternal, Line: line, Column: col, Path: s.pathString(), Message: "external or undeclared entity resolution is not supported", Err: err}
 			}
@@ -269,10 +331,16 @@ func (s *session) recover(err error) error {
 
 func isRecoverableValidation(err error) bool {
 	x, ok := errors.AsType[*Error](err)
-	return ok && x.Category == ValidationErrorCategory && x.Code != ErrValidationXML
+	return ok && x.Category == ValidationErrorCategory && x.Code != ErrValidationXML && x.Code != ErrValidationLimit
 }
 
 func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error {
+	if s.maxInstanceDepth > 0 && len(s.stack)+1 > s.maxInstanceDepth {
+		return validation(ErrValidationLimit, line, col, s.pathString(), "instance depth limit exceeded")
+	}
+	if s.maxInstanceAttributes > 0 && len(se.Attr) > s.maxInstanceAttributes {
+		return validation(ErrValidationLimit, line, col, s.pathString(), "instance attribute limit exceeded")
+	}
 	rt := s.engine.rt
 	if err := s.ns.push(se.Attr); err != nil {
 		return validation(ErrValidationXML, line, col, s.pathString(), err.Error())
@@ -282,7 +350,12 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 	if err != nil {
 		return err
 	}
-	s.recordSchemaLocationHints(se.Attr)
+	if schemaLocationErr := s.recordSchemaLocationHints(se.Attr, line, col); schemaLocationErr != nil {
+		recoverErr := s.recover(schemaLocationErr)
+		if recoverErr != nil {
+			return recoverErr
+		}
+	}
 	rn := s.runtimeName(se.Name)
 	elem, typ, skip, err := s.startType(rt, rn, se, line, col, seenRoot)
 	if err != nil {
@@ -427,14 +500,18 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 		f.HasText = true
 	}
 	if f.Type.Kind == typeSimple || (f.Type.Kind == typeComplex && s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue) {
-		s.text = append(s.text, data...)
+		if err := s.appendText(data, line, col); err != nil {
+			return err
+		}
 		return nil
 	}
 	if f.Type.Kind == typeComplex {
 		ct := s.engine.rt.ComplexTypes[f.Type.ID]
 		if ct.Mixed {
 			if f.Element != noElement && s.engine.rt.Elements[f.Element].HasFixed {
-				s.text = append(s.text, data...)
+				if err := s.appendText(data, line, col); err != nil {
+					return err
+				}
 			}
 			return nil
 		}
@@ -442,6 +519,14 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 			return validation(ErrValidationText, line, col, s.pathString(), "character data is not allowed")
 		}
 	}
+	return nil
+}
+
+func (s *session) appendText(data []byte, line, col int) error {
+	if s.maxInstanceTextBytes > 0 && int64(len(s.text)+len(data)) > s.maxInstanceTextBytes {
+		return validation(ErrValidationLimit, line, col, s.pathString(), "instance text byte limit exceeded")
+	}
+	s.text = append(s.text, data...)
 	return nil
 }
 

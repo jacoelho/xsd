@@ -13,10 +13,18 @@ const instanceReaderBufferSize = 64 * 1024
 var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
 
 func prepareInstanceReader(r io.Reader) (io.Reader, error) {
+	return prepareInstanceReaderWithBuffer(r, nil)
+}
+
+func prepareInstanceReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Reader, error) {
 	if r == nil {
 		return nil, validation(ErrValidationXML, 0, 0, "", "instance reader is nil")
 	}
-	br := bufio.NewReaderSize(r, instanceReaderBufferSize)
+	if br == nil {
+		br = bufio.NewReaderSize(r, instanceReaderBufferSize)
+	} else {
+		br.Reset(r)
+	}
 	peek, _ := br.Peek(512)
 	if bytes.HasPrefix(peek, utf8BOM) {
 		if _, err := br.Discard(len(utf8BOM)); err != nil {
@@ -40,8 +48,6 @@ func prepareInstanceReader(r io.Reader) (io.Reader, error) {
 
 var xmlEncodingRE = regexp.MustCompile(`^<\?xml\s+[^>]*encoding\s*=\s*['"]([^'"]+)['"]`)
 
-var xmlVersionRE = regexp.MustCompile(`^<\?xml\s+[^>]*version\s*=\s*['"]([^'"]+)['"]`)
-
 func declaredEncoding(buf []byte) string {
 	m := xmlEncodingRE.FindSubmatch(buf)
 	if len(m) == 2 {
@@ -51,9 +57,68 @@ func declaredEncoding(buf []byte) string {
 }
 
 func declaredXMLVersion(buf []byte) string {
-	m := xmlVersionRE.FindSubmatch(buf)
-	if len(m) == 2 {
-		return string(m[1])
+	const declLen = len("<?xml")
+	if len(buf) <= declLen ||
+		buf[0] != '<' ||
+		buf[1] != '?' ||
+		buf[2] != 'x' ||
+		buf[3] != 'm' ||
+		buf[4] != 'l' ||
+		!isXMLSpaceByte(buf[declLen]) {
+		return ""
+	}
+	for i := declLen + 1; i < len(buf); {
+		for i < len(buf) && isXMLSpaceByte(buf[i]) {
+			i++
+		}
+		if i >= len(buf) || buf[i] == '?' || buf[i] == '>' {
+			return ""
+		}
+		nameStart := i
+		for i < len(buf) && buf[i] != '=' && !isXMLSpaceByte(buf[i]) && buf[i] != '?' && buf[i] != '>' {
+			i++
+		}
+		name := buf[nameStart:i]
+		for i < len(buf) && isXMLSpaceByte(buf[i]) {
+			i++
+		}
+		if i >= len(buf) || buf[i] != '=' {
+			return ""
+		}
+		i++
+		for i < len(buf) && isXMLSpaceByte(buf[i]) {
+			i++
+		}
+		if i >= len(buf) || (buf[i] != '"' && buf[i] != '\'') {
+			return ""
+		}
+		quote := buf[i]
+		i++
+		valueStart := i
+		for i < len(buf) && buf[i] != quote {
+			if buf[i] == '>' {
+				return ""
+			}
+			i++
+		}
+		if i >= len(buf) {
+			return ""
+		}
+		if xmlDeclNameIsVersion(name) {
+			return string(buf[valueStart:i])
+		}
+		i++
 	}
 	return ""
+}
+
+func xmlDeclNameIsVersion(name []byte) bool {
+	return len(name) == len("version") &&
+		name[0] == 'v' &&
+		name[1] == 'e' &&
+		name[2] == 'r' &&
+		name[3] == 's' &&
+		name[4] == 'i' &&
+		name[5] == 'o' &&
+		name[6] == 'n'
 }

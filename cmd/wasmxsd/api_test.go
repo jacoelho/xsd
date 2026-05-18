@@ -53,14 +53,14 @@ func TestValidateXMLDataValidAndInvalid(t *testing.T) {
 }
 
 func TestValidateXMLDataRejectsOversizeXML(t *testing.T) {
-	resp := validateXMLData(string(make([]byte, maxXMLBytes+1)), testSchema)
+	resp := validateXMLData(string(make([]byte, int(maxXMLBytes)+1)), testSchema)
 	if resp.Error == "" {
 		t.Fatal("validateXMLData() accepted oversize XML")
 	}
 }
 
 func TestValidateXMLDataRejectsOversizeXSD(t *testing.T) {
-	resp := validateXMLData(`<root/>`, string(make([]byte, maxXSDBytes+1)))
+	resp := validateXMLData(`<root/>`, string(make([]byte, int(maxXSDBytes)+1)))
 	if resp.Error == "" {
 		t.Fatal("validateXMLData() accepted oversize XSD")
 	}

@@ -51,7 +51,10 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 		if !ok || name == "" {
 			return nil, schemaCompile(ErrSchemaIdentity, "identity constraint missing name")
 		}
-		q := c.rt.Names.InternQName(ctx.targetNS, name)
+		q, err := c.rt.Names.InternQName(ctx.targetNS, name)
+		if err != nil {
+			return nil, err
+		}
 		if _, exists := c.rt.GlobalIdentities[q]; exists {
 			return nil, schemaCompile(ErrSchemaDuplicate, "duplicate identity constraint "+c.rt.Names.Format(q))
 		}
@@ -338,23 +341,24 @@ func parseIdentityDescendantPrefix(path string) (string, bool) {
 
 func (c *compiler) parseIdentityAttributeName(n *rawNode, name string) (qName, bool, bool, namespaceID, error) {
 	name = strings.TrimSpace(name)
-	if strings.ContainsAny(name, " \t\r\n") {
-		return qName{}, false, false, 0, schemaCompile(ErrSchemaReference, "invalid QName "+name)
-	}
 	switch name {
 	case "*":
 		return qName{}, true, false, 0, nil
 	default:
-		prefix, local, ok := strings.Cut(name, ":")
-		if ok && local == "*" {
-			if prefix == "" || strings.Contains(prefix, ":") {
-				return qName{}, false, false, 0, schemaCompile(ErrSchemaReference, "invalid QName "+name)
-			}
+		prefix, wildcard, err := parseQNamePrefixWildcard(name)
+		if err != nil {
+			return qName{}, false, false, 0, err
+		}
+		if wildcard {
 			ns, ok := n.NS[prefix]
 			if !ok {
 				return qName{}, false, false, 0, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
 			}
-			return qName{}, true, true, c.rt.Names.InternNamespace(ns), nil
+			nsID, nsErr := c.rt.Names.InternNamespace(ns)
+			if nsErr != nil {
+				return qName{}, false, false, 0, nsErr
+			}
+			return qName{}, true, true, nsID, nil
 		}
 		q, err := c.resolveXPathQName(n, name)
 		return q, false, false, 0, err
@@ -366,19 +370,20 @@ func (c *compiler) parseIdentityNameTest(n *rawNode, lexical string) (identitySt
 	if lexical == "*" {
 		return identityStep{wildcard: true}, nil
 	}
-	if strings.ContainsAny(lexical, " \t\r\n") {
-		return identityStep{}, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	prefix, wildcard, err := parseQNamePrefixWildcard(lexical)
+	if err != nil {
+		return identityStep{}, err
 	}
-	prefix, local, ok := strings.Cut(lexical, ":")
-	if ok && local == "*" {
-		if prefix == "" || strings.Contains(prefix, ":") {
-			return identityStep{}, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
-		}
+	if wildcard {
 		ns, ok := n.NS[prefix]
 		if !ok {
 			return identityStep{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
 		}
-		return identityStep{wildcard: true, NamespaceSet: true, Namespace: c.rt.Names.InternNamespace(ns)}, nil
+		nsID, nsErr := c.rt.Names.InternNamespace(ns)
+		if nsErr != nil {
+			return identityStep{}, nsErr
+		}
+		return identityStep{wildcard: true, NamespaceSet: true, Namespace: nsID}, nil
 	}
 	q, err := c.resolveXPathQName(n, lexical)
 	if err != nil {
@@ -455,16 +460,16 @@ func parseIdentityAxisStep(part, axis string) (string, bool) {
 }
 
 func (c *compiler) resolveXPathQName(n *rawNode, lexical string) (qName, error) {
-	prefix, local, ok := strings.Cut(lexical, ":")
-	if !ok {
-		return c.rt.Names.InternQName("", lexical), nil
+	prefix, local, prefixed, err := parseQNameParts(lexical)
+	if err != nil {
+		return qName{}, err
 	}
-	if prefix == "" || local == "" || strings.Contains(local, ":") {
-		return qName{}, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	if !prefixed {
+		return c.rt.Names.InternQName("", local)
 	}
 	ns, ok := n.NS[prefix]
 	if !ok {
 		return qName{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
 	}
-	return c.rt.Names.InternQName(ns, local), nil
+	return c.rt.Names.InternQName(ns, local)
 }

@@ -22,7 +22,6 @@ const (
 )
 
 type nameTable struct {
-	limitErr   error
 	nsIndex    map[string]namespaceID
 	localIndex map[string]localNameID
 	namespaces []string
@@ -30,58 +29,94 @@ type nameTable struct {
 	maxNames   int
 }
 
-func newNameTable(maxNames int) nameTable {
+func newNameTable(maxNames int) (nameTable, error) {
 	n := nameTable{
-		nsIndex:    make(map[string]namespaceID),
-		localIndex: make(map[string]localNameID),
+		nsIndex:    make(map[string]namespaceID, 8),
+		localIndex: make(map[string]localNameID, builtinGlobalTypeCount),
+		namespaces: make([]string, 0, 8),
+		locals:     make([]string, 0, builtinGlobalTypeCount),
 		maxNames:   maxNames,
 	}
-	n.InternNamespace(emptyNamespaceURI)
-	n.InternNamespace(xsdNamespaceURI)
-	n.InternNamespace(xsiNamespaceURI)
-	n.InternNamespace(xmlNamespaceURI)
-	n.InternNamespace(xlinkNamespaceURI)
-	n.InternNamespace(xmlnsNamespaceURI)
-	n.InternQName(xsiNamespaceURI, "type")
-	n.InternQName(xsiNamespaceURI, "nil")
-	n.InternQName(xsiNamespaceURI, "schemaLocation")
-	n.InternQName(xsiNamespaceURI, "noNamespaceSchemaLocation")
-	return n
+	for _, uri := range []string{
+		emptyNamespaceURI,
+		xsdNamespaceURI,
+		xsiNamespaceURI,
+		xmlNamespaceURI,
+		xlinkNamespaceURI,
+		xmlnsNamespaceURI,
+	} {
+		if _, err := n.InternNamespace(uri); err != nil {
+			return nameTable{}, err
+		}
+	}
+	for _, local := range []string{"type", "nil", "schemaLocation", "noNamespaceSchemaLocation"} {
+		if _, err := n.InternQName(xsiNamespaceURI, local); err != nil {
+			return nameTable{}, err
+		}
+	}
+	return n, nil
 }
 
-func (n *nameTable) InternNamespace(uri string) namespaceID {
+func (n *nameTable) InternNamespace(uri string) (namespaceID, error) {
 	if id, ok := n.nsIndex[uri]; ok {
-		return id
+		return id, nil
+	}
+	if err := n.checkLimit(1); err != nil {
+		return 0, err
 	}
 	id := namespaceID(len(n.namespaces))
 	n.namespaces = append(n.namespaces, uri)
 	n.nsIndex[uri] = id
-	n.checkLimit()
-	return id
+	return id, nil
 }
 
-func (n *nameTable) InternLocal(local string) localNameID {
+func (n *nameTable) InternLocal(local string) (localNameID, error) {
 	if id, ok := n.localIndex[local]; ok {
-		return id
+		return id, nil
+	}
+	if err := n.checkLimit(1); err != nil {
+		return 0, err
 	}
 	id := localNameID(len(n.locals))
 	n.locals = append(n.locals, local)
 	n.localIndex[local] = id
-	n.checkLimit()
-	return id
+	return id, nil
 }
 
-func (n *nameTable) InternQName(ns, local string) qName {
-	return qName{Namespace: n.InternNamespace(ns), Local: n.InternLocal(local)}
+func (n *nameTable) InternQName(ns, local string) (qName, error) {
+	nsID, nsOK := n.nsIndex[ns]
+	localID, localOK := n.localIndex[local]
+	need := 0
+	if !nsOK {
+		need++
+	}
+	if !localOK {
+		need++
+	}
+	if err := n.checkLimit(need); err != nil {
+		return qName{}, err
+	}
+	if !nsOK {
+		nsID = namespaceID(len(n.namespaces))
+		n.namespaces = append(n.namespaces, ns)
+		n.nsIndex[ns] = nsID
+	}
+	if !localOK {
+		localID = localNameID(len(n.locals))
+		n.locals = append(n.locals, local)
+		n.localIndex[local] = localID
+	}
+	return qName{Namespace: nsID, Local: localID}, nil
 }
 
-func (n *nameTable) checkLimit() {
-	if n.maxNames <= 0 || n.limitErr != nil {
-		return
+func (n *nameTable) checkLimit(need int) error {
+	if n.maxNames <= 0 || need <= 0 {
+		return nil
 	}
-	if len(n.namespaces)+len(n.locals) > n.maxNames {
-		n.limitErr = schemaCompile(ErrSchemaLimit, "schema name limit exceeded")
+	if len(n.namespaces)+len(n.locals)+need > n.maxNames {
+		return schemaCompile(ErrSchemaLimit, "schema name limit exceeded")
 	}
+	return nil
 }
 
 func (n nameTable) LookupNamespace(uri string) (namespaceID, bool) {

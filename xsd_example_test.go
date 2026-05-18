@@ -41,6 +41,7 @@ func ExampleCompileWithOptions() {
 			MaxSchemaDepth:        256,
 			MaxSchemaAttributes:   256,
 			MaxSchemaTokenBytes:   4 << 20,
+			MaxSchemaSourceBytes:  64 << 20,
 			MaxSchemaNames:        0,
 			MaxFiniteOccurs:       1_000_000,
 			MaxContentModelStates: 16_384,
@@ -58,6 +59,17 @@ func ExampleCompileWithOptions() {
 
 func ExampleReader() {
 	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = engine.Validate(strings.NewReader(`<root>42</root>`))
+	fmt.Println("valid:", err == nil)
+	// Output: valid: true
+}
+
+func ExampleLimitedReader() {
+	engine, err := xsd.Compile(xsd.LimitedReader("schema.xsd", strings.NewReader(publicAPISchema), 64<<20))
 	if err != nil {
 		fmt.Println(err)
 		return

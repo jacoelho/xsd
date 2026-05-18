@@ -4,11 +4,17 @@ MAKEFLAGS+=-r -R
 BIN := $(CURDIR)/bin
 XSD_GO := $(wildcard *.go)
 XMLLINT_GO := cmd/xmllint/main.go
+STATICCHECK_VERSION := v0.7.0
+GOLANGCI_LINT_VERSION := v2.11.4
 export GOBIN := $(BIN)
 
 .PHONY: test
 test:
 	go test ./...
+
+.PHONY: bench
+bench:
+	go test -run '^$$' -bench=. -benchmem ./...
 
 .PHONY: xmllint
 xmllint: $(BIN)/xmllint
@@ -29,8 +35,15 @@ web:
 staticcheck: $(BIN)/staticcheck
 	$(BIN)/staticcheck ./...
 
-$(BIN)/staticcheck: go.mod | $(BIN)
-	go install honnef.co/go/tools/cmd/staticcheck@latest
+$(BIN)/staticcheck: go.mod Makefile | $(BIN)
+	go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
+
+.PHONY: lint
+lint: $(BIN)/golangci-lint
+	$(BIN)/golangci-lint run
+
+$(BIN)/golangci-lint: go.mod .golangci.yml Makefile | $(BIN)
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 $(BIN):
 	mkdir -p $@

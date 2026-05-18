@@ -69,7 +69,10 @@ func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	session := engine.NewSession(ValidateOptions{})
+	session, err := engine.NewSession(ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
 	doc := benchmarkDoc(100)
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
@@ -109,6 +112,85 @@ func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		if err := engine.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkValidateDuplicateAttributes(b *testing.B) {
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := duplicateAttributeDoc(1000)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := engine.Validate(strings.NewReader(doc)); err == nil {
+			b.Fatal("Validate() succeeded")
+		}
+	}
+}
+
+func BenchmarkFormatXMLDuplicateAttributes(b *testing.B) {
+	doc := duplicateAttributeDoc(1000)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		var out strings.Builder
+		if err := FormatXML(&out, strings.NewReader(doc)); err == nil {
+			b.Fatal("FormatXML() succeeded")
+		}
+	}
+}
+
+func BenchmarkCompileDuplicateSchemaSources(b *testing.B) {
+	schema := largeSchemaWithText(64 << 10)
+	sources := make([]SchemaSource, 8)
+	for i := range sources {
+		sources[i] = sourceBytes(fmt.Sprintf("schema%d.xsd", i), []byte(schema))
+	}
+	b.SetBytes(int64(len(schema) * len(sources)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := Compile(sources...); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkCompileSchemaText(b *testing.B) {
+	schema := largeSchemaWithText(256 << 10)
+	b.SetBytes(int64(len(schema)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkFormatXMLLargeAttribute(b *testing.B) {
+	value := strings.Repeat("a", 64<<10)
+	doc := `<root a="` + value + `"/>`
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		var out strings.Builder
+		if err := FormatXML(&out, strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkFormatXMLMixedEscapedAttribute(b *testing.B) {
+	value := strings.Repeat("abc&amp;&#10;&quot;", 4096)
+	doc := `<root a="` + value + `"/>`
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		var out strings.Builder
+		if err := FormatXML(&out, strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -161,6 +243,108 @@ func BenchmarkValidateIdentityConstraints(b *testing.B) {
 	}
 }
 
+func BenchmarkValidateIdentityConstraintsRows(b *testing.B) {
+	for _, rows := range []int{10, 100, 1000} {
+		b.Run(fmt.Sprintf("rows_%d", rows), func(b *testing.B) {
+			engine, err := Compile(sourceBytes("schema.xsd", []byte(identityBenchmarkSchema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			doc := identityBenchmarkDoc(rows)
+			b.SetBytes(int64(len(doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := engine.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
+	for _, refs := range []int{1, 10, 100, 1000} {
+		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
+			value := simpleValue{IDRefs: benchmarkIDREFS(refs)}
+			s := &session{path: []string{"root", "refs"}}
+			b.ReportAllocs()
+			for b.Loop() {
+				s.idrefs = s.idrefs[:0]
+				s.identityEntries = 0
+				if err := s.recordIdentityValue(value, 1, 1); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkValidateIdentityConstraintsFields(b *testing.B) {
+	for _, fields := range []int{1, 3, 8} {
+		b.Run(fmt.Sprintf("fields_%d", fields), func(b *testing.B) {
+			engine, err := Compile(sourceBytes("schema.xsd", []byte(identityFieldsBenchmarkSchema(fields))))
+			if err != nil {
+				b.Fatal(err)
+			}
+			doc := identityFieldsBenchmarkDoc(fields, 100)
+			b.SetBytes(int64(len(doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := engine.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkCompileCountedChoiceDFA(b *testing.B) {
+	tests := []struct {
+		name      string
+		branches  int
+		maxOccurs int
+	}{
+		{name: "small", branches: 4, maxOccurs: 4},
+		{name: "medium", branches: 8, maxOccurs: 8},
+		{name: "large", branches: 12, maxOccurs: 12},
+	}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			schema := countedChoiceDFASchema(tt.branches, tt.maxOccurs)
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkCompileAttributeGroupFanout(b *testing.B) {
+	for _, refs := range []int{1, 10, 100, 1000} {
+		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
+			schema := attributeGroupFanoutSchema(refs)
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkCompileRegexCategoryEscapes(b *testing.B) {
+	schema := regexCategoryEscapesSchema(100)
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateConcurrent(b *testing.B) {
 	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
@@ -198,6 +382,35 @@ func benchmarkDoc(rows int) string {
 		b.WriteString(`</id><name>alpha</name><amount>42.50</amount></row>`)
 	}
 	b.WriteString("</rows>")
+	return b.String()
+}
+
+func benchmarkIDREFS(refs int) string {
+	var b strings.Builder
+	for i := range refs {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		_, _ = fmt.Fprintf(&b, "id%d", i)
+	}
+	return b.String()
+}
+
+func duplicateAttributeDoc(attrs int) string {
+	var b strings.Builder
+	b.WriteString("<root")
+	for i := range attrs {
+		fmt.Fprintf(&b, ` a%d="%d"`, i, i)
+	}
+	fmt.Fprintf(&b, ` a%d="dup"/>`, attrs-1)
+	return b.String()
+}
+
+func largeSchemaWithText(n int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test"><xs:annotation><xs:documentation>`)
+	b.WriteString(strings.Repeat("x", n))
+	b.WriteString(`</xs:documentation></xs:annotation><xs:element name="root" type="xs:string"/></xs:schema>`)
 	return b.String()
 }
 
@@ -256,5 +469,65 @@ func identityBenchmarkDoc(rows int) string {
 		b.WriteString(`/>`)
 	}
 	b.WriteString("</rows>")
+	return b.String()
+}
+
+func identityFieldsBenchmarkSchema(fields int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="rows"><xs:complexType><xs:sequence><xs:element name="row" maxOccurs="unbounded"><xs:complexType>`)
+	for i := range fields {
+		fmt.Fprintf(&b, `<xs:attribute name="k%d" type="xs:string" use="required"/>`, i)
+	}
+	b.WriteString(`</xs:complexType></xs:element></xs:sequence></xs:complexType><xs:key name="rowKey"><xs:selector xpath="row"/>`)
+	for i := range fields {
+		fmt.Fprintf(&b, `<xs:field xpath="@k%d"/>`, i)
+	}
+	b.WriteString(`</xs:key></xs:element></xs:schema>`)
+	return b.String()
+}
+
+func identityFieldsBenchmarkDoc(fields, rows int) string {
+	var b strings.Builder
+	b.WriteString("<rows>")
+	for row := range rows {
+		b.WriteString(`<row`)
+		for field := range fields {
+			fmt.Fprintf(&b, ` k%d="v%d-%d"`, field, row, field)
+		}
+		b.WriteString(`/>`)
+	}
+	b.WriteString("</rows>")
+	return b.String()
+}
+
+func countedChoiceDFASchema(branches, maxOccurs int) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:choice minOccurs="0" maxOccurs="%d">`, maxOccurs)
+	for i := range branches {
+		fmt.Fprintf(&b, `<xs:element name="e%d" type="xs:string"/>`, i)
+	}
+	b.WriteString(`</xs:choice></xs:complexType></xs:element></xs:schema>`)
+	return b.String()
+}
+
+func attributeGroupFanoutSchema(refs int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	b.WriteString(`<xs:attributeGroup name="common"><xs:attribute name="code" type="xs:string"/></xs:attributeGroup>`)
+	for i := range refs {
+		fmt.Fprintf(&b, `<xs:complexType name="T%d"><xs:attributeGroup ref="common"/></xs:complexType>`, i)
+		fmt.Fprintf(&b, `<xs:element name="e%d" type="T%d"/>`, i, i)
+	}
+	b.WriteString(`</xs:schema>`)
+	return b.String()
+}
+
+func regexCategoryEscapesSchema(types int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	for i := range types {
+		fmt.Fprintf(&b, `<xs:simpleType name="T%d"><xs:restriction base="xs:string"><xs:pattern value="\p{Lu}"/></xs:restriction></xs:simpleType>`, i)
+	}
+	b.WriteString(`</xs:schema>`)
 	return b.String()
 }

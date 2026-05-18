@@ -134,20 +134,20 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse,
 	if use.Prohibited {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "prohibited attribute "+rn.Local)
 	}
-	canon, err := validateSimpleValue(rt, use.Type, value, s.resolveLexicalQNameValue)
+	simple, err := validateSimpleValueInfo(rt, use.Type, value, s.resolveLexicalQNameValue)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
 		}
 		return validation(ErrValidationFacet, line, col, s.pathString(), "invalid attribute "+rn.Local+": "+err.Error())
 	}
-	if err := s.recordAttributeIdentity(use.Type, canon, line, col, seenIDAttr); err != nil {
+	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	if err := s.captureIdentityAttribute(use.Name, use.Type, canon, line, col); err != nil {
+	if err := s.captureIdentityAttribute(use.Name, simple.Type, simple.Canonical, line, col); err != nil {
 		return err
 	}
-	return s.validateFixedAttributeValue(use, canon, rn, line, col)
+	return s.validateFixedAttributeValue(use, simple.Canonical, rn, line, col)
 }
 
 func (s *session) validateFixedAttributeValue(use attributeUse, canon string, rn runtimeName, line, col int) error {
@@ -186,17 +186,17 @@ func (s *session) validateWildcardAttribute(rt *runtimeSchema, set attributeUseS
 }
 
 func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attributeDecl, rn runtimeName, value string, line, col int, seenIDAttr *bool) error {
-	canon, err := validateSimpleValue(rt, decl.Type, value, s.resolveLexicalQNameValue)
+	simple, err := validateSimpleValueInfo(rt, decl.Type, value, s.resolveLexicalQNameValue)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
 		}
 		return validation(ErrValidationFacet, line, col, s.pathString(), "invalid wildcard attribute "+rn.Local)
 	}
-	if err := s.recordAttributeIdentity(decl.Type, canon, line, col, seenIDAttr); err != nil {
+	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	return s.captureIdentityAttribute(decl.Name, decl.Type, canon, line, col)
+	return s.captureIdentityAttribute(decl.Name, simple.Type, simple.Canonical, line, col)
 }
 
 func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
@@ -215,18 +215,18 @@ func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set att
 		if use.Required {
 			continue
 		}
-		canon := use.DefaultCanonical
+		simple := use.DefaultValue
 		if use.HasFixed {
-			canon = use.FixedCanonical
+			simple = use.FixedValue
 		}
-		if err := s.recordAttributeIdentity(use.Type, canon, line, col, seenIDAttr); err != nil {
+		if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
 				return recoverErr
 			}
 			continue
 		}
-		if err := s.captureIdentityAttribute(use.Name, use.Type, canon, line, col); err != nil {
+		if err := s.captureIdentityAttribute(use.Name, simple.Type, simple.Canonical, line, col); err != nil {
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
 				return recoverErr
@@ -236,30 +236,60 @@ func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set att
 	return nil
 }
 
-func (s *session) recordSchemaLocationHints(attrs []xml.Attr) {
+func (s *session) recordSchemaLocationHints(attrs []xml.Attr, line, col int) error {
 	for _, a := range attrs {
 		if a.Name.Space != xsiNamespaceURI {
 			continue
 		}
 		switch a.Name.Local {
 		case "schemaLocation":
-			var namespace string
-			haveNamespace := false
-			for field := range strings.FieldsSeq(a.Value) {
-				if !haveNamespace {
-					namespace = field
-					haveNamespace = true
-					continue
-				}
-				s.addSchemaLocationHint(namespace)
-				haveNamespace = false
+			if err := s.recordNamespaceSchemaLocationHints(a.Value, line, col); err != nil {
+				return err
 			}
 		case "noNamespaceSchemaLocation":
-			if strings.TrimSpace(a.Value) != "" {
-				s.addSchemaLocationHint("")
+			if err := s.recordNoNamespaceSchemaLocationHint(a.Value, line, col); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+func (s *session) recordNamespaceSchemaLocationHints(value string, line, col int) error {
+	var namespace string
+	var namespaces []string
+	haveNamespace := false
+	for field := range strings.FieldsSeq(value) {
+		if !isAnyURI(field) {
+			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:schemaLocation URI "+field)
+		}
+		if !haveNamespace {
+			namespace = field
+			haveNamespace = true
+			continue
+		}
+		namespaces = append(namespaces, namespace)
+		haveNamespace = false
+	}
+	if haveNamespace {
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:schemaLocation must contain namespace/location pairs")
+	}
+	for _, ns := range namespaces {
+		s.addSchemaLocationHint(ns)
+	}
+	return nil
+}
+
+func (s *session) recordNoNamespaceSchemaLocationHint(value string, line, col int) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:noNamespaceSchemaLocation is empty")
+	}
+	if !isAnyURI(value) {
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:noNamespaceSchemaLocation URI "+value)
+	}
+	s.addSchemaLocationHint("")
+	return nil
 }
 
 func (s *session) addSchemaLocationHint(ns string) {

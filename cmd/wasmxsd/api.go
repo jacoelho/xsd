@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	maxXMLBytes          = 2 << 20
-	maxFormattedXMLBytes = maxXMLBytes
-	maxXSDBytes          = 1 << 20
-	maxValidationErrors  = 100
+	maxXMLBytes          int64 = 2 << 20
+	maxFormattedXMLBytes       = maxXMLBytes
+	maxXSDBytes          int64 = 1 << 20
+	maxValidationErrors        = 100
 )
 
 type formatResponse struct {
@@ -43,7 +43,7 @@ func formatXMLData(input string) formatResponse {
 	if input == "" {
 		return formatResponse{Error: "XML cannot be empty", Line: 1, Column: 1}
 	}
-	if len(input) > maxXMLBytes {
+	if int64(len(input)) > maxXMLBytes {
 		return formatResponse{Error: fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes))}
 	}
 
@@ -63,11 +63,11 @@ func formatXMLData(input string) formatResponse {
 
 type limitedBuilder struct {
 	builder strings.Builder
-	limit   int
+	limit   int64
 }
 
 func (w *limitedBuilder) Write(p []byte) (int, error) {
-	if w.builder.Len()+len(p) > w.limit {
+	if int64(w.builder.Len()+len(p)) > w.limit {
 		return 0, fmt.Errorf("formatted XML exceeds %s limit", byteLimit(w.limit))
 	}
 	return w.builder.Write(p)
@@ -81,13 +81,13 @@ func validateXMLData(xmlText, xsdText string) validateResponse {
 	if xmlText == "" {
 		return validateResponse{Error: "XML cannot be empty"}
 	}
-	if len(xmlText) > maxXMLBytes {
+	if int64(len(xmlText)) > maxXMLBytes {
 		return validateResponse{Error: fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes))}
 	}
 	if strings.TrimSpace(xsdText) == "" {
 		return validateResponse{Error: "XSD is empty"}
 	}
-	if len(xsdText) > maxXSDBytes {
+	if int64(len(xsdText)) > maxXSDBytes {
 		return validateResponse{Error: fmt.Sprintf("XSD exceeds %s limit", byteLimit(maxXSDBytes))}
 	}
 
@@ -158,7 +158,7 @@ func errorMessage(err error) string {
 	return err.Error()
 }
 
-func byteLimit(n int) string {
+func byteLimit(n int64) string {
 	if n%(1<<20) == 0 {
 		return fmt.Sprintf("%d MiB", n/(1<<20))
 	}

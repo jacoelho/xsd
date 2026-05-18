@@ -30,17 +30,52 @@ func validWhitespaceRestriction(base, next whitespaceMode) bool {
 }
 
 func facetAllowedForType(st simpleType, name string) bool {
-	if st.Variety == varietyAtomic {
-		return true
-	}
-	if st.Variety == varietyUnion {
+	switch st.Variety {
+	case varietyAtomic:
+		return atomicFacetAllowed(st.Primitive, name)
+	case varietyList:
+		switch name {
+		case "length", "minLength", "maxLength", "pattern", "enumeration", "whiteSpace":
+			return true
+		default:
+			return false
+		}
+	case varietyUnion:
 		return name == "pattern" || name == "enumeration"
 	}
+	return false
+}
+
+func atomicFacetAllowed(kind primitiveKind, name string) bool {
 	switch name {
-	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive", "totalDigits", "fractionDigits":
-		return false
-	default:
+	case "pattern", "enumeration", "whiteSpace":
 		return true
+	case "length", "minLength", "maxLength":
+		return primitiveHasLengthFacet(kind)
+	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
+		return primitiveHasOrderFacet(kind)
+	case "totalDigits", "fractionDigits":
+		return kind == primDecimal
+	}
+	return false
+}
+
+func primitiveHasLengthFacet(kind primitiveKind) bool {
+	switch kind {
+	case primString, primAnyURI, primHexBinary, primBase64Binary, primQName, primNotation:
+		return true
+	default:
+		return false
+	}
+}
+
+func primitiveHasOrderFacet(kind primitiveKind) bool {
+	switch kind {
+	case primDecimal, primFloat, primDouble, primDuration, primDateTime, primTime, primDate,
+		primGYearMonth, primGYear, primGMonthDay, primGDay, primGMonth:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -80,20 +115,28 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base si
 		if child.Name.Local == "simpleType" {
 			continue
 		}
-		if !facetAllowedForType(*st, child.Name.Local) {
-			return schemaCompile(ErrSchemaFacet, "facet "+child.Name.Local+" is not allowed")
-		}
-		value, hasValue := child.attr("value")
 		switch child.Name.Local {
 		case "length", "minLength", "maxLength", "totalDigits", "fractionDigits":
-			if err := compileSizeFacet(st, child.Name.Local, value, hasValue); err != nil {
+			value, err := checkedFacetValue(*st, child)
+			if err != nil {
+				return err
+			}
+			if err := compileSizeFacet(st, child.Name.Local, value); err != nil {
 				return err
 			}
 		case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
+			value, err := checkedFacetValue(*st, child)
+			if err != nil {
+				return err
+			}
 			if err := c.compileBoundFacet(st, base, child, value, &state.orderedStep); err != nil {
 				return err
 			}
 		case "enumeration":
+			value, err := checkedFacetValue(*st, child)
+			if err != nil {
+				return err
+			}
 			lit, err := c.compileLiteral(base, value, c.schemaQNameResolver(child))
 			if err != nil {
 				return err
@@ -101,13 +144,21 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base si
 			state.restrictedEnumeration = append(state.restrictedEnumeration, lit)
 			state.sawEnumeration = true
 		case "pattern":
+			value, err := checkedFacetValue(*st, child)
+			if err != nil {
+				return err
+			}
 			p, err := compilePattern(value)
 			if err != nil {
 				return err
 			}
 			state.stepPatterns = append(state.stepPatterns, p)
 		case "whiteSpace":
-			if err := c.compileWhitespaceFacet(st, base, value, hasValue); err != nil {
+			value, err := checkedFacetValue(*st, child)
+			if err != nil {
+				return err
+			}
+			if err := c.compileWhitespaceFacet(st, base, value); err != nil {
 				return err
 			}
 		default:
@@ -119,10 +170,26 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base si
 	return nil
 }
 
-func compileSizeFacet(st *simpleType, name, value string, hasValue bool) error {
-	if !hasValue {
-		return schemaCompile(ErrSchemaFacet, name+" missing value")
+func checkedFacetValue(st simpleType, n *rawNode) (string, error) {
+	value, err := requiredFacetValue(n)
+	if err != nil {
+		return "", err
 	}
+	if !facetAllowedForType(st, n.Name.Local) {
+		return "", schemaCompile(ErrSchemaFacet, "facet "+n.Name.Local+" is not allowed")
+	}
+	return value, nil
+}
+
+func requiredFacetValue(n *rawNode) (string, error) {
+	value, ok := n.attr("value")
+	if !ok {
+		return "", schemaCompile(ErrSchemaFacet, n.Name.Local+" missing value")
+	}
+	return value, nil
+}
+
+func compileSizeFacet(st *simpleType, name, value string) error {
 	n, err := strconv.ParseUint(value, 10, 32)
 	if err != nil {
 		return schemaCompile(ErrSchemaFacet, "invalid "+name+" facet "+value)
@@ -168,9 +235,9 @@ func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *r
 	return nil
 }
 
-func (c *compiler) compileWhitespaceFacet(st *simpleType, base simpleTypeID, value string, hasValue bool) error {
+func (c *compiler) compileWhitespaceFacet(st *simpleType, base simpleTypeID, value string) error {
 	mode, ok := parseWhitespaceChecked(value)
-	if !hasValue || !ok {
+	if !ok {
 		return schemaCompile(ErrSchemaFacet, "invalid whiteSpace facet "+value)
 	}
 	if !validWhitespaceRestriction(c.rt.SimpleTypes[base].Whitespace, mode) {

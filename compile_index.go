@@ -77,7 +77,10 @@ func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) 
 	if !ok {
 		return nil
 	}
-	q := c.rt.Names.InternQName(ctx.targetNS, name)
+	q, err := c.rt.Names.InternQName(ctx.targetNS, name)
+	if err != nil {
+		return err
+	}
 	label := c.rt.Names.Format(q)
 	component := rawComponent{child, ctx}
 	switch child.Name.Local {
@@ -197,7 +200,10 @@ func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
 			return schemaCompile(ErrSchemaInvalidAttribute, "notation requires public or system")
 		}
 	}
-	q := c.rt.Names.InternQName(ctx.targetNS, name)
+	q, err := c.rt.Names.InternQName(ctx.targetNS, name)
+	if err != nil {
+		return err
+	}
 	key := c.rt.Names.Format(q)
 	if c.rt.Notations[key] {
 		return schemaCompile(ErrSchemaDuplicate, "duplicate notation "+key)

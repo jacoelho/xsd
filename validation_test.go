@@ -18,6 +18,35 @@ func TestInstanceUTF8BOMBeforeRootIsIgnored(t *testing.T) {
 	}
 }
 
+func TestDeclaredXMLVersionScanner(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{`<root/>`, ""},
+		{`<?xml version="1.0" encoding="UTF-8"?><root/>`, "1.0"},
+		{`<?xml version='1.0'?><root/>`, "1.0"},
+		{`<?xml encoding="UTF-8" version="1.1"?><root/>`, "1.1"},
+		{`<?xml-stylesheet version="1.0"?><root/>`, ""},
+	}
+	for _, tt := range tests {
+		if got := declaredXMLVersion([]byte(tt.in)); got != tt.want {
+			t.Fatalf("declaredXMLVersion(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestXMLVersionWithBOM(t *testing.T) {
+	schema := "\ufeff<?xml version='1.0'?><xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:element name=\"root\"/></xs:schema>"
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if err := engine.Validate(strings.NewReader("\ufeff<?xml version='1.0'?><root/>")); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
 type zeroReadThenStringReader struct {
 	s        string
 	off      int
@@ -73,6 +102,14 @@ func TestInstanceAttributeCharacterReferencesUseSeparateParserScratch(t *testing
 func TestInstanceAttributeCRLFMatchesSchemaLineEndingNormalization(t *testing.T) {
 	engine := mustCompile(t, "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:element name=\"r\"><xs:complexType><xs:attribute name=\"a\" type=\"xs:anySimpleType\" fixed=\"x\ny\"/></xs:complexType></xs:element></xs:schema>")
 	mustValidate(t, engine, "<r a=\"x\r\ny\"/>")
+}
+
+func TestInstanceCDATALineEndingsMatchSchemaLineEndingNormalization(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r" type="xs:string"/></xs:schema>`)
+	err := engine.ValidateWithOptions(strings.NewReader("<r><![CDATA[a\r\nb]]></r>"), ValidateOptions{MaxInstanceTextBytes: 3})
+	if err != nil {
+		t.Fatalf("ValidateWithOptions() error = %v", err)
+	}
 }
 
 func TestInvalidSchemaAttributeCombinations(t *testing.T) {
@@ -577,6 +614,45 @@ func TestInvalidDefaultAndFixedValuesAreSchemaErrors(t *testing.T) {
 	expectCode(t, err, ErrSchemaInvalidAttribute)
 }
 
+func TestInvalidSchemaQNamesAreSchemaErrors(t *testing.T) {
+	tests := []string{
+		`<xs:element name="root" type="1bad"/>`,
+		`<xs:element name="root" xmlns:t="urn:t" type="t:1bad"/>`,
+	}
+	for _, decl := range tests {
+		t.Run(decl, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+decl+`</xs:schema>`)))
+			expectCode(t, err, ErrSchemaReference)
+			if !strings.Contains(err.Error(), "invalid QName") {
+				t.Fatalf("Compile() error = %v, want invalid QName", err)
+			}
+		})
+	}
+}
+
+func TestInvalidIdentityConstraintQNamesAreSchemaErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		selector string
+		field    string
+	}{
+		{name: "selector", selector: "1bad", field: "@id"},
+		{name: "field", selector: ".", field: "@1bad"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType>
+    <xs:key name="k"><xs:selector xpath="`+tt.selector+`"/><xs:field xpath="`+tt.field+`"/></xs:key>
+  </xs:element>
+</xs:schema>`)))
+			expectCode(t, err, ErrSchemaReference)
+		})
+	}
+}
+
 func TestEmptyFixedValuesAreEnforced(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -635,6 +711,37 @@ func TestXLinkBuiltInAttributesCanBeReferenced(t *testing.T) {
 </xs:schema>`)
 	mustValidate(t, engine, `<root xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="target.xml"/>`)
 	mustNotValidate(t, engine, `<root/>`, ErrValidationAttribute)
+}
+
+func TestChildXSITypeUsesSchemaLocationHintForKnownQNameWithoutType(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t" xmlns:t="urn:t" elementFormDefault="qualified">
+  <xs:element name="HintedType"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence><xs:element name="child" type="xs:anyType"/></xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<t:root xmlns:t="urn:t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><t:child xsi:type="t:HintedType" xsi:schemaLocation="urn:t hinted.xsd"/></t:root>`))
+	expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedSchemaHint)
+}
+
+func TestMalformedXSISchemaLocationIsValidationAttributeError(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	tests := []string{
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:t"/>`,
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:t %zz"/>`,
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:t="urn:t" xsi:type="t:Missing" xsi:schemaLocation="urn:t hinted.xsd urn:u"/>`,
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation=""/>`,
+		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="%zz"/>`,
+	}
+	for _, doc := range tests {
+		t.Run(doc, func(t *testing.T) {
+			err := engine.Validate(strings.NewReader(doc))
+			expectCode(t, err, ErrValidationAttribute)
+		})
+	}
 }
 
 func TestStandardAttributeSchemasDoNotDuplicateBuiltIns(t *testing.T) {
@@ -856,7 +963,7 @@ func TestValidateCollectsRecoverableErrors(t *testing.T) {
 
 func TestValidateWithOptionsLimitsErrors(t *testing.T) {
 	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
       <xs:sequence>
@@ -876,6 +983,104 @@ func TestValidateWithOptionsLimitsErrors(t *testing.T) {
 	expectCode(t, err, ErrValidationFacet)
 }
 
+func TestValidateOptionsRejectNegativeLimits(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	tests := []ValidateOptions{
+		{MaxErrors: -1},
+		{MaxIdentityScopes: -1},
+		{MaxIdentityEntries: -1},
+		{MaxIdentityTupleBytes: -1},
+		{MaxInstanceDepth: -1},
+		{MaxInstanceAttributes: -1},
+		{MaxInstanceTextBytes: -1},
+		{MaxInstanceTokenBytes: -1},
+	}
+	for _, opts := range tests {
+		err := engine.ValidateWithOptions(strings.NewReader(`<root/>`), opts)
+		expectCode(t, err, ErrValidationOption)
+		if _, err := engine.NewSession(opts); err == nil {
+			t.Fatalf("NewSession(%+v) succeeded", opts)
+		} else {
+			expectCode(t, err, ErrValidationOption)
+		}
+	}
+}
+
+func TestValidateWithOptionsInstanceLimits(t *testing.T) {
+	anyRoot := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	stringRoot := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
+	shortString := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r" type="xs:string"/></xs:schema>`)
+	tests := []struct {
+		name   string
+		engine *Engine
+		doc    string
+		opts   ValidateOptions
+	}{
+		{
+			name:   "depth",
+			engine: anyRoot,
+			doc:    `<root><a><b/></a></root>`,
+			opts:   ValidateOptions{MaxInstanceDepth: 2},
+		},
+		{
+			name:   "attributes",
+			engine: anyRoot,
+			doc:    `<root a="1" b="2"/>`,
+			opts:   ValidateOptions{MaxInstanceAttributes: 1},
+		},
+		{
+			name:   "text",
+			engine: stringRoot,
+			doc:    `<root>abcd</root>`,
+			opts:   ValidateOptions{MaxInstanceTextBytes: 3},
+		},
+		{
+			name:   "token",
+			engine: shortString,
+			doc:    `<r>abcd</r>`,
+			opts:   ValidateOptions{MaxInstanceTokenBytes: 3},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.engine.ValidateWithOptions(strings.NewReader(tt.doc), tt.opts)
+			expectCode(t, err, ErrValidationLimit)
+		})
+	}
+}
+
+func TestValidateRejectsLargeDuplicateAttributes(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	var doc strings.Builder
+	doc.WriteString("<root")
+	for i := range 40 {
+		doc.WriteString(` a`)
+		doc.WriteString(strconv.Itoa(i))
+		doc.WriteString(`="`)
+		doc.WriteString(strconv.Itoa(i))
+		doc.WriteByte('"')
+	}
+	doc.WriteString(` a39="dup"/>`)
+	err := engine.Validate(strings.NewReader(doc.String()))
+	expectCode(t, err, ErrValidationXML)
+}
+
+func TestValidateRejectsExpandedDuplicateAttributes(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+	var doc strings.Builder
+	doc.WriteString(`<root xmlns:a="urn:x" xmlns:b="urn:x"`)
+	for i := range 40 {
+		doc.WriteString(` c`)
+		doc.WriteString(strconv.Itoa(i))
+		doc.WriteString(`="`)
+		doc.WriteString(strconv.Itoa(i))
+		doc.WriteByte('"')
+	}
+	doc.WriteString(` a:id="1" b:id="2"/>`)
+	err := engine.Validate(strings.NewReader(doc.String()))
+	expectCode(t, err, ErrValidationXML)
+}
+
 func TestSessionValidateResetsDocumentState(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -892,9 +1097,12 @@ func TestSessionValidateResetsDocumentState(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	session := engine.NewSession(ValidateOptions{MaxErrors: 1})
+	session, err := engine.NewSession(ValidateOptions{MaxErrors: 1})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
 
-	err := session.Validate(strings.NewReader(`<root><node ref="missing1"/><node ref="missing2"/></root>`))
+	err = session.Validate(strings.NewReader(`<root><node ref="missing1"/><node ref="missing2"/></root>`))
 	if err == nil {
 		t.Fatal("Session.Validate() succeeded")
 	}
