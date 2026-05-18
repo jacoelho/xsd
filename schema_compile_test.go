@@ -272,6 +272,16 @@ func TestRestrictionElementCanUseSubstitutionMember(t *testing.T) {
 </xs:schema>`)
 }
 
+func TestSubstitutionMemberInheritsHeadType(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:int"/>
+  <xs:element name="member" substitutionGroup="head"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<member>1</member>`)
+	mustNotValidate(t, engine, `<member>x</member>`, ErrValidationFacet)
+}
+
 func TestAnonymousLocalTypeCanRestrictContainingType(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns="urn:test">
