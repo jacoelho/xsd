@@ -139,65 +139,85 @@ func validateFloatFacetBounds(kind primitiveKind, f facetSet) error {
 	if kind == primFloat {
 		bits = 32
 	}
-	lower, lowerExclusive, hasLower, err := floatLowerBound(bits, f)
+	lower, err := floatLowerBound(bits, f)
 	if err != nil {
 		return err
 	}
-	upper, upperExclusive, hasUpper, err := floatUpperBound(bits, f)
+	upper, err := floatUpperBound(bits, f)
 	if err != nil {
 		return err
 	}
-	if !hasLower || !hasUpper {
+	if !lower.present() || !upper.present() {
 		return nil
 	}
-	if !(lower <= upper) || lower == upper && (lowerExclusive || upperExclusive) {
+	if !(lower.value <= upper.value) || lower.value == upper.value && (lower.exclusive() || upper.exclusive()) {
 		return fmt.Errorf("float lower bound cannot exceed upper bound")
 	}
 	return nil
 }
 
-func facetBoundCanonical[T any](inclusive, exclusive *compiledLiteral, parse func(string) (T, error), preferExclusive func(T, T) bool) (T, bool, bool, error) {
+type facetBoundKind uint8
+
+const (
+	facetBoundAbsent facetBoundKind = iota
+	facetBoundInclusive
+	facetBoundExclusive
+)
+
+type orderedFacetBound[T any] struct {
+	value T
+	kind  facetBoundKind
+}
+
+func (b orderedFacetBound[T]) present() bool {
+	return b.kind != facetBoundAbsent
+}
+
+func (b orderedFacetBound[T]) exclusive() bool {
+	return b.kind == facetBoundExclusive
+}
+
+func facetBoundCanonical[T any](inclusive, exclusive *compiledLiteral, parse func(string) (T, error), preferExclusive func(T, T) bool) (orderedFacetBound[T], error) {
 	return facetBound(inclusive, exclusive, func(l *compiledLiteral) string { return l.Canonical }, parse, preferExclusive)
 }
 
-func facetBoundLexical[T any](inclusive, exclusive *compiledLiteral, parse func(string) (T, error), preferExclusive func(T, T) bool) (T, bool, bool, error) {
+func facetBoundLexical[T any](inclusive, exclusive *compiledLiteral, parse func(string) (T, error), preferExclusive func(T, T) bool) (orderedFacetBound[T], error) {
 	return facetBound(inclusive, exclusive, func(l *compiledLiteral) string { return l.Lexical }, parse, preferExclusive)
 }
 
-func facetBound[T any](inclusive, exclusive *compiledLiteral, text func(*compiledLiteral) string, parse func(string) (T, error), preferExclusive func(T, T) bool) (T, bool, bool, error) {
-	var zero T
+func facetBound[T any](inclusive, exclusive *compiledLiteral, text func(*compiledLiteral) string, parse func(string) (T, error), preferExclusive func(T, T) bool) (orderedFacetBound[T], error) {
 	if inclusive != nil {
 		out, err := parse(text(inclusive))
 		if err != nil {
-			return zero, false, false, err
+			return orderedFacetBound[T]{}, err
 		}
 		if exclusive != nil {
 			other, err := parse(text(exclusive))
 			if err != nil {
-				return zero, false, false, err
+				return orderedFacetBound[T]{}, err
 			}
 			if preferExclusive(other, out) {
-				return other, true, true, nil
+				return orderedFacetBound[T]{value: other, kind: facetBoundExclusive}, nil
 			}
 		}
-		return out, false, true, nil
+		return orderedFacetBound[T]{value: out, kind: facetBoundInclusive}, nil
 	}
 	if exclusive != nil {
 		out, err := parse(text(exclusive))
 		if err != nil {
-			return zero, false, false, err
+			return orderedFacetBound[T]{}, err
 		}
-		return out, true, true, nil
+		return orderedFacetBound[T]{value: out, kind: facetBoundExclusive}, nil
 	}
-	return zero, false, false, nil
+	return orderedFacetBound[T]{}, nil
 }
 
-func floatLowerBound(bits int, f facetSet) (float64, bool, bool, error) {
+func floatLowerBound(bits int, f facetSet) (orderedFacetBound[float64], error) {
 	parse := func(s string) (float64, error) { return parseXSDFloat(s, bits) }
 	return facetBoundCanonical(f.MinInclusive, f.MinExclusive, parse, func(other, out float64) bool { return other >= out })
 }
 
-func floatUpperBound(bits int, f facetSet) (float64, bool, bool, error) {
+func floatUpperBound(bits int, f facetSet) (orderedFacetBound[float64], error) {
 	parse := func(s string) (float64, error) { return parseXSDFloat(s, bits) }
 	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parse, func(other, out float64) bool { return other <= out })
 }

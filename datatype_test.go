@@ -323,6 +323,63 @@ func TestDateTimeBoundsUsePartialTimezoneOrder(t *testing.T) {
 	mustNotValidate(t, engine, `<d xmlns="urn:test">2000-01-20</d>`, ErrValidationFacet)
 }
 
+func TestTimeBoundsUsePartialTimezoneOrder(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="AfterNoonUTC">
+    <xs:restriction base="xs:time">
+      <xs:minInclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="BeforeNoonUTC">
+    <xs:restriction base="xs:time">
+      <xs:maxInclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="after" type="AfterNoonUTC"/>
+  <xs:element name="before" type="BeforeNoonUTC"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<after>12:00:00Z</after>`)
+	mustNotValidate(t, engine, `<after>12:00:00</after>`, ErrValidationFacet)
+	mustValidate(t, engine, `<before>12:00:00Z</before>`)
+	mustNotValidate(t, engine, `<before>12:00:00</before>`, ErrValidationFacet)
+}
+
+func TestTimeRestrictionRejectsIncomparableTimezoneBounds(t *testing.T) {
+	tests := []string{
+		`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:time">
+      <xs:minInclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Bad">
+    <xs:restriction base="Base">
+      <xs:minInclusive value="12:00:00"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+		`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:time">
+      <xs:maxInclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Bad">
+    <xs:restriction base="Base">
+      <xs:maxInclusive value="12:00:00"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+	}
+	for _, schema := range tests {
+		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+		expectCode(t, err, ErrSchemaFacet)
+	}
+}
+
 func TestAnyURIRejectsInvalidXSD10LexicalValues(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
