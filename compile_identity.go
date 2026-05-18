@@ -283,10 +283,7 @@ func (c *compiler) parseIdentityFieldPaths(n *rawNode, xpath string) ([]identity
 			continue
 		}
 		attr := false
-		var attrName qName
-		attrWildcard := false
-		attrNamespaceSet := false
-		var attrNamespace namespaceID
+		var attrName identityAttributeName
 		if strings.Contains(part, "@") {
 			elementPath, name, ok := strings.Cut(part, "@")
 			if !ok || name == "" {
@@ -298,7 +295,7 @@ func (c *compiler) parseIdentityFieldPaths(n *rawNode, xpath string) ([]identity
 				return nil, schemaCompile(ErrSchemaIdentity, "identity field XPath has empty element path")
 			}
 			var err error
-			attrName, attrWildcard, attrNamespaceSet, attrNamespace, err = c.parseIdentityAttributeName(n, name)
+			attrName, err = c.parseIdentityAttributeName(n, name)
 			if err != nil {
 				return nil, err
 			}
@@ -310,7 +307,7 @@ func (c *compiler) parseIdentityFieldPaths(n *rawNode, xpath string) ([]identity
 			if ok {
 				attr = true
 				part = elementPath
-				attrName, attrWildcard, attrNamespaceSet, attrNamespace, err = c.parseIdentityAttributeName(n, name)
+				attrName, err = c.parseIdentityAttributeName(n, name)
 				if err != nil {
 					return nil, err
 				}
@@ -324,7 +321,15 @@ func (c *compiler) parseIdentityFieldPaths(n *rawNode, xpath string) ([]identity
 				return nil, err
 			}
 		}
-		out = append(out, identityFieldPath{Descendant: desc, Attr: attr, AttrWildcard: attrWildcard, AttrNamespaceSet: attrNamespaceSet, AttrNamespace: attrNamespace, Steps: steps, Attribute: attrName})
+		out = append(out, identityFieldPath{
+			Descendant:       desc,
+			Attr:             attr,
+			AttrWildcard:     attrName.wildcard,
+			AttrNamespaceSet: attrName.namespaceSet,
+			AttrNamespace:    attrName.namespace,
+			Steps:            steps,
+			Attribute:        attrName.name,
+		})
 	}
 	return out, nil
 }
@@ -339,29 +344,39 @@ func parseIdentityDescendantPrefix(path string) (string, bool) {
 	return path, false
 }
 
-func (c *compiler) parseIdentityAttributeName(n *rawNode, name string) (qName, bool, bool, namespaceID, error) {
+type identityAttributeName struct {
+	name         qName
+	namespace    namespaceID
+	wildcard     bool
+	namespaceSet bool
+}
+
+func (c *compiler) parseIdentityAttributeName(n *rawNode, name string) (identityAttributeName, error) {
 	name = strings.TrimSpace(name)
 	switch name {
 	case "*":
-		return qName{}, true, false, 0, nil
+		return identityAttributeName{wildcard: true}, nil
 	default:
 		prefix, wildcard, err := parseQNamePrefixWildcard(name)
 		if err != nil {
-			return qName{}, false, false, 0, err
+			return identityAttributeName{}, err
 		}
 		if wildcard {
 			ns, ok := n.NS[prefix]
 			if !ok {
-				return qName{}, false, false, 0, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
+				return identityAttributeName{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
 			}
 			nsID, nsErr := c.rt.Names.InternNamespace(ns)
 			if nsErr != nil {
-				return qName{}, false, false, 0, nsErr
+				return identityAttributeName{}, nsErr
 			}
-			return qName{}, true, true, nsID, nil
+			return identityAttributeName{wildcard: true, namespaceSet: true, namespace: nsID}, nil
 		}
 		q, err := c.resolveXPathQName(n, name)
-		return q, false, false, 0, err
+		if err != nil {
+			return identityAttributeName{}, err
+		}
+		return identityAttributeName{name: q}, nil
 	}
 }
 

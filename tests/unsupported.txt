@@ -3,7 +3,6 @@ instance	w3c	w3c/msMeta/ComplexType_w3c.xml/ctL021	ctL021.v	unsupported.xsi_sche
 instance	w3c	w3c/msMeta/Notations_w3c.xml/notatH002v	notatH002v.i	unsupported.xsi_schema_location
 instance	w3c	w3c/msMeta/Notations_w3c.xml/notatH003	notatH003.i	unsupported.xsi_schema_location
 instance	w3c	w3c/msMeta/Particles_w3c.xml/particlesB013	particlesB013.v	unsupported.xsi_schema_location
-instance	w3c	w3c/msMeta/Particles_w3c.xml/particlesZ007	particlesZ007.i	unsupported.datetime_range
 instance	w3c	w3c/msMeta/Schema_w3c.xml/schA1	schA1.v	unsupported.xsi_schema_location
 instance	w3c	w3c/msMeta/Wildcards_w3c.xml/wildG005	wildG005.i	unsupported.xsi_schema_location
 instance	w3c	w3c/msMeta/Wildcards_w3c.xml/wildH001	wildH001.i	unsupported.xsi_schema_location
@@ -292,7 +291,6 @@ schema	w3c	w3c/msMeta/Regex_w3c.xml/reF49	unsupported.regex
 schema	w3c	w3c/msMeta/Regex_w3c.xml/reF50	unsupported.regex
 schema	w3c	w3c/msMeta/Regex_w3c.xml/reF51	unsupported.regex
 schema	w3c	w3c/msMeta/Regex_w3c.xml/reF56	unsupported.regex
-schema	w3c	w3c/msMeta/Regex_w3c.xml/reF57	unsupported.regex
 schema	w3c	w3c/msMeta/Regex_w3c.xml/reG18	unsupported.regex
 schema	w3c	w3c/msMeta/Regex_w3c.xml/reG19	unsupported.regex
 schema	w3c	w3c/msMeta/Regex_w3c.xml/reG20	unsupported.regex

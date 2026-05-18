@@ -635,7 +635,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(n *rawNode, baseID simpl
 	st.Final = 0
 	st.Facets = cloneFacetSet(base.Facets)
 	st.Union = slices.Clone(base.Union)
-	if err := c.compileFacets(facetChildrenNode(n), &st, baseID); err != nil {
+	if err := c.compileFacets(facetChildrenNode(n), &st, baseID, baseID); err != nil {
 		return noSimpleType, err
 	}
 	id := simpleTypeID(len(c.rt.SimpleTypes))

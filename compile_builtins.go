@@ -289,10 +289,42 @@ func (c *compiler) addBuiltinAtomicSimpleType(local string, primitive primitiveK
 		return noSimpleType, err
 	}
 	id := simpleTypeID(len(c.rt.SimpleTypes))
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primitive, Base: base, Whitespace: ws})
+	facets := facetSet{}
+	if base != noSimpleType && validUint32Index(uint32(base), len(c.rt.SimpleTypes)) {
+		facets = cloneFacetSet(c.rt.SimpleTypes[base].Facets)
+	}
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
+		Name:       q,
+		Variety:    varietyAtomic,
+		Primitive:  primitive,
+		Base:       base,
+		Whitespace: ws,
+		Facets:     facets,
+		Builtin:    builtinValidationForLocal(local),
+	})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
 	return id, nil
+}
+
+func builtinValidationForLocal(local string) builtinValidationKind {
+	switch local {
+	case "integer", "nonPositiveInteger", "negativeInteger", "nonNegativeInteger", "positiveInteger",
+		"long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
+		return builtinValidationInteger
+	case "Name":
+		return builtinValidationName
+	case "NCName", "ID", "IDREF":
+		return builtinValidationNCName
+	case "ENTITY":
+		return builtinValidationEntity
+	case "NMTOKEN":
+		return builtinValidationNMTOKEN
+	case "language":
+		return builtinValidationLanguage
+	default:
+		return builtinValidationNone
+	}
 }
 
 func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeID, minLength *uint32) (simpleTypeID, error) {
@@ -321,16 +353,34 @@ func (c *compiler) setBuiltinIntegerFacets(id simpleTypeID) {
 }
 
 func (c *compiler) setBuiltinMin(id simpleTypeID, v string) {
-	c.rt.SimpleTypes[id].Facets.MinInclusive = &compiledLiteral{Lexical: v, Canonical: v}
+	lit := builtinDecimalLiteral(v)
+	c.rt.SimpleTypes[id].Facets.MinInclusive = &lit
 }
 
 func (c *compiler) setBuiltinMax(id simpleTypeID, v string) {
-	c.rt.SimpleTypes[id].Facets.MaxInclusive = &compiledLiteral{Lexical: v, Canonical: v}
+	lit := builtinDecimalLiteral(v)
+	c.rt.SimpleTypes[id].Facets.MaxInclusive = &lit
 }
 
 func (c *compiler) setBuiltinRange(id simpleTypeID, minValue, maxValue string) {
 	c.setBuiltinMin(id, minValue)
 	c.setBuiltinMax(id, maxValue)
+}
+
+func builtinDecimalLiteral(v string) compiledLiteral {
+	dec, err := parseDecimal(v)
+	if err != nil {
+		return compiledLiteral{Lexical: v, Canonical: v}
+	}
+	return compiledLiteral{
+		Lexical:   v,
+		Canonical: dec.IntegerCanonical,
+		Actual: actualValue{
+			Kind:    primDecimal,
+			Valid:   true,
+			Decimal: dec,
+		},
+	}
 }
 
 func (c *compiler) addBuiltinAttribute(ns, local string, typ simpleTypeID) error {

@@ -83,6 +83,107 @@ func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
+	    <xs:simpleType>
+	      <xs:restriction base="xs:string">
+	        <xs:minLength value="1024"/>
+	      </xs:restriction>
+	    </xs:simpleType>
+	  </xs:element>
+	</xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := `<root>` + strings.Repeat("é", 1024) + `</root>`
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkParseDecimal(b *testing.B) {
+	for b.Loop() {
+		if _, err := parseDecimal("+000000000123456789.0000000012300"); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkParseXSDDate(b *testing.B) {
+	for b.Loop() {
+		if _, err := parseXSDDate("12026-05-18+14:00"); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkParseXSDDateTime(b *testing.B) {
+	for b.Loop() {
+		if _, err := parseXSDDateTimeValue("-12026-05-18T23:59:59.123456789123+14:00"); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkParseXSDTime(b *testing.B) {
+	for b.Loop() {
+		if _, err := parseXSDTimeValue("23:59:60.123456789123-14:00"); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateDateDecimalRows(b *testing.B) {
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="rows">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="row" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="when" type="xs:dateTime"/>
+              <xs:element name="amount" type="xs:decimal"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	var doc strings.Builder
+	doc.WriteString("<rows>")
+	for i := range 100 {
+		fmt.Fprintf(&doc, "<row><when>12026-05-%02dT23:59:60.123456789123+14:00</when><amount>+000%d.4500</amount></row>", i%28+1, i)
+	}
+	doc.WriteString("</rows>")
+	text := doc.String()
+	b.SetBytes(int64(len(text)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(text)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateSmallInvalidDocument(b *testing.B) {
 	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {

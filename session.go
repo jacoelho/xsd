@@ -173,13 +173,17 @@ const identityConflictPath = "\x00identity-conflict"
 
 type identitySelection struct {
 	Path       string
-	Values     []string
-	Present    []bool
+	Fields     []identityFieldValue
 	Scope      int
 	Depth      int
 	Line       int
 	Col        int
 	Constraint identityConstraintID
+}
+
+type identityFieldValue struct {
+	Value   string
+	Present bool
 }
 
 type frame struct {
