@@ -32,7 +32,6 @@ const (
 	ErrSchemaOccurrence       ErrorCode = "schema.occurrence"
 	ErrSchemaContentModel     ErrorCode = "schema.content_model"
 	ErrSchemaNoSources        ErrorCode = "schema.no_sources"
-	ErrSchemaMissingSource    ErrorCode = "schema.missing_source"
 	ErrSchemaInvalidAttribute ErrorCode = "schema.invalid_attribute"
 	ErrSchemaIdentity         ErrorCode = "schema.identity"
 	ErrSchemaLimit            ErrorCode = "schema.limit"
