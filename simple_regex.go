@@ -331,6 +331,9 @@ func (v *xsdRegexSyntaxValidator) closeClass() error {
 }
 
 func (v *xsdRegexSyntaxValidator) consumeClassHyphen(last int) error {
+	if v.classPendingRange {
+		return schemaCompile(ErrSchemaFacet, "invalid regex character range")
+	}
 	if v.classJustRange {
 		v.classLastHyphen = true
 		v.classHyphenAfter = true

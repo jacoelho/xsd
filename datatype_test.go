@@ -1100,6 +1100,7 @@ func TestInvalidRegexSyntaxIsSchemaError(t *testing.T) {
 		`[^a-d-b-c]`,
 		`[a-c-1-4x-z-7-9]*`,
 		`[a-a-x-x]+`,
+		`[000--0]`,
 		`\p{}0`,
 		`\p{0}`,
 		`\p{Is}`,
