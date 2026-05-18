@@ -18,6 +18,35 @@ func TestInstanceUTF8BOMBeforeRootIsIgnored(t *testing.T) {
 	}
 }
 
+func TestDeclaredXMLVersionScanner(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{`<root/>`, ""},
+		{`<?xml version="1.0" encoding="UTF-8"?><root/>`, "1.0"},
+		{`<?xml version='1.0'?><root/>`, "1.0"},
+		{`<?xml encoding="UTF-8" version="1.1"?><root/>`, "1.1"},
+		{`<?xml-stylesheet version="1.0"?><root/>`, ""},
+	}
+	for _, tt := range tests {
+		if got := declaredXMLVersion([]byte(tt.in)); got != tt.want {
+			t.Fatalf("declaredXMLVersion(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestXMLVersionWithBOM(t *testing.T) {
+	schema := "\ufeff<?xml version='1.0'?><xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"><xs:element name=\"root\"/></xs:schema>"
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if err := engine.Validate(strings.NewReader("\ufeff<?xml version='1.0'?><root/>")); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
 type zeroReadThenStringReader struct {
 	s        string
 	off      int

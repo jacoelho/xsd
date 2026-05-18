@@ -31,8 +31,10 @@ type nameTable struct {
 
 func newNameTable(maxNames int) (nameTable, error) {
 	n := nameTable{
-		nsIndex:    make(map[string]namespaceID),
-		localIndex: make(map[string]localNameID),
+		nsIndex:    make(map[string]namespaceID, 8),
+		localIndex: make(map[string]localNameID, builtinGlobalTypeCount),
+		namespaces: make([]string, 0, 8),
+		locals:     make([]string, 0, builtinGlobalTypeCount),
 		maxNames:   maxNames,
 	}
 	for _, uri := range []string{

@@ -1046,6 +1046,9 @@ func (p *xmlStreamParser) readPastSpace() (byte, bool, error) {
 }
 
 func (p *xmlStreamParser) readUntil(term string, dst []byte) ([]byte, error) {
+	if p.maxTokenBytes <= 0 {
+		return p.readUntilNoLimit(term, dst)
+	}
 	prefix := termPrefix(term)
 	matched := 0
 	for {
@@ -1068,7 +1071,27 @@ func (p *xmlStreamParser) readUntil(term string, dst []byte) ([]byte, error) {
 	}
 }
 
+func (p *xmlStreamParser) readUntilNoLimit(term string, dst []byte) ([]byte, error) {
+	prefix := termPrefix(term)
+	matched := 0
+	for {
+		b, err := p.br.readByte()
+		if err != nil {
+			return nil, p.syntaxError("unexpected EOF", err)
+		}
+		dst = append(dst, b)
+		matched = advanceTermMatch(term, prefix, matched, b)
+		if matched == len(term) {
+			return dst[:len(dst)-len(term)], nil
+		}
+	}
+}
+
 func (p *xmlStreamParser) appendTokenByte(dst *[]byte, b byte) error {
+	if p.maxTokenBytes <= 0 {
+		*dst = append(*dst, b)
+		return nil
+	}
 	if err := p.checkTokenBytes(int64(len(*dst) + 1)); err != nil {
 		return err
 	}
@@ -1077,6 +1100,10 @@ func (p *xmlStreamParser) appendTokenByte(dst *[]byte, b byte) error {
 }
 
 func (p *xmlStreamParser) appendTokenBytes(dst *[]byte, data []byte) error {
+	if p.maxTokenBytes <= 0 {
+		*dst = append(*dst, data...)
+		return nil
+	}
 	if err := p.checkTokenBytes(int64(len(*dst) + len(data))); err != nil {
 		return err
 	}

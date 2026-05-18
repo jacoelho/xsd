@@ -1,6 +1,8 @@
 package xsd
 
 import (
+	"bytes"
+	"encoding/xml"
 	"strings"
 	"testing"
 )
@@ -400,6 +402,57 @@ func TestCompileOptionsSchemaSourceByteLimit(t *testing.T) {
 
 	_, err := CompileWithOptions(CompileOptions{MaxSchemaSourceBytes: int64(len(schema) - 1)}, sourceBytes("schema.xsd", []byte(schema)))
 	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+}
+
+func TestSchemaNamespaceContextsAreIsolated(t *testing.T) {
+	dec := xml.NewDecoder(bytes.NewReader([]byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:test"
+           xmlns="urn:test"
+           targetNamespace="urn:test">
+  <xs:simpleType name="base"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:annotation xmlns:t="urn:other" xmlns="">
+    <xs:documentation>namespace reset must stay local</xs:documentation>
+  </xs:annotation>
+  <xs:element name="prefixed" type="t:base"/>
+  <xs:element name="defaulted" type="base"/>
+  <xs:element name="local" xmlns:u="urn:test" type="u:base"/>
+</xs:schema>`)))
+	state := schemaParseState{
+		dec: dec,
+		nsStack: []map[string]string{{
+			"xml": xmlNamespaceURI,
+		}},
+	}
+	if err := state.parse(); err != nil {
+		t.Fatalf("parse() error = %v", err)
+	}
+	root := state.root
+	if got := root.NS["t"]; got != "urn:test" {
+		t.Fatalf("root prefix t = %q, want urn:test", got)
+	}
+	if got := root.NS[""]; got != "urn:test" {
+		t.Fatalf("root default namespace = %q, want urn:test", got)
+	}
+	annotation := root.Children[1]
+	if got := annotation.NS["t"]; got != "urn:other" {
+		t.Fatalf("annotation prefix t = %q, want urn:other", got)
+	}
+	if got := annotation.NS[""]; got != "" {
+		t.Fatalf("annotation default namespace = %q, want empty", got)
+	}
+	prefixed := root.Children[2]
+	if got := prefixed.NS["t"]; got != "urn:test" {
+		t.Fatalf("sibling prefix t = %q, want urn:test", got)
+	}
+	defaulted := root.Children[3]
+	if got := defaulted.NS[""]; got != "urn:test" {
+		t.Fatalf("sibling default namespace = %q, want urn:test", got)
+	}
+	local := root.Children[4]
+	if got := local.NS["u"]; got != "urn:test" {
+		t.Fatalf("local prefix u = %q, want urn:test", got)
+	}
 }
 
 func TestCompileOptionsRejectNegativeLimits(t *testing.T) {

@@ -255,35 +255,19 @@ func (s *session) identityStepMatches(rn runtimeName, step identityStep) bool {
 }
 
 func (s *session) captureIdentityAttribute(name qName, typeID simpleTypeID, value string, line, col int) error {
-	return s.captureIdentityFields(
-		func(p identityFieldPath) bool {
-			return s.identityFieldAttributeMatches(p, name)
-		},
-		func(string) (simpleTypeID, string, error) {
-			return typeID, value, nil
-		},
-		line,
-		col,
-	)
-}
-
-func (s *session) captureIdentityFields(match func(identityFieldPath) bool, value func(string) (simpleTypeID, string, error), line, col int) error {
+	depth := len(s.namePath)
 	for i := range s.idSelections {
 		sel := &s.idSelections[i]
 		ic := s.engine.rt.Identities[sel.Constraint]
 		for fieldIndex, field := range ic.Fields {
 			for _, p := range field.Paths {
-				if !match(p) || !s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
+				if !s.identityFieldAttributeMatches(p, name) || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
 				if sel.Present[fieldIndex] {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
-				typeID, canonical, err := value(sel.Path)
-				if err != nil {
-					return err
-				}
-				sel.Values[fieldIndex] = s.identityValue(typeID, canonical)
+				sel.Values[fieldIndex] = s.identityValue(typeID, value)
 				sel.Present[fieldIndex] = true
 				break
 			}
@@ -329,32 +313,56 @@ func (s *session) identityFieldAttributeMatches(p identityFieldPath, name qName)
 }
 
 func (s *session) captureIdentityElement(typeID simpleTypeID, value string, line, col int) error {
-	return s.captureIdentityFields(
-		func(p identityFieldPath) bool {
-			return !p.Attr
-		},
-		func(string) (simpleTypeID, string, error) {
-			return typeID, value, nil
-		},
-		line,
-		col,
-	)
+	depth := len(s.namePath)
+	for i := range s.idSelections {
+		sel := &s.idSelections[i]
+		ic := s.engine.rt.Identities[sel.Constraint]
+		for fieldIndex, field := range ic.Fields {
+			for _, p := range field.Paths {
+				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
+					continue
+				}
+				if sel.Present[fieldIndex] {
+					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
+				}
+				sel.Values[fieldIndex] = s.identityValue(typeID, value)
+				sel.Present[fieldIndex] = true
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func (s *session) captureIdentityComplexElement(rawText string, line, col int) error {
-	return s.captureIdentityFields(
-		func(p identityFieldPath) bool {
-			return !p.Attr
-		},
-		func(path string) (simpleTypeID, string, error) {
-			if strings.TrimSpace(rawText) == "" {
-				return noSimpleType, "", validation(ErrValidationIdentity, line, col, path, "identity field has no simple value")
+	depth := len(s.namePath)
+	var value string
+	normalized := false
+	for i := range s.idSelections {
+		sel := &s.idSelections[i]
+		ic := s.engine.rt.Identities[sel.Constraint]
+		for fieldIndex, field := range ic.Fields {
+			for _, p := range field.Paths {
+				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
+					continue
+				}
+				if sel.Present[fieldIndex] {
+					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
+				}
+				if !normalized {
+					if strings.TrimSpace(rawText) == "" {
+						return validation(ErrValidationIdentity, line, col, sel.Path, "identity field has no simple value")
+					}
+					value = normalizeWhitespace(rawText, whitespaceCollapse)
+					normalized = true
+				}
+				sel.Values[fieldIndex] = s.identityValue(s.engine.rt.Builtin.String, value)
+				sel.Present[fieldIndex] = true
+				break
 			}
-			return s.engine.rt.Builtin.String, normalizeWhitespace(rawText, whitespaceCollapse), nil
-		},
-		line,
-		col,
-	)
+		}
+	}
+	return nil
 }
 
 func (s *session) identityValue(typeID simpleTypeID, canonical string) string {

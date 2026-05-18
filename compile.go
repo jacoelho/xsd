@@ -219,11 +219,17 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 	rt := runtimeSchema{
 		Names:            names,
 		GlobalElements:   make(map[qName]elementID),
-		GlobalAttributes: make(map[qName]attributeID),
-		GlobalTypes:      make(map[qName]typeID),
+		GlobalAttributes: make(map[qName]attributeID, builtinAttributeCount),
+		GlobalTypes:      make(map[qName]typeID, builtinGlobalTypeCount),
 		GlobalIdentities: make(map[qName]identityConstraintID),
 		Notations:        make(map[string]bool),
 		Substitutions:    make(map[elementID][]elementID),
+		SimpleTypes:      make([]simpleType, 0, builtinSimpleTypeCount),
+		Attributes:       make([]attributeDecl, 0, builtinAttributeCount),
+		ComplexTypes:     make([]complexType, 0, builtinComplexTypeCount),
+		Wildcards:        make([]wildcard, 0, 1),
+		AttributeUseSets: make([]attributeUseSet, 0, 1),
+		Models:           make([]contentModel, 0, 1),
 	}
 	c := &compiler{
 		compilerSourceState: compilerSourceState{
@@ -242,9 +248,9 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 			attrGroupRaw: make(map[qName]rawComponent),
 		},
 		compilerBuildState: compilerBuildState{
-			simpleDone:       make(map[qName]simpleTypeID),
-			complexDone:      make(map[qName]complexTypeID),
-			attributeDone:    make(map[qName]attributeID),
+			simpleDone:       make(map[qName]simpleTypeID, builtinSimpleTypeCount),
+			complexDone:      make(map[qName]complexTypeID, builtinComplexTypeCount),
+			attributeDone:    make(map[qName]attributeID, builtinAttributeCount),
 			attrGroupDone:    make(map[qName]attributeUseSetID),
 			elementDone:      make(map[qName]elementID),
 			localDone:        make(map[*rawNode]elementID),
@@ -336,6 +342,7 @@ func (c *compiler) classifySimpleIdentities() {
 	for id := range c.rt.SimpleTypes {
 		c.rt.SimpleTypes[id].Identity = c.simpleIdentityKind(simpleTypeID(id), memo, visiting)
 	}
+	c.rt.SimpleIdentitiesClassified = true
 }
 
 func (c *compiler) simpleIdentityKind(id simpleTypeID, memo []simpleIdentityKind, visiting []bool) simpleIdentityKind {

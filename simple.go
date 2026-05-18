@@ -28,7 +28,14 @@ func validateSimpleValueInfo(rt *runtimeSchema, id simpleTypeID, lexical string,
 	return validateSimpleValueMode(rt, id, lexical, resolve, true)
 }
 
-func simpleValueIdentity(rt *runtimeSchema, id simpleTypeID) simpleIdentityKind {
+func simpleTypeIdentity(rt *runtimeSchema, id simpleTypeID, st simpleType) simpleIdentityKind {
+	if rt.SimpleIdentitiesClassified {
+		return st.Identity
+	}
+	return computeSimpleValueIdentity(rt, id)
+}
+
+func computeSimpleValueIdentity(rt *runtimeSchema, id simpleTypeID) simpleIdentityKind {
 	if id == noSimpleType || !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
 		return simpleIdentityNone
 	}
@@ -45,10 +52,10 @@ func simpleValueIdentity(rt *runtimeSchema, id simpleTypeID) simpleIdentityKind 
 	switch st.Variety {
 	case varietyAtomic:
 		if st.Base != id {
-			return simpleValueIdentity(rt, st.Base)
+			return computeSimpleValueIdentity(rt, st.Base)
 		}
 	case varietyList:
-		if simpleValueIdentity(rt, st.ListItem) == simpleIdentityIDREF {
+		if computeSimpleValueIdentity(rt, st.ListItem) == simpleIdentityIDREF {
 			return simpleIdentityIDREFList
 		}
 	}
@@ -76,7 +83,7 @@ func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string,
 }
 
 func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm string, resolve qnameResolver, needCanonical bool) (simpleValue, error) {
-	identity := simpleValueIdentity(rt, id)
+	identity := simpleTypeIdentity(rt, id, st)
 	if st.Base != noSimpleType && st.Base != id && st.Base != rt.Builtin.AnySimpleType {
 		if _, err := validateSimpleValueMode(rt, st.Base, norm, resolve, false); err != nil {
 			return simpleValue{}, err
@@ -103,7 +110,8 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 }
 
 func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexical string, resolve qnameResolver, needCanonical bool) (simpleValue, error) {
-	needStrings := needCanonical || st.Facets.needsLexical() || st.Facets.needsCanonical() || simpleValueIdentity(rt, id) != simpleIdentityNone
+	identity := simpleTypeIdentity(rt, id, st)
+	needStrings := needCanonical || st.Facets.needsLexical() || st.Facets.needsCanonical() || identity != simpleIdentityNone
 	v := simpleValue{Type: id}
 	var canon strings.Builder
 	var norm strings.Builder

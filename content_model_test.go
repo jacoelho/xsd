@@ -361,6 +361,23 @@ func TestAnyAttributeRejectsOccurrenceAttributes(t *testing.T) {
 	expectCode(t, err, ErrSchemaInvalidAttribute)
 }
 
+func TestDirectSequenceContentModel(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root><a>x</a><b>y</b></root>`)
+	mustNotValidate(t, engine, `<root><b>y</b><a>x</a></root>`, ErrValidationElement)
+	mustNotValidate(t, engine, `<root><a>x</a></root>`, ErrValidationContent)
+}
+
 func TestChoiceWildcardOverlapIsUPACompileError(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">

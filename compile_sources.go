@@ -3,8 +3,8 @@ package xsd
 import (
 	"bytes"
 	"cmp"
-	"crypto/sha256"
 	"errors"
+	"hash/maphash"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -57,18 +57,26 @@ func (c *compiler) load(sources []SchemaSource) error {
 		}
 	}
 	names := slices.Sorted(maps.Keys(c.sources))
-	seenContent := make(map[schemaContentKey][][]byte)
-	for _, name := range names {
-		data := c.sources[name]
-		doc := c.sourceDocs[name]
-		if target := doc.root.attrDefault("targetNamespace", ""); target != "" {
-			key := schemaContentKey{target: target, sum: sha256.Sum256(data)}
-			if schemaContentSeen(seenContent[key], data) {
-				continue
-			}
-			seenContent[key] = append(seenContent[key], data)
+	targetCounts, hasDuplicateTargets := c.schemaTargetCounts(names)
+	if !hasDuplicateTargets {
+		for _, name := range names {
+			c.docs = append(c.docs, c.sourceDocs[name])
 		}
-		c.docs = append(c.docs, doc)
+	} else {
+		seed := maphash.MakeSeed()
+		seenContent := make(map[schemaContentKey][][]byte)
+		for _, name := range names {
+			data := c.sources[name]
+			doc := c.sourceDocs[name]
+			if target := doc.root.attrDefault("targetNamespace", ""); target != "" && targetCounts[target] > 1 {
+				key := schemaContentKey{target: target, size: len(data), hash: maphash.Bytes(seed, data)}
+				if schemaContentSeen(seenContent[key], data) {
+					continue
+				}
+				seenContent[key] = append(seenContent[key], data)
+			}
+			c.docs = append(c.docs, doc)
+		}
 	}
 	slices.SortFunc(c.docs, func(a, b *rawDoc) int {
 		return cmp.Compare(a.name, b.name)
@@ -76,9 +84,29 @@ func (c *compiler) load(sources []SchemaSource) error {
 	return c.checkExplicitSchemaReferences()
 }
 
+func (c *compiler) schemaTargetCounts(names []string) (map[string]int, bool) {
+	if len(names) < 2 {
+		return nil, false
+	}
+	counts := make(map[string]int, len(names))
+	hasDuplicate := false
+	for _, name := range names {
+		target := c.sourceDocs[name].root.attrDefault("targetNamespace", "")
+		if target == "" {
+			continue
+		}
+		counts[target]++
+		if counts[target] == 2 {
+			hasDuplicate = true
+		}
+	}
+	return counts, hasDuplicate
+}
+
 type schemaContentKey struct {
 	target string
-	sum    [sha256.Size]byte
+	size   int
+	hash   uint64
 }
 
 func schemaContentSeen(bucket [][]byte, data []byte) bool {

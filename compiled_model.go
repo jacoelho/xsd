@@ -105,7 +105,7 @@ func (c *compiler) compileContentModel(id contentModelID) (compiledModel, error)
 		return c.compileAllModel(model)
 	default:
 		limits := c.choiceLimitByModel[id]
-		if m, ok, err := c.compileCompactDirectModel(model, limits); ok || err != nil {
+		if m, ok, err := c.compileDirectModel(model, limits); ok || err != nil {
 			return m, err
 		}
 		b := &dfaBuilder{
@@ -119,43 +119,28 @@ func (c *compiler) compileContentModel(id contentModelID) (compiledModel, error)
 	}
 }
 
-// compileCompactDirectModel avoids expanding large finite direct repeats into
-// deterministic DFA states.
-func (c *compiler) compileCompactDirectModel(model contentModel, limits []uint32) (compiledModel, bool, error) {
-	if !model.occurs.isExactlyOne() || !directModelNeedsCompact(model, limits) {
+func (c *compiler) compileDirectModel(model contentModel, limits []uint32) (compiledModel, bool, error) {
+	if !model.occurs.isExactlyOne() {
 		return compiledModel{}, false, nil
 	}
 	switch model.Kind {
 	case modelSequence:
-		return c.compileCompactDirectSequenceModel(model, limits)
+		return c.compileDirectSequenceModel(model, limits)
 	case modelChoice:
-		return c.compileCompactDirectChoiceModel(model)
+		return c.compileDirectChoiceModel(model)
 	default:
 		return compiledModel{}, false, nil
 	}
 }
 
-func directModelNeedsCompact(model contentModel, limits []uint32) bool {
-	if model.Kind != modelSequence && model.Kind != modelChoice {
-		return false
-	}
-	for i, p := range model.Particles {
-		p = applyRepeatedChoiceLimit(p, i, limits)
-		if p.Kind != particleElement && p.Kind != particleWildcard {
-			return false
-		}
-		if repeatNeedsCounter(p.occurs) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *compiler) compileCompactDirectSequenceModel(model contentModel, limits []uint32) (compiledModel, bool, error) {
+func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint32) (compiledModel, bool, error) {
 	rows := []compiledModelRow{{}}
 	active := []uint32{0}
 	for i, p := range model.Particles {
 		p = applyRepeatedChoiceLimit(p, i, limits)
+		if p.Kind != particleElement && p.Kind != particleWildcard {
+			return compiledModel{}, false, nil
+		}
 		if p.occurs.Max == 0 && !p.occurs.Unbounded {
 			continue
 		}
@@ -205,9 +190,12 @@ func (c *compiler) compileCompactDirectSequenceModel(model contentModel, limits 
 	}, true, nil
 }
 
-func (c *compiler) compileCompactDirectChoiceModel(model contentModel) (compiledModel, bool, error) {
+func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, bool, error) {
 	rows := []compiledModelRow{{}}
 	for _, p := range model.Particles {
+		if p.Kind != particleElement && p.Kind != particleWildcard {
+			return compiledModel{}, false, nil
+		}
 		if p.occurs.Max == 0 && !p.occurs.Unbounded {
 			rows[0].Accept = true
 			continue

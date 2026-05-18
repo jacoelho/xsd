@@ -1,5 +1,12 @@
 package xsd
 
+const (
+	builtinSimpleTypeCount  = 45
+	builtinAttributeCount   = 11
+	builtinComplexTypeCount = 1
+	builtinGlobalTypeCount  = builtinSimpleTypeCount + builtinComplexTypeCount
+)
+
 func (c *compiler) addBuiltins() error {
 	anySimple, err := c.addBuiltinAtomicSimpleType("anySimpleType", primString, noSimpleType, whitespacePreserve)
 	if err != nil {

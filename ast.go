@@ -117,13 +117,23 @@ func (s *schemaParseState) handleStartElement(t xml.StartElement) error {
 	if err := checkSchemaStartElementLimit(t, s.limits, line, col); err != nil {
 		return err
 	}
-	ns := cloneNS(s.nsStack[len(s.nsStack)-1])
+	parentNS := s.nsStack[len(s.nsStack)-1]
+	ns := parentNS
+	clonedNS := false
 	for _, a := range t.Attr {
 		if a.Name.Space == "xmlns" {
+			if !clonedNS {
+				ns = cloneNS(parentNS)
+				clonedNS = true
+			}
 			ns[a.Name.Local] = a.Value
 			continue
 		}
 		if a.Name.Space == "" && a.Name.Local == "xmlns" {
+			if !clonedNS {
+				ns = cloneNS(parentNS)
+				clonedNS = true
+			}
 			ns[""] = a.Value
 		}
 	}
@@ -148,7 +158,7 @@ func (s *schemaParseState) handleEndElement() error {
 		return schemaParse(ErrSchemaXML, line, col, "unexpected end element", nil)
 	}
 	n := s.stack[len(s.stack)-1]
-	if len(n.text) != 0 {
+	if n.text != nil {
 		n.Text = string(n.text)
 		n.text = nil
 	}
@@ -169,8 +179,16 @@ func (s *schemaParseState) handleCharData(t xml.CharData) error {
 		return nil
 	}
 	n := s.stack[len(s.stack)-1]
-	if err := checkSchemaTokenLimit(int64(len(n.text)+len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
+	if err := checkSchemaTokenLimit(int64(len(n.Text)+len(n.text)+len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
+	}
+	if n.Text == "" && n.text == nil {
+		n.Text = string(t)
+		return nil
+	}
+	if n.text == nil {
+		n.text = append(n.text, n.Text...)
+		n.Text = ""
 	}
 	n.text = append(n.text, t...)
 	return nil
