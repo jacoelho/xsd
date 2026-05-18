@@ -5,14 +5,14 @@ Pure Go XML Schema 1.0 validator.
 The public API is intentionally small:
 
 - compile schemas once with `xsd.Compile`
-- pass schema sources with `xsd.File` or `xsd.Reader`
+- pass schema sources with `xsd.File`, `xsd.Reader`, or `xsd.LimitedReader`
 - validate each XML document with `Engine.Validate`
 - reuse document-local state with `Engine.NewSession` when useful
 - inspect failures with `errors.AsType[*xsd.Error]`
 
 Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document.
 
-`File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file. `Reader` uses only sources passed to `Compile` unless paired with a `Resolver`. HTTP and network schema loading are not performed by default.
+`File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file. `Reader` uses only sources passed to `Compile` unless paired with a `Resolver`. `Reader` eagerly reads the whole input so the source can be reused; use `LimitedReader` for untrusted reader inputs. HTTP and network schema loading are not performed by default.
 
 ## Install
 
@@ -72,6 +72,7 @@ engine, err := xsd.CompileWithOptions(
         MaxSchemaDepth:        256,
         MaxSchemaAttributes:   256,
         MaxSchemaTokenBytes:   4 << 20,
+        MaxSchemaSourceBytes:  64 << 20,
         MaxSchemaNames:        0,
         MaxFiniteOccurs:       1_000_000,
         MaxContentModelStates: 16_384,
@@ -90,11 +91,21 @@ Available options:
 | `MaxSchemaDepth` | `256` | Max nested schema XML elements. |
 | `MaxSchemaAttributes` | `256` | Max attributes on one schema XML element. |
 | `MaxSchemaTokenBytes` | `4 << 20` | Max retained schema XML token payload. |
+| `MaxSchemaSourceBytes` | `64 << 20` | Max bytes read from each schema source. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
 | `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. |
 
 Negative integer limits are schema compile errors.
+
+`MaxSchemaSourceBytes` applies during compilation to every source, including files, resolver-loaded includes/imports, and data captured by `Reader`. Because `Reader` reads eagerly before `CompileWithOptions` runs, callers that need to cap untrusted `io.Reader` input should use `LimitedReader`:
+
+```go
+engine, err := xsd.Compile(xsd.LimitedReader("schema.xsd", r, 64<<20))
+if err != nil {
+    return err
+}
+```
 
 Finite `minOccurs` and `maxOccurs` values above `4294967295` are schema compile errors. `MaxFiniteOccurs` can lower the finite `maxOccurs` limit, but it cannot raise it above the runtime `uint32` representation. `maxOccurs="unbounded"` is not affected by this cap.
 
@@ -103,12 +114,15 @@ Finite `minOccurs` and `maxOccurs` values above `4294967295` are schema compile 
 Use `ValidateWithOptions` for one validation call, or `NewSession` to reuse document-local buffers across calls:
 
 ```go
-session := engine.NewSession(xsd.ValidateOptions{
+session, err := engine.NewSession(xsd.ValidateOptions{
     MaxErrors:             1,
     MaxIdentityScopes:     10_000,
     MaxIdentityEntries:    100_000,
     MaxIdentityTupleBytes: 4 << 10,
 })
+if err != nil {
+    return err
+}
 
 for _, doc := range docs {
     if err := session.Validate(strings.NewReader(doc)); err != nil {
@@ -125,6 +139,12 @@ Available validation options:
 | `MaxIdentityScopes` | `0` | Max active identity-constraint scopes. `0` means unlimited. |
 | `MaxIdentityEntries` | `0` | Max stored ID, IDREF, key, unique, and keyref entries. `0` means unlimited. |
 | `MaxIdentityTupleBytes` | `0` | Max byte length of one stored identity key. `0` means unlimited. |
+| `MaxInstanceDepth` | `0` | Max nested XML elements. `0` means unlimited. |
+| `MaxInstanceAttributes` | `0` | Max attributes on one XML element. `0` means unlimited. |
+| `MaxInstanceTextBytes` | `0` | Max retained character data bytes. `0` means unlimited. |
+| `MaxInstanceTokenBytes` | `0` | Max retained XML token payload bytes. `0` means unlimited. |
+
+Negative integer limits are validation errors.
 
 `Engine` is goroutine-safe. `Session` is not goroutine-safe; use one session per goroutine. `Session.Validate` resets document-local state before every validation.
 
@@ -282,6 +302,7 @@ geomean                          2.73GiB        18.59MiB      -99.34%
 - Instance documents must be UTF-8.
 - DTDs and external entities are rejected.
 - `xsi:schemaLocation` never triggers dynamic loading.
+- `FormatXML` builds an in-memory formatting tree; validation is the streaming path.
 - Regex support is limited to patterns representable by Go `regexp`; unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
 - Date/time values using BCE years or years outside `0001..9999` are unsupported for `xs:date` and `xs:dateTime`.
 - `xs:redefine` is unsupported.
