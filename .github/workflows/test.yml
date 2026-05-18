@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 name: test
 concurrency:
@@ -18,5 +18,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - run: make staticcheck
+
+      - run: make lint
 
       - run: make test

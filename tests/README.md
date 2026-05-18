@@ -15,6 +15,7 @@ Standalone XSD 1.0 validation corpus plus a Go test runner. This directory conta
 ## Files
 
 - `manifest.json`: source of truth for expected results and paths.
+- `unsupported.txt`: sorted allowlist of unsupported-feature skips.
 - `harness_test.go`: Go test runner for this corpus.
 - `corpus/`: all schema, XML, and auxiliary files referenced by the manifest.
 - `corpus/w3c`: copied W3C files with original relative layout preserved.
@@ -50,6 +51,15 @@ go test ./tests -run '^TestHarness/w3c'
 A runner SHOULD read `manifest.json`, compile each case schema document set, then validate each listed instance against that schema. Expected values are `valid` or `invalid`. If a consumer is comparing against Xerces-J, use `oracle.xerces.expected` when present; otherwise use the case expected value.
 
 A schema document with role `principal` is the entry schema. Files listed with role `dependency` are copied dependencies used through relative schema locations. Instance file paths are independent validation inputs.
+
+`unsupported.txt` is part of the test oracle. Each line is tab-separated:
+
+```text
+schema<TAB>source<TAB>caseID<TAB>code
+instance<TAB>source<TAB>caseID<TAB>instanceName<TAB>code
+```
+
+The file MUST stay sorted and unique. New unsupported skips fail until added deliberately; stale entries fail after the full harness passes.
 
 ## Export Evidence
 

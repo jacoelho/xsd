@@ -63,6 +63,9 @@ func parseArgs(args []string) (config, error) {
 	if cfg.schema == "" {
 		return cfg, errors.New("--schema is required")
 	}
+	if cfg.maxErrors < 0 {
+		return cfg, errors.New("--max-errors cannot be negative")
+	}
 	if fs.NArg() != 1 {
 		return cfg, errors.New("one XML document path is required")
 	}

@@ -361,6 +361,23 @@ func TestAnyAttributeRejectsOccurrenceAttributes(t *testing.T) {
 	expectCode(t, err, ErrSchemaInvalidAttribute)
 }
 
+func TestDirectSequenceContentModel(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root><a>x</a><b>y</b></root>`)
+	mustNotValidate(t, engine, `<root><b>y</b><a>x</a></root>`, ErrValidationElement)
+	mustNotValidate(t, engine, `<root><a>x</a></root>`, ErrValidationContent)
+}
+
 func TestChoiceWildcardOverlapIsUPACompileError(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
@@ -793,6 +810,14 @@ func TestRestrictionSequenceToChoiceRequiresValidBranchMap(t *testing.T) {
 	tests := []string{
 		`<xs:complexType name="base"><xs:choice><xs:element name="e1"/><xs:element name="e2"/></xs:choice></xs:complexType>
 		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element name="other"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>`,
+		`<xs:complexType name="base"><xs:sequence><xs:element name="a" minOccurs="0"/><xs:element name="b" minOccurs="0"/></xs:sequence></xs:complexType>
+		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice minOccurs="0"><xs:element name="c"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>`,
+		`<xs:complexType name="base"><xs:sequence><xs:element name="a" minOccurs="0"/><xs:element name="b" minOccurs="0"/></xs:sequence></xs:complexType>
+		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice minOccurs="0" maxOccurs="2"><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>`,
+		`<xs:complexType name="base"><xs:sequence><xs:element name="a" minOccurs="0"/><xs:element name="b" minOccurs="0"/></xs:sequence></xs:complexType>
+		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice minOccurs="0" maxOccurs="2"><xs:element name="a"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>`,
+		`<xs:complexType name="base"><xs:sequence><xs:element name="a"/><xs:element name="b" minOccurs="0"/></xs:sequence></xs:complexType>
+		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>`,
 	}
 	for i, body := range tests {
 		_, err := Compile(sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`)))
@@ -801,6 +826,20 @@ func TestRestrictionSequenceToChoiceRequiresValidBranchMap(t *testing.T) {
 		}
 		expectCode(t, err, ErrSchemaContentModel)
 	}
+}
+
+func TestRestrictionChoiceCanRestrictSequenceWithEmptiableRemainder(t *testing.T) {
+	mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base"><xs:sequence><xs:element name="e1" minOccurs="0"/><xs:element name="e2" minOccurs="0"/></xs:sequence></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice><xs:element name="e1" minOccurs="0"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>
+</xs:schema>`)
+
+	mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base"><xs:sequence><xs:element name="e1" minOccurs="0"/><xs:element name="e2" minOccurs="0"/></xs:sequence></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice minOccurs="0"><xs:element name="e1"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>
+</xs:schema>`)
 }
 
 func TestRestrictionSequenceMappingSkipsOnlyEmptiableBaseParticles(t *testing.T) {
@@ -1352,6 +1391,24 @@ func TestRecursiveAttributeGroupsAreSchemaErrors(t *testing.T) {
   </xs:element>
 </xs:schema>`)))
 	expectCode(t, err, ErrSchemaReference)
+}
+
+func TestAttributeGroupCanBeReusedByMultipleTypes(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attributeGroup name="common">
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:attributeGroup>
+  <xs:element name="a">
+    <xs:complexType><xs:attributeGroup ref="common"/></xs:complexType>
+  </xs:element>
+  <xs:element name="b">
+    <xs:complexType><xs:attributeGroup ref="common"/></xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<a id="a1"/>`)
+	mustValidate(t, engine, `<b id="b1"/>`)
+	mustNotValidate(t, engine, `<a/>`, ErrValidationAttribute)
 }
 
 func TestRepeatingChoiceWithRepeatedBranchPartitionsAtClose(t *testing.T) {

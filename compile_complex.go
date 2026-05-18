@@ -46,7 +46,10 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (comp
 	if _, ok := n.attr("name"); ok {
 		return noComplexType, schemaCompile(ErrSchemaInvalidAttribute, "local complexType cannot have name")
 	}
-	q := c.rt.Names.InternQName("", fmt.Sprintf("$complex%d", len(c.rt.ComplexTypes)))
+	q, err := c.rt.Names.InternQName("", fmt.Sprintf("$complex%d", len(c.rt.ComplexTypes)))
+	if err != nil {
+		return noComplexType, err
+	}
 	id := complexTypeID(len(c.rt.ComplexTypes))
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
 	ct, err := c.compileComplexType(n, ctx, q)
@@ -622,7 +625,10 @@ func (c *compiler) compileSimpleContentFacetRestriction(n *rawNode, baseID simpl
 	if base.Final&blockRestriction != 0 {
 		return noSimpleType, schemaCompile(ErrSchemaReference, "base simple type final blocks restriction")
 	}
-	q := c.rt.Names.InternQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
+	q, err := c.rt.Names.InternQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
+	if err != nil {
+		return noSimpleType, err
+	}
 	st := base
 	st.Name = q
 	st.Base = baseID

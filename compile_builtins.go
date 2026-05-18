@@ -1,121 +1,268 @@
 package xsd
 
-func (c *compiler) addBuiltins() {
-	anySimple := c.addBuiltinAtomicSimpleType("anySimpleType", primString, noSimpleType, whitespacePreserve)
+const (
+	builtinSimpleTypeCount  = 45
+	builtinAttributeCount   = 11
+	builtinComplexTypeCount = 1
+	builtinGlobalTypeCount  = builtinSimpleTypeCount + builtinComplexTypeCount
+)
+
+func (c *compiler) addBuiltins() error {
+	anySimple, err := c.addBuiltinAtomicSimpleType("anySimpleType", primString, noSimpleType, whitespacePreserve)
+	if err != nil {
+		return err
+	}
 	c.rt.Builtin.AnySimpleType = anySimple
-	c.addBuiltinStringTypes(anySimple)
-	c.addBuiltinListTypes(anySimple)
-	c.addBuiltinNumericTypes(anySimple)
-	c.addBuiltinOtherPrimitiveTypes(anySimple)
-	c.addBuiltinXMLAttributes()
-	c.addBuiltinAnyType()
+	if err := c.addBuiltinStringTypes(anySimple); err != nil {
+		return err
+	}
+	if err := c.addBuiltinListTypes(anySimple); err != nil {
+		return err
+	}
+	if err := c.addBuiltinNumericTypes(anySimple); err != nil {
+		return err
+	}
+	if err := c.addBuiltinOtherPrimitiveTypes(anySimple); err != nil {
+		return err
+	}
+	if err := c.addBuiltinXMLAttributes(); err != nil {
+		return err
+	}
+	return c.addBuiltinAnyType()
 }
 
-func (c *compiler) addBuiltinStringTypes(anySimple simpleTypeID) {
-	c.rt.Builtin.String = c.addBuiltinAtomicSimpleType("string", primString, anySimple, whitespacePreserve)
-	c.addBuiltinAtomicSimpleType("normalizedString", primString, c.rt.Builtin.String, whitespaceReplace)
-	c.addBuiltinAtomicSimpleType("token", primString, c.rt.Builtin.String, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("language", primString, c.rt.Builtin.String, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("Name", primString, c.rt.Builtin.String, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("NCName", primString, c.rt.Builtin.String, whitespaceCollapse)
-	c.rt.Builtin.NMTOKEN = c.addBuiltinAtomicSimpleType("NMTOKEN", primString, c.rt.Builtin.String, whitespaceCollapse)
-	c.rt.Builtin.ID = c.addBuiltinAtomicSimpleType("ID", primString, c.rt.Builtin.String, whitespaceCollapse)
-	c.rt.Builtin.IDREF = c.addBuiltinAtomicSimpleType("IDREF", primString, c.rt.Builtin.String, whitespaceCollapse)
+func (c *compiler) addBuiltinStringTypes(anySimple simpleTypeID) error {
+	var err error
+	c.rt.Builtin.String, err = c.addBuiltinAtomicSimpleType("string", primString, anySimple, whitespacePreserve)
+	if err != nil {
+		return err
+	}
+	for _, typ := range []struct {
+		local string
+		ws    whitespaceMode
+	}{
+		{"normalizedString", whitespaceReplace},
+		{"token", whitespaceCollapse},
+		{"language", whitespaceCollapse},
+		{"Name", whitespaceCollapse},
+		{"NCName", whitespaceCollapse},
+	} {
+		_, err = c.addBuiltinAtomicSimpleType(typ.local, primString, c.rt.Builtin.String, typ.ws)
+		if err != nil {
+			return err
+		}
+	}
+	c.rt.Builtin.NMTOKEN, err = c.addBuiltinAtomicSimpleType("NMTOKEN", primString, c.rt.Builtin.String, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.ID, err = c.addBuiltinAtomicSimpleType("ID", primString, c.rt.Builtin.String, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.IDREF, err = c.addBuiltinAtomicSimpleType("IDREF", primString, c.rt.Builtin.String, whitespaceCollapse)
+	return err
 }
 
-func (c *compiler) addBuiltinListTypes(anySimple simpleTypeID) {
+func (c *compiler) addBuiltinListTypes(anySimple simpleTypeID) error {
 	minOne := uint32(1)
-	c.rt.Builtin.IDREFS = c.addBuiltinListSimpleType("IDREFS", c.rt.Builtin.IDREF, anySimple, &minOne)
-	c.rt.Builtin.NMTOKENS = c.addBuiltinListSimpleType("NMTOKENS", c.rt.Builtin.NMTOKEN, anySimple, &minOne)
-	c.rt.Builtin.ENTITY = c.addBuiltinAtomicSimpleType("ENTITY", primString, c.rt.Builtin.String, whitespaceCollapse)
-	c.rt.Builtin.ENTITIES = c.addBuiltinListSimpleType("ENTITIES", c.rt.Builtin.ENTITY, anySimple, &minOne)
+	var err error
+	c.rt.Builtin.IDREFS, err = c.addBuiltinListSimpleType("IDREFS", c.rt.Builtin.IDREF, anySimple, &minOne)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.NMTOKENS, err = c.addBuiltinListSimpleType("NMTOKENS", c.rt.Builtin.NMTOKEN, anySimple, &minOne)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.ENTITY, err = c.addBuiltinAtomicSimpleType("ENTITY", primString, c.rt.Builtin.String, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.ENTITIES, err = c.addBuiltinListSimpleType("ENTITIES", c.rt.Builtin.ENTITY, anySimple, &minOne)
+	return err
 }
 
-func (c *compiler) addBuiltinNumericTypes(anySimple simpleTypeID) {
-	c.rt.Builtin.Boolean = c.addBuiltinAtomicSimpleType("boolean", primBoolean, anySimple, whitespaceCollapse)
-	c.rt.Builtin.Decimal = c.addBuiltinAtomicSimpleType("decimal", primDecimal, anySimple, whitespaceCollapse)
-	c.rt.Builtin.Integer = c.addBuiltinAtomicSimpleType("integer", primDecimal, c.rt.Builtin.Decimal, whitespaceCollapse)
+func (c *compiler) addBuiltinNumericTypes(anySimple simpleTypeID) error {
+	var err error
+	c.rt.Builtin.Boolean, err = c.addBuiltinAtomicSimpleType("boolean", primBoolean, anySimple, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.Decimal, err = c.addBuiltinAtomicSimpleType("decimal", primDecimal, anySimple, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.Integer, err = c.addBuiltinAtomicSimpleType("integer", primDecimal, c.rt.Builtin.Decimal, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(c.rt.Builtin.Integer)
-	c.addBuiltinIntegerDerivedTypes()
-	c.addBuiltinAtomicSimpleType("float", primFloat, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("double", primDouble, anySimple, whitespaceCollapse)
+	err = c.addBuiltinIntegerDerivedTypes()
+	if err != nil {
+		return err
+	}
+	_, err = c.addBuiltinAtomicSimpleType("float", primFloat, anySimple, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	_, err = c.addBuiltinAtomicSimpleType("double", primDouble, anySimple, whitespaceCollapse)
+	return err
 }
 
-func (c *compiler) addBuiltinIntegerDerivedTypes() {
-	nonPositive := c.addBuiltinAtomicSimpleType("nonPositiveInteger", primDecimal, c.rt.Builtin.Integer, whitespaceCollapse)
+func (c *compiler) addBuiltinIntegerDerivedTypes() error {
+	nonPositive, err := c.addBuiltinAtomicSimpleType("nonPositiveInteger", primDecimal, c.rt.Builtin.Integer, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(nonPositive)
 	c.setBuiltinMax(nonPositive, "0")
-	negative := c.addBuiltinAtomicSimpleType("negativeInteger", primDecimal, nonPositive, whitespaceCollapse)
+	negative, err := c.addBuiltinAtomicSimpleType("negativeInteger", primDecimal, nonPositive, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(negative)
 	c.setBuiltinMax(negative, "-1")
-	nonNegative := c.addBuiltinAtomicSimpleType("nonNegativeInteger", primDecimal, c.rt.Builtin.Integer, whitespaceCollapse)
+	nonNegative, err := c.addBuiltinAtomicSimpleType("nonNegativeInteger", primDecimal, c.rt.Builtin.Integer, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(nonNegative)
 	c.setBuiltinMin(nonNegative, "0")
-	positive := c.addBuiltinAtomicSimpleType("positiveInteger", primDecimal, nonNegative, whitespaceCollapse)
+	positive, err := c.addBuiltinAtomicSimpleType("positiveInteger", primDecimal, nonNegative, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(positive)
 	c.setBuiltinMin(positive, "1")
-	long := c.addBuiltinAtomicSimpleType("long", primDecimal, c.rt.Builtin.Integer, whitespaceCollapse)
+	long, err := c.addBuiltinAtomicSimpleType("long", primDecimal, c.rt.Builtin.Integer, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(long)
 	c.setBuiltinRange(long, "-9223372036854775808", "9223372036854775807")
-	c.rt.Builtin.Int = c.addBuiltinAtomicSimpleType("int", primDecimal, long, whitespaceCollapse)
+	c.rt.Builtin.Int, err = c.addBuiltinAtomicSimpleType("int", primDecimal, long, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(c.rt.Builtin.Int)
 	c.setBuiltinRange(c.rt.Builtin.Int, "-2147483648", "2147483647")
-	c.addBuiltinSmallIntegerTypes(nonNegative)
+	return c.addBuiltinSmallIntegerTypes(nonNegative)
 }
 
-func (c *compiler) addBuiltinSmallIntegerTypes(nonNegative simpleTypeID) {
-	short := c.addBuiltinAtomicSimpleType("short", primDecimal, c.rt.Builtin.Int, whitespaceCollapse)
+func (c *compiler) addBuiltinSmallIntegerTypes(nonNegative simpleTypeID) error {
+	short, err := c.addBuiltinAtomicSimpleType("short", primDecimal, c.rt.Builtin.Int, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(short)
 	c.setBuiltinRange(short, "-32768", "32767")
-	byteType := c.addBuiltinAtomicSimpleType("byte", primDecimal, short, whitespaceCollapse)
+	byteType, err := c.addBuiltinAtomicSimpleType("byte", primDecimal, short, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(byteType)
 	c.setBuiltinRange(byteType, "-128", "127")
-	unsignedLong := c.addBuiltinAtomicSimpleType("unsignedLong", primDecimal, nonNegative, whitespaceCollapse)
+	unsignedLong, err := c.addBuiltinAtomicSimpleType("unsignedLong", primDecimal, nonNegative, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(unsignedLong)
 	c.setBuiltinMax(unsignedLong, "18446744073709551615")
-	unsignedInt := c.addBuiltinAtomicSimpleType("unsignedInt", primDecimal, unsignedLong, whitespaceCollapse)
+	unsignedInt, err := c.addBuiltinAtomicSimpleType("unsignedInt", primDecimal, unsignedLong, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(unsignedInt)
 	c.setBuiltinMax(unsignedInt, "4294967295")
-	unsignedShort := c.addBuiltinAtomicSimpleType("unsignedShort", primDecimal, unsignedInt, whitespaceCollapse)
+	unsignedShort, err := c.addBuiltinAtomicSimpleType("unsignedShort", primDecimal, unsignedInt, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(unsignedShort)
 	c.setBuiltinMax(unsignedShort, "65535")
-	unsignedByte := c.addBuiltinAtomicSimpleType("unsignedByte", primDecimal, unsignedShort, whitespaceCollapse)
+	unsignedByte, err := c.addBuiltinAtomicSimpleType("unsignedByte", primDecimal, unsignedShort, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
 	c.setBuiltinIntegerFacets(unsignedByte)
 	c.setBuiltinMax(unsignedByte, "255")
+	return nil
 }
 
-func (c *compiler) addBuiltinOtherPrimitiveTypes(anySimple simpleTypeID) {
-	c.rt.Builtin.AnyURI = c.addBuiltinAtomicSimpleType("anyURI", primAnyURI, c.rt.Builtin.String, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("duration", primDuration, anySimple, whitespaceCollapse)
-	c.rt.Builtin.DateTime = c.addBuiltinAtomicSimpleType("dateTime", primDateTime, anySimple, whitespaceCollapse)
-	c.rt.Builtin.Time = c.addBuiltinAtomicSimpleType("time", primTime, anySimple, whitespaceCollapse)
-	c.rt.Builtin.Date = c.addBuiltinAtomicSimpleType("date", primDate, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("gYearMonth", primGYearMonth, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("gYear", primGYear, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("gMonthDay", primGMonthDay, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("gDay", primGDay, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("gMonth", primGMonth, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("hexBinary", primHexBinary, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("base64Binary", primBase64Binary, anySimple, whitespaceCollapse)
-	c.rt.Builtin.qName = c.addBuiltinAtomicSimpleType("QName", primQName, anySimple, whitespaceCollapse)
-	c.addBuiltinAtomicSimpleType("NOTATION", primNotation, anySimple, whitespaceCollapse)
+func (c *compiler) addBuiltinOtherPrimitiveTypes(anySimple simpleTypeID) error {
+	var err error
+	c.rt.Builtin.AnyURI, err = c.addBuiltinAtomicSimpleType("anyURI", primAnyURI, c.rt.Builtin.String, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	_, err = c.addBuiltinAtomicSimpleType("duration", primDuration, anySimple, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.DateTime, err = c.addBuiltinAtomicSimpleType("dateTime", primDateTime, anySimple, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.Time, err = c.addBuiltinAtomicSimpleType("time", primTime, anySimple, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.Date, err = c.addBuiltinAtomicSimpleType("date", primDate, anySimple, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	for _, typ := range []struct {
+		local     string
+		primitive primitiveKind
+	}{
+		{"gYearMonth", primGYearMonth},
+		{"gYear", primGYear},
+		{"gMonthDay", primGMonthDay},
+		{"gDay", primGDay},
+		{"gMonth", primGMonth},
+		{"hexBinary", primHexBinary},
+		{"base64Binary", primBase64Binary},
+	} {
+		_, err = c.addBuiltinAtomicSimpleType(typ.local, typ.primitive, anySimple, whitespaceCollapse)
+		if err != nil {
+			return err
+		}
+	}
+	c.rt.Builtin.qName, err = c.addBuiltinAtomicSimpleType("QName", primQName, anySimple, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	_, err = c.addBuiltinAtomicSimpleType("NOTATION", primNotation, anySimple, whitespaceCollapse)
+	return err
 }
 
-func (c *compiler) addBuiltinXMLAttributes() {
-	c.addBuiltinAttribute(xmlNamespaceURI, "base", c.rt.Builtin.AnyURI)
-	c.addBuiltinAttribute(xmlNamespaceURI, "id", c.rt.Builtin.ID)
-	c.addBuiltinAttribute(xmlNamespaceURI, "lang", c.rt.Builtin.String)
-	c.addBuiltinAttribute(xmlNamespaceURI, "space", c.rt.Builtin.String)
-	c.addBuiltinAttribute(xlinkNamespaceURI, "type", c.rt.Builtin.String)
-	c.addBuiltinAttribute(xlinkNamespaceURI, "href", c.rt.Builtin.AnyURI)
-	c.addBuiltinAttribute(xlinkNamespaceURI, "role", c.rt.Builtin.AnyURI)
-	c.addBuiltinAttribute(xlinkNamespaceURI, "arcrole", c.rt.Builtin.AnyURI)
-	c.addBuiltinAttribute(xlinkNamespaceURI, "title", c.rt.Builtin.String)
-	c.addBuiltinAttribute(xlinkNamespaceURI, "show", c.rt.Builtin.String)
-	c.addBuiltinAttribute(xlinkNamespaceURI, "actuate", c.rt.Builtin.String)
+func (c *compiler) addBuiltinXMLAttributes() error {
+	for _, attr := range []struct {
+		ns    string
+		local string
+		typ   simpleTypeID
+	}{
+		{xmlNamespaceURI, "base", c.rt.Builtin.AnyURI},
+		{xmlNamespaceURI, "id", c.rt.Builtin.ID},
+		{xmlNamespaceURI, "lang", c.rt.Builtin.String},
+		{xmlNamespaceURI, "space", c.rt.Builtin.String},
+		{xlinkNamespaceURI, "type", c.rt.Builtin.String},
+		{xlinkNamespaceURI, "href", c.rt.Builtin.AnyURI},
+		{xlinkNamespaceURI, "role", c.rt.Builtin.AnyURI},
+		{xlinkNamespaceURI, "arcrole", c.rt.Builtin.AnyURI},
+		{xlinkNamespaceURI, "title", c.rt.Builtin.String},
+		{xlinkNamespaceURI, "show", c.rt.Builtin.String},
+		{xlinkNamespaceURI, "actuate", c.rt.Builtin.String},
+	} {
+		if err := c.addBuiltinAttribute(attr.ns, attr.local, attr.typ); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (c *compiler) addBuiltinAnyType() {
+func (c *compiler) addBuiltinAnyType() error {
 	anyWildcard := wildcardID(len(c.rt.Wildcards))
 	c.rt.Wildcards = append(c.rt.Wildcards, wildcard{Mode: wildAny, Process: processLax})
 	attrs := attributeUseSet{wildcard: anyWildcard}
@@ -124,25 +271,35 @@ func (c *compiler) addBuiltinAnyType() {
 	anyModel := contentModel{Kind: modelAny, Mixed: true}
 	modelID := contentModelID(len(c.rt.Models))
 	c.rt.Models = append(c.rt.Models, anyModel)
-	q := c.rt.Names.InternQName(xsdNamespaceURI, "anyType")
+	q, err := c.rt.Names.InternQName(xsdNamespaceURI, "anyType")
+	if err != nil {
+		return err
+	}
 	complexID := complexTypeID(len(c.rt.ComplexTypes))
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: modelID, Attrs: attrSet, Mixed: true, Base: typeID{Kind: typeComplex, ID: uint32(noComplexType)}})
 	c.rt.Builtin.AnyType = complexID
 	c.complexDone[q] = complexID
 	c.rt.GlobalTypes[q] = typeID{Kind: typeComplex, ID: uint32(complexID)}
+	return nil
 }
 
-func (c *compiler) addBuiltinAtomicSimpleType(local string, primitive primitiveKind, base simpleTypeID, ws whitespaceMode) simpleTypeID {
-	q := c.rt.Names.InternQName(xsdNamespaceURI, local)
+func (c *compiler) addBuiltinAtomicSimpleType(local string, primitive primitiveKind, base simpleTypeID, ws whitespaceMode) (simpleTypeID, error) {
+	q, err := c.rt.Names.InternQName(xsdNamespaceURI, local)
+	if err != nil {
+		return noSimpleType, err
+	}
 	id := simpleTypeID(len(c.rt.SimpleTypes))
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primitive, Base: base, Whitespace: ws})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
-	return id
+	return id, nil
 }
 
-func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeID, minLength *uint32) simpleTypeID {
-	q := c.rt.Names.InternQName(xsdNamespaceURI, local)
+func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeID, minLength *uint32) (simpleTypeID, error) {
+	q, err := c.rt.Names.InternQName(xsdNamespaceURI, local)
+	if err != nil {
+		return noSimpleType, err
+	}
 	id := simpleTypeID(len(c.rt.SimpleTypes))
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
 		Name:       q,
@@ -155,7 +312,7 @@ func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeI
 	})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
-	return id
+	return id, nil
 }
 
 func (c *compiler) setBuiltinIntegerFacets(id simpleTypeID) {
@@ -176,21 +333,29 @@ func (c *compiler) setBuiltinRange(id simpleTypeID, minValue, maxValue string) {
 	c.setBuiltinMax(id, maxValue)
 }
 
-func (c *compiler) addBuiltinAttribute(ns, local string, typ simpleTypeID) {
-	q := c.rt.Names.InternQName(ns, local)
+func (c *compiler) addBuiltinAttribute(ns, local string, typ simpleTypeID) error {
+	q, err := c.rt.Names.InternQName(ns, local)
+	if err != nil {
+		return err
+	}
 	id := attributeID(len(c.rt.Attributes))
 	c.rt.Attributes = append(c.rt.Attributes, attributeDecl{Name: q, Type: typ})
 	c.attributeDone[q] = id
 	c.rt.GlobalAttributes[q] = id
+	return nil
 }
 
-func (c *compiler) missingSimpleType() simpleTypeID {
+func (c *compiler) missingSimpleType() (simpleTypeID, error) {
 	if c.missingSimple != noSimpleType {
-		return c.missingSimple
+		return c.missingSimple, nil
+	}
+	q, err := c.rt.Names.InternQName("", "missing")
+	if err != nil {
+		return noSimpleType, err
 	}
 	id := simpleTypeID(len(c.rt.SimpleTypes))
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
-		Name:       c.rt.Names.InternQName("", "missing"),
+		Name:       q,
 		Variety:    varietyAtomic,
 		Primitive:  primString,
 		Base:       c.rt.Builtin.AnySimpleType,
@@ -198,5 +363,5 @@ func (c *compiler) missingSimpleType() simpleTypeID {
 		Missing:    true,
 	})
 	c.missingSimple = id
-	return id
+	return id, nil
 }

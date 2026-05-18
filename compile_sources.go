@@ -1,8 +1,10 @@
 package xsd
 
 import (
+	"bytes"
 	"cmp"
 	"errors"
+	"hash/maphash"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -21,8 +23,11 @@ func (c *compiler) load(sources []SchemaSource) error {
 		if _, ok := c.sources[name]; ok {
 			continue
 		}
-		data, err := s.read()
+		data, err := s.read(c.limits.maxSchemaSourceBytes)
 		if err != nil {
+			if isSchemaLimitError(err) {
+				return err
+			}
 			return &Error{Category: SchemaParseErrorCategory, Code: ErrSchemaRead, Message: "read schema " + s.name, Err: err}
 		}
 		doc, err := parseSchemaDocument(name, data, c.limits)
@@ -52,23 +57,70 @@ func (c *compiler) load(sources []SchemaSource) error {
 		}
 	}
 	names := slices.Sorted(maps.Keys(c.sources))
-	seenContent := make(map[string]bool)
-	for _, name := range names {
-		data := c.sources[name]
-		doc := c.sourceDocs[name]
-		if target := doc.root.attrDefault("targetNamespace", ""); target != "" {
-			key := target + "\x00" + string(data)
-			if seenContent[key] {
-				continue
-			}
-			seenContent[key] = true
+	targetCounts, hasDuplicateTargets := c.schemaTargetCounts(names)
+	if !hasDuplicateTargets {
+		for _, name := range names {
+			c.docs = append(c.docs, c.sourceDocs[name])
 		}
-		c.docs = append(c.docs, doc)
+	} else {
+		seed := maphash.MakeSeed()
+		seenContent := make(map[schemaContentKey][][]byte)
+		for _, name := range names {
+			data := c.sources[name]
+			doc := c.sourceDocs[name]
+			if target := doc.root.attrDefault("targetNamespace", ""); target != "" && targetCounts[target] > 1 {
+				key := schemaContentKey{target: target, size: len(data), hash: maphash.Bytes(seed, data)}
+				if schemaContentSeen(seenContent[key], data) {
+					continue
+				}
+				seenContent[key] = append(seenContent[key], data)
+			}
+			c.docs = append(c.docs, doc)
+		}
 	}
 	slices.SortFunc(c.docs, func(a, b *rawDoc) int {
 		return cmp.Compare(a.name, b.name)
 	})
 	return c.checkExplicitSchemaReferences()
+}
+
+func (c *compiler) schemaTargetCounts(names []string) (map[string]int, bool) {
+	if len(names) < 2 {
+		return nil, false
+	}
+	counts := make(map[string]int, len(names))
+	hasDuplicate := false
+	for _, name := range names {
+		target := c.sourceDocs[name].root.attrDefault("targetNamespace", "")
+		if target == "" {
+			continue
+		}
+		counts[target]++
+		if counts[target] == 2 {
+			hasDuplicate = true
+		}
+	}
+	return counts, hasDuplicate
+}
+
+type schemaContentKey struct {
+	target string
+	size   int
+	hash   uint64
+}
+
+func schemaContentSeen(bucket [][]byte, data []byte) bool {
+	for _, item := range bucket {
+		if bytes.Equal(item, data) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSchemaLimitError(err error) bool {
+	x, ok := errors.AsType[*Error](err)
+	return ok && x.Code == ErrSchemaLimit
 }
 
 type schemaDocumentRef struct {
@@ -216,12 +268,14 @@ func (c *compiler) documentTargetNamespace(doc *rawDoc) string {
 }
 
 func (c *compiler) resolveLoadedSchemaLocation(doc *rawDoc, location string) (*rawDoc, string, bool) {
-	resolved := filepath.Clean(filepath.Join(filepath.Dir(doc.name), location))
-	if _, ok := c.sources[resolved]; !ok {
-		resolved = filepath.Clean(location)
-		if _, ok := c.sources[resolved]; !ok {
-			return nil, "", false
+	if resolved, ok := resolveLocalSchemaLocation(doc.name, location); ok {
+		if _, loaded := c.sources[resolved]; loaded {
+			return c.sourceDocs[resolved], resolved, true
 		}
+	}
+	resolved := filepath.Clean(location)
+	if _, ok := c.sources[resolved]; !ok {
+		return nil, "", false
 	}
 	return c.sourceDocs[resolved], resolved, true
 }

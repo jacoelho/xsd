@@ -107,24 +107,26 @@ func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolv
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed attribute cannot have default or fixed")
 	}
 	if decl.HasDefault {
-		canon, err := validateSimpleValue(&c.rt, decl.Type, decl.Default, resolve)
+		value, err := validateSimpleValueInfo(&c.rt, decl.Type, decl.Default, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid attribute default value for "+c.rt.Names.Format(decl.Name))
 		}
-		decl.DefaultCanonical = canon
+		decl.DefaultCanonical = value.Canonical
+		decl.DefaultValue = value
 	}
 	if decl.HasFixed {
-		canon, err := validateSimpleValue(&c.rt, decl.Type, decl.Fixed, resolve)
+		value, err := validateSimpleValueInfo(&c.rt, decl.Type, decl.Fixed, resolve)
 		if err != nil {
 			if IsUnsupported(err) {
 				return err
 			}
 			return schemaCompile(ErrSchemaFacet, "invalid attribute fixed value for "+c.rt.Names.Format(decl.Name))
 		}
-		decl.FixedCanonical = canon
+		decl.FixedCanonical = value.Canonical
+		decl.FixedValue = value
 	}
 	return nil
 }
@@ -135,7 +137,10 @@ func (c *compiler) schemaQNameResolver(n *rawNode) qnameResolver {
 		if err != nil {
 			return "", false
 		}
-		return c.rt.Names.Format(c.rt.Names.InternQName(ns, local)), true
+		if ns == "" {
+			return local, true
+		}
+		return "{" + ns + "}" + local, true
 	}
 }
 
@@ -356,6 +361,8 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		use.Fixed = decl.Fixed
 		use.DefaultCanonical = decl.DefaultCanonical
 		use.FixedCanonical = decl.FixedCanonical
+		use.DefaultValue = decl.DefaultValue
+		use.FixedValue = decl.FixedValue
 		use.HasDefault = decl.HasDefault
 		use.HasFixed = decl.HasFixed
 		refHasFixed = decl.HasFixed
@@ -373,7 +380,11 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		if form == "qualified" || (!hasForm && ctx.attrQualified) {
 			ns = ctx.targetNS
 		}
-		use.Name = c.rt.Names.InternQName(ns, name)
+		q, err := c.rt.Names.InternQName(ns, name)
+		if err != nil {
+			return attributeUse{}, err
+		}
+		use.Name = q
 		decl, err := c.compileAttributeDecl(n, ctx, use.Name)
 		if err != nil {
 			return attributeUse{}, err
@@ -383,6 +394,8 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		use.Fixed = decl.Fixed
 		use.DefaultCanonical = decl.DefaultCanonical
 		use.FixedCanonical = decl.FixedCanonical
+		use.DefaultValue = decl.DefaultValue
+		use.FixedValue = decl.FixedValue
 		use.HasDefault = decl.HasDefault
 		use.HasFixed = decl.HasFixed
 	}
@@ -407,11 +420,13 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		}
 		use.Default = v
 		use.DefaultCanonical = ""
+		use.DefaultValue = simpleValue{}
 		use.HasDefault = true
 	}
 	if v, ok := n.attr("fixed"); ok {
 		use.Fixed = v
 		use.FixedCanonical = ""
+		use.FixedValue = simpleValue{}
 		use.HasFixed = true
 	}
 	if use.HasDefault && use.HasFixed {
@@ -429,6 +444,8 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	}
 	use.DefaultCanonical = decl.DefaultCanonical
 	use.FixedCanonical = decl.FixedCanonical
+	use.DefaultValue = decl.DefaultValue
+	use.FixedValue = decl.FixedValue
 	return use, nil
 }
 
@@ -448,6 +465,10 @@ func (c *compiler) compileAttributeGroupUse(n *rawNode, ctx *schemaContext) ([]a
 }
 
 func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildcardID, error) {
+	if id, ok := c.attrGroupDone[q]; ok {
+		set := c.rt.AttributeUseSets[id]
+		return set.Uses, set.wildcard, nil
+	}
 	raw, ok := c.attrGroupRaw[q]
 	if !ok {
 		return nil, noWildcard, schemaCompile(ErrSchemaReference, "unknown attribute group "+c.rt.Names.Format(q))
@@ -461,6 +482,7 @@ func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildca
 	if err != nil {
 		return nil, noWildcard, err
 	}
+	c.attrGroupDone[q] = id
 	set := c.rt.AttributeUseSets[id]
-	return slices.Clone(set.Uses), set.wildcard, nil
+	return set.Uses, set.wildcard, nil
 }

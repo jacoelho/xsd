@@ -17,6 +17,7 @@ type rawNode struct {
 	NS       map[string]string
 	Name     xml.Name
 	Text     string
+	text     []byte
 	Attr     []xml.Attr
 	Children []*rawNode
 	Line     int
@@ -116,13 +117,23 @@ func (s *schemaParseState) handleStartElement(t xml.StartElement) error {
 	if err := checkSchemaStartElementLimit(t, s.limits, line, col); err != nil {
 		return err
 	}
-	ns := cloneNS(s.nsStack[len(s.nsStack)-1])
+	parentNS := s.nsStack[len(s.nsStack)-1]
+	ns := parentNS
+	clonedNS := false
 	for _, a := range t.Attr {
 		if a.Name.Space == "xmlns" {
+			if !clonedNS {
+				ns = cloneNS(parentNS)
+				clonedNS = true
+			}
 			ns[a.Name.Local] = a.Value
 			continue
 		}
 		if a.Name.Space == "" && a.Name.Local == "xmlns" {
+			if !clonedNS {
+				ns = cloneNS(parentNS)
+				clonedNS = true
+			}
 			ns[""] = a.Value
 		}
 	}
@@ -146,6 +157,11 @@ func (s *schemaParseState) handleEndElement() error {
 		line, col := s.dec.InputPos()
 		return schemaParse(ErrSchemaXML, line, col, "unexpected end element", nil)
 	}
+	n := s.stack[len(s.stack)-1]
+	if n.text != nil {
+		n.Text = string(n.text)
+		n.text = nil
+	}
 	s.stack = s.stack[:len(s.stack)-1]
 	s.nsStack = s.nsStack[:len(s.nsStack)-1]
 	return nil
@@ -153,7 +169,7 @@ func (s *schemaParseState) handleEndElement() error {
 
 func (s *schemaParseState) handleCharData(t xml.CharData) error {
 	line, col := s.dec.InputPos()
-	if err := checkSchemaTokenLimit(len(t), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
+	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
 	if len(s.stack) == 0 {
@@ -163,16 +179,24 @@ func (s *schemaParseState) handleCharData(t xml.CharData) error {
 		return nil
 	}
 	n := s.stack[len(s.stack)-1]
-	if err := checkSchemaTokenLimit(len(n.Text)+len(t), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
+	if err := checkSchemaTokenLimit(int64(len(n.Text)+len(n.text)+len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
-	n.Text += string(t)
+	if n.Text == "" && n.text == nil {
+		n.Text = string(t)
+		return nil
+	}
+	if n.text == nil {
+		n.text = append(n.text, n.Text...)
+		n.Text = ""
+	}
+	n.text = append(n.text, t...)
 	return nil
 }
 
 func (s *schemaParseState) handleDirective(t xml.Directive) error {
 	line, col := s.dec.InputPos()
-	if err := checkSchemaTokenLimit(len(t), s.limits, line, col, "schema XML directive exceeds configured limit"); err != nil {
+	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML directive exceeds configured limit"); err != nil {
 		return err
 	}
 	if isDOCTYPEDeclaration(t) {
@@ -189,13 +213,13 @@ func (s *schemaParseState) handleDirective(t xml.Directive) error {
 
 func (s *schemaParseState) handleProcInst(t xml.ProcInst) error {
 	line, col := s.dec.InputPos()
-	size := len(t.Target) + len(t.Inst)
+	size := int64(len(t.Target) + len(t.Inst))
 	return checkSchemaTokenLimit(size, s.limits, line, col, "schema XML processing instruction exceeds configured limit")
 }
 
 func (s *schemaParseState) handleComment(t xml.Comment) error {
 	line, col := s.dec.InputPos()
-	return checkSchemaTokenLimit(len(t), s.limits, line, col, "schema XML comment exceeds configured limit")
+	return checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML comment exceeds configured limit")
 }
 
 func validateSchemaRoot(root *rawNode) error {
@@ -212,15 +236,15 @@ func checkSchemaStartElementLimit(start xml.StartElement, limits compileLimits, 
 	if limits.maxSchemaTokenBytes <= 0 {
 		return nil
 	}
-	size := len(start.Name.Space) + len(start.Name.Local)
+	size := int64(len(start.Name.Space) + len(start.Name.Local))
 	if err := checkSchemaTokenLimit(size, limits, line, col, "schema XML start element exceeds configured limit"); err != nil {
 		return err
 	}
 	for _, attr := range start.Attr {
-		if err := checkSchemaTokenLimit(len(attr.Value), limits, line, col, "schema XML attribute value exceeds configured limit"); err != nil {
+		if err := checkSchemaTokenLimit(int64(len(attr.Value)), limits, line, col, "schema XML attribute value exceeds configured limit"); err != nil {
 			return err
 		}
-		size += len(attr.Name.Space) + len(attr.Name.Local) + len(attr.Value)
+		size += int64(len(attr.Name.Space) + len(attr.Name.Local) + len(attr.Value))
 		if err := checkSchemaTokenLimit(size, limits, line, col, "schema XML start element exceeds configured limit"); err != nil {
 			return err
 		}
@@ -228,7 +252,7 @@ func checkSchemaStartElementLimit(start xml.StartElement, limits compileLimits, 
 	return nil
 }
 
-func checkSchemaTokenLimit(size int, limits compileLimits, line, col int, msg string) error {
+func checkSchemaTokenLimit(size int64, limits compileLimits, line, col int, msg string) error {
 	if limits.maxSchemaTokenBytes > 0 && size > limits.maxSchemaTokenBytes {
 		return schemaParse(ErrSchemaLimit, line, col, msg, nil)
 	}
@@ -468,22 +492,48 @@ func (n *rawNode) xsContentChildren() []*rawNode {
 }
 
 func (n *rawNode) resolveQName(lexical string) (string, string, error) {
-	lexical = strings.TrimSpace(lexical)
-	if lexical == "" {
-		return "", "", schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	prefix, local, prefixed, err := parseQNameParts(lexical)
+	if err != nil {
+		return "", "", err
 	}
-	prefix, local, ok := strings.Cut(lexical, ":")
-	if !ok {
-		return n.NS[""], lexical, nil
-	}
-	if prefix == "" || local == "" || strings.Contains(local, ":") {
-		return "", "", schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	if !prefixed {
+		return n.NS[""], local, nil
 	}
 	ns, ok := n.NS[prefix]
 	if !ok {
 		return "", "", schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
 	}
 	return ns, local, nil
+}
+
+func parseQNameParts(lexical string) (string, string, bool, error) {
+	lexical = strings.TrimSpace(lexical)
+	if lexical == "" {
+		return "", "", false, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	}
+	prefix, local, ok := strings.Cut(lexical, ":")
+	if !ok {
+		if !isNCName(lexical) {
+			return "", "", false, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+		}
+		return "", lexical, false, nil
+	}
+	if prefix == "" || local == "" || strings.Contains(local, ":") || !isNCName(prefix) || !isNCName(local) {
+		return "", "", false, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	}
+	return prefix, local, true, nil
+}
+
+func parseQNamePrefixWildcard(lexical string) (string, bool, error) {
+	lexical = strings.TrimSpace(lexical)
+	prefix, local, ok := strings.Cut(lexical, ":")
+	if !ok || local != "*" {
+		return "", false, nil
+	}
+	if prefix == "" || !isNCName(prefix) {
+		return "", true, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
+	}
+	return prefix, true, nil
 }
 
 func parseSchemaBool(v string) (bool, bool) {

@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -149,6 +150,17 @@ func TestFormatXMLHandlesBareCRText(t *testing.T) {
 	}
 }
 
+func TestFormatXMLNormalizesCDATALineEndings(t *testing.T) {
+	var out strings.Builder
+	err := FormatXML(&out, strings.NewReader("<root><![CDATA[a\rb]]></root>"))
+	if err != nil {
+		t.Fatalf("FormatXML() error = %v", err)
+	}
+	if out.String() != "<root><![CDATA[a\nb]]></root>" {
+		t.Fatalf("FormatXML() = %q", out.String())
+	}
+}
+
 func TestFormatXMLPreservesProcessingInstructions(t *testing.T) {
 	var out strings.Builder
 	err := FormatXML(&out, strings.NewReader(`<?xml version="1.0"?><?xml-stylesheet type="text/xsl" href="style.xsl"?><root><?pi data?><v>1</v></root><?tail?>`))
@@ -189,6 +201,38 @@ func TestFormatXMLRejectsExpandedDuplicateAttributes(t *testing.T) {
 	}
 }
 
+func TestFormatXMLRejectsDuplicateNamespaceDeclarations(t *testing.T) {
+	var out strings.Builder
+	err := FormatXML(&out, strings.NewReader(`<root xmlns:a="urn:x" xmlns:a="urn:y"/>`))
+	if err == nil {
+		t.Fatal("FormatXML() succeeded")
+	}
+	if !strings.Contains(err.Error(), "duplicate attribute") {
+		t.Fatalf("FormatXML() error = %v", err)
+	}
+}
+
+func TestFormatXMLRejectsLargeDuplicateAttributes(t *testing.T) {
+	var input strings.Builder
+	input.WriteString("<root")
+	for i := range 40 {
+		input.WriteString(` a`)
+		input.WriteString(strconv.Itoa(i))
+		input.WriteString(`="`)
+		input.WriteString(strconv.Itoa(i))
+		input.WriteByte('"')
+	}
+	input.WriteString(` a39="dup"/>`)
+	var out strings.Builder
+	err := FormatXML(&out, strings.NewReader(input.String()))
+	if err == nil {
+		t.Fatal("FormatXML() succeeded")
+	}
+	if !strings.Contains(err.Error(), "duplicate attribute a39") {
+		t.Fatalf("FormatXML() error = %v", err)
+	}
+}
+
 func TestFormatXMLRejectsUnboundAttributePrefix(t *testing.T) {
 	var out strings.Builder
 	err := FormatXML(&out, strings.NewReader(`<root p:id="1"/>`))
@@ -216,6 +260,72 @@ func TestFormatXMLRejectsCDATAOutsideRoot(t *testing.T) {
 				t.Fatalf("FormatXML() error = %v", err)
 			}
 		})
+	}
+}
+
+func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
+	var out strings.Builder
+	err := FormatXMLWithOptions(&out, strings.NewReader(`<root><a/><b/></root>`), FormatOptions{MaxNodes: 2})
+	if err == nil {
+		t.Fatal("FormatXMLWithOptions() succeeded")
+	}
+	var xerr *XMLFormatError
+	if !errors.As(err, &xerr) {
+		t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
+	}
+	if !strings.Contains(err.Error(), "XML node limit exceeded") {
+		t.Fatalf("FormatXMLWithOptions() error = %v", err)
+	}
+}
+
+func TestFormatXMLWithOptionsAllowsTokenAtLimit(t *testing.T) {
+	var out strings.Builder
+	err := FormatXMLWithOptions(&out, strings.NewReader(`<?pi abc?><r/>`), FormatOptions{MaxTokenBytes: 3})
+	if err != nil {
+		t.Fatalf("FormatXMLWithOptions() error = %v", err)
+	}
+	if out.String() != "<?pi abc?>\n<r></r>" {
+		t.Fatalf("FormatXMLWithOptions() = %q", out.String())
+	}
+}
+
+func TestFormatXMLWithOptionsAllowsInputBytesAtLimit(t *testing.T) {
+	var out strings.Builder
+	input := `<r/>`
+	err := FormatXMLWithOptions(&out, strings.NewReader(input), FormatOptions{MaxInputBytes: int64(len(input))})
+	if err != nil {
+		t.Fatalf("FormatXMLWithOptions() error = %v", err)
+	}
+	if out.String() != "<r></r>" {
+		t.Fatalf("FormatXMLWithOptions() = %q", out.String())
+	}
+}
+
+func TestFormatXMLWithOptionsRejectsInputBytesAfterSniff(t *testing.T) {
+	var out strings.Builder
+	input := `<r/>`
+	err := FormatXMLWithOptions(&out, strings.NewReader(input+"X"), FormatOptions{MaxInputBytes: int64(len(input))})
+	if err == nil {
+		t.Fatal("FormatXMLWithOptions() succeeded")
+	}
+	var xerr *XMLFormatError
+	if !errors.As(err, &xerr) {
+		t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
+	}
+	if !errors.Is(err, errFormatInputLimit) {
+		t.Fatalf("FormatXMLWithOptions() error = %v, want %v", err, errFormatInputLimit)
+	}
+}
+
+func TestFormatXMLWithOptionsRejectsNegativeLimits(t *testing.T) {
+	var out strings.Builder
+	err := FormatXMLWithOptions(&out, strings.NewReader(`<root/>`), FormatOptions{MaxNodes: -1})
+	if err == nil {
+		t.Fatal("FormatXMLWithOptions() succeeded")
+	}
+	var xerr *XMLFormatError
+	if !errors.As(err, &xerr) {
+		t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
 	}
 }
 

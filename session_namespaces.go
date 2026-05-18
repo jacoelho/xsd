@@ -11,19 +11,9 @@ func (s *session) rootTypeFromXSIType(attrs []xml.Attr, line, col int) (typeID, 
 		if a.Name.Space != xsiNamespaceURI || a.Name.Local != "type" {
 			continue
 		}
-		q, ok := s.resolveLexicalQName(a.Value)
-		if !ok {
-			if ns, _, nsOK := s.resolveLexicalQNameParts(a.Value); nsOK && s.hasSchemaLocationHint(ns) {
-				return typeID{}, false, s.unsupportedSchemaLocation(line, col, "type", runtimeName{NS: ns, Local: a.Value})
-			}
-			return typeID{}, false, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+a.Value)
-		}
-		typ, ok := s.engine.rt.GlobalTypes[q]
-		if !ok {
-			if s.hasSchemaLocationHint(s.engine.rt.Names.Namespace(q.Namespace)) {
-				return typeID{}, false, s.unsupportedSchemaLocation(line, col, "type", runtimeName{Name: q, Known: true, NS: s.engine.rt.Names.Namespace(q.Namespace), Local: a.Value})
-			}
-			return typeID{}, false, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+a.Value)
+		typ, err := s.resolveXSIType(a.Value, line, col)
+		if err != nil {
+			return typeID{}, false, err
 		}
 		return typ, true, nil
 	}
@@ -49,16 +39,9 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []xml.Attr, li
 				return typ, false, validation(ErrValidationNil, line, col, s.pathString(), "invalid xsi:nil value")
 			}
 		case "type":
-			q, ok := s.resolveLexicalQName(a.Value)
-			if !ok {
-				if ns, _, nsOK := s.resolveLexicalQNameParts(a.Value); nsOK && s.hasSchemaLocationHint(ns) {
-					return typ, nilled, s.unsupportedSchemaLocation(line, col, "type", runtimeName{NS: ns, Local: a.Value})
-				}
-				return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+a.Value)
-			}
-			override, ok := rt.GlobalTypes[q]
-			if !ok {
-				return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+a.Value)
+			override, err := s.resolveXSIType(a.Value, line, col)
+			if err != nil {
+				return typ, nilled, err
 			}
 			if !s.typeDerivesFrom(override, typ) {
 				return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "xsi:type is not derived from declared type")
@@ -99,6 +82,24 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []xml.Attr, li
 	return typ, nilled, nil
 }
 
+func (s *session) resolveXSIType(value string, line, col int) (typeID, error) {
+	q, ok := s.resolveLexicalQName(value)
+	if !ok {
+		if ns, _, nsOK := s.resolveLexicalQNameParts(value); nsOK && s.hasSchemaLocationHint(ns) {
+			return typeID{}, s.unsupportedSchemaLocation(line, col, "type", runtimeName{NS: ns, Local: value})
+		}
+		return typeID{}, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+value)
+	}
+	if typ, ok := s.engine.rt.GlobalTypes[q]; ok {
+		return typ, nil
+	}
+	ns := s.engine.rt.Names.Namespace(q.Namespace)
+	if s.hasSchemaLocationHint(ns) {
+		return typeID{}, s.unsupportedSchemaLocation(line, col, "type", runtimeName{Name: q, Known: true, NS: ns, Local: value})
+	}
+	return typeID{}, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+value)
+}
+
 func (s *session) typeDerivesFrom(t, base typeID) bool {
 	_, ok := s.typeDerivationMask(t, base)
 	return ok
@@ -131,14 +132,54 @@ func (s *session) translateStartElement(se xml.StartElement, line, col int) (xml
 }
 
 func validateUniqueAttributeNames(attrs []xml.Attr) error {
-	for i, attr := range attrs {
-		for _, other := range attrs[:i] {
-			if attr.Name == other.Name {
-				return errors.New("duplicate attribute " + formatXMLName(attr.Name))
-			}
+	var seen xmlNameSet
+	for _, attr := range attrs {
+		if err := addUniqueXMLName(&seen, attr.Name); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func addUniqueXMLName(seen *xmlNameSet, name xml.Name) error {
+	if !seen.add(name) {
+		return errors.New("duplicate attribute " + formatXMLName(name))
+	}
+	return nil
+}
+
+const xmlNameSetLinearLimit = 16
+
+type xmlNameSet struct {
+	index map[xml.Name]struct{}
+	names [xmlNameSetLinearLimit]xml.Name
+	n     int
+}
+
+func (s *xmlNameSet) add(name xml.Name) bool {
+	if s.index != nil {
+		if _, ok := s.index[name]; ok {
+			return false
+		}
+		s.index[name] = struct{}{}
+		return true
+	}
+	for _, existing := range s.names[:s.n] {
+		if existing == name {
+			return false
+		}
+	}
+	if s.n < len(s.names) {
+		s.names[s.n] = name
+		s.n++
+		return true
+	}
+	s.index = make(map[xml.Name]struct{}, s.n+1)
+	for _, existing := range s.names[:s.n] {
+		s.index[existing] = struct{}{}
+	}
+	s.index[name] = struct{}{}
+	return true
 }
 
 func (s *session) translateName(name xml.Name, element bool, line, col int) (xml.Name, error) {

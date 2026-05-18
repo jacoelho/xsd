@@ -33,7 +33,11 @@ type streamToken struct {
 	cdata     bool
 }
 
-var errUnsupportedEntityReference = errors.New("unsupported entity reference")
+var (
+	errUnsupportedEntityReference = errors.New("unsupported entity reference")
+	errXMLAttributeLimit          = errors.New("XML attribute count limit exceeded")
+	errXMLTokenLimit              = errors.New("XML token byte limit exceeded")
+)
 
 var (
 	doctypeDirective = []byte("DOCTYPE")
@@ -46,31 +50,55 @@ var (
 )
 
 type xmlStreamParser struct {
-	names        *byteStringCache
-	values       *byteStringCache
-	pendingEnd   xml.EndElement
-	nameBuf      []byte
-	valueBuf     []byte
-	entityBuf    []byte
-	textBuf      []byte
-	directive    []byte
-	attrs        []xml.Attr
-	br           byteStream
-	cdataMatched int
-	hasEnd       bool
-	inCDATA      bool
-	atStart      bool
-	emitComments bool
-	emitPI       bool
+	names         *byteStringCache
+	values        *byteStringCache
+	pendingEnd    xml.EndElement
+	nameBuf       []byte
+	valueBuf      []byte
+	entityBuf     []byte
+	textBuf       []byte
+	directive     []byte
+	attrs         []xml.Attr
+	br            byteStream
+	maxAttrs      int
+	maxTokenBytes int64
+	cdataMatched  int
+	hasEnd        bool
+	inCDATA       bool
+	atStart       bool
+	emitComments  bool
+	emitPI        bool
 }
 
 func newXMLStreamParser(r io.Reader, names, values *byteStringCache) *xmlStreamParser {
-	return &xmlStreamParser{
-		br:      byteStream{r: r, line: 1},
-		names:   names,
-		values:  values,
-		atStart: true,
-	}
+	p := new(xmlStreamParser)
+	p.reset(r, names, values)
+	return p
+}
+
+func (p *xmlStreamParser) reset(r io.Reader, names, values *byteStringCache) {
+	p.resetWithLimit(r, names, values, 0)
+}
+
+func (p *xmlStreamParser) resetWithLimit(r io.Reader, names, values *byteStringCache, maxTokenBytes int64) {
+	p.names = names
+	p.values = values
+	p.pendingEnd = xml.EndElement{}
+	p.nameBuf = p.nameBuf[:0]
+	p.valueBuf = p.valueBuf[:0]
+	p.entityBuf = p.entityBuf[:0]
+	p.textBuf = p.textBuf[:0]
+	p.directive = p.directive[:0]
+	p.attrs = p.attrs[:0]
+	p.br.reset(r)
+	p.maxAttrs = 0
+	p.maxTokenBytes = maxTokenBytes
+	p.cdataMatched = 0
+	p.hasEnd = false
+	p.inCDATA = false
+	p.atStart = true
+	p.emitComments = false
+	p.emitPI = false
 }
 
 func (p *xmlStreamParser) next() (streamToken, error) {
@@ -150,7 +178,9 @@ func (p *xmlStreamParser) readCharData(first byte) (streamToken, error) {
 		}
 	case '\r':
 		p.consumeLineFeed()
-		p.textBuf = append(p.textBuf, '\n')
+		if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+			return streamToken{}, err
+		}
 	default:
 		cdataEnd = advanceCDataEnd(cdataEnd, first)
 		if cdataEnd == len(cdataEndTerm) {
@@ -173,7 +203,9 @@ func (p *xmlStreamParser) readCharData(first byte) (streamToken, error) {
 			return streamToken{}, err
 		}
 		if n > 0 {
-			p.textBuf = append(p.textBuf, chunk[:n]...)
+			if appendErr := p.appendTokenBytes(&p.textBuf, chunk[:n]); appendErr != nil {
+				return streamToken{}, appendErr
+			}
 			p.br.consumeBuffered(n)
 			cdataEnd = nextCDataEnd
 			continue
@@ -188,7 +220,9 @@ func (p *xmlStreamParser) readCharData(first byte) (streamToken, error) {
 		}
 		if b == '\r' {
 			p.consumeLineFeed()
-			p.textBuf = append(p.textBuf, '\n')
+			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+				return streamToken{}, err
+			}
 			cdataEnd = 0
 			continue
 		}
@@ -361,10 +395,13 @@ func (p *xmlStreamParser) readCDATAChunk(line, col int) (streamToken, error) {
 	}
 	p.textBuf = p.textBuf[:0]
 	matched := p.cdataMatched
-	appendPending := func() {
+	appendPending := func() error {
 		for ; matched > 0; matched-- {
-			p.textBuf = append(p.textBuf, ']')
+			if err := p.appendTokenByte(&p.textBuf, ']'); err != nil {
+				return err
+			}
 		}
+		return nil
 	}
 	for {
 		b, err := p.br.readByte()
@@ -374,7 +411,9 @@ func (p *xmlStreamParser) readCDATAChunk(line, col int) (streamToken, error) {
 		switch b {
 		case ']':
 			if matched == 2 {
-				p.textBuf = append(p.textBuf, ']')
+				if err := p.appendTokenByte(&p.textBuf, ']'); err != nil {
+					return streamToken{}, err
+				}
 			} else {
 				matched++
 			}
@@ -384,10 +423,24 @@ func (p *xmlStreamParser) readCDATAChunk(line, col int) (streamToken, error) {
 				p.cdataMatched = 0
 				return streamToken{kind: streamTokenCharData, data: p.textBuf, cdata: true, line: line, col: col}, nil
 			}
-			appendPending()
-			p.textBuf = append(p.textBuf, '>')
+			if err := appendPending(); err != nil {
+				return streamToken{}, err
+			}
+			if err := p.appendTokenByte(&p.textBuf, '>'); err != nil {
+				return streamToken{}, err
+			}
+		case '\r':
+			if err := appendPending(); err != nil {
+				return streamToken{}, err
+			}
+			p.consumeLineFeed()
+			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+				return streamToken{}, err
+			}
 		default:
-			appendPending()
+			if err := appendPending(); err != nil {
+				return streamToken{}, err
+			}
 			if err := p.appendXMLRune(&p.textBuf, b); err != nil {
 				return streamToken{}, err
 			}
@@ -429,6 +482,9 @@ func (p *xmlStreamParser) readStartElement(first byte) (xml.StartElement, bool, 
 			attrName, err := p.readName(b)
 			if err != nil {
 				return xml.StartElement{}, false, err
+			}
+			if p.maxAttrs > 0 && len(p.attrs)+1 > p.maxAttrs {
+				return xml.StartElement{}, false, errXMLAttributeLimit
 			}
 			if b, _, err = p.readPastSpace(); err != nil {
 				return xml.StartElement{}, false, err
@@ -475,7 +531,9 @@ func (p *xmlStreamParser) readEndElement() (xml.EndElement, error) {
 
 func (p *xmlStreamParser) readName(first byte) (xml.Name, error) {
 	p.nameBuf = p.nameBuf[:0]
-	p.nameBuf = append(p.nameBuf, first)
+	if err := p.appendTokenByte(&p.nameBuf, first); err != nil {
+		return xml.Name{}, err
+	}
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
@@ -488,7 +546,9 @@ func (p *xmlStreamParser) readName(first byte) (xml.Name, error) {
 			p.br.unreadByte()
 			break
 		}
-		p.nameBuf = append(p.nameBuf, b)
+		if err := p.appendTokenByte(&p.nameBuf, b); err != nil {
+			return xml.Name{}, err
+		}
 	}
 	if len(p.nameBuf) == 0 {
 		return xml.Name{}, fmt.Errorf("empty XML name")
@@ -530,11 +590,15 @@ func (p *xmlStreamParser) readAttributeValue(quote byte) (string, error) {
 		}
 		if b == '\r' {
 			p.consumeLineFeed()
-			p.valueBuf = append(p.valueBuf, ' ')
+			if err := p.appendTokenByte(&p.valueBuf, ' '); err != nil {
+				return "", err
+			}
 			continue
 		}
 		if b == '\n' || b == '\t' {
-			p.valueBuf = append(p.valueBuf, ' ')
+			if err := p.appendTokenByte(&p.valueBuf, ' '); err != nil {
+				return "", err
+			}
 			continue
 		}
 		if b == '&' {
@@ -571,7 +635,9 @@ func (p *xmlStreamParser) readComment(dst []byte) ([]byte, error) {
 			continue
 		}
 		if prevDash {
-			dst = append(dst, '-')
+			if err := p.appendTokenByte(&dst, '-'); err != nil {
+				return nil, err
+			}
 			prevDash = false
 		}
 		if err := p.appendXMLRune(&dst, b); err != nil {
@@ -668,7 +734,9 @@ func (p *xmlStreamParser) readPI(atDocumentStart bool, line, col int) (streamTok
 			p.directive = data
 			return streamToken{kind: streamTokenPI, data: p.nameBuf, directive: data, line: line, col: col}, false, nil
 		}
-		p.nameBuf = append(p.nameBuf, b)
+		if err := p.appendTokenByte(&p.nameBuf, b); err != nil {
+			return streamToken{}, false, err
+		}
 	}
 }
 
@@ -788,8 +856,7 @@ func (p *xmlStreamParser) appendXMLRune(dst *[]byte, first byte) error {
 		if !isXMLChar(rune(first)) {
 			return fmt.Errorf("invalid XML character")
 		}
-		*dst = append(*dst, first)
-		return nil
+		return p.appendTokenByte(dst, first)
 	}
 	var buf [utf8.UTFMax]byte
 	buf[0] = first
@@ -812,8 +879,7 @@ func (p *xmlStreamParser) appendXMLRune(dst *[]byte, first byte) error {
 	if !isXMLChar(r) {
 		return fmt.Errorf("invalid XML character")
 	}
-	*dst = append(*dst, buf[:size]...)
-	return nil
+	return p.appendTokenBytes(dst, buf[:size])
 }
 
 func (p *xmlStreamParser) consumeXMLRune(first byte) error {
@@ -891,22 +957,24 @@ func (p *xmlStreamParser) readEntity(dst *[]byte) error {
 		if b == ';' {
 			break
 		}
-		p.entityBuf = append(p.entityBuf, b)
+		if err := p.appendTokenByte(&p.entityBuf, b); err != nil {
+			return err
+		}
 		if len(p.entityBuf) > maxEntityReferenceLength {
 			return fmt.Errorf("invalid character entity")
 		}
 	}
 	switch {
 	case bytes.Equal(p.entityBuf, entityLT):
-		*dst = append(*dst, '<')
+		return p.appendTokenByte(dst, '<')
 	case bytes.Equal(p.entityBuf, entityGT):
-		*dst = append(*dst, '>')
+		return p.appendTokenByte(dst, '>')
 	case bytes.Equal(p.entityBuf, entityAMP):
-		*dst = append(*dst, '&')
+		return p.appendTokenByte(dst, '&')
 	case bytes.Equal(p.entityBuf, entityAPOS):
-		*dst = append(*dst, '\'')
+		return p.appendTokenByte(dst, '\'')
 	case bytes.Equal(p.entityBuf, entityQUOT):
-		*dst = append(*dst, '"')
+		return p.appendTokenByte(dst, '"')
 	default:
 		if len(p.entityBuf) == 0 || p.entityBuf[0] != '#' {
 			if isXMLNameBytes(p.entityBuf) {
@@ -920,9 +988,8 @@ func (p *xmlStreamParser) readEntity(dst *[]byte) error {
 		}
 		var buf [utf8.UTFMax]byte
 		n := utf8.EncodeRune(buf[:], r)
-		*dst = append(*dst, buf[:n]...)
+		return p.appendTokenBytes(dst, buf[:n])
 	}
-	return nil
 }
 
 func parseCharRef(s []byte) (rune, bool) {
@@ -979,6 +1046,9 @@ func (p *xmlStreamParser) readPastSpace() (byte, bool, error) {
 }
 
 func (p *xmlStreamParser) readUntil(term string, dst []byte) ([]byte, error) {
+	if p.maxTokenBytes <= 0 {
+		return p.readUntilNoLimit(term, dst)
+	}
 	prefix := termPrefix(term)
 	matched := 0
 	for {
@@ -990,9 +1060,62 @@ func (p *xmlStreamParser) readUntil(term string, dst []byte) ([]byte, error) {
 		matched = advanceTermMatch(term, prefix, matched, b)
 		if matched == len(term) {
 			dst = dst[:len(dst)-len(term)]
+			if err := p.checkTokenBytes(int64(len(dst))); err != nil {
+				return nil, err
+			}
 			return dst, nil
 		}
+		if err := p.checkTokenBytes(int64(len(dst) - matched)); err != nil {
+			return nil, err
+		}
 	}
+}
+
+func (p *xmlStreamParser) readUntilNoLimit(term string, dst []byte) ([]byte, error) {
+	prefix := termPrefix(term)
+	matched := 0
+	for {
+		b, err := p.br.readByte()
+		if err != nil {
+			return nil, p.syntaxError("unexpected EOF", err)
+		}
+		dst = append(dst, b)
+		matched = advanceTermMatch(term, prefix, matched, b)
+		if matched == len(term) {
+			return dst[:len(dst)-len(term)], nil
+		}
+	}
+}
+
+func (p *xmlStreamParser) appendTokenByte(dst *[]byte, b byte) error {
+	if p.maxTokenBytes <= 0 {
+		*dst = append(*dst, b)
+		return nil
+	}
+	if err := p.checkTokenBytes(int64(len(*dst) + 1)); err != nil {
+		return err
+	}
+	*dst = append(*dst, b)
+	return nil
+}
+
+func (p *xmlStreamParser) appendTokenBytes(dst *[]byte, data []byte) error {
+	if p.maxTokenBytes <= 0 {
+		*dst = append(*dst, data...)
+		return nil
+	}
+	if err := p.checkTokenBytes(int64(len(*dst) + len(data))); err != nil {
+		return err
+	}
+	*dst = append(*dst, data...)
+	return nil
+}
+
+func (p *xmlStreamParser) checkTokenBytes(n int64) error {
+	if p.maxTokenBytes > 0 && n > p.maxTokenBytes {
+		return errXMLTokenLimit
+	}
+	return nil
 }
 
 func termPrefix(term string) []int {
@@ -1091,6 +1214,19 @@ type byteStream struct {
 	buf     [64 * 1024]byte
 	unread  bool
 	last    byte
+}
+
+func (b *byteStream) reset(r io.Reader) {
+	b.r = r
+	b.err = nil
+	b.prev = bytePosition{}
+	b.lastPos = bytePosition{}
+	b.off = 0
+	b.end = 0
+	b.line = 1
+	b.col = 0
+	b.unread = false
+	b.last = 0
 }
 
 type bytePosition struct {

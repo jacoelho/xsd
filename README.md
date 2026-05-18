@@ -5,14 +5,14 @@ Pure Go XML Schema 1.0 validator.
 The public API is intentionally small:
 
 - compile schemas once with `xsd.Compile`
-- pass schema sources with `xsd.File` or `xsd.Reader`
+- pass schema sources with `xsd.File`, `xsd.Reader`, or `xsd.LimitedReader`
 - validate each XML document with `Engine.Validate`
 - reuse document-local state with `Engine.NewSession` when useful
 - inspect failures with `errors.AsType[*xsd.Error]`
 
 Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document.
 
-`File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file. `Reader` uses only sources passed to `Compile` unless paired with a `Resolver`. HTTP and network schema loading are not performed by default.
+`File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file. `Reader` uses only sources passed to `Compile` unless paired with a `Resolver`. `Reader` eagerly reads the whole input so the source can be reused; use `LimitedReader` for untrusted reader inputs. HTTP and network schema loading are not performed by default.
 
 ## Install
 
@@ -72,6 +72,7 @@ engine, err := xsd.CompileWithOptions(
         MaxSchemaDepth:        256,
         MaxSchemaAttributes:   256,
         MaxSchemaTokenBytes:   4 << 20,
+        MaxSchemaSourceBytes:  64 << 20,
         MaxSchemaNames:        0,
         MaxFiniteOccurs:       1_000_000,
         MaxContentModelStates: 16_384,
@@ -90,11 +91,21 @@ Available options:
 | `MaxSchemaDepth` | `256` | Max nested schema XML elements. |
 | `MaxSchemaAttributes` | `256` | Max attributes on one schema XML element. |
 | `MaxSchemaTokenBytes` | `4 << 20` | Max retained schema XML token payload. |
+| `MaxSchemaSourceBytes` | `64 << 20` | Max bytes read from each schema source. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
 | `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. |
 
 Negative integer limits are schema compile errors.
+
+`MaxSchemaSourceBytes` applies during compilation to every source, including files, resolver-loaded includes/imports, and data captured by `Reader`. Because `Reader` reads eagerly before `CompileWithOptions` runs, callers that need to cap untrusted `io.Reader` input should use `LimitedReader`:
+
+```go
+engine, err := xsd.Compile(xsd.LimitedReader("schema.xsd", r, 64<<20))
+if err != nil {
+    return err
+}
+```
 
 Finite `minOccurs` and `maxOccurs` values above `4294967295` are schema compile errors. `MaxFiniteOccurs` can lower the finite `maxOccurs` limit, but it cannot raise it above the runtime `uint32` representation. `maxOccurs="unbounded"` is not affected by this cap.
 
@@ -103,12 +114,15 @@ Finite `minOccurs` and `maxOccurs` values above `4294967295` are schema compile 
 Use `ValidateWithOptions` for one validation call, or `NewSession` to reuse document-local buffers across calls:
 
 ```go
-session := engine.NewSession(xsd.ValidateOptions{
+session, err := engine.NewSession(xsd.ValidateOptions{
     MaxErrors:             1,
     MaxIdentityScopes:     10_000,
     MaxIdentityEntries:    100_000,
     MaxIdentityTupleBytes: 4 << 10,
 })
+if err != nil {
+    return err
+}
 
 for _, doc := range docs {
     if err := session.Validate(strings.NewReader(doc)); err != nil {
@@ -125,6 +139,12 @@ Available validation options:
 | `MaxIdentityScopes` | `0` | Max active identity-constraint scopes. `0` means unlimited. |
 | `MaxIdentityEntries` | `0` | Max stored ID, IDREF, key, unique, and keyref entries. `0` means unlimited. |
 | `MaxIdentityTupleBytes` | `0` | Max byte length of one stored identity key. `0` means unlimited. |
+| `MaxInstanceDepth` | `0` | Max nested XML elements. `0` means unlimited. |
+| `MaxInstanceAttributes` | `0` | Max attributes on one XML element. `0` means unlimited. |
+| `MaxInstanceTextBytes` | `0` | Max retained character data bytes. `0` means unlimited. |
+| `MaxInstanceTokenBytes` | `0` | Max retained XML token payload bytes. `0` means unlimited. |
+
+Negative integer limits are validation errors.
 
 `Engine` is goroutine-safe. `Session` is not goroutine-safe; use one session per goroutine. `Session.Validate` resets document-local state before every validation.
 
@@ -194,11 +214,9 @@ docs := []string{`<root>1</root>`, `<root>2</root>`, `<root>3</root>`}
 var wg sync.WaitGroup
 errs := make(chan error, len(docs))
 for _, doc := range docs {
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
+    wg.Go(func() {
         errs <- engine.Validate(strings.NewReader(doc))
-    }()
+    })
 }
 wg.Wait()
 close(errs)
@@ -227,6 +245,7 @@ Available flags:
 | `--schema path` | yes | Schema file path. |
 | `--noout` | no | Accepted for compatibility. Document output is always suppressed. |
 | `--huge` | no | Accepted for compatibility. |
+| `--max-errors n` | no | Maximum validation errors to collect. `0` means unlimited. |
 
 ## Benchmark Against libxml2
 
@@ -249,7 +268,7 @@ By default this generates streaming XML documents at `100MB`, `500MB`, `1GB`, an
 
 The command comparison reports elapsed time and max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
 
-Latest local run (2026-05-17, Go 1.26.2, libxml2 2.9.13):
+Latest local run (2026-05-18, Go 1.26.2, libxml2 2.9.13):
 
 ```text
 goos: darwin
@@ -258,21 +277,21 @@ pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | sec/op          | sec/op          vs base           |
-streaming/100MB                   1.671s          2.775s      +66.02%
-streaming/500MB                  10.432s         13.864s      +32.91%
-streaming/1GB                    25.886s         28.177s       +8.85%
-streaming/2GB                    56.644s         56.764s       +0.21%
-identity                       630.717ms       421.677ms      -33.14%
-geomean                           6.942s          7.635s       +9.98%
+streaming/100MB                   1.806s          3.321s      +83.92%
+streaming/500MB                  11.204s         15.059s      +34.41%
+streaming/1GB                    25.433s         30.583s      +20.25%
+streaming/2GB                    51.891s         62.161s      +19.79%
+identity                       615.367ms       897.544ms      +45.86%
+geomean                           6.968s          9.688s      +39.03%
 
                          | libxml2 xmllint |             go xmllint             |
                          | rss/op          | rss/op          vs base           |
-streaming/100MB                  1.17GiB        12.72MiB      -98.94%
-streaming/500MB                  5.81GiB        13.00MiB      -99.78%
-streaming/1GB                   11.03GiB        13.72MiB      -99.88%
-streaming/2GB                   11.14GiB        13.30MiB      -99.88%
-identity                       186.89MiB        73.59MiB      -60.62%
-geomean                          2.73GiB        18.59MiB      -99.34%
+streaming/100MB                  1.17GiB        12.25MiB      -98.98%
+streaming/500MB                  5.81GiB        12.88MiB      -99.78%
+streaming/1GB                    9.50GiB        12.95MiB      -99.87%
+streaming/2GB                   12.44GiB        13.56MiB      -99.89%
+identity                       185.62MiB        72.98MiB      -60.68%
+geomean                          2.71GiB        18.25MiB      -99.34%
 ```
 
 ## Constraints
@@ -282,6 +301,7 @@ geomean                          2.73GiB        18.59MiB      -99.34%
 - Instance documents must be UTF-8.
 - DTDs and external entities are rejected.
 - `xsi:schemaLocation` never triggers dynamic loading.
+- `FormatXML` builds an in-memory formatting tree; validation is the streaming path.
 - Regex support is limited to patterns representable by Go `regexp`; unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
 - Date/time values using BCE years or years outside `0001..9999` are unsupported for `xs:date` and `xs:dateTime`.
 - `xs:redefine` is unsupported.

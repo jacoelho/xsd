@@ -142,6 +142,12 @@ func validateElementDecl(rt *runtimeSchema, decl elementDecl) error {
 	if !decl.HasFixed && decl.FixedCanonical != "" {
 		return internalInvariant("element declaration stores canonical fixed without fixed")
 	}
+	if err := validateStoredSimpleValue(rt, decl.HasDefault, decl.DefaultCanonical, decl.DefaultValue, "element declaration default"); err != nil {
+		return err
+	}
+	if err := validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "element declaration fixed"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -154,6 +160,12 @@ func validateAttributeDecl(rt *runtimeSchema, decl attributeDecl) error {
 	}
 	if !decl.HasFixed && decl.FixedCanonical != "" {
 		return internalInvariant("attribute declaration stores canonical fixed without fixed")
+	}
+	if err := validateStoredSimpleValue(rt, decl.HasDefault, decl.DefaultCanonical, decl.DefaultValue, "attribute declaration default"); err != nil {
+		return err
+	}
+	if err := validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "attribute declaration fixed"); err != nil {
+		return err
 	}
 	return nil
 }
@@ -212,6 +224,12 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 		if !use.HasFixed && use.FixedCanonical != "" {
 			return internalInvariant("attribute use stores canonical fixed without fixed")
 		}
+		if err := validateStoredSimpleValue(rt, use.HasDefault, use.DefaultCanonical, use.DefaultValue, "attribute use default"); err != nil {
+			return err
+		}
+		if err := validateStoredSimpleValue(rt, use.HasFixed, use.FixedCanonical, use.FixedValue, "attribute use fixed"); err != nil {
+			return err
+		}
 	}
 	for _, slot := range set.Required {
 		if !validUint32Index(slot, len(set.Uses)) || !set.Uses[slot].Required {
@@ -222,6 +240,22 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 		if !validUint32Index(slot, len(set.Uses)) || (!set.Uses[slot].HasDefault && !set.Uses[slot].HasFixed) {
 			return internalInvariant("attribute use set value constraint slot is invalid")
 		}
+	}
+	return nil
+}
+
+func validateStoredSimpleValue(rt *runtimeSchema, has bool, canonical string, value simpleValue, label string) error {
+	if !has {
+		if value.Canonical != "" || value.IDs != "" || value.IDRefs != "" {
+			return internalInvariant(label + " stores value without value constraint")
+		}
+		return nil
+	}
+	if value.Canonical != canonical {
+		return internalInvariant(label + " canonical value mismatch")
+	}
+	if value.Type != noSimpleType && !validSimpleTypeID(rt, value.Type) {
+		return internalInvariant(label + " references invalid simple type")
 	}
 	return nil
 }

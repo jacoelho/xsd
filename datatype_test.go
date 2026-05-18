@@ -113,6 +113,59 @@ func TestInvalidDigitFacetCombinationIsSchemaError(t *testing.T) {
 	expectCode(t, err, ErrSchemaFacet)
 }
 
+func TestFacetValueAttributeIsRequired(t *testing.T) {
+	tests := []struct {
+		name  string
+		base  string
+		facet string
+	}{
+		{name: "enumeration", base: "xs:string", facet: `<xs:enumeration/>`},
+		{name: "pattern", base: "xs:string", facet: `<xs:pattern/>`},
+		{name: "bound", base: "xs:int", facet: `<xs:minInclusive/>`},
+		{name: "whiteSpace", base: "xs:string", facet: `<xs:whiteSpace/>`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bad"><xs:restriction base="`+tt.base+`">`+tt.facet+`</xs:restriction></xs:simpleType>
+</xs:schema>`)))
+			expectCode(t, err, ErrSchemaFacet)
+		})
+	}
+}
+
+func TestFacetApplicabilityIsCheckedAtCompileTime(t *testing.T) {
+	tests := []struct {
+		name  string
+		base  string
+		facet string
+	}{
+		{name: "string_bound", base: "xs:string", facet: `<xs:minInclusive value="a"/>`},
+		{name: "boolean_bound", base: "xs:boolean", facet: `<xs:maxInclusive value="true"/>`},
+		{name: "binary_bound", base: "xs:hexBinary", facet: `<xs:minExclusive value="00"/>`},
+		{name: "string_digits", base: "xs:string", facet: `<xs:totalDigits value="1"/>`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bad"><xs:restriction base="`+tt.base+`">`+tt.facet+`</xs:restriction></xs:simpleType>
+</xs:schema>`)))
+			expectCode(t, err, ErrSchemaFacet)
+		})
+	}
+
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType><xs:restriction base="xs:date"><xs:minInclusive value="2020-01-01"/></xs:restriction></xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>2020-01-01</root>`)
+	mustNotValidate(t, engine, `<root>2019-12-31</root>`, ErrValidationFacet)
+}
+
 func TestParseDecimalCanonical(t *testing.T) {
 	tests := []struct {
 		in             string
@@ -654,6 +707,37 @@ func TestOrderedFacetsAreRejectedForListAndUnionTypes(t *testing.T) {
 	expectCode(t, err, ErrSchemaFacet)
 }
 
+func TestUnionValueFailureReportsUnionFailure(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U"><xs:union memberTypes="xs:int xs:boolean"/></xs:simpleType>
+  <xs:element name="root" type="U"/>
+</xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<root>nope</root>`))
+	expectCode(t, err, ErrValidationFacet)
+	if !strings.Contains(err.Error(), "value does not match any union member") {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
+func TestUnionPropagatesUnsupportedWhenNoMemberMatches(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U"><xs:union memberTypes="xs:date xs:int"/></xs:simpleType>
+  <xs:element name="root" type="U"/>
+</xs:schema>`)
+	mustNotValidate(t, engine, `<root>10000-01-01</root>`, ErrUnsupportedDateTime)
+}
+
+func TestUnionIgnoresUnsupportedWhenLaterMemberMatches(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U"><xs:union memberTypes="xs:date xs:string"/></xs:simpleType>
+  <xs:element name="root" type="U"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>10000-01-01</root>`)
+}
+
 func TestTimeRejectsSecondSixty(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -922,12 +1006,65 @@ func TestInvalidRegexSyntaxIsSchemaError(t *testing.T) {
 		`[^a-d-b-c]`,
 		`[a-c-1-4x-z-7-9]*`,
 		`[a-a-x-x]+`,
+		`\p{}0`,
+		`\p{0}`,
+		`\p{Is}`,
 	}
 	for _, pattern := range tests {
 		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="t"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
 		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
 		expectCode(t, err, ErrSchemaFacet)
 	}
+}
+
+func TestUnsupportedRegexEscapesAreExplicit(t *testing.T) {
+	tests := []string{
+		`\C0`,
+		`\I0`,
+		`\p{IsBasicLatin}`,
+		`[.\w]`,
+		`[\w:]`,
+		`[\w-]`,
+		`[.\D]`,
+		`[.\W]`,
+		`[.\S]`,
+	}
+	for _, pattern := range tests {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="t"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
+		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+		expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedRegex)
+	}
+}
+
+func TestSingletonRegexClassEscapesRemainSupported(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="word"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\w]"/></xs:restriction></xs:simpleType></xs:element>
+  <xs:element name="notWord"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\W]"/></xs:restriction></xs:simpleType></xs:element>
+  <xs:element name="notDigit"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\D]"/></xs:restriction></xs:simpleType></xs:element>
+  <xs:element name="notSpace"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\S]"/></xs:restriction></xs:simpleType></xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<word>A</word>`)
+	mustNotValidate(t, engine, `<word> </word>`, ErrValidationFacet)
+	mustValidate(t, engine, `<notWord> </notWord>`)
+	mustNotValidate(t, engine, `<notWord>A</notWord>`, ErrValidationFacet)
+	mustValidate(t, engine, `<notDigit>A</notDigit>`)
+	mustNotValidate(t, engine, `<notDigit>1</notDigit>`, ErrValidationFacet)
+	mustValidate(t, engine, `<notSpace>A</notSpace>`)
+	mustNotValidate(t, engine, "<notSpace>\t</notSpace>", ErrValidationFacet)
+}
+
+func TestRegexWhitespaceUsesXMLWhitespace(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="space"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\s"/></xs:restriction></xs:simpleType></xs:element>
+  <xs:element name="notSpace"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\S"/></xs:restriction></xs:simpleType></xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, "<space>\t</space>")
+	mustValidate(t, engine, "<space>\n</space>")
+	mustNotValidate(t, engine, `<space>A</space>`, ErrValidationFacet)
+	mustValidate(t, engine, `<notSpace>A</notSpace>`)
+	mustNotValidate(t, engine, "<notSpace>\t</notSpace>", ErrValidationFacet)
 }
 
 func TestNMTOKENSAndEntityTypes(t *testing.T) {
@@ -1011,6 +1148,90 @@ func TestTimeLeapSecondAndOffsetEquivalence(t *testing.T) {
 	mustValidate(t, engine, `<fixed>22:00:00Z</fixed>`)
 	mustValidate(t, engine, `<bounded>00:30:00+14:00</bounded>`)
 	mustNotValidate(t, engine, `<bounded>00:29:59+14:00</bounded>`, ErrValidationFacet)
+}
+
+func TestDateTimeLeapSecondAndOffsetEquivalence(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="plain" type="xs:dateTime"/>
+  <xs:element name="fixed" type="xs:dateTime" fixed="1998-12-31T23:59:60Z"/>
+  <xs:element name="bounded">
+    <xs:simpleType>
+      <xs:restriction base="xs:dateTime">
+        <xs:minInclusive value="1998-12-31T23:59:60Z"/>
+        <xs:maxInclusive value="1998-12-31T23:59:60Z"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<plain>1998-12-31T23:59:60Z</plain>`)
+	mustValidate(t, engine, `<plain>1998-12-31T23:59:60</plain>`)
+	mustValidate(t, engine, `<fixed>1999-01-01T00:00:00Z</fixed>`)
+	mustValidate(t, engine, `<bounded>1999-01-01T00:00:00Z</bounded>`)
+	mustNotValidate(t, engine, `<plain>1998-12-31T22:59:60Z</plain>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<plain>1998-12-31T23:59:61Z</plain>`, ErrValidationFacet)
+}
+
+func TestDateTimeAndTimeRejectUnsupportedFractionalPrecision(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="plain" type="xs:dateTime"/>
+  <xs:element name="time" type="xs:time"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<plain>2000-01-01T00:00:00.123456789Z</plain>`)
+	mustValidate(t, engine, `<time>00:00:00.123456789Z</time>`)
+	mustNotValidate(t, engine, `<plain>2000-01-01T00:00:00.1234567891Z</plain>`, ErrUnsupportedDateTime)
+	mustNotValidate(t, engine, `<time>00:00:00.1234567891Z</time>`, ErrUnsupportedDateTime)
+}
+
+func TestTemporalFacetRejectsUnsupportedFractionalPrecision(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+	}{
+		{
+			name: "dateTime fixed",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="fixed" type="xs:dateTime" fixed="2000-01-01T00:00:00.1234567891Z"/>
+</xs:schema>`,
+		},
+		{
+			name: "dateTime facet",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bounded">
+    <xs:restriction base="xs:dateTime">
+      <xs:minInclusive value="2000-01-01T00:00:00.1234567891Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+		},
+		{
+			name: "time fixed",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="fixed" type="xs:time" fixed="00:00:00.1234567891Z"/>
+</xs:schema>`,
+		},
+		{
+			name: "time facet",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bounded">
+    <xs:restriction base="xs:time">
+      <xs:minInclusive value="00:00:00.1234567891Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(tt.schema)))
+			expectCode(t, err, ErrUnsupportedDateTime)
+		})
+	}
 }
 
 func TestGDateTimeDatatypesAndUnsupportedYears(t *testing.T) {

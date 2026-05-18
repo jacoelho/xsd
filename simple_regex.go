@@ -9,9 +9,6 @@ func compilePattern(source string) (pattern, error) {
 	if err := validateXSDRegexSyntax(source); err != nil {
 		return pattern{}, err
 	}
-	if containsUnsupportedXSDRegex(source) || containsXSDClassSubtraction(source) {
-		return pattern{}, unsupported(ErrUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source)
-	}
 	goPattern := translateXSDRegexToGo(source)
 	goSource := "^(?:" + goPattern + ")$"
 	re, err := regexp.Compile(goSource)
@@ -21,78 +18,6 @@ func compilePattern(source string) (pattern, error) {
 	return pattern{XSDSource: source, GoSource: goSource, RE: re}, nil
 }
 
-func containsUnsupportedXSDRegex(source string) bool {
-	escaped := false
-	for i := 0; i < len(source); i++ {
-		c := source[i]
-		if escaped {
-			switch c {
-			case 'i', 'c':
-				return true
-			case 'p', 'P':
-				if strings.HasPrefix(source[i+1:], "{Is") {
-					return true
-				}
-			}
-			escaped = false
-			continue
-		}
-		if c == '\\' {
-			escaped = true
-		}
-	}
-	return false
-}
-
-func containsXSDClassSubtraction(source string) bool {
-	escaped := false
-	inCategory := false
-	inClass := false
-	lastHyphen := false
-	for _, r := range source {
-		if inCategory {
-			if r == '}' {
-				inCategory = false
-			}
-			continue
-		}
-		if escaped {
-			if r == 'p' || r == 'P' {
-				inCategory = true
-			}
-			escaped = false
-			lastHyphen = false
-			continue
-		}
-		if r == '\\' {
-			escaped = true
-			continue
-		}
-		if !inClass {
-			if r == '[' {
-				inClass = true
-				lastHyphen = false
-			}
-			continue
-		}
-		switch r {
-		case '[':
-			if lastHyphen {
-				return true
-			}
-			lastHyphen = false
-		case ']':
-			inClass = false
-			lastHyphen = false
-		case '-':
-			lastHyphen = true
-		default:
-			lastHyphen = false
-		}
-	}
-	return false
-}
-
 func validateXSDRegexSyntax(source string) error {
 	var v xsdRegexSyntaxValidator
 	for _, r := range source {
@@ -100,12 +25,22 @@ func validateXSDRegexSyntax(source string) error {
 			return err
 		}
 	}
-	return v.finish()
+	if err := v.finish(); err != nil {
+		return err
+	}
+	if v.unsupported {
+		return unsupported(ErrUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source)
+	}
+	return nil
 }
 
 type xsdRegexSyntaxValidator struct {
+	categoryName        string
 	classTerms          []bool
 	classFirst          []bool
+	classTermCount      []int
+	classUnsafeEscape   []bool
+	classNegated        []bool
 	quantifierMin       uint64
 	quantifierMax       uint64
 	quantifierMinDigits int
@@ -127,6 +62,7 @@ type xsdRegexSyntaxValidator struct {
 	inCategory          bool
 	canQuantify         bool
 	prevQuantifier      bool
+	unsupported         bool
 }
 
 func (v *xsdRegexSyntaxValidator) consume(r rune) error {
@@ -151,7 +87,19 @@ func (v *xsdRegexSyntaxValidator) consume(r rune) error {
 
 func (v *xsdRegexSyntaxValidator) consumeCategory(r rune) error {
 	if r != '}' {
+		v.categoryName += string(r)
 		return nil
+	}
+	switch {
+	case v.categoryName == "":
+		return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
+	case strings.HasPrefix(v.categoryName, "Is"):
+		if len(v.categoryName) == len("Is") {
+			return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
+		}
+		v.unsupported = true
+	case !validGoRegexCategory(v.categoryName):
+		return schemaCompile(ErrSchemaFacet, "invalid regex category escape")
 	}
 	v.inCategory = false
 	if v.inClass {
@@ -166,8 +114,10 @@ func (v *xsdRegexSyntaxValidator) finishClassCategory() error {
 	if v.classPendingRange {
 		return schemaCompile(ErrSchemaFacet, "invalid regex character range")
 	}
-	v.classTerms[len(v.classTerms)-1] = true
-	v.classFirst[len(v.classFirst)-1] = false
+	last := len(v.classTerms) - 1
+	v.classTerms[last] = true
+	v.classFirst[last] = false
+	v.markClassTerm(last)
 	v.classLastHyphen = false
 	v.classHasLastRune = false
 	v.classJustRange = false
@@ -181,7 +131,13 @@ func (v *xsdRegexSyntaxValidator) consumePendingCategory(r rune) error {
 	}
 	v.pendingCategory = false
 	v.inCategory = true
+	v.categoryName = ""
 	return nil
+}
+
+func validGoRegexCategory(name string) bool {
+	_, err := regexp.Compile(`\p{` + name + `}`)
+	return err == nil
 }
 
 func (v *xsdRegexSyntaxValidator) consumeQuantifier(r rune) error {
@@ -233,12 +189,18 @@ func (v *xsdRegexSyntaxValidator) consumeEscaped(r rune) error {
 	if err := v.checkEscapedClassRange(r); err != nil {
 		return err
 	}
+	if r == 'i' || r == 'I' || r == 'c' || r == 'C' {
+		v.unsupported = true
+	}
 	if r == 'p' || r == 'P' {
 		v.pendingCategory = true
 		v.escaped = false
 		return nil
 	}
 	if v.inClass {
+		if isUnsafeXSDRegexClassEscape(r) {
+			v.classUnsafeEscape[len(v.classUnsafeEscape)-1] = true
+		}
 		if err := v.acceptClassRune(r); err != nil {
 			return err
 		}
@@ -277,6 +239,7 @@ func (v *xsdRegexSyntaxValidator) consumeClass(r rune) error {
 	last := len(v.classTerms) - 1
 	if v.classFirst[last] && r == '^' {
 		v.classFirst[last] = false
+		v.classNegated[last] = true
 		v.classLastHyphen = false
 		return nil
 	}
@@ -290,9 +253,13 @@ func (v *xsdRegexSyntaxValidator) openNestedClass() error {
 	if !v.classLastHyphen {
 		return schemaCompile(ErrSchemaFacet, "invalid nested regex character class")
 	}
+	v.unsupported = true
 	v.classPendingRange = false
 	v.classTerms = append(v.classTerms, false)
 	v.classFirst = append(v.classFirst, true)
+	v.classTermCount = append(v.classTermCount, 0)
+	v.classUnsafeEscape = append(v.classUnsafeEscape, false)
+	v.classNegated = append(v.classNegated, false)
 	v.classLastHyphen = false
 	v.classHasLastRune = false
 	v.classJustRange = false
@@ -305,15 +272,26 @@ func (v *xsdRegexSyntaxValidator) closeClass() error {
 	if !v.classTerms[last] {
 		return schemaCompile(ErrSchemaFacet, "empty regex character class")
 	}
+	if v.classPendingRange {
+		v.markClassTerm(last)
+	}
+	if v.classUnsafeEscape[last] && (v.classNegated[last] || v.classTermCount[last] != 1) {
+		v.unsupported = true
+	}
 	v.classTerms = v.classTerms[:last]
 	v.classFirst = v.classFirst[:last]
+	v.classTermCount = v.classTermCount[:last]
+	v.classUnsafeEscape = v.classUnsafeEscape[:last]
+	v.classNegated = v.classNegated[:last]
 	if len(v.classTerms) == 0 {
 		v.inClass = false
 		v.canQuantify = true
 		v.prevQuantifier = false
 	} else {
-		v.classTerms[len(v.classTerms)-1] = true
-		v.classFirst[len(v.classFirst)-1] = false
+		parent := len(v.classTerms) - 1
+		v.classTerms[parent] = true
+		v.classFirst[parent] = false
+		v.markClassTerm(parent)
 	}
 	v.classLastHyphen = false
 	v.classPendingRange = false
@@ -338,6 +316,7 @@ func (v *xsdRegexSyntaxValidator) consumeClassHyphen(last int) error {
 	} else {
 		v.classTerms[last] = true
 		v.classFirst[last] = false
+		v.markClassTerm(last)
 		v.classLastHyphen = false
 		v.classPendingRange = false
 		v.classLastRune = '-'
@@ -364,6 +343,7 @@ func (v *xsdRegexSyntaxValidator) acceptClassRuneAt(last int, r rune) error {
 	}
 	v.classTerms[last] = true
 	v.classFirst[last] = false
+	v.markClassTerm(last)
 	v.classLastHyphen = false
 	v.classHyphenAfter = false
 	v.classLastRune = r
@@ -401,6 +381,9 @@ func (v *xsdRegexSyntaxValidator) openClass() {
 	v.inClass = true
 	v.classTerms = []bool{false}
 	v.classFirst = []bool{true}
+	v.classTermCount = []int{0}
+	v.classUnsafeEscape = []bool{false}
+	v.classNegated = []bool{false}
 	v.classLastHyphen = false
 	v.classPendingRange = false
 	v.classHasLastRune = false
@@ -408,6 +391,10 @@ func (v *xsdRegexSyntaxValidator) openClass() {
 	v.classHyphenAfter = false
 	v.canQuantify = false
 	v.prevQuantifier = false
+}
+
+func (v *xsdRegexSyntaxValidator) markClassTerm(last int) {
+	v.classTermCount[last]++
 }
 
 func (v *xsdRegexSyntaxValidator) closeGroup() error {
@@ -481,6 +468,18 @@ func translateXSDRegexToGo(source string) string {
 				} else {
 					b.WriteString(`[^` + xsdDigitClassInner + `]`)
 				}
+			case 's':
+				if inClass {
+					b.WriteString(xsdSpaceClassInner)
+				} else {
+					b.WriteString(`[` + xsdSpaceClassInner + `]`)
+				}
+			case 'S':
+				if inClass {
+					b.WriteString(`^` + xsdSpaceClassInner)
+				} else {
+					b.WriteString(`[^` + xsdSpaceClassInner + `]`)
+				}
 			case 'w':
 				if inClass {
 					b.WriteString(xsdWordClassInner)
@@ -521,6 +520,8 @@ func translateXSDRegexToGo(source string) string {
 
 const xsdDigitClassInner = `\x{0030}-\x{0039}\x{0660}-\x{0669}\x{06F0}-\x{06F9}\x{0966}-\x{096F}\x{09E6}-\x{09EF}\x{0A66}-\x{0A6F}\x{0AE6}-\x{0AEF}\x{0B66}-\x{0B6F}\x{0BE7}-\x{0BEF}\x{0C66}-\x{0C6F}\x{0CE6}-\x{0CEF}\x{0D66}-\x{0D6F}\x{0E50}-\x{0E59}\x{0ED0}-\x{0ED9}\x{0F20}-\x{0F29}\x{1040}-\x{1049}\x{1369}-\x{1371}\x{17E0}-\x{17E9}\x{1810}-\x{1819}\x{1D7CE}-\x{1D7FF}\x{FF10}-\x{FF19}`
 
+const xsdSpaceClassInner = `\x{0009}\x{000A}\x{000D}\x{0020}`
+
 const xsdWordClassInner = `^\pP\pZ\pC\x{023F}`
 
 const xsdNotWordClassInner = `\pP\pZ\pC\x{023F}`
@@ -538,6 +539,15 @@ func isXSDRegexEscape(r rune) bool {
 func isXSDRegexMultiCharEscape(r rune) bool {
 	switch r {
 	case 'd', 'D', 'w', 'W', 's', 'S', 'i', 'I', 'c', 'C', 'p', 'P':
+		return true
+	default:
+		return false
+	}
+}
+
+func isUnsafeXSDRegexClassEscape(r rune) bool {
+	switch r {
+	case 'D', 'S', 'w', 'W':
 		return true
 	default:
 		return false

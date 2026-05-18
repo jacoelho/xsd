@@ -37,41 +37,41 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (string, simple
 		decl := rt.Elements[f.Element]
 		if decl.HasFixed {
 			if decl.Type == f.Type {
-				return s.recordElementSimpleContent(typeID, decl.FixedCanonical, line, col)
+				return s.recordElementSimpleContent(decl.FixedValue, line, col)
 			}
 			text = decl.Fixed
 		} else if decl.HasDefault {
 			if decl.Type == f.Type {
-				return s.recordElementSimpleContent(typeID, decl.DefaultCanonical, line, col)
+				return s.recordElementSimpleContent(decl.DefaultValue, line, col)
 			}
 			text = decl.Default
 		}
 	}
 	needCanon := s.needsSimpleContentCanonical(f, typeID)
-	canon, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needCanon)
+	value, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needCanon)
 	if err != nil {
 		if IsUnsupported(err) {
 			return "", noSimpleType, false, err
 		}
 		return "", noSimpleType, false, validation(ErrValidationFacet, line, col, s.pathString(), "invalid simple content: "+err.Error())
 	}
-	if err := s.recordIdentity(typeID, canon, line, col); err != nil {
+	if err := s.recordIdentityValue(value, line, col); err != nil {
 		return "", noSimpleType, false, err
 	}
 	if f.Element != noElement {
 		decl := rt.Elements[f.Element]
-		if decl.HasFixed && canon != decl.FixedCanonical {
+		if decl.HasFixed && value.Canonical != decl.FixedCanonical {
 			return "", noSimpleType, false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 		}
 	}
-	return canon, typeID, true, nil
+	return value.Canonical, value.Type, true, nil
 }
 
-func (s *session) recordElementSimpleContent(typeID simpleTypeID, canon string, line, col int) (string, simpleTypeID, bool, error) {
-	if err := s.recordIdentity(typeID, canon, line, col); err != nil {
+func (s *session) recordElementSimpleContent(value simpleValue, line, col int) (string, simpleTypeID, bool, error) {
+	if err := s.recordIdentityValue(value, line, col); err != nil {
 		return "", noSimpleType, false, err
 	}
-	return canon, typeID, true, nil
+	return value.Canonical, value.Type, true, nil
 }
 
 func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID) bool {
@@ -102,43 +102,38 @@ func (s *session) needsIdentityElementValue() bool {
 	return false
 }
 
-func (s *session) recordAttributeIdentity(typeID simpleTypeID, canonical string, line, col int, seenID *bool) error {
-	if s.simpleIdentityKind(typeID) == simpleIdentityID {
+func (s *session) recordAttributeIdentity(value simpleValue, line, col int, seenID *bool) error {
+	if value.IDs != "" {
 		if *seenID {
 			return validation(ErrValidationType, line, col, s.pathString(), "multiple ID attributes")
 		}
 		*seenID = true
 	}
-	return s.recordIdentity(typeID, canonical, line, col)
+	return s.recordIdentityValue(value, line, col)
 }
 
-func (s *session) recordIdentity(typeID simpleTypeID, canonical string, line, col int) error {
-	switch s.simpleIdentityKind(typeID) {
-	case simpleIdentityID:
+func (s *session) recordIdentityValue(value simpleValue, line, col int) error {
+	if value.IDs == "" && value.IDRefs == "" {
+		return nil
+	}
+	path := s.pathString()
+	for canonical := range strings.FieldsSeq(value.IDs) {
 		if s.ids == nil {
 			s.ids = make(map[string]string)
 		}
 		if prev, exists := s.ids[canonical]; exists {
-			return validation(ErrValidationType, line, col, s.pathString(), "duplicate ID "+canonical+" first seen at "+prev)
+			return validation(ErrValidationType, line, col, path, "duplicate ID "+canonical+" first seen at "+prev)
 		}
 		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
 			return err
 		}
-		s.ids[canonical] = s.pathString()
-		return nil
-	case simpleIdentityIDREF:
+		s.ids[canonical] = path
+	}
+	for canonical := range strings.FieldsSeq(value.IDRefs) {
 		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
 			return err
 		}
-		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: s.pathString(), Line: line, Col: col})
-		return nil
-	case simpleIdentityIDREFList:
-		for item := range strings.FieldsSeq(canonical) {
-			if err := s.reserveIdentityEntry(item, line, col); err != nil {
-				return err
-			}
-			s.idrefs = append(s.idrefs, identityRef{Value: item, Path: s.pathString(), Line: line, Col: col})
-		}
+		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: path, Line: line, Col: col})
 	}
 	return nil
 }
@@ -260,15 +255,13 @@ func (s *session) identityStepMatches(rn runtimeName, step identityStep) bool {
 }
 
 func (s *session) captureIdentityAttribute(name qName, typeID simpleTypeID, value string, line, col int) error {
+	depth := len(s.namePath)
 	for i := range s.idSelections {
 		sel := &s.idSelections[i]
 		ic := s.engine.rt.Identities[sel.Constraint]
 		for fieldIndex, field := range ic.Fields {
 			for _, p := range field.Paths {
-				if !s.identityFieldAttributeMatches(p, name) {
-					continue
-				}
-				if !s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
+				if !s.identityFieldAttributeMatches(p, name) || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
 				if sel.Present[fieldIndex] {
@@ -320,15 +313,13 @@ func (s *session) identityFieldAttributeMatches(p identityFieldPath, name qName)
 }
 
 func (s *session) captureIdentityElement(typeID simpleTypeID, value string, line, col int) error {
+	depth := len(s.namePath)
 	for i := range s.idSelections {
 		sel := &s.idSelections[i]
 		ic := s.engine.rt.Identities[sel.Constraint]
 		for fieldIndex, field := range ic.Fields {
 			for _, p := range field.Paths {
-				if p.Attr {
-					continue
-				}
-				if !s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
+				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
 				if sel.Present[fieldIndex] {
@@ -344,24 +335,28 @@ func (s *session) captureIdentityElement(typeID simpleTypeID, value string, line
 }
 
 func (s *session) captureIdentityComplexElement(rawText string, line, col int) error {
+	depth := len(s.namePath)
+	var value string
+	normalized := false
 	for i := range s.idSelections {
 		sel := &s.idSelections[i]
 		ic := s.engine.rt.Identities[sel.Constraint]
 		for fieldIndex, field := range ic.Fields {
 			for _, p := range field.Paths {
-				if p.Attr {
-					continue
-				}
-				if !s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
+				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
 					continue
 				}
 				if sel.Present[fieldIndex] {
 					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 				}
-				if strings.TrimSpace(rawText) == "" {
-					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field has no simple value")
+				if !normalized {
+					if strings.TrimSpace(rawText) == "" {
+						return validation(ErrValidationIdentity, line, col, sel.Path, "identity field has no simple value")
+					}
+					value = normalizeWhitespace(rawText, whitespaceCollapse)
+					normalized = true
 				}
-				sel.Values[fieldIndex] = s.identityValue(s.engine.rt.Builtin.String, normalizeWhitespace(rawText, whitespaceCollapse))
+				sel.Values[fieldIndex] = s.identityValue(s.engine.rt.Builtin.String, value)
 				sel.Present[fieldIndex] = true
 				break
 			}
@@ -460,12 +455,12 @@ func (s *session) checkIdentityTupleBytes(values []string, line, col int) error 
 	if s.maxIdentityTupleBytes <= 0 {
 		return nil
 	}
-	size := 0
+	size := int64(0)
 	for i, v := range values {
 		if i > 0 {
 			size++
 		}
-		size += len(v)
+		size += int64(len(v))
 		if size > s.maxIdentityTupleBytes {
 			return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
 		}
@@ -474,7 +469,7 @@ func (s *session) checkIdentityTupleBytes(values []string, line, col int) error 
 }
 
 func (s *session) reserveIdentityEntry(key string, line, col int) error {
-	if s.maxIdentityTupleBytes > 0 && len(key) > s.maxIdentityTupleBytes {
+	if s.maxIdentityTupleBytes > 0 && int64(len(key)) > s.maxIdentityTupleBytes {
 		return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
 	}
 	if s.maxIdentityEntries > 0 && s.identityEntries >= s.maxIdentityEntries {
