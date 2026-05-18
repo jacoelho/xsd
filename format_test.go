@@ -289,6 +289,34 @@ func TestFormatXMLWithOptionsAllowsTokenAtLimit(t *testing.T) {
 	}
 }
 
+func TestFormatXMLWithOptionsAllowsInputBytesAtLimit(t *testing.T) {
+	var out strings.Builder
+	input := `<r/>`
+	err := FormatXMLWithOptions(&out, strings.NewReader(input), FormatOptions{MaxInputBytes: int64(len(input))})
+	if err != nil {
+		t.Fatalf("FormatXMLWithOptions() error = %v", err)
+	}
+	if out.String() != "<r></r>" {
+		t.Fatalf("FormatXMLWithOptions() = %q", out.String())
+	}
+}
+
+func TestFormatXMLWithOptionsRejectsInputBytesAfterSniff(t *testing.T) {
+	var out strings.Builder
+	input := `<r/>`
+	err := FormatXMLWithOptions(&out, strings.NewReader(input+"X"), FormatOptions{MaxInputBytes: int64(len(input))})
+	if err == nil {
+		t.Fatal("FormatXMLWithOptions() succeeded")
+	}
+	var xerr *XMLFormatError
+	if !errors.As(err, &xerr) {
+		t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
+	}
+	if !errors.Is(err, errFormatInputLimit) {
+		t.Fatalf("FormatXMLWithOptions() error = %v, want %v", err, errFormatInputLimit)
+	}
+}
+
 func TestFormatXMLWithOptionsRejectsNegativeLimits(t *testing.T) {
 	var out strings.Builder
 	err := FormatXMLWithOptions(&out, strings.NewReader(`<root/>`), FormatOptions{MaxNodes: -1})

@@ -139,13 +139,17 @@ func normalizeFormatOptions(opts FormatOptions) (formatOptions, error) {
 }
 
 type maxBytesReader struct {
-	r   io.Reader
-	err error
-	max int64
-	n   int64
+	r        io.Reader
+	err      error
+	max      int64
+	n        int64
+	exceeded bool
 }
 
 func (r *maxBytesReader) Read(p []byte) (int, error) {
+	if r.exceeded {
+		return 0, r.err
+	}
 	if r.max <= 0 {
 		return r.r.Read(p)
 	}
@@ -153,6 +157,7 @@ func (r *maxBytesReader) Read(p []byte) (int, error) {
 		var one [1]byte
 		n, err := r.r.Read(one[:])
 		if n > 0 {
+			r.exceeded = true
 			return 0, r.err
 		}
 		return 0, err
