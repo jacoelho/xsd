@@ -1,10 +1,12 @@
 package xsd
 
 const (
-	builtinSimpleTypeCount  = 45
-	builtinAttributeCount   = 11
-	builtinComplexTypeCount = 1
-	builtinGlobalTypeCount  = builtinSimpleTypeCount + builtinComplexTypeCount
+	xsdBuiltinSimpleTypeCount      = 45
+	internalBuiltinSimpleTypeCount = 2
+	builtinSimpleTypeCount         = xsdBuiltinSimpleTypeCount + internalBuiltinSimpleTypeCount
+	builtinAttributeCount          = 11
+	builtinComplexTypeCount        = 1
+	builtinGlobalTypeCount         = xsdBuiltinSimpleTypeCount + builtinComplexTypeCount
 )
 
 func (c *compiler) addBuiltins() error {
@@ -238,6 +240,14 @@ func (c *compiler) addBuiltinOtherPrimitiveTypes(anySimple simpleTypeID) error {
 }
 
 func (c *compiler) addBuiltinXMLAttributes() error {
+	xmlLang, err := c.addInternalAtomicSimpleType(xmlNamespaceURI, "lang", primString, c.rt.Builtin.String, whitespaceCollapse, builtinValidationXMLLang)
+	if err != nil {
+		return err
+	}
+	xmlSpace, err := c.addInternalAtomicSimpleType(xmlNamespaceURI, "space", primString, c.rt.Builtin.String, whitespaceCollapse, builtinValidationXMLSpace)
+	if err != nil {
+		return err
+	}
 	for _, attr := range []struct {
 		ns    string
 		local string
@@ -245,8 +255,8 @@ func (c *compiler) addBuiltinXMLAttributes() error {
 	}{
 		{xmlNamespaceURI, "base", c.rt.Builtin.AnyURI},
 		{xmlNamespaceURI, "id", c.rt.Builtin.ID},
-		{xmlNamespaceURI, "lang", c.rt.Builtin.String},
-		{xmlNamespaceURI, "space", c.rt.Builtin.String},
+		{xmlNamespaceURI, "lang", xmlLang},
+		{xmlNamespaceURI, "space", xmlSpace},
 		{xlinkNamespaceURI, "type", c.rt.Builtin.String},
 		{xlinkNamespaceURI, "href", c.rt.Builtin.AnyURI},
 		{xlinkNamespaceURI, "role", c.rt.Builtin.AnyURI},
@@ -304,6 +314,28 @@ func (c *compiler) addBuiltinAtomicSimpleType(local string, primitive primitiveK
 	})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
+	return id, nil
+}
+
+func (c *compiler) addInternalAtomicSimpleType(ns, local string, primitive primitiveKind, base simpleTypeID, ws whitespaceMode, builtin builtinValidationKind) (simpleTypeID, error) {
+	q, err := c.rt.Names.InternQName(ns, local)
+	if err != nil {
+		return noSimpleType, err
+	}
+	id := simpleTypeID(len(c.rt.SimpleTypes))
+	facets := facetSet{}
+	if base != noSimpleType && validUint32Index(uint32(base), len(c.rt.SimpleTypes)) {
+		facets = cloneFacetSet(c.rt.SimpleTypes[base].Facets)
+	}
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
+		Name:       q,
+		Variety:    varietyAtomic,
+		Primitive:  primitive,
+		Base:       base,
+		Whitespace: ws,
+		Facets:     facets,
+		Builtin:    builtin,
+	})
 	return id, nil
 }
 

@@ -387,6 +387,57 @@ func TestHTTPResolverChameleonIncludePropagatesTargetNamespace(t *testing.T) {
 	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
 }
 
+func TestResolverAliasIncludeNamespaceMismatchIsSchemaError(t *testing.T) {
+	_, err := Compile(Reader("main.xsd", strings.NewReader(`
+		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a">
+		  <xs:include schemaLocation="mem:types"/>
+		</xs:schema>`)).WithResolver(ResolverFunc(func(_, location string) (SchemaSource, error) {
+		if location != "mem:types" {
+			return SchemaSource{}, ErrSchemaNotFound
+		}
+		return Reader("resolved/types.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`)), nil
+	})))
+	expectCode(t, err, ErrSchemaReference)
+}
+
+func TestResolverAliasImportNamespaceMismatchIsSchemaError(t *testing.T) {
+	_, err := Compile(Reader("main.xsd", strings.NewReader(`
+		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		  <xs:import namespace="urn:a" schemaLocation="mem:types"/>
+		</xs:schema>`)).WithResolver(ResolverFunc(func(_, location string) (SchemaSource, error) {
+		if location != "mem:types" {
+			return SchemaSource{}, ErrSchemaNotFound
+		}
+		return Reader("resolved/types.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`)), nil
+	})))
+	expectCode(t, err, ErrSchemaReference)
+}
+
+func TestResolverAliasChameleonIncludePropagatesTargetNamespace(t *testing.T) {
+	engine, err := Compile(Reader("main.xsd", strings.NewReader(`
+		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+		           targetNamespace="urn:test"
+		           xmlns:t="urn:test"
+		           elementFormDefault="qualified">
+		  <xs:include schemaLocation="mem:types"/>
+		  <xs:element name="root" type="t:Included"/>
+		</xs:schema>`)).WithResolver(ResolverFunc(func(_, location string) (SchemaSource, error) {
+		if location != "mem:types" {
+			return SchemaSource{}, ErrSchemaNotFound
+		}
+		return Reader("resolved/types.xsd", strings.NewReader(`
+		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+		  <xs:complexType name="Included">
+		    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+		  </xs:complexType>
+		</xs:schema>`)), nil
+	})))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
+}
+
 type countedSchemaRead struct {
 	data  string
 	reads int

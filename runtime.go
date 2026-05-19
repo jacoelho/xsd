@@ -233,6 +233,8 @@ const (
 	builtinValidationNMTOKEN
 	builtinValidationLanguage
 	builtinValidationEntity
+	builtinValidationXMLLang
+	builtinValidationXMLSpace
 )
 
 type simpleType struct {

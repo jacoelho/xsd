@@ -22,6 +22,7 @@ const (
 )
 
 var defaultLargeCompareSizes = []largeCompareSize{
+	{name: "20MB", bytes: 20 * 1024 * 1024},
 	{name: "100MB", bytes: 100 * 1024 * 1024},
 	{name: "500MB", bytes: 500 * 1024 * 1024},
 	{name: "1GB", bytes: 1 << 30},
@@ -135,6 +136,30 @@ func largeCompareSizesFromEnv(t *testing.T) []largeCompareSize {
 	}
 	n := envInt64(t, "XSD_LARGE_SIZE_BYTES", 0)
 	return []largeCompareSize{{name: sizeLabel(n), bytes: n}}
+}
+
+func TestLargeCompareDefaultSizesIncludeReadmeSizes(t *testing.T) {
+	t.Setenv("XSD_LARGE_SIZE_BYTES", "")
+	sizes := largeCompareSizesFromEnv(t)
+	want := []largeCompareSize{
+		{name: "20MB", bytes: 20 * 1024 * 1024},
+		{name: "100MB", bytes: 100 * 1024 * 1024},
+		{name: "500MB", bytes: 500 * 1024 * 1024},
+		{name: "1GB", bytes: 1 << 30},
+		{name: "2GB", bytes: 2 << 30},
+	}
+	if !slices.Equal(sizes, want) {
+		t.Fatalf("largeCompareSizesFromEnv() = %#v, want %#v", sizes, want)
+	}
+}
+
+func TestLargeCompareSizeOverrideUsesOneCustomSize(t *testing.T) {
+	t.Setenv("XSD_LARGE_SIZE_BYTES", "1048576")
+	sizes := largeCompareSizesFromEnv(t)
+	want := []largeCompareSize{{name: "1MB", bytes: 1024 * 1024}}
+	if !slices.Equal(sizes, want) {
+		t.Fatalf("largeCompareSizesFromEnv() = %#v, want %#v", sizes, want)
+	}
 }
 
 func envInt64(t *testing.T, name string, def int64) int64 {
