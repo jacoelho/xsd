@@ -19,6 +19,7 @@ import (
 
 const (
 	defaultLargeCompareIdentityRows = 100_000
+	defaultLargeCompareRuns         = 10
 )
 
 var defaultLargeCompareSizes = []largeCompareSize{
@@ -39,6 +40,7 @@ type largeCompareConfig struct {
 	keep         bool
 	sizes        []largeCompareSize
 	identityRows int
+	runs         int
 }
 
 type largeProfile struct {
@@ -82,6 +84,7 @@ func TestLargeXMLLintComparison(t *testing.T) {
 	if cfg.keep {
 		t.Logf("keeping generated files in %s", cfg.dir)
 	}
+	t.Logf("large comparison runs: %d", cfg.runs)
 
 	repoXMLLint, libxml2XMLLint := largeCompareCommands(t)
 	var results []largeCompareResult
@@ -95,7 +98,7 @@ func TestLargeXMLLintComparison(t *testing.T) {
 				defer removeAll(t, dir)
 			}
 			profile := generateStreamingProfile(t, streamingSchema, dir, size)
-			results = append(results, compareLargeProfile(t, repoXMLLint, libxml2XMLLint, profile))
+			results = append(results, compareLargeProfile(t, repoXMLLint, libxml2XMLLint, profile, cfg.runs))
 		}) {
 			return
 		}
@@ -107,7 +110,7 @@ func TestLargeXMLLintComparison(t *testing.T) {
 			defer removeAll(t, dir)
 		}
 		profile := generateIdentityProfile(t, dir, cfg.identityRows)
-		results = append(results, compareLargeProfile(t, repoXMLLint, libxml2XMLLint, profile))
+		results = append(results, compareLargeProfile(t, repoXMLLint, libxml2XMLLint, profile, cfg.runs))
 	}) {
 		return
 	}
@@ -125,6 +128,7 @@ func largeCompareConfigFromEnv(t *testing.T) largeCompareConfig {
 		keep:         os.Getenv("XSD_LARGE_DIR") != "",
 		sizes:        largeCompareSizesFromEnv(t),
 		identityRows: envInt(t, "XSD_LARGE_IDENTITY_ROWS", defaultLargeCompareIdentityRows),
+		runs:         envInt(t, "XSD_LARGE_RUNS", defaultLargeCompareRuns),
 	}
 }
 
@@ -159,6 +163,34 @@ func TestLargeCompareSizeOverrideUsesOneCustomSize(t *testing.T) {
 	want := []largeCompareSize{{name: "1MB", bytes: 1024 * 1024}}
 	if !slices.Equal(sizes, want) {
 		t.Fatalf("largeCompareSizesFromEnv() = %#v, want %#v", sizes, want)
+	}
+}
+
+func TestLargeCompareRunsFromEnv(t *testing.T) {
+	t.Setenv("XSD_LARGE_RUNS", "")
+	if got := largeCompareConfigFromEnv(t).runs; got != defaultLargeCompareRuns {
+		t.Fatalf("largeCompareConfigFromEnv().runs = %d, want %d", got, defaultLargeCompareRuns)
+	}
+	t.Setenv("XSD_LARGE_RUNS", "3")
+	if got := largeCompareConfigFromEnv(t).runs; got != 3 {
+		t.Fatalf("largeCompareConfigFromEnv().runs = %d, want 3", got)
+	}
+}
+
+func TestP95CommandMetricsUsesNearestRank(t *testing.T) {
+	samples := make([]commandMetrics, 10)
+	for i := range samples {
+		samples[i] = commandMetrics{
+			elapsed:     time.Duration(i+1) * time.Second,
+			maxRSSBytes: uint64((i + 1) * 1024),
+		}
+	}
+	summary := p95CommandMetrics(samples)
+	if summary.elapsed != 10*time.Second {
+		t.Fatalf("p95 elapsed = %s, want 10s", summary.elapsed)
+	}
+	if summary.maxRSSBytes != 10*1024 {
+		t.Fatalf("p95 rss = %d, want %d", summary.maxRSSBytes, 10*1024)
 	}
 }
 
@@ -213,12 +245,12 @@ func generateIdentityProfile(t *testing.T, dir string, rows int) largeProfile {
 	return profile
 }
 
-func compareLargeProfile(t *testing.T, repoXMLLint, libxml2 string, profile largeProfile) largeCompareResult {
+func compareLargeProfile(t *testing.T, repoXMLLint, libxml2 string, profile largeProfile, runs int) largeCompareResult {
 	t.Helper()
 	t.Logf("schema=%s", profile.schema)
 	t.Logf("xml=%s bytes=%d", profile.xml, profile.bytes)
-	goMetrics := runMeasuredCommand(t, repoXMLLint, "--noout", "--huge", "--schema", profile.schema, profile.xml)
-	libxml2Metrics := runMeasuredCommand(t, libxml2, "--noout", "--huge", "--schema", profile.schema, profile.xml)
+	goMetrics := runMeasuredCommand(t, runs, repoXMLLint, "--noout", "--huge", "--schema", profile.schema, profile.xml)
+	libxml2Metrics := runMeasuredCommand(t, runs, libxml2, "--noout", "--huge", "--schema", profile.schema, profile.xml)
 	logCommandMetrics(t, "bin/xmllint", goMetrics, profile.bytes)
 	logCommandMetrics(t, "libxml2-xmllint", libxml2Metrics, profile.bytes)
 	return largeCompareResult{
@@ -475,7 +507,19 @@ func largeCompareCommands(t *testing.T) (string, string) {
 	return repoXMLLint, libxml2XMLLint
 }
 
-func runMeasuredCommand(t *testing.T, name string, args ...string) commandMetrics {
+func runMeasuredCommand(t *testing.T, runs int, name string, args ...string) commandMetrics {
+	t.Helper()
+	if runs <= 0 {
+		t.Fatalf("XSD_LARGE_RUNS must be a positive integer")
+	}
+	samples := make([]commandMetrics, runs)
+	for i := range runs {
+		samples[i] = runMeasuredCommandOnce(t, name, args...)
+	}
+	return p95CommandMetrics(samples)
+}
+
+func runMeasuredCommandOnce(t *testing.T, name string, args ...string) commandMetrics {
 	t.Helper()
 	var metrics commandMetrics
 	cmdName, cmdArgs := measuredCommand(name, args...)
@@ -492,6 +536,25 @@ func runMeasuredCommand(t *testing.T, name string, args ...string) commandMetric
 		t.Fatalf("%s %s error = %v\n%s", cmdName, strings.Join(cmdArgs, " "), err, out)
 	}
 	return metrics
+}
+
+func p95CommandMetrics(samples []commandMetrics) commandMetrics {
+	elapsed := make([]time.Duration, len(samples))
+	rss := make([]uint64, len(samples))
+	for i, sample := range samples {
+		elapsed[i] = sample.elapsed
+		rss[i] = sample.maxRSSBytes
+	}
+	slices.Sort(elapsed)
+	slices.Sort(rss)
+	return commandMetrics{
+		elapsed:     elapsed[p95Index(len(elapsed))],
+		maxRSSBytes: rss[p95Index(len(rss))],
+	}
+}
+
+func p95Index(n int) int {
+	return int(math.Ceil(0.95*float64(n))) - 1
 }
 
 func measuredCommand(name string, args ...string) (string, []string) {
@@ -535,7 +598,7 @@ func parseMaxRSS(goos, out string) uint64 {
 func logCommandMetrics(t *testing.T, label string, metrics commandMetrics, bytes int64) {
 	t.Helper()
 	t.Logf(
-		"%s: elapsed=%s throughput=%0.2f MiB/s max_rss_bytes=%d",
+		"%s: p95_elapsed=%s p95_throughput=%0.2f MiB/s p95_max_rss_bytes=%d",
 		label,
 		metrics.elapsed,
 		throughputMiB(bytes, metrics.elapsed),
@@ -556,7 +619,7 @@ func logLargeCompareSummary(t *testing.T, results []largeCompareResult) {
 func logLargeCompareTimeSummary(t *testing.T, results []largeCompareResult) {
 	t.Helper()
 	t.Log("                         | libxml2 xmllint |             go xmllint             |")
-	t.Log("                         | sec/op          | sec/op          vs base           |")
+	t.Log("                         | p95 sec/op      | p95 sec/op      vs base           |")
 	var libxml2Values, goValues []float64
 	for _, result := range results {
 		libxml2Seconds := result.libxml2Metrics.elapsed.Seconds()
@@ -584,7 +647,7 @@ func logLargeCompareRSSSummary(t *testing.T, results []largeCompareResult) {
 	t.Helper()
 	t.Log("")
 	t.Log("                         | libxml2 xmllint |             go xmllint             |")
-	t.Log("                         | rss/op          | rss/op          vs base           |")
+	t.Log("                         | p95 rss/op      | p95 rss/op      vs base           |")
 	var libxml2Values, goValues []float64
 	for _, result := range results {
 		libxml2RSS := float64(result.libxml2Metrics.maxRSSBytes)
