@@ -158,10 +158,16 @@ type rawComponent struct {
 type compilerSourceState struct {
 	sources     map[string][]byte
 	sourceDocs  map[string]*rawDoc
+	resolvedRef map[schemaReferenceKey]string
 	imports     map[string]map[string]bool
 	adoptTarget map[string]string
 	contexts    map[*rawDoc]*schemaContext
 	docs        []*rawDoc
+}
+
+type schemaReferenceKey struct {
+	base     string
+	location string
 }
 
 type compilerIndexState struct {
@@ -236,6 +242,7 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 		compilerSourceState: compilerSourceState{
 			sources:     make(map[string][]byte),
 			sourceDocs:  make(map[string]*rawDoc),
+			resolvedRef: make(map[schemaReferenceKey]string),
 			imports:     make(map[string]map[string]bool),
 			adoptTarget: make(map[string]string),
 			contexts:    make(map[*rawDoc]*schemaContext),

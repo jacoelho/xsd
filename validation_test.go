@@ -698,6 +698,36 @@ func TestXMLBuiltInAttributesCanBeReferenced(t *testing.T) {
 	mustNotValidate(t, engine, `<root/>`, ErrValidationAttribute)
 }
 
+func TestXMLBuiltInAttributesValidateValueSpace(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:import namespace="http://www.w3.org/XML/1998/namespace"/>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:attribute ref="xml:lang"/>
+	      <xs:attribute ref="xml:space"/>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustValidate(t, engine, `<root xml:lang="en" xml:space="default"/>`)
+	mustValidate(t, engine, `<root xml:lang="" xml:space="preserve"/>`)
+	mustNotValidate(t, engine, `<root xml:lang="@@" xml:space="preserve"/>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<root xml:space="bogus"/>`, ErrValidationFacet)
+}
+
+func TestXMLBuiltInAttributesValidateThroughLaxWildcard(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:anyAttribute namespace="http://www.w3.org/XML/1998/namespace" processContents="lax"/>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustValidate(t, engine, `<root xml:space="default"/>`)
+	mustNotValidate(t, engine, `<root xml:space="bogus"/>`, ErrValidationFacet)
+}
+
 func TestXLinkBuiltInAttributesCanBeReferenced(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
