@@ -127,6 +127,7 @@ type session struct {
 	errors                   []error
 	elementNames             []xml.Name
 	path                     []string
+	pathText                 string
 	idrefs                   []identityRef
 	idScopes                 []identityScope
 	idSelections             []identitySelection
@@ -144,6 +145,7 @@ type session struct {
 	maxInstanceTextBytes     int64
 	maxInstanceTokenBytes    int64
 	identityEntries          int
+	pathDirty                bool
 }
 
 type identityRef struct {
@@ -297,6 +299,8 @@ func (s *session) reset() {
 	s.ns.bindings = s.ns.bindings[:0]
 	s.text = s.text[:0]
 	s.path = s.path[:0]
+	s.pathText = ""
+	s.pathDirty = true
 	s.namePath = s.namePath[:0]
 	s.elementNames = s.elementNames[:0]
 	s.allBits = s.allBits[:0]
@@ -387,6 +391,7 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 	}
 	s.pushFrame(elem, typ, nilled, skip)
 	s.path = append(s.path, rn.Local)
+	s.pathDirty = true
 	s.namePath = append(s.namePath, rn)
 	s.elementNames = append(s.elementNames, se.Name)
 	if err := s.startIdentityScope(elem, line, col); err != nil {

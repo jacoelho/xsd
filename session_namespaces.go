@@ -381,5 +381,10 @@ func (s *session) pathString() string {
 	if len(s.path) == 0 {
 		return "/"
 	}
-	return "/" + strings.Join(s.path, "/")
+	if !s.pathDirty {
+		return s.pathText
+	}
+	s.pathText = "/" + strings.Join(s.path, "/")
+	s.pathDirty = false
+	return s.pathText
 }

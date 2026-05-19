@@ -24,6 +24,12 @@ func main() {
 }
 
 func run(args []string, stderr io.Writer) int {
+	return runWithOpen(args, stderr, func(path string) (io.ReadCloser, error) {
+		return os.Open(path)
+	})
+}
+
+func runWithOpen(args []string, stderr io.Writer, openDoc func(string) (io.ReadCloser, error)) int {
 	cfg, err := parseArgs(args)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
@@ -34,15 +40,19 @@ func run(args []string, stderr io.Writer) int {
 		_, _ = fmt.Fprintf(stderr, "%s fails to compile\n%v\n", cfg.schema, err)
 		return 1
 	}
-	f, err := os.Open(cfg.doc)
+	f, err := openDoc(cfg.doc)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err)
 		return 1
 	}
-	defer func() { _ = f.Close() }()
 	if err := engine.ValidateWithOptions(f, xsd.ValidateOptions{MaxErrors: cfg.maxErrors}); err != nil {
+		_ = f.Close()
 		printValidationErrors(stderr, err)
 		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n", cfg.doc)
+		return 1
+	}
+	if err := f.Close(); err != nil {
+		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err)
 		return 1
 	}
 	_, _ = fmt.Fprintf(stderr, "%s validates\n", cfg.doc)

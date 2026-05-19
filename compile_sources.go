@@ -52,6 +52,9 @@ func (c *compiler) load(sources []SchemaSource) error {
 			if next.resolver == nil {
 				next.resolver = s.resolver
 			}
+			if next.name != "" {
+				c.resolvedRef[schemaReferenceKey{base: name, location: ref.location}] = filepath.Clean(next.name)
+			}
 			queue = append(queue, next)
 		}
 	}
@@ -264,6 +267,11 @@ func (c *compiler) documentTargetNamespace(doc *rawDoc) string {
 }
 
 func (c *compiler) resolveLoadedSchemaLocation(doc *rawDoc, location string) (*rawDoc, string, bool) {
+	if resolved, ok := c.resolvedRef[schemaReferenceKey{base: doc.name, location: location}]; ok {
+		if _, loaded := c.sources[resolved]; loaded {
+			return c.sourceDocs[resolved], resolved, true
+		}
+	}
 	if resolved, ok := resolveLocalSchemaLocation(doc.name, location); ok {
 		if _, loaded := c.sources[resolved]; loaded {
 			return c.sourceDocs[resolved], resolved, true

@@ -41,6 +41,14 @@ func validateBuiltinDerived(kind builtinValidationKind, norm string, actual actu
 		if !isLanguage(norm) {
 			return fmt.Errorf("invalid language")
 		}
+	case builtinValidationXMLLang:
+		if norm != "" && !isLanguage(norm) {
+			return fmt.Errorf("invalid language")
+		}
+	case builtinValidationXMLSpace:
+		if norm != "default" && norm != "preserve" {
+			return fmt.Errorf("invalid xml:space")
+		}
 	}
 	return nil
 }

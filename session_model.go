@@ -227,6 +227,7 @@ func (s *session) end(line, col int, ee xml.EndElement) error {
 	s.stack = s.stack[:len(s.stack)-1]
 	if len(s.path) > 0 {
 		s.path = s.path[:len(s.path)-1]
+		s.pathDirty = true
 	}
 	if len(s.namePath) > 0 {
 		s.namePath = s.namePath[:len(s.namePath)-1]

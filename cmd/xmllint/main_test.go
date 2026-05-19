@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,6 +82,38 @@ func TestRunReportsArgumentFailure(t *testing.T) {
 	if !strings.Contains(stderr.String(), "--max-errors cannot be negative") {
 		t.Fatalf("run() stderr = %q", stderr.String())
 	}
+}
+
+func TestRunReportsDocumentCloseFailure(t *testing.T) {
+	dir := t.TempDir()
+	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
+	docErr := errors.New("close failed")
+	open := func(path string) (io.ReadCloser, error) {
+		if path != "valid.xml" {
+			return nil, os.ErrNotExist
+		}
+		return closeErrorReader{Reader: strings.NewReader(`<root><v>7</v></root>`), err: docErr}, nil
+	}
+
+	var stderr bytes.Buffer
+	if code := runWithOpen([]string{"--schema", schema, "valid.xml"}, &stderr, open); code != 1 {
+		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), docErr.Error()) {
+		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "valid.xml fails to validate") {
+		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
+	}
+}
+
+type closeErrorReader struct {
+	io.Reader
+	err error
+}
+
+func (r closeErrorReader) Close() error {
+	return r.err
 }
 
 func writeXMLLintTestFile(t *testing.T, dir, name, data string) string {

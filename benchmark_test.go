@@ -199,6 +199,31 @@ func BenchmarkValidateSmallInvalidDocument(b *testing.B) {
 	}
 }
 
+func BenchmarkValidateManyRecoverablePathErrors(b *testing.B) {
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="rows">
+	    <xs:complexType>
+	      <xs:sequence>
+	        <xs:element name="row" type="xs:int" maxOccurs="unbounded"/>
+	      </xs:sequence>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := `<rows>` + strings.Repeat(`<row>x</row>`, 100) + `</rows>`
+	opts := ValidateOptions{MaxErrors: 100}
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := engine.ValidateWithOptions(strings.NewReader(doc), opts); err == nil {
+			b.Fatal("ValidateWithOptions() succeeded")
+		}
+	}
+}
+
 func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	const depth = 128
 	engine, err := CompileWithOptions(
