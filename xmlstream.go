@@ -84,12 +84,12 @@ func (p *xmlStreamParser) resetWithLimit(r io.Reader, names, values *byteStringC
 	p.names = names
 	p.values = values
 	p.pendingEnd = xml.EndElement{}
-	p.nameBuf = p.nameBuf[:0]
-	p.valueBuf = p.valueBuf[:0]
-	p.entityBuf = p.entityBuf[:0]
-	p.textBuf = p.textBuf[:0]
-	p.directive = p.directive[:0]
-	p.attrs = p.attrs[:0]
+	p.nameBuf = resetRetainedBytes(p.nameBuf, maxRetainedBufferCap)
+	p.valueBuf = resetRetainedBytes(p.valueBuf, maxRetainedBufferCap)
+	p.entityBuf = resetRetainedBytes(p.entityBuf, maxRetainedBufferCap)
+	p.textBuf = resetRetainedBytes(p.textBuf, maxRetainedBufferCap)
+	p.directive = resetRetainedBytes(p.directive, maxRetainedBufferCap)
+	p.attrs = resetRetainedSlice(p.attrs, maxRetainedSliceCap)
 	p.br.reset(r)
 	p.maxAttrs = 0
 	p.maxTokenBytes = maxTokenBytes
@@ -512,7 +512,7 @@ func (p *xmlStreamParser) readEndElement() (xml.EndElement, error) {
 	if err != nil {
 		return xml.EndElement{}, err
 	}
-	if isXMLSpaceByte(b) {
+	if isXMLWhitespaceByte(b) {
 		return xml.EndElement{}, fmt.Errorf("unexpected whitespace after </")
 	}
 	name, err := p.readName(b)
@@ -703,7 +703,7 @@ func (p *xmlStreamParser) readPI(atDocumentStart bool, line, col int) (streamTok
 			}
 			return streamToken{kind: streamTokenPI, data: p.nameBuf, line: line, col: col}, false, nil
 		}
-		if isXMLSpaceByte(b) {
+		if isXMLWhitespaceByte(b) {
 			isXMLDecl, err := p.validatePITarget(atDocumentStart)
 			if err != nil {
 				return streamToken{}, false, err
@@ -818,7 +818,7 @@ func validateXMLDeclContent(content []byte) error {
 }
 
 func hasXMLDeclAttr(content []byte, name string) bool {
-	if len(content) == 0 || !isXMLSpaceByte(content[0]) {
+	if len(content) == 0 || !isXMLWhitespaceByte(content[0]) {
 		return false
 	}
 	content = bytes.TrimLeft(content, " \t\r\n")
@@ -826,7 +826,7 @@ func hasXMLDeclAttr(content []byte, name string) bool {
 }
 
 func parseXMLDeclAttr(content []byte, name string, requireLeadingSpace bool) (string, []byte, bool) {
-	if requireLeadingSpace && (len(content) == 0 || !isXMLSpaceByte(content[0])) {
+	if requireLeadingSpace && (len(content) == 0 || !isXMLWhitespaceByte(content[0])) {
 		return "", content, false
 	}
 	content = bytes.TrimLeft(content, " \t\r\n")
@@ -1038,7 +1038,7 @@ func (p *xmlStreamParser) readPastSpace() (byte, bool, error) {
 		if err != nil {
 			return 0, hadSpace, err
 		}
-		if !isXMLSpaceByte(b) {
+		if !isXMLWhitespaceByte(b) {
 			return b, hadSpace, nil
 		}
 		hadSpace = true
@@ -1169,10 +1169,6 @@ func isNameTerminator(b byte) bool {
 	default:
 		return false
 	}
-}
-
-func isXMLSpaceByte(b byte) bool {
-	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }
 
 func isXMLNameBytes(b []byte) bool {
@@ -1330,7 +1326,6 @@ type byteStringCache struct {
 
 type byteStringEntry struct {
 	text string
-	hash uint64
 }
 
 func newByteStringCache(maxEntries, maxLen int) byteStringCache {
@@ -1358,7 +1353,7 @@ func (c *byteStringCache) intern(b []byte) string {
 		return s
 	}
 	idx := len(c.entries)
-	c.entries = append(c.entries, byteStringEntry{hash: h, text: s})
+	c.entries = append(c.entries, byteStringEntry{text: s})
 	c.buckets[h] = append(c.buckets[h], idx)
 	return s
 }
@@ -1390,5 +1385,5 @@ func isDOCTYPEDeclaration(b []byte) bool {
 	if len(b) <= len(doctypeDirective) {
 		return false
 	}
-	return bytes.HasPrefix(b, doctypeDirective) && isXMLSpaceByte(b[len(doctypeDirective)])
+	return bytes.HasPrefix(b, doctypeDirective) && isXMLWhitespaceByte(b[len(doctypeDirective)])
 }

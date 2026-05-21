@@ -32,13 +32,11 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []xml.Attr, li
 		switch a.Name.Local {
 		case "nil":
 			nilSpecified = true
-			switch normalizeWhitespace(a.Value, whitespaceCollapse) {
-			case "true", "1":
-				nilled = true
-			case "false", "0":
-			default:
+			value, ok := parseBooleanLexical(normalizeWhitespace(a.Value, whitespaceCollapse))
+			if !ok {
 				return typ, false, validation(ErrValidationNil, line, col, s.pathString(), "invalid xsi:nil value")
 			}
+			nilled = value
 		case "type":
 			override, err := s.resolveXSIType(a.Value, line, col)
 			if err != nil {
@@ -182,18 +180,11 @@ func (s *xmlNameSet) add(name xml.Name) bool {
 }
 
 func (s *session) translateName(name xml.Name, element bool, line, col int) (xml.Name, error) {
-	if name.Space != "" {
-		uri, ok := s.ns.lookup(name.Space)
-		if !ok {
-			return xml.Name{}, validation(ErrValidationXML, line, col, s.pathString(), "unbound namespace prefix "+name.Space)
-		}
-		return xml.Name{Space: uri, Local: name.Local}, nil
+	resolved, ok := s.ns.resolveName(name, element)
+	if !ok {
+		return xml.Name{}, validation(ErrValidationXML, line, col, s.pathString(), "unbound namespace prefix "+name.Space)
 	}
-	if element {
-		uri, _ := s.ns.lookup("")
-		return xml.Name{Space: uri, Local: name.Local}, nil
-	}
-	return name, nil
+	return resolved, nil
 }
 
 func (s *session) runtimeName(n xml.Name) runtimeName {
@@ -206,10 +197,14 @@ func (s *session) runtimeName(n xml.Name) runtimeName {
 }
 
 func formatXMLName(n xml.Name) string {
-	if n.Space == "" {
-		return n.Local
+	return formatExpandedName(n.Space, n.Local)
+}
+
+func formatExpandedName(ns, local string) string {
+	if ns == "" {
+		return local
 	}
-	return "{" + n.Space + "}" + n.Local
+	return "{" + ns + "}" + local
 }
 
 func wildcardMatches(rt *runtimeSchema, w wildcard, rn runtimeName) bool {
@@ -267,33 +262,15 @@ func (s *session) resolveLexicalQNameParts(v string) (string, string, bool) {
 }
 
 func (s *session) resolveLexicalQNameValue(v string) (string, bool) {
-	v = normalizeWhitespace(v, whitespaceCollapse)
-	prefix, local, ok := strings.Cut(v, ":")
-	if !ok {
-		local = v
-		prefix = ""
-	}
-	if ok && prefix == "" {
-		return "", false
-	}
-	if !isNCName(local) || strings.Contains(local, ":") {
-		return "", false
-	}
-	if prefix != "" && !isNCName(prefix) {
-		return "", false
-	}
-	uri, ok := s.ns.lookup(prefix)
+	uri, local, ok := s.resolveLexicalQNameParts(v)
 	if !ok {
 		return "", false
 	}
-	if uri == "" {
-		return local, true
-	}
-	return "{" + uri + "}" + local, true
+	return formatExpandedName(uri, local), true
 }
 
 func (ns *namespaceStack) push(attrs []xml.Attr) error {
-	pending := make([]namespaceBinding, 0, len(attrs))
+	var pending []namespaceBinding
 	for _, a := range attrs {
 		if a.Name.Space == "xmlns" {
 			if err := validateNamespaceBinding(a.Name.Local, a.Value); err != nil {
@@ -310,6 +287,21 @@ func (ns *namespaceStack) push(attrs []xml.Attr) error {
 	ns.frames = append(ns.frames, len(ns.bindings))
 	ns.bindings = append(ns.bindings, pending...)
 	return nil
+}
+
+func (ns *namespaceStack) resolveName(name xml.Name, element bool) (xml.Name, bool) {
+	if name.Space != "" {
+		uri, ok := ns.lookup(name.Space)
+		if !ok {
+			return xml.Name{}, false
+		}
+		return xml.Name{Space: uri, Local: name.Local}, true
+	}
+	if element {
+		uri, _ := ns.lookup("")
+		return xml.Name{Space: uri, Local: name.Local}, true
+	}
+	return name, true
 }
 
 func validateNamespaceBinding(prefix, uri string) error {
@@ -348,8 +340,11 @@ func (ns *namespaceStack) pop() {
 	if len(ns.frames) == 0 {
 		return
 	}
-	mark := ns.frames[len(ns.frames)-1]
-	ns.frames = ns.frames[:len(ns.frames)-1]
+	i := len(ns.frames) - 1
+	mark := ns.frames[i]
+	ns.frames[i] = 0
+	ns.frames = ns.frames[:i]
+	clear(ns.bindings[mark:])
 	ns.bindings = ns.bindings[:mark]
 }
 

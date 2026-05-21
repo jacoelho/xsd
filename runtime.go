@@ -32,23 +32,24 @@ const noWildcard = wildcardID(^uint32(0))
 const noIdentityConstraint = identityConstraintID(^uint32(0))
 
 type runtimeSchema struct {
-	GlobalAttributes map[qName]attributeID
-	GlobalElements   map[qName]elementID
-	Substitutions    map[elementID][]elementID
-	Notations        map[string]bool
-	GlobalIdentities map[qName]identityConstraintID
-	GlobalTypes      map[qName]typeID
-	Identities       []identityConstraint
-	ComplexTypes     []complexType
-	Wildcards        []wildcard
-	AttributeUseSets []attributeUseSet
-	Models           []contentModel
-	CompiledModels   []compiledModel
-	SimpleTypes      []simpleType
-	Attributes       []attributeDecl
-	Elements         []elementDecl
-	Names            nameTable
-	Builtin          builtinIDs
+	GlobalAttributes   map[qName]attributeID
+	GlobalElements     map[qName]elementID
+	Substitutions      map[elementID][]elementID
+	SubstitutionLookup map[elementID]map[qName]elementID
+	Notations          map[string]bool
+	GlobalIdentities   map[qName]identityConstraintID
+	GlobalTypes        map[qName]typeID
+	Identities         []identityConstraint
+	ComplexTypes       []complexType
+	Wildcards          []wildcard
+	AttributeUseSets   []attributeUseSet
+	Models             []contentModel
+	CompiledModels     []compiledModel
+	SimpleTypes        []simpleType
+	Attributes         []attributeDecl
+	Elements           []elementDecl
+	Names              nameTable
+	Builtin            builtinIDs
 
 	SimpleIdentitiesClassified bool
 }

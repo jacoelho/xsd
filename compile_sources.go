@@ -24,6 +24,9 @@ func (c *compiler) load(sources []SchemaSource) error {
 		}
 		data, err := s.read(c.limits.maxSchemaSourceBytes)
 		if err != nil {
+			if s.missingOK && errors.Is(err, ErrSchemaNotFound) {
+				continue
+			}
 			if isSchemaLimitError(err) {
 				return err
 			}

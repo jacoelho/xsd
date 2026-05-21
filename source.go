@@ -18,11 +18,12 @@ var errNilSchemaReader = errors.New("nil schema reader")
 
 // SchemaSource identifies a schema document passed to Compile.
 type SchemaSource struct {
-	err      error
-	resolver Resolver
-	open     func() (io.ReadCloser, error)
-	name     string
-	data     []byte
+	err       error
+	resolver  Resolver
+	open      func() (io.ReadCloser, error)
+	name      string
+	data      []byte
+	missingOK bool
 }
 
 // Resolver resolves schema include/import locations during compilation.
@@ -98,6 +99,9 @@ func (s SchemaSource) read(maxBytes int64) ([]byte, error) {
 	}
 	r, err := s.open()
 	if err != nil {
+		if s.missingOK && os.IsNotExist(err) {
+			return nil, ErrSchemaNotFound
+		}
 		return nil, err
 	}
 	data, readErr := readLimitedSchemaSource(s.name, r, maxBytes)
@@ -138,13 +142,9 @@ func resolveFileSchemaSource(base, location string) (SchemaSource, error) {
 	if !ok {
 		return SchemaSource{}, ErrSchemaNotFound
 	}
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return SchemaSource{}, ErrSchemaNotFound
-		}
-		return SchemaSource{}, err
-	}
-	return File(path), nil
+	s := File(path)
+	s.missingOK = true
+	return s, nil
 }
 
 func resolveLocalSchemaLocation(base, location string) (string, bool) {

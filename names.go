@@ -156,12 +156,7 @@ func (n nameTable) Local(id localNameID) string {
 }
 
 func (n nameTable) Format(q qName) string {
-	ns := n.Namespace(q.Namespace)
-	local := n.Local(q.Local)
-	if ns == "" {
-		return local
-	}
-	return "{" + ns + "}" + local
+	return formatExpandedName(n.Namespace(q.Namespace), n.Local(q.Local))
 }
 
 type runtimeName struct {

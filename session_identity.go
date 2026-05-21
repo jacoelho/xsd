@@ -9,8 +9,9 @@ import (
 const nilledIdentityKey = "\xff\x1e\x00nil"
 
 type simpleContentValue struct {
-	Value    simpleValue
-	Captured bool
+	Value          simpleValue
+	IdentityFields []identityFieldMatch
+	Captured       bool
 }
 
 func nilledIdentityValue() simpleValue {
@@ -58,7 +59,8 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (simpleContentV
 			text = decl.Default
 		}
 	}
-	needIdentity := s.needsIdentityElementValue()
+	identityFields := s.identityElementFields()
+	needIdentity := len(identityFields) != 0
 	needCanon := s.needsSimpleContentCanonical(f, typeID, needIdentity)
 	value, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needCanon, needIdentity)
 	if err != nil {
@@ -76,14 +78,15 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (simpleContentV
 			return simpleContentValue{}, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 		}
 	}
-	return simpleContentValue{Value: value, Captured: true}, nil
+	return simpleContentValue{Value: value, IdentityFields: identityFields, Captured: true}, nil
 }
 
 func (s *session) recordElementSimpleContent(value simpleValue, line, col int) (simpleContentValue, error) {
+	identityFields := s.identityElementFields()
 	if err := s.recordIdentityValue(value, line, col); err != nil {
 		return simpleContentValue{}, err
 	}
-	return simpleContentValue{Value: value, Captured: true}, nil
+	return simpleContentValue{Value: value, IdentityFields: identityFields, Captured: true}, nil
 }
 
 func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID, needIdentity bool) bool {
@@ -96,38 +99,43 @@ func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID, nee
 	return needIdentity
 }
 
-func (s *session) needsIdentityElementValue() bool {
-	for i := range s.idSelections {
-		sel := &s.idSelections[i]
-		ic := s.engine.rt.Identities[sel.Constraint]
-		for _, field := range ic.Fields {
-			for _, p := range field.Paths {
-				if p.Attr {
-					continue
-				}
-				if s.identityFieldPathMatches(sel.Depth, len(s.namePath), p) {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-func (s *session) needsIdentityAttributeValue(name qName) bool {
+func (s *session) identityElementFields() []identityFieldMatch {
+	s.identityMatches = s.identityMatches[:0]
 	depth := len(s.namePath)
 	for i := range s.idSelections {
 		sel := &s.idSelections[i]
 		ic := s.engine.rt.Identities[sel.Constraint]
-		for _, field := range ic.Fields {
+		for fieldIndex, field := range ic.Fields {
 			for _, p := range field.Paths {
-				if s.identityFieldAttributeMatches(p, name) && s.identityFieldPathMatches(sel.Depth, depth, p) {
-					return true
+				if p.Attr {
+					continue
+				}
+				if s.identityFieldPathMatches(sel.Depth, depth, p) {
+					s.identityMatches = append(s.identityMatches, identityFieldMatch{Selection: i, Field: fieldIndex})
+					break
 				}
 			}
 		}
 	}
-	return false
+	return s.identityMatches
+}
+
+func (s *session) identityAttributeFields(name qName) []identityFieldMatch {
+	s.identityMatches = s.identityMatches[:0]
+	depth := len(s.namePath)
+	for i := range s.idSelections {
+		sel := &s.idSelections[i]
+		ic := s.engine.rt.Identities[sel.Constraint]
+		for fieldIndex, field := range ic.Fields {
+			for _, p := range field.Paths {
+				if s.identityFieldAttributeMatches(p, name) && s.identityFieldPathMatches(sel.Depth, depth, p) {
+					s.identityMatches = append(s.identityMatches, identityFieldMatch{Selection: i, Field: fieldIndex})
+					break
+				}
+			}
+		}
+	}
+	return s.identityMatches
 }
 
 func (s *session) recordAttributeIdentity(value simpleValue, line, col int, seenID *bool) error {
@@ -179,16 +187,13 @@ func (s *session) checkIDRefs() error {
 		return nil
 	}
 	for _, ref := range s.idrefs {
-		if s.ids == nil {
-			if err := s.recover(validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)); err != nil {
-				return err
+		if s.ids != nil {
+			if _, ok := s.ids[ref.Value]; ok {
+				continue
 			}
-			continue
 		}
-		if _, ok := s.ids[ref.Value]; !ok {
-			if err := s.recover(validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)); err != nil {
-				return err
-			}
+		if err := s.recover(validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -282,23 +287,33 @@ func (s *session) identityStepMatches(rn runtimeName, step identityStep) bool {
 }
 
 func (s *session) captureIdentityAttribute(name qName, value simpleValue, line, col int) error {
-	depth := len(s.namePath)
-	for i := range s.idSelections {
-		sel := &s.idSelections[i]
-		ic := s.engine.rt.Identities[sel.Constraint]
-		for fieldIndex, field := range ic.Fields {
-			for _, p := range field.Paths {
-				if !s.identityFieldAttributeMatches(p, name) || !s.identityFieldPathMatches(sel.Depth, depth, p) {
-					continue
-				}
-				if sel.Fields[fieldIndex].Present {
-					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
-				}
-				sel.Fields[fieldIndex].Value = s.identityValue(value)
-				sel.Fields[fieldIndex].Present = true
-				break
-			}
+	return s.captureIdentityFields(s.identityAttributeFields(name), value, line, col)
+}
+
+func (s *session) captureIdentityFields(fields []identityFieldMatch, value simpleValue, line, col int) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	var identity string
+	identitySet := false
+	for _, match := range fields {
+		if match.Selection >= len(s.idSelections) {
+			return internalInvariant("identity field match references invalid selection")
 		}
+		sel := &s.idSelections[match.Selection]
+		if match.Field >= len(sel.Fields) {
+			return internalInvariant("identity field match references invalid field")
+		}
+		field := &sel.Fields[match.Field]
+		if field.Present {
+			return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
+		}
+		if !identitySet {
+			identity = s.identityValue(value)
+			identitySet = true
+		}
+		field.Value = identity
+		field.Present = true
 	}
 	return nil
 }
@@ -336,55 +351,40 @@ func (s *session) identityFieldAttributeMatches(p identityFieldPath, name qName)
 	return !p.AttrNamespaceSet || p.AttrNamespace == name.Namespace
 }
 
-func (s *session) captureIdentityElement(value simpleValue, line, col int) error {
-	depth := len(s.namePath)
-	for i := range s.idSelections {
-		sel := &s.idSelections[i]
-		ic := s.engine.rt.Identities[sel.Constraint]
-		for fieldIndex, field := range ic.Fields {
-			for _, p := range field.Paths {
-				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
-					continue
-				}
-				if sel.Fields[fieldIndex].Present {
-					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
-				}
-				sel.Fields[fieldIndex].Value = s.identityValue(value)
-				sel.Fields[fieldIndex].Present = true
-				break
-			}
-		}
-	}
-	return nil
-}
-
 func (s *session) captureIdentityComplexElement(rawText string, line, col int) error {
-	depth := len(s.namePath)
+	fields := s.identityElementFields()
+	if len(fields) == 0 {
+		return nil
+	}
 	var value string
 	normalized := false
-	for i := range s.idSelections {
-		sel := &s.idSelections[i]
-		ic := s.engine.rt.Identities[sel.Constraint]
-		for fieldIndex, field := range ic.Fields {
-			for _, p := range field.Paths {
-				if p.Attr || !s.identityFieldPathMatches(sel.Depth, depth, p) {
-					continue
-				}
-				if sel.Fields[fieldIndex].Present {
-					return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
-				}
-				if !normalized {
-					if strings.TrimSpace(rawText) == "" {
-						return validation(ErrValidationIdentity, line, col, sel.Path, "identity field has no simple value")
-					}
-					value = normalizeWhitespace(rawText, whitespaceCollapse)
-					normalized = true
-				}
-				sel.Fields[fieldIndex].Value = s.identityValue(simpleValue{Canonical: value, Type: s.engine.rt.Builtin.String})
-				sel.Fields[fieldIndex].Present = true
-				break
-			}
+	var identity string
+	identitySet := false
+	for _, match := range fields {
+		if match.Selection >= len(s.idSelections) {
+			return internalInvariant("identity field match references invalid selection")
 		}
+		sel := &s.idSelections[match.Selection]
+		if match.Field >= len(sel.Fields) {
+			return internalInvariant("identity field match references invalid field")
+		}
+		field := &sel.Fields[match.Field]
+		if field.Present {
+			return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
+		}
+		if !normalized {
+			if strings.TrimSpace(rawText) == "" {
+				return validation(ErrValidationIdentity, line, col, sel.Path, "identity field has no simple value")
+			}
+			value = normalizeWhitespace(rawText, whitespaceCollapse)
+			normalized = true
+		}
+		if !identitySet {
+			identity = s.identityValue(simpleValue{Canonical: value, Type: s.engine.rt.Builtin.String})
+			identitySet = true
+		}
+		field.Value = identity
+		field.Present = true
 	}
 	return nil
 }
@@ -409,6 +409,7 @@ func (s *session) identityFieldPathMatches(selectedDepth, currentDepth int, p id
 }
 
 func (s *session) finishIdentitySelections(depth, line, col int) error {
+	orig := s.idSelections
 	dst := s.idSelections[:0]
 	for i := range s.idSelections {
 		sel := s.idSelections[i]
@@ -419,11 +420,13 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 		if err := s.finishIdentitySelection(sel, line, col); err != nil {
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
-				s.idSelections = append(dst, s.idSelections[i+1:]...)
+				s.idSelections = append(dst, orig[i+1:]...)
+				clear(orig[len(s.idSelections):])
 				return recoverErr
 			}
 		}
 	}
+	clear(orig[len(dst):])
 	s.idSelections = dst
 	return nil
 }
@@ -537,6 +540,7 @@ func (s *session) closeIdentityScopes(depth int) error {
 		if len(s.idScopes) > 1 {
 			s.mergeIdentityTables(&s.idScopes[len(s.idScopes)-2], scope)
 		}
+		*scope = identityScope{}
 		s.idScopes = s.idScopes[:len(s.idScopes)-1]
 	}
 	return nil

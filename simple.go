@@ -446,15 +446,26 @@ func parseFloatPrimitiveActual(norm string, bitSize int, needCanonical bool) (pr
 	}, nil
 }
 
-func parseBooleanPrimitive(norm string) (string, bool, error) {
-	switch norm {
+func parseBooleanLexical(v string) (bool, bool) {
+	switch v {
 	case "true", "1":
-		return "true", true, nil
+		return true, true
 	case "false", "0":
-		return "false", false, nil
+		return false, true
 	default:
+		return false, false
+	}
+}
+
+func parseBooleanPrimitive(norm string) (string, bool, error) {
+	value, ok := parseBooleanLexical(norm)
+	if !ok {
 		return "", false, fmt.Errorf("invalid boolean")
 	}
+	if value {
+		return "true", true, nil
+	}
+	return "false", false, nil
 }
 
 func validateQNamePrimitive(norm string, resolve qnameResolver) (string, error) {

@@ -109,38 +109,6 @@ func validateKnownAttributes(n *rawNode, label string, allowed map[string]bool) 
 	return nil
 }
 
-func validateComplexTypeDerivationAttrs(n *rawNode) error {
-	for _, attr := range []string{"block", "final"} {
-		v, ok := n.attr(attr)
-		if !ok {
-			continue
-		}
-		fieldCount := 0
-		for range strings.FieldsSeq(v) {
-			fieldCount++
-		}
-		i := 0
-		for field := range strings.FieldsSeq(v) {
-			switch field {
-			case "#all":
-				if fieldCount != 1 {
-					return schemaCompile(ErrSchemaInvalidAttribute, attr+" cannot combine #all with other values")
-				}
-			case "extension", "restriction":
-			case "substitution":
-				return schemaCompile(ErrSchemaInvalidAttribute, "complexType "+attr+" cannot contain substitution")
-			default:
-				return schemaCompile(ErrSchemaInvalidAttribute, "invalid complexType "+attr+" value "+field)
-			}
-			if field == "#all" && i != 0 {
-				return schemaCompile(ErrSchemaInvalidAttribute, attr+" cannot combine #all with other values")
-			}
-			i++
-		}
-	}
-	return nil
-}
-
 func validateComplexTypeContent(n *rawNode) error {
 	sawModel := false
 	sawAttr := false
@@ -187,9 +155,6 @@ func validateComplexTypeContent(n *rawNode) error {
 
 func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName) (complexType, error) {
 	if err := validateComplexTypeContent(n); err != nil {
-		return complexType{}, err
-	}
-	if err := validateComplexTypeDerivationAttrs(n); err != nil {
 		return complexType{}, err
 	}
 	mixed, err := schemaBoolAttr(n, "mixed", false)

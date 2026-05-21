@@ -224,19 +224,20 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 		return nil, err
 	}
 	rt := runtimeSchema{
-		Names:            names,
-		GlobalElements:   make(map[qName]elementID),
-		GlobalAttributes: make(map[qName]attributeID, builtinAttributeCount),
-		GlobalTypes:      make(map[qName]typeID, builtinGlobalTypeCount),
-		GlobalIdentities: make(map[qName]identityConstraintID),
-		Notations:        make(map[string]bool),
-		Substitutions:    make(map[elementID][]elementID),
-		SimpleTypes:      make([]simpleType, 0, builtinSimpleTypeCount),
-		Attributes:       make([]attributeDecl, 0, builtinAttributeCount),
-		ComplexTypes:     make([]complexType, 0, builtinComplexTypeCount),
-		Wildcards:        make([]wildcard, 0, 1),
-		AttributeUseSets: make([]attributeUseSet, 0, 1),
-		Models:           make([]contentModel, 0, 1),
+		Names:              names,
+		GlobalElements:     make(map[qName]elementID),
+		GlobalAttributes:   make(map[qName]attributeID, builtinAttributeCount),
+		GlobalTypes:        make(map[qName]typeID, builtinGlobalTypeCount),
+		GlobalIdentities:   make(map[qName]identityConstraintID),
+		Notations:          make(map[string]bool),
+		Substitutions:      make(map[elementID][]elementID),
+		SubstitutionLookup: make(map[elementID]map[qName]elementID),
+		SimpleTypes:        make([]simpleType, 0, builtinSimpleTypeCount),
+		Attributes:         make([]attributeDecl, 0, builtinAttributeCount),
+		ComplexTypes:       make([]complexType, 0, builtinComplexTypeCount),
+		Wildcards:          make([]wildcard, 0, 1),
+		AttributeUseSets:   make([]attributeUseSet, 0, 1),
+		Models:             make([]contentModel, 0, 1),
 	}
 	c := &compiler{
 		compilerSourceState: compilerSourceState{

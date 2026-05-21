@@ -10,6 +10,12 @@ import (
 
 var errStopValidation = errors.New("validation stopped after maximum errors")
 
+const (
+	maxRetainedSliceCap  = 4096
+	maxRetainedBufferCap = 1 << 20
+	maxRetainedMapLen    = 4096
+)
+
 // ValidateOptions controls instance validation.
 type ValidateOptions struct {
 	// MaxErrors limits collected validation errors. Zero means unlimited.
@@ -131,6 +137,7 @@ type session struct {
 	idrefs                   []identityRef
 	idScopes                 []identityScope
 	idSelections             []identitySelection
+	identityMatches          []identityFieldMatch
 	text                     []byte
 	nameStrings              byteStringCache
 	valueStrings             byteStringCache
@@ -181,6 +188,11 @@ type identitySelection struct {
 	Line       int
 	Col        int
 	Constraint identityConstraintID
+}
+
+type identityFieldMatch struct {
+	Selection int
+	Field     int
 }
 
 type identityFieldValue struct {
@@ -293,23 +305,48 @@ func (s *session) validate(r io.Reader) error {
 }
 
 func (s *session) reset() {
+	clear(s.errors)
 	s.errors = s.errors[:0]
 	s.stack = s.stack[:0]
 	s.ns.frames = s.ns.frames[:0]
 	s.ns.bindings = s.ns.bindings[:0]
-	s.text = s.text[:0]
+	s.text = resetRetainedBytes(s.text, maxRetainedBufferCap)
 	s.path = s.path[:0]
 	s.pathText = ""
 	s.pathDirty = true
 	s.namePath = s.namePath[:0]
 	s.elementNames = s.elementNames[:0]
 	s.allBits = s.allBits[:0]
-	clear(s.ids)
-	s.idrefs = s.idrefs[:0]
-	s.idScopes = s.idScopes[:0]
-	s.idSelections = s.idSelections[:0]
+	if len(s.ids) > maxRetainedMapLen {
+		s.ids = nil
+	} else {
+		clear(s.ids)
+	}
+	s.idrefs = resetRetainedSlice(s.idrefs, maxRetainedSliceCap)
+	s.idScopes = resetRetainedSlice(s.idScopes, maxRetainedSliceCap)
+	s.idSelections = resetRetainedSlice(s.idSelections, maxRetainedSliceCap)
+	s.identityMatches = resetRetainedSlice(s.identityMatches, maxRetainedSliceCap)
 	s.identityEntries = 0
-	clear(s.schemaLocationNamespaces)
+	if len(s.schemaLocationNamespaces) > maxRetainedMapLen {
+		s.schemaLocationNamespaces = nil
+	} else {
+		clear(s.schemaLocationNamespaces)
+	}
+}
+
+func resetRetainedSlice[T any](s []T, maxCap int) []T {
+	clear(s)
+	if cap(s) > maxCap {
+		return nil
+	}
+	return s[:0]
+}
+
+func resetRetainedBytes(s []byte, maxCap int) []byte {
+	if cap(s) > maxCap {
+		return nil
+	}
+	return s[:0]
 }
 
 func (s *session) result() error {
@@ -541,9 +578,7 @@ func (s *session) appendText(data []byte, line, col int) error {
 
 func isXMLWhitespaceBytes(data []byte) bool {
 	for _, b := range data {
-		switch b {
-		case ' ', '\t', '\n', '\r':
-		default:
+		if !isXMLWhitespaceByte(b) {
 			return false
 		}
 	}

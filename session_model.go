@@ -151,10 +151,8 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []xml.At
 			return matchResult{element: p.Element}, true
 		}
 		if rn.Known {
-			for _, member := range rt.Substitutions[p.Element] {
-				if rt.Elements[member].Name == rn.Name && s.substitutionAllowed(p.Element, member) {
-					return matchResult{element: member}, true
-				}
+			if member, ok := rt.SubstitutionLookup[p.Element][rn.Name]; ok {
+				return matchResult{element: member}, true
 			}
 		}
 	case particleWildcard:
@@ -183,16 +181,6 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []xml.At
 		}
 	}
 	return noMatch(), false
-}
-
-func (s *session) substitutionAllowed(headID, memberID elementID) bool {
-	rt := s.engine.rt
-	head := rt.Elements[headID]
-	member := rt.Elements[memberID]
-	if head.Block&blockSubstitution != 0 {
-		return false
-	}
-	return rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
 }
 
 func hasXSIType(attrs []xml.Attr) bool {
@@ -267,9 +255,9 @@ func (s *session) captureEndIdentity(f *frame, content simpleContentValue, line,
 	var err error
 	switch {
 	case content.Captured:
-		err = s.captureIdentityElement(content.Value, line, col)
+		err = s.captureIdentityFields(content.IdentityFields, content.Value, line, col)
 	case f.Nilled && f.Element != noElement:
-		err = s.captureIdentityElement(nilledIdentityValue(), line, col)
+		err = s.captureIdentityFields(s.identityElementFields(), nilledIdentityValue(), line, col)
 	case f.Type.Kind == typeComplex && !s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue:
 		err = s.captureIdentityComplexElement(string(s.text[f.TextStart:]), line, col)
 	}

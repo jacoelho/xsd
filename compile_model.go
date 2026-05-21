@@ -1,7 +1,6 @@
 package xsd
 
 import (
-	"cmp"
 	"fmt"
 	"slices"
 	"strconv"
@@ -750,7 +749,7 @@ func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 		maxDigits = digits
 		maxOccurs = occurrenceUint32(digits)
 	}
-	if compareDecimalDigits(maxDigits, minDigits) < 0 {
+	if compareUnsignedDecimalText(maxDigits, minDigits) < 0 {
 		return occurrence{}, schemaCompile(ErrSchemaOccurrence, "maxOccurs is less than minOccurs")
 	}
 	return occurrence{Min: minOccurs, Max: maxOccurs}, nil
@@ -761,7 +760,7 @@ func maxOccursLimitExceeded(digits string, limit uint64) bool {
 	if limit != 0 && limit < limitCap {
 		limitCap = limit
 	}
-	return compareDecimalDigits(digits, strconv.FormatUint(limitCap, 10)) > 0
+	return compareUnsignedDecimalText(digits, strconv.FormatUint(limitCap, 10)) > 0
 }
 
 func maxOccursLimitMessage(limit uint64) string {
@@ -772,7 +771,7 @@ func maxOccursLimitMessage(limit uint64) string {
 }
 
 func occurrenceUint32LimitExceeded(digits string) bool {
-	return compareDecimalDigits(digits, strconv.FormatUint(uint64(^uint32(0)), 10)) > 0
+	return compareUnsignedDecimalText(digits, strconv.FormatUint(uint64(^uint32(0)), 10)) > 0
 }
 
 func parseOccurrenceDigits(v string) (string, error) {
@@ -795,16 +794,9 @@ func parseOccurrenceDigits(v string) (string, error) {
 
 func occurrenceUint32(digits string) uint32 {
 	const maxUint32 = "4294967295"
-	if compareDecimalDigits(digits, maxUint32) > 0 {
+	if compareUnsignedDecimalText(digits, maxUint32) > 0 {
 		return ^uint32(0)
 	}
 	v, _ := strconv.ParseUint(digits, 10, 32)
 	return uint32(v)
-}
-
-func compareDecimalDigits(a, b string) int {
-	if n := cmp.Compare(len(a), len(b)); n != 0 {
-		return n
-	}
-	return cmp.Compare(a, b)
 }

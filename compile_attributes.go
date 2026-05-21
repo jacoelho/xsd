@@ -137,10 +137,7 @@ func (c *compiler) schemaQNameResolver(n *rawNode) qnameResolver {
 		if err != nil {
 			return "", false
 		}
-		if ns == "" {
-			return local, true
-		}
-		return "{" + ns + "}" + local, true
+		return formatExpandedName(ns, local), true
 	}
 }
 
@@ -334,7 +331,7 @@ func (c *compiler) attrUsesAndWildcard(id attributeUseSetID) ([]attributeUse, wi
 }
 
 func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attributeUse, error) {
-	use := attributeUse{Type: c.rt.Builtin.AnySimpleType}
+	var use attributeUse
 	refHasFixed := false
 	refFixedCanonical := ""
 	if _, ok := n.attr("value"); ok {
@@ -357,19 +354,9 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		if err != nil {
 			return attributeUse{}, err
 		}
-		decl := c.rt.Attributes[id]
-		use.Name = decl.Name
-		use.Type = decl.Type
-		use.Default = decl.Default
-		use.Fixed = decl.Fixed
-		use.DefaultCanonical = decl.DefaultCanonical
-		use.FixedCanonical = decl.FixedCanonical
-		use.DefaultValue = decl.DefaultValue
-		use.FixedValue = decl.FixedValue
-		use.HasDefault = decl.HasDefault
-		use.HasFixed = decl.HasFixed
-		refHasFixed = decl.HasFixed
-		refFixedCanonical = decl.FixedCanonical
+		use = attributeUseFromDecl(c.rt.Attributes[id])
+		refHasFixed = use.HasFixed
+		refFixedCanonical = use.FixedCanonical
 	} else {
 		name, ok := n.attr("name")
 		if !ok {
@@ -392,15 +379,7 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		if err != nil {
 			return attributeUse{}, err
 		}
-		use.Type = decl.Type
-		use.Default = decl.Default
-		use.Fixed = decl.Fixed
-		use.DefaultCanonical = decl.DefaultCanonical
-		use.FixedCanonical = decl.FixedCanonical
-		use.DefaultValue = decl.DefaultValue
-		use.FixedValue = decl.FixedValue
-		use.HasDefault = decl.HasDefault
-		use.HasFixed = decl.HasFixed
+		use = attributeUseFromDecl(decl)
 	}
 	switch n.attrDefault("use", "optional") {
 	case "required":
@@ -450,6 +429,21 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	use.DefaultValue = decl.DefaultValue
 	use.FixedValue = decl.FixedValue
 	return use, nil
+}
+
+func attributeUseFromDecl(decl attributeDecl) attributeUse {
+	return attributeUse{
+		Name:             decl.Name,
+		Type:             decl.Type,
+		Default:          decl.Default,
+		Fixed:            decl.Fixed,
+		DefaultCanonical: decl.DefaultCanonical,
+		FixedCanonical:   decl.FixedCanonical,
+		DefaultValue:     decl.DefaultValue,
+		FixedValue:       decl.FixedValue,
+		HasDefault:       decl.HasDefault,
+		HasFixed:         decl.HasFixed,
+	}
 }
 
 func (c *compiler) compileAttributeGroupUse(n *rawNode, ctx *schemaContext) ([]attributeUse, wildcardID, error) {

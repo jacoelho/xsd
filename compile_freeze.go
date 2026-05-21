@@ -39,6 +39,19 @@ func validateRuntimeSchema(rt *runtimeSchema) error {
 			}
 		}
 	}
+	for head, members := range rt.SubstitutionLookup {
+		if !validElementID(rt, head) {
+			return internalInvariant("substitution lookup head references invalid element")
+		}
+		for name, member := range members {
+			if !validQName(rt, name) || !validElementID(rt, member) {
+				return internalInvariant("substitution lookup references invalid element")
+			}
+			if rt.Elements[member].Name != name {
+				return internalInvariant("substitution lookup name does not match element")
+			}
+		}
+	}
 	if err := validateBuiltinIDs(rt); err != nil {
 		return err
 	}

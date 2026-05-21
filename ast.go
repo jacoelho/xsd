@@ -537,12 +537,5 @@ func parseQNamePrefixWildcard(lexical string) (string, bool, error) {
 }
 
 func parseSchemaBool(v string) (bool, bool) {
-	switch strings.TrimSpace(v) {
-	case "true", "1":
-		return true, true
-	case "false", "0":
-		return false, true
-	default:
-		return false, false
-	}
+	return parseBooleanLexical(strings.TrimSpace(v))
 }

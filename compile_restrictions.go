@@ -204,7 +204,7 @@ func (c *compiler) modelContainsNestedChoice(model contentModel, nested bool) bo
 func (c *compiler) choiceBranchRestricts(base, derived particle) bool {
 	candidate := derived
 	if base.Kind != particleModel && base.occurs.isExactlyOne() && c.particleNeedsChoiceBranchNormalization(derived) {
-		candidate = c.choiceBranchParticle(derived)
+		candidate = singleParticle(derived)
 	}
 	return c.validateParticleRestriction(base, candidate) == nil
 }
@@ -481,11 +481,6 @@ func (c *compiler) validateElementParticleRestrictsSequenceModel(base contentMod
 	return schemaCompile(ErrSchemaContentModel, "sequence restriction particle is not subset of base")
 }
 
-func (c *compiler) choiceBranchParticle(p particle) particle {
-	p.occurs = occurrence{Min: 1, Max: 1}
-	return p
-}
-
 func (c *compiler) elementRestrictionNameAllowed(baseID, derivedID elementID) bool {
 	for _, member := range c.rt.Substitutions[baseID] {
 		if member == derivedID && c.substitutionAllowed(baseID, derivedID) {
@@ -609,7 +604,7 @@ func (c *compiler) modelCountRange(modelID contentModelID) occurrence {
 			term = unionOccursRanges(term, c.particleCountRange(p))
 		}
 	}
-	return multiplyOccursRange(term, model.occurs)
+	return multiplyOccurs(term, model.occurs)
 }
 
 func (c *compiler) particleCountRange(p particle) occurrence {
@@ -622,7 +617,7 @@ func (c *compiler) particleCountRange(p particle) occurrence {
 	default:
 		term = occurrence{}
 	}
-	return multiplyOccursRange(term, p.occurs)
+	return multiplyOccurs(term, p.occurs)
 }
 
 func addOccursRanges(a, b occurrence) occurrence {
@@ -636,14 +631,6 @@ func unionOccursRanges(a, b occurrence) occurrence {
 	}
 	maxOccurs := max(b.Max, a.Max)
 	return occurrence{Min: minOccurs, Max: maxOccurs}
-}
-
-func multiplyOccursRange(term, occurs occurrence) occurrence {
-	minOccurs := saturatingMul(term.Min, occurs.Min)
-	if term.Unbounded || occurs.Unbounded {
-		return occurrence{Min: minOccurs, Unbounded: true}
-	}
-	return occurrence{Min: minOccurs, Max: saturatingMul(term.Max, occurs.Max)}
 }
 
 func multiplyOccurs(a, b occurrence) occurrence {
