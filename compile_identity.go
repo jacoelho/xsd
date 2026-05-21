@@ -149,7 +149,51 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 	if len(ic.Fields) == 0 {
 		return ic, schemaCompile(ErrSchemaIdentity, "identity constraint missing fields")
 	}
+	compileIdentityFieldLookup(&ic)
 	return ic, nil
+}
+
+func compileIdentityFieldLookup(ic *identityConstraint) {
+	for fieldIndex := range ic.Fields {
+		var elementPaths []identityFieldPath
+		var wildcardAttrPaths []identityFieldPath
+		var exactAttrPaths map[qName][]identityFieldPath
+		for _, path := range ic.Fields[fieldIndex].Paths {
+			if !path.Attr {
+				elementPaths = append(elementPaths, path)
+				continue
+			}
+			if path.AttrWildcard {
+				wildcardAttrPaths = append(wildcardAttrPaths, path)
+				continue
+			}
+			if exactAttrPaths == nil {
+				exactAttrPaths = make(map[qName][]identityFieldPath)
+			}
+			exactAttrPaths[path.Attribute] = append(exactAttrPaths[path.Attribute], path)
+		}
+		if len(elementPaths) != 0 {
+			ic.ElementFields = append(ic.ElementFields, compiledIdentityField{
+				Field: fieldIndex,
+				Paths: elementPaths,
+			})
+		}
+		if len(wildcardAttrPaths) != 0 {
+			ic.AttributeWildcardFields = append(ic.AttributeWildcardFields, compiledIdentityField{
+				Field: fieldIndex,
+				Paths: wildcardAttrPaths,
+			})
+		}
+		for name, paths := range exactAttrPaths {
+			if ic.AttributeFields == nil {
+				ic.AttributeFields = make(map[qName][]compiledIdentityField)
+			}
+			ic.AttributeFields[name] = append(ic.AttributeFields[name], compiledIdentityField{
+				Field: fieldIndex,
+				Paths: paths,
+			})
+		}
+	}
 }
 
 func validateIdentityConstraintSyntax(n *rawNode) error {

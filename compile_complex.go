@@ -350,14 +350,6 @@ func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaC
 	if err != nil {
 		return complexType{}, err
 	}
-	if err := c.validateContentRestriction(base.Content, ct.Content); err != nil {
-		return complexType{}, err
-	}
-	repeatedChoice := c.restrictionRepeatedChoiceParticles(base.Content, ct.Content)
-	if len(repeatedChoice) != 0 {
-		ct.Content = c.addModel(c.rt.Models[ct.Content])
-		c.choiceLimitByModel[ct.Content] = append(c.choiceLimitByModel[ct.Content], repeatedChoice...)
-	}
 	ct.Attrs = attrs
 	ct.Mixed = mixed
 	return ct, nil

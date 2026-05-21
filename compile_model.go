@@ -662,9 +662,11 @@ func (c *compiler) particleElementNames(p particle) []qName {
 	switch p.Kind {
 	case particleElement:
 		names := []qName{c.rt.Elements[p.Element].Name}
+		allowed := c.rt.SubstitutionLookup[p.Element]
 		for _, member := range c.rt.Substitutions[p.Element] {
-			if c.substitutionAllowed(p.Element, member) {
-				names = append(names, c.rt.Elements[member].Name)
+			name := c.rt.Elements[member].Name
+			if allowed != nil && allowed[name] == member {
+				names = append(names, name)
 			}
 		}
 		return names

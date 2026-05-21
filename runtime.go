@@ -104,11 +104,19 @@ const (
 )
 
 type identityConstraint struct {
-	Selector []identityPath
-	Fields   []identityField
-	Name     qName
-	Refer    identityConstraintID
-	Kind     identityKind
+	Selector                []identityPath
+	Fields                  []identityField
+	ElementFields           []compiledIdentityField
+	AttributeFields         map[qName][]compiledIdentityField
+	AttributeWildcardFields []compiledIdentityField
+	Name                    qName
+	Refer                   identityConstraintID
+	Kind                    identityKind
+}
+
+type compiledIdentityField struct {
+	Paths []identityFieldPath
+	Field int
 }
 
 type identityPath struct {

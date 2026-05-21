@@ -423,6 +423,12 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 		if err := c.validateContentRestriction(base.Content, ct.Content); err != nil {
 			return err
 		}
+		repeatedChoice := c.restrictionRepeatedChoiceParticles(base.Content, ct.Content)
+		if len(repeatedChoice) != 0 {
+			ct.Content = c.addModel(c.rt.Models[ct.Content])
+			c.choiceLimitByModel[ct.Content] = append(c.choiceLimitByModel[ct.Content], repeatedChoice...)
+			c.rt.ComplexTypes[id] = ct
+		}
 	}
 	return nil
 }

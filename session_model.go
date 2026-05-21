@@ -151,8 +151,10 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []xml.At
 			return matchResult{element: p.Element}, true
 		}
 		if rn.Known {
-			if member, ok := rt.SubstitutionLookup[p.Element][rn.Name]; ok {
-				return matchResult{element: member}, true
+			if byName := rt.SubstitutionLookup[p.Element]; byName != nil {
+				if member, ok := byName[rn.Name]; ok {
+					return matchResult{element: member}, true
+				}
 			}
 		}
 	case particleWildcard:
@@ -244,24 +246,24 @@ func (s *session) validateFrameEnd(f *frame, line, col int) error {
 			}
 		}
 	}
-	content, err := s.validateSimpleContent(f, line, col)
+	contentCaptured, err := s.validateSimpleContent(f, line, col)
 	if err != nil {
 		return s.recover(err)
 	}
-	return s.captureEndIdentity(f, content, line, col)
+	return s.captureEndIdentity(f, contentCaptured, line, col)
 }
 
-func (s *session) captureEndIdentity(f *frame, content simpleContentValue, line, col int) error {
-	var err error
+func (s *session) captureEndIdentity(f *frame, contentCaptured bool, line, col int) error {
 	switch {
-	case content.Captured:
-		err = s.captureIdentityFields(content.IdentityFields, content.Value, line, col)
+	case contentCaptured:
+		return nil
 	case f.Nilled && f.Element != noElement:
-		err = s.captureIdentityFields(s.identityElementFields(), nilledIdentityValue(), line, col)
+		return s.recover(s.captureIdentityFields(s.identityElementFields(), nilledIdentityValue(), line, col))
 	case f.Type.Kind == typeComplex && !s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue:
-		err = s.captureIdentityComplexElement(string(s.text[f.TextStart:]), line, col)
+		return s.recover(s.captureIdentityComplexElement(s.text[f.TextStart:], line, col))
+	default:
+		return nil
 	}
-	return s.recover(err)
 }
 
 func (s *session) finishFrameIdentity(line, col int) error {

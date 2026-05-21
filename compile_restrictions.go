@@ -482,37 +482,9 @@ func (c *compiler) validateElementParticleRestrictsSequenceModel(base contentMod
 }
 
 func (c *compiler) elementRestrictionNameAllowed(baseID, derivedID elementID) bool {
-	for _, member := range c.rt.Substitutions[baseID] {
-		if member == derivedID && c.substitutionAllowed(baseID, derivedID) {
-			return true
-		}
-	}
-	baseName := c.rt.Elements[baseID].Name
 	derivedName := c.rt.Elements[derivedID].Name
-	return c.rawSubstitutionMemberOf(derivedName, baseName, make(map[qName]bool)) && c.substitutionAllowed(baseID, derivedID)
-}
-
-func (c *compiler) rawSubstitutionMemberOf(member, head qName, seen map[qName]bool) bool {
-	if seen[member] {
-		return false
-	}
-	seen[member] = true
-	raw, ok := c.elementRaw[member]
-	if !ok {
-		return false
-	}
-	headLex, ok := raw.node.attr("substitutionGroup")
-	if !ok {
-		return false
-	}
-	q, err := c.resolveQNameChecked(raw.node, raw.ctx, headLex)
-	if err != nil {
-		return false
-	}
-	if q == head {
-		return true
-	}
-	return c.rawSubstitutionMemberOf(q, head, seen)
+	_, ok := c.rt.SubstitutionLookup[baseID][derivedName]
+	return ok && c.substitutionAllowed(baseID, derivedID)
 }
 
 func (c *compiler) validateParticleRestrictsWildcard(base, derived particle) error {

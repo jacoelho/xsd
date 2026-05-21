@@ -335,10 +335,10 @@ func (s *session) reset() {
 }
 
 func resetRetainedSlice[T any](s []T, maxCap int) []T {
-	clear(s)
 	if cap(s) > maxCap {
 		return nil
 	}
+	clear(s)
 	return s[:0]
 }
 

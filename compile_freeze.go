@@ -52,6 +52,9 @@ func validateRuntimeSchema(rt *runtimeSchema) error {
 			}
 		}
 	}
+	if err := validateSubstitutionLookup(rt); err != nil {
+		return err
+	}
 	if err := validateBuiltinIDs(rt); err != nil {
 		return err
 	}
@@ -99,6 +102,50 @@ func validateRuntimeSchema(rt *runtimeSchema) error {
 		}
 	}
 	return nil
+}
+
+func validateSubstitutionLookup(rt *runtimeSchema) error {
+	for head, members := range rt.Substitutions {
+		for _, member := range members {
+			if !runtimeSubstitutionAllowed(rt, head, member) {
+				continue
+			}
+			byName := rt.SubstitutionLookup[head]
+			if byName == nil || byName[rt.Elements[member].Name] != member {
+				return internalInvariant("substitution lookup is missing allowed member")
+			}
+		}
+	}
+	for head, lookup := range rt.SubstitutionLookup {
+		members := rt.Substitutions[head]
+		for _, member := range lookup {
+			if !substitutionMemberExists(members, member) {
+				return internalInvariant("substitution lookup contains non-member")
+			}
+			if !runtimeSubstitutionAllowed(rt, head, member) {
+				return internalInvariant("substitution lookup contains blocked member")
+			}
+		}
+	}
+	return nil
+}
+
+func runtimeSubstitutionAllowed(rt *runtimeSchema, headID, memberID elementID) bool {
+	head := rt.Elements[headID]
+	member := rt.Elements[memberID]
+	if head.Block&blockSubstitution != 0 {
+		return false
+	}
+	return rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
+}
+
+func substitutionMemberExists(members []elementID, member elementID) bool {
+	for _, candidate := range members {
+		if candidate == member {
+			return true
+		}
+	}
+	return false
 }
 
 func internalInvariant(msg string) error {
@@ -373,15 +420,76 @@ func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error 
 	}
 	for _, field := range ic.Fields {
 		for _, path := range field.Paths {
-			if path.Attr && !path.AttrWildcard && !validQName(rt, path.Attribute) {
+			if !validIdentityFieldPath(rt, path) {
 				return internalInvariant("identity field references invalid attribute")
 			}
-			if !validIdentitySteps(rt, path.Steps) {
-				return internalInvariant("identity field references invalid name")
+		}
+	}
+	if err := validateCompiledIdentityFields(rt, ic); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateCompiledIdentityFields(rt *runtimeSchema, ic identityConstraint) error {
+	for _, field := range ic.ElementFields {
+		if err := validateCompiledIdentityField(rt, ic, field); err != nil {
+			return err
+		}
+		for _, path := range field.Paths {
+			if path.Attr {
+				return internalInvariant("compiled identity element field contains attribute path")
+			}
+		}
+	}
+	for name, fields := range ic.AttributeFields {
+		if !validQName(rt, name) {
+			return internalInvariant("compiled identity attribute field references invalid attribute")
+		}
+		for _, field := range fields {
+			if err := validateCompiledIdentityField(rt, ic, field); err != nil {
+				return err
+			}
+			for _, path := range field.Paths {
+				if path.AttrWildcard || path.Attribute != name {
+					return internalInvariant("compiled identity attribute field is in wrong lookup bucket")
+				}
+			}
+		}
+	}
+	for _, field := range ic.AttributeWildcardFields {
+		if err := validateCompiledIdentityField(rt, ic, field); err != nil {
+			return err
+		}
+		for _, path := range field.Paths {
+			if !path.AttrWildcard {
+				return internalInvariant("compiled identity wildcard field contains exact attribute path")
 			}
 		}
 	}
 	return nil
+}
+
+func validateCompiledIdentityField(rt *runtimeSchema, ic identityConstraint, field compiledIdentityField) error {
+	if field.Field < 0 || field.Field >= len(ic.Fields) {
+		return internalInvariant("compiled identity field references invalid field")
+	}
+	if len(field.Paths) == 0 {
+		return internalInvariant("compiled identity field has no paths")
+	}
+	for _, path := range field.Paths {
+		if !validIdentityFieldPath(rt, path) {
+			return internalInvariant("compiled identity field references invalid path")
+		}
+	}
+	return nil
+}
+
+func validIdentityFieldPath(rt *runtimeSchema, path identityFieldPath) bool {
+	if path.Attr && !path.AttrWildcard && !validQName(rt, path.Attribute) {
+		return false
+	}
+	return validIdentitySteps(rt, path.Steps)
 }
 
 func validIdentitySteps(rt *runtimeSchema, steps []identityStep) bool {
