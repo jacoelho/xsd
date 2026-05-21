@@ -1,7 +1,6 @@
 package xsd
 
 import (
-	"encoding/hex"
 	"fmt"
 	"unicode/utf8"
 )
@@ -135,17 +134,9 @@ func applyPrimitiveBounds(kind primitiveKind, f facetSet, norm string, actual ac
 func atomicLength(kind primitiveKind, norm string) (uint32, error) {
 	switch kind {
 	case primHexBinary:
-		decoded, err := hex.DecodeString(norm)
-		if err != nil {
-			return 0, fmt.Errorf("invalid hexBinary")
-		}
-		return uint32(len(decoded)), nil
+		return hexBinaryLength(norm)
 	case primBase64Binary:
-		decoded, err := decodeXSDBase64(norm)
-		if err != nil {
-			return 0, fmt.Errorf("invalid base64Binary")
-		}
-		return uint32(len(decoded)), nil
+		return base64BinaryLength(norm)
 	default:
 		return uint32(utf8.RuneCountInString(norm)), nil
 	}

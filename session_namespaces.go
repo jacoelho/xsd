@@ -270,22 +270,25 @@ func (s *session) resolveLexicalQNameValue(v string) (string, bool) {
 }
 
 func (ns *namespaceStack) push(attrs []xml.Attr) error {
-	var pending []namespaceBinding
+	mark := len(ns.bindings)
 	for _, a := range attrs {
 		if a.Name.Space == "xmlns" {
 			if err := validateNamespaceBinding(a.Name.Local, a.Value); err != nil {
+				clear(ns.bindings[mark:])
+				ns.bindings = ns.bindings[:mark]
 				return err
 			}
-			pending = append(pending, namespaceBinding{Prefix: a.Name.Local, URI: a.Value})
+			ns.bindings = append(ns.bindings, namespaceBinding{Prefix: a.Name.Local, URI: a.Value})
 		} else if a.Name.Space == "" && a.Name.Local == "xmlns" {
 			if err := validateDefaultNamespaceBinding(a.Value); err != nil {
+				clear(ns.bindings[mark:])
+				ns.bindings = ns.bindings[:mark]
 				return err
 			}
-			pending = append(pending, namespaceBinding{Prefix: "", URI: a.Value})
+			ns.bindings = append(ns.bindings, namespaceBinding{Prefix: "", URI: a.Value})
 		}
 	}
-	ns.frames = append(ns.frames, len(ns.bindings))
-	ns.bindings = append(ns.bindings, pending...)
+	ns.frames = append(ns.frames, mark)
 	return nil
 }
 

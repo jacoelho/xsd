@@ -10,6 +10,7 @@ func normalizeWhitespace(s string, mode whitespaceMode) string {
 		return s
 	}
 	var b strings.Builder
+	b.Grow(len(s))
 	lastSpace := false
 	for _, r := range s {
 		isSpace := r == ' ' || r == '\t' || r == '\n' || r == '\r'
@@ -39,6 +40,7 @@ func normalizeXMLAttributeWhitespace(s string) string {
 		return s
 	}
 	var b strings.Builder
+	b.Grow(len(s))
 	for _, r := range s {
 		if r == '\t' || r == '\n' || r == '\r' {
 			b.WriteByte(' ')
@@ -68,12 +70,15 @@ func isXMLWhitespaceByte(b byte) bool {
 }
 
 func removeXMLWhitespace(s string) string {
-	return strings.Map(func(r rune) rune {
-		switch r {
-		case ' ', '\t', '\n', '\r':
-			return -1
-		default:
-			return r
+	if !containsXMLWhitespace(s) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if !isXMLWhitespaceByte(s[i]) {
+			b.WriteByte(s[i])
 		}
-	}, s)
+	}
+	return b.String()
 }

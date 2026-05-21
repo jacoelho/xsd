@@ -258,26 +258,22 @@ func (s *session) recordSchemaLocationHints(attrs []xml.Attr, line, col int) err
 }
 
 func (s *session) recordNamespaceSchemaLocationHints(value string, line, col int) error {
-	var namespace string
-	var namespaces []string
-	haveNamespace := false
+	count := 0
 	for field := range strings.FieldsSeq(value) {
 		if !isAnyURI(field) {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:schemaLocation URI "+field)
 		}
-		if !haveNamespace {
-			namespace = field
-			haveNamespace = true
-			continue
-		}
-		namespaces = append(namespaces, namespace)
-		haveNamespace = false
+		count++
 	}
-	if haveNamespace {
+	if count%2 != 0 {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:schemaLocation must contain namespace/location pairs")
 	}
-	for _, ns := range namespaces {
-		s.addSchemaLocationHint(ns)
+	i := 0
+	for field := range strings.FieldsSeq(value) {
+		if i%2 == 0 {
+			s.addSchemaLocationHint(field)
+		}
+		i++
 	}
 	return nil
 }

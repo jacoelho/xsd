@@ -297,6 +297,10 @@ func (f facetSet) needsCanonical() bool {
 	return len(f.Enumeration) != 0
 }
 
+func (f facetSet) needsLength() bool {
+	return f.Length != nil || f.MinLength != nil || f.MaxLength != nil
+}
+
 type compiledLiteral struct {
 	Lexical   string
 	Canonical string

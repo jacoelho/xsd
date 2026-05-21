@@ -506,8 +506,10 @@ func (s *session) pushFrame(elem elementID, typ typeID, nilled, skip bool) {
 		}
 	}
 	bitBase := len(s.allBits)
-	for i := 0; i < bitLen; i++ {
-		s.allBits = append(s.allBits, 0)
+	if bitLen > 0 {
+		s.allBits = slices.Grow(s.allBits, bitLen)
+		s.allBits = s.allBits[:bitBase+bitLen]
+		clear(s.allBits[bitBase:])
 	}
 	s.stack = append(s.stack, frame{
 		Element:   elem,

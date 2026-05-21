@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"bytes"
+	"encoding/xml"
 	"errors"
 	"io"
 	"os"
@@ -824,6 +825,23 @@ func TestMalformedXSISchemaLocationIsValidationAttributeError(t *testing.T) {
 			err := engine.Validate(strings.NewReader(doc))
 			expectCode(t, err, ErrValidationAttribute)
 		})
+	}
+}
+
+func TestNamespaceStackPushRollsBackBindingsOnError(t *testing.T) {
+	var ns namespaceStack
+	err := ns.push([]xml.Attr{
+		{Name: xml.Name{Space: "xmlns", Local: "a"}, Value: "urn:a"},
+		{Name: xml.Name{Space: "xmlns", Local: "xml"}, Value: "urn:not-xml"},
+	})
+	if err == nil {
+		t.Fatal("push() error = nil")
+	}
+	if len(ns.frames) != 0 {
+		t.Fatalf("len(frames) = %d, want 0", len(ns.frames))
+	}
+	if len(ns.bindings) != 0 {
+		t.Fatalf("len(bindings) = %d, want 0", len(ns.bindings))
 	}
 }
 

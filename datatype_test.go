@@ -1392,6 +1392,21 @@ func TestBinaryLengthFacetsCountOctets(t *testing.T) {
 	mustNotValidate(t, engine, `<b64>AQ==</b64>`, ErrValidationFacet)
 }
 
+func TestBinaryCanonicalFacets(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="hex">
+    <xs:simpleType><xs:restriction base="xs:hexBinary"><xs:enumeration value="0AFF"/></xs:restriction></xs:simpleType>
+  </xs:element>
+  <xs:element name="b64">
+    <xs:simpleType><xs:restriction base="xs:base64Binary"><xs:enumeration value="AQI="/></xs:restriction></xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<hex>0aff</hex>`)
+	mustValidate(t, engine, `<b64>A Q I =</b64>`)
+	mustNotValidate(t, engine, `<b64>AB==</b64>`, ErrValidationFacet)
+}
+
 func TestDateTimeBounds(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
