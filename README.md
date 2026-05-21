@@ -268,7 +268,7 @@ By default this generates streaming XML documents at `20MB`, `100MB`, `500MB`, `
 
 The command comparison reports p95 elapsed time and p95 max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
 
-Latest local run (2026-05-19, Go 1.26.2, libxml2 2.9.13, p95 over 10 runs):
+Latest local run (2026-05-21, macOS 26.5, Go 1.26.2, libxml2 2.9.13, p95 over 10 runs):
 
 ```text
 goos: darwin
@@ -277,24 +277,28 @@ pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | p95 sec/op      | p95 sec/op      vs base           |
-streaming/20MB                 367.015ms       725.196ms      +97.59%
-streaming/100MB                   1.681s          3.418s     +103.30%
-streaming/500MB                   8.452s         16.748s      +98.15%
-streaming/1GB                    22.263s         34.638s      +55.59%
-streaming/2GB                    52.674s         68.432s      +29.91%
-identity                       605.286ms       894.938ms      +47.85%
-geomean                           3.933s          6.670s      +69.59%
+streaming/20MB                 326.946ms          1.065s     +225.86%
+streaming/100MB                   1.542s          3.048s      +97.63%
+streaming/500MB                   9.618s         15.092s      +56.91%
+streaming/1GB                    19.640s         30.869s      +57.17%
+streaming/2GB                    45.584s         63.746s      +39.84%
+identity                       600.406ms       251.998ms      -58.03%
+geomean                           3.710s          5.382s      +45.07%
 
                          | libxml2 xmllint |             go xmllint             |
                          | p95 rss/op      | p95 rss/op      vs base           |
-streaming/20MB                 243.19MiB        12.20MiB      -94.98%
+streaming/20MB                 243.16MiB        12.14MiB      -95.01%
 streaming/100MB                  1.17GiB        13.27MiB      -98.89%
-streaming/500MB                  5.81GiB        13.86MiB      -99.77%
-streaming/1GB                   11.87GiB        14.00MiB      -99.88%
-streaming/2GB                   13.37GiB        14.00MiB      -99.90%
-identity                       188.55MiB        74.19MiB      -60.65%
-geomean                          1.90GiB        17.88MiB      -99.08%
+streaming/500MB                  5.81GiB        13.80MiB      -99.77%
+streaming/1GB                   11.87GiB        13.92MiB      -99.89%
+streaming/2GB                   16.24GiB        14.09MiB      -99.92%
+identity                       186.09MiB        74.47MiB      -59.98%
+geomean                          1.96GiB        17.86MiB      -99.11%
 ```
+
+Small streaming profiles are sensitive to p95 outliers. In the full run above, `XSD_LARGE_RUNS=10`
+makes p95 equal to the slowest sample. A focused 20-run rerun for `streaming/20MB`
+measured `657.346ms` for Go and `336.147ms` for libxml2 (`+95.55%`).
 
 ## Constraints
 
