@@ -16,6 +16,9 @@ func formatXSDFloatCanonical(v float64, bits int) string {
 	if math.IsNaN(v) {
 		return "NaN"
 	}
+	if v == 0 {
+		return "0"
+	}
 	return strconv.FormatFloat(v, 'g', -1, bits)
 }
 

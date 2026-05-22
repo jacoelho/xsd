@@ -86,6 +86,30 @@ func TestIdentityConstraintDecimalFieldsUseValueSpace(t *testing.T) {
 	mustNotValidate(t, engine, `<root><row amount="1"/><row amount="1.0"/></root>`, ErrValidationIdentity)
 }
 
+func TestIdentityConstraintFloatDoubleZeroUseValueSpace(t *testing.T) {
+	for _, typ := range []string{"xs:float", "xs:double"} {
+		t.Run(typ, func(t *testing.T) {
+			engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="row" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="amount" type="`+typ+`"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u"><xs:selector xpath="row"/><xs:field xpath="@amount"/></xs:unique>
+  </xs:element>
+</xs:schema>`)
+			mustValidate(t, engine, `<root><row amount="-0"/><row amount="1"/></root>`)
+			mustNotValidate(t, engine, `<root><row amount="-0"/><row amount="0"/></root>`, ErrValidationIdentity)
+		})
+	}
+}
+
 func TestIdentitySelectorSelfMatchesConstraintElement(t *testing.T) {
 	engine := mustCompile(t, `
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
