@@ -898,6 +898,7 @@ func TestInvalidDerivationSetAttributesAreSchemaErrors(t *testing.T) {
 	tests := []string{
 		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="foo"><xs:element name="r"/></xs:schema>`,
 		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="#all restriction"><xs:element name="r"/></xs:schema>`,
+		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="#all #all"><xs:element name="r"/></xs:schema>`,
 		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="substitution"><xs:element name="r"/></xs:schema>`,
 		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="t" final="list"/></xs:schema>`,
 		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="t" block="substitution"/></xs:schema>`,

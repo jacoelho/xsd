@@ -2,7 +2,6 @@ package xsd
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -338,9 +337,11 @@ func isGroupOccurrenceAttribute(name string) bool {
 }
 
 func (c *compiler) checkCompiledModelsUPA() error {
+	seen := make([]bool, len(c.rt.Models))
 	for i := range c.rt.Models {
 		model := c.rt.Models[i]
-		if c.modelNeedsRuntimeSplit(contentModelID(i), model) || c.sequenceHasWildcardEquivalentOverlap(model) {
+		clear(seen)
+		if c.modelNeedsRuntimeSplitSeen(contentModelID(i), model, seen) || c.sequenceHasWildcardEquivalentOverlap(model) {
 			continue
 		}
 		if err := c.checkDirectUPA(model); err != nil {
@@ -348,11 +349,6 @@ func (c *compiler) checkCompiledModelsUPA() error {
 		}
 	}
 	return nil
-}
-
-func (c *compiler) modelNeedsRuntimeSplit(id contentModelID, model contentModel) bool {
-	seen := make([]bool, len(c.rt.Models))
-	return c.modelNeedsRuntimeSplitSeen(id, model, seen)
 }
 
 func (c *compiler) modelNeedsRuntimeSplitSeen(id contentModelID, model contentModel, seen []bool) bool {
@@ -508,32 +504,35 @@ func (c *compiler) wildcardEquivalentOverlap(a, b particle) bool {
 
 func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
 	if a.Kind == particleModel {
-		for _, p := range c.modelStartParticles(c.rt.Models[a.Model]) {
-			if name, ok := c.particlesOverlap(p, b); ok {
-				return name, true
-			}
-		}
-		return qName{}, false
+		return c.modelStartOverlap(c.rt.Models[a.Model], b)
 	}
 	if b.Kind == particleModel {
-		for _, p := range c.modelStartParticles(c.rt.Models[b.Model]) {
-			if name, ok := c.particlesOverlap(a, p); ok {
-				return name, true
-			}
-		}
-		return qName{}, false
+		return c.modelStartOverlap(c.rt.Models[b.Model], a)
 	}
 	if a.Kind == particleWildcard && b.Kind == particleWildcard {
 		return qName{}, c.wildcardsOverlap(c.rt.Wildcards[a.wildcard], c.rt.Wildcards[b.wildcard])
 	}
-	for _, name := range c.particleElementNames(a) {
-		if c.particleMatchesName(b, name) {
+	if name, ok := c.firstParticleElementNameMatchedBy(a, b); ok {
+		return name, true
+	}
+	if name, ok := c.firstParticleElementNameMatchedBy(b, a); ok {
+		return name, true
+	}
+	return qName{}, false
+}
+
+func (c *compiler) modelStartOverlap(model contentModel, p particle) (qName, bool) {
+	switch model.Kind {
+	case modelAll, modelChoice, modelSequence:
+	default:
+		return qName{}, false
+	}
+	for _, child := range model.Particles {
+		if name, ok := c.particlesOverlap(child, p); ok {
 			return name, true
 		}
-	}
-	for _, name := range c.particleElementNames(b) {
-		if c.particleMatchesName(a, name) {
-			return name, true
+		if model.Kind == modelSequence && !c.particleEmptiable(child) {
+			break
 		}
 	}
 	return qName{}, false
@@ -542,16 +541,69 @@ func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
 func (c *compiler) particleMatchesName(p particle, name qName) bool {
 	switch p.Kind {
 	case particleElement:
-		if slices.Contains(c.particleElementNames(p), name) {
-			return true
-		}
+		return c.elementParticleMatchesName(p.Element, name)
 	case particleWildcard:
 		w := c.rt.Wildcards[p.wildcard]
 		return c.wildcardAllowsNamespace(w, name.Namespace)
 	case particleModel:
-		model := c.rt.Models[p.Model]
-		if slices.Contains(c.modelStartElementNames(model), name) {
+		return c.modelStartMatchesName(c.rt.Models[p.Model], name)
+	}
+	return false
+}
+
+func (c *compiler) firstParticleElementNameMatchedBy(src, dst particle) (qName, bool) {
+	if src.Kind != particleElement {
+		return qName{}, false
+	}
+	decl := c.rt.Elements[src.Element]
+	if c.particleMatchesName(dst, decl.Name) {
+		return decl.Name, true
+	}
+	allowed := c.rt.SubstitutionLookup[src.Element]
+	if allowed == nil {
+		return qName{}, false
+	}
+	for _, member := range c.rt.Substitutions[src.Element] {
+		name := c.rt.Elements[member].Name
+		if allowed[name] == member && c.particleMatchesName(dst, name) {
+			return name, true
+		}
+	}
+	return qName{}, false
+}
+
+func (c *compiler) elementParticleMatchesName(id elementID, name qName) bool {
+	if c.rt.Elements[id].Name == name {
+		return true
+	}
+	allowed := c.rt.SubstitutionLookup[id]
+	if allowed == nil {
+		return false
+	}
+	for _, member := range c.rt.Substitutions[id] {
+		if c.rt.Elements[member].Name == name && allowed[name] == member {
 			return true
+		}
+	}
+	return false
+}
+
+func (c *compiler) modelStartMatchesName(model contentModel, name qName) bool {
+	switch model.Kind {
+	case modelAll, modelChoice:
+		for _, p := range model.Particles {
+			if c.particleMatchesName(p, name) {
+				return true
+			}
+		}
+	case modelSequence:
+		for _, p := range model.Particles {
+			if c.particleMatchesName(p, name) {
+				return true
+			}
+			if !c.particleEmptiable(p) {
+				break
+			}
 		}
 	}
 	return false
@@ -584,44 +636,6 @@ func (c *compiler) collectElementDeclarationType(types map[qName]typeID, p parti
 		}
 	}
 	return nil
-}
-
-func (c *compiler) particleElementNames(p particle) []qName {
-	switch p.Kind {
-	case particleElement:
-		names := []qName{c.rt.Elements[p.Element].Name}
-		allowed := c.rt.SubstitutionLookup[p.Element]
-		for _, member := range c.rt.Substitutions[p.Element] {
-			name := c.rt.Elements[member].Name
-			if allowed != nil && allowed[name] == member {
-				names = append(names, name)
-			}
-		}
-		return names
-	case particleModel:
-		model := c.rt.Models[p.Model]
-		return c.modelStartElementNames(model)
-	default:
-		return nil
-	}
-}
-
-func (c *compiler) modelStartElementNames(model contentModel) []qName {
-	var names []qName
-	switch model.Kind {
-	case modelAll, modelChoice:
-		for _, p := range model.Particles {
-			names = append(names, c.particleElementNames(p)...)
-		}
-	case modelSequence:
-		for _, p := range model.Particles {
-			names = append(names, c.particleElementNames(p)...)
-			if !c.particleEmptiable(p) {
-				break
-			}
-		}
-	}
-	return names
 }
 
 func (c *compiler) modelStartParticles(model contentModel) []particle {

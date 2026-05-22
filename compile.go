@@ -155,7 +155,6 @@ type rawComponent struct {
 }
 
 type compilerSourceState struct {
-	sources     map[string][]byte
 	sourceDocs  map[string]*rawDoc
 	resolvedRef map[schemaReferenceKey]string
 	imports     map[string]map[string]bool
@@ -240,7 +239,6 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 	}
 	c := &compiler{
 		compilerSourceState: compilerSourceState{
-			sources:     make(map[string][]byte),
 			sourceDocs:  make(map[string]*rawDoc),
 			resolvedRef: make(map[schemaReferenceKey]string),
 			imports:     make(map[string]map[string]bool),
@@ -459,18 +457,20 @@ func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivati
 
 func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask, error) {
 	var m derivationMask
-	fieldCount := 0
-	for range xmlFieldsSeq(v) {
-		fieldCount++
-	}
-	i := 0
+	seenAll := false
+	seenOther := false
 	for p := range xmlFieldsSeq(v) {
-		switch p {
-		case "#all":
-			if fieldCount != 1 || i != 0 {
+		if p == "#all" {
+			if seenAll || seenOther {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot combine #all with other values")
 			}
-			return allowed, nil
+			seenAll = true
+			continue
+		}
+		if seenAll {
+			return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot combine #all with other values")
+		}
+		switch p {
 		case "extension":
 			if allowed&blockExtension == 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain extension")
@@ -499,7 +499,10 @@ func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask
 		default:
 			return 0, schemaCompile(ErrSchemaInvalidAttribute, "invalid "+label+" value "+p)
 		}
-		i++
+		seenOther = true
+	}
+	if seenAll {
+		return allowed, nil
 	}
 	return m, nil
 }

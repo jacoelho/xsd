@@ -227,11 +227,17 @@ func (s *session) matchIdentitySelectors(line, col int) {
 			if !s.identitySelectorMatches(scope.Depth, depth, ic.Selector) {
 				continue
 			}
+			fieldStart := len(s.identityFieldValues)
+			fieldLen := len(ic.Fields)
+			for range fieldLen {
+				s.identityFieldValues = append(s.identityFieldValues, identityFieldValue{})
+			}
 			s.idSelections = append(s.idSelections, identitySelection{
 				Scope:      scopeIndex,
 				Constraint: id,
 				Depth:      depth,
-				Fields:     make([]identityFieldValue, len(ic.Fields)),
+				FieldStart: fieldStart,
+				FieldLen:   fieldLen,
 				Path:       s.pathString(),
 				Line:       line,
 				Col:        col,
@@ -293,14 +299,15 @@ func (s *session) captureIdentityFields(fields []identityFieldMatch, value simpl
 	var identity string
 	identitySet := false
 	for _, match := range fields {
-		if match.Selection >= len(s.idSelections) {
+		if match.Selection < 0 || match.Selection >= len(s.idSelections) {
 			return internalInvariant("identity field match references invalid selection")
 		}
 		sel := &s.idSelections[match.Selection]
-		if match.Field >= len(sel.Fields) {
+		if match.Field < 0 || match.Field >= sel.FieldLen {
 			return internalInvariant("identity field match references invalid field")
 		}
-		field := &sel.Fields[match.Field]
+		selectionFields := s.identitySelectionFields(*sel)
+		field := &selectionFields[match.Field]
 		if field.Present {
 			return validation(ErrValidationIdentity, line, col, sel.Path, "identity field selects multiple values")
 		}
@@ -382,7 +389,7 @@ func (s *session) captureIdentityComplexElement(rawText []byte, line, col int) e
 	text := string(rawText)
 	if trimXMLWhitespace(text) == "" {
 		match := fields[0]
-		if match.Selection >= len(s.idSelections) {
+		if match.Selection < 0 || match.Selection >= len(s.idSelections) {
 			return internalInvariant("identity field match references invalid selection")
 		}
 		return validation(ErrValidationIdentity, line, col, s.idSelections[match.Selection].Path, "identity field has no simple value")
@@ -422,25 +429,31 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 			continue
 		}
 		if err := s.finishIdentitySelection(sel, line, col); err != nil {
+			clear(s.identitySelectionFields(sel))
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
 				dst = append(dst, orig[i+1:]...)
 				clear(orig[len(dst):])
 				s.idSelections = dst
+				s.truncateIdentityFieldValues()
 				return recoverErr
 			}
+			continue
 		}
+		clear(s.identitySelectionFields(sel))
 	}
 	clear(orig[len(dst):])
 	s.idSelections = dst
+	s.truncateIdentityFieldValues()
 	return nil
 }
 
 func (s *session) finishIdentitySelection(sel identitySelection, line, col int) error {
 	rt := s.engine.rt
 	ic := rt.Identities[sel.Constraint]
+	fields := s.identitySelectionFields(sel)
 	complete := true
-	for _, field := range sel.Fields {
+	for _, field := range fields {
 		complete = complete && field.Present
 	}
 	if !complete {
@@ -449,7 +462,7 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 		}
 		return nil
 	}
-	key, err := s.identityTupleKey(sel.Fields, line, col)
+	key, err := s.identityTupleKey(fields, line, col)
 	if err != nil {
 		return err
 	}
@@ -485,6 +498,22 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 		})
 	}
 	return nil
+}
+
+func (s *session) identitySelectionFields(sel identitySelection) []identityFieldValue {
+	return s.identityFieldValues[sel.FieldStart : sel.FieldStart+sel.FieldLen]
+}
+
+func (s *session) truncateIdentityFieldValues() {
+	n := 0
+	for _, sel := range s.idSelections {
+		end := sel.FieldStart + sel.FieldLen
+		if end > n {
+			n = end
+		}
+	}
+	clear(s.identityFieldValues[n:])
+	s.identityFieldValues = s.identityFieldValues[:n]
 }
 
 func (s *session) identityTupleKey(fields []identityFieldValue, line, col int) (string, error) {
