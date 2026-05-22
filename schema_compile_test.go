@@ -284,6 +284,26 @@ func TestSubstitutionMemberInheritsHeadType(t *testing.T) {
 	mustNotValidate(t, engine, `<member>x</member>`, ErrValidationFacet)
 }
 
+func TestContentModelSubstitutionRespectsElementBlock(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:int"/>
+  <xs:element name="member" substitutionGroup="head"/>
+  <xs:element name="blocked" type="xs:int" block="substitution"/>
+  <xs:element name="blockedMember" substitutionGroup="blocked"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice>
+        <xs:element ref="head"/>
+        <xs:element ref="blocked"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root><member>1</member></root>`)
+	mustNotValidate(t, engine, `<root><blockedMember>1</blockedMember></root>`, ErrValidationElement)
+}
+
 func TestAnonymousLocalTypeCanRestrictContainingType(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns="urn:test">

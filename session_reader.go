@@ -9,6 +9,8 @@ import (
 )
 
 const instanceReaderBufferSize = 64 * 1024
+const maxXMLDeclarationPreviewBytes = instanceReaderBufferSize
+const xmlDeclarationPrefixLen = len("<?xml ")
 
 var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
 
@@ -25,17 +27,20 @@ func prepareInstanceReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Read
 	} else {
 		br.Reset(r)
 	}
-	peek, _ := br.Peek(512)
+	peek, _ := br.Peek(xmlDeclarationPrefixLen)
 	if bytes.HasPrefix(peek, utf8BOM) {
 		if _, err := br.Discard(len(utf8BOM)); err != nil {
 			return nil, err
 		}
-		peek = peek[len(utf8BOM):]
+		peek, _ = br.Peek(xmlDeclarationPrefixLen)
 	}
 	if len(peek) >= 2 {
 		if (peek[0] == 0xFE && peek[1] == 0xFF) || (peek[0] == 0xFF && peek[1] == 0xFE) {
 			return nil, unsupported(ErrUnsupportedNonUTF8, "instance documents must be UTF-8")
 		}
+	}
+	if startsXMLDeclaration(peek) {
+		peek = peekXMLDeclaration(br)
 	}
 	if enc := declaredEncoding(peek); enc != "" && !strings.EqualFold(enc, "UTF-8") && !strings.EqualFold(enc, "UTF8") {
 		return nil, unsupported(ErrUnsupportedNonUTF8, "instance documents must be UTF-8")
@@ -44,6 +49,34 @@ func prepareInstanceReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Read
 		return nil, unsupported(ErrUnsupportedXML11, "XML version "+version+" is not supported")
 	}
 	return br, nil
+}
+
+func peekXMLDeclaration(br *bufio.Reader) []byte {
+	n := xmlDeclarationPrefixLen
+	for {
+		peek, err := br.Peek(n)
+		if end := bytes.Index(peek, []byte("?>")); end >= 0 {
+			return peek[:end+2]
+		}
+		if err != nil || n == maxXMLDeclarationPreviewBytes {
+			return peek
+		}
+		n *= 2
+		if n > maxXMLDeclarationPreviewBytes {
+			n = maxXMLDeclarationPreviewBytes
+		}
+	}
+}
+
+func startsXMLDeclaration(buf []byte) bool {
+	const declLen = len("<?xml")
+	return len(buf) > declLen &&
+		buf[0] == '<' &&
+		buf[1] == '?' &&
+		buf[2] == 'x' &&
+		buf[3] == 'm' &&
+		buf[4] == 'l' &&
+		isXMLWhitespaceByte(buf[declLen])
 }
 
 var xmlEncodingRE = regexp.MustCompile(`^<\?xml\s+[^>]*encoding\s*=\s*['"]([^'"]+)['"]`)
@@ -57,36 +90,30 @@ func declaredEncoding(buf []byte) string {
 }
 
 func declaredXMLVersion(buf []byte) string {
-	const declLen = len("<?xml")
-	if len(buf) <= declLen ||
-		buf[0] != '<' ||
-		buf[1] != '?' ||
-		buf[2] != 'x' ||
-		buf[3] != 'm' ||
-		buf[4] != 'l' ||
-		!isXMLSpaceByte(buf[declLen]) {
+	if !startsXMLDeclaration(buf) {
 		return ""
 	}
+	const declLen = len("<?xml")
 	for i := declLen + 1; i < len(buf); {
-		for i < len(buf) && isXMLSpaceByte(buf[i]) {
+		for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
 			i++
 		}
 		if i >= len(buf) || buf[i] == '?' || buf[i] == '>' {
 			return ""
 		}
 		nameStart := i
-		for i < len(buf) && buf[i] != '=' && !isXMLSpaceByte(buf[i]) && buf[i] != '?' && buf[i] != '>' {
+		for i < len(buf) && buf[i] != '=' && !isXMLWhitespaceByte(buf[i]) && buf[i] != '?' && buf[i] != '>' {
 			i++
 		}
 		name := buf[nameStart:i]
-		for i < len(buf) && isXMLSpaceByte(buf[i]) {
+		for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
 			i++
 		}
 		if i >= len(buf) || buf[i] != '=' {
 			return ""
 		}
 		i++
-		for i < len(buf) && isXMLSpaceByte(buf[i]) {
+		for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
 			i++
 		}
 		if i >= len(buf) || (buf[i] != '"' && buf[i] != '\'') {

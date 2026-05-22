@@ -1,9 +1,6 @@
 package xsd
 
-import (
-	"encoding/xml"
-	"strings"
-)
+import "encoding/xml"
 
 func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int) error {
 	rt := s.engine.rt
@@ -55,7 +52,7 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 			return err
 		}
 	}
-	if err := s.validateRequiredAndDefaultAttributes(rt, set, seen, line, col, &seenIDAttr); err != nil {
+	if err := s.validateRequiredAndDefaultAttributes(set, seen, line, col, &seenIDAttr); err != nil {
 		return err
 	}
 	return nil
@@ -134,7 +131,8 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse,
 	if use.Prohibited {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "prohibited attribute "+rn.Local)
 	}
-	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameValue, true, s.needsIdentityAttributeValue(use.Name))
+	identityFields := s.identityAttributeFields(use.Name)
+	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameValue, true, len(identityFields) != 0)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
@@ -144,7 +142,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse,
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	if err := s.captureIdentityAttribute(use.Name, simple, line, col); err != nil {
+	if err := s.captureIdentityFields(identityFields, simple, line, col); err != nil {
 		return err
 	}
 	return s.validateFixedAttributeValue(use, simple.Canonical, rn, line, col)
@@ -186,7 +184,8 @@ func (s *session) validateWildcardAttribute(rt *runtimeSchema, set attributeUseS
 }
 
 func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attributeDecl, rn runtimeName, value string, line, col int, seenIDAttr *bool) error {
-	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameValue, true, s.needsIdentityAttributeValue(decl.Name))
+	identityFields := s.identityAttributeFields(decl.Name)
+	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameValue, true, len(identityFields) != 0)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
@@ -196,10 +195,10 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	return s.captureIdentityAttribute(decl.Name, simple, line, col)
+	return s.captureIdentityFields(identityFields, simple, line, col)
 }
 
-func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
+func (s *session) validateRequiredAndDefaultAttributes(set attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
 	for _, slot := range set.Required {
 		if !seen.has(int(slot)) {
 			if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "missing required attribute")); err != nil {
@@ -226,7 +225,7 @@ func (s *session) validateRequiredAndDefaultAttributes(_ *runtimeSchema, set att
 			}
 			continue
 		}
-		if err := s.captureIdentityAttribute(use.Name, simple, line, col); err != nil {
+		if err := s.captureIdentityFields(s.identityAttributeFields(use.Name), simple, line, col); err != nil {
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
 				return recoverErr
@@ -256,32 +255,28 @@ func (s *session) recordSchemaLocationHints(attrs []xml.Attr, line, col int) err
 }
 
 func (s *session) recordNamespaceSchemaLocationHints(value string, line, col int) error {
-	var namespace string
-	var namespaces []string
-	haveNamespace := false
-	for field := range strings.FieldsSeq(value) {
+	count := 0
+	for field := range xmlFieldsSeq(value) {
 		if !isAnyURI(field) {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:schemaLocation URI "+field)
 		}
-		if !haveNamespace {
-			namespace = field
-			haveNamespace = true
-			continue
-		}
-		namespaces = append(namespaces, namespace)
-		haveNamespace = false
+		count++
 	}
-	if haveNamespace {
+	if count%2 != 0 {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:schemaLocation must contain namespace/location pairs")
 	}
-	for _, ns := range namespaces {
-		s.addSchemaLocationHint(ns)
+	i := 0
+	for field := range xmlFieldsSeq(value) {
+		if i%2 == 0 {
+			s.addSchemaLocationHint(field)
+		}
+		i++
 	}
 	return nil
 }
 
 func (s *session) recordNoNamespaceSchemaLocationHint(value string, line, col int) error {
-	value = strings.TrimSpace(value)
+	value = trimXMLWhitespace(value)
 	if value == "" {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:noNamespaceSchemaLocation is empty")
 	}

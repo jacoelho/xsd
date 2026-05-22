@@ -388,18 +388,11 @@ func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
 }
 
 func (f *xmlFormatter) resolveFormatName(name xml.Name, element bool) (xml.Name, error) {
-	if name.Space != "" {
-		uri, ok := f.ns.lookup(name.Space)
-		if !ok {
-			return xml.Name{}, errors.New("unbound namespace prefix " + name.Space)
-		}
-		return xml.Name{Space: uri, Local: name.Local}, nil
+	resolved, ok := f.ns.resolveName(name, element)
+	if !ok {
+		return xml.Name{}, errors.New("unbound namespace prefix " + name.Space)
 	}
-	if element {
-		uri, _ := f.ns.lookup("")
-		return xml.Name{Space: uri, Local: name.Local}, nil
-	}
-	return name, nil
+	return resolved, nil
 }
 
 func (f *xmlFormatter) writeDocument() error {
@@ -453,16 +446,20 @@ func (f *xmlFormatter) writeElement(elem *formatElement, depth int, inline bool)
 		return writeXMLFormatEnd(f.w, elem)
 	}
 
-	children := elem.prettyChildren()
-	for _, child := range children {
+	wroteChild := false
+	for _, child := range elem.children {
+		if child.kind == formatItemText && !child.cdata && isXMLWhitespaceBytes(child.data) {
+			continue
+		}
 		if err := writeXMLIndent(f.w, depth+1); err != nil {
 			return err
 		}
 		if err := f.writeItem(child, depth+1, false); err != nil {
 			return err
 		}
+		wroteChild = true
 	}
-	if len(children) > 0 {
+	if wroteChild {
 		if err := writeXMLIndent(f.w, depth); err != nil {
 			return err
 		}
@@ -495,17 +492,6 @@ func (e *formatElement) inline() bool {
 		}
 	}
 	return hasInlineWhitespaceText || !hasElement && (hasWhitespaceText || hasCommentOrPI)
-}
-
-func (e *formatElement) prettyChildren() []formatItem {
-	children := make([]formatItem, 0, len(e.children))
-	for _, child := range e.children {
-		if child.kind == formatItemText && !child.cdata && isXMLWhitespaceBytes(child.data) {
-			continue
-		}
-		children = append(children, child)
-	}
-	return children
 }
 
 func writeXMLFormatEnd(w io.Writer, elem *formatElement) error {

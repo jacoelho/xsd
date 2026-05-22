@@ -1,61 +1,160 @@
 package xsd
 
-import "strings"
+import (
+	"iter"
+	"strings"
+)
 
 func normalizeWhitespace(s string, mode whitespaceMode) string {
-	if mode == whitespacePreserve {
+	switch mode {
+	case whitespacePreserve:
 		return s
+	case whitespaceReplace:
+		return replaceXMLWhitespace(s)
+	default:
+		return collapseXMLWhitespace(s)
 	}
-	if !containsXMLWhitespace(s) {
-		return s
-	}
-	var b strings.Builder
-	lastSpace := false
-	for _, r := range s {
-		isSpace := r == ' ' || r == '\t' || r == '\n' || r == '\r'
-		if mode == whitespaceReplace {
-			if isSpace {
-				b.WriteByte(' ')
-			} else {
-				b.WriteRune(r)
-			}
-			continue
-		}
-		if isSpace {
-			lastSpace = true
-			continue
-		}
-		if lastSpace && b.Len() > 0 {
-			b.WriteByte(' ')
-		}
-		lastSpace = false
-		b.WriteRune(r)
-	}
-	return b.String()
 }
 
 func normalizeXMLAttributeWhitespace(s string) string {
-	if !containsXMLWhitespace(s) {
+	return replaceXMLWhitespace(s)
+}
+
+func replaceXMLWhitespace(s string) string {
+	i := indexXMLWhitespaceToReplace(s)
+	if i < 0 {
 		return s
 	}
 	var b strings.Builder
-	for _, r := range s {
-		if r == '\t' || r == '\n' || r == '\r' {
+	b.Grow(len(s))
+	b.WriteString(s[:i])
+	for ; i < len(s); i++ {
+		if isXMLWhitespaceToReplace(s[i]) {
 			b.WriteByte(' ')
 			continue
 		}
-		b.WriteRune(r)
+		b.WriteByte(s[i])
 	}
 	return b.String()
 }
 
-func containsXMLWhitespace(s string) bool {
-	for i := 0; i < len(s); i++ {
+func collapseXMLWhitespace(s string) string {
+	i := firstXMLWhitespaceCollapseChange(s)
+	if i < 0 {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	b.WriteString(s[:i])
+	pendingSpace := false
+	for ; i < len(s); i++ {
 		if isXMLWhitespaceByte(s[i]) {
-			return true
+			if b.Len() > 0 {
+				pendingSpace = true
+			}
+			continue
+		}
+		if pendingSpace {
+			b.WriteByte(' ')
+			pendingSpace = false
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
+}
+
+func trimXMLWhitespace(s string) string {
+	start := 0
+	for start < len(s) && isXMLWhitespaceByte(s[start]) {
+		start++
+	}
+	end := len(s)
+	for end > start && isXMLWhitespaceByte(s[end-1]) {
+		end--
+	}
+	return s[start:end]
+}
+
+func trimXMLWhitespaceBytes(b []byte) []byte {
+	start := 0
+	for start < len(b) && isXMLWhitespaceByte(b[start]) {
+		start++
+	}
+	end := len(b)
+	for end > start && isXMLWhitespaceByte(b[end-1]) {
+		end--
+	}
+	return b[start:end]
+}
+
+func xmlFieldsSeq(s string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		start := -1
+		for i := 0; i < len(s); i++ {
+			if isXMLWhitespaceByte(s[i]) {
+				if start >= 0 {
+					if !yield(s[start:i]) {
+						return
+					}
+					start = -1
+				}
+				continue
+			}
+			if start < 0 {
+				start = i
+			}
+		}
+		if start >= 0 {
+			yield(s[start:])
 		}
 	}
-	return false
+}
+
+func indexXMLWhitespace(s string) int {
+	for i := 0; i < len(s); i++ {
+		if isXMLWhitespaceByte(s[i]) {
+			return i
+		}
+	}
+	return -1
+}
+
+func indexXMLWhitespaceToReplace(s string) int {
+	for i := 0; i < len(s); i++ {
+		if isXMLWhitespaceToReplace(s[i]) {
+			return i
+		}
+	}
+	return -1
+}
+
+func firstXMLWhitespaceCollapseChange(s string) int {
+	runStart := -1
+	runNeedsCollapse := false
+	for i := 0; i < len(s); i++ {
+		if isXMLWhitespaceByte(s[i]) {
+			if runStart < 0 {
+				runStart = i
+			}
+			if i == 0 || isXMLWhitespaceToReplace(s[i]) {
+				runNeedsCollapse = true
+			}
+			continue
+		}
+
+		if runStart < 0 {
+			continue
+		}
+		if runNeedsCollapse || i-runStart > 1 {
+			return runStart
+		}
+		runStart = -1
+		runNeedsCollapse = false
+	}
+	if runStart >= 0 {
+		return runStart
+	}
+	return -1
 }
 
 func isXMLWhitespaceByte(b byte) bool {
@@ -67,13 +166,36 @@ func isXMLWhitespaceByte(b byte) bool {
 	}
 }
 
-func removeXMLWhitespace(s string) string {
-	return strings.Map(func(r rune) rune {
-		switch r {
-		case ' ', '\t', '\n', '\r':
-			return -1
-		default:
-			return r
+func isXMLWhitespaceToReplace(b byte) bool {
+	switch b {
+	case '\t', '\n', '\r':
+		return true
+	default:
+		return false
+	}
+}
+
+func isXMLWhitespaceBytes(data []byte) bool {
+	for i := range data {
+		if !isXMLWhitespaceByte(data[i]) {
+			return false
 		}
-	}, s)
+	}
+	return true
+}
+
+func removeXMLWhitespace(s string) string {
+	i := indexXMLWhitespace(s)
+	if i < 0 {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	b.WriteString(s[:i])
+	for ; i < len(s); i++ {
+		if !isXMLWhitespaceByte(s[i]) {
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
 }

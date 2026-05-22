@@ -261,14 +261,14 @@ command -v xmllint
 Run full comparison:
 
 ```sh
-XSD_LARGE_COMPARE=1 XSD_LARGE_RUNS=10 go test -run TestLargeXMLLintComparison -timeout=0 -v
+XSD_LARGE_COMPARE=1 XSD_LARGE_RUNS=20 go test -run TestLargeXMLLintComparison -timeout=0 -v
 ```
 
-By default this generates streaming XML documents at `20MB`, `100MB`, `500MB`, `1GB`, and `2GB`, plus an identity-constraint document. Each command runs 10 times per profile and the tables report nearest-rank p95. Generated files use `t.TempDir()` and are removed after each subtest. Set `XSD_LARGE_DIR=/path/to/dir` to keep generated files. Set `XSD_LARGE_SIZE_BYTES=1048576 XSD_LARGE_RUNS=1` for a quick single-size smoke run.
+By default this generates streaming XML documents at `20MB`, `100MB`, `500MB`, `1GB`, and `2GB`, plus an identity-constraint document. Each command runs 20 times per profile and the tables report nearest-rank p95. Generated files use `t.TempDir()` and are removed after each subtest. Set `XSD_LARGE_DIR=/path/to/dir` to keep generated files. Set `XSD_LARGE_SIZE_BYTES=1048576 XSD_LARGE_RUNS=1` for a quick single-size smoke run.
 
 The command comparison reports p95 elapsed time and p95 max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
 
-Latest local run (2026-05-19, Go 1.26.2, libxml2 2.9.13, p95 over 10 runs):
+Latest local run (2026-05-21, macOS 26.5, Go 1.26.2, libxml2 2.9.13, p95 over 20 runs):
 
 ```text
 goos: darwin
@@ -277,23 +277,23 @@ pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | p95 sec/op      | p95 sec/op      vs base           |
-streaming/20MB                 367.015ms       725.196ms      +97.59%
-streaming/100MB                   1.681s          3.418s     +103.30%
-streaming/500MB                   8.452s         16.748s      +98.15%
-streaming/1GB                    22.263s         34.638s      +55.59%
-streaming/2GB                    52.674s         68.432s      +29.91%
-identity                       605.286ms       894.938ms      +47.85%
-geomean                           3.933s          6.670s      +69.59%
+streaming/20MB                 337.209ms       656.129ms      +94.58%
+streaming/100MB                   1.701s          3.207s      +88.58%
+streaming/500MB                   7.998s         15.829s      +97.93%
+streaming/1GB                    18.318s         32.775s      +78.92%
+streaming/2GB                    46.380s         63.864s      +37.70%
+identity                       631.143ms       240.047ms      -61.97%
+geomean                           3.674s          5.058s      +37.66%
 
                          | libxml2 xmllint |             go xmllint             |
                          | p95 rss/op      | p95 rss/op      vs base           |
-streaming/20MB                 243.19MiB        12.20MiB      -94.98%
-streaming/100MB                  1.17GiB        13.27MiB      -98.89%
+streaming/20MB                 243.17MiB        11.55MiB      -95.25%
+streaming/100MB                  1.17GiB        13.12MiB      -98.91%
 streaming/500MB                  5.81GiB        13.86MiB      -99.77%
-streaming/1GB                   11.87GiB        14.00MiB      -99.88%
-streaming/2GB                   13.37GiB        14.00MiB      -99.90%
-identity                       188.55MiB        74.19MiB      -60.65%
-geomean                          1.90GiB        17.88MiB      -99.08%
+streaming/1GB                   11.87GiB        13.86MiB      -99.89%
+streaming/2GB                   15.66GiB        14.31MiB      -99.91%
+identity                       187.94MiB        74.14MiB      -60.55%
+geomean                          1.95GiB        17.71MiB      -99.11%
 ```
 
 ## Constraints

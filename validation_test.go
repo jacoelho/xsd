@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"bytes"
+	"encoding/xml"
 	"errors"
 	"io"
 	"os"
@@ -64,6 +65,59 @@ func (r *zeroReadThenStringReader) Read(p []byte) (int, error) {
 	n := copy(p, r.s[r.off:])
 	r.off += n
 	return n, nil
+}
+
+type oneByteReader struct {
+	s     string
+	off   int
+	reads int
+}
+
+func (r *oneByteReader) Read(p []byte) (int, error) {
+	if r.off >= len(r.s) {
+		return 0, io.EOF
+	}
+	p[0] = r.s[r.off]
+	r.off++
+	r.reads++
+	return 1, nil
+}
+
+func TestPrepareInstanceReaderDoesNotReadWholeDocumentWithoutDeclaration(t *testing.T) {
+	r := &oneByteReader{s: `<root>` + strings.Repeat("x", 1024)}
+	if _, err := prepareInstanceReaderWithBuffer(r, nil); err != nil {
+		t.Fatalf("prepareInstanceReaderWithBuffer() error = %v", err)
+	}
+	if r.reads > len("<?xml ") {
+		t.Fatalf("prepareInstanceReaderWithBuffer() reads = %d, want at most %d", r.reads, len("<?xml "))
+	}
+}
+
+func TestLongXMLDeclarationVersionIsClassified(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"/></xs:schema>`)
+	doc := `<?xml` + strings.Repeat(" ", 600) + `version="1.1"?><r/>`
+	mustNotValidate(t, engine, doc, ErrUnsupportedXML11)
+}
+
+func TestSessionResetShrinksLargeTextBuffer(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
+	session, err := engine.NewSession(ValidateOptions{MaxInstanceTextBytes: int64(3 << 20)})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+	big := `<root>` + strings.Repeat("x", 2<<20) + `</root>`
+	if err := session.Validate(strings.NewReader(big)); err != nil {
+		t.Fatalf("Validate(big) error = %v", err)
+	}
+	if cap(session.session.text) <= maxRetainedBufferCap {
+		t.Fatalf("large validation did not grow text buffer")
+	}
+	if err := session.Validate(strings.NewReader(`<root/>`)); err != nil {
+		t.Fatalf("Validate(small) error = %v", err)
+	}
+	if cap(session.session.text) > maxRetainedBufferCap {
+		t.Fatalf("text buffer cap = %d, want at most %d", cap(session.session.text), maxRetainedBufferCap)
+	}
 }
 
 func TestRequiredAttributesBeyondBitsetWidth(t *testing.T) {
@@ -771,6 +825,23 @@ func TestMalformedXSISchemaLocationIsValidationAttributeError(t *testing.T) {
 			err := engine.Validate(strings.NewReader(doc))
 			expectCode(t, err, ErrValidationAttribute)
 		})
+	}
+}
+
+func TestNamespaceStackPushRollsBackBindingsOnError(t *testing.T) {
+	var ns namespaceStack
+	err := ns.push([]xml.Attr{
+		{Name: xml.Name{Space: "xmlns", Local: "a"}, Value: "urn:a"},
+		{Name: xml.Name{Space: "xmlns", Local: "xml"}, Value: "urn:not-xml"},
+	})
+	if err == nil {
+		t.Fatal("push() error = nil")
+	}
+	if len(ns.frames) != 0 {
+		t.Fatalf("len(frames) = %d, want 0", len(ns.frames))
+	}
+	if len(ns.bindings) != 0 {
+		t.Fatalf("len(bindings) = %d, want 0", len(ns.bindings))
 	}
 }
 

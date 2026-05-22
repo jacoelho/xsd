@@ -2,7 +2,6 @@ package xsd
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -36,6 +35,13 @@ type primitiveActual struct {
 	Canonical string
 	Actual    actualValue
 }
+
+type primitiveNeed uint8
+
+const (
+	primitiveNeedCanonical primitiveNeed = 1 << iota
+	primitiveNeedLength
+)
 
 func simpleIdentityKey(kind primitiveKind, canonical string) string {
 	var b strings.Builder
@@ -125,10 +131,16 @@ func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string,
 
 func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm string, resolve qnameResolver, needCanonical, needIdentity bool) (simpleValue, error) {
 	identity := simpleTypeIdentity(rt, id, st)
-	needPrimitiveCanonical := needCanonical ||
+	var needs primitiveNeed
+	if needCanonical ||
 		identity != simpleIdentityNone ||
-		st.Primitive != primDecimal && (st.Facets.needsCanonical() || needIdentity)
-	parsed, err := validatePrimitiveActual(rt, st, norm, resolve, needPrimitiveCanonical)
+		st.Primitive != primDecimal && (st.Facets.needsCanonical() || needIdentity) {
+		needs |= primitiveNeedCanonical
+	}
+	if st.Facets.needsLength() {
+		needs |= primitiveNeedLength
+	}
+	parsed, err := validatePrimitiveActual(rt, st, norm, resolve, needs)
 	if err != nil {
 		return simpleValue{}, err
 	}
@@ -137,7 +149,7 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 		if !parsed.Actual.Decimal.IntegerLexical {
 			return simpleValue{}, fmt.Errorf("invalid integer")
 		}
-		if needPrimitiveCanonical {
+		if needs&primitiveNeedCanonical != 0 {
 			canon = parsed.Actual.Decimal.integerCanonical()
 		}
 	}
@@ -255,17 +267,23 @@ func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve q
 	return simpleValue{}, fmt.Errorf("value does not match any union member")
 }
 
-func validatePrimitiveActual(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needCanonical bool) (primitiveActual, error) {
+func validatePrimitiveActual(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needs primitiveNeed) (primitiveActual, error) {
 	actual := actualValue{Kind: st.Primitive, Valid: true}
+	needCanonical := needs&primitiveNeedCanonical != 0
+	needLength := needs&primitiveNeedLength != 0
 	switch st.Primitive {
 	case primString:
-		actual.Length = uint32(utf8.RuneCountInString(norm))
+		if needLength {
+			actual.Length = uint32(utf8.RuneCountInString(norm))
+		}
 		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	case primAnyURI:
 		if !isAnyURI(norm) {
 			return primitiveActual{}, fmt.Errorf("invalid anyURI")
 		}
-		actual.Length = uint32(utf8.RuneCountInString(norm))
+		if needLength {
+			actual.Length = uint32(utf8.RuneCountInString(norm))
+		}
 		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	case primBoolean:
 		canon, value, err := parseBooleanPrimitive(norm)
@@ -295,7 +313,7 @@ func validatePrimitiveActual(rt *runtimeSchema, st simpleType, norm string, reso
 	case primDate, primDateTime, primTime, primGYearMonth, primGYear, primGMonthDay, primGDay, primGMonth:
 		return parseTemporalPrimitiveActual(st.Primitive, norm)
 	case primHexBinary, primBase64Binary:
-		return parseBinaryPrimitiveActual(st.Primitive, norm)
+		return parseBinaryPrimitiveActual(st.Primitive, norm, needs)
 	case primQName:
 		canon, err := validateQNamePrimitive(norm, resolve)
 		return primitiveActual{Canonical: canon, Actual: actual}, err
@@ -371,26 +389,60 @@ func parseTemporalPrimitiveActual(kind primitiveKind, norm string) (primitiveAct
 	}
 }
 
-func parseBinaryPrimitiveActual(kind primitiveKind, norm string) (primitiveActual, error) {
+func parseBinaryPrimitiveActual(kind primitiveKind, norm string, needs primitiveNeed) (primitiveActual, error) {
 	actual := actualValue{Kind: kind, Valid: true}
+	needCanonical := needs&primitiveNeedCanonical != 0
+	needLength := needs&primitiveNeedLength != 0
 	switch kind {
 	case primHexBinary:
-		decoded, err := hex.DecodeString(norm)
-		if err != nil {
-			return primitiveActual{}, fmt.Errorf("invalid hexBinary")
-		}
-		actual.Length = uint32(len(decoded))
-		return primitiveActual{Canonical: strings.ToUpper(norm), Actual: actual}, nil
+		return parseHexBinaryPrimitiveActual(norm, actual, needCanonical, needLength)
 	case primBase64Binary:
-		decoded, err := decodeXSDBase64(norm)
+		if needCanonical {
+			decoded, err := decodeXSDBase64(norm)
+			if err != nil {
+				return primitiveActual{}, fmt.Errorf("invalid base64Binary")
+			}
+			actual.Length = uint32(len(decoded))
+			return primitiveActual{Canonical: base64.StdEncoding.EncodeToString(decoded), Actual: actual}, nil
+		}
+		length, err := base64BinaryLength(norm)
 		if err != nil {
 			return primitiveActual{}, fmt.Errorf("invalid base64Binary")
 		}
-		actual.Length = uint32(len(decoded))
-		return primitiveActual{Canonical: base64.StdEncoding.EncodeToString(decoded), Actual: actual}, nil
+		if needLength {
+			actual.Length = length
+		}
+		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	default:
 		return primitiveActual{}, fmt.Errorf("invalid binary primitive")
 	}
+}
+
+func parseHexBinaryPrimitiveActual(norm string, actual actualValue, needCanonical, needLength bool) (primitiveActual, error) {
+	length, err := hexBinaryLength(norm)
+	if err != nil {
+		return primitiveActual{}, err
+	}
+	if needLength {
+		actual.Length = length
+	}
+	canon := norm
+	if needCanonical {
+		canon = strings.ToUpper(norm)
+	}
+	return primitiveActual{Canonical: canon, Actual: actual}, nil
+}
+
+func hexBinaryLength(norm string) (uint32, error) {
+	if len(norm)%2 != 0 {
+		return 0, fmt.Errorf("invalid hexBinary")
+	}
+	for i := 0; i < len(norm); i++ {
+		if !isHexDigit(norm[i]) {
+			return 0, fmt.Errorf("invalid hexBinary")
+		}
+	}
+	return uint32(len(norm) / 2), nil
 }
 
 func simpleTypeUsesIntegerLexical(rt *runtimeSchema, id simpleTypeID, st simpleType) bool {
@@ -446,15 +498,26 @@ func parseFloatPrimitiveActual(norm string, bitSize int, needCanonical bool) (pr
 	}, nil
 }
 
-func parseBooleanPrimitive(norm string) (string, bool, error) {
-	switch norm {
+func parseBooleanLexical(v string) (bool, bool) {
+	switch v {
 	case "true", "1":
-		return "true", true, nil
+		return true, true
 	case "false", "0":
-		return "false", false, nil
+		return false, true
 	default:
+		return false, false
+	}
+}
+
+func parseBooleanPrimitive(norm string) (string, bool, error) {
+	value, ok := parseBooleanLexical(norm)
+	if !ok {
 		return "", false, fmt.Errorf("invalid boolean")
 	}
+	if value {
+		return "true", true, nil
+	}
+	return "false", false, nil
 }
 
 func validateQNamePrimitive(norm string, resolve qnameResolver) (string, error) {
@@ -514,37 +577,72 @@ func isHexDigit(b byte) bool {
 }
 
 func decodeXSDBase64(s string) ([]byte, error) {
+	if _, err := scanBase64Binary(s); err != nil {
+		return nil, err
+	}
 	s = removeXMLWhitespace(s)
 	decoded, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		return nil, err
 	}
-	if len(s) == 0 {
-		return decoded, nil
+	return decoded, nil
+}
+
+func base64BinaryLength(s string) (uint32, error) {
+	scan, err := scanBase64Binary(s)
+	if err != nil {
+		return 0, err
 	}
-	pads := 0
-	for pads < len(s) && s[len(s)-1-pads] == '=' {
-		pads++
+	return scan.length(), nil
+}
+
+type base64BinaryScan struct {
+	cleanLen int
+	pads     int
+}
+
+func (s base64BinaryScan) length() uint32 {
+	return uint32(s.cleanLen/4*3 - s.pads)
+}
+
+func scanBase64Binary(s string) (base64BinaryScan, error) {
+	var scan base64BinaryScan
+	var lastData byte
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+		if isXMLWhitespaceByte(b) {
+			continue
+		}
+		if b == '=' {
+			scan.pads++
+			scan.cleanLen++
+			continue
+		}
+		if scan.pads > 0 {
+			return base64BinaryScan{}, fmt.Errorf("invalid base64Binary")
+		}
+		if _, ok := base64Value(b); !ok {
+			return base64BinaryScan{}, fmt.Errorf("invalid base64Binary")
+		}
+		lastData = b
+		scan.cleanLen++
 	}
-	if pads > 2 {
-		return nil, fmt.Errorf("invalid base64Binary")
+	if scan.cleanLen%4 != 0 || scan.pads > 2 {
+		return base64BinaryScan{}, fmt.Errorf("invalid base64Binary")
 	}
-	if strings.Contains(s[:len(s)-pads], "=") {
-		return nil, fmt.Errorf("invalid base64Binary")
-	}
-	switch pads {
+	switch scan.pads {
 	case 1:
-		v, ok := base64Value(s[len(s)-2])
+		v, ok := base64Value(lastData)
 		if !ok || v&0x03 != 0 {
-			return nil, fmt.Errorf("invalid base64Binary")
+			return base64BinaryScan{}, fmt.Errorf("invalid base64Binary")
 		}
 	case 2:
-		v, ok := base64Value(s[len(s)-3])
+		v, ok := base64Value(lastData)
 		if !ok || v&0x0f != 0 {
-			return nil, fmt.Errorf("invalid base64Binary")
+			return base64BinaryScan{}, fmt.Errorf("invalid base64Binary")
 		}
 	}
-	return decoded, nil
+	return scan, nil
 }
 
 func base64Value(b byte) (byte, bool) {

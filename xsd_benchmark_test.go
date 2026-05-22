@@ -574,21 +574,25 @@ func measuredCommand(name string, args ...string) (string, []string) {
 
 func parseMaxRSS(goos, out string) uint64 {
 	for line := range strings.SplitSeq(out, "\n") {
-		line = strings.TrimSpace(line)
+		line = trimXMLWhitespace(line)
 		switch {
 		case goos == "darwin" && strings.Contains(line, "maximum resident set size"):
-			fields := strings.Fields(line)
-			if len(fields) == 0 {
+			first := ""
+			for field := range xmlFieldsSeq(line) {
+				first = field
+				break
+			}
+			if first == "" {
 				continue
 			}
-			n, _ := strconv.ParseUint(fields[0], 10, 64)
+			n, _ := strconv.ParseUint(first, 10, 64)
 			return n
 		case goos == "linux" && strings.Contains(line, "Maximum resident set size"):
 			_, value, ok := strings.Cut(line, ":")
 			if !ok {
 				continue
 			}
-			n, _ := strconv.ParseUint(strings.TrimSpace(value), 10, 64)
+			n, _ := strconv.ParseUint(trimXMLWhitespace(value), 10, 64)
 			return n * 1024
 		}
 	}

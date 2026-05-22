@@ -689,7 +689,7 @@ func (b *dfaBuilder) compileDeterministicModel(id contentModelID, start uint32) 
 		}
 		rows = append(rows, row)
 	}
-	if err := b.checkDeterministicUPA(rows); err != nil {
+	if err := b.c.checkCompiledRowsUPA(rows); err != nil {
 		return compiledModel{}, err
 	}
 	model := b.c.rt.Models[id]
@@ -876,10 +876,6 @@ func compareParticleTermKey(a, b particleTermKey) int {
 		return n
 	}
 	return cmp.Compare(a.Wildcard, b.Wildcard)
-}
-
-func (b *dfaBuilder) checkDeterministicUPA(rows []compiledModelRow) error {
-	return b.c.checkCompiledRowsUPA(rows)
 }
 
 func countingException(a, b dfaSourceEdge) bool {
