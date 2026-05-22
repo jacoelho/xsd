@@ -66,7 +66,7 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext, attr bool) (w
 		namespaces = append(namespaces, ns)
 	default:
 		mode = wildList
-		for part := range strings.FieldsSeq(nsSpec) {
+		for part := range xmlFieldsSeq(nsSpec) {
 			var uri string
 			switch part {
 			case "##local":

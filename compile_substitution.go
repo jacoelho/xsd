@@ -58,7 +58,25 @@ func (c *compiler) compileSubstitutions() error {
 		slices.Sort(out)
 		c.rt.Substitutions[head] = out
 	}
+	c.compileSubstitutionLookup()
 	return nil
+}
+
+func (c *compiler) compileSubstitutionLookup() {
+	c.rt.SubstitutionLookup = make(map[elementID]map[qName]elementID, len(c.rt.Substitutions))
+	for head, members := range c.rt.Substitutions {
+		for _, member := range members {
+			if !c.substitutionAllowed(head, member) {
+				continue
+			}
+			byName := c.rt.SubstitutionLookup[head]
+			if byName == nil {
+				byName = make(map[qName]elementID, len(members))
+				c.rt.SubstitutionLookup[head] = byName
+			}
+			byName[c.rt.Elements[member].Name] = member
+		}
+	}
 }
 
 func (c *compiler) checkSubstitutionCycles(direct map[elementID][]elementID) error {

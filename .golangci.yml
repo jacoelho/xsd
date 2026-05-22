@@ -14,6 +14,7 @@ linters:
     - ineffassign
     - iface
     - dupl
+    - forbidigo
     - funlen
     - nestif
     - maintidx
@@ -31,6 +32,22 @@ linters:
 
     dupl:
       threshold: 120
+
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^strings\.TrimSpace$
+          pkg: ^strings$
+          msg: use trimXMLWhitespace for XML/XSD lexical whitespace
+        - pattern: ^bytes\.TrimSpace$
+          pkg: ^bytes$
+          msg: use trimXMLWhitespaceBytes for XML/XSD lexical whitespace
+        - pattern: ^strings\.Fields$
+          pkg: ^strings$
+          msg: use xmlFieldsSeq for XML/XSD lexical whitespace
+        - pattern: ^strings\.FieldsSeq$
+          pkg: ^strings$
+          msg: use xmlFieldsSeq for XML/XSD lexical whitespace
 
     funlen:
       lines: 120

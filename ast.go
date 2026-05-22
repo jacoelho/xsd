@@ -507,7 +507,7 @@ func (n *rawNode) resolveQName(lexical string) (string, string, error) {
 }
 
 func parseQNameParts(lexical string) (string, string, bool, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = trimXMLWhitespace(lexical)
 	if lexical == "" {
 		return "", "", false, schemaCompile(ErrSchemaReference, "invalid QName "+lexical)
 	}
@@ -525,7 +525,7 @@ func parseQNameParts(lexical string) (string, string, bool, error) {
 }
 
 func parseQNamePrefixWildcard(lexical string) (string, bool, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = trimXMLWhitespace(lexical)
 	prefix, local, ok := strings.Cut(lexical, ":")
 	if !ok || local != "*" {
 		return "", false, nil
@@ -537,12 +537,5 @@ func parseQNamePrefixWildcard(lexical string) (string, bool, error) {
 }
 
 func parseSchemaBool(v string) (bool, bool) {
-	switch strings.TrimSpace(v) {
-	case "true", "1":
-		return true, true
-	case "false", "0":
-		return false, true
-	default:
-		return false, false
-	}
+	return parseBooleanLexical(trimXMLWhitespace(v))
 }

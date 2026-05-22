@@ -545,7 +545,7 @@ func literalActualValue(rt *runtimeSchema, id simpleTypeID, lexical, canonical s
 	if st.Primitive == primGMonthDay || st.Primitive == primGDay || st.Primitive == primGMonth || st.Primitive == primDuration {
 		text = lexical
 	}
-	parsed, err := validatePrimitiveActual(rt, st, text, nil, true)
+	parsed, err := validatePrimitiveActual(rt, st, text, nil, primitiveNeedCanonical|primitiveNeedLength)
 	if err != nil {
 		return actualValue{}
 	}

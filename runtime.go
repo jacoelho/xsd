@@ -32,23 +32,24 @@ const noWildcard = wildcardID(^uint32(0))
 const noIdentityConstraint = identityConstraintID(^uint32(0))
 
 type runtimeSchema struct {
-	GlobalAttributes map[qName]attributeID
-	GlobalElements   map[qName]elementID
-	Substitutions    map[elementID][]elementID
-	Notations        map[string]bool
-	GlobalIdentities map[qName]identityConstraintID
-	GlobalTypes      map[qName]typeID
-	Identities       []identityConstraint
-	ComplexTypes     []complexType
-	Wildcards        []wildcard
-	AttributeUseSets []attributeUseSet
-	Models           []contentModel
-	CompiledModels   []compiledModel
-	SimpleTypes      []simpleType
-	Attributes       []attributeDecl
-	Elements         []elementDecl
-	Names            nameTable
-	Builtin          builtinIDs
+	GlobalAttributes   map[qName]attributeID
+	GlobalElements     map[qName]elementID
+	Substitutions      map[elementID][]elementID
+	SubstitutionLookup map[elementID]map[qName]elementID
+	Notations          map[string]bool
+	GlobalIdentities   map[qName]identityConstraintID
+	GlobalTypes        map[qName]typeID
+	Identities         []identityConstraint
+	ComplexTypes       []complexType
+	Wildcards          []wildcard
+	AttributeUseSets   []attributeUseSet
+	Models             []contentModel
+	CompiledModels     []compiledModel
+	SimpleTypes        []simpleType
+	Attributes         []attributeDecl
+	Elements           []elementDecl
+	Names              nameTable
+	Builtin            builtinIDs
 
 	SimpleIdentitiesClassified bool
 }
@@ -103,11 +104,19 @@ const (
 )
 
 type identityConstraint struct {
-	Selector []identityPath
-	Fields   []identityField
-	Name     qName
-	Refer    identityConstraintID
-	Kind     identityKind
+	Selector                []identityPath
+	Fields                  []identityField
+	ElementFields           []compiledIdentityField
+	AttributeFields         map[qName][]compiledIdentityField
+	AttributeWildcardFields []compiledIdentityField
+	Name                    qName
+	Refer                   identityConstraintID
+	Kind                    identityKind
+}
+
+type compiledIdentityField struct {
+	Paths []identityFieldPath
+	Field int
 }
 
 type identityPath struct {
@@ -286,6 +295,10 @@ func (f facetSet) needsLexical() bool {
 
 func (f facetSet) needsCanonical() bool {
 	return len(f.Enumeration) != 0
+}
+
+func (f facetSet) needsLength() bool {
+	return f.Length != nil || f.MinLength != nil || f.MaxLength != nil
 }
 
 type compiledLiteral struct {

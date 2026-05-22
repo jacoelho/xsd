@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"maps"
 	"slices"
-	"strings"
 )
 
 func (c *compiler) index() error {
@@ -183,7 +182,7 @@ func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
 	}); err != nil {
 		return err
 	}
-	if strings.TrimSpace(n.Text) != "" {
+	if trimXMLWhitespace(n.Text) != "" {
 		return schemaCompile(ErrSchemaContentModel, "notation can contain only annotation")
 	}
 	for _, child := range n.Children {

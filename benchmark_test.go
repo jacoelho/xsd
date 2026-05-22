@@ -111,6 +111,21 @@ func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
 	}
 }
 
+func BenchmarkValidateSubstitutionGroup(b *testing.B) {
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(substitutionBenchmarkSchema(16))))
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := substitutionBenchmarkDoc(1000, 16)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := engine.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkParseDecimal(b *testing.B) {
 	for b.Loop() {
 		if _, err := parseDecimal("+000000000123456789.0000000012300"); err != nil {
@@ -563,6 +578,28 @@ func deepDoc(depth int) string {
 	for i := depth - 1; i >= 0; i-- {
 		fmt.Fprintf(&b, `</n%d>`, i)
 	}
+	return b.String()
+}
+
+func substitutionBenchmarkSchema(members int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	b.WriteString(`<xs:element name="head" type="xs:string"/>`)
+	for i := range members {
+		fmt.Fprintf(&b, `<xs:element name="m%d" substitutionGroup="head" type="xs:string"/>`, i)
+	}
+	b.WriteString(`<xs:element name="rows"><xs:complexType><xs:sequence><xs:element ref="head" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element>`)
+	b.WriteString(`</xs:schema>`)
+	return b.String()
+}
+
+func substitutionBenchmarkDoc(rows, members int) string {
+	var b strings.Builder
+	b.WriteString("<rows>")
+	for i := range rows {
+		fmt.Fprintf(&b, `<m%d>x</m%d>`, i%members, i%members)
+	}
+	b.WriteString("</rows>")
 	return b.String()
 }
 

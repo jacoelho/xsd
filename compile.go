@@ -3,7 +3,6 @@ package xsd
 import (
 	"fmt"
 	"slices"
-	"strings"
 )
 
 // Engine is an immutable compiled schema validator.
@@ -224,19 +223,20 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 		return nil, err
 	}
 	rt := runtimeSchema{
-		Names:            names,
-		GlobalElements:   make(map[qName]elementID),
-		GlobalAttributes: make(map[qName]attributeID, builtinAttributeCount),
-		GlobalTypes:      make(map[qName]typeID, builtinGlobalTypeCount),
-		GlobalIdentities: make(map[qName]identityConstraintID),
-		Notations:        make(map[string]bool),
-		Substitutions:    make(map[elementID][]elementID),
-		SimpleTypes:      make([]simpleType, 0, builtinSimpleTypeCount),
-		Attributes:       make([]attributeDecl, 0, builtinAttributeCount),
-		ComplexTypes:     make([]complexType, 0, builtinComplexTypeCount),
-		Wildcards:        make([]wildcard, 0, 1),
-		AttributeUseSets: make([]attributeUseSet, 0, 1),
-		Models:           make([]contentModel, 0, 1),
+		Names:              names,
+		GlobalElements:     make(map[qName]elementID),
+		GlobalAttributes:   make(map[qName]attributeID, builtinAttributeCount),
+		GlobalTypes:        make(map[qName]typeID, builtinGlobalTypeCount),
+		GlobalIdentities:   make(map[qName]identityConstraintID),
+		Notations:          make(map[string]bool),
+		Substitutions:      make(map[elementID][]elementID),
+		SubstitutionLookup: make(map[elementID]map[qName]elementID),
+		SimpleTypes:        make([]simpleType, 0, builtinSimpleTypeCount),
+		Attributes:         make([]attributeDecl, 0, builtinAttributeCount),
+		ComplexTypes:       make([]complexType, 0, builtinComplexTypeCount),
+		Wildcards:          make([]wildcard, 0, 1),
+		AttributeUseSets:   make([]attributeUseSet, 0, 1),
+		Models:             make([]contentModel, 0, 1),
 	}
 	c := &compiler{
 		compilerSourceState: compilerSourceState{
@@ -422,6 +422,12 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 		if err := c.validateContentRestriction(base.Content, ct.Content); err != nil {
 			return err
 		}
+		repeatedChoice := c.restrictionRepeatedChoiceParticles(base.Content, ct.Content)
+		if len(repeatedChoice) != 0 {
+			ct.Content = c.addModel(c.rt.Models[ct.Content])
+			c.choiceLimitByModel[ct.Content] = append(c.choiceLimitByModel[ct.Content], repeatedChoice...)
+			c.rt.ComplexTypes[id] = ct
+		}
 	}
 	return nil
 }
@@ -454,11 +460,11 @@ func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivati
 func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask, error) {
 	var m derivationMask
 	fieldCount := 0
-	for range strings.FieldsSeq(v) {
+	for range xmlFieldsSeq(v) {
 		fieldCount++
 	}
 	i := 0
-	for p := range strings.FieldsSeq(v) {
+	for p := range xmlFieldsSeq(v) {
 		switch p {
 		case "#all":
 			if fieldCount != 1 || i != 0 {
@@ -765,7 +771,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 	}
 	st := simpleType{Name: name, Variety: varietyUnion, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse}
 	if mt, ok := n.attr("memberTypes"); ok {
-		for part := range strings.FieldsSeq(mt) {
+		for part := range xmlFieldsSeq(mt) {
 			q, err := c.resolveQNameChecked(n, ctx, part)
 			if err != nil {
 				return simpleType{}, err

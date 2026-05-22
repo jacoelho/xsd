@@ -138,12 +138,6 @@ func resolveFileSchemaSource(base, location string) (SchemaSource, error) {
 	if !ok {
 		return SchemaSource{}, ErrSchemaNotFound
 	}
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return SchemaSource{}, ErrSchemaNotFound
-		}
-		return SchemaSource{}, err
-	}
 	return File(path), nil
 }
 
@@ -162,7 +156,7 @@ func resolveLocalSchemaLocation(base, location string) (string, bool) {
 		}
 		return filepath.Clean(path), true
 	}
-	location = filepath.FromSlash(strings.TrimSpace(location))
+	location = filepath.FromSlash(trimXMLWhitespace(location))
 	if location == "" {
 		return "", false
 	}

@@ -1,5 +1,10 @@
 package xsd
 
+import (
+	"reflect"
+	"slices"
+)
+
 func (c *compiler) freezeRuntime() (*runtimeSchema, error) {
 	rt := c.rt
 	if err := validateRuntimeSchema(&rt); err != nil {
@@ -38,6 +43,22 @@ func validateRuntimeSchema(rt *runtimeSchema) error {
 				return internalInvariant("substitution member references invalid element")
 			}
 		}
+	}
+	for head, members := range rt.SubstitutionLookup {
+		if !validElementID(rt, head) {
+			return internalInvariant("substitution lookup head references invalid element")
+		}
+		for name, member := range members {
+			if !validQName(rt, name) || !validElementID(rt, member) {
+				return internalInvariant("substitution lookup references invalid element")
+			}
+			if rt.Elements[member].Name != name {
+				return internalInvariant("substitution lookup name does not match element")
+			}
+		}
+	}
+	if err := validateSubstitutionLookup(rt); err != nil {
+		return err
 	}
 	if err := validateBuiltinIDs(rt); err != nil {
 		return err
@@ -86,6 +107,45 @@ func validateRuntimeSchema(rt *runtimeSchema) error {
 		}
 	}
 	return nil
+}
+
+func validateSubstitutionLookup(rt *runtimeSchema) error {
+	for head, members := range rt.Substitutions {
+		for _, member := range members {
+			if !runtimeSubstitutionAllowed(rt, head, member) {
+				continue
+			}
+			byName := rt.SubstitutionLookup[head]
+			if byName == nil || byName[rt.Elements[member].Name] != member {
+				return internalInvariant("substitution lookup is missing allowed member")
+			}
+		}
+	}
+	for head, lookup := range rt.SubstitutionLookup {
+		members := rt.Substitutions[head]
+		for _, member := range lookup {
+			if !substitutionMemberExists(members, member) {
+				return internalInvariant("substitution lookup contains non-member")
+			}
+			if !runtimeSubstitutionAllowed(rt, head, member) {
+				return internalInvariant("substitution lookup contains blocked member")
+			}
+		}
+	}
+	return nil
+}
+
+func runtimeSubstitutionAllowed(rt *runtimeSchema, headID, memberID elementID) bool {
+	head := rt.Elements[headID]
+	member := rt.Elements[memberID]
+	if head.Block&blockSubstitution != 0 {
+		return false
+	}
+	return rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
+}
+
+func substitutionMemberExists(members []elementID, member elementID) bool {
+	return slices.Contains(members, member)
 }
 
 func internalInvariant(msg string) error {
@@ -360,15 +420,36 @@ func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error 
 	}
 	for _, field := range ic.Fields {
 		for _, path := range field.Paths {
-			if path.Attr && !path.AttrWildcard && !validQName(rt, path.Attribute) {
+			if !validIdentityFieldPath(rt, path) {
 				return internalInvariant("identity field references invalid attribute")
-			}
-			if !validIdentitySteps(rt, path.Steps) {
-				return internalInvariant("identity field references invalid name")
 			}
 		}
 	}
+	if err := validateCompiledIdentityFields(ic); err != nil {
+		return err
+	}
 	return nil
+}
+
+func validateCompiledIdentityFields(ic identityConstraint) error {
+	elementFields, attrFields, attrWildcardFields := buildIdentityFieldLookup(ic.Fields)
+	if !reflect.DeepEqual(ic.ElementFields, elementFields) {
+		return internalInvariant("compiled identity element fields do not match fields")
+	}
+	if !reflect.DeepEqual(ic.AttributeFields, attrFields) {
+		return internalInvariant("compiled identity attribute fields do not match fields")
+	}
+	if !reflect.DeepEqual(ic.AttributeWildcardFields, attrWildcardFields) {
+		return internalInvariant("compiled identity wildcard fields do not match fields")
+	}
+	return nil
+}
+
+func validIdentityFieldPath(rt *runtimeSchema, path identityFieldPath) bool {
+	if path.Attr && !path.AttrWildcard && !validQName(rt, path.Attribute) {
+		return false
+	}
+	return validIdentitySteps(rt, path.Steps)
 }
 
 func validIdentitySteps(rt *runtimeSchema, steps []identityStep) bool {

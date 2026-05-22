@@ -6,15 +6,25 @@ import (
 	"errors"
 	"hash/maphash"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 )
 
+type schemaLoad struct {
+	source          SchemaSource
+	optionalMissing bool
+}
+
 func (c *compiler) load(sources []SchemaSource) error {
-	queue := slices.Clone(sources)
+	queue := make([]schemaLoad, len(sources))
+	for i, source := range sources {
+		queue[i] = schemaLoad{source: source}
+	}
 	for len(queue) != 0 {
-		s := queue[0]
+		item := queue[0]
 		queue = queue[1:]
+		s := item.source
 		if s.name == "" {
 			return schemaCompile(ErrSchemaRead, "schema source name is required")
 		}
@@ -24,6 +34,9 @@ func (c *compiler) load(sources []SchemaSource) error {
 		}
 		data, err := s.read(c.limits.maxSchemaSourceBytes)
 		if err != nil {
+			if item.optionalMissing && (errors.Is(err, ErrSchemaNotFound) || os.IsNotExist(err)) {
+				continue
+			}
 			if isSchemaLimitError(err) {
 				return err
 			}
@@ -55,7 +68,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 			if next.name != "" {
 				c.resolvedRef[schemaReferenceKey{base: name, location: ref.location}] = filepath.Clean(next.name)
 			}
-			queue = append(queue, next)
+			queue = append(queue, schemaLoad{source: next, optionalMissing: true})
 		}
 	}
 	names := slices.Sorted(maps.Keys(c.sources))

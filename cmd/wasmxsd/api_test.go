@@ -66,6 +66,22 @@ func TestValidateXMLDataRejectsOversizeXSD(t *testing.T) {
 	}
 }
 
+func TestValidateXMLDataReportsWhitespaceOnlySchemaAsSchemaError(t *testing.T) {
+	resp := validateXMLData(`<root/>`, " \t\r\n")
+	if resp.Valid {
+		t.Fatal("validateXMLData() accepted whitespace-only schema")
+	}
+	if resp.Error != "" {
+		t.Fatalf("error = %q, want schema error list", resp.Error)
+	}
+	if len(resp.Errors) == 0 {
+		t.Fatalf("len(errors) = 0, want schema error: %+v", resp)
+	}
+	if resp.Errors[0].Source != "xsd" {
+		t.Fatalf("error source = %q, want xsd", resp.Errors[0].Source)
+	}
+}
+
 func TestValidateXMLDataMarksSchemaErrors(t *testing.T) {
 	resp := validateXMLData(`<root/>`, `<!DOCTYPE xs:schema><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	if resp.Valid {

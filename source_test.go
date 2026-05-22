@@ -3,6 +3,7 @@ package xsd
 import (
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -175,6 +176,47 @@ func TestFileResolvesLocalIncludeAndImport(t *testing.T) {
 	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
 	mustValidate(t, engine, `<other xmlns="urn:test">ok</other>`)
 	mustNotValidate(t, engine, `<other xmlns="urn:test">bad</other>`, ErrValidationFacet)
+}
+
+func TestFileResolverMissingIncludeIsUnresolved(t *testing.T) {
+	dir := t.TempDir()
+	writeSchemaFile(t, filepath.Join(dir, "main.xsd"), `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="missing.xsd"/>
+  <xs:element name="root" type="xs:int"/>
+</xs:schema>`)
+	engine, err := Compile(File(filepath.Join(dir, "main.xsd")))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root>7</root>`)
+}
+
+func TestResolvedMissingSourceReadNotFoundIsUnresolved(t *testing.T) {
+	engine, err := Compile(Reader("main.xsd", strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="missing.xsd"/>
+  <xs:element name="root" type="xs:int"/>
+</xs:schema>`)).WithResolver(ResolverFunc(func(string, string) (SchemaSource, error) {
+		return SchemaSource{
+			name: "missing.xsd",
+			open: func() (io.ReadCloser, error) {
+				return nil, os.ErrNotExist
+			},
+		}, nil
+	})))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root>7</root>`)
+}
+
+func TestMissingTopLevelFileIsSchemaReadError(t *testing.T) {
+	_, err := Compile(File(filepath.Join(t.TempDir(), "missing.xsd")))
+	expectCategoryCode(t, err, SchemaParseErrorCategory, ErrSchemaRead)
+	if errors.Is(err, ErrSchemaNotFound) {
+		t.Fatalf("Compile() error wraps ErrSchemaNotFound")
+	}
 }
 
 func TestCompileOptionsSchemaSourceByteLimitAppliesToFile(t *testing.T) {
