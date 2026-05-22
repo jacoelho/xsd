@@ -176,7 +176,7 @@ func isXMLWhitespaceToReplace(b byte) bool {
 }
 
 func isXMLWhitespaceBytes(data []byte) bool {
-	for i := 0; i < len(data); i++ {
+	for i := range data {
 		if !isXMLWhitespaceByte(data[i]) {
 			return false
 		}
