@@ -154,11 +154,18 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 }
 
 func compileIdentityFieldLookup(ic *identityConstraint) {
-	for fieldIndex := range ic.Fields {
+	ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = buildIdentityFieldLookup(ic.Fields)
+}
+
+func buildIdentityFieldLookup(fields []identityField) ([]compiledIdentityField, map[qName][]compiledIdentityField, []compiledIdentityField) {
+	var elementFields []compiledIdentityField
+	var attrFields map[qName][]compiledIdentityField
+	var attrWildcardFields []compiledIdentityField
+	for fieldIndex := range fields {
 		var elementPaths []identityFieldPath
 		var wildcardAttrPaths []identityFieldPath
 		var exactAttrPaths map[qName][]identityFieldPath
-		for _, path := range ic.Fields[fieldIndex].Paths {
+		for _, path := range fields[fieldIndex].Paths {
 			if !path.Attr {
 				elementPaths = append(elementPaths, path)
 				continue
@@ -173,27 +180,28 @@ func compileIdentityFieldLookup(ic *identityConstraint) {
 			exactAttrPaths[path.Attribute] = append(exactAttrPaths[path.Attribute], path)
 		}
 		if len(elementPaths) != 0 {
-			ic.ElementFields = append(ic.ElementFields, compiledIdentityField{
+			elementFields = append(elementFields, compiledIdentityField{
 				Field: fieldIndex,
 				Paths: elementPaths,
 			})
 		}
 		if len(wildcardAttrPaths) != 0 {
-			ic.AttributeWildcardFields = append(ic.AttributeWildcardFields, compiledIdentityField{
+			attrWildcardFields = append(attrWildcardFields, compiledIdentityField{
 				Field: fieldIndex,
 				Paths: wildcardAttrPaths,
 			})
 		}
 		for name, paths := range exactAttrPaths {
-			if ic.AttributeFields == nil {
-				ic.AttributeFields = make(map[qName][]compiledIdentityField)
+			if attrFields == nil {
+				attrFields = make(map[qName][]compiledIdentityField)
 			}
-			ic.AttributeFields[name] = append(ic.AttributeFields[name], compiledIdentityField{
+			attrFields[name] = append(attrFields[name], compiledIdentityField{
 				Field: fieldIndex,
 				Paths: paths,
 			})
 		}
 	}
+	return elementFields, attrFields, attrWildcardFields
 }
 
 func validateIdentityConstraintSyntax(n *rawNode) error {

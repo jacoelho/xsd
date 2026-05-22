@@ -305,18 +305,17 @@ func (s *session) validate(r io.Reader) error {
 }
 
 func (s *session) reset() {
-	clear(s.errors)
-	s.errors = s.errors[:0]
-	s.stack = s.stack[:0]
-	s.ns.frames = s.ns.frames[:0]
-	s.ns.bindings = s.ns.bindings[:0]
+	s.errors = resetRetainedSlice(s.errors, maxRetainedSliceCap)
+	s.stack = resetRetainedSlice(s.stack, maxRetainedSliceCap)
+	s.ns.frames = resetRetainedSlice(s.ns.frames, maxRetainedSliceCap)
+	s.ns.bindings = resetRetainedSlice(s.ns.bindings, maxRetainedSliceCap)
 	s.text = resetRetainedBytes(s.text, maxRetainedBufferCap)
-	s.path = s.path[:0]
+	s.path = resetRetainedSlice(s.path, maxRetainedSliceCap)
 	s.pathText = ""
 	s.pathDirty = true
-	s.namePath = s.namePath[:0]
-	s.elementNames = s.elementNames[:0]
-	s.allBits = s.allBits[:0]
+	s.namePath = resetRetainedSlice(s.namePath, maxRetainedSliceCap)
+	s.elementNames = resetRetainedSlice(s.elementNames, maxRetainedSliceCap)
+	s.allBits = resetRetainedSlice(s.allBits, maxRetainedSliceCap)
 	if len(s.ids) > maxRetainedMapLen {
 		s.ids = nil
 	} else {
@@ -338,7 +337,7 @@ func resetRetainedSlice[T any](s []T, maxCap int) []T {
 	if cap(s) > maxCap {
 		return nil
 	}
-	clear(s)
+	clear(s[:cap(s)])
 	return s[:0]
 }
 

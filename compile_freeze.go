@@ -1,5 +1,7 @@
 package xsd
 
+import "reflect"
+
 func (c *compiler) freezeRuntime() (*runtimeSchema, error) {
 	rt := c.rt
 	if err := validateRuntimeSchema(&rt); err != nil {
@@ -425,62 +427,22 @@ func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error 
 			}
 		}
 	}
-	if err := validateCompiledIdentityFields(rt, ic); err != nil {
+	if err := validateCompiledIdentityFields(ic); err != nil {
 		return err
 	}
 	return nil
 }
 
-func validateCompiledIdentityFields(rt *runtimeSchema, ic identityConstraint) error {
-	for _, field := range ic.ElementFields {
-		if err := validateCompiledIdentityField(rt, ic, field); err != nil {
-			return err
-		}
-		for _, path := range field.Paths {
-			if path.Attr {
-				return internalInvariant("compiled identity element field contains attribute path")
-			}
-		}
+func validateCompiledIdentityFields(ic identityConstraint) error {
+	elementFields, attrFields, attrWildcardFields := buildIdentityFieldLookup(ic.Fields)
+	if !reflect.DeepEqual(ic.ElementFields, elementFields) {
+		return internalInvariant("compiled identity element fields do not match fields")
 	}
-	for name, fields := range ic.AttributeFields {
-		if !validQName(rt, name) {
-			return internalInvariant("compiled identity attribute field references invalid attribute")
-		}
-		for _, field := range fields {
-			if err := validateCompiledIdentityField(rt, ic, field); err != nil {
-				return err
-			}
-			for _, path := range field.Paths {
-				if path.AttrWildcard || path.Attribute != name {
-					return internalInvariant("compiled identity attribute field is in wrong lookup bucket")
-				}
-			}
-		}
+	if !reflect.DeepEqual(ic.AttributeFields, attrFields) {
+		return internalInvariant("compiled identity attribute fields do not match fields")
 	}
-	for _, field := range ic.AttributeWildcardFields {
-		if err := validateCompiledIdentityField(rt, ic, field); err != nil {
-			return err
-		}
-		for _, path := range field.Paths {
-			if !path.AttrWildcard {
-				return internalInvariant("compiled identity wildcard field contains exact attribute path")
-			}
-		}
-	}
-	return nil
-}
-
-func validateCompiledIdentityField(rt *runtimeSchema, ic identityConstraint, field compiledIdentityField) error {
-	if field.Field < 0 || field.Field >= len(ic.Fields) {
-		return internalInvariant("compiled identity field references invalid field")
-	}
-	if len(field.Paths) == 0 {
-		return internalInvariant("compiled identity field has no paths")
-	}
-	for _, path := range field.Paths {
-		if !validIdentityFieldPath(rt, path) {
-			return internalInvariant("compiled identity field references invalid path")
-		}
+	if !reflect.DeepEqual(ic.AttributeWildcardFields, attrWildcardFields) {
+		return internalInvariant("compiled identity wildcard fields do not match fields")
 	}
 	return nil
 }

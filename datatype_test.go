@@ -1390,6 +1390,7 @@ func TestBinaryLengthFacetsCountOctets(t *testing.T) {
 	mustValidate(t, engine, `<b64>AQID</b64>`)
 	mustValidate(t, engine, `<b64>AQI=</b64>`)
 	mustNotValidate(t, engine, `<b64>AQ==</b64>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<b64>AB==</b64>`, ErrValidationFacet)
 }
 
 func TestBinaryCanonicalFacets(t *testing.T) {
