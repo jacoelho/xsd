@@ -205,11 +205,11 @@ func buildIdentityFieldLookup(fields []identityField) ([]compiledIdentityField, 
 }
 
 func validateIdentityConstraintSyntax(n *rawNode) error {
-	allowed := map[string]bool{"id": true, "name": true}
 	if n.Name.Local == "keyref" {
-		allowed["refer"] = true
-	}
-	if err := validateKnownAttributes(n, n.Name.Local, allowed); err != nil {
+		if err := validateKnownAttributes(n, n.Name.Local, isKeyrefAttribute); err != nil {
+			return err
+		}
+	} else if err := validateKnownAttributes(n, n.Name.Local, isIdentityAttribute); err != nil {
 		return err
 	}
 	seenAnnotation := false
@@ -264,7 +264,7 @@ func validateIdentityConstraintSyntax(n *rawNode) error {
 }
 
 func validateIdentityXPathChild(n *rawNode, label string) error {
-	if err := validateKnownAttributes(n, label, map[string]bool{"id": true, "xpath": true}); err != nil {
+	if err := validateKnownAttributes(n, label, isIdentityXPathAttribute); err != nil {
 		return err
 	}
 	xpath, ok := n.attr("xpath")
@@ -288,6 +288,33 @@ func validateIdentityXPathChild(n *rawNode, label string) error {
 		seenAnnotation = true
 	}
 	return nil
+}
+
+func isIdentityAttribute(name string) bool {
+	switch name {
+	case "id", "name":
+		return true
+	default:
+		return false
+	}
+}
+
+func isKeyrefAttribute(name string) bool {
+	switch name {
+	case "id", "name", "refer":
+		return true
+	default:
+		return false
+	}
+}
+
+func isIdentityXPathAttribute(name string) bool {
+	switch name {
+	case "id", "xpath":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *compiler) parseIdentityPaths(n *rawNode, xpath string) ([]identityPath, error) {

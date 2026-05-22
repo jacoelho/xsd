@@ -91,9 +91,9 @@ func FormatXMLWithOptions(w io.Writer, r io.Reader, opts FormatOptions) error {
 		writer = &maxBytesWriter{w: writer, max: limits.maxOutputBytes, err: errFormatOutputLimit}
 	}
 
-	names := newByteStringCache(512, 256)
-	values := newByteStringCache(512, 256)
-	reader, err = prepareInstanceReader(reader)
+	names := newByteStringCache()
+	values := newByteStringCache()
+	reader, err = prepareInstanceReaderWithBuffer(reader, nil)
 	if err != nil {
 		return &XMLFormatError{Err: err}
 	}
@@ -282,9 +282,9 @@ func (f *xmlFormatter) collectToken(tok streamToken) error {
 	case streamTokenDirective:
 		return xmlFormatErr(tok.line, tok.col, errors.New("DTD declarations are not supported"))
 	case streamTokenComment:
-		return f.collectComment(tok)
+		return f.appendItem(formatItem{kind: formatItemComment, data: slices.Clone(tok.directive), line: tok.line, col: tok.col})
 	case streamTokenPI:
-		return f.collectPI(tok)
+		return f.appendItem(formatItem{kind: formatItemPI, data: slices.Clone(tok.data), pi: slices.Clone(tok.directive), line: tok.line, col: tok.col})
 	default:
 		return xmlFormatErr(tok.line, tok.col, errors.New("unknown XML token"))
 	}
@@ -341,15 +341,7 @@ func (f *xmlFormatter) collectChars(tok streamToken) error {
 		}
 		return xmlFormatErr(tok.line, tok.col, errors.New("text outside root element"))
 	}
-	return f.appendItem(formatItem{kind: formatItemText, data: cloneBytes(tok.data), cdata: tok.cdata, line: tok.line, col: tok.col})
-}
-
-func (f *xmlFormatter) collectComment(tok streamToken) error {
-	return f.appendItem(formatItem{kind: formatItemComment, data: cloneBytes(tok.directive), line: tok.line, col: tok.col})
-}
-
-func (f *xmlFormatter) collectPI(tok streamToken) error {
-	return f.appendItem(formatItem{kind: formatItemPI, data: cloneBytes(tok.data), pi: cloneBytes(tok.directive), line: tok.line, col: tok.col})
+	return f.appendItem(formatItem{kind: formatItemText, data: slices.Clone(tok.data), cdata: tok.cdata, line: tok.line, col: tok.col})
 }
 
 func (f *xmlFormatter) appendItem(item formatItem) error {
@@ -560,10 +552,6 @@ func hasXMLLineBreak(data []byte) bool {
 		}
 	}
 	return false
-}
-
-func cloneBytes(data []byte) []byte {
-	return slices.Clone(data)
 }
 
 func cloneStartElement(start xml.StartElement) xml.StartElement {

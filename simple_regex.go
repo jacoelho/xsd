@@ -595,11 +595,12 @@ func translateXSDRegexToGo(source string) string {
 			escaped = true
 			continue
 		}
-		if c == '[' {
+		switch {
+		case c == '[':
 			inClass = true
-		} else if c == ']' {
+		case c == ']':
 			inClass = false
-		} else if !inClass && c == '{' {
+		case !inClass && c == '{':
 			end := strings.IndexByte(source[i:], '}')
 			if end >= 0 {
 				end += i
@@ -607,7 +608,7 @@ func translateXSDRegexToGo(source string) string {
 				i = end
 				continue
 			}
-		} else if !inClass && (c == '^' || c == '$') {
+		case !inClass && (c == '^' || c == '$'):
 			b.WriteByte('\\')
 		}
 		b.WriteByte(c)

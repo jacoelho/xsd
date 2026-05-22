@@ -82,7 +82,7 @@ func BenchmarkXMLWhitespaceNormalizeReplaceUnicode(b *testing.B) {
 func BenchmarkXMLWhitespaceAttributeUnicode(b *testing.B) {
 	in := "alpha\tβeta\ngamma\rδelta alpha\tβeta\ngamma\rδelta"
 	for b.Loop() {
-		xmlWhitespaceSink = normalizeXMLAttributeWhitespace(in)
+		xmlWhitespaceSink = replaceXMLWhitespace(in)
 	}
 }
 

@@ -439,7 +439,7 @@ func validLanguageTag(v string) bool {
 func (n *rawNode) attr(local string) (string, bool) {
 	for _, a := range n.Attr {
 		if a.Name.Space == "" && a.Name.Local == local {
-			value := normalizeXMLAttributeWhitespace(a.Value)
+			value := replaceXMLWhitespace(a.Value)
 			if local == "name" || local == "id" {
 				return normalizeWhitespace(value, whitespaceCollapse), true
 			}

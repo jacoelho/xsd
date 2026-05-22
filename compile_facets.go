@@ -328,28 +328,9 @@ func validatePrimitiveFacetRestrictions(st simpleType, baseFacets facetSet, orde
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
 	}
-	if st.Primitive == primGDay {
-		if err := validateGDayFacetBounds(st.Facets); err != nil {
-			return schemaCompile(ErrSchemaFacet, err.Error())
-		}
-	}
-	if st.Primitive == primGMonthDay {
-		if err := validateGMonthDayFacetBounds(st.Facets); err != nil {
-			return schemaCompile(ErrSchemaFacet, err.Error())
-		}
-	}
-	if st.Primitive == primGMonth {
-		if err := validateGMonthFacetBounds(st.Facets); err != nil {
-			return schemaCompile(ErrSchemaFacet, err.Error())
-		}
-	}
-	if st.Primitive == primGYearMonth {
-		if err := validateGYearMonthFacetBounds(st.Facets); err != nil {
-			return schemaCompile(ErrSchemaFacet, err.Error())
-		}
-	}
-	if st.Primitive == primGYear {
-		if err := validateGYearFacetBounds(st.Facets); err != nil {
+	switch st.Primitive {
+	case primGDay, primGMonthDay, primGMonth, primGYearMonth, primGYear:
+		if err := validateGValueFacetBounds(st.Primitive, st.Facets); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
 	}
@@ -390,8 +371,14 @@ func validateDecimalFacetRestriction(f, base facetSet, step orderedFacetStep) er
 	if base.FractionDigits != nil && f.FractionDigits != nil && *f.FractionDigits > *base.FractionDigits {
 		return fmt.Errorf("fractionDigits cannot exceed base fractionDigits")
 	}
-	baseLower := decimalLowerBound(base)
-	baseUpper := decimalUpperBound(base)
+	baseLower, err := decimalLowerBound(base)
+	if err != nil {
+		return err
+	}
+	baseUpper, err := decimalUpperBound(base)
+	if err != nil {
+		return err
+	}
 	if step.minInclusive {
 		if err := validateDecimalLowerRestriction("minInclusive", f.MinInclusive, false, baseLower); err != nil {
 			return err
@@ -415,107 +402,57 @@ func validateDecimalFacetRestriction(f, base facetSet, step orderedFacetStep) er
 	return nil
 }
 
-func validateDecimalLowerRestriction(name string, lit *compiledLiteral, exclusive bool, base decimalBound) error {
-	if lit == nil || !base.ok {
+func validateDecimalLowerRestriction(name string, lit *compiledLiteral, exclusive bool, base orderedFacetBound[decimalValue]) error {
+	if lit == nil || !base.present() {
 		return nil
 	}
 	cmp := compareDecimalValues(literalDecimal(lit), base.value)
-	if cmp < 0 || cmp == 0 && !exclusive && base.exclusive {
+	if cmp < 0 || cmp == 0 && !exclusive && base.exclusive() {
 		return fmt.Errorf("%s cannot be less than base lower bound", name)
 	}
 	return nil
 }
 
-func validateDecimalUpperRestriction(name string, lit *compiledLiteral, exclusive bool, base decimalBound) error {
-	if lit == nil || !base.ok {
+func validateDecimalUpperRestriction(name string, lit *compiledLiteral, exclusive bool, base orderedFacetBound[decimalValue]) error {
+	if lit == nil || !base.present() {
 		return nil
 	}
 	cmp := compareDecimalValues(literalDecimal(lit), base.value)
-	if cmp > 0 || cmp == 0 && !exclusive && base.exclusive {
+	if cmp > 0 || cmp == 0 && !exclusive && base.exclusive() {
 		return fmt.Errorf("%s cannot exceed base upper bound", name)
 	}
 	return nil
 }
 
 func validateDecimalFacetBounds(f facetSet) error {
-	lower := decimalLowerBound(f)
-	upper := decimalUpperBound(f)
-	if !lower.ok || !upper.ok {
+	lower, err := decimalLowerBound(f)
+	if err != nil {
+		return err
+	}
+	upper, err := decimalUpperBound(f)
+	if err != nil {
+		return err
+	}
+	if !lower.present() || !upper.present() {
 		return nil
 	}
 	cmp := compareDecimalValues(lower.value, upper.value)
-	if cmp > 0 || cmp == 0 && (lower.exclusive || upper.exclusive) {
+	if cmp > 0 || cmp == 0 && (lower.exclusive() || upper.exclusive()) {
 		return fmt.Errorf("decimal lower bound cannot exceed upper bound")
 	}
 	return nil
 }
 
-type decimalBound struct {
-	value     decimalValue
-	exclusive bool
-	ok        bool
+func decimalLowerBound(f facetSet) (orderedFacetBound[decimalValue], error) {
+	return facetBoundCanonical(f.MinInclusive, f.MinExclusive, parseDecimalValue, func(other, out decimalValue) bool {
+		return compareDecimalValues(other, out) >= 0
+	})
 }
 
-func decimalLowerBound(f facetSet) decimalBound {
-	if f.MinInclusive != nil {
-		out := decimalBound{value: literalDecimal(f.MinInclusive), ok: true}
-		if f.MinExclusive != nil {
-			other := decimalBound{value: literalDecimal(f.MinExclusive), exclusive: true, ok: true}
-			if compareDecimalLowerBound(other, out) > 0 {
-				return other
-			}
-		}
-		return out
-	}
-	if f.MinExclusive != nil {
-		return decimalBound{value: literalDecimal(f.MinExclusive), exclusive: true, ok: true}
-	}
-	return decimalBound{}
-}
-
-func decimalUpperBound(f facetSet) decimalBound {
-	if f.MaxInclusive != nil {
-		out := decimalBound{value: literalDecimal(f.MaxInclusive), ok: true}
-		if f.MaxExclusive != nil {
-			other := decimalBound{value: literalDecimal(f.MaxExclusive), exclusive: true, ok: true}
-			if compareDecimalUpperBound(other, out) < 0 {
-				return other
-			}
-		}
-		return out
-	}
-	if f.MaxExclusive != nil {
-		return decimalBound{value: literalDecimal(f.MaxExclusive), exclusive: true, ok: true}
-	}
-	return decimalBound{}
-}
-
-func compareDecimalLowerBound(a, b decimalBound) int {
-	cmp := compareDecimalValues(a.value, b.value)
-	if cmp != 0 {
-		return cmp
-	}
-	if a.exclusive == b.exclusive {
-		return 0
-	}
-	if a.exclusive {
-		return 1
-	}
-	return -1
-}
-
-func compareDecimalUpperBound(a, b decimalBound) int {
-	cmp := compareDecimalValues(a.value, b.value)
-	if cmp != 0 {
-		return cmp
-	}
-	if a.exclusive == b.exclusive {
-		return 0
-	}
-	if a.exclusive {
-		return -1
-	}
-	return 1
+func decimalUpperBound(f facetSet) (orderedFacetBound[decimalValue], error) {
+	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parseDecimalValue, func(other, out decimalValue) bool {
+		return compareDecimalValues(other, out) <= 0
+	})
 }
 
 func (c *compiler) compileLiteral(base simpleTypeID, lexical string, resolve qnameResolver) (compiledLiteral, error) {

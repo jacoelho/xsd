@@ -72,7 +72,9 @@ func TestHarness(t *testing.T) {
 
 func testDir(t *testing.T) string {
 	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
+	pc, file, line, ok := runtime.Caller(0)
+	_ = pc
+	_ = line
 	if !ok {
 		t.Fatal("runtime.Caller() failed")
 	}

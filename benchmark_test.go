@@ -3,6 +3,7 @@ package xsd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -136,7 +137,7 @@ func BenchmarkParseDecimal(b *testing.B) {
 
 func BenchmarkParseXSDDate(b *testing.B) {
 	for b.Loop() {
-		if _, err := parseXSDDate("12026-05-18+14:00"); err != nil {
+		if _, err := parseXSDDateValue("12026-05-18+14:00"); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -532,7 +533,8 @@ func benchmarkIDREFS(refs int) string {
 		if i > 0 {
 			b.WriteByte(' ')
 		}
-		_, _ = fmt.Fprintf(&b, "id%d", i)
+		b.WriteString("id")
+		b.WriteString(strconv.Itoa(i))
 	}
 	return b.String()
 }

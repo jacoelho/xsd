@@ -1789,6 +1789,19 @@ func TestSequenceWildcardWildcardOverlapIsUPACompileError(t *testing.T) {
 	expectCode(t, err, ErrSchemaContentModel)
 }
 
+func TestSequenceWildcardLocalAndListOverlapIsUPACompileError(t *testing.T) {
+	_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:complexType name="bad">
+    <xs:sequence>
+      <xs:any namespace="##local urn:other" minOccurs="0"/>
+      <xs:any namespace="##local"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`)))
+	expectCode(t, err, ErrSchemaContentModel)
+}
+
 func TestRepeatingSequenceWildcardProcessOnlyOverlapCompiles(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -1841,6 +1854,34 @@ func TestComplexExtensionUnionsAttributeWildcards(t *testing.T) {
 		t.Fatalf("Compile() error = %v", err)
 	}
 	mustValidate(t, engine, `<root xmlns:f="urn:f" local="a" f:foreign="b"/>`)
+}
+
+func TestComplexExtensionWildcardUnionCoversAllNamedNamespaces(t *testing.T) {
+	engine, err := Compile(
+		sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:t"
+           xmlns:t="urn:t"
+           xmlns:f="urn:f">
+  <xs:import namespace="urn:f" schemaLocation="foreign.xsd"/>
+  <xs:attribute name="target" type="xs:string"/>
+  <xs:complexType name="base"><xs:anyAttribute namespace="##other" processContents="lax"/></xs:complexType>
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:extension base="t:base"><xs:anyAttribute namespace="##targetNamespace" processContents="lax"/></xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="t:derived"/>
+</xs:schema>`)),
+		sourceBytes("foreign.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:f">
+  <xs:attribute name="foreign" type="xs:string"/>
+</xs:schema>`)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<t:root xmlns:t="urn:t" xmlns:f="urn:f" t:target="a" f:foreign="b"/>`)
+	mustNotValidate(t, engine, `<t:root xmlns:t="urn:t" local="x"/>`, ErrValidationAttribute)
 }
 
 func TestAttributeGroupWildcardsIntersect(t *testing.T) {
