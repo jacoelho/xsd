@@ -142,6 +142,7 @@ type session struct {
 	idrefs                   []identityRef
 	idScopes                 []identityScope
 	idSelections             []identitySelection
+	identityFieldValues      []identityFieldValue
 	identityMatches          []identityFieldMatch
 	text                     []byte
 	nameStrings              byteStringCache
@@ -187,9 +188,10 @@ const identityConflictPath = "\x00identity-conflict"
 
 type identitySelection struct {
 	Path       string
-	Fields     []identityFieldValue
 	Scope      int
 	Depth      int
+	FieldStart int
+	FieldLen   int
 	Line       int
 	Col        int
 	Constraint identityConstraintID
@@ -329,6 +331,7 @@ func (s *session) reset() {
 	s.idrefs = resetRetainedSlice(s.idrefs)
 	s.idScopes = resetRetainedSlice(s.idScopes)
 	s.idSelections = resetRetainedSlice(s.idSelections)
+	s.identityFieldValues = resetRetainedSlice(s.identityFieldValues)
 	s.identityMatches = resetRetainedSlice(s.identityMatches)
 	s.identityEntries = 0
 	if len(s.schemaLocationNamespaces) > maxRetainedMapLen {
