@@ -1,6 +1,9 @@
 package xsd
 
-import "reflect"
+import (
+	"reflect"
+	"slices"
+)
 
 func (c *compiler) freezeRuntime() (*runtimeSchema, error) {
 	rt := c.rt
@@ -142,12 +145,7 @@ func runtimeSubstitutionAllowed(rt *runtimeSchema, headID, memberID elementID) b
 }
 
 func substitutionMemberExists(members []elementID, member elementID) bool {
-	for _, candidate := range members {
-		if candidate == member {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(members, member)
 }
 
 func internalInvariant(msg string) error {
