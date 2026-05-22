@@ -292,23 +292,17 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		return schemaCompile(ErrSchemaFacet, "NOTATION value constraint requires enumeration")
 	}
 	if decl.HasDefault {
-		value, err := validateSimpleValueIdentityInfo(&c.rt, simpleID, decl.Default, resolve)
+		value, err := c.validateValueConstraint(simpleID, decl.Default, resolve, decl.Name, "element default")
 		if err != nil {
-			if IsUnsupported(err) {
-				return err
-			}
-			return schemaCompile(ErrSchemaFacet, "invalid element default value for "+c.rt.Names.Format(decl.Name))
+			return err
 		}
 		decl.DefaultCanonical = value.Canonical
 		decl.DefaultValue = value
 	}
 	if decl.HasFixed {
-		value, err := validateSimpleValueIdentityInfo(&c.rt, simpleID, decl.Fixed, resolve)
+		value, err := c.validateValueConstraint(simpleID, decl.Fixed, resolve, decl.Name, "element fixed")
 		if err != nil {
-			if IsUnsupported(err) {
-				return err
-			}
-			return schemaCompile(ErrSchemaFacet, "invalid element fixed value for "+c.rt.Names.Format(decl.Name))
+			return err
 		}
 		decl.FixedCanonical = value.Canonical
 		decl.FixedValue = value

@@ -503,19 +503,7 @@ func (c *compiler) wildcardEquivalentOverlap(a, b particle) bool {
 	}
 	wa := c.rt.Wildcards[a.wildcard]
 	wb := c.rt.Wildcards[b.wildcard]
-	return wildcardNamespaceEqual(wa, wb)
-}
-
-func wildcardNamespaceEqual(a, b wildcard) bool {
-	if a.Mode != b.Mode || a.OtherThan != b.OtherThan || len(a.Namespaces) != len(b.Namespaces) {
-		return false
-	}
-	for i := range a.Namespaces {
-		if a.Namespaces[i] != b.Namespaces[i] {
-			return false
-		}
-	}
-	return true
+	return c.wildcardNamespaceEqual(wa, wb)
 }
 
 func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
@@ -536,7 +524,7 @@ func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
 		return qName{}, false
 	}
 	if a.Kind == particleWildcard && b.Kind == particleWildcard {
-		return qName{}, wildcardsOverlap(c.rt.Wildcards[a.wildcard], c.rt.Wildcards[b.wildcard])
+		return qName{}, c.wildcardsOverlap(c.rt.Wildcards[a.wildcard], c.rt.Wildcards[b.wildcard])
 	}
 	for _, name := range c.particleElementNames(a) {
 		if c.particleMatchesName(b, name) {
@@ -551,77 +539,6 @@ func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
 	return qName{}, false
 }
 
-func wildcardsOverlap(a, b wildcard) bool {
-	if a.Mode == wildAny || b.Mode == wildAny {
-		return true
-	}
-	if a.Mode == wildOther && b.Mode == wildOther {
-		return true
-	}
-	if a.Mode == wildOther {
-		return wildcardHasNamespaceOtherThan(b, a.OtherThan)
-	}
-	if b.Mode == wildOther {
-		return wildcardHasNamespaceOtherThan(a, b.OtherThan)
-	}
-	if a.Mode == wildLocal && b.Mode == wildLocal {
-		return true
-	}
-	if a.Mode == wildLocal {
-		return wildcardAllowsNamespace(b, namespaceID(0))
-	}
-	if b.Mode == wildLocal {
-		return wildcardAllowsNamespace(a, namespaceID(0))
-	}
-	for _, ns := range wildcardNamespaces(a) {
-		if wildcardAllowsNamespace(b, ns) {
-			return true
-		}
-	}
-	return false
-}
-
-func wildcardHasNamespaceOtherThan(w wildcard, excluded namespaceID) bool {
-	switch w.Mode {
-	case wildAny:
-		return true
-	case wildOther:
-		return true
-	case wildLocal:
-		return false
-	case wildTargetNamespace, wildList:
-		for _, ns := range wildcardNamespaces(w) {
-			if ns != excluded {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func wildcardAllowsNamespace(w wildcard, ns namespaceID) bool {
-	switch w.Mode {
-	case wildAny:
-		return true
-	case wildOther:
-		return ns != namespaceID(0) && ns != w.OtherThan
-	case wildLocal:
-		return ns == namespaceID(0)
-	case wildTargetNamespace, wildList:
-		if slices.Contains(wildcardNamespaces(w), ns) {
-			return true
-		}
-	}
-	return false
-}
-
-func wildcardNamespaces(w wildcard) []namespaceID {
-	if w.Mode == wildTargetNamespace || w.Mode == wildList {
-		return w.Namespaces
-	}
-	return nil
-}
-
 func (c *compiler) particleMatchesName(p particle, name qName) bool {
 	switch p.Kind {
 	case particleElement:
@@ -630,12 +547,7 @@ func (c *compiler) particleMatchesName(p particle, name qName) bool {
 		}
 	case particleWildcard:
 		w := c.rt.Wildcards[p.wildcard]
-		return wildcardMatches(&c.rt, w, runtimeName{
-			Name:  name,
-			Known: true,
-			NS:    c.rt.Names.Namespace(name.Namespace),
-			Local: c.rt.Names.Local(name.Local),
-		})
+		return c.wildcardAllowsNamespace(w, name.Namespace)
 	case particleModel:
 		model := c.rt.Models[p.Model]
 		if slices.Contains(c.modelStartElementNames(model), name) {

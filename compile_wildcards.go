@@ -232,7 +232,7 @@ func (c *compiler) intersectWildcards(a, b wildcardID, process processContents) 
 	}
 	var namespaces []namespaceID
 	for _, ns := range candidates {
-		if c.wildcardCoversNamespace(wa, ns) && c.wildcardCoversNamespace(wb, ns) && !slices.Contains(namespaces, ns) {
+		if c.wildcardAllowsNamespace(wa, ns) && c.wildcardAllowsNamespace(wb, ns) && !slices.Contains(namespaces, ns) {
 			namespaces = append(namespaces, ns)
 		}
 	}
@@ -280,7 +280,7 @@ func (c *compiler) wildcardFiniteNamespaces(w wildcard) []namespaceID {
 	}
 }
 
-func (c *compiler) wildcardCoversNamespace(w wildcard, ns namespaceID) bool {
+func (c *compiler) wildcardAllowsNamespace(w wildcard, ns namespaceID) bool {
 	switch w.Mode {
 	case wildAny:
 		return true
@@ -298,7 +298,7 @@ func (c *compiler) wildcardCoversNamespace(w wildcard, ns namespaceID) bool {
 }
 
 func (c *compiler) wildcardAllowsQName(id wildcardID, q qName) bool {
-	return c.wildcardCoversNamespace(c.rt.Wildcards[id], q.Namespace)
+	return c.wildcardAllowsNamespace(c.rt.Wildcards[id], q.Namespace)
 }
 
 func (c *compiler) wildcardSubset(derivedID, baseID wildcardID) bool {
@@ -313,12 +313,12 @@ func (c *compiler) wildcardSubset(derivedID, baseID wildcardID) bool {
 	case wildOther:
 		return base.Mode == wildAny || (base.Mode == wildOther && base.OtherThan == derived.OtherThan)
 	case wildLocal:
-		return c.wildcardCoversNamespace(base, c.emptyNamespaceID())
+		return c.wildcardAllowsNamespace(base, c.emptyNamespaceID())
 	case wildTargetNamespace:
-		return len(derived.Namespaces) != 0 && c.wildcardCoversNamespace(base, derived.Namespaces[0])
+		return len(derived.Namespaces) != 0 && c.wildcardAllowsNamespace(base, derived.Namespaces[0])
 	case wildList:
 		for _, ns := range derived.Namespaces {
-			if !c.wildcardCoversNamespace(base, ns) {
+			if !c.wildcardAllowsNamespace(base, ns) {
 				return false
 			}
 		}
@@ -326,6 +326,74 @@ func (c *compiler) wildcardSubset(derivedID, baseID wildcardID) bool {
 	default:
 		return false
 	}
+}
+
+func (c *compiler) wildcardsOverlap(a, b wildcard) bool {
+	if a.Mode == wildAny || b.Mode == wildAny {
+		return true
+	}
+	if a.Mode == wildOther && b.Mode == wildOther {
+		return true
+	}
+	if a.Mode == wildOther {
+		return c.wildcardHasNamespaceOtherThan(b, a.OtherThan)
+	}
+	if b.Mode == wildOther {
+		return c.wildcardHasNamespaceOtherThan(a, b.OtherThan)
+	}
+	emptyNS := c.emptyNamespaceID()
+	if a.Mode == wildLocal && b.Mode == wildLocal {
+		return true
+	}
+	if a.Mode == wildLocal {
+		return c.wildcardAllowsNamespace(b, emptyNS)
+	}
+	if b.Mode == wildLocal {
+		return c.wildcardAllowsNamespace(a, emptyNS)
+	}
+	for _, ns := range c.wildcardNamespaces(a) {
+		if c.wildcardAllowsNamespace(b, ns) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *compiler) wildcardHasNamespaceOtherThan(w wildcard, excluded namespaceID) bool {
+	switch w.Mode {
+	case wildAny:
+		return true
+	case wildOther:
+		return true
+	case wildLocal:
+		return false
+	case wildTargetNamespace, wildList:
+		for _, ns := range c.wildcardNamespaces(w) {
+			if ns != excluded {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *compiler) wildcardNamespaceEqual(a, b wildcard) bool {
+	if a.Mode != b.Mode || a.OtherThan != b.OtherThan || len(a.Namespaces) != len(b.Namespaces) {
+		return false
+	}
+	for i := range a.Namespaces {
+		if a.Namespaces[i] != b.Namespaces[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *compiler) wildcardNamespaces(w wildcard) []namespaceID {
+	if w.Mode == wildTargetNamespace || w.Mode == wildList {
+		return w.Namespaces
+	}
+	return nil
 }
 
 func (c *compiler) emptyNamespaceID() namespaceID {
