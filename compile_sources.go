@@ -6,7 +6,9 @@ import (
 	"errors"
 	"hash/maphash"
 	"maps"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 )
@@ -28,8 +30,9 @@ func (c *compiler) load(sources []SchemaSource) error {
 		if s.name == "" {
 			return schemaCompile(ErrSchemaRead, "schema source name is required")
 		}
-		name := filepath.Clean(s.name)
-		if _, ok := c.sources[name]; ok {
+		name := s.name
+		key := schemaSourceKey(name)
+		if _, ok := c.sources[key]; ok {
 			continue
 		}
 		data, err := s.read(c.limits.maxSchemaSourceBytes)
@@ -42,12 +45,12 @@ func (c *compiler) load(sources []SchemaSource) error {
 			}
 			return &Error{Category: SchemaParseErrorCategory, Code: ErrSchemaRead, Message: "read schema " + s.name, Err: err}
 		}
-		doc, err := parseSchemaDocument(name, data, c.limits)
+		doc, err := parseSchemaDocument(name, key, data, c.limits)
 		if err != nil {
 			return err
 		}
-		c.sources[name] = data
-		c.sourceDocs[name] = doc
+		c.sources[key] = data
+		c.sourceDocs[key] = doc
 		if s.resolver == nil {
 			continue
 		}
@@ -66,7 +69,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 				next.resolver = s.resolver
 			}
 			if next.name != "" {
-				c.resolvedRef[schemaReferenceKey{base: name, location: ref.location}] = filepath.Clean(next.name)
+				c.resolvedRef[schemaReferenceKey{base: key, location: ref.location}] = schemaSourceKey(next.name)
 			}
 			queue = append(queue, schemaLoad{source: next, optionalMissing: true})
 		}
@@ -152,7 +155,7 @@ func schemaDocumentRefs(doc *rawDoc) []schemaDocumentRef {
 		switch child.Name.Local {
 		case "include", "import":
 			location, ok := child.attr("schemaLocation")
-			if !ok || location == "" {
+			if !ok || trimXMLWhitespace(location) == "" {
 				continue
 			}
 			ref := schemaDocumentRef{location: location}
@@ -189,13 +192,13 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 						return schemaCompile(ErrSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
 					}
 					importNamespace = namespace
-					if c.imports[doc.name] == nil {
-						c.imports[doc.name] = make(map[string]bool)
+					if c.imports[doc.key] == nil {
+						c.imports[doc.key] = make(map[string]bool)
 					}
-					c.imports[doc.name][importNamespace] = true
+					c.imports[doc.key][importNamespace] = true
 				}
 				location, ok := child.attr("schemaLocation")
-				if !ok || location == "" {
+				if !ok || trimXMLWhitespace(location) == "" {
 					if child.Name.Local == "include" {
 						return schemaCompile(ErrSchemaReference, "include missing schemaLocation")
 					}
@@ -242,7 +245,7 @@ func (c *compiler) propagateChameleonTargets() error {
 					continue
 				}
 				location, ok := child.attr("schemaLocation")
-				if !ok || location == "" {
+				if !ok || trimXMLWhitespace(location) == "" {
 					continue
 				}
 				referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
@@ -276,23 +279,80 @@ func (c *compiler) documentTargetNamespace(doc *rawDoc) string {
 	if target := doc.root.attrDefault("targetNamespace", ""); target != "" {
 		return target
 	}
-	return c.adoptTarget[doc.name]
+	return c.adoptTarget[doc.key]
 }
 
 func (c *compiler) resolveLoadedSchemaLocation(doc *rawDoc, location string) (*rawDoc, string, bool) {
-	if resolved, ok := c.resolvedRef[schemaReferenceKey{base: doc.name, location: location}]; ok {
+	try := func(resolved string) (*rawDoc, string, bool) {
 		if _, loaded := c.sources[resolved]; loaded {
 			return c.sourceDocs[resolved], resolved, true
 		}
-	}
-	if resolved, ok := resolveLocalSchemaLocation(doc.name, location); ok {
-		if _, loaded := c.sources[resolved]; loaded {
-			return c.sourceDocs[resolved], resolved, true
-		}
-	}
-	resolved := filepath.Clean(location)
-	if _, ok := c.sources[resolved]; !ok {
 		return nil, "", false
 	}
-	return c.sourceDocs[resolved], resolved, true
+	if resolved, ok := c.resolvedRef[schemaReferenceKey{base: doc.key, location: location}]; ok {
+		if referenced, key, ok := try(resolved); ok {
+			return referenced, key, true
+		}
+	}
+	loc := trimXMLWhitespace(location)
+	if loc == "" {
+		return nil, "", false
+	}
+	for _, resolved := range schemaLocationKeys(doc.name, doc.key, loc) {
+		if referenced, key, ok := try(resolved); ok {
+			return referenced, key, true
+		}
+	}
+	return nil, "", false
+}
+
+func schemaSourceKey(name string) string {
+	if filepath.VolumeName(name) != "" {
+		return filepath.Clean(name)
+	}
+	u, err := url.Parse(name)
+	if err == nil && u.Scheme != "" {
+		if path, ok := localFileURIPath(u); ok {
+			return path
+		}
+		if u.Opaque != "" {
+			return name
+		}
+		if u.Host != "" || u.Path != "" {
+			if u.Path != "" {
+				u.Path = path.Clean(u.Path)
+				if u.Path == "." {
+					u.Path = ""
+				}
+			}
+			return u.String()
+		}
+	}
+	return filepath.Clean(name)
+}
+
+func schemaLocationKeys(baseName, baseKey, loc string) []string {
+	var keys []string
+	add := func(key string) {
+		for _, existing := range keys {
+			if existing == key {
+				return
+			}
+		}
+		keys = append(keys, key)
+	}
+	baseURL, baseURLErr := url.Parse(baseName)
+	baseIsURL := baseURLErr == nil && baseURL.Scheme != "" && baseURL.Opaque == "" && (baseURL.Host != "" || baseURL.Path != "")
+	if baseIsURL {
+		if ref, err := url.Parse(loc); err == nil && ref.Opaque == "" && (ref.Scheme == "" || ref.Host != "" || ref.Path != "") {
+			add(schemaSourceKey(baseURL.ResolveReference(ref).String()))
+		}
+	}
+	if !baseIsURL {
+		if resolved, ok := resolveLocalSchemaLocation(baseKey, loc); ok {
+			add(schemaSourceKey(resolved))
+		}
+	}
+	add(schemaSourceKey(loc))
+	return keys
 }

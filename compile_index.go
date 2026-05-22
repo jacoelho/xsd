@@ -60,10 +60,10 @@ func (c *compiler) schemaContext(doc *rawDoc) (*schemaContext, error) {
 		attrQualified:    attrQualified,
 		blockDefault:     blockDefault,
 		finalDefault:     finalDefault,
-		imports:          c.imports[doc.name],
+		imports:          c.imports[doc.key],
 	}
-	if ctx.targetNS == "" && c.adoptTarget[doc.name] != "" {
-		ctx.targetNS = c.adoptTarget[doc.name]
+	if ctx.targetNS == "" && c.adoptTarget[doc.key] != "" {
+		ctx.targetNS = c.adoptTarget[doc.key]
 	}
 	return ctx, nil
 }

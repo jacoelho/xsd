@@ -111,7 +111,7 @@ Finite `minOccurs` and `maxOccurs` values above `4294967295` are schema compile 
 
 ## Validation Options
 
-Use `ValidateWithOptions` for one validation call, or `NewSession` to reuse document-local buffers across calls:
+Use `ValidateWithOptions` for one validation call, or `NewSession` to reuse document-local buffers and bounded string caches across calls:
 
 ```go
 session, err := engine.NewSession(xsd.ValidateOptions{
@@ -146,7 +146,7 @@ Available validation options:
 
 Negative integer limits are validation errors.
 
-`Engine` is goroutine-safe. `Session` is not goroutine-safe; use one session per goroutine. `Session.Validate` resets document-local state before every validation.
+`Engine` is goroutine-safe. `Session` is not goroutine-safe; use one session per goroutine. `Session.Validate` and `Session.Reset` clear validation state but may retain bounded scratch buffers and small string caches; create a new session to release retained cache contents.
 
 ## Resolve Includes From Reader
 

@@ -516,7 +516,7 @@ func (c *compiler) resolveQNameChecked(n *rawNode, ctx *schemaContext, lexical s
 	if err != nil {
 		return qName{}, err
 	}
-	if ns == "" && ctx != nil && ctx.targetNS != "" && c.adoptTarget[ctx.doc.name] != "" {
+	if ns == "" && ctx != nil && ctx.targetNS != "" && c.adoptTarget[ctx.doc.key] != "" {
 		ns = ctx.targetNS
 	}
 	if ctx != nil && !ctx.referenceNamespaceVisible(ns) {
