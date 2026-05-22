@@ -11,6 +11,7 @@ import (
 type rawDoc struct {
 	root *rawNode
 	name string
+	key  string
 }
 
 type rawNode struct {
@@ -24,7 +25,7 @@ type rawNode struct {
 	Column   int
 }
 
-func parseSchemaDocument(name string, data []byte, limits compileLimits) (*rawDoc, error) {
+func parseSchemaDocument(name, key string, data []byte, limits compileLimits) (*rawDoc, error) {
 	data = bytes.TrimPrefix(data, utf8BOM)
 	if version := declaredXMLVersion(data); version != "" && version != "1.0" {
 		return nil, unsupported(ErrUnsupportedXML11, "XML version "+version+" is not supported")
@@ -56,7 +57,7 @@ func parseSchemaDocument(name string, data []byte, limits compileLimits) (*rawDo
 	if err := rejectInvalidAnnotations(state.root); err != nil {
 		return nil, err
 	}
-	return &rawDoc{name: name, root: state.root}, nil
+	return &rawDoc{name: name, key: key, root: state.root}, nil
 }
 
 type schemaParseState struct {

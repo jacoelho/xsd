@@ -58,7 +58,9 @@ func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 	return session.Validate(r)
 }
 
-// NewSession creates a reusable validation session.
+// NewSession creates a reusable validation session. Reused sessions retain
+// bounded scratch buffers and string caches; create a new session to release
+// retained cache contents.
 func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
 	if err := validateOptions(opts); err != nil {
 		return nil, err
@@ -106,7 +108,8 @@ func validateOptions(opts ValidateOptions) error {
 	return nil
 }
 
-// Validate validates one XML instance document and resets document-local state first.
+// Validate validates one XML instance document and resets validation state
+// first. It may retain bounded scratch buffers and string caches for reuse.
 func (s *Session) Validate(r io.Reader) error {
 	if s == nil {
 		return (*session)(nil).validate(r)
@@ -114,7 +117,9 @@ func (s *Session) Validate(r io.Reader) error {
 	return s.session.validate(r)
 }
 
-// Reset clears document-local validation state while preserving options.
+// Reset clears validation state while preserving options. It may retain bounded
+// scratch buffers and string caches; create a new session to release retained
+// cache contents.
 func (s *Session) Reset() {
 	if s == nil {
 		return

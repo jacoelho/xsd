@@ -1,0 +1,20 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="floatRow" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="amount" type="xs:float"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="doubleRow" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="amount" type="xs:double"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="floatAmount"><xs:selector xpath="floatRow"/><xs:field xpath="@amount"/></xs:unique>
+    <xs:unique name="doubleAmount"><xs:selector xpath="doubleRow"/><xs:field xpath="@amount"/></xs:unique>
+  </xs:element>
+</xs:schema>

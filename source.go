@@ -144,21 +144,25 @@ func resolveFileSchemaSource(base, location string) (SchemaSource, error) {
 func resolveLocalSchemaLocation(base, location string) (string, bool) {
 	u, err := url.Parse(location)
 	if err == nil && u.Scheme != "" {
-		if u.Scheme != "file" {
-			return "", false
-		}
-		if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {
-			return "", false
-		}
-		path, err := url.PathUnescape(u.Path)
-		if err != nil || path == "" {
-			return "", false
-		}
-		return filepath.Clean(path), true
+		return localFileURIPath(u)
 	}
 	location = filepath.FromSlash(trimXMLWhitespace(location))
 	if location == "" {
 		return "", false
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(base), location)), true
+}
+
+func localFileURIPath(u *url.URL) (string, bool) {
+	if u.Scheme != "file" {
+		return "", false
+	}
+	if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {
+		return "", false
+	}
+	path, err := url.PathUnescape(u.Path)
+	if err != nil || path == "" {
+		return "", false
+	}
+	return filepath.Clean(path), true
 }

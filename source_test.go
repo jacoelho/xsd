@@ -336,6 +336,98 @@ func TestURISchemaLocationResolvesProvidedSourceName(t *testing.T) {
 	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
 }
 
+func TestRelativeSchemaLocationResolvesProvidedURLSourceName(t *testing.T) {
+	engine, err := Compile(
+		sourceBytes("https://example.test/schema/main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="types.xsd"/>
+  <xs:element name="root" type="t:Included"/>
+</xs:schema>`)),
+		sourceBytes("https://example.test/schema/types.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:complexType name="Included">
+    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`)),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
+}
+
+func TestFileURISchemaLocationResolvesProvidedFileSource(t *testing.T) {
+	dir := t.TempDir()
+	types := filepath.Join(dir, "types.xsd")
+	writeSchemaFile(t, types, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:complexType name="Included">
+    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`)
+	engine, err := Compile(
+		sourceBytes("https://example.test/schema/main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="file://`+filepath.ToSlash(types)+`"/>
+  <xs:element name="root" type="t:Included"/>
+</xs:schema>`)),
+		File(types),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
+}
+
+func TestWhitespaceOnlyIncludeSchemaLocationIsMissing(t *testing.T) {
+	_, err := Compile(sourceBytes("https://example.test/schema/main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="   "/>
+</xs:schema>`)))
+	expectCode(t, err, ErrSchemaReference)
+}
+
+func TestWhitespaceOnlyIncludeSchemaLocationDoesNotCallResolver(t *testing.T) {
+	called := false
+	_, err := Compile(Reader("https://example.test/schema/main.xsd", strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="   "/>
+</xs:schema>`)).WithResolver(ResolverFunc(func(base, location string) (SchemaSource, error) {
+		called = true
+		return SchemaSource{}, ErrSchemaNotFound
+	})))
+	expectCode(t, err, ErrSchemaReference)
+	if called {
+		t.Fatal("resolver called for whitespace-only include schemaLocation")
+	}
+}
+
+func TestFileLikeReaderNamesUseCleanedSourceKeys(t *testing.T) {
+	engine, err := Compile(
+		sourceBytes("./main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="types.xsd"/>
+  <xs:element name="root" type="Included"/>
+</xs:schema>`)),
+		sourceBytes("./types.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Included">
+    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`)),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root><v>7</v></root>`)
+}
+
 func TestURISchemaLocationImportNamespaceMismatchIsSchemaError(t *testing.T) {
 	_, err := Compile(
 		sourceBytes("main.xsd", []byte(`
@@ -425,6 +517,37 @@ func TestHTTPResolverChameleonIncludePropagatesTargetNamespace(t *testing.T) {
 	}))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
+}
+
+func TestResolverReceivesURIBaseUnchanged(t *testing.T) {
+	const mainName = "https://example.test/schema/main.xsd"
+	var gotBase string
+	engine, err := Compile(Reader(mainName, strings.NewReader(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	           targetNamespace="urn:test"
+	           xmlns:t="urn:test"
+	           elementFormDefault="qualified">
+	  <xs:include schemaLocation="types.xsd"/>
+	  <xs:element name="root" type="t:Included"/>
+	</xs:schema>`)).WithResolver(ResolverFunc(func(base, location string) (SchemaSource, error) {
+		gotBase = base
+		if location != "types.xsd" {
+			return SchemaSource{}, ErrSchemaNotFound
+		}
+		return Reader("https://example.test/schema/types.xsd", strings.NewReader(`
+		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+		  <xs:complexType name="Included">
+		    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+		  </xs:complexType>
+		</xs:schema>`)), nil
+	})))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if gotBase != mainName {
+		t.Fatalf("resolver base = %q, want %q", gotBase, mainName)
 	}
 	mustValidate(t, engine, `<root xmlns="urn:test"><v>7</v></root>`)
 }
