@@ -84,6 +84,13 @@ func TestRunReportsArgumentFailure(t *testing.T) {
 	}
 }
 
+func TestRunReturnsArgumentFailureWhenStderrWriteFails(t *testing.T) {
+	stderr := errWriter{err: errors.New("write failed")}
+	if code := run([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, stderr); code != 2 {
+		t.Fatalf("run() code = %d, want 2", code)
+	}
+}
+
 func TestRunReportsDocumentCloseFailure(t *testing.T) {
 	dir := t.TempDir()
 	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
@@ -114,6 +121,14 @@ type closeErrorReader struct {
 
 func (r closeErrorReader) Close() error {
 	return r.err
+}
+
+type errWriter struct {
+	err error
+}
+
+func (w errWriter) Write([]byte) (int, error) {
+	return 0, w.err
 }
 
 func writeXMLLintTestFile(t *testing.T, dir, name, data string) string {

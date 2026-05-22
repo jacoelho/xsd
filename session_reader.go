@@ -14,10 +14,6 @@ const xmlDeclarationPrefixLen = len("<?xml ")
 
 var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
 
-func prepareInstanceReader(r io.Reader) (io.Reader, error) {
-	return prepareInstanceReaderWithBuffer(r, nil)
-}
-
 func prepareInstanceReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Reader, error) {
 	if r == nil {
 		return nil, validation(ErrValidationXML, 0, 0, "", "instance reader is nil")

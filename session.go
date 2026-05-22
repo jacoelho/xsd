@@ -305,26 +305,26 @@ func (s *session) validate(r io.Reader) error {
 }
 
 func (s *session) reset() {
-	s.errors = resetRetainedSlice(s.errors, maxRetainedSliceCap)
-	s.stack = resetRetainedSlice(s.stack, maxRetainedSliceCap)
-	s.ns.frames = resetRetainedSlice(s.ns.frames, maxRetainedSliceCap)
-	s.ns.bindings = resetRetainedSlice(s.ns.bindings, maxRetainedSliceCap)
-	s.text = resetRetainedBytes(s.text, maxRetainedBufferCap)
-	s.path = resetRetainedSlice(s.path, maxRetainedSliceCap)
+	s.errors = resetRetainedSlice(s.errors)
+	s.stack = resetRetainedSlice(s.stack)
+	s.ns.frames = resetRetainedSlice(s.ns.frames)
+	s.ns.bindings = resetRetainedSlice(s.ns.bindings)
+	s.text = resetRetainedBytes(s.text)
+	s.path = resetRetainedSlice(s.path)
 	s.pathText = ""
 	s.pathDirty = true
-	s.namePath = resetRetainedSlice(s.namePath, maxRetainedSliceCap)
-	s.elementNames = resetRetainedSlice(s.elementNames, maxRetainedSliceCap)
-	s.allBits = resetRetainedSlice(s.allBits, maxRetainedSliceCap)
+	s.namePath = resetRetainedSlice(s.namePath)
+	s.elementNames = resetRetainedSlice(s.elementNames)
+	s.allBits = resetRetainedSlice(s.allBits)
 	if len(s.ids) > maxRetainedMapLen {
 		s.ids = nil
 	} else {
 		clear(s.ids)
 	}
-	s.idrefs = resetRetainedSlice(s.idrefs, maxRetainedSliceCap)
-	s.idScopes = resetRetainedSlice(s.idScopes, maxRetainedSliceCap)
-	s.idSelections = resetRetainedSlice(s.idSelections, maxRetainedSliceCap)
-	s.identityMatches = resetRetainedSlice(s.identityMatches, maxRetainedSliceCap)
+	s.idrefs = resetRetainedSlice(s.idrefs)
+	s.idScopes = resetRetainedSlice(s.idScopes)
+	s.idSelections = resetRetainedSlice(s.idSelections)
+	s.identityMatches = resetRetainedSlice(s.identityMatches)
 	s.identityEntries = 0
 	if len(s.schemaLocationNamespaces) > maxRetainedMapLen {
 		s.schemaLocationNamespaces = nil
@@ -333,16 +333,16 @@ func (s *session) reset() {
 	}
 }
 
-func resetRetainedSlice[T any](s []T, maxCap int) []T {
-	if cap(s) > maxCap {
+func resetRetainedSlice[T any](s []T) []T {
+	if cap(s) > maxRetainedSliceCap {
 		return nil
 	}
 	clear(s[:cap(s)])
 	return s[:0]
 }
 
-func resetRetainedBytes(s []byte, maxCap int) []byte {
-	if cap(s) > maxCap {
+func resetRetainedBytes(s []byte) []byte {
+	if cap(s) > maxRetainedBufferCap {
 		return nil
 	}
 	return s[:0]
@@ -547,10 +547,7 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 		f.HasText = true
 	}
 	if f.Type.Kind == typeSimple || (f.Type.Kind == typeComplex && s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue) {
-		if err := s.appendText(data, line, col); err != nil {
-			return err
-		}
-		return nil
+		return s.appendText(data, line, col)
 	}
 	if f.Type.Kind == typeComplex {
 		ct := s.engine.rt.ComplexTypes[f.Type.ID]

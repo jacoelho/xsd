@@ -2,9 +2,7 @@ package xsd
 
 func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (particle, error) {
 	if ref, ok := n.attr("ref"); ok {
-		if err := validateKnownAttributes(n, "element ref", map[string]bool{
-			"id": true, "ref": true, "minOccurs": true, "maxOccurs": true,
-		}); err != nil {
+		if err := validateKnownAttributes(n, "element ref", isElementRefAttribute); err != nil {
 			return particle{}, err
 		}
 		if len(n.xsContentChildren()) != 0 {
@@ -99,11 +97,7 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (elementI
 }
 
 func validateElementDeclContent(n *rawNode) error {
-	if err := validateKnownAttributes(n, "element", map[string]bool{
-		"id": true, "name": true, "ref": true, "type": true, "substitutionGroup": true,
-		"nillable": true, "default": true, "fixed": true, "form": true,
-		"block": true, "final": true, "abstract": true, "minOccurs": true, "maxOccurs": true,
-	}); err != nil {
+	if err := validateKnownAttributes(n, "element", isElementAttribute); err != nil {
 		return err
 	}
 	seenType := false
@@ -138,6 +132,26 @@ func validateElementDeclContent(n *rawNode) error {
 		return schemaCompile(ErrSchemaInvalidAttribute, "element cannot have both type and anonymous type")
 	}
 	return nil
+}
+
+func isElementRefAttribute(name string) bool {
+	switch name {
+	case "id", "ref", "minOccurs", "maxOccurs":
+		return true
+	default:
+		return false
+	}
+}
+
+func isElementAttribute(name string) bool {
+	switch name {
+	case "id", "name", "ref", "type", "substitutionGroup",
+		"nillable", "default", "fixed", "form",
+		"block", "final", "abstract", "minOccurs", "maxOccurs":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (elementDecl, error) {
@@ -278,23 +292,17 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		return schemaCompile(ErrSchemaFacet, "NOTATION value constraint requires enumeration")
 	}
 	if decl.HasDefault {
-		value, err := validateSimpleValueIdentityInfo(&c.rt, simpleID, decl.Default, resolve)
+		value, err := c.validateValueConstraint(simpleID, decl.Default, resolve, decl.Name, "element default")
 		if err != nil {
-			if IsUnsupported(err) {
-				return err
-			}
-			return schemaCompile(ErrSchemaFacet, "invalid element default value for "+c.rt.Names.Format(decl.Name))
+			return err
 		}
 		decl.DefaultCanonical = value.Canonical
 		decl.DefaultValue = value
 	}
 	if decl.HasFixed {
-		value, err := validateSimpleValueIdentityInfo(&c.rt, simpleID, decl.Fixed, resolve)
+		value, err := c.validateValueConstraint(simpleID, decl.Fixed, resolve, decl.Name, "element fixed")
 		if err != nil {
-			if IsUnsupported(err) {
-				return err
-			}
-			return schemaCompile(ErrSchemaFacet, "invalid element fixed value for "+c.rt.Names.Format(decl.Name))
+			return err
 		}
 		decl.FixedCanonical = value.Canonical
 		decl.FixedValue = value

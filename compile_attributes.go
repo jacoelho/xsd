@@ -107,28 +107,33 @@ func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolv
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed attribute cannot have default or fixed")
 	}
 	if decl.HasDefault {
-		value, err := validateSimpleValueIdentityInfo(&c.rt, decl.Type, decl.Default, resolve)
+		value, err := c.validateValueConstraint(decl.Type, decl.Default, resolve, decl.Name, "attribute default")
 		if err != nil {
-			if IsUnsupported(err) {
-				return err
-			}
-			return schemaCompile(ErrSchemaFacet, "invalid attribute default value for "+c.rt.Names.Format(decl.Name))
+			return err
 		}
 		decl.DefaultCanonical = value.Canonical
 		decl.DefaultValue = value
 	}
 	if decl.HasFixed {
-		value, err := validateSimpleValueIdentityInfo(&c.rt, decl.Type, decl.Fixed, resolve)
+		value, err := c.validateValueConstraint(decl.Type, decl.Fixed, resolve, decl.Name, "attribute fixed")
 		if err != nil {
-			if IsUnsupported(err) {
-				return err
-			}
-			return schemaCompile(ErrSchemaFacet, "invalid attribute fixed value for "+c.rt.Names.Format(decl.Name))
+			return err
 		}
 		decl.FixedCanonical = value.Canonical
 		decl.FixedValue = value
 	}
 	return nil
+}
+
+func (c *compiler) validateValueConstraint(id simpleTypeID, lexical string, resolve qnameResolver, owner qName, label string) (simpleValue, error) {
+	value, err := validateSimpleValueIdentityInfo(&c.rt, id, lexical, resolve)
+	if err != nil {
+		if IsUnsupported(err) {
+			return simpleValue{}, err
+		}
+		return simpleValue{}, schemaCompile(ErrSchemaFacet, "invalid "+label+" value for "+c.rt.Names.Format(owner))
+	}
+	return value, nil
 }
 
 func (c *compiler) schemaQNameResolver(n *rawNode) qnameResolver {
@@ -147,7 +152,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 	for i := range uses {
 		seen[uses[i].Name] = i
 	}
-	completeWildcard := noWildcard
+	wildcards := newAttributeWildcardBuilder(inheritedWildcard, allowOverride)
 	for _, child := range parent.xsContentChildren() {
 		switch child.Name.Local {
 		case "attribute":
@@ -170,32 +175,16 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 					return noAttributeUseSet, err
 				}
 			}
-			if groupWildcard != noWildcard {
-				if completeWildcard == noWildcard {
-					completeWildcard = groupWildcard
-				} else {
-					process := c.rt.Wildcards[completeWildcard].Process
-					id, err := c.intersectWildcards(completeWildcard, groupWildcard, process)
-					if err != nil {
-						return noAttributeUseSet, err
-					}
-					completeWildcard = id
-				}
+			if err := wildcards.addGroup(c, groupWildcard); err != nil {
+				return noAttributeUseSet, err
 			}
 		case "anyAttribute":
 			id, err := c.compileWildcard(child, ctx, true)
 			if err != nil {
 				return noAttributeUseSet, err
 			}
-			if completeWildcard == noWildcard {
-				completeWildcard = id
-			} else {
-				process := c.rt.Wildcards[id].Process
-				intersectionID, err := c.intersectWildcards(completeWildcard, id, process)
-				if err != nil {
-					return noAttributeUseSet, err
-				}
-				completeWildcard = intersectionID
+			if err := wildcards.addAnyAttribute(c, id); err != nil {
+				return noAttributeUseSet, err
 			}
 		default:
 			if parent.Name.Local == "attributeGroup" && child.Name.Space == xsdNamespaceURI {
@@ -203,27 +192,9 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 			}
 		}
 	}
-	wildcard := completeWildcard
-	if allowOverride {
-		if completeWildcard != noWildcard {
-			if inheritedWildcard == noWildcard {
-				return noAttributeUseSet, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction requires base wildcard")
-			}
-			if !c.wildcardSubset(completeWildcard, inheritedWildcard) {
-				return noAttributeUseSet, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction is not subset of base")
-			}
-		}
-	} else if parent.Name.Local == "extension" && inheritedWildcard != noWildcard {
-		if completeWildcard == noWildcard {
-			wildcard = inheritedWildcard
-		} else {
-			process := c.rt.Wildcards[completeWildcard].Process
-			id, err := c.unionWildcards(completeWildcard, inheritedWildcard, process)
-			if err != nil {
-				return noAttributeUseSet, err
-			}
-			wildcard = id
-		}
+	wildcard, err := wildcards.finish(c, parent.Name.Local)
+	if err != nil {
+		return noAttributeUseSet, err
 	}
 	finalUses := removeProhibitedAttributeUses(uses)
 	if err := c.validateAttributeUseSet(finalUses); err != nil {
@@ -232,6 +203,77 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 	id := attributeUseSetID(len(c.rt.AttributeUseSets))
 	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, newAttributeUseSet(finalUses, wildcard))
 	return id, nil
+}
+
+type attributeWildcardBuilder struct {
+	wildcard          wildcardID
+	inheritedWildcard wildcardID
+	allowOverride     bool
+}
+
+func newAttributeWildcardBuilder(inheritedWildcard wildcardID, allowOverride bool) attributeWildcardBuilder {
+	return attributeWildcardBuilder{
+		wildcard:          noWildcard,
+		inheritedWildcard: inheritedWildcard,
+		allowOverride:     allowOverride,
+	}
+}
+
+func (b *attributeWildcardBuilder) addGroup(c *compiler, id wildcardID) error {
+	if id == noWildcard {
+		return nil
+	}
+	process := c.rt.Wildcards[id].Process
+	if b.wildcard != noWildcard {
+		process = c.rt.Wildcards[b.wildcard].Process
+	}
+	return b.add(c, id, process)
+}
+
+func (b *attributeWildcardBuilder) addAnyAttribute(c *compiler, id wildcardID) error {
+	if id == noWildcard {
+		return nil
+	}
+	return b.add(c, id, c.rt.Wildcards[id].Process)
+}
+
+func (b *attributeWildcardBuilder) add(c *compiler, id wildcardID, process processContents) error {
+	if b.wildcard == noWildcard {
+		b.wildcard = id
+		return nil
+	}
+	intersectionID, err := c.intersectWildcards(b.wildcard, id, process)
+	if err != nil {
+		return err
+	}
+	b.wildcard = intersectionID
+	return nil
+}
+
+func (b *attributeWildcardBuilder) finish(c *compiler, parentName string) (wildcardID, error) {
+	wildcard := b.wildcard
+	if b.allowOverride {
+		if b.wildcard != noWildcard {
+			if b.inheritedWildcard == noWildcard {
+				return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction requires base wildcard")
+			}
+			if !c.wildcardSubset(b.wildcard, b.inheritedWildcard) {
+				return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction is not subset of base")
+			}
+		}
+	} else if parentName == "extension" && b.inheritedWildcard != noWildcard {
+		if b.wildcard == noWildcard {
+			wildcard = b.inheritedWildcard
+		} else {
+			process := c.rt.Wildcards[b.wildcard].Process
+			id, err := c.unionWildcards(b.wildcard, b.inheritedWildcard, process)
+			if err != nil {
+				return noWildcard, err
+			}
+			wildcard = id
+		}
+	}
+	return wildcard, nil
 }
 
 func newAttributeUseSet(uses []attributeUse, wildcard wildcardID) attributeUseSet {

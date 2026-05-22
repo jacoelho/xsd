@@ -174,12 +174,7 @@ func validateTopLevelElementAttrs(n *rawNode) error {
 }
 
 func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
-	if err := validateKnownAttributes(n, "notation", map[string]bool{
-		"id":     true,
-		"name":   true,
-		"public": true,
-		"system": true,
-	}); err != nil {
+	if err := validateKnownAttributes(n, "notation", isNotationAttribute); err != nil {
 		return err
 	}
 	if trimXMLWhitespace(n.Text) != "" {
@@ -209,6 +204,15 @@ func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
 	}
 	c.rt.Notations[key] = true
 	return nil
+}
+
+func isNotationAttribute(name string) bool {
+	switch name {
+	case "id", "name", "public", "system":
+		return true
+	default:
+		return false
+	}
 }
 
 func isTopLevelSchemaChild(local string) bool {

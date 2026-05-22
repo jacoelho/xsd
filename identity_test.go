@@ -597,6 +597,40 @@ func TestValidateOptionsIdentityLimits(t *testing.T) {
 	expectCode(t, err, ErrValidationIdentity)
 }
 
+func TestIdentitySelectionRecoveryCollectsMultipleFieldErrors(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="row" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="a" type="xs:string"/>
+            <xs:attribute name="b" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="ua"><xs:selector xpath="row"/><xs:field xpath="@a"/></xs:unique>
+    <xs:unique name="ub"><xs:selector xpath="row"/><xs:field xpath="@b"/></xs:unique>
+  </xs:element>
+</xs:schema>`)
+	err := engine.ValidateWithOptions(
+		strings.NewReader(`<root><row a="x" b="y"/><row a="x" b="y"/></root>`),
+		ValidateOptions{MaxErrors: 2},
+	)
+	errs, ok := err.(Errors)
+	if !ok {
+		t.Fatalf("ValidateWithOptions() error = %T, want Errors", err)
+	}
+	if len(errs) != 2 {
+		t.Fatalf("ValidateWithOptions() errors = %d, want 2", len(errs))
+	}
+	for _, err := range errs {
+		expectCode(t, err, ErrValidationIdentity)
+	}
+}
+
 func TestMultipleIDAttributeUsesAreSchemaErrors(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

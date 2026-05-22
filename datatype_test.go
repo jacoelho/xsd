@@ -335,6 +335,40 @@ func TestInvalidDecimalBoundsAreSchemaErrors(t *testing.T) {
 	expectCode(t, err, ErrSchemaFacet)
 }
 
+func TestDecimalEqualInclusiveBoundsCompile(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="OnlyTen">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="10.0"/>
+      <xs:maxInclusive value="10"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="OnlyTen"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>10.00</root>`)
+	mustNotValidate(t, engine, `<root>10.01</root>`, ErrValidationFacet)
+}
+
+func TestDecimalRestrictionCannotLoosenExclusiveBaseBounds(t *testing.T) {
+	tests := []string{
+		`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base"><xs:restriction base="xs:decimal"><xs:minExclusive value="10"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Bad"><xs:restriction base="Base"><xs:minInclusive value="10.0"/></xs:restriction></xs:simpleType>
+</xs:schema>`,
+		`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base"><xs:restriction base="xs:decimal"><xs:maxExclusive value="10"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Bad"><xs:restriction base="Base"><xs:maxInclusive value="10.0"/></xs:restriction></xs:simpleType>
+</xs:schema>`,
+	}
+	for _, schema := range tests {
+		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+		expectCode(t, err, ErrSchemaFacet)
+	}
+}
+
 func TestInvalidTemporalBoundsAreSchemaErrors(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

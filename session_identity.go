@@ -424,8 +424,9 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 		if err := s.finishIdentitySelection(sel, line, col); err != nil {
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
-				s.idSelections = append(dst, orig[i+1:]...)
-				clear(orig[len(s.idSelections):])
+				dst = append(dst, orig[i+1:]...)
+				clear(orig[len(dst):])
+				s.idSelections = dst
 				return recoverErr
 			}
 		}

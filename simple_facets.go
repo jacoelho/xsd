@@ -114,16 +114,12 @@ func applyPrimitiveBounds(kind primitiveKind, f facetSet, norm string, actual ac
 		return applyFloatBounds(kind, f, norm, actual)
 	case primDuration:
 		return applyDurationBounds(f, norm, actual)
-	case primGDay:
-		return applyGDayBounds(f, norm, actual)
-	case primGMonthDay:
-		return applyGMonthDayBounds(f, norm, actual)
-	case primGMonth:
-		return applyGMonthBounds(f, norm, actual)
-	case primGYearMonth:
-		return applyGYearMonthBounds(f, norm, actual)
-	case primGYear:
-		return applyGYearBounds(f, norm, actual)
+	case primGDay, primGMonthDay, primGMonth, primGYearMonth, primGYear:
+		_, parse, ok := gValueFacet(kind)
+		if !ok {
+			return fmt.Errorf("invalid g value primitive")
+		}
+		return applyGValueBounds(kind, f, norm, actual, parse)
 	case primDate, primDateTime, primTime:
 		return applyTemporalBounds(kind, f, norm, actual)
 	default:
@@ -204,6 +200,23 @@ func actualEqualsLiteral(actual actualValue, canon string, lit compiledLiteral) 
 	}
 }
 
+func facetCanonical(l *compiledLiteral) string {
+	return l.Canonical
+}
+
+func facetLexical(l *compiledLiteral) string {
+	return l.Lexical
+}
+
+func facetLiteralValue[T any](lit *compiledLiteral, text func(*compiledLiteral) string, parse func(string) (T, error), actual func(*compiledLiteral) (T, bool)) (T, error) {
+	if actual != nil {
+		if v, ok := actual(lit); ok {
+			return v, nil
+		}
+	}
+	return parse(text(lit))
+}
+
 func applyDecimalBounds(f facetSet, value decimalValue) error {
 	if f.MinInclusive != nil && compareDecimalValues(value, literalDecimal(f.MinInclusive)) < 0 {
 		return fmt.Errorf("minInclusive facet failed")
@@ -221,15 +234,19 @@ func applyDecimalBounds(f facetSet, value decimalValue) error {
 }
 
 func literalDecimal(l *compiledLiteral) decimalValue {
-	if l != nil && l.Actual.Valid && l.Actual.Kind == primDecimal {
-		return l.Actual.Decimal
-	}
 	if l == nil {
 		return decimalValue{}
 	}
-	dec, err := parseDecimalValue(l.Canonical)
+	dec, err := facetLiteralValue(l, facetCanonical, parseDecimalValue, actualDecimalLiteral)
 	if err != nil {
 		return decimalValue{Canonical: l.Canonical, IntegerCanonical: l.Canonical}
 	}
 	return dec
+}
+
+func actualDecimalLiteral(l *compiledLiteral) (decimalValue, bool) {
+	if l.Actual.Valid && l.Actual.Kind == primDecimal {
+		return l.Actual.Decimal, true
+	}
+	return decimalValue{}, false
 }

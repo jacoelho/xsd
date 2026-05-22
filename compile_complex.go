@@ -97,12 +97,12 @@ func schemaFormDefaultAttr(n *rawNode, name string) (bool, error) {
 	}
 }
 
-func validateKnownAttributes(n *rawNode, label string, allowed map[string]bool) error {
+func validateKnownAttributes(n *rawNode, label string, allowed func(string) bool) error {
 	for _, attr := range n.Attr {
 		if isNamespaceAttr(attr) || attr.Name.Space != "" {
 			continue
 		}
-		if !allowed[attr.Name.Local] {
+		if !allowed(attr.Name.Local) {
 			return schemaCompile(ErrSchemaInvalidAttribute, label+" cannot have attribute "+attr.Name.Local)
 		}
 	}

@@ -16,12 +16,8 @@ func normalizeWhitespace(s string, mode whitespaceMode) string {
 	}
 }
 
-func normalizeXMLAttributeWhitespace(s string) string {
-	return replaceXMLWhitespace(s)
-}
-
 func replaceXMLWhitespace(s string) string {
-	i := indexXMLWhitespaceToReplace(s)
+	i := indexNonSpaceXMLWhitespace(s)
 	if i < 0 {
 		return s
 	}
@@ -29,7 +25,7 @@ func replaceXMLWhitespace(s string) string {
 	b.Grow(len(s))
 	b.WriteString(s[:i])
 	for ; i < len(s); i++ {
-		if isXMLWhitespaceToReplace(s[i]) {
+		if isNonSpaceXMLWhitespaceByte(s[i]) {
 			b.WriteByte(' ')
 			continue
 		}
@@ -110,7 +106,7 @@ func xmlFieldsSeq(s string) iter.Seq[string] {
 	}
 }
 
-func indexXMLWhitespace(s string) int {
+func indexAnyXMLWhitespace(s string) int {
 	for i := 0; i < len(s); i++ {
 		if isXMLWhitespaceByte(s[i]) {
 			return i
@@ -119,9 +115,9 @@ func indexXMLWhitespace(s string) int {
 	return -1
 }
 
-func indexXMLWhitespaceToReplace(s string) int {
+func indexNonSpaceXMLWhitespace(s string) int {
 	for i := 0; i < len(s); i++ {
-		if isXMLWhitespaceToReplace(s[i]) {
+		if isNonSpaceXMLWhitespaceByte(s[i]) {
 			return i
 		}
 	}
@@ -136,7 +132,7 @@ func firstXMLWhitespaceCollapseChange(s string) int {
 			if runStart < 0 {
 				runStart = i
 			}
-			if i == 0 || isXMLWhitespaceToReplace(s[i]) {
+			if i == 0 || isNonSpaceXMLWhitespaceByte(s[i]) {
 				runNeedsCollapse = true
 			}
 			continue
@@ -166,7 +162,7 @@ func isXMLWhitespaceByte(b byte) bool {
 	}
 }
 
-func isXMLWhitespaceToReplace(b byte) bool {
+func isNonSpaceXMLWhitespaceByte(b byte) bool {
 	switch b {
 	case '\t', '\n', '\r':
 		return true
@@ -185,7 +181,7 @@ func isXMLWhitespaceBytes(data []byte) bool {
 }
 
 func removeXMLWhitespace(s string) string {
-	i := indexXMLWhitespace(s)
+	i := indexAnyXMLWhitespace(s)
 	if i < 0 {
 		return s
 	}

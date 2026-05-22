@@ -21,8 +21,8 @@ func FuzzXMLStreamParser(f *testing.F) {
 		if len(input) > 4096 {
 			t.Skip()
 		}
-		names := newByteStringCache(512, 256)
-		values := newByteStringCache(512, 256)
+		names := newByteStringCache()
+		values := newByteStringCache()
 		parser := newXMLStreamParser(strings.NewReader(input), &names, &values)
 		for tokens := 0; ; tokens++ {
 			if tokens > 4096 {
@@ -52,7 +52,7 @@ func FuzzSchemaParserLimits(f *testing.F) {
 		if len(schema) > 8192 {
 			t.Skip()
 		}
-		_, _ = CompileWithOptions(
+		if _, err := CompileWithOptions(
 			CompileOptions{
 				MaxSchemaDepth:        32,
 				MaxSchemaAttributes:   32,
@@ -63,7 +63,9 @@ func FuzzSchemaParserLimits(f *testing.F) {
 				MaxContentModelStates: 256,
 			},
 			sourceBytes("fuzz.xsd", []byte(schema)),
-		)
+		); err != nil {
+			return
+		}
 	})
 }
 
