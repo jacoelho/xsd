@@ -823,8 +823,12 @@ func TestNormalizeWhitespace(t *testing.T) {
 	}{
 		{name: "preserve", in: " a\tb\n", mode: whitespacePreserve, want: " a\tb\n"},
 		{name: "replace", in: "a\tb\nc\rd", mode: whitespaceReplace, want: "a b c d"},
+		{name: "replace unicode", in: "a\tβ\nc", mode: whitespaceReplace, want: "a β c"},
 		{name: "collapse", in: " \ta  b\nc\r ", mode: whitespaceCollapse, want: "a b c"},
+		{name: "collapse unicode", in: " \tα  β\n ", mode: whitespaceCollapse, want: "α β"},
 		{name: "collapse unchanged", in: "abc", mode: whitespaceCollapse, want: "abc"},
+		{name: "collapse unchanged internal space", in: "a b", mode: whitespaceCollapse, want: "a b"},
+		{name: "collapse trailing spaces", in: "123     ", mode: whitespaceCollapse, want: "123"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -874,26 +878,6 @@ func TestParseXSDFloatLexical(t *testing.T) {
 		t.Run("invalid "+s, func(t *testing.T) {
 			if _, err := parseXSDFloat(s, 64); err == nil {
 				t.Fatalf("parseXSDFloat(%q) succeeded", s)
-			}
-		})
-	}
-}
-
-func TestIsXMLWhitespaceBytes(t *testing.T) {
-	tests := []struct {
-		name string
-		in   []byte
-		want bool
-	}{
-		{name: "empty", in: nil, want: true},
-		{name: "xml whitespace", in: []byte(" \t\r\n"), want: true},
-		{name: "text", in: []byte(" a "), want: false},
-		{name: "unicode space", in: []byte("\u00a0"), want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isXMLWhitespaceBytes(tt.in); got != tt.want {
-				t.Fatalf("isXMLWhitespaceBytes() = %v, want %v", got, tt.want)
 			}
 		})
 	}

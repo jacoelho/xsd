@@ -1,9 +1,6 @@
 package xsd
 
-import (
-	"encoding/xml"
-	"strings"
-)
+import "encoding/xml"
 
 func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int) error {
 	rt := s.engine.rt
@@ -259,7 +256,7 @@ func (s *session) recordSchemaLocationHints(attrs []xml.Attr, line, col int) err
 
 func (s *session) recordNamespaceSchemaLocationHints(value string, line, col int) error {
 	count := 0
-	for field := range strings.FieldsSeq(value) {
+	for field := range xmlFieldsSeq(value) {
 		if !isAnyURI(field) {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:schemaLocation URI "+field)
 		}
@@ -269,7 +266,7 @@ func (s *session) recordNamespaceSchemaLocationHints(value string, line, col int
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:schemaLocation must contain namespace/location pairs")
 	}
 	i := 0
-	for field := range strings.FieldsSeq(value) {
+	for field := range xmlFieldsSeq(value) {
 		if i%2 == 0 {
 			s.addSchemaLocationHint(field)
 		}
@@ -279,7 +276,7 @@ func (s *session) recordNamespaceSchemaLocationHints(value string, line, col int
 }
 
 func (s *session) recordNoNamespaceSchemaLocationHint(value string, line, col int) error {
-	value = strings.TrimSpace(value)
+	value = trimXMLWhitespace(value)
 	if value == "" {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "xsi:noNamespaceSchemaLocation is empty")
 	}

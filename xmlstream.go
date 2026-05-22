@@ -811,7 +811,7 @@ func validateXMLDeclContent(content []byte) error {
 		}
 		rest = next
 	}
-	if len(bytes.TrimSpace(rest)) != 0 {
+	if len(trimXMLWhitespaceBytes(rest)) != 0 {
 		return fmt.Errorf("invalid XML declaration")
 	}
 	return nil

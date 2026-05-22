@@ -576,12 +576,3 @@ func (s *session) appendText(data []byte, line, col int) error {
 	s.text = append(s.text, data...)
 	return nil
 }
-
-func isXMLWhitespaceBytes(data []byte) bool {
-	for _, b := range data {
-		if !isXMLWhitespaceByte(b) {
-			return false
-		}
-	}
-	return true
-}

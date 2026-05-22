@@ -84,9 +84,6 @@ func validateXMLData(xmlText, xsdText string) validateResponse {
 	if int64(len(xmlText)) > maxXMLBytes {
 		return validateResponse{Error: fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes))}
 	}
-	if strings.TrimSpace(xsdText) == "" {
-		return validateResponse{Error: "XSD is empty"}
-	}
 	if int64(len(xsdText)) > maxXSDBytes {
 		return validateResponse{Error: fmt.Sprintf("XSD exceeds %s limit", byteLimit(maxXSDBytes))}
 	}

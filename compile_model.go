@@ -738,7 +738,7 @@ func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 	maxOccurs := uint32(1)
 	maxDigits := "1"
 	if v, ok := n.attr("maxOccurs"); ok {
-		if strings.TrimSpace(v) == "unbounded" {
+		if trimXMLWhitespace(v) == "unbounded" {
 			return occurrence{Min: minOccurs, Unbounded: true}, nil
 		}
 		digits, err := parseOccurrenceDigits(v)
@@ -777,7 +777,7 @@ func occurrenceUint32LimitExceeded(digits string) bool {
 }
 
 func parseOccurrenceDigits(v string) (string, error) {
-	v = strings.TrimSpace(v)
+	v = trimXMLWhitespace(v)
 	v = strings.TrimPrefix(v, "+")
 	if v == "" {
 		return "", fmt.Errorf("empty occurrence")

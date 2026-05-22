@@ -156,7 +156,7 @@ func resolveLocalSchemaLocation(base, location string) (string, bool) {
 		}
 		return filepath.Clean(path), true
 	}
-	location = filepath.FromSlash(strings.TrimSpace(location))
+	location = filepath.FromSlash(trimXMLWhitespace(location))
 	if location == "" {
 		return "", false
 	}

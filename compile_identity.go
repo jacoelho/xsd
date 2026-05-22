@@ -271,7 +271,7 @@ func validateIdentityXPathChild(n *rawNode, label string) error {
 	if !ok {
 		return schemaCompile(ErrSchemaIdentity, label+" missing xpath")
 	}
-	if strings.TrimSpace(xpath) == "" {
+	if trimXMLWhitespace(xpath) == "" {
 		return schemaCompile(ErrSchemaIdentity, label+" xpath is empty")
 	}
 	seenAnnotation := false
@@ -293,7 +293,7 @@ func validateIdentityXPathChild(n *rawNode, label string) error {
 func (c *compiler) parseIdentityPaths(n *rawNode, xpath string) ([]identityPath, error) {
 	out := make([]identityPath, 0, strings.Count(xpath, "|")+1)
 	for part := range strings.SplitSeq(xpath, "|") {
-		part = strings.TrimSpace(part)
+		part = trimXMLWhitespace(part)
 		if part == "" {
 			return nil, schemaCompile(ErrSchemaIdentity, "identity selector XPath branch is empty")
 		}
@@ -318,7 +318,7 @@ func (c *compiler) parseIdentityPaths(n *rawNode, xpath string) ([]identityPath,
 func (c *compiler) parseIdentityFieldPaths(n *rawNode, xpath string) ([]identityFieldPath, error) {
 	out := make([]identityFieldPath, 0, strings.Count(xpath, "|")+1)
 	for part := range strings.SplitSeq(xpath, "|") {
-		part = strings.TrimSpace(part)
+		part = trimXMLWhitespace(part)
 		if part == "" {
 			return nil, schemaCompile(ErrSchemaIdentity, "identity field XPath branch is empty")
 		}
@@ -388,10 +388,10 @@ func (c *compiler) parseIdentityFieldPaths(n *rawNode, xpath string) ([]identity
 
 func parseIdentityDescendantPrefix(path string) (string, bool) {
 	if rest, ok := strings.CutPrefix(path, ".//"); ok {
-		return strings.TrimSpace(rest), true
+		return trimXMLWhitespace(rest), true
 	}
 	if rest, ok := strings.CutPrefix(path, ". //"); ok {
-		return strings.TrimSpace(rest), true
+		return trimXMLWhitespace(rest), true
 	}
 	return path, false
 }
@@ -404,7 +404,7 @@ type identityAttributeName struct {
 }
 
 func (c *compiler) parseIdentityAttributeName(n *rawNode, name string) (identityAttributeName, error) {
-	name = strings.TrimSpace(name)
+	name = trimXMLWhitespace(name)
 	switch name {
 	case "*":
 		return identityAttributeName{wildcard: true}, nil
@@ -433,7 +433,7 @@ func (c *compiler) parseIdentityAttributeName(n *rawNode, name string) (identity
 }
 
 func (c *compiler) parseIdentityNameTest(n *rawNode, lexical string) (identityStep, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = trimXMLWhitespace(lexical)
 	if lexical == "*" {
 		return identityStep{wildcard: true}, nil
 	}
@@ -486,7 +486,7 @@ func (c *compiler) parseIdentitySteps(n *rawNode, path string) ([]identityStep, 
 	}
 	steps := make([]identityStep, 0, strings.Count(path, "/")+1)
 	for part := range strings.SplitSeq(path, "/") {
-		part = strings.TrimSpace(part)
+		part = trimXMLWhitespace(part)
 		if part == "" {
 			return nil, schemaCompile(ErrSchemaIdentity, "invalid identity XPath step")
 		}
@@ -513,17 +513,17 @@ func (c *compiler) parseIdentitySteps(n *rawNode, path string) ([]identityStep, 
 }
 
 func parseIdentityAxisStep(part, axis string) (string, bool) {
-	part = strings.TrimSpace(part)
+	part = trimXMLWhitespace(part)
 	rest, ok := strings.CutPrefix(part, axis)
 	if !ok {
 		return "", false
 	}
-	rest = strings.TrimSpace(rest)
+	rest = trimXMLWhitespace(rest)
 	rest, ok = strings.CutPrefix(rest, "::")
 	if !ok {
 		return "", false
 	}
-	return strings.TrimSpace(rest), true
+	return trimXMLWhitespace(rest), true
 }
 
 func (c *compiler) resolveXPathQName(n *rawNode, lexical string) (qName, error) {

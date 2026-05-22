@@ -153,7 +153,7 @@ func (s *session) recordIdentityValue(value simpleValue, line, col int) error {
 		return nil
 	}
 	path := s.pathString()
-	for canonical := range strings.FieldsSeq(value.IDs) {
+	for canonical := range xmlFieldsSeq(value.IDs) {
 		if s.ids == nil {
 			s.ids = make(map[string]string)
 		}
@@ -165,7 +165,7 @@ func (s *session) recordIdentityValue(value simpleValue, line, col int) error {
 		}
 		s.ids[canonical] = path
 	}
-	for canonical := range strings.FieldsSeq(value.IDRefs) {
+	for canonical := range xmlFieldsSeq(value.IDRefs) {
 		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
 			return err
 		}
@@ -380,7 +380,7 @@ func (s *session) captureIdentityComplexElement(rawText []byte, line, col int) e
 		return nil
 	}
 	text := string(rawText)
-	if strings.TrimSpace(text) == "" {
+	if trimXMLWhitespace(text) == "" {
 		match := fields[0]
 		if match.Selection >= len(s.idSelections) {
 			return internalInvariant("identity field match references invalid selection")

@@ -3,7 +3,6 @@ package xsd
 import (
 	"fmt"
 	"slices"
-	"strings"
 )
 
 // Engine is an immutable compiled schema validator.
@@ -461,11 +460,11 @@ func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivati
 func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask, error) {
 	var m derivationMask
 	fieldCount := 0
-	for range strings.FieldsSeq(v) {
+	for range xmlFieldsSeq(v) {
 		fieldCount++
 	}
 	i := 0
-	for p := range strings.FieldsSeq(v) {
+	for p := range xmlFieldsSeq(v) {
 		switch p {
 		case "#all":
 			if fieldCount != 1 || i != 0 {
@@ -772,7 +771,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 	}
 	st := simpleType{Name: name, Variety: varietyUnion, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse}
 	if mt, ok := n.attr("memberTypes"); ok {
-		for part := range strings.FieldsSeq(mt) {
+		for part := range xmlFieldsSeq(mt) {
 			q, err := c.resolveQNameChecked(n, ctx, part)
 			if err != nil {
 				return simpleType{}, err
