@@ -19,10 +19,6 @@ type xsdYear struct {
 	neg    bool
 }
 
-func parseXSDDate(s string) (xsdDateValue, error) {
-	return parseXSDDateValue(s)
-}
-
 type xsdDateValue struct {
 	point xsdDateTimePoint
 	hasTZ bool
@@ -93,11 +89,11 @@ func parseXSDDatePart(s string, i int) (xsdDatePart, int, error) {
 	if next >= len(s) || s[next] != '-' {
 		return xsdDatePart{}, 0, fmt.Errorf("invalid date/time")
 	}
-	month, next, ok := parseFixedDigits(s, next+1, 2)
+	month, next, ok := parseTwoDigits(s, next+1)
 	if !ok || next >= len(s) || s[next] != '-' {
 		return xsdDatePart{}, 0, fmt.Errorf("invalid date/time")
 	}
-	day, next, ok := parseFixedDigits(s, next+1, 2)
+	day, next, ok := parseTwoDigits(s, next+1)
 	if !ok || month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month) {
 		return xsdDatePart{}, 0, fmt.Errorf("invalid date/time")
 	}
@@ -244,7 +240,8 @@ func subUnsignedDecimalOne(s string) string {
 	return out
 }
 
-func parseFixedDigits(s string, i, n int) (int, int, bool) {
+func parseTwoDigits(s string, i int) (int, int, bool) {
+	const n = 2
 	if i+n > len(s) {
 		return 0, 0, false
 	}
@@ -309,8 +306,8 @@ func parseXSDTimezone(s string, i int) (xsdTimezone, int, error) {
 	if i+6 > len(s) || s[i+3] != ':' {
 		return xsdTimezone{}, i, fmt.Errorf("invalid timezone")
 	}
-	hour, _, ok1 := parseFixedDigits(s, i+1, 2)
-	minute, _, ok2 := parseFixedDigits(s, i+4, 2)
+	hour, _, ok1 := parseTwoDigits(s, i+1)
+	minute, _, ok2 := parseTwoDigits(s, i+4)
 	if !ok1 || !ok2 || hour > 14 || minute > 59 || hour == 14 && minute != 0 {
 		return xsdTimezone{}, i, fmt.Errorf("invalid timezone")
 	}
@@ -581,15 +578,15 @@ func parseXSDTimeRaw(s string) (xsdTimeValue, error) {
 }
 
 func parseXSDTimeParts(s string) (xsdTimeParts, error) {
-	hour, next, ok := parseFixedDigits(s, 0, 2)
+	hour, next, ok := parseTwoDigits(s, 0)
 	if !ok || next >= len(s) || s[next] != ':' {
 		return xsdTimeParts{}, fmt.Errorf("invalid time")
 	}
-	minute, next, ok := parseFixedDigits(s, next+1, 2)
+	minute, next, ok := parseTwoDigits(s, next+1)
 	if !ok || next >= len(s) || s[next] != ':' {
 		return xsdTimeParts{}, fmt.Errorf("invalid time")
 	}
-	second, next, ok := parseFixedDigits(s, next+1, 2)
+	second, next, ok := parseTwoDigits(s, next+1)
 	if !ok {
 		return xsdTimeParts{}, fmt.Errorf("invalid time")
 	}
@@ -953,7 +950,7 @@ func parseXSDGYearMonthValue(s string) (xsdGValue, error) {
 		}
 		return xsdGValue{}, fmt.Errorf("invalid gYearMonth")
 	}
-	month, next, ok := parseFixedDigits(s, next+1, 2)
+	month, next, ok := parseTwoDigits(s, next+1)
 	if !ok || month < 1 || month > 12 {
 		return xsdGValue{}, fmt.Errorf("invalid gYearMonth")
 	}
@@ -986,11 +983,11 @@ func parseXSDGMonthDayValue(s string) (xsdGValue, error) {
 	if !strings.HasPrefix(s, "--") {
 		return xsdGValue{}, fmt.Errorf("invalid gMonthDay")
 	}
-	month, next, ok := parseFixedDigits(s, 2, 2)
+	month, next, ok := parseTwoDigits(s, 2)
 	if !ok || next >= len(s) || s[next] != '-' {
 		return xsdGValue{}, fmt.Errorf("invalid gMonthDay")
 	}
-	day, next, ok := parseFixedDigits(s, next+1, 2)
+	day, next, ok := parseTwoDigits(s, next+1)
 	if !ok || month < 1 || month > 12 || day < 1 || day > maxGMonthDayOfMonth(month) {
 		return xsdGValue{}, fmt.Errorf("invalid gMonthDay")
 	}
@@ -1008,7 +1005,7 @@ func parseXSDGDayValue(s string) (xsdGValue, error) {
 	if !strings.HasPrefix(s, "---") {
 		return xsdGValue{}, fmt.Errorf("invalid gDay")
 	}
-	day, next, ok := parseFixedDigits(s, 3, 2)
+	day, next, ok := parseTwoDigits(s, 3)
 	if !ok || day < 1 || day > 31 {
 		return xsdGValue{}, fmt.Errorf("invalid gDay")
 	}
@@ -1026,7 +1023,7 @@ func parseXSDGMonthValue(s string) (xsdGValue, error) {
 	if !strings.HasPrefix(s, "--") {
 		return xsdGValue{}, fmt.Errorf("invalid gMonth")
 	}
-	month, next, ok := parseFixedDigits(s, 2, 2)
+	month, next, ok := parseTwoDigits(s, 2)
 	if !ok || month < 1 || month > 12 {
 		return xsdGValue{}, fmt.Errorf("invalid gMonth")
 	}
@@ -1107,12 +1104,14 @@ func applyDurationBounds(f facetSet, norm string, actual actualValue) error {
 			return err
 		}
 	}
-	return applyPartialBoundsParsed(f, value, parseXSDDurationValue, compareXSDDuration, func(l *compiledLiteral) (xsdDurationValue, bool) {
-		if l.Actual.Valid && l.Actual.Kind == primDuration {
-			return l.Actual.Duration, true
-		}
-		return xsdDurationValue{}, false
-	})
+	return applyPartialBoundsParsed(f, value, parseXSDDurationValue, compareXSDDuration, actualDurationLiteral)
+}
+
+func actualDurationLiteral(l *compiledLiteral) (xsdDurationValue, bool) {
+	if l.Actual.Valid && l.Actual.Kind == primDuration {
+		return l.Actual.Duration, true
+	}
+	return xsdDurationValue{}, false
 }
 
 func equalXSDDuration(a, b xsdDurationValue) bool {
@@ -1447,46 +1446,6 @@ func complementFraction(frac string) string {
 	return strings.TrimRight(string(out), "0")
 }
 
-func applyGDayBounds(f facetSet, norm string, actual actualValue) error {
-	return applyGValueBounds(primGDay, f, norm, actual, parseXSDGDayValue)
-}
-
-func validateGDayFacetBounds(f facetSet) error {
-	return validateGValueFacetBounds("gDay", f, parseXSDGDayValue)
-}
-
-func applyGMonthDayBounds(f facetSet, norm string, actual actualValue) error {
-	return applyGValueBounds(primGMonthDay, f, norm, actual, parseXSDGMonthDayValue)
-}
-
-func validateGMonthDayFacetBounds(f facetSet) error {
-	return validateGValueFacetBounds("gMonthDay", f, parseXSDGMonthDayValue)
-}
-
-func applyGMonthBounds(f facetSet, norm string, actual actualValue) error {
-	return applyGValueBounds(primGMonth, f, norm, actual, parseXSDGMonthValue)
-}
-
-func validateGMonthFacetBounds(f facetSet) error {
-	return validateGValueFacetBounds("gMonth", f, parseXSDGMonthValue)
-}
-
-func applyGYearMonthBounds(f facetSet, norm string, actual actualValue) error {
-	return applyGValueBounds(primGYearMonth, f, norm, actual, parseXSDGYearMonthValue)
-}
-
-func validateGYearMonthFacetBounds(f facetSet) error {
-	return validateGValueFacetBounds("gYearMonth", f, parseXSDGYearMonthValue)
-}
-
-func applyGYearBounds(f facetSet, norm string, actual actualValue) error {
-	return applyGValueBounds(primGYear, f, norm, actual, parseXSDGYearValue)
-}
-
-func validateGYearFacetBounds(f facetSet) error {
-	return validateGValueFacetBounds("gYear", f, parseXSDGYearValue)
-}
-
 func applyGValueBounds(kind primitiveKind, f facetSet, norm string, actual actualValue, parse func(string) (xsdGValue, error)) error {
 	value := actual.G
 	if !actual.Valid || actual.Kind != kind {
@@ -1496,15 +1455,23 @@ func applyGValueBounds(kind primitiveKind, f facetSet, norm string, actual actua
 			return err
 		}
 	}
-	return applyPartialBoundsParsed(f, value, parse, compareXSDGValue, func(l *compiledLiteral) (xsdGValue, bool) {
+	return applyPartialBoundsParsed(f, value, parse, compareXSDGValue, actualGValueLiteral(kind))
+}
+
+func actualGValueLiteral(kind primitiveKind) func(*compiledLiteral) (xsdGValue, bool) {
+	return func(l *compiledLiteral) (xsdGValue, bool) {
 		if l.Actual.Valid && l.Actual.Kind == kind {
 			return l.Actual.G, true
 		}
 		return xsdGValue{}, false
-	})
+	}
 }
 
-func validateGValueFacetBounds(name string, f facetSet, parse func(string) (xsdGValue, error)) error {
+func validateGValueFacetBounds(kind primitiveKind, f facetSet) error {
+	name, parse, ok := gValueFacet(kind)
+	if !ok {
+		return nil
+	}
 	lower, err := gValueLowerBound(f, parse)
 	if err != nil {
 		return err
@@ -1517,6 +1484,23 @@ func validateGValueFacetBounds(name string, f facetSet, parse func(string) (xsdG
 		return fmt.Errorf("%s lower bound cannot exceed upper bound", name)
 	}
 	return nil
+}
+
+func gValueFacet(kind primitiveKind) (string, func(string) (xsdGValue, error), bool) {
+	switch kind {
+	case primGDay:
+		return "gDay", parseXSDGDayValue, true
+	case primGMonthDay:
+		return "gMonthDay", parseXSDGMonthDayValue, true
+	case primGMonth:
+		return "gMonth", parseXSDGMonthValue, true
+	case primGYearMonth:
+		return "gYearMonth", parseXSDGYearMonthValue, true
+	case primGYear:
+		return "gYear", parseXSDGYearValue, true
+	default:
+		return "", nil, false
+	}
 }
 
 func gValueLowerBound(f facetSet, parse func(string) (xsdGValue, error)) (orderedFacetBound[xsdGValue], error) {
@@ -1546,12 +1530,16 @@ func applyTemporalBounds(kind primitiveKind, f facetSet, norm string, actual act
 	parse := func(s string) (xsdTemporalValue, error) {
 		return parseXSDTemporalValue(kind, s)
 	}
-	return applyPartialBoundsParsed(f, value, parse, compareXSDTemporal, func(l *compiledLiteral) (xsdTemporalValue, bool) {
+	return applyPartialBoundsParsed(f, value, parse, compareXSDTemporal, actualTemporalLiteral(kind))
+}
+
+func actualTemporalLiteral(kind primitiveKind) func(*compiledLiteral) (xsdTemporalValue, bool) {
+	return func(l *compiledLiteral) (xsdTemporalValue, bool) {
 		if l.Actual.Valid && l.Actual.Kind == kind {
 			return l.Actual.Temporal, true
 		}
 		return xsdTemporalValue{}, false
-	})
+	}
 }
 
 func validateTemporalFacetBounds(kind primitiveKind, f facetSet) error {
@@ -1696,12 +1684,14 @@ func applyTimeBounds(f facetSet, norm string, actual actualValue) error {
 			return err
 		}
 	}
-	return applyPartialBoundsParsed(f, value, parseXSDTimeValue, compareXSDTimePartial, func(l *compiledLiteral) (xsdTimeValue, bool) {
-		if l.Actual.Valid && l.Actual.Kind == primTime {
-			return l.Actual.Time, true
-		}
-		return xsdTimeValue{}, false
-	})
+	return applyPartialBoundsParsed(f, value, parseXSDTimeValue, compareXSDTimePartial, actualTimeLiteral)
+}
+
+func actualTimeLiteral(l *compiledLiteral) (xsdTimeValue, bool) {
+	if l.Actual.Valid && l.Actual.Kind == primTime {
+		return l.Actual.Time, true
+	}
+	return xsdTimeValue{}, false
 }
 
 func applyPartialBoundsParsed[T any](f facetSet, value T, parse func(string) (T, error), compare func(T, T) partialCompareResult, actual func(*compiledLiteral) (T, bool)) error {
@@ -1729,7 +1719,7 @@ func applyPartialBound[T any](
 	if lit == nil {
 		return nil
 	}
-	limit, err := partialBoundLiteral(lit, parse, actual)
+	limit, err := facetLiteralValue(lit, facetCanonical, parse, actual)
 	if err != nil {
 		return err
 	}
@@ -1737,13 +1727,4 @@ func applyPartialBound[T any](
 		return fmt.Errorf("%s facet failed", name)
 	}
 	return nil
-}
-
-func partialBoundLiteral[T any](lit *compiledLiteral, parse func(string) (T, error), actual func(*compiledLiteral) (T, bool)) (T, error) {
-	if actual != nil {
-		if v, ok := actual(lit); ok {
-			return v, nil
-		}
-	}
-	return parse(lit.Canonical)
 }

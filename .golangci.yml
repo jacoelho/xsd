@@ -14,10 +14,12 @@ linters:
     - ineffassign
     - iface
     - dupl
+    - dogsled
     - forbidigo
     - funlen
     - nestif
     - maintidx
+    - unparam
 
   settings:
     govet:
@@ -32,6 +34,9 @@ linters:
 
     dupl:
       threshold: 120
+
+    dogsled:
+      max-blank-identifiers: 1
 
     forbidigo:
       analyze-types: true

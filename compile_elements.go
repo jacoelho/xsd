@@ -2,9 +2,7 @@ package xsd
 
 func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (particle, error) {
 	if ref, ok := n.attr("ref"); ok {
-		if err := validateKnownAttributes(n, "element ref", map[string]bool{
-			"id": true, "ref": true, "minOccurs": true, "maxOccurs": true,
-		}); err != nil {
+		if err := validateKnownAttributes(n, "element ref", isElementRefAttribute); err != nil {
 			return particle{}, err
 		}
 		if len(n.xsContentChildren()) != 0 {
@@ -99,11 +97,7 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (elementI
 }
 
 func validateElementDeclContent(n *rawNode) error {
-	if err := validateKnownAttributes(n, "element", map[string]bool{
-		"id": true, "name": true, "ref": true, "type": true, "substitutionGroup": true,
-		"nillable": true, "default": true, "fixed": true, "form": true,
-		"block": true, "final": true, "abstract": true, "minOccurs": true, "maxOccurs": true,
-	}); err != nil {
+	if err := validateKnownAttributes(n, "element", isElementAttribute); err != nil {
 		return err
 	}
 	seenType := false
@@ -138,6 +132,26 @@ func validateElementDeclContent(n *rawNode) error {
 		return schemaCompile(ErrSchemaInvalidAttribute, "element cannot have both type and anonymous type")
 	}
 	return nil
+}
+
+func isElementRefAttribute(name string) bool {
+	switch name {
+	case "id", "ref", "minOccurs", "maxOccurs":
+		return true
+	default:
+		return false
+	}
+}
+
+func isElementAttribute(name string) bool {
+	switch name {
+	case "id", "name", "ref", "type", "substitutionGroup",
+		"nillable", "default", "fixed", "form",
+		"block", "final", "abstract", "minOccurs", "maxOccurs":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (elementDecl, error) {

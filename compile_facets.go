@@ -328,28 +328,9 @@ func validatePrimitiveFacetRestrictions(st simpleType, baseFacets facetSet, orde
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
 	}
-	if st.Primitive == primGDay {
-		if err := validateGDayFacetBounds(st.Facets); err != nil {
-			return schemaCompile(ErrSchemaFacet, err.Error())
-		}
-	}
-	if st.Primitive == primGMonthDay {
-		if err := validateGMonthDayFacetBounds(st.Facets); err != nil {
-			return schemaCompile(ErrSchemaFacet, err.Error())
-		}
-	}
-	if st.Primitive == primGMonth {
-		if err := validateGMonthFacetBounds(st.Facets); err != nil {
-			return schemaCompile(ErrSchemaFacet, err.Error())
-		}
-	}
-	if st.Primitive == primGYearMonth {
-		if err := validateGYearMonthFacetBounds(st.Facets); err != nil {
-			return schemaCompile(ErrSchemaFacet, err.Error())
-		}
-	}
-	if st.Primitive == primGYear {
-		if err := validateGYearFacetBounds(st.Facets); err != nil {
+	switch st.Primitive {
+	case primGDay, primGMonthDay, primGMonth, primGYearMonth, primGYear:
+		if err := validateGValueFacetBounds(st.Primitive, st.Facets); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
 	}

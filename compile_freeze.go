@@ -124,7 +124,7 @@ func validateSubstitutionLookup(rt *runtimeSchema) error {
 	for head, lookup := range rt.SubstitutionLookup {
 		members := rt.Substitutions[head]
 		for _, member := range lookup {
-			if !substitutionMemberExists(members, member) {
+			if !slices.Contains(members, member) {
 				return internalInvariant("substitution lookup contains non-member")
 			}
 			if !runtimeSubstitutionAllowed(rt, head, member) {
@@ -142,10 +142,6 @@ func runtimeSubstitutionAllowed(rt *runtimeSchema, headID, memberID elementID) b
 		return false
 	}
 	return rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
-}
-
-func substitutionMemberExists(members []elementID, member elementID) bool {
-	return slices.Contains(members, member)
 }
 
 func internalInvariant(msg string) error {
@@ -205,10 +201,7 @@ func validateElementDecl(rt *runtimeSchema, decl elementDecl) error {
 	if err := validateStoredSimpleValue(rt, decl.HasDefault, decl.DefaultCanonical, decl.DefaultValue, "element declaration default"); err != nil {
 		return err
 	}
-	if err := validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "element declaration fixed"); err != nil {
-		return err
-	}
-	return nil
+	return validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "element declaration fixed")
 }
 
 func validateAttributeDecl(rt *runtimeSchema, decl attributeDecl) error {
@@ -224,10 +217,7 @@ func validateAttributeDecl(rt *runtimeSchema, decl attributeDecl) error {
 	if err := validateStoredSimpleValue(rt, decl.HasDefault, decl.DefaultCanonical, decl.DefaultValue, "attribute declaration default"); err != nil {
 		return err
 	}
-	if err := validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "attribute declaration fixed"); err != nil {
-		return err
-	}
-	return nil
+	return validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "attribute declaration fixed")
 }
 
 func validateSimpleType(rt *runtimeSchema, st simpleType) error {
@@ -425,10 +415,7 @@ func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error 
 			}
 		}
 	}
-	if err := validateCompiledIdentityFields(ic); err != nil {
-		return err
-	}
-	return nil
+	return validateCompiledIdentityFields(ic)
 }
 
 func validateCompiledIdentityFields(ic identityConstraint) error {

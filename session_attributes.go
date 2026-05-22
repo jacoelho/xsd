@@ -52,10 +52,7 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 			return err
 		}
 	}
-	if err := s.validateRequiredAndDefaultAttributes(set, seen, line, col, &seenIDAttr); err != nil {
-		return err
-	}
-	return nil
+	return s.validateRequiredAndDefaultAttributes(set, seen, line, col, &seenIDAttr)
 }
 
 type attributeSeen struct {

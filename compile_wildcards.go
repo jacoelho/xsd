@@ -21,9 +21,7 @@ func (c *compiler) compileWildcardParticle(n *rawNode, ctx *schemaContext) (part
 }
 
 func validateAnyParticleSyntax(n *rawNode) error {
-	if err := validateKnownAttributes(n, "any", map[string]bool{
-		"id": true, "namespace": true, "processContents": true, "minOccurs": true, "maxOccurs": true,
-	}); err != nil {
+	if err := validateKnownAttributes(n, "any", isAnyParticleAttribute); err != nil {
 		return err
 	}
 	if len(n.xsContentChildren()) != 0 {
@@ -32,13 +30,38 @@ func validateAnyParticleSyntax(n *rawNode) error {
 	return nil
 }
 
+func validateAnyAttributeSyntax(n *rawNode) error {
+	if err := validateKnownAttributes(n, "anyAttribute", isAnyAttributeAttribute); err != nil {
+		return err
+	}
+	if len(n.xsContentChildren()) != 0 {
+		return schemaCompile(ErrSchemaContentModel, "anyAttribute can contain only annotation")
+	}
+	return nil
+}
+
+func isAnyParticleAttribute(name string) bool {
+	switch name {
+	case "id", "namespace", "processContents", "minOccurs", "maxOccurs":
+		return true
+	default:
+		return false
+	}
+}
+
+func isAnyAttributeAttribute(name string) bool {
+	switch name {
+	case "id", "namespace", "processContents":
+		return true
+	default:
+		return false
+	}
+}
+
 func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext, attr bool) (wildcardID, error) {
 	if attr {
-		if err := validateKnownAttributes(n, "anyAttribute", map[string]bool{"id": true, "namespace": true, "processContents": true}); err != nil {
+		if err := validateAnyAttributeSyntax(n); err != nil {
 			return noWildcard, err
-		}
-		if len(n.xsContentChildren()) != 0 {
-			return noWildcard, schemaCompile(ErrSchemaContentModel, "anyAttribute can contain only annotation")
 		}
 	}
 	var mode wildcardMode

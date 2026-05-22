@@ -22,6 +22,11 @@ const (
 	streamTokenPI
 )
 
+const (
+	maxByteStringCacheEntries = 512
+	maxByteStringCacheLen     = 256
+)
+
 type streamToken struct {
 	end       xml.EndElement
 	start     xml.StartElement
@@ -84,12 +89,12 @@ func (p *xmlStreamParser) resetWithLimit(r io.Reader, names, values *byteStringC
 	p.names = names
 	p.values = values
 	p.pendingEnd = xml.EndElement{}
-	p.nameBuf = resetRetainedBytes(p.nameBuf, maxRetainedBufferCap)
-	p.valueBuf = resetRetainedBytes(p.valueBuf, maxRetainedBufferCap)
-	p.entityBuf = resetRetainedBytes(p.entityBuf, maxRetainedBufferCap)
-	p.textBuf = resetRetainedBytes(p.textBuf, maxRetainedBufferCap)
-	p.directive = resetRetainedBytes(p.directive, maxRetainedBufferCap)
-	p.attrs = resetRetainedSlice(p.attrs, maxRetainedSliceCap)
+	p.nameBuf = resetRetainedBytes(p.nameBuf)
+	p.valueBuf = resetRetainedBytes(p.valueBuf)
+	p.entityBuf = resetRetainedBytes(p.entityBuf)
+	p.textBuf = resetRetainedBytes(p.textBuf)
+	p.directive = resetRetainedBytes(p.directive)
+	p.attrs = resetRetainedSlice(p.attrs)
 	p.br.reset(r)
 	p.maxAttrs = 0
 	p.maxTokenBytes = maxTokenBytes
@@ -1318,18 +1323,16 @@ func (b *byteStream) pos() (int, int) {
 }
 
 type byteStringCache struct {
-	buckets    map[uint64][]int
-	entries    []byteStringEntry
-	maxEntries int
-	maxLen     int
+	buckets map[uint64][]int
+	entries []byteStringEntry
 }
 
 type byteStringEntry struct {
 	text string
 }
 
-func newByteStringCache(maxEntries, maxLen int) byteStringCache {
-	return byteStringCache{buckets: make(map[uint64][]int), maxEntries: maxEntries, maxLen: maxLen}
+func newByteStringCache() byteStringCache {
+	return byteStringCache{buckets: make(map[uint64][]int)}
 }
 
 func (c *byteStringCache) intern(b []byte) string {
@@ -1337,9 +1340,9 @@ func (c *byteStringCache) intern(b []byte) string {
 		return ""
 	}
 	if c.buckets == nil {
-		*c = newByteStringCache(512, 256)
+		*c = newByteStringCache()
 	}
-	if c.maxLen > 0 && len(b) > c.maxLen {
+	if len(b) > maxByteStringCacheLen {
 		return string(b)
 	}
 	h := hashBytes(b)
@@ -1349,7 +1352,7 @@ func (c *byteStringCache) intern(b []byte) string {
 		}
 	}
 	s := string(b)
-	if c.maxEntries <= 0 || len(c.entries) >= c.maxEntries {
+	if len(c.entries) >= maxByteStringCacheEntries {
 		return s
 	}
 	idx := len(c.entries)

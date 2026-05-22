@@ -32,30 +32,44 @@ func run(args []string, stderr io.Writer) int {
 func runWithOpen(args []string, stderr io.Writer, openDoc func(string) (io.ReadCloser, error)) int {
 	cfg, err := parseArgs(args)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
+		if _, writeErr := fmt.Fprintln(stderr, err); writeErr != nil {
+			return 2
+		}
 		return 2
 	}
 	engine, err := xsd.Compile(xsd.File(cfg.schema))
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%s fails to compile\n%v\n", cfg.schema, err)
+		if _, writeErr := fmt.Fprintf(stderr, "%s fails to compile\n%v\n", cfg.schema, err); writeErr != nil {
+			return 2
+		}
 		return 1
 	}
 	f, err := openDoc(cfg.doc)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err)
+		if _, writeErr := fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err); writeErr != nil {
+			return 2
+		}
 		return 1
 	}
-	if err := engine.ValidateWithOptions(f, xsd.ValidateOptions{MaxErrors: cfg.maxErrors}); err != nil {
+	if validationErr := engine.ValidateWithOptions(f, xsd.ValidateOptions{MaxErrors: cfg.maxErrors}); validationErr != nil {
 		_ = f.Close()
-		printValidationErrors(stderr, err)
-		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n", cfg.doc)
+		if writeErr := printValidationErrors(stderr, validationErr); writeErr != nil {
+			return 2
+		}
+		if _, writeErr := fmt.Fprintf(stderr, "%s fails to validate\n", cfg.doc); writeErr != nil {
+			return 2
+		}
 		return 1
 	}
 	if err := f.Close(); err != nil {
-		_, _ = fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err)
+		if _, writeErr := fmt.Fprintf(stderr, "%s fails to validate\n%v\n", cfg.doc, err); writeErr != nil {
+			return 2
+		}
 		return 1
 	}
-	_, _ = fmt.Fprintf(stderr, "%s validates\n", cfg.doc)
+	if _, err := fmt.Fprintf(stderr, "%s validates\n", cfg.doc); err != nil {
+		return 2
+	}
 	return 0
 }
 
@@ -83,12 +97,15 @@ func parseArgs(args []string) (config, error) {
 	return cfg, nil
 }
 
-func printValidationErrors(w io.Writer, err error) {
+func printValidationErrors(w io.Writer, err error) error {
 	if errs, ok := err.(xsd.Errors); ok {
 		for _, child := range errs {
-			_, _ = fmt.Fprintln(w, child)
+			if _, writeErr := fmt.Fprintln(w, child); writeErr != nil {
+				return writeErr
+			}
 		}
-		return
+		return nil
 	}
-	_, _ = fmt.Fprintln(w, err)
+	_, writeErr := fmt.Fprintln(w, err)
+	return writeErr
 }

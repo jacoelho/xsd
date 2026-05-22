@@ -302,13 +302,11 @@ func appendParticle(m *contentModel, p particle, err error) error {
 }
 
 func validateModelOccurrence(n *rawNode, limits compileLimits) error {
-	allowed := map[string]bool{
-		"id": true, "minOccurs": true, "maxOccurs": true,
-	}
 	if n.Name.Local == "group" {
-		allowed["ref"] = true
-	}
-	if err := validateKnownAttributes(n, n.Name.Local, allowed); err != nil {
+		if err := validateKnownAttributes(n, n.Name.Local, isGroupOccurrenceAttribute); err != nil {
+			return err
+		}
+	} else if err := validateKnownAttributes(n, n.Name.Local, isModelOccurrenceAttribute); err != nil {
 		return err
 	}
 	occurs, err := parseOccurs(n, limits)
@@ -319,6 +317,24 @@ func validateModelOccurrence(n *rawNode, limits compileLimits) error {
 		return schemaCompile(ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
 	}
 	return validateModelGroupSyntax(n, limits)
+}
+
+func isModelOccurrenceAttribute(name string) bool {
+	switch name {
+	case "id", "minOccurs", "maxOccurs":
+		return true
+	default:
+		return false
+	}
+}
+
+func isGroupOccurrenceAttribute(name string) bool {
+	switch name {
+	case "id", "minOccurs", "maxOccurs", "ref":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *compiler) checkCompiledModelsUPA() error {
