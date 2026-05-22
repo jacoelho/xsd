@@ -19,10 +19,18 @@ type schemaLoad struct {
 }
 
 func (c *compiler) load(sources []SchemaSource) error {
+	if err := c.loadSchemaDocuments(sources); err != nil {
+		return err
+	}
+	return c.checkExplicitSchemaReferences()
+}
+
+func (c *compiler) loadSchemaDocuments(sources []SchemaSource) error {
 	queue := make([]schemaLoad, len(sources))
 	for i, source := range sources {
 		queue[i] = schemaLoad{source: source}
 	}
+	sourceData := make(map[string][]byte)
 	for len(queue) != 0 {
 		item := queue[0]
 		queue = queue[1:]
@@ -32,7 +40,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 		}
 		name := s.name
 		key := schemaSourceKey(name)
-		if _, ok := c.sources[key]; ok {
+		if _, ok := c.sourceDocs[key]; ok {
 			continue
 		}
 		data, err := s.read(c.limits.maxSchemaSourceBytes)
@@ -49,7 +57,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 		if err != nil {
 			return err
 		}
-		c.sources[key] = data
+		sourceData[key] = data
 		c.sourceDocs[key] = doc
 		if s.resolver == nil {
 			continue
@@ -74,7 +82,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 			queue = append(queue, schemaLoad{source: next, optionalMissing: true})
 		}
 	}
-	names := slices.Sorted(maps.Keys(c.sources))
+	names := slices.Sorted(maps.Keys(c.sourceDocs))
 	targetCounts, hasDuplicateTargets := c.schemaTargetCounts(names)
 	if !hasDuplicateTargets {
 		for _, name := range names {
@@ -84,7 +92,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 		seed := maphash.MakeSeed()
 		seenContent := make(map[schemaContentKey][][]byte)
 		for _, name := range names {
-			data := c.sources[name]
+			data := sourceData[name]
 			doc := c.sourceDocs[name]
 			if target := doc.root.attrDefault("targetNamespace", ""); target != "" && targetCounts[target] > 1 {
 				key := schemaContentKey{target: target, size: len(data), hash: maphash.Bytes(seed, data)}
@@ -99,7 +107,7 @@ func (c *compiler) load(sources []SchemaSource) error {
 	slices.SortFunc(c.docs, func(a, b *rawDoc) int {
 		return cmp.Compare(a.name, b.name)
 	})
-	return c.checkExplicitSchemaReferences()
+	return nil
 }
 
 func (c *compiler) schemaTargetCounts(names []string) (map[string]int, bool) {
@@ -284,8 +292,8 @@ func (c *compiler) documentTargetNamespace(doc *rawDoc) string {
 
 func (c *compiler) resolveLoadedSchemaLocation(doc *rawDoc, location string) (*rawDoc, string, bool) {
 	try := func(resolved string) (*rawDoc, string, bool) {
-		if _, loaded := c.sources[resolved]; loaded {
-			return c.sourceDocs[resolved], resolved, true
+		if loadedDoc, loaded := c.sourceDocs[resolved]; loaded {
+			return loadedDoc, resolved, true
 		}
 		return nil, "", false
 	}

@@ -20,6 +20,7 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.idrefs = make([]identityRef, 1, maxRetainedSliceCap+1)
 	s.idScopes = make([]identityScope, 1, maxRetainedSliceCap+1)
 	s.idSelections = make([]identitySelection, 1, maxRetainedSliceCap+1)
+	s.identityFieldValues = make([]identityFieldValue, 1, maxRetainedSliceCap+1)
 	s.identityMatches = make([]identityFieldMatch, 1, maxRetainedSliceCap+1)
 	s.ids = make(map[string]string, maxRetainedMapLen+1)
 	s.schemaLocationNamespaces = make(map[string]bool, maxRetainedMapLen+1)
@@ -43,6 +44,7 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 		cap(s.idrefs) != 0 ||
 		cap(s.idScopes) != 0 ||
 		cap(s.idSelections) != 0 ||
+		cap(s.identityFieldValues) != 0 ||
 		cap(s.identityMatches) != 0 {
 		t.Fatalf("reset retained oversized state")
 	}
