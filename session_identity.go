@@ -386,14 +386,14 @@ func (s *session) captureIdentityComplexElement(rawText []byte, line, col int) e
 	if len(fields) == 0 {
 		return nil
 	}
-	text := string(rawText)
-	if trimXMLWhitespace(text) == "" {
+	if isXMLWhitespaceBytes(rawText) {
 		match := fields[0]
 		if match.Selection < 0 || match.Selection >= len(s.idSelections) {
 			return internalInvariant("identity field match references invalid selection")
 		}
 		return validation(ErrValidationIdentity, line, col, s.idSelections[match.Selection].Path, "identity field has no simple value")
 	}
+	text := string(rawText)
 	return s.captureIdentityFields(fields, simpleValue{
 		Canonical: normalizeWhitespace(text, whitespaceCollapse),
 		Type:      s.engine.rt.Builtin.String,
@@ -452,15 +452,13 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 	rt := s.engine.rt
 	ic := rt.Identities[sel.Constraint]
 	fields := s.identitySelectionFields(sel)
-	complete := true
 	for _, field := range fields {
-		complete = complete && field.Present
-	}
-	if !complete {
-		if ic.Kind == identityKey {
-			return validation(ErrValidationIdentity, line, col, sel.Path, "key field is missing")
+		if !field.Present {
+			if ic.Kind == identityKey {
+				return validation(ErrValidationIdentity, line, col, sel.Path, "key field is missing")
+			}
+			return nil
 		}
-		return nil
 	}
 	key, err := s.identityTupleKey(fields, line, col)
 	if err != nil {

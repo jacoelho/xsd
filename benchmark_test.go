@@ -408,7 +408,10 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 	for _, refs := range []int{1, 10, 100, 1000} {
 		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
 			value := simpleValue{IDRefs: benchmarkIDREFS(refs)}
-			s := &session{path: []string{"root", "refs"}}
+			s := new(session)
+			s.pushPath("root")
+			s.pushPath("refs")
+			_ = s.pathString()
 			b.ReportAllocs()
 			for b.Loop() {
 				s.idrefs = s.idrefs[:0]

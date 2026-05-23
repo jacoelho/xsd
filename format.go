@@ -570,14 +570,14 @@ func writeXMLStart(w io.Writer, start xml.StartElement) error {
 	if _, err := io.WriteString(w, "<"); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, xmlQName(start.Name)); err != nil {
+	if err := writeXMLQName(w, start.Name); err != nil {
 		return err
 	}
 	for _, attr := range start.Attr {
 		if _, err := io.WriteString(w, " "); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, xmlQName(attr.Name)); err != nil {
+		if err := writeXMLQName(w, attr.Name); err != nil {
 			return err
 		}
 		if _, err := io.WriteString(w, "=\""); err != nil {
@@ -595,7 +595,26 @@ func writeXMLStart(w io.Writer, start xml.StartElement) error {
 }
 
 func writeXMLEnd(w io.Writer, end xml.EndElement) error {
-	_, err := io.WriteString(w, "</"+xmlQName(end.Name)+">")
+	if _, err := io.WriteString(w, "</"); err != nil {
+		return err
+	}
+	if err := writeXMLQName(w, end.Name); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, ">")
+	return err
+}
+
+func writeXMLQName(w io.Writer, name xml.Name) error {
+	if name.Space != "" {
+		if _, err := io.WriteString(w, name.Space); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, ":"); err != nil {
+			return err
+		}
+	}
+	_, err := io.WriteString(w, name.Local)
 	return err
 }
 

@@ -215,10 +215,7 @@ func (s *session) end(line, col int, ee xml.EndElement) error {
 	s.allBits = s.allBits[:f.BitBase]
 	s.text = s.text[:f.TextStart]
 	s.stack = s.stack[:len(s.stack)-1]
-	if len(s.path) > 0 {
-		s.path = s.path[:len(s.path)-1]
-		s.pathDirty = true
-	}
+	s.popPath()
 	if len(s.namePath) > 0 {
 		s.namePath = s.namePath[:len(s.namePath)-1]
 	}

@@ -238,8 +238,6 @@ func checkedAddInt64(a, b int64) (int64, error) {
 	return a + b, nil
 }
 
-//nolint:govet // Field order keeps raw fields and normalized instant grouped.
-
 func applyDurationBounds(f facetSet, norm string, actual actualValue) error {
 	value := actual.Duration
 	if !actual.Valid || actual.Kind != primDuration {

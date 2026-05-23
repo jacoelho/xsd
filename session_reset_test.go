@@ -23,10 +23,12 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.identityFieldValues = make([]identityFieldValue, 1, maxRetainedSliceCap+1)
 	s.identityMatches = make([]identityFieldMatch, 1, maxRetainedSliceCap+1)
 	s.ids = make(map[string]string, maxRetainedMapLen+1)
+	s.pathCache = make(map[pathCacheKey]string, maxRetainedMapLen+1)
 	s.schemaLocationNamespaces = make(map[string]bool, maxRetainedMapLen+1)
 	for i := range maxRetainedMapLen + 1 {
 		key := strconv.Itoa(i)
 		s.ids[key] = key
+		s.pathCache[pathCacheKey{Parent: key, Local: key}] = key
 		s.schemaLocationNamespaces[key] = true
 	}
 
@@ -51,6 +53,9 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	if s.ids != nil {
 		t.Fatalf("ids map retained after reset")
 	}
+	if s.pathCache != nil {
+		t.Fatalf("path cache retained after reset")
+	}
 	if s.schemaLocationNamespaces != nil {
 		t.Fatalf("schema location namespace map retained after reset")
 	}
@@ -60,13 +65,69 @@ func TestSessionResetClearsRetainedSliceCapacity(t *testing.T) {
 	var s session
 	s.path = append(make([]string, 0, maxRetainedSliceCap), "stale")
 	s.path = s.path[:0]
+	s.pathText = "stale"
+	s.pathTextDepth = 1
 
 	s.reset()
 
+	if s.pathText != "" {
+		t.Fatal("reset retained stale path text")
+	}
+	if s.pathTextDepth != 0 {
+		t.Fatal("reset retained stale path text depth")
+	}
 	if cap(s.path) == 0 {
 		t.Fatal("path capacity was not retained")
 	}
 	if s.path[:cap(s.path)][0] != "" {
 		t.Fatal("reset retained stale path string")
 	}
+}
+
+func TestSessionPathStringMaterializesLazily(t *testing.T) {
+	var s session
+	pushTestPath(&s, "root")
+	pushTestPath(&s, "row")
+
+	if s.pathText != "" {
+		t.Fatal("pushPath materialized path text")
+	}
+	if len(s.pathCache) != 0 {
+		t.Fatal("pushPath populated path cache")
+	}
+	if got := s.pathString(); got != "/root/row" {
+		t.Fatalf("pathString() = %q, want /root/row", got)
+	}
+	if s.pathTextDepth != len(s.path) {
+		t.Fatalf("path text depth = %d, want %d", s.pathTextDepth, len(s.path))
+	}
+}
+
+func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
+	var s session
+	pushTestPath(&s, "root")
+	if got := s.pathString(); got != "/root" {
+		t.Fatalf("pathString() = %q, want /root", got)
+	}
+	pushTestPath(&s, "child")
+	if got := s.pathString(); got != "/root/child" {
+		t.Fatalf("pathString() = %q, want /root/child", got)
+	}
+
+	popTestPath(&s)
+
+	if got := s.pathString(); got != "/root" {
+		t.Fatalf("pathString() after pop = %q, want /root", got)
+	}
+	if s.pathText != "/root" {
+		t.Fatalf("pathText after pop = %q, want /root", s.pathText)
+	}
+}
+
+func pushTestPath(s *session, local string) {
+	s.pushPath(local)
+}
+
+func popTestPath(s *session) {
+	s.popPath()
 }

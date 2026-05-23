@@ -147,17 +147,21 @@ func (c *compiler) resolveTypeQName(q qName) (typeID, error) {
 }
 
 func (c *compiler) typeQNameKnown(q qName) bool {
+	return c.simpleTypeQNameKnown(q) || c.complexTypeQNameKnown(q)
+}
+
+func (c *compiler) simpleTypeQNameKnown(q qName) bool {
 	if _, ok := c.simpleDone[q]; ok {
 		return true
 	}
+	_, ok := c.simpleRaw[q]
+	return ok
+}
+
+func (c *compiler) complexTypeQNameKnown(q qName) bool {
 	if _, ok := c.complexDone[q]; ok {
 		return true
 	}
-	if _, ok := c.simpleRaw[q]; ok {
-		return true
-	}
-	if _, ok := c.complexRaw[q]; ok {
-		return true
-	}
-	return false
+	_, ok := c.complexRaw[q]
+	return ok
 }

@@ -139,6 +139,7 @@ type session struct {
 	elementNames             []xml.Name
 	path                     []string
 	pathText                 string
+	pathCache                map[pathCacheKey]string
 	idrefs                   []identityRef
 	idScopes                 []identityScope
 	idSelections             []identitySelection
@@ -158,7 +159,12 @@ type session struct {
 	maxInstanceTextBytes     int64
 	maxInstanceTokenBytes    int64
 	identityEntries          int
-	pathDirty                bool
+	pathTextDepth            int
+}
+
+type pathCacheKey struct {
+	Parent string
+	Local  string
 }
 
 type identityRef struct {
@@ -319,7 +325,10 @@ func (s *session) reset() {
 	s.text = resetRetainedBytes(s.text)
 	s.path = resetRetainedSlice(s.path)
 	s.pathText = ""
-	s.pathDirty = true
+	s.pathTextDepth = 0
+	if len(s.pathCache) > maxRetainedMapLen {
+		s.pathCache = nil
+	}
 	s.namePath = resetRetainedSlice(s.namePath)
 	s.elementNames = resetRetainedSlice(s.elementNames)
 	s.allBits = resetRetainedSlice(s.allBits)
@@ -434,8 +443,7 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 		}
 	}
 	s.pushFrame(elem, typ, nilled, skip)
-	s.path = append(s.path, rn.Local)
-	s.pathDirty = true
+	s.pushPath(rn.Local)
 	s.namePath = append(s.namePath, rn)
 	s.elementNames = append(s.elementNames, se.Name)
 	if err := s.startIdentityScope(elem, line, col); err != nil {
