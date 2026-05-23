@@ -52,12 +52,9 @@ func validateBuiltinDerived(kind builtinValidationKind, norm string, actual actu
 	return nil
 }
 
-func applyFacets(st simpleType, norm, canon string, actual actualValue, list bool) error {
+func applyFacets(st simpleType, norm, canon string, actual actualValue) error {
 	if st.Facets.empty() {
 		return nil
-	}
-	if list {
-		return applyPatternAndEnumeration(st.Facets, norm, canon, actualValue{})
 	}
 	if err := applyAtomicFacets(st, norm, actual); err != nil {
 		return err

@@ -496,7 +496,11 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct compl
 			return complexType{}, err
 		}
 		var textType simpleTypeID
-		if simpleID, simpleErr := c.compileSimpleByQName(baseQName); simpleErr == nil {
+		if c.simpleTypeQNameKnown(baseQName) {
+			simpleID, simpleErr := c.compileSimpleByQName(baseQName)
+			if simpleErr != nil {
+				return complexType{}, simpleErr
+			}
 			if child.Name.Local == "restriction" {
 				return complexType{}, schemaCompile(ErrSchemaContentModel, "simpleContent restriction base must be complex type")
 			}
@@ -509,9 +513,12 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct compl
 			if c.compilingComplex[baseQName] && !c.isAnonymousComplexName(ct.Name) {
 				return complexType{}, schemaCompile(ErrSchemaReference, "cyclic complex type "+c.rt.Names.Format(baseQName))
 			}
+			if !c.complexTypeQNameKnown(baseQName) {
+				return complexType{}, schemaCompile(ErrSchemaReference, "simpleContent base must be simple or simple-content complex type")
+			}
 			baseComplex, complexErr := c.compileComplexByQName(baseQName)
 			if complexErr != nil {
-				return complexType{}, schemaCompile(ErrSchemaReference, "simpleContent base must be simple or simple-content complex type")
+				return complexType{}, complexErr
 			}
 			base := c.rt.ComplexTypes[baseComplex]
 			if !base.SimpleValue {

@@ -27,9 +27,6 @@ func (c *compiler) compileAttributeByQName(q qName) (attributeID, error) {
 }
 
 func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q qName) (attributeDecl, error) {
-	if _, ok := n.attr("value"); ok {
-		return attributeDecl{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot have value")
-	}
 	if err := validateAttributeDeclContent(n); err != nil {
 		return attributeDecl{}, err
 	}
@@ -100,6 +97,15 @@ func validateAttributeDeclContent(n *rawNode) error {
 		}
 	}
 	return nil
+}
+
+func isAttributeAttribute(name string) bool {
+	switch name {
+	case "id", "name", "ref", "type", "use", "default", "fixed", "form":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolve qnameResolver) error {
@@ -376,14 +382,9 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	var use attributeUse
 	refHasFixed := false
 	refFixedCanonical := ""
-	if _, ok := n.attr("value"); ok {
-		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot have value")
-	}
 	if ref, ok := n.attr("ref"); ok {
-		for _, attr := range []string{"name", "type", "form"} {
-			if _, ok := n.attr(attr); ok {
-				return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute ref cannot have "+attr)
-			}
+		if err := validateKnownAttributes(n, "attribute ref", isAttributeRefAttribute); err != nil {
+			return attributeUse{}, err
 		}
 		if children := n.xsContentChildren(); len(children) != 0 {
 			return attributeUse{}, schemaCompile(ErrSchemaContentModel, "attribute ref can contain only annotation")
@@ -471,6 +472,15 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	use.DefaultValue = decl.DefaultValue
 	use.FixedValue = decl.FixedValue
 	return use, nil
+}
+
+func isAttributeRefAttribute(name string) bool {
+	switch name {
+	case "id", "ref", "use", "default", "fixed":
+		return true
+	default:
+		return false
+	}
 }
 
 func attributeUseFromDecl(decl attributeDecl) attributeUse {

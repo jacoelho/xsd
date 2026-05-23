@@ -375,14 +375,55 @@ func isXSIAttr(a xml.Attr) bool {
 		(a.Name.Local == "type" || a.Name.Local == "nil" || a.Name.Local == "schemaLocation" || a.Name.Local == "noNamespaceSchemaLocation")
 }
 
+func (s *session) pushPath(local string) {
+	s.path = append(s.path, local)
+}
+
+func (s *session) cachedChildPath(parent, local string) string {
+	key := pathCacheKey{Parent: parent, Local: local}
+	if path, ok := s.pathCache[key]; ok {
+		return path
+	}
+	path := "/" + local
+	if parent != "" {
+		path = parent + path
+	}
+	if len(s.pathCache) < maxRetainedMapLen {
+		if s.pathCache == nil {
+			s.pathCache = make(map[pathCacheKey]string)
+		}
+		s.pathCache[key] = path
+	}
+	return path
+}
+
+func (s *session) popPath() {
+	if len(s.path) > 0 {
+		s.path = s.path[:len(s.path)-1]
+	}
+	if s.pathTextDepth > len(s.path) {
+		s.pathText = ""
+		s.pathTextDepth = 0
+	}
+}
+
 func (s *session) pathString() string {
 	if len(s.path) == 0 {
 		return "/"
 	}
-	if !s.pathDirty {
+	if s.pathText != "" && s.pathTextDepth == len(s.path) {
 		return s.pathText
 	}
-	s.pathText = "/" + strings.Join(s.path, "/")
-	s.pathDirty = false
-	return s.pathText
+	parent := ""
+	start := 0
+	if s.pathText != "" && s.pathTextDepth > 0 && s.pathTextDepth < len(s.path) {
+		parent = s.pathText
+		start = s.pathTextDepth
+	}
+	for i := start; i < len(s.path); i++ {
+		parent = s.cachedChildPath(parent, s.path[i])
+	}
+	s.pathText = parent
+	s.pathTextDepth = len(s.path)
+	return parent
 }

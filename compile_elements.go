@@ -97,9 +97,6 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (elementI
 }
 
 func validateElementDeclContent(n *rawNode) error {
-	if err := validateKnownAttributes(n, "element", isElementAttribute); err != nil {
-		return err
-	}
 	seenType := false
 	seenIdentity := false
 	seenNonAnnotation := false

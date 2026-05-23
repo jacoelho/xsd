@@ -205,13 +205,6 @@ func buildIdentityFieldLookup(fields []identityField) ([]compiledIdentityField, 
 }
 
 func validateIdentityConstraintSyntax(n *rawNode) error {
-	if n.Name.Local == "keyref" {
-		if err := validateKnownAttributes(n, n.Name.Local, isKeyrefAttribute); err != nil {
-			return err
-		}
-	} else if err := validateKnownAttributes(n, n.Name.Local, isIdentityAttribute); err != nil {
-		return err
-	}
 	seenAnnotation := false
 	seenSelector := false
 	seenField := false
@@ -264,9 +257,6 @@ func validateIdentityConstraintSyntax(n *rawNode) error {
 }
 
 func validateIdentityXPathChild(n *rawNode, label string) error {
-	if err := validateKnownAttributes(n, label, isIdentityXPathAttribute); err != nil {
-		return err
-	}
 	xpath, ok := n.attr("xpath")
 	if !ok {
 		return schemaCompile(ErrSchemaIdentity, label+" missing xpath")

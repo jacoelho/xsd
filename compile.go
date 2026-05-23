@@ -458,10 +458,9 @@ func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivati
 func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask, error) {
 	var m derivationMask
 	seenAll := false
-	seenOther := false
 	for p := range xmlFieldsSeq(v) {
 		if p == "#all" {
-			if seenAll || seenOther {
+			if seenAll || m != 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot combine #all with other values")
 			}
 			seenAll = true
@@ -499,7 +498,6 @@ func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask
 		default:
 			return 0, schemaCompile(ErrSchemaInvalidAttribute, "invalid "+label+" value "+p)
 		}
-		seenOther = true
 	}
 	if seenAll {
 		return allowed, nil
@@ -684,16 +682,6 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 	st.Final = 0
 	st.Facets = cloneFacetSet(base.Facets)
 	st.Union = slices.Clone(base.Union)
-	if ws, ok := n.attr("whiteSpace"); ok {
-		mode, ok := parseWhitespaceChecked(ws)
-		if !ok {
-			return simpleType{}, schemaCompile(ErrSchemaFacet, "invalid whiteSpace facet "+ws)
-		}
-		if !validWhitespaceRestriction(base.Whitespace, mode) {
-			return simpleType{}, schemaCompile(ErrSchemaFacet, "whiteSpace cannot loosen base whiteSpace")
-		}
-		st.Whitespace = mode
-	}
 	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
 		return simpleType{}, err
 	}
@@ -756,10 +744,7 @@ func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType 
 	if err != nil {
 		return noSimpleType, err
 	}
-	if _, ok := c.simpleDone[q]; ok {
-		return c.compileSimpleByQName(q)
-	}
-	if _, ok := c.simpleRaw[q]; ok {
+	if c.simpleTypeQNameKnown(q) {
 		return c.compileSimpleByQName(q)
 	}
 	if c.typeQNameKnown(q) {

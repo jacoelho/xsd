@@ -21,9 +21,6 @@ func (c *compiler) compileWildcardParticle(n *rawNode, ctx *schemaContext) (part
 }
 
 func validateAnyParticleSyntax(n *rawNode) error {
-	if err := validateKnownAttributes(n, "any", isAnyParticleAttribute); err != nil {
-		return err
-	}
 	if len(n.xsContentChildren()) != 0 {
 		return schemaCompile(ErrSchemaContentModel, "any can contain only annotation")
 	}
@@ -31,9 +28,6 @@ func validateAnyParticleSyntax(n *rawNode) error {
 }
 
 func validateAnyAttributeSyntax(n *rawNode) error {
-	if err := validateKnownAttributes(n, "anyAttribute", isAnyAttributeAttribute); err != nil {
-		return err
-	}
 	if len(n.xsContentChildren()) != 0 {
 		return schemaCompile(ErrSchemaContentModel, "anyAttribute can contain only annotation")
 	}

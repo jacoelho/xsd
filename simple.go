@@ -156,7 +156,7 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 	if err := validateBuiltinDerived(st.Builtin, norm, parsed.Actual); err != nil {
 		return simpleValue{}, err
 	}
-	if err := applyFacets(st, norm, canon, parsed.Actual, false); err != nil {
+	if err := applyFacets(st, norm, canon, parsed.Actual); err != nil {
 		return simpleValue{}, err
 	}
 	v := simpleValue{Canonical: canon, Type: id}
@@ -180,10 +180,10 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 	var norm strings.Builder
 	var idrefs strings.Builder
 	count := uint32(0)
-	if err := forEachListItem(lexical, func(item string) error {
+	for item := range xmlFieldsSeq(lexical) {
 		itemValue, err := validateSimpleValueMode(rt, st.ListItem, item, resolve, needStrings, false)
 		if err != nil {
-			return err
+			return simpleValue{}, err
 		}
 		if needStrings {
 			if count > 0 {
@@ -200,9 +200,6 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 			idrefs.WriteString(itemValue.IDRefs)
 		}
 		count++
-		return nil
-	}); err != nil {
-		return simpleValue{}, err
 	}
 	n := ""
 	if needStrings {
@@ -222,28 +219,6 @@ func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexica
 		v.Identity = simpleIdentityKey(primString, v.Canonical)
 	}
 	return v, nil
-}
-
-func forEachListItem(lexical string, fn func(string) error) error {
-	start := -1
-	for i := 0; i < len(lexical); i++ {
-		if isXMLWhitespaceByte(lexical[i]) {
-			if start >= 0 {
-				if err := fn(lexical[start:i]); err != nil {
-					return err
-				}
-				start = -1
-			}
-			continue
-		}
-		if start < 0 {
-			start = i
-		}
-	}
-	if start >= 0 {
-		return fn(lexical[start:])
-	}
-	return nil
 }
 
 func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needCanonical, needIdentity bool) (simpleValue, error) {
