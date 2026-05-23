@@ -305,8 +305,6 @@ func validateModelOccurrence(n *rawNode, limits compileLimits) error {
 		if err := validateKnownAttributes(n, n.Name.Local, isGroupOccurrenceAttribute); err != nil {
 			return err
 		}
-	} else if err := validateKnownAttributes(n, n.Name.Local, isModelOccurrenceAttribute); err != nil {
-		return err
 	}
 	occurs, err := parseOccurs(n, limits)
 	if err != nil {
@@ -316,15 +314,6 @@ func validateModelOccurrence(n *rawNode, limits compileLimits) error {
 		return schemaCompile(ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
 	}
 	return validateModelGroupSyntax(n, limits)
-}
-
-func isModelOccurrenceAttribute(name string) bool {
-	switch name {
-	case "id", "minOccurs", "maxOccurs":
-		return true
-	default:
-		return false
-	}
 }
 
 func isGroupOccurrenceAttribute(name string) bool {

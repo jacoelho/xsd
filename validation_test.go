@@ -346,6 +346,55 @@ func TestInvalidSchemaAttributeCombinations(t *testing.T) {
 			code: ErrSchemaInvalidAttribute,
 		},
 		{
+			name: "attribute_rejects_unknown_attribute",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="t"><xs:attribute name="a" bogus="x"/></xs:complexType>
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "attribute_ref_rejects_unknown_attribute",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a"/>
+  <xs:complexType name="t"><xs:attribute ref="a" bogus="x"/></xs:complexType>
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "complex_type_rejects_unknown_attribute",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="t" bogus="x"/>
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "simple_type_rejects_unknown_attribute",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="t" bogus="x"><xs:restriction base="xs:string"/></xs:simpleType>
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "restriction_rejects_unknown_attribute",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="t"><xs:restriction base="xs:string" bogus="x"/></xs:simpleType>
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
+			name: "schema_include_rejects_unknown_attribute",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="other.xsd" bogus="x"/>
+</xs:schema>`,
+			code: ErrSchemaInvalidAttribute,
+		},
+		{
 			name: "attribute_annotation_must_precede_simple_type",
 			schema: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -625,6 +674,13 @@ func TestSimpleContentInvalidChildrenAreSchemaErrors(t *testing.T) {
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType>
   <xs:complexType name="bad"><xs:simpleContent><xs:restriction base="base"><xs:sequence/></xs:restriction></xs:simpleContent></xs:complexType>
+</xs:schema>`)))
+	expectCode(t, err, ErrSchemaContentModel)
+
+	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="aDerived"><xs:simpleContent><xs:extension base="zBase"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="zBase"><xs:simpleContent><xs:extension base="xs:string"><xs:sequence/></xs:extension></xs:simpleContent></xs:complexType>
 </xs:schema>`)))
 	expectCode(t, err, ErrSchemaContentModel)
 }

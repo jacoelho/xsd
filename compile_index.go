@@ -174,9 +174,6 @@ func validateTopLevelElementAttrs(n *rawNode) error {
 }
 
 func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
-	if err := validateKnownAttributes(n, "notation", isNotationAttribute); err != nil {
-		return err
-	}
 	if trimXMLWhitespace(n.Text) != "" {
 		return schemaCompile(ErrSchemaContentModel, "notation can contain only annotation")
 	}

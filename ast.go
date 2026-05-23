@@ -48,6 +48,9 @@ func parseSchemaDocument(name, key string, data []byte, limits compileLimits) (*
 	if err := rejectUnsupportedSchemaNodes(state.root, nil); err != nil {
 		return nil, err
 	}
+	if err := rejectUnknownSchemaAttributes(state.root); err != nil {
+		return nil, err
+	}
 	if err := rejectDuplicateSchemaIDs(state.root, make(map[string]bool)); err != nil {
 		return nil, err
 	}
@@ -301,6 +304,94 @@ func rejectUnsupportedSchemaNodes(n, parent *rawNode) error {
 		}
 	}
 	return nil
+}
+
+func rejectUnknownSchemaAttributes(n *rawNode) error {
+	if n.Name.Space == xsdNamespaceURI {
+		for _, attr := range n.Attr {
+			if isNamespaceAttr(attr) || attr.Name.Space != "" {
+				continue
+			}
+			if !schemaAttributeAllowed(n.Name.Local, attr.Name.Local) {
+				return schemaCompile(ErrSchemaInvalidAttribute, n.Name.Local+" cannot have attribute "+attr.Name.Local)
+			}
+		}
+	}
+	for _, child := range n.Children {
+		if err := rejectUnknownSchemaAttributes(child); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func schemaAttributeAllowed(element, attr string) bool {
+	switch element {
+	case "schema":
+		return schemaRootAttributeAllowed(attr)
+	case "include":
+		return attr == "id" || attr == "schemaLocation"
+	case "import":
+		return attr == "id" || attr == "namespace" || attr == "schemaLocation"
+	case "annotation":
+		return attr == "id"
+	case "appinfo":
+		return attr == "source"
+	case "documentation":
+		return attr == "source"
+	case "simpleType":
+		return attr == "id" || attr == "name" || attr == "final"
+	case "restriction":
+		return attr == "id" || attr == "base"
+	case "list":
+		return attr == "id" || attr == "itemType"
+	case "union":
+		return attr == "id" || attr == "memberTypes"
+	case "complexType":
+		return attr == "id" || attr == "name" || attr == "mixed" || attr == "abstract" || attr == "block" || attr == "final"
+	case "simpleContent":
+		return attr == "id"
+	case "complexContent":
+		return attr == "id" || attr == "mixed"
+	case "extension":
+		return attr == "id" || attr == "base"
+	case "group":
+		return attr == "id" || attr == "name" || attr == "ref" || attr == "minOccurs" || attr == "maxOccurs"
+	case "all", "choice", "sequence":
+		return attr == "id" || attr == "minOccurs" || attr == "maxOccurs"
+	case "element":
+		return isElementAttribute(attr)
+	case "attribute":
+		return isAttributeAttribute(attr)
+	case "attributeGroup":
+		return attr == "id" || attr == "name" || attr == "ref"
+	case "any":
+		return isAnyParticleAttribute(attr)
+	case "anyAttribute":
+		return isAnyAttributeAttribute(attr)
+	case "unique", "key":
+		return isIdentityAttribute(attr)
+	case "keyref":
+		return isKeyrefAttribute(attr)
+	case "selector", "field":
+		return isIdentityXPathAttribute(attr)
+	case "notation":
+		return isNotationAttribute(attr)
+	default:
+		if isFacetNode(element) {
+			return attr == "id" || attr == "value" || attr == "fixed"
+		}
+		return true
+	}
+}
+
+func schemaRootAttributeAllowed(attr string) bool {
+	switch attr {
+	case "id", "targetNamespace", "version", "finalDefault", "blockDefault", "attributeFormDefault", "elementFormDefault":
+		return true
+	default:
+		return false
+	}
 }
 
 func rejectDuplicateSchemaIDs(n *rawNode, seen map[string]bool) error {
