@@ -380,45 +380,52 @@ func validateDecimalFacetRestriction(f, base facetSet, step orderedFacetStep) er
 		return err
 	}
 	if step.minInclusive {
-		if err := validateDecimalLowerRestriction("minInclusive", f.MinInclusive, false, baseLower); err != nil {
+		if err := validateDecimalLowerRestriction("minInclusive", f.MinInclusive, facetInclusive, baseLower); err != nil {
 			return err
 		}
 	}
 	if step.minExclusive {
-		if err := validateDecimalLowerRestriction("minExclusive", f.MinExclusive, true, baseLower); err != nil {
+		if err := validateDecimalLowerRestriction("minExclusive", f.MinExclusive, facetExclusive, baseLower); err != nil {
 			return err
 		}
 	}
 	if step.maxInclusive {
-		if err := validateDecimalUpperRestriction("maxInclusive", f.MaxInclusive, false, baseUpper); err != nil {
+		if err := validateDecimalUpperRestriction("maxInclusive", f.MaxInclusive, facetInclusive, baseUpper); err != nil {
 			return err
 		}
 	}
 	if step.maxExclusive {
-		if err := validateDecimalUpperRestriction("maxExclusive", f.MaxExclusive, true, baseUpper); err != nil {
+		if err := validateDecimalUpperRestriction("maxExclusive", f.MaxExclusive, facetExclusive, baseUpper); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateDecimalLowerRestriction(name string, lit *compiledLiteral, exclusive bool, base orderedFacetBound[decimalValue]) error {
+type facetBoundStyle uint8
+
+const (
+	facetInclusive facetBoundStyle = iota
+	facetExclusive
+)
+
+func validateDecimalLowerRestriction(name string, lit *compiledLiteral, style facetBoundStyle, base orderedFacetBound[decimalValue]) error {
 	if lit == nil || !base.present() {
 		return nil
 	}
 	cmp := compareDecimalValues(literalDecimal(lit), base.value)
-	if cmp < 0 || cmp == 0 && !exclusive && base.exclusive() {
+	if cmp < 0 || cmp == 0 && style == facetInclusive && base.exclusive() {
 		return fmt.Errorf("%s cannot be less than base lower bound", name)
 	}
 	return nil
 }
 
-func validateDecimalUpperRestriction(name string, lit *compiledLiteral, exclusive bool, base orderedFacetBound[decimalValue]) error {
+func validateDecimalUpperRestriction(name string, lit *compiledLiteral, style facetBoundStyle, base orderedFacetBound[decimalValue]) error {
 	if lit == nil || !base.present() {
 		return nil
 	}
 	cmp := compareDecimalValues(literalDecimal(lit), base.value)
-	if cmp > 0 || cmp == 0 && !exclusive && base.exclusive() {
+	if cmp > 0 || cmp == 0 && style == facetInclusive && base.exclusive() {
 		return fmt.Errorf("%s cannot exceed base upper bound", name)
 	}
 	return nil
@@ -444,19 +451,19 @@ func validateDecimalFacetBounds(f facetSet) error {
 }
 
 func decimalLowerBound(f facetSet) (orderedFacetBound[decimalValue], error) {
-	return facetBoundCanonical(f.MinInclusive, f.MinExclusive, parseDecimalValue, func(other, out decimalValue) bool {
+	return facetBound(f.MinInclusive, f.MinExclusive, facetCanonical, parseDecimalValue, func(other, out decimalValue) bool {
 		return compareDecimalValues(other, out) >= 0
 	})
 }
 
 func decimalUpperBound(f facetSet) (orderedFacetBound[decimalValue], error) {
-	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parseDecimalValue, func(other, out decimalValue) bool {
+	return facetBound(f.MaxInclusive, f.MaxExclusive, facetCanonical, parseDecimalValue, func(other, out decimalValue) bool {
 		return compareDecimalValues(other, out) <= 0
 	})
 }
 
 func (c *compiler) compileLiteral(base simpleTypeID, lexical string, resolve qnameResolver) (compiledLiteral, error) {
-	value, err := validateSimpleValueInfo(&c.rt, base, lexical, resolve)
+	value, err := validateSimpleValueMode(&c.rt, base, lexical, resolve, simpleNeedCanonical)
 	if err != nil {
 		if IsUnsupported(err) {
 			return compiledLiteral{}, err

@@ -162,11 +162,11 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	if err != nil {
 		return elementDecl{}, err
 	}
-	nillable, err := schemaBoolAttr(n, "nillable", false)
+	nillable, err := schemaBoolAttr(n, "nillable")
 	if err != nil {
 		return elementDecl{}, err
 	}
-	abstract, err := schemaBoolAttr(n, "abstract", false)
+	abstract, err := schemaBoolAttr(n, "abstract")
 	if err != nil {
 		return elementDecl{}, err
 	}
@@ -209,12 +209,12 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 		Abstract:  abstract,
 		SubstHead: noElement,
 	}
-	block, err := derivationMaskWithDefaultChecked(n, "block", ctx.blockDefault, derivationBlockDefaultMask, "element block")
+	block, err := derivationMaskWithDefaultChecked(n, ctx.blockDefault, elementBlockDerivation)
 	if err != nil {
 		return elementDecl{}, err
 	}
 	decl.Block = block
-	final, err := derivationMaskWithDefaultChecked(n, "final", ctx.finalDefault, derivationComplexMask, "element final")
+	final, err := derivationMaskWithDefaultChecked(n, ctx.finalDefault, elementFinalDerivation)
 	if err != nil {
 		return elementDecl{}, err
 	}

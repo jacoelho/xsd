@@ -278,6 +278,7 @@ func appendFlattenedModelChild(m *contentModel, child contentModel) bool {
 	return false
 }
 
+// canFlattenSingleParticleModel names the non-obvious model flattening invariant.
 func canFlattenSingleParticleModel(modelOccurs, particleOccurs occurrence) bool {
 	return modelOccurs.isExactlyOne() ||
 		particleOccurs.Min == 0 ||
@@ -443,11 +444,7 @@ func (c *compiler) modelContinuationParticles(model contentModel) []particle {
 		out = append(out, c.modelStartParticles(model)...)
 	}
 	switch model.Kind {
-	case modelSequence:
-		for _, p := range model.Particles {
-			out = append(out, c.particleContinuationParticles(p)...)
-		}
-	case modelChoice:
+	case modelSequence, modelChoice:
 		for _, p := range model.Particles {
 			out = append(out, c.particleContinuationParticles(p)...)
 		}
@@ -703,6 +700,7 @@ func maxOccursLimitMessage(limit uint64) string {
 	return "maxOccurs exceeds uint32 limit"
 }
 
+// occurrenceUint32LimitExceeded compares textually so huge values cannot overflow.
 func occurrenceUint32LimitExceeded(digits string) bool {
 	return compareUnsignedDecimalText(digits, strconv.FormatUint(uint64(^uint32(0)), 10)) > 0
 }
@@ -730,6 +728,9 @@ func occurrenceUint32(digits string) uint32 {
 	if compareUnsignedDecimalText(digits, maxUint32) > 0 {
 		return ^uint32(0)
 	}
-	v, _ := strconv.ParseUint(digits, 10, 32)
+	v, err := strconv.ParseUint(digits, 10, 32)
+	if err != nil {
+		return ^uint32(0)
+	}
 	return uint32(v)
 }

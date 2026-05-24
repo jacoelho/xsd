@@ -26,9 +26,9 @@ func (c *compiler) load(sources []SchemaSource) error {
 }
 
 func (c *compiler) loadSchemaDocuments(sources []SchemaSource) error {
-	queue := make([]schemaLoad, len(sources))
-	for i, source := range sources {
-		queue[i] = schemaLoad{source: source}
+	queue := make([]schemaLoad, 0, len(sources))
+	for _, source := range sources {
+		queue = append(queue, schemaLoad{source: source})
 	}
 	sourceData := make(map[string][]byte)
 	for len(queue) != 0 {
@@ -144,6 +144,7 @@ func schemaContentSeen(bucket [][]byte, data []byte) bool {
 	return false
 }
 
+// isSchemaLimitError documents which errors stop optional schema loading.
 func isSchemaLimitError(err error) bool {
 	x, ok := errors.AsType[*Error](err)
 	return ok && x.Code == ErrSchemaLimit
@@ -342,10 +343,8 @@ func schemaSourceKey(name string) string {
 func schemaLocationKeys(baseName, baseKey, loc string) []string {
 	var keys []string
 	add := func(key string) {
-		for _, existing := range keys {
-			if existing == key {
-				return
-			}
+		if slices.Contains(keys, key) {
+			return
 		}
 		keys = append(keys, key)
 	}

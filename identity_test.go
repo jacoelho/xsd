@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -643,8 +644,8 @@ func TestIdentitySelectionRecoveryCollectsMultipleFieldErrors(t *testing.T) {
 		strings.NewReader(`<root><row a="x" b="y"/><row a="x" b="y"/></root>`),
 		ValidateOptions{MaxErrors: 2},
 	)
-	errs, ok := err.(Errors)
-	if !ok {
+	var errs Errors
+	if !errors.As(err, &errs) {
 		t.Fatalf("ValidateWithOptions() error = %T, want Errors", err)
 	}
 	if len(errs) != 2 {

@@ -251,7 +251,7 @@ func (p *xmlStreamParser) expectString(s string) error {
 }
 
 func (p *xmlStreamParser) syntaxError(msg string, err error) error {
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return errors.New(msg)
 	}
 	return err

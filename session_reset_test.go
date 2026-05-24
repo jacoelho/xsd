@@ -86,8 +86,8 @@ func TestSessionResetClearsRetainedSliceCapacity(t *testing.T) {
 
 func TestSessionPathStringMaterializesLazily(t *testing.T) {
 	var s session
-	pushTestPath(&s, "root")
-	pushTestPath(&s, "row")
+	s.pushPath("root")
+	s.pushPath("row")
 
 	if s.pathText != "" {
 		t.Fatal("pushPath materialized path text")
@@ -105,16 +105,16 @@ func TestSessionPathStringMaterializesLazily(t *testing.T) {
 
 func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	var s session
-	pushTestPath(&s, "root")
+	s.pushPath("root")
 	if got := s.pathString(); got != "/root" {
 		t.Fatalf("pathString() = %q, want /root", got)
 	}
-	pushTestPath(&s, "child")
+	s.pushPath("child")
 	if got := s.pathString(); got != "/root/child" {
 		t.Fatalf("pathString() = %q, want /root/child", got)
 	}
 
-	popTestPath(&s)
+	s.popPath()
 
 	if got := s.pathString(); got != "/root" {
 		t.Fatalf("pathString() after pop = %q, want /root", got)
@@ -122,12 +122,4 @@ func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	if s.pathText != "/root" {
 		t.Fatalf("pathText after pop = %q, want /root", s.pathText)
 	}
-}
-
-func pushTestPath(s *session, local string) {
-	s.pushPath(local)
-}
-
-func popTestPath(s *session) {
-	s.popPath()
 }

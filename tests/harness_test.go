@@ -73,10 +73,11 @@ func TestHarness(t *testing.T) {
 func testDir(t *testing.T) string {
 	t.Helper()
 	pc, file, line, ok := runtime.Caller(0)
-	_ = pc
-	_ = line
 	if !ok {
 		t.Fatal("runtime.Caller() failed")
+	}
+	if pc == 0 || line == 0 {
+		t.Fatalf("runtime.Caller() = pc %v, line %d", pc, line)
 	}
 	return filepath.Dir(file)
 }

@@ -192,6 +192,7 @@ func applyDFAActions(counters, caps []uint32, actions []compiledAction) ([]uint3
 	return out, nil
 }
 
+// normalizeDFAConfigs canonicalizes DFA state keys before map lookup.
 func normalizeDFAConfigs(configs []dfaConfig) []dfaConfig {
 	configs = slices.Clone(configs)
 	slices.SortFunc(configs, compareDFAConfig)

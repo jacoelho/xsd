@@ -49,7 +49,9 @@ func TestRunValidatesDocument(t *testing.T) {
 	doc := writeXMLLintTestFile(t, dir, "valid.xml", `<root><v>7</v></root>`)
 
 	var stderr bytes.Buffer
-	if code := run([]string{"--noout", "--schema", schema, doc}, &stderr); code != 0 {
+	if code := runWithOpen([]string{"--noout", "--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
+		return os.Open(path)
+	}); code != 0 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), doc+" validates") {
@@ -63,7 +65,9 @@ func TestRunReportsValidationFailure(t *testing.T) {
 	doc := writeXMLLintTestFile(t, dir, "invalid.xml", `<root><v>x</v></root>`)
 
 	var stderr bytes.Buffer
-	if code := run([]string{"--schema", schema, doc}, &stderr); code != 1 {
+	if code := runWithOpen([]string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
+		return os.Open(path)
+	}); code != 1 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "validation.facet") {
@@ -76,7 +80,7 @@ func TestRunReportsValidationFailure(t *testing.T) {
 
 func TestRunReportsArgumentFailure(t *testing.T) {
 	var stderr bytes.Buffer
-	if code := run([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, &stderr); code != 2 {
+	if code := runWithOpen([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, &stderr, nil); code != 2 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "--max-errors cannot be negative") {
@@ -86,7 +90,7 @@ func TestRunReportsArgumentFailure(t *testing.T) {
 
 func TestRunReturnsArgumentFailureWhenStderrWriteFails(t *testing.T) {
 	stderr := errWriter{err: errors.New("write failed")}
-	if code := run([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, stderr); code != 2 {
+	if code := runWithOpen([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, stderr, nil); code != 2 {
 		t.Fatalf("run() code = %d, want 2", code)
 	}
 }
@@ -110,6 +114,29 @@ func TestRunReportsDocumentCloseFailure(t *testing.T) {
 		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "valid.xml fails to validate") {
+		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
+	}
+}
+
+func TestRunReportsValidationFailureBeforeCloseFailure(t *testing.T) {
+	dir := t.TempDir()
+	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
+	docErr := errors.New("close failed")
+	open := func(path string) (io.ReadCloser, error) {
+		if path != "invalid.xml" {
+			return nil, os.ErrNotExist
+		}
+		return closeErrorReader{Reader: strings.NewReader(`<root><v>x</v></root>`), err: docErr}, nil
+	}
+
+	var stderr bytes.Buffer
+	if code := runWithOpen([]string{"--schema", schema, "invalid.xml"}, &stderr, open); code != 1 {
+		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "validation.facet") {
+		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), docErr.Error()) {
 		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
 	}
 }

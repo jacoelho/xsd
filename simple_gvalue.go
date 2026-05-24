@@ -15,7 +15,7 @@ type xsdGValue struct {
 }
 
 func parseXSDGYearMonthValue(s string) (xsdGValue, error) {
-	year, next, err := parseXSDYear(s, 0)
+	year, next, err := parseXSDYear(s)
 	if err != nil || next >= len(s) || s[next] != '-' {
 		if err != nil {
 			return xsdGValue{}, err
@@ -37,7 +37,7 @@ func parseXSDGYearMonthValue(s string) (xsdGValue, error) {
 }
 
 func parseXSDGYearValue(s string) (xsdGValue, error) {
-	year, next, err := parseXSDYear(s, 0)
+	year, next, err := parseXSDYear(s)
 	if err != nil {
 		return xsdGValue{}, err
 	}
@@ -167,6 +167,7 @@ func maxGMonthDayOfMonth(month int) int {
 	}
 }
 
+// applyGValueBounds reuses parsed g-values when validation already has them.
 func applyGValueBounds(kind primitiveKind, f facetSet, norm string, actual actualValue, parse func(string) (xsdGValue, error)) error {
 	value := actual.G
 	if !actual.Valid || actual.Kind != kind {
@@ -176,9 +177,10 @@ func applyGValueBounds(kind primitiveKind, f facetSet, norm string, actual actua
 			return err
 		}
 	}
-	return applyPartialBoundsParsed(f, value, parse, compareXSDGValue, actualGValueLiteral(kind))
+	return applyPartialBoundsParsed(&f, value, parse, compareXSDGValue, actualGValueLiteral(kind))
 }
 
+// actualGValueLiteral trusts cached values only for the primitive being checked.
 func actualGValueLiteral(kind primitiveKind) func(*compiledLiteral) (xsdGValue, bool) {
 	return func(l *compiledLiteral) (xsdGValue, bool) {
 		if l.Actual.Valid && l.Actual.Kind == kind {
@@ -193,11 +195,15 @@ func validateGValueFacetBounds(kind primitiveKind, f facetSet) error {
 	if !ok {
 		return nil
 	}
-	lower, err := gValueLowerBound(f, parse)
+	lower, err := facetBound(f.MinInclusive, f.MinExclusive, facetCanonical, parse, func(other, out xsdGValue) bool {
+		return partialCompareForMinInclusive(compareXSDGValue(other, out))
+	})
 	if err != nil {
 		return err
 	}
-	upper, err := gValueUpperBound(f, parse)
+	upper, err := facetBound(f.MaxInclusive, f.MaxExclusive, facetCanonical, parse, func(other, out xsdGValue) bool {
+		return partialCompareForMaxInclusive(compareXSDGValue(other, out))
+	})
 	if err != nil {
 		return err
 	}
@@ -222,16 +228,4 @@ func gValueFacet(kind primitiveKind) (string, func(string) (xsdGValue, error), b
 	default:
 		return "", nil, false
 	}
-}
-
-func gValueLowerBound(f facetSet, parse func(string) (xsdGValue, error)) (orderedFacetBound[xsdGValue], error) {
-	return facetBoundCanonical(f.MinInclusive, f.MinExclusive, parse, func(other, out xsdGValue) bool {
-		return partialCompareForMinInclusive(compareXSDGValue(other, out))
-	})
-}
-
-func gValueUpperBound(f facetSet, parse func(string) (xsdGValue, error)) (orderedFacetBound[xsdGValue], error) {
-	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parse, func(other, out xsdGValue) bool {
-		return partialCompareForMaxInclusive(compareXSDGValue(other, out))
-	})
 }

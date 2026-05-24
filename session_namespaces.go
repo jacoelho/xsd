@@ -109,7 +109,7 @@ func (s *session) typeDerivationMask(t, base typeID) (derivationMask, bool) {
 }
 
 func (s *session) translateStartElement(se xml.StartElement, line, col int) (xml.StartElement, error) {
-	name, err := s.translateName(se.Name, true, line, col)
+	name, err := s.translateName(se.Name, xmlElementName, line, col)
 	if err != nil {
 		return xml.StartElement{}, err
 	}
@@ -118,7 +118,7 @@ func (s *session) translateStartElement(se xml.StartElement, line, col int) (xml
 		if isNamespaceAttr(attr) {
 			continue
 		}
-		name, err := s.translateName(attr.Name, false, line, col)
+		name, err := s.translateName(attr.Name, xmlAttributeName, line, col)
 		if err != nil {
 			return xml.StartElement{}, err
 		}
@@ -179,8 +179,8 @@ func (s *xmlNameSet) add(name xml.Name) bool {
 	return true
 }
 
-func (s *session) translateName(name xml.Name, element bool, line, col int) (xml.Name, error) {
-	resolved, ok := s.ns.resolveName(name, element)
+func (s *session) translateName(name xml.Name, kind xmlNameKind, line, col int) (xml.Name, error) {
+	resolved, ok := s.ns.resolveName(name, kind)
 	if !ok {
 		return xml.Name{}, validation(ErrValidationXML, line, col, s.pathString(), "unbound namespace prefix "+name.Space)
 	}
@@ -292,7 +292,14 @@ func (ns *namespaceStack) push(attrs []xml.Attr) error {
 	return nil
 }
 
-func (ns *namespaceStack) resolveName(name xml.Name, element bool) (xml.Name, bool) {
+type xmlNameKind uint8
+
+const (
+	xmlElementName xmlNameKind = iota
+	xmlAttributeName
+)
+
+func (ns *namespaceStack) resolveName(name xml.Name, kind xmlNameKind) (xml.Name, bool) {
 	if name.Space != "" {
 		uri, ok := ns.lookup(name.Space)
 		if !ok {
@@ -300,7 +307,7 @@ func (ns *namespaceStack) resolveName(name xml.Name, element bool) (xml.Name, bo
 		}
 		return xml.Name{Space: uri, Local: name.Local}, true
 	}
-	if element {
+	if kind == xmlElementName {
 		uri, _ := ns.lookup("")
 		return xml.Name{Space: uri, Local: name.Local}, true
 	}
