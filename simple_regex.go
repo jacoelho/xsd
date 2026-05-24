@@ -40,7 +40,6 @@ func validateXSDRegexSyntaxWithCompiler(source string, c *compiler) error {
 	return nil
 }
 
-//nolint:govet // Validator state is grouped by regex construct; not a runtime hot-path type.
 type xsdRegexSyntaxValidator struct {
 	compiler           *compiler
 	categoryName       string

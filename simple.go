@@ -17,7 +17,6 @@ type simpleValue struct {
 	Type      simpleTypeID
 }
 
-//nolint:govet // Tagged value payload; fields stay grouped by primitive kind.
 type actualValue struct {
 	Time     xsdTimeValue
 	G        xsdGValue
