@@ -82,7 +82,7 @@ func FormatXMLWithOptions(w io.Writer, r io.Reader, opts FormatOptions) error {
 	if err != nil {
 		return &XMLFormatError{Err: err}
 	}
-	reader := io.Reader(r)
+	reader := r
 	if limits.maxInputBytes > 0 {
 		reader = &maxBytesReader{r: reader, max: limits.maxInputBytes, err: errFormatInputLimit}
 	}
@@ -103,7 +103,8 @@ func FormatXMLWithOptions(w io.Writer, r io.Reader, opts FormatOptions) error {
 	p.emitPI = true
 	f := xmlFormatter{w: writer, p: p, maxDepth: limits.maxDepth, maxNodes: limits.maxNodes}
 	err = f.format()
-	if _, ok := errors.AsType[*XMLFormatError](err); err != nil && !ok && (errors.Is(err, errFormatInputLimit) || errors.Is(err, errFormatOutputLimit)) {
+	var formatErr *XMLFormatError
+	if err != nil && !errors.As(err, &formatErr) && (errors.Is(err, errFormatInputLimit) || errors.Is(err, errFormatOutputLimit)) {
 		return &XMLFormatError{Err: err}
 	}
 	return err
@@ -247,7 +248,7 @@ type formatElement struct {
 func (f *xmlFormatter) format() error {
 	for {
 		tok, err := f.p.next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return f.finish()
 		}
 		if err != nil {

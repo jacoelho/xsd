@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -43,7 +44,7 @@ func TestXMLStreamParserConsumesBytesReturnedWithEOF(t *testing.T) {
 	}
 
 	_, err = p.next()
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Fatalf("final error = %v, want EOF", err)
 	}
 }
@@ -164,7 +165,7 @@ func TestXMLStreamParserRejectsInvalidSkippedComment(t *testing.T) {
 		t.Fatalf("next root start error = %v", err)
 	}
 	_, err := p.next()
-	if err == nil || err == io.EOF {
+	if err == nil || errors.Is(err, io.EOF) {
 		t.Fatalf("invalid comment error = %v", err)
 	}
 }

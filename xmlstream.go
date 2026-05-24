@@ -191,7 +191,7 @@ func (p *xmlStreamParser) readCharData(first byte) (streamToken, error) {
 	}
 	for {
 		chunk, err := p.br.buffered()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return streamToken{kind: streamTokenCharData, data: p.textBuf, line: line, col: col}, nil
 		}
 		if err != nil {
@@ -538,7 +538,7 @@ func (p *xmlStreamParser) readName(first byte) (xml.Name, error) {
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return xml.Name{}, fmt.Errorf("unexpected EOF in XML name")
 			}
 			return xml.Name{}, err

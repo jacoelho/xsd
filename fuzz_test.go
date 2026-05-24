@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"errors"
 	"io"
 	"regexp"
 	"strings"
@@ -30,7 +31,7 @@ func FuzzXMLStreamParser(f *testing.F) {
 				t.Skip()
 			}
 			_, err := parser.next()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return
 			}
 			if err != nil {

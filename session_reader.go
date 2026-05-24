@@ -3,6 +3,7 @@ package xsd
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"regexp"
 	"strings"
@@ -23,12 +24,18 @@ func prepareInstanceReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Read
 	} else {
 		br.Reset(r)
 	}
-	peek, _ := br.Peek(xmlDeclarationPrefixLen)
+	peek, err := br.Peek(xmlDeclarationPrefixLen)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
 	if bytes.HasPrefix(peek, utf8BOM) {
-		if _, err := br.Discard(len(utf8BOM)); err != nil {
+		if _, discardErr := br.Discard(len(utf8BOM)); discardErr != nil {
+			return nil, discardErr
+		}
+		peek, err = br.Peek(xmlDeclarationPrefixLen)
+		if err != nil && !errors.Is(err, io.EOF) {
 			return nil, err
 		}
-		peek, _ = br.Peek(xmlDeclarationPrefixLen)
 	}
 	if len(peek) >= 2 {
 		if (peek[0] == 0xFE && peek[1] == 0xFF) || (peek[0] == 0xFF && peek[1] == 0xFE) {

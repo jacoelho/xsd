@@ -83,7 +83,7 @@ func (s *attributeSeen) mark(slot int) bool {
 	return true
 }
 
-func (s attributeSeen) has(slot int) bool {
+func (s *attributeSeen) has(slot int) bool {
 	if s.list != nil {
 		return s.list[slot]
 	}

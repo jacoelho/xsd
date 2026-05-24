@@ -585,14 +585,20 @@ func parseMaxRSS(goos, out string) uint64 {
 			if first == "" {
 				continue
 			}
-			n, _ := strconv.ParseUint(first, 10, 64)
+			n, err := strconv.ParseUint(first, 10, 64)
+			if err != nil {
+				continue
+			}
 			return n
 		case goos == "linux" && strings.Contains(line, "Maximum resident set size"):
 			_, value, ok := strings.Cut(line, ":")
 			if !ok {
 				continue
 			}
-			n, _ := strconv.ParseUint(trimXMLWhitespace(value), 10, 64)
+			n, err := strconv.ParseUint(trimXMLWhitespace(value), 10, 64)
+			if err != nil {
+				continue
+			}
 			return n * 1024
 		}
 	}

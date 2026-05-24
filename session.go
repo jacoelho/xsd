@@ -254,7 +254,7 @@ func (s *session) validate(r io.Reader) error {
 	seenRoot := false
 	for {
 		tok, err := s.parser.next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		line, col := tok.line, tok.col

@@ -87,7 +87,8 @@ func parseArgs(args []string) (config, error) {
 }
 
 func printValidationErrors(w io.Writer, err error) error {
-	if errs, ok := err.(xsd.Errors); ok {
+	var errs xsd.Errors
+	if errors.As(err, &errs) {
 		for _, child := range errs {
 			if _, writeErr := fmt.Fprintln(w, child); writeErr != nil {
 				return writeErr

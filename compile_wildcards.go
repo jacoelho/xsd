@@ -240,12 +240,10 @@ func (c *compiler) sameWildcardNamespaceConstraint(a, b wildcard) bool {
 		return false
 	}
 	switch a.Mode {
-	case wildAny:
+	case wildAny, wildLocal:
 		return true
 	case wildOther:
 		return a.OtherThan == b.OtherThan
-	case wildLocal:
-		return true
 	case wildTargetNamespace:
 		return len(a.Namespaces) == len(b.Namespaces) && (len(a.Namespaces) == 0 || a.Namespaces[0] == b.Namespaces[0])
 	case wildList:
@@ -267,9 +265,7 @@ func (c *compiler) wildcardFiniteNamespaces(w wildcard) []namespaceID {
 	switch w.Mode {
 	case wildLocal:
 		return []namespaceID{c.emptyNamespaceID()}
-	case wildTargetNamespace:
-		return slices.Clone(w.Namespaces)
-	case wildList:
+	case wildTargetNamespace, wildList:
 		return slices.Clone(w.Namespaces)
 	default:
 		return nil
@@ -357,9 +353,7 @@ func (c *compiler) wildcardsOverlap(a, b wildcard) bool {
 
 func (c *compiler) wildcardHasNamespaceOtherThan(w wildcard, excluded namespaceID) bool {
 	switch w.Mode {
-	case wildAny:
-		return true
-	case wildOther:
+	case wildAny, wildOther:
 		return true
 	case wildLocal:
 		return false

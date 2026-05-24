@@ -172,7 +172,7 @@ func actualEqualsLiteral(actual actualValue, canon string, lit compiledLiteral) 
 	case primDecimal:
 		return compareDecimalValues(actual.Decimal, lit.Actual.Decimal) == 0
 	case primFloat, primDouble:
-		return actual.Float == lit.Actual.Float || actual.Float != actual.Float && lit.Actual.Float != lit.Actual.Float
+		return equalXSDFloat(actual.Float, lit.Actual.Float)
 	case primDuration:
 		return equalXSDDuration(actual.Duration, lit.Actual.Duration)
 	case primDate, primDateTime:

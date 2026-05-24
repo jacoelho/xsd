@@ -18,9 +18,13 @@ func TestNewServerServesDirectory(t *testing.T) {
 	srv := httptest.NewServer(newServer(":0", dir).Handler)
 	defer srv.Close()
 
-	resp, err := srv.Client().Get(srv.URL + "/index.html")
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL+"/index.html", http.NoBody)
 	if err != nil {
-		t.Fatalf("Get() error = %v", err)
+		t.Fatalf("NewRequestWithContext() error = %v", err)
+	}
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf("Do() error = %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {

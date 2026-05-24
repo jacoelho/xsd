@@ -20,3 +20,20 @@ func TestFloatDoubleFixedUseZeroValueSpace(t *testing.T) {
 	mustNotValidate(t, engine, `<floatElement>1</floatElement>`, ErrValidationElement)
 	mustNotValidate(t, engine, `<root floatAttr="1" doubleAttr="-0"/>`, ErrValidationAttribute)
 }
+
+func TestFloatDoubleUseXSD10NaNEquality(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="nanOnly">
+    <xs:restriction base="xs:double">
+      <xs:enumeration value="NaN"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="enum" type="nanOnly"/>
+  <xs:element name="fixed" type="xs:double" fixed="NaN"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<enum>NaN</enum>`)
+	mustValidate(t, engine, `<fixed>NaN</fixed>`)
+	mustNotValidate(t, engine, `<enum>1</enum>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<fixed>1</fixed>`, ErrValidationElement)
+}

@@ -3,6 +3,7 @@ package xsd
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"io"
 	"maps"
 	"strings"
@@ -74,7 +75,7 @@ type schemaParseState struct {
 func (s *schemaParseState) parse() error {
 	for {
 		tok, err := s.dec.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -335,15 +336,11 @@ func schemaAttributeAllowed(element, attr string) bool {
 		return attr == "id" || attr == "schemaLocation"
 	case "import":
 		return attr == "id" || attr == "namespace" || attr == "schemaLocation"
-	case "annotation":
-		return attr == "id"
-	case "appinfo":
-		return attr == "source"
-	case "documentation":
+	case "appinfo", "documentation":
 		return attr == "source"
 	case "simpleType":
 		return attr == "id" || attr == "name" || attr == "final"
-	case "restriction":
+	case "restriction", "extension":
 		return attr == "id" || attr == "base"
 	case "list":
 		return attr == "id" || attr == "itemType"
@@ -351,12 +348,10 @@ func schemaAttributeAllowed(element, attr string) bool {
 		return attr == "id" || attr == "memberTypes"
 	case "complexType":
 		return attr == "id" || attr == "name" || attr == "mixed" || attr == "abstract" || attr == "block" || attr == "final"
-	case "simpleContent":
+	case "annotation", "simpleContent":
 		return attr == "id"
 	case "complexContent":
 		return attr == "id" || attr == "mixed"
-	case "extension":
-		return attr == "id" || attr == "base"
 	case "group":
 		return attr == "id" || attr == "name" || attr == "ref" || attr == "minOccurs" || attr == "maxOccurs"
 	case "all", "choice", "sequence":
@@ -511,7 +506,7 @@ func validateComponentAnnotationPlacement(n *rawNode) error {
 func validLanguageTag(v string) bool {
 	i := 0
 	for part := range strings.SplitSeq(v, "-") {
-		if len(part) == 0 || len(part) > 8 {
+		if part == "" || len(part) > 8 {
 			return false
 		}
 		for _, r := range part {

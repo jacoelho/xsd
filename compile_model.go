@@ -444,11 +444,7 @@ func (c *compiler) modelContinuationParticles(model contentModel) []particle {
 		out = append(out, c.modelStartParticles(model)...)
 	}
 	switch model.Kind {
-	case modelSequence:
-		for _, p := range model.Particles {
-			out = append(out, c.particleContinuationParticles(p)...)
-		}
-	case modelChoice:
+	case modelSequence, modelChoice:
 		for _, p := range model.Particles {
 			out = append(out, c.particleContinuationParticles(p)...)
 		}
@@ -732,6 +728,9 @@ func occurrenceUint32(digits string) uint32 {
 	if compareUnsignedDecimalText(digits, maxUint32) > 0 {
 		return ^uint32(0)
 	}
-	v, _ := strconv.ParseUint(digits, 10, 32)
+	v, err := strconv.ParseUint(digits, 10, 32)
+	if err != nil {
+		return ^uint32(0)
+	}
 	return uint32(v)
 }

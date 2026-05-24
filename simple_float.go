@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -22,6 +23,10 @@ func formatXSDFloatCanonical(v float64, bits int) string {
 	return strconv.FormatFloat(v, 'g', -1, bits)
 }
 
+func equalXSDFloat(a, b float64) bool {
+	return a == b || math.IsNaN(a) && math.IsNaN(b)
+}
+
 func parseXSDFloat(s string, bits int) (float64, error) {
 	switch s {
 	case "INF":
@@ -36,7 +41,8 @@ func parseXSDFloat(s string, bits int) (float64, error) {
 	}
 	v, err := strconv.ParseFloat(s, bits)
 	if err != nil {
-		if numErr, ok := err.(*strconv.NumError); ok && numErr.Err == strconv.ErrRange {
+		var numErr *strconv.NumError
+		if errors.As(err, &numErr) && errors.Is(numErr.Err, strconv.ErrRange) {
 			return v, nil
 		}
 		return 0, fmt.Errorf("invalid float")
