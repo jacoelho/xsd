@@ -52,16 +52,6 @@ func validateBuiltinDerived(kind builtinValidationKind, norm string, actual actu
 	return nil
 }
 
-func applyFacets(st simpleType, norm, canon string, actual actualValue) error {
-	if st.Facets.empty() {
-		return nil
-	}
-	if err := applyAtomicFacets(st, norm, actual); err != nil {
-		return err
-	}
-	return applyPatternAndEnumeration(st.Facets, norm, canon, actual)
-}
-
 func applyAtomicFacets(st simpleType, norm string, actual actualValue) error {
 	if err := applyAtomicLengthFacets(st, norm, actual); err != nil {
 		return err
@@ -182,7 +172,7 @@ func actualEqualsLiteral(actual actualValue, canon string, lit compiledLiteral) 
 	case primDecimal:
 		return compareDecimalValues(actual.Decimal, lit.Actual.Decimal) == 0
 	case primFloat, primDouble:
-		return actual.Float == lit.Actual.Float || actual.Float != actual.Float && lit.Actual.Float != lit.Actual.Float
+		return equalXSDFloat(actual.Float, lit.Actual.Float)
 	case primDuration:
 		return equalXSDDuration(actual.Duration, lit.Actual.Duration)
 	case primDate, primDateTime:

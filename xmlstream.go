@@ -75,12 +75,6 @@ type xmlStreamParser struct {
 	emitPI        bool
 }
 
-func newXMLStreamParser(r io.Reader, names, values *byteStringCache) *xmlStreamParser {
-	p := new(xmlStreamParser)
-	p.reset(r, names, values)
-	return p
-}
-
 func (p *xmlStreamParser) reset(r io.Reader, names, values *byteStringCache) {
 	p.resetWithLimit(r, names, values, 0)
 }
@@ -197,7 +191,7 @@ func (p *xmlStreamParser) readCharData(first byte) (streamToken, error) {
 	}
 	for {
 		chunk, err := p.br.buffered()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return streamToken{kind: streamTokenCharData, data: p.textBuf, line: line, col: col}, nil
 		}
 		if err != nil {
@@ -334,10 +328,12 @@ func hasByte(x uint64, b byte) bool {
 	return hasZeroByte(x ^ (asciiLowBits * uint64(b)))
 }
 
+// hasByteLessThan uses the standard zero-byte trick across eight ASCII bytes.
 func hasByteLessThan(x uint64, b byte) bool {
 	return ((x - asciiLowBits*uint64(b)) &^ x & asciiHighBits) != 0
 }
 
+// hasZeroByte is the shared bit-parallel zero-byte primitive.
 func hasZeroByte(x uint64) bool {
 	return ((x - asciiLowBits) &^ x & asciiHighBits) != 0
 }
@@ -542,7 +538,7 @@ func (p *xmlStreamParser) readName(first byte) (xml.Name, error) {
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return xml.Name{}, fmt.Errorf("unexpected EOF in XML name")
 			}
 			return xml.Name{}, err
@@ -798,19 +794,19 @@ func (p *xmlStreamParser) skipUntil(term string) error {
 
 func validateXMLDeclContent(content []byte) error {
 	rest := content
-	version, rest, ok := parseXMLDeclAttr(rest, "version", false)
+	version, rest, ok := parseXMLDeclAttr(rest, "version", xmlDeclFirstAttr)
 	if !ok || version != "1.0" {
 		return fmt.Errorf("invalid XML declaration")
 	}
 	if hasXMLDeclAttr(rest, "encoding") {
-		encoding, next, ok := parseXMLDeclAttr(rest, "encoding", true)
+		encoding, next, ok := parseXMLDeclAttr(rest, "encoding", xmlDeclNextAttr)
 		if !ok || !strings.EqualFold(encoding, "UTF-8") && !strings.EqualFold(encoding, "UTF8") {
 			return fmt.Errorf("invalid XML declaration")
 		}
 		rest = next
 	}
 	if hasXMLDeclAttr(rest, "standalone") {
-		standalone, next, ok := parseXMLDeclAttr(rest, "standalone", true)
+		standalone, next, ok := parseXMLDeclAttr(rest, "standalone", xmlDeclNextAttr)
 		if !ok || standalone != "yes" && standalone != "no" {
 			return fmt.Errorf("invalid XML declaration")
 		}
@@ -830,8 +826,15 @@ func hasXMLDeclAttr(content []byte, name string) bool {
 	return bytes.HasPrefix(content, []byte(name))
 }
 
-func parseXMLDeclAttr(content []byte, name string, requireLeadingSpace bool) (string, []byte, bool) {
-	if requireLeadingSpace && (len(content) == 0 || !isXMLWhitespaceByte(content[0])) {
+type xmlDeclAttrPosition uint8
+
+const (
+	xmlDeclFirstAttr xmlDeclAttrPosition = iota
+	xmlDeclNextAttr
+)
+
+func parseXMLDeclAttr(content []byte, name string, pos xmlDeclAttrPosition) (string, []byte, bool) {
+	if pos == xmlDeclNextAttr && (len(content) == 0 || !isXMLWhitespaceByte(content[0])) {
 		return "", content, false
 	}
 	content = bytes.TrimLeft(content, " \t\r\n")

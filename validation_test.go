@@ -1103,8 +1103,8 @@ func TestValidateCollectsRecoverableErrors(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	err := engine.Validate(strings.NewReader(`<root code="x"><a>bad</a><b>bad</b></root>`))
-	errs, ok := err.(Errors)
-	if !ok {
+	var errs Errors
+	if !errors.As(err, &errs) {
 		t.Fatalf("Validate() error type = %T, want Errors; err=%v", err, err)
 	}
 	if len(errs) != 4 {
@@ -1135,7 +1135,8 @@ func TestValidateWithOptionsLimitsErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("ValidateWithOptions() succeeded")
 	}
-	if _, ok := err.(Errors); ok {
+	var errs Errors
+	if errors.As(err, &errs) {
 		t.Fatalf("ValidateWithOptions() returned aggregate despite MaxErrors=1: %v", err)
 	}
 	expectCode(t, err, ErrValidationFacet)
@@ -1264,7 +1265,8 @@ func TestSessionValidateResetsDocumentState(t *testing.T) {
 	if err == nil {
 		t.Fatal("Session.Validate() succeeded")
 	}
-	if _, ok := err.(Errors); ok {
+	var errs Errors
+	if errors.As(err, &errs) {
 		t.Fatalf("Session.Validate() returned aggregate despite MaxErrors=1: %v", err)
 	}
 	expectCode(t, err, ErrValidationType)
@@ -1284,7 +1286,8 @@ func TestValidateKeepsMalformedXMLFatal(t *testing.T) {
 	if err == nil {
 		t.Fatal("Validate() succeeded")
 	}
-	if _, ok := err.(Errors); ok {
+	var errs Errors
+	if errors.As(err, &errs) {
 		t.Fatalf("Validate() returned aggregate for malformed XML: %v", err)
 	}
 	expectCode(t, err, ErrValidationXML)
@@ -1307,8 +1310,8 @@ func TestValidateCollectsIDREFErrors(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	err := engine.Validate(strings.NewReader(`<root><node ref="missing1"/><node ref="missing2"/></root>`))
-	errs, ok := err.(Errors)
-	if !ok {
+	var errs Errors
+	if !errors.As(err, &errs) {
 		t.Fatalf("Validate() error type = %T, want Errors; err=%v", err, err)
 	}
 	if len(errs) != 2 {
@@ -1337,7 +1340,8 @@ func TestRequiredFixedIDREFAttributeDoesNotDefaultWhenAbsent(t *testing.T) {
 		t.Fatal("Validate() succeeded")
 	}
 	errs := []error{err}
-	if all, ok := err.(Errors); ok {
+	var all Errors
+	if errors.As(err, &all) {
 		errs = all
 	}
 	if len(errs) != 1 {

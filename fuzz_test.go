@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"errors"
 	"io"
 	"regexp"
 	"strings"
@@ -23,13 +24,14 @@ func FuzzXMLStreamParser(f *testing.F) {
 		}
 		names := newByteStringCache()
 		values := newByteStringCache()
-		parser := newXMLStreamParser(strings.NewReader(input), &names, &values)
+		parser := new(xmlStreamParser)
+		parser.reset(strings.NewReader(input), &names, &values)
 		for tokens := 0; ; tokens++ {
 			if tokens > 4096 {
 				t.Skip()
 			}
 			_, err := parser.next()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return
 			}
 			if err != nil {
@@ -98,7 +100,9 @@ func FuzzValidateNeverPanics(f *testing.F) {
 		if len(doc) > 4096 {
 			t.Skip()
 		}
-		_ = engine.Validate(strings.NewReader(doc))
+		if err := engine.Validate(strings.NewReader(doc)); err != nil {
+			return
+		}
 	})
 }
 
@@ -128,7 +132,7 @@ func FuzzXSDRegexSyntax(f *testing.F) {
 		if !utf8.ValidString(source) {
 			return
 		}
-		if err := validateXSDRegexSyntax(source); err != nil {
+		if err := validateXSDRegexSyntaxWithCompiler(source, nil); err != nil {
 			return
 		}
 		goSource := "^(?:" + translateXSDRegexToGo(source) + ")$"

@@ -132,7 +132,7 @@ func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolv
 }
 
 func (c *compiler) validateValueConstraint(id simpleTypeID, lexical string, resolve qnameResolver, owner qName, label string) (simpleValue, error) {
-	value, err := validateSimpleValueIdentityInfo(&c.rt, id, lexical, resolve)
+	value, err := validateSimpleValueMode(&c.rt, id, lexical, resolve, simpleNeedCanonical|simpleNeedIdentity)
 	if err != nil {
 		if IsUnsupported(err) {
 			return simpleValue{}, err
@@ -152,13 +152,20 @@ func (c *compiler) schemaQNameResolver(n *rawNode) qnameResolver {
 	}
 }
 
-func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inherited []attributeUse, inheritedWildcard wildcardID, allowOverride bool) (attributeUseSetID, error) {
+type attributeUseMergeMode uint8
+
+const (
+	attributeMergeNormal attributeUseMergeMode = iota
+	attributeMergeRestriction
+)
+
+func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inherited []attributeUse, inheritedWildcard wildcardID, mode attributeUseMergeMode) (attributeUseSetID, error) {
 	uses := slices.Clone(inherited)
 	seen := make(map[qName]int, len(uses))
 	for i := range uses {
 		seen[uses[i].Name] = i
 	}
-	wildcards := newAttributeWildcardBuilder(inheritedWildcard, allowOverride)
+	wildcards := attributeWildcardBuilder{wildcard: noWildcard, inheritedWildcard: inheritedWildcard, mode: mode}
 	for _, child := range parent.xsContentChildren() {
 		switch child.Name.Local {
 		case "attribute":
@@ -166,7 +173,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 			if err != nil {
 				return noAttributeUseSet, err
 			}
-			uses, err = c.mergeAttributeUse(uses, seen, u, allowOverride, inheritedWildcard)
+			uses, err = c.mergeAttributeUse(uses, seen, u, mode, inheritedWildcard)
 			if err != nil {
 				return noAttributeUseSet, err
 			}
@@ -176,7 +183,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 				return noAttributeUseSet, err
 			}
 			for _, u := range groupUses {
-				uses, err = c.mergeAttributeUse(uses, seen, u, allowOverride, inheritedWildcard)
+				uses, err = c.mergeAttributeUse(uses, seen, u, mode, inheritedWildcard)
 				if err != nil {
 					return noAttributeUseSet, err
 				}
@@ -185,7 +192,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 				return noAttributeUseSet, err
 			}
 		case "anyAttribute":
-			id, err := c.compileWildcard(child, ctx, true)
+			id, err := c.compileAttributeWildcard(child, ctx)
 			if err != nil {
 				return noAttributeUseSet, err
 			}
@@ -214,15 +221,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 type attributeWildcardBuilder struct {
 	wildcard          wildcardID
 	inheritedWildcard wildcardID
-	allowOverride     bool
-}
-
-func newAttributeWildcardBuilder(inheritedWildcard wildcardID, allowOverride bool) attributeWildcardBuilder {
-	return attributeWildcardBuilder{
-		wildcard:          noWildcard,
-		inheritedWildcard: inheritedWildcard,
-		allowOverride:     allowOverride,
-	}
+	mode              attributeUseMergeMode
 }
 
 func (b *attributeWildcardBuilder) addGroup(c *compiler, id wildcardID) error {
@@ -258,7 +257,7 @@ func (b *attributeWildcardBuilder) add(c *compiler, id wildcardID, process proce
 
 func (b *attributeWildcardBuilder) finish(c *compiler, parentName string) (wildcardID, error) {
 	wildcard := b.wildcard
-	if b.allowOverride {
+	if b.mode == attributeMergeRestriction {
 		if b.wildcard != noWildcard {
 			if b.inheritedWildcard == noWildcard {
 				return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction requires base wildcard")
@@ -300,12 +299,12 @@ func newAttributeUseSet(uses []attributeUse, wildcard wildcardID) attributeUseSe
 	return set
 }
 
-func (c *compiler) mergeAttributeUse(uses []attributeUse, seen map[qName]int, u attributeUse, allowOverride bool, inheritedWildcard wildcardID) ([]attributeUse, error) {
+func (c *compiler) mergeAttributeUse(uses []attributeUse, seen map[qName]int, u attributeUse, mode attributeUseMergeMode, inheritedWildcard wildcardID) ([]attributeUse, error) {
 	if i, ok := seen[u.Name]; ok {
-		if !allowOverride && !uses[i].Prohibited && !u.Prohibited {
+		if mode != attributeMergeRestriction && !uses[i].Prohibited && !u.Prohibited {
 			return nil, schemaCompile(ErrSchemaDuplicate, "duplicate attribute use")
 		}
-		if allowOverride {
+		if mode == attributeMergeRestriction {
 			if err := c.validateAttributeUseRestriction(uses[i], u); err != nil {
 				return nil, err
 			}
@@ -313,7 +312,7 @@ func (c *compiler) mergeAttributeUse(uses []attributeUse, seen map[qName]int, u 
 		uses[i] = u
 		return uses, nil
 	}
-	if allowOverride && !u.Prohibited {
+	if mode == attributeMergeRestriction && !u.Prohibited {
 		if inheritedWildcard == noWildcard || !c.wildcardAllowsQName(inheritedWildcard, u.Name) {
 			return nil, schemaCompile(ErrSchemaInvalidAttribute, "new restricted attribute is not allowed by base wildcard")
 		}
@@ -527,7 +526,7 @@ func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildca
 	}
 	c.compilingAttrGrp[q] = true
 	defer delete(c.compilingAttrGrp, q)
-	id, err := c.compileAttributeUses(raw.node, raw.ctx, nil, noWildcard, false)
+	id, err := c.compileAttributeUses(raw.node, raw.ctx, nil, noWildcard, attributeMergeNormal)
 	if err != nil {
 		return nil, noWildcard, err
 	}

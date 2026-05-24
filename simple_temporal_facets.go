@@ -17,9 +17,10 @@ func applyTemporalBounds(kind primitiveKind, f facetSet, norm string, actual act
 	parse := func(s string) (xsdTemporalValue, error) {
 		return parseXSDTemporalValue(kind, s)
 	}
-	return applyPartialBoundsParsed(f, value, parse, compareXSDTemporal, actualTemporalLiteral(kind))
+	return applyPartialBoundsParsed(&f, value, parse, compareXSDTemporal, actualTemporalLiteral(kind))
 }
 
+// actualTemporalLiteral trusts cached values only for the primitive being checked.
 func actualTemporalLiteral(kind primitiveKind) func(*compiledLiteral) (xsdTemporalValue, bool) {
 	return func(l *compiledLiteral) (xsdTemporalValue, bool) {
 		if l.Actual.Valid && l.Actual.Kind == kind {
@@ -47,16 +48,18 @@ func validateTemporalFacetBounds(kind primitiveKind, f facetSet) error {
 	return nil
 }
 
+// Temporal lower and upper facets use different partial-order acceptance rules.
 func temporalLowerBound(kind primitiveKind, f facetSet) (orderedFacetBound[xsdTemporalValue], error) {
 	parse := func(s string) (xsdTemporalValue, error) { return parseXSDTemporalValue(kind, s) }
-	return facetBoundCanonical(f.MinInclusive, f.MinExclusive, parse, func(other, out xsdTemporalValue) bool {
+	return facetBound(f.MinInclusive, f.MinExclusive, facetCanonical, parse, func(other, out xsdTemporalValue) bool {
 		return partialCompareForMinInclusive(compareXSDTemporal(other, out))
 	})
 }
 
+// temporalUpperBound applies the max-facet rule for partial temporal order.
 func temporalUpperBound(kind primitiveKind, f facetSet) (orderedFacetBound[xsdTemporalValue], error) {
 	parse := func(s string) (xsdTemporalValue, error) { return parseXSDTemporalValue(kind, s) }
-	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parse, func(other, out xsdTemporalValue) bool {
+	return facetBound(f.MaxInclusive, f.MaxExclusive, facetCanonical, parse, func(other, out xsdTemporalValue) bool {
 		return partialCompareForMaxInclusive(compareXSDTemporal(other, out))
 	})
 }
@@ -86,29 +89,29 @@ func validateTimeFacetRestriction(f, base facetSet, step orderedFacetStep) error
 		return err
 	}
 	if step.minInclusive && baseLower.present() {
-		if err := validateTimeLowerRestriction("minInclusive", f.MinInclusive, false, baseLower); err != nil {
+		if err := validateTimeLowerRestriction("minInclusive", f.MinInclusive, facetInclusive, baseLower); err != nil {
 			return err
 		}
 	}
 	if step.minExclusive && baseLower.present() {
-		if err := validateTimeLowerRestriction("minExclusive", f.MinExclusive, true, baseLower); err != nil {
+		if err := validateTimeLowerRestriction("minExclusive", f.MinExclusive, facetExclusive, baseLower); err != nil {
 			return err
 		}
 	}
 	if step.maxInclusive && baseUpper.present() {
-		if err := validateTimeUpperRestriction("maxInclusive", f.MaxInclusive, false, baseUpper); err != nil {
+		if err := validateTimeUpperRestriction("maxInclusive", f.MaxInclusive, facetInclusive, baseUpper); err != nil {
 			return err
 		}
 	}
 	if step.maxExclusive && baseUpper.present() {
-		if err := validateTimeUpperRestriction("maxExclusive", f.MaxExclusive, true, baseUpper); err != nil {
+		if err := validateTimeUpperRestriction("maxExclusive", f.MaxExclusive, facetExclusive, baseUpper); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateTimeLowerRestriction(name string, lit *compiledLiteral, exclusive bool, base orderedFacetBound[xsdTimeValue]) error {
+func validateTimeLowerRestriction(name string, lit *compiledLiteral, style facetBoundStyle, base orderedFacetBound[xsdTimeValue]) error {
 	if lit == nil {
 		return nil
 	}
@@ -117,13 +120,13 @@ func validateTimeLowerRestriction(name string, lit *compiledLiteral, exclusive b
 		return err
 	}
 	cmp := compareXSDTimePartial(value, base.value)
-	if cmp == partialCompareIncomparable || cmp == partialCompareLess || cmp == partialCompareEqual && !exclusive && base.exclusive() {
+	if cmp == partialCompareIncomparable || cmp == partialCompareLess || cmp == partialCompareEqual && style == facetInclusive && base.exclusive() {
 		return fmt.Errorf("%s cannot be less than base lower bound", name)
 	}
 	return nil
 }
 
-func validateTimeUpperRestriction(name string, lit *compiledLiteral, exclusive bool, base orderedFacetBound[xsdTimeValue]) error {
+func validateTimeUpperRestriction(name string, lit *compiledLiteral, style facetBoundStyle, base orderedFacetBound[xsdTimeValue]) error {
 	if lit == nil {
 		return nil
 	}
@@ -132,36 +135,41 @@ func validateTimeUpperRestriction(name string, lit *compiledLiteral, exclusive b
 		return err
 	}
 	cmp := compareXSDTimePartial(value, base.value)
-	if cmp == partialCompareIncomparable || cmp == partialCompareGreater || cmp == partialCompareEqual && !exclusive && base.exclusive() {
+	if cmp == partialCompareIncomparable || cmp == partialCompareGreater || cmp == partialCompareEqual && style == facetInclusive && base.exclusive() {
 		return fmt.Errorf("%s cannot exceed base upper bound", name)
 	}
 	return nil
 }
 
+// Time lower and upper facets use different partial-order acceptance rules.
 func timeLowerBound(f facetSet) (orderedFacetBound[xsdTimeValue], error) {
-	return facetBoundCanonical(f.MinInclusive, f.MinExclusive, parseXSDTimeValue, func(other, out xsdTimeValue) bool {
+	return facetBound(f.MinInclusive, f.MinExclusive, facetCanonical, parseXSDTimeValue, func(other, out xsdTimeValue) bool {
 		return partialCompareForMinInclusive(compareXSDTimePartial(other, out))
 	})
 }
 
+// timeUpperBound applies the max-facet rule for partial time order.
 func timeUpperBound(f facetSet) (orderedFacetBound[xsdTimeValue], error) {
-	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parseXSDTimeValue, func(other, out xsdTimeValue) bool {
+	return facetBound(f.MaxInclusive, f.MaxExclusive, facetCanonical, parseXSDTimeValue, func(other, out xsdTimeValue) bool {
 		return partialCompareForMaxInclusive(compareXSDTimePartial(other, out))
 	})
 }
 
+// Raw time bounds preserve lexical timezone absence during restriction checks.
 func timeRawLowerBound(f facetSet) (orderedFacetBound[xsdTimeValue], error) {
-	return facetBoundLexical(f.MinInclusive, f.MinExclusive, parseXSDTimeRaw, func(other, out xsdTimeValue) bool {
+	return facetBound(f.MinInclusive, f.MinExclusive, facetLexical, parseXSDTimeRaw, func(other, out xsdTimeValue) bool {
 		return partialCompareForMinInclusive(compareXSDTimePartial(other, out))
 	})
 }
 
+// timeRawUpperBound preserves lexical timezone absence for max-facet checks.
 func timeRawUpperBound(f facetSet) (orderedFacetBound[xsdTimeValue], error) {
-	return facetBoundLexical(f.MaxInclusive, f.MaxExclusive, parseXSDTimeRaw, func(other, out xsdTimeValue) bool {
+	return facetBound(f.MaxInclusive, f.MaxExclusive, facetLexical, parseXSDTimeRaw, func(other, out xsdTimeValue) bool {
 		return partialCompareForMaxInclusive(compareXSDTimePartial(other, out))
 	})
 }
 
+// applyTimeBounds reuses parsed time values when validation already has them.
 func applyTimeBounds(f facetSet, norm string, actual actualValue) error {
 	value := actual.Time
 	if !actual.Valid || actual.Kind != primTime {
@@ -171,7 +179,7 @@ func applyTimeBounds(f facetSet, norm string, actual actualValue) error {
 			return err
 		}
 	}
-	return applyPartialBoundsParsed(f, value, parseXSDTimeValue, compareXSDTimePartial, actualTimeLiteral)
+	return applyPartialBoundsParsed(&f, value, parseXSDTimeValue, compareXSDTimePartial, actualTimeLiteral)
 }
 
 func actualTimeLiteral(l *compiledLiteral) (xsdTimeValue, bool) {
@@ -181,7 +189,7 @@ func actualTimeLiteral(l *compiledLiteral) (xsdTimeValue, bool) {
 	return xsdTimeValue{}, false
 }
 
-func applyPartialBoundsParsed[T any](f facetSet, value T, parse func(string) (T, error), compare func(T, T) partialCompareResult, actual func(*compiledLiteral) (T, bool)) error {
+func applyPartialBoundsParsed[T any](f *facetSet, value T, parse func(string) (T, error), compare func(T, T) partialCompareResult, actual func(*compiledLiteral) (T, bool)) error {
 	if err := applyPartialBound(f.MinInclusive, "minInclusive", value, parse, compare, actual, partialCompareForMinInclusive); err != nil {
 		return err
 	}

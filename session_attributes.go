@@ -83,7 +83,7 @@ func (s *attributeSeen) mark(slot int) bool {
 	return true
 }
 
-func (s attributeSeen) has(slot int) bool {
+func (s *attributeSeen) has(slot int) bool {
 	if s.list != nil {
 		return s.list[slot]
 	}
@@ -129,7 +129,11 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse,
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "prohibited attribute "+rn.Local)
 	}
 	identityFields := s.identityAttributeFields(use.Name)
-	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameValue, true, len(identityFields) != 0)
+	needs := simpleNeedCanonical
+	if len(identityFields) != 0 {
+		needs |= simpleNeedIdentity
+	}
+	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameValue, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
@@ -182,7 +186,11 @@ func (s *session) validateWildcardAttribute(rt *runtimeSchema, set attributeUseS
 
 func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attributeDecl, rn runtimeName, value string, line, col int, seenIDAttr *bool) error {
 	identityFields := s.identityAttributeFields(decl.Name)
-	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameValue, true, len(identityFields) != 0)
+	needs := simpleNeedCanonical
+	if len(identityFields) != 0 {
+		needs |= simpleNeedIdentity
+	}
+	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameValue, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err

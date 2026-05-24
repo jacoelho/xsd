@@ -103,8 +103,8 @@ func collectErrors(err error, source string) []errorOutput {
 	if err == nil {
 		return nil
 	}
-	errs, ok := err.(xsd.Errors)
-	if !ok {
+	var errs xsd.Errors
+	if !errors.As(err, &errs) {
 		return []errorOutput{errorToOutput(err, source)}
 	}
 	out := make([]errorOutput, 0, len(errs))

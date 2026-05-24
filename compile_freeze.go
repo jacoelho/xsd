@@ -476,6 +476,7 @@ func validElementID(rt *runtimeSchema, id elementID) bool {
 	return validUint32Index(uint32(id), len(rt.Elements))
 }
 
+// validAttributeID keeps typed ID validation readable during freeze checks.
 func validAttributeID(rt *runtimeSchema, id attributeID) bool {
 	return validUint32Index(uint32(id), len(rt.Attributes))
 }
@@ -484,6 +485,7 @@ func validContentModelID(rt *runtimeSchema, id contentModelID) bool {
 	return validUint32Index(uint32(id), len(rt.Models))
 }
 
+// validAttributeUseSetID keeps typed ID validation readable during freeze checks.
 func validAttributeUseSetID(rt *runtimeSchema, id attributeUseSetID) bool {
 	return validUint32Index(uint32(id), len(rt.AttributeUseSets))
 }

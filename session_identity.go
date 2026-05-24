@@ -56,7 +56,14 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	identityFields := s.identityElementFields()
 	needIdentity := len(identityFields) != 0
 	needCanon := s.needsSimpleContentCanonical(f, typeID, needIdentity)
-	value, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needCanon, needIdentity)
+	var needs simpleValueNeed
+	if needCanon {
+		needs |= simpleNeedCanonical
+	}
+	if needIdentity {
+		needs |= simpleNeedIdentity
+	}
+	value, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return false, err
@@ -248,31 +255,38 @@ func (s *session) matchIdentitySelectors(line, col int) {
 
 func (s *session) identitySelectorMatches(scopeDepth, currentDepth int, paths []identityPath) bool {
 	for _, p := range paths {
-		if s.identityPathMatches(scopeDepth, currentDepth, p.Descendant, p.Self, p.Steps) {
+		pattern := identityPathPattern{descendant: p.Descendant, self: p.Self, steps: p.Steps}
+		if s.identityPathMatches(scopeDepth, currentDepth, pattern) {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *session) identityPathMatches(baseDepth, currentDepth int, descendant, self bool, steps []identityStep) bool {
-	if self {
+type identityPathPattern struct {
+	steps      []identityStep
+	descendant bool
+	self       bool
+}
+
+func (s *session) identityPathMatches(baseDepth, currentDepth int, p identityPathPattern) bool {
+	if p.self {
 		return currentDepth == baseDepth
 	}
 	if currentDepth < baseDepth {
 		return false
 	}
 	rel := s.namePath[baseDepth:currentDepth]
-	if descendant {
-		if len(rel) < len(steps) {
+	if p.descendant {
+		if len(rel) < len(p.steps) {
 			return false
 		}
-		rel = rel[len(rel)-len(steps):]
-	} else if len(rel) != len(steps) {
+		rel = rel[len(rel)-len(p.steps):]
+	} else if len(rel) != len(p.steps) {
 		return false
 	}
-	for i := range steps {
-		if !s.identityStepMatches(rel[i], steps[i]) {
+	for i := range p.steps {
+		if !s.identityStepMatches(rel[i], p.steps[i]) {
 			return false
 		}
 	}
@@ -329,13 +343,13 @@ func (s *session) captureIdentityXSIAttribute(a xml.Attr, line, col int) error {
 	value := simpleValue{Canonical: normalizeWhitespace(a.Value, whitespaceCollapse), Type: s.engine.rt.Builtin.String}
 	switch a.Name.Local {
 	case "nil":
-		v, err := validateSimpleValueInfo(s.engine.rt, s.engine.rt.Builtin.Boolean, a.Value, nil)
+		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.Boolean, a.Value, nil, simpleNeedCanonical)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:nil: "+err.Error())
 		}
 		value = v
 	case "type":
-		v, err := validateSimpleValueInfo(s.engine.rt, s.engine.rt.Builtin.qName, a.Value, s.resolveLexicalQNameValue)
+		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.qName, a.Value, s.resolveLexicalQNameValue, simpleNeedCanonical)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:type: "+err.Error())
 		}
@@ -416,7 +430,8 @@ func (s *session) identityFieldPathMatches(selectedDepth, currentDepth int, p id
 	if p.Self {
 		return currentDepth == selectedDepth
 	}
-	return s.identityPathMatches(selectedDepth, currentDepth, p.Descendant, false, p.Steps)
+	pattern := identityPathPattern{descendant: p.Descendant, steps: p.Steps}
+	return s.identityPathMatches(selectedDepth, currentDepth, pattern)
 }
 
 func (s *session) finishIdentitySelections(depth, line, col int) error {

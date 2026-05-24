@@ -117,22 +117,24 @@ func TestContentModelDFAStateInvariantError(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	modelID := rootContentModel(t, engine, "r")
+	modelID := rootContentModel(t, engine)
 	s := &session{engine: engine}
 	f := &frame{Model: modelID, State: uint32(len(engine.rt.CompiledModels[modelID].Rows))}
 	err := s.completeDFAModel(f, engine.rt.CompiledModels[modelID], 0, 0)
 	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 }
 
-func rootContentModel(t *testing.T, engine *Engine, local string) contentModelID {
+const rootContentModelName = "r"
+
+func rootContentModel(t *testing.T, engine *Engine) contentModelID {
 	t.Helper()
-	q, ok := engine.rt.Names.LookupQName("", local)
+	q, ok := engine.rt.Names.LookupQName("", rootContentModelName)
 	if !ok {
-		t.Fatalf("LookupQName(%q) failed", local)
+		t.Fatalf("LookupQName(%q) failed", rootContentModelName)
 	}
 	elem, ok := engine.rt.GlobalElements[q]
 	if !ok {
-		t.Fatalf("global element %q not found", local)
+		t.Fatalf("global element %q not found", rootContentModelName)
 	}
 	typ := engine.rt.Elements[elem].Type
 	if typ.Kind != typeComplex {
@@ -1475,7 +1477,7 @@ func TestLargeMaxOccursUsesCountedState(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	modelID := rootContentModel(t, engine, "r")
+	modelID := rootContentModel(t, engine)
 	if got := len(engine.rt.CompiledModels[modelID].Rows); got > 3 {
 		t.Fatalf("compiled rows = %d, want compact counted state", got)
 	}
@@ -1494,7 +1496,7 @@ func TestLargeMinOccursInSequenceUsesCountedState(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	modelID := rootContentModel(t, engine, "r")
+	modelID := rootContentModel(t, engine)
 	if got := len(engine.rt.CompiledModels[modelID].Rows); got > 4 {
 		t.Fatalf("compiled rows = %d, want compact counted state", got)
 	}

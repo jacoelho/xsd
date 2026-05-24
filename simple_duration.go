@@ -50,7 +50,7 @@ func parseXSDDurationValue(s string) (xsdDurationValue, error) {
 	if err != nil {
 		return xsdDurationValue{}, err
 	}
-	secondTotal, err := checkedDurationWholeSeconds(date.days, tm.hours, tm.minutes, tm.seconds)
+	secondTotal, err := checkedDurationWholeSeconds(date, tm)
 	if err != nil {
 		return xsdDurationValue{}, err
 	}
@@ -200,12 +200,13 @@ func parseDurationUnsigned(s string, i *int) (int64, error) {
 	return out, nil
 }
 
-func checkedDurationWholeSeconds(days, hours, minutes, seconds int64) (int64, error) {
-	out, err := checkedMulInt64(days, daySeconds)
+// checkedDurationWholeSeconds keeps every unit conversion overflow-checked.
+func checkedDurationWholeSeconds(date xsdDurationDateParts, tm xsdDurationTimeParts) (int64, error) {
+	out, err := checkedMulInt64(date.days, daySeconds)
 	if err != nil {
 		return 0, err
 	}
-	hourSeconds, err := checkedMulInt64(hours, 60*60)
+	hourSeconds, err := checkedMulInt64(tm.hours, 60*60)
 	if err != nil {
 		return 0, err
 	}
@@ -213,7 +214,7 @@ func checkedDurationWholeSeconds(days, hours, minutes, seconds int64) (int64, er
 	if err != nil {
 		return 0, err
 	}
-	minuteSeconds, err := checkedMulInt64(minutes, 60)
+	minuteSeconds, err := checkedMulInt64(tm.minutes, 60)
 	if err != nil {
 		return 0, err
 	}
@@ -221,7 +222,7 @@ func checkedDurationWholeSeconds(days, hours, minutes, seconds int64) (int64, er
 	if err != nil {
 		return 0, err
 	}
-	return checkedAddInt64(out, seconds)
+	return checkedAddInt64(out, tm.seconds)
 }
 
 func checkedMulInt64(a, b int64) (int64, error) {
@@ -238,6 +239,7 @@ func checkedAddInt64(a, b int64) (int64, error) {
 	return a + b, nil
 }
 
+// applyDurationBounds reuses parsed duration values when validation already has them.
 func applyDurationBounds(f facetSet, norm string, actual actualValue) error {
 	value := actual.Duration
 	if !actual.Valid || actual.Kind != primDuration {
@@ -247,7 +249,7 @@ func applyDurationBounds(f facetSet, norm string, actual actualValue) error {
 			return err
 		}
 	}
-	return applyPartialBoundsParsed(f, value, parseXSDDurationValue, compareXSDDuration, actualDurationLiteral)
+	return applyPartialBoundsParsed(&f, value, parseXSDDurationValue, compareXSDDuration, actualDurationLiteral)
 }
 
 func actualDurationLiteral(l *compiledLiteral) (xsdDurationValue, bool) {
@@ -279,14 +281,16 @@ func validateDurationFacetBounds(f facetSet) error {
 	return nil
 }
 
+// Duration lower and upper facets use different partial-order acceptance rules.
 func durationLowerBound(f facetSet) (orderedFacetBound[xsdDurationValue], error) {
-	return facetBoundCanonical(f.MinInclusive, f.MinExclusive, parseXSDDurationValue, func(other, out xsdDurationValue) bool {
+	return facetBound(f.MinInclusive, f.MinExclusive, facetCanonical, parseXSDDurationValue, func(other, out xsdDurationValue) bool {
 		return partialCompareForMinInclusive(compareXSDDuration(other, out))
 	})
 }
 
+// durationUpperBound applies the max-facet rule for partial duration order.
 func durationUpperBound(f facetSet) (orderedFacetBound[xsdDurationValue], error) {
-	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parseXSDDurationValue, func(other, out xsdDurationValue) bool {
+	return facetBound(f.MaxInclusive, f.MaxExclusive, facetCanonical, parseXSDDurationValue, func(other, out xsdDurationValue) bool {
 		return partialCompareForMaxInclusive(compareXSDDuration(other, out))
 	})
 }

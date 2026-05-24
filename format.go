@@ -82,7 +82,7 @@ func FormatXMLWithOptions(w io.Writer, r io.Reader, opts FormatOptions) error {
 	if err != nil {
 		return &XMLFormatError{Err: err}
 	}
-	reader := io.Reader(r)
+	reader := r
 	if limits.maxInputBytes > 0 {
 		reader = &maxBytesReader{r: reader, max: limits.maxInputBytes, err: errFormatInputLimit}
 	}
@@ -103,7 +103,8 @@ func FormatXMLWithOptions(w io.Writer, r io.Reader, opts FormatOptions) error {
 	p.emitPI = true
 	f := xmlFormatter{w: writer, p: p, maxDepth: limits.maxDepth, maxNodes: limits.maxNodes}
 	err = f.format()
-	if _, ok := errors.AsType[*XMLFormatError](err); err != nil && !ok && (errors.Is(err, errFormatInputLimit) || errors.Is(err, errFormatOutputLimit)) {
+	var formatErr *XMLFormatError
+	if err != nil && !errors.As(err, &formatErr) && (errors.Is(err, errFormatInputLimit) || errors.Is(err, errFormatOutputLimit)) {
 		return &XMLFormatError{Err: err}
 	}
 	return err
@@ -247,7 +248,7 @@ type formatElement struct {
 func (f *xmlFormatter) format() error {
 	for {
 		tok, err := f.p.next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return f.finish()
 		}
 		if err != nil {
@@ -300,7 +301,7 @@ func (f *xmlFormatter) collectStart(tok streamToken) error {
 	if err := f.validateStartNamespaces(tok.start); err != nil {
 		return xmlFormatErr(tok.line, tok.col, err)
 	}
-	preserve := xmlSpacePreserve(tok.start.Attr, false)
+	preserve := xmlSpacePreserve(tok.start.Attr, xmlSpaceDefault)
 	if len(f.stack) == 0 {
 		if f.rootSeen {
 			return xmlFormatErr(tok.line, tok.col, errors.New("XML document has multiple roots"))
@@ -310,7 +311,9 @@ func (f *xmlFormatter) collectStart(tok streamToken) error {
 		parent := f.stack[len(f.stack)-1]
 		preserve = xmlSpacePreserve(tok.start.Attr, parent.preserve)
 	}
-	elem := &formatElement{start: cloneStartElement(tok.start), line: tok.line, col: tok.col, preserve: preserve}
+	start := tok.start
+	start.Attr = slices.Clone(start.Attr)
+	elem := &formatElement{start: start, line: tok.line, col: tok.col, preserve: preserve}
 	if err := f.appendItem(formatItem{kind: formatItemElement, elem: elem, line: tok.line, col: tok.col}); err != nil {
 		return err
 	}
@@ -359,7 +362,7 @@ func (f *xmlFormatter) appendItem(item formatItem) error {
 }
 
 func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
-	if _, err := f.resolveFormatName(start.Name, true); err != nil {
+	if _, err := f.resolveFormatName(start.Name, xmlElementName); err != nil {
 		return err
 	}
 	var seen xmlNameSet
@@ -367,7 +370,7 @@ func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
 		name := attr.Name
 		if !isNamespaceAttr(attr) {
 			var err error
-			name, err = f.resolveFormatName(attr.Name, false)
+			name, err = f.resolveFormatName(attr.Name, xmlAttributeName)
 			if err != nil {
 				return err
 			}
@@ -379,8 +382,8 @@ func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
 	return nil
 }
 
-func (f *xmlFormatter) resolveFormatName(name xml.Name, element bool) (xml.Name, error) {
-	resolved, ok := f.ns.resolveName(name, element)
+func (f *xmlFormatter) resolveFormatName(name xml.Name, kind xmlNameKind) (xml.Name, error) {
+	resolved, ok := f.ns.resolveName(name, kind)
 	if !ok {
 		return xml.Name{}, errors.New("unbound namespace prefix " + name.Space)
 	}
@@ -394,17 +397,24 @@ func (f *xmlFormatter) writeDocument() error {
 				return err
 			}
 		}
-		if err := f.writeItem(item, 0, false); err != nil {
+		if err := f.writeItem(item, 0, formatBlock); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (f *xmlFormatter) writeItem(item formatItem, depth int, inline bool) error {
+type formatWriteMode uint8
+
+const (
+	formatBlock formatWriteMode = iota
+	formatInline
+)
+
+func (f *xmlFormatter) writeItem(item formatItem, depth int, mode formatWriteMode) error {
 	switch item.kind {
 	case formatItemElement:
-		return f.writeElement(item.elem, depth, inline)
+		return f.writeElement(item.elem, depth, mode)
 	case formatItemText:
 		if err := writeXMLText(f.w, item.data, item.cdata); err != nil {
 			return xmlFormatErr(item.line, item.col, err)
@@ -425,13 +435,13 @@ func (f *xmlFormatter) writeItem(item formatItem, depth int, inline bool) error 
 	}
 }
 
-func (f *xmlFormatter) writeElement(elem *formatElement, depth int, inline bool) error {
+func (f *xmlFormatter) writeElement(elem *formatElement, depth int, mode formatWriteMode) error {
 	if err := writeXMLStart(f.w, elem.start); err != nil {
 		return xmlFormatErr(elem.line, elem.col, err)
 	}
-	if inline || elem.inline() {
+	if mode == formatInline || elem.inline() {
 		for _, child := range elem.children {
-			if err := f.writeItem(child, depth+1, true); err != nil {
+			if err := f.writeItem(child, depth+1, formatInline); err != nil {
 				return err
 			}
 		}
@@ -446,7 +456,7 @@ func (f *xmlFormatter) writeElement(elem *formatElement, depth int, inline bool)
 		if err := writeXMLIndent(f.w, depth+1); err != nil {
 			return err
 		}
-		if err := f.writeItem(child, depth+1, false); err != nil {
+		if err := f.writeItem(child, depth+1, formatBlock); err != nil {
 			return err
 		}
 		wroteChild = true
@@ -530,6 +540,8 @@ func writeXMLText(w io.Writer, data []byte, cdata bool) error {
 	return xml.EscapeText(w, data)
 }
 
+const xmlSpaceDefault = false
+
 func xmlSpacePreserve(attrs []xml.Attr, inherited bool) bool {
 	for _, attr := range attrs {
 		if attr.Name.Space != "xml" || attr.Name.Local != "space" {
@@ -552,11 +564,6 @@ func hasXMLLineBreak(data []byte) bool {
 		}
 	}
 	return false
-}
-
-func cloneStartElement(start xml.StartElement) xml.StartElement {
-	start.Attr = slices.Clone(start.Attr)
-	return start
 }
 
 func xmlFormatErr(line, col int, err error) error {

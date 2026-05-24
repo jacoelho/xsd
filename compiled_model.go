@@ -146,7 +146,7 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 			continue
 		}
 		to := uint32(len(rows))
-		rows = append(rows, compiledParticleRow(edge.Particle, p.occurs, false))
+		rows = append(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowReject))
 		edge.To = to
 		for _, state := range active {
 			rows[state].Edges = append(rows[state].Edges, edge)
@@ -199,7 +199,7 @@ func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, 
 			rows[0].Edges = append(rows[0].Edges, edge)
 			continue
 		}
-		rows = append(rows, compiledParticleRow(edge.Particle, p.occurs, true))
+		rows = append(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowAccept))
 		rows[0].Edges = append(rows[0].Edges, edge)
 		if p.occurs.Unbounded || p.occurs.Max > 1 {
 			rows[edge.To].Edges = append(rows[edge.To].Edges, edge)
@@ -220,8 +220,15 @@ func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, 
 	}, true, nil
 }
 
-func compiledParticleRow(p particle, occurs occurrence, accept bool) compiledModelRow {
-	row := compiledModelRow{Accept: accept}
+type compiledRowAcceptance uint8
+
+const (
+	compiledRowReject compiledRowAcceptance = iota
+	compiledRowAccept
+)
+
+func compiledParticleRow(p particle, occurs occurrence, accept compiledRowAcceptance) compiledModelRow {
+	row := compiledModelRow{Accept: accept == compiledRowAccept}
 	if repeatNeedsCounter(occurs) {
 		row.Counted = true
 		row.CountParticle = p
@@ -327,7 +334,7 @@ func (c *compiler) checkAllUPA(model contentModel) error {
 }
 
 func (b *dfaBuilder) compile(id contentModelID) (compiledModel, error) {
-	root, err := b.modelNode(id, true)
+	root, err := b.modelNode(id, choiceLimitRoot)
 	if err != nil {
 		return compiledModel{}, err
 	}
@@ -404,7 +411,14 @@ func (b *dfaBuilder) stateID(entries []dfaEntry) (uint32, error) {
 	return id, nil
 }
 
-func (b *dfaBuilder) modelNode(id contentModelID, top bool) (dfaNode, error) {
+type choiceLimitScope uint8
+
+const (
+	choiceLimitRoot choiceLimitScope = iota
+	choiceLimitNested
+)
+
+func (b *dfaBuilder) modelNode(id contentModelID, scope choiceLimitScope) (dfaNode, error) {
 	model := b.c.rt.Models[id]
 	var node dfaNode
 	switch model.Kind {
@@ -413,7 +427,7 @@ func (b *dfaBuilder) modelNode(id contentModelID, top bool) (dfaNode, error) {
 	case modelSequence:
 		node = dfaNode{Nullable: true}
 		for i, p := range model.Particles {
-			child, err := b.particleNode(p, i, top)
+			child, err := b.particleNode(p, i, scope)
 			if err != nil {
 				return dfaNode{}, err
 			}
@@ -421,7 +435,7 @@ func (b *dfaBuilder) modelNode(id contentModelID, top bool) (dfaNode, error) {
 		}
 	case modelChoice:
 		for i, p := range model.Particles {
-			child, err := b.particleNode(p, i, top)
+			child, err := b.particleNode(p, i, scope)
 			if err != nil {
 				return dfaNode{}, err
 			}
@@ -435,16 +449,16 @@ func (b *dfaBuilder) modelNode(id contentModelID, top bool) (dfaNode, error) {
 	return b.repeat(node, model.occurs, -1)
 }
 
-func (b *dfaBuilder) particleNode(p particle, index int, top bool) (dfaNode, error) {
+func (b *dfaBuilder) particleNode(p particle, index int, scope choiceLimitScope) (dfaNode, error) {
 	var node dfaNode
-	if top {
+	if scope == choiceLimitRoot {
 		p = applyRepeatedChoiceLimit(p, index, b.limits)
 	}
 	switch p.Kind {
 	case particleElement, particleWildcard:
 		node = b.leaf(p)
 	case particleModel:
-		child, err := b.modelNode(p.Model, false)
+		child, err := b.modelNode(p.Model, choiceLimitNested)
 		if err != nil {
 			return dfaNode{}, err
 		}

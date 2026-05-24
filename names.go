@@ -119,17 +119,17 @@ func (n *nameTable) checkLimit(need int) error {
 	return nil
 }
 
-func (n nameTable) LookupNamespace(uri string) (namespaceID, bool) {
+func (n *nameTable) LookupNamespace(uri string) (namespaceID, bool) {
 	id, ok := n.nsIndex[uri]
 	return id, ok
 }
 
-func (n nameTable) LookupLocal(local string) (localNameID, bool) {
+func (n *nameTable) LookupLocal(local string) (localNameID, bool) {
 	id, ok := n.localIndex[local]
 	return id, ok
 }
 
-func (n nameTable) LookupQName(ns, local string) (qName, bool) {
+func (n *nameTable) LookupQName(ns, local string) (qName, bool) {
 	nsID, ok := n.LookupNamespace(ns)
 	if !ok {
 		return qName{}, false
@@ -141,21 +141,21 @@ func (n nameTable) LookupQName(ns, local string) (qName, bool) {
 	return qName{Namespace: nsID, Local: localID}, true
 }
 
-func (n nameTable) Namespace(id namespaceID) string {
+func (n *nameTable) Namespace(id namespaceID) string {
 	if !validUint32Index(uint32(id), len(n.namespaces)) {
 		return ""
 	}
 	return n.namespaces[id]
 }
 
-func (n nameTable) Local(id localNameID) string {
+func (n *nameTable) Local(id localNameID) string {
 	if !validUint32Index(uint32(id), len(n.locals)) {
 		return ""
 	}
 	return n.locals[id]
 }
 
-func (n nameTable) Format(q qName) string {
+func (n *nameTable) Format(q qName) string {
 	return formatExpandedName(n.Namespace(q.Namespace), n.Local(q.Local))
 }
 

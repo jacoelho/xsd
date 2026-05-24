@@ -248,7 +248,7 @@ func TestValidateXMLDataRejectsBookMissingPubDate(t *testing.T) {
 
 func TestWASMTargetBuilds(t *testing.T) {
 	wasm := filepath.Join(t.TempDir(), "xsd.wasm")
-	cmd := exec.Command("go", "build", "-ldflags=-s -w", "-o", wasm, ".")
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-ldflags=-s -w", "-o", wasm, ".")
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -258,7 +258,7 @@ func TestWASMTargetBuilds(t *testing.T) {
 
 func TestHostTargetBuilds(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "wasmxsd")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, ".")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("go build host failed: %v\n%s", err, out)

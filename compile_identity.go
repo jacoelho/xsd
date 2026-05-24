@@ -153,6 +153,7 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 	return ic, nil
 }
 
+// compileIdentityFieldLookup materializes field lookup tables after path parsing.
 func compileIdentityFieldLookup(ic *identityConstraint) {
 	ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = buildIdentityFieldLookup(ic.Fields)
 }
@@ -421,59 +422,58 @@ type identityAttributeName struct {
 }
 
 func (c *compiler) parseIdentityAttributeName(n *rawNode, name string) (identityAttributeName, error) {
-	name = trimXMLWhitespace(name)
-	switch name {
-	case "*":
-		return identityAttributeName{wildcard: true}, nil
-	default:
-		prefix, wildcard, err := parseQNamePrefixWildcard(name)
-		if err != nil {
-			return identityAttributeName{}, err
-		}
-		if wildcard {
-			ns, ok := n.NS[prefix]
-			if !ok {
-				return identityAttributeName{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
-			}
-			nsID, nsErr := c.rt.Names.InternNamespace(ns)
-			if nsErr != nil {
-				return identityAttributeName{}, nsErr
-			}
-			return identityAttributeName{wildcard: true, namespaceSet: true, namespace: nsID}, nil
-		}
-		q, err := c.resolveXPathQName(n, name)
-		if err != nil {
-			return identityAttributeName{}, err
-		}
-		return identityAttributeName{name: q}, nil
+	parsed, err := c.parseIdentityNameTestParts(n, name)
+	if err != nil {
+		return identityAttributeName{}, err
 	}
+	return identityAttributeName(parsed), nil
 }
 
 func (c *compiler) parseIdentityNameTest(n *rawNode, lexical string) (identityStep, error) {
+	parsed, err := c.parseIdentityNameTestParts(n, lexical)
+	if err != nil {
+		return identityStep{}, err
+	}
+	return identityStep{
+		Name:         parsed.name,
+		Namespace:    parsed.namespace,
+		wildcard:     parsed.wildcard,
+		NamespaceSet: parsed.namespaceSet,
+	}, nil
+}
+
+type identityNameTest struct {
+	name         qName
+	namespace    namespaceID
+	wildcard     bool
+	namespaceSet bool
+}
+
+func (c *compiler) parseIdentityNameTestParts(n *rawNode, lexical string) (identityNameTest, error) {
 	lexical = trimXMLWhitespace(lexical)
 	if lexical == "*" {
-		return identityStep{wildcard: true}, nil
+		return identityNameTest{wildcard: true}, nil
 	}
 	prefix, wildcard, err := parseQNamePrefixWildcard(lexical)
 	if err != nil {
-		return identityStep{}, err
+		return identityNameTest{}, err
 	}
 	if wildcard {
 		ns, ok := n.NS[prefix]
 		if !ok {
-			return identityStep{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
+			return identityNameTest{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
 		}
 		nsID, nsErr := c.rt.Names.InternNamespace(ns)
 		if nsErr != nil {
-			return identityStep{}, nsErr
+			return identityNameTest{}, nsErr
 		}
-		return identityStep{wildcard: true, NamespaceSet: true, Namespace: nsID}, nil
+		return identityNameTest{wildcard: true, namespaceSet: true, namespace: nsID}, nil
 	}
 	q, err := c.resolveXPathQName(n, lexical)
 	if err != nil {
-		return identityStep{}, err
+		return identityNameTest{}, err
 	}
-	return identityStep{Name: q}, nil
+	return identityNameTest{name: q}, nil
 }
 
 func parseIdentityAttributeAxis(path string) (string, string, bool, error) {

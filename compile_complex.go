@@ -31,7 +31,7 @@ func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	if err != nil {
 		return noComplexType, err
 	}
-	final, err := complexFinalMaskWithDefault(raw.node, raw.ctx.finalDefault)
+	final, err := derivationMaskWithDefaultChecked(raw.node, raw.ctx.finalDefault, complexTypeFinalDerivation)
 	if err != nil {
 		return noComplexType, err
 	}
@@ -56,7 +56,7 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (comp
 	if err != nil {
 		return noComplexType, err
 	}
-	final, err := complexFinalMaskWithDefault(n, ctx.finalDefault)
+	final, err := derivationMaskWithDefaultChecked(n, ctx.finalDefault, complexTypeFinalDerivation)
 	if err != nil {
 		return noComplexType, err
 	}
@@ -70,7 +70,19 @@ func (c *compiler) isAnonymousComplexName(q qName) bool {
 	return c.rt.Names.Namespace(q.Namespace) == "" && strings.HasPrefix(c.rt.Names.Local(q.Local), "$complex")
 }
 
-func schemaBoolAttr(n *rawNode, name string, def bool) (bool, error) {
+func schemaBoolAttr(n *rawNode, name string) (bool, error) {
+	v, ok := n.attr(name)
+	if !ok {
+		return false, nil
+	}
+	b, valid := parseSchemaBool(v)
+	if !valid {
+		return false, schemaCompile(ErrSchemaInvalidAttribute, "invalid boolean attribute "+name)
+	}
+	return b, nil
+}
+
+func schemaBoolAttrDefault(n *rawNode, name string, def bool) (bool, error) {
 	v, ok := n.attr(name)
 	if !ok {
 		return def, nil
@@ -157,11 +169,11 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 	if err := validateComplexTypeContent(n); err != nil {
 		return complexType{}, err
 	}
-	mixed, err := schemaBoolAttr(n, "mixed", false)
+	mixed, err := schemaBoolAttr(n, "mixed")
 	if err != nil {
 		return complexType{}, err
 	}
-	abstract, err := schemaBoolAttr(n, "abstract", false)
+	abstract, err := schemaBoolAttr(n, "abstract")
 	if err != nil {
 		return complexType{}, err
 	}
@@ -202,7 +214,7 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 	if ct.Content == noContentModel {
 		ct.Content = c.addModel(contentModel{Kind: modelEmpty, Mixed: mixed})
 	}
-	attrs, err := c.compileAttributeUses(n, ctx, nil, noWildcard, false)
+	attrs, err := c.compileAttributeUses(n, ctx, nil, noWildcard, attributeMergeNormal)
 	if err != nil {
 		return complexType{}, err
 	}
@@ -214,7 +226,7 @@ func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct comp
 	if err := validateComplexContentChildren(n); err != nil {
 		return complexType{}, err
 	}
-	mixed, err := schemaBoolAttr(n, "mixed", ct.Mixed)
+	mixed, err := schemaBoolAttrDefault(n, "mixed", ct.Mixed)
 	if err != nil {
 		return complexType{}, err
 	}
@@ -282,7 +294,7 @@ func (c *compiler) compileComplexContentExtension(child *rawNode, ctx *schemaCon
 		ct.Content = content
 	}
 	baseUses, baseWildcard := c.attrUsesAndWildcard(base.Attrs)
-	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, false)
+	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, attributeMergeNormal)
 	if err != nil {
 		return complexType{}, err
 	}
@@ -296,7 +308,7 @@ func (c *compiler) compileSimpleValueComplexExtension(child *rawNode, ctx *schem
 		return complexType{}, schemaCompile(ErrSchemaContentModel, "complexContent extension cannot add particles to simple content")
 	}
 	baseUses, baseWildcard := c.attrUsesAndWildcard(base.Attrs)
-	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, false)
+	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, attributeMergeNormal)
 	if err != nil {
 		return complexType{}, err
 	}
@@ -346,7 +358,7 @@ func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaC
 	}
 	ct.Content = content
 	baseUses, baseWildcard := c.attrUsesAndWildcard(base.Attrs)
-	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, true)
+	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, attributeMergeRestriction)
 	if err != nil {
 		return complexType{}, err
 	}
@@ -554,7 +566,11 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct compl
 			}
 		}
 		inheritedUses, inheritedWildcard := c.attrUsesAndWildcard(ct.Attrs)
-		attrs, err := c.compileAttributeUses(child, ctx, inheritedUses, inheritedWildcard, child.Name.Local == "restriction")
+		mergeMode := attributeMergeNormal
+		if child.Name.Local == "restriction" {
+			mergeMode = attributeMergeRestriction
+		}
+		attrs, err := c.compileAttributeUses(child, ctx, inheritedUses, inheritedWildcard, mergeMode)
 		if err != nil {
 			return complexType{}, err
 		}

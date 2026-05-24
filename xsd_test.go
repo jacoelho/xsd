@@ -9,7 +9,7 @@ import (
 )
 
 func sourceBytes(name string, data []byte) SchemaSource {
-	return Reader(name, bytes.NewReader(data))
+	return SchemaSource{name: name, data: bytes.Clone(data)}
 }
 
 func mustCompile(t *testing.T, schema string) *Engine {

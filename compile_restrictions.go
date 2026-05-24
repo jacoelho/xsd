@@ -128,10 +128,7 @@ func (c *compiler) restrictionRepeatedChoiceParticle(baseParticle, derivedPartic
 	if model.Kind != modelChoice || derivedParticle.Kind != particleElement {
 		return false
 	}
-	if derivedParticle.occurs.Min > 1 || !derivedParticle.occurs.Unbounded {
-		return false
-	}
-	return true
+	return derivedParticle.occurs.Min <= 1 && derivedParticle.occurs.Unbounded
 }
 
 func (c *compiler) choiceRestrictionBranchAllowed(base []particle, derived particle) bool {
@@ -186,15 +183,15 @@ func (c *compiler) particleContainsNestedChoice(p particle) bool {
 	if p.Kind != particleModel {
 		return false
 	}
-	return c.modelContainsNestedChoice(c.rt.Models[p.Model], false)
+	return c.modelContainsChoiceBelow(c.rt.Models[p.Model], 0)
 }
 
-func (c *compiler) modelContainsNestedChoice(model contentModel, nested bool) bool {
-	if nested && model.Kind == modelChoice {
+func (c *compiler) modelContainsChoiceBelow(model contentModel, depth int) bool {
+	if depth > 0 && model.Kind == modelChoice {
 		return true
 	}
 	for _, p := range model.Particles {
-		if p.Kind == particleModel && c.modelContainsNestedChoice(c.rt.Models[p.Model], true) {
+		if p.Kind == particleModel && c.modelContainsChoiceBelow(c.rt.Models[p.Model], depth+1) {
 			return true
 		}
 	}
@@ -533,8 +530,8 @@ func (c *compiler) elementFixedValuesEqual(base, derived elementDecl) bool {
 	if typeID == noSimpleType {
 		return base.Fixed == derived.Fixed
 	}
-	baseFixed, baseErr := validateSimpleValue(&c.rt, typeID, base.Fixed, nil)
-	derivedFixed, derivedErr := validateSimpleValue(&c.rt, typeID, derived.Fixed, nil)
+	baseFixed, baseErr := validateSimpleValue(&c.rt, typeID, base.Fixed)
+	derivedFixed, derivedErr := validateSimpleValue(&c.rt, typeID, derived.Fixed)
 	return baseErr == nil && derivedErr == nil && baseFixed == derivedFixed
 }
 
@@ -592,6 +589,7 @@ func (c *compiler) particleCountRange(p particle) occurrence {
 	return multiplyOccurs(term, p.occurs)
 }
 
+// addOccursRanges saturates sequence ranges before applying occurrence limits.
 func addOccursRanges(a, b occurrence) occurrence {
 	return occurrence{Min: saturatingAdd(a.Min, b.Min), Max: saturatingAdd(a.Max, b.Max), Unbounded: a.Unbounded || b.Unbounded}
 }

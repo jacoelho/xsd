@@ -20,13 +20,9 @@ type config struct {
 }
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stderr))
-}
-
-func run(args []string, stderr io.Writer) int {
-	return runWithOpen(args, stderr, func(path string) (io.ReadCloser, error) {
+	os.Exit(runWithOpen(os.Args[1:], os.Stderr, func(path string) (io.ReadCloser, error) {
 		return os.Open(path)
-	})
+	}))
 }
 
 func runWithOpen(args []string, stderr io.Writer, openDoc func(string) (io.ReadCloser, error)) int {
@@ -42,15 +38,19 @@ func runWithOpen(args []string, stderr io.Writer, openDoc func(string) (io.ReadC
 	if err != nil {
 		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, err)
 	}
-	if validationErr := engine.ValidateWithOptions(f, xsd.ValidateOptions{MaxErrors: cfg.maxErrors}); validationErr != nil {
-		_ = f.Close()
+	validationErr := engine.ValidateWithOptions(f, xsd.ValidateOptions{MaxErrors: cfg.maxErrors})
+	closeErr := f.Close()
+	if validationErr != nil {
 		if writeErr := printValidationErrors(stderr, validationErr); writeErr != nil {
 			return 2
 		}
+		if closeErr != nil {
+			return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, closeErr)
+		}
 		return writeStatus(stderr, 1, "%s fails to validate\n", cfg.doc)
 	}
-	if err := f.Close(); err != nil {
-		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, err)
+	if closeErr != nil {
+		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, closeErr)
 	}
 	return writeStatus(stderr, 0, "%s validates\n", cfg.doc)
 }
@@ -87,7 +87,8 @@ func parseArgs(args []string) (config, error) {
 }
 
 func printValidationErrors(w io.Writer, err error) error {
-	if errs, ok := err.(xsd.Errors); ok {
+	var errs xsd.Errors
+	if errors.As(err, &errs) {
 		for _, child := range errs {
 			if _, writeErr := fmt.Fprintln(w, child); writeErr != nil {
 				return writeErr

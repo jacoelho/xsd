@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -22,6 +23,10 @@ func formatXSDFloatCanonical(v float64, bits int) string {
 	return strconv.FormatFloat(v, 'g', -1, bits)
 }
 
+func equalXSDFloat(a, b float64) bool {
+	return a == b || math.IsNaN(a) && math.IsNaN(b)
+}
+
 func parseXSDFloat(s string, bits int) (float64, error) {
 	switch s {
 	case "INF":
@@ -36,7 +41,8 @@ func parseXSDFloat(s string, bits int) (float64, error) {
 	}
 	v, err := strconv.ParseFloat(s, bits)
 	if err != nil {
-		if numErr, ok := err.(*strconv.NumError); ok && numErr.Err == strconv.ErrRange {
+		var numErr *strconv.NumError
+		if errors.As(err, &numErr) && errors.Is(numErr.Err, strconv.ErrRange) {
 			return v, nil
 		}
 		return 0, fmt.Errorf("invalid float")
@@ -184,14 +190,6 @@ func (b orderedFacetBound[T]) exclusive() bool {
 	return b.kind == facetBoundExclusive
 }
 
-func facetBoundCanonical[T any](inclusive, exclusive *compiledLiteral, parse func(string) (T, error), preferExclusive func(T, T) bool) (orderedFacetBound[T], error) {
-	return facetBound(inclusive, exclusive, facetCanonical, parse, preferExclusive)
-}
-
-func facetBoundLexical[T any](inclusive, exclusive *compiledLiteral, parse func(string) (T, error), preferExclusive func(T, T) bool) (orderedFacetBound[T], error) {
-	return facetBound(inclusive, exclusive, facetLexical, parse, preferExclusive)
-}
-
 func facetBound[T any](inclusive, exclusive *compiledLiteral, text func(*compiledLiteral) string, parse func(string) (T, error), preferExclusive func(T, T) bool) (orderedFacetBound[T], error) {
 	if inclusive != nil {
 		out, err := facetLiteralValue(inclusive, text, parse, nil)
@@ -219,12 +217,14 @@ func facetBound[T any](inclusive, exclusive *compiledLiteral, text func(*compile
 	return orderedFacetBound[T]{}, nil
 }
 
+// Float lower and upper facets use different exclusive-bound tie breaks.
 func floatLowerBound(bits int, f facetSet) (orderedFacetBound[float64], error) {
 	parse := func(s string) (float64, error) { return parseXSDFloat(s, bits) }
-	return facetBoundCanonical(f.MinInclusive, f.MinExclusive, parse, func(other, out float64) bool { return other >= out })
+	return facetBound(f.MinInclusive, f.MinExclusive, facetCanonical, parse, func(other, out float64) bool { return other >= out })
 }
 
+// floatUpperBound applies the max-facet tie break for exclusive float bounds.
 func floatUpperBound(bits int, f facetSet) (orderedFacetBound[float64], error) {
 	parse := func(s string) (float64, error) { return parseXSDFloat(s, bits) }
-	return facetBoundCanonical(f.MaxInclusive, f.MaxExclusive, parse, func(other, out float64) bool { return other <= out })
+	return facetBound(f.MaxInclusive, f.MaxExclusive, facetCanonical, parse, func(other, out float64) bool { return other <= out })
 }

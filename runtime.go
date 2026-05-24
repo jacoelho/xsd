@@ -452,7 +452,7 @@ type wildcard struct {
 	Process    processContents
 }
 
-func (rt runtimeSchema) typeName(t typeID) qName {
+func (rt *runtimeSchema) typeName(t typeID) qName {
 	if t.Kind == typeSimple {
 		return rt.SimpleTypes[t.ID].Name
 	}
@@ -638,7 +638,7 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 	}
 }
 
-func (rt runtimeSchema) typeLabel(t typeID) string {
+func (rt *runtimeSchema) typeLabel(t typeID) string {
 	q := rt.typeName(t)
 	return rt.Names.Format(q)
 }

@@ -254,7 +254,7 @@ func (s *session) validate(r io.Reader) error {
 	seenRoot := false
 	for {
 		tok, err := s.parser.next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		line, col := tok.line, tok.col
@@ -390,6 +390,7 @@ func (s *session) recover(err error) error {
 	return nil
 }
 
+// isRecoverableValidation documents recoverable validation policy.
 func isRecoverableValidation(err error) bool {
 	x, ok := errors.AsType[*Error](err)
 	return ok && x.Category == ValidationErrorCategory && x.Code != ErrValidationXML && x.Code != ErrValidationLimit
@@ -475,7 +476,7 @@ func (s *session) startType(rt *runtimeSchema, rn runtimeName, se xml.StartEleme
 	if recoverErr != nil {
 		return noElement, typeID{}, false, recoverErr
 	}
-	accepted = anyTypeChild(rt, true)
+	accepted = skippedAnyTypeChild(rt)
 	return accepted.element, accepted.typ, accepted.skip, nil
 }
 

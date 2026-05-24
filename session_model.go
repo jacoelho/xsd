@@ -23,8 +23,8 @@ func (m matchResult) child(rt *runtimeSchema) acceptedChild {
 	return acceptedChild{element: m.element, typ: decl.Type, skip: m.skip}
 }
 
-func anyTypeChild(rt *runtimeSchema, skip bool) acceptedChild {
-	return acceptedChild{element: noElement, typ: anyType(rt), skip: skip}
+func skippedAnyTypeChild(rt *runtimeSchema) acceptedChild {
+	return acceptedChild{element: noElement, typ: anyType(rt), skip: true}
 }
 
 type acceptedChild struct {
@@ -36,7 +36,7 @@ type acceptedChild struct {
 func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []xml.Attr, line, col int) (acceptedChild, error) {
 	rt := s.engine.rt
 	if parent.Skip {
-		return anyTypeChild(rt, true), nil
+		return skippedAnyTypeChild(rt), nil
 	}
 	if parent.Nilled {
 		return acceptedChild{}, validation(ErrValidationNil, line, col, s.pathString(), "nilled element must be empty")
@@ -91,7 +91,7 @@ func (s *session) acceptAny(rn runtimeName, w wildcard, line, col int) (accepted
 		}
 	}
 	if w.Process == processSkip {
-		return anyTypeChild(rt, true), nil
+		return skippedAnyTypeChild(rt), nil
 	}
 	if w.Process == processStrict {
 		if s.hasSchemaLocationHint(rn.NS) {
@@ -99,7 +99,7 @@ func (s *session) acceptAny(rn runtimeName, w wildcard, line, col int) (accepted
 		}
 		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "wildcard requires declared element "+rn.Local)
 	}
-	return anyTypeChild(rt, false), nil
+	return acceptedChild{element: noElement, typ: anyType(rt)}, nil
 }
 
 func (s *session) acceptAllChild(f *frame, model compiledModel, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
@@ -198,7 +198,7 @@ func (s *session) end(line, col int, ee xml.EndElement) error {
 	if len(s.stack) == 0 {
 		return validation(ErrValidationXML, line, col, s.pathString(), "unexpected end element")
 	}
-	translated, err := s.translateName(ee.Name, true, line, col)
+	translated, err := s.translateName(ee.Name, xmlElementName, line, col)
 	if err != nil {
 		return err
 	}
@@ -275,21 +275,16 @@ func (s *session) completeFrame(f *frame, line, col int) error {
 		return nil
 	}
 	model := s.engine.rt.CompiledModels[f.Model]
-	var err error
 	switch model.Kind {
 	case compiledModelEmpty, compiledModelAny:
-		err = nil
+		return nil
 	case compiledModelAll:
-		err = s.completeAllModel(f, model, line, col)
+		return s.completeAllModel(f, model, line, col)
 	case compiledModelDFA:
-		err = s.completeDFAModel(f, model, line, col)
+		return s.completeDFAModel(f, model, line, col)
 	default:
-		err = &Error{Category: InternalErrorCategory, Code: ErrInternalInvariant, Line: line, Column: col, Path: s.pathString(), Message: "compiled content model has invalid kind"}
+		return &Error{Category: InternalErrorCategory, Code: ErrInternalInvariant, Line: line, Column: col, Path: s.pathString(), Message: "compiled content model has invalid kind"}
 	}
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (s *session) completeAllModel(f *frame, model compiledModel, line, col int) error {
@@ -343,13 +338,12 @@ func (s *session) advanceDFA(f *frame, model compiledModel, edge compiledModelEd
 	from := model.Rows[f.State]
 	next := model.Rows[to]
 	count := uint32(0)
-	switch {
-	case from.Counted && to == f.State && sameCompiledParticle(edge.Particle, from.CountParticle):
+	if from.Counted && to == f.State && sameCompiledParticle(edge.Particle, from.CountParticle) {
 		if !from.Unbounded && f.Count >= from.Max {
 			return false, nil
 		}
 		count = f.Count + 1
-	default:
+	} else {
 		if from.Counted && f.Count < from.Min {
 			return false, nil
 		}

@@ -108,6 +108,7 @@ func (s SchemaSource) read(maxBytes int64) ([]byte, error) {
 	return data, closeErr
 }
 
+// readLimitedSchemaSource preserves source names for limit diagnostics.
 func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, error) {
 	if maxBytes <= 0 {
 		return nil, schemaCompile(ErrSchemaLimit, "schema reader byte limit must be positive")
@@ -121,16 +122,18 @@ func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, 
 		return nil, err
 	}
 	if int64(len(data)) > maxBytes {
-		return nil, schemaSourceLimitError(name)
+		limitErr := schemaSourceLimitError(name)
+		return nil, limitErr
 	}
 	return data, nil
 }
 
 func schemaSourceLimitError(name string) error {
-	if name == "" {
-		return schemaCompile(ErrSchemaLimit, "schema source exceeds MaxSchemaSourceBytes")
+	msg := "schema source exceeds MaxSchemaSourceBytes"
+	if name != "" {
+		msg = "schema source " + name + " exceeds MaxSchemaSourceBytes"
 	}
-	return schemaCompile(ErrSchemaLimit, "schema source "+name+" exceeds MaxSchemaSourceBytes")
+	return schemaCompile(ErrSchemaLimit, msg)
 }
 
 func resolveFileSchemaSource(base, location string) (SchemaSource, error) {
