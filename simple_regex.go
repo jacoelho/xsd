@@ -24,10 +24,6 @@ func compilePatternWithCompiler(source string, c *compiler) (pattern, error) {
 	return pattern{XSDSource: source, GoSource: goSource, RE: re}, nil
 }
 
-func validateXSDRegexSyntax(source string) error {
-	return validateXSDRegexSyntaxWithCompiler(source, nil)
-}
-
 func validateXSDRegexSyntaxWithCompiler(source string, c *compiler) error {
 	v := xsdRegexSyntaxValidator{compiler: c}
 	for _, r := range source {

@@ -229,6 +229,7 @@ func addRaw(m map[qName]rawComponent, q qName, c rawComponent, label string) err
 	return nil
 }
 
+// validateTopLevelGroupChildren owns top-level group validation sequencing.
 func validateTopLevelGroupChildren(n *rawNode, limits compileLimits) error {
 	var model *rawNode
 	seenAnnotation := false
@@ -260,13 +261,6 @@ func validateTopLevelGroupChildren(n *rawNode, limits compileLimits) error {
 	}
 	if model == nil {
 		return schemaCompile(ErrSchemaContentModel, "top-level group must contain exactly one model group")
-	}
-	return validateTopLevelGroupModel(model, limits)
-}
-
-func validateTopLevelGroupModel(model *rawNode, limits compileLimits) error {
-	if model == nil {
-		return nil
 	}
 	if _, ok := model.attr("minOccurs"); ok {
 		return schemaCompile(ErrSchemaOccurrence, "top-level model group cannot have minOccurs")

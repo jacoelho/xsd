@@ -29,7 +29,7 @@ type xsdDateTimeValue struct {
 }
 
 func parseXSDDateTimeValue(s string) (xsdDateTimeValue, error) {
-	date, next, err := parseXSDDatePart(s, 0)
+	date, next, err := parseXSDDatePart(s)
 	if err != nil {
 		return xsdDateTimeValue{}, err
 	}
@@ -53,7 +53,7 @@ func parseXSDDateTimeValue(s string) (xsdDateTimeValue, error) {
 }
 
 func parseXSDDateValue(s string) (xsdDateValue, error) {
-	date, next, err := parseXSDDatePart(s, 0)
+	date, next, err := parseXSDDatePart(s)
 	if err != nil {
 		return xsdDateValue{}, err
 	}
@@ -80,8 +80,8 @@ type xsdDatePart struct {
 	month, day int
 }
 
-func parseXSDDatePart(s string, i int) (xsdDatePart, int, error) {
-	year, next, err := parseXSDYear(s, i)
+func parseXSDDatePart(s string) (xsdDatePart, int, error) {
+	year, next, err := parseXSDYear(s)
 	if err != nil {
 		return xsdDatePart{}, 0, err
 	}
@@ -99,7 +99,8 @@ func parseXSDDatePart(s string, i int) (xsdDatePart, int, error) {
 	return xsdDatePart{year: year, month: month, day: day}, next, nil
 }
 
-func parseXSDYear(s string, i int) (xsdYear, int, error) {
+func parseXSDYear(s string) (xsdYear, int, error) {
+	i := 0
 	if i >= len(s) {
 		return xsdYear{}, 0, fmt.Errorf("invalid date/time")
 	}
@@ -269,6 +270,7 @@ func daysInMonth(year xsdYear, month int) int {
 	}
 }
 
+// isLeapYear names the XML Schema leap-year rule.
 func isLeapYear(y xsdYear) bool {
 	return yearMod(y, 400) == 0 || yearMod(y, 4) == 0 && yearMod(y, 100) != 0
 }
@@ -342,12 +344,9 @@ func compareXSDDateTimePoint(a, b xsdDateTimePoint) int {
 	return compareFraction(a.frac, b.frac)
 }
 
+// addMinutes keeps timezone math in minutes at call sites.
 func addMinutes(p xsdDateTimePoint, minutes int) xsdDateTimePoint {
-	return addSeconds(p, minutes*60)
-}
-
-func addSeconds(p xsdDateTimePoint, seconds int) xsdDateTimePoint {
-	days, second := divModDay(p.second + seconds)
+	days, second := divModDay(p.second + minutes*60)
 	p.second = second
 	return addDays(p, days)
 }

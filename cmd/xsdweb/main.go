@@ -18,6 +18,7 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 }
 
+// newServer keeps server construction testable without opening a listener.
 func newServer(addr, dir string) *http.Server {
 	return &http.Server{
 		Addr:              addr,

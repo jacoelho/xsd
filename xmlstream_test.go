@@ -23,7 +23,8 @@ func (r *eofWithDataReader) Read(p []byte) (int, error) {
 func TestXMLStreamParserConsumesBytesReturnedWithEOF(t *testing.T) {
 	names := newByteStringCache()
 	values := newByteStringCache()
-	p := newXMLStreamParser(&eofWithDataReader{data: []byte(`<root/>`)}, &names, &values)
+	p := new(xmlStreamParser)
+	p.reset(&eofWithDataReader{data: []byte(`<root/>`)}, &names, &values)
 
 	tok, err := p.next()
 	if err != nil {
@@ -50,7 +51,8 @@ func TestXMLStreamParserConsumesBytesReturnedWithEOF(t *testing.T) {
 func TestXMLStreamParserSkipsCommentsByDefault(t *testing.T) {
 	names := newByteStringCache()
 	values := newByteStringCache()
-	p := newXMLStreamParser(strings.NewReader(`<root><!--`+strings.Repeat("x", 1<<20)+`--><v>1</v></root>`), &names, &values)
+	p := new(xmlStreamParser)
+	p.reset(strings.NewReader(`<root><!--`+strings.Repeat("x", 1<<20)+`--><v>1</v></root>`), &names, &values)
 
 	tok, err := p.next()
 	if err != nil {
@@ -78,7 +80,8 @@ func TestXMLStreamParserSkipsCommentsByDefault(t *testing.T) {
 func TestXMLStreamParserEmitsCommentsWhenEnabled(t *testing.T) {
 	names := newByteStringCache()
 	values := newByteStringCache()
-	p := newXMLStreamParser(strings.NewReader(`<root><!-- note --></root>`), &names, &values)
+	p := new(xmlStreamParser)
+	p.reset(strings.NewReader(`<root><!-- note --></root>`), &names, &values)
 	p.emitComments = true
 
 	if _, err := p.next(); err != nil {
@@ -100,7 +103,8 @@ func TestXMLStreamParserHandlesBareCRText(t *testing.T) {
 	go func() {
 		names := newByteStringCache()
 		values := newByteStringCache()
-		p := newXMLStreamParser(strings.NewReader("<root>a\rb</root>"), &names, &values)
+		p := new(xmlStreamParser)
+		p.reset(strings.NewReader("<root>a\rb</root>"), &names, &values)
 		if _, err = p.next(); err != nil {
 			close(done)
 			return
@@ -134,7 +138,8 @@ func TestXMLStreamParserNormalizesCDATALineEndings(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			names := newByteStringCache()
 			values := newByteStringCache()
-			p := newXMLStreamParser(strings.NewReader(test.in), &names, &values)
+			p := new(xmlStreamParser)
+			p.reset(strings.NewReader(test.in), &names, &values)
 			if _, err := p.next(); err != nil {
 				t.Fatalf("next root start error = %v", err)
 			}
@@ -152,7 +157,8 @@ func TestXMLStreamParserNormalizesCDATALineEndings(t *testing.T) {
 func TestXMLStreamParserRejectsInvalidSkippedComment(t *testing.T) {
 	names := newByteStringCache()
 	values := newByteStringCache()
-	p := newXMLStreamParser(strings.NewReader(`<root><!-- invalid -- comment --></root>`), &names, &values)
+	p := new(xmlStreamParser)
+	p.reset(strings.NewReader(`<root><!-- invalid -- comment --></root>`), &names, &values)
 
 	if _, err := p.next(); err != nil {
 		t.Fatalf("next root start error = %v", err)
@@ -167,7 +173,8 @@ func TestXMLStreamParserChunksLargeCDATA(t *testing.T) {
 	names := newByteStringCache()
 	values := newByteStringCache()
 	data := strings.Repeat("x", 70*1024)
-	p := newXMLStreamParser(strings.NewReader(`<root><![CDATA[`+data+`]]></root>`), &names, &values)
+	p := new(xmlStreamParser)
+	p.reset(strings.NewReader(`<root><![CDATA[`+data+`]]></root>`), &names, &values)
 
 	if _, err := p.next(); err != nil {
 		t.Fatalf("next root start error = %v", err)

@@ -400,7 +400,7 @@ func (c *compiler) setBuiltinRange(id simpleTypeID, minValue, maxValue string) {
 }
 
 func builtinDecimalLiteral(v string) compiledLiteral {
-	dec, err := parseDecimal(v)
+	dec, err := parseDecimalMode(v, decimalWithCanonical)
 	if err != nil {
 		return compiledLiteral{Lexical: v, Canonical: v}
 	}

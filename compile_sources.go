@@ -144,6 +144,7 @@ func schemaContentSeen(bucket [][]byte, data []byte) bool {
 	return false
 }
 
+// isSchemaLimitError documents which errors stop optional schema loading.
 func isSchemaLimitError(err error) bool {
 	x, ok := errors.AsType[*Error](err)
 	return ok && x.Code == ErrSchemaLimit

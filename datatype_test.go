@@ -223,12 +223,12 @@ func TestParseDecimalCanonical(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
-			got, err := parseDecimal(tt.in)
+			got, err := parseDecimalMode(tt.in, decimalWithCanonical)
 			if err != nil {
-				t.Fatalf("parseDecimal() error = %v", err)
+				t.Fatalf("parseDecimalMode() error = %v", err)
 			}
 			if got.Canonical != tt.canonical || got.IntegerCanonical != tt.integer || got.IntegerLexical != tt.integerLexical || got.TotalDigits != tt.totalDigits || got.FractionDigits != tt.fractionDigits {
-				t.Fatalf("parseDecimal() = %+v, want canonical=%q integer=%q integerLexical=%v total=%d fraction=%d", got, tt.canonical, tt.integer, tt.integerLexical, tt.totalDigits, tt.fractionDigits)
+				t.Fatalf("parseDecimalMode() = %+v, want canonical=%q integer=%q integerLexical=%v total=%d fraction=%d", got, tt.canonical, tt.integer, tt.integerLexical, tt.totalDigits, tt.fractionDigits)
 			}
 		})
 	}
@@ -236,14 +236,14 @@ func TestParseDecimalCanonical(t *testing.T) {
 
 func TestDecimalAndIntegerCanonicalValuesDiverge(t *testing.T) {
 	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
-	decimal, err := validateSimpleValueInfo(engine.rt, engine.rt.Builtin.Decimal, "5", nil)
+	decimal, err := validateSimpleValueMode(engine.rt, engine.rt.Builtin.Decimal, "5", nil, simpleNeedCanonical)
 	if err != nil {
 		t.Fatalf("validateSimpleValueInfo(decimal) error = %v", err)
 	}
 	if decimal.Canonical != "5.0" {
 		t.Fatalf("decimal canonical = %q, want 5.0", decimal.Canonical)
 	}
-	integer, err := validateSimpleValueInfo(engine.rt, engine.rt.Builtin.Int, "05", nil)
+	integer, err := validateSimpleValueMode(engine.rt, engine.rt.Builtin.Int, "05", nil, simpleNeedCanonical)
 	if err != nil {
 		t.Fatalf("validateSimpleValueInfo(int) error = %v", err)
 	}
@@ -281,8 +281,8 @@ func TestUserDerivedBuiltinLexicalRulesAreEnforced(t *testing.T) {
 func TestParseDecimalRejectsInvalidLexicalValues(t *testing.T) {
 	for _, in := range []string{"", "+", "-", ".", "+.", "-.", "1.2.3", "12a", "1e2"} {
 		t.Run(in, func(t *testing.T) {
-			if _, err := parseDecimal(in); err == nil {
-				t.Fatal("parseDecimal() error = nil")
+			if _, err := parseDecimalMode(in, decimalWithCanonical); err == nil {
+				t.Fatal("parseDecimalMode() error = nil")
 			}
 		})
 	}

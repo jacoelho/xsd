@@ -256,9 +256,11 @@ func checkSchemaStartElementLimit(start xml.StartElement, limits compileLimits, 
 	return nil
 }
 
+// checkSchemaTokenLimit centralizes schema token limit diagnostics.
 func checkSchemaTokenLimit(size int64, limits compileLimits, line, col int, msg string) error {
 	if limits.maxSchemaTokenBytes > 0 && size > limits.maxSchemaTokenBytes {
-		return schemaParse(ErrSchemaLimit, line, col, msg, nil)
+		limitErr := schemaParse(ErrSchemaLimit, line, col, msg, nil)
+		return limitErr
 	}
 	return nil
 }
@@ -573,12 +575,10 @@ func (n *rawNode) xsContentChildren() []*rawNode {
 		if c.Name.Space != xsdNamespaceURI {
 			continue
 		}
-		switch c.Name.Local {
-		case "annotation":
+		if c.Name.Local == "annotation" {
 			continue
-		default:
-			out = append(out, c)
 		}
+		out = append(out, c)
 	}
 	return out
 }

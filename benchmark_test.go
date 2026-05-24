@@ -55,7 +55,7 @@ func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	doc := benchmarkDoc(100)
+	doc := benchmarkDoc()
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
@@ -74,7 +74,7 @@ func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	doc := benchmarkDoc(100)
+	doc := benchmarkDoc()
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
@@ -129,7 +129,7 @@ func BenchmarkValidateSubstitutionGroup(b *testing.B) {
 
 func BenchmarkParseDecimal(b *testing.B) {
 	for b.Loop() {
-		if _, err := parseDecimal("+000000000123456789.0000000012300"); err != nil {
+		if _, err := parseDecimalMode("+000000000123456789.0000000012300", decimalWithCanonical); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -264,7 +264,7 @@ func BenchmarkValidateDuplicateAttributes(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	doc := duplicateAttributeDoc(1000)
+	doc := duplicateAttributeDoc()
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
@@ -275,7 +275,7 @@ func BenchmarkValidateDuplicateAttributes(b *testing.B) {
 }
 
 func BenchmarkFormatXMLDuplicateAttributes(b *testing.B) {
-	doc := duplicateAttributeDoc(1000)
+	doc := duplicateAttributeDoc()
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
@@ -411,7 +411,9 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 			s := new(session)
 			s.pushPath("root")
 			s.pushPath("refs")
-			_ = s.pathString()
+			if path := s.pathString(); path != "/root/refs" {
+				b.Fatalf("pathString() = %q, want /root/refs", path)
+			}
 			b.ReportAllocs()
 			for b.Loop() {
 				s.idrefs = s.idrefs[:0]
@@ -495,7 +497,7 @@ func BenchmarkValidateConcurrent(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	doc := benchmarkDoc(100)
+	doc := benchmarkDoc()
 	const workers = 8
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
@@ -518,10 +520,12 @@ func BenchmarkValidateConcurrent(b *testing.B) {
 	wg.Wait()
 }
 
-func benchmarkDoc(rows int) string {
+const benchmarkDocRows = 100
+
+func benchmarkDoc() string {
 	var b strings.Builder
 	b.WriteString("<rows>")
-	for range rows {
+	for range benchmarkDocRows {
 		b.WriteString(`<row code="AB1234"><id>`)
 		b.WriteString("7")
 		b.WriteString(`</id><name>alpha</name><amount>42.50</amount></row>`)
@@ -542,13 +546,15 @@ func benchmarkIDREFS(refs int) string {
 	return b.String()
 }
 
-func duplicateAttributeDoc(attrs int) string {
+const benchmarkDuplicateAttrs = 1000
+
+func duplicateAttributeDoc() string {
 	var b strings.Builder
 	b.WriteString("<root")
-	for i := range attrs {
+	for i := range benchmarkDuplicateAttrs {
 		fmt.Fprintf(&b, ` a%d="%d"`, i, i)
 	}
-	fmt.Fprintf(&b, ` a%d="dup"/>`, attrs-1)
+	fmt.Fprintf(&b, ` a%d="dup"/>`, benchmarkDuplicateAttrs-1)
 	return b.String()
 }
 

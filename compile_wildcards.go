@@ -9,7 +9,7 @@ func (c *compiler) compileWildcardParticle(n *rawNode, ctx *schemaContext) (part
 	if err := validateAnyParticleSyntax(n); err != nil {
 		return particle{}, err
 	}
-	id, err := c.compileWildcard(n, ctx, false)
+	id, err := c.compileWildcard(n, ctx)
 	if err != nil {
 		return particle{}, err
 	}
@@ -34,6 +34,13 @@ func validateAnyAttributeSyntax(n *rawNode) error {
 	return nil
 }
 
+func (c *compiler) compileAttributeWildcard(n *rawNode, ctx *schemaContext) (wildcardID, error) {
+	if err := validateAnyAttributeSyntax(n); err != nil {
+		return noWildcard, err
+	}
+	return c.compileWildcard(n, ctx)
+}
+
 func isAnyParticleAttribute(name string) bool {
 	switch name {
 	case "id", "namespace", "processContents", "minOccurs", "maxOccurs":
@@ -52,12 +59,7 @@ func isAnyAttributeAttribute(name string) bool {
 	}
 }
 
-func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext, attr bool) (wildcardID, error) {
-	if attr {
-		if err := validateAnyAttributeSyntax(n); err != nil {
-			return noWildcard, err
-		}
-	}
+func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (wildcardID, error) {
 	var mode wildcardMode
 	var namespaces []namespaceID
 	other := namespaceID(0)

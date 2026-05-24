@@ -278,6 +278,7 @@ func appendFlattenedModelChild(m *contentModel, child contentModel) bool {
 	return false
 }
 
+// canFlattenSingleParticleModel names the non-obvious model flattening invariant.
 func canFlattenSingleParticleModel(modelOccurs, particleOccurs occurrence) bool {
 	return modelOccurs.isExactlyOne() ||
 		particleOccurs.Min == 0 ||
@@ -703,6 +704,7 @@ func maxOccursLimitMessage(limit uint64) string {
 	return "maxOccurs exceeds uint32 limit"
 }
 
+// occurrenceUint32LimitExceeded compares textually so huge values cannot overflow.
 func occurrenceUint32LimitExceeded(digits string) bool {
 	return compareUnsignedDecimalText(digits, strconv.FormatUint(uint64(^uint32(0)), 10)) > 0
 }

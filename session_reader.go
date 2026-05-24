@@ -135,6 +135,7 @@ func declaredXMLVersion(buf []byte) string {
 	return ""
 }
 
+// xmlDeclNameIsVersion keeps the XML declaration fast path explicit.
 func xmlDeclNameIsVersion(name []byte) bool {
 	return len(name) == len("version") &&
 		name[0] == 'v' &&

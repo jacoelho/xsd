@@ -437,15 +437,23 @@ const (
 	derivationSimpleFinalMask  = blockRestriction | blockList | blockUnion
 )
 
+type derivationAttributeRule struct {
+	attr    string
+	label   string
+	allowed derivationMask
+}
+
+var (
+	complexTypeFinalDerivation = derivationAttributeRule{attr: "final", label: "complexType final", allowed: derivationComplexMask}
+	elementBlockDerivation     = derivationAttributeRule{attr: "block", label: "element block", allowed: derivationBlockDefaultMask}
+	elementFinalDerivation     = derivationAttributeRule{attr: "final", label: "element final", allowed: derivationComplexMask}
+)
+
 func complexBlockMaskWithDefault(n *rawNode, def derivationMask) (derivationMask, error) {
 	if v, ok := n.attr("block"); ok {
 		return parseDerivationSet(v, "complexType block", derivationComplexMask)
 	}
 	return def & derivationComplexMask, nil
-}
-
-func complexFinalMaskWithDefault(n *rawNode, def derivationMask) (derivationMask, error) {
-	return derivationMaskWithDefaultChecked(n, "final", def, derivationComplexMask, "complexType final")
 }
 
 func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivationMask, error) {
@@ -505,11 +513,11 @@ func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask
 	return m, nil
 }
 
-func derivationMaskWithDefaultChecked(n *rawNode, attr string, def derivationMask, allowed derivationMask, label string) (derivationMask, error) {
-	if v, ok := n.attr(attr); ok {
-		return parseDerivationSet(v, label, allowed)
+func derivationMaskWithDefaultChecked(n *rawNode, def derivationMask, rule derivationAttributeRule) (derivationMask, error) {
+	if v, ok := n.attr(rule.attr); ok {
+		return parseDerivationSet(v, rule.label, rule.allowed)
 	}
-	return def & allowed, nil
+	return def & rule.allowed, nil
 }
 
 func (c *compiler) resolveQNameChecked(n *rawNode, ctx *schemaContext, lexical string) (qName, error) {
@@ -639,7 +647,7 @@ func validateSimpleTypeChildren(n *rawNode) error {
 }
 
 func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
-	if err := validateSimpleDerivationChildren(n, false); err != nil {
+	if err := validateSimpleDerivationChildren(n, simpleDerivationSingleChild); err != nil {
 		return simpleType{}, err
 	}
 	var baseID simpleTypeID
@@ -699,7 +707,7 @@ func cloneFacetSet(f facetSet) facetSet {
 }
 
 func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
-	if err := validateSimpleDerivationChildren(n, false); err != nil {
+	if err := validateSimpleDerivationChildren(n, simpleDerivationSingleChild); err != nil {
 		return simpleType{}, err
 	}
 	item := noSimpleType
@@ -754,7 +762,7 @@ func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType 
 }
 
 func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
-	if err := validateSimpleDerivationChildren(n, true); err != nil {
+	if err := validateSimpleDerivationChildren(n, simpleDerivationMultipleChildren); err != nil {
 		return simpleType{}, err
 	}
 	st := simpleType{Name: name, Variety: varietyUnion, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse}
@@ -794,7 +802,14 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 	return st, nil
 }
 
-func validateSimpleDerivationChildren(n *rawNode, multipleSimpleTypes bool) error {
+type simpleDerivationChildPolicy uint8
+
+const (
+	simpleDerivationSingleChild simpleDerivationChildPolicy = iota
+	simpleDerivationMultipleChildren
+)
+
+func validateSimpleDerivationChildren(n *rawNode, policy simpleDerivationChildPolicy) error {
 	seenAnnotation := false
 	seenSimpleType := false
 	seenFacet := false
@@ -812,7 +827,7 @@ func validateSimpleDerivationChildren(n *rawNode, multipleSimpleTypes bool) erro
 			if seenFacet {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" simpleType must precede facets")
 			}
-			if seenSimpleType && !multipleSimpleTypes {
+			if seenSimpleType && policy == simpleDerivationSingleChild {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" can contain one simpleType")
 			}
 			seenSimpleType = true

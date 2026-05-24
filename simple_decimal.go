@@ -21,15 +21,18 @@ type decimalValue struct {
 	FractionDigits   uint32
 }
 
-func parseDecimal(s string) (decimalValue, error) {
-	return parseDecimalMode(s, true)
-}
-
 func parseDecimalValue(s string) (decimalValue, error) {
-	return parseDecimalMode(s, false)
+	return parseDecimalMode(s, decimalValueOnly)
 }
 
-func parseDecimalMode(s string, needCanonical bool) (decimalValue, error) {
+type decimalParseMode uint8
+
+const (
+	decimalValueOnly decimalParseMode = iota
+	decimalWithCanonical
+)
+
+func parseDecimalMode(s string, mode decimalParseMode) (decimalValue, error) {
 	if s == "" {
 		return decimalValue{}, fmt.Errorf("invalid decimal")
 	}
@@ -103,7 +106,7 @@ func parseDecimalMode(s string, needCanonical bool) (decimalValue, error) {
 		TotalDigits:    uint32(totalDigits),
 		FractionDigits: uint32(fracDigits),
 	}
-	if needCanonical {
+	if mode == decimalWithCanonical {
 		out.Canonical = out.canonical()
 		out.IntegerCanonical = out.integerCanonical()
 	}
