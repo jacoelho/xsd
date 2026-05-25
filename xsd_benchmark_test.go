@@ -77,7 +77,7 @@ func TestLargeXMLLintComparison(t *testing.T) {
 		t.Skip("set XSD_LARGE_COMPARE=1")
 	}
 	cfg := largeCompareConfigFromEnv(t)
-	if err := os.MkdirAll(cfg.dir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.dir, 0o750); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
 	t.Logf("large comparison dir: %s", cfg.dir)
@@ -218,7 +218,7 @@ func envInt(t *testing.T, name string, def int) int {
 
 func generateStreamingProfile(t *testing.T, schema, dir string, size largeCompareSize) largeProfile {
 	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", dir, err)
 	}
 	profile := largeProfile{
@@ -232,7 +232,7 @@ func generateStreamingProfile(t *testing.T, schema, dir string, size largeCompar
 
 func generateIdentityProfile(t *testing.T, dir string, rows int) largeProfile {
 	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", dir, err)
 	}
 	profile := largeProfile{
@@ -269,10 +269,10 @@ func removeAll(t *testing.T, dir string) {
 
 func writeFileString(t *testing.T, path, data string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", filepath.Dir(path), err)
 	}
-	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatalf("WriteFile(%s) error = %v", path, err)
 	}
 }
@@ -352,7 +352,7 @@ const largeStreamingSchema = `<?xml version="1.0" encoding="UTF-8"?>
 
 func writeLargeStreamingXML(t *testing.T, path string, targetBytes int64) int64 {
 	t.Helper()
-	f, err := os.Create(path)
+	f, err := os.Create(path) //nolint:gosec // Large benchmark writes generated XML to configured output path.
 	if err != nil {
 		t.Fatalf("Create(%s) error = %v", path, err)
 	}
@@ -433,7 +433,7 @@ const largeIdentitySchema = `<?xml version="1.0" encoding="UTF-8"?>
 
 func writeLargeIdentityXML(t *testing.T, path string, rows int) int64 {
 	t.Helper()
-	f, err := os.Create(path)
+	f, err := os.Create(path) //nolint:gosec // Large benchmark writes generated XML to configured output path.
 	if err != nil {
 		t.Fatalf("Create(%s) error = %v", path, err)
 	}
@@ -523,7 +523,7 @@ func runMeasuredCommandOnce(t *testing.T, name string, args ...string) commandMe
 	t.Helper()
 	var metrics commandMetrics
 	cmdName, cmdArgs := measuredCommand(name, args...)
-	cmd := exec.CommandContext(t.Context(), cmdName, cmdArgs...)
+	cmd := exec.CommandContext(t.Context(), cmdName, cmdArgs...) //nolint:gosec // Benchmark intentionally runs configured comparison command.
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

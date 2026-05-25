@@ -1,9 +1,6 @@
 package xsd
 
-import (
-	"reflect"
-	"testing"
-)
+import "testing"
 
 func TestBuildIdentityFieldLookupMirrorsFields(t *testing.T) {
 	elem := qName{Namespace: 1, Local: 1}
@@ -49,13 +46,13 @@ func TestBuildIdentityFieldLookupMirrorsFields(t *testing.T) {
 		},
 	}}
 
-	if !reflect.DeepEqual(elementFields, wantElementFields) {
+	if !compiledIdentityFieldsEqual(elementFields, wantElementFields) {
 		t.Fatalf("elementFields = %#v, want %#v", elementFields, wantElementFields)
 	}
-	if !reflect.DeepEqual(attrFields, wantAttrFields) {
+	if !compiledIdentityFieldMapEqual(attrFields, wantAttrFields) {
 		t.Fatalf("attrFields = %#v, want %#v", attrFields, wantAttrFields)
 	}
-	if !reflect.DeepEqual(attrWildcardFields, wantAttrWildcardFields) {
+	if !compiledIdentityFieldsEqual(attrWildcardFields, wantAttrWildcardFields) {
 		t.Fatalf("attrWildcardFields = %#v, want %#v", attrWildcardFields, wantAttrWildcardFields)
 	}
 }

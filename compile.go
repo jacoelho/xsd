@@ -379,6 +379,7 @@ func (c *compiler) simpleIdentityKind(id simpleTypeID, memo []simpleIdentityKind
 		if c.simpleIdentityKind(st.ListItem, memo, visiting) == simpleIdentityIDREF {
 			kind = simpleIdentityIDREFList
 		}
+	case varietyUnion:
 	}
 	visiting[id] = false
 	memo[id] = kind
@@ -422,7 +423,11 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 		}
 		repeatedChoice := c.restrictionRepeatedChoiceParticles(base.Content, ct.Content)
 		if len(repeatedChoice) != 0 {
-			ct.Content = c.addModel(c.rt.Models[ct.Content])
+			var err error
+			ct.Content, err = c.addModel(c.rt.Models[ct.Content])
+			if err != nil {
+				return err
+			}
 			c.choiceLimitByModel[ct.Content] = append(c.choiceLimitByModel[ct.Content], repeatedChoice...)
 			c.rt.ComplexTypes[id] = ct
 		}
@@ -444,20 +449,20 @@ type derivationAttributeRule struct {
 }
 
 var (
-	complexTypeFinalDerivation = derivationAttributeRule{attr: "final", label: "complexType final", allowed: derivationComplexMask}
-	elementBlockDerivation     = derivationAttributeRule{attr: "block", label: "element block", allowed: derivationBlockDefaultMask}
-	elementFinalDerivation     = derivationAttributeRule{attr: "final", label: "element final", allowed: derivationComplexMask}
+	complexTypeFinalDerivation = derivationAttributeRule{attr: xsdAttrFinal, label: "complexType final", allowed: derivationComplexMask}
+	elementBlockDerivation     = derivationAttributeRule{attr: xsdAttrBlock, label: "element block", allowed: derivationBlockDefaultMask}
+	elementFinalDerivation     = derivationAttributeRule{attr: xsdAttrFinal, label: "element final", allowed: derivationComplexMask}
 )
 
 func complexBlockMaskWithDefault(n *rawNode, def derivationMask) (derivationMask, error) {
-	if v, ok := n.attr("block"); ok {
+	if v, ok := n.attr(xsdAttrBlock); ok {
 		return parseDerivationSet(v, "complexType block", derivationComplexMask)
 	}
 	return def & derivationComplexMask, nil
 }
 
 func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivationMask, error) {
-	if v, ok := n.attr("final"); ok {
+	if v, ok := n.attr(xsdAttrFinal); ok {
 		return parseDerivationSet(v, "simpleType final", derivationSimpleFinalMask)
 	}
 	return def & derivationSimpleFinalMask, nil
@@ -478,12 +483,12 @@ func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask
 			return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot combine #all with other values")
 		}
 		switch p {
-		case "extension":
+		case xsdElemExtension:
 			if allowed&blockExtension == 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain extension")
 			}
 			m |= blockExtension
-		case "restriction":
+		case xsdElemRestriction:
 			if allowed&blockRestriction == 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain restriction")
 			}
@@ -493,12 +498,12 @@ func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain substitution")
 			}
 			m |= blockSubstitution
-		case "list":
+		case xsdElemList:
 			if allowed&blockList == 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain list")
 			}
 			m |= blockList
-		case "union":
+		case xsdElemUnion:
 			if allowed&blockUnion == 0 {
 				return 0, schemaCompile(ErrSchemaInvalidAttribute, label+" cannot contain union")
 			}
@@ -557,7 +562,10 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 	}
 	c.compilingSimple[q] = true
 	defer delete(c.compilingSimple, q)
-	id := simpleTypeID(len(c.rt.SimpleTypes))
+	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return noSimpleType, err
+	}
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
@@ -576,14 +584,17 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 }
 
 func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpleTypeID, error) {
-	if _, ok := n.attr("name"); ok {
+	if _, ok := n.attr(xsdAttrName); ok {
 		return noSimpleType, schemaCompile(ErrSchemaInvalidAttribute, "local simpleType cannot have name")
 	}
 	q, err := c.rt.Names.InternQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
 	if err != nil {
 		return noSimpleType, err
 	}
-	id := simpleTypeID(len(c.rt.SimpleTypes))
+	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return noSimpleType, err
+	}
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
 	st, err := c.compileSimpleType(n, ctx, q, id)
 	if err != nil {
@@ -608,11 +619,11 @@ func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName,
 		return simpleType{}, schemaCompile(ErrSchemaContentModel, "simpleType must contain one restriction, list, or union")
 	}
 	switch children[0].Name.Local {
-	case "restriction":
+	case xsdElemRestriction:
 		return c.compileRestriction(children[0], ctx, name)
-	case "list":
+	case xsdElemList:
 		return c.compileList(children[0], ctx, name, selfID)
-	case "union":
+	case xsdElemUnion:
 		return c.compileUnion(children[0], ctx, name, selfID)
 	default:
 		return simpleType{}, schemaCompile(ErrSchemaContentModel, "unsupported simpleType child "+children[0].Name.Local)
@@ -626,7 +637,7 @@ func validateSimpleTypeChildren(n *rawNode) error {
 		if child.Name.Space != xsdNamespaceURI {
 			continue
 		}
-		if child.Name.Local == "annotation" {
+		if child.Name.Local == xsdElemAnnotation {
 			if seenAnnotation || seenVariety {
 				return schemaCompile(ErrSchemaContentModel, "simpleType annotation must be first")
 			}
@@ -634,7 +645,7 @@ func validateSimpleTypeChildren(n *rawNode) error {
 			continue
 		}
 		switch child.Name.Local {
-		case "restriction", "list", "union":
+		case xsdElemRestriction, xsdElemList, xsdElemUnion:
 			if seenVariety {
 				return schemaCompile(ErrSchemaContentModel, "simpleType can contain one restriction, list, or union")
 			}
@@ -651,11 +662,11 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 		return simpleType{}, err
 	}
 	var baseID simpleTypeID
-	simpleTypeChildren := n.xsChildren("simpleType")
+	simpleTypeChildren := n.xsChildren(xsdElemSimpleType)
 	if len(simpleTypeChildren) > 1 {
 		return simpleType{}, schemaCompile(ErrSchemaContentModel, "restriction can contain one simpleType")
 	}
-	if base, ok := n.attr("base"); ok {
+	if base, ok := n.attr(xsdAttrBase); ok {
 		if len(simpleTypeChildren) != 0 {
 			return simpleType{}, schemaCompile(ErrSchemaContentModel, "restriction cannot have both base and simpleType")
 		}
@@ -711,8 +722,8 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfI
 		return simpleType{}, err
 	}
 	item := noSimpleType
-	simpleTypeChildren := n.xsChildren("simpleType")
-	if itemType, ok := n.attr("itemType"); ok {
+	simpleTypeChildren := n.xsChildren(xsdElemSimpleType)
+	if itemType, ok := n.attr(xsdAttrItemType); ok {
 		if len(simpleTypeChildren) != 0 {
 			return simpleType{}, schemaCompile(ErrSchemaContentModel, "list cannot have both itemType and simpleType")
 		}
@@ -766,7 +777,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 		return simpleType{}, err
 	}
 	st := simpleType{Name: name, Variety: varietyUnion, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse}
-	if mt, ok := n.attr("memberTypes"); ok {
+	if mt, ok := n.attr(xsdAttrMemberTypes); ok {
 		for part := range xmlFieldsSeq(mt) {
 			q, err := c.resolveQNameChecked(n, ctx, part)
 			if err != nil {
@@ -782,7 +793,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 			st.Union = append(st.Union, id)
 		}
 	}
-	for _, child := range n.xsChildren("simpleType") {
+	for _, child := range n.xsChildren(xsdElemSimpleType) {
 		id, err := c.compileAnonymousSimple(child, ctx)
 		if err != nil {
 			return simpleType{}, err
@@ -818,12 +829,12 @@ func validateSimpleDerivationChildren(n *rawNode, policy simpleDerivationChildPo
 			continue
 		}
 		switch child.Name.Local {
-		case "annotation":
+		case xsdElemAnnotation:
 			if seenAnnotation || seenSimpleType || seenFacet {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" annotation must be first")
 			}
 			seenAnnotation = true
-		case "simpleType":
+		case xsdElemSimpleType:
 			if seenFacet {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" simpleType must precede facets")
 			}

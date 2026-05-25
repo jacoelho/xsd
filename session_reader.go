@@ -48,7 +48,7 @@ func prepareInstanceReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Read
 	if enc := declaredEncoding(peek); enc != "" && !strings.EqualFold(enc, "UTF-8") && !strings.EqualFold(enc, "UTF8") {
 		return nil, unsupported(ErrUnsupportedNonUTF8, "instance documents must be UTF-8")
 	}
-	if version := declaredXMLVersion(peek); version != "" && version != "1.0" {
+	if version := declaredXMLVersion(peek); version != "" && version != xmlVersion10 {
 		return nil, unsupported(ErrUnsupportedXML11, "XML version "+version+" is not supported")
 	}
 	return br, nil
@@ -144,7 +144,7 @@ func declaredXMLVersion(buf []byte) string {
 
 // xmlDeclNameIsVersion keeps the XML declaration fast path explicit.
 func xmlDeclNameIsVersion(name []byte) bool {
-	return len(name) == len("version") &&
+	return len(name) == len(xsdAttrVersion) &&
 		name[0] == 'v' &&
 		name[1] == 'e' &&
 		name[2] == 'r' &&

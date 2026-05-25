@@ -28,7 +28,7 @@ type rawNode struct {
 
 func parseSchemaDocument(name, key string, data []byte, limits compileLimits) (*rawDoc, error) {
 	data = bytes.TrimPrefix(data, utf8BOM)
-	if version := declaredXMLVersion(data); version != "" && version != "1.0" {
+	if version := declaredXMLVersion(data); version != "" && version != xmlVersion10 {
 		return nil, unsupported(ErrUnsupportedXML11, "XML version "+version+" is not supported")
 	}
 	dec := xml.NewDecoder(bytes.NewReader(data))
@@ -37,7 +37,7 @@ func parseSchemaDocument(name, key string, data []byte, limits compileLimits) (*
 		dec:    dec,
 		limits: limits,
 		nsStack: []map[string]string{{
-			"xml": xmlNamespaceURI,
+			xmlPrefix: xmlNamespaceURI,
 		}},
 	}
 	if err := state.parse(); err != nil {
@@ -126,7 +126,7 @@ func (s *schemaParseState) handleStartElement(t xml.StartElement) error {
 	ns := parentNS
 	clonedNS := false
 	for _, a := range t.Attr {
-		if a.Name.Space == "xmlns" {
+		if a.Name.Space == xmlnsPrefix {
 			if !clonedNS {
 				ns = cloneNS(parentNS)
 				clonedNS = true
@@ -134,7 +134,7 @@ func (s *schemaParseState) handleStartElement(t xml.StartElement) error {
 			ns[a.Name.Local] = a.Value
 			continue
 		}
-		if a.Name.Space == "" && a.Name.Local == "xmlns" {
+		if a.Name.Space == "" && a.Name.Local == xmlnsPrefix {
 			if !clonedNS {
 				ns = cloneNS(parentNS)
 				clonedNS = true
@@ -231,7 +231,7 @@ func validateSchemaRoot(root *rawNode) error {
 	if root == nil {
 		return schemaParse(ErrSchemaRoot, 0, 0, "empty schema document", nil)
 	}
-	if root.Name.Space != xsdNamespaceURI || root.Name.Local != "schema" {
+	if root.Name.Space != xsdNamespaceURI || root.Name.Local != xsdElemSchema {
 		return schemaParse(ErrSchemaRoot, root.Line, root.Column, "root element must be xs:schema", nil)
 	}
 	return nil
@@ -273,8 +273,8 @@ func cloneNS(src map[string]string) map[string]string {
 }
 
 func rejectUnsupportedSchemaNodes(n, parent *rawNode) error {
-	if parent != nil && parent.Name.Space == xsdNamespaceURI && parent.Name.Local == "annotation" {
-		if n.Name.Space == xsdNamespaceURI && (n.Name.Local == "appinfo" || n.Name.Local == "documentation") {
+	if parent != nil && parent.Name.Space == xsdNamespaceURI && parent.Name.Local == xsdElemAnnotation {
+		if n.Name.Space == xsdNamespaceURI && (n.Name.Local == xsdElemAppinfo || n.Name.Local == xsdElemDocumentation) {
 			return nil
 		}
 	}
@@ -287,14 +287,14 @@ func rejectUnsupportedSchemaNodes(n, parent *rawNode) error {
 		switch n.Name.Local {
 		case "redefine":
 			return unsupported(ErrUnsupportedRedefine, "xs:redefine is not supported")
-		case "notation":
-			if parent == nil || parent.Name.Space != xsdNamespaceURI || parent.Name.Local != "schema" {
+		case xsdElemNotation:
+			if parent == nil || parent.Name.Space != xsdNamespaceURI || parent.Name.Local != xsdElemSchema {
 				return schemaCompile(ErrSchemaContentModel, "xs:notation must be a top-level schema child")
 			}
 		case "assert", "alternative", "override", "openContent", "defaultOpenContent":
 			return unsupported(ErrUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
-		case "any", "anyAttribute":
-			for _, attr := range []string{"notNamespace", "notQName"} {
+		case xsdElemAny, xsdElemAnyAttribute:
+			for _, attr := range []string{xsdAttrNotNamespace, xsdAttrNotQName} {
 				if _, ok := n.attr(attr); ok {
 					return unsupported(ErrUnsupportedXSD11, "XSD 1.1 wildcard attribute "+attr+" is not supported")
 				}
@@ -330,69 +330,108 @@ func rejectUnknownSchemaAttributes(n *rawNode) error {
 
 func schemaAttributeAllowed(element, attr string) bool {
 	switch element {
-	case "schema":
-		return schemaRootAttributeAllowed(attr)
-	case "include":
-		return attr == "id" || attr == "schemaLocation"
-	case "import":
-		return attr == "id" || attr == "namespace" || attr == "schemaLocation"
-	case "appinfo", "documentation":
-		return attr == "source"
-	case "simpleType":
-		return attr == "id" || attr == "name" || attr == "final"
-	case "restriction", "extension":
-		return attr == "id" || attr == "base"
-	case "list":
-		return attr == "id" || attr == "itemType"
-	case "union":
-		return attr == "id" || attr == "memberTypes"
-	case "complexType":
-		return attr == "id" || attr == "name" || attr == "mixed" || attr == "abstract" || attr == "block" || attr == "final"
-	case "annotation", "simpleContent":
-		return attr == "id"
-	case "complexContent":
-		return attr == "id" || attr == "mixed"
-	case "group":
-		return attr == "id" || attr == "name" || attr == "ref" || attr == "minOccurs" || attr == "maxOccurs"
-	case "all", "choice", "sequence":
-		return attr == "id" || attr == "minOccurs" || attr == "maxOccurs"
-	case "element":
+	case xsdElemSchema, xsdElemInclude, xsdElemImport, xsdElemAppinfo, xsdElemDocumentation:
+		return schemaDocumentAttributeAllowed(element, attr)
+	case xsdElemSimpleType, xsdElemRestriction, xsdElemExtension, xsdElemList, xsdElemUnion:
+		return simpleDerivationAttributeAllowed(element, attr)
+	case xsdElemComplexType, xsdElemAnnotation, xsdElemSimpleContent, xsdElemComplexContent:
+		return complexDerivationAttributeAllowed(element, attr)
+	case xsdElemGroup, xsdElemAll, xsdElemChoice, xsdElemSequence:
+		return modelGroupAttributeAllowed(element, attr)
+	case xsdElemElement:
 		return isElementAttribute(attr)
-	case "attribute":
+	case xsdElemAttribute:
 		return isAttributeAttribute(attr)
-	case "attributeGroup":
-		return attr == "id" || attr == "name" || attr == "ref"
-	case "any":
+	case xsdElemAttributeGroup:
+		return attr == xsdAttrID || attr == xsdAttrName || attr == xsdAttrRef
+	case xsdElemAny:
 		return isAnyParticleAttribute(attr)
-	case "anyAttribute":
+	case xsdElemAnyAttribute:
 		return isAnyAttributeAttribute(attr)
-	case "unique", "key":
+	case xsdElemUnique, xsdElemKey:
 		return isIdentityAttribute(attr)
-	case "keyref":
+	case xsdElemKeyref:
 		return isKeyrefAttribute(attr)
-	case "selector", "field":
+	case xsdElemSelector, xsdElemField:
 		return isIdentityXPathAttribute(attr)
-	case "notation":
+	case xsdElemNotation:
 		return isNotationAttribute(attr)
 	default:
 		if isFacetNode(element) {
-			return attr == "id" || attr == "value" || attr == "fixed"
+			return attr == xsdAttrID || attr == xsdAttrValue || attr == xsdAttrFixed
 		}
 		return true
 	}
 }
 
-func schemaRootAttributeAllowed(attr string) bool {
-	switch attr {
-	case "id", "targetNamespace", "version", "finalDefault", "blockDefault", "attributeFormDefault", "elementFormDefault":
-		return true
+func schemaDocumentAttributeAllowed(element, attr string) bool {
+	switch element {
+	case xsdElemSchema:
+		switch attr {
+		case xsdAttrID, xsdAttrTargetNamespace, xsdAttrVersion, xsdAttrFinalDefault, xsdAttrBlockDefault, xsdAttrAttributeFormDefault, xsdAttrElementFormDefault:
+			return true
+		}
+	case xsdElemInclude:
+		return attr == xsdAttrID || attr == xsdAttrSchemaLocation
+	case xsdElemImport:
+		return attr == xsdAttrID || attr == xsdAttrNamespace || attr == xsdAttrSchemaLocation
+	case xsdElemAppinfo, xsdElemDocumentation:
+		return attr == xsdAttrSource
+	default:
+		return false
+	}
+	return false
+}
+
+func simpleDerivationAttributeAllowed(element, attr string) bool {
+	switch element {
+	case xsdElemSimpleType:
+		return attr == xsdAttrID || attr == xsdAttrName || attr == xsdAttrFinal
+	case xsdElemRestriction, xsdElemExtension:
+		return attr == xsdAttrID || attr == xsdAttrBase
+	case xsdElemList:
+		return attr == xsdAttrID || attr == xsdAttrItemType
+	case xsdElemUnion:
+		return attr == xsdAttrID || attr == xsdAttrMemberTypes
 	default:
 		return false
 	}
 }
 
+func complexDerivationAttributeAllowed(element, attr string) bool {
+	switch element {
+	case xsdElemComplexType:
+		switch attr {
+		case xsdAttrID, xsdAttrName, xsdAttrMixed, xsdAttrAbstract, xsdAttrBlock, xsdAttrFinal:
+			return true
+		}
+	case xsdElemAnnotation, xsdElemSimpleContent:
+		return attr == xsdAttrID
+	case xsdElemComplexContent:
+		return attr == xsdAttrID || attr == xsdAttrMixed
+	default:
+		return false
+	}
+	return false
+}
+
+func modelGroupAttributeAllowed(element, attr string) bool {
+	switch element {
+	case xsdElemGroup:
+		switch attr {
+		case xsdAttrID, xsdAttrName, xsdAttrRef, xsdAttrMinOccurs, xsdAttrMaxOccurs:
+			return true
+		}
+	case xsdElemAll, xsdElemChoice, xsdElemSequence:
+		return attr == xsdAttrID || attr == xsdAttrMinOccurs || attr == xsdAttrMaxOccurs
+	default:
+		return false
+	}
+	return false
+}
+
 func rejectDuplicateSchemaIDs(n *rawNode, seen map[string]bool) error {
-	if id, ok := n.attr("id"); ok {
+	if id, ok := n.attr(xsdAttrID); ok {
 		if seen[id] {
 			return schemaCompile(ErrSchemaInvalidAttribute, "duplicate schema id "+id)
 		}
@@ -408,14 +447,14 @@ func rejectDuplicateSchemaIDs(n *rawNode, seen map[string]bool) error {
 
 func rejectInvalidSchemaNames(n, parent *rawNode) error {
 	if n.Name.Space == xsdNamespaceURI {
-		if id, ok := n.attr("id"); ok && !isNCName(id) {
+		if id, ok := n.attr(xsdAttrID); ok && !isNCName(id) {
 			return schemaCompile(ErrSchemaInvalidAttribute, "schema id must be NCName")
 		}
-		if name, ok := n.attr("name"); ok && !isNCName(name) {
+		if name, ok := n.attr(xsdAttrName); ok && !isNCName(name) {
 			return schemaCompile(ErrSchemaInvalidAttribute, "schema component name must be NCName")
 		}
-		if n.Name.Local == "attributeGroup" && parent != nil && (parent.Name.Space != xsdNamespaceURI || parent.Name.Local != "schema") {
-			if _, ok := n.attr("name"); ok {
+		if n.Name.Local == xsdElemAttributeGroup && parent != nil && (parent.Name.Space != xsdNamespaceURI || parent.Name.Local != xsdElemSchema) {
+			if _, ok := n.attr(xsdAttrName); ok {
 				return schemaCompile(ErrSchemaInvalidAttribute, "attributeGroup use cannot have name")
 			}
 		}
@@ -445,13 +484,13 @@ func rejectInvalidAnnotations(n *rawNode) error {
 
 func validateAnnotationNode(n *rawNode) (bool, error) {
 	switch n.Name.Local {
-	case "appinfo":
+	case xsdElemAppinfo:
 		return true, nil
-	case "documentation":
+	case xsdElemDocumentation:
 		return true, validateDocumentationNode(n)
-	case "annotation":
+	case xsdElemAnnotation:
 		return false, validateAnnotationElement(n)
-	case "schema":
+	case xsdElemSchema:
 		return false, nil
 	default:
 		return false, validateComponentAnnotationPlacement(n)
@@ -460,7 +499,7 @@ func validateAnnotationNode(n *rawNode) (bool, error) {
 
 func validateDocumentationNode(n *rawNode) error {
 	for _, attr := range n.Attr {
-		if attr.Name.Space == xmlNamespaceURI && attr.Name.Local == "lang" && !validLanguageTag(attr.Value) {
+		if attr.Name.Space == xmlNamespaceURI && attr.Name.Local == xmlAttrLang && !validLanguageTag(attr.Value) {
 			return schemaCompile(ErrSchemaInvalidAttribute, "invalid xml:lang on xs:documentation")
 		}
 	}
@@ -469,12 +508,12 @@ func validateDocumentationNode(n *rawNode) error {
 
 func validateAnnotationElement(n *rawNode) error {
 	for _, attr := range n.Attr {
-		if attr.Name.Space == "" && attr.Name.Local != "id" {
+		if attr.Name.Space == "" && attr.Name.Local != xsdAttrID {
 			return schemaCompile(ErrSchemaInvalidAttribute, "attribute "+attr.Name.Local+" cannot appear on xs:annotation")
 		}
 	}
 	for _, child := range n.Children {
-		if child.Name.Space == xsdNamespaceURI && child.Name.Local == "annotation" {
+		if child.Name.Space == xsdNamespaceURI && child.Name.Local == xsdElemAnnotation {
 			return schemaCompile(ErrSchemaContentModel, "xs:annotation cannot contain xs:annotation")
 		}
 	}
@@ -488,7 +527,7 @@ func validateComponentAnnotationPlacement(n *rawNode) error {
 		if child.Name.Space != xsdNamespaceURI {
 			continue
 		}
-		if child.Name.Local == "annotation" {
+		if child.Name.Local == xsdElemAnnotation {
 			annotations++
 			if annotations > 1 {
 				return schemaCompile(ErrSchemaContentModel, "schema component cannot contain multiple annotations")
@@ -529,7 +568,7 @@ func (n *rawNode) attr(local string) (string, bool) {
 	for _, a := range n.Attr {
 		if a.Name.Space == "" && a.Name.Local == local {
 			value := replaceXMLWhitespace(a.Value)
-			if local == "name" || local == "id" {
+			if local == xsdAttrName || local == xsdAttrID {
 				return normalizeWhitespace(value, whitespaceCollapse), true
 			}
 			return value, true
@@ -570,7 +609,7 @@ func (n *rawNode) xsContentChildren() []*rawNode {
 		if c.Name.Space != xsdNamespaceURI {
 			continue
 		}
-		if c.Name.Local == "annotation" {
+		if c.Name.Local == xsdElemAnnotation {
 			continue
 		}
 		out = append(out, c)

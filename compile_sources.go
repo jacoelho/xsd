@@ -94,7 +94,7 @@ func (c *compiler) loadSchemaDocuments(sources []SchemaSource) error {
 		for _, name := range names {
 			data := sourceData[name]
 			doc := c.sourceDocs[name]
-			if target := doc.root.attrDefault("targetNamespace", ""); target != "" && targetCounts[target] > 1 {
+			if target := doc.root.attrDefault(xsdAttrTargetNamespace, ""); target != "" && targetCounts[target] > 1 {
 				key := schemaContentKey{target: target, size: len(data), hash: maphash.Bytes(seed, data)}
 				if schemaContentSeen(seenContent[key], data) {
 					continue
@@ -117,7 +117,7 @@ func (c *compiler) schemaTargetCounts(names []string) (map[string]int, bool) {
 	counts := make(map[string]int, len(names))
 	hasDuplicate := false
 	for _, name := range names {
-		target := c.sourceDocs[name].root.attrDefault("targetNamespace", "")
+		target := c.sourceDocs[name].root.attrDefault(xsdAttrTargetNamespace, "")
 		if target == "" {
 			continue
 		}
@@ -162,14 +162,14 @@ func schemaDocumentRefs(doc *rawDoc) []schemaDocumentRef {
 			continue
 		}
 		switch child.Name.Local {
-		case "include", "import":
-			location, ok := child.attr("schemaLocation")
+		case xsdElemInclude, xsdElemImport:
+			location, ok := child.attr(xsdAttrSchemaLocation)
 			if !ok || trimXMLWhitespace(location) == "" {
 				continue
 			}
 			ref := schemaDocumentRef{location: location}
-			if child.Name.Local == "import" {
-				ref.namespace = child.attrDefault("namespace", "")
+			if child.Name.Local == xsdElemImport {
+				ref.namespace = child.attrDefault(xsdAttrNamespace, "")
 			}
 			refs = append(refs, ref)
 		}
@@ -187,58 +187,80 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 				continue
 			}
 			switch child.Name.Local {
-			case "include", "import":
-				importNamespace := ""
-				if child.Name.Local == "import" {
-					namespace, hasNamespace := child.attr("namespace")
-					if hasNamespace && namespace == "" {
-						return schemaCompile(ErrSchemaInvalidAttribute, "import namespace cannot be empty")
-					}
-					if !hasNamespace && c.documentTargetNamespace(doc) == "" {
-						return schemaCompile(ErrSchemaReference, "import without namespace requires enclosing schema targetNamespace")
-					}
-					if hasNamespace && namespace == c.documentTargetNamespace(doc) {
-						return schemaCompile(ErrSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
-					}
-					importNamespace = namespace
-					if c.imports[doc.key] == nil {
-						c.imports[doc.key] = make(map[string]bool)
-					}
-					c.imports[doc.key][importNamespace] = true
+			case xsdElemInclude:
+				if err := c.checkExplicitInclude(doc, child); err != nil {
+					return err
 				}
-				location, ok := child.attr("schemaLocation")
-				if !ok || trimXMLWhitespace(location) == "" {
-					if child.Name.Local == "include" {
-						return schemaCompile(ErrSchemaReference, "include missing schemaLocation")
-					}
-					continue
-				}
-				referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
-				if !ok {
-					continue
-				}
-				referencedTarget := referenced.root.attrDefault("targetNamespace", "")
-				if child.Name.Local == "include" {
-					target := c.documentTargetNamespace(doc)
-					if referencedTarget != "" && referencedTarget != target {
-						return schemaCompile(ErrSchemaReference, "included schema targetNamespace does not match including schema")
-					}
-					if target != "" && referencedTarget == "" {
-						if existing := c.adoptTarget[resolved]; existing != "" && existing != target {
-							return schemaCompile(ErrSchemaReference, "chameleon include used with multiple target namespaces")
-						}
-						c.adoptTarget[resolved] = target
-					}
-				}
-				if child.Name.Local == "import" {
-					if importNamespace != referencedTarget {
-						return schemaCompile(ErrSchemaReference, "import namespace does not match imported schema targetNamespace")
-					}
+			case xsdElemImport:
+				if err := c.checkExplicitImport(doc, child); err != nil {
+					return err
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func (c *compiler) checkExplicitInclude(doc *rawDoc, child *rawNode) error {
+	location, ok := child.attr(xsdAttrSchemaLocation)
+	if !ok || trimXMLWhitespace(location) == "" {
+		return schemaCompile(ErrSchemaReference, "include missing schemaLocation")
+	}
+	referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
+	if !ok {
+		return nil
+	}
+	target := c.documentTargetNamespace(doc)
+	referencedTarget := referenced.root.attrDefault(xsdAttrTargetNamespace, "")
+	if referencedTarget != "" && referencedTarget != target {
+		return schemaCompile(ErrSchemaReference, "included schema targetNamespace does not match including schema")
+	}
+	if target == "" || referencedTarget != "" {
+		return nil
+	}
+	if existing := c.adoptTarget[resolved]; existing != "" && existing != target {
+		return schemaCompile(ErrSchemaReference, "chameleon include used with multiple target namespaces")
+	}
+	c.adoptTarget[resolved] = target
+	return nil
+}
+
+func (c *compiler) checkExplicitImport(doc *rawDoc, child *rawNode) error {
+	namespace, err := c.registerExplicitImportNamespace(doc, child)
+	if err != nil {
+		return err
+	}
+	location, ok := child.attr(xsdAttrSchemaLocation)
+	if !ok || trimXMLWhitespace(location) == "" {
+		return nil
+	}
+	referenced, _, ok := c.resolveLoadedSchemaLocation(doc, location)
+	if !ok {
+		return nil
+	}
+	if namespace != referenced.root.attrDefault(xsdAttrTargetNamespace, "") {
+		return schemaCompile(ErrSchemaReference, "import namespace does not match imported schema targetNamespace")
+	}
+	return nil
+}
+
+func (c *compiler) registerExplicitImportNamespace(doc *rawDoc, child *rawNode) (string, error) {
+	namespace, hasNamespace := child.attr(xsdAttrNamespace)
+	target := c.documentTargetNamespace(doc)
+	if hasNamespace && namespace == "" {
+		return "", schemaCompile(ErrSchemaInvalidAttribute, "import namespace cannot be empty")
+	}
+	if !hasNamespace && target == "" {
+		return "", schemaCompile(ErrSchemaReference, "import without namespace requires enclosing schema targetNamespace")
+	}
+	if hasNamespace && namespace == target {
+		return "", schemaCompile(ErrSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
+	}
+	if c.imports[doc.key] == nil {
+		c.imports[doc.key] = make(map[string]bool)
+	}
+	c.imports[doc.key][namespace] = true
+	return namespace, nil
 }
 
 func (c *compiler) propagateChameleonTargets() error {
@@ -250,10 +272,10 @@ func (c *compiler) propagateChameleonTargets() error {
 				continue
 			}
 			for _, child := range doc.root.Children {
-				if child.Name.Space != xsdNamespaceURI || child.Name.Local != "include" {
+				if child.Name.Space != xsdNamespaceURI || child.Name.Local != xsdElemInclude {
 					continue
 				}
-				location, ok := child.attr("schemaLocation")
+				location, ok := child.attr(xsdAttrSchemaLocation)
 				if !ok || trimXMLWhitespace(location) == "" {
 					continue
 				}
@@ -261,7 +283,7 @@ func (c *compiler) propagateChameleonTargets() error {
 				if !ok {
 					continue
 				}
-				referencedTarget := referenced.root.attrDefault("targetNamespace", "")
+				referencedTarget := referenced.root.attrDefault(xsdAttrTargetNamespace, "")
 				if referencedTarget != "" && referencedTarget != target {
 					return schemaCompile(ErrSchemaReference, "included schema targetNamespace does not match including schema")
 				}
@@ -285,7 +307,7 @@ func (c *compiler) propagateChameleonTargets() error {
 }
 
 func (c *compiler) documentTargetNamespace(doc *rawDoc) string {
-	if target := doc.root.attrDefault("targetNamespace", ""); target != "" {
+	if target := doc.root.attrDefault(xsdAttrTargetNamespace, ""); target != "" {
 		return target
 	}
 	return c.adoptTarget[doc.key]

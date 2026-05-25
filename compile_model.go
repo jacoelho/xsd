@@ -10,22 +10,25 @@ func modelChildren(n *rawNode) []*rawNode {
 	var out []*rawNode
 	for _, c := range n.xsContentChildren() {
 		switch c.Name.Local {
-		case "sequence", "choice", "all", "group":
+		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
 			out = append(out, c)
 		}
 	}
 	return out
 }
 
-func (c *compiler) addModel(m contentModel) contentModelID {
-	id := contentModelID(len(c.rt.Models))
+func (c *compiler) addModel(m contentModel) (contentModelID, error) {
+	id, err := nextContentModelID(len(c.rt.Models))
+	if err != nil {
+		return noContentModel, err
+	}
 	c.rt.Models = append(c.rt.Models, m)
-	return id
+	return id, nil
 }
 
-func (c *compiler) extendSequence(baseID, extID contentModelID) contentModelID {
+func (c *compiler) extendSequence(baseID, extID contentModelID) (contentModelID, error) {
 	if baseID == noContentModel {
-		return extID
+		return extID, nil
 	}
 	base := c.rt.Models[baseID]
 	ext := c.rt.Models[extID]
@@ -39,24 +42,24 @@ func (c *compiler) extendSequence(baseID, extID contentModelID) contentModelID {
 	m := contentModel{Kind: modelSequence, occurs: occurrence{Min: 1, Max: 1}, Mixed: mixed}
 	if base.Kind == modelSequence && base.occurs.isExactlyOne() {
 		m.Particles = append(m.Particles, base.Particles...)
-	} else {
-		c.appendModelParticle(&m, baseID)
+	} else if err := c.appendModelParticle(&m, baseID); err != nil {
+		return noContentModel, err
 	}
 	if ext.Kind == modelSequence && ext.occurs.isExactlyOne() {
 		m.Particles = append(m.Particles, ext.Particles...)
-	} else {
-		c.appendModelParticle(&m, extID)
+	} else if err := c.appendModelParticle(&m, extID); err != nil {
+		return noContentModel, err
 	}
 	return c.addModel(m)
 }
 
-func (c *compiler) modelWithMixed(id contentModelID, mixed bool) contentModelID {
+func (c *compiler) modelWithMixed(id contentModelID, mixed bool) (contentModelID, error) {
 	if id == noContentModel {
-		return id
+		return id, nil
 	}
 	model := c.rt.Models[id]
 	if model.Mixed == mixed {
-		return id
+		return id, nil
 	}
 	model.Mixed = mixed
 	return c.addModel(model)
@@ -77,32 +80,37 @@ func (c *compiler) modelHasNoParticles(modelID contentModelID) bool {
 	}
 }
 
-func (c *compiler) appendModelParticle(m *contentModel, id contentModelID) {
-	p, ok := c.modelParticle(id)
-	if !ok {
-		return
+func (c *compiler) appendModelParticle(m *contentModel, id contentModelID) error {
+	p, ok, err := c.modelParticle(id)
+	if err != nil || !ok {
+		return err
 	}
 	m.Particles = append(m.Particles, p)
+	return nil
 }
 
-func (c *compiler) modelParticle(id contentModelID) (particle, bool) {
+func (c *compiler) modelParticle(id contentModelID) (particle, bool, error) {
 	model := c.rt.Models[id]
 	occurs := model.occurs
 	if occurs.Max == 0 && !occurs.Unbounded {
-		return particle{}, false
+		return particle{}, false, nil
 	}
 	modelID := id
 	if !occurs.isExactlyOne() {
 		normalized := model
 		normalized.occurs = occurrence{Min: 1, Max: 1}
-		modelID = c.addModel(normalized)
+		var err error
+		modelID, err = c.addModel(normalized)
+		if err != nil {
+			return particle{}, false, err
+		}
 	}
-	return particle{Kind: particleModel, occurs: occurs, Model: modelID}, true
+	return particle{Kind: particleModel, occurs: occurs, Model: modelID}, true, nil
 }
 
 func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (contentModelID, error) {
-	if n.Name.Local == "group" {
-		if ref, ok := n.attr("ref"); ok {
+	if n.Name.Local == xsdElemGroup {
+		if ref, ok := n.attr(xsdAttrRef); ok {
 			return c.compileModelGroupRef(n, ctx, ref)
 		}
 	}
@@ -118,7 +126,10 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (contentModelID,
 	if c.compilingModel[n] {
 		return noContentModel, schemaCompile(ErrSchemaReference, "recursive model group")
 	}
-	id := c.addModel(contentModel{})
+	id, err := c.addModel(contentModel{})
+	if err != nil {
+		return noContentModel, err
+	}
 	c.modelDone[n] = id
 	c.modelDepth[n] = c.elementDepth
 	c.compilingModel[n] = true
@@ -177,7 +188,7 @@ func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 		return noContentModel, schemaCompile(ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
 	}
 	model.occurs = occurs
-	return c.addModel(model), nil
+	return c.addModel(model)
 }
 
 func (c *compiler) recursiveModelGroupRef(q qName, id contentModelID, occurs occurrence, modelNode *rawNode) (contentModelID, error) {
@@ -193,16 +204,16 @@ func (c *compiler) recursiveModelGroupRef(q qName, id contentModelID, occurs occ
 			Model:  id,
 		}},
 	}
-	return c.addModel(ref), nil
+	return c.addModel(ref)
 }
 
 func modelKindForNode(n *rawNode) (modelKind, error) {
 	switch n.Name.Local {
-	case "sequence":
+	case xsdElemSequence:
 		return modelSequence, nil
-	case "choice":
+	case xsdElemChoice:
 		return modelChoice, nil
-	case "all":
+	case xsdElemAll:
 		return modelAll, nil
 	default:
 		return 0, schemaCompile(ErrSchemaContentModel, "unsupported model "+n.Name.Local)
@@ -220,13 +231,19 @@ func (c *compiler) compileModelChildren(n *rawNode, ctx *schemaContext, m *conte
 
 func (c *compiler) appendModelChild(m *contentModel, child *rawNode, ctx *schemaContext) error {
 	switch child.Name.Local {
-	case "element":
+	case xsdElemElement:
 		p, err := c.compileElementParticle(child, ctx)
-		return appendParticle(m, p, err)
-	case "any":
+		if err != nil {
+			return err
+		}
+		return appendParticle(m, p)
+	case xsdElemAny:
 		p, err := c.compileWildcardParticle(child, ctx)
-		return appendParticle(m, p, err)
-	case "sequence", "choice", "all", "group":
+		if err != nil {
+			return err
+		}
+		return appendParticle(m, p)
+	case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
 		return c.appendNestedModelChild(m, child, ctx)
 	default:
 		return nil
@@ -234,7 +251,7 @@ func (c *compiler) appendModelChild(m *contentModel, child *rawNode, ctx *schema
 }
 
 func (c *compiler) appendNestedModelChild(m *contentModel, child *rawNode, ctx *schemaContext) error {
-	if child.Name.Local == "all" {
+	if child.Name.Local == xsdElemAll {
 		return schemaCompile(ErrSchemaContentModel, "xs:all cannot be nested in model groups")
 	}
 	childModelID, err := c.compileModel(child, ctx)
@@ -242,17 +259,20 @@ func (c *compiler) appendNestedModelChild(m *contentModel, child *rawNode, ctx *
 		return err
 	}
 	childModel := c.rt.Models[childModelID]
-	if child.Name.Local == "group" && childModel.Kind == modelAll {
+	if child.Name.Local == xsdElemGroup && childModel.Kind == modelAll {
 		return schemaCompile(ErrSchemaContentModel, "xs:all cannot be nested in model groups")
 	}
 	if appendFlattenedModelChild(m, childModel) {
 		return nil
 	}
-	p, ok := c.modelParticle(childModelID)
+	p, ok, err := c.modelParticle(childModelID)
+	if err != nil {
+		return err
+	}
 	if !ok {
 		return nil
 	}
-	return appendParticle(m, p, nil)
+	return appendParticle(m, p)
 }
 
 func appendFlattenedModelChild(m *contentModel, child contentModel) bool {
@@ -287,10 +307,7 @@ func canFlattenSingleParticleModel(modelOccurs, particleOccurs occurrence) bool 
 		(!modelOccurs.Unbounded && modelOccurs.Min == modelOccurs.Max)
 }
 
-func appendParticle(m *contentModel, p particle, err error) error {
-	if err != nil {
-		return err
-	}
+func appendParticle(m *contentModel, p particle) error {
 	if p.occurs.Max == 0 && !p.occurs.Unbounded {
 		return nil
 	}
@@ -302,7 +319,7 @@ func appendParticle(m *contentModel, p particle, err error) error {
 }
 
 func validateModelOccurrence(n *rawNode, limits compileLimits) error {
-	if n.Name.Local == "group" {
+	if n.Name.Local == xsdElemGroup {
 		if err := validateKnownAttributes(n, n.Name.Local, isGroupOccurrenceAttribute); err != nil {
 			return err
 		}
@@ -311,7 +328,7 @@ func validateModelOccurrence(n *rawNode, limits compileLimits) error {
 	if err != nil {
 		return err
 	}
-	if n.Name.Local == "all" && (occurs.Unbounded || occurs.Max != 1 || occurs.Min > 1) {
+	if n.Name.Local == xsdElemAll && (occurs.Unbounded || occurs.Max != 1 || occurs.Min > 1) {
 		return schemaCompile(ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
 	}
 	return validateModelGroupSyntax(n, limits)
@@ -319,7 +336,7 @@ func validateModelOccurrence(n *rawNode, limits compileLimits) error {
 
 func isGroupOccurrenceAttribute(name string) bool {
 	switch name {
-	case "id", "minOccurs", "maxOccurs", "ref":
+	case xsdAttrID, xsdAttrMinOccurs, xsdAttrMaxOccurs, xsdAttrRef:
 		return true
 	default:
 		return false
@@ -413,6 +430,7 @@ func (c *compiler) checkDirectUPA(m contentModel) error {
 				}
 			}
 		}
+	default:
 	}
 	return nil
 }
@@ -448,6 +466,7 @@ func (c *compiler) modelContinuationParticles(model contentModel) []particle {
 		for _, p := range model.Particles {
 			out = append(out, c.particleContinuationParticles(p)...)
 		}
+	default:
 	}
 	return out
 }
@@ -591,6 +610,7 @@ func (c *compiler) modelStartMatchesName(model contentModel, name qName) bool {
 				break
 			}
 		}
+	default:
 	}
 	return false
 }
@@ -620,6 +640,7 @@ func (c *compiler) collectElementDeclarationType(types map[qName]typeID, p parti
 				return err
 			}
 		}
+	case particleWildcard:
 	}
 	return nil
 }
@@ -636,6 +657,7 @@ func (c *compiler) modelStartParticles(model contentModel) []particle {
 				break
 			}
 		}
+	default:
 	}
 	return out
 }
@@ -652,7 +674,7 @@ func (c *compiler) substitutionAllowed(headID, memberID elementID) bool {
 func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 	minOccurs := uint32(1)
 	minDigits := "1"
-	if v, ok := n.attr("minOccurs"); ok {
+	if v, ok := n.attr(xsdAttrMinOccurs); ok {
 		digits, err := parseOccurrenceDigits(v)
 		if err != nil {
 			return occurrence{}, schemaCompile(ErrSchemaOccurrence, "invalid minOccurs "+v)
@@ -665,7 +687,7 @@ func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 	}
 	maxOccurs := uint32(1)
 	maxDigits := "1"
-	if v, ok := n.attr("maxOccurs"); ok {
+	if v, ok := n.attr(xsdAttrMaxOccurs); ok {
 		if trimXMLWhitespace(v) == "unbounded" {
 			return occurrence{Min: minOccurs, Unbounded: true}, nil
 		}
@@ -686,7 +708,7 @@ func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 }
 
 func maxOccursLimitExceeded(digits string, limit uint64) bool {
-	limitCap := uint64(^uint32(0))
+	limitCap := uint64(maxUint32Value)
 	if limit != 0 && limit < limitCap {
 		limitCap = limit
 	}
@@ -694,7 +716,7 @@ func maxOccursLimitExceeded(digits string, limit uint64) bool {
 }
 
 func maxOccursLimitMessage(limit uint64) string {
-	if limit != 0 && limit < uint64(^uint32(0)) {
+	if limit != 0 && limit < uint64(maxUint32Value) {
 		return "maxOccurs exceeds configured limit"
 	}
 	return "maxOccurs exceeds uint32 limit"
@@ -702,7 +724,7 @@ func maxOccursLimitMessage(limit uint64) string {
 
 // occurrenceUint32LimitExceeded compares textually so huge values cannot overflow.
 func occurrenceUint32LimitExceeded(digits string) bool {
-	return compareUnsignedDecimalText(digits, strconv.FormatUint(uint64(^uint32(0)), 10)) > 0
+	return compareUnsignedDecimalText(digits, maxUint32Text) > 0
 }
 
 func parseOccurrenceDigits(v string) (string, error) {
@@ -724,13 +746,12 @@ func parseOccurrenceDigits(v string) (string, error) {
 }
 
 func occurrenceUint32(digits string) uint32 {
-	const maxUint32 = "4294967295"
-	if compareUnsignedDecimalText(digits, maxUint32) > 0 {
-		return ^uint32(0)
+	if compareUnsignedDecimalText(digits, maxUint32Text) > 0 {
+		return maxUint32Value
 	}
 	v, err := strconv.ParseUint(digits, 10, 32)
 	if err != nil {
-		return ^uint32(0)
+		return maxUint32Value
 	}
 	return uint32(v)
 }

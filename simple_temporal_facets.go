@@ -89,22 +89,22 @@ func validateTimeFacetRestriction(f, base facetSet, step orderedFacetStep) error
 		return err
 	}
 	if step.minInclusive && baseLower.present() {
-		if err := validateTimeLowerRestriction("minInclusive", f.MinInclusive, facetInclusive, baseLower); err != nil {
+		if err := validateTimeLowerRestriction(xsdFacetMinInclusive, f.MinInclusive, facetInclusive, baseLower); err != nil {
 			return err
 		}
 	}
 	if step.minExclusive && baseLower.present() {
-		if err := validateTimeLowerRestriction("minExclusive", f.MinExclusive, facetExclusive, baseLower); err != nil {
+		if err := validateTimeLowerRestriction(xsdFacetMinExclusive, f.MinExclusive, facetExclusive, baseLower); err != nil {
 			return err
 		}
 	}
 	if step.maxInclusive && baseUpper.present() {
-		if err := validateTimeUpperRestriction("maxInclusive", f.MaxInclusive, facetInclusive, baseUpper); err != nil {
+		if err := validateTimeUpperRestriction(xsdFacetMaxInclusive, f.MaxInclusive, facetInclusive, baseUpper); err != nil {
 			return err
 		}
 	}
 	if step.maxExclusive && baseUpper.present() {
-		if err := validateTimeUpperRestriction("maxExclusive", f.MaxExclusive, facetExclusive, baseUpper); err != nil {
+		if err := validateTimeUpperRestriction(xsdFacetMaxExclusive, f.MaxExclusive, facetExclusive, baseUpper); err != nil {
 			return err
 		}
 	}
@@ -190,16 +190,16 @@ func actualTimeLiteral(l *compiledLiteral) (xsdTimeValue, bool) {
 }
 
 func applyPartialBoundsParsed[T any](f *facetSet, value T, parse func(string) (T, error), compare func(T, T) partialCompareResult, actual func(*compiledLiteral) (T, bool)) error {
-	if err := applyPartialBound(f.MinInclusive, "minInclusive", value, parse, compare, actual, partialCompareForMinInclusive); err != nil {
+	if err := applyPartialBound(f.MinInclusive, xsdFacetMinInclusive, value, parse, compare, actual, partialCompareForMinInclusive); err != nil {
 		return err
 	}
-	if err := applyPartialBound(f.MaxInclusive, "maxInclusive", value, parse, compare, actual, partialCompareForMaxInclusive); err != nil {
+	if err := applyPartialBound(f.MaxInclusive, xsdFacetMaxInclusive, value, parse, compare, actual, partialCompareForMaxInclusive); err != nil {
 		return err
 	}
-	if err := applyPartialBound(f.MinExclusive, "minExclusive", value, parse, compare, actual, partialCompareForMinExclusive); err != nil {
+	if err := applyPartialBound(f.MinExclusive, xsdFacetMinExclusive, value, parse, compare, actual, partialCompareForMinExclusive); err != nil {
 		return err
 	}
-	return applyPartialBound(f.MaxExclusive, "maxExclusive", value, parse, compare, actual, partialCompareForMaxExclusive)
+	return applyPartialBound(f.MaxExclusive, xsdFacetMaxExclusive, value, parse, compare, actual, partialCompareForMaxExclusive)
 }
 
 func applyPartialBound[T any](
@@ -214,9 +214,17 @@ func applyPartialBound[T any](
 	if lit == nil {
 		return nil
 	}
-	limit, err := facetLiteralValue(lit, facetCanonical, parse, actual)
-	if err != nil {
-		return err
+	var limit T
+	var ok bool
+	if actual != nil {
+		limit, ok = actual(lit)
+	}
+	if !ok {
+		var err error
+		limit, err = parse(lit.Canonical)
+		if err != nil {
+			return err
+		}
 	}
 	if !accept(compare(value, limit)) {
 		return fmt.Errorf("%s facet failed", name)

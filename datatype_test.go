@@ -149,6 +149,25 @@ func TestSizeFacetsAcceptXSDIntegerLexicalForms(t *testing.T) {
 	}
 }
 
+func TestSizeFacetOverflowIsSchemaLimit(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "uint32_plus_one", value: "4294967296"},
+		{name: "huge_integer", value: "999999999999999999999999999999"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Bad"><xs:restriction base="xs:string"><xs:length value="`+tt.value+`"/></xs:restriction></xs:simpleType>
+	</xs:schema>`)))
+			expectCode(t, err, ErrSchemaLimit)
+		})
+	}
+}
+
 func TestFacetValueAttributeIsRequired(t *testing.T) {
 	tests := []struct {
 		name  string

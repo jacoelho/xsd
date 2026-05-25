@@ -6,7 +6,7 @@ func (c *compiler) compileSubstitutions() error {
 	direct := make(map[elementID][]elementID)
 	for _, memberQName := range sortedQNames(c.elementRaw, c.rt.Names) {
 		raw := c.elementRaw[memberQName]
-		headLex, ok := raw.node.attr("substitutionGroup")
+		headLex, ok := raw.node.attr(xsdAttrSubstitutionGroup)
 		if !ok {
 			continue
 		}

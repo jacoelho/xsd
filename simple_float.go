@@ -121,7 +121,10 @@ func applyFloatBounds(kind primitiveKind, f facetSet, norm string, actual actual
 		if l == nil {
 			return 0, false, nil
 		}
-		v, err := facetLiteralValue(l, facetCanonical, parse, actualLiteral)
+		if v, ok := actualLiteral(l); ok {
+			return v, true, nil
+		}
+		v, err := parse(l.Canonical)
 		return v, true, err
 	}
 	if lit, ok, err := cmpLit(f.MinInclusive); err != nil {
@@ -192,12 +195,12 @@ func (b orderedFacetBound[T]) exclusive() bool {
 
 func facetBound[T any](inclusive, exclusive *compiledLiteral, text func(*compiledLiteral) string, parse func(string) (T, error), preferExclusive func(T, T) bool) (orderedFacetBound[T], error) {
 	if inclusive != nil {
-		out, err := facetLiteralValue(inclusive, text, parse, nil)
+		out, err := parse(text(inclusive))
 		if err != nil {
 			return orderedFacetBound[T]{}, err
 		}
 		if exclusive != nil {
-			other, err := facetLiteralValue(exclusive, text, parse, nil)
+			other, err := parse(text(exclusive))
 			if err != nil {
 				return orderedFacetBound[T]{}, err
 			}
@@ -208,7 +211,7 @@ func facetBound[T any](inclusive, exclusive *compiledLiteral, text func(*compile
 		return orderedFacetBound[T]{value: out, kind: facetBoundInclusive}, nil
 	}
 	if exclusive != nil {
-		out, err := facetLiteralValue(exclusive, text, parse, nil)
+		out, err := parse(text(exclusive))
 		if err != nil {
 			return orderedFacetBound[T]{}, err
 		}

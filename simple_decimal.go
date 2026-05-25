@@ -94,6 +94,14 @@ func parseDecimalMode(s string, mode decimalParseMode) (decimalValue, error) {
 		totalDigits = 1
 	}
 
+	totalDigits32, err := checkedUint32(totalDigits, "decimal totalDigits exceeds uint32 limit")
+	if err != nil {
+		return decimalValue{}, err
+	}
+	fracDigits32, err := checkedUint32(fracDigits, "decimal fractionDigits exceeds uint32 limit")
+	if err != nil {
+		return decimalValue{}, err
+	}
 	out := decimalValue{
 		text:           s,
 		start:          start,
@@ -103,8 +111,8 @@ func parseDecimalMode(s string, mode decimalParseMode) (decimalValue, error) {
 		fracTrimEnd:    fracTrimEnd,
 		IntegerLexical: dot < 0,
 		negative:       negative,
-		TotalDigits:    uint32(totalDigits),
-		FractionDigits: uint32(fracDigits),
+		TotalDigits:    totalDigits32,
+		FractionDigits: fracDigits32,
 	}
 	if mode == decimalWithCanonical {
 		out.Canonical = out.canonical()

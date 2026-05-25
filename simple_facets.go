@@ -45,7 +45,7 @@ func validateBuiltinDerived(kind builtinValidationKind, norm string, actual actu
 			return fmt.Errorf("invalid language")
 		}
 	case builtinValidationXMLSpace:
-		if norm != "default" && norm != "preserve" {
+		if norm != xmlValueDefault && norm != xmlValuePreserve {
 			return fmt.Errorf("invalid xml:space")
 		}
 	}
@@ -121,7 +121,7 @@ func atomicLength(kind primitiveKind, norm string) (uint32, error) {
 	case primBase64Binary:
 		return base64BinaryLength(norm)
 	default:
-		return uint32(utf8.RuneCountInString(norm)), nil
+		return checkedUint32(utf8.RuneCountInString(norm), "value length exceeds uint32 limit")
 	}
 }
 
@@ -195,15 +195,6 @@ func facetLexical(l *compiledLiteral) string {
 	return l.Lexical
 }
 
-func facetLiteralValue[T any](lit *compiledLiteral, text func(*compiledLiteral) string, parse func(string) (T, error), actual func(*compiledLiteral) (T, bool)) (T, error) {
-	if actual != nil {
-		if v, ok := actual(lit); ok {
-			return v, nil
-		}
-	}
-	return parse(text(lit))
-}
-
 func applyDecimalBounds(f facetSet, value decimalValue) error {
 	if f.MinInclusive != nil && compareDecimalValues(value, literalDecimal(f.MinInclusive)) < 0 {
 		return fmt.Errorf("minInclusive facet failed")
@@ -224,11 +215,14 @@ func literalDecimal(l *compiledLiteral) decimalValue {
 	if l == nil {
 		return decimalValue{}
 	}
-	dec, err := facetLiteralValue(l, facetCanonical, parseDecimalValue, actualDecimalLiteral)
-	if err != nil {
-		return decimalValue{Canonical: l.Canonical, IntegerCanonical: l.Canonical}
+	if dec, ok := actualDecimalLiteral(l); ok {
+		return dec
 	}
-	return dec
+	dec, err := parseDecimalValue(l.Canonical)
+	if err == nil {
+		return dec
+	}
+	return decimalValue{Canonical: l.Canonical, IntegerCanonical: l.Canonical}
 }
 
 func actualDecimalLiteral(l *compiledLiteral) (decimalValue, bool) {

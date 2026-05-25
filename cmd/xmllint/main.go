@@ -21,7 +21,7 @@ type config struct {
 
 func main() {
 	os.Exit(runWithOpen(os.Args[1:], os.Stderr, func(path string) (io.ReadCloser, error) {
-		return os.Open(path)
+		return os.Open(path) //nolint:gosec // xmllint intentionally validates caller-provided document paths.
 	}))
 }
 

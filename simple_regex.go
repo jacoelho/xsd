@@ -168,7 +168,7 @@ func (v *xsdRegexSyntaxValidator) validGoRegexCategory(name string) bool {
 func (v *xsdRegexSyntaxValidator) consumeQuantifier(r rune) error {
 	switch {
 	case r >= '0' && r <= '9':
-		v.addQuantifierDigit(r)
+		v.addQuantifierDigit("0123456789"[r-'0'])
 	case r == ',':
 		if v.quantifierSawComma || len(v.quantifierMin) == 0 {
 			return schemaCompile(ErrSchemaFacet, "invalid regex quantifier")
@@ -182,13 +182,13 @@ func (v *xsdRegexSyntaxValidator) consumeQuantifier(r rune) error {
 	return nil
 }
 
-func (v *xsdRegexSyntaxValidator) addQuantifierDigit(r rune) {
+func (v *xsdRegexSyntaxValidator) addQuantifierDigit(b byte) {
 	v.quantifierHasDigit = true
 	if v.quantifierSawComma {
-		v.quantifierMax = append(v.quantifierMax, byte(r))
+		v.quantifierMax = append(v.quantifierMax, b)
 		return
 	}
-	v.quantifierMin = append(v.quantifierMin, byte(r))
+	v.quantifierMin = append(v.quantifierMin, b)
 }
 
 func (v *xsdRegexSyntaxValidator) finishQuantifier() error {

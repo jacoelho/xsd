@@ -9,6 +9,9 @@ type qName struct {
 }
 
 func validUint32Index(id uint32, n int) bool {
+	if n < 0 {
+		return false
+	}
 	return uint64(id) < uint64(n)
 }
 
@@ -49,7 +52,7 @@ func newNameTable(maxNames int) (nameTable, error) {
 			return nameTable{}, err
 		}
 	}
-	for _, local := range []string{"type", "nil", "schemaLocation", "noNamespaceSchemaLocation"} {
+	for _, local := range []string{xsiAttrType, xsiAttrNil, xsiAttrSchemaLocation, xsiAttrNoNamespaceSchemaLocation} {
 		if _, err := n.InternQName(xsiNamespaceURI, local); err != nil {
 			return nameTable{}, err
 		}
@@ -64,7 +67,10 @@ func (n *nameTable) InternNamespace(uri string) (namespaceID, error) {
 	if err := n.checkLimit(1); err != nil {
 		return 0, err
 	}
-	id := namespaceID(len(n.namespaces))
+	id, err := nextNamespaceID(len(n.namespaces))
+	if err != nil {
+		return 0, err
+	}
 	n.namespaces = append(n.namespaces, uri)
 	n.nsIndex[uri] = id
 	return id, nil
@@ -77,7 +83,10 @@ func (n *nameTable) InternLocal(local string) (localNameID, error) {
 	if err := n.checkLimit(1); err != nil {
 		return 0, err
 	}
-	id := localNameID(len(n.locals))
+	id, err := nextLocalNameID(len(n.locals))
+	if err != nil {
+		return 0, err
+	}
 	n.locals = append(n.locals, local)
 	n.localIndex[local] = id
 	return id, nil
@@ -97,12 +106,20 @@ func (n *nameTable) InternQName(ns, local string) (qName, error) {
 		return qName{}, err
 	}
 	if !nsOK {
-		nsID = namespaceID(len(n.namespaces))
+		var err error
+		nsID, err = nextNamespaceID(len(n.namespaces))
+		if err != nil {
+			return qName{}, err
+		}
 		n.namespaces = append(n.namespaces, ns)
 		n.nsIndex[ns] = nsID
 	}
 	if !localOK {
-		localID = localNameID(len(n.locals))
+		var err error
+		localID, err = nextLocalNameID(len(n.locals))
+		if err != nil {
+			return qName{}, err
+		}
 		n.locals = append(n.locals, local)
 		n.localIndex[local] = localID
 	}

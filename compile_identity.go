@@ -6,7 +6,7 @@ func identityConstraintNodes(n *rawNode) []*rawNode {
 	var nodes []*rawNode
 	for _, child := range n.xsContentChildren() {
 		switch child.Name.Local {
-		case "key", "keyref", "unique":
+		case xsdElemKey, xsdElemKeyref, xsdElemUnique:
 			nodes = append(nodes, child)
 		}
 	}
@@ -24,7 +24,7 @@ func (c *compiler) declareAllIdentityConstraints() error {
 }
 
 func (c *compiler) declareIdentityConstraintsInTree(n *rawNode, ctx *schemaContext) error {
-	if n.Name.Space == xsdNamespaceURI && n.Name.Local == "element" {
+	if n.Name.Space == xsdNamespaceURI && n.Name.Local == xsdElemElement {
 		if _, err := c.declareIdentityConstraints(identityConstraintNodes(n), ctx); err != nil {
 			return err
 		}
@@ -47,7 +47,7 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 			ids = append(ids, id)
 			continue
 		}
-		name, ok := node.attr("name")
+		name, ok := node.attr(xsdAttrName)
 		if !ok || name == "" {
 			return nil, schemaCompile(ErrSchemaIdentity, "identity constraint missing name")
 		}
@@ -58,7 +58,10 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 		if _, exists := c.rt.GlobalIdentities[q]; exists {
 			return nil, schemaCompile(ErrSchemaDuplicate, "duplicate identity constraint "+c.rt.Names.Format(q))
 		}
-		id := identityConstraintID(len(c.rt.Identities))
+		id, err := nextIdentityConstraintID(len(c.rt.Identities))
+		if err != nil {
+			return nil, err
+		}
 		c.rt.Identities = append(c.rt.Identities, identityConstraint{Name: q, Refer: noIdentityConstraint})
 		c.rt.GlobalIdentities[q] = id
 		c.identityDeclared[node] = id
@@ -102,13 +105,13 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 		return ic, err
 	}
 	switch n.Name.Local {
-	case "key":
+	case xsdElemKey:
 		ic.Kind = identityKey
-	case "unique":
+	case xsdElemUnique:
 		ic.Kind = identityUnique
-	case "keyref":
+	case xsdElemKeyref:
 		ic.Kind = identityKeyRef
-		refer, ok := n.attr("refer")
+		refer, ok := n.attr(xsdAttrRefer)
 		if !ok {
 			return ic, schemaCompile(ErrSchemaIdentity, "keyref missing refer")
 		}
@@ -122,11 +125,11 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 		}
 		ic.Refer = ref
 	}
-	selector := n.firstXS("selector")
+	selector := n.firstXS(xsdElemSelector)
 	if selector == nil {
 		return ic, schemaCompile(ErrSchemaIdentity, "identity constraint missing selector")
 	}
-	xpath, ok := selector.attr("xpath")
+	xpath, ok := selector.attr(xsdAttrXPath)
 	if !ok {
 		return ic, schemaCompile(ErrSchemaIdentity, "selector missing xpath")
 	}
@@ -135,8 +138,8 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 		return ic, err
 	}
 	ic.Selector = paths
-	for _, field := range n.xsChildren("field") {
-		xpath, ok := field.attr("xpath")
+	for _, field := range n.xsChildren(xsdElemField) {
+		xpath, ok := field.attr(xsdAttrXPath)
 		if !ok {
 			return ic, schemaCompile(ErrSchemaIdentity, "field missing xpath")
 		}
@@ -215,7 +218,7 @@ func validateIdentityConstraintSyntax(n *rawNode) error {
 			continue
 		}
 		switch child.Name.Local {
-		case "annotation":
+		case xsdElemAnnotation:
 			if seenAnnotation {
 				return schemaCompile(ErrSchemaContentModel, "identity constraint can contain at most one annotation")
 			}
@@ -223,23 +226,23 @@ func validateIdentityConstraintSyntax(n *rawNode) error {
 				return schemaCompile(ErrSchemaContentModel, "identity constraint annotation must be first")
 			}
 			seenAnnotation = true
-		case "selector":
+		case xsdElemSelector:
 			if seenSelector {
 				return schemaCompile(ErrSchemaContentModel, "identity constraint can contain at most one selector")
 			}
 			if seenField {
 				return schemaCompile(ErrSchemaContentModel, "identity constraint selector must precede fields")
 			}
-			if err := validateIdentityXPathChild(child, "selector"); err != nil {
+			if err := validateIdentityXPathChild(child, xsdElemSelector); err != nil {
 				return err
 			}
 			seenSelector = true
 			seenNonAnnotation = true
-		case "field":
+		case xsdElemField:
 			if !seenSelector {
 				return schemaCompile(ErrSchemaContentModel, "identity constraint field requires selector")
 			}
-			if err := validateIdentityXPathChild(child, "field"); err != nil {
+			if err := validateIdentityXPathChild(child, xsdElemField); err != nil {
 				return err
 			}
 			seenField = true
@@ -258,7 +261,7 @@ func validateIdentityConstraintSyntax(n *rawNode) error {
 }
 
 func validateIdentityXPathChild(n *rawNode, label string) error {
-	xpath, ok := n.attr("xpath")
+	xpath, ok := n.attr(xsdAttrXPath)
 	if !ok {
 		return schemaCompile(ErrSchemaIdentity, label+" missing xpath")
 	}
@@ -270,7 +273,7 @@ func validateIdentityXPathChild(n *rawNode, label string) error {
 		if child.Name.Space != xsdNamespaceURI {
 			continue
 		}
-		if child.Name.Local != "annotation" {
+		if child.Name.Local != xsdElemAnnotation {
 			return schemaCompile(ErrSchemaContentModel, label+" can contain only annotation")
 		}
 		if seenAnnotation {
@@ -283,7 +286,7 @@ func validateIdentityXPathChild(n *rawNode, label string) error {
 
 func isIdentityAttribute(name string) bool {
 	switch name {
-	case "id", "name":
+	case xsdAttrID, xsdAttrName:
 		return true
 	default:
 		return false
@@ -292,7 +295,7 @@ func isIdentityAttribute(name string) bool {
 
 func isKeyrefAttribute(name string) bool {
 	switch name {
-	case "id", "name", "refer":
+	case xsdAttrID, xsdAttrName, xsdAttrRefer:
 		return true
 	default:
 		return false
@@ -301,7 +304,7 @@ func isKeyrefAttribute(name string) bool {
 
 func isIdentityXPathAttribute(name string) bool {
 	switch name {
-	case "id", "xpath":
+	case xsdAttrID, xsdAttrXPath:
 		return true
 	default:
 		return false
@@ -484,7 +487,7 @@ func parseIdentityAttributeAxis(path string) (string, string, bool, error) {
 		elementPath = path[:idx]
 		step = path[idx+1:]
 	}
-	name, ok := parseIdentityAxisStep(step, "attribute")
+	name, ok := parseIdentityAxisStep(step, xsdElemAttribute)
 	if !ok {
 		return "", "", false, nil
 	}
