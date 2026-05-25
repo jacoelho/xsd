@@ -11,7 +11,7 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 	if ct.Attrs == noAttributeUseSet {
 		return nil
 	}
-	set := rt.AttributeUseSets[ct.Attrs]
+	set := &rt.AttributeUseSets[ct.Attrs]
 	seen := newAttributeSeen(len(set.Uses))
 	seenIDAttr := false
 	for _, a := range attrs {
@@ -19,17 +19,19 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 			continue
 		}
 		if isXSIAttr(a) {
-			if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
-				recoverErr := s.recover(err)
-				if recoverErr != nil {
-					return recoverErr
+			if len(rt.Identities) != 0 {
+				if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
+					recoverErr := s.recover(err)
+					if recoverErr != nil {
+						return recoverErr
+					}
 				}
 			}
 			continue
 		}
 		rn := s.runtimeName(a.Name)
 		if slot := attributeUseSlot(set, rn); slot >= 0 {
-			if err := s.validateDeclaredAttribute(rt, set.Uses[slot], &seen, slot, rn, a.Value, line, col, &seenIDAttr); err != nil {
+			if err := s.validateDeclaredAttribute(rt, &set.Uses[slot], &seen, slot, rn, a.Value, line, col, &seenIDAttr); err != nil {
 				recoverErr := s.recover(err)
 				if recoverErr != nil {
 					return recoverErr
@@ -96,10 +98,12 @@ func (s *session) validateSimpleTypeAttributes(attrs []xml.Attr, line, col int) 
 			continue
 		}
 		if isXSIAttr(a) {
-			if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
-				recoverErr := s.recover(err)
-				if recoverErr != nil {
-					return recoverErr
+			if len(s.engine.rt.Identities) != 0 {
+				if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
+					recoverErr := s.recover(err)
+					if recoverErr != nil {
+						return recoverErr
+					}
 				}
 			}
 			continue
@@ -111,8 +115,14 @@ func (s *session) validateSimpleTypeAttributes(attrs []xml.Attr, line, col int) 
 	return nil
 }
 
-func attributeUseSlot(set attributeUseSet, rn runtimeName) int {
+func attributeUseSlot(set *attributeUseSet, rn runtimeName) int {
 	if !rn.Known {
+		return -1
+	}
+	if len(set.Uses) == 1 {
+		if set.Uses[0].Name == rn.Name {
+			return 0
+		}
 		return -1
 	}
 	if slot, ok := set.Index[rn.Name]; ok {
@@ -121,15 +131,21 @@ func attributeUseSlot(set attributeUseSet, rn runtimeName) int {
 	return -1
 }
 
-func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse, seen *attributeSeen, slot int, rn runtimeName, value string, line, col int, seenIDAttr *bool) error {
+func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse, seen *attributeSeen, slot int, rn runtimeName, value string, line, col int, seenIDAttr *bool) error {
 	if !seen.mark(slot) {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "duplicate attribute "+rn.Local)
 	}
 	if use.Prohibited {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "prohibited attribute "+rn.Local)
 	}
-	identityFields := s.identityAttributeFields(use.Name)
-	needs := simpleNeedCanonical
+	var identityFields []identityFieldMatch
+	if len(rt.Identities) != 0 {
+		identityFields = s.identityAttributeFields(use.Name)
+	}
+	var needs simpleValueNeed
+	if use.HasFixed {
+		needs |= simpleNeedCanonical
+	}
 	if len(identityFields) != 0 {
 		needs |= simpleNeedIdentity
 	}
@@ -143,13 +159,15 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use attributeUse,
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	if err := s.captureIdentityFields(identityFields, simple, line, col); err != nil {
-		return err
+	if len(identityFields) != 0 {
+		if err := s.captureIdentityFields(identityFields, simple, line, col); err != nil {
+			return err
+		}
 	}
 	return s.validateFixedAttributeValue(use, simple.Canonical, rn, line, col)
 }
 
-func (s *session) validateFixedAttributeValue(use attributeUse, canon string, rn runtimeName, line, col int) error {
+func (s *session) validateFixedAttributeValue(use *attributeUse, canon string, rn runtimeName, line, col int) error {
 	if !use.HasFixed {
 		return nil
 	}
@@ -159,7 +177,7 @@ func (s *session) validateFixedAttributeValue(use attributeUse, canon string, rn
 	return nil
 }
 
-func (s *session) validateWildcardAttribute(rt *runtimeSchema, set attributeUseSet, rn runtimeName, value string, line, col int, seenIDAttr *bool) (bool, error) {
+func (s *session) validateWildcardAttribute(rt *runtimeSchema, set *attributeUseSet, rn runtimeName, value string, line, col int, seenIDAttr *bool) (bool, error) {
 	if set.wildcard == noWildcard {
 		return false, nil
 	}
@@ -185,7 +203,10 @@ func (s *session) validateWildcardAttribute(rt *runtimeSchema, set attributeUseS
 }
 
 func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attributeDecl, rn runtimeName, value string, line, col int, seenIDAttr *bool) error {
-	identityFields := s.identityAttributeFields(decl.Name)
+	var identityFields []identityFieldMatch
+	if len(rt.Identities) != 0 {
+		identityFields = s.identityAttributeFields(decl.Name)
+	}
 	needs := simpleNeedCanonical
 	if len(identityFields) != 0 {
 		needs |= simpleNeedIdentity
@@ -200,10 +221,16 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
+	if decl.HasFixed && simple.Canonical != decl.FixedCanonical {
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.Local)
+	}
+	if len(identityFields) == 0 {
+		return nil
+	}
 	return s.captureIdentityFields(identityFields, simple, line, col)
 }
 
-func (s *session) validateRequiredAndDefaultAttributes(set attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
+func (s *session) validateRequiredAndDefaultAttributes(set *attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
 	for _, slot := range set.Required {
 		if !seen.has(int(slot)) {
 			if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "missing required attribute")); err != nil {
@@ -230,10 +257,12 @@ func (s *session) validateRequiredAndDefaultAttributes(set attributeUseSet, seen
 			}
 			continue
 		}
-		if err := s.captureIdentityFields(s.identityAttributeFields(use.Name), simple, line, col); err != nil {
-			recoverErr := s.recover(err)
-			if recoverErr != nil {
-				return recoverErr
+		if len(s.engine.rt.Identities) != 0 {
+			if err := s.captureIdentityFields(s.identityAttributeFields(use.Name), simple, line, col); err != nil {
+				recoverErr := s.recover(err)
+				if recoverErr != nil {
+					return recoverErr
+				}
 			}
 		}
 	}

@@ -534,9 +534,7 @@ func (c *compiler) elementFixedValuesEqual(base, derived elementDecl) bool {
 	if typeID == noSimpleType {
 		return base.Fixed == derived.Fixed
 	}
-	baseFixed, baseErr := validateSimpleValue(&c.rt, typeID, base.Fixed)
-	derivedFixed, derivedErr := validateSimpleValue(&c.rt, typeID, derived.Fixed)
-	return baseErr == nil && derivedErr == nil && baseFixed == derivedFixed
+	return base.FixedCanonical == derived.FixedCanonical
 }
 
 func (c *compiler) elementValueSimpleType(decl elementDecl) simpleTypeID {

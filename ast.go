@@ -358,10 +358,20 @@ func schemaAttributeAllowed(element, attr string) bool {
 		return isNotationAttribute(attr)
 	default:
 		if isFacetNode(element) {
-			return attr == xsdAttrID || attr == xsdAttrValue || attr == xsdAttrFixed
+			return facetAttributeAllowed(element, attr)
 		}
 		return true
 	}
+}
+
+func facetAttributeAllowed(element, attr string) bool {
+	if attr == xsdAttrID || attr == xsdAttrValue {
+		return true
+	}
+	if attr != xsdAttrFixed {
+		return false
+	}
+	return element != xsdFacetPattern && element != xsdFacetEnumeration
 }
 
 func schemaDocumentAttributeAllowed(element, attr string) bool {

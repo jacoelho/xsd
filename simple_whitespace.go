@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"iter"
+	"slices"
 	"strings"
 )
 
@@ -178,6 +179,10 @@ func isXMLWhitespaceBytes(data []byte) bool {
 		}
 	}
 	return true
+}
+
+func hasXMLWhitespaceBytes(data []byte) bool {
+	return slices.ContainsFunc(data, isXMLWhitespaceByte)
 }
 
 func removeXMLWhitespace(s string) string {

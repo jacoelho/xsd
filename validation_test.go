@@ -724,6 +724,20 @@ func TestInvalidDefaultAndFixedValuesAreSchemaErrors(t *testing.T) {
 	expectCode(t, err, ErrSchemaInvalidAttribute)
 }
 
+func TestWildcardAttributeAppliesGlobalFixedConstraint(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="a" type="xs:int" fixed="7"/>
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:anyAttribute namespace="##any" processContents="strict"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<r a="07"/>`)
+	mustNotValidate(t, engine, `<r a="8"/>`, ErrValidationAttribute)
+}
+
 func TestInvalidSchemaQNamesAreSchemaErrors(t *testing.T) {
 	tests := []string{
 		`<xs:element name="root" type="1bad"/>`,
@@ -986,6 +1000,16 @@ func TestRestrictionElementFixedUsesCanonicalValue(t *testing.T) {
   <xs:complexType name="derived">
     <xs:complexContent>
       <xs:restriction base="base"><xs:sequence><xs:element name="e" type="ints" fixed="1   2      3"/></xs:sequence></xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`)
+
+	mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:a="urn:value" xmlns:b="urn:value">
+  <xs:complexType name="base"><xs:sequence><xs:element name="e" type="xs:QName" fixed="a:name"/></xs:sequence></xs:complexType>
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:restriction base="base"><xs:sequence><xs:element name="e" type="xs:QName" fixed="b:name"/></xs:sequence></xs:restriction>
     </xs:complexContent>
   </xs:complexType>
 </xs:schema>`)

@@ -286,11 +286,11 @@ func (c *compiler) complexContentBase(child *rawNode, ctx *schemaContext, ct com
 }
 
 func (c *compiler) compileComplexContentExtension(child *rawNode, ctx *schemaContext, ct complexType, baseID complexTypeID, base complexType, mixed bool) (complexType, error) {
-	if base.SimpleValue {
-		return c.compileSimpleValueComplexExtension(child, ctx, ct, base, mixed)
-	}
 	if base.Final&blockExtension != 0 {
 		return complexType{}, schemaCompile(ErrSchemaReference, "base complex type final blocks extension")
+	}
+	if base.SimpleValue {
+		return c.compileSimpleValueComplexExtension(child, ctx, ct, base, mixed)
 	}
 	ct.Derivation = derivationExtension
 	ct.Content = base.Content
@@ -613,8 +613,9 @@ func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *sche
 			return noSimpleType, err
 		}
 		textType = simpleID
-	} else if hasFacetChildren(child) {
-		simpleID, err := c.compileSimpleContentFacetRestriction(child, baseTextType)
+	}
+	if hasFacetChildren(child) {
+		simpleID, err := c.compileSimpleContentFacetRestriction(child, textType)
 		if err != nil {
 			return noSimpleType, err
 		}

@@ -73,6 +73,29 @@ func TestPatternEscapedUnsupportedEscapesAreLiterals(t *testing.T) {
 	mustNotValidate(t, engine, `<root>a&amp;b</root>`, ErrValidationFacet)
 }
 
+func TestSimplePatternFastPathMatchesRegexpSemantics(t *testing.T) {
+	p, err := compilePatternWithCompiler(`[A-Z]{2}\d{4}`, nil)
+	if err != nil {
+		t.Fatalf("compilePatternWithCompiler() error = %v", err)
+	}
+	if p.Fast == nil {
+		t.Fatal("compiled pattern Fast = nil")
+	}
+	tests := []string{
+		"AB1234",
+		"AB" + "\u0661\u0662\u0663\u0664",
+		"AB" + "\uff11\uff12\uff13\uff14",
+		"AB123",
+		"ab1234",
+		"AB12A4",
+	}
+	for _, value := range tests {
+		if got, want := p.Fast.match(value), p.RE.MatchString(value); got != want {
+			t.Fatalf("fast match %q = %v, regexp = %v", value, got, want)
+		}
+	}
+}
+
 func TestInvalidLengthFacetCombinationsAreSchemaErrors(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -111,6 +134,78 @@ func TestInvalidDigitFacetCombinationIsSchemaError(t *testing.T) {
   <xs:simpleType name="Bad"><xs:restriction base="xs:byte"><xs:fractionDigits value="1"/></xs:restriction></xs:simpleType>
 	</xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
+}
+
+func TestFixedFacetsMustPreserveBaseValues(t *testing.T) {
+	mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="fixedLength"><xs:restriction base="xs:string"><xs:length value="5" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameLength"><xs:restriction base="fixedLength"><xs:length value="5"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="fixedMinLength"><xs:restriction base="xs:string"><xs:minLength value="5" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameMinLength"><xs:restriction base="fixedMinLength"><xs:minLength value="5"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="fixedMax"><xs:restriction base="xs:string"><xs:maxLength value="5" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameMax"><xs:restriction base="fixedMax"><xs:maxLength value="5"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="fixedTotal"><xs:restriction base="xs:decimal"><xs:totalDigits value="4" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameTotal"><xs:restriction base="fixedTotal"><xs:totalDigits value="4"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="fixedFraction"><xs:restriction base="xs:decimal"><xs:fractionDigits value="2" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameFraction"><xs:restriction base="fixedFraction"><xs:fractionDigits value="2"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="fixedMin"><xs:restriction base="xs:decimal"><xs:minInclusive value="5" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameMin"><xs:restriction base="fixedMin"><xs:minInclusive value="5.0"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="fixedMaxInc"><xs:restriction base="xs:decimal"><xs:maxInclusive value="10" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameMaxInc"><xs:restriction base="fixedMaxInc"><xs:maxInclusive value="10.0"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="fixedMinExcl"><xs:restriction base="xs:decimal"><xs:minExclusive value="5" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameMinExcl"><xs:restriction base="fixedMinExcl"/></xs:simpleType>
+	  <xs:simpleType name="fixedMaxExcl"><xs:restriction base="xs:decimal"><xs:maxExclusive value="10" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameMaxExcl"><xs:restriction base="fixedMaxExcl"/></xs:simpleType>
+	  <xs:simpleType name="fixedWS"><xs:restriction base="xs:string"><xs:whiteSpace value="replace" fixed="true"/></xs:restriction></xs:simpleType>
+	  <xs:simpleType name="sameWS"><xs:restriction base="fixedWS"><xs:whiteSpace value="replace"/></xs:restriction></xs:simpleType>
+	</xs:schema>`)
+
+	tests := []struct {
+		name   string
+		schema string
+	}{
+		{name: "length", schema: `<xs:simpleType name="base"><xs:restriction base="xs:string"><xs:length value="5" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:length value="4"/></xs:restriction></xs:simpleType>`},
+		{name: "minLength", schema: `<xs:simpleType name="base"><xs:restriction base="xs:string"><xs:minLength value="5" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:minLength value="6"/></xs:restriction></xs:simpleType>`},
+		{name: "maxLength", schema: `<xs:simpleType name="base"><xs:restriction base="xs:string"><xs:maxLength value="5" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:maxLength value="4"/></xs:restriction></xs:simpleType>`},
+		{name: "totalDigits", schema: `<xs:simpleType name="base"><xs:restriction base="xs:decimal"><xs:totalDigits value="4" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:totalDigits value="3"/></xs:restriction></xs:simpleType>`},
+		{name: "fractionDigits", schema: `<xs:simpleType name="base"><xs:restriction base="xs:decimal"><xs:fractionDigits value="2" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:fractionDigits value="1"/></xs:restriction></xs:simpleType>`},
+		{name: "minInclusive", schema: `<xs:simpleType name="base"><xs:restriction base="xs:decimal"><xs:minInclusive value="5" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:minInclusive value="6"/></xs:restriction></xs:simpleType>`},
+		{name: "maxInclusive", schema: `<xs:simpleType name="base"><xs:restriction base="xs:decimal"><xs:maxInclusive value="10" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:maxInclusive value="9"/></xs:restriction></xs:simpleType>`},
+		{name: "minExclusive", schema: `<xs:simpleType name="base"><xs:restriction base="xs:decimal"><xs:minExclusive value="5" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:minExclusive value="6"/></xs:restriction></xs:simpleType>`},
+		{name: "maxExclusive", schema: `<xs:simpleType name="base"><xs:restriction base="xs:decimal"><xs:maxExclusive value="10" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:maxExclusive value="9"/></xs:restriction></xs:simpleType>`},
+		{name: "whiteSpace", schema: `<xs:simpleType name="base"><xs:restriction base="xs:string"><xs:whiteSpace value="replace" fixed="true"/></xs:restriction></xs:simpleType><xs:simpleType name="bad"><xs:restriction base="base"><xs:whiteSpace value="collapse"/></xs:restriction></xs:simpleType>`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+tt.schema+`</xs:schema>`)))
+			expectCode(t, err, ErrSchemaFacet)
+		})
+	}
+}
+
+func TestFacetFixedAttributeMustBeBoolean(t *testing.T) {
+	_, err := Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Bad"><xs:restriction base="xs:string"><xs:maxLength value="5" fixed="maybe"/></xs:restriction></xs:simpleType>
+	</xs:schema>`)))
+	expectCode(t, err, ErrSchemaInvalidAttribute)
+}
+
+func TestPatternAndEnumerationFacetsRejectFixedAttribute(t *testing.T) {
+	tests := []string{
+		`<xs:pattern value="[A-Z]+" fixed="true"/>`,
+		`<xs:enumeration value="A" fixed="true"/>`,
+	}
+	for _, facet := range tests {
+		t.Run(facet, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bad"><xs:restriction base="xs:string">`+facet+`</xs:restriction></xs:simpleType>
+</xs:schema>`)))
+			expectCode(t, err, ErrSchemaInvalidAttribute)
+		})
+	}
 }
 
 func TestSizeFacetsAcceptXSDIntegerLexicalForms(t *testing.T) {
@@ -268,6 +363,25 @@ func TestDecimalAndIntegerCanonicalValuesDiverge(t *testing.T) {
 	}
 	if integer.Canonical != "5" {
 		t.Fatalf("int canonical = %q, want 5", integer.Canonical)
+	}
+}
+
+func TestBuiltinIntLexicalAndRangeValidation(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`)
+	for _, doc := range []string{
+		`<root>+2147483647</root>`,
+		`<root>-2147483648</root>`,
+		`<root>-000</root>`,
+	} {
+		mustValidate(t, engine, doc)
+	}
+	for _, doc := range []string{
+		`<root>2147483648</root>`,
+		`<root>-2147483649</root>`,
+		`<root>1.0</root>`,
+		`<root>abc</root>`,
+	} {
+		mustNotValidate(t, engine, doc, ErrValidationFacet)
 	}
 }
 
@@ -1225,6 +1339,25 @@ func TestSimpleContentRestrictionFacetsApplyToBaseTextType(t *testing.T) {
 	mustValidate(t, engine, `<root>ab</root>`)
 	mustNotValidate(t, engine, `<root>a</root>`, ErrValidationFacet)
 
+	engine = mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base">
+    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="derived">
+    <xs:simpleContent>
+      <xs:restriction base="base">
+        <xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="5"/></xs:restriction></xs:simpleType>
+        <xs:minLength value="2"/>
+      </xs:restriction>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:element name="root" type="derived"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>ab</root>`)
+	mustNotValidate(t, engine, `<root>a</root>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<root>abcdef</root>`, ErrValidationFacet)
+
 	mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
@@ -1395,7 +1528,10 @@ func TestNMTOKENSAndEntityTypes(t *testing.T) {
 func TestLanguageDatatype(t *testing.T) {
 	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="lang" type="xs:language"/></xs:schema>`)
 	mustValidate(t, engine, `<lang>en-US</lang>`)
+	mustValidate(t, engine, `<lang>pt-BR-1996</lang>`)
 	mustNotValidate(t, engine, `<lang>en_US</lang>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<lang>&#xE9;</lang>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<lang>en-&#xE9;</lang>`, ErrValidationFacet)
 	mustNotValidate(t, engine, `<lang>toolonglang-US</lang>`, ErrValidationFacet)
 }
 

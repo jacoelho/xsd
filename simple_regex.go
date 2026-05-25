@@ -2,7 +2,9 @@ package xsd
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 const maxGoRegexpRepeat = "1000"
@@ -21,7 +23,228 @@ func compilePatternWithCompiler(source string, c *compiler) (pattern, error) {
 	if err != nil {
 		return pattern{}, unsupported(ErrUnsupportedRegex, "invalid or unsupported regex "+source)
 	}
-	return pattern{XSDSource: source, GoSource: goSource, RE: re}, nil
+	return pattern{XSDSource: source, GoSource: goSource, RE: re, Fast: compileSimplePattern(source)}, nil
+}
+
+func (p pattern) matches(s string) bool {
+	if p.Fast != nil {
+		return p.Fast.match(s)
+	}
+	return p.RE.MatchString(s)
+}
+
+type simplePattern struct {
+	atoms []simplePatternAtom
+}
+
+type simplePatternAtom struct {
+	class  simplePatternClass
+	repeat int
+}
+
+type simplePatternClass struct {
+	ranges []runeRange
+	digit  bool
+}
+
+type runeRange struct {
+	lo rune
+	hi rune
+}
+
+func compileSimplePattern(source string) *simplePattern {
+	var out simplePattern
+	for i := 0; i < len(source); {
+		class, next, ok := parseSimplePatternAtom(source, i)
+		if !ok {
+			return nil
+		}
+		repeat := 1
+		if next < len(source) && source[next] == '{' {
+			n, after, ok := parseExactPatternRepeat(source, next)
+			if !ok {
+				return nil
+			}
+			repeat = n
+			next = after
+		}
+		out.atoms = append(out.atoms, simplePatternAtom{class: class, repeat: repeat})
+		i = next
+	}
+	return &out
+}
+
+func parseSimplePatternAtom(source string, i int) (simplePatternClass, int, bool) {
+	switch source[i] {
+	case '[':
+		return parseSimplePatternClass(source, i)
+	case '\\':
+		return parseSimplePatternEscape(source, i)
+	case '.', '|', '(', ')', '?', '*', '+', '{', '}', '^', '$':
+		return simplePatternClass{}, 0, false
+	default:
+		r, size := utf8.DecodeRuneInString(source[i:])
+		if r == utf8.RuneError && size == 0 {
+			return simplePatternClass{}, 0, false
+		}
+		return simplePatternClass{ranges: []runeRange{{lo: r, hi: r}}}, i + size, true
+	}
+}
+
+func parseSimplePatternEscape(source string, i int) (simplePatternClass, int, bool) {
+	if i+1 >= len(source) {
+		return simplePatternClass{}, 0, false
+	}
+	switch source[i+1] {
+	case 'd':
+		return simplePatternClass{digit: true}, i + 2, true
+	case 'n':
+		return simplePatternClass{ranges: []runeRange{{lo: '\n', hi: '\n'}}}, i + 2, true
+	case 'r':
+		return simplePatternClass{ranges: []runeRange{{lo: '\r', hi: '\r'}}}, i + 2, true
+	case 't':
+		return simplePatternClass{ranges: []runeRange{{lo: '\t', hi: '\t'}}}, i + 2, true
+	case '\\', '|', '-', '.', '?', '*', '+', '{', '}', '(', ')', '[', ']', '^':
+		r := rune(source[i+1])
+		return simplePatternClass{ranges: []runeRange{{lo: r, hi: r}}}, i + 2, true
+	default:
+		return simplePatternClass{}, 0, false
+	}
+}
+
+func parseSimplePatternClass(source string, i int) (simplePatternClass, int, bool) {
+	i++
+	if i >= len(source) || source[i] == '^' {
+		return simplePatternClass{}, 0, false
+	}
+	var class simplePatternClass
+	for i < len(source) {
+		if source[i] == ']' {
+			if len(class.ranges) == 0 {
+				return simplePatternClass{}, 0, false
+			}
+			return class, i + 1, true
+		}
+		lo, next, ok := parseSimplePatternClassRune(source, i)
+		if !ok {
+			return simplePatternClass{}, 0, false
+		}
+		if next < len(source) && source[next] == '-' && next+1 < len(source) && source[next+1] != ']' {
+			hi, after, ok := parseSimplePatternClassRune(source, next+1)
+			if !ok || hi < lo {
+				return simplePatternClass{}, 0, false
+			}
+			class.ranges = append(class.ranges, runeRange{lo: lo, hi: hi})
+			i = after
+			continue
+		}
+		class.ranges = append(class.ranges, runeRange{lo: lo, hi: lo})
+		i = next
+	}
+	return simplePatternClass{}, 0, false
+}
+
+func parseSimplePatternClassRune(source string, i int) (rune, int, bool) {
+	if source[i] == '\\' {
+		if i+1 >= len(source) {
+			return 0, 0, false
+		}
+		switch source[i+1] {
+		case 'n':
+			return '\n', i + 2, true
+		case 'r':
+			return '\r', i + 2, true
+		case 't':
+			return '\t', i + 2, true
+		case '\\', '|', '-', '.', '?', '*', '+', '{', '}', '(', ')', '[', ']', '^':
+			return rune(source[i+1]), i + 2, true
+		default:
+			return 0, 0, false
+		}
+	}
+	r, size := utf8.DecodeRuneInString(source[i:])
+	if r == utf8.RuneError && size == 0 {
+		return 0, 0, false
+	}
+	return r, i + size, true
+}
+
+func parseExactPatternRepeat(source string, i int) (int, int, bool) {
+	end := strings.IndexByte(source[i:], '}')
+	if end < 0 {
+		return 0, 0, false
+	}
+	end += i
+	body := source[i+1 : end]
+	if body == "" || strings.IndexByte(body, ',') >= 0 {
+		return 0, 0, false
+	}
+	n, err := strconv.Atoi(body)
+	if err != nil || n < 0 {
+		return 0, 0, false
+	}
+	return n, end + 1, true
+}
+
+func (p *simplePattern) match(s string) bool {
+	i := 0
+	for _, atom := range p.atoms {
+		for range atom.repeat {
+			if i >= len(s) {
+				return false
+			}
+			r, size := utf8.DecodeRuneInString(s[i:])
+			if r == utf8.RuneError && size == 0 {
+				return false
+			}
+			if !atom.class.matches(r) {
+				return false
+			}
+			i += size
+		}
+	}
+	return i == len(s)
+}
+
+func (c simplePatternClass) matches(r rune) bool {
+	if c.digit && isXSDDigitRune(r) {
+		return true
+	}
+	for _, rr := range c.ranges {
+		if r >= rr.lo && r <= rr.hi {
+			return true
+		}
+	}
+	return false
+}
+
+func isXSDDigitRune(r rune) bool {
+	switch {
+	case r >= 0x0030 && r <= 0x0039,
+		r >= 0x0660 && r <= 0x0669,
+		r >= 0x06F0 && r <= 0x06F9,
+		r >= 0x0966 && r <= 0x096F,
+		r >= 0x09E6 && r <= 0x09EF,
+		r >= 0x0A66 && r <= 0x0A6F,
+		r >= 0x0AE6 && r <= 0x0AEF,
+		r >= 0x0B66 && r <= 0x0B6F,
+		r >= 0x0BE7 && r <= 0x0BEF,
+		r >= 0x0C66 && r <= 0x0C6F,
+		r >= 0x0CE6 && r <= 0x0CEF,
+		r >= 0x0D66 && r <= 0x0D6F,
+		r >= 0x0E50 && r <= 0x0E59,
+		r >= 0x0ED0 && r <= 0x0ED9,
+		r >= 0x0F20 && r <= 0x0F29,
+		r >= 0x1040 && r <= 0x1049,
+		r >= 0x1369 && r <= 0x1371,
+		r >= 0x17E0 && r <= 0x17E9,
+		r >= 0x1810 && r <= 0x1819,
+		r >= 0x1D7CE && r <= 0x1D7FF,
+		r >= 0xFF10 && r <= 0xFF19:
+		return true
+	default:
+		return false
+	}
 }
 
 func validateXSDRegexSyntaxWithCompiler(source string, c *compiler) error {
