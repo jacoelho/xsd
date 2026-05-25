@@ -43,7 +43,10 @@ func (b *dfaBuilder) compileDeterministicModel(id contentModelID, start uint32) 
 		if len(states) >= b.limit {
 			return 0, schemaCompile(ErrSchemaLimit, "content model DFA state limit exceeded")
 		}
-		id := uint32(len(states))
+		id, err := checkedUint32(len(states), "content model DFA state limit exceeded")
+		if err != nil {
+			return 0, err
+		}
 		states[key] = id
 		queue = append(queue, state)
 		return id, nil

@@ -176,7 +176,7 @@ func (c *compiler) addBuiltinSmallIntegerTypes(nonNegative simpleTypeID) error {
 		return err
 	}
 	c.setBuiltinIntegerFacets(unsignedInt)
-	c.setBuiltinMax(unsignedInt, "4294967295")
+	c.setBuiltinMax(unsignedInt, maxUint32Text)
 	unsignedShort, err := c.addBuiltinAtomicSimpleType("unsignedShort", primDecimal, unsignedInt, whitespaceCollapse)
 	if err != nil {
 		return err
@@ -240,11 +240,11 @@ func (c *compiler) addBuiltinOtherPrimitiveTypes(anySimple simpleTypeID) error {
 }
 
 func (c *compiler) addBuiltinXMLAttributes() error {
-	xmlLang, err := c.addInternalAtomicSimpleType(xmlNamespaceURI, "lang", primString, c.rt.Builtin.String, whitespaceCollapse, builtinValidationXMLLang)
+	xmlLang, err := c.addInternalAtomicSimpleType(xmlNamespaceURI, xmlAttrLang, primString, c.rt.Builtin.String, whitespaceCollapse, builtinValidationXMLLang)
 	if err != nil {
 		return err
 	}
-	xmlSpace, err := c.addInternalAtomicSimpleType(xmlNamespaceURI, "space", primString, c.rt.Builtin.String, whitespaceCollapse, builtinValidationXMLSpace)
+	xmlSpace, err := c.addInternalAtomicSimpleType(xmlNamespaceURI, xmlAttrSpace, primString, c.rt.Builtin.String, whitespaceCollapse, builtinValidationXMLSpace)
 	if err != nil {
 		return err
 	}
@@ -253,17 +253,17 @@ func (c *compiler) addBuiltinXMLAttributes() error {
 		local string
 		typ   simpleTypeID
 	}{
-		{xmlNamespaceURI, "base", c.rt.Builtin.AnyURI},
-		{xmlNamespaceURI, "id", c.rt.Builtin.ID},
-		{xmlNamespaceURI, "lang", xmlLang},
-		{xmlNamespaceURI, "space", xmlSpace},
-		{xlinkNamespaceURI, "type", c.rt.Builtin.String},
-		{xlinkNamespaceURI, "href", c.rt.Builtin.AnyURI},
-		{xlinkNamespaceURI, "role", c.rt.Builtin.AnyURI},
-		{xlinkNamespaceURI, "arcrole", c.rt.Builtin.AnyURI},
-		{xlinkNamespaceURI, "title", c.rt.Builtin.String},
-		{xlinkNamespaceURI, "show", c.rt.Builtin.String},
-		{xlinkNamespaceURI, "actuate", c.rt.Builtin.String},
+		{xmlNamespaceURI, xmlAttrBase, c.rt.Builtin.AnyURI},
+		{xmlNamespaceURI, xmlAttrID, c.rt.Builtin.ID},
+		{xmlNamespaceURI, xmlAttrLang, xmlLang},
+		{xmlNamespaceURI, xmlAttrSpace, xmlSpace},
+		{xlinkNamespaceURI, xlinkAttrType, c.rt.Builtin.String},
+		{xlinkNamespaceURI, xlinkAttrHref, c.rt.Builtin.AnyURI},
+		{xlinkNamespaceURI, xlinkAttrRole, c.rt.Builtin.AnyURI},
+		{xlinkNamespaceURI, xlinkAttrArcrole, c.rt.Builtin.AnyURI},
+		{xlinkNamespaceURI, xlinkAttrTitle, c.rt.Builtin.String},
+		{xlinkNamespaceURI, xlinkAttrShow, c.rt.Builtin.String},
+		{xlinkNamespaceURI, xlinkAttrActuate, c.rt.Builtin.String},
 	} {
 		if err := c.addBuiltinAttribute(attr.ns, attr.local, attr.typ); err != nil {
 			return err
@@ -273,19 +273,28 @@ func (c *compiler) addBuiltinXMLAttributes() error {
 }
 
 func (c *compiler) addBuiltinAnyType() error {
-	anyWildcard := wildcardID(len(c.rt.Wildcards))
-	c.rt.Wildcards = append(c.rt.Wildcards, wildcard{Mode: wildAny, Process: processLax})
+	anyWildcard, err := c.addWildcard(wildcard{Mode: wildAny, Process: processLax})
+	if err != nil {
+		return err
+	}
 	attrs := attributeUseSet{wildcard: anyWildcard}
-	attrSet := attributeUseSetID(len(c.rt.AttributeUseSets))
+	attrSet, err := nextAttributeUseSetID(len(c.rt.AttributeUseSets))
+	if err != nil {
+		return err
+	}
 	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, attrs)
-	anyModel := contentModel{Kind: modelAny, Mixed: true}
-	modelID := contentModelID(len(c.rt.Models))
-	c.rt.Models = append(c.rt.Models, anyModel)
+	modelID, err := c.addModel(contentModel{Kind: modelAny, Mixed: true})
+	if err != nil {
+		return err
+	}
 	q, err := c.rt.Names.InternQName(xsdNamespaceURI, "anyType")
 	if err != nil {
 		return err
 	}
-	complexID := complexTypeID(len(c.rt.ComplexTypes))
+	complexID, err := nextComplexTypeID(len(c.rt.ComplexTypes))
+	if err != nil {
+		return err
+	}
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: modelID, Attrs: attrSet, Mixed: true, Base: typeID{Kind: typeComplex, ID: uint32(noComplexType)}})
 	c.rt.Builtin.AnyType = complexID
 	c.complexDone[q] = complexID
@@ -298,7 +307,10 @@ func (c *compiler) addBuiltinAtomicSimpleType(local string, primitive primitiveK
 	if err != nil {
 		return noSimpleType, err
 	}
-	id := simpleTypeID(len(c.rt.SimpleTypes))
+	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return noSimpleType, err
+	}
 	facets := facetSet{}
 	if base != noSimpleType && validUint32Index(uint32(base), len(c.rt.SimpleTypes)) {
 		facets = cloneFacetSet(c.rt.SimpleTypes[base].Facets)
@@ -322,7 +334,10 @@ func (c *compiler) addInternalAtomicSimpleType(ns, local string, primitive primi
 	if err != nil {
 		return noSimpleType, err
 	}
-	id := simpleTypeID(len(c.rt.SimpleTypes))
+	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return noSimpleType, err
+	}
 	facets := facetSet{}
 	if base != noSimpleType && validUint32Index(uint32(base), len(c.rt.SimpleTypes)) {
 		facets = cloneFacetSet(c.rt.SimpleTypes[base].Facets)
@@ -364,7 +379,10 @@ func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeI
 	if err != nil {
 		return noSimpleType, err
 	}
-	id := simpleTypeID(len(c.rt.SimpleTypes))
+	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return noSimpleType, err
+	}
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
 		Name:       q,
 		Variety:    varietyList,
@@ -420,7 +438,10 @@ func (c *compiler) addBuiltinAttribute(ns, local string, typ simpleTypeID) error
 	if err != nil {
 		return err
 	}
-	id := attributeID(len(c.rt.Attributes))
+	id, err := nextAttributeID(len(c.rt.Attributes))
+	if err != nil {
+		return err
+	}
 	c.rt.Attributes = append(c.rt.Attributes, attributeDecl{Name: q, Type: typ})
 	c.attributeDone[q] = id
 	c.rt.GlobalAttributes[q] = id
@@ -435,7 +456,10 @@ func (c *compiler) missingSimpleType() (simpleTypeID, error) {
 	if err != nil {
 		return noSimpleType, err
 	}
-	id := simpleTypeID(len(c.rt.SimpleTypes))
+	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return noSimpleType, err
+	}
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
 		Name:       q,
 		Variety:    varietyAtomic,

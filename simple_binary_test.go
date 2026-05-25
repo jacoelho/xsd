@@ -35,7 +35,11 @@ func TestBase64BinaryLengthMatchesDecode(t *testing.T) {
 				if length != tt.size {
 					t.Fatalf("base64BinaryLength() = %d, want %d", length, tt.size)
 				}
-				if uint32(len(decoded)) != tt.size {
+				decodedLen, err := checkedUint32(len(decoded), "test decoded length exceeds uint32 limit")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if decodedLen != tt.size {
 					t.Fatalf("decoded length = %d, want %d", len(decoded), tt.size)
 				}
 				return

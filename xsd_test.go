@@ -23,7 +23,7 @@ func mustCompile(t *testing.T, schema string) *Engine {
 
 func writeSchemaFile(t *testing.T, path, data string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }

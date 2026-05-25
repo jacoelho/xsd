@@ -548,6 +548,7 @@ func (rt *runtimeSchema) complexSimpleTypeDerivationMask(t complexTypeID, base s
 		mask |= blockExtension
 	case derivationRestriction:
 		mask |= blockRestriction
+	case derivationNone:
 	}
 	return mask, true
 }
@@ -569,6 +570,7 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 			mask |= blockExtension
 		case derivationRestriction:
 			mask |= blockRestriction
+		case derivationNone:
 		}
 		if ct.Base.Kind == typeSimple {
 			return mask | blockRestriction, true
@@ -630,6 +632,7 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 			mask |= blockExtension
 		case derivationRestriction:
 			mask |= blockRestriction
+		case derivationNone:
 		}
 		if complexTypeID(ct.Base.ID) == base {
 			return mask, true

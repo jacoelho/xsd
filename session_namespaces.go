@@ -9,7 +9,7 @@ import (
 
 func (s *session) rootTypeFromXSIType(attrs []xml.Attr, line, col int) (typeID, bool, error) {
 	for _, a := range attrs {
-		if a.Name.Space != xsiNamespaceURI || a.Name.Local != "type" {
+		if a.Name.Space != xsiNamespaceURI || a.Name.Local != xsiAttrType {
 			continue
 		}
 		typ, err := s.resolveXSIType(a.Value, line, col)
@@ -30,14 +30,14 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []xml.Attr, li
 			continue
 		}
 		switch a.Name.Local {
-		case "nil":
+		case xsiAttrNil:
 			nilSpecified = true
 			value, ok := parseBooleanLexical(normalizeWhitespace(a.Value, whitespaceCollapse))
 			if !ok {
 				return typ, false, validation(ErrValidationNil, line, col, s.pathString(), "invalid xsi:nil value")
 			}
 			nilled = value
-		case "type":
+		case xsiAttrType:
 			override, err := s.resolveXSIType(a.Value, line, col)
 			if err != nil {
 				return typ, nilled, err
@@ -85,7 +85,7 @@ func (s *session) resolveXSIType(value string, line, col int) (typeID, error) {
 	q, ok := s.resolveLexicalQName(value)
 	if !ok {
 		if ns, _, nsOK := s.resolveLexicalQNameParts(value); nsOK && s.hasSchemaLocationHint(ns) {
-			return typeID{}, s.unsupportedSchemaLocation(line, col, "type", runtimeName{NS: ns, Local: value})
+			return typeID{}, s.unsupportedSchemaLocation(line, col, xsiAttrType, runtimeName{NS: ns, Local: value})
 		}
 		return typeID{}, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+value)
 	}
@@ -94,7 +94,7 @@ func (s *session) resolveXSIType(value string, line, col int) (typeID, error) {
 	}
 	ns := s.engine.rt.Names.Namespace(q.Namespace)
 	if s.hasSchemaLocationHint(ns) {
-		return typeID{}, s.unsupportedSchemaLocation(line, col, "type", runtimeName{Name: q, Known: true, NS: ns, Local: value})
+		return typeID{}, s.unsupportedSchemaLocation(line, col, xsiAttrType, runtimeName{Name: q, Known: true, NS: ns, Local: value})
 	}
 	return typeID{}, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+value)
 }
@@ -272,14 +272,14 @@ func (s *session) resolveLexicalQNameValue(v string) (string, bool) {
 func (ns *namespaceStack) push(attrs []xml.Attr) error {
 	mark := len(ns.bindings)
 	for _, a := range attrs {
-		if a.Name.Space == "xmlns" {
+		if a.Name.Space == xmlnsPrefix {
 			if err := validateNamespaceBinding(a.Name.Local, a.Value); err != nil {
 				clear(ns.bindings[mark:])
 				ns.bindings = ns.bindings[:mark]
 				return err
 			}
 			ns.bindings = append(ns.bindings, namespaceBinding{Prefix: a.Name.Local, URI: a.Value})
-		} else if a.Name.Space == "" && a.Name.Local == "xmlns" {
+		} else if a.Name.Space == "" && a.Name.Local == xmlnsPrefix {
 			if err := validateDefaultNamespaceBinding(a.Value); err != nil {
 				clear(ns.bindings[mark:])
 				ns.bindings = ns.bindings[:mark]
@@ -315,10 +315,10 @@ func (ns *namespaceStack) resolveName(name xml.Name, kind xmlNameKind) (xml.Name
 }
 
 func validateNamespaceBinding(prefix, uri string) error {
-	if prefix == "xmlns" {
+	if prefix == xmlnsPrefix {
 		return errors.New("xmlns prefix cannot be declared")
 	}
-	if prefix == "xml" {
+	if prefix == xmlPrefix {
 		if uri != xmlNamespaceURI {
 			return errors.New("xml prefix must be bound to " + xmlNamespaceURI)
 		}
@@ -359,7 +359,7 @@ func (ns *namespaceStack) pop() {
 }
 
 func (ns *namespaceStack) lookup(prefix string) (string, bool) {
-	if prefix == "xml" {
+	if prefix == xmlPrefix {
 		return xmlNamespaceURI, true
 	}
 	for i := len(ns.bindings) - 1; i >= 0; i-- {
@@ -374,12 +374,12 @@ func (ns *namespaceStack) lookup(prefix string) (string, bool) {
 }
 
 func isNamespaceAttr(a xml.Attr) bool {
-	return a.Name.Space == "xmlns" || (a.Name.Space == "" && a.Name.Local == "xmlns")
+	return a.Name.Space == xmlnsPrefix || (a.Name.Space == "" && a.Name.Local == xmlnsPrefix)
 }
 
 func isXSIAttr(a xml.Attr) bool {
 	return a.Name.Space == xsiNamespaceURI &&
-		(a.Name.Local == "type" || a.Name.Local == "nil" || a.Name.Local == "schemaLocation" || a.Name.Local == "noNamespaceSchemaLocation")
+		(a.Name.Local == xsiAttrType || a.Name.Local == xsiAttrNil || a.Name.Local == xsiAttrSchemaLocation || a.Name.Local == xsiAttrNoNamespaceSchemaLocation)
 }
 
 func (s *session) pushPath(local string) {

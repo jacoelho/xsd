@@ -346,7 +346,7 @@ func (c *compiler) sequenceRemainderEmptiable(particles []particle, selected int
 }
 
 func sequenceChoiceRange(model contentModel) occurrence {
-	particleCount := uint32(len(model.Particles))
+	particleCount := saturatingUint32(len(model.Particles))
 	if model.occurs.Unbounded {
 		return occurrence{Min: saturatingMul(model.occurs.Min, particleCount), Unbounded: true}
 	}
@@ -372,16 +372,23 @@ func (c *compiler) validateParticleRestriction(base, derived particle) error {
 	if !occursRangeSubset(c.particleCountRange(derived), c.particleCountRange(base)) {
 		return schemaCompile(ErrSchemaContentModel, "particle restriction occurrence is not subset of base")
 	}
-	if base.Kind == particleWildcard && derived.Kind == particleWildcard {
-		if !c.wildcardSubset(derived.wildcard, base.wildcard) {
-			return schemaCompile(ErrSchemaContentModel, "wildcard restriction is not subset of base")
-		}
+	switch base.Kind {
+	case particleWildcard:
+		return c.validateParticleRestrictsWildcard(base, derived)
+	case particleElement:
+		return c.validateParticleRestrictsElement(base, derived)
+	case particleModel:
+		return c.validateParticleRestrictsModel(base, derived)
+	default:
 		return nil
 	}
-	if base.Kind == particleElement && derived.Kind == particleWildcard {
+}
+
+func (c *compiler) validateParticleRestrictsElement(base, derived particle) error {
+	if derived.Kind == particleWildcard {
 		return schemaCompile(ErrSchemaContentModel, "wildcard restriction is not subset of element")
 	}
-	if base.Kind == particleElement && derived.Kind == particleModel {
+	if derived.Kind == particleModel {
 		model := c.rt.Models[derived.Model]
 		if model.Kind == modelChoice {
 			for _, p := range model.Particles {
@@ -393,68 +400,65 @@ func (c *compiler) validateParticleRestriction(base, derived particle) error {
 		}
 		return schemaCompile(ErrSchemaContentModel, "model group restriction is not subset of element")
 	}
-	if base.Kind == particleWildcard {
-		return c.validateParticleRestrictsWildcard(base, derived)
-	}
-	if base.Kind == particleElement && derived.Kind == particleElement {
-		baseDecl := c.rt.Elements[base.Element]
-		derivedDecl := c.rt.Elements[derived.Element]
-		if baseDecl.Name != derivedDecl.Name && !c.elementRestrictionNameAllowed(base.Element, derived.Element) {
-			return schemaCompile(ErrSchemaContentModel, "element restriction name is not subset of base")
-		}
-		if !c.typeDerivesByRestriction(derivedDecl.Type, baseDecl.Type) {
-			return schemaCompile(ErrSchemaContentModel, "element restriction type is not derived from base")
-		}
-		if derivedDecl.Nillable && !baseDecl.Nillable {
-			return schemaCompile(ErrSchemaContentModel, "element restriction nillable is not subset of base")
-		}
-		if derivedDecl.Block&baseDecl.Block != baseDecl.Block {
-			return schemaCompile(ErrSchemaContentModel, "element restriction block is not subset of base")
-		}
-		if baseDecl.HasFixed {
-			if !derivedDecl.HasFixed || !c.elementFixedValuesEqual(baseDecl, derivedDecl) {
-				return schemaCompile(ErrSchemaContentModel, "element restriction fixed value is not subset of base")
-			}
-		}
+	if derived.Kind != particleElement {
 		return nil
 	}
-	if base.Kind == particleModel {
-		model := c.rt.Models[base.Model]
-		if model.Kind == modelChoice {
-			if derived.Kind == particleModel {
-				derivedModel := c.rt.Models[derived.Model]
-				if derivedModel.Kind == modelChoice && derived.occurs.Min < base.occurs.Min {
-					return schemaCompile(ErrSchemaContentModel, "choice restriction occurrence is not subset of base")
-				}
-				switch derivedModel.Kind {
-				case modelChoice:
-					return c.validateChoiceRestriction(model, derivedModel)
-				case modelSequence:
-					return c.validateSequenceRestrictsChoice(model, derivedModel)
-				}
-			}
-			if !c.choiceRestrictionBranchAllowed(model.Particles, derived) {
-				return schemaCompile(ErrSchemaContentModel, "choice restriction branch is not subset of base")
-			}
-			return nil
-		}
-		if len(model.Particles) == 1 {
-			return c.validateParticleRestriction(model.Particles[0], derived)
-		}
-		if derived.Kind == particleWildcard {
-			return schemaCompile(ErrSchemaContentModel, "wildcard restriction is not subset of model group")
-		}
-		if model.Kind == modelSequence && derived.Kind == particleElement {
-			return c.validateElementParticleRestrictsSequenceModel(model, derived)
-		}
+	baseDecl := c.rt.Elements[base.Element]
+	derivedDecl := c.rt.Elements[derived.Element]
+	if baseDecl.Name != derivedDecl.Name && !c.elementRestrictionNameAllowed(base.Element, derived.Element) {
+		return schemaCompile(ErrSchemaContentModel, "element restriction name is not subset of base")
 	}
-	if base.Kind == particleModel && derived.Kind == particleModel {
-		baseModel := c.rt.Models[base.Model]
+	if !c.typeDerivesByRestriction(derivedDecl.Type, baseDecl.Type) {
+		return schemaCompile(ErrSchemaContentModel, "element restriction type is not derived from base")
+	}
+	if derivedDecl.Nillable && !baseDecl.Nillable {
+		return schemaCompile(ErrSchemaContentModel, "element restriction nillable is not subset of base")
+	}
+	if derivedDecl.Block&baseDecl.Block != baseDecl.Block {
+		return schemaCompile(ErrSchemaContentModel, "element restriction block is not subset of base")
+	}
+	if baseDecl.HasFixed && (!derivedDecl.HasFixed || !c.elementFixedValuesEqual(baseDecl, derivedDecl)) {
+		return schemaCompile(ErrSchemaContentModel, "element restriction fixed value is not subset of base")
+	}
+	return nil
+}
+
+func (c *compiler) validateParticleRestrictsModel(base, derived particle) error {
+	model := c.rt.Models[base.Model]
+	if model.Kind == modelChoice {
+		return c.validateParticleRestrictsChoiceModel(base, derived, model)
+	}
+	if len(model.Particles) == 1 {
+		return c.validateParticleRestriction(model.Particles[0], derived)
+	}
+	if derived.Kind == particleWildcard {
+		return schemaCompile(ErrSchemaContentModel, "wildcard restriction is not subset of model group")
+	}
+	if model.Kind == modelSequence && derived.Kind == particleElement {
+		return c.validateElementParticleRestrictsSequenceModel(model, derived)
+	}
+	if derived.Kind != particleModel {
+		return nil
+	}
+	return c.validateContentRestriction(base.Model, derived.Model)
+}
+
+func (c *compiler) validateParticleRestrictsChoiceModel(base, derived particle, model contentModel) error {
+	if derived.Kind == particleModel {
 		derivedModel := c.rt.Models[derived.Model]
-		if baseModel.Kind == modelChoice && derivedModel.Kind == modelChoice && derived.occurs.Min < base.occurs.Min {
+		if derivedModel.Kind == modelChoice && derived.occurs.Min < base.occurs.Min {
 			return schemaCompile(ErrSchemaContentModel, "choice restriction occurrence is not subset of base")
 		}
-		return c.validateContentRestriction(base.Model, derived.Model)
+		switch derivedModel.Kind {
+		case modelChoice:
+			return c.validateChoiceRestriction(model, derivedModel)
+		case modelSequence:
+			return c.validateSequenceRestrictsChoice(model, derivedModel)
+		default:
+		}
+	}
+	if !c.choiceRestrictionBranchAllowed(model.Particles, derived) {
+		return schemaCompile(ErrSchemaContentModel, "choice restriction branch is not subset of base")
 	}
 	return nil
 }
@@ -625,8 +629,8 @@ func occursRangeSubset(derived, base occurrence) bool {
 }
 
 func saturatingAdd(a, b uint32) uint32 {
-	if ^uint32(0)-a < b {
-		return ^uint32(0)
+	if maxUint32Value-a < b {
+		return maxUint32Value
 	}
 	return a + b
 }
@@ -635,8 +639,8 @@ func saturatingMul(a, b uint32) uint32 {
 	if a == 0 || b == 0 {
 		return 0
 	}
-	if a > ^uint32(0)/b {
-		return ^uint32(0)
+	if a > maxUint32Value/b {
+		return maxUint32Value
 	}
 	return a * b
 }

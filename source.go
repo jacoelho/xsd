@@ -47,7 +47,7 @@ func File(path string) SchemaSource {
 	return SchemaSource{
 		name: path,
 		open: func() (io.ReadCloser, error) {
-			return os.Open(path)
+			return os.Open(path) //nolint:gosec // File intentionally opens caller-provided schema paths.
 		},
 		resolver: ResolverFunc(resolveFileSchemaSource),
 	}

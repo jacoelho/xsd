@@ -100,6 +100,7 @@ func computeSimpleValueIdentity(rt *runtimeSchema, id simpleTypeID) simpleIdenti
 		if computeSimpleValueIdentity(rt, st.ListItem) == simpleIdentityIDREF {
 			return simpleIdentityIDREFList
 		}
+	case varietyUnion:
 	}
 	return simpleIdentityNone
 }
@@ -169,6 +170,7 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 		v.IDs = canon
 	case simpleIdentityIDREF:
 		v.IDRefs = canon
+	case simpleIdentityNone, simpleIdentityIDREFList:
 	}
 	return v, nil
 }
@@ -261,7 +263,11 @@ func validatePrimitiveActual(rt *runtimeSchema, st simpleType, norm string, reso
 	switch st.Primitive {
 	case primString:
 		if needLength {
-			actual.Length = uint32(utf8.RuneCountInString(norm))
+			length, err := checkedUint32(utf8.RuneCountInString(norm), "string length exceeds uint32 limit")
+			if err != nil {
+				return primitiveActual{}, err
+			}
+			actual.Length = length
 		}
 		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	case primAnyURI:
@@ -269,7 +275,11 @@ func validatePrimitiveActual(rt *runtimeSchema, st simpleType, norm string, reso
 			return primitiveActual{}, fmt.Errorf("invalid anyURI")
 		}
 		if needLength {
-			actual.Length = uint32(utf8.RuneCountInString(norm))
+			length, err := checkedUint32(utf8.RuneCountInString(norm), "anyURI length exceeds uint32 limit")
+			if err != nil {
+				return primitiveActual{}, err
+			}
+			actual.Length = length
 		}
 		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	case primBoolean:
@@ -393,7 +403,11 @@ func parseBinaryPrimitiveActual(kind primitiveKind, norm string, needs primitive
 			if err != nil {
 				return primitiveActual{}, fmt.Errorf("invalid base64Binary")
 			}
-			actual.Length = uint32(len(decoded))
+			length, err := checkedUint32(len(decoded), "base64Binary length exceeds uint32 limit")
+			if err != nil {
+				return primitiveActual{}, err
+			}
+			actual.Length = length
 			return primitiveActual{Canonical: base64.StdEncoding.EncodeToString(decoded), Actual: actual}, nil
 		}
 		length, err := base64BinaryLength(norm)
@@ -433,7 +447,7 @@ func hexBinaryLength(norm string) (uint32, error) {
 			return 0, fmt.Errorf("invalid hexBinary")
 		}
 	}
-	return uint32(len(norm) / 2), nil
+	return checkedUint32(len(norm)/2, "hexBinary length exceeds uint32 limit")
 }
 
 func simpleTypeUsesIntegerLexical(rt *runtimeSchema, id simpleTypeID, st simpleType) bool {
@@ -584,7 +598,7 @@ func base64BinaryLength(s string) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	return scan.length(), nil
+	return scan.length()
 }
 
 type base64BinaryScan struct {
@@ -592,8 +606,8 @@ type base64BinaryScan struct {
 	pads     int
 }
 
-func (s base64BinaryScan) length() uint32 {
-	return uint32(s.cleanLen/4*3 - s.pads)
+func (s base64BinaryScan) length() (uint32, error) {
+	return checkedUint32(s.cleanLen/4*3-s.pads, "base64Binary length exceeds uint32 limit")
 }
 
 func scanBase64Binary(s string) (base64BinaryScan, error) {

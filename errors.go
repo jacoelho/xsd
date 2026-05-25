@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const nilErrorString = "<nil>"
+
 // ErrorCategory identifies the validation phase that produced an error.
 type ErrorCategory string
 
@@ -75,7 +77,7 @@ type Errors []error
 
 func (e *Error) Error() string {
 	if e == nil {
-		return "<nil>"
+		return nilErrorString
 	}
 	var b strings.Builder
 	if e.Code != "" {
@@ -104,7 +106,7 @@ func (e *Error) Error() string {
 func (e Errors) Error() string {
 	switch len(e) {
 	case 0:
-		return "<nil>"
+		return nilErrorString
 	case 1:
 		return e[0].Error()
 	default:

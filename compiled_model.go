@@ -136,7 +136,10 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 		}
 		edge := compiledModelEdge{Particle: singleParticle(p)}
 		if p.occurs.isExactlyOne() {
-			to := uint32(len(rows))
+			to, err := checkedUint32(len(rows), "content model DFA state limit exceeded")
+			if err != nil {
+				return compiledModel{}, false, err
+			}
 			rows = append(rows, compiledModelRow{})
 			edge.To = to
 			for _, state := range active {
@@ -145,7 +148,10 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 			active = []uint32{to}
 			continue
 		}
-		to := uint32(len(rows))
+		to, err := checkedUint32(len(rows), "content model DFA state limit exceeded")
+		if err != nil {
+			return compiledModel{}, false, err
+		}
 		rows = append(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowReject))
 		edge.To = to
 		for _, state := range active {
@@ -193,7 +199,11 @@ func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, 
 		if p.occurs.Min == 0 {
 			rows[0].Accept = true
 		}
-		edge := compiledModelEdge{Particle: singleParticle(p), To: uint32(len(rows))}
+		to, err := checkedUint32(len(rows), "content model DFA state limit exceeded")
+		if err != nil {
+			return compiledModel{}, false, err
+		}
+		edge := compiledModelEdge{Particle: singleParticle(p), To: to}
 		if p.occurs.isExactlyOne() {
 			rows = append(rows, compiledModelRow{Accept: true})
 			rows[0].Edges = append(rows[0].Edges, edge)
@@ -277,7 +287,7 @@ func singleParticle(p particle) particle {
 }
 
 func applyRepeatedChoiceLimit(p particle, index int, limits []uint32) particle {
-	if !slices.Contains(limits, uint32(index)) || p.occurs.Min > 1 {
+	if !slices.Contains(limits, saturatingUint32(index)) || p.occurs.Min > 1 {
 		return p
 	}
 	if p.occurs.Unbounded || p.occurs.Max > 1 {
@@ -309,10 +319,14 @@ func (c *compiler) compileAllModel(model contentModel) (compiledModel, error) {
 			Required: p.occurs.Min > 0,
 		})
 	}
+	allBitLen, err := checkedUint32((len(terms)+63)/64, "xs:all term limit exceeded")
+	if err != nil {
+		return compiledModel{}, err
+	}
 	return compiledModel{
 		Kind:      compiledModelAll,
 		All:       terms,
-		AllBitLen: uint32((len(terms) + 63) / 64),
+		AllBitLen: allBitLen,
 		Mixed:     model.Mixed,
 		Empty:     model.occurs.Min == 0 || !required,
 	}, nil
@@ -405,7 +419,10 @@ func (b *dfaBuilder) stateID(entries []dfaEntry) (uint32, error) {
 	if len(b.states) >= b.limit {
 		return 0, schemaCompile(ErrSchemaLimit, "content model DFA state limit exceeded")
 	}
-	id := uint32(len(b.states))
+	id, err := checkedUint32(len(b.states), "content model DFA state limit exceeded")
+	if err != nil {
+		return 0, err
+	}
 	b.states[key] = id
 	b.queue = append(b.queue, entries)
 	return id, nil
@@ -518,16 +535,25 @@ func (b *dfaBuilder) repeat(child dfaNode, occurs occurrence, slot int) (dfaNode
 		if slot < 0 {
 			return child, nil
 		}
-		return countNode(child, uint32(slot)), nil
+		slotID, err := checkedUint32(slot, "content model counter limit exceeded")
+		if err != nil {
+			return dfaNode{}, err
+		}
+		return countNode(child, slotID), nil
 	}
 	if slot < 0 && repeatNeedsCounter(occurs) {
 		slot = int(b.newCounter())
 	}
-	self := uint32(slot)
 	loop := occurs.Unbounded || occurs.Max > 1
+	self := ^uint32(0)
 	var exitGuards []compiledGuard
 	var exitActions []compiledAction
 	if slot >= 0 {
+		var err error
+		self, err = checkedUint32(slot, "content model counter limit exceeded")
+		if err != nil {
+			return dfaNode{}, err
+		}
 		if occurs.Min > 0 && !child.Nullable {
 			exitGuards = append(exitGuards, compiledGuard{Slot: self, N: occurs.Min, Kind: compiledGuardExitMin})
 		}
