@@ -75,7 +75,7 @@ func (s *attributeSeen) mark(slot int) bool {
 		s.list[slot] = true
 		return true
 	}
-	bit := uint64(1) << uint(slot)
+	bit := uint64(1) << slot
 	if s.mask&bit != 0 {
 		return false
 	}
@@ -87,7 +87,7 @@ func (s *attributeSeen) has(slot int) bool {
 	if s.list != nil {
 		return s.list[slot]
 	}
-	return s.mask&(uint64(1)<<uint(slot)) != 0
+	return s.mask&(uint64(1)<<slot) != 0
 }
 
 func (s *session) validateSimpleTypeAttributes(attrs []xml.Attr, line, col int) error {
@@ -179,7 +179,7 @@ func (s *session) validateWildcardAttribute(rt *runtimeSchema, set attributeUseS
 		return true, nil
 	}
 	if s.hasSchemaLocationHint(rn.NS) {
-		return true, s.unsupportedSchemaLocation(line, col, "attribute", rn)
+		return true, s.unsupportedSchemaLocation(line, col, xsdElemAttribute, rn)
 	}
 	return false, nil
 }
@@ -246,11 +246,11 @@ func (s *session) recordSchemaLocationHints(attrs []xml.Attr, line, col int) err
 			continue
 		}
 		switch a.Name.Local {
-		case "schemaLocation":
+		case xsiAttrSchemaLocation:
 			if err := s.recordNamespaceSchemaLocationHints(a.Value, line, col); err != nil {
 				return err
 			}
-		case "noNamespaceSchemaLocation":
+		case xsiAttrNoNamespaceSchemaLocation:
 			if err := s.recordNoNamespaceSchemaLocationHint(a.Value, line, col); err != nil {
 				return err
 			}

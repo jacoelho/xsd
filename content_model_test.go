@@ -119,8 +119,12 @@ func TestContentModelDFAStateInvariantError(t *testing.T) {
 </xs:schema>`)
 	modelID := rootContentModel(t, engine)
 	s := &session{engine: engine}
-	f := &frame{Model: modelID, State: uint32(len(engine.rt.CompiledModels[modelID].Rows))}
-	err := s.completeDFAModel(f, engine.rt.CompiledModels[modelID], 0, 0)
+	state, err := checkedUint32(len(engine.rt.CompiledModels[modelID].Rows), "test state exceeds uint32 limit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &frame{Model: modelID, State: state}
+	err = s.completeDFAModel(f, engine.rt.CompiledModels[modelID], 0, 0)
 	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 }
 

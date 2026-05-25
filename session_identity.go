@@ -342,13 +342,13 @@ func (s *session) captureIdentityXSIAttribute(a xml.Attr, line, col int) error {
 	}
 	value := simpleValue{Canonical: normalizeWhitespace(a.Value, whitespaceCollapse), Type: s.engine.rt.Builtin.String}
 	switch a.Name.Local {
-	case "nil":
+	case xsiAttrNil:
 		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.Boolean, a.Value, nil, simpleNeedCanonical)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:nil: "+err.Error())
 		}
 		value = v
-	case "type":
+	case xsiAttrType:
 		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.qName, a.Value, s.resolveLexicalQNameValue, simpleNeedCanonical)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:type: "+err.Error())

@@ -50,7 +50,7 @@ func TestRunValidatesDocument(t *testing.T) {
 
 	var stderr bytes.Buffer
 	if code := runWithOpen([]string{"--noout", "--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
-		return os.Open(path)
+		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
 	}); code != 0 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
@@ -66,7 +66,7 @@ func TestRunReportsValidationFailure(t *testing.T) {
 
 	var stderr bytes.Buffer
 	if code := runWithOpen([]string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
-		return os.Open(path)
+		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
 	}); code != 1 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}

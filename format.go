@@ -46,7 +46,7 @@ type XMLFormatError struct {
 
 func (e *XMLFormatError) Error() string {
 	if e == nil {
-		return "<nil>"
+		return nilErrorString
 	}
 	if e.Line > 0 {
 		return fmt.Sprintf("xml format error at %d:%d: %v", e.Line, e.Column, e.Err)
@@ -544,13 +544,13 @@ const xmlSpaceDefault = false
 
 func xmlSpacePreserve(attrs []xml.Attr, inherited bool) bool {
 	for _, attr := range attrs {
-		if attr.Name.Space != "xml" || attr.Name.Local != "space" {
+		if attr.Name.Space != xmlPrefix || attr.Name.Local != xmlAttrSpace {
 			continue
 		}
 		switch attr.Value {
-		case "preserve":
+		case xmlValuePreserve:
 			return true
-		case "default":
+		case xmlValueDefault:
 			return false
 		}
 	}

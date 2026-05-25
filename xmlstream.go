@@ -46,7 +46,7 @@ var (
 
 var (
 	doctypeDirective = []byte("DOCTYPE")
-	xmlPITarget      = []byte("xml")
+	xmlPITarget      = []byte(xmlPrefix)
 	entityLT         = []byte("lt")
 	entityGT         = []byte("gt")
 	entityAMP        = []byte("amp")
@@ -794,8 +794,8 @@ func (p *xmlStreamParser) skipUntil(term string) error {
 
 func validateXMLDeclContent(content []byte) error {
 	rest := content
-	version, rest, ok := parseXMLDeclAttr(rest, "version", xmlDeclFirstAttr)
-	if !ok || version != "1.0" {
+	version, rest, ok := parseXMLDeclAttr(rest, xsdAttrVersion, xmlDeclFirstAttr)
+	if !ok || version != xmlVersion10 {
 		return fmt.Errorf("invalid XML declaration")
 	}
 	if hasXMLDeclAttr(rest, "encoding") {

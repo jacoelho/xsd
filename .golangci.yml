@@ -6,22 +6,43 @@ run:
   modules-download-mode: readonly
 
 linters:
+  default: none
   enable:
     - govet
     - staticcheck
     - revive
     - errcheck
     - ineffassign
+    - unused
     - iface
     - dupl
     - dogsled
     - forbidigo
     - funlen
     - gocritic
+    - goconst
+    - gocognit
+    - cyclop
     - nestif
     - maintidx
     - unparam
     - errorlint
+    - nilerr
+    - nilnil
+    - nilnesserr
+    - wastedassign
+    - forcetypeassert
+    - bodyclose
+    - nolintlint
+    - exhaustive
+    - gosec
+    - ireturn
+    - interfacebloat
+    - copyloopvar
+    - predeclared
+    - nakedret
+    - contextcheck
+    - reassign
     - makezero
     - modernize
     - noctx
@@ -34,6 +55,14 @@ linters:
 
     errcheck:
       check-blank: true
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-no-explanation: []
 
     revive:
       enable-default-rules: true
@@ -84,6 +113,12 @@ linters:
 
     dogsled:
       max-blank-identifiers: 1
+
+    gocognit:
+      min-complexity: 50
+
+    cyclop:
+      max-complexity: 35
 
     forbidigo:
       analyze-types: true
@@ -144,6 +179,7 @@ linters:
         linters:
           - cyclop
           - gocognit
+          - goconst
           - funlen
           - nestif
           - dupl

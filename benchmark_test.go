@@ -348,14 +348,14 @@ func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	info, err := os.Stat(doc)
+	info, err := os.Stat(doc) //nolint:gosec // Benchmark intentionally measures caller-provided XML path.
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(info.Size())
 	b.ReportAllocs()
 	for b.Loop() {
-		f, err := os.Open(doc)
+		f, err := os.Open(doc) //nolint:gosec // Benchmark intentionally validates caller-provided XML path.
 		if err != nil {
 			b.Fatal(err)
 		}

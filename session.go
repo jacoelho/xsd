@@ -257,51 +257,57 @@ func (s *session) validate(r io.Reader) error {
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		line, col := tok.line, tok.col
 		if err != nil {
-			if line == 0 {
-				line, col = s.parser.br.pos()
-			}
-			if errors.Is(err, errXMLTokenLimit) || errors.Is(err, errXMLAttributeLimit) {
-				return validation(ErrValidationLimit, line, col, s.pathString(), err.Error())
-			}
-			if errors.Is(err, errUnsupportedEntityReference) {
-				return &Error{Category: UnsupportedErrorCategory, Code: ErrUnsupportedExternal, Line: line, Column: col, Path: s.pathString(), Message: "external or undeclared entity resolution is not supported", Err: err}
-			}
-			return validation(ErrValidationXML, line, col, s.pathString(), err.Error())
+			return s.parseError(tok, err)
 		}
 		switch tok.kind {
 		case streamTokenStart:
 			if err := s.start(tok.line, tok.col, tok.start, seenRoot); err != nil {
-				if errors.Is(err, errStopValidation) {
-					return s.result()
-				}
-				return err
+				return s.stopOrError(err)
 			}
 			seenRoot = true
 		case streamTokenEnd:
 			if err := s.end(tok.line, tok.col, tok.end); err != nil {
-				if errors.Is(err, errStopValidation) {
-					return s.result()
-				}
-				return err
+				return s.stopOrError(err)
 			}
 		case streamTokenCharData:
 			if err := s.chars(tok.line, tok.col, tok.data, tok.cdata); err != nil {
-				recoverErr := s.recover(err)
-				if recoverErr != nil {
-					if errors.Is(recoverErr, errStopValidation) {
-						return s.result()
-					}
-					return recoverErr
+				if recoverErr := s.recover(err); recoverErr != nil {
+					return s.stopOrError(recoverErr)
 				}
 			}
 		case streamTokenDirective:
 			if isDOCTYPEDeclaration(tok.directive) {
-				return &Error{Category: UnsupportedErrorCategory, Code: ErrUnsupportedDTD, Line: line, Column: col, Path: s.pathString(), Message: "DTD declarations are not supported"}
+				return &Error{Category: UnsupportedErrorCategory, Code: ErrUnsupportedDTD, Line: tok.line, Column: tok.col, Path: s.pathString(), Message: "DTD declarations are not supported"}
 			}
+		case streamTokenComment, streamTokenPI:
 		}
 	}
+	return s.finishValidation(seenRoot)
+}
+
+func (s *session) parseError(tok streamToken, err error) error {
+	line, col := tok.line, tok.col
+	if line == 0 {
+		line, col = s.parser.br.pos()
+	}
+	if errors.Is(err, errXMLTokenLimit) || errors.Is(err, errXMLAttributeLimit) {
+		return validation(ErrValidationLimit, line, col, s.pathString(), err.Error())
+	}
+	if errors.Is(err, errUnsupportedEntityReference) {
+		return &Error{Category: UnsupportedErrorCategory, Code: ErrUnsupportedExternal, Line: line, Column: col, Path: s.pathString(), Message: "external or undeclared entity resolution is not supported", Err: err}
+	}
+	return validation(ErrValidationXML, line, col, s.pathString(), err.Error())
+}
+
+func (s *session) stopOrError(err error) error {
+	if errors.Is(err, errStopValidation) {
+		return s.result()
+	}
+	return err
+}
+
+func (s *session) finishValidation(seenRoot bool) error {
 	if !seenRoot {
 		return validation(ErrValidationRoot, 0, 0, "", "instance document has no root element")
 	}
@@ -309,10 +315,7 @@ func (s *session) validate(r io.Reader) error {
 		return validation(ErrValidationXML, 0, 0, s.pathString(), "unclosed element")
 	}
 	if err := s.checkIDRefs(); err != nil {
-		if errors.Is(err, errStopValidation) {
-			return s.result()
-		}
-		return err
+		return s.stopOrError(err)
 	}
 	return s.result()
 }
@@ -494,7 +497,7 @@ func (s *session) rootStartType(rt *runtimeSchema, rn runtimeName, se xml.StartE
 		return noElement, rootType, false, nil
 	}
 	if s.hasSchemaLocationHint(rn.NS) {
-		return noElement, typeID{}, false, s.unsupportedSchemaLocation(line, col, "element", rn)
+		return noElement, typeID{}, false, s.unsupportedSchemaLocation(line, col, xsdElemElement, rn)
 	}
 	err = validation(ErrValidationRoot, line, col, s.pathString(), "root element is not declared: "+formatXMLName(se.Name))
 	if recoverErr := s.recover(err); recoverErr != nil {

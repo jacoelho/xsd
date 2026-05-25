@@ -1,7 +1,7 @@
 package xsd
 
 func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (particle, error) {
-	if ref, ok := n.attr("ref"); ok {
+	if ref, ok := n.attr(xsdAttrRef); ok {
 		if err := validateKnownAttributes(n, "element ref", isElementRefAttribute); err != nil {
 			return particle{}, err
 		}
@@ -46,7 +46,10 @@ func (c *compiler) compileElementByQName(q qName) (elementID, error) {
 	}
 	c.compilingElement[q] = true
 	defer delete(c.compilingElement, q)
-	id := elementID(len(c.rt.Elements))
+	id, err := nextElementID(len(c.rt.Elements))
+	if err != nil {
+		return 0, err
+	}
 	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
 	c.elementDone[q] = id
 	c.rt.GlobalElements[q] = id
@@ -62,28 +65,31 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (elementI
 	if id, ok := c.localDone[n]; ok {
 		return id, nil
 	}
-	for _, attr := range []string{"abstract", "final", "substitutionGroup"} {
+	for _, attr := range []string{xsdAttrAbstract, xsdAttrFinal, xsdAttrSubstitutionGroup} {
 		if _, ok := n.attr(attr); ok {
 			return 0, schemaCompile(ErrSchemaInvalidAttribute, "local element cannot have "+attr)
 		}
 	}
-	name, ok := n.attr("name")
+	name, ok := n.attr(xsdAttrName)
 	if !ok {
 		return 0, schemaCompile(ErrSchemaReference, "local element missing name or ref")
 	}
 	ns := ""
-	form := n.attrDefault("form", "")
-	if form != "" && form != "qualified" && form != "unqualified" {
+	form := n.attrDefault(xsdAttrForm, "")
+	if form != "" && form != xsdValueQualified && form != xsdValueUnqualified {
 		return 0, schemaCompile(ErrSchemaInvalidAttribute, "invalid element form value "+form)
 	}
-	if form == "qualified" || (form == "" && ctx.elementQualified) {
+	if form == xsdValueQualified || (form == "" && ctx.elementQualified) {
 		ns = ctx.targetNS
 	}
 	q, err := c.rt.Names.InternQName(ns, name)
 	if err != nil {
 		return 0, err
 	}
-	id := elementID(len(c.rt.Elements))
+	id, err := nextElementID(len(c.rt.Elements))
+	if err != nil {
+		return 0, err
+	}
 	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
 	c.localDone[n] = id
 	c.compilingLocal[n] = true
@@ -105,11 +111,11 @@ func validateElementDeclContent(n *rawNode) error {
 			continue
 		}
 		switch child.Name.Local {
-		case "annotation":
+		case xsdElemAnnotation:
 			if seenNonAnnotation {
 				return schemaCompile(ErrSchemaContentModel, "element annotation must be first")
 			}
-		case "simpleType", "complexType":
+		case xsdElemSimpleType, xsdElemComplexType:
 			if seenType {
 				return schemaCompile(ErrSchemaContentModel, "element can contain at most one anonymous type")
 			}
@@ -118,14 +124,14 @@ func validateElementDeclContent(n *rawNode) error {
 			}
 			seenType = true
 			seenNonAnnotation = true
-		case "unique", "key", "keyref":
+		case xsdElemUnique, xsdElemKey, xsdElemKeyref:
 			seenIdentity = true
 			seenNonAnnotation = true
 		default:
 			return schemaCompile(ErrSchemaContentModel, "invalid element child "+child.Name.Local)
 		}
 	}
-	if _, ok := n.attr("type"); ok && seenType {
+	if _, ok := n.attr(xsdAttrType); ok && seenType {
 		return schemaCompile(ErrSchemaInvalidAttribute, "element cannot have both type and anonymous type")
 	}
 	return nil
@@ -133,7 +139,7 @@ func validateElementDeclContent(n *rawNode) error {
 
 func isElementRefAttribute(name string) bool {
 	switch name {
-	case "id", "ref", "minOccurs", "maxOccurs":
+	case xsdAttrID, xsdAttrRef, xsdAttrMinOccurs, xsdAttrMaxOccurs:
 		return true
 	default:
 		return false
@@ -142,9 +148,9 @@ func isElementRefAttribute(name string) bool {
 
 func isElementAttribute(name string) bool {
 	switch name {
-	case "id", "name", "ref", "type", "substitutionGroup",
-		"nillable", "default", "fixed", "form",
-		"block", "final", "abstract", "minOccurs", "maxOccurs":
+	case xsdAttrID, xsdAttrName, xsdAttrRef, xsdAttrType, xsdAttrSubstitutionGroup,
+		xsdAttrNillable, xsdAttrDefault, xsdAttrFixed, xsdAttrForm,
+		xsdAttrBlock, xsdAttrFinal, xsdAttrAbstract, xsdAttrMinOccurs, xsdAttrMaxOccurs:
 		return true
 	default:
 		return false
@@ -162,34 +168,34 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	if err != nil {
 		return elementDecl{}, err
 	}
-	nillable, err := schemaBoolAttr(n, "nillable")
+	nillable, err := schemaBoolAttr(n, xsdAttrNillable)
 	if err != nil {
 		return elementDecl{}, err
 	}
-	abstract, err := schemaBoolAttr(n, "abstract")
+	abstract, err := schemaBoolAttr(n, xsdAttrAbstract)
 	if err != nil {
 		return elementDecl{}, err
 	}
 	typ := typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}
-	if typeLex, ok := n.attr("type"); ok {
+	if typeLex, ok := n.attr(xsdAttrType); ok {
 		attrType, typeErr := c.compileElementTypeAttribute(n, ctx, typeLex)
 		if typeErr != nil {
 			return elementDecl{}, typeErr
 		}
 		typ = attrType
-	} else if st := n.firstXS("simpleType"); st != nil {
+	} else if st := n.firstXS(xsdElemSimpleType); st != nil {
 		id, simpleErr := c.compileAnonymousSimple(st, ctx)
 		if simpleErr != nil {
 			return elementDecl{}, simpleErr
 		}
 		typ = typeID{Kind: typeSimple, ID: uint32(id)}
-	} else if ct := n.firstXS("complexType"); ct != nil {
+	} else if ct := n.firstXS(xsdElemComplexType); ct != nil {
 		id, complexErr := c.compileAnonymousComplex(ct, ctx)
 		if complexErr != nil {
 			return elementDecl{}, complexErr
 		}
 		typ = typeID{Kind: typeComplex, ID: uint32(id)}
-	} else if headLex, ok := n.attr("substitutionGroup"); ok {
+	} else if headLex, ok := n.attr(xsdAttrSubstitutionGroup); ok {
 		headQName, headErr := c.resolveQNameChecked(n, ctx, headLex)
 		if headErr != nil {
 			return elementDecl{}, headErr
@@ -219,11 +225,11 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 		return elementDecl{}, err
 	}
 	decl.Final = final
-	if v, ok := n.attr("default"); ok {
+	if v, ok := n.attr(xsdAttrDefault); ok {
 		decl.Default = v
 		decl.HasDefault = true
 	}
-	if v, ok := n.attr("fixed"); ok {
+	if v, ok := n.attr(xsdAttrFixed); ok {
 		decl.Fixed = v
 		decl.HasFixed = true
 	}

@@ -8,11 +8,11 @@ import (
 
 func parseWhitespaceChecked(v string) (whitespaceMode, bool) {
 	switch v {
-	case "preserve":
+	case xsdWhitespacePreserve:
 		return whitespacePreserve, true
-	case "replace":
+	case xsdWhitespaceReplace:
 		return whitespaceReplace, true
-	case "collapse":
+	case xsdWhitespaceCollapse:
 		return whitespaceCollapse, true
 	default:
 		return whitespacePreserve, false
@@ -35,26 +35,26 @@ func facetAllowedForType(st simpleType, name string) bool {
 		return atomicFacetAllowed(st.Primitive, name)
 	case varietyList:
 		switch name {
-		case "length", "minLength", "maxLength", "pattern", "enumeration", "whiteSpace":
+		case xsdFacetLength, xsdFacetMinLength, xsdFacetMaxLength, xsdFacetPattern, xsdFacetEnumeration, xsdFacetWhiteSpace:
 			return true
 		default:
 			return false
 		}
 	case varietyUnion:
-		return name == "pattern" || name == "enumeration"
+		return name == xsdFacetPattern || name == xsdFacetEnumeration
 	}
 	return false
 }
 
 func atomicFacetAllowed(kind primitiveKind, name string) bool {
 	switch name {
-	case "pattern", "enumeration", "whiteSpace":
+	case xsdFacetPattern, xsdFacetEnumeration, xsdFacetWhiteSpace:
 		return true
-	case "length", "minLength", "maxLength":
+	case xsdFacetLength, xsdFacetMinLength, xsdFacetMaxLength:
 		return primitiveHasLengthFacet(kind)
-	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
+	case xsdFacetMinInclusive, xsdFacetMaxInclusive, xsdFacetMinExclusive, xsdFacetMaxExclusive:
 		return primitiveHasOrderFacet(kind)
-	case "totalDigits", "fractionDigits":
+	case xsdFacetTotalDigits, xsdFacetFractionDigits:
 		return kind == primDecimal
 	}
 	return false
@@ -112,11 +112,11 @@ func (s *compiledFacetState) apply(st *simpleType) {
 
 func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, literalType simpleTypeID, state *compiledFacetState) error {
 	for _, child := range parent.xsContentChildren() {
-		if child.Name.Local == "simpleType" {
+		if child.Name.Local == xsdElemSimpleType {
 			continue
 		}
 		switch child.Name.Local {
-		case "length", "minLength", "maxLength", "totalDigits", "fractionDigits":
+		case xsdFacetLength, xsdFacetMinLength, xsdFacetMaxLength, xsdFacetTotalDigits, xsdFacetFractionDigits:
 			value, err := checkedFacetValue(*st, child)
 			if err != nil {
 				return err
@@ -124,7 +124,7 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, l
 			if err := compileSizeFacet(st, child.Name.Local, value); err != nil {
 				return err
 			}
-		case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
+		case xsdFacetMinInclusive, xsdFacetMaxInclusive, xsdFacetMinExclusive, xsdFacetMaxExclusive:
 			value, err := checkedFacetValue(*st, child)
 			if err != nil {
 				return err
@@ -132,7 +132,7 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, l
 			if err := c.compileBoundFacet(st, base, child, value, &state.orderedStep); err != nil {
 				return err
 			}
-		case "enumeration":
+		case xsdFacetEnumeration:
 			value, err := checkedFacetValue(*st, child)
 			if err != nil {
 				return err
@@ -143,7 +143,7 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, l
 			}
 			state.restrictedEnumeration = append(state.restrictedEnumeration, lit)
 			state.sawEnumeration = true
-		case "pattern":
+		case xsdFacetPattern:
 			value, err := checkedFacetValue(*st, child)
 			if err != nil {
 				return err
@@ -153,7 +153,7 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, l
 				return err
 			}
 			state.stepPatterns = append(state.stepPatterns, p)
-		case "whiteSpace":
+		case xsdFacetWhiteSpace:
 			value, err := checkedFacetValue(*st, child)
 			if err != nil {
 				return err
@@ -182,7 +182,7 @@ func checkedFacetValue(st simpleType, n *rawNode) (string, error) {
 }
 
 func requiredFacetValue(n *rawNode) (string, error) {
-	value, ok := n.attr("value")
+	value, ok := n.attr(xsdAttrValue)
 	if !ok {
 		return "", schemaCompile(ErrSchemaFacet, n.Name.Local+" missing value")
 	}
@@ -194,20 +194,23 @@ func compileSizeFacet(st *simpleType, name, value string) error {
 	if err != nil {
 		return schemaCompile(ErrSchemaFacet, "invalid "+name+" facet "+value)
 	}
-	if name == "totalDigits" && n == 0 {
+	if name == xsdFacetTotalDigits && n == 0 {
 		return schemaCompile(ErrSchemaFacet, "totalDigits must be positive")
+	}
+	if n > maxUint32Value {
+		return schemaCompile(ErrSchemaLimit, name+" facet exceeds uint32 limit")
 	}
 	v := uint32(n)
 	switch name {
-	case "length":
+	case xsdFacetLength:
 		st.Facets.Length = &v
-	case "minLength":
+	case xsdFacetMinLength:
 		st.Facets.MinLength = &v
-	case "maxLength":
+	case xsdFacetMaxLength:
 		st.Facets.MaxLength = &v
-	case "totalDigits":
+	case xsdFacetTotalDigits:
 		st.Facets.TotalDigits = &v
-	case "fractionDigits":
+	case xsdFacetFractionDigits:
 		st.Facets.FractionDigits = &v
 	}
 	return nil
@@ -236,12 +239,17 @@ func parseSizeFacetInteger(value string) (uint64, error) {
 	if digitStart == len(value) {
 		return 0, nil
 	}
-	for i := start; i < len(value); i++ {
-		if value[i] < '0' || value[i] > '9' {
+	var n uint64
+	for i := digitStart; i < len(value); i++ {
+		b := value[i]
+		if b < '0' || b > '9' {
 			return 0, strconv.ErrSyntax
 		}
+		if n <= maxUint32Value {
+			n = n*10 + uint64(b-'0')
+		}
 	}
-	return strconv.ParseUint(value[digitStart:], 10, 32)
+	return n, nil
 }
 
 func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *rawNode, value string, step *orderedFacetStep) error {
@@ -250,16 +258,16 @@ func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *r
 		return err
 	}
 	switch child.Name.Local {
-	case "minInclusive":
+	case xsdFacetMinInclusive:
 		st.Facets.MinInclusive = &lit
 		step.minInclusive = true
-	case "maxInclusive":
+	case xsdFacetMaxInclusive:
 		st.Facets.MaxInclusive = &lit
 		step.maxInclusive = true
-	case "minExclusive":
+	case xsdFacetMinExclusive:
 		st.Facets.MinExclusive = &lit
 		step.minExclusive = true
-	case "maxExclusive":
+	case xsdFacetMaxExclusive:
 		st.Facets.MaxExclusive = &lit
 		step.maxExclusive = true
 	}
@@ -333,6 +341,7 @@ func validatePrimitiveFacetRestrictions(st simpleType, baseFacets facetSet, orde
 		if err := validateGValueFacetBounds(st.Primitive, st.Facets); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
+	default:
 	}
 	if st.Primitive == primDate || st.Primitive == primDateTime || st.Primitive == primTime {
 		if st.Primitive == primTime {
@@ -380,22 +389,22 @@ func validateDecimalFacetRestriction(f, base facetSet, step orderedFacetStep) er
 		return err
 	}
 	if step.minInclusive {
-		if err := validateDecimalLowerRestriction("minInclusive", f.MinInclusive, facetInclusive, baseLower); err != nil {
+		if err := validateDecimalLowerRestriction(xsdFacetMinInclusive, f.MinInclusive, facetInclusive, baseLower); err != nil {
 			return err
 		}
 	}
 	if step.minExclusive {
-		if err := validateDecimalLowerRestriction("minExclusive", f.MinExclusive, facetExclusive, baseLower); err != nil {
+		if err := validateDecimalLowerRestriction(xsdFacetMinExclusive, f.MinExclusive, facetExclusive, baseLower); err != nil {
 			return err
 		}
 	}
 	if step.maxInclusive {
-		if err := validateDecimalUpperRestriction("maxInclusive", f.MaxInclusive, facetInclusive, baseUpper); err != nil {
+		if err := validateDecimalUpperRestriction(xsdFacetMaxInclusive, f.MaxInclusive, facetInclusive, baseUpper); err != nil {
 			return err
 		}
 	}
 	if step.maxExclusive {
-		if err := validateDecimalUpperRestriction("maxExclusive", f.MaxExclusive, facetExclusive, baseUpper); err != nil {
+		if err := validateDecimalUpperRestriction(xsdFacetMaxExclusive, f.MaxExclusive, facetExclusive, baseUpper); err != nil {
 			return err
 		}
 	}

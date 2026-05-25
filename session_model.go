@@ -73,7 +73,7 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []xml.Attr, l
 	}
 	if match.strictMissing {
 		if s.hasSchemaLocationHint(rn.NS) {
-			return acceptedChild{}, s.unsupportedSchemaLocation(line, col, "element", rn)
+			return acceptedChild{}, s.unsupportedSchemaLocation(line, col, xsdElemElement, rn)
 		}
 		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "wildcard requires declared element "+rn.Local)
 	}
@@ -95,7 +95,7 @@ func (s *session) acceptAny(rn runtimeName, w wildcard, line, col int) (accepted
 	}
 	if w.Process == processStrict {
 		if s.hasSchemaLocationHint(rn.NS) {
-			return acceptedChild{}, s.unsupportedSchemaLocation(line, col, "element", rn)
+			return acceptedChild{}, s.unsupportedSchemaLocation(line, col, xsdElemElement, rn)
 		}
 		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "wildcard requires declared element "+rn.Local)
 	}
@@ -181,13 +181,14 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []xml.At
 			}
 			return noMatch(), true
 		}
+	case particleModel:
 	}
 	return noMatch(), false
 }
 
 func hasXSIType(attrs []xml.Attr) bool {
 	for _, a := range attrs {
-		if a.Name.Space == xsiNamespaceURI && a.Name.Local == "type" {
+		if a.Name.Space == xsiNamespaceURI && a.Name.Local == xsiAttrType {
 			return true
 		}
 	}

@@ -19,7 +19,10 @@ func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	}
 	c.compilingComplex[q] = true
 	defer delete(c.compilingComplex, q)
-	id := complexTypeID(len(c.rt.ComplexTypes))
+	id, err := nextComplexTypeID(len(c.rt.ComplexTypes))
+	if err != nil {
+		return noComplexType, err
+	}
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
 	c.complexDone[q] = id
 	c.rt.GlobalTypes[q] = typeID{Kind: typeComplex, ID: uint32(id)}
@@ -43,14 +46,17 @@ func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 }
 
 func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (complexTypeID, error) {
-	if _, ok := n.attr("name"); ok {
+	if _, ok := n.attr(xsdAttrName); ok {
 		return noComplexType, schemaCompile(ErrSchemaInvalidAttribute, "local complexType cannot have name")
 	}
 	q, err := c.rt.Names.InternQName("", fmt.Sprintf("$complex%d", len(c.rt.ComplexTypes)))
 	if err != nil {
 		return noComplexType, err
 	}
-	id := complexTypeID(len(c.rt.ComplexTypes))
+	id, err := nextComplexTypeID(len(c.rt.ComplexTypes))
+	if err != nil {
+		return noComplexType, err
+	}
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
 	ct, err := c.compileComplexType(n, ctx, q)
 	if err != nil {
@@ -100,9 +106,9 @@ func schemaFormDefaultAttr(n *rawNode, name string) (bool, error) {
 		return false, nil
 	}
 	switch v {
-	case "qualified":
+	case xsdValueQualified:
 		return true, nil
-	case "unqualified":
+	case xsdValueUnqualified:
 		return false, nil
 	default:
 		return false, schemaCompile(ErrSchemaInvalidAttribute, "invalid "+name+" value "+v)
@@ -134,26 +140,26 @@ func validateComplexTypeContent(n *rawNode) error {
 			return schemaCompile(ErrSchemaContentModel, "invalid complexType child "+child.Name.Local)
 		}
 		switch child.Name.Local {
-		case "annotation":
+		case xsdElemAnnotation:
 			if sawModel || sawAttr || sawAnyAttr {
 				return schemaCompile(ErrSchemaContentModel, "complexType annotation must be first")
 			}
-		case "simpleContent", "complexContent":
+		case xsdElemSimpleContent, xsdElemComplexContent:
 			if sawModel || sawAttr || sawAnyAttr {
 				return schemaCompile(ErrSchemaContentModel, "complexType content model is out of order")
 			}
 			terminal = true
-		case "sequence", "choice", "all", "group":
+		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
 			if sawModel || sawAttr || sawAnyAttr {
 				return schemaCompile(ErrSchemaContentModel, "complexType model group is out of order")
 			}
 			sawModel = true
-		case "attribute", "attributeGroup":
+		case xsdElemAttribute, xsdElemAttributeGroup:
 			if sawAnyAttr {
 				return schemaCompile(ErrSchemaContentModel, "complexType attribute is out of order")
 			}
 			sawAttr = true
-		case "anyAttribute":
+		case xsdElemAnyAttribute:
 			if sawAnyAttr {
 				return schemaCompile(ErrSchemaContentModel, "complexType can contain at most one anyAttribute")
 			}
@@ -169,11 +175,11 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 	if err := validateComplexTypeContent(n); err != nil {
 		return complexType{}, err
 	}
-	mixed, err := schemaBoolAttr(n, "mixed")
+	mixed, err := schemaBoolAttr(n, xsdAttrMixed)
 	if err != nil {
 		return complexType{}, err
 	}
-	abstract, err := schemaBoolAttr(n, "abstract")
+	abstract, err := schemaBoolAttr(n, xsdAttrAbstract)
 	if err != nil {
 		return complexType{}, err
 	}
@@ -192,15 +198,15 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 		Derivation: derivationRestriction,
 		Block:      block,
 	}
-	if cc := n.firstXS("complexContent"); cc != nil {
+	if cc := n.firstXS(xsdElemComplexContent); cc != nil {
 		return c.compileComplexContent(cc, ctx, ct)
 	}
-	if sc := n.firstXS("simpleContent"); sc != nil {
+	if sc := n.firstXS(xsdElemSimpleContent); sc != nil {
 		return c.compileSimpleContent(sc, ctx, ct)
 	}
 	for _, child := range n.xsContentChildren() {
 		switch child.Name.Local {
-		case "sequence", "choice", "all", "group":
+		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
 			if occurrenceErr := validateModelOccurrence(child, c.limits); occurrenceErr != nil {
 				return complexType{}, occurrenceErr
 			}
@@ -212,7 +218,10 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 		}
 	}
 	if ct.Content == noContentModel {
-		ct.Content = c.addModel(contentModel{Kind: modelEmpty, Mixed: mixed})
+		ct.Content, err = c.addModel(contentModel{Kind: modelEmpty, Mixed: mixed})
+		if err != nil {
+			return complexType{}, err
+		}
 	}
 	attrs, err := c.compileAttributeUses(n, ctx, nil, noWildcard, attributeMergeNormal)
 	if err != nil {
@@ -226,12 +235,12 @@ func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct comp
 	if err := validateComplexContentChildren(n); err != nil {
 		return complexType{}, err
 	}
-	mixed, err := schemaBoolAttrDefault(n, "mixed", ct.Mixed)
+	mixed, err := schemaBoolAttrDefault(n, xsdAttrMixed, ct.Mixed)
 	if err != nil {
 		return complexType{}, err
 	}
 	for _, child := range n.xsContentChildren() {
-		if child.Name.Local != "extension" && child.Name.Local != "restriction" {
+		if child.Name.Local != xsdElemExtension && child.Name.Local != xsdElemRestriction {
 			continue
 		}
 		return c.compileComplexContentDerivation(child, ctx, ct, mixed)
@@ -251,14 +260,14 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaCo
 		return complexType{}, err
 	}
 	ct.Base = typeID{Kind: typeComplex, ID: uint32(baseID)}
-	if child.Name.Local == "extension" {
+	if child.Name.Local == xsdElemExtension {
 		return c.compileComplexContentExtension(child, ctx, ct, baseID, base, mixed)
 	}
 	return c.compileComplexContentRestriction(child, ctx, ct, base, mixed)
 }
 
 func (c *compiler) complexContentBase(child *rawNode, ctx *schemaContext, ct complexType) (complexTypeID, complexType, error) {
-	baseLex, ok := child.attr("base")
+	baseLex, ok := child.attr(xsdAttrBase)
 	if !ok {
 		return noComplexType, complexType{}, schemaCompile(ErrSchemaReference, "complexContent "+child.Name.Local+" missing base")
 	}
@@ -313,7 +322,10 @@ func (c *compiler) compileSimpleValueComplexExtension(child *rawNode, ctx *schem
 		return complexType{}, err
 	}
 	ct.Derivation = derivationExtension
-	ct.Content = c.addModel(contentModel{Kind: modelEmpty})
+	ct.Content, err = c.addModel(contentModel{Kind: modelEmpty})
+	if err != nil {
+		return complexType{}, err
+	}
 	ct.Attrs = attrs
 	ct.TextType = base.TextType
 	ct.SimpleValue = true
@@ -328,7 +340,7 @@ func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaC
 	if err := validateModelOccurrence(modelNode, c.limits); err != nil {
 		return noContentModel, err
 	}
-	if modelNode.Name.Local == "all" && !c.modelHasNoParticles(base.Content) {
+	if modelNode.Name.Local == xsdElemAll && !c.modelHasNoParticles(base.Content) {
 		return noContentModel, schemaCompile(ErrSchemaContentModel, "complexContent extension cannot use xs:all")
 	}
 	if base.Content != noContentModel {
@@ -341,7 +353,7 @@ func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaC
 	if err != nil {
 		return noContentModel, err
 	}
-	return c.extendSequence(base.Content, ext), nil
+	return c.extendSequence(base.Content, ext)
 }
 
 func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaContext, ct, base complexType, mixed bool) (complexType, error) {
@@ -370,7 +382,7 @@ func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaC
 func (c *compiler) compileComplexRestrictionModel(child *rawNode, ctx *schemaContext, ct complexType) (contentModelID, error) {
 	modelNode := firstModelChild(child)
 	if modelNode == nil {
-		return c.addModel(contentModel{Kind: modelEmpty, Mixed: ct.Mixed}), nil
+		return c.addModel(contentModel{Kind: modelEmpty, Mixed: ct.Mixed})
 	}
 	if err := validateModelOccurrence(modelNode, c.limits); err != nil {
 		return noContentModel, err
@@ -386,11 +398,11 @@ func validateComplexContentChildren(n *rawNode) error {
 			continue
 		}
 		switch child.Name.Local {
-		case "annotation":
+		case xsdElemAnnotation:
 			if seenNonAnnotation {
 				return schemaCompile(ErrSchemaContentModel, "complexContent annotation must be first")
 			}
-		case "extension", "restriction":
+		case xsdElemExtension, xsdElemRestriction:
 			if seenDerivation {
 				return schemaCompile(ErrSchemaContentModel, "complexContent can contain one derivation")
 			}
@@ -411,11 +423,11 @@ func validateSimpleContentChildren(n *rawNode) error {
 			continue
 		}
 		switch child.Name.Local {
-		case "annotation":
+		case xsdElemAnnotation:
 			if seenNonAnnotation {
 				return schemaCompile(ErrSchemaContentModel, "simpleContent annotation must be first")
 			}
-		case "extension", "restriction":
+		case xsdElemExtension, xsdElemRestriction:
 			if seenDerivation {
 				return schemaCompile(ErrSchemaContentModel, "simpleContent can contain one derivation")
 			}
@@ -438,12 +450,12 @@ func validateSimpleContentDerivationChildren(n *rawNode) error {
 			continue
 		}
 		switch child.Name.Local {
-		case "annotation":
+		case xsdElemAnnotation:
 			if seenNonAnnotation {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" annotation must be first")
 			}
-		case "simpleType":
-			if n.Name.Local != "restriction" {
+		case xsdElemSimpleType:
+			if n.Name.Local != xsdElemRestriction {
 				return schemaCompile(ErrSchemaContentModel, "simpleContent extension cannot contain simpleType")
 			}
 			if seenSimpleType || seenAttribute || seenAnyAttribute {
@@ -451,20 +463,20 @@ func validateSimpleContentDerivationChildren(n *rawNode) error {
 			}
 			seenSimpleType = true
 			seenNonAnnotation = true
-		case "attribute", "attributeGroup":
+		case xsdElemAttribute, xsdElemAttributeGroup:
 			if seenAnyAttribute {
 				return schemaCompile(ErrSchemaContentModel, "simpleContent attribute is out of order")
 			}
 			seenAttribute = true
 			seenNonAnnotation = true
-		case "anyAttribute":
+		case xsdElemAnyAttribute:
 			if seenAnyAttribute {
 				return schemaCompile(ErrSchemaContentModel, "simpleContent can contain at most one anyAttribute")
 			}
 			seenAnyAttribute = true
 			seenNonAnnotation = true
 		default:
-			if n.Name.Local == "restriction" && isFacetNode(child.Name.Local) {
+			if n.Name.Local == xsdElemRestriction && isFacetNode(child.Name.Local) {
 				if seenAttribute || seenAnyAttribute {
 					return schemaCompile(ErrSchemaContentModel, "simpleContent facet is out of order")
 				}
@@ -479,9 +491,9 @@ func validateSimpleContentDerivationChildren(n *rawNode) error {
 
 func isFacetNode(local string) bool {
 	switch local {
-	case "length", "minLength", "maxLength", "totalDigits", "fractionDigits",
-		"minInclusive", "maxInclusive", "minExclusive", "maxExclusive",
-		"enumeration", "pattern", "whiteSpace":
+	case xsdFacetLength, xsdFacetMinLength, xsdFacetMaxLength, xsdFacetTotalDigits, xsdFacetFractionDigits,
+		xsdFacetMinInclusive, xsdFacetMaxInclusive, xsdFacetMinExclusive, xsdFacetMaxExclusive,
+		xsdFacetEnumeration, xsdFacetPattern, xsdFacetWhiteSpace:
 		return true
 	default:
 		return false
@@ -492,100 +504,126 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct compl
 	if err := validateSimpleContentChildren(n); err != nil {
 		return complexType{}, err
 	}
-	for _, child := range n.xsContentChildren() {
-		if child.Name.Local != "extension" && child.Name.Local != "restriction" {
-			continue
-		}
-		if err := validateSimpleContentDerivationChildren(child); err != nil {
-			return complexType{}, err
-		}
-		baseLex, ok := child.attr("base")
-		if !ok {
-			return complexType{}, schemaCompile(ErrSchemaReference, "simpleContent "+child.Name.Local+" missing base")
-		}
-		baseQName, err := c.resolveQNameChecked(child, ctx, baseLex)
-		if err != nil {
-			return complexType{}, err
-		}
-		var textType simpleTypeID
-		if c.simpleTypeQNameKnown(baseQName) {
-			simpleID, simpleErr := c.compileSimpleByQName(baseQName)
-			if simpleErr != nil {
-				return complexType{}, simpleErr
-			}
-			if child.Name.Local == "restriction" {
-				return complexType{}, schemaCompile(ErrSchemaContentModel, "simpleContent restriction base must be complex type")
-			}
-			if c.rt.SimpleTypes[simpleID].Final&blockExtension != 0 {
-				return complexType{}, schemaCompile(ErrSchemaReference, "base simple type final blocks extension")
-			}
-			textType = simpleID
-			ct.Base = typeID{Kind: typeSimple, ID: uint32(simpleID)}
-		} else {
-			if c.compilingComplex[baseQName] && !c.isAnonymousComplexName(ct.Name) {
-				return complexType{}, schemaCompile(ErrSchemaReference, "cyclic complex type "+c.rt.Names.Format(baseQName))
-			}
-			if !c.complexTypeQNameKnown(baseQName) {
-				return complexType{}, schemaCompile(ErrSchemaReference, "simpleContent base must be simple or simple-content complex type")
-			}
-			baseComplex, complexErr := c.compileComplexByQName(baseQName)
-			if complexErr != nil {
-				return complexType{}, complexErr
-			}
-			base := c.rt.ComplexTypes[baseComplex]
-			if !base.SimpleValue {
-				return complexType{}, schemaCompile(ErrSchemaContentModel, "simpleContent base must have simple content")
-			}
-			if child.Name.Local == "extension" && base.Final&blockExtension != 0 {
-				return complexType{}, schemaCompile(ErrSchemaReference, "base complex type final blocks extension")
-			}
-			if child.Name.Local == "restriction" && base.Final&blockRestriction != 0 {
-				return complexType{}, schemaCompile(ErrSchemaReference, "base complex type final blocks restriction")
-			}
-			textType = base.TextType
-			ct.Base = typeID{Kind: typeComplex, ID: uint32(baseComplex)}
-			ct.Attrs = base.Attrs
-		}
-		if child.Name.Local == "restriction" {
-			baseTextType := textType
-			if stNode := child.firstXS("simpleType"); stNode != nil {
-				simpleID, simpleErr := c.compileAnonymousSimple(stNode, ctx)
-				if simpleErr != nil {
-					return complexType{}, simpleErr
-				}
-				textType = simpleID
-			} else if hasFacetChildren(child) {
-				simpleID, simpleErr := c.compileSimpleContentFacetRestriction(child, baseTextType)
-				if simpleErr != nil {
-					return complexType{}, simpleErr
-				}
-				textType = simpleID
-			}
-			if !c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(textType)}, typeID{Kind: typeSimple, ID: uint32(baseTextType)}) {
-				return complexType{}, schemaCompile(ErrSchemaContentModel, "simpleContent restriction type is not derived from base")
-			}
-		}
-		inheritedUses, inheritedWildcard := c.attrUsesAndWildcard(ct.Attrs)
-		mergeMode := attributeMergeNormal
-		if child.Name.Local == "restriction" {
-			mergeMode = attributeMergeRestriction
-		}
-		attrs, err := c.compileAttributeUses(child, ctx, inheritedUses, inheritedWildcard, mergeMode)
-		if err != nil {
-			return complexType{}, err
-		}
-		ct.Attrs = attrs
-		ct.Content = c.addModel(contentModel{Kind: modelEmpty})
-		ct.TextType = textType
-		ct.SimpleValue = true
-		if child.Name.Local == "extension" {
-			ct.Derivation = derivationExtension
-		} else {
-			ct.Derivation = derivationRestriction
-		}
-		return ct, nil
+	child := simpleContentDerivationChild(n)
+	if child == nil {
+		return complexType{}, schemaCompile(ErrSchemaContentModel, "simpleContent missing extension or restriction")
 	}
-	return complexType{}, schemaCompile(ErrSchemaContentModel, "simpleContent missing extension or restriction")
+	if err := validateSimpleContentDerivationChildren(child); err != nil {
+		return complexType{}, err
+	}
+	baseLex, ok := child.attr(xsdAttrBase)
+	if !ok {
+		return complexType{}, schemaCompile(ErrSchemaReference, "simpleContent "+child.Name.Local+" missing base")
+	}
+	baseQName, err := c.resolveQNameChecked(child, ctx, baseLex)
+	if err != nil {
+		return complexType{}, err
+	}
+	isRestriction := child.Name.Local == xsdElemRestriction
+	var textType simpleTypeID
+	if c.simpleTypeQNameKnown(baseQName) {
+		ct, textType, err = c.compileSimpleContentSimpleBase(child, baseQName, ct)
+	} else {
+		ct, textType, err = c.compileSimpleContentComplexBase(child, baseQName, ct)
+	}
+	if err != nil {
+		return complexType{}, err
+	}
+	mergeMode := attributeMergeNormal
+	derivation := derivationExtension
+	if isRestriction {
+		textType, err = c.compileSimpleContentRestrictionType(child, ctx, textType)
+		if err != nil {
+			return complexType{}, err
+		}
+		mergeMode = attributeMergeRestriction
+		derivation = derivationRestriction
+	}
+	inheritedUses, inheritedWildcard := c.attrUsesAndWildcard(ct.Attrs)
+	attrs, err := c.compileAttributeUses(child, ctx, inheritedUses, inheritedWildcard, mergeMode)
+	if err != nil {
+		return complexType{}, err
+	}
+	ct.Attrs = attrs
+	ct.Content, err = c.addModel(contentModel{Kind: modelEmpty})
+	if err != nil {
+		return complexType{}, err
+	}
+	ct.TextType = textType
+	ct.SimpleValue = true
+	ct.Derivation = derivation
+	return ct, nil
+}
+
+func simpleContentDerivationChild(n *rawNode) *rawNode {
+	for _, child := range n.xsContentChildren() {
+		if child.Name.Local == xsdElemExtension || child.Name.Local == xsdElemRestriction {
+			return child
+		}
+	}
+	return nil
+}
+
+func (c *compiler) compileSimpleContentSimpleBase(child *rawNode, baseQName qName, ct complexType) (complexType, simpleTypeID, error) {
+	simpleID, err := c.compileSimpleByQName(baseQName)
+	if err != nil {
+		return complexType{}, noSimpleType, err
+	}
+	if child.Name.Local == xsdElemRestriction {
+		return complexType{}, noSimpleType, schemaCompile(ErrSchemaContentModel, "simpleContent restriction base must be complex type")
+	}
+	if c.rt.SimpleTypes[simpleID].Final&blockExtension != 0 {
+		return complexType{}, noSimpleType, schemaCompile(ErrSchemaReference, "base simple type final blocks extension")
+	}
+	ct.Base = typeID{Kind: typeSimple, ID: uint32(simpleID)}
+	return ct, simpleID, nil
+}
+
+func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qName, ct complexType) (complexType, simpleTypeID, error) {
+	if c.compilingComplex[baseQName] && !c.isAnonymousComplexName(ct.Name) {
+		return complexType{}, noSimpleType, schemaCompile(ErrSchemaReference, "cyclic complex type "+c.rt.Names.Format(baseQName))
+	}
+	if !c.complexTypeQNameKnown(baseQName) {
+		return complexType{}, noSimpleType, schemaCompile(ErrSchemaReference, "simpleContent base must be simple or simple-content complex type")
+	}
+	baseComplex, err := c.compileComplexByQName(baseQName)
+	if err != nil {
+		return complexType{}, noSimpleType, err
+	}
+	base := c.rt.ComplexTypes[baseComplex]
+	if !base.SimpleValue {
+		return complexType{}, noSimpleType, schemaCompile(ErrSchemaContentModel, "simpleContent base must have simple content")
+	}
+	if child.Name.Local == xsdElemExtension && base.Final&blockExtension != 0 {
+		return complexType{}, noSimpleType, schemaCompile(ErrSchemaReference, "base complex type final blocks extension")
+	}
+	if child.Name.Local == xsdElemRestriction && base.Final&blockRestriction != 0 {
+		return complexType{}, noSimpleType, schemaCompile(ErrSchemaReference, "base complex type final blocks restriction")
+	}
+	ct.Base = typeID{Kind: typeComplex, ID: uint32(baseComplex)}
+	ct.Attrs = base.Attrs
+	return ct, base.TextType, nil
+}
+
+func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *schemaContext, baseTextType simpleTypeID) (simpleTypeID, error) {
+	textType := baseTextType
+	if stNode := child.firstXS(xsdElemSimpleType); stNode != nil {
+		simpleID, err := c.compileAnonymousSimple(stNode, ctx)
+		if err != nil {
+			return noSimpleType, err
+		}
+		textType = simpleID
+	} else if hasFacetChildren(child) {
+		simpleID, err := c.compileSimpleContentFacetRestriction(child, baseTextType)
+		if err != nil {
+			return noSimpleType, err
+		}
+		textType = simpleID
+	}
+	if !c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(textType)}, typeID{Kind: typeSimple, ID: uint32(baseTextType)}) {
+		return noSimpleType, schemaCompile(ErrSchemaContentModel, "simpleContent restriction type is not derived from base")
+	}
+	return textType, nil
 }
 
 func hasFacetChildren(n *rawNode) bool {
@@ -615,10 +653,13 @@ func (c *compiler) compileSimpleContentFacetRestriction(n *rawNode, baseID simpl
 	st.Final = 0
 	st.Facets = cloneFacetSet(base.Facets)
 	st.Union = slices.Clone(base.Union)
-	if err := c.compileFacets(facetChildrenNode(n), &st, baseID, baseID); err != nil {
+	if err = c.compileFacets(facetChildrenNode(n), &st, baseID, baseID); err != nil {
 		return noSimpleType, err
 	}
-	id := simpleTypeID(len(c.rt.SimpleTypes))
+	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return noSimpleType, err
+	}
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
 	return id, nil
 }
@@ -652,23 +693,23 @@ func validateComplexContentDerivationChildren(n *rawNode) error {
 			continue
 		}
 		switch child.Name.Local {
-		case "annotation":
+		case xsdElemAnnotation:
 			if seenNonAnnotation {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" annotation must be first")
 			}
-		case "sequence", "choice", "all", "group":
+		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
 			if seenModel || seenAttribute || seenAnyAttribute {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" model group is out of order")
 			}
 			seenModel = true
 			seenNonAnnotation = true
-		case "attribute", "attributeGroup":
+		case xsdElemAttribute, xsdElemAttributeGroup:
 			if seenAnyAttribute {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" attribute is out of order")
 			}
 			seenAttribute = true
 			seenNonAnnotation = true
-		case "anyAttribute":
+		case xsdElemAnyAttribute:
 			if seenAnyAttribute {
 				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" can contain at most one anyAttribute")
 			}

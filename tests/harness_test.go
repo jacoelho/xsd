@@ -84,7 +84,7 @@ func testDir(t *testing.T) string {
 
 func readManifest(t *testing.T, path string) manifest {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // Test harness reads repository-owned manifest path.
 	if err != nil {
 		t.Fatalf("ReadFile() error = %v", err)
 	}
@@ -224,7 +224,7 @@ type unsupportedAllowlist map[unsupportedKey]unsupportedEntry
 
 func readUnsupportedAllowlist(t *testing.T, path string) unsupportedAllowlist {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // Test harness reads repository-owned allowlist path.
 	if err != nil {
 		t.Fatalf("ReadFile() error = %v", err)
 	}

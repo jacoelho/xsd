@@ -43,7 +43,7 @@ func (c *compiler) compileAttributeWildcard(n *rawNode, ctx *schemaContext) (wil
 
 func isAnyParticleAttribute(name string) bool {
 	switch name {
-	case "id", "namespace", "processContents", "minOccurs", "maxOccurs":
+	case xsdAttrID, xsdAttrNamespace, xsdAttrProcessContents, xsdAttrMinOccurs, xsdAttrMaxOccurs:
 		return true
 	default:
 		return false
@@ -52,7 +52,7 @@ func isAnyParticleAttribute(name string) bool {
 
 func isAnyAttributeAttribute(name string) bool {
 	switch name {
-	case "id", "namespace", "processContents":
+	case xsdAttrID, xsdAttrNamespace, xsdAttrProcessContents:
 		return true
 	default:
 		return false
@@ -63,7 +63,7 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (wildcardID, 
 	var mode wildcardMode
 	var namespaces []namespaceID
 	other := namespaceID(0)
-	nsSpec := n.attrDefault("namespace", "##any")
+	nsSpec := n.attrDefault(xsdAttrNamespace, "##any")
 	switch nsSpec {
 	case "##any":
 		mode = wildAny
@@ -106,7 +106,7 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (wildcardID, 
 		}
 	}
 	var process processContents
-	switch n.attrDefault("processContents", "strict") {
+	switch n.attrDefault(xsdAttrProcessContents, "strict") {
 	case "skip":
 		process = processSkip
 	case "lax":
@@ -116,7 +116,10 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (wildcardID, 
 	default:
 		return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "invalid processContents")
 	}
-	id := wildcardID(len(c.rt.Wildcards))
+	id, err := nextWildcardID(len(c.rt.Wildcards))
+	if err != nil {
+		return noWildcard, err
+	}
 	c.rt.Wildcards = append(c.rt.Wildcards, wildcard{Mode: mode, Namespaces: namespaces, OtherThan: other, Process: process})
 	return id, nil
 }
@@ -126,14 +129,14 @@ func (c *compiler) unionWildcards(a, b wildcardID, process processContents) (wil
 	wb := c.rt.Wildcards[b]
 	if c.sameWildcardNamespaceConstraint(wa, wb) {
 		wa.Process = process
-		return c.addWildcard(wa), nil
+		return c.addWildcard(wa)
 	}
 	if wa.Mode == wildAny || wb.Mode == wildAny {
-		return c.addWildcard(wildcard{Mode: wildAny, Process: process}), nil
+		return c.addWildcard(wildcard{Mode: wildAny, Process: process})
 	}
 	emptyNS := c.emptyNamespaceID()
 	if wa.Mode == wildOther && wb.Mode == wildOther {
-		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: emptyNS, Process: process}), nil
+		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: emptyNS, Process: process})
 	}
 	if wa.Mode == wildOther {
 		return c.unionOtherWithFinite(wa, wb, process)
@@ -162,11 +165,12 @@ func (c *compiler) unionWildcards(a, b wildcardID, process processContents) (wil
 					namespaces = append(namespaces, ns)
 				}
 			}
+		default:
 		}
 	}
 	add(wa)
 	add(wb)
-	return c.addWildcard(wildcard{Mode: wildList, Namespaces: namespaces, Process: process}), nil
+	return c.addWildcard(wildcard{Mode: wildList, Namespaces: namespaces, Process: process})
 }
 
 func (c *compiler) unionOtherWithFinite(other, finite wildcard, process processContents) (wildcardID, error) {
@@ -176,19 +180,19 @@ func (c *compiler) unionOtherWithFinite(other, finite wildcard, process processC
 	hasNegated := slices.Contains(namespaces, other.OtherThan)
 	if other.OtherThan == emptyNS {
 		if hasAbsent {
-			return c.addWildcard(wildcard{Mode: wildAny, Process: process}), nil
+			return c.addWildcard(wildcard{Mode: wildAny, Process: process})
 		}
-		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: other.OtherThan, Process: process}), nil
+		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: other.OtherThan, Process: process})
 	}
 	switch {
 	case hasAbsent && hasNegated:
-		return c.addWildcard(wildcard{Mode: wildAny, Process: process}), nil
+		return c.addWildcard(wildcard{Mode: wildAny, Process: process})
 	case hasNegated:
-		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: emptyNS, Process: process}), nil
+		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: emptyNS, Process: process})
 	case hasAbsent:
 		return noWildcard, schemaCompile(ErrSchemaContentModel, "attribute wildcard union is not expressible")
 	default:
-		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: other.OtherThan, Process: process}), nil
+		return c.addWildcard(wildcard{Mode: wildOther, OtherThan: other.OtherThan, Process: process})
 	}
 }
 
@@ -197,25 +201,25 @@ func (c *compiler) intersectWildcards(a, b wildcardID, process processContents) 
 	wb := c.rt.Wildcards[b]
 	if c.sameWildcardNamespaceConstraint(wa, wb) {
 		wa.Process = process
-		return c.addWildcard(wa), nil
+		return c.addWildcard(wa)
 	}
 	if wa.Mode == wildAny {
 		wb.Process = process
-		return c.addWildcard(wb), nil
+		return c.addWildcard(wb)
 	}
 	if wb.Mode == wildAny {
 		wa.Process = process
-		return c.addWildcard(wa), nil
+		return c.addWildcard(wa)
 	}
 	emptyNS := c.emptyNamespaceID()
 	if wa.Mode == wildOther && wb.Mode == wildOther {
 		if wa.OtherThan == emptyNS {
 			wb.Process = process
-			return c.addWildcard(wb), nil
+			return c.addWildcard(wb)
 		}
 		if wb.OtherThan == emptyNS {
 			wa.Process = process
-			return c.addWildcard(wa), nil
+			return c.addWildcard(wa)
 		}
 		return noWildcard, schemaCompile(ErrSchemaContentModel, "attribute wildcard intersection is not expressible")
 	}
@@ -232,7 +236,7 @@ func (c *compiler) intersectWildcards(a, b wildcardID, process processContents) 
 			namespaces = append(namespaces, ns)
 		}
 	}
-	return c.addWildcard(wildcard{Mode: wildList, Namespaces: namespaces, Process: process}), nil
+	return c.addWildcard(wildcard{Mode: wildList, Namespaces: namespaces, Process: process})
 }
 
 func (c *compiler) sameWildcardNamespaceConstraint(a, b wildcard) bool {
@@ -391,8 +395,11 @@ func (c *compiler) emptyNamespaceID() namespaceID {
 	return id
 }
 
-func (c *compiler) addWildcard(w wildcard) wildcardID {
-	id := wildcardID(len(c.rt.Wildcards))
+func (c *compiler) addWildcard(w wildcard) (wildcardID, error) {
+	id, err := nextWildcardID(len(c.rt.Wildcards))
+	if err != nil {
+		return noWildcard, err
+	}
 	c.rt.Wildcards = append(c.rt.Wildcards, w)
-	return id
+	return id, nil
 }
