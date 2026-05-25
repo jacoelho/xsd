@@ -408,6 +408,25 @@ func TestWhitespaceOnlyIncludeSchemaLocationDoesNotCallResolver(t *testing.T) {
 	}
 }
 
+func TestResolverSchemaLocationUsesCollapsedWhitespace(t *testing.T) {
+	engine, err := Compile(Reader("main.xsd", strings.NewReader(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="  types.xsd  "/>
+  <xs:element name="root" type="Included"/>
+</xs:schema>`)).WithResolver(mapResolver{
+		"types.xsd": `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Included">
+    <xs:sequence><xs:element name="v" type="xs:int"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`,
+	}))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root><v>7</v></root>`)
+}
+
 func TestFileLikeReaderNamesUseCleanedSourceKeys(t *testing.T) {
 	engine, err := Compile(
 		sourceBytes("./main.xsd", []byte(`
@@ -584,7 +603,7 @@ func TestResolverAliasChameleonIncludePropagatesTargetNamespace(t *testing.T) {
 		           targetNamespace="urn:test"
 		           xmlns:t="urn:test"
 		           elementFormDefault="qualified">
-		  <xs:include schemaLocation="mem:types"/>
+		  <xs:include schemaLocation=" mem:types "/>
 		  <xs:element name="root" type="t:Included"/>
 		</xs:schema>`)).WithResolver(ResolverFunc(func(_, location string) (SchemaSource, error) {
 		if location != "mem:types" {

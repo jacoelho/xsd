@@ -16,12 +16,13 @@ func validUint32Index(id uint32, n int) bool {
 }
 
 const (
-	emptyNamespaceURI = ""
-	xsdNamespaceURI   = "http://www.w3.org/2001/XMLSchema"
-	xsiNamespaceURI   = "http://www.w3.org/2001/XMLSchema-instance"
-	xmlNamespaceURI   = "http://www.w3.org/XML/1998/namespace"
-	xlinkNamespaceURI = "http://www.w3.org/1999/xlink"
-	xmlnsNamespaceURI = "http://www.w3.org/2000/xmlns/"
+	emptyNamespaceID  namespaceID = 0
+	emptyNamespaceURI             = ""
+	xsdNamespaceURI               = "http://www.w3.org/2001/XMLSchema"
+	xsiNamespaceURI               = "http://www.w3.org/2001/XMLSchema-instance"
+	xmlNamespaceURI               = "http://www.w3.org/XML/1998/namespace"
+	xlinkNamespaceURI             = "http://www.w3.org/1999/xlink"
+	xmlnsNamespaceURI             = "http://www.w3.org/2000/xmlns/"
 )
 
 type nameTable struct {
@@ -147,6 +148,13 @@ func (n *nameTable) LookupLocal(local string) (localNameID, bool) {
 }
 
 func (n *nameTable) LookupQName(ns, local string) (qName, bool) {
+	if ns == "" {
+		localID, ok := n.LookupLocal(local)
+		if !ok {
+			return qName{}, false
+		}
+		return qName{Namespace: emptyNamespaceID, Local: localID}, true
+	}
 	nsID, ok := n.LookupNamespace(ns)
 	if !ok {
 		return qName{}, false

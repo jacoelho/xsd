@@ -193,6 +193,21 @@ func TestTypeFinalBlocksDerivation(t *testing.T) {
   <xs:simpleType name="Derived"><xs:restriction base="tns:Base"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
 </xs:schema>`)))
 	expectCode(t, err, ErrSchemaReference)
+
+	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Base" final="extension">
+    <xs:simpleContent>
+      <xs:extension base="xs:string"><xs:attribute name="a"/></xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent>
+      <xs:extension base="Base"><xs:attribute name="b"/></xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`)))
+	expectCode(t, err, ErrSchemaReference)
 }
 
 func TestAnonymousSimpleTypeCannotHaveName(t *testing.T) {

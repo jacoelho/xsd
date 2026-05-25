@@ -190,8 +190,8 @@ Attributes carry additional information on elements. Each attribute to be valida
 **Notes:**
 
 - This implementation follows the W3C XSD 1.0 test suite: `use="prohibited"`
-  rejects `default` but allows `fixed`. Treat any fixed value as ignored since
-  the attribute must not appear in instances.
+  rejects `default` but allows `fixed`. If the attribute appears, it must match
+  the fixed value. XSD 1.1 rejects this schema form.
 
 ### Attribute Groups
 
