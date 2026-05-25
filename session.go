@@ -260,9 +260,27 @@ func (s *session) validate(r io.Reader) error {
 		if err != nil {
 			return s.parseError(tok, err)
 		}
-		seenRoot, err = s.validateToken(tok, seenRoot)
-		if err != nil {
-			return err
+		switch tok.kind {
+		case streamTokenStart:
+			if err := s.start(tok.line, tok.col, tok.start, seenRoot); err != nil {
+				return s.stopOrError(err)
+			}
+			seenRoot = true
+		case streamTokenEnd:
+			if err := s.end(tok.line, tok.col, tok.end); err != nil {
+				return s.stopOrError(err)
+			}
+		case streamTokenCharData:
+			if err := s.chars(tok.line, tok.col, tok.data, tok.cdata); err != nil {
+				if recoverErr := s.recover(err); recoverErr != nil {
+					return s.stopOrError(recoverErr)
+				}
+			}
+		case streamTokenDirective:
+			if isDOCTYPEDeclaration(tok.directive) {
+				return &Error{Category: UnsupportedErrorCategory, Code: ErrUnsupportedDTD, Line: tok.line, Column: tok.col, Path: s.pathString(), Message: "DTD declarations are not supported"}
+			}
+		case streamTokenComment, streamTokenPI:
 		}
 	}
 	return s.finishValidation(seenRoot)
@@ -282,30 +300,6 @@ func (s *session) parseError(tok streamToken, err error) error {
 	return validation(ErrValidationXML, line, col, s.pathString(), err.Error())
 }
 
-func (s *session) validateToken(tok streamToken, seenRoot bool) (bool, error) {
-	switch tok.kind {
-	case streamTokenStart:
-		if err := s.start(tok.line, tok.col, tok.start, seenRoot); err != nil {
-			return seenRoot, s.stopOrError(err)
-		}
-		return true, nil
-	case streamTokenEnd:
-		if err := s.end(tok.line, tok.col, tok.end); err != nil {
-			return seenRoot, s.stopOrError(err)
-		}
-	case streamTokenCharData:
-		if err := s.chars(tok.line, tok.col, tok.data, tok.cdata); err != nil {
-			return seenRoot, s.stopOrError(s.recover(err))
-		}
-	case streamTokenDirective:
-		if isDOCTYPEDeclaration(tok.directive) {
-			return seenRoot, &Error{Category: UnsupportedErrorCategory, Code: ErrUnsupportedDTD, Line: tok.line, Column: tok.col, Path: s.pathString(), Message: "DTD declarations are not supported"}
-		}
-	case streamTokenComment, streamTokenPI:
-	}
-	return seenRoot, nil
-}
-
 func (s *session) stopOrError(err error) error {
 	if errors.Is(err, errStopValidation) {
 		return s.result()
@@ -321,10 +315,7 @@ func (s *session) finishValidation(seenRoot bool) error {
 		return validation(ErrValidationXML, 0, 0, s.pathString(), "unclosed element")
 	}
 	if err := s.checkIDRefs(); err != nil {
-		if errors.Is(err, errStopValidation) {
-			return s.result()
-		}
-		return err
+		return s.stopOrError(err)
 	}
 	return s.result()
 }
