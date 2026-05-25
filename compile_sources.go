@@ -163,8 +163,8 @@ func schemaDocumentRefs(doc *rawDoc) []schemaDocumentRef {
 		}
 		switch child.Name.Local {
 		case xsdElemInclude, xsdElemImport:
-			location, ok := child.attr(xsdAttrSchemaLocation)
-			if !ok || trimXMLWhitespace(location) == "" {
+			location, ok := schemaLocationAttr(child)
+			if !ok {
 				continue
 			}
 			ref := schemaDocumentRef{location: location}
@@ -175,6 +175,15 @@ func schemaDocumentRefs(doc *rawDoc) []schemaDocumentRef {
 		}
 	}
 	return refs
+}
+
+func schemaLocationAttr(n *rawNode) (string, bool) {
+	location, ok := n.attr(xsdAttrSchemaLocation)
+	if !ok {
+		return "", false
+	}
+	location = collapseXMLWhitespace(location)
+	return location, location != ""
 }
 
 func (c *compiler) checkExplicitSchemaReferences() error {
@@ -202,8 +211,8 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 }
 
 func (c *compiler) checkExplicitInclude(doc *rawDoc, child *rawNode) error {
-	location, ok := child.attr(xsdAttrSchemaLocation)
-	if !ok || trimXMLWhitespace(location) == "" {
+	location, ok := schemaLocationAttr(child)
+	if !ok {
 		return schemaCompile(ErrSchemaReference, "include missing schemaLocation")
 	}
 	referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
@@ -230,8 +239,8 @@ func (c *compiler) checkExplicitImport(doc *rawDoc, child *rawNode) error {
 	if err != nil {
 		return err
 	}
-	location, ok := child.attr(xsdAttrSchemaLocation)
-	if !ok || trimXMLWhitespace(location) == "" {
+	location, ok := schemaLocationAttr(child)
+	if !ok {
 		return nil
 	}
 	referenced, _, ok := c.resolveLoadedSchemaLocation(doc, location)
@@ -275,8 +284,8 @@ func (c *compiler) propagateChameleonTargets() error {
 				if child.Name.Space != xsdNamespaceURI || child.Name.Local != xsdElemInclude {
 					continue
 				}
-				location, ok := child.attr(xsdAttrSchemaLocation)
-				if !ok || trimXMLWhitespace(location) == "" {
+				location, ok := schemaLocationAttr(child)
+				if !ok {
 					continue
 				}
 				referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
@@ -320,12 +329,12 @@ func (c *compiler) resolveLoadedSchemaLocation(doc *rawDoc, location string) (*r
 		}
 		return nil, "", false
 	}
-	if resolved, ok := c.resolvedRef[schemaReferenceKey{base: doc.key, location: location}]; ok {
+	loc := collapseXMLWhitespace(location)
+	if resolved, ok := c.resolvedRef[schemaReferenceKey{base: doc.key, location: loc}]; ok {
 		if referenced, key, ok := try(resolved); ok {
 			return referenced, key, true
 		}
 	}
-	loc := trimXMLWhitespace(location)
 	if loc == "" {
 		return nil, "", false
 	}

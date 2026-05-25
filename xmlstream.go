@@ -536,26 +536,38 @@ func (p *xmlStreamParser) readName(first byte) (xml.Name, error) {
 		return xml.Name{}, err
 	}
 	for {
-		b, err := p.br.readByte()
+		chunk, err := p.br.buffered()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return xml.Name{}, fmt.Errorf("unexpected EOF in XML name")
 			}
 			return xml.Name{}, err
 		}
-		if isNameTerminator(b) {
-			p.br.unreadByte()
-			break
+		n := nameChunkLen(chunk)
+		if n > 0 {
+			if err := p.appendTokenBytes(&p.nameBuf, chunk[:n]); err != nil {
+				return xml.Name{}, err
+			}
+			p.br.consumeBuffered(n)
 		}
-		if err := p.appendTokenByte(&p.nameBuf, b); err != nil {
-			return xml.Name{}, err
+		if n < len(chunk) {
+			break
 		}
 	}
 	if len(p.nameBuf) == 0 {
 		return xml.Name{}, fmt.Errorf("empty XML name")
 	}
-	if !utf8.Valid(p.nameBuf) {
-		return xml.Name{}, fmt.Errorf("invalid XML qualified name")
+	if prefix, local, ascii, ok := splitASCIIQNameBytes(p.nameBuf); ascii {
+		if !ok {
+			return xml.Name{}, fmt.Errorf("invalid XML qualified name")
+		}
+		if prefix == nil {
+			return xml.Name{Local: p.names.intern(local)}, nil
+		}
+		return xml.Name{
+			Space: p.names.intern(prefix),
+			Local: p.names.intern(local),
+		}, nil
 	}
 	colon := bytes.IndexByte(p.nameBuf, ':')
 	if colon < 0 {
@@ -574,6 +586,15 @@ func (p *xmlStreamParser) readName(first byte) (xml.Name, error) {
 		Space: p.names.intern(p.nameBuf[:colon]),
 		Local: p.names.intern(p.nameBuf[colon+1:]),
 	}, nil
+}
+
+func nameChunkLen(chunk []byte) int {
+	for i, b := range chunk {
+		if isNameTerminator(b) {
+			return i
+		}
+	}
+	return len(chunk)
 }
 
 func (p *xmlStreamParser) readAttributeValue(quote byte) (string, error) {

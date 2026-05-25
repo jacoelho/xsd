@@ -450,10 +450,12 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 	s.pushPath(rn.Local)
 	s.namePath = append(s.namePath, rn)
 	s.elementNames = append(s.elementNames, se.Name)
-	if err := s.startIdentityScope(elem, line, col); err != nil {
-		return err
+	if len(rt.Identities) != 0 {
+		if err := s.startIdentityScope(elem, line, col); err != nil {
+			return err
+		}
+		s.matchIdentitySelectors(line, col)
 	}
-	s.matchIdentitySelectors(line, col)
 	if !skip {
 		if err := s.validateAttributes(typ, se.Attr, line, col); err != nil {
 			return err
@@ -563,11 +565,11 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if f.Nilled {
 		return validation(ErrValidationNil, line, col, s.pathString(), "nilled element must be empty")
 	}
-	if !isXMLWhitespaceBytes(data) {
-		f.HasText = true
-	}
 	if f.Type.Kind == typeSimple || (f.Type.Kind == typeComplex && s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue) {
 		return s.appendText(data, line, col)
+	}
+	if !isXMLWhitespaceBytes(data) {
+		f.HasText = true
 	}
 	if f.Type.Kind == typeComplex {
 		ct := s.engine.rt.ComplexTypes[f.Type.ID]

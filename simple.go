@@ -58,14 +58,6 @@ func primitiveIdentityKey(kind primitiveKind, canonical string, actual actualVal
 	return simpleIdentityKey(kind, canonical)
 }
 
-func validateSimpleValue(rt *runtimeSchema, id simpleTypeID, lexical string) (string, error) {
-	v, err := validateSimpleValueMode(rt, id, lexical, nil, simpleNeedCanonical)
-	if err != nil {
-		return "", err
-	}
-	return v.Canonical, nil
-}
-
 type simpleValueNeed uint8
 
 const (
@@ -109,24 +101,52 @@ func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string,
 	if id == noSimpleType {
 		return simpleValue{Canonical: lexical, Type: noSimpleType}, nil
 	}
-	st := rt.SimpleTypes[id]
+	st := &rt.SimpleTypes[id]
 	if st.Missing {
 		return simpleValue{}, fmt.Errorf("missing type")
 	}
 	if st.Variety == varietyList {
-		return validateListValue(rt, id, st, lexical, resolve, needs)
+		return validateListValue(rt, id, *st, lexical, resolve, needs)
 	}
 	norm := normalizeWhitespace(lexical, st.Whitespace)
 	if st.Variety == varietyUnion {
-		return validateUnionValue(rt, st, norm, resolve, needs)
+		return validateUnionValue(rt, *st, norm, resolve, needs)
 	}
 	return validateAtomicValue(rt, id, st, norm, resolve, needs)
 }
 
-func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm string, resolve qnameResolver, valueNeeds simpleValueNeed) (simpleValue, error) {
+func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st *simpleType, norm string, resolve qnameResolver, valueNeeds simpleValueNeed) (simpleValue, error) {
 	identity := st.Identity
 	if !rt.SimpleIdentitiesClassified {
 		identity = computeSimpleValueIdentity(rt, id)
+	}
+	if id == rt.Builtin.Int && valueNeeds == 0 && identity == simpleIdentityNone {
+		if err := validateBuiltinIntNoCanonical(norm); err != nil {
+			return simpleValue{}, err
+		}
+		return simpleValue{Type: id}, nil
+	}
+	if canValidateDecimalNoOutputFast(st, identity, valueNeeds) {
+		if err := validateDecimalNoOutput(st.Facets, norm); err != nil {
+			return simpleValue{}, err
+		}
+		return simpleValue{Type: id}, nil
+	}
+	if canValidateStringPatternsNoOutputFast(st, identity, valueNeeds) {
+		if err := applyPatterns(st.Facets, norm); err != nil {
+			return simpleValue{}, err
+		}
+		return simpleValue{Type: id}, nil
+	}
+	if canAcceptStringValueFast(st, identity) {
+		v := simpleValue{Type: id}
+		if valueNeeds.has(simpleNeedCanonical) {
+			v.Canonical = norm
+		}
+		if valueNeeds.has(simpleNeedIdentity) {
+			v.Identity = simpleIdentityKey(primString, norm)
+		}
+		return v, nil
 	}
 	var primitiveNeeds primitiveNeed
 	if valueNeeds.has(simpleNeedCanonical) ||
@@ -142,16 +162,11 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 		return simpleValue{}, err
 	}
 	canon := parsed.Canonical
-	if parsed.Actual.Valid && parsed.Actual.Kind == primDecimal && simpleTypeUsesIntegerLexical(rt, id, st) {
-		if !parsed.Actual.Decimal.IntegerLexical {
-			return simpleValue{}, fmt.Errorf("invalid integer")
-		}
-		if primitiveNeeds&primitiveNeedCanonical != 0 {
-			canon = parsed.Actual.Decimal.integerCanonical()
-		}
-	}
-	if err := validateBuiltinDerived(st.Builtin, norm, parsed.Actual); err != nil {
+	if err := validateAtomicBuiltin(st, norm, parsed.Actual); err != nil {
 		return simpleValue{}, err
+	}
+	if st.Builtin == builtinValidationInteger && primitiveNeeds&primitiveNeedCanonical != 0 {
+		canon = parsed.Actual.Decimal.integerCanonical()
 	}
 	if !st.Facets.empty() {
 		if err := applyAtomicFacets(st, norm, parsed.Actual); err != nil {
@@ -173,6 +188,70 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st simpleType, norm
 	case simpleIdentityNone, simpleIdentityIDREFList:
 	}
 	return v, nil
+}
+
+func canValidateDecimalNoOutputFast(st *simpleType, identity simpleIdentityKind, needs simpleValueNeed) bool {
+	return st.Primitive == primDecimal &&
+		st.Builtin == builtinValidationNone &&
+		identity == simpleIdentityNone &&
+		needs == 0 &&
+		len(st.Facets.Patterns) == 0 &&
+		len(st.Facets.Enumeration) == 0
+}
+
+func canValidateStringPatternsNoOutputFast(st *simpleType, identity simpleIdentityKind, needs simpleValueNeed) bool {
+	return st.Primitive == primString &&
+		st.Builtin == builtinValidationNone &&
+		identity == simpleIdentityNone &&
+		needs == 0 &&
+		st.Facets.onlyPatterns()
+}
+
+func validateRawSimpleContentFast(rt *runtimeSchema, id simpleTypeID, raw []byte) (bool, error) {
+	if id == noSimpleType || !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
+		return false, nil
+	}
+	st := &rt.SimpleTypes[id]
+	if st.Missing || st.Variety != varietyAtomic {
+		return false, nil
+	}
+	identity := st.Identity
+	if !rt.SimpleIdentitiesClassified {
+		identity = computeSimpleValueIdentity(rt, id)
+	}
+	if canAcceptStringValueFast(st, identity) {
+		return true, nil
+	}
+	if hasXMLWhitespaceBytes(raw) {
+		return false, nil
+	}
+	if id == rt.Builtin.Int && identity == simpleIdentityNone {
+		return true, validateBuiltinIntNoCanonicalBytes(raw)
+	}
+	if canValidateDecimalNoOutputFast(st, identity, 0) {
+		return validateDecimalNoOutputBytesFast(st.Facets, raw)
+	}
+	return false, nil
+}
+
+func canAcceptStringValueFast(st *simpleType, identity simpleIdentityKind) bool {
+	return st.Primitive == primString &&
+		st.Builtin == builtinValidationNone &&
+		identity == simpleIdentityNone &&
+		st.Facets.empty()
+}
+
+func validateAtomicBuiltin(st *simpleType, norm string, actual actualValue) error {
+	if st.Builtin != builtinValidationInteger {
+		return validateBuiltinDerived(st.Builtin, norm, actual)
+	}
+	if !actual.Valid || actual.Kind != primDecimal {
+		return validateBuiltinDerived(st.Builtin, norm, actual)
+	}
+	if !actual.Decimal.IntegerLexical {
+		return fmt.Errorf("invalid integer")
+	}
+	return nil
 }
 
 func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexical string, resolve qnameResolver, needs simpleValueNeed) (simpleValue, error) {
@@ -256,7 +335,7 @@ func validateUnionValue(rt *runtimeSchema, st simpleType, norm string, resolve q
 	return simpleValue{}, fmt.Errorf("value does not match any union member")
 }
 
-func validatePrimitiveActual(rt *runtimeSchema, st simpleType, norm string, resolve qnameResolver, needs primitiveNeed) (primitiveActual, error) {
+func validatePrimitiveActual(rt *runtimeSchema, st *simpleType, norm string, resolve qnameResolver, needs primitiveNeed) (primitiveActual, error) {
 	actual := actualValue{Kind: st.Primitive, Valid: true}
 	needCanonical := needs&primitiveNeedCanonical != 0
 	needLength := needs&primitiveNeedLength != 0
@@ -448,36 +527,6 @@ func hexBinaryLength(norm string) (uint32, error) {
 		}
 	}
 	return checkedUint32(len(norm)/2, "hexBinary length exceeds uint32 limit")
-}
-
-func simpleTypeUsesIntegerLexical(rt *runtimeSchema, id simpleTypeID, st simpleType) bool {
-	if isXSDIntegerDatatype(rt, st) {
-		return true
-	}
-	if st.Base == noSimpleType || st.Base == id || st.Base == rt.Builtin.AnySimpleType {
-		return false
-	}
-	if !validUint32Index(uint32(st.Base), len(rt.SimpleTypes)) {
-		return false
-	}
-	return simpleTypeUsesIntegerLexical(rt, st.Base, rt.SimpleTypes[st.Base])
-}
-
-func isXSDIntegerDatatype(rt *runtimeSchema, st simpleType) bool {
-	if rt.Names.Namespace(st.Name.Namespace) != xsdNamespaceURI {
-		return false
-	}
-	return isXSDIntegerDatatypeName(rt.Names.Local(st.Name.Local))
-}
-
-func isXSDIntegerDatatypeName(local string) bool {
-	switch local {
-	case "integer", "nonPositiveInteger", "negativeInteger", "nonNegativeInteger", "positiveInteger",
-		"long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
-		return true
-	default:
-		return false
-	}
 }
 
 func parseFloatPrimitiveActual(norm string, bitSize int, needCanonical bool) (primitiveActual, error) {

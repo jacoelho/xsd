@@ -80,7 +80,7 @@ func primitiveHasOrderFacet(kind primitiveKind) bool {
 }
 
 func (c *compiler) compileFacets(parent *rawNode, st *simpleType, base, literalType simpleTypeID) error {
-	baseFacets := c.rt.SimpleTypes[base].Facets
+	baseType := c.rt.SimpleTypes[base]
 	state := compiledFacetState{
 		inheritedEnumeration: slices.Clone(st.Facets.Enumeration),
 	}
@@ -88,7 +88,7 @@ func (c *compiler) compileFacets(parent *rawNode, st *simpleType, base, literalT
 		return err
 	}
 	state.apply(st)
-	return validateCompiledFacets(*st, baseFacets, state.orderedStep)
+	return validateCompiledFacets(*st, baseType, state.orderedStep)
 }
 
 type compiledFacetState struct {
@@ -117,48 +117,48 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, l
 		}
 		switch child.Name.Local {
 		case xsdFacetLength, xsdFacetMinLength, xsdFacetMaxLength, xsdFacetTotalDigits, xsdFacetFractionDigits:
-			value, err := checkedFacetValue(*st, child)
+			facet, err := checkedFacet(*st, child)
 			if err != nil {
 				return err
 			}
-			if err := compileSizeFacet(st, child.Name.Local, value); err != nil {
+			if err := compileSizeFacet(st, child.Name.Local, facet.value, facet.fixed); err != nil {
 				return err
 			}
 		case xsdFacetMinInclusive, xsdFacetMaxInclusive, xsdFacetMinExclusive, xsdFacetMaxExclusive:
-			value, err := checkedFacetValue(*st, child)
+			facet, err := checkedFacet(*st, child)
 			if err != nil {
 				return err
 			}
-			if err := c.compileBoundFacet(st, base, child, value, &state.orderedStep); err != nil {
+			if err := c.compileBoundFacet(st, base, child, facet.value, facet.fixed, &state.orderedStep); err != nil {
 				return err
 			}
 		case xsdFacetEnumeration:
-			value, err := checkedFacetValue(*st, child)
+			facet, err := checkedFacet(*st, child)
 			if err != nil {
 				return err
 			}
-			lit, err := c.compileLiteral(literalType, value, c.schemaQNameResolver(child))
+			lit, err := c.compileLiteral(literalType, facet.value, c.schemaQNameResolver(child))
 			if err != nil {
 				return err
 			}
 			state.restrictedEnumeration = append(state.restrictedEnumeration, lit)
 			state.sawEnumeration = true
 		case xsdFacetPattern:
-			value, err := checkedFacetValue(*st, child)
+			facet, err := checkedFacet(*st, child)
 			if err != nil {
 				return err
 			}
-			p, err := c.compilePattern(value)
+			p, err := c.compilePattern(facet.value)
 			if err != nil {
 				return err
 			}
 			state.stepPatterns = append(state.stepPatterns, p)
 		case xsdFacetWhiteSpace:
-			value, err := checkedFacetValue(*st, child)
+			facet, err := checkedFacet(*st, child)
 			if err != nil {
 				return err
 			}
-			if err := c.compileWhitespaceFacet(st, base, value); err != nil {
+			if err := c.compileWhitespaceFacet(st, base, facet.value, facet.fixed); err != nil {
 				return err
 			}
 		default:
@@ -170,15 +170,24 @@ func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, l
 	return nil
 }
 
-func checkedFacetValue(st simpleType, n *rawNode) (string, error) {
+type facetInput struct {
+	value string
+	fixed bool
+}
+
+func checkedFacet(st simpleType, n *rawNode) (facetInput, error) {
 	value, err := requiredFacetValue(n)
 	if err != nil {
-		return "", err
+		return facetInput{}, err
 	}
 	if !facetAllowedForType(st, n.Name.Local) {
-		return "", schemaCompile(ErrSchemaFacet, "facet "+n.Name.Local+" is not allowed")
+		return facetInput{}, schemaCompile(ErrSchemaFacet, "facet "+n.Name.Local+" is not allowed")
 	}
-	return value, nil
+	fixed, err := schemaBoolAttrDefault(n, xsdAttrFixed, false)
+	if err != nil {
+		return facetInput{}, err
+	}
+	return facetInput{value: value, fixed: fixed}, nil
 }
 
 func requiredFacetValue(n *rawNode) (string, error) {
@@ -189,7 +198,7 @@ func requiredFacetValue(n *rawNode) (string, error) {
 	return value, nil
 }
 
-func compileSizeFacet(st *simpleType, name, value string) error {
+func compileSizeFacet(st *simpleType, name, value string, fixed bool) error {
 	n, err := parseSizeFacetInteger(value)
 	if err != nil {
 		return schemaCompile(ErrSchemaFacet, "invalid "+name+" facet "+value)
@@ -204,14 +213,29 @@ func compileSizeFacet(st *simpleType, name, value string) error {
 	switch name {
 	case xsdFacetLength:
 		st.Facets.Length = &v
+		if fixed {
+			st.Facets.Fixed.Length = true
+		}
 	case xsdFacetMinLength:
 		st.Facets.MinLength = &v
+		if fixed {
+			st.Facets.Fixed.MinLength = true
+		}
 	case xsdFacetMaxLength:
 		st.Facets.MaxLength = &v
+		if fixed {
+			st.Facets.Fixed.MaxLength = true
+		}
 	case xsdFacetTotalDigits:
 		st.Facets.TotalDigits = &v
+		if fixed {
+			st.Facets.Fixed.TotalDigits = true
+		}
 	case xsdFacetFractionDigits:
 		st.Facets.FractionDigits = &v
+		if fixed {
+			st.Facets.Fixed.FractionDigits = true
+		}
 	}
 	return nil
 }
@@ -252,7 +276,7 @@ func parseSizeFacetInteger(value string) (uint64, error) {
 	return n, nil
 }
 
-func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *rawNode, value string, step *orderedFacetStep) error {
+func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *rawNode, value string, fixed bool, step *orderedFacetStep) error {
 	lit, err := c.compileLiteral(base, value, c.schemaQNameResolver(child))
 	if err != nil {
 		return err
@@ -260,21 +284,33 @@ func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *r
 	switch child.Name.Local {
 	case xsdFacetMinInclusive:
 		st.Facets.MinInclusive = &lit
+		if fixed {
+			st.Facets.Fixed.MinInclusive = true
+		}
 		step.minInclusive = true
 	case xsdFacetMaxInclusive:
 		st.Facets.MaxInclusive = &lit
+		if fixed {
+			st.Facets.Fixed.MaxInclusive = true
+		}
 		step.maxInclusive = true
 	case xsdFacetMinExclusive:
 		st.Facets.MinExclusive = &lit
+		if fixed {
+			st.Facets.Fixed.MinExclusive = true
+		}
 		step.minExclusive = true
 	case xsdFacetMaxExclusive:
 		st.Facets.MaxExclusive = &lit
+		if fixed {
+			st.Facets.Fixed.MaxExclusive = true
+		}
 		step.maxExclusive = true
 	}
 	return nil
 }
 
-func (c *compiler) compileWhitespaceFacet(st *simpleType, base simpleTypeID, value string) error {
+func (c *compiler) compileWhitespaceFacet(st *simpleType, base simpleTypeID, value string, fixed bool) error {
 	mode, ok := parseWhitespaceChecked(value)
 	if !ok {
 		return schemaCompile(ErrSchemaFacet, "invalid whiteSpace facet "+value)
@@ -283,10 +319,14 @@ func (c *compiler) compileWhitespaceFacet(st *simpleType, base simpleTypeID, val
 		return schemaCompile(ErrSchemaFacet, "whiteSpace cannot loosen base whiteSpace")
 	}
 	st.Whitespace = mode
+	if fixed {
+		st.Facets.Fixed.WhiteSpace = true
+	}
 	return nil
 }
 
-func validateCompiledFacets(st simpleType, baseFacets facetSet, orderedStep orderedFacetStep) error {
+func validateCompiledFacets(st simpleType, base simpleType, orderedStep orderedFacetStep) error {
+	baseFacets := base.Facets
 	if st.Facets.Length != nil && st.Facets.MinLength != nil {
 		if st.Variety == varietyList {
 			if *st.Facets.Length < *st.Facets.MinLength {
@@ -314,7 +354,59 @@ func validateCompiledFacets(st simpleType, baseFacets facetSet, orderedStep orde
 	if err := validateOrderedFacetStep(orderedStep); err != nil {
 		return schemaCompile(ErrSchemaFacet, err.Error())
 	}
+	if err := validateFixedFacetRestrictions(st, base); err != nil {
+		return schemaCompile(ErrSchemaFacet, err.Error())
+	}
 	return validatePrimitiveFacetRestrictions(st, baseFacets, orderedStep)
+}
+
+func validateFixedFacetRestrictions(st, base simpleType) error {
+	fixed := base.Facets.Fixed
+	if fixed.Length && !uint32FacetEqual(st.Facets.Length, base.Facets.Length) {
+		return fmt.Errorf("fixed length facet cannot change")
+	}
+	if fixed.MinLength && !uint32FacetEqual(st.Facets.MinLength, base.Facets.MinLength) {
+		return fmt.Errorf("fixed minLength facet cannot change")
+	}
+	if fixed.MaxLength && !uint32FacetEqual(st.Facets.MaxLength, base.Facets.MaxLength) {
+		return fmt.Errorf("fixed maxLength facet cannot change")
+	}
+	if fixed.TotalDigits && !uint32FacetEqual(st.Facets.TotalDigits, base.Facets.TotalDigits) {
+		return fmt.Errorf("fixed totalDigits facet cannot change")
+	}
+	if fixed.FractionDigits && !uint32FacetEqual(st.Facets.FractionDigits, base.Facets.FractionDigits) {
+		return fmt.Errorf("fixed fractionDigits facet cannot change")
+	}
+	if fixed.MinInclusive && !literalFacetEqual(st.Facets.MinInclusive, base.Facets.MinInclusive) {
+		return fmt.Errorf("fixed minInclusive facet cannot change")
+	}
+	if fixed.MaxInclusive && !literalFacetEqual(st.Facets.MaxInclusive, base.Facets.MaxInclusive) {
+		return fmt.Errorf("fixed maxInclusive facet cannot change")
+	}
+	if fixed.MinExclusive && !literalFacetEqual(st.Facets.MinExclusive, base.Facets.MinExclusive) {
+		return fmt.Errorf("fixed minExclusive facet cannot change")
+	}
+	if fixed.MaxExclusive && !literalFacetEqual(st.Facets.MaxExclusive, base.Facets.MaxExclusive) {
+		return fmt.Errorf("fixed maxExclusive facet cannot change")
+	}
+	if fixed.WhiteSpace && st.Whitespace != base.Whitespace {
+		return fmt.Errorf("fixed whiteSpace facet cannot change")
+	}
+	return nil
+}
+
+func uint32FacetEqual(a, b *uint32) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func literalFacetEqual(a, b *compiledLiteral) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return actualEqualsLiteral(a.Actual, a.Canonical, *b)
 }
 
 func validatePrimitiveFacetRestrictions(st simpleType, baseFacets facetSet, orderedStep orderedFacetStep) error {
@@ -490,7 +582,7 @@ func literalActualValue(rt *runtimeSchema, id simpleTypeID, lexical, canonical s
 	if id == noSimpleType || !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
 		return actualValue{}
 	}
-	st := rt.SimpleTypes[id]
+	st := &rt.SimpleTypes[id]
 	if st.Variety != varietyAtomic {
 		return actualValue{}
 	}

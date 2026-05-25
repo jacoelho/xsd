@@ -52,9 +52,11 @@ func validateBuiltinDerived(kind builtinValidationKind, norm string, actual actu
 	return nil
 }
 
-func applyAtomicFacets(st simpleType, norm string, actual actualValue) error {
-	if err := applyAtomicLengthFacets(st, norm, actual); err != nil {
-		return err
+func applyAtomicFacets(st *simpleType, norm string, actual actualValue) error {
+	if st.Facets.needsLength() {
+		if err := applyAtomicLengthFacets(st, norm, actual); err != nil {
+			return err
+		}
 	}
 	if st.Primitive == primDecimal {
 		dec := actual.Decimal
@@ -70,7 +72,7 @@ func applyAtomicFacets(st simpleType, norm string, actual actualValue) error {
 	return applyPrimitiveBounds(st.Primitive, st.Facets, norm, actual)
 }
 
-func applyAtomicLengthFacets(st simpleType, norm string, actual actualValue) error {
+func applyAtomicLengthFacets(st *simpleType, norm string, actual actualValue) error {
 	if st.Primitive == primQName || st.Primitive == primNotation {
 		return nil
 	}
@@ -93,6 +95,14 @@ func applyDecimalFacets(f facetSet, dec decimalValue) error {
 		return fmt.Errorf("fractionDigits facet failed")
 	}
 	return applyDecimalBounds(f, dec)
+}
+
+func validateDecimalNoOutput(f facetSet, norm string) error {
+	dec, err := parseDecimalMode(norm, decimalValueOnly)
+	if err != nil {
+		return err
+	}
+	return applyDecimalFacets(f, dec)
 }
 
 func applyPrimitiveBounds(kind primitiveKind, f facetSet, norm string, actual actualValue) error {
@@ -138,11 +148,11 @@ func applyLengthFacets(f facetSet, length uint32) error {
 	return nil
 }
 
-func applyPatternAndEnumeration(f facetSet, norm, canon string, actual actualValue) error {
+func applyPatterns(f facetSet, norm string) error {
 	for _, group := range f.Patterns {
 		ok := false
 		for _, p := range group.Patterns {
-			if p.RE.MatchString(norm) {
+			if p.matches(norm) {
 				ok = true
 				break
 			}
@@ -150,6 +160,13 @@ func applyPatternAndEnumeration(f facetSet, norm, canon string, actual actualVal
 		if !ok {
 			return fmt.Errorf("pattern facet failed")
 		}
+	}
+	return nil
+}
+
+func applyPatternAndEnumeration(f facetSet, norm, canon string, actual actualValue) error {
+	if err := applyPatterns(f, norm); err != nil {
+		return err
 	}
 	if len(f.Enumeration) != 0 {
 		for _, lit := range f.Enumeration {

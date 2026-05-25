@@ -61,7 +61,7 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []xml.Attr, l
 	case compiledModelAll:
 		match, ok, err = s.acceptAllChild(parent, model, rn, attrs)
 	case compiledModelDFA:
-		match, ok, err = s.acceptDFAChild(parent, model, rn, attrs)
+		match, ok = s.acceptDFAChild(parent, model, rn, attrs)
 	default:
 		ok = false
 	}
@@ -123,24 +123,19 @@ func (s *session) acceptAllChild(f *frame, model compiledModel, rn runtimeName, 
 	return noMatch(), false, nil
 }
 
-func (s *session) acceptDFAChild(f *frame, model compiledModel, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
-	row, err := s.dfaRow(model, f.State)
-	if err != nil {
-		return noMatch(), false, err
-	}
+func (s *session) acceptDFAChild(f *frame, model compiledModel, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+	row := model.Rows[f.State]
 	for _, edge := range row.Edges {
 		match, matched := s.matchDirectParticle(edge.Particle, rn, attrs)
 		if !matched {
 			continue
 		}
-		if ok, err := s.advanceDFA(f, model, edge); err != nil {
-			return noMatch(), false, err
-		} else if !ok {
+		if !s.advanceDFA(f, model, edge) {
 			continue
 		}
-		return match, true, nil
+		return match, true
 	}
-	return noMatch(), false, nil
+	return noMatch(), false
 }
 
 func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
@@ -248,6 +243,9 @@ func (s *session) validateFrameEnd(f *frame, line, col int) error {
 	if err != nil {
 		return s.recover(err)
 	}
+	if len(s.engine.rt.Identities) == 0 {
+		return nil
+	}
 	return s.captureEndIdentity(f, contentCaptured, line, col)
 }
 
@@ -265,6 +263,9 @@ func (s *session) captureEndIdentity(f *frame, contentCaptured bool, line, col i
 }
 
 func (s *session) finishFrameIdentity(line, col int) error {
+	if len(s.engine.rt.Identities) == 0 {
+		return nil
+	}
 	if err := s.finishIdentitySelections(len(s.namePath), line, col); err != nil {
 		return err
 	}
@@ -314,39 +315,29 @@ func (s *session) completeAllModel(f *frame, model compiledModel, line, col int)
 }
 
 func (s *session) completeDFAModel(f *frame, model compiledModel, line, col int) error {
-	row, err := s.dfaRow(model, f.State)
-	if err != nil {
-		return err
+	if !validUint32Index(f.State, len(model.Rows)) {
+		return s.counterInvariantError("content model DFA state out of range", int(f.State), len(model.Rows))
 	}
+	row := model.Rows[f.State]
 	if row.Accept && (!row.Counted || f.Count >= row.Min) {
 		return nil
 	}
 	return validation(ErrValidationContent, line, col, s.pathString(), "missing required child element")
 }
 
-func (s *session) dfaRow(model compiledModel, state uint32) (compiledModelRow, error) {
-	if !validUint32Index(state, len(model.Rows)) {
-		return compiledModelRow{}, s.counterInvariantError("content model DFA state out of range", int(state), len(model.Rows))
-	}
-	return model.Rows[state], nil
-}
-
-func (s *session) advanceDFA(f *frame, model compiledModel, edge compiledModelEdge) (bool, error) {
+func (s *session) advanceDFA(f *frame, model compiledModel, edge compiledModelEdge) bool {
 	to := edge.To
-	if !validUint32Index(to, len(model.Rows)) {
-		return false, s.counterInvariantError("content model DFA state out of range", int(to), len(model.Rows))
-	}
 	from := model.Rows[f.State]
 	next := model.Rows[to]
 	count := uint32(0)
 	if from.Counted && to == f.State && sameCompiledParticle(edge.Particle, from.CountParticle) {
 		if !from.Unbounded && f.Count >= from.Max {
-			return false, nil
+			return false
 		}
 		count = f.Count + 1
 	} else {
 		if from.Counted && f.Count < from.Min {
-			return false, nil
+			return false
 		}
 		if next.Counted && sameCompiledParticle(edge.Particle, next.CountParticle) {
 			count = 1
@@ -354,7 +345,7 @@ func (s *session) advanceDFA(f *frame, model compiledModel, edge compiledModelEd
 	}
 	f.State = to
 	f.Count = count
-	return true, nil
+	return true
 }
 
 func (s *session) allSeen(f *frame, i int) (bool, error) {

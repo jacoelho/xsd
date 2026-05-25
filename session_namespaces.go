@@ -131,6 +131,9 @@ func (s *session) translateStartElement(se xml.StartElement, line, col int) (xml
 }
 
 func validateUniqueAttributeNames(attrs []xml.Attr) error {
+	if len(attrs) < 2 {
+		return nil
+	}
 	var seen xmlNameSet
 	for _, attr := range attrs {
 		if err := addUniqueXMLName(&seen, attr.Name); err != nil {
@@ -308,6 +311,9 @@ func (ns *namespaceStack) resolveName(name xml.Name, kind xmlNameKind) (xml.Name
 		return xml.Name{Space: uri, Local: name.Local}, true
 	}
 	if kind == xmlElementName {
+		if len(ns.bindings) == 0 {
+			return name, true
+		}
 		uri, _ := ns.lookup("")
 		return xml.Name{Space: uri, Local: name.Local}, true
 	}

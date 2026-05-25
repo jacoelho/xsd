@@ -41,8 +41,22 @@ func (b *byteStream) readByte() (byte, error) {
 		b.advance(b.last)
 		return b.last, nil
 	}
-	if err := b.fill(); err != nil {
-		return 0, err
+	if b.off == b.end {
+		if b.err != nil {
+			err := b.err
+			b.err = nil
+			return 0, err
+		}
+		n, err := b.r.Read(b.buf[:])
+		if n <= 0 {
+			if err != nil {
+				return 0, err
+			}
+			return 0, io.ErrNoProgress
+		}
+		b.off = 0
+		b.end = n
+		b.err = err
 	}
 	c := b.buf[b.off]
 	b.off++
@@ -122,8 +136,10 @@ func (b *byteStream) pos() (int, int) {
 }
 
 type byteStringCache struct {
+	recent  [8]string
 	buckets map[uint64][]int
 	entries []byteStringEntry
+	next    uint8
 }
 
 type byteStringEntry struct {
@@ -138,6 +154,9 @@ func (c *byteStringCache) intern(b []byte) string {
 	if len(b) == 0 {
 		return ""
 	}
+	if s, ok := c.recentString(b); ok {
+		return s
+	}
 	if c.buckets == nil {
 		*c = newByteStringCache()
 	}
@@ -147,7 +166,9 @@ func (c *byteStringCache) intern(b []byte) string {
 	h := hashBytes(b)
 	for _, idx := range c.buckets[h] {
 		if stringBytesEqual(c.entries[idx].text, b) {
-			return c.entries[idx].text
+			s := c.entries[idx].text
+			c.remember(s)
+			return s
 		}
 	}
 	s := string(b)
@@ -157,7 +178,22 @@ func (c *byteStringCache) intern(b []byte) string {
 	idx := len(c.entries)
 	c.entries = append(c.entries, byteStringEntry{text: s})
 	c.buckets[h] = append(c.buckets[h], idx)
+	c.remember(s)
 	return s
+}
+
+func (c *byteStringCache) recentString(b []byte) (string, bool) {
+	for _, s := range c.recent {
+		if stringBytesEqual(s, b) {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+func (c *byteStringCache) remember(s string) {
+	c.recent[c.next%uint8(len(c.recent))] = s
+	c.next++
 }
 
 func hashBytes(b []byte) uint64 {

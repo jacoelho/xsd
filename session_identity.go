@@ -17,9 +17,8 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if f.Nilled {
 		return false, nil
 	}
-	rawBytes := s.text[f.TextStart:]
-	rawText := s.valueStrings.intern(rawBytes)
-	text := rawText
+	var rawText string
+	var text string
 	var typeID simpleTypeID
 	if f.Type.Kind == typeSimple {
 		typeID = simpleTypeID(f.Type.ID)
@@ -27,6 +26,9 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		ct := rt.ComplexTypes[f.Type.ID]
 		if !ct.SimpleValue {
 			if f.Element != noElement && rt.Elements[f.Element].HasFixed {
+				rawBytes := s.text[f.TextStart:]
+				rawText = s.valueStrings.intern(rawBytes)
+				text = rawText
 				if f.HasChild {
 					return false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 				}
@@ -38,6 +40,21 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 			return false, nil
 		}
 		typeID = ct.TextType
+	}
+	rawBytes := s.text[f.TextStart:]
+	if len(rt.Identities) == 0 &&
+		(f.Element == noElement || (!rt.Elements[f.Element].HasFixed && !rt.Elements[f.Element].HasDefault)) {
+		ok, err := validateRawSimpleContentFast(rt, typeID, rawBytes)
+		if ok {
+			if err != nil {
+				return false, validation(ErrValidationFacet, line, col, s.pathString(), "invalid simple content: "+err.Error())
+			}
+			return true, nil
+		}
+	}
+	if rawText == "" && text == "" {
+		rawText = s.valueStrings.intern(rawBytes)
+		text = rawText
 	}
 	if f.Element != noElement && rawText == "" {
 		decl := rt.Elements[f.Element]
@@ -53,7 +70,10 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 			text = decl.Default
 		}
 	}
-	identityFields := s.identityElementFields()
+	var identityFields []identityFieldMatch
+	if len(rt.Identities) != 0 {
+		identityFields = s.identityElementFields()
+	}
 	needIdentity := len(identityFields) != 0
 	needCanon := s.needsSimpleContentCanonical(f, typeID, needIdentity)
 	var needs simpleValueNeed
@@ -79,19 +99,22 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 			return false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 		}
 	}
-	if err := s.captureIdentityFields(identityFields, value, line, col); err != nil {
-		return false, err
+	if len(identityFields) != 0 {
+		if err := s.captureIdentityFields(identityFields, value, line, col); err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }
 
 func (s *session) recordElementSimpleContent(value simpleValue, line, col int) (bool, error) {
-	identityFields := s.identityElementFields()
 	if err := s.recordIdentityValue(value, line, col); err != nil {
 		return false, err
 	}
-	if err := s.captureIdentityFields(identityFields, value, line, col); err != nil {
-		return false, err
+	if len(s.engine.rt.Identities) != 0 {
+		if err := s.captureIdentityFields(s.identityElementFields(), value, line, col); err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }
@@ -225,6 +248,9 @@ func (s *session) startIdentityScope(elem elementID, line, col int) error {
 }
 
 func (s *session) matchIdentitySelectors(line, col int) {
+	if len(s.idScopes) == 0 {
+		return
+	}
 	rt := s.engine.rt
 	depth := len(s.namePath)
 	for scopeIndex := range s.idScopes {
@@ -435,6 +461,9 @@ func (s *session) identityFieldPathMatches(selectedDepth, currentDepth int, p id
 }
 
 func (s *session) finishIdentitySelections(depth, line, col int) error {
+	if len(s.idSelections) == 0 {
+		return nil
+	}
 	orig := s.idSelections
 	dst := s.idSelections[:0]
 	for i := range s.idSelections {

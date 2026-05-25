@@ -25,6 +25,255 @@ func parseDecimalValue(s string) (decimalValue, error) {
 	return parseDecimalMode(s, decimalValueOnly)
 }
 
+func validateBuiltinIntNoCanonical(s string) error {
+	if s == "" {
+		return fmt.Errorf("invalid decimal")
+	}
+	start := 0
+	negative := false
+	if s[0] == '+' || s[0] == '-' {
+		negative = s[0] == '-'
+		start = 1
+	}
+	if start == len(s) {
+		return fmt.Errorf("invalid decimal")
+	}
+	digits := 0
+	dot := false
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= '0' && c <= '9':
+			digits++
+		case c == '.':
+			if dot {
+				return fmt.Errorf("invalid decimal")
+			}
+			dot = true
+		default:
+			return fmt.Errorf("invalid decimal")
+		}
+	}
+	if digits == 0 {
+		return fmt.Errorf("invalid decimal")
+	}
+	if dot {
+		return fmt.Errorf("invalid integer")
+	}
+
+	digitStart := start
+	for digitStart < len(s) && s[digitStart] == '0' {
+		digitStart++
+	}
+	if digitStart == len(s) {
+		return nil
+	}
+	limit := "2147483647"
+	if negative {
+		limit = "2147483648"
+	}
+	digitsText := s[digitStart:]
+	if len(digitsText) > len(limit) || len(digitsText) == len(limit) && digitsText > limit {
+		if negative {
+			return fmt.Errorf("minInclusive facet failed")
+		}
+		return fmt.Errorf("maxInclusive facet failed")
+	}
+	return nil
+}
+
+func validateBuiltinIntNoCanonicalBytes(s []byte) error {
+	if len(s) == 0 {
+		return fmt.Errorf("invalid decimal")
+	}
+	start := 0
+	negative := false
+	if s[0] == '+' || s[0] == '-' {
+		negative = s[0] == '-'
+		start = 1
+	}
+	if start == len(s) {
+		return fmt.Errorf("invalid decimal")
+	}
+	digits := 0
+	dot := false
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= '0' && c <= '9':
+			digits++
+		case c == '.':
+			if dot {
+				return fmt.Errorf("invalid decimal")
+			}
+			dot = true
+		default:
+			return fmt.Errorf("invalid decimal")
+		}
+	}
+	if digits == 0 {
+		return fmt.Errorf("invalid decimal")
+	}
+	if dot {
+		return fmt.Errorf("invalid integer")
+	}
+
+	digitStart := start
+	for digitStart < len(s) && s[digitStart] == '0' {
+		digitStart++
+	}
+	if digitStart == len(s) {
+		return nil
+	}
+	limit := "2147483647"
+	if negative {
+		limit = "2147483648"
+	}
+	digitsText := s[digitStart:]
+	if len(digitsText) > len(limit) || len(digitsText) == len(limit) && stringBytesGreaterThan(digitsText, limit) {
+		if negative {
+			return fmt.Errorf("minInclusive facet failed")
+		}
+		return fmt.Errorf("maxInclusive facet failed")
+	}
+	return nil
+}
+
+func stringBytesGreaterThan(s []byte, limit string) bool {
+	for i := range s {
+		if s[i] != limit[i] {
+			return s[i] > limit[i]
+		}
+	}
+	return false
+}
+
+func validateDecimalNoOutputBytesFast(f facetSet, s []byte) (bool, error) {
+	if f.TotalDigits != nil ||
+		f.FractionDigits != nil ||
+		f.MinExclusive != nil ||
+		f.MaxExclusive != nil ||
+		len(f.Enumeration) != 0 ||
+		len(f.Patterns) != 0 {
+		return false, nil
+	}
+	minBound, hasMin, ok := decimalInclusiveNonNegativeIntegerBound(f.MinInclusive)
+	if !ok {
+		return false, nil
+	}
+	maxBound, hasMax, ok := decimalInclusiveNonNegativeIntegerBound(f.MaxInclusive)
+	if !ok {
+		return false, nil
+	}
+	return true, validateDecimalBytesNonNegativeIntegerBounds(s, minBound, hasMin, maxBound, hasMax)
+}
+
+func decimalInclusiveNonNegativeIntegerBound(l *compiledLiteral) (string, bool, bool) {
+	if l == nil {
+		return "", false, true
+	}
+	dec := literalDecimal(l)
+	if dec.isNegative() || dec.fracDigits() != 0 {
+		return "", false, false
+	}
+	if dec.intDigits() == 0 {
+		return "0", true, true
+	}
+	return dec.text[dec.intTrimStart:dec.intEnd], true, true
+}
+
+func validateDecimalBytesNonNegativeIntegerBounds(s []byte, minBound string, hasMin bool, maxBound string, hasMax bool) error {
+	if len(s) == 0 {
+		return fmt.Errorf("invalid decimal")
+	}
+	start := 0
+	negative := false
+	if s[0] == '+' || s[0] == '-' {
+		negative = s[0] == '-'
+		start = 1
+	}
+	if start == len(s) {
+		return fmt.Errorf("invalid decimal")
+	}
+	dot := -1
+	digits := 0
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '.':
+			if dot >= 0 {
+				return fmt.Errorf("invalid decimal")
+			}
+			dot = i
+		case c >= '0' && c <= '9':
+			digits++
+		default:
+			return fmt.Errorf("invalid decimal")
+		}
+	}
+	if digits == 0 {
+		return fmt.Errorf("invalid decimal")
+	}
+
+	intEnd := len(s)
+	fracStart := len(s)
+	if dot >= 0 {
+		intEnd = dot
+		fracStart = dot + 1
+	}
+	intTrimStart := start
+	for intTrimStart < intEnd && s[intTrimStart] == '0' {
+		intTrimStart++
+	}
+	fracTrimEnd := len(s)
+	for fracTrimEnd > fracStart && s[fracTrimEnd-1] == '0' {
+		fracTrimEnd--
+	}
+	nonZero := intTrimStart < intEnd || fracTrimEnd > fracStart
+	if negative && nonZero {
+		if hasMin {
+			return fmt.Errorf("minInclusive facet failed")
+		}
+		return nil
+	}
+	if hasMin && comparePositiveDecimalBytesToInteger(s, intTrimStart, intEnd, fracStart, fracTrimEnd, minBound) < 0 {
+		return fmt.Errorf("minInclusive facet failed")
+	}
+	if hasMax && comparePositiveDecimalBytesToInteger(s, intTrimStart, intEnd, fracStart, fracTrimEnd, maxBound) > 0 {
+		return fmt.Errorf("maxInclusive facet failed")
+	}
+	return nil
+}
+
+func comparePositiveDecimalBytesToInteger(s []byte, intTrimStart, intEnd, fracStart, fracTrimEnd int, bound string) int {
+	intDigits := intEnd - intTrimStart
+	if intDigits == 0 {
+		intDigits = 1
+	}
+	if intDigits < len(bound) {
+		return -1
+	}
+	if intDigits > len(bound) {
+		return 1
+	}
+	for i := range intDigits {
+		digit := byte('0')
+		if intEnd > intTrimStart {
+			digit = s[intTrimStart+i]
+		}
+		if digit < bound[i] {
+			return -1
+		}
+		if digit > bound[i] {
+			return 1
+		}
+	}
+	if fracTrimEnd > fracStart {
+		return 1
+	}
+	return 0
+}
+
 type decimalParseMode uint8
 
 const (

@@ -2,7 +2,6 @@ package xsd
 
 import (
 	"strings"
-	"unicode"
 )
 
 func isXMLName(s string) bool {
@@ -86,18 +85,23 @@ func isLanguage(s string) bool {
 		if part == "" || len(part) > 8 {
 			return false
 		}
-		for _, r := range part {
+		for j := 0; j < len(part); j++ {
+			c := part[j]
 			if i == 0 {
-				if !unicode.IsLetter(r) {
+				if !isASCIILetter(c) {
 					return false
 				}
 				continue
 			}
-			if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			if !isASCIILetter(c) && !isASCIIDigit(c) {
 				return false
 			}
 		}
 		i++
 	}
 	return true
+}
+
+func isASCIILetter(c byte) bool {
+	return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
 }

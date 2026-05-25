@@ -247,8 +247,8 @@ const (
 )
 
 type simpleType struct {
-	Facets     facetSet
 	Union      []simpleTypeID
+	Facets     facetSet
 	Name       qName
 	Base       simpleTypeID
 	ListItem   simpleTypeID
@@ -273,6 +273,20 @@ type facetSet struct {
 	MaxExclusive   *compiledLiteral
 	Enumeration    []compiledLiteral
 	Patterns       []patternGroup
+	Fixed          facetFixedSet
+}
+
+type facetFixedSet struct {
+	Length         bool
+	MinLength      bool
+	MaxLength      bool
+	TotalDigits    bool
+	FractionDigits bool
+	MinInclusive   bool
+	MaxInclusive   bool
+	MinExclusive   bool
+	MaxExclusive   bool
+	WhiteSpace     bool
 }
 
 func (f facetSet) empty() bool {
@@ -287,6 +301,20 @@ func (f facetSet) empty() bool {
 		f.MaxExclusive == nil &&
 		len(f.Enumeration) == 0 &&
 		len(f.Patterns) == 0
+}
+
+func (f facetSet) onlyPatterns() bool {
+	return f.Length == nil &&
+		f.MinLength == nil &&
+		f.MaxLength == nil &&
+		f.TotalDigits == nil &&
+		f.FractionDigits == nil &&
+		f.MinInclusive == nil &&
+		f.MaxInclusive == nil &&
+		f.MinExclusive == nil &&
+		f.MaxExclusive == nil &&
+		len(f.Enumeration) == 0 &&
+		len(f.Patterns) != 0
 }
 
 func (f facetSet) needsLexical() bool {
@@ -313,6 +341,7 @@ type patternGroup struct {
 
 type pattern struct {
 	RE        *regexp.Regexp
+	Fast      *simplePattern
 	XSDSource string
 	GoSource  string
 }
