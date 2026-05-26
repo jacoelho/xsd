@@ -250,6 +250,7 @@ func (s *session) validate(r io.Reader) error {
 	}
 	s.reader = reader
 	s.parser.resetWithLimit(reader, &s.nameStrings, &s.valueStrings, s.maxInstanceTokenBytes)
+	s.parser.lazyAttrValue = true
 	s.parser.maxAttrs = s.maxInstanceAttributes
 	seenRoot := false
 	for {
@@ -399,7 +400,7 @@ func isRecoverableValidation(err error) bool {
 	return ok && x.Category == ValidationErrorCategory && x.Code != ErrValidationXML && x.Code != ErrValidationLimit
 }
 
-func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error {
+func (s *session) start(line, col int, se streamStartElement, seenRoot bool) error {
 	if s.maxInstanceDepth > 0 && len(s.stack)+1 > s.maxInstanceDepth {
 		return validation(ErrValidationLimit, line, col, s.pathString(), "instance depth limit exceeded")
 	}
@@ -407,7 +408,7 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 		return validation(ErrValidationLimit, line, col, s.pathString(), "instance attribute limit exceeded")
 	}
 	rt := s.engine.rt
-	if err := s.ns.push(se.Attr); err != nil {
+	if err := s.pushNamespaces(se.Attr); err != nil {
 		return validation(ErrValidationXML, line, col, s.pathString(), err.Error())
 	}
 	var err error
@@ -447,7 +448,11 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 		}
 	}
 	s.pushFrame(elem, typ, nilled, skip)
-	s.pushPath(rn.Local)
+	pathName := rn.Local
+	if !skip {
+		pathName = rn.label()
+	}
+	s.pushPath(pathName)
 	s.namePath = append(s.namePath, rn)
 	s.elementNames = append(s.elementNames, se.Name)
 	if len(rt.Identities) != 0 {
@@ -464,7 +469,7 @@ func (s *session) start(line, col int, se xml.StartElement, seenRoot bool) error
 	return nil
 }
 
-func (s *session) startType(rt *runtimeSchema, rn runtimeName, se xml.StartElement, line, col int, seenRoot bool) (elementID, typeID, bool, error) {
+func (s *session) startType(rt *runtimeSchema, rn runtimeName, se streamStartElement, line, col int, seenRoot bool) (elementID, typeID, bool, error) {
 	if !seenRoot {
 		return s.rootStartType(rt, rn, se, line, col)
 	}
@@ -485,7 +490,7 @@ func (s *session) startType(rt *runtimeSchema, rn runtimeName, se xml.StartEleme
 	return accepted.element, accepted.typ, accepted.skip, nil
 }
 
-func (s *session) rootStartType(rt *runtimeSchema, rn runtimeName, se xml.StartElement, line, col int) (elementID, typeID, bool, error) {
+func (s *session) rootStartType(rt *runtimeSchema, rn runtimeName, se streamStartElement, line, col int) (elementID, typeID, bool, error) {
 	if rn.Known {
 		if id, ok := rt.GlobalElements[rn.Name]; ok {
 			return id, rt.Elements[id].Type, false, nil
