@@ -330,6 +330,7 @@ func TestParseDecimalCanonical(t *testing.T) {
 		{in: "-000", canonical: "0.0", integer: "0", integerLexical: true, totalDigits: 1, fractionDigits: 0},
 		{in: ".50", canonical: "0.5", integer: "0", integerLexical: false, totalDigits: 1, fractionDigits: 1},
 		{in: "-.50", canonical: "-0.5", integer: "0", integerLexical: false, totalDigits: 1, fractionDigits: 1},
+		{in: "-000123.4500", canonical: "-123.45", integer: "-123", integerLexical: false, totalDigits: 5, fractionDigits: 2},
 		{in: "5.", canonical: "5.0", integer: "5", integerLexical: false, totalDigits: 1, fractionDigits: 0},
 		{in: "1000.00", canonical: "1000.0", integer: "1000", integerLexical: false, totalDigits: 4, fractionDigits: 0},
 		{in: "0.0010", canonical: "0.001", integer: "0", integerLexical: false, totalDigits: 1, fractionDigits: 3},
@@ -731,6 +732,53 @@ func TestDurationBoundsAreValidated(t *testing.T) {
 	mustNotValidate(t, incomparable, `<root>P1M</root>`, ErrValidationFacet)
 }
 
+func TestDurationPartialOrderMatchesXSDExamples(t *testing.T) {
+	tests := []struct {
+		a    string
+		b    string
+		want partialCompareResult
+	}{
+		{a: "P1Y", b: "P364D", want: partialCompareGreater},
+		{a: "P1Y", b: "P365D", want: partialCompareIncomparable},
+		{a: "P1Y", b: "P366D", want: partialCompareIncomparable},
+		{a: "P1Y", b: "P367D", want: partialCompareLess},
+		{a: "P1M", b: "P27D", want: partialCompareGreater},
+		{a: "P1M", b: "P28D", want: partialCompareIncomparable},
+		{a: "P1M", b: "P30D", want: partialCompareIncomparable},
+		{a: "P1M", b: "P32D", want: partialCompareLess},
+	}
+	for _, tt := range tests {
+		t.Run(tt.a+"_"+tt.b, func(t *testing.T) {
+			a, err := parseXSDDurationValue(tt.a)
+			if err != nil {
+				t.Fatalf("parseXSDDurationValue(%q) error = %v", tt.a, err)
+			}
+			b, err := parseXSDDurationValue(tt.b)
+			if err != nil {
+				t.Fatalf("parseXSDDurationValue(%q) error = %v", tt.b, err)
+			}
+			if got := compareXSDDuration(a, b); got != tt.want {
+				t.Fatalf("compareXSDDuration(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAddDurationToPointHandlesNegativeFractionalSecond(t *testing.T) {
+	d, err := parseXSDDurationValue("-PT0.5S")
+	if err != nil {
+		t.Fatalf("parseXSDDurationValue() error = %v", err)
+	}
+	got, ok := addXSDDurationToPoint(xsdDateTimePoint{year: xsdYear{digits: "1903"}, month: 3, day: 1}, d)
+	if !ok {
+		t.Fatal("addXSDDurationToPoint() failed")
+	}
+	want := xsdDateTimePoint{year: xsdYear{digits: "1903"}, month: 2, day: 28, second: 86399, frac: "5"}
+	if got != want {
+		t.Fatalf("addXSDDurationToPoint() = %+v, want %+v", got, want)
+	}
+}
+
 func TestInvalidDurationBoundsAreSchemaErrors(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -770,6 +818,20 @@ func TestDurationBoundsCompareFractionalSecondsExactly(t *testing.T) {
 </xs:schema>`)
 	mustValidate(t, engine, `<root>PT0.10000000000000000001S</root>`)
 	mustNotValidate(t, engine, `<root>PT0.10000000000000000002S</root>`, ErrValidationFacet)
+
+	negative := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:restriction base="xs:duration">
+        <xs:minInclusive value="-PT0.5S"/>
+        <xs:maxInclusive value="PT0S"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, negative, `<root>-PT0.4S</root>`)
+	mustNotValidate(t, negative, `<root>-PT0.6S</root>`, ErrValidationFacet)
 }
 
 func TestDurationComparisonUsesBoundedDateArithmetic(t *testing.T) {
@@ -1146,6 +1208,77 @@ func TestTimeRestrictionCannotLoosenBaseUpperBound(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
+}
+
+func TestTimeRestrictionAcceptsStricterBaseBounds(t *testing.T) {
+	tests := []string{
+		`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:time">
+      <xs:minInclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Good">
+    <xs:restriction base="Base">
+      <xs:minInclusive value="13:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+		`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:time">
+      <xs:maxInclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Good">
+    <xs:restriction base="Base">
+      <xs:maxInclusive value="11:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+	}
+	for _, schema := range tests {
+		if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+			t.Fatalf("Compile() error = %v", err)
+		}
+	}
+}
+
+func TestTimeRestrictionCannotLoosenBaseLowerBound(t *testing.T) {
+	tests := []string{
+		`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:time">
+      <xs:minInclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Bad">
+    <xs:restriction base="Base">
+      <xs:minInclusive value="11:59:59Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+		`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:time">
+      <xs:minExclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Bad">
+    <xs:restriction base="Base">
+      <xs:minInclusive value="12:00:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+	}
+	for _, schema := range tests {
+		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
+		expectCode(t, err, ErrSchemaFacet)
+	}
 }
 
 func TestComplexContentCannotContainSimpleFacets(t *testing.T) {

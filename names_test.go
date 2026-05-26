@@ -39,6 +39,21 @@ func TestSplitASCIIQNameBytes(t *testing.T) {
 	}
 }
 
+func TestXMLNameBytesAcceptUnicodeNames(t *testing.T) {
+	if !isXMLNameBytes([]byte("é:name")) {
+		t.Fatal("isXMLNameBytes rejected unicode XML name")
+	}
+	if !isNCNameBytes([]byte("é_name")) {
+		t.Fatal("isNCNameBytes rejected unicode NCName")
+	}
+	if isNCNameBytes([]byte("é:name")) {
+		t.Fatal("isNCNameBytes accepted colon")
+	}
+	if !isNMTOKENBytes([]byte("é.name")) {
+		t.Fatal("isNMTOKENBytes rejected unicode token")
+	}
+}
+
 func TestNameTableLimitStopsGrowthAfterFirstFailure(t *testing.T) {
 	names, err := newNameTable(0)
 	if err != nil {
