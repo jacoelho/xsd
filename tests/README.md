@@ -4,13 +4,13 @@ Standalone XSD 1.0 validation corpus plus a Go test runner. This directory conta
 
 ## Contents
 
-- Cases: 14531
+- Cases: 14534
 - W3C cases: 14414
 - Xerces-J cases: 13
-- Project cases: 104
-- Schema checks: 14481
-- Instance checks: 25177
-- Manifest file references: 39712
+- Project cases: 107
+- Schema checks: 14484
+- Instance checks: 25185
+- Manifest file references: 39726
 
 ## Files
 
@@ -63,4 +63,4 @@ The file MUST stay sorted and unique. New unsupported skips fail until added del
 
 ## Export Evidence
 
-- Manifest closure check: 39712 referenced files, all present under `corpus/`.
+- Manifest closure check: 39726 referenced files, all present under `corpus/`.
