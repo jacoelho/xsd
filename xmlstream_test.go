@@ -78,6 +78,24 @@ func TestXMLStreamParserSkipsCommentsByDefault(t *testing.T) {
 	}
 }
 
+func TestXMLStreamParserSkipsUnicodeCommentsByDefault(t *testing.T) {
+	names := newByteStringCache()
+	values := newByteStringCache()
+	p := new(xmlStreamParser)
+	p.reset(strings.NewReader(`<root><!--é--><v>1</v></root>`), &names, &values)
+
+	if _, err := p.next(); err != nil {
+		t.Fatalf("next root start error = %v", err)
+	}
+	tok, err := p.next()
+	if err != nil {
+		t.Fatalf("next child start error = %v", err)
+	}
+	if tok.kind != streamTokenStart || tok.start.Name.Local != "v" {
+		t.Fatalf("second token = %+v, want v start", tok)
+	}
+}
+
 func TestXMLStreamParserEmitsCommentsWhenEnabled(t *testing.T) {
 	names := newByteStringCache()
 	values := newByteStringCache()
@@ -167,6 +185,21 @@ func TestXMLStreamParserRejectsInvalidSkippedComment(t *testing.T) {
 	_, err := p.next()
 	if err == nil || errors.Is(err, io.EOF) {
 		t.Fatalf("invalid comment error = %v", err)
+	}
+}
+
+func TestXMLStreamParserRejectsInvalidUTF8InSkippedComment(t *testing.T) {
+	names := newByteStringCache()
+	values := newByteStringCache()
+	p := new(xmlStreamParser)
+	p.reset(strings.NewReader("<root><!--\xff--></root>"), &names, &values)
+
+	if _, err := p.next(); err != nil {
+		t.Fatalf("next root start error = %v", err)
+	}
+	_, err := p.next()
+	if err == nil || errors.Is(err, io.EOF) {
+		t.Fatalf("invalid UTF-8 comment error = %v", err)
 	}
 }
 

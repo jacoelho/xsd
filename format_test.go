@@ -101,6 +101,17 @@ func TestFormatXMLEscapesAttributeWhitespace(t *testing.T) {
 	}
 }
 
+func TestFormatXMLEscapesAttributePredefinedEntities(t *testing.T) {
+	var out strings.Builder
+	err := FormatXML(&out, strings.NewReader(`<root a="&amp;&lt;&quot;"/>`))
+	if err != nil {
+		t.Fatalf("FormatXML() error = %v", err)
+	}
+	if out.String() != `<root a="&amp;&lt;&quot;"></root>` {
+		t.Fatalf("FormatXML() = %q", out.String())
+	}
+}
+
 func TestFormatXMLPreservesNamespaceDeclarations(t *testing.T) {
 	var out strings.Builder
 	err := FormatXML(&out, strings.NewReader(`<?xml version="1.0"?>
@@ -176,6 +187,33 @@ func TestFormatXMLPreservesProcessingInstructions(t *testing.T) {
 <?tail?>`
 	if out.String() != want {
 		t.Fatalf("FormatXML() =\n%s\nwant\n%s", out.String(), want)
+	}
+}
+
+func TestFormatXMLRejectsMalformedProcessingInstructions(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "xml declaration without content", input: `<?xml?><root/>`, want: "invalid XML declaration"},
+		{name: "xml target after start", input: `<root><?xml version="1.0"?></root>`, want: "xml processing instruction target is reserved"},
+		{name: "question before target end", input: `<?pi? data?><root/>`, want: "processing instruction target must be followed by whitespace or ?>"},
+		{name: "eof in target", input: `<?pi`, want: "unexpected EOF in processing instruction"},
+		{name: "eof in content", input: `<?pi data`, want: "unexpected EOF"},
+		{name: "invalid utf8 content", input: "<?pi \xff?><root/>", want: "invalid UTF-8"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out strings.Builder
+			err := FormatXML(&out, strings.NewReader(tt.input))
+			if err == nil {
+				t.Fatal("FormatXML() succeeded")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("FormatXML() error = %v, want %q", err, tt.want)
+			}
+		})
 	}
 }
 
@@ -263,6 +301,64 @@ func TestFormatXMLRejectsCDATAOutsideRoot(t *testing.T) {
 	}
 }
 
+func TestFormatXMLRejectsMalformedComments(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "double hyphen", input: `<root><!-- bad -- comment --></root>`, want: "invalid XML comment"},
+		{name: "eof after dash", input: `<root><!-- bad -`, want: "unexpected EOF in comment"},
+		{name: "eof after double dash", input: `<root><!-- bad --`, want: "unexpected EOF in comment"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out strings.Builder
+			err := FormatXML(&out, strings.NewReader(tt.input))
+			if err == nil {
+				t.Fatal("FormatXML() succeeded")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("FormatXML() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatXMLRejectsTextOutsideRoot(t *testing.T) {
+	var out strings.Builder
+	err := FormatXML(&out, strings.NewReader(`<root/>text`))
+	if err == nil {
+		t.Fatal("FormatXML() succeeded")
+	}
+	if !strings.Contains(err.Error(), "text outside root element") {
+		t.Fatalf("FormatXML() error = %v", err)
+	}
+}
+
+func TestFormatXMLRejectsEmptyAndUnclosedDocuments(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "empty", input: "", want: "XML document is empty"},
+		{name: "unclosed", input: "<root>", want: "unexpected EOF before end element </root>"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out strings.Builder
+			err := FormatXML(&out, strings.NewReader(tt.input))
+			if err == nil {
+				t.Fatal("FormatXML() succeeded")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("FormatXML() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
 	var out strings.Builder
 	err := FormatXMLWithOptions(&out, strings.NewReader(`<root><a/><b/></root>`), FormatOptions{MaxNodes: 2})
@@ -301,6 +397,24 @@ func TestFormatXMLWithOptionsAllowsInputBytesAtLimit(t *testing.T) {
 	}
 }
 
+func TestFormatXMLWithOptionsRejectsOutputBytesAfterPartialWrite(t *testing.T) {
+	var out strings.Builder
+	err := FormatXMLWithOptions(&out, strings.NewReader(`<root><item/></root>`), FormatOptions{MaxOutputBytes: 8})
+	if err == nil {
+		t.Fatal("FormatXMLWithOptions() succeeded")
+	}
+	var xerr *XMLFormatError
+	if !errors.As(err, &xerr) {
+		t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
+	}
+	if !errors.Is(err, errFormatOutputLimit) {
+		t.Fatalf("FormatXMLWithOptions() error = %v, want %v", err, errFormatOutputLimit)
+	}
+	if out.Len() > 8 {
+		t.Fatalf("output len = %d, want <= 8", out.Len())
+	}
+}
+
 func TestFormatXMLWithOptionsRejectsInputBytesAfterSniff(t *testing.T) {
 	var out strings.Builder
 	input := `<r/>`
@@ -318,14 +432,38 @@ func TestFormatXMLWithOptionsRejectsInputBytesAfterSniff(t *testing.T) {
 }
 
 func TestFormatXMLWithOptionsRejectsNegativeLimits(t *testing.T) {
-	var out strings.Builder
-	err := FormatXMLWithOptions(&out, strings.NewReader(`<root/>`), FormatOptions{MaxNodes: -1})
-	if err == nil {
-		t.Fatal("FormatXMLWithOptions() succeeded")
+	tests := []struct {
+		name string
+		opts FormatOptions
+	}{
+		{name: "depth", opts: FormatOptions{MaxDepth: -1}},
+		{name: "nodes", opts: FormatOptions{MaxNodes: -1}},
+		{name: "input", opts: FormatOptions{MaxInputBytes: -1}},
+		{name: "output", opts: FormatOptions{MaxOutputBytes: -1}},
+		{name: "token", opts: FormatOptions{MaxTokenBytes: -1}},
 	}
-	var xerr *XMLFormatError
-	if !errors.As(err, &xerr) {
-		t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out strings.Builder
+			err := FormatXMLWithOptions(&out, strings.NewReader(`<root/>`), tt.opts)
+			if err == nil {
+				t.Fatal("FormatXMLWithOptions() succeeded")
+			}
+			var xerr *XMLFormatError
+			if !errors.As(err, &xerr) {
+				t.Fatalf("FormatXMLWithOptions() error type = %T, want *XMLFormatError", err)
+			}
+		})
+	}
+}
+
+func TestFormatXMLWithOptionsRejectsNilEndpoints(t *testing.T) {
+	var out strings.Builder
+	if err := FormatXMLWithOptions(nil, strings.NewReader(`<root/>`), FormatOptions{}); err == nil {
+		t.Fatal("FormatXMLWithOptions() accepted nil writer")
+	}
+	if err := FormatXMLWithOptions(&out, nil, FormatOptions{}); err == nil {
+		t.Fatal("FormatXMLWithOptions() accepted nil reader")
 	}
 }
 
