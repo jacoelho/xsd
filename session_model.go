@@ -33,7 +33,7 @@ type acceptedChild struct {
 	skip    bool
 }
 
-func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []xml.Attr, line, col int) (acceptedChild, error) {
+func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []streamAttr, line, col int) (acceptedChild, error) {
 	rt := s.engine.rt
 	if parent.Skip {
 		return skippedAnyTypeChild(rt), nil
@@ -49,7 +49,7 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []xml.Attr, l
 		return acceptedChild{}, validation(ErrValidationContent, line, col, s.pathString(), "simple content cannot contain child elements")
 	}
 	if parent.Model == noContentModel {
-		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "unexpected child element "+rn.Local)
+		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "unexpected child element "+rn.label())
 	}
 	model := rt.CompiledModels[parent.Model]
 	var match matchResult
@@ -69,13 +69,13 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []xml.Attr, l
 		return acceptedChild{}, err
 	}
 	if !ok {
-		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "unexpected child element "+rn.Local)
+		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "unexpected child element "+rn.label())
 	}
 	if match.strictMissing {
 		if s.hasSchemaLocationHint(rn.NS) {
 			return acceptedChild{}, s.unsupportedSchemaLocation(line, col, xsdElemElement, rn)
 		}
-		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "wildcard requires declared element "+rn.Local)
+		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "wildcard requires declared element "+rn.label())
 	}
 	return match.child(rt), nil
 }
@@ -83,7 +83,7 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []xml.Attr, l
 func (s *session) acceptAny(rn runtimeName, w wildcard, line, col int) (acceptedChild, error) {
 	rt := s.engine.rt
 	if !wildcardMatches(rt, w, rn) {
-		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "element is not allowed by wildcard "+rn.Local)
+		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "element is not allowed by wildcard "+rn.label())
 	}
 	if rn.Known {
 		if id, ok := rt.GlobalElements[rn.Name]; ok && w.Process != processSkip {
@@ -97,12 +97,12 @@ func (s *session) acceptAny(rn runtimeName, w wildcard, line, col int) (accepted
 		if s.hasSchemaLocationHint(rn.NS) {
 			return acceptedChild{}, s.unsupportedSchemaLocation(line, col, xsdElemElement, rn)
 		}
-		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "wildcard requires declared element "+rn.Local)
+		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "wildcard requires declared element "+rn.label())
 	}
 	return acceptedChild{element: noElement, typ: anyType(rt)}, nil
 }
 
-func (s *session) acceptAllChild(f *frame, model compiledModel, rn runtimeName, attrs []xml.Attr) (matchResult, bool, error) {
+func (s *session) acceptAllChild(f *frame, model compiledModel, rn runtimeName, attrs []streamAttr) (matchResult, bool, error) {
 	for i, term := range model.All {
 		seen, err := s.allSeen(f, i)
 		if err != nil {
@@ -123,7 +123,7 @@ func (s *session) acceptAllChild(f *frame, model compiledModel, rn runtimeName, 
 	return noMatch(), false, nil
 }
 
-func (s *session) acceptDFAChild(f *frame, model compiledModel, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) acceptDFAChild(f *frame, model compiledModel, rn runtimeName, attrs []streamAttr) (matchResult, bool) {
 	row := model.Rows[f.State]
 	for _, edge := range row.Edges {
 		match, matched := s.matchDirectParticle(edge.Particle, rn, attrs)
@@ -138,7 +138,7 @@ func (s *session) acceptDFAChild(f *frame, model compiledModel, rn runtimeName, 
 	return noMatch(), false
 }
 
-func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []xml.Attr) (matchResult, bool) {
+func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []streamAttr) (matchResult, bool) {
 	rt := s.engine.rt
 	switch p.Kind {
 	case particleElement:
@@ -181,7 +181,7 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []xml.At
 	return noMatch(), false
 }
 
-func hasXSIType(attrs []xml.Attr) bool {
+func hasXSIType(attrs []streamAttr) bool {
 	for _, a := range attrs {
 		if a.Name.Space == xsiNamespaceURI && a.Name.Local == xsiAttrType {
 			return true

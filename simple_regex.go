@@ -33,6 +33,13 @@ func (p pattern) matches(s string) bool {
 	return p.RE.MatchString(s)
 }
 
+func (p pattern) matchesBytes(s []byte) bool {
+	if p.Fast != nil {
+		return p.Fast.matchBytes(s)
+	}
+	return p.RE.Match(s)
+}
+
 type simplePattern struct {
 	atoms []simplePatternAtom
 }
@@ -194,6 +201,26 @@ func (p *simplePattern) match(s string) bool {
 				return false
 			}
 			r, size := utf8.DecodeRuneInString(s[i:])
+			if r == utf8.RuneError && size == 0 {
+				return false
+			}
+			if !atom.class.matches(r) {
+				return false
+			}
+			i += size
+		}
+	}
+	return i == len(s)
+}
+
+func (p *simplePattern) matchBytes(s []byte) bool {
+	i := 0
+	for _, atom := range p.atoms {
+		for range atom.repeat {
+			if i >= len(s) {
+				return false
+			}
+			r, size := utf8.DecodeRune(s[i:])
 			if r == utf8.RuneError && size == 0 {
 				return false
 			}

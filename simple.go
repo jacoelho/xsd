@@ -138,6 +138,12 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st *simpleType, nor
 		}
 		return simpleValue{Type: id}, nil
 	}
+	if canValidateStringEnumerationNoOutputFast(st, identity, valueNeeds) {
+		if err := applyStringEnumeration(st.Facets, norm); err != nil {
+			return simpleValue{}, err
+		}
+		return simpleValue{Type: id}, nil
+	}
 	if canAcceptStringValueFast(st, identity) {
 		v := simpleValue{Type: id}
 		if valueNeeds.has(simpleNeedCanonical) {
@@ -207,12 +213,29 @@ func canValidateStringPatternsNoOutputFast(st *simpleType, identity simpleIdenti
 		st.Facets.onlyPatterns()
 }
 
+func canValidateStringEnumerationNoOutputFast(st *simpleType, identity simpleIdentityKind, needs simpleValueNeed) bool {
+	return st.Primitive == primString &&
+		st.Builtin == builtinValidationNone &&
+		identity == simpleIdentityNone &&
+		needs == 0 &&
+		st.Facets.onlyEnumeration()
+}
+
 func validateRawSimpleContentFast(rt *runtimeSchema, id simpleTypeID, raw []byte) (bool, error) {
 	if id == noSimpleType || !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
 		return false, nil
 	}
 	st := &rt.SimpleTypes[id]
-	if st.Missing || st.Variety != varietyAtomic {
+	if st.Missing {
+		return false, nil
+	}
+	if st.Variety == varietyList {
+		return validateRawListValueFast(rt, st, raw)
+	}
+	if st.Variety == varietyUnion {
+		return validateRawUnionValueFast(rt, st, raw)
+	}
+	if st.Variety != varietyAtomic {
 		return false, nil
 	}
 	identity := st.Identity
@@ -222,11 +245,27 @@ func validateRawSimpleContentFast(rt *runtimeSchema, id simpleTypeID, raw []byte
 	if canAcceptStringValueFast(st, identity) {
 		return true, nil
 	}
+	if canValidateStringPatternsNoOutputFast(st, identity, 0) {
+		if st.Whitespace == whitespacePreserve || !hasXMLWhitespaceBytes(raw) {
+			return true, applyPatternsBytes(st.Facets, raw)
+		}
+	}
+	if canValidateStringEnumerationNoOutputFast(st, identity, 0) {
+		if st.Whitespace == whitespacePreserve || !hasXMLWhitespaceBytes(raw) {
+			return true, applyStringEnumerationBytes(st.Facets, raw)
+		}
+	}
 	if hasXMLWhitespaceBytes(raw) {
 		return false, nil
 	}
 	if id == rt.Builtin.Int && identity == simpleIdentityNone {
 		return true, validateBuiltinIntNoCanonicalBytes(raw)
+	}
+	if canValidateBooleanNoOutputFast(st, identity) {
+		return true, validateBooleanNoCanonicalBytes(raw)
+	}
+	if canValidateDateNoOutputFast(st, identity) {
+		return validateDateNoOutputBytesFast(raw)
 	}
 	if canValidateDecimalNoOutputFast(st, identity, 0) {
 		return validateDecimalNoOutputBytesFast(st.Facets, raw)
@@ -234,8 +273,112 @@ func validateRawSimpleContentFast(rt *runtimeSchema, id simpleTypeID, raw []byte
 	return false, nil
 }
 
+func validateRawListValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (bool, error) {
+	if st.Identity != simpleIdentityNone || !st.Facets.empty() {
+		return false, nil
+	}
+	if computeSimpleValueIdentity(rt, st.ListItem) != simpleIdentityNone {
+		return false, nil
+	}
+	if !canValidateRawNMTOKENListItem(rt, st.ListItem) {
+		return false, nil
+	}
+	return true, validateNMTOKENListBytes(raw)
+}
+
+func canValidateRawNMTOKENListItem(rt *runtimeSchema, id simpleTypeID) bool {
+	if id == noSimpleType || !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
+		return false
+	}
+	st := &rt.SimpleTypes[id]
+	if st.Missing || st.Variety != varietyAtomic {
+		return false
+	}
+	identity := st.Identity
+	if !rt.SimpleIdentitiesClassified {
+		identity = computeSimpleValueIdentity(rt, id)
+	}
+	return st.Builtin == builtinValidationNMTOKEN &&
+		identity == simpleIdentityNone &&
+		st.Facets.empty()
+}
+
+func validateNMTOKENListBytes(raw []byte) error {
+	for len(raw) > 0 {
+		for len(raw) > 0 && isXMLWhitespaceByte(raw[0]) {
+			raw = raw[1:]
+		}
+		if len(raw) == 0 {
+			return nil
+		}
+		end := 0
+		for end < len(raw) && !isXMLWhitespaceByte(raw[end]) {
+			end++
+		}
+		if !isNMTOKENBytes(raw[:end]) {
+			return fmt.Errorf("invalid NMTOKEN")
+		}
+		raw = raw[end:]
+	}
+	return nil
+}
+
+func validateRawUnionValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (bool, error) {
+	if st.Identity != simpleIdentityNone || !st.Facets.empty() || hasXMLWhitespaceBytes(raw) {
+		return false, nil
+	}
+	for _, member := range st.Union {
+		if canValidateRawUnionBooleanMember(rt, member) {
+			if validBooleanNoCanonicalBytes(raw) {
+				return true, nil
+			}
+			continue
+		}
+		if computeSimpleValueIdentity(rt, member) != simpleIdentityNone {
+			return false, nil
+		}
+		ok, err := validateRawSimpleContentFast(rt, member, raw)
+		if !ok {
+			return false, nil
+		}
+		if err == nil {
+			return true, nil
+		}
+	}
+	return true, fmt.Errorf("value does not match any union member")
+}
+
+func canValidateRawUnionBooleanMember(rt *runtimeSchema, id simpleTypeID) bool {
+	if id == noSimpleType || !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
+		return false
+	}
+	st := &rt.SimpleTypes[id]
+	if st.Missing || st.Variety != varietyAtomic {
+		return false
+	}
+	identity := st.Identity
+	if !rt.SimpleIdentitiesClassified {
+		identity = computeSimpleValueIdentity(rt, id)
+	}
+	return canValidateBooleanNoOutputFast(st, identity)
+}
+
 func canAcceptStringValueFast(st *simpleType, identity simpleIdentityKind) bool {
 	return st.Primitive == primString &&
+		st.Builtin == builtinValidationNone &&
+		identity == simpleIdentityNone &&
+		st.Facets.empty()
+}
+
+func canValidateBooleanNoOutputFast(st *simpleType, identity simpleIdentityKind) bool {
+	return st.Primitive == primBoolean &&
+		st.Builtin == builtinValidationNone &&
+		identity == simpleIdentityNone &&
+		st.Facets.empty()
+}
+
+func canValidateDateNoOutputFast(st *simpleType, identity simpleIdentityKind) bool {
+	return st.Primitive == primDate &&
 		st.Builtin == builtinValidationNone &&
 		identity == simpleIdentityNone &&
 		st.Facets.empty()
@@ -391,7 +534,7 @@ func validatePrimitiveActual(rt *runtimeSchema, st *simpleType, norm string, res
 		actual.Duration = value
 		return primitiveActual{Canonical: norm, Actual: actual}, nil
 	case primDate, primDateTime, primTime, primGYearMonth, primGYear, primGMonthDay, primGDay, primGMonth:
-		return parseTemporalPrimitiveActual(st.Primitive, norm)
+		return parseTemporalPrimitiveActual(st.Primitive, norm, needCanonical)
 	case primHexBinary, primBase64Binary:
 		return parseBinaryPrimitiveActual(st.Primitive, norm, needs)
 	case primQName:
@@ -405,68 +548,116 @@ func validatePrimitiveActual(rt *runtimeSchema, st *simpleType, norm string, res
 	}
 }
 
-func parseTemporalPrimitiveActual(kind primitiveKind, norm string) (primitiveActual, error) {
-	actual := actualValue{Kind: kind, Valid: true}
+func parseTemporalPrimitiveActual(kind primitiveKind, norm string, needCanonical bool) (primitiveActual, error) {
 	switch kind {
 	case primDate:
-		value, err := parseXSDDateValue(norm)
-		if err != nil {
-			return primitiveActual{}, err
-		}
-		actual.Temporal = xsdTemporalValue{instant: value.point, hasTZ: value.hasTZ}
-		return primitiveActual{Canonical: formatXSDDate(value), Actual: actual}, nil
+		return parseDatePrimitiveActual(norm, needCanonical)
 	case primDateTime:
-		value, err := parseXSDDateTimeValue(norm)
-		if err != nil {
-			return primitiveActual{}, err
-		}
-		actual.Temporal = xsdTemporalValue(value)
-		return primitiveActual{Canonical: formatXSDDateTime(value.instant, value.hasTZ), Actual: actual}, nil
+		return parseDateTimePrimitiveActual(norm, needCanonical)
 	case primTime:
-		value, err := parseXSDTimeValue(norm)
-		if err != nil {
-			return primitiveActual{}, err
-		}
-		actual.Time = value
-		return primitiveActual{Canonical: formatXSDTime(value), Actual: actual}, nil
-	case primGYearMonth:
-		value, err := parseXSDGYearMonthValue(norm)
-		if err != nil {
-			return primitiveActual{}, err
-		}
-		actual.G = value
-		return primitiveActual{Canonical: formatXSDGYearMonth(value), Actual: actual}, nil
-	case primGYear:
-		value, err := parseXSDGYearValue(norm)
-		if err != nil {
-			return primitiveActual{}, err
-		}
-		actual.G = value
-		return primitiveActual{Canonical: formatXSDGYear(value), Actual: actual}, nil
-	case primGMonthDay:
-		value, err := parseXSDGMonthDayValue(norm)
-		if err != nil {
-			return primitiveActual{}, err
-		}
-		actual.G = value
-		return primitiveActual{Canonical: formatXSDGMonthDay(value), Actual: actual}, nil
-	case primGDay:
-		value, err := parseXSDGDayValue(norm)
-		if err != nil {
-			return primitiveActual{}, err
-		}
-		actual.G = value
-		return primitiveActual{Canonical: formatXSDGDay(value), Actual: actual}, nil
-	case primGMonth:
-		value, err := parseXSDGMonthValue(norm)
-		if err != nil {
-			return primitiveActual{}, err
-		}
-		actual.G = value
-		return primitiveActual{Canonical: formatXSDGMonth(value), Actual: actual}, nil
+		return parseTimePrimitiveActual(norm, needCanonical)
+	case primGYearMonth, primGYear, primGMonthDay, primGDay, primGMonth:
+		return parseGPrimitiveActual(kind, norm, needCanonical)
 	default:
 		return primitiveActual{}, fmt.Errorf("invalid temporal primitive")
 	}
+}
+
+func parseDatePrimitiveActual(norm string, needCanonical bool) (primitiveActual, error) {
+	value, err := parseXSDDateValue(norm)
+	if err != nil {
+		return primitiveActual{}, err
+	}
+	actual := actualValue{Kind: primDate, Valid: true, Temporal: xsdTemporalValue{instant: value.point, hasTZ: value.hasTZ}}
+	canon := ""
+	if needCanonical {
+		canon = formatXSDDate(value)
+	}
+	return primitiveActual{Canonical: canon, Actual: actual}, nil
+}
+
+func parseDateTimePrimitiveActual(norm string, needCanonical bool) (primitiveActual, error) {
+	value, err := parseXSDDateTimeValue(norm)
+	if err != nil {
+		return primitiveActual{}, err
+	}
+	actual := actualValue{Kind: primDateTime, Valid: true, Temporal: xsdTemporalValue(value)}
+	canon := ""
+	if needCanonical {
+		canon = formatXSDDateTime(value.instant, value.hasTZ)
+	}
+	return primitiveActual{Canonical: canon, Actual: actual}, nil
+}
+
+func parseTimePrimitiveActual(norm string, needCanonical bool) (primitiveActual, error) {
+	value, err := parseXSDTimeValue(norm)
+	if err != nil {
+		return primitiveActual{}, err
+	}
+	actual := actualValue{Kind: primTime, Valid: true, Time: value}
+	canon := ""
+	if needCanonical {
+		canon = formatXSDTime(value)
+	}
+	return primitiveActual{Canonical: canon, Actual: actual}, nil
+}
+
+func parseGPrimitiveActual(kind primitiveKind, norm string, needCanonical bool) (primitiveActual, error) {
+	var value xsdGValue
+	canon := ""
+	switch kind {
+	case primGYearMonth:
+		v, err := parseXSDGYearMonthValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		value = v
+		if needCanonical {
+			canon = formatXSDGYearMonth(value)
+		}
+	case primGYear:
+		v, err := parseXSDGYearValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		value = v
+		if needCanonical {
+			canon = formatXSDGYear(value)
+		}
+	case primGMonthDay:
+		v, err := parseXSDGMonthDayValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		value = v
+		if needCanonical {
+			canon = formatXSDGMonthDay(value)
+		}
+	case primGDay:
+		v, err := parseXSDGDayValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		value = v
+		if needCanonical {
+			canon = formatXSDGDay(value)
+		}
+	case primGMonth:
+		v, err := parseXSDGMonthValue(norm)
+		if err != nil {
+			return primitiveActual{}, err
+		}
+		value = v
+		if needCanonical {
+			canon = formatXSDGMonth(value)
+		}
+	default:
+		return primitiveActual{}, fmt.Errorf("invalid temporal primitive")
+	}
+	return primitiveActual{
+		Canonical: canon,
+		Actual:    actualValue{Kind: kind, Valid: true, G: value},
+	}, nil
 }
 
 func parseBinaryPrimitiveActual(kind primitiveKind, norm string, needs primitiveNeed) (primitiveActual, error) {
@@ -561,6 +752,31 @@ func parseBooleanLexical(v string) (bool, bool) {
 	default:
 		return false, false
 	}
+}
+
+func validateBooleanNoCanonicalBytes(v []byte) error {
+	if validBooleanNoCanonicalBytes(v) {
+		return nil
+	}
+	return fmt.Errorf("invalid boolean")
+}
+
+func validBooleanNoCanonicalBytes(v []byte) bool {
+	switch len(v) {
+	case 1:
+		if v[0] == '0' || v[0] == '1' {
+			return true
+		}
+	case 4:
+		if v[0] == 't' && v[1] == 'r' && v[2] == 'u' && v[3] == 'e' {
+			return true
+		}
+	case 5:
+		if v[0] == 'f' && v[1] == 'a' && v[2] == 'l' && v[3] == 's' && v[4] == 'e' {
+			return true
+		}
+	}
+	return false
 }
 
 func parseBooleanPrimitive(norm string) (string, bool, error) {

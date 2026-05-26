@@ -190,3 +190,10 @@ type runtimeName struct {
 	Name  qName
 	Known bool
 }
+
+func (n runtimeName) label() string {
+	if n.Known || n.NS == "" {
+		return n.Local
+	}
+	return formatExpandedName(n.NS, n.Local)
+}

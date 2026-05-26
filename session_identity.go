@@ -1,7 +1,6 @@
 package xsd
 
 import (
-	"encoding/xml"
 	"maps"
 	"strings"
 )
@@ -361,21 +360,22 @@ func (s *session) captureIdentityFields(fields []identityFieldMatch, value simpl
 	return nil
 }
 
-func (s *session) captureIdentityXSIAttribute(a xml.Attr, line, col int) error {
+func (s *session) captureIdentityXSIAttribute(a *streamAttr, line, col int) error {
 	name, ok := s.engine.rt.Names.LookupQName(a.Name.Space, a.Name.Local)
 	if !ok {
 		return nil
 	}
-	value := simpleValue{Canonical: normalizeWhitespace(a.Value, whitespaceCollapse), Type: s.engine.rt.Builtin.String}
+	lexical := a.stringValue(&s.valueStrings)
+	value := simpleValue{Canonical: normalizeWhitespace(lexical, whitespaceCollapse), Type: s.engine.rt.Builtin.String}
 	switch a.Name.Local {
 	case xsiAttrNil:
-		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.Boolean, a.Value, nil, simpleNeedCanonical)
+		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.Boolean, lexical, nil, simpleNeedCanonical)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:nil: "+err.Error())
 		}
 		value = v
 	case xsiAttrType:
-		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.qName, a.Value, s.resolveLexicalQNameValue, simpleNeedCanonical)
+		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.qName, lexical, s.resolveLexicalQNameValue, simpleNeedCanonical)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:type: "+err.Error())
 		}

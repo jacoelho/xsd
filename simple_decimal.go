@@ -157,32 +157,40 @@ func validateDecimalNoOutputBytesFast(f facetSet, s []byte) (bool, error) {
 		len(f.Patterns) != 0 {
 		return false, nil
 	}
-	minBound, hasMin, ok := decimalInclusiveNonNegativeIntegerBound(f.MinInclusive)
+	minBound, hasMin, ok := decimalInclusiveNonNegativeBound(f.MinInclusive)
 	if !ok {
 		return false, nil
 	}
-	maxBound, hasMax, ok := decimalInclusiveNonNegativeIntegerBound(f.MaxInclusive)
+	maxBound, hasMax, ok := decimalInclusiveNonNegativeBound(f.MaxInclusive)
 	if !ok {
 		return false, nil
 	}
-	return true, validateDecimalBytesNonNegativeIntegerBounds(s, minBound, hasMin, maxBound, hasMax)
+	return true, validateDecimalBytesNonNegativeBounds(s, minBound, hasMin, maxBound, hasMax)
 }
 
-func decimalInclusiveNonNegativeIntegerBound(l *compiledLiteral) (string, bool, bool) {
+type decimalBytesBound struct {
+	int  string
+	frac string
+}
+
+func decimalInclusiveNonNegativeBound(l *compiledLiteral) (decimalBytesBound, bool, bool) {
 	if l == nil {
-		return "", false, true
+		return decimalBytesBound{}, false, true
 	}
 	dec := literalDecimal(l)
-	if dec.isNegative() || dec.fracDigits() != 0 {
-		return "", false, false
+	if dec.isNegative() {
+		return decimalBytesBound{}, false, false
 	}
+	bound := decimalBytesBound{frac: dec.text[dec.fracStart:dec.fracTrimEnd]}
 	if dec.intDigits() == 0 {
-		return "0", true, true
+		bound.int = "0"
+		return bound, true, true
 	}
-	return dec.text[dec.intTrimStart:dec.intEnd], true, true
+	bound.int = dec.text[dec.intTrimStart:dec.intEnd]
+	return bound, true, true
 }
 
-func validateDecimalBytesNonNegativeIntegerBounds(s []byte, minBound string, hasMin bool, maxBound string, hasMax bool) error {
+func validateDecimalBytesNonNegativeBounds(s []byte, minBound decimalBytesBound, hasMin bool, maxBound decimalBytesBound, hasMax bool) error {
 	if len(s) == 0 {
 		return fmt.Errorf("invalid decimal")
 	}
@@ -236,24 +244,24 @@ func validateDecimalBytesNonNegativeIntegerBounds(s []byte, minBound string, has
 		}
 		return nil
 	}
-	if hasMin && comparePositiveDecimalBytesToInteger(s, intTrimStart, intEnd, fracStart, fracTrimEnd, minBound) < 0 {
+	if hasMin && comparePositiveDecimalBytesToBound(s, intTrimStart, intEnd, fracStart, fracTrimEnd, minBound) < 0 {
 		return fmt.Errorf("minInclusive facet failed")
 	}
-	if hasMax && comparePositiveDecimalBytesToInteger(s, intTrimStart, intEnd, fracStart, fracTrimEnd, maxBound) > 0 {
+	if hasMax && comparePositiveDecimalBytesToBound(s, intTrimStart, intEnd, fracStart, fracTrimEnd, maxBound) > 0 {
 		return fmt.Errorf("maxInclusive facet failed")
 	}
 	return nil
 }
 
-func comparePositiveDecimalBytesToInteger(s []byte, intTrimStart, intEnd, fracStart, fracTrimEnd int, bound string) int {
+func comparePositiveDecimalBytesToBound(s []byte, intTrimStart, intEnd, fracStart, fracTrimEnd int, bound decimalBytesBound) int {
 	intDigits := intEnd - intTrimStart
 	if intDigits == 0 {
 		intDigits = 1
 	}
-	if intDigits < len(bound) {
+	if intDigits < len(bound.int) {
 		return -1
 	}
-	if intDigits > len(bound) {
+	if intDigits > len(bound.int) {
 		return 1
 	}
 	for i := range intDigits {
@@ -261,14 +269,27 @@ func comparePositiveDecimalBytesToInteger(s []byte, intTrimStart, intEnd, fracSt
 		if intEnd > intTrimStart {
 			digit = s[intTrimStart+i]
 		}
-		if digit < bound[i] {
+		if digit < bound.int[i] {
 			return -1
 		}
-		if digit > bound[i] {
+		if digit > bound.int[i] {
 			return 1
 		}
 	}
-	if fracTrimEnd > fracStart {
+	fracDigits := fracTrimEnd - fracStart
+	common := min(fracDigits, len(bound.frac))
+	for i := range common {
+		if s[fracStart+i] < bound.frac[i] {
+			return -1
+		}
+		if s[fracStart+i] > bound.frac[i] {
+			return 1
+		}
+	}
+	if fracDigits < len(bound.frac) {
+		return -1
+	}
+	if fracDigits > len(bound.frac) {
 		return 1
 	}
 	return 0

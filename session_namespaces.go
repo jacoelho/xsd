@@ -7,12 +7,13 @@ import (
 	"strings"
 )
 
-func (s *session) rootTypeFromXSIType(attrs []xml.Attr, line, col int) (typeID, bool, error) {
-	for _, a := range attrs {
+func (s *session) rootTypeFromXSIType(attrs []streamAttr, line, col int) (typeID, bool, error) {
+	for i := range attrs {
+		a := &attrs[i]
 		if a.Name.Space != xsiNamespaceURI || a.Name.Local != xsiAttrType {
 			continue
 		}
-		typ, err := s.resolveXSIType(a.Value, line, col)
+		typ, err := s.resolveXSIType(a.stringValue(&s.valueStrings), line, col)
 		if err != nil {
 			return typeID{}, false, err
 		}
@@ -21,24 +22,26 @@ func (s *session) rootTypeFromXSIType(attrs []xml.Attr, line, col int) (typeID, 
 	return typeID{}, false, nil
 }
 
-func (s *session) effectiveType(elem elementID, typ typeID, attrs []xml.Attr, line, col int) (typeID, bool, error) {
+func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, line, col int) (typeID, bool, error) {
 	rt := s.engine.rt
 	nilled := false
 	nilSpecified := false
-	for _, a := range attrs {
+	for i := range attrs {
+		a := &attrs[i]
 		if a.Name.Space != xsiNamespaceURI {
 			continue
 		}
+		value := a.stringValue(&s.valueStrings)
 		switch a.Name.Local {
 		case xsiAttrNil:
 			nilSpecified = true
-			value, ok := parseBooleanLexical(normalizeWhitespace(a.Value, whitespaceCollapse))
+			value, ok := parseBooleanLexical(normalizeWhitespace(value, whitespaceCollapse))
 			if !ok {
 				return typ, false, validation(ErrValidationNil, line, col, s.pathString(), "invalid xsi:nil value")
 			}
 			nilled = value
 		case xsiAttrType:
-			override, err := s.resolveXSIType(a.Value, line, col)
+			override, err := s.resolveXSIType(value, line, col)
 			if err != nil {
 				return typ, nilled, err
 			}
@@ -108,29 +111,29 @@ func (s *session) typeDerivationMask(t, base typeID) (derivationMask, bool) {
 	return s.engine.rt.typeDerivationMask(t, base)
 }
 
-func (s *session) translateStartElement(se xml.StartElement, line, col int) (xml.StartElement, error) {
+func (s *session) translateStartElement(se streamStartElement, line, col int) (streamStartElement, error) {
 	name, err := s.translateName(se.Name, xmlElementName, line, col)
 	if err != nil {
-		return xml.StartElement{}, err
+		return streamStartElement{}, err
 	}
 	se.Name = name
 	for i, attr := range se.Attr {
-		if isNamespaceAttr(attr) {
+		if isNamespaceName(attr.Name) {
 			continue
 		}
 		name, err := s.translateName(attr.Name, xmlAttributeName, line, col)
 		if err != nil {
-			return xml.StartElement{}, err
+			return streamStartElement{}, err
 		}
 		se.Attr[i].Name = name
 	}
-	if err := validateUniqueAttributeNames(se.Attr); err != nil {
-		return xml.StartElement{}, validation(ErrValidationXML, line, col, s.pathString(), err.Error())
+	if err := validateUniqueStreamAttributeNames(se.Attr); err != nil {
+		return streamStartElement{}, validation(ErrValidationXML, line, col, s.pathString(), err.Error())
 	}
 	return se, nil
 }
 
-func validateUniqueAttributeNames(attrs []xml.Attr) error {
+func validateUniqueStreamAttributeNames(attrs []streamAttr) error {
 	if len(attrs) < 2 {
 		return nil
 	}
@@ -196,7 +199,7 @@ func (s *session) runtimeName(n xml.Name) runtimeName {
 	if ok {
 		return runtimeName{Name: q, Known: true, NS: n.Space, Local: n.Local}
 	}
-	return runtimeName{Known: false, NS: n.Space, Local: formatXMLName(n)}
+	return runtimeName{Known: false, NS: n.Space, Local: n.Local}
 }
 
 func formatXMLName(n xml.Name) string {
@@ -295,6 +298,32 @@ func (ns *namespaceStack) push(attrs []xml.Attr) error {
 	return nil
 }
 
+func (s *session) pushNamespaces(attrs []streamAttr) error {
+	mark := len(s.ns.bindings)
+	for i := range attrs {
+		a := &attrs[i]
+		if a.Name.Space == xmlnsPrefix {
+			value := a.stringValue(&s.valueStrings)
+			if err := validateNamespaceBinding(a.Name.Local, value); err != nil {
+				clear(s.ns.bindings[mark:])
+				s.ns.bindings = s.ns.bindings[:mark]
+				return err
+			}
+			s.ns.bindings = append(s.ns.bindings, namespaceBinding{Prefix: a.Name.Local, URI: value})
+		} else if a.Name.Space == "" && a.Name.Local == xmlnsPrefix {
+			value := a.stringValue(&s.valueStrings)
+			if err := validateDefaultNamespaceBinding(value); err != nil {
+				clear(s.ns.bindings[mark:])
+				s.ns.bindings = s.ns.bindings[:mark]
+				return err
+			}
+			s.ns.bindings = append(s.ns.bindings, namespaceBinding{Prefix: "", URI: value})
+		}
+	}
+	s.ns.frames = append(s.ns.frames, mark)
+	return nil
+}
+
 type xmlNameKind uint8
 
 const (
@@ -380,12 +409,16 @@ func (ns *namespaceStack) lookup(prefix string) (string, bool) {
 }
 
 func isNamespaceAttr(a xml.Attr) bool {
-	return a.Name.Space == xmlnsPrefix || (a.Name.Space == "" && a.Name.Local == xmlnsPrefix)
+	return isNamespaceName(a.Name)
 }
 
-func isXSIAttr(a xml.Attr) bool {
-	return a.Name.Space == xsiNamespaceURI &&
-		(a.Name.Local == xsiAttrType || a.Name.Local == xsiAttrNil || a.Name.Local == xsiAttrSchemaLocation || a.Name.Local == xsiAttrNoNamespaceSchemaLocation)
+func isNamespaceName(name xml.Name) bool {
+	return name.Space == xmlnsPrefix || (name.Space == "" && name.Local == xmlnsPrefix)
+}
+
+func isXSIName(name xml.Name) bool {
+	return name.Space == xsiNamespaceURI &&
+		(name.Local == xsiAttrType || name.Local == xsiAttrNil || name.Local == xsiAttrSchemaLocation || name.Local == xsiAttrNoNamespaceSchemaLocation)
 }
 
 func (s *session) pushPath(local string) {

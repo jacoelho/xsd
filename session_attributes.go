@@ -1,8 +1,6 @@
 package xsd
 
-import "encoding/xml"
-
-func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int) error {
+func (s *session) validateAttributes(typ typeID, attrs []streamAttr, line, col int) error {
 	rt := s.engine.rt
 	if typ.Kind == typeSimple {
 		return s.validateSimpleTypeAttributes(attrs, line, col)
@@ -14,11 +12,12 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 	set := &rt.AttributeUseSets[ct.Attrs]
 	seen := newAttributeSeen(len(set.Uses))
 	seenIDAttr := false
-	for _, a := range attrs {
-		if isNamespaceAttr(a) {
+	for i := range attrs {
+		a := &attrs[i]
+		if isNamespaceName(a.Name) {
 			continue
 		}
-		if isXSIAttr(a) {
+		if isXSIName(a.Name) {
 			if len(rt.Identities) != 0 {
 				if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
 					recoverErr := s.recover(err)
@@ -31,7 +30,7 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 		}
 		rn := s.runtimeName(a.Name)
 		if slot := attributeUseSlot(set, rn); slot >= 0 {
-			if err := s.validateDeclaredAttribute(rt, &set.Uses[slot], &seen, slot, rn, a.Value, line, col, &seenIDAttr); err != nil {
+			if err := s.validateDeclaredAttribute(rt, &set.Uses[slot], &seen, slot, rn, a, line, col, &seenIDAttr); err != nil {
 				recoverErr := s.recover(err)
 				if recoverErr != nil {
 					return recoverErr
@@ -39,7 +38,7 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 			}
 			continue
 		}
-		handled, err := s.validateWildcardAttribute(rt, set, rn, a.Value, line, col, &seenIDAttr)
+		handled, err := s.validateWildcardAttribute(rt, set, rn, a, line, col, &seenIDAttr)
 		if err != nil {
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
@@ -50,7 +49,7 @@ func (s *session) validateAttributes(typ typeID, attrs []xml.Attr, line, col int
 		if handled {
 			continue
 		}
-		if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "attribute is not declared: "+rn.Local)); err != nil {
+		if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "attribute is not declared: "+rn.label())); err != nil {
 			return err
 		}
 	}
@@ -92,12 +91,13 @@ func (s *attributeSeen) has(slot int) bool {
 	return s.mask&(uint64(1)<<slot) != 0
 }
 
-func (s *session) validateSimpleTypeAttributes(attrs []xml.Attr, line, col int) error {
-	for _, a := range attrs {
-		if isNamespaceAttr(a) {
+func (s *session) validateSimpleTypeAttributes(attrs []streamAttr, line, col int) error {
+	for i := range attrs {
+		a := &attrs[i]
+		if isNamespaceName(a.Name) {
 			continue
 		}
-		if isXSIAttr(a) {
+		if isXSIName(a.Name) {
 			if len(s.engine.rt.Identities) != 0 {
 				if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
 					recoverErr := s.recover(err)
@@ -131,12 +131,12 @@ func attributeUseSlot(set *attributeUseSet, rn runtimeName) int {
 	return -1
 }
 
-func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse, seen *attributeSeen, slot int, rn runtimeName, value string, line, col int, seenIDAttr *bool) error {
+func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse, seen *attributeSeen, slot int, rn runtimeName, attr *streamAttr, line, col int, seenIDAttr *bool) error {
 	if !seen.mark(slot) {
-		return validation(ErrValidationAttribute, line, col, s.pathString(), "duplicate attribute "+rn.Local)
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "duplicate attribute "+rn.label())
 	}
 	if use.Prohibited {
-		return validation(ErrValidationAttribute, line, col, s.pathString(), "prohibited attribute "+rn.Local)
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "prohibited attribute "+rn.label())
 	}
 	var identityFields []identityFieldMatch
 	if len(rt.Identities) != 0 {
@@ -149,12 +149,24 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 	if len(identityFields) != 0 {
 		needs |= simpleNeedIdentity
 	}
+	if len(identityFields) == 0 && canValidateFixedStringAttributeFast(rt, use) {
+		return s.validateFixedStringAttributeValue(use, attr.stringValue(&s.valueStrings), rn, line, col)
+	}
+	if len(identityFields) == 0 && !use.HasFixed && attr.Value == "" {
+		if handled, err := validateRawSimpleContentFast(rt, use.Type, attr.Raw); handled {
+			if err != nil {
+				return validation(ErrValidationFacet, line, col, s.pathString(), "invalid attribute "+rn.label()+": "+err.Error())
+			}
+			return nil
+		}
+	}
+	value := attr.stringValue(&s.valueStrings)
 	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameValue, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
 		}
-		return validation(ErrValidationFacet, line, col, s.pathString(), "invalid attribute "+rn.Local+": "+err.Error())
+		return validation(ErrValidationFacet, line, col, s.pathString(), "invalid attribute "+rn.label()+": "+err.Error())
 	}
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
@@ -167,17 +179,39 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 	return s.validateFixedAttributeValue(use, simple.Canonical, rn, line, col)
 }
 
+func canValidateFixedStringAttributeFast(rt *runtimeSchema, use *attributeUse) bool {
+	if !use.HasFixed || !validUint32Index(uint32(use.Type), len(rt.SimpleTypes)) {
+		return false
+	}
+	st := &rt.SimpleTypes[use.Type]
+	if st.Missing || st.Variety != varietyAtomic {
+		return false
+	}
+	identity := st.Identity
+	if !rt.SimpleIdentitiesClassified {
+		identity = computeSimpleValueIdentity(rt, use.Type)
+	}
+	return st.Whitespace == whitespacePreserve && canAcceptStringValueFast(st, identity)
+}
+
+func (s *session) validateFixedStringAttributeValue(use *attributeUse, value string, rn runtimeName, line, col int) error {
+	if value != use.FixedCanonical {
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.label())
+	}
+	return nil
+}
+
 func (s *session) validateFixedAttributeValue(use *attributeUse, canon string, rn runtimeName, line, col int) error {
 	if !use.HasFixed {
 		return nil
 	}
 	if canon != use.FixedCanonical {
-		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.Local)
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.label())
 	}
 	return nil
 }
 
-func (s *session) validateWildcardAttribute(rt *runtimeSchema, set *attributeUseSet, rn runtimeName, value string, line, col int, seenIDAttr *bool) (bool, error) {
+func (s *session) validateWildcardAttribute(rt *runtimeSchema, set *attributeUseSet, rn runtimeName, attr *streamAttr, line, col int, seenIDAttr *bool) (bool, error) {
 	if set.wildcard == noWildcard {
 		return false, nil
 	}
@@ -190,7 +224,7 @@ func (s *session) validateWildcardAttribute(rt *runtimeSchema, set *attributeUse
 	}
 	if rn.Known {
 		if id, ok := rt.GlobalAttributes[rn.Name]; ok {
-			return true, s.validateKnownWildcardAttribute(rt, rt.Attributes[id], rn, value, line, col, seenIDAttr)
+			return true, s.validateKnownWildcardAttribute(rt, rt.Attributes[id], rn, attr.stringValue(&s.valueStrings), line, col, seenIDAttr)
 		}
 	}
 	if w.Process == processLax {
@@ -216,13 +250,13 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 		if IsUnsupported(err) {
 			return err
 		}
-		return validation(ErrValidationFacet, line, col, s.pathString(), "invalid wildcard attribute "+rn.Local)
+		return validation(ErrValidationFacet, line, col, s.pathString(), "invalid wildcard attribute "+rn.label())
 	}
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
 	if decl.HasFixed && simple.Canonical != decl.FixedCanonical {
-		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.Local)
+		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.label())
 	}
 	if len(identityFields) == 0 {
 		return nil
@@ -269,18 +303,19 @@ func (s *session) validateRequiredAndDefaultAttributes(set *attributeUseSet, see
 	return nil
 }
 
-func (s *session) recordSchemaLocationHints(attrs []xml.Attr, line, col int) error {
-	for _, a := range attrs {
+func (s *session) recordSchemaLocationHints(attrs []streamAttr, line, col int) error {
+	for i := range attrs {
+		a := &attrs[i]
 		if a.Name.Space != xsiNamespaceURI {
 			continue
 		}
 		switch a.Name.Local {
 		case xsiAttrSchemaLocation:
-			if err := s.recordNamespaceSchemaLocationHints(a.Value, line, col); err != nil {
+			if err := s.recordNamespaceSchemaLocationHints(a.stringValue(&s.valueStrings), line, col); err != nil {
 				return err
 			}
 		case xsiAttrNoNamespaceSchemaLocation:
-			if err := s.recordNoNamespaceSchemaLocationHint(a.Value, line, col); err != nil {
+			if err := s.recordNoNamespaceSchemaLocationHint(a.stringValue(&s.valueStrings), line, col); err != nil {
 				return err
 			}
 		}
@@ -339,6 +374,6 @@ func (s *session) unsupportedSchemaLocation(line, col int, component string, rn 
 		Line:     line,
 		Column:   col,
 		Path:     s.pathString(),
-		Message:  "xsi:schemaLocation loading is not supported for " + component + " " + rn.Local,
+		Message:  "xsi:schemaLocation loading is not supported for " + component + " " + rn.label(),
 	}
 }

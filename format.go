@@ -295,13 +295,14 @@ func (f *xmlFormatter) collectStart(tok streamToken) error {
 	if len(f.stack) >= f.maxDepth {
 		return xmlFormatErr(tok.line, tok.col, fmt.Errorf("XML nesting exceeds %d element limit", f.maxDepth))
 	}
-	if err := f.ns.push(tok.start.Attr); err != nil {
+	start := tok.start.xmlStartElement()
+	if err := f.ns.push(start.Attr); err != nil {
 		return xmlFormatErr(tok.line, tok.col, err)
 	}
-	if err := f.validateStartNamespaces(tok.start); err != nil {
+	if err := f.validateStartNamespaces(start); err != nil {
 		return xmlFormatErr(tok.line, tok.col, err)
 	}
-	preserve := xmlSpacePreserve(tok.start.Attr, xmlSpaceDefault)
+	preserve := xmlSpacePreserve(start.Attr, xmlSpaceDefault)
 	if len(f.stack) == 0 {
 		if f.rootSeen {
 			return xmlFormatErr(tok.line, tok.col, errors.New("XML document has multiple roots"))
@@ -309,10 +310,8 @@ func (f *xmlFormatter) collectStart(tok streamToken) error {
 		f.rootSeen = true
 	} else {
 		parent := f.stack[len(f.stack)-1]
-		preserve = xmlSpacePreserve(tok.start.Attr, parent.preserve)
+		preserve = xmlSpacePreserve(start.Attr, parent.preserve)
 	}
-	start := tok.start
-	start.Attr = slices.Clone(start.Attr)
 	elem := &formatElement{start: start, line: tok.line, col: tok.col, preserve: preserve}
 	if err := f.appendItem(formatItem{kind: formatItemElement, elem: elem, line: tok.line, col: tok.col}); err != nil {
 		return err

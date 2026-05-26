@@ -99,6 +99,31 @@ func isNCNameBytesUnicode(b []byte) bool {
 	return true
 }
 
+func isNMTOKENBytes(b []byte) bool {
+	if len(b) == 0 {
+		return false
+	}
+	for len(b) > 0 {
+		c := b[0]
+		if c < utf8.RuneSelf {
+			if !isASCIIXMLNameChar(c) {
+				return false
+			}
+			b = b[1:]
+			continue
+		}
+		r, size := utf8.DecodeRune(b)
+		if r == utf8.RuneError && size == 1 {
+			return false
+		}
+		if !isXMLNameChar(r) {
+			return false
+		}
+		b = b[size:]
+	}
+	return true
+}
+
 func splitASCIIQNameBytes(b []byte) (prefix, local []byte, ascii, ok bool) {
 	if len(b) == 0 {
 		return nil, nil, true, false
