@@ -466,15 +466,8 @@ func (c *compiler) validateParticleRestrictsChoiceModel(base, derived particle, 
 func (c *compiler) validateElementParticleRestrictsSequenceModel(base contentModel, derived particle) error {
 	for i, baseParticle := range base.Particles {
 		if err := c.validateParticleRestriction(baseParticle, derived); err == nil {
-			for j := range i {
-				if !c.particleEmptiable(base.Particles[j]) {
-					return schemaCompile(ErrSchemaContentModel, "sequence restriction omits required base particle")
-				}
-			}
-			for j := i + 1; j < len(base.Particles); j++ {
-				if !c.particleEmptiable(base.Particles[j]) {
-					return schemaCompile(ErrSchemaContentModel, "sequence restriction omits required base particle")
-				}
+			if !c.sequenceRemainderEmptiable(base.Particles, i) {
+				return schemaCompile(ErrSchemaContentModel, "sequence restriction omits required base particle")
 			}
 			return nil
 		}
