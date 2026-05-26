@@ -77,15 +77,7 @@ func (c *compiler) isAnonymousComplexName(q qName) bool {
 }
 
 func schemaBoolAttr(n *rawNode, name string) (bool, error) {
-	v, ok := n.attr(name)
-	if !ok {
-		return false, nil
-	}
-	b, valid := parseSchemaBool(v)
-	if !valid {
-		return false, schemaCompile(ErrSchemaInvalidAttribute, "invalid boolean attribute "+name)
-	}
-	return b, nil
+	return schemaBoolAttrDefault(n, name, false)
 }
 
 func schemaBoolAttrDefault(n *rawNode, name string, def bool) (bool, error) {

@@ -183,7 +183,7 @@ func checkedFacet(st simpleType, n *rawNode) (facetInput, error) {
 	if !facetAllowedForType(st, n.Name.Local) {
 		return facetInput{}, schemaCompile(ErrSchemaFacet, "facet "+n.Name.Local+" is not allowed")
 	}
-	fixed, err := schemaBoolAttrDefault(n, xsdAttrFixed, false)
+	fixed, err := schemaBoolAttr(n, xsdAttrFixed)
 	if err != nil {
 		return facetInput{}, err
 	}

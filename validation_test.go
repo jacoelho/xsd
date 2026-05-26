@@ -966,6 +966,23 @@ func TestAbstractComplexTypeCannotValidateElement(t *testing.T) {
 	mustNotValidate(t, engine, `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="abs"><a/><b/></root>`, ErrValidationType)
 }
 
+func TestXSITypeDerivationBlockRules(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <xs:complexType name="base"><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType>
+  <xs:complexType name="extended"><xs:complexContent><xs:extension base="base"><xs:sequence><xs:element name="b"/></xs:sequence></xs:extension></xs:complexContent></xs:complexType>
+  <xs:simpleType name="restrictedString"><xs:restriction base="xs:string"><xs:maxLength value="5"/></xs:restriction></xs:simpleType>
+  <xs:element name="open" type="base"/>
+  <xs:element name="openRestriction" type="xs:string"/>
+  <xs:element name="blockExtension" type="base" block="extension"/>
+  <xs:element name="blockRestriction" type="xs:string" block="restriction"/>
+</xs:schema>`)
+	mustValidate(t, engine, `<open xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="extended"><a/><b/></open>`)
+	mustValidate(t, engine, `<openRestriction xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="restrictedString">value</openRestriction>`)
+	mustNotValidate(t, engine, `<blockExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="extended"><a/><b/></blockExtension>`, ErrValidationType)
+	mustNotValidate(t, engine, `<blockRestriction xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="restrictedString">value</blockRestriction>`, ErrValidationType)
+}
+
 func TestExplicitEmptyFinalOverridesFinalDefault(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault="#all">

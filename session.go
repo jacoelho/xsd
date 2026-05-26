@@ -573,7 +573,8 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if f.Type.Kind == typeSimple || (f.Type.Kind == typeComplex && s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue) {
 		return s.appendText(data, line, col)
 	}
-	if !isXMLWhitespaceBytes(data) {
+	whitespace := isXMLWhitespaceBytes(data)
+	if !whitespace {
 		f.HasText = true
 	}
 	if f.Type.Kind == typeComplex {
@@ -586,7 +587,7 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 			}
 			return nil
 		}
-		if !isXMLWhitespaceBytes(data) {
+		if !whitespace {
 			return validation(ErrValidationText, line, col, s.pathString(), "character data is not allowed")
 		}
 	}
