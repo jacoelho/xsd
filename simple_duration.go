@@ -311,6 +311,7 @@ func compareXSDDuration(a, b xsdDurationValue) partialCompareResult {
 		{year: xsdYear{digits: "1903"}, month: 7, day: 1},
 	}
 	relation := 0
+	seen := false
 	for _, ref := range refs {
 		ta, ok := addXSDDurationToPoint(ref, a)
 		if !ok {
@@ -321,13 +322,14 @@ func compareXSDDuration(a, b xsdDurationValue) partialCompareResult {
 			return partialCompareIncomparable
 		}
 		n := compareXSDDateTimePoint(ta, tb)
-		if n == 0 {
+		if !seen {
+			relation = n
+			seen = true
 			continue
 		}
-		if relation != 0 && relation != n {
+		if relation != n {
 			return partialCompareIncomparable
 		}
-		relation = n
 	}
 	return partialCompareFromInt(relation)
 }
