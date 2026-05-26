@@ -45,14 +45,11 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 			if err != nil {
 				return typ, nilled, err
 			}
-			if !s.typeDerivesFrom(override, typ) {
+			mask, ok := rt.typeDerivationMask(override, typ)
+			if !ok {
 				return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "xsi:type is not derived from declared type")
 			}
 			if elem != noElement && override != typ {
-				mask, ok := s.typeDerivationMask(override, typ)
-				if !ok {
-					return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "xsi:type is not derived from declared type")
-				}
 				block := rt.Elements[elem].Block
 				if typ.Kind == typeComplex {
 					block |= rt.ComplexTypes[typ.ID].Block
@@ -100,15 +97,6 @@ func (s *session) resolveXSIType(value string, line, col int) (typeID, error) {
 		return typeID{}, s.unsupportedSchemaLocation(line, col, xsiAttrType, runtimeName{Name: q, Known: true, NS: ns, Local: value})
 	}
 	return typeID{}, validation(ErrValidationType, line, col, s.pathString(), "unknown xsi:type "+value)
-}
-
-func (s *session) typeDerivesFrom(t, base typeID) bool {
-	_, ok := s.typeDerivationMask(t, base)
-	return ok
-}
-
-func (s *session) typeDerivationMask(t, base typeID) (derivationMask, bool) {
-	return s.engine.rt.typeDerivationMask(t, base)
 }
 
 func (s *session) translateStartElement(se streamStartElement, line, col int) (streamStartElement, error) {

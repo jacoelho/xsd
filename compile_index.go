@@ -307,9 +307,6 @@ func validateModelGroupSyntax(n *rawNode, limits compileLimits) error {
 			if err := validateModelOccurrence(child, limits); err != nil {
 				return err
 			}
-			if err := validateModelGroupSyntax(child, limits); err != nil {
-				return err
-			}
 		case xsdElemAll:
 			return schemaCompile(ErrSchemaContentModel, "xs:all cannot be nested in model groups")
 		case xsdElemGroup:
