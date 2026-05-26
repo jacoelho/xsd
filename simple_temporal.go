@@ -75,6 +75,50 @@ func parseXSDDateValue(s string) (xsdDateValue, error) {
 	return xsdDateValue{point: point, hasTZ: tz.present}, nil
 }
 
+func validateDateNoOutputBytesFast(s []byte) (bool, error) {
+	if len(s) != len("2006-01-02") || s[4] != '-' || s[7] != '-' {
+		return false, nil
+	}
+	year, ok := parseFixedDigits(s[0:4])
+	if !ok || year == 0 {
+		return true, fmt.Errorf("invalid date/time")
+	}
+	month, ok := parseFixedDigits(s[5:7])
+	if !ok {
+		return true, fmt.Errorf("invalid date/time")
+	}
+	day, ok := parseFixedDigits(s[8:10])
+	if !ok || month < 1 || month > 12 || day < 1 || day > daysInPositiveYearMonth(year, month) {
+		return true, fmt.Errorf("invalid date/time")
+	}
+	return true, nil
+}
+
+func parseFixedDigits(s []byte) (int, bool) {
+	n := 0
+	for _, c := range s {
+		if !isASCIIDigit(c) {
+			return 0, false
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n, true
+}
+
+func daysInPositiveYearMonth(year, month int) int {
+	switch month {
+	case 2:
+		if year%400 == 0 || year%4 == 0 && year%100 != 0 {
+			return 29
+		}
+		return 28
+	case 4, 6, 9, 11:
+		return 30
+	default:
+		return 31
+	}
+}
+
 type xsdDatePart struct {
 	year       xsdYear
 	month, day int

@@ -164,6 +164,40 @@ func applyPatterns(f facetSet, norm string) error {
 	return nil
 }
 
+func applyPatternsBytes(f facetSet, norm []byte) error {
+	for _, group := range f.Patterns {
+		ok := false
+		for _, p := range group.Patterns {
+			if p.matchesBytes(norm) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("pattern facet failed")
+		}
+	}
+	return nil
+}
+
+func applyStringEnumeration(f facetSet, norm string) error {
+	for _, lit := range f.Enumeration {
+		if lit.Canonical == norm {
+			return nil
+		}
+	}
+	return fmt.Errorf("enumeration facet failed")
+}
+
+func applyStringEnumerationBytes(f facetSet, norm []byte) error {
+	for _, lit := range f.Enumeration {
+		if stringBytesEqual(lit.Canonical, norm) {
+			return nil
+		}
+	}
+	return fmt.Errorf("enumeration facet failed")
+}
+
 func applyPatternAndEnumeration(f facetSet, norm, canon string, actual actualValue) error {
 	if err := applyPatterns(f, norm); err != nil {
 		return err

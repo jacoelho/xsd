@@ -29,7 +29,7 @@ const (
 
 type streamToken struct {
 	end       xml.EndElement
-	start     xml.StartElement
+	start     streamStartElement
 	data      []byte
 	directive []byte
 	line      int
@@ -60,10 +60,11 @@ type xmlStreamParser struct {
 	pendingEnd    xml.EndElement
 	nameBuf       []byte
 	valueBuf      []byte
+	attrValueBuf  []byte
 	entityBuf     []byte
 	textBuf       []byte
 	directive     []byte
-	attrs         []xml.Attr
+	attrs         []streamAttr
 	br            byteStream
 	maxAttrs      int
 	maxTokenBytes int64
@@ -73,6 +74,7 @@ type xmlStreamParser struct {
 	atStart       bool
 	emitComments  bool
 	emitPI        bool
+	lazyAttrValue bool
 }
 
 func (p *xmlStreamParser) reset(r io.Reader, names, values *byteStringCache) {
@@ -85,6 +87,7 @@ func (p *xmlStreamParser) resetWithLimit(r io.Reader, names, values *byteStringC
 	p.pendingEnd = xml.EndElement{}
 	p.nameBuf = resetRetainedBytes(p.nameBuf)
 	p.valueBuf = resetRetainedBytes(p.valueBuf)
+	p.attrValueBuf = resetRetainedBytes(p.attrValueBuf)
 	p.entityBuf = resetRetainedBytes(p.entityBuf)
 	p.textBuf = resetRetainedBytes(p.textBuf)
 	p.directive = resetRetainedBytes(p.directive)
@@ -98,6 +101,7 @@ func (p *xmlStreamParser) resetWithLimit(r io.Reader, names, values *byteStringC
 	p.atStart = true
 	p.emitComments = false
 	p.emitPI = false
+	p.lazyAttrValue = false
 }
 
 func (p *xmlStreamParser) next() (streamToken, error) {
@@ -453,57 +457,66 @@ func (p *xmlStreamParser) readCDATAChunk(line, col int) (streamToken, error) {
 	}
 }
 
-func (p *xmlStreamParser) readStartElement(first byte) (xml.StartElement, bool, error) {
+func (p *xmlStreamParser) readStartElement(first byte) (streamStartElement, bool, error) {
 	name, err := p.readName(first)
 	if err != nil {
-		return xml.StartElement{}, false, err
+		return streamStartElement{}, false, err
 	}
 	p.attrs = p.attrs[:0]
+	p.attrValueBuf = p.attrValueBuf[:0]
 	for {
 		b, hadSpace, err := p.readPastSpace()
 		if err != nil {
-			return xml.StartElement{}, false, err
+			return streamStartElement{}, false, err
 		}
 		switch b {
 		case '>':
-			return xml.StartElement{Name: name, Attr: p.attrs}, false, nil
+			return streamStartElement{Name: name, Attr: p.attrs}, false, nil
 		case '/':
 			next, err := p.br.readByte()
 			if err != nil {
-				return xml.StartElement{}, false, p.syntaxError("unexpected EOF in empty element tag", err)
+				return streamStartElement{}, false, p.syntaxError("unexpected EOF in empty element tag", err)
 			}
 			if next != '>' {
-				return xml.StartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
+				return streamStartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
 			}
-			return xml.StartElement{Name: name, Attr: p.attrs}, true, nil
+			return streamStartElement{Name: name, Attr: p.attrs}, true, nil
 		default:
 			if !hadSpace {
-				return xml.StartElement{}, false, fmt.Errorf("expected whitespace before attribute")
+				return streamStartElement{}, false, fmt.Errorf("expected whitespace before attribute")
 			}
 			attrName, err := p.readName(b)
 			if err != nil {
-				return xml.StartElement{}, false, err
+				return streamStartElement{}, false, err
 			}
 			if p.maxAttrs > 0 && len(p.attrs)+1 > p.maxAttrs {
-				return xml.StartElement{}, false, errXMLAttributeLimit
+				return streamStartElement{}, false, errXMLAttributeLimit
 			}
 			if b, _, err = p.readPastSpace(); err != nil {
-				return xml.StartElement{}, false, err
+				return streamStartElement{}, false, err
 			}
 			if b != '=' {
-				return xml.StartElement{}, false, fmt.Errorf("expected = after attribute name")
+				return streamStartElement{}, false, fmt.Errorf("expected = after attribute name")
 			}
 			if b, _, err = p.readPastSpace(); err != nil {
-				return xml.StartElement{}, false, err
+				return streamStartElement{}, false, err
 			}
 			if b != '"' && b != '\'' {
-				return xml.StartElement{}, false, fmt.Errorf("attribute value must be quoted")
+				return streamStartElement{}, false, fmt.Errorf("attribute value must be quoted")
 			}
-			value, err := p.readAttributeValue(b)
+			value, err := p.readAttributeValueBytes(b)
 			if err != nil {
-				return xml.StartElement{}, false, err
+				return streamStartElement{}, false, err
 			}
-			p.attrs = append(p.attrs, xml.Attr{Name: attrName, Value: value})
+			attr := streamAttr{Name: attrName}
+			if p.lazyAttrValue {
+				start := len(p.attrValueBuf)
+				p.attrValueBuf = append(p.attrValueBuf, value...)
+				attr.Raw = p.attrValueBuf[start:]
+			} else {
+				attr.Value = p.values.intern(value)
+			}
+			p.attrs = append(p.attrs, attr)
 		}
 	}
 }
@@ -597,42 +610,65 @@ func nameChunkLen(chunk []byte) int {
 	return len(chunk)
 }
 
-func (p *xmlStreamParser) readAttributeValue(quote byte) (string, error) {
+func (p *xmlStreamParser) readAttributeValueBytes(quote byte) ([]byte, error) {
 	p.valueBuf = p.valueBuf[:0]
 	for {
+		chunk, err := p.br.buffered()
+		if errors.Is(err, io.EOF) {
+			return nil, p.syntaxError("unexpected EOF in attribute value", err)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if n := attributeValueChunkLen(chunk, quote); n > 0 {
+			if appendErr := p.appendTokenBytes(&p.valueBuf, chunk[:n]); appendErr != nil {
+				return nil, appendErr
+			}
+			p.br.consumeBuffered(n)
+			continue
+		}
 		b, err := p.br.readByte()
 		if err != nil {
-			return "", p.syntaxError("unexpected EOF in attribute value", err)
+			return nil, p.syntaxError("unexpected EOF in attribute value", err)
 		}
 		if b == quote {
-			return p.values.intern(p.valueBuf), nil
+			return p.valueBuf, nil
 		}
 		if b == '<' {
-			return "", fmt.Errorf("attribute value cannot contain <")
+			return nil, fmt.Errorf("attribute value cannot contain <")
 		}
 		if b == '\r' {
 			p.consumeLineFeed()
 			if err := p.appendTokenByte(&p.valueBuf, ' '); err != nil {
-				return "", err
+				return nil, err
 			}
 			continue
 		}
 		if b == '\n' || b == '\t' {
 			if err := p.appendTokenByte(&p.valueBuf, ' '); err != nil {
-				return "", err
+				return nil, err
 			}
 			continue
 		}
 		if b == '&' {
 			if err := p.readEntity(&p.valueBuf); err != nil {
-				return "", err
+				return nil, err
 			}
 			continue
 		}
 		if err := p.appendXMLRune(&p.valueBuf, b); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
+}
+
+func attributeValueChunkLen(chunk []byte, quote byte) int {
+	for i, b := range chunk {
+		if b >= utf8.RuneSelf || b < 0x20 || b == quote || b == '<' || b == '&' {
+			return i
+		}
+	}
+	return len(chunk)
 }
 
 func (p *xmlStreamParser) readComment(dst []byte) ([]byte, error) {

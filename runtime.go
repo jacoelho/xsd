@@ -317,6 +317,20 @@ func (f facetSet) onlyPatterns() bool {
 		len(f.Patterns) != 0
 }
 
+func (f facetSet) onlyEnumeration() bool {
+	return f.Length == nil &&
+		f.MinLength == nil &&
+		f.MaxLength == nil &&
+		f.TotalDigits == nil &&
+		f.FractionDigits == nil &&
+		f.MinInclusive == nil &&
+		f.MaxInclusive == nil &&
+		f.MinExclusive == nil &&
+		f.MaxExclusive == nil &&
+		len(f.Enumeration) != 0 &&
+		len(f.Patterns) == 0
+}
+
 func (f facetSet) needsLexical() bool {
 	return len(f.Patterns) != 0
 }
