@@ -266,29 +266,26 @@ func (b *attributeWildcardBuilder) add(c *compiler, id wildcardID, process proce
 }
 
 func (b *attributeWildcardBuilder) finish(c *compiler, parentName string) (wildcardID, error) {
-	wildcard := b.wildcard
 	if b.mode == attributeMergeRestriction {
-		if b.wildcard != noWildcard {
-			if b.inheritedWildcard == noWildcard {
-				return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction requires base wildcard")
-			}
-			if !c.wildcardSubset(b.wildcard, b.inheritedWildcard) {
-				return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction is not subset of base")
-			}
-		}
-	} else if parentName == xsdElemExtension && b.inheritedWildcard != noWildcard {
 		if b.wildcard == noWildcard {
-			wildcard = b.inheritedWildcard
-		} else {
-			process := c.rt.Wildcards[b.wildcard].Process
-			id, err := c.unionWildcards(b.wildcard, b.inheritedWildcard, process)
-			if err != nil {
-				return noWildcard, err
-			}
-			wildcard = id
+			return noWildcard, nil
 		}
+		if b.inheritedWildcard == noWildcard {
+			return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction requires base wildcard")
+		}
+		if !c.wildcardSubset(b.wildcard, b.inheritedWildcard) {
+			return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "attribute wildcard restriction is not subset of base")
+		}
+		return b.wildcard, nil
 	}
-	return wildcard, nil
+	if parentName != xsdElemExtension || b.inheritedWildcard == noWildcard {
+		return b.wildcard, nil
+	}
+	if b.wildcard == noWildcard {
+		return b.inheritedWildcard, nil
+	}
+	process := c.rt.Wildcards[b.wildcard].Process
+	return c.unionWildcards(b.wildcard, b.inheritedWildcard, process)
 }
 
 func newAttributeUseSet(uses []attributeUse, wildcard wildcardID) (attributeUseSet, error) {
@@ -390,93 +387,58 @@ func (c *compiler) attrUsesAndWildcard(id attributeUseSetID) ([]attributeUse, wi
 	return set.Uses, set.wildcard
 }
 
+type attributeUseBase struct {
+	refFixedCanonical string
+	use               attributeUse
+	refHasFixed       bool
+}
+
 func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attributeUse, error) {
-	var use attributeUse
-	refHasFixed := false
-	refFixedCanonical := ""
-	if ref, ok := n.attr(xsdAttrRef); ok {
-		if err := validateKnownAttributes(n, "attribute ref", isAttributeRefAttribute); err != nil {
-			return attributeUse{}, err
-		}
-		if children := n.xsContentChildren(); len(children) != 0 {
-			return attributeUse{}, schemaCompile(ErrSchemaContentModel, "attribute ref can contain only annotation")
-		}
-		q, err := c.resolveQNameChecked(n, ctx, ref)
-		if err != nil {
-			return attributeUse{}, err
-		}
-		id, err := c.compileAttributeByQName(q)
-		if err != nil {
-			return attributeUse{}, err
-		}
-		use = attributeUseFromDecl(c.rt.Attributes[id])
-		refHasFixed = use.HasFixed
-		refFixedCanonical = use.FixedCanonical
-	} else {
-		name, ok := n.attr(xsdAttrName)
-		if !ok {
-			return attributeUse{}, schemaCompile(ErrSchemaReference, "attribute missing name or ref")
-		}
-		ns := ""
-		form, hasForm := n.attr(xsdAttrForm)
-		if hasForm && form != xsdValueQualified && form != xsdValueUnqualified {
-			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "invalid attribute form "+form)
-		}
-		if form == xsdValueQualified || (!hasForm && ctx.attrQualified) {
-			ns = ctx.targetNS
-		}
-		q, err := c.rt.Names.InternQName(ns, name)
-		if err != nil {
-			return attributeUse{}, err
-		}
-		use.Name = q
-		decl, err := c.compileAttributeDecl(n, ctx, use.Name)
-		if err != nil {
-			return attributeUse{}, err
-		}
-		use = attributeUseFromDecl(decl)
+	base, err := c.compileAttributeUseBase(n, ctx)
+	if err != nil {
+		return attributeUse{}, err
 	}
-	switch n.attrDefault(xsdAttrUse, "optional") {
-	case "required":
-		if _, ok := n.attr(xsdAttrDefault); ok {
-			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "required attribute cannot have default")
-		}
-		use.Required = true
-	case "prohibited":
-		if _, ok := n.attr(xsdAttrDefault); ok {
-			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "prohibited attribute cannot have default")
-		}
-		use.Prohibited = true
-	case "optional":
-	default:
-		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "invalid attribute use "+n.attrDefault(xsdAttrUse, ""))
-	}
-	if v, ok := n.attr(xsdAttrDefault); ok {
-		if refHasFixed {
-			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute use default conflicts with fixed attribute declaration")
-		}
-		use.Default = v
-		use.DefaultCanonical = ""
-		use.DefaultValue = simpleValue{}
-		use.HasDefault = true
-	}
-	if v, ok := n.attr(xsdAttrFixed); ok {
-		use.Fixed = v
+	use := base.use
+	defaultValue, hasDefault := n.attr(xsdAttrDefault)
+	fixedValue, hasFixed := n.attr(xsdAttrFixed)
+	if hasFixed {
+		use.Fixed = fixedValue
 		use.FixedCanonical = ""
 		use.FixedValue = simpleValue{}
 		use.HasFixed = true
 	}
+	switch mode := n.attrDefault(xsdAttrUse, "optional"); mode {
+	case "required":
+		if hasDefault {
+			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "required attribute cannot have default")
+		}
+		use.Required = true
+	case "prohibited":
+		if hasDefault {
+			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "prohibited attribute cannot have default")
+		}
+		use.Prohibited = !hasFixed
+	case "optional":
+	default:
+		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "invalid attribute use "+mode)
+	}
+	if hasDefault {
+		if base.refHasFixed {
+			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute use default conflicts with fixed attribute declaration")
+		}
+		use.Default = defaultValue
+		use.DefaultCanonical = ""
+		use.DefaultValue = simpleValue{}
+		use.HasDefault = true
+	}
 	if use.HasDefault && use.HasFixed {
 		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot have both default and fixed")
-	}
-	if use.Prohibited && use.HasFixed {
-		use.Prohibited = false
 	}
 	decl := attributeDecl{Name: use.Name, Type: use.Type, Default: use.Default, Fixed: use.Fixed, HasDefault: use.HasDefault, HasFixed: use.HasFixed}
 	if err := c.validateAttributeValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
 		return attributeUse{}, err
 	}
-	if refHasFixed && use.HasFixed && decl.FixedCanonical != refFixedCanonical {
+	if base.refHasFixed && use.HasFixed && decl.FixedCanonical != base.refFixedCanonical {
 		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute use fixed value conflicts with fixed attribute declaration")
 	}
 	use.DefaultCanonical = decl.DefaultCanonical
@@ -484,6 +446,57 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	use.DefaultValue = decl.DefaultValue
 	use.FixedValue = decl.FixedValue
 	return use, nil
+}
+
+func (c *compiler) compileAttributeUseBase(n *rawNode, ctx *schemaContext) (attributeUseBase, error) {
+	if ref, ok := n.attr(xsdAttrRef); ok {
+		return c.compileAttributeRefUse(n, ctx, ref)
+	}
+	use, err := c.compileLocalAttributeUse(n, ctx)
+	return attributeUseBase{use: use}, err
+}
+
+func (c *compiler) compileAttributeRefUse(n *rawNode, ctx *schemaContext, ref string) (attributeUseBase, error) {
+	if err := validateKnownAttributes(n, "attribute ref", isAttributeRefAttribute); err != nil {
+		return attributeUseBase{}, err
+	}
+	if children := n.xsContentChildren(); len(children) != 0 {
+		return attributeUseBase{}, schemaCompile(ErrSchemaContentModel, "attribute ref can contain only annotation")
+	}
+	q, err := c.resolveQNameChecked(n, ctx, ref)
+	if err != nil {
+		return attributeUseBase{}, err
+	}
+	id, err := c.compileAttributeByQName(q)
+	if err != nil {
+		return attributeUseBase{}, err
+	}
+	use := attributeUseFromDecl(c.rt.Attributes[id])
+	return attributeUseBase{use: use, refHasFixed: use.HasFixed, refFixedCanonical: use.FixedCanonical}, nil
+}
+
+func (c *compiler) compileLocalAttributeUse(n *rawNode, ctx *schemaContext) (attributeUse, error) {
+	name, ok := n.attr(xsdAttrName)
+	if !ok {
+		return attributeUse{}, schemaCompile(ErrSchemaReference, "attribute missing name or ref")
+	}
+	ns := ""
+	form, hasForm := n.attr(xsdAttrForm)
+	if hasForm && form != xsdValueQualified && form != xsdValueUnqualified {
+		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "invalid attribute form "+form)
+	}
+	if form == xsdValueQualified || (!hasForm && ctx.attrQualified) {
+		ns = ctx.targetNS
+	}
+	nameID, err := c.rt.Names.InternQName(ns, name)
+	if err != nil {
+		return attributeUse{}, err
+	}
+	decl, err := c.compileAttributeDecl(n, ctx, nameID)
+	if err != nil {
+		return attributeUse{}, err
+	}
+	return attributeUseFromDecl(decl), nil
 }
 
 func isAttributeRefAttribute(name string) bool {

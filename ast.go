@@ -28,6 +28,9 @@ type rawNode struct {
 
 func parseSchemaDocument(name, key string, data []byte, limits compileLimits) (*rawDoc, error) {
 	data = bytes.TrimPrefix(data, utf8BOM)
+	if enc := declaredEncoding(data); enc != "" && !strings.EqualFold(enc, "UTF-8") && !strings.EqualFold(enc, "UTF8") {
+		return nil, unsupported(ErrUnsupportedNonUTF8, "schema documents must be UTF-8")
+	}
 	if version := declaredXMLVersion(data); version != "" && version != xmlVersion10 {
 		return nil, unsupported(ErrUnsupportedXML11, "XML version "+version+" is not supported")
 	}
@@ -257,7 +260,6 @@ func checkSchemaStartElementLimit(start xml.StartElement, limits compileLimits, 
 	return nil
 }
 
-// checkSchemaTokenLimit centralizes schema token limit diagnostics.
 func checkSchemaTokenLimit(size int64, limits compileLimits, line, col int, msg string) error {
 	if limits.maxSchemaTokenBytes > 0 && size > limits.maxSchemaTokenBytes {
 		limitErr := schemaParse(ErrSchemaLimit, line, col, msg, nil)
@@ -509,7 +511,7 @@ func validateAnnotationNode(n *rawNode) (bool, error) {
 
 func validateDocumentationNode(n *rawNode) error {
 	for _, attr := range n.Attr {
-		if attr.Name.Space == xmlNamespaceURI && attr.Name.Local == xmlAttrLang && !validLanguageTag(attr.Value) {
+		if attr.Name.Space == xmlNamespaceURI && attr.Name.Local == xmlAttrLang && !isLanguage(attr.Value) {
 			return schemaCompile(ErrSchemaInvalidAttribute, "invalid xml:lang on xs:documentation")
 		}
 	}
@@ -550,28 +552,6 @@ func validateComponentAnnotationPlacement(n *rawNode) error {
 		seenNonAnnotation = true
 	}
 	return nil
-}
-
-func validLanguageTag(v string) bool {
-	i := 0
-	for part := range strings.SplitSeq(v, "-") {
-		if part == "" || len(part) > 8 {
-			return false
-		}
-		for _, r := range part {
-			if i == 0 {
-				if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') {
-					return false
-				}
-				continue
-			}
-			if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
-				return false
-			}
-		}
-		i++
-	}
-	return true
 }
 
 func (n *rawNode) attr(local string) (string, bool) {

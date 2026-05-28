@@ -47,8 +47,8 @@ func formatXMLData(input string) formatResponse {
 		return formatResponse{Error: fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes))}
 	}
 
-	out := limitedBuilder{limit: maxFormattedXMLBytes}
-	err := xsd.FormatXML(&out, strings.NewReader(input))
+	var out strings.Builder
+	err := xsd.FormatXMLWithOptions(&out, strings.NewReader(input), xsd.FormatOptions{MaxOutputBytes: maxFormattedXMLBytes})
 	if err != nil {
 		resp := formatResponse{Error: errorMessage(err)}
 		var xerr *xsd.XMLFormatError
@@ -59,22 +59,6 @@ func formatXMLData(input string) formatResponse {
 		return resp
 	}
 	return formatResponse{XML: out.String()}
-}
-
-type limitedBuilder struct {
-	builder strings.Builder
-	limit   int64
-}
-
-func (w *limitedBuilder) Write(p []byte) (int, error) {
-	if int64(w.builder.Len()+len(p)) > w.limit {
-		return 0, fmt.Errorf("formatted XML exceeds %s limit", byteLimit(w.limit))
-	}
-	return w.builder.Write(p)
-}
-
-func (w *limitedBuilder) String() string {
-	return w.builder.String()
 }
 
 func validateXMLData(xmlText, xsdText string) validateResponse {

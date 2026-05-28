@@ -154,15 +154,7 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st *simpleType, nor
 		}
 		return v, nil
 	}
-	var primitiveNeeds primitiveNeed
-	if valueNeeds.has(simpleNeedCanonical) ||
-		identity != simpleIdentityNone ||
-		st.Primitive != primDecimal && (st.Facets.needsCanonical() || valueNeeds.has(simpleNeedIdentity)) {
-		primitiveNeeds |= primitiveNeedCanonical
-	}
-	if st.Facets.needsLength() {
-		primitiveNeeds |= primitiveNeedLength
-	}
+	primitiveNeeds := atomicPrimitiveNeeds(st, identity, valueNeeds)
 	parsed, err := validatePrimitiveActual(rt, st, norm, resolve, primitiveNeeds)
 	if err != nil {
 		return simpleValue{}, err
@@ -194,6 +186,19 @@ func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st *simpleType, nor
 	case simpleIdentityNone, simpleIdentityIDREFList:
 	}
 	return v, nil
+}
+
+func atomicPrimitiveNeeds(st *simpleType, identity simpleIdentityKind, valueNeeds simpleValueNeed) primitiveNeed {
+	var needs primitiveNeed
+	if valueNeeds.has(simpleNeedCanonical) ||
+		identity != simpleIdentityNone ||
+		st.Primitive != primDecimal && (st.Facets.needsCanonical() || valueNeeds.has(simpleNeedIdentity)) {
+		needs |= primitiveNeedCanonical
+	}
+	if st.Facets.needsLength() {
+		needs |= primitiveNeedLength
+	}
+	return needs
 }
 
 func canValidateDecimalNoOutputFast(st *simpleType, identity simpleIdentityKind, needs simpleValueNeed) bool {

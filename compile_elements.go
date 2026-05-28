@@ -1,30 +1,32 @@
 package xsd
 
 func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (particle, error) {
+	var (
+		id  elementID
+		err error
+	)
 	if ref, ok := n.attr(xsdAttrRef); ok {
-		if err := validateKnownAttributes(n, "element ref", isElementRefAttribute); err != nil {
+		err = validateKnownAttributes(n, "element ref", isElementRefAttribute)
+		if err != nil {
 			return particle{}, err
 		}
 		if len(n.xsContentChildren()) != 0 {
 			return particle{}, schemaCompile(ErrSchemaContentModel, "element ref can contain only annotation")
 		}
-		q, err := c.resolveQNameChecked(n, ctx, ref)
+		var q qName
+		q, err = c.resolveQNameChecked(n, ctx, ref)
 		if err != nil {
 			return particle{}, err
 		}
-		id, err := c.compileElementByQName(q)
+		id, err = c.compileElementByQName(q)
 		if err != nil {
 			return particle{}, err
 		}
-		occurs, err := parseOccurs(n, c.limits)
+	} else {
+		id, err = c.compileLocalElement(n, ctx)
 		if err != nil {
 			return particle{}, err
 		}
-		return particle{Kind: particleElement, Element: id, occurs: occurs}, nil
-	}
-	id, err := c.compileLocalElement(n, ctx)
-	if err != nil {
-		return particle{}, err
 	}
 	occurs, err := parseOccurs(n, c.limits)
 	if err != nil {

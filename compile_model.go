@@ -6,17 +6,6 @@ import (
 	"strings"
 )
 
-func modelChildren(n *rawNode) []*rawNode {
-	var out []*rawNode
-	for _, c := range n.xsContentChildren() {
-		switch c.Name.Local {
-		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
-			out = append(out, c)
-		}
-	}
-	return out
-}
-
 func (c *compiler) addModel(m contentModel) (contentModelID, error) {
 	id, err := nextContentModelID(len(c.rt.Models))
 	if err != nil {
@@ -122,9 +111,6 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (contentModelID,
 			return noContentModel, schemaCompile(ErrSchemaReference, "recursive model group")
 		}
 		return id, nil
-	}
-	if c.compilingModel[n] {
-		return noContentModel, schemaCompile(ErrSchemaReference, "recursive model group")
 	}
 	id, err := c.addModel(contentModel{})
 	if err != nil {
@@ -395,44 +381,64 @@ func (c *compiler) choiceNeedsRuntimeSplit(model contentModel, occurs occurrence
 func (c *compiler) checkDirectUPA(m contentModel) error {
 	switch m.Kind {
 	case modelChoice, modelAll:
-		for i, p := range m.Particles {
-			for j := i + 1; j < len(m.Particles); j++ {
-				name, ok := c.particlesOverlap(p, m.Particles[j])
-				if !ok {
-					continue
-				}
-				msg := "UPA violation: overlapping particles in choice"
-				if name.Local != 0 || name.Namespace != 0 {
-					msg += " " + c.rt.Names.Format(name)
-				}
-				return schemaCompile(ErrSchemaContentModel, msg)
-			}
+		msg := "UPA violation: overlapping particles in choice"
+		if m.Kind == modelAll {
+			msg = "UPA violation: overlapping particles in all"
 		}
+		return c.checkPairwiseUPA(m.Particles, msg)
 	case modelSequence:
-		for i, p := range m.Particles {
-			for _, candidate := range c.particleContinuationParticles(p) {
-				for j := i + 1; j < len(m.Particles); j++ {
-					name, ok := c.particlesOverlap(candidate, m.Particles[j])
-					if !ok {
-						if m.Particles[j].occurs.Min > 0 {
-							break
-						}
-						continue
-					}
-					if !m.occurs.isExactlyOne() && c.wildcardEquivalentOverlap(candidate, m.Particles[j]) {
-						continue
-					}
-					msg := "UPA violation: duplicate element in sequence"
-					if name.Local != 0 || name.Namespace != 0 {
-						msg += " " + c.rt.Names.Format(name)
-					}
-					return schemaCompile(ErrSchemaContentModel, msg)
-				}
-			}
-		}
+		return c.checkSequenceUPA(m)
 	default:
 	}
 	return nil
+}
+
+func (c *compiler) checkPairwiseUPA(particles []particle, msg string) error {
+	for i, p := range particles {
+		for j := i + 1; j < len(particles); j++ {
+			name, ok := c.particlesOverlap(p, particles[j])
+			if ok {
+				return c.upaError(msg, name)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *compiler) checkSequenceUPA(m contentModel) error {
+	for i, p := range m.Particles {
+		for _, candidate := range c.particleContinuationParticles(p) {
+			if err := c.checkSequenceContinuationUPA(m, candidate, i+1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *compiler) checkSequenceContinuationUPA(m contentModel, candidate particle, start int) error {
+	for j := start; j < len(m.Particles); j++ {
+		next := m.Particles[j]
+		name, ok := c.particlesOverlap(candidate, next)
+		if !ok {
+			if next.occurs.Min > 0 {
+				break
+			}
+			continue
+		}
+		if !m.occurs.isExactlyOne() && c.wildcardEquivalentOverlap(candidate, next) {
+			continue
+		}
+		return c.upaError("UPA violation: duplicate element in sequence", name)
+	}
+	return nil
+}
+
+func (c *compiler) upaError(msg string, name qName) error {
+	if name.Local != 0 || name.Namespace != 0 {
+		msg += " " + c.rt.Names.Format(name)
+	}
+	return schemaCompile(ErrSchemaContentModel, msg)
 }
 
 func (c *compiler) particleContinuationParticles(p particle) []particle {
@@ -504,7 +510,7 @@ func (c *compiler) wildcardEquivalentOverlap(a, b particle) bool {
 	}
 	wa := c.rt.Wildcards[a.wildcard]
 	wb := c.rt.Wildcards[b.wildcard]
-	return c.wildcardNamespaceEqual(wa, wb)
+	return wildcardNamespaceEqual(wa, wb)
 }
 
 func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
@@ -515,7 +521,7 @@ func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
 		return c.modelStartOverlap(c.rt.Models[b.Model], a)
 	}
 	if a.Kind == particleWildcard && b.Kind == particleWildcard {
-		return qName{}, c.wildcardsOverlap(c.rt.Wildcards[a.wildcard], c.rt.Wildcards[b.wildcard])
+		return qName{}, wildcardsOverlap(c.rt.Wildcards[a.wildcard], c.rt.Wildcards[b.wildcard])
 	}
 	if name, ok := c.firstParticleElementNameMatchedBy(a, b); ok {
 		return name, true
@@ -549,7 +555,7 @@ func (c *compiler) particleMatchesName(p particle, name qName) bool {
 		return c.elementParticleMatchesName(p.Element, name)
 	case particleWildcard:
 		w := c.rt.Wildcards[p.wildcard]
-		return c.wildcardAllowsNamespace(w, name.Namespace)
+		return wildcardAllowsNamespace(w, name.Namespace)
 	case particleModel:
 		return c.modelStartMatchesName(c.rt.Models[p.Model], name)
 	}
@@ -660,15 +666,6 @@ func (c *compiler) modelStartParticles(model contentModel) []particle {
 	default:
 	}
 	return out
-}
-
-func (c *compiler) substitutionAllowed(headID, memberID elementID) bool {
-	head := c.rt.Elements[headID]
-	member := c.rt.Elements[memberID]
-	if head.Block&blockSubstitution != 0 {
-		return false
-	}
-	return c.rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
 }
 
 func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {

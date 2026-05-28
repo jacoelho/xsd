@@ -5,7 +5,6 @@ import "io"
 type byteStream struct {
 	r       io.Reader
 	err     error
-	prev    bytePosition
 	lastPos bytePosition
 	off     int
 	end     int
@@ -19,7 +18,6 @@ type byteStream struct {
 func (b *byteStream) reset(r io.Reader) {
 	b.r = r
 	b.err = nil
-	b.prev = bytePosition{}
 	b.lastPos = bytePosition{}
 	b.off = 0
 	b.end = 0
@@ -37,32 +35,18 @@ type bytePosition struct {
 func (b *byteStream) readByte() (byte, error) {
 	if b.unread {
 		b.unread = false
-		b.prev = b.lastPos
 		b.advance(b.last)
 		return b.last, nil
 	}
 	if b.off == b.end {
-		if b.err != nil {
-			err := b.err
-			b.err = nil
+		if err := b.fill(); err != nil {
 			return 0, err
 		}
-		n, err := b.r.Read(b.buf[:])
-		if n <= 0 {
-			if err != nil {
-				return 0, err
-			}
-			return 0, io.ErrNoProgress
-		}
-		b.off = 0
-		b.end = n
-		b.err = err
 	}
 	c := b.buf[b.off]
 	b.off++
 	b.last = c
 	b.lastPos = bytePosition{line: b.line, col: b.col}
-	b.prev = b.lastPos
 	b.advance(c)
 	return c, nil
 }
@@ -105,7 +89,6 @@ func (b *byteStream) consumeBuffered(n int) {
 	}
 	if b.unread {
 		b.unread = false
-		b.prev = b.lastPos
 		b.advance(b.last)
 		return
 	}

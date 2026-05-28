@@ -303,40 +303,28 @@ func (c *compiler) addBuiltinAnyType() error {
 }
 
 func (c *compiler) addBuiltinAtomicSimpleType(local string, primitive primitiveKind, base simpleTypeID, ws whitespaceMode) (simpleTypeID, error) {
-	q, err := c.rt.Names.InternQName(xsdNamespaceURI, local)
+	id, q, err := c.addAtomicSimpleType(xsdNamespaceURI, local, primitive, base, ws, builtinValidationForLocal(local))
 	if err != nil {
 		return noSimpleType, err
 	}
-	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
-	if err != nil {
-		return noSimpleType, err
-	}
-	facets := facetSet{}
-	if base != noSimpleType && validUint32Index(uint32(base), len(c.rt.SimpleTypes)) {
-		facets = cloneFacetSet(c.rt.SimpleTypes[base].Facets)
-	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
-		Name:       q,
-		Variety:    varietyAtomic,
-		Primitive:  primitive,
-		Base:       base,
-		Whitespace: ws,
-		Facets:     facets,
-		Builtin:    builtinValidationForLocal(local),
-	})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
 	return id, nil
 }
 
 func (c *compiler) addInternalAtomicSimpleType(ns, local string, primitive primitiveKind, base simpleTypeID, ws whitespaceMode, builtin builtinValidationKind) (simpleTypeID, error) {
+	id, _, err := c.addAtomicSimpleType(ns, local, primitive, base, ws, builtin)
+	return id, err
+}
+
+func (c *compiler) addAtomicSimpleType(ns, local string, primitive primitiveKind, base simpleTypeID, ws whitespaceMode, builtin builtinValidationKind) (simpleTypeID, qName, error) {
 	q, err := c.rt.Names.InternQName(ns, local)
 	if err != nil {
-		return noSimpleType, err
+		return noSimpleType, qName{}, err
 	}
 	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
 	if err != nil {
-		return noSimpleType, err
+		return noSimpleType, qName{}, err
 	}
 	facets := facetSet{}
 	if base != noSimpleType && validUint32Index(uint32(base), len(c.rt.SimpleTypes)) {
@@ -351,7 +339,7 @@ func (c *compiler) addInternalAtomicSimpleType(ns, local string, primitive primi
 		Facets:     facets,
 		Builtin:    builtin,
 	})
-	return id, nil
+	return id, q, nil
 }
 
 func builtinValidationForLocal(local string) builtinValidationKind {

@@ -16,73 +16,27 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if f.Nilled {
 		return false, nil
 	}
-	var rawText string
-	var text string
-	var typeID simpleTypeID
-	if f.Type.Kind == typeSimple {
-		typeID = simpleTypeID(f.Type.ID)
-	} else {
-		ct := rt.ComplexTypes[f.Type.ID]
-		if !ct.SimpleValue {
-			if f.Element != noElement && rt.Elements[f.Element].HasFixed {
-				rawBytes := s.text[f.TextStart:]
-				rawText = s.valueStrings.intern(rawBytes)
-				text = rawText
-				if f.HasChild {
-					return false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
-				}
-				fixed := rt.Elements[f.Element].Fixed
-				if text != "" && text != fixed {
-					return false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
-				}
-			}
-			return false, nil
-		}
-		typeID = ct.TextType
+	typeID, hasSimpleContent, err := s.simpleContentType(f, line, col)
+	if err != nil || !hasSimpleContent {
+		return false, err
 	}
 	rawBytes := s.text[f.TextStart:]
 	if len(rt.Identities) == 0 &&
 		(f.Element == noElement || (!rt.Elements[f.Element].HasFixed && !rt.Elements[f.Element].HasDefault)) {
-		ok, err := validateRawSimpleContentFast(rt, typeID, rawBytes)
+		ok, rawErr := validateRawSimpleContentFast(rt, typeID, rawBytes)
 		if ok {
-			if err != nil {
-				return false, validation(ErrValidationFacet, line, col, s.pathString(), "invalid simple content: "+err.Error())
+			if rawErr != nil {
+				return false, validation(ErrValidationFacet, line, col, s.pathString(), "invalid simple content: "+rawErr.Error())
 			}
 			return true, nil
 		}
 	}
-	if rawText == "" && text == "" {
-		rawText = s.valueStrings.intern(rawBytes)
-		text = rawText
+	input := s.simpleContentInput(f, rawBytes)
+	if input.prevalidated {
+		return s.recordElementSimpleContent(input.value, line, col)
 	}
-	if f.Element != noElement && rawText == "" {
-		decl := rt.Elements[f.Element]
-		if decl.HasFixed {
-			if decl.Type == f.Type {
-				return s.recordElementSimpleContent(decl.FixedValue, line, col)
-			}
-			text = decl.Fixed
-		} else if decl.HasDefault {
-			if decl.Type == f.Type {
-				return s.recordElementSimpleContent(decl.DefaultValue, line, col)
-			}
-			text = decl.Default
-		}
-	}
-	var identityFields []identityFieldMatch
-	if len(rt.Identities) != 0 {
-		identityFields = s.identityElementFields()
-	}
-	needIdentity := len(identityFields) != 0
-	needCanon := s.needsSimpleContentCanonical(f, typeID, needIdentity)
-	var needs simpleValueNeed
-	if needCanon {
-		needs |= simpleNeedCanonical
-	}
-	if needIdentity {
-		needs |= simpleNeedIdentity
-	}
-	value, err := validateSimpleValueMode(rt, typeID, text, s.resolveLexicalQNameValue, needs)
+	identityFields, needs := s.simpleContentNeeds(f, typeID)
+	value, err := validateSimpleValueMode(rt, typeID, input.text, s.resolveLexicalQNameValue, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return false, err
@@ -104,6 +58,77 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func (s *session) simpleContentType(f *frame, line, col int) (simpleTypeID, bool, error) {
+	if f.Type.Kind == typeSimple {
+		return simpleTypeID(f.Type.ID), true, nil
+	}
+	ct := s.engine.rt.ComplexTypes[f.Type.ID]
+	if !ct.SimpleValue {
+		return noSimpleType, false, s.validateNonSimpleFixedContent(f, line, col)
+	}
+	return ct.TextType, true, nil
+}
+
+type simpleContentInput struct {
+	text         string
+	value        simpleValue
+	prevalidated bool
+}
+
+func (s *session) simpleContentInput(f *frame, rawBytes []byte) simpleContentInput {
+	if f.Element != noElement && len(rawBytes) == 0 {
+		decl := s.engine.rt.Elements[f.Element]
+		if decl.HasFixed {
+			if decl.Type == f.Type {
+				return simpleContentInput{value: decl.FixedValue, prevalidated: true}
+			}
+			return simpleContentInput{text: decl.Fixed}
+		}
+		if decl.HasDefault {
+			if decl.Type == f.Type {
+				return simpleContentInput{value: decl.DefaultValue, prevalidated: true}
+			}
+			return simpleContentInput{text: decl.Default}
+		}
+	}
+	return simpleContentInput{text: s.valueStrings.intern(rawBytes)}
+}
+
+func (s *session) simpleContentNeeds(f *frame, typeID simpleTypeID) ([]identityFieldMatch, simpleValueNeed) {
+	var identityFields []identityFieldMatch
+	if len(s.engine.rt.Identities) != 0 {
+		identityFields = s.identityElementFields()
+	}
+	needIdentity := len(identityFields) != 0
+	needCanon := s.needsSimpleContentCanonical(f, typeID, needIdentity)
+	var needs simpleValueNeed
+	if needCanon {
+		needs |= simpleNeedCanonical
+	}
+	if needIdentity {
+		needs |= simpleNeedIdentity
+	}
+	return identityFields, needs
+}
+
+func (s *session) validateNonSimpleFixedContent(f *frame, line, col int) error {
+	if f.Element == noElement {
+		return nil
+	}
+	decl := s.engine.rt.Elements[f.Element]
+	if !decl.HasFixed {
+		return nil
+	}
+	if f.HasChild {
+		return validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
+	}
+	text := s.valueStrings.intern(s.text[f.TextStart:])
+	if text != "" && text != decl.Fixed {
+		return validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
+	}
+	return nil
 }
 
 func (s *session) recordElementSimpleContent(value simpleValue, line, col int) (bool, error) {
@@ -216,10 +241,8 @@ func (s *session) checkIDRefs() error {
 		return nil
 	}
 	for _, ref := range s.idrefs {
-		if s.ids != nil {
-			if _, ok := s.ids[ref.Value]; ok {
-				continue
-			}
+		if _, ok := s.ids[ref.Value]; ok {
+			continue
 		}
 		if err := s.recover(validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)); err != nil {
 			return err
@@ -598,15 +621,7 @@ func (s *session) closeIdentityScopes(depth int) error {
 	for len(s.idScopes) > 0 && s.idScopes[len(s.idScopes)-1].Depth == depth {
 		scope := &s.idScopes[len(s.idScopes)-1]
 		for _, ref := range scope.Refs {
-			table := scope.Tables[ref.Refer]
-			if table == nil {
-				recoverErr := s.recover(validation(ErrValidationIdentity, ref.Line, ref.Col, ref.Path, "keyref does not resolve"))
-				if recoverErr != nil {
-					return recoverErr
-				}
-				continue
-			}
-			path, ok := table[ref.Key]
+			path, ok := scope.Tables[ref.Refer][ref.Key]
 			if !ok || path == identityConflictPath {
 				if err := s.recover(validation(ErrValidationIdentity, ref.Line, ref.Col, ref.Path, "keyref does not resolve")); err != nil {
 					return err

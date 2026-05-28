@@ -760,6 +760,17 @@ func TestDurationPartialOrderMatchesXSDExamples(t *testing.T) {
 			if got := compareXSDDuration(a, b); got != tt.want {
 				t.Fatalf("compareXSDDuration(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
 			}
+			reverseWant := tt.want
+			switch tt.want {
+			case partialCompareLess:
+				reverseWant = partialCompareGreater
+			case partialCompareGreater:
+				reverseWant = partialCompareLess
+			case partialCompareEqual, partialCompareIncomparable:
+			}
+			if got := compareXSDDuration(b, a); got != reverseWant {
+				t.Fatalf("compareXSDDuration(%q, %q) = %v, want %v", tt.b, tt.a, got, reverseWant)
+			}
 		})
 	}
 }
@@ -1547,6 +1558,10 @@ func TestInvalidRegexSyntaxIsSchemaError(t *testing.T) {
 		`\p{}0`,
 		`\p{0}`,
 		`\p{Is}`,
+		`[\d-z]`,
+		`[\s-a]`,
+		`[\p{Lu}-z]`,
+		`[a-[b]-c]`,
 	}
 	for _, pattern := range tests {
 		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="t"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
@@ -1617,10 +1632,11 @@ func TestSingletonRegexClassEscapesRemainSupported(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="word"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\w]"/></xs:restriction></xs:simpleType></xs:element>
-  <xs:element name="notWord"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\W]"/></xs:restriction></xs:simpleType></xs:element>
-  <xs:element name="notDigit"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\D]"/></xs:restriction></xs:simpleType></xs:element>
-  <xs:element name="notSpace"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\S]"/></xs:restriction></xs:simpleType></xs:element>
-</xs:schema>`)
+	  <xs:element name="notWord"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\W]"/></xs:restriction></xs:simpleType></xs:element>
+	  <xs:element name="notDigit"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\D]"/></xs:restriction></xs:simpleType></xs:element>
+	  <xs:element name="notSpace"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\S]"/></xs:restriction></xs:simpleType></xs:element>
+	  <xs:element name="digitOrHyphen"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\d-]"/></xs:restriction></xs:simpleType></xs:element>
+	</xs:schema>`)
 	mustValidate(t, engine, `<word>A</word>`)
 	mustNotValidate(t, engine, `<word> </word>`, ErrValidationFacet)
 	mustValidate(t, engine, `<notWord> </notWord>`)
@@ -1629,6 +1645,9 @@ func TestSingletonRegexClassEscapesRemainSupported(t *testing.T) {
 	mustNotValidate(t, engine, `<notDigit>1</notDigit>`, ErrValidationFacet)
 	mustValidate(t, engine, `<notSpace>A</notSpace>`)
 	mustNotValidate(t, engine, "<notSpace>\t</notSpace>", ErrValidationFacet)
+	mustValidate(t, engine, `<digitOrHyphen>1</digitOrHyphen>`)
+	mustValidate(t, engine, `<digitOrHyphen>-</digitOrHyphen>`)
+	mustNotValidate(t, engine, `<digitOrHyphen>A</digitOrHyphen>`, ErrValidationFacet)
 }
 
 func TestRegexWhitespaceUsesXMLWhitespace(t *testing.T) {

@@ -30,58 +30,85 @@ func (c *compiler) loadSchemaDocuments(sources []SchemaSource) error {
 	for _, source := range sources {
 		queue = append(queue, schemaLoad{source: source})
 	}
+	sourceData, err := c.readSchemaLoadQueue(queue)
+	if err != nil {
+		return err
+	}
+	c.appendLoadedSchemaDocuments(sourceData)
+	return nil
+}
+
+func (c *compiler) readSchemaLoadQueue(queue []schemaLoad) (map[string][]byte, error) {
 	sourceData := make(map[string][]byte)
 	for len(queue) != 0 {
 		item := queue[0]
 		queue = queue[1:]
-		s := item.source
-		if s.name == "" {
-			return schemaCompile(ErrSchemaRead, "schema source name is required")
-		}
-		name := s.name
-		key := schemaSourceKey(name)
-		if _, ok := c.sourceDocs[key]; ok {
-			continue
-		}
-		data, err := s.read(c.limits.maxSchemaSourceBytes)
+		next, err := c.readSchemaLoad(item, sourceData)
 		if err != nil {
-			if item.optionalMissing && (errors.Is(err, ErrSchemaNotFound) || os.IsNotExist(err)) {
-				continue
-			}
-			if isSchemaLimitError(err) {
-				return err
-			}
-			return &Error{Category: SchemaParseErrorCategory, Code: ErrSchemaRead, Message: "read schema " + s.name, Err: err}
+			return nil, err
 		}
-		doc, err := parseSchemaDocument(name, key, data, c.limits)
-		if err != nil {
-			return err
-		}
-		sourceData[key] = data
-		c.sourceDocs[key] = doc
-		if s.resolver == nil {
-			continue
-		}
-		for _, ref := range schemaDocumentRefs(doc) {
-			if ref.namespace == xmlNamespaceURI {
-				continue
-			}
-			next, err := s.resolver.ResolveSchema(name, ref.location)
-			if err != nil {
-				if errors.Is(err, ErrSchemaNotFound) {
-					continue
-				}
-				return &Error{Category: SchemaParseErrorCategory, Code: ErrSchemaRead, Message: "resolve schema " + ref.location, Err: err}
-			}
-			if next.resolver == nil {
-				next.resolver = s.resolver
-			}
-			if next.name != "" {
-				c.resolvedRef[schemaReferenceKey{base: key, location: ref.location}] = schemaSourceKey(next.name)
-			}
-			queue = append(queue, schemaLoad{source: next, optionalMissing: true})
-		}
+		queue = append(queue, next...)
 	}
+	return sourceData, nil
+}
+
+func (c *compiler) readSchemaLoad(item schemaLoad, sourceData map[string][]byte) ([]schemaLoad, error) {
+	s := item.source
+	if s.name == "" {
+		return nil, schemaCompile(ErrSchemaRead, "schema source name is required")
+	}
+	name := s.name
+	key := schemaSourceKey(name)
+	if _, ok := c.sourceDocs[key]; ok {
+		return nil, nil
+	}
+	data, err := s.read(c.limits.maxSchemaSourceBytes)
+	if err != nil {
+		if item.optionalMissing && (errors.Is(err, ErrSchemaNotFound) || os.IsNotExist(err)) {
+			return nil, nil
+		}
+		if isSchemaLimitError(err) {
+			return nil, err
+		}
+		return nil, &Error{Category: SchemaParseErrorCategory, Code: ErrSchemaRead, Message: "read schema " + s.name, Err: err}
+	}
+	doc, err := parseSchemaDocument(name, key, data, c.limits)
+	if err != nil {
+		return nil, err
+	}
+	sourceData[key] = data
+	c.sourceDocs[key] = doc
+	if s.resolver == nil {
+		return nil, nil
+	}
+	return c.resolveSchemaRefs(s, key, doc)
+}
+
+func (c *compiler) resolveSchemaRefs(s SchemaSource, key string, doc *rawDoc) ([]schemaLoad, error) {
+	var queue []schemaLoad
+	for _, ref := range schemaDocumentRefs(doc) {
+		if ref.namespace == xmlNamespaceURI {
+			continue
+		}
+		next, err := s.resolver.ResolveSchema(s.name, ref.location)
+		if err != nil {
+			if errors.Is(err, ErrSchemaNotFound) {
+				continue
+			}
+			return nil, &Error{Category: SchemaParseErrorCategory, Code: ErrSchemaRead, Message: "resolve schema " + ref.location, Err: err}
+		}
+		if next.resolver == nil {
+			next.resolver = s.resolver
+		}
+		if next.name != "" {
+			c.resolvedRef[schemaReferenceKey{base: key, location: ref.location}] = schemaSourceKey(next.name)
+		}
+		queue = append(queue, schemaLoad{source: next, optionalMissing: true})
+	}
+	return queue, nil
+}
+
+func (c *compiler) appendLoadedSchemaDocuments(sourceData map[string][]byte) {
 	names := slices.Sorted(maps.Keys(c.sourceDocs))
 	targetCounts, hasDuplicateTargets := c.schemaTargetCounts(names)
 	if !hasDuplicateTargets {
@@ -107,7 +134,6 @@ func (c *compiler) loadSchemaDocuments(sources []SchemaSource) error {
 	slices.SortFunc(c.docs, func(a, b *rawDoc) int {
 		return cmp.Compare(a.name, b.name)
 	})
-	return nil
 }
 
 func (c *compiler) schemaTargetCounts(names []string) (map[string]int, bool) {
@@ -144,7 +170,6 @@ func schemaContentSeen(bucket [][]byte, data []byte) bool {
 	return false
 }
 
-// isSchemaLimitError documents which errors stop optional schema loading.
 func isSchemaLimitError(err error) bool {
 	x, ok := errors.AsType[*Error](err)
 	return ok && x.Code == ErrSchemaLimit
@@ -215,23 +240,8 @@ func (c *compiler) checkExplicitInclude(doc *rawDoc, child *rawNode) error {
 	if !ok {
 		return schemaCompile(ErrSchemaReference, "include missing schemaLocation")
 	}
-	referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
-	if !ok {
-		return nil
-	}
-	target := c.documentTargetNamespace(doc)
-	referencedTarget := referenced.root.attrDefault(xsdAttrTargetNamespace, "")
-	if referencedTarget != "" && referencedTarget != target {
-		return schemaCompile(ErrSchemaReference, "included schema targetNamespace does not match including schema")
-	}
-	if target == "" || referencedTarget != "" {
-		return nil
-	}
-	if existing := c.adoptTarget[resolved]; existing != "" && existing != target {
-		return schemaCompile(ErrSchemaReference, "chameleon include used with multiple target namespaces")
-	}
-	c.adoptTarget[resolved] = target
-	return nil
+	_, err := c.adoptChameleonInclude(doc, location, c.documentTargetNamespace(doc))
+	return err
 }
 
 func (c *compiler) checkExplicitImport(doc *rawDoc, child *rawNode) error {
@@ -276,43 +286,66 @@ func (c *compiler) propagateChameleonTargets() error {
 	for {
 		changed := false
 		for _, doc := range c.docs {
-			target := c.documentTargetNamespace(doc)
-			if target == "" {
-				continue
+			docChanged, err := c.propagateChameleonTarget(doc)
+			if err != nil {
+				return err
 			}
-			for _, child := range doc.root.Children {
-				if child.Name.Space != xsdNamespaceURI || child.Name.Local != xsdElemInclude {
-					continue
-				}
-				location, ok := schemaLocationAttr(child)
-				if !ok {
-					continue
-				}
-				referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
-				if !ok {
-					continue
-				}
-				referencedTarget := referenced.root.attrDefault(xsdAttrTargetNamespace, "")
-				if referencedTarget != "" && referencedTarget != target {
-					return schemaCompile(ErrSchemaReference, "included schema targetNamespace does not match including schema")
-				}
-				if referencedTarget != "" {
-					continue
-				}
-				existing := c.adoptTarget[resolved]
-				if existing != "" && existing != target {
-					return schemaCompile(ErrSchemaReference, "chameleon include used with multiple target namespaces")
-				}
-				if existing == "" {
-					c.adoptTarget[resolved] = target
-					changed = true
-				}
+			if docChanged {
+				changed = true
 			}
 		}
 		if !changed {
 			return nil
 		}
 	}
+}
+
+func (c *compiler) propagateChameleonTarget(doc *rawDoc) (bool, error) {
+	target := c.documentTargetNamespace(doc)
+	if target == "" {
+		return false, nil
+	}
+	changed := false
+	for _, child := range doc.root.Children {
+		if child.Name.Space != xsdNamespaceURI || child.Name.Local != xsdElemInclude {
+			continue
+		}
+		location, ok := schemaLocationAttr(child)
+		if !ok {
+			continue
+		}
+		adopted, err := c.adoptChameleonInclude(doc, location, target)
+		if err != nil {
+			return false, err
+		}
+		if adopted {
+			changed = true
+		}
+	}
+	return changed, nil
+}
+
+func (c *compiler) adoptChameleonInclude(doc *rawDoc, location, target string) (bool, error) {
+	referenced, resolved, ok := c.resolveLoadedSchemaLocation(doc, location)
+	if !ok {
+		return false, nil
+	}
+	referencedTarget := referenced.root.attrDefault(xsdAttrTargetNamespace, "")
+	if referencedTarget != "" && referencedTarget != target {
+		return false, schemaCompile(ErrSchemaReference, "included schema targetNamespace does not match including schema")
+	}
+	if target == "" || referencedTarget != "" {
+		return false, nil
+	}
+	existing := c.adoptTarget[resolved]
+	if existing != "" && existing != target {
+		return false, schemaCompile(ErrSchemaReference, "chameleon include used with multiple target namespaces")
+	}
+	if existing != "" {
+		return false, nil
+	}
+	c.adoptTarget[resolved] = target
+	return true, nil
 }
 
 func (c *compiler) documentTargetNamespace(doc *rawDoc) string {

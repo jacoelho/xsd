@@ -660,6 +660,20 @@ func TestProhibitedFixedAttributeIsValidatedAsFixedForXSD10(t *testing.T) {
 	mustNotValidate(t, engine, `<root a="38"/>`, ErrValidationAttribute)
 }
 
+func TestProhibitedRefToFixedAttributeIsRejected(t *testing.T) {
+	engine := mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:attribute name="a" type="xs:int" fixed="37"/>
+	  <xs:element name="root">
+	    <xs:complexType>
+	      <xs:attribute ref="a" use="prohibited"/>
+	    </xs:complexType>
+	  </xs:element>
+	</xs:schema>`)
+	mustValidate(t, engine, `<root/>`)
+	mustNotValidate(t, engine, `<root a="37"/>`, ErrValidationAttribute)
+}
+
 func TestComplexContentCannotExtendSimpleContent(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -1139,6 +1153,9 @@ func TestRejectDTDAndNonUTF8Instances(t *testing.T) {
 
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`<?xml version="1.1" encoding="UTF-8"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)))
 	expectCode(t, err, ErrUnsupportedXML11)
+
+	_, err = Compile(sourceBytes("schema.xsd", []byte(`<?xml version="1.0" encoding="ISO-8859-1"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)))
+	expectCode(t, err, ErrUnsupportedNonUTF8)
 }
 
 func TestValidateCollectsRecoverableErrors(t *testing.T) {

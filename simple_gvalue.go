@@ -26,12 +26,9 @@ func parseXSDGYearMonthValue(s string) (xsdGValue, error) {
 	if !ok || month < 1 || month > 12 {
 		return xsdGValue{}, fmt.Errorf("invalid gYearMonth")
 	}
-	tz, next, err := parseXSDTimezone(s, next)
-	if err != nil || next != len(s) {
-		if err != nil {
-			return xsdGValue{}, err
-		}
-		return xsdGValue{}, fmt.Errorf("invalid gYearMonth")
+	tz, err := parseXSDTimezoneToEnd(s, next, "gYearMonth")
+	if err != nil {
+		return xsdGValue{}, err
 	}
 	return newXSDGValue(year, month, 1, tz), nil
 }
@@ -41,12 +38,9 @@ func parseXSDGYearValue(s string) (xsdGValue, error) {
 	if err != nil {
 		return xsdGValue{}, err
 	}
-	tz, next, err := parseXSDTimezone(s, next)
-	if err != nil || next != len(s) {
-		if err != nil {
-			return xsdGValue{}, err
-		}
-		return xsdGValue{}, fmt.Errorf("invalid gYear")
+	tz, err := parseXSDTimezoneToEnd(s, next, "gYear")
+	if err != nil {
+		return xsdGValue{}, err
 	}
 	return newXSDGValue(year, 1, 1, tz), nil
 }
@@ -63,12 +57,9 @@ func parseXSDGMonthDayValue(s string) (xsdGValue, error) {
 	if !ok || month < 1 || month > 12 || day < 1 || day > maxGMonthDayOfMonth(month) {
 		return xsdGValue{}, fmt.Errorf("invalid gMonthDay")
 	}
-	tz, next, err := parseXSDTimezone(s, next)
-	if err != nil || next != len(s) {
-		if err != nil {
-			return xsdGValue{}, err
-		}
-		return xsdGValue{}, fmt.Errorf("invalid gMonthDay")
+	tz, err := parseXSDTimezoneToEnd(s, next, "gMonthDay")
+	if err != nil {
+		return xsdGValue{}, err
 	}
 	return newXSDGValue(xsdYear{digits: "2000"}, month, day, tz), nil
 }
@@ -81,12 +72,9 @@ func parseXSDGDayValue(s string) (xsdGValue, error) {
 	if !ok || day < 1 || day > 31 {
 		return xsdGValue{}, fmt.Errorf("invalid gDay")
 	}
-	tz, next, err := parseXSDTimezone(s, next)
-	if err != nil || next != len(s) {
-		if err != nil {
-			return xsdGValue{}, err
-		}
-		return xsdGValue{}, fmt.Errorf("invalid gDay")
+	tz, err := parseXSDTimezoneToEnd(s, next, "gDay")
+	if err != nil {
+		return xsdGValue{}, err
 	}
 	return newXSDGValue(xsdYear{digits: "2000"}, 1, day, tz), nil
 }
@@ -99,12 +87,9 @@ func parseXSDGMonthValue(s string) (xsdGValue, error) {
 	if !ok || month < 1 || month > 12 {
 		return xsdGValue{}, fmt.Errorf("invalid gMonth")
 	}
-	tz, next, err := parseXSDTimezone(s, next)
-	if err != nil || next != len(s) {
-		if err != nil {
-			return xsdGValue{}, err
-		}
-		return xsdGValue{}, fmt.Errorf("invalid gMonth")
+	tz, err := parseXSDTimezoneToEnd(s, next, "gMonth")
+	if err != nil {
+		return xsdGValue{}, err
 	}
 	return newXSDGValue(xsdYear{digits: "2000"}, month, 1, tz), nil
 }

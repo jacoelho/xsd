@@ -299,6 +299,14 @@ func TestSubstitutionMemberInheritsHeadType(t *testing.T) {
 	mustNotValidate(t, engine, `<member>x</member>`, ErrValidationFacet)
 }
 
+func TestSubstitutionMemberWithMissingHeadUsesDefaultType(t *testing.T) {
+	engine := mustCompile(t, `
+		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		  <xs:element name="member" substitutionGroup="missing"/>
+		</xs:schema>`)
+	mustValidate(t, engine, `<member>anything</member>`)
+}
+
 func TestContentModelSubstitutionRespectsElementBlock(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

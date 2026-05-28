@@ -383,31 +383,14 @@ func (c *compiler) compileComplexRestrictionModel(child *rawNode, ctx *schemaCon
 }
 
 func validateComplexContentChildren(n *rawNode) error {
-	seenDerivation := false
-	seenNonAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
-		switch child.Name.Local {
-		case xsdElemAnnotation:
-			if seenNonAnnotation {
-				return schemaCompile(ErrSchemaContentModel, "complexContent annotation must be first")
-			}
-		case xsdElemExtension, xsdElemRestriction:
-			if seenDerivation {
-				return schemaCompile(ErrSchemaContentModel, "complexContent can contain one derivation")
-			}
-			seenDerivation = true
-			seenNonAnnotation = true
-		default:
-			return schemaCompile(ErrSchemaContentModel, "invalid complexContent child "+child.Name.Local)
-		}
-	}
-	return nil
+	return validateDerivationContainerChildren(n, "complexContent")
 }
 
 func validateSimpleContentChildren(n *rawNode) error {
+	return validateDerivationContainerChildren(n, "simpleContent")
+}
+
+func validateDerivationContainerChildren(n *rawNode, label string) error {
 	seenDerivation := false
 	seenNonAnnotation := false
 	for _, child := range n.Children {
@@ -417,16 +400,16 @@ func validateSimpleContentChildren(n *rawNode) error {
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenNonAnnotation {
-				return schemaCompile(ErrSchemaContentModel, "simpleContent annotation must be first")
+				return schemaCompile(ErrSchemaContentModel, label+" annotation must be first")
 			}
 		case xsdElemExtension, xsdElemRestriction:
 			if seenDerivation {
-				return schemaCompile(ErrSchemaContentModel, "simpleContent can contain one derivation")
+				return schemaCompile(ErrSchemaContentModel, label+" can contain one derivation")
 			}
 			seenDerivation = true
 			seenNonAnnotation = true
 		default:
-			return schemaCompile(ErrSchemaContentModel, "invalid simpleContent child "+child.Name.Local)
+			return schemaCompile(ErrSchemaContentModel, "invalid "+label+" child "+child.Name.Local)
 		}
 	}
 	return nil
@@ -599,6 +582,7 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qNa
 
 func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *schemaContext, baseTextType simpleTypeID) (simpleTypeID, error) {
 	textType := baseTextType
+	facetChildren := facetChildren(child)
 	if stNode := child.firstXS(xsdElemSimpleType); stNode != nil {
 		simpleID, err := c.compileAnonymousSimple(stNode, ctx)
 		if err != nil {
@@ -606,8 +590,8 @@ func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *sche
 		}
 		textType = simpleID
 	}
-	if hasFacetChildren(child) {
-		simpleID, err := c.compileSimpleContentFacetRestriction(child, textType)
+	if len(facetChildren) != 0 {
+		simpleID, err := c.compileSimpleContentFacetRestriction(facetChildren, textType)
 		if err != nil {
 			return noSimpleType, err
 		}
@@ -619,16 +603,7 @@ func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *sche
 	return textType, nil
 }
 
-func hasFacetChildren(n *rawNode) bool {
-	for _, child := range n.Children {
-		if child.Name.Space == xsdNamespaceURI && isFacetNode(child.Name.Local) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *compiler) compileSimpleContentFacetRestriction(n *rawNode, baseID simpleTypeID) (simpleTypeID, error) {
+func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*rawNode, baseID simpleTypeID) (simpleTypeID, error) {
 	if baseID == c.rt.Builtin.AnySimpleType {
 		return noSimpleType, schemaCompile(ErrSchemaReference, "simple type cannot restrict xs:anySimpleType")
 	}
@@ -646,7 +621,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(n *rawNode, baseID simpl
 	st.Final = 0
 	st.Facets = cloneFacetSet(base.Facets)
 	st.Union = slices.Clone(base.Union)
-	if err = c.compileFacets(facetChildrenNode(n), &st, baseID, baseID); err != nil {
+	if err = c.compileFacetList(facetChildren, &st, baseID, baseID); err != nil {
 		return noSimpleType, err
 	}
 	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
@@ -657,23 +632,27 @@ func (c *compiler) compileSimpleContentFacetRestriction(n *rawNode, baseID simpl
 	return id, nil
 }
 
-func facetChildrenNode(n *rawNode) *rawNode {
-	out := *n
-	out.Children = nil
+func facetChildren(n *rawNode) []*rawNode {
+	var out []*rawNode
 	for _, child := range n.Children {
 		if child.Name.Space == xsdNamespaceURI && isFacetNode(child.Name.Local) {
-			out.Children = append(out.Children, child)
+			out = append(out, child)
 		}
 	}
-	return &out
+	return out
 }
 
 func firstModelChild(n *rawNode) *rawNode {
-	children := modelChildren(n)
-	if len(children) == 0 {
-		return nil
+	for _, child := range n.Children {
+		if child.Name.Space != xsdNamespaceURI {
+			continue
+		}
+		switch child.Name.Local {
+		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
+			return child
+		}
 	}
-	return children[0]
+	return nil
 }
 
 func validateComplexContentDerivationChildren(n *rawNode) error {

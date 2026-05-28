@@ -84,3 +84,22 @@ func TestUnsupportedAllowlistUseRequiresKnownCode(t *testing.T) {
 		t.Fatal("use() did not mark entry used")
 	}
 }
+
+func TestHarnessRunCoverageRequiresFullCorpus(t *testing.T) {
+	m := manifest{
+		Cases: []manifestCase{
+			{Schema: manifestSchema{Expected: "valid"}, Instances: []manifestInstance{{}, {}}},
+			{Schema: manifestSchema{Expected: "valid"}, Instances: []manifestInstance{{}}},
+			{Schema: manifestSchema{Expected: "invalid"}, Instances: []manifestInstance{{}}},
+		},
+	}
+	if !(harnessRunCoverage{schemaCases: 3, instanceRuns: 3}).complete(m) {
+		t.Fatal("complete run reported incomplete")
+	}
+	if (harnessRunCoverage{schemaCases: 2, instanceRuns: 3}).complete(m) {
+		t.Fatal("partial schema run reported complete")
+	}
+	if (harnessRunCoverage{schemaCases: 3, instanceRuns: 2}).complete(m) {
+		t.Fatal("partial instance run reported complete")
+	}
+}

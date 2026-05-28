@@ -80,12 +80,21 @@ func primitiveHasOrderFacet(kind primitiveKind) bool {
 }
 
 func (c *compiler) compileFacets(parent *rawNode, st *simpleType, base, literalType simpleTypeID) error {
+	return c.compileFacetList(parent.xsContentChildren(), st, base, literalType)
+}
+
+func (c *compiler) compileFacetList(children []*rawNode, st *simpleType, base, literalType simpleTypeID) error {
 	baseType := c.rt.SimpleTypes[base]
 	state := compiledFacetState{
 		inheritedEnumeration: slices.Clone(st.Facets.Enumeration),
 	}
-	if err := c.compileFacetChildren(parent, st, base, literalType, &state); err != nil {
-		return err
+	for _, child := range children {
+		if child.Name.Local == xsdElemSimpleType {
+			continue
+		}
+		if err := c.compileFacetChild(child, st, base, literalType, &state); err != nil {
+			return err
+		}
 	}
 	state.apply(st)
 	return validateCompiledFacets(*st, baseType, state.orderedStep)
@@ -110,62 +119,37 @@ func (s *compiledFacetState) apply(st *simpleType) {
 	}
 }
 
-func (c *compiler) compileFacetChildren(parent *rawNode, st *simpleType, base, literalType simpleTypeID, state *compiledFacetState) error {
-	for _, child := range parent.xsContentChildren() {
-		if child.Name.Local == xsdElemSimpleType {
-			continue
+func (c *compiler) compileFacetChild(child *rawNode, st *simpleType, base, literalType simpleTypeID, state *compiledFacetState) error {
+	if !isFacetNode(child.Name.Local) {
+		if child.Name.Space == xsdNamespaceURI {
+			return schemaCompile(ErrSchemaFacet, "unsupported facet "+child.Name.Local)
 		}
-		switch child.Name.Local {
-		case xsdFacetLength, xsdFacetMinLength, xsdFacetMaxLength, xsdFacetTotalDigits, xsdFacetFractionDigits:
-			facet, err := checkedFacet(*st, child)
-			if err != nil {
-				return err
-			}
-			if err := compileSizeFacet(st, child.Name.Local, facet.value, facet.fixed); err != nil {
-				return err
-			}
-		case xsdFacetMinInclusive, xsdFacetMaxInclusive, xsdFacetMinExclusive, xsdFacetMaxExclusive:
-			facet, err := checkedFacet(*st, child)
-			if err != nil {
-				return err
-			}
-			if err := c.compileBoundFacet(st, base, child, facet.value, facet.fixed, &state.orderedStep); err != nil {
-				return err
-			}
-		case xsdFacetEnumeration:
-			facet, err := checkedFacet(*st, child)
-			if err != nil {
-				return err
-			}
-			lit, err := c.compileLiteral(literalType, facet.value, c.schemaQNameResolver(child))
-			if err != nil {
-				return err
-			}
-			state.restrictedEnumeration = append(state.restrictedEnumeration, lit)
-			state.sawEnumeration = true
-		case xsdFacetPattern:
-			facet, err := checkedFacet(*st, child)
-			if err != nil {
-				return err
-			}
-			p, err := c.compilePattern(facet.value)
-			if err != nil {
-				return err
-			}
-			state.stepPatterns = append(state.stepPatterns, p)
-		case xsdFacetWhiteSpace:
-			facet, err := checkedFacet(*st, child)
-			if err != nil {
-				return err
-			}
-			if err := c.compileWhitespaceFacet(st, base, facet.value, facet.fixed); err != nil {
-				return err
-			}
-		default:
-			if child.Name.Space == xsdNamespaceURI {
-				return schemaCompile(ErrSchemaFacet, "unsupported facet "+child.Name.Local)
-			}
+		return nil
+	}
+	facet, err := checkedFacet(*st, child)
+	if err != nil {
+		return err
+	}
+	switch child.Name.Local {
+	case xsdFacetLength, xsdFacetMinLength, xsdFacetMaxLength, xsdFacetTotalDigits, xsdFacetFractionDigits:
+		return compileSizeFacet(st, child.Name.Local, facet.value, facet.fixed)
+	case xsdFacetMinInclusive, xsdFacetMaxInclusive, xsdFacetMinExclusive, xsdFacetMaxExclusive:
+		return c.compileBoundFacet(st, base, child, facet.value, facet.fixed, &state.orderedStep)
+	case xsdFacetEnumeration:
+		lit, err := c.compileLiteral(literalType, facet.value, c.schemaQNameResolver(child))
+		if err != nil {
+			return err
 		}
+		state.restrictedEnumeration = append(state.restrictedEnumeration, lit)
+		state.sawEnumeration = true
+	case xsdFacetPattern:
+		p, err := c.compilePattern(facet.value)
+		if err != nil {
+			return err
+		}
+		state.stepPatterns = append(state.stepPatterns, p)
+	case xsdFacetWhiteSpace:
+		return c.compileWhitespaceFacet(st, base, facet.value, facet.fixed)
 	}
 	return nil
 }
@@ -410,40 +394,38 @@ func literalFacetEqual(a, b *compiledLiteral) bool {
 }
 
 func validatePrimitiveFacetRestrictions(st simpleType, baseFacets facetSet, orderedStep orderedFacetStep) error {
-	if st.Primitive == primDecimal {
+	switch st.Primitive {
+	case primDecimal:
 		if err := validateDecimalFacetRestriction(st.Facets, baseFacets, orderedStep); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
 		if err := validateDecimalFacetBounds(st.Facets); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
-	}
-	if st.Primitive == primFloat || st.Primitive == primDouble {
+	case primFloat, primDouble:
 		if err := validateFloatFacetBounds(st.Primitive, st.Facets); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
-	}
-	if st.Primitive == primDuration {
+	case primDuration:
 		if err := validateDurationFacetBounds(st.Facets); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
-	}
-	switch st.Primitive {
 	case primGDay, primGMonthDay, primGMonth, primGYearMonth, primGYear:
 		if err := validateGValueFacetBounds(st.Primitive, st.Facets); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
-	default:
-	}
-	if st.Primitive == primDate || st.Primitive == primDateTime || st.Primitive == primTime {
-		if st.Primitive == primTime {
-			if err := validateTimeFacetRestriction(st.Facets, baseFacets, orderedStep); err != nil {
-				return schemaCompile(ErrSchemaFacet, err.Error())
-			}
+	case primDate, primDateTime:
+		if err := validateTemporalFacetBounds(st.Primitive, st.Facets); err != nil {
+			return schemaCompile(ErrSchemaFacet, err.Error())
+		}
+	case primTime:
+		if err := validateTimeFacetRestriction(st.Facets, baseFacets, orderedStep); err != nil {
+			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
 		if err := validateTemporalFacetBounds(st.Primitive, st.Facets); err != nil {
 			return schemaCompile(ErrSchemaFacet, err.Error())
 		}
+	default:
 	}
 	return nil
 }

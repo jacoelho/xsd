@@ -229,7 +229,6 @@ func addRaw(m map[qName]rawComponent, q qName, c rawComponent, label string) err
 	return nil
 }
 
-// validateTopLevelGroupChildren owns top-level group validation sequencing.
 func validateTopLevelGroupChildren(n *rawNode, limits compileLimits) error {
 	var model *rawNode
 	seenAnnotation := false
@@ -267,20 +266,6 @@ func validateTopLevelGroupChildren(n *rawNode, limits compileLimits) error {
 	}
 	if _, ok := model.attr(xsdAttrMaxOccurs); ok {
 		return schemaCompile(ErrSchemaOccurrence, "top-level model group cannot have maxOccurs")
-	}
-	if model.Name.Local == xsdElemAll {
-		for _, child := range model.xsContentChildren() {
-			if child.Name.Local != xsdElemElement {
-				continue
-			}
-			occurs, err := parseOccurs(child, limits)
-			if err != nil {
-				return err
-			}
-			if occurs.Unbounded || occurs.Max > 1 {
-				return schemaCompile(ErrSchemaOccurrence, "xs:all particles cannot repeat")
-			}
-		}
 	}
 	return validateModelGroupSyntax(model, limits)
 }

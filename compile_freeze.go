@@ -362,39 +362,55 @@ func validateCompiledModelRuntime(rt *runtimeSchema, model compiledModel) error 
 			}
 		}
 	case compiledModelDFA:
-		if !validUint32Index(model.Start, len(model.Rows)) {
-			return internalInvariant("compiled content model start state is invalid")
-		}
-		for i, row := range model.Rows {
-			if row.Counted && !row.Unbounded && row.Max < row.Min {
-				return internalInvariant("compiled content model counted state has invalid range")
-			}
-			if row.Counted {
-				if err := validateCompiledParticle(rt, row.CountParticle); err != nil {
-					return err
-				}
-			}
-			countedLoops := 0
-			for _, edge := range row.Edges {
-				if !validUint32Index(edge.To, len(model.Rows)) {
-					return internalInvariant("compiled content model edge target is invalid")
-				}
-				if err := validateCompiledParticle(rt, edge.Particle); err != nil {
-					return err
-				}
-				if row.Counted && edge.To == uint32(i) {
-					if !sameCompiledParticle(edge.Particle, row.CountParticle) {
-						return internalInvariant("compiled content model counted state has non-counted self loop")
-					}
-					countedLoops++
-				}
-			}
-			if row.Counted && countedLoops != 1 {
-				return internalInvariant("compiled content model counted state must have one counted self loop")
-			}
-		}
+		return validateCompiledDFARuntime(rt, model)
 	default:
 		return internalInvariant("compiled content model has invalid kind")
+	}
+	return nil
+}
+
+func validateCompiledDFARuntime(rt *runtimeSchema, model compiledModel) error {
+	if !validUint32Index(model.Start, len(model.Rows)) {
+		return internalInvariant("compiled content model start state is invalid")
+	}
+	for i, row := range model.Rows {
+		index, err := checkedUint32(i, "compiled content model row index limit exceeded")
+		if err != nil {
+			return internalInvariant("compiled content model row index is invalid")
+		}
+		if err := validateCompiledDFARow(rt, model, row, index); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCompiledDFARow(rt *runtimeSchema, model compiledModel, row compiledModelRow, index uint32) error {
+	if row.Counted && !row.Unbounded && row.Max < row.Min {
+		return internalInvariant("compiled content model counted state has invalid range")
+	}
+	if row.Counted {
+		if err := validateCompiledParticle(rt, row.CountParticle); err != nil {
+			return err
+		}
+	}
+	countedLoops := 0
+	for _, edge := range row.Edges {
+		if !validUint32Index(edge.To, len(model.Rows)) {
+			return internalInvariant("compiled content model edge target is invalid")
+		}
+		if err := validateCompiledParticle(rt, edge.Particle); err != nil {
+			return err
+		}
+		if row.Counted && edge.To == index {
+			if !sameCompiledParticle(edge.Particle, row.CountParticle) {
+				return internalInvariant("compiled content model counted state has non-counted self loop")
+			}
+			countedLoops++
+		}
+	}
+	if row.Counted && countedLoops != 1 {
+		return internalInvariant("compiled content model counted state must have one counted self loop")
 	}
 	return nil
 }
@@ -526,7 +542,6 @@ func validElementID(rt *runtimeSchema, id elementID) bool {
 	return validUint32Index(uint32(id), len(rt.Elements))
 }
 
-// validAttributeID keeps typed ID validation readable during freeze checks.
 func validAttributeID(rt *runtimeSchema, id attributeID) bool {
 	return validUint32Index(uint32(id), len(rt.Attributes))
 }
@@ -535,7 +550,6 @@ func validContentModelID(rt *runtimeSchema, id contentModelID) bool {
 	return validUint32Index(uint32(id), len(rt.Models))
 }
 
-// validAttributeUseSetID keeps typed ID validation readable during freeze checks.
 func validAttributeUseSetID(rt *runtimeSchema, id attributeUseSetID) bool {
 	return validUint32Index(uint32(id), len(rt.AttributeUseSets))
 }

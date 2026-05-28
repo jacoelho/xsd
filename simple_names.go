@@ -61,7 +61,21 @@ func isXMLNameChar(r rune) bool {
 }
 
 func isNCName(s string) bool {
-	return isXMLName(s) && !strings.Contains(s, ":")
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		if i == 0 {
+			if r == ':' || !isXMLNameStartChar(r) {
+				return false
+			}
+			continue
+		}
+		if r == ':' || !isXMLNameChar(r) {
+			return false
+		}
+	}
+	return true
 }
 
 func isNMTOKEN(s string) bool {
