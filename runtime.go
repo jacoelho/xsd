@@ -523,6 +523,15 @@ func (rt *runtimeSchema) substitutionDerivationAllowed(t, base typeID, block der
 	return mask&rt.substitutionTypeBlocks(t, base) == 0
 }
 
+func (rt *runtimeSchema) substitutionAllowed(headID, memberID elementID) bool {
+	head := rt.Elements[headID]
+	member := rt.Elements[memberID]
+	if head.Block&blockSubstitution != 0 {
+		return false
+	}
+	return rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
+}
+
 func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 	var blocks derivationMask
 	if base.Kind == typeComplex && validUint32Index(base.ID, len(rt.ComplexTypes)) {

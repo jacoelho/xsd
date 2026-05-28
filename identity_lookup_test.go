@@ -64,7 +64,7 @@ func TestValidateCompiledIdentityFieldsRejectsStaleLookup(t *testing.T) {
 			Paths: []identityFieldPath{{Attr: true, Attribute: attr}},
 		}},
 	}
-	compileIdentityFieldLookup(&ic)
+	ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = buildIdentityFieldLookup(ic.Fields)
 	ic.AttributeFields = nil
 
 	err := validateCompiledIdentityFields(ic)

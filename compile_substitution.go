@@ -66,7 +66,7 @@ func (c *compiler) compileSubstitutionLookup() {
 	c.rt.SubstitutionLookup = make(map[elementID]map[qName]elementID, len(c.rt.Substitutions))
 	for head, members := range c.rt.Substitutions {
 		for _, member := range members {
-			if !runtimeSubstitutionAllowed(&c.rt, head, member) {
+			if !c.rt.substitutionAllowed(head, member) {
 				continue
 			}
 			byName := c.rt.SubstitutionLookup[head]

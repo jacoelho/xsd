@@ -144,13 +144,8 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 		}
 		ic.Fields = append(ic.Fields, identityField{Paths: fieldPaths})
 	}
-	compileIdentityFieldLookup(&ic)
-	return ic, nil
-}
-
-// compileIdentityFieldLookup materializes field lookup tables after path parsing.
-func compileIdentityFieldLookup(ic *identityConstraint) {
 	ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = buildIdentityFieldLookup(ic.Fields)
+	return ic, nil
 }
 
 func buildIdentityFieldLookup(fields []identityField) ([]compiledIdentityField, map[qName][]compiledIdentityField, []compiledIdentityField) {

@@ -131,7 +131,7 @@ func validateRuntimeCompiledModels(rt *runtimeSchema) error {
 func validateSubstitutionLookup(rt *runtimeSchema) error {
 	for head, members := range rt.Substitutions {
 		for _, member := range members {
-			if !runtimeSubstitutionAllowed(rt, head, member) {
+			if !rt.substitutionAllowed(head, member) {
 				continue
 			}
 			byName := rt.SubstitutionLookup[head]
@@ -146,21 +146,12 @@ func validateSubstitutionLookup(rt *runtimeSchema) error {
 			if !slices.Contains(members, member) {
 				return internalInvariant("substitution lookup contains non-member")
 			}
-			if !runtimeSubstitutionAllowed(rt, head, member) {
+			if !rt.substitutionAllowed(head, member) {
 				return internalInvariant("substitution lookup contains blocked member")
 			}
 		}
 	}
 	return nil
-}
-
-func runtimeSubstitutionAllowed(rt *runtimeSchema, headID, memberID elementID) bool {
-	head := rt.Elements[headID]
-	member := rt.Elements[memberID]
-	if head.Block&blockSubstitution != 0 {
-		return false
-	}
-	return rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
 }
 
 func internalInvariant(msg string) error {
