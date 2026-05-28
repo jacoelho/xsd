@@ -268,7 +268,7 @@ By default this generates streaming XML documents at `20MB`, `100MB`, `500MB`, `
 
 The command comparison reports p95 elapsed time and p95 max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
 
-Latest local run (2026-05-26, macOS 26.5, Go 1.26.2, libxml2 2.9.13, p95 over 20 runs):
+Latest local run (2026-05-28, macOS 26.5, Go 1.26.2, libxml2 2.9.13, `main` 30c83e1d, p95 over 20 runs):
 
 ```text
 goos: darwin
@@ -277,23 +277,23 @@ pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | p95 sec/op      | p95 sec/op      vs base           |
-streaming/20MB                 360.206ms       374.284ms       +3.91%
-streaming/100MB                   1.693s          1.765s       +4.23%
-streaming/500MB                   8.332s          8.638s       +3.66%
-streaming/1GB                    39.191s         17.707s      -54.82%
-streaming/2GB                    89.073s         34.889s      -60.83%
-identity                       666.813ms       215.615ms      -67.66%
-geomean                           4.773s          3.021s      -36.71%
+streaming/20MB                 360.440ms       372.570ms       +3.37%
+streaming/100MB                   1.761s          1.781s       +1.13%
+streaming/500MB                  12.530s          8.658s      -30.90%
+streaming/1GB                    28.108s         17.760s      -36.81%
+streaming/2GB                    57.233s         35.661s      -37.69%
+identity                       629.760ms       205.802ms      -67.32%
+geomean                           4.478s          3.013s      -32.70%
 
                          | libxml2 xmllint |             go xmllint             |
                          | p95 rss/op      | p95 rss/op      vs base           |
-streaming/20MB                 243.16MiB         6.33MiB      -97.40%
-streaming/100MB                  1.17GiB         6.48MiB      -99.46%
-streaming/500MB                  5.81GiB         6.44MiB      -99.89%
-streaming/1GB                   11.83GiB         6.55MiB      -99.95%
-streaming/2GB                   12.76GiB         6.53MiB      -99.95%
-identity                       187.38MiB        70.09MiB      -62.59%
-geomean                          1.88GiB         9.62MiB      -99.50%
+streaming/20MB                 243.19MiB         6.36MiB      -97.38%
+streaming/100MB                  1.17GiB         6.39MiB      -99.47%
+streaming/500MB                  5.81GiB         6.53MiB      -99.89%
+streaming/1GB                    8.67GiB         6.58MiB      -99.93%
+streaming/2GB                   11.88GiB         6.53MiB      -99.95%
+identity                       188.41MiB        71.47MiB      -62.07%
+geomean                          1.77GiB         9.66MiB      -99.47%
 ```
 
 ## Constraints
@@ -305,5 +305,5 @@ geomean                          1.88GiB         9.62MiB      -99.50%
 - DTDs and external entities are rejected.
 - `xsi:schemaLocation` never triggers dynamic loading.
 - `FormatXML` builds an in-memory formatting tree; validation is the streaming path.
-- Regex support is limited to patterns representable by Go `regexp`; unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
+- Regex support uses Go `regexp` plus a simple literal/class fast path for exact, bounded, and open repeats. Unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
 - `xs:redefine` is unsupported.
