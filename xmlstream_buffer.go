@@ -148,7 +148,7 @@ func (c *byteStringCache) intern(b []byte) string {
 	}
 	h := hashBytes(b)
 	for _, idx := range c.buckets[h] {
-		if stringBytesEqual(c.entries[idx].text, b) {
+		if byteTextEqual(c.entries[idx].text, b) {
 			s := c.entries[idx].text
 			c.remember(s)
 			return s
@@ -167,7 +167,7 @@ func (c *byteStringCache) intern(b []byte) string {
 
 func (c *byteStringCache) recentString(b []byte) (string, bool) {
 	for _, s := range c.recent {
-		if stringBytesEqual(s, b) {
+		if byteTextEqual(s, b) {
 			return s, true
 		}
 	}
@@ -188,16 +188,4 @@ func hashBytes(b []byte) uint64 {
 		h *= prime
 	}
 	return h
-}
-
-func stringBytesEqual(s string, b []byte) bool {
-	if len(s) != len(b) {
-		return false
-	}
-	for i := range b {
-		if s[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

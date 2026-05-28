@@ -139,6 +139,27 @@ func schemaCompile(code ErrorCode, msg string) error {
 	return &Error{Category: SchemaCompileErrorCategory, Code: code, Message: msg}
 }
 
+func schemaCompileAt(n *rawNode, code ErrorCode, msg string) error {
+	if n == nil {
+		return schemaCompile(code, msg)
+	}
+	return &Error{Category: SchemaCompileErrorCategory, Code: code, Line: n.Line, Column: n.Column, Message: msg}
+}
+
+func withSchemaCompileLocation(n *rawNode, err error) error {
+	if n == nil || err == nil {
+		return err
+	}
+	x, ok := errors.AsType[*Error](err)
+	if !ok || x.Category != SchemaCompileErrorCategory || x.Line > 0 {
+		return err
+	}
+	y := *x
+	y.Line = n.Line
+	y.Column = n.Column
+	return &y
+}
+
 func unsupported(code ErrorCode, msg string) error {
 	return &Error{Category: UnsupportedErrorCategory, Code: code, Message: msg}
 }

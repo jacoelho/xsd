@@ -52,14 +52,14 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 		}
 		name, ok := node.attr(xsdAttrName)
 		if !ok || name == "" {
-			return nil, schemaCompile(ErrSchemaIdentity, "identity constraint missing name")
+			return nil, schemaCompileAt(node, ErrSchemaIdentity, "identity constraint missing name")
 		}
 		q, err := c.rt.Names.InternQName(ctx.targetNS, name)
 		if err != nil {
 			return nil, err
 		}
 		if _, exists := c.rt.GlobalIdentities[q]; exists {
-			return nil, schemaCompile(ErrSchemaDuplicate, "duplicate identity constraint "+c.rt.Names.Format(q))
+			return nil, schemaCompileAt(node, ErrSchemaDuplicate, "duplicate identity constraint "+c.rt.Names.Format(q))
 		}
 		id, err := nextIdentityConstraintID(len(c.rt.Identities))
 		if err != nil {
@@ -117,7 +117,7 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 		ic.Kind = identityKeyRef
 		refer, ok := n.attr(xsdAttrRefer)
 		if !ok {
-			return ic, schemaCompile(ErrSchemaIdentity, "keyref missing refer")
+			return ic, schemaCompileAt(n, ErrSchemaIdentity, "keyref missing refer")
 		}
 		q, resolveErr := c.resolveQNameChecked(n, ctx, refer)
 		if resolveErr != nil {
@@ -125,7 +125,7 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext) (id
 		}
 		ref, ok := c.rt.GlobalIdentities[q]
 		if !ok {
-			return ic, schemaCompile(ErrSchemaReference, "unknown keyref refer "+c.rt.Names.Format(q))
+			return ic, schemaCompileAt(n, ErrSchemaReference, "unknown keyref refer "+c.rt.Names.Format(q))
 		}
 		ic.Refer = ref
 	}
@@ -210,18 +210,18 @@ func validateIdentityConstraintSyntax(n *rawNode) (identityConstraintSyntax, err
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenAnnotation {
-				return syntax, schemaCompile(ErrSchemaContentModel, "identity constraint can contain at most one annotation")
+				return syntax, schemaCompileAt(child, ErrSchemaContentModel, "identity constraint can contain at most one annotation")
 			}
 			if syntax.selector != nil || len(syntax.fields) != 0 {
-				return syntax, schemaCompile(ErrSchemaContentModel, "identity constraint annotation must be first")
+				return syntax, schemaCompileAt(child, ErrSchemaContentModel, "identity constraint annotation must be first")
 			}
 			seenAnnotation = true
 		case xsdElemSelector:
 			if syntax.selector != nil {
-				return syntax, schemaCompile(ErrSchemaContentModel, "identity constraint can contain at most one selector")
+				return syntax, schemaCompileAt(child, ErrSchemaContentModel, "identity constraint can contain at most one selector")
 			}
 			if len(syntax.fields) != 0 {
-				return syntax, schemaCompile(ErrSchemaContentModel, "identity constraint selector must precede fields")
+				return syntax, schemaCompileAt(child, ErrSchemaContentModel, "identity constraint selector must precede fields")
 			}
 			if err := validateIdentityXPathChild(child, xsdElemSelector); err != nil {
 				return syntax, err
@@ -229,21 +229,21 @@ func validateIdentityConstraintSyntax(n *rawNode) (identityConstraintSyntax, err
 			syntax.selector = child
 		case xsdElemField:
 			if syntax.selector == nil {
-				return syntax, schemaCompile(ErrSchemaContentModel, "identity constraint field requires selector")
+				return syntax, schemaCompileAt(child, ErrSchemaContentModel, "identity constraint field requires selector")
 			}
 			if err := validateIdentityXPathChild(child, xsdElemField); err != nil {
 				return syntax, err
 			}
 			syntax.fields = append(syntax.fields, child)
 		default:
-			return syntax, schemaCompile(ErrSchemaContentModel, "invalid identity constraint child "+child.Name.Local)
+			return syntax, schemaCompileAt(child, ErrSchemaContentModel, "invalid identity constraint child "+child.Name.Local)
 		}
 	}
 	if syntax.selector == nil {
-		return syntax, schemaCompile(ErrSchemaIdentity, "identity constraint missing selector")
+		return syntax, schemaCompileAt(n, ErrSchemaIdentity, "identity constraint missing selector")
 	}
 	if len(syntax.fields) == 0 {
-		return syntax, schemaCompile(ErrSchemaIdentity, "identity constraint missing fields")
+		return syntax, schemaCompileAt(n, ErrSchemaIdentity, "identity constraint missing fields")
 	}
 	return syntax, nil
 }
@@ -251,10 +251,10 @@ func validateIdentityConstraintSyntax(n *rawNode) (identityConstraintSyntax, err
 func validateIdentityXPathChild(n *rawNode, label string) error {
 	xpath, ok := n.attr(xsdAttrXPath)
 	if !ok {
-		return schemaCompile(ErrSchemaIdentity, label+" missing xpath")
+		return schemaCompileAt(n, ErrSchemaIdentity, label+" missing xpath")
 	}
 	if trimXMLWhitespace(xpath) == "" {
-		return schemaCompile(ErrSchemaIdentity, label+" xpath is empty")
+		return schemaCompileAt(n, ErrSchemaIdentity, label+" xpath is empty")
 	}
 	seenAnnotation := false
 	for _, child := range n.Children {
@@ -262,10 +262,10 @@ func validateIdentityXPathChild(n *rawNode, label string) error {
 			continue
 		}
 		if child.Name.Local != xsdElemAnnotation {
-			return schemaCompile(ErrSchemaContentModel, label+" can contain only annotation")
+			return schemaCompileAt(child, ErrSchemaContentModel, label+" can contain only annotation")
 		}
 		if seenAnnotation {
-			return schemaCompile(ErrSchemaContentModel, label+" can contain at most one annotation")
+			return schemaCompileAt(child, ErrSchemaContentModel, label+" can contain at most one annotation")
 		}
 		seenAnnotation = true
 	}
@@ -304,7 +304,7 @@ func (c *compiler) parseIdentityPaths(n *rawNode, xpath string) ([]identityPath,
 	for part := range strings.SplitSeq(xpath, "|") {
 		part = trimXMLWhitespace(part)
 		if part == "" {
-			return nil, schemaCompile(ErrSchemaIdentity, "identity selector XPath branch is empty")
+			return nil, schemaCompileAt(n, ErrSchemaIdentity, "identity selector XPath branch is empty")
 		}
 		desc := false
 		if rest, ok := parseIdentityDescendantPrefix(part); ok {
@@ -329,7 +329,7 @@ func (c *compiler) parseIdentityFieldPaths(n *rawNode, xpath string) ([]identity
 	for part := range strings.SplitSeq(xpath, "|") {
 		part = trimXMLWhitespace(part)
 		if part == "" {
-			return nil, schemaCompile(ErrSchemaIdentity, "identity field XPath branch is empty")
+			return nil, schemaCompileAt(n, ErrSchemaIdentity, "identity field XPath branch is empty")
 		}
 		path, err := c.parseIdentityFieldPathBranch(n, part)
 		if err != nil {
@@ -347,7 +347,7 @@ func (c *compiler) parseIdentityFieldPathBranch(n *rawNode, part string) (identi
 		part = rest
 	}
 	if part == "" {
-		return identityFieldPath{}, schemaCompile(ErrSchemaIdentity, "identity field XPath branch is empty")
+		return identityFieldPath{}, schemaCompileAt(n, ErrSchemaIdentity, "identity field XPath branch is empty")
 	}
 	if part == "." && !desc {
 		return identityFieldPath{Self: true}, nil
@@ -376,19 +376,19 @@ func (c *compiler) parseIdentityFieldPathBranch(n *rawNode, part string) (identi
 
 func (c *compiler) parseIdentityFieldAttribute(n *rawNode, part string) (string, identityNameTest, bool, error) {
 	if strings.HasPrefix(part, "/") {
-		return "", identityNameTest{}, false, schemaCompile(ErrSchemaIdentity, "invalid identity field XPath "+part)
+		return "", identityNameTest{}, false, schemaCompileAt(n, ErrSchemaIdentity, "invalid identity field XPath "+part)
 	}
 	elementPath, step := splitIdentityLastStep(part)
 	if name, ok := strings.CutPrefix(step, "@"); ok {
 		if name == "" {
-			return "", identityNameTest{}, false, schemaCompile(ErrSchemaIdentity, "invalid identity field XPath "+part)
+			return "", identityNameTest{}, false, schemaCompileAt(n, ErrSchemaIdentity, "invalid identity field XPath "+part)
 		}
 		attrName, err := c.parseIdentityNameTestParts(n, name)
 		return elementPath, attrName, true, err
 	}
 	name, ok := parseIdentityAxisStep(step, xsdElemAttribute)
 	if ok && name == "" {
-		return "", identityNameTest{}, false, schemaCompile(ErrSchemaIdentity, "invalid identity field XPath "+part)
+		return "", identityNameTest{}, false, schemaCompileAt(n, ErrSchemaIdentity, "invalid identity field XPath "+part)
 	}
 	if !ok {
 		return part, identityNameTest{}, false, nil
@@ -442,12 +442,12 @@ func (c *compiler) parseIdentityNameTestParts(n *rawNode, lexical string) (ident
 	}
 	prefix, wildcard, err := parseQNamePrefixWildcard(lexical)
 	if err != nil {
-		return identityNameTest{}, err
+		return identityNameTest{}, withSchemaCompileLocation(n, err)
 	}
 	if wildcard {
 		ns, ok := n.NS[prefix]
 		if !ok {
-			return identityNameTest{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
+			return identityNameTest{}, schemaCompileAt(n, ErrSchemaReference, "unbound QName prefix "+prefix)
 		}
 		nsID, nsErr := c.rt.Names.InternNamespace(ns)
 		if nsErr != nil {
@@ -464,25 +464,25 @@ func (c *compiler) parseIdentityNameTestParts(n *rawNode, lexical string) (ident
 
 func (c *compiler) parseIdentitySteps(n *rawNode, path string) ([]identityStep, error) {
 	if strings.Contains(path, "@") {
-		return nil, schemaCompile(ErrSchemaIdentity, "invalid identity XPath "+path)
+		return nil, schemaCompileAt(n, ErrSchemaIdentity, "invalid identity XPath "+path)
 	}
 	if strings.ContainsAny(path, "[]()") || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
-		return nil, schemaCompile(ErrSchemaIdentity, "invalid identity XPath "+path)
+		return nil, schemaCompileAt(n, ErrSchemaIdentity, "invalid identity XPath "+path)
 	}
 	steps := make([]identityStep, 0, strings.Count(path, "/")+1)
 	for part := range strings.SplitSeq(path, "/") {
 		part = trimXMLWhitespace(part)
 		if part == "" {
-			return nil, schemaCompile(ErrSchemaIdentity, "invalid identity XPath step")
+			return nil, schemaCompileAt(n, ErrSchemaIdentity, "invalid identity XPath step")
 		}
 		if strings.Contains(part, "::") {
 			name, ok := parseIdentityAxisStep(part, "child")
 			if !ok {
-				return nil, schemaCompile(ErrSchemaIdentity, "invalid identity XPath step "+part)
+				return nil, schemaCompileAt(n, ErrSchemaIdentity, "invalid identity XPath step "+part)
 			}
 			part = name
 			if name == "" {
-				return nil, schemaCompile(ErrSchemaIdentity, "invalid identity XPath step child::")
+				return nil, schemaCompileAt(n, ErrSchemaIdentity, "invalid identity XPath step child::")
 			}
 		}
 		if part == "." {
@@ -514,14 +514,14 @@ func parseIdentityAxisStep(part, axis string) (string, bool) {
 func (c *compiler) resolveXPathQName(n *rawNode, lexical string) (qName, error) {
 	prefix, local, prefixed, err := parseQNameParts(lexical)
 	if err != nil {
-		return qName{}, err
+		return qName{}, withSchemaCompileLocation(n, err)
 	}
 	if !prefixed {
 		return c.rt.Names.InternQName("", local)
 	}
 	ns, ok := n.NS[prefix]
 	if !ok {
-		return qName{}, schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
+		return qName{}, schemaCompileAt(n, ErrSchemaReference, "unbound QName prefix "+prefix)
 	}
 	return c.rt.Names.InternQName(ns, local)
 }

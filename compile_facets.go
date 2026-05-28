@@ -80,7 +80,7 @@ func primitiveHasOrderFacet(kind primitiveKind) bool {
 }
 
 func (c *compiler) compileFacets(parent *rawNode, st *simpleType, base, literalType simpleTypeID) error {
-	return c.compileFacetList(parent.xsContentChildren(), st, base, literalType)
+	return withSchemaCompileLocation(parent, c.compileFacetList(parent.xsContentChildren(), st, base, literalType))
 }
 
 func (c *compiler) compileFacetList(children []*rawNode, st *simpleType, base, literalType simpleTypeID) error {
@@ -122,7 +122,7 @@ func (s *compiledFacetState) apply(st *simpleType) {
 func (c *compiler) compileFacetChild(child *rawNode, st *simpleType, base, literalType simpleTypeID, state *compiledFacetState) error {
 	if !isFacetNode(child.Name.Local) {
 		if child.Name.Space == xsdNamespaceURI {
-			return schemaCompile(ErrSchemaFacet, "unsupported facet "+child.Name.Local)
+			return schemaCompileAt(child, ErrSchemaFacet, "unsupported facet "+child.Name.Local)
 		}
 		return nil
 	}
@@ -132,24 +132,24 @@ func (c *compiler) compileFacetChild(child *rawNode, st *simpleType, base, liter
 	}
 	switch child.Name.Local {
 	case xsdFacetLength, xsdFacetMinLength, xsdFacetMaxLength, xsdFacetTotalDigits, xsdFacetFractionDigits:
-		return compileSizeFacet(st, child.Name.Local, facet.value, facet.fixed)
+		return compileSizeFacet(st, child, facet.value, facet.fixed)
 	case xsdFacetMinInclusive, xsdFacetMaxInclusive, xsdFacetMinExclusive, xsdFacetMaxExclusive:
 		return c.compileBoundFacet(st, base, child, facet.value, facet.fixed, &state.orderedStep)
 	case xsdFacetEnumeration:
 		lit, err := c.compileLiteral(literalType, facet.value, c.schemaQNameResolver(child))
 		if err != nil {
-			return err
+			return withSchemaCompileLocation(child, err)
 		}
 		state.restrictedEnumeration = append(state.restrictedEnumeration, lit)
 		state.sawEnumeration = true
 	case xsdFacetPattern:
-		p, err := c.compilePattern(facet.value)
+		p, err := c.compilePattern(child, facet.value)
 		if err != nil {
 			return err
 		}
 		state.stepPatterns = append(state.stepPatterns, p)
 	case xsdFacetWhiteSpace:
-		return c.compileWhitespaceFacet(st, base, facet.value, facet.fixed)
+		return c.compileWhitespaceFacet(st, base, child, facet.value, facet.fixed)
 	}
 	return nil
 }
@@ -165,7 +165,7 @@ func checkedFacet(st simpleType, n *rawNode) (facetInput, error) {
 		return facetInput{}, err
 	}
 	if !facetAllowedForType(st, n.Name.Local) {
-		return facetInput{}, schemaCompile(ErrSchemaFacet, "facet "+n.Name.Local+" is not allowed")
+		return facetInput{}, schemaCompileAt(n, ErrSchemaFacet, "facet "+n.Name.Local+" is not allowed")
 	}
 	fixed, err := schemaBoolAttr(n, xsdAttrFixed)
 	if err != nil {
@@ -177,23 +177,24 @@ func checkedFacet(st simpleType, n *rawNode) (facetInput, error) {
 func requiredFacetValue(n *rawNode) (string, error) {
 	value, ok := n.attr(xsdAttrValue)
 	if !ok {
-		return "", schemaCompile(ErrSchemaFacet, n.Name.Local+" missing value")
+		return "", schemaCompileAt(n, ErrSchemaFacet, n.Name.Local+" missing value")
 	}
 	return value, nil
 }
 
-func compileSizeFacet(st *simpleType, name, value string, fixed bool) error {
-	n, err := parseSizeFacetInteger(value)
+func compileSizeFacet(st *simpleType, node *rawNode, value string, fixed bool) error {
+	name := node.Name.Local
+	size, err := parseSizeFacetInteger(value)
 	if err != nil {
-		return schemaCompile(ErrSchemaFacet, "invalid "+name+" facet "+value)
+		return schemaCompileAt(node, ErrSchemaFacet, "invalid "+name+" facet "+value)
 	}
-	if name == xsdFacetTotalDigits && n == 0 {
-		return schemaCompile(ErrSchemaFacet, "totalDigits must be positive")
+	if name == xsdFacetTotalDigits && size == 0 {
+		return schemaCompileAt(node, ErrSchemaFacet, "totalDigits must be positive")
 	}
-	if n > maxUint32Value {
-		return schemaCompile(ErrSchemaLimit, name+" facet exceeds uint32 limit")
+	if size > maxUint32Value {
+		return schemaCompileAt(node, ErrSchemaLimit, name+" facet exceeds uint32 limit")
 	}
-	v := uint32(n)
+	v := uint32(size)
 	switch name {
 	case xsdFacetLength:
 		st.Facets.Length = &v
@@ -294,13 +295,13 @@ func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *r
 	return nil
 }
 
-func (c *compiler) compileWhitespaceFacet(st *simpleType, base simpleTypeID, value string, fixed bool) error {
+func (c *compiler) compileWhitespaceFacet(st *simpleType, base simpleTypeID, n *rawNode, value string, fixed bool) error {
 	mode, ok := parseWhitespaceChecked(value)
 	if !ok {
-		return schemaCompile(ErrSchemaFacet, "invalid whiteSpace facet "+value)
+		return schemaCompileAt(n, ErrSchemaFacet, "invalid whiteSpace facet "+value)
 	}
 	if !validWhitespaceRestriction(c.rt.SimpleTypes[base].Whitespace, mode) {
-		return schemaCompile(ErrSchemaFacet, "whiteSpace cannot loosen base whiteSpace")
+		return schemaCompileAt(n, ErrSchemaFacet, "whiteSpace cannot loosen base whiteSpace")
 	}
 	st.Whitespace = mode
 	if fixed {

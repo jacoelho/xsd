@@ -35,15 +35,15 @@ func (c *compiler) indexSchemaDocument(doc *rawDoc) error {
 func (c *compiler) schemaContext(doc *rawDoc) (*schemaContext, error) {
 	root := doc.root
 	if target, ok := root.attr(xsdAttrTargetNamespace); ok && target == "" {
-		return nil, schemaCompile(ErrSchemaInvalidAttribute, "schema targetNamespace cannot be empty")
+		return nil, schemaCompileAt(root, ErrSchemaInvalidAttribute, "schema targetNamespace cannot be empty")
 	}
 	blockDefault, err := parseDerivationSet(root.attrDefault(xsdAttrBlockDefault, ""), "schema blockDefault", derivationBlockDefaultMask)
 	if err != nil {
-		return nil, err
+		return nil, withSchemaCompileLocation(root, err)
 	}
 	finalDefault, err := parseDerivationSet(root.attrDefault(xsdAttrFinalDefault, ""), "schema finalDefault", derivationFinalDefaultMask)
 	if err != nil {
-		return nil, err
+		return nil, withSchemaCompileLocation(root, err)
 	}
 	elementQualified, err := schemaFormDefaultAttr(root, xsdAttrElementFormDefault)
 	if err != nil {
@@ -85,12 +85,12 @@ func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) 
 	switch child.Name.Local {
 	case xsdElemSimpleType:
 		if _, exists := c.complexRaw[q]; exists {
-			return schemaCompile(ErrSchemaDuplicate, "duplicate type "+label)
+			return schemaCompileAt(child, ErrSchemaDuplicate, "duplicate type "+label)
 		}
 		return addRaw(c.simpleRaw, q, component, label)
 	case xsdElemComplexType:
 		if _, exists := c.simpleRaw[q]; exists {
-			return schemaCompile(ErrSchemaDuplicate, "duplicate type "+label)
+			return schemaCompileAt(child, ErrSchemaDuplicate, "duplicate type "+label)
 		}
 		return addRaw(c.complexRaw, q, component, label)
 	case xsdElemElement:
@@ -114,7 +114,7 @@ func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) 
 
 func (c *compiler) validateTopLevelSchemaChild(child *rawNode, ctx *schemaContext) error {
 	if !isTopLevelSchemaChild(child.Name.Local) {
-		return schemaCompile(ErrSchemaContentModel, "invalid top-level schema child "+child.Name.Local)
+		return schemaCompileAt(child, ErrSchemaContentModel, "invalid top-level schema child "+child.Name.Local)
 	}
 	switch child.Name.Local {
 	case xsdElemAttributeGroup:
@@ -122,7 +122,7 @@ func (c *compiler) validateTopLevelSchemaChild(child *rawNode, ctx *schemaContex
 	case xsdElemGroup:
 		return validateTopLevelGroupAttrs(child)
 	case xsdElemUnique, xsdElemKey, xsdElemKeyref, xsdElemSelector, xsdElemField:
-		return schemaCompile(ErrSchemaContentModel, "identity constraint must be inside element")
+		return schemaCompileAt(child, ErrSchemaContentModel, "identity constraint must be inside element")
 	case xsdElemNotation:
 		return c.indexNotation(child, ctx)
 	case xsdElemSimpleType, xsdElemComplexType:
@@ -139,7 +139,7 @@ func (c *compiler) validateTopLevelSchemaChild(child *rawNode, ctx *schemaContex
 func rejectTopLevelAttrs(n *rawNode, label string, attrs ...string) error {
 	for _, attr := range attrs {
 		if _, ok := n.attr(attr); ok {
-			return schemaCompile(ErrSchemaInvalidAttribute, "top-level "+label+" cannot have "+attr)
+			return schemaCompileAt(n, ErrSchemaInvalidAttribute, "top-level "+label+" cannot have "+attr)
 		}
 	}
 	return nil
@@ -147,7 +147,7 @@ func rejectTopLevelAttrs(n *rawNode, label string, attrs ...string) error {
 
 func requireTopLevelName(n *rawNode) error {
 	if _, ok := n.attr(xsdAttrName); !ok {
-		return schemaCompile(ErrSchemaReference, "top-level "+n.Name.Local+" missing name")
+		return schemaCompileAt(n, ErrSchemaReference, "top-level "+n.Name.Local+" missing name")
 	}
 	return nil
 }
@@ -175,20 +175,20 @@ func validateTopLevelElementAttrs(n *rawNode) error {
 
 func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
 	if trimXMLWhitespace(n.Text) != "" {
-		return schemaCompile(ErrSchemaContentModel, "notation can contain only annotation")
+		return schemaCompileAt(n, ErrSchemaContentModel, "notation can contain only annotation")
 	}
 	for _, child := range n.Children {
 		if child.Name.Space != xsdNamespaceURI || child.Name.Local != xsdElemAnnotation {
-			return schemaCompile(ErrSchemaContentModel, "notation can contain only annotation")
+			return schemaCompileAt(child, ErrSchemaContentModel, "notation can contain only annotation")
 		}
 	}
 	name, ok := n.attr(xsdAttrName)
 	if !ok {
-		return schemaCompile(ErrSchemaInvalidAttribute, "notation missing name")
+		return schemaCompileAt(n, ErrSchemaInvalidAttribute, "notation missing name")
 	}
 	if _, hasPublic := n.attr(xsdAttrPublic); !hasPublic {
 		if _, hasSystem := n.attr(xsdAttrSystem); !hasSystem {
-			return schemaCompile(ErrSchemaInvalidAttribute, "notation requires public or system")
+			return schemaCompileAt(n, ErrSchemaInvalidAttribute, "notation requires public or system")
 		}
 	}
 	q, err := c.rt.Names.InternQName(ctx.targetNS, name)
@@ -197,7 +197,7 @@ func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
 	}
 	key := c.rt.Names.Format(q)
 	if c.rt.Notations[key] {
-		return schemaCompile(ErrSchemaDuplicate, "duplicate notation "+key)
+		return schemaCompileAt(n, ErrSchemaDuplicate, "duplicate notation "+key)
 	}
 	c.rt.Notations[key] = true
 	return nil
@@ -223,7 +223,7 @@ func isTopLevelSchemaChild(local string) bool {
 
 func addRaw(m map[qName]rawComponent, q qName, c rawComponent, label string) error {
 	if _, exists := m[q]; exists {
-		return schemaCompile(ErrSchemaDuplicate, "duplicate schema component "+label)
+		return schemaCompileAt(c.node, ErrSchemaDuplicate, "duplicate schema component "+label)
 	}
 	m[q] = c
 	return nil
@@ -240,32 +240,32 @@ func validateTopLevelGroupChildren(n *rawNode, limits compileLimits) error {
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenAnnotation {
-				return schemaCompile(ErrSchemaContentModel, "top-level group can contain at most one annotation")
+				return schemaCompileAt(child, ErrSchemaContentModel, "top-level group can contain at most one annotation")
 			}
 			if seenNonAnnotation {
-				return schemaCompile(ErrSchemaContentModel, "top-level group annotation must be first")
+				return schemaCompileAt(child, ErrSchemaContentModel, "top-level group annotation must be first")
 			}
 			seenAnnotation = true
 		case xsdElemSequence, xsdElemChoice, xsdElemAll:
 			if model != nil {
-				return schemaCompile(ErrSchemaContentModel, "top-level group must contain exactly one model group")
+				return schemaCompileAt(child, ErrSchemaContentModel, "top-level group must contain exactly one model group")
 			}
 			model = child
 			seenNonAnnotation = true
 		case xsdElemGroup:
-			return schemaCompile(ErrSchemaContentModel, "top-level group cannot contain group ref")
+			return schemaCompileAt(child, ErrSchemaContentModel, "top-level group cannot contain group ref")
 		default:
-			return schemaCompile(ErrSchemaContentModel, "invalid top-level group child "+child.Name.Local)
+			return schemaCompileAt(child, ErrSchemaContentModel, "invalid top-level group child "+child.Name.Local)
 		}
 	}
 	if model == nil {
-		return schemaCompile(ErrSchemaContentModel, "top-level group must contain exactly one model group")
+		return schemaCompileAt(n, ErrSchemaContentModel, "top-level group must contain exactly one model group")
 	}
 	if _, ok := model.attr(xsdAttrMinOccurs); ok {
-		return schemaCompile(ErrSchemaOccurrence, "top-level model group cannot have minOccurs")
+		return schemaCompileAt(model, ErrSchemaOccurrence, "top-level model group cannot have minOccurs")
 	}
 	if _, ok := model.attr(xsdAttrMaxOccurs); ok {
-		return schemaCompile(ErrSchemaOccurrence, "top-level model group cannot have maxOccurs")
+		return schemaCompileAt(model, ErrSchemaOccurrence, "top-level model group cannot have maxOccurs")
 	}
 	return validateModelGroupSyntax(model, limits)
 }
@@ -278,13 +278,13 @@ func validateModelGroupSyntax(n *rawNode, limits compileLimits) error {
 		}
 		if child.Name.Local == xsdElemAnnotation {
 			if seenNonAnnotation {
-				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" annotation must be first")
+				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" annotation must be first")
 			}
 			continue
 		}
 		seenNonAnnotation = true
 		if n.Name.Local == xsdElemAll && child.Name.Local != xsdElemElement {
-			return schemaCompile(ErrSchemaContentModel, "xs:all can contain only element particles")
+			return schemaCompileAt(child, ErrSchemaContentModel, "xs:all can contain only element particles")
 		}
 		switch child.Name.Local {
 		case xsdElemElement:
@@ -293,20 +293,20 @@ func validateModelGroupSyntax(n *rawNode, limits compileLimits) error {
 				return err
 			}
 		case xsdElemAll:
-			return schemaCompile(ErrSchemaContentModel, "xs:all cannot be nested in model groups")
+			return schemaCompileAt(child, ErrSchemaContentModel, "xs:all cannot be nested in model groups")
 		case xsdElemGroup:
 			if _, ok := child.attr(xsdAttrRef); !ok {
-				return schemaCompile(ErrSchemaReference, "group use missing ref")
+				return schemaCompileAt(child, ErrSchemaReference, "group use missing ref")
 			}
 			if len(child.xsContentChildren()) != 0 {
-				return schemaCompile(ErrSchemaContentModel, "group use can contain only annotation")
+				return schemaCompileAt(child, ErrSchemaContentModel, "group use can contain only annotation")
 			}
 		case xsdElemAny:
 			if err := validateAnyParticleSyntax(child); err != nil {
 				return err
 			}
 		default:
-			return schemaCompile(ErrSchemaContentModel, "invalid model group child "+child.Name.Local)
+			return schemaCompileAt(child, ErrSchemaContentModel, "invalid model group child "+child.Name.Local)
 		}
 	}
 	return nil

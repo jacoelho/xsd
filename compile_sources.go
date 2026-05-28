@@ -238,10 +238,10 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 func (c *compiler) checkExplicitInclude(doc *rawDoc, child *rawNode) error {
 	location, ok := schemaLocationAttr(child)
 	if !ok {
-		return schemaCompile(ErrSchemaReference, "include missing schemaLocation")
+		return schemaCompileAt(child, ErrSchemaReference, "include missing schemaLocation")
 	}
 	_, err := c.adoptChameleonInclude(doc, location, c.documentTargetNamespace(doc))
-	return err
+	return withSchemaCompileLocation(child, err)
 }
 
 func (c *compiler) checkExplicitImport(doc *rawDoc, child *rawNode) error {
@@ -258,7 +258,7 @@ func (c *compiler) checkExplicitImport(doc *rawDoc, child *rawNode) error {
 		return nil
 	}
 	if namespace != referenced.root.attrDefault(xsdAttrTargetNamespace, "") {
-		return schemaCompile(ErrSchemaReference, "import namespace does not match imported schema targetNamespace")
+		return schemaCompileAt(child, ErrSchemaReference, "import namespace does not match imported schema targetNamespace")
 	}
 	return nil
 }
@@ -267,13 +267,13 @@ func (c *compiler) registerExplicitImportNamespace(doc *rawDoc, child *rawNode) 
 	namespace, hasNamespace := child.attr(xsdAttrNamespace)
 	target := c.documentTargetNamespace(doc)
 	if hasNamespace && namespace == "" {
-		return "", schemaCompile(ErrSchemaInvalidAttribute, "import namespace cannot be empty")
+		return "", schemaCompileAt(child, ErrSchemaInvalidAttribute, "import namespace cannot be empty")
 	}
 	if !hasNamespace && target == "" {
-		return "", schemaCompile(ErrSchemaReference, "import without namespace requires enclosing schema targetNamespace")
+		return "", schemaCompileAt(child, ErrSchemaReference, "import without namespace requires enclosing schema targetNamespace")
 	}
 	if hasNamespace && namespace == target {
-		return "", schemaCompile(ErrSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
+		return "", schemaCompileAt(child, ErrSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
 	}
 	if c.imports[doc.key] == nil {
 		c.imports[doc.key] = make(map[string]bool)
@@ -316,7 +316,7 @@ func (c *compiler) propagateChameleonTarget(doc *rawDoc) (bool, error) {
 		}
 		adopted, err := c.adoptChameleonInclude(doc, location, target)
 		if err != nil {
-			return false, err
+			return false, withSchemaCompileLocation(child, err)
 		}
 		if adopted {
 			changed = true

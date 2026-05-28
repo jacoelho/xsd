@@ -22,6 +22,9 @@ const (
 	streamTokenPI
 )
 
+// byteStringCache interns short parser strings per validation session. Each
+// cache keeps at most maxByteStringCacheEntries strings no longer than
+// maxByteStringCacheLen bytes.
 const (
 	maxByteStringCacheEntries = 512
 	maxByteStringCacheLen     = 256

@@ -22,14 +22,14 @@ func (c *compiler) compileWildcardParticle(n *rawNode, ctx *schemaContext) (part
 
 func validateAnyParticleSyntax(n *rawNode) error {
 	if len(n.xsContentChildren()) != 0 {
-		return schemaCompile(ErrSchemaContentModel, "any can contain only annotation")
+		return schemaCompileAt(n, ErrSchemaContentModel, "any can contain only annotation")
 	}
 	return nil
 }
 
 func validateAnyAttributeSyntax(n *rawNode) error {
 	if len(n.xsContentChildren()) != 0 {
-		return schemaCompile(ErrSchemaContentModel, "anyAttribute can contain only annotation")
+		return schemaCompileAt(n, ErrSchemaContentModel, "anyAttribute can contain only annotation")
 	}
 	return nil
 }
@@ -94,7 +94,7 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (wildcardID, 
 				uri = ctx.targetNS
 			default:
 				if strings.HasPrefix(part, "##") {
-					return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "invalid wildcard namespace "+part)
+					return noWildcard, schemaCompileAt(n, ErrSchemaInvalidAttribute, "invalid wildcard namespace "+part)
 				}
 				uri = part
 			}
@@ -115,7 +115,7 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (wildcardID, 
 	case "strict":
 		process = processStrict
 	default:
-		return noWildcard, schemaCompile(ErrSchemaInvalidAttribute, "invalid processContents")
+		return noWildcard, schemaCompileAt(n, ErrSchemaInvalidAttribute, "invalid processContents")
 	}
 	id, err := nextWildcardID(len(c.rt.Wildcards))
 	if err != nil {

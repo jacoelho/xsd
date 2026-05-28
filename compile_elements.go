@@ -11,7 +11,7 @@ func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (parti
 			return particle{}, err
 		}
 		if len(n.xsContentChildren()) != 0 {
-			return particle{}, schemaCompile(ErrSchemaContentModel, "element ref can contain only annotation")
+			return particle{}, schemaCompileAt(n, ErrSchemaContentModel, "element ref can contain only annotation")
 		}
 		var q qName
 		q, err = c.resolveQNameChecked(n, ctx, ref)
@@ -20,7 +20,7 @@ func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (parti
 		}
 		id, err = c.compileElementByQName(q)
 		if err != nil {
-			return particle{}, err
+			return particle{}, withSchemaCompileLocation(n, err)
 		}
 	} else {
 		id, err = c.compileLocalElement(n, ctx)
@@ -40,6 +40,9 @@ func (c *compiler) compileElementByQName(q qName) (elementID, error) {
 		return id, nil
 	}
 	if c.compilingElement[q] {
+		if raw, ok := c.elementRaw[q]; ok {
+			return 0, schemaCompileAt(raw.node, ErrSchemaReference, "cyclic element declaration "+c.rt.Names.Format(q))
+		}
 		return 0, schemaCompile(ErrSchemaReference, "cyclic element declaration "+c.rt.Names.Format(q))
 	}
 	raw, ok := c.elementRaw[q]
@@ -69,17 +72,17 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (elementI
 	}
 	for _, attr := range []string{xsdAttrAbstract, xsdAttrFinal, xsdAttrSubstitutionGroup} {
 		if _, ok := n.attr(attr); ok {
-			return 0, schemaCompile(ErrSchemaInvalidAttribute, "local element cannot have "+attr)
+			return 0, schemaCompileAt(n, ErrSchemaInvalidAttribute, "local element cannot have "+attr)
 		}
 	}
 	name, ok := n.attr(xsdAttrName)
 	if !ok {
-		return 0, schemaCompile(ErrSchemaReference, "local element missing name or ref")
+		return 0, schemaCompileAt(n, ErrSchemaReference, "local element missing name or ref")
 	}
 	ns := ""
 	form := n.attrDefault(xsdAttrForm, "")
 	if form != "" && form != xsdValueQualified && form != xsdValueUnqualified {
-		return 0, schemaCompile(ErrSchemaInvalidAttribute, "invalid element form value "+form)
+		return 0, schemaCompileAt(n, ErrSchemaInvalidAttribute, "invalid element form value "+form)
 	}
 	if form == xsdValueQualified || (form == "" && ctx.elementQualified) {
 		ns = ctx.targetNS
@@ -115,14 +118,14 @@ func validateElementDeclContent(n *rawNode) error {
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenNonAnnotation {
-				return schemaCompile(ErrSchemaContentModel, "element annotation must be first")
+				return schemaCompileAt(child, ErrSchemaContentModel, "element annotation must be first")
 			}
 		case xsdElemSimpleType, xsdElemComplexType:
 			if seenType {
-				return schemaCompile(ErrSchemaContentModel, "element can contain at most one anonymous type")
+				return schemaCompileAt(child, ErrSchemaContentModel, "element can contain at most one anonymous type")
 			}
 			if seenIdentity {
-				return schemaCompile(ErrSchemaContentModel, "element anonymous type must precede identity constraints")
+				return schemaCompileAt(child, ErrSchemaContentModel, "element anonymous type must precede identity constraints")
 			}
 			seenType = true
 			seenNonAnnotation = true
@@ -130,11 +133,11 @@ func validateElementDeclContent(n *rawNode) error {
 			seenIdentity = true
 			seenNonAnnotation = true
 		default:
-			return schemaCompile(ErrSchemaContentModel, "invalid element child "+child.Name.Local)
+			return schemaCompileAt(child, ErrSchemaContentModel, "invalid element child "+child.Name.Local)
 		}
 	}
 	if _, ok := n.attr(xsdAttrType); ok && seenType {
-		return schemaCompile(ErrSchemaInvalidAttribute, "element cannot have both type and anonymous type")
+		return schemaCompileAt(n, ErrSchemaInvalidAttribute, "element cannot have both type and anonymous type")
 	}
 	return nil
 }
@@ -205,7 +208,7 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 		if _, ok := c.elementRaw[headQName]; ok {
 			headID, headErr := c.compileElementByQName(headQName)
 			if headErr != nil {
-				return elementDecl{}, headErr
+				return elementDecl{}, withSchemaCompileLocation(n, headErr)
 			}
 			typ = c.rt.Elements[headID].Type
 		}
@@ -236,10 +239,10 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 		decl.HasFixed = true
 	}
 	if decl.HasDefault && decl.HasFixed {
-		return elementDecl{}, schemaCompile(ErrSchemaInvalidAttribute, "element cannot have both default and fixed")
+		return elementDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "element cannot have both default and fixed")
 	}
 	if err := c.validateElementValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
-		return elementDecl{}, err
+		return elementDecl{}, withSchemaCompileLocation(n, err)
 	}
 	if err := c.compileDeclaredIdentityConstraints(identityNodes, identityIDs, ctx); err != nil {
 		return elementDecl{}, err

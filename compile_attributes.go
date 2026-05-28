@@ -7,6 +7,9 @@ func (c *compiler) compileAttributeByQName(q qName) (attributeID, error) {
 		return id, nil
 	}
 	if c.compilingAttr[q] {
+		if raw, ok := c.attributeRaw[q]; ok {
+			return 0, schemaCompileAt(raw.node, ErrSchemaReference, "cyclic attribute declaration "+c.rt.Names.Format(q))
+		}
 		return 0, schemaCompile(ErrSchemaReference, "cyclic attribute declaration "+c.rt.Names.Format(q))
 	}
 	raw, ok := c.attributeRaw[q]
@@ -35,15 +38,15 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q qName)
 	}
 	local := c.rt.Names.Local(q.Local)
 	if local == xmlnsPrefix {
-		return attributeDecl{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot be named xmlns")
+		return attributeDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute cannot be named xmlns")
 	}
 	if c.rt.Names.Namespace(q.Namespace) == xsiNamespaceURI {
-		return attributeDecl{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute target namespace cannot be XMLSchema-instance")
+		return attributeDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute target namespace cannot be XMLSchema-instance")
 	}
 	typeID := c.rt.Builtin.AnySimpleType
 	if typeLex, ok := n.attr(xsdAttrType); ok {
 		if n.firstXS(xsdElemSimpleType) != nil {
-			return attributeDecl{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot have both type and simpleType")
+			return attributeDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute cannot have both type and simpleType")
 		}
 		tq, err := c.resolveQNameChecked(n, ctx, typeLex)
 		if err != nil {
@@ -71,10 +74,10 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q qName)
 		decl.HasFixed = true
 	}
 	if decl.HasDefault && decl.HasFixed {
-		return attributeDecl{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot have both default and fixed")
+		return attributeDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute cannot have both default and fixed")
 	}
 	if err := c.validateAttributeValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
-		return attributeDecl{}, err
+		return attributeDecl{}, withSchemaCompileLocation(n, err)
 	}
 	return decl, nil
 }
@@ -88,15 +91,15 @@ func validateAttributeDeclContent(n *rawNode) error {
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenSimple {
-				return schemaCompile(ErrSchemaContentModel, "attribute annotation must precede simpleType")
+				return schemaCompileAt(child, ErrSchemaContentModel, "attribute annotation must precede simpleType")
 			}
 		case xsdElemSimpleType:
 			if seenSimple {
-				return schemaCompile(ErrSchemaContentModel, "attribute can contain at most one simpleType")
+				return schemaCompileAt(child, ErrSchemaContentModel, "attribute can contain at most one simpleType")
 			}
 			seenSimple = true
 		default:
-			return schemaCompile(ErrSchemaContentModel, "invalid attribute child "+child.Name.Local)
+			return schemaCompileAt(child, ErrSchemaContentModel, "invalid attribute child "+child.Name.Local)
 		}
 	}
 	return nil
@@ -178,7 +181,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 			}
 			uses, err = c.mergeAttributeUse(uses, seen, u, mode, inheritedWildcard)
 			if err != nil {
-				return noAttributeUseSet, err
+				return noAttributeUseSet, withSchemaCompileLocation(child, err)
 			}
 		case xsdElemAttributeGroup:
 			groupUses, groupWildcard, err := c.compileAttributeGroupUse(child, ctx)
@@ -188,11 +191,11 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 			for _, u := range groupUses {
 				uses, err = c.mergeAttributeUse(uses, seen, u, mode, inheritedWildcard)
 				if err != nil {
-					return noAttributeUseSet, err
+					return noAttributeUseSet, withSchemaCompileLocation(child, err)
 				}
 			}
 			if err := wildcards.addGroup(c, groupWildcard); err != nil {
-				return noAttributeUseSet, err
+				return noAttributeUseSet, withSchemaCompileLocation(child, err)
 			}
 		case xsdElemAnyAttribute:
 			id, err := c.compileAttributeWildcard(child, ctx)
@@ -200,21 +203,21 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 				return noAttributeUseSet, err
 			}
 			if err := wildcards.addAnyAttribute(c, id); err != nil {
-				return noAttributeUseSet, err
+				return noAttributeUseSet, withSchemaCompileLocation(child, err)
 			}
 		default:
 			if parent.Name.Local == xsdElemAttributeGroup && child.Name.Space == xsdNamespaceURI {
-				return noAttributeUseSet, schemaCompile(ErrSchemaContentModel, "invalid attribute use child "+child.Name.Local)
+				return noAttributeUseSet, schemaCompileAt(child, ErrSchemaContentModel, "invalid attribute use child "+child.Name.Local)
 			}
 		}
 	}
 	wildcard, err := wildcards.finish(c, parent.Name.Local)
 	if err != nil {
-		return noAttributeUseSet, err
+		return noAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	finalUses := removeProhibitedAttributeUses(uses)
 	if err = c.validateAttributeUseSet(finalUses); err != nil {
-		return noAttributeUseSet, err
+		return noAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	id, err := nextAttributeUseSetID(len(c.rt.AttributeUseSets))
 	if err != nil {
@@ -410,21 +413,21 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	switch mode := n.attrDefault(xsdAttrUse, "optional"); mode {
 	case "required":
 		if hasDefault {
-			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "required attribute cannot have default")
+			return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "required attribute cannot have default")
 		}
 		use.Required = true
 	case "prohibited":
 		if hasDefault {
-			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "prohibited attribute cannot have default")
+			return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "prohibited attribute cannot have default")
 		}
 		use.Prohibited = !hasFixed
 	case "optional":
 	default:
-		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "invalid attribute use "+mode)
+		return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "invalid attribute use "+mode)
 	}
 	if hasDefault {
 		if base.refHasFixed {
-			return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute use default conflicts with fixed attribute declaration")
+			return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute use default conflicts with fixed attribute declaration")
 		}
 		use.Default = defaultValue
 		use.DefaultCanonical = ""
@@ -432,14 +435,14 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		use.HasDefault = true
 	}
 	if use.HasDefault && use.HasFixed {
-		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute cannot have both default and fixed")
+		return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute cannot have both default and fixed")
 	}
 	decl := attributeDecl{Name: use.Name, Type: use.Type, Default: use.Default, Fixed: use.Fixed, HasDefault: use.HasDefault, HasFixed: use.HasFixed}
 	if err := c.validateAttributeValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
-		return attributeUse{}, err
+		return attributeUse{}, withSchemaCompileLocation(n, err)
 	}
 	if base.refHasFixed && use.HasFixed && decl.FixedCanonical != base.refFixedCanonical {
-		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "attribute use fixed value conflicts with fixed attribute declaration")
+		return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute use fixed value conflicts with fixed attribute declaration")
 	}
 	use.DefaultCanonical = decl.DefaultCanonical
 	use.FixedCanonical = decl.FixedCanonical
@@ -461,7 +464,7 @@ func (c *compiler) compileAttributeRefUse(n *rawNode, ctx *schemaContext, ref st
 		return attributeUseBase{}, err
 	}
 	if children := n.xsContentChildren(); len(children) != 0 {
-		return attributeUseBase{}, schemaCompile(ErrSchemaContentModel, "attribute ref can contain only annotation")
+		return attributeUseBase{}, schemaCompileAt(n, ErrSchemaContentModel, "attribute ref can contain only annotation")
 	}
 	q, err := c.resolveQNameChecked(n, ctx, ref)
 	if err != nil {
@@ -469,7 +472,7 @@ func (c *compiler) compileAttributeRefUse(n *rawNode, ctx *schemaContext, ref st
 	}
 	id, err := c.compileAttributeByQName(q)
 	if err != nil {
-		return attributeUseBase{}, err
+		return attributeUseBase{}, withSchemaCompileLocation(n, err)
 	}
 	use := attributeUseFromDecl(c.rt.Attributes[id])
 	return attributeUseBase{use: use, refHasFixed: use.HasFixed, refFixedCanonical: use.FixedCanonical}, nil
@@ -478,12 +481,12 @@ func (c *compiler) compileAttributeRefUse(n *rawNode, ctx *schemaContext, ref st
 func (c *compiler) compileLocalAttributeUse(n *rawNode, ctx *schemaContext) (attributeUse, error) {
 	name, ok := n.attr(xsdAttrName)
 	if !ok {
-		return attributeUse{}, schemaCompile(ErrSchemaReference, "attribute missing name or ref")
+		return attributeUse{}, schemaCompileAt(n, ErrSchemaReference, "attribute missing name or ref")
 	}
 	ns := ""
 	form, hasForm := n.attr(xsdAttrForm)
 	if hasForm && form != xsdValueQualified && form != xsdValueUnqualified {
-		return attributeUse{}, schemaCompile(ErrSchemaInvalidAttribute, "invalid attribute form "+form)
+		return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "invalid attribute form "+form)
 	}
 	if form == xsdValueQualified || (!hasForm && ctx.attrQualified) {
 		ns = ctx.targetNS
@@ -525,17 +528,18 @@ func attributeUseFromDecl(decl attributeDecl) attributeUse {
 
 func (c *compiler) compileAttributeGroupUse(n *rawNode, ctx *schemaContext) ([]attributeUse, wildcardID, error) {
 	if children := n.xsContentChildren(); len(children) != 0 {
-		return nil, noWildcard, schemaCompile(ErrSchemaContentModel, "attributeGroup use can contain only annotation")
+		return nil, noWildcard, schemaCompileAt(n, ErrSchemaContentModel, "attributeGroup use can contain only annotation")
 	}
 	ref, ok := n.attr(xsdAttrRef)
 	if !ok {
-		return nil, noWildcard, schemaCompile(ErrSchemaReference, "attributeGroup use missing ref")
+		return nil, noWildcard, schemaCompileAt(n, ErrSchemaReference, "attributeGroup use missing ref")
 	}
 	q, err := c.resolveQNameChecked(n, ctx, ref)
 	if err != nil {
 		return nil, noWildcard, err
 	}
-	return c.compileAttributeGroupByQName(q)
+	uses, wildcard, err := c.compileAttributeGroupByQName(q)
+	return uses, wildcard, withSchemaCompileLocation(n, err)
 }
 
 func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildcardID, error) {
@@ -548,7 +552,7 @@ func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildca
 		return nil, noWildcard, schemaCompile(ErrSchemaReference, "unknown attribute group "+c.rt.Names.Format(q))
 	}
 	if c.compilingAttrGrp[q] {
-		return nil, noWildcard, schemaCompile(ErrSchemaReference, "recursive attribute group "+c.rt.Names.Format(q))
+		return nil, noWildcard, schemaCompileAt(raw.node, ErrSchemaReference, "recursive attribute group "+c.rt.Names.Format(q))
 	}
 	c.compilingAttrGrp[q] = true
 	defer delete(c.compilingAttrGrp, q)

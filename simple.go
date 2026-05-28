@@ -257,17 +257,17 @@ func validateRawSimpleContentFast(rt *runtimeSchema, id simpleTypeID, raw []byte
 	}
 	if canValidateStringEnumerationNoOutputFast(st, identity, 0) {
 		if st.Whitespace == whitespacePreserve || !hasXMLWhitespaceBytes(raw) {
-			return true, applyStringEnumerationBytes(st.Facets, raw)
+			return true, applyStringEnumeration(st.Facets, raw)
 		}
 	}
 	if hasXMLWhitespaceBytes(raw) {
 		return false, nil
 	}
 	if id == rt.Builtin.Int && identity == simpleIdentityNone {
-		return true, validateBuiltinIntNoCanonicalBytes(raw)
+		return true, validateBuiltinIntNoCanonical(raw)
 	}
 	if canValidateBooleanNoOutputFast(st, identity) {
-		return true, validateBooleanNoCanonicalBytes(raw)
+		return true, validateBooleanNoCanonical(raw)
 	}
 	if canValidateDateNoOutputFast(st, identity) {
 		return validateDateNoOutputBytesFast(raw)
@@ -334,7 +334,7 @@ func validateRawUnionValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (b
 	}
 	for _, member := range st.Union {
 		if canValidateRawUnionBooleanMember(rt, member) {
-			if validBooleanNoCanonicalBytes(raw) {
+			if _, ok := parseBooleanLexical(raw); ok {
 				return true, nil
 			}
 			continue
@@ -748,40 +748,32 @@ func parseFloatPrimitiveActual(norm string, bitSize int, needCanonical bool) (pr
 	}, nil
 }
 
-func parseBooleanLexical(v string) (bool, bool) {
-	switch v {
-	case "true", "1":
-		return true, true
-	case "false", "0":
-		return false, true
-	default:
-		return false, false
+func parseBooleanLexical[T byteText](v T) (bool, bool) {
+	switch len(v) {
+	case 1:
+		switch v[0] {
+		case '1':
+			return true, true
+		case '0':
+			return false, true
+		}
+	case len("true"):
+		if byteTextEqual("true", v) {
+			return true, true
+		}
+	case len("false"):
+		if byteTextEqual("false", v) {
+			return false, true
+		}
 	}
+	return false, false
 }
 
-func validateBooleanNoCanonicalBytes(v []byte) error {
-	if validBooleanNoCanonicalBytes(v) {
+func validateBooleanNoCanonical[T byteText](v T) error {
+	if _, ok := parseBooleanLexical(v); ok {
 		return nil
 	}
 	return fmt.Errorf("invalid boolean")
-}
-
-func validBooleanNoCanonicalBytes(v []byte) bool {
-	switch len(v) {
-	case 1:
-		if v[0] == '0' || v[0] == '1' {
-			return true
-		}
-	case 4:
-		if v[0] == 't' && v[1] == 'r' && v[2] == 'u' && v[3] == 'e' {
-			return true
-		}
-	case 5:
-		if v[0] == 'f' && v[1] == 'a' && v[2] == 'l' && v[3] == 's' && v[4] == 'e' {
-			return true
-		}
-	}
-	return false
 }
 
 func parseBooleanPrimitive(norm string) (string, bool, error) {

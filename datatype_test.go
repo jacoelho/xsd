@@ -99,6 +99,69 @@ func TestSimplePatternFastPathMatchesRegexpSemantics(t *testing.T) {
 	}
 }
 
+func TestSimplePatternVariableFastPathMatchesRegexpSemantics(t *testing.T) {
+	tests := []struct {
+		source string
+		values []string
+	}{
+		{`[a-z]{0,3}x`, []string{"", "x", "ax", "abcx", "abcdx", "abc"}},
+		{`[a-z]{0,}[a-z]{0,}x`, []string{"x", "ax", "abcx", "abc"}},
+		{`a{1,3}a`, []string{"a", "aa", "aaa", "aaaa", "aaaaa"}},
+		{`[ab]{0,2}ab`, []string{"ab", "aab", "bab", "bbab", "aaab"}},
+		{`é{0,2}x`, []string{"x", "éx", "ééx", "éééx"}},
+	}
+	for _, test := range tests {
+		p, err := compilePatternWithCompiler(test.source, nil)
+		if err != nil {
+			t.Fatalf("compilePatternWithCompiler(%q) error = %v", test.source, err)
+		}
+		if p.Fast == nil {
+			t.Fatalf("compilePatternWithCompiler(%q) Fast = nil", test.source)
+		}
+		re := regexp.MustCompile("^(?:" + translateXSDRegexToGo(test.source) + ")$")
+		for _, value := range test.values {
+			want := re.MatchString(value)
+			if got := p.Fast.match(value); got != want {
+				t.Fatalf("fast match %q against %q = %v, regexp = %v", value, test.source, got, want)
+			}
+			if got := p.Fast.matchBytes([]byte(value)); got != want {
+				t.Fatalf("fast byte match %q against %q = %v, regexp = %v", value, test.source, got, want)
+			}
+		}
+	}
+}
+
+func TestBuiltinIntNoCanonicalStringAndBytesMatch(t *testing.T) {
+	tests := []string{
+		"",
+		"+",
+		"-",
+		"0",
+		"+000",
+		"2147483647",
+		"2147483648",
+		"-2147483648",
+		"-2147483649",
+		"1.0",
+		"1..0",
+		"x",
+	}
+	for _, test := range tests {
+		stringErr := validateBuiltinIntNoCanonical(test)
+		bytesErr := validateBuiltinIntNoCanonical([]byte(test))
+		if errorMessage(stringErr) != errorMessage(bytesErr) {
+			t.Fatalf("string error for %q = %v, bytes error = %v", test, stringErr, bytesErr)
+		}
+	}
+}
+
+func errorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
 func TestInvalidLengthFacetCombinationsAreSchemaErrors(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
