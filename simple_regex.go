@@ -14,8 +14,15 @@ func (c *compiler) compilePattern(source string) (pattern, error) {
 }
 
 func compilePatternWithCompiler(source string, c *compiler) (pattern, error) {
-	if err := validateXSDRegexSyntaxWithCompiler(source, c); err != nil {
+	goUnsupported, err := checkXSDRegexSyntaxWithCompiler(source, c)
+	if err != nil {
 		return pattern{}, err
+	}
+	if fast := compileSimplePattern(source); fast != nil {
+		return pattern{XSDSource: source, Fast: fast}, nil
+	}
+	if goUnsupported {
+		return pattern{}, unsupported(ErrUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source)
 	}
 	goPattern := translateXSDRegexToGo(source)
 	goSource := "^(?:" + goPattern + ")$"
@@ -23,7 +30,7 @@ func compilePatternWithCompiler(source string, c *compiler) (pattern, error) {
 	if err != nil {
 		return pattern{}, unsupported(ErrUnsupportedRegex, "invalid or unsupported regex "+source)
 	}
-	return pattern{XSDSource: source, GoSource: goSource, RE: re, Fast: compileSimplePattern(source)}, nil
+	return pattern{XSDSource: source, GoSource: goSource, RE: re}, nil
 }
 
 func (p pattern) matches(s string) bool {
@@ -41,13 +48,17 @@ func (p pattern) matchesBytes(s []byte) bool {
 }
 
 type simplePattern struct {
-	atoms []simplePatternAtom
+	atoms    []simplePatternAtom
+	variable bool
 }
 
 type simplePatternAtom struct {
-	class  simplePatternClass
-	repeat int
+	class simplePatternClass
+	min   int
+	max   int
 }
+
+const simplePatternUnbounded = -1
 
 type simplePatternClass struct {
 	ranges []runeRange
@@ -66,16 +77,21 @@ func compileSimplePattern(source string) *simplePattern {
 		if !ok {
 			return nil
 		}
-		repeat := 1
+		repeatMin := 1
+		repeatMax := 1
 		if next < len(source) && source[next] == '{' {
-			n, after, ok := parseExactPatternRepeat(source, next)
+			parsedMin, parsedMax, after, ok := parseSimplePatternRepeat(source, next)
 			if !ok {
 				return nil
 			}
-			repeat = n
+			repeatMin = parsedMin
+			repeatMax = parsedMax
 			next = after
 		}
-		out.atoms = append(out.atoms, simplePatternAtom{class: class, repeat: repeat})
+		if repeatMin != repeatMax {
+			out.variable = true
+		}
+		out.atoms = append(out.atoms, simplePatternAtom{class: class, min: repeatMin, max: repeatMax})
 		i = next
 	}
 	return &out
@@ -176,27 +192,44 @@ func parseSimplePatternClassRune(source string, i int) (rune, int, bool) {
 	return r, i + size, true
 }
 
-func parseExactPatternRepeat(source string, i int) (int, int, bool) {
+func parseSimplePatternRepeat(source string, i int) (int, int, int, bool) {
 	end := strings.IndexByte(source[i:], '}')
 	if end < 0 {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	end += i
 	body := source[i+1 : end]
-	if body == "" || strings.IndexByte(body, ',') >= 0 {
-		return 0, 0, false
+	if body == "" {
+		return 0, 0, 0, false
 	}
-	n, err := strconv.Atoi(body)
-	if err != nil || n < 0 {
-		return 0, 0, false
+	lower, upper, found := strings.Cut(body, ",")
+	if lower == "" {
+		return 0, 0, 0, false
 	}
-	return n, end + 1, true
+	repeatMin, err := strconv.Atoi(lower)
+	if err != nil || repeatMin < 0 {
+		return 0, 0, 0, false
+	}
+	if !found {
+		return repeatMin, repeatMin, end + 1, true
+	}
+	if upper == "" {
+		return repeatMin, simplePatternUnbounded, end + 1, true
+	}
+	repeatMax, err := strconv.Atoi(upper)
+	if err != nil || repeatMax < repeatMin {
+		return 0, 0, 0, false
+	}
+	return repeatMin, repeatMax, end + 1, true
 }
 
 func (p *simplePattern) match(s string) bool {
+	if p.variable {
+		return p.matchVariableString(s)
+	}
 	i := 0
 	for _, atom := range p.atoms {
-		for range atom.repeat {
+		for range atom.min {
 			if i >= len(s) {
 				return false
 			}
@@ -214,9 +247,12 @@ func (p *simplePattern) match(s string) bool {
 }
 
 func (p *simplePattern) matchBytes(s []byte) bool {
+	if p.variable {
+		return p.matchVariableBytes(s)
+	}
 	i := 0
 	for _, atom := range p.atoms {
-		for range atom.repeat {
+		for range atom.min {
 			if i >= len(s) {
 				return false
 			}
@@ -231,6 +267,105 @@ func (p *simplePattern) matchBytes(s []byte) bool {
 		}
 	}
 	return i == len(s)
+}
+
+type simplePatternState struct {
+	atom   int
+	offset int
+}
+
+func (p *simplePattern) matchVariableString(s string) bool {
+	failed := make(map[simplePatternState]bool)
+	return p.matchStringAt(s, 0, 0, failed)
+}
+
+func (p *simplePattern) matchStringAt(s string, atomIndex, offset int, failed map[simplePatternState]bool) bool {
+	if atomIndex == len(p.atoms) {
+		return offset == len(s)
+	}
+	state := simplePatternState{atom: atomIndex, offset: offset}
+	if failed[state] {
+		return false
+	}
+	atom := p.atoms[atomIndex]
+	positions := atom.stringPositions(s, offset)
+	if len(positions) <= atom.min {
+		failed[state] = true
+		return false
+	}
+	for count := len(positions) - 1; count >= atom.min; count-- {
+		if p.matchStringAt(s, atomIndex+1, positions[count], failed) {
+			return true
+		}
+	}
+	failed[state] = true
+	return false
+}
+
+func (a simplePatternAtom) stringPositions(s string, offset int) []int {
+	positions := []int{offset}
+	for count := 0; a.max == simplePatternUnbounded || count < a.max; count++ {
+		if offset >= len(s) {
+			break
+		}
+		r, size := utf8.DecodeRuneInString(s[offset:])
+		if r == utf8.RuneError && size == 0 {
+			break
+		}
+		if !a.class.matches(r) {
+			break
+		}
+		offset += size
+		positions = append(positions, offset)
+	}
+	return positions
+}
+
+func (p *simplePattern) matchVariableBytes(s []byte) bool {
+	failed := make(map[simplePatternState]bool)
+	return p.matchBytesAt(s, 0, 0, failed)
+}
+
+func (p *simplePattern) matchBytesAt(s []byte, atomIndex, offset int, failed map[simplePatternState]bool) bool {
+	if atomIndex == len(p.atoms) {
+		return offset == len(s)
+	}
+	state := simplePatternState{atom: atomIndex, offset: offset}
+	if failed[state] {
+		return false
+	}
+	atom := p.atoms[atomIndex]
+	positions := atom.bytePositions(s, offset)
+	if len(positions) <= atom.min {
+		failed[state] = true
+		return false
+	}
+	for count := len(positions) - 1; count >= atom.min; count-- {
+		if p.matchBytesAt(s, atomIndex+1, positions[count], failed) {
+			return true
+		}
+	}
+	failed[state] = true
+	return false
+}
+
+func (a simplePatternAtom) bytePositions(s []byte, offset int) []int {
+	positions := []int{offset}
+	for count := 0; a.max == simplePatternUnbounded || count < a.max; count++ {
+		if offset >= len(s) {
+			break
+		}
+		r, size := utf8.DecodeRune(s[offset:])
+		if r == utf8.RuneError && size == 0 {
+			break
+		}
+		if !a.class.matches(r) {
+			break
+		}
+		offset += size
+		positions = append(positions, offset)
+	}
+	return positions
 }
 
 func (c simplePatternClass) matches(r rune) bool {
@@ -275,19 +410,27 @@ func isXSDDigitRune(r rune) bool {
 }
 
 func validateXSDRegexSyntaxWithCompiler(source string, c *compiler) error {
-	v := xsdRegexSyntaxValidator{compiler: c}
-	for _, r := range source {
-		if err := v.consume(r); err != nil {
-			return err
-		}
-	}
-	if err := v.finish(); err != nil {
+	goUnsupported, err := checkXSDRegexSyntaxWithCompiler(source, c)
+	if err != nil {
 		return err
 	}
-	if v.unsupported {
+	if goUnsupported {
 		return unsupported(ErrUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source)
 	}
 	return nil
+}
+
+func checkXSDRegexSyntaxWithCompiler(source string, c *compiler) (bool, error) {
+	v := xsdRegexSyntaxValidator{compiler: c}
+	for _, r := range source {
+		if err := v.consume(r); err != nil {
+			return false, err
+		}
+	}
+	if err := v.finish(); err != nil {
+		return false, err
+	}
+	return v.unsupported, nil
 }
 
 type xsdRegexSyntaxValidator struct {

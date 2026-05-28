@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -74,13 +75,15 @@ func TestPatternEscapedUnsupportedEscapesAreLiterals(t *testing.T) {
 }
 
 func TestSimplePatternFastPathMatchesRegexpSemantics(t *testing.T) {
-	p, err := compilePatternWithCompiler(`[A-Z]{2}\d{4}`, nil)
+	source := `[A-Z]{2}\d{4}`
+	p, err := compilePatternWithCompiler(source, nil)
 	if err != nil {
 		t.Fatalf("compilePatternWithCompiler() error = %v", err)
 	}
 	if p.Fast == nil {
 		t.Fatal("compiled pattern Fast = nil")
 	}
+	re := regexp.MustCompile("^(?:" + translateXSDRegexToGo(source) + ")$")
 	tests := []string{
 		"AB1234",
 		"AB" + "\u0661\u0662\u0663\u0664",
@@ -90,7 +93,7 @@ func TestSimplePatternFastPathMatchesRegexpSemantics(t *testing.T) {
 		"AB12A4",
 	}
 	for _, value := range tests {
-		if got, want := p.Fast.match(value), p.RE.MatchString(value); got != want {
+		if got, want := p.Fast.match(value), re.MatchString(value); got != want {
 			t.Fatalf("fast match %q = %v, regexp = %v", value, got, want)
 		}
 	}
@@ -1589,17 +1592,22 @@ func TestUnsupportedRegexEscapesAreExplicit(t *testing.T) {
 	}
 }
 
-func TestRegexRepeatQuantifiersRespectGoLimit(t *testing.T) {
-	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:simpleType>
-      <xs:restriction base="xs:string">
-        <xs:pattern value="0{0002}"/>
-      </xs:restriction>
-    </xs:simpleType>
-  </xs:element>
-</xs:schema>`)
+func TestRegexRepeatQuantifiersUseFastPathBeyondGoLimit(t *testing.T) {
+	compilePatternElement := func(t *testing.T, pattern string) *Engine {
+		t.Helper()
+		return mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
+	    <xs:simpleType>
+	      <xs:restriction base="xs:string">
+	        <xs:pattern value="`+pattern+`"/>
+	      </xs:restriction>
+	    </xs:simpleType>
+	  </xs:element>
+	</xs:schema>`)
+	}
+
+	engine := compilePatternElement(t, `0{0002}`)
 	mustValidate(t, engine, `<root>00</root>`)
 	mustNotValidate(t, engine, `<root>0{02}</root>`, ErrValidationFacet)
 
@@ -1610,21 +1618,40 @@ func TestRegexRepeatQuantifiersRespectGoLimit(t *testing.T) {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
-	for _, pattern := range []string{
-		`0{1001}`,
-		`0{1001,}`,
-		`0{0,1001}`,
-		`0{0001001}`,
-	} {
-		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
-		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
-		expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedRegex)
-	}
+	engine = compilePatternElement(t, `0{1001}`)
+	mustNotValidate(t, engine, `<root>`+strings.Repeat("0", 1000)+`</root>`, ErrValidationFacet)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1001)+`</root>`)
+	mustNotValidate(t, engine, `<root>`+strings.Repeat("0", 1002)+`</root>`, ErrValidationFacet)
+
+	engine = compilePatternElement(t, `0{0001001}`)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1001)+`</root>`)
+
+	engine = compilePatternElement(t, `0{0,1001}`)
+	mustValidate(t, engine, `<root></root>`)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1001)+`</root>`)
+	mustNotValidate(t, engine, `<root>`+strings.Repeat("0", 1002)+`</root>`, ErrValidationFacet)
+
+	engine = compilePatternElement(t, `0{1001,}`)
+	mustNotValidate(t, engine, `<root>`+strings.Repeat("0", 1000)+`</root>`, ErrValidationFacet)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1001)+`</root>`)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1002)+`</root>`)
+
+	engine = compilePatternElement(t, `a{1,3}a`)
+	mustNotValidate(t, engine, `<root>a</root>`, ErrValidationFacet)
+	mustValidate(t, engine, `<root>aa</root>`)
+	mustValidate(t, engine, `<root>aaaa</root>`)
+	mustNotValidate(t, engine, `<root>aaaaa</root>`, ErrValidationFacet)
 
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="0{1001,1000}"/></xs:restriction></xs:simpleType>
-</xs:schema>`)))
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="(0|1){1001}"/></xs:restriction></xs:simpleType>
+	</xs:schema>`)))
+	expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedRegex)
+
+	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="0{1001,1000}"/></xs:restriction></xs:simpleType>
+	</xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
 }
 
