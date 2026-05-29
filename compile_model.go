@@ -6,17 +6,6 @@ import (
 	"strings"
 )
 
-func modelChildren(n *rawNode) []*rawNode {
-	var out []*rawNode
-	for _, c := range n.xsContentChildren() {
-		switch c.Name.Local {
-		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
-			out = append(out, c)
-		}
-	}
-	return out
-}
-
 func (c *compiler) addModel(m contentModel) (contentModelID, error) {
 	id, err := nextContentModelID(len(c.rt.Models))
 	if err != nil {
@@ -119,12 +108,9 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (contentModelID,
 			if c.elementDepth > c.modelDepth[n] {
 				return id, nil
 			}
-			return noContentModel, schemaCompile(ErrSchemaReference, "recursive model group")
+			return noContentModel, schemaCompileAt(n, ErrSchemaReference, "recursive model group")
 		}
 		return id, nil
-	}
-	if c.compilingModel[n] {
-		return noContentModel, schemaCompile(ErrSchemaReference, "recursive model group")
 	}
 	id, err := c.addModel(contentModel{})
 	if err != nil {
@@ -143,14 +129,14 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (contentModelID,
 		return noContentModel, err
 	}
 	if kind == modelAll && (occurs.Unbounded || occurs.Max > 1 || occurs.Min > 1) {
-		return noContentModel, schemaCompile(ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
+		return noContentModel, schemaCompileAt(n, ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
 	}
 	m := contentModel{Kind: kind, occurs: occurs}
 	if err := c.compileModelChildren(n, ctx, &m); err != nil {
 		return noContentModel, err
 	}
 	if err := c.checkElementDeclarationsConsistent(m); err != nil {
-		return noContentModel, err
+		return noContentModel, withSchemaCompileLocation(n, err)
 	}
 	c.rt.Models[id] = m
 	return id, nil
@@ -167,11 +153,11 @@ func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 	}
 	raw, ok := c.groupRaw[q]
 	if !ok {
-		return noContentModel, schemaCompile(ErrSchemaReference, "unknown model group "+c.rt.Names.Format(q))
+		return noContentModel, schemaCompileAt(n, ErrSchemaReference, "unknown model group "+c.rt.Names.Format(q))
 	}
 	modelNode := firstModelChild(raw.node)
 	if modelNode == nil {
-		return noContentModel, schemaCompile(ErrSchemaContentModel, "model group has no content "+c.rt.Names.Format(q))
+		return noContentModel, schemaCompileAt(raw.node, ErrSchemaContentModel, "model group has no content "+c.rt.Names.Format(q))
 	}
 	if id, ok := c.modelDone[modelNode]; ok && c.compilingModel[modelNode] {
 		return c.recursiveModelGroupRef(q, id, occurs, modelNode)
@@ -185,7 +171,7 @@ func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 	}
 	model := c.rt.Models[id]
 	if model.Kind == modelAll && (occurs.Unbounded || occurs.Max > 1 || occurs.Min > 1) {
-		return noContentModel, schemaCompile(ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
+		return noContentModel, schemaCompileAt(n, ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
 	}
 	model.occurs = occurs
 	return c.addModel(model)
@@ -193,7 +179,7 @@ func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 
 func (c *compiler) recursiveModelGroupRef(q qName, id contentModelID, occurs occurrence, modelNode *rawNode) (contentModelID, error) {
 	if c.elementDepth <= c.modelDepth[modelNode] {
-		return noContentModel, schemaCompile(ErrSchemaReference, "recursive model group "+c.rt.Names.Format(q))
+		return noContentModel, schemaCompileAt(modelNode, ErrSchemaReference, "recursive model group "+c.rt.Names.Format(q))
 	}
 	ref := contentModel{
 		Kind:   modelSequence,
@@ -216,7 +202,7 @@ func modelKindForNode(n *rawNode) (modelKind, error) {
 	case xsdElemAll:
 		return modelAll, nil
 	default:
-		return 0, schemaCompile(ErrSchemaContentModel, "unsupported model "+n.Name.Local)
+		return 0, schemaCompileAt(n, ErrSchemaContentModel, "unsupported model "+n.Name.Local)
 	}
 }
 
@@ -236,13 +222,13 @@ func (c *compiler) appendModelChild(m *contentModel, child *rawNode, ctx *schema
 		if err != nil {
 			return err
 		}
-		return appendParticle(m, p)
+		return withSchemaCompileLocation(child, appendParticle(m, p))
 	case xsdElemAny:
 		p, err := c.compileWildcardParticle(child, ctx)
 		if err != nil {
 			return err
 		}
-		return appendParticle(m, p)
+		return withSchemaCompileLocation(child, appendParticle(m, p))
 	case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
 		return c.appendNestedModelChild(m, child, ctx)
 	default:
@@ -252,7 +238,7 @@ func (c *compiler) appendModelChild(m *contentModel, child *rawNode, ctx *schema
 
 func (c *compiler) appendNestedModelChild(m *contentModel, child *rawNode, ctx *schemaContext) error {
 	if child.Name.Local == xsdElemAll {
-		return schemaCompile(ErrSchemaContentModel, "xs:all cannot be nested in model groups")
+		return schemaCompileAt(child, ErrSchemaContentModel, "xs:all cannot be nested in model groups")
 	}
 	childModelID, err := c.compileModel(child, ctx)
 	if err != nil {
@@ -260,7 +246,7 @@ func (c *compiler) appendNestedModelChild(m *contentModel, child *rawNode, ctx *
 	}
 	childModel := c.rt.Models[childModelID]
 	if child.Name.Local == xsdElemGroup && childModel.Kind == modelAll {
-		return schemaCompile(ErrSchemaContentModel, "xs:all cannot be nested in model groups")
+		return schemaCompileAt(child, ErrSchemaContentModel, "xs:all cannot be nested in model groups")
 	}
 	if appendFlattenedModelChild(m, childModel) {
 		return nil
@@ -272,7 +258,7 @@ func (c *compiler) appendNestedModelChild(m *contentModel, child *rawNode, ctx *
 	if !ok {
 		return nil
 	}
-	return appendParticle(m, p)
+	return withSchemaCompileLocation(child, appendParticle(m, p))
 }
 
 func appendFlattenedModelChild(m *contentModel, child contentModel) bool {
@@ -329,7 +315,7 @@ func validateModelOccurrence(n *rawNode, limits compileLimits) error {
 		return err
 	}
 	if n.Name.Local == xsdElemAll && (occurs.Unbounded || occurs.Max != 1 || occurs.Min > 1) {
-		return schemaCompile(ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
+		return schemaCompileAt(n, ErrSchemaOccurrence, "xs:all occurrence must be zero or one")
 	}
 	return validateModelGroupSyntax(n, limits)
 }
@@ -395,44 +381,64 @@ func (c *compiler) choiceNeedsRuntimeSplit(model contentModel, occurs occurrence
 func (c *compiler) checkDirectUPA(m contentModel) error {
 	switch m.Kind {
 	case modelChoice, modelAll:
-		for i, p := range m.Particles {
-			for j := i + 1; j < len(m.Particles); j++ {
-				name, ok := c.particlesOverlap(p, m.Particles[j])
-				if !ok {
-					continue
-				}
-				msg := "UPA violation: overlapping particles in choice"
-				if name.Local != 0 || name.Namespace != 0 {
-					msg += " " + c.rt.Names.Format(name)
-				}
-				return schemaCompile(ErrSchemaContentModel, msg)
-			}
+		msg := "UPA violation: overlapping particles in choice"
+		if m.Kind == modelAll {
+			msg = "UPA violation: overlapping particles in all"
 		}
+		return c.checkPairwiseUPA(m.Particles, msg)
 	case modelSequence:
-		for i, p := range m.Particles {
-			for _, candidate := range c.particleContinuationParticles(p) {
-				for j := i + 1; j < len(m.Particles); j++ {
-					name, ok := c.particlesOverlap(candidate, m.Particles[j])
-					if !ok {
-						if m.Particles[j].occurs.Min > 0 {
-							break
-						}
-						continue
-					}
-					if !m.occurs.isExactlyOne() && c.wildcardEquivalentOverlap(candidate, m.Particles[j]) {
-						continue
-					}
-					msg := "UPA violation: duplicate element in sequence"
-					if name.Local != 0 || name.Namespace != 0 {
-						msg += " " + c.rt.Names.Format(name)
-					}
-					return schemaCompile(ErrSchemaContentModel, msg)
-				}
-			}
-		}
+		return c.checkSequenceUPA(m)
 	default:
 	}
 	return nil
+}
+
+func (c *compiler) checkPairwiseUPA(particles []particle, msg string) error {
+	for i, p := range particles {
+		for j := i + 1; j < len(particles); j++ {
+			name, ok := c.particlesOverlap(p, particles[j])
+			if ok {
+				return c.upaError(msg, name)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *compiler) checkSequenceUPA(m contentModel) error {
+	for i, p := range m.Particles {
+		for _, candidate := range c.particleContinuationParticles(p) {
+			if err := c.checkSequenceContinuationUPA(m, candidate, i+1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *compiler) checkSequenceContinuationUPA(m contentModel, candidate particle, start int) error {
+	for j := start; j < len(m.Particles); j++ {
+		next := m.Particles[j]
+		name, ok := c.particlesOverlap(candidate, next)
+		if !ok {
+			if next.occurs.Min > 0 {
+				break
+			}
+			continue
+		}
+		if !m.occurs.isExactlyOne() && c.wildcardEquivalentOverlap(candidate, next) {
+			continue
+		}
+		return c.upaError("UPA violation: duplicate element in sequence", name)
+	}
+	return nil
+}
+
+func (c *compiler) upaError(msg string, name qName) error {
+	if name.Local != 0 || name.Namespace != 0 {
+		msg += " " + c.rt.Names.Format(name)
+	}
+	return schemaCompile(ErrSchemaContentModel, msg)
 }
 
 func (c *compiler) particleContinuationParticles(p particle) []particle {
@@ -504,7 +510,7 @@ func (c *compiler) wildcardEquivalentOverlap(a, b particle) bool {
 	}
 	wa := c.rt.Wildcards[a.wildcard]
 	wb := c.rt.Wildcards[b.wildcard]
-	return c.wildcardNamespaceEqual(wa, wb)
+	return wildcardNamespaceEqual(wa, wb)
 }
 
 func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
@@ -515,7 +521,7 @@ func (c *compiler) particlesOverlap(a, b particle) (qName, bool) {
 		return c.modelStartOverlap(c.rt.Models[b.Model], a)
 	}
 	if a.Kind == particleWildcard && b.Kind == particleWildcard {
-		return qName{}, c.wildcardsOverlap(c.rt.Wildcards[a.wildcard], c.rt.Wildcards[b.wildcard])
+		return qName{}, wildcardsOverlap(c.rt.Wildcards[a.wildcard], c.rt.Wildcards[b.wildcard])
 	}
 	if name, ok := c.firstParticleElementNameMatchedBy(a, b); ok {
 		return name, true
@@ -549,7 +555,7 @@ func (c *compiler) particleMatchesName(p particle, name qName) bool {
 		return c.elementParticleMatchesName(p.Element, name)
 	case particleWildcard:
 		w := c.rt.Wildcards[p.wildcard]
-		return c.wildcardAllowsNamespace(w, name.Namespace)
+		return wildcardAllowsNamespace(w, name.Namespace)
 	case particleModel:
 		return c.modelStartMatchesName(c.rt.Models[p.Model], name)
 	}
@@ -662,26 +668,17 @@ func (c *compiler) modelStartParticles(model contentModel) []particle {
 	return out
 }
 
-func (c *compiler) substitutionAllowed(headID, memberID elementID) bool {
-	head := c.rt.Elements[headID]
-	member := c.rt.Elements[memberID]
-	if head.Block&blockSubstitution != 0 {
-		return false
-	}
-	return c.rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
-}
-
 func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 	minOccurs := uint32(1)
 	minDigits := "1"
 	if v, ok := n.attr(xsdAttrMinOccurs); ok {
 		digits, err := parseOccurrenceDigits(v)
 		if err != nil {
-			return occurrence{}, schemaCompile(ErrSchemaOccurrence, "invalid minOccurs "+v)
+			return occurrence{}, schemaCompileAt(n, ErrSchemaOccurrence, "invalid minOccurs "+v)
 		}
 		minDigits = digits
 		if occurrenceUint32LimitExceeded(digits) {
-			return occurrence{}, schemaCompile(ErrSchemaLimit, "minOccurs exceeds uint32 limit")
+			return occurrence{}, schemaCompileAt(n, ErrSchemaLimit, "minOccurs exceeds uint32 limit")
 		}
 		minOccurs = occurrenceUint32(digits)
 	}
@@ -693,16 +690,16 @@ func parseOccurs(n *rawNode, limits compileLimits) (occurrence, error) {
 		}
 		digits, err := parseOccurrenceDigits(v)
 		if err != nil {
-			return occurrence{}, schemaCompile(ErrSchemaOccurrence, "invalid maxOccurs "+v)
+			return occurrence{}, schemaCompileAt(n, ErrSchemaOccurrence, "invalid maxOccurs "+v)
 		}
 		if maxOccursLimitExceeded(digits, limits.maxFiniteOccurs) {
-			return occurrence{}, schemaCompile(ErrSchemaLimit, maxOccursLimitMessage(limits.maxFiniteOccurs))
+			return occurrence{}, schemaCompileAt(n, ErrSchemaLimit, maxOccursLimitMessage(limits.maxFiniteOccurs))
 		}
 		maxDigits = digits
 		maxOccurs = occurrenceUint32(digits)
 	}
 	if compareUnsignedDecimalText(maxDigits, minDigits) < 0 {
-		return occurrence{}, schemaCompile(ErrSchemaOccurrence, "maxOccurs is less than minOccurs")
+		return occurrence{}, schemaCompileAt(n, ErrSchemaOccurrence, "maxOccurs is less than minOccurs")
 	}
 	return occurrence{Min: minOccurs, Max: maxOccurs}, nil
 }

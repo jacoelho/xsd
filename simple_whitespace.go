@@ -61,6 +61,16 @@ func collapseXMLWhitespace(s string) string {
 }
 
 func trimXMLWhitespace(s string) string {
+	start, end := trimXMLWhitespaceBounds(s)
+	return s[start:end]
+}
+
+func trimXMLWhitespaceBytes(b []byte) []byte {
+	start, end := trimXMLWhitespaceBounds(b)
+	return b[start:end]
+}
+
+func trimXMLWhitespaceBounds[T byteText](s T) (int, int) {
 	start := 0
 	for start < len(s) && isXMLWhitespaceByte(s[start]) {
 		start++
@@ -69,19 +79,7 @@ func trimXMLWhitespace(s string) string {
 	for end > start && isXMLWhitespaceByte(s[end-1]) {
 		end--
 	}
-	return s[start:end]
-}
-
-func trimXMLWhitespaceBytes(b []byte) []byte {
-	start := 0
-	for start < len(b) && isXMLWhitespaceByte(b[start]) {
-		start++
-	}
-	end := len(b)
-	for end > start && isXMLWhitespaceByte(b[end-1]) {
-		end--
-	}
-	return b[start:end]
+	return start, end
 }
 
 func xmlFieldsSeq(s string) iter.Seq[string] {

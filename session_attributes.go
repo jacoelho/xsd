@@ -18,13 +18,8 @@ func (s *session) validateAttributes(typ typeID, attrs []streamAttr, line, col i
 			continue
 		}
 		if isXSIName(a.Name) {
-			if len(rt.Identities) != 0 {
-				if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
-					recoverErr := s.recover(err)
-					if recoverErr != nil {
-						return recoverErr
-					}
-				}
+			if err := s.validateXSIAttribute(a, line, col); err != nil {
+				return err
 			}
 			continue
 		}
@@ -98,19 +93,24 @@ func (s *session) validateSimpleTypeAttributes(attrs []streamAttr, line, col int
 			continue
 		}
 		if isXSIName(a.Name) {
-			if len(s.engine.rt.Identities) != 0 {
-				if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
-					recoverErr := s.recover(err)
-					if recoverErr != nil {
-						return recoverErr
-					}
-				}
+			if err := s.validateXSIAttribute(a, line, col); err != nil {
+				return err
 			}
 			continue
 		}
 		if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "simple type does not allow attributes")); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (s *session) validateXSIAttribute(a *streamAttr, line, col int) error {
+	if len(s.engine.rt.Identities) == 0 {
+		return nil
+	}
+	if err := s.captureIdentityXSIAttribute(a, line, col); err != nil {
+		return s.recover(err)
 	}
 	return nil
 }

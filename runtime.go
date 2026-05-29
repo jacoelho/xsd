@@ -290,45 +290,33 @@ type facetFixedSet struct {
 }
 
 func (f facetSet) empty() bool {
-	return f.Length == nil &&
-		f.MinLength == nil &&
-		f.MaxLength == nil &&
-		f.TotalDigits == nil &&
-		f.FractionDigits == nil &&
-		f.MinInclusive == nil &&
-		f.MaxInclusive == nil &&
-		f.MinExclusive == nil &&
-		f.MaxExclusive == nil &&
+	return !f.hasValueFacets() &&
 		len(f.Enumeration) == 0 &&
 		len(f.Patterns) == 0
 }
 
 func (f facetSet) onlyPatterns() bool {
-	return f.Length == nil &&
-		f.MinLength == nil &&
-		f.MaxLength == nil &&
-		f.TotalDigits == nil &&
-		f.FractionDigits == nil &&
-		f.MinInclusive == nil &&
-		f.MaxInclusive == nil &&
-		f.MinExclusive == nil &&
-		f.MaxExclusive == nil &&
+	return !f.hasValueFacets() &&
 		len(f.Enumeration) == 0 &&
 		len(f.Patterns) != 0
 }
 
 func (f facetSet) onlyEnumeration() bool {
-	return f.Length == nil &&
-		f.MinLength == nil &&
-		f.MaxLength == nil &&
-		f.TotalDigits == nil &&
-		f.FractionDigits == nil &&
-		f.MinInclusive == nil &&
-		f.MaxInclusive == nil &&
-		f.MinExclusive == nil &&
-		f.MaxExclusive == nil &&
+	return !f.hasValueFacets() &&
 		len(f.Enumeration) != 0 &&
 		len(f.Patterns) == 0
+}
+
+func (f facetSet) hasValueFacets() bool {
+	return f.Length != nil ||
+		f.MinLength != nil ||
+		f.MaxLength != nil ||
+		f.TotalDigits != nil ||
+		f.FractionDigits != nil ||
+		f.MinInclusive != nil ||
+		f.MaxInclusive != nil ||
+		f.MinExclusive != nil ||
+		f.MaxExclusive != nil
 }
 
 func (f facetSet) needsLexical() bool {
@@ -535,6 +523,15 @@ func (rt *runtimeSchema) substitutionDerivationAllowed(t, base typeID, block der
 	return mask&rt.substitutionTypeBlocks(t, base) == 0
 }
 
+func (rt *runtimeSchema) substitutionAllowed(headID, memberID elementID) bool {
+	head := rt.Elements[headID]
+	member := rt.Elements[memberID]
+	if head.Block&blockSubstitution != 0 {
+		return false
+	}
+	return rt.substitutionDerivationAllowed(member.Type, head.Type, head.Block)
+}
+
 func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 	var blocks derivationMask
 	if base.Kind == typeComplex && validUint32Index(base.ID, len(rt.ComplexTypes)) {
@@ -597,16 +594,14 @@ func (rt *runtimeSchema) complexSimpleTypeDerivationMask(t complexTypeID, base s
 }
 
 func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivationMask, bool) {
-	seen := make(map[complexTypeID]bool)
 	var mask derivationMask
-	for {
+	for steps := 0; steps < len(rt.ComplexTypes); steps++ {
 		if t == rt.Builtin.AnyType {
 			return mask, true
 		}
-		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) || seen[t] {
+		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
 			return 0, false
 		}
-		seen[t] = true
 		ct := rt.ComplexTypes[t]
 		switch ct.Derivation {
 		case derivationExtension:
@@ -623,6 +618,7 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 		}
 		t = complexTypeID(ct.Base.ID)
 	}
+	return 0, false
 }
 
 func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map[[2]simpleTypeID]bool) (derivationMask, bool) {
@@ -659,13 +655,11 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 }
 
 func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (derivationMask, bool) {
-	seen := make(map[complexTypeID]bool)
 	var mask derivationMask
-	for {
-		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) || seen[t] {
+	for steps := 0; steps < len(rt.ComplexTypes); steps++ {
+		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
 			return 0, false
 		}
-		seen[t] = true
 		ct := rt.ComplexTypes[t]
 		if ct.Base.Kind != typeComplex || complexTypeID(ct.Base.ID) == noComplexType {
 			return 0, false
@@ -682,6 +676,7 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 		}
 		t = complexTypeID(ct.Base.ID)
 	}
+	return 0, false
 }
 
 func (rt *runtimeSchema) typeLabel(t typeID) string {

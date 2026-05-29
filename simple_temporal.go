@@ -57,12 +57,9 @@ func parseXSDDateValue(s string) (xsdDateValue, error) {
 	if err != nil {
 		return xsdDateValue{}, err
 	}
-	tz, next, err := parseXSDTimezone(s, next)
-	if err != nil || next != len(s) {
-		if err != nil {
-			return xsdDateValue{}, err
-		}
-		return xsdDateValue{}, fmt.Errorf("invalid date")
+	tz, err := parseXSDTimezoneToEnd(s, next, "date")
+	if err != nil {
+		return xsdDateValue{}, err
 	}
 	point := xsdDateTimePoint{
 		year:  date.year,
@@ -220,21 +217,9 @@ func compareUnsignedDecimalText(a, b string) int {
 	return cmp.Compare(a, b)
 }
 
-func addYear(y xsdYear, delta int) xsdYear {
-	for delta > 0 {
-		y = nextYear(y)
-		delta--
-	}
-	for delta < 0 {
-		y = prevYear(y)
-		delta++
-	}
-	return y
-}
-
 func nextYear(y xsdYear) xsdYear {
 	if y.neg {
-		if strings.TrimLeft(y.digits, "0") == "1" {
+		if y.digits == "0001" {
 			return xsdYear{digits: "0001"}
 		}
 		y.digits = canonicalYearDigits(subUnsignedDecimalOne(y.digits))
@@ -249,7 +234,7 @@ func prevYear(y xsdYear) xsdYear {
 		y.digits = canonicalYearDigits(addUnsignedDecimalOne(y.digits))
 		return y
 	}
-	if strings.TrimLeft(y.digits, "0") == "1" {
+	if y.digits == "0001" {
 		return xsdYear{digits: "0001", neg: true}
 	}
 	y.digits = canonicalYearDigits(subUnsignedDecimalOne(y.digits))
@@ -363,6 +348,17 @@ func parseXSDTimezone(s string, i int) (xsdTimezone, int, error) {
 	return xsdTimezone{minutes: offset, present: true}, i + 6, nil
 }
 
+func parseXSDTimezoneToEnd(s string, i int, label string) (xsdTimezone, error) {
+	tz, next, err := parseXSDTimezone(s, i)
+	if err != nil {
+		return xsdTimezone{}, err
+	}
+	if next != len(s) {
+		return xsdTimezone{}, fmt.Errorf("invalid %s", label)
+	}
+	return tz, nil
+}
+
 //nolint:govet // Field order keeps date/time components grouped for parser code.
 type xsdDateTimePoint struct {
 	year   xsdYear
@@ -428,7 +424,7 @@ func nextDay(p xsdDateTimePoint) xsdDateTimePoint {
 		return p
 	}
 	p.month = 1
-	p.year = addYear(p.year, 1)
+	p.year = nextYear(p.year)
 	return p
 }
 
@@ -440,7 +436,7 @@ func prevDay(p xsdDateTimePoint) xsdDateTimePoint {
 	p.month--
 	if p.month < 1 {
 		p.month = 12
-		p.year = addYear(p.year, -1)
+		p.year = prevYear(p.year)
 	}
 	p.day = daysInMonth(p.year, p.month)
 	return p
@@ -636,12 +632,9 @@ func parseXSDTimeParts(s string) (xsdTimeParts, error) {
 	if err != nil {
 		return xsdTimeParts{}, err
 	}
-	tz, next, err := parseXSDTimezone(s, next)
-	if err != nil || next != len(s) {
-		if err != nil {
-			return xsdTimeParts{}, err
-		}
-		return xsdTimeParts{}, fmt.Errorf("invalid time")
+	tz, err := parseXSDTimezoneToEnd(s, next, "time")
+	if err != nil {
+		return xsdTimeParts{}, err
 	}
 	if hour > 24 || minute > 59 {
 		return xsdTimeParts{}, fmt.Errorf("invalid time")

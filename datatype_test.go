@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -74,13 +75,15 @@ func TestPatternEscapedUnsupportedEscapesAreLiterals(t *testing.T) {
 }
 
 func TestSimplePatternFastPathMatchesRegexpSemantics(t *testing.T) {
-	p, err := compilePatternWithCompiler(`[A-Z]{2}\d{4}`, nil)
+	source := `[A-Z]{2}\d{4}`
+	p, err := compilePatternWithCompiler(source, nil)
 	if err != nil {
 		t.Fatalf("compilePatternWithCompiler() error = %v", err)
 	}
 	if p.Fast == nil {
 		t.Fatal("compiled pattern Fast = nil")
 	}
+	re := regexp.MustCompile("^(?:" + translateXSDRegexToGo(source) + ")$")
 	tests := []string{
 		"AB1234",
 		"AB" + "\u0661\u0662\u0663\u0664",
@@ -90,10 +93,73 @@ func TestSimplePatternFastPathMatchesRegexpSemantics(t *testing.T) {
 		"AB12A4",
 	}
 	for _, value := range tests {
-		if got, want := p.Fast.match(value), p.RE.MatchString(value); got != want {
+		if got, want := p.Fast.match(value), re.MatchString(value); got != want {
 			t.Fatalf("fast match %q = %v, regexp = %v", value, got, want)
 		}
 	}
+}
+
+func TestSimplePatternVariableFastPathMatchesRegexpSemantics(t *testing.T) {
+	tests := []struct {
+		source string
+		values []string
+	}{
+		{`[a-z]{0,3}x`, []string{"", "x", "ax", "abcx", "abcdx", "abc"}},
+		{`[a-z]{0,}[a-z]{0,}x`, []string{"x", "ax", "abcx", "abc"}},
+		{`a{1,3}a`, []string{"a", "aa", "aaa", "aaaa", "aaaaa"}},
+		{`[ab]{0,2}ab`, []string{"ab", "aab", "bab", "bbab", "aaab"}},
+		{`é{0,2}x`, []string{"x", "éx", "ééx", "éééx"}},
+	}
+	for _, test := range tests {
+		p, err := compilePatternWithCompiler(test.source, nil)
+		if err != nil {
+			t.Fatalf("compilePatternWithCompiler(%q) error = %v", test.source, err)
+		}
+		if p.Fast == nil {
+			t.Fatalf("compilePatternWithCompiler(%q) Fast = nil", test.source)
+		}
+		re := regexp.MustCompile("^(?:" + translateXSDRegexToGo(test.source) + ")$")
+		for _, value := range test.values {
+			want := re.MatchString(value)
+			if got := p.Fast.match(value); got != want {
+				t.Fatalf("fast match %q against %q = %v, regexp = %v", value, test.source, got, want)
+			}
+			if got := p.Fast.matchBytes([]byte(value)); got != want {
+				t.Fatalf("fast byte match %q against %q = %v, regexp = %v", value, test.source, got, want)
+			}
+		}
+	}
+}
+
+func TestBuiltinIntNoCanonicalStringAndBytesMatch(t *testing.T) {
+	tests := []string{
+		"",
+		"+",
+		"-",
+		"0",
+		"+000",
+		"2147483647",
+		"2147483648",
+		"-2147483648",
+		"-2147483649",
+		"1.0",
+		"1..0",
+		"x",
+	}
+	for _, test := range tests {
+		stringErr := validateBuiltinIntNoCanonical(test)
+		bytesErr := validateBuiltinIntNoCanonical([]byte(test))
+		if errorMessage(stringErr) != errorMessage(bytesErr) {
+			t.Fatalf("string error for %q = %v, bytes error = %v", test, stringErr, bytesErr)
+		}
+	}
+}
+
+func errorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 func TestInvalidLengthFacetCombinationsAreSchemaErrors(t *testing.T) {
@@ -759,6 +825,17 @@ func TestDurationPartialOrderMatchesXSDExamples(t *testing.T) {
 			}
 			if got := compareXSDDuration(a, b); got != tt.want {
 				t.Fatalf("compareXSDDuration(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+			reverseWant := tt.want
+			switch tt.want {
+			case partialCompareLess:
+				reverseWant = partialCompareGreater
+			case partialCompareGreater:
+				reverseWant = partialCompareLess
+			case partialCompareEqual, partialCompareIncomparable:
+			}
+			if got := compareXSDDuration(b, a); got != reverseWant {
+				t.Fatalf("compareXSDDuration(%q, %q) = %v, want %v", tt.b, tt.a, got, reverseWant)
 			}
 		})
 	}
@@ -1547,6 +1624,10 @@ func TestInvalidRegexSyntaxIsSchemaError(t *testing.T) {
 		`\p{}0`,
 		`\p{0}`,
 		`\p{Is}`,
+		`[\d-z]`,
+		`[\s-a]`,
+		`[\p{Lu}-z]`,
+		`[a-[b]-c]`,
 	}
 	for _, pattern := range tests {
 		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="t"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
@@ -1574,17 +1655,22 @@ func TestUnsupportedRegexEscapesAreExplicit(t *testing.T) {
 	}
 }
 
-func TestRegexRepeatQuantifiersRespectGoLimit(t *testing.T) {
-	engine := mustCompile(t, `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:simpleType>
-      <xs:restriction base="xs:string">
-        <xs:pattern value="0{0002}"/>
-      </xs:restriction>
-    </xs:simpleType>
-  </xs:element>
-</xs:schema>`)
+func TestRegexRepeatQuantifiersUseFastPathBeyondGoLimit(t *testing.T) {
+	compilePatternElement := func(t *testing.T, pattern string) *Engine {
+		t.Helper()
+		return mustCompile(t, `
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:element name="root">
+	    <xs:simpleType>
+	      <xs:restriction base="xs:string">
+	        <xs:pattern value="`+pattern+`"/>
+	      </xs:restriction>
+	    </xs:simpleType>
+	  </xs:element>
+	</xs:schema>`)
+	}
+
+	engine := compilePatternElement(t, `0{0002}`)
 	mustValidate(t, engine, `<root>00</root>`)
 	mustNotValidate(t, engine, `<root>0{02}</root>`, ErrValidationFacet)
 
@@ -1595,21 +1681,40 @@ func TestRegexRepeatQuantifiersRespectGoLimit(t *testing.T) {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
-	for _, pattern := range []string{
-		`0{1001}`,
-		`0{1001,}`,
-		`0{0,1001}`,
-		`0{0001001}`,
-	} {
-		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="` + pattern + `"/></xs:restriction></xs:simpleType></xs:schema>`
-		_, err := Compile(sourceBytes("schema.xsd", []byte(schema)))
-		expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedRegex)
-	}
+	engine = compilePatternElement(t, `0{1001}`)
+	mustNotValidate(t, engine, `<root>`+strings.Repeat("0", 1000)+`</root>`, ErrValidationFacet)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1001)+`</root>`)
+	mustNotValidate(t, engine, `<root>`+strings.Repeat("0", 1002)+`</root>`, ErrValidationFacet)
+
+	engine = compilePatternElement(t, `0{0001001}`)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1001)+`</root>`)
+
+	engine = compilePatternElement(t, `0{0,1001}`)
+	mustValidate(t, engine, `<root></root>`)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1001)+`</root>`)
+	mustNotValidate(t, engine, `<root>`+strings.Repeat("0", 1002)+`</root>`, ErrValidationFacet)
+
+	engine = compilePatternElement(t, `0{1001,}`)
+	mustNotValidate(t, engine, `<root>`+strings.Repeat("0", 1000)+`</root>`, ErrValidationFacet)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1001)+`</root>`)
+	mustValidate(t, engine, `<root>`+strings.Repeat("0", 1002)+`</root>`)
+
+	engine = compilePatternElement(t, `a{1,3}a`)
+	mustNotValidate(t, engine, `<root>a</root>`, ErrValidationFacet)
+	mustValidate(t, engine, `<root>aa</root>`)
+	mustValidate(t, engine, `<root>aaaa</root>`)
+	mustNotValidate(t, engine, `<root>aaaaa</root>`, ErrValidationFacet)
 
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="0{1001,1000}"/></xs:restriction></xs:simpleType>
-</xs:schema>`)))
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="(0|1){1001}"/></xs:restriction></xs:simpleType>
+	</xs:schema>`)))
+	expectCategoryCode(t, err, UnsupportedErrorCategory, ErrUnsupportedRegex)
+
+	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="0{1001,1000}"/></xs:restriction></xs:simpleType>
+	</xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
 }
 
@@ -1617,10 +1722,11 @@ func TestSingletonRegexClassEscapesRemainSupported(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="word"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\w]"/></xs:restriction></xs:simpleType></xs:element>
-  <xs:element name="notWord"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\W]"/></xs:restriction></xs:simpleType></xs:element>
-  <xs:element name="notDigit"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\D]"/></xs:restriction></xs:simpleType></xs:element>
-  <xs:element name="notSpace"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\S]"/></xs:restriction></xs:simpleType></xs:element>
-</xs:schema>`)
+	  <xs:element name="notWord"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\W]"/></xs:restriction></xs:simpleType></xs:element>
+	  <xs:element name="notDigit"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\D]"/></xs:restriction></xs:simpleType></xs:element>
+	  <xs:element name="notSpace"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\S]"/></xs:restriction></xs:simpleType></xs:element>
+	  <xs:element name="digitOrHyphen"><xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[\d-]"/></xs:restriction></xs:simpleType></xs:element>
+	</xs:schema>`)
 	mustValidate(t, engine, `<word>A</word>`)
 	mustNotValidate(t, engine, `<word> </word>`, ErrValidationFacet)
 	mustValidate(t, engine, `<notWord> </notWord>`)
@@ -1629,6 +1735,9 @@ func TestSingletonRegexClassEscapesRemainSupported(t *testing.T) {
 	mustNotValidate(t, engine, `<notDigit>1</notDigit>`, ErrValidationFacet)
 	mustValidate(t, engine, `<notSpace>A</notSpace>`)
 	mustNotValidate(t, engine, "<notSpace>\t</notSpace>", ErrValidationFacet)
+	mustValidate(t, engine, `<digitOrHyphen>1</digitOrHyphen>`)
+	mustValidate(t, engine, `<digitOrHyphen>-</digitOrHyphen>`)
+	mustNotValidate(t, engine, `<digitOrHyphen>A</digitOrHyphen>`, ErrValidationFacet)
 }
 
 func TestRegexWhitespaceUsesXMLWhitespace(t *testing.T) {

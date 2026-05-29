@@ -106,9 +106,6 @@ func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32
 				group = &dfaTransitionSet{Particle: edge.Particle}
 				groups[key] = group
 			}
-			if len(group.Configs) >= b.limit {
-				return compiledModelRow{}, schemaCompile(ErrSchemaLimit, "content model DFA state limit exceeded")
-			}
 			group.Configs = append(group.Configs, dfaConfig{State: edge.To, Counters: counters})
 		}
 	}
@@ -119,6 +116,10 @@ func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32
 	slices.SortFunc(keys, compareParticleTermKey)
 	for _, key := range keys {
 		group := groups[key]
+		group.Configs = normalizeDFAConfigs(group.Configs)
+		if len(group.Configs) > b.limit {
+			return compiledModelRow{}, schemaCompile(ErrSchemaLimit, "content model DFA state limit exceeded")
+		}
 		to, err := stateID(dfaDeterministicState{Configs: group.Configs})
 		if err != nil {
 			return compiledModelRow{}, err

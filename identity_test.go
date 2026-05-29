@@ -28,6 +28,8 @@ func TestIdentityConstraintSchemaShapeIsValidated(t *testing.T) {
 		{`<xs:element name="r"><xs:key name="k"><xs:selector xpath="document('')"/><xs:field xpath="@id"/></xs:key></xs:element>`, ErrSchemaIdentity},
 		{`<xs:element name="r"><xs:key name="k"><xs:selector xpath="child::"/><xs:field xpath="@id"/></xs:key></xs:element>`, ErrSchemaIdentity},
 		{`<xs:element name="r"><xs:key name="k"><xs:selector xpath="a"/><xs:field xpath="attribute::"/></xs:key></xs:element>`, ErrSchemaIdentity},
+		{`<xs:element name="r"><xs:key name="k"><xs:selector xpath="a"/><xs:field xpath="row@id"/></xs:key></xs:element>`, ErrSchemaIdentity},
+		{`<xs:element name="r"><xs:key name="k"><xs:selector xpath="a"/><xs:field xpath="a/b@id"/></xs:key></xs:element>`, ErrSchemaIdentity},
 		{`<xs:element name="r"><xs:key name="k"><xs:selector xpath="@*"/><xs:field xpath="@id"/></xs:key></xs:element>`, ErrSchemaIdentity},
 		{`<xs:element name="r" xmlns:t="urn:t"><xs:key name="k"><xs:selector xpath="*"/><xs:field xpath="t: *"/></xs:key></xs:element>`, ErrSchemaReference},
 		{`<xs:element name="r"><xs:key name="k"><xs:selector xpath="*"/><xs:field xpath="@"/></xs:key></xs:element>`, ErrSchemaIdentity},

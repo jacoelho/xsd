@@ -163,7 +163,7 @@ func TestFormatXMLDataCapsFormattedOutput(t *testing.T) {
 	if resp.Error == "" {
 		t.Fatal("formatXMLData() accepted oversized formatted output")
 	}
-	if !strings.Contains(resp.Error, "formatted XML exceeds") {
+	if !strings.Contains(resp.Error, "XML formatted output byte limit exceeded") {
 		t.Fatalf("formatXMLData() error = %q", resp.Error)
 	}
 }

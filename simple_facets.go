@@ -180,18 +180,9 @@ func applyPatternsBytes(f facetSet, norm []byte) error {
 	return nil
 }
 
-func applyStringEnumeration(f facetSet, norm string) error {
+func applyStringEnumeration[T byteText](f facetSet, norm T) error {
 	for _, lit := range f.Enumeration {
-		if lit.Canonical == norm {
-			return nil
-		}
-	}
-	return fmt.Errorf("enumeration facet failed")
-}
-
-func applyStringEnumerationBytes(f facetSet, norm []byte) error {
-	for _, lit := range f.Enumeration {
-		if stringBytesEqual(lit.Canonical, norm) {
+		if byteTextEqual(lit.Canonical, norm) {
 			return nil
 		}
 	}

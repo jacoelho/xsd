@@ -45,21 +45,8 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 			if err != nil {
 				return typ, nilled, err
 			}
-			mask, ok := rt.typeDerivationMask(override, typ)
-			if !ok {
-				return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "xsi:type is not derived from declared type")
-			}
-			if elem != noElement && override != typ {
-				block := rt.Elements[elem].Block
-				if typ.Kind == typeComplex {
-					block |= rt.ComplexTypes[typ.ID].Block
-				}
-				if block&blockExtension != 0 && mask&blockExtension != 0 {
-					return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "xsi:type extension is blocked")
-				}
-				if block&blockRestriction != 0 && mask&blockRestriction != 0 {
-					return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "xsi:type restriction is blocked")
-				}
+			if err := s.validateXSITypeOverride(elem, typ, override, line, col); err != nil {
+				return typ, nilled, err
 			}
 			typ = override
 		}
@@ -79,6 +66,28 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 		}
 	}
 	return typ, nilled, nil
+}
+
+func (s *session) validateXSITypeOverride(elem elementID, declared, override typeID, line, col int) error {
+	rt := s.engine.rt
+	mask, ok := rt.typeDerivationMask(override, declared)
+	if !ok {
+		return validation(ErrValidationType, line, col, s.pathString(), "xsi:type is not derived from declared type")
+	}
+	if elem == noElement || override == declared {
+		return nil
+	}
+	block := rt.Elements[elem].Block
+	if declared.Kind == typeComplex {
+		block |= rt.ComplexTypes[declared.ID].Block
+	}
+	if block&blockExtension != 0 && mask&blockExtension != 0 {
+		return validation(ErrValidationType, line, col, s.pathString(), "xsi:type extension is blocked")
+	}
+	if block&blockRestriction != 0 && mask&blockRestriction != 0 {
+		return validation(ErrValidationType, line, col, s.pathString(), "xsi:type restriction is blocked")
+	}
+	return nil
 }
 
 func (s *session) resolveXSIType(value string, line, col int) (typeID, error) {

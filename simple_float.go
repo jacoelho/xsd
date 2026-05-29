@@ -194,30 +194,32 @@ func (b orderedFacetBound[T]) exclusive() bool {
 }
 
 func facetBound[T any](inclusive, exclusive *compiledLiteral, text func(*compiledLiteral) string, parse func(string) (T, error), preferExclusive func(T, T) bool) (orderedFacetBound[T], error) {
-	if inclusive != nil {
-		out, err := parse(text(inclusive))
-		if err != nil {
-			return orderedFacetBound[T]{}, err
+	if inclusive == nil {
+		if exclusive == nil {
+			return orderedFacetBound[T]{}, nil
 		}
-		if exclusive != nil {
-			other, err := parse(text(exclusive))
-			if err != nil {
-				return orderedFacetBound[T]{}, err
-			}
-			if preferExclusive(other, out) {
-				return orderedFacetBound[T]{value: other, kind: facetBoundExclusive}, nil
-			}
-		}
-		return orderedFacetBound[T]{value: out, kind: facetBoundInclusive}, nil
-	}
-	if exclusive != nil {
 		out, err := parse(text(exclusive))
 		if err != nil {
 			return orderedFacetBound[T]{}, err
 		}
 		return orderedFacetBound[T]{value: out, kind: facetBoundExclusive}, nil
 	}
-	return orderedFacetBound[T]{}, nil
+
+	out, err := parse(text(inclusive))
+	if err != nil {
+		return orderedFacetBound[T]{}, err
+	}
+	if exclusive == nil {
+		return orderedFacetBound[T]{value: out, kind: facetBoundInclusive}, nil
+	}
+	other, err := parse(text(exclusive))
+	if err != nil {
+		return orderedFacetBound[T]{}, err
+	}
+	if preferExclusive(other, out) {
+		return orderedFacetBound[T]{value: other, kind: facetBoundExclusive}, nil
+	}
+	return orderedFacetBound[T]{value: out, kind: facetBoundInclusive}, nil
 }
 
 // Float lower and upper facets use different exclusive-bound tie breaks.

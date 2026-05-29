@@ -1235,6 +1235,14 @@ func TestCompileOptionsNameAndOccurrenceLimits(t *testing.T) {
 	_, err = CompileWithOptions(CompileOptions{MaxContentModelStates: 1}, sourceBytes("schema.xsd", []byte(boundary)))
 	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
 
+	directSequence := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence></xs:complexType></xs:element></xs:schema>`
+	_, err = CompileWithOptions(CompileOptions{MaxContentModelStates: 1}, sourceBytes("schema.xsd", []byte(directSequence)))
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+
+	directChoice := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:complexType></xs:element></xs:schema>`
+	_, err = CompileWithOptions(CompileOptions{MaxContentModelStates: 1}, sourceBytes("schema.xsd", []byte(directChoice)))
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+
 	_, err = CompileWithOptions(CompileOptions{MaxContentModelStates: 32}, sourceBytes("schema.xsd", []byte(boundary)))
 	if err != nil {
 		t.Fatalf("CompileWithOptions() content model state boundary error = %v", err)
@@ -1626,6 +1634,50 @@ func TestLargeFiniteNestedRepeatReturnsSchemaLimit(t *testing.T) {
 	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
 }
 
+func TestDeterministicRowCapsTransitionGroupBeforeStateLookup(t *testing.T) {
+	b := &dfaBuilder{
+		limit: 1,
+		rows: []dfaSourceRow{{
+			Edges: []dfaSourceEdge{
+				{Particle: particle{Kind: particleElement, Element: 1}, To: 0},
+				{Particle: particle{Kind: particleElement, Element: 1}, To: 1},
+			},
+		}},
+	}
+	calledStateID := false
+	_, err := b.deterministicRow(dfaDeterministicState{Configs: []dfaConfig{{}}}, nil, func(dfaDeterministicState) (uint32, error) {
+		calledStateID = true
+		return 0, nil
+	})
+	expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
+	if calledStateID {
+		t.Fatalf("deterministicRow called stateID after transition group exceeded limit")
+	}
+}
+
+func TestDeterministicRowDeduplicatesTransitionGroupBeforeLimit(t *testing.T) {
+	b := &dfaBuilder{
+		limit: 1,
+		rows: []dfaSourceRow{{
+			Edges: []dfaSourceEdge{
+				{Particle: particle{Kind: particleElement, Element: 1}, To: 0},
+				{Particle: particle{Kind: particleElement, Element: 1}, To: 0},
+			},
+		}},
+	}
+	var stateConfigs int
+	_, err := b.deterministicRow(dfaDeterministicState{Configs: []dfaConfig{{}}}, nil, func(state dfaDeterministicState) (uint32, error) {
+		stateConfigs = len(state.Configs)
+		return 0, nil
+	})
+	if err != nil {
+		t.Fatalf("deterministicRow() error = %v", err)
+	}
+	if stateConfigs != 1 {
+		t.Fatalf("state configs = %d, want compacted duplicate", stateConfigs)
+	}
+}
+
 func repeatedA(n int) string {
 	var b strings.Builder
 	b.WriteString("<r>")
@@ -1815,6 +1867,21 @@ func TestRepeatingSequenceWildcardProcessOnlyOverlapCompiles(t *testing.T) {
     <xs:sequence maxOccurs="10">
       <xs:any namespace="urn:other" processContents="strict"/>
       <xs:any namespace="urn:other" processContents="lax"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+}
+
+func TestRepeatingSequenceWildcardListOrderIsSetEquivalent(t *testing.T) {
+	_, err := Compile(sourceBytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="ok">
+    <xs:sequence maxOccurs="10">
+      <xs:any namespace="urn:b urn:a urn:b"/>
+      <xs:any namespace="urn:a urn:b"/>
     </xs:sequence>
   </xs:complexType>
 </xs:schema>`)))

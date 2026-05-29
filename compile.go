@@ -402,7 +402,7 @@ func (c *compiler) compileModelGroupByQName(q qName) error {
 	}
 	modelNode := firstModelChild(raw.node)
 	if modelNode == nil {
-		return schemaCompile(ErrSchemaContentModel, "model group has no content "+c.rt.Names.Format(q))
+		return schemaCompileAt(raw.node, ErrSchemaContentModel, "model group has no content "+c.rt.Names.Format(q))
 	}
 	_, err := c.compileModel(modelNode, raw.ctx)
 	return err
@@ -456,14 +456,16 @@ var (
 
 func complexBlockMaskWithDefault(n *rawNode, def derivationMask) (derivationMask, error) {
 	if v, ok := n.attr(xsdAttrBlock); ok {
-		return parseDerivationSet(v, "complexType block", derivationComplexMask)
+		m, err := parseDerivationSet(v, "complexType block", derivationComplexMask)
+		return m, withSchemaCompileLocation(n, err)
 	}
 	return def & derivationComplexMask, nil
 }
 
 func simpleFinalMaskWithDefaultChecked(n *rawNode, def derivationMask) (derivationMask, error) {
 	if v, ok := n.attr(xsdAttrFinal); ok {
-		return parseDerivationSet(v, "simpleType final", derivationSimpleFinalMask)
+		m, err := parseDerivationSet(v, "simpleType final", derivationSimpleFinalMask)
+		return m, withSchemaCompileLocation(n, err)
 	}
 	return def & derivationSimpleFinalMask, nil
 }
@@ -520,7 +522,8 @@ func parseDerivationSet(v, label string, allowed derivationMask) (derivationMask
 
 func derivationMaskWithDefaultChecked(n *rawNode, def derivationMask, rule derivationAttributeRule) (derivationMask, error) {
 	if v, ok := n.attr(rule.attr); ok {
-		return parseDerivationSet(v, rule.label, rule.allowed)
+		m, err := parseDerivationSet(v, rule.label, rule.allowed)
+		return m, withSchemaCompileLocation(n, err)
 	}
 	return def & rule.allowed, nil
 }
@@ -534,7 +537,7 @@ func (c *compiler) resolveQNameChecked(n *rawNode, ctx *schemaContext, lexical s
 		ns = ctx.targetNS
 	}
 	if ctx != nil && !ctx.referenceNamespaceVisible(ns) {
-		return qName{}, schemaCompile(ErrSchemaReference, "namespace is not imported: "+ns)
+		return qName{}, schemaCompileAt(n, ErrSchemaReference, "namespace is not imported: "+ns)
 	}
 	return c.rt.Names.InternQName(ns, local)
 }
@@ -551,6 +554,9 @@ func (ctx *schemaContext) referenceNamespaceVisible(ns string) bool {
 
 func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 	if c.compilingSimple[q] {
+		if raw, ok := c.simpleRaw[q]; ok {
+			return noSimpleType, schemaCompileAt(raw.node, ErrSchemaReference, "cyclic simple type "+c.rt.Names.Format(q))
+		}
 		return noSimpleType, schemaCompile(ErrSchemaReference, "cyclic simple type "+c.rt.Names.Format(q))
 	}
 	if id, ok := c.simpleDone[q]; ok {
@@ -585,7 +591,7 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 
 func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpleTypeID, error) {
 	if _, ok := n.attr(xsdAttrName); ok {
-		return noSimpleType, schemaCompile(ErrSchemaInvalidAttribute, "local simpleType cannot have name")
+		return noSimpleType, schemaCompileAt(n, ErrSchemaInvalidAttribute, "local simpleType cannot have name")
 	}
 	q, err := c.rt.Names.InternQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
 	if err != nil {
@@ -616,7 +622,7 @@ func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName,
 	}
 	children := n.xsContentChildren()
 	if len(children) != 1 {
-		return simpleType{}, schemaCompile(ErrSchemaContentModel, "simpleType must contain one restriction, list, or union")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "simpleType must contain one restriction, list, or union")
 	}
 	switch children[0].Name.Local {
 	case xsdElemRestriction:
@@ -626,7 +632,7 @@ func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName,
 	case xsdElemUnion:
 		return c.compileUnion(children[0], ctx, name, selfID)
 	default:
-		return simpleType{}, schemaCompile(ErrSchemaContentModel, "unsupported simpleType child "+children[0].Name.Local)
+		return simpleType{}, schemaCompileAt(children[0], ErrSchemaContentModel, "unsupported simpleType child "+children[0].Name.Local)
 	}
 }
 
@@ -639,7 +645,7 @@ func validateSimpleTypeChildren(n *rawNode) error {
 		}
 		if child.Name.Local == xsdElemAnnotation {
 			if seenAnnotation || seenVariety {
-				return schemaCompile(ErrSchemaContentModel, "simpleType annotation must be first")
+				return schemaCompileAt(child, ErrSchemaContentModel, "simpleType annotation must be first")
 			}
 			seenAnnotation = true
 			continue
@@ -647,11 +653,11 @@ func validateSimpleTypeChildren(n *rawNode) error {
 		switch child.Name.Local {
 		case xsdElemRestriction, xsdElemList, xsdElemUnion:
 			if seenVariety {
-				return schemaCompile(ErrSchemaContentModel, "simpleType can contain one restriction, list, or union")
+				return schemaCompileAt(child, ErrSchemaContentModel, "simpleType can contain one restriction, list, or union")
 			}
 			seenVariety = true
 		default:
-			return schemaCompile(ErrSchemaContentModel, "unsupported simpleType child "+child.Name.Local)
+			return schemaCompileAt(child, ErrSchemaContentModel, "unsupported simpleType child "+child.Name.Local)
 		}
 	}
 	return nil
@@ -664,11 +670,11 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 	var baseID simpleTypeID
 	simpleTypeChildren := n.xsChildren(xsdElemSimpleType)
 	if len(simpleTypeChildren) > 1 {
-		return simpleType{}, schemaCompile(ErrSchemaContentModel, "restriction can contain one simpleType")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "restriction can contain one simpleType")
 	}
 	if base, ok := n.attr(xsdAttrBase); ok {
 		if len(simpleTypeChildren) != 0 {
-			return simpleType{}, schemaCompile(ErrSchemaContentModel, "restriction cannot have both base and simpleType")
+			return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "restriction cannot have both base and simpleType")
 		}
 		q, err := c.resolveQNameChecked(n, ctx, base)
 		if err != nil {
@@ -676,7 +682,7 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 		}
 		id, err := c.compileSimpleByQName(q)
 		if err != nil {
-			return simpleType{}, err
+			return simpleType{}, withSchemaCompileLocation(n, err)
 		}
 		baseID = id
 	} else if len(simpleTypeChildren) == 1 {
@@ -686,14 +692,14 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 		}
 		baseID = id
 	} else {
-		return simpleType{}, schemaCompile(ErrSchemaReference, "simple restriction missing base")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "simple restriction missing base")
 	}
 	if baseID == c.rt.Builtin.AnySimpleType {
-		return simpleType{}, schemaCompile(ErrSchemaReference, "simple type cannot restrict xs:anySimpleType")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "simple type cannot restrict xs:anySimpleType")
 	}
 	base := c.rt.SimpleTypes[baseID]
 	if base.Final&blockRestriction != 0 {
-		return simpleType{}, schemaCompile(ErrSchemaReference, "base simple type final blocks restriction")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "base simple type final blocks restriction")
 	}
 	st := base
 	st.Name = name
@@ -702,7 +708,7 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 	st.Facets = cloneFacetSet(base.Facets)
 	st.Union = slices.Clone(base.Union)
 	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
-		return simpleType{}, err
+		return simpleType{}, withSchemaCompileLocation(n, err)
 	}
 	return st, nil
 }
@@ -725,7 +731,7 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfI
 	simpleTypeChildren := n.xsChildren(xsdElemSimpleType)
 	if itemType, ok := n.attr(xsdAttrItemType); ok {
 		if len(simpleTypeChildren) != 0 {
-			return simpleType{}, schemaCompile(ErrSchemaContentModel, "list cannot have both itemType and simpleType")
+			return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "list cannot have both itemType and simpleType")
 		}
 		id, err := c.compileListItemType(n, ctx, itemType)
 		if err != nil {
@@ -739,21 +745,21 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfI
 		}
 		item = id
 	} else if len(simpleTypeChildren) > 1 {
-		return simpleType{}, schemaCompile(ErrSchemaContentModel, "list can contain one simpleType")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "list can contain one simpleType")
 	}
 	if item == noSimpleType {
-		return simpleType{}, schemaCompile(ErrSchemaReference, "list missing item type")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "list missing item type")
 	}
 	if c.rt.SimpleTypes[item].Final&blockList != 0 {
-		return simpleType{}, schemaCompile(ErrSchemaReference, "item simple type final blocks list")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "item simple type final blocks list")
 	}
 	if c.simpleTypeHasListVariety(item, make(map[simpleTypeID]bool)) {
-		return simpleType{}, schemaCompile(ErrSchemaContentModel, "list item type cannot be a list type")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "list item type cannot be a list type")
 	}
 	st := simpleType{Name: name, Variety: varietyList, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse, ListItem: item}
 	c.rt.SimpleTypes[selfID] = st
 	if err := c.compileFacets(n, &st, c.rt.Builtin.AnySimpleType, selfID); err != nil {
-		return simpleType{}, err
+		return simpleType{}, withSchemaCompileLocation(n, err)
 	}
 	return st, nil
 }
@@ -764,10 +770,11 @@ func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType 
 		return noSimpleType, err
 	}
 	if c.simpleTypeQNameKnown(q) {
-		return c.compileSimpleByQName(q)
+		id, err := c.compileSimpleByQName(q)
+		return id, withSchemaCompileLocation(n, err)
 	}
 	if c.typeQNameKnown(q) {
-		return noSimpleType, schemaCompile(ErrSchemaReference, "unknown simple type "+c.rt.Names.Format(q))
+		return noSimpleType, schemaCompileAt(n, ErrSchemaReference, "unknown simple type "+c.rt.Names.Format(q))
 	}
 	return c.missingSimpleType()
 }
@@ -785,10 +792,10 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 			}
 			id, err := c.compileSimpleByQName(q)
 			if err != nil {
-				return simpleType{}, err
+				return simpleType{}, withSchemaCompileLocation(n, err)
 			}
 			if c.rt.SimpleTypes[id].Final&blockUnion != 0 {
-				return simpleType{}, schemaCompile(ErrSchemaReference, "member simple type final blocks union")
+				return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "member simple type final blocks union")
 			}
 			st.Union = append(st.Union, id)
 		}
@@ -799,16 +806,16 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 			return simpleType{}, err
 		}
 		if c.rt.SimpleTypes[id].Final&blockUnion != 0 {
-			return simpleType{}, schemaCompile(ErrSchemaReference, "member simple type final blocks union")
+			return simpleType{}, schemaCompileAt(child, ErrSchemaReference, "member simple type final blocks union")
 		}
 		st.Union = append(st.Union, id)
 	}
 	if len(st.Union) == 0 {
-		return simpleType{}, schemaCompile(ErrSchemaReference, "union missing member types")
+		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "union missing member types")
 	}
 	c.rt.SimpleTypes[selfID] = st
 	if err := c.compileFacets(n, &st, c.rt.Builtin.AnySimpleType, selfID); err != nil {
-		return simpleType{}, err
+		return simpleType{}, withSchemaCompileLocation(n, err)
 	}
 	return st, nil
 }
@@ -831,20 +838,20 @@ func validateSimpleDerivationChildren(n *rawNode, policy simpleDerivationChildPo
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenAnnotation || seenSimpleType || seenFacet {
-				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" annotation must be first")
+				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" annotation must be first")
 			}
 			seenAnnotation = true
 		case xsdElemSimpleType:
 			if seenFacet {
-				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" simpleType must precede facets")
+				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" simpleType must precede facets")
 			}
 			if seenSimpleType && policy == simpleDerivationSingleChild {
-				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" can contain one simpleType")
+				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" can contain one simpleType")
 			}
 			seenSimpleType = true
 		default:
 			if !isFacetNode(child.Name.Local) {
-				return schemaCompile(ErrSchemaContentModel, "invalid "+n.Name.Local+" child "+child.Name.Local)
+				return schemaCompileAt(child, ErrSchemaContentModel, "invalid "+n.Name.Local+" child "+child.Name.Local)
 			}
 			seenFacet = true
 		}
