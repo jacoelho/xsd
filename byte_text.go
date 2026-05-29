@@ -15,3 +15,15 @@ func byteTextEqual[T byteText](s string, text T) bool {
 	}
 	return true
 }
+
+func stringBytesEqual(s string, b []byte) bool {
+	if len(s) != len(b) {
+		return false
+	}
+	for i := range b {
+		if s[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}

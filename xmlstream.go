@@ -130,40 +130,46 @@ func (p *xmlStreamParser) next() (streamToken, error) {
 		if err != nil {
 			return streamToken{}, p.syntaxError("unexpected EOF after <", err)
 		}
-		tok, skip, err := p.readTokenAfterLt(next, line, col)
-		if err != nil {
-			return streamToken{}, err
+		switch next {
+		case '/':
+			end, err := p.readEndElement()
+			if err != nil {
+				return streamToken{}, err
+			}
+			p.atStart = false
+			return streamToken{kind: streamTokenEnd, end: end, line: line, col: col}, nil
+		case '!':
+			tok, skip, err := p.readMarkup(line, col)
+			if err != nil {
+				return streamToken{}, err
+			}
+			p.atStart = false
+			if skip {
+				continue
+			}
+			return tok, nil
+		case '?':
+			tok, skip, err := p.readPI(p.atStart, line, col)
+			if err != nil {
+				return streamToken{}, err
+			}
+			p.atStart = false
+			if skip {
+				continue
+			}
+			return tok, nil
+		default:
+			start, selfClosing, err := p.readStartElement(next)
+			if err != nil {
+				return streamToken{}, err
+			}
+			p.atStart = false
+			if selfClosing {
+				p.pendingEnd = xml.EndElement{Name: start.Name}
+				p.hasEnd = true
+			}
+			return streamToken{kind: streamTokenStart, start: start, line: line, col: col}, nil
 		}
-		p.atStart = false
-		if skip {
-			continue
-		}
-		return tok, nil
-	}
-}
-
-func (p *xmlStreamParser) readTokenAfterLt(next byte, line, col int) (streamToken, bool, error) {
-	switch next {
-	case '/':
-		end, err := p.readEndElement()
-		if err != nil {
-			return streamToken{}, false, err
-		}
-		return streamToken{kind: streamTokenEnd, end: end, line: line, col: col}, false, nil
-	case '!':
-		return p.readMarkup(line, col)
-	case '?':
-		return p.readPI(p.atStart, line, col)
-	default:
-		start, selfClosing, err := p.readStartElement(next)
-		if err != nil {
-			return streamToken{}, false, err
-		}
-		if selfClosing {
-			p.pendingEnd = xml.EndElement{Name: start.Name}
-			p.hasEnd = true
-		}
-		return streamToken{kind: streamTokenStart, start: start, line: line, col: col}, false, nil
 	}
 }
 
@@ -171,8 +177,24 @@ func (p *xmlStreamParser) readCharData(first byte) (streamToken, error) {
 	line, col := p.br.pos()
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
-	if err := p.appendCharDataByte(first, &cdataEnd); err != nil {
-		return streamToken{}, err
+	switch first {
+	case '&':
+		if err := p.readEntity(&p.textBuf); err != nil {
+			return streamToken{}, err
+		}
+	case '\r':
+		p.consumeLineFeed()
+		if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+			return streamToken{}, err
+		}
+	default:
+		cdataEnd = advanceCDataEnd(cdataEnd, first)
+		if cdataEnd == len(cdataEndTerm) {
+			return streamToken{}, fmt.Errorf("]]> cannot appear in character data")
+		}
+		if err := p.appendXMLRune(&p.textBuf, first); err != nil {
+			return streamToken{}, err
+		}
 	}
 	for {
 		chunk, err := p.br.buffered()
@@ -202,27 +224,28 @@ func (p *xmlStreamParser) readCharData(first byte) (streamToken, error) {
 			p.br.unreadByte()
 			return streamToken{kind: streamTokenCharData, data: p.textBuf, line: line, col: col}, nil
 		}
-		if err := p.appendCharDataByte(b, &cdataEnd); err != nil {
+		if b == '\r' {
+			p.consumeLineFeed()
+			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+				return streamToken{}, err
+			}
+			cdataEnd = 0
+			continue
+		}
+		if b == '&' {
+			if err := p.readEntity(&p.textBuf); err != nil {
+				return streamToken{}, err
+			}
+			cdataEnd = 0
+			continue
+		}
+		cdataEnd = advanceCDataEnd(cdataEnd, b)
+		if cdataEnd == len(cdataEndTerm) {
+			return streamToken{}, fmt.Errorf("]]> cannot appear in character data")
+		}
+		if err := p.appendXMLRune(&p.textBuf, b); err != nil {
 			return streamToken{}, err
 		}
-	}
-}
-
-func (p *xmlStreamParser) appendCharDataByte(b byte, cdataEnd *int) error {
-	switch b {
-	case '&':
-		*cdataEnd = 0
-		return p.readEntity(&p.textBuf)
-	case '\r':
-		*cdataEnd = 0
-		p.consumeLineFeed()
-		return p.appendTokenByte(&p.textBuf, '\n')
-	default:
-		*cdataEnd = advanceCDataEnd(*cdataEnd, b)
-		if *cdataEnd == len(cdataEndTerm) {
-			return fmt.Errorf("]]> cannot appear in character data")
-		}
-		return p.appendXMLRune(&p.textBuf, b)
 	}
 }
 
@@ -380,64 +403,61 @@ func (p *xmlStreamParser) readCDATAChunk(line, col int) (streamToken, error) {
 	}
 	p.textBuf = p.textBuf[:0]
 	matched := p.cdataMatched
+	appendPending := func() error {
+		for ; matched > 0; matched-- {
+			if err := p.appendTokenByte(&p.textBuf, ']'); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
 			return streamToken{}, p.syntaxError("unexpected EOF in CDATA section", err)
 		}
-		done, err := p.appendCDATAByte(b, &matched)
-		if err != nil {
-			return streamToken{}, err
-		}
-		if done {
-			p.inCDATA = false
-			p.cdataMatched = 0
-			return streamToken{kind: streamTokenCharData, data: p.textBuf, cdata: true, line: line, col: col}, nil
+		switch b {
+		case ']':
+			if matched == 2 {
+				if err := p.appendTokenByte(&p.textBuf, ']'); err != nil {
+					return streamToken{}, err
+				}
+			} else {
+				matched++
+			}
+		case '>':
+			if matched == 2 {
+				p.inCDATA = false
+				p.cdataMatched = 0
+				return streamToken{kind: streamTokenCharData, data: p.textBuf, cdata: true, line: line, col: col}, nil
+			}
+			if err := appendPending(); err != nil {
+				return streamToken{}, err
+			}
+			if err := p.appendTokenByte(&p.textBuf, '>'); err != nil {
+				return streamToken{}, err
+			}
+		case '\r':
+			if err := appendPending(); err != nil {
+				return streamToken{}, err
+			}
+			p.consumeLineFeed()
+			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+				return streamToken{}, err
+			}
+		default:
+			if err := appendPending(); err != nil {
+				return streamToken{}, err
+			}
+			if err := p.appendXMLRune(&p.textBuf, b); err != nil {
+				return streamToken{}, err
+			}
 		}
 		if len(p.textBuf) >= len(p.br.buf) {
 			p.cdataMatched = matched
 			return streamToken{kind: streamTokenCharData, data: p.textBuf, cdata: true, line: line, col: col}, nil
 		}
 	}
-}
-
-func (p *xmlStreamParser) appendCDATAByte(b byte, matched *int) (bool, error) {
-	switch b {
-	case ']':
-		if *matched == 2 {
-			return false, p.appendTokenByte(&p.textBuf, ']')
-		}
-		(*matched)++
-	case '>':
-		if *matched == 2 {
-			return true, nil
-		}
-		if err := p.appendPendingCDATA(matched); err != nil {
-			return false, err
-		}
-		return false, p.appendTokenByte(&p.textBuf, '>')
-	case '\r':
-		if err := p.appendPendingCDATA(matched); err != nil {
-			return false, err
-		}
-		p.consumeLineFeed()
-		return false, p.appendTokenByte(&p.textBuf, '\n')
-	default:
-		if err := p.appendPendingCDATA(matched); err != nil {
-			return false, err
-		}
-		return false, p.appendXMLRune(&p.textBuf, b)
-	}
-	return false, nil
-}
-
-func (p *xmlStreamParser) appendPendingCDATA(matched *int) error {
-	for ; *matched > 0; (*matched)-- {
-		if err := p.appendTokenByte(&p.textBuf, ']'); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (p *xmlStreamParser) readStartElement(first byte) (streamStartElement, bool, error) {
@@ -468,50 +488,40 @@ func (p *xmlStreamParser) readStartElement(first byte) (streamStartElement, bool
 			if !hadSpace {
 				return streamStartElement{}, false, fmt.Errorf("expected whitespace before attribute")
 			}
-			attr, err := p.readStartAttribute(b)
+			attrName, err := p.readName(b)
 			if err != nil {
 				return streamStartElement{}, false, err
+			}
+			if p.maxAttrs > 0 && len(p.attrs)+1 > p.maxAttrs {
+				return streamStartElement{}, false, errXMLAttributeLimit
+			}
+			if b, _, err = p.readPastSpace(); err != nil {
+				return streamStartElement{}, false, err
+			}
+			if b != '=' {
+				return streamStartElement{}, false, fmt.Errorf("expected = after attribute name")
+			}
+			if b, _, err = p.readPastSpace(); err != nil {
+				return streamStartElement{}, false, err
+			}
+			if b != '"' && b != '\'' {
+				return streamStartElement{}, false, fmt.Errorf("attribute value must be quoted")
+			}
+			value, err := p.readAttributeValueBytes(b)
+			if err != nil {
+				return streamStartElement{}, false, err
+			}
+			attr := streamAttr{Name: attrName}
+			if p.lazyAttrValue {
+				start := len(p.attrValueBuf)
+				p.attrValueBuf = append(p.attrValueBuf, value...)
+				attr.Raw = p.attrValueBuf[start:]
+			} else {
+				attr.Value = p.values.intern(value)
 			}
 			p.attrs = append(p.attrs, attr)
 		}
 	}
-}
-
-func (p *xmlStreamParser) readStartAttribute(first byte) (streamAttr, error) {
-	name, err := p.readName(first)
-	if err != nil {
-		return streamAttr{}, err
-	}
-	if p.maxAttrs > 0 && len(p.attrs)+1 > p.maxAttrs {
-		return streamAttr{}, errXMLAttributeLimit
-	}
-	b, _, err := p.readPastSpace()
-	if err != nil {
-		return streamAttr{}, err
-	}
-	if b != '=' {
-		return streamAttr{}, fmt.Errorf("expected = after attribute name")
-	}
-	b, _, err = p.readPastSpace()
-	if err != nil {
-		return streamAttr{}, err
-	}
-	if b != '"' && b != '\'' {
-		return streamAttr{}, fmt.Errorf("attribute value must be quoted")
-	}
-	value, err := p.readAttributeValueBytes(b)
-	if err != nil {
-		return streamAttr{}, err
-	}
-	attr := streamAttr{Name: name}
-	if p.lazyAttrValue {
-		start := len(p.attrValueBuf)
-		p.attrValueBuf = append(p.attrValueBuf, value...)
-		attr.Raw = p.attrValueBuf[start:]
-		return attr, nil
-	}
-	attr.Value = p.values.intern(value)
-	return attr, nil
 }
 
 func (p *xmlStreamParser) readEndElement() (xml.EndElement, error) {

@@ -39,9 +39,21 @@ func (b *byteStream) readByte() (byte, error) {
 		return b.last, nil
 	}
 	if b.off == b.end {
-		if err := b.fill(); err != nil {
+		if b.err != nil {
+			err := b.err
+			b.err = nil
 			return 0, err
 		}
+		n, err := b.r.Read(b.buf[:])
+		if n <= 0 {
+			if err != nil {
+				return 0, err
+			}
+			return 0, io.ErrNoProgress
+		}
+		b.off = 0
+		b.end = n
+		b.err = err
 	}
 	c := b.buf[b.off]
 	b.off++
@@ -148,7 +160,7 @@ func (c *byteStringCache) intern(b []byte) string {
 	}
 	h := hashBytes(b)
 	for _, idx := range c.buckets[h] {
-		if byteTextEqual(c.entries[idx].text, b) {
+		if stringBytesEqual(c.entries[idx].text, b) {
 			s := c.entries[idx].text
 			c.remember(s)
 			return s
@@ -167,7 +179,7 @@ func (c *byteStringCache) intern(b []byte) string {
 
 func (c *byteStringCache) recentString(b []byte) (string, bool) {
 	for _, s := range c.recent {
-		if byteTextEqual(s, b) {
+		if stringBytesEqual(s, b) {
 			return s, true
 		}
 	}
