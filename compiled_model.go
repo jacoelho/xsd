@@ -68,8 +68,7 @@ type dfaSourceEdge struct {
 }
 
 type dfaAccept struct {
-	Guards  []compiledGuard
-	Actions []compiledAction
+	Guards []compiledGuard
 }
 
 func (c *compiler) compileContentModels() error {
@@ -140,7 +139,10 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 			if err != nil {
 				return compiledModel{}, false, err
 			}
-			rows = append(rows, compiledModelRow{})
+			rows, err = c.appendCompiledModelRow(rows, compiledModelRow{})
+			if err != nil {
+				return compiledModel{}, false, err
+			}
 			edge.To = to
 			for _, state := range active {
 				rows[state].Edges = append(rows[state].Edges, edge)
@@ -152,7 +154,10 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 		if err != nil {
 			return compiledModel{}, false, err
 		}
-		rows = append(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowReject))
+		rows, err = c.appendCompiledModelRow(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowReject))
+		if err != nil {
+			return compiledModel{}, false, err
+		}
 		edge.To = to
 		for _, state := range active {
 			rows[state].Edges = append(rows[state].Edges, edge)
@@ -170,9 +175,6 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 	}
 	for _, state := range active {
 		rows[state].Accept = true
-	}
-	if len(rows) > c.limits.maxContentModelStates {
-		return compiledModel{}, false, schemaCompile(ErrSchemaLimit, "content model DFA state limit exceeded")
 	}
 	if err := c.checkCompiledRowsUPA(rows); err != nil {
 		return compiledModel{}, false, err
@@ -205,18 +207,21 @@ func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, 
 		}
 		edge := compiledModelEdge{Particle: singleParticle(p), To: to}
 		if p.occurs.isExactlyOne() {
-			rows = append(rows, compiledModelRow{Accept: true})
+			rows, err = c.appendCompiledModelRow(rows, compiledModelRow{Accept: true})
+			if err != nil {
+				return compiledModel{}, false, err
+			}
 			rows[0].Edges = append(rows[0].Edges, edge)
 			continue
 		}
-		rows = append(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowAccept))
+		rows, err = c.appendCompiledModelRow(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowAccept))
+		if err != nil {
+			return compiledModel{}, false, err
+		}
 		rows[0].Edges = append(rows[0].Edges, edge)
 		if p.occurs.Unbounded || p.occurs.Max > 1 {
 			rows[edge.To].Edges = append(rows[edge.To].Edges, edge)
 		}
-	}
-	if len(rows) > c.limits.maxContentModelStates {
-		return compiledModel{}, false, schemaCompile(ErrSchemaLimit, "content model DFA state limit exceeded")
 	}
 	if err := c.checkCompiledRowsUPA(rows); err != nil {
 		return compiledModel{}, false, err
@@ -228,6 +233,13 @@ func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, 
 		Mixed: model.Mixed,
 		Empty: rows[0].Accept,
 	}, true, nil
+}
+
+func (c *compiler) appendCompiledModelRow(rows []compiledModelRow, row compiledModelRow) ([]compiledModelRow, error) {
+	if len(rows) >= c.limits.maxContentModelStates {
+		return nil, schemaCompile(ErrSchemaLimit, "content model DFA state limit exceeded")
+	}
+	return append(rows, row), nil
 }
 
 type compiledRowAcceptance uint8
@@ -261,11 +273,7 @@ func (c *compiler) checkCompiledRowsUPA(rows []compiledModelRow) error {
 				if compiledCountingException(uint32(state), row, a, next) {
 					continue
 				}
-				msg := "UPA violation: overlapping particles"
-				if name.Local != 0 || name.Namespace != 0 {
-					msg += " " + c.rt.Names.Format(name)
-				}
-				return schemaCompile(ErrSchemaContentModel, msg)
+				return c.upaError("UPA violation: overlapping particles", name)
 			}
 		}
 	}
@@ -333,18 +341,7 @@ func (c *compiler) compileAllModel(model contentModel) (compiledModel, error) {
 }
 
 func (c *compiler) checkAllUPA(model contentModel) error {
-	for i, a := range model.Particles {
-		for j := i + 1; j < len(model.Particles); j++ {
-			if name, ok := c.particlesOverlap(a, model.Particles[j]); ok {
-				msg := "UPA violation: overlapping particles in all"
-				if name.Local != 0 || name.Namespace != 0 {
-					msg += " " + c.rt.Names.Format(name)
-				}
-				return schemaCompile(ErrSchemaContentModel, msg)
-			}
-		}
-	}
-	return nil
+	return c.checkPairwiseUPA(model.Particles, "UPA violation: overlapping particles in all")
 }
 
 func (b *dfaBuilder) compile(id contentModelID) (compiledModel, error) {
@@ -387,8 +384,7 @@ func (b *dfaBuilder) row(entries []dfaEntry) (dfaSourceRow, error) {
 	for _, e := range entries {
 		if e.Pos == dfaEndPos {
 			row.Accept = append(row.Accept, dfaAccept{
-				Guards:  slices.Clone(e.Guards),
-				Actions: slices.Clone(e.Actions),
+				Guards: slices.Clone(e.Guards),
 			})
 			continue
 		}
@@ -546,14 +542,35 @@ func (b *dfaBuilder) repeat(child dfaNode, occurs occurrence, slot int) (dfaNode
 	}
 	loop := occurs.Unbounded || occurs.Max > 1
 	self := ^uint32(0)
-	var exitGuards []compiledGuard
-	var exitActions []compiledAction
-	if slot >= 0 {
-		var err error
-		self, err = checkedUint32(slot, "content model counter limit exceeded")
+	counted := slot >= 0
+	if counted {
+		slotID, err := checkedUint32(slot, "content model counter limit exceeded")
 		if err != nil {
 			return dfaNode{}, err
 		}
+		self = slotID
+	}
+	last := repeatLastEntries(child, occurs, self, counted)
+	if loop {
+		b.addRepeatLoopFollows(child, occurs, self, counted)
+	}
+	counters := slices.Clone(child.Counters)
+	if counted && !slices.Contains(counters, self) {
+		counters = append(counters, self)
+		slices.Sort(counters)
+	}
+	return dfaNode{
+		First:    child.First,
+		Last:     normalizeDFAEntries(last),
+		Counters: counters,
+		Nullable: occurs.Min == 0 || child.Nullable,
+	}, nil
+}
+
+func repeatLastEntries(child dfaNode, occurs occurrence, self uint32, counted bool) []dfaEntry {
+	var exitGuards []compiledGuard
+	var exitActions []compiledAction
+	if counted {
 		if occurs.Min > 0 && !child.Nullable {
 			exitGuards = append(exitGuards, compiledGuard{Slot: self, N: occurs.Min, Kind: compiledGuardExitMin})
 		}
@@ -567,33 +584,24 @@ func (b *dfaBuilder) repeat(child dfaNode, occurs occurrence, slot int) (dfaNode
 			Actions: appendActions(tail.Actions, exitActions),
 		})
 	}
-	if loop {
-		for _, tail := range child.Last {
-			for _, first := range child.First {
-				guards := slices.Clone(tail.Guards)
-				if slot >= 0 && !occurs.Unbounded {
-					guards = append(guards, compiledGuard{Slot: self, N: occurs.Max, Kind: compiledGuardLoopMax})
-				}
-				actions := slices.Clone(tail.Actions)
-				if slot >= 0 {
-					actions = append(actions, compiledAction{Slot: self, Kind: compiledActionInc})
-				}
-				actions = append(actions, resetActions(child.Counters, self)...)
-				b.addFollow(tail.Pos, composeEntry(guards, actions, first))
+	return last
+}
+
+func (b *dfaBuilder) addRepeatLoopFollows(child dfaNode, occurs occurrence, self uint32, counted bool) {
+	for _, tail := range child.Last {
+		for _, first := range child.First {
+			guards := slices.Clone(tail.Guards)
+			if counted && !occurs.Unbounded {
+				guards = append(guards, compiledGuard{Slot: self, N: occurs.Max, Kind: compiledGuardLoopMax})
 			}
+			actions := slices.Clone(tail.Actions)
+			if counted {
+				actions = append(actions, compiledAction{Slot: self, Kind: compiledActionInc})
+			}
+			actions = append(actions, resetActions(child.Counters, self)...)
+			b.addFollow(tail.Pos, composeEntry(guards, actions, first))
 		}
 	}
-	counters := slices.Clone(child.Counters)
-	if slot >= 0 && !slices.Contains(counters, self) {
-		counters = append(counters, self)
-		slices.Sort(counters)
-	}
-	return dfaNode{
-		First:    child.First,
-		Last:     normalizeDFAEntries(last),
-		Counters: counters,
-		Nullable: occurs.Min == 0 || child.Nullable,
-	}, nil
 }
 
 func repeatNeedsCounter(occurs occurrence) bool {
@@ -652,11 +660,7 @@ func (b *dfaBuilder) checkUPA() error {
 				if countingException(a, next) {
 					continue
 				}
-				msg := "UPA violation: overlapping particles"
-				if name.Local != 0 || name.Namespace != 0 {
-					msg += " " + b.c.rt.Names.Format(name)
-				}
-				return schemaCompile(ErrSchemaContentModel, msg)
+				return b.c.upaError("UPA violation: overlapping particles", name)
 			}
 		}
 	}

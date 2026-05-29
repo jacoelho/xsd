@@ -28,6 +28,9 @@ type rawNode struct {
 
 func parseSchemaDocument(name, key string, data []byte, limits compileLimits) (*rawDoc, error) {
 	data = bytes.TrimPrefix(data, utf8BOM)
+	if enc := declaredEncoding(data); enc != "" && !strings.EqualFold(enc, "UTF-8") && !strings.EqualFold(enc, "UTF8") {
+		return nil, unsupported(ErrUnsupportedNonUTF8, "schema documents must be UTF-8")
+	}
 	if version := declaredXMLVersion(data); version != "" && version != xmlVersion10 {
 		return nil, unsupported(ErrUnsupportedXML11, "XML version "+version+" is not supported")
 	}
@@ -257,7 +260,6 @@ func checkSchemaStartElementLimit(start xml.StartElement, limits compileLimits, 
 	return nil
 }
 
-// checkSchemaTokenLimit centralizes schema token limit diagnostics.
 func checkSchemaTokenLimit(size int64, limits compileLimits, line, col int, msg string) error {
 	if limits.maxSchemaTokenBytes > 0 && size > limits.maxSchemaTokenBytes {
 		limitErr := schemaParse(ErrSchemaLimit, line, col, msg, nil)
@@ -280,7 +282,7 @@ func rejectUnsupportedSchemaNodes(n, parent *rawNode) error {
 	}
 	for _, attr := range n.Attr {
 		if attr.Name.Space == xsdNamespaceURI {
-			return schemaCompile(ErrSchemaInvalidAttribute, "schema namespace attribute "+attr.Name.Local+" is not allowed")
+			return schemaCompileAt(n, ErrSchemaInvalidAttribute, "schema namespace attribute "+attr.Name.Local+" is not allowed")
 		}
 	}
 	if n.Name.Space == xsdNamespaceURI {
@@ -289,7 +291,7 @@ func rejectUnsupportedSchemaNodes(n, parent *rawNode) error {
 			return unsupported(ErrUnsupportedRedefine, "xs:redefine is not supported")
 		case xsdElemNotation:
 			if parent == nil || parent.Name.Space != xsdNamespaceURI || parent.Name.Local != xsdElemSchema {
-				return schemaCompile(ErrSchemaContentModel, "xs:notation must be a top-level schema child")
+				return schemaCompileAt(n, ErrSchemaContentModel, "xs:notation must be a top-level schema child")
 			}
 		case "assert", "alternative", "override", "openContent", "defaultOpenContent":
 			return unsupported(ErrUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
@@ -316,7 +318,7 @@ func rejectUnknownSchemaAttributes(n *rawNode) error {
 				continue
 			}
 			if !schemaAttributeAllowed(n.Name.Local, attr.Name.Local) {
-				return schemaCompile(ErrSchemaInvalidAttribute, n.Name.Local+" cannot have attribute "+attr.Name.Local)
+				return schemaCompileAt(n, ErrSchemaInvalidAttribute, n.Name.Local+" cannot have attribute "+attr.Name.Local)
 			}
 		}
 	}
@@ -443,7 +445,7 @@ func modelGroupAttributeAllowed(element, attr string) bool {
 func rejectDuplicateSchemaIDs(n *rawNode, seen map[string]bool) error {
 	if id, ok := n.attr(xsdAttrID); ok {
 		if seen[id] {
-			return schemaCompile(ErrSchemaInvalidAttribute, "duplicate schema id "+id)
+			return schemaCompileAt(n, ErrSchemaInvalidAttribute, "duplicate schema id "+id)
 		}
 		seen[id] = true
 	}
@@ -458,14 +460,14 @@ func rejectDuplicateSchemaIDs(n *rawNode, seen map[string]bool) error {
 func rejectInvalidSchemaNames(n, parent *rawNode) error {
 	if n.Name.Space == xsdNamespaceURI {
 		if id, ok := n.attr(xsdAttrID); ok && !isNCName(id) {
-			return schemaCompile(ErrSchemaInvalidAttribute, "schema id must be NCName")
+			return schemaCompileAt(n, ErrSchemaInvalidAttribute, "schema id must be NCName")
 		}
 		if name, ok := n.attr(xsdAttrName); ok && !isNCName(name) {
-			return schemaCompile(ErrSchemaInvalidAttribute, "schema component name must be NCName")
+			return schemaCompileAt(n, ErrSchemaInvalidAttribute, "schema component name must be NCName")
 		}
 		if n.Name.Local == xsdElemAttributeGroup && parent != nil && (parent.Name.Space != xsdNamespaceURI || parent.Name.Local != xsdElemSchema) {
 			if _, ok := n.attr(xsdAttrName); ok {
-				return schemaCompile(ErrSchemaInvalidAttribute, "attributeGroup use cannot have name")
+				return schemaCompileAt(n, ErrSchemaInvalidAttribute, "attributeGroup use cannot have name")
 			}
 		}
 	}
@@ -509,8 +511,8 @@ func validateAnnotationNode(n *rawNode) (bool, error) {
 
 func validateDocumentationNode(n *rawNode) error {
 	for _, attr := range n.Attr {
-		if attr.Name.Space == xmlNamespaceURI && attr.Name.Local == xmlAttrLang && !validLanguageTag(attr.Value) {
-			return schemaCompile(ErrSchemaInvalidAttribute, "invalid xml:lang on xs:documentation")
+		if attr.Name.Space == xmlNamespaceURI && attr.Name.Local == xmlAttrLang && !isLanguage(attr.Value) {
+			return schemaCompileAt(n, ErrSchemaInvalidAttribute, "invalid xml:lang on xs:documentation")
 		}
 	}
 	return nil
@@ -519,12 +521,12 @@ func validateDocumentationNode(n *rawNode) error {
 func validateAnnotationElement(n *rawNode) error {
 	for _, attr := range n.Attr {
 		if attr.Name.Space == "" && attr.Name.Local != xsdAttrID {
-			return schemaCompile(ErrSchemaInvalidAttribute, "attribute "+attr.Name.Local+" cannot appear on xs:annotation")
+			return schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute "+attr.Name.Local+" cannot appear on xs:annotation")
 		}
 	}
 	for _, child := range n.Children {
 		if child.Name.Space == xsdNamespaceURI && child.Name.Local == xsdElemAnnotation {
-			return schemaCompile(ErrSchemaContentModel, "xs:annotation cannot contain xs:annotation")
+			return schemaCompileAt(child, ErrSchemaContentModel, "xs:annotation cannot contain xs:annotation")
 		}
 	}
 	return nil
@@ -540,38 +542,16 @@ func validateComponentAnnotationPlacement(n *rawNode) error {
 		if child.Name.Local == xsdElemAnnotation {
 			annotations++
 			if annotations > 1 {
-				return schemaCompile(ErrSchemaContentModel, "schema component cannot contain multiple annotations")
+				return schemaCompileAt(child, ErrSchemaContentModel, "schema component cannot contain multiple annotations")
 			}
 			if seenNonAnnotation {
-				return schemaCompile(ErrSchemaContentModel, n.Name.Local+" annotation must be first")
+				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" annotation must be first")
 			}
 			continue
 		}
 		seenNonAnnotation = true
 	}
 	return nil
-}
-
-func validLanguageTag(v string) bool {
-	i := 0
-	for part := range strings.SplitSeq(v, "-") {
-		if part == "" || len(part) > 8 {
-			return false
-		}
-		for _, r := range part {
-			if i == 0 {
-				if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') {
-					return false
-				}
-				continue
-			}
-			if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
-				return false
-			}
-		}
-		i++
-	}
-	return true
 }
 
 func (n *rawNode) attr(local string) (string, bool) {
@@ -630,14 +610,14 @@ func (n *rawNode) xsContentChildren() []*rawNode {
 func (n *rawNode) resolveQName(lexical string) (string, string, error) {
 	prefix, local, prefixed, err := parseQNameParts(lexical)
 	if err != nil {
-		return "", "", err
+		return "", "", withSchemaCompileLocation(n, err)
 	}
 	if !prefixed {
 		return n.NS[""], local, nil
 	}
 	ns, ok := n.NS[prefix]
 	if !ok {
-		return "", "", schemaCompile(ErrSchemaReference, "unbound QName prefix "+prefix)
+		return "", "", schemaCompileAt(n, ErrSchemaReference, "unbound QName prefix "+prefix)
 	}
 	return ns, local, nil
 }

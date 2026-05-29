@@ -25,64 +25,7 @@ func parseDecimalValue(s string) (decimalValue, error) {
 	return parseDecimalMode(s, decimalValueOnly)
 }
 
-func validateBuiltinIntNoCanonical(s string) error {
-	if s == "" {
-		return fmt.Errorf("invalid decimal")
-	}
-	start := 0
-	negative := false
-	if s[0] == '+' || s[0] == '-' {
-		negative = s[0] == '-'
-		start = 1
-	}
-	if start == len(s) {
-		return fmt.Errorf("invalid decimal")
-	}
-	digits := 0
-	dot := false
-	for i := start; i < len(s); i++ {
-		c := s[i]
-		switch {
-		case c >= '0' && c <= '9':
-			digits++
-		case c == '.':
-			if dot {
-				return fmt.Errorf("invalid decimal")
-			}
-			dot = true
-		default:
-			return fmt.Errorf("invalid decimal")
-		}
-	}
-	if digits == 0 {
-		return fmt.Errorf("invalid decimal")
-	}
-	if dot {
-		return fmt.Errorf("invalid integer")
-	}
-
-	digitStart := start
-	for digitStart < len(s) && s[digitStart] == '0' {
-		digitStart++
-	}
-	if digitStart == len(s) {
-		return nil
-	}
-	limit := "2147483647"
-	if negative {
-		limit = "2147483648"
-	}
-	digitsText := s[digitStart:]
-	if len(digitsText) > len(limit) || len(digitsText) == len(limit) && digitsText > limit {
-		if negative {
-			return fmt.Errorf("minInclusive facet failed")
-		}
-		return fmt.Errorf("maxInclusive facet failed")
-	}
-	return nil
-}
-
-func validateBuiltinIntNoCanonicalBytes(s []byte) error {
+func validateBuiltinIntNoCanonical[T byteText](s T) error {
 	if len(s) == 0 {
 		return fmt.Errorf("invalid decimal")
 	}
@@ -129,8 +72,8 @@ func validateBuiltinIntNoCanonicalBytes(s []byte) error {
 	if negative {
 		limit = "2147483648"
 	}
-	digitsText := s[digitStart:]
-	if len(digitsText) > len(limit) || len(digitsText) == len(limit) && stringBytesGreaterThan(digitsText, limit) {
+	digitCount := len(s) - digitStart
+	if digitCount > len(limit) || digitCount == len(limit) && digitsGreaterThan(s, digitStart, limit) {
 		if negative {
 			return fmt.Errorf("minInclusive facet failed")
 		}
@@ -139,10 +82,10 @@ func validateBuiltinIntNoCanonicalBytes(s []byte) error {
 	return nil
 }
 
-func stringBytesGreaterThan(s []byte, limit string) bool {
-	for i := range s {
-		if s[i] != limit[i] {
-			return s[i] > limit[i]
+func digitsGreaterThan[T byteText](s T, start int, limit string) bool {
+	for i := range limit {
+		if s[start+i] != limit[i] {
+			return s[start+i] > limit[i]
 		}
 	}
 	return false

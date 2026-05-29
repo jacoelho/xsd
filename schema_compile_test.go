@@ -3,9 +3,88 @@ package xsd
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"strings"
 	"testing"
 )
+
+func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+		needle string
+		code   ErrorCode
+	}{
+		{
+			name: "pattern",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Bad">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[z-a]"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`,
+			needle: `<xs:pattern`,
+			code:   ErrSchemaFacet,
+		},
+		{
+			name: "identity",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element name="child"/></xs:sequence></xs:complexType>
+    <xs:key name="k">
+      <xs:selector xpath="."/>
+      <xs:field xpath="/bad"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`,
+			needle: `<xs:field`,
+			code:   ErrSchemaIdentity,
+		},
+		{
+			name: "content",
+			schema: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Bad">
+    <xs:element name="child"/>
+  </xs:complexType>
+</xs:schema>`,
+			needle: `<xs:element name="child"`,
+			code:   ErrSchemaContentModel,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := Compile(sourceBytes("schema.xsd", []byte(test.schema)))
+			expectCode(t, err, test.code)
+			expectSchemaCompileLine(t, err, lineOf(test.schema, test.needle))
+		})
+	}
+}
+
+func expectSchemaCompileLine(t *testing.T, err error, line int) {
+	t.Helper()
+	x, ok := errors.AsType[*Error](err)
+	if !ok {
+		t.Fatalf("error type = %T, want *Error", err)
+	}
+	if x.Category != SchemaCompileErrorCategory {
+		t.Fatalf("error category = %s, want %s", x.Category, SchemaCompileErrorCategory)
+	}
+	if x.Line != line || x.Column == 0 {
+		t.Fatalf("error location = %d:%d, want line %d and non-zero column", x.Line, x.Column, line)
+	}
+}
+
+func lineOf(s, needle string) int {
+	before, _, ok := strings.Cut(s, needle)
+	if !ok {
+		return 0
+	}
+	return strings.Count(before, "\n") + 1
+}
 
 func TestInvalidSchemaContentOrdering(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
@@ -297,6 +376,14 @@ func TestSubstitutionMemberInheritsHeadType(t *testing.T) {
 </xs:schema>`)
 	mustValidate(t, engine, `<member>1</member>`)
 	mustNotValidate(t, engine, `<member>x</member>`, ErrValidationFacet)
+}
+
+func TestSubstitutionMemberWithMissingHeadUsesDefaultType(t *testing.T) {
+	engine := mustCompile(t, `
+		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		  <xs:element name="member" substitutionGroup="missing"/>
+		</xs:schema>`)
+	mustValidate(t, engine, `<member>anything</member>`)
 }
 
 func TestContentModelSubstitutionRespectsElementBlock(t *testing.T) {

@@ -57,7 +57,7 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []streamAttr,
 	var err error
 	switch model.Kind {
 	case compiledModelAny:
-		return s.acceptAny(rn, wildcard{Mode: wildAny, Process: processLax}, line, col)
+		return s.acceptAny(rn), nil
 	case compiledModelAll:
 		match, ok, err = s.acceptAllChild(parent, model, rn, attrs)
 	case compiledModelDFA:
@@ -80,26 +80,14 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []streamAttr,
 	return match.child(rt), nil
 }
 
-func (s *session) acceptAny(rn runtimeName, w wildcard, line, col int) (acceptedChild, error) {
+func (s *session) acceptAny(rn runtimeName) acceptedChild {
 	rt := s.engine.rt
-	if !wildcardMatches(rt, w, rn) {
-		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "element is not allowed by wildcard "+rn.label())
-	}
 	if rn.Known {
-		if id, ok := rt.GlobalElements[rn.Name]; ok && w.Process != processSkip {
-			return acceptedChild{element: id, typ: rt.Elements[id].Type}, nil
+		if id, ok := rt.GlobalElements[rn.Name]; ok {
+			return acceptedChild{element: id, typ: rt.Elements[id].Type}
 		}
 	}
-	if w.Process == processSkip {
-		return skippedAnyTypeChild(rt), nil
-	}
-	if w.Process == processStrict {
-		if s.hasSchemaLocationHint(rn.NS) {
-			return acceptedChild{}, s.unsupportedSchemaLocation(line, col, xsdElemElement, rn)
-		}
-		return acceptedChild{}, validation(ErrValidationElement, line, col, s.pathString(), "wildcard requires declared element "+rn.label())
-	}
-	return acceptedChild{element: noElement, typ: anyType(rt)}, nil
+	return acceptedChild{element: noElement, typ: anyType(rt)}
 }
 
 func (s *session) acceptAllChild(f *frame, model compiledModel, rn runtimeName, attrs []streamAttr) (matchResult, bool, error) {
@@ -153,32 +141,38 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []stream
 			}
 		}
 	case particleWildcard:
-		w := rt.Wildcards[p.wildcard]
-		if wildcardMatches(rt, w, rn) {
-			if w.Process == processStrict {
-				if rn.Known {
-					if id, ok := rt.GlobalElements[rn.Name]; ok {
-						return matchResult{element: id}, true
-					}
-				}
-				if hasXSIType(attrs) {
-					return noMatch(), true
-				}
-				return matchResult{strictMissing: true}, true
-			}
-			if w.Process == processSkip {
-				return matchResult{element: noElement, skip: true}, true
-			}
-			if rn.Known && w.Process == processLax {
-				if id, ok := rt.GlobalElements[rn.Name]; ok {
-					return matchResult{element: id}, true
-				}
-			}
-			return noMatch(), true
-		}
+		return s.matchWildcardParticle(rt.Wildcards[p.wildcard], rn, attrs)
 	case particleModel:
 	}
 	return noMatch(), false
+}
+
+func (s *session) matchWildcardParticle(w wildcard, rn runtimeName, attrs []streamAttr) (matchResult, bool) {
+	rt := s.engine.rt
+	if !wildcardMatches(rt, w, rn) {
+		return noMatch(), false
+	}
+	switch w.Process {
+	case processStrict:
+		if rn.Known {
+			if id, ok := rt.GlobalElements[rn.Name]; ok {
+				return matchResult{element: id}, true
+			}
+		}
+		if hasXSIType(attrs) {
+			return noMatch(), true
+		}
+		return matchResult{strictMissing: true}, true
+	case processSkip:
+		return matchResult{element: noElement, skip: true}, true
+	case processLax:
+		if rn.Known {
+			if id, ok := rt.GlobalElements[rn.Name]; ok {
+				return matchResult{element: id}, true
+			}
+		}
+	}
+	return noMatch(), true
 }
 
 func hasXSIType(attrs []streamAttr) bool {
@@ -349,26 +343,31 @@ func (s *session) advanceDFA(f *frame, model compiledModel, edge compiledModelEd
 }
 
 func (s *session) allSeen(f *frame, i int) (bool, error) {
-	if i < 0 || i/64 >= f.BitLen {
-		return false, s.counterInvariantError("content model all bit index out of range", i, f.BitLen*64)
+	idx, bit, err := s.allBitIndex(f, i)
+	if err != nil {
+		return false, err
 	}
-	idx := f.BitBase + i/64
-	if idx < 0 || idx >= len(s.allBits) {
-		return false, s.counterInvariantError("content model all bit storage out of range", idx, len(s.allBits))
-	}
-	return s.allBits[idx]&(uint64(1)<<uint(i%64)) != 0, nil
+	return s.allBits[idx]&bit != 0, nil
 }
 
 func (s *session) setAllSeen(f *frame, i int) error {
+	idx, bit, err := s.allBitIndex(f, i)
+	if err != nil {
+		return err
+	}
+	s.allBits[idx] |= bit
+	return nil
+}
+
+func (s *session) allBitIndex(f *frame, i int) (int, uint64, error) {
 	if i < 0 || i/64 >= f.BitLen {
-		return s.counterInvariantError("content model all bit index out of range", i, f.BitLen*64)
+		return 0, 0, s.counterInvariantError("content model all bit index out of range", i, f.BitLen*64)
 	}
 	idx := f.BitBase + i/64
 	if idx < 0 || idx >= len(s.allBits) {
-		return s.counterInvariantError("content model all bit storage out of range", idx, len(s.allBits))
+		return 0, 0, s.counterInvariantError("content model all bit storage out of range", idx, len(s.allBits))
 	}
-	s.allBits[idx] |= uint64(1) << uint(i%64)
-	return nil
+	return idx, uint64(1) << uint(i%64), nil
 }
 
 func (s *session) counterInvariantError(msg string, got, limit int) error {

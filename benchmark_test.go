@@ -50,6 +50,50 @@ func BenchmarkCompileSmallSchema(b *testing.B) {
 	}
 }
 
+func BenchmarkSimplePatternVariableNoMatchString(b *testing.B) {
+	p := compileSimplePattern(`[a-z]{0,}[a-z]{0,}x`)
+	input := strings.Repeat("a", 4096)
+	b.ReportAllocs()
+	for b.Loop() {
+		if p.match(input) {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkSimplePatternVariableNoMatchBytes(b *testing.B) {
+	p := compileSimplePattern(`[a-z]{0,}[a-z]{0,}x`)
+	input := []byte(strings.Repeat("a", 4096))
+	b.ReportAllocs()
+	for b.Loop() {
+		if p.matchBytes(input) {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkSimplePatternVariableNoMatchMultibyteString(b *testing.B) {
+	p := compileSimplePattern(`é{0,}é{0,}x`)
+	input := strings.Repeat("é", 4096)
+	b.ReportAllocs()
+	for b.Loop() {
+		if p.match(input) {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkSimplePatternVariableNoMatchMultibyteBytes(b *testing.B) {
+	p := compileSimplePattern(`é{0,}é{0,}x`)
+	input := []byte(strings.Repeat("é", 4096))
+	b.ReportAllocs()
+	for b.Loop() {
+		if p.matchBytes(input) {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
 func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
 	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {

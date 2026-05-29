@@ -148,11 +148,11 @@ type maxBytesReader struct {
 }
 
 func (r *maxBytesReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
 	if r.exceeded {
 		return 0, r.err
-	}
-	if r.max <= 0 {
-		return r.r.Read(p)
 	}
 	if r.n >= r.max {
 		var one [1]byte
@@ -180,11 +180,6 @@ type maxBytesWriter struct {
 }
 
 func (w *maxBytesWriter) Write(p []byte) (int, error) {
-	if w.max <= 0 {
-		n, err := w.w.Write(p)
-		w.n += int64(n)
-		return n, err
-	}
 	remaining := w.max - w.n
 	if int64(len(p)) <= remaining {
 		n, err := w.w.Write(p)
@@ -473,26 +468,24 @@ func (e *formatElement) inline() bool {
 		return true
 	}
 	hasElement := false
-	hasWhitespaceText := false
-	hasInlineWhitespaceText := false
-	hasCommentOrPI := false
+	hasNonElementLayout := false
 	for _, child := range e.children {
 		switch child.kind {
 		case formatItemElement:
 			hasElement = true
 		case formatItemComment, formatItemPI:
-			hasCommentOrPI = true
+			hasNonElementLayout = true
 		case formatItemText:
 			if child.cdata || !isXMLWhitespaceBytes(child.data) {
 				return true
 			}
-			hasWhitespaceText = true
 			if !hasXMLLineBreak(child.data) {
-				hasInlineWhitespaceText = true
+				return true
 			}
+			hasNonElementLayout = true
 		}
 	}
-	return hasInlineWhitespaceText || !hasElement && (hasWhitespaceText || hasCommentOrPI)
+	return !hasElement && hasNonElementLayout
 }
 
 func writeXMLFormatEnd(w io.Writer, elem *formatElement) error {

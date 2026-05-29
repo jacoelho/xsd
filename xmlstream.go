@@ -22,6 +22,9 @@ const (
 	streamTokenPI
 )
 
+// byteStringCache interns short parser strings per validation session. Each
+// cache keeps at most maxByteStringCacheEntries strings no longer than
+// maxByteStringCacheLen bytes.
 const (
 	maxByteStringCacheEntries = 512
 	maxByteStringCacheLen     = 256
@@ -631,33 +634,28 @@ func (p *xmlStreamParser) readAttributeValueBytes(quote byte) ([]byte, error) {
 		if err != nil {
 			return nil, p.syntaxError("unexpected EOF in attribute value", err)
 		}
-		if b == quote {
+		switch b {
+		case quote:
 			return p.valueBuf, nil
-		}
-		if b == '<' {
+		case '<':
 			return nil, fmt.Errorf("attribute value cannot contain <")
-		}
-		if b == '\r' {
+		case '\r':
 			p.consumeLineFeed()
 			if err := p.appendTokenByte(&p.valueBuf, ' '); err != nil {
 				return nil, err
 			}
-			continue
-		}
-		if b == '\n' || b == '\t' {
+		case '\n', '\t':
 			if err := p.appendTokenByte(&p.valueBuf, ' '); err != nil {
 				return nil, err
 			}
-			continue
-		}
-		if b == '&' {
+		case '&':
 			if err := p.readEntity(&p.valueBuf); err != nil {
 				return nil, err
 			}
-			continue
-		}
-		if err := p.appendXMLRune(&p.valueBuf, b); err != nil {
-			return nil, err
+		default:
+			if err := p.appendXMLRune(&p.valueBuf, b); err != nil {
+				return nil, err
+			}
 		}
 	}
 }
@@ -680,14 +678,10 @@ func (p *xmlStreamParser) readComment(dst []byte) ([]byte, error) {
 		}
 		if b == '-' {
 			if prevDash {
-				next, err := p.br.readByte()
-				if err != nil {
-					return nil, p.syntaxError("unexpected EOF in comment", err)
+				if err := p.finishCommentAfterDoubleDash(); err != nil {
+					return nil, err
 				}
-				if next == '>' {
-					return dst, nil
-				}
-				return nil, fmt.Errorf("invalid XML comment")
+				return dst, nil
 			}
 			prevDash = true
 			continue
@@ -713,14 +707,7 @@ func (p *xmlStreamParser) skipComment() error {
 		}
 		if b == '-' {
 			if prevDash {
-				next, err := p.br.readByte()
-				if err != nil {
-					return p.syntaxError("unexpected EOF in comment", err)
-				}
-				if next == '>' {
-					return nil
-				}
-				return fmt.Errorf("invalid XML comment")
+				return p.finishCommentAfterDoubleDash()
 			}
 			prevDash = true
 			continue
@@ -734,6 +721,17 @@ func (p *xmlStreamParser) skipComment() error {
 	}
 }
 
+func (p *xmlStreamParser) finishCommentAfterDoubleDash() error {
+	next, err := p.br.readByte()
+	if err != nil {
+		return p.syntaxError("unexpected EOF in comment", err)
+	}
+	if next != '>' {
+		return fmt.Errorf("invalid XML comment")
+	}
+	return nil
+}
+
 func (p *xmlStreamParser) readPI(atDocumentStart bool, line, col int) (streamToken, bool, error) {
 	p.nameBuf = p.nameBuf[:0]
 	for {
@@ -742,60 +740,76 @@ func (p *xmlStreamParser) readPI(atDocumentStart bool, line, col int) (streamTok
 			return streamToken{}, false, p.syntaxError("unexpected EOF in processing instruction", err)
 		}
 		if b == '?' {
-			isXMLDecl, err := p.validatePITarget(atDocumentStart)
-			if err != nil {
-				return streamToken{}, false, err
-			}
-			if isXMLDecl {
-				return streamToken{}, false, fmt.Errorf("invalid XML declaration")
-			}
-			next, err := p.br.readByte()
-			if err != nil {
-				return streamToken{}, false, p.syntaxError("unexpected EOF in processing instruction", err)
-			}
-			if next != '>' {
-				return streamToken{}, false, fmt.Errorf("processing instruction target must be followed by whitespace or ?>")
-			}
-			if !p.emitPI {
-				return streamToken{}, true, nil
-			}
-			return streamToken{kind: streamTokenPI, data: p.nameBuf, line: line, col: col}, false, nil
+			return p.finishPIWithoutContent(atDocumentStart, line, col)
 		}
 		if isXMLWhitespaceByte(b) {
-			isXMLDecl, err := p.validatePITarget(atDocumentStart)
-			if err != nil {
-				return streamToken{}, false, err
-			}
-			if isXMLDecl {
-				p.directive = p.directive[:0]
-				data, readErr := p.readPIContent(p.directive)
-				p.directive = data
-				if readErr != nil {
-					return streamToken{}, false, readErr
-				}
-				return streamToken{}, true, validateXMLDeclContent(p.directive)
-			}
-			if !p.emitPI {
-				if skipErr := p.skipUntil("?>"); skipErr != nil {
-					if errors.Is(skipErr, io.EOF) {
-						return streamToken{}, false, p.syntaxError("unexpected EOF in processing instruction", skipErr)
-					}
-					return streamToken{}, false, skipErr
-				}
-				return streamToken{}, true, nil
-			}
-			p.directive = p.directive[:0]
-			data, err := p.readPIContent(p.directive)
-			if err != nil {
-				return streamToken{}, false, err
-			}
-			p.directive = data
-			return streamToken{kind: streamTokenPI, data: p.nameBuf, directive: data, line: line, col: col}, false, nil
+			return p.finishPIWithContent(atDocumentStart, line, col)
 		}
 		if err := p.appendTokenByte(&p.nameBuf, b); err != nil {
 			return streamToken{}, false, err
 		}
 	}
+}
+
+func (p *xmlStreamParser) finishPIWithoutContent(atDocumentStart bool, line, col int) (streamToken, bool, error) {
+	isXMLDecl, err := p.validatePITarget(atDocumentStart)
+	if err != nil {
+		return streamToken{}, false, err
+	}
+	if isXMLDecl {
+		return streamToken{}, false, fmt.Errorf("invalid XML declaration")
+	}
+	next, err := p.br.readByte()
+	if err != nil {
+		return streamToken{}, false, p.syntaxError("unexpected EOF in processing instruction", err)
+	}
+	if next != '>' {
+		return streamToken{}, false, fmt.Errorf("processing instruction target must be followed by whitespace or ?>")
+	}
+	if !p.emitPI {
+		return streamToken{}, true, nil
+	}
+	return streamToken{kind: streamTokenPI, data: p.nameBuf, line: line, col: col}, false, nil
+}
+
+func (p *xmlStreamParser) finishPIWithContent(atDocumentStart bool, line, col int) (streamToken, bool, error) {
+	isXMLDecl, err := p.validatePITarget(atDocumentStart)
+	if err != nil {
+		return streamToken{}, false, err
+	}
+	if isXMLDecl {
+		return streamToken{}, true, p.readXMLDeclContent()
+	}
+	if !p.emitPI {
+		return streamToken{}, true, p.skipPIContent()
+	}
+	p.directive = p.directive[:0]
+	data, err := p.readPIContent(p.directive)
+	if err != nil {
+		return streamToken{}, false, err
+	}
+	p.directive = data
+	return streamToken{kind: streamTokenPI, data: p.nameBuf, directive: data, line: line, col: col}, false, nil
+}
+
+func (p *xmlStreamParser) readXMLDeclContent() error {
+	p.directive = p.directive[:0]
+	data, err := p.readPIContent(p.directive)
+	p.directive = data
+	if err != nil {
+		return err
+	}
+	return validateXMLDeclContent(p.directive)
+}
+
+func (p *xmlStreamParser) skipPIContent() error {
+	if err := p.skipUntil("?>"); err != nil {
+		if errors.Is(err, io.EOF) {
+			return p.syntaxError("unexpected EOF in processing instruction", err)
+		}
+		return err
+	}
+	return nil
 }
 
 func (p *xmlStreamParser) validatePITarget(atDocumentStart bool) (bool, error) {
@@ -855,16 +869,14 @@ func validateXMLDeclContent(content []byte) error {
 	if !ok || version != xmlVersion10 {
 		return fmt.Errorf("invalid XML declaration")
 	}
-	if hasXMLDeclAttr(rest, "encoding") {
-		encoding, next, ok := parseXMLDeclAttr(rest, "encoding", xmlDeclNextAttr)
-		if !ok || !strings.EqualFold(encoding, "UTF-8") && !strings.EqualFold(encoding, "UTF8") {
+	if encoding, next, ok := parseXMLDeclAttr(rest, "encoding", xmlDeclNextAttr); ok {
+		if !strings.EqualFold(encoding, "UTF-8") && !strings.EqualFold(encoding, "UTF8") {
 			return fmt.Errorf("invalid XML declaration")
 		}
 		rest = next
 	}
-	if hasXMLDeclAttr(rest, "standalone") {
-		standalone, next, ok := parseXMLDeclAttr(rest, "standalone", xmlDeclNextAttr)
-		if !ok || standalone != "yes" && standalone != "no" {
+	if standalone, next, ok := parseXMLDeclAttr(rest, "standalone", xmlDeclNextAttr); ok {
+		if standalone != "yes" && standalone != "no" {
 			return fmt.Errorf("invalid XML declaration")
 		}
 		rest = next
@@ -873,14 +885,6 @@ func validateXMLDeclContent(content []byte) error {
 		return fmt.Errorf("invalid XML declaration")
 	}
 	return nil
-}
-
-func hasXMLDeclAttr(content []byte, name string) bool {
-	if len(content) == 0 || !isXMLWhitespaceByte(content[0]) {
-		return false
-	}
-	content = bytes.TrimLeft(content, " \t\r\n")
-	return bytes.HasPrefix(content, []byte(name))
 }
 
 type xmlDeclAttrPosition uint8

@@ -99,7 +99,7 @@ func parseCharRef(s []byte) (rune, bool) {
 			return 0, false
 		}
 	}
-	var v rune
+	var v uint64
 	for _, b := range s {
 		var d byte
 		switch {
@@ -115,15 +115,16 @@ func parseCharRef(s []byte) (rune, bool) {
 		if int(d) >= base {
 			return 0, false
 		}
-		v = v*rune(base) + rune(d)
+		v = v*uint64(base) + uint64(d)
 		if v > utf8.MaxRune {
 			return 0, false
 		}
 	}
-	if v > utf8.MaxRune || !utf8.ValidRune(v) || !isXMLChar(v) {
+	r := rune(v)
+	if !utf8.ValidRune(r) || !isXMLChar(r) {
 		return 0, false
 	}
-	return v, true
+	return r, true
 }
 
 func (p *xmlStreamParser) readPastSpace() (byte, bool, error) {

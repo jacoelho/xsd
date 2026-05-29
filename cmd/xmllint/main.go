@@ -14,8 +14,6 @@ import (
 type config struct {
 	schema    string
 	doc       string
-	noout     bool
-	huge      bool
 	maxErrors int
 }
 
@@ -66,8 +64,8 @@ func parseArgs(args []string) (config, error) {
 	var cfg config
 	fs := flag.NewFlagSet("xmllint", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	fs.BoolVar(&cfg.noout, "noout", false, "suppress document output")
-	fs.BoolVar(&cfg.huge, "huge", false, "accepted for xmllint compatibility")
+	fs.Bool("noout", false, "suppress document output")
+	fs.Bool("huge", false, "accepted for xmllint compatibility")
 	fs.IntVar(&cfg.maxErrors, "max-errors", 0, "maximum validation errors to collect")
 	fs.StringVar(&cfg.schema, "schema", "", "schema path")
 	if err := fs.Parse(args); err != nil {

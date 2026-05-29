@@ -16,7 +16,7 @@ func main() {
 		"maxXMLBytes": maxXMLBytes,
 		"maxXSDBytes": maxXSDBytes,
 	})
-	<-make(chan struct{})
+	select {}
 }
 
 func holdJSFunc(name string, fn func(js.Value, []js.Value) any) {

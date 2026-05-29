@@ -53,6 +53,7 @@ func TestHarness(t *testing.T) {
 	dir := testDir(t)
 	m := readManifest(t, filepath.Join(dir, "manifest.json"))
 	unsupported := readUnsupportedAllowlist(t, filepath.Join(dir, "unsupported.txt"))
+	var run harnessRunCoverage
 	for _, source := range manifestSources(m) {
 		t.Run(source, func(t *testing.T) {
 			for _, tc := range m.Cases {
@@ -60,14 +61,34 @@ func TestHarness(t *testing.T) {
 					continue
 				}
 				t.Run(tc.ID, func(t *testing.T) {
-					runCase(t, dir, unsupported, tc)
+					runCase(t, dir, unsupported, tc, &run)
 				})
 			}
 		})
 	}
-	if !t.Failed() {
+	if !t.Failed() && run.complete(m) {
 		unsupported.requireAllUsed(t)
 	}
+}
+
+type harnessRunCoverage struct {
+	schemaCases  int
+	instanceRuns int
+}
+
+func (r harnessRunCoverage) complete(m manifest) bool {
+	return r.schemaCases == len(m.Cases) && r.instanceRuns == manifestValidatedInstances(m)
+}
+
+func manifestValidatedInstances(m manifest) int {
+	total := 0
+	for _, tc := range m.Cases {
+		if tc.Schema.Expected != "valid" {
+			continue
+		}
+		total += len(tc.Instances)
+	}
+	return total
 }
 
 func testDir(t *testing.T) string {
@@ -110,8 +131,9 @@ func manifestSources(m manifest) []string {
 	return append(sources, slices.Sorted(maps.Keys(seen))...)
 }
 
-func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc manifestCase) {
+func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc manifestCase, run *harnessRunCoverage) {
 	t.Helper()
+	run.schemaCases++
 	engine, err := xsd.Compile(schemaSources(dir, tc)...)
 	switch tc.Schema.Expected {
 	case "valid":
@@ -134,6 +156,7 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 	}
 	for _, inst := range tc.Instances {
 		t.Run(instanceName(inst), func(t *testing.T) {
+			run.instanceRuns++
 			validateInstance(t, dir, engine, unsupported, tc, inst)
 		})
 	}

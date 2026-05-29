@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"regexp"
 	"strings"
 )
 
@@ -82,74 +81,76 @@ func startsXMLDeclaration(buf []byte) bool {
 		isXMLWhitespaceByte(buf[declLen])
 }
 
-var xmlEncodingRE = regexp.MustCompile(`^<\?xml\s+[^>]*encoding\s*=\s*['"]([^'"]+)['"]`)
-
 func declaredEncoding(buf []byte) string {
-	m := xmlEncodingRE.FindSubmatch(buf)
-	if len(m) == 2 {
-		return string(m[1])
+	value, ok := declaredXMLDeclAttr(buf, "encoding")
+	if !ok {
+		return ""
 	}
-	return ""
+	return value
 }
 
 func declaredXMLVersion(buf []byte) string {
-	if !startsXMLDeclaration(buf) {
+	value, ok := declaredXMLDeclAttr(buf, xsdAttrVersion)
+	if !ok {
 		return ""
+	}
+	return value
+}
+
+func declaredXMLDeclAttr(buf []byte, want string) (string, bool) {
+	if !startsXMLDeclaration(buf) {
+		return "", false
 	}
 	const declLen = len("<?xml")
 	for i := declLen + 1; i < len(buf); {
-		for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
-			i++
+		name, value, next, ok := scanXMLDeclAttr(buf, i)
+		if !ok {
+			return "", false
 		}
-		if i >= len(buf) || buf[i] == '?' || buf[i] == '>' {
-			return ""
+		if string(name) == want {
+			return string(value), true
 		}
-		nameStart := i
-		for i < len(buf) && buf[i] != '=' && !isXMLWhitespaceByte(buf[i]) && buf[i] != '?' && buf[i] != '>' {
-			i++
-		}
-		name := buf[nameStart:i]
-		for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
-			i++
-		}
-		if i >= len(buf) || buf[i] != '=' {
-			return ""
-		}
+		i = next
+	}
+	return "", false
+}
+
+func scanXMLDeclAttr(buf []byte, i int) ([]byte, []byte, int, bool) {
+	for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
 		i++
-		for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
-			i++
-		}
-		if i >= len(buf) || (buf[i] != '"' && buf[i] != '\'') {
-			return ""
-		}
-		quote := buf[i]
+	}
+	if i >= len(buf) || buf[i] == '?' || buf[i] == '>' {
+		return nil, nil, i, false
+	}
+	nameStart := i
+	for i < len(buf) && buf[i] != '=' && !isXMLWhitespaceByte(buf[i]) && buf[i] != '?' && buf[i] != '>' {
 		i++
-		valueStart := i
-		for i < len(buf) && buf[i] != quote {
-			if buf[i] == '>' {
-				return ""
-			}
-			i++
-		}
-		if i >= len(buf) {
-			return ""
-		}
-		if xmlDeclNameIsVersion(name) {
-			return string(buf[valueStart:i])
+	}
+	name := buf[nameStart:i]
+	for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
+		i++
+	}
+	if i >= len(buf) || buf[i] != '=' {
+		return nil, nil, i, false
+	}
+	i++
+	for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
+		i++
+	}
+	if i >= len(buf) || (buf[i] != '"' && buf[i] != '\'') {
+		return nil, nil, i, false
+	}
+	quote := buf[i]
+	i++
+	valueStart := i
+	for i < len(buf) && buf[i] != quote {
+		if buf[i] == '>' {
+			return nil, nil, i, false
 		}
 		i++
 	}
-	return ""
-}
-
-// xmlDeclNameIsVersion keeps the XML declaration fast path explicit.
-func xmlDeclNameIsVersion(name []byte) bool {
-	return len(name) == len(xsdAttrVersion) &&
-		name[0] == 'v' &&
-		name[1] == 'e' &&
-		name[2] == 'r' &&
-		name[3] == 's' &&
-		name[4] == 'i' &&
-		name[5] == 'o' &&
-		name[6] == 'n'
+	if i >= len(buf) {
+		return nil, nil, i, false
+	}
+	return name, buf[valueStart:i], i + 1, true
 }

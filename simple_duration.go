@@ -135,19 +135,9 @@ func parseXSDDurationTimeParts(s string, i *int) (xsdDurationTimeParts, error) {
 		if err != nil {
 			return xsdDurationTimeParts{}, err
 		}
-		partFrac := ""
-		hadFrac := false
-		if *i < len(s) && s[*i] == '.' {
-			hadFrac = true
-			*i++
-			start := *i
-			for *i < len(s) && isASCIIDigit(s[*i]) {
-				*i++
-			}
-			if *i == start {
-				return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
-			}
-			partFrac = strings.TrimRight(s[start:*i], "0")
+		frac, hadFrac, err := parseDurationFraction(s, i)
+		if err != nil {
+			return xsdDurationTimeParts{}, err
 		}
 		if *i >= len(s) {
 			return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
@@ -170,7 +160,7 @@ func parseXSDDurationTimeParts(s string, i *int) (xsdDurationTimeParts, error) {
 				return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 			}
 			out.seconds = value
-			out.frac = partFrac
+			out.frac = frac
 			stage = 3
 		default:
 			return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
@@ -182,6 +172,21 @@ func parseXSDDurationTimeParts(s string, i *int) (xsdDurationTimeParts, error) {
 		return xsdDurationTimeParts{}, fmt.Errorf("invalid duration")
 	}
 	return out, nil
+}
+
+func parseDurationFraction(s string, i *int) (string, bool, error) {
+	if *i >= len(s) || s[*i] != '.' {
+		return "", false, nil
+	}
+	*i++
+	start := *i
+	for *i < len(s) && isASCIIDigit(s[*i]) {
+		*i++
+	}
+	if *i == start {
+		return "", true, fmt.Errorf("invalid duration")
+	}
+	return strings.TrimRight(s[start:*i], "0"), true, nil
 }
 
 func parseDurationUnsigned(s string, i *int) (int64, error) {
@@ -304,15 +309,14 @@ func compareXSDDuration(a, b xsdDurationValue) partialCompareResult {
 	if seconds == 0 || months == seconds {
 		return partialCompareFromInt(months)
 	}
-	refs := []xsdDateTimePoint{
+	refs := [...]xsdDateTimePoint{
 		{year: xsdYear{digits: "1696"}, month: 9, day: 1},
 		{year: xsdYear{digits: "1697"}, month: 2, day: 1},
 		{year: xsdYear{digits: "1903"}, month: 3, day: 1},
 		{year: xsdYear{digits: "1903"}, month: 7, day: 1},
 	}
 	relation := 0
-	seen := false
-	for _, ref := range refs {
+	for i, ref := range refs {
 		ta, ok := addXSDDurationToPoint(ref, a)
 		if !ok {
 			return partialCompareIncomparable
@@ -322,9 +326,8 @@ func compareXSDDuration(a, b xsdDurationValue) partialCompareResult {
 			return partialCompareIncomparable
 		}
 		n := compareXSDDateTimePoint(ta, tb)
-		if !seen {
+		if i == 0 {
 			relation = n
-			seen = true
 			continue
 		}
 		if relation != n {

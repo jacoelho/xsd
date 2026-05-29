@@ -5,7 +5,6 @@ import "io"
 type byteStream struct {
 	r       io.Reader
 	err     error
-	prev    bytePosition
 	lastPos bytePosition
 	off     int
 	end     int
@@ -19,7 +18,6 @@ type byteStream struct {
 func (b *byteStream) reset(r io.Reader) {
 	b.r = r
 	b.err = nil
-	b.prev = bytePosition{}
 	b.lastPos = bytePosition{}
 	b.off = 0
 	b.end = 0
@@ -37,7 +35,6 @@ type bytePosition struct {
 func (b *byteStream) readByte() (byte, error) {
 	if b.unread {
 		b.unread = false
-		b.prev = b.lastPos
 		b.advance(b.last)
 		return b.last, nil
 	}
@@ -62,7 +59,6 @@ func (b *byteStream) readByte() (byte, error) {
 	b.off++
 	b.last = c
 	b.lastPos = bytePosition{line: b.line, col: b.col}
-	b.prev = b.lastPos
 	b.advance(c)
 	return c, nil
 }
@@ -105,7 +101,6 @@ func (b *byteStream) consumeBuffered(n int) {
 	}
 	if b.unread {
 		b.unread = false
-		b.prev = b.lastPos
 		b.advance(b.last)
 		return
 	}
@@ -205,16 +200,4 @@ func hashBytes(b []byte) uint64 {
 		h *= prime
 	}
 	return h
-}
-
-func stringBytesEqual(s string, b []byte) bool {
-	if len(s) != len(b) {
-		return false
-	}
-	for i := range b {
-		if s[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

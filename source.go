@@ -55,14 +55,7 @@ func File(path string) SchemaSource {
 
 // Reader reads r into an in-memory schema source.
 func Reader(name string, r io.Reader) SchemaSource {
-	if r == nil {
-		return SchemaSource{name: name, err: errNilSchemaReader}
-	}
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return SchemaSource{name: name, err: err}
-	}
-	return SchemaSource{name: name, data: data}
+	return LimitedReader(name, r, math.MaxInt64)
 }
 
 // LimitedReader reads at most maxBytes from r into an in-memory schema source.
