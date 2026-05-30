@@ -48,6 +48,31 @@ linters:
     - noctx
     - recvcheck
     - unconvert
+    - asciicheck
+    - bidichk
+    - depguard
+    - dupword
+    - durationcheck
+    - errchkjson
+    - errname
+    - gocheckcompilerdirectives
+    - gochecknoinits
+    - godoclint
+    - gomoddirectives
+    - goprintffuncname
+    - inamedparam
+    - intrange
+    - iotamixing
+    - mirror
+    - misspell
+    - musttag
+    - nosprintfhostport
+    - tagliatelle
+    - testableexamples
+    - thelper
+    - tparallel
+    - usestdlibvars
+    - usetesting
 
   settings:
     govet:
@@ -55,14 +80,40 @@ linters:
 
     errcheck:
       check-blank: true
+      check-type-assertions: true
+
+    copyloopvar:
+      check-alias: true
 
     exhaustive:
       default-signifies-exhaustive: true
+
+    nilnil:
+      detect-opposite: true
+
+    reassign:
+      patterns:
+        - ".*"
 
     nolintlint:
       require-explanation: true
       require-specific: true
       allow-no-explanation: []
+
+    depguard:
+      rules:
+        main:
+          list-mode: strict
+          files:
+            - $all
+          allow:
+            - $gostd
+            - github.com/jacoelho/xsd
+
+    tagliatelle:
+      case:
+        rules:
+          json: camel
 
     revive:
       enable-default-rules: true

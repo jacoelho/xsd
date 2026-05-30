@@ -394,9 +394,9 @@ func (ns *namespaceStack) lookup(prefix string) (string, bool) {
 	if prefix == xmlPrefix {
 		return xmlNamespaceURI, true
 	}
-	for i := len(ns.bindings) - 1; i >= 0; i-- {
-		if ns.bindings[i].Prefix == prefix {
-			return ns.bindings[i].URI, true
+	for _, binding := range slices.Backward(ns.bindings) {
+		if binding.Prefix == prefix {
+			return binding.URI, true
 		}
 	}
 	if prefix == "" {

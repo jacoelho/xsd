@@ -107,6 +107,7 @@ const (
 
 	xsdValueQualified     = "qualified"
 	xsdValueUnqualified   = "unqualified"
+	xsdValueToken         = "token"
 	xsdWhitespaceCollapse = "collapse"
 	xsdWhitespacePreserve = "preserve"
 	xsdWhitespaceReplace  = "replace"

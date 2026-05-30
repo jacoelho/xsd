@@ -239,7 +239,7 @@ func advanceTermMatch(term string, prefix []int, matched int, b byte) int {
 }
 
 func (p *xmlStreamParser) expectString(s string) error {
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		b, err := p.br.readByte()
 		if err != nil {
 			return p.syntaxError("unexpected EOF", err)

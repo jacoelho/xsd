@@ -85,7 +85,7 @@ func trimXMLWhitespaceBounds[T byteText](s T) (int, int) {
 func xmlFieldsSeq(s string) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		start := -1
-		for i := 0; i < len(s); i++ {
+		for i := range len(s) {
 			if isXMLWhitespaceByte(s[i]) {
 				if start >= 0 {
 					if !yield(s[start:i]) {
@@ -106,7 +106,7 @@ func xmlFieldsSeq(s string) iter.Seq[string] {
 }
 
 func indexAnyXMLWhitespace(s string) int {
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if isXMLWhitespaceByte(s[i]) {
 			return i
 		}
@@ -115,7 +115,7 @@ func indexAnyXMLWhitespace(s string) int {
 }
 
 func indexNonSpaceXMLWhitespace(s string) int {
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if isNonSpaceXMLWhitespaceByte(s[i]) {
 			return i
 		}
@@ -126,7 +126,7 @@ func indexNonSpaceXMLWhitespace(s string) int {
 func firstXMLWhitespaceCollapseChange(s string) int {
 	runStart := -1
 	runNeedsCollapse := false
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if isXMLWhitespaceByte(s[i]) {
 			if runStart < 0 {
 				runStart = i

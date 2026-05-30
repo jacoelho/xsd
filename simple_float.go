@@ -7,15 +7,21 @@ import (
 	"strconv"
 )
 
+const (
+	xsdFloatINF    = "INF"
+	xsdFloatNegINF = "-INF"
+	xsdFloatNaN    = "NaN"
+)
+
 func formatXSDFloatCanonical(v float64, bits int) string {
 	if math.IsInf(v, 1) {
-		return "INF"
+		return xsdFloatINF
 	}
 	if math.IsInf(v, -1) {
-		return "-INF"
+		return xsdFloatNegINF
 	}
 	if math.IsNaN(v) {
-		return "NaN"
+		return xsdFloatNaN
 	}
 	if v == 0 {
 		return "0"
@@ -29,11 +35,11 @@ func equalXSDFloat(a, b float64) bool {
 
 func parseXSDFloat(s string, bits int) (float64, error) {
 	switch s {
-	case "INF":
+	case xsdFloatINF:
 		return math.Inf(1), nil
-	case "-INF":
+	case xsdFloatNegINF:
 		return math.Inf(-1), nil
-	case "NaN":
+	case xsdFloatNaN:
 		return math.NaN(), nil
 	}
 	if !isXSDFloatLexical(s) {
