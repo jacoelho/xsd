@@ -631,7 +631,7 @@ func writeXMLIndent(w io.Writer, depth int) error {
 
 func writeXMLAttrValue(w io.Writer, value string) error {
 	start := 0
-	for i := 0; i < len(value); i++ {
+	for i := range len(value) {
 		var esc string
 		switch value[i] {
 		case '&':

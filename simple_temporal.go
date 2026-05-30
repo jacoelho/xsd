@@ -3,6 +3,7 @@ package xsd
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -243,7 +244,7 @@ func prevYear(y xsdYear) xsdYear {
 
 func addUnsignedDecimalOne(s string) string {
 	b := []byte(s)
-	for i := len(b) - 1; i >= 0; i-- {
+	for i := range slices.Backward(b) {
 		if b[i] != '9' {
 			b[i]++
 			return string(b)
@@ -255,7 +256,7 @@ func addUnsignedDecimalOne(s string) string {
 
 func subUnsignedDecimalOne(s string) string {
 	b := []byte(s)
-	for i := len(b) - 1; i >= 0; i-- {
+	for i := range slices.Backward(b) {
 		if b[i] != '0' {
 			b[i]--
 			break

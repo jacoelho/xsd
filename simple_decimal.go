@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const decimalZeroCanonical = "0.0"
+
 type decimalValue struct {
 	Canonical        string
 	IntegerCanonical string
@@ -339,12 +341,12 @@ func (d decimalValue) canonical() string {
 		return d.Canonical
 	}
 	if d.text == "" {
-		return "0.0"
+		return decimalZeroCanonical
 	}
 	intDigits := d.intDigits()
 	fracDigits := d.fracDigits()
 	if intDigits == 0 && fracDigits == 0 {
-		return "0.0"
+		return decimalZeroCanonical
 	}
 	if intDigits > 0 && fracDigits > 0 {
 		if d.negative {

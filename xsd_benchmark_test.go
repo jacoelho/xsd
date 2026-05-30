@@ -392,21 +392,21 @@ func writeStreamingRow(t *testing.T, w io.Writer, i int64) {
 		status = "held"
 	}
 	if i%4 == 0 {
-		writeFormat(t, w, `<record code="AB%06d" status="%s" fixed="v1" f:trace="trace%d">`, code, status, i)
-		writeFormat(t, w, `<id>%d</id><name>name-%d</name><amount>%d.50</amount>`, i, i, amount)
+		writeFormatf(t, w, `<record code="AB%06d" status="%s" fixed="v1" f:trace="trace%d">`, code, status, i)
+		writeFormatf(t, w, `<id>%d</id><name>name-%d</name><amount>%d.50</amount>`, i, i, amount)
 		writeString(t, w, `<tags>alpha beta gamma</tags><flag>true</flag><meta><active>true</active><created>2026-05-05</created></meta>`)
 		writeString(t, w, `<optional xsi:nil="true"/><f:payload>skip</f:payload></record>`)
 		return
 	}
 	if i%4 == 1 {
-		writeFormat(t, w, `<record xsi:type="t:ExtendedRecord" code="CD%06d" status="%s" fixed="v1" kind="extended">`, code, status)
-		writeFormat(t, w, `<id>%d</id><alias>alias-%d</alias><amount>%d.75</amount>`, i, i, amount)
+		writeFormatf(t, w, `<record xsi:type="t:ExtendedRecord" code="CD%06d" status="%s" fixed="v1" kind="extended">`, code, status)
+		writeFormatf(t, w, `<id>%d</id><alias>alias-%d</alias><amount>%d.75</amount>`, i, i, amount)
 		writeString(t, w, `<tags>delta epsilon</tags><flag>7</flag><meta><created>2026-05-05</created></meta>`)
 		writeString(t, w, `<extra>extended</extra></record>`)
 		return
 	}
-	writeFormat(t, w, `<record code="EF%06d" status="%s" fixed="v1">`, code, status)
-	writeFormat(t, w, `<id>%d</id><name>name-%d</name><amount>%d.00</amount>`, i, i, amount)
+	writeFormatf(t, w, `<record code="EF%06d" status="%s" fixed="v1">`, code, status)
+	writeFormatf(t, w, `<id>%d</id><name>name-%d</name><amount>%d.00</amount>`, i, i, amount)
 	writeString(t, w, `<tags>zeta eta</tags><flag>false</flag><meta><created>2026-05-05</created><active>false</active></meta></record>`)
 }
 
@@ -447,10 +447,10 @@ func writeLargeIdentityXML(t *testing.T, path string, rows int) int64 {
 	writeString(t, cw, `<?xml version="1.0" encoding="UTF-8"?><rows>`)
 	for i := range rows {
 		if i == 0 {
-			writeFormat(t, cw, `<row id="id%d" group="g%d"/>`, i, i)
+			writeFormatf(t, cw, `<row id="id%d" group="g%d"/>`, i, i)
 			continue
 		}
-		writeFormat(t, cw, `<row id="id%d" group="g%d" ref="id%d"/>`, i, i, i-1)
+		writeFormatf(t, cw, `<row id="id%d" group="g%d" ref="id%d"/>`, i, i, i-1)
 	}
 	writeString(t, cw, `</rows>`)
 	if flushErr := bw.Flush(); flushErr != nil {
@@ -470,7 +470,7 @@ func writeString(t *testing.T, w io.Writer, s string) {
 	}
 }
 
-func writeFormat(t *testing.T, w io.Writer, format string, args ...any) {
+func writeFormatf(t *testing.T, w io.Writer, format string, args ...any) {
 	t.Helper()
 	if _, err := fmt.Fprintf(w, format, args...); err != nil {
 		t.Fatalf("Fprintf() error = %v", err)

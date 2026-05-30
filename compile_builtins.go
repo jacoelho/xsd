@@ -44,7 +44,7 @@ func (c *compiler) addBuiltinStringTypes(anySimple simpleTypeID) error {
 		ws    whitespaceMode
 	}{
 		{"normalizedString", whitespaceReplace},
-		{"token", whitespaceCollapse},
+		{xsdValueToken, whitespaceCollapse},
 		{"language", whitespaceCollapse},
 		{"Name", whitespaceCollapse},
 		{"NCName", whitespaceCollapse},

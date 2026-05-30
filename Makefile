@@ -5,7 +5,7 @@ BIN := $(CURDIR)/bin
 XSD_GO := $(wildcard *.go)
 XMLLINT_GO := cmd/xmllint/main.go
 STATICCHECK_VERSION := v0.7.0
-GOLANGCI_LINT_VERSION := v2.11.4
+GOLANGCI_LINT_VERSION := v2.12.2
 export GOBIN := $(BIN)
 
 .PHONY: test

@@ -541,7 +541,7 @@ func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 		return blocks
 	}
 	current := complexTypeID(t.ID)
-	for steps := 0; steps < len(rt.ComplexTypes); steps++ {
+	for range len(rt.ComplexTypes) {
 		if !validUint32Index(uint32(current), len(rt.ComplexTypes)) {
 			return blocks
 		}
@@ -595,7 +595,7 @@ func (rt *runtimeSchema) complexSimpleTypeDerivationMask(t complexTypeID, base s
 
 func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivationMask, bool) {
 	var mask derivationMask
-	for steps := 0; steps < len(rt.ComplexTypes); steps++ {
+	for range len(rt.ComplexTypes) {
 		if t == rt.Builtin.AnyType {
 			return mask, true
 		}
@@ -656,7 +656,7 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 
 func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (derivationMask, bool) {
 	var mask derivationMask
-	for steps := 0; steps < len(rt.ComplexTypes); steps++ {
+	for range len(rt.ComplexTypes) {
 		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
 			return 0, false
 		}

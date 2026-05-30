@@ -261,16 +261,16 @@ func (p *simplePattern) matchVariableRunes(runes []rune) bool {
 			if minRepeat == 0 {
 				minRepeat = 1
 			}
-			for start := 0; start < runeCount; {
+			start := 0
+			for start < runeCount {
 				for start < runeCount && !atom.class.matches(runes[start]) {
 					start++
 				}
-				end := start
-				for end < runeCount && atom.class.matches(runes[end]) {
-					end++
+				runStart := start
+				for start < runeCount && atom.class.matches(runes[start]) {
+					start++
 				}
-				markRepeatedRun(prev, next, start, end, minRepeat, atom.max)
-				start = end
+				markRepeatedRun(prev, next, runStart, start, minRepeat, atom.max)
 			}
 		}
 		if !hasReachableOffset(next) {
