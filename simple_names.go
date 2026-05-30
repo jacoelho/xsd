@@ -85,7 +85,7 @@ func isLanguage(s string) bool {
 		if part == "" || len(part) > 8 {
 			return false
 		}
-		for j := 0; j < len(part); j++ {
+		for j := range len(part) {
 			c := part[j]
 			if i == 0 {
 				if !isASCIILetter(c) {

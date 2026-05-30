@@ -717,7 +717,7 @@ func hexBinaryLength(norm string) (uint32, error) {
 	if len(norm)%2 != 0 {
 		return 0, fmt.Errorf("invalid hexBinary")
 	}
-	for i := 0; i < len(norm); i++ {
+	for i := range len(norm) {
 		if !isHexDigit(norm[i]) {
 			return 0, fmt.Errorf("invalid hexBinary")
 		}
@@ -875,7 +875,7 @@ func (s base64BinaryScan) length() (uint32, error) {
 func scanBase64Binary(s string) (base64BinaryScan, error) {
 	var scan base64BinaryScan
 	var lastData byte
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		b := s[i]
 		if isXMLWhitespaceByte(b) {
 			continue

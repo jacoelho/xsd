@@ -3,6 +3,7 @@ package xsd
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -588,7 +589,7 @@ func complementFraction(frac string) string {
 	for i := range frac {
 		out[i] = '9' - (frac[i] - '0')
 	}
-	for i := len(out) - 1; i >= 0; i-- {
+	for i := range slices.Backward(out) {
 		if out[i] < '9' {
 			out[i]++
 			break
