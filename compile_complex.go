@@ -505,6 +505,9 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct compl
 		return complexType{}, err
 	}
 	ct.TextType = textType
+	// xs:simpleContent has no mixed attribute; ct.mixed() carries mixed="true"
+	// from the enclosing complexType element, which downstream complexContent
+	// mixed-derivation checks read.
 	ct.ContentKind = simpleContentKind(ct.mixed())
 	ct.Derivation = derivation
 	return ct, nil
