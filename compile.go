@@ -637,30 +637,18 @@ func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName,
 }
 
 func validateSimpleTypeChildren(n *rawNode) error {
-	seenAnnotation := false
-	seenVariety := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
-		if child.Name.Local == xsdElemAnnotation {
-			if seenAnnotation || seenVariety {
-				return schemaCompileAt(child, ErrSchemaContentModel, "simpleType annotation must be first")
-			}
-			seenAnnotation = true
-			continue
-		}
-		switch child.Name.Local {
-		case xsdElemRestriction, xsdElemList, xsdElemUnion:
-			if seenVariety {
-				return schemaCompileAt(child, ErrSchemaContentModel, "simpleType can contain one restriction, list, or union")
-			}
-			seenVariety = true
-		default:
-			return schemaCompileAt(child, ErrSchemaContentModel, "unsupported simpleType child "+child.Name.Local)
-		}
-	}
-	return nil
+	return checkOrderedChildren(n, childOrder{
+		annotationFirstMsg: "simpleType annotation must be first",
+		singleAnnotation:   true,
+		rules: []childRule{
+			{
+				match:  matchLocal(xsdElemRestriction, xsdElemList, xsdElemUnion),
+				maxOne: true,
+				dupMsg: "simpleType can contain one restriction, list, or union",
+			},
+		},
+		invalidMsg: func(local string) string { return "unsupported simpleType child " + local },
+	})
 }
 
 func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
@@ -828,33 +816,22 @@ const (
 )
 
 func validateSimpleDerivationChildren(n *rawNode, policy simpleDerivationChildPolicy) error {
-	seenAnnotation := false
-	seenSimpleType := false
-	seenFacet := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
-		switch child.Name.Local {
-		case xsdElemAnnotation:
-			if seenAnnotation || seenSimpleType || seenFacet {
-				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" annotation must be first")
-			}
-			seenAnnotation = true
-		case xsdElemSimpleType:
-			if seenFacet {
-				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" simpleType must precede facets")
-			}
-			if seenSimpleType && policy == simpleDerivationSingleChild {
-				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" can contain one simpleType")
-			}
-			seenSimpleType = true
-		default:
-			if !isFacetNode(child.Name.Local) {
-				return schemaCompileAt(child, ErrSchemaContentModel, "invalid "+n.Name.Local+" child "+child.Name.Local)
-			}
-			seenFacet = true
-		}
-	}
-	return nil
+	return checkOrderedChildren(n, childOrder{
+		annotationFirstMsg: n.Name.Local + " annotation must be first",
+		singleAnnotation:   true,
+		rules: []childRule{
+			{
+				match:    matchLocal(xsdElemSimpleType),
+				level:    0,
+				maxOne:   policy == simpleDerivationSingleChild,
+				orderMsg: n.Name.Local + " simpleType must precede facets",
+				dupMsg:   n.Name.Local + " can contain one simpleType",
+			},
+			{
+				match: isFacetNode,
+				level: 1,
+			},
+		},
+		invalidMsg: func(local string) string { return "invalid " + n.Name.Local + " child " + local },
+	})
 }

@@ -118,47 +118,36 @@ func validateKnownAttributes(n *rawNode, label string, allowed func(string) bool
 }
 
 func validateComplexTypeContent(n *rawNode) error {
-	sawModel := false
-	sawAttr := false
-	sawAnyAttr := false
-	terminal := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
-		if terminal {
-			return schemaCompileAt(child, ErrSchemaContentModel, "invalid complexType child "+child.Name.Local)
-		}
-		switch child.Name.Local {
-		case xsdElemAnnotation:
-			if sawModel || sawAttr || sawAnyAttr {
-				return schemaCompileAt(child, ErrSchemaContentModel, "complexType annotation must be first")
-			}
-		case xsdElemSimpleContent, xsdElemComplexContent:
-			if sawModel || sawAttr || sawAnyAttr {
-				return schemaCompileAt(child, ErrSchemaContentModel, "complexType content model is out of order")
-			}
-			terminal = true
-		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
-			if sawModel || sawAttr || sawAnyAttr {
-				return schemaCompileAt(child, ErrSchemaContentModel, "complexType model group is out of order")
-			}
-			sawModel = true
-		case xsdElemAttribute, xsdElemAttributeGroup:
-			if sawAnyAttr {
-				return schemaCompileAt(child, ErrSchemaContentModel, "complexType attribute is out of order")
-			}
-			sawAttr = true
-		case xsdElemAnyAttribute:
-			if sawAnyAttr {
-				return schemaCompileAt(child, ErrSchemaContentModel, "complexType can contain at most one anyAttribute")
-			}
-			sawAnyAttr = true
-		default:
-			return schemaCompileAt(child, ErrSchemaContentModel, "invalid complexType child "+child.Name.Local)
-		}
-	}
-	return nil
+	return checkOrderedChildren(n, childOrder{
+		annotationFirstMsg: "complexType annotation must be first",
+		rules: []childRule{
+			{
+				match:    matchLocal(xsdElemSimpleContent, xsdElemComplexContent),
+				level:    0,
+				terminal: true,
+				orderMsg: "complexType content model is out of order",
+			},
+			{
+				match:    matchLocal(xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup),
+				level:    1,
+				maxOne:   true,
+				orderMsg: "complexType model group is out of order",
+				dupMsg:   "complexType model group is out of order",
+			},
+			{
+				match:    matchLocal(xsdElemAttribute, xsdElemAttributeGroup),
+				level:    2,
+				orderMsg: "complexType attribute is out of order",
+			},
+			{
+				match:  matchLocal(xsdElemAnyAttribute),
+				level:  3,
+				maxOne: true,
+				dupMsg: "complexType can contain at most one anyAttribute",
+			},
+		},
+		invalidMsg: func(local string) string { return "invalid complexType child " + local },
+	})
 }
 
 func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName, anonymous bool) (complexType, error) {
@@ -388,77 +377,56 @@ func validateSimpleContentChildren(n *rawNode) error {
 }
 
 func validateDerivationContainerChildren(n *rawNode, label string) error {
-	seenDerivation := false
-	seenNonAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
-		switch child.Name.Local {
-		case xsdElemAnnotation:
-			if seenNonAnnotation {
-				return schemaCompileAt(child, ErrSchemaContentModel, label+" annotation must be first")
-			}
-		case xsdElemExtension, xsdElemRestriction:
-			if seenDerivation {
-				return schemaCompileAt(child, ErrSchemaContentModel, label+" can contain one derivation")
-			}
-			seenDerivation = true
-			seenNonAnnotation = true
-		default:
-			return schemaCompileAt(child, ErrSchemaContentModel, "invalid "+label+" child "+child.Name.Local)
-		}
-	}
-	return nil
+	return checkOrderedChildren(n, childOrder{
+		annotationFirstMsg: label + " annotation must be first",
+		rules: []childRule{
+			{
+				match:  matchLocal(xsdElemExtension, xsdElemRestriction),
+				maxOne: true,
+				dupMsg: label + " can contain one derivation",
+			},
+		},
+		invalidMsg: func(local string) string { return "invalid " + label + " child " + local },
+	})
 }
 
 func validateSimpleContentDerivationChildren(n *rawNode) error {
-	seenNonAnnotation := false
-	seenSimpleType := false
-	seenAttribute := false
-	seenAnyAttribute := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
-		switch child.Name.Local {
-		case xsdElemAnnotation:
-			if seenNonAnnotation {
-				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" annotation must be first")
-			}
-		case xsdElemSimpleType:
-			if n.Name.Local != xsdElemRestriction {
-				return schemaCompileAt(child, ErrSchemaContentModel, "simpleContent extension cannot contain simpleType")
-			}
-			if seenSimpleType || seenAttribute || seenAnyAttribute {
-				return schemaCompileAt(child, ErrSchemaContentModel, "simpleContent simpleType is out of order")
-			}
-			seenSimpleType = true
-			seenNonAnnotation = true
-		case xsdElemAttribute, xsdElemAttributeGroup:
-			if seenAnyAttribute {
-				return schemaCompileAt(child, ErrSchemaContentModel, "simpleContent attribute is out of order")
-			}
-			seenAttribute = true
-			seenNonAnnotation = true
-		case xsdElemAnyAttribute:
-			if seenAnyAttribute {
-				return schemaCompileAt(child, ErrSchemaContentModel, "simpleContent can contain at most one anyAttribute")
-			}
-			seenAnyAttribute = true
-			seenNonAnnotation = true
-		default:
-			if n.Name.Local == xsdElemRestriction && isFacetNode(child.Name.Local) {
-				if seenAttribute || seenAnyAttribute {
-					return schemaCompileAt(child, ErrSchemaContentModel, "simpleContent facet is out of order")
-				}
-				seenNonAnnotation = true
-				continue
-			}
-			return schemaCompileAt(child, ErrSchemaContentModel, "invalid simpleContent "+n.Name.Local+" child "+child.Name.Local)
-		}
+	rules := []childRule{
+		{
+			match:    matchLocal(xsdElemSimpleType),
+			level:    0,
+			maxOne:   true,
+			orderMsg: "simpleContent simpleType is out of order",
+			dupMsg:   "simpleContent simpleType is out of order",
+		},
+		{
+			match:    matchLocal(xsdElemAttribute, xsdElemAttributeGroup),
+			level:    1,
+			orderMsg: "simpleContent attribute is out of order",
+		},
+		{
+			match:  matchLocal(xsdElemAnyAttribute),
+			level:  2,
+			maxOne: true,
+			dupMsg: "simpleContent can contain at most one anyAttribute",
+		},
 	}
-	return nil
+	if n.Name.Local == xsdElemRestriction {
+		rules = append(rules, childRule{
+			match:    isFacetNode,
+			level:    0,
+			orderMsg: "simpleContent facet is out of order",
+		})
+	} else {
+		rules[0].forbiddenMsg = "simpleContent extension cannot contain simpleType"
+	}
+	return checkOrderedChildren(n, childOrder{
+		annotationFirstMsg: n.Name.Local + " annotation must be first",
+		rules:              rules,
+		invalidMsg: func(local string) string {
+			return "invalid simpleContent " + n.Name.Local + " child " + local
+		},
+	})
 }
 
 func isFacetNode(local string) bool {
@@ -653,40 +621,28 @@ func firstModelChild(n *rawNode) *rawNode {
 }
 
 func validateComplexContentDerivationChildren(n *rawNode) error {
-	seenModel := false
-	seenAttribute := false
-	seenAnyAttribute := false
-	seenNonAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
-		switch child.Name.Local {
-		case xsdElemAnnotation:
-			if seenNonAnnotation {
-				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" annotation must be first")
-			}
-		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
-			if seenModel || seenAttribute || seenAnyAttribute {
-				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" model group is out of order")
-			}
-			seenModel = true
-			seenNonAnnotation = true
-		case xsdElemAttribute, xsdElemAttributeGroup:
-			if seenAnyAttribute {
-				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" attribute is out of order")
-			}
-			seenAttribute = true
-			seenNonAnnotation = true
-		case xsdElemAnyAttribute:
-			if seenAnyAttribute {
-				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" can contain at most one anyAttribute")
-			}
-			seenAnyAttribute = true
-			seenNonAnnotation = true
-		default:
-			return schemaCompileAt(child, ErrSchemaContentModel, "invalid complexContent child "+child.Name.Local)
-		}
-	}
-	return nil
+	return checkOrderedChildren(n, childOrder{
+		annotationFirstMsg: n.Name.Local + " annotation must be first",
+		rules: []childRule{
+			{
+				match:    matchLocal(xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup),
+				level:    0,
+				maxOne:   true,
+				orderMsg: n.Name.Local + " model group is out of order",
+				dupMsg:   n.Name.Local + " model group is out of order",
+			},
+			{
+				match:    matchLocal(xsdElemAttribute, xsdElemAttributeGroup),
+				level:    1,
+				orderMsg: n.Name.Local + " attribute is out of order",
+			},
+			{
+				match:  matchLocal(xsdElemAnyAttribute),
+				level:  2,
+				maxOne: true,
+				dupMsg: n.Name.Local + " can contain at most one anyAttribute",
+			},
+		},
+		invalidMsg: func(local string) string { return "invalid complexContent child " + local },
+	})
 }
