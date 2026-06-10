@@ -574,10 +574,10 @@ func (n *rawNode) attrDefault(local, def string) string {
 	return def
 }
 
-func (n *rawNode) xsChildren(local string) []*rawNode {
+func (n *rawNode) xsSimpleTypeChildren() []*rawNode {
 	var out []*rawNode
 	for _, c := range n.Children {
-		if c.Name.Space == xsdNamespaceURI && c.Name.Local == local {
+		if c.Name.Space == xsdNamespaceURI && c.Name.Local == xsdElemSimpleType {
 			out = append(out, c)
 		}
 	}

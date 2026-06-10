@@ -112,7 +112,10 @@ func (s *session) acceptAllChild(f *frame, model compiledModel, rn runtimeName, 
 }
 
 func (s *session) acceptDFAChild(f *frame, model compiledModel, rn runtimeName, attrs []streamAttr) (matchResult, bool) {
-	row := model.Rows[f.State]
+	row := &model.Rows[f.State]
+	if row.NameToEdge != nil {
+		return s.acceptDFAChildIndexed(f, model, row, rn, attrs)
+	}
 	for _, edge := range row.Edges {
 		match, matched := s.matchDirectParticle(edge.Particle, rn, attrs)
 		if !matched {
@@ -124,6 +127,40 @@ func (s *session) acceptDFAChild(f *frame, model compiledModel, rn runtimeName, 
 		return match, true
 	}
 	return noMatch(), false
+}
+
+// acceptDFAChildIndexed tries the name-indexed element edge and the wildcard
+// edges in ascending edge position, preserving linear-scan order.
+func (s *session) acceptDFAChildIndexed(f *frame, model compiledModel, row *compiledModelRow, rn runtimeName, attrs []streamAttr) (matchResult, bool) {
+	elemPos := -1
+	if rn.Known {
+		if pos, ok := row.NameToEdge[rn.Name]; ok {
+			elemPos = int(pos)
+		}
+	}
+	wi := 0
+	for {
+		var pos int
+		switch {
+		case wi < len(row.WildcardEdges) && (elemPos < 0 || int(row.WildcardEdges[wi]) < elemPos):
+			pos = int(row.WildcardEdges[wi])
+			wi++
+		case elemPos >= 0:
+			pos = elemPos
+			elemPos = -1
+		default:
+			return noMatch(), false
+		}
+		edge := row.Edges[pos]
+		match, matched := s.matchDirectParticle(edge.Particle, rn, attrs)
+		if !matched {
+			continue
+		}
+		if !s.advanceDFA(f, model, edge) {
+			continue
+		}
+		return match, true
+	}
 }
 
 func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []streamAttr) (matchResult, bool) {

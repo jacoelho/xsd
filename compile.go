@@ -668,7 +668,7 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 		return simpleType{}, err
 	}
 	var baseID simpleTypeID
-	simpleTypeChildren := n.xsChildren(xsdElemSimpleType)
+	simpleTypeChildren := n.xsSimpleTypeChildren()
 	if len(simpleTypeChildren) > 1 {
 		return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "restriction can contain one simpleType")
 	}
@@ -728,7 +728,7 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfI
 		return simpleType{}, err
 	}
 	item := noSimpleType
-	simpleTypeChildren := n.xsChildren(xsdElemSimpleType)
+	simpleTypeChildren := n.xsSimpleTypeChildren()
 	if itemType, ok := n.attr(xsdAttrItemType); ok {
 		if len(simpleTypeChildren) != 0 {
 			return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "list cannot have both itemType and simpleType")
@@ -800,7 +800,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 			st.Union = append(st.Union, id)
 		}
 	}
-	for _, child := range n.xsChildren(xsdElemSimpleType) {
+	for _, child := range n.xsSimpleTypeChildren() {
 		id, err := c.compileAnonymousSimple(child, ctx)
 		if err != nil {
 			return simpleType{}, err

@@ -103,15 +103,11 @@ func (v *xsdRegexSyntaxValidator) consumeCategory(r rune) error {
 	}
 	v.inCategory = false
 	if v.insideClass() {
-		return v.finishClassCategory()
+		return v.acceptClassSet()
 	}
 	v.canQuantify = true
 	v.prevQuantifier = false
 	return nil
-}
-
-func (v *xsdRegexSyntaxValidator) finishClassCategory() error {
-	return v.acceptClassSet()
 }
 
 func (v *xsdRegexSyntaxValidator) consumePendingCategory(r rune) error {
