@@ -141,6 +141,17 @@ func TestRequiredAttributesBeyondBitsetWidth(t *testing.T) {
 	mustNotValidate(t, engine, doc.String(), ErrValidationAttribute)
 }
 
+func TestMissingRequiredAttributeErrorNamesAttribute(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:attribute name="id" type="xs:string" use="required"/><xs:attribute name="rev" type="xs:string" use="required"/></xs:complexType></xs:element></xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<r rev="1"/>`))
+	if err == nil {
+		t.Fatal("Validate() error = nil, want missing required attribute")
+	}
+	if !strings.Contains(err.Error(), "missing required attribute id") {
+		t.Fatalf("Validate() error = %v, want message naming attribute id", err)
+	}
+}
+
 func TestInstanceAttributeCharacterReferencesUseSeparateParserScratch(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

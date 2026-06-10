@@ -267,7 +267,8 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 func (s *session) validateRequiredAndDefaultAttributes(set *attributeUseSet, seen attributeSeen, line, col int, seenIDAttr *bool) error {
 	for _, slot := range set.Required {
 		if !seen.has(int(slot)) {
-			if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "missing required attribute")); err != nil {
+			label := s.engine.rt.Names.Format(set.Uses[slot].Name)
+			if err := s.recover(validation(ErrValidationAttribute, line, col, s.pathString(), "missing required attribute "+label)); err != nil {
 				return err
 			}
 		}
