@@ -2,10 +2,11 @@ package xsd
 
 func (s *session) validateAttributes(typ typeID, attrs []streamAttr, line, col int) error {
 	rt := s.engine.rt
-	if typ.Kind == typeSimple {
+	id, ok := typ.complex()
+	if !ok {
 		return s.validateSimpleTypeAttributes(attrs, line, col)
 	}
-	ct := rt.ComplexTypes[typ.ID]
+	ct := rt.ComplexTypes[id]
 	if ct.Attrs == noAttributeUseSet {
 		return nil
 	}
@@ -143,7 +144,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 		identityFields = s.identityAttributeFields(use.Name)
 	}
 	var needs simpleValueNeed
-	if use.HasFixed {
+	if use.Fixed.Present {
 		needs |= simpleNeedCanonical
 	}
 	if len(identityFields) != 0 {
@@ -152,7 +153,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 	if len(identityFields) == 0 && canValidateFixedStringAttributeFast(rt, use) {
 		return s.validateFixedStringAttributeValue(use, attr.stringValue(&s.valueStrings), rn, line, col)
 	}
-	if len(identityFields) == 0 && !use.HasFixed && attr.Value == "" {
+	if len(identityFields) == 0 && !use.Fixed.Present && attr.Value == "" {
 		if handled, err := validateRawSimpleContentFast(rt, use.Type, attr.Raw); handled {
 			if err != nil {
 				return validation(ErrValidationFacet, line, col, s.pathString(), "invalid attribute "+rn.label()+": "+err.Error())
@@ -180,7 +181,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 }
 
 func canValidateFixedStringAttributeFast(rt *runtimeSchema, use *attributeUse) bool {
-	if !use.HasFixed || !validUint32Index(uint32(use.Type), len(rt.SimpleTypes)) {
+	if !use.Fixed.Present || !validUint32Index(uint32(use.Type), len(rt.SimpleTypes)) {
 		return false
 	}
 	st := &rt.SimpleTypes[use.Type]
@@ -195,27 +196,27 @@ func canValidateFixedStringAttributeFast(rt *runtimeSchema, use *attributeUse) b
 }
 
 func (s *session) validateFixedStringAttributeValue(use *attributeUse, value string, rn runtimeName, line, col int) error {
-	if value != use.FixedCanonical {
+	if value != use.Fixed.Canonical {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.label())
 	}
 	return nil
 }
 
 func (s *session) validateFixedAttributeValue(use *attributeUse, canon string, rn runtimeName, line, col int) error {
-	if !use.HasFixed {
+	if !use.Fixed.Present {
 		return nil
 	}
-	if canon != use.FixedCanonical {
+	if canon != use.Fixed.Canonical {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.label())
 	}
 	return nil
 }
 
 func (s *session) validateWildcardAttribute(rt *runtimeSchema, set *attributeUseSet, rn runtimeName, attr *streamAttr, line, col int, seenIDAttr *bool) (bool, error) {
-	if set.wildcard == noWildcard {
+	if set.Wildcard == noWildcard {
 		return false, nil
 	}
-	w := rt.Wildcards[set.wildcard]
+	w := rt.Wildcards[set.Wildcard]
 	if !wildcardMatches(rt, w, rn) {
 		return false, nil
 	}
@@ -255,7 +256,7 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	if decl.HasFixed && simple.Canonical != decl.FixedCanonical {
+	if decl.Fixed.Present && simple.Canonical != decl.Fixed.Canonical {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.label())
 	}
 	if len(identityFields) == 0 {
@@ -281,9 +282,9 @@ func (s *session) validateRequiredAndDefaultAttributes(set *attributeUseSet, see
 		if use.Required {
 			continue
 		}
-		simple := use.DefaultValue
-		if use.HasFixed {
-			simple = use.FixedValue
+		simple := use.Default.Value
+		if use.Fixed.Present {
+			simple = use.Fixed.Value
 		}
 		if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 			recoverErr := s.recover(err)

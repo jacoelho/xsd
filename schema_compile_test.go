@@ -592,3 +592,197 @@ func TestCompileOptionsRejectNegativeLimits(t *testing.T) {
 		expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
 	}
 }
+
+func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string" default="abc"/>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(decl *elementDecl)
+	}{
+		{
+			name: "canonical without constraint",
+			mutate: func(decl *elementDecl) {
+				decl.Default = valueConstraint{Canonical: "abc"}
+			},
+		},
+		{
+			name: "value without constraint",
+			mutate: func(decl *elementDecl) {
+				decl.Default = valueConstraint{Value: simpleValue{Canonical: "abc"}}
+			},
+		},
+		{
+			name: "canonical value mismatch",
+			mutate: func(decl *elementDecl) {
+				decl.Default.Value.Canonical = "other"
+			},
+		},
+		{
+			name: "invalid value type",
+			mutate: func(decl *elementDecl) {
+				decl.Default.Value.Type = simpleTypeID(1 << 30)
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "", "root")]
+			tc.mutate(&engine.rt.Elements[rootID])
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
+func mustQName(t *testing.T, rt *runtimeSchema, ns, local string) qName {
+	t.Helper()
+	q, err := rt.Names.InternQName(ns, local)
+	if err != nil {
+		t.Fatalf("InternQName(%q, %q) error = %v", ns, local, err)
+	}
+	return q
+}
+
+func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Sized">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="4"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="Sized"/>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(f *facetSet)
+	}{
+		{
+			name: "bit without value",
+			mutate: func(f *facetSet) {
+				f.Present |= facetFlagLength
+			},
+		},
+		{
+			name: "value without bit",
+			mutate: func(f *facetSet) {
+				f.Present &^= facetFlagMaxLength
+			},
+		},
+		{
+			name: "whiteSpace bit in presence mask",
+			mutate: func(f *facetSet) {
+				f.Present |= facetFlagWhiteSpace
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "", "Sized")]
+			id, ok := typ.simple()
+			if !ok {
+				t.Fatal("Sized is not a simple type")
+			}
+			tc.mutate(&engine.rt.SimpleTypes[id].Facets)
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
+func TestMixedSimpleContentExtensionChain(t *testing.T) {
+	const mixedBase = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A" mixed="true">
+    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="B">
+    <xs:complexContent mixed="true"><xs:extension base="A"/></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="C">
+    <xs:complexContent mixed="true"><xs:extension base="B"/></xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="C"/>
+</xs:schema>`
+	mustCompile(t, mixedBase)
+
+	const nonMixedBase = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A">
+    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="B">
+    <xs:complexContent mixed="true"><xs:extension base="A"/></xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="B"/>
+</xs:schema>`
+	_, err := Compile(sourceBytes("schema.xsd", []byte(nonMixedBase)))
+	expectCode(t, err, ErrSchemaContentModel)
+}
+
+func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="S">
+    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="E">
+    <xs:sequence><xs:element name="child"/></xs:sequence>
+  </xs:complexType>
+  <xs:element name="s" type="S"/>
+  <xs:element name="e" type="E"/>
+</xs:schema>`
+	complexID := func(t *testing.T, engine *Engine, local string) complexTypeID {
+		t.Helper()
+		typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "", local)]
+		id, ok := typ.complex()
+		if !ok {
+			t.Fatalf("%s is not a complex type", local)
+		}
+		return id
+	}
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, engine *Engine)
+	}{
+		{
+			name: "text type without simple content",
+			mutate: func(t *testing.T, engine *Engine) {
+				t.Helper()
+				engine.rt.ComplexTypes[complexID(t, engine, "E")].TextType = engine.rt.Builtin.String
+			},
+		},
+		{
+			name: "simple content with particles",
+			mutate: func(t *testing.T, engine *Engine) {
+				t.Helper()
+				elementOnly := engine.rt.ComplexTypes[complexID(t, engine, "E")]
+				engine.rt.ComplexTypes[complexID(t, engine, "S")].Content = elementOnly.Content
+			},
+		},
+		{
+			name: "simple content with invalid text type",
+			mutate: func(t *testing.T, engine *Engine) {
+				t.Helper()
+				engine.rt.ComplexTypes[complexID(t, engine, "S")].TextType = simpleTypeID(1 << 30)
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			tc.mutate(t, engine)
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}

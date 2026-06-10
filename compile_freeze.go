@@ -202,32 +202,20 @@ func validateElementDecl(rt *runtimeSchema, decl elementDecl) error {
 			return internalInvariant("element declaration references invalid identity constraint")
 		}
 	}
-	if !decl.HasDefault && decl.DefaultCanonical != "" {
-		return internalInvariant("element declaration stores canonical default without default")
-	}
-	if !decl.HasFixed && decl.FixedCanonical != "" {
-		return internalInvariant("element declaration stores canonical fixed without fixed")
-	}
-	if err := validateStoredSimpleValue(rt, decl.HasDefault, decl.DefaultCanonical, decl.DefaultValue, "element declaration default"); err != nil {
+	if err := validateValueConstraintRuntime(rt, decl.Default, "element declaration default"); err != nil {
 		return err
 	}
-	return validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "element declaration fixed")
+	return validateValueConstraintRuntime(rt, decl.Fixed, "element declaration fixed")
 }
 
 func validateAttributeDecl(rt *runtimeSchema, decl attributeDecl) error {
 	if !validQName(rt, decl.Name) || !validSimpleTypeID(rt, decl.Type) {
 		return internalInvariant("attribute declaration references invalid name or type")
 	}
-	if !decl.HasDefault && decl.DefaultCanonical != "" {
-		return internalInvariant("attribute declaration stores canonical default without default")
-	}
-	if !decl.HasFixed && decl.FixedCanonical != "" {
-		return internalInvariant("attribute declaration stores canonical fixed without fixed")
-	}
-	if err := validateStoredSimpleValue(rt, decl.HasDefault, decl.DefaultCanonical, decl.DefaultValue, "attribute declaration default"); err != nil {
+	if err := validateValueConstraintRuntime(rt, decl.Default, "attribute declaration default"); err != nil {
 		return err
 	}
-	return validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "attribute declaration fixed")
+	return validateValueConstraintRuntime(rt, decl.Fixed, "attribute declaration fixed")
 }
 
 func validateSimpleType(rt *runtimeSchema, st simpleType) error {
@@ -245,6 +233,35 @@ func validateSimpleType(rt *runtimeSchema, st simpleType) error {
 			return internalInvariant("simple type references invalid union member")
 		}
 	}
+	return validateFacetPresence(st.Facets)
+}
+
+func validateFacetPresence(f facetSet) error {
+	facets := []struct {
+		name    string
+		flag    facetFlag
+		present bool
+	}{
+		{xsdFacetLength, facetFlagLength, f.Length != nil},
+		{xsdFacetMinLength, facetFlagMinLength, f.MinLength != nil},
+		{xsdFacetMaxLength, facetFlagMaxLength, f.MaxLength != nil},
+		{xsdFacetTotalDigits, facetFlagTotalDigits, f.TotalDigits != nil},
+		{xsdFacetFractionDigits, facetFlagFractionDigits, f.FractionDigits != nil},
+		{xsdFacetMinInclusive, facetFlagMinInclusive, f.MinInclusive != nil},
+		{xsdFacetMaxInclusive, facetFlagMaxInclusive, f.MaxInclusive != nil},
+		{xsdFacetMinExclusive, facetFlagMinExclusive, f.MinExclusive != nil},
+		{xsdFacetMaxExclusive, facetFlagMaxExclusive, f.MaxExclusive != nil},
+		{xsdFacetEnumeration, facetFlagEnumeration, len(f.Enumeration) != 0},
+		{xsdFacetPattern, facetFlagPattern, len(f.Patterns) != 0},
+	}
+	for _, facet := range facets {
+		if (f.Present&facet.flag != 0) != facet.present {
+			return internalInvariant("simple type facet presence mask does not match " + facet.name + " facet")
+		}
+	}
+	if f.Present&facetFlagWhiteSpace != 0 {
+		return internalInvariant("simple type facet presence mask cannot set whiteSpace")
+	}
 	return nil
 }
 
@@ -261,14 +278,23 @@ func validateComplexType(rt *runtimeSchema, ct complexType) error {
 	if ct.Attrs != noAttributeUseSet && !validAttributeUseSetID(rt, ct.Attrs) {
 		return internalInvariant("complex type references invalid attribute use set")
 	}
-	if ct.SimpleValue && !validSimpleTypeID(rt, ct.TextType) {
+	if !ct.simpleContent() {
+		if ct.TextType != noSimpleType {
+			return internalInvariant("complex type stores text type without simple content")
+		}
+		return nil
+	}
+	if !validSimpleTypeID(rt, ct.TextType) {
 		return internalInvariant("complex type references invalid text type")
+	}
+	if !validContentModelID(rt, ct.Content) || rt.Models[ct.Content].Kind != modelEmpty {
+		return internalInvariant("complex type simple content must have empty content model")
 	}
 	return nil
 }
 
 func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) error {
-	if set.wildcard != noWildcard && !validWildcardID(rt, set.wildcard) {
+	if set.Wildcard != noWildcard && !validWildcardID(rt, set.Wildcard) {
 		return internalInvariant("attribute use set references invalid wildcard")
 	}
 	for i, use := range set.Uses {
@@ -278,16 +304,10 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 		if slot, ok := set.Index[use.Name]; !ok || slot != uint32(i) {
 			return internalInvariant("attribute use index does not match use slice")
 		}
-		if !use.HasDefault && use.DefaultCanonical != "" {
-			return internalInvariant("attribute use stores canonical default without default")
-		}
-		if !use.HasFixed && use.FixedCanonical != "" {
-			return internalInvariant("attribute use stores canonical fixed without fixed")
-		}
-		if err := validateStoredSimpleValue(rt, use.HasDefault, use.DefaultCanonical, use.DefaultValue, "attribute use default"); err != nil {
+		if err := validateValueConstraintRuntime(rt, use.Default, "attribute use default"); err != nil {
 			return err
 		}
-		if err := validateStoredSimpleValue(rt, use.HasFixed, use.FixedCanonical, use.FixedValue, "attribute use fixed"); err != nil {
+		if err := validateValueConstraintRuntime(rt, use.Fixed, "attribute use fixed"); err != nil {
 			return err
 		}
 	}
@@ -297,24 +317,27 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 		}
 	}
 	for _, slot := range set.ValueConstraints {
-		if !validUint32Index(slot, len(set.Uses)) || (!set.Uses[slot].HasDefault && !set.Uses[slot].HasFixed) {
+		if !validUint32Index(slot, len(set.Uses)) || (!set.Uses[slot].Default.Present && !set.Uses[slot].Fixed.Present) {
 			return internalInvariant("attribute use set value constraint slot is invalid")
 		}
 	}
 	return nil
 }
 
-func validateStoredSimpleValue(rt *runtimeSchema, has bool, canonical string, value simpleValue, label string) error {
-	if !has {
-		if value.Canonical != "" || value.IDs != "" || value.IDRefs != "" {
+func validateValueConstraintRuntime(rt *runtimeSchema, vc valueConstraint, label string) error {
+	if !vc.Present {
+		if vc.Canonical != "" {
+			return internalInvariant(label + " stores canonical without value constraint")
+		}
+		if vc.Value.Canonical != "" || vc.Value.IDs != "" || vc.Value.IDRefs != "" {
 			return internalInvariant(label + " stores value without value constraint")
 		}
 		return nil
 	}
-	if value.Canonical != canonical {
+	if vc.Value.Canonical != vc.Canonical {
 		return internalInvariant(label + " canonical value mismatch")
 	}
-	if value.Type != noSimpleType && !validSimpleTypeID(rt, value.Type) {
+	if vc.Value.Type != noSimpleType && !validSimpleTypeID(rt, vc.Value.Type) {
 		return internalInvariant(label + " references invalid simple type")
 	}
 	return nil
@@ -332,7 +355,7 @@ func validateContentModelRuntime(rt *runtimeSchema, model contentModel) error {
 				return internalInvariant("particle references invalid content model")
 			}
 		case particleWildcard:
-			if !validWildcardID(rt, p.wildcard) {
+			if !validWildcardID(rt, p.Wildcard) {
 				return internalInvariant("particle references invalid wildcard")
 			}
 		default:
@@ -413,7 +436,7 @@ func validateCompiledParticle(rt *runtimeSchema, p particle) error {
 			return internalInvariant("compiled particle references invalid element")
 		}
 	case particleWildcard:
-		if !validWildcardID(rt, p.wildcard) {
+		if !validWildcardID(rt, p.Wildcard) {
 			return internalInvariant("compiled particle references invalid wildcard")
 		}
 	default:
@@ -498,7 +521,7 @@ func validIdentityFieldPath(rt *runtimeSchema, path identityFieldPath) bool {
 
 func validIdentitySteps(rt *runtimeSchema, steps []identityStep) bool {
 	for _, step := range steps {
-		if !step.wildcard && !validQName(rt, step.Name) {
+		if !step.Wildcard && !validQName(rt, step.Name) {
 			return false
 		}
 	}

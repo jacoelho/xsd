@@ -7,7 +7,7 @@ func (c *compiler) modelEmptiable(modelID contentModelID) bool {
 		return true
 	}
 	model := c.rt.Models[modelID]
-	if model.occurs.Min == 0 {
+	if model.Occurs.Min == 0 {
 		return true
 	}
 	switch model.Kind {
@@ -128,14 +128,14 @@ func (c *compiler) restrictionRepeatedChoiceParticles(baseID, derivedID contentM
 }
 
 func (c *compiler) restrictionRepeatedChoiceParticle(baseParticle, derivedParticle particle) bool {
-	if baseParticle.Kind != particleModel || baseParticle.occurs.isExactlyOne() {
+	if baseParticle.Kind != particleModel || baseParticle.Occurs.isExactlyOne() {
 		return false
 	}
 	model := c.rt.Models[baseParticle.Model]
 	if model.Kind != modelChoice || derivedParticle.Kind != particleElement {
 		return false
 	}
-	return derivedParticle.occurs.Min <= 1 && derivedParticle.occurs.Unbounded
+	return derivedParticle.Occurs.Min <= 1 && derivedParticle.Occurs.Unbounded
 }
 
 func (c *compiler) choiceRestrictionBranchAllowed(base []particle, derived particle) bool {
@@ -148,7 +148,7 @@ func (c *compiler) choiceRestrictionBranchAllowed(base []particle, derived parti
 }
 
 func (c *compiler) validateChoiceRestriction(base, derived contentModel) error {
-	if !occursRangeSubset(derived.occurs, base.occurs) {
+	if !occursRangeSubset(derived.Occurs, base.Occurs) {
 		return schemaCompile(ErrSchemaContentModel, "choice restriction occurrence is not subset of base")
 	}
 	if c.choiceRestrictionRequiresXSD11(base, derived) {
@@ -173,10 +173,10 @@ func (c *compiler) validateChoiceRestriction(base, derived contentModel) error {
 }
 
 func (c *compiler) choiceRestrictionRequiresXSD11(base, derived contentModel) bool {
-	if base.occurs.isExactlyOne() && derived.occurs.Min < base.occurs.Min {
+	if base.Occurs.isExactlyOne() && derived.Occurs.Min < base.Occurs.Min {
 		return true
 	}
-	if base.occurs.isExactlyOne() && derived.occurs.isExactlyOne() && len(derived.Particles) < len(base.Particles) {
+	if base.Occurs.isExactlyOne() && derived.Occurs.isExactlyOne() && len(derived.Particles) < len(base.Particles) {
 		for _, p := range derived.Particles {
 			if p.Kind == particleModel && c.particleCountRange(p).Unbounded {
 				return true
@@ -207,7 +207,7 @@ func (c *compiler) modelContainsChoiceBelow(model contentModel, depth int) bool 
 
 func (c *compiler) choiceBranchRestricts(base, derived particle) bool {
 	candidate := derived
-	if base.Kind != particleModel && base.occurs.isExactlyOne() && c.particleNeedsChoiceBranchNormalization(derived) {
+	if base.Kind != particleModel && base.Occurs.isExactlyOne() && c.particleNeedsChoiceBranchNormalization(derived) {
 		candidate = singleParticle(derived)
 	}
 	return c.validateParticleRestriction(base, candidate) == nil
@@ -222,7 +222,7 @@ func (c *compiler) particleNeedsChoiceBranchNormalization(p particle) bool {
 }
 
 func (c *compiler) validateOrderedGroupRestriction(base, derived contentModel, msg string) error {
-	if !occursRangeSubset(derived.occurs, base.occurs) {
+	if !occursRangeSubset(derived.Occurs, base.Occurs) {
 		return schemaCompile(ErrSchemaContentModel, msg)
 	}
 	baseIndex := 0
@@ -256,7 +256,7 @@ func (c *compiler) validateOrderedGroupRestriction(base, derived contentModel, m
 }
 
 func (c *compiler) validateSequenceRestrictsAll(base, derived contentModel) error {
-	if !occursRangeSubset(derived.occurs, base.occurs) {
+	if !occursRangeSubset(derived.Occurs, base.Occurs) {
 		return schemaCompile(ErrSchemaContentModel, "sequence restriction occurrence is not subset of all")
 	}
 	return c.validateMappedGroupRestriction(base, derived, "sequence restriction particle is not subset of all", "sequence restriction omits required all particle")
@@ -297,7 +297,7 @@ func (c *compiler) validateMappedGroupRestriction(base, derived contentModel, pa
 }
 
 func (c *compiler) validateSequenceRestrictsChoice(base, derived contentModel) error {
-	if !occursRangeSubset(sequenceChoiceRange(derived), base.occurs) {
+	if !occursRangeSubset(sequenceChoiceRange(derived), base.Occurs) {
 		return schemaCompile(ErrSchemaContentModel, "sequence restriction occurrence is not subset of choice")
 	}
 	for _, derivedParticle := range derived.Particles {
@@ -309,10 +309,10 @@ func (c *compiler) validateSequenceRestrictsChoice(base, derived contentModel) e
 }
 
 func (c *compiler) validateChoiceRestrictsSequence(base, derived contentModel) error {
-	if derived.occurs.Max == 0 && !derived.occurs.Unbounded {
+	if derived.Occurs.Max == 0 && !derived.Occurs.Unbounded {
 		return nil
 	}
-	if derived.occurs.Unbounded || derived.occurs.Max > 1 {
+	if derived.Occurs.Unbounded || derived.Occurs.Max > 1 {
 		return schemaCompile(ErrSchemaContentModel, "choice restriction occurrence is not subset of sequence")
 	}
 	for _, derivedParticle := range derived.Particles {
@@ -354,10 +354,10 @@ func (c *compiler) sequenceRemainderEmptiable(particles []particle, selected int
 
 func sequenceChoiceRange(model contentModel) occurrence {
 	particleCount := saturatingUint32(len(model.Particles))
-	if model.occurs.Unbounded {
-		return occurrence{Min: saturatingMul(model.occurs.Min, particleCount), Unbounded: true}
+	if model.Occurs.Unbounded {
+		return occurrence{Min: saturatingMul(model.Occurs.Min, particleCount), Unbounded: true}
 	}
-	return occurrence{Min: saturatingMul(model.occurs.Min, particleCount), Max: saturatingMul(model.occurs.Max, particleCount)}
+	return occurrence{Min: saturatingMul(model.Occurs.Min, particleCount), Max: saturatingMul(model.Occurs.Max, particleCount)}
 }
 
 func (c *compiler) modelContainsWildcard(model contentModel) bool {
@@ -424,7 +424,7 @@ func (c *compiler) validateParticleRestrictsElement(base, derived particle) erro
 	if derivedDecl.Block&baseDecl.Block != baseDecl.Block {
 		return schemaCompile(ErrSchemaContentModel, "element restriction block is not subset of base")
 	}
-	if baseDecl.HasFixed && (!derivedDecl.HasFixed || !c.elementFixedValuesEqual(baseDecl, derivedDecl)) {
+	if baseDecl.Fixed.Present && (!derivedDecl.Fixed.Present || !c.elementFixedValuesEqual(baseDecl, derivedDecl)) {
 		return schemaCompile(ErrSchemaContentModel, "element restriction fixed value is not subset of base")
 	}
 	return nil
@@ -453,7 +453,7 @@ func (c *compiler) validateParticleRestrictsModel(base, derived particle) error 
 func (c *compiler) validateParticleRestrictsChoiceModel(base, derived particle, model contentModel) error {
 	if derived.Kind == particleModel {
 		derivedModel := c.rt.Models[derived.Model]
-		if derivedModel.Kind == modelChoice && derived.occurs.Min < base.occurs.Min {
+		if derivedModel.Kind == modelChoice && derived.Occurs.Min < base.Occurs.Min {
 			return schemaCompile(ErrSchemaContentModel, "choice restriction occurrence is not subset of base")
 		}
 		switch derivedModel.Kind {
@@ -498,11 +498,11 @@ func (c *compiler) elementRestrictionNameAllowed(baseID, derivedID elementID) bo
 func (c *compiler) validateParticleRestrictsWildcard(base, derived particle) error {
 	switch derived.Kind {
 	case particleElement:
-		if !c.wildcardAllowsQName(base.wildcard, c.rt.Elements[derived.Element].Name) {
+		if !c.wildcardAllowsQName(base.Wildcard, c.rt.Elements[derived.Element].Name) {
 			return schemaCompile(ErrSchemaContentModel, "element restriction is not allowed by wildcard")
 		}
 	case particleWildcard:
-		if !c.wildcardSubset(derived.wildcard, base.wildcard) {
+		if !c.wildcardSubset(derived.Wildcard, base.Wildcard) {
 			return schemaCompile(ErrSchemaContentModel, "wildcard restriction is not subset of base")
 		}
 	case particleModel:
@@ -520,11 +520,11 @@ func (c *compiler) particleEffectiveMin(p particle) uint32 {
 	if p.Kind == particleModel && c.modelEmptiable(p.Model) {
 		return 0
 	}
-	return p.occurs.Min
+	return p.Occurs.Min
 }
 
 func (c *compiler) particleEmptiable(p particle) bool {
-	if p.occurs.Min == 0 {
+	if p.Occurs.Min == 0 {
 		return true
 	}
 	if p.Kind == particleModel {
@@ -536,18 +536,18 @@ func (c *compiler) particleEmptiable(p particle) bool {
 func (c *compiler) elementFixedValuesEqual(base, derived elementDecl) bool {
 	typeID := c.elementValueSimpleType(base)
 	if typeID == noSimpleType {
-		return base.Fixed == derived.Fixed
+		return base.Fixed.Lexical == derived.Fixed.Lexical
 	}
-	return base.FixedCanonical == derived.FixedCanonical
+	return base.Fixed.Canonical == derived.Fixed.Canonical
 }
 
 func (c *compiler) elementValueSimpleType(decl elementDecl) simpleTypeID {
-	if decl.Type.Kind == typeSimple {
-		return simpleTypeID(decl.Type.ID)
+	if id, ok := decl.Type.simple(); ok {
+		return id
 	}
-	if decl.Type.Kind == typeComplex {
-		ct := c.rt.ComplexTypes[decl.Type.ID]
-		if ct.SimpleValue {
+	if id, ok := decl.Type.complex(); ok {
+		ct := c.rt.ComplexTypes[id]
+		if ct.simpleContent() {
 			return ct.TextType
 		}
 	}
@@ -579,7 +579,7 @@ func (c *compiler) modelCountRange(modelID contentModelID) occurrence {
 			term = unionOccursRanges(term, c.particleCountRange(p))
 		}
 	}
-	return multiplyOccurs(term, model.occurs)
+	return multiplyOccurs(term, model.Occurs)
 }
 
 func (c *compiler) particleCountRange(p particle) occurrence {
@@ -592,7 +592,7 @@ func (c *compiler) particleCountRange(p particle) occurrence {
 	default:
 		term = occurrence{}
 	}
-	return multiplyOccurs(term, p.occurs)
+	return multiplyOccurs(term, p.Occurs)
 }
 
 // addOccursRanges saturates sequence ranges before applying occurrence limits.
