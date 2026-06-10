@@ -117,6 +117,10 @@ const xsdDigitClassInner = `\x{0030}-\x{0039}\x{0660}-\x{0669}\x{06F0}-\x{06F9}\
 
 const xsdSpaceClassInner = `\x{0009}\x{000A}\x{000D}\x{0020}`
 
+// The \w and \W classes exclude U+023F explicitly: the W3C XSD test suite
+// (w3c/msMeta/Regex_w3c.xml, case reU6) is authored against pre-4.1 Unicode
+// tables where U+023F was unassigned (category Cn, hence \p{C}), while Go's
+// current tables classify it as a letter.
 const xsdWordClassInner = `^\pP\pZ\pC\x{023F}`
 
 const xsdNotWordClassInner = `\pP\pZ\pC\x{023F}`
