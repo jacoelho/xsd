@@ -754,12 +754,14 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 		{
 			name: "text type without simple content",
 			mutate: func(t *testing.T, engine *Engine) {
+				t.Helper()
 				engine.rt.ComplexTypes[complexID(t, engine, "E")].TextType = engine.rt.Builtin.String
 			},
 		},
 		{
 			name: "simple content with particles",
 			mutate: func(t *testing.T, engine *Engine) {
+				t.Helper()
 				elementOnly := engine.rt.ComplexTypes[complexID(t, engine, "E")]
 				engine.rt.ComplexTypes[complexID(t, engine, "S")].Content = elementOnly.Content
 			},
@@ -767,6 +769,7 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 		{
 			name: "simple content with invalid text type",
 			mutate: func(t *testing.T, engine *Engine) {
+				t.Helper()
 				engine.rt.ComplexTypes[complexID(t, engine, "S")].TextType = simpleTypeID(1 << 30)
 			},
 		},

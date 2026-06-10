@@ -106,9 +106,9 @@ type valueConstraint struct {
 }
 
 type elementDecl struct {
+	Identity  []identityConstraintID
 	Default   valueConstraint
 	Fixed     valueConstraint
-	Identity  []identityConstraintID
 	Type      typeID
 	Name      qName
 	SubstHead elementID
@@ -294,10 +294,6 @@ const (
 	facetFlagWhiteSpace
 )
 
-const facetValueMask = facetFlagLength | facetFlagMinLength | facetFlagMaxLength |
-	facetFlagTotalDigits | facetFlagFractionDigits |
-	facetFlagMinInclusive | facetFlagMaxInclusive | facetFlagMinExclusive | facetFlagMaxExclusive
-
 const facetLengthMask = facetFlagLength | facetFlagMinLength | facetFlagMaxLength
 
 type facetSet struct {
@@ -326,10 +322,6 @@ func (f facetSet) onlyPatterns() bool {
 
 func (f facetSet) onlyEnumeration() bool {
 	return f.Present == facetFlagEnumeration
-}
-
-func (f facetSet) hasValueFacets() bool {
-	return f.Present&facetValueMask != 0
 }
 
 func (f facetSet) needsLexical() bool {
@@ -716,7 +708,7 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 
 	if baseType.Variety == varietyUnion {
 		for _, member := range baseType.Union {
-			if mask, ok := rt.simpleTypeDerivationMask(t, member, seen); ok {
+			if mask, derived := rt.simpleTypeDerivationMask(t, member, seen); derived {
 				return mask | blockRestriction, true
 			}
 		}

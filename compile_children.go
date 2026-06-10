@@ -1,9 +1,15 @@
 package xsd
 
+import "slices"
+
 // childRule classifies one kind of child element inside a schema component
 // and the errors its misplacement produces.
 type childRule struct {
 	match func(local string) bool
+	// forbiddenMsg, when set, rejects the child outright.
+	forbiddenMsg string
+	orderMsg     string
+	dupMsg       string
 	// level orders sections; a child whose level is lower than one already
 	// seen is out of order. Rules sharing a level are unordered relative to
 	// each other.
@@ -12,19 +18,15 @@ type childRule struct {
 	maxOne bool
 	// terminal rejects any further children after this one.
 	terminal bool
-	// forbiddenMsg, when set, rejects the child outright.
-	forbiddenMsg string
-	orderMsg     string
-	dupMsg       string
 }
 
 // childOrder describes the permitted children of one schema component:
 // optional leading annotations followed by ordered sections of rules.
 type childOrder struct {
-	annotationFirstMsg string
-	singleAnnotation   bool
-	rules              []childRule
 	invalidMsg         func(local string) string
+	annotationFirstMsg string
+	rules              []childRule
+	singleAnnotation   bool
 }
 
 func checkOrderedChildren(n *rawNode, order childOrder) error {
@@ -77,11 +79,6 @@ func checkOrderedChildren(n *rawNode, order childOrder) error {
 
 func matchLocal(locals ...string) func(string) bool {
 	return func(local string) bool {
-		for _, l := range locals {
-			if l == local {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(locals, local)
 	}
 }

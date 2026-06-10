@@ -238,21 +238,21 @@ func validateSimpleType(rt *runtimeSchema, st simpleType) error {
 
 func validateFacetPresence(f facetSet) error {
 	facets := []struct {
+		name    string
 		flag    facetFlag
 		present bool
-		name    string
 	}{
-		{facetFlagLength, f.Length != nil, "length"},
-		{facetFlagMinLength, f.MinLength != nil, "minLength"},
-		{facetFlagMaxLength, f.MaxLength != nil, "maxLength"},
-		{facetFlagTotalDigits, f.TotalDigits != nil, "totalDigits"},
-		{facetFlagFractionDigits, f.FractionDigits != nil, "fractionDigits"},
-		{facetFlagMinInclusive, f.MinInclusive != nil, "minInclusive"},
-		{facetFlagMaxInclusive, f.MaxInclusive != nil, "maxInclusive"},
-		{facetFlagMinExclusive, f.MinExclusive != nil, "minExclusive"},
-		{facetFlagMaxExclusive, f.MaxExclusive != nil, "maxExclusive"},
-		{facetFlagEnumeration, len(f.Enumeration) != 0, "enumeration"},
-		{facetFlagPattern, len(f.Patterns) != 0, "pattern"},
+		{xsdFacetLength, facetFlagLength, f.Length != nil},
+		{xsdFacetMinLength, facetFlagMinLength, f.MinLength != nil},
+		{xsdFacetMaxLength, facetFlagMaxLength, f.MaxLength != nil},
+		{xsdFacetTotalDigits, facetFlagTotalDigits, f.TotalDigits != nil},
+		{xsdFacetFractionDigits, facetFlagFractionDigits, f.FractionDigits != nil},
+		{xsdFacetMinInclusive, facetFlagMinInclusive, f.MinInclusive != nil},
+		{xsdFacetMaxInclusive, facetFlagMaxInclusive, f.MaxInclusive != nil},
+		{xsdFacetMinExclusive, facetFlagMinExclusive, f.MinExclusive != nil},
+		{xsdFacetMaxExclusive, facetFlagMaxExclusive, f.MaxExclusive != nil},
+		{xsdFacetEnumeration, facetFlagEnumeration, len(f.Enumeration) != 0},
+		{xsdFacetPattern, facetFlagPattern, len(f.Patterns) != 0},
 	}
 	for _, facet := range facets {
 		if (f.Present&facet.flag != 0) != facet.present {
