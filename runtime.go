@@ -440,6 +440,8 @@ type compiledModel struct {
 
 type compiledModelRow struct {
 	Edges         []compiledModelEdge
+	NameToEdge    map[qName]uint32 // element-name → edge position; nil for narrow or ambiguous rows
+	WildcardEdges []uint32         // wildcard edge positions in row order; only set with NameToEdge
 	CountParticle particle
 	Min           uint32
 	Max           uint32

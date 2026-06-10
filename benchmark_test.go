@@ -156,6 +156,33 @@ func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateWideChoice(b *testing.B) {
+	const width = 200
+	engine, err := Compile(sourceBytes("schema.xsd", []byte(wideChoiceSchema(width, ""))))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	var sb strings.Builder
+	sb.WriteString("<r>")
+	for i := range 4000 {
+		name := "f" + strconv.Itoa(i%width)
+		sb.WriteString("<" + name + ">x</" + name + ">")
+	}
+	sb.WriteString("</r>")
+	doc := sb.String()
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateSubstitutionGroup(b *testing.B) {
 	engine, err := Compile(sourceBytes("schema.xsd", []byte(substitutionBenchmarkSchema(16))))
 	if err != nil {
