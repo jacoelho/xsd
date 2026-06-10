@@ -864,19 +864,20 @@ func (p *xmlStreamParser) skipUntil(term string) error {
 }
 
 func validateXMLDeclContent(content []byte) error {
-	rest := content
-	version, rest, ok := parseXMLDeclAttr(rest, xsdAttrVersion, xmlDeclFirstAttr)
-	if !ok || version != xmlVersion10 {
+	name, version, rest, ok := scanXMLDeclAttr(content, xmlDeclFirstAttr)
+	if !ok || name != xsdAttrVersion || version != xmlVersion10 {
 		return fmt.Errorf("invalid XML declaration")
 	}
-	if encoding, next, ok := parseXMLDeclAttr(rest, "encoding", xmlDeclNextAttr); ok {
-		if !strings.EqualFold(encoding, "UTF-8") && !strings.EqualFold(encoding, "UTF8") {
+	name, value, next, ok := scanXMLDeclAttr(rest, xmlDeclNextAttr)
+	if ok && name == "encoding" {
+		if !strings.EqualFold(value, "UTF-8") && !strings.EqualFold(value, "UTF8") {
 			return fmt.Errorf("invalid XML declaration")
 		}
 		rest = next
+		name, value, next, ok = scanXMLDeclAttr(rest, xmlDeclNextAttr)
 	}
-	if standalone, next, ok := parseXMLDeclAttr(rest, "standalone", xmlDeclNextAttr); ok {
-		if standalone != "yes" && standalone != "no" {
+	if ok && name == "standalone" {
+		if value != "yes" && value != "no" {
 			return fmt.Errorf("invalid XML declaration")
 		}
 		rest = next
@@ -894,30 +895,37 @@ const (
 	xmlDeclNextAttr
 )
 
-func parseXMLDeclAttr(content []byte, name string, pos xmlDeclAttrPosition) (string, []byte, bool) {
+// scanXMLDeclAttr scans the next name="value" pair of an XML declaration.
+// The first attribute may have optional leading whitespace; later attributes
+// require it.
+func scanXMLDeclAttr(content []byte, pos xmlDeclAttrPosition) (string, string, []byte, bool) {
 	if pos == xmlDeclNextAttr && (len(content) == 0 || !isXMLWhitespaceByte(content[0])) {
-		return "", content, false
+		return "", "", content, false
 	}
 	content = bytes.TrimLeft(content, " \t\r\n")
-	if !bytes.HasPrefix(content, []byte(name)) {
-		return "", content, false
+	nameLen := 0
+	for nameLen < len(content) && content[nameLen] != '=' && content[nameLen] != '"' && content[nameLen] != '\'' && !isXMLWhitespaceByte(content[nameLen]) {
+		nameLen++
 	}
-	content = content[len(name):]
-	content = bytes.TrimLeft(content, " \t\r\n")
+	if nameLen == 0 {
+		return "", "", content, false
+	}
+	name := string(content[:nameLen])
+	content = bytes.TrimLeft(content[nameLen:], " \t\r\n")
 	if len(content) == 0 || content[0] != '=' {
-		return "", content, false
+		return "", "", content, false
 	}
 	content = bytes.TrimLeft(content[1:], " \t\r\n")
 	if len(content) == 0 || content[0] != '"' && content[0] != '\'' {
-		return "", content, false
+		return "", "", content, false
 	}
 	quote := content[0]
 	content = content[1:]
 	end := bytes.IndexByte(content, quote)
 	if end < 0 {
-		return "", content, false
+		return "", "", content, false
 	}
-	return string(content[:end]), content[end+1:], true
+	return name, string(content[:end]), content[end+1:], true
 }
 
 func (p *xmlStreamParser) appendXMLRune(dst *[]byte, first byte) error {
