@@ -592,3 +592,59 @@ func TestCompileOptionsRejectNegativeLimits(t *testing.T) {
 		expectCategoryCode(t, err, SchemaCompileErrorCategory, ErrSchemaLimit)
 	}
 }
+
+func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string" default="abc"/>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(decl *elementDecl)
+	}{
+		{
+			name: "canonical without constraint",
+			mutate: func(decl *elementDecl) {
+				decl.Default = valueConstraint{Canonical: "abc"}
+			},
+		},
+		{
+			name: "value without constraint",
+			mutate: func(decl *elementDecl) {
+				decl.Default = valueConstraint{Value: simpleValue{Canonical: "abc"}}
+			},
+		},
+		{
+			name: "canonical value mismatch",
+			mutate: func(decl *elementDecl) {
+				decl.Default.Value.Canonical = "other"
+			},
+		},
+		{
+			name: "invalid value type",
+			mutate: func(decl *elementDecl) {
+				decl.Default.Value.Type = simpleTypeID(1 << 30)
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "", "root")]
+			tc.mutate(&engine.rt.Elements[rootID])
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
+func mustQName(t *testing.T, rt *runtimeSchema, ns, local string) qName {
+	t.Helper()
+	q, err := rt.Names.InternQName(ns, local)
+	if err != nil {
+		t.Fatalf("InternQName(%q, %q) error = %v", ns, local, err)
+	}
+	return q
+}

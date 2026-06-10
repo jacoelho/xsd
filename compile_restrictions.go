@@ -424,7 +424,7 @@ func (c *compiler) validateParticleRestrictsElement(base, derived particle) erro
 	if derivedDecl.Block&baseDecl.Block != baseDecl.Block {
 		return schemaCompile(ErrSchemaContentModel, "element restriction block is not subset of base")
 	}
-	if baseDecl.HasFixed && (!derivedDecl.HasFixed || !c.elementFixedValuesEqual(baseDecl, derivedDecl)) {
+	if baseDecl.Fixed.Present && (!derivedDecl.Fixed.Present || !c.elementFixedValuesEqual(baseDecl, derivedDecl)) {
 		return schemaCompile(ErrSchemaContentModel, "element restriction fixed value is not subset of base")
 	}
 	return nil
@@ -536,9 +536,9 @@ func (c *compiler) particleEmptiable(p particle) bool {
 func (c *compiler) elementFixedValuesEqual(base, derived elementDecl) bool {
 	typeID := c.elementValueSimpleType(base)
 	if typeID == noSimpleType {
-		return base.Fixed == derived.Fixed
+		return base.Fixed.Lexical == derived.Fixed.Lexical
 	}
-	return base.FixedCanonical == derived.FixedCanonical
+	return base.Fixed.Canonical == derived.Fixed.Canonical
 }
 
 func (c *compiler) elementValueSimpleType(decl elementDecl) simpleTypeID {

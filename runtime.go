@@ -98,23 +98,24 @@ type builtinIDs struct {
 	ENTITIES      simpleTypeID
 }
 
+type valueConstraint struct {
+	Lexical   string
+	Canonical string
+	Value     simpleValue
+	Present   bool
+}
+
 type elementDecl struct {
-	Default          string
-	Fixed            string
-	DefaultCanonical string
-	FixedCanonical   string
-	Identity         []identityConstraintID
-	DefaultValue     simpleValue
-	FixedValue       simpleValue
-	Type             typeID
-	Name             qName
-	SubstHead        elementID
-	Nillable         bool
-	Abstract         bool
-	HasDefault       bool
-	HasFixed         bool
-	Block            derivationMask
-	Final            derivationMask
+	Default   valueConstraint
+	Fixed     valueConstraint
+	Identity  []identityConstraintID
+	Type      typeID
+	Name      qName
+	SubstHead elementID
+	Nillable  bool
+	Abstract  bool
+	Block     derivationMask
+	Final     derivationMask
 }
 
 type identityKind uint8
@@ -170,16 +171,10 @@ type identityFieldPath struct {
 }
 
 type attributeDecl struct {
-	Default          string
-	Fixed            string
-	DefaultCanonical string
-	FixedCanonical   string
-	DefaultValue     simpleValue
-	FixedValue       simpleValue
-	Name             qName
-	Type             simpleTypeID
-	HasDefault       bool
-	HasFixed         bool
+	Default valueConstraint
+	Fixed   valueConstraint
+	Name    qName
+	Type    simpleTypeID
 }
 
 type attributeUseSet struct {
@@ -191,18 +186,12 @@ type attributeUseSet struct {
 }
 
 type attributeUse struct {
-	Default          string
-	Fixed            string
-	DefaultCanonical string
-	FixedCanonical   string
-	DefaultValue     simpleValue
-	FixedValue       simpleValue
-	Name             qName
-	Type             simpleTypeID
-	Required         bool
-	Prohibited       bool
-	HasDefault       bool
-	HasFixed         bool
+	Default    valueConstraint
+	Fixed      valueConstraint
+	Name       qName
+	Type       simpleTypeID
+	Required   bool
+	Prohibited bool
 }
 
 type simpleVariety uint8

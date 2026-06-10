@@ -202,32 +202,20 @@ func validateElementDecl(rt *runtimeSchema, decl elementDecl) error {
 			return internalInvariant("element declaration references invalid identity constraint")
 		}
 	}
-	if !decl.HasDefault && decl.DefaultCanonical != "" {
-		return internalInvariant("element declaration stores canonical default without default")
-	}
-	if !decl.HasFixed && decl.FixedCanonical != "" {
-		return internalInvariant("element declaration stores canonical fixed without fixed")
-	}
-	if err := validateStoredSimpleValue(rt, decl.HasDefault, decl.DefaultCanonical, decl.DefaultValue, "element declaration default"); err != nil {
+	if err := validateValueConstraintRuntime(rt, decl.Default, "element declaration default"); err != nil {
 		return err
 	}
-	return validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "element declaration fixed")
+	return validateValueConstraintRuntime(rt, decl.Fixed, "element declaration fixed")
 }
 
 func validateAttributeDecl(rt *runtimeSchema, decl attributeDecl) error {
 	if !validQName(rt, decl.Name) || !validSimpleTypeID(rt, decl.Type) {
 		return internalInvariant("attribute declaration references invalid name or type")
 	}
-	if !decl.HasDefault && decl.DefaultCanonical != "" {
-		return internalInvariant("attribute declaration stores canonical default without default")
-	}
-	if !decl.HasFixed && decl.FixedCanonical != "" {
-		return internalInvariant("attribute declaration stores canonical fixed without fixed")
-	}
-	if err := validateStoredSimpleValue(rt, decl.HasDefault, decl.DefaultCanonical, decl.DefaultValue, "attribute declaration default"); err != nil {
+	if err := validateValueConstraintRuntime(rt, decl.Default, "attribute declaration default"); err != nil {
 		return err
 	}
-	return validateStoredSimpleValue(rt, decl.HasFixed, decl.FixedCanonical, decl.FixedValue, "attribute declaration fixed")
+	return validateValueConstraintRuntime(rt, decl.Fixed, "attribute declaration fixed")
 }
 
 func validateSimpleType(rt *runtimeSchema, st simpleType) error {
@@ -278,16 +266,10 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 		if slot, ok := set.Index[use.Name]; !ok || slot != uint32(i) {
 			return internalInvariant("attribute use index does not match use slice")
 		}
-		if !use.HasDefault && use.DefaultCanonical != "" {
-			return internalInvariant("attribute use stores canonical default without default")
-		}
-		if !use.HasFixed && use.FixedCanonical != "" {
-			return internalInvariant("attribute use stores canonical fixed without fixed")
-		}
-		if err := validateStoredSimpleValue(rt, use.HasDefault, use.DefaultCanonical, use.DefaultValue, "attribute use default"); err != nil {
+		if err := validateValueConstraintRuntime(rt, use.Default, "attribute use default"); err != nil {
 			return err
 		}
-		if err := validateStoredSimpleValue(rt, use.HasFixed, use.FixedCanonical, use.FixedValue, "attribute use fixed"); err != nil {
+		if err := validateValueConstraintRuntime(rt, use.Fixed, "attribute use fixed"); err != nil {
 			return err
 		}
 	}
@@ -297,24 +279,27 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 		}
 	}
 	for _, slot := range set.ValueConstraints {
-		if !validUint32Index(slot, len(set.Uses)) || (!set.Uses[slot].HasDefault && !set.Uses[slot].HasFixed) {
+		if !validUint32Index(slot, len(set.Uses)) || (!set.Uses[slot].Default.Present && !set.Uses[slot].Fixed.Present) {
 			return internalInvariant("attribute use set value constraint slot is invalid")
 		}
 	}
 	return nil
 }
 
-func validateStoredSimpleValue(rt *runtimeSchema, has bool, canonical string, value simpleValue, label string) error {
-	if !has {
-		if value.Canonical != "" || value.IDs != "" || value.IDRefs != "" {
+func validateValueConstraintRuntime(rt *runtimeSchema, vc valueConstraint, label string) error {
+	if !vc.Present {
+		if vc.Canonical != "" {
+			return internalInvariant(label + " stores canonical without value constraint")
+		}
+		if vc.Value.Canonical != "" || vc.Value.IDs != "" || vc.Value.IDRefs != "" {
 			return internalInvariant(label + " stores value without value constraint")
 		}
 		return nil
 	}
-	if value.Canonical != canonical {
+	if vc.Value.Canonical != vc.Canonical {
 		return internalInvariant(label + " canonical value mismatch")
 	}
-	if value.Type != noSimpleType && !validSimpleTypeID(rt, value.Type) {
+	if vc.Value.Type != noSimpleType && !validSimpleTypeID(rt, vc.Value.Type) {
 		return internalInvariant(label + " references invalid simple type")
 	}
 	return nil

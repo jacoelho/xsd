@@ -61,7 +61,7 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 		if elem == noElement {
 			return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "element is not nillable")
 		}
-		if rt.Elements[elem].HasFixed {
+		if rt.Elements[elem].Fixed.Present {
 			return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "nilled element cannot have fixed value")
 		}
 	}

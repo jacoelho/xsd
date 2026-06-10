@@ -66,14 +66,14 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q qName)
 	}
 	decl := attributeDecl{Name: q, Type: typeID}
 	if v, ok := n.attr(xsdAttrDefault); ok {
-		decl.Default = v
-		decl.HasDefault = true
+		decl.Default.Lexical = v
+		decl.Default.Present = true
 	}
 	if v, ok := n.attr(xsdAttrFixed); ok {
-		decl.Fixed = v
-		decl.HasFixed = true
+		decl.Fixed.Lexical = v
+		decl.Fixed.Present = true
 	}
-	if decl.HasDefault && decl.HasFixed {
+	if decl.Default.Present && decl.Fixed.Present {
 		return attributeDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute cannot have both default and fixed")
 	}
 	if err := c.validateAttributeValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
@@ -115,24 +115,24 @@ func isAttributeAttribute(name string) bool {
 }
 
 func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolve qnameResolver) error {
-	if (decl.HasDefault || decl.HasFixed) && c.typeDerivesFrom(simpleRef(decl.Type), simpleRef(c.rt.Builtin.ID)) {
+	if (decl.Default.Present || decl.Fixed.Present) && c.typeDerivesFrom(simpleRef(decl.Type), simpleRef(c.rt.Builtin.ID)) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed attribute cannot have default or fixed")
 	}
-	if decl.HasDefault {
-		value, err := c.validateValueConstraint(decl.Type, decl.Default, resolve, decl.Name, "attribute default")
+	if decl.Default.Present {
+		value, err := c.validateValueConstraint(decl.Type, decl.Default.Lexical, resolve, decl.Name, "attribute default")
 		if err != nil {
 			return err
 		}
-		decl.DefaultCanonical = value.Canonical
-		decl.DefaultValue = value
+		decl.Default.Canonical = value.Canonical
+		decl.Default.Value = value
 	}
-	if decl.HasFixed {
-		value, err := c.validateValueConstraint(decl.Type, decl.Fixed, resolve, decl.Name, "attribute fixed")
+	if decl.Fixed.Present {
+		value, err := c.validateValueConstraint(decl.Type, decl.Fixed.Lexical, resolve, decl.Name, "attribute fixed")
 		if err != nil {
 			return err
 		}
-		decl.FixedCanonical = value.Canonical
-		decl.FixedValue = value
+		decl.Fixed.Canonical = value.Canonical
+		decl.Fixed.Value = value
 	}
 	return nil
 }
@@ -305,7 +305,7 @@ func newAttributeUseSet(uses []attributeUse, wildcard wildcardID) (attributeUseS
 		if use.Required {
 			set.Required = append(set.Required, slot)
 		}
-		if use.HasDefault || use.HasFixed {
+		if use.Default.Present || use.Fixed.Present {
 			set.ValueConstraints = append(set.ValueConstraints, slot)
 		}
 	}
@@ -361,11 +361,11 @@ func (c *compiler) validateAttributeUseRestriction(base, derived attributeUse) e
 	if !c.typeDerivesFrom(simpleRef(derived.Type), simpleRef(base.Type)) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "restricted attribute type is not derived from base")
 	}
-	if base.HasFixed {
-		if !derived.HasFixed {
+	if base.Fixed.Present {
+		if !derived.Fixed.Present {
 			return schemaCompile(ErrSchemaInvalidAttribute, "fixed attribute constraint must be preserved by restriction")
 		}
-		if base.FixedCanonical != derived.FixedCanonical {
+		if base.Fixed.Canonical != derived.Fixed.Canonical {
 			return schemaCompile(ErrSchemaInvalidAttribute, "fixed attribute constraint must be preserved by restriction")
 		}
 	}
@@ -405,10 +405,7 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 	defaultValue, hasDefault := n.attr(xsdAttrDefault)
 	fixedValue, hasFixed := n.attr(xsdAttrFixed)
 	if hasFixed {
-		use.Fixed = fixedValue
-		use.FixedCanonical = ""
-		use.FixedValue = simpleValue{}
-		use.HasFixed = true
+		use.Fixed = valueConstraint{Lexical: fixedValue, Present: true}
 	}
 	switch mode := n.attrDefault(xsdAttrUse, "optional"); mode {
 	case "required":
@@ -429,25 +426,27 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (attribut
 		if base.refHasFixed {
 			return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute use default conflicts with fixed attribute declaration")
 		}
-		use.Default = defaultValue
-		use.DefaultCanonical = ""
-		use.DefaultValue = simpleValue{}
-		use.HasDefault = true
+		use.Default = valueConstraint{Lexical: defaultValue, Present: true}
 	}
-	if use.HasDefault && use.HasFixed {
+	if use.Default.Present && use.Fixed.Present {
 		return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute cannot have both default and fixed")
 	}
-	decl := attributeDecl{Name: use.Name, Type: use.Type, Default: use.Default, Fixed: use.Fixed, HasDefault: use.HasDefault, HasFixed: use.HasFixed}
+	decl := attributeDecl{
+		Name:    use.Name,
+		Type:    use.Type,
+		Default: valueConstraint{Lexical: use.Default.Lexical, Present: use.Default.Present},
+		Fixed:   valueConstraint{Lexical: use.Fixed.Lexical, Present: use.Fixed.Present},
+	}
 	if err := c.validateAttributeValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
 		return attributeUse{}, withSchemaCompileLocation(n, err)
 	}
-	if base.refHasFixed && use.HasFixed && decl.FixedCanonical != base.refFixedCanonical {
+	if base.refHasFixed && use.Fixed.Present && decl.Fixed.Canonical != base.refFixedCanonical {
 		return attributeUse{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "attribute use fixed value conflicts with fixed attribute declaration")
 	}
-	use.DefaultCanonical = decl.DefaultCanonical
-	use.FixedCanonical = decl.FixedCanonical
-	use.DefaultValue = decl.DefaultValue
-	use.FixedValue = decl.FixedValue
+	use.Default.Canonical = decl.Default.Canonical
+	use.Fixed.Canonical = decl.Fixed.Canonical
+	use.Default.Value = decl.Default.Value
+	use.Fixed.Value = decl.Fixed.Value
 	return use, nil
 }
 
@@ -475,7 +474,7 @@ func (c *compiler) compileAttributeRefUse(n *rawNode, ctx *schemaContext, ref st
 		return attributeUseBase{}, withSchemaCompileLocation(n, err)
 	}
 	use := attributeUseFromDecl(c.rt.Attributes[id])
-	return attributeUseBase{use: use, refHasFixed: use.HasFixed, refFixedCanonical: use.FixedCanonical}, nil
+	return attributeUseBase{use: use, refHasFixed: use.Fixed.Present, refFixedCanonical: use.Fixed.Canonical}, nil
 }
 
 func (c *compiler) compileLocalAttributeUse(n *rawNode, ctx *schemaContext) (attributeUse, error) {
@@ -513,16 +512,10 @@ func isAttributeRefAttribute(name string) bool {
 
 func attributeUseFromDecl(decl attributeDecl) attributeUse {
 	return attributeUse{
-		Name:             decl.Name,
-		Type:             decl.Type,
-		Default:          decl.Default,
-		Fixed:            decl.Fixed,
-		DefaultCanonical: decl.DefaultCanonical,
-		FixedCanonical:   decl.FixedCanonical,
-		DefaultValue:     decl.DefaultValue,
-		FixedValue:       decl.FixedValue,
-		HasDefault:       decl.HasDefault,
-		HasFixed:         decl.HasFixed,
+		Name:    decl.Name,
+		Type:    decl.Type,
+		Default: decl.Default,
+		Fixed:   decl.Fixed,
 	}
 }
 

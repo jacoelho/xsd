@@ -19,7 +19,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	}
 	rawBytes := s.text[f.TextStart:]
 	if len(rt.Identities) == 0 &&
-		(f.Element == noElement || (!rt.Elements[f.Element].HasFixed && !rt.Elements[f.Element].HasDefault)) {
+		(f.Element == noElement || (!rt.Elements[f.Element].Fixed.Present && !rt.Elements[f.Element].Default.Present)) {
 		ok, rawErr := validateRawSimpleContentFast(rt, typeID, rawBytes)
 		if ok {
 			if rawErr != nil {
@@ -45,7 +45,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	}
 	if f.Element != noElement {
 		decl := rt.Elements[f.Element]
-		if decl.HasFixed && value.Canonical != decl.FixedCanonical {
+		if decl.Fixed.Present && value.Canonical != decl.Fixed.Canonical {
 			return false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 		}
 	}
@@ -77,17 +77,17 @@ type simpleContentInput struct {
 func (s *session) simpleContentInput(f *frame, rawBytes []byte) simpleContentInput {
 	if f.Element != noElement && len(rawBytes) == 0 {
 		decl := s.engine.rt.Elements[f.Element]
-		if decl.HasFixed {
+		if decl.Fixed.Present {
 			if decl.Type == f.Type {
-				return simpleContentInput{value: decl.FixedValue, prevalidated: true}
+				return simpleContentInput{value: decl.Fixed.Value, prevalidated: true}
 			}
-			return simpleContentInput{text: decl.Fixed}
+			return simpleContentInput{text: decl.Fixed.Lexical}
 		}
-		if decl.HasDefault {
+		if decl.Default.Present {
 			if decl.Type == f.Type {
-				return simpleContentInput{value: decl.DefaultValue, prevalidated: true}
+				return simpleContentInput{value: decl.Default.Value, prevalidated: true}
 			}
-			return simpleContentInput{text: decl.Default}
+			return simpleContentInput{text: decl.Default.Lexical}
 		}
 	}
 	return simpleContentInput{text: s.valueStrings.intern(rawBytes)}
@@ -115,14 +115,14 @@ func (s *session) validateNonSimpleFixedContent(f *frame, line, col int) error {
 		return nil
 	}
 	decl := s.engine.rt.Elements[f.Element]
-	if !decl.HasFixed {
+	if !decl.Fixed.Present {
 		return nil
 	}
 	if f.HasChild {
 		return validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 	}
 	text := s.valueStrings.intern(s.text[f.TextStart:])
-	if text != "" && text != decl.Fixed {
+	if text != "" && text != decl.Fixed.Lexical {
 		return validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 	}
 	return nil
@@ -144,7 +144,7 @@ func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID, nee
 	if s.simpleIdentityKind(typeID) != simpleIdentityNone {
 		return true
 	}
-	if f.Element != noElement && s.engine.rt.Elements[f.Element].HasFixed {
+	if f.Element != noElement && s.engine.rt.Elements[f.Element].Fixed.Present {
 		return true
 	}
 	return needIdentity

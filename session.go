@@ -580,7 +580,7 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if f.Type.Kind == typeComplex {
 		ct := s.engine.rt.ComplexTypes[f.Type.ID]
 		if ct.Mixed {
-			if f.Element != noElement && s.engine.rt.Elements[f.Element].HasFixed {
+			if f.Element != noElement && s.engine.rt.Elements[f.Element].Fixed.Present {
 				if err := s.appendText(data, line, col); err != nil {
 					return err
 				}

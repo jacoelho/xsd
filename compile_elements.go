@@ -231,14 +231,14 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	}
 	decl.Final = final
 	if v, ok := n.attr(xsdAttrDefault); ok {
-		decl.Default = v
-		decl.HasDefault = true
+		decl.Default.Lexical = v
+		decl.Default.Present = true
 	}
 	if v, ok := n.attr(xsdAttrFixed); ok {
-		decl.Fixed = v
-		decl.HasFixed = true
+		decl.Fixed.Lexical = v
+		decl.Fixed.Present = true
 	}
-	if decl.HasDefault && decl.HasFixed {
+	if decl.Default.Present && decl.Fixed.Present {
 		return elementDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "element cannot have both default and fixed")
 	}
 	if err := c.validateElementValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
@@ -275,45 +275,45 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		ct := c.rt.ComplexTypes[decl.Type.ID]
 		if ct.SimpleValue {
 			simpleID = ct.TextType
-		} else if (decl.HasDefault || decl.HasFixed) && ct.Mixed && c.modelEmptiable(ct.Content) {
-			decl.DefaultCanonical = decl.Default
-			decl.FixedCanonical = decl.Fixed
-			if decl.HasDefault {
-				decl.DefaultValue = simpleValue{Canonical: decl.Default, Type: noSimpleType}
+		} else if (decl.Default.Present || decl.Fixed.Present) && ct.Mixed && c.modelEmptiable(ct.Content) {
+			decl.Default.Canonical = decl.Default.Lexical
+			decl.Fixed.Canonical = decl.Fixed.Lexical
+			if decl.Default.Present {
+				decl.Default.Value = simpleValue{Canonical: decl.Default.Lexical, Type: noSimpleType}
 			}
-			if decl.HasFixed {
-				decl.FixedValue = simpleValue{Canonical: decl.Fixed, Type: noSimpleType}
+			if decl.Fixed.Present {
+				decl.Fixed.Value = simpleValue{Canonical: decl.Fixed.Lexical, Type: noSimpleType}
 			}
 			return nil
 		}
 	}
 	if simpleID == noSimpleType {
-		if decl.HasDefault || decl.HasFixed {
+		if decl.Default.Present || decl.Fixed.Present {
 			return schemaCompile(ErrSchemaInvalidAttribute, "element value constraint requires simple content")
 		}
 		return nil
 	}
-	if (decl.HasDefault || decl.HasFixed) && c.typeDerivesFrom(simpleRef(simpleID), simpleRef(c.rt.Builtin.ID)) {
+	if (decl.Default.Present || decl.Fixed.Present) && c.typeDerivesFrom(simpleRef(simpleID), simpleRef(c.rt.Builtin.ID)) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed element cannot have default or fixed")
 	}
-	if (decl.HasDefault || decl.HasFixed) && c.simpleTypeUsesBareNotation(simpleID, make(map[simpleTypeID]bool)) {
+	if (decl.Default.Present || decl.Fixed.Present) && c.simpleTypeUsesBareNotation(simpleID, make(map[simpleTypeID]bool)) {
 		return schemaCompile(ErrSchemaFacet, "NOTATION value constraint requires enumeration")
 	}
-	if decl.HasDefault {
-		value, err := c.validateValueConstraint(simpleID, decl.Default, resolve, decl.Name, "element default")
+	if decl.Default.Present {
+		value, err := c.validateValueConstraint(simpleID, decl.Default.Lexical, resolve, decl.Name, "element default")
 		if err != nil {
 			return err
 		}
-		decl.DefaultCanonical = value.Canonical
-		decl.DefaultValue = value
+		decl.Default.Canonical = value.Canonical
+		decl.Default.Value = value
 	}
-	if decl.HasFixed {
-		value, err := c.validateValueConstraint(simpleID, decl.Fixed, resolve, decl.Name, "element fixed")
+	if decl.Fixed.Present {
+		value, err := c.validateValueConstraint(simpleID, decl.Fixed.Lexical, resolve, decl.Name, "element fixed")
 		if err != nil {
 			return err
 		}
-		decl.FixedCanonical = value.Canonical
-		decl.FixedValue = value
+		decl.Fixed.Canonical = value.Canonical
+		decl.Fixed.Value = value
 	}
 	return nil
 }
