@@ -378,26 +378,37 @@ func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeI
 		Base:       base,
 		Whitespace: whitespaceCollapse,
 		ListItem:   item,
-		Facets:     facetSet{MinLength: minLength},
+		Facets:     listLengthFacets(minLength),
 	})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = simpleRef(id)
 	return id, nil
 }
 
+func listLengthFacets(minLength *uint32) facetSet {
+	f := facetSet{MinLength: minLength}
+	if minLength != nil {
+		f.Present |= facetFlagMinLength
+	}
+	return f
+}
+
 func (c *compiler) setBuiltinIntegerFacets(id simpleTypeID) {
 	v := uint32(0)
 	c.rt.SimpleTypes[id].Facets.FractionDigits = &v
+	c.rt.SimpleTypes[id].Facets.Present |= facetFlagFractionDigits
 }
 
 func (c *compiler) setBuiltinMin(id simpleTypeID, v string) {
 	lit := builtinDecimalLiteral(v)
 	c.rt.SimpleTypes[id].Facets.MinInclusive = &lit
+	c.rt.SimpleTypes[id].Facets.Present |= facetFlagMinInclusive
 }
 
 func (c *compiler) setBuiltinMax(id simpleTypeID, v string) {
 	lit := builtinDecimalLiteral(v)
 	c.rt.SimpleTypes[id].Facets.MaxInclusive = &lit
+	c.rt.SimpleTypes[id].Facets.Present |= facetFlagMaxInclusive
 }
 
 func (c *compiler) setBuiltinRange(id simpleTypeID, minValue, maxValue string) {

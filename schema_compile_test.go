@@ -648,3 +648,53 @@ func mustQName(t *testing.T, rt *runtimeSchema, ns, local string) qName {
 	}
 	return q
 }
+
+func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Sized">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="4"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="Sized"/>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(f *facetSet)
+	}{
+		{
+			name: "bit without value",
+			mutate: func(f *facetSet) {
+				f.Present |= facetFlagLength
+			},
+		},
+		{
+			name: "value without bit",
+			mutate: func(f *facetSet) {
+				f.Present &^= facetFlagMaxLength
+			},
+		},
+		{
+			name: "whiteSpace bit in presence mask",
+			mutate: func(f *facetSet) {
+				f.Present |= facetFlagWhiteSpace
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "", "Sized")]
+			id, ok := typ.simple()
+			if !ok {
+				t.Fatal("Sized is not a simple type")
+			}
+			tc.mutate(&engine.rt.SimpleTypes[id].Facets)
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}

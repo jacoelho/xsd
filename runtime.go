@@ -258,19 +258,47 @@ const (
 )
 
 type simpleType struct {
-	Union      []simpleTypeID
-	Facets     facetSet
-	Name       qName
-	Base       simpleTypeID
-	ListItem   simpleTypeID
-	Variety    simpleVariety
-	Primitive  primitiveKind
-	Final      derivationMask
+	Union     []simpleTypeID
+	Facets    facetSet
+	Name      qName
+	Base      simpleTypeID
+	ListItem  simpleTypeID
+	Variety   simpleVariety
+	Primitive primitiveKind
+	Final     derivationMask
+	// Whitespace holds the whiteSpace facet value; it lives on the type
+	// because every simple type has one. Only its fixedness is facet state
+	// (facetFlagWhiteSpace in Facets.Fixed).
 	Whitespace whitespaceMode
 	Builtin    builtinValidationKind
 	Identity   simpleIdentityKind
 	Missing    bool
 }
+
+type facetFlag uint16
+
+const (
+	facetFlagLength facetFlag = 1 << iota
+	facetFlagMinLength
+	facetFlagMaxLength
+	facetFlagTotalDigits
+	facetFlagFractionDigits
+	facetFlagMinInclusive
+	facetFlagMaxInclusive
+	facetFlagMinExclusive
+	facetFlagMaxExclusive
+	facetFlagEnumeration
+	facetFlagPattern
+	// facetFlagWhiteSpace is valid only in facetSet.Fixed; the whiteSpace
+	// value itself is simpleType.Whitespace and is never absent.
+	facetFlagWhiteSpace
+)
+
+const facetValueMask = facetFlagLength | facetFlagMinLength | facetFlagMaxLength |
+	facetFlagTotalDigits | facetFlagFractionDigits |
+	facetFlagMinInclusive | facetFlagMaxInclusive | facetFlagMinExclusive | facetFlagMaxExclusive
+
+const facetLengthMask = facetFlagLength | facetFlagMinLength | facetFlagMaxLength
 
 type facetSet struct {
 	Length         *uint32
@@ -284,62 +312,36 @@ type facetSet struct {
 	MaxExclusive   *compiledLiteral
 	Enumeration    []compiledLiteral
 	Patterns       []patternGroup
-	Fixed          facetFixedSet
-}
-
-type facetFixedSet struct {
-	Length         bool
-	MinLength      bool
-	MaxLength      bool
-	TotalDigits    bool
-	FractionDigits bool
-	MinInclusive   bool
-	MaxInclusive   bool
-	MinExclusive   bool
-	MaxExclusive   bool
-	WhiteSpace     bool
+	Present        facetFlag
+	Fixed          facetFlag
 }
 
 func (f facetSet) empty() bool {
-	return !f.hasValueFacets() &&
-		len(f.Enumeration) == 0 &&
-		len(f.Patterns) == 0
+	return f.Present == 0
 }
 
 func (f facetSet) onlyPatterns() bool {
-	return !f.hasValueFacets() &&
-		len(f.Enumeration) == 0 &&
-		len(f.Patterns) != 0
+	return f.Present == facetFlagPattern
 }
 
 func (f facetSet) onlyEnumeration() bool {
-	return !f.hasValueFacets() &&
-		len(f.Enumeration) != 0 &&
-		len(f.Patterns) == 0
+	return f.Present == facetFlagEnumeration
 }
 
 func (f facetSet) hasValueFacets() bool {
-	return f.Length != nil ||
-		f.MinLength != nil ||
-		f.MaxLength != nil ||
-		f.TotalDigits != nil ||
-		f.FractionDigits != nil ||
-		f.MinInclusive != nil ||
-		f.MaxInclusive != nil ||
-		f.MinExclusive != nil ||
-		f.MaxExclusive != nil
+	return f.Present&facetValueMask != 0
 }
 
 func (f facetSet) needsLexical() bool {
-	return len(f.Patterns) != 0
+	return f.Present&facetFlagPattern != 0
 }
 
 func (f facetSet) needsCanonical() bool {
-	return len(f.Enumeration) != 0
+	return f.Present&facetFlagEnumeration != 0
 }
 
 func (f facetSet) needsLength() bool {
-	return f.Length != nil || f.MinLength != nil || f.MaxLength != nil
+	return f.Present&facetLengthMask != 0
 }
 
 type compiledLiteral struct {

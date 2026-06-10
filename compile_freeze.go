@@ -233,6 +233,35 @@ func validateSimpleType(rt *runtimeSchema, st simpleType) error {
 			return internalInvariant("simple type references invalid union member")
 		}
 	}
+	return validateFacetPresence(st.Facets)
+}
+
+func validateFacetPresence(f facetSet) error {
+	facets := []struct {
+		flag    facetFlag
+		present bool
+		name    string
+	}{
+		{facetFlagLength, f.Length != nil, "length"},
+		{facetFlagMinLength, f.MinLength != nil, "minLength"},
+		{facetFlagMaxLength, f.MaxLength != nil, "maxLength"},
+		{facetFlagTotalDigits, f.TotalDigits != nil, "totalDigits"},
+		{facetFlagFractionDigits, f.FractionDigits != nil, "fractionDigits"},
+		{facetFlagMinInclusive, f.MinInclusive != nil, "minInclusive"},
+		{facetFlagMaxInclusive, f.MaxInclusive != nil, "maxInclusive"},
+		{facetFlagMinExclusive, f.MinExclusive != nil, "minExclusive"},
+		{facetFlagMaxExclusive, f.MaxExclusive != nil, "maxExclusive"},
+		{facetFlagEnumeration, len(f.Enumeration) != 0, "enumeration"},
+		{facetFlagPattern, len(f.Patterns) != 0, "pattern"},
+	}
+	for _, facet := range facets {
+		if (f.Present&facet.flag != 0) != facet.present {
+			return internalInvariant("simple type facet presence mask does not match " + facet.name + " facet")
+		}
+	}
+	if f.Present&facetFlagWhiteSpace != 0 {
+		return internalInvariant("simple type facet presence mask cannot set whiteSpace")
+	}
 	return nil
 }
 

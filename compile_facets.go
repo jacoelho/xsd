@@ -114,8 +114,14 @@ func (s *compiledFacetState) apply(st *simpleType) {
 	} else {
 		st.Facets.Enumeration = s.inheritedEnumeration
 	}
+	if len(st.Facets.Enumeration) != 0 {
+		st.Facets.Present |= facetFlagEnumeration
+	} else {
+		st.Facets.Present &^= facetFlagEnumeration
+	}
 	if len(s.stepPatterns) != 0 {
 		st.Facets.Patterns = append(st.Facets.Patterns, patternGroup{Patterns: s.stepPatterns})
+		st.Facets.Present |= facetFlagPattern
 	}
 }
 
@@ -195,32 +201,27 @@ func compileSizeFacet(st *simpleType, node *rawNode, value string, fixed bool) e
 		return schemaCompileAt(node, ErrSchemaLimit, name+" facet exceeds uint32 limit")
 	}
 	v := uint32(size)
+	var flag facetFlag
 	switch name {
 	case xsdFacetLength:
 		st.Facets.Length = &v
-		if fixed {
-			st.Facets.Fixed.Length = true
-		}
+		flag = facetFlagLength
 	case xsdFacetMinLength:
 		st.Facets.MinLength = &v
-		if fixed {
-			st.Facets.Fixed.MinLength = true
-		}
+		flag = facetFlagMinLength
 	case xsdFacetMaxLength:
 		st.Facets.MaxLength = &v
-		if fixed {
-			st.Facets.Fixed.MaxLength = true
-		}
+		flag = facetFlagMaxLength
 	case xsdFacetTotalDigits:
 		st.Facets.TotalDigits = &v
-		if fixed {
-			st.Facets.Fixed.TotalDigits = true
-		}
+		flag = facetFlagTotalDigits
 	case xsdFacetFractionDigits:
 		st.Facets.FractionDigits = &v
-		if fixed {
-			st.Facets.Fixed.FractionDigits = true
-		}
+		flag = facetFlagFractionDigits
+	}
+	st.Facets.Present |= flag
+	if fixed {
+		st.Facets.Fixed |= flag
 	}
 	return nil
 }
@@ -266,31 +267,28 @@ func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *r
 	if err != nil {
 		return err
 	}
+	var flag facetFlag
 	switch child.Name.Local {
 	case xsdFacetMinInclusive:
 		st.Facets.MinInclusive = &lit
-		if fixed {
-			st.Facets.Fixed.MinInclusive = true
-		}
+		flag = facetFlagMinInclusive
 		step.minInclusive = true
 	case xsdFacetMaxInclusive:
 		st.Facets.MaxInclusive = &lit
-		if fixed {
-			st.Facets.Fixed.MaxInclusive = true
-		}
+		flag = facetFlagMaxInclusive
 		step.maxInclusive = true
 	case xsdFacetMinExclusive:
 		st.Facets.MinExclusive = &lit
-		if fixed {
-			st.Facets.Fixed.MinExclusive = true
-		}
+		flag = facetFlagMinExclusive
 		step.minExclusive = true
 	case xsdFacetMaxExclusive:
 		st.Facets.MaxExclusive = &lit
-		if fixed {
-			st.Facets.Fixed.MaxExclusive = true
-		}
+		flag = facetFlagMaxExclusive
 		step.maxExclusive = true
+	}
+	st.Facets.Present |= flag
+	if fixed {
+		st.Facets.Fixed |= flag
 	}
 	return nil
 }
@@ -305,7 +303,7 @@ func (c *compiler) compileWhitespaceFacet(st *simpleType, base simpleTypeID, n *
 	}
 	st.Whitespace = mode
 	if fixed {
-		st.Facets.Fixed.WhiteSpace = true
+		st.Facets.Fixed |= facetFlagWhiteSpace
 	}
 	return nil
 }
@@ -347,34 +345,34 @@ func validateCompiledFacets(st simpleType, base simpleType, orderedStep orderedF
 
 func validateFixedFacetRestrictions(st, base simpleType) error {
 	fixed := base.Facets.Fixed
-	if fixed.Length && !uint32FacetEqual(st.Facets.Length, base.Facets.Length) {
+	if fixed&facetFlagLength != 0 && !uint32FacetEqual(st.Facets.Length, base.Facets.Length) {
 		return fmt.Errorf("fixed length facet cannot change")
 	}
-	if fixed.MinLength && !uint32FacetEqual(st.Facets.MinLength, base.Facets.MinLength) {
+	if fixed&facetFlagMinLength != 0 && !uint32FacetEqual(st.Facets.MinLength, base.Facets.MinLength) {
 		return fmt.Errorf("fixed minLength facet cannot change")
 	}
-	if fixed.MaxLength && !uint32FacetEqual(st.Facets.MaxLength, base.Facets.MaxLength) {
+	if fixed&facetFlagMaxLength != 0 && !uint32FacetEqual(st.Facets.MaxLength, base.Facets.MaxLength) {
 		return fmt.Errorf("fixed maxLength facet cannot change")
 	}
-	if fixed.TotalDigits && !uint32FacetEqual(st.Facets.TotalDigits, base.Facets.TotalDigits) {
+	if fixed&facetFlagTotalDigits != 0 && !uint32FacetEqual(st.Facets.TotalDigits, base.Facets.TotalDigits) {
 		return fmt.Errorf("fixed totalDigits facet cannot change")
 	}
-	if fixed.FractionDigits && !uint32FacetEqual(st.Facets.FractionDigits, base.Facets.FractionDigits) {
+	if fixed&facetFlagFractionDigits != 0 && !uint32FacetEqual(st.Facets.FractionDigits, base.Facets.FractionDigits) {
 		return fmt.Errorf("fixed fractionDigits facet cannot change")
 	}
-	if fixed.MinInclusive && !literalFacetEqual(st.Facets.MinInclusive, base.Facets.MinInclusive) {
+	if fixed&facetFlagMinInclusive != 0 && !literalFacetEqual(st.Facets.MinInclusive, base.Facets.MinInclusive) {
 		return fmt.Errorf("fixed minInclusive facet cannot change")
 	}
-	if fixed.MaxInclusive && !literalFacetEqual(st.Facets.MaxInclusive, base.Facets.MaxInclusive) {
+	if fixed&facetFlagMaxInclusive != 0 && !literalFacetEqual(st.Facets.MaxInclusive, base.Facets.MaxInclusive) {
 		return fmt.Errorf("fixed maxInclusive facet cannot change")
 	}
-	if fixed.MinExclusive && !literalFacetEqual(st.Facets.MinExclusive, base.Facets.MinExclusive) {
+	if fixed&facetFlagMinExclusive != 0 && !literalFacetEqual(st.Facets.MinExclusive, base.Facets.MinExclusive) {
 		return fmt.Errorf("fixed minExclusive facet cannot change")
 	}
-	if fixed.MaxExclusive && !literalFacetEqual(st.Facets.MaxExclusive, base.Facets.MaxExclusive) {
+	if fixed&facetFlagMaxExclusive != 0 && !literalFacetEqual(st.Facets.MaxExclusive, base.Facets.MaxExclusive) {
 		return fmt.Errorf("fixed maxExclusive facet cannot change")
 	}
-	if fixed.WhiteSpace && st.Whitespace != base.Whitespace {
+	if fixed&facetFlagWhiteSpace != 0 && st.Whitespace != base.Whitespace {
 		return fmt.Errorf("fixed whiteSpace facet cannot change")
 	}
 	return nil
