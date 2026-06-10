@@ -3,7 +3,6 @@ package xsd
 import (
 	"fmt"
 	"slices"
-	"strings"
 )
 
 func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
@@ -29,7 +28,7 @@ func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, TextType: noSimpleType, Base: complexRef(c.rt.Builtin.AnyType)})
 	c.complexDone[q] = id
 	c.rt.GlobalTypes[q] = complexRef(id)
-	ct, err := c.compileComplexType(raw.node, raw.ctx, q)
+	ct, err := c.compileComplexType(raw.node, raw.ctx, q, false)
 	if err != nil {
 		return noComplexType, err
 	}
@@ -61,7 +60,7 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (comp
 		return noComplexType, err
 	}
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, TextType: noSimpleType, Base: complexRef(c.rt.Builtin.AnyType)})
-	ct, err := c.compileComplexType(n, ctx, q)
+	ct, err := c.compileComplexType(n, ctx, q, true)
 	if err != nil {
 		return noComplexType, err
 	}
@@ -73,10 +72,6 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (comp
 	ct.Final = final
 	c.rt.ComplexTypes[id] = ct
 	return id, nil
-}
-
-func (c *compiler) isAnonymousComplexName(q qName) bool {
-	return c.rt.Names.Namespace(q.Namespace) == "" && strings.HasPrefix(c.rt.Names.Local(q.Local), "$complex")
 }
 
 func schemaBoolAttr(n *rawNode, name string) (bool, error) {
@@ -166,7 +161,7 @@ func validateComplexTypeContent(n *rawNode) error {
 	return nil
 }
 
-func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName) (complexType, error) {
+func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName, anonymous bool) (complexType, error) {
 	if err := validateComplexTypeContent(n); err != nil {
 		return complexType{}, err
 	}
@@ -194,10 +189,10 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 		Block:       block,
 	}
 	if cc := n.firstXS(xsdElemComplexContent); cc != nil {
-		return c.compileComplexContent(cc, ctx, ct)
+		return c.compileComplexContent(cc, ctx, ct, anonymous)
 	}
 	if sc := n.firstXS(xsdElemSimpleContent); sc != nil {
-		return c.compileSimpleContent(sc, ctx, ct)
+		return c.compileSimpleContent(sc, ctx, ct, anonymous)
 	}
 	for _, child := range n.xsContentChildren() {
 		switch child.Name.Local {
@@ -226,7 +221,7 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 	return ct, nil
 }
 
-func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct complexType) (complexType, error) {
+func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct complexType, anonymous bool) (complexType, error) {
 	if err := validateComplexContentChildren(n); err != nil {
 		return complexType{}, err
 	}
@@ -238,13 +233,13 @@ func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct comp
 		if child.Name.Local != xsdElemExtension && child.Name.Local != xsdElemRestriction {
 			continue
 		}
-		return c.compileComplexContentDerivation(child, ctx, ct, mixed)
+		return c.compileComplexContentDerivation(child, ctx, ct, mixed, anonymous)
 	}
 	return complexType{}, schemaCompileAt(n, ErrSchemaContentModel, "complexContent missing extension or restriction")
 }
 
-func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaContext, ct complexType, mixed bool) (complexType, error) {
-	baseID, base, err := c.complexContentBase(child, ctx, ct)
+func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaContext, ct complexType, mixed, anonymous bool) (complexType, error) {
+	baseID, base, err := c.complexContentBase(child, ctx, anonymous)
 	if err != nil {
 		return complexType{}, err
 	}
@@ -261,7 +256,7 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaCo
 	return c.compileComplexContentRestriction(child, ctx, ct, base, mixed)
 }
 
-func (c *compiler) complexContentBase(child *rawNode, ctx *schemaContext, ct complexType) (complexTypeID, complexType, error) {
+func (c *compiler) complexContentBase(child *rawNode, ctx *schemaContext, anonymous bool) (complexTypeID, complexType, error) {
 	baseLex, ok := child.attr(xsdAttrBase)
 	if !ok {
 		return noComplexType, complexType{}, schemaCompileAt(child, ErrSchemaReference, "complexContent "+child.Name.Local+" missing base")
@@ -270,7 +265,7 @@ func (c *compiler) complexContentBase(child *rawNode, ctx *schemaContext, ct com
 	if err != nil {
 		return noComplexType, complexType{}, err
 	}
-	if c.compilingComplex[baseQName] && !c.isAnonymousComplexName(ct.Name) {
+	if c.compilingComplex[baseQName] && !anonymous {
 		return noComplexType, complexType{}, schemaCompileAt(child, ErrSchemaReference, "cyclic complex type "+c.rt.Names.Format(baseQName))
 	}
 	baseID, err := c.compileComplexByQName(baseQName)
@@ -477,7 +472,7 @@ func isFacetNode(local string) bool {
 	}
 }
 
-func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct complexType) (complexType, error) {
+func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct complexType, anonymous bool) (complexType, error) {
 	if err := validateSimpleContentChildren(n); err != nil {
 		return complexType{}, err
 	}
@@ -501,7 +496,7 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct compl
 	if c.simpleTypeQNameKnown(baseQName) {
 		ct, textType, err = c.compileSimpleContentSimpleBase(child, baseQName, ct)
 	} else {
-		ct, textType, err = c.compileSimpleContentComplexBase(child, baseQName, ct)
+		ct, textType, err = c.compileSimpleContentComplexBase(child, baseQName, ct, anonymous)
 	}
 	if err != nil {
 		return complexType{}, err
@@ -556,8 +551,8 @@ func (c *compiler) compileSimpleContentSimpleBase(child *rawNode, baseQName qNam
 	return ct, simpleID, nil
 }
 
-func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qName, ct complexType) (complexType, simpleTypeID, error) {
-	if c.compilingComplex[baseQName] && !c.isAnonymousComplexName(ct.Name) {
+func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qName, ct complexType, anonymous bool) (complexType, simpleTypeID, error) {
+	if c.compilingComplex[baseQName] && !anonymous {
 		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaReference, "cyclic complex type "+c.rt.Names.Format(baseQName))
 	}
 	if !c.complexTypeQNameKnown(baseQName) {
