@@ -101,56 +101,17 @@ func declaredXMLDeclAttr(buf []byte, want string) (string, bool) {
 	if !startsXMLDeclaration(buf) {
 		return "", false
 	}
-	const declLen = len("<?xml")
-	for i := declLen + 1; i < len(buf); {
-		name, value, next, ok := scanXMLDeclAttr(buf, i)
+	content := buf[len("<?xml"):]
+	pos := xmlDeclFirstAttr
+	for {
+		name, value, rest, ok := scanXMLDeclAttr(content, pos)
 		if !ok {
 			return "", false
 		}
-		if string(name) == want {
-			return string(value), true
+		if name == want {
+			return value, true
 		}
-		i = next
+		content = rest
+		pos = xmlDeclNextAttr
 	}
-	return "", false
-}
-
-func scanXMLDeclAttr(buf []byte, i int) ([]byte, []byte, int, bool) {
-	for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
-		i++
-	}
-	if i >= len(buf) || buf[i] == '?' || buf[i] == '>' {
-		return nil, nil, i, false
-	}
-	nameStart := i
-	for i < len(buf) && buf[i] != '=' && !isXMLWhitespaceByte(buf[i]) && buf[i] != '?' && buf[i] != '>' {
-		i++
-	}
-	name := buf[nameStart:i]
-	for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
-		i++
-	}
-	if i >= len(buf) || buf[i] != '=' {
-		return nil, nil, i, false
-	}
-	i++
-	for i < len(buf) && isXMLWhitespaceByte(buf[i]) {
-		i++
-	}
-	if i >= len(buf) || (buf[i] != '"' && buf[i] != '\'') {
-		return nil, nil, i, false
-	}
-	quote := buf[i]
-	i++
-	valueStart := i
-	for i < len(buf) && buf[i] != quote {
-		if buf[i] == '>' {
-			return nil, nil, i, false
-		}
-		i++
-	}
-	if i >= len(buf) {
-		return nil, nil, i, false
-	}
-	return name, buf[valueStart:i], i + 1, true
 }
