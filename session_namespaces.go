@@ -275,20 +275,11 @@ func (s *session) resolveLexicalQNameValue(v string) (string, bool) {
 func (ns *namespaceStack) push(attrs []xml.Attr) error {
 	mark := len(ns.bindings)
 	for _, a := range attrs {
-		if a.Name.Space == xmlnsPrefix {
-			if err := validateNamespaceBinding(a.Name.Local, a.Value); err != nil {
-				clear(ns.bindings[mark:])
-				ns.bindings = ns.bindings[:mark]
-				return err
-			}
-			ns.bindings = append(ns.bindings, namespaceBinding{Prefix: a.Name.Local, URI: a.Value})
-		} else if a.Name.Space == "" && a.Name.Local == xmlnsPrefix {
-			if err := validateDefaultNamespaceBinding(a.Value); err != nil {
-				clear(ns.bindings[mark:])
-				ns.bindings = ns.bindings[:mark]
-				return err
-			}
-			ns.bindings = append(ns.bindings, namespaceBinding{Prefix: "", URI: a.Value})
+		if !isNamespaceName(a.Name) {
+			continue
+		}
+		if err := ns.appendBinding(mark, a.Name, a.Value); err != nil {
+			return err
 		}
 	}
 	ns.frames = append(ns.frames, mark)
@@ -299,25 +290,34 @@ func (s *session) pushNamespaces(attrs []streamAttr) error {
 	mark := len(s.ns.bindings)
 	for i := range attrs {
 		a := &attrs[i]
-		if a.Name.Space == xmlnsPrefix {
-			value := a.stringValue(&s.valueStrings)
-			if err := validateNamespaceBinding(a.Name.Local, value); err != nil {
-				clear(s.ns.bindings[mark:])
-				s.ns.bindings = s.ns.bindings[:mark]
-				return err
-			}
-			s.ns.bindings = append(s.ns.bindings, namespaceBinding{Prefix: a.Name.Local, URI: value})
-		} else if a.Name.Space == "" && a.Name.Local == xmlnsPrefix {
-			value := a.stringValue(&s.valueStrings)
-			if err := validateDefaultNamespaceBinding(value); err != nil {
-				clear(s.ns.bindings[mark:])
-				s.ns.bindings = s.ns.bindings[:mark]
-				return err
-			}
-			s.ns.bindings = append(s.ns.bindings, namespaceBinding{Prefix: "", URI: value})
+		if !isNamespaceName(a.Name) {
+			continue
+		}
+		if err := s.ns.appendBinding(mark, a.Name, a.stringValue(&s.valueStrings)); err != nil {
+			return err
 		}
 	}
 	s.ns.frames = append(s.ns.frames, mark)
+	return nil
+}
+
+// appendBinding validates one xmlns declaration and appends it, rolling back
+// bindings added since mark on error.
+func (ns *namespaceStack) appendBinding(mark int, name xml.Name, uri string) error {
+	prefix := ""
+	var err error
+	if name.Space == xmlnsPrefix {
+		prefix = name.Local
+		err = validateNamespaceBinding(prefix, uri)
+	} else {
+		err = validateDefaultNamespaceBinding(uri)
+	}
+	if err != nil {
+		clear(ns.bindings[mark:])
+		ns.bindings = ns.bindings[:mark]
+		return err
+	}
+	ns.bindings = append(ns.bindings, namespaceBinding{Prefix: prefix, URI: uri})
 	return nil
 }
 
