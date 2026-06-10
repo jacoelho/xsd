@@ -698,3 +698,88 @@ func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
 		})
 	}
 }
+
+func TestMixedSimpleContentExtensionChain(t *testing.T) {
+	const mixedBase = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A" mixed="true">
+    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="B">
+    <xs:complexContent mixed="true"><xs:extension base="A"/></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="C">
+    <xs:complexContent mixed="true"><xs:extension base="B"/></xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="C"/>
+</xs:schema>`
+	mustCompile(t, mixedBase)
+
+	const nonMixedBase = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A">
+    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="B">
+    <xs:complexContent mixed="true"><xs:extension base="A"/></xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="B"/>
+</xs:schema>`
+	_, err := Compile(sourceBytes("schema.xsd", []byte(nonMixedBase)))
+	expectCode(t, err, ErrSchemaContentModel)
+}
+
+func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="S">
+    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="E">
+    <xs:sequence><xs:element name="child"/></xs:sequence>
+  </xs:complexType>
+  <xs:element name="s" type="S"/>
+  <xs:element name="e" type="E"/>
+</xs:schema>`
+	complexID := func(t *testing.T, engine *Engine, local string) complexTypeID {
+		t.Helper()
+		typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "", local)]
+		id, ok := typ.complex()
+		if !ok {
+			t.Fatalf("%s is not a complex type", local)
+		}
+		return id
+	}
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, engine *Engine)
+	}{
+		{
+			name: "text type without simple content",
+			mutate: func(t *testing.T, engine *Engine) {
+				engine.rt.ComplexTypes[complexID(t, engine, "E")].TextType = engine.rt.Builtin.String
+			},
+		},
+		{
+			name: "simple content with particles",
+			mutate: func(t *testing.T, engine *Engine) {
+				elementOnly := engine.rt.ComplexTypes[complexID(t, engine, "E")]
+				engine.rt.ComplexTypes[complexID(t, engine, "S")].Content = elementOnly.Content
+			},
+		},
+		{
+			name: "simple content with invalid text type",
+			mutate: func(t *testing.T, engine *Engine) {
+				engine.rt.ComplexTypes[complexID(t, engine, "S")].TextType = simpleTypeID(1 << 30)
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			tc.mutate(t, engine)
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}

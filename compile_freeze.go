@@ -278,8 +278,17 @@ func validateComplexType(rt *runtimeSchema, ct complexType) error {
 	if ct.Attrs != noAttributeUseSet && !validAttributeUseSetID(rt, ct.Attrs) {
 		return internalInvariant("complex type references invalid attribute use set")
 	}
-	if ct.SimpleValue && !validSimpleTypeID(rt, ct.TextType) {
+	if !ct.simpleContent() {
+		if ct.TextType != noSimpleType {
+			return internalInvariant("complex type stores text type without simple content")
+		}
+		return nil
+	}
+	if !validSimpleTypeID(rt, ct.TextType) {
 		return internalInvariant("complex type references invalid text type")
+	}
+	if !validContentModelID(rt, ct.Content) || rt.Models[ct.Content].Kind != modelEmpty {
+		return internalInvariant("complex type simple content must have empty content model")
 	}
 	return nil
 }

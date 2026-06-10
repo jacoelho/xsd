@@ -2,10 +2,11 @@ package xsd
 
 func (s *session) validateAttributes(typ typeID, attrs []streamAttr, line, col int) error {
 	rt := s.engine.rt
-	if typ.Kind == typeSimple {
+	id, ok := typ.complex()
+	if !ok {
 		return s.validateSimpleTypeAttributes(attrs, line, col)
 	}
-	ct := rt.ComplexTypes[typ.ID]
+	ct := rt.ComplexTypes[id]
 	if ct.Attrs == noAttributeUseSet {
 		return nil
 	}

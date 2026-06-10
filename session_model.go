@@ -41,11 +41,12 @@ func (s *session) acceptChild(parent *frame, rn runtimeName, attrs []streamAttr,
 	if parent.Nilled {
 		return acceptedChild{}, validation(ErrValidationNil, line, col, s.pathString(), "nilled element must be empty")
 	}
-	if parent.Type.Kind == typeSimple {
+	parentComplex, isComplex := parent.Type.complex()
+	if !isComplex {
 		return acceptedChild{}, validation(ErrValidationContent, line, col, s.pathString(), "simple type cannot contain child elements")
 	}
-	ct := rt.ComplexTypes[parent.Type.ID]
-	if ct.SimpleValue {
+	ct := rt.ComplexTypes[parentComplex]
+	if ct.simpleContent() {
 		return acceptedChild{}, validation(ErrValidationContent, line, col, s.pathString(), "simple content cannot contain child elements")
 	}
 	if parent.Model == noContentModel {
@@ -286,7 +287,7 @@ func (s *session) captureEndIdentity(f *frame, contentCaptured bool, line, col i
 		return nil
 	case f.Nilled && f.Element != noElement:
 		return s.recover(s.captureIdentityFields(s.identityElementFields(), nilledIdentityValue(), line, col))
-	case f.Type.Kind == typeComplex && !s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue:
+	case !s.engine.rt.typeHasSimpleContent(f.Type):
 		return s.recover(s.captureIdentityComplexElement(s.text[f.TextStart:], line, col))
 	default:
 		return nil

@@ -268,14 +268,13 @@ func (c *compiler) compileElementTypeAttribute(n *rawNode, ctx *schemaContext, t
 
 func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qnameResolver) error {
 	simpleID := noSimpleType
-	switch decl.Type.Kind {
-	case typeSimple:
-		simpleID = simpleTypeID(decl.Type.ID)
-	case typeComplex:
-		ct := c.rt.ComplexTypes[decl.Type.ID]
-		if ct.SimpleValue {
+	if id, ok := decl.Type.simple(); ok {
+		simpleID = id
+	} else if id, ok := decl.Type.complex(); ok {
+		ct := c.rt.ComplexTypes[id]
+		if ct.simpleContent() {
 			simpleID = ct.TextType
-		} else if (decl.Default.Present || decl.Fixed.Present) && ct.Mixed && c.modelEmptiable(ct.Content) {
+		} else if (decl.Default.Present || decl.Fixed.Present) && ct.mixed() && c.modelEmptiable(ct.Content) {
 			decl.Default.Canonical = decl.Default.Lexical
 			decl.Fixed.Canonical = decl.Fixed.Lexical
 			if decl.Default.Present {

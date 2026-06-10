@@ -62,7 +62,7 @@ func (s *session) simpleContentType(f *frame, line, col int) (simpleTypeID, bool
 		return id, true, nil
 	}
 	ct := s.engine.rt.ComplexTypes[f.Type.ID]
-	if !ct.SimpleValue {
+	if !ct.simpleContent() {
 		return noSimpleType, false, s.validateNonSimpleFixedContent(f, line, col)
 	}
 	return ct.TextType, true, nil

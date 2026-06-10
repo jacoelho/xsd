@@ -522,8 +522,8 @@ func (s *session) pushFrame(elem elementID, typ typeID, nilled, skip bool) {
 	modelID := noContentModel
 	bitLen := 0
 	state := uint32(0)
-	if typ.Kind == typeComplex {
-		ct := rt.ComplexTypes[typ.ID]
+	if id, ok := typ.complex(); ok {
+		ct := rt.ComplexTypes[id]
 		modelID = ct.Content
 		if modelID != noContentModel {
 			model := rt.CompiledModels[modelID]
@@ -570,16 +570,16 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if f.Nilled {
 		return validation(ErrValidationNil, line, col, s.pathString(), "nilled element must be empty")
 	}
-	if f.Type.Kind == typeSimple || (f.Type.Kind == typeComplex && s.engine.rt.ComplexTypes[f.Type.ID].SimpleValue) {
+	if s.engine.rt.typeHasSimpleContent(f.Type) {
 		return s.appendText(data, line, col)
 	}
 	whitespace := isXMLWhitespaceBytes(data)
 	if !whitespace {
 		f.HasText = true
 	}
-	if f.Type.Kind == typeComplex {
-		ct := s.engine.rt.ComplexTypes[f.Type.ID]
-		if ct.Mixed {
+	if id, ok := f.Type.complex(); ok {
+		ct := s.engine.rt.ComplexTypes[id]
+		if ct.mixed() {
 			if f.Element != noElement && s.engine.rt.Elements[f.Element].Fixed.Present {
 				if err := s.appendText(data, line, col); err != nil {
 					return err

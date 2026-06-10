@@ -545,9 +545,9 @@ func (c *compiler) elementValueSimpleType(decl elementDecl) simpleTypeID {
 	if id, ok := decl.Type.simple(); ok {
 		return id
 	}
-	if decl.Type.Kind == typeComplex {
-		ct := c.rt.ComplexTypes[decl.Type.ID]
-		if ct.SimpleValue {
+	if id, ok := decl.Type.complex(); ok {
+		ct := c.rt.ComplexTypes[id]
+		if ct.simpleContent() {
 			return ct.TextType
 		}
 	}

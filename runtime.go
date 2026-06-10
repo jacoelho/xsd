@@ -379,18 +379,51 @@ const (
 	blockUnion
 )
 
+// contentKind is the complex type {content type} variety.
+type contentKind uint8
+
+const (
+	contentElementOnly contentKind = iota
+	contentMixed
+	contentSimple
+	// contentSimpleMixed is simple content that recorded mixed="true";
+	// the mixed flag only feeds complexContent mixed-derivation checks.
+	contentSimpleMixed
+)
+
+func elementContentKind(mixed bool) contentKind {
+	if mixed {
+		return contentMixed
+	}
+	return contentElementOnly
+}
+
+func simpleContentKind(mixed bool) contentKind {
+	if mixed {
+		return contentSimpleMixed
+	}
+	return contentSimple
+}
+
 type complexType struct {
 	Name        qName
 	Base        typeID
 	Content     contentModelID
 	Attrs       attributeUseSetID
 	TextType    simpleTypeID
-	Mixed       bool
+	ContentKind contentKind
 	Abstract    bool
 	Derivation  derivationKind
 	Block       derivationMask
 	Final       derivationMask
-	SimpleValue bool
+}
+
+func (ct complexType) mixed() bool {
+	return ct.ContentKind == contentMixed || ct.ContentKind == contentSimpleMixed
+}
+
+func (ct complexType) simpleContent() bool {
+	return ct.ContentKind == contentSimple || ct.ContentKind == contentSimpleMixed
 }
 
 type modelKind uint8
@@ -512,6 +545,15 @@ func (rt *runtimeSchema) complexType(id complexTypeID) (*complexType, bool) {
 	return &rt.ComplexTypes[id], true
 }
 
+// typeHasSimpleContent reports whether values of t carry simple content:
+// t is a simple type, or a complex type whose content type is simple.
+func (rt *runtimeSchema) typeHasSimpleContent(t typeID) bool {
+	if id, ok := t.complex(); ok {
+		return rt.ComplexTypes[id].simpleContent()
+	}
+	return true
+}
+
 func (rt *runtimeSchema) typeName(t typeID) qName {
 	if t.Kind == typeSimple {
 		return rt.SimpleTypes[t.ID].Name
@@ -523,22 +565,27 @@ func (rt *runtimeSchema) typeDerivationMask(t, base typeID) (derivationMask, boo
 	if t == base {
 		return 0, true
 	}
-	if t.Kind == typeSimple && base.Kind == typeComplex && complexTypeID(base.ID) == rt.Builtin.AnyType {
+	if base == complexRef(rt.Builtin.AnyType) {
+		if id, ok := t.complex(); ok {
+			return rt.complexAnyTypeDerivationMask(id)
+		}
 		return blockRestriction, true
 	}
-	if t.Kind == typeComplex && base.Kind == typeComplex && complexTypeID(base.ID) == rt.Builtin.AnyType {
-		return rt.complexAnyTypeDerivationMask(complexTypeID(t.ID))
-	}
-	if t.Kind == typeComplex && base.Kind == typeSimple {
-		return rt.complexSimpleTypeDerivationMask(complexTypeID(t.ID), simpleTypeID(base.ID))
-	}
-	if t.Kind != base.Kind {
+	if tID, ok := t.complex(); ok {
+		if baseID, ok := base.simple(); ok {
+			return rt.complexSimpleTypeDerivationMask(tID, baseID)
+		}
+		if baseID, ok := base.complex(); ok {
+			return rt.complexTypeDerivationMask(tID, baseID)
+		}
 		return 0, false
 	}
-	if t.Kind == typeSimple {
-		return rt.simpleTypeDerivationMask(simpleTypeID(t.ID), simpleTypeID(base.ID), make(map[[2]simpleTypeID]bool))
+	if tID, ok := t.simple(); ok {
+		if baseID, ok := base.simple(); ok {
+			return rt.simpleTypeDerivationMask(tID, baseID, make(map[[2]simpleTypeID]bool))
+		}
 	}
-	return rt.complexTypeDerivationMask(complexTypeID(t.ID), complexTypeID(base.ID))
+	return 0, false
 }
 
 func (rt *runtimeSchema) substitutionDerivationAllowed(t, base typeID, block derivationMask) bool {
@@ -596,16 +643,15 @@ func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 
 func (rt *runtimeSchema) complexSimpleTypeDerivationMask(t complexTypeID, base simpleTypeID) (derivationMask, bool) {
 	ct, ok := rt.complexType(t)
-	if !ok || !ct.SimpleValue {
+	if !ok || !ct.simpleContent() {
 		return 0, false
 	}
 	var mask derivationMask
-	switch ct.Base.Kind {
-	case typeSimple:
-		mask, ok = rt.simpleTypeDerivationMask(simpleTypeID(ct.Base.ID), base, make(map[[2]simpleTypeID]bool))
-	case typeComplex:
-		mask, ok = rt.complexSimpleTypeDerivationMask(complexTypeID(ct.Base.ID), base)
-	default:
+	if baseSimple, isSimple := ct.Base.simple(); isSimple {
+		mask, ok = rt.simpleTypeDerivationMask(baseSimple, base, make(map[[2]simpleTypeID]bool))
+	} else if baseComplex, isComplex := ct.Base.complex(); isComplex {
+		mask, ok = rt.complexSimpleTypeDerivationMask(baseComplex, base)
+	} else {
 		return 0, false
 	}
 	if !ok {

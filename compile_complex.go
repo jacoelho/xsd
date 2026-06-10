@@ -26,7 +26,7 @@ func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	if err != nil {
 		return noComplexType, err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: complexRef(c.rt.Builtin.AnyType)})
+	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, TextType: noSimpleType, Base: complexRef(c.rt.Builtin.AnyType)})
 	c.complexDone[q] = id
 	c.rt.GlobalTypes[q] = complexRef(id)
 	ct, err := c.compileComplexType(raw.node, raw.ctx, q)
@@ -60,7 +60,7 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (comp
 	if err != nil {
 		return noComplexType, err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: complexRef(c.rt.Builtin.AnyType)})
+	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, TextType: noSimpleType, Base: complexRef(c.rt.Builtin.AnyType)})
 	ct, err := c.compileComplexType(n, ctx, q)
 	if err != nil {
 		return noComplexType, err
@@ -183,15 +183,15 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 		return complexType{}, err
 	}
 	ct := complexType{
-		Name:       name,
-		Content:    noContentModel,
-		Attrs:      noAttributeUseSet,
-		TextType:   noSimpleType,
-		Mixed:      mixed,
-		Abstract:   abstract,
-		Base:       complexRef(c.rt.Builtin.AnyType),
-		Derivation: derivationRestriction,
-		Block:      block,
+		Name:        name,
+		Content:     noContentModel,
+		Attrs:       noAttributeUseSet,
+		TextType:    noSimpleType,
+		ContentKind: elementContentKind(mixed),
+		Abstract:    abstract,
+		Base:        complexRef(c.rt.Builtin.AnyType),
+		Derivation:  derivationRestriction,
+		Block:       block,
 	}
 	if cc := n.firstXS(xsdElemComplexContent); cc != nil {
 		return c.compileComplexContent(cc, ctx, ct)
@@ -230,7 +230,7 @@ func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct comp
 	if err := validateComplexContentChildren(n); err != nil {
 		return complexType{}, err
 	}
-	mixed, err := schemaBoolAttrDefault(n, xsdAttrMixed, ct.Mixed)
+	mixed, err := schemaBoolAttrDefault(n, xsdAttrMixed, ct.mixed())
 	if err != nil {
 		return complexType{}, err
 	}
@@ -248,7 +248,7 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaCo
 	if err != nil {
 		return complexType{}, err
 	}
-	if mixed && !base.Mixed {
+	if mixed && !base.mixed() {
 		return complexType{}, schemaCompileAt(child, ErrSchemaContentModel, "complexContent mixed derivation requires mixed base")
 	}
 	if err := validateComplexContentDerivationChildren(child); err != nil {
@@ -284,7 +284,7 @@ func (c *compiler) compileComplexContentExtension(child *rawNode, ctx *schemaCon
 	if base.Final&blockExtension != 0 {
 		return complexType{}, schemaCompileAt(child, ErrSchemaReference, "base complex type final blocks extension")
 	}
-	if base.SimpleValue {
+	if base.simpleContent() {
 		return c.compileSimpleValueComplexExtension(child, ctx, ct, base, mixed)
 	}
 	ct.Derivation = derivationExtension
@@ -303,7 +303,7 @@ func (c *compiler) compileComplexContentExtension(child *rawNode, ctx *schemaCon
 		return complexType{}, err
 	}
 	ct.Attrs = attrs
-	ct.Mixed = base.Mixed || mixed
+	ct.ContentKind = elementContentKind(base.mixed() || mixed)
 	return ct, nil
 }
 
@@ -323,13 +323,12 @@ func (c *compiler) compileSimpleValueComplexExtension(child *rawNode, ctx *schem
 	}
 	ct.Attrs = attrs
 	ct.TextType = base.TextType
-	ct.SimpleValue = true
-	ct.Mixed = mixed
+	ct.ContentKind = simpleContentKind(mixed)
 	return ct, nil
 }
 
 func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaContext, baseID complexTypeID, base complexType, mixed bool) (contentModelID, error) {
-	if baseID != c.rt.Builtin.AnyType && base.Mixed && !mixed {
+	if baseID != c.rt.Builtin.AnyType && base.mixed() && !mixed {
 		return noContentModel, schemaCompileAt(modelNode, ErrSchemaContentModel, "complexContent extension cannot drop mixed base content")
 	}
 	if err := validateModelOccurrence(modelNode, c.limits); err != nil {
@@ -355,7 +354,7 @@ func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaC
 	if base.Final&blockRestriction != 0 {
 		return complexType{}, schemaCompileAt(child, ErrSchemaReference, "base complex type final blocks restriction")
 	}
-	if base.SimpleValue {
+	if base.simpleContent() {
 		return complexType{}, schemaCompileAt(child, ErrSchemaContentModel, "complexContent restriction base cannot have simple content")
 	}
 	ct.Derivation = derivationRestriction
@@ -370,14 +369,14 @@ func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaC
 		return complexType{}, err
 	}
 	ct.Attrs = attrs
-	ct.Mixed = mixed
+	ct.ContentKind = elementContentKind(mixed)
 	return ct, nil
 }
 
 func (c *compiler) compileComplexRestrictionModel(child *rawNode, ctx *schemaContext, ct complexType) (contentModelID, error) {
 	modelNode := firstModelChild(child)
 	if modelNode == nil {
-		return c.addModel(contentModel{Kind: modelEmpty, Mixed: ct.Mixed})
+		return c.addModel(contentModel{Kind: modelEmpty, Mixed: ct.mixed()})
 	}
 	if err := validateModelOccurrence(modelNode, c.limits); err != nil {
 		return noContentModel, err
@@ -528,7 +527,7 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct compl
 		return complexType{}, err
 	}
 	ct.TextType = textType
-	ct.SimpleValue = true
+	ct.ContentKind = simpleContentKind(ct.mixed())
 	ct.Derivation = derivation
 	return ct, nil
 }
@@ -569,7 +568,7 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qNa
 		return complexType{}, noSimpleType, withSchemaCompileLocation(child, err)
 	}
 	base := c.rt.ComplexTypes[baseComplex]
-	if !base.SimpleValue {
+	if !base.simpleContent() {
 		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent base must have simple content")
 	}
 	if child.Name.Local == xsdElemExtension && base.Final&blockExtension != 0 {

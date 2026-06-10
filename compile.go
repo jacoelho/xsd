@@ -410,11 +410,11 @@ func (c *compiler) compileModelGroupByQName(q qName) error {
 
 func (c *compiler) validateCompiledComplexRestrictions() error {
 	for id, ct := range c.rt.ComplexTypes {
-		if id == int(c.rt.Builtin.AnyType) || ct.Derivation != derivationRestriction || ct.Base.Kind != typeComplex {
+		if id == int(c.rt.Builtin.AnyType) || ct.Derivation != derivationRestriction {
 			continue
 		}
-		baseID := complexTypeID(ct.Base.ID)
-		if baseID == noComplexType || baseID == c.rt.Builtin.AnyType {
+		baseID, ok := ct.Base.complex()
+		if !ok || baseID == noComplexType || baseID == c.rt.Builtin.AnyType {
 			continue
 		}
 		base := c.rt.ComplexTypes[baseID]

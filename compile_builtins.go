@@ -295,7 +295,7 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: modelID, Attrs: attrSet, Mixed: true, Base: complexRef(noComplexType)})
+	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: modelID, Attrs: attrSet, TextType: noSimpleType, ContentKind: contentMixed, Base: complexRef(noComplexType)})
 	c.rt.Builtin.AnyType = complexID
 	c.complexDone[q] = complexID
 	c.rt.GlobalTypes[q] = complexRef(complexID)
