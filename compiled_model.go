@@ -78,9 +78,60 @@ func (c *compiler) compileContentModels() error {
 		if err != nil {
 			return err
 		}
+		c.indexCompiledModelRows(&m)
 		c.rt.CompiledModels[id] = m
 	}
 	return nil
+}
+
+// dfaRowIndexMinEdges is the edge count at which a row gets a name index
+// instead of the linear edge scan during validation.
+const dfaRowIndexMinEdges = 8
+
+func (c *compiler) indexCompiledModelRows(m *compiledModel) {
+	if m.Kind != compiledModelDFA {
+		return
+	}
+	for i := range m.Rows {
+		c.indexCompiledModelRow(&m.Rows[i])
+	}
+}
+
+// indexCompiledModelRow builds a name→edge index for wide rows. Rows where one
+// name maps to two edges (counting-exception loops) keep the linear scan.
+func (c *compiler) indexCompiledModelRow(row *compiledModelRow) {
+	if len(row.Edges) < dfaRowIndexMinEdges {
+		return
+	}
+	index := make(map[qName]uint32, len(row.Edges))
+	var wildcards []uint32
+	for pos, edge := range row.Edges {
+		switch edge.Particle.Kind {
+		case particleElement:
+			if !indexEdgeName(index, c.rt.Elements[edge.Particle.Element].Name, uint32(pos)) {
+				return
+			}
+			for name := range c.rt.SubstitutionLookup[edge.Particle.Element] {
+				if !indexEdgeName(index, name, uint32(pos)) {
+					return
+				}
+			}
+		case particleWildcard:
+			wildcards = append(wildcards, uint32(pos))
+		case particleModel:
+			return
+		}
+	}
+	row.NameToEdge = index
+	row.WildcardEdges = wildcards
+}
+
+func indexEdgeName(index map[qName]uint32, name qName, pos uint32) bool {
+	if prev, ok := index[name]; ok {
+		return prev == pos
+	}
+	index[name] = pos
+	return true
 }
 
 func (c *compiler) compileContentModel(id contentModelID) (compiledModel, error) {

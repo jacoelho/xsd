@@ -1,9 +1,6 @@
 package xsd
 
-import (
-	"maps"
-	"strings"
-)
+import "strings"
 
 const nilledIdentityKey = "\xff\x1e\x00nil"
 
@@ -647,7 +644,9 @@ func (s *session) mergeIdentityTables(dst, src *identityScope) {
 	for id, srcTable := range src.Tables {
 		dstTable := dst.Tables[id]
 		if dstTable == nil {
-			dst.Tables[id] = maps.Clone(srcTable)
+			// The source scope is discarded right after the merge, so the
+			// table can change owner without copying.
+			dst.Tables[id] = srcTable
 			continue
 		}
 		for key, path := range srcTable {

@@ -1994,3 +1994,142 @@ func TestAttributeWildcardUnionMustBeExpressible(t *testing.T) {
 </xs:schema>`)))
 	expectCode(t, err, ErrSchemaContentModel)
 }
+
+func wideChoiceSchema(width int, extraParticles string) string {
+	var sb strings.Builder
+	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+`)
+	for i := range width {
+		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+	}
+	sb.WriteString(extraParticles)
+	sb.WriteString(`      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	return sb.String()
+}
+
+func requireIndexedRootModel(t *testing.T, engine *Engine) {
+	t.Helper()
+	model := engine.rt.CompiledModels[rootContentModel(t, engine)]
+	if model.Kind != compiledModelDFA {
+		t.Fatalf("root model kind = %v, want DFA", model.Kind)
+	}
+	for _, row := range model.Rows {
+		if len(row.Edges) >= dfaRowIndexMinEdges && row.NameToEdge == nil {
+			t.Fatalf("row with %d edges has no name index", len(row.Edges))
+		}
+	}
+}
+
+func TestWideChoiceIndexedDispatch(t *testing.T) {
+	engine := mustCompile(t, wideChoiceSchema(16, ""))
+	requireIndexedRootModel(t, engine)
+	mustValidate(t, engine, `<r><f0/><f15/><f7/><f7/></r>`)
+	mustNotValidate(t, engine, `<r><f0/><zzz/></r>`, ErrValidationElement)
+	mustNotValidate(t, engine, `<r><f0/><r/></r>`, ErrValidationElement)
+}
+
+func TestWideSequenceIndexedDispatch(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+`)
+	for i := range 15 {
+		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string" minOccurs="0"/>` + "\n")
+	}
+	sb.WriteString(`        <xs:element name="last" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	engine := mustCompile(t, sb.String())
+	requireIndexedRootModel(t, engine)
+	mustValidate(t, engine, `<r><f3/><f10/><last/></r>`)
+	mustNotValidate(t, engine, `<r><f3/></r>`, ErrValidationContent)
+	mustNotValidate(t, engine, `<r><last/><f3/></r>`, ErrValidationElement)
+}
+
+func TestWideChoiceIndexedSubstitutionGroup(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:string"/>
+  <xs:element name="member" substitutionGroup="head" type="xs:string"/>
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="head"/>
+`)
+	for i := range 15 {
+		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+	}
+	sb.WriteString(`      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	engine := mustCompile(t, sb.String())
+	requireIndexedRootModel(t, engine)
+	mustValidate(t, engine, `<r><member/><f0/><head/><member/></r>`)
+	mustNotValidate(t, engine, `<r><zzz/></r>`, ErrValidationElement)
+}
+
+func TestWideChoiceIndexedWildcardSkip(t *testing.T) {
+	engine := mustCompile(t, wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="skip"/>
+`))
+	requireIndexedRootModel(t, engine)
+	mustValidate(t, engine, `<r><f0/><o:x xmlns:o="urn:o"><o:y/></o:x><f14/></r>`)
+	mustNotValidate(t, engine, `<r><zzz/></r>`, ErrValidationElement)
+}
+
+func TestWideChoiceIndexedWildcardLax(t *testing.T) {
+	engine := mustCompile(t, wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="lax"/>
+`))
+	requireIndexedRootModel(t, engine)
+	mustValidate(t, engine, `<r><o:x xmlns:o="urn:o"/><f3/></r>`)
+}
+
+func TestWideChoiceIndexedWildcardStrict(t *testing.T) {
+	engine := mustCompile(t, wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="strict"/>
+`))
+	requireIndexedRootModel(t, engine)
+	mustNotValidate(t, engine, `<r><o:x xmlns:o="urn:o"/></r>`, ErrValidationElement)
+}
+
+func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" minOccurs="2" maxOccurs="2"/>
+`)
+	for _, name := range []string{"b", "c", "d", "e", "f", "g"} {
+		sb.WriteString(`        <xs:element name="` + name + `" minOccurs="0"/>` + "\n")
+	}
+	sb.WriteString(`        <xs:element name="a"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	engine := mustCompile(t, sb.String())
+	model := engine.rt.CompiledModels[rootContentModel(t, engine)]
+	ambiguousRow := false
+	for _, row := range model.Rows {
+		if len(row.Edges) >= dfaRowIndexMinEdges && row.NameToEdge == nil {
+			ambiguousRow = true
+		}
+	}
+	if !ambiguousRow {
+		t.Fatal("expected a wide row without a name index")
+	}
+	mustValidate(t, engine, `<r><a/><a/><a/></r>`)
+	mustValidate(t, engine, `<r><a/><a/><b/><g/><a/></r>`)
+	mustNotValidate(t, engine, `<r><a/><a/><a/><a/></r>`, ErrValidationElement)
+	mustNotValidate(t, engine, `<r><a/><b/><a/></r>`, ErrValidationElement)
+}
