@@ -33,6 +33,11 @@ func translateXSDRegexToGo(source string) string {
 				i = end
 				continue
 			}
+		case !inClass && c == '.':
+			// XSD '.' matches any character except newline and carriage
+			// return; Go '.' only excludes newline.
+			b.WriteString(`[^\n\r]`)
+			continue
 		case !inClass && (c == '^' || c == '$'):
 			b.WriteByte('\\')
 		}
