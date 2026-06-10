@@ -55,6 +55,41 @@ func TestPatternFacetTreatsCaretAndDollarAsLiterals(t *testing.T) {
 	mustNotValidate(t, engine, `<root>abc</root>`, ErrValidationFacet)
 }
 
+func TestPatternDotExcludesCarriageReturn(t *testing.T) {
+	re := regexp.MustCompile("^(?:" + translateXSDRegexToGo("a.b") + ")$")
+	if re.MatchString("a\rb") {
+		t.Fatal(`translated "a.b" matches carriage return`)
+	}
+	if re.MatchString("a\nb") {
+		t.Fatal(`translated "a.b" matches newline`)
+	}
+	if !re.MatchString("axb") {
+		t.Fatal(`translated "a.b" does not match "axb"`)
+	}
+	literal := regexp.MustCompile("^(?:" + translateXSDRegexToGo(`a\.b`) + ")$")
+	if !literal.MatchString("a.b") || literal.MatchString("axb") {
+		t.Fatal(`translated "a\.b" must match a literal dot only`)
+	}
+	class := regexp.MustCompile("^(?:" + translateXSDRegexToGo(`[.]`) + ")$")
+	if !class.MatchString(".") || class.MatchString("x") {
+		t.Fatal(`translated "[.]" must match a literal dot only`)
+	}
+
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:restriction base="xs:string">
+        <xs:pattern value="a.b"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root>axb</root>`)
+	mustNotValidate(t, engine, "<root>a&#13;b</root>", ErrValidationFacet)
+	mustNotValidate(t, engine, "<root>a&#10;b</root>", ErrValidationFacet)
+}
+
 func TestPatternEscapedUnsupportedEscapesAreLiterals(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
