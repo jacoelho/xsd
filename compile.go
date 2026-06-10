@@ -636,23 +636,25 @@ func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName,
 	}
 }
 
-func validateSimpleTypeChildren(n *rawNode) error {
-	return checkOrderedChildren(n, childOrder{
-		annotationFirstMsg: "simpleType annotation must be first",
-		singleAnnotation:   true,
-		rules: []childRule{
-			{
-				match:  matchLocal(xsdElemRestriction, xsdElemList, xsdElemUnion),
-				maxOne: true,
-				dupMsg: "simpleType can contain one restriction, list, or union",
-			},
+var simpleTypeChildOrder = childOrder{
+	annotationFirstMsg: "simpleType annotation must be first",
+	singleAnnotation:   true,
+	rules: []childRule{
+		{
+			match:  matchLocal(xsdElemRestriction, xsdElemList, xsdElemUnion),
+			maxOne: true,
+			dupMsg: "simpleType can contain one restriction, list, or union",
 		},
-		invalidMsg: func(local string) string { return "unsupported simpleType child " + local },
-	})
+	},
+	invalidMsg: func(local string) string { return "unsupported simpleType child " + local },
+}
+
+func validateSimpleTypeChildren(n *rawNode) error {
+	return checkOrderedChildren(n, simpleTypeChildOrder)
 }
 
 func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
-	if err := validateSimpleDerivationChildren(n, simpleDerivationSingleChild); err != nil {
+	if err := validateSimpleDerivationChildren(n); err != nil {
 		return simpleType{}, err
 	}
 	var baseID simpleTypeID
@@ -712,7 +714,7 @@ func cloneFacetSet(f facetSet) facetSet {
 }
 
 func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
-	if err := validateSimpleDerivationChildren(n, simpleDerivationSingleChild); err != nil {
+	if err := validateSimpleDerivationChildren(n); err != nil {
 		return simpleType{}, err
 	}
 	item := noSimpleType
@@ -768,7 +770,7 @@ func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType 
 }
 
 func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
-	if err := validateSimpleDerivationChildren(n, simpleDerivationMultipleChildren); err != nil {
+	if err := validateSimpleDerivationChildren(n); err != nil {
 		return simpleType{}, err
 	}
 	st := simpleType{Name: name, Variety: varietyUnion, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse}
@@ -808,30 +810,40 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 	return st, nil
 }
 
-type simpleDerivationChildPolicy uint8
+// Union derivations may hold several member simpleType children; restriction
+// and list derivations hold at most one.
+var simpleRestrictionChildOrder = simpleDerivationOrder(xsdElemRestriction, true)
+var simpleListChildOrder = simpleDerivationOrder(xsdElemList, true)
+var simpleUnionChildOrder = simpleDerivationOrder(xsdElemUnion, false)
 
-const (
-	simpleDerivationSingleChild simpleDerivationChildPolicy = iota
-	simpleDerivationMultipleChildren
-)
+func validateSimpleDerivationChildren(n *rawNode) error {
+	switch n.Name.Local {
+	case xsdElemList:
+		return checkOrderedChildren(n, simpleListChildOrder)
+	case xsdElemUnion:
+		return checkOrderedChildren(n, simpleUnionChildOrder)
+	default:
+		return checkOrderedChildren(n, simpleRestrictionChildOrder)
+	}
+}
 
-func validateSimpleDerivationChildren(n *rawNode, policy simpleDerivationChildPolicy) error {
-	return checkOrderedChildren(n, childOrder{
-		annotationFirstMsg: n.Name.Local + " annotation must be first",
+func simpleDerivationOrder(derivation string, singleChild bool) childOrder {
+	return childOrder{
+		annotationFirstMsg: derivation + " annotation must be first",
 		singleAnnotation:   true,
 		rules: []childRule{
 			{
 				match:    matchLocal(xsdElemSimpleType),
 				level:    0,
-				maxOne:   policy == simpleDerivationSingleChild,
-				orderMsg: n.Name.Local + " simpleType must precede facets",
-				dupMsg:   n.Name.Local + " can contain one simpleType",
+				maxOne:   singleChild,
+				orderMsg: derivation + " simpleType must precede facets",
+				dupMsg:   derivation + " can contain one simpleType",
 			},
 			{
 				match: isFacetNode,
 				level: 1,
 			},
 		},
-		invalidMsg: func(local string) string { return "invalid " + n.Name.Local + " child " + local },
-	})
+		invalidMsg: func(local string) string { return "invalid " + derivation + " child " + local },
+	}
 }

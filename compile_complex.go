@@ -117,37 +117,39 @@ func validateKnownAttributes(n *rawNode, label string, allowed func(string) bool
 	return nil
 }
 
-func validateComplexTypeContent(n *rawNode) error {
-	return checkOrderedChildren(n, childOrder{
-		annotationFirstMsg: "complexType annotation must be first",
-		rules: []childRule{
-			{
-				match:    matchLocal(xsdElemSimpleContent, xsdElemComplexContent),
-				level:    0,
-				terminal: true,
-				orderMsg: "complexType content model is out of order",
-			},
-			{
-				match:    matchLocal(xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup),
-				level:    1,
-				maxOne:   true,
-				orderMsg: "complexType model group is out of order",
-				dupMsg:   "complexType model group is out of order",
-			},
-			{
-				match:    matchLocal(xsdElemAttribute, xsdElemAttributeGroup),
-				level:    2,
-				orderMsg: "complexType attribute is out of order",
-			},
-			{
-				match:  matchLocal(xsdElemAnyAttribute),
-				level:  3,
-				maxOne: true,
-				dupMsg: "complexType can contain at most one anyAttribute",
-			},
+var complexTypeChildOrder = childOrder{
+	annotationFirstMsg: "complexType annotation must be first",
+	rules: []childRule{
+		{
+			match:    matchLocal(xsdElemSimpleContent, xsdElemComplexContent),
+			level:    0,
+			terminal: true,
+			orderMsg: "complexType content model is out of order",
 		},
-		invalidMsg: func(local string) string { return "invalid complexType child " + local },
-	})
+		{
+			match:    matchLocal(xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup),
+			level:    1,
+			maxOne:   true,
+			orderMsg: "complexType model group is out of order",
+			dupMsg:   "complexType model group is out of order",
+		},
+		{
+			match:    matchLocal(xsdElemAttribute, xsdElemAttributeGroup),
+			level:    2,
+			orderMsg: "complexType attribute is out of order",
+		},
+		{
+			match:  matchLocal(xsdElemAnyAttribute),
+			level:  3,
+			maxOne: true,
+			dupMsg: "complexType can contain at most one anyAttribute",
+		},
+	},
+	invalidMsg: func(local string) string { return "invalid complexType child " + local },
+}
+
+func validateComplexTypeContent(n *rawNode) error {
+	return checkOrderedChildren(n, complexTypeChildOrder)
 }
 
 func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName, anonymous bool) (complexType, error) {
@@ -368,16 +370,19 @@ func (c *compiler) compileComplexRestrictionModel(child *rawNode, ctx *schemaCon
 	return c.compileModel(modelNode, ctx)
 }
 
+var complexContentChildOrder = derivationContainerOrder("complexContent")
+var simpleContentChildOrder = derivationContainerOrder("simpleContent")
+
 func validateComplexContentChildren(n *rawNode) error {
-	return validateDerivationContainerChildren(n, "complexContent")
+	return checkOrderedChildren(n, complexContentChildOrder)
 }
 
 func validateSimpleContentChildren(n *rawNode) error {
-	return validateDerivationContainerChildren(n, "simpleContent")
+	return checkOrderedChildren(n, simpleContentChildOrder)
 }
 
-func validateDerivationContainerChildren(n *rawNode, label string) error {
-	return checkOrderedChildren(n, childOrder{
+func derivationContainerOrder(label string) childOrder {
+	return childOrder{
 		annotationFirstMsg: label + " annotation must be first",
 		rules: []childRule{
 			{
@@ -387,10 +392,20 @@ func validateDerivationContainerChildren(n *rawNode, label string) error {
 			},
 		},
 		invalidMsg: func(local string) string { return "invalid " + label + " child " + local },
-	})
+	}
 }
 
+var simpleContentRestrictionChildOrder = simpleContentDerivationOrder(xsdElemRestriction)
+var simpleContentExtensionChildOrder = simpleContentDerivationOrder(xsdElemExtension)
+
 func validateSimpleContentDerivationChildren(n *rawNode) error {
+	if n.Name.Local == xsdElemRestriction {
+		return checkOrderedChildren(n, simpleContentRestrictionChildOrder)
+	}
+	return checkOrderedChildren(n, simpleContentExtensionChildOrder)
+}
+
+func simpleContentDerivationOrder(derivation string) childOrder {
 	rules := []childRule{
 		{
 			match:    matchLocal(xsdElemSimpleType),
@@ -411,7 +426,7 @@ func validateSimpleContentDerivationChildren(n *rawNode) error {
 			dupMsg: "simpleContent can contain at most one anyAttribute",
 		},
 	}
-	if n.Name.Local == xsdElemRestriction {
+	if derivation == xsdElemRestriction {
 		rules = append(rules, childRule{
 			match:    isFacetNode,
 			level:    0,
@@ -420,13 +435,13 @@ func validateSimpleContentDerivationChildren(n *rawNode) error {
 	} else {
 		rules[0].forbiddenMsg = "simpleContent extension cannot contain simpleType"
 	}
-	return checkOrderedChildren(n, childOrder{
-		annotationFirstMsg: n.Name.Local + " annotation must be first",
+	return childOrder{
+		annotationFirstMsg: derivation + " annotation must be first",
 		rules:              rules,
 		invalidMsg: func(local string) string {
-			return "invalid simpleContent " + n.Name.Local + " child " + local
+			return "invalid simpleContent " + derivation + " child " + local
 		},
-	})
+	}
 }
 
 func isFacetNode(local string) bool {
@@ -620,29 +635,39 @@ func firstModelChild(n *rawNode) *rawNode {
 	return nil
 }
 
+var complexContentRestrictionChildOrder = complexContentDerivationOrder(xsdElemRestriction)
+var complexContentExtensionChildOrder = complexContentDerivationOrder(xsdElemExtension)
+
 func validateComplexContentDerivationChildren(n *rawNode) error {
-	return checkOrderedChildren(n, childOrder{
-		annotationFirstMsg: n.Name.Local + " annotation must be first",
+	if n.Name.Local == xsdElemRestriction {
+		return checkOrderedChildren(n, complexContentRestrictionChildOrder)
+	}
+	return checkOrderedChildren(n, complexContentExtensionChildOrder)
+}
+
+func complexContentDerivationOrder(derivation string) childOrder {
+	return childOrder{
+		annotationFirstMsg: derivation + " annotation must be first",
 		rules: []childRule{
 			{
 				match:    matchLocal(xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup),
 				level:    0,
 				maxOne:   true,
-				orderMsg: n.Name.Local + " model group is out of order",
-				dupMsg:   n.Name.Local + " model group is out of order",
+				orderMsg: derivation + " model group is out of order",
+				dupMsg:   derivation + " model group is out of order",
 			},
 			{
 				match:    matchLocal(xsdElemAttribute, xsdElemAttributeGroup),
 				level:    1,
-				orderMsg: n.Name.Local + " attribute is out of order",
+				orderMsg: derivation + " attribute is out of order",
 			},
 			{
 				match:  matchLocal(xsdElemAnyAttribute),
 				level:  2,
 				maxOne: true,
-				dupMsg: n.Name.Local + " can contain at most one anyAttribute",
+				dupMsg: derivation + " can contain at most one anyAttribute",
 			},
 		},
 		invalidMsg: func(local string) string { return "invalid complexContent child " + local },
-	})
+	}
 }

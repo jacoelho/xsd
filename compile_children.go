@@ -30,7 +30,7 @@ type childOrder struct {
 }
 
 func checkOrderedChildren(n *rawNode, order childOrder) error {
-	seen := make([]bool, len(order.rules))
+	var seen uint16
 	annotationSeen := false
 	nonAnnotationSeen := false
 	terminalSeen := false
@@ -67,10 +67,10 @@ func checkOrderedChildren(n *rawNode, order childOrder) error {
 		if maxLevelSeen > rule.level {
 			return schemaCompileAt(child, ErrSchemaContentModel, rule.orderMsg)
 		}
-		if seen[idx] && rule.maxOne {
+		if seen&(1<<idx) != 0 && rule.maxOne {
 			return schemaCompileAt(child, ErrSchemaContentModel, rule.dupMsg)
 		}
-		seen[idx] = true
+		seen |= 1 << idx
 		maxLevelSeen = max(maxLevelSeen, rule.level)
 		terminalSeen = rule.terminal
 	}
