@@ -150,7 +150,7 @@ type identityPath struct {
 
 type identityStep struct {
 	Name         qName
-	wildcard     bool
+	Wildcard     bool
 	NamespaceSet bool
 	Namespace    namespaceID
 }
@@ -182,7 +182,7 @@ type attributeUseSet struct {
 	Uses             []attributeUse
 	Required         []uint32
 	ValueConstraints []uint32
-	wildcard         wildcardID
+	Wildcard         wildcardID
 }
 
 type attributeUse struct {
@@ -452,17 +452,17 @@ type occurrence struct {
 
 type contentModel struct {
 	Particles []particle
-	occurs    occurrence
+	Occurs    occurrence
 	Kind      modelKind
 	Mixed     bool
 }
 
 type particle struct {
 	Kind     particleKind
-	occurs   occurrence
+	Occurs   occurrence
 	Element  elementID
 	Model    contentModelID
-	wildcard wildcardID
+	Wildcard wildcardID
 }
 
 type compiledModelKind uint8

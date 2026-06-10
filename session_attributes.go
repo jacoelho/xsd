@@ -213,10 +213,10 @@ func (s *session) validateFixedAttributeValue(use *attributeUse, canon string, r
 }
 
 func (s *session) validateWildcardAttribute(rt *runtimeSchema, set *attributeUseSet, rn runtimeName, attr *streamAttr, line, col int, seenIDAttr *bool) (bool, error) {
-	if set.wildcard == noWildcard {
+	if set.Wildcard == noWildcard {
 		return false, nil
 	}
-	w := rt.Wildcards[set.wildcard]
+	w := rt.Wildcards[set.Wildcard]
 	if !wildcardMatches(rt, w, rn) {
 		return false, nil
 	}

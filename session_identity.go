@@ -339,7 +339,7 @@ func (s *session) identityPathMatches(baseDepth, currentDepth int, p identityPat
 }
 
 func (s *session) identityStepMatches(rn runtimeName, step identityStep) bool {
-	if !step.wildcard {
+	if !step.Wildcard {
 		return rn.Known && rn.Name == step.Name
 	}
 	if !step.NamespaceSet {

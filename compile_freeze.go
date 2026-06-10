@@ -294,7 +294,7 @@ func validateComplexType(rt *runtimeSchema, ct complexType) error {
 }
 
 func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) error {
-	if set.wildcard != noWildcard && !validWildcardID(rt, set.wildcard) {
+	if set.Wildcard != noWildcard && !validWildcardID(rt, set.Wildcard) {
 		return internalInvariant("attribute use set references invalid wildcard")
 	}
 	for i, use := range set.Uses {
@@ -355,7 +355,7 @@ func validateContentModelRuntime(rt *runtimeSchema, model contentModel) error {
 				return internalInvariant("particle references invalid content model")
 			}
 		case particleWildcard:
-			if !validWildcardID(rt, p.wildcard) {
+			if !validWildcardID(rt, p.Wildcard) {
 				return internalInvariant("particle references invalid wildcard")
 			}
 		default:
@@ -436,7 +436,7 @@ func validateCompiledParticle(rt *runtimeSchema, p particle) error {
 			return internalInvariant("compiled particle references invalid element")
 		}
 	case particleWildcard:
-		if !validWildcardID(rt, p.wildcard) {
+		if !validWildcardID(rt, p.Wildcard) {
 			return internalInvariant("compiled particle references invalid wildcard")
 		}
 	default:
@@ -521,7 +521,7 @@ func validIdentityFieldPath(rt *runtimeSchema, path identityFieldPath) bool {
 
 func validIdentitySteps(rt *runtimeSchema, steps []identityStep) bool {
 	for _, step := range steps {
-		if !step.wildcard && !validQName(rt, step.Name) {
+		if !step.Wildcard && !validQName(rt, step.Name) {
 			return false
 		}
 	}

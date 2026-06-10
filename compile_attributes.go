@@ -292,7 +292,7 @@ func (b *attributeWildcardBuilder) finish(c *compiler, parentName string) (wildc
 }
 
 func newAttributeUseSet(uses []attributeUse, wildcard wildcardID) (attributeUseSet, error) {
-	set := attributeUseSet{Uses: uses, wildcard: wildcard}
+	set := attributeUseSet{Uses: uses, Wildcard: wildcard}
 	if len(uses) != 0 {
 		set.Index = make(map[qName]uint32, len(uses))
 	}
@@ -387,7 +387,7 @@ func (c *compiler) attrUsesAndWildcard(id attributeUseSetID) ([]attributeUse, wi
 		return nil, noWildcard
 	}
 	set := c.rt.AttributeUseSets[id]
-	return set.Uses, set.wildcard
+	return set.Uses, set.Wildcard
 }
 
 type attributeUseBase struct {
@@ -538,7 +538,7 @@ func (c *compiler) compileAttributeGroupUse(n *rawNode, ctx *schemaContext) ([]a
 func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildcardID, error) {
 	if id, ok := c.attrGroupDone[q]; ok {
 		set := c.rt.AttributeUseSets[id]
-		return set.Uses, set.wildcard, nil
+		return set.Uses, set.Wildcard, nil
 	}
 	raw, ok := c.attrGroupRaw[q]
 	if !ok {
@@ -555,5 +555,5 @@ func (c *compiler) compileAttributeGroupByQName(q qName) ([]attributeUse, wildca
 	}
 	c.attrGroupDone[q] = id
 	set := c.rt.AttributeUseSets[id]
-	return set.Uses, set.wildcard, nil
+	return set.Uses, set.Wildcard, nil
 }

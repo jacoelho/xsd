@@ -179,7 +179,7 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []stream
 			}
 		}
 	case particleWildcard:
-		return s.matchWildcardParticle(rt.Wildcards[p.wildcard], rn, attrs)
+		return s.matchWildcardParticle(rt.Wildcards[p.Wildcard], rn, attrs)
 	case particleModel:
 	}
 	return noMatch(), false

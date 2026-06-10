@@ -32,7 +32,7 @@ func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (parti
 	if err != nil {
 		return particle{}, err
 	}
-	return particle{Kind: particleElement, Element: id, occurs: occurs}, nil
+	return particle{Kind: particleElement, Element: id, Occurs: occurs}, nil
 }
 
 func (c *compiler) compileElementByQName(q qName) (elementID, error) {

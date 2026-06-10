@@ -277,7 +277,7 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	attrs := attributeUseSet{wildcard: anyWildcard}
+	attrs := attributeUseSet{Wildcard: anyWildcard}
 	attrSet, err := nextAttributeUseSetID(len(c.rt.AttributeUseSets))
 	if err != nil {
 		return err
