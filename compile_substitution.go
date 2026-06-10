@@ -124,24 +124,24 @@ func (c *compiler) typeDerivationMask(t, base typeID) (derivationMask, bool) {
 
 func (c *compiler) resolveTypeQName(q qName) (typeID, error) {
 	if id, ok := c.simpleDone[q]; ok {
-		return typeID{Kind: typeSimple, ID: uint32(id)}, nil
+		return simpleRef(id), nil
 	}
 	if id, ok := c.complexDone[q]; ok {
-		return typeID{Kind: typeComplex, ID: uint32(id)}, nil
+		return complexRef(id), nil
 	}
 	if _, ok := c.simpleRaw[q]; ok {
 		id, err := c.compileSimpleByQName(q)
 		if err != nil {
 			return typeID{}, err
 		}
-		return typeID{Kind: typeSimple, ID: uint32(id)}, nil
+		return simpleRef(id), nil
 	}
 	if _, ok := c.complexRaw[q]; ok {
 		id, err := c.compileComplexByQName(q)
 		if err != nil {
 			return typeID{}, err
 		}
-		return typeID{Kind: typeComplex, ID: uint32(id)}, nil
+		return complexRef(id), nil
 	}
 	return typeID{}, schemaCompile(ErrSchemaReference, "unknown type "+c.rt.Names.Format(q))
 }

@@ -115,7 +115,7 @@ func isAttributeAttribute(name string) bool {
 }
 
 func (c *compiler) validateAttributeValueConstraints(decl *attributeDecl, resolve qnameResolver) error {
-	if (decl.HasDefault || decl.HasFixed) && c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(decl.Type)}, typeID{Kind: typeSimple, ID: uint32(c.rt.Builtin.ID)}) {
+	if (decl.HasDefault || decl.HasFixed) && c.typeDerivesFrom(simpleRef(decl.Type), simpleRef(c.rt.Builtin.ID)) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed attribute cannot have default or fixed")
 	}
 	if decl.HasDefault {
@@ -337,7 +337,7 @@ func (c *compiler) mergeAttributeUse(uses []attributeUse, seen map[qName]int, u 
 func (c *compiler) validateAttributeUseSet(uses []attributeUse) error {
 	hasID := false
 	for _, use := range uses {
-		if !c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(use.Type)}, typeID{Kind: typeSimple, ID: uint32(c.rt.Builtin.ID)}) {
+		if !c.typeDerivesFrom(simpleRef(use.Type), simpleRef(c.rt.Builtin.ID)) {
 			continue
 		}
 		if hasID {
@@ -358,7 +358,7 @@ func (c *compiler) validateAttributeUseRestriction(base, derived attributeUse) e
 	if base.Required && !derived.Required {
 		return schemaCompile(ErrSchemaInvalidAttribute, "required attribute cannot become optional by restriction")
 	}
-	if !c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(derived.Type)}, typeID{Kind: typeSimple, ID: uint32(base.Type)}) {
+	if !c.typeDerivesFrom(simpleRef(derived.Type), simpleRef(base.Type)) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "restricted attribute type is not derived from base")
 	}
 	if base.HasFixed {

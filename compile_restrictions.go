@@ -542,8 +542,8 @@ func (c *compiler) elementFixedValuesEqual(base, derived elementDecl) bool {
 }
 
 func (c *compiler) elementValueSimpleType(decl elementDecl) simpleTypeID {
-	if decl.Type.Kind == typeSimple {
-		return simpleTypeID(decl.Type.ID)
+	if id, ok := decl.Type.simple(); ok {
+		return id
 	}
 	if decl.Type.Kind == typeComplex {
 		ct := c.rt.ComplexTypes[decl.Type.ID]

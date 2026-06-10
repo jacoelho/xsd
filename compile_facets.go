@@ -562,11 +562,8 @@ func (c *compiler) compileLiteral(base simpleTypeID, lexical string, resolve qna
 }
 
 func literalActualValue(rt *runtimeSchema, id simpleTypeID, lexical, canonical string) actualValue {
-	if id == noSimpleType || !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
-		return actualValue{}
-	}
-	st := &rt.SimpleTypes[id]
-	if st.Variety != varietyAtomic {
+	st, ok := rt.simpleType(id)
+	if !ok || st.Variety != varietyAtomic {
 		return actualValue{}
 	}
 	text := canonical

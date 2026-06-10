@@ -352,7 +352,8 @@ func (c *compiler) classifySimpleIdentities() {
 }
 
 func (c *compiler) simpleIdentityKind(id simpleTypeID, memo []simpleIdentityKind, visiting []bool) simpleIdentityKind {
-	if id == noSimpleType || !validUint32Index(uint32(id), len(c.rt.SimpleTypes)) {
+	st, ok := c.rt.simpleType(id)
+	if !ok {
 		return simpleIdentityNone
 	}
 	if memo[id] != simpleIdentityNone {
@@ -370,7 +371,6 @@ func (c *compiler) simpleIdentityKind(id simpleTypeID, memo []simpleIdentityKind
 		return simpleIdentityNone
 	}
 	visiting[id] = true
-	st := c.rt.SimpleTypes[id]
 	kind := simpleIdentityNone
 	switch st.Variety {
 	case varietyAtomic:
@@ -574,7 +574,7 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 	}
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
 	c.simpleDone[q] = id
-	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
+	c.rt.GlobalTypes[q] = simpleRef(id)
 	st, err := c.compileSimpleType(raw.node, raw.ctx, q, id)
 	if err != nil {
 		return noSimpleType, err

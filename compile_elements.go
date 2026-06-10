@@ -55,7 +55,7 @@ func (c *compiler) compileElementByQName(q qName) (elementID, error) {
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
+	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: complexRef(c.rt.Builtin.AnyType)})
 	c.elementDone[q] = id
 	c.rt.GlobalElements[q] = id
 	decl, err := c.compileElementDecl(raw.node, raw.ctx, q)
@@ -95,7 +95,7 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (elementI
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
+	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: complexRef(c.rt.Builtin.AnyType)})
 	c.localDone[n] = id
 	c.compilingLocal[n] = true
 	defer delete(c.compilingLocal, n)
@@ -181,7 +181,7 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	if err != nil {
 		return elementDecl{}, err
 	}
-	typ := typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}
+	typ := complexRef(c.rt.Builtin.AnyType)
 	if typeLex, ok := n.attr(xsdAttrType); ok {
 		attrType, typeErr := c.compileElementTypeAttribute(n, ctx, typeLex)
 		if typeErr != nil {
@@ -193,13 +193,13 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 		if simpleErr != nil {
 			return elementDecl{}, simpleErr
 		}
-		typ = typeID{Kind: typeSimple, ID: uint32(id)}
+		typ = simpleRef(id)
 	} else if ct := n.firstXS(xsdElemComplexType); ct != nil {
 		id, complexErr := c.compileAnonymousComplex(ct, ctx)
 		if complexErr != nil {
 			return elementDecl{}, complexErr
 		}
-		typ = typeID{Kind: typeComplex, ID: uint32(id)}
+		typ = complexRef(id)
 	} else if headLex, ok := n.attr(xsdAttrSubstitutionGroup); ok {
 		headQName, headErr := c.resolveQNameChecked(n, ctx, headLex)
 		if headErr != nil {
@@ -263,7 +263,7 @@ func (c *compiler) compileElementTypeAttribute(n *rawNode, ctx *schemaContext, t
 	if err != nil {
 		return typeID{}, err
 	}
-	return typeID{Kind: typeSimple, ID: uint32(missing)}, nil
+	return simpleRef(missing), nil
 }
 
 func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qnameResolver) error {
@@ -293,7 +293,7 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		}
 		return nil
 	}
-	if (decl.HasDefault || decl.HasFixed) && c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(simpleID)}, typeID{Kind: typeSimple, ID: uint32(c.rt.Builtin.ID)}) {
+	if (decl.HasDefault || decl.HasFixed) && c.typeDerivesFrom(simpleRef(simpleID), simpleRef(c.rt.Builtin.ID)) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed element cannot have default or fixed")
 	}
 	if (decl.HasDefault || decl.HasFixed) && c.simpleTypeUsesBareNotation(simpleID, make(map[simpleTypeID]bool)) {
@@ -319,11 +319,11 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 }
 
 func (c *compiler) simpleTypeUsesBareNotation(id simpleTypeID, seen map[simpleTypeID]bool) bool {
-	if id == noSimpleType || !validUint32Index(uint32(id), len(c.rt.SimpleTypes)) || seen[id] {
+	st, ok := c.rt.simpleType(id)
+	if !ok || seen[id] {
 		return false
 	}
 	seen[id] = true
-	st := c.rt.SimpleTypes[id]
 	if st.Primitive == primNotation && len(st.Facets.Enumeration) == 0 {
 		return true
 	}
@@ -341,11 +341,11 @@ func (c *compiler) simpleTypeUsesBareNotation(id simpleTypeID, seen map[simpleTy
 }
 
 func (c *compiler) simpleTypeHasListVariety(id simpleTypeID, seen map[simpleTypeID]bool) bool {
-	if id == noSimpleType || !validUint32Index(uint32(id), len(c.rt.SimpleTypes)) || seen[id] {
+	st, ok := c.rt.simpleType(id)
+	if !ok || seen[id] {
 		return false
 	}
 	seen[id] = true
-	st := c.rt.SimpleTypes[id]
 	if st.Variety == varietyList {
 		return true
 	}

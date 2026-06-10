@@ -514,7 +514,7 @@ func (s *session) rootStartType(rt *runtimeSchema, rn runtimeName, se streamStar
 }
 
 func anyType(rt *runtimeSchema) typeID {
-	return typeID{Kind: typeComplex, ID: uint32(rt.Builtin.AnyType)}
+	return complexRef(rt.Builtin.AnyType)
 }
 
 func (s *session) pushFrame(elem elementID, typ typeID, nilled, skip bool) {

@@ -26,9 +26,9 @@ func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	if err != nil {
 		return noComplexType, err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
+	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: complexRef(c.rt.Builtin.AnyType)})
 	c.complexDone[q] = id
-	c.rt.GlobalTypes[q] = typeID{Kind: typeComplex, ID: uint32(id)}
+	c.rt.GlobalTypes[q] = complexRef(id)
 	ct, err := c.compileComplexType(raw.node, raw.ctx, q)
 	if err != nil {
 		return noComplexType, err
@@ -60,7 +60,7 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (comp
 	if err != nil {
 		return noComplexType, err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
+	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, Base: complexRef(c.rt.Builtin.AnyType)})
 	ct, err := c.compileComplexType(n, ctx, q)
 	if err != nil {
 		return noComplexType, err
@@ -189,7 +189,7 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name qName
 		TextType:   noSimpleType,
 		Mixed:      mixed,
 		Abstract:   abstract,
-		Base:       typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)},
+		Base:       complexRef(c.rt.Builtin.AnyType),
 		Derivation: derivationRestriction,
 		Block:      block,
 	}
@@ -254,7 +254,7 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaCo
 	if err := validateComplexContentDerivationChildren(child); err != nil {
 		return complexType{}, err
 	}
-	ct.Base = typeID{Kind: typeComplex, ID: uint32(baseID)}
+	ct.Base = complexRef(baseID)
 	if child.Name.Local == xsdElemExtension {
 		return c.compileComplexContentExtension(child, ctx, ct, baseID, base, mixed)
 	}
@@ -553,7 +553,7 @@ func (c *compiler) compileSimpleContentSimpleBase(child *rawNode, baseQName qNam
 	if c.rt.SimpleTypes[simpleID].Final&blockExtension != 0 {
 		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaReference, "base simple type final blocks extension")
 	}
-	ct.Base = typeID{Kind: typeSimple, ID: uint32(simpleID)}
+	ct.Base = simpleRef(simpleID)
 	return ct, simpleID, nil
 }
 
@@ -578,7 +578,7 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qNa
 	if child.Name.Local == xsdElemRestriction && base.Final&blockRestriction != 0 {
 		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaReference, "base complex type final blocks restriction")
 	}
-	ct.Base = typeID{Kind: typeComplex, ID: uint32(baseComplex)}
+	ct.Base = complexRef(baseComplex)
 	ct.Attrs = base.Attrs
 	return ct, base.TextType, nil
 }
@@ -600,7 +600,7 @@ func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *sche
 		}
 		textType = simpleID
 	}
-	if !c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(textType)}, typeID{Kind: typeSimple, ID: uint32(baseTextType)}) {
+	if !c.typeDerivesFrom(simpleRef(textType), simpleRef(baseTextType)) {
 		return noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction type is not derived from base")
 	}
 	return textType, nil

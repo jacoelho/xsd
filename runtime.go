@@ -14,6 +14,28 @@ type typeID struct {
 	ID   uint32
 }
 
+func simpleRef(id simpleTypeID) typeID {
+	return typeID{Kind: typeSimple, ID: uint32(id)}
+}
+
+func complexRef(id complexTypeID) typeID {
+	return typeID{Kind: typeComplex, ID: uint32(id)}
+}
+
+func (t typeID) simple() (simpleTypeID, bool) {
+	if t.Kind != typeSimple {
+		return noSimpleType, false
+	}
+	return simpleTypeID(t.ID), true
+}
+
+func (t typeID) complex() (complexTypeID, bool) {
+	if t.Kind != typeComplex {
+		return noComplexType, false
+	}
+	return complexTypeID(t.ID), true
+}
+
 type simpleTypeID uint32
 type complexTypeID uint32
 type elementID uint32
@@ -485,6 +507,20 @@ type wildcard struct {
 	Process    processContents
 }
 
+func (rt *runtimeSchema) simpleType(id simpleTypeID) (*simpleType, bool) {
+	if !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
+		return nil, false
+	}
+	return &rt.SimpleTypes[id], true
+}
+
+func (rt *runtimeSchema) complexType(id complexTypeID) (*complexType, bool) {
+	if !validUint32Index(uint32(id), len(rt.ComplexTypes)) {
+		return nil, false
+	}
+	return &rt.ComplexTypes[id], true
+}
+
 func (rt *runtimeSchema) typeName(t typeID) qName {
 	if t.Kind == typeSimple {
 		return rt.SimpleTypes[t.ID].Name
@@ -536,44 +572,43 @@ func (rt *runtimeSchema) substitutionAllowed(headID, memberID elementID) bool {
 
 func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 	var blocks derivationMask
-	if base.Kind == typeComplex && validUint32Index(base.ID, len(rt.ComplexTypes)) {
-		blocks |= rt.ComplexTypes[base.ID].Block
+	if baseID, ok := base.complex(); ok {
+		if baseCT, ok := rt.complexType(baseID); ok {
+			blocks |= baseCT.Block
+		}
 	}
-	if t.Kind != typeComplex {
+	current, ok := t.complex()
+	if !ok {
 		return blocks
 	}
-	current := complexTypeID(t.ID)
 	for range len(rt.ComplexTypes) {
-		if !validUint32Index(uint32(current), len(rt.ComplexTypes)) {
+		ct, ok := rt.complexType(current)
+		if !ok {
 			return blocks
 		}
-		ct := rt.ComplexTypes[current]
 		if ct.Base == base {
 			return blocks
 		}
-		if ct.Base.Kind != typeComplex {
+		parent, ok := ct.Base.complex()
+		if !ok {
 			return blocks
 		}
-		parent := complexTypeID(ct.Base.ID)
-		if !validUint32Index(uint32(parent), len(rt.ComplexTypes)) {
+		parentCT, ok := rt.complexType(parent)
+		if !ok {
 			return blocks
 		}
-		blocks |= rt.ComplexTypes[parent].Block
+		blocks |= parentCT.Block
 		current = parent
 	}
 	return blocks
 }
 
 func (rt *runtimeSchema) complexSimpleTypeDerivationMask(t complexTypeID, base simpleTypeID) (derivationMask, bool) {
-	if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
-		return 0, false
-	}
-	ct := rt.ComplexTypes[t]
-	if !ct.SimpleValue {
+	ct, ok := rt.complexType(t)
+	if !ok || !ct.SimpleValue {
 		return 0, false
 	}
 	var mask derivationMask
-	var ok bool
 	switch ct.Base.Kind {
 	case typeSimple:
 		mask, ok = rt.simpleTypeDerivationMask(simpleTypeID(ct.Base.ID), base, make(map[[2]simpleTypeID]bool))
@@ -601,10 +636,10 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 		if t == rt.Builtin.AnyType {
 			return mask, true
 		}
-		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
+		ct, ok := rt.complexType(t)
+		if !ok {
 			return 0, false
 		}
-		ct := rt.ComplexTypes[t]
 		switch ct.Derivation {
 		case derivationExtension:
 			mask |= blockExtension
@@ -615,10 +650,11 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 		if ct.Base.Kind == typeSimple {
 			return mask | blockRestriction, true
 		}
-		if ct.Base.Kind != typeComplex || complexTypeID(ct.Base.ID) == noComplexType {
+		parent, ok := ct.Base.complex()
+		if !ok || parent == noComplexType {
 			return 0, false
 		}
-		t = complexTypeID(ct.Base.ID)
+		t = parent
 	}
 	return 0, false
 }
@@ -627,7 +663,12 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 	if t == base {
 		return 0, true
 	}
-	if !validUint32Index(uint32(t), len(rt.SimpleTypes)) || !validUint32Index(uint32(base), len(rt.SimpleTypes)) {
+	st, ok := rt.simpleType(t)
+	if !ok {
+		return 0, false
+	}
+	baseType, ok := rt.simpleType(base)
+	if !ok {
 		return 0, false
 	}
 	pair := [2]simpleTypeID{t, base}
@@ -636,7 +677,6 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 	}
 	seen[pair] = true
 
-	baseType := rt.SimpleTypes[base]
 	if baseType.Variety == varietyUnion {
 		for _, member := range baseType.Union {
 			if mask, ok := rt.simpleTypeDerivationMask(t, member, seen); ok {
@@ -645,7 +685,6 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 		}
 	}
 
-	st := rt.SimpleTypes[t]
 	if st.Base == noSimpleType || st.Base == t {
 		return 0, false
 	}
@@ -659,11 +698,12 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (derivationMask, bool) {
 	var mask derivationMask
 	for range len(rt.ComplexTypes) {
-		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
+		ct, ok := rt.complexType(t)
+		if !ok {
 			return 0, false
 		}
-		ct := rt.ComplexTypes[t]
-		if ct.Base.Kind != typeComplex || complexTypeID(ct.Base.ID) == noComplexType {
+		parent, ok := ct.Base.complex()
+		if !ok || parent == noComplexType {
 			return 0, false
 		}
 		switch ct.Derivation {
@@ -673,10 +713,10 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 			mask |= blockRestriction
 		case derivationNone:
 		}
-		if complexTypeID(ct.Base.ID) == base {
+		if parent == base {
 			return mask, true
 		}
-		t = complexTypeID(ct.Base.ID)
+		t = parent
 	}
 	return 0, false
 }

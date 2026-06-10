@@ -58,8 +58,8 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 }
 
 func (s *session) simpleContentType(f *frame, line, col int) (simpleTypeID, bool, error) {
-	if f.Type.Kind == typeSimple {
-		return simpleTypeID(f.Type.ID), true, nil
+	if id, ok := f.Type.simple(); ok {
+		return id, true, nil
 	}
 	ct := s.engine.rt.ComplexTypes[f.Type.ID]
 	if !ct.SimpleValue {
