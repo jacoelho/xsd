@@ -160,7 +160,7 @@ func (c *compiler) compileContentModel(id contentModelID) (compiledModel, error)
 }
 
 func (c *compiler) compileDirectModel(model contentModel, limits []uint32) (compiledModel, bool, error) {
-	if !model.occurs.isExactlyOne() {
+	if !model.Occurs.isExactlyOne() {
 		return compiledModel{}, false, nil
 	}
 	switch model.Kind {
@@ -181,11 +181,11 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 		if p.Kind != particleElement && p.Kind != particleWildcard {
 			return compiledModel{}, false, nil
 		}
-		if p.occurs.Max == 0 && !p.occurs.Unbounded {
+		if p.Occurs.Max == 0 && !p.Occurs.Unbounded {
 			continue
 		}
 		edge := compiledModelEdge{Particle: singleParticle(p)}
-		if p.occurs.isExactlyOne() {
+		if p.Occurs.isExactlyOne() {
 			to, err := checkedUint32(len(rows), "content model DFA state limit exceeded")
 			if err != nil {
 				return compiledModel{}, false, err
@@ -205,7 +205,7 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 		if err != nil {
 			return compiledModel{}, false, err
 		}
-		rows, err = c.appendCompiledModelRow(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowReject))
+		rows, err = c.appendCompiledModelRow(rows, compiledParticleRow(edge.Particle, p.Occurs, compiledRowReject))
 		if err != nil {
 			return compiledModel{}, false, err
 		}
@@ -213,11 +213,11 @@ func (c *compiler) compileDirectSequenceModel(model contentModel, limits []uint3
 		for _, state := range active {
 			rows[state].Edges = append(rows[state].Edges, edge)
 		}
-		if p.occurs.Unbounded || p.occurs.Max > 1 {
+		if p.Occurs.Unbounded || p.Occurs.Max > 1 {
 			rows[to].Edges = append(rows[to].Edges, edge)
 		}
 		next := []uint32{to}
-		if p.occurs.Min == 0 {
+		if p.Occurs.Min == 0 {
 			next = append(next, active...)
 			slices.Sort(next)
 			next = slices.Compact(next)
@@ -245,11 +245,11 @@ func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, 
 		if p.Kind != particleElement && p.Kind != particleWildcard {
 			return compiledModel{}, false, nil
 		}
-		if p.occurs.Max == 0 && !p.occurs.Unbounded {
+		if p.Occurs.Max == 0 && !p.Occurs.Unbounded {
 			rows[0].Accept = true
 			continue
 		}
-		if p.occurs.Min == 0 {
+		if p.Occurs.Min == 0 {
 			rows[0].Accept = true
 		}
 		to, err := checkedUint32(len(rows), "content model DFA state limit exceeded")
@@ -257,7 +257,7 @@ func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, 
 			return compiledModel{}, false, err
 		}
 		edge := compiledModelEdge{Particle: singleParticle(p), To: to}
-		if p.occurs.isExactlyOne() {
+		if p.Occurs.isExactlyOne() {
 			rows, err = c.appendCompiledModelRow(rows, compiledModelRow{Accept: true})
 			if err != nil {
 				return compiledModel{}, false, err
@@ -265,12 +265,12 @@ func (c *compiler) compileDirectChoiceModel(model contentModel) (compiledModel, 
 			rows[0].Edges = append(rows[0].Edges, edge)
 			continue
 		}
-		rows, err = c.appendCompiledModelRow(rows, compiledParticleRow(edge.Particle, p.occurs, compiledRowAccept))
+		rows, err = c.appendCompiledModelRow(rows, compiledParticleRow(edge.Particle, p.Occurs, compiledRowAccept))
 		if err != nil {
 			return compiledModel{}, false, err
 		}
 		rows[0].Edges = append(rows[0].Edges, edge)
-		if p.occurs.Unbounded || p.occurs.Max > 1 {
+		if p.Occurs.Unbounded || p.Occurs.Max > 1 {
 			rows[edge.To].Edges = append(rows[edge.To].Edges, edge)
 		}
 	}
@@ -341,23 +341,23 @@ func compiledCountingException(state uint32, row compiledModelRow, a, b compiled
 }
 
 func singleParticle(p particle) particle {
-	p.occurs = occurrence{Min: 1, Max: 1}
+	p.Occurs = occurrence{Min: 1, Max: 1}
 	return p
 }
 
 func applyRepeatedChoiceLimit(p particle, index int, limits []uint32) particle {
-	if !slices.Contains(limits, saturatingUint32(index)) || p.occurs.Min > 1 {
+	if !slices.Contains(limits, saturatingUint32(index)) || p.Occurs.Min > 1 {
 		return p
 	}
-	if p.occurs.Unbounded || p.occurs.Max > 1 {
-		p.occurs.Unbounded = false
-		p.occurs.Max = 1
+	if p.Occurs.Unbounded || p.Occurs.Max > 1 {
+		p.Occurs.Unbounded = false
+		p.Occurs.Max = 1
 	}
 	return p
 }
 
 func sameCompiledParticle(a, b particle) bool {
-	return a.Kind == b.Kind && a.Element == b.Element && a.wildcard == b.wildcard
+	return a.Kind == b.Kind && a.Element == b.Element && a.Wildcard == b.Wildcard
 }
 
 func (c *compiler) compileAllModel(model contentModel) (compiledModel, error) {
@@ -370,12 +370,12 @@ func (c *compiler) compileAllModel(model contentModel) (compiledModel, error) {
 		if p.Kind == particleModel {
 			return compiledModel{}, schemaCompile(ErrSchemaContentModel, "xs:all cannot contain model group particles")
 		}
-		if p.occurs.Min > 0 {
+		if p.Occurs.Min > 0 {
 			required = true
 		}
 		terms = append(terms, compiledAllTerm{
 			Particle: p,
-			Required: p.occurs.Min > 0,
+			Required: p.Occurs.Min > 0,
 		})
 	}
 	allBitLen, err := checkedUint32((len(terms)+63)/64, "xs:all term limit exceeded")
@@ -387,7 +387,7 @@ func (c *compiler) compileAllModel(model contentModel) (compiledModel, error) {
 		All:       terms,
 		AllBitLen: allBitLen,
 		Mixed:     model.Mixed,
-		Empty:     model.occurs.Min == 0 || !required,
+		Empty:     model.Occurs.Min == 0 || !required,
 	}, nil
 }
 
@@ -510,7 +510,7 @@ func (b *dfaBuilder) modelNode(id contentModelID, scope choiceLimitScope) (dfaNo
 	default:
 		return dfaNode{}, schemaCompile(ErrSchemaContentModel, "unsupported content model")
 	}
-	return b.repeat(node, model.occurs, -1)
+	return b.repeat(node, model.Occurs, -1)
 }
 
 func (b *dfaBuilder) particleNode(p particle, index int, scope choiceLimitScope) (dfaNode, error) {
@@ -531,7 +531,7 @@ func (b *dfaBuilder) particleNode(p particle, index int, scope choiceLimitScope)
 		return dfaNode{}, schemaCompile(ErrSchemaContentModel, "unsupported particle")
 	}
 	slot := -1
-	return b.repeat(node, p.occurs, slot)
+	return b.repeat(node, p.Occurs, slot)
 }
 
 func (b *dfaBuilder) leaf(p particle) dfaNode {

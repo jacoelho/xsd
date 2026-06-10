@@ -240,9 +240,9 @@ func particleTermKeyOf(p particle) particleTermKey {
 	case particleElement:
 		return particleTermKey{Kind: p.Kind, Element: p.Element}
 	case particleWildcard:
-		return particleTermKey{Kind: p.Kind, Wildcard: p.wildcard}
+		return particleTermKey{Kind: p.Kind, Wildcard: p.Wildcard}
 	default:
-		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.wildcard}
+		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}
 	}
 }
 

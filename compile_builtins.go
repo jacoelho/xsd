@@ -277,7 +277,7 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	attrs := attributeUseSet{wildcard: anyWildcard}
+	attrs := attributeUseSet{Wildcard: anyWildcard}
 	attrSet, err := nextAttributeUseSetID(len(c.rt.AttributeUseSets))
 	if err != nil {
 		return err
@@ -295,10 +295,10 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: modelID, Attrs: attrSet, Mixed: true, Base: typeID{Kind: typeComplex, ID: uint32(noComplexType)}})
+	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: modelID, Attrs: attrSet, TextType: noSimpleType, ContentKind: contentMixed, Base: complexRef(noComplexType)})
 	c.rt.Builtin.AnyType = complexID
 	c.complexDone[q] = complexID
-	c.rt.GlobalTypes[q] = typeID{Kind: typeComplex, ID: uint32(complexID)}
+	c.rt.GlobalTypes[q] = complexRef(complexID)
 	return nil
 }
 
@@ -308,7 +308,7 @@ func (c *compiler) addBuiltinAtomicSimpleType(local string, primitive primitiveK
 		return noSimpleType, err
 	}
 	c.simpleDone[q] = id
-	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
+	c.rt.GlobalTypes[q] = simpleRef(id)
 	return id, nil
 }
 
@@ -327,8 +327,8 @@ func (c *compiler) addAtomicSimpleType(ns, local string, primitive primitiveKind
 		return noSimpleType, qName{}, err
 	}
 	facets := facetSet{}
-	if base != noSimpleType && validUint32Index(uint32(base), len(c.rt.SimpleTypes)) {
-		facets = cloneFacetSet(c.rt.SimpleTypes[base].Facets)
+	if baseType, ok := c.rt.simpleType(base); ok {
+		facets = cloneFacetSet(baseType.Facets)
 	}
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
 		Name:       q,
@@ -378,26 +378,37 @@ func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeI
 		Base:       base,
 		Whitespace: whitespaceCollapse,
 		ListItem:   item,
-		Facets:     facetSet{MinLength: minLength},
+		Facets:     listLengthFacets(minLength),
 	})
 	c.simpleDone[q] = id
-	c.rt.GlobalTypes[q] = typeID{Kind: typeSimple, ID: uint32(id)}
+	c.rt.GlobalTypes[q] = simpleRef(id)
 	return id, nil
+}
+
+func listLengthFacets(minLength *uint32) facetSet {
+	f := facetSet{MinLength: minLength}
+	if minLength != nil {
+		f.Present |= facetFlagMinLength
+	}
+	return f
 }
 
 func (c *compiler) setBuiltinIntegerFacets(id simpleTypeID) {
 	v := uint32(0)
 	c.rt.SimpleTypes[id].Facets.FractionDigits = &v
+	c.rt.SimpleTypes[id].Facets.Present |= facetFlagFractionDigits
 }
 
 func (c *compiler) setBuiltinMin(id simpleTypeID, v string) {
 	lit := builtinDecimalLiteral(v)
 	c.rt.SimpleTypes[id].Facets.MinInclusive = &lit
+	c.rt.SimpleTypes[id].Facets.Present |= facetFlagMinInclusive
 }
 
 func (c *compiler) setBuiltinMax(id simpleTypeID, v string) {
 	lit := builtinDecimalLiteral(v)
 	c.rt.SimpleTypes[id].Facets.MaxInclusive = &lit
+	c.rt.SimpleTypes[id].Facets.Present |= facetFlagMaxInclusive
 }
 
 func (c *compiler) setBuiltinRange(id simpleTypeID, minValue, maxValue string) {

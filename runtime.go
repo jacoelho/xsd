@@ -14,6 +14,28 @@ type typeID struct {
 	ID   uint32
 }
 
+func simpleRef(id simpleTypeID) typeID {
+	return typeID{Kind: typeSimple, ID: uint32(id)}
+}
+
+func complexRef(id complexTypeID) typeID {
+	return typeID{Kind: typeComplex, ID: uint32(id)}
+}
+
+func (t typeID) simple() (simpleTypeID, bool) {
+	if t.Kind != typeSimple {
+		return noSimpleType, false
+	}
+	return simpleTypeID(t.ID), true
+}
+
+func (t typeID) complex() (complexTypeID, bool) {
+	if t.Kind != typeComplex {
+		return noComplexType, false
+	}
+	return complexTypeID(t.ID), true
+}
+
 type simpleTypeID uint32
 type complexTypeID uint32
 type elementID uint32
@@ -76,23 +98,24 @@ type builtinIDs struct {
 	ENTITIES      simpleTypeID
 }
 
+type valueConstraint struct {
+	Lexical   string
+	Canonical string
+	Value     simpleValue
+	Present   bool
+}
+
 type elementDecl struct {
-	Default          string
-	Fixed            string
-	DefaultCanonical string
-	FixedCanonical   string
-	Identity         []identityConstraintID
-	DefaultValue     simpleValue
-	FixedValue       simpleValue
-	Type             typeID
-	Name             qName
-	SubstHead        elementID
-	Nillable         bool
-	Abstract         bool
-	HasDefault       bool
-	HasFixed         bool
-	Block            derivationMask
-	Final            derivationMask
+	Identity  []identityConstraintID
+	Default   valueConstraint
+	Fixed     valueConstraint
+	Type      typeID
+	Name      qName
+	SubstHead elementID
+	Nillable  bool
+	Abstract  bool
+	Block     derivationMask
+	Final     derivationMask
 }
 
 type identityKind uint8
@@ -127,7 +150,7 @@ type identityPath struct {
 
 type identityStep struct {
 	Name         qName
-	wildcard     bool
+	Wildcard     bool
 	NamespaceSet bool
 	Namespace    namespaceID
 }
@@ -148,16 +171,10 @@ type identityFieldPath struct {
 }
 
 type attributeDecl struct {
-	Default          string
-	Fixed            string
-	DefaultCanonical string
-	FixedCanonical   string
-	DefaultValue     simpleValue
-	FixedValue       simpleValue
-	Name             qName
-	Type             simpleTypeID
-	HasDefault       bool
-	HasFixed         bool
+	Default valueConstraint
+	Fixed   valueConstraint
+	Name    qName
+	Type    simpleTypeID
 }
 
 type attributeUseSet struct {
@@ -165,22 +182,16 @@ type attributeUseSet struct {
 	Uses             []attributeUse
 	Required         []uint32
 	ValueConstraints []uint32
-	wildcard         wildcardID
+	Wildcard         wildcardID
 }
 
 type attributeUse struct {
-	Default          string
-	Fixed            string
-	DefaultCanonical string
-	FixedCanonical   string
-	DefaultValue     simpleValue
-	FixedValue       simpleValue
-	Name             qName
-	Type             simpleTypeID
-	Required         bool
-	Prohibited       bool
-	HasDefault       bool
-	HasFixed         bool
+	Default    valueConstraint
+	Fixed      valueConstraint
+	Name       qName
+	Type       simpleTypeID
+	Required   bool
+	Prohibited bool
 }
 
 type simpleVariety uint8
@@ -247,19 +258,43 @@ const (
 )
 
 type simpleType struct {
-	Union      []simpleTypeID
-	Facets     facetSet
-	Name       qName
-	Base       simpleTypeID
-	ListItem   simpleTypeID
-	Variety    simpleVariety
-	Primitive  primitiveKind
-	Final      derivationMask
+	Union     []simpleTypeID
+	Facets    facetSet
+	Name      qName
+	Base      simpleTypeID
+	ListItem  simpleTypeID
+	Variety   simpleVariety
+	Primitive primitiveKind
+	Final     derivationMask
+	// Whitespace holds the whiteSpace facet value; it lives on the type
+	// because every simple type has one. Only its fixedness is facet state
+	// (facetFlagWhiteSpace in Facets.Fixed).
 	Whitespace whitespaceMode
 	Builtin    builtinValidationKind
 	Identity   simpleIdentityKind
 	Missing    bool
 }
+
+type facetFlag uint16
+
+const (
+	facetFlagLength facetFlag = 1 << iota
+	facetFlagMinLength
+	facetFlagMaxLength
+	facetFlagTotalDigits
+	facetFlagFractionDigits
+	facetFlagMinInclusive
+	facetFlagMaxInclusive
+	facetFlagMinExclusive
+	facetFlagMaxExclusive
+	facetFlagEnumeration
+	facetFlagPattern
+	// facetFlagWhiteSpace is valid only in facetSet.Fixed; the whiteSpace
+	// value itself is simpleType.Whitespace and is never absent.
+	facetFlagWhiteSpace
+)
+
+const facetLengthMask = facetFlagLength | facetFlagMinLength | facetFlagMaxLength
 
 type facetSet struct {
 	Length         *uint32
@@ -273,62 +308,32 @@ type facetSet struct {
 	MaxExclusive   *compiledLiteral
 	Enumeration    []compiledLiteral
 	Patterns       []patternGroup
-	Fixed          facetFixedSet
-}
-
-type facetFixedSet struct {
-	Length         bool
-	MinLength      bool
-	MaxLength      bool
-	TotalDigits    bool
-	FractionDigits bool
-	MinInclusive   bool
-	MaxInclusive   bool
-	MinExclusive   bool
-	MaxExclusive   bool
-	WhiteSpace     bool
+	Present        facetFlag
+	Fixed          facetFlag
 }
 
 func (f facetSet) empty() bool {
-	return !f.hasValueFacets() &&
-		len(f.Enumeration) == 0 &&
-		len(f.Patterns) == 0
+	return f.Present == 0
 }
 
 func (f facetSet) onlyPatterns() bool {
-	return !f.hasValueFacets() &&
-		len(f.Enumeration) == 0 &&
-		len(f.Patterns) != 0
+	return f.Present == facetFlagPattern
 }
 
 func (f facetSet) onlyEnumeration() bool {
-	return !f.hasValueFacets() &&
-		len(f.Enumeration) != 0 &&
-		len(f.Patterns) == 0
-}
-
-func (f facetSet) hasValueFacets() bool {
-	return f.Length != nil ||
-		f.MinLength != nil ||
-		f.MaxLength != nil ||
-		f.TotalDigits != nil ||
-		f.FractionDigits != nil ||
-		f.MinInclusive != nil ||
-		f.MaxInclusive != nil ||
-		f.MinExclusive != nil ||
-		f.MaxExclusive != nil
+	return f.Present == facetFlagEnumeration
 }
 
 func (f facetSet) needsLexical() bool {
-	return len(f.Patterns) != 0
+	return f.Present&facetFlagPattern != 0
 }
 
 func (f facetSet) needsCanonical() bool {
-	return len(f.Enumeration) != 0
+	return f.Present&facetFlagEnumeration != 0
 }
 
 func (f facetSet) needsLength() bool {
-	return f.Length != nil || f.MinLength != nil || f.MaxLength != nil
+	return f.Present&facetLengthMask != 0
 }
 
 type compiledLiteral struct {
@@ -366,18 +371,51 @@ const (
 	blockUnion
 )
 
+// contentKind is the complex type {content type} variety.
+type contentKind uint8
+
+const (
+	contentElementOnly contentKind = iota
+	contentMixed
+	contentSimple
+	// contentSimpleMixed is simple content that recorded mixed="true";
+	// the mixed flag only feeds complexContent mixed-derivation checks.
+	contentSimpleMixed
+)
+
+func elementContentKind(mixed bool) contentKind {
+	if mixed {
+		return contentMixed
+	}
+	return contentElementOnly
+}
+
+func simpleContentKind(mixed bool) contentKind {
+	if mixed {
+		return contentSimpleMixed
+	}
+	return contentSimple
+}
+
 type complexType struct {
 	Name        qName
 	Base        typeID
 	Content     contentModelID
 	Attrs       attributeUseSetID
 	TextType    simpleTypeID
-	Mixed       bool
+	ContentKind contentKind
 	Abstract    bool
 	Derivation  derivationKind
 	Block       derivationMask
 	Final       derivationMask
-	SimpleValue bool
+}
+
+func (ct complexType) mixed() bool {
+	return ct.ContentKind == contentMixed || ct.ContentKind == contentSimpleMixed
+}
+
+func (ct complexType) simpleContent() bool {
+	return ct.ContentKind == contentSimple || ct.ContentKind == contentSimpleMixed
 }
 
 type modelKind uint8
@@ -406,17 +444,17 @@ type occurrence struct {
 
 type contentModel struct {
 	Particles []particle
-	occurs    occurrence
+	Occurs    occurrence
 	Kind      modelKind
 	Mixed     bool
 }
 
 type particle struct {
 	Kind     particleKind
-	occurs   occurrence
+	Occurs   occurrence
 	Element  elementID
 	Model    contentModelID
-	wildcard wildcardID
+	Wildcard wildcardID
 }
 
 type compiledModelKind uint8
@@ -485,6 +523,29 @@ type wildcard struct {
 	Process    processContents
 }
 
+func (rt *runtimeSchema) simpleType(id simpleTypeID) (*simpleType, bool) {
+	if !validUint32Index(uint32(id), len(rt.SimpleTypes)) {
+		return nil, false
+	}
+	return &rt.SimpleTypes[id], true
+}
+
+func (rt *runtimeSchema) complexType(id complexTypeID) (*complexType, bool) {
+	if !validUint32Index(uint32(id), len(rt.ComplexTypes)) {
+		return nil, false
+	}
+	return &rt.ComplexTypes[id], true
+}
+
+// typeHasSimpleContent reports whether values of t carry simple content:
+// t is a simple type, or a complex type whose content type is simple.
+func (rt *runtimeSchema) typeHasSimpleContent(t typeID) bool {
+	if id, ok := t.complex(); ok {
+		return rt.ComplexTypes[id].simpleContent()
+	}
+	return true
+}
+
 func (rt *runtimeSchema) typeName(t typeID) qName {
 	if t.Kind == typeSimple {
 		return rt.SimpleTypes[t.ID].Name
@@ -496,22 +557,27 @@ func (rt *runtimeSchema) typeDerivationMask(t, base typeID) (derivationMask, boo
 	if t == base {
 		return 0, true
 	}
-	if t.Kind == typeSimple && base.Kind == typeComplex && complexTypeID(base.ID) == rt.Builtin.AnyType {
+	if base == complexRef(rt.Builtin.AnyType) {
+		if id, ok := t.complex(); ok {
+			return rt.complexAnyTypeDerivationMask(id)
+		}
 		return blockRestriction, true
 	}
-	if t.Kind == typeComplex && base.Kind == typeComplex && complexTypeID(base.ID) == rt.Builtin.AnyType {
-		return rt.complexAnyTypeDerivationMask(complexTypeID(t.ID))
-	}
-	if t.Kind == typeComplex && base.Kind == typeSimple {
-		return rt.complexSimpleTypeDerivationMask(complexTypeID(t.ID), simpleTypeID(base.ID))
-	}
-	if t.Kind != base.Kind {
+	if tID, ok := t.complex(); ok {
+		if baseID, ok := base.simple(); ok {
+			return rt.complexSimpleTypeDerivationMask(tID, baseID)
+		}
+		if baseID, ok := base.complex(); ok {
+			return rt.complexTypeDerivationMask(tID, baseID)
+		}
 		return 0, false
 	}
-	if t.Kind == typeSimple {
-		return rt.simpleTypeDerivationMask(simpleTypeID(t.ID), simpleTypeID(base.ID), make(map[[2]simpleTypeID]bool))
+	if tID, ok := t.simple(); ok {
+		if baseID, ok := base.simple(); ok {
+			return rt.simpleTypeDerivationMask(tID, baseID, make(map[[2]simpleTypeID]bool))
+		}
 	}
-	return rt.complexTypeDerivationMask(complexTypeID(t.ID), complexTypeID(base.ID))
+	return 0, false
 }
 
 func (rt *runtimeSchema) substitutionDerivationAllowed(t, base typeID, block derivationMask) bool {
@@ -536,50 +602,48 @@ func (rt *runtimeSchema) substitutionAllowed(headID, memberID elementID) bool {
 
 func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 	var blocks derivationMask
-	if base.Kind == typeComplex && validUint32Index(base.ID, len(rt.ComplexTypes)) {
-		blocks |= rt.ComplexTypes[base.ID].Block
+	if baseID, ok := base.complex(); ok {
+		if baseCT, ok := rt.complexType(baseID); ok {
+			blocks |= baseCT.Block
+		}
 	}
-	if t.Kind != typeComplex {
+	current, ok := t.complex()
+	if !ok {
 		return blocks
 	}
-	current := complexTypeID(t.ID)
 	for range len(rt.ComplexTypes) {
-		if !validUint32Index(uint32(current), len(rt.ComplexTypes)) {
+		ct, ok := rt.complexType(current)
+		if !ok {
 			return blocks
 		}
-		ct := rt.ComplexTypes[current]
 		if ct.Base == base {
 			return blocks
 		}
-		if ct.Base.Kind != typeComplex {
+		parent, ok := ct.Base.complex()
+		if !ok {
 			return blocks
 		}
-		parent := complexTypeID(ct.Base.ID)
-		if !validUint32Index(uint32(parent), len(rt.ComplexTypes)) {
+		parentCT, ok := rt.complexType(parent)
+		if !ok {
 			return blocks
 		}
-		blocks |= rt.ComplexTypes[parent].Block
+		blocks |= parentCT.Block
 		current = parent
 	}
 	return blocks
 }
 
 func (rt *runtimeSchema) complexSimpleTypeDerivationMask(t complexTypeID, base simpleTypeID) (derivationMask, bool) {
-	if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
-		return 0, false
-	}
-	ct := rt.ComplexTypes[t]
-	if !ct.SimpleValue {
+	ct, ok := rt.complexType(t)
+	if !ok || !ct.simpleContent() {
 		return 0, false
 	}
 	var mask derivationMask
-	var ok bool
-	switch ct.Base.Kind {
-	case typeSimple:
-		mask, ok = rt.simpleTypeDerivationMask(simpleTypeID(ct.Base.ID), base, make(map[[2]simpleTypeID]bool))
-	case typeComplex:
-		mask, ok = rt.complexSimpleTypeDerivationMask(complexTypeID(ct.Base.ID), base)
-	default:
+	if baseSimple, isSimple := ct.Base.simple(); isSimple {
+		mask, ok = rt.simpleTypeDerivationMask(baseSimple, base, make(map[[2]simpleTypeID]bool))
+	} else if baseComplex, isComplex := ct.Base.complex(); isComplex {
+		mask, ok = rt.complexSimpleTypeDerivationMask(baseComplex, base)
+	} else {
 		return 0, false
 	}
 	if !ok {
@@ -601,10 +665,10 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 		if t == rt.Builtin.AnyType {
 			return mask, true
 		}
-		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
+		ct, ok := rt.complexType(t)
+		if !ok {
 			return 0, false
 		}
-		ct := rt.ComplexTypes[t]
 		switch ct.Derivation {
 		case derivationExtension:
 			mask |= blockExtension
@@ -615,10 +679,11 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 		if ct.Base.Kind == typeSimple {
 			return mask | blockRestriction, true
 		}
-		if ct.Base.Kind != typeComplex || complexTypeID(ct.Base.ID) == noComplexType {
+		parent, ok := ct.Base.complex()
+		if !ok || parent == noComplexType {
 			return 0, false
 		}
-		t = complexTypeID(ct.Base.ID)
+		t = parent
 	}
 	return 0, false
 }
@@ -627,7 +692,12 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 	if t == base {
 		return 0, true
 	}
-	if !validUint32Index(uint32(t), len(rt.SimpleTypes)) || !validUint32Index(uint32(base), len(rt.SimpleTypes)) {
+	st, ok := rt.simpleType(t)
+	if !ok {
+		return 0, false
+	}
+	baseType, ok := rt.simpleType(base)
+	if !ok {
 		return 0, false
 	}
 	pair := [2]simpleTypeID{t, base}
@@ -636,16 +706,14 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 	}
 	seen[pair] = true
 
-	baseType := rt.SimpleTypes[base]
 	if baseType.Variety == varietyUnion {
 		for _, member := range baseType.Union {
-			if mask, ok := rt.simpleTypeDerivationMask(t, member, seen); ok {
+			if mask, derived := rt.simpleTypeDerivationMask(t, member, seen); derived {
 				return mask | blockRestriction, true
 			}
 		}
 	}
 
-	st := rt.SimpleTypes[t]
 	if st.Base == noSimpleType || st.Base == t {
 		return 0, false
 	}
@@ -659,11 +727,12 @@ func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map
 func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (derivationMask, bool) {
 	var mask derivationMask
 	for range len(rt.ComplexTypes) {
-		if !validUint32Index(uint32(t), len(rt.ComplexTypes)) {
+		ct, ok := rt.complexType(t)
+		if !ok {
 			return 0, false
 		}
-		ct := rt.ComplexTypes[t]
-		if ct.Base.Kind != typeComplex || complexTypeID(ct.Base.ID) == noComplexType {
+		parent, ok := ct.Base.complex()
+		if !ok || parent == noComplexType {
 			return 0, false
 		}
 		switch ct.Derivation {
@@ -673,10 +742,10 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 			mask |= blockRestriction
 		case derivationNone:
 		}
-		if complexTypeID(ct.Base.ID) == base {
+		if parent == base {
 			return mask, true
 		}
-		t = complexTypeID(ct.Base.ID)
+		t = parent
 	}
 	return 0, false
 }

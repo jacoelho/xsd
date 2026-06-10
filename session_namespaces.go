@@ -51,7 +51,7 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 			typ = override
 		}
 	}
-	if typ.Kind == typeComplex && rt.ComplexTypes[typ.ID].Abstract {
+	if id, ok := typ.complex(); ok && rt.ComplexTypes[id].Abstract {
 		return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "complex type is abstract")
 	}
 	if nilSpecified && elem != noElement && !rt.Elements[elem].Nillable {
@@ -61,7 +61,7 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 		if elem == noElement {
 			return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "element is not nillable")
 		}
-		if rt.Elements[elem].HasFixed {
+		if rt.Elements[elem].Fixed.Present {
 			return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "nilled element cannot have fixed value")
 		}
 	}
@@ -78,8 +78,8 @@ func (s *session) validateXSITypeOverride(elem elementID, declared, override typ
 		return nil
 	}
 	block := rt.Elements[elem].Block
-	if declared.Kind == typeComplex {
-		block |= rt.ComplexTypes[declared.ID].Block
+	if id, ok := declared.complex(); ok {
+		block |= rt.ComplexTypes[id].Block
 	}
 	if block&blockExtension != 0 && mask&blockExtension != 0 {
 		return validation(ErrValidationType, line, col, s.pathString(), "xsi:type extension is blocked")

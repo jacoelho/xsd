@@ -423,7 +423,7 @@ func (c *compiler) parseIdentityNameTest(n *rawNode, lexical string) (identitySt
 	return identityStep{
 		Name:         parsed.name,
 		Namespace:    parsed.namespace,
-		wildcard:     parsed.wildcard,
+		Wildcard:     parsed.wildcard,
 		NamespaceSet: parsed.namespaceSet,
 	}, nil
 }

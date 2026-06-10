@@ -32,7 +32,7 @@ func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (parti
 	if err != nil {
 		return particle{}, err
 	}
-	return particle{Kind: particleElement, Element: id, occurs: occurs}, nil
+	return particle{Kind: particleElement, Element: id, Occurs: occurs}, nil
 }
 
 func (c *compiler) compileElementByQName(q qName) (elementID, error) {
@@ -55,7 +55,7 @@ func (c *compiler) compileElementByQName(q qName) (elementID, error) {
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
+	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: complexRef(c.rt.Builtin.AnyType)})
 	c.elementDone[q] = id
 	c.rt.GlobalElements[q] = id
 	decl, err := c.compileElementDecl(raw.node, raw.ctx, q)
@@ -95,7 +95,7 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (elementI
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}})
+	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: complexRef(c.rt.Builtin.AnyType)})
 	c.localDone[n] = id
 	c.compilingLocal[n] = true
 	defer delete(c.compilingLocal, n)
@@ -181,7 +181,7 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	if err != nil {
 		return elementDecl{}, err
 	}
-	typ := typeID{Kind: typeComplex, ID: uint32(c.rt.Builtin.AnyType)}
+	typ := complexRef(c.rt.Builtin.AnyType)
 	if typeLex, ok := n.attr(xsdAttrType); ok {
 		attrType, typeErr := c.compileElementTypeAttribute(n, ctx, typeLex)
 		if typeErr != nil {
@@ -193,13 +193,13 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 		if simpleErr != nil {
 			return elementDecl{}, simpleErr
 		}
-		typ = typeID{Kind: typeSimple, ID: uint32(id)}
+		typ = simpleRef(id)
 	} else if ct := n.firstXS(xsdElemComplexType); ct != nil {
 		id, complexErr := c.compileAnonymousComplex(ct, ctx)
 		if complexErr != nil {
 			return elementDecl{}, complexErr
 		}
-		typ = typeID{Kind: typeComplex, ID: uint32(id)}
+		typ = complexRef(id)
 	} else if headLex, ok := n.attr(xsdAttrSubstitutionGroup); ok {
 		headQName, headErr := c.resolveQNameChecked(n, ctx, headLex)
 		if headErr != nil {
@@ -231,14 +231,14 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	}
 	decl.Final = final
 	if v, ok := n.attr(xsdAttrDefault); ok {
-		decl.Default = v
-		decl.HasDefault = true
+		decl.Default.Lexical = v
+		decl.Default.Present = true
 	}
 	if v, ok := n.attr(xsdAttrFixed); ok {
-		decl.Fixed = v
-		decl.HasFixed = true
+		decl.Fixed.Lexical = v
+		decl.Fixed.Present = true
 	}
-	if decl.HasDefault && decl.HasFixed {
+	if decl.Default.Present && decl.Fixed.Present {
 		return elementDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "element cannot have both default and fixed")
 	}
 	if err := c.validateElementValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
@@ -263,67 +263,66 @@ func (c *compiler) compileElementTypeAttribute(n *rawNode, ctx *schemaContext, t
 	if err != nil {
 		return typeID{}, err
 	}
-	return typeID{Kind: typeSimple, ID: uint32(missing)}, nil
+	return simpleRef(missing), nil
 }
 
 func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qnameResolver) error {
 	simpleID := noSimpleType
-	switch decl.Type.Kind {
-	case typeSimple:
-		simpleID = simpleTypeID(decl.Type.ID)
-	case typeComplex:
-		ct := c.rt.ComplexTypes[decl.Type.ID]
-		if ct.SimpleValue {
+	if id, ok := decl.Type.simple(); ok {
+		simpleID = id
+	} else if id, ok := decl.Type.complex(); ok {
+		ct := c.rt.ComplexTypes[id]
+		if ct.simpleContent() {
 			simpleID = ct.TextType
-		} else if (decl.HasDefault || decl.HasFixed) && ct.Mixed && c.modelEmptiable(ct.Content) {
-			decl.DefaultCanonical = decl.Default
-			decl.FixedCanonical = decl.Fixed
-			if decl.HasDefault {
-				decl.DefaultValue = simpleValue{Canonical: decl.Default, Type: noSimpleType}
+		} else if (decl.Default.Present || decl.Fixed.Present) && ct.mixed() && c.modelEmptiable(ct.Content) {
+			decl.Default.Canonical = decl.Default.Lexical
+			decl.Fixed.Canonical = decl.Fixed.Lexical
+			if decl.Default.Present {
+				decl.Default.Value = simpleValue{Canonical: decl.Default.Lexical, Type: noSimpleType}
 			}
-			if decl.HasFixed {
-				decl.FixedValue = simpleValue{Canonical: decl.Fixed, Type: noSimpleType}
+			if decl.Fixed.Present {
+				decl.Fixed.Value = simpleValue{Canonical: decl.Fixed.Lexical, Type: noSimpleType}
 			}
 			return nil
 		}
 	}
 	if simpleID == noSimpleType {
-		if decl.HasDefault || decl.HasFixed {
+		if decl.Default.Present || decl.Fixed.Present {
 			return schemaCompile(ErrSchemaInvalidAttribute, "element value constraint requires simple content")
 		}
 		return nil
 	}
-	if (decl.HasDefault || decl.HasFixed) && c.typeDerivesFrom(typeID{Kind: typeSimple, ID: uint32(simpleID)}, typeID{Kind: typeSimple, ID: uint32(c.rt.Builtin.ID)}) {
+	if (decl.Default.Present || decl.Fixed.Present) && c.typeDerivesFrom(simpleRef(simpleID), simpleRef(c.rt.Builtin.ID)) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed element cannot have default or fixed")
 	}
-	if (decl.HasDefault || decl.HasFixed) && c.simpleTypeUsesBareNotation(simpleID, make(map[simpleTypeID]bool)) {
+	if (decl.Default.Present || decl.Fixed.Present) && c.simpleTypeUsesBareNotation(simpleID, make(map[simpleTypeID]bool)) {
 		return schemaCompile(ErrSchemaFacet, "NOTATION value constraint requires enumeration")
 	}
-	if decl.HasDefault {
-		value, err := c.validateValueConstraint(simpleID, decl.Default, resolve, decl.Name, "element default")
+	if decl.Default.Present {
+		value, err := c.validateValueConstraint(simpleID, decl.Default.Lexical, resolve, decl.Name, "element default")
 		if err != nil {
 			return err
 		}
-		decl.DefaultCanonical = value.Canonical
-		decl.DefaultValue = value
+		decl.Default.Canonical = value.Canonical
+		decl.Default.Value = value
 	}
-	if decl.HasFixed {
-		value, err := c.validateValueConstraint(simpleID, decl.Fixed, resolve, decl.Name, "element fixed")
+	if decl.Fixed.Present {
+		value, err := c.validateValueConstraint(simpleID, decl.Fixed.Lexical, resolve, decl.Name, "element fixed")
 		if err != nil {
 			return err
 		}
-		decl.FixedCanonical = value.Canonical
-		decl.FixedValue = value
+		decl.Fixed.Canonical = value.Canonical
+		decl.Fixed.Value = value
 	}
 	return nil
 }
 
 func (c *compiler) simpleTypeUsesBareNotation(id simpleTypeID, seen map[simpleTypeID]bool) bool {
-	if id == noSimpleType || !validUint32Index(uint32(id), len(c.rt.SimpleTypes)) || seen[id] {
+	st, ok := c.rt.simpleType(id)
+	if !ok || seen[id] {
 		return false
 	}
 	seen[id] = true
-	st := c.rt.SimpleTypes[id]
 	if st.Primitive == primNotation && len(st.Facets.Enumeration) == 0 {
 		return true
 	}
@@ -341,11 +340,11 @@ func (c *compiler) simpleTypeUsesBareNotation(id simpleTypeID, seen map[simpleTy
 }
 
 func (c *compiler) simpleTypeHasListVariety(id simpleTypeID, seen map[simpleTypeID]bool) bool {
-	if id == noSimpleType || !validUint32Index(uint32(id), len(c.rt.SimpleTypes)) || seen[id] {
+	st, ok := c.rt.simpleType(id)
+	if !ok || seen[id] {
 		return false
 	}
 	seen[id] = true
-	st := c.rt.SimpleTypes[id]
 	if st.Variety == varietyList {
 		return true
 	}
