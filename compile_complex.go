@@ -1,9 +1,6 @@
 package xsd
 
-import (
-	"fmt"
-	"slices"
-)
+import "fmt"
 
 func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	if id, ok := c.complexDone[q]; ok {
@@ -535,12 +532,12 @@ func simpleContentDerivationChild(n *rawNode) *rawNode {
 }
 
 func (c *compiler) compileSimpleContentSimpleBase(child *rawNode, baseQName qName, ct complexType) (complexType, simpleTypeID, error) {
+	if child.Name.Local == xsdElemRestriction {
+		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction base must be complex type")
+	}
 	simpleID, err := c.compileSimpleByQName(baseQName)
 	if err != nil {
 		return complexType{}, noSimpleType, withSchemaCompileLocation(child, err)
-	}
-	if child.Name.Local == xsdElemRestriction {
-		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction base must be complex type")
 	}
 	if c.rt.SimpleTypes[simpleID].Final&blockExtension != 0 {
 		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaReference, "base simple type final blocks extension")
@@ -621,12 +618,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*rawNode
 	if err != nil {
 		return noSimpleType, err
 	}
-	st := base
-	st.Name = q
-	st.Base = baseID
-	st.Final = 0
-	st.Facets = cloneFacetSet(base.Facets)
-	st.Union = slices.Clone(base.Union)
+	st := derivedSimpleType(base, baseID, q)
 	if err = c.compileFacetList(facetChildren, &st, baseID, baseID); err != nil {
 		return noSimpleType, withSchemaCompileLocation(facetChildren[0], err)
 	}

@@ -346,44 +346,9 @@ func (c *compiler) classifySimpleIdentities() {
 	memo := make([]simpleIdentityKind, len(c.rt.SimpleTypes))
 	visiting := make([]bool, len(c.rt.SimpleTypes))
 	for id := range c.rt.SimpleTypes {
-		c.rt.SimpleTypes[id].Identity = c.simpleIdentityKind(simpleTypeID(id), memo, visiting)
+		c.rt.SimpleTypes[id].Identity = c.rt.classifySimpleIdentity(simpleTypeID(id), memo, visiting)
 	}
 	c.rt.SimpleIdentitiesClassified = true
-}
-
-func (c *compiler) simpleIdentityKind(id simpleTypeID, memo []simpleIdentityKind, visiting []bool) simpleIdentityKind {
-	st, ok := c.rt.simpleType(id)
-	if !ok {
-		return simpleIdentityNone
-	}
-	if memo[id] != simpleIdentityNone {
-		return memo[id]
-	}
-	if id == c.rt.Builtin.ID {
-		memo[id] = simpleIdentityID
-		return simpleIdentityID
-	}
-	if id == c.rt.Builtin.IDREF {
-		memo[id] = simpleIdentityIDREF
-		return simpleIdentityIDREF
-	}
-	if visiting[id] {
-		return simpleIdentityNone
-	}
-	visiting[id] = true
-	kind := simpleIdentityNone
-	switch st.Variety {
-	case varietyAtomic:
-		kind = c.simpleIdentityKind(st.Base, memo, visiting)
-	case varietyList:
-		if c.simpleIdentityKind(st.ListItem, memo, visiting) == simpleIdentityIDREF {
-			kind = simpleIdentityIDREFList
-		}
-	case varietyUnion:
-	}
-	visiting[id] = false
-	memo[id] = kind
-	return kind
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
@@ -691,16 +656,24 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 	if base.Final&blockRestriction != 0 {
 		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "base simple type final blocks restriction")
 	}
+	st := derivedSimpleType(base, baseID, name)
+	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
+		return simpleType{}, withSchemaCompileLocation(n, err)
+	}
+	return st, nil
+}
+
+// derivedSimpleType copies base as the starting point of a restriction step,
+// deep-cloning the facet state so the derived type can restrict it
+// independently.
+func derivedSimpleType(base simpleType, baseID simpleTypeID, name qName) simpleType {
 	st := base
 	st.Name = name
 	st.Base = baseID
 	st.Final = 0
 	st.Facets = cloneFacetSet(base.Facets)
 	st.Union = slices.Clone(base.Union)
-	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
-		return simpleType{}, withSchemaCompileLocation(n, err)
-	}
-	return st, nil
+	return st
 }
 
 func cloneFacetSet(f facetSet) facetSet {

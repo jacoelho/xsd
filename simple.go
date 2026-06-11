@@ -70,31 +70,57 @@ func (n simpleValueNeed) has(need simpleValueNeed) bool {
 }
 
 func computeSimpleValueIdentity(rt *runtimeSchema, id simpleTypeID) simpleIdentityKind {
+	return rt.classifySimpleIdentity(id, nil, nil)
+}
+
+// classifySimpleIdentity resolves the ID/IDREF classification of a simple
+// type through its base (atomic) or item (list) chain. memo and visiting may
+// be nil for one-off queries; the schema-wide classification pass supplies
+// both, and visiting guards derivation cycles that exist only while a schema
+// is still compiling.
+func (rt *runtimeSchema) classifySimpleIdentity(id simpleTypeID, memo []simpleIdentityKind, visiting []bool) simpleIdentityKind {
 	st, ok := rt.simpleType(id)
 	if !ok {
 		return simpleIdentityNone
 	}
+	if memo != nil && memo[id] != simpleIdentityNone {
+		return memo[id]
+	}
 	if st.Identity != simpleIdentityNone {
 		return st.Identity
 	}
-	if id == rt.Builtin.ID {
-		return simpleIdentityID
-	}
-	if id == rt.Builtin.IDREF {
-		return simpleIdentityIDREF
-	}
-	switch st.Variety {
-	case varietyAtomic:
-		if st.Base != id {
-			return computeSimpleValueIdentity(rt, st.Base)
+	kind := simpleIdentityNone
+	switch id {
+	case rt.Builtin.ID:
+		kind = simpleIdentityID
+	case rt.Builtin.IDREF:
+		kind = simpleIdentityIDREF
+	default:
+		if visiting != nil {
+			if visiting[id] {
+				return simpleIdentityNone
+			}
+			visiting[id] = true
 		}
-	case varietyList:
-		if computeSimpleValueIdentity(rt, st.ListItem) == simpleIdentityIDREF {
-			return simpleIdentityIDREFList
+		switch st.Variety {
+		case varietyAtomic:
+			if st.Base != id {
+				kind = rt.classifySimpleIdentity(st.Base, memo, visiting)
+			}
+		case varietyList:
+			if rt.classifySimpleIdentity(st.ListItem, memo, visiting) == simpleIdentityIDREF {
+				kind = simpleIdentityIDREFList
+			}
+		case varietyUnion:
 		}
-	case varietyUnion:
+		if visiting != nil {
+			visiting[id] = false
+		}
 	}
-	return simpleIdentityNone
+	if memo != nil {
+		memo[id] = kind
+	}
+	return kind
 }
 
 func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string, resolve qnameResolver, needs simpleValueNeed) (simpleValue, error) {
