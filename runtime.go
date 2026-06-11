@@ -56,6 +56,13 @@ const noAttributeUseSet = attributeUseSetID(^uint32(0))
 const noWildcard = wildcardID(^uint32(0))
 const noIdentityConstraint = identityConstraintID(^uint32(0))
 
+// runtimeSchema is the compiled, immutable form of a schema. Every ID stored
+// in a published runtimeSchema is index-valid: freezeRuntime runs
+// validateRuntimeSchema before the schema is handed to an Engine, so code
+// reading freeze-validated IDs may index the component slices directly
+// (typeName, the session hot paths). The checked accessors (simpleType,
+// complexType, usableSimpleType) are for IDs that are not freeze-trusted:
+// values still being compiled, or IDs derived from instance input.
 type runtimeSchema struct {
 	GlobalAttributes   map[qName]attributeID
 	GlobalElements     map[qName]elementID
