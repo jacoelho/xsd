@@ -1245,25 +1245,42 @@ func TestOrderedFacetsAreRejectedForListAndUnionTypes(t *testing.T) {
 	expectCode(t, err, ErrSchemaFacet)
 }
 
-func TestDirectListAndUnionEnumerationValuesUseMemberValueSpace(t *testing.T) {
+func TestListAndUnionEnumerationValuesUseMemberValueSpace(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-	  <xs:simpleType name="Bad"><xs:list itemType="xs:int"><xs:enumeration value="x"/></xs:list></xs:simpleType>
+	  <xs:simpleType name="L"><xs:list itemType="xs:int"/></xs:simpleType>
+	  <xs:simpleType name="Bad"><xs:restriction base="L"><xs:enumeration value="x"/></xs:restriction></xs:simpleType>
 	</xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
 
 	_, err = Compile(sourceBytes("schema.xsd", []byte(`
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-	  <xs:simpleType name="Bad"><xs:union memberTypes="xs:int"><xs:enumeration value="x"/></xs:union></xs:simpleType>
+	  <xs:simpleType name="U"><xs:union memberTypes="xs:int"/></xs:simpleType>
+	  <xs:simpleType name="Bad"><xs:restriction base="U"><xs:enumeration value="x"/></xs:restriction></xs:simpleType>
 	</xs:schema>`)))
 	expectCode(t, err, ErrSchemaFacet)
 
 	engine := mustCompile(t, `
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-	  <xs:simpleType name="One"><xs:union memberTypes="xs:int"><xs:enumeration value="01"/></xs:union></xs:simpleType>
+	  <xs:simpleType name="U"><xs:union memberTypes="xs:int"/></xs:simpleType>
+	  <xs:simpleType name="One"><xs:restriction base="U"><xs:enumeration value="01"/></xs:restriction></xs:simpleType>
 	  <xs:element name="root" type="One"/>
 	</xs:schema>`)
 	mustValidate(t, engine, `<root>1</root>`)
+}
+
+func TestListAndUnionRejectDirectFacetChildren(t *testing.T) {
+	_, err := Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Bad"><xs:list itemType="xs:int"><xs:enumeration value="1"/></xs:list></xs:simpleType>
+	</xs:schema>`)))
+	expectCode(t, err, ErrSchemaContentModel)
+
+	_, err = Compile(sourceBytes("schema.xsd", []byte(`
+	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	  <xs:simpleType name="Bad"><xs:union memberTypes="xs:int"><xs:enumeration value="1"/></xs:union></xs:simpleType>
+	</xs:schema>`)))
+	expectCode(t, err, ErrSchemaContentModel)
 }
 
 func TestUnionValueFailureReportsUnionFailure(t *testing.T) {

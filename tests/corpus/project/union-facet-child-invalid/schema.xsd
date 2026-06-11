@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="intOrString">
+    <xs:union memberTypes="xs:int xs:string">
+      <xs:pattern value="a+"/>
+    </xs:union>
+  </xs:simpleType>
+  <xs:element name="root" type="intOrString"/>
+</xs:schema>
