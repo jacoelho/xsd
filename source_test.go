@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -882,5 +883,18 @@ func TestCompileReadsResolvedSchemaSourcesOnce(t *testing.T) {
 	}
 	if types.reads != 1 {
 		t.Fatalf("types reads = %d, want 1", types.reads)
+	}
+}
+
+func TestResolveLocalSchemaLocationWindowsDrivePath(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("drive-letter paths only resolve on windows")
+	}
+	got, ok := resolveLocalSchemaLocation(`C:\schemas\main.xsd`, `C:\schemas\types.xsd`)
+	if !ok {
+		t.Fatal("resolveLocalSchemaLocation() ok = false for drive-letter location")
+	}
+	if want := filepath.Clean(`C:\schemas\types.xsd`); got != want {
+		t.Fatalf("resolveLocalSchemaLocation() = %q, want %q", got, want)
 	}
 }

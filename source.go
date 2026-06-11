@@ -138,6 +138,9 @@ func resolveFileSchemaSource(base, location string) (SchemaSource, error) {
 }
 
 func resolveLocalSchemaLocation(base, location string) (string, bool) {
+	if trimmed := trimXMLWhitespace(location); filepath.VolumeName(trimmed) != "" {
+		return filepath.Clean(trimmed), true
+	}
 	u, err := url.Parse(location)
 	if err == nil && u.Scheme != "" {
 		return localFileURIPath(u)
