@@ -223,7 +223,7 @@ func hasXSIType(attrs []streamAttr) bool {
 }
 
 func (s *session) end(line, col int, ee xml.EndElement) error {
-	if len(s.stack) == 0 {
+	if len(s.doc.stack) == 0 {
 		return validation(ErrValidationXML, line, col, s.pathString(), "unexpected end element")
 	}
 	translated, err := s.translateName(ee.Name, xmlElementName, line, col)
@@ -231,26 +231,26 @@ func (s *session) end(line, col int, ee xml.EndElement) error {
 		return err
 	}
 	ee.Name = translated
-	expected := s.elementNames[len(s.elementNames)-1]
+	expected := s.doc.elementNames[len(s.doc.elementNames)-1]
 	if ee.Name != expected {
 		return validation(ErrValidationXML, line, col, s.pathString(), "end element </"+formatXMLName(ee.Name)+"> does not match start element <"+formatXMLName(expected)+">")
 	}
-	f := &s.stack[len(s.stack)-1]
+	f := &s.doc.stack[len(s.doc.stack)-1]
 	stop := s.validateFrameEnd(f, line, col)
 	if stop == nil {
 		stop = s.finishFrameIdentity(line, col)
 	}
-	s.allBits = s.allBits[:f.BitBase]
-	s.text = s.text[:f.TextStart]
-	s.stack = s.stack[:len(s.stack)-1]
+	s.doc.allBits = s.doc.allBits[:f.BitBase]
+	s.doc.text = s.doc.text[:f.TextStart]
+	s.doc.stack = s.doc.stack[:len(s.doc.stack)-1]
 	s.popPath()
-	if len(s.namePath) > 0 {
-		s.namePath = s.namePath[:len(s.namePath)-1]
+	if len(s.doc.namePath) > 0 {
+		s.doc.namePath = s.doc.namePath[:len(s.doc.namePath)-1]
 	}
-	if len(s.elementNames) > 0 {
-		s.elementNames = s.elementNames[:len(s.elementNames)-1]
+	if len(s.doc.elementNames) > 0 {
+		s.doc.elementNames = s.doc.elementNames[:len(s.doc.elementNames)-1]
 	}
-	s.ns.pop()
+	s.doc.ns.pop()
 	return stop
 }
 
@@ -288,7 +288,7 @@ func (s *session) captureEndIdentity(f *frame, contentCaptured bool, line, col i
 	case f.Nilled && f.Element != noElement:
 		return s.recover(s.captureIdentityFields(s.identityElementFields(), nilledIdentityValue(), line, col))
 	case !s.engine.rt.typeHasSimpleContent(f.Type):
-		return s.recover(s.captureIdentityComplexElement(s.text[f.TextStart:], line, col))
+		return s.recover(s.captureIdentityComplexElement(s.doc.text[f.TextStart:], line, col))
 	default:
 		return nil
 	}
@@ -298,10 +298,10 @@ func (s *session) finishFrameIdentity(line, col int) error {
 	if len(s.engine.rt.Identities) == 0 {
 		return nil
 	}
-	if err := s.finishIdentitySelections(len(s.namePath), line, col); err != nil {
+	if err := s.finishIdentitySelections(len(s.doc.namePath), line, col); err != nil {
 		return err
 	}
-	return s.closeIdentityScopes(len(s.namePath))
+	return s.closeIdentityScopes(len(s.doc.namePath))
 }
 
 func (s *session) completeFrame(f *frame, line, col int) error {
@@ -395,7 +395,7 @@ func (s *session) allSeen(f *frame, i int) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return s.allBits[idx]&bit != 0, nil
+	return s.doc.allBits[idx]&bit != 0, nil
 }
 
 func (s *session) setAllSeen(f *frame, i int) error {
@@ -403,7 +403,7 @@ func (s *session) setAllSeen(f *frame, i int) error {
 	if err != nil {
 		return err
 	}
-	s.allBits[idx] |= bit
+	s.doc.allBits[idx] |= bit
 	return nil
 }
 
@@ -412,8 +412,8 @@ func (s *session) allBitIndex(f *frame, i int) (int, uint64, error) {
 		return 0, 0, s.counterInvariantError("content model all bit index out of range", i, f.BitLen*64)
 	}
 	idx := f.BitBase + i/64
-	if idx < 0 || idx >= len(s.allBits) {
-		return 0, 0, s.counterInvariantError("content model all bit storage out of range", idx, len(s.allBits))
+	if idx < 0 || idx >= len(s.doc.allBits) {
+		return 0, 0, s.counterInvariantError("content model all bit storage out of range", idx, len(s.doc.allBits))
 	}
 	return idx, uint64(1) << uint(i%64), nil
 }

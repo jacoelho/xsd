@@ -183,7 +183,7 @@ func (s *xmlNameSet) add(name xml.Name) bool {
 }
 
 func (s *session) translateName(name xml.Name, kind xmlNameKind, line, col int) (xml.Name, error) {
-	resolved, ok := s.ns.resolveName(name, kind)
+	resolved, ok := s.doc.ns.resolveName(name, kind)
 	if !ok {
 		return xml.Name{}, validation(ErrValidationXML, line, col, s.pathString(), "unbound namespace prefix "+name.Space)
 	}
@@ -257,7 +257,7 @@ func (s *session) resolveLexicalQNameParts(v string) (string, string, bool) {
 	if prefix != "" && !isNCName(prefix) {
 		return "", "", false
 	}
-	uri, ok := s.ns.lookup(prefix)
+	uri, ok := s.doc.ns.lookup(prefix)
 	if !ok {
 		return "", "", false
 	}
@@ -287,17 +287,17 @@ func (ns *namespaceStack) push(attrs []xml.Attr) error {
 }
 
 func (s *session) pushNamespaces(attrs []streamAttr) error {
-	mark := len(s.ns.bindings)
+	mark := len(s.doc.ns.bindings)
 	for i := range attrs {
 		a := &attrs[i]
 		if !isNamespaceName(a.Name) {
 			continue
 		}
-		if err := s.ns.appendBinding(mark, a.Name, a.stringValue(&s.valueStrings)); err != nil {
+		if err := s.doc.ns.appendBinding(mark, a.Name, a.stringValue(&s.valueStrings)); err != nil {
 			return err
 		}
 	}
-	s.ns.frames = append(s.ns.frames, mark)
+	s.doc.ns.frames = append(s.doc.ns.frames, mark)
 	return nil
 }
 
@@ -419,7 +419,7 @@ func isXSIName(name xml.Name) bool {
 }
 
 func (s *session) pushPath(local string) {
-	s.path = append(s.path, local)
+	s.doc.path = append(s.doc.path, local)
 }
 
 func (s *session) cachedChildPath(parent, local string) string {
@@ -441,32 +441,32 @@ func (s *session) cachedChildPath(parent, local string) string {
 }
 
 func (s *session) popPath() {
-	if len(s.path) > 0 {
-		s.path = s.path[:len(s.path)-1]
+	if len(s.doc.path) > 0 {
+		s.doc.path = s.doc.path[:len(s.doc.path)-1]
 	}
-	if s.pathTextDepth > len(s.path) {
-		s.pathText = ""
-		s.pathTextDepth = 0
+	if s.doc.pathTextDepth > len(s.doc.path) {
+		s.doc.pathText = ""
+		s.doc.pathTextDepth = 0
 	}
 }
 
 func (s *session) pathString() string {
-	if len(s.path) == 0 {
+	if len(s.doc.path) == 0 {
 		return "/"
 	}
-	if s.pathText != "" && s.pathTextDepth == len(s.path) {
-		return s.pathText
+	if s.doc.pathText != "" && s.doc.pathTextDepth == len(s.doc.path) {
+		return s.doc.pathText
 	}
 	parent := ""
 	start := 0
-	if s.pathText != "" && s.pathTextDepth > 0 && s.pathTextDepth < len(s.path) {
-		parent = s.pathText
-		start = s.pathTextDepth
+	if s.doc.pathText != "" && s.doc.pathTextDepth > 0 && s.doc.pathTextDepth < len(s.doc.path) {
+		parent = s.doc.pathText
+		start = s.doc.pathTextDepth
 	}
-	for i := start; i < len(s.path); i++ {
-		parent = s.cachedChildPath(parent, s.path[i])
+	for i := start; i < len(s.doc.path); i++ {
+		parent = s.cachedChildPath(parent, s.doc.path[i])
 	}
-	s.pathText = parent
-	s.pathTextDepth = len(s.path)
+	s.doc.pathText = parent
+	s.doc.pathTextDepth = len(s.doc.path)
 	return parent
 }

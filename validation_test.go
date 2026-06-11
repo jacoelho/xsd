@@ -109,14 +109,14 @@ func TestSessionResetShrinksLargeTextBuffer(t *testing.T) {
 	if err := session.Validate(strings.NewReader(big)); err != nil {
 		t.Fatalf("Validate(big) error = %v", err)
 	}
-	if cap(session.session.text) <= maxRetainedBufferCap {
+	if cap(session.session.doc.text) <= maxRetainedBufferCap {
 		t.Fatalf("large validation did not grow text buffer")
 	}
 	if err := session.Validate(strings.NewReader(`<root/>`)); err != nil {
 		t.Fatalf("Validate(small) error = %v", err)
 	}
-	if cap(session.session.text) > maxRetainedBufferCap {
-		t.Fatalf("text buffer cap = %d, want at most %d", cap(session.session.text), maxRetainedBufferCap)
+	if cap(session.session.doc.text) > maxRetainedBufferCap {
+		t.Fatalf("text buffer cap = %d, want at most %d", cap(session.session.doc.text), maxRetainedBufferCap)
 	}
 }
 

@@ -17,7 +17,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if err != nil || !hasSimpleContent {
 		return false, err
 	}
-	rawBytes := s.text[f.TextStart:]
+	rawBytes := s.doc.text[f.TextStart:]
 	if len(rt.Identities) == 0 &&
 		(f.Element == noElement || (!rt.Elements[f.Element].Fixed.Present && !rt.Elements[f.Element].Default.Present)) {
 		ok, rawErr := validateRawSimpleContentFast(rt, typeID, rawBytes)
@@ -121,7 +121,7 @@ func (s *session) validateNonSimpleFixedContent(f *frame, line, col int) error {
 	if f.HasChild {
 		return validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 	}
-	text := s.valueStrings.intern(s.text[f.TextStart:])
+	text := s.valueStrings.intern(s.doc.text[f.TextStart:])
 	if text != "" && text != decl.Fixed.Lexical {
 		return validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 	}
@@ -151,42 +151,42 @@ func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID, nee
 }
 
 func (s *session) identityElementFields() []identityFieldMatch {
-	s.identityMatches = s.identityMatches[:0]
-	depth := len(s.namePath)
-	for i := range s.idSelections {
-		sel := &s.idSelections[i]
+	s.doc.identityMatches = s.doc.identityMatches[:0]
+	depth := len(s.doc.namePath)
+	for i := range s.doc.idSelections {
+		sel := &s.doc.idSelections[i]
 		ic := &s.engine.rt.Identities[sel.Constraint]
 		for _, field := range ic.ElementFields {
 			if s.identityFieldPathsMatch(sel.Depth, depth, field.Paths) {
-				s.identityMatches = append(s.identityMatches, identityFieldMatch{Selection: i, Field: field.Field})
+				s.doc.identityMatches = append(s.doc.identityMatches, identityFieldMatch{Selection: i, Field: field.Field})
 			}
 		}
 	}
-	return s.identityMatches
+	return s.doc.identityMatches
 }
 
 func (s *session) identityAttributeFields(name qName) []identityFieldMatch {
-	s.identityMatches = s.identityMatches[:0]
-	depth := len(s.namePath)
-	for i := range s.idSelections {
-		sel := &s.idSelections[i]
+	s.doc.identityMatches = s.doc.identityMatches[:0]
+	depth := len(s.doc.namePath)
+	for i := range s.doc.idSelections {
+		sel := &s.doc.idSelections[i]
 		ic := &s.engine.rt.Identities[sel.Constraint]
-		start := len(s.identityMatches)
+		start := len(s.doc.identityMatches)
 		for _, field := range ic.AttributeFields[name] {
 			if s.identityFieldPathsMatch(sel.Depth, depth, field.Paths) {
-				s.identityMatches = append(s.identityMatches, identityFieldMatch{Selection: i, Field: field.Field})
+				s.doc.identityMatches = append(s.doc.identityMatches, identityFieldMatch{Selection: i, Field: field.Field})
 			}
 		}
 		for _, field := range ic.AttributeWildcardFields {
-			if identityMatchExists(s.identityMatches[start:], i, field.Field) {
+			if identityMatchExists(s.doc.identityMatches[start:], i, field.Field) {
 				continue
 			}
 			if s.identityFieldAttributePathsMatch(sel.Depth, depth, name, field.Paths) {
-				s.identityMatches = append(s.identityMatches, identityFieldMatch{Selection: i, Field: field.Field})
+				s.doc.identityMatches = append(s.doc.identityMatches, identityFieldMatch{Selection: i, Field: field.Field})
 			}
 		}
 	}
-	return s.identityMatches
+	return s.doc.identityMatches
 }
 
 func (s *session) recordAttributeIdentity(value simpleValue, line, col int, seenID *bool) error {
@@ -205,22 +205,22 @@ func (s *session) recordIdentityValue(value simpleValue, line, col int) error {
 	}
 	path := s.pathString()
 	for canonical := range xmlFieldsSeq(value.IDs) {
-		if s.ids == nil {
-			s.ids = make(map[string]string)
+		if s.doc.ids == nil {
+			s.doc.ids = make(map[string]string)
 		}
-		if prev, exists := s.ids[canonical]; exists {
+		if prev, exists := s.doc.ids[canonical]; exists {
 			return validation(ErrValidationType, line, col, path, "duplicate ID "+canonical+" first seen at "+prev)
 		}
 		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
 			return err
 		}
-		s.ids[canonical] = path
+		s.doc.ids[canonical] = path
 	}
 	for canonical := range xmlFieldsSeq(value.IDRefs) {
 		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
 			return err
 		}
-		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: path, Line: line, Col: col})
+		s.doc.idrefs = append(s.doc.idrefs, identityRef{Value: canonical, Path: path, Line: line, Col: col})
 	}
 	return nil
 }
@@ -234,11 +234,11 @@ func (s *session) simpleIdentityKind(typeID simpleTypeID) simpleIdentityKind {
 }
 
 func (s *session) checkIDRefs() error {
-	if len(s.idrefs) == 0 {
+	if len(s.doc.idrefs) == 0 {
 		return nil
 	}
-	for _, ref := range s.idrefs {
-		if _, ok := s.ids[ref.Value]; ok {
+	for _, ref := range s.doc.idrefs {
+		if _, ok := s.doc.ids[ref.Value]; ok {
 			continue
 		}
 		if err := s.recover(validation(ErrValidationType, ref.Line, ref.Col, ref.Path, "IDREF does not resolve: "+ref.Value)); err != nil {
@@ -256,35 +256,35 @@ func (s *session) startIdentityScope(elem elementID, line, col int) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	if s.maxIdentityScopes > 0 && len(s.idScopes) >= s.maxIdentityScopes {
+	if s.maxIdentityScopes > 0 && len(s.doc.idScopes) >= s.maxIdentityScopes {
 		return validation(ErrValidationIdentity, line, col, s.pathString(), "identity scope limit exceeded")
 	}
-	s.idScopes = append(s.idScopes, identityScope{
-		Depth:       len(s.namePath),
+	s.doc.idScopes = append(s.doc.idScopes, identityScope{
+		Depth:       len(s.doc.namePath),
 		Constraints: ids,
 	})
 	return nil
 }
 
 func (s *session) matchIdentitySelectors(line, col int) {
-	if len(s.idScopes) == 0 {
+	if len(s.doc.idScopes) == 0 {
 		return
 	}
 	rt := s.engine.rt
-	depth := len(s.namePath)
-	for scopeIndex := range s.idScopes {
-		scope := &s.idScopes[scopeIndex]
+	depth := len(s.doc.namePath)
+	for scopeIndex := range s.doc.idScopes {
+		scope := &s.doc.idScopes[scopeIndex]
 		for _, id := range scope.Constraints {
 			ic := rt.Identities[id]
 			if !s.identitySelectorMatches(scope.Depth, depth, ic.Selector) {
 				continue
 			}
-			fieldStart := len(s.identityFieldValues)
+			fieldStart := len(s.doc.identityFieldValues)
 			fieldLen := len(ic.Fields)
 			for range fieldLen {
-				s.identityFieldValues = append(s.identityFieldValues, identityFieldValue{})
+				s.doc.identityFieldValues = append(s.doc.identityFieldValues, identityFieldValue{})
 			}
-			s.idSelections = append(s.idSelections, identitySelection{
+			s.doc.idSelections = append(s.doc.idSelections, identitySelection{
 				Scope:      scopeIndex,
 				Constraint: id,
 				Depth:      depth,
@@ -321,7 +321,7 @@ func (s *session) identityPathMatches(baseDepth, currentDepth int, p identityPat
 	if currentDepth < baseDepth {
 		return false
 	}
-	rel := s.namePath[baseDepth:currentDepth]
+	rel := s.doc.namePath[baseDepth:currentDepth]
 	if p.descendant {
 		if len(rel) < len(p.steps) {
 			return false
@@ -358,10 +358,10 @@ func (s *session) captureIdentityFields(fields []identityFieldMatch, value simpl
 	var identity string
 	identitySet := false
 	for _, match := range fields {
-		if match.Selection < 0 || match.Selection >= len(s.idSelections) {
+		if match.Selection < 0 || match.Selection >= len(s.doc.idSelections) {
 			return internalInvariant("identity field match references invalid selection")
 		}
-		sel := &s.idSelections[match.Selection]
+		sel := &s.doc.idSelections[match.Selection]
 		if match.Field < 0 || match.Field >= sel.FieldLen {
 			return internalInvariant("identity field match references invalid field")
 		}
@@ -448,10 +448,10 @@ func (s *session) captureIdentityComplexElement(rawText []byte, line, col int) e
 	}
 	if isXMLWhitespaceBytes(rawText) {
 		match := fields[0]
-		if match.Selection < 0 || match.Selection >= len(s.idSelections) {
+		if match.Selection < 0 || match.Selection >= len(s.doc.idSelections) {
 			return internalInvariant("identity field match references invalid selection")
 		}
-		return validation(ErrValidationIdentity, line, col, s.idSelections[match.Selection].Path, "identity field has no simple value")
+		return validation(ErrValidationIdentity, line, col, s.doc.idSelections[match.Selection].Path, "identity field has no simple value")
 	}
 	text := string(rawText)
 	return s.captureIdentityFields(fields, simpleValue{
@@ -481,13 +481,13 @@ func (s *session) identityFieldPathMatches(selectedDepth, currentDepth int, p id
 }
 
 func (s *session) finishIdentitySelections(depth, line, col int) error {
-	if len(s.idSelections) == 0 {
+	if len(s.doc.idSelections) == 0 {
 		return nil
 	}
-	orig := s.idSelections
-	dst := s.idSelections[:0]
-	for i := range s.idSelections {
-		sel := s.idSelections[i]
+	orig := s.doc.idSelections
+	dst := s.doc.idSelections[:0]
+	for i := range s.doc.idSelections {
+		sel := s.doc.idSelections[i]
 		if sel.Depth != depth {
 			dst = append(dst, sel)
 			continue
@@ -498,7 +498,7 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 			if recoverErr != nil {
 				dst = append(dst, orig[i+1:]...)
 				clear(orig[len(dst):])
-				s.idSelections = dst
+				s.doc.idSelections = dst
 				s.truncateIdentityFieldValues()
 				return recoverErr
 			}
@@ -507,7 +507,7 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 		clear(s.identitySelectionFields(sel))
 	}
 	clear(orig[len(dst):])
-	s.idSelections = dst
+	s.doc.idSelections = dst
 	s.truncateIdentityFieldValues()
 	return nil
 }
@@ -528,7 +528,7 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 	if err != nil {
 		return err
 	}
-	scope := &s.idScopes[sel.Scope]
+	scope := &s.doc.idScopes[sel.Scope]
 	switch ic.Kind {
 	case identityUnique, identityKey:
 		if scope.Tables == nil {
@@ -563,19 +563,19 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 }
 
 func (s *session) identitySelectionFields(sel identitySelection) []identityFieldValue {
-	return s.identityFieldValues[sel.FieldStart : sel.FieldStart+sel.FieldLen]
+	return s.doc.identityFieldValues[sel.FieldStart : sel.FieldStart+sel.FieldLen]
 }
 
 func (s *session) truncateIdentityFieldValues() {
 	n := 0
-	for _, sel := range s.idSelections {
+	for _, sel := range s.doc.idSelections {
 		end := sel.FieldStart + sel.FieldLen
 		if end > n {
 			n = end
 		}
 	}
-	clear(s.identityFieldValues[n:])
-	s.identityFieldValues = s.identityFieldValues[:n]
+	clear(s.doc.identityFieldValues[n:])
+	s.doc.identityFieldValues = s.doc.identityFieldValues[:n]
 }
 
 func (s *session) identityTupleKey(fields []identityFieldValue, line, col int) (string, error) {
@@ -607,16 +607,16 @@ func (s *session) reserveIdentityEntry(key string, line, col int) error {
 	if s.maxIdentityTupleBytes > 0 && int64(len(key)) > s.maxIdentityTupleBytes {
 		return validation(ErrValidationIdentity, line, col, s.pathString(), "identity tuple byte limit exceeded")
 	}
-	if s.maxIdentityEntries > 0 && s.identityEntries >= s.maxIdentityEntries {
+	if s.maxIdentityEntries > 0 && s.doc.identityEntries >= s.maxIdentityEntries {
 		return validation(ErrValidationIdentity, line, col, s.pathString(), "identity entry limit exceeded")
 	}
-	s.identityEntries++
+	s.doc.identityEntries++
 	return nil
 }
 
 func (s *session) closeIdentityScopes(depth int) error {
-	for len(s.idScopes) > 0 && s.idScopes[len(s.idScopes)-1].Depth == depth {
-		scope := &s.idScopes[len(s.idScopes)-1]
+	for len(s.doc.idScopes) > 0 && s.doc.idScopes[len(s.doc.idScopes)-1].Depth == depth {
+		scope := &s.doc.idScopes[len(s.doc.idScopes)-1]
 		for _, ref := range scope.Refs {
 			entry, ok := scope.Tables[ref.Refer][ref.Key]
 			if !ok || entry.Conflict {
@@ -625,11 +625,11 @@ func (s *session) closeIdentityScopes(depth int) error {
 				}
 			}
 		}
-		if len(s.idScopes) > 1 {
-			s.mergeIdentityTables(&s.idScopes[len(s.idScopes)-2], scope)
+		if len(s.doc.idScopes) > 1 {
+			s.mergeIdentityTables(&s.doc.idScopes[len(s.doc.idScopes)-2], scope)
 		}
 		*scope = identityScope{}
-		s.idScopes = s.idScopes[:len(s.idScopes)-1]
+		s.doc.idScopes = s.doc.idScopes[:len(s.doc.idScopes)-1]
 	}
 	return nil
 }

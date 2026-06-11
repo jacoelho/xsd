@@ -8,78 +8,78 @@ import (
 
 func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	var s session
-	s.errors = make([]error, 1, maxRetainedSliceCap+1)
-	s.stack = make([]frame, 1, maxRetainedSliceCap+1)
-	s.ns.frames = make([]int, 1, maxRetainedSliceCap+1)
-	s.ns.bindings = make([]namespaceBinding, 1, maxRetainedSliceCap+1)
-	s.text = make([]byte, 1, maxRetainedBufferCap+1)
-	s.path = make([]string, 1, maxRetainedSliceCap+1)
-	s.namePath = make([]runtimeName, 1, maxRetainedSliceCap+1)
-	s.elementNames = make([]xml.Name, 1, maxRetainedSliceCap+1)
-	s.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
-	s.idrefs = make([]identityRef, 1, maxRetainedSliceCap+1)
-	s.idScopes = make([]identityScope, 1, maxRetainedSliceCap+1)
-	s.idSelections = make([]identitySelection, 1, maxRetainedSliceCap+1)
-	s.identityFieldValues = make([]identityFieldValue, 1, maxRetainedSliceCap+1)
-	s.identityMatches = make([]identityFieldMatch, 1, maxRetainedSliceCap+1)
-	s.ids = make(map[string]string, maxRetainedMapLen+1)
+	s.doc.errors = make([]error, 1, maxRetainedSliceCap+1)
+	s.doc.stack = make([]frame, 1, maxRetainedSliceCap+1)
+	s.doc.ns.frames = make([]int, 1, maxRetainedSliceCap+1)
+	s.doc.ns.bindings = make([]namespaceBinding, 1, maxRetainedSliceCap+1)
+	s.doc.text = make([]byte, 1, maxRetainedBufferCap+1)
+	s.doc.path = make([]string, 1, maxRetainedSliceCap+1)
+	s.doc.namePath = make([]runtimeName, 1, maxRetainedSliceCap+1)
+	s.doc.elementNames = make([]xml.Name, 1, maxRetainedSliceCap+1)
+	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
+	s.doc.idrefs = make([]identityRef, 1, maxRetainedSliceCap+1)
+	s.doc.idScopes = make([]identityScope, 1, maxRetainedSliceCap+1)
+	s.doc.idSelections = make([]identitySelection, 1, maxRetainedSliceCap+1)
+	s.doc.identityFieldValues = make([]identityFieldValue, 1, maxRetainedSliceCap+1)
+	s.doc.identityMatches = make([]identityFieldMatch, 1, maxRetainedSliceCap+1)
+	s.doc.ids = make(map[string]string, maxRetainedMapLen+1)
 	s.pathCache = make(map[pathCacheKey]string, maxRetainedMapLen+1)
-	s.schemaLocationNamespaces = make(map[string]bool, maxRetainedMapLen+1)
+	s.doc.schemaLocationNamespaces = make(map[string]bool, maxRetainedMapLen+1)
 	for i := range maxRetainedMapLen + 1 {
 		key := strconv.Itoa(i)
-		s.ids[key] = key
+		s.doc.ids[key] = key
 		s.pathCache[pathCacheKey{Parent: key, Local: key}] = key
-		s.schemaLocationNamespaces[key] = true
+		s.doc.schemaLocationNamespaces[key] = true
 	}
 
 	s.reset()
 
-	if cap(s.errors) != 0 ||
-		cap(s.stack) != 0 ||
-		cap(s.ns.frames) != 0 ||
-		cap(s.ns.bindings) != 0 ||
-		cap(s.text) != 0 ||
-		cap(s.path) != 0 ||
-		cap(s.namePath) != 0 ||
-		cap(s.elementNames) != 0 ||
-		cap(s.allBits) != 0 ||
-		cap(s.idrefs) != 0 ||
-		cap(s.idScopes) != 0 ||
-		cap(s.idSelections) != 0 ||
-		cap(s.identityFieldValues) != 0 ||
-		cap(s.identityMatches) != 0 {
+	if cap(s.doc.errors) != 0 ||
+		cap(s.doc.stack) != 0 ||
+		cap(s.doc.ns.frames) != 0 ||
+		cap(s.doc.ns.bindings) != 0 ||
+		cap(s.doc.text) != 0 ||
+		cap(s.doc.path) != 0 ||
+		cap(s.doc.namePath) != 0 ||
+		cap(s.doc.elementNames) != 0 ||
+		cap(s.doc.allBits) != 0 ||
+		cap(s.doc.idrefs) != 0 ||
+		cap(s.doc.idScopes) != 0 ||
+		cap(s.doc.idSelections) != 0 ||
+		cap(s.doc.identityFieldValues) != 0 ||
+		cap(s.doc.identityMatches) != 0 {
 		t.Fatalf("reset retained oversized state")
 	}
-	if s.ids != nil {
+	if s.doc.ids != nil {
 		t.Fatalf("ids map retained after reset")
 	}
 	if s.pathCache != nil {
 		t.Fatalf("path cache retained after reset")
 	}
-	if s.schemaLocationNamespaces != nil {
+	if s.doc.schemaLocationNamespaces != nil {
 		t.Fatalf("schema location namespace map retained after reset")
 	}
 }
 
 func TestSessionResetClearsRetainedSliceCapacity(t *testing.T) {
 	var s session
-	s.path = append(make([]string, 0, maxRetainedSliceCap), "stale")
-	s.path = s.path[:0]
-	s.pathText = "stale"
-	s.pathTextDepth = 1
+	s.doc.path = append(make([]string, 0, maxRetainedSliceCap), "stale")
+	s.doc.path = s.doc.path[:0]
+	s.doc.pathText = "stale"
+	s.doc.pathTextDepth = 1
 
 	s.reset()
 
-	if s.pathText != "" {
+	if s.doc.pathText != "" {
 		t.Fatal("reset retained stale path text")
 	}
-	if s.pathTextDepth != 0 {
+	if s.doc.pathTextDepth != 0 {
 		t.Fatal("reset retained stale path text depth")
 	}
-	if cap(s.path) == 0 {
+	if cap(s.doc.path) == 0 {
 		t.Fatal("path capacity was not retained")
 	}
-	if s.path[:cap(s.path)][0] != "" {
+	if s.doc.path[:cap(s.doc.path)][0] != "" {
 		t.Fatal("reset retained stale path string")
 	}
 }
@@ -89,7 +89,7 @@ func TestSessionPathStringMaterializesLazily(t *testing.T) {
 	s.pushPath("root")
 	s.pushPath("row")
 
-	if s.pathText != "" {
+	if s.doc.pathText != "" {
 		t.Fatal("pushPath materialized path text")
 	}
 	if len(s.pathCache) != 0 {
@@ -98,8 +98,8 @@ func TestSessionPathStringMaterializesLazily(t *testing.T) {
 	if got := s.pathString(); got != "/root/row" {
 		t.Fatalf("pathString() = %q, want /root/row", got)
 	}
-	if s.pathTextDepth != len(s.path) {
-		t.Fatalf("path text depth = %d, want %d", s.pathTextDepth, len(s.path))
+	if s.doc.pathTextDepth != len(s.doc.path) {
+		t.Fatalf("path text depth = %d, want %d", s.doc.pathTextDepth, len(s.doc.path))
 	}
 }
 
@@ -119,7 +119,7 @@ func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	if got := s.pathString(); got != "/root" {
 		t.Fatalf("pathString() after pop = %q, want /root", got)
 	}
-	if s.pathText != "/root" {
-		t.Fatalf("pathText after pop = %q, want /root", s.pathText)
+	if s.doc.pathText != "/root" {
+		t.Fatalf("pathText after pop = %q, want /root", s.doc.pathText)
 	}
 }

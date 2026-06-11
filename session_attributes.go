@@ -355,14 +355,14 @@ func (s *session) recordNoNamespaceSchemaLocationHint(value string, line, col in
 }
 
 func (s *session) addSchemaLocationHint(ns string) {
-	if s.schemaLocationNamespaces == nil {
-		s.schemaLocationNamespaces = make(map[string]bool)
+	if s.doc.schemaLocationNamespaces == nil {
+		s.doc.schemaLocationNamespaces = make(map[string]bool)
 	}
-	s.schemaLocationNamespaces[ns] = true
+	s.doc.schemaLocationNamespaces[ns] = true
 }
 
 func (s *session) hasSchemaLocationHint(ns string) bool {
-	return s.schemaLocationNamespaces != nil && s.schemaLocationNamespaces[ns]
+	return s.doc.schemaLocationNamespaces != nil && s.doc.schemaLocationNamespaces[ns]
 }
 
 func (s *session) unsupportedSchemaLocation(line, col int, component string, rn runtimeName) error {

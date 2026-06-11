@@ -487,8 +487,8 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 			}
 			b.ReportAllocs()
 			for b.Loop() {
-				s.idrefs = s.idrefs[:0]
-				s.identityEntries = 0
+				s.doc.idrefs = s.doc.idrefs[:0]
+				s.doc.identityEntries = 0
 				if err := s.recordIdentityValue(value, 1, 1); err != nil {
 					b.Fatal(err)
 				}
