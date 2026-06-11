@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -245,5 +246,93 @@ func TestLargeCDATAValidatesWithoutAccumulatingParserBuffer(t *testing.T) {
 	data := strings.Repeat("x", 70*1024)
 	if err := engine.Validate(strings.NewReader(`<root><![CDATA[` + data + `]]></root>`)); err != nil {
 		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
+func TestByteStreamConsumeBufferedTracksNewlines(t *testing.T) {
+	bs := new(byteStream)
+	bs.reset(strings.NewReader("ab\ncd\nef"))
+	chunk, err := bs.buffered()
+	if err != nil {
+		t.Fatalf("buffered() error = %v", err)
+	}
+	bs.consumeBuffered(len(chunk))
+	line, col := bs.pos()
+	if line != 3 || col != 2 {
+		t.Fatalf("pos() = %d:%d, want 3:2", line, col)
+	}
+}
+
+func TestByteStreamConsumeBufferedAfterReadByteNewlines(t *testing.T) {
+	bs := new(byteStream)
+	bs.reset(strings.NewReader("a\nbc\nde"))
+	if _, err := bs.buffered(); err != nil {
+		t.Fatalf("buffered() error = %v", err)
+	}
+	bs.consumeBuffered(1)
+	if b, err := bs.readByte(); err != nil || b != '\n' {
+		t.Fatalf("readByte() = %q, %v, want '\\n'", b, err)
+	}
+	bs.consumeBuffered(2)
+	if line, col := bs.pos(); line != 2 || col != 2 {
+		t.Fatalf("pos() = %d:%d, want 2:2", line, col)
+	}
+	if b, err := bs.readByte(); err != nil || b != '\n' {
+		t.Fatalf("readByte() = %q, %v, want '\\n'", b, err)
+	}
+	bs.consumeBuffered(2)
+	if line, col := bs.pos(); line != 3 || col != 2 {
+		t.Fatalf("pos() = %d:%d, want 3:2", line, col)
+	}
+}
+
+func TestByteStreamConsumeBufferedNewlineThenCleanChunk(t *testing.T) {
+	bs := new(byteStream)
+	bs.reset(strings.NewReader("a\nb\n\ncdef"))
+	if _, err := bs.buffered(); err != nil {
+		t.Fatalf("buffered() error = %v", err)
+	}
+	bs.consumeBuffered(5)
+	if line, col := bs.pos(); line != 4 || col != 0 {
+		t.Fatalf("pos() = %d:%d, want 4:0", line, col)
+	}
+	bs.consumeBuffered(4)
+	if line, col := bs.pos(); line != 4 || col != 4 {
+		t.Fatalf("pos() = %d:%d, want 4:4", line, col)
+	}
+}
+
+func TestLazyAttrValuesAliasLiveBuffer(t *testing.T) {
+	var doc strings.Builder
+	doc.WriteString("<r")
+	for i := range 64 {
+		fmt.Fprintf(&doc, ` a%d="%032d"`, i, i)
+	}
+	doc.WriteString("/>")
+	names := newByteStringCache()
+	values := newByteStringCache()
+	p := new(xmlStreamParser)
+	p.reset(strings.NewReader(doc.String()), &names, &values)
+	p.lazyAttrValue = true
+
+	tok, err := p.next()
+	if err != nil {
+		t.Fatalf("next() error = %v", err)
+	}
+	if tok.kind != streamTokenStart || len(tok.start.Attr) != 64 {
+		t.Fatalf("token = %+v, want start element with 64 attributes", tok)
+	}
+	for i := range p.attrValueBuf {
+		p.attrValueBuf[i] = 'X'
+	}
+	for _, attr := range tok.start.Attr {
+		if len(attr.Raw) == 0 {
+			t.Fatalf("attribute %s has no raw value", attr.Name.Local)
+		}
+		for _, b := range attr.Raw {
+			if b != 'X' {
+				t.Fatalf("attribute %s aliases a stale backing array", attr.Name.Local)
+			}
+		}
 	}
 }
