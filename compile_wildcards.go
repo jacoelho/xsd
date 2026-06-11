@@ -17,7 +17,7 @@ func (c *compiler) compileWildcardParticle(n *rawNode, ctx *schemaContext) (part
 	if err != nil {
 		return particle{}, err
 	}
-	return particle{Kind: particleWildcard, Wildcard: id, Occurs: occurs}, nil
+	return wildcardParticle(id, occurs), nil
 }
 
 func validateAnyParticleSyntax(n *rawNode) error {

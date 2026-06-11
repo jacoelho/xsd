@@ -227,7 +227,7 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 		GlobalAttributes:   make(map[qName]attributeID, builtinAttributeCount),
 		GlobalTypes:        make(map[qName]typeID, builtinGlobalTypeCount),
 		GlobalIdentities:   make(map[qName]identityConstraintID),
-		Notations:          make(map[string]bool),
+		Notations:          make(map[qName]bool),
 		Substitutions:      make(map[elementID][]elementID),
 		SubstitutionLookup: make(map[elementID]map[qName]elementID),
 		SimpleTypes:        make([]simpleType, 0, builtinSimpleTypeCount),
@@ -335,20 +335,7 @@ func (c *compiler) compileGlobals() error {
 	if err := c.checkCompiledModelsUPA(); err != nil {
 		return err
 	}
-	if err := c.compileContentModels(); err != nil {
-		return err
-	}
-	c.classifySimpleIdentities()
-	return nil
-}
-
-func (c *compiler) classifySimpleIdentities() {
-	memo := make([]simpleIdentityKind, len(c.rt.SimpleTypes))
-	visiting := make([]bool, len(c.rt.SimpleTypes))
-	for id := range c.rt.SimpleTypes {
-		c.rt.SimpleTypes[id].Identity = c.rt.classifySimpleIdentity(simpleTypeID(id), memo, visiting)
-	}
-	c.rt.SimpleIdentitiesClassified = true
+	return c.compileContentModels()
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
@@ -379,7 +366,7 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 			continue
 		}
 		baseID, ok := ct.Base.complex()
-		if !ok || baseID == noComplexType || baseID == c.rt.Builtin.AnyType {
+		if !ok || baseID == c.rt.Builtin.AnyType {
 			continue
 		}
 		base := c.rt.ComplexTypes[baseID]
@@ -550,6 +537,7 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 		return noSimpleType, err
 	}
 	st.Final = final
+	st.Identity = c.rt.derivedSimpleIdentity(st)
 	c.rt.SimpleTypes[id] = st
 	return id, nil
 }
@@ -577,6 +565,7 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpl
 		return noSimpleType, err
 	}
 	st.Final = final
+	st.Identity = c.rt.derivedSimpleIdentity(st)
 	c.rt.SimpleTypes[id] = st
 	return id, nil
 }

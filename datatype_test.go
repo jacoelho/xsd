@@ -1512,6 +1512,26 @@ func TestNotationDeclarationAndValidation(t *testing.T) {
 	expectCode(t, err, ErrValidationFacet)
 }
 
+func TestNotationValidationWithoutTargetNamespace(t *testing.T) {
+	e := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:notation name="gif" public="image/gif"/>
+  <xs:simpleType name="NotationType">
+    <xs:restriction base="xs:NOTATION">
+      <xs:enumeration value="gif"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="kind" type="NotationType" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+
+	mustValidate(t, e, `<root kind="gif"/>`)
+	mustNotValidate(t, e, `<root kind="png"/>`, ErrValidationFacet)
+}
+
 func TestNotationEnumerationRequiresDeclaredNotation(t *testing.T) {
 	_, err := Compile(sourceBytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

@@ -4,8 +4,11 @@ import "regexp"
 
 type typeKind uint8
 
+// typeNone is the zero typeKind so that the zero typeID never references a
+// real type; only xs:anyType's Base may legally hold it.
 const (
-	typeSimple typeKind = iota
+	typeNone typeKind = iota
+	typeSimple
 	typeComplex
 )
 
@@ -53,12 +56,19 @@ const noAttributeUseSet = attributeUseSetID(^uint32(0))
 const noWildcard = wildcardID(^uint32(0))
 const noIdentityConstraint = identityConstraintID(^uint32(0))
 
+// runtimeSchema is the compiled, immutable form of a schema. Every ID stored
+// in a published runtimeSchema is index-valid: freezeRuntime runs
+// validateRuntimeSchema before the schema is handed to an Engine, so code
+// reading freeze-validated IDs may index the component slices directly
+// (typeName, the session hot paths). The checked accessors (simpleType,
+// complexType, usableSimpleType) are for IDs that are not freeze-trusted:
+// values still being compiled, or IDs derived from instance input.
 type runtimeSchema struct {
 	GlobalAttributes   map[qName]attributeID
 	GlobalElements     map[qName]elementID
 	Substitutions      map[elementID][]elementID
 	SubstitutionLookup map[elementID]map[qName]elementID
-	Notations          map[string]bool
+	Notations          map[qName]bool
 	GlobalIdentities   map[qName]identityConstraintID
 	GlobalTypes        map[qName]typeID
 	Identities         []identityConstraint
@@ -72,8 +82,6 @@ type runtimeSchema struct {
 	Elements           []elementDecl
 	Names              nameTable
 	Builtin            builtinIDs
-
-	SimpleIdentitiesClassified bool
 }
 
 type builtinIDs struct {
@@ -449,12 +457,28 @@ type contentModel struct {
 	Mixed     bool
 }
 
+// particle is a tagged union: Kind selects which ID field is active. The
+// constructors below pin the inactive fields to their no* sentinels so that
+// kind-blind comparisons (sameCompiledParticle) cannot be confused by stale
+// IDs; freeze enforces the sentinels.
 type particle struct {
 	Kind     particleKind
 	Occurs   occurrence
 	Element  elementID
 	Model    contentModelID
 	Wildcard wildcardID
+}
+
+func elementParticle(id elementID, occurs occurrence) particle {
+	return particle{Kind: particleElement, Occurs: occurs, Element: id, Model: noContentModel, Wildcard: noWildcard}
+}
+
+func modelParticle(id contentModelID, occurs occurrence) particle {
+	return particle{Kind: particleModel, Occurs: occurs, Element: noElement, Model: id, Wildcard: noWildcard}
+}
+
+func wildcardParticle(id wildcardID, occurs occurrence) particle {
+	return particle{Kind: particleWildcard, Occurs: occurs, Element: noElement, Model: noContentModel, Wildcard: id}
 }
 
 type compiledModelKind uint8
@@ -528,6 +552,18 @@ func (rt *runtimeSchema) simpleType(id simpleTypeID) (*simpleType, bool) {
 		return nil, false
 	}
 	return &rt.SimpleTypes[id], true
+}
+
+// usableSimpleType resolves a simple type for value validation. It rejects
+// the placeholder recorded for types from unresolved optional imports, so
+// callers cannot silently validate values against the missing-type
+// placeholder's string-like shape.
+func (rt *runtimeSchema) usableSimpleType(id simpleTypeID) (*simpleType, bool) {
+	st, ok := rt.simpleType(id)
+	if !ok || st.Missing {
+		return nil, false
+	}
+	return st, true
 }
 
 func (rt *runtimeSchema) complexType(id complexTypeID) (*complexType, bool) {
@@ -680,7 +716,7 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 			return mask | blockRestriction, true
 		}
 		parent, ok := ct.Base.complex()
-		if !ok || parent == noComplexType {
+		if !ok {
 			return 0, false
 		}
 		t = parent
@@ -732,7 +768,7 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 			return 0, false
 		}
 		parent, ok := ct.Base.complex()
-		if !ok || parent == noComplexType {
+		if !ok {
 			return 0, false
 		}
 		switch ct.Derivation {

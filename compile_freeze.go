@@ -47,6 +47,11 @@ func validateRuntimeGlobals(rt *runtimeSchema) error {
 			return internalInvariant("global identity references invalid declaration")
 		}
 	}
+	for q := range rt.Notations {
+		if !validQName(rt, q) {
+			return internalInvariant("notation references invalid name")
+		}
+	}
 	return nil
 }
 
@@ -89,12 +94,12 @@ func validateRuntimeComponents(rt *runtimeSchema) error {
 		}
 	}
 	for i := range rt.SimpleTypes {
-		if err := validateSimpleType(rt, rt.SimpleTypes[i]); err != nil {
+		if err := validateSimpleType(rt, simpleTypeID(i), rt.SimpleTypes[i]); err != nil {
 			return err
 		}
 	}
 	for i := range rt.ComplexTypes {
-		if err := validateComplexType(rt, rt.ComplexTypes[i]); err != nil {
+		if err := validateComplexType(rt, complexTypeID(i), rt.ComplexTypes[i]); err != nil {
 			return err
 		}
 	}
@@ -218,7 +223,7 @@ func validateAttributeDecl(rt *runtimeSchema, decl attributeDecl) error {
 	return validateValueConstraintRuntime(rt, decl.Fixed, "attribute declaration fixed")
 }
 
-func validateSimpleType(rt *runtimeSchema, st simpleType) error {
+func validateSimpleType(rt *runtimeSchema, id simpleTypeID, st simpleType) error {
 	if !validQName(rt, st.Name) {
 		return internalInvariant("simple type references invalid name")
 	}
@@ -233,7 +238,20 @@ func validateSimpleType(rt *runtimeSchema, st simpleType) error {
 			return internalInvariant("simple type references invalid union member")
 		}
 	}
+	if st.Identity != expectedSimpleIdentity(rt, id, st) {
+		return internalInvariant("simple type identity does not match derivation")
+	}
 	return validateFacetPresence(st.Facets)
+}
+
+func expectedSimpleIdentity(rt *runtimeSchema, id simpleTypeID, st simpleType) simpleIdentityKind {
+	if id == rt.Builtin.ID {
+		return simpleIdentityID
+	}
+	if id == rt.Builtin.IDREF {
+		return simpleIdentityIDREF
+	}
+	return rt.derivedSimpleIdentity(st)
 }
 
 func validateFacetPresence(f facetSet) error {
@@ -265,11 +283,15 @@ func validateFacetPresence(f facetSet) error {
 	return nil
 }
 
-func validateComplexType(rt *runtimeSchema, ct complexType) error {
+func validateComplexType(rt *runtimeSchema, id complexTypeID, ct complexType) error {
 	if !validQName(rt, ct.Name) {
 		return internalInvariant("complex type references invalid name")
 	}
-	if ct.Base.ID != uint32(noComplexType) && !validTypeID(rt, ct.Base) {
+	if ct.Base == (typeID{}) {
+		if id != rt.Builtin.AnyType {
+			return internalInvariant("complex type has no base type")
+		}
+	} else if !validTypeID(rt, ct.Base) {
 		return internalInvariant("complex type references invalid base")
 	}
 	if ct.Content != noContentModel && !validContentModelID(rt, ct.Content) {
@@ -361,6 +383,25 @@ func validateContentModelRuntime(rt *runtimeSchema, model contentModel) error {
 		default:
 			return internalInvariant("particle has invalid kind")
 		}
+		if err := validateParticleInactiveFields(p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateParticleInactiveFields enforces the constructor invariant that a
+// particle's inactive ID fields hold their no* sentinels; kind-blind particle
+// comparisons rely on it.
+func validateParticleInactiveFields(p particle) error {
+	if p.Kind != particleElement && p.Element != noElement {
+		return internalInvariant("particle stores element ID for non-element kind")
+	}
+	if p.Kind != particleModel && p.Model != noContentModel {
+		return internalInvariant("particle stores content model ID for non-model kind")
+	}
+	if p.Kind != particleWildcard && p.Wildcard != noWildcard {
+		return internalInvariant("particle stores wildcard ID for non-wildcard kind")
 	}
 	return nil
 }
@@ -442,7 +483,7 @@ func validateCompiledParticle(rt *runtimeSchema, p particle) error {
 	default:
 		return internalInvariant("compiled particle has invalid kind")
 	}
-	return nil
+	return validateParticleInactiveFields(p)
 }
 
 func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error {
@@ -464,52 +505,7 @@ func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error 
 			}
 		}
 	}
-	return validateCompiledIdentityFields(ic)
-}
-
-func validateCompiledIdentityFields(ic identityConstraint) error {
-	elementFields, attrFields, attrWildcardFields := buildIdentityFieldLookup(ic.Fields)
-	if !compiledIdentityFieldsEqual(ic.ElementFields, elementFields) {
-		return internalInvariant("compiled identity element fields do not match fields")
-	}
-	if !compiledIdentityFieldMapEqual(ic.AttributeFields, attrFields) {
-		return internalInvariant("compiled identity attribute fields do not match fields")
-	}
-	if !compiledIdentityFieldsEqual(ic.AttributeWildcardFields, attrWildcardFields) {
-		return internalInvariant("compiled identity wildcard fields do not match fields")
-	}
 	return nil
-}
-
-func compiledIdentityFieldMapEqual(a, b map[qName][]compiledIdentityField) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for name, fields := range a {
-		if !compiledIdentityFieldsEqual(fields, b[name]) {
-			return false
-		}
-	}
-	return true
-}
-
-func compiledIdentityFieldsEqual(a, b []compiledIdentityField) bool {
-	return slices.EqualFunc(a, b, compiledIdentityFieldEqual)
-}
-
-func compiledIdentityFieldEqual(a, b compiledIdentityField) bool {
-	return a.Field == b.Field && slices.EqualFunc(a.Paths, b.Paths, identityFieldPathEqual)
-}
-
-func identityFieldPathEqual(a, b identityFieldPath) bool {
-	return a.Attribute == b.Attribute &&
-		a.AttrNamespace == b.AttrNamespace &&
-		a.Descendant == b.Descendant &&
-		a.Self == b.Self &&
-		a.Attr == b.Attr &&
-		a.AttrWildcard == b.AttrWildcard &&
-		a.AttrNamespaceSet == b.AttrNamespaceSet &&
-		slices.Equal(a.Steps, b.Steps)
 }
 
 func validIdentityFieldPath(rt *runtimeSchema, path identityFieldPath) bool {

@@ -149,12 +149,12 @@ func (c *compiler) validateValueConstraint(id simpleTypeID, lexical string, reso
 }
 
 func (c *compiler) schemaQNameResolver(n *rawNode) qnameResolver {
-	return func(lexical string) (string, bool) {
+	return func(lexical string) (string, string, bool) {
 		ns, local, err := n.resolveQName(lexical)
 		if err != nil {
-			return "", false
+			return "", "", false
 		}
-		return formatExpandedName(ns, local), true
+		return ns, local, true
 	}
 }
 

@@ -162,7 +162,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 		}
 	}
 	value := attr.stringValue(&s.valueStrings)
-	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameValue, needs)
+	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameParts, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
@@ -181,18 +181,14 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 }
 
 func canValidateFixedStringAttributeFast(rt *runtimeSchema, use *attributeUse) bool {
-	if !use.Fixed.Present || !validUint32Index(uint32(use.Type), len(rt.SimpleTypes)) {
+	if !use.Fixed.Present {
 		return false
 	}
-	st := &rt.SimpleTypes[use.Type]
-	if st.Missing || st.Variety != varietyAtomic {
+	st, ok := rt.usableSimpleType(use.Type)
+	if !ok || st.Variety != varietyAtomic {
 		return false
 	}
-	identity := st.Identity
-	if !rt.SimpleIdentitiesClassified {
-		identity = computeSimpleValueIdentity(rt, use.Type)
-	}
-	return st.Whitespace == whitespacePreserve && canAcceptStringValueFast(st, identity)
+	return st.Whitespace == whitespacePreserve && canAcceptStringValueFast(st, st.Identity)
 }
 
 func (s *session) validateFixedStringAttributeValue(use *attributeUse, value string, rn runtimeName, line, col int) error {
@@ -246,7 +242,7 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 	if len(identityFields) != 0 {
 		needs |= simpleNeedIdentity
 	}
-	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameValue, needs)
+	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameParts, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
@@ -359,14 +355,14 @@ func (s *session) recordNoNamespaceSchemaLocationHint(value string, line, col in
 }
 
 func (s *session) addSchemaLocationHint(ns string) {
-	if s.schemaLocationNamespaces == nil {
-		s.schemaLocationNamespaces = make(map[string]bool)
+	if s.doc.schemaLocationNamespaces == nil {
+		s.doc.schemaLocationNamespaces = make(map[string]bool)
 	}
-	s.schemaLocationNamespaces[ns] = true
+	s.doc.schemaLocationNamespaces[ns] = true
 }
 
 func (s *session) hasSchemaLocationHint(ns string) bool {
-	return s.schemaLocationNamespaces != nil && s.schemaLocationNamespaces[ns]
+	return s.doc.schemaLocationNamespaces != nil && s.doc.schemaLocationNamespaces[ns]
 }
 
 func (s *session) unsupportedSchemaLocation(line, col int, component string, rn runtimeName) error {

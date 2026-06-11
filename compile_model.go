@@ -94,7 +94,7 @@ func (c *compiler) modelParticle(id contentModelID) (particle, bool, error) {
 			return particle{}, false, err
 		}
 	}
-	return particle{Kind: particleModel, Occurs: occurs, Model: modelID}, true, nil
+	return modelParticle(modelID, occurs), true, nil
 }
 
 func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (contentModelID, error) {
@@ -182,13 +182,9 @@ func (c *compiler) recursiveModelGroupRef(q qName, id contentModelID, occurs occ
 		return noContentModel, schemaCompileAt(modelNode, ErrSchemaReference, "recursive model group "+c.rt.Names.Format(q))
 	}
 	ref := contentModel{
-		Kind:   modelSequence,
-		Occurs: occurs,
-		Particles: []particle{{
-			Kind:   particleModel,
-			Occurs: occurrence{Min: 1, Max: 1},
-			Model:  id,
-		}},
+		Kind:      modelSequence,
+		Occurs:    occurs,
+		Particles: []particle{modelParticle(id, occurrence{Min: 1, Max: 1})},
 	}
 	return c.addModel(ref)
 }
