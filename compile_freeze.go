@@ -505,52 +505,7 @@ func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error 
 			}
 		}
 	}
-	return validateCompiledIdentityFields(ic)
-}
-
-func validateCompiledIdentityFields(ic identityConstraint) error {
-	elementFields, attrFields, attrWildcardFields := buildIdentityFieldLookup(ic.Fields)
-	if !compiledIdentityFieldsEqual(ic.ElementFields, elementFields) {
-		return internalInvariant("compiled identity element fields do not match fields")
-	}
-	if !compiledIdentityFieldMapEqual(ic.AttributeFields, attrFields) {
-		return internalInvariant("compiled identity attribute fields do not match fields")
-	}
-	if !compiledIdentityFieldsEqual(ic.AttributeWildcardFields, attrWildcardFields) {
-		return internalInvariant("compiled identity wildcard fields do not match fields")
-	}
 	return nil
-}
-
-func compiledIdentityFieldMapEqual(a, b map[qName][]compiledIdentityField) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for name, fields := range a {
-		if !compiledIdentityFieldsEqual(fields, b[name]) {
-			return false
-		}
-	}
-	return true
-}
-
-func compiledIdentityFieldsEqual(a, b []compiledIdentityField) bool {
-	return slices.EqualFunc(a, b, compiledIdentityFieldEqual)
-}
-
-func compiledIdentityFieldEqual(a, b compiledIdentityField) bool {
-	return a.Field == b.Field && slices.EqualFunc(a.Paths, b.Paths, identityFieldPathEqual)
-}
-
-func identityFieldPathEqual(a, b identityFieldPath) bool {
-	return a.Attribute == b.Attribute &&
-		a.AttrNamespace == b.AttrNamespace &&
-		a.Descendant == b.Descendant &&
-		a.Self == b.Self &&
-		a.Attr == b.Attr &&
-		a.AttrWildcard == b.AttrWildcard &&
-		a.AttrNamespaceSet == b.AttrNamespaceSet &&
-		slices.Equal(a.Steps, b.Steps)
 }
 
 func validIdentityFieldPath(rt *runtimeSchema, path identityFieldPath) bool {
