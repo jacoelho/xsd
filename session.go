@@ -183,10 +183,18 @@ type identityRef struct {
 }
 
 type identityScope struct {
-	Tables      map[identityConstraintID]map[string]string
+	Tables      map[identityConstraintID]map[string]identityTableEntry
 	Constraints []identityConstraintID
 	Refs        []identityTupleRef
 	Depth       int
+}
+
+// identityTableEntry records where a key tuple was first seen. Conflict marks
+// tuples that propagated from child scopes with differing paths; conflicted
+// tuples cannot resolve keyrefs.
+type identityTableEntry struct {
+	Path     string
+	Conflict bool
 }
 
 type identityTupleRef struct {
@@ -197,8 +205,6 @@ type identityTupleRef struct {
 	Constraint identityConstraintID
 	Refer      identityConstraintID
 }
-
-const identityConflictPath = "\x00identity-conflict"
 
 type identitySelection struct {
 	Path       string

@@ -532,20 +532,20 @@ func (s *session) finishIdentitySelection(sel identitySelection, line, col int) 
 	switch ic.Kind {
 	case identityUnique, identityKey:
 		if scope.Tables == nil {
-			scope.Tables = make(map[identityConstraintID]map[string]string)
+			scope.Tables = make(map[identityConstraintID]map[string]identityTableEntry)
 		}
 		table := scope.Tables[sel.Constraint]
 		if table == nil {
-			table = make(map[string]string)
+			table = make(map[string]identityTableEntry)
 			scope.Tables[sel.Constraint] = table
 		}
 		if prev, exists := table[key]; exists {
-			return validation(ErrValidationIdentity, line, col, sel.Path, "duplicate identity value first seen at "+prev)
+			return validation(ErrValidationIdentity, line, col, sel.Path, "duplicate identity value first seen at "+prev.Path)
 		}
 		if err := s.reserveIdentityEntry(key, line, col); err != nil {
 			return err
 		}
-		table[key] = sel.Path
+		table[key] = identityTableEntry{Path: sel.Path}
 	case identityKeyRef:
 		if err := s.reserveIdentityEntry(key, line, col); err != nil {
 			return err
@@ -618,8 +618,8 @@ func (s *session) closeIdentityScopes(depth int) error {
 	for len(s.idScopes) > 0 && s.idScopes[len(s.idScopes)-1].Depth == depth {
 		scope := &s.idScopes[len(s.idScopes)-1]
 		for _, ref := range scope.Refs {
-			path, ok := scope.Tables[ref.Refer][ref.Key]
-			if !ok || path == identityConflictPath {
+			entry, ok := scope.Tables[ref.Refer][ref.Key]
+			if !ok || entry.Conflict {
 				if err := s.recover(validation(ErrValidationIdentity, ref.Line, ref.Col, ref.Path, "keyref does not resolve")); err != nil {
 					return err
 				}
@@ -639,7 +639,7 @@ func (s *session) mergeIdentityTables(dst, src *identityScope) {
 		return
 	}
 	if dst.Tables == nil {
-		dst.Tables = make(map[identityConstraintID]map[string]string)
+		dst.Tables = make(map[identityConstraintID]map[string]identityTableEntry)
 	}
 	for id, srcTable := range src.Tables {
 		dstTable := dst.Tables[id]
@@ -649,13 +649,14 @@ func (s *session) mergeIdentityTables(dst, src *identityScope) {
 			dst.Tables[id] = srcTable
 			continue
 		}
-		for key, path := range srcTable {
+		for key, entry := range srcTable {
 			prev, exists := dstTable[key]
 			switch {
 			case !exists:
-				dstTable[key] = path
-			case prev != path:
-				dstTable[key] = identityConflictPath
+				dstTable[key] = entry
+			case prev.Conflict:
+			case entry.Conflict || prev.Path != entry.Path:
+				dstTable[key] = identityTableEntry{Path: prev.Path, Conflict: true}
 			}
 		}
 	}
