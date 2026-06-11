@@ -2,6 +2,7 @@ package xsd
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -298,5 +299,40 @@ func TestByteStreamConsumeBufferedNewlineThenCleanChunk(t *testing.T) {
 	bs.consumeBuffered(4)
 	if line, col := bs.pos(); line != 4 || col != 4 {
 		t.Fatalf("pos() = %d:%d, want 4:4", line, col)
+	}
+}
+
+func TestLazyAttrValuesAliasLiveBuffer(t *testing.T) {
+	var doc strings.Builder
+	doc.WriteString("<r")
+	for i := range 64 {
+		fmt.Fprintf(&doc, ` a%d="%032d"`, i, i)
+	}
+	doc.WriteString("/>")
+	names := newByteStringCache()
+	values := newByteStringCache()
+	p := new(xmlStreamParser)
+	p.reset(strings.NewReader(doc.String()), &names, &values)
+	p.lazyAttrValue = true
+
+	tok, err := p.next()
+	if err != nil {
+		t.Fatalf("next() error = %v", err)
+	}
+	if tok.kind != streamTokenStart || len(tok.start.Attr) != 64 {
+		t.Fatalf("token = %+v, want start element with 64 attributes", tok)
+	}
+	for i := range p.attrValueBuf {
+		p.attrValueBuf[i] = 'X'
+	}
+	for _, attr := range tok.start.Attr {
+		if len(attr.Raw) == 0 {
+			t.Fatalf("attribute %s has no raw value", attr.Name.Local)
+		}
+		for _, b := range attr.Raw {
+			if b != 'X' {
+				t.Fatalf("attribute %s aliases a stale backing array", attr.Name.Local)
+			}
+		}
 	}
 }

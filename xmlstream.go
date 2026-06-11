@@ -477,6 +477,7 @@ func (p *xmlStreamParser) readStartElement(first byte) (streamStartElement, bool
 		}
 		switch b {
 		case '>':
+			p.finishLazyAttrValues()
 			return streamStartElement{Name: name, Attr: p.attrs}, false, nil
 		case '/':
 			next, err := p.br.readByte()
@@ -486,6 +487,7 @@ func (p *xmlStreamParser) readStartElement(first byte) (streamStartElement, bool
 			if next != '>' {
 				return streamStartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
 			}
+			p.finishLazyAttrValues()
 			return streamStartElement{Name: name, Attr: p.attrs}, true, nil
 		default:
 			if !hadSpace {
@@ -524,6 +526,23 @@ func (p *xmlStreamParser) readStartElement(first byte) (streamStartElement, bool
 			}
 			p.attrs = append(p.attrs, attr)
 		}
+	}
+}
+
+// finishLazyAttrValues re-derives every lazy attribute's Raw slice from
+// attrValueBuf once the start tag is fully parsed. Values sit in
+// attrValueBuf contiguously in attribute order, so each Raw length recovers
+// its offset; re-slicing repoints attributes taken before a buffer
+// reallocation at the final backing array.
+func (p *xmlStreamParser) finishLazyAttrValues() {
+	if !p.lazyAttrValue {
+		return
+	}
+	off := 0
+	for i := range p.attrs {
+		n := len(p.attrs[i].Raw)
+		p.attrs[i].Raw = p.attrValueBuf[off : off+n]
+		off += n
 	}
 }
 
