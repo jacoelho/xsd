@@ -93,8 +93,8 @@ func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string,
 	if id == noSimpleType {
 		return simpleValue{Canonical: lexical, Type: noSimpleType}, nil
 	}
-	st := &rt.SimpleTypes[id]
-	if st.Missing {
+	st, ok := rt.usableSimpleType(id)
+	if !ok {
 		return simpleValue{}, fmt.Errorf("missing type")
 	}
 	if st.Variety == varietyList {
@@ -216,8 +216,8 @@ func canValidateStringEnumerationNoOutputFast(st *simpleType, identity simpleIde
 }
 
 func validateRawSimpleContentFast(rt *runtimeSchema, id simpleTypeID, raw []byte) (bool, error) {
-	st, ok := rt.simpleType(id)
-	if !ok || st.Missing {
+	st, ok := rt.usableSimpleType(id)
+	if !ok {
 		return false, nil
 	}
 	if st.Variety == varietyList {
@@ -275,8 +275,8 @@ func validateRawListValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (bo
 }
 
 func canValidateRawNMTOKENListItem(rt *runtimeSchema, id simpleTypeID) bool {
-	st, ok := rt.simpleType(id)
-	if !ok || st.Missing || st.Variety != varietyAtomic {
+	st, ok := rt.usableSimpleType(id)
+	if !ok || st.Variety != varietyAtomic {
 		return false
 	}
 	return st.Builtin == builtinValidationNMTOKEN &&
@@ -330,8 +330,8 @@ func validateRawUnionValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (b
 }
 
 func canValidateRawUnionBooleanMember(rt *runtimeSchema, id simpleTypeID) bool {
-	st, ok := rt.simpleType(id)
-	if !ok || st.Missing || st.Variety != varietyAtomic {
+	st, ok := rt.usableSimpleType(id)
+	if !ok || st.Variety != varietyAtomic {
 		return false
 	}
 	return canValidateBooleanNoOutputFast(st, st.Identity)

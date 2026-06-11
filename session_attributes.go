@@ -181,11 +181,11 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 }
 
 func canValidateFixedStringAttributeFast(rt *runtimeSchema, use *attributeUse) bool {
-	if !use.Fixed.Present || !validUint32Index(uint32(use.Type), len(rt.SimpleTypes)) {
+	if !use.Fixed.Present {
 		return false
 	}
-	st := &rt.SimpleTypes[use.Type]
-	if st.Missing || st.Variety != varietyAtomic {
+	st, ok := rt.usableSimpleType(use.Type)
+	if !ok || st.Variety != varietyAtomic {
 		return false
 	}
 	return st.Whitespace == whitespacePreserve && canAcceptStringValueFast(st, st.Identity)

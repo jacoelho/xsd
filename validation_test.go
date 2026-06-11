@@ -859,6 +859,15 @@ func TestXMLBuiltInAttributesCanBeReferenced(t *testing.T) {
 	mustNotValidate(t, engine, `<root/>`, ErrValidationAttribute)
 }
 
+func TestMissingImportedTypeRejectsValues(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:o="urn:other">
+  <xs:import namespace="urn:other"/>
+  <xs:element name="root" type="o:T"/>
+</xs:schema>`)
+	mustNotValidate(t, engine, `<root>x</root>`, ErrValidationFacet)
+}
+
 func TestXMLBuiltInAttributesValidateValueSpace(t *testing.T) {
 	engine := mustCompile(t, `
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

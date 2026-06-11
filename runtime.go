@@ -531,6 +531,18 @@ func (rt *runtimeSchema) simpleType(id simpleTypeID) (*simpleType, bool) {
 	return &rt.SimpleTypes[id], true
 }
 
+// usableSimpleType resolves a simple type for value validation. It rejects
+// the placeholder recorded for types from unresolved optional imports, so
+// callers cannot silently validate values against the missing-type
+// placeholder's string-like shape.
+func (rt *runtimeSchema) usableSimpleType(id simpleTypeID) (*simpleType, bool) {
+	st, ok := rt.simpleType(id)
+	if !ok || st.Missing {
+		return nil, false
+	}
+	return st, true
+}
+
 func (rt *runtimeSchema) complexType(id complexTypeID) (*complexType, bool) {
 	if !validUint32Index(uint32(id), len(rt.ComplexTypes)) {
 		return nil, false
