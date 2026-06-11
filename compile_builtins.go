@@ -33,36 +33,47 @@ func (c *compiler) addBuiltins() error {
 	return c.addBuiltinAnyType()
 }
 
+// addBuiltinStringTypes builds the spec derivation chain
+// string ← normalizedString ← token ← {language, Name ← NCName ← {ID, IDREF,
+// ENTITY}, NMTOKEN}; derivation checks walk these Base links.
 func (c *compiler) addBuiltinStringTypes(anySimple simpleTypeID) error {
 	var err error
 	c.rt.Builtin.String, err = c.addBuiltinAtomicSimpleType("string", primString, anySimple, whitespacePreserve)
 	if err != nil {
 		return err
 	}
-	for _, typ := range []struct {
-		local string
-		ws    whitespaceMode
-	}{
-		{"normalizedString", whitespaceReplace},
-		{xsdValueToken, whitespaceCollapse},
-		{"language", whitespaceCollapse},
-		{"Name", whitespaceCollapse},
-		{"NCName", whitespaceCollapse},
-	} {
-		_, err = c.addBuiltinAtomicSimpleType(typ.local, primString, c.rt.Builtin.String, typ.ws)
-		if err != nil {
-			return err
-		}
-	}
-	c.rt.Builtin.NMTOKEN, err = c.addBuiltinAtomicSimpleType("NMTOKEN", primString, c.rt.Builtin.String, whitespaceCollapse)
+	normalizedString, err := c.addBuiltinAtomicSimpleType("normalizedString", primString, c.rt.Builtin.String, whitespaceReplace)
 	if err != nil {
 		return err
 	}
-	c.rt.Builtin.ID, err = c.addBuiltinAtomicSimpleType("ID", primString, c.rt.Builtin.String, whitespaceCollapse)
+	token, err := c.addBuiltinAtomicSimpleType(xsdValueToken, primString, normalizedString, whitespaceCollapse)
 	if err != nil {
 		return err
 	}
-	c.rt.Builtin.IDREF, err = c.addBuiltinAtomicSimpleType("IDREF", primString, c.rt.Builtin.String, whitespaceCollapse)
+	if _, err = c.addBuiltinAtomicSimpleType("language", primString, token, whitespaceCollapse); err != nil {
+		return err
+	}
+	name, err := c.addBuiltinAtomicSimpleType("Name", primString, token, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	ncName, err := c.addBuiltinAtomicSimpleType("NCName", primString, name, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.NMTOKEN, err = c.addBuiltinAtomicSimpleType("NMTOKEN", primString, token, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.ID, err = c.addBuiltinAtomicSimpleType("ID", primString, ncName, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.IDREF, err = c.addBuiltinAtomicSimpleType("IDREF", primString, ncName, whitespaceCollapse)
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.ENTITY, err = c.addBuiltinAtomicSimpleType("ENTITY", primString, ncName, whitespaceCollapse)
 	return err
 }
 
@@ -74,10 +85,6 @@ func (c *compiler) addBuiltinListTypes(anySimple simpleTypeID) error {
 		return err
 	}
 	c.rt.Builtin.NMTOKENS, err = c.addBuiltinListSimpleType("NMTOKENS", c.rt.Builtin.NMTOKEN, anySimple, &minOne)
-	if err != nil {
-		return err
-	}
-	c.rt.Builtin.ENTITY, err = c.addBuiltinAtomicSimpleType("ENTITY", primString, c.rt.Builtin.String, whitespaceCollapse)
 	if err != nil {
 		return err
 	}
@@ -194,7 +201,7 @@ func (c *compiler) addBuiltinSmallIntegerTypes(nonNegative simpleTypeID) error {
 
 func (c *compiler) addBuiltinOtherPrimitiveTypes(anySimple simpleTypeID) error {
 	var err error
-	c.rt.Builtin.AnyURI, err = c.addBuiltinAtomicSimpleType("anyURI", primAnyURI, c.rt.Builtin.String, whitespaceCollapse)
+	c.rt.Builtin.AnyURI, err = c.addBuiltinAtomicSimpleType("anyURI", primAnyURI, anySimple, whitespaceCollapse)
 	if err != nil {
 		return err
 	}
