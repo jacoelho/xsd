@@ -96,6 +96,10 @@ func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) 
 	case xsdElemElement:
 		return addRaw(c.elementRaw, q, component, label)
 	case xsdElemAttribute:
+		// Builtin xml:* and xlink:* declarations take precedence over schema
+		// redeclarations so that importing the W3C xml.xsd or xlink.xsd does
+		// not raise duplicate-component errors. Only builtin names can collide
+		// here; duplicates between schema documents still fail in addRaw.
 		if _, exists := c.rt.GlobalAttributes[q]; exists {
 			return nil
 		}
