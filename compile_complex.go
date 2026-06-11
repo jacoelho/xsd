@@ -1,9 +1,6 @@
 package xsd
 
-import (
-	"fmt"
-	"slices"
-)
+import "fmt"
 
 func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	if id, ok := c.complexDone[q]; ok {
@@ -234,8 +231,13 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaCo
 	if err != nil {
 		return complexType{}, err
 	}
+	// Restriction requires a mixed base for mixed content; extension also
+	// allows it when the base content type is empty (Derivation Valid
+	// (Extension) clause 1.4.3.2.1).
 	if mixed && !base.mixed() {
-		return complexType{}, schemaCompileAt(child, ErrSchemaContentModel, "complexContent mixed derivation requires mixed base")
+		if child.Name.Local != xsdElemExtension || !c.complexContentTypeEmpty(base) {
+			return complexType{}, schemaCompileAt(child, ErrSchemaContentModel, "complexContent mixed derivation requires mixed base")
+		}
 	}
 	if err := validateComplexContentDerivationChildren(child); err != nil {
 		return complexType{}, err
@@ -245,6 +247,13 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaCo
 		return c.compileComplexContentExtension(child, ctx, ct, baseID, base, mixed)
 	}
 	return c.compileComplexContentRestriction(child, ctx, ct, base, mixed)
+}
+
+// complexContentTypeEmpty reports whether ct's {content type} is empty:
+// element-only with no particles. Simple content is never empty, and mixed
+// content without particles is an empty-sequence mixed pair, not empty.
+func (c *compiler) complexContentTypeEmpty(ct complexType) bool {
+	return ct.ContentKind == contentElementOnly && c.modelHasNoParticles(ct.Content)
 }
 
 func (c *compiler) complexContentBase(child *rawNode, ctx *schemaContext, anonymous bool) (complexTypeID, complexType, error) {
@@ -523,12 +532,12 @@ func simpleContentDerivationChild(n *rawNode) *rawNode {
 }
 
 func (c *compiler) compileSimpleContentSimpleBase(child *rawNode, baseQName qName, ct complexType) (complexType, simpleTypeID, error) {
+	if child.Name.Local == xsdElemRestriction {
+		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction base must be complex type")
+	}
 	simpleID, err := c.compileSimpleByQName(baseQName)
 	if err != nil {
 		return complexType{}, noSimpleType, withSchemaCompileLocation(child, err)
-	}
-	if child.Name.Local == xsdElemRestriction {
-		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction base must be complex type")
 	}
 	if c.rt.SimpleTypes[simpleID].Final&blockExtension != 0 {
 		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaReference, "base simple type final blocks extension")
@@ -549,7 +558,7 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qNa
 		return complexType{}, noSimpleType, withSchemaCompileLocation(child, err)
 	}
 	base := c.rt.ComplexTypes[baseComplex]
-	if !base.simpleContent() {
+	if !base.simpleContent() && !c.simpleContentRestrictionBaseAllowed(child, base) {
 		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent base must have simple content")
 	}
 	if child.Name.Local == xsdElemExtension && base.Final&blockExtension != 0 {
@@ -563,6 +572,14 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qNa
 	return ct, base.TextType, nil
 }
 
+// simpleContentRestrictionBaseAllowed reports whether a simpleContent
+// restriction may use a base without simple content: a mixed base whose
+// particle is emptiable ({content type} mapping clause 2). The restriction
+// must then supply an inline simpleType as the content type.
+func (c *compiler) simpleContentRestrictionBaseAllowed(child *rawNode, base complexType) bool {
+	return child.Name.Local == xsdElemRestriction && base.mixed() && c.modelEmptiable(base.Content)
+}
+
 func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *schemaContext, baseTextType simpleTypeID) (simpleTypeID, error) {
 	textType := baseTextType
 	facetChildren := facetChildren(child)
@@ -573,6 +590,9 @@ func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *sche
 		}
 		textType = simpleID
 	}
+	if textType == noSimpleType {
+		return noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction of mixed content requires simpleType")
+	}
 	if len(facetChildren) != 0 {
 		simpleID, err := c.compileSimpleContentFacetRestriction(facetChildren, textType)
 		if err != nil {
@@ -580,7 +600,7 @@ func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *sche
 		}
 		textType = simpleID
 	}
-	if !c.typeDerivesFrom(simpleRef(textType), simpleRef(baseTextType)) {
+	if baseTextType != noSimpleType && !c.typeDerivesFrom(simpleRef(textType), simpleRef(baseTextType)) {
 		return noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction type is not derived from base")
 	}
 	return textType, nil
@@ -598,12 +618,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*rawNode
 	if err != nil {
 		return noSimpleType, err
 	}
-	st := base
-	st.Name = q
-	st.Base = baseID
-	st.Final = 0
-	st.Facets = cloneFacetSet(base.Facets)
-	st.Union = slices.Clone(base.Union)
+	st := derivedSimpleType(base, baseID, q)
 	if err = c.compileFacetList(facetChildren, &st, baseID, baseID); err != nil {
 		return noSimpleType, withSchemaCompileLocation(facetChildren[0], err)
 	}
