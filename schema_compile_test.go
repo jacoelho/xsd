@@ -659,7 +659,7 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 			if err := validateRuntimeSchema(engine.rt); err != nil {
 				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
 			}
-			rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "", "root")]
+			rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "root")]
 			tc.mutate(&engine.rt.Elements[rootID])
 			err := validateRuntimeSchema(engine.rt)
 			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
@@ -679,14 +679,16 @@ func TestFreezeRejectsZeroTypeID(t *testing.T) {
 		{
 			name: "element type",
 			mutate: func(t *testing.T, rt *runtimeSchema) {
-				rootID := rt.GlobalElements[mustQName(t, rt, "", "root")]
+				t.Helper()
+				rootID := rt.GlobalElements[mustQName(t, rt, "root")]
 				rt.Elements[rootID].Type = typeID{}
 			},
 		},
 		{
 			name: "complex type base",
 			mutate: func(t *testing.T, rt *runtimeSchema) {
-				ctID, ok := rt.GlobalTypes[mustQName(t, rt, "", "CT")].complex()
+				t.Helper()
+				ctID, ok := rt.GlobalTypes[mustQName(t, rt, "CT")].complex()
 				if !ok {
 					t.Fatal("CT is not a complex type")
 				}
@@ -696,7 +698,8 @@ func TestFreezeRejectsZeroTypeID(t *testing.T) {
 		{
 			name: "global type",
 			mutate: func(t *testing.T, rt *runtimeSchema) {
-				rt.GlobalTypes[mustQName(t, rt, "", "CT")] = typeID{}
+				t.Helper()
+				rt.GlobalTypes[mustQName(t, rt, "CT")] = typeID{}
 			},
 		},
 	}
@@ -726,7 +729,8 @@ func TestFreezeRejectsMisclassifiedSimpleIdentity(t *testing.T) {
 		{
 			name: "idref restriction loses identity",
 			mutate: func(t *testing.T, rt *runtimeSchema) {
-				id, ok := rt.GlobalTypes[mustQName(t, rt, "", "Ref")].simple()
+				t.Helper()
+				id, ok := rt.GlobalTypes[mustQName(t, rt, "Ref")].simple()
 				if !ok {
 					t.Fatal("Ref is not a simple type")
 				}
@@ -736,7 +740,8 @@ func TestFreezeRejectsMisclassifiedSimpleIdentity(t *testing.T) {
 		{
 			name: "plain type gains identity",
 			mutate: func(t *testing.T, rt *runtimeSchema) {
-				id, ok := rt.GlobalTypes[mustQName(t, rt, "", "Plain")].simple()
+				t.Helper()
+				id, ok := rt.GlobalTypes[mustQName(t, rt, "Plain")].simple()
 				if !ok {
 					t.Fatal("Plain is not a simple type")
 				}
@@ -746,6 +751,7 @@ func TestFreezeRejectsMisclassifiedSimpleIdentity(t *testing.T) {
 		{
 			name: "builtin ID loses identity",
 			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
 				rt.SimpleTypes[rt.Builtin.ID].Identity = simpleIdentityNone
 			},
 		},
@@ -778,6 +784,7 @@ func TestFreezeRejectsParticleWithStaleInactiveFields(t *testing.T) {
 		{
 			name: "model particle",
 			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
 				for i := range rt.Models {
 					for j := range rt.Models[i].Particles {
 						p := &rt.Models[i].Particles[j]
@@ -793,6 +800,7 @@ func TestFreezeRejectsParticleWithStaleInactiveFields(t *testing.T) {
 		{
 			name: "compiled edge particle",
 			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
 				for i := range rt.CompiledModels {
 					for j := range rt.CompiledModels[i].Rows {
 						row := &rt.CompiledModels[i].Rows[j]
@@ -821,11 +829,11 @@ func TestFreezeRejectsParticleWithStaleInactiveFields(t *testing.T) {
 	}
 }
 
-func mustQName(t *testing.T, rt *runtimeSchema, ns, local string) qName {
+func mustQName(t *testing.T, rt *runtimeSchema, local string) qName {
 	t.Helper()
-	q, err := rt.Names.InternQName(ns, local)
+	q, err := rt.Names.InternQName("", local)
 	if err != nil {
-		t.Fatalf("InternQName(%q, %q) error = %v", ns, local, err)
+		t.Fatalf("InternQName(%q) error = %v", local, err)
 	}
 	return q
 }
@@ -868,7 +876,7 @@ func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
 			if err := validateRuntimeSchema(engine.rt); err != nil {
 				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
 			}
-			typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "", "Sized")]
+			typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "Sized")]
 			id, ok := typ.simple()
 			if !ok {
 				t.Fatal("Sized is not a simple type")
@@ -921,7 +929,7 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 </xs:schema>`
 	complexID := func(t *testing.T, engine *Engine, local string) complexTypeID {
 		t.Helper()
-		typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "", local)]
+		typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, local)]
 		id, ok := typ.complex()
 		if !ok {
 			t.Fatalf("%s is not a complex type", local)

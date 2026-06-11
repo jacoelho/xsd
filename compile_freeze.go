@@ -245,10 +245,10 @@ func validateSimpleType(rt *runtimeSchema, id simpleTypeID, st simpleType) error
 }
 
 func expectedSimpleIdentity(rt *runtimeSchema, id simpleTypeID, st simpleType) simpleIdentityKind {
-	switch id {
-	case rt.Builtin.ID:
+	if id == rt.Builtin.ID {
 		return simpleIdentityID
-	case rt.Builtin.IDREF:
+	}
+	if id == rt.Builtin.IDREF {
 		return simpleIdentityIDREF
 	}
 	return rt.derivedSimpleIdentity(st)
@@ -530,8 +530,6 @@ func validTypeID(rt *runtimeSchema, typ typeID) bool {
 		return validSimpleTypeID(rt, simpleTypeID(typ.ID))
 	case typeComplex:
 		return validComplexTypeID(rt, complexTypeID(typ.ID))
-	case typeNone:
-		return false
 	default:
 		return false
 	}
