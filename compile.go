@@ -346,44 +346,9 @@ func (c *compiler) classifySimpleIdentities() {
 	memo := make([]simpleIdentityKind, len(c.rt.SimpleTypes))
 	visiting := make([]bool, len(c.rt.SimpleTypes))
 	for id := range c.rt.SimpleTypes {
-		c.rt.SimpleTypes[id].Identity = c.simpleIdentityKind(simpleTypeID(id), memo, visiting)
+		c.rt.SimpleTypes[id].Identity = c.rt.classifySimpleIdentity(simpleTypeID(id), memo, visiting)
 	}
 	c.rt.SimpleIdentitiesClassified = true
-}
-
-func (c *compiler) simpleIdentityKind(id simpleTypeID, memo []simpleIdentityKind, visiting []bool) simpleIdentityKind {
-	st, ok := c.rt.simpleType(id)
-	if !ok {
-		return simpleIdentityNone
-	}
-	if memo[id] != simpleIdentityNone {
-		return memo[id]
-	}
-	if id == c.rt.Builtin.ID {
-		memo[id] = simpleIdentityID
-		return simpleIdentityID
-	}
-	if id == c.rt.Builtin.IDREF {
-		memo[id] = simpleIdentityIDREF
-		return simpleIdentityIDREF
-	}
-	if visiting[id] {
-		return simpleIdentityNone
-	}
-	visiting[id] = true
-	kind := simpleIdentityNone
-	switch st.Variety {
-	case varietyAtomic:
-		kind = c.simpleIdentityKind(st.Base, memo, visiting)
-	case varietyList:
-		if c.simpleIdentityKind(st.ListItem, memo, visiting) == simpleIdentityIDREF {
-			kind = simpleIdentityIDREFList
-		}
-	case varietyUnion:
-	}
-	visiting[id] = false
-	memo[id] = kind
-	return kind
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
@@ -575,7 +540,7 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = simpleRef(id)
-	st, err := c.compileSimpleType(raw.node, raw.ctx, q, id)
+	st, err := c.compileSimpleType(raw.node, raw.ctx, q)
 	if err != nil {
 		return noSimpleType, err
 	}
@@ -602,7 +567,7 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpl
 		return noSimpleType, err
 	}
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
-	st, err := c.compileSimpleType(n, ctx, q, id)
+	st, err := c.compileSimpleType(n, ctx, q)
 	if err != nil {
 		return noSimpleType, err
 	}
@@ -616,7 +581,7 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpl
 	return id, nil
 }
 
-func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
+func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
 	if err := validateSimpleTypeChildren(n); err != nil {
 		return simpleType{}, err
 	}
@@ -628,9 +593,9 @@ func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name qName,
 	case xsdElemRestriction:
 		return c.compileRestriction(children[0], ctx, name)
 	case xsdElemList:
-		return c.compileList(children[0], ctx, name, selfID)
+		return c.compileList(children[0], ctx, name)
 	case xsdElemUnion:
-		return c.compileUnion(children[0], ctx, name, selfID)
+		return c.compileUnion(children[0], ctx, name)
 	default:
 		return simpleType{}, schemaCompileAt(children[0], ErrSchemaContentModel, "unsupported simpleType child "+children[0].Name.Local)
 	}
@@ -691,16 +656,24 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name qName
 	if base.Final&blockRestriction != 0 {
 		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "base simple type final blocks restriction")
 	}
+	st := derivedSimpleType(base, baseID, name)
+	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
+		return simpleType{}, withSchemaCompileLocation(n, err)
+	}
+	return st, nil
+}
+
+// derivedSimpleType copies base as the starting point of a restriction step,
+// deep-cloning the facet state so the derived type can restrict it
+// independently.
+func derivedSimpleType(base simpleType, baseID simpleTypeID, name qName) simpleType {
 	st := base
 	st.Name = name
 	st.Base = baseID
 	st.Final = 0
 	st.Facets = cloneFacetSet(base.Facets)
 	st.Union = slices.Clone(base.Union)
-	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
-		return simpleType{}, withSchemaCompileLocation(n, err)
-	}
-	return st, nil
+	return st
 }
 
 func cloneFacetSet(f facetSet) facetSet {
@@ -713,7 +686,7 @@ func cloneFacetSet(f facetSet) facetSet {
 	return out
 }
 
-func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
+func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
 	if err := validateSimpleDerivationChildren(n); err != nil {
 		return simpleType{}, err
 	}
@@ -746,12 +719,7 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name qName, selfI
 	if c.simpleTypeHasListVariety(item, make(map[simpleTypeID]bool)) {
 		return simpleType{}, schemaCompileAt(n, ErrSchemaContentModel, "list item type cannot be a list type")
 	}
-	st := simpleType{Name: name, Variety: varietyList, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse, ListItem: item}
-	c.rt.SimpleTypes[selfID] = st
-	if err := c.compileFacets(n, &st, c.rt.Builtin.AnySimpleType, selfID); err != nil {
-		return simpleType{}, withSchemaCompileLocation(n, err)
-	}
-	return st, nil
+	return simpleType{Name: name, Variety: varietyList, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse, ListItem: item}, nil
 }
 
 func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType string) (simpleTypeID, error) {
@@ -769,7 +737,7 @@ func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType 
 	return c.missingSimpleType()
 }
 
-func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, selfID simpleTypeID) (simpleType, error) {
+func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName) (simpleType, error) {
 	if err := validateSimpleDerivationChildren(n); err != nil {
 		return simpleType{}, err
 	}
@@ -803,18 +771,16 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName, self
 	if len(st.Union) == 0 {
 		return simpleType{}, schemaCompileAt(n, ErrSchemaReference, "union missing member types")
 	}
-	c.rt.SimpleTypes[selfID] = st
-	if err := c.compileFacets(n, &st, c.rt.Builtin.AnySimpleType, selfID); err != nil {
-		return simpleType{}, withSchemaCompileLocation(n, err)
-	}
 	return st, nil
 }
 
 // Union derivations may hold several member simpleType children; restriction
-// and list derivations hold at most one.
-var simpleRestrictionChildOrder = simpleDerivationOrder(xsdElemRestriction, true)
-var simpleListChildOrder = simpleDerivationOrder(xsdElemList, true)
-var simpleUnionChildOrder = simpleDerivationOrder(xsdElemUnion, false)
+// and list derivations hold at most one. Only restriction admits facet
+// children: list content is (annotation?, simpleType?) and union content is
+// (annotation?, simpleType*).
+var simpleRestrictionChildOrder = simpleDerivationOrder(xsdElemRestriction, true, true)
+var simpleListChildOrder = simpleDerivationOrder(xsdElemList, true, false)
+var simpleUnionChildOrder = simpleDerivationOrder(xsdElemUnion, false, false)
 
 func validateSimpleDerivationChildren(n *rawNode) error {
 	switch n.Name.Local {
@@ -827,23 +793,26 @@ func validateSimpleDerivationChildren(n *rawNode) error {
 	}
 }
 
-func simpleDerivationOrder(derivation string, singleChild bool) childOrder {
+func simpleDerivationOrder(derivation string, singleChild, allowFacets bool) childOrder {
+	rules := []childRule{
+		{
+			match:    matchLocal(xsdElemSimpleType),
+			level:    0,
+			maxOne:   singleChild,
+			orderMsg: derivation + " simpleType must precede facets",
+			dupMsg:   derivation + " can contain one simpleType",
+		},
+	}
+	if allowFacets {
+		rules = append(rules, childRule{
+			match: isFacetNode,
+			level: 1,
+		})
+	}
 	return childOrder{
 		annotationFirstMsg: derivation + " annotation must be first",
 		singleAnnotation:   true,
-		rules: []childRule{
-			{
-				match:    matchLocal(xsdElemSimpleType),
-				level:    0,
-				maxOne:   singleChild,
-				orderMsg: derivation + " simpleType must precede facets",
-				dupMsg:   derivation + " can contain one simpleType",
-			},
-			{
-				match: isFacetNode,
-				level: 1,
-			},
-		},
-		invalidMsg: func(local string) string { return "invalid " + derivation + " child " + local },
+		rules:              rules,
+		invalidMsg:         func(local string) string { return "invalid " + derivation + " child " + local },
 	}
 }
