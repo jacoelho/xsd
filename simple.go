@@ -7,7 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-type qnameResolver func(string) (string, bool)
+// qnameResolver resolves a lexical QName to its namespace and local parts.
+type qnameResolver func(string) (ns, local string, ok bool)
 
 type simpleValue struct {
 	Canonical string
@@ -69,66 +70,32 @@ func (n simpleValueNeed) has(need simpleValueNeed) bool {
 	return n&need != 0
 }
 
-func computeSimpleValueIdentity(rt *runtimeSchema, id simpleTypeID) simpleIdentityKind {
-	return rt.classifySimpleIdentity(id, nil, nil)
-}
-
-// classifySimpleIdentity resolves the ID/IDREF classification of a simple
-// type through its base (atomic) or item (list) chain. memo and visiting may
-// be nil for one-off queries; the schema-wide classification pass supplies
-// both, and visiting guards derivation cycles that exist only while a schema
-// is still compiling.
-func (rt *runtimeSchema) classifySimpleIdentity(id simpleTypeID, memo []simpleIdentityKind, visiting []bool) simpleIdentityKind {
-	st, ok := rt.simpleType(id)
-	if !ok {
-		return simpleIdentityNone
-	}
-	if memo != nil && memo[id] != simpleIdentityNone {
-		return memo[id]
-	}
-	if st.Identity != simpleIdentityNone {
-		return st.Identity
-	}
-	kind := simpleIdentityNone
-	switch id {
-	case rt.Builtin.ID:
-		kind = simpleIdentityID
-	case rt.Builtin.IDREF:
-		kind = simpleIdentityIDREF
-	default:
-		if visiting != nil {
-			if visiting[id] {
-				return simpleIdentityNone
-			}
-			visiting[id] = true
+// derivedSimpleIdentity computes the ID/IDREF classification of a simple type
+// from the already-stored identity of its base (atomic) or item (list).
+// xs:ID and xs:IDREF themselves carry their identity from construction, so
+// this helper never special-cases builtin IDs and is safe to call while the
+// builtin tables are still being built.
+func (rt *runtimeSchema) derivedSimpleIdentity(st simpleType) simpleIdentityKind {
+	switch st.Variety {
+	case varietyAtomic:
+		if base, ok := rt.simpleType(st.Base); ok {
+			return base.Identity
 		}
-		switch st.Variety {
-		case varietyAtomic:
-			if st.Base != id {
-				kind = rt.classifySimpleIdentity(st.Base, memo, visiting)
-			}
-		case varietyList:
-			if rt.classifySimpleIdentity(st.ListItem, memo, visiting) == simpleIdentityIDREF {
-				kind = simpleIdentityIDREFList
-			}
-		case varietyUnion:
+	case varietyList:
+		if item, ok := rt.simpleType(st.ListItem); ok && item.Identity == simpleIdentityIDREF {
+			return simpleIdentityIDREFList
 		}
-		if visiting != nil {
-			visiting[id] = false
-		}
+	case varietyUnion:
 	}
-	if memo != nil {
-		memo[id] = kind
-	}
-	return kind
+	return simpleIdentityNone
 }
 
 func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string, resolve qnameResolver, needs simpleValueNeed) (simpleValue, error) {
 	if id == noSimpleType {
 		return simpleValue{Canonical: lexical, Type: noSimpleType}, nil
 	}
-	st := &rt.SimpleTypes[id]
-	if st.Missing {
+	st, ok := rt.usableSimpleType(id)
+	if !ok {
 		return simpleValue{}, fmt.Errorf("missing type")
 	}
 	if st.Variety == varietyList {
@@ -143,9 +110,6 @@ func validateSimpleValueMode(rt *runtimeSchema, id simpleTypeID, lexical string,
 
 func validateAtomicValue(rt *runtimeSchema, id simpleTypeID, st *simpleType, norm string, resolve qnameResolver, valueNeeds simpleValueNeed) (simpleValue, error) {
 	identity := st.Identity
-	if !rt.SimpleIdentitiesClassified {
-		identity = computeSimpleValueIdentity(rt, id)
-	}
 	if id == rt.Builtin.Int && valueNeeds == 0 && identity == simpleIdentityNone {
 		if err := validateBuiltinIntNoCanonical(norm); err != nil {
 			return simpleValue{}, err
@@ -253,8 +217,8 @@ func canValidateStringEnumerationNoOutputFast(st *simpleType, identity simpleIde
 }
 
 func validateRawSimpleContentFast(rt *runtimeSchema, id simpleTypeID, raw []byte) (bool, error) {
-	st, ok := rt.simpleType(id)
-	if !ok || st.Missing {
+	st, ok := rt.usableSimpleType(id)
+	if !ok {
 		return false, nil
 	}
 	if st.Variety == varietyList {
@@ -267,9 +231,6 @@ func validateRawSimpleContentFast(rt *runtimeSchema, id simpleTypeID, raw []byte
 		return false, nil
 	}
 	identity := st.Identity
-	if !rt.SimpleIdentitiesClassified {
-		identity = computeSimpleValueIdentity(rt, id)
-	}
 	if canAcceptStringValueFast(st, identity) {
 		return true, nil
 	}
@@ -305,7 +266,7 @@ func validateRawListValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (bo
 	if st.Identity != simpleIdentityNone || !st.Facets.empty() {
 		return false, nil
 	}
-	if computeSimpleValueIdentity(rt, st.ListItem) != simpleIdentityNone {
+	if item, ok := rt.simpleType(st.ListItem); !ok || item.Identity != simpleIdentityNone {
 		return false, nil
 	}
 	if !canValidateRawNMTOKENListItem(rt, st.ListItem) {
@@ -315,16 +276,12 @@ func validateRawListValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (bo
 }
 
 func canValidateRawNMTOKENListItem(rt *runtimeSchema, id simpleTypeID) bool {
-	st, ok := rt.simpleType(id)
-	if !ok || st.Missing || st.Variety != varietyAtomic {
+	st, ok := rt.usableSimpleType(id)
+	if !ok || st.Variety != varietyAtomic {
 		return false
 	}
-	identity := st.Identity
-	if !rt.SimpleIdentitiesClassified {
-		identity = computeSimpleValueIdentity(rt, id)
-	}
 	return st.Builtin == builtinValidationNMTOKEN &&
-		identity == simpleIdentityNone &&
+		st.Identity == simpleIdentityNone &&
 		st.Facets.empty()
 }
 
@@ -359,7 +316,7 @@ func validateRawUnionValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (b
 			}
 			continue
 		}
-		if computeSimpleValueIdentity(rt, member) != simpleIdentityNone {
+		if m, ok := rt.simpleType(member); !ok || m.Identity != simpleIdentityNone {
 			return false, nil
 		}
 		ok, err := validateRawSimpleContentFast(rt, member, raw)
@@ -374,15 +331,11 @@ func validateRawUnionValueFast(rt *runtimeSchema, st *simpleType, raw []byte) (b
 }
 
 func canValidateRawUnionBooleanMember(rt *runtimeSchema, id simpleTypeID) bool {
-	st, ok := rt.simpleType(id)
-	if !ok || st.Missing || st.Variety != varietyAtomic {
+	st, ok := rt.usableSimpleType(id)
+	if !ok || st.Variety != varietyAtomic {
 		return false
 	}
-	identity := st.Identity
-	if !rt.SimpleIdentitiesClassified {
-		identity = computeSimpleValueIdentity(rt, id)
-	}
-	return canValidateBooleanNoOutputFast(st, identity)
+	return canValidateBooleanNoOutputFast(st, st.Identity)
 }
 
 func canAcceptStringValueFast(st *simpleType, identity simpleIdentityKind) bool {
@@ -421,9 +374,6 @@ func validateAtomicBuiltin(st *simpleType, norm string, actual actualValue) erro
 
 func validateListValue(rt *runtimeSchema, id simpleTypeID, st simpleType, lexical string, resolve qnameResolver, needs simpleValueNeed) (simpleValue, error) {
 	identity := st.Identity
-	if !rt.SimpleIdentitiesClassified {
-		identity = computeSimpleValueIdentity(rt, id)
-	}
 	needStrings := needs.has(simpleNeedCanonical) || needs.has(simpleNeedIdentity) || st.Facets.needsLexical() || st.Facets.needsCanonical() || identity != simpleIdentityNone
 	itemNeeds := simpleValueNeed(0)
 	if needStrings {
@@ -811,11 +761,11 @@ func validateQNamePrimitive(norm string, resolve qnameResolver) (string, error) 
 		}
 		return norm, nil
 	}
-	canon, ok := resolve(norm)
+	ns, local, ok := resolve(norm)
 	if !ok {
 		return "", fmt.Errorf("unresolved QName")
 	}
-	return canon, nil
+	return formatExpandedName(ns, local), nil
 }
 
 func validateNotationPrimitive(rt *runtimeSchema, norm string, resolve qnameResolver) (string, error) {
@@ -823,19 +773,19 @@ func validateNotationPrimitive(rt *runtimeSchema, norm string, resolve qnameReso
 		if !isNCName(norm) {
 			return "", fmt.Errorf("invalid NOTATION")
 		}
-		if rt.Notations[norm] {
+		if q, ok := rt.Names.LookupQName("", norm); ok && rt.Notations[q] {
 			return norm, nil
 		}
 		return "", fmt.Errorf("undeclared notation")
 	}
-	canon, ok := resolve(norm)
+	ns, local, ok := resolve(norm)
 	if !ok {
 		return "", fmt.Errorf("unresolved NOTATION")
 	}
-	if !rt.Notations[canon] {
+	if q, ok := rt.Names.LookupQName(ns, local); !ok || !rt.Notations[q] {
 		return "", fmt.Errorf("undeclared notation")
 	}
-	return canon, nil
+	return formatExpandedName(ns, local), nil
 }
 
 func isAnyURI(s string) bool {

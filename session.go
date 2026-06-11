@@ -127,7 +127,28 @@ func (s *Session) Reset() {
 	s.session.reset()
 }
 
-// session holds all mutable state for validating one document. The token
+// session holds the state for validating documents against one Engine.
+// Per-document state lives in doc; everything else is retained across
+// documents: options, the reader and parser, and the string and path caches.
+type session struct {
+	engine                *Engine
+	doc                   documentState
+	pathCache             map[pathCacheKey]string
+	nameStrings           byteStringCache
+	valueStrings          byteStringCache
+	reader                *bufio.Reader
+	parser                xmlStreamParser
+	maxErrors             int
+	maxIdentityScopes     int
+	maxIdentityEntries    int
+	maxIdentityTupleBytes int64
+	maxInstanceDepth      int
+	maxInstanceAttributes int
+	maxInstanceTextBytes  int64
+	maxInstanceTokenBytes int64
+}
+
+// documentState is the mutable state of one document validation. The token
 // loop, frame stack, and error accumulation live in session.go; content-model
 // state (stack frames, allBits) is driven by session_model.go; identity
 // constraint state (ids, idrefs, idScopes, idSelections, identityFieldValues,
@@ -135,9 +156,12 @@ func (s *Session) Reset() {
 // validation by session_attributes.go; namespace and xsi handling (ns,
 // schemaLocationNamespaces) by session_namespaces.go; reader and parser setup
 // by session_reader.go.
-type session struct {
+//
+// session.reset rebuilds the whole struct with a composite literal, so any
+// field not named there is zeroed between documents; listing a field in
+// reset only opts it into capacity reuse, never into surviving a reset.
+type documentState struct {
 	ids                      map[string]string
-	engine                   *Engine
 	schemaLocationNamespaces map[string]bool
 	ns                       namespaceStack
 	stack                    []frame
@@ -147,25 +171,12 @@ type session struct {
 	elementNames             []xml.Name
 	path                     []string
 	pathText                 string
-	pathCache                map[pathCacheKey]string
 	idrefs                   []identityRef
 	idScopes                 []identityScope
 	idSelections             []identitySelection
 	identityFieldValues      []identityFieldValue
 	identityMatches          []identityFieldMatch
 	text                     []byte
-	nameStrings              byteStringCache
-	valueStrings             byteStringCache
-	reader                   *bufio.Reader
-	parser                   xmlStreamParser
-	maxErrors                int
-	maxIdentityScopes        int
-	maxIdentityEntries       int
-	maxIdentityTupleBytes    int64
-	maxInstanceDepth         int
-	maxInstanceAttributes    int
-	maxInstanceTextBytes     int64
-	maxInstanceTokenBytes    int64
 	identityEntries          int
 	pathTextDepth            int
 }
@@ -326,7 +337,7 @@ func (s *session) finishValidation(seenRoot bool) error {
 	if !seenRoot {
 		return validation(ErrValidationRoot, 0, 0, "", "instance document has no root element")
 	}
-	if len(s.stack) != 0 {
+	if len(s.doc.stack) != 0 {
 		return validation(ErrValidationXML, 0, 0, s.pathString(), "unclosed element")
 	}
 	if err := s.checkIDRefs(); err != nil {
@@ -335,36 +346,33 @@ func (s *session) finishValidation(seenRoot bool) error {
 	return s.result()
 }
 
+// reset rebuilds the per-document state. Fields named in the literal recycle
+// bounded capacity from the previous document; every other documentState
+// field is zeroed by the literal itself, so omitting a field can never leak
+// state across documents.
 func (s *session) reset() {
-	s.errors = resetRetainedSlice(s.errors)
-	s.stack = resetRetainedSlice(s.stack)
-	s.ns.frames = resetRetainedSlice(s.ns.frames)
-	s.ns.bindings = resetRetainedSlice(s.ns.bindings)
-	s.text = resetRetainedBytes(s.text)
-	s.path = resetRetainedSlice(s.path)
-	s.pathText = ""
-	s.pathTextDepth = 0
+	s.doc = documentState{
+		errors: resetRetainedSlice(s.doc.errors),
+		stack:  resetRetainedSlice(s.doc.stack),
+		ns: namespaceStack{
+			frames:   resetRetainedSlice(s.doc.ns.frames),
+			bindings: resetRetainedSlice(s.doc.ns.bindings),
+		},
+		text:                     resetRetainedBytes(s.doc.text),
+		path:                     resetRetainedSlice(s.doc.path),
+		namePath:                 resetRetainedSlice(s.doc.namePath),
+		elementNames:             resetRetainedSlice(s.doc.elementNames),
+		allBits:                  resetRetainedSlice(s.doc.allBits),
+		ids:                      resetRetainedMap(s.doc.ids),
+		idrefs:                   resetRetainedSlice(s.doc.idrefs),
+		idScopes:                 resetRetainedSlice(s.doc.idScopes),
+		idSelections:             resetRetainedSlice(s.doc.idSelections),
+		identityFieldValues:      resetRetainedSlice(s.doc.identityFieldValues),
+		identityMatches:          resetRetainedSlice(s.doc.identityMatches),
+		schemaLocationNamespaces: resetRetainedMap(s.doc.schemaLocationNamespaces),
+	}
 	if len(s.pathCache) > maxRetainedMapLen {
 		s.pathCache = nil
-	}
-	s.namePath = resetRetainedSlice(s.namePath)
-	s.elementNames = resetRetainedSlice(s.elementNames)
-	s.allBits = resetRetainedSlice(s.allBits)
-	if len(s.ids) > maxRetainedMapLen {
-		s.ids = nil
-	} else {
-		clear(s.ids)
-	}
-	s.idrefs = resetRetainedSlice(s.idrefs)
-	s.idScopes = resetRetainedSlice(s.idScopes)
-	s.idSelections = resetRetainedSlice(s.idSelections)
-	s.identityFieldValues = resetRetainedSlice(s.identityFieldValues)
-	s.identityMatches = resetRetainedSlice(s.identityMatches)
-	s.identityEntries = 0
-	if len(s.schemaLocationNamespaces) > maxRetainedMapLen {
-		s.schemaLocationNamespaces = nil
-	} else {
-		clear(s.schemaLocationNamespaces)
 	}
 }
 
@@ -383,14 +391,22 @@ func resetRetainedBytes(s []byte) []byte {
 	return s[:0]
 }
 
+func resetRetainedMap[K comparable, V any](m map[K]V) map[K]V {
+	if len(m) > maxRetainedMapLen {
+		return nil
+	}
+	clear(m)
+	return m
+}
+
 func (s *session) result() error {
-	switch len(s.errors) {
+	switch len(s.doc.errors) {
 	case 0:
 		return nil
 	case 1:
-		return s.errors[0]
+		return s.doc.errors[0]
 	default:
-		return Errors(slices.Clone(s.errors))
+		return Errors(slices.Clone(s.doc.errors))
 	}
 }
 
@@ -401,8 +417,8 @@ func (s *session) recover(err error) error {
 	if !isRecoverableValidation(err) {
 		return err
 	}
-	s.errors = append(s.errors, err)
-	if s.maxErrors > 0 && len(s.errors) >= s.maxErrors {
+	s.doc.errors = append(s.doc.errors, err)
+	if s.maxErrors > 0 && len(s.doc.errors) >= s.maxErrors {
 		return errStopValidation
 	}
 	return nil
@@ -415,7 +431,7 @@ func isRecoverableValidation(err error) bool {
 }
 
 func (s *session) start(line, col int, se streamStartElement, seenRoot bool) error {
-	if s.maxInstanceDepth > 0 && len(s.stack)+1 > s.maxInstanceDepth {
+	if s.maxInstanceDepth > 0 && len(s.doc.stack)+1 > s.maxInstanceDepth {
 		return validation(ErrValidationLimit, line, col, s.pathString(), "instance depth limit exceeded")
 	}
 	if s.maxInstanceAttributes > 0 && len(se.Attr) > s.maxInstanceAttributes {
@@ -467,8 +483,8 @@ func (s *session) start(line, col int, se streamStartElement, seenRoot bool) err
 		pathName = rn.label()
 	}
 	s.pushPath(pathName)
-	s.namePath = append(s.namePath, rn)
-	s.elementNames = append(s.elementNames, se.Name)
+	s.doc.namePath = append(s.doc.namePath, rn)
+	s.doc.elementNames = append(s.doc.elementNames, se.Name)
 	if len(rt.Identities) != 0 {
 		if err := s.startIdentityScope(elem, line, col); err != nil {
 			return err
@@ -487,10 +503,10 @@ func (s *session) startType(rt *runtimeSchema, rn runtimeName, se streamStartEle
 	if !seenRoot {
 		return s.rootStartType(rt, rn, se, line, col)
 	}
-	if len(s.stack) == 0 {
+	if len(s.doc.stack) == 0 {
 		return noElement, typeID{}, false, validation(ErrValidationXML, line, col, s.pathString(), "multiple root elements")
 	}
-	parent := &s.stack[len(s.stack)-1]
+	parent := &s.doc.stack[len(s.doc.stack)-1]
 	parent.HasChild = true
 	accepted, err := s.acceptChild(parent, rn, se.Attr, line, col)
 	if err == nil {
@@ -545,27 +561,27 @@ func (s *session) pushFrame(elem elementID, typ typeID, nilled, skip bool) {
 			state = model.Start
 		}
 	}
-	bitBase := len(s.allBits)
+	bitBase := len(s.doc.allBits)
 	if bitLen > 0 {
-		s.allBits = slices.Grow(s.allBits, bitLen)
-		s.allBits = s.allBits[:bitBase+bitLen]
-		clear(s.allBits[bitBase:])
+		s.doc.allBits = slices.Grow(s.doc.allBits, bitLen)
+		s.doc.allBits = s.doc.allBits[:bitBase+bitLen]
+		clear(s.doc.allBits[bitBase:])
 	}
-	s.stack = append(s.stack, frame{
+	s.doc.stack = append(s.doc.stack, frame{
 		Element:   elem,
 		Type:      typ,
 		Model:     modelID,
 		BitBase:   bitBase,
 		BitLen:    bitLen,
 		State:     state,
-		TextStart: len(s.text),
+		TextStart: len(s.doc.text),
 		Nilled:    nilled,
 		Skip:      skip,
 	})
 }
 
 func (s *session) chars(line, col int, data []byte, cdata bool) error {
-	if len(s.stack) == 0 {
+	if len(s.doc.stack) == 0 {
 		if cdata {
 			return validation(ErrValidationXML, line, col, s.pathString(), "CDATA section outside root element")
 		}
@@ -574,7 +590,7 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 		}
 		return validation(ErrValidationText, line, col, s.pathString(), "text outside root element")
 	}
-	f := &s.stack[len(s.stack)-1]
+	f := &s.doc.stack[len(s.doc.stack)-1]
 	if len(data) == 0 {
 		return nil
 	}
@@ -609,9 +625,9 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 }
 
 func (s *session) appendText(data []byte, line, col int) error {
-	if s.maxInstanceTextBytes > 0 && int64(len(s.text)+len(data)) > s.maxInstanceTextBytes {
+	if s.maxInstanceTextBytes > 0 && int64(len(s.doc.text)+len(data)) > s.maxInstanceTextBytes {
 		return validation(ErrValidationLimit, line, col, s.pathString(), "instance text byte limit exceeded")
 	}
-	s.text = append(s.text, data...)
+	s.doc.text = append(s.doc.text, data...)
 	return nil
 }

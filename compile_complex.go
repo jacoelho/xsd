@@ -626,6 +626,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*rawNode
 	if err != nil {
 		return noSimpleType, err
 	}
+	st.Identity = c.rt.derivedSimpleIdentity(st)
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
 	return id, nil
 }

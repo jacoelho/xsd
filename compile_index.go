@@ -199,11 +199,10 @@ func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
 	if err != nil {
 		return err
 	}
-	key := c.rt.Names.Format(q)
-	if c.rt.Notations[key] {
-		return schemaCompileAt(n, ErrSchemaDuplicate, "duplicate notation "+key)
+	if c.rt.Notations[q] {
+		return schemaCompileAt(n, ErrSchemaDuplicate, "duplicate notation "+c.rt.Names.Format(q))
 	}
-	c.rt.Notations[key] = true
+	c.rt.Notations[q] = true
 	return nil
 }
 

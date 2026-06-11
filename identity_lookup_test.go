@@ -1,6 +1,9 @@
 package xsd
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestBuildIdentityFieldLookupMirrorsFields(t *testing.T) {
 	elem := qName{Namespace: 1, Local: 1}
@@ -46,27 +49,13 @@ func TestBuildIdentityFieldLookupMirrorsFields(t *testing.T) {
 		},
 	}}
 
-	if !compiledIdentityFieldsEqual(elementFields, wantElementFields) {
+	if !reflect.DeepEqual(elementFields, wantElementFields) {
 		t.Fatalf("elementFields = %#v, want %#v", elementFields, wantElementFields)
 	}
-	if !compiledIdentityFieldMapEqual(attrFields, wantAttrFields) {
+	if !reflect.DeepEqual(attrFields, wantAttrFields) {
 		t.Fatalf("attrFields = %#v, want %#v", attrFields, wantAttrFields)
 	}
-	if !compiledIdentityFieldsEqual(attrWildcardFields, wantAttrWildcardFields) {
+	if !reflect.DeepEqual(attrWildcardFields, wantAttrWildcardFields) {
 		t.Fatalf("attrWildcardFields = %#v, want %#v", attrWildcardFields, wantAttrWildcardFields)
 	}
-}
-
-func TestValidateCompiledIdentityFieldsRejectsStaleLookup(t *testing.T) {
-	attr := qName{Namespace: 1, Local: 1}
-	ic := identityConstraint{
-		Fields: []identityField{{
-			Paths: []identityFieldPath{{Attr: true, Attribute: attr}},
-		}},
-	}
-	ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = buildIdentityFieldLookup(ic.Fields)
-	ic.AttributeFields = nil
-
-	err := validateCompiledIdentityFields(ic)
-	expectCode(t, err, ErrInternalInvariant)
 }

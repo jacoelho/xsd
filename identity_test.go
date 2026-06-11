@@ -259,6 +259,20 @@ func TestDefaultedIDREFSAttributesAreResolved(t *testing.T) {
 	mustNotValidate(t, engine, `<root/>`, ErrValidationType)
 }
 
+func TestDefaultedAnonymousIDREFListAttributeIsResolved(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="refs" default="missing">
+        <xs:simpleType><xs:list itemType="xs:IDREF"/></xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	mustNotValidate(t, engine, `<root/>`, ErrValidationType)
+}
+
 func TestIdentityValuesUsePrimitiveTypeAndDefaultAttributes(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

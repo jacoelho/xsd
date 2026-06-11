@@ -109,14 +109,14 @@ func TestSessionResetShrinksLargeTextBuffer(t *testing.T) {
 	if err := session.Validate(strings.NewReader(big)); err != nil {
 		t.Fatalf("Validate(big) error = %v", err)
 	}
-	if cap(session.session.text) <= maxRetainedBufferCap {
+	if cap(session.session.doc.text) <= maxRetainedBufferCap {
 		t.Fatalf("large validation did not grow text buffer")
 	}
 	if err := session.Validate(strings.NewReader(`<root/>`)); err != nil {
 		t.Fatalf("Validate(small) error = %v", err)
 	}
-	if cap(session.session.text) > maxRetainedBufferCap {
-		t.Fatalf("text buffer cap = %d, want at most %d", cap(session.session.text), maxRetainedBufferCap)
+	if cap(session.session.doc.text) > maxRetainedBufferCap {
+		t.Fatalf("text buffer cap = %d, want at most %d", cap(session.session.doc.text), maxRetainedBufferCap)
 	}
 }
 
@@ -857,6 +857,15 @@ func TestXMLBuiltInAttributesCanBeReferenced(t *testing.T) {
 </xs:schema>`)
 	mustValidate(t, engine, `<root xml:base="a" xml:space="preserve"/>`)
 	mustNotValidate(t, engine, `<root/>`, ErrValidationAttribute)
+}
+
+func TestMissingImportedTypeRejectsValues(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:o="urn:other">
+  <xs:import namespace="urn:other"/>
+  <xs:element name="root" type="o:T"/>
+</xs:schema>`)
+	mustNotValidate(t, engine, `<root>x</root>`, ErrValidationFacet)
 }
 
 func TestXMLBuiltInAttributesValidateValueSpace(t *testing.T) {
