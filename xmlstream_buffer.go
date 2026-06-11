@@ -2,6 +2,8 @@ package xsd
 
 import "io"
 
+// byteStream tracks line and column positions in bytes, not runes; columns
+// inside multibyte UTF-8 sequences report byte offsets.
 type byteStream struct {
 	r       io.Reader
 	err     error

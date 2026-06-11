@@ -127,6 +127,14 @@ func (s *Session) Reset() {
 	s.session.reset()
 }
 
+// session holds all mutable state for validating one document. The token
+// loop, frame stack, and error accumulation live in session.go; content-model
+// state (stack frames, allBits) is driven by session_model.go; identity
+// constraint state (ids, idrefs, idScopes, idSelections, identityFieldValues,
+// identityMatches, identityEntries) by session_identity.go; attribute
+// validation by session_attributes.go; namespace and xsi handling (ns,
+// schemaLocationNamespaces) by session_namespaces.go; reader and parser setup
+// by session_reader.go.
 type session struct {
 	ids                      map[string]string
 	engine                   *Engine
