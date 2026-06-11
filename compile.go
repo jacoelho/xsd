@@ -379,7 +379,7 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 			continue
 		}
 		baseID, ok := ct.Base.complex()
-		if !ok || baseID == noComplexType || baseID == c.rt.Builtin.AnyType {
+		if !ok || baseID == c.rt.Builtin.AnyType {
 			continue
 		}
 		base := c.rt.ComplexTypes[baseID]

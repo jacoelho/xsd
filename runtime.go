@@ -4,8 +4,11 @@ import "regexp"
 
 type typeKind uint8
 
+// typeNone is the zero typeKind so that the zero typeID never references a
+// real type; only xs:anyType's Base may legally hold it.
 const (
-	typeSimple typeKind = iota
+	typeNone typeKind = iota
+	typeSimple
 	typeComplex
 )
 
@@ -680,7 +683,7 @@ func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivati
 			return mask | blockRestriction, true
 		}
 		parent, ok := ct.Base.complex()
-		if !ok || parent == noComplexType {
+		if !ok {
 			return 0, false
 		}
 		t = parent
@@ -732,7 +735,7 @@ func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (deriv
 			return 0, false
 		}
 		parent, ok := ct.Base.complex()
-		if !ok || parent == noComplexType {
+		if !ok {
 			return 0, false
 		}
 		switch ct.Derivation {

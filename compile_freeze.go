@@ -94,7 +94,7 @@ func validateRuntimeComponents(rt *runtimeSchema) error {
 		}
 	}
 	for i := range rt.ComplexTypes {
-		if err := validateComplexType(rt, rt.ComplexTypes[i]); err != nil {
+		if err := validateComplexType(rt, complexTypeID(i), rt.ComplexTypes[i]); err != nil {
 			return err
 		}
 	}
@@ -265,11 +265,15 @@ func validateFacetPresence(f facetSet) error {
 	return nil
 }
 
-func validateComplexType(rt *runtimeSchema, ct complexType) error {
+func validateComplexType(rt *runtimeSchema, id complexTypeID, ct complexType) error {
 	if !validQName(rt, ct.Name) {
 		return internalInvariant("complex type references invalid name")
 	}
-	if ct.Base.ID != uint32(noComplexType) && !validTypeID(rt, ct.Base) {
+	if ct.Base == (typeID{}) {
+		if id != rt.Builtin.AnyType {
+			return internalInvariant("complex type has no base type")
+		}
+	} else if !validTypeID(rt, ct.Base) {
 		return internalInvariant("complex type references invalid base")
 	}
 	if ct.Content != noContentModel && !validContentModelID(rt, ct.Content) {
@@ -534,6 +538,8 @@ func validTypeID(rt *runtimeSchema, typ typeID) bool {
 		return validSimpleTypeID(rt, simpleTypeID(typ.ID))
 	case typeComplex:
 		return validComplexTypeID(rt, complexTypeID(typ.ID))
+	case typeNone:
+		return false
 	default:
 		return false
 	}
