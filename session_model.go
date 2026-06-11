@@ -347,6 +347,8 @@ func (s *session) completeAllModel(f *frame, model compiledModel, line, col int)
 }
 
 func (s *session) completeDFAModel(f *frame, model compiledModel, line, col int) error {
+	// Final acceptance gate: unlike the per-transition hot path, this checks
+	// the state index defensively before reporting content-model results.
 	if !validUint32Index(f.State, len(model.Rows)) {
 		return s.counterInvariantError("content model DFA state out of range", int(f.State), len(model.Rows))
 	}
@@ -357,6 +359,9 @@ func (s *session) completeDFAModel(f *frame, model compiledModel, line, col int)
 	return validation(ErrValidationContent, line, col, s.pathString(), "missing required child element")
 }
 
+// advanceDFA indexes model.Rows without bounds checks: freeze validates the
+// start state and every edge target (validateCompiledDFARuntime), so f.State
+// and edge.To are always in range.
 func (s *session) advanceDFA(f *frame, model compiledModel, edge compiledModelEdge) bool {
 	to := edge.To
 	from := model.Rows[f.State]
