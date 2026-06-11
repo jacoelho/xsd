@@ -77,6 +77,9 @@ type xmlStreamParser struct {
 	atStart       bool
 	emitComments  bool
 	emitPI        bool
+	// lazyAttrValue makes streamAttr.Raw alias attrValueBuf instead of
+	// interning a string. Aliased values are valid only until the next
+	// parser call; the caller must consume or copy them before advancing.
 	lazyAttrValue bool
 }
 

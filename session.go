@@ -127,6 +127,14 @@ func (s *Session) Reset() {
 	s.session.reset()
 }
 
+// session holds all mutable state for validating one document. The token
+// loop, frame stack, and error accumulation live in session.go; content-model
+// state (stack frames, allBits) is driven by session_model.go; identity
+// constraint state (ids, idrefs, idScopes, idSelections, identityFieldValues,
+// identityMatches, identityEntries) by session_identity.go; attribute
+// validation by session_attributes.go; namespace and xsi handling (ns,
+// schemaLocationNamespaces) by session_namespaces.go; reader and parser setup
+// by session_reader.go.
 type session struct {
 	ids                      map[string]string
 	engine                   *Engine
@@ -175,10 +183,18 @@ type identityRef struct {
 }
 
 type identityScope struct {
-	Tables      map[identityConstraintID]map[string]string
+	Tables      map[identityConstraintID]map[string]identityTableEntry
 	Constraints []identityConstraintID
 	Refs        []identityTupleRef
 	Depth       int
+}
+
+// identityTableEntry records where a key tuple was first seen. Conflict marks
+// tuples that propagated from child scopes with differing paths; conflicted
+// tuples cannot resolve keyrefs.
+type identityTableEntry struct {
+	Path     string
+	Conflict bool
 }
 
 type identityTupleRef struct {
@@ -189,8 +205,6 @@ type identityTupleRef struct {
 	Constraint identityConstraintID
 	Refer      identityConstraintID
 }
-
-const identityConflictPath = "\x00identity-conflict"
 
 type identitySelection struct {
 	Path       string

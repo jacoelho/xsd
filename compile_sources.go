@@ -338,14 +338,50 @@ func (c *compiler) adoptChameleonInclude(doc *rawDoc, location, target string) (
 		return false, nil
 	}
 	existing := c.adoptTarget[resolved]
-	if existing != "" && existing != target {
-		return false, schemaCompile(ErrSchemaReference, "chameleon include used with multiple target namespaces")
+	if existing == "" {
+		c.adoptTarget[resolved] = target
+		return true, nil
 	}
-	if existing != "" {
+	if existing == target {
 		return false, nil
 	}
-	c.adoptTarget[resolved] = target
+	cloneKey := resolved + "\x00" + target
+	if _, ok := c.adoptTarget[cloneKey]; ok {
+		return false, nil
+	}
+	c.cloneAdoptedChameleon(referenced, cloneKey, target)
 	return true, nil
+}
+
+// cloneAdoptedChameleon registers a per-namespace copy of a chameleon schema
+// document that is already adopted by another namespace. The copy gets its
+// own node tree because compilation memoizes per *rawNode, and pre-resolved
+// include/import locations because path-based resolution cannot work on the
+// synthetic clone key. Clones are never added to sourceDocs: location
+// resolution always finds original documents, and the adoptTarget entry for
+// the clone key both records the namespace and deduplicates clone creation.
+func (c *compiler) cloneAdoptedChameleon(orig *rawDoc, cloneKey, target string) {
+	clone := &rawDoc{root: cloneRawTree(orig.root), name: orig.name, key: cloneKey}
+	c.adoptTarget[cloneKey] = target
+	for _, ref := range schemaDocumentRefs(orig) {
+		if _, resolved, ok := c.resolveLoadedSchemaLocation(orig, ref.location); ok {
+			c.resolvedRef[schemaReferenceKey{base: cloneKey, location: ref.location}] = resolved
+		}
+	}
+	c.docs = append(c.docs, clone)
+}
+
+// cloneRawTree copies the node structure. Per-node payloads (NS maps, Attr
+// slices, text, names, positions) are immutable after parse and stay shared.
+func cloneRawTree(n *rawNode) *rawNode {
+	copied := *n
+	if len(n.Children) > 0 {
+		copied.Children = make([]*rawNode, len(n.Children))
+		for i, child := range n.Children {
+			copied.Children[i] = cloneRawTree(child)
+		}
+	}
+	return &copied
 }
 
 func (c *compiler) documentTargetNamespace(doc *rawDoc) string {

@@ -160,6 +160,208 @@ func TestChameleonIncludeTargetNamespacePropagatesThroughNestedIncludes(t *testi
 	mustNotValidate(t, engine, `<root xmlns="urn:test"><v>x</v></root>`, ErrValidationFacet)
 }
 
+func TestChameleonIncludeAdoptedByMultipleNamespaces(t *testing.T) {
+	engine, err := Compile(
+		sourceBytes("schemas/a-main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:a"
+           targetNamespace="urn:a"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="root" type="t:Shared"/>
+</xs:schema>`)),
+		sourceBytes("schemas/b-main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:b"
+           targetNamespace="urn:b"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="root" type="t:Shared"/>
+</xs:schema>`)),
+		sourceBytes("schemas/common.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+  <xs:complexType name="Shared">
+    <xs:sequence>
+      <xs:element name="v" type="Value"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="Value">
+    <xs:restriction base="xs:int"/>
+  </xs:simpleType>
+</xs:schema>`)),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:a"><v>7</v></root>`)
+	mustValidate(t, engine, `<root xmlns="urn:b"><v>7</v></root>`)
+	mustNotValidate(t, engine, `<root xmlns="urn:a"><v>x</v></root>`, ErrValidationFacet)
+	mustNotValidate(t, engine, `<root xmlns="urn:b"><v>x</v></root>`, ErrValidationFacet)
+}
+
+func TestChameleonIncludeCascadeAdoptedByMultipleNamespaces(t *testing.T) {
+	mainSchema := func(ns string) []byte {
+		return []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="` + ns + `"
+           targetNamespace="` + ns + `"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="mid.xsd"/>
+  <xs:element name="root" type="t:Mid"/>
+</xs:schema>`)
+	}
+	engine, err := Compile(
+		sourceBytes("schemas/a-main.xsd", mainSchema("urn:a")),
+		sourceBytes("schemas/b-main.xsd", mainSchema("urn:b")),
+		sourceBytes("schemas/mid.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="base.xsd"/>
+  <xs:complexType name="Mid">
+    <xs:sequence>
+      <xs:element name="v" type="Value"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`)),
+		sourceBytes("schemas/base.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Value">
+    <xs:restriction base="xs:int"/>
+  </xs:simpleType>
+</xs:schema>`)),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:a"><v>7</v></root>`)
+	mustValidate(t, engine, `<root xmlns="urn:b"><v>7</v></root>`)
+	mustNotValidate(t, engine, `<root xmlns="urn:b"><v>x</v></root>`, ErrValidationFacet)
+}
+
+func TestChameleonIncludeSameNamespaceTwiceCompiles(t *testing.T) {
+	engine, err := Compile(
+		sourceBytes("schemas/main.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:a"
+           targetNamespace="urn:a"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="root" type="t:Shared"/>
+</xs:schema>`)),
+		sourceBytes("schemas/extra.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="urn:a"
+           targetNamespace="urn:a"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="extra" type="t:Shared"/>
+</xs:schema>`)),
+		sourceBytes("schemas/common.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+  <xs:complexType name="Shared">
+    <xs:sequence>
+      <xs:element name="v" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`)),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:a"><v>7</v></root>`)
+	mustValidate(t, engine, `<extra xmlns="urn:a"><v>7</v></extra>`)
+}
+
+func TestChameleonIncludeIdentityConstraintAdoptedByMultipleNamespaces(t *testing.T) {
+	mainSchema := func(ns string) []byte {
+		return []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="` + ns + `">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`)
+	}
+	engine, err := Compile(
+		sourceBytes("schemas/a-main.xsd", mainSchema("urn:a")),
+		sourceBytes("schemas/b-main.xsd", mainSchema("urn:b")),
+		sourceBytes("schemas/common.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="list">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`)),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<a:list xmlns:a="urn:a"><item id="1"/><item id="2"/></a:list>`)
+	mustValidate(t, engine, `<b:list xmlns:b="urn:b"><item id="1"/><item id="2"/></b:list>`)
+	mustNotValidate(t, engine, `<a:list xmlns:a="urn:a"><item id="1"/><item id="1"/></a:list>`, ErrValidationIdentity)
+	mustNotValidate(t, engine, `<b:list xmlns:b="urn:b"><item id="1"/><item id="1"/></b:list>`, ErrValidationIdentity)
+}
+
+func TestChameleonIncludeMultipleNamespacesViaResolver(t *testing.T) {
+	const commonSchema = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="mem:base"/>
+  <xs:complexType name="Shared">
+    <xs:sequence>
+      <xs:element name="v" type="Value"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`
+	const baseSchema = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Value">
+    <xs:restriction base="xs:int"/>
+  </xs:simpleType>
+</xs:schema>`
+	resolver := ResolverFunc(func(_, location string) (SchemaSource, error) {
+		switch location {
+		case "mem:common":
+			return Reader("resolved/common.xsd", strings.NewReader(commonSchema)), nil
+		case "mem:base":
+			return Reader("resolved/base.xsd", strings.NewReader(baseSchema)), nil
+		default:
+			return SchemaSource{}, ErrSchemaNotFound
+		}
+	})
+	mainSchema := func(ns string) string {
+		return `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:t="` + ns + `"
+           targetNamespace="` + ns + `"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="mem:common"/>
+  <xs:element name="root" type="t:Shared"/>
+</xs:schema>`
+	}
+	engine, err := Compile(
+		Reader("a-main.xsd", strings.NewReader(mainSchema("urn:a"))).WithResolver(resolver),
+		Reader("b-main.xsd", strings.NewReader(mainSchema("urn:b"))).WithResolver(resolver),
+	)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidate(t, engine, `<root xmlns="urn:a"><v>7</v></root>`)
+	mustValidate(t, engine, `<root xmlns="urn:b"><v>7</v></root>`)
+	mustNotValidate(t, engine, `<root xmlns="urn:a"><v>x</v></root>`, ErrValidationFacet)
+}
+
 func TestFileResolvesLocalIncludeAndImport(t *testing.T) {
 	dir := t.TempDir()
 	writeSchemaFile(t, filepath.Join(dir, "main.xsd"), `
