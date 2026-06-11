@@ -561,7 +561,7 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qNa
 		return complexType{}, noSimpleType, withSchemaCompileLocation(child, err)
 	}
 	base := c.rt.ComplexTypes[baseComplex]
-	if !base.simpleContent() {
+	if !base.simpleContent() && !c.simpleContentRestrictionBaseAllowed(child, base) {
 		return complexType{}, noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent base must have simple content")
 	}
 	if child.Name.Local == xsdElemExtension && base.Final&blockExtension != 0 {
@@ -575,6 +575,14 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, baseQName qNa
 	return ct, base.TextType, nil
 }
 
+// simpleContentRestrictionBaseAllowed reports whether a simpleContent
+// restriction may use a base without simple content: a mixed base whose
+// particle is emptiable ({content type} mapping clause 2). The restriction
+// must then supply an inline simpleType as the content type.
+func (c *compiler) simpleContentRestrictionBaseAllowed(child *rawNode, base complexType) bool {
+	return child.Name.Local == xsdElemRestriction && base.mixed() && c.modelEmptiable(base.Content)
+}
+
 func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *schemaContext, baseTextType simpleTypeID) (simpleTypeID, error) {
 	textType := baseTextType
 	facetChildren := facetChildren(child)
@@ -585,6 +593,9 @@ func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *sche
 		}
 		textType = simpleID
 	}
+	if textType == noSimpleType {
+		return noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction of mixed content requires simpleType")
+	}
 	if len(facetChildren) != 0 {
 		simpleID, err := c.compileSimpleContentFacetRestriction(facetChildren, textType)
 		if err != nil {
@@ -592,7 +603,7 @@ func (c *compiler) compileSimpleContentRestrictionType(child *rawNode, ctx *sche
 		}
 		textType = simpleID
 	}
-	if !c.typeDerivesFrom(simpleRef(textType), simpleRef(baseTextType)) {
+	if baseTextType != noSimpleType && !c.typeDerivesFrom(simpleRef(textType), simpleRef(baseTextType)) {
 		return noSimpleType, schemaCompileAt(child, ErrSchemaContentModel, "simpleContent restriction type is not derived from base")
 	}
 	return textType, nil
