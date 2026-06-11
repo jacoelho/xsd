@@ -162,7 +162,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 		}
 	}
 	value := attr.stringValue(&s.valueStrings)
-	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameValue, needs)
+	simple, err := validateSimpleValueMode(rt, use.Type, value, s.resolveLexicalQNameParts, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err
@@ -242,7 +242,7 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 	if len(identityFields) != 0 {
 		needs |= simpleNeedIdentity
 	}
-	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameValue, needs)
+	simple, err := validateSimpleValueMode(rt, decl.Type, value, s.resolveLexicalQNameParts, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return err

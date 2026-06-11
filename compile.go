@@ -227,7 +227,7 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 		GlobalAttributes:   make(map[qName]attributeID, builtinAttributeCount),
 		GlobalTypes:        make(map[qName]typeID, builtinGlobalTypeCount),
 		GlobalIdentities:   make(map[qName]identityConstraintID),
-		Notations:          make(map[string]bool),
+		Notations:          make(map[qName]bool),
 		Substitutions:      make(map[elementID][]elementID),
 		SubstitutionLookup: make(map[elementID]map[qName]elementID),
 		SimpleTypes:        make([]simpleType, 0, builtinSimpleTypeCount),

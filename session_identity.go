@@ -33,7 +33,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		return s.recordElementSimpleContent(input.value, line, col)
 	}
 	identityFields, needs := s.simpleContentNeeds(f, typeID)
-	value, err := validateSimpleValueMode(rt, typeID, input.text, s.resolveLexicalQNameValue, needs)
+	value, err := validateSimpleValueMode(rt, typeID, input.text, s.resolveLexicalQNameParts, needs)
 	if err != nil {
 		if IsUnsupported(err) {
 			return false, err
@@ -395,7 +395,7 @@ func (s *session) captureIdentityXSIAttribute(a *streamAttr, line, col int) erro
 		}
 		value = v
 	case xsiAttrType:
-		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.qName, lexical, s.resolveLexicalQNameValue, simpleNeedCanonical)
+		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.qName, lexical, s.resolveLexicalQNameParts, simpleNeedCanonical)
 		if err != nil {
 			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:type: "+err.Error())
 		}

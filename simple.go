@@ -7,7 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-type qnameResolver func(string) (string, bool)
+// qnameResolver resolves a lexical QName to its namespace and local parts.
+type qnameResolver func(string) (ns, local string, ok bool)
 
 type simpleValue struct {
 	Canonical string
@@ -760,11 +761,11 @@ func validateQNamePrimitive(norm string, resolve qnameResolver) (string, error) 
 		}
 		return norm, nil
 	}
-	canon, ok := resolve(norm)
+	ns, local, ok := resolve(norm)
 	if !ok {
 		return "", fmt.Errorf("unresolved QName")
 	}
-	return canon, nil
+	return formatExpandedName(ns, local), nil
 }
 
 func validateNotationPrimitive(rt *runtimeSchema, norm string, resolve qnameResolver) (string, error) {
@@ -772,19 +773,19 @@ func validateNotationPrimitive(rt *runtimeSchema, norm string, resolve qnameReso
 		if !isNCName(norm) {
 			return "", fmt.Errorf("invalid NOTATION")
 		}
-		if rt.Notations[norm] {
+		if q, ok := rt.Names.LookupQName("", norm); ok && rt.Notations[q] {
 			return norm, nil
 		}
 		return "", fmt.Errorf("undeclared notation")
 	}
-	canon, ok := resolve(norm)
+	ns, local, ok := resolve(norm)
 	if !ok {
 		return "", fmt.Errorf("unresolved NOTATION")
 	}
-	if !rt.Notations[canon] {
+	if q, ok := rt.Names.LookupQName(ns, local); !ok || !rt.Notations[q] {
 		return "", fmt.Errorf("undeclared notation")
 	}
-	return canon, nil
+	return formatExpandedName(ns, local), nil
 }
 
 func isAnyURI(s string) bool {

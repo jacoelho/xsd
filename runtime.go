@@ -61,7 +61,7 @@ type runtimeSchema struct {
 	GlobalElements     map[qName]elementID
 	Substitutions      map[elementID][]elementID
 	SubstitutionLookup map[elementID]map[qName]elementID
-	Notations          map[string]bool
+	Notations          map[qName]bool
 	GlobalIdentities   map[qName]identityConstraintID
 	GlobalTypes        map[qName]typeID
 	Identities         []identityConstraint

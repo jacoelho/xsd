@@ -47,6 +47,11 @@ func validateRuntimeGlobals(rt *runtimeSchema) error {
 			return internalInvariant("global identity references invalid declaration")
 		}
 	}
+	for q := range rt.Notations {
+		if !validQName(rt, q) {
+			return internalInvariant("notation references invalid name")
+		}
+	}
 	return nil
 }
 

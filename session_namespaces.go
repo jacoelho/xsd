@@ -264,14 +264,6 @@ func (s *session) resolveLexicalQNameParts(v string) (string, string, bool) {
 	return uri, local, true
 }
 
-func (s *session) resolveLexicalQNameValue(v string) (string, bool) {
-	uri, local, ok := s.resolveLexicalQNameParts(v)
-	if !ok {
-		return "", false
-	}
-	return formatExpandedName(uri, local), true
-}
-
 func (ns *namespaceStack) push(attrs []xml.Attr) error {
 	mark := len(ns.bindings)
 	for _, a := range attrs {
