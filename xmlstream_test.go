@@ -247,3 +247,56 @@ func TestLargeCDATAValidatesWithoutAccumulatingParserBuffer(t *testing.T) {
 		t.Fatalf("Validate() error = %v", err)
 	}
 }
+
+func TestByteStreamConsumeBufferedTracksNewlines(t *testing.T) {
+	bs := new(byteStream)
+	bs.reset(strings.NewReader("ab\ncd\nef"))
+	chunk, err := bs.buffered()
+	if err != nil {
+		t.Fatalf("buffered() error = %v", err)
+	}
+	bs.consumeBuffered(len(chunk))
+	line, col := bs.pos()
+	if line != 3 || col != 2 {
+		t.Fatalf("pos() = %d:%d, want 3:2", line, col)
+	}
+}
+
+func TestByteStreamConsumeBufferedAfterReadByteNewlines(t *testing.T) {
+	bs := new(byteStream)
+	bs.reset(strings.NewReader("a\nbc\nde"))
+	if _, err := bs.buffered(); err != nil {
+		t.Fatalf("buffered() error = %v", err)
+	}
+	bs.consumeBuffered(1)
+	if b, err := bs.readByte(); err != nil || b != '\n' {
+		t.Fatalf("readByte() = %q, %v, want '\\n'", b, err)
+	}
+	bs.consumeBuffered(2)
+	if line, col := bs.pos(); line != 2 || col != 2 {
+		t.Fatalf("pos() = %d:%d, want 2:2", line, col)
+	}
+	if b, err := bs.readByte(); err != nil || b != '\n' {
+		t.Fatalf("readByte() = %q, %v, want '\\n'", b, err)
+	}
+	bs.consumeBuffered(2)
+	if line, col := bs.pos(); line != 3 || col != 2 {
+		t.Fatalf("pos() = %d:%d, want 3:2", line, col)
+	}
+}
+
+func TestByteStreamConsumeBufferedNewlineThenCleanChunk(t *testing.T) {
+	bs := new(byteStream)
+	bs.reset(strings.NewReader("a\nb\n\ncdef"))
+	if _, err := bs.buffered(); err != nil {
+		t.Fatalf("buffered() error = %v", err)
+	}
+	bs.consumeBuffered(5)
+	if line, col := bs.pos(); line != 4 || col != 0 {
+		t.Fatalf("pos() = %d:%d, want 4:0", line, col)
+	}
+	bs.consumeBuffered(4)
+	if line, col := bs.pos(); line != 4 || col != 4 {
+		t.Fatalf("pos() = %d:%d, want 4:4", line, col)
+	}
+}
