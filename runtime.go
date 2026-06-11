@@ -450,12 +450,28 @@ type contentModel struct {
 	Mixed     bool
 }
 
+// particle is a tagged union: Kind selects which ID field is active. The
+// constructors below pin the inactive fields to their no* sentinels so that
+// kind-blind comparisons (sameCompiledParticle) cannot be confused by stale
+// IDs; freeze enforces the sentinels.
 type particle struct {
 	Kind     particleKind
 	Occurs   occurrence
 	Element  elementID
 	Model    contentModelID
 	Wildcard wildcardID
+}
+
+func elementParticle(id elementID, occurs occurrence) particle {
+	return particle{Kind: particleElement, Occurs: occurs, Element: id, Model: noContentModel, Wildcard: noWildcard}
+}
+
+func modelParticle(id contentModelID, occurs occurrence) particle {
+	return particle{Kind: particleModel, Occurs: occurs, Element: noElement, Model: id, Wildcard: noWildcard}
+}
+
+func wildcardParticle(id wildcardID, occurs occurrence) particle {
+	return particle{Kind: particleWildcard, Occurs: occurs, Element: noElement, Model: noContentModel, Wildcard: id}
 }
 
 type compiledModelKind uint8

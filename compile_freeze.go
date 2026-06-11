@@ -383,6 +383,25 @@ func validateContentModelRuntime(rt *runtimeSchema, model contentModel) error {
 		default:
 			return internalInvariant("particle has invalid kind")
 		}
+		if err := validateParticleInactiveFields(p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateParticleInactiveFields enforces the constructor invariant that a
+// particle's inactive ID fields hold their no* sentinels; kind-blind particle
+// comparisons rely on it.
+func validateParticleInactiveFields(p particle) error {
+	if p.Kind != particleElement && p.Element != noElement {
+		return internalInvariant("particle stores element ID for non-element kind")
+	}
+	if p.Kind != particleModel && p.Model != noContentModel {
+		return internalInvariant("particle stores content model ID for non-model kind")
+	}
+	if p.Kind != particleWildcard && p.Wildcard != noWildcard {
+		return internalInvariant("particle stores wildcard ID for non-wildcard kind")
 	}
 	return nil
 }
@@ -464,7 +483,7 @@ func validateCompiledParticle(rt *runtimeSchema, p particle) error {
 	default:
 		return internalInvariant("compiled particle has invalid kind")
 	}
-	return nil
+	return validateParticleInactiveFields(p)
 }
 
 func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error {
