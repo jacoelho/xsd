@@ -218,6 +218,33 @@ func TestSimpleAndComplexTypesShareNames(t *testing.T) {
 	expectCode(t, err, ErrSchemaDuplicate)
 }
 
+func TestImportedXMLNamespaceSchemaDefersToBuiltinAttributes(t *testing.T) {
+	xmlSchema := `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://www.w3.org/XML/1998/namespace">
+  <xs:attribute name="lang" type="xs:string"/>
+</xs:schema>`
+	schema := `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:xml="http://www.w3.org/XML/1998/namespace">
+  <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute ref="xml:lang"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	engine, err := Compile(
+		sourceBytes("schema.xsd", []byte(schema)),
+		sourceBytes("xml.xsd", []byte(xmlSchema)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustValidate(t, engine, `<root xml:lang="en"/>`)
+	mustNotValidate(t, engine, `<root xml:lang="@@"/>`, ErrValidationFacet)
+}
+
 func TestMissingElementTypeInvalidatesOnlyThatElement(t *testing.T) {
 	engine := mustCompile(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
