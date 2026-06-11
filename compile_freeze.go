@@ -89,7 +89,7 @@ func validateRuntimeComponents(rt *runtimeSchema) error {
 		}
 	}
 	for i := range rt.SimpleTypes {
-		if err := validateSimpleType(rt, rt.SimpleTypes[i]); err != nil {
+		if err := validateSimpleType(rt, simpleTypeID(i), rt.SimpleTypes[i]); err != nil {
 			return err
 		}
 	}
@@ -218,7 +218,7 @@ func validateAttributeDecl(rt *runtimeSchema, decl attributeDecl) error {
 	return validateValueConstraintRuntime(rt, decl.Fixed, "attribute declaration fixed")
 }
 
-func validateSimpleType(rt *runtimeSchema, st simpleType) error {
+func validateSimpleType(rt *runtimeSchema, id simpleTypeID, st simpleType) error {
 	if !validQName(rt, st.Name) {
 		return internalInvariant("simple type references invalid name")
 	}
@@ -233,7 +233,20 @@ func validateSimpleType(rt *runtimeSchema, st simpleType) error {
 			return internalInvariant("simple type references invalid union member")
 		}
 	}
+	if st.Identity != expectedSimpleIdentity(rt, id, st) {
+		return internalInvariant("simple type identity does not match derivation")
+	}
 	return validateFacetPresence(st.Facets)
+}
+
+func expectedSimpleIdentity(rt *runtimeSchema, id simpleTypeID, st simpleType) simpleIdentityKind {
+	switch id {
+	case rt.Builtin.ID:
+		return simpleIdentityID
+	case rt.Builtin.IDREF:
+		return simpleIdentityIDREF
+	}
+	return rt.derivedSimpleIdentity(st)
 }
 
 func validateFacetPresence(f facetSet) error {

@@ -335,20 +335,7 @@ func (c *compiler) compileGlobals() error {
 	if err := c.checkCompiledModelsUPA(); err != nil {
 		return err
 	}
-	if err := c.compileContentModels(); err != nil {
-		return err
-	}
-	c.classifySimpleIdentities()
-	return nil
-}
-
-func (c *compiler) classifySimpleIdentities() {
-	memo := make([]simpleIdentityKind, len(c.rt.SimpleTypes))
-	visiting := make([]bool, len(c.rt.SimpleTypes))
-	for id := range c.rt.SimpleTypes {
-		c.rt.SimpleTypes[id].Identity = c.rt.classifySimpleIdentity(simpleTypeID(id), memo, visiting)
-	}
-	c.rt.SimpleIdentitiesClassified = true
+	return c.compileContentModels()
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
@@ -550,6 +537,7 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 		return noSimpleType, err
 	}
 	st.Final = final
+	st.Identity = c.rt.derivedSimpleIdentity(st)
 	c.rt.SimpleTypes[id] = st
 	return id, nil
 }
@@ -577,6 +565,7 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpl
 		return noSimpleType, err
 	}
 	st.Final = final
+	st.Identity = c.rt.derivedSimpleIdentity(st)
 	c.rt.SimpleTypes[id] = st
 	return id, nil
 }

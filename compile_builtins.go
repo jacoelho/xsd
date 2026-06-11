@@ -69,10 +69,12 @@ func (c *compiler) addBuiltinStringTypes(anySimple simpleTypeID) error {
 	if err != nil {
 		return err
 	}
+	c.rt.SimpleTypes[c.rt.Builtin.ID].Identity = simpleIdentityID
 	c.rt.Builtin.IDREF, err = c.addBuiltinAtomicSimpleType("IDREF", primString, ncName, whitespaceCollapse)
 	if err != nil {
 		return err
 	}
+	c.rt.SimpleTypes[c.rt.Builtin.IDREF].Identity = simpleIdentityIDREF
 	c.rt.Builtin.ENTITY, err = c.addBuiltinAtomicSimpleType("ENTITY", primString, ncName, whitespaceCollapse)
 	return err
 }
@@ -337,7 +339,7 @@ func (c *compiler) addAtomicSimpleType(ns, local string, primitive primitiveKind
 	if baseType, ok := c.rt.simpleType(base); ok {
 		facets = cloneFacetSet(baseType.Facets)
 	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
+	st := simpleType{
 		Name:       q,
 		Variety:    varietyAtomic,
 		Primitive:  primitive,
@@ -345,7 +347,9 @@ func (c *compiler) addAtomicSimpleType(ns, local string, primitive primitiveKind
 		Whitespace: ws,
 		Facets:     facets,
 		Builtin:    builtin,
-	})
+	}
+	st.Identity = c.rt.derivedSimpleIdentity(st)
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
 	return id, q, nil
 }
 
@@ -378,7 +382,7 @@ func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeI
 	if err != nil {
 		return noSimpleType, err
 	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
+	st := simpleType{
 		Name:       q,
 		Variety:    varietyList,
 		Primitive:  primString,
@@ -386,7 +390,9 @@ func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeI
 		Whitespace: whitespaceCollapse,
 		ListItem:   item,
 		Facets:     listLengthFacets(minLength),
-	})
+	}
+	st.Identity = c.rt.derivedSimpleIdentity(st)
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = simpleRef(id)
 	return id, nil
@@ -466,14 +472,16 @@ func (c *compiler) missingSimpleType() (simpleTypeID, error) {
 	if err != nil {
 		return noSimpleType, err
 	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{
+	st := simpleType{
 		Name:       q,
 		Variety:    varietyAtomic,
 		Primitive:  primString,
 		Base:       c.rt.Builtin.AnySimpleType,
 		Whitespace: whitespaceCollapse,
 		Missing:    true,
-	})
+	}
+	st.Identity = c.rt.derivedSimpleIdentity(st)
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
 	c.missingSimple = id
 	return id, nil
 }

@@ -188,11 +188,7 @@ func canValidateFixedStringAttributeFast(rt *runtimeSchema, use *attributeUse) b
 	if st.Missing || st.Variety != varietyAtomic {
 		return false
 	}
-	identity := st.Identity
-	if !rt.SimpleIdentitiesClassified {
-		identity = computeSimpleValueIdentity(rt, use.Type)
-	}
-	return st.Whitespace == whitespacePreserve && canAcceptStringValueFast(st, identity)
+	return st.Whitespace == whitespacePreserve && canAcceptStringValueFast(st, st.Identity)
 }
 
 func (s *session) validateFixedStringAttributeValue(use *attributeUse, value string, rn runtimeName, line, col int) error {

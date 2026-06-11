@@ -75,8 +75,6 @@ type runtimeSchema struct {
 	Elements           []elementDecl
 	Names              nameTable
 	Builtin            builtinIDs
-
-	SimpleIdentitiesClassified bool
 }
 
 type builtinIDs struct {

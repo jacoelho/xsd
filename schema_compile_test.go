@@ -713,6 +713,56 @@ func TestFreezeRejectsZeroTypeID(t *testing.T) {
 	}
 }
 
+func TestFreezeRejectsMisclassifiedSimpleIdentity(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Ref"><xs:restriction base="xs:IDREF"/></xs:simpleType>
+  <xs:simpleType name="Plain"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:element name="root" type="Plain"/>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, rt *runtimeSchema)
+	}{
+		{
+			name: "idref restriction loses identity",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				id, ok := rt.GlobalTypes[mustQName(t, rt, "", "Ref")].simple()
+				if !ok {
+					t.Fatal("Ref is not a simple type")
+				}
+				rt.SimpleTypes[id].Identity = simpleIdentityNone
+			},
+		},
+		{
+			name: "plain type gains identity",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				id, ok := rt.GlobalTypes[mustQName(t, rt, "", "Plain")].simple()
+				if !ok {
+					t.Fatal("Plain is not a simple type")
+				}
+				rt.SimpleTypes[id].Identity = simpleIdentityID
+			},
+		},
+		{
+			name: "builtin ID loses identity",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				rt.SimpleTypes[rt.Builtin.ID].Identity = simpleIdentityNone
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			tc.mutate(t, engine.rt)
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
 func mustQName(t *testing.T, rt *runtimeSchema, ns, local string) qName {
 	t.Helper()
 	q, err := rt.Names.InternQName(ns, local)
