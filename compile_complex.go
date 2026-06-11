@@ -234,8 +234,13 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaCo
 	if err != nil {
 		return complexType{}, err
 	}
+	// Restriction requires a mixed base for mixed content; extension also
+	// allows it when the base content type is empty (Derivation Valid
+	// (Extension) clause 1.4.3.2.1).
 	if mixed && !base.mixed() {
-		return complexType{}, schemaCompileAt(child, ErrSchemaContentModel, "complexContent mixed derivation requires mixed base")
+		if child.Name.Local != xsdElemExtension || !c.complexContentTypeEmpty(base) {
+			return complexType{}, schemaCompileAt(child, ErrSchemaContentModel, "complexContent mixed derivation requires mixed base")
+		}
 	}
 	if err := validateComplexContentDerivationChildren(child); err != nil {
 		return complexType{}, err
@@ -245,6 +250,13 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, ctx *schemaCo
 		return c.compileComplexContentExtension(child, ctx, ct, baseID, base, mixed)
 	}
 	return c.compileComplexContentRestriction(child, ctx, ct, base, mixed)
+}
+
+// complexContentTypeEmpty reports whether ct's {content type} is empty:
+// element-only with no particles. Simple content is never empty, and mixed
+// content without particles is an empty-sequence mixed pair, not empty.
+func (c *compiler) complexContentTypeEmpty(ct complexType) bool {
+	return ct.ContentKind == contentElementOnly && c.modelHasNoParticles(ct.Content)
 }
 
 func (c *compiler) complexContentBase(child *rawNode, ctx *schemaContext, anonymous bool) (complexTypeID, complexType, error) {
