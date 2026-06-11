@@ -366,7 +366,12 @@ func (s *session) advanceDFA(f *frame, model compiledModel, edge compiledModelEd
 		if !from.Unbounded && f.Count >= from.Max {
 			return false
 		}
-		count = f.Count + 1
+		// Saturate instead of wrapping: a saturated count satisfies any Min,
+		// and bounded particles stop at the Max guard above before reaching it.
+		count = f.Count
+		if count != maxUint32Value {
+			count++
+		}
 	} else {
 		if from.Counted && f.Count < from.Min {
 			return false

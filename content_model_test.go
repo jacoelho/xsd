@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -126,6 +127,50 @@ func TestContentModelDFAStateInvariantError(t *testing.T) {
 	f := &frame{Model: modelID, State: state}
 	err = s.completeDFAModel(f, engine.rt.CompiledModels[modelID], 0, 0)
 	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+}
+
+func TestContentModelCounterSaturatesAtUint32Max(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" minOccurs="2" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	modelID := rootContentModel(t, engine)
+	model := engine.rt.CompiledModels[modelID]
+	state, edge, ok := findCountedUnboundedSelfLoop(model)
+	if !ok {
+		t.Fatal("compiled model has no counted unbounded self-loop state")
+	}
+	s := &session{engine: engine}
+	f := &frame{Model: modelID, State: state, Count: math.MaxUint32}
+	if !s.advanceDFA(f, model, edge) {
+		t.Fatal("advanceDFA rejected self-loop transition")
+	}
+	if f.Count != math.MaxUint32 {
+		t.Fatalf("Count = %d, want saturation at %d", f.Count, uint32(math.MaxUint32))
+	}
+	if err := s.completeDFAModel(f, model, 0, 0); err != nil {
+		t.Fatalf("completeDFAModel after saturated count: %v", err)
+	}
+}
+
+func findCountedUnboundedSelfLoop(model compiledModel) (uint32, compiledModelEdge, bool) {
+	for state, row := range model.Rows {
+		if !row.Counted || !row.Unbounded {
+			continue
+		}
+		for _, edge := range row.Edges {
+			if int(edge.To) == state && sameCompiledParticle(edge.Particle, row.CountParticle) {
+				return uint32(state), edge, true
+			}
+		}
+	}
+	return 0, compiledModelEdge{}, false
 }
 
 const rootContentModelName = "r"
