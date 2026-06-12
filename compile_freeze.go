@@ -302,6 +302,9 @@ func validateFacetPresence(f facetSet) error {
 	if f.Present&facetFlagWhiteSpace != 0 {
 		return internalInvariant("simple type facet presence mask cannot set whiteSpace")
 	}
+	if f.Fixed&^(f.Present|facetFlagWhiteSpace) != 0 {
+		return internalInvariant("simple type facet fixed mask exceeds present facets")
+	}
 	return nil
 }
 

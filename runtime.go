@@ -332,6 +332,17 @@ type facetSet struct {
 	Fixed          facetFlag
 }
 
+// setFacet records a facet's presence and, when the schema marks it fixed,
+// its fixedness, keeping the two masks paired (freeze checks Fixed never
+// exceeds Present). whiteSpace must not go through here: it lives in Fixed
+// only (see facetFlagWhiteSpace).
+func (f *facetSet) setFacet(flag facetFlag, fixed bool) {
+	f.Present |= flag
+	if fixed {
+		f.Fixed |= flag
+	}
+}
+
 func (f facetSet) empty() bool {
 	return f.Present == 0
 }

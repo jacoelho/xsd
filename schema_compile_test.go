@@ -1107,6 +1107,12 @@ func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
 				f.Present |= facetFlagWhiteSpace
 			},
 		},
+		{
+			name: "fixed facet without presence",
+			mutate: func(f *facetSet) {
+				f.Fixed |= facetFlagMinInclusive
+			},
+		},
 	}
 	for _, tc := range mutations {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1123,6 +1129,21 @@ func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
 			err := validateRuntimeSchema(engine.rt)
 			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 		})
+	}
+}
+
+func TestFixedWhitespaceFacetFreezes(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Collapsed">
+    <xs:restriction base="xs:string">
+      <xs:whiteSpace value="collapse" fixed="true"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="Collapsed"/>
+</xs:schema>`
+	engine := mustCompile(t, schema)
+	if err := validateRuntimeSchema(engine.rt); err != nil {
+		t.Fatalf("validateRuntimeSchema() error = %v", err)
 	}
 }
 
