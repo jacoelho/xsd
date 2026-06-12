@@ -1,10 +1,25 @@
 package xsd
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
 )
+
+func TestLeapYearRuleAgreement(t *testing.T) {
+	years := []int{1, 4, 100, 400, 1900, 2000, 2004, 2100, 2400}
+	for _, y := range years {
+		year := xsdYear{digits: fmt.Sprintf("%04d", y)}
+		for month := 1; month <= 12; month++ {
+			fast := daysInPositiveYearMonth(y, month)
+			general := daysInMonth(year, month)
+			if fast != general {
+				t.Errorf("daysInPositiveYearMonth(%d, %d) = %d, daysInMonth = %d", y, month, fast, general)
+			}
+		}
+	}
+}
 
 func TestInstanceReaderZeroLengthReadIsIgnored(t *testing.T) {
 	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)

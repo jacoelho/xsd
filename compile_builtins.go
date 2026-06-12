@@ -300,14 +300,12 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	complexID, err := nextComplexTypeID(len(c.rt.ComplexTypes))
+	complexID, err := c.registerGlobalComplexType(q, complexType{Name: q, Content: modelID, Attrs: attrSet, TextType: noSimpleType, ContentKind: contentMixed})
 	if err != nil {
 		return err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: modelID, Attrs: attrSet, TextType: noSimpleType, ContentKind: contentMixed})
 	c.rt.Builtin.AnyType = complexID
 	c.complexDone[q] = complexID
-	c.rt.GlobalTypes[q] = complexRef(complexID)
 	return nil
 }
 
@@ -379,10 +377,6 @@ func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeI
 	if err != nil {
 		return noSimpleType, err
 	}
-	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
-	if err != nil {
-		return noSimpleType, err
-	}
 	st := simpleType{
 		Name:       q,
 		Variety:    varietyList,
@@ -393,9 +387,11 @@ func (c *compiler) addBuiltinListSimpleType(local string, item, base simpleTypeI
 		Facets:     listLengthFacets(minLength),
 	}
 	st.Identity = c.rt.derivedSimpleIdentity(st)
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
+	id, err := c.registerGlobalSimpleType(q, st)
+	if err != nil {
+		return noSimpleType, err
+	}
 	c.simpleDone[q] = id
-	c.rt.GlobalTypes[q] = simpleRef(id)
 	return id, nil
 }
 
@@ -451,13 +447,11 @@ func (c *compiler) addBuiltinAttribute(ns, local string, typ simpleTypeID) error
 	if err != nil {
 		return err
 	}
-	id, err := nextAttributeID(len(c.rt.Attributes))
+	id, err := c.registerGlobalAttribute(q, attributeDecl{Name: q, Type: typ})
 	if err != nil {
 		return err
 	}
-	c.rt.Attributes = append(c.rt.Attributes, attributeDecl{Name: q, Type: typ})
 	c.attributeDone[q] = id
-	c.rt.GlobalAttributes[q] = id
 	return nil
 }
 

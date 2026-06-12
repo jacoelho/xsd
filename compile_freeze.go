@@ -31,20 +31,32 @@ func validateRuntimeGlobals(rt *runtimeSchema) error {
 		if !validQName(rt, q) || !validAttributeID(rt, id) {
 			return internalInvariant("global attribute references invalid declaration")
 		}
+		if rt.Attributes[id].Name != q {
+			return internalInvariant("global attribute name does not match declaration")
+		}
 	}
 	for q, id := range rt.GlobalElements {
 		if !validQName(rt, q) || !validElementID(rt, id) {
 			return internalInvariant("global element references invalid declaration")
+		}
+		if rt.Elements[id].Name != q {
+			return internalInvariant("global element name does not match declaration")
 		}
 	}
 	for q, typ := range rt.GlobalTypes {
 		if !validQName(rt, q) || !validTypeID(rt, typ) {
 			return internalInvariant("global type references invalid declaration")
 		}
+		if rt.typeName(typ) != q {
+			return internalInvariant("global type name does not match declaration")
+		}
 	}
 	for q, id := range rt.GlobalIdentities {
 		if !validQName(rt, q) || !validIdentityID(rt, id) {
 			return internalInvariant("global identity references invalid declaration")
+		}
+		if rt.Identities[id].Name != q {
+			return internalInvariant("global identity name does not match declaration")
 		}
 	}
 	for q := range rt.Notations {
@@ -263,7 +275,26 @@ func validateSimpleType(rt *runtimeSchema, id simpleTypeID, st simpleType) error
 	if st.Identity != expectedSimpleIdentity(rt, id, st) {
 		return internalInvariant("simple type identity does not match derivation")
 	}
+	if err := validateDecimalBoundLiterals(st); err != nil {
+		return err
+	}
 	return validateFacetPresence(st.Facets)
+}
+
+// validateDecimalBoundLiterals checks that bound facets on atomic decimal
+// types carry a valid decimal actual value: compileBoundFacet validates the
+// literal against the decimal-family base, so a missing actual value means
+// the literal was corrupted after compilation. literalDecimal relies on this.
+func validateDecimalBoundLiterals(st simpleType) error {
+	if st.Variety != varietyAtomic || st.Primitive != primDecimal {
+		return nil
+	}
+	for _, lit := range []*compiledLiteral{st.Facets.MinInclusive, st.Facets.MaxInclusive, st.Facets.MinExclusive, st.Facets.MaxExclusive} {
+		if lit != nil && (!lit.Actual.Valid || lit.Actual.Kind != primDecimal) {
+			return internalInvariant("decimal bound facet literal lacks decimal actual value")
+		}
+	}
+	return nil
 }
 
 func expectedSimpleIdentity(rt *runtimeSchema, id simpleTypeID, st simpleType) simpleIdentityKind {
@@ -301,6 +332,9 @@ func validateFacetPresence(f facetSet) error {
 	}
 	if f.Present&facetFlagWhiteSpace != 0 {
 		return internalInvariant("simple type facet presence mask cannot set whiteSpace")
+	}
+	if f.Fixed&^(f.Present|facetFlagWhiteSpace) != 0 {
+		return internalInvariant("simple type facet fixed mask exceeds present facets")
 	}
 	return nil
 }
@@ -340,6 +374,9 @@ func validateComplexType(rt *runtimeSchema, id complexTypeID, ct complexType) er
 func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) error {
 	if set.Wildcard != noWildcard && !validWildcardID(rt, set.Wildcard) {
 		return internalInvariant("attribute use set references invalid wildcard")
+	}
+	if len(set.Index) != len(set.Uses) {
+		return internalInvariant("attribute use set index size does not match uses")
 	}
 	for i, use := range set.Uses {
 		if !validQName(rt, use.Name) || !validSimpleTypeID(rt, use.Type) {
@@ -579,7 +616,45 @@ func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error 
 			}
 		}
 	}
+	elementFields, attrFields, attrWildcardFields := buildIdentityFieldLookup(ic.Fields)
+	if !equalCompiledIdentityFields(ic.ElementFields, elementFields) ||
+		!equalCompiledIdentityFieldMaps(ic.AttributeFields, attrFields) ||
+		!equalCompiledIdentityFields(ic.AttributeWildcardFields, attrWildcardFields) {
+		return internalInvariant("identity constraint field lookup does not match fields")
+	}
 	return nil
+}
+
+func equalCompiledIdentityFields(a, b []compiledIdentityField) bool {
+	return slices.EqualFunc(a, b, func(x, y compiledIdentityField) bool {
+		return x.Field == y.Field && equalIdentityFieldPaths(x.Paths, y.Paths)
+	})
+}
+
+func equalIdentityFieldPaths(a, b []identityFieldPath) bool {
+	return slices.EqualFunc(a, b, func(x, y identityFieldPath) bool {
+		return x.Attribute == y.Attribute &&
+			x.AttrNamespace == y.AttrNamespace &&
+			x.Descendant == y.Descendant &&
+			x.Self == y.Self &&
+			x.Attr == y.Attr &&
+			x.AttrWildcard == y.AttrWildcard &&
+			x.AttrNamespaceSet == y.AttrNamespaceSet &&
+			slices.Equal(x.Steps, y.Steps)
+	})
+}
+
+func equalCompiledIdentityFieldMaps(a, b map[qName][]compiledIdentityField) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, av := range a {
+		bv, ok := b[k]
+		if !ok || !equalCompiledIdentityFields(av, bv) {
+			return false
+		}
+	}
+	return true
 }
 
 func validIdentityFieldPath(rt *runtimeSchema, path identityFieldPath) bool {

@@ -187,7 +187,7 @@ func (s *session) matchDirectParticle(p particle, rn runtimeName, attrs []stream
 
 func (s *session) matchWildcardParticle(w wildcard, rn runtimeName, attrs []streamAttr) (matchResult, bool) {
 	rt := s.engine.rt
-	if !wildcardMatches(rt, w, rn) {
+	if !rt.wildcardAllowsURI(w, rn.NS) {
 		return noMatch(), false
 	}
 	switch w.Process {
@@ -215,7 +215,7 @@ func (s *session) matchWildcardParticle(w wildcard, rn runtimeName, attrs []stre
 
 func hasXSIType(attrs []streamAttr) bool {
 	for _, a := range attrs {
-		if a.Name.Space == xsiNamespaceURI && a.Name.Local == xsiAttrType {
+		if isXSITypeName(a.Name) {
 			return true
 		}
 	}

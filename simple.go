@@ -748,10 +748,14 @@ func parseBooleanPrimitive(norm string) (string, bool, error) {
 	if !ok {
 		return "", false, fmt.Errorf("invalid boolean")
 	}
-	if value {
-		return "true", true, nil
+	return booleanCanonical(value), value, nil
+}
+
+func booleanCanonical(v bool) string {
+	if v {
+		return "true"
 	}
-	return "false", false, nil
+	return "false"
 }
 
 func validateQNamePrimitive(norm string, resolve qnameResolver) (string, error) {

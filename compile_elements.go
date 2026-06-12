@@ -51,13 +51,11 @@ func (c *compiler) compileElementByQName(q qName) (elementID, error) {
 	}
 	c.compilingElement[q] = true
 	defer delete(c.compilingElement, q)
-	id, err := nextElementID(len(c.rt.Elements))
+	id, err := c.registerGlobalElement(q, elementDecl{Name: q, Type: complexRef(c.rt.Builtin.AnyType)})
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Elements = append(c.rt.Elements, elementDecl{Name: q, Type: complexRef(c.rt.Builtin.AnyType)})
 	c.elementDone[q] = id
-	c.rt.GlobalElements[q] = id
 	decl, err := c.compileElementDecl(raw.node, raw.ctx, q)
 	if err != nil {
 		return 0, err

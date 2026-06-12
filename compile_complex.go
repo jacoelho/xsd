@@ -18,13 +18,11 @@ func (c *compiler) compileComplexByQName(q qName) (complexTypeID, error) {
 	}
 	c.compilingComplex[q] = true
 	defer delete(c.compilingComplex, q)
-	id, err := nextComplexTypeID(len(c.rt.ComplexTypes))
+	id, err := c.registerGlobalComplexType(q, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, TextType: noSimpleType, Base: complexRef(c.rt.Builtin.AnyType)})
 	if err != nil {
 		return noComplexType, err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, complexType{Name: q, Content: noContentModel, Attrs: noAttributeUseSet, TextType: noSimpleType, Base: complexRef(c.rt.Builtin.AnyType)})
 	c.complexDone[q] = id
-	c.rt.GlobalTypes[q] = complexRef(id)
 	ct, err := c.compileComplexType(raw.node, raw.ctx, q, false)
 	if err != nil {
 		return noComplexType, err

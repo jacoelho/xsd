@@ -248,6 +248,21 @@ func (c *compiler) wildcardAllowsQName(id wildcardID, q qName) bool {
 	return wildcardAllowsNamespace(c.rt.Wildcards[id], q.Namespace)
 }
 
+// wildcardAllowsURI is the instance-side form of wildcardAllowsNamespace: it
+// answers for a namespace URI that may not be interned. An uninterned URI is
+// non-empty (the empty namespace is always interned) and cannot equal any
+// namespace stored in the wildcard, so only ##any and ##other can admit it.
+func (rt *runtimeSchema) wildcardAllowsURI(w wildcard, ns string) bool {
+	if w.Mode == wildAny {
+		return true
+	}
+	id, ok := rt.Names.LookupNamespace(ns)
+	if !ok {
+		return w.Mode == wildOther
+	}
+	return wildcardAllowsNamespace(w, id)
+}
+
 func (c *compiler) wildcardSubset(derivedID, baseID wildcardID) bool {
 	derived := c.rt.Wildcards[derivedID]
 	base := c.rt.Wildcards[baseID]

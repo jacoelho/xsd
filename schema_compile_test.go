@@ -655,6 +655,202 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 	}
 }
 
+func TestFreezeRejectsGlobalNameMismatch(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="a" type="xs:string"/>
+  <xs:element name="b" type="xs:string"/>
+  <xs:attribute name="ga" type="xs:string"/>
+  <xs:attribute name="gb" type="xs:string"/>
+  <xs:simpleType name="t1">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="t2">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="id2" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k1">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:key name="k2">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id2"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, rt *runtimeSchema)
+	}{
+		{
+			name: "global element points at other declaration",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
+				rt.GlobalElements[mustQName(t, rt, "a")] = rt.GlobalElements[mustQName(t, rt, "b")]
+			},
+		},
+		{
+			name: "global attribute points at other declaration",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
+				rt.GlobalAttributes[mustQName(t, rt, "ga")] = rt.GlobalAttributes[mustQName(t, rt, "gb")]
+			},
+		},
+		{
+			name: "global type points at other type",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
+				rt.GlobalTypes[mustQName(t, rt, "t1")] = rt.GlobalTypes[mustQName(t, rt, "t2")]
+			},
+		},
+		{
+			name: "global identity points at other constraint",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
+				rt.GlobalIdentities[mustQName(t, rt, "k1")] = rt.GlobalIdentities[mustQName(t, rt, "k2")]
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			tc.mutate(t, engine.rt)
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
+func TestFreezeRejectsIdentityFieldLookupDrift(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="name" type="xs:string"/>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k1">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id"/>
+      <xs:field xpath="name"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(ic *identityConstraint)
+	}{
+		{
+			name: "dropped attribute lookup",
+			mutate: func(ic *identityConstraint) {
+				ic.AttributeFields = nil
+			},
+		},
+		{
+			name: "element lookup field index drift",
+			mutate: func(ic *identityConstraint) {
+				ic.ElementFields[0].Field = 7
+			},
+		},
+		{
+			name: "extra wildcard lookup entry",
+			mutate: func(ic *identityConstraint) {
+				ic.AttributeWildcardFields = append(ic.AttributeWildcardFields, compiledIdentityField{Field: 0})
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			id := engine.rt.GlobalIdentities[mustQName(t, engine.rt, "k1")]
+			tc.mutate(&engine.rt.Identities[id])
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
+func rootAttributeUseSet(t *testing.T, engine *Engine) *attributeUseSet {
+	t.Helper()
+	rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "root")]
+	ctID, ok := engine.rt.Elements[rootID].Type.complex()
+	if !ok {
+		t.Fatal("root element type is not complex")
+	}
+	attrs := engine.rt.ComplexTypes[ctID].Attrs
+	if attrs == noAttributeUseSet {
+		t.Fatal("root complex type has no attribute use set")
+	}
+	return &engine.rt.AttributeUseSets[attrs]
+}
+
+func TestFreezeRejectsAttributeUseSetIndexDrift(t *testing.T) {
+	t.Run("stale index on empty uses", func(t *testing.T) {
+		const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+		engine := mustCompile(t, schema)
+		if err := validateRuntimeSchema(engine.rt); err != nil {
+			t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+		}
+		set := rootAttributeUseSet(t, engine)
+		if len(set.Uses) != 0 {
+			t.Fatalf("expected empty attribute uses, got %d", len(set.Uses))
+		}
+		set.Index = map[qName]uint32{mustQName(t, engine.rt, "root"): 5}
+		err := validateRuntimeSchema(engine.rt)
+		expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+	})
+	t.Run("missing index entry", func(t *testing.T) {
+		const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="a" type="xs:string"/>
+      <xs:attribute name="b" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+		engine := mustCompile(t, schema)
+		if err := validateRuntimeSchema(engine.rt); err != nil {
+			t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+		}
+		set := rootAttributeUseSet(t, engine)
+		if len(set.Uses) != 2 {
+			t.Fatalf("expected two attribute uses, got %d", len(set.Uses))
+		}
+		delete(set.Index, set.Uses[0].Name)
+		err := validateRuntimeSchema(engine.rt)
+		expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+	})
+}
+
 func TestFreezeRejectsBrokenDFARowIndex(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="head" type="xs:string" abstract="true"/>
@@ -1049,6 +1245,12 @@ func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
 				f.Present |= facetFlagWhiteSpace
 			},
 		},
+		{
+			name: "fixed facet without presence",
+			mutate: func(f *facetSet) {
+				f.Fixed |= facetFlagMinInclusive
+			},
+		},
 	}
 	for _, tc := range mutations {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1065,6 +1267,44 @@ func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
 			err := validateRuntimeSchema(engine.rt)
 			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 		})
+	}
+}
+
+func TestFreezeRejectsDecimalBoundWithoutActual(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Positive">
+    <xs:restriction base="xs:int">
+      <xs:minInclusive value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="Positive"/>
+</xs:schema>`
+	engine := mustCompile(t, schema)
+	if err := validateRuntimeSchema(engine.rt); err != nil {
+		t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+	}
+	typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "Positive")]
+	id, ok := typ.simple()
+	if !ok {
+		t.Fatal("Positive is not a simple type")
+	}
+	engine.rt.SimpleTypes[id].Facets.MinInclusive.Actual = actualValue{}
+	err := validateRuntimeSchema(engine.rt)
+	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+}
+
+func TestFixedWhitespaceFacetFreezes(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Collapsed">
+    <xs:restriction base="xs:string">
+      <xs:whiteSpace value="collapse" fixed="true"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="Collapsed"/>
+</xs:schema>`
+	engine := mustCompile(t, schema)
+	if err := validateRuntimeSchema(engine.rt); err != nil {
+		t.Fatalf("validateRuntimeSchema() error = %v", err)
 	}
 }
 
@@ -1153,5 +1393,21 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 			err := validateRuntimeSchema(engine.rt)
 			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 		})
+	}
+}
+
+func TestRuntimeElementAccessor(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
+	rt := engine.rt
+	if _, ok := rt.element(noElement); ok {
+		t.Error("element(noElement) resolved, want miss")
+	}
+	if _, ok := rt.element(elementID(1 << 30)); ok {
+		t.Error("element(out of range) resolved, want miss")
+	}
+	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	decl, ok := rt.element(rootID)
+	if !ok || decl.Name != mustQName(t, rt, "root") {
+		t.Errorf("element(root) = (%v, %v), want root declaration", decl, ok)
 	}
 }
