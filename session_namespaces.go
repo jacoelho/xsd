@@ -35,7 +35,7 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 		switch a.Name.Local {
 		case xsiAttrNil:
 			nilSpecified = true
-			value, ok := parseBooleanLexical(normalizeWhitespace(value, whitespaceCollapse))
+			value, ok := parseXSINil(value)
 			if !ok {
 				return typ, false, validation(ErrValidationNil, line, col, s.pathString(), "invalid xsi:nil value")
 			}
@@ -408,6 +408,17 @@ func isNamespaceName(name xml.Name) bool {
 func isXSIName(name xml.Name) bool {
 	return name.Space == xsiNamespaceURI &&
 		(name.Local == xsiAttrType || name.Local == xsiAttrNil || name.Local == xsiAttrSchemaLocation || name.Local == xsiAttrNoNamespaceSchemaLocation)
+}
+
+func isXSITypeName(name xml.Name) bool {
+	return name.Space == xsiNamespaceURI && name.Local == xsiAttrType
+}
+
+// parseXSINil parses an xsi:nil attribute value (xs:boolean lexical space
+// after whitespace collapse). Single owner: element nil handling and identity
+// capture must agree on acceptance and error wording.
+func parseXSINil(lexical string) (bool, bool) {
+	return parseBooleanLexical(normalizeWhitespace(lexical, whitespaceCollapse))
 }
 
 func (s *session) pushPath(local string) {

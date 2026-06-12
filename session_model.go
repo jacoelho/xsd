@@ -215,7 +215,7 @@ func (s *session) matchWildcardParticle(w wildcard, rn runtimeName, attrs []stre
 
 func hasXSIType(attrs []streamAttr) bool {
 	for _, a := range attrs {
-		if a.Name.Space == xsiNamespaceURI && a.Name.Local == xsiAttrType {
+		if isXSITypeName(a.Name) {
 			return true
 		}
 	}

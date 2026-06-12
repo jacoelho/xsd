@@ -389,11 +389,11 @@ func (s *session) captureIdentityXSIAttribute(a *streamAttr, line, col int) erro
 	value := simpleValue{Canonical: normalizeWhitespace(lexical, whitespaceCollapse), Type: s.engine.rt.Builtin.String}
 	switch a.Name.Local {
 	case xsiAttrNil:
-		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.Boolean, lexical, nil, simpleNeedCanonical)
-		if err != nil {
-			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:nil: "+err.Error())
+		v, ok := parseXSINil(lexical)
+		if !ok {
+			return validation(ErrValidationAttribute, line, col, s.pathString(), "invalid xsi:nil value")
 		}
-		value = v
+		value = simpleValue{Canonical: booleanCanonical(v), Type: s.engine.rt.Builtin.Boolean}
 	case xsiAttrType:
 		v, err := validateSimpleValueMode(s.engine.rt, s.engine.rt.Builtin.qName, lexical, s.resolveLexicalQNameParts, simpleNeedCanonical)
 		if err != nil {
