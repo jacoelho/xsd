@@ -253,23 +253,9 @@ func applyDecimalBounds(f facetSet, value decimalValue) error {
 	return nil
 }
 
+// literalDecimal returns a decimal bound literal's actual value. Bound facet
+// literals on decimal types always carry a valid decimal actual value
+// (freeze-verified: see validateDecimalBoundLiterals).
 func literalDecimal(l *compiledLiteral) decimalValue {
-	if l == nil {
-		return decimalValue{}
-	}
-	if dec, ok := actualDecimalLiteral(l); ok {
-		return dec
-	}
-	dec, err := parseDecimalValue(l.Canonical)
-	if err == nil {
-		return dec
-	}
-	return decimalValue{Canonical: l.Canonical, IntegerCanonical: l.Canonical}
-}
-
-func actualDecimalLiteral(l *compiledLiteral) (decimalValue, bool) {
-	if l.Actual.Valid && l.Actual.Kind == primDecimal {
-		return l.Actual.Decimal, true
-	}
-	return decimalValue{}, false
+	return l.Actual.Decimal
 }
