@@ -1270,6 +1270,29 @@ func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
 	}
 }
 
+func TestFreezeRejectsDecimalBoundWithoutActual(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Positive">
+    <xs:restriction base="xs:int">
+      <xs:minInclusive value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="Positive"/>
+</xs:schema>`
+	engine := mustCompile(t, schema)
+	if err := validateRuntimeSchema(engine.rt); err != nil {
+		t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+	}
+	typ := engine.rt.GlobalTypes[mustQName(t, engine.rt, "Positive")]
+	id, ok := typ.simple()
+	if !ok {
+		t.Fatal("Positive is not a simple type")
+	}
+	engine.rt.SimpleTypes[id].Facets.MinInclusive.Actual = actualValue{}
+	err := validateRuntimeSchema(engine.rt)
+	expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+}
+
 func TestFixedWhitespaceFacetFreezes(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="Collapsed">

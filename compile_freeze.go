@@ -275,7 +275,26 @@ func validateSimpleType(rt *runtimeSchema, id simpleTypeID, st simpleType) error
 	if st.Identity != expectedSimpleIdentity(rt, id, st) {
 		return internalInvariant("simple type identity does not match derivation")
 	}
+	if err := validateDecimalBoundLiterals(st); err != nil {
+		return err
+	}
 	return validateFacetPresence(st.Facets)
+}
+
+// validateDecimalBoundLiterals checks that bound facets on atomic decimal
+// types carry a valid decimal actual value: compileBoundFacet validates the
+// literal against the decimal-family base, so a missing actual value means
+// the literal was corrupted after compilation. literalDecimal relies on this.
+func validateDecimalBoundLiterals(st simpleType) error {
+	if st.Variety != varietyAtomic || st.Primitive != primDecimal {
+		return nil
+	}
+	for _, lit := range []*compiledLiteral{st.Facets.MinInclusive, st.Facets.MaxInclusive, st.Facets.MinExclusive, st.Facets.MaxExclusive} {
+		if lit != nil && (!lit.Actual.Valid || lit.Actual.Kind != primDecimal) {
+			return internalInvariant("decimal bound facet literal lacks decimal actual value")
+		}
+	}
+	return nil
 }
 
 func expectedSimpleIdentity(rt *runtimeSchema, id simpleTypeID, st simpleType) simpleIdentityKind {
