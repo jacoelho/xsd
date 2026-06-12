@@ -230,13 +230,35 @@ func validateSimpleType(rt *runtimeSchema, id simpleTypeID, st simpleType) error
 	if st.Base != noSimpleType && !validSimpleTypeID(rt, st.Base) {
 		return internalInvariant("simple type references invalid base")
 	}
-	if st.ListItem != noSimpleType && !validSimpleTypeID(rt, st.ListItem) {
-		return internalInvariant("simple type references invalid list item")
-	}
-	for _, member := range st.Union {
-		if !validSimpleTypeID(rt, member) {
-			return internalInvariant("simple type references invalid union member")
+	switch st.Variety {
+	case varietyAtomic:
+		if st.ListItem != noSimpleType {
+			return internalInvariant("atomic simple type stores list item")
 		}
+		if len(st.Union) != 0 {
+			return internalInvariant("atomic simple type stores union members")
+		}
+	case varietyList:
+		if !validSimpleTypeID(rt, st.ListItem) {
+			return internalInvariant("list simple type references invalid list item")
+		}
+		if len(st.Union) != 0 {
+			return internalInvariant("list simple type stores union members")
+		}
+	case varietyUnion:
+		if st.ListItem != noSimpleType {
+			return internalInvariant("union simple type stores list item")
+		}
+		if len(st.Union) == 0 {
+			return internalInvariant("union simple type has no members")
+		}
+		for _, member := range st.Union {
+			if !validSimpleTypeID(rt, member) {
+				return internalInvariant("simple type references invalid union member")
+			}
+		}
+	default:
+		return internalInvariant("simple type has invalid variety")
 	}
 	if st.Identity != expectedSimpleIdentity(rt, id, st) {
 		return internalInvariant("simple type identity does not match derivation")
@@ -339,21 +361,15 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 		}
 	}
 	for _, slot := range set.ValueConstraints {
-		if !validUint32Index(slot, len(set.Uses)) || (!set.Uses[slot].Default.Present && !set.Uses[slot].Fixed.Present) {
+		if !validUint32Index(slot, len(set.Uses)) || (set.Uses[slot].Default == nil && set.Uses[slot].Fixed == nil) {
 			return internalInvariant("attribute use set value constraint slot is invalid")
 		}
 	}
 	return nil
 }
 
-func validateValueConstraintRuntime(rt *runtimeSchema, vc valueConstraint, label string) error {
-	if !vc.Present {
-		if vc.Canonical != "" {
-			return internalInvariant(label + " stores canonical without value constraint")
-		}
-		if vc.Value.Canonical != "" || vc.Value.IDs != "" || vc.Value.IDRefs != "" {
-			return internalInvariant(label + " stores value without value constraint")
-		}
+func validateValueConstraintRuntime(rt *runtimeSchema, vc *valueConstraint, label string) error {
+	if vc == nil {
 		return nil
 	}
 	if vc.Value.Canonical != vc.Canonical {
@@ -466,6 +482,64 @@ func validateCompiledDFARow(rt *runtimeSchema, model compiledModel, row compiled
 	}
 	if row.Counted && countedLoops != 1 {
 		return internalInvariant("compiled content model counted state must have one counted self loop")
+	}
+	if row.Index != nil {
+		return validateCompiledDFARowIndex(rt, row)
+	}
+	return nil
+}
+
+// validateCompiledDFARowIndex checks that a row's name index mirrors its
+// edges exactly: every entry resolves to the element edge it names (directly
+// or through substitution), every element edge and substitution name is
+// indexed, and the wildcard list holds precisely the wildcard edge positions
+// in row order.
+func validateCompiledDFARowIndex(rt *runtimeSchema, row compiledModelRow) error {
+	idx := row.Index
+	for name, pos := range idx.NameToEdge {
+		if !validQName(rt, name) || !validUint32Index(pos, len(row.Edges)) {
+			return internalInvariant("compiled content model name index entry is invalid")
+		}
+		p := row.Edges[pos].Particle
+		if p.Kind != particleElement {
+			return internalInvariant("compiled content model name index targets non-element edge")
+		}
+		if rt.Elements[p.Element].Name != name {
+			if _, ok := rt.SubstitutionLookup[p.Element][name]; !ok {
+				return internalInvariant("compiled content model name index key does not match edge element")
+			}
+		}
+	}
+	wi := 0
+	for pos, edge := range row.Edges {
+		switch edge.Particle.Kind {
+		case particleElement:
+			if err := requireIndexedName(idx, rt.Elements[edge.Particle.Element].Name, uint32(pos)); err != nil {
+				return err
+			}
+			for name := range rt.SubstitutionLookup[edge.Particle.Element] {
+				if err := requireIndexedName(idx, name, uint32(pos)); err != nil {
+					return err
+				}
+			}
+		case particleWildcard:
+			if wi >= len(idx.WildcardEdges) || idx.WildcardEdges[wi] != uint32(pos) {
+				return internalInvariant("compiled content model wildcard list does not match wildcard edges")
+			}
+			wi++
+		default:
+			return internalInvariant("compiled content model indexed row has model edge")
+		}
+	}
+	if wi != len(idx.WildcardEdges) {
+		return internalInvariant("compiled content model wildcard list does not match wildcard edges")
+	}
+	return nil
+}
+
+func requireIndexedName(idx *dfaRowIndex, name qName, pos uint32) error {
+	if got, ok := idx.NameToEdge[name]; !ok || got != pos {
+		return internalInvariant("compiled content model name index is missing element edge")
 	}
 	return nil
 }

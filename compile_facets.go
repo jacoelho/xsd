@@ -239,10 +239,7 @@ func parseSizeFacetInteger(value string) (uint64, error) {
 	if start == len(value) {
 		return 0, strconv.ErrSyntax
 	}
-	digitStart := start
-	for digitStart < len(value) && value[digitStart] == '0' {
-		digitStart++
-	}
+	digitStart := skipLeadingZeros(value, start, len(value))
 	if negative && digitStart != len(value) {
 		return 0, strconv.ErrSyntax
 	}

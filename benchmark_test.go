@@ -72,6 +72,28 @@ func BenchmarkSimplePatternVariableNoMatchBytes(b *testing.B) {
 	}
 }
 
+func BenchmarkSimplePatternVariableSmallString(b *testing.B) {
+	p := compileSimplePattern(`[a-z]{0,}[a-z]{0,}x`)
+	input := strings.Repeat("a", 24) + "x"
+	b.ReportAllocs()
+	for b.Loop() {
+		if !p.match(input) {
+			b.Fatal("expected match")
+		}
+	}
+}
+
+func BenchmarkSimplePatternVariableSmallBytes(b *testing.B) {
+	p := compileSimplePattern(`[a-z]{0,}[a-z]{0,}x`)
+	input := []byte(strings.Repeat("a", 24) + "x")
+	b.ReportAllocs()
+	for b.Loop() {
+		if !p.matchBytes(input) {
+			b.Fatal("expected match")
+		}
+	}
+}
+
 func BenchmarkSimplePatternVariableNoMatchMultibyteString(b *testing.B) {
 	p := compileSimplePattern(`é{0,}é{0,}x`)
 	input := strings.Repeat("é", 4096)

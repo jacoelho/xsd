@@ -642,10 +642,7 @@ func facetChildren(n *rawNode) []*rawNode {
 }
 
 func firstModelChild(n *rawNode) *rawNode {
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		switch child.Name.Local {
 		case xsdElemSequence, xsdElemChoice, xsdElemAll, xsdElemGroup:
 			return child

@@ -63,10 +63,7 @@ func validateBuiltinIntNoCanonical[T byteText](s T) error {
 		return fmt.Errorf("invalid integer")
 	}
 
-	digitStart := start
-	for digitStart < len(s) && s[digitStart] == '0' {
-		digitStart++
-	}
+	digitStart := skipLeadingZeros(s, start, len(s))
 	if digitStart == len(s) {
 		return nil
 	}
@@ -174,14 +171,8 @@ func validateDecimalBytesNonNegativeBounds(s []byte, minBound decimalBytesBound,
 		intEnd = dot
 		fracStart = dot + 1
 	}
-	intTrimStart := start
-	for intTrimStart < intEnd && s[intTrimStart] == '0' {
-		intTrimStart++
-	}
-	fracTrimEnd := len(s)
-	for fracTrimEnd > fracStart && s[fracTrimEnd-1] == '0' {
-		fracTrimEnd--
-	}
+	intTrimStart := skipLeadingZeros(s, start, intEnd)
+	fracTrimEnd := trimTrailingZeros(s, fracStart, len(s))
 	nonZero := intTrimStart < intEnd || fracTrimEnd > fracStart
 	if negative && nonZero {
 		if hasMin {
@@ -286,14 +277,8 @@ func parseDecimalMode(s string, mode decimalParseMode) (decimalValue, error) {
 		intEnd = dot
 		fracStart = dot + 1
 	}
-	intTrimStart := start
-	for intTrimStart < intEnd && s[intTrimStart] == '0' {
-		intTrimStart++
-	}
-	fracTrimEnd := len(s)
-	for fracTrimEnd > fracStart && s[fracTrimEnd-1] == '0' {
-		fracTrimEnd--
-	}
+	intTrimStart := skipLeadingZeros(s, start, intEnd)
+	fracTrimEnd := trimTrailingZeros(s, fracStart, len(s))
 
 	intDigits := intEnd - intTrimStart
 	fracDigits := fracTrimEnd - fracStart

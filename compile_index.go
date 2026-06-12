@@ -21,10 +21,7 @@ func (c *compiler) indexSchemaDocument(doc *rawDoc) error {
 		return err
 	}
 	c.contexts[doc] = ctx
-	for _, child := range doc.root.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range doc.root.xsdChildren() {
 		if err := c.indexTopLevelSchemaChild(child, ctx); err != nil {
 			return err
 		}
@@ -236,10 +233,7 @@ func validateTopLevelGroupChildren(n *rawNode, limits compileLimits) error {
 	var model *rawNode
 	seenAnnotation := false
 	seenNonAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenAnnotation {
@@ -275,10 +269,7 @@ func validateTopLevelGroupChildren(n *rawNode, limits compileLimits) error {
 
 func validateModelGroupSyntax(n *rawNode, limits compileLimits) error {
 	seenNonAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		if child.Name.Local == xsdElemAnnotation {
 			if seenNonAnnotation {
 				return schemaCompileAt(child, ErrSchemaContentModel, n.Name.Local+" annotation must be first")
