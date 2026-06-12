@@ -31,20 +31,32 @@ func validateRuntimeGlobals(rt *runtimeSchema) error {
 		if !validQName(rt, q) || !validAttributeID(rt, id) {
 			return internalInvariant("global attribute references invalid declaration")
 		}
+		if rt.Attributes[id].Name != q {
+			return internalInvariant("global attribute name does not match declaration")
+		}
 	}
 	for q, id := range rt.GlobalElements {
 		if !validQName(rt, q) || !validElementID(rt, id) {
 			return internalInvariant("global element references invalid declaration")
+		}
+		if rt.Elements[id].Name != q {
+			return internalInvariant("global element name does not match declaration")
 		}
 	}
 	for q, typ := range rt.GlobalTypes {
 		if !validQName(rt, q) || !validTypeID(rt, typ) {
 			return internalInvariant("global type references invalid declaration")
 		}
+		if rt.typeName(typ) != q {
+			return internalInvariant("global type name does not match declaration")
+		}
 	}
 	for q, id := range rt.GlobalIdentities {
 		if !validQName(rt, q) || !validIdentityID(rt, id) {
 			return internalInvariant("global identity references invalid declaration")
+		}
+		if rt.Identities[id].Name != q {
+			return internalInvariant("global identity name does not match declaration")
 		}
 	}
 	for q := range rt.Notations {
@@ -585,7 +597,45 @@ func validateIdentityConstraint(rt *runtimeSchema, ic identityConstraint) error 
 			}
 		}
 	}
+	elementFields, attrFields, attrWildcardFields := buildIdentityFieldLookup(ic.Fields)
+	if !equalCompiledIdentityFields(ic.ElementFields, elementFields) ||
+		!equalCompiledIdentityFieldMaps(ic.AttributeFields, attrFields) ||
+		!equalCompiledIdentityFields(ic.AttributeWildcardFields, attrWildcardFields) {
+		return internalInvariant("identity constraint field lookup does not match fields")
+	}
 	return nil
+}
+
+func equalCompiledIdentityFields(a, b []compiledIdentityField) bool {
+	return slices.EqualFunc(a, b, func(x, y compiledIdentityField) bool {
+		return x.Field == y.Field && equalIdentityFieldPaths(x.Paths, y.Paths)
+	})
+}
+
+func equalIdentityFieldPaths(a, b []identityFieldPath) bool {
+	return slices.EqualFunc(a, b, func(x, y identityFieldPath) bool {
+		return x.Attribute == y.Attribute &&
+			x.AttrNamespace == y.AttrNamespace &&
+			x.Descendant == y.Descendant &&
+			x.Self == y.Self &&
+			x.Attr == y.Attr &&
+			x.AttrWildcard == y.AttrWildcard &&
+			x.AttrNamespaceSet == y.AttrNamespaceSet &&
+			slices.Equal(x.Steps, y.Steps)
+	})
+}
+
+func equalCompiledIdentityFieldMaps(a, b map[qName][]compiledIdentityField) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, av := range a {
+		bv, ok := b[k]
+		if !ok || !equalCompiledIdentityFields(av, bv) {
+			return false
+		}
+	}
+	return true
 }
 
 func validIdentityFieldPath(rt *runtimeSchema, path identityFieldPath) bool {

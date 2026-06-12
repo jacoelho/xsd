@@ -734,6 +734,65 @@ func TestFreezeRejectsGlobalNameMismatch(t *testing.T) {
 	}
 }
 
+func TestFreezeRejectsIdentityFieldLookupDrift(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="name" type="xs:string"/>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k1">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id"/>
+      <xs:field xpath="name"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(ic *identityConstraint)
+	}{
+		{
+			name: "dropped attribute lookup",
+			mutate: func(ic *identityConstraint) {
+				ic.AttributeFields = nil
+			},
+		},
+		{
+			name: "element lookup field index drift",
+			mutate: func(ic *identityConstraint) {
+				ic.ElementFields[0].Field = 7
+			},
+		},
+		{
+			name: "extra wildcard lookup entry",
+			mutate: func(ic *identityConstraint) {
+				ic.AttributeWildcardFields = append(ic.AttributeWildcardFields, compiledIdentityField{Field: 0})
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			id := engine.rt.GlobalIdentities[mustQName(t, engine.rt, "k1")]
+			tc.mutate(&engine.rt.Identities[id])
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
 func rootAttributeUseSet(t *testing.T, engine *Engine) *attributeUseSet {
 	t.Helper()
 	rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "root")]
