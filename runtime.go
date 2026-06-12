@@ -61,8 +61,11 @@ const noIdentityConstraint = identityConstraintID(^uint32(0))
 // validateRuntimeSchema before the schema is handed to an Engine, so code
 // reading freeze-validated IDs may index the component slices directly
 // (typeName, the session hot paths). The checked accessors (simpleType,
-// complexType, usableSimpleType) are for IDs that are not freeze-trusted:
-// values still being compiled, or IDs derived from instance input.
+// complexType, usableSimpleType, element) are for IDs that are not
+// freeze-trusted: values still being compiled, or IDs derived from instance
+// input. Instance-derived element IDs in particular use noElement for "no
+// declaration" and resolve through rt.element; raw rt.Elements indexing is
+// reserved for freeze-trusted IDs and is greppable as such.
 //
 // Immutability is a sharing contract, not a structural barrier: freezeRuntime
 // copies the compiler's runtimeSchema by value but shares the underlying
@@ -601,6 +604,16 @@ func (rt *runtimeSchema) complexType(id complexTypeID) (*complexType, bool) {
 		return nil, false
 	}
 	return &rt.ComplexTypes[id], true
+}
+
+// element resolves an element ID that is not freeze-trusted: instance-derived
+// match results use noElement for "no declaration", and the bounds check
+// subsumes that sentinel. Freeze-trusted IDs may index rt.Elements directly.
+func (rt *runtimeSchema) element(id elementID) (*elementDecl, bool) {
+	if !validUint32Index(uint32(id), len(rt.Elements)) {
+		return nil, false
+	}
+	return &rt.Elements[id], true
 }
 
 // typeHasSimpleContent reports whether values of t carry simple content:

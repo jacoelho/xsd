@@ -18,8 +18,9 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		return false, err
 	}
 	rawBytes := s.doc.text[f.TextStart:]
+	decl, declared := rt.element(f.Element)
 	if len(rt.Identities) == 0 &&
-		(f.Element == noElement || (rt.Elements[f.Element].Fixed == nil && rt.Elements[f.Element].Default == nil)) {
+		(!declared || (decl.Fixed == nil && decl.Default == nil)) {
 		ok, rawErr := validateRawSimpleContentFast(rt, typeID, rawBytes)
 		if ok {
 			if rawErr != nil {
@@ -43,8 +44,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if err := s.recordIdentityValue(value, line, col); err != nil {
 		return false, err
 	}
-	if f.Element != noElement {
-		decl := rt.Elements[f.Element]
+	if decl, ok := rt.element(f.Element); ok {
 		if decl.Fixed != nil && value.Canonical != decl.Fixed.Canonical {
 			return false, validation(ErrValidationElement, line, col, s.pathString(), "fixed element value mismatch")
 		}
@@ -75,8 +75,7 @@ type simpleContentInput struct {
 }
 
 func (s *session) simpleContentInput(f *frame, rawBytes []byte) simpleContentInput {
-	if f.Element != noElement && len(rawBytes) == 0 {
-		decl := s.engine.rt.Elements[f.Element]
+	if decl, ok := s.engine.rt.element(f.Element); ok && len(rawBytes) == 0 {
 		if decl.Fixed != nil {
 			if decl.Type == f.Type {
 				return simpleContentInput{value: decl.Fixed.Value, prevalidated: true}
@@ -111,11 +110,8 @@ func (s *session) simpleContentNeeds(f *frame, typeID simpleTypeID) ([]identityF
 }
 
 func (s *session) validateNonSimpleFixedContent(f *frame, line, col int) error {
-	if f.Element == noElement {
-		return nil
-	}
-	decl := s.engine.rt.Elements[f.Element]
-	if decl.Fixed == nil {
+	decl, ok := s.engine.rt.element(f.Element)
+	if !ok || decl.Fixed == nil {
 		return nil
 	}
 	if f.HasChild {
@@ -144,7 +140,7 @@ func (s *session) needsSimpleContentCanonical(f *frame, typeID simpleTypeID, nee
 	if s.simpleIdentityKind(typeID) != simpleIdentityNone {
 		return true
 	}
-	if f.Element != noElement && s.engine.rt.Elements[f.Element].Fixed != nil {
+	if decl, ok := s.engine.rt.element(f.Element); ok && decl.Fixed != nil {
 		return true
 	}
 	return needIdentity

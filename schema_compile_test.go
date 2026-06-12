@@ -1395,3 +1395,19 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 		})
 	}
 }
+
+func TestRuntimeElementAccessor(t *testing.T) {
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
+	rt := engine.rt
+	if _, ok := rt.element(noElement); ok {
+		t.Error("element(noElement) resolved, want miss")
+	}
+	if _, ok := rt.element(elementID(len(rt.Elements))); ok {
+		t.Error("element(out of range) resolved, want miss")
+	}
+	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	decl, ok := rt.element(rootID)
+	if !ok || decl.Name != mustQName(t, rt, "root") {
+		t.Errorf("element(root) = (%v, %v), want root declaration", decl, ok)
+	}
+}

@@ -54,14 +54,15 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 	if id, ok := typ.complex(); ok && rt.ComplexTypes[id].Abstract {
 		return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "complex type is abstract")
 	}
-	if nilSpecified && elem != noElement && !rt.Elements[elem].Nillable {
+	decl, declared := rt.element(elem)
+	if nilSpecified && declared && !decl.Nillable {
 		return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "element is not nillable")
 	}
 	if nilled {
-		if elem == noElement {
+		if !declared {
 			return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "element is not nillable")
 		}
-		if rt.Elements[elem].Fixed != nil {
+		if decl.Fixed != nil {
 			return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "nilled element cannot have fixed value")
 		}
 	}
