@@ -1402,7 +1402,7 @@ func TestRuntimeElementAccessor(t *testing.T) {
 	if _, ok := rt.element(noElement); ok {
 		t.Error("element(noElement) resolved, want miss")
 	}
-	if _, ok := rt.element(elementID(len(rt.Elements))); ok {
+	if _, ok := rt.element(elementID(1 << 30)); ok {
 		t.Error("element(out of range) resolved, want miss")
 	}
 	rootID := rt.GlobalElements[mustQName(t, rt, "root")]

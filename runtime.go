@@ -282,8 +282,8 @@ const (
 
 type simpleType struct {
 	Union     []simpleTypeID
-	Facets    facetSet
 	Ancestors []ancestorMask
+	Facets    facetSet
 	Name      qName
 	Base      simpleTypeID
 	ListItem  simpleTypeID
@@ -340,7 +340,7 @@ type facetSet struct {
 // its fixedness, keeping the two masks paired (freeze checks Fixed never
 // exceeds Present). whiteSpace must not go through here: it lives in Fixed
 // only (see facetFlagWhiteSpace).
-func (f *facetSet) setFacet(flag facetFlag, fixed bool) {
+func setFacet(f *facetSet, flag facetFlag, fixed bool) {
 	f.Present |= flag
 	if fixed {
 		f.Fixed |= flag

@@ -203,7 +203,7 @@ func (rt *runtimeSchema) typeAncestors(t typeID, unions map[simpleTypeID][]simpl
 			add(simpleRef(u))
 		}
 	}
-	for i := 0; i < len(candidates); i++ {
+	for i := 0; i < len(candidates); i++ { //nolint:intrange // candidates grows during iteration; len must be re-evaluated.
 		if id, ok := candidates[i].simple(); ok {
 			for _, u := range unions[id] {
 				add(simpleRef(u))

@@ -219,7 +219,7 @@ func compileSizeFacet(st *simpleType, node *rawNode, value string, fixed bool) e
 		st.Facets.FractionDigits = &v
 		flag = facetFlagFractionDigits
 	}
-	st.Facets.setFacet(flag, fixed)
+	setFacet(&st.Facets, flag, fixed)
 	return nil
 }
 
@@ -280,7 +280,7 @@ func (c *compiler) compileBoundFacet(st *simpleType, base simpleTypeID, child *r
 		flag = facetFlagMaxExclusive
 		step.maxExclusive = true
 	}
-	st.Facets.setFacet(flag, fixed)
+	setFacet(&st.Facets, flag, fixed)
 	return nil
 }
 
