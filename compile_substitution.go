@@ -119,7 +119,7 @@ func (c *compiler) typeDerivesByRestriction(t, base typeID) bool {
 }
 
 func (c *compiler) typeDerivationMask(t, base typeID) (derivationMask, bool) {
-	return c.rt.typeDerivationMask(t, base)
+	return c.rt.computeTypeDerivationMask(t, base)
 }
 
 func (c *compiler) resolveTypeQName(q qName) (typeID, error) {

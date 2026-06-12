@@ -77,6 +77,7 @@ func compileWithOptions(opts CompileOptions, sources []SchemaSource) (*Engine, e
 	if err = c.compileGlobals(); err != nil {
 		return nil, err
 	}
+	c.compileTypeAncestors()
 	rt, err := c.freezeRuntime()
 	if err != nil {
 		return nil, err

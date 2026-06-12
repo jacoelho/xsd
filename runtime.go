@@ -283,6 +283,7 @@ const (
 type simpleType struct {
 	Union     []simpleTypeID
 	Facets    facetSet
+	Ancestors []ancestorMask
 	Name      qName
 	Base      simpleTypeID
 	ListItem  simpleTypeID
@@ -405,6 +406,16 @@ const (
 	blockUnion
 )
 
+// ancestorMask records one base a type validly derives from, with the
+// derivation methods accumulated along the path. Each type's Ancestors slice
+// is built once by compileTypeAncestors from computeTypeDerivationMask and
+// freeze-verified against it (validateTypeAncestors), so validation-time
+// derivation checks are a flat scan instead of a chain walk.
+type ancestorMask struct {
+	Ancestor typeID
+	Mask     derivationMask
+}
+
 // contentKind is the complex type {content type} variety.
 type contentKind uint8
 
@@ -432,6 +443,7 @@ func simpleContentKind(mixed bool) contentKind {
 }
 
 type complexType struct {
+	Ancestors   []ancestorMask
 	Name        qName
 	Base        typeID
 	Content     contentModelID
@@ -632,35 +644,38 @@ func (rt *runtimeSchema) typeName(t typeID) qName {
 	return rt.ComplexTypes[t.ID].Name
 }
 
+// typeDerivationMask reports whether t validly derives from base and the
+// derivation methods on the path, by scanning t's freeze-verified Ancestors
+// (computeTypeDerivationMask is the compile-time authority).
 func (rt *runtimeSchema) typeDerivationMask(t, base typeID) (derivationMask, bool) {
 	if t == base {
 		return 0, true
 	}
-	if base == complexRef(rt.Builtin.AnyType) {
-		if id, ok := t.complex(); ok {
-			return rt.complexAnyTypeDerivationMask(id)
-		}
-		return blockRestriction, true
-	}
-	if tID, ok := t.complex(); ok {
-		if baseID, ok := base.simple(); ok {
-			return rt.complexSimpleTypeDerivationMask(tID, baseID)
-		}
-		if baseID, ok := base.complex(); ok {
-			return rt.complexTypeDerivationMask(tID, baseID)
-		}
-		return 0, false
-	}
-	if tID, ok := t.simple(); ok {
-		if baseID, ok := base.simple(); ok {
-			return rt.simpleTypeDerivationMask(tID, baseID, make(map[[2]simpleTypeID]bool))
+	for _, a := range rt.typeAncestorList(t) {
+		if a.Ancestor == base {
+			return a.Mask, true
 		}
 	}
 	return 0, false
 }
 
+func (rt *runtimeSchema) typeAncestorList(t typeID) []ancestorMask {
+	if id, ok := t.complex(); ok {
+		if ct, valid := rt.complexType(id); valid {
+			return ct.Ancestors
+		}
+		return nil
+	}
+	if id, ok := t.simple(); ok {
+		if st, valid := rt.simpleType(id); valid {
+			return st.Ancestors
+		}
+	}
+	return nil
+}
+
 func (rt *runtimeSchema) substitutionDerivationAllowed(t, base typeID, block derivationMask) bool {
-	mask, ok := rt.typeDerivationMask(t, base)
+	mask, ok := rt.computeTypeDerivationMask(t, base)
 	if !ok {
 		return false
 	}
@@ -710,123 +725,6 @@ func (rt *runtimeSchema) substitutionTypeBlocks(t, base typeID) derivationMask {
 		current = parent
 	}
 	return blocks
-}
-
-func (rt *runtimeSchema) complexSimpleTypeDerivationMask(t complexTypeID, base simpleTypeID) (derivationMask, bool) {
-	ct, ok := rt.complexType(t)
-	if !ok || !ct.simpleContent() {
-		return 0, false
-	}
-	var mask derivationMask
-	if baseSimple, isSimple := ct.Base.simple(); isSimple {
-		mask, ok = rt.simpleTypeDerivationMask(baseSimple, base, make(map[[2]simpleTypeID]bool))
-	} else if baseComplex, isComplex := ct.Base.complex(); isComplex {
-		mask, ok = rt.complexSimpleTypeDerivationMask(baseComplex, base)
-	} else {
-		return 0, false
-	}
-	if !ok {
-		return 0, false
-	}
-	switch ct.Derivation {
-	case derivationExtension:
-		mask |= blockExtension
-	case derivationRestriction:
-		mask |= blockRestriction
-	case derivationNone:
-	}
-	return mask, true
-}
-
-func (rt *runtimeSchema) complexAnyTypeDerivationMask(t complexTypeID) (derivationMask, bool) {
-	var mask derivationMask
-	for range len(rt.ComplexTypes) {
-		if t == rt.Builtin.AnyType {
-			return mask, true
-		}
-		ct, ok := rt.complexType(t)
-		if !ok {
-			return 0, false
-		}
-		switch ct.Derivation {
-		case derivationExtension:
-			mask |= blockExtension
-		case derivationRestriction:
-			mask |= blockRestriction
-		case derivationNone:
-		}
-		if ct.Base.Kind == typeSimple {
-			return mask | blockRestriction, true
-		}
-		parent, ok := ct.Base.complex()
-		if !ok {
-			return 0, false
-		}
-		t = parent
-	}
-	return 0, false
-}
-
-func (rt *runtimeSchema) simpleTypeDerivationMask(t, base simpleTypeID, seen map[[2]simpleTypeID]bool) (derivationMask, bool) {
-	if t == base {
-		return 0, true
-	}
-	st, ok := rt.simpleType(t)
-	if !ok {
-		return 0, false
-	}
-	baseType, ok := rt.simpleType(base)
-	if !ok {
-		return 0, false
-	}
-	pair := [2]simpleTypeID{t, base}
-	if seen[pair] {
-		return 0, false
-	}
-	seen[pair] = true
-
-	if baseType.Variety == varietyUnion {
-		for _, member := range baseType.Union {
-			if mask, derived := rt.simpleTypeDerivationMask(t, member, seen); derived {
-				return mask | blockRestriction, true
-			}
-		}
-	}
-
-	if st.Base == noSimpleType || st.Base == t {
-		return 0, false
-	}
-	mask, ok := rt.simpleTypeDerivationMask(st.Base, base, seen)
-	if !ok {
-		return 0, false
-	}
-	return mask | blockRestriction, true
-}
-
-func (rt *runtimeSchema) complexTypeDerivationMask(t, base complexTypeID) (derivationMask, bool) {
-	var mask derivationMask
-	for range len(rt.ComplexTypes) {
-		ct, ok := rt.complexType(t)
-		if !ok {
-			return 0, false
-		}
-		parent, ok := ct.Base.complex()
-		if !ok {
-			return 0, false
-		}
-		switch ct.Derivation {
-		case derivationExtension:
-			mask |= blockExtension
-		case derivationRestriction:
-			mask |= blockRestriction
-		case derivationNone:
-		}
-		if parent == base {
-			return mask, true
-		}
-		t = parent
-	}
-	return 0, false
 }
 
 func (rt *runtimeSchema) typeLabel(t typeID) string {
