@@ -228,28 +228,46 @@ func (p *simplePattern) matchBytes(s []byte) bool {
 	return i == len(s)
 }
 
+// smallPatternRunes is the input length up to which variable-length matching
+// runs on stack buffers; longer inputs fall back to heap allocations.
+const smallPatternRunes = 128
+
 func (p *simplePattern) matchVariableString(s string) bool {
+	if len(s) <= smallPatternRunes {
+		var stack [smallPatternRunes]rune
+		runes := stack[:0]
+		for _, r := range s {
+			runes = append(runes, r)
+		}
+		return p.matchVariableRunes(runes)
+	}
 	return p.matchVariableRunes([]rune(s))
 }
 
 func (p *simplePattern) matchVariableBytes(s []byte) bool {
-	return p.matchVariableRunes(byteRunes(s))
-}
-
-func byteRunes(s []byte) []rune {
-	runes := make([]rune, 0, utf8.RuneCount(s))
+	var stack [smallPatternRunes]rune
+	runes := stack[:0]
+	if n := utf8.RuneCount(s); n > len(stack) {
+		runes = make([]rune, 0, n)
+	}
 	for len(s) > 0 {
 		r, size := utf8.DecodeRune(s)
 		runes = append(runes, r)
 		s = s[size:]
 	}
-	return runes
+	return p.matchVariableRunes(runes)
 }
 
 func (p *simplePattern) matchVariableRunes(runes []rune) bool {
 	runeCount := len(runes)
-	prev := make([]bool, runeCount+1)
-	next := make([]bool, runeCount+1)
+	var stack [2 * (smallPatternRunes + 1)]bool
+	var buf []bool
+	if size := 2 * (runeCount + 1); size <= len(stack) {
+		buf = stack[:size]
+	} else {
+		buf = make([]bool, size)
+	}
+	prev, next := buf[:runeCount+1], buf[runeCount+1:]
 	prev[0] = true
 	for _, atom := range p.atoms {
 		clear(next)

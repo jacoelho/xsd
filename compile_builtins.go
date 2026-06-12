@@ -344,6 +344,7 @@ func (c *compiler) addAtomicSimpleType(ns, local string, primitive primitiveKind
 		Variety:    varietyAtomic,
 		Primitive:  primitive,
 		Base:       base,
+		ListItem:   noSimpleType,
 		Whitespace: ws,
 		Facets:     facets,
 		Builtin:    builtin,
@@ -477,6 +478,7 @@ func (c *compiler) missingSimpleType() (simpleTypeID, error) {
 		Variety:    varietyAtomic,
 		Primitive:  primString,
 		Base:       c.rt.Builtin.AnySimpleType,
+		ListItem:   noSimpleType,
 		Whitespace: whitespaceCollapse,
 		Missing:    true,
 	}

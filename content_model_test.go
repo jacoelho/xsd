@@ -2065,7 +2065,7 @@ func requireIndexedRootModel(t *testing.T, engine *Engine) {
 		t.Fatalf("root model kind = %v, want DFA", model.Kind)
 	}
 	for _, row := range model.Rows {
-		if len(row.Edges) >= dfaRowIndexMinEdges && row.NameToEdge == nil {
+		if len(row.Edges) >= dfaRowIndexMinEdges && row.Index == nil {
 			t.Fatalf("row with %d edges has no name index", len(row.Edges))
 		}
 	}
@@ -2166,7 +2166,7 @@ func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
 	model := engine.rt.CompiledModels[rootContentModel(t, engine)]
 	ambiguousRow := false
 	for _, row := range model.Rows {
-		if len(row.Edges) >= dfaRowIndexMinEdges && row.NameToEdge == nil {
+		if len(row.Edges) >= dfaRowIndexMinEdges && row.Index == nil {
 			ambiguousRow = true
 		}
 	}

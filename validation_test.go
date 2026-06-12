@@ -1440,16 +1440,98 @@ func TestRequiredFixedIDREFAttributeDoesNotDefaultWhenAbsent(t *testing.T) {
 	expectCode(t, errs[0], ErrValidationAttribute)
 }
 
+// TestEngineConcurrentValidation is the executable form of the runtimeSchema
+// sharing contract: sessions only read the schema published to an Engine. The
+// schema routes the workers through the shared structures with the most
+// sharing risk: identity key/keyref tables, attribute default and fixed value
+// constraints, a variable-length pattern facet, a choice wide enough for the
+// DFA row name index, a substitution group, and xs:ID/xs:IDREF tracking.
 func TestEngineConcurrentValidation(t *testing.T) {
-	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:sequence><xs:element name="v" type="xs:int" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element></xs:schema>`)
+	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:string" abstract="true"/>
+  <xs:element name="sub" type="xs:string" substitutionGroup="head"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:choice>
+              <xs:element name="c1" type="xs:string"/>
+              <xs:element name="c2" type="xs:string"/>
+              <xs:element name="c3" type="xs:string"/>
+              <xs:element name="c4" type="xs:string"/>
+              <xs:element name="c5" type="xs:string"/>
+              <xs:element name="c6" type="xs:string"/>
+              <xs:element name="c7" type="xs:string"/>
+              <xs:element name="c8" type="xs:string"/>
+              <xs:element ref="head"/>
+            </xs:choice>
+            <xs:attribute name="id" type="xs:ID" use="required"/>
+            <xs:attribute name="mode" type="xs:string" default="std"/>
+            <xs:attribute name="kind" type="xs:string" fixed="leaf"/>
+            <xs:attribute name="code">
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:pattern value="[a-z]+[0-9]*"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="link" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="ref" type="xs:IDREF" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:keyref name="linkRef" refer="itemKey">
+      <xs:selector xpath="link"/>
+      <xs:field xpath="@ref"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`)
+	docs := []struct {
+		xml   string
+		valid bool
+	}{
+		{`<root><item id="a1" code="abc12"><c5>x</c5></item><item id="a2" kind="leaf"><sub>y</sub></item><link ref="a1"/></root>`, true},
+		{`<root><item id="b1"><c1>x</c1></item><link ref="missing"/></root>`, false},
+		{`<root><item id="b2" code="123"><c8>x</c8></item></root>`, false},
+		{`<root><item id="b3" kind="other"><c2>x</c2></item></root>`, false},
+	}
+	check := func(name string, validate func(io.Reader) error) {
+		for i, doc := range docs {
+			err := validate(strings.NewReader(doc.xml))
+			if doc.valid && err != nil {
+				t.Errorf("%s doc %d: Validate() error = %v", name, i, err)
+				return
+			}
+			if !doc.valid && err == nil {
+				t.Errorf("%s doc %d: Validate() succeeded, want error", name, i)
+				return
+			}
+		}
+	}
 	var wg sync.WaitGroup
-	for range 16 {
+	for range 8 {
 		wg.Go(func() {
-			for range 50 {
-				if err := engine.Validate(strings.NewReader(`<r><v>1</v><v>2</v><v>3</v></r>`)); err != nil {
-					t.Errorf("Validate() error = %v", err)
-					return
-				}
+			for range 25 {
+				check("engine", engine.Validate)
+			}
+		})
+		wg.Go(func() {
+			session, err := engine.NewSession(ValidateOptions{})
+			if err != nil {
+				t.Errorf("NewSession() error = %v", err)
+				return
+			}
+			for range 25 {
+				check("session", session.Validate)
 			}
 		})
 	}

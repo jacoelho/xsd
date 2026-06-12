@@ -63,6 +63,14 @@ const noIdentityConstraint = identityConstraintID(^uint32(0))
 // (typeName, the session hot paths). The checked accessors (simpleType,
 // complexType, usableSimpleType) are for IDs that are not freeze-trusted:
 // values still being compiled, or IDs derived from instance input.
+//
+// Immutability is a sharing contract, not a structural barrier: freezeRuntime
+// copies the compiler's runtimeSchema by value but shares the underlying
+// slices and maps. The compiler must not be used after freezeRuntime returns,
+// and once the schema is published to an Engine nothing may write through it
+// — sessions only read. Concurrent sessions on one Engine are safe because of
+// exactly this contract; TestEngineConcurrentValidation under the race
+// detector is its executable form.
 type runtimeSchema struct {
 	GlobalAttributes   map[qName]attributeID
 	GlobalElements     map[qName]elementID
@@ -106,17 +114,21 @@ type builtinIDs struct {
 	ENTITIES      simpleTypeID
 }
 
+// valueConstraint is a default or fixed value constraint; nil means absent.
+// A *valueConstraint is immutable once assigned to a component: declarations
+// and uses may share one (an attribute use inherits its referenced
+// declaration's constraints), so updates replace the pointer with a fully
+// built value rather than writing through it.
 type valueConstraint struct {
 	Lexical   string
 	Canonical string
 	Value     simpleValue
-	Present   bool
 }
 
 type elementDecl struct {
+	Default   *valueConstraint
+	Fixed     *valueConstraint
 	Identity  []identityConstraintID
-	Default   valueConstraint
-	Fixed     valueConstraint
 	Type      typeID
 	Name      qName
 	SubstHead elementID
@@ -179,8 +191,8 @@ type identityFieldPath struct {
 }
 
 type attributeDecl struct {
-	Default valueConstraint
-	Fixed   valueConstraint
+	Default *valueConstraint
+	Fixed   *valueConstraint
 	Name    qName
 	Type    simpleTypeID
 }
@@ -194,8 +206,8 @@ type attributeUseSet struct {
 }
 
 type attributeUse struct {
-	Default    valueConstraint
-	Fixed      valueConstraint
+	Default    *valueConstraint
+	Fixed      *valueConstraint
 	Name       qName
 	Type       simpleTypeID
 	Required   bool
@@ -500,10 +512,17 @@ type compiledModel struct {
 	Empty     bool
 }
 
+// dfaRowIndex is the name lookup for wide DFA rows. Holding both lookup
+// structures behind one pointer makes their presence a single fact:
+// indexCompiledModelRow builds them together or not at all.
+type dfaRowIndex struct {
+	NameToEdge    map[qName]uint32 // element-name (incl. substitution names) → edge position
+	WildcardEdges []uint32         // wildcard edge positions in row order
+}
+
 type compiledModelRow struct {
+	Index         *dfaRowIndex // nil for narrow or ambiguous rows
 	Edges         []compiledModelEdge
-	NameToEdge    map[qName]uint32 // element-name → edge position; nil for narrow or ambiguous rows
-	WildcardEdges []uint32         // wildcard edge positions in row order; only set with NameToEdge
 	CountParticle particle
 	Min           uint32
 	Max           uint32

@@ -629,18 +629,6 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 		mutate func(decl *elementDecl)
 	}{
 		{
-			name: "canonical without constraint",
-			mutate: func(decl *elementDecl) {
-				decl.Default = valueConstraint{Canonical: "abc"}
-			},
-		},
-		{
-			name: "value without constraint",
-			mutate: func(decl *elementDecl) {
-				decl.Default = valueConstraint{Value: simpleValue{Canonical: "abc"}}
-			},
-		},
-		{
 			name: "canonical value mismatch",
 			mutate: func(decl *elementDecl) {
 				decl.Default.Value.Canonical = "other"
@@ -661,6 +649,198 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 			}
 			rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "root")]
 			tc.mutate(&engine.rt.Elements[rootID])
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
+func TestFreezeRejectsBrokenDFARowIndex(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:string" abstract="true"/>
+  <xs:element name="sub" type="xs:string" substitutionGroup="head"/>
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="c1" type="xs:string"/>
+        <xs:element name="c2" type="xs:string"/>
+        <xs:element name="c3" type="xs:string"/>
+        <xs:element name="c4" type="xs:string"/>
+        <xs:element name="c5" type="xs:string"/>
+        <xs:element name="c6" type="xs:string"/>
+        <xs:element name="c7" type="xs:string"/>
+        <xs:element ref="head"/>
+        <xs:any namespace="urn:a" processContents="lax"/>
+        <xs:any namespace="urn:b" processContents="lax"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	indexedRow := func(t *testing.T, engine *Engine) *compiledModelRow {
+		t.Helper()
+		model := engine.rt.CompiledModels[rootContentModel(t, engine)]
+		for i := range model.Rows {
+			if model.Rows[i].Index != nil {
+				return &model.Rows[i]
+			}
+		}
+		t.Fatal("no indexed row in root content model")
+		return nil
+	}
+	anyKey := func(t *testing.T, idx *dfaRowIndex) qName {
+		t.Helper()
+		for k := range idx.NameToEdge {
+			return k
+		}
+		t.Fatal("name index is empty")
+		return qName{}
+	}
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, row *compiledModelRow)
+	}{
+		{
+			name: "name index position out of range",
+			mutate: func(t *testing.T, row *compiledModelRow) {
+				t.Helper()
+				row.Index.NameToEdge[anyKey(t, row.Index)] = ^uint32(0)
+			},
+		},
+		{
+			name: "name index points at wildcard edge",
+			mutate: func(t *testing.T, row *compiledModelRow) {
+				t.Helper()
+				row.Index.NameToEdge[anyKey(t, row.Index)] = row.Index.WildcardEdges[0]
+			},
+		},
+		{
+			name: "name index key does not match edge element",
+			mutate: func(t *testing.T, row *compiledModelRow) {
+				t.Helper()
+				idx := row.Index
+				a := anyKey(t, idx)
+				own := idx.NameToEdge[a]
+				for _, pos := range idx.NameToEdge {
+					if pos != own {
+						idx.NameToEdge[a] = pos
+						return
+					}
+				}
+				t.Fatal("name index has no second edge position")
+			},
+		},
+		{
+			name: "element edge missing from name index",
+			mutate: func(t *testing.T, row *compiledModelRow) {
+				t.Helper()
+				delete(row.Index.NameToEdge, anyKey(t, row.Index))
+			},
+		},
+		{
+			name: "wildcard edge positions out of order",
+			mutate: func(t *testing.T, row *compiledModelRow) {
+				t.Helper()
+				w := row.Index.WildcardEdges
+				if len(w) < 2 {
+					t.Fatalf("len(WildcardEdges) = %d, want >= 2", len(w))
+				}
+				w[0], w[1] = w[1], w[0]
+			},
+		},
+		{
+			name: "wildcard list contains element edge",
+			mutate: func(t *testing.T, row *compiledModelRow) {
+				t.Helper()
+				row.Index.WildcardEdges[0] = row.Index.NameToEdge[anyKey(t, row.Index)]
+			},
+		},
+		{
+			name: "wildcard edge missing from wildcard list",
+			mutate: func(t *testing.T, row *compiledModelRow) {
+				t.Helper()
+				row.Index.WildcardEdges = row.Index.WildcardEdges[:len(row.Index.WildcardEdges)-1]
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			tc.mutate(t, indexedRow(t, engine))
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
+func TestFreezeRejectsInconsistentSimpleVariety(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="atomicT"><xs:restriction base="xs:string"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="listT"><xs:list itemType="xs:int"/></xs:simpleType>
+  <xs:simpleType name="unionT"><xs:union memberTypes="xs:int xs:string"/></xs:simpleType>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+	mutations := []struct {
+		name     string
+		typeName string
+		mutate   func(rt *runtimeSchema, st *simpleType)
+	}{
+		{
+			name:     "atomic with union members",
+			typeName: "atomicT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.Union = []simpleTypeID{rt.Builtin.String}
+			},
+		},
+		{
+			name:     "atomic with list item",
+			typeName: "atomicT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.ListItem = rt.Builtin.String
+			},
+		},
+		{
+			name:     "list without list item",
+			typeName: "listT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.ListItem = noSimpleType
+			},
+		},
+		{
+			name:     "list with union members",
+			typeName: "listT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.Union = []simpleTypeID{rt.Builtin.String}
+			},
+		},
+		{
+			name:     "union without members",
+			typeName: "unionT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.Union = nil
+			},
+		},
+		{
+			name:     "union with list item",
+			typeName: "unionT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.ListItem = rt.Builtin.String
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			id, ok := engine.rt.GlobalTypes[mustQName(t, engine.rt, tc.typeName)].simple()
+			if !ok {
+				t.Fatalf("%s is not a simple type", tc.typeName)
+			}
+			tc.mutate(engine.rt, &engine.rt.SimpleTypes[id])
 			err := validateRuntimeSchema(engine.rt)
 			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
 		})
