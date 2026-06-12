@@ -63,6 +63,14 @@ const noIdentityConstraint = identityConstraintID(^uint32(0))
 // (typeName, the session hot paths). The checked accessors (simpleType,
 // complexType, usableSimpleType) are for IDs that are not freeze-trusted:
 // values still being compiled, or IDs derived from instance input.
+//
+// Immutability is a sharing contract, not a structural barrier: freezeRuntime
+// copies the compiler's runtimeSchema by value but shares the underlying
+// slices and maps. The compiler must not be used after freezeRuntime returns,
+// and once the schema is published to an Engine nothing may write through it
+// — sessions only read. Concurrent sessions on one Engine are safe because of
+// exactly this contract; TestEngineConcurrentValidation under the race
+// detector is its executable form.
 type runtimeSchema struct {
 	GlobalAttributes   map[qName]attributeID
 	GlobalElements     map[qName]elementID
