@@ -361,21 +361,15 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 		}
 	}
 	for _, slot := range set.ValueConstraints {
-		if !validUint32Index(slot, len(set.Uses)) || (!set.Uses[slot].Default.Present && !set.Uses[slot].Fixed.Present) {
+		if !validUint32Index(slot, len(set.Uses)) || (set.Uses[slot].Default == nil && set.Uses[slot].Fixed == nil) {
 			return internalInvariant("attribute use set value constraint slot is invalid")
 		}
 	}
 	return nil
 }
 
-func validateValueConstraintRuntime(rt *runtimeSchema, vc valueConstraint, label string) error {
-	if !vc.Present {
-		if vc.Canonical != "" {
-			return internalInvariant(label + " stores canonical without value constraint")
-		}
-		if vc.Value.Canonical != "" || vc.Value.IDs != "" || vc.Value.IDRefs != "" {
-			return internalInvariant(label + " stores value without value constraint")
-		}
+func validateValueConstraintRuntime(rt *runtimeSchema, vc *valueConstraint, label string) error {
+	if vc == nil {
 		return nil
 	}
 	if vc.Value.Canonical != vc.Canonical {

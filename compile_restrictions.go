@@ -424,7 +424,7 @@ func (c *compiler) validateParticleRestrictsElement(base, derived particle) erro
 	if derivedDecl.Block&baseDecl.Block != baseDecl.Block {
 		return schemaCompile(ErrSchemaContentModel, "element restriction block is not subset of base")
 	}
-	if baseDecl.Fixed.Present && (!derivedDecl.Fixed.Present || !c.elementFixedValuesEqual(baseDecl, derivedDecl)) {
+	if baseDecl.Fixed != nil && (derivedDecl.Fixed == nil || !c.elementFixedValuesEqual(baseDecl, derivedDecl)) {
 		return schemaCompile(ErrSchemaContentModel, "element restriction fixed value is not subset of base")
 	}
 	return nil

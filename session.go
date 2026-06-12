@@ -610,7 +610,7 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if id, ok := f.Type.complex(); ok {
 		ct := s.engine.rt.ComplexTypes[id]
 		if ct.mixed() {
-			if f.Element != noElement && s.engine.rt.Elements[f.Element].Fixed.Present {
+			if f.Element != noElement && s.engine.rt.Elements[f.Element].Fixed != nil {
 				if err := s.appendText(data, line, col); err != nil {
 					return err
 				}

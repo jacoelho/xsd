@@ -231,14 +231,12 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q qName) (
 	}
 	decl.Final = final
 	if v, ok := n.attr(xsdAttrDefault); ok {
-		decl.Default.Lexical = v
-		decl.Default.Present = true
+		decl.Default = &valueConstraint{Lexical: v}
 	}
 	if v, ok := n.attr(xsdAttrFixed); ok {
-		decl.Fixed.Lexical = v
-		decl.Fixed.Present = true
+		decl.Fixed = &valueConstraint{Lexical: v}
 	}
-	if decl.Default.Present && decl.Fixed.Present {
+	if decl.Default != nil && decl.Fixed != nil {
 		return elementDecl{}, schemaCompileAt(n, ErrSchemaInvalidAttribute, "element cannot have both default and fixed")
 	}
 	if err := c.validateElementValueConstraints(&decl, c.schemaQNameResolver(n)); err != nil {
@@ -274,47 +272,54 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, resolve qn
 		ct := c.rt.ComplexTypes[id]
 		if ct.simpleContent() {
 			simpleID = ct.TextType
-		} else if (decl.Default.Present || decl.Fixed.Present) && ct.mixed() && c.modelEmptiable(ct.Content) {
-			decl.Default.Canonical = decl.Default.Lexical
-			decl.Fixed.Canonical = decl.Fixed.Lexical
-			if decl.Default.Present {
-				decl.Default.Value = simpleValue{Canonical: decl.Default.Lexical, Type: noSimpleType}
+		} else if (decl.Default != nil || decl.Fixed != nil) && ct.mixed() && c.modelEmptiable(ct.Content) {
+			if decl.Default != nil {
+				decl.Default = mixedContentConstraint(decl.Default.Lexical)
 			}
-			if decl.Fixed.Present {
-				decl.Fixed.Value = simpleValue{Canonical: decl.Fixed.Lexical, Type: noSimpleType}
+			if decl.Fixed != nil {
+				decl.Fixed = mixedContentConstraint(decl.Fixed.Lexical)
 			}
 			return nil
 		}
 	}
 	if simpleID == noSimpleType {
-		if decl.Default.Present || decl.Fixed.Present {
+		if decl.Default != nil || decl.Fixed != nil {
 			return schemaCompile(ErrSchemaInvalidAttribute, "element value constraint requires simple content")
 		}
 		return nil
 	}
-	if (decl.Default.Present || decl.Fixed.Present) && c.typeDerivesFrom(simpleRef(simpleID), simpleRef(c.rt.Builtin.ID)) {
+	if (decl.Default != nil || decl.Fixed != nil) && c.typeDerivesFrom(simpleRef(simpleID), simpleRef(c.rt.Builtin.ID)) {
 		return schemaCompile(ErrSchemaInvalidAttribute, "ID-typed element cannot have default or fixed")
 	}
-	if (decl.Default.Present || decl.Fixed.Present) && c.simpleTypeUsesBareNotation(simpleID, make(map[simpleTypeID]bool)) {
+	if (decl.Default != nil || decl.Fixed != nil) && c.simpleTypeUsesBareNotation(simpleID, make(map[simpleTypeID]bool)) {
 		return schemaCompile(ErrSchemaFacet, "NOTATION value constraint requires enumeration")
 	}
-	if decl.Default.Present {
+	if decl.Default != nil {
 		value, err := c.validateValueConstraint(simpleID, decl.Default.Lexical, resolve, decl.Name, "element default")
 		if err != nil {
 			return err
 		}
-		decl.Default.Canonical = value.Canonical
-		decl.Default.Value = value
+		decl.Default = &valueConstraint{Lexical: decl.Default.Lexical, Canonical: value.Canonical, Value: value}
 	}
-	if decl.Fixed.Present {
+	if decl.Fixed != nil {
 		value, err := c.validateValueConstraint(simpleID, decl.Fixed.Lexical, resolve, decl.Name, "element fixed")
 		if err != nil {
 			return err
 		}
-		decl.Fixed.Canonical = value.Canonical
-		decl.Fixed.Value = value
+		decl.Fixed = &valueConstraint{Lexical: decl.Fixed.Lexical, Canonical: value.Canonical, Value: value}
 	}
 	return nil
+}
+
+// mixedContentConstraint builds the constraint for an emptiable mixed-content
+// element, whose default or fixed text is used verbatim: the lexical form is
+// its own canonical form and the value is untyped.
+func mixedContentConstraint(lexical string) *valueConstraint {
+	return &valueConstraint{
+		Lexical:   lexical,
+		Canonical: lexical,
+		Value:     simpleValue{Canonical: lexical, Type: noSimpleType},
+	}
 }
 
 func (c *compiler) simpleTypeUsesBareNotation(id simpleTypeID, seen map[simpleTypeID]bool) bool {

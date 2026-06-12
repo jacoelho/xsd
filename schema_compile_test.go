@@ -629,18 +629,6 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 		mutate func(decl *elementDecl)
 	}{
 		{
-			name: "canonical without constraint",
-			mutate: func(decl *elementDecl) {
-				decl.Default = valueConstraint{Canonical: "abc"}
-			},
-		},
-		{
-			name: "value without constraint",
-			mutate: func(decl *elementDecl) {
-				decl.Default = valueConstraint{Value: simpleValue{Canonical: "abc"}}
-			},
-		},
-		{
 			name: "canonical value mismatch",
 			mutate: func(decl *elementDecl) {
 				decl.Default.Value.Canonical = "other"

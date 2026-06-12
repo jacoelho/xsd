@@ -144,7 +144,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 		identityFields = s.identityAttributeFields(use.Name)
 	}
 	var needs simpleValueNeed
-	if use.Fixed.Present {
+	if use.Fixed != nil {
 		needs |= simpleNeedCanonical
 	}
 	if len(identityFields) != 0 {
@@ -153,7 +153,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 	if len(identityFields) == 0 && canValidateFixedStringAttributeFast(rt, use) {
 		return s.validateFixedStringAttributeValue(use, attr.stringValue(&s.valueStrings), rn, line, col)
 	}
-	if len(identityFields) == 0 && !use.Fixed.Present && attr.Value == "" {
+	if len(identityFields) == 0 && use.Fixed == nil && attr.Value == "" {
 		if handled, err := validateRawSimpleContentFast(rt, use.Type, attr.Raw); handled {
 			if err != nil {
 				return validation(ErrValidationFacet, line, col, s.pathString(), "invalid attribute "+rn.label()+": "+err.Error())
@@ -181,7 +181,7 @@ func (s *session) validateDeclaredAttribute(rt *runtimeSchema, use *attributeUse
 }
 
 func canValidateFixedStringAttributeFast(rt *runtimeSchema, use *attributeUse) bool {
-	if !use.Fixed.Present {
+	if use.Fixed == nil {
 		return false
 	}
 	st, ok := rt.usableSimpleType(use.Type)
@@ -199,7 +199,7 @@ func (s *session) validateFixedStringAttributeValue(use *attributeUse, value str
 }
 
 func (s *session) validateFixedAttributeValue(use *attributeUse, canon string, rn runtimeName, line, col int) error {
-	if !use.Fixed.Present {
+	if use.Fixed == nil {
 		return nil
 	}
 	if canon != use.Fixed.Canonical {
@@ -252,7 +252,7 @@ func (s *session) validateKnownWildcardAttribute(rt *runtimeSchema, decl attribu
 	if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 		return err
 	}
-	if decl.Fixed.Present && simple.Canonical != decl.Fixed.Canonical {
+	if decl.Fixed != nil && simple.Canonical != decl.Fixed.Canonical {
 		return validation(ErrValidationAttribute, line, col, s.pathString(), "fixed attribute mismatch "+rn.label())
 	}
 	if len(identityFields) == 0 {
@@ -278,10 +278,13 @@ func (s *session) validateRequiredAndDefaultAttributes(set *attributeUseSet, see
 		if use.Required {
 			continue
 		}
-		simple := use.Default.Value
-		if use.Fixed.Present {
-			simple = use.Fixed.Value
+		// ValueConstraints slots are freeze-validated to carry at least one
+		// of the two constraints.
+		vc := use.Fixed
+		if vc == nil {
+			vc = use.Default
 		}
+		simple := vc.Value
 		if err := s.recordAttributeIdentity(simple, line, col, seenIDAttr); err != nil {
 			recoverErr := s.recover(err)
 			if recoverErr != nil {

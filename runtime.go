@@ -114,17 +114,21 @@ type builtinIDs struct {
 	ENTITIES      simpleTypeID
 }
 
+// valueConstraint is a default or fixed value constraint; nil means absent.
+// A *valueConstraint is immutable once assigned to a component: declarations
+// and uses may share one (an attribute use inherits its referenced
+// declaration's constraints), so updates replace the pointer with a fully
+// built value rather than writing through it.
 type valueConstraint struct {
 	Lexical   string
 	Canonical string
 	Value     simpleValue
-	Present   bool
 }
 
 type elementDecl struct {
+	Default   *valueConstraint
+	Fixed     *valueConstraint
 	Identity  []identityConstraintID
-	Default   valueConstraint
-	Fixed     valueConstraint
 	Type      typeID
 	Name      qName
 	SubstHead elementID
@@ -187,8 +191,8 @@ type identityFieldPath struct {
 }
 
 type attributeDecl struct {
-	Default valueConstraint
-	Fixed   valueConstraint
+	Default *valueConstraint
+	Fixed   *valueConstraint
 	Name    qName
 	Type    simpleTypeID
 }
@@ -202,8 +206,8 @@ type attributeUseSet struct {
 }
 
 type attributeUse struct {
-	Default    valueConstraint
-	Fixed      valueConstraint
+	Default    *valueConstraint
+	Fixed      *valueConstraint
 	Name       qName
 	Type       simpleTypeID
 	Required   bool
