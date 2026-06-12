@@ -210,29 +210,6 @@ func formatExpandedName(ns, local string) string {
 	return "{" + ns + "}" + local
 }
 
-func wildcardMatches(rt *runtimeSchema, w wildcard, rn runtimeName) bool {
-	switch w.Mode {
-	case wildAny:
-		return true
-	case wildOther:
-		return rn.NS != "" && rn.NS != rt.Names.Namespace(w.OtherThan)
-	case wildLocal:
-		return rn.NS == ""
-	case wildTargetNamespace:
-		if len(w.Namespaces) == 0 {
-			return false
-		}
-		return rn.NS == rt.Names.Namespace(w.Namespaces[0])
-	case wildList:
-		for _, ns := range w.Namespaces {
-			if rn.NS == rt.Names.Namespace(ns) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func (s *session) resolveLexicalQName(v string) (qName, bool) {
 	uri, local, ok := s.resolveLexicalQNameParts(v)
 	if !ok {

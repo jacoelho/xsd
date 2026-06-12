@@ -213,7 +213,7 @@ func (s *session) validateWildcardAttribute(rt *runtimeSchema, set *attributeUse
 		return false, nil
 	}
 	w := rt.Wildcards[set.Wildcard]
-	if !wildcardMatches(rt, w, rn) {
+	if !rt.wildcardAllowsURI(w, rn.NS) {
 		return false, nil
 	}
 	if w.Process == processSkip {
