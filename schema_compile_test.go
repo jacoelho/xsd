@@ -655,6 +655,85 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 	}
 }
 
+func TestFreezeRejectsGlobalNameMismatch(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="a" type="xs:string"/>
+  <xs:element name="b" type="xs:string"/>
+  <xs:attribute name="ga" type="xs:string"/>
+  <xs:attribute name="gb" type="xs:string"/>
+  <xs:simpleType name="t1">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="t2">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="id2" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k1">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:key name="k2">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id2"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, rt *runtimeSchema)
+	}{
+		{
+			name: "global element points at other declaration",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
+				rt.GlobalElements[mustQName(t, rt, "a")] = rt.GlobalElements[mustQName(t, rt, "b")]
+			},
+		},
+		{
+			name: "global attribute points at other declaration",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
+				rt.GlobalAttributes[mustQName(t, rt, "ga")] = rt.GlobalAttributes[mustQName(t, rt, "gb")]
+			},
+		},
+		{
+			name: "global type points at other type",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
+				rt.GlobalTypes[mustQName(t, rt, "t1")] = rt.GlobalTypes[mustQName(t, rt, "t2")]
+			},
+		},
+		{
+			name: "global identity points at other constraint",
+			mutate: func(t *testing.T, rt *runtimeSchema) {
+				t.Helper()
+				rt.GlobalIdentities[mustQName(t, rt, "k1")] = rt.GlobalIdentities[mustQName(t, rt, "k2")]
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			tc.mutate(t, engine.rt)
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
 func rootAttributeUseSet(t *testing.T, engine *Engine) *attributeUseSet {
 	t.Helper()
 	rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "root")]

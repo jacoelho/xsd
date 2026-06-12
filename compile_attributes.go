@@ -22,13 +22,11 @@ func (c *compiler) compileAttributeByQName(q qName) (attributeID, error) {
 	if err != nil {
 		return 0, err
 	}
-	id, err := nextAttributeID(len(c.rt.Attributes))
+	id, err := c.registerGlobalAttribute(q, decl)
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Attributes = append(c.rt.Attributes, decl)
 	c.attributeDone[q] = id
-	c.rt.GlobalAttributes[q] = id
 	return id, nil
 }
 
