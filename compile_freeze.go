@@ -489,6 +489,64 @@ func validateCompiledDFARow(rt *runtimeSchema, model compiledModel, row compiled
 	if row.Counted && countedLoops != 1 {
 		return internalInvariant("compiled content model counted state must have one counted self loop")
 	}
+	if row.Index != nil {
+		return validateCompiledDFARowIndex(rt, row)
+	}
+	return nil
+}
+
+// validateCompiledDFARowIndex checks that a row's name index mirrors its
+// edges exactly: every entry resolves to the element edge it names (directly
+// or through substitution), every element edge and substitution name is
+// indexed, and the wildcard list holds precisely the wildcard edge positions
+// in row order.
+func validateCompiledDFARowIndex(rt *runtimeSchema, row compiledModelRow) error {
+	idx := row.Index
+	for name, pos := range idx.NameToEdge {
+		if !validQName(rt, name) || !validUint32Index(pos, len(row.Edges)) {
+			return internalInvariant("compiled content model name index entry is invalid")
+		}
+		p := row.Edges[pos].Particle
+		if p.Kind != particleElement {
+			return internalInvariant("compiled content model name index targets non-element edge")
+		}
+		if rt.Elements[p.Element].Name != name {
+			if _, ok := rt.SubstitutionLookup[p.Element][name]; !ok {
+				return internalInvariant("compiled content model name index key does not match edge element")
+			}
+		}
+	}
+	wi := 0
+	for pos, edge := range row.Edges {
+		switch edge.Particle.Kind {
+		case particleElement:
+			if err := requireIndexedName(idx, rt.Elements[edge.Particle.Element].Name, uint32(pos)); err != nil {
+				return err
+			}
+			for name := range rt.SubstitutionLookup[edge.Particle.Element] {
+				if err := requireIndexedName(idx, name, uint32(pos)); err != nil {
+					return err
+				}
+			}
+		case particleWildcard:
+			if wi >= len(idx.WildcardEdges) || idx.WildcardEdges[wi] != uint32(pos) {
+				return internalInvariant("compiled content model wildcard list does not match wildcard edges")
+			}
+			wi++
+		default:
+			return internalInvariant("compiled content model indexed row has model edge")
+		}
+	}
+	if wi != len(idx.WildcardEdges) {
+		return internalInvariant("compiled content model wildcard list does not match wildcard edges")
+	}
+	return nil
+}
+
+func requireIndexedName(idx *dfaRowIndex, name qName, pos uint32) error {
+	if got, ok := idx.NameToEdge[name]; !ok || got != pos {
+		return internalInvariant("compiled content model name index is missing element edge")
+	}
 	return nil
 }
 

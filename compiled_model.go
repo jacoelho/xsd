@@ -122,8 +122,7 @@ func (c *compiler) indexCompiledModelRow(row *compiledModelRow) {
 			return
 		}
 	}
-	row.NameToEdge = index
-	row.WildcardEdges = wildcards
+	row.Index = &dfaRowIndex{NameToEdge: index, WildcardEdges: wildcards}
 }
 
 func indexEdgeName(index map[qName]uint32, name qName, pos uint32) bool {

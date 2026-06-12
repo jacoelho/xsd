@@ -508,10 +508,17 @@ type compiledModel struct {
 	Empty     bool
 }
 
+// dfaRowIndex is the name lookup for wide DFA rows. Holding both lookup
+// structures behind one pointer makes their presence a single fact:
+// indexCompiledModelRow builds them together or not at all.
+type dfaRowIndex struct {
+	NameToEdge    map[qName]uint32 // element-name (incl. substitution names) → edge position
+	WildcardEdges []uint32         // wildcard edge positions in row order
+}
+
 type compiledModelRow struct {
+	Index         *dfaRowIndex // nil for narrow or ambiguous rows
 	Edges         []compiledModelEdge
-	NameToEdge    map[qName]uint32 // element-name → edge position; nil for narrow or ambiguous rows
-	WildcardEdges []uint32         // wildcard edge positions in row order; only set with NameToEdge
 	CountParticle particle
 	Min           uint32
 	Max           uint32
