@@ -655,6 +655,64 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 	}
 }
 
+func rootAttributeUseSet(t *testing.T, engine *Engine) *attributeUseSet {
+	t.Helper()
+	rootID := engine.rt.GlobalElements[mustQName(t, engine.rt, "root")]
+	ctID, ok := engine.rt.Elements[rootID].Type.complex()
+	if !ok {
+		t.Fatal("root element type is not complex")
+	}
+	attrs := engine.rt.ComplexTypes[ctID].Attrs
+	if attrs == noAttributeUseSet {
+		t.Fatal("root complex type has no attribute use set")
+	}
+	return &engine.rt.AttributeUseSets[attrs]
+}
+
+func TestFreezeRejectsAttributeUseSetIndexDrift(t *testing.T) {
+	t.Run("stale index on empty uses", func(t *testing.T) {
+		const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+		engine := mustCompile(t, schema)
+		if err := validateRuntimeSchema(engine.rt); err != nil {
+			t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+		}
+		set := rootAttributeUseSet(t, engine)
+		if len(set.Uses) != 0 {
+			t.Fatalf("expected empty attribute uses, got %d", len(set.Uses))
+		}
+		set.Index = map[qName]uint32{mustQName(t, engine.rt, "root"): 5}
+		err := validateRuntimeSchema(engine.rt)
+		expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+	})
+	t.Run("missing index entry", func(t *testing.T) {
+		const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="a" type="xs:string"/>
+      <xs:attribute name="b" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+		engine := mustCompile(t, schema)
+		if err := validateRuntimeSchema(engine.rt); err != nil {
+			t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+		}
+		set := rootAttributeUseSet(t, engine)
+		if len(set.Uses) != 2 {
+			t.Fatalf("expected two attribute uses, got %d", len(set.Uses))
+		}
+		delete(set.Index, set.Uses[0].Name)
+		err := validateRuntimeSchema(engine.rt)
+		expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+	})
+}
+
 func TestFreezeRejectsBrokenDFARowIndex(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="head" type="xs:string" abstract="true"/>

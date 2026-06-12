@@ -341,6 +341,9 @@ func validateAttributeUseSetRuntime(rt *runtimeSchema, set attributeUseSet) erro
 	if set.Wildcard != noWildcard && !validWildcardID(rt, set.Wildcard) {
 		return internalInvariant("attribute use set references invalid wildcard")
 	}
+	if len(set.Index) != len(set.Uses) {
+		return internalInvariant("attribute use set index size does not match uses")
+	}
 	for i, use := range set.Uses {
 		if !validQName(rt, use.Name) || !validSimpleTypeID(rt, use.Type) {
 			return internalInvariant("attribute use references invalid name or type")
