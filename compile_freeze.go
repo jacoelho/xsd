@@ -10,21 +10,6 @@ func (c *compiler) freezeRuntime() (*runtimeSchema, error) {
 	return &rt, nil
 }
 
-func validateTypeAncestors(rt *runtimeSchema) error {
-	unions := rt.unionMembership()
-	for id := range rt.SimpleTypes {
-		if !slices.Equal(rt.SimpleTypes[id].Ancestors, rt.typeAncestors(simpleRef(simpleTypeID(id)), unions)) {
-			return internalInvariant("simple type ancestors do not match derivation")
-		}
-	}
-	for id := range rt.ComplexTypes {
-		if !slices.Equal(rt.ComplexTypes[id].Ancestors, rt.typeAncestors(complexRef(complexTypeID(id)), unions)) {
-			return internalInvariant("complex type ancestors do not match derivation")
-		}
-	}
-	return nil
-}
-
 func validateRuntimeSchema(rt *runtimeSchema) error {
 	if err := validateRuntimeGlobals(rt); err != nil {
 		return err
@@ -36,9 +21,6 @@ func validateRuntimeSchema(rt *runtimeSchema) error {
 		return err
 	}
 	if err := validateRuntimeComponents(rt); err != nil {
-		return err
-	}
-	if err := validateTypeAncestors(rt); err != nil {
 		return err
 	}
 	return validateRuntimeCompiledModels(rt)
