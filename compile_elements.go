@@ -111,10 +111,7 @@ func validateElementDeclContent(n *rawNode) error {
 	seenType := false
 	seenIdentity := false
 	seenNonAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenNonAnnotation {

@@ -4,10 +4,7 @@ import "strings"
 
 func identityConstraintNodes(n *rawNode) []*rawNode {
 	var nodes []*rawNode
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		switch child.Name.Local {
 		case xsdElemKey, xsdElemKeyref, xsdElemUnique:
 			nodes = append(nodes, child)
@@ -203,10 +200,7 @@ type identityConstraintSyntax struct {
 func validateIdentityConstraintSyntax(n *rawNode) (identityConstraintSyntax, error) {
 	var syntax identityConstraintSyntax
 	seenAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenAnnotation {
@@ -257,10 +251,7 @@ func validateIdentityXPathChild(n *rawNode, label string) error {
 		return schemaCompileAt(n, ErrSchemaIdentity, label+" xpath is empty")
 	}
 	seenAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		if child.Name.Local != xsdElemAnnotation {
 			return schemaCompileAt(child, ErrSchemaContentModel, label+" can contain only annotation")
 		}

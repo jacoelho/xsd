@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"iter"
 	"maps"
 	"strings"
 )
@@ -535,10 +536,7 @@ func validateAnnotationElement(n *rawNode) error {
 func validateComponentAnnotationPlacement(n *rawNode) error {
 	annotations := 0
 	seenNonAnnotation := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		if child.Name.Local == xsdElemAnnotation {
 			annotations++
 			if annotations > 1 {
@@ -584,6 +582,20 @@ func (n *rawNode) xsSimpleTypeChildren() []*rawNode {
 	return out
 }
 
+// xsdChildren yields the XSD-namespace element children of n in document order.
+func (n *rawNode) xsdChildren() iter.Seq[*rawNode] {
+	return func(yield func(*rawNode) bool) {
+		for _, c := range n.Children {
+			if c.Name.Space != xsdNamespaceURI {
+				continue
+			}
+			if !yield(c) {
+				return
+			}
+		}
+	}
+}
+
 func (n *rawNode) firstXS(local string) *rawNode {
 	for _, c := range n.Children {
 		if c.Name.Space == xsdNamespaceURI && c.Name.Local == local {
@@ -595,10 +607,7 @@ func (n *rawNode) firstXS(local string) *rawNode {
 
 func (n *rawNode) xsContentChildren() []*rawNode {
 	var out []*rawNode
-	for _, c := range n.Children {
-		if c.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for c := range n.xsdChildren() {
 		if c.Name.Local == xsdElemAnnotation {
 			continue
 		}

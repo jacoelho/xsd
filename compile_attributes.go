@@ -82,10 +82,7 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q qName)
 
 func validateAttributeDeclContent(n *rawNode) error {
 	seenSimple := false
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		switch child.Name.Local {
 		case xsdElemAnnotation:
 			if seenSimple {

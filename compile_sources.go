@@ -182,10 +182,7 @@ type schemaDocumentRef struct {
 
 func schemaDocumentRefs(doc *rawDoc) []schemaDocumentRef {
 	var refs []schemaDocumentRef
-	for _, child := range doc.root.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range doc.root.xsdChildren() {
 		switch child.Name.Local {
 		case xsdElemInclude, xsdElemImport:
 			location, ok := schemaLocationAttr(child)
@@ -216,10 +213,7 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 		return err
 	}
 	for _, doc := range c.docs {
-		for _, child := range doc.root.Children {
-			if child.Name.Space != xsdNamespaceURI {
-				continue
-			}
+		for child := range doc.root.xsdChildren() {
 			switch child.Name.Local {
 			case xsdElemInclude:
 				if err := c.checkExplicitInclude(doc, child); err != nil {

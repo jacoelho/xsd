@@ -35,10 +35,7 @@ func checkOrderedChildren(n *rawNode, order childOrder) error {
 	nonAnnotationSeen := false
 	terminalSeen := false
 	maxLevelSeen := -1
-	for _, child := range n.Children {
-		if child.Name.Space != xsdNamespaceURI {
-			continue
-		}
+	for child := range n.xsdChildren() {
 		if terminalSeen {
 			return schemaCompileAt(child, ErrSchemaContentModel, order.invalidMsg(child.Name.Local))
 		}
