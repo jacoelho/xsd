@@ -798,3 +798,23 @@ func regexCategoryEscapesSchema(types int) string {
 	b.WriteString(`</xs:schema>`)
 	return b.String()
 }
+
+// BenchmarkCompileDeepSimpleTypeChain guards compile cost on long derivation
+// chains: derivation checks must stay on demand, not flattened per type
+// (flattening is quadratic in chain depth).
+func BenchmarkCompileDeepSimpleTypeChain(b *testing.B) {
+	var sb strings.Builder
+	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	sb.WriteString(`<xs:simpleType name="t0"><xs:restriction base="xs:int"/></xs:simpleType>`)
+	for i := 1; i < 1000; i++ {
+		fmt.Fprintf(&sb, `<xs:simpleType name="t%d"><xs:restriction base="t%d"/></xs:simpleType>`, i, i-1)
+	}
+	sb.WriteString(`<xs:element name="root" type="t999"/></xs:schema>`)
+	schema := []byte(sb.String())
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := Compile(sourceBytes("chain.xsd", schema)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
