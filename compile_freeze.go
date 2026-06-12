@@ -230,13 +230,35 @@ func validateSimpleType(rt *runtimeSchema, id simpleTypeID, st simpleType) error
 	if st.Base != noSimpleType && !validSimpleTypeID(rt, st.Base) {
 		return internalInvariant("simple type references invalid base")
 	}
-	if st.ListItem != noSimpleType && !validSimpleTypeID(rt, st.ListItem) {
-		return internalInvariant("simple type references invalid list item")
-	}
-	for _, member := range st.Union {
-		if !validSimpleTypeID(rt, member) {
-			return internalInvariant("simple type references invalid union member")
+	switch st.Variety {
+	case varietyAtomic:
+		if st.ListItem != noSimpleType {
+			return internalInvariant("atomic simple type stores list item")
 		}
+		if len(st.Union) != 0 {
+			return internalInvariant("atomic simple type stores union members")
+		}
+	case varietyList:
+		if !validSimpleTypeID(rt, st.ListItem) {
+			return internalInvariant("list simple type references invalid list item")
+		}
+		if len(st.Union) != 0 {
+			return internalInvariant("list simple type stores union members")
+		}
+	case varietyUnion:
+		if st.ListItem != noSimpleType {
+			return internalInvariant("union simple type stores list item")
+		}
+		if len(st.Union) == 0 {
+			return internalInvariant("union simple type has no members")
+		}
+		for _, member := range st.Union {
+			if !validSimpleTypeID(rt, member) {
+				return internalInvariant("simple type references invalid union member")
+			}
+		}
+	default:
+		return internalInvariant("simple type has invalid variety")
 	}
 	if st.Identity != expectedSimpleIdentity(rt, id, st) {
 		return internalInvariant("simple type identity does not match derivation")

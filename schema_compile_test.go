@@ -667,6 +667,78 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 	}
 }
 
+func TestFreezeRejectsInconsistentSimpleVariety(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="atomicT"><xs:restriction base="xs:string"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="listT"><xs:list itemType="xs:int"/></xs:simpleType>
+  <xs:simpleType name="unionT"><xs:union memberTypes="xs:int xs:string"/></xs:simpleType>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+	mutations := []struct {
+		name     string
+		typeName string
+		mutate   func(rt *runtimeSchema, st *simpleType)
+	}{
+		{
+			name:     "atomic with union members",
+			typeName: "atomicT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.Union = []simpleTypeID{rt.Builtin.String}
+			},
+		},
+		{
+			name:     "atomic with list item",
+			typeName: "atomicT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.ListItem = rt.Builtin.String
+			},
+		},
+		{
+			name:     "list without list item",
+			typeName: "listT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.ListItem = noSimpleType
+			},
+		},
+		{
+			name:     "list with union members",
+			typeName: "listT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.Union = []simpleTypeID{rt.Builtin.String}
+			},
+		},
+		{
+			name:     "union without members",
+			typeName: "unionT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.Union = nil
+			},
+		},
+		{
+			name:     "union with list item",
+			typeName: "unionT",
+			mutate: func(rt *runtimeSchema, st *simpleType) {
+				st.ListItem = rt.Builtin.String
+			},
+		},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := mustCompile(t, schema)
+			if err := validateRuntimeSchema(engine.rt); err != nil {
+				t.Fatalf("validateRuntimeSchema() before mutation error = %v", err)
+			}
+			id, ok := engine.rt.GlobalTypes[mustQName(t, engine.rt, tc.typeName)].simple()
+			if !ok {
+				t.Fatalf("%s is not a simple type", tc.typeName)
+			}
+			tc.mutate(engine.rt, &engine.rt.SimpleTypes[id])
+			err := validateRuntimeSchema(engine.rt)
+			expectCategoryCode(t, err, InternalErrorCategory, ErrInternalInvariant)
+		})
+	}
+}
+
 func TestFreezeRejectsZeroTypeID(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="CT"><xs:sequence/></xs:complexType>

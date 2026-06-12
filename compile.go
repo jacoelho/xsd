@@ -524,7 +524,7 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 	if err != nil {
 		return noSimpleType, err
 	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, ListItem: noSimpleType, Whitespace: whitespacePreserve})
 	c.simpleDone[q] = id
 	c.rt.GlobalTypes[q] = simpleRef(id)
 	st, err := c.compileSimpleType(raw.node, raw.ctx, q)
@@ -554,7 +554,7 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (simpl
 	if err != nil {
 		return noSimpleType, err
 	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespacePreserve})
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, ListItem: noSimpleType, Whitespace: whitespacePreserve})
 	st, err := c.compileSimpleType(n, ctx, q)
 	if err != nil {
 		return noSimpleType, err
@@ -730,7 +730,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name qName) (sim
 	if err := validateSimpleDerivationChildren(n); err != nil {
 		return simpleType{}, err
 	}
-	st := simpleType{Name: name, Variety: varietyUnion, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, Whitespace: whitespaceCollapse}
+	st := simpleType{Name: name, Variety: varietyUnion, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, ListItem: noSimpleType, Whitespace: whitespaceCollapse}
 	if mt, ok := n.attr(xsdAttrMemberTypes); ok {
 		for part := range xmlFieldsSeq(mt) {
 			q, err := c.resolveQNameChecked(n, ctx, part)
