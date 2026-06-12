@@ -35,7 +35,7 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 		switch a.Name.Local {
 		case xsiAttrNil:
 			nilSpecified = true
-			value, ok := parseBooleanLexical(normalizeWhitespace(value, whitespaceCollapse))
+			value, ok := parseXSINil(value)
 			if !ok {
 				return typ, false, validation(ErrValidationNil, line, col, s.pathString(), "invalid xsi:nil value")
 			}
@@ -54,14 +54,15 @@ func (s *session) effectiveType(elem elementID, typ typeID, attrs []streamAttr, 
 	if id, ok := typ.complex(); ok && rt.ComplexTypes[id].Abstract {
 		return typ, nilled, validation(ErrValidationType, line, col, s.pathString(), "complex type is abstract")
 	}
-	if nilSpecified && elem != noElement && !rt.Elements[elem].Nillable {
+	decl, declared := rt.element(elem)
+	if nilSpecified && declared && !decl.Nillable {
 		return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "element is not nillable")
 	}
 	if nilled {
-		if elem == noElement {
+		if !declared {
 			return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "element is not nillable")
 		}
-		if rt.Elements[elem].Fixed != nil {
+		if decl.Fixed != nil {
 			return typ, nilled, validation(ErrValidationNil, line, col, s.pathString(), "nilled element cannot have fixed value")
 		}
 	}
@@ -208,29 +209,6 @@ func formatExpandedName(ns, local string) string {
 		return local
 	}
 	return "{" + ns + "}" + local
-}
-
-func wildcardMatches(rt *runtimeSchema, w wildcard, rn runtimeName) bool {
-	switch w.Mode {
-	case wildAny:
-		return true
-	case wildOther:
-		return rn.NS != "" && rn.NS != rt.Names.Namespace(w.OtherThan)
-	case wildLocal:
-		return rn.NS == ""
-	case wildTargetNamespace:
-		if len(w.Namespaces) == 0 {
-			return false
-		}
-		return rn.NS == rt.Names.Namespace(w.Namespaces[0])
-	case wildList:
-		for _, ns := range w.Namespaces {
-			if rn.NS == rt.Names.Namespace(ns) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (s *session) resolveLexicalQName(v string) (qName, bool) {
@@ -408,6 +386,17 @@ func isNamespaceName(name xml.Name) bool {
 func isXSIName(name xml.Name) bool {
 	return name.Space == xsiNamespaceURI &&
 		(name.Local == xsiAttrType || name.Local == xsiAttrNil || name.Local == xsiAttrSchemaLocation || name.Local == xsiAttrNoNamespaceSchemaLocation)
+}
+
+func isXSITypeName(name xml.Name) bool {
+	return name.Space == xsiNamespaceURI && name.Local == xsiAttrType
+}
+
+// parseXSINil parses an xsi:nil attribute value (xs:boolean lexical space
+// after whitespace collapse). Single owner: element nil handling and identity
+// capture must agree on acceptance and error wording.
+func parseXSINil(lexical string) (bool, bool) {
+	return parseBooleanLexical(normalizeWhitespace(lexical, whitespaceCollapse))
 }
 
 func (s *session) pushPath(local string) {

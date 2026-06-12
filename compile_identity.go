@@ -58,12 +58,10 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 		if _, exists := c.rt.GlobalIdentities[q]; exists {
 			return nil, schemaCompileAt(node, ErrSchemaDuplicate, "duplicate identity constraint "+c.rt.Names.Format(q))
 		}
-		id, err := nextIdentityConstraintID(len(c.rt.Identities))
+		id, err := c.registerGlobalIdentity(q, identityConstraint{Name: q, Refer: noIdentityConstraint})
 		if err != nil {
 			return nil, err
 		}
-		c.rt.Identities = append(c.rt.Identities, identityConstraint{Name: q, Refer: noIdentityConstraint})
-		c.rt.GlobalIdentities[q] = id
 		c.identityDeclared[node] = id
 		ids = append(ids, id)
 	}

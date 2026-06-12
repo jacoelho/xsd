@@ -104,17 +104,8 @@ func parseFixedDigits(s []byte) (int, bool) {
 }
 
 func daysInPositiveYearMonth(year, month int) int {
-	switch month {
-	case 2:
-		if year%400 == 0 || year%4 == 0 && year%100 != 0 {
-			return 29
-		}
-		return 28
-	case 4, 6, 9, 11:
-		return 30
-	default:
-		return 31
-	}
+	leap := month == 2 && leapYearRule(year%400, year%100, year%4)
+	return daysInMonthForLeap(month, leap)
 }
 
 type xsdDatePart struct {
@@ -287,14 +278,19 @@ func parseTwoDigits(s string, i int) (int, int, bool) {
 }
 
 func daysInMonth(year xsdYear, month int) int {
+	leap := month == 2 && isLeapYear(year)
+	return daysInMonthForLeap(month, leap)
+}
+
+func daysInMonthForLeap(month int, leap bool) int {
 	switch month {
-	case 4, 6, 9, 11:
-		return 30
 	case 2:
-		if isLeapYear(year) {
+		if leap {
 			return 29
 		}
 		return 28
+	case 4, 6, 9, 11:
+		return 30
 	default:
 		return 31
 	}
@@ -302,7 +298,13 @@ func daysInMonth(year xsdYear, month int) int {
 
 // isLeapYear names the XML Schema leap-year rule.
 func isLeapYear(y xsdYear) bool {
-	return yearMod(y, 400) == 0 || yearMod(y, 4) == 0 && yearMod(y, 100) != 0
+	return leapYearRule(yearMod(y, 400), yearMod(y, 100), yearMod(y, 4))
+}
+
+// leapYearRule is the Gregorian leap-year rule over the year's residues,
+// shared by plain int years and arbitrary-length xsdYears.
+func leapYearRule(mod400, mod100, mod4 int) bool {
+	return mod400 == 0 || mod4 == 0 && mod100 != 0
 }
 
 func yearMod(y xsdYear, m int) int {

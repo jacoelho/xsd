@@ -682,3 +682,48 @@ func TestMultipleIDAttributeUsesAreSchemaErrors(t *testing.T) {
 </xs:schema>`)))
 	expectCode(t, err, ErrSchemaInvalidAttribute)
 }
+
+func TestIdentityXSINilCanonicalKey(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" nillable="true" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u"><xs:selector xpath="item"/><xs:field xpath="@xsi:nil"/></xs:unique>
+  </xs:element>
+</xs:schema>`)
+	mustValidate(t, engine, `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><item xsi:nil="true"/><item xsi:nil="false"/></root>`)
+	mustNotValidate(t, engine, `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><item xsi:nil="1"/><item xsi:nil="true"/></root>`, ErrValidationIdentity)
+}
+
+func TestIdentityXSINilFieldErrorMessage(t *testing.T) {
+	engine := mustCompile(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" nillable="true" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u"><xs:selector xpath="item"/><xs:field xpath="@xsi:nil"/></xs:unique>
+  </xs:element>
+</xs:schema>`)
+	err := engine.Validate(strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><item xsi:nil="yes"/></root>`))
+	if err == nil {
+		t.Fatal("Validate() expected error")
+	}
+	if !strings.Contains(err.Error(), "invalid xsi:nil value") {
+		t.Errorf("Validate() error = %q, want it to contain %q", err.Error(), "invalid xsi:nil value")
+	}
+}

@@ -286,6 +286,60 @@ func newCompiler(limits compileLimits) (*compiler, error) {
 	return c, nil
 }
 
+// The registerGlobal* helpers append a declaration and publish it in the
+// matching Global* map in one step, so a slice entry and its map key cannot
+// diverge (validateRuntimeGlobals checks the names still match at freeze).
+
+func (c *compiler) registerGlobalElement(q qName, decl elementDecl) (elementID, error) {
+	id, err := nextElementID(len(c.rt.Elements))
+	if err != nil {
+		return noElement, err
+	}
+	c.rt.Elements = append(c.rt.Elements, decl)
+	c.rt.GlobalElements[q] = id
+	return id, nil
+}
+
+func (c *compiler) registerGlobalAttribute(q qName, decl attributeDecl) (attributeID, error) {
+	id, err := nextAttributeID(len(c.rt.Attributes))
+	if err != nil {
+		return 0, err
+	}
+	c.rt.Attributes = append(c.rt.Attributes, decl)
+	c.rt.GlobalAttributes[q] = id
+	return id, nil
+}
+
+func (c *compiler) registerGlobalComplexType(q qName, ct complexType) (complexTypeID, error) {
+	id, err := nextComplexTypeID(len(c.rt.ComplexTypes))
+	if err != nil {
+		return noComplexType, err
+	}
+	c.rt.ComplexTypes = append(c.rt.ComplexTypes, ct)
+	c.rt.GlobalTypes[q] = complexRef(id)
+	return id, nil
+}
+
+func (c *compiler) registerGlobalSimpleType(q qName, st simpleType) (simpleTypeID, error) {
+	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return noSimpleType, err
+	}
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
+	c.rt.GlobalTypes[q] = simpleRef(id)
+	return id, nil
+}
+
+func (c *compiler) registerGlobalIdentity(q qName, ic identityConstraint) (identityConstraintID, error) {
+	id, err := nextIdentityConstraintID(len(c.rt.Identities))
+	if err != nil {
+		return noIdentityConstraint, err
+	}
+	c.rt.Identities = append(c.rt.Identities, ic)
+	c.rt.GlobalIdentities[q] = id
+	return id, nil
+}
+
 func (c *compiler) compileGlobals() error {
 	for _, q := range sortedQNames(c.simpleRaw, c.rt.Names) {
 		if _, err := c.compileSimpleByQName(q); err != nil {
@@ -520,13 +574,11 @@ func (c *compiler) compileSimpleByQName(q qName) (simpleTypeID, error) {
 	}
 	c.compilingSimple[q] = true
 	defer delete(c.compilingSimple, q)
-	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
+	id, err := c.registerGlobalSimpleType(q, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, ListItem: noSimpleType, Whitespace: whitespacePreserve})
 	if err != nil {
 		return noSimpleType, err
 	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, simpleType{Name: q, Variety: varietyAtomic, Primitive: primString, Base: c.rt.Builtin.AnySimpleType, ListItem: noSimpleType, Whitespace: whitespacePreserve})
 	c.simpleDone[q] = id
-	c.rt.GlobalTypes[q] = simpleRef(id)
 	st, err := c.compileSimpleType(raw.node, raw.ctx, q)
 	if err != nil {
 		return noSimpleType, err
