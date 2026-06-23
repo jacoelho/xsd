@@ -1,0 +1,115 @@
+package runtime_test
+
+import (
+	"testing"
+
+	"github.com/jacoelho/xsd/internal/runtime"
+)
+
+func TestSimpleTypeFreezeProjectionsCloneUnionSlices(t *testing.T) {
+	t.Parallel()
+
+	st := runtime.SimpleType{
+		Union:   []runtime.SimpleTypeID{1},
+		Variety: runtime.SimpleVarietyUnion,
+	}
+	restriction := runtime.NewSimpleTypeRestrictionValidationForSimpleType(st)
+	restriction.Union[0] = 9
+	if st.Union[0] != 1 {
+		t.Fatalf("NewSimpleTypeRestrictionValidationForSimpleType returned table-backed union slice: %#v", st.Union)
+	}
+
+	simpleTypes := []runtime.SimpleType{st}
+	nodes := runtime.NewSimpleTypeGraphNodesForSimpleTypes(simpleTypes)
+	nodes[0].Union[0] = 9
+	if simpleTypes[0].Union[0] != 1 {
+		t.Fatalf("NewSimpleTypeGraphNodesForSimpleTypes returned table-backed union slice: %#v", simpleTypes[0].Union)
+	}
+}
+
+func TestValueConstraintIdentityClonesResolvedNames(t *testing.T) {
+	t.Parallel()
+
+	vc := &runtime.ValueConstraint{
+		ResolvedNames: []runtime.ResolvedValueName{{Lexical: "p:item"}},
+	}
+	identity := runtime.NewValueConstraintIdentity(vc)
+	identity.ResolvedNames[0].Lexical = "p:other"
+	if vc.ResolvedNames[0].Lexical != "p:item" {
+		t.Fatalf("NewValueConstraintIdentity returned table-backed resolved names: %#v", vc.ResolvedNames)
+	}
+}
+
+func TestRuntimeGlobalsClonesMapAndNameProjectionState(t *testing.T) {
+	t.Parallel()
+
+	attrName := runtime.QName{Local: 1}
+	elemName := runtime.QName{Local: 2}
+	simpleName := runtime.QName{Local: 3}
+	complexName := runtime.QName{Local: 4}
+	identityName := runtime.QName{Local: 5}
+	notationName := runtime.QName{Local: 6}
+	replacement := runtime.QName{Local: 99}
+	rt := &runtime.Schema{
+		GlobalAttributes: map[runtime.QName]runtime.AttributeID{attrName: 0},
+		GlobalElements:   map[runtime.QName]runtime.ElementID{elemName: 0},
+		GlobalTypes:      map[runtime.QName]runtime.TypeID{simpleName: runtime.SimpleRef(0), complexName: runtime.ComplexRef(0)},
+		GlobalIdentities: map[runtime.QName]runtime.IdentityConstraintID{identityName: 0},
+		Notations:        map[runtime.QName]bool{notationName: true},
+		Attributes:       []runtime.AttributeDecl{{Name: attrName}},
+		Elements:         []runtime.ElementDecl{{Name: elemName}},
+		SimpleTypes:      []runtime.SimpleType{{Name: simpleName}},
+		ComplexTypes:     []runtime.ComplexType{{Name: complexName}},
+		Identities:       []runtime.IdentityConstraint{{Name: identityName}},
+	}
+
+	globals := rt.RuntimeGlobalsForTest()
+	globals.GlobalAttributes[attrName] = 9
+	globals.GlobalElements[elemName] = 9
+	globals.GlobalTypes[simpleName] = runtime.ComplexRef(9)
+	globals.GlobalIdentities[identityName] = 9
+	globals.Notations[notationName] = false
+	globals.AttributeNames[0] = replacement
+	globals.ElementNames[0] = replacement
+	globals.SimpleTypeNames[0] = replacement
+	globals.ComplexTypeNames[0] = replacement
+	globals.IdentityNames[0] = replacement
+
+	if rt.GlobalAttributes[attrName] != 0 ||
+		rt.GlobalElements[elemName] != 0 ||
+		rt.GlobalTypes[simpleName] != runtime.SimpleRef(0) ||
+		rt.GlobalIdentities[identityName] != 0 ||
+		!rt.Notations[notationName] ||
+		rt.Attributes[0].Name != attrName ||
+		rt.Elements[0].Name != elemName ||
+		rt.SimpleTypes[0].Name != simpleName ||
+		rt.ComplexTypes[0].Name != complexName ||
+		rt.Identities[0].Name != identityName {
+		t.Fatalf("runtimeGlobals returned table-backed projection state: %#v", rt)
+	}
+}
+
+func TestAttributeUseSetValidationClonesSlotState(t *testing.T) {
+	t.Parallel()
+
+	name := runtime.QName{Local: 1}
+	set := runtime.AttributeUseSet{
+		Index:            map[runtime.QName]uint32{name: 0},
+		Uses:             []runtime.AttributeUse{{Name: name, Type: 1}},
+		Required:         []uint32{0},
+		ValueConstraints: []uint32{0},
+	}
+
+	projection := runtime.NewAttributeUseSetValidationForUseSet(set)
+	projection.Index[name] = 9
+	projection.Uses[0].Type = 9
+	projection.Required[0] = 9
+	projection.ValueConstraints[0] = 9
+
+	if set.Index[name] != 0 ||
+		set.Uses[0].Type != 1 ||
+		set.Required[0] != 0 ||
+		set.ValueConstraints[0] != 0 {
+		t.Fatalf("NewAttributeUseSetValidationForUseSet returned table-backed projection state: %#v", set)
+	}
+}

@@ -1,7 +1,11 @@
 .lab/
+.codex/
+.claude/
+CLAUDE.md
 run.log
 cpu.pprof
 heap.pprof
+/*.test
 bin/*
 !bin/.gitkeep
 docs/xsd.wasm

@@ -1,28 +1,16 @@
 package xsd
 
 import (
-	"bytes"
-	"errors"
 	"io"
 	"math"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
+
+	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/xsderrors"
 )
-
-// ErrSchemaNotFound reports that a resolver could not resolve a schema.
-var ErrSchemaNotFound = errors.New("schema not found")
-
-var errNilSchemaReader = errors.New("nil schema reader")
 
 // SchemaSource identifies a schema document passed to Compile.
 type SchemaSource struct {
-	err      error
-	resolver Resolver
-	open     func() (io.ReadCloser, error)
-	name     string
-	data     []byte
+	src source.Source
 }
 
 // Resolver resolves schema include/import locations during compilation.
@@ -36,21 +24,19 @@ type ResolverFunc func(base, location string) (SchemaSource, error)
 // ResolveSchema resolves one schema include/import location.
 func (f ResolverFunc) ResolveSchema(base, location string) (SchemaSource, error) {
 	if f == nil {
-		return SchemaSource{}, ErrSchemaNotFound
+		return SchemaSource{}, xsderrors.ErrSchemaNotFound
 	}
 	return f(base, location)
 }
 
 // File returns a file schema source and resolves local schemaLocation refs.
 func File(path string) SchemaSource {
-	path = filepath.Clean(path)
-	return SchemaSource{
-		name: path,
-		open: func() (io.ReadCloser, error) {
-			return os.Open(path) //nolint:gosec // File intentionally opens caller-provided schema paths.
-		},
-		resolver: ResolverFunc(resolveFileSchemaSource),
-	}
+	return SchemaSource{src: source.File(path)}
+}
+
+// Bytes returns an in-memory schema source from data.
+func Bytes(name string, data []byte) SchemaSource {
+	return SchemaSource{src: source.Bytes(name, data)}
 }
 
 // Reader reads r into an in-memory schema source.
@@ -60,108 +46,34 @@ func Reader(name string, r io.Reader) SchemaSource {
 
 // LimitedReader reads at most maxBytes from r into an in-memory schema source.
 func LimitedReader(name string, r io.Reader, maxBytes int64) SchemaSource {
-	if r == nil {
-		return SchemaSource{name: name, err: errNilSchemaReader}
-	}
-	data, err := readLimitedSchemaSource(name, r, maxBytes)
-	if err != nil {
-		return SchemaSource{name: name, err: err}
-	}
-	return SchemaSource{name: name, data: data}
+	return SchemaSource{src: source.LimitedReader(name, r, maxBytes)}
 }
 
 // WithResolver returns s with r used for schema include/import resolution.
 func (s SchemaSource) WithResolver(r Resolver) SchemaSource {
-	s.resolver = r
+	s.src = s.src.WithResolver(adaptPublicResolver(r))
 	return s
 }
 
-func (s SchemaSource) read(maxBytes int64) ([]byte, error) {
-	if s.err != nil {
-		return nil, s.err
+func internalSchemaSources(sources []SchemaSource, scratch []source.Source) []source.Source {
+	var out []source.Source
+	if len(sources) <= cap(scratch) {
+		out = scratch[:len(sources)]
+	} else {
+		out = make([]source.Source, len(sources))
 	}
-	if s.data != nil {
-		if int64(len(s.data)) > maxBytes {
-			return nil, schemaSourceLimitError(s.name)
-		}
-		return bytes.Clone(s.data), nil
+	for i, src := range sources {
+		out[i] = src.src
 	}
-	if s.open == nil {
-		return nil, schemaCompile(ErrSchemaRead, "schema source has no data or opener")
-	}
-	r, err := s.open()
-	if err != nil {
-		return nil, err
-	}
-	data, readErr := readLimitedSchemaSource(s.name, r, maxBytes)
-	closeErr := r.Close()
-	if readErr != nil {
-		return nil, readErr
-	}
-	return data, closeErr
+	return out
 }
 
-// readLimitedSchemaSource preserves source names for limit diagnostics.
-func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, error) {
-	if maxBytes <= 0 {
-		return nil, schemaCompile(ErrSchemaLimit, "schema reader byte limit must be positive")
+func adaptPublicResolver(r Resolver) source.Resolver {
+	if r == nil {
+		return nil
 	}
-	reader := r
-	if maxBytes < math.MaxInt64 {
-		reader = io.LimitReader(r, maxBytes+1)
+	return func(base, location string) (source.Source, error) {
+		src, err := r.ResolveSchema(base, location)
+		return src.src, err
 	}
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > maxBytes {
-		limitErr := schemaSourceLimitError(name)
-		return nil, limitErr
-	}
-	return data, nil
-}
-
-func schemaSourceLimitError(name string) error {
-	msg := "schema source exceeds MaxSchemaSourceBytes"
-	if name != "" {
-		msg = "schema source " + name + " exceeds MaxSchemaSourceBytes"
-	}
-	return schemaCompile(ErrSchemaLimit, msg)
-}
-
-func resolveFileSchemaSource(base, location string) (SchemaSource, error) {
-	path, ok := resolveLocalSchemaLocation(base, location)
-	if !ok {
-		return SchemaSource{}, ErrSchemaNotFound
-	}
-	return File(path), nil
-}
-
-func resolveLocalSchemaLocation(base, location string) (string, bool) {
-	if trimmed := trimXMLWhitespace(location); filepath.VolumeName(trimmed) != "" {
-		return filepath.Clean(trimmed), true
-	}
-	u, err := url.Parse(location)
-	if err == nil && u.Scheme != "" {
-		return localFileURIPath(u)
-	}
-	location = filepath.FromSlash(trimXMLWhitespace(location))
-	if location == "" {
-		return "", false
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(base), location)), true
-}
-
-func localFileURIPath(u *url.URL) (string, bool) {
-	if u.Scheme != "file" {
-		return "", false
-	}
-	if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {
-		return "", false
-	}
-	path, err := url.PathUnescape(u.Path)
-	if err != nil || path == "" {
-		return "", false
-	}
-	return filepath.Clean(path), true
 }

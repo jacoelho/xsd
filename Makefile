@@ -2,8 +2,6 @@
 MAKEFLAGS+=-r -R
 
 BIN := $(CURDIR)/bin
-XSD_GO := $(wildcard *.go)
-XMLLINT_GO := cmd/xmllint/main.go
 STATICCHECK_VERSION := v0.7.0
 GOLANGCI_LINT_VERSION := v2.12.2
 export GOBIN := $(BIN)
@@ -18,10 +16,10 @@ race:
 
 .PHONY: fuzz-smoke
 fuzz-smoke:
-	go test -run '^$$' -fuzz=FuzzXMLStreamParser -fuzztime=10s .
-	go test -run '^$$' -fuzz=FuzzSchemaParserLimits -fuzztime=10s .
-	go test -run '^$$' -fuzz=FuzzValidateNeverPanics -fuzztime=10s .
-	go test -run '^$$' -fuzz=FuzzXSDRegexSyntax -fuzztime=10s .
+	go test -run '^$$' -fuzz=FuzzXMLStreamParser -fuzztime=10s ./internal/stream
+	go test -run '^$$' -fuzz=FuzzSchemaParserLimits -fuzztime=10s ./internal/compile
+	go test -run '^$$' -fuzz=FuzzValidateNeverPanics -fuzztime=10s ./internal/validate
+	go test -run '^$$' -fuzz=FuzzXSDRegexSyntax -fuzztime=10s ./internal/compile
 
 .PHONY: bench
 bench:
@@ -29,13 +27,11 @@ bench:
 
 .PHONY: bench-smoke
 bench-smoke:
-	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem .
+	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
 
 .PHONY: xmllint
-xmllint: $(BIN)/xmllint
-
-$(BIN)/xmllint: $(XSD_GO) $(XMLLINT_GO) go.mod | $(BIN)
-	go build -o $@ ./cmd/xmllint
+xmllint: | $(BIN)
+	go build -o $(BIN)/xmllint ./cmd/xmllint
 
 .PHONY: wasm
 wasm: | docs
