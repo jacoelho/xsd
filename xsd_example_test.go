@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 const publicAPISchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`
@@ -19,9 +20,9 @@ type readmeResolver map[string]string
 func (r readmeResolver) ResolveSchema(_ string, location string) (xsd.SchemaSource, error) {
 	data, ok := r[location]
 	if !ok {
-		return xsd.SchemaSource{}, xsd.ErrSchemaNotFound
+		return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
 	}
-	return xsd.Reader(location, strings.NewReader(data)), nil
+	return xsd.Bytes(location, []byte(data)), nil
 }
 
 func ExampleCompile() {
@@ -68,6 +69,17 @@ func ExampleReader() {
 	// Output: valid: true
 }
 
+func ExampleBytes() {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(publicAPISchema)))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = engine.Validate(strings.NewReader(`<root>42</root>`))
+	fmt.Println("valid:", err == nil)
+	// Output: valid: true
+}
+
 func ExampleLimitedReader() {
 	engine, err := xsd.Compile(xsd.LimitedReader("schema.xsd", strings.NewReader(publicAPISchema), 64<<20))
 	if err != nil {
@@ -98,14 +110,14 @@ func ExampleSchemaSource_WithResolver() {
 	// Output: valid: true
 }
 
-func ExampleError() {
+func Example_diagnostics() {
 	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	err = engine.Validate(strings.NewReader(`<root>x</root>`))
-	if xerr, ok := errors.AsType[*xsd.Error](err); ok {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
 		fmt.Println(xerr.Category)
 		fmt.Println(xerr.Code)
 	}
@@ -149,11 +161,11 @@ func TestPublicErrorInspection(t *testing.T) {
 	if err == nil {
 		t.Fatal("Validate() succeeded")
 	}
-	xerr, ok := errors.AsType[*xsd.Error](err)
+	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("Validate() error type = %T", err)
 	}
-	if xerr.Category != xsd.ValidationErrorCategory || xerr.Code != xsd.ErrValidationFacet {
+	if xerr.Category != xsderrors.CategoryValidation || xerr.Code != xsderrors.CodeValidationFacet {
 		t.Fatalf("Validate() error = %s/%s", xerr.Category, xerr.Code)
 	}
 }

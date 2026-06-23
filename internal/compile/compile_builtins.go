@@ -1,0 +1,154 @@
+package compile
+
+import (
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/xsderrors"
+)
+
+func (c *compiler) addBuiltins() error {
+	if err := c.addBuiltinSimpleTypes(); err != nil {
+		return err
+	}
+	if err := c.addBuiltinXMLAttributes(); err != nil {
+		return err
+	}
+	return c.addBuiltinAnyType()
+}
+
+func (c *compiler) addBuiltinSimpleTypes() error {
+	for i := range runtime.BuiltinSimpleSeedCount() {
+		seed, ok := runtime.BuiltinSimpleSeedAt(i)
+		if !ok {
+			return xsderrors.InternalInvariant("builtin simple type seed index is invalid")
+		}
+		if _, err := c.addBuiltinSimpleSeed(seed); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) addBuiltinSimpleSeed(seed *runtime.BuiltinSimpleSeed) (runtime.SimpleTypeID, error) {
+	q, err := c.names.InternQName(seed.Namespace, seed.Local)
+	if err != nil {
+		return runtime.NoSimpleType, err
+	}
+	id, err := c.registerGlobalSimpleType(q, c.builtinFacets.SimpleType(seed, q, seed.Base, seed.ListItem))
+	if err != nil {
+		return runtime.NoSimpleType, err
+	}
+	c.simpleDone[q] = id
+	seed.RecordID(&c.rt.Builtin, id)
+	return id, nil
+}
+
+func (c *compiler) addBuiltinXMLAttributes() error {
+	internal, err := c.addBuiltinAttributeSimpleTypes()
+	if err != nil {
+		return err
+	}
+	for i := range runtime.BuiltinAttributeCount() {
+		attr, ok := runtime.BuiltinAttributeSeedAt(i)
+		if !ok {
+			return xsderrors.InternalInvariant("builtin attribute seed index is invalid")
+		}
+		typ, ok := attr.TypeID(c.rt.Builtin, internal)
+		if !ok {
+			return xsderrors.InternalInvariant("builtin attribute references missing type: " + attr.Local)
+		}
+		if err := c.addBuiltinAttribute(attr.Namespace, attr.Local, typ); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *compiler) addBuiltinAttributeSimpleTypes() (runtime.BuiltinAttributeInternalTypes, error) {
+	var internal runtime.BuiltinAttributeInternalTypes
+	for i := range runtime.BuiltinAttributeSimpleSeedCount() {
+		seed, ok := runtime.BuiltinAttributeSimpleSeedAt(i)
+		if !ok {
+			return runtime.BuiltinAttributeInternalTypes{}, xsderrors.InternalInvariant("builtin attribute simple type seed index is invalid")
+		}
+		id, err := c.addBuiltinAttributeSimpleSeed(seed)
+		if err != nil {
+			return runtime.BuiltinAttributeInternalTypes{}, err
+		}
+		seed.RecordID(&internal, id)
+	}
+	return internal, nil
+}
+
+func (c *compiler) addBuiltinAttributeSimpleSeed(seed runtime.BuiltinAttributeSimpleSeed) (runtime.SimpleTypeID, error) {
+	base, ok := seed.BaseID(c.rt.Builtin)
+	if !ok {
+		return runtime.NoSimpleType, xsderrors.InternalInvariant("builtin attribute simple type references missing base: " + seed.Local)
+	}
+	q, err := c.names.InternQName(seed.Namespace, seed.Local)
+	if err != nil {
+		return runtime.NoSimpleType, err
+	}
+	id, err := NextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return runtime.NoSimpleType, err
+	}
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, seed.SimpleType(q, base))
+	return id, nil
+}
+
+func (c *compiler) addBuiltinAnyType() error {
+	anyWildcard, err := c.addWildcard(runtime.BuiltinAnyTypeWildcard())
+	if err != nil {
+		return err
+	}
+	attrSet, err := NextAttributeUseSetID(len(c.rt.AttributeUseSets))
+	if err != nil {
+		return err
+	}
+	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, runtime.BuiltinAnyTypeAttributeUseSet(anyWildcard))
+	modelID, err := c.addModel(runtime.BuiltinAnyTypeContentModel())
+	if err != nil {
+		return err
+	}
+	q, err := c.names.InternQName(runtime.XSDNamespaceURI, runtime.BuiltinAnyTypeLocalName())
+	if err != nil {
+		return err
+	}
+	complexID, err := c.registerGlobalComplexType(q, runtime.BuiltinAnyTypeComplexType(q, modelID, attrSet))
+	if err != nil {
+		return err
+	}
+	c.rt.Builtin.AnyType = complexID
+	c.complexDone[q] = complexID
+	return nil
+}
+
+func (c *compiler) addBuiltinAttribute(ns, local string, typ runtime.SimpleTypeID) error {
+	q, err := c.names.InternQName(ns, local)
+	if err != nil {
+		return err
+	}
+	id, err := c.registerGlobalAttribute(q, runtime.AttributeDecl{Name: q, Type: typ})
+	if err != nil {
+		return err
+	}
+	c.attributeDone[q] = id
+	return nil
+}
+
+func (c *compiler) missingSimpleType() (runtime.SimpleTypeID, error) {
+	if c.missingSimple != runtime.NoSimpleType {
+		return c.missingSimple, nil
+	}
+	q, err := c.names.InternQName(runtime.EmptyNamespaceURI, runtime.MissingSimpleTypeLocalName())
+	if err != nil {
+		return runtime.NoSimpleType, err
+	}
+	id, err := NextSimpleTypeID(len(c.rt.SimpleTypes))
+	if err != nil {
+		return runtime.NoSimpleType, err
+	}
+	c.rt.SimpleTypes = append(c.rt.SimpleTypes, runtime.MissingSimpleType(q, c.rt.Builtin.AnySimpleType))
+	c.missingSimple = id
+	return id, nil
+}

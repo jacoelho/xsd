@@ -1,4 +1,4 @@
-package xsd
+package xsd_test
 
 import (
 	"fmt"
@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/jacoelho/xsd"
 )
 
 const benchmarkSchema = `
@@ -42,82 +44,34 @@ const benchmarkSchema = `
   </xs:element>
 </xs:schema>`
 
+func wideChoiceSchema(width int, extraParticles string) string {
+	var sb strings.Builder
+	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+`)
+	for i := range width {
+		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+	}
+	sb.WriteString(extraParticles)
+	sb.WriteString(`      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	return sb.String()
+}
+
 func BenchmarkCompileSmallSchema(b *testing.B) {
 	for b.Loop() {
-		if _, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema))); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema))); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
-func BenchmarkSimplePatternVariableNoMatchString(b *testing.B) {
-	p := compileSimplePattern(`[a-z]{0,}[a-z]{0,}x`)
-	input := strings.Repeat("a", 4096)
-	b.ReportAllocs()
-	for b.Loop() {
-		if p.match(input) {
-			b.Fatal("unexpected match")
-		}
-	}
-}
-
-func BenchmarkSimplePatternVariableNoMatchBytes(b *testing.B) {
-	p := compileSimplePattern(`[a-z]{0,}[a-z]{0,}x`)
-	input := []byte(strings.Repeat("a", 4096))
-	b.ReportAllocs()
-	for b.Loop() {
-		if p.matchBytes(input) {
-			b.Fatal("unexpected match")
-		}
-	}
-}
-
-func BenchmarkSimplePatternVariableSmallString(b *testing.B) {
-	p := compileSimplePattern(`[a-z]{0,}[a-z]{0,}x`)
-	input := strings.Repeat("a", 24) + "x"
-	b.ReportAllocs()
-	for b.Loop() {
-		if !p.match(input) {
-			b.Fatal("expected match")
-		}
-	}
-}
-
-func BenchmarkSimplePatternVariableSmallBytes(b *testing.B) {
-	p := compileSimplePattern(`[a-z]{0,}[a-z]{0,}x`)
-	input := []byte(strings.Repeat("a", 24) + "x")
-	b.ReportAllocs()
-	for b.Loop() {
-		if !p.matchBytes(input) {
-			b.Fatal("expected match")
-		}
-	}
-}
-
-func BenchmarkSimplePatternVariableNoMatchMultibyteString(b *testing.B) {
-	p := compileSimplePattern(`é{0,}é{0,}x`)
-	input := strings.Repeat("é", 4096)
-	b.ReportAllocs()
-	for b.Loop() {
-		if p.match(input) {
-			b.Fatal("unexpected match")
-		}
-	}
-}
-
-func BenchmarkSimplePatternVariableNoMatchMultibyteBytes(b *testing.B) {
-	p := compileSimplePattern(`é{0,}é{0,}x`)
-	input := []byte(strings.Repeat("é", 4096))
-	b.ReportAllocs()
-	for b.Loop() {
-		if p.matchBytes(input) {
-			b.Fatal("unexpected match")
-		}
-	}
-}
-
 func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -132,11 +86,11 @@ func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
 }
 
 func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
-	session, err := engine.NewSession(ValidateOptions{})
+	session, err := engine.NewSession(xsd.ValidateOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -150,8 +104,36 @@ func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateRepeatedQNameValues(b *testing.B) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="value" type="xs:QName" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := benchmarkQNameDoc()
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	  <xs:element name="root">
 	    <xs:simpleType>
@@ -164,7 +146,7 @@ func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	session, err := engine.NewSession(ValidateOptions{})
+	session, err := engine.NewSession(xsd.ValidateOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -180,11 +162,11 @@ func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
 
 func BenchmarkSessionValidateWideChoice(b *testing.B) {
 	const width = 200
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(wideChoiceSchema(width, ""))))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(wideChoiceSchema(width, ""))))
 	if err != nil {
 		b.Fatal(err)
 	}
-	session, err := engine.NewSession(ValidateOptions{})
+	session, err := engine.NewSession(xsd.ValidateOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -206,7 +188,7 @@ func BenchmarkSessionValidateWideChoice(b *testing.B) {
 }
 
 func BenchmarkValidateSubstitutionGroup(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(substitutionBenchmarkSchema(16))))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(substitutionBenchmarkSchema(16))))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -220,40 +202,8 @@ func BenchmarkValidateSubstitutionGroup(b *testing.B) {
 	}
 }
 
-func BenchmarkParseDecimal(b *testing.B) {
-	for b.Loop() {
-		if _, err := parseDecimalMode("+000000000123456789.0000000012300", decimalWithCanonical); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkParseXSDDate(b *testing.B) {
-	for b.Loop() {
-		if _, err := parseXSDDateValue("12026-05-18+14:00"); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkParseXSDDateTime(b *testing.B) {
-	for b.Loop() {
-		if _, err := parseXSDDateTimeValue("-12026-05-18T23:59:59.123456789123+14:00"); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkParseXSDTime(b *testing.B) {
-	for b.Loop() {
-		if _, err := parseXSDTimeValue("23:59:60.123456789123-14:00"); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkSessionValidateDateDecimalRows(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="rows">
     <xs:complexType>
@@ -273,7 +223,7 @@ func BenchmarkSessionValidateDateDecimalRows(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	session, err := engine.NewSession(ValidateOptions{})
+	session, err := engine.NewSession(xsd.ValidateOptions{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -294,7 +244,7 @@ func BenchmarkSessionValidateDateDecimalRows(b *testing.B) {
 }
 
 func BenchmarkValidateSmallInvalidDocument(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -309,7 +259,7 @@ func BenchmarkValidateSmallInvalidDocument(b *testing.B) {
 }
 
 func BenchmarkValidateManyRecoverablePathErrors(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	  <xs:element name="rows">
 	    <xs:complexType>
@@ -323,7 +273,7 @@ func BenchmarkValidateManyRecoverablePathErrors(b *testing.B) {
 		b.Fatal(err)
 	}
 	doc := `<rows>` + strings.Repeat(`<row>x</row>`, 100) + `</rows>`
-	opts := ValidateOptions{MaxErrors: 100}
+	opts := xsd.ValidateOptions{MaxErrors: 100}
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
@@ -335,9 +285,9 @@ func BenchmarkValidateManyRecoverablePathErrors(b *testing.B) {
 
 func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	const depth = 128
-	engine, err := CompileWithOptions(
-		CompileOptions{MaxSchemaDepth: depth*3 + 16},
-		sourceBytes("schema.xsd", []byte(deepSchema(depth))),
+	engine, err := xsd.CompileWithOptions(
+		xsd.CompileOptions{MaxSchemaDepth: depth*3 + 16},
+		xsd.Bytes("schema.xsd", []byte(deepSchema(depth))),
 	)
 	if err != nil {
 		b.Fatal(err)
@@ -353,7 +303,7 @@ func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 }
 
 func BenchmarkValidateDuplicateAttributes(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -367,28 +317,16 @@ func BenchmarkValidateDuplicateAttributes(b *testing.B) {
 	}
 }
 
-func BenchmarkFormatXMLDuplicateAttributes(b *testing.B) {
-	doc := duplicateAttributeDoc()
-	b.SetBytes(int64(len(doc)))
-	b.ReportAllocs()
-	for b.Loop() {
-		var out strings.Builder
-		if err := FormatXML(&out, strings.NewReader(doc)); err == nil {
-			b.Fatal("FormatXML() succeeded")
-		}
-	}
-}
-
 func BenchmarkCompileDuplicateSchemaSources(b *testing.B) {
 	schema := largeSchemaWithText(64 << 10)
-	sources := make([]SchemaSource, 8)
+	sources := make([]xsd.SchemaSource, 8)
 	for i := range sources {
-		sources[i] = sourceBytes(fmt.Sprintf("schema%d.xsd", i), []byte(schema))
+		sources[i] = xsd.Bytes(fmt.Sprintf("schema%d.xsd", i), []byte(schema))
 	}
 	b.SetBytes(int64(len(schema) * len(sources)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := Compile(sources...); err != nil {
+		if _, err := xsd.Compile(sources...); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -399,33 +337,7 @@ func BenchmarkCompileSchemaText(b *testing.B) {
 	b.SetBytes(int64(len(schema)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkFormatXMLLargeAttribute(b *testing.B) {
-	value := strings.Repeat("a", 64<<10)
-	doc := `<root a="` + value + `"/>`
-	b.SetBytes(int64(len(doc)))
-	b.ReportAllocs()
-	for b.Loop() {
-		var out strings.Builder
-		if err := FormatXML(&out, strings.NewReader(doc)); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkFormatXMLMixedEscapedAttribute(b *testing.B) {
-	value := strings.Repeat("abc&amp;&#10;&quot;", 4096)
-	doc := `<root a="` + value + `"/>`
-	b.SetBytes(int64(len(doc)))
-	b.ReportAllocs()
-	for b.Loop() {
-		var out strings.Builder
-		if err := FormatXML(&out, strings.NewReader(doc)); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -437,7 +349,7 @@ func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
 	if schema == "" || doc == "" {
 		b.Skip("set XSD_LARGE_SCHEMA and XSD_LARGE_XML")
 	}
-	engine, err := Compile(File(schema))
+	engine, err := xsd.Compile(xsd.File(schema))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -464,7 +376,7 @@ func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
 }
 
 func BenchmarkValidateIdentityConstraints(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(identityBenchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(identityBenchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -481,7 +393,7 @@ func BenchmarkValidateIdentityConstraints(b *testing.B) {
 func BenchmarkValidateIdentityConstraintsRows(b *testing.B) {
 	for _, rows := range []int{10, 100, 1000} {
 		b.Run(fmt.Sprintf("rows_%d", rows), func(b *testing.B) {
-			engine, err := Compile(sourceBytes("schema.xsd", []byte(identityBenchmarkSchema)))
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(identityBenchmarkSchema)))
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -497,32 +409,10 @@ func BenchmarkValidateIdentityConstraintsRows(b *testing.B) {
 	}
 }
 
-func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
-	for _, refs := range []int{1, 10, 100, 1000} {
-		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
-			value := simpleValue{IDRefs: benchmarkIDREFS(refs)}
-			s := new(session)
-			s.pushPath("root")
-			s.pushPath("refs")
-			if path := s.pathString(); path != "/root/refs" {
-				b.Fatalf("pathString() = %q, want /root/refs", path)
-			}
-			b.ReportAllocs()
-			for b.Loop() {
-				s.doc.idrefs = s.doc.idrefs[:0]
-				s.doc.identityEntries = 0
-				if err := s.recordIdentityValue(value, 1, 1); err != nil {
-					b.Fatal(err)
-				}
-			}
-		})
-	}
-}
-
 func BenchmarkValidateIdentityConstraintsFields(b *testing.B) {
 	for _, fields := range []int{1, 3, 8} {
 		b.Run(fmt.Sprintf("fields_%d", fields), func(b *testing.B) {
-			engine, err := Compile(sourceBytes("schema.xsd", []byte(identityFieldsBenchmarkSchema(fields))))
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(identityFieldsBenchmarkSchema(fields))))
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -553,7 +443,7 @@ func BenchmarkCompileCountedChoiceDFA(b *testing.B) {
 			schema := countedChoiceDFASchema(tt.branches, tt.maxOccurs)
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+				if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -567,7 +457,7 @@ func BenchmarkCompileAttributeGroupFanout(b *testing.B) {
 			schema := attributeGroupFanoutSchema(refs)
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+				if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -579,14 +469,14 @@ func BenchmarkCompileRegexCategoryEscapes(b *testing.B) {
 	schema := regexCategoryEscapesSchema(100)
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := Compile(sourceBytes("schema.xsd", []byte(schema))); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkValidateConcurrent(b *testing.B) {
-	engine, err := Compile(sourceBytes("schema.xsd", []byte(benchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -627,15 +517,13 @@ func benchmarkDoc() string {
 	return b.String()
 }
 
-func benchmarkIDREFS(refs int) string {
+func benchmarkQNameDoc() string {
 	var b strings.Builder
-	for i := range refs {
-		if i > 0 {
-			b.WriteByte(' ')
-		}
-		b.WriteString("id")
-		b.WriteString(strconv.Itoa(i))
+	b.WriteString(`<root xmlns:p="urn:bench">`)
+	for range benchmarkDocRows {
+		b.WriteString(`<value>p:item</value>`)
 	}
+	b.WriteString(`</root>`)
 	return b.String()
 }
 
@@ -813,7 +701,7 @@ func BenchmarkCompileDeepSimpleTypeChain(b *testing.B) {
 	schema := []byte(sb.String())
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := Compile(sourceBytes("chain.xsd", schema)); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("chain.xsd", schema)); err != nil {
 			b.Fatal(err)
 		}
 	}

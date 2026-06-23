@@ -5,19 +5,31 @@ Pure Go XML Schema 1.0 validator.
 The public API is intentionally small:
 
 - compile schemas once with `xsd.Compile`
-- pass schema sources with `xsd.File`, `xsd.Reader`, or `xsd.LimitedReader`
+- pass schema sources with `xsd.File`, `xsd.Bytes`, `xsd.Reader`, or `xsd.LimitedReader`
 - validate each XML document with `Engine.Validate`
 - reuse document-local state with `Engine.NewSession` when useful
-- inspect failures with `errors.AsType[*xsd.Error]`
+- inspect failures with `errors.AsType[*xsderrors.Error]`
 
 Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document.
 
-`File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file. `Reader` uses only sources passed to `Compile` unless paired with a `Resolver`. `Reader` eagerly reads the whole input so the source can be reused; use `LimitedReader` for untrusted reader inputs. HTTP and network schema loading are not performed by default.
+`File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file. `Bytes` copies caller-owned schema bytes into a reusable source. `Reader` uses only sources passed to `Compile` unless paired with a `Resolver`. `Reader` eagerly reads the whole input so the source can be reused; use `Bytes` when the schema is already in memory and `LimitedReader` for untrusted reader inputs. HTTP and network schema loading are not performed by default.
 
 ## Install
 
 ```sh
 go get github.com/jacoelho/xsd
+```
+
+Import the package with the `xsd` alias:
+
+```go
+import xsd "github.com/jacoelho/xsd"
+```
+
+Diagnostics live in the `xsderrors` package:
+
+```go
+import "github.com/jacoelho/xsd/xsderrors"
 ```
 
 ## Compile From Reader
@@ -33,6 +45,19 @@ if err != nil {
 }
 
 err = engine.Validate(strings.NewReader(`<root>7</root>`))
+if err != nil {
+    return err
+}
+```
+
+## Compile From Bytes
+
+```go
+schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:int"/>
+</xs:schema>`)
+
+engine, err := xsd.Compile(xsd.Bytes("schema.xsd", schema))
 if err != nil {
     return err
 }
@@ -98,7 +123,7 @@ Available options:
 
 Negative integer limits are schema compile errors.
 
-`MaxSchemaSourceBytes` applies during compilation to every source, including files, resolver-loaded includes/imports, and data captured by `Reader`. Because `Reader` reads eagerly before `CompileWithOptions` runs, callers that need to cap untrusted `io.Reader` input should use `LimitedReader`:
+`MaxSchemaSourceBytes` applies during compilation to every source, including files, resolver-loaded includes/imports, `Bytes` data, and data captured by `Reader`. Because `Reader` reads eagerly before `CompileWithOptions` runs, callers that need to cap untrusted `io.Reader` input should use `LimitedReader`:
 
 ```go
 engine, err := xsd.Compile(xsd.LimitedReader("schema.xsd", r, 64<<20))
@@ -156,9 +181,9 @@ type mapResolver map[string]string
 func (r mapResolver) ResolveSchema(base, location string) (xsd.SchemaSource, error) {
     data, ok := r[location]
     if !ok {
-        return xsd.SchemaSource{}, xsd.ErrSchemaNotFound
+        return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
     }
-    return xsd.Reader(location, strings.NewReader(data)), nil
+    return xsd.Bytes(location, []byte(data)), nil
 }
 
 schema := strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -186,7 +211,7 @@ if err != nil {
 ```go
 err := engine.Validate(strings.NewReader(`<root>x</root>`))
 
-if xerr, ok := errors.AsType[*xsd.Error](err); ok {
+if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
     fmt.Println(xerr.Category)
     fmt.Println(xerr.Code)
     fmt.Println(xerr.Line, xerr.Column)
@@ -202,7 +227,7 @@ Error categories:
 - `validation`
 - `internal`
 
-Use `xsd.IsUnsupported(err)` when only unsupported-feature detection matters.
+Use `xsderrors.IsUnsupported(err)` when only unsupported-feature detection matters.
 
 ## Reuse Engine Concurrently
 
@@ -261,14 +286,14 @@ command -v xmllint
 Run full comparison:
 
 ```sh
-XSD_LARGE_COMPARE=1 XSD_LARGE_RUNS=20 go test -run TestLargeXMLLintComparison -timeout=0 -v
+XSD_LARGE_COMPARE=1 XSD_LARGE_RUNS=20 go test ./tests -run TestLargeXMLLintComparison -timeout=0 -v
 ```
 
 By default this generates streaming XML documents at `20MB`, `100MB`, `500MB`, `1GB`, and `2GB`, plus an identity-constraint document. Each command runs 20 times per profile and the tables report nearest-rank p95. Generated files use `t.TempDir()` and are removed after each subtest. Set `XSD_LARGE_DIR=/path/to/dir` to keep generated files. Set `XSD_LARGE_SIZE_BYTES=1048576 XSD_LARGE_RUNS=1` for a quick single-size smoke run.
 
 The command comparison reports p95 elapsed time and p95 max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
 
-Latest local run (2026-06-10, macOS 26.5, Go 1.26.2, libxml2 2.9.13, `refactor/type-representation`, p95 over 20 runs):
+Historical local run (2026-06-17, macOS 26.5, Go 1.26.4, libxml2 2.9.13, `main`, p95 over 20 runs):
 
 ```text
 goos: darwin
@@ -277,23 +302,23 @@ pkg: github.com/jacoelho/xsd
 
                          | libxml2 xmllint |             go xmllint             |
                          | p95 sec/op      | p95 sec/op      vs base           |
-streaming/20MB                 365.301ms       356.387ms       -2.44%
-streaming/100MB                   1.783s          1.740s       -2.41%
-streaming/500MB                  13.563s          8.542s      -37.03%
-streaming/1GB                    27.112s         17.201s      -36.55%
-streaming/2GB                    54.119s         34.341s      -36.55%
-identity                       649.940ms       202.121ms      -68.90%
-geomean                           4.511s          2.930s      -35.05%
+streaming/20MB                 400.405ms       348.812ms      -12.89%
+streaming/100MB                   1.792s          1.685s       -5.98%
+streaming/500MB                  13.447s          8.336s      -38.01%
+streaming/1GB                    26.104s         16.685s      -36.08%
+streaming/2GB                    52.113s         33.715s      -35.30%
+identity                       619.045ms       212.698ms      -65.64%
+geomean                           4.484s          2.893s      -35.48%
 
                          | libxml2 xmllint |             go xmllint             |
                          | p95 rss/op      | p95 rss/op      vs base           |
-streaming/20MB                 243.17MiB         6.39MiB      -97.37%
-streaming/100MB                  1.17GiB         6.36MiB      -99.47%
-streaming/500MB                  5.77GiB         6.42MiB      -99.89%
-streaming/1GB                    7.92GiB         6.38MiB      -99.92%
-streaming/2GB                   11.85GiB         6.48MiB      -99.95%
-identity                       187.88MiB        69.08MiB      -63.23%
-geomean                          1.74GiB         9.52MiB      -99.47%
+streaming/20MB                 243.19MiB         6.97MiB      -97.13%
+streaming/100MB                  1.17GiB         7.03MiB      -99.41%
+streaming/500MB                  5.63GiB         7.34MiB      -99.87%
+streaming/1GB                    8.45GiB         7.33MiB      -99.92%
+streaming/2GB                   12.32GiB         7.53MiB      -99.94%
+identity                       188.55MiB        69.73MiB      -63.01%
+geomean                          1.76GiB        10.56MiB      -99.42%
 ```
 
 ## Constraints
@@ -304,6 +329,6 @@ geomean                          1.74GiB         9.52MiB      -99.47%
 - Instance documents must be UTF-8.
 - DTDs and external entities are rejected.
 - `xsi:schemaLocation` never triggers dynamic loading.
-- `FormatXML` builds an in-memory formatting tree; validation is the streaming path.
+- The repository XML formatter builds an in-memory formatting tree; validation is the streaming path.
 - Regex support uses Go `regexp` plus a simple literal/class fast path for exact, bounded, and open repeats. Unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
 - `xs:redefine` is unsupported.

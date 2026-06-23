@@ -1,0 +1,215 @@
+package runtime
+
+import (
+	"errors"
+
+	"github.com/jacoelho/xsd/internal/vocab"
+)
+
+// ErrBareNotationValueConstraint reports an element value constraint whose
+// owner simple type graph includes xs:NOTATION without enumeration.
+var ErrBareNotationValueConstraint = errors.New("NOTATION value constraint requires enumeration")
+
+// DeclRefLimits are table sizes used to validate declaration references in a
+// frozen runtime schema.
+type DeclRefLimits struct {
+	SimpleTypeCount  int
+	ComplexTypeCount int
+	ElementCount     int
+	IdentityCount    int
+}
+
+// ElementDecl is the runtime record for one element declaration.
+type ElementDecl struct {
+	Default   *ValueConstraint
+	Fixed     *ValueConstraint
+	Identity  []IdentityConstraintID
+	Type      TypeID
+	Name      QName
+	SubstHead ElementID
+	Nillable  bool
+	Abstract  bool
+	Block     DerivationMask
+	Final     DerivationMask
+}
+
+// ElementDeclByID resolves an element declaration ID against an element table.
+func ElementDeclByID(decls []ElementDecl, id ElementID) (*ElementDecl, bool) {
+	if !ValidElementID(id, len(decls)) {
+		return nil, false
+	}
+	return &decls[id], true
+}
+
+// ElementTypeByID resolves an element declaration's type against an element
+// table.
+func ElementTypeByID(decls []ElementDecl, id ElementID) (TypeID, bool) {
+	decl, ok := ElementDeclByID(decls, id)
+	if !ok {
+		return TypeID{}, false
+	}
+	return decl.Type, true
+}
+
+// AttributeDecl is the runtime record for one attribute declaration.
+type AttributeDecl struct {
+	Default *ValueConstraint
+	Fixed   *ValueConstraint
+	Name    QName
+	Type    SimpleTypeID
+}
+
+// ElementDeclValidation is the runtime projection needed to validate element
+// declaration shape and references.
+type ElementDeclValidation struct {
+	Identity   []IdentityConstraintID
+	Name       QName
+	Type       TypeID
+	SubstHead  ElementID
+	Block      DerivationMask
+	Final      DerivationMask
+	HasDefault bool
+	HasFixed   bool
+}
+
+// AttributeDeclValidation is the runtime projection needed to validate
+// attribute declaration shape and references.
+type AttributeDeclValidation struct {
+	Name       QName
+	Type       SimpleTypeID
+	HasDefault bool
+	HasFixed   bool
+}
+
+// NewElementDeclValidationForDecl projects a runtime element declaration into
+// the shape needed for declaration invariant validation.
+func NewElementDeclValidationForDecl(decl ElementDecl) ElementDeclValidation {
+	return CloneElementDeclValidation(ElementDeclValidation{
+		Identity:   decl.Identity,
+		Name:       decl.Name,
+		Type:       decl.Type,
+		SubstHead:  decl.SubstHead,
+		Block:      decl.Block,
+		Final:      decl.Final,
+		HasDefault: decl.Default != nil,
+		HasFixed:   decl.Fixed != nil,
+	})
+}
+
+// NewAttributeDeclValidationForDecl projects a runtime attribute declaration
+// into the shape needed for declaration invariant validation.
+func NewAttributeDeclValidationForDecl(decl AttributeDecl) AttributeDeclValidation {
+	return AttributeDeclValidation{
+		Name:       decl.Name,
+		Type:       decl.Type,
+		HasDefault: decl.Default != nil,
+		HasFixed:   decl.Fixed != nil,
+	}
+}
+
+// ValidateElementDeclRuntime validates element declaration metadata that can be
+// expressed in runtime vocabulary.
+func ValidateElementDeclRuntime(names *NameTable, decl ElementDeclValidation, limits DeclRefLimits) error {
+	if names == nil || !names.ValidQName(decl.Name) || !validRuntimeTypeID(decl.Type, limits) {
+		return errors.New("element declaration references invalid name or type")
+	}
+	if !ValidElementBlockMask(decl.Block) {
+		return errors.New("element declaration block mask contains invalid derivation")
+	}
+	if !ValidElementFinalMask(decl.Final) {
+		return errors.New("element declaration final mask contains invalid derivation")
+	}
+	if decl.SubstHead != NoElement && !ValidUint32Index(uint32(decl.SubstHead), limits.ElementCount) {
+		return errors.New("element declaration references invalid substitution head")
+	}
+	if decl.HasDefault && decl.HasFixed {
+		return errors.New("element declaration stores both default and fixed value constraints")
+	}
+	for _, id := range decl.Identity {
+		if !ValidUint32Index(uint32(id), limits.IdentityCount) {
+			return errors.New("element declaration references invalid identity constraint")
+		}
+	}
+	return nil
+}
+
+// ValidateAttributeDeclRuntime validates attribute declaration metadata that can
+// be expressed in runtime vocabulary.
+func ValidateAttributeDeclRuntime(names *NameTable, decl AttributeDeclValidation, limits DeclRefLimits) error {
+	if names == nil || !names.ValidQName(decl.Name) || !ValidUint32Index(uint32(decl.Type), limits.SimpleTypeCount) {
+		return errors.New("attribute declaration references invalid name or type")
+	}
+	if err := ValidateAttributeDeclName(names, decl.Name); err != nil {
+		return err
+	}
+	if decl.HasDefault && decl.HasFixed {
+		return errors.New("attribute declaration stores both default and fixed value constraints")
+	}
+	return nil
+}
+
+// ValidateAttributeDeclName validates reserved attribute declaration names.
+func ValidateAttributeDeclName(names *NameTable, name QName) error {
+	if names == nil || !names.ValidQName(name) {
+		return errors.New("attribute declaration references invalid name")
+	}
+	if names.Local(name.Local) == vocab.XMLNSPrefix {
+		return errors.New("attribute cannot be named xmlns")
+	}
+	if names.Namespace(name.Namespace) == XSINamespaceURI {
+		return errors.New("attribute target namespace cannot be XMLSchema-instance")
+	}
+	return nil
+}
+
+// ValidateElementDeclValueConstraintRuntime validates element declaration
+// value-constraint rules that depend on the constraint's simple owner type.
+func ValidateElementDeclValueConstraintRuntime(rt interface {
+	SimpleTypeIdentityRuntime
+	ValueConstraintRuntime
+}, typ SimpleTypeID, hasDefault, hasFixed bool) error {
+	if err := validateDeclValueConstraintIdentity(rt, typ, hasDefault, hasFixed, "ID-typed element declaration stores value constraint"); err != nil {
+		return err
+	}
+	if (hasDefault || hasFixed) && SimpleTypeUsesBareNotation(rt, typ) {
+		return ErrBareNotationValueConstraint
+	}
+	return nil
+}
+
+// ValidateAttributeDeclValueConstraintRuntime validates attribute declaration
+// value-constraint rules that depend on the declaration's simple type.
+func ValidateAttributeDeclValueConstraintRuntime(rt SimpleTypeIdentityRuntime, typ SimpleTypeID, hasDefault, hasFixed bool) error {
+	return validateDeclValueConstraintIdentity(rt, typ, hasDefault, hasFixed, "ID-typed attribute declaration stores value constraint")
+}
+
+func validateDeclValueConstraintIdentity(rt SimpleTypeIdentityRuntime, typ SimpleTypeID, hasDefault, hasFixed bool, msg string) error {
+	if !hasDefault && !hasFixed {
+		return nil
+	}
+	if typ == NoSimpleType {
+		return nil
+	}
+	if rt == nil {
+		return errors.New("declaration value constraint references invalid type")
+	}
+	identity, ok := rt.SimpleTypeIdentity(typ)
+	if !ok {
+		return errors.New("declaration value constraint references invalid type")
+	}
+	if identity == SimpleIdentityID {
+		return errors.New(msg)
+	}
+	return nil
+}
+
+func validRuntimeTypeID(typ TypeID, limits DeclRefLimits) bool {
+	switch typ.Kind {
+	case TypeSimple:
+		return ValidUint32Index(typ.ID, limits.SimpleTypeCount)
+	case TypeComplex:
+		return ValidUint32Index(typ.ID, limits.ComplexTypeCount)
+	default:
+		return false
+	}
+}
