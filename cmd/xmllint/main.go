@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 type config struct {
@@ -85,7 +86,7 @@ func parseArgs(args []string) (config, error) {
 }
 
 func printValidationErrors(w io.Writer, err error) error {
-	var errs xsd.Errors
+	var errs xsderrors.Errors
 	if errors.As(err, &errs) {
 		for _, child := range errs {
 			if _, writeErr := fmt.Fprintln(w, child); writeErr != nil {

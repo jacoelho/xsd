@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 type manifest struct {
@@ -195,9 +196,9 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 
 func expectErrorCode(t *testing.T, err error, code string) {
 	t.Helper()
-	xerr, ok := errors.AsType[*xsd.Error](err)
+	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("error %v is not *xsd.Error", err)
+		t.Fatalf("error %v is not *xsderrors.Error", err)
 	}
 	if string(xerr.Code) != code {
 		t.Fatalf("error code = %s, want %s; err=%v", xerr.Code, code, err)
@@ -206,14 +207,14 @@ func expectErrorCode(t *testing.T, err error, code string) {
 
 func skipUnsupported(t *testing.T, unsupported unsupportedAllowlist, key unsupportedKey, err error) {
 	t.Helper()
-	if !xsd.IsUnsupported(err) {
+	if !xsderrors.IsUnsupported(err) {
 		return
 	}
 	code := unsupportedErrorCode(err)
 	if useErr := unsupported.use(key, code); useErr != nil {
 		t.Fatal(useErr)
 	}
-	if xerr, ok := errors.AsType[*xsd.Error](err); ok {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
 		t.Skipf("unsupported feature %s: %s", xerr.Code, xerr.Message)
 	}
 	t.Skipf("unsupported feature: %v", err)
@@ -346,7 +347,7 @@ func unsupportedInstanceKey(tc manifestCase, inst manifestInstance) unsupportedK
 }
 
 func unsupportedErrorCode(err error) string {
-	if xerr, ok := errors.AsType[*xsd.Error](err); ok {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
 		return string(xerr.Code)
 	}
 	return "unsupported"

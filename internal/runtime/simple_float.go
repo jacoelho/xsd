@@ -1,0 +1,345 @@
+package runtime
+
+import (
+	"errors"
+	"math"
+	"strconv"
+)
+
+const (
+	xsdFloatINF    = "INF"
+	xsdFloatNegINF = "-INF"
+	xsdFloatNaN    = "NaN"
+)
+
+// FloatValue is the value-space projection for xs:float and xs:double values.
+type FloatValue struct {
+	Canonical string
+	Value     float64
+}
+
+// FloatFacetValue is a projected float/double bound facet literal.
+type FloatFacetValue struct {
+	Value   float64
+	Present bool
+}
+
+// FloatFacetValues is the runtime projection needed to validate xs:float and
+// xs:double ordered bounds.
+type FloatFacetValues struct {
+	MinInclusive FloatFacetValue
+	MaxInclusive FloatFacetValue
+	MinExclusive FloatFacetValue
+	MaxExclusive FloatFacetValue
+	Facets       FacetMask
+}
+
+// ParseFloatValue parses normalized as an XML Schema float/double primitive value.
+func ParseFloatValue(kind PrimitiveKind, normalized string, needs PrimitiveValueNeed) (FloatValue, error) {
+	bits, ok := floatBits(kind)
+	if !ok {
+		return FloatValue{}, errors.New("invalid float primitive")
+	}
+	value, err := parseFloatValue(normalized, bits)
+	if err != nil {
+		return FloatValue{}, err
+	}
+	out := FloatValue{Value: value}
+	if needs.Has(PrimitiveNeedCanonical) {
+		out.Canonical = formatFloatCanonical(value, bits)
+	}
+	return out, nil
+}
+
+// EqualFloatValues reports XML Schema equality for float/double values.
+func EqualFloatValues(a, b float64) bool {
+	return a == b || math.IsNaN(a) && math.IsNaN(b)
+}
+
+// FloatRelation compares two float/double values for ordered facet restriction checks.
+func FloatRelation(got, base float64) OrderedFacetRelation {
+	switch {
+	case EqualFloatValues(got, base):
+		return OrderedFacetEqual
+	case got < base:
+		return OrderedFacetLess
+	case got > base:
+		return OrderedFacetGreater
+	default:
+		return OrderedFacetIncomparable
+	}
+}
+
+// FloatBoundsRelation compares lower and upper float/double bounds.
+func FloatBoundsRelation(lower, upper float64) OrderedFacetRelation {
+	switch {
+	case lower < upper:
+		return OrderedFacetLess
+	case lower > upper:
+		return OrderedFacetGreater
+	case lower == upper:
+		return OrderedFacetEqual
+	default:
+		return OrderedFacetIncomparable
+	}
+}
+
+// ValidateFloatFacets validates xs:float/xs:double value-space facets.
+func ValidateFloatFacets(f FloatFacetValues, value float64) error {
+	if f.Facets&FacetMinInclusive != 0 {
+		if !f.MinInclusive.Present {
+			return ErrSimpleValueMetadata
+		}
+		if !(value >= f.MinInclusive.Value) {
+			return errors.New("minInclusive facet failed")
+		}
+	}
+	if f.Facets&FacetMaxInclusive != 0 {
+		if !f.MaxInclusive.Present {
+			return ErrSimpleValueMetadata
+		}
+		if !(value <= f.MaxInclusive.Value) {
+			return errors.New("maxInclusive facet failed")
+		}
+	}
+	if f.Facets&FacetMinExclusive != 0 {
+		if !f.MinExclusive.Present {
+			return ErrSimpleValueMetadata
+		}
+		if !(value > f.MinExclusive.Value) {
+			return errors.New("minExclusive facet failed")
+		}
+	}
+	if f.Facets&FacetMaxExclusive != 0 {
+		if !f.MaxExclusive.Present {
+			return ErrSimpleValueMetadata
+		}
+		if !(value < f.MaxExclusive.Value) {
+			return errors.New("maxExclusive facet failed")
+		}
+	}
+	return nil
+}
+
+// ValidateFloatFacetBounds validates effective lower/upper float bound
+// consistency for xs:float/xs:double facets.
+func ValidateFloatFacetBounds(kind PrimitiveKind, f FloatFacetValues) error {
+	lower := floatLowerBound(f)
+	upper := floatUpperBound(f)
+	cmp := OrderedFacetIncomparable
+	if lower.present() && upper.present() {
+		cmp = FloatBoundsRelation(lower.value, upper.value)
+	}
+	return ValidateOrderedFacetBounds(OrderedFacetBoundsValidation{
+		Primitive: kind,
+		Lower:     lower.bound,
+		Upper:     upper.bound,
+		Relation:  cmp,
+	})
+}
+
+// FloatOrderedFacetsRestrict reports whether derived float/double ordered
+// facets restrict the base facets.
+func FloatOrderedFacetsRestrict(derived, base FloatFacetValues) bool {
+	lower := floatLowerBound(derived)
+	baseLower := floatLowerBound(base)
+	upper := floatUpperBound(derived)
+	baseUpper := floatUpperBound(base)
+	return floatLowerRestricts(lower, baseLower) && floatUpperRestricts(upper, baseUpper)
+}
+
+type floatFacetBound struct {
+	value float64
+	bound OrderedFacetBound
+}
+
+func (b floatFacetBound) present() bool {
+	return b.bound.present()
+}
+
+func floatLowerBound(f FloatFacetValues) floatFacetBound {
+	if !f.MinInclusive.Present {
+		if !f.MinExclusive.Present {
+			return floatFacetBound{}
+		}
+		return floatFacetBound{
+			value: f.MinExclusive.Value,
+			bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive},
+		}
+	}
+	if !f.MinExclusive.Present || !(f.MinExclusive.Value >= f.MinInclusive.Value) {
+		return floatFacetBound{
+			value: f.MinInclusive.Value,
+			bound: OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
+		}
+	}
+	return floatFacetBound{
+		value: f.MinExclusive.Value,
+		bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive},
+	}
+}
+
+func floatUpperBound(f FloatFacetValues) floatFacetBound {
+	if !f.MaxInclusive.Present {
+		if !f.MaxExclusive.Present {
+			return floatFacetBound{}
+		}
+		return floatFacetBound{
+			value: f.MaxExclusive.Value,
+			bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive},
+		}
+	}
+	if !f.MaxExclusive.Present || !(f.MaxExclusive.Value <= f.MaxInclusive.Value) {
+		return floatFacetBound{
+			value: f.MaxInclusive.Value,
+			bound: OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
+		}
+	}
+	return floatFacetBound{
+		value: f.MaxExclusive.Value,
+		bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive},
+	}
+}
+
+func floatLowerRestricts(derived, base floatFacetBound) bool {
+	relation := OrderedFacetIncomparable
+	if derived.present() && base.present() {
+		relation = FloatRelation(derived.value, base.value)
+	}
+	return OrderedFacetLowerRestricts(derived.bound, base.bound, relation)
+}
+
+func floatUpperRestricts(derived, base floatFacetBound) bool {
+	relation := OrderedFacetIncomparable
+	if derived.present() && base.present() {
+		relation = FloatRelation(derived.value, base.value)
+	}
+	return OrderedFacetUpperRestricts(derived.bound, base.bound, relation)
+}
+
+func formatFloatCanonical(v float64, bits int) string {
+	if math.IsInf(v, 1) {
+		return xsdFloatINF
+	}
+	if math.IsInf(v, -1) {
+		return xsdFloatNegINF
+	}
+	if math.IsNaN(v) {
+		return xsdFloatNaN
+	}
+	if v == 0 {
+		return "0"
+	}
+	return strconv.FormatFloat(v, 'g', -1, bits)
+}
+
+func parseFloatValue(s string, bits int) (float64, error) {
+	switch s {
+	case xsdFloatINF:
+		return math.Inf(1), nil
+	case xsdFloatNegINF:
+		return math.Inf(-1), nil
+	case xsdFloatNaN:
+		return math.NaN(), nil
+	}
+	if !floatLexicalOK(s) {
+		return 0, errors.New("invalid float")
+	}
+	v, err := strconv.ParseFloat(s, bits)
+	if err != nil {
+		var numErr *strconv.NumError
+		if errors.As(err, &numErr) && errors.Is(numErr.Err, strconv.ErrRange) {
+			return v, nil
+		}
+		return 0, errors.New("invalid float")
+	}
+	return v, nil
+}
+
+func floatBits(kind PrimitiveKind) (int, bool) {
+	switch kind {
+	case PrimitiveFloat:
+		return 32, true
+	case PrimitiveDouble:
+		return 64, true
+	default:
+		return 0, false
+	}
+}
+
+// ValidateFloatLexical validates raw as an XML Schema float/double lexical
+// value. bits must be 32 for xs:float or 64 for xs:double.
+func ValidateFloatLexical[T byteText](raw T, bits int) error {
+	switch {
+	case floatTextEqual(xsdFloatINF, raw),
+		floatTextEqual(xsdFloatNegINF, raw),
+		floatTextEqual(xsdFloatNaN, raw):
+		return nil
+	}
+	if !floatLexicalOK(raw) {
+		return errors.New("invalid float")
+	}
+	if _, err := strconv.ParseFloat(string(raw), bits); err != nil {
+		var numErr *strconv.NumError
+		if errors.As(err, &numErr) && errors.Is(numErr.Err, strconv.ErrRange) {
+			return nil
+		}
+		return errors.New("invalid float")
+	}
+	return nil
+}
+
+func floatLexicalOK[T byteText](raw T) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	i := 0
+	if raw[i] == '+' || raw[i] == '-' {
+		i++
+		if i == len(raw) {
+			return false
+		}
+	}
+	digits := 0
+	for i < len(raw) && isASCIIDigit(raw[i]) {
+		i++
+		digits++
+	}
+	if i < len(raw) && raw[i] == '.' {
+		i++
+		for i < len(raw) && isASCIIDigit(raw[i]) {
+			i++
+			digits++
+		}
+	}
+	if digits == 0 {
+		return false
+	}
+	if i < len(raw) && (raw[i] == 'e' || raw[i] == 'E') {
+		i++
+		if i < len(raw) && (raw[i] == '+' || raw[i] == '-') {
+			i++
+		}
+		expDigits := 0
+		for i < len(raw) && isASCIIDigit(raw[i]) {
+			i++
+			expDigits++
+		}
+		if expDigits == 0 {
+			return false
+		}
+	}
+	return i == len(raw)
+}
+
+func floatTextEqual[T byteText](s string, raw T) bool {
+	if len(s) != len(raw) {
+		return false
+	}
+	for i := range s {
+		if s[i] != raw[i] {
+			return false
+		}
+	}
+	return true
+}

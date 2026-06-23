@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/internal/format"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 const (
@@ -48,10 +50,10 @@ func formatXMLData(input string) formatResponse {
 	}
 
 	var out strings.Builder
-	err := xsd.FormatXMLWithOptions(&out, strings.NewReader(input), xsd.FormatOptions{MaxOutputBytes: maxFormattedXMLBytes})
+	err := format.XMLWithOptions(&out, strings.NewReader(input), format.Options{MaxOutputBytes: maxFormattedXMLBytes})
 	if err != nil {
 		resp := formatResponse{Error: errorMessage(err)}
-		var xerr *xsd.XMLFormatError
+		var xerr *xsderrors.Error
 		if errors.As(err, &xerr) {
 			resp.Line = xerr.Line
 			resp.Column = xerr.Column
@@ -87,7 +89,7 @@ func collectErrors(err error, source string) []errorOutput {
 	if err == nil {
 		return nil
 	}
-	var errs xsd.Errors
+	var errs xsderrors.Errors
 	if !errors.As(err, &errs) {
 		return []errorOutput{errorToOutput(err, source)}
 	}
@@ -99,7 +101,7 @@ func collectErrors(err error, source string) []errorOutput {
 }
 
 func errorToOutput(err error, source string) errorOutput {
-	var xerr *xsd.Error
+	var xerr *xsderrors.Error
 	if errors.As(err, &xerr) {
 		return errorOutput{
 			Category: string(xerr.Category),
@@ -114,7 +116,7 @@ func errorToOutput(err error, source string) errorOutput {
 	return errorOutput{Source: source, Message: err.Error()}
 }
 
-func xsdErrorMessage(err *xsd.Error) string {
+func xsdErrorMessage(err *xsderrors.Error) string {
 	if err == nil {
 		return ""
 	}
@@ -132,7 +134,7 @@ func xsdErrorMessage(err *xsd.Error) string {
 }
 
 func errorMessage(err error) string {
-	var formatErr *xsd.XMLFormatError
+	var formatErr *xsderrors.Error
 	if errors.As(err, &formatErr) && formatErr.Err != nil {
 		return formatErr.Err.Error()
 	}
