@@ -25,7 +25,7 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 		key := strconv.Itoa(i)
 		s.pathCache[pathCacheKey{Parent: key, Local: key}] = key
 	}
-	if err := s.doc.identity.RecordValue(IdentityValue{IDs: "stale"}, IdentityLimits{}, s.startContext(1, 1)); err != nil {
+	if err := recordValueForTest(&s.doc.identity, IdentityValue{IDs: "stale"}, s.startContext(1, 1)); err != nil {
 		t.Fatalf("record identity state: %v", err)
 	}
 	if err := s.doc.schemaLocationHints.RecordAttribute(staleSchemaLocationHintName(), "urn:stale stale.xsd", s.startContext(1, 1)); err != nil {

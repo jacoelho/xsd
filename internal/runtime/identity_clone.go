@@ -35,20 +35,6 @@ func NewIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstrai
 	}
 }
 
-// CloneIdentityConstraints deep-clones identity-constraint metadata for frozen
-// runtime publication.
-func CloneIdentityConstraints(in []IdentityConstraint) []IdentityConstraint {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i].Selector = CloneIdentityPaths(in[i].Selector)
-		out[i].Fields = CloneIdentityFields(in[i].Fields)
-		out[i].ElementFields = cloneCompiledIdentityFields(in[i].ElementFields)
-		out[i].AttributeFields = cloneCompiledIdentityFieldMap(in[i].AttributeFields)
-		out[i].AttributeWildcardFields = cloneCompiledIdentityFields(in[i].AttributeWildcardFields)
-	}
-	return out
-}
-
 // CloneIdentityConstraintIDs clones an identity-constraint ID list for frozen
 // runtime publication.
 func CloneIdentityConstraintIDs(in []IdentityConstraintID) []IdentityConstraintID {

@@ -19,7 +19,7 @@ type IdentityNameResolver interface {
 func ParseIdentityPaths(xpath string, resolver IdentityNameResolver) ([]runtime.IdentityPath, error) {
 	out := make([]runtime.IdentityPath, 0, strings.Count(xpath, "|")+1)
 	for part := range strings.SplitSeq(xpath, "|") {
-		part = trimIdentityXMLWhitespace(part)
+		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity selector XPath branch is empty")
 		}
@@ -45,7 +45,7 @@ func ParseIdentityPaths(xpath string, resolver IdentityNameResolver) ([]runtime.
 func ParseIdentityFieldPaths(xpath string, resolver IdentityNameResolver) ([]runtime.IdentityFieldPath, error) {
 	out := make([]runtime.IdentityFieldPath, 0, strings.Count(xpath, "|")+1)
 	for part := range strings.SplitSeq(xpath, "|") {
-		part = trimIdentityXMLWhitespace(part)
+		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
 		}
@@ -125,10 +125,10 @@ func splitIdentityLastStep(path string) (string, string) {
 
 func parseIdentityDescendantPrefix(path string) (string, bool) {
 	if rest, ok := strings.CutPrefix(path, ".//"); ok {
-		return trimIdentityXMLWhitespace(rest), true
+		return lex.TrimXMLWhitespaceString(rest), true
 	}
 	if rest, ok := strings.CutPrefix(path, ". //"); ok {
-		return trimIdentityXMLWhitespace(rest), true
+		return lex.TrimXMLWhitespaceString(rest), true
 	}
 	return path, false
 }
@@ -154,7 +154,7 @@ type identityNameTest struct {
 }
 
 func parseIdentityNameTestParts(lexical string, resolver IdentityNameResolver) (identityNameTest, error) {
-	lexical = trimIdentityXMLWhitespace(lexical)
+	lexical = lex.TrimXMLWhitespaceString(lexical)
 	if lexical == "*" {
 		return identityNameTest{name: runtime.NoQName, wildcard: true}, nil
 	}
@@ -188,7 +188,7 @@ func parseIdentitySteps(path string, resolver IdentityNameResolver) ([]runtime.I
 	}
 	steps := make([]runtime.IdentityStep, 0, strings.Count(path, "/")+1)
 	for part := range strings.SplitSeq(path, "/") {
-		part = trimIdentityXMLWhitespace(part)
+		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step")
 		}
@@ -215,17 +215,17 @@ func parseIdentitySteps(path string, resolver IdentityNameResolver) ([]runtime.I
 }
 
 func parseIdentityAxisStep(part, axis string) (string, bool) {
-	part = trimIdentityXMLWhitespace(part)
+	part = lex.TrimXMLWhitespaceString(part)
 	rest, ok := strings.CutPrefix(part, axis)
 	if !ok {
 		return "", false
 	}
-	rest = trimIdentityXMLWhitespace(rest)
+	rest = lex.TrimXMLWhitespaceString(rest)
 	rest, ok = strings.CutPrefix(rest, "::")
 	if !ok {
 		return "", false
 	}
-	return trimIdentityXMLWhitespace(rest), true
+	return lex.TrimXMLWhitespaceString(rest), true
 }
 
 func parseIdentityQName(lexical string, resolver IdentityNameResolver) (runtime.QName, error) {
@@ -240,7 +240,7 @@ func parseIdentityQName(lexical string, resolver IdentityNameResolver) (runtime.
 }
 
 func parseIdentityQNamePrefixWildcard(lexical string) (string, bool, error) {
-	lexical = trimIdentityXMLWhitespace(lexical)
+	lexical = lex.TrimXMLWhitespaceString(lexical)
 	prefix, local, ok := strings.Cut(lexical, ":")
 	if !ok || local != "*" {
 		return "", false, nil
@@ -249,24 +249,4 @@ func parseIdentityQNamePrefixWildcard(lexical string) (string, bool, error) {
 		return "", true, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, invalidQNameMessagePrefix+lexical)
 	}
 	return prefix, true, nil
-}
-
-func trimIdentityXMLWhitespace(s string) string {
-	start, end := 0, len(s)
-	for start < end && isIdentityXMLWhitespace(s[start]) {
-		start++
-	}
-	for end > start && isIdentityXMLWhitespace(s[end-1]) {
-		end--
-	}
-	return s[start:end]
-}
-
-func isIdentityXMLWhitespace(c byte) bool {
-	switch c {
-	case ' ', '\t', '\n', '\r':
-		return true
-	default:
-		return false
-	}
 }

@@ -251,56 +251,6 @@ var elementDeclarationChildOrder = ChildOrder{
 	InvalidMsg: func(local string) string { return "invalid element child " + local },
 }
 
-// ValidateSimpleTypeChildren validates xs:simpleType child order over local
-// element names and returns a ChildOrderError indexed into children.
-func ValidateSimpleTypeChildren(children []string) error {
-	if err := CheckOrderedChildren(children, simpleTypeChildOrder); err != nil {
-		return err
-	}
-	if !hasSimpleTypeDerivation(children) {
-		return childOrderError(-1, "simpleType must contain one restriction, list, or union")
-	}
-	return nil
-}
-
-// ValidateSimpleRestrictionChildren validates xs:restriction child order over
-// local element names and returns a ChildOrderError indexed into children.
-func ValidateSimpleRestrictionChildren(children []string) error {
-	return CheckOrderedChildren(children, simpleRestrictionChildOrder)
-}
-
-// ValidateSimpleListChildren validates xs:list child order over local element
-// names and returns a ChildOrderError indexed into children.
-func ValidateSimpleListChildren(children []string) error {
-	return CheckOrderedChildren(children, simpleListChildOrder)
-}
-
-// ValidateSimpleUnionChildren validates xs:union child order over local element
-// names and returns a ChildOrderError indexed into children.
-func ValidateSimpleUnionChildren(children []string) error {
-	return CheckOrderedChildren(children, simpleUnionChildOrder)
-}
-
-// ValidateComplexTypeChildren validates xs:complexType child order over local
-// element names and returns a ChildOrderError indexed into children.
-func ValidateComplexTypeChildren(children []string) error {
-	return CheckOrderedChildren(children, complexTypeChildOrder)
-}
-
-// ValidateComplexContentChildren validates xs:complexContent child order over
-// local element names and returns a ChildOrderError indexed into children.
-func ValidateComplexContentChildren(children []string) error {
-	_, err := ValidateComplexContentChildrenSyntax(children)
-	return err
-}
-
-// ValidateSimpleContentChildren validates xs:simpleContent child order over
-// local element names and returns a ChildOrderError indexed into children.
-func ValidateSimpleContentChildren(children []string) error {
-	_, err := ValidateSimpleContentChildrenSyntax(children)
-	return err
-}
-
 // ValidateComplexContentChildrenSyntax validates xs:complexContent child order
 // and returns the selected derivation child.
 func ValidateComplexContentChildrenSyntax(children []string) (ContentDerivationSyntax, error) {
@@ -313,34 +263,6 @@ func ValidateSimpleContentChildrenSyntax(children []string) (ContentDerivationSy
 	return validateDerivationContainerChildren(simpleContent, children, simpleContentChildOrder)
 }
 
-// ValidateSimpleContentRestrictionChildren validates xs:simpleContent
-// xs:restriction child order over local element names and returns a
-// ChildOrderError indexed into children.
-func ValidateSimpleContentRestrictionChildren(children []string) error {
-	return CheckOrderedChildren(children, simpleContentRestrictionChildOrder)
-}
-
-// ValidateSimpleContentExtensionChildren validates xs:simpleContent
-// xs:extension child order over local element names and returns a
-// ChildOrderError indexed into children.
-func ValidateSimpleContentExtensionChildren(children []string) error {
-	return CheckOrderedChildren(children, simpleContentExtensionChildOrder)
-}
-
-// ValidateComplexContentRestrictionChildren validates xs:complexContent
-// xs:restriction child order over local element names and returns a
-// ChildOrderError indexed into children.
-func ValidateComplexContentRestrictionChildren(children []string) error {
-	return CheckOrderedChildren(children, complexContentRestrictionChildOrder)
-}
-
-// ValidateComplexContentExtensionChildren validates xs:complexContent
-// xs:extension child order over local element names and returns a
-// ChildOrderError indexed into children.
-func ValidateComplexContentExtensionChildren(children []string) error {
-	return CheckOrderedChildren(children, complexContentExtensionChildOrder)
-}
-
 // ValidateContentDerivationBase validates that a content derivation has its
 // required base attribute.
 func ValidateContentDerivationBase(container, derivation string, hasBase bool) error {
@@ -348,57 +270,6 @@ func ValidateContentDerivationBase(container, derivation string, hasBase bool) e
 		return nil
 	}
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, container+" "+derivation+" missing base")
-}
-
-// ValidateAnyParticleChildren validates xs:any child syntax over local element
-// names and returns a ChildOrderError indexed into children.
-func ValidateAnyParticleChildren(children []string) error {
-	return CheckOrderedChildren(children, anyParticleChildOrder)
-}
-
-// ValidateAnyAttributeChildren validates xs:anyAttribute child syntax over
-// local element names and returns a ChildOrderError indexed into children.
-func ValidateAnyAttributeChildren(children []string) error {
-	return CheckOrderedChildren(children, anyAttributeChildOrder)
-}
-
-// ValidateElementRefChildren validates xs:element ref child syntax over local
-// element names and returns a ChildOrderError indexed into children.
-func ValidateElementRefChildren(children []string) error {
-	return CheckOrderedChildren(children, elementRefChildOrder)
-}
-
-// ValidateAttributeRefChildren validates xs:attribute ref child syntax over
-// local element names and returns a ChildOrderError indexed into children.
-func ValidateAttributeRefChildren(children []string) error {
-	return CheckOrderedChildren(children, attributeRefChildOrder)
-}
-
-// ValidateAttributeGroupUseChildren validates xs:attributeGroup ref child
-// syntax over local element names and returns a ChildOrderError indexed into
-// children.
-func ValidateAttributeGroupUseChildren(children []string) error {
-	return CheckOrderedChildren(children, attributeGroupUseChildOrder)
-}
-
-// ValidateGroupUseChildren validates xs:group ref child syntax over local
-// element names and returns a ChildOrderError indexed into children.
-func ValidateGroupUseChildren(children []string) error {
-	return CheckOrderedChildren(children, groupUseChildOrder)
-}
-
-// ValidateAttributeGroupDeclarationChildren validates xs:attributeGroup
-// declaration child syntax over local element names and returns a
-// ChildOrderError indexed into children.
-func ValidateAttributeGroupDeclarationChildren(children []string) error {
-	return CheckOrderedChildren(children, attributeGroupDeclarationChildOrder)
-}
-
-// ValidateModelGroupChildren validates xs:sequence/xs:choice/xs:all child
-// syntax over local element names and returns a ChildOrderError indexed into
-// children.
-func ValidateModelGroupChildren(parent string, children []string) error {
-	return CheckOrderedChildren(children, modelGroupChildOrder(parent))
 }
 
 var (
@@ -489,20 +360,6 @@ func ValidateTopLevelGroupChildren(children []TopLevelGroupChild) (TopLevelGroup
 // children.
 func ValidateAttributeDeclarationChildren(children []string) error {
 	return CheckOrderedChildren(children, attributeDeclarationChildOrder)
-}
-
-// ValidateElementDeclarationChildren validates xs:element declaration child
-// order over local element names and returns a ChildOrderError indexed into
-// children. If hasTypeAttr is true, an anonymous type child is a parent-level
-// invalid-attribute issue reported with index -1.
-func ValidateElementDeclarationChildren(children []string, hasTypeAttr bool) error {
-	if err := CheckOrderedChildren(children, elementDeclarationChildOrder); err != nil {
-		return err
-	}
-	if hasTypeAttr && hasAnonymousElementType(children) {
-		return childOrderError(-1, "element cannot have both type and anonymous type")
-	}
-	return nil
 }
 
 // CheckOrderedChildren validates component child order over local element
@@ -697,16 +554,6 @@ func isFacetChild(local string) bool {
 	}
 }
 
-func hasSimpleTypeDerivation(children []string) bool {
-	for _, child := range children {
-		switch child {
-		case restrictionChild, listChild, unionChild:
-			return true
-		}
-	}
-	return false
-}
-
 func validateDerivationContainerChildren(label string, children []string, order ChildOrder) (ContentDerivationSyntax, error) {
 	syntax := ContentDerivationSyntax{Index: -1}
 	if err := CheckOrderedChildren(children, order); err != nil {
@@ -721,16 +568,6 @@ func validateDerivationContainerChildren(label string, children []string, order 
 		}
 	}
 	return syntax, childOrderError(-1, label+" missing extension or restriction")
-}
-
-func hasAnonymousElementType(children []string) bool {
-	for _, child := range children {
-		switch child {
-		case simpleTypeChild, complexTypeChild:
-			return true
-		}
-	}
-	return false
 }
 
 func matchChildLocal(locals ...string) func(string) bool {

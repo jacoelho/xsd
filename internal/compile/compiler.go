@@ -64,14 +64,22 @@ type compilerIndexState struct {
 }
 
 type compilerBuildState struct {
-	simpleDone       map[runtime.QName]runtime.SimpleTypeID
-	complexDone      map[runtime.QName]runtime.ComplexTypeID
-	attributeDone    map[runtime.QName]runtime.AttributeID
-	attrGroupDone    map[runtime.QName]runtime.AttributeUseSetID
-	elementDone      map[runtime.QName]runtime.ElementID
-	localDone        map[*rawNode]runtime.ElementID
-	identityDeclared map[*rawNode]runtime.IdentityConstraintID
-	regexCategories  RegexCategoryCache
+	simpleDone               map[runtime.QName]runtime.SimpleTypeID
+	complexDone              map[runtime.QName]runtime.ComplexTypeID
+	attributeDone            map[runtime.QName]runtime.AttributeID
+	attrGroupDone            map[runtime.QName]runtime.AttributeUseSetID
+	elementDone              map[runtime.QName]runtime.ElementID
+	localDone                map[*rawNode]runtime.ElementID
+	identityDeclared         map[*rawNode]runtime.IdentityConstraintID
+	regexCategories          RegexCategoryCache
+	deferredAnonymousComplex []deferredAnonymousComplex
+}
+
+type deferredAnonymousComplex struct {
+	node *rawNode
+	ctx  *schemaContext
+	name runtime.QName
+	id   runtime.ComplexTypeID
 }
 
 type compilerCycleState struct {
@@ -260,6 +268,9 @@ func (c *compiler) compileGlobals() error {
 		if _, err := c.compileElementByQName(q); err != nil {
 			return err
 		}
+	}
+	if err := c.drainDeferredAnonymousComplex(); err != nil {
+		return err
 	}
 	if err := c.compileSubstitutions(); err != nil {
 		return err

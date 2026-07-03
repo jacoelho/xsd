@@ -430,7 +430,7 @@ func (s *session) finishIdentitySelection(sel identitySelection, limits Identity
 		if err := s.reserveIdentityEntry(key, ctx.Line, ctx.Column); err != nil {
 			return err
 		}
-		table[key] = identityTableEntry{path: sel.path}
+		table[key] = identityTableEntry{path: sel.path, node: sel.node}
 	case runtime.IdentityKeyRef:
 		if err := s.reserveIdentityEntry(key, ctx.Line, ctx.Column); err != nil {
 			return err

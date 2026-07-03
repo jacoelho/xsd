@@ -41,7 +41,6 @@ type Schema struct {
 	SimpleTypeFinals               []DerivationMask
 	SimpleValueTypeReads           []SimpleValueTypeRead
 	SimpleValueFacetReads          SimpleValueFacetReadTable
-	SimpleValueReads               []SimpleValueRead
 	SimpleValueQNameResolverNeeds  []bool
 	simpleValueCallbacks           SimpleValueCallbacks
 	rawSimpleValueCallbacks        RawSimpleValueCallbacks

@@ -1,9 +1,8 @@
 package validate
 
 import (
-	"encoding/xml"
-
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -111,7 +110,7 @@ func (s *session) recoverableSchemaChild(ctx StartContext, code xsderrors.Code, 
 	return out, validation(ctx, code, msg)
 }
 
-func (s *session) end(line, col int, ee xml.EndElement) error {
+func (s *session) end(line, col int, ee stream.EndElement) error {
 	if len(s.doc.stack) == 0 {
 		return ValidateEndElement(EndElementInput{
 			Context:      s.startContext(line, col),
@@ -124,9 +123,16 @@ func (s *session) end(line, col int, ee xml.EndElement) error {
 	}
 	ee.Name = translated
 	expected := s.doc.elementNames[len(s.doc.elementNames)-1]
-	if ee.Name != expected {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationXML,
-			"end element </"+formatXMLName(ee.Name)+"> does not match start element <"+formatXMLName(expected)+">")
+	expectedRaw := s.doc.elementRawNames[len(s.doc.elementRawNames)-1]
+	if err := ValidateEndElement(EndElementInput{
+		Name:            ee.Name,
+		Expected:        expected,
+		RawName:         ee.RawName,
+		ExpectedRawName: expectedRaw,
+		Context:         s.startContext(line, col),
+		OpenElements:    len(s.doc.stack),
+	}); err != nil {
+		return err
 	}
 	f := &s.doc.stack[len(s.doc.stack)-1]
 	stop := s.validateFrameEnd(f, line, col)
@@ -142,6 +148,9 @@ func (s *session) end(line, col int, ee xml.EndElement) error {
 	}
 	if len(s.doc.elementNames) > 0 {
 		s.doc.elementNames = s.doc.elementNames[:len(s.doc.elementNames)-1]
+	}
+	if len(s.doc.elementRawNames) > 0 {
+		s.doc.elementRawNames = s.doc.elementRawNames[:len(s.doc.elementRawNames)-1]
 	}
 	s.doc.ns.Pop()
 	return stop

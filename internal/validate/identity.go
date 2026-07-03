@@ -117,6 +117,7 @@ type IdentityState struct {
 	fieldValues []identityFieldValue
 	matches     []IdentityFieldMatch
 	entries     int
+	nextNodeID  uint64
 }
 
 type identityRef struct {
@@ -134,9 +135,10 @@ type identityScope struct {
 }
 
 // identityTableEntry records where a key tuple was first seen. Conflict marks
-// tuples propagated from child scopes with differing paths.
+// tuples propagated from child scopes with differing selected nodes.
 type identityTableEntry struct {
 	path     string
+	node     uint64
 	conflict bool
 }
 
@@ -150,6 +152,7 @@ type identityTupleRef struct {
 
 type identitySelection struct {
 	path       string
+	node       uint64
 	scope      int
 	depth      int
 	fieldStart int
@@ -169,20 +172,6 @@ type identityFieldValue struct {
 type IdentityFieldMatch struct {
 	Selection int
 	Field     int
-}
-
-// IdentityScopeView exposes active scope metadata to schema-owned selector matching.
-type IdentityScopeView struct {
-	Constraints []runtime.IdentityConstraintID
-	Index       int
-	Depth       int
-}
-
-// IdentitySelectionView exposes active selection metadata to schema-owned field matching.
-type IdentitySelectionView struct {
-	Constraint runtime.IdentityConstraintID
-	Index      int
-	Depth      int
 }
 
 // IdentityConstraintRuntime supplies identity-constraint metadata needed to
@@ -212,6 +201,7 @@ func (s *IdentityState) Reset(maxRetainedIDs, maxRetainedSlices int) {
 	s.fieldValues = resetRetainedIdentitySlice(s.fieldValues, maxRetainedSlices)
 	s.matches = resetRetainedIdentitySlice(s.matches, maxRetainedSlices)
 	s.entries = 0
+	s.nextNodeID = 0
 }
 
 func resetRetainedIdentitySlice[T any](in []T, maxRetainedCap int) []T {
@@ -220,61 +210,6 @@ func resetRetainedIdentitySlice[T any](in []T, maxRetainedCap int) []T {
 	}
 	clear(in[:cap(in)])
 	return in[:0]
-}
-
-// RecordAttribute records ID/IDREF values for one attribute and rejects multiple ID attributes.
-func (s *IdentityState) RecordAttribute(value IdentityValue, seenID *bool, limits IdentityLimits, ctx StartContext) error {
-	if value.IDs != "" {
-		if seenID != nil && *seenID {
-			return validation(ctx, xsderrors.CodeValidationType, "multiple ID attributes")
-		}
-		if seenID != nil {
-			*seenID = true
-		}
-	}
-	return s.RecordValue(value, limits, ctx)
-}
-
-// RecordAttributeSimpleValue records ID/IDREF values from one validated attribute value.
-func (s *IdentityState) RecordAttributeSimpleValue(value runtime.SimpleValue, seenID *bool, limits IdentityLimits, ctx StartContext) error {
-	return s.RecordAttribute(SimpleValueIdentity(value), seenID, limits, ctx)
-}
-
-// RecordValue records ID and IDREF values.
-func (s *IdentityState) RecordValue(value IdentityValue, limits IdentityLimits, ctx StartContext) error {
-	if value.IDs == "" && value.IDRefs == "" {
-		return nil
-	}
-	var err error
-	path := ctx.PathString()
-	for canonical := range lex.XMLFieldsSeq(value.IDs) {
-		if s.ids == nil {
-			s.ids = make(map[string]string)
-		}
-		if prev, exists := s.ids[canonical]; exists {
-			err = validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
-			break
-		}
-		if err = s.ReserveEntry(canonical, limits, ctx); err != nil {
-			break
-		}
-		s.ids[canonical] = path
-	}
-	if err != nil {
-		return err
-	}
-	for canonical := range lex.XMLFieldsSeq(value.IDRefs) {
-		if err = s.ReserveEntry(canonical, limits, ctx); err != nil {
-			break
-		}
-		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: path, Line: ctx.Line, Col: ctx.Column})
-	}
-	return err
-}
-
-// RecordSimpleValue records ID and IDREF values from one validated simple value.
-func (s *IdentityState) RecordSimpleValue(value runtime.SimpleValue, limits IdentityLimits, ctx StartContext) error {
-	return s.RecordValue(SimpleValueIdentity(value), limits, ctx)
 }
 
 // ReserveEntry reserves one identity entry against global identity limits.
@@ -358,23 +293,13 @@ func (s *IdentityState) HasScopes() bool {
 	return s != nil && len(s.scopes) != 0
 }
 
-// ForEachScope calls fn for each active scope.
-func (s *IdentityState) ForEachScope(fn func(IdentityScopeView)) {
-	if s == nil {
-		return
-	}
-	for i := range s.scopes {
-		scope := &s.scopes[i]
-		fn(IdentityScopeView{Index: i, Depth: scope.depth, Constraints: scope.constraints})
-	}
-}
-
 // StartSelection starts collecting fields for one matched identity selector.
 func (s *IdentityState) StartSelection(scope, depth int, constraint runtime.IdentityConstraintID, fieldCount int, ctx StartContext) {
 	fieldStart := len(s.fieldValues)
 	for range fieldCount {
 		s.fieldValues = append(s.fieldValues, identityFieldValue{})
 	}
+	s.nextNodeID++
 	s.selections = append(s.selections, identitySelection{
 		scope:      scope,
 		constraint: constraint,
@@ -382,6 +307,7 @@ func (s *IdentityState) StartSelection(scope, depth int, constraint runtime.Iden
 		fieldStart: fieldStart,
 		fieldLen:   fieldCount,
 		path:       ctx.PathString(),
+		node:       s.nextNodeID,
 		line:       ctx.Line,
 		col:        ctx.Column,
 	})
@@ -525,17 +451,6 @@ func (s *IdentityState) AttributeFieldMatchesSchema(rt *runtime.Schema, namePath
 		}
 	}
 	return s.FieldMatches(), nil
-}
-
-// ForEachSelection calls fn for each active selection.
-func (s *IdentityState) ForEachSelection(fn func(IdentitySelectionView)) {
-	if s == nil {
-		return
-	}
-	for i := range s.selections {
-		sel := &s.selections[i]
-		fn(IdentitySelectionView{Index: i, Constraint: sel.constraint, Depth: sel.depth})
-	}
 }
 
 // SelectionPath returns the validation path for selection.
@@ -686,44 +601,6 @@ func (s *IdentityState) CaptureComplexElementFields(matches []IdentityFieldMatch
 	return s.CaptureFields(matches, key, ctx)
 }
 
-// FinishSelections finishes selections selected at depth.
-func (s *IdentityState) FinishSelections(
-	rt IdentityConstraintRuntime,
-	depth int,
-	limits IdentityLimits,
-	ctx StartContext,
-	report func(error) error,
-) error {
-	if s == nil || len(s.selections) == 0 {
-		return nil
-	}
-	orig := s.selections
-	dst := s.selections[:0]
-	for i := range s.selections {
-		sel := s.selections[i]
-		if sel.depth != depth {
-			dst = append(dst, sel)
-			continue
-		}
-		if err := s.finishSelection(rt, sel, limits, ctx); err != nil {
-			clear(s.selectionFields(sel))
-			if recoverErr := report(err); recoverErr != nil {
-				dst = append(dst, orig[i+1:]...)
-				clear(orig[len(dst):])
-				s.selections = dst
-				s.truncateFieldValues()
-				return recoverErr
-			}
-			continue
-		}
-		clear(s.selectionFields(sel))
-	}
-	clear(orig[len(dst):])
-	s.selections = dst
-	s.truncateFieldValues()
-	return nil
-}
-
 func (s *IdentityState) finishSelection(
 	rt IdentityConstraintRuntime,
 	sel identitySelection,
@@ -767,7 +644,7 @@ func (s *IdentityState) finishSelection(
 		if err := s.ReserveEntry(key, limits, ctx); err != nil {
 			return err
 		}
-		table[key] = identityTableEntry{path: sel.path}
+		table[key] = identityTableEntry{path: sel.path, node: sel.node}
 	case runtime.IdentityKeyRef:
 		if err := s.ReserveEntry(key, limits, ctx); err != nil {
 			return err
@@ -868,8 +745,8 @@ func mergeIdentityTables(dst, src *identityScope) {
 			case !exists:
 				dstTable[key] = entry
 			case prev.conflict:
-			case entry.conflict || prev.path != entry.path:
-				dstTable[key] = identityTableEntry{path: prev.path, conflict: true}
+			case entry.conflict || prev.node != entry.node:
+				dstTable[key] = identityTableEntry{path: prev.path, node: prev.node, conflict: true}
 			}
 		}
 	}

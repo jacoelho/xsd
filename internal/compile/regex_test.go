@@ -78,6 +78,13 @@ func TestCompilePatternFacetUsesFastMatcherBeforeGoUnsupportedRepeatLimit(t *tes
 	}
 }
 
+func TestCompilePatternFacetRejectsSubtractionAsUnsupported(t *testing.T) {
+	_, err := CompilePatternFacet(`[a-z-[aeiou]]`, nil)
+	if !xsderrors.IsUnsupported(err) {
+		t.Fatalf("CompilePatternFacet(subtraction) error = %v, want unsupported", err)
+	}
+}
+
 func TestCompilePatternFacetFastDigitClassMatchesXSDDigits(t *testing.T) {
 	pattern, err := CompilePatternFacet(`[A-Z]{2}\d{4}`, nil)
 	if err != nil {

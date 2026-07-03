@@ -142,20 +142,6 @@ type AttributeUseSetRead struct {
 	singleUse        bool
 }
 
-// NewAttributeUseSetRead returns the immutable validation read projection for
-// one attribute-use set.
-func NewAttributeUseSetRead(shape AttributeUseSetReadShape, simpleValueReads []SimpleValueRead) AttributeUseSetRead {
-	out := AttributeUseSetRead{
-		index:            maps.Clone(shape.Index),
-		uses:             NewAttributeUseReads(shape.Uses, simpleValueReads),
-		required:         slices.Clone(shape.Required),
-		valueConstraints: slices.Clone(shape.ValueConstraints),
-		wildcard:         shape.Wildcard,
-	}
-	out.singleUse = attributeUseSetReadHasSingleUse(out)
-	return out
-}
-
 // NewAttributeUseSetReadForTypeReads returns the immutable validation read
 // projection for one attribute-use set using published simple-value type reads.
 func NewAttributeUseSetReadForTypeReads(shape AttributeUseSetReadShape, simpleValueTypes []SimpleValueTypeRead) AttributeUseSetRead {
@@ -192,16 +178,6 @@ func attributeUseSetReadHasSingleUse(s AttributeUseSetRead) bool {
 	return ok && slot == 0
 }
 
-// NewAttributeUseSetReads returns immutable validation read projections for
-// attribute-use sets.
-func NewAttributeUseSetReads(shapes []AttributeUseSetReadShape, simpleValueReads []SimpleValueRead) []AttributeUseSetRead {
-	out := make([]AttributeUseSetRead, len(shapes))
-	for i := range shapes {
-		out[i] = NewAttributeUseSetRead(shapes[i], simpleValueReads)
-	}
-	return out
-}
-
 // NewAttributeUseSetReadsForTypeReads returns immutable validation read
 // projections for attribute-use sets using published simple-value type reads.
 func NewAttributeUseSetReadsForTypeReads(shapes []AttributeUseSetReadShape, simpleValueTypes []SimpleValueTypeRead) []AttributeUseSetRead {
@@ -222,12 +198,6 @@ func NewAttributeUseSetReadsForSimpleTypes(shapes []AttributeUseSetReadShape, si
 	return out
 }
 
-// NewAttributeUseSetReadForSet returns the immutable validation read
-// projection for one frozen attribute-use set.
-func NewAttributeUseSetReadForSet(names *NameTable, set AttributeUseSet, simpleValueReads []SimpleValueRead) AttributeUseSetRead {
-	return NewAttributeUseSetRead(attributeUseSetReadShapeForSet(names, set), simpleValueReads)
-}
-
 // NewAttributeUseSetReadForSetWithTypeReads returns the immutable validation
 // read projection for one frozen attribute-use set using published
 // simple-value type reads.
@@ -239,16 +209,6 @@ func NewAttributeUseSetReadForSetWithTypeReads(names *NameTable, set AttributeUs
 // read projection for one frozen attribute-use set using published simple types.
 func NewAttributeUseSetReadForSetWithSimpleTypes(names *NameTable, set AttributeUseSet, simpleTypes []SimpleType) AttributeUseSetRead {
 	return NewAttributeUseSetReadForSimpleTypes(attributeUseSetReadShapeForSet(names, set), simpleTypes)
-}
-
-// NewAttributeUseSetReadsForSets returns immutable validation read projections
-// for frozen attribute-use sets.
-func NewAttributeUseSetReadsForSets(names *NameTable, sets []AttributeUseSet, simpleValueReads []SimpleValueRead) []AttributeUseSetRead {
-	out := make([]AttributeUseSetRead, len(sets))
-	for i := range sets {
-		out[i] = NewAttributeUseSetReadForSet(names, sets[i], simpleValueReads)
-	}
-	return out
 }
 
 // NewAttributeUseSetReadsForSetsWithTypeReads returns immutable validation read
@@ -396,34 +356,6 @@ func EqualAttributeUseSetReads(a, b AttributeUseSetRead) bool {
 		a.singleUse == b.singleUse
 }
 
-// EqualAttributeUseSetReadProjection reports whether reads expose the same
-// validation-facing attribute-use sets as shapes.
-func EqualAttributeUseSetReadProjection(reads []AttributeUseSetRead, shapes []AttributeUseSetReadShape, simpleValueReads []SimpleValueRead) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		if !EqualAttributeUseSetReads(reads[i], NewAttributeUseSetRead(shapes[i], simpleValueReads)) {
-			return false
-		}
-	}
-	return true
-}
-
-// EqualAttributeUseSetReadProjectionForSets reports whether reads expose the
-// same validation-facing attribute-use sets as frozen runtime records.
-func EqualAttributeUseSetReadProjectionForSets(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleValueReads []SimpleValueRead) bool {
-	if len(reads) != len(sets) {
-		return false
-	}
-	for i := range reads {
-		if !EqualAttributeUseSetReads(reads[i], NewAttributeUseSetReadForSet(names, sets[i], simpleValueReads)) {
-			return false
-		}
-	}
-	return true
-}
-
 // EqualAttributeUseSetReadProjectionForSetsWithTypeReads reports whether reads
 // expose the same validation-facing attribute-use sets as frozen runtime
 // records using published simple-value type reads.
@@ -452,18 +384,6 @@ func EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []AttributeU
 		}
 	}
 	return true
-}
-
-// ValidateAttributeUseSetReadProjectionForSets validates attribute-use-set read
-// projections against frozen runtime records.
-func ValidateAttributeUseSetReadProjectionForSets(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleValueReads []SimpleValueRead) error {
-	if len(reads) != len(sets) {
-		return errors.New("attribute use set read projection count does not match use sets")
-	}
-	if !EqualAttributeUseSetReadProjectionForSets(reads, names, sets, simpleValueReads) {
-		return errors.New("attribute use read projection does not match use set")
-	}
-	return nil
 }
 
 // ValidateAttributeUseSetReadProjectionForSetsWithTypeReads validates
@@ -568,22 +488,6 @@ type AttributeUseRead struct {
 	canValidateFixedStringFast bool
 }
 
-// NewAttributeUseRead returns an immutable validation read projection for one
-// attribute use.
-func NewAttributeUseRead(shape AttributeUseReadShape, simpleValueReads []SimpleValueRead) AttributeUseRead {
-	return AttributeUseRead{
-		name:                       shape.Name,
-		typ:                        shape.Type,
-		label:                      shape.Label,
-		fixed:                      shape.Fixed,
-		defaultValue:               shape.Default,
-		required:                   shape.Required,
-		hasFixed:                   shape.HasFixed,
-		hasDefault:                 shape.HasDefault,
-		canValidateFixedStringFast: attributeUseFixedStringFast(shape, simpleValueReads),
-	}
-}
-
 // NewAttributeUseReadForTypeReads returns an immutable validation read
 // projection for one attribute use using published simple-value type reads.
 func NewAttributeUseReadForTypeReads(shape AttributeUseReadShape, simpleValueTypes []SimpleValueTypeRead) AttributeUseRead {
@@ -616,16 +520,6 @@ func NewAttributeUseReadForSimpleTypes(shape AttributeUseReadShape, simpleTypes 
 	}
 }
 
-// NewAttributeUseReads returns immutable validation read projections for
-// attribute uses.
-func NewAttributeUseReads(shapes []AttributeUseReadShape, simpleValueReads []SimpleValueRead) []AttributeUseRead {
-	out := make([]AttributeUseRead, len(shapes))
-	for i := range shapes {
-		out[i] = NewAttributeUseRead(shapes[i], simpleValueReads)
-	}
-	return out
-}
-
 // NewAttributeUseReadsForTypeReads returns immutable validation read
 // projections for attribute uses using published simple-value type reads.
 func NewAttributeUseReadsForTypeReads(shapes []AttributeUseReadShape, simpleValueTypes []SimpleValueTypeRead) []AttributeUseRead {
@@ -644,20 +538,6 @@ func NewAttributeUseReadsForSimpleTypes(shapes []AttributeUseReadShape, simpleTy
 		out[i] = NewAttributeUseReadForSimpleTypes(shapes[i], simpleTypes)
 	}
 	return out
-}
-
-func attributeUseFixedStringFast(shape AttributeUseReadShape, simpleValueReads []SimpleValueRead) bool {
-	if !shape.HasFixed || !ValidSimpleTypeID(shape.Type, len(simpleValueReads)) {
-		return false
-	}
-	read := simpleValueReads[shape.Type]
-	if !read.Complete() {
-		return false
-	}
-	return SimpleFixedStringFastPathForType(SimpleFixedStringTypeShape{
-		Type:     read.Type,
-		HasFixed: shape.HasFixed,
-	})
 }
 
 func attributeUseFixedStringFastForTypeReads(shape AttributeUseReadShape, simpleValueTypes []SimpleValueTypeRead) bool {

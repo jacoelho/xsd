@@ -5,59 +5,6 @@ import (
 	"slices"
 )
 
-// EqualSimpleValueReads reports whether two simple-value read projections
-// expose the same validation-facing facts.
-func EqualSimpleValueReads(a, b SimpleValueRead) bool {
-	if a.Present != b.Present {
-		return false
-	}
-	if !a.Present {
-		return true
-	}
-	return EqualSimpleValueTypes(a.Type, b.Type) &&
-		EqualSimpleValueFacets(a.Facets, b.Facets)
-}
-
-// EqualSimpleValueReadProjectionTable reports whether reads expose the same
-// validation-facing simple values as shapes.
-func EqualSimpleValueReadProjectionTable(reads []SimpleValueRead, shapes []SimpleValueReadShape) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		if !EqualSimpleValueReads(reads[i], NewSimpleValueRead(shapes[i])) {
-			return false
-		}
-	}
-	return true
-}
-
-// EqualSimpleValueReadProjectionForTypes reports whether reads expose the same
-// validation-facing simple values as frozen simple types.
-func EqualSimpleValueReadProjectionForTypes(reads []SimpleValueRead, simpleTypes []SimpleType) bool {
-	if len(reads) != len(simpleTypes) {
-		return false
-	}
-	for i := range reads {
-		if !EqualSimpleValueReads(reads[i], NewSimpleValueReadForSimpleType(simpleTypes[i])) {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateSimpleValueReadProjectionForTypes validates simple-value read
-// projections against frozen simple types.
-func ValidateSimpleValueReadProjectionForTypes(reads []SimpleValueRead, simpleTypes []SimpleType) error {
-	if len(reads) != len(simpleTypes) {
-		return errors.New("simple value read projection count does not match types")
-	}
-	if !EqualSimpleValueReadProjectionForTypes(reads, simpleTypes) {
-		return errors.New("simple value read projection does not match type")
-	}
-	return nil
-}
-
 // EqualSimpleValueTypeReadProjectionForTypes reports whether reads expose the
 // same hot simple-value type facts as frozen simple types.
 func EqualSimpleValueTypeReadProjectionForTypes(reads []SimpleValueTypeRead, simpleTypes []SimpleType) bool {
