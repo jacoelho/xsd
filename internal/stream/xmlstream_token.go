@@ -4,8 +4,15 @@ import "encoding/xml"
 
 // StartElement is a parsed XML start element.
 type StartElement struct {
-	Name xml.Name
-	Attr []Attr
+	Name    xml.Name
+	RawName string
+	Attr    []Attr
+}
+
+// EndElement is a parsed XML end element.
+type EndElement struct {
+	Name    xml.Name
+	RawName string
 }
 
 // Attr may hold a parser-owned raw value. raw is valid only through the current
@@ -77,4 +84,11 @@ func (s StartElement) XMLStartElement() xml.StartElement {
 		attrs[i] = xml.Attr{Name: attr.Name, Value: value}
 	}
 	return xml.StartElement{Name: s.Name, Attr: attrs}
+}
+
+func lexicalXMLName(name xml.Name) string {
+	if name.Space == "" {
+		return name.Local
+	}
+	return name.Space + ":" + name.Local
 }

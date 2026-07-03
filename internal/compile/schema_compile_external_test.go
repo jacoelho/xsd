@@ -275,6 +275,108 @@ func TestSimpleAndComplexTypesShareNames(t *testing.T) {
 	expectCode(t, err, xsderrors.CodeSchemaDuplicate)
 }
 
+func TestAnonymousComplexDerivationWaitsForCompilingBase(t *testing.T) {
+	engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="Base"/>
+  <xs:complexType name="Base">
+    <xs:sequence>
+      <xs:element name="child" minOccurs="0">
+        <xs:complexType>
+          <xs:complexContent>
+            <xs:extension base="Base">
+              <xs:sequence>
+                <xs:element name="leaf" type="xs:string"/>
+              </xs:sequence>
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`)
+
+	mustValidateRuntime(t, engine, `<root><child><child><leaf>x</leaf></child><leaf>x</leaf></child></root>`)
+}
+
+func TestSubstitutionImplicitTypeInheritanceWaitsForCompleteHead(t *testing.T) {
+	engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="member" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="member" substitutionGroup="head"/>
+</xs:schema>`)
+
+	mustValidateRuntime(t, engine, `<head><member/></head>`)
+}
+
+func TestSubstitutionInheritedTypeReplaysValueConstraint(t *testing.T) {
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="head" type="xs:int"/>
+  <xs:element name="member" substitutionGroup="head" default="not-int"/>
+</xs:schema>`))})
+
+	expectCode(t, err, xsderrors.CodeSchemaFacet)
+}
+
+func TestDuplicateSingleValueFacetRejectedPerRestrictionStep(t *testing.T) {
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="bad">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:minLength value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`))})
+
+	expectCode(t, err, xsderrors.CodeSchemaFacet)
+}
+
+func TestRepeatedPatternAndEnumerationFacetsRemainLegal(t *testing.T) {
+	mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="code">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="A"/>
+      <xs:pattern value="B"/>
+      <xs:enumeration value="A"/>
+      <xs:enumeration value="B"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="code"/>
+</xs:schema>`)
+}
+
+func TestValidationComparesRawLexicalElementNames(t *testing.T) {
+	engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:element name="root">
+    <xs:complexType/>
+  </xs:element>
+</xs:schema>`)
+
+	err := validateWithRuntime(engine, `<p:root xmlns:p="urn:test" xmlns:q="urn:test"></q:root>`)
+	expectCode(t, err, xsderrors.CodeValidationXML)
+	if !strings.Contains(err.Error(), "end element </q:root> does not match start element <p:root>") {
+		t.Fatalf("Validate() error = %v, want raw lexical mismatch", err)
+	}
+
+	err = validateWithRuntime(engine, `<p:root xmlns:p="urn:test"></q:root>`)
+	expectCode(t, err, xsderrors.CodeValidationXML)
+	if !strings.Contains(err.Error(), "unbound namespace prefix q") {
+		t.Fatalf("Validate() error = %v, want namespace resolution error", err)
+	}
+}
+
 func TestImportedXMLNamespaceSchemaDefersToBuiltinAttributes(t *testing.T) {
 	xmlSchema := `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -926,7 +1028,7 @@ func TestFreezeRejectsBothDefaultAndFixedValueConstraints(t *testing.T) {
 			mutate: func(t *testing.T, rt *runtime.Schema) {
 				t.Helper()
 				id := rt.GlobalElements[mustQName(t, rt, "value")]
-				rt.Elements[id].Fixed = runtime.CloneValueConstraint(rt.Elements[id].Default)
+				rt.Elements[id].Fixed = cloneValueConstraint(rt.Elements[id].Default)
 			},
 		},
 		{
@@ -934,7 +1036,7 @@ func TestFreezeRejectsBothDefaultAndFixedValueConstraints(t *testing.T) {
 			mutate: func(t *testing.T, rt *runtime.Schema) {
 				t.Helper()
 				id := rt.GlobalAttributes[mustQName(t, rt, "ga")]
-				rt.Attributes[id].Fixed = runtime.CloneValueConstraint(rt.Attributes[id].Default)
+				rt.Attributes[id].Fixed = cloneValueConstraint(rt.Attributes[id].Default)
 			},
 		},
 		{
@@ -943,7 +1045,7 @@ func TestFreezeRejectsBothDefaultAndFixedValueConstraints(t *testing.T) {
 				t.Helper()
 				engine := rt
 				set := rootAttributeUseSet(t, engine)
-				set.Uses[0].Fixed = runtime.CloneValueConstraint(set.Uses[0].Default)
+				set.Uses[0].Fixed = cloneValueConstraint(set.Uses[0].Default)
 			},
 		},
 	}
@@ -958,6 +1060,16 @@ func TestFreezeRejectsBothDefaultAndFixedValueConstraints(t *testing.T) {
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
+}
+
+func cloneValueConstraint(in *runtime.ValueConstraint) *runtime.ValueConstraint {
+	if in == nil {
+		return nil
+	}
+	out := new(runtime.ValueConstraint)
+	*out = *in
+	out.ResolvedNames = append([]runtime.ResolvedValueName(nil), in.ResolvedNames...)
+	return out
 }
 
 func TestFreezeRejectsUnionValueConstraintStoredAsOwnerType(t *testing.T) {

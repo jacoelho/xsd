@@ -41,16 +41,24 @@ func ValidateDocumentElementStart(in DocumentElementStartInput) error {
 
 // EndElementInput reports end-element state after namespace translation.
 type EndElementInput struct {
-	Name         xml.Name
-	Expected     xml.Name
-	Context      StartContext
-	OpenElements int
+	Name            xml.Name
+	Expected        xml.Name
+	RawName         string
+	ExpectedRawName string
+	Context         StartContext
+	OpenElements    int
 }
 
 // ValidateEndElement rejects unmatched or out-of-place end elements.
 func ValidateEndElement(in EndElementInput) error {
 	if in.OpenElements == 0 {
 		return validation(in.Context, xsderrors.CodeValidationXML, "unexpected end element")
+	}
+	if in.RawName != "" || in.ExpectedRawName != "" {
+		if in.RawName != in.ExpectedRawName {
+			return validation(in.Context, xsderrors.CodeValidationXML, "end element </"+formatElementName(in.RawName, in.Name)+"> does not match start element <"+formatElementName(in.ExpectedRawName, in.Expected)+">")
+		}
+		return nil
 	}
 	if in.Name != in.Expected {
 		return validation(in.Context, xsderrors.CodeValidationXML, "end element </"+formatXMLName(in.Name)+"> does not match start element <"+formatXMLName(in.Expected)+">")
@@ -65,4 +73,11 @@ func ValidateNameResolution(ctx StartContext, name xml.Name, resolved bool) erro
 		return nil
 	}
 	return validation(ctx, xsderrors.CodeValidationXML, "unbound namespace prefix "+name.Space)
+}
+
+func formatElementName(raw string, name xml.Name) string {
+	if raw != "" {
+		return raw
+	}
+	return formatXMLName(name)
 }

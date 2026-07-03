@@ -39,7 +39,7 @@ const (
 // Token is one borrowed parser token. Byte slices in token fields are valid
 // only until the next parser call.
 type Token struct {
-	End       xml.EndElement
+	End       EndElement
 	Start     StartElement
 	Data      []byte
 	Directive []byte
@@ -69,7 +69,7 @@ var (
 type Parser struct {
 	names         *Cache
 	values        *Cache
-	pendingEnd    xml.EndElement
+	pendingEnd    EndElement
 	nameBuf       []byte
 	valueBuf      []byte
 	attrValueBuf  []byte
@@ -98,7 +98,7 @@ func (p *Parser) Reset(r io.Reader, names, values *Cache) {
 func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes int64) {
 	p.names = names
 	p.values = values
-	p.pendingEnd = xml.EndElement{}
+	p.pendingEnd = EndElement{}
 	p.nameBuf = resetRetainedBytes(p.nameBuf)
 	p.valueBuf = resetRetainedBytes(p.valueBuf)
 	p.attrValueBuf = resetRetainedBytes(p.attrValueBuf)
@@ -178,7 +178,7 @@ func (p *Parser) Next() (Token, error) {
 			}
 			p.atStart = false
 			if selfClosing {
-				p.pendingEnd = xml.EndElement{Name: start.Name}
+				p.pendingEnd = EndElement{Name: start.Name, RawName: start.RawName}
 				p.hasEnd = true
 			}
 			return Token{Kind: KindStart, Start: start, Line: line, Column: col}, nil
@@ -530,6 +530,7 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 	if err != nil {
 		return StartElement{}, false, err
 	}
+	rawName := lexicalXMLName(name)
 	p.attrs = p.attrs[:0]
 	p.attrValueBuf = p.attrValueBuf[:0]
 	for {
@@ -540,7 +541,7 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 		switch b {
 		case '>':
 			p.finishLazyAttrValues()
-			return StartElement{Name: name, Attr: p.attrs}, false, nil
+			return StartElement{Name: name, RawName: rawName, Attr: p.attrs}, false, nil
 		case '/':
 			next, err := p.br.readByte()
 			if err != nil {
@@ -550,7 +551,7 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 				return StartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
 			}
 			p.finishLazyAttrValues()
-			return StartElement{Name: name, Attr: p.attrs}, true, nil
+			return StartElement{Name: name, RawName: rawName, Attr: p.attrs}, true, nil
 		default:
 			if !hadSpace {
 				return StartElement{}, false, fmt.Errorf("expected whitespace before attribute")
@@ -610,26 +611,26 @@ func (p *Parser) finishLazyAttrValues() {
 	}
 }
 
-func (p *Parser) readEndElement() (xml.EndElement, error) {
+func (p *Parser) readEndElement() (EndElement, error) {
 	b, err := p.br.readByte()
 	if err != nil {
-		return xml.EndElement{}, err
+		return EndElement{}, err
 	}
 	if lex.IsXMLWhitespaceByte(b) {
-		return xml.EndElement{}, fmt.Errorf("unexpected whitespace after </")
+		return EndElement{}, fmt.Errorf("unexpected whitespace after </")
 	}
 	name, err := p.readName(b)
 	if err != nil {
-		return xml.EndElement{}, err
+		return EndElement{}, err
 	}
 	b, _, err = p.readPastSpace()
 	if err != nil {
-		return xml.EndElement{}, err
+		return EndElement{}, err
 	}
 	if b != '>' {
-		return xml.EndElement{}, fmt.Errorf("expected > after end element name")
+		return EndElement{}, fmt.Errorf("expected > after end element name")
 	}
-	return xml.EndElement{Name: name}, nil
+	return EndElement{Name: name, RawName: lexicalXMLName(name)}, nil
 }
 
 func (p *Parser) readName(first byte) (xml.Name, error) {

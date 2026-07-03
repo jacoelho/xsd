@@ -94,7 +94,7 @@ func parseCharRef(s []byte) (rune, bool) {
 		return 0, false
 	}
 	base := 10
-	if s[0] == 'x' || s[0] == 'X' {
+	if s[0] == 'x' {
 		base = 16
 		s = s[1:]
 		if len(s) == 0 {

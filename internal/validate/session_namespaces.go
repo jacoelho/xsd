@@ -86,6 +86,11 @@ func (s *session) pushPath(local string) {
 	s.doc.path = append(s.doc.path, local)
 }
 
+func (s *session) pushElementName(name xml.Name, raw string) {
+	s.doc.elementNames = append(s.doc.elementNames, name)
+	s.doc.elementRawNames = append(s.doc.elementRawNames, raw)
+}
+
 func (s *session) cachedChildPath(parent, local string) string {
 	key := pathCacheKey{Parent: parent, Local: local}
 	if path, ok := s.pathCache[key]; ok {

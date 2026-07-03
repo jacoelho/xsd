@@ -154,18 +154,6 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q runtime.
 			return runtime.ElementDecl{}, complexErr
 		}
 		typ = runtime.ComplexRef(id)
-	} else if headLex, ok := n.attr(vocab.XSDAttrSubstitutionGroup); ok {
-		headQName, headErr := c.resolveQNameChecked(n, ctx, headLex)
-		if headErr != nil {
-			return runtime.ElementDecl{}, headErr
-		}
-		if _, ok := c.elementRaw[headQName]; ok {
-			headID, headErr := c.compileElementByQName(headQName)
-			if headErr != nil {
-				return runtime.ElementDecl{}, withSchemaCompileLocation(n, headErr)
-			}
-			typ = c.rt.Elements[headID].Type
-		}
 	}
 	decl := runtime.ElementDecl{
 		Name:      q,

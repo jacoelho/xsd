@@ -250,6 +250,9 @@ func parseSimplePatternClass(source string, i int) (simplePatternClass, int, boo
 }
 
 func parseSimplePatternClassRune(source string, i int) (rune, int, bool) {
+	if source[i] == '[' {
+		return 0, 0, false
+	}
 	if source[i] == '\\' {
 		if i+1 >= len(source) {
 			return 0, 0, false
