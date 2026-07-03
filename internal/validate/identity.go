@@ -117,6 +117,7 @@ type IdentityState struct {
 	fieldValues []identityFieldValue
 	matches     []IdentityFieldMatch
 	entries     int
+	nextNodeID  uint64
 }
 
 type identityRef struct {
@@ -134,9 +135,10 @@ type identityScope struct {
 }
 
 // identityTableEntry records where a key tuple was first seen. Conflict marks
-// tuples propagated from child scopes with differing paths.
+// tuples propagated from child scopes with differing selected nodes.
 type identityTableEntry struct {
 	path     string
+	node     uint64
 	conflict bool
 }
 
@@ -150,6 +152,7 @@ type identityTupleRef struct {
 
 type identitySelection struct {
 	path       string
+	node       uint64
 	scope      int
 	depth      int
 	fieldStart int
@@ -198,6 +201,7 @@ func (s *IdentityState) Reset(maxRetainedIDs, maxRetainedSlices int) {
 	s.fieldValues = resetRetainedIdentitySlice(s.fieldValues, maxRetainedSlices)
 	s.matches = resetRetainedIdentitySlice(s.matches, maxRetainedSlices)
 	s.entries = 0
+	s.nextNodeID = 0
 }
 
 func resetRetainedIdentitySlice[T any](in []T, maxRetainedCap int) []T {
@@ -295,6 +299,7 @@ func (s *IdentityState) StartSelection(scope, depth int, constraint runtime.Iden
 	for range fieldCount {
 		s.fieldValues = append(s.fieldValues, identityFieldValue{})
 	}
+	s.nextNodeID++
 	s.selections = append(s.selections, identitySelection{
 		scope:      scope,
 		constraint: constraint,
@@ -302,6 +307,7 @@ func (s *IdentityState) StartSelection(scope, depth int, constraint runtime.Iden
 		fieldStart: fieldStart,
 		fieldLen:   fieldCount,
 		path:       ctx.PathString(),
+		node:       s.nextNodeID,
 		line:       ctx.Line,
 		col:        ctx.Column,
 	})
@@ -638,7 +644,7 @@ func (s *IdentityState) finishSelection(
 		if err := s.ReserveEntry(key, limits, ctx); err != nil {
 			return err
 		}
-		table[key] = identityTableEntry{path: sel.path}
+		table[key] = identityTableEntry{path: sel.path, node: sel.node}
 	case runtime.IdentityKeyRef:
 		if err := s.ReserveEntry(key, limits, ctx); err != nil {
 			return err
@@ -739,8 +745,8 @@ func mergeIdentityTables(dst, src *identityScope) {
 			case !exists:
 				dstTable[key] = entry
 			case prev.conflict:
-			case entry.conflict || prev.path != entry.path:
-				dstTable[key] = identityTableEntry{path: prev.path, conflict: true}
+			case entry.conflict || prev.node != entry.node:
+				dstTable[key] = identityTableEntry{path: prev.path, node: prev.node, conflict: true}
 			}
 		}
 	}

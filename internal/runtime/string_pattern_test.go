@@ -1,6 +1,9 @@
 package runtime
 
-import "testing"
+import (
+	"regexp"
+	"testing"
+)
 
 func TestCloneStringPatternGroupsDeepClonesFastPattern(t *testing.T) {
 	t.Parallel()
@@ -18,6 +21,26 @@ func TestCloneStringPatternGroupsDeepClonesFastPattern(t *testing.T) {
 
 	if !cloned[0].Patterns[0].MatchString("A") {
 		t.Fatal("clone aliases original fast pattern")
+	}
+}
+
+func TestCloneStringPatternGroupsSharesRegexpPattern(t *testing.T) {
+	t.Parallel()
+
+	re := regexp.MustCompile(`^[A-Z]{2}\d{2}$`)
+	groups := []StringPatternGroup{{
+		Patterns: []StringPattern{NewRegexpStringPattern(`[A-Z]{2}\d{2}`, `^[A-Z]{2}\d{2}$`, re)},
+	}}
+
+	cloned := CloneStringPatternGroups(groups)
+	if cloned[0].Patterns[0].re != re {
+		t.Fatal("regexp pattern was recompiled instead of shared")
+	}
+	if !cloned[0].Patterns[0].MatchString("AB12") {
+		t.Fatal("shared regexp clone rejected matching value")
+	}
+	if cloned[0].Patterns[0].MatchString("ab12") {
+		t.Fatal("shared regexp clone accepted non-matching value")
 	}
 }
 

@@ -1386,6 +1386,33 @@ func TestFreezeRejectsIdentityFieldLookupDrift(t *testing.T) {
 	}
 }
 
+func TestRuntimeKeyRefAmbiguousSiblingKeysWithSameDisplayPathDoesNotResolve(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="group" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string" use="required"/>
+          </xs:complexType>
+          <xs:key name="groupKey">
+            <xs:selector xpath="."/>
+            <xs:field xpath="@id"/>
+          </xs:key>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="rid" type="xs:string" use="required"/>
+    </xs:complexType>
+    <xs:keyref name="rootRef" refer="groupKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="@rid"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`
+	engine := mustCompileRuntime(t, schema)
+	mustNotValidateRuntime(t, engine, `<root rid="1"><group id="1"/><group id="1"/></root>`, xsderrors.CodeValidationIdentity)
+}
+
 func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">

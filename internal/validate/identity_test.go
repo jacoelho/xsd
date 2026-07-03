@@ -276,7 +276,8 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 		matches: append(make([]IdentityFieldMatch, 0, 2),
 			IdentityFieldMatch{Selection: 1, Field: 2},
 		),
-		entries: 3,
+		entries:    3,
+		nextNodeID: 4,
 	}
 	state.Reset(1, 2)
 	if state.ids == nil {
@@ -288,9 +289,10 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 		len(state.selections) != 0 ||
 		len(state.fieldValues) != 0 ||
 		len(state.matches) != 0 ||
-		state.entries != 0 {
+		state.entries != 0 ||
+		state.nextNodeID != 0 {
 		t.Fatalf(
-			"Reset() retained state: ids=%d idrefs=%d scopes=%d selections=%d fields=%d matches=%d entries=%d",
+			"Reset() retained state: ids=%d idrefs=%d scopes=%d selections=%d fields=%d matches=%d entries=%d nextNodeID=%d",
 			len(state.ids),
 			len(state.idrefs),
 			len(state.scopes),
@@ -298,6 +300,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 			len(state.fieldValues),
 			len(state.matches),
 			state.entries,
+			state.nextNodeID,
 		)
 	}
 	if got := state.scopes[:cap(state.scopes)][0]; got.tables != nil || got.constraints != nil || got.refs != nil {
@@ -314,6 +317,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	state.fieldValues = append(make([]identityFieldValue, 0, 3), identityFieldValue{})
 	state.matches = append(make([]IdentityFieldMatch, 0, 3), IdentityFieldMatch{})
 	state.entries = 2
+	state.nextNodeID = 5
 	state.Reset(1, 2)
 	if state.ids != nil ||
 		state.idrefs != nil ||
@@ -321,9 +325,10 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 		state.selections != nil ||
 		state.fieldValues != nil ||
 		state.matches != nil ||
-		state.entries != 0 {
+		state.entries != 0 ||
+		state.nextNodeID != 0 {
 		t.Fatalf(
-			"Reset() retained oversized state: ids=%v idrefs=%v scopes=%v selections=%v fields=%v matches=%v entries=%d",
+			"Reset() retained oversized state: ids=%v idrefs=%v scopes=%v selections=%v fields=%v matches=%v entries=%d nextNodeID=%d",
 			state.ids,
 			state.idrefs,
 			state.scopes,
@@ -331,6 +336,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 			state.fieldValues,
 			state.matches,
 			state.entries,
+			state.nextNodeID,
 		)
 	}
 }
@@ -684,6 +690,58 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	state.StartSelection(1, 3, keyID, 1, StartContext{Path: "/root/b/id", Line: 8, Column: 9})
 	captureIdentityField(t, &state, 0, "x")
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/b", Line: 10, Column: 11}, failIdentityReport(t)); err != nil {
+		t.Fatalf("FinishSelections(second child) error = %v", err)
+	}
+	if err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
+		t.Fatalf("CloseScopes(second child) error = %v", err)
+	}
+
+	state.StartSelection(0, 3, refID, 1, StartContext{Path: "/root/ref", Line: 12, Column: 13})
+	captureIdentityField(t, &state, 0, "x")
+	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/ref", Line: 14, Column: 15}, failIdentityReport(t)); err != nil {
+		t.Fatalf("FinishSelections(ref) error = %v", err)
+	}
+
+	var got error
+	if err := state.CloseScopes(1, func(err error) error {
+		got = err
+		return nil
+	}); err != nil {
+		t.Fatalf("CloseScopes(parent) error = %v", err)
+	}
+	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
+	expectXSDMessage(t, got, "keyref does not resolve")
+	expectXSDLocation(t, got, "/root/ref", 12, 13)
+}
+
+func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T) {
+	t.Parallel()
+
+	var state IdentityState
+	const (
+		keyID runtime.IdentityConstraintID = 1
+		refID runtime.IdentityConstraintID = 2
+	)
+	info := identityInfo(map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo{
+		keyID: {Kind: runtime.IdentityKey},
+		refID: {Kind: runtime.IdentityKeyRef, Refer: keyID},
+	})
+	startIdentityScope(t, &state, []runtime.IdentityConstraintID{refID}, 1, "/root")
+
+	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID}, 2, "/root/group")
+	state.StartSelection(1, 3, keyID, 1, StartContext{Path: "/root/group/id", Line: 4, Column: 5})
+	captureIdentityField(t, &state, 0, "x")
+	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/group", Line: 6, Column: 7}, failIdentityReport(t)); err != nil {
+		t.Fatalf("FinishSelections(first child) error = %v", err)
+	}
+	if err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
+		t.Fatalf("CloseScopes(first child) error = %v", err)
+	}
+
+	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID}, 2, "/root/group")
+	state.StartSelection(1, 3, keyID, 1, StartContext{Path: "/root/group/id", Line: 8, Column: 9})
+	captureIdentityField(t, &state, 0, "x")
+	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/group", Line: 10, Column: 11}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(second child) error = %v", err)
 	}
 	if err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
