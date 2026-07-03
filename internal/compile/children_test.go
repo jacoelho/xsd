@@ -95,7 +95,7 @@ func TestValidateSimpleTypeChildren(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleTypeChildren(tt.children)
+			err := validateSimpleTypeChildrenForTest(tt.children)
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateSimpleTypeChildren() error = %v", err)
@@ -125,52 +125,52 @@ func TestValidateSimpleDerivationChildren(t *testing.T) {
 	}{
 		{
 			name:     "restriction admits simple type before facets",
-			validate: ValidateSimpleRestrictionChildren,
+			validate: validateChildOrderForTest(simpleRestrictionChildOrder),
 			children: []string{"annotation", "simpleType", "minLength", "pattern", "enumeration"},
 		},
 		{
 			name:      "restriction simple type after facet",
-			validate:  ValidateSimpleRestrictionChildren,
+			validate:  validateChildOrderForTest(simpleRestrictionChildOrder),
 			children:  []string{"minLength", "simpleType"},
 			wantIndex: 1,
 			wantMsg:   "restriction simpleType must precede facets",
 		},
 		{
 			name:      "restriction duplicate simple type",
-			validate:  ValidateSimpleRestrictionChildren,
+			validate:  validateChildOrderForTest(simpleRestrictionChildOrder),
 			children:  []string{"simpleType", "simpleType"},
 			wantIndex: 1,
 			wantMsg:   "restriction can contain one simpleType",
 		},
 		{
 			name:      "list duplicate simple type",
-			validate:  ValidateSimpleListChildren,
+			validate:  validateChildOrderForTest(simpleListChildOrder),
 			children:  []string{"simpleType", "simpleType"},
 			wantIndex: 1,
 			wantMsg:   "list can contain one simpleType",
 		},
 		{
 			name:      "list rejects direct facet",
-			validate:  ValidateSimpleListChildren,
+			validate:  validateChildOrderForTest(simpleListChildOrder),
 			children:  []string{"enumeration"},
 			wantIndex: 0,
 			wantMsg:   "invalid list child enumeration",
 		},
 		{
 			name:     "union admits multiple simple types",
-			validate: ValidateSimpleUnionChildren,
+			validate: validateChildOrderForTest(simpleUnionChildOrder),
 			children: []string{"annotation", "simpleType", "simpleType"},
 		},
 		{
 			name:      "union rejects direct facet",
-			validate:  ValidateSimpleUnionChildren,
+			validate:  validateChildOrderForTest(simpleUnionChildOrder),
 			children:  []string{"enumeration"},
 			wantIndex: 0,
 			wantMsg:   "invalid union child enumeration",
 		},
 		{
 			name:      "union annotation after content",
-			validate:  ValidateSimpleUnionChildren,
+			validate:  validateChildOrderForTest(simpleUnionChildOrder),
 			children:  []string{"simpleType", "annotation"},
 			wantIndex: 1,
 			wantMsg:   "union annotation must be first",
@@ -222,7 +222,7 @@ func TestValidateComplexTypeChildren(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeChildren(tt.children)
+			err := CheckOrderedChildren(tt.children, complexTypeChildOrder)
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeChildren() error = %v", err)
@@ -250,13 +250,13 @@ func TestValidateDerivationContainerChildren(t *testing.T) {
 		wantIndex int
 		wantMsg   string
 	}{
-		{name: "complexContent extension", validate: ValidateComplexContentChildren, children: []string{"annotation", "extension"}},
-		{name: "simpleContent restriction", validate: ValidateSimpleContentChildren, children: []string{"restriction"}},
-		{name: "complexContent missing derivation", validate: ValidateComplexContentChildren, wantIndex: -1, wantMsg: "complexContent missing extension or restriction"},
-		{name: "simpleContent only annotation", validate: ValidateSimpleContentChildren, children: []string{"annotation"}, wantIndex: -1, wantMsg: "simpleContent missing extension or restriction"},
-		{name: "complexContent duplicate derivation", validate: ValidateComplexContentChildren, children: []string{"extension", "restriction"}, wantIndex: 1, wantMsg: "complexContent can contain one derivation"},
-		{name: "simpleContent annotation after derivation", validate: ValidateSimpleContentChildren, children: []string{"restriction", "annotation"}, wantIndex: 1, wantMsg: "simpleContent annotation must be first"},
-		{name: "simpleContent invalid child", validate: ValidateSimpleContentChildren, children: []string{"sequence"}, wantIndex: 0, wantMsg: "invalid simpleContent child sequence"},
+		{name: "complexContent extension", validate: validateComplexContentChildrenForTest, children: []string{"annotation", "extension"}},
+		{name: "simpleContent restriction", validate: validateSimpleContentChildrenForTest, children: []string{"restriction"}},
+		{name: "complexContent missing derivation", validate: validateComplexContentChildrenForTest, wantIndex: -1, wantMsg: "complexContent missing extension or restriction"},
+		{name: "simpleContent only annotation", validate: validateSimpleContentChildrenForTest, children: []string{"annotation"}, wantIndex: -1, wantMsg: "simpleContent missing extension or restriction"},
+		{name: "complexContent duplicate derivation", validate: validateComplexContentChildrenForTest, children: []string{"extension", "restriction"}, wantIndex: 1, wantMsg: "complexContent can contain one derivation"},
+		{name: "simpleContent annotation after derivation", validate: validateSimpleContentChildrenForTest, children: []string{"restriction", "annotation"}, wantIndex: 1, wantMsg: "simpleContent annotation must be first"},
+		{name: "simpleContent invalid child", validate: validateSimpleContentChildrenForTest, children: []string{"sequence"}, wantIndex: 0, wantMsg: "invalid simpleContent child sequence"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -390,12 +390,12 @@ func TestValidateSimpleContentDerivationChildren(t *testing.T) {
 		wantIndex int
 		wantMsg   string
 	}{
-		{name: "restriction admits facets and attributes", validate: ValidateSimpleContentRestrictionChildren, children: []string{"annotation", "simpleType", "minLength", "attribute", "attributeGroup", "anyAttribute"}},
-		{name: "extension admits attributes", validate: ValidateSimpleContentExtensionChildren, children: []string{"annotation", "attribute", "anyAttribute"}},
-		{name: "extension rejects simple type", validate: ValidateSimpleContentExtensionChildren, children: []string{"simpleType"}, wantIndex: 0, wantMsg: simpleContentExtensionCannotContainSimpleType},
-		{name: "restriction facet after attribute", validate: ValidateSimpleContentRestrictionChildren, children: []string{"attribute", "enumeration"}, wantIndex: 1, wantMsg: simpleContentFacetOutOfOrder},
-		{name: "restriction duplicate simple type", validate: ValidateSimpleContentRestrictionChildren, children: []string{"simpleType", "simpleType"}, wantIndex: 1, wantMsg: simpleContentSimpleTypeOutOfOrder},
-		{name: "restriction duplicate wildcard", validate: ValidateSimpleContentRestrictionChildren, children: []string{"anyAttribute", "anyAttribute"}, wantIndex: 1, wantMsg: "simpleContent" + oneAnyAttributeSuffix},
+		{name: "restriction admits facets and attributes", validate: validateChildOrderForTest(simpleContentRestrictionChildOrder), children: []string{"annotation", "simpleType", "minLength", "attribute", "attributeGroup", "anyAttribute"}},
+		{name: "extension admits attributes", validate: validateChildOrderForTest(simpleContentExtensionChildOrder), children: []string{"annotation", "attribute", "anyAttribute"}},
+		{name: "extension rejects simple type", validate: validateChildOrderForTest(simpleContentExtensionChildOrder), children: []string{"simpleType"}, wantIndex: 0, wantMsg: simpleContentExtensionCannotContainSimpleType},
+		{name: "restriction facet after attribute", validate: validateChildOrderForTest(simpleContentRestrictionChildOrder), children: []string{"attribute", "enumeration"}, wantIndex: 1, wantMsg: simpleContentFacetOutOfOrder},
+		{name: "restriction duplicate simple type", validate: validateChildOrderForTest(simpleContentRestrictionChildOrder), children: []string{"simpleType", "simpleType"}, wantIndex: 1, wantMsg: simpleContentSimpleTypeOutOfOrder},
+		{name: "restriction duplicate wildcard", validate: validateChildOrderForTest(simpleContentRestrictionChildOrder), children: []string{"anyAttribute", "anyAttribute"}, wantIndex: 1, wantMsg: "simpleContent" + oneAnyAttributeSuffix},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -429,11 +429,11 @@ func TestValidateComplexContentDerivationChildren(t *testing.T) {
 		wantIndex int
 		wantMsg   string
 	}{
-		{name: "extension model attributes and wildcard", validate: ValidateComplexContentExtensionChildren, children: []string{"annotation", "sequence", "attribute", "attributeGroup", "anyAttribute"}},
-		{name: "restriction model after attribute", validate: ValidateComplexContentRestrictionChildren, children: []string{"attribute", "sequence"}, wantIndex: 1, wantMsg: "restriction" + modelGroupOutOfOrderSuffix},
-		{name: "extension duplicate model", validate: ValidateComplexContentExtensionChildren, children: []string{"sequence", "choice"}, wantIndex: 1, wantMsg: "extension" + modelGroupOutOfOrderSuffix},
-		{name: "extension duplicate wildcard", validate: ValidateComplexContentExtensionChildren, children: []string{"anyAttribute", "anyAttribute"}, wantIndex: 1, wantMsg: "extension" + oneAnyAttributeSuffix},
-		{name: "restriction invalid child", validate: ValidateComplexContentRestrictionChildren, children: []string{"simpleType"}, wantIndex: 0, wantMsg: "invalid complexContent child simpleType"},
+		{name: "extension model attributes and wildcard", validate: validateChildOrderForTest(complexContentExtensionChildOrder), children: []string{"annotation", "sequence", "attribute", "attributeGroup", "anyAttribute"}},
+		{name: "restriction model after attribute", validate: validateChildOrderForTest(complexContentRestrictionChildOrder), children: []string{"attribute", "sequence"}, wantIndex: 1, wantMsg: "restriction" + modelGroupOutOfOrderSuffix},
+		{name: "extension duplicate model", validate: validateChildOrderForTest(complexContentExtensionChildOrder), children: []string{"sequence", "choice"}, wantIndex: 1, wantMsg: "extension" + modelGroupOutOfOrderSuffix},
+		{name: "extension duplicate wildcard", validate: validateChildOrderForTest(complexContentExtensionChildOrder), children: []string{"anyAttribute", "anyAttribute"}, wantIndex: 1, wantMsg: "extension" + oneAnyAttributeSuffix},
+		{name: "restriction invalid child", validate: validateChildOrderForTest(complexContentRestrictionChildOrder), children: []string{"simpleType"}, wantIndex: 0, wantMsg: "invalid complexContent child simpleType"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -467,25 +467,25 @@ func TestValidateWildcardChildren(t *testing.T) {
 		wantIndex int
 		wantMsg   string
 	}{
-		{name: "any empty", validate: ValidateAnyParticleChildren},
-		{name: "any duplicate annotation", validate: ValidateAnyParticleChildren, children: []string{"annotation", "annotation"}, wantIndex: 1, wantMsg: "any can contain at most one annotation"},
-		{name: "any rejects child", validate: ValidateAnyParticleChildren, children: []string{"element"}, wantIndex: 0, wantMsg: "any can contain only annotation"},
-		{name: "anyAttribute empty", validate: ValidateAnyAttributeChildren},
-		{name: "anyAttribute duplicate annotation", validate: ValidateAnyAttributeChildren, children: []string{"annotation", "annotation"}, wantIndex: 1, wantMsg: "anyAttribute can contain at most one annotation"},
-		{name: "anyAttribute rejects child", validate: ValidateAnyAttributeChildren, children: []string{"attribute"}, wantIndex: 0, wantMsg: "anyAttribute can contain only annotation"},
-		{name: "element ref empty", validate: ValidateElementRefChildren},
-		{name: "element ref annotation", validate: ValidateElementRefChildren, children: []string{"annotation"}},
-		{name: "element ref rejects child", validate: ValidateElementRefChildren, children: []string{"simpleType"}, wantIndex: 0, wantMsg: "element ref can contain only annotation"},
-		{name: "attribute ref empty", validate: ValidateAttributeRefChildren},
-		{name: "attribute ref annotation", validate: ValidateAttributeRefChildren, children: []string{"annotation"}},
-		{name: "attribute ref rejects child", validate: ValidateAttributeRefChildren, children: []string{"simpleType"}, wantIndex: 0, wantMsg: "attribute ref can contain only annotation"},
-		{name: "attributeGroup use empty", validate: ValidateAttributeGroupUseChildren},
-		{name: "attributeGroup use annotation", validate: ValidateAttributeGroupUseChildren, children: []string{"annotation"}},
-		{name: "attributeGroup use rejects child", validate: ValidateAttributeGroupUseChildren, children: []string{"attribute"}, wantIndex: 0, wantMsg: "attributeGroup use can contain only annotation"},
-		{name: "group use empty", validate: ValidateGroupUseChildren},
-		{name: "group use annotation", validate: ValidateGroupUseChildren, children: []string{"annotation"}},
-		{name: "group use rejects child", validate: ValidateGroupUseChildren, children: []string{"element"}, wantIndex: 0, wantMsg: "group use can contain only annotation"},
-		{name: "group use rejects child after annotation", validate: ValidateGroupUseChildren, children: []string{"annotation", "sequence"}, wantIndex: 1, wantMsg: "group use can contain only annotation"},
+		{name: "any empty", validate: validateChildOrderForTest(anyParticleChildOrder)},
+		{name: "any duplicate annotation", validate: validateChildOrderForTest(anyParticleChildOrder), children: []string{"annotation", "annotation"}, wantIndex: 1, wantMsg: "any can contain at most one annotation"},
+		{name: "any rejects child", validate: validateChildOrderForTest(anyParticleChildOrder), children: []string{"element"}, wantIndex: 0, wantMsg: "any can contain only annotation"},
+		{name: "anyAttribute empty", validate: validateChildOrderForTest(anyAttributeChildOrder)},
+		{name: "anyAttribute duplicate annotation", validate: validateChildOrderForTest(anyAttributeChildOrder), children: []string{"annotation", "annotation"}, wantIndex: 1, wantMsg: "anyAttribute can contain at most one annotation"},
+		{name: "anyAttribute rejects child", validate: validateChildOrderForTest(anyAttributeChildOrder), children: []string{"attribute"}, wantIndex: 0, wantMsg: "anyAttribute can contain only annotation"},
+		{name: "element ref empty", validate: validateChildOrderForTest(elementRefChildOrder)},
+		{name: "element ref annotation", validate: validateChildOrderForTest(elementRefChildOrder), children: []string{"annotation"}},
+		{name: "element ref rejects child", validate: validateChildOrderForTest(elementRefChildOrder), children: []string{"simpleType"}, wantIndex: 0, wantMsg: "element ref can contain only annotation"},
+		{name: "attribute ref empty", validate: validateChildOrderForTest(attributeRefChildOrder)},
+		{name: "attribute ref annotation", validate: validateChildOrderForTest(attributeRefChildOrder), children: []string{"annotation"}},
+		{name: "attribute ref rejects child", validate: validateChildOrderForTest(attributeRefChildOrder), children: []string{"simpleType"}, wantIndex: 0, wantMsg: "attribute ref can contain only annotation"},
+		{name: "attributeGroup use empty", validate: validateChildOrderForTest(attributeGroupUseChildOrder)},
+		{name: "attributeGroup use annotation", validate: validateChildOrderForTest(attributeGroupUseChildOrder), children: []string{"annotation"}},
+		{name: "attributeGroup use rejects child", validate: validateChildOrderForTest(attributeGroupUseChildOrder), children: []string{"attribute"}, wantIndex: 0, wantMsg: "attributeGroup use can contain only annotation"},
+		{name: "group use empty", validate: validateChildOrderForTest(groupUseChildOrder)},
+		{name: "group use annotation", validate: validateChildOrderForTest(groupUseChildOrder), children: []string{"annotation"}},
+		{name: "group use rejects child", validate: validateChildOrderForTest(groupUseChildOrder), children: []string{"element"}, wantIndex: 0, wantMsg: "group use can contain only annotation"},
+		{name: "group use rejects child after annotation", validate: validateChildOrderForTest(groupUseChildOrder), children: []string{"annotation", "sequence"}, wantIndex: 1, wantMsg: "group use can contain only annotation"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -631,7 +631,7 @@ func TestValidateModelGroupChildren(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateModelGroupChildren(tt.parent, tt.children)
+			err := CheckOrderedChildren(tt.children, modelGroupChildOrder(tt.parent))
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateModelGroupChildren() error = %v", err)
@@ -707,7 +707,7 @@ func TestValidateAttributeGroupDeclarationChildren(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeGroupDeclarationChildren(tt.children)
+			err := CheckOrderedChildren(tt.children, attributeGroupDeclarationChildOrder)
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeGroupDeclarationChildren() error = %v", err)
@@ -748,7 +748,7 @@ func TestValidateElementDeclarationChildren(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateElementDeclarationChildren(tt.children, tt.hasTypeAttr)
+			err := validateElementDeclarationChildrenForTest(tt.children, tt.hasTypeAttr)
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateElementDeclarationChildren() error = %v", err)
@@ -764,6 +764,46 @@ func TestValidateElementDeclarationChildren(t *testing.T) {
 			}
 		})
 	}
+}
+
+func validateChildOrderForTest(order ChildOrder) func([]string) error {
+	return func(children []string) error {
+		return CheckOrderedChildren(children, order)
+	}
+}
+
+func validateSimpleTypeChildrenForTest(children []string) error {
+	if err := CheckOrderedChildren(children, simpleTypeChildOrder); err != nil {
+		return err
+	}
+	if !slices.ContainsFunc(children, func(child string) bool {
+		return child == restrictionChild || child == listChild || child == unionChild
+	}) {
+		return childOrderError(-1, "simpleType must contain one restriction, list, or union")
+	}
+	return nil
+}
+
+func validateComplexContentChildrenForTest(children []string) error {
+	_, err := ValidateComplexContentChildrenSyntax(children)
+	return err
+}
+
+func validateSimpleContentChildrenForTest(children []string) error {
+	_, err := ValidateSimpleContentChildrenSyntax(children)
+	return err
+}
+
+func validateElementDeclarationChildrenForTest(children []string, hasTypeAttr bool) error {
+	if err := CheckOrderedChildren(children, elementDeclarationChildOrder); err != nil {
+		return err
+	}
+	if hasTypeAttr && slices.ContainsFunc(children, func(child string) bool {
+		return child == simpleTypeChild || child == complexTypeChild
+	}) {
+		return childOrderError(-1, "element cannot have both type and anonymous type")
+	}
+	return nil
 }
 
 func matchTestChildren(want ...string) func(string) bool {

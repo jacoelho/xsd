@@ -148,6 +148,24 @@ func XMLFieldsSeq(s string) iter.Seq[string] {
 	}
 }
 
+// SplitQName splits and validates an XML QName into prefix and local parts.
+func SplitQName(s string) (prefix, local string, prefixed, ok bool) {
+	if s == "" {
+		return "", "", false, false
+	}
+	prefix, local, prefixed = strings.Cut(s, ":")
+	if !prefixed {
+		if !IsNCName(s) {
+			return "", "", false, false
+		}
+		return "", s, false, true
+	}
+	if prefix == "" || local == "" || strings.Contains(local, ":") || !IsNCName(prefix) || !IsNCName(local) {
+		return "", "", false, false
+	}
+	return prefix, local, true, true
+}
+
 func firstXMLWhitespaceCollapseChange(s string) int {
 	runStart := -1
 	runNeedsCollapse := false

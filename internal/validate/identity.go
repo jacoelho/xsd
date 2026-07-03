@@ -171,20 +171,6 @@ type IdentityFieldMatch struct {
 	Field     int
 }
 
-// IdentityScopeView exposes active scope metadata to schema-owned selector matching.
-type IdentityScopeView struct {
-	Constraints []runtime.IdentityConstraintID
-	Index       int
-	Depth       int
-}
-
-// IdentitySelectionView exposes active selection metadata to schema-owned field matching.
-type IdentitySelectionView struct {
-	Constraint runtime.IdentityConstraintID
-	Index      int
-	Depth      int
-}
-
 // IdentityConstraintRuntime supplies identity-constraint metadata needed to
 // finish selected identity tuples.
 type IdentityConstraintRuntime interface {
@@ -220,61 +206,6 @@ func resetRetainedIdentitySlice[T any](in []T, maxRetainedCap int) []T {
 	}
 	clear(in[:cap(in)])
 	return in[:0]
-}
-
-// RecordAttribute records ID/IDREF values for one attribute and rejects multiple ID attributes.
-func (s *IdentityState) RecordAttribute(value IdentityValue, seenID *bool, limits IdentityLimits, ctx StartContext) error {
-	if value.IDs != "" {
-		if seenID != nil && *seenID {
-			return validation(ctx, xsderrors.CodeValidationType, "multiple ID attributes")
-		}
-		if seenID != nil {
-			*seenID = true
-		}
-	}
-	return s.RecordValue(value, limits, ctx)
-}
-
-// RecordAttributeSimpleValue records ID/IDREF values from one validated attribute value.
-func (s *IdentityState) RecordAttributeSimpleValue(value runtime.SimpleValue, seenID *bool, limits IdentityLimits, ctx StartContext) error {
-	return s.RecordAttribute(SimpleValueIdentity(value), seenID, limits, ctx)
-}
-
-// RecordValue records ID and IDREF values.
-func (s *IdentityState) RecordValue(value IdentityValue, limits IdentityLimits, ctx StartContext) error {
-	if value.IDs == "" && value.IDRefs == "" {
-		return nil
-	}
-	var err error
-	path := ctx.PathString()
-	for canonical := range lex.XMLFieldsSeq(value.IDs) {
-		if s.ids == nil {
-			s.ids = make(map[string]string)
-		}
-		if prev, exists := s.ids[canonical]; exists {
-			err = validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
-			break
-		}
-		if err = s.ReserveEntry(canonical, limits, ctx); err != nil {
-			break
-		}
-		s.ids[canonical] = path
-	}
-	if err != nil {
-		return err
-	}
-	for canonical := range lex.XMLFieldsSeq(value.IDRefs) {
-		if err = s.ReserveEntry(canonical, limits, ctx); err != nil {
-			break
-		}
-		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: path, Line: ctx.Line, Col: ctx.Column})
-	}
-	return err
-}
-
-// RecordSimpleValue records ID and IDREF values from one validated simple value.
-func (s *IdentityState) RecordSimpleValue(value runtime.SimpleValue, limits IdentityLimits, ctx StartContext) error {
-	return s.RecordValue(SimpleValueIdentity(value), limits, ctx)
 }
 
 // ReserveEntry reserves one identity entry against global identity limits.
@@ -356,17 +287,6 @@ func (s *IdentityState) StartElementScopeSchema(rt *runtime.Schema, elem runtime
 // HasScopes reports whether any identity scopes are active.
 func (s *IdentityState) HasScopes() bool {
 	return s != nil && len(s.scopes) != 0
-}
-
-// ForEachScope calls fn for each active scope.
-func (s *IdentityState) ForEachScope(fn func(IdentityScopeView)) {
-	if s == nil {
-		return
-	}
-	for i := range s.scopes {
-		scope := &s.scopes[i]
-		fn(IdentityScopeView{Index: i, Depth: scope.depth, Constraints: scope.constraints})
-	}
 }
 
 // StartSelection starts collecting fields for one matched identity selector.
@@ -527,17 +447,6 @@ func (s *IdentityState) AttributeFieldMatchesSchema(rt *runtime.Schema, namePath
 	return s.FieldMatches(), nil
 }
 
-// ForEachSelection calls fn for each active selection.
-func (s *IdentityState) ForEachSelection(fn func(IdentitySelectionView)) {
-	if s == nil {
-		return
-	}
-	for i := range s.selections {
-		sel := &s.selections[i]
-		fn(IdentitySelectionView{Index: i, Constraint: sel.constraint, Depth: sel.depth})
-	}
-}
-
 // SelectionPath returns the validation path for selection.
 func (s *IdentityState) SelectionPath(selection int) (string, bool) {
 	if s == nil || selection < 0 || selection >= len(s.selections) {
@@ -684,44 +593,6 @@ func (s *IdentityState) CaptureComplexElementFields(matches []IdentityFieldMatch
 	}
 	key := runtime.SimpleIdentityKey(runtime.PrimitiveString, lex.CollapseXMLWhitespace(string(rawText)))
 	return s.CaptureFields(matches, key, ctx)
-}
-
-// FinishSelections finishes selections selected at depth.
-func (s *IdentityState) FinishSelections(
-	rt IdentityConstraintRuntime,
-	depth int,
-	limits IdentityLimits,
-	ctx StartContext,
-	report func(error) error,
-) error {
-	if s == nil || len(s.selections) == 0 {
-		return nil
-	}
-	orig := s.selections
-	dst := s.selections[:0]
-	for i := range s.selections {
-		sel := s.selections[i]
-		if sel.depth != depth {
-			dst = append(dst, sel)
-			continue
-		}
-		if err := s.finishSelection(rt, sel, limits, ctx); err != nil {
-			clear(s.selectionFields(sel))
-			if recoverErr := report(err); recoverErr != nil {
-				dst = append(dst, orig[i+1:]...)
-				clear(orig[len(dst):])
-				s.selections = dst
-				s.truncateFieldValues()
-				return recoverErr
-			}
-			continue
-		}
-		clear(s.selectionFields(sel))
-	}
-	clear(orig[len(dst):])
-	s.selections = dst
-	s.truncateFieldValues()
-	return nil
 }
 
 func (s *IdentityState) finishSelection(

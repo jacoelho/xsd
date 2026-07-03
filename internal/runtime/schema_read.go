@@ -171,7 +171,7 @@ func (rt *Schema) SimpleValueNeedsQNameResolver(id SimpleTypeID) bool {
 	if ValidSimpleTypeID(id, len(rt.SimpleTypes)) {
 		return SimpleTypeNeedsQNameResolver(rt.SimpleTypes, id)
 	}
-	return SimpleValueReadNeedsQNameResolver(rt.SimpleValueReads, id)
+	return false
 }
 
 // ValidateRawSimpleValue validates raw simple content through fast-path reads.

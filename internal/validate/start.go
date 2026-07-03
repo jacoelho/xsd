@@ -2,7 +2,6 @@ package validate
 
 import (
 	"encoding/xml"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -44,18 +43,8 @@ type NamespaceLookup func(string) (string, bool)
 // collapse.
 func ResolveLexicalQNameParts(lexical string, lookup NamespaceLookup) (string, string, bool) {
 	v := lex.CollapseXMLWhitespace(lexical)
-	prefix, local, ok := strings.Cut(v, ":")
+	prefix, local, _, ok := lex.SplitQName(v)
 	if !ok {
-		local = v
-		prefix = ""
-	}
-	if ok && prefix == "" {
-		return "", "", false
-	}
-	if local == "" || strings.Contains(local, ":") || !lex.IsNCName(local) {
-		return "", "", false
-	}
-	if prefix != "" && !lex.IsNCName(prefix) {
 		return "", "", false
 	}
 	uri, ok := lookup(prefix)

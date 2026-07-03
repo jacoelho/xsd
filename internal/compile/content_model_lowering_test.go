@@ -532,7 +532,15 @@ type contentModelLoweringRuntime struct {
 }
 
 func newContentModelLoweringRuntime(models []runtime.ContentModel) *contentModelLoweringRuntime {
-	return &contentModelLoweringRuntime{models: runtime.CloneContentModels(models)}
+	return &contentModelLoweringRuntime{models: cloneContentModels(models)}
+}
+
+func cloneContentModels(models []runtime.ContentModel) []runtime.ContentModel {
+	out := make([]runtime.ContentModel, len(models))
+	for i, model := range models {
+		out[i] = runtime.CloneContentModel(model)
+	}
+	return out
 }
 
 func (s *contentModelLoweringRuntime) addModel(model runtime.ContentModel) (runtime.ContentModelID, error) {
