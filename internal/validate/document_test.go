@@ -136,6 +136,18 @@ func TestValidateEndElement(t *testing.T) {
 			},
 			msg: "end element </{urn:test}actual> does not match start element <expected>",
 		},
+		{
+			name: "raw lexical mismatch",
+			in: EndElementInput{
+				Name:            xml.Name{Space: "urn:test", Local: "root"},
+				Expected:        xml.Name{Space: "urn:test", Local: "root"},
+				RawName:         "q:root",
+				ExpectedRawName: "p:root",
+				Context:         StartContext{Path: "/root", Line: 8, Column: 9},
+				OpenElements:    1,
+			},
+			msg: "end element </q:root> does not match start element <p:root>",
+		},
 	}
 
 	for _, tt := range tests {

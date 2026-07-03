@@ -158,6 +158,7 @@ type documentState struct {
 	namePath            []runtime.RuntimeName
 	errors              []error
 	elementNames        []xml.Name
+	elementRawNames     []string
 	path                []string
 	pathText            string
 	text                []byte
@@ -289,6 +290,7 @@ func (s *session) reset() {
 		path:                resetRetainedSlice(s.doc.path),
 		namePath:            resetRetainedSlice(s.doc.namePath),
 		elementNames:        resetRetainedSlice(s.doc.elementNames),
+		elementRawNames:     resetRetainedSlice(s.doc.elementRawNames),
 		allBits:             resetRetainedSlice(s.doc.allBits),
 		identity:            identity,
 		schemaLocationHints: schemaLocationHints,
@@ -433,7 +435,7 @@ finish:
 		pathName = rn.Label()
 	}
 	s.pushPath(pathName)
-	s.doc.elementNames = append(s.doc.elementNames, se.Name)
+	s.pushElementName(se.Name, se.RawName)
 	if s.hasIdentityConstraints {
 		s.doc.namePath = append(s.doc.namePath, rn)
 		if scopeErr := s.startIdentityScope(elem, line, col); scopeErr != nil {

@@ -3,6 +3,7 @@ package compile
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func (c *compiler) compileFacets(parent *rawNode, st *runtime.SimpleType, base, literalType runtime.SimpleTypeID) error {
@@ -39,6 +40,7 @@ type compiledFacetState struct {
 	restrictedEnumeration []runtime.CompiledLiteral
 	stepPatterns          []runtime.StringPattern
 	orderedStep           runtime.OrderedFacetStep
+	stepSingleFacets      runtime.FacetMask
 	sawEnumeration        bool
 	sawFacet              bool
 }
@@ -83,6 +85,13 @@ func (c *compiler) compileFacetChild(child *rawNode, st *runtime.SimpleType, bas
 	}
 	if !compile {
 		return nil
+	}
+	mask, _ := facetMaskForLocal(child.Name.Local)
+	if mask != runtime.FacetPattern && mask != runtime.FacetEnumeration {
+		if state.stepSingleFacets&mask != 0 {
+			return withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "duplicate "+child.Name.Local+" facet"))
+		}
+		state.stepSingleFacets |= mask
 	}
 	state.ensureFacetOwnership(st)
 	facet, err := facetAttrs(child)

@@ -3,7 +3,6 @@ package runtime
 import (
 	"errors"
 	"slices"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/lex"
 )
@@ -332,22 +331,15 @@ func (r *ValueConstraintNameReplay) ValidateConsumed() error {
 }
 
 func resolvedValueNameLexicalParts(lexical string) (string, string, bool, bool) {
-	trimmed := strings.Trim(lexical, " \t\r\n")
+	trimmed := lex.TrimXMLWhitespaceString(lexical)
 	if trimmed == "" {
 		return "", "", false, false
 	}
-	prefix, local, ok := strings.Cut(trimmed, ":")
+	prefix, local, prefixed, ok := lex.SplitQName(trimmed)
 	if !ok {
-		if !lex.IsNCName(trimmed) {
-			return "", "", false, false
-		}
-		return "", trimmed, false, true
-	}
-	if prefix == "" || local == "" || strings.Contains(local, ":") ||
-		!lex.IsNCName(prefix) || !lex.IsNCName(local) {
 		return "", "", false, false
 	}
-	return prefix, local, true, true
+	return prefix, local, prefixed, true
 }
 
 // ValueConstraintIdentity is the equality projection used when runtime rules

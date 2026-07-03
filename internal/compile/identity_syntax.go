@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -94,7 +95,7 @@ func validateIdentityXPathChild(index int, child IdentityConstraintChild, label 
 	if !child.HasXPath {
 		return identitySyntaxError(index, -1, xsderrors.CodeSchemaIdentity, label+" missing xpath")
 	}
-	if trimIdentityXMLWhitespace(child.XPath) == "" {
+	if lex.TrimXMLWhitespaceString(child.XPath) == "" {
 		return identitySyntaxError(index, -1, xsderrors.CodeSchemaIdentity, label+" xpath is empty")
 	}
 	seenAnnotation := false

@@ -28,6 +28,15 @@ func (c *compiler) compileSubstitutions() error {
 		if err != nil {
 			return err
 		}
+		if elementUsesSubstitutionType(raw.node) {
+			member := c.rt.Elements[memberID]
+			member.Type = c.rt.Elements[headID].Type
+			replayErr := c.validateElementValueConstraints(&member, raw.node)
+			if replayErr != nil {
+				return withSchemaCompileLocation(raw.node, replayErr)
+			}
+			c.rt.Elements[memberID] = member
+		}
 		head := c.rt.Elements[headID]
 		member := c.rt.Elements[memberID]
 		err = ValidateSubstitutionMembership(
@@ -67,6 +76,17 @@ func (c *compiler) compileSubstitutionLookup() {
 	c.rt.SubstitutionLookup = runtime.BuildSubstitutionLookup(&c.rt, c.rt.Elements, c.rt.Substitutions)
 	c.rt.SubstitutionReads = runtime.CloneSubstitutionMap(c.rt.Substitutions)
 	c.rt.SubstitutionLookupReads = runtime.CloneSubstitutionLookup(c.rt.SubstitutionLookup)
+}
+
+func elementUsesSubstitutionType(n *rawNode) bool {
+	if _, ok := n.attr(vocab.XSDAttrType); ok {
+		return false
+	}
+	if n.firstXS(vocab.XSDElemSimpleType) != nil || n.firstXS(vocab.XSDElemComplexType) != nil {
+		return false
+	}
+	_, ok := n.attr(vocab.XSDAttrSubstitutionGroup)
+	return ok
 }
 
 func (c *compiler) resolveTypeQName(q runtime.QName) (runtime.TypeID, error) {

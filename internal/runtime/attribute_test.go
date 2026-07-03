@@ -55,7 +55,7 @@ func TestAttributeUseRead(t *testing.T) {
 	if !use.CanValidateFixedStringFast() {
 		t.Fatal("CanValidateFixedStringFast() = false, want true")
 	}
-	if NewAttributeUseRead(AttributeUseReadShape{Type: 7, HasFixed: true}, nil).CanValidateFixedStringFast() {
+	if NewAttributeUseReadForTypeReads(AttributeUseReadShape{Type: 7, HasFixed: true}, nil).CanValidateFixedStringFast() {
 		t.Fatal("CanValidateFixedStringFast() = true without simple-value read, want false")
 	}
 	if got, ok := use.FixedValue(); !ok || got != fixed {
@@ -588,8 +588,8 @@ func TestAttributeUseSetReadProjectionHelpers(t *testing.T) {
 	}
 
 	reads := newTestAttributeUseSetReads(shapes)
-	if !EqualAttributeUseSetReadProjection(reads, shapes, testAttributeSimpleValueReads()) {
-		t.Fatal("EqualAttributeUseSetReadProjection() rejected matching projection")
+	if !equalAttributeUseSetReadProjectionForTypeReadShapes(reads, shapes) {
+		t.Fatal("type-read attribute-use-set projection rejected matching projection")
 	}
 	if got, ok := AttributeUseSetReadForComplexType([]AttributeUseSetID{1}, reads, 0); !ok || got.Wildcard() != 8 {
 		t.Fatalf("AttributeUseSetReadForComplexType() = wildcard %v, %v; want 8, true", got.Wildcard(), ok)
@@ -609,16 +609,16 @@ func TestAttributeUseSetReadProjectionHelpers(t *testing.T) {
 	if got, ok := AttributeUseSetReadForComplexType([]AttributeUseSetID{99}, reads, 0); ok || got.UseCount() != 0 {
 		t.Fatalf("AttributeUseSetReadForComplexType(invalid set) = %+v, %v; want zero, false", got, ok)
 	}
-	if EqualAttributeUseSetReadProjection(reads[:1], shapes, testAttributeSimpleValueReads()) {
-		t.Fatal("EqualAttributeUseSetReadProjection() accepted mismatched table length")
+	if equalAttributeUseSetReadProjectionForTypeReadShapes(reads[:1], shapes) {
+		t.Fatal("type-read attribute-use-set projection accepted mismatched table length")
 	}
 
 	shapes[0].Index[firstName] = 9
 	shapes[0].Uses[0].Name = QName{Local: 9}
 	shapes[0].Required[0] = 9
 	shapes[0].ValueConstraints[0] = 9
-	if EqualAttributeUseSetReadProjection(reads, shapes, testAttributeSimpleValueReads()) {
-		t.Fatal("EqualAttributeUseSetReadProjection() accepted mismatched projection")
+	if equalAttributeUseSetReadProjectionForTypeReadShapes(reads, shapes) {
+		t.Fatal("type-read attribute-use-set projection accepted mismatched projection")
 	}
 
 	fixed := &ValueConstraint{Lexical: "fixed", Canonical: "fixed", Value: SimpleValue{Canonical: "fixed", Type: 7}}
@@ -642,9 +642,9 @@ func TestAttributeUseSetReadProjectionHelpers(t *testing.T) {
 			Wildcard: 8,
 		},
 	}
-	declReads := NewAttributeUseSetReadsForSets(&names, sets, testAttributeSimpleValueReads())
-	if !EqualAttributeUseSetReadProjectionForSets(declReads, &names, sets, testAttributeSimpleValueReads()) {
-		t.Fatal("EqualAttributeUseSetReadProjectionForSets() rejected matching projection")
+	declReads := NewAttributeUseSetReadsForSetsWithTypeReads(&names, sets, testAttributeSimpleValueTypeReads())
+	if !EqualAttributeUseSetReadProjectionForSetsWithTypeReads(declReads, &names, sets, testAttributeSimpleValueTypeReads()) {
+		t.Fatal("EqualAttributeUseSetReadProjectionForSetsWithTypeReads() rejected matching projection")
 	}
 	use, _, ok := declReads[0].DeclaredUse(firstName)
 	if !ok || use.Label() != "first" || !use.Required() || !use.CanValidateFixedStringFast() {
@@ -657,7 +657,7 @@ func TestAttributeUseSetReadProjectionHelpers(t *testing.T) {
 	sets[0].Uses[0].Name = secondName
 	sets[0].Required[0] = 9
 	sets[0].ValueConstraints[0] = 9
-	if !EqualAttributeUseSetReadProjectionForSets(declReads, &names, []AttributeUseSet{
+	if !EqualAttributeUseSetReadProjectionForSetsWithTypeReads(declReads, &names, []AttributeUseSet{
 		{
 			Index: map[QName]uint32{
 				firstName:  0,
@@ -675,48 +675,52 @@ func TestAttributeUseSetReadProjectionHelpers(t *testing.T) {
 			Uses:     []AttributeUse{{Name: secondName, Type: 7}},
 			Wildcard: 8,
 		},
-	}, testAttributeSimpleValueReads()) {
-		t.Fatal("NewAttributeUseSetReadsForSets() aliased mutable set storage")
+	}, testAttributeSimpleValueTypeReads()) {
+		t.Fatal("NewAttributeUseSetReadsForSetsWithTypeReads() aliased mutable set storage")
 	}
-	if EqualAttributeUseSetReadProjectionForSets(declReads, &names, sets, testAttributeSimpleValueReads()) {
-		t.Fatal("EqualAttributeUseSetReadProjectionForSets() accepted mismatched projection")
+	if EqualAttributeUseSetReadProjectionForSetsWithTypeReads(declReads, &names, sets, testAttributeSimpleValueTypeReads()) {
+		t.Fatal("EqualAttributeUseSetReadProjectionForSetsWithTypeReads() accepted mismatched projection")
 	}
-	if EqualAttributeUseSetReadProjectionForSets(declReads[:1], &names, sets, testAttributeSimpleValueReads()) {
-		t.Fatal("EqualAttributeUseSetReadProjectionForSets() accepted mismatched table length")
+	if EqualAttributeUseSetReadProjectionForSetsWithTypeReads(declReads[:1], &names, sets, testAttributeSimpleValueTypeReads()) {
+		t.Fatal("EqualAttributeUseSetReadProjectionForSetsWithTypeReads() accepted mismatched table length")
 	}
-	if err := ValidateAttributeUseSetReadProjectionForSets(NewAttributeUseSetReadsForSets(&names, sets, testAttributeSimpleValueReads()), &names, sets, testAttributeSimpleValueReads()); err != nil {
-		t.Fatalf("ValidateAttributeUseSetReadProjectionForSets() error = %v", err)
+	if err := ValidateAttributeUseSetReadProjectionForSetsWithTypeReads(NewAttributeUseSetReadsForSetsWithTypeReads(&names, sets, testAttributeSimpleValueTypeReads()), &names, sets, testAttributeSimpleValueTypeReads()); err != nil {
+		t.Fatalf("ValidateAttributeUseSetReadProjectionForSetsWithTypeReads() error = %v", err)
 	}
-	if err := ValidateAttributeUseSetReadProjectionForSets(declReads[:1], &names, sets, testAttributeSimpleValueReads()); err == nil || err.Error() != "attribute use set read projection count does not match use sets" {
-		t.Fatalf("ValidateAttributeUseSetReadProjectionForSets(short) error = %v, want count invariant", err)
+	if err := ValidateAttributeUseSetReadProjectionForSetsWithTypeReads(declReads[:1], &names, sets, testAttributeSimpleValueTypeReads()); err == nil || err.Error() != "attribute use set read projection count does not match use sets" {
+		t.Fatalf("ValidateAttributeUseSetReadProjectionForSetsWithTypeReads(short) error = %v, want count invariant", err)
 	}
-	if err := ValidateAttributeUseSetReadProjectionForSets(declReads, &names, sets, testAttributeSimpleValueReads()); err == nil || err.Error() != "attribute use read projection does not match use set" {
-		t.Fatalf("ValidateAttributeUseSetReadProjectionForSets(changed) error = %v, want mismatch invariant", err)
+	if err := ValidateAttributeUseSetReadProjectionForSetsWithTypeReads(declReads, &names, sets, testAttributeSimpleValueTypeReads()); err == nil || err.Error() != "attribute use read projection does not match use set" {
+		t.Fatalf("ValidateAttributeUseSetReadProjectionForSetsWithTypeReads(changed) error = %v, want mismatch invariant", err)
 	}
 }
 
 func newTestAttributeUseRead(shape AttributeUseReadShape) AttributeUseRead {
-	return NewAttributeUseRead(shape, testAttributeSimpleValueReads())
+	return NewAttributeUseReadForTypeReads(shape, testAttributeSimpleValueTypeReads())
 }
 
 func newTestAttributeUseSetRead(shape AttributeUseSetReadShape) AttributeUseSetRead {
-	return NewAttributeUseSetRead(shape, testAttributeSimpleValueReads())
+	return NewAttributeUseSetReadForTypeReads(shape, testAttributeSimpleValueTypeReads())
 }
 
 func newTestAttributeUseSetReads(shapes []AttributeUseSetReadShape) []AttributeUseSetRead {
-	return NewAttributeUseSetReads(shapes, testAttributeSimpleValueReads())
+	return NewAttributeUseSetReadsForTypeReads(shapes, testAttributeSimpleValueTypeReads())
 }
 
-func testAttributeSimpleValueReads() []SimpleValueRead {
-	reads := make([]SimpleValueRead, 8)
-	reads[7] = NewSimpleValueRead(SimpleValueReadShape{
+func equalAttributeUseSetReadProjectionForTypeReadShapes(reads []AttributeUseSetRead, shapes []AttributeUseSetReadShape) bool {
+	return slices.EqualFunc(reads, NewAttributeUseSetReadsForTypeReads(shapes, testAttributeSimpleValueTypeReads()), EqualAttributeUseSetReads)
+}
+
+func testAttributeSimpleValueTypeReads() []SimpleValueTypeRead {
+	reads := make([]SimpleValueTypeRead, 8)
+	reads[7] = SimpleValueTypeRead{
 		Type: SimpleValueType{
 			Variety:    SimpleVarietyAtomic,
 			Primitive:  PrimitiveString,
 			Whitespace: WhitespacePreserve,
 		},
 		Present: true,
-	})
+	}
 	return reads
 }
 

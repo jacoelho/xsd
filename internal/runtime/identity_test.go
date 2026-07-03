@@ -285,47 +285,6 @@ func TestValidateIdentityConstraintsAllowsEmptyAttributeLookupMap(t *testing.T) 
 	}
 }
 
-func TestCloneIdentityConstraintsDeepCopiesRuntimeMetadata(t *testing.T) {
-	t.Parallel()
-
-	_, identities, names := identityValidationFixture(t)
-	identities[0].Selector = append(identities[0].Selector, IdentityPath{
-		Descendant: true,
-		Steps:      []IdentityStep{{Name: names["child"]}},
-	})
-	identities[0].Fields[0].Paths = append(identities[0].Fields[0].Paths,
-		IdentityFieldPath{Steps: []IdentityStep{{Name: names["item"]}}},
-		IdentityFieldPath{Attr: true, AttrWildcard: true, AttrNamespaceSet: true, AttrNamespace: names["id"].Namespace},
-	)
-	refreshIdentityLookup(&identities[0])
-
-	cloned := CloneIdentityConstraints(identities)
-	if !reflect.DeepEqual(cloned, identities) {
-		t.Fatalf("CloneIdentityConstraints() = %#v, want %#v", cloned, identities)
-	}
-
-	cloned[0].Selector[0].Steps[0].Name = names["child"]
-	if identities[0].Selector[0].Steps[0].Name == names["child"] {
-		t.Fatal("selector steps were not deep-cloned")
-	}
-	cloned[0].Fields[0].Paths[0].Attribute = names["child"]
-	if identities[0].Fields[0].Paths[0].Attribute == names["child"] {
-		t.Fatal("identity field paths were not deep-cloned")
-	}
-	cloned[0].ElementFields[0].Paths[0].Steps[0].Name = names["child"]
-	if identities[0].ElementFields[0].Paths[0].Steps[0].Name == names["child"] {
-		t.Fatal("compiled element field paths were not deep-cloned")
-	}
-	cloned[0].AttributeFields[names["id"]][0].Paths[0].Attribute = names["child"]
-	if identities[0].AttributeFields[names["id"]][0].Paths[0].Attribute == names["child"] {
-		t.Fatal("compiled attribute field map paths were not deep-cloned")
-	}
-	cloned[0].AttributeWildcardFields[0].Paths[0].AttrNamespace = NamespaceID(99)
-	if identities[0].AttributeWildcardFields[0].Paths[0].AttrNamespace == NamespaceID(99) {
-		t.Fatal("compiled attribute wildcard field paths were not deep-cloned")
-	}
-}
-
 func TestIdentityConstraintIDProjectionHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -401,7 +360,7 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 		IdentityFieldPath{Attr: true, AttrWildcard: true},
 	)
 	refreshIdentityLookup(&identities[0])
-	want := CloneIdentityConstraints(identities)
+	want := cloneIdentityConstraintsForTest(identities)
 
 	reads := NewIdentityConstraintReads(identities)
 	if !EqualIdentityConstraintReadProjection(reads, identities) {
@@ -480,6 +439,19 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 	if wildcardFieldCount != len(want[0].AttributeWildcardFields) {
 		t.Fatalf("ForEachAttributeWildcardField visited %d fields, want %d", wildcardFieldCount, len(want[0].AttributeWildcardFields))
 	}
+}
+
+func cloneIdentityConstraintsForTest(in []IdentityConstraint) []IdentityConstraint {
+	out := make([]IdentityConstraint, len(in))
+	for i := range in {
+		out[i] = in[i]
+		out[i].Selector = CloneIdentityPaths(in[i].Selector)
+		out[i].Fields = CloneIdentityFields(in[i].Fields)
+		out[i].ElementFields = cloneCompiledIdentityFields(in[i].ElementFields)
+		out[i].AttributeFields = cloneCompiledIdentityFieldMap(in[i].AttributeFields)
+		out[i].AttributeWildcardFields = cloneCompiledIdentityFields(in[i].AttributeWildcardFields)
+	}
+	return out
 }
 
 func TestIdentityReadAccessors(t *testing.T) {

@@ -146,6 +146,15 @@ func TestXMLStreamParserHandlesBareCRText(t *testing.T) {
 	}
 }
 
+func TestParseCharRefRejectsUppercaseHexMarker(t *testing.T) {
+	if r, ok := parseCharRef([]byte("x4F")); !ok || r != 'O' {
+		t.Fatalf("parseCharRef(x4F) = %q, %v; want O, true", r, ok)
+	}
+	if r, ok := parseCharRef([]byte("X4F")); ok || r != 0 {
+		t.Fatalf("parseCharRef(X4F) = %q, %v; want rejected", r, ok)
+	}
+}
+
 func TestXMLStreamParserNormalizesCDATALineEndings(t *testing.T) {
 	tests := []struct {
 		name string

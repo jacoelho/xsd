@@ -37,36 +37,11 @@ func CloneWildcard(in Wildcard) Wildcard {
 	return in
 }
 
-// CloneWildcards deep-clones wildcard metadata for frozen runtime publication.
-func CloneWildcards(in []Wildcard) []Wildcard {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i] = CloneWildcard(out[i])
-	}
-	return out
-}
-
 // CloneContentModel deep-clones content-model metadata.
 func CloneContentModel(in ContentModel) ContentModel {
 	in.Particles = slices.Clone(in.Particles)
 	in.ChoiceLimits = slices.Clone(in.ChoiceLimits)
 	return in
-}
-
-// CloneContentModels deep-clones content-model metadata for frozen runtime
-// publication.
-func CloneContentModels(in []ContentModel) []ContentModel {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i] = CloneContentModel(out[i])
-	}
-	return out
-}
-
-// CloneComplexTypes clones complex-type metadata for frozen runtime
-// publication and validation projections.
-func CloneComplexTypes(in []ComplexType) []ComplexType {
-	return slices.Clone(in)
 }
 
 // CloneSimpleTypeDerivation deep-clones simple-type derivation projection
@@ -94,16 +69,6 @@ func cloneFacetBounds(in facetBounds) facetBounds {
 	return in
 }
 
-// CloneSimpleTypes deep-clones simple types for frozen runtime publication.
-func CloneSimpleTypes(in []SimpleType) []SimpleType {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i].Union = slices.Clone(out[i].Union)
-		out[i].Facets = CloneFacetSet(out[i].Facets)
-	}
-	return out
-}
-
 // CloneSimpleTypeDerivations deep-clones simple-type derivation projection
 // metadata.
 func CloneSimpleTypeDerivations(in []SimpleTypeDerivation) []SimpleTypeDerivation {
@@ -119,62 +84,6 @@ func CloneSimpleTypeDerivations(in []SimpleTypeDerivation) []SimpleTypeDerivatio
 func CloneValueConstraintSimpleType(in ValueConstraintSimpleType) ValueConstraintSimpleType {
 	in.Union = slices.Clone(in.Union)
 	return in
-}
-
-// CloneValueConstraint deep-clones a prevalidated value constraint.
-func CloneValueConstraint(in *ValueConstraint) *ValueConstraint {
-	if in == nil {
-		return nil
-	}
-	out := new(*in)
-	out.ResolvedNames = slices.Clone(in.ResolvedNames)
-	return out
-}
-
-// CloneAttributeDecls deep-clones attribute declarations for frozen runtime
-// publication.
-func CloneAttributeDecls(in []AttributeDecl) []AttributeDecl {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i].Default = CloneValueConstraint(out[i].Default)
-		out[i].Fixed = CloneValueConstraint(out[i].Fixed)
-	}
-	return out
-}
-
-// CloneElementDecls deep-clones element declarations for frozen runtime
-// publication.
-func CloneElementDecls(in []ElementDecl) []ElementDecl {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i].Default = CloneValueConstraint(out[i].Default)
-		out[i].Fixed = CloneValueConstraint(out[i].Fixed)
-		out[i].Identity = slices.Clone(out[i].Identity)
-	}
-	return out
-}
-
-// CloneAttributeUseSets deep-clones attribute-use sets for frozen runtime
-// publication.
-func CloneAttributeUseSets(in []AttributeUseSet) []AttributeUseSet {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i].Index = maps.Clone(out[i].Index)
-		out[i].Uses = CloneAttributeUses(out[i].Uses)
-		out[i].Required = slices.Clone(out[i].Required)
-		out[i].ValueConstraints = slices.Clone(out[i].ValueConstraints)
-	}
-	return out
-}
-
-// CloneAttributeUses deep-clones attribute uses for frozen runtime publication.
-func CloneAttributeUses(in []AttributeUse) []AttributeUse {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i].Default = CloneValueConstraint(out[i].Default)
-		out[i].Fixed = CloneValueConstraint(out[i].Fixed)
-	}
-	return out
 }
 
 // CloneSimpleTypeValidation deep-clones simple-type validation projection
@@ -246,16 +155,6 @@ func CloneCompiledModel(in CompiledModel) CompiledModel {
 	in.Rows = cloneCompiledModelRows(in.Rows)
 	in.All = slices.Clone(in.All)
 	return in
-}
-
-// CloneCompiledModels deep-clones compiled content-model metadata for frozen
-// runtime publication.
-func CloneCompiledModels(in []CompiledModel) []CompiledModel {
-	out := slices.Clone(in)
-	for i, model := range in {
-		out[i] = CloneCompiledModel(model)
-	}
-	return out
 }
 
 func cloneCompiledModelRows(in []CompiledModelRow) []CompiledModelRow {

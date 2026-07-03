@@ -54,6 +54,10 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (runt
 	if err := checkLocalComplexTypeAttributes(n); err != nil {
 		return runtime.NoComplexType, err
 	}
+	deferCompletion, err := c.shouldDeferAnonymousComplex(n, ctx)
+	if err != nil {
+		return runtime.NoComplexType, err
+	}
 	q, err := c.names.InternQName("", fmt.Sprintf("$complex%d", len(c.rt.ComplexTypes)))
 	if err != nil {
 		return runtime.NoComplexType, err
@@ -63,6 +67,19 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (runt
 		return runtime.NoComplexType, err
 	}
 	c.rt.ComplexTypes = append(c.rt.ComplexTypes, runtime.ComplexType{Name: q, Content: runtime.NoContentModel, Attrs: runtime.NoAttributeUseSet, TextType: runtime.NoSimpleType, Base: runtime.ComplexRef(c.rt.Builtin.AnyType)})
+	if deferCompletion {
+		c.deferredAnonymousComplex = append(c.deferredAnonymousComplex, deferredAnonymousComplex{
+			node: n,
+			ctx:  ctx,
+			name: q,
+			id:   id,
+		})
+		return id, nil
+	}
+	return c.completeAnonymousComplex(id, q, n, ctx)
+}
+
+func (c *compiler) completeAnonymousComplex(id runtime.ComplexTypeID, q runtime.QName, n *rawNode, ctx *schemaContext) (runtime.ComplexTypeID, error) {
 	ct, err := c.compileComplexType(n, ctx, q, true)
 	if err != nil {
 		return runtime.NoComplexType, err
@@ -75,6 +92,48 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (runt
 	ct.Final = final
 	c.rt.ComplexTypes[id] = ct
 	return id, nil
+}
+
+func (c *compiler) drainDeferredAnonymousComplex() error {
+	for len(c.deferredAnonymousComplex) != 0 {
+		pending := c.deferredAnonymousComplex
+		c.deferredAnonymousComplex = nil
+		for _, item := range pending {
+			if _, err := c.completeAnonymousComplex(item.id, item.name, item.node, item.ctx); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *compiler) shouldDeferAnonymousComplex(n *rawNode, ctx *schemaContext) (bool, error) {
+	if err := checkComplexTypeChildren(n); err != nil {
+		return false, err
+	}
+	if cc := n.firstXS(vocab.XSDElemComplexContent); cc != nil {
+		source, err := checkComplexContentSyntax(cc)
+		if err != nil {
+			return false, err
+		}
+		base, err := c.contentDerivationBaseQName(vocab.XSDElemComplexContent, source.kind, source.node, ctx)
+		if err != nil {
+			return false, err
+		}
+		return c.compilingComplex[base], nil
+	}
+	if sc := n.firstXS(vocab.XSDElemSimpleContent); sc != nil {
+		source, err := checkSimpleContentSyntax(sc)
+		if err != nil {
+			return false, err
+		}
+		base, err := c.contentDerivationBaseQName(vocab.XSDElemSimpleContent, source.kind, source.node, ctx)
+		if err != nil {
+			return false, err
+		}
+		return c.compilingComplex[base], nil
+	}
+	return false, nil
 }
 
 func schemaBoolAttr(n *rawNode, name string) (bool, error) {
@@ -193,11 +252,7 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, kind ContentD
 }
 
 func (c *compiler) complexContentBase(child *rawNode, kind ContentDerivationKind, ctx *schemaContext, anonymous bool) (runtime.ComplexTypeID, runtime.ComplexType, error) {
-	baseLex, ok := child.attr(vocab.XSDAttrBase)
-	if err := checkContentDerivationBase(vocab.XSDElemComplexContent, kind, child, ok); err != nil {
-		return runtime.NoComplexType, runtime.ComplexType{}, err
-	}
-	baseQName, err := c.resolveQNameChecked(child, ctx, baseLex)
+	baseQName, err := c.contentDerivationBaseQName(vocab.XSDElemComplexContent, kind, child, ctx)
 	if err != nil {
 		return runtime.NoComplexType, runtime.ComplexType{}, err
 	}
@@ -210,6 +265,14 @@ func (c *compiler) complexContentBase(child *rawNode, kind ContentDerivationKind
 		return runtime.NoComplexType, runtime.ComplexType{}, withSchemaCompileLocation(child, err)
 	}
 	return baseID, c.rt.ComplexTypes[baseID], nil
+}
+
+func (c *compiler) contentDerivationBaseQName(container string, kind ContentDerivationKind, child *rawNode, ctx *schemaContext) (runtime.QName, error) {
+	baseLex, ok := child.attr(vocab.XSDAttrBase)
+	if err := checkContentDerivationBase(container, kind, child, ok); err != nil {
+		return runtime.QName{}, err
+	}
+	return c.resolveQNameChecked(child, ctx, baseLex)
 }
 
 func (c *compiler) compileComplexContentExtension(child *rawNode, ctx *schemaContext, ct runtime.ComplexType, baseID runtime.ComplexTypeID, base runtime.ComplexType, mixed bool) (runtime.ComplexType, error) {

@@ -153,7 +153,7 @@ func schemaAnnotationSyntaxError(index int, code xsderrors.Code, msg string) err
 
 // ValidateNotationDeclaration validates xs:notation declaration syntax.
 func ValidateNotationDeclaration(text string, children []NotationChild, hasName, hasPublic, hasSystem bool) error {
-	if trimCompileXMLWhitespace(text) != "" {
+	if lex.TrimXMLWhitespaceString(text) != "" {
 		return notationSyntaxError(-1, xsderrors.CodeSchemaContentModel, "notation can contain only annotation")
 	}
 	for i, child := range children {
@@ -239,24 +239,4 @@ func requireTopLevelName(child TopLevelSchemaChild) error {
 
 func topLevelSchemaChildError(code xsderrors.Code, msg string) error {
 	return &TopLevelSchemaChildError{Code: code, Message: msg}
-}
-
-func trimCompileXMLWhitespace(s string) string {
-	start, end := 0, len(s)
-	for start < end && isCompileXMLWhitespace(s[start]) {
-		start++
-	}
-	for end > start && isCompileXMLWhitespace(s[end-1]) {
-		end--
-	}
-	return s[start:end]
-}
-
-func isCompileXMLWhitespace(c byte) bool {
-	switch c {
-	case ' ', '\t', '\n', '\r':
-		return true
-	default:
-		return false
-	}
 }

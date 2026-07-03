@@ -27,12 +27,8 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 		Mode:       WildcardList,
 		Process:    ProcessStrict,
 	}}
-	clonedWildcards := CloneWildcards(wildcards)
 	clonedWildcard := CloneWildcard(wildcards[0])
 	wildcards[0].Namespaces[0] = 9
-	if clonedWildcards[0].Namespaces[0] != 1 {
-		t.Fatalf("CloneWildcards aliased namespace slice: %#v", clonedWildcards[0].Namespaces)
-	}
 	if clonedWildcard.Namespaces[0] != 1 {
 		t.Fatalf("CloneWildcard aliased namespace slice: %#v", clonedWildcard.Namespaces)
 	}
@@ -44,22 +40,11 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 		Occurs:       occurs,
 		Kind:         ModelSequence,
 	}}
-	clonedModels := CloneContentModels(models)
 	clonedModel := CloneContentModel(models[0])
 	models[0].Particles[0].Element = 9
 	models[0].ChoiceLimits[0] = 9
-	if clonedModels[0].Particles[0].Element != 1 || clonedModels[0].ChoiceLimits[0] != 0 {
-		t.Fatalf("CloneContentModels aliased nested slices: %#v", clonedModels[0])
-	}
 	if clonedModel.Particles[0].Element != 1 || clonedModel.ChoiceLimits[0] != 0 {
 		t.Fatalf("CloneContentModel aliased nested slices: %#v", clonedModel)
-	}
-
-	complexTypes := []ComplexType{{Name: name, Content: 1}}
-	clonedComplexTypes := CloneComplexTypes(complexTypes)
-	complexTypes[0].Content = 9
-	if clonedComplexTypes[0].Content != 1 {
-		t.Fatalf("CloneComplexTypes aliased complex-type slice: %#v", clonedComplexTypes)
 	}
 
 	simpleDerivation := SimpleTypeDerivation{Union: []SimpleTypeID{1, 2}}
@@ -102,110 +87,11 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 		t.Fatalf("CloneFacetSet aliased mutable state: %#v", clonedFacets)
 	}
 
-	simpleTypes := []SimpleType{{
-		Union:  []SimpleTypeID{1},
-		Facets: facets,
-		Name:   name,
-	}}
-	clonedSimpleTypes := CloneSimpleTypes(simpleTypes)
-	simpleTypes[0].Union[0] = 9
-	simpleTypes[0].Facets.Length = 10
-	simpleTypes[0].Facets.Enumeration[0].Canonical = "C"
-	if clonedSimpleTypes[0].Union[0] != 1 ||
-		clonedSimpleTypes[0].Facets.Length != 9 ||
-		clonedSimpleTypes[0].Facets.Enumeration[0].Canonical != "B" {
-		t.Fatalf("CloneSimpleTypes aliased mutable state: %#v", clonedSimpleTypes[0])
-	}
-
 	valueConstraintSimpleType := ValueConstraintSimpleType{Union: []SimpleTypeID{1, 2}}
 	clonedValueConstraintSimpleType := CloneValueConstraintSimpleType(valueConstraintSimpleType)
 	valueConstraintSimpleType.Union[0] = 9
 	if clonedValueConstraintSimpleType.Union[0] != 1 {
 		t.Fatalf("CloneValueConstraintSimpleType aliased union slice: %#v", clonedValueConstraintSimpleType.Union)
-	}
-
-	valueConstraint := &ValueConstraint{
-		ResolvedNames: []ResolvedValueName{{Lexical: "p:item"}},
-		Lexical:       "p:item",
-		Canonical:     "p:item",
-	}
-	clonedValueConstraint := CloneValueConstraint(valueConstraint)
-	valueConstraint.ResolvedNames[0].Lexical = "p:other"
-	if clonedValueConstraint.ResolvedNames[0].Lexical != "p:item" {
-		t.Fatalf("CloneValueConstraint aliased resolved-name slice: %#v", clonedValueConstraint.ResolvedNames)
-	}
-	if cloned := CloneValueConstraint(nil); cloned != nil {
-		t.Fatalf("CloneValueConstraint(nil) = %+v, want nil", cloned)
-	}
-
-	useConstraint := &ValueConstraint{
-		ResolvedNames: []ResolvedValueName{{Lexical: "u:item"}},
-		Lexical:       "u:item",
-		Canonical:     "u:item",
-	}
-	attributeUses := []AttributeUse{{
-		Default: useConstraint,
-		Fixed:   useConstraint,
-		Name:    name,
-		Type:    1,
-	}}
-	clonedAttributeUses := CloneAttributeUses(attributeUses)
-	attributeUses[0].Default.ResolvedNames[0].Lexical = "u:changed"
-	if clonedAttributeUses[0].Default.ResolvedNames[0].Lexical != "u:item" {
-		t.Fatalf("CloneAttributeUses aliased value constraint: %#v", clonedAttributeUses[0].Default.ResolvedNames)
-	}
-
-	setConstraint := &ValueConstraint{
-		ResolvedNames: []ResolvedValueName{{Lexical: "s:item"}},
-		Lexical:       "s:item",
-		Canonical:     "s:item",
-	}
-	attributeUseSets := []AttributeUseSet{{
-		Index:            map[QName]uint32{name: 0},
-		Uses:             []AttributeUse{{Default: setConstraint, Name: name, Type: 1}},
-		Required:         []uint32{0},
-		ValueConstraints: []uint32{0},
-		Wildcard:         1,
-	}}
-	clonedAttributeUseSets := CloneAttributeUseSets(attributeUseSets)
-	attributeUseSets[0].Index[name] = 9
-	attributeUseSets[0].Uses[0].Type = 9
-	attributeUseSets[0].Uses[0].Default.ResolvedNames[0].Lexical = "s:changed"
-	attributeUseSets[0].Required[0] = 9
-	attributeUseSets[0].ValueConstraints[0] = 9
-	if clonedAttributeUseSets[0].Index[name] != 0 ||
-		clonedAttributeUseSets[0].Uses[0].Type != 1 ||
-		clonedAttributeUseSets[0].Uses[0].Default.ResolvedNames[0].Lexical != "s:item" ||
-		clonedAttributeUseSets[0].Required[0] != 0 ||
-		clonedAttributeUseSets[0].ValueConstraints[0] != 0 {
-		t.Fatalf("CloneAttributeUseSets aliased mutable state: %#v", clonedAttributeUseSets[0])
-	}
-
-	attributeDecls := []AttributeDecl{{
-		Default: valueConstraint,
-		Fixed:   valueConstraint,
-		Name:    name,
-		Type:    1,
-	}}
-	clonedAttributeDecls := CloneAttributeDecls(attributeDecls)
-	attributeDecls[0].Default.ResolvedNames[0].Lexical = "p:changed"
-	if clonedAttributeDecls[0].Default.ResolvedNames[0].Lexical != "p:other" {
-		t.Fatalf("CloneAttributeDecls aliased value constraint: %#v", clonedAttributeDecls[0].Default.ResolvedNames)
-	}
-
-	elementDecls := []ElementDecl{{
-		Default:  valueConstraint,
-		Fixed:    valueConstraint,
-		Identity: []IdentityConstraintID{1},
-		Name:     name,
-		Type:     SimpleRef(1),
-	}}
-	clonedElementDecls := CloneElementDecls(elementDecls)
-	elementDecls[0].Identity[0] = 9
-	elementDecls[0].Default.ResolvedNames[0].Lexical = "p:again"
-	if clonedElementDecls[0].Identity[0] != 1 ||
-		clonedElementDecls[0].Default.ResolvedNames[0].Lexical != "p:changed" {
-		t.Fatalf("CloneElementDecls aliased mutable state: %#v", clonedElementDecls[0])
 	}
 
 	simpleValidation := SimpleTypeValidation{Union: []SimpleTypeID{1, 2}}
@@ -314,16 +200,16 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 		Source: 1,
 		Kind:   CompiledModelDFA,
 	}}
-	clonedCompiled := CloneCompiledModels(compiled)
+	clonedCompiled := CloneCompiledModel(compiled[0])
 	compiled[0].Rows[0].Edges[0].To = 9
 	compiled[0].Rows[0].Index.NameToEdge[name] = 9
 	compiled[0].Rows[0].Index.WildcardEdges[0] = 9
 	compiled[0].All[0].Required = false
-	if clonedCompiled[0].Rows[0].Edges[0].To != 1 ||
-		clonedCompiled[0].Rows[0].Index.NameToEdge[name] != 0 ||
-		clonedCompiled[0].Rows[0].Index.WildcardEdges[0] != 1 ||
-		!clonedCompiled[0].All[0].Required {
-		t.Fatalf("CloneCompiledModels aliased nested state: %#v", clonedCompiled[0])
+	if clonedCompiled.Rows[0].Edges[0].To != 1 ||
+		clonedCompiled.Rows[0].Index.NameToEdge[name] != 0 ||
+		clonedCompiled.Rows[0].Index.WildcardEdges[0] != 1 ||
+		!clonedCompiled.All[0].Required {
+		t.Fatalf("CloneCompiledModel aliased nested state: %#v", clonedCompiled)
 	}
 }
 

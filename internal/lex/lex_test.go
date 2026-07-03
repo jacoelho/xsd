@@ -115,6 +115,39 @@ func TestSplitASCIIQNameBytes(t *testing.T) {
 	}
 }
 
+func TestSplitQName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		in       string
+		prefix   string
+		local    string
+		ok       bool
+		prefixed bool
+	}{
+		{name: "local", in: "row", local: "row", ok: true},
+		{name: "prefixed", in: "xs:int", prefix: "xs", local: "int", ok: true, prefixed: true},
+		{name: "unicode", in: "\u00e9:name", prefix: "\u00e9", local: "name", ok: true, prefixed: true},
+		{name: "empty"},
+		{name: "leading_colon", in: ":bad"},
+		{name: "trailing_colon", in: "bad:"},
+		{name: "duplicate_colon", in: "a:b:c"},
+		{name: "invalid_char", in: "bad@name"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			prefix, local, prefixed, ok := SplitQName(tt.in)
+			if ok != tt.ok || prefixed != tt.prefixed || prefix != tt.prefix || local != tt.local {
+				t.Fatalf("SplitQName(%q) = (%q, %q, %v, %v), want (%q, %q, %v, %v)",
+					tt.in, prefix, local, prefixed, ok, tt.prefix, tt.local, tt.prefixed, tt.ok)
+			}
+		})
+	}
+}
+
 func TestXMLNameBytesAcceptUnicodeNames(t *testing.T) {
 	t.Parallel()
 

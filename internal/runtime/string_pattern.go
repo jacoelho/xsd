@@ -65,7 +65,7 @@ func (p StringPattern) FacetProjection() PatternFacet {
 	return out
 }
 
-// CloneStringPatternGroups deep-clones compiled string patterns.
+// CloneStringPatternGroups clones pattern groups and mutable fast matchers.
 func CloneStringPatternGroups(in []StringPatternGroup) []StringPatternGroup {
 	out := slices.Clone(in)
 	for i, group := range in {
@@ -77,9 +77,6 @@ func CloneStringPatternGroups(in []StringPatternGroup) []StringPatternGroup {
 func cloneStringPatterns(in []StringPattern) []StringPattern {
 	out := slices.Clone(in)
 	for i := range out {
-		if in[i].re != nil {
-			out[i].re = regexp.MustCompile(in[i].re.String())
-		}
 		out[i].fast = cloneSimplePattern(in[i].fast)
 	}
 	return out
@@ -250,6 +247,9 @@ func parseSimplePatternClass(source string, i int) (simplePatternClass, int, boo
 }
 
 func parseSimplePatternClassRune(source string, i int) (rune, int, bool) {
+	if source[i] == '[' {
+		return 0, 0, false
+	}
 	if source[i] == '\\' {
 		if i+1 >= len(source) {
 			return 0, 0, false

@@ -6,22 +6,6 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
-// BuiltinAttributeDecl is the runtime projection needed to validate built-in
-// XML/XLink attribute bindings.
-type BuiltinAttributeDecl struct {
-	Name QName
-	Type SimpleTypeID
-}
-
-// BuiltinAttributeValidation is the runtime projection needed to validate
-// built-in XML/XLink global attribute declarations.
-type BuiltinAttributeValidation struct {
-	GlobalAttributes map[QName]AttributeID
-	Attributes       []BuiltinAttributeDecl
-	SimpleBuiltins   []BuiltinValidationKind
-	Builtins         BuiltinIDs
-}
-
 type builtinAttributeExpectation struct {
 	ns      string
 	local   string
@@ -66,14 +50,6 @@ type BuiltinAttributeSimpleSeed struct {
 	Local     string
 	builtin   BuiltinValidationKind
 	handle    builtinAttributeInternalHandle
-}
-
-// BuiltinAttributeSimpleSeeds returns the internal simple types required by
-// fixed XML attribute declarations.
-func BuiltinAttributeSimpleSeeds() []BuiltinAttributeSimpleSeed {
-	seeds := make([]BuiltinAttributeSimpleSeed, len(builtinAttributeSimpleSeedTable))
-	copy(seeds, builtinAttributeSimpleSeedTable[:])
-	return seeds
 }
 
 // BuiltinAttributeSimpleSeedCount returns the number of fixed internal simple
@@ -145,14 +121,6 @@ var builtinAttributeSeedTable = [...]BuiltinAttributeSeed{
 	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrTitle, handle: builtinSimpleString},
 	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrShow, handle: builtinSimpleString},
 	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrActuate, handle: builtinSimpleString},
-}
-
-// BuiltinAttributeSeeds returns the fixed XML/XLink global attributes required
-// by every runtime schema.
-func BuiltinAttributeSeeds() []BuiltinAttributeSeed {
-	seeds := make([]BuiltinAttributeSeed, len(builtinAttributeSeedTable))
-	copy(seeds, builtinAttributeSeedTable[:])
-	return seeds
 }
 
 // BuiltinAttributeSeedAt returns one fixed XML/XLink global attribute seed.
@@ -240,27 +208,6 @@ func BuiltinAnyTypeComplexType(name QName, content ContentModelID, attrs Attribu
 		TextType:    NoSimpleType,
 		ContentKind: ContentMixed,
 	}
-}
-
-// BuiltinSimpleDecl is the runtime projection needed to validate built-in
-// simple-type bindings and non-facet shape.
-type BuiltinSimpleDecl struct {
-	Name       QName
-	Base       SimpleTypeID
-	ListItem   SimpleTypeID
-	Variety    SimpleVariety
-	Primitive  PrimitiveKind
-	Whitespace WhitespaceMode
-	Builtin    BuiltinValidationKind
-	Identity   SimpleIdentityKind
-}
-
-// BuiltinSimpleValidation is the runtime projection needed to validate the
-// fixed built-in simple-type declarations.
-type BuiltinSimpleValidation struct {
-	GlobalTypes map[QName]TypeID
-	SimpleTypes []BuiltinSimpleDecl
-	Builtins    BuiltinIDs
 }
 
 // BuiltinSimpleFacetExpectation is the schema-private facet value check that
@@ -372,14 +319,6 @@ const (
 	builtinSimpleENTITY
 	builtinSimpleENTITIES
 )
-
-// BuiltinSimpleSeeds returns the topologically ordered simple-type
-// declarations required by every runtime schema.
-func BuiltinSimpleSeeds() []BuiltinSimpleSeed {
-	seeds := make([]BuiltinSimpleSeed, len(builtinSimpleSeedTable))
-	copy(seeds, builtinSimpleSeedTable)
-	return seeds
-}
 
 // BuiltinSimpleSeedCount returns the number of topologically ordered fixed XSD
 // simple-type declarations.
@@ -628,74 +567,10 @@ type BuiltinDeclarationCounts struct {
 	Models           int
 }
 
-// BuiltinAnyTypeAttributeSet is the runtime projection needed to validate the
-// attribute-use set owned by xs:anyType.
-type BuiltinAnyTypeAttributeSet struct {
-	UseCount   int
-	IndexCount int
-	Wildcard   WildcardID
-}
-
-// BuiltinAnyTypeValidation is the runtime projection needed to validate the
-// fixed xs:anyType declaration.
-type BuiltinAnyTypeValidation struct {
-	GlobalTypes   map[QName]TypeID
-	ComplexTypes  []ComplexType
-	Models        []ContentModel
-	AttributeSets []BuiltinAnyTypeAttributeSet
-	Wildcards     []Wildcard
-	Builtins      BuiltinIDs
-}
-
 const (
 	builtinInternalAttributeSimpleTypeCount = 2
 	builtinComplexTypeDeclarationCount      = 1
 )
-
-// NewBuiltinAttributeValidation projects runtime declarations into the shape
-// needed to validate fixed XML/XLink attribute bindings.
-func NewBuiltinAttributeValidation(globalAttributes map[QName]AttributeID, attributes []AttributeDecl, simpleTypes []SimpleType, builtins BuiltinIDs) BuiltinAttributeValidation {
-	attributeDecls := make([]BuiltinAttributeDecl, len(attributes))
-	for i, attr := range attributes {
-		attributeDecls[i] = BuiltinAttributeDecl{
-			Name: attr.Name,
-			Type: attr.Type,
-		}
-	}
-	simpleBuiltins := make([]BuiltinValidationKind, len(simpleTypes))
-	for i, st := range simpleTypes {
-		simpleBuiltins[i] = st.Builtin
-	}
-	return BuiltinAttributeValidation{
-		GlobalAttributes: globalAttributes,
-		Attributes:       attributeDecls,
-		SimpleBuiltins:   simpleBuiltins,
-		Builtins:         builtins,
-	}
-}
-
-// NewBuiltinSimpleValidation projects runtime simple-type declarations into
-// the shape needed to validate fixed built-in simple types.
-func NewBuiltinSimpleValidation(globalTypes map[QName]TypeID, simpleTypes []SimpleType, builtins BuiltinIDs) BuiltinSimpleValidation {
-	simpleDecls := make([]BuiltinSimpleDecl, len(simpleTypes))
-	for i, st := range simpleTypes {
-		simpleDecls[i] = BuiltinSimpleDecl{
-			Name:       st.Name,
-			Base:       st.Base,
-			ListItem:   st.ListItem,
-			Variety:    st.Variety,
-			Primitive:  st.Primitive,
-			Whitespace: st.Whitespace,
-			Builtin:    st.Builtin,
-			Identity:   st.Identity,
-		}
-	}
-	return BuiltinSimpleValidation{
-		GlobalTypes: globalTypes,
-		SimpleTypes: simpleDecls,
-		Builtins:    builtins,
-	}
-}
 
 // NewBuiltinSimpleFacetValidation projects a runtime facet set into the shape
 // needed to validate fixed built-in simple-type facets.
@@ -747,27 +622,6 @@ func newBuiltinDecimalFacet(got CompiledLiteral, present bool, want string) Buil
 	}
 }
 
-// NewBuiltinAnyTypeValidation projects runtime declarations into the shape
-// needed to validate the fixed xs:anyType declaration.
-func NewBuiltinAnyTypeValidation(globalTypes map[QName]TypeID, complexTypes []ComplexType, models []ContentModel, attributeUseSets []AttributeUseSet, wildcards []Wildcard, builtins BuiltinIDs) BuiltinAnyTypeValidation {
-	attributeSets := make([]BuiltinAnyTypeAttributeSet, len(attributeUseSets))
-	for i, set := range attributeUseSets {
-		attributeSets[i] = BuiltinAnyTypeAttributeSet{
-			UseCount:   len(set.Uses),
-			IndexCount: len(set.Index),
-			Wildcard:   set.Wildcard,
-		}
-	}
-	return BuiltinAnyTypeValidation{
-		GlobalTypes:   globalTypes,
-		ComplexTypes:  complexTypes,
-		Models:        models,
-		AttributeSets: attributeSets,
-		Wildcards:     wildcards,
-		Builtins:      builtins,
-	}
-}
-
 // BuiltinSimpleTypeCount returns the number of simple-type declarations seeded
 // before user schema declarations.
 func BuiltinSimpleTypeCount() int {
@@ -804,49 +658,6 @@ func ValidateBuiltinDeclarationCounts(counts BuiltinDeclarationCounts) error {
 		return errors.New("runtime is missing builtin declarations")
 	}
 	return nil
-}
-
-// ValidateBuiltinAttributes validates the fixed XML/XLink global attributes
-// seeded into every runtime schema.
-func ValidateBuiltinAttributes(names *NameTable, shape BuiltinAttributeValidation) error {
-	for _, seed := range builtinAttributeSeedTable {
-		exp := builtinAttributeExpectationForSeed(seed, shape.Builtins)
-		q, ok := builtinAttributeQName(names, exp)
-		if !ok {
-			return errors.New("builtin attribute name is missing")
-		}
-		id, ok := shape.GlobalAttributes[q]
-		if !ok || !ValidUint32Index(uint32(id), len(shape.Attributes)) || shape.Attributes[id].Name != q {
-			return errors.New("builtin attribute binding does not match declaration")
-		}
-		typ := shape.Attributes[id].Type
-		if exp.builtin == BuiltinValidationNone {
-			if typ != exp.typ {
-				return errors.New("builtin attribute type does not match handle")
-			}
-			continue
-		}
-		if !ValidUint32Index(uint32(typ), len(shape.SimpleBuiltins)) || shape.SimpleBuiltins[typ] != exp.builtin {
-			return errors.New("builtin attribute type does not match lexical validator")
-		}
-	}
-	return nil
-}
-
-// ValidateBuiltinSimpleTypes validates the fixed built-in simple-type
-// declarations seeded into every runtime schema. It returns the facet value
-// expectations that require schema-private literal checks.
-func ValidateBuiltinSimpleTypes(names *NameTable, shape BuiltinSimpleValidation) ([]BuiltinSimpleFacetExpectation, error) {
-	facets := make([]BuiltinSimpleFacetExpectation, 0, len(builtinSimpleExpectationTable))
-	for _, base := range builtinSimpleExpectationTable {
-		exp := builtinSimpleExpectationWithBuiltins(base, shape.Builtins)
-		id, err := validateBuiltinSimpleType(names, shape, exp)
-		if err != nil {
-			return nil, err
-		}
-		facets = append(facets, exp.facetExpectation(id))
-	}
-	return facets, nil
 }
 
 // ValidateBuiltinSimpleFacets validates the fixed facet shape for a built-in
@@ -909,78 +720,11 @@ func builtinDecimalFacetValue(got BuiltinDecimalFacet, want string) bool {
 		got.ValueMatchesExpected
 }
 
-func validateBuiltinSimpleType(names *NameTable, shape BuiltinSimpleValidation, exp builtinSimpleExpectation) (SimpleTypeID, error) {
-	if exp.checkID && !ValidUint32Index(uint32(exp.id), len(shape.SimpleTypes)) {
-		return NoSimpleType, errors.New("builtin simple type references invalid declaration")
-	}
-	q, ok := builtinSimpleQName(names, exp.local)
-	if !ok {
-		return NoSimpleType, errors.New("builtin simple type name is missing")
-	}
-	typ, ok := shape.GlobalTypes[q]
-	id, simple := typ.Simple()
-	if !ok || !simple {
-		return NoSimpleType, errors.New("builtin simple type handle does not match global type")
-	}
-	if exp.checkID && id != exp.id {
-		return NoSimpleType, errors.New("builtin simple type handle does not match global type")
-	}
-	if !ValidUint32Index(uint32(id), len(shape.SimpleTypes)) {
-		return NoSimpleType, errors.New("builtin simple type references invalid declaration")
-	}
-	st := shape.SimpleTypes[id]
-	if st.Name != q {
-		return NoSimpleType, errors.New("builtin simple type name does not match handle: " + exp.local)
-	}
-	if !builtinSimpleBaseMatches(names, shape, st.Base, exp.baseLocal) {
-		return NoSimpleType, errors.New("builtin simple type base does not match handle: " + exp.local)
-	}
-	if !builtinSimpleBaseMatches(names, shape, st.ListItem, exp.listItemLocal) {
-		return NoSimpleType, errors.New("builtin simple type list item does not match handle: " + exp.local)
-	}
-	if st.Variety != exp.variety {
-		return NoSimpleType, errors.New("builtin simple type variety does not match handle: " + exp.local)
-	}
-	if st.Primitive != exp.primitive {
-		return NoSimpleType, errors.New("builtin simple type primitive does not match handle: " + exp.local)
-	}
-	if st.Whitespace != exp.whitespace {
-		return NoSimpleType, errors.New("builtin simple type whitespace does not match handle: " + exp.local)
-	}
-	if st.Builtin != exp.builtin {
-		return NoSimpleType, errors.New("builtin simple type lexical validator does not match handle: " + exp.local)
-	}
-	if st.Identity != exp.identity {
-		return NoSimpleType, errors.New("builtin simple type identity does not match handle: " + exp.local)
-	}
-	return id, nil
-}
-
 func builtinSimpleQName(names *NameTable, local string) (QName, bool) {
 	if names == nil {
 		return QName{}, false
 	}
 	return names.LookupQName(XSDNamespaceURI, local)
-}
-
-func builtinSimpleBaseMatches(names *NameTable, shape BuiltinSimpleValidation, id SimpleTypeID, local string) bool {
-	if local == "" {
-		return id == NoSimpleType
-	}
-	expected, ok := builtinSimpleIDByLocal(names, shape, local)
-	return ok && id == expected
-}
-
-func builtinSimpleIDByLocal(names *NameTable, shape BuiltinSimpleValidation, local string) (SimpleTypeID, bool) {
-	q, ok := builtinSimpleQName(names, local)
-	if !ok {
-		return NoSimpleType, false
-	}
-	typ, ok := shape.GlobalTypes[q]
-	if !ok {
-		return NoSimpleType, false
-	}
-	return typ.Simple()
 }
 
 func (exp builtinSimpleExpectation) facetExpectation(id SimpleTypeID) BuiltinSimpleFacetExpectation {
@@ -993,44 +737,6 @@ func (exp builtinSimpleExpectation) facetExpectation(id SimpleTypeID) BuiltinSim
 		HasFractionDigits: exp.hasFractionDigits,
 		HasMinLength:      exp.hasMinLength,
 	}
-}
-
-// ValidateBuiltinAnyTypeRuntime validates the fixed xs:anyType declaration
-// seeded into every runtime schema.
-func ValidateBuiltinAnyTypeRuntime(names *NameTable, shape BuiltinAnyTypeValidation) error {
-	anyType := shape.Builtins.AnyType
-	if !ValidUint32Index(uint32(anyType), len(shape.ComplexTypes)) {
-		return errors.New("builtin anyType references invalid declaration")
-	}
-	q, ok := builtinAnyTypeQName(names)
-	if !ok {
-		return errors.New("builtin anyType name is missing")
-	}
-	typ, ok := shape.GlobalTypes[q]
-	id, isComplex := typ.Complex()
-	if !ok || !isComplex || id != anyType {
-		return errors.New("builtin anyType handle does not match global type")
-	}
-	ct := shape.ComplexTypes[anyType]
-	if ct.Name != q ||
-		ct.Base != (TypeID{}) ||
-		ct.ContentKind != ContentMixed ||
-		ct.TextType != NoSimpleType ||
-		!ValidUint32Index(uint32(ct.Content), len(shape.Models)) ||
-		shape.Models[ct.Content].Kind != ModelAny ||
-		!ValidUint32Index(uint32(ct.Attrs), len(shape.AttributeSets)) {
-		return errors.New("builtin anyType shape does not match handle")
-	}
-	set := shape.AttributeSets[ct.Attrs]
-	if set.UseCount != 0 || set.IndexCount != 0 || set.Wildcard == NoWildcard ||
-		!ValidUint32Index(uint32(set.Wildcard), len(shape.Wildcards)) {
-		return errors.New("builtin anyType attribute set does not match handle")
-	}
-	w := shape.Wildcards[set.Wildcard]
-	if w.Mode != WildcardAny || w.Process != ProcessLax {
-		return errors.New("builtin anyType attribute wildcard does not match handle")
-	}
-	return nil
 }
 
 func builtinAttributeQName(names *NameTable, exp builtinAttributeExpectation) (QName, bool) {
@@ -1081,17 +787,6 @@ func builtinAttributeExpectationForSeed(seed BuiltinAttributeSeed, builtins Buil
 	return exp
 }
 
-// BuiltinValidationForSimpleTypeLocal returns the runtime lexical validator
-// attached to a built-in XSD simple type local name.
-func BuiltinValidationForSimpleTypeLocal(local string) BuiltinValidationKind {
-	for _, exp := range builtinSimpleExpectationTable {
-		if exp.local == local {
-			return exp.builtin
-		}
-	}
-	return BuiltinValidationNone
-}
-
 var builtinSimpleExpectationTable = [...]builtinSimpleExpectation{
 	{local: vocab.XSDValueAnySimpleType, checkID: true, variety: SimpleVarietyAtomic, primitive: PrimitiveString, whitespace: WhitespacePreserve, builtin: BuiltinValidationNone, identity: SimpleIdentityNone},
 	{local: vocab.XSDValueString, checkID: true, baseLocal: vocab.XSDValueAnySimpleType, variety: SimpleVarietyAtomic, primitive: PrimitiveString, whitespace: WhitespacePreserve, builtin: BuiltinValidationNone, identity: SimpleIdentityNone},
@@ -1138,14 +833,6 @@ var builtinSimpleExpectationTable = [...]builtinSimpleExpectation{
 	{local: vocab.XSDValueNMTOKENS, checkID: true, baseLocal: vocab.XSDValueAnySimpleType, listItemLocal: vocab.XSDValueNMTOKEN, variety: SimpleVarietyList, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinValidationNone, identity: SimpleIdentityNone, hasMinLength: true, minLength: 1},
 	{local: vocab.XSDValueENTITY, checkID: true, baseLocal: vocab.XSDValueNCName, variety: SimpleVarietyAtomic, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinValidationEntity, identity: SimpleIdentityNone},
 	{local: vocab.XSDValueENTITIES, checkID: true, baseLocal: vocab.XSDValueAnySimpleType, listItemLocal: vocab.XSDValueENTITY, variety: SimpleVarietyList, primitive: PrimitiveString, whitespace: WhitespaceCollapse, builtin: BuiltinValidationNone, identity: SimpleIdentityNone, hasMinLength: true, minLength: 1},
-}
-
-func builtinSimpleExpectations(builtins BuiltinIDs) []builtinSimpleExpectation {
-	out := make([]builtinSimpleExpectation, len(builtinSimpleExpectationTable))
-	for i, exp := range builtinSimpleExpectationTable {
-		out[i] = builtinSimpleExpectationWithBuiltins(exp, builtins)
-	}
-	return out
 }
 
 func builtinSimpleExpectationWithBuiltins(exp builtinSimpleExpectation, builtins BuiltinIDs) builtinSimpleExpectation {
