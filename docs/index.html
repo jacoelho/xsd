@@ -670,16 +670,7 @@
         return;
       }
 
-      const formatted = parseJSON(window.formatXML(xml));
-      if (formatted.error) {
-        xmlErrors = [{ line: formatted.line || 0, column: formatted.column || 0, message: formatted.error, code: "format" }];
-        renderAllEditors();
-        showStatusError("XML format failed", lineMessage(formatted));
-        return;
-      }
-
-      setEditorValue(xmlEditor, formatted.xml || "");
-      const result = parseJSON(window.validateXML(editorContent(xmlEditor), xsd));
+      const result = parseJSON(window.validateXML(xml, xsd));
       if (result.error) {
         showStatusError("Validation failed", result.error);
         return;
@@ -687,6 +678,10 @@
 
       const errors = result.errors || [];
       if (result.valid) {
+        const formatted = parseJSON(window.formatXML(xml));
+        if (!formatted.error) {
+          setEditorValue(xmlEditor, formatted.xml || "");
+        }
         showValidResult();
         return;
       }

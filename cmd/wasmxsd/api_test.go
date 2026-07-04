@@ -52,6 +52,28 @@ func TestValidateXMLDataValidAndInvalid(t *testing.T) {
 	}
 }
 
+func TestBrowserValidateUsesOriginalXMLBeforeFormatting(t *testing.T) {
+	html, err := os.ReadFile(filepath.Join("..", "..", "docs", "index.html"))
+	if err != nil {
+		t.Fatalf("ReadFile(index.html) error = %v", err)
+	}
+	text := string(html)
+	validateAt := strings.Index(text, "window.validateXML(xml, xsd)")
+	if validateAt < 0 {
+		t.Fatal("browser validate() does not validate captured original XML")
+	}
+	if strings.Contains(text, "window.validateXML(editorContent(xmlEditor), xsd)") {
+		t.Fatal("browser validate() validates post-format editor content")
+	}
+	formatAt := strings.Index(text, "window.formatXML(xml)")
+	if formatAt < 0 {
+		t.Fatal("browser validate() no longer formats captured XML")
+	}
+	if formatAt < validateAt {
+		t.Fatal("browser validate() formats XML before validation")
+	}
+}
+
 func TestValidateXMLDataRejectsOversizeXML(t *testing.T) {
 	resp := validateXMLData(string(make([]byte, int(maxXMLBytes)+1)), testSchema)
 	if resp.Error == "" {
