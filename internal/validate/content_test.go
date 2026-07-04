@@ -160,6 +160,72 @@ func TestChildStartAdvancesContentAndReturnsDeclaredType(t *testing.T) {
 	}
 }
 
+func TestChildStartStrictWildcardRecoveryPreservesAdvancedContent(t *testing.T) {
+	t.Parallel()
+
+	parent := runtime.ComplexRef(1)
+	childType := runtime.ComplexRef(2)
+	after := runtime.ElementID(3)
+	model := runtime.ContentModelID(4)
+	wildcard := runtime.WildcardID(5)
+	afterName := runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 1}
+	compiled := runtime.CompiledModel{
+		Kind: runtime.CompiledModelDFA,
+		Rows: []runtime.CompiledModelRow{
+			{
+				Edges: []runtime.CompiledModelEdge{{
+					Particle: runtime.WildcardParticle(wildcard, runtime.Occurrence{Min: 1, Max: 1}),
+					To:       1,
+				}},
+			},
+			{
+				Edges: []runtime.CompiledModelEdge{{
+					Particle: runtime.ElementParticle(after, runtime.Occurrence{Min: 1, Max: 1}),
+					To:       2,
+				}},
+			},
+			{Accept: true},
+		},
+	}
+	rt := contentRuntimeStub{
+		anyType:       runtime.ComplexRef(100),
+		childContent:  map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
+		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
+		elementTypes:  map[runtime.ElementID]runtime.TypeID{after: childType},
+		models:        map[runtime.ContentModelID]runtime.CompiledModel{model: compiled},
+		elementNames:  map[runtime.ElementID]runtime.QName{after: afterName},
+		wildcards:     map[runtime.WildcardID]runtime.Wildcard{wildcard: {Mode: runtime.WildcardAny, Process: runtime.ProcessStrict}},
+	}
+	parentContent := runtime.ContentFrameForType(rt, parent).ContentState()
+
+	first, err := ChildStart(rt, ChildInput{
+		Context:       StartContext{Path: "/root", Line: 2, Column: 3},
+		Name:          runtime.RuntimeName{Known: true, Name: runtime.QName{Local: 9}, Local: "unknown"},
+		ParentContent: parentContent,
+		ParentType:    parent,
+	})
+	expectXSDCode(t, err, xsderrors.CodeValidationElement)
+	if !first.ContentAdvanced || !first.Skip || !first.Recover {
+		t.Fatalf("strict wildcard result = %+v, want advanced recoverable skipped child", first)
+	}
+
+	second, err := ChildStart(rt, ChildInput{
+		Context:       StartContext{Path: "/root", Line: 3, Column: 3},
+		Name:          runtime.RuntimeName{Known: true, Name: afterName, Local: "after"},
+		ParentContent: first.Content,
+		ParentType:    parent,
+	})
+	if err != nil {
+		t.Fatalf("ChildStart(after) error = %v", err)
+	}
+	if second.Element != after || second.Type != childType || second.Skip {
+		t.Fatalf("ChildStart(after) = %+v", second)
+	}
+	if err := ContentComplete(rt, CompleteInput{Type: parent, Content: second.Content}); err != nil {
+		t.Fatalf("ContentComplete(updated content) error = %v", err)
+	}
+}
+
 func TestChildStartInvalidCompiledContentIsInternalInvariant(t *testing.T) {
 	t.Parallel()
 

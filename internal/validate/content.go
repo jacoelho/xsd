@@ -134,11 +134,12 @@ type ChildInput struct {
 
 // ChildResult is the child declaration and updated parent content-model state.
 type ChildResult struct {
-	Element runtime.ElementID
-	Type    runtime.TypeID
-	Content runtime.ContentState
-	Skip    bool
-	Recover bool
+	Element         runtime.ElementID
+	Type            runtime.TypeID
+	Content         runtime.ContentState
+	Skip            bool
+	Recover         bool
+	ContentAdvanced bool
 }
 
 // NilledContentInput reports whether a nilled element has content.
@@ -203,11 +204,16 @@ func ChildStart[RT ContentRuntime](rt RT, in ChildInput) (ChildResult, error) {
 		return ChildResult{}, err
 	}
 	out.Content = st
+	out.ContentAdvanced = true
 	if match.StrictMissing {
 		if in.HasSchemaLocation != nil && in.HasSchemaLocation(in.Name.NS) {
 			return ChildResult{}, unsupportedSchemaLocation(in.Context, vocab.XSDElemElement, in.Name)
 		}
-		return recoverableChild(rt, in.Context, xsderrors.CodeValidationElement, "wildcard requires declared element "+in.Name.Label())
+		out.Element = runtime.NoElement
+		out.Type = rt.AnyType()
+		out.Skip = true
+		out.Recover = true
+		return out, validation(in.Context, xsderrors.CodeValidationElement, "wildcard requires declared element "+in.Name.Label())
 	}
 	return out, nil
 }

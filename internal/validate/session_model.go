@@ -35,6 +35,9 @@ func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType 
 	var err error
 	child, err = ChildStart(s.rt, input)
 	if err != nil {
+		if child.ContentAdvanced {
+			parent.Content = child.Content
+		}
 		return acceptedChild{
 			element: child.Element,
 			typ:     child.Type,
@@ -87,6 +90,7 @@ func (s *session) acceptSchemaChild(parent *frame, rn runtime.RuntimeName, hasXS
 		if hasSchemaLocation := s.schemaLocationHintLookup(); hasSchemaLocation != nil && hasSchemaLocation(rn.NS) {
 			return acceptedChild{}, unsupportedSchemaLocation(ctx, vocab.XSDElemElement, rn)
 		}
+		parent.Content = st
 		return s.recoverableSchemaChild(ctx, xsderrors.CodeValidationElement, "wildcard requires declared element "+rn.Label())
 	}
 	parent.Content = st

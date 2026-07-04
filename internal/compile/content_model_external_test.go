@@ -1,6 +1,8 @@
 package compile_test
 
 import (
+	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -8,6 +10,7 @@ import (
 	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/internal/validate"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -294,6 +297,51 @@ func TestStrictWildcardRequiresGlobalElementDeclaration(t *testing.T) {
 </xs:schema>`)
 	mustNotValidateRuntime(t, engine, `<root><unknown/></root>`, xsderrors.CodeValidationElement)
 	mustValidateRuntime(t, engine, `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><unknown xsi:type="xs:string" xmlns:xs="http://www.w3.org/2001/XMLSchema">x</unknown></root>`)
+}
+
+func TestStrictWildcardRecoveryConsumesOccurrenceBeforeRequiredSibling(t *testing.T) {
+	engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##any" processContents="strict"/>
+        <xs:element name="after" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	session, err := validate.NewSession(engine, validate.Options{MaxErrors: 10})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	err = session.Validate(strings.NewReader(`<root><unknown/><after>ok</after></root>`))
+	codes := validationErrorCodes(err)
+	want := []xsderrors.Code{xsderrors.CodeValidationElement}
+	if !slices.Equal(codes, want) {
+		t.Fatalf("validation codes = %v, want %v; err=%v", codes, want, err)
+	}
+}
+
+func validationErrorCodes(err error) []xsderrors.Code {
+	if err == nil {
+		return nil
+	}
+	var errs xsderrors.Errors
+	if errors.As(err, &errs) {
+		codes := make([]xsderrors.Code, 0, len(errs))
+		for _, item := range errs {
+			if x, ok := errors.AsType[*xsderrors.Error](item); ok {
+				codes = append(codes, x.Code)
+			}
+		}
+		return codes
+	}
+	if x, ok := errors.AsType[*xsderrors.Error](err); ok {
+		return []xsderrors.Code{x.Code}
+	}
+	return nil
 }
 
 func TestEmptyChoiceWithRequiredOccurrenceRejectsEmptyContent(t *testing.T) {
