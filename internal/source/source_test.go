@@ -255,7 +255,7 @@ func TestResolveSchemaReferences(t *testing.T) {
 	loads, aliases, err := ResolveSchemaReferences(base, "base-key", []SchemaDocumentReference{
 		{Namespace: vocab.XMLNamespaceURI, Location: "xml.xsd"},
 		{Location: "common.xsd"},
-		{Namespace: "urn:missing", Location: "missing.xsd"},
+		{Kind: SchemaReferenceImport, Namespace: "urn:missing", Location: "missing.xsd"},
 	})
 	if err != nil {
 		t.Fatalf("ResolveSchemaReferences() error = %v", err)
@@ -284,6 +284,14 @@ func TestResolveSchemaReferences(t *testing.T) {
 	}
 	if resolveErr.Location != "bad.xsd" || resolveErr.Err == nil {
 		t.Fatalf("ResolveReferenceError = %#v", resolveErr)
+	}
+
+	loads, aliases, err = ResolveSchemaReferences(base, "base-key", []SchemaDocumentReference{{Location: "missing.xsd"}})
+	if err != nil {
+		t.Fatalf("missing include error = %v, want nil", err)
+	}
+	if loads != nil || aliases != nil {
+		t.Fatalf("loads/aliases after missing include = %#v/%#v, want nil/nil", loads, aliases)
 	}
 }
 
@@ -318,7 +326,7 @@ func TestLoadSchemaDocumentsReadsResolverQueue(t *testing.T) {
 					TargetNamespace: "urn:root",
 					References: []SchemaDocumentReference{
 						{Location: "common.xsd"},
-						{Namespace: "urn:missing", Location: "missing.xsd"},
+						{Kind: SchemaReferenceImport, Namespace: "urn:missing", Location: "missing.xsd"},
 					},
 				}, nil
 			case "schemas/common.xsd":
@@ -359,7 +367,7 @@ func TestLoadSchemaDocumentsSkipsOptionalMissingRead(t *testing.T) {
 		1024,
 		func(loaded LoadedSource) (LoadedSchemaDocument, error) {
 			parsed = append(parsed, loaded.Name)
-			return LoadedSchemaDocument{References: []SchemaDocumentReference{{Location: "optional.xsd"}}}, nil
+			return LoadedSchemaDocument{References: []SchemaDocumentReference{{Kind: SchemaReferenceImport, Location: "optional.xsd"}}}, nil
 		},
 	)
 	if err != nil {
@@ -370,6 +378,27 @@ func TestLoadSchemaDocumentsSkipsOptionalMissingRead(t *testing.T) {
 	}
 	if want := []string{Key("root.xsd")}; !slices.Equal(result.SelectedKeys, want) {
 		t.Fatalf("SelectedKeys = %#v, want %#v", result.SelectedKeys, want)
+	}
+}
+
+func TestLoadSchemaDocumentsSkipsMissingIncludeRead(t *testing.T) {
+	t.Parallel()
+
+	resolver := Resolver(func(_, location string) (Source, error) {
+		if location != "required.xsd" {
+			return Source{}, fmt.Errorf("unexpected location %q", location)
+		}
+		return Source{name: "required.xsd", err: xsderrors.ErrSchemaNotFound}, nil
+	})
+	_, err := LoadSchemaDocuments(
+		[]Source{Bytes("root.xsd", []byte("root")).WithResolver(resolver)},
+		1024,
+		func(loaded LoadedSource) (LoadedSchemaDocument, error) {
+			return LoadedSchemaDocument{References: []SchemaDocumentReference{{Location: "required.xsd"}}}, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("LoadSchemaDocuments() error = %v, want nil", err)
 	}
 }
 
@@ -912,7 +941,7 @@ func TestSelectedLoadedDocumentKeysDropsDuplicateTargetContent(t *testing.T) {
 		{Key: "empty-1.xsd", Data: []byte("same")},
 		{Key: "other.xsd", TargetNamespace: "urn:other", Data: []byte("same")},
 	}
-	got := SelectedLoadedDocumentKeys(docs)
+	got := SelectedLoadedDocumentKeys(docs, nil)
 	want := []string{"a.xsd", "c.xsd", "empty-1.xsd", "empty-2.xsd", "other.xsd"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("SelectedLoadedDocumentKeys() = %q, want %q", got, want)
@@ -926,8 +955,76 @@ func TestSelectedLoadedDocumentKeysKeepsSameContentAcrossTargets(t *testing.T) {
 		{Key: "b.xsd", TargetNamespace: "urn:b", Data: []byte("same")},
 		{Key: "a.xsd", TargetNamespace: "urn:a", Data: []byte("same")},
 	}
-	got := SelectedLoadedDocumentKeys(docs)
+	got := SelectedLoadedDocumentKeys(docs, nil)
 	want := []string{"a.xsd", "b.xsd"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("SelectedLoadedDocumentKeys() = %q, want %q", got, want)
+	}
+}
+
+func TestSelectedLoadedDocumentKeysKeepsSameContentWithDifferentResolvedGraphs(t *testing.T) {
+	t.Parallel()
+
+	aMain := filepath.Join("a", "main.xsd")
+	aCommon := filepath.Join("a", "common.xsd")
+	bMain := filepath.Join("b", "main.xsd")
+	bCommon := filepath.Join("b", "common.xsd")
+	docs := []LoadedDocument{
+		{
+			Name:            bMain,
+			Key:             bMain,
+			TargetNamespace: "urn:test",
+			References:      []SchemaDocumentReference{{Kind: SchemaReferenceInclude, Location: "common.xsd"}},
+			Data:            []byte("same"),
+		},
+		{
+			Name:            aMain,
+			Key:             aMain,
+			TargetNamespace: "urn:test",
+			References:      []SchemaDocumentReference{{Kind: SchemaReferenceInclude, Location: "common.xsd"}},
+			Data:            []byte("same"),
+		},
+		{Name: aCommon, Key: aCommon, Data: []byte("a common")},
+		{Name: bCommon, Key: bCommon, Data: []byte("b common")},
+	}
+
+	got := SelectedLoadedDocumentKeys(docs, nil)
+	want := []string{aCommon, aMain, bCommon, bMain}
+	if !slices.Equal(got, want) {
+		t.Fatalf("SelectedLoadedDocumentKeys() = %q, want %q", got, want)
+	}
+}
+
+func TestSelectedLoadedDocumentKeysDropsSameContentWithSameResolvedGraph(t *testing.T) {
+	t.Parallel()
+
+	aMain := filepath.Join("a", "main.xsd")
+	bMain := filepath.Join("b", "main.xsd")
+	shared := filepath.Join("shared", "common.xsd")
+	docs := []LoadedDocument{
+		{
+			Name:            bMain,
+			Key:             bMain,
+			TargetNamespace: "urn:test",
+			References:      []SchemaDocumentReference{{Kind: SchemaReferenceInclude, Location: "common.xsd"}},
+			Data:            []byte("same"),
+		},
+		{
+			Name:            aMain,
+			Key:             aMain,
+			TargetNamespace: "urn:test",
+			References:      []SchemaDocumentReference{{Kind: SchemaReferenceInclude, Location: "common.xsd"}},
+			Data:            []byte("same"),
+		},
+		{Name: shared, Key: shared, Data: []byte("shared")},
+	}
+	aliases := map[ReferenceKey]string{
+		{Base: aMain, Location: "common.xsd"}: shared,
+		{Base: bMain, Location: "common.xsd"}: shared,
+	}
+
+	got := SelectedLoadedDocumentKeys(docs, aliases)
+	want := []string{aMain, shared}
 	if !slices.Equal(got, want) {
 		t.Fatalf("SelectedLoadedDocumentKeys() = %q, want %q", got, want)
 	}

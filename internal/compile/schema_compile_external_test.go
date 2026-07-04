@@ -104,6 +104,58 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 	}
 }
 
+func TestMissingIncludedSchemaLocationDoesNotInvalidateSchema(t *testing.T) {
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		if location != "missing.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		return source.Source{}, xsderrors.ErrSchemaNotFound
+	})
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="missing.xsd"/>
+</xs:schema>`)).WithResolver(resolver)})
+	if err != nil {
+		t.Fatalf("Compile() error = %v, want nil", err)
+	}
+}
+
+func TestByteIdenticalSchemasResolveSourceRelativeIncludesIndependently(t *testing.T) {
+	const main = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`
+	resolver := source.Resolver(func(base, location string) (source.Source, error) {
+		if location != "common.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		switch base {
+		case "a/main.xsd":
+			return source.Bytes("a/common.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="a"/>
+</xs:schema>`)), nil
+		case "b/main.xsd":
+			return source.Bytes("b/common.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="b"/>
+</xs:schema>`)), nil
+		default:
+			return source.Source{}, errors.New("unexpected base " + base)
+		}
+	})
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/main.xsd", []byte(main)).WithResolver(resolver),
+		source.Bytes("a/main.xsd", []byte(main)).WithResolver(resolver),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	mustValidateRuntime(t, engine, `<t:a xmlns:t="urn:test"/>`)
+	mustValidateRuntime(t, engine, `<t:b xmlns:t="urn:test"/>`)
+}
+
 func expectSchemaCompileLine(t *testing.T, err error, line int) {
 	t.Helper()
 	x, ok := errors.AsType[*xsderrors.Error](err)
