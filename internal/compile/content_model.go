@@ -937,6 +937,7 @@ func (b *dfaBuilder) compile(id runtime.ContentModelID) (runtime.CompiledModel, 
 	}
 	for len(b.queue) != 0 {
 		entries := b.queue[0]
+		b.queue[0] = nil
 		b.queue = b.queue[1:]
 		row, err := b.row(entries)
 		if err != nil {
