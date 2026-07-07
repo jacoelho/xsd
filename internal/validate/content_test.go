@@ -112,6 +112,39 @@ func (s characterDataContentStub) HasFixedElementValue() bool {
 	return s.fixed
 }
 
+func schemaContentRuntimeForTest(
+	model runtime.CompiledModel,
+	elementNames []runtime.QName,
+	elementTypes []runtime.TypeID,
+	wildcards []runtime.Wildcard,
+) *runtime.Schema {
+	elementStartInfos := make([]runtime.ElementStartInfo, len(elementTypes))
+	complexCount := 1
+	for i, typ := range elementTypes {
+		elementStartInfos[i] = runtime.NewElementStartInfo(runtime.ElementStartInfoShape{Type: typ})
+		if id, ok := typ.Complex(); ok && int(id) >= complexCount {
+			complexCount = int(id) + 1
+		}
+	}
+	contentModels := make([]runtime.ContentModelID, complexCount)
+	for i := range contentModels {
+		contentModels[i] = runtime.NoContentModel
+	}
+	contentModels[0] = 0
+	childContent := make([]runtime.ElementChildContent, complexCount)
+	for i := range childContent {
+		childContent[i] = runtime.NewElementChildContent(runtime.ElementChildContentShape{Complex: true})
+	}
+	return &runtime.Schema{
+		ComplexContentModelIDs:   contentModels,
+		ComplexChildContentReads: childContent,
+		CompiledModelViews:       runtime.NewCompiledModelViews([]runtime.CompiledModel{model}),
+		ElementNames:             elementNames,
+		ElementStartInfos:        elementStartInfos,
+		WildcardReads:            runtime.NewWildcardViews(nil, wildcards),
+	}
+}
+
 func TestChildStartAdvancesContentAndReturnsDeclaredType(t *testing.T) {
 	t.Parallel()
 
@@ -223,6 +256,197 @@ func TestChildStartStrictWildcardRecoveryPreservesAdvancedContent(t *testing.T) 
 	}
 	if err := ContentComplete(rt, CompleteInput{Type: parent, Content: second.Content}); err != nil {
 		t.Fatalf("ContentComplete(updated content) error = %v", err)
+	}
+}
+
+func TestAcceptChildSchemaStrictWildcardRecoveryAdvancesContent(t *testing.T) {
+	t.Parallel()
+
+	parentType := runtime.ComplexRef(0)
+	afterType := runtime.ComplexRef(2)
+	afterElement := runtime.ElementID(0)
+	afterName := runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 1}
+	wildcard := runtime.WildcardID(0)
+	model := runtime.CompiledModel{
+		Kind: runtime.CompiledModelDFA,
+		Rows: []runtime.CompiledModelRow{
+			{
+				Edges: []runtime.CompiledModelEdge{{
+					Particle: runtime.WildcardParticle(wildcard, runtime.Occurrence{Min: 1, Max: 1}),
+					To:       1,
+				}},
+			},
+			{
+				Edges: []runtime.CompiledModelEdge{{
+					Particle: runtime.ElementParticle(afterElement, runtime.Occurrence{Min: 1, Max: 1}),
+					To:       2,
+				}},
+			},
+			{Accept: true},
+		},
+	}
+	rt := schemaContentRuntimeForTest(
+		model,
+		[]runtime.QName{afterName},
+		[]runtime.TypeID{afterType},
+		[]runtime.Wildcard{{Mode: runtime.WildcardAny, Process: runtime.ProcessStrict}},
+	)
+	parent := frame{
+		Type:    parentType,
+		Content: rt.ContentFrameForPublishedSchema(parentType).ContentState(),
+		Child:   runtime.ChildContentInfo{Complex: true},
+		ChildOK: true,
+	}
+	s := session{schema: rt}
+
+	first, err := s.acceptChild(&parent, runtime.RuntimeName{
+		Known: true,
+		Name:  runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 9},
+		Local: "unknown",
+	}, false, 2, 3)
+	expectXSDCode(t, err, xsderrors.CodeValidationElement)
+	if !first.recover || !first.skip {
+		t.Fatalf("acceptChild(strict wildcard) = %+v, want recoverable skipped child", first)
+	}
+
+	second, err := s.acceptChild(&parent, runtime.RuntimeName{
+		Known: true,
+		Name:  afterName,
+		Local: "after",
+	}, false, 3, 3)
+	if err != nil {
+		t.Fatalf("acceptChild(after) error = %v", err)
+	}
+	if second.element != afterElement || second.typ != afterType || second.skip {
+		t.Fatalf("acceptChild(after) = %+v", second)
+	}
+	if err := s.completeFrame(&parent, 4, 3); err != nil {
+		t.Fatalf("completeFrame(updated content) error = %v", err)
+	}
+}
+
+func TestAcceptChildSchemaParentSkipPreservesContent(t *testing.T) {
+	t.Parallel()
+
+	parentType := runtime.ComplexRef(0)
+	childElement := runtime.ElementID(0)
+	childName := runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 1}
+	model := runtime.CompiledModel{
+		Kind: runtime.CompiledModelDFA,
+		Rows: []runtime.CompiledModelRow{
+			{
+				Edges: []runtime.CompiledModelEdge{{
+					Particle: runtime.ElementParticle(childElement, runtime.Occurrence{Min: 1, Max: 1}),
+					To:       1,
+				}},
+			},
+			{Accept: true},
+		},
+	}
+	rt := schemaContentRuntimeForTest(model, []runtime.QName{childName}, []runtime.TypeID{runtime.ComplexRef(1)}, nil)
+	before := rt.ContentFrameForPublishedSchema(parentType).ContentState()
+	parent := frame{
+		Type:    parentType,
+		Content: before,
+		Child:   runtime.ChildContentInfo{Complex: true},
+		ChildOK: true,
+		Skip:    true,
+	}
+	s := session{schema: rt}
+
+	accepted, err := s.acceptChild(&parent, runtime.RuntimeName{
+		Known: true,
+		Name:  childName,
+		Local: "child",
+	}, false, 2, 3)
+	if err != nil {
+		t.Fatalf("acceptChild(skipped parent) error = %v", err)
+	}
+	if !accepted.skip || accepted.element != runtime.NoElement || accepted.typ != rt.AnyType() {
+		t.Fatalf("acceptChild(skipped parent) = %+v, want skipped anyType child", accepted)
+	}
+	if parent.Content != before {
+		t.Fatalf("parent content changed for skipped parent")
+	}
+}
+
+func TestAcceptChildSchemaLocationStrictWildcardIsUnsupported(t *testing.T) {
+	t.Parallel()
+
+	parentType := runtime.ComplexRef(0)
+	wildcard := runtime.WildcardID(0)
+	model := runtime.CompiledModel{
+		Kind: runtime.CompiledModelDFA,
+		Rows: []runtime.CompiledModelRow{
+			{
+				Edges: []runtime.CompiledModelEdge{{
+					Particle: runtime.WildcardParticle(wildcard, runtime.Occurrence{Min: 1, Max: 1}),
+					To:       1,
+				}},
+			},
+			{Accept: true},
+		},
+	}
+	rt := schemaContentRuntimeForTest(
+		model,
+		nil,
+		nil,
+		[]runtime.Wildcard{{Mode: runtime.WildcardAny, Process: runtime.ProcessStrict}},
+	)
+	before := rt.ContentFrameForPublishedSchema(parentType).ContentState()
+	parent := frame{
+		Type:    parentType,
+		Content: before,
+		Child:   runtime.ChildContentInfo{Complex: true},
+		ChildOK: true,
+	}
+	s := session{schema: rt}
+	s.doc.schemaLocationHints.namespaces = map[string]bool{"urn:t": true}
+
+	got, err := s.acceptChild(&parent, runtime.RuntimeName{NS: "urn:t", Local: "child"}, false, 2, 3)
+	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
+	if got.recover || got.skip {
+		t.Fatalf("acceptChild(schemaLocation strict wildcard) = %+v, want non-recoverable unsupported schemaLocation", got)
+	}
+	if parent.Content != before {
+		t.Fatalf("parent content changed for unsupported schemaLocation")
+	}
+}
+
+func TestAcceptChildSchemaUsesElementStartInfos(t *testing.T) {
+	t.Parallel()
+
+	parentType := runtime.ComplexRef(0)
+	childType := runtime.ComplexRef(1)
+	childElement := runtime.ElementID(0)
+	childName := runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 1}
+	model := runtime.CompiledModel{
+		Kind: runtime.CompiledModelDFA,
+		Rows: []runtime.CompiledModelRow{
+			{
+				Edges: []runtime.CompiledModelEdge{{
+					Particle: runtime.ElementParticle(childElement, runtime.Occurrence{Min: 1, Max: 1}),
+					To:       1,
+				}},
+			},
+			{Accept: true},
+		},
+	}
+	rt := schemaContentRuntimeForTest(model, []runtime.QName{childName}, []runtime.TypeID{childType}, nil)
+	parent := frame{
+		Type:    parentType,
+		Content: rt.ContentFrameForPublishedSchema(parentType).ContentState(),
+		Child:   runtime.ChildContentInfo{Complex: true},
+		ChildOK: true,
+	}
+	s := session{schema: rt}
+
+	got, err := s.acceptChild(&parent, runtime.RuntimeName{Known: true, Name: childName, Local: "child"}, false, 2, 3)
+	if err != nil {
+		t.Fatalf("acceptChild(schema element) error = %v", err)
+	}
+	if got.element != childElement || got.typ != childType || got.skip {
+		t.Fatalf("acceptChild(schema element) = %+v, want element %d type %v", got, childElement, childType)
 	}
 }
 
@@ -522,6 +746,75 @@ func TestChildStartRejectsInvalidParentContent(t *testing.T) {
 				t.Fatalf("ChildStart() = %+v, want recoverable skipped anyType child", got)
 			}
 		})
+	}
+}
+
+func TestChildStartPolicyClassifiesSharedValidationRules(t *testing.T) {
+	t.Parallel()
+
+	name := runtime.RuntimeName{Local: "child"}
+	if got := childFramePolicy(true, true); !got.skip || got.issue.valid() {
+		t.Fatalf("childFramePolicy(skip) = %+v, want skipped without validation issue", got)
+	}
+	if got := childFramePolicy(false, true); got.skip || got.issue.code != xsderrors.CodeValidationNil {
+		t.Fatalf("childFramePolicy(nilled) = %+v, want nil validation issue", got)
+	}
+
+	parent := runtime.ComplexRef(1)
+	model := runtime.ContentModelID(4)
+	rt := contentRuntimeStub{
+		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
+		models: map[runtime.ContentModelID]runtime.CompiledModel{
+			model: {Kind: runtime.CompiledModelDFA, Rows: []runtime.CompiledModelRow{{Accept: true}}},
+		},
+	}
+	content := runtime.ContentFrameForType(rt, parent).ContentState()
+	tests := []struct {
+		name    string
+		child   runtime.ChildContentInfo
+		content runtime.ContentState
+		code    xsderrors.Code
+	}{
+		{name: "simple type", code: xsderrors.CodeValidationContent},
+		{name: "simple content", child: runtime.ChildContentInfo{Complex: true, Simple: true}, code: xsderrors.CodeValidationContent},
+		{name: "no model", child: runtime.ChildContentInfo{Complex: true}, code: xsderrors.CodeValidationElement},
+		{name: "accepted", child: runtime.ChildContentInfo{Complex: true}, content: content},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := childContentPolicy(tc.child, tc.content, name)
+			if got.code != tc.code {
+				t.Fatalf("childContentPolicy() = %+v, want code %q", got, tc.code)
+			}
+		})
+	}
+}
+
+func TestContentCompletionRequiredPolicy(t *testing.T) {
+	t.Parallel()
+
+	parent := runtime.ComplexRef(1)
+	model := runtime.ContentModelID(4)
+	rt := contentRuntimeStub{
+		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
+		models: map[runtime.ContentModelID]runtime.CompiledModel{
+			model: {Kind: runtime.CompiledModelDFA, Rows: []runtime.CompiledModelRow{{Accept: true}}},
+		},
+	}
+	content := runtime.ContentFrameForType(rt, parent).ContentState()
+	if !contentCompletionRequired(false, parent, content) {
+		t.Fatal("contentCompletionRequired(complex model) = false, want true")
+	}
+	if contentCompletionRequired(true, parent, content) {
+		t.Fatal("contentCompletionRequired(nilled) = true, want false")
+	}
+	if contentCompletionRequired(false, runtime.SimpleRef(1), content) {
+		t.Fatal("contentCompletionRequired(simple type) = true, want false")
+	}
+	if contentCompletionRequired(false, parent, runtime.ContentState{}) {
+		t.Fatal("contentCompletionRequired(no model) = true, want false")
 	}
 }
 

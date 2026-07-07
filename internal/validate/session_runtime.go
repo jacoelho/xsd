@@ -463,13 +463,7 @@ func (s *session) startType(rn runtime.RuntimeName, se stream.StartElement, hasX
 	}
 	parent := &s.doc.stack[len(s.doc.stack)-1]
 	parent.HasChild = true
-	var accepted acceptedChild
-	var err error
-	if s.schema != nil {
-		accepted, err = s.acceptSchemaChild(parent, rn, hasXSIType, line, col)
-	} else {
-		accepted, err = s.acceptChild(parent, rn, hasXSIType, line, col)
-	}
+	accepted, err := s.acceptChild(parent, rn, hasXSIType, line, col)
 	if err == nil {
 		return accepted.element, accepted.typ, accepted.skip, nil
 	}

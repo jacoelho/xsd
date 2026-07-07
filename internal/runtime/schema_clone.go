@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	goruntime "runtime"
+	"sync"
 	"sync/atomic"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -12,6 +12,75 @@ const (
 	schemaPrepareRunning
 	schemaPrepareReady
 )
+
+type schemaPrepareGateState struct {
+	running map[*Schema]chan struct{}
+	mu      sync.Mutex
+}
+
+func newSchemaPrepareGate() *schemaPrepareGateState {
+	return &schemaPrepareGateState{running: make(map[*Schema]chan struct{})}
+}
+
+var schemaPrepareGate = newSchemaPrepareGate()
+
+func (g *schemaPrepareGateState) prepare(rt *Schema, prepare func(*Schema) error) error {
+	for {
+		done, run := g.enter(rt)
+		if done == nil {
+			return nil
+		}
+		if !run {
+			<-done
+			continue
+		}
+		err := g.run(rt, done, prepare)
+		if err != nil {
+			return err
+		}
+		g.finish(rt, done, schemaPrepareReady)
+		return nil
+	}
+}
+
+func (g *schemaPrepareGateState) run(rt *Schema, done chan struct{}, prepare func(*Schema) error) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			g.finish(rt, done, schemaPrepareIdle)
+			panic(recovered)
+		}
+		if err != nil {
+			g.finish(rt, done, schemaPrepareIdle)
+		}
+	}()
+	return prepare(rt)
+}
+
+func (g *schemaPrepareGateState) enter(rt *Schema) (chan struct{}, bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	state := atomic.LoadUint32(&rt.prepareState)
+	if state == schemaPrepareReady {
+		return nil, false
+	}
+	if state == schemaPrepareRunning {
+		if done := g.running[rt]; done != nil {
+			return done, false
+		}
+	}
+	done := make(chan struct{})
+	g.running[rt] = done
+	atomic.StoreUint32(&rt.prepareState, schemaPrepareRunning)
+	return done, true
+}
+
+func (g *schemaPrepareGateState) finish(rt *Schema, done chan struct{}, state uint32) {
+	g.mu.Lock()
+	atomic.StoreUint32(&rt.prepareState, state)
+	delete(g.running, rt)
+	close(done)
+	g.mu.Unlock()
+}
 
 // ReadProjectionsPublished reports whether any validation read projection has
 // been built. A partially published runtime is invalid and must be rejected by
@@ -68,7 +137,6 @@ func (rt *Schema) publishReadProjections(hotPaths bool) {
 	rt.ElementValueConstraintReads = NewElementValueConstraintReadsForDecls(rt.Elements)
 	rt.SimpleTextContentRead = NewElementTextContentForSimpleType()
 	rt.readProjectionsPublished = true
-	rt.validationHotPathsPrepared = false
 }
 
 func (rt *Schema) publishSimpleValueReadProjections(hotPaths bool) {
@@ -103,38 +171,17 @@ func (rt *Schema) PrepareValidationHotPaths() error {
 	if rt == nil {
 		return xsderrors.InternalInvariant("nil schema runtime")
 	}
-	for {
-		switch atomic.LoadUint32(&rt.prepareState) {
-		case schemaPrepareReady:
-			return nil
-		case schemaPrepareIdle:
-			if atomic.CompareAndSwapUint32(&rt.prepareState, schemaPrepareIdle, schemaPrepareRunning) {
-				err := rt.prepareValidationHotPaths()
-				if err != nil {
-					atomic.StoreUint32(&rt.prepareState, schemaPrepareIdle)
-					return err
-				}
-				atomic.StoreUint32(&rt.prepareState, schemaPrepareReady)
-				return nil
-			}
-		default:
-			goruntime.Gosched()
-		}
+	if atomic.LoadUint32(&rt.prepareState) == schemaPrepareReady {
+		return nil
 	}
+	return schemaPrepareGate.prepare(rt, (*Schema).prepareValidationHotPaths)
 }
 
 func (rt *Schema) prepareValidationHotPaths() error {
-	if rt.validationHotPathsPrepared {
-		return nil
-	}
 	if !rt.ReadProjectionsPublished() {
 		rt.publishReadProjections(true)
 	} else if len(rt.SimpleValueTypeReads) == 0 {
 		rt.publishSimpleValueReadProjections(true)
 	}
-	if err := ValidateSchemaPublication(rt); err != nil {
-		return err
-	}
-	rt.validationHotPathsPrepared = true
-	return nil
+	return ValidateSchemaPublication(rt)
 }

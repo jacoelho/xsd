@@ -18,7 +18,7 @@ func identityConstraintNodes(n *rawNode) []*rawNode {
 }
 
 func (c *compiler) declareAllIdentityConstraints() error {
-	for _, doc := range c.docs {
+	for _, doc := range c.compileDocs {
 		ctx := c.contexts[doc]
 		if err := c.declareIdentityConstraintsInTree(doc.root, ctx); err != nil {
 			return err
