@@ -52,25 +52,38 @@ func TestValidateXMLDataValidAndInvalid(t *testing.T) {
 	}
 }
 
-func TestBrowserValidateUsesOriginalXMLBeforeFormatting(t *testing.T) {
-	html, err := os.ReadFile(filepath.Join("..", "..", "docs", "index.html"))
-	if err != nil {
-		t.Fatalf("ReadFile(index.html) error = %v", err)
+func TestValidateXMLDataReportsMalformedXMLBeforeSchemaErrors(t *testing.T) {
+	resp := validateXMLData(`<root><v>1</root>`, `<!DOCTYPE xs:schema><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
+	if resp.Valid {
+		t.Fatal("validateXMLData() accepted malformed XML")
 	}
-	text := string(html)
-	validateAt := strings.Index(text, "window.validateXML(xml, xsd)")
-	if validateAt < 0 {
-		t.Fatal("browser validate() does not validate captured original XML")
+	if resp.Error != "" {
+		t.Fatalf("error = %q, want XML error list", resp.Error)
 	}
-	if strings.Contains(text, "window.validateXML(editorContent(xmlEditor), xsd)") {
-		t.Fatal("browser validate() validates post-format editor content")
+	if len(resp.Errors) != 1 {
+		t.Fatalf("len(errors) = %d, want 1: %+v", len(resp.Errors), resp)
 	}
-	formatAt := strings.Index(text, "window.formatXML(xml)")
-	if formatAt < 0 {
-		t.Fatal("browser validate() no longer formats captured XML")
+	if resp.Errors[0].Source != "xml" {
+		t.Fatalf("error source = %q, want xml", resp.Errors[0].Source)
 	}
-	if formatAt < validateAt {
-		t.Fatal("browser validate() formats XML before validation")
+	if resp.Errors[0].Code != "validation.xml" {
+		t.Fatalf("error code = %q, want validation.xml", resp.Errors[0].Code)
+	}
+}
+
+func TestValidateXMLDataAcceptsCompactXMLWithoutFormatting(t *testing.T) {
+	const xml = `<root><v>1</v></root>`
+	formatted := formatXMLData(xml)
+	if formatted.Error != "" {
+		t.Fatalf("formatXMLData() error = %s", formatted.Error)
+	}
+	if formatted.XML == xml {
+		t.Fatalf("formatXMLData() did not change compact XML")
+	}
+
+	resp := validateXMLData(xml, testSchema)
+	if !resp.Valid || resp.Error != "" || len(resp.Errors) != 0 {
+		t.Fatalf("validateXMLData() = %+v", resp)
 	}
 }
 

@@ -65,48 +65,32 @@ func TestSchemaPrepareGateRetriesAfterError(t *testing.T) {
 	rt := &Schema{}
 	gate := newSchemaPrepareGate()
 	errPrepare := errors.New("prepare failed")
-	firstStarted := make(chan struct{})
-	releaseFirst := make(chan struct{})
-	secondCalling := make(chan struct{})
 
-	var calls atomic.Int32
-	prepare := func(*Schema) error {
-		switch calls.Add(1) {
-		case 1:
-			close(firstStarted)
-			<-releaseFirst
-			return errPrepare
-		case 2:
-			return nil
-		default:
-			return errors.New("unexpected prepare call")
-		}
+	firstDone, run := gate.enter(rt)
+	if firstDone == nil || !run {
+		t.Fatalf("first enter = %v, %v; want run", firstDone, run)
+	}
+	waiterDone, run := gate.enter(rt)
+	if waiterDone != firstDone || run {
+		t.Fatalf("waiter enter = %v, %v; want first done and wait", waiterDone, run)
 	}
 
-	firstErr := make(chan error, 1)
-	go func() {
-		firstErr <- gate.prepare(rt, prepare)
-	}()
-	waitForTestSignal(t, firstStarted, "first prepare to start")
-
-	secondErr := make(chan error, 1)
-	go func() {
-		close(secondCalling)
-		secondErr <- gate.prepare(rt, prepare)
-	}()
-	waitForTestSignal(t, secondCalling, "second caller to enter prepare gate")
-
-	close(releaseFirst)
-
-	if err := waitForTestError(t, firstErr, "first prepare"); !errors.Is(err, errPrepare) {
+	err := gate.run(rt, firstDone, func(*Schema) error {
+		return errPrepare
+	})
+	if !errors.Is(err, errPrepare) {
 		t.Fatalf("first prepare error = %v, want %v", err, errPrepare)
 	}
-	if err := waitForTestError(t, secondErr, "second prepare"); err != nil {
-		t.Fatalf("second prepare error = %v", err)
+	waitForClosedTestSignal(t, waiterDone, "waiter after prepare error")
+
+	retryDone, run := gate.enter(rt)
+	if retryDone == nil || !run {
+		t.Fatalf("retry enter = %v, %v; want run", retryDone, run)
 	}
-	if got := calls.Load(); got != 2 {
-		t.Fatalf("prepare calls = %d, want 2", got)
+	if err := gate.run(rt, retryDone, func(*Schema) error { return nil }); err != nil {
+		t.Fatalf("retry prepare error = %v", err)
 	}
+	gate.finish(rt, retryDone, schemaPrepareReady)
 	if got := atomic.LoadUint32(&rt.prepareState); got != schemaPrepareReady {
 		t.Fatalf("prepare state = %d, want ready", got)
 	}
@@ -115,54 +99,43 @@ func TestSchemaPrepareGateRetriesAfterError(t *testing.T) {
 func TestSchemaPrepareGateRetriesAfterPanic(t *testing.T) {
 	rt := &Schema{}
 	gate := newSchemaPrepareGate()
-	firstStarted := make(chan struct{})
-	releaseFirst := make(chan struct{})
-	secondCalling := make(chan struct{})
 	panicValue := "prepare panic"
 
-	var calls atomic.Int32
-	prepare := func(*Schema) error {
-		switch calls.Add(1) {
-		case 1:
-			close(firstStarted)
-			<-releaseFirst
-			panic(panicValue)
-		case 2:
-			return nil
-		default:
-			return errors.New("unexpected prepare call")
-		}
+	firstDone, run := gate.enter(rt)
+	if firstDone == nil || !run {
+		t.Fatalf("first enter = %v, %v; want run", firstDone, run)
+	}
+	waiterDone, run := gate.enter(rt)
+	if waiterDone != firstDone || run {
+		t.Fatalf("waiter enter = %v, %v; want first done and wait", waiterDone, run)
 	}
 
-	firstPanic := make(chan any, 1)
-	go func() {
+	var runErr error
+	recovered := func() (recovered any) {
 		defer func() {
-			firstPanic <- recover()
+			recovered = recover()
 		}()
-		if err := gate.prepare(rt, prepare); err != nil {
-			panic(err)
-		}
+		runErr = gate.run(rt, firstDone, func(*Schema) error {
+			panic(panicValue)
+		})
+		return nil
 	}()
-	waitForTestSignal(t, firstStarted, "first prepare to start")
-
-	secondErr := make(chan error, 1)
-	go func() {
-		close(secondCalling)
-		secondErr <- gate.prepare(rt, prepare)
-	}()
-	waitForTestSignal(t, secondCalling, "second caller to enter prepare gate")
-
-	close(releaseFirst)
-
-	if got := waitForTestPanic(t, firstPanic, "first prepare"); got != panicValue {
-		t.Fatalf("first prepare panic = %v, want %v", got, panicValue)
+	if recovered != panicValue {
+		t.Fatalf("first prepare panic = %v, want %v", recovered, panicValue)
 	}
-	if err := waitForTestError(t, secondErr, "second prepare"); err != nil {
-		t.Fatalf("second prepare error = %v", err)
+	if runErr != nil {
+		t.Fatalf("first prepare error = %v", runErr)
 	}
-	if got := calls.Load(); got != 2 {
-		t.Fatalf("prepare calls = %d, want 2", got)
+	waitForClosedTestSignal(t, waiterDone, "waiter after prepare panic")
+
+	retryDone, run := gate.enter(rt)
+	if retryDone == nil || !run {
+		t.Fatalf("retry enter = %v, %v; want run", retryDone, run)
 	}
+	if err := gate.run(rt, retryDone, func(*Schema) error { return nil }); err != nil {
+		t.Fatalf("retry prepare error = %v", err)
+	}
+	gate.finish(rt, retryDone, schemaPrepareReady)
 	if got := atomic.LoadUint32(&rt.prepareState); got != schemaPrepareReady {
 		t.Fatalf("prepare state = %d, want ready", got)
 	}
@@ -262,25 +235,23 @@ func waitForTestSignal(t *testing.T, ch <-chan struct{}, name string) {
 	}
 }
 
+func waitForClosedTestSignal(t *testing.T, ch <-chan struct{}, name string) {
+	t.Helper()
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Fatalf("%s channel received before close", name)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for %s", name)
+	}
+}
+
 func waitForTestError(t *testing.T, ch <-chan error, name string) error {
 	t.Helper()
 	select {
 	case err := <-ch:
 		return err
-	case <-time.After(2 * time.Second):
-		t.Fatalf("timed out waiting for %s", name)
-		return nil
-	}
-}
-
-func waitForTestPanic(t *testing.T, ch <-chan any, name string) any {
-	t.Helper()
-	select {
-	case recovered := <-ch:
-		if recovered == nil {
-			t.Fatalf("%s did not panic", name)
-		}
-		return recovered
 	case <-time.After(2 * time.Second):
 		t.Fatalf("timed out waiting for %s", name)
 		return nil

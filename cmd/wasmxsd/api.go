@@ -8,6 +8,7 @@ import (
 
 	"github.com/jacoelho/xsd"
 	"github.com/jacoelho/xsd/internal/format"
+	"github.com/jacoelho/xsd/internal/validate"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -69,6 +70,9 @@ func validateXMLData(xmlText, xsdText string) validateResponse {
 	}
 	if int64(len(xmlText)) > maxXMLBytes {
 		return validateResponse{Error: fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes))}
+	}
+	if err := validate.CheckXMLWellFormed(strings.NewReader(xmlText), validate.Options{}); err != nil {
+		return validateResponse{Errors: collectErrors(err, "xml")}
 	}
 	if int64(len(xsdText)) > maxXSDBytes {
 		return validateResponse{Error: fmt.Sprintf("XSD exceeds %s limit", byteLimit(maxXSDBytes))}
