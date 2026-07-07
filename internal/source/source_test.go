@@ -347,8 +347,8 @@ func TestLoadSchemaDocumentsReadsResolverQueue(t *testing.T) {
 	if got := result.ReferenceAliases[ReferenceKey{Base: rootKey, Location: "common.xsd"}]; got != commonKey {
 		t.Fatalf("common alias = %q, want %q", got, commonKey)
 	}
-	if want := []string{commonKey, rootKey}; !slices.Equal(result.SelectedKeys, want) {
-		t.Fatalf("SelectedKeys = %#v, want %#v", result.SelectedKeys, want)
+	if want := []LoadedDocumentRole{{Key: commonKey, Index: true}, {Key: rootKey, Index: true}}; !slices.Equal(result.Documents, want) {
+		t.Fatalf("Documents = %#v, want %#v", result.Documents, want)
 	}
 }
 
@@ -376,8 +376,8 @@ func TestLoadSchemaDocumentsSkipsOptionalMissingRead(t *testing.T) {
 	if want := []string{"root.xsd"}; !slices.Equal(parsed, want) {
 		t.Fatalf("parsed = %#v, want %#v", parsed, want)
 	}
-	if want := []string{Key("root.xsd")}; !slices.Equal(result.SelectedKeys, want) {
-		t.Fatalf("SelectedKeys = %#v, want %#v", result.SelectedKeys, want)
+	if want := []LoadedDocumentRole{{Key: Key("root.xsd"), Index: true}}; !slices.Equal(result.Documents, want) {
+		t.Fatalf("Documents = %#v, want %#v", result.Documents, want)
 	}
 }
 
@@ -728,7 +728,7 @@ func TestPlanChameleonIncludesReportsTargetMismatch(t *testing.T) {
 	}
 }
 
-func TestPlanChameleonIncludesResolvesLoadedOnlyDocuments(t *testing.T) {
+func TestPlanChameleonIncludesPropagatesThroughGraphParticipantDocuments(t *testing.T) {
 	t.Parallel()
 
 	docs := []ChameleonDocument{
@@ -744,7 +744,6 @@ func TestPlanChameleonIncludesResolvesLoadedOnlyDocuments(t *testing.T) {
 			Name:       "deduped.xsd",
 			References: []SchemaDocumentReference{{Location: "leaf.xsd", Kind: SchemaReferenceInclude}},
 			Loaded:     true,
-			LoadedOnly: true,
 		},
 		{
 			Key:    "leaf.xsd",
@@ -757,7 +756,7 @@ func TestPlanChameleonIncludesResolvesLoadedOnlyDocuments(t *testing.T) {
 	if issue.Issue != TargetNamespaceOK {
 		t.Fatalf("PlanChameleonIncludes() issue = %+v", issue)
 	}
-	wantTargets := map[string]string{"deduped.xsd": "urn:main"}
+	wantTargets := map[string]string{"deduped.xsd": "urn:main", "leaf.xsd": "urn:main"}
 	if !reflect.DeepEqual(plan.AdoptedTargets, wantTargets) {
 		t.Fatalf("adopted targets = %#v, want %#v", plan.AdoptedTargets, wantTargets)
 	}
@@ -930,7 +929,7 @@ func TestResolveLocalSchemaLocationWindowsDrivePath(t *testing.T) {
 	}
 }
 
-func TestSelectedLoadedDocumentKeysDropsDuplicateTargetContent(t *testing.T) {
+func TestPlanLoadedDocumentRolesMarksDuplicateTargetContentIndexFalse(t *testing.T) {
 	t.Parallel()
 
 	docs := []LoadedDocument{
@@ -941,28 +940,35 @@ func TestSelectedLoadedDocumentKeysDropsDuplicateTargetContent(t *testing.T) {
 		{Key: "empty-1.xsd", Data: []byte("same")},
 		{Key: "other.xsd", TargetNamespace: "urn:other", Data: []byte("same")},
 	}
-	got := SelectedLoadedDocumentKeys(docs, nil)
-	want := []string{"a.xsd", "c.xsd", "empty-1.xsd", "empty-2.xsd", "other.xsd"}
+	got := PlanLoadedDocumentRoles(docs)
+	want := []LoadedDocumentRole{
+		{Key: "a.xsd", Index: true},
+		{Key: "b.xsd", Index: false},
+		{Key: "c.xsd", Index: true},
+		{Key: "empty-1.xsd", Index: true},
+		{Key: "empty-2.xsd", Index: true},
+		{Key: "other.xsd", Index: true},
+	}
 	if !slices.Equal(got, want) {
-		t.Fatalf("SelectedLoadedDocumentKeys() = %q, want %q", got, want)
+		t.Fatalf("PlanLoadedDocumentRoles() = %#v, want %#v", got, want)
 	}
 }
 
-func TestSelectedLoadedDocumentKeysKeepsSameContentAcrossTargets(t *testing.T) {
+func TestPlanLoadedDocumentRolesIndexesSameContentAcrossTargets(t *testing.T) {
 	t.Parallel()
 
 	docs := []LoadedDocument{
 		{Key: "b.xsd", TargetNamespace: "urn:b", Data: []byte("same")},
 		{Key: "a.xsd", TargetNamespace: "urn:a", Data: []byte("same")},
 	}
-	got := SelectedLoadedDocumentKeys(docs, nil)
-	want := []string{"a.xsd", "b.xsd"}
+	got := PlanLoadedDocumentRoles(docs)
+	want := []LoadedDocumentRole{{Key: "a.xsd", Index: true}, {Key: "b.xsd", Index: true}}
 	if !slices.Equal(got, want) {
-		t.Fatalf("SelectedLoadedDocumentKeys() = %q, want %q", got, want)
+		t.Fatalf("PlanLoadedDocumentRoles() = %#v, want %#v", got, want)
 	}
 }
 
-func TestSelectedLoadedDocumentKeysKeepsSameContentWithDifferentResolvedGraphs(t *testing.T) {
+func TestPlanLoadedDocumentRolesKeepsReferencedDocumentsIndexedForDuplicateTargets(t *testing.T) {
 	t.Parallel()
 
 	aMain := filepath.Join("a", "main.xsd")
@@ -971,31 +977,32 @@ func TestSelectedLoadedDocumentKeysKeepsSameContentWithDifferentResolvedGraphs(t
 	bCommon := filepath.Join("b", "common.xsd")
 	docs := []LoadedDocument{
 		{
-			Name:            bMain,
 			Key:             bMain,
 			TargetNamespace: "urn:test",
-			References:      []SchemaDocumentReference{{Kind: SchemaReferenceInclude, Location: "common.xsd"}},
 			Data:            []byte("same"),
 		},
 		{
-			Name:            aMain,
 			Key:             aMain,
 			TargetNamespace: "urn:test",
-			References:      []SchemaDocumentReference{{Kind: SchemaReferenceInclude, Location: "common.xsd"}},
 			Data:            []byte("same"),
 		},
-		{Name: aCommon, Key: aCommon, Data: []byte("a common")},
-		{Name: bCommon, Key: bCommon, Data: []byte("b common")},
+		{Key: aCommon, Data: []byte("a common")},
+		{Key: bCommon, Data: []byte("b common")},
 	}
 
-	got := SelectedLoadedDocumentKeys(docs, nil)
-	want := []string{aCommon, aMain, bCommon, bMain}
+	got := PlanLoadedDocumentRoles(docs)
+	want := []LoadedDocumentRole{
+		{Key: aCommon, Index: true},
+		{Key: aMain, Index: true},
+		{Key: bCommon, Index: true},
+		{Key: bMain, Index: false},
+	}
 	if !slices.Equal(got, want) {
-		t.Fatalf("SelectedLoadedDocumentKeys() = %q, want %q", got, want)
+		t.Fatalf("PlanLoadedDocumentRoles() = %#v, want %#v", got, want)
 	}
 }
 
-func TestSelectedLoadedDocumentKeysDropsSameContentWithSameResolvedGraph(t *testing.T) {
+func TestPlanLoadedDocumentRolesIndexesSharedReferencedDocument(t *testing.T) {
 	t.Parallel()
 
 	aMain := filepath.Join("a", "main.xsd")
@@ -1003,29 +1010,25 @@ func TestSelectedLoadedDocumentKeysDropsSameContentWithSameResolvedGraph(t *test
 	shared := filepath.Join("shared", "common.xsd")
 	docs := []LoadedDocument{
 		{
-			Name:            bMain,
 			Key:             bMain,
 			TargetNamespace: "urn:test",
-			References:      []SchemaDocumentReference{{Kind: SchemaReferenceInclude, Location: "common.xsd"}},
 			Data:            []byte("same"),
 		},
 		{
-			Name:            aMain,
 			Key:             aMain,
 			TargetNamespace: "urn:test",
-			References:      []SchemaDocumentReference{{Kind: SchemaReferenceInclude, Location: "common.xsd"}},
 			Data:            []byte("same"),
 		},
-		{Name: shared, Key: shared, Data: []byte("shared")},
-	}
-	aliases := map[ReferenceKey]string{
-		{Base: aMain, Location: "common.xsd"}: shared,
-		{Base: bMain, Location: "common.xsd"}: shared,
+		{Key: shared, Data: []byte("shared")},
 	}
 
-	got := SelectedLoadedDocumentKeys(docs, aliases)
-	want := []string{aMain, shared}
+	got := PlanLoadedDocumentRoles(docs)
+	want := []LoadedDocumentRole{
+		{Key: aMain, Index: true},
+		{Key: bMain, Index: false},
+		{Key: shared, Index: true},
+	}
 	if !slices.Equal(got, want) {
-		t.Fatalf("SelectedLoadedDocumentKeys() = %q, want %q", got, want)
+		t.Fatalf("PlanLoadedDocumentRoles() = %#v, want %#v", got, want)
 	}
 }

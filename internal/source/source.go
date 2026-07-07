@@ -254,12 +254,11 @@ type LoadSchemaDocumentFunc func(LoadedSource) (LoadedSchemaDocument, error)
 // schema sources.
 type LoadSchemaDocumentsResult struct {
 	ReferenceAliases map[ReferenceKey]string
-	SelectedKeys     []string
+	Documents        []LoadedDocumentRole
 }
 
 // LoadSchemaDocuments reads initial sources and resolver-discovered references,
-// suppressing duplicate source keys and returning the deterministic selected
-// compile set.
+// suppressing duplicate source keys and returning deterministic document roles.
 func LoadSchemaDocuments(sources []Source, maxBytes int64, parse LoadSchemaDocumentFunc) (LoadSchemaDocumentsResult, error) {
 	if parse == nil {
 		return LoadSchemaDocumentsResult{}, xsderrors.InternalInvariant("schema source loader missing document parser")
@@ -273,6 +272,7 @@ func LoadSchemaDocuments(sources []Source, maxBytes int64, parse LoadSchemaDocum
 	docs := make([]LoadedDocument, 0, len(sources))
 	for len(queue) != 0 {
 		item := queue[0]
+		queue[0] = LoadRequest{}
 		queue = queue[1:]
 		next, doc, ok, err := readSchemaLoad(item, maxBytes, loaded, parse)
 		if err != nil {
@@ -282,10 +282,8 @@ func LoadSchemaDocuments(sources []Source, maxBytes int64, parse LoadSchemaDocum
 			continue
 		}
 		docs = append(docs, LoadedDocument{
-			Name:            doc.Name,
 			Key:             doc.Key,
 			TargetNamespace: doc.Parsed.TargetNamespace,
-			References:      doc.Parsed.References,
 			Data:            doc.Data,
 		})
 		if len(doc.ReferenceAliases) != 0 {
@@ -296,7 +294,7 @@ func LoadSchemaDocuments(sources []Source, maxBytes int64, parse LoadSchemaDocum
 		}
 		queue = append(queue, next...)
 	}
-	result.SelectedKeys = SelectedLoadedDocumentKeys(docs, result.ReferenceAliases)
+	result.Documents = PlanLoadedDocumentRoles(docs)
 	return result, nil
 }
 
@@ -528,9 +526,6 @@ type ChameleonDocument struct {
 	TargetNamespace string
 	References      []SchemaDocumentReference
 	Loaded          bool
-	// LoadedOnly makes the document available for schemaLocation resolution
-	// without processing its includes as part of the selected compile set.
-	LoadedOnly bool
 }
 
 // ChameleonClone records one synthetic chameleon document clone required for
@@ -576,9 +571,6 @@ func PlanChameleonIncludes(docs []ChameleonDocument, resolvedRefs map[ReferenceK
 	}
 	var plan ChameleonPlan
 	for _, doc := range docs {
-		if doc.LoadedOnly {
-			continue
-		}
 		target := chameleonDocumentTarget(doc, adopted)
 		for _, ref := range doc.References {
 			if ref.Kind != SchemaReferenceInclude {
@@ -1051,57 +1043,61 @@ func LocalFileURIPath(u *url.URL) (string, bool) {
 }
 
 // LoadedDocument is the source identity data needed to decide which parsed
-// schema documents participate in compilation.
+// schema documents participate in graph checks and declaration indexing.
 type LoadedDocument struct {
-	Name            string
 	Key             string
 	TargetNamespace string
-	References      []SchemaDocumentReference
 	Data            []byte
 }
 
-// SelectedLoadedDocumentKeys returns loaded source keys in deterministic key
-// order, dropping byte-identical documents only when they share a non-empty
-// target namespace and resolved reference graph.
-func SelectedLoadedDocumentKeys(docs []LoadedDocument, aliases map[ReferenceKey]string) []string {
+// LoadedDocumentRole records declaration-index participation for a loaded
+// source document. Every loaded document participates in graph validation.
+type LoadedDocumentRole struct {
+	Key   string
+	Index bool
+}
+
+// PlanLoadedDocumentRoles returns every loaded source key in deterministic key
+// order, marking byte-identical duplicates Index:false only when they share a
+// non-empty target namespace. Every loaded document still participates in the
+// graph; Index only controls declaration indexing. No-target chameleon
+// documents are never pre-deduplicated here because target adoption is a
+// compile graph decision.
+func PlanLoadedDocumentRoles(docs []LoadedDocument) []LoadedDocumentRole {
 	if len(docs) == 0 {
 		return nil
-	}
-	if len(docs) == 1 {
-		return []string{docs[0].Key}
 	}
 	ordered := slices.Clone(docs)
 	slices.SortFunc(ordered, func(a, b LoadedDocument) int {
 		return cmp.Compare(a.Key, b.Key)
 	})
 	targetCounts, hasDuplicateTargets := targetNamespaceCounts(ordered)
+	roles := make([]LoadedDocumentRole, 0, len(ordered))
 	if !hasDuplicateTargets {
-		keys := make([]string, len(ordered))
-		for i, doc := range ordered {
-			keys[i] = doc.Key
+		for _, doc := range ordered {
+			roles = append(roles, LoadedDocumentRole{Key: doc.Key, Index: true})
 		}
-		return keys
+		return roles
 	}
-	keys := make([]string, 0, len(ordered))
 	seed := maphash.MakeSeed()
-	loaded := loadedDocumentSet(ordered)
 	seenContent := make(map[loadedContentKey][]loadedContentSeen)
 	for _, doc := range ordered {
+		role := LoadedDocumentRole{Key: doc.Key, Index: true}
 		if doc.TargetNamespace != "" && targetCounts[doc.TargetNamespace] > 1 {
 			key := loadedContentKey{
 				target: doc.TargetNamespace,
 				size:   len(doc.Data),
 				hash:   maphash.Bytes(seed, doc.Data),
 			}
-			graph := loadedDocumentGraph(doc, aliases, loaded)
-			if contentSeen(seenContent[key], doc.Data, graph) {
-				continue
+			if contentSeen(seenContent[key], doc.Data) {
+				role.Index = false
+			} else {
+				seenContent[key] = append(seenContent[key], loadedContentSeen{data: doc.Data})
 			}
-			seenContent[key] = append(seenContent[key], loadedContentSeen{data: doc.Data, graph: graph})
 		}
-		keys = append(keys, doc.Key)
+		roles = append(roles, role)
 	}
-	return keys
+	return roles
 }
 
 func targetNamespaceCounts(docs []LoadedDocument) (map[string]int, bool) {
@@ -1129,51 +1125,12 @@ type loadedContentKey struct {
 }
 
 type loadedContentSeen struct {
-	data  []byte
-	graph []loadedReferenceGraphItem
+	data []byte
 }
 
-type loadedReferenceGraphItem struct {
-	location  string
-	namespace string
-	key       string
-	kind      SchemaReferenceKind
-}
-
-func loadedDocumentSet(docs []LoadedDocument) map[string]bool {
-	loaded := make(map[string]bool, len(docs))
-	for _, doc := range docs {
-		loaded[doc.Key] = true
-	}
-	return loaded
-}
-
-func loadedDocumentGraph(doc LoadedDocument, aliases map[ReferenceKey]string, loaded map[string]bool) []loadedReferenceGraphItem {
-	if len(doc.References) == 0 {
-		return nil
-	}
-	graph := make([]loadedReferenceGraphItem, 0, len(doc.References))
-	for _, ref := range doc.References {
-		location, ok := NormalizeSchemaLocation(ref.Location)
-		if !ok {
-			continue
-		}
-		resolved, _ := ResolveLoadedSchemaLocation(doc.Name, doc.Key, location, aliases, func(key string) bool {
-			return loaded[key]
-		})
-		graph = append(graph, loadedReferenceGraphItem{
-			location:  location,
-			namespace: ref.Namespace,
-			key:       resolved,
-			kind:      ref.Kind,
-		})
-	}
-	return graph
-}
-
-func contentSeen(bucket []loadedContentSeen, data []byte, graph []loadedReferenceGraphItem) bool {
+func contentSeen(bucket []loadedContentSeen, data []byte) bool {
 	for _, item := range bucket {
-		if bytes.Equal(item.data, data) && slices.Equal(item.graph, graph) {
+		if bytes.Equal(item.data, data) {
 			return true
 		}
 	}

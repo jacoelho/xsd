@@ -142,6 +142,67 @@ type ChildResult struct {
 	ContentAdvanced bool
 }
 
+type validationIssue struct {
+	code    xsderrors.Code
+	message string
+}
+
+func (i validationIssue) valid() bool {
+	return i.code != ""
+}
+
+type childStartPolicy struct {
+	issue validationIssue
+	skip  bool
+}
+
+func childFramePolicy(skip, nilled bool) childStartPolicy {
+	if skip {
+		return childStartPolicy{skip: true}
+	}
+	if nilled {
+		return childStartPolicy{issue: nilledContentIssue()}
+	}
+	return childStartPolicy{}
+}
+
+func childContentPolicy(content runtime.ChildContentInfo, state runtime.ContentState, name runtime.RuntimeName) validationIssue {
+	if !content.Complex {
+		return validationIssue{code: xsderrors.CodeValidationContent, message: "simple type cannot contain child elements"}
+	}
+	if content.Simple {
+		return validationIssue{code: xsderrors.CodeValidationContent, message: "simple content cannot contain child elements"}
+	}
+	if !state.HasModel() {
+		return unexpectedChildIssue(name)
+	}
+	return validationIssue{}
+}
+
+func unexpectedChildIssue(name runtime.RuntimeName) validationIssue {
+	return validationIssue{code: xsderrors.CodeValidationElement, message: "unexpected child element " + name.Label()}
+}
+
+func strictMissingChildIssue(name runtime.RuntimeName) validationIssue {
+	return validationIssue{code: xsderrors.CodeValidationElement, message: "wildcard requires declared element " + name.Label()}
+}
+
+func nilledContentIssue() validationIssue {
+	return validationIssue{code: xsderrors.CodeValidationNil, message: "nilled element must be empty"}
+}
+
+func missingRequiredChildIssue() validationIssue {
+	return validationIssue{code: xsderrors.CodeValidationContent, message: "missing required child element"}
+}
+
+func contentCompletionRequired(nilled bool, typ runtime.TypeID, content runtime.ContentState) bool {
+	return !nilled && typ.Kind == runtime.TypeComplex && content.HasModel()
+}
+
+func validationFromIssue(ctx StartContext, issue validationIssue) error {
+	return validation(ctx, issue.code, issue.message)
+}
+
 // NilledContentInput reports whether a nilled element has content.
 type NilledContentInput struct {
 	Context  StartContext
@@ -153,18 +214,19 @@ type NilledContentInput struct {
 // ValidateNilledContent rejects child or text content inside a nilled element.
 func ValidateNilledContent(in NilledContentInput) error {
 	if in.Nilled && (in.HasChild || in.HasText) {
-		return validation(in.Context, xsderrors.CodeValidationNil, "nilled element must be empty")
+		return validationFromIssue(in.Context, nilledContentIssue())
 	}
 	return nil
 }
 
 // ChildStart validates a child element against its parent content model.
 func ChildStart[RT ContentRuntime](rt RT, in ChildInput) (ChildResult, error) {
-	if in.ParentSkip {
+	policy := childFramePolicy(in.ParentSkip, in.ParentNilled)
+	if policy.skip {
 		return skippedChild(rt), nil
 	}
-	if err := ValidateNilledContent(NilledContentInput{Context: in.Context, Nilled: in.ParentNilled, HasChild: true}); err != nil {
-		return recoverableChildError(rt, err)
+	if policy.issue.valid() {
+		return recoverableChildIssue(rt, in.Context, policy.issue)
 	}
 	parentContent := in.ParentChild
 	if !in.HasParentChild {
@@ -174,30 +236,17 @@ func ChildStart[RT ContentRuntime](rt RT, in ChildInput) (ChildResult, error) {
 			return ChildResult{}, xsderrors.InternalInvariant("child content metadata is invalid")
 		}
 	}
-	if !parentContent.Complex {
-		return recoverableChild(rt, in.Context, xsderrors.CodeValidationContent, "simple type cannot contain child elements")
-	}
-	if parentContent.Simple {
-		return recoverableChild(rt, in.Context, xsderrors.CodeValidationContent, "simple content cannot contain child elements")
-	}
-	if !in.ParentContent.HasModel() {
-		return recoverableChild(rt, in.Context, xsderrors.CodeValidationElement, "unexpected child element "+in.Name.Label())
+	if issue := childContentPolicy(parentContent, in.ParentContent, in.Name); issue.valid() {
+		return recoverableChildIssue(rt, in.Context, issue)
 	}
 	st := in.ParentContent
 	contentInput := runtime.ContentInput{Name: in.Name, HasXSIType: in.HasXSIType}
-	var match runtime.ContentMatch
-	var ok bool
-	var valid bool
-	if schema, isSchema := any(rt).(*runtime.Schema); isSchema {
-		match, ok, valid = schema.AdvancePublishedSchemaContent(&st, contentInput, &in.Scratch)
-	} else {
-		match, ok, valid = runtime.AdvanceCompiledContent(rt, &st, contentInput, &in.Scratch)
-	}
+	match, ok, valid := runtime.AdvanceCompiledContent(rt, &st, contentInput, &in.Scratch)
 	if !valid {
 		return ChildResult{}, xsderrors.InternalInvariant("content model state is invalid")
 	}
 	if !ok {
-		return recoverableChild(rt, in.Context, xsderrors.CodeValidationElement, "unexpected child element "+in.Name.Label())
+		return recoverableChildIssue(rt, in.Context, unexpectedChildIssue(in.Name))
 	}
 	out, err := childFromMatch(rt, match)
 	if err != nil {
@@ -213,7 +262,7 @@ func ChildStart[RT ContentRuntime](rt RT, in ChildInput) (ChildResult, error) {
 		out.Type = rt.AnyType()
 		out.Skip = true
 		out.Recover = true
-		return out, validation(in.Context, xsderrors.CodeValidationElement, "wildcard requires declared element "+in.Name.Label())
+		return out, validationFromIssue(in.Context, strictMissingChildIssue(in.Name))
 	}
 	return out, nil
 }
@@ -229,31 +278,25 @@ type CompleteInput struct {
 
 // ContentComplete validates that an element's content model may end.
 func ContentComplete[RT ContentRuntime](rt RT, in CompleteInput) error {
-	if in.Nilled || in.Type.Kind != runtime.TypeComplex || !in.Content.HasModel() {
+	if !contentCompletionRequired(in.Nilled, in.Type, in.Content) {
 		return nil
 	}
-	var complete bool
-	var ok bool
-	if schema, isSchema := any(rt).(*runtime.Schema); isSchema {
-		complete, ok = schema.CompletePublishedSchemaContent(in.Content, &in.Scratch)
-	} else {
-		complete, ok = runtime.CompleteCompiledContent(rt, in.Content, &in.Scratch)
-	}
+	complete, ok := runtime.CompleteCompiledContent(rt, in.Content, &in.Scratch)
 	if !ok {
 		return xsderrors.InternalInvariant("content model state is invalid")
 	}
 	if complete {
 		return nil
 	}
-	return validation(in.Context, xsderrors.CodeValidationContent, "missing required child element")
+	return validationFromIssue(in.Context, missingRequiredChildIssue())
 }
 
 func skippedChild[RT ContentRuntime](rt RT) ChildResult {
 	return ChildResult{Element: runtime.NoElement, Type: rt.AnyType(), Skip: true}
 }
 
-func recoverableChild[RT ContentRuntime](rt RT, ctx StartContext, code xsderrors.Code, msg string) (ChildResult, error) {
-	return recoverableChildError(rt, validation(ctx, code, msg))
+func recoverableChildIssue[RT ContentRuntime](rt RT, ctx StartContext, issue validationIssue) (ChildResult, error) {
+	return recoverableChildError(rt, validationFromIssue(ctx, issue))
 }
 
 func recoverableChildError[RT ContentRuntime](rt RT, err error) (ChildResult, error) {

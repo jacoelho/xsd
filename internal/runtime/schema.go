@@ -71,7 +71,6 @@ type Schema struct {
 	Builtin                        BuiltinIDs
 	SimpleTextContentRead          ElementTextContent
 	readProjectionsPublished       bool
-	validationHotPathsPrepared     bool
 	//nolint:modernize // Schema is copied during publication; atomic.Uint32 would make it non-copyable.
 	prepareState uint32
 }

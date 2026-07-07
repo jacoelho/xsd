@@ -124,6 +124,7 @@ func TestByteIdenticalSchemasResolveSourceRelativeIncludesIndependently(t *testi
 	const main = `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
   <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="root" type="xs:string"/>
 </xs:schema>`
 	resolver := source.Resolver(func(base, location string) (source.Source, error) {
 		if location != "common.xsd" {
@@ -154,6 +155,97 @@ func TestByteIdenticalSchemasResolveSourceRelativeIncludesIndependently(t *testi
 
 	mustValidateRuntime(t, engine, `<t:a xmlns:t="urn:test"/>`)
 	mustValidateRuntime(t, engine, `<t:b xmlns:t="urn:test"/>`)
+	mustValidateRuntime(t, engine, `<t:root xmlns:t="urn:test">ok</t:root>`)
+}
+
+func TestByteIdenticalSchemasDoNotSuppressDuplicateSourceRelativeIncludes(t *testing.T) {
+	const main = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`
+	const common = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="dup"/>
+</xs:schema>`
+	resolver := source.Resolver(func(base, location string) (source.Source, error) {
+		if location != "common.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		switch base {
+		case "a/main.xsd":
+			return source.Bytes("a/common.xsd", []byte(common)), nil
+		case "b/main.xsd":
+			return source.Bytes("b/common.xsd", []byte(common)), nil
+		default:
+			return source.Source{}, errors.New("unexpected base " + base)
+		}
+	})
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/main.xsd", []byte(main)).WithResolver(resolver),
+		source.Bytes("a/main.xsd", []byte(main)).WithResolver(resolver),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaDuplicate)
+	if !strings.Contains(err.Error(), "duplicate schema component") {
+		t.Fatalf("error = %v, want duplicate schema component", err)
+	}
+}
+
+func TestByteIdenticalSameTargetDuplicateKeepsImportGraphValidation(t *testing.T) {
+	const main = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:main">
+  <xs:import namespace="urn:dep" schemaLocation="dep.xsd"/>
+</xs:schema>`
+	resolver := source.Resolver(func(base, location string) (source.Source, error) {
+		if location != "dep.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		switch base {
+		case "a/main.xsd":
+			return source.Bytes("a/dep.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:dep"/>`)), nil
+		case "b/main.xsd":
+			return source.Bytes("b/dep.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:wrong"/>`)), nil
+		default:
+			return source.Source{}, errors.New("unexpected base " + base)
+		}
+	})
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/main.xsd", []byte(main)).WithResolver(resolver),
+		source.Bytes("a/main.xsd", []byte(main)).WithResolver(resolver),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaReference)
+}
+
+func TestByteIdenticalSameTargetSourcesCompileIdentityOnce(t *testing.T) {
+	const schema = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="code" type="xs:string" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemCode">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@code"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/schema.xsd", []byte(schema)),
+		source.Bytes("a/schema.xsd", []byte(schema)),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	mustValidateRuntime(t, engine, `<t:root xmlns:t="urn:test"><item code="a"/><item code="b"/></t:root>`)
+	mustNotValidateRuntime(t, engine, `<t:root xmlns:t="urn:test"><item code="a"/><item code="a"/></t:root>`, xsderrors.CodeValidationIdentity)
 }
 
 func expectSchemaCompileLine(t *testing.T, err error, line int) {
