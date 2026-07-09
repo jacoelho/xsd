@@ -59,19 +59,19 @@ type HasSchemaLocation func(string) bool
 
 // StartContext identifies a validation location.
 type StartContext struct {
-	session *session
-	Path    string
-	Line    int
-	Column  int
+	document *xmlDocumentState
+	Path     string
+	Line     int
+	Column   int
 }
 
 // PathString returns the current validation path, materializing it lazily for
-// session-owned contexts.
+// document-owned contexts.
 func (ctx StartContext) PathString() string {
-	if ctx.Path != "" || ctx.session == nil {
+	if ctx.Path != "" || ctx.document == nil {
 		return ctx.Path
 	}
-	return ctx.session.pathString()
+	return ctx.document.PathString()
 }
 
 // RootInput is the root element start-assessment input.

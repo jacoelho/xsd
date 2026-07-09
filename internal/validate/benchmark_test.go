@@ -30,6 +30,21 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 	}
 }
 
+func BenchmarkCheckXMLWellFormedNested(b *testing.B) {
+	for _, depth := range []int{10, 100, 1000} {
+		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {
+			xml := strings.Repeat("<a>", depth) + strings.Repeat("</a>", depth)
+			b.ReportAllocs()
+			b.SetBytes(int64(len(xml)))
+			for b.Loop() {
+				if err := CheckXMLWellFormed(strings.NewReader(xml), Options{}); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 func benchmarkIDREFS(refs int) string {
 	var b strings.Builder
 	for i := range refs {

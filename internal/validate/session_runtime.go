@@ -2,7 +2,6 @@ package validate
 
 import (
 	"bufio"
-	"encoding/xml"
 	"errors"
 	"io"
 	"slices"
@@ -11,7 +10,6 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlns"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -112,11 +110,10 @@ func (s *Session) Reset() {
 
 // session holds the state for validating documents against one Engine.
 // Per-document state lives in doc; everything else is retained across
-// documents: options, the reader and parser, and the string and path caches.
+// documents: options, the reader and parser, and the string caches.
 type session struct {
 	rt                            Runtime
 	schema                        *runtime.Schema
-	pathCache                     map[pathCacheKey]string
 	resolveLexicalQNamePartsFunc  runtime.ResolveQNameParts
 	resolveLexicalQNamePartsOwner *session
 	reader                        *bufio.Reader
@@ -135,14 +132,10 @@ type session struct {
 	hasIdentityConstraints        bool
 }
 
-// documentState is the mutable state of one document validation. The token
-// loop, frame stack, and error accumulation live in session.go; content-model
-// state (stack frames, allBits) is driven by session_model.go; identity
-// constraint selector matching by session_identity.go; identity state
-// ownership by internal/validate; attribute validation by
-// session_attributes.go; namespace handling by
-// session_namespaces.go; schema-location hint ownership by internal/validate;
-// reader preflight by internal/validate; parser setup by session.go.
+// documentState is the mutable state of one document validation. XML syntax
+// state lives in xmlDocumentState; content-model state (stack frames, allBits)
+// is driven by session_model.go; identity constraint selector matching by
+// session_identity.go; attribute validation by session_attributes.go.
 //
 // session.reset rebuilds the whole struct with a composite literal, so any
 // field not named there is zeroed between documents; listing a field in
@@ -150,24 +143,14 @@ type session struct {
 //
 //nolint:govet // Field order groups retained validation state by owning subsystem.
 type documentState struct {
+	xmlDocumentState
 	identity            IdentityState
 	schemaLocationHints SchemaLocationHints
-	ns                  xmlns.Stack
 	stack               []frame
 	allBits             []uint64
 	namePath            []runtime.RuntimeName
 	errors              []error
-	elementNames        []xml.Name
-	elementRawNames     []string
-	path                []string
-	pathText            string
 	text                []byte
-	pathTextDepth       int
-}
-
-type pathCacheKey struct {
-	Parent string
-	Local  string
 }
 
 type frame struct {
@@ -209,7 +192,6 @@ func (s *session) validate(r io.Reader) error {
 	s.parser.ResetWithLimit(reader, &s.nameStrings, &s.valueStrings, s.maxInstanceTokenBytes)
 	s.parser.SetLazyAttrValue(true)
 	s.parser.SetMaxAttrs(s.maxInstanceAttributes)
-	seenRoot := false
 	for {
 		tok, err := s.parser.Next()
 		if err != nil {
@@ -220,10 +202,9 @@ func (s *session) validate(r io.Reader) error {
 		}
 		switch tok.Kind {
 		case stream.KindStart:
-			if err := s.start(tok.Line, tok.Column, tok.Start, seenRoot); err != nil {
+			if err := s.start(tok.Line, tok.Column, tok.Start); err != nil {
 				return s.stopOrError(err)
 			}
-			seenRoot = true
 		case stream.KindEnd:
 			if err := s.end(tok.Line, tok.Column, tok.End); err != nil {
 				return s.stopOrError(err)
@@ -239,7 +220,7 @@ func (s *session) validate(r io.Reader) error {
 		case stream.KindComment, stream.KindPI:
 		}
 	}
-	return s.finishValidation(seenRoot)
+	return s.finishValidation()
 }
 
 func (s *session) parseError(tok stream.Token, err error) error {
@@ -247,7 +228,7 @@ func (s *session) parseError(tok stream.Token, err error) error {
 	if line == 0 {
 		line, col = s.parser.Pos()
 	}
-	return StreamError(line, col, s.pathString(), err)
+	return StreamError(line, col, s.doc.PathString(), err)
 }
 
 func (s *session) stopOrError(err error) error {
@@ -257,12 +238,11 @@ func (s *session) stopOrError(err error) error {
 	return err
 }
 
-func (s *session) finishValidation(seenRoot bool) error {
-	if err := ValidateDocumentComplete(DocumentCompleteInput{
-		Context:      s.startContext(0, 0),
-		SeenRoot:     seenRoot,
-		OpenElements: len(s.doc.stack),
-	}); err != nil {
+func (s *session) finishValidation() error {
+	if err := s.checkDocumentDepth(); err != nil {
+		return err
+	}
+	if err := s.doc.Complete(); err != nil {
 		return err
 	}
 	if err := s.checkIDRefs(); err != nil {
@@ -276,27 +256,21 @@ func (s *session) finishValidation(seenRoot bool) error {
 // field is zeroed by the literal itself, so omitting a field can never leak
 // state across documents.
 func (s *session) reset() {
-	ns := s.doc.ns
-	ns.Reset(maxRetainedSliceCap)
+	xmlDocument := s.doc.xmlDocumentState
+	xmlDocument.Reset(maxRetainedSliceCap)
 	schemaLocationHints := s.doc.schemaLocationHints
 	schemaLocationHints.Reset(maxRetainedMapLen)
 	identity := s.doc.identity
 	identity.Reset(maxRetainedMapLen, maxRetainedSliceCap)
 	s.doc = documentState{
+		xmlDocumentState:    xmlDocument,
 		errors:              resetRetainedSlice(s.doc.errors),
 		stack:               resetRetainedSlice(s.doc.stack),
-		ns:                  ns,
 		text:                resetRetainedBytes(s.doc.text),
-		path:                resetRetainedSlice(s.doc.path),
 		namePath:            resetRetainedSlice(s.doc.namePath),
-		elementNames:        resetRetainedSlice(s.doc.elementNames),
-		elementRawNames:     resetRetainedSlice(s.doc.elementRawNames),
 		allBits:             resetRetainedSlice(s.doc.allBits),
 		identity:            identity,
 		schemaLocationHints: schemaLocationHints,
-	}
-	if len(s.pathCache) > maxRetainedMapLen {
-		s.pathCache = nil
 	}
 }
 
@@ -340,18 +314,14 @@ func (s *session) recover(err error) error {
 	return nil
 }
 
-func (s *session) start(line, col int, se stream.StartElement, seenRoot bool) error {
-	if s.maxInstanceDepth > 0 && len(s.doc.stack)+1 > s.maxInstanceDepth {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
+func (s *session) start(line, col int, se stream.StartElement) error {
+	if err := s.checkDocumentDepth(); err != nil {
+		return err
 	}
-	if s.maxInstanceAttributes > 0 && len(se.Attr) > s.maxInstanceAttributes {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "instance attribute limit exceeded")
-	}
-	if err := s.pushNamespaces(se.Attr); err != nil {
-		return xsderrors.Validation(xsderrors.CodeValidationXML, line, col, s.pathString(), err.Error())
-	}
-	var err error
-	se, err = s.translateStartElement(se, line, col)
+	se, err := s.doc.PrepareStart(se, &s.valueStrings, xmlDocumentLimits{
+		depth:      s.maxInstanceDepth,
+		attributes: s.maxInstanceAttributes,
+	}, line, col)
 	if err != nil {
 		return err
 	}
@@ -366,7 +336,7 @@ func (s *session) start(line, col int, se stream.StartElement, seenRoot bool) er
 	}
 	rn := s.runtimeName(se.Name)
 	hasXSIType := xsiFlags.Type
-	elem, typ, skip, err := s.startType(rn, se, hasXSIType, line, col, seenRoot)
+	elem, typ, skip, err := s.startType(rn, se, hasXSIType, line, col)
 	if err != nil {
 		return err
 	}
@@ -430,12 +400,14 @@ func (s *session) start(line, col int, se stream.StartElement, seenRoot bool) er
 	s.pushSchemaFrame(elem, typ, nilled, skip, elementValueKnown, elementDeclared, elementHasValueConstraint)
 
 finish:
+	if len(s.doc.stack) != s.doc.Depth()+1 {
+		return xsderrors.InternalInvariant("XML document depth does not match schema frame depth")
+	}
 	pathName := rn.Local
 	if !skip && !rn.Known && rn.NS != "" {
 		pathName = rn.Label()
 	}
-	s.pushPath(pathName)
-	s.pushElementName(se.Name, se.RawName)
+	s.doc.CommitStart(se.Name, se.RawName, pathName)
 	if s.hasIdentityConstraints {
 		s.doc.namePath = append(s.doc.namePath, rn)
 		if scopeErr := s.startIdentityScope(elem, line, col); scopeErr != nil {
@@ -453,13 +425,9 @@ finish:
 	return nil
 }
 
-func (s *session) startType(rn runtime.RuntimeName, se stream.StartElement, hasXSIType bool, line, col int, seenRoot bool) (runtime.ElementID, runtime.TypeID, bool, error) {
-	if !seenRoot {
+func (s *session) startType(rn runtime.RuntimeName, se stream.StartElement, hasXSIType bool, line, col int) (runtime.ElementID, runtime.TypeID, bool, error) {
+	if s.doc.Depth() == 0 {
 		return s.rootStartType(rn, se, line, col)
-	}
-	if len(s.doc.stack) == 0 {
-		return runtime.NoElement, runtime.TypeID{}, false,
-			validation(s.startContext(line, col), xsderrors.CodeValidationXML, "multiple root elements")
 	}
 	parent := &s.doc.stack[len(s.doc.stack)-1]
 	parent.HasChild = true
@@ -568,7 +536,14 @@ func (s *session) schemaElementStart(
 }
 
 func (s *session) startContext(line, col int) StartContext {
-	return StartContext{session: s, Line: line, Column: col}
+	return s.doc.context(line, col)
+}
+
+func (s *session) checkDocumentDepth() error {
+	if s.doc.Depth() != len(s.doc.stack) {
+		return xsderrors.InternalInvariant("XML document depth does not match schema frame depth")
+	}
+	return nil
 }
 
 func (s *session) pushFrame(
@@ -718,6 +693,9 @@ func (s *session) childContentInfo(typ runtime.TypeID) (runtime.ChildContentInfo
 }
 
 func (s *session) chars(line, col int, data []byte, cdata bool) error {
+	if err := s.checkDocumentDepth(); err != nil {
+		return err
+	}
 	if len(s.doc.stack) == 0 {
 		_, err := ValidateCharacterData(CharacterDataInput{
 			Data:    data,

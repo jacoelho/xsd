@@ -101,6 +101,16 @@ func TestValidateXMLDataRejectsOversizeXSD(t *testing.T) {
 	}
 }
 
+func TestValidateXMLDataRejectsOversizeXSDBeforeParsingXML(t *testing.T) {
+	resp := validateXMLData(`<root>`, string(make([]byte, int(maxXSDBytes)+1)))
+	if !strings.Contains(resp.Error, "XSD exceeds") {
+		t.Fatalf("validateXMLData() = %+v, want XSD size error", resp)
+	}
+	if len(resp.Errors) != 0 {
+		t.Fatalf("validateXMLData() errors = %+v, want size error only", resp.Errors)
+	}
+}
+
 func TestValidateXMLDataReportsWhitespaceOnlySchemaAsSchemaError(t *testing.T) {
 	resp := validateXMLData(`<root/>`, " \t\r\n")
 	if resp.Valid {

@@ -42,6 +42,10 @@ wasm: | docs
 web:
 	go run ./cmd/xsdweb
 
+.PHONY: web-test
+web-test:
+	node --test docs/js/validation-flow.test.js
+
 .PHONY: staticcheck
 staticcheck: $(BIN)/staticcheck
 	$(BIN)/staticcheck ./...
