@@ -26,13 +26,12 @@ func TestPublishSchemaRejectsRawCorruptionWithoutMutation(t *testing.T) {
 	}
 }
 
-func TestValidateSchemaPublicationRejectsProjectionCorruption(t *testing.T) {
-	rt := &Schema{
+func TestProjectionAuditRejectsCorruption(t *testing.T) {
+	audit := schemaAudit{
 		build: SchemaBuild{Attributes: []AttributeDecl{{}}},
-		reads: schemaReads{},
 	}
-	err := ValidateSchemaPublication(rt)
+	err := validateRuntimeReadProjections(&audit)
 	if err == nil || !strings.Contains(err.Error(), "attribute declaration read projection count does not match declarations") {
-		t.Fatalf("ValidateSchemaPublication() error = %v", err)
+		t.Fatalf("validateRuntimeReadProjections() error = %v", err)
 	}
 }

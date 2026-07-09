@@ -58,6 +58,23 @@ func TestAttributeSeenTracksBitsetAndSliceSlots(t *testing.T) {
 	}
 }
 
+func TestAttributeSeenScratchIsClearedBeforeReuse(t *testing.T) {
+	var scratch []bool
+	seen := newAttributeSeenWithScratch(70, &scratch)
+	if !seen.mark(69) {
+		t.Fatal("first mark failed")
+	}
+	retained := &scratch[0]
+
+	seen = newAttributeSeenWithScratch(70, &scratch)
+	if &scratch[0] != retained {
+		t.Fatal("attribute presence scratch was not reused")
+	}
+	if !seen.mark(69) {
+		t.Fatal("reused attribute presence scratch retained a mark")
+	}
+}
+
 func TestMatchAttributeWildcard(t *testing.T) {
 	t.Parallel()
 

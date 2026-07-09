@@ -14,12 +14,20 @@ func (s *session) qnameResolverForAttrs(hasXSIType bool) runtime.ResolveQNamePar
 	if !hasXSIType {
 		return nil
 	}
-	return s.resolveLexicalQNamePartsFunc
+	return s.qnameResolver()
 }
 
 func (s *session) simpleValueQNameResolver(id runtime.SimpleTypeID) runtime.ResolveQNameParts {
 	if !s.rt.SimpleValueNeedsQNameResolver(id) {
 		return nil
+	}
+	return s.qnameResolver()
+}
+
+func (s *session) qnameResolver() runtime.ResolveQNameParts {
+	if s.resolveLexicalQNamePartsOwner != s {
+		s.resolveLexicalQNamePartsFunc = s.resolveLexicalQNameParts
+		s.resolveLexicalQNamePartsOwner = s
 	}
 	return s.resolveLexicalQNamePartsFunc
 }

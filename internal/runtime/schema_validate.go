@@ -9,25 +9,32 @@ const (
 	schemaValidationPublication
 )
 
-// ValidateSchema validates runtime schema invariants.
-func ValidateSchema(rt *Schema) error {
-	if err := validateSchema(rt, schemaValidationFull); err != nil {
+// schemaAudit joins compiler-owned source records with a candidate published
+// runtime only while publication invariants are checked. Schema never retains
+// this source after publication.
+type schemaAudit struct {
+	Schema
+	build SchemaBuild
+}
+
+// ValidateSchemaBuild validates compiler-owned schema invariants and every
+// projection that publication would derive from build.
+func ValidateSchemaBuild(build *SchemaBuild) error {
+	if build == nil {
+		return xsderrors.InternalInvariant("nil schema build")
+	}
+	reads := newSchemaRuntime(build)
+	audit := schemaAudit{
+		Schema: Schema{runtime: reads},
+		build:  *build,
+	}
+	if err := validateSchema(&audit, schemaValidationFull); err != nil {
 		return err
 	}
-	return validateRuntimeReadProjections(rt)
+	return validateRuntimeReadProjections(&audit)
 }
 
-// ValidateSchemaPublication validates invariants needed to publish a
-// compiler-owned runtime. It assumes construction already enforced derivation,
-// facet, and value-replay rules.
-func ValidateSchemaPublication(rt *Schema) error {
-	if rt == nil {
-		return xsderrors.InternalInvariant("nil schema runtime")
-	}
-	return validateRuntimeReadProjections(rt)
-}
-
-func validateCompilerPublication(rt *Schema) error {
+func validateCompilerPublication(rt *schemaAudit) error {
 	ctx := schemaValidationContext{rt: rt, mode: schemaValidationPublication}
 	if err := validateNameTable(rt); err != nil {
 		return err
@@ -47,7 +54,7 @@ func validateCompilerPublication(rt *Schema) error {
 	return validateRuntimeCompiledModels(rt, schemaValidationPublication)
 }
 
-func validateSchema(rt *Schema, mode schemaValidationMode) error {
+func validateSchema(rt *schemaAudit, mode schemaValidationMode) error {
 	ctx := schemaValidationContext{rt: rt, mode: mode}
 	if err := validateNameTable(rt); err != nil {
 		return err
@@ -71,18 +78,18 @@ func validateSchema(rt *Schema, mode schemaValidationMode) error {
 }
 
 type schemaValidationContext struct {
-	rt   *Schema
+	rt   *schemaAudit
 	mode schemaValidationMode
 }
 
-func validateNameTable(rt *Schema) error {
+func validateNameTable(rt *schemaAudit) error {
 	if err := ValidateRuntimeNameTable(&rt.build.Names); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateRuntimeGlobals(rt *Schema) error {
+func validateRuntimeGlobals(rt *schemaAudit) error {
 	if rt == nil {
 		return xsderrors.InternalInvariant("runtime globals require schema")
 	}
@@ -127,7 +134,7 @@ func validateRuntimeGlobals(rt *Schema) error {
 	return nil
 }
 
-func validateRuntimeSubstitutions(rt *Schema) error {
+func validateRuntimeSubstitutions(rt *schemaAudit) error {
 	if err := ValidateSubstitutionMaps(
 		&rt.build,
 		&rt.build.Names,
@@ -192,7 +199,7 @@ func validateRuntimeComponents(ctx *schemaValidationContext) error {
 	return nil
 }
 
-func validateRuntimeReadProjections(rt *Schema) error {
+func validateRuntimeReadProjections(rt *schemaAudit) error {
 	if err := validateAttributeDeclReads(rt); err != nil {
 		return err
 	}
@@ -241,22 +248,7 @@ func validateRuntimeReadProjections(rt *Schema) error {
 	if err := validateIdentityConstraintReads(rt); err != nil {
 		return err
 	}
-	if err := validateComplexTypeInfos(rt); err != nil {
-		return err
-	}
-	if err := validateComplexAttributeUseSetIDs(rt); err != nil {
-		return err
-	}
-	if err := validateComplexContentModelIDs(rt); err != nil {
-		return err
-	}
-	if err := validateComplexSimpleContentReads(rt); err != nil {
-		return err
-	}
-	if err := validateComplexChildContentReads(rt); err != nil {
-		return err
-	}
-	if err := validateComplexTextContentReads(rt); err != nil {
+	if err := validateComplexTypeReads(rt); err != nil {
 		return err
 	}
 	if err := validateWildcardReads(rt); err != nil {
@@ -265,21 +257,21 @@ func validateRuntimeReadProjections(rt *Schema) error {
 	if err := validateCompiledModelViews(rt); err != nil {
 		return err
 	}
-	if err := ValidateElementTextContentForSimpleType(rt.reads.SimpleTextContent); err != nil {
+	if err := ValidateElementTextContentForSimpleType(rt.runtime.SimpleTextContent); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateAttributeDeclReads(rt *Schema) error {
-	if err := ValidateAttributeDeclReadProjectionForDecls(rt.reads.Attributes, rt.build.Attributes); err != nil {
+func validateAttributeDeclReads(rt *schemaAudit) error {
+	if err := ValidateAttributeDeclReadProjectionForDecls(rt.runtime.Attributes, rt.build.Attributes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateGlobalReadMaps(rt *Schema) error {
-	reads := NewGlobalReadMapProjection(rt.reads.GlobalAttributes, rt.reads.GlobalElements, rt.reads.GlobalTypes)
+func validateGlobalReadMaps(rt *schemaAudit) error {
+	reads := NewGlobalReadMapProjection(rt.runtime.GlobalAttributes, rt.runtime.GlobalElements, rt.runtime.GlobalTypes)
 	globals := NewGlobalDeclarationMaps(rt.build.GlobalAttributes, rt.build.GlobalElements, rt.build.GlobalTypes)
 	if err := ValidateGlobalReadMaps(reads, globals); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
@@ -287,172 +279,145 @@ func validateGlobalReadMaps(rt *Schema) error {
 	return nil
 }
 
-func validateNotationReads(rt *Schema) error {
-	if err := ValidateNotationReadMap(rt.reads.Notations, &rt.build.Names, rt.build.Notations); err != nil {
+func validateNotationReads(rt *schemaAudit) error {
+	if err := ValidateNotationReadMap(rt.runtime.Notations, &rt.build.Names, rt.build.Notations); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateElementValueConstraintReads(rt *Schema) error {
-	if err := ValidateElementValueConstraintReadProjectionForDecls(rt.reads.ElementValueConstraints, rt.build.Elements); err != nil {
+func validateElementValueConstraintReads(rt *schemaAudit) error {
+	if err := ValidateElementValueConstraintReadProjectionForDecls(rt.runtime.ElementValueConstraints, rt.build.Elements); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateSubstitutionReadMaps(rt *Schema) error {
-	if err := ValidateSubstitutionReadMaps(rt.reads.Substitutions, rt.reads.SubstitutionLookup, rt.build.Substitutions, rt.build.SubstitutionLookup); err != nil {
+func validateSubstitutionReadMaps(rt *schemaAudit) error {
+	if err := ValidateSubstitutionReadMaps(rt.runtime.Substitutions, rt.runtime.SubstitutionLookup, rt.build.Substitutions, rt.build.SubstitutionLookup); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateNameReads(rt *Schema) error {
-	if err := ValidateNameReadProjection(rt.reads.Names, &rt.build.Names); err != nil {
+func validateNameReads(rt *schemaAudit) error {
+	if err := ValidateNameReadProjection(rt.runtime.Names, &rt.build.Names); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateSimpleTypePrimitives(rt *Schema) error {
-	if err := ValidateSimpleTypePrimitiveReadProjectionForTypes(rt.reads.SimpleTypePrimitives, rt.build.SimpleTypes); err != nil {
+func validateSimpleTypePrimitives(rt *schemaAudit) error {
+	if err := ValidateSimpleTypePrimitiveReadProjectionForTypes(rt.runtime.SimpleTypePrimitives, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateSimpleTypeIdentities(rt *Schema) error {
-	if err := ValidateSimpleTypeIdentityReadProjectionForTypes(rt.reads.SimpleTypeIdentities, rt.build.SimpleTypes); err != nil {
+func validateSimpleTypeIdentities(rt *schemaAudit) error {
+	if err := ValidateSimpleTypeIdentityReadProjectionForTypes(rt.runtime.SimpleTypeIdentities, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateSimpleTypeFinals(rt *Schema) error {
-	if err := ValidateSimpleTypeFinalReadProjectionForTypes(rt.reads.SimpleTypeFinals, rt.build.SimpleTypes); err != nil {
+func validateSimpleTypeFinals(rt *schemaAudit) error {
+	if err := ValidateSimpleTypeFinalReadProjectionForTypes(rt.runtime.SimpleTypeFinals, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateSimpleValueReads(rt *Schema) error {
-	if err := ValidateSimpleValueTypeReadProjectionForTypes(rt.reads.SimpleValueTypes, rt.build.SimpleTypes); err != nil {
+func validateSimpleValueReads(rt *schemaAudit) error {
+	if err := validateSimpleValueRouteReadProjectionForTypes(rt.runtime.SimpleValueRoutes, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	if len(rt.reads.SimpleValueFacets.Index) != 0 {
-		if err := ValidateSimpleValueFacetReadProjectionForTypes(rt.reads.SimpleValueFacets, rt.build.SimpleTypes); err != nil {
-			return xsderrors.InternalInvariant(err.Error())
+	if err := validateSimpleValueColdReadProjectionForTypes(rt.runtime.SimpleValueCold, rt.build.SimpleTypes); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	if err := ValidateSimpleValueQNameResolverNeedsForSimpleTypes(rt.runtime.SimpleValueQNameResolverNeeds, rt.build.SimpleTypes); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	return nil
+}
+
+func validateAttributeUseSetReads(rt *schemaAudit) error {
+	if err := ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes(rt.runtime.AttributeUseSets, &rt.build.Names, rt.build.AttributeUseSets, rt.build.SimpleTypes); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	return nil
+}
+
+func validateElementNames(rt *schemaAudit) error {
+	if err := ValidateElementNameReadProjectionForDecls(rt.runtime.ElementNames, rt.build.Elements); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	return nil
+}
+
+func validateTypeDerivations(rt *schemaAudit) error {
+	if err := ValidateTypeDerivationReadProjection(rt.runtime.TypeDerivations, rt.build.Builtin.AnyType, rt.build.SimpleTypes, rt.build.ComplexTypes); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	return nil
+}
+
+func validateElementStartInfos(rt *schemaAudit) error {
+	if err := ValidateElementStartInfosForElementDecls(rt.runtime.ElementStarts, rt.build.Elements); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	return nil
+}
+
+func validateElementIdentityConstraintReads(rt *schemaAudit) error {
+	if err := ValidateElementIdentityConstraintReadProjectionForDecls(rt.runtime.ElementIdentities, rt.build.Elements); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	return nil
+}
+
+func validateIdentityConstraintReads(rt *schemaAudit) error {
+	if err := ValidateIdentityConstraintReadProjection(rt.runtime.Identities, rt.build.Identities); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	return nil
+}
+
+func validateComplexTypeReads(rt *schemaAudit) error {
+	if len(rt.runtime.ComplexTypes) != len(rt.build.ComplexTypes) {
+		return xsderrors.InternalInvariant("complex type read projection count does not match types")
+	}
+	for i := range rt.build.ComplexTypes {
+		ct := rt.build.ComplexTypes[i]
+		read := rt.runtime.ComplexTypes[i]
+		if read.info != NewTypeInfoForComplexType(ct) ||
+			read.attributeUseSet != ct.Attrs ||
+			read.contentModel != ct.Content ||
+			read.simpleContent != NewSimpleContentTypeReadForComplexType(ct) ||
+			read.childContent != NewElementChildContentForComplexType(ct) ||
+			read.textContent != NewElementTextContentForComplexType(ct, false) ||
+			read.fixedText != NewElementTextContentForComplexType(ct, true) {
+			return xsderrors.InternalInvariant("complex type read projection does not match type")
 		}
 	}
-	if err := ValidateSimpleValueQNameResolverNeedsForSimpleTypes(rt.reads.SimpleValueQNameResolverNeeds, rt.build.SimpleTypes); err != nil {
+	return nil
+}
+
+func validateWildcardReads(rt *schemaAudit) error {
+	if err := ValidateWildcardViewProjectionTable(rt.runtime.Wildcards, &rt.build.Names, rt.build.Wildcards); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateAttributeUseSetReads(rt *Schema) error {
-	if err := ValidateAttributeUseSetReadProjectionForSetsWithTypeReads(rt.reads.AttributeUseSets, &rt.build.Names, rt.build.AttributeUseSets, rt.reads.SimpleValueTypes); err != nil {
+func validateCompiledModelViews(rt *schemaAudit) error {
+	if err := ValidateCompiledModelViewProjectionTable(rt.runtime.CompiledModels, rt.build.CompiledModels); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateElementNames(rt *Schema) error {
-	if err := ValidateElementNameReadProjectionForDecls(rt.reads.ElementNames, rt.build.Elements); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateTypeDerivations(rt *Schema) error {
-	if err := ValidateTypeDerivationReadProjection(rt.reads.TypeDerivations, rt.build.Builtin.AnyType, rt.build.SimpleTypes, rt.build.ComplexTypes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateElementStartInfos(rt *Schema) error {
-	if err := ValidateElementStartInfosForElementDecls(rt.reads.ElementStarts, rt.build.Elements); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateElementIdentityConstraintReads(rt *Schema) error {
-	if err := ValidateElementIdentityConstraintReadProjectionForDecls(rt.reads.ElementIdentities, rt.build.Elements); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateIdentityConstraintReads(rt *Schema) error {
-	if err := ValidateIdentityConstraintReadProjection(rt.reads.Identities, rt.build.Identities); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateComplexTypeInfos(rt *Schema) error {
-	if err := ValidateTypeInfosForComplexTypes(rt.reads.ComplexTypeInfos, rt.build.ComplexTypes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateComplexAttributeUseSetIDs(rt *Schema) error {
-	if err := ValidateComplexAttributeUseSetIDProjection(rt.reads.ComplexAttributeUseSetIDs, rt.build.ComplexTypes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateComplexContentModelIDs(rt *Schema) error {
-	if err := ValidateComplexContentModelIDProjection(rt.reads.ComplexContentModelIDs, rt.build.ComplexTypes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateComplexSimpleContentReads(rt *Schema) error {
-	if err := ValidateSimpleContentTypeReadProjectionTable(rt.reads.ComplexSimpleContent, rt.build.ComplexTypes, len(rt.build.SimpleTypes)); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateComplexChildContentReads(rt *Schema) error {
-	if err := ValidateElementChildContentProjection(rt.reads.ComplexChildContent, rt.build.ComplexTypes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateComplexTextContentReads(rt *Schema) error {
-	if err := ValidateElementTextContentProjection(rt.reads.ComplexTextContent, rt.build.ComplexTypes, false); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	if err := ValidateElementTextContentProjection(rt.reads.FixedComplexTextContent, rt.build.ComplexTypes, true); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateWildcardReads(rt *Schema) error {
-	if err := ValidateWildcardViewProjectionTable(rt.reads.Wildcards, &rt.build.Names, rt.build.Wildcards); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateCompiledModelViews(rt *Schema) error {
-	if err := ValidateCompiledModelViewProjectionTable(rt.reads.CompiledModels, rt.build.CompiledModels); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateRuntimeCompiledModels(rt *Schema, mode schemaValidationMode) error {
+func validateRuntimeCompiledModels(rt *schemaAudit, mode schemaValidationMode) error {
 	validateUPA := mode == schemaValidationFull
 	if err := validateCompiledModelsRuntime(&rt.build.Names, &rt.build, rt.build.Models, rt.build.CompiledModels, validateUPA); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
@@ -460,7 +425,7 @@ func validateRuntimeCompiledModels(rt *Schema, mode schemaValidationMode) error 
 	return nil
 }
 
-func validateRuntimeChoiceLimits(rt *Schema, mode schemaValidationMode) error {
+func validateRuntimeChoiceLimits(rt *schemaAudit, mode schemaValidationMode) error {
 	if mode == schemaValidationPublication {
 		return nil
 	}
@@ -475,7 +440,7 @@ func validateRuntimeChoiceLimits(rt *Schema, mode schemaValidationMode) error {
 	return nil
 }
 
-func validateBuiltins(rt *Schema, mode schemaValidationMode) error {
+func validateBuiltins(rt *schemaAudit, mode schemaValidationMode) error {
 	if mode == schemaValidationPublication {
 		if err := validateBuiltinDeclarations(rt); err != nil {
 			return err
@@ -485,7 +450,7 @@ func validateBuiltins(rt *Schema, mode schemaValidationMode) error {
 	return validateBuiltinIDs(rt)
 }
 
-func validateBuiltinIDs(rt *Schema) error {
+func validateBuiltinIDs(rt *schemaAudit) error {
 	if err := validateBuiltinDeclarations(rt); err != nil {
 		return err
 	}
@@ -502,7 +467,7 @@ func validateBuiltinIDs(rt *Schema) error {
 	return validateBuiltinAnyType(rt)
 }
 
-func validateBuiltinDeclarations(rt *Schema) error {
+func validateBuiltinDeclarations(rt *schemaAudit) error {
 	if err := ValidateBuiltinDeclarationCounts(BuiltinDeclarationCounts{
 		SimpleTypes:      len(rt.build.SimpleTypes),
 		Attributes:       len(rt.build.Attributes),
@@ -516,7 +481,7 @@ func validateBuiltinDeclarations(rt *Schema) error {
 	return validateBuiltinAttributes(rt)
 }
 
-func validateBuiltinAttributes(rt *Schema) error {
+func validateBuiltinAttributes(rt *schemaAudit) error {
 	for _, seed := range builtinAttributeSeedTable {
 		exp := builtinAttributeExpectationForSeed(seed, rt.build.Builtin)
 		q, ok := builtinAttributeQName(&rt.build.Names, exp)
@@ -541,7 +506,7 @@ func validateBuiltinAttributes(rt *Schema) error {
 	return nil
 }
 
-func validateBuiltinSimpleTypeInSchema(rt *Schema, exp builtinSimpleExpectation) (SimpleTypeID, error) {
+func validateBuiltinSimpleTypeInSchema(rt *schemaAudit, exp builtinSimpleExpectation) (SimpleTypeID, error) {
 	if exp.checkID && !ValidUint32Index(uint32(exp.id), len(rt.build.SimpleTypes)) {
 		return NoSimpleType, xsderrors.InternalInvariant("builtin simple type references invalid declaration")
 	}
@@ -588,7 +553,7 @@ func validateBuiltinSimpleTypeInSchema(rt *Schema, exp builtinSimpleExpectation)
 	return id, nil
 }
 
-func builtinSimpleBaseMatchesSchema(rt *Schema, id SimpleTypeID, local string) bool {
+func builtinSimpleBaseMatchesSchema(rt *schemaAudit, id SimpleTypeID, local string) bool {
 	if local == "" {
 		return id == NoSimpleType
 	}
@@ -611,7 +576,7 @@ func validateBuiltinSimpleFacets(st SimpleType, exp BuiltinSimpleFacetExpectatio
 	return nil
 }
 
-func validateBuiltinAnyType(rt *Schema) error {
+func validateBuiltinAnyType(rt *schemaAudit) error {
 	anyType := rt.build.Builtin.AnyType
 	if !ValidComplexTypeID(anyType, len(rt.build.ComplexTypes)) {
 		return xsderrors.InternalInvariant("builtin anyType references invalid declaration")
@@ -710,14 +675,14 @@ func validateSimpleType(ctx *schemaValidationContext, id SimpleTypeID, st Simple
 	return nil
 }
 
-func validateSimpleTypeGraph(rt *Schema) error {
+func validateSimpleTypeGraph(rt *schemaAudit) error {
 	if err := ValidateSimpleTypeGraphForSimpleTypes(rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateSimpleTypeDerivation(rt *Schema, id SimpleTypeID, st SimpleType) error {
+func validateSimpleTypeDerivation(rt *schemaAudit, id SimpleTypeID, st SimpleType) error {
 	if !SimpleTypeRestrictionRequired(id, st.Base, rt.build.Builtin) {
 		return nil
 	}
@@ -756,7 +721,7 @@ func validateComplexType(ctx *schemaValidationContext, id ComplexTypeID, ct Comp
 	return validateComplexTypeDerivation(rt, id, ct)
 }
 
-func validateComplexTypeDerivation(rt *Schema, id ComplexTypeID, ct ComplexType) error {
+func validateComplexTypeDerivation(rt *schemaAudit, id ComplexTypeID, ct ComplexType) error {
 	if id == rt.build.Builtin.AnyType {
 		return nil
 	}
@@ -777,14 +742,14 @@ func validateComplexTypeDerivation(rt *Schema, id ComplexTypeID, ct ComplexType)
 	return nil
 }
 
-func validateSimpleBaseComplexDerivation(rt *Schema, baseID SimpleTypeID, ct ComplexType) error {
+func validateSimpleBaseComplexDerivation(rt *schemaAudit, baseID SimpleTypeID, ct ComplexType) error {
 	if err := ValidateComplexTypeSimpleBaseExtensionRuntime(&rt.build, baseID, ct); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return checkDerivedAttributeWildcard(rt, NoAttributeWildcardState(), NewAttributeWildcardStateForUseSet(rt.build.AttributeUseSets[ct.Attrs]), AttributeWildcardExtension)
 }
 
-func validateComplexExtensionRuntime(rt *Schema, ct ComplexType) error {
+func validateComplexExtensionRuntime(rt *schemaAudit, ct ComplexType) error {
 	base, err := complexBaseRuntime(rt, ct)
 	if err != nil {
 		return err
@@ -795,7 +760,7 @@ func validateComplexExtensionRuntime(rt *Schema, ct ComplexType) error {
 	return validateAttributeUsesExtend(rt, base.Attrs, ct.Attrs)
 }
 
-func validateComplexRestrictionRuntime(rt *Schema, ct ComplexType) error {
+func validateComplexRestrictionRuntime(rt *schemaAudit, ct ComplexType) error {
 	base, err := complexBaseRuntime(rt, ct)
 	if err != nil {
 		return err
@@ -806,7 +771,7 @@ func validateComplexRestrictionRuntime(rt *Schema, ct ComplexType) error {
 	return validateAttributeUsesRestrict(rt, base.Attrs, ct.Attrs, ct.ExplicitDerivation)
 }
 
-func complexBaseRuntime(rt *Schema, ct ComplexType) (ComplexType, error) {
+func complexBaseRuntime(rt *schemaAudit, ct ComplexType) (ComplexType, error) {
 	baseID, err := ComplexTypeDerivationBaseID(ct.Base, len(rt.build.ComplexTypes))
 	if err != nil {
 		return ComplexType{}, xsderrors.InternalInvariant(err.Error())
@@ -814,7 +779,7 @@ func complexBaseRuntime(rt *Schema, ct ComplexType) (ComplexType, error) {
 	return rt.build.ComplexTypes[baseID], nil
 }
 
-func validateAttributeUsesExtend(rt *Schema, baseID, derivedID AttributeUseSetID) error {
+func validateAttributeUsesExtend(rt *schemaAudit, baseID, derivedID AttributeUseSetID) error {
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
 	if err := ValidateAttributeUseSetExtension(NewAttributeUseExtensionValidationsForUses(base.Uses), NewAttributeUseExtensionValidationsForUses(derived.Uses)); err != nil {
@@ -823,7 +788,7 @@ func validateAttributeUsesExtend(rt *Schema, baseID, derivedID AttributeUseSetID
 	return checkDerivedAttributeWildcard(rt, NewAttributeWildcardStateForUseSet(base), NewAttributeWildcardStateForUseSet(derived), AttributeWildcardExtension)
 }
 
-func validateAttributeUsesRestrict(rt *Schema, baseID, derivedID AttributeUseSetID, bindWildcard bool) error {
+func validateAttributeUsesRestrict(rt *schemaAudit, baseID, derivedID AttributeUseSetID, bindWildcard bool) error {
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
 	if err := ValidateAttributeUseSetRestriction(
@@ -855,14 +820,14 @@ func validateAttributeUseSetRuntime(ctx *schemaValidationContext, _ AttributeUse
 	return nil
 }
 
-func checkDerivedAttributeWildcard(rt *Schema, base, derived AttributeWildcardState, expected AttributeWildcardDerivation) error {
+func checkDerivedAttributeWildcard(rt *schemaAudit, base, derived AttributeWildcardState, expected AttributeWildcardDerivation) error {
 	if err := ValidateAttributeWildcardDerivation(&rt.build, base, derived, expected); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func elementValueConstraintType(rt *Schema, decl ElementDecl) (SimpleTypeID, error) {
+func elementValueConstraintType(rt *schemaAudit, decl ElementDecl) (SimpleTypeID, error) {
 	if decl.Default == nil && decl.Fixed == nil {
 		return NoSimpleType, nil
 	}
@@ -885,33 +850,13 @@ func validateValueConstraintRuntime(ctx *schemaValidationContext, vc *ValueConst
 	if expected == NoSimpleType {
 		return nil
 	}
-	if err := ValidateRuntimeSimpleValuePayload(rt, vc.Value, label); err != nil {
+	if err := validateSchemaBuildSimpleValuePayload(&rt.build, vc.Value, label); err != nil {
 		return err
 	}
 	if ctx.mode == schemaValidationPublication {
 		return nil
 	}
 	return ctx.validateValueConstraintReplay(vc, expected, label, cached)
-}
-
-// ValueConstraintSimpleType returns value-constraint validation metadata for a simple type.
-func (rt *Schema) ValueConstraintSimpleType(id SimpleTypeID) (ValueConstraintSimpleType, bool) {
-	st, ok := SimpleTypeByID(rt.build.SimpleTypes, id)
-	if !ok {
-		var zero ValueConstraintSimpleType
-		return zero, false
-	}
-	return NewValueConstraintSimpleTypeForSimpleType(*st), true
-}
-
-// ValueConstraintComplexType returns value-constraint validation metadata for a complex type.
-func (rt *Schema) ValueConstraintComplexType(id ComplexTypeID) (ValueConstraintComplexType, bool) {
-	ct, ok := ComplexTypeByID(rt.build.ComplexTypes, id)
-	if !ok {
-		var zero ValueConstraintComplexType
-		return zero, false
-	}
-	return NewValueConstraintComplexTypeForComplexType(*ct), true
 }
 
 // ValueConstraintSimpleType returns compiler-owned value-constraint metadata.
@@ -932,9 +877,8 @@ func (rt *SchemaBuild) ValueConstraintComplexType(id ComplexTypeID) (ValueConstr
 	return NewValueConstraintComplexTypeForComplexType(*ct), true
 }
 
-// ValidateRuntimeSimpleValuePayload validates simple-value payload invariants against runtime metadata.
-func ValidateRuntimeSimpleValuePayload(rt *Schema, value SimpleValue, label string) error {
-	typ, ok := simpleValuePayloadTypeForRuntime(rt, value.Type)
+func validateSchemaBuildSimpleValuePayload(build *SchemaBuild, value SimpleValue, label string) error {
+	typ, ok := simpleValuePayloadTypeForBuild(build, value.Type)
 	if !ok {
 		return xsderrors.InternalInvariant(label + " references invalid simple value type")
 	}
@@ -958,15 +902,8 @@ func (ctx *schemaValidationContext) replayValueConstraintSimpleValue(id SimpleTy
 	return rt.ValidateSimpleValue(id, lexical, ResolveQNameParts(resolve), needs)
 }
 
-func simpleValuePayloadTypeForRuntime(rt *Schema, id SimpleTypeID) (SimpleValuePayloadType, bool) {
-	if len(rt.reads.SimpleValueTypes) != 0 {
-		read, ok := rt.runtimeSimpleValueTypeRead(id)
-		if !ok {
-			return SimpleValuePayloadType{}, false
-		}
-		return NewSimpleValuePayloadTypeForType(read.Type, ok)
-	}
-	st, ok := UsableSimpleType(rt.build.SimpleTypes, id)
+func simpleValuePayloadTypeForBuild(build *SchemaBuild, id SimpleTypeID) (SimpleValuePayloadType, bool) {
+	st, ok := UsableSimpleType(build.SimpleTypes, id)
 	if !ok {
 		return SimpleValuePayloadType{}, false
 	}

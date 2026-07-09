@@ -58,6 +58,11 @@ type WildcardView struct {
 	valid      bool
 }
 
+// Mode returns the namespace constraint mode.
+func (v WildcardView) Mode() WildcardMode {
+	return v.mode
+}
+
 // NewWildcardView returns a read-only validation view over wildcard.
 func NewWildcardView(names *NameTable, wildcard *Wildcard) WildcardView {
 	if wildcard == nil {

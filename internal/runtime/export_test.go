@@ -1,18 +1,8 @@
 package runtime
 
-// RuntimeGlobalsForTest exposes runtime global declaration projections.
-func (rt *Schema) RuntimeGlobalsForTest() RuntimeGlobals {
-	return rt.RuntimeGlobals()
-}
-
 // ValidateSimpleValueRuntimeBoundaryForTest validates a simple value through runtime reads.
 func (rt *Schema) ValidateSimpleValueRuntimeBoundaryForTest(id SimpleTypeID, lexical string, resolve func(string) (string, string, bool), needs SimpleValueNeed) (SimpleValue, error) {
 	return rt.ValidateSimpleValue(id, lexical, ResolveQNameParts(resolve), needs)
-}
-
-// WildcardAllowsURIForTest reports whether a wildcard accepts a namespace URI.
-func (rt *Schema) WildcardAllowsURIForTest(w Wildcard, ns string) bool {
-	return WildcardAllowsURI(&rt.build.Names, w, ns)
 }
 
 // SimpleContentTypeForTest exposes simple-content type projection reads.

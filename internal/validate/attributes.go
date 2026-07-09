@@ -34,6 +34,22 @@ func NewAttributeSeen(n int) AttributeSeen {
 	return AttributeSeen{}
 }
 
+func newAttributeSeenWithScratch(n int, scratch *[]bool) AttributeSeen {
+	if n <= 64 {
+		return AttributeSeen{}
+	}
+	if n > maxRetainedSliceCap {
+		return AttributeSeen{list: make([]bool, n)}
+	}
+	if cap(*scratch) < n {
+		*scratch = make([]bool, n)
+	} else {
+		*scratch = (*scratch)[:n]
+		clear(*scratch)
+	}
+	return AttributeSeen{list: *scratch}
+}
+
 func (s *AttributeSeen) mark(slot int) bool {
 	if s.list != nil {
 		if s.list[slot] {

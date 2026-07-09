@@ -118,7 +118,15 @@ func EqualElementNameReadProjection(reads []QName, shapes []ElementNameReadShape
 // EqualElementNameReadProjectionForDecls reports whether reads expose each
 // element declaration's name.
 func EqualElementNameReadProjectionForDecls(reads []QName, elems []ElementDecl) bool {
-	return EqualElementNameReadProjection(reads, elementNameReadShapes(elems))
+	if len(reads) != len(elems) {
+		return false
+	}
+	for i := range reads {
+		if reads[i] != elems[i].Name {
+			return false
+		}
+	}
+	return true
 }
 
 // ValidateElementNameReadProjectionForDecls validates element-name read

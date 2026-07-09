@@ -955,9 +955,9 @@ func TestFreezeReplaysResolvedQNameValueConstraint(t *testing.T) {
     xmlns:t="urn:test">
   <xs:element name="root" type="xs:QName" default="t:item"/>
 </xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() error = %v", err)
+	build := mutableSchemaBuild(t, schema)
+	if err := runtime.ValidateSchemaBuild(build); err != nil {
+		t.Fatalf("ValidateSchemaBuild() error = %v", err)
 	}
 }
 
@@ -1047,9 +1047,6 @@ func TestFreezeRuntimeConsumesCompilerRuntime(t *testing.T) {
 	if !reflect.ValueOf(*c.RuntimeForTest()).IsZero() {
 		t.Fatal("freezeRuntime did not clear compile.Compiler runtime")
 	}
-	if err := runtime.ValidateSchema(rt); err != nil {
-		t.Fatalf("published runtime after compile.Compiler consume = %v", err)
-	}
 	mustValidateRuntime(t, engine, `<r code="US"><child>x</child></r>`)
 }
 
@@ -1081,9 +1078,6 @@ func TestFreezeRuntimeClearsCompilerMutationAliases(t *testing.T) {
 	}
 	if !c.NameInternerIsZeroForTest() {
 		t.Fatal("freezeRuntime did not clear compile.Compiler name interner")
-	}
-	if err := runtime.ValidateSchema(rt); err != nil {
-		t.Fatalf("published runtime after compile.Compiler consume = %v", err)
 	}
 	mustValidateRuntime(t, engine, `<r code="US"><child>x</child></r>`)
 }
@@ -1275,9 +1269,9 @@ func TestFixedWhitespaceFacetFreezes(t *testing.T) {
   </xs:simpleType>
   <xs:element name="root" type="Collapsed"/>
 </xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() error = %v", err)
+	build := mutableSchemaBuild(t, schema)
+	if err := runtime.ValidateSchemaBuild(build); err != nil {
+		t.Fatalf("ValidateSchemaBuild() error = %v", err)
 	}
 }
 

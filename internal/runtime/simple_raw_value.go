@@ -164,6 +164,70 @@ func validateRawAtomicSimpleValueType(facets SimpleValueFacetReadTable, id Simpl
 	return false, nil
 }
 
+func validateRawAtomicSimpleValueRoute(typ *simpleValueRouteRead, raw []byte) (bool, error) {
+	switch typ.rawBypass {
+	case SimpleValueBypassAcceptString:
+		return true, nil
+	case SimpleValueBypassValidateInt:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateFastIntLexical(raw)
+	case SimpleValueBypassValidateDecimal:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return validateFastDecimalLexicalPublished(RawDecimalFastPathShape{
+			Facets:       typ.facets,
+			MinInclusive: typ.minInclusive,
+			MaxInclusive: typ.maxInclusive,
+		}, raw)
+	case SimpleValueBypassValidateAnyURI:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateAnyURILexical(raw)
+	case SimpleValueBypassValidateHexBinary:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateHexBinaryLexical(raw)
+	case SimpleValueBypassValidateBase64Binary:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateBase64BinaryLexical(raw)
+	case SimpleValueBypassValidateFloat:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateFloatLexical(raw, simpleValueFloatBits(typ.primitive))
+	case SimpleValueBypassValidateDuration:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateDurationLexical(raw)
+	case SimpleValueBypassValidateBoolean:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateBooleanLexical(raw)
+	case SimpleValueBypassValidateTemporal:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateTemporalLexical(typ.primitive, raw)
+	case SimpleValueBypassValidateDate:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return ValidateFastDateLexical(raw)
+	case SimpleValueBypassNone, SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
+		return false, nil
+	}
+	return false, ErrSimpleValueMetadata
+}
+
 func validateRawStringEnumeration(enumeration []string, rawNorm []byte) error {
 	for _, lit := range enumeration {
 		if byteStringEqual(lit, rawNorm) {
