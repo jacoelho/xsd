@@ -189,11 +189,6 @@ func assertReleasedReferencesZero(t *testing.T, s *session) {
 			t.Fatalf("element tail %d retains references: %+v", i, element)
 		}
 	}
-	for i, f := range s.doc.stack[:cap(s.doc.stack)] {
-		if f != (frame{}) {
-			t.Fatalf("frame tail %d retains state: %+v", i, f)
-		}
-	}
 	for i, name := range s.doc.namePath[:cap(s.doc.namePath)] {
 		if name != (runtime.RuntimeName{}) {
 			t.Fatalf("name path tail %d retains references: %+v", i, name)

@@ -14,11 +14,7 @@ func mutableSchemaBuild(t *testing.T, schema string) *runtime.SchemaBuild {
 }
 
 func validateSchemaBuild(build *runtime.SchemaBuild) error {
-	schema, err := runtime.PublishSchema(*build)
-	if err != nil {
-		return err
-	}
-	return runtime.ValidateSchema(schema)
+	return runtime.ValidateSchemaBuild(build)
 }
 
 func rootBuildContentModel(t *testing.T, build *runtime.SchemaBuild) runtime.ContentModelID {

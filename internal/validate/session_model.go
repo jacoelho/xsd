@@ -96,7 +96,6 @@ func (s *session) end(line, col int, ee stream.EndElement) error {
 	s.doc.allBits = s.doc.allBits[:f.BitBase]
 	s.doc.text = s.doc.text[:f.TextStart]
 	frameIndex := len(s.doc.stack) - 1
-	s.doc.stack[frameIndex] = frame{}
 	s.doc.stack = s.doc.stack[:frameIndex]
 	if s.hasIdentityConstraints && len(s.doc.namePath) > 0 {
 		nameIndex := len(s.doc.namePath) - 1

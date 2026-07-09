@@ -40,6 +40,16 @@ type NameReadView struct {
 	locals     []string
 }
 
+// NamespaceCount returns the number of published namespace URIs.
+func (v NameReadView) NamespaceCount() int {
+	return len(v.namespaces)
+}
+
+// LocalCount returns the number of published local names.
+func (v NameReadView) LocalCount() int {
+	return len(v.locals)
+}
+
 // NewNameReadView returns a validation-facing read view over names.
 func NewNameReadView(names *NameTable) NameReadView {
 	if names == nil {

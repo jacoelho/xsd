@@ -3,9 +3,12 @@ package validate
 import (
 	"encoding/xml"
 	"errors"
+	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -17,8 +20,6 @@ type startRuntimeStub struct {
 	types      map[runtime.QName]runtime.TypeID
 	names      map[expandedName]runtime.QName
 	namespaces map[runtime.NamespaceID]string
-	typeInfo   map[runtime.TypeID]runtime.TypeInfo
-	derivation map[[2]runtime.TypeID]runtime.DerivationMask
 	anyType    runtime.TypeID
 }
 
@@ -43,11 +44,6 @@ func (s startRuntimeStub) RootElement(name runtime.RuntimeName) (runtime.Element
 	return id, info, ok
 }
 
-func (s startRuntimeStub) Element(id runtime.ElementID) (runtime.ElementStartInfo, bool) {
-	info, ok := s.elements[id]
-	return info, ok
-}
-
 func (s startRuntimeStub) Type(name runtime.QName) (runtime.TypeID, bool) {
 	typ, ok := s.types[name]
 	return typ, ok
@@ -60,19 +56,6 @@ func (s startRuntimeStub) LookupQName(ns, local string) (runtime.QName, bool) {
 
 func (s startRuntimeStub) Namespace(id runtime.NamespaceID) string {
 	return s.namespaces[id]
-}
-
-func (s startRuntimeStub) TypeInfo(id runtime.TypeID) (runtime.TypeInfo, bool) {
-	if s.typeInfo == nil {
-		return runtime.TypeInfo{}, true
-	}
-	info, ok := s.typeInfo[id]
-	return info, ok
-}
-
-func (s startRuntimeStub) TypeDerivation(derived, base runtime.TypeID) (runtime.DerivationMask, bool) {
-	d, ok := s.derivation[[2]runtime.TypeID{derived, base}]
-	return d, ok
 }
 
 func TestResolveRuntimeName(t *testing.T) {
@@ -217,200 +200,33 @@ func TestRootStartSchemaLocationHintIsUnsupported(t *testing.T) {
 	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
 }
 
-func TestElementStartAppliesXSITypeAndNil(t *testing.T) {
-	t.Parallel()
-
-	base := runtime.ComplexRef(1)
-	derived := runtime.ComplexRef(2)
-	elem := runtime.ElementID(1)
-	typeName := runtime.QName{Namespace: 1, Local: 2}
-	rt := startRuntimeStub{
-		anyType: runtime.ComplexRef(0),
-		elements: map[runtime.ElementID]runtime.ElementStartInfo{
-			elem: {Type: base, Nillable: true},
-		},
-		names: map[expandedName]runtime.QName{
-			{ns: "urn:t", local: "D"}: typeName,
-		},
-		types: map[runtime.QName]runtime.TypeID{
-			typeName: derived,
-		},
-		derivation: map[[2]runtime.TypeID]runtime.DerivationMask{
-			{derived, base}: runtime.DerivationExtension,
-		},
-	}
-
-	attrs := make([]stream.Attr, 0, 2)
-	attrs = append(attrs, xsiAttr(vocab.XSIAttrNil, "true"), xsiAttr(vocab.XSIAttrType, "p:D"))
-	got, err := ElementStart(rt, attrs, ElementInput{
-		Element:           elem,
-		Type:              base,
-		ResolveQNameParts: resolveTestQName,
-		Context:           StartContext{Line: 2, Column: 3, Path: "/root"},
+func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="urn:t" xmlns:t="urn:t" elementFormDefault="qualified">
+  <xs:complexType name="Base"/>
+  <xs:complexType name="Derived">
+    <xs:complexContent><xs:extension base="t:Base"/></xs:complexContent>
+  </xs:complexType>
+  <xs:element name="allowed" type="t:Base" nillable="true" block="substitution"/>
+  <xs:element name="blocked" type="t:Base" block="extension"/>
+</xs:schema>`
+	rt, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("schema.xsd", []byte(schema)),
 	})
 	if err != nil {
-		t.Fatalf("ElementStart() error = %v", err)
+		t.Fatal(err)
 	}
-	if got.Type != derived || !got.Nilled || got.Skip {
-		t.Fatalf("ElementStart() = %+v, want derived nilled non-skip", got)
-	}
-}
-
-func TestElementStartRejectsInvalidEffectiveTypeMetadata(t *testing.T) {
-	t.Parallel()
-
-	_, err := ElementStart(startRuntimeStub{
-		anyType:  runtime.ComplexRef(0),
-		typeInfo: map[runtime.TypeID]runtime.TypeInfo{},
-	}, nil, ElementInput{
-		Element: runtime.NoElement,
-		Type:    runtime.ComplexRef(1),
-		Context: StartContext{Line: 2, Column: 3, Path: "/root"},
-	})
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-}
-
-func TestElementStartRejectsInvalidDeclaredTypeMetadataForXSIType(t *testing.T) {
-	t.Parallel()
-
-	base := runtime.ComplexRef(1)
-	derived := runtime.ComplexRef(2)
-	elem := runtime.ElementID(1)
-	typeName := runtime.QName{Namespace: 1, Local: 2}
-	rt := startRuntimeStub{
-		anyType: runtime.ComplexRef(0),
-		elements: map[runtime.ElementID]runtime.ElementStartInfo{
-			elem: {Type: base},
-		},
-		names: map[expandedName]runtime.QName{
-			{ns: "urn:t", local: "D"}: typeName,
-		},
-		types: map[runtime.QName]runtime.TypeID{
-			typeName: derived,
-		},
-		derivation: map[[2]runtime.TypeID]runtime.DerivationMask{
-			{derived, base}: runtime.DerivationExtension,
-		},
-		typeInfo: map[runtime.TypeID]runtime.TypeInfo{},
-	}
-
-	_, err := ElementStart(rt, startAttrs(xsiAttr(vocab.XSIAttrType, "p:D")), ElementInput{
-		Element:           elem,
-		Type:              base,
-		ResolveQNameParts: resolveTestQName,
-		Context:           StartContext{Line: 2, Column: 3, Path: "/root"},
-	})
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-}
-
-func TestElementStartBlocksXSITypeRestriction(t *testing.T) {
-	t.Parallel()
-
-	base := runtime.ComplexRef(1)
-	derived := runtime.ComplexRef(2)
-	elem := runtime.ElementID(1)
-	typeName := runtime.QName{Namespace: 1, Local: 2}
-	rt := startRuntimeStub{
-		anyType: runtime.ComplexRef(0),
-		elements: map[runtime.ElementID]runtime.ElementStartInfo{
-			elem: {Type: base, Block: runtime.DerivationRestriction},
-		},
-		names: map[expandedName]runtime.QName{
-			{ns: "urn:t", local: "D"}: typeName,
-		},
-		types: map[runtime.QName]runtime.TypeID{
-			typeName: derived,
-		},
-		derivation: map[[2]runtime.TypeID]runtime.DerivationMask{
-			{derived, base}: runtime.DerivationRestriction,
-		},
-	}
-
-	attrs := make([]stream.Attr, 0, 1)
-	attrs = append(attrs, xsiAttr(vocab.XSIAttrType, "p:D"))
-	_, err := ElementStart(rt, attrs, ElementInput{
-		Element:           elem,
-		Type:              base,
-		ResolveQNameParts: resolveTestQName,
-		Context:           StartContext{Line: 2, Column: 3, Path: "/root"},
-	})
-	expectXSDCode(t, err, xsderrors.CodeValidationType)
-}
-
-func TestElementStartBlocksXSITypeExtensionFromDeclaredType(t *testing.T) {
-	t.Parallel()
-
-	base := runtime.ComplexRef(1)
-	derived := runtime.ComplexRef(2)
-	elem := runtime.ElementID(1)
-	typeName := runtime.QName{Namespace: 1, Local: 2}
-	rt := startRuntimeStub{
-		anyType: runtime.ComplexRef(0),
-		elements: map[runtime.ElementID]runtime.ElementStartInfo{
-			elem: {Type: base},
-		},
-		typeInfo: map[runtime.TypeID]runtime.TypeInfo{
-			base: {Block: runtime.DerivationExtension},
-		},
-		names: map[expandedName]runtime.QName{
-			{ns: "urn:t", local: "D"}: typeName,
-		},
-		types: map[runtime.QName]runtime.TypeID{
-			typeName: derived,
-		},
-		derivation: map[[2]runtime.TypeID]runtime.DerivationMask{
-			{derived, base}: runtime.DerivationExtension,
-		},
-	}
-
-	attrs := make([]stream.Attr, 0, 1)
-	attrs = append(attrs, xsiAttr(vocab.XSIAttrType, "p:D"))
-	_, err := ElementStart(rt, attrs, ElementInput{
-		Element:           elem,
-		Type:              base,
-		ResolveQNameParts: resolveTestQName,
-		Context:           StartContext{Line: 2, Column: 3, Path: "/root"},
-	})
-	expectXSDCode(t, err, xsderrors.CodeValidationType)
-}
-
-func TestElementStartIgnoresSubstitutionBlockForXSIType(t *testing.T) {
-	t.Parallel()
-
-	base := runtime.ComplexRef(1)
-	derived := runtime.ComplexRef(2)
-	elem := runtime.ElementID(1)
-	typeName := runtime.QName{Namespace: 1, Local: 2}
-	rt := startRuntimeStub{
-		anyType: runtime.ComplexRef(0),
-		elements: map[runtime.ElementID]runtime.ElementStartInfo{
-			elem: {Type: base, Block: runtime.DerivationSubstitution},
-		},
-		names: map[expandedName]runtime.QName{
-			{ns: "urn:t", local: "D"}: typeName,
-		},
-		types: map[runtime.QName]runtime.TypeID{
-			typeName: derived,
-		},
-		derivation: map[[2]runtime.TypeID]runtime.DerivationMask{
-			{derived, base}: runtime.DerivationExtension,
-		},
-	}
-
-	attrs := make([]stream.Attr, 0, 1)
-	attrs = append(attrs, xsiAttr(vocab.XSIAttrType, "p:D"))
-	got, err := ElementStart(rt, attrs, ElementInput{
-		Element:           elem,
-		Type:              base,
-		ResolveQNameParts: resolveTestQName,
-		Context:           StartContext{Line: 2, Column: 3, Path: "/root"},
-	})
+	s, err := NewSession(rt, Options{})
 	if err != nil {
-		t.Fatalf("ElementStart() error = %v", err)
+		t.Fatal(err)
 	}
-	if got.Type != derived {
-		t.Fatalf("ElementStart() type = %v, want %v", got.Type, derived)
+	const namespaces = `xmlns:t="urn:t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`
+	err = s.Validate(strings.NewReader(`<t:allowed ` + namespaces + ` xsi:type="t:Derived" xsi:nil="true"/>`))
+	if err != nil {
+		t.Fatalf("valid xsi:type/xsi:nil: %v", err)
 	}
+	err = s.Validate(strings.NewReader(`<t:blocked ` + namespaces + ` xsi:type="t:Derived"/>`))
+	expectXSDCode(t, err, xsderrors.CodeValidationType)
 }
 
 func xsiAttr(local, value string) stream.Attr {
@@ -423,13 +239,6 @@ func startAttr(ns, local, value string) stream.Attr {
 
 func startAttrs(attrs ...stream.Attr) []stream.Attr {
 	return attrs
-}
-
-func resolveTestQName(value string) (string, string, bool) {
-	if value == "p:D" {
-		return "urn:t", "D", true
-	}
-	return "", "", false
 }
 
 func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {

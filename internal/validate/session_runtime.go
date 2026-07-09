@@ -60,8 +60,6 @@ func (s *Session) Init(rt *runtime.Schema, opts Options) error {
 			maxInstanceTokenBytes:  limits.InstanceTokenBytes,
 		},
 	}
-	s.session.resolveLexicalQNamePartsFunc = s.session.resolveLexicalQNameParts
-	s.session.resolveLexicalQNamePartsOwner = &s.session
 	return nil
 }
 
@@ -95,6 +93,7 @@ type session struct {
 	doc                           documentState
 	nameStrings                   stream.Cache
 	valueStrings                  stream.Cache
+	attributeSeen                 []bool
 	parser                        stream.Parser
 	maxErrors                     int
 	maxIdentityScopes             int
@@ -153,10 +152,6 @@ type frame struct {
 func (s *session) validate(r io.Reader) error {
 	if s == nil || s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
-	}
-	if s.resolveLexicalQNamePartsOwner != s {
-		s.resolveLexicalQNamePartsFunc = s.resolveLexicalQNameParts
-		s.resolveLexicalQNamePartsOwner = s
 	}
 	s.reset()
 	reader, err := PrepareInstanceReaderWithBuffer(r, s.reader)
@@ -240,7 +235,7 @@ func (s *session) reset() {
 	s.doc = documentState{
 		xmlDocumentState:    xmlDocument,
 		errors:              resetRetainedReferences(s.doc.errors),
-		stack:               resetRetainedReferences(s.doc.stack),
+		stack:               resetRetainedValues(s.doc.stack),
 		text:                resetRetainedBytes(s.doc.text),
 		namePath:            resetRetainedReferences(s.doc.namePath),
 		allBits:             resetRetainedValues(s.doc.allBits),
@@ -317,117 +312,74 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 		}
 	}
 	rn := s.runtimeName(se.Name)
-	hasXSIType := xsiFlags.Type
-	elem, typ, skip, err := s.startType(rn, se, hasXSIType, line, col)
+	start, err := s.startType(rn, se, xsiFlags.Type, line, col)
 	if err != nil {
 		return err
 	}
-	var nilled, elementValueKnown, elementDeclared, elementHasValueConstraint bool
-	if !skip {
+	var nilled bool
+	var decl runtime.ElementStartInfo
+	var declared bool
+	if !start.skip {
 		ctx := s.startContext(line, col)
-		decl, declared := s.rt.Element(elem)
-		elementValueKnown = true
-		elementDeclared = declared
-		elementHasValueConstraint = declared && (decl.Fixed || decl.Default)
-		if declared && decl.Abstract {
-			err = validation(ctx, xsderrors.CodeValidationElement, "abstract element cannot appear directly")
-			recoverErr := s.recover(err)
-			if recoverErr != nil {
+		decl, declared = s.rt.Element(start.element)
+		nilled, err = s.assessElementStart(&start, decl, declared, se.Attr, xsiFlags, ctx)
+		if err != nil {
+			if recoverErr := s.recover(err); recoverErr != nil {
 				return recoverErr
 			}
-			elem = runtime.NoElement
-			typ = s.rt.AnyType()
-			skip = true
-			elementValueKnown = false
-			elementDeclared = false
-			elementHasValueConstraint = false
-		} else {
-			typ, nilled, err = s.schemaElementStart(se.Attr, elem, typ, xsiFlags, decl, declared, ctx)
-			if err != nil {
-				recoverErr := s.recover(err)
-				if recoverErr != nil {
-					return recoverErr
-				}
-			}
+		}
+		if start.skip {
+			decl = runtime.ElementStartInfo{}
+			declared = false
 		}
 	}
-	s.pushSchemaFrame(elem, typ, nilled, skip, elementValueKnown, elementDeclared, elementHasValueConstraint)
+	s.pushSchemaFrame(
+		start.element,
+		start.typ,
+		nilled,
+		start.skip,
+		!start.skip,
+		declared,
+		declared && (decl.Fixed || decl.Default),
+	)
 
 	if len(s.doc.stack) != s.doc.Depth()+1 {
 		return xsderrors.InternalInvariant("XML document depth does not match schema frame depth")
 	}
-	s.doc.CommitStart(se.Name, se.RawName, !skip && !rn.Known && rn.NS != "")
+	s.doc.CommitStart(se.Name, se.RawName, !start.skip && !rn.Known && rn.NS != "")
 	if s.hasIdentityConstraints {
 		s.doc.namePath = append(s.doc.namePath, rn)
-		if scopeErr := s.startIdentityScope(elem, line, col); scopeErr != nil {
+		if scopeErr := s.startIdentityScope(start.element, line, col); scopeErr != nil {
 			return scopeErr
 		}
 		if matchErr := s.matchIdentitySelectors(line, col); matchErr != nil {
 			return matchErr
 		}
 	}
-	if !skip {
-		if attrErr := s.validateAttributes(typ, se.Attr, line, col); attrErr != nil {
+	if !start.skip {
+		if attrErr := s.validateAttributes(start.typ, se.Attr, line, col); attrErr != nil {
 			return attrErr
 		}
 	}
 	return nil
 }
 
-func (s *session) startType(rn runtime.RuntimeName, se stream.StartElement, hasXSIType bool, line, col int) (runtime.ElementID, runtime.TypeID, bool, error) {
-	if s.doc.Depth() == 0 {
-		return s.rootStartType(rn, se, line, col)
-	}
-	parent := &s.doc.stack[len(s.doc.stack)-1]
-	parent.HasChild = true
-	accepted, err := s.acceptChild(parent, rn, hasXSIType, line, col)
-	if err == nil {
-		return accepted.element, accepted.typ, accepted.skip, nil
-	}
-	if !accepted.recover {
-		return runtime.NoElement, runtime.TypeID{}, false, err
-	}
-	recoverErr := s.recover(err)
-	if recoverErr != nil {
-		return runtime.NoElement, runtime.TypeID{}, false, recoverErr
-	}
-	return accepted.element, accepted.typ, accepted.skip, nil
-}
-
-func (s *session) rootStartType(rn runtime.RuntimeName, se stream.StartElement, line, col int) (runtime.ElementID, runtime.TypeID, bool, error) {
-	hasXSIType := HasXSITypeAttribute(se.Attr)
-	input := RootInput{
-		Name:              se.Name,
-		RuntimeName:       rn,
-		Values:            &s.valueStrings,
-		ResolveQNameParts: s.qnameResolverForAttrs(hasXSIType),
-		HasSchemaLocation: s.schemaLocationHintLookup(),
-		Context:           s.startContext(line, col),
-	}
-	start, err := RootStart(s.rt, se.Attr, input)
-	if err != nil {
-		if !start.Recover {
-			return runtime.NoElement, runtime.TypeID{}, false, err
-		}
-		if recoverErr := s.recover(err); recoverErr != nil {
-			return runtime.NoElement, runtime.TypeID{}, false, recoverErr
-		}
-	}
-	return start.Element, start.Type, start.Skip, nil
-}
-
-func (s *session) schemaElementStart(
-	attrs []stream.Attr,
-	elem runtime.ElementID,
-	typ runtime.TypeID,
-	xsiFlags xsiStartAttributeFlags,
+func (s *session) assessElementStart(
+	start *schemaStart,
 	decl runtime.ElementStartInfo,
 	declared bool,
+	attrs []stream.Attr,
+	flags xsiStartAttributeFlags,
 	ctx StartContext,
-) (runtime.TypeID, bool, error) {
+) (bool, error) {
+	if declared && decl.Abstract {
+		*start = schemaStart{element: runtime.NoElement, typ: s.rt.AnyType(), skip: true}
+		return false, validation(ctx, xsderrors.CodeValidationElement, "abstract element cannot appear directly")
+	}
+
 	nilled := false
 	nilSpecified := false
-	if xsiFlags.hasStartAttribute() {
+	if flags.Type || flags.Nil {
 		for i := range attrs {
 			a := &attrs[i]
 			if a.Name.Space != vocab.XSINamespaceURI {
@@ -439,42 +391,91 @@ func (s *session) schemaElementStart(
 				nilSpecified = true
 				parsed, ok := ParseXSINil(value)
 				if !ok {
-					return typ, false, validation(ctx, xsderrors.CodeValidationNil, "invalid xsi:nil value")
+					return false, validation(ctx, xsderrors.CodeValidationNil, "invalid xsi:nil value")
 				}
 				nilled = parsed
 			case vocab.XSIAttrType:
-				override, err := resolveXSIType(s.rt, value, s.qnameResolverForAttrs(xsiFlags.Type), s.schemaLocationHintLookup(), ctx)
+				override, err := resolveXSIType(s.rt, value, s.qnameResolver(), s.schemaLocationHintLookup(), ctx)
 				if err != nil {
-					return typ, nilled, err
+					return nilled, err
 				}
-				if err := validateXSITypeOverride(s.rt, elem, typ, override, ctx); err != nil {
-					return typ, nilled, err
+				if err := validateXSITypeOverride(s.rt, start.typ, override, decl.Block, declared, ctx); err != nil {
+					return nilled, err
 				}
-				typ = override
+				start.typ = override
 			}
 		}
 	}
-	if typ.Kind == runtime.TypeComplex {
-		info, ok := s.rt.TypeInfo(typ)
-		if !ok {
-			return typ, nilled, xsderrors.InternalInvariant("start type metadata is invalid")
+
+	var info runtime.TypeInfo
+	infoKnown := true
+	if start.typ.Kind == runtime.TypeComplex {
+		info, infoKnown = s.rt.TypeInfo(start.typ)
+	}
+	var err error
+	start.typ, nilled, err = validateElementEffectiveState(
+		decl, declared, start.typ, nilled, nilSpecified, info, infoKnown, ctx,
+	)
+	return nilled, err
+}
+
+type schemaStart struct {
+	element runtime.ElementID
+	typ     runtime.TypeID
+	skip    bool
+}
+
+func (s *session) startType(rn runtime.RuntimeName, se stream.StartElement, hasXSIType bool, line, col int) (schemaStart, error) {
+	if s.doc.Depth() == 0 {
+		return s.rootStartType(rn, se, hasXSIType, line, col)
+	}
+	parent := &s.doc.stack[len(s.doc.stack)-1]
+	parent.HasChild = true
+	accepted, err := s.acceptChild(parent, rn, hasXSIType, line, col)
+	if err == nil {
+		return schemaStart{
+			element: accepted.element,
+			typ:     accepted.typ,
+			skip:    accepted.skip,
+		}, nil
+	}
+	if !accepted.recover {
+		return schemaStart{}, err
+	}
+	recoverErr := s.recover(err)
+	if recoverErr != nil {
+		return schemaStart{}, recoverErr
+	}
+	return schemaStart{
+		element: accepted.element,
+		typ:     accepted.typ,
+		skip:    accepted.skip,
+	}, nil
+}
+
+func (s *session) rootStartType(rn runtime.RuntimeName, se stream.StartElement, hasXSIType bool, line, col int) (schemaStart, error) {
+	input := RootInput{
+		Name:              se.Name,
+		RuntimeName:       rn,
+		Values:            &s.valueStrings,
+		ResolveQNameParts: s.qnameResolverForAttrs(hasXSIType),
+		HasSchemaLocation: s.schemaLocationHintLookup(),
+		Context:           s.startContext(line, col),
+	}
+	start, err := RootStart(s.rt, se.Attr, input)
+	if err != nil {
+		if !start.Recover {
+			return schemaStart{}, err
 		}
-		if info.Abstract {
-			return typ, nilled, validation(ctx, xsderrors.CodeValidationType, "complex type is abstract")
+		if recoverErr := s.recover(err); recoverErr != nil {
+			return schemaStart{}, recoverErr
 		}
 	}
-	if nilSpecified && declared && !decl.Nillable {
-		return typ, nilled, validation(ctx, xsderrors.CodeValidationNil, "element is not nillable")
-	}
-	if nilled {
-		if !declared {
-			return typ, nilled, validation(ctx, xsderrors.CodeValidationNil, "element is not nillable")
-		}
-		if decl.Fixed {
-			return typ, nilled, validation(ctx, xsderrors.CodeValidationNil, "nilled element cannot have fixed value")
-		}
-	}
-	return typ, nilled, nil
+	return schemaStart{
+		element: start.Element,
+		typ:     start.Type,
+		skip:    start.Skip,
+	}, nil
 }
 
 func (s *session) startContext(line, col int) StartContext {

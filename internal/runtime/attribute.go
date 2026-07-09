@@ -364,7 +364,7 @@ func EqualAttributeUseSetReadProjectionForSetsWithTypeReads(reads []AttributeUse
 		return false
 	}
 	for i := range reads {
-		if !EqualAttributeUseSetReads(reads[i], NewAttributeUseSetReadForSetWithTypeReads(names, sets[i], simpleValueTypes)) {
+		if !equalAttributeUseSetReadForSet(reads[i], names, sets[i], simpleValueTypes, nil) {
 			return false
 		}
 	}
@@ -379,11 +379,91 @@ func EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []AttributeU
 		return false
 	}
 	for i := range reads {
-		if !EqualAttributeUseSetReads(reads[i], NewAttributeUseSetReadForSetWithSimpleTypes(names, sets[i], simpleTypes)) {
+		if !equalAttributeUseSetReadForSet(reads[i], names, sets[i], nil, simpleTypes) {
 			return false
 		}
 	}
 	return true
+}
+
+func equalAttributeUseSetReadForSet(
+	read AttributeUseSetRead,
+	names *NameTable,
+	set AttributeUseSet,
+	typeReads []SimpleValueTypeRead,
+	simpleTypes []SimpleType,
+) bool {
+	if !maps.Equal(read.index, set.Index) ||
+		!slices.Equal(read.required, set.Required) ||
+		!slices.Equal(read.valueConstraints, set.ValueConstraints) ||
+		read.wildcard != set.Wildcard ||
+		len(read.uses) != len(set.Uses) {
+		return false
+	}
+	expectedSingleUse := false
+	if len(set.Uses) == 1 && len(set.Index) == 1 {
+		slot, ok := set.Index[set.Uses[0].Name]
+		expectedSingleUse = ok && slot == 0
+	}
+	if read.singleUse != expectedSingleUse {
+		return false
+	}
+	for i := range set.Uses {
+		if !equalAttributeUseReadForUse(read.uses[i], names, set.Uses[i], typeReads, simpleTypes) {
+			return false
+		}
+	}
+	return true
+}
+
+func equalAttributeUseReadForUse(
+	read AttributeUseRead,
+	names *NameTable,
+	use AttributeUse,
+	typeReads []SimpleValueTypeRead,
+	simpleTypes []SimpleType,
+) bool {
+	hasFixed := use.Fixed != nil
+	hasDefault := use.Default != nil
+	if read.name != use.Name || read.typ != use.Type || read.required != use.Required ||
+		read.hasFixed != hasFixed || read.hasDefault != hasDefault ||
+		!formattedQNameEqual(names, use.Name, read.label) {
+		return false
+	}
+	if hasFixed {
+		fixed, _ := NewValueConstraintReadFromConstraint(use.Fixed)
+		if !EqualValueConstraintReads(read.fixed, fixed) {
+			return false
+		}
+	}
+	if hasDefault {
+		def, _ := NewValueConstraintReadFromConstraint(use.Default)
+		if !EqualValueConstraintReads(read.defaultValue, def) {
+			return false
+		}
+	}
+	var fixedFast bool
+	if typeReads != nil {
+		shape := AttributeUseReadShape{Type: use.Type, HasFixed: hasFixed}
+		fixedFast = attributeUseFixedStringFastForTypeReads(shape, typeReads)
+	} else {
+		shape := AttributeUseReadShape{Type: use.Type, HasFixed: hasFixed}
+		fixedFast = attributeUseFixedStringFastForSimpleTypes(shape, simpleTypes)
+	}
+	return read.canValidateFixedStringFast == fixedFast
+}
+
+func formattedQNameEqual(names *NameTable, name QName, formatted string) bool {
+	ns := names.Namespace(name.Namespace)
+	local := names.Local(name.Local)
+	if ns == "" {
+		return formatted == local
+	}
+	return len(formatted) == len(ns)+len(local)+2 &&
+		formatted[0] == '{' &&
+		formatted[1:len(ns)+1] == ns &&
+		formatted[len(ns)+1] == '}' &&
+		formatted[len(ns)+2:] == local
 }
 
 // ValidateAttributeUseSetReadProjectionForSetsWithTypeReads validates

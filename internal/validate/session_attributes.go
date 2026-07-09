@@ -49,7 +49,7 @@ func (s *session) validateSimpleValue(
 }
 
 func (s *session) validateAttributeSet(set *runtime.AttributeUseSetRead, attrs []stream.Attr, line, col int) error {
-	seen := NewAttributeSeen(set.UseCount())
+	seen := newAttributeSeenWithScratch(set.UseCount(), &s.attributeSeen)
 	seenIDAttr := false
 	ctx := s.startContext(line, col)
 	for i := range attrs {

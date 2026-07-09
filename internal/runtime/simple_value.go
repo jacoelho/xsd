@@ -91,6 +91,273 @@ type SimpleValueTypeRead struct {
 	Present bool
 }
 
+// simpleValueRouteRead is the compact, cache-hot subset used before full
+// simple-value validation falls back to the immutable cold type record.
+type simpleValueRouteRead struct {
+	minInclusive RawDecimalBound
+	maxInclusive RawDecimalBound
+	listItem     SimpleTypeID
+	facets       FacetMask
+	variety      SimpleVariety
+	primitive    PrimitiveKind
+	builtin      BuiltinValidationKind
+	whitespace   WhitespaceMode
+	identity     SimpleIdentityKind
+	fast         SimpleFastKind
+	rawBypass    SimpleValueBypassAction
+	present      bool
+}
+
+type simpleValueColdRead struct {
+	union                []SimpleTypeID
+	enumeration          []SimpleValueFacetLiteral
+	canonicalEnumeration []string
+	facets               FacetSet
+}
+
+type simpleValueColdReadTable struct {
+	index  []uint32
+	values []simpleValueColdRead
+}
+
+func newSimpleValueColdReadTable(types []SimpleType) simpleValueColdReadTable {
+	count := 0
+	for i := range types {
+		if simpleValueTypeNeedsColdRead(types[i]) {
+			count++
+		}
+	}
+	table := simpleValueColdReadTable{
+		index:  make([]uint32, len(types)),
+		values: make([]simpleValueColdRead, 0, count),
+	}
+	for i := range table.index {
+		table.index[i] = invalidID
+	}
+	for i := range types {
+		if !simpleValueTypeNeedsColdRead(types[i]) {
+			continue
+		}
+		if len(table.values) >= int(invalidID) {
+			panic("too many simple value cold reads")
+		}
+		table.index[i] = uint32(len(table.values)) //nolint:gosec // guarded against the invalidID sentinel above.
+		table.values = append(table.values, simpleValueColdRead{
+			union:                types[i].Union,
+			enumeration:          simpleValueFacetLiterals(types[i].Facets.Enumeration),
+			canonicalEnumeration: canonicalEnumerationValues(types[i].Facets.Enumeration),
+			facets:               types[i].Facets,
+		})
+	}
+	return table
+}
+
+func simpleValueTypeNeedsColdRead(st SimpleType) bool {
+	return !st.Missing && (len(st.Union) != 0 || st.Facets.Present != 0)
+}
+
+func (t simpleValueColdReadTable) read(id SimpleTypeID) (simpleValueColdRead, bool) {
+	if !ValidSimpleTypeID(id, len(t.index)) {
+		return simpleValueColdRead{}, false
+	}
+	idx := t.index[id]
+	if idx == invalidID {
+		return simpleValueColdRead{}, true
+	}
+	if !ValidUint32Index(idx, len(t.values)) {
+		return simpleValueColdRead{}, false
+	}
+	return t.values[idx], true
+}
+
+func newSimpleValueRouteReadsForSimpleTypes(types []SimpleType) []simpleValueRouteRead {
+	reads := make([]simpleValueRouteRead, len(types))
+	for i := range types {
+		reads[i] = newSimpleValueRouteReadForSimpleType(types[i])
+	}
+	return reads
+}
+
+func newSimpleValueRouteReadForSimpleType(st SimpleType) simpleValueRouteRead {
+	if st.Missing {
+		return simpleValueRouteRead{}
+	}
+	read := simpleValueRouteRead{
+		minInclusive: rawDecimalBoundFacet(st.Facets, FacetMinInclusive),
+		maxInclusive: rawDecimalBoundFacet(st.Facets, FacetMaxInclusive),
+		listItem:     st.ListItem,
+		facets:       st.Facets.Present,
+		variety:      st.Variety,
+		primitive:    st.Primitive,
+		builtin:      st.Builtin,
+		whitespace:   st.Whitespace,
+		identity:     st.Identity,
+		fast:         st.Fast,
+		present:      true,
+	}
+	typ := read.simpleValueType()
+	read.rawBypass = SimpleValueBypass(simpleValueAtomicBypassShape(&typ, 0))
+	return read
+}
+
+func (r simpleValueRouteRead) simpleValueType() SimpleValueType {
+	return SimpleValueType{
+		DecimalMinInclusive: r.minInclusive,
+		DecimalMaxInclusive: r.maxInclusive,
+		ListItem:            r.listItem,
+		Facets:              r.facets,
+		Variety:             r.variety,
+		Primitive:           r.primitive,
+		Builtin:             r.builtin,
+		Whitespace:          r.whitespace,
+		Identity:            r.identity,
+		Fast:                r.fast,
+		RawBypass:           r.rawBypass,
+	}
+}
+
+func simpleValueTypeForRouteAndCold(route simpleValueRouteRead, cold simpleValueColdRead) SimpleValueType {
+	typ := route.simpleValueType()
+	typ.UnionMembers = cold.union
+	typ.StringFacets = StringFacetValues{
+		Patterns:       cold.facets.Patterns,
+		HasEnumeration: len(cold.facets.Enumeration) != 0,
+	}
+	typ.DecimalFacets = decimalFacetValues(cold.facets)
+	typ.LengthFacets = lengthFacetValues(cold.facets)
+	return typ
+}
+
+func simpleValueFacetsForColdRead(cold simpleValueColdRead) SimpleValueFacets {
+	f := cold.facets
+	return SimpleValueFacets{
+		MinInclusive: simpleValueBoundFacetLiteral(f, FacetMinInclusive),
+		MaxInclusive: simpleValueBoundFacetLiteral(f, FacetMaxInclusive),
+		MinExclusive: simpleValueBoundFacetLiteral(f, FacetMinExclusive),
+		MaxExclusive: simpleValueBoundFacetLiteral(f, FacetMaxExclusive),
+		Enumeration:  cold.enumeration,
+		StringFacets: StringFacetValues{
+			Patterns:             f.Patterns,
+			CanonicalEnumeration: cold.canonicalEnumeration,
+			HasEnumeration:       len(f.Enumeration) != 0,
+		},
+		DecimalFacets: decimalFacetValues(f),
+		LengthFacets:  lengthFacetValues(f),
+		Facets:        f.Present,
+	}
+}
+
+func simpleValueRouteReadByID(reads []simpleValueRouteRead, id SimpleTypeID) (*simpleValueRouteRead, bool) {
+	if !ValidSimpleTypeID(id, len(reads)) || !reads[id].present {
+		return nil, false
+	}
+	return &reads[id], true
+}
+
+func newSimpleValueCallbacksForRouteReads(
+	routes []simpleValueRouteRead,
+	cold simpleValueColdReadTable,
+	notation func(ns, local string) bool,
+) SimpleValueCallbacks {
+	return SimpleValueCallbacks{
+		Type: func(id SimpleTypeID) (SimpleValueType, bool) {
+			route, ok := simpleValueRouteReadByID(routes, id)
+			if !ok {
+				return SimpleValueType{}, false
+			}
+			read, ok := cold.read(id)
+			if !ok {
+				return SimpleValueType{}, false
+			}
+			return simpleValueTypeForRouteAndCold(*route, read), true
+		},
+		Facets: func(id SimpleTypeID) (SimpleValueFacets, bool) {
+			if _, ok := simpleValueRouteReadByID(routes, id); !ok {
+				return SimpleValueFacets{}, false
+			}
+			read, ok := cold.read(id)
+			if !ok {
+				return SimpleValueFacets{}, false
+			}
+			return simpleValueFacetsForColdRead(read), true
+		},
+		ForEachStringEnumeration: func(id SimpleTypeID, yield func(string) bool) {
+			read, ok := cold.read(id)
+			if !ok {
+				return
+			}
+			for i := range read.facets.Enumeration {
+				if !yield(read.facets.Enumeration[i].Canonical) {
+					return
+				}
+			}
+		},
+		StringEnumeration: func(id SimpleTypeID, canonical string) (bool, bool) {
+			read, ok := cold.read(id)
+			if !ok {
+				return false, false
+			}
+			for i := range read.facets.Enumeration {
+				if read.facets.Enumeration[i].Canonical == canonical {
+					return true, true
+				}
+			}
+			return false, true
+		},
+		Notation: notation,
+	}
+}
+
+func newRawSimpleValueCallbacksForRouteReads(routes []simpleValueRouteRead, cold simpleValueColdReadTable) RawSimpleValueCallbacks {
+	return RawSimpleValueCallbacks{
+		Type: func(id SimpleTypeID) (RawSimpleValueType, bool) {
+			route, ok := simpleValueRouteReadByID(routes, id)
+			if !ok {
+				return RawSimpleValueType{}, false
+			}
+			read, ok := cold.read(id)
+			if !ok {
+				return RawSimpleValueType{}, false
+			}
+			return RawSimpleValueType{
+				DecimalMinInclusive: route.minInclusive,
+				DecimalMaxInclusive: route.maxInclusive,
+				StringPatterns:      read.facets.Patterns,
+				ListItem:            route.listItem,
+				Facets:              route.facets,
+				Variety:             route.variety,
+				Primitive:           route.primitive,
+				Builtin:             route.builtin,
+				Whitespace:          route.whitespace,
+				Identity:            route.identity,
+				Fast:                route.fast,
+			}, true
+		},
+		ForEachUnionMember: func(id SimpleTypeID, yield func(SimpleTypeID) bool) {
+			read, ok := cold.read(id)
+			if !ok {
+				return
+			}
+			for _, member := range read.union {
+				if !yield(member) {
+					return
+				}
+			}
+		},
+		ForEachStringEnumeration: func(id SimpleTypeID, yield func(string) bool) {
+			read, ok := cold.read(id)
+			if !ok {
+				return
+			}
+			for i := range read.facets.Enumeration {
+				if !yield(read.facets.Enumeration[i].Canonical) {
+					return
+				}
+			}
+		},
+	}
+}
+
 // SimpleValueFacetReadTable stores full facet projections only for simple
 // types that have facet data.
 type SimpleValueFacetReadTable struct {
@@ -760,24 +1027,112 @@ func ValidateSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, lexical strin
 	return SimpleValue{}, ErrSimpleValueMetadata
 }
 
-func validateSimpleValueTypeReadFast(types []SimpleValueTypeRead, id SimpleTypeID, lexical string, needs SimpleValueNeed) (SimpleValue, bool, error) {
+func validateSimpleValueRouteReadFast(reads []simpleValueRouteRead, id SimpleTypeID, lexical string, needs SimpleValueNeed) (SimpleValue, bool, error) {
 	if id == NoSimpleType {
 		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, true, nil
 	}
-	read, ok := simpleValueTypeReadByID(types, id)
+	read, ok := simpleValueRouteReadByID(reads, id)
 	if !ok {
 		return SimpleValue{}, true, ErrSimpleValueMetadata
 	}
-	typ := &read.Type
-	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: typ.Variety, Known: true}) {
+	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: read.variety, Known: true}) {
 	case SimpleValueRouteAtomic:
-		return validateAtomicSimpleValueTypeReadFast(id, typ, lexical, needs)
+		return validateAtomicSimpleValueRouteReadFast(id, read, lexical, needs)
 	case SimpleValueRouteList, SimpleValueRouteUnion:
 		return SimpleValue{}, false, nil
 	case SimpleValueRouteUntyped:
 		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, true, nil
 	case SimpleValueRouteMissing, SimpleValueRouteInvalid:
 		return SimpleValue{}, true, ErrSimpleValueMetadata
+	}
+	return SimpleValue{}, true, ErrSimpleValueMetadata
+}
+
+func validateAtomicSimpleValueRouteReadFast(
+	id SimpleTypeID,
+	typ *simpleValueRouteRead,
+	lexical string,
+	needs SimpleValueNeed,
+) (SimpleValue, bool, error) {
+	normalized := normalizeSimpleValueLexical(lexical, typ.whitespace)
+	action := SimpleValueBypass(SimpleValueBypassShape{
+		Facets:    typ.facets,
+		Variety:   typ.variety,
+		Primitive: typ.primitive,
+		Builtin:   typ.builtin,
+		Identity:  typ.identity,
+		Fast:      typ.fast,
+		Needs:     needs,
+	})
+	switch action {
+	case SimpleValueBypassAcceptString:
+		return unconstrainedStringSimpleValue(id, normalized, needs), true, nil
+	case SimpleValueBypassValidateInt:
+		if err := ValidateFastIntLexical(normalized); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateAnyURI:
+		if err := ValidateAnyURILexical(normalized); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateHexBinary:
+		if err := ValidateHexBinaryLexical(normalized); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateBase64Binary:
+		if err := ValidateBase64BinaryLexical(normalized); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateFloat:
+		if err := ValidateFloatLexical(normalized, simpleValueFloatBits(typ.primitive)); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateDuration:
+		if err := ValidateDurationLexical(normalized); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateBoolean:
+		if err := ValidateBooleanLexical(normalized); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateTemporal:
+		if err := ValidateTemporalLexical(typ.primitive, normalized); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateDate:
+		if err := validateDateLexical(normalized); err != nil {
+			return SimpleValue{}, true, err
+		}
+		return SimpleValue{Type: id}, true, nil
+	case SimpleValueBypassValidateDecimal:
+		handled, err := ValidateFastDecimalLexical(RawDecimalFastPathShape{
+			MinInclusive: typ.minInclusive,
+			MaxInclusive: typ.maxInclusive,
+			Facets:       typ.facets,
+		}, normalized)
+		if err != nil {
+			return SimpleValue{}, true, err
+		}
+		if handled {
+			return SimpleValue{Type: id}, true, nil
+		}
+		return SimpleValue{}, false, nil
+	case SimpleValueBypassNone:
+		full := typ.simpleValueType()
+		if value, ok, err := validateAtomicStringSimpleValueFallback(id, full, normalized, needs); ok {
+			return value, true, err
+		}
+		return SimpleValue{}, false, nil
+	case SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
+		return SimpleValue{}, false, nil
 	}
 	return SimpleValue{}, true, ErrSimpleValueMetadata
 }
@@ -878,80 +1233,6 @@ func validateAtomicSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ Sim
 		return SimpleValue{Type: id}, nil
 	}
 	return SimpleValue{}, ErrSimpleValueMetadata
-}
-
-func validateAtomicSimpleValueTypeReadFast(id SimpleTypeID, typ *SimpleValueType, lexical string, needs SimpleValueNeed) (SimpleValue, bool, error) {
-	normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
-	switch SimpleValueBypass(simpleValueAtomicBypassShape(typ, needs)) {
-	case SimpleValueBypassAcceptString:
-		return unconstrainedStringSimpleValue(id, normalized, needs), true, nil
-	case SimpleValueBypassValidateInt:
-		if err := ValidateFastIntLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateAnyURI:
-		if err := ValidateAnyURILexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateHexBinary:
-		if err := ValidateHexBinaryLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateBase64Binary:
-		if err := ValidateBase64BinaryLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateFloat:
-		if err := ValidateFloatLexical(normalized, simpleValueFloatBits(typ.Primitive)); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateDuration:
-		if err := ValidateDurationLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateBoolean:
-		if err := ValidateBooleanLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateTemporal:
-		if err := ValidateTemporalLexical(typ.Primitive, normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateDate:
-		if err := validateDateLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassNone:
-		if value, ok, err := validateAtomicStringSimpleValueFallback(id, *typ, normalized, needs); ok {
-			return value, true, err
-		}
-		return SimpleValue{}, false, nil
-	case SimpleValueBypassValidateDecimal:
-		handled, err := ValidateFastDecimalLexical(RawDecimalFastPathShape{
-			MinInclusive: typ.DecimalMinInclusive,
-			MaxInclusive: typ.DecimalMaxInclusive,
-			Facets:       typ.Facets,
-		}, normalized)
-		if err != nil {
-			return SimpleValue{}, true, err
-		}
-		if handled {
-			return SimpleValue{Type: id}, true, nil
-		}
-		return SimpleValue{}, false, nil
-	case SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
-		return SimpleValue{}, false, nil
-	}
-	return SimpleValue{}, true, ErrSimpleValueMetadata
 }
 
 func unconstrainedStringSimpleValue(id SimpleTypeID, normalized string, needs SimpleValueNeed) SimpleValue {

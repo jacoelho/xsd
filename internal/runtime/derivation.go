@@ -124,6 +124,28 @@ func NewTypeDerivationReadForTypes(anyType ComplexTypeID, simpleTypes []SimpleTy
 	}
 }
 
+// NewBorrowedTypeDerivationReadForTypes returns a derivation graph that borrows
+// union-member slices from compiler state transferred to an immutable schema.
+func NewBorrowedTypeDerivationReadForTypes(anyType ComplexTypeID, simpleTypes []SimpleType, complexTypes []ComplexType) TypeDerivationRead {
+	simple := make([]SimpleTypeDerivation, len(simpleTypes))
+	for i, st := range simpleTypes {
+		simple[i] = SimpleTypeDerivation{
+			Union:   st.Union,
+			Base:    st.Base,
+			Variety: st.Variety,
+		}
+	}
+	complexDerivations := make([]ComplexTypeDerivation, len(complexTypes))
+	for i, ct := range complexTypes {
+		complexDerivations[i] = NewComplexTypeDerivationForComplexType(ct)
+	}
+	return TypeDerivationRead{
+		simple:  simple,
+		complex: complexDerivations,
+		anyType: anyType,
+	}
+}
+
 // AnyTypeID returns the complex type ID of xs:anyType.
 func (r TypeDerivationRead) AnyTypeID() ComplexTypeID {
 	return r.anyType

@@ -306,7 +306,7 @@ func (s *session) captureIdentityXSIAttribute(attrName xml.Name, lexical string,
 		s.rt,
 		attrName,
 		lexical,
-		s.resolveLexicalQNamePartsFunc,
+		s.qnameResolver(),
 		s.startContext(line, col),
 	)
 	if err != nil {

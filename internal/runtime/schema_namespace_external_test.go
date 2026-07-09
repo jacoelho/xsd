@@ -39,22 +39,21 @@ func TestWildcardAllowsURIMatchesCompilePredicate(t *testing.T) {
 	rt := engineRuntime(t, engine)
 	modes := make(map[runtime.WildcardMode]bool)
 	for i := range rt.WildcardCount() {
-		w, ok := rt.Wildcard(runtime.WildcardID(i))
+		w, ok := rt.WildcardView(runtime.WildcardID(i))
 		if !ok {
 			t.Fatalf("missing wildcard %d", i)
 		}
-		modes[w.Mode] = true
+		modes[w.Mode()] = true
 		for id := range rt.NamespaceCount() {
-			nsID := runtime.NamespaceID(id)
-			uri := rt.Namespace(nsID)
-			if got, want := rt.WildcardAllowsURIForTest(w, uri), runtime.WildcardAllowsNamespace(w, nsID); got != want {
-				t.Errorf("wildcardAllowsURI(mode %d, %q) = %v, want %v", w.Mode, uri, got, want)
+			uri := rt.Namespace(runtime.NamespaceID(id))
+			if got, want := w.AllowsURI(uri), expectedWildcardURI(w.Mode(), uri); got != want {
+				t.Errorf("wildcardAllowsURI(mode %d, %q) = %v, want %v", w.Mode(), uri, got, want)
 			}
 		}
-		got := rt.WildcardAllowsURIForTest(w, "urn:not-in-schema")
-		want := w.Mode == runtime.WildcardAny || w.Mode == runtime.WildcardOther
+		got := w.AllowsURI("urn:not-in-schema")
+		want := expectedWildcardURI(w.Mode(), "urn:not-in-schema")
 		if got != want {
-			t.Errorf("wildcardAllowsURI(mode %d, uninterned URI) = %v, want %v", w.Mode, got, want)
+			t.Errorf("wildcardAllowsURI(mode %d, uninterned URI) = %v, want %v", w.Mode(), got, want)
 		}
 	}
 	for _, mode := range []runtime.WildcardMode{
@@ -67,5 +66,22 @@ func TestWildcardAllowsURIMatchesCompilePredicate(t *testing.T) {
 		if !modes[mode] {
 			t.Errorf("schema did not produce wildcard mode %d", mode)
 		}
+	}
+}
+
+func expectedWildcardURI(mode runtime.WildcardMode, uri string) bool {
+	switch mode {
+	case runtime.WildcardAny:
+		return true
+	case runtime.WildcardOther:
+		return uri != "" && uri != "urn:t"
+	case runtime.WildcardLocal:
+		return uri == ""
+	case runtime.WildcardTargetNamespace:
+		return uri == "urn:t"
+	case runtime.WildcardList:
+		return uri == "urn:a" || uri == "urn:b"
+	default:
+		return false
 	}
 }
