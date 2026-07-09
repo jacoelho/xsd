@@ -249,7 +249,7 @@ func (s *session) recordIdentityFields(ids, idrefs string, line, col int) error 
 	if ids == "" && idrefs == "" {
 		return nil
 	}
-	path := s.pathString()
+	path := s.doc.PathString()
 	for canonical := range lex.XMLFieldsSeq(ids) {
 		if s.doc.identity.ids == nil {
 			s.doc.identity.ids = make(map[string]string)

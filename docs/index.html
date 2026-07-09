@@ -500,7 +500,9 @@
   </footer>
 
   <script src="wasm_exec.js"></script>
-  <script>
+  <script type="module">
+    import { runValidationFlow } from "./js/validation-flow.js";
+
     const fallbackLimits = {
       maxXMLBytes: 2 * 1024 * 1024,
       maxXSDBytes: 1 * 1024 * 1024
@@ -670,7 +672,11 @@
         return;
       }
 
-      const result = parseJSON(window.validateXML(xml, xsd));
+      const flow = runValidationFlow(xml, xsd, {
+        validateXML: window.validateXML,
+        formatXML: window.formatXML,
+      });
+      const result = flow.result;
       if (result.error) {
         showStatusError("Validation failed", result.error);
         return;
@@ -678,9 +684,8 @@
 
       const errors = result.errors || [];
       if (result.valid) {
-        const formatted = parseJSON(window.formatXML(xml));
-        if (!formatted.error) {
-          setEditorValue(xmlEditor, formatted.xml || "");
+        if (flow.xml !== xml) {
+          setEditorValue(xmlEditor, flow.xml);
         }
         showValidResult();
         return;
@@ -927,14 +932,6 @@
         textarea.select();
         document.execCommand("copy");
         textarea.remove();
-      }
-    }
-
-    function parseJSON(text) {
-      try {
-        return JSON.parse(text || "{}");
-      } catch (err) {
-        return { error: `Invalid WASM response: ${err}` };
       }
     }
 

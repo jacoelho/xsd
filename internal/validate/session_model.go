@@ -107,27 +107,10 @@ func (s *session) recoverablePublishedSchemaChildIssueAt(ctx StartContext, issue
 }
 
 func (s *session) end(line, col int, ee stream.EndElement) error {
-	if len(s.doc.stack) == 0 {
-		return ValidateEndElement(EndElementInput{
-			Context:      s.startContext(line, col),
-			OpenElements: len(s.doc.stack),
-		})
-	}
-	translated, err := s.translateName(ee.Name, xmlElementName, line, col)
-	if err != nil {
+	if err := s.checkDocumentDepth(); err != nil {
 		return err
 	}
-	ee.Name = translated
-	expected := s.doc.elementNames[len(s.doc.elementNames)-1]
-	expectedRaw := s.doc.elementRawNames[len(s.doc.elementRawNames)-1]
-	if err := ValidateEndElement(EndElementInput{
-		Name:            ee.Name,
-		Expected:        expected,
-		RawName:         ee.RawName,
-		ExpectedRawName: expectedRaw,
-		Context:         s.startContext(line, col),
-		OpenElements:    len(s.doc.stack),
-	}); err != nil {
+	if err := s.doc.ValidateEnd(ee, line, col); err != nil {
 		return err
 	}
 	f := &s.doc.stack[len(s.doc.stack)-1]
@@ -138,17 +121,12 @@ func (s *session) end(line, col int, ee stream.EndElement) error {
 	s.doc.allBits = s.doc.allBits[:f.BitBase]
 	s.doc.text = s.doc.text[:f.TextStart]
 	s.doc.stack = s.doc.stack[:len(s.doc.stack)-1]
-	s.popPath()
 	if s.hasIdentityConstraints && len(s.doc.namePath) > 0 {
 		s.doc.namePath = s.doc.namePath[:len(s.doc.namePath)-1]
 	}
-	if len(s.doc.elementNames) > 0 {
-		s.doc.elementNames = s.doc.elementNames[:len(s.doc.elementNames)-1]
+	if err := s.doc.CommitEnd(); err != nil {
+		return err
 	}
-	if len(s.doc.elementRawNames) > 0 {
-		s.doc.elementRawNames = s.doc.elementRawNames[:len(s.doc.elementRawNames)-1]
-	}
-	s.doc.ns.Pop()
 	return stop
 }
 
