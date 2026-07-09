@@ -2,13 +2,13 @@ package xsd
 
 import (
 	"github.com/jacoelho/xsd/internal/compile"
+	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/validate"
 )
 
 // Engine is an immutable compiled schema validator.
 type Engine struct {
-	rt validate.Runtime
+	rt *runtime.Schema
 }
 
 // CompileOptions controls schema compilation resource limits.

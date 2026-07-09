@@ -74,8 +74,6 @@ func (c *compiler) substitutionCycleLabel(id runtime.ElementID) (string, bool) {
 
 func (c *compiler) compileSubstitutionLookup() {
 	c.rt.SubstitutionLookup = runtime.BuildSubstitutionLookup(&c.rt, c.rt.Elements, c.rt.Substitutions)
-	c.rt.SubstitutionReads = runtime.CloneSubstitutionMap(c.rt.Substitutions)
-	c.rt.SubstitutionLookupReads = runtime.CloneSubstitutionLookup(c.rt.SubstitutionLookup)
 }
 
 func elementUsesSubstitutionType(n *rawNode) bool {

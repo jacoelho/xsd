@@ -31,7 +31,7 @@ type Session struct {
 // NewSession creates a reusable validation session. Reused sessions retain
 // bounded scratch buffers and string caches; create a new session to release
 // retained cache contents.
-func NewSession(rt Runtime, opts Options) (*Session, error) {
+func NewSession(rt *runtime.Schema, opts Options) (*Session, error) {
 	s := &Session{}
 	if err := s.Init(rt, opts); err != nil {
 		return nil, err
@@ -39,40 +39,16 @@ func NewSession(rt Runtime, opts Options) (*Session, error) {
 	return s, nil
 }
 
-// PrepareRuntime builds runtime-owned validation hot paths before session use.
-func PrepareRuntime(rt Runtime) error {
-	schema, ok := rt.(*runtime.Schema)
-	if ok {
-		return schema.PrepareValidationHotPaths()
-	}
-	return nil
-}
-
 // Init prepares s as a validation session.
-func (s *Session) Init(rt Runtime, opts Options) error {
+func (s *Session) Init(rt *runtime.Schema, opts Options) error {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
 		return err
 	}
-	hasIdentityConstraints := false
-	var schema *runtime.Schema
-	if rt != nil {
-		if typed, ok := rt.(*runtime.Schema); ok {
-			schema = typed
-			if schema == nil {
-				rt = nil
-			} else if err := PrepareRuntime(schema); err != nil {
-				return err
-			}
-		}
-		if rt != nil {
-			hasIdentityConstraints = rt.HasIdentityConstraints()
-		}
-	}
+	hasIdentityConstraints := rt != nil && rt.HasIdentityConstraints()
 	*s = Session{
 		session: session{
 			rt:                     rt,
-			schema:                 schema,
 			hasIdentityConstraints: hasIdentityConstraints,
 			maxErrors:              limits.Errors,
 			maxIdentityScopes:      limits.IdentityScopes,
@@ -112,8 +88,7 @@ func (s *Session) Reset() {
 // Per-document state lives in doc; everything else is retained across
 // documents: options, the reader and parser, and the string caches.
 type session struct {
-	rt                            Runtime
-	schema                        *runtime.Schema
+	rt                            *runtime.Schema
 	resolveLexicalQNamePartsFunc  runtime.ResolveQNameParts
 	resolveLexicalQNamePartsOwner *session
 	reader                        *bufio.Reader
@@ -264,21 +239,28 @@ func (s *session) reset() {
 	identity.Reset(maxRetainedMapLen, maxRetainedSliceCap)
 	s.doc = documentState{
 		xmlDocumentState:    xmlDocument,
-		errors:              resetRetainedSlice(s.doc.errors),
-		stack:               resetRetainedSlice(s.doc.stack),
+		errors:              resetRetainedReferences(s.doc.errors),
+		stack:               resetRetainedReferences(s.doc.stack),
 		text:                resetRetainedBytes(s.doc.text),
-		namePath:            resetRetainedSlice(s.doc.namePath),
-		allBits:             resetRetainedSlice(s.doc.allBits),
+		namePath:            resetRetainedReferences(s.doc.namePath),
+		allBits:             resetRetainedValues(s.doc.allBits),
 		identity:            identity,
 		schemaLocationHints: schemaLocationHints,
 	}
 }
 
-func resetRetainedSlice[T any](s []T) []T {
+func resetRetainedReferences[T any](s []T) []T {
 	if cap(s) > maxRetainedSliceCap {
 		return nil
 	}
-	clear(s[:cap(s)])
+	clear(s)
+	return s[:0]
+}
+
+func resetRetainedValues[T any](s []T) []T {
+	if cap(s) > maxRetainedSliceCap {
+		return nil
+	}
 	return s[:0]
 }
 
@@ -341,37 +323,9 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 		return err
 	}
 	var nilled, elementValueKnown, elementDeclared, elementHasValueConstraint bool
-	if s.schema == nil {
-		input := ElementInput{
-			ResolveQNameParts: s.qnameResolverForAttrs(hasXSIType),
-			HasSchemaLocation: s.schemaLocationHintLookup(),
-			Values:            &s.valueStrings,
-			Context:           s.startContext(line, col),
-			Element:           elem,
-			Type:              typ,
-			Skip:              skip,
-		}
-		start, startErr := ElementStart(s.rt, se.Attr, input)
-		if startErr != nil {
-			recoverErr := s.recover(startErr)
-			if recoverErr != nil {
-				return recoverErr
-			}
-		}
-		elem = start.Element
-		typ = start.Type
-		skip = start.Skip
-		s.pushFrame(elem, typ, start.Nilled, skip, start.ElementValueKnown, start.ElementDeclared, start.ElementHasValueConstraint)
-		goto finish
-	}
-
 	if !skip {
 		ctx := s.startContext(line, col)
-		var decl runtime.ElementStartInfo
-		declared := runtime.ValidElementID(elem, len(s.schema.ElementStartInfos))
-		if declared {
-			decl = s.schema.ElementStartInfos[elem]
-		}
+		decl, declared := s.rt.Element(elem)
 		elementValueKnown = true
 		elementDeclared = declared
 		elementHasValueConstraint = declared && (decl.Fixed || decl.Default)
@@ -382,7 +336,7 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 				return recoverErr
 			}
 			elem = runtime.NoElement
-			typ = s.schema.AnyType()
+			typ = s.rt.AnyType()
 			skip = true
 			elementValueKnown = false
 			elementDeclared = false
@@ -399,15 +353,10 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 	}
 	s.pushSchemaFrame(elem, typ, nilled, skip, elementValueKnown, elementDeclared, elementHasValueConstraint)
 
-finish:
 	if len(s.doc.stack) != s.doc.Depth()+1 {
 		return xsderrors.InternalInvariant("XML document depth does not match schema frame depth")
 	}
-	pathName := rn.Local
-	if !skip && !rn.Known && rn.NS != "" {
-		pathName = rn.Label()
-	}
-	s.doc.CommitStart(se.Name, se.RawName, pathName)
+	s.doc.CommitStart(se.Name, se.RawName, !skip && !rn.Known && rn.NS != "")
 	if s.hasIdentityConstraints {
 		s.doc.namePath = append(s.doc.namePath, rn)
 		if scopeErr := s.startIdentityScope(elem, line, col); scopeErr != nil {
@@ -455,13 +404,7 @@ func (s *session) rootStartType(rn runtime.RuntimeName, se stream.StartElement, 
 		HasSchemaLocation: s.schemaLocationHintLookup(),
 		Context:           s.startContext(line, col),
 	}
-	var start StartResult
-	var err error
-	if s.schema != nil {
-		start, err = RootStart(s.schema, se.Attr, input)
-	} else {
-		start, err = RootStart(s.rt, se.Attr, input)
-	}
+	start, err := RootStart(s.rt, se.Attr, input)
 	if err != nil {
 		if !start.Recover {
 			return runtime.NoElement, runtime.TypeID{}, false, err
@@ -500,11 +443,11 @@ func (s *session) schemaElementStart(
 				}
 				nilled = parsed
 			case vocab.XSIAttrType:
-				override, err := resolveXSIType(s.schema, value, s.qnameResolverForAttrs(xsiFlags.Type), s.schemaLocationHintLookup(), ctx)
+				override, err := resolveXSIType(s.rt, value, s.qnameResolverForAttrs(xsiFlags.Type), s.schemaLocationHintLookup(), ctx)
 				if err != nil {
 					return typ, nilled, err
 				}
-				if err := validateXSITypeOverride(s.schema, elem, typ, override, ctx); err != nil {
+				if err := validateXSITypeOverride(s.rt, elem, typ, override, ctx); err != nil {
 					return typ, nilled, err
 				}
 				typ = override
@@ -512,11 +455,10 @@ func (s *session) schemaElementStart(
 		}
 	}
 	if typ.Kind == runtime.TypeComplex {
-		id := runtime.ComplexTypeID(typ.ID)
-		if !runtime.ValidComplexTypeID(id, len(s.schema.ComplexTypeInfos)) {
+		info, ok := s.rt.TypeInfo(typ)
+		if !ok {
 			return typ, nilled, xsderrors.InternalInvariant("start type metadata is invalid")
 		}
-		info := s.schema.ComplexTypeInfos[id]
 		if info.Abstract {
 			return typ, nilled, validation(ctx, xsderrors.CodeValidationType, "complex type is abstract")
 		}
@@ -546,56 +488,13 @@ func (s *session) checkDocumentDepth() error {
 	return nil
 }
 
-func (s *session) pushFrame(
-	elem runtime.ElementID,
-	typ runtime.TypeID,
-	nilled, skip bool,
-	elementValueKnown, elementDeclared, elementHasValueConstraint bool,
-) {
-	if s.schema != nil {
-		s.pushSchemaFrame(elem, typ, nilled, skip, elementValueKnown, elementDeclared, elementHasValueConstraint)
-		return
-	}
-	contentFrame := runtime.ContentFrameForType(s.rt, typ)
-	childContent, childContentOK := s.childContentInfo(typ)
-	if !childContentOK {
-		childContent = runtime.ChildContentInfo{}
-	}
-	simpleContent, hasSimpleContent, simpleContentKnown := s.frameSimpleContent(typ, childContent, childContentOK)
-	bitLen := contentFrame.AllBitLen()
-	bitBase := len(s.doc.allBits)
-	if bitLen > 0 {
-		s.doc.allBits = slices.Grow(s.doc.allBits, bitLen)
-		s.doc.allBits = s.doc.allBits[:bitBase+bitLen]
-		clear(s.doc.allBits[bitBase:])
-	}
-	s.doc.stack = append(s.doc.stack, frame{
-		Element:                   elem,
-		Type:                      typ,
-		BitBase:                   bitBase,
-		BitLen:                    bitLen,
-		Content:                   contentFrame.ContentState(),
-		Child:                     childContent,
-		SimpleContent:             simpleContent,
-		TextStart:                 len(s.doc.text),
-		Nilled:                    nilled,
-		Skip:                      skip,
-		SimpleContentKnown:        simpleContentKnown,
-		HasSimpleContent:          hasSimpleContent,
-		ChildOK:                   childContentOK,
-		ElementValueKnown:         elementValueKnown,
-		ElementDeclared:           elementDeclared,
-		ElementHasValueConstraint: elementHasValueConstraint,
-	})
-}
-
 func (s *session) pushSchemaFrame(
 	elem runtime.ElementID,
 	typ runtime.TypeID,
 	nilled, skip bool,
 	elementValueKnown, elementDeclared, elementHasValueConstraint bool,
 ) {
-	contentFrame := s.schema.ContentFrameForPublishedSchema(typ)
+	contentFrame := s.rt.ContentFrameForPublishedSchema(typ)
 	childContent, childContentOK := s.schemaChildContentInfo(typ)
 	if !childContentOK {
 		childContent = runtime.ChildContentInfo{}
@@ -629,39 +528,7 @@ func (s *session) pushSchemaFrame(
 }
 
 func (s *session) schemaChildContentInfo(typ runtime.TypeID) (runtime.ChildContentInfo, bool) {
-	content, ok := runtime.ElementChildContentByType(len(s.schema.SimpleTypePrimitives), s.schema.ComplexChildContentReads, typ)
-	if !ok {
-		return runtime.ChildContentInfo{}, false
-	}
-	return runtime.NewChildContentInfoForElementChildContent(content), true
-}
-
-func (s *session) frameSimpleContent(
-	typ runtime.TypeID,
-	child runtime.ChildContentInfo,
-	childOK bool,
-) (runtime.SimpleTypeID, bool, bool) {
-	if s.schema == nil {
-		return runtime.NoSimpleType, false, false
-	}
-	if id, ok := typ.Simple(); ok {
-		return id, true, true
-	}
-	if !childOK {
-		return runtime.NoSimpleType, false, false
-	}
-	if !child.Simple {
-		return runtime.NoSimpleType, false, true
-	}
-	id, hasSimpleContent, ok := runtime.SimpleContentTypeByType(
-		len(s.schema.SimpleTypePrimitives),
-		s.schema.ComplexSimpleContentReads,
-		typ,
-	)
-	if !ok {
-		return runtime.NoSimpleType, false, false
-	}
-	return id, hasSimpleContent, true
+	return s.rt.ChildContent(typ)
 }
 
 func (s *session) schemaFrameSimpleContent(
@@ -678,18 +545,11 @@ func (s *session) schemaFrameSimpleContent(
 	if !child.Simple {
 		return runtime.NoSimpleType, false, true
 	}
-	id, hasSimpleContent, ok := s.schema.SimpleContentType(typ)
+	id, hasSimpleContent, ok := s.rt.SimpleContentType(typ)
 	if !ok {
 		return runtime.NoSimpleType, false, false
 	}
 	return id, hasSimpleContent, true
-}
-
-func (s *session) childContentInfo(typ runtime.TypeID) (runtime.ChildContentInfo, bool) {
-	if s.schema != nil {
-		return s.schema.ChildContent(typ)
-	}
-	return s.rt.ChildContent(typ)
 }
 
 func (s *session) chars(line, col int, data []byte, cdata bool) error {
@@ -714,13 +574,7 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if frameHasSimpleContent(f) {
 		return s.appendText(data, line, col)
 	}
-	var content runtime.ElementTextContent
-	var ok bool
-	if s.schema != nil {
-		content, ok = s.schema.ElementTextContent(f.Type, f.Element)
-	} else {
-		content, ok = s.rt.ElementTextContent(f.Type, f.Element)
-	}
+	content, ok := s.rt.ElementTextContent(f.Type, f.Element)
 	if !ok {
 		return xsderrors.InternalInvariant("character data content info is invalid")
 	}

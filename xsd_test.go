@@ -41,7 +41,7 @@ func TestBytesSourceCopiesInput(t *testing.T) {
 	}
 }
 
-func TestCopiedEngineSharesValidationPreparation(t *testing.T) {
+func TestCopiedEngineSharesPublishedSchema(t *testing.T) {
 	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
@@ -176,6 +176,88 @@ func TestCopiedSessionResolvesQNameValuesWithCopyState(t *testing.T) {
 	copySession := *session
 	if err := copySession.Validate(strings.NewReader(`<root xmlns:p="urn:test">p:item</root>`)); err != nil {
 		t.Fatalf("copied Session.Validate() error = %v", err)
+	}
+}
+
+func TestValidationPathsPreserveNameSpelling(t *testing.T) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="known" type="xs:int"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+  </xs:element>
+  <xs:element name="strictRoot">
+    <xs:complexType><xs:sequence><xs:any processContents="strict" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name string
+		doc  string
+		path string
+	}{
+		{name: "known", doc: `<root><known>x</known></root>`, path: "/root/known"},
+		{name: "unknown local", doc: `<root><unknown></other></root>`, path: "/root/unknown"},
+		{name: "unknown namespaced lax", doc: `<root><o:unknown xmlns:o="urn:o"></o:other></root>`, path: "/root/{urn:o}unknown"},
+		{name: "skipped", doc: `<strictRoot><o:unknown xmlns:o="urn:o"></o:other></strictRoot>`, path: "/strictRoot/unknown"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := engine.Validate(strings.NewReader(tc.doc))
+			x, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok {
+				t.Fatalf("Validate() error = %v, want structured error", err)
+			}
+			if x.Path != tc.path {
+				t.Fatalf("path = %q, want %q; err=%v", x.Path, tc.path, err)
+			}
+		})
+	}
+}
+
+func TestLaxWildcardValidationAllocationsMatchKnownName(t *testing.T) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:s" xmlns:s="urn:s" elementFormDefault="qualified">
+  <xs:element name="known" type="xs:anyType"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	known, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lax, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	knownDoc := `<s:root xmlns:s="urn:s"><k:known xmlns:k="urn:s"/></s:root>`
+	laxDoc := `<s:root xmlns:s="urn:s"><o:unknown xmlns:o="urn:o"/></s:root>`
+	for range 10 {
+		if err := known.Validate(strings.NewReader(knownDoc)); err != nil {
+			t.Fatal(err)
+		}
+		if err := lax.Validate(strings.NewReader(laxDoc)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	knownAllocs := testing.AllocsPerRun(100, func() {
+		if err := known.Validate(strings.NewReader(knownDoc)); err != nil {
+			panic(err)
+		}
+	})
+	laxAllocs := testing.AllocsPerRun(100, func() {
+		if err := lax.Validate(strings.NewReader(laxDoc)); err != nil {
+			panic(err)
+		}
+	})
+	if laxAllocs != knownAllocs {
+		t.Fatalf("lax wildcard allocations = %.0f, known name = %.0f", laxAllocs, knownAllocs)
 	}
 }
 

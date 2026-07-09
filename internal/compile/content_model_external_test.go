@@ -1539,7 +1539,11 @@ func TestLargeMaxOccursUsesCountedState(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	modelID := rootContentModel(t, engine)
-	if got := len(publishedRuntime(t, engine).CompiledModels[modelID].Rows); got > 3 {
+	model, ok := publishedRuntime(t, engine).CompiledModel(modelID)
+	if !ok {
+		t.Fatalf("missing compiled model %d", modelID)
+	}
+	if got := len(model.Rows); got > 3 {
 		t.Fatalf("compiled rows = %d, want compact counted state", got)
 	}
 	mustValidateRuntime(t, engine, repeatedA(8))
@@ -1558,7 +1562,11 @@ func TestLargeMinOccursInSequenceUsesCountedState(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	modelID := rootContentModel(t, engine)
-	if got := len(publishedRuntime(t, engine).CompiledModels[modelID].Rows); got > 4 {
+	model, ok := publishedRuntime(t, engine).CompiledModel(modelID)
+	if !ok {
+		t.Fatalf("missing compiled model %d", modelID)
+	}
+	if got := len(model.Rows); got > 4 {
 		t.Fatalf("compiled rows = %d, want compact counted state", got)
 	}
 	mustValidateRuntime(t, engine, repeatedAWithB(10))
@@ -2035,7 +2043,10 @@ func wideChoiceSchema(width int, extraParticles string) string {
 
 func requireIndexedRootModel(t *testing.T, engine *runtime.Schema) {
 	t.Helper()
-	model := publishedRuntime(t, engine).CompiledModels[rootContentModel(t, engine)]
+	model, ok := publishedRuntime(t, engine).CompiledModel(rootContentModel(t, engine))
+	if !ok {
+		t.Fatal("missing root compiled model")
+	}
 	if model.Kind != runtime.CompiledModelDFA {
 		t.Fatalf("root model kind = %v, want DFA", model.Kind)
 	}
@@ -2138,7 +2149,10 @@ func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	engine := mustCompileRuntime(t, sb.String())
-	model := publishedRuntime(t, engine).CompiledModels[rootContentModel(t, engine)]
+	model, ok := publishedRuntime(t, engine).CompiledModel(rootContentModel(t, engine))
+	if !ok {
+		t.Fatal("missing root compiled model")
+	}
 	ambiguousRow := false
 	for _, row := range model.Rows {
 		if len(row.Edges) >= runtime.CompiledDFARowIndexMinEdges && !row.Index.IsEnabled() {

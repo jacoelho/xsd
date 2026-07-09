@@ -15,32 +15,7 @@ type acceptedChild struct {
 }
 
 func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType bool, line, col int) (acceptedChild, error) {
-	if s.schema != nil {
-		return s.acceptPublishedSchemaChild(parent, rn, hasXSIType, line, col)
-	}
-	input := ChildInput{
-		HasSchemaLocation: s.schemaLocationHintLookup(),
-		Context:           s.startContext(line, col),
-		Scratch:           s.contentScratch(parent),
-		Name:              rn,
-		ParentChild:       parent.Child,
-		ParentContent:     parent.Content,
-		ParentType:        parent.Type,
-		HasXSIType:        hasXSIType,
-		HasParentChild:    parent.ChildOK,
-		ParentSkip:        parent.Skip,
-		ParentNilled:      parent.Nilled,
-	}
-	child, err := ChildStart(s.rt, input)
-	if child.ContentAdvanced {
-		parent.Content = child.Content
-	}
-	return acceptedChild{
-		element: child.Element,
-		typ:     child.Type,
-		skip:    child.Skip,
-		recover: child.Recover,
-	}, err
+	return s.acceptPublishedSchemaChild(parent, rn, hasXSIType, line, col)
 }
 
 func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeName, hasXSIType bool, line, col int) (acceptedChild, error) {
@@ -64,7 +39,7 @@ func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeNa
 	}
 	st := parent.Content
 	scratch := s.contentScratch(parent)
-	match, ok, valid := s.schema.AdvancePublishedSchemaContent(&st, runtime.ContentInput{
+	match, ok, valid := s.rt.AdvancePublishedSchemaContent(&st, runtime.ContentInput{
 		Name:       rn,
 		HasXSIType: hasXSIType,
 	}, &scratch)
@@ -83,17 +58,17 @@ func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeNa
 	}
 	parent.Content = st
 	if match.Element == runtime.NoElement {
-		return acceptedChild{element: runtime.NoElement, typ: s.schema.AnyType(), skip: match.Skip}, nil
+		return acceptedChild{element: runtime.NoElement, typ: s.rt.AnyType(), skip: match.Skip}, nil
 	}
-	if !runtime.ValidElementID(match.Element, len(s.schema.ElementStartInfos)) {
+	decl, declared := s.rt.Element(match.Element)
+	if !declared {
 		return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
 	}
-	typ := s.schema.ElementStartInfos[match.Element].Type
-	return acceptedChild{element: match.Element, typ: typ, skip: match.Skip}, nil
+	return acceptedChild{element: match.Element, typ: decl.Type, skip: match.Skip}, nil
 }
 
 func (s *session) publishedSchemaSkippedChild() acceptedChild {
-	return acceptedChild{element: runtime.NoElement, typ: s.schema.AnyType(), skip: true}
+	return acceptedChild{element: runtime.NoElement, typ: s.rt.AnyType(), skip: true}
 }
 
 func (s *session) recoverablePublishedSchemaChildIssue(line, col int, issue validationIssue) (acceptedChild, error) {
@@ -120,9 +95,13 @@ func (s *session) end(line, col int, ee stream.EndElement) error {
 	}
 	s.doc.allBits = s.doc.allBits[:f.BitBase]
 	s.doc.text = s.doc.text[:f.TextStart]
-	s.doc.stack = s.doc.stack[:len(s.doc.stack)-1]
+	frameIndex := len(s.doc.stack) - 1
+	s.doc.stack[frameIndex] = frame{}
+	s.doc.stack = s.doc.stack[:frameIndex]
 	if s.hasIdentityConstraints && len(s.doc.namePath) > 0 {
-		s.doc.namePath = s.doc.namePath[:len(s.doc.namePath)-1]
+		nameIndex := len(s.doc.namePath) - 1
+		s.doc.namePath[nameIndex] = runtime.RuntimeName{}
+		s.doc.namePath = s.doc.namePath[:nameIndex]
 	}
 	if err := s.doc.CommitEnd(); err != nil {
 		return err
@@ -196,17 +175,7 @@ func (s *session) finishFrameIdentity(line, col int) error {
 }
 
 func (s *session) completeFrame(f *frame, line, col int) error {
-	if s.schema != nil {
-		return s.completePublishedSchemaFrame(f, line, col)
-	}
-	input := CompleteInput{
-		Context: s.startContext(line, col),
-		Scratch: s.contentScratch(f),
-		Type:    f.Type,
-		Content: f.Content,
-		Nilled:  f.Nilled,
-	}
-	return ContentComplete(s.rt, input)
+	return s.completePublishedSchemaFrame(f, line, col)
 }
 
 func (s *session) completePublishedSchemaFrame(f *frame, line, col int) error {
@@ -214,7 +183,7 @@ func (s *session) completePublishedSchemaFrame(f *frame, line, col int) error {
 		return nil
 	}
 	scratch := s.contentScratch(f)
-	complete, ok := s.schema.CompletePublishedSchemaContent(f.Content, &scratch)
+	complete, ok := s.rt.CompletePublishedSchemaContent(f.Content, &scratch)
 	if !ok {
 		return xsderrors.InternalInvariant("content model state is invalid")
 	}

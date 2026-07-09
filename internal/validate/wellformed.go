@@ -77,7 +77,7 @@ func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, valu
 	if err != nil {
 		return err
 	}
-	c.doc.CommitStart(translated.Name, translated.RawName, translated.Name.Local)
+	c.doc.CommitStart(translated.Name, translated.RawName, false)
 	return nil
 }
 

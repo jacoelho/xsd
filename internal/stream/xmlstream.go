@@ -121,13 +121,17 @@ func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes
 // Next returns the next token. Returned token byte slices are valid until the
 // next call to Next or Reset.
 func (p *Parser) Next() (Token, error) {
+	clear(p.attrs)
+	p.attrs = p.attrs[:0]
 	if p.inCDATA {
 		return p.readCDATAChunk(0, 0)
 	}
 	if p.hasEnd {
 		p.hasEnd = false
+		end := p.pendingEnd
+		p.pendingEnd = EndElement{}
 		line, col := p.br.pos()
-		return Token{Kind: KindEnd, End: p.pendingEnd, Line: line, Column: col}, nil
+		return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
 	}
 	for {
 		b, err := p.br.readByte()
@@ -531,7 +535,6 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 		return StartElement{}, false, err
 	}
 	rawName := lexicalXMLName(name)
-	p.attrs = p.attrs[:0]
 	p.attrValueBuf = p.attrValueBuf[:0]
 	for {
 		b, hadSpace, err := p.readPastSpace()

@@ -10,7 +10,7 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// Compile compiles internal schema sources into a frozen validation runtime.
+// Compile compiles internal schema sources into a published validation runtime.
 func Compile(opts Options, sources []source.Source) (*runtime.Schema, error) {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
@@ -32,7 +32,7 @@ func Compile(opts Options, sources []source.Source) (*runtime.Schema, error) {
 	if err = c.compileGlobals(); err != nil {
 		return nil, err
 	}
-	rt, err := freezeCompilerRuntime(c)
+	rt, err := publishCompilerRuntime(c)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ type compiler struct {
 	names NameInterner
 	compilerModelState
 	compilerSourceState
-	rt            runtime.Schema
+	rt            runtime.SchemaBuild
 	limits        Limits
 	missingSimple runtime.SimpleTypeID
 }
@@ -121,7 +121,7 @@ func newCompiler(limits Limits) (*compiler, error) {
 	builtinAttributeCount := runtime.BuiltinAttributeCount()
 	builtinComplexTypeCount := runtime.BuiltinComplexTypeCount()
 	builtinGlobalTypeCount := runtime.BuiltinGlobalTypeCount()
-	rt := runtime.Schema{
+	rt := runtime.SchemaBuild{
 		Names:              names,
 		GlobalElements:     make(map[runtime.QName]runtime.ElementID),
 		GlobalAttributes:   make(map[runtime.QName]runtime.AttributeID, builtinAttributeCount),

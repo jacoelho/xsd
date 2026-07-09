@@ -50,7 +50,7 @@ func TestRuntimeGlobalsClonesMapAndNameProjectionState(t *testing.T) {
 	identityName := runtime.QName{Local: 5}
 	notationName := runtime.QName{Local: 6}
 	replacement := runtime.QName{Local: 99}
-	rt := &runtime.Schema{
+	build := runtime.SchemaBuild{
 		GlobalAttributes: map[runtime.QName]runtime.AttributeID{attrName: 0},
 		GlobalElements:   map[runtime.QName]runtime.ElementID{elemName: 0},
 		GlobalTypes:      map[runtime.QName]runtime.TypeID{simpleName: runtime.SimpleRef(0), complexName: runtime.ComplexRef(0)},
@@ -63,7 +63,7 @@ func TestRuntimeGlobalsClonesMapAndNameProjectionState(t *testing.T) {
 		Identities:       []runtime.IdentityConstraint{{Name: identityName}},
 	}
 
-	globals := rt.RuntimeGlobalsForTest()
+	globals := build.RuntimeGlobals()
 	globals.GlobalAttributes[attrName] = 9
 	globals.GlobalElements[elemName] = 9
 	globals.GlobalTypes[simpleName] = runtime.ComplexRef(9)
@@ -75,17 +75,17 @@ func TestRuntimeGlobalsClonesMapAndNameProjectionState(t *testing.T) {
 	globals.ComplexTypeNames[0] = replacement
 	globals.IdentityNames[0] = replacement
 
-	if rt.GlobalAttributes[attrName] != 0 ||
-		rt.GlobalElements[elemName] != 0 ||
-		rt.GlobalTypes[simpleName] != runtime.SimpleRef(0) ||
-		rt.GlobalIdentities[identityName] != 0 ||
-		!rt.Notations[notationName] ||
-		rt.Attributes[0].Name != attrName ||
-		rt.Elements[0].Name != elemName ||
-		rt.SimpleTypes[0].Name != simpleName ||
-		rt.ComplexTypes[0].Name != complexName ||
-		rt.Identities[0].Name != identityName {
-		t.Fatalf("runtimeGlobals returned table-backed projection state: %#v", rt)
+	if build.GlobalAttributes[attrName] != 0 ||
+		build.GlobalElements[elemName] != 0 ||
+		build.GlobalTypes[simpleName] != runtime.SimpleRef(0) ||
+		build.GlobalIdentities[identityName] != 0 ||
+		!build.Notations[notationName] ||
+		build.Attributes[0].Name != attrName ||
+		build.Elements[0].Name != elemName ||
+		build.SimpleTypes[0].Name != simpleName ||
+		build.ComplexTypes[0].Name != complexName ||
+		build.Identities[0].Name != identityName {
+		t.Fatalf("runtimeGlobals returned table-backed projection state: %#v", build)
 	}
 }
 

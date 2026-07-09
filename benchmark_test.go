@@ -70,6 +70,18 @@ func BenchmarkCompileSmallSchema(b *testing.B) {
 	}
 }
 
+func BenchmarkCompileAndFirstSession(b *testing.B) {
+	for b.Loop() {
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
+		if err != nil {
+			b.Fatal(err)
+		}
+		if _, err := engine.NewSession(xsd.ValidateOptions{}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
 	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
@@ -123,6 +135,33 @@ func BenchmarkSessionValidateRepeatedQNameValues(b *testing.B) {
 		b.Fatal(err)
 	}
 	doc := benchmarkQNameDoc()
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateRepeatedLaxWildcard(b *testing.B) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := `<root><o:unknown xmlns:o="urn:other"/></root>`
+	if err := session.Validate(strings.NewReader(doc)); err != nil {
+		b.Fatal(err)
+	}
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
@@ -297,6 +336,30 @@ func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		if err := engine.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateDeepThenShallow(b *testing.B) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:anyType"/></xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	const depth = 4096
+	deep := `<root>` + strings.Repeat(`<a>`, depth) + strings.Repeat(`</a>`, depth) + `</root>`
+	if err := session.Validate(strings.NewReader(deep)); err != nil {
+		b.Fatal(err)
+	}
+	shallow := `<root/>`
+	b.SetBytes(int64(len(shallow)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(shallow)); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -19,7 +19,7 @@ func resetRetainedSlice[T any](s []T) []T {
 	if cap(s) > maxRetainedSliceCap {
 		return nil
 	}
-	clear(s[:cap(s)])
+	clear(s)
 	return s[:0]
 }
 
@@ -28,7 +28,6 @@ func resetRetainedBytes(s []byte) []byte {
 	if cap(s) > maxRetainedBufferCap {
 		return nil
 	}
-	clear(s)
 	return s[:0]
 }
 

@@ -12,9 +12,9 @@ func TestQNameValueUsesInstanceNamespacesWithoutInterning(t *testing.T) {
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="q" type="xs:QName"/>
 </xs:schema>`)
-	localsBefore := engineRuntime(t, engine).Names.LocalCount()
+	localsBefore := engineRuntime(t, engine).LocalNameCount()
 	mustValidate(t, engine, `<q xmlns:p="urn:dynamic">p:notInSchema</q>`)
-	if got := engineRuntime(t, engine).Names.LocalCount(); got != localsBefore {
+	if got := engineRuntime(t, engine).LocalNameCount(); got != localsBefore {
 		t.Fatalf("QName validation interned instance local names: before=%d after=%d", localsBefore, got)
 	}
 	mustNotValidate(t, engine, `<q>p:notBound</q>`, xsderrors.CodeValidationFacet)
@@ -38,11 +38,15 @@ func TestWildcardAllowsURIMatchesCompilePredicate(t *testing.T) {
 </xs:schema>`)
 	rt := engineRuntime(t, engine)
 	modes := make(map[runtime.WildcardMode]bool)
-	for _, w := range rt.Wildcards {
+	for i := range rt.WildcardCount() {
+		w, ok := rt.Wildcard(runtime.WildcardID(i))
+		if !ok {
+			t.Fatalf("missing wildcard %d", i)
+		}
 		modes[w.Mode] = true
-		for id := range rt.Names.NamespaceCount() {
+		for id := range rt.NamespaceCount() {
 			nsID := runtime.NamespaceID(id)
-			uri := rt.Names.Namespace(nsID)
+			uri := rt.Namespace(nsID)
 			if got, want := rt.WildcardAllowsURIForTest(w, uri), runtime.WildcardAllowsNamespace(w, nsID); got != want {
 				t.Errorf("wildcardAllowsURI(mode %d, %q) = %v, want %v", w.Mode, uri, got, want)
 			}

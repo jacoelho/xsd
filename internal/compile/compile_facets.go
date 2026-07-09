@@ -213,7 +213,7 @@ func (c *compiler) compileLiteral(base runtime.SimpleTypeID, lexical string, res
 	}, nil
 }
 
-func literalActualValue(rt *runtime.Schema, id runtime.SimpleTypeID, lexical, canonical string) runtime.PrimitiveActualValue {
+func literalActualValue(rt *runtime.SchemaBuild, id runtime.SimpleTypeID, lexical, canonical string) runtime.PrimitiveActualValue {
 	st, ok := rt.SimpleType(id)
 	if !ok || st.Variety != runtime.SimpleVarietyAtomic {
 		return runtime.PrimitiveActualValue{}

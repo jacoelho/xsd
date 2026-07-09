@@ -239,12 +239,12 @@ func ContentFrameForType[RT ContentFrameRuntime](rt RT, typ TypeID) ContentFrame
 // ContentFrameForPublishedSchema derives a frame directly from freeze-validated
 // published schema slices.
 func (rt *Schema) ContentFrameForPublishedSchema(typ TypeID) ContentFrame {
-	modelID := ContentModelForTypeByID(rt.ComplexContentModelIDs, typ)
+	modelID := ContentModelForTypeByID(rt.reads.ComplexContentModelIDs, typ)
 	frame := ContentFrame{state: ContentState{model: modelID, present: true}}
-	if modelID == NoContentModel || !ValidContentModelID(modelID, len(rt.CompiledModelViews)) {
+	if modelID == NoContentModel || !ValidContentModelID(modelID, len(rt.reads.CompiledModels)) {
 		return frame
 	}
-	model := rt.CompiledModelViews[modelID]
+	model := rt.reads.CompiledModels[modelID]
 	frame.state.state = model.start()
 	frame.allLen = int(model.allBitLen())
 	return frame
@@ -283,10 +283,10 @@ func (rt *Schema) AdvancePublishedSchemaContent(st *ContentState, in ContentInpu
 	if !st.HasModel() {
 		return NoContentMatch(), false, false
 	}
-	if !ValidContentModelID(st.model, len(rt.CompiledModelViews)) {
+	if !ValidContentModelID(st.model, len(rt.reads.CompiledModels)) {
 		return NoContentMatch(), false, false
 	}
-	model := rt.CompiledModelViews[st.model].compiled()
+	model := rt.reads.CompiledModels[st.model].compiled()
 	switch model.Kind {
 	case CompiledModelAny:
 		return rt.matchPublishedAnyContent(in), true, true
@@ -326,10 +326,10 @@ func (rt *Schema) CompletePublishedSchemaContent(st ContentState, scratch *Conte
 	if !st.HasModel() {
 		return false, false
 	}
-	if !ValidContentModelID(st.model, len(rt.CompiledModelViews)) {
+	if !ValidContentModelID(st.model, len(rt.reads.CompiledModels)) {
 		return false, false
 	}
-	model := rt.CompiledModelViews[st.model].compiled()
+	model := rt.reads.CompiledModels[st.model].compiled()
 	switch model.Kind {
 	case CompiledModelEmpty, CompiledModelAny:
 		return true, true
@@ -353,7 +353,7 @@ func matchAnyContent[RT CompiledContentRuntime](rt RT, in ContentInput) ContentM
 
 func (rt *Schema) matchPublishedAnyContent(in ContentInput) ContentMatch {
 	if in.Name.Known {
-		if id, ok := rt.GlobalElementReads[in.Name.Name]; ok {
+		if id, ok := rt.reads.GlobalElements[in.Name.Name]; ok {
 			return ContentMatch{Element: id}
 		}
 	}
@@ -653,25 +653,25 @@ func matchWildcardParticle[RT CompiledContentRuntime](rt RT, w WildcardView, in 
 func (rt *Schema) matchPublishedDirectParticle(p Particle, in ContentInput) (ContentMatch, bool, bool) {
 	switch p.Kind {
 	case ParticleElement:
-		if !ValidElementID(p.Element, len(rt.ElementNames)) {
+		if !ValidElementID(p.Element, len(rt.reads.ElementNames)) {
 			return NoContentMatch(), false, false
 		}
-		name := rt.ElementNames[p.Element]
+		name := rt.reads.ElementNames[p.Element]
 		if in.Name.Known {
 			if name == in.Name.Name {
 				return ContentMatch{Element: p.Element}, true, true
 			}
-			if byName := rt.SubstitutionLookupReads[p.Element]; byName != nil {
+			if byName := rt.reads.SubstitutionLookup[p.Element]; byName != nil {
 				if member, ok := byName[in.Name.Name]; ok {
 					return ContentMatch{Element: member}, true, true
 				}
 			}
 		}
 	case ParticleWildcard:
-		if !ValidWildcardID(p.Wildcard, len(rt.WildcardReads)) {
+		if !ValidWildcardID(p.Wildcard, len(rt.reads.Wildcards)) {
 			return NoContentMatch(), false, false
 		}
-		match, matched := rt.matchPublishedWildcardParticle(rt.WildcardReads[p.Wildcard], in)
+		match, matched := rt.matchPublishedWildcardParticle(rt.reads.Wildcards[p.Wildcard], in)
 		return match, matched, true
 	default:
 		return NoContentMatch(), false, false
@@ -686,7 +686,7 @@ func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput
 	switch w.Process() {
 	case ProcessStrict:
 		if in.Name.Known {
-			if id, ok := rt.GlobalElementReads[in.Name.Name]; ok {
+			if id, ok := rt.reads.GlobalElements[in.Name.Name]; ok {
 				return ContentMatch{Element: id}, true
 			}
 		}
@@ -698,7 +698,7 @@ func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput
 		return ContentMatch{Element: NoElement, Skip: true}, true
 	case ProcessLax:
 		if in.Name.Known {
-			if id, ok := rt.GlobalElementReads[in.Name.Name]; ok {
+			if id, ok := rt.reads.GlobalElements[in.Name.Name]; ok {
 				return ContentMatch{Element: id}, true
 			}
 		}

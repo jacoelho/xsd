@@ -59,7 +59,7 @@ func TestXMLDocumentStateEnforcesStartLimits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
-	doc.CommitStart(start.Name, "root", "root")
+	doc.CommitStart(start.Name, "root", false)
 
 	_, err = doc.PrepareStart(testXMLStart(xml.Name{Local: "child"}, ""), &values, xmlDocumentLimits{depth: 1}, 4, 5)
 	requireCode(t, err, xsderrors.CodeValidationLimit)
@@ -86,7 +86,7 @@ func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, "a")
+	doc.CommitStart(start.Name, start.RawName, false)
 	if endErr := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "a"}, RawName: "a"}, 1, 4); endErr != nil {
 		t.Fatal(endErr)
 	}
@@ -119,7 +119,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, "root")
+	doc.CommitStart(start.Name, start.RawName, false)
 	err = doc.ValidateEnd(stream.EndElement{Name: xml.Name{Space: "q", Local: "root"}, RawName: "q:root"}, 4, 5)
 	if !strings.Contains(err.Error(), "end element </q:root> does not match start element <p:root>") {
 		t.Fatalf("ValidateEnd() error = %v", err)
@@ -138,7 +138,7 @@ func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, "root")
+	doc.CommitStart(start.Name, start.RawName, false)
 	err = doc.Complete()
 	requireCode(t, err, xsderrors.CodeValidationXML)
 	if !strings.Contains(err.Error(), "unclosed element") {
@@ -239,7 +239,7 @@ func commitDocumentStart(t *testing.T, doc *xmlDocumentState, values *stream.Cac
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, local)
+	doc.CommitStart(start.Name, start.RawName, false)
 }
 
 func testXMLStart(name xml.Name, rawName string, attrs ...stream.Attr) stream.StartElement {
