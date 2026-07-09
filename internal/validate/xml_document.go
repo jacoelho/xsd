@@ -18,10 +18,10 @@ type xmlDocumentState struct {
 }
 
 type xmlDocumentElement struct {
-	name       xml.Name
-	rawName    string
-	pathLabel  string
-	pathLength int
+	name         xml.Name
+	rawName      string
+	pathLength   int
+	expandedPath bool
 }
 
 type xmlDocumentLimits struct {
@@ -77,16 +77,19 @@ func (d *xmlDocumentState) PrepareStart(
 	return start, nil
 }
 
-func (d *xmlDocumentState) CommitStart(name xml.Name, rawName, pathLabel string) {
-	pathLength := 1 + len(pathLabel)
+func (d *xmlDocumentState) CommitStart(name xml.Name, rawName string, expandedPath bool) {
+	pathLength := 1 + len(name.Local)
+	if expandedPath {
+		pathLength += len(name.Space) + 2
+	}
 	if len(d.elements) != 0 {
 		pathLength += d.elements[len(d.elements)-1].pathLength
 	}
 	d.elements = append(d.elements, xmlDocumentElement{
-		name:       name,
-		rawName:    rawName,
-		pathLabel:  pathLabel,
-		pathLength: pathLength,
+		name:         name,
+		rawName:      rawName,
+		pathLength:   pathLength,
+		expandedPath: expandedPath,
 	})
 	d.seenRoot = true
 }
@@ -148,7 +151,7 @@ func (d *xmlDocumentState) Reset(maxRetainedCap int) {
 	if cap(d.elements) > maxRetainedCap {
 		d.elements = nil
 	} else {
-		clear(d.elements[:cap(d.elements)])
+		clear(d.elements)
 		d.elements = d.elements[:0]
 	}
 	d.pathText = ""
@@ -182,7 +185,13 @@ func (d *xmlDocumentState) PathString() string {
 	}
 	for i := start; i < depth; i++ {
 		path.WriteByte('/')
-		path.WriteString(d.elements[i].pathLabel)
+		element := d.elements[i]
+		if element.expandedPath {
+			path.WriteByte('{')
+			path.WriteString(element.name.Space)
+			path.WriteByte('}')
+		}
+		path.WriteString(element.name.Local)
 	}
 	d.pathText = path.String()
 	d.pathTextDepth = depth

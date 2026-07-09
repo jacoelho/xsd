@@ -28,8 +28,8 @@ func ValidateContentRestrictionWithModels(rt runtime.ParticleRestrictionRuntime,
 		return xsderrors.InternalInvariant("content restriction requires runtime")
 	}
 	validator := contentRestrictionValidator{rt: rt, models: models}
-	if schema, ok := rt.(*runtime.Schema); ok {
-		validator.wildcards = schema.Wildcards
+	if build, ok := rt.(*runtime.SchemaBuild); ok {
+		validator.wildcards = build.Wildcards
 	}
 	return validator.validateContentRestriction(baseID, derivedID)
 }

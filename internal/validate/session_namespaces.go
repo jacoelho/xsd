@@ -7,13 +7,6 @@ import (
 )
 
 func (s *session) runtimeName(n xml.Name) runtime.RuntimeName {
-	if s.schema != nil {
-		q, ok := s.schema.NameReads.LookupQName(n.Space, n.Local)
-		if ok {
-			return runtime.RuntimeName{Name: q, Known: true, NS: n.Space, Local: n.Local}
-		}
-		return runtime.RuntimeName{Known: false, NS: n.Space, Local: n.Local}
-	}
 	return ResolveRuntimeName(s.rt, n)
 }
 

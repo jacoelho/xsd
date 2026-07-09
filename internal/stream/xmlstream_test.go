@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -427,18 +428,40 @@ func BenchmarkParserLazyWideAttributes(b *testing.B) {
 	}
 }
 
-func TestResetRetainedSliceClearsAttrCapacity(t *testing.T) {
-	attrs := make([]Attr, 2)
-	attrs[1].raw = []byte("stale")
-	attrs = attrs[:1]
-
-	reset := resetRetainedSlice(attrs)
-	if len(reset) != 0 {
-		t.Fatalf("len(reset) = %d, want 0", len(reset))
+func TestParserZeroesReleasedAttributeReferences(t *testing.T) {
+	names := NewCache()
+	values := NewCache()
+	var parser Parser
+	parser.Reset(strings.NewReader(`<r a="1" b="2"/><s c="3"/>`), &names, &values)
+	if _, err := parser.Next(); err != nil {
+		t.Fatal(err)
 	}
-	all := reset[:cap(reset)]
-	if all[1].raw != nil {
-		t.Fatalf("stale attr slot = %+v, want cleared", all[1])
+	tok, err := parser.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.Kind != KindEnd {
+		t.Fatalf("second token kind = %v, want end", tok.Kind)
+	}
+	if len(parser.attrs) != 0 {
+		t.Fatalf("released active attributes = %d, want 0", len(parser.attrs))
+	}
+	for i, got := range parser.attrs[:cap(parser.attrs)] {
+		if got.Name != (xml.Name{}) || got.Value != "" || got.raw != nil {
+			t.Fatalf("released attribute %d retains references: %+v", i, got)
+		}
+	}
+	if parser.pendingEnd != (EndElement{}) {
+		t.Fatalf("released pending end retains references: %+v", parser.pendingEnd)
+	}
+	if _, err := parser.Next(); err != nil {
+		t.Fatal(err)
+	}
+	if len(parser.attrs) != 1 {
+		t.Fatalf("active attributes = %d, want 1", len(parser.attrs))
+	}
+	if got := parser.attrs[:cap(parser.attrs)][1]; got.Name != (xml.Name{}) || got.Value != "" || got.raw != nil {
+		t.Fatalf("released attribute retains references: %+v", got)
 	}
 }
 

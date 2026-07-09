@@ -28,24 +28,14 @@ func (s *session) validateAttributes(typ runtime.TypeID, attrs []stream.Attr, li
 }
 
 func (s *session) attributeUseSetForType(typ runtime.TypeID) (*runtime.AttributeUseSetRead, bool, bool) {
-	if s.schema != nil {
-		return s.schema.AttributeUseSetForTypePtr(typ)
-	}
-	set, isComplex, ok := s.rt.AttributeUseSetForType(typ)
-	return &set, isComplex, ok
+	return s.rt.AttributeUseSetForTypePtr(typ)
 }
 
 func (s *session) attributeDecl(id runtime.AttributeID) (runtime.AttributeDeclRead, bool) {
-	if s.schema != nil {
-		return s.schema.AttributeDecl(id)
-	}
 	return s.rt.AttributeDecl(id)
 }
 
 func (s *session) validateRawSimpleValue(id runtime.SimpleTypeID, raw []byte) (bool, error) {
-	if s.schema != nil {
-		return s.schema.ValidateRawSimpleValue(id, raw)
-	}
 	return s.rt.ValidateRawSimpleValue(id, raw)
 }
 
@@ -55,9 +45,6 @@ func (s *session) validateSimpleValue(
 	resolve runtime.ResolveQNameParts,
 	needs runtime.SimpleValueNeed,
 ) (runtime.SimpleValue, error) {
-	if s.schema != nil {
-		return s.schema.ValidateSimpleValue(id, lexical, resolve, needs)
-	}
 	return s.rt.ValidateSimpleValue(id, lexical, resolve, needs)
 }
 

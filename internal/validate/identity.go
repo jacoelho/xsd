@@ -193,22 +193,29 @@ func (s *IdentityState) Reset(maxRetainedIDs, maxRetainedSlices int) {
 	if cap(s.idrefs) > maxRetainedSlices {
 		s.idrefs = nil
 	} else {
-		clear(s.idrefs[:cap(s.idrefs)])
+		clear(s.idrefs)
 		s.idrefs = s.idrefs[:0]
 	}
-	s.scopes = resetRetainedIdentitySlice(s.scopes, maxRetainedSlices)
-	s.selections = resetRetainedIdentitySlice(s.selections, maxRetainedSlices)
-	s.fieldValues = resetRetainedIdentitySlice(s.fieldValues, maxRetainedSlices)
-	s.matches = resetRetainedIdentitySlice(s.matches, maxRetainedSlices)
+	s.scopes = resetRetainedIdentityReferences(s.scopes, maxRetainedSlices)
+	s.selections = resetRetainedIdentityReferences(s.selections, maxRetainedSlices)
+	s.fieldValues = resetRetainedIdentityReferences(s.fieldValues, maxRetainedSlices)
+	s.matches = resetRetainedIdentityValues(s.matches, maxRetainedSlices)
 	s.entries = 0
 	s.nextNodeID = 0
 }
 
-func resetRetainedIdentitySlice[T any](in []T, maxRetainedCap int) []T {
+func resetRetainedIdentityReferences[T any](in []T, maxRetainedCap int) []T {
 	if cap(in) > maxRetainedCap {
 		return nil
 	}
-	clear(in[:cap(in)])
+	clear(in)
+	return in[:0]
+}
+
+func resetRetainedIdentityValues[T any](in []T, maxRetainedCap int) []T {
+	if cap(in) > maxRetainedCap {
+		return nil
+	}
 	return in[:0]
 }
 
@@ -282,10 +289,7 @@ func (s *IdentityState) StartElementScopeSchema(rt *runtime.Schema, elem runtime
 	if elem == runtime.NoElement {
 		return nil
 	}
-	if !runtime.ValidElementID(elem, len(rt.ElementIdentityConstraintReads)) {
-		return s.startScope(nil, depth, maxScopes, ctx, false)
-	}
-	return s.startScope(rt.ElementIdentityConstraintReads[elem], depth, maxScopes, ctx, false)
+	return s.startScope(rt.ElementIdentityConstraints(elem), depth, maxScopes, ctx, false)
 }
 
 // HasScopes reports whether any identity scopes are active.
@@ -367,7 +371,7 @@ func (s *IdentityState) ElementFieldMatchesSchema(rt *runtime.Schema, namePath [
 	depth := len(namePath)
 	for i := range s.selections {
 		sel := &s.selections[i]
-		fields, ok := runtime.IdentityElementFields(rt.IdentityConstraintReads, sel.constraint)
+		fields, ok := rt.IdentityElementFields(sel.constraint)
 		if !ok {
 			return nil, xsderrors.InternalInvariant("identity element field metadata is invalid")
 		}
@@ -428,7 +432,7 @@ func (s *IdentityState) AttributeFieldMatchesSchema(rt *runtime.Schema, namePath
 	for i := range s.selections {
 		sel := &s.selections[i]
 		start := len(s.matches)
-		fields, ok := runtime.IdentityAttributeFields(rt.IdentityConstraintReads, sel.constraint, name)
+		fields, ok := rt.IdentityAttributeFields(sel.constraint, name)
 		if !ok {
 			return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
 		}
@@ -437,7 +441,7 @@ func (s *IdentityState) AttributeFieldMatchesSchema(rt *runtime.Schema, namePath
 				s.AddFieldMatch(i, field.Field)
 			}
 		}
-		fields, ok = runtime.IdentityAttributeWildcardFields(rt.IdentityConstraintReads, sel.constraint)
+		fields, ok = rt.IdentityAttributeWildcardFields(sel.constraint)
 		if !ok {
 			return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
 		}
@@ -497,14 +501,14 @@ func (s *IdentityState) MatchSelectorsSchema(rt *runtime.Schema, namePath []runt
 	for scopeIndex := range s.scopes {
 		scope := &s.scopes[scopeIndex]
 		for _, id := range scope.constraints {
-			paths, ok := runtime.IdentitySelectorPaths(rt.IdentityConstraintReads, id)
+			paths, ok := rt.IdentitySelectorPaths(id)
 			if !ok {
 				return xsderrors.InternalInvariant("identity selector metadata is invalid")
 			}
 			if !IdentitySelectorMatches(rt, namePath, scope.depth, depth, paths) {
 				continue
 			}
-			fieldCount, ok := runtime.IdentityFieldCount(rt.IdentityConstraintReads, id)
+			fieldCount, ok := rt.IdentityFieldCount(id)
 			if !ok {
 				return xsderrors.InternalInvariant("identity field count metadata is invalid")
 			}
@@ -578,10 +582,11 @@ func simpleValueIdentityKeySchema(rt *runtime.Schema, value runtime.SimpleValue)
 	if value.Type == runtime.NoSimpleType {
 		return runtime.UntypedSimpleIdentityKey(value.Canonical), true
 	}
-	if !runtime.ValidSimpleTypeID(value.Type, len(rt.SimpleTypes)) || rt.SimpleTypes[value.Type].Missing {
+	primitive, ok := rt.SimpleTypePrimitive(value.Type)
+	if !ok {
 		return "", false
 	}
-	return runtime.SimpleIdentityKey(rt.SimpleTypes[value.Type].Primitive, value.Canonical), true
+	return runtime.SimpleIdentityKey(primitive, value.Canonical), true
 }
 
 // CaptureComplexElementFields records the string identity key for selected

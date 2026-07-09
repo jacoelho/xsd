@@ -29,32 +29,7 @@ func engineRuntime(tb testing.TB, rt *runtime.Schema) *runtime.Schema {
 		tb.Fatal("nil runtime")
 		return nil
 	}
-	if err := rt.EnsurePublished(); err != nil {
-		tb.Fatalf("publish runtime: %v", err)
-	}
 	return rt
-}
-
-func mustQName(t *testing.T, rt *runtime.Schema, local string) runtime.QName {
-	t.Helper()
-	q, ok := rt.Names.LookupQName("", local)
-	if !ok {
-		t.Fatalf("runtime missing QName %q", local)
-	}
-	return q
-}
-
-func simpleTypeIDByName(t *testing.T, rt *runtime.Schema, local string) runtime.SimpleTypeID {
-	t.Helper()
-	typ, ok := rt.GlobalTypes[mustQName(t, rt, local)]
-	if !ok {
-		t.Fatalf("runtime missing global type %q", local)
-	}
-	id, ok := typ.Simple()
-	if !ok {
-		t.Fatalf("runtime type %q is not simple: %#v", local, typ)
-	}
-	return id
 }
 
 func mustValidate(t *testing.T, rt *runtime.Schema, doc string) {

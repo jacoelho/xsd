@@ -12,7 +12,7 @@ func (rt *Schema) ValidateSimpleValueRuntimeBoundaryForTest(id SimpleTypeID, lex
 
 // WildcardAllowsURIForTest reports whether a wildcard accepts a namespace URI.
 func (rt *Schema) WildcardAllowsURIForTest(w Wildcard, ns string) bool {
-	return WildcardAllowsURI(&rt.Names, w, ns)
+	return WildcardAllowsURI(&rt.build.Names, w, ns)
 }
 
 // SimpleContentTypeForTest exposes simple-content type projection reads.
@@ -43,9 +43,4 @@ func (rt *Schema) ComplexAttributeUsesForTest(id ComplexTypeID) (AttributeUseSet
 // ElementTextContentForTest exposes text-content projection reads.
 func (rt *Schema) ElementTextContentForTest(t TypeID, elem ElementID) (ElementTextContent, bool) {
 	return rt.ElementTextContent(t, elem)
-}
-
-// ElementDeclForTest exposes raw element declaration reads.
-func (rt *Schema) ElementDeclForTest(id ElementID) (*ElementDecl, bool) {
-	return rt.ElementDecl(id)
 }

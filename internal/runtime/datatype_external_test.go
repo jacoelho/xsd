@@ -10,14 +10,14 @@ import (
 func TestDecimalAndIntegerCanonicalValuesDiverge(t *testing.T) {
 	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
 	rt := engineRuntime(t, engine)
-	decimal, err := rt.ValidateSimpleValueRuntimeBoundaryForTest(rt.Builtin.Decimal, "5", nil, runtime.SimpleNeedCanonical)
+	decimal, err := rt.ValidateSimpleValueRuntimeBoundaryForTest(rt.Builtins().Decimal, "5", nil, runtime.SimpleNeedCanonical)
 	if err != nil {
 		t.Fatalf("validateSimpleValueInfo(decimal) error = %v", err)
 	}
 	if decimal.Canonical != "5.0" {
 		t.Fatalf("decimal canonical = %q, want 5.0", decimal.Canonical)
 	}
-	integer, err := rt.ValidateSimpleValueRuntimeBoundaryForTest(rt.Builtin.Int, "05", nil, runtime.SimpleNeedCanonical)
+	integer, err := rt.ValidateSimpleValueRuntimeBoundaryForTest(rt.Builtins().Int, "05", nil, runtime.SimpleNeedCanonical)
 	if err != nil {
 		t.Fatalf("validateSimpleValueInfo(int) error = %v", err)
 	}

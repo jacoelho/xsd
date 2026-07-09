@@ -35,7 +35,7 @@ func (c *compiler) CompileGlobalsForTest() error {
 }
 
 // RuntimeForTest returns the compiler-owned mutable runtime for white-box tests.
-func (c *compiler) RuntimeForTest() *runtime.Schema {
+func (c *compiler) RuntimeForTest() *runtime.SchemaBuild {
 	return &c.rt
 }
 
@@ -53,13 +53,8 @@ func (c *compiler) DocumentNamesForTest() []string {
 	return names
 }
 
-// ValidateRuntimeSchemaForTest validates runtime invariants for white-box tests.
-func ValidateRuntimeSchemaForTest(rt *runtime.Schema) error {
-	return runtime.ValidateSchema(rt)
-}
-
 // ValidateCompiledModelDerivedForTest validates a compiled model against its source.
-func ValidateCompiledModelDerivedForTest(rt *runtime.Schema, id runtime.ContentModelID, model runtime.CompiledModel) error {
+func ValidateCompiledModelDerivedForTest(rt *runtime.SchemaBuild, id runtime.ContentModelID, model runtime.CompiledModel) error {
 	return ValidateCompiledModelDerived(&rt.Names, rt, id, model)
 }
 
@@ -81,5 +76,5 @@ func ParseSchemaRootForTest(data []byte, limits Limits) (*RawNode, error) {
 
 // FreezeCompilerRuntimeForTest freezes a compiler runtime for white-box tests.
 func FreezeCompilerRuntimeForTest(c *Compiler) (*runtime.Schema, error) {
-	return freezeCompilerRuntime(c)
+	return publishCompilerRuntime(c)
 }

@@ -27,9 +27,6 @@ func publishedRuntime(tb testing.TB, rt *runtime.Schema) *runtime.Schema {
 		tb.Fatal("nil runtime")
 		return nil
 	}
-	if err := rt.EnsurePublished(); err != nil {
-		tb.Fatalf("publish runtime: %v", err)
-	}
 	return rt
 }
 
@@ -84,17 +81,21 @@ const rootContentModelName = "r"
 func rootContentModel(t *testing.T, rt *runtime.Schema) runtime.ContentModelID {
 	t.Helper()
 	rt = publishedRuntime(t, rt)
-	q, ok := rt.Names.LookupQName("", rootContentModelName)
+	q, ok := rt.LookupQName("", rootContentModelName)
 	if !ok {
 		t.Fatalf("LookupQName(%q) failed", rootContentModelName)
 	}
-	elem, ok := rt.GlobalElements[q]
+	elem, ok := rt.GlobalElement(q)
 	if !ok {
 		t.Fatalf("global element %q not found", rootContentModelName)
 	}
-	typ := rt.Elements[elem].Type
+	decl, ok := rt.Element(elem)
+	if !ok {
+		t.Fatalf("global element %q has no declaration", rootContentModelName)
+	}
+	typ := decl.Type
 	if typ.Kind != runtime.TypeComplex {
 		t.Fatalf("root type kind = %v, want complex", typ.Kind)
 	}
-	return rt.ComplexTypes[typ.ID].Content
+	return rt.ContentModelForType(typ)
 }

@@ -81,19 +81,16 @@ type contentModelCompiler struct {
 	models                []runtime.ContentModel
 	wildcards             []runtime.Wildcard
 	maxContentModelStates int
-	schemaRuntime         bool
+	directBuildReads      bool
 }
 
 func newContentModelCompiler(names *runtime.NameTable, rt runtime.CompiledModelRuntime, maxContentModelStates int) contentModelCompiler {
 	c := contentModelCompiler{names: names, rt: rt, maxContentModelStates: maxContentModelStates}
-	if schema, ok := rt.(*runtime.Schema); ok {
-		c.models = schema.Models
-		c.wildcards = schema.Wildcards
-		c.substitutions = schema.SubstitutionReads
-		if c.substitutions == nil {
-			c.substitutions = schema.Substitutions
-		}
-		c.schemaRuntime = true
+	if build, ok := rt.(*runtime.SchemaBuild); ok {
+		c.models = build.Models
+		c.wildcards = build.Wildcards
+		c.substitutions = build.Substitutions
+		c.directBuildReads = true
 	}
 	return c
 }
@@ -135,9 +132,6 @@ func (c *contentModelCompiler) contentModel(id runtime.ContentModelID) (runtime.
 }
 
 func (c *contentModelCompiler) AnyTypeID() runtime.ComplexTypeID {
-	if schema, ok := c.rt.(*runtime.Schema); ok {
-		return runtime.RuntimeAnyTypeID(schema.TypeDerivations, schema.Builtin)
-	}
 	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
 		return rt.AnyTypeID()
 	}
@@ -145,9 +139,6 @@ func (c *contentModelCompiler) AnyTypeID() runtime.ComplexTypeID {
 }
 
 func (c *contentModelCompiler) ComplexTypeCount() int {
-	if schema, ok := c.rt.(*runtime.Schema); ok {
-		return runtime.RuntimeComplexTypeCount(schema.TypeDerivations, schema.ComplexTypes)
-	}
 	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
 		return rt.ComplexTypeCount()
 	}
@@ -155,9 +146,6 @@ func (c *contentModelCompiler) ComplexTypeCount() int {
 }
 
 func (c *contentModelCompiler) SimpleTypeDerivation(id runtime.SimpleTypeID) (runtime.SimpleTypeDerivation, bool) {
-	if schema, ok := c.rt.(*runtime.Schema); ok {
-		return runtime.RuntimeSimpleTypeDerivation(schema.TypeDerivations, schema.SimpleTypes, id)
-	}
 	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
 		return rt.SimpleTypeDerivation(id)
 	}
@@ -165,9 +153,6 @@ func (c *contentModelCompiler) SimpleTypeDerivation(id runtime.SimpleTypeID) (ru
 }
 
 func (c *contentModelCompiler) ComplexTypeDerivation(id runtime.ComplexTypeID) (runtime.ComplexTypeDerivation, bool) {
-	if schema, ok := c.rt.(*runtime.Schema); ok {
-		return runtime.RuntimeComplexTypeDerivation(schema.TypeDerivations, schema.ComplexTypes, id)
-	}
 	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
 		return rt.ComplexTypeDerivation(id)
 	}
@@ -175,18 +160,6 @@ func (c *contentModelCompiler) ComplexTypeDerivation(id runtime.ComplexTypeID) (
 }
 
 func (c *contentModelCompiler) ElementRestriction(id runtime.ElementID) (runtime.ParticleRestrictionElement, bool) {
-	if schema, ok := c.rt.(*runtime.Schema); ok {
-		if !runtime.ValidElementID(id, len(schema.Elements)) {
-			return runtime.ParticleRestrictionElement{}, false
-		}
-		decl := schema.Elements[id]
-		return runtime.ParticleRestrictionElement{
-			Type:     decl.Type,
-			Block:    decl.Block,
-			Fixed:    runtime.NewValueConstraintIdentity(decl.Fixed),
-			Nillable: decl.Nillable,
-		}, true
-	}
 	if rt, ok := c.rt.(runtime.ParticleRestrictionRuntime); ok {
 		return rt.ElementRestriction(id)
 	}
@@ -295,8 +268,8 @@ func CheckContentModelsUPA(
 // consistency for every compiled content model.
 func CheckContentModelElementDeclarationsConsistent(rt ElementDeclarationRuntime, count int) error {
 	modelRT := elementDeclarationModelRuntime{rt: rt}
-	if schema, ok := rt.(*runtime.Schema); ok {
-		modelRT.models = schema.Models
+	if build, ok := rt.(*runtime.SchemaBuild); ok {
+		modelRT.models = build.Models
 	}
 	for id := range count {
 		model, ok := modelRT.ContentModel(runtime.ContentModelID(id))
@@ -804,7 +777,7 @@ func (c *contentModelCompiler) compiledRowNeedsUPACheck(row runtime.CompiledMode
 }
 
 func (c *contentModelCompiler) elementHasSubstitutionMembers(id runtime.ElementID) bool {
-	if c.schemaRuntime {
+	if c.directBuildReads {
 		return len(c.substitutions[id]) != 0
 	}
 	found := false

@@ -91,15 +91,22 @@ func NewStackWithCapacity(frameCap, bindingCap int) Stack {
 
 // Reset clears the stack, retaining bounded slice capacity.
 func (s *Stack) Reset(maxRetainedCap int) {
-	s.frames = resetRetainedSlice(s.frames, maxRetainedCap)
-	s.bindings = resetRetainedSlice(s.bindings, maxRetainedCap)
+	s.frames = resetRetainedValues(s.frames, maxRetainedCap)
+	s.bindings = resetRetainedReferences(s.bindings, maxRetainedCap)
 }
 
-func resetRetainedSlice[T any](s []T, maxRetainedCap int) []T {
+func resetRetainedReferences[T any](s []T, maxRetainedCap int) []T {
 	if cap(s) > maxRetainedCap {
 		return nil
 	}
-	clear(s[:cap(s)])
+	clear(s)
+	return s[:0]
+}
+
+func resetRetainedValues[T any](s []T, maxRetainedCap int) []T {
+	if cap(s) > maxRetainedCap {
+		return nil
+	}
 	return s[:0]
 }
 

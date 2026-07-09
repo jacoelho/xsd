@@ -56,7 +56,7 @@ func TestRootCompileIsFacade(t *testing.T) {
 	}
 }
 
-func TestRootDoesNotImportRuntimeImplementation(t *testing.T) {
+func TestRootRuntimeImportIsConfinedToEngineAndSession(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
 	for _, file := range productionRootFiles(t, root) {
@@ -64,7 +64,8 @@ func TestRootDoesNotImportRuntimeImplementation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse %s: %v", file, err)
 		}
-		if importsPath(parsed, "github.com/jacoelho/xsd/internal/runtime") {
+		base := filepath.Base(file)
+		if importsPath(parsed, "github.com/jacoelho/xsd/internal/runtime") && base != "compile.go" && base != "session.go" {
 			t.Fatalf("%s imports internal/runtime implementation", file)
 		}
 	}
