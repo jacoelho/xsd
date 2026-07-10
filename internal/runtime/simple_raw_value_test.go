@@ -6,6 +6,40 @@ import (
 	"testing"
 )
 
+func TestValidateRawStringLengthUsesNormalizedCodePointCount(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		input      []byte
+		whitespace WhitespaceMode
+		length     uint32
+	}{
+		{name: "preserve multibyte", input: []byte("éa"), whitespace: WhitespacePreserve, length: 2},
+		{name: "replace", input: []byte("a\tb"), whitespace: WhitespaceReplace, length: 3},
+		{name: "collapse", input: []byte(" \té  a\n"), whitespace: WhitespaceCollapse, length: 3},
+		{name: "collapse empty", input: []byte(" \t\n"), whitespace: WhitespaceCollapse, length: 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			facets := LengthFacetValues{Length: FacetCardinalityValue{Value: tc.length, Present: true}}
+			if err := validateRawStringLength(tc.input, tc.whitespace, facets); err != nil {
+				t.Fatalf("validateRawStringLength() error = %v", err)
+			}
+		})
+	}
+
+	if err := validateRawStringLength([]byte{0xff}, WhitespacePreserve, LengthFacetValues{}); err == nil {
+		t.Fatal("validateRawStringLength() accepted invalid UTF-8")
+	}
+	if err := validateRawStringLength([]byte("ab"), WhitespacePreserve, LengthFacetValues{
+		MinLength: FacetCardinalityValue{Value: 3, Present: true},
+	}); err == nil || err.Error() != "minLength facet failed" {
+		t.Fatalf("validateRawStringLength() error = %v", err)
+	}
+}
+
 type rawSimpleValueCallbackStub struct {
 	types        map[SimpleTypeID]RawSimpleValueType
 	unions       map[SimpleTypeID][]SimpleTypeID

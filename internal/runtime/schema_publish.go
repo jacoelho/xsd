@@ -1,19 +1,25 @@
 package runtime
 
+import "errors"
+
 // PublishSchema audits compiler-owned state, constructs every validation read
 // projection, verifies those projections, and seals the result. The build is
 // moved on success; callers must not retain or mutate its maps or slices.
-func PublishSchema(build SchemaBuild) (*Schema, error) {
-	source := schemaAudit{build: build}
+func PublishSchema(build *SchemaBuild) (*Schema, error) {
+	if build == nil {
+		return nil, errors.New("nil schema build")
+	}
+	source := schemaAudit{build: *build}
 	if err := validateCompilerPublication(&source); err != nil {
 		return nil, err
 	}
-	reads := newSchemaRuntime(&build)
+	reads := newSchemaRuntime(build)
 	candidate := Schema{runtime: reads}
-	audit := schemaAudit{Schema: candidate, build: build}
+	audit := schemaAudit{Schema: candidate, build: *build}
 	if err := validateRuntimeReadProjections(&audit); err != nil {
 		return nil, err
 	}
+	*build = SchemaBuild{}
 	return &candidate, nil
 }
 
@@ -42,14 +48,12 @@ func newSchemaRuntime(build *SchemaBuild) schemaRuntime {
 		CompiledModels:          NewBorrowedCompiledModelViews(build.CompiledModels),
 		ElementNames:            NewElementNameReadsForDecls(build.Elements),
 		ElementStarts:           NewElementStartInfosForElementDecls(build.Elements),
-		ElementIdentities:       NewElementIdentityConstraintReadsForDecls(build.Elements),
-		Identities:              NewIdentityConstraintReads(build.Identities),
+		ElementIdentities:       moveElementIdentityConstraintReads(build.Elements),
+		Identities:              moveIdentityConstraintReads(build.Identities),
 		ElementValueConstraints: NewElementValueConstraintReadsForDecls(build.Elements),
 		SimpleTextContent:       NewElementTextContentForSimpleType(),
 	}
-	reads.SimpleValueQNameResolverNeeds = NewSimpleValueQNameResolverNeedsForSimpleTypes(build.SimpleTypes)
-	reads.simpleValueCallbacks = newSimpleValueCallbacksForRouteReads(simpleValueRoutes, simpleValueCold, notationReadLookup(reads.Notations))
-	reads.rawSimpleValueCallbacks = newRawSimpleValueCallbacksForRouteReads(simpleValueRoutes, simpleValueCold)
-	reads.AttributeUseSets = NewAttributeUseSetReadsForSetsWithSimpleTypes(&build.Names, build.AttributeUseSets, build.SimpleTypes)
+	reads.SimpleValueQNameNeeds = NewSimpleValueQNameResolverNeedsForSimpleTypes(build.SimpleTypes)
+	reads.AttributeUseSets = moveAttributeUseSetReads(&build.Names, build.AttributeUseSets, build.SimpleTypes)
 	return reads
 }

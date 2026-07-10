@@ -232,6 +232,26 @@ func NewAttributeUseSetReadsForSetsWithSimpleTypes(names *NameTable, sets []Attr
 	return out
 }
 
+func moveAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) []AttributeUseSetRead {
+	out := make([]AttributeUseSetRead, len(sets))
+	for i := range sets {
+		set := &sets[i]
+		uses := make([]AttributeUseRead, len(set.Uses))
+		for j := range set.Uses {
+			uses[j] = NewAttributeUseReadForSimpleTypes(attributeUseReadShapeForUse(names, set.Uses[j]), simpleTypes)
+		}
+		out[i] = AttributeUseSetRead{
+			index:            set.Index,
+			uses:             uses,
+			required:         set.Required,
+			valueConstraints: set.ValueConstraints,
+			wildcard:         set.Wildcard,
+		}
+		out[i].singleUse = attributeUseSetReadHasSingleUse(out[i])
+	}
+	return out
+}
+
 func attributeUseSetReadShapeForSet(names *NameTable, set AttributeUseSet) AttributeUseSetReadShape {
 	uses := make([]AttributeUseReadShape, len(set.Uses))
 	for i := range set.Uses {

@@ -41,7 +41,7 @@ func NewIdentityRecorderForTest() *IdentityRecorderForTest {
 
 // PushPath appends a path segment.
 func (r *IdentityRecorderForTest) PushPath(local string) {
-	r.session.doc.CommitStart(xml.Name{Local: local}, local, false)
+	r.session.doc.CommitStart(xml.Name{Local: local}, local, false, frame{})
 }
 
 // PathString returns the current validation path.

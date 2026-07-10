@@ -11,15 +11,13 @@ import (
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlns"
-	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	var s session
 	s.doc.errors = make([]error, 1, maxRetainedSliceCap+1)
-	s.doc.stack = make([]frame, 1, maxRetainedSliceCap+1)
 	s.doc.ns = xmlns.NewStackWithCapacity(maxRetainedSliceCap+1, maxRetainedSliceCap+1)
-	s.doc.elements = make([]xmlDocumentElement, 1, maxRetainedSliceCap+1)
+	s.doc.elements = make([]xmlDocumentElement[frame], 1, maxRetainedSliceCap+1)
 	s.doc.text = make([]byte, 1, maxRetainedBufferCap+1)
 	s.doc.namePath = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
@@ -33,7 +31,6 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.reset()
 
 	if cap(s.doc.errors) != 0 ||
-		cap(s.doc.stack) != 0 ||
 		s.doc.ns.FrameCapacity() != 0 ||
 		s.doc.ns.BindingCapacity() != 0 ||
 		cap(s.doc.elements) != 0 ||
@@ -55,8 +52,8 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 
 func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	var s session
-	s.doc.elements = make([]xmlDocumentElement, 0, maxRetainedSliceCap)
-	s.doc.CommitStart(xml.Name{Local: "stale"}, "stale", false)
+	s.doc.elements = make([]xmlDocumentElement[frame], 0, maxRetainedSliceCap)
+	s.doc.CommitStart(xml.Name{Local: "stale"}, "stale", false, frame{})
 	s.doc.pathText = "stale"
 	s.doc.pathTextDepth = 1
 
@@ -71,7 +68,7 @@ func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	if cap(s.doc.elements) == 0 {
 		t.Fatal("path capacity was not retained")
 	}
-	if s.doc.elements[:cap(s.doc.elements)][0] != (xmlDocumentElement{}) {
+	if s.doc.elements[:cap(s.doc.elements)][0] != (xmlDocumentElement[frame]{}) {
 		t.Fatal("reset retained stale path string")
 	}
 }
@@ -82,8 +79,8 @@ func staleSchemaLocationHintName() xml.Name {
 
 func TestSessionPathStringMaterializesLazily(t *testing.T) {
 	var s session
-	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false)
-	s.doc.CommitStart(xml.Name{Local: "row"}, "row", false)
+	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false, frame{})
+	s.doc.CommitStart(xml.Name{Local: "row"}, "row", false, frame{})
 
 	if s.doc.pathText != "" {
 		t.Fatal("pushPath materialized path text")
@@ -98,11 +95,11 @@ func TestSessionPathStringMaterializesLazily(t *testing.T) {
 
 func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	var s session
-	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false)
+	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false, frame{})
 	if got := s.doc.PathString(); got != "/root" {
 		t.Fatalf("pathString() = %q, want /root", got)
 	}
-	s.doc.CommitStart(xml.Name{Local: "child"}, "child", false)
+	s.doc.CommitStart(xml.Name{Local: "child"}, "child", false, frame{})
 	if got := s.doc.PathString(); got != "/root/child" {
 		t.Fatalf("pathString() = %q, want /root/child", got)
 	}
@@ -117,14 +114,6 @@ func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	if s.doc.pathText != "/root" {
 		t.Fatalf("pathText after pop = %q, want /root", s.doc.pathText)
 	}
-}
-
-func TestSessionRejectsDocumentSchemaDepthDivergence(t *testing.T) {
-	var s session
-	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false)
-
-	err := s.chars(1, 1, nil, false)
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 }
 
 func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
@@ -181,11 +170,11 @@ func nestedIdentityDocument(depth int, closeElements bool) string {
 
 func assertReleasedReferencesZero(t *testing.T, s *session) {
 	t.Helper()
-	if len(s.doc.elements) != 0 || len(s.doc.stack) != 0 || len(s.doc.namePath) != 0 {
-		t.Fatalf("active document state remains: elements=%d stack=%d names=%d", len(s.doc.elements), len(s.doc.stack), len(s.doc.namePath))
+	if len(s.doc.elements) != 0 || len(s.doc.namePath) != 0 {
+		t.Fatalf("active document state remains: elements=%d names=%d", len(s.doc.elements), len(s.doc.namePath))
 	}
 	for i, element := range s.doc.elements[:cap(s.doc.elements)] {
-		if element != (xmlDocumentElement{}) {
+		if element != (xmlDocumentElement[frame]{}) {
 			t.Fatalf("element tail %d retains references: %+v", i, element)
 		}
 	}

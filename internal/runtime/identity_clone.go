@@ -61,6 +61,14 @@ func NewElementIdentityConstraintReadsForDecls(decls []ElementDecl) [][]Identity
 	return out
 }
 
+func moveElementIdentityConstraintReads(decls []ElementDecl) [][]IdentityConstraintID {
+	out := make([][]IdentityConstraintID, len(decls))
+	for i := range decls {
+		out[i] = decls[i].Identity
+	}
+	return out
+}
+
 // CloneIdentityPaths deep-clones parsed identity selector path metadata.
 func CloneIdentityPaths(in []IdentityPath) []IdentityPath {
 	out := slices.Clone(in)

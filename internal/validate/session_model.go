@@ -39,14 +39,14 @@ func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeNa
 	}
 	st := parent.Content
 	scratch := s.contentScratch(parent)
-	match, ok, valid := s.rt.AdvancePublishedSchemaContent(&st, runtime.ContentInput{
+	match, status := s.rt.AdvanceContent(&st, runtime.ContentInput{
 		Name:       rn,
 		HasXSIType: hasXSIType,
 	}, &scratch)
-	if !valid {
+	if status == runtime.ContentAdvanceInvalid {
 		return acceptedChild{}, xsderrors.InternalInvariant("content model state is invalid")
 	}
-	if !ok {
+	if status == runtime.ContentAdvanceNoMatch {
 		return s.recoverablePublishedSchemaChildIssue(line, col, unexpectedChildIssue(rn))
 	}
 	if match.StrictMissing {
@@ -82,21 +82,19 @@ func (s *session) recoverablePublishedSchemaChildIssueAt(ctx StartContext, issue
 }
 
 func (s *session) end(line, col int, ee stream.EndElement) error {
-	if err := s.checkDocumentDepth(); err != nil {
-		return err
-	}
 	if err := s.doc.ValidateEnd(ee, line, col); err != nil {
 		return err
 	}
-	f := &s.doc.stack[len(s.doc.stack)-1]
+	f, ok := s.doc.Current()
+	if !ok {
+		return xsderrors.InternalInvariant("end element has no schema frame")
+	}
 	stop := s.validateFrameEnd(f, line, col)
 	if stop == nil && s.hasIdentityConstraints {
 		stop = s.finishFrameIdentity(line, col)
 	}
 	s.doc.allBits = s.doc.allBits[:f.BitBase]
 	s.doc.text = s.doc.text[:f.TextStart]
-	frameIndex := len(s.doc.stack) - 1
-	s.doc.stack = s.doc.stack[:frameIndex]
 	if s.hasIdentityConstraints && len(s.doc.namePath) > 0 {
 		nameIndex := len(s.doc.namePath) - 1
 		s.doc.namePath[nameIndex] = runtime.RuntimeName{}
@@ -182,11 +180,11 @@ func (s *session) completePublishedSchemaFrame(f *frame, line, col int) error {
 		return nil
 	}
 	scratch := s.contentScratch(f)
-	complete, ok := s.rt.CompletePublishedSchemaContent(f.Content, &scratch)
-	if !ok {
+	status := s.rt.CompleteContent(f.Content, &scratch)
+	if status == runtime.ContentCompletionInvalid {
 		return xsderrors.InternalInvariant("content model state is invalid")
 	}
-	if complete {
+	if status == runtime.ContentCompletionComplete {
 		return nil
 	}
 	return validationFromIssue(s.startContext(line, col), missingRequiredChildIssue())

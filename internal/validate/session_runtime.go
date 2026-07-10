@@ -107,9 +107,9 @@ type session struct {
 }
 
 // documentState is the mutable state of one document validation. XML syntax
-// state lives in xmlDocumentState; content-model state (stack frames, allBits)
-// is driven by session_model.go; identity constraint selector matching by
-// session_identity.go; attribute validation by session_attributes.go.
+// and content-model frames live in one xmlDocument stack; identity constraint
+// selector matching is owned by session_identity.go; attribute validation by
+// session_attributes.go.
 //
 // session.reset rebuilds the whole struct with a composite literal, so any
 // field not named there is zeroed between documents; listing a field in
@@ -117,10 +117,9 @@ type session struct {
 //
 //nolint:govet // Field order groups retained validation state by owning subsystem.
 type documentState struct {
-	xmlDocumentState
+	xmlDocument[frame]
 	identity            IdentityState
 	schemaLocationHints SchemaLocationHints
-	stack               []frame
 	allBits             []uint64
 	namePath            []runtime.RuntimeName
 	errors              []error
@@ -209,9 +208,6 @@ func (s *session) stopOrError(err error) error {
 }
 
 func (s *session) finishValidation() error {
-	if err := s.checkDocumentDepth(); err != nil {
-		return err
-	}
 	if err := s.doc.Complete(); err != nil {
 		return err
 	}
@@ -226,16 +222,15 @@ func (s *session) finishValidation() error {
 // field is zeroed by the literal itself, so omitting a field can never leak
 // state across documents.
 func (s *session) reset() {
-	xmlDocument := s.doc.xmlDocumentState
+	xmlDocument := s.doc.xmlDocument
 	xmlDocument.Reset(maxRetainedSliceCap)
 	schemaLocationHints := s.doc.schemaLocationHints
 	schemaLocationHints.Reset(maxRetainedMapLen)
 	identity := s.doc.identity
 	identity.Reset(maxRetainedMapLen, maxRetainedSliceCap)
 	s.doc = documentState{
-		xmlDocumentState:    xmlDocument,
+		xmlDocument:         xmlDocument,
 		errors:              resetRetainedReferences(s.doc.errors),
-		stack:               resetRetainedValues(s.doc.stack),
 		text:                resetRetainedBytes(s.doc.text),
 		namePath:            resetRetainedReferences(s.doc.namePath),
 		allBits:             resetRetainedValues(s.doc.allBits),
@@ -292,9 +287,6 @@ func (s *session) recover(err error) error {
 }
 
 func (s *session) start(line, col int, se stream.StartElement) error {
-	if err := s.checkDocumentDepth(); err != nil {
-		return err
-	}
 	se, err := s.doc.PrepareStart(se, &s.valueStrings, xmlDocumentLimits{
 		depth:      s.maxInstanceDepth,
 		attributes: s.maxInstanceAttributes,
@@ -307,6 +299,7 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 		if schemaLocationErr := s.recordSchemaLocationHints(se.Attr, line, col); schemaLocationErr != nil {
 			recoverErr := s.recover(schemaLocationErr)
 			if recoverErr != nil {
+				s.doc.AbortStart()
 				return recoverErr
 			}
 		}
@@ -314,6 +307,7 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 	rn := s.runtimeName(se.Name)
 	start, err := s.startType(rn, se, xsiFlags.Type, line, col)
 	if err != nil {
+		s.doc.AbortStart()
 		return err
 	}
 	var nilled bool
@@ -325,6 +319,7 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 		nilled, err = s.assessElementStart(&start, decl, declared, se.Attr, xsiFlags, ctx)
 		if err != nil {
 			if recoverErr := s.recover(err); recoverErr != nil {
+				s.doc.AbortStart()
 				return recoverErr
 			}
 		}
@@ -333,7 +328,7 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 			declared = false
 		}
 	}
-	s.pushSchemaFrame(
+	schemaFrame := s.newSchemaFrame(
 		start.element,
 		start.typ,
 		nilled,
@@ -342,11 +337,7 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 		declared,
 		declared && (decl.Fixed || decl.Default),
 	)
-
-	if len(s.doc.stack) != s.doc.Depth()+1 {
-		return xsderrors.InternalInvariant("XML document depth does not match schema frame depth")
-	}
-	s.doc.CommitStart(se.Name, se.RawName, !start.skip && !rn.Known && rn.NS != "")
+	s.doc.CommitStart(se.Name, se.RawName, !start.skip && !rn.Known && rn.NS != "", schemaFrame)
 	if s.hasIdentityConstraints {
 		s.doc.namePath = append(s.doc.namePath, rn)
 		if scopeErr := s.startIdentityScope(start.element, line, col); scopeErr != nil {
@@ -429,7 +420,10 @@ func (s *session) startType(rn runtime.RuntimeName, se stream.StartElement, hasX
 	if s.doc.Depth() == 0 {
 		return s.rootStartType(rn, se, hasXSIType, line, col)
 	}
-	parent := &s.doc.stack[len(s.doc.stack)-1]
+	parent, ok := s.doc.Current()
+	if !ok {
+		return schemaStart{}, xsderrors.InternalInvariant("child start has no parent frame")
+	}
 	parent.HasChild = true
 	accepted, err := s.acceptChild(parent, rn, hasXSIType, line, col)
 	if err == nil {
@@ -482,20 +476,13 @@ func (s *session) startContext(line, col int) StartContext {
 	return s.doc.context(line, col)
 }
 
-func (s *session) checkDocumentDepth() error {
-	if s.doc.Depth() != len(s.doc.stack) {
-		return xsderrors.InternalInvariant("XML document depth does not match schema frame depth")
-	}
-	return nil
-}
-
-func (s *session) pushSchemaFrame(
+func (s *session) newSchemaFrame(
 	elem runtime.ElementID,
 	typ runtime.TypeID,
 	nilled, skip bool,
 	elementValueKnown, elementDeclared, elementHasValueConstraint bool,
-) {
-	contentFrame := s.rt.ContentFrameForPublishedSchema(typ)
+) frame {
+	contentFrame := s.rt.ContentFrame(typ)
 	childContent, childContentOK := s.schemaChildContentInfo(typ)
 	if !childContentOK {
 		childContent = runtime.ChildContentInfo{}
@@ -508,7 +495,7 @@ func (s *session) pushSchemaFrame(
 		s.doc.allBits = s.doc.allBits[:bitBase+bitLen]
 		clear(s.doc.allBits[bitBase:])
 	}
-	s.doc.stack = append(s.doc.stack, frame{
+	return frame{
 		Element:                   elem,
 		Type:                      typ,
 		BitBase:                   bitBase,
@@ -525,7 +512,7 @@ func (s *session) pushSchemaFrame(
 		ElementValueKnown:         elementValueKnown,
 		ElementDeclared:           elementDeclared,
 		ElementHasValueConstraint: elementHasValueConstraint,
-	})
+	}
 }
 
 func (s *session) schemaChildContentInfo(typ runtime.TypeID) (runtime.ChildContentInfo, bool) {
@@ -554,18 +541,10 @@ func (s *session) schemaFrameSimpleContent(
 }
 
 func (s *session) chars(line, col int, data []byte, cdata bool) error {
-	if err := s.checkDocumentDepth(); err != nil {
-		return err
+	f, ok := s.doc.Current()
+	if !ok {
+		return ValidateDocumentCharacterData(data, cdata, s.startContext(line, col))
 	}
-	if len(s.doc.stack) == 0 {
-		_, err := ValidateCharacterData(CharacterDataInput{
-			Data:    data,
-			Context: s.startContext(line, col),
-			CDATA:   cdata,
-		})
-		return err
-	}
-	f := &s.doc.stack[len(s.doc.stack)-1]
 	if len(data) == 0 || f.Skip {
 		return nil
 	}
