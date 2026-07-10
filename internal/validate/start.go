@@ -63,9 +63,13 @@ func ResolveLexicalQNameParts(lexical string, lookup NamespaceLookup) (string, s
 // HasSchemaLocation reports whether an xsi:schemaLocation hint was seen for a namespace.
 type HasSchemaLocation func(string) bool
 
+type pathSource interface {
+	PathString() string
+}
+
 // StartContext identifies a validation location.
 type StartContext struct {
-	document *xmlDocumentState
+	document pathSource
 	Path     string
 	Line     int
 	Column   int

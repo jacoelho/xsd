@@ -335,7 +335,7 @@ func validateSimpleValueReads(rt *schemaAudit) error {
 	if err := validateSimpleValueColdReadProjectionForTypes(rt.runtime.SimpleValueCold, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	if err := ValidateSimpleValueQNameResolverNeedsForSimpleTypes(rt.runtime.SimpleValueQNameResolverNeeds, rt.build.SimpleTypes); err != nil {
+	if err := ValidateSimpleValueQNameResolverNeedsForSimpleTypes(rt.runtime.SimpleValueQNameNeeds, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil

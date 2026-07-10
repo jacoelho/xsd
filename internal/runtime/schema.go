@@ -25,34 +25,32 @@ type SchemaBuild struct {
 
 //nolint:govet // Field order groups projections by owning validation subsystem.
 type schemaRuntime struct {
-	Builtin                       BuiltinIDs
-	GlobalAttributes              map[QName]AttributeID
-	GlobalElements                map[QName]ElementID
-	GlobalTypes                   map[QName]TypeID
-	Substitutions                 map[ElementID][]ElementID
-	SubstitutionLookup            map[ElementID]map[QName]ElementID
-	Notations                     map[ExpandedName]bool
-	Names                         NameReadView
-	Identities                    []IdentityConstraintRead
-	TypeDerivations               TypeDerivationRead
-	SimpleTypePrimitives          []PrimitiveKind
-	SimpleTypeIdentities          []SimpleIdentityKind
-	SimpleTypeFinals              []DerivationMask
-	SimpleValueRoutes             []simpleValueRouteRead
-	SimpleValueCold               simpleValueColdReadTable
-	SimpleValueQNameResolverNeeds []bool
-	simpleValueCallbacks          SimpleValueCallbacks
-	rawSimpleValueCallbacks       RawSimpleValueCallbacks
-	ComplexTypes                  []complexTypeRead
-	Wildcards                     []WildcardView
-	AttributeUseSets              []AttributeUseSetRead
-	CompiledModels                []CompiledModelView
-	Attributes                    []AttributeDeclRead
-	ElementNames                  []QName
-	ElementStarts                 []ElementStartInfo
-	ElementIdentities             [][]IdentityConstraintID
-	ElementValueConstraints       []ElementValueConstraints
-	SimpleTextContent             ElementTextContent
+	Builtin                 BuiltinIDs
+	GlobalAttributes        map[QName]AttributeID
+	GlobalElements          map[QName]ElementID
+	GlobalTypes             map[QName]TypeID
+	Substitutions           map[ElementID][]ElementID
+	SubstitutionLookup      map[ElementID]map[QName]ElementID
+	Notations               map[ExpandedName]bool
+	Names                   NameReadView
+	Identities              []IdentityConstraintRead
+	TypeDerivations         TypeDerivationRead
+	SimpleTypePrimitives    []PrimitiveKind
+	SimpleTypeIdentities    []SimpleIdentityKind
+	SimpleTypeFinals        []DerivationMask
+	SimpleValueRoutes       []simpleValueRouteRead
+	SimpleValueCold         simpleValueColdReadTable
+	SimpleValueQNameNeeds   []bool
+	ComplexTypes            []complexTypeRead
+	Wildcards               []WildcardView
+	AttributeUseSets        []AttributeUseSetRead
+	CompiledModels          []CompiledModelView
+	Attributes              []AttributeDeclRead
+	ElementNames            []QName
+	ElementStarts           []ElementStartInfo
+	ElementIdentities       [][]IdentityConstraintID
+	ElementValueConstraints []ElementValueConstraints
+	SimpleTextContent       ElementTextContent
 }
 
 type complexTypeRead struct {

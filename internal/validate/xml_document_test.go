@@ -12,8 +12,10 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+type emptyXMLDocument = xmlDocument[struct{}]
+
 func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
-	var doc xmlDocumentState
+	var doc emptyXMLDocument
 	values := stream.NewCache()
 	_, err := doc.PrepareStart(testXMLStart(
 		xml.Name{Space: "missing", Local: "root"}, "",
@@ -34,7 +36,7 @@ func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 }
 
 func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
-	var doc xmlDocumentState
+	var doc emptyXMLDocument
 	values := stream.NewCache()
 	_, err := doc.PrepareStart(testXMLStart(
 		xml.Name{Local: "root"}, "",
@@ -54,12 +56,12 @@ func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 
 func TestXMLDocumentStateEnforcesStartLimits(t *testing.T) {
 	values := stream.NewCache()
-	var doc xmlDocumentState
+	var doc emptyXMLDocument
 	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "root"}, ""), &values, xmlDocumentLimits{}, 2, 3)
 	if err != nil {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
-	doc.CommitStart(start.Name, "root", false)
+	doc.CommitStart(start.Name, "root", false, struct{}{})
 
 	_, err = doc.PrepareStart(testXMLStart(xml.Name{Local: "child"}, ""), &values, xmlDocumentLimits{depth: 1}, 4, 5)
 	requireCode(t, err, xsderrors.CodeValidationLimit)
@@ -67,7 +69,7 @@ func TestXMLDocumentStateEnforcesStartLimits(t *testing.T) {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
 
-	var attributeDoc xmlDocumentState
+	var attributeDoc emptyXMLDocument
 	_, err = attributeDoc.PrepareStart(testXMLStart(
 		xml.Name{Local: "root"}, "",
 		testXMLAttr(xml.Name{Local: "first"}, ""),
@@ -80,13 +82,13 @@ func TestXMLDocumentStateEnforcesStartLimits(t *testing.T) {
 }
 
 func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
-	var doc xmlDocumentState
+	var doc emptyXMLDocument
 	values := stream.NewCache()
 	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "a"}, "a"), &values, xmlDocumentLimits{}, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, false)
+	doc.CommitStart(start.Name, start.RawName, false, struct{}{})
 	if endErr := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "a"}, RawName: "a"}, 1, 4); endErr != nil {
 		t.Fatal(endErr)
 	}
@@ -109,7 +111,7 @@ func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 }
 
 func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
-	var doc xmlDocumentState
+	var doc emptyXMLDocument
 	values := stream.NewCache()
 	start, err := doc.PrepareStart(testXMLStart(
 		xml.Name{Space: "p", Local: "root"}, "p:root",
@@ -119,7 +121,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, false)
+	doc.CommitStart(start.Name, start.RawName, false, struct{}{})
 	err = doc.ValidateEnd(stream.EndElement{Name: xml.Name{Space: "q", Local: "root"}, RawName: "q:root"}, 4, 5)
 	if !strings.Contains(err.Error(), "end element </q:root> does not match start element <p:root>") {
 		t.Fatalf("ValidateEnd() error = %v", err)
@@ -130,7 +132,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 }
 
 func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
-	var doc xmlDocumentState
+	var doc emptyXMLDocument
 	requireCode(t, doc.Complete(), xsderrors.CodeValidationRoot)
 
 	values := stream.NewCache()
@@ -138,7 +140,7 @@ func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, false)
+	doc.CommitStart(start.Name, start.RawName, false, struct{}{})
 	err = doc.Complete()
 	requireCode(t, err, xsderrors.CodeValidationXML)
 	if !strings.Contains(err.Error(), "unclosed element") {
@@ -147,7 +149,7 @@ func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
 }
 
 func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) {
-	var doc xmlDocumentState
+	var doc emptyXMLDocument
 	values := stream.NewCache()
 	commitDocumentStart(t, &doc, &values, "root")
 	commitDocumentStart(t, &doc, &values, "child")
@@ -233,13 +235,13 @@ func TestXMLSyntaxDiagnosticParity(t *testing.T) {
 	}
 }
 
-func commitDocumentStart(t *testing.T, doc *xmlDocumentState, values *stream.Cache, local string) {
+func commitDocumentStart(t *testing.T, doc *emptyXMLDocument, values *stream.Cache, local string) {
 	t.Helper()
 	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: local}, local), values, xmlDocumentLimits{}, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, false)
+	doc.CommitStart(start.Name, start.RawName, false, struct{}{})
 }
 
 func testXMLStart(name xml.Name, rawName string, attrs ...stream.Attr) stream.StartElement {

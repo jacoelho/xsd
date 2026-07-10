@@ -49,12 +49,11 @@ func validateSimpleValueColdReadProjectionForTypes(reads simpleValueColdReadTabl
 }
 
 func equalColdEnumerationProjection(read simpleValueColdRead, enumeration []CompiledLiteral) bool {
-	if len(read.enumeration) != len(enumeration) || len(read.canonicalEnumeration) != len(enumeration) {
+	if len(read.enumeration) != len(enumeration) {
 		return false
 	}
 	for i := range enumeration {
-		if read.canonicalEnumeration[i] != enumeration[i].Canonical ||
-			!equalSimpleValueFacetLiteralForCompiled(read.enumeration[i], enumeration[i], true) {
+		if !equalSimpleValueFacetLiteralForCompiled(read.enumeration[i], enumeration[i], true) {
 			return false
 		}
 	}
@@ -325,8 +324,13 @@ func EqualSimpleValueFacetsForFacetSet(read SimpleValueFacets, f FacetSet) bool 
 
 func equalStringFacetValuesForFacetSet(read StringFacetValues, f FacetSet) bool {
 	if read.HasEnumeration != (len(f.Enumeration) != 0) ||
-		!EqualStringPatternGroups(read.Patterns, f.Patterns) ||
-		len(read.CanonicalEnumeration) != len(f.Enumeration) {
+		!EqualStringPatternGroups(read.Patterns, f.Patterns) {
+		return false
+	}
+	if len(read.CanonicalEnumeration) == 0 {
+		return true
+	}
+	if len(read.CanonicalEnumeration) != len(f.Enumeration) {
 		return false
 	}
 	for i := range f.Enumeration {

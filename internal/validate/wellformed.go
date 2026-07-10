@@ -27,7 +27,7 @@ func CheckXMLWellFormed(r io.Reader, opts Options) error {
 }
 
 type xmlWellFormedChecker struct {
-	doc           xmlDocumentState
+	doc           xmlDocument[struct{}]
 	maxDepth      int
 	maxAttributes int
 	maxTokenBytes int64
@@ -77,7 +77,7 @@ func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, valu
 	if err != nil {
 		return err
 	}
-	c.doc.CommitStart(translated.Name, translated.RawName, false)
+	c.doc.CommitStart(translated.Name, translated.RawName, false, struct{}{})
 	return nil
 }
 
@@ -92,12 +92,7 @@ func (c *xmlWellFormedChecker) chars(line, col int, data []byte, cdata bool) err
 	if c.doc.Depth() != 0 {
 		return nil
 	}
-	_, err := ValidateCharacterData(CharacterDataInput{
-		Data:    data,
-		Context: c.doc.context(line, col),
-		CDATA:   cdata,
-	})
-	return err
+	return ValidateDocumentCharacterData(data, cdata, c.doc.context(line, col))
 }
 
 func (c *xmlWellFormedChecker) streamError(parser *stream.Parser, tok stream.Token, err error) error {

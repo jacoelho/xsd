@@ -1,12 +1,29 @@
 package compile_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestPublishSchemaConsumesBuildOnSuccess(t *testing.T) {
+	t.Parallel()
+
+	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
+	published, err := runtime.PublishSchema(build)
+	if err != nil {
+		t.Fatalf("PublishSchema() error = %v", err)
+	}
+	if published == nil {
+		t.Fatal("PublishSchema() returned nil schema")
+	}
+	if !reflect.DeepEqual(*build, runtime.SchemaBuild{}) {
+		t.Fatalf("PublishSchema() retained consumed build state: %#v", *build)
+	}
+}
 
 func mutableSchemaBuild(t *testing.T, schema string) *runtime.SchemaBuild {
 	t.Helper()
@@ -69,7 +86,8 @@ func simpleBuildTypeIDByName(t *testing.T, build *runtime.SchemaBuild, local str
 
 func buildValueConstraint(t *testing.T, build *runtime.SchemaBuild, id runtime.SimpleTypeID, lexical string) *runtime.ValueConstraint {
 	t.Helper()
-	rt, err := runtime.PublishSchema(*build)
+	snapshot := *build
+	rt, err := runtime.PublishSchema(&snapshot)
 	if err != nil {
 		t.Fatalf("PublishSchema() error = %v", err)
 	}

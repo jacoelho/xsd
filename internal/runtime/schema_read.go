@@ -194,8 +194,8 @@ func (rt *Schema) SimpleValueNeedsQNameResolver(id SimpleTypeID) bool {
 	if rt == nil {
 		return false
 	}
-	if ValidSimpleTypeID(id, len(rt.runtime.SimpleValueQNameResolverNeeds)) {
-		return rt.runtime.SimpleValueQNameResolverNeeds[id]
+	if ValidSimpleTypeID(id, len(rt.runtime.SimpleValueQNameNeeds)) {
+		return rt.runtime.SimpleValueQNameNeeds[id]
 	}
 	return false
 }
@@ -205,12 +205,5 @@ func (rt *Schema) ValidateRawSimpleValue(id SimpleTypeID, raw []byte) (bool, err
 	if id == NoSimpleType {
 		return false, nil
 	}
-	if read, ok := simpleValueRouteReadByID(rt.runtime.SimpleValueRoutes, id); ok && read.variety == SimpleVarietyAtomic {
-		switch read.rawBypass {
-		case SimpleValueBypassNone, SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
-		default:
-			return validateRawAtomicSimpleValueRoute(read, raw)
-		}
-	}
-	return ValidateRawSimpleValue(rt.runtime.rawSimpleValueCallbacks, id, raw)
+	return rt.validatePublishedRawSimpleValue(id, raw)
 }

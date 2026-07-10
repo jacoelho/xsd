@@ -109,10 +109,9 @@ type simpleValueRouteRead struct {
 }
 
 type simpleValueColdRead struct {
-	union                []SimpleTypeID
-	enumeration          []SimpleValueFacetLiteral
-	canonicalEnumeration []string
-	facets               FacetSet
+	union       []SimpleTypeID
+	enumeration []SimpleValueFacetLiteral
+	facets      FacetSet
 }
 
 type simpleValueColdReadTable struct {
@@ -143,10 +142,9 @@ func newSimpleValueColdReadTable(types []SimpleType) simpleValueColdReadTable {
 		}
 		table.index[i] = uint32(len(table.values)) //nolint:gosec // guarded against the invalidID sentinel above.
 		table.values = append(table.values, simpleValueColdRead{
-			union:                types[i].Union,
-			enumeration:          simpleValueFacetLiterals(types[i].Facets.Enumeration),
-			canonicalEnumeration: canonicalEnumerationValues(types[i].Facets.Enumeration),
-			facets:               types[i].Facets,
+			union:       types[i].Union,
+			enumeration: simpleValueFacetLiterals(types[i].Facets.Enumeration),
+			facets:      types[i].Facets,
 		})
 	}
 	return table
@@ -156,18 +154,18 @@ func simpleValueTypeNeedsColdRead(st SimpleType) bool {
 	return !st.Missing && (len(st.Union) != 0 || st.Facets.Present != 0)
 }
 
-func (t simpleValueColdReadTable) read(id SimpleTypeID) (simpleValueColdRead, bool) {
+func (t simpleValueColdReadTable) read(id SimpleTypeID) (*simpleValueColdRead, bool) {
 	if !ValidSimpleTypeID(id, len(t.index)) {
-		return simpleValueColdRead{}, false
+		return nil, false
 	}
 	idx := t.index[id]
 	if idx == invalidID {
-		return simpleValueColdRead{}, true
+		return nil, true
 	}
 	if !ValidUint32Index(idx, len(t.values)) {
-		return simpleValueColdRead{}, false
+		return nil, false
 	}
-	return t.values[idx], true
+	return &t.values[idx], true
 }
 
 func newSimpleValueRouteReadsForSimpleTypes(types []SimpleType) []simpleValueRouteRead {
@@ -216,31 +214,30 @@ func (r simpleValueRouteRead) simpleValueType() SimpleValueType {
 	}
 }
 
-func simpleValueTypeForRouteAndCold(route simpleValueRouteRead, cold simpleValueColdRead) SimpleValueType {
+func simpleValueTypeForRouteAndCold(route *simpleValueRouteRead, cold *simpleValueColdRead) SimpleValueType {
 	typ := route.simpleValueType()
-	typ.UnionMembers = cold.union
-	typ.StringFacets = StringFacetValues{
-		Patterns:       cold.facets.Patterns,
-		HasEnumeration: len(cold.facets.Enumeration) != 0,
+	if cold == nil {
+		return typ
 	}
+	typ.UnionMembers = cold.union
+	typ.StringFacets = StringFacetValues{Patterns: cold.facets.Patterns, HasEnumeration: len(cold.facets.Enumeration) != 0}
 	typ.DecimalFacets = decimalFacetValues(cold.facets)
 	typ.LengthFacets = lengthFacetValues(cold.facets)
 	return typ
 }
 
-func simpleValueFacetsForColdRead(cold simpleValueColdRead) SimpleValueFacets {
+func simpleValueFacetsForColdRead(cold *simpleValueColdRead) SimpleValueFacets {
+	if cold == nil {
+		return SimpleValueFacets{}
+	}
 	f := cold.facets
 	return SimpleValueFacets{
-		MinInclusive: simpleValueBoundFacetLiteral(f, FacetMinInclusive),
-		MaxInclusive: simpleValueBoundFacetLiteral(f, FacetMaxInclusive),
-		MinExclusive: simpleValueBoundFacetLiteral(f, FacetMinExclusive),
-		MaxExclusive: simpleValueBoundFacetLiteral(f, FacetMaxExclusive),
-		Enumeration:  cold.enumeration,
-		StringFacets: StringFacetValues{
-			Patterns:             f.Patterns,
-			CanonicalEnumeration: cold.canonicalEnumeration,
-			HasEnumeration:       len(f.Enumeration) != 0,
-		},
+		MinInclusive:  simpleValueBoundFacetLiteral(f, FacetMinInclusive),
+		MaxInclusive:  simpleValueBoundFacetLiteral(f, FacetMaxInclusive),
+		MinExclusive:  simpleValueBoundFacetLiteral(f, FacetMinExclusive),
+		MaxExclusive:  simpleValueBoundFacetLiteral(f, FacetMaxExclusive),
+		Enumeration:   cold.enumeration,
+		StringFacets:  StringFacetValues{Patterns: f.Patterns, HasEnumeration: len(f.Enumeration) != 0},
 		DecimalFacets: decimalFacetValues(f),
 		LengthFacets:  lengthFacetValues(f),
 		Facets:        f.Present,
@@ -252,110 +249,6 @@ func simpleValueRouteReadByID(reads []simpleValueRouteRead, id SimpleTypeID) (*s
 		return nil, false
 	}
 	return &reads[id], true
-}
-
-func newSimpleValueCallbacksForRouteReads(
-	routes []simpleValueRouteRead,
-	cold simpleValueColdReadTable,
-	notation func(ns, local string) bool,
-) SimpleValueCallbacks {
-	return SimpleValueCallbacks{
-		Type: func(id SimpleTypeID) (SimpleValueType, bool) {
-			route, ok := simpleValueRouteReadByID(routes, id)
-			if !ok {
-				return SimpleValueType{}, false
-			}
-			read, ok := cold.read(id)
-			if !ok {
-				return SimpleValueType{}, false
-			}
-			return simpleValueTypeForRouteAndCold(*route, read), true
-		},
-		Facets: func(id SimpleTypeID) (SimpleValueFacets, bool) {
-			if _, ok := simpleValueRouteReadByID(routes, id); !ok {
-				return SimpleValueFacets{}, false
-			}
-			read, ok := cold.read(id)
-			if !ok {
-				return SimpleValueFacets{}, false
-			}
-			return simpleValueFacetsForColdRead(read), true
-		},
-		ForEachStringEnumeration: func(id SimpleTypeID, yield func(string) bool) {
-			read, ok := cold.read(id)
-			if !ok {
-				return
-			}
-			for i := range read.facets.Enumeration {
-				if !yield(read.facets.Enumeration[i].Canonical) {
-					return
-				}
-			}
-		},
-		StringEnumeration: func(id SimpleTypeID, canonical string) (bool, bool) {
-			read, ok := cold.read(id)
-			if !ok {
-				return false, false
-			}
-			for i := range read.facets.Enumeration {
-				if read.facets.Enumeration[i].Canonical == canonical {
-					return true, true
-				}
-			}
-			return false, true
-		},
-		Notation: notation,
-	}
-}
-
-func newRawSimpleValueCallbacksForRouteReads(routes []simpleValueRouteRead, cold simpleValueColdReadTable) RawSimpleValueCallbacks {
-	return RawSimpleValueCallbacks{
-		Type: func(id SimpleTypeID) (RawSimpleValueType, bool) {
-			route, ok := simpleValueRouteReadByID(routes, id)
-			if !ok {
-				return RawSimpleValueType{}, false
-			}
-			read, ok := cold.read(id)
-			if !ok {
-				return RawSimpleValueType{}, false
-			}
-			return RawSimpleValueType{
-				DecimalMinInclusive: route.minInclusive,
-				DecimalMaxInclusive: route.maxInclusive,
-				StringPatterns:      read.facets.Patterns,
-				ListItem:            route.listItem,
-				Facets:              route.facets,
-				Variety:             route.variety,
-				Primitive:           route.primitive,
-				Builtin:             route.builtin,
-				Whitespace:          route.whitespace,
-				Identity:            route.identity,
-				Fast:                route.fast,
-			}, true
-		},
-		ForEachUnionMember: func(id SimpleTypeID, yield func(SimpleTypeID) bool) {
-			read, ok := cold.read(id)
-			if !ok {
-				return
-			}
-			for _, member := range read.union {
-				if !yield(member) {
-					return
-				}
-			}
-		},
-		ForEachStringEnumeration: func(id SimpleTypeID, yield func(string) bool) {
-			read, ok := cold.read(id)
-			if !ok {
-				return
-			}
-			for i := range read.facets.Enumeration {
-				if !yield(read.facets.Enumeration[i].Canonical) {
-					return
-				}
-			}
-		},
-	}
 }
 
 // SimpleValueFacetReadTable stores full facet projections only for simple
@@ -1027,7 +920,7 @@ func ValidateSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, lexical strin
 	return SimpleValue{}, ErrSimpleValueMetadata
 }
 
-func validateSimpleValueRouteReadFast(reads []simpleValueRouteRead, id SimpleTypeID, lexical string, needs SimpleValueNeed) (SimpleValue, bool, error) {
+func validateSimpleValueRouteReadFast(reads []simpleValueRouteRead, notations map[ExpandedName]bool, id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, bool, error) {
 	if id == NoSimpleType {
 		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, true, nil
 	}
@@ -1037,7 +930,7 @@ func validateSimpleValueRouteReadFast(reads []simpleValueRouteRead, id SimpleTyp
 	}
 	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: read.variety, Known: true}) {
 	case SimpleValueRouteAtomic:
-		return validateAtomicSimpleValueRouteReadFast(id, read, lexical, needs)
+		return validateAtomicSimpleValueRouteReadFast(notations, id, read, lexical, resolve, needs)
 	case SimpleValueRouteList, SimpleValueRouteUnion:
 		return SimpleValue{}, false, nil
 	case SimpleValueRouteUntyped:
@@ -1049,12 +942,17 @@ func validateSimpleValueRouteReadFast(reads []simpleValueRouteRead, id SimpleTyp
 }
 
 func validateAtomicSimpleValueRouteReadFast(
+	notations map[ExpandedName]bool,
 	id SimpleTypeID,
 	typ *simpleValueRouteRead,
 	lexical string,
+	resolve ResolveQNameParts,
 	needs SimpleValueNeed,
 ) (SimpleValue, bool, error) {
 	normalized := normalizeSimpleValueLexical(lexical, typ.whitespace)
+	if value, handled, err := validatePublishedQNameRoute(notations, id, typ, normalized, resolve, needs); handled {
+		return value, true, err
+	}
 	action := SimpleValueBypass(SimpleValueBypassShape{
 		Facets:    typ.facets,
 		Variety:   typ.variety,
@@ -1135,6 +1033,51 @@ func validateAtomicSimpleValueRouteReadFast(
 		return SimpleValue{}, false, nil
 	}
 	return SimpleValue{}, true, ErrSimpleValueMetadata
+}
+
+func validatePublishedQNameRoute(notations map[ExpandedName]bool, id SimpleTypeID, typ *simpleValueRouteRead, normalized string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, bool, error) {
+	if typ.facets != 0 || typ.builtin != BuiltinValidationNone ||
+		(typ.primitive != PrimitiveQName && typ.primitive != PrimitiveNotation) {
+		return SimpleValue{}, false, nil
+	}
+	primitiveNeeds := SimpleValuePrimitiveNeeds(PrimitiveValueNeedShape{Primitive: typ.primitive, Identity: typ.identity, Needs: needs})
+	var canonical string
+	var err error
+	if typ.primitive == PrimitiveQName {
+		canonical, err = validateQNamePrimitive(normalized, resolve, primitiveNeeds)
+	} else {
+		canonical, err = validatePublishedNotationPrimitive(normalized, notations, resolve, primitiveNeeds)
+	}
+	if err != nil {
+		return SimpleValue{}, true, err
+	}
+	return AtomicSimpleValue(AtomicSimpleValueProjection{Canonical: canonical, Type: id, Primitive: typ.primitive, Identity: typ.identity, Needs: needs}), true, nil
+}
+
+func validatePublishedNotationPrimitive(normalized string, notations map[ExpandedName]bool, resolve ResolveQNameParts, needs PrimitiveValueNeed) (string, error) {
+	if resolve == nil {
+		if !lex.IsNCName(normalized) {
+			return "", errors.New("invalid NOTATION")
+		}
+		if !notations[ExpandedName{Local: normalized}] {
+			return "", errors.New("undeclared notation")
+		}
+		if !needs.Has(PrimitiveNeedCanonical) {
+			return "", nil
+		}
+		return normalized, nil
+	}
+	ns, local, ok := resolve(normalized)
+	if !ok {
+		return "", errors.New("unresolved NOTATION")
+	}
+	if !notations[ExpandedName{Namespace: ns, Local: local}] {
+		return "", errors.New("undeclared notation")
+	}
+	if !needs.Has(PrimitiveNeedCanonical) {
+		return "", nil
+	}
+	return FormatExpandedName(ns, local), nil
 }
 
 func simpleValueType(cb SimpleValueCallbacks, id SimpleTypeID) (SimpleValueType, bool) {

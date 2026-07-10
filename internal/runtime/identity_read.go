@@ -43,6 +43,23 @@ func NewIdentityConstraintReads(identities []IdentityConstraint) []IdentityConst
 	return out
 }
 
+func moveIdentityConstraintReads(identities []IdentityConstraint) []IdentityConstraintRead {
+	out := make([]IdentityConstraintRead, len(identities))
+	for i := range identities {
+		identity := &identities[i]
+		out[i] = IdentityConstraintRead{
+			selector:                identity.Selector,
+			elementFields:           identity.ElementFields,
+			attributeFields:         identity.AttributeFields,
+			attributeWildcardFields: identity.AttributeWildcardFields,
+			refer:                   identity.Refer,
+			kind:                    identity.Kind,
+			fieldCount:              len(identity.Fields),
+		}
+	}
+	return out
+}
+
 // ForEachElementIdentityConstraint visits the identity constraints attached to
 // an element until fn returns false.
 func ForEachElementIdentityConstraint(reads [][]IdentityConstraintID, id ElementID, fn func(IdentityConstraintID) bool) {
