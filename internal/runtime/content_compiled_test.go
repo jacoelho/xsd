@@ -65,7 +65,7 @@ func TestEqualCompiledModelViewProjection(t *testing.T) {
 			Required: true,
 		}},
 	}
-	view := NewCompiledModelView(&model)
+	view := NewBorrowedCompiledModelViews([]CompiledModel{model})[0]
 	if !EqualCompiledModelViewProjection(view, &model) {
 		t.Fatal("EqualCompiledModelViewProjection() = false, want true")
 	}
@@ -94,14 +94,14 @@ func TestCompiledModelViewProjectionTable(t *testing.T) {
 		},
 		{Source: 4, Kind: CompiledModelEmpty, Empty: true},
 	}
-	views := NewCompiledModelViews(models)
+	views := NewBorrowedCompiledModelViews(models)
 	if !EqualCompiledModelViewProjectionTable(views, models) {
-		t.Fatalf("NewCompiledModelViews() = %#v, want projection for %#v", views, models)
+		t.Fatalf("NewBorrowedCompiledModelViews() = %#v, want projection for %#v", views, models)
 	}
-	if got, ok := CompiledModelViewByID(views, 1); !ok || !EqualCompiledModelViews(got, views[1]) {
+	if got, ok := CompiledModelViewByID(views, 1); !ok || !EqualCompiledModelViewProjection(got, &models[1]) {
 		t.Fatalf("CompiledModelViewByID() = %#v, %v; want view 1, true", got, ok)
 	}
-	if got, ok := CompiledModelViewByID(views, ContentModelID(99)); ok || !EqualCompiledModelViews(got, CompiledModelView{}) {
+	if got, ok := CompiledModelViewByID(views, ContentModelID(99)); ok || !EqualCompiledModelViewProjection(got, nil) {
 		t.Fatalf("CompiledModelViewByID(invalid) = %#v, %v; want zero, false", got, ok)
 	}
 	if EqualCompiledModelViewProjectionTable(views[:1], models) {
@@ -114,7 +114,7 @@ func TestCompiledModelViewProjectionTable(t *testing.T) {
 	if EqualCompiledModelViewProjectionTable(views, changed) {
 		t.Fatal("EqualCompiledModelViewProjectionTable() accepted mismatched model")
 	}
-	if err := ValidateCompiledModelViewProjectionTable(NewCompiledModelViews(models), models); err != nil {
+	if err := ValidateCompiledModelViewProjectionTable(views, models); err != nil {
 		t.Fatalf("ValidateCompiledModelViewProjectionTable() error = %v", err)
 	}
 	if err := ValidateCompiledModelViewProjectionTable(views[:1], models); err == nil || err.Error() != "compiled model view projection count does not match compiled models" {

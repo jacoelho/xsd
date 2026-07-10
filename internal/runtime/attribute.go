@@ -71,16 +71,6 @@ type AttributeUseValidation struct {
 	HasFixed   bool
 }
 
-// AttributeUseSetValidation is the runtime projection needed to validate an
-// attribute-use set.
-type AttributeUseSetValidation struct {
-	Index            map[QName]uint32
-	Uses             []AttributeUseValidation
-	Required         []uint32
-	ValueConstraints []uint32
-	Wildcard         AttributeWildcardState
-}
-
 // NewAttributeWildcardStateForUseSet projects wildcard provenance from an
 // attribute-use set.
 func NewAttributeWildcardStateForUseSet(set AttributeUseSet) AttributeWildcardState {
@@ -105,32 +95,6 @@ func NewAttributeUseValidationForUse(use AttributeUse) AttributeUseValidation {
 	}
 }
 
-// NewAttributeUseSetValidationForUseSet projects one runtime attribute-use set
-// into the shape needed for invariant validation.
-func NewAttributeUseSetValidationForUseSet(set AttributeUseSet) AttributeUseSetValidation {
-	uses := make([]AttributeUseValidation, len(set.Uses))
-	for i, use := range set.Uses {
-		uses[i] = NewAttributeUseValidationForUse(use)
-	}
-	return CloneAttributeUseSetValidation(AttributeUseSetValidation{
-		Index:            set.Index,
-		Uses:             uses,
-		Required:         set.Required,
-		ValueConstraints: set.ValueConstraints,
-		Wildcard:         NewAttributeWildcardStateForUseSet(set),
-	})
-}
-
-// AttributeUseSetReadShape adapts a frozen attribute-use set to the
-// validation-facing runtime read API.
-type AttributeUseSetReadShape struct {
-	Index            map[QName]uint32
-	Uses             []AttributeUseReadShape
-	Required         []uint32
-	ValueConstraints []uint32
-	Wildcard         WildcardID
-}
-
 // AttributeUseSetRead exposes validation-facing attribute-use-set behavior
 // without exposing raw slot slices to the validator.
 type AttributeUseSetRead struct {
@@ -142,32 +106,23 @@ type AttributeUseSetRead struct {
 	singleUse        bool
 }
 
-// NewAttributeUseSetReadForTypeReads returns the immutable validation read
-// projection for one attribute-use set using published simple-value type reads.
-func NewAttributeUseSetReadForTypeReads(shape AttributeUseSetReadShape, simpleValueTypes []SimpleValueTypeRead) AttributeUseSetRead {
-	out := AttributeUseSetRead{
-		index:            maps.Clone(shape.Index),
-		uses:             NewAttributeUseReadsForTypeReads(shape.Uses, simpleValueTypes),
-		required:         slices.Clone(shape.Required),
-		valueConstraints: slices.Clone(shape.ValueConstraints),
-		wildcard:         shape.Wildcard,
-	}
-	out.singleUse = attributeUseSetReadHasSingleUse(out)
-	return out
+// AttributeUseSlots is an immutable ordered view of attribute-use slots.
+// Its backing slice is never exposed.
+type AttributeUseSlots struct {
+	values []uint32
 }
 
-// NewAttributeUseSetReadForSimpleTypes returns the immutable validation read
-// projection for one attribute-use set using published simple types.
-func NewAttributeUseSetReadForSimpleTypes(shape AttributeUseSetReadShape, simpleTypes []SimpleType) AttributeUseSetRead {
-	out := AttributeUseSetRead{
-		index:            maps.Clone(shape.Index),
-		uses:             NewAttributeUseReadsForSimpleTypes(shape.Uses, simpleTypes),
-		required:         slices.Clone(shape.Required),
-		valueConstraints: slices.Clone(shape.ValueConstraints),
-		wildcard:         shape.Wildcard,
+// Len returns the number of slots.
+func (r AttributeUseSlots) Len() int {
+	return len(r.values)
+}
+
+// At returns slot index.
+func (r AttributeUseSlots) At(index int) (uint32, bool) {
+	if index < 0 || index >= len(r.values) {
+		return 0, false
 	}
-	out.singleUse = attributeUseSetReadHasSingleUse(out)
-	return out
+	return r.values[index], true
 }
 
 func attributeUseSetReadHasSingleUse(s AttributeUseSetRead) bool {
@@ -176,60 +131,6 @@ func attributeUseSetReadHasSingleUse(s AttributeUseSetRead) bool {
 	}
 	slot, ok := s.index[s.uses[0].name]
 	return ok && slot == 0
-}
-
-// NewAttributeUseSetReadsForTypeReads returns immutable validation read
-// projections for attribute-use sets using published simple-value type reads.
-func NewAttributeUseSetReadsForTypeReads(shapes []AttributeUseSetReadShape, simpleValueTypes []SimpleValueTypeRead) []AttributeUseSetRead {
-	out := make([]AttributeUseSetRead, len(shapes))
-	for i := range shapes {
-		out[i] = NewAttributeUseSetReadForTypeReads(shapes[i], simpleValueTypes)
-	}
-	return out
-}
-
-// NewAttributeUseSetReadsForSimpleTypes returns immutable validation read
-// projections for attribute-use sets using published simple types.
-func NewAttributeUseSetReadsForSimpleTypes(shapes []AttributeUseSetReadShape, simpleTypes []SimpleType) []AttributeUseSetRead {
-	out := make([]AttributeUseSetRead, len(shapes))
-	for i := range shapes {
-		out[i] = NewAttributeUseSetReadForSimpleTypes(shapes[i], simpleTypes)
-	}
-	return out
-}
-
-// NewAttributeUseSetReadForSetWithTypeReads returns the immutable validation
-// read projection for one frozen attribute-use set using published
-// simple-value type reads.
-func NewAttributeUseSetReadForSetWithTypeReads(names *NameTable, set AttributeUseSet, simpleValueTypes []SimpleValueTypeRead) AttributeUseSetRead {
-	return NewAttributeUseSetReadForTypeReads(attributeUseSetReadShapeForSet(names, set), simpleValueTypes)
-}
-
-// NewAttributeUseSetReadForSetWithSimpleTypes returns the immutable validation
-// read projection for one frozen attribute-use set using published simple types.
-func NewAttributeUseSetReadForSetWithSimpleTypes(names *NameTable, set AttributeUseSet, simpleTypes []SimpleType) AttributeUseSetRead {
-	return NewAttributeUseSetReadForSimpleTypes(attributeUseSetReadShapeForSet(names, set), simpleTypes)
-}
-
-// NewAttributeUseSetReadsForSetsWithTypeReads returns immutable validation read
-// projections for frozen attribute-use sets using published simple-value type
-// reads.
-func NewAttributeUseSetReadsForSetsWithTypeReads(names *NameTable, sets []AttributeUseSet, simpleValueTypes []SimpleValueTypeRead) []AttributeUseSetRead {
-	out := make([]AttributeUseSetRead, len(sets))
-	for i := range sets {
-		out[i] = NewAttributeUseSetReadForSetWithTypeReads(names, sets[i], simpleValueTypes)
-	}
-	return out
-}
-
-// NewAttributeUseSetReadsForSetsWithSimpleTypes returns immutable validation
-// read projections for frozen attribute-use sets using published simple types.
-func NewAttributeUseSetReadsForSetsWithSimpleTypes(names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) []AttributeUseSetRead {
-	out := make([]AttributeUseSetRead, len(sets))
-	for i := range sets {
-		out[i] = NewAttributeUseSetReadForSetWithSimpleTypes(names, sets[i], simpleTypes)
-	}
-	return out
 }
 
 func moveAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) []AttributeUseSetRead {
@@ -250,20 +151,6 @@ func moveAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTy
 		out[i].singleUse = attributeUseSetReadHasSingleUse(out[i])
 	}
 	return out
-}
-
-func attributeUseSetReadShapeForSet(names *NameTable, set AttributeUseSet) AttributeUseSetReadShape {
-	uses := make([]AttributeUseReadShape, len(set.Uses))
-	for i := range set.Uses {
-		uses[i] = attributeUseReadShapeForUse(names, set.Uses[i])
-	}
-	return AttributeUseSetReadShape{
-		Index:            set.Index,
-		Uses:             uses,
-		Required:         set.Required,
-		ValueConstraints: set.ValueConstraints,
-		Wildcard:         set.Wildcard,
-	}
 }
 
 func attributeUseReadShapeForUse(names *NameTable, use AttributeUse) AttributeUseReadShape {
@@ -310,85 +197,19 @@ func (s AttributeUseSetRead) DeclaredUse(name QName) (AttributeUseRead, int, boo
 	return s.uses[slot], int(slot), true
 }
 
-// AttributeUseSetReadUseAtPtr returns the declared use stored at slot without copying it.
-func AttributeUseSetReadUseAtPtr(s *AttributeUseSetRead, slot int) (*AttributeUseRead, bool) {
-	if s == nil || slot < 0 || slot >= len(s.uses) {
-		return nil, false
-	}
-	return &s.uses[slot], true
-}
-
-// AttributeUseSetReadDeclaredUsePtr returns the declared use matching name without copying it.
-func AttributeUseSetReadDeclaredUsePtr(s *AttributeUseSetRead, name QName) (*AttributeUseRead, int, bool) {
-	if s == nil {
-		return nil, -1, false
-	}
-	if s.singleUse {
-		if s.uses[0].name == name {
-			return &s.uses[0], 0, true
-		}
-		return nil, -1, false
-	}
-	slot, ok := s.index[name]
-	if !ok || !ValidUint32Index(slot, len(s.uses)) || s.uses[slot].name != name {
-		return nil, -1, false
-	}
-	return &s.uses[slot], int(slot), true
-}
-
-// ForEachRequiredUse calls fn for each required-use slot.
-func (s AttributeUseSetRead) ForEachRequiredUse(fn func(slot int, use AttributeUseRead) error) error {
-	return ForEachRequiredAttributeUseSlot(s.required, len(s.uses), func(slot uint32) error {
-		return fn(int(slot), s.uses[slot])
-	})
-}
-
-// ForEachValueConstraintUse calls fn for each absent value-constraint slot.
-func (s AttributeUseSetRead) ForEachValueConstraintUse(fn func(slot int, use AttributeUseRead) error) error {
-	return ForEachValueConstraintAttributeUseSlot(s.valueConstraints, len(s.uses), func(slot uint32) error {
-		return fn(int(slot), s.uses[slot])
-	})
-}
-
 // Wildcard returns the attribute wildcard attached to the set.
 func (s AttributeUseSetRead) Wildcard() WildcardID {
 	return s.wildcard
 }
 
-// RequiredSlots returns required-use slots for direct runtime validation.
-func (s AttributeUseSetRead) RequiredSlots() []uint32 {
-	return s.required
+// RequiredSlots returns an immutable view of required-use slots.
+func (s AttributeUseSetRead) RequiredSlots() AttributeUseSlots {
+	return AttributeUseSlots{values: s.required}
 }
 
-// ValueConstraintSlots returns default/fixed-use slots for direct runtime validation.
-func (s AttributeUseSetRead) ValueConstraintSlots() []uint32 {
-	return s.valueConstraints
-}
-
-// EqualAttributeUseSetReads reports whether two attribute-use-set read
-// projections expose the same validation-facing set.
-func EqualAttributeUseSetReads(a, b AttributeUseSetRead) bool {
-	return maps.Equal(a.index, b.index) &&
-		slices.EqualFunc(a.uses, b.uses, EqualAttributeUseReads) &&
-		slices.Equal(a.required, b.required) &&
-		slices.Equal(a.valueConstraints, b.valueConstraints) &&
-		a.wildcard == b.wildcard &&
-		a.singleUse == b.singleUse
-}
-
-// EqualAttributeUseSetReadProjectionForSetsWithTypeReads reports whether reads
-// expose the same validation-facing attribute-use sets as frozen runtime
-// records using published simple-value type reads.
-func EqualAttributeUseSetReadProjectionForSetsWithTypeReads(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleValueTypes []SimpleValueTypeRead) bool {
-	if len(reads) != len(sets) {
-		return false
-	}
-	for i := range reads {
-		if !equalAttributeUseSetReadForSet(reads[i], names, sets[i], simpleValueTypes, nil) {
-			return false
-		}
-	}
-	return true
+// ValueConstraintSlots returns an immutable view of default/fixed-use slots.
+func (s AttributeUseSetRead) ValueConstraintSlots() AttributeUseSlots {
+	return AttributeUseSlots{values: s.valueConstraints}
 }
 
 // EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes reports whether reads
@@ -399,7 +220,7 @@ func EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []AttributeU
 		return false
 	}
 	for i := range reads {
-		if !equalAttributeUseSetReadForSet(reads[i], names, sets[i], nil, simpleTypes) {
+		if !equalAttributeUseSetReadForSet(reads[i], names, sets[i], simpleTypes) {
 			return false
 		}
 	}
@@ -410,7 +231,6 @@ func equalAttributeUseSetReadForSet(
 	read AttributeUseSetRead,
 	names *NameTable,
 	set AttributeUseSet,
-	typeReads []SimpleValueTypeRead,
 	simpleTypes []SimpleType,
 ) bool {
 	if !maps.Equal(read.index, set.Index) ||
@@ -429,7 +249,7 @@ func equalAttributeUseSetReadForSet(
 		return false
 	}
 	for i := range set.Uses {
-		if !equalAttributeUseReadForUse(read.uses[i], names, set.Uses[i], typeReads, simpleTypes) {
+		if !equalAttributeUseReadForUse(read.uses[i], names, set.Uses[i], simpleTypes) {
 			return false
 		}
 	}
@@ -440,7 +260,6 @@ func equalAttributeUseReadForUse(
 	read AttributeUseRead,
 	names *NameTable,
 	use AttributeUse,
-	typeReads []SimpleValueTypeRead,
 	simpleTypes []SimpleType,
 ) bool {
 	hasFixed := use.Fixed != nil
@@ -462,14 +281,8 @@ func equalAttributeUseReadForUse(
 			return false
 		}
 	}
-	var fixedFast bool
-	if typeReads != nil {
-		shape := AttributeUseReadShape{Type: use.Type, HasFixed: hasFixed}
-		fixedFast = attributeUseFixedStringFastForTypeReads(shape, typeReads)
-	} else {
-		shape := AttributeUseReadShape{Type: use.Type, HasFixed: hasFixed}
-		fixedFast = attributeUseFixedStringFastForSimpleTypes(shape, simpleTypes)
-	}
+	shape := AttributeUseReadShape{Type: use.Type, HasFixed: hasFixed}
+	fixedFast := attributeUseFixedStringFastForSimpleTypes(shape, simpleTypes)
 	return read.canValidateFixedStringFast == fixedFast
 }
 
@@ -486,19 +299,6 @@ func formattedQNameEqual(names *NameTable, name QName, formatted string) bool {
 		formatted[len(ns)+2:] == local
 }
 
-// ValidateAttributeUseSetReadProjectionForSetsWithTypeReads validates
-// attribute-use-set reads against frozen runtime records using published
-// simple-value type reads.
-func ValidateAttributeUseSetReadProjectionForSetsWithTypeReads(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleValueTypes []SimpleValueTypeRead) error {
-	if len(reads) != len(sets) {
-		return errors.New("attribute use set read projection count does not match use sets")
-	}
-	if !EqualAttributeUseSetReadProjectionForSetsWithTypeReads(reads, names, sets, simpleValueTypes) {
-		return errors.New("attribute use read projection does not match use set")
-	}
-	return nil
-}
-
 // ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes validates
 // attribute-use-set reads against frozen runtime records using published simple
 // types.
@@ -510,56 +310,6 @@ func ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []Attribu
 		return errors.New("attribute use read projection does not match use set")
 	}
 	return nil
-}
-
-// AttributeUseSetReadForComplexType returns the attribute-use-set read
-// projection for a complex type.
-func AttributeUseSetReadForComplexType(typeUseSetIDs []AttributeUseSetID, reads []AttributeUseSetRead, id ComplexTypeID) (AttributeUseSetRead, bool) {
-	if !ValidComplexTypeID(id, len(typeUseSetIDs)) {
-		return AttributeUseSetRead{}, false
-	}
-	setID := typeUseSetIDs[id]
-	if !ValidAttributeUseSetID(setID, len(reads)) {
-		return AttributeUseSetRead{}, false
-	}
-	return reads[setID], true
-}
-
-// AttributeUseSetReadForComplexTypePtr returns the attribute-use-set read
-// projection for a complex type without copying it.
-func AttributeUseSetReadForComplexTypePtr(typeUseSetIDs []AttributeUseSetID, reads []AttributeUseSetRead, id ComplexTypeID) (*AttributeUseSetRead, bool) {
-	if !ValidComplexTypeID(id, len(typeUseSetIDs)) {
-		return nil, false
-	}
-	setID := typeUseSetIDs[id]
-	if !ValidAttributeUseSetID(setID, len(reads)) {
-		return nil, false
-	}
-	return &reads[setID], true
-}
-
-// AttributeUseSetReadByType returns the attribute-use-set read projection for
-// a runtime type. The booleans report complex-type presence and metadata
-// validity, respectively.
-func AttributeUseSetReadByType(typeUseSetIDs []AttributeUseSetID, reads []AttributeUseSetRead, typ TypeID) (AttributeUseSetRead, bool, bool) {
-	id, ok := typ.Complex()
-	if !ok {
-		return AttributeUseSetRead{}, false, true
-	}
-	set, ok := AttributeUseSetReadForComplexType(typeUseSetIDs, reads, id)
-	return set, true, ok
-}
-
-// AttributeUseSetReadByTypePtr returns the attribute-use-set read projection
-// for a runtime type without copying it. The booleans report complex-type
-// presence and metadata validity, respectively.
-func AttributeUseSetReadByTypePtr(typeUseSetIDs []AttributeUseSetID, reads []AttributeUseSetRead, typ TypeID) (*AttributeUseSetRead, bool, bool) {
-	id, ok := typ.Complex()
-	if !ok {
-		return nil, false, true
-	}
-	set, ok := AttributeUseSetReadForComplexTypePtr(typeUseSetIDs, reads, id)
-	return set, true, ok
 }
 
 // AttributeUseReadShape is the runtime-read projection for one attribute use.
@@ -588,22 +338,6 @@ type AttributeUseRead struct {
 	canValidateFixedStringFast bool
 }
 
-// NewAttributeUseReadForTypeReads returns an immutable validation read
-// projection for one attribute use using published simple-value type reads.
-func NewAttributeUseReadForTypeReads(shape AttributeUseReadShape, simpleValueTypes []SimpleValueTypeRead) AttributeUseRead {
-	return AttributeUseRead{
-		name:                       shape.Name,
-		typ:                        shape.Type,
-		label:                      shape.Label,
-		fixed:                      shape.Fixed,
-		defaultValue:               shape.Default,
-		required:                   shape.Required,
-		hasFixed:                   shape.HasFixed,
-		hasDefault:                 shape.HasDefault,
-		canValidateFixedStringFast: attributeUseFixedStringFastForTypeReads(shape, simpleValueTypes),
-	}
-}
-
 // NewAttributeUseReadForSimpleTypes returns an immutable validation read
 // projection for one attribute use using published simple types.
 func NewAttributeUseReadForSimpleTypes(shape AttributeUseReadShape, simpleTypes []SimpleType) AttributeUseRead {
@@ -618,40 +352,6 @@ func NewAttributeUseReadForSimpleTypes(shape AttributeUseReadShape, simpleTypes 
 		hasDefault:                 shape.HasDefault,
 		canValidateFixedStringFast: attributeUseFixedStringFastForSimpleTypes(shape, simpleTypes),
 	}
-}
-
-// NewAttributeUseReadsForTypeReads returns immutable validation read
-// projections for attribute uses using published simple-value type reads.
-func NewAttributeUseReadsForTypeReads(shapes []AttributeUseReadShape, simpleValueTypes []SimpleValueTypeRead) []AttributeUseRead {
-	out := make([]AttributeUseRead, len(shapes))
-	for i := range shapes {
-		out[i] = NewAttributeUseReadForTypeReads(shapes[i], simpleValueTypes)
-	}
-	return out
-}
-
-// NewAttributeUseReadsForSimpleTypes returns immutable validation read
-// projections for attribute uses using published simple types.
-func NewAttributeUseReadsForSimpleTypes(shapes []AttributeUseReadShape, simpleTypes []SimpleType) []AttributeUseRead {
-	out := make([]AttributeUseRead, len(shapes))
-	for i := range shapes {
-		out[i] = NewAttributeUseReadForSimpleTypes(shapes[i], simpleTypes)
-	}
-	return out
-}
-
-func attributeUseFixedStringFastForTypeReads(shape AttributeUseReadShape, simpleValueTypes []SimpleValueTypeRead) bool {
-	if !shape.HasFixed {
-		return false
-	}
-	read, ok := simpleValueTypeReadByID(simpleValueTypes, shape.Type)
-	if !ok {
-		return false
-	}
-	return SimpleFixedStringFastPathForType(SimpleFixedStringTypeShape{
-		Type:     read.Type,
-		HasFixed: shape.HasFixed,
-	})
 }
 
 func attributeUseFixedStringFastForSimpleTypes(shape AttributeUseReadShape, simpleTypes []SimpleType) bool {
@@ -713,27 +413,6 @@ func (u AttributeUseRead) CanValidateFixedStringFast() bool {
 	return u.canValidateFixedStringFast
 }
 
-// EqualAttributeUseReads reports whether two attribute-use read projections
-// expose the same validation-facing use.
-func EqualAttributeUseReads(a, b AttributeUseRead) bool {
-	if a.name != b.name ||
-		a.typ != b.typ ||
-		a.label != b.label ||
-		a.required != b.required ||
-		a.hasFixed != b.hasFixed ||
-		a.hasDefault != b.hasDefault ||
-		a.canValidateFixedStringFast != b.canValidateFixedStringFast {
-		return false
-	}
-	if a.hasFixed && !EqualValueConstraintReads(a.fixed, b.fixed) {
-		return false
-	}
-	if a.hasDefault && !EqualValueConstraintReads(a.defaultValue, b.defaultValue) {
-		return false
-	}
-	return true
-}
-
 // AttributeDeclReadShape is the runtime-read projection for one global
 // attribute declaration.
 type AttributeDeclReadShape struct {
@@ -761,16 +440,6 @@ func NewAttributeDeclRead(shape AttributeDeclReadShape) AttributeDeclRead {
 		fixed:    shape.Fixed,
 		hasFixed: shape.HasFixed,
 	}
-}
-
-// NewAttributeDeclReads returns immutable validation read projections for
-// global attribute declarations.
-func NewAttributeDeclReads(shapes []AttributeDeclReadShape) []AttributeDeclRead {
-	out := make([]AttributeDeclRead, len(shapes))
-	for i := range shapes {
-		out[i] = NewAttributeDeclRead(shapes[i])
-	}
-	return out
 }
 
 // NewAttributeDeclReadForDecl returns an immutable validation read projection
@@ -814,20 +483,6 @@ func EqualAttributeDeclReads(a, b AttributeDeclRead) bool {
 		return false
 	}
 	return !a.hasFixed || EqualValueConstraintReads(a.fixed, b.fixed)
-}
-
-// EqualAttributeDeclReadProjection reports whether reads expose the same
-// validation-facing declarations as shapes.
-func EqualAttributeDeclReadProjection(reads []AttributeDeclRead, shapes []AttributeDeclReadShape) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		if !EqualAttributeDeclReads(reads[i], NewAttributeDeclRead(shapes[i])) {
-			return false
-		}
-	}
-	return true
 }
 
 // EqualAttributeDeclReadProjectionForDecls reports whether reads expose the
@@ -958,54 +613,6 @@ type AttributeUseSetRuntime interface {
 	SimpleTypeIdentityRuntime
 }
 
-// ValidateAttributeUseSetRuntime validates attribute-use set metadata that can
-// be expressed in runtime vocabulary.
-func ValidateAttributeUseSetRuntime(names *NameTable, rt AttributeUseSetRuntime, set AttributeUseSetValidation) error {
-	if err := ValidateAttributeWildcardProvenance(rt, set.Wildcard); err != nil {
-		return err
-	}
-	if len(set.Index) != len(set.Uses) {
-		return errors.New("attribute use set index size does not match uses")
-	}
-	idAttrs := 0
-	for i, use := range set.Uses {
-		identity, err := validateAttributeUseRuntime(names, rt, set.Index, i, use)
-		if err != nil {
-			return err
-		}
-		if identity == SimpleIdentityID {
-			if use.HasDefault || use.HasFixed {
-				return errors.New("ID-typed attribute use stores value constraint")
-			}
-			idAttrs++
-			if idAttrs > 1 {
-				return errors.New("attribute use set stores multiple ID attributes")
-			}
-		}
-	}
-	required, valueConstraints, err := attributeUseSetDerivedSlots(set.Uses)
-	if err != nil {
-		return err
-	}
-	if !slices.Equal(set.Required, required) {
-		return errors.New("attribute use set required slots do not match uses")
-	}
-	if !slices.Equal(set.ValueConstraints, valueConstraints) {
-		return errors.New("attribute use set value constraint slots do not match uses")
-	}
-	for _, slot := range set.Required {
-		if !ValidUint32Index(slot, len(set.Uses)) || !set.Uses[slot].Required {
-			return errors.New("attribute use set required slot is invalid")
-		}
-	}
-	for _, slot := range set.ValueConstraints {
-		if !ValidUint32Index(slot, len(set.Uses)) || (!set.Uses[slot].HasDefault && !set.Uses[slot].HasFixed) {
-			return errors.New("attribute use set value constraint slot is invalid")
-		}
-	}
-	return nil
-}
-
 // ValidateAttributeUseSetRecord validates attribute-use set metadata directly
 // from runtime records.
 func ValidateAttributeUseSetRecord(names *NameTable, rt AttributeUseSetRuntime, set AttributeUseSet) error {
@@ -1057,48 +664,6 @@ func ValidateAttributeUseSetRecord(names *NameTable, rt AttributeUseSetRuntime, 
 		return errors.New("attribute use set value constraint slots do not match uses")
 	}
 	return nil
-}
-
-// ForEachRequiredAttributeUseSlot validates and iterates required-use slots.
-func ForEachRequiredAttributeUseSlot(required []uint32, useCount int, fn func(uint32) error) error {
-	for _, slot := range required {
-		if !ValidUint32Index(slot, useCount) {
-			return errors.New("attribute use set required slot is invalid")
-		}
-		if err := fn(slot); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// ForEachValueConstraintAttributeUseSlot validates and iterates absent
-// value-constraint use slots.
-func ForEachValueConstraintAttributeUseSlot(slots []uint32, useCount int, fn func(uint32) error) error {
-	for _, slot := range slots {
-		if !ValidUint32Index(slot, useCount) {
-			return errors.New("attribute use set value-constraint slot is invalid")
-		}
-		if err := fn(slot); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// LookupAttributeUseSlot resolves an attribute-use name through the frozen
-// attribute-use index and verifies that the indexed use still names the same
-// attribute.
-func LookupAttributeUseSlot(index map[QName]uint32, useCount int, name QName, useName func(uint32) (QName, bool)) (uint32, bool) {
-	slot, ok := index[name]
-	if !ok || !ValidUint32Index(slot, useCount) || useName == nil {
-		return 0, false
-	}
-	got, ok := useName(slot)
-	if !ok || got != name {
-		return 0, false
-	}
-	return slot, true
 }
 
 // ValidateAttributeUseRestriction validates one derived attribute use against
@@ -1235,24 +800,6 @@ func validateAttributeUseRuntime(
 		return SimpleIdentityNone, errors.New("attribute use stores both default and fixed value constraints")
 	}
 	return identity, nil
-}
-
-func attributeUseSetDerivedSlots(uses []AttributeUseValidation) ([]uint32, []uint32, error) {
-	required := make([]uint32, 0, len(uses))
-	valueConstraints := make([]uint32, 0, len(uses))
-	for i, use := range uses {
-		slot, ok := uint32Index(i)
-		if !ok {
-			return nil, nil, errors.New("attribute use slot is invalid")
-		}
-		if use.Required {
-			required = append(required, slot)
-		}
-		if use.HasDefault || use.HasFixed {
-			valueConstraints = append(valueConstraints, slot)
-		}
-	}
-	return required, valueConstraints, nil
 }
 
 func uint32Index(i int) (uint32, bool) {

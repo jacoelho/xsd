@@ -10,20 +10,37 @@ import (
 func TestDecimalAndIntegerCanonicalValuesDiverge(t *testing.T) {
 	engine := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
 	rt := engineRuntime(t, engine)
-	decimal, err := rt.ValidateSimpleValueRuntimeBoundaryForTest(rt.Builtins().Decimal, "5", nil, runtime.SimpleNeedCanonical)
+	decimal, err := rt.ValidateSimpleValueRuntimeBoundaryForTest(builtinSimpleTypeID(t, rt, "decimal"), "5", nil, runtime.SimpleNeedCanonical)
 	if err != nil {
 		t.Fatalf("validateSimpleValueInfo(decimal) error = %v", err)
 	}
 	if decimal.Canonical != "5.0" {
 		t.Fatalf("decimal canonical = %q, want 5.0", decimal.Canonical)
 	}
-	integer, err := rt.ValidateSimpleValueRuntimeBoundaryForTest(rt.Builtins().Int, "05", nil, runtime.SimpleNeedCanonical)
+	integer, err := rt.ValidateSimpleValueRuntimeBoundaryForTest(builtinSimpleTypeID(t, rt, "int"), "05", nil, runtime.SimpleNeedCanonical)
 	if err != nil {
 		t.Fatalf("validateSimpleValueInfo(int) error = %v", err)
 	}
 	if integer.Canonical != "5" {
 		t.Fatalf("int canonical = %q, want 5", integer.Canonical)
 	}
+}
+
+func builtinSimpleTypeID(t *testing.T, rt *runtime.Schema, local string) runtime.SimpleTypeID {
+	t.Helper()
+	name, ok := rt.LookupQName("http://www.w3.org/2001/XMLSchema", local)
+	if !ok {
+		t.Fatalf("built-in type %q is not interned", local)
+	}
+	typ, ok := rt.GlobalType(name)
+	if !ok {
+		t.Fatalf("built-in type %q is not published", local)
+	}
+	id, ok := typ.Simple()
+	if !ok {
+		t.Fatalf("built-in type %q is not simple", local)
+	}
+	return id
 }
 
 func TestBooleanPrimitiveRuntimeParserBuildsSchemaActual(t *testing.T) {

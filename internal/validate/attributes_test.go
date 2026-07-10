@@ -34,7 +34,11 @@ func (s attributeRuntimeStub) GlobalAttribute(name runtime.QName) (runtime.Attri
 func TestAttributeSeenTracksBitsetAndSliceSlots(t *testing.T) {
 	t.Parallel()
 
-	bitset := NewAttributeSeen(2)
+	var scratch []bool
+	bitset := newAttributeSeenWithScratch(2, &scratch)
+	if scratch != nil {
+		t.Fatalf("inline attribute presence allocated scratch: %v", scratch)
+	}
 	if !bitset.mark(1) {
 		t.Fatal("first bitset mark failed")
 	}
@@ -46,7 +50,7 @@ func TestAttributeSeenTracksBitsetAndSliceSlots(t *testing.T) {
 	}
 
 	const slot = 65
-	slice := NewAttributeSeen(70)
+	slice := newAttributeSeenWithScratch(70, &scratch)
 	if !slice.mark(slot) {
 		t.Fatal("first slice mark failed")
 	}
@@ -72,6 +76,15 @@ func TestAttributeSeenScratchIsClearedBeforeReuse(t *testing.T) {
 	}
 	if !seen.mark(69) {
 		t.Fatal("reused attribute presence scratch retained a mark")
+	}
+
+	retained = &scratch[0]
+	seen = newAttributeSeenWithScratch(maxRetainedSliceCap+1, &scratch)
+	if &scratch[0] != retained {
+		t.Fatal("oversized attribute presence replaced retained scratch")
+	}
+	if !seen.mark(maxRetainedSliceCap) || !seen.has(maxRetainedSliceCap) {
+		t.Fatal("oversized attribute presence did not track final slot")
 	}
 }
 

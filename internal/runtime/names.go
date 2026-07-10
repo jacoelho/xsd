@@ -32,35 +32,12 @@ type NameTable struct {
 	maxNames   int
 }
 
-// NameReadView is a value-owned validation view over frozen runtime names.
+// NameReadView is a validation view over frozen runtime names.
 type NameReadView struct {
 	nsIndex    map[string]NamespaceID
 	localIndex map[string]LocalNameID
 	namespaces []string
 	locals     []string
-}
-
-// NamespaceCount returns the number of published namespace URIs.
-func (v NameReadView) NamespaceCount() int {
-	return len(v.namespaces)
-}
-
-// LocalCount returns the number of published local names.
-func (v NameReadView) LocalCount() int {
-	return len(v.locals)
-}
-
-// NewNameReadView returns a validation-facing read view over names.
-func NewNameReadView(names *NameTable) NameReadView {
-	if names == nil {
-		return NameReadView{}
-	}
-	return NameReadView{
-		nsIndex:    maps.Clone(names.nsIndex),
-		localIndex: maps.Clone(names.localIndex),
-		namespaces: slices.Clone(names.namespaces),
-		locals:     slices.Clone(names.locals),
-	}
 }
 
 // NewBorrowedNameReadView returns a read view over immutable published names.
@@ -98,15 +75,6 @@ func (v NameReadView) Namespace(id NamespaceID) string {
 		return ""
 	}
 	return v.namespaces[id]
-}
-
-// EqualNameReadViews reports whether two name read views contain identical
-// lookup state.
-func EqualNameReadViews(a, b NameReadView) bool {
-	return maps.Equal(a.nsIndex, b.nsIndex) &&
-		maps.Equal(a.localIndex, b.localIndex) &&
-		slices.Equal(a.namespaces, b.namespaces) &&
-		slices.Equal(a.locals, b.locals)
 }
 
 // ValidateNameReadProjection validates a name read view against a frozen name
@@ -201,16 +169,6 @@ func (n *NameTable) Clone() NameTable {
 // NameCount returns the total number of interned namespace URIs and local names.
 func (n *NameTable) NameCount() int {
 	return len(n.namespaces) + len(n.locals)
-}
-
-// NamespaceCount returns the number of interned namespace URIs.
-func (n *NameTable) NamespaceCount() int {
-	return len(n.namespaces)
-}
-
-// LocalCount returns the number of interned local names.
-func (n *NameTable) LocalCount() int {
-	return len(n.locals)
 }
 
 // ValidateRuntimeNameTable validates runtime name-table shape and required

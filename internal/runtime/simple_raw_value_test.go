@@ -41,39 +41,46 @@ func TestValidateRawStringLengthUsesNormalizedCodePointCount(t *testing.T) {
 }
 
 type rawSimpleValueCallbackStub struct {
-	types        map[SimpleTypeID]RawSimpleValueType
-	unions       map[SimpleTypeID][]SimpleTypeID
-	enumerations map[SimpleTypeID][]string
-	calls        []string
+	types                    map[SimpleTypeID]RawSimpleValueType
+	unions                   map[SimpleTypeID][]SimpleTypeID
+	enumerations             map[SimpleTypeID][]string
+	calls                    []string
+	typeCalls                []SimpleTypeID
+	missingUnionMemberAccess bool
 }
 
-func (s *rawSimpleValueCallbackStub) callbacks() RawSimpleValueCallbacks {
-	return RawSimpleValueCallbacks{
-		Type:                     s.typ,
-		ForEachUnionMember:       s.forEachUnionMember,
-		ForEachStringEnumeration: s.forEachStringEnumeration,
-	}
-}
-
-func (s *rawSimpleValueCallbackStub) typ(id SimpleTypeID) (RawSimpleValueType, bool) {
+func (s *rawSimpleValueCallbackStub) rawSimpleValueType(id SimpleTypeID) (RawSimpleValueType, bool) {
+	s.typeCalls = append(s.typeCalls, id)
 	typ, ok := s.types[id]
 	return typ, ok
 }
 
-func (s *rawSimpleValueCallbackStub) forEachUnionMember(id SimpleTypeID, yield func(SimpleTypeID) bool) {
-	for _, member := range s.unions[id] {
-		if !yield(member) {
-			return
-		}
+func (s *rawSimpleValueCallbackStub) rawSimpleValueUnionMemberCount(id SimpleTypeID) (int, bool) {
+	if s.missingUnionMemberAccess {
+		return 1, true
 	}
+	members, ok := s.unions[id]
+	return len(members), ok
 }
 
-func (s *rawSimpleValueCallbackStub) forEachStringEnumeration(id SimpleTypeID, yield func(string) bool) {
+func (s *rawSimpleValueCallbackStub) rawSimpleValueUnionMember(id SimpleTypeID, index int) (SimpleTypeID, bool) {
+	if s.missingUnionMemberAccess {
+		return NoSimpleType, false
+	}
+	members, ok := s.unions[id]
+	if !ok || index < 0 || index >= len(members) {
+		return NoSimpleType, false
+	}
+	return members[index], true
+}
+
+func (s *rawSimpleValueCallbackStub) rawSimpleValueStringEnumeration(id SimpleTypeID, normalized []byte) (bool, bool) {
 	for _, canonical := range s.enumerations[id] {
-		if !yield(canonical) {
-			return
+		if byteStringEqual(canonical, normalized) {
+			return true, true
 		}
 	}
+	return false, true
 }
 
 func TestValidateRawSimpleValueAtomicDispatch(t *testing.T) {
@@ -246,7 +253,7 @@ func TestValidateRawSimpleValueAtomicDispatch(t *testing.T) {
 			if input == "" {
 				input = "raw"
 			}
-			ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte(input))
+			ok, err := validateRawSimpleValue(stub, 1, []byte(input))
 			if err != nil {
 				t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 			}
@@ -278,7 +285,7 @@ func TestValidateRawSimpleValueStringExecutors(t *testing.T) {
 		enumerations: map[SimpleTypeID][]string{2: {"ok"}},
 	}
 
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("bad"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("bad"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -286,7 +293,7 @@ func TestValidateRawSimpleValueStringExecutors(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want pattern facet failed", err)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 2, []byte("bad"))
+	ok, err = validateRawSimpleValue(stub, 2, []byte("bad"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -370,7 +377,7 @@ func TestValidateRawSimpleValueListDispatch(t *testing.T) {
 			},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("a b"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("a b"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -395,7 +402,7 @@ func TestValidateRawSimpleValueNMTOKENListExecutor(t *testing.T) {
 			},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("good bad:name 1"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("good bad:name 1"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -406,7 +413,7 @@ func TestValidateRawSimpleValueNMTOKENListExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("good <bad>"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("good <bad>"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -428,7 +435,7 @@ func TestValidateRawSimpleValueFastIntExecutor(t *testing.T) {
 			},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("2147483648"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("2147483648"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -454,7 +461,7 @@ func TestValidateRawSimpleValueDecimalExecutor(t *testing.T) {
 			},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("10.50"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("10.50"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -465,7 +472,7 @@ func TestValidateRawSimpleValueDecimalExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("0.99"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("0.99"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -473,7 +480,7 @@ func TestValidateRawSimpleValueDecimalExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want minInclusive failure", err)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("10.51"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("10.51"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -490,7 +497,7 @@ func TestValidateRawSimpleValueAnyURIExecutor(t *testing.T) {
 			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveAnyURI},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("https://example.test/a%20b"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("https://example.test/a%20b"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -501,7 +508,7 @@ func TestValidateRawSimpleValueAnyURIExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("a^b"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("a^b"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -509,7 +516,7 @@ func TestValidateRawSimpleValueAnyURIExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid anyURI", err)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte(" a "))
+	ok, err = validateRawSimpleValue(stub, 1, []byte(" a "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -526,7 +533,7 @@ func TestValidateRawSimpleValueHexBinaryExecutor(t *testing.T) {
 			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveHexBinary},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("0a2F"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("0a2F"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -537,7 +544,7 @@ func TestValidateRawSimpleValueHexBinaryExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("0g"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("0g"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -554,7 +561,7 @@ func TestValidateRawSimpleValueBase64BinaryExecutor(t *testing.T) {
 			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBase64Binary},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("AQID"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("AQID"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -565,7 +572,7 @@ func TestValidateRawSimpleValueBase64BinaryExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("AQI"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("AQI"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -573,7 +580,7 @@ func TestValidateRawSimpleValueBase64BinaryExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid base64Binary", err)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("A Q I D"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("A Q I D"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -591,7 +598,7 @@ func TestValidateRawSimpleValueFloatExecutor(t *testing.T) {
 			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDouble},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("1.25"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("1.25"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -602,7 +609,7 @@ func TestValidateRawSimpleValueFloatExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 2, []byte("1E9999"))
+	ok, err = validateRawSimpleValue(stub, 2, []byte("1E9999"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() overflow error = %v", err)
 	}
@@ -610,7 +617,7 @@ func TestValidateRawSimpleValueFloatExecutor(t *testing.T) {
 		t.Fatal("ValidateRawSimpleValue() overflow handled = false, want true")
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("+INF"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("+INF"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -618,7 +625,7 @@ func TestValidateRawSimpleValueFloatExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid float", err)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte(" 1 "))
+	ok, err = validateRawSimpleValue(stub, 1, []byte(" 1 "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -635,7 +642,7 @@ func TestValidateRawSimpleValueDurationExecutor(t *testing.T) {
 			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDuration},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("P1Y2M3DT4H5M6.7S"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("P1Y2M3DT4H5M6.7S"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -646,7 +653,7 @@ func TestValidateRawSimpleValueDurationExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("P"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("P"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -654,7 +661,7 @@ func TestValidateRawSimpleValueDurationExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid duration", err)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte(" P3D "))
+	ok, err = validateRawSimpleValue(stub, 1, []byte(" P3D "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -689,7 +696,7 @@ func TestValidateRawSimpleValueTemporalExecutor(t *testing.T) {
 		{id: 6, input: "---31-14:00"},
 		{id: 7, input: "--12Z"},
 	} {
-		ok, err := ValidateRawSimpleValue(stub.callbacks(), tt.id, []byte(tt.input))
+		ok, err := validateRawSimpleValue(stub, tt.id, []byte(tt.input))
 		if err != nil {
 			t.Fatalf("ValidateRawSimpleValue(%q) error = %v", tt.input, err)
 		}
@@ -701,7 +708,7 @@ func TestValidateRawSimpleValueTemporalExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("2026-05-18T24:00:00.1"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("2026-05-18T24:00:00.1"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -709,7 +716,7 @@ func TestValidateRawSimpleValueTemporalExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid dateTime", err)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte(" 2026-05-18T24:00:00Z "))
+	ok, err = validateRawSimpleValue(stub, 1, []byte(" 2026-05-18T24:00:00Z "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -727,7 +734,7 @@ func TestValidateRawSimpleValueBooleanExecutor(t *testing.T) {
 		},
 	}
 	for _, input := range []string{"true", "false", "1", "0"} {
-		ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte(input))
+		ok, err := validateRawSimpleValue(stub, 1, []byte(input))
 		if err != nil {
 			t.Fatalf("ValidateRawSimpleValue(%q) error = %v", input, err)
 		}
@@ -735,14 +742,14 @@ func TestValidateRawSimpleValueBooleanExecutor(t *testing.T) {
 			t.Fatalf("ValidateRawSimpleValue(%q) handled = false, want true", input)
 		}
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("yes"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("yes"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
 	if err == nil || err.Error() != "invalid boolean" {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid boolean", err)
 	}
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte(" true "))
+	ok, err = validateRawSimpleValue(stub, 1, []byte(" true "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -762,7 +769,7 @@ func TestValidateRawSimpleValueDateExecutor(t *testing.T) {
 			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDate},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("2000-02-29"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("2000-02-29"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -773,7 +780,7 @@ func TestValidateRawSimpleValueDateExecutor(t *testing.T) {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("1900-02-29"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("1900-02-29"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -781,7 +788,7 @@ func TestValidateRawSimpleValueDateExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid date/time", err)
 	}
 
-	ok, err = ValidateRawSimpleValue(stub.callbacks(), 1, []byte("2000-02-29Z"))
+	ok, err = validateRawSimpleValue(stub, 1, []byte("2000-02-29Z"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -794,7 +801,7 @@ func TestValidateRawSimpleValueMissingType(t *testing.T) {
 	t.Parallel()
 
 	stub := &rawSimpleValueCallbackStub{}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("raw"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
 	}
@@ -811,7 +818,7 @@ func TestValidateRawSimpleValueInvalidVariety(t *testing.T) {
 			1: {Variety: SimpleVariety(99)},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("raw"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
 	}
@@ -828,7 +835,7 @@ func TestValidateRawSimpleValueListMissingItem(t *testing.T) {
 			1: {Variety: SimpleVarietyList, ListItem: 2},
 		},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("a b"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("a b"))
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
 	}
@@ -848,7 +855,7 @@ func TestValidateRawSimpleValueUnionBooleanMember(t *testing.T) {
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2}},
 	}
 	for _, input := range []string{"true", "false", "1", "0"} {
-		ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte(input))
+		ok, err := validateRawSimpleValue(stub, 1, []byte(input))
 		if err != nil {
 			t.Fatalf("ValidateRawSimpleValue(%q) error = %v", input, err)
 		}
@@ -856,7 +863,7 @@ func TestValidateRawSimpleValueUnionBooleanMember(t *testing.T) {
 			t.Fatalf("ValidateRawSimpleValue(%q) handled = false, want true", input)
 		}
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("yes"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("yes"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -865,6 +872,48 @@ func TestValidateRawSimpleValueUnionBooleanMember(t *testing.T) {
 	}
 	if len(stub.calls) != 0 {
 		t.Fatalf("raw validator calls = %v, want none", stub.calls)
+	}
+}
+
+func TestValidateRawSimpleValueUnionStopsAfterMatch(t *testing.T) {
+	t.Parallel()
+
+	stub := &rawSimpleValueCallbackStub{
+		types: map[SimpleTypeID]RawSimpleValueType{
+			1: {Variety: SimpleVarietyUnion},
+			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBoolean},
+		},
+		unions: map[SimpleTypeID][]SimpleTypeID{1: {2, 3}},
+	}
+	ok, err := validateRawSimpleValue(stub, 1, []byte("true"))
+	if err != nil {
+		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
+	}
+}
+
+func TestValidateRawSimpleValueUnionLoadsEachAttemptedMemberOnce(t *testing.T) {
+	t.Parallel()
+
+	stub := &rawSimpleValueCallbackStub{
+		types: map[SimpleTypeID]RawSimpleValueType{
+			1: {Variety: SimpleVarietyUnion},
+			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBoolean},
+			3: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveString},
+		},
+		unions: map[SimpleTypeID][]SimpleTypeID{1: {2, 3}},
+	}
+	ok, err := validateRawSimpleValue(stub, 1, []byte("value"))
+	if err != nil {
+		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
+	}
+	if len(stub.typeCalls) != 3 || stub.typeCalls[0] != 1 || stub.typeCalls[1] != 2 || stub.typeCalls[2] != 3 {
+		t.Fatalf("raw type lookups = %v, want [1 2 3]", stub.typeCalls)
 	}
 }
 
@@ -878,7 +927,7 @@ func TestValidateRawSimpleValueUnionUnhandledMember(t *testing.T) {
 		},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2}},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("raw"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -894,7 +943,23 @@ func TestValidateRawSimpleValueUnionMissingMember(t *testing.T) {
 		types:  map[SimpleTypeID]RawSimpleValueType{1: {Variety: SimpleVarietyUnion}},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2}},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("raw"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
+	if !errors.Is(err, ErrSimpleValueMetadata) {
+		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
+	}
+	if ok {
+		t.Fatal("ValidateRawSimpleValue() handled = true, want false")
+	}
+}
+
+func TestValidateRawSimpleValueUnionMissingMemberAccess(t *testing.T) {
+	t.Parallel()
+
+	stub := &rawSimpleValueCallbackStub{
+		types:                    map[SimpleTypeID]RawSimpleValueType{1: {Variety: SimpleVarietyUnion}},
+		missingUnionMemberAccess: true,
+	}
+	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
 	}
@@ -914,7 +979,7 @@ func TestValidateRawSimpleValueUnionInvalidMembers(t *testing.T) {
 		},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2, 3}},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("raw"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -933,7 +998,7 @@ func TestValidateRawSimpleValueUnionWhitespaceDisablesRawPath(t *testing.T) {
 		types:  map[SimpleTypeID]RawSimpleValueType{1: {Variety: SimpleVarietyUnion}},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2}},
 	}
-	ok, err := ValidateRawSimpleValue(stub.callbacks(), 1, []byte("a b"))
+	ok, err := validateRawSimpleValue(stub, 1, []byte("a b"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}

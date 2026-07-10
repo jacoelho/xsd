@@ -2,13 +2,6 @@ package runtime
 
 import "github.com/jacoelho/xsd/xsderrors"
 
-type schemaValidationMode uint8
-
-const (
-	schemaValidationFull schemaValidationMode = iota
-	schemaValidationPublication
-)
-
 // schemaAudit joins compiler-owned source records with a candidate published
 // runtime only while publication invariants are checked. Schema never retains
 // this source after publication.
@@ -17,25 +10,8 @@ type schemaAudit struct {
 	build SchemaBuild
 }
 
-// ValidateSchemaBuild validates compiler-owned schema invariants and every
-// projection that publication would derive from build.
-func ValidateSchemaBuild(build *SchemaBuild) error {
-	if build == nil {
-		return xsderrors.InternalInvariant("nil schema build")
-	}
-	reads := newSchemaRuntime(build)
-	audit := schemaAudit{
-		Schema: Schema{runtime: reads},
-		build:  *build,
-	}
-	if err := validateSchema(&audit, schemaValidationFull); err != nil {
-		return err
-	}
-	return validateRuntimeReadProjections(&audit)
-}
-
-func validateCompilerPublication(rt *schemaAudit) error {
-	ctx := schemaValidationContext{rt: rt, mode: schemaValidationPublication}
+func validateSchema(rt *schemaAudit) error {
+	ctx := schemaValidationContext{rt: rt}
 	if err := validateNameTable(rt); err != nil {
 		return err
 	}
@@ -45,41 +21,20 @@ func validateCompilerPublication(rt *schemaAudit) error {
 	if err := validateRuntimeSubstitutions(rt); err != nil {
 		return err
 	}
-	if err := validateBuiltins(rt, schemaValidationPublication); err != nil {
+	if err := validateBuiltins(rt); err != nil {
 		return err
 	}
 	if err := validateRuntimeComponents(&ctx); err != nil {
 		return err
 	}
-	return validateRuntimeCompiledModels(rt, schemaValidationPublication)
-}
-
-func validateSchema(rt *schemaAudit, mode schemaValidationMode) error {
-	ctx := schemaValidationContext{rt: rt, mode: mode}
-	if err := validateNameTable(rt); err != nil {
+	if err := validateRuntimeChoiceLimits(rt); err != nil {
 		return err
 	}
-	if err := validateRuntimeGlobals(rt); err != nil {
-		return err
-	}
-	if err := validateRuntimeSubstitutions(rt); err != nil {
-		return err
-	}
-	if err := validateBuiltins(rt, mode); err != nil {
-		return err
-	}
-	if err := validateRuntimeComponents(&ctx); err != nil {
-		return err
-	}
-	if err := validateRuntimeChoiceLimits(rt, mode); err != nil {
-		return err
-	}
-	return validateRuntimeCompiledModels(rt, mode)
+	return validateRuntimeCompiledModels(rt)
 }
 
 type schemaValidationContext struct {
-	rt   *schemaAudit
-	mode schemaValidationMode
+	rt *schemaAudit
 }
 
 func validateNameTable(rt *schemaAudit) error {
@@ -417,18 +372,14 @@ func validateCompiledModelViews(rt *schemaAudit) error {
 	return nil
 }
 
-func validateRuntimeCompiledModels(rt *schemaAudit, mode schemaValidationMode) error {
-	validateUPA := mode == schemaValidationFull
-	if err := validateCompiledModelsRuntime(&rt.build.Names, &rt.build, rt.build.Models, rt.build.CompiledModels, validateUPA); err != nil {
+func validateRuntimeCompiledModels(rt *schemaAudit) error {
+	if err := validateCompiledModelsRuntime(&rt.build.Names, &rt.build, rt.build.Models, rt.build.CompiledModels, true); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
-func validateRuntimeChoiceLimits(rt *schemaAudit, mode schemaValidationMode) error {
-	if mode == schemaValidationPublication {
-		return nil
-	}
+func validateRuntimeChoiceLimits(rt *schemaAudit) error {
 	if err := ValidateChoiceLimitDerivations(
 		&rt.build,
 		rt.build.ComplexTypes,
@@ -440,13 +391,7 @@ func validateRuntimeChoiceLimits(rt *schemaAudit, mode schemaValidationMode) err
 	return nil
 }
 
-func validateBuiltins(rt *schemaAudit, mode schemaValidationMode) error {
-	if mode == schemaValidationPublication {
-		if err := validateBuiltinDeclarations(rt); err != nil {
-			return err
-		}
-		return validateBuiltinAnyType(rt)
-	}
+func validateBuiltins(rt *schemaAudit) error {
 	return validateBuiltinIDs(rt)
 }
 
@@ -658,19 +603,17 @@ func validateSimpleType(ctx *schemaValidationContext, id SimpleTypeID, st Simple
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	if ctx.mode == schemaValidationFull {
-		if err := ValidateSimpleTypeIdentity(&rt.build, rt.build.Builtin, id, NewSimpleTypeIdentityNodeForSimpleType(st), st.Identity); err != nil {
-			return xsderrors.InternalInvariant(err.Error())
-		}
-		if err := ValidateSimpleFastPathForSimpleType(st); err != nil {
-			return xsderrors.InternalInvariant(err.Error())
-		}
-		if err := validateSimpleTypeDerivation(rt, id, st); err != nil {
-			return err
-		}
-		if err := ValidateFacetLegalityAndConsistencyForSimpleType(st); err != nil {
-			return xsderrors.InternalInvariant(err.Error())
-		}
+	if err := ValidateSimpleTypeIdentity(&rt.build, rt.build.Builtin, id, NewSimpleTypeIdentityNodeForSimpleType(st), st.Identity); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	if err := ValidateSimpleFastPathForSimpleType(st); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	if err := validateSimpleTypeDerivation(rt, id, st); err != nil {
+		return err
+	}
+	if err := ValidateFacetLegalityAndConsistencyForSimpleType(st); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
@@ -714,9 +657,6 @@ func validateComplexType(ctx *schemaValidationContext, id ComplexTypeID, ct Comp
 		AnyType:              rt.build.Builtin.AnyType,
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
-	}
-	if ctx.mode == schemaValidationPublication {
-		return nil
 	}
 	return validateComplexTypeDerivation(rt, id, ct)
 }
@@ -852,9 +792,6 @@ func validateValueConstraintRuntime(ctx *schemaValidationContext, vc *ValueConst
 	}
 	if err := validateSchemaBuildSimpleValuePayload(&rt.build, vc.Value, label); err != nil {
 		return err
-	}
-	if ctx.mode == schemaValidationPublication {
-		return nil
 	}
 	return ctx.validateValueConstraintReplay(vc, expected, label, cached)
 }

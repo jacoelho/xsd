@@ -102,3 +102,23 @@ func BenchmarkParseXSDTime(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
+	types := []SimpleType{
+		{Union: []SimpleTypeID{1, 2}, Variety: SimpleVarietyUnion},
+		{Variety: SimpleVarietyAtomic, Primitive: PrimitiveBoolean},
+		{Variety: SimpleVarietyAtomic, Primitive: PrimitiveString},
+	}
+	schema := &Schema{runtime: schemaRuntime{
+		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
+		SimpleValueCold:   newSimpleValueColdReadTable(types),
+	}}
+	raw := []byte("value")
+	b.ReportAllocs()
+	for b.Loop() {
+		handled, err := schema.validatePublishedRawSimpleValue(0, raw)
+		if err != nil || !handled {
+			b.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
+		}
+	}
+}

@@ -217,11 +217,6 @@ func (p *Parser) SetLazyAttrValue(enabled bool) {
 	p.lazyAttrValue = enabled
 }
 
-// BufferLen returns the parser input buffer length.
-func (p *Parser) BufferLen() int {
-	return len(p.br.buf)
-}
-
 // IsTokenLimit reports whether err is the parser token-byte limit error.
 func IsTokenLimit(err error) bool {
 	return errors.Is(err, errXMLTokenLimit)

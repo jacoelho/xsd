@@ -85,13 +85,9 @@ func rootContentModel(t *testing.T, rt *runtime.Schema) runtime.ContentModelID {
 	if !ok {
 		t.Fatalf("LookupQName(%q) failed", rootContentModelName)
 	}
-	elem, ok := rt.GlobalElement(q)
-	if !ok {
+	elem, decl, ok := rt.RootElement(runtime.RuntimeName{Known: true, Name: q})
+	if !ok || elem == runtime.NoElement {
 		t.Fatalf("global element %q not found", rootContentModelName)
-	}
-	decl, ok := rt.Element(elem)
-	if !ok {
-		t.Fatalf("global element %q has no declaration", rootContentModelName)
 	}
 	typ := decl.Type
 	if typ.Kind != runtime.TypeComplex {

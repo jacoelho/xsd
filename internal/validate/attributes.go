@@ -26,14 +26,6 @@ type AttributeSeen struct {
 	mask uint64
 }
 
-// NewAttributeSeen returns presence state sized for n declared attribute uses.
-func NewAttributeSeen(n int) AttributeSeen {
-	if n > 64 {
-		return AttributeSeen{list: make([]bool, n)}
-	}
-	return AttributeSeen{}
-}
-
 func newAttributeSeenWithScratch(n int, scratch *[]bool) AttributeSeen {
 	if n <= 64 {
 		return AttributeSeen{}

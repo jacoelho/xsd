@@ -71,6 +71,25 @@ func TestValidateXMLDataReportsMalformedXMLBeforeSchemaErrors(t *testing.T) {
 	}
 }
 
+func TestValidateXMLDataReportsMalformedXMLAfterSchemaCompiles(t *testing.T) {
+	resp := validateXMLData(`<root><v>1</root>`, testSchema)
+	if resp.Valid {
+		t.Fatal("validateXMLData() accepted malformed XML")
+	}
+	if resp.Error != "" {
+		t.Fatalf("error = %q, want XML error list", resp.Error)
+	}
+	if len(resp.Errors) != 1 {
+		t.Fatalf("len(errors) = %d, want 1: %+v", len(resp.Errors), resp)
+	}
+	if resp.Errors[0].Source != "xml" {
+		t.Fatalf("error source = %q, want xml", resp.Errors[0].Source)
+	}
+	if resp.Errors[0].Code != "validation.xml" {
+		t.Fatalf("error code = %q, want validation.xml", resp.Errors[0].Code)
+	}
+}
+
 func TestValidateXMLDataAcceptsCompactXMLWithoutFormatting(t *testing.T) {
 	const xml = `<root><v>1</v></root>`
 	formatted := formatXMLData(xml)

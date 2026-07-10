@@ -267,11 +267,6 @@ func xsiStartAttributeFlagsFor(attrs []stream.Attr) xsiStartAttributeFlags {
 	return flags
 }
 
-// HasXSITypeAttribute reports whether attrs contains an xsi:type attribute.
-func HasXSITypeAttribute(attrs []stream.Attr) bool {
-	return xsiStartAttributeFlagsFor(attrs).Type
-}
-
 func formatXMLName(n xml.Name) string {
 	return runtime.FormatExpandedName(n.Space, n.Local)
 }

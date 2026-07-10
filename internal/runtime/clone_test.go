@@ -3,25 +3,7 @@ package runtime
 import "testing"
 
 func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
-	substitutions := map[ElementID][]ElementID{
-		1: {2, 3},
-	}
-	clonedSubstitutions := CloneSubstitutionMap(substitutions)
-	substitutions[1][0] = 9
-	if clonedSubstitutions[1][0] != 2 {
-		t.Fatalf("CloneSubstitutionMap aliased member slice: %#v", clonedSubstitutions[1])
-	}
-
 	name := QName{Namespace: 1, Local: 2}
-	lookup := map[ElementID]map[QName]ElementID{
-		1: {name: 3},
-	}
-	clonedLookup := CloneSubstitutionLookup(lookup)
-	lookup[1][name] = 9
-	if clonedLookup[1][name] != 3 {
-		t.Fatalf("CloneSubstitutionLookup aliased lookup map: %#v", clonedLookup[1])
-	}
-
 	wildcards := []Wildcard{{
 		Namespaces: []NamespaceID{1, 2},
 		Mode:       WildcardList,
@@ -160,25 +142,6 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 		t.Fatalf("CloneRuntimeGlobals aliased mutable projection state: %#v", clonedGlobals)
 	}
 
-	attributeUseSet := AttributeUseSetValidation{
-		Index:            map[QName]uint32{{Local: 1}: 0},
-		Uses:             []AttributeUseValidation{{Name: QName{Local: 1}, Type: 1}},
-		Required:         []uint32{0},
-		ValueConstraints: []uint32{0},
-		Wildcard:         NoAttributeWildcardState(),
-	}
-	clonedAttributeUseSet := CloneAttributeUseSetValidation(attributeUseSet)
-	attributeUseSet.Index[QName{Local: 1}] = 9
-	attributeUseSet.Uses[0].Type = 9
-	attributeUseSet.Required[0] = 9
-	attributeUseSet.ValueConstraints[0] = 9
-	if clonedAttributeUseSet.Index[QName{Local: 1}] != 0 ||
-		clonedAttributeUseSet.Uses[0].Type != 1 ||
-		clonedAttributeUseSet.Required[0] != 0 ||
-		clonedAttributeUseSet.ValueConstraints[0] != 0 {
-		t.Fatalf("CloneAttributeUseSetValidation aliased mutable projection state: %#v", clonedAttributeUseSet)
-	}
-
 	elementDecl := ElementDeclValidation{Identity: []IdentityConstraintID{1}, Name: QName{Local: 1}}
 	clonedElementDecl := CloneElementDeclValidation(elementDecl)
 	elementDecl.Identity[0] = 9
@@ -210,14 +173,5 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 		clonedCompiled.Rows[0].Index.WildcardEdges[0] != 1 ||
 		!clonedCompiled.All[0].Required {
 		t.Fatalf("CloneCompiledModel aliased nested state: %#v", clonedCompiled)
-	}
-}
-
-func TestRuntimePublicationCloneHelpersPreserveNil(t *testing.T) {
-	if got := CloneSubstitutionMap(nil); got != nil {
-		t.Fatalf("CloneSubstitutionMap(nil) = %#v, want nil", got)
-	}
-	if got := CloneSubstitutionLookup(nil); got != nil {
-		t.Fatalf("CloneSubstitutionLookup(nil) = %#v, want nil", got)
 	}
 }

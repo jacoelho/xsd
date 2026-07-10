@@ -71,25 +71,14 @@ func NewGlobalReadMapProjection(attributes map[QName]AttributeID, elements map[Q
 	}
 }
 
-// ElementNameReadShape is the source projection for one element name read.
-type ElementNameReadShape struct {
-	Name QName
-}
-
-// NewElementNameReads projects element declaration names for frozen runtime
-// publication.
-func NewElementNameReads(shapes []ElementNameReadShape) []QName {
-	out := make([]QName, len(shapes))
-	for i := range shapes {
-		out[i] = shapes[i].Name
-	}
-	return out
-}
-
 // NewElementNameReadsForDecls projects element declaration names for frozen
 // runtime publication.
 func NewElementNameReadsForDecls(elems []ElementDecl) []QName {
-	return NewElementNameReads(elementNameReadShapes(elems))
+	out := make([]QName, len(elems))
+	for i := range elems {
+		out[i] = elems[i].Name
+	}
+	return out
 }
 
 // ElementNameByID resolves an element name ID against an element-name
@@ -99,20 +88,6 @@ func ElementNameByID(names []QName, id ElementID) (QName, bool) {
 		return QName{}, false
 	}
 	return names[id], true
-}
-
-// EqualElementNameReadProjection reports whether reads expose each element
-// declaration's name.
-func EqualElementNameReadProjection(reads []QName, shapes []ElementNameReadShape) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		if reads[i] != shapes[i].Name {
-			return false
-		}
-	}
-	return true
 }
 
 // EqualElementNameReadProjectionForDecls reports whether reads expose each
@@ -406,16 +381,6 @@ func notationReadName(names *NameTable, q QName) ExpandedName {
 		Namespace: names.Namespace(q.Namespace),
 		Local:     names.Local(q.Local),
 	}
-}
-
-func elementNameReadShapes(elems []ElementDecl) []ElementNameReadShape {
-	out := make([]ElementNameReadShape, len(elems))
-	for i := range elems {
-		out[i] = ElementNameReadShape{
-			Name: elems[i].Name,
-		}
-	}
-	return out
 }
 
 func globalTypeName(globals RuntimeGlobals, typ TypeID) (QName, bool) {

@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 	"unicode/utf8"
 
-	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -15,273 +13,135 @@ func (rt *Schema) validatePublishedSimpleValue(id SimpleTypeID, lexical string, 
 	if value, handled, err := validateSimpleValueRouteReadFast(rt.runtime.SimpleValueRoutes, rt.runtime.Notations, id, lexical, resolve, needs); handled {
 		return value, err
 	}
-	if id == NoSimpleType {
-		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, nil
-	}
-	route, ok := simpleValueRouteReadByID(rt.runtime.SimpleValueRoutes, id)
+	return validateSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs)
+}
+
+type publishedSimpleValueMetadataReader struct {
+	runtime *schemaRuntime
+}
+
+func (r publishedSimpleValueMetadataReader) simpleValueType(id SimpleTypeID) (SimpleValueType, bool) {
+	route, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id)
 	if !ok {
-		return SimpleValue{}, ErrSimpleValueMetadata
+		return SimpleValueType{}, false
 	}
-	cold, ok := rt.runtime.SimpleValueCold.read(id)
+	cold, ok := r.runtime.SimpleValueCold.read(id)
 	if !ok {
-		return SimpleValue{}, ErrSimpleValueMetadata
+		return SimpleValueType{}, false
 	}
-	typ := simpleValueTypeForRouteAndCold(route, cold)
-	switch route.variety {
-	case SimpleVarietyAtomic:
-		return rt.validatePublishedAtomicSimpleValue(id, &typ, cold, lexical, resolve, needs)
-	case SimpleVarietyList:
-		return rt.validatePublishedListSimpleValue(id, &typ, cold, lexical, resolve, needs)
-	case SimpleVarietyUnion:
-		return rt.validatePublishedUnionSimpleValue(&typ, cold, lexical, resolve, needs)
-	default:
-		return SimpleValue{}, ErrSimpleValueMetadata
-	}
+	return simpleValueTypeForRouteAndCold(route, cold), true
 }
 
-func (rt *Schema) validatePublishedAtomicSimpleValue(id SimpleTypeID, typ *SimpleValueType, cold *simpleValueColdRead, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
-	normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
-	switch SimpleValueBypass(simpleValueAtomicBypassShape(typ, needs)) {
-	case SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
-		if err := validatePublishedStringFacets(typ, cold, normalized, normalized); err != nil {
-			return SimpleValue{}, err
-		}
-		return SimpleValue{Type: id}, nil
-	case SimpleValueBypassValidateDecimal:
-		dec, err := ParseDecimalValue(normalized)
-		if err != nil {
-			return SimpleValue{}, err
-		}
-		if err := ValidateDecimalFacets(typ.DecimalFacets, dec); err != nil {
-			return SimpleValue{}, err
-		}
-		return SimpleValue{Type: id}, nil
-	case SimpleValueBypassNone:
-		if value, ok, err := validateAtomicStringSimpleValueFallback(id, *typ, normalized, needs); ok {
-			return value, err
-		}
-	default:
-		return SimpleValue{}, ErrSimpleValueMetadata
+func (r publishedSimpleValueMetadataReader) simpleValueFacets(id SimpleTypeID) (SimpleValueFacets, bool) {
+	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
+		return SimpleValueFacets{}, false
 	}
-	if err := validateRuntimeAtomicBuiltin(*typ, normalized); err != nil {
-		return SimpleValue{}, err
+	cold, ok := r.runtime.SimpleValueCold.read(id)
+	if !ok {
+		return SimpleValueFacets{}, false
 	}
-	if err := validateRuntimeAtomicLengthFacets(*typ, normalized); err != nil {
-		return SimpleValue{}, err
-	}
-	if cold == nil && typ.Facets != 0 {
-		return SimpleValue{}, ErrSimpleValueMetadata
-	}
-	var facets SimpleValueFacets
-	if cold != nil {
-		facets = simpleValueFacetsForColdRead(cold)
-	}
-	result, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
-		Type:         *typ,
-		Facets:       facets,
-		ResolveQName: resolve,
-		Notation: func(ns, local string) bool {
-			return rt.runtime.Notations[ExpandedName{Namespace: ns, Local: local}]
-		},
-		Normalized: normalized,
-		Needs: SimpleValuePrimitiveNeeds(PrimitiveValueNeedShape{
-			Facets:    typ.Facets,
-			Primitive: typ.Primitive,
-			Builtin:   typ.Builtin,
-			Identity:  typ.Identity,
-			Needs:     needs,
-		}),
-		Present: true,
-	})
-	if err != nil {
-		return SimpleValue{}, err
-	}
-	return AtomicSimpleValue(AtomicSimpleValueProjection{
-		Canonical:         result.Canonical,
-		IdentityCanonical: result.IdentityCanonical,
-		Type:              id,
-		Primitive:         typ.Primitive,
-		Identity:          typ.Identity,
-		Needs:             needs,
-	}), nil
+	return simpleValueFacetsForColdRead(cold), true
 }
 
-func (rt *Schema) validatePublishedListSimpleValue(id SimpleTypeID, typ *SimpleValueType, cold *simpleValueColdRead, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
-	needPlan := SimpleValueListNeeds(ListSimpleValueNeedShape{Facets: typ.Facets, Identity: typ.Identity, Needs: needs})
-	var canonical, normalized, refs strings.Builder
-	var validateErr error
-	count := uint32(0)
-	forEachSimpleValueListItem(lexical, func(item string) bool {
-		itemValue, err := rt.validatePublishedSimpleValue(typ.ListItem, item, resolve, needPlan.ItemNeeds)
-		if err != nil {
-			validateErr = err
-			return false
-		}
-		if needPlan.NeedStrings {
-			if count > 0 {
-				canonical.WriteByte(' ')
-				normalized.WriteByte(' ')
-			}
-			canonical.WriteString(itemValue.Canonical)
-			normalized.WriteString(item)
-		}
-		AppendSimpleValueIDRefs(&refs, itemValue)
-		count++
-		return true
-	})
-	if validateErr != nil {
-		return SimpleValue{}, validateErr
+func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id SimpleTypeID, canonical string) (bool, bool) {
+	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
+		return false, false
 	}
-	canonicalText, normalizedText := "", ""
-	if needPlan.NeedStrings {
-		canonicalText, normalizedText = canonical.String(), normalized.String()
+	cold, ok := r.runtime.SimpleValueCold.read(id)
+	if !ok {
+		return false, false
 	}
-	plan := SimpleValueListFacetPlan(typ.Facets)
-	if plan.ValidateLength {
-		if err := validateSimpleValueLengthFacets(*typ, count); err != nil {
-			return SimpleValue{}, err
-		}
-	}
-	if plan.ValidateLexical {
-		if err := validatePublishedStringFacets(typ, cold, normalizedText, canonicalText); err != nil {
-			return SimpleValue{}, err
-		}
-	}
-	return ListSimpleValue(ListSimpleValueProjection{Canonical: canonicalText, ItemIDRefs: refs.String(), Type: id, Needs: needs}), nil
-}
-
-func (rt *Schema) validatePublishedUnionSimpleValue(typ *SimpleValueType, cold *simpleValueColdRead, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
-	if cold == nil || len(typ.UnionMembers) == 0 {
-		return SimpleValue{}, ErrSimpleValueMetadata
-	}
-	normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
-	memberNeeds := SimpleValueUnionMemberNeeds(UnionSimpleValueNeedShape{Facets: typ.Facets, Identity: typ.Identity, Needs: needs})
-	var unsupportedErr error
-	for _, member := range typ.UnionMembers {
-		value, err := rt.validatePublishedSimpleValue(member, normalized, resolve, memberNeeds)
-		if err == nil {
-			if SimpleValueUnionFacetValidation(typ.Facets) {
-				if facetErr := validatePublishedStringFacets(typ, cold, normalized, value.Canonical); facetErr != nil {
-					return SimpleValue{}, facetErr
-				}
-			}
-			return value, nil
-		}
-		if unsupportedErr == nil && xsderrors.IsUnsupported(err) {
-			unsupportedErr = err
-		}
-	}
-	if unsupportedErr != nil {
-		return SimpleValue{}, unsupportedErr
-	}
-	return SimpleValue{}, errors.New("value does not match any union member")
-}
-
-func validatePublishedStringFacets(typ *SimpleValueType, cold *simpleValueColdRead, normalized, canonical string) error {
 	if cold == nil {
-		return ErrSimpleValueMetadata
-	}
-	if typ.Facets&FacetPattern != 0 && len(typ.StringFacets.Patterns) == 0 {
-		return ErrSimpleValueMetadata
-	}
-	if typ.Facets&FacetEnumeration != 0 && len(cold.enumeration) == 0 {
-		return ErrSimpleValueMetadata
-	}
-	if err := ValidateStringPatterns(typ.StringFacets.Patterns, normalized); err != nil {
-		return err
-	}
-	if typ.Facets&FacetEnumeration == 0 {
-		return nil
+		return false, true
 	}
 	for _, literal := range cold.enumeration {
 		if literal.Canonical == canonical {
-			return nil
+			return true, true
 		}
 	}
-	return errors.New("enumeration facet failed")
+	return false, true
+}
+
+func (r publishedSimpleValueMetadataReader) simpleValueNotation(ns, local string) (bool, bool) {
+	return r.runtime.Notations[ExpandedName{Namespace: ns, Local: local}], true
+}
+
+func (publishedSimpleValueMetadataReader) simpleValueUnsupported(err error) bool {
+	return xsderrors.IsUnsupported(err)
+}
+
+func (r publishedSimpleValueMetadataReader) rawSimpleValueType(id SimpleTypeID) (RawSimpleValueType, bool) {
+	route, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id)
+	if !ok {
+		return RawSimpleValueType{}, false
+	}
+	cold, ok := r.runtime.SimpleValueCold.read(id)
+	if !ok {
+		return RawSimpleValueType{}, false
+	}
+	if cold == nil && (route.facets != 0 || route.variety == SimpleVarietyUnion) {
+		return RawSimpleValueType{}, false
+	}
+	read := RawSimpleValueType{
+		DecimalMinInclusive: route.minInclusive,
+		DecimalMaxInclusive: route.maxInclusive,
+		ListItem:            route.listItem,
+		Facets:              route.facets,
+		Variety:             route.variety,
+		Primitive:           route.primitive,
+		Builtin:             route.builtin,
+		Whitespace:          route.whitespace,
+		Identity:            route.identity,
+		Fast:                route.fast,
+		RawBypass:           route.rawBypass,
+	}
+	if cold != nil {
+		read.StringPatterns = cold.facets.Patterns
+		read.LengthFacets = lengthFacetValues(cold.facets)
+	}
+	return read, true
+}
+
+func (r publishedSimpleValueMetadataReader) rawSimpleValueUnionMemberCount(id SimpleTypeID) (int, bool) {
+	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
+		return 0, false
+	}
+	cold, ok := r.runtime.SimpleValueCold.read(id)
+	if !ok || cold == nil || len(cold.union) == 0 {
+		return 0, false
+	}
+	return len(cold.union), true
+}
+
+func (r publishedSimpleValueMetadataReader) rawSimpleValueUnionMember(id SimpleTypeID, index int) (SimpleTypeID, bool) {
+	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
+		return NoSimpleType, false
+	}
+	cold, ok := r.runtime.SimpleValueCold.read(id)
+	if !ok || cold == nil || index < 0 || index >= len(cold.union) {
+		return NoSimpleType, false
+	}
+	return cold.union[index], true
+}
+
+func (r publishedSimpleValueMetadataReader) rawSimpleValueStringEnumeration(id SimpleTypeID, normalized []byte) (bool, bool) {
+	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
+		return false, false
+	}
+	cold, ok := r.runtime.SimpleValueCold.read(id)
+	if !ok || cold == nil {
+		return false, false
+	}
+	for _, literal := range cold.enumeration {
+		if byteStringEqual(literal.Canonical, normalized) {
+			return true, true
+		}
+	}
+	return false, true
 }
 
 func (rt *Schema) validatePublishedRawSimpleValue(id SimpleTypeID, raw []byte) (bool, error) {
-	route, ok := simpleValueRouteReadByID(rt.runtime.SimpleValueRoutes, id)
-	if !ok {
-		return false, ErrSimpleValueMetadata
-	}
-	cold, ok := rt.runtime.SimpleValueCold.read(id)
-	if !ok {
-		return false, ErrSimpleValueMetadata
-	}
-	switch route.variety {
-	case SimpleVarietyAtomic:
-		return validatePublishedRawAtomic(route, cold, raw)
-	case SimpleVarietyList:
-		return rt.validatePublishedRawList(route, raw)
-	case SimpleVarietyUnion:
-		return rt.validatePublishedRawUnion(route, cold, raw)
-	default:
-		return false, ErrSimpleValueMetadata
-	}
-}
-
-func validatePublishedRawAtomic(route *simpleValueRouteRead, cold *simpleValueColdRead, raw []byte) (bool, error) {
-	if route.primitive == PrimitiveString && route.builtin == BuiltinValidationNone &&
-		route.identity == SimpleIdentityNone && route.facets != 0 && route.facets&^runtimeLengthFacetMask == 0 {
-		if cold == nil {
-			return false, ErrSimpleValueMetadata
-		}
-		return true, validateRawStringLength(raw, route.whitespace, lengthFacetValues(cold.facets))
-	}
-	if route.rawBypass != SimpleValueBypassValidateStringPatterns && route.rawBypass != SimpleValueBypassValidateStringEnumeration {
-		return validateRawAtomicSimpleValueRoute(route, raw)
-	}
-	if cold == nil {
-		return false, ErrSimpleValueMetadata
-	}
-	rawNorm, normalized := rawEqualsNormalizedString(route.whitespace, raw)
-	if !normalized {
-		return false, nil
-	}
-	if route.rawBypass == SimpleValueBypassValidateStringPatterns {
-		return true, ValidateRawStringPatterns(cold.facets.Patterns, rawNorm)
-	}
-	for _, literal := range cold.enumeration {
-		if byteStringEqual(literal.Canonical, rawNorm) {
-			return true, nil
-		}
-	}
-	return true, errors.New("enumeration facet failed")
-}
-
-func (rt *Schema) validatePublishedRawList(route *simpleValueRouteRead, raw []byte) (bool, error) {
-	if route.identity != SimpleIdentityNone || route.facets != 0 {
-		return false, nil
-	}
-	item, ok := simpleValueRouteReadByID(rt.runtime.SimpleValueRoutes, route.listItem)
-	if !ok {
-		return false, ErrSimpleValueMetadata
-	}
-	if item.variety == SimpleVarietyAtomic && item.builtin == BuiltinValidationNMTOKEN && item.identity == SimpleIdentityNone && item.facets == 0 {
-		return true, ValidateNMTOKENListBytes(raw)
-	}
-	return false, nil
-}
-
-func (rt *Schema) validatePublishedRawUnion(route *simpleValueRouteRead, cold *simpleValueColdRead, raw []byte) (bool, error) {
-	if cold == nil || len(cold.union) == 0 {
-		return false, ErrSimpleValueMetadata
-	}
-	if route.identity != SimpleIdentityNone || route.facets != 0 || lex.HasXMLWhitespaceBytes(raw) {
-		return false, nil
-	}
-	for _, member := range cold.union {
-		handled, err := rt.validatePublishedRawSimpleValue(member, raw)
-		if !handled {
-			return false, nil
-		}
-		if err == nil {
-			return true, nil
-		}
-	}
-	return true, errors.New("value does not match any union member")
+	return validateRawSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, raw)
 }
 
 func validateRawStringLength(raw []byte, whitespace WhitespaceMode, facets LengthFacetValues) error {

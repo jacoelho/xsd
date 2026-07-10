@@ -956,8 +956,8 @@ func TestFreezeReplaysResolvedQNameValueConstraint(t *testing.T) {
   <xs:element name="root" type="xs:QName" default="t:item"/>
 </xs:schema>`
 	build := mutableSchemaBuild(t, schema)
-	if err := runtime.ValidateSchemaBuild(build); err != nil {
-		t.Fatalf("ValidateSchemaBuild() error = %v", err)
+	if err := validateSchemaBuild(build); err != nil {
+		t.Fatalf("validateSchemaBuild() error = %v", err)
 	}
 }
 
@@ -1147,29 +1147,28 @@ func compiledCompilerRuntime(t *testing.T, schema string) *compile.Compiler {
 }
 
 func TestCompiledSimpleFastPathDerivedFromFacets(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="MyInt"><xs:restriction base="xs:int"/></xs:simpleType>
   <xs:simpleType name="MyShort"><xs:restriction base="xs:short"/></xs:simpleType>
   <xs:simpleType name="TightInt"><xs:restriction base="xs:int"><xs:maxInclusive value="10"/></xs:restriction></xs:simpleType>
 </xs:schema>`)
 
-	builtins := publishedRuntime(t, engine).Builtins()
-	if got, ok := publishedRuntime(t, engine).SimpleTypeFastPath(builtins.Int); !ok || got != runtime.SimpleFastInt {
+	if got := build.SimpleTypes[build.Builtin.Int].Fast; got != runtime.SimpleFastInt {
 		t.Fatalf("xs:int Fast = %v, want runtime.SimpleFastInt", got)
 	}
-	if got := simpleTypeByName(t, publishedRuntime(t, engine), "MyInt").Fast; got != runtime.SimpleFastInt {
+	if got := build.SimpleTypes[simpleBuildTypeIDByName(t, build, "MyInt")].Fast; got != runtime.SimpleFastInt {
 		t.Fatalf("MyInt Fast = %v, want runtime.SimpleFastInt", got)
 	}
-	if got := simpleTypeByName(t, publishedRuntime(t, engine), "MyShort").Fast; got != runtime.SimpleFastNone {
+	if got := build.SimpleTypes[simpleBuildTypeIDByName(t, build, "MyShort")].Fast; got != runtime.SimpleFastNone {
 		t.Fatalf("MyShort Fast = %v, want runtime.SimpleFastNone", got)
 	}
-	if got := simpleTypeByName(t, publishedRuntime(t, engine), "TightInt").Fast; got != runtime.SimpleFastNone {
+	if got := build.SimpleTypes[simpleBuildTypeIDByName(t, build, "TightInt")].Fast; got != runtime.SimpleFastNone {
 		t.Fatalf("TightInt Fast = %v, want runtime.SimpleFastNone", got)
 	}
 }
 
 func TestSimpleContentFacetRestrictionRecomputesFastPath(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base">
     <xs:simpleContent>
       <xs:extension base="xs:int"/>
@@ -1184,25 +1183,18 @@ func TestSimpleContentFacetRestrictionRecomputesFastPath(t *testing.T) {
       </xs:simpleContent>
     </xs:complexType>
   </xs:element>
-</xs:schema>`)
-
-	rt := publishedRuntime(t, engine)
-	rootID, ok := rt.GlobalElement(mustQName(t, rt, "root"))
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	root := build.GlobalElements[mustQName(t, build, "root")]
+	complexID, ok := build.Elements[root].Type.Complex()
 	if !ok {
-		t.Fatal("root element is missing")
+		t.Fatal("root type is not complex")
 	}
-	decl, ok := rt.Element(rootID)
-	if !ok {
-		t.Fatal("root declaration is missing")
-	}
-	textType, hasSimple, ok := rt.SimpleContentType(decl.Type)
-	if !ok || !hasSimple {
-		t.Fatal("root simple content type is missing")
-	}
-	got, ok := rt.SimpleTypeFastPath(textType)
-	if !ok || got != runtime.SimpleFastNone {
+	textType := build.ComplexTypes[complexID].TextType
+	if got := build.SimpleTypes[textType].Fast; got != runtime.SimpleFastNone {
 		t.Fatalf("simple content text type Fast = %v, want runtime.SimpleFastNone", got)
 	}
+	engine := mustCompileRuntime(t, schema)
 	mustValidateRuntime(t, engine, `<root>10</root>`)
 	mustNotValidateRuntime(t, engine, `<root>11</root>`, xsderrors.CodeValidationFacet)
 }
@@ -1237,29 +1229,6 @@ func mustQName[T interface {
 	return q
 }
 
-func simpleTypeIDByName(t *testing.T, rt *runtime.Schema, local string) runtime.SimpleTypeID {
-	t.Helper()
-	typ, ok := rt.GlobalType(mustQName(t, rt, local))
-	if !ok {
-		t.Fatalf("global type %q not found", local)
-	}
-	id, ok := typ.Simple()
-	if !ok {
-		t.Fatalf("global type %q is not simple", local)
-	}
-	return id
-}
-
-func simpleTypeByName(t *testing.T, rt *runtime.Schema, local string) runtime.SimpleType {
-	t.Helper()
-	id := simpleTypeIDByName(t, rt, local)
-	fast, ok := rt.SimpleTypeFastPath(id)
-	if !ok {
-		t.Fatalf("simple type %q not found", local)
-	}
-	return runtime.SimpleType{Fast: fast}
-}
-
 func TestFixedWhitespaceFacetFreezes(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="Collapsed">
@@ -1270,8 +1239,8 @@ func TestFixedWhitespaceFacetFreezes(t *testing.T) {
   <xs:element name="root" type="Collapsed"/>
 </xs:schema>`
 	build := mutableSchemaBuild(t, schema)
-	if err := runtime.ValidateSchemaBuild(build); err != nil {
-		t.Fatalf("ValidateSchemaBuild() error = %v", err)
+	if err := validateSchemaBuild(build); err != nil {
+		t.Fatalf("validateSchemaBuild() error = %v", err)
 	}
 }
 
@@ -1312,12 +1281,13 @@ func TestRuntimeElementAccessor(t *testing.T) {
 	if _, ok := rt.Element(runtime.ElementID(1 << 30)); ok {
 		t.Error("element(out of range) resolved, want miss")
 	}
-	rootID, ok := rt.GlobalElement(mustQName(t, rt, "root"))
-	if !ok {
+	rootName := mustQName(t, rt, "root")
+	rootID, rootInfo, ok := rt.RootElement(runtime.RuntimeName{Known: true, Name: rootName})
+	if !ok || rootInfo.Type.Kind != runtime.TypeSimple {
 		t.Fatal("root element is missing")
 	}
 	name, ok := rt.ElementName(rootID)
-	if !ok || name != mustQName(t, rt, "root") {
+	if !ok || name != rootName {
 		t.Errorf("elementName(root) = (%v, %v), want root declaration", name, ok)
 	}
 }

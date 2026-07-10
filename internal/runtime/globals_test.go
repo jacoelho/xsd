@@ -33,39 +33,22 @@ func TestElementNameReadProjectionHelpers(t *testing.T) {
 	t.Parallel()
 
 	_, qnames := runtimeGlobalsFixture(t)
-	shapes := []ElementNameReadShape{
-		{Name: qnames["elem"]},
-		{Name: qnames["other"]},
-	}
-
-	reads := NewElementNameReads(shapes)
-	if !EqualElementNameReadProjection(reads, shapes) {
-		t.Fatalf("NewElementNameReads() = %v, want projection for %v", reads, shapes)
+	decls := []ElementDecl{{Name: qnames["elem"]}, {Name: qnames["other"]}}
+	reads := NewElementNameReadsForDecls(decls)
+	if !EqualElementNameReadProjectionForDecls(reads, decls) {
+		t.Fatalf("NewElementNameReadsForDecls() = %v, want projection for %v", reads, decls)
 	}
 	reads[1] = qnames["attr"]
-	if EqualElementNameReadProjection(reads, shapes) {
-		t.Fatal("EqualElementNameReadProjection() accepted mismatched name")
-	}
-	if EqualElementNameReadProjection(reads[:1], shapes) {
-		t.Fatal("EqualElementNameReadProjection() accepted mismatched table length")
-	}
-
-	decls := []ElementDecl{{Name: qnames["elem"]}, {Name: qnames["other"]}}
-	declReads := NewElementNameReadsForDecls(decls)
-	if !EqualElementNameReadProjectionForDecls(declReads, decls) {
-		t.Fatalf("NewElementNameReadsForDecls() = %v, want projection for %v", declReads, decls)
-	}
-	declReads[1] = qnames["attr"]
-	if EqualElementNameReadProjectionForDecls(declReads, decls) {
+	if EqualElementNameReadProjectionForDecls(reads, decls) {
 		t.Fatal("EqualElementNameReadProjectionForDecls() accepted mismatched name")
 	}
 	if err := ValidateElementNameReadProjectionForDecls(NewElementNameReadsForDecls(decls), decls); err != nil {
 		t.Fatalf("ValidateElementNameReadProjectionForDecls() error = %v", err)
 	}
-	if err := ValidateElementNameReadProjectionForDecls(declReads[:1], decls); err == nil || err.Error() != "element name projection count does not match declarations" {
+	if err := ValidateElementNameReadProjectionForDecls(reads[:1], decls); err == nil || err.Error() != "element name projection count does not match declarations" {
 		t.Fatalf("ValidateElementNameReadProjectionForDecls(short) error = %v, want count invariant", err)
 	}
-	if err := ValidateElementNameReadProjectionForDecls(declReads, decls); err == nil || err.Error() != "element name projection does not match declaration" {
+	if err := ValidateElementNameReadProjectionForDecls(reads, decls); err == nil || err.Error() != "element name projection does not match declaration" {
 		t.Fatalf("ValidateElementNameReadProjectionForDecls(changed) error = %v, want mismatch invariant", err)
 	}
 
@@ -288,7 +271,7 @@ func TestGlobalReadMaps(t *testing.T) {
 	if id, ok := GlobalElementByName(map[QName]ElementID{qnames["elem"]: 99}, elementInfos, qnames["elem"]); ok || id != NoElement {
 		t.Fatalf("GlobalElementByName(invalid) = %v, %v; want no element, false", id, ok)
 	}
-	derivations := NewTypeDerivationRead(0, []SimpleTypeDerivation{{}}, []ComplexTypeDerivation{{}})
+	derivations := NewBorrowedTypeDerivationReadForTypes(0, []SimpleType{{}}, []ComplexType{{}})
 	if typ, ok := GlobalTypeByName(reads.Types, derivations, qnames["simple"]); !ok || typ != SimpleRef(0) {
 		t.Fatalf("GlobalTypeByName() = %v, %v; want simple 0, true", typ, ok)
 	}

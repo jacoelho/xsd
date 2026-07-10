@@ -44,6 +44,58 @@ type SimpleValueCallbacks struct {
 	Unsupported              func(error) bool
 }
 
+type simpleValueMetadataReader interface {
+	simpleValueType(id SimpleTypeID) (SimpleValueType, bool)
+	simpleValueFacets(id SimpleTypeID) (SimpleValueFacets, bool)
+	simpleValueStringEnumeration(id SimpleTypeID, canonical string) (bool, bool)
+	simpleValueNotation(ns, local string) (bool, bool)
+	simpleValueUnsupported(err error) bool
+}
+
+type callbackSimpleValueMetadataReader struct {
+	callbacks SimpleValueCallbacks
+}
+
+func (r callbackSimpleValueMetadataReader) simpleValueType(id SimpleTypeID) (SimpleValueType, bool) {
+	if r.callbacks.Type == nil {
+		return SimpleValueType{}, false
+	}
+	return r.callbacks.Type(id)
+}
+
+func (r callbackSimpleValueMetadataReader) simpleValueFacets(id SimpleTypeID) (SimpleValueFacets, bool) {
+	if r.callbacks.Facets == nil {
+		return SimpleValueFacets{}, false
+	}
+	return r.callbacks.Facets(id)
+}
+
+func (r callbackSimpleValueMetadataReader) simpleValueStringEnumeration(id SimpleTypeID, canonical string) (bool, bool) {
+	if r.callbacks.StringEnumeration != nil {
+		return r.callbacks.StringEnumeration(id, canonical)
+	}
+	if r.callbacks.ForEachStringEnumeration == nil {
+		return false, false
+	}
+	matched := false
+	r.callbacks.ForEachStringEnumeration(id, func(candidate string) bool {
+		matched = candidate == canonical
+		return !matched
+	})
+	return matched, true
+}
+
+func (r callbackSimpleValueMetadataReader) simpleValueNotation(ns, local string) (bool, bool) {
+	if r.callbacks.Notation == nil {
+		return false, false
+	}
+	return r.callbacks.Notation(ns, local), true
+}
+
+func (r callbackSimpleValueMetadataReader) simpleValueUnsupported(err error) bool {
+	return r.callbacks.Unsupported != nil && r.callbacks.Unsupported(err)
+}
+
 // LengthFacetValues is the runtime projection of length/minLength/maxLength
 // facet values.
 type LengthFacetValues struct {
@@ -81,14 +133,6 @@ type SimpleValueFacets struct {
 	DecimalFacets DecimalFacetValues
 	LengthFacets  LengthFacetValues
 	Facets        FacetMask
-}
-
-// SimpleValueTypeRead is the hot published simple-value projection for one
-// simple type. Full facet literals are stored separately because most hot-path
-// decisions only need these type facts.
-type SimpleValueTypeRead struct {
-	Type    SimpleValueType
-	Present bool
 }
 
 // simpleValueRouteRead is the compact, cache-hot subset used before full
@@ -251,343 +295,6 @@ func simpleValueRouteReadByID(reads []simpleValueRouteRead, id SimpleTypeID) (*s
 	return &reads[id], true
 }
 
-// SimpleValueFacetReadTable stores full facet projections only for simple
-// types that have facet data.
-type SimpleValueFacetReadTable struct {
-	Index  []uint32
-	Values []SimpleValueFacets
-}
-
-// NewSimpleValueCallbacksForTypeReads returns runtime callbacks backed by the
-// published split simple-value projections.
-func NewSimpleValueCallbacksForTypeReads(
-	types []SimpleValueTypeRead,
-	facets SimpleValueFacetReadTable,
-	notation func(ns, local string) bool,
-	resolve func(string) (ns, local string, ok bool),
-	unsupported func(error) bool,
-) SimpleValueCallbacks {
-	return SimpleValueCallbacks{
-		Type:                     simpleValueReadTypeFromTypeReads(types),
-		Facets:                   simpleValueReadFacetsFromTable(types, facets),
-		ForEachStringEnumeration: simpleValueReadStringEnumerationFromTable(types, facets),
-		StringEnumeration:        simpleValueReadStringEnumerationContainsFromTable(types, facets),
-		ResolveQName:             resolve,
-		Notation:                 notation,
-		Unsupported:              unsupported,
-	}
-}
-
-// NewSimpleValueCallbacksForTypeReadsAndSimpleTypes returns runtime callbacks
-// backed by hot type reads and cold facet/enumeration reads borrowed from
-// immutable published simple types.
-func NewSimpleValueCallbacksForTypeReadsAndSimpleTypes(
-	typeReads []SimpleValueTypeRead,
-	simpleTypes []SimpleType,
-	notation func(ns, local string) bool,
-	resolve func(string) (ns, local string, ok bool),
-	unsupported func(error) bool,
-) SimpleValueCallbacks {
-	return SimpleValueCallbacks{
-		Type:                     simpleValueReadTypeFromTypeReads(typeReads),
-		Facets:                   simpleValueReadFacetsFromSimpleTypes(simpleTypes),
-		ForEachStringEnumeration: simpleValueReadStringEnumerationFromSimpleTypes(simpleTypes),
-		StringEnumeration:        simpleValueReadStringEnumerationContainsFromSimpleTypes(simpleTypes),
-		ResolveQName:             resolve,
-		Notation:                 notation,
-		Unsupported:              unsupported,
-	}
-}
-
-// NewSimpleValueCallbacksForSimpleTypes returns runtime callbacks backed by
-// immutable published simple types.
-func NewSimpleValueCallbacksForSimpleTypes(
-	types []SimpleType,
-	notation func(ns, local string) bool,
-	resolve func(string) (ns, local string, ok bool),
-	unsupported func(error) bool,
-) SimpleValueCallbacks {
-	return SimpleValueCallbacks{
-		Type:                     simpleValueReadTypeFromSimpleTypes(types),
-		Facets:                   simpleValueReadFacetsFromSimpleTypes(types),
-		ForEachStringEnumeration: simpleValueReadStringEnumerationFromSimpleTypes(types),
-		StringEnumeration:        simpleValueReadStringEnumerationContainsFromSimpleTypes(types),
-		ResolveQName:             resolve,
-		Notation:                 notation,
-		Unsupported:              unsupported,
-	}
-}
-
-// NewRawSimpleValueCallbacksForTypeReads returns raw simple-value callbacks
-// backed by the published hot simple-value type projections.
-func NewRawSimpleValueCallbacksForTypeReads(types []SimpleValueTypeRead) RawSimpleValueCallbacks {
-	return RawSimpleValueCallbacks{
-		Type:               rawSimpleValueReadTypeFromTypeReads(types),
-		ForEachUnionMember: simpleValueReadUnionMembersFromTypeReads(types),
-	}
-}
-
-// NewRawSimpleValueCallbacksForSimpleTypes returns raw simple-value callbacks
-// backed by immutable published simple types.
-func NewRawSimpleValueCallbacksForSimpleTypes(types []SimpleType) RawSimpleValueCallbacks {
-	return RawSimpleValueCallbacks{
-		Type:                     rawSimpleValueReadTypeFromSimpleTypes(types),
-		ForEachUnionMember:       simpleValueReadUnionMembersFromSimpleTypes(types),
-		ForEachStringEnumeration: simpleValueReadStringEnumerationFromSimpleTypes(types),
-	}
-}
-
-func simpleValueReadTypeFromTypeReads(types []SimpleValueTypeRead) func(SimpleTypeID) (SimpleValueType, bool) {
-	return func(id SimpleTypeID) (SimpleValueType, bool) {
-		read, ok := simpleValueTypeReadByID(types, id)
-		if !ok {
-			return SimpleValueType{}, false
-		}
-		return read.Type, true
-	}
-}
-
-func simpleValueReadTypeFromSimpleTypes(types []SimpleType) func(SimpleTypeID) (SimpleValueType, bool) {
-	return func(id SimpleTypeID) (SimpleValueType, bool) {
-		st, ok := UsableSimpleType(types, id)
-		if !ok {
-			return SimpleValueType{}, false
-		}
-		return SimpleValueTypeForSimpleType(*st), true
-	}
-}
-
-func simpleValueReadFacetsFromTable(types []SimpleValueTypeRead, facets SimpleValueFacetReadTable) func(SimpleTypeID) (SimpleValueFacets, bool) {
-	return func(id SimpleTypeID) (SimpleValueFacets, bool) {
-		if _, ok := simpleValueTypeReadByID(types, id); !ok {
-			return SimpleValueFacets{}, false
-		}
-		return facets.Facets(id)
-	}
-}
-
-func simpleValueReadFacetsFromSimpleTypes(types []SimpleType) func(SimpleTypeID) (SimpleValueFacets, bool) {
-	return func(id SimpleTypeID) (SimpleValueFacets, bool) {
-		st, ok := UsableSimpleType(types, id)
-		if !ok {
-			return SimpleValueFacets{}, false
-		}
-		return SimpleValueFacetsForFacetSet(st.Facets), true
-	}
-}
-
-func rawSimpleValueReadTypeFromTypeReads(types []SimpleValueTypeRead) func(SimpleTypeID) (RawSimpleValueType, bool) {
-	return func(id SimpleTypeID) (RawSimpleValueType, bool) {
-		read, ok := simpleValueTypeReadByID(types, id)
-		if !ok {
-			return RawSimpleValueType{}, false
-		}
-		return rawSimpleValueTypeForSimpleValueType(read.Type), true
-	}
-}
-
-func rawSimpleValueReadTypeFromSimpleTypes(types []SimpleType) func(SimpleTypeID) (RawSimpleValueType, bool) {
-	return func(id SimpleTypeID) (RawSimpleValueType, bool) {
-		st, ok := UsableSimpleType(types, id)
-		if !ok {
-			return RawSimpleValueType{}, false
-		}
-		return rawSimpleValueTypeForPublishedSimpleType(*st), true
-	}
-}
-
-func rawSimpleValueTypeForSimpleValueType(typ SimpleValueType) RawSimpleValueType {
-	return RawSimpleValueType{
-		DecimalMinInclusive: typ.DecimalMinInclusive,
-		DecimalMaxInclusive: typ.DecimalMaxInclusive,
-		StringPatterns:      typ.StringFacets.Patterns,
-		ListItem:            typ.ListItem,
-		Facets:              typ.Facets,
-		Variety:             typ.Variety,
-		Primitive:           typ.Primitive,
-		Builtin:             typ.Builtin,
-		Whitespace:          typ.Whitespace,
-		Identity:            typ.Identity,
-		Fast:                typ.Fast,
-	}
-}
-
-func rawSimpleValueTypeForPublishedSimpleType(st SimpleType) RawSimpleValueType {
-	return RawSimpleValueType{
-		DecimalMinInclusive: rawDecimalBoundFacet(st.Facets, FacetMinInclusive),
-		DecimalMaxInclusive: rawDecimalBoundFacet(st.Facets, FacetMaxInclusive),
-		StringPatterns:      st.Facets.Patterns,
-		ListItem:            st.ListItem,
-		Facets:              st.Facets.Present,
-		Variety:             st.Variety,
-		Primitive:           st.Primitive,
-		Builtin:             st.Builtin,
-		Whitespace:          st.Whitespace,
-		Identity:            st.Identity,
-		Fast:                st.Fast,
-	}
-}
-
-func simpleValueReadUnionMembersFromTypeReads(types []SimpleValueTypeRead) func(SimpleTypeID, func(SimpleTypeID) bool) {
-	return func(id SimpleTypeID, yield func(SimpleTypeID) bool) {
-		read, ok := simpleValueTypeReadByID(types, id)
-		if !ok {
-			return
-		}
-		for _, member := range read.Type.UnionMembers {
-			if !yield(member) {
-				return
-			}
-		}
-	}
-}
-
-func simpleValueReadUnionMembersFromSimpleTypes(types []SimpleType) func(SimpleTypeID, func(SimpleTypeID) bool) {
-	return func(id SimpleTypeID, yield func(SimpleTypeID) bool) {
-		st, ok := UsableSimpleType(types, id)
-		if !ok {
-			return
-		}
-		for _, member := range st.Union {
-			if !yield(member) {
-				return
-			}
-		}
-	}
-}
-
-func simpleValueReadStringEnumerationFromTable(types []SimpleValueTypeRead, facets SimpleValueFacetReadTable) func(SimpleTypeID, func(string) bool) {
-	return func(id SimpleTypeID, yield func(string) bool) {
-		if _, ok := simpleValueTypeReadByID(types, id); !ok {
-			return
-		}
-		f, ok := facets.Facets(id)
-		if !ok {
-			return
-		}
-		for _, lit := range f.Enumeration {
-			if !yield(lit.Canonical) {
-				return
-			}
-		}
-	}
-}
-
-func simpleValueReadStringEnumerationFromSimpleTypes(types []SimpleType) func(SimpleTypeID, func(string) bool) {
-	return func(id SimpleTypeID, yield func(string) bool) {
-		st, ok := UsableSimpleType(types, id)
-		if !ok {
-			return
-		}
-		for _, lit := range st.Facets.Enumeration {
-			if !yield(lit.Canonical) {
-				return
-			}
-		}
-	}
-}
-
-func simpleValueReadStringEnumerationContainsFromTable(types []SimpleValueTypeRead, facets SimpleValueFacetReadTable) func(SimpleTypeID, string) (bool, bool) {
-	return func(id SimpleTypeID, canonical string) (bool, bool) {
-		if _, ok := simpleValueTypeReadByID(types, id); !ok {
-			return false, false
-		}
-		f, ok := facets.Facets(id)
-		if !ok {
-			return false, false
-		}
-		for _, lit := range f.Enumeration {
-			if lit.Canonical == canonical {
-				return true, true
-			}
-		}
-		return false, true
-	}
-}
-
-func simpleValueReadStringEnumerationContainsFromSimpleTypes(types []SimpleType) func(SimpleTypeID, string) (bool, bool) {
-	return func(id SimpleTypeID, canonical string) (bool, bool) {
-		st, ok := UsableSimpleType(types, id)
-		if !ok {
-			return false, false
-		}
-		for _, lit := range st.Facets.Enumeration {
-			if lit.Canonical == canonical {
-				return true, true
-			}
-		}
-		return false, true
-	}
-}
-
-func simpleValueTypeReadByID(types []SimpleValueTypeRead, id SimpleTypeID) (*SimpleValueTypeRead, bool) {
-	if !ValidSimpleTypeID(id, len(types)) {
-		return nil, false
-	}
-	read := &types[id]
-	return read, read.Present
-}
-
-// Facets returns the full facet projection for id. Missing table entries mean
-// the simple type has no full facet projection to apply.
-func (t SimpleValueFacetReadTable) Facets(id SimpleTypeID) (SimpleValueFacets, bool) {
-	if !ValidSimpleTypeID(id, len(t.Index)) {
-		return SimpleValueFacets{}, false
-	}
-	idx := t.Index[id]
-	if idx == invalidID {
-		return SimpleValueFacets{}, true
-	}
-	if !ValidUint32Index(idx, len(t.Values)) {
-		return SimpleValueFacets{}, false
-	}
-	return t.Values[idx], true
-}
-
-// NewSimpleValueQNameResolverNeedsForTypeReads precomputes whether each
-// published simple type can require lexical QName namespace resolution.
-func NewSimpleValueQNameResolverNeedsForTypeReads(types []SimpleValueTypeRead) []bool {
-	out := make([]bool, len(types))
-	state := make([]uint8, len(types))
-	for i := range types {
-		out[i] = simpleValueTypeReadNeedsQNameResolverCached(types, SimpleTypeID(i), out, state)
-	}
-	return out
-}
-
-func simpleValueTypeReadNeedsQNameResolverCached(types []SimpleValueTypeRead, id SimpleTypeID, out []bool, state []uint8) bool {
-	read, ok := simpleValueTypeReadByID(types, id)
-	if !ok {
-		return false
-	}
-	idx := int(id)
-	switch state[idx] {
-	case 2:
-		return out[idx]
-	case 1:
-		return false
-	}
-	state[idx] = 1
-	typ := read.Type
-	var needs bool
-	switch typ.Variety {
-	case SimpleVarietyAtomic:
-		needs = typ.Primitive == PrimitiveQName || typ.Primitive == PrimitiveNotation
-	case SimpleVarietyList:
-		needs = simpleValueTypeReadNeedsQNameResolverCached(types, typ.ListItem, out, state)
-	case SimpleVarietyUnion:
-		for _, member := range typ.UnionMembers {
-			if simpleValueTypeReadNeedsQNameResolverCached(types, member, out, state) {
-				needs = true
-				break
-			}
-		}
-	}
-	out[idx] = needs
-	state[idx] = 2
-	return needs
-}
-
 // NewSimpleValueQNameResolverNeedsForSimpleTypes precomputes whether each
 // published simple type can require lexical QName namespace resolution.
 func NewSimpleValueQNameResolverNeedsForSimpleTypes(types []SimpleType) []bool {
@@ -662,91 +369,6 @@ func simpleTypeNeedsQNameResolver(types []SimpleType, id SimpleTypeID, depth int
 		}
 	}
 	return false
-}
-
-// NewSimpleValueTypeReadsForSimpleTypes returns immutable hot simple-value
-// projections for frozen simple types.
-func NewSimpleValueTypeReadsForSimpleTypes(simpleTypes []SimpleType) []SimpleValueTypeRead {
-	out := make([]SimpleValueTypeRead, len(simpleTypes))
-	for i, st := range simpleTypes {
-		out[i] = NewSimpleValueTypeReadForSimpleType(st)
-	}
-	return out
-}
-
-// NewSimpleValueTypeReadForSimpleType returns the immutable hot simple-value
-// type projection for one frozen simple type.
-func NewSimpleValueTypeReadForSimpleType(st SimpleType) SimpleValueTypeRead {
-	if st.Missing {
-		return SimpleValueTypeRead{}
-	}
-	return SimpleValueTypeRead{
-		Type:    simpleValueTypeForSimpleType(st, st.Facets),
-		Present: true,
-	}
-}
-
-// NewSimpleValueFacetReadTableForSimpleTypes returns compact full-facet
-// projections for frozen simple types.
-func NewSimpleValueFacetReadTableForSimpleTypes(simpleTypes []SimpleType) SimpleValueFacetReadTable {
-	count := 0
-	for _, st := range simpleTypes {
-		if !st.Missing && st.Facets.Present != 0 {
-			count++
-		}
-	}
-	table := SimpleValueFacetReadTable{
-		Index:  make([]uint32, len(simpleTypes)),
-		Values: make([]SimpleValueFacets, 0, count),
-	}
-	for i := range table.Index {
-		table.Index[i] = invalidID
-	}
-	for i, st := range simpleTypes {
-		if st.Missing || st.Facets.Present == 0 {
-			continue
-		}
-		if len(table.Values) >= int(invalidID) {
-			panic("too many simple value facet reads")
-		}
-		table.Index[i] = uint32(len(table.Values)) //nolint:gosec // guarded against the invalidID sentinel above.
-		table.Values = append(table.Values, SimpleValueFacetsForFacetSet(st.Facets))
-	}
-	return table
-}
-
-// NewSimpleValuePayloadTypeForType projects a published simple-value type into
-// the shape needed to validate cached simple-value identity payloads.
-func NewSimpleValuePayloadTypeForType(typ SimpleValueType, ok bool) (SimpleValuePayloadType, bool) {
-	if !ok {
-		return SimpleValuePayloadType{}, false
-	}
-	return SimpleValuePayloadType{
-		Primitive: typ.Primitive,
-		Variety:   typ.Variety,
-		Identity:  typ.Identity,
-	}, true
-}
-
-func simpleValueTypeForSimpleType(st SimpleType, facets FacetSet) SimpleValueType {
-	typ := SimpleValueType{
-		DecimalMinInclusive: rawDecimalBoundFacet(facets, FacetMinInclusive),
-		DecimalMaxInclusive: rawDecimalBoundFacet(facets, FacetMaxInclusive),
-		DecimalFacets:       decimalFacetValues(facets),
-		LengthFacets:        lengthFacetValues(facets),
-		StringFacets:        stringFacetValues(facets),
-		UnionMembers:        slices.Clone(st.Union),
-		ListItem:            st.ListItem,
-		Facets:              facets.Present,
-		Variety:             st.Variety,
-		Primitive:           st.Primitive,
-		Builtin:             st.Builtin,
-		Whitespace:          st.Whitespace,
-		Identity:            st.Identity,
-		Fast:                st.Fast,
-	}
-	typ.RawBypass = SimpleValueBypass(simpleValueAtomicBypassShape(&typ, 0))
-	return typ
 }
 
 // SimpleValueTypeForSimpleType returns validation type facts borrowed from a
@@ -839,14 +461,6 @@ func lengthFacetValues(f FacetSet) LengthFacetValues {
 	}
 }
 
-func stringFacetValues(f FacetSet) StringFacetValues {
-	return StringFacetValues{
-		Patterns:             f.Patterns,
-		CanonicalEnumeration: canonicalEnumerationValues(f.Enumeration),
-		HasEnumeration:       len(f.Enumeration) != 0,
-	}
-}
-
 func decimalFacetValues(f FacetSet) DecimalFacetValues {
 	return DecimalFacetValues{
 		MinInclusive:   decimalBoundFacetValue(f, FacetMinInclusive),
@@ -904,16 +518,24 @@ type AtomicSimpleValueResult struct {
 // list splitting, route, list-recursion, union-recursion, primitive parsing,
 // and facet execution policy.
 func ValidateSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, lexical string, needs SimpleValueNeed) (SimpleValue, error) {
-	typ, known := simpleValueType(cb, id)
+	return validateSimpleValue(callbackSimpleValueMetadataReader{callbacks: cb}, id, lexical, cb.ResolveQName, needs)
+}
+
+func validateSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
+	var typ SimpleValueType
+	known := false
+	if id != NoSimpleType {
+		typ, known = reader.simpleValueType(id)
+	}
 	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: typ.Variety, Known: known}) {
 	case SimpleValueRouteUntyped:
 		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, nil
 	case SimpleValueRouteAtomic:
-		return validateAtomicSimpleValue(cb, id, typ, lexical, needs)
+		return validateAtomicSimpleValue(reader, id, typ, lexical, resolve, needs)
 	case SimpleValueRouteList:
-		return validateListSimpleValue(cb, id, typ, lexical, needs)
+		return validateListSimpleValue(reader, id, typ, lexical, resolve, needs)
 	case SimpleValueRouteUnion:
-		return validateUnionSimpleValue(cb, id, typ, lexical, needs)
+		return validateUnionSimpleValue(reader, id, typ, lexical, resolve, needs)
 	case SimpleValueRouteMissing, SimpleValueRouteInvalid:
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
@@ -1046,7 +668,7 @@ func validatePublishedQNameRoute(notations map[ExpandedName]bool, id SimpleTypeI
 	if typ.primitive == PrimitiveQName {
 		canonical, err = validateQNamePrimitive(normalized, resolve, primitiveNeeds)
 	} else {
-		canonical, err = validatePublishedNotationPrimitive(normalized, notations, resolve, primitiveNeeds)
+		canonical, err = validateNotationPrimitive(publishedSimpleValueNotations(notations), normalized, resolve, primitiveNeeds)
 	}
 	if err != nil {
 		return SimpleValue{}, true, err
@@ -1054,47 +676,13 @@ func validatePublishedQNameRoute(notations map[ExpandedName]bool, id SimpleTypeI
 	return AtomicSimpleValue(AtomicSimpleValueProjection{Canonical: canonical, Type: id, Primitive: typ.primitive, Identity: typ.identity, Needs: needs}), true, nil
 }
 
-func validatePublishedNotationPrimitive(normalized string, notations map[ExpandedName]bool, resolve ResolveQNameParts, needs PrimitiveValueNeed) (string, error) {
-	if resolve == nil {
-		if !lex.IsNCName(normalized) {
-			return "", errors.New("invalid NOTATION")
-		}
-		if !notations[ExpandedName{Local: normalized}] {
-			return "", errors.New("undeclared notation")
-		}
-		if !needs.Has(PrimitiveNeedCanonical) {
-			return "", nil
-		}
-		return normalized, nil
-	}
-	ns, local, ok := resolve(normalized)
-	if !ok {
-		return "", errors.New("unresolved NOTATION")
-	}
-	if !notations[ExpandedName{Namespace: ns, Local: local}] {
-		return "", errors.New("undeclared notation")
-	}
-	if !needs.Has(PrimitiveNeedCanonical) {
-		return "", nil
-	}
-	return FormatExpandedName(ns, local), nil
+type publishedSimpleValueNotations map[ExpandedName]bool
+
+func (n publishedSimpleValueNotations) simpleValueNotation(ns, local string) (bool, bool) {
+	return n[ExpandedName{Namespace: ns, Local: local}], true
 }
 
-func simpleValueType(cb SimpleValueCallbacks, id SimpleTypeID) (SimpleValueType, bool) {
-	if id == NoSimpleType {
-		return SimpleValueType{}, false
-	}
-	return cb.Type(id)
-}
-
-func simpleValueFacets(cb SimpleValueCallbacks, id SimpleTypeID) (SimpleValueFacets, bool) {
-	if cb.Facets == nil {
-		return SimpleValueFacets{}, false
-	}
-	return cb.Facets(id)
-}
-
-func validateAtomicSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ SimpleValueType, lexical string, needs SimpleValueNeed) (SimpleValue, error) {
+func validateAtomicSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
 	normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
 	switch SimpleValueBypass(simpleValueAtomicBypassShape(&typ, needs)) {
 	case SimpleValueBypassAcceptString:
@@ -1105,7 +693,7 @@ func validateAtomicSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ Sim
 		}
 		return SimpleValue{Type: id}, nil
 	case SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
-		if err := validateSimpleValueStringFacets(cb, id, typ, normalized, normalized); err != nil {
+		if err := validateSimpleValueStringFacets(reader, id, typ, normalized, normalized); err != nil {
 			return SimpleValue{}, err
 		}
 		return SimpleValue{Type: id}, nil
@@ -1153,7 +741,7 @@ func validateAtomicSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ Sim
 		if value, ok, err := validateAtomicStringSimpleValueFallback(id, typ, normalized, needs); ok {
 			return value, err
 		}
-		return validateAtomicSimpleValueFallback(cb, id, typ, normalized, needs)
+		return validateAtomicSimpleValueFallback(reader, id, typ, normalized, resolve, needs)
 	case SimpleValueBypassValidateDecimal:
 		handled, err := ValidateFastDecimalLexical(RawDecimalFastPathShape{
 			MinInclusive: typ.DecimalMinInclusive,
@@ -1214,22 +802,21 @@ func validateAtomicStringSimpleValueFallback(id SimpleTypeID, typ SimpleValueTyp
 	return value, true, nil
 }
 
-func validateAtomicSimpleValueFallback(cb SimpleValueCallbacks, id SimpleTypeID, typ SimpleValueType, normalized string, needs SimpleValueNeed) (SimpleValue, error) {
+func validateAtomicSimpleValueFallback[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, normalized string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
 	if err := validateRuntimeAtomicBuiltin(typ, normalized); err != nil {
 		return SimpleValue{}, err
 	}
 	if err := validateRuntimeAtomicLengthFacets(typ, normalized); err != nil {
 		return SimpleValue{}, err
 	}
-	facets, ok := simpleValueFacets(cb, id)
+	facets, ok := reader.simpleValueFacets(id)
 	if !ok {
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
-	result, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+	result, err := validateAtomicSimpleValueFallbackWithReader(reader, AtomicSimpleValueInput{
 		Type:         typ,
 		Facets:       facets,
-		ResolveQName: cb.ResolveQName,
-		Notation:     cb.Notation,
+		ResolveQName: resolve,
 		Normalized:   normalized,
 		Needs: SimpleValuePrimitiveNeeds(PrimitiveValueNeedShape{
 			Facets:    typ.Facets,
@@ -1296,7 +883,7 @@ func simpleValueFloatBits(kind PrimitiveKind) int {
 	return 64
 }
 
-func validateListSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ SimpleValueType, lexical string, needs SimpleValueNeed) (SimpleValue, error) {
+func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
 	needPlan := SimpleValueListNeeds(ListSimpleValueNeedShape{
 		Facets:   typ.Facets,
 		Identity: typ.Identity,
@@ -1308,7 +895,7 @@ func validateListSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ Simpl
 	var validateErr error
 	count := uint32(0)
 	forEachSimpleValueListItem(lexical, func(item string) bool {
-		itemValue, err := ValidateSimpleValue(cb, typ.ListItem, item, needPlan.ItemNeeds)
+		itemValue, err := validateSimpleValue(reader, typ.ListItem, item, resolve, needPlan.ItemNeeds)
 		if err != nil {
 			validateErr = err
 			return false
@@ -1341,7 +928,7 @@ func validateListSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ Simpl
 		}
 	}
 	if facetPlan.ValidateLexical {
-		if err := validateSimpleValueStringFacets(cb, id, typ, normalized, canonical); err != nil {
+		if err := validateSimpleValueStringFacets(reader, id, typ, normalized, canonical); err != nil {
 			return SimpleValue{}, err
 		}
 	}
@@ -1381,7 +968,7 @@ func validateSimpleValueLengthFacets(typ SimpleValueType, length uint32) error {
 	return ValidateLengthFacets(typ.LengthFacets, length)
 }
 
-func validateUnionSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ SimpleValueType, lexical string, needs SimpleValueNeed) (SimpleValue, error) {
+func validateUnionSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
 	if len(typ.UnionMembers) == 0 {
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
@@ -1396,10 +983,10 @@ func validateUnionSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ Simp
 	var validateErr error
 	var unsupportedErr error
 	for _, member := range typ.UnionMembers {
-		value, err := ValidateSimpleValue(cb, member, normalized, memberNeeds)
+		value, err := validateSimpleValue(reader, member, normalized, resolve, memberNeeds)
 		if err == nil {
 			if SimpleValueUnionFacetValidation(typ.Facets) {
-				if facetErr := validateSimpleValueStringFacets(cb, id, typ, normalized, value.Canonical); facetErr != nil {
+				if facetErr := validateSimpleValueStringFacets(reader, id, typ, normalized, value.Canonical); facetErr != nil {
 					validateErr = facetErr
 					break
 				}
@@ -1408,7 +995,7 @@ func validateUnionSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ Simp
 			matchedValue = value
 			break
 		}
-		if unsupportedErr == nil && cb.Unsupported(err) {
+		if unsupportedErr == nil && reader.simpleValueUnsupported(err) {
 			unsupportedErr = err
 		}
 	}
@@ -1424,7 +1011,7 @@ func validateUnionSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, typ Simp
 	return SimpleValue{}, errors.New("value does not match any union member")
 }
 
-func validateSimpleValueStringFacets(cb SimpleValueCallbacks, id SimpleTypeID, typ SimpleValueType, normalized, canonical string) error {
+func validateSimpleValueStringFacets[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, normalized, canonical string) error {
 	if typ.Facets&FacetPattern != 0 && len(typ.StringFacets.Patterns) == 0 {
 		return ErrSimpleValueMetadata
 	}
@@ -1441,17 +1028,14 @@ func validateSimpleValueStringFacets(cb SimpleValueCallbacks, id SimpleTypeID, t
 			}
 			return errors.New("enumeration facet failed")
 		}
-		if cb.StringEnumeration != nil {
-			matched, ok := cb.StringEnumeration(id, canonical)
-			if !ok {
-				return ErrSimpleValueMetadata
-			}
-			if matched {
-				return nil
-			}
-			return errors.New("enumeration facet failed")
+		matched, ok := reader.simpleValueStringEnumeration(id, canonical)
+		if !ok {
+			return ErrSimpleValueMetadata
 		}
-		return ValidateStringEnumeration(id, cb.ForEachStringEnumeration, canonical)
+		if matched {
+			return nil
+		}
+		return errors.New("enumeration facet failed")
 	}
 	return nil
 }

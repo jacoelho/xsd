@@ -111,25 +111,6 @@ type CompiledModelView struct {
 	model *CompiledModel
 }
 
-// NewCompiledModelView returns a read-only validation view over model.
-func NewCompiledModelView(model *CompiledModel) CompiledModelView {
-	if model == nil {
-		return CompiledModelView{}
-	}
-	cloned := CloneCompiledModel(*model)
-	return CompiledModelView{model: &cloned}
-}
-
-// NewCompiledModelViews returns read-only validation views over compiled
-// content models.
-func NewCompiledModelViews(models []CompiledModel) []CompiledModelView {
-	out := make([]CompiledModelView, len(models))
-	for i := range models {
-		out[i] = NewCompiledModelView(&models[i])
-	}
-	return out
-}
-
 // NewBorrowedCompiledModelViews returns validation views over immutable compiled
 // content models owned by a published schema.
 func NewBorrowedCompiledModelViews(models []CompiledModel) []CompiledModelView {
@@ -141,12 +122,6 @@ func NewBorrowedCompiledModelViews(models []CompiledModel) []CompiledModelView {
 }
 
 var emptyCompiledModelViewModel CompiledModel
-
-// EqualCompiledModelViews reports whether two compiled-model validation views
-// expose identical content-model state.
-func EqualCompiledModelViews(a, b CompiledModelView) bool {
-	return EqualCompiledModels(*a.compiled(), *b.compiled())
-}
 
 // EqualCompiledModelViewProjection reports whether view matches the validation
 // view derived from model.

@@ -32,10 +32,9 @@ func PrepareXMLReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Reader, e
 		return nil, ErrXMLInputNilReader
 	}
 	if br == nil {
-		br = bufio.NewReaderSize(r, xmlReaderBufferSize)
-	} else {
-		br.Reset(r)
+		br = bufio.NewReaderSize(nil, xmlReaderBufferSize)
 	}
+	br.Reset(r)
 	peek, err := br.Peek(XMLDeclarationPrefixLen)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err

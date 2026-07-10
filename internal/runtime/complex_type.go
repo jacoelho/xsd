@@ -155,55 +155,6 @@ func NewComplexAttributeUseSetIDProjection(complexTypes []ComplexType) []Attribu
 	return out
 }
 
-// EqualComplexContentModelIDProjection reports whether ids expose the same
-// per-complex-type content-model projection as complexTypes.
-func EqualComplexContentModelIDProjection(ids []ContentModelID, complexTypes []ComplexType) bool {
-	if len(ids) != len(complexTypes) {
-		return false
-	}
-	for i, id := range ids {
-		if id != complexTypes[i].Content {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateComplexContentModelIDProjection validates the per-complex-type
-// content-model ID projection.
-func ValidateComplexContentModelIDProjection(ids []ContentModelID, complexTypes []ComplexType) error {
-	if len(ids) != len(complexTypes) {
-		return errors.New("complex content-model projection count does not match types")
-	}
-	if !EqualComplexContentModelIDProjection(ids, complexTypes) {
-		return errors.New("complex content-model projection does not match type")
-	}
-	return nil
-}
-
-// NewComplexContentModelIDProjection returns the per-complex-type content-model
-// IDs needed by validation.
-func NewComplexContentModelIDProjection(complexTypes []ComplexType) []ContentModelID {
-	out := make([]ContentModelID, len(complexTypes))
-	for i := range complexTypes {
-		out[i] = complexTypes[i].Content
-	}
-	return out
-}
-
-// ContentModelForTypeByID returns the content model used to validate children
-// of a runtime type from the per-complex-type content-model projection.
-func ContentModelForTypeByID(ids []ContentModelID, typ TypeID) ContentModelID {
-	id, ok := typ.Complex()
-	if !ok {
-		return NoContentModel
-	}
-	if !ValidComplexTypeID(id, len(ids)) {
-		return NoContentModel
-	}
-	return ids[id]
-}
-
 // ValidateComplexTypeRuntime validates complex-type metadata that can be
 // expressed in runtime vocabulary.
 func ValidateComplexTypeRuntime(

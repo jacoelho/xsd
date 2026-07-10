@@ -25,13 +25,36 @@ func TestPublishSchemaConsumesBuildOnSuccess(t *testing.T) {
 	}
 }
 
+func TestPublishSchemaRejectsMisclassifiedSimpleIdentityWithoutConsumingBuild(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Ref"><xs:restriction base="xs:IDREF"/></xs:simpleType>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	id := simpleBuildTypeIDByName(t, build, "Ref")
+	build.SimpleTypes[id].Identity = runtime.SimpleIdentityNone
+	expected := mutableSchemaBuild(t, schema)
+	expectedID := simpleBuildTypeIDByName(t, expected, "Ref")
+	expected.SimpleTypes[expectedID].Identity = runtime.SimpleIdentityNone
+
+	published, err := runtime.PublishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("PublishSchema() returned a schema for an invalid build")
+	}
+	if !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("PublishSchema() changed build after failed audit")
+	}
+}
+
 func mutableSchemaBuild(t *testing.T, schema string) *runtime.SchemaBuild {
 	t.Helper()
 	return compiledCompilerRuntime(t, schema).RuntimeForTest()
 }
 
 func validateSchemaBuild(build *runtime.SchemaBuild) error {
-	return runtime.ValidateSchemaBuild(build)
+	snapshot := *build
+	_, err := runtime.PublishSchema(&snapshot)
+	return err
 }
 
 func rootBuildContentModel(t *testing.T, build *runtime.SchemaBuild) runtime.ContentModelID {

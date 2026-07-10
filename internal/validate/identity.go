@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -129,7 +128,7 @@ type identityRef struct {
 
 type identityScope struct {
 	tables      map[runtime.IdentityConstraintID]map[string]identityTableEntry
-	constraints []runtime.IdentityConstraintID
+	constraints runtime.IdentityConstraintIDs
 	refs        []identityTupleRef
 	depth       int
 }
@@ -196,27 +195,12 @@ func (s *IdentityState) Reset(maxRetainedIDs, maxRetainedSlices int) {
 		clear(s.idrefs)
 		s.idrefs = s.idrefs[:0]
 	}
-	s.scopes = resetRetainedIdentityReferences(s.scopes, maxRetainedSlices)
-	s.selections = resetRetainedIdentityReferences(s.selections, maxRetainedSlices)
-	s.fieldValues = resetRetainedIdentityReferences(s.fieldValues, maxRetainedSlices)
-	s.matches = resetRetainedIdentityValues(s.matches, maxRetainedSlices)
+	s.scopes = resetRetainedReferences(s.scopes, maxRetainedSlices)
+	s.selections = resetRetainedReferences(s.selections, maxRetainedSlices)
+	s.fieldValues = resetRetainedReferences(s.fieldValues, maxRetainedSlices)
+	s.matches = resetRetainedValues(s.matches, maxRetainedSlices)
 	s.entries = 0
 	s.nextNodeID = 0
-}
-
-func resetRetainedIdentityReferences[T any](in []T, maxRetainedCap int) []T {
-	if cap(in) > maxRetainedCap {
-		return nil
-	}
-	clear(in)
-	return in[:0]
-}
-
-func resetRetainedIdentityValues[T any](in []T, maxRetainedCap int) []T {
-	if cap(in) > maxRetainedCap {
-		return nil
-	}
-	return in[:0]
 }
 
 // ReserveEntry reserves one identity entry against global identity limits.
@@ -248,20 +232,12 @@ func (s *IdentityState) CheckIDRefs(report func(error) error) error {
 	return nil
 }
 
-// StartScope starts an identity-constraint scope at depth.
-func (s *IdentityState) StartScope(constraints []runtime.IdentityConstraintID, depth int, maxScopes int, ctx StartContext) error {
-	return s.startScope(constraints, depth, maxScopes, ctx, true)
-}
-
-func (s *IdentityState) startScope(constraints []runtime.IdentityConstraintID, depth int, maxScopes int, ctx StartContext, clone bool) error {
-	if len(constraints) == 0 {
+func (s *IdentityState) startScope(constraints runtime.IdentityConstraintIDs, depth int, maxScopes int, ctx StartContext) error {
+	if constraints.Len() == 0 {
 		return nil
 	}
 	if maxScopes > 0 && len(s.scopes) >= maxScopes {
 		return validation(ctx, xsderrors.CodeValidationIdentity, "identity scope limit exceeded")
-	}
-	if clone {
-		constraints = slices.Clone(constraints)
 	}
 	s.scopes = append(s.scopes, identityScope{
 		depth:       depth,
@@ -275,21 +251,11 @@ func (s *IdentityState) StartElementScope(rt IdentityRuntime, elem runtime.Eleme
 	if elem == runtime.NoElement {
 		return nil
 	}
-	var constraints []runtime.IdentityConstraintID
-	rt.ForEachElementIdentityConstraint(elem, func(id runtime.IdentityConstraintID) bool {
-		constraints = append(constraints, id)
-		return true
-	})
-	return s.StartScope(constraints, depth, maxScopes, ctx)
-}
-
-// StartElementScopeSchema starts an identity scope declared on elem using
-// immutable compiled-schema identity slices.
-func (s *IdentityState) StartElementScopeSchema(rt *runtime.Schema, elem runtime.ElementID, depth int, maxScopes int, ctx StartContext) error {
-	if elem == runtime.NoElement {
-		return nil
+	constraints, ok := rt.ElementIdentityConstraints(elem)
+	if !ok {
+		return xsderrors.InternalInvariant("element identity constraint metadata is invalid")
 	}
-	return s.startScope(rt.ElementIdentityConstraints(elem), depth, maxScopes, ctx, false)
+	return s.startScope(constraints, depth, maxScopes, ctx)
 }
 
 // HasScopes reports whether any identity scopes are active.
@@ -342,42 +308,19 @@ func (s *IdentityState) FieldMatches() []IdentityFieldMatch {
 func (s *IdentityState) ElementFieldMatches(rt IdentityRuntime, namePath []runtime.RuntimeName) ([]IdentityFieldMatch, error) {
 	s.ResetFieldMatches()
 	depth := len(namePath)
-	var invalid bool
-	for i := range s.selections {
-		if invalid {
-			break
-		}
-		sel := &s.selections[i]
-		ok := rt.ForEachIdentityElementField(sel.constraint, func(field runtime.CompiledIdentityField) bool {
-			if IdentityFieldPathsMatch(rt, namePath, sel.depth, depth, field.Paths) {
-				s.AddFieldMatch(i, field.Field)
-			}
-			return true
-		})
-		if !ok {
-			invalid = true
-		}
-	}
-	if invalid {
-		return nil, xsderrors.InternalInvariant("identity element field metadata is invalid")
-	}
-	return s.FieldMatches(), nil
-}
-
-// ElementFieldMatchesSchema returns active identity fields matching the current
-// element using compiled-schema identity slices.
-func (s *IdentityState) ElementFieldMatchesSchema(rt *runtime.Schema, namePath []runtime.RuntimeName) ([]IdentityFieldMatch, error) {
-	s.ResetFieldMatches()
-	depth := len(namePath)
 	for i := range s.selections {
 		sel := &s.selections[i]
 		fields, ok := rt.IdentityElementFields(sel.constraint)
 		if !ok {
 			return nil, xsderrors.InternalInvariant("identity element field metadata is invalid")
 		}
-		for _, field := range fields {
-			if IdentityFieldPathsMatch(rt, namePath, sel.depth, depth, field.Paths) {
-				s.AddFieldMatch(i, field.Field)
+		for fieldIndex := range fields.Len() {
+			field, fieldOK := fields.At(fieldIndex)
+			if !fieldOK {
+				return nil, xsderrors.InternalInvariant("identity element field metadata is invalid")
+			}
+			if identityCompiledFieldPathsMatch(rt, namePath, sel.depth, depth, field) {
+				s.AddFieldMatch(i, field.Field())
 			}
 		}
 	}
@@ -388,47 +331,6 @@ func (s *IdentityState) ElementFieldMatchesSchema(rt *runtime.Schema, namePath [
 func (s *IdentityState) AttributeFieldMatches(rt IdentityRuntime, namePath []runtime.RuntimeName, name runtime.QName) ([]IdentityFieldMatch, error) {
 	s.ResetFieldMatches()
 	depth := len(namePath)
-	var invalid bool
-	for i := range s.selections {
-		if invalid {
-			break
-		}
-		sel := &s.selections[i]
-		start := len(s.matches)
-		ok := rt.ForEachIdentityAttributeField(sel.constraint, name, func(field runtime.CompiledIdentityField) bool {
-			if IdentityFieldPathsMatch(rt, namePath, sel.depth, depth, field.Paths) {
-				s.AddFieldMatch(i, field.Field)
-			}
-			return true
-		})
-		if !ok {
-			invalid = true
-			break
-		}
-		ok = rt.ForEachIdentityAttributeWildcardField(sel.constraint, func(field runtime.CompiledIdentityField) bool {
-			if identityMatchExists(s.matches[start:], i, field.Field) {
-				return true
-			}
-			if IdentityAttributeFieldPathsMatch(rt, namePath, sel.depth, depth, name, field.Paths) {
-				s.AddFieldMatch(i, field.Field)
-			}
-			return true
-		})
-		if !ok {
-			invalid = true
-		}
-	}
-	if invalid {
-		return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
-	}
-	return s.FieldMatches(), nil
-}
-
-// AttributeFieldMatchesSchema returns active identity fields matching the
-// current attribute using compiled-schema identity slices.
-func (s *IdentityState) AttributeFieldMatchesSchema(rt *runtime.Schema, namePath []runtime.RuntimeName, name runtime.QName) ([]IdentityFieldMatch, error) {
-	s.ResetFieldMatches()
-	depth := len(namePath)
 	for i := range s.selections {
 		sel := &s.selections[i]
 		start := len(s.matches)
@@ -436,21 +338,29 @@ func (s *IdentityState) AttributeFieldMatchesSchema(rt *runtime.Schema, namePath
 		if !ok {
 			return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
 		}
-		for _, field := range fields {
-			if IdentityFieldPathsMatch(rt, namePath, sel.depth, depth, field.Paths) {
-				s.AddFieldMatch(i, field.Field)
+		for fieldIndex := range fields.Len() {
+			field, fieldOK := fields.At(fieldIndex)
+			if !fieldOK {
+				return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
+			}
+			if identityCompiledFieldPathsMatch(rt, namePath, sel.depth, depth, field) {
+				s.AddFieldMatch(i, field.Field())
 			}
 		}
 		fields, ok = rt.IdentityAttributeWildcardFields(sel.constraint)
 		if !ok {
 			return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
 		}
-		for _, field := range fields {
-			if identityMatchExists(s.matches[start:], i, field.Field) {
+		for fieldIndex := range fields.Len() {
+			field, ok := fields.At(fieldIndex)
+			if !ok {
+				return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
+			}
+			if identityMatchExists(s.matches[start:], i, field.Field()) {
 				continue
 			}
-			if IdentityAttributeFieldPathsMatch(rt, namePath, sel.depth, depth, name, field.Paths) {
-				s.AddFieldMatch(i, field.Field)
+			if identityCompiledAttributeFieldPathsMatch(rt, namePath, sel.depth, depth, name, field) {
+				s.AddFieldMatch(i, field.Field())
 			}
 		}
 	}
@@ -473,7 +383,11 @@ func (s *IdentityState) MatchSelectors(rt IdentityRuntime, namePath []runtime.Ru
 	depth := len(namePath)
 	for scopeIndex := range s.scopes {
 		scope := &s.scopes[scopeIndex]
-		for _, id := range scope.constraints {
+		for constraintIndex := range scope.constraints.Len() {
+			id, ok := scope.constraints.At(constraintIndex)
+			if !ok {
+				return xsderrors.InternalInvariant("identity scope metadata is invalid")
+			}
 			matched, ok := identitySelectorMatches(rt, id, namePath, scope.depth, depth)
 			if !ok {
 				return xsderrors.InternalInvariant("identity selector metadata is invalid")
@@ -491,43 +405,21 @@ func (s *IdentityState) MatchSelectors(rt IdentityRuntime, namePath []runtime.Ru
 	return nil
 }
 
-// MatchSelectorsSchema starts selections whose selectors match the current
-// element using compiled-schema identity slices.
-func (s *IdentityState) MatchSelectorsSchema(rt *runtime.Schema, namePath []runtime.RuntimeName, ctx StartContext) error {
-	if !s.HasScopes() {
-		return nil
-	}
-	depth := len(namePath)
-	for scopeIndex := range s.scopes {
-		scope := &s.scopes[scopeIndex]
-		for _, id := range scope.constraints {
-			paths, ok := rt.IdentitySelectorPaths(id)
-			if !ok {
-				return xsderrors.InternalInvariant("identity selector metadata is invalid")
-			}
-			if !IdentitySelectorMatches(rt, namePath, scope.depth, depth, paths) {
-				continue
-			}
-			fieldCount, ok := rt.IdentityFieldCount(id)
-			if !ok {
-				return xsderrors.InternalInvariant("identity field count metadata is invalid")
-			}
-			s.StartSelection(scopeIndex, depth, id, fieldCount, ctx)
-		}
-	}
-	return nil
-}
-
 func identitySelectorMatches(rt IdentityRuntime, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (bool, bool) {
-	matched := false
-	ok := rt.ForEachIdentitySelector(id, func(path runtime.IdentityPath) bool {
-		if identityPathMatches(rt, namePath, scopeDepth, currentDepth, identityPathPattern{descendant: path.Descendant, self: path.Self, steps: path.Steps}) {
-			matched = true
-			return false
+	paths, ok := rt.IdentitySelectorPaths(id)
+	if !ok {
+		return false, false
+	}
+	for pathIndex := range paths.Len() {
+		path, ok := paths.At(pathIndex)
+		if !ok {
+			return false, false
 		}
-		return true
-	})
-	return matched, ok
+		if identityPathMatches(rt, namePath, scopeDepth, currentDepth, path) {
+			return true, true
+		}
+	}
+	return false, true
 }
 
 // CaptureFields records one identity value in all matched fields.
@@ -560,33 +452,6 @@ func (s *IdentityState) CaptureSimpleValueFields(rt SimpleValueIdentityRuntime, 
 		return xsderrors.InternalInvariant("identity field value references invalid simple type")
 	}
 	return s.CaptureFields(matches, key, ctx)
-}
-
-// CaptureSimpleValueFieldsSchema records the identity field key using direct
-// compiled-schema simple-type projection reads.
-func (s *IdentityState) CaptureSimpleValueFieldsSchema(rt *runtime.Schema, matches []IdentityFieldMatch, value runtime.SimpleValue, ctx StartContext) error {
-	if len(matches) == 0 {
-		return nil
-	}
-	key, ok := simpleValueIdentityKeySchema(rt, value)
-	if !ok {
-		return xsderrors.InternalInvariant("identity field value references invalid simple type")
-	}
-	return s.CaptureFields(matches, key, ctx)
-}
-
-func simpleValueIdentityKeySchema(rt *runtime.Schema, value runtime.SimpleValue) (string, bool) {
-	if value.Identity != "" {
-		return value.Identity, true
-	}
-	if value.Type == runtime.NoSimpleType {
-		return runtime.UntypedSimpleIdentityKey(value.Canonical), true
-	}
-	primitive, ok := rt.SimpleTypePrimitive(value.Type)
-	if !ok {
-		return "", false
-	}
-	return runtime.SimpleIdentityKey(primitive, value.Canonical), true
 }
 
 // CaptureComplexElementFields records the string identity key for selected
