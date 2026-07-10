@@ -146,20 +146,20 @@ func TestParseXSINil(t *testing.T) {
 	}
 }
 
-func TestHasXSITypeAttribute(t *testing.T) {
+func TestXSIStartAttributeFlagsType(t *testing.T) {
 	t.Parallel()
 
-	if HasXSITypeAttribute(nil) {
-		t.Fatal("HasXSITypeAttribute(nil) = true, want false")
+	if xsiStartAttributeFlagsFor(nil).Type {
+		t.Fatal("xsiStartAttributeFlagsFor(nil).Type = true, want false")
 	}
-	if HasXSITypeAttribute(startAttrs(startAttr("urn:xsi-like", vocab.XSIAttrType, ""))) {
-		t.Fatal("HasXSITypeAttribute(other namespace) = true, want false")
+	if xsiStartAttributeFlagsFor(startAttrs(startAttr("urn:xsi-like", vocab.XSIAttrType, ""))).Type {
+		t.Fatal("xsiStartAttributeFlagsFor(other namespace).Type = true, want false")
 	}
-	if HasXSITypeAttribute(startAttrs(xsiAttr(vocab.XSIAttrNil, "true"))) {
-		t.Fatal("HasXSITypeAttribute(xsi:nil) = true, want false")
+	if xsiStartAttributeFlagsFor(startAttrs(xsiAttr(vocab.XSIAttrNil, "true"))).Type {
+		t.Fatal("xsiStartAttributeFlagsFor(xsi:nil).Type = true, want false")
 	}
-	if !HasXSITypeAttribute(startAttrs(startAttr("", "id", ""), xsiAttr(vocab.XSIAttrType, "p:D"))) {
-		t.Fatal("HasXSITypeAttribute(xsi:type) = false, want true")
+	if !xsiStartAttributeFlagsFor(startAttrs(startAttr("", "id", ""), xsiAttr(vocab.XSIAttrType, "p:D"))).Type {
+		t.Fatal("xsiStartAttributeFlagsFor(xsi:type).Type = false, want true")
 	}
 }
 

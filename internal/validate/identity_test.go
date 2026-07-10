@@ -253,6 +253,10 @@ func TestIdentityStateLimitFailuresDoNotAppendOrInsert(t *testing.T) {
 func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	t.Parallel()
 
+	constraints, ok := runtime.ElementIdentityConstraintIDs([][]runtime.IdentityConstraintID{{1}}, 0)
+	if !ok {
+		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
+	}
 	state := IdentityState{
 		ids: map[string]string{"a": "/id"},
 		idrefs: append(make([]identityRef, 0, 2),
@@ -263,7 +267,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 				tables: map[runtime.IdentityConstraintID]map[string]identityTableEntry{
 					1: {"a": {path: "/id"}},
 				},
-				constraints: []runtime.IdentityConstraintID{1},
+				constraints: constraints,
 				refs:        []identityTupleRef{{key: "a"}},
 			},
 		),
@@ -303,7 +307,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 			state.nextNodeID,
 		)
 	}
-	if got := state.scopes[:cap(state.scopes)][0]; got.tables != nil || got.constraints != nil || got.refs != nil {
+	if got := state.scopes[:cap(state.scopes)][0]; got.tables != nil || got.constraints.Len() != 0 || got.refs != nil {
 		t.Fatalf("Reset() retained scoped identity references: %+v", got)
 	}
 	if got := state.fieldValues[:cap(state.fieldValues)][0]; got.present || got.value != "" {
@@ -345,32 +349,24 @@ func TestIdentityStateStartScopeEnforcesLimit(t *testing.T) {
 	t.Parallel()
 
 	var state IdentityState
-	const id runtime.IdentityConstraintID = 1
-	ctx := StartContext{Path: "/root", Line: 2, Column: 3}
-	if err := state.StartScope([]runtime.IdentityConstraintID{id}, 1, 1, ctx); err != nil {
-		t.Fatalf("StartScope(first) error = %v", err)
+	const (
+		elem runtime.ElementID            = 0
+		id   runtime.IdentityConstraintID = 1
+	)
+	constraints, ok := runtime.ElementIdentityConstraintIDs([][]runtime.IdentityConstraintID{{id}}, elem)
+	if !ok {
+		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
 	}
-	err := state.StartScope([]runtime.IdentityConstraintID{id}, 2, 1, ctx)
+	rt := identityRuntimeStub{elements: map[runtime.ElementID]runtime.IdentityConstraintIDs{elem: constraints}}
+	ctx := StartContext{Path: "/root", Line: 2, Column: 3}
+	if err := state.StartElementScope(rt, elem, 1, 1, ctx); err != nil {
+		t.Fatalf("StartElementScope(first) error = %v", err)
+	}
+	err := state.StartElementScope(rt, elem, 2, 1, ctx)
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
 	expectXSDMessage(t, err, "identity scope limit exceeded")
 	if len(state.scopes) != 1 {
 		t.Fatalf("scopes = %d, want 1", len(state.scopes))
-	}
-}
-
-func TestIdentityStateStartScopeClonesConstraints(t *testing.T) {
-	t.Parallel()
-
-	var state IdentityState
-	const original runtime.IdentityConstraintID = 1
-	const mutated runtime.IdentityConstraintID = 2
-	constraints := []runtime.IdentityConstraintID{original}
-	if err := state.StartScope(constraints, 1, 0, StartContext{Path: "/root"}); err != nil {
-		t.Fatalf("StartScope() error = %v", err)
-	}
-	constraints[0] = mutated
-	if got := state.scopes[0].constraints[0]; got != original {
-		t.Fatalf("stored constraint = %d, want cloned original %d", got, original)
 	}
 }
 
@@ -863,9 +859,15 @@ func finishSelectionsForTest(
 
 func startIdentityScope(t *testing.T, state *IdentityState, constraints []runtime.IdentityConstraintID, depth int, path string) {
 	t.Helper()
-	err := state.StartScope(constraints, depth, 0, StartContext{Path: path})
+	const elem runtime.ElementID = 0
+	constraintIDs, ok := runtime.ElementIdentityConstraintIDs([][]runtime.IdentityConstraintID{constraints}, elem)
+	if !ok {
+		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
+	}
+	rt := identityRuntimeStub{elements: map[runtime.ElementID]runtime.IdentityConstraintIDs{elem: constraintIDs}}
+	err := state.StartElementScope(rt, elem, depth, 0, StartContext{Path: path})
 	if err != nil {
-		t.Fatalf("StartScope(depth=%d) error = %v", depth, err)
+		t.Fatalf("StartElementScope(depth=%d) error = %v", depth, err)
 	}
 }
 

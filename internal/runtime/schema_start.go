@@ -70,21 +70,6 @@ func (rt *Schema) ContentModelForType(t TypeID) ContentModelID {
 	return rt.runtime.ComplexTypes[id].contentModel
 }
 
-// DeclaredElementType returns the declared runtime type for an element.
-func (rt *Schema) DeclaredElementType(id ElementID) (TypeID, bool) {
-	return DeclaredElementTypeByID(rt.runtime.ElementStarts, id)
-}
-
-// CompiledContentModelView returns the compiled runtime content model view.
-func (rt *Schema) CompiledContentModelView(id ContentModelID) (CompiledModelView, bool) {
-	return CompiledModelViewByID(rt.runtime.CompiledModels, id)
-}
-
-// GlobalElement returns the global element declaration for name.
-func (rt *Schema) GlobalElement(name QName) (ElementID, bool) {
-	return GlobalElementByName(rt.runtime.GlobalElements, rt.runtime.ElementStarts, name)
-}
-
 // GlobalAttribute returns the global attribute declaration for name.
 func (rt *Schema) GlobalAttribute(name QName) (AttributeID, bool, bool) {
 	return GlobalAttributeByName(rt.runtime.GlobalAttributes, rt.runtime.Attributes, name)

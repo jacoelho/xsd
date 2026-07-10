@@ -13,7 +13,6 @@ const runtimeLengthFacetMask = FacetLength | FacetMinLength | FacetMaxLength
 // for atomic simple values that cannot use a no-output fast path.
 type AtomicSimpleValueInput struct {
 	ResolveQName func(string) (ns, local string, ok bool)
-	Notation     func(ns, local string) bool
 	Normalized   string
 	Facets       SimpleValueFacets
 	Type         SimpleValueType
@@ -21,16 +20,17 @@ type AtomicSimpleValueInput struct {
 	Present      bool
 }
 
-// ValidateAtomicSimpleValueFallback validates one normalized atomic value using
-// runtime-owned primitive parsing and typed facet execution. QName and NOTATION
-// namespace lookups remain explicit edge callbacks.
-func ValidateAtomicSimpleValueFallback(in AtomicSimpleValueInput) (AtomicSimpleValueResult, error) {
+type simpleValueNotationReader interface {
+	simpleValueNotation(ns, local string) (bool, bool)
+}
+
+func validateAtomicSimpleValueFallbackWithReader[R simpleValueNotationReader](reader R, in AtomicSimpleValueInput) (AtomicSimpleValueResult, error) {
 	if !in.Present {
 		return AtomicSimpleValueResult{}, ErrSimpleValueMetadata
 	}
 	typ := in.Type
 	facets := in.Facets
-	parsed, err := validateAtomicPrimitiveActual(typ.Primitive, in.Normalized, in.Notation, in.ResolveQName, in.Needs)
+	parsed, err := validateAtomicPrimitiveActual(reader, typ.Primitive, in.Normalized, in.ResolveQName, in.Needs)
 	if err != nil {
 		return AtomicSimpleValueResult{}, err
 	}
@@ -56,14 +56,14 @@ func ValidateAtomicSimpleValueFallback(in AtomicSimpleValueInput) (AtomicSimpleV
 	}, nil
 }
 
-func validateAtomicPrimitiveActual(kind PrimitiveKind, normalized string, notations func(string, string) bool, resolve func(string) (string, string, bool), needs PrimitiveValueNeed) (PrimitiveActualResult, error) {
+func validateAtomicPrimitiveActual[R simpleValueNotationReader](reader R, kind PrimitiveKind, normalized string, resolve func(string) (string, string, bool), needs PrimitiveValueNeed) (PrimitiveActualResult, error) {
 	actual := PrimitiveActualValue{Kind: kind, Valid: true}
 	switch kind {
 	case PrimitiveQName:
 		canon, err := validateQNamePrimitive(normalized, resolve, needs)
 		return PrimitiveActualResult{Canonical: canon, Actual: actual}, err
 	case PrimitiveNotation:
-		canon, err := validateNotationPrimitive(normalized, notations, resolve, needs)
+		canon, err := validateNotationPrimitive(reader, normalized, resolve, needs)
 		return PrimitiveActualResult{Canonical: canon, Actual: actual}, err
 	default:
 		return ParsePrimitiveActual(kind, normalized, needs)
@@ -90,15 +90,16 @@ func validateQNamePrimitive(normalized string, resolve func(string) (string, str
 	return FormatExpandedName(ns, local), nil
 }
 
-func validateNotationPrimitive(normalized string, notations func(string, string) bool, resolve func(string) (string, string, bool), needs PrimitiveValueNeed) (string, error) {
-	if notations == nil {
-		return "", ErrSimpleValueMetadata
-	}
+func validateNotationPrimitive[R simpleValueNotationReader](reader R, normalized string, resolve func(string) (string, string, bool), needs PrimitiveValueNeed) (string, error) {
 	if resolve == nil {
 		if !lex.IsNCName(normalized) {
 			return "", fmt.Errorf("invalid NOTATION")
 		}
-		if notations("", normalized) {
+		declared, known := reader.simpleValueNotation("", normalized)
+		if !known {
+			return "", ErrSimpleValueMetadata
+		}
+		if declared {
 			if !needs.Has(PrimitiveNeedCanonical) {
 				return "", nil
 			}
@@ -110,7 +111,11 @@ func validateNotationPrimitive(normalized string, notations func(string, string)
 	if !ok {
 		return "", fmt.Errorf("unresolved NOTATION")
 	}
-	if !notations(ns, local) {
+	declared, known := reader.simpleValueNotation(ns, local)
+	if !known {
+		return "", ErrSimpleValueMetadata
+	}
+	if !declared {
 		return "", fmt.Errorf("undeclared notation")
 	}
 	if !needs.Has(PrimitiveNeedCanonical) {

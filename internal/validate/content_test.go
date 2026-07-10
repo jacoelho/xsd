@@ -77,23 +77,3 @@ func TestContentCompletionRequiredPolicy(t *testing.T) {
 		t.Fatal("contentCompletionRequired(simple type) = true")
 	}
 }
-
-func TestValidateNilledContent(t *testing.T) {
-	t.Parallel()
-
-	ctx := StartContext{Path: "/root", Line: 2, Column: 3}
-	for _, in := range []NilledContentInput{
-		{Context: ctx, Nilled: true, HasText: true},
-		{Context: ctx, Nilled: true, HasChild: true},
-	} {
-		expectXSDCode(t, ValidateNilledContent(in), xsderrors.CodeValidationNil)
-	}
-	for _, in := range []NilledContentInput{
-		{Context: ctx, Nilled: true},
-		{Context: ctx, HasText: true, HasChild: true},
-	} {
-		if err := ValidateNilledContent(in); err != nil {
-			t.Fatalf("ValidateNilledContent() error = %v", err)
-		}
-	}
-}

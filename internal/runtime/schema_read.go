@@ -10,18 +10,10 @@ func (rt *Schema) SimpleTypePrimitive(id SimpleTypeID) (PrimitiveKind, bool) {
 	return SimpleTypePrimitiveByID(rt.runtime.SimpleTypePrimitives, id)
 }
 
-// ForEachElementIdentityConstraint iterates identity constraints on an element.
-func (rt *Schema) ForEachElementIdentityConstraint(id ElementID, fn func(IdentityConstraintID) bool) {
-	ForEachElementIdentityConstraint(rt.runtime.ElementIdentities, id, fn)
-}
-
-// ElementIdentityConstraints returns identity constraints attached to an
-// element.
-func (rt *Schema) ElementIdentityConstraints(id ElementID) []IdentityConstraintID {
-	if !ValidElementID(id, len(rt.runtime.ElementIdentities)) {
-		return nil
-	}
-	return rt.runtime.ElementIdentities[id]
+// ElementIdentityConstraints returns an immutable view of identity constraints
+// attached to an element.
+func (rt *Schema) ElementIdentityConstraints(id ElementID) (IdentityConstraintIDs, bool) {
+	return ElementIdentityConstraintIDs(rt.runtime.ElementIdentities, id)
 }
 
 // HasIdentityConstraints reports whether the schema has identity constraints.
@@ -29,14 +21,9 @@ func (rt *Schema) HasIdentityConstraints() bool {
 	return len(rt.runtime.Identities) != 0
 }
 
-// IdentitySelectorPaths returns selector paths for an identity constraint.
-func (rt *Schema) IdentitySelectorPaths(id IdentityConstraintID) ([]IdentityPath, bool) {
-	return IdentitySelectorPaths(rt.runtime.Identities, id)
-}
-
-// ForEachIdentitySelector iterates selector paths for an identity constraint.
-func (rt *Schema) ForEachIdentitySelector(id IdentityConstraintID, fn func(IdentityPath) bool) bool {
-	return ForEachIdentitySelector(rt.runtime.Identities, id, fn)
+// IdentitySelectorPaths returns immutable selector paths for an identity constraint.
+func (rt *Schema) IdentitySelectorPaths(id IdentityConstraintID) (IdentityPathReads, bool) {
+	return IdentitySelectorPathReads(rt.runtime.Identities, id)
 }
 
 // IdentityFieldCount returns the number of fields for an identity constraint.
@@ -44,37 +31,19 @@ func (rt *Schema) IdentityFieldCount(id IdentityConstraintID) (int, bool) {
 	return IdentityFieldCount(rt.runtime.Identities, id)
 }
 
-// IdentityElementFields returns element-field lookups for an identity
-// constraint.
-func (rt *Schema) IdentityElementFields(id IdentityConstraintID) ([]CompiledIdentityField, bool) {
-	return IdentityElementFields(rt.runtime.Identities, id)
+// IdentityElementFields returns immutable element fields for an identity constraint.
+func (rt *Schema) IdentityElementFields(id IdentityConstraintID) (CompiledIdentityFieldReads, bool) {
+	return IdentityElementFieldReads(rt.runtime.Identities, id)
 }
 
-// ForEachIdentityElementField iterates element fields for an identity constraint.
-func (rt *Schema) ForEachIdentityElementField(id IdentityConstraintID, fn func(CompiledIdentityField) bool) bool {
-	return ForEachIdentityElementField(rt.runtime.Identities, id, fn)
+// IdentityAttributeFields returns immutable attribute fields for an identity constraint.
+func (rt *Schema) IdentityAttributeFields(id IdentityConstraintID, name QName) (CompiledIdentityFieldReads, bool) {
+	return IdentityAttributeFieldReads(rt.runtime.Identities, id, name)
 }
 
-// IdentityAttributeFields returns exact attribute-field lookups for an identity
-// constraint and attribute name.
-func (rt *Schema) IdentityAttributeFields(id IdentityConstraintID, name QName) ([]CompiledIdentityField, bool) {
-	return IdentityAttributeFields(rt.runtime.Identities, id, name)
-}
-
-// ForEachIdentityAttributeField iterates attribute fields for an identity constraint.
-func (rt *Schema) ForEachIdentityAttributeField(id IdentityConstraintID, name QName, fn func(CompiledIdentityField) bool) bool {
-	return ForEachIdentityAttributeField(rt.runtime.Identities, id, name, fn)
-}
-
-// IdentityAttributeWildcardFields returns wildcard attribute-field lookups for
-// an identity constraint.
-func (rt *Schema) IdentityAttributeWildcardFields(id IdentityConstraintID) ([]CompiledIdentityField, bool) {
-	return IdentityAttributeWildcardFields(rt.runtime.Identities, id)
-}
-
-// ForEachIdentityAttributeWildcardField iterates wildcard attribute fields for an identity constraint.
-func (rt *Schema) ForEachIdentityAttributeWildcardField(id IdentityConstraintID, fn func(CompiledIdentityField) bool) bool {
-	return ForEachIdentityAttributeWildcardField(rt.runtime.Identities, id, fn)
+// IdentityAttributeWildcardFields returns immutable wildcard fields for an identity constraint.
+func (rt *Schema) IdentityAttributeWildcardFields(id IdentityConstraintID) (CompiledIdentityFieldReads, bool) {
+	return IdentityAttributeWildcardFieldReads(rt.runtime.Identities, id)
 }
 
 // IdentityConstraintInfo returns metadata for an identity constraint.
@@ -94,22 +63,14 @@ func (rt *Schema) elementChildContent(t TypeID) (ElementChildContent, bool) {
 }
 
 func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, bool) {
-	set, ok := rt.complexAttributeUsesPtr(id)
-	if !ok {
-		return AttributeUseSetRead{}, false
-	}
-	return *set, true
-}
-
-func (rt *Schema) complexAttributeUsesPtr(id ComplexTypeID) (*AttributeUseSetRead, bool) {
 	if !ValidComplexTypeID(id, len(rt.runtime.ComplexTypes)) {
-		return nil, false
+		return AttributeUseSetRead{}, false
 	}
 	set := rt.runtime.ComplexTypes[id].attributeUseSet
 	if !ValidAttributeUseSetID(set, len(rt.runtime.AttributeUseSets)) {
-		return nil, false
+		return AttributeUseSetRead{}, false
 	}
-	return &rt.runtime.AttributeUseSets[set], true
+	return rt.runtime.AttributeUseSets[set], true
 }
 
 // AttributeUseSetForType returns attribute-use reads for a runtime type.
@@ -119,17 +80,6 @@ func (rt *Schema) AttributeUseSetForType(typ TypeID) (AttributeUseSetRead, bool,
 		return AttributeUseSetRead{}, false, true
 	}
 	set, valid := rt.complexAttributeUses(id)
-	return set, true, valid
-}
-
-// AttributeUseSetForTypePtr returns attribute-use reads for a runtime type
-// without copying the immutable read projection.
-func (rt *Schema) AttributeUseSetForTypePtr(typ TypeID) (*AttributeUseSetRead, bool, bool) {
-	id, ok := typ.Complex()
-	if !ok {
-		return nil, false, true
-	}
-	set, valid := rt.complexAttributeUsesPtr(id)
 	return set, true, valid
 }
 

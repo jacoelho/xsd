@@ -1,6 +1,8 @@
 package validate
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"strings"
@@ -12,6 +14,92 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlns"
 )
+
+func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := NewSession(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var source bytes.Buffer
+	source.WriteString("<root/>")
+	callerReader := bufio.NewReaderSize(&source, 128*1024)
+	if err = session.Validate(callerReader); err != nil {
+		t.Fatal(err)
+	}
+	if err = session.Validate(strings.NewReader("<root/>")); err != nil {
+		t.Fatal(err)
+	}
+
+	source.WriteString("sentinel")
+	got, err := callerReader.ReadString('l')
+	if err != nil {
+		t.Fatalf("caller reader was reset by session reuse: %v", err)
+	}
+	if got != "sentinel" {
+		t.Fatalf("caller reader returned %q, want sentinel", got)
+	}
+}
+
+func TestSessionDetachesReaderAfterPreflightFailure(t *testing.T) {
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := NewSession(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader("<root/>")); err != nil {
+		t.Fatal(err)
+	}
+	reader := session.session.reader
+	size := reader.Size()
+
+	invalid := string([]byte{0xFE, 0xFF}) + strings.Repeat("x", 1024)
+	if err := session.Validate(strings.NewReader(invalid)); err == nil {
+		t.Fatal("Validate() accepted UTF-16 input")
+	}
+	if session.session.reader != reader {
+		t.Fatal("Validate() replaced the reusable reader after preflight failure")
+	}
+	if reader.Size() != size {
+		t.Fatalf("reader size = %d, want retained size %d", reader.Size(), size)
+	}
+	if reader.Buffered() != 0 {
+		t.Fatalf("reader retained %d source bytes after preflight failure", reader.Buffered())
+	}
+}
+
+func TestSessionResetDetachesReaderAndKeepsBuffer(t *testing.T) {
+	reader := bufio.NewReaderSize(strings.NewReader("retained source"), 1024)
+	if _, err := reader.Peek(1); err != nil {
+		t.Fatal(err)
+	}
+	s := session{reader: reader}
+
+	s.reset()
+
+	if s.reader != reader {
+		t.Fatal("reset replaced the reusable reader")
+	}
+	if reader.Size() != 1024 {
+		t.Fatalf("reader size = %d, want 1024", reader.Size())
+	}
+	if reader.Buffered() != 0 {
+		t.Fatalf("reader retained %d source bytes after reset", reader.Buffered())
+	}
+}
 
 func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	var s session
@@ -185,7 +273,7 @@ func assertReleasedReferencesZero(t *testing.T, s *session) {
 	}
 	identity := &s.doc.identity
 	for i, scope := range identity.scopes[:cap(identity.scopes)] {
-		if scope.tables != nil || scope.constraints != nil || scope.refs != nil {
+		if scope.tables != nil || scope.constraints.Len() != 0 || scope.refs != nil {
 			t.Fatalf("identity scope tail %d retains references: %+v", i, scope)
 		}
 	}

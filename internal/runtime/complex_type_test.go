@@ -151,46 +151,6 @@ func TestEqualComplexAttributeUseSetIDProjection(t *testing.T) {
 	}
 }
 
-func TestEqualComplexContentModelIDProjection(t *testing.T) {
-	t.Parallel()
-
-	complexTypes := []ComplexType{
-		{Content: 1},
-		{Content: 2},
-	}
-	projection := NewComplexContentModelIDProjection(complexTypes)
-	if !EqualComplexContentModelIDProjection(projection, complexTypes) {
-		t.Fatal("NewComplexContentModelIDProjection() did not produce matching projection")
-	}
-	if !EqualComplexContentModelIDProjection([]ContentModelID{1, 2}, complexTypes) {
-		t.Fatal("EqualComplexContentModelIDProjection() rejected matching projection")
-	}
-	if EqualComplexContentModelIDProjection([]ContentModelID{1}, complexTypes) {
-		t.Fatal("EqualComplexContentModelIDProjection() accepted short projection")
-	}
-	if EqualComplexContentModelIDProjection([]ContentModelID{1, 3}, complexTypes) {
-		t.Fatal("EqualComplexContentModelIDProjection() accepted mismatched projection")
-	}
-	if got := ContentModelForTypeByID(projection, ComplexRef(1)); got != 2 {
-		t.Fatalf("ContentModelForTypeByID(complex) = %v, want 2", got)
-	}
-	if got := ContentModelForTypeByID(projection, SimpleRef(0)); got != NoContentModel {
-		t.Fatalf("ContentModelForTypeByID(simple) = %v, want no content model", got)
-	}
-	if got := ContentModelForTypeByID(projection, ComplexRef(99)); got != NoContentModel {
-		t.Fatalf("ContentModelForTypeByID(invalid) = %v, want no content model", got)
-	}
-	if err := ValidateComplexContentModelIDProjection(NewComplexContentModelIDProjection(complexTypes), complexTypes); err != nil {
-		t.Fatalf("ValidateComplexContentModelIDProjection() error = %v", err)
-	}
-	if err := ValidateComplexContentModelIDProjection([]ContentModelID{1}, complexTypes); err == nil || err.Error() != "complex content-model projection count does not match types" {
-		t.Fatalf("ValidateComplexContentModelIDProjection(short) error = %v, want count invariant", err)
-	}
-	if err := ValidateComplexContentModelIDProjection([]ContentModelID{1, 3}, complexTypes); err == nil || err.Error() != "complex content-model projection does not match type" {
-		t.Fatalf("ValidateComplexContentModelIDProjection(changed) error = %v, want mismatch invariant", err)
-	}
-}
-
 func TestValidateComplexTypeRuntime(t *testing.T) {
 	t.Parallel()
 

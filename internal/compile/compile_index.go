@@ -3,7 +3,11 @@ package compile
 import "github.com/jacoelho/xsd/internal/vocab"
 
 func (c *compiler) index() error {
-	for _, doc := range c.compileDocs {
+	for _, document := range c.documents {
+		if !document.indexDeclarations {
+			continue
+		}
+		doc := document.doc
 		if err := c.indexSchemaDocument(doc); err != nil {
 			return err
 		}

@@ -56,16 +56,6 @@ func ValidateFastDecimalLexical[T byteText](shape RawDecimalFastPathShape, raw T
 	return true, validateDecimalTextNonNegativeBounds(raw, shape.MinInclusive, shape.MaxInclusive)
 }
 
-func validateFastDecimalLexicalPublished(shape RawDecimalFastPathShape, raw []byte) (bool, error) {
-	if shape.Facets&(FacetTotalDigits|FacetFractionDigits|FacetMinExclusive|FacetMaxExclusive|FacetEnumeration|FacetPattern) != 0 {
-		return false, nil
-	}
-	if shape.MinInclusive.Negative || shape.MaxInclusive.Negative {
-		return false, nil
-	}
-	return true, validateDecimalTextNonNegativeBounds(raw, shape.MinInclusive, shape.MaxInclusive)
-}
-
 func validateRawDecimalBoundProjection(shape RawDecimalFastPathShape) error {
 	hasMin := shape.Facets&FacetMinInclusive != 0
 	hasMax := shape.Facets&FacetMaxInclusive != 0

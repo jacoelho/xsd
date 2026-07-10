@@ -9,18 +9,24 @@ func PublishSchema(build *SchemaBuild) (*Schema, error) {
 	if build == nil {
 		return nil, errors.New("nil schema build")
 	}
-	source := schemaAudit{build: *build}
-	if err := validateCompilerPublication(&source); err != nil {
-		return nil, err
-	}
-	reads := newSchemaRuntime(build)
-	candidate := Schema{runtime: reads}
-	audit := schemaAudit{Schema: candidate, build: *build}
-	if err := validateRuntimeReadProjections(&audit); err != nil {
+	candidate, err := newAuditedSchema(build)
+	if err != nil {
 		return nil, err
 	}
 	*build = SchemaBuild{}
-	return &candidate, nil
+	return candidate, nil
+}
+
+func newAuditedSchema(build *SchemaBuild) (*Schema, error) {
+	candidate := &Schema{runtime: newSchemaRuntime(build)}
+	audit := schemaAudit{Schema: *candidate, build: *build}
+	if err := validateSchema(&audit); err != nil {
+		return nil, err
+	}
+	if err := validateRuntimeReadProjections(&audit); err != nil {
+		return nil, err
+	}
+	return candidate, nil
 }
 
 func newSchemaRuntime(build *SchemaBuild) schemaRuntime {

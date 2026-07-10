@@ -89,6 +89,116 @@ func (s *simpleValueCallbackStub) isUnsupported(err error) bool {
 	return s.unsupported != nil && errors.Is(err, s.unsupported)
 }
 
+func TestPublishedSimpleValueSharedFallback(t *testing.T) {
+	t.Parallel()
+
+	types := []SimpleType{{
+		Facets: FacetSet{
+			Present:     FacetEnumeration,
+			Enumeration: []CompiledLiteral{{Canonical: "allowed"}},
+		},
+		Variety:    SimpleVarietyAtomic,
+		Primitive:  PrimitiveString,
+		Whitespace: WhitespacePreserve,
+	}}
+	types[0].Fast = DeriveSimpleFastPathForSimpleType(types[0])
+	schema := &Schema{runtime: schemaRuntime{
+		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
+		SimpleValueCold:   newSimpleValueColdReadTable(types),
+	}}
+
+	if _, err := schema.validatePublishedSimpleValue(0, "allowed", nil, 0); err != nil {
+		t.Fatalf("validatePublishedSimpleValue() error = %v", err)
+	}
+	if _, err := schema.validatePublishedSimpleValue(0, "rejected", nil, 0); err == nil || err.Error() != "enumeration facet failed" {
+		t.Fatalf("validatePublishedSimpleValue() error = %v, want enumeration failure", err)
+	}
+	if handled, err := schema.validatePublishedRawSimpleValue(0, []byte("allowed")); !handled || err != nil {
+		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
+	}
+	if handled, err := schema.validatePublishedRawSimpleValue(0, []byte("rejected")); !handled || err == nil || err.Error() != "enumeration facet failed" {
+		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want handled enumeration failure", handled, err)
+	}
+}
+
+func TestPublishedSimpleValueFastPathAllocations(t *testing.T) {
+	types := []SimpleType{{
+		Variety:    SimpleVarietyAtomic,
+		Primitive:  PrimitiveDecimal,
+		Builtin:    BuiltinValidationInteger,
+		Whitespace: WhitespaceCollapse,
+		Fast:       SimpleFastInt,
+	}}
+	schema := &Schema{runtime: schemaRuntime{
+		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
+		SimpleValueCold:   newSimpleValueColdReadTable(types),
+	}}
+	var value SimpleValue
+	var err error
+	allocs := testing.AllocsPerRun(1_000, func() {
+		value, err = schema.validatePublishedSimpleValue(0, "7", nil, 0)
+	})
+	if err != nil || value.Type != 0 {
+		t.Fatalf("validatePublishedSimpleValue() = %+v, %v", value, err)
+	}
+	if allocs != 0 {
+		t.Fatalf("validatePublishedSimpleValue() allocations = %v, want 0", allocs)
+	}
+}
+
+func TestPublishedNotationFastPathAllocations(t *testing.T) {
+	types := []SimpleType{{
+		Variety:    SimpleVarietyAtomic,
+		Primitive:  PrimitiveNotation,
+		Whitespace: WhitespacePreserve,
+	}}
+	schema := &Schema{runtime: schemaRuntime{
+		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
+		SimpleValueCold:   newSimpleValueColdReadTable(types),
+		Notations:         map[ExpandedName]bool{{Local: "declared"}: true},
+	}}
+	var value SimpleValue
+	var err error
+	allocs := testing.AllocsPerRun(1_000, func() {
+		value, err = schema.validatePublishedSimpleValue(0, "declared", nil, 0)
+	})
+	if err != nil || value.Type != 0 {
+		t.Fatalf("validatePublishedSimpleValue() = %+v, %v", value, err)
+	}
+	if allocs != 0 {
+		t.Fatalf("validatePublishedSimpleValue() NOTATION allocations = %v, want 0", allocs)
+	}
+}
+
+func TestPublishedRawUnionFastPathAllocations(t *testing.T) {
+	types := []SimpleType{
+		{
+			Union:   []SimpleTypeID{1},
+			Variety: SimpleVarietyUnion,
+		},
+		{
+			Variety:   SimpleVarietyAtomic,
+			Primitive: PrimitiveBoolean,
+		},
+	}
+	schema := &Schema{runtime: schemaRuntime{
+		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
+		SimpleValueCold:   newSimpleValueColdReadTable(types),
+	}}
+	raw := []byte("true")
+	var handled bool
+	var err error
+	allocs := testing.AllocsPerRun(1_000, func() {
+		handled, err = schema.validatePublishedRawSimpleValue(0, raw)
+	})
+	if err != nil || !handled {
+		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
+	}
+	if allocs != 0 {
+		t.Fatalf("validatePublishedRawSimpleValue() allocations = %v, want 0", allocs)
+	}
+}
+
 func TestValidateSimpleValueRoute(t *testing.T) {
 	t.Parallel()
 

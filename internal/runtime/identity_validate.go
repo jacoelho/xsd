@@ -18,30 +18,10 @@ func ValidateIdentityConstraints(names *NameTable, identities []IdentityConstrai
 	return nil
 }
 
-// EqualIdentityConstraints reports whether two identity-constraint tables carry
-// the same runtime metadata.
-func EqualIdentityConstraints(a, b []IdentityConstraint) bool {
-	return slices.EqualFunc(a, b, EqualIdentityConstraint)
-}
-
 // EqualIdentityConstraintIDs reports whether two identity-constraint ID lists
 // expose the same per-element identity constraint projection.
 func EqualIdentityConstraintIDs(a, b []IdentityConstraintID) bool {
 	return slices.Equal(a, b)
-}
-
-// EqualElementIdentityConstraintReadProjection reports whether reads expose the
-// identity constraints attached to each element declaration.
-func EqualElementIdentityConstraintReadProjection(reads [][]IdentityConstraintID, shapes []ElementIdentityConstraintReadShape) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		if !EqualIdentityConstraintIDs(reads[i], shapes[i].Identity) {
-			return false
-		}
-	}
-	return true
 }
 
 // EqualElementIdentityConstraintReadProjectionForDecls reports whether reads
@@ -82,30 +62,11 @@ func ValidateIdentityConstraintReadProjection(reads []IdentityConstraintRead, id
 	return nil
 }
 
-// EqualIdentityConstraint reports whether two identity constraints carry the
-// same runtime metadata.
-func EqualIdentityConstraint(a, b IdentityConstraint) bool {
-	return a.Name == b.Name &&
-		a.Refer == b.Refer &&
-		a.Kind == b.Kind &&
-		equalIdentityPaths(a.Selector, b.Selector) &&
-		equalIdentityFields(a.Fields, b.Fields) &&
-		equalCompiledIdentityFields(a.ElementFields, b.ElementFields) &&
-		equalCompiledIdentityFieldMaps(a.AttributeFields, b.AttributeFields) &&
-		equalCompiledIdentityFields(a.AttributeWildcardFields, b.AttributeWildcardFields)
-}
-
 func equalIdentityPaths(a, b []IdentityPath) bool {
 	return slices.EqualFunc(a, b, func(x, y IdentityPath) bool {
 		return x.Descendant == y.Descendant &&
 			x.Self == y.Self &&
 			slices.Equal(x.Steps, y.Steps)
-	})
-}
-
-func equalIdentityFields(a, b []IdentityField) bool {
-	return slices.EqualFunc(a, b, func(x, y IdentityField) bool {
-		return equalIdentityFieldPaths(x.Paths, y.Paths)
 	})
 }
 

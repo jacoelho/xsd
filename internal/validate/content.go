@@ -78,19 +78,3 @@ func contentCompletionRequired(nilled bool, typ runtime.TypeID, content runtime.
 func validationFromIssue(ctx StartContext, issue validationIssue) error {
 	return validation(ctx, issue.code, issue.message)
 }
-
-// NilledContentInput reports whether a nilled element has content.
-type NilledContentInput struct {
-	Context  StartContext
-	Nilled   bool
-	HasChild bool
-	HasText  bool
-}
-
-// ValidateNilledContent rejects child or text content inside a nilled element.
-func ValidateNilledContent(in NilledContentInput) error {
-	if in.Nilled && (in.HasChild || in.HasText) {
-		return validationFromIssue(in.Context, nilledContentIssue())
-	}
-	return nil
-}

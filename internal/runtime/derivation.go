@@ -12,12 +12,6 @@ type SimpleTypeDerivation struct {
 	Variety SimpleVariety
 }
 
-// EqualSimpleTypeDerivations reports whether two simple-type derivation
-// projections expose the same runtime derivation graph node.
-func EqualSimpleTypeDerivations(a, b SimpleTypeDerivation) bool {
-	return a.Base == b.Base && a.Variety == b.Variety && slices.Equal(a.Union, b.Union)
-}
-
 // NewSimpleTypeDerivationForSimpleType returns the runtime derivation
 // projection for one simple type.
 func NewSimpleTypeDerivationForSimpleType(st SimpleType) SimpleTypeDerivation {
@@ -71,57 +65,6 @@ type TypeDerivationRead struct {
 	simple  []SimpleTypeDerivation
 	complex []ComplexTypeDerivation
 	anyType ComplexTypeID
-}
-
-// NewComplexTypeDerivationsForComplexTypes returns complex-type derivation
-// projections for complexTypes.
-func NewComplexTypeDerivationsForComplexTypes(complexTypes []ComplexType) []ComplexTypeDerivation {
-	out := make([]ComplexTypeDerivation, len(complexTypes))
-	for i := range complexTypes {
-		out[i] = NewComplexTypeDerivationForComplexType(complexTypes[i])
-	}
-	return out
-}
-
-// NewSimpleTypeDerivationsForSimpleTypes returns simple-type derivation
-// projections for simpleTypes.
-func NewSimpleTypeDerivationsForSimpleTypes(simpleTypes []SimpleType) []SimpleTypeDerivation {
-	out := make([]SimpleTypeDerivation, len(simpleTypes))
-	for i := range simpleTypes {
-		out[i] = NewSimpleTypeDerivationForSimpleType(simpleTypes[i])
-	}
-	return out
-}
-
-// NewTypeDerivationRead returns a freeze-published type-derivation graph.
-func NewTypeDerivationRead(anyType ComplexTypeID, simple []SimpleTypeDerivation, complexDerivations []ComplexTypeDerivation) TypeDerivationRead {
-	return TypeDerivationRead{
-		simple:  CloneSimpleTypeDerivations(simple),
-		complex: slices.Clone(complexDerivations),
-		anyType: anyType,
-	}
-}
-
-// NewTypeDerivationReadForTypes returns a freeze-published type-derivation
-// graph projected directly from runtime type records.
-func NewTypeDerivationReadForTypes(anyType ComplexTypeID, simpleTypes []SimpleType, complexTypes []ComplexType) TypeDerivationRead {
-	simple := make([]SimpleTypeDerivation, len(simpleTypes))
-	for i, st := range simpleTypes {
-		simple[i] = SimpleTypeDerivation{
-			Union:   slices.Clone(st.Union),
-			Base:    st.Base,
-			Variety: st.Variety,
-		}
-	}
-	complexDerivations := make([]ComplexTypeDerivation, len(complexTypes))
-	for i, ct := range complexTypes {
-		complexDerivations[i] = NewComplexTypeDerivationForComplexType(ct)
-	}
-	return TypeDerivationRead{
-		simple:  simple,
-		complex: complexDerivations,
-		anyType: anyType,
-	}
 }
 
 // NewBorrowedTypeDerivationReadForTypes returns a derivation graph that borrows
@@ -204,57 +147,6 @@ func (r typeDerivationReadRuntime) SimpleTypeDerivation(id SimpleTypeID) (Simple
 
 func (r typeDerivationReadRuntime) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool) {
 	return r.read.ComplexTypeDerivation(id)
-}
-
-// RuntimeAnyTypeID returns the xs:anyType complex-type ID from the published
-// derivation projection when present, or from mutable compile-time builtins.
-func RuntimeAnyTypeID(read TypeDerivationRead, builtins BuiltinIDs) ComplexTypeID {
-	if read.ComplexTypeCount() != 0 {
-		return read.AnyTypeID()
-	}
-	return builtins.AnyType
-}
-
-// RuntimeComplexTypeCount returns the complex-type count from the published
-// derivation projection when present, or from mutable compile-time types.
-func RuntimeComplexTypeCount(read TypeDerivationRead, complexTypes []ComplexType) int {
-	if read.ComplexTypeCount() != 0 {
-		return read.ComplexTypeCount()
-	}
-	return len(complexTypes)
-}
-
-// RuntimeSimpleTypeDerivation returns simple-type derivation metadata from the
-// published projection when present, or from mutable compile-time simple types.
-func RuntimeSimpleTypeDerivation(read TypeDerivationRead, simpleTypes []SimpleType, id SimpleTypeID) (SimpleTypeDerivation, bool) {
-	if read.SimpleTypeCount() != 0 {
-		return read.SimpleTypeDerivation(id)
-	}
-	st, ok := SimpleTypeByID(simpleTypes, id)
-	if !ok {
-		return SimpleTypeDerivation{}, false
-	}
-	return NewSimpleTypeDerivationForSimpleType(*st), true
-}
-
-// RuntimeComplexTypeDerivation returns complex-type derivation metadata from
-// the published projection when present, or from mutable compile-time complex
-// types.
-func RuntimeComplexTypeDerivation(read TypeDerivationRead, complexTypes []ComplexType, id ComplexTypeID) (ComplexTypeDerivation, bool) {
-	if read.ComplexTypeCount() != 0 {
-		return read.ComplexTypeDerivation(id)
-	}
-	ct, ok := ComplexTypeByID(complexTypes, id)
-	if !ok {
-		return ComplexTypeDerivation{}, false
-	}
-	return NewComplexTypeDerivationForComplexType(*ct), true
-}
-
-// EqualSimpleTypeDerivationReadProjection reports whether read exposes the
-// expected simple-type derivation graph.
-func EqualSimpleTypeDerivationReadProjection(read TypeDerivationRead, expected []SimpleTypeDerivation) bool {
-	return slices.EqualFunc(read.simple, expected, EqualSimpleTypeDerivations)
 }
 
 // EqualSimpleTypeDerivationReadProjectionForTypes reports whether read exposes

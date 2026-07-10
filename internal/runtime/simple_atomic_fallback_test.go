@@ -6,7 +6,16 @@ import (
 	"testing"
 )
 
-func TestValidateAtomicSimpleValueFallbackOwnsTypedFacetBounds(t *testing.T) {
+type notationReaderStub func(ns, local string) (declared, known bool)
+
+func (r notationReaderStub) simpleValueNotation(ns, local string) (bool, bool) {
+	if r == nil {
+		return false, false
+	}
+	return r(ns, local)
+}
+
+func TestAtomicSimpleValueFallbackOwnsTypedFacetBounds(t *testing.T) {
 	t.Parallel()
 
 	floatValue, err := ParseFloatValue(PrimitiveDouble, "1.5", 0)
@@ -90,26 +99,29 @@ func TestValidateAtomicSimpleValueFallbackOwnsTypedFacetBounds(t *testing.T) {
 			t.Parallel()
 
 			typ := SimpleValueType{Primitive: tt.kind, Facets: tt.facets.Facets}
-			_, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+			_, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(nil), AtomicSimpleValueInput{
 				Type:       typ,
 				Facets:     tt.facets,
 				Normalized: tt.normalized,
 				Present:    true,
 			})
 			if err == nil || err.Error() != "minInclusive facet failed" {
-				t.Fatalf("ValidateAtomicSimpleValueFallback() error = %v, want minInclusive failure", err)
+				t.Fatalf("validateAtomicSimpleValueFallbackWithReader() error = %v, want minInclusive failure", err)
 			}
 		})
 	}
 }
 
-func TestValidateAtomicSimpleValueFallbackRoutesQNameAndNotationEdges(t *testing.T) {
+func TestAtomicSimpleValueFallbackRoutesQNameAndNotationEdges(t *testing.T) {
 	t.Parallel()
 
 	qnameType := SimpleValueType{Primitive: PrimitiveQName}
 	emptyFacets := SimpleValueFacets{}
 	var qnameCalls, notationCalls int
-	qnameResult, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+	qnameResult, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(func(string, string) (bool, bool) {
+		notationCalls++
+		return false, true
+	}), AtomicSimpleValueInput{
 		Type:   qnameType,
 		Facets: emptyFacets,
 		ResolveQName: func(lexical string) (string, string, bool) {
@@ -119,16 +131,12 @@ func TestValidateAtomicSimpleValueFallbackRoutesQNameAndNotationEdges(t *testing
 			}
 			return "urn:test", "name", true
 		},
-		Notation: func(ns, local string) bool {
-			notationCalls++
-			return false
-		},
 		Normalized: "p:name",
 		Needs:      PrimitiveNeedCanonical,
 		Present:    true,
 	})
 	if err != nil {
-		t.Fatalf("ValidateAtomicSimpleValueFallback(QName) error = %v", err)
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader(QName) error = %v", err)
 	}
 	if qnameResult.Canonical != "{urn:test}name" {
 		t.Fatalf("QName canonical = %q", qnameResult.Canonical)
@@ -138,7 +146,9 @@ func TestValidateAtomicSimpleValueFallbackRoutesQNameAndNotationEdges(t *testing
 	}
 
 	notationType := SimpleValueType{Primitive: PrimitiveNotation}
-	notationResult, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+	notationResult, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(func(ns, local string) (bool, bool) {
+		return ns == "urn:notation" && local == "token", true
+	}), AtomicSimpleValueInput{
 		Type:   notationType,
 		Facets: emptyFacets,
 		ResolveQName: func(lexical string) (string, string, bool) {
@@ -147,25 +157,22 @@ func TestValidateAtomicSimpleValueFallbackRoutesQNameAndNotationEdges(t *testing
 			}
 			return "urn:notation", "token", true
 		},
-		Notation: func(ns, local string) bool {
-			return ns == "urn:notation" && local == "token"
-		},
 		Normalized: "n:token",
 		Needs:      PrimitiveNeedCanonical,
 		Present:    true,
 	})
 	if err != nil {
-		t.Fatalf("ValidateAtomicSimpleValueFallback(NOTATION) error = %v", err)
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader(NOTATION) error = %v", err)
 	}
 	if notationResult.Canonical != "{urn:notation}token" {
 		t.Fatalf("NOTATION canonical = %q", notationResult.Canonical)
 	}
 }
 
-func TestValidateAtomicSimpleValueFallbackSkipsQNameCanonicalWhenUnneeded(t *testing.T) {
+func TestAtomicSimpleValueFallbackSkipsQNameCanonicalWhenUnneeded(t *testing.T) {
 	t.Parallel()
 
-	qnameResult, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+	qnameResult, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(nil), AtomicSimpleValueInput{
 		Type: SimpleValueType{Primitive: PrimitiveQName},
 		ResolveQName: func(lexical string) (string, string, bool) {
 			if lexical != "p:name" {
@@ -177,13 +184,15 @@ func TestValidateAtomicSimpleValueFallbackSkipsQNameCanonicalWhenUnneeded(t *tes
 		Present:    true,
 	})
 	if err != nil {
-		t.Fatalf("ValidateAtomicSimpleValueFallback(QName) error = %v", err)
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader(QName) error = %v", err)
 	}
 	if qnameResult.Canonical != "" {
 		t.Fatalf("QName canonical = %q, want empty", qnameResult.Canonical)
 	}
 
-	notationResult, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+	notationResult, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(func(ns, local string) (bool, bool) {
+		return ns == "urn:notation" && local == "token", true
+	}), AtomicSimpleValueInput{
 		Type: SimpleValueType{Primitive: PrimitiveNotation},
 		ResolveQName: func(lexical string) (string, string, bool) {
 			if lexical != "n:token" {
@@ -191,27 +200,24 @@ func TestValidateAtomicSimpleValueFallbackSkipsQNameCanonicalWhenUnneeded(t *tes
 			}
 			return "urn:notation", "token", true
 		},
-		Notation: func(ns, local string) bool {
-			return ns == "urn:notation" && local == "token"
-		},
 		Normalized: "n:token",
 		Present:    true,
 	})
 	if err != nil {
-		t.Fatalf("ValidateAtomicSimpleValueFallback(NOTATION) error = %v", err)
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader(NOTATION) error = %v", err)
 	}
 	if notationResult.Canonical != "" {
 		t.Fatalf("NOTATION canonical = %q, want empty", notationResult.Canonical)
 	}
 }
 
-func TestValidateAtomicSimpleValueFallbackDoesNotRouteIndependentPrimitivesThroughQName(t *testing.T) {
+func TestAtomicSimpleValueFallbackDoesNotRouteIndependentPrimitivesThroughQName(t *testing.T) {
 	t.Parallel()
 
 	typ := SimpleValueType{Primitive: PrimitiveAnyURI}
 	facets := SimpleValueFacets{}
 	called := false
-	_, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+	_, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(nil), AtomicSimpleValueInput{
 		Type:   typ,
 		Facets: facets,
 		ResolveQName: func(string) (string, string, bool) {
@@ -223,51 +229,52 @@ func TestValidateAtomicSimpleValueFallbackDoesNotRouteIndependentPrimitivesThrou
 		Present:    true,
 	})
 	if err != nil {
-		t.Fatalf("ValidateAtomicSimpleValueFallback() error = %v", err)
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader() error = %v", err)
 	}
 	if called {
 		t.Fatal("namespace-independent primitive used QName resolver")
 	}
 }
 
-func TestValidateAtomicSimpleValueFallbackReportsMissingTypedFacetLiteral(t *testing.T) {
+func TestAtomicSimpleValueFallbackReportsMissingTypedFacetLiteral(t *testing.T) {
 	t.Parallel()
 
 	typ := SimpleValueType{Primitive: PrimitiveFloat, Facets: FacetMinInclusive}
 	facets := SimpleValueFacets{Facets: FacetMinInclusive}
-	_, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+	_, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(nil), AtomicSimpleValueInput{
 		Type:       typ,
 		Facets:     facets,
 		Normalized: "1.0",
 		Present:    true,
 	})
 	if !errors.Is(err, ErrSimpleValueMetadata) {
-		t.Fatalf("ValidateAtomicSimpleValueFallback() error = %v, want metadata sentinel", err)
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader() error = %v, want metadata sentinel", err)
 	}
 }
 
-func TestValidateAtomicSimpleValueFallbackRejectsUndeclaredNotation(t *testing.T) {
+func TestAtomicSimpleValueFallbackRejectsUndeclaredNotation(t *testing.T) {
 	t.Parallel()
 
 	typ := SimpleValueType{Primitive: PrimitiveNotation}
 	facets := SimpleValueFacets{}
-	_, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{
+	_, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(func(string, string) (bool, bool) {
+		return false, true
+	}), AtomicSimpleValueInput{
 		Type:       typ,
 		Facets:     facets,
 		Normalized: "token",
-		Notation:   func(string, string) bool { return false },
 		Present:    true,
 	})
 	if err == nil || !strings.Contains(err.Error(), "undeclared notation") {
-		t.Fatalf("ValidateAtomicSimpleValueFallback() error = %v, want undeclared notation", err)
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader() error = %v, want undeclared notation", err)
 	}
 }
 
-func TestValidateAtomicSimpleValueFallbackRejectsMissingMetadata(t *testing.T) {
+func TestAtomicSimpleValueFallbackRejectsMissingMetadata(t *testing.T) {
 	t.Parallel()
 
-	_, err := ValidateAtomicSimpleValueFallback(AtomicSimpleValueInput{})
+	_, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(nil), AtomicSimpleValueInput{})
 	if !errors.Is(err, ErrSimpleValueMetadata) {
-		t.Fatalf("ValidateAtomicSimpleValueFallback() error = %v, want metadata sentinel", err)
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader() error = %v, want metadata sentinel", err)
 	}
 }

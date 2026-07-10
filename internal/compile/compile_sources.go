@@ -16,8 +16,12 @@ type compilerSourceState struct {
 	imports     map[string]map[string]bool
 	adoptTarget map[string]string
 	contexts    map[*rawDoc]*schemaContext
-	graphDocs   []*rawDoc
-	compileDocs []*rawDoc
+	documents   []compilerDocument
+}
+
+type compilerDocument struct {
+	doc               *rawDoc
+	indexDeclarations bool
 }
 
 func newCompilerSourceState() compilerSourceState {
@@ -64,16 +68,10 @@ func (c *compiler) appendLoadedSchemaDocuments(roles []source.LoadedDocumentRole
 		if doc == nil {
 			return xsderrors.InternalInvariant("loaded schema document missing parsed source")
 		}
-		c.graphDocs = append(c.graphDocs, doc)
-		if role.Index {
-			c.compileDocs = append(c.compileDocs, doc)
-		}
+		c.documents = append(c.documents, compilerDocument{doc: doc, indexDeclarations: role.Index})
 	}
-	slices.SortFunc(c.graphDocs, func(a, b *rawDoc) int {
-		return cmp.Compare(a.name, b.name)
-	})
-	slices.SortFunc(c.compileDocs, func(a, b *rawDoc) int {
-		return cmp.Compare(a.name, b.name)
+	slices.SortFunc(c.documents, func(a, b compilerDocument) int {
+		return cmp.Compare(a.doc.name, b.doc.name)
 	})
 	return nil
 }
@@ -104,7 +102,8 @@ func (c *compiler) checkExplicitSchemaReferences() error {
 	if err := c.propagateChameleonTargets(); err != nil {
 		return err
 	}
-	for _, doc := range c.graphDocs {
+	for _, document := range c.documents {
+		doc := document.doc
 		for child := range doc.root.xsdChildren() {
 			switch child.Name.Local {
 			case vocab.XSDElemInclude:
@@ -200,8 +199,9 @@ func (c *compiler) propagateChameleonTargets() error {
 }
 
 func (c *compiler) chameleonDocuments() []source.ChameleonDocument {
-	docs := make([]source.ChameleonDocument, 0, len(c.graphDocs))
-	for _, doc := range c.graphDocs {
+	docs := make([]source.ChameleonDocument, 0, len(c.documents))
+	for _, document := range c.documents {
+		doc := document.doc
 		_, loaded := c.sourceDocs[doc.key]
 		docs = append(docs, chameleonDocumentProjection(doc, loaded))
 	}
@@ -224,8 +224,7 @@ func chameleonDocumentProjection(doc *rawDoc, loaded bool) source.ChameleonDocum
 // make their schemaLocation references resolve through the original document.
 func (c *compiler) appendChameleonClone(orig *rawDoc, cloneKey string) {
 	clone := &rawDoc{root: cloneRawTree(orig.root), name: orig.name, key: cloneKey}
-	c.graphDocs = append(c.graphDocs, clone)
-	c.compileDocs = append(c.compileDocs, clone)
+	c.documents = append(c.documents, compilerDocument{doc: clone, indexDeclarations: true})
 }
 
 // cloneRawTree copies the node structure. Per-node payloads (NS maps, Attr

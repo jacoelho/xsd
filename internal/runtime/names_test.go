@@ -134,16 +134,17 @@ func TestValidateNameReadProjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
-	read := NewNameReadView(&names)
+	read := NewBorrowedNameReadView(&names)
 	if err := ValidateNameReadProjection(read, &names); err != nil {
 		t.Fatalf("ValidateNameReadProjection() error = %v", err)
 	}
 
-	interner := NewNameInterner(&names)
+	changed := names.Clone()
+	interner := NewNameInterner(&changed)
 	if _, err := interner.InternQName("urn:new", "new"); err != nil {
 		t.Fatalf("InternQName() error = %v", err)
 	}
-	if err := ValidateNameReadProjection(read, &names); err == nil || err.Error() != "name read projection does not match name table" {
+	if err := ValidateNameReadProjection(read, &changed); err == nil || err.Error() != "name read projection does not match name table" {
 		t.Fatalf("ValidateNameReadProjection(changed) error = %v, want name read invariant", err)
 	}
 }

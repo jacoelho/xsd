@@ -84,7 +84,7 @@ func (s *Session) Reset() {
 
 // session holds the state for validating documents against one Engine.
 // Per-document state lives in doc; everything else is retained across
-// documents: options, the reader and parser, and the string caches.
+// documents: options, the reader buffer and parser, and the string caches.
 type session struct {
 	rt                            *runtime.Schema
 	resolveLexicalQNamePartsFunc  runtime.ResolveQNameParts
@@ -149,7 +149,11 @@ type frame struct {
 }
 
 func (s *session) validate(r io.Reader) error {
-	if s == nil || s.rt == nil {
+	if s == nil {
+		return xsderrors.InternalInvariant("nil validation session")
+	}
+	defer s.detachReader()
+	if s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
 	s.reset()
@@ -222,6 +226,7 @@ func (s *session) finishValidation() error {
 // field is zeroed by the literal itself, so omitting a field can never leak
 // state across documents.
 func (s *session) reset() {
+	s.detachReader()
 	xmlDocument := s.doc.xmlDocument
 	xmlDocument.Reset(maxRetainedSliceCap)
 	schemaLocationHints := s.doc.schemaLocationHints
@@ -230,25 +235,31 @@ func (s *session) reset() {
 	identity.Reset(maxRetainedMapLen, maxRetainedSliceCap)
 	s.doc = documentState{
 		xmlDocument:         xmlDocument,
-		errors:              resetRetainedReferences(s.doc.errors),
+		errors:              resetRetainedReferences(s.doc.errors, maxRetainedSliceCap),
 		text:                resetRetainedBytes(s.doc.text),
-		namePath:            resetRetainedReferences(s.doc.namePath),
-		allBits:             resetRetainedValues(s.doc.allBits),
+		namePath:            resetRetainedReferences(s.doc.namePath, maxRetainedSliceCap),
+		allBits:             resetRetainedValues(s.doc.allBits, maxRetainedSliceCap),
 		identity:            identity,
 		schemaLocationHints: schemaLocationHints,
 	}
 }
 
-func resetRetainedReferences[T any](s []T) []T {
-	if cap(s) > maxRetainedSliceCap {
+func (s *session) detachReader() {
+	if s.reader != nil {
+		s.reader.Reset(nil)
+	}
+}
+
+func resetRetainedReferences[T any](s []T, maxRetainedCap int) []T {
+	if cap(s) > maxRetainedCap {
 		return nil
 	}
 	clear(s)
 	return s[:0]
 }
 
-func resetRetainedValues[T any](s []T) []T {
-	if cap(s) > maxRetainedSliceCap {
+func resetRetainedValues[T any](s []T, maxRetainedCap int) []T {
+	if cap(s) > maxRetainedCap {
 		return nil
 	}
 	return s[:0]

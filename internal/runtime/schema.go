@@ -84,26 +84,6 @@ type Schema struct {
 	runtime schemaRuntime
 }
 
-// Builtins returns the immutable built-in declaration handles.
-func (rt *Schema) Builtins() BuiltinIDs {
-	return rt.runtime.Builtin
-}
-
-// LocalNameCount returns the number of interned local names.
-func (rt *Schema) LocalNameCount() int {
-	return rt.runtime.Names.LocalCount()
-}
-
-// NamespaceCount returns the number of interned namespace URIs.
-func (rt *Schema) NamespaceCount() int {
-	return rt.runtime.Names.NamespaceCount()
-}
-
-// WildcardCount returns the number of compiled wildcards.
-func (rt *Schema) WildcardCount() int {
-	return len(rt.runtime.Wildcards)
-}
-
 // SimpleType returns compiler-owned simple-type state by ID.
 func (rt *SchemaBuild) SimpleType(id SimpleTypeID) (*SimpleType, bool) {
 	return SimpleTypeByID(rt.SimpleTypes, id)
@@ -307,13 +287,4 @@ func (rt *SchemaBuild) GlobalType(name QName) (TypeID, bool) {
 // TypeLabel formats a compiler-owned type name for diagnostics.
 func (rt *SchemaBuild) TypeLabel(t TypeID) string {
 	return rt.Names.Format(rt.TypeName(t))
-}
-
-// SimpleTypeFastPath returns the published fast-path classification for id.
-func (rt *Schema) SimpleTypeFastPath(id SimpleTypeID) (SimpleFastKind, bool) {
-	read, ok := simpleValueRouteReadByID(rt.runtime.SimpleValueRoutes, id)
-	if !ok {
-		return SimpleFastNone, false
-	}
-	return read.fast, true
 }

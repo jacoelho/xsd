@@ -44,148 +44,72 @@ func TestElementStartInfoProjection(t *testing.T) {
 func TestElementStartInfoForDecl(t *testing.T) {
 	t.Parallel()
 
-	shape := ElementStartDeclShape{
+	decl := ElementDecl{
 		Type:     ComplexRef(2),
 		Block:    DerivationRestriction,
 		Abstract: true,
 		Nillable: true,
-		Fixed:    true,
-	}
-	info := NewElementStartInfoForDecl(shape)
-	if info.Type != shape.Type ||
-		info.Block != shape.Block ||
-		info.Abstract != shape.Abstract ||
-		info.Nillable != shape.Nillable ||
-		info.Fixed != shape.Fixed {
-		t.Fatalf("NewElementStartInfoForDecl() = %+v, want projected declaration facts", info)
-	}
-	if !EqualElementStartInfoForDecl(info, shape) {
-		t.Fatal("EqualElementStartInfoForDecl() = false, want true")
-	}
-	infos := NewElementStartInfosForDecls([]ElementStartDeclShape{shape})
-	if len(infos) != 1 || infos[0] != info {
-		t.Fatalf("NewElementStartInfosForDecls() = %+v, want single projected declaration fact", infos)
-	}
-	if !EqualElementStartInfosForDecls(infos, []ElementStartDeclShape{shape}) {
-		t.Fatal("EqualElementStartInfosForDecls() = false, want true")
-	}
-	if EqualElementStartInfosForDecls(infos, nil) {
-		t.Fatal("EqualElementStartInfosForDecls() accepted different length")
-	}
-
-	decl := ElementDecl{
-		Type:     shape.Type,
-		Block:    shape.Block,
-		Abstract: shape.Abstract,
-		Nillable: shape.Nillable,
 		Fixed:    &ValueConstraint{},
+		Default:  &ValueConstraint{},
 	}
-	declInfo := NewElementStartInfoForElementDecl(decl)
-	if declInfo != info {
-		t.Fatalf("NewElementStartInfoForElementDecl() = %+v, want %+v", declInfo, info)
+	info := NewElementStartInfoForElementDecl(decl)
+	if info.Type != decl.Type ||
+		info.Block != decl.Block ||
+		info.Abstract != decl.Abstract ||
+		info.Nillable != decl.Nillable ||
+		!info.Fixed ||
+		!info.Default {
+		t.Fatalf("NewElementStartInfoForElementDecl() = %+v, want projected declaration facts", info)
 	}
-	if !EqualElementStartInfoForElementDecl(declInfo, decl) {
+	if !EqualElementStartInfoForElementDecl(info, decl) {
 		t.Fatal("EqualElementStartInfoForElementDecl() = false, want true")
 	}
-	declInfos := NewElementStartInfosForElementDecls([]ElementDecl{decl})
-	if len(declInfos) != 1 || declInfos[0] != info {
-		t.Fatalf("NewElementStartInfosForElementDecls() = %+v, want single projected declaration fact", declInfos)
+	infos := NewElementStartInfosForElementDecls([]ElementDecl{decl})
+	if len(infos) != 1 || infos[0] != info {
+		t.Fatalf("NewElementStartInfosForElementDecls() = %+v, want single projected declaration fact", infos)
 	}
-	if got, ok := DeclaredElementTypeByID(declInfos, 0); !ok || got != shape.Type {
-		t.Fatalf("DeclaredElementTypeByID() = %v, %v; want %v, true", got, ok, shape.Type)
+	if got, ok := DeclaredElementTypeByID(infos, 0); !ok || got != decl.Type {
+		t.Fatalf("DeclaredElementTypeByID() = %v, %v; want %v, true", got, ok, decl.Type)
 	}
-	if got, ok := DeclaredElementTypeByID(declInfos, ElementID(99)); ok || got != (TypeID{}) {
+	if got, ok := DeclaredElementTypeByID(infos, ElementID(99)); ok || got != (TypeID{}) {
 		t.Fatalf("DeclaredElementTypeByID(invalid) = %v, %v; want zero, false", got, ok)
 	}
-	if got, ok := ElementStartInfoByID(declInfos, 0); !ok || got != info {
+	if got, ok := ElementStartInfoByID(infos, 0); !ok || got != info {
 		t.Fatalf("ElementStartInfoByID() = %+v, %v; want %+v, true", got, ok, info)
 	}
-	if got, ok := ElementStartInfoByID(declInfos, ElementID(99)); ok || got != (ElementStartInfo{}) {
+	if got, ok := ElementStartInfoByID(infos, ElementID(99)); ok || got != (ElementStartInfo{}) {
 		t.Fatalf("ElementStartInfoByID(invalid) = %+v, %v; want zero, false", got, ok)
 	}
-	if !EqualElementStartInfosForElementDecls(declInfos, []ElementDecl{decl}) {
+	if !EqualElementStartInfosForElementDecls(infos, []ElementDecl{decl}) {
 		t.Fatal("EqualElementStartInfosForElementDecls() = false, want true")
 	}
-	if EqualElementStartInfosForElementDecls(declInfos, nil) {
+	if EqualElementStartInfosForElementDecls(infos, nil) {
 		t.Fatal("EqualElementStartInfosForElementDecls() accepted different length")
 	}
-	if err := ValidateElementStartInfosForElementDecls(declInfos, []ElementDecl{decl}); err != nil {
+	if err := ValidateElementStartInfosForElementDecls(infos, []ElementDecl{decl}); err != nil {
 		t.Fatalf("ValidateElementStartInfosForElementDecls() error = %v", err)
 	}
-	if err := ValidateElementStartInfosForElementDecls(declInfos[:0], []ElementDecl{decl}); err == nil || err.Error() != "element start projection count does not match declarations" {
+	if err := ValidateElementStartInfosForElementDecls(infos[:0], []ElementDecl{decl}); err == nil || err.Error() != "element start projection count does not match declarations" {
 		t.Fatalf("ValidateElementStartInfosForElementDecls(short) error = %v, want count invariant", err)
 	}
 
 	tests := []struct {
-		name  string
-		shape ElementStartDeclShape
+		name   string
+		mutate func(*ElementDecl)
 	}{
-		{
-			name: "type differs",
-			shape: ElementStartDeclShape{
-				Type:     SimpleRef(1),
-				Block:    shape.Block,
-				Abstract: shape.Abstract,
-				Nillable: shape.Nillable,
-				Fixed:    shape.Fixed,
-			},
-		},
-		{
-			name: "block differs",
-			shape: ElementStartDeclShape{
-				Type:     shape.Type,
-				Block:    DerivationExtension,
-				Abstract: shape.Abstract,
-				Nillable: shape.Nillable,
-				Fixed:    shape.Fixed,
-			},
-		},
-		{
-			name: "abstract differs",
-			shape: ElementStartDeclShape{
-				Type:     shape.Type,
-				Block:    shape.Block,
-				Nillable: shape.Nillable,
-				Fixed:    shape.Fixed,
-			},
-		},
-		{
-			name: "nillable differs",
-			shape: ElementStartDeclShape{
-				Type:     shape.Type,
-				Block:    shape.Block,
-				Abstract: shape.Abstract,
-				Fixed:    shape.Fixed,
-			},
-		},
-		{
-			name: "fixed differs",
-			shape: ElementStartDeclShape{
-				Type:     shape.Type,
-				Block:    shape.Block,
-				Abstract: shape.Abstract,
-				Nillable: shape.Nillable,
-			},
-		},
+		{"type differs", func(decl *ElementDecl) { decl.Type = SimpleRef(1) }},
+		{"block differs", func(decl *ElementDecl) { decl.Block = DerivationExtension }},
+		{"abstract differs", func(decl *ElementDecl) { decl.Abstract = false }},
+		{"nillable differs", func(decl *ElementDecl) { decl.Nillable = false }},
+		{"fixed differs", func(decl *ElementDecl) { decl.Fixed = nil }},
+		{"default differs", func(decl *ElementDecl) { decl.Default = nil }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if EqualElementStartInfoForDecl(info, tt.shape) {
-				t.Fatal("EqualElementStartInfoForDecl() = true, want false")
-			}
-			if EqualElementStartInfosForDecls(infos, []ElementStartDeclShape{tt.shape}) {
-				t.Fatal("EqualElementStartInfosForDecls() = true, want false")
-			}
 			changedDecl := decl
-			changedDecl.Type = tt.shape.Type
-			changedDecl.Block = tt.shape.Block
-			changedDecl.Abstract = tt.shape.Abstract
-			changedDecl.Nillable = tt.shape.Nillable
-			if !tt.shape.Fixed {
-				changedDecl.Fixed = nil
-			}
+			tt.mutate(&changedDecl)
 			if EqualElementStartInfoForElementDecl(info, changedDecl) {
 				t.Fatal("EqualElementStartInfoForElementDecl() = true, want false")
 			}
@@ -214,12 +138,12 @@ func TestTypeInfoProjection(t *testing.T) {
 		Block:    DerivationRestriction,
 		Abstract: true,
 	})
-	if !EqualTypeInfo(info, same) {
-		t.Fatal("EqualTypeInfo() = false, want true")
+	if info != same {
+		t.Fatal("equivalent type info values differ")
 	}
 	changed := NewTypeInfo(TypeInfoShape{Block: DerivationRestriction})
-	if EqualTypeInfo(info, changed) {
-		t.Fatal("EqualTypeInfo() = true for different abstract flag")
+	if info == changed {
+		t.Fatal("type info values match despite different abstract flag")
 	}
 }
 
@@ -233,52 +157,5 @@ func TestTypeInfoForComplexType(t *testing.T) {
 	info := NewTypeInfoForComplexType(ct)
 	if info.Block != ct.Block || info.Abstract != ct.Abstract {
 		t.Fatalf("NewTypeInfoForComplexType() = %+v, want projected complex type facts", info)
-	}
-	if !EqualTypeInfoForComplexType(info, ct) {
-		t.Fatal("EqualTypeInfoForComplexType() = false, want true")
-	}
-	infos := NewTypeInfosForComplexTypes([]ComplexType{ct})
-	if len(infos) != 1 || infos[0] != info {
-		t.Fatalf("NewTypeInfosForComplexTypes() = %+v, want single projected complex type fact", infos)
-	}
-	if !EqualTypeInfosForComplexTypes(infos, []ComplexType{ct}) {
-		t.Fatal("EqualTypeInfosForComplexTypes() = false, want true")
-	}
-	if EqualTypeInfosForComplexTypes(infos, nil) {
-		t.Fatal("EqualTypeInfosForComplexTypes() accepted different length")
-	}
-	if err := ValidateTypeInfosForComplexTypes(infos, []ComplexType{ct}); err != nil {
-		t.Fatalf("ValidateTypeInfosForComplexTypes() error = %v", err)
-	}
-	if err := ValidateTypeInfosForComplexTypes(infos[:0], []ComplexType{ct}); err == nil || err.Error() != "complex type info projection count does not match types" {
-		t.Fatalf("ValidateTypeInfosForComplexTypes(short) error = %v, want count invariant", err)
-	}
-	if got, ok := TypeInfoByID(1, infos, ComplexRef(0)); !ok || got != info {
-		t.Fatalf("TypeInfoByID(complex) = %+v, %v; want %+v, true", got, ok, info)
-	}
-	if got, ok := TypeInfoByID(1, infos, SimpleRef(0)); !ok || got != (TypeInfo{}) {
-		t.Fatalf("TypeInfoByID(simple) = %+v, %v; want zero, true", got, ok)
-	}
-	if got, ok := TypeInfoByID(1, infos, ComplexRef(1)); ok || got != (TypeInfo{}) {
-		t.Fatalf("TypeInfoByID(invalid complex) = %+v, %v; want zero, false", got, ok)
-	}
-	if got, ok := TypeInfoByID(1, infos, SimpleRef(1)); ok || got != (TypeInfo{}) {
-		t.Fatalf("TypeInfoByID(invalid simple) = %+v, %v; want zero, false", got, ok)
-	}
-
-	if EqualTypeInfoForComplexType(info, ComplexType{Block: DerivationRestriction, Abstract: true}) {
-		t.Fatal("EqualTypeInfoForComplexType() accepted wrong block")
-	}
-	if EqualTypeInfosForComplexTypes(infos, []ComplexType{{Block: DerivationRestriction, Abstract: true}}) {
-		t.Fatal("EqualTypeInfosForComplexTypes() accepted wrong block")
-	}
-	if err := ValidateTypeInfosForComplexTypes(infos, []ComplexType{{Block: DerivationRestriction, Abstract: true}}); err == nil || err.Error() != "complex type info projection does not match complex type" {
-		t.Fatalf("ValidateTypeInfosForComplexTypes(changed block) error = %v, want mismatch invariant", err)
-	}
-	if EqualTypeInfoForComplexType(info, ComplexType{Block: ct.Block}) {
-		t.Fatal("EqualTypeInfoForComplexType() accepted wrong abstract flag")
-	}
-	if EqualTypeInfosForComplexTypes(infos, []ComplexType{{Block: ct.Block}}) {
-		t.Fatal("EqualTypeInfosForComplexTypes() accepted wrong abstract flag")
 	}
 }

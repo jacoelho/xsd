@@ -88,28 +88,3 @@ func TestRuntimeGlobalsClonesMapAndNameProjectionState(t *testing.T) {
 		t.Fatalf("runtimeGlobals returned table-backed projection state: %#v", build)
 	}
 }
-
-func TestAttributeUseSetValidationClonesSlotState(t *testing.T) {
-	t.Parallel()
-
-	name := runtime.QName{Local: 1}
-	set := runtime.AttributeUseSet{
-		Index:            map[runtime.QName]uint32{name: 0},
-		Uses:             []runtime.AttributeUse{{Name: name, Type: 1}},
-		Required:         []uint32{0},
-		ValueConstraints: []uint32{0},
-	}
-
-	projection := runtime.NewAttributeUseSetValidationForUseSet(set)
-	projection.Index[name] = 9
-	projection.Uses[0].Type = 9
-	projection.Required[0] = 9
-	projection.ValueConstraints[0] = 9
-
-	if set.Index[name] != 0 ||
-		set.Uses[0].Type != 1 ||
-		set.Required[0] != 0 ||
-		set.ValueConstraints[0] != 0 {
-		t.Fatalf("NewAttributeUseSetValidationForUseSet returned table-backed projection state: %#v", set)
-	}
-}
