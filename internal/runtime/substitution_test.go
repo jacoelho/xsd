@@ -89,29 +89,6 @@ func TestEqualSubstitutionLookup(t *testing.T) {
 	}
 }
 
-func TestValidateSubstitutionReadMaps(t *testing.T) {
-	t.Parallel()
-
-	a := QName{Namespace: 1, Local: 1}
-	substitutions := map[ElementID][]ElementID{1: {2, 3}, 4: nil}
-	lookup := map[ElementID]map[QName]ElementID{1: {a: 2}, 4: nil}
-
-	if err := ValidateSubstitutionReadMaps(
-		map[ElementID][]ElementID{1: {2, 3}, 4: {}},
-		map[ElementID]map[QName]ElementID{1: {a: 2}, 4: {}},
-		substitutions,
-		lookup,
-	); err != nil {
-		t.Fatalf("ValidateSubstitutionReadMaps() error = %v", err)
-	}
-	if err := ValidateSubstitutionReadMaps(nil, lookup, substitutions, lookup); err == nil || err.Error() != "substitution read map does not match substitutions" {
-		t.Fatalf("ValidateSubstitutionReadMaps(reads) error = %v, want substitution read invariant", err)
-	}
-	if err := ValidateSubstitutionReadMaps(substitutions, nil, substitutions, lookup); err == nil || err.Error() != "substitution lookup read map does not match lookup" {
-		t.Fatalf("ValidateSubstitutionReadMaps(lookup) error = %v, want substitution lookup invariant", err)
-	}
-}
-
 func TestSubstitutionReadAccessors(t *testing.T) {
 	t.Parallel()
 

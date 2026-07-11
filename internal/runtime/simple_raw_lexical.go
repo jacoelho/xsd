@@ -35,13 +35,11 @@ func ValidateNMTOKENListBytes(raw []byte) error {
 	return nil
 }
 
-// ValidateStringPatterns validates normalized text against compiled string
-// pattern facet groups.
-func ValidateStringPatterns(groups []StringPatternGroup, normalized string) error {
-	for _, group := range groups {
+func validateStringPatternSteps(steps stringPatternSteps, normalized string) error {
+	for step := steps.tail; step != nil; step = step.parent {
 		ok := false
-		for _, p := range group.Patterns {
-			if p.MatchString(normalized) {
+		for _, pattern := range step.patterns {
+			if pattern.MatchString(normalized) {
 				ok = true
 				break
 			}
@@ -53,13 +51,11 @@ func ValidateStringPatterns(groups []StringPatternGroup, normalized string) erro
 	return nil
 }
 
-// ValidateRawStringPatterns validates raw normalized bytes against compiled
-// string pattern facet groups.
-func ValidateRawStringPatterns(groups []StringPatternGroup, rawNorm []byte) error {
-	for _, group := range groups {
+func validateStringPatternStepReads(step *stringPatternStepRead, normalized string) error {
+	for ; step != nil; step = step.parent {
 		ok := false
-		for _, p := range group.Patterns {
-			if p.MatchBytes(rawNorm) {
+		for _, pattern := range step.patterns {
+			if pattern.matchString(normalized) {
 				ok = true
 				break
 			}
@@ -71,44 +67,20 @@ func ValidateRawStringPatterns(groups []StringPatternGroup, rawNorm []byte) erro
 	return nil
 }
 
-// ValidateStringEnumeration validates normalized text against canonical string
-// enumeration literals yielded by the callback.
-func ValidateStringEnumeration(id SimpleTypeID, forEach func(SimpleTypeID, func(string) bool), normalized string) error {
-	if forEach == nil {
-		return ErrSimpleValueMetadata
-	}
-	matched := false
-	forEach(id, func(canonical string) bool {
-		if canonical == normalized {
-			matched = true
-			return false
+func validateRawStringPatternStepReads(step *stringPatternStepRead, rawNorm []byte) error {
+	for ; step != nil; step = step.parent {
+		ok := false
+		for _, pattern := range step.patterns {
+			if pattern.matchBytes(rawNorm) {
+				ok = true
+				break
+			}
 		}
-		return true
-	})
-	if matched {
-		return nil
-	}
-	return errors.New("enumeration facet failed")
-}
-
-// ValidateRawStringEnumeration validates raw normalized bytes against canonical
-// string enumeration literals yielded by the callback.
-func ValidateRawStringEnumeration(id SimpleTypeID, forEach func(SimpleTypeID, func(string) bool), rawNorm []byte) error {
-	if forEach == nil {
-		return ErrSimpleValueMetadata
-	}
-	matched := false
-	forEach(id, func(canonical string) bool {
-		if byteStringEqual(canonical, rawNorm) {
-			matched = true
-			return false
+		if !ok {
+			return errors.New("pattern facet failed")
 		}
-		return true
-	})
-	if matched {
-		return nil
 	}
-	return errors.New("enumeration facet failed")
+	return nil
 }
 
 func byteStringEqual(s string, raw []byte) bool {
@@ -142,12 +114,6 @@ func ValidateFastDateLexical(raw []byte) (bool, error) {
 		return true, errors.New(fastDateErrInvalid)
 	}
 	return true, nil
-}
-
-// ValidateDateLexical validates raw as the full XML Schema xs:date lexical
-// space. It does not build the canonical value or apply timezone normalization.
-func ValidateDateLexical(raw []byte) error {
-	return validateDateLexical(raw)
 }
 
 func validateDateLexical[T byteText](s T) error {
@@ -341,33 +307,6 @@ func positiveYearMonthDays(year, month int) int {
 	default:
 		return 31
 	}
-}
-
-func rawAtomicFastPathFacts(action SimpleValueBypassAction, ws WhitespaceMode, raw []byte) (SimpleRawAtomicFastPathShape, []byte) {
-	shape := SimpleRawAtomicFastPathShape{
-		Bypass: action,
-	}
-	switch action {
-	case SimpleValueBypassValidateStringPatterns,
-		SimpleValueBypassValidateStringEnumeration:
-		rawNorm, ok := rawEqualsNormalizedString(ws, raw)
-		shape.RawEqualsNormalized = ok
-		return shape, rawNorm
-	case SimpleValueBypassValidateInt,
-		SimpleValueBypassValidateDecimal,
-		SimpleValueBypassValidateAnyURI,
-		SimpleValueBypassValidateHexBinary,
-		SimpleValueBypassValidateBase64Binary,
-		SimpleValueBypassValidateFloat,
-		SimpleValueBypassValidateDuration,
-		SimpleValueBypassValidateBoolean,
-		SimpleValueBypassValidateTemporal,
-		SimpleValueBypassValidateDate:
-		shape.HasWhitespace = lex.HasXMLWhitespaceBytes(raw)
-	case SimpleValueBypassNone,
-		SimpleValueBypassAcceptString:
-	}
-	return shape, nil
 }
 
 func rawEqualsNormalizedString(ws WhitespaceMode, raw []byte) ([]byte, bool) {

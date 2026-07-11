@@ -47,8 +47,8 @@ func mustNotValidateRuntime(t *testing.T, rt *runtime.Schema, doc string, code x
 }
 
 func validateWithRuntime(rt *runtime.Schema, doc string) error {
-	session, err := validate.NewSession(rt, validate.Options{})
-	if err != nil {
+	session := &validate.Session{}
+	if err := session.Init(rt, validate.Options{}); err != nil {
 		return err
 	}
 	return session.Validate(strings.NewReader(doc))
@@ -77,21 +77,3 @@ func expectCategoryCode(t *testing.T, err error, category xsderrors.Category, co
 }
 
 const rootContentModelName = "r"
-
-func rootContentModel(t *testing.T, rt *runtime.Schema) runtime.ContentModelID {
-	t.Helper()
-	rt = publishedRuntime(t, rt)
-	q, ok := rt.LookupQName("", rootContentModelName)
-	if !ok {
-		t.Fatalf("LookupQName(%q) failed", rootContentModelName)
-	}
-	elem, decl, ok := rt.RootElement(runtime.RuntimeName{Known: true, Name: q})
-	if !ok || elem == runtime.NoElement {
-		t.Fatalf("global element %q not found", rootContentModelName)
-	}
-	typ := decl.Type
-	if typ.Kind != runtime.TypeComplex {
-		t.Fatalf("root type kind = %v, want complex", typ.Kind)
-	}
-	return rt.ContentModelForType(typ)
-}

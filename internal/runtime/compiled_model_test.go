@@ -34,38 +34,6 @@ func TestDFARowIndexIsEnabled(t *testing.T) {
 	}
 }
 
-func TestEqualCompiledModels(t *testing.T) {
-	t.Parallel()
-
-	row := CompiledModelRow{
-		Edges: []CompiledModelEdge{{Particle: ElementParticle(1, Occurrence{Min: 1, Max: 1}), To: 1}},
-		Index: DFARowIndex{
-			NameToEdge:    map[QName]uint32{QName{Local: 1}: 0},
-			WildcardEdges: []uint32{1},
-			Enabled:       true,
-		},
-	}
-	model := CompiledModel{
-		Rows:      []CompiledModelRow{row},
-		All:       []CompiledAllTerm{{Particle: ElementParticle(1, Occurrence{Min: 1, Max: 1}), Required: true}},
-		Source:    1,
-		Start:     0,
-		AllBitLen: 1,
-		Kind:      CompiledModelDFA,
-		Mixed:     true,
-		Empty:     false,
-	}
-	if !EqualCompiledModels(model, model) {
-		t.Fatal("EqualCompiledModels() rejected identical models")
-	}
-	drifted := model
-	drifted.Rows = []CompiledModelRow{row}
-	drifted.Rows[0].Index.NameToEdge = map[QName]uint32{QName{Local: 1}: 1}
-	if EqualCompiledModels(model, drifted) {
-		t.Fatal("EqualCompiledModels() accepted row-index drift")
-	}
-}
-
 func TestCompiledCountingException(t *testing.T) {
 	t.Parallel()
 

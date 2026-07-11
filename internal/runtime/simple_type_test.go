@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -141,128 +142,6 @@ func TestValidWhitespaceRestriction(t *testing.T) {
 				t.Fatalf("ValidWhitespaceRestriction() = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestSimpleTypeReadProjectionHelpers(t *testing.T) {
-	t.Parallel()
-
-	shapes := []SimpleTypeReadShape{
-		{Primitive: PrimitiveString, Identity: SimpleIdentityNone},
-		{Primitive: PrimitiveDecimal, Identity: SimpleIdentityID, Final: DerivationRestriction},
-		{Primitive: PrimitiveQName, Identity: SimpleIdentityIDREF, Final: DerivationList},
-	}
-
-	primitives := NewSimpleTypePrimitiveReads(shapes)
-	if !EqualSimpleTypePrimitiveReadProjection(primitives, shapes) {
-		t.Fatalf("NewSimpleTypePrimitiveReads() = %v, want projection for %v", primitives, shapes)
-	}
-	if got, ok := SimpleTypePrimitiveByID(primitives, 1); !ok || got != PrimitiveDecimal {
-		t.Fatalf("SimpleTypePrimitiveByID() = %v, %v; want decimal, true", got, ok)
-	}
-	if got, ok := SimpleTypePrimitiveByID(primitives, SimpleTypeID(99)); ok || got != 0 {
-		t.Fatalf("SimpleTypePrimitiveByID(invalid) = %v, %v; want zero, false", got, ok)
-	}
-	primitives[1] = PrimitiveBoolean
-	if EqualSimpleTypePrimitiveReadProjection(primitives, shapes) {
-		t.Fatal("EqualSimpleTypePrimitiveReadProjection() accepted mismatched primitive")
-	}
-	if EqualSimpleTypePrimitiveReadProjection(primitives[:1], shapes) {
-		t.Fatal("EqualSimpleTypePrimitiveReadProjection() accepted mismatched table length")
-	}
-
-	identities := NewSimpleTypeIdentityReads(shapes)
-	if !EqualSimpleTypeIdentityReadProjection(identities, shapes) {
-		t.Fatalf("NewSimpleTypeIdentityReads() = %v, want projection for %v", identities, shapes)
-	}
-	if got := SimpleTypeIdentityByID(identities, 2); got != SimpleIdentityIDREF {
-		t.Fatalf("SimpleTypeIdentityByID() = %v, want IDREF", got)
-	}
-	if got := SimpleTypeIdentityByID(identities, SimpleTypeID(99)); got != SimpleIdentityNone {
-		t.Fatalf("SimpleTypeIdentityByID(invalid) = %v, want none", got)
-	}
-	identities[2] = SimpleIdentityIDREFList
-	if EqualSimpleTypeIdentityReadProjection(identities, shapes) {
-		t.Fatal("EqualSimpleTypeIdentityReadProjection() accepted mismatched identity")
-	}
-	if EqualSimpleTypeIdentityReadProjection(identities[:1], shapes) {
-		t.Fatal("EqualSimpleTypeIdentityReadProjection() accepted mismatched table length")
-	}
-
-	finals := NewSimpleTypeFinalReads(shapes)
-	if !EqualSimpleTypeFinalReadProjection(finals, shapes) {
-		t.Fatalf("NewSimpleTypeFinalReads() = %v, want projection for %v", finals, shapes)
-	}
-	if got, ok := SimpleTypeFinalByID(finals, 1); !ok || got != DerivationRestriction {
-		t.Fatalf("SimpleTypeFinalByID() = %v, %v; want restriction, true", got, ok)
-	}
-	if got, ok := SimpleTypeFinalByID(finals, SimpleTypeID(99)); ok || got != 0 {
-		t.Fatalf("SimpleTypeFinalByID(invalid) = %v, %v; want zero, false", got, ok)
-	}
-	finals[1] = DerivationUnion
-	if EqualSimpleTypeFinalReadProjection(finals, shapes) {
-		t.Fatal("EqualSimpleTypeFinalReadProjection() accepted mismatched final")
-	}
-	if EqualSimpleTypeFinalReadProjection(finals[:1], shapes) {
-		t.Fatal("EqualSimpleTypeFinalReadProjection() accepted mismatched table length")
-	}
-
-	types := []SimpleType{
-		{Primitive: PrimitiveString, Identity: SimpleIdentityID},
-		{Primitive: PrimitiveDecimal, Identity: SimpleIdentityNone, Final: DerivationRestriction},
-	}
-	typePrimitives := NewSimpleTypePrimitiveReadsForTypes(types)
-	if !EqualSimpleTypePrimitiveReadProjectionForTypes(typePrimitives, types) {
-		t.Fatalf("NewSimpleTypePrimitiveReadsForTypes() = %v, want projection for %v", typePrimitives, types)
-	}
-	typePrimitives[1] = PrimitiveBoolean
-	if EqualSimpleTypePrimitiveReadProjectionForTypes(typePrimitives, types) {
-		t.Fatal("EqualSimpleTypePrimitiveReadProjectionForTypes() accepted mismatched primitive")
-	}
-	if err := ValidateSimpleTypePrimitiveReadProjectionForTypes(NewSimpleTypePrimitiveReadsForTypes(types), types); err != nil {
-		t.Fatalf("ValidateSimpleTypePrimitiveReadProjectionForTypes() error = %v", err)
-	}
-	if err := ValidateSimpleTypePrimitiveReadProjectionForTypes(typePrimitives[:1], types); err == nil || err.Error() != "simple type primitive projection count does not match types" {
-		t.Fatalf("ValidateSimpleTypePrimitiveReadProjectionForTypes(short) error = %v, want count invariant", err)
-	}
-	if err := ValidateSimpleTypePrimitiveReadProjectionForTypes(typePrimitives, types); err == nil || err.Error() != "simple type primitive projection does not match type" {
-		t.Fatalf("ValidateSimpleTypePrimitiveReadProjectionForTypes(changed) error = %v, want mismatch invariant", err)
-	}
-
-	typeIdentities := NewSimpleTypeIdentityReadsForTypes(types)
-	if !EqualSimpleTypeIdentityReadProjectionForTypes(typeIdentities, types) {
-		t.Fatalf("NewSimpleTypeIdentityReadsForTypes() = %v, want projection for %v", typeIdentities, types)
-	}
-	typeIdentities[0] = SimpleIdentityNone
-	if EqualSimpleTypeIdentityReadProjectionForTypes(typeIdentities, types) {
-		t.Fatal("EqualSimpleTypeIdentityReadProjectionForTypes() accepted mismatched identity")
-	}
-	if err := ValidateSimpleTypeIdentityReadProjectionForTypes(NewSimpleTypeIdentityReadsForTypes(types), types); err != nil {
-		t.Fatalf("ValidateSimpleTypeIdentityReadProjectionForTypes() error = %v", err)
-	}
-	if err := ValidateSimpleTypeIdentityReadProjectionForTypes(typeIdentities[:1], types); err == nil || err.Error() != "simple type identity projection count does not match types" {
-		t.Fatalf("ValidateSimpleTypeIdentityReadProjectionForTypes(short) error = %v, want count invariant", err)
-	}
-	if err := ValidateSimpleTypeIdentityReadProjectionForTypes(typeIdentities, types); err == nil || err.Error() != "simple type identity projection does not match type" {
-		t.Fatalf("ValidateSimpleTypeIdentityReadProjectionForTypes(changed) error = %v, want mismatch invariant", err)
-	}
-
-	typeFinals := NewSimpleTypeFinalReadsForTypes(types)
-	if !EqualSimpleTypeFinalReadProjectionForTypes(typeFinals, types) {
-		t.Fatalf("NewSimpleTypeFinalReadsForTypes() = %v, want projection for %v", typeFinals, types)
-	}
-	typeFinals[1] = DerivationList
-	if EqualSimpleTypeFinalReadProjectionForTypes(typeFinals, types) {
-		t.Fatal("EqualSimpleTypeFinalReadProjectionForTypes() accepted mismatched final")
-	}
-	if err := ValidateSimpleTypeFinalReadProjectionForTypes(NewSimpleTypeFinalReadsForTypes(types), types); err != nil {
-		t.Fatalf("ValidateSimpleTypeFinalReadProjectionForTypes() error = %v", err)
-	}
-	if err := ValidateSimpleTypeFinalReadProjectionForTypes(typeFinals[:1], types); err == nil || err.Error() != "simple type final projection count does not match types" {
-		t.Fatalf("ValidateSimpleTypeFinalReadProjectionForTypes(short) error = %v, want count invariant", err)
-	}
-	if err := ValidateSimpleTypeFinalReadProjectionForTypes(typeFinals, types); err == nil || err.Error() != "simple type final projection does not match type" {
-		t.Fatalf("ValidateSimpleTypeFinalReadProjectionForTypes(changed) error = %v, want mismatch invariant", err)
 	}
 }
 
@@ -1457,38 +1336,30 @@ func TestValidatePatternFacetShape(t *testing.T) {
 	tests := []struct {
 		name    string
 		wantErr string
-		groups  []PatternFacetGroup
+		groups  [][]StringPattern
 	}{
 		{name: "empty"},
 		{
-			name: "fast matcher",
-			groups: []PatternFacetGroup{{
-				Patterns: []PatternFacet{{XSDSource: "[A-Z]", HasFast: true, FastSignature: "upper"}},
-			}},
+			name:   "fast matcher",
+			groups: [][]StringPattern{{NewFastStringPattern(CompileSimpleStringPattern("[A-Z]"))}},
 		},
 		{
-			name: "regexp matcher",
-			groups: []PatternFacetGroup{{
-				Patterns: []PatternFacet{{XSDSource: "[A-Z]", HasRegexp: true, Regexp: "^(?:[A-Z])$"}},
-			}},
+			name:   "regexp matcher",
+			groups: [][]StringPattern{{NewRegexpStringPattern(regexp.MustCompile("^[A-Z]$"))}},
 		},
 		{
 			name:    "empty group",
-			groups:  []PatternFacetGroup{{}},
+			groups:  [][]StringPattern{{}},
 			wantErr: "simple type pattern facet group has no patterns",
 		},
 		{
-			name: "pattern without matcher",
-			groups: []PatternFacetGroup{{
-				Patterns: []PatternFacet{{XSDSource: "[A-Z]"}},
-			}},
+			name:    "pattern without matcher",
+			groups:  [][]StringPattern{{{}}},
 			wantErr: "simple type pattern facet has invalid matcher",
 		},
 		{
-			name: "pattern with both matchers",
-			groups: []PatternFacetGroup{{
-				Patterns: []PatternFacet{{XSDSource: "[A-Z]", HasFast: true, HasRegexp: true}},
-			}},
+			name:    "pattern with both matchers",
+			groups:  [][]StringPattern{{{fast: &SimplePattern{}, re: regexp.MustCompile("[A-Z]")}}},
 			wantErr: "simple type pattern facet has invalid matcher",
 		},
 	}
@@ -1496,7 +1367,9 @@ func TestValidatePatternFacetShape(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidatePatternFacetShape(tt.groups)
+			err := validateStringPatternSourcesForSimpleTypes([]SimpleType{{
+				Facets: FacetSet{patterns: newTestStringPatternSteps(tt.groups)},
+			}})
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidatePatternFacetShape() error = %v", err)
@@ -1513,112 +1386,69 @@ func TestValidatePatternFacetShape(t *testing.T) {
 func TestValidatePatternFacetRestriction(t *testing.T) {
 	t.Parallel()
 
-	a := PatternFacet{XSDSource: "[A-Z]", FastSignature: "upper", HasFast: true}
-	b := PatternFacet{XSDSource: "[0-9]", FastSignature: "digit", HasFast: true}
-	c := PatternFacet{XSDSource: "[a-z]", GoSource: "^(?:[a-z])$", Regexp: "^(?:[a-z])$", HasRegexp: true}
-	tests := []struct {
-		name    string
-		wantErr string
-		derived []PatternFacetGroup
-		base    []PatternFacetGroup
-	}{
-		{
-			name:    "preserves base groups",
-			derived: []PatternFacetGroup{{Patterns: []PatternFacet{a}}, {Patterns: []PatternFacet{b}}},
-			base:    []PatternFacetGroup{{Patterns: []PatternFacet{a}}, {Patterns: []PatternFacet{b}}},
-		},
-		{
-			name:    "appends derived group",
-			derived: []PatternFacetGroup{{Patterns: []PatternFacet{a}}, {Patterns: []PatternFacet{b}}, {Patterns: []PatternFacet{c}}},
-			base:    []PatternFacetGroup{{Patterns: []PatternFacet{a}}, {Patterns: []PatternFacet{b}}},
-		},
-		{
-			name:    "omits base group",
-			derived: []PatternFacetGroup{{Patterns: []PatternFacet{a}}},
-			base:    []PatternFacetGroup{{Patterns: []PatternFacet{a}}, {Patterns: []PatternFacet{b}}},
-			wantErr: "simple type patterns loosen base",
-		},
-		{
-			name:    "reorders base groups",
-			derived: []PatternFacetGroup{{Patterns: []PatternFacet{b}}, {Patterns: []PatternFacet{a}}},
-			base:    []PatternFacetGroup{{Patterns: []PatternFacet{a}}, {Patterns: []PatternFacet{b}}},
-			wantErr: "simple type patterns loosen base",
-		},
-		{
-			name:    "rewrites fast matcher",
-			derived: []PatternFacetGroup{{Patterns: []PatternFacet{{XSDSource: "[A-Z]", FastSignature: "changed", HasFast: true}}}},
-			base:    []PatternFacetGroup{{Patterns: []PatternFacet{a}}},
-			wantErr: "simple type patterns loosen base",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	a := NewFastStringPattern(CompileSimpleStringPattern("[A-Z]"))
+	b := NewFastStringPattern(CompileSimpleStringPattern("[0-9]"))
+	c := NewRegexpStringPattern(regexp.MustCompile("^[a-z]$"))
+	base := newTestStringPatternSteps([][]StringPattern{{a}, {b}})
+	derived := appendStringPatternStep(base, []StringPattern{c})
+	for name, steps := range map[string]stringPatternSteps{"inherited": base, "appended": derived} {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			err := ValidatePatternFacetRestriction(tt.derived, tt.base)
-			if tt.wantErr == "" {
-				if err != nil {
-					t.Fatalf("ValidatePatternFacetRestriction() error = %v", err)
-				}
-				return
-			}
-			if err == nil || err.Error() != tt.wantErr {
-				t.Fatalf("ValidatePatternFacetRestriction() error = %v, want %q", err, tt.wantErr)
+			if err := validatePatternFacetRestriction(steps, base); err != nil {
+				t.Fatalf("validatePatternFacetRestriction() error = %v", err)
 			}
 		})
+	}
+
+	invalid := []stringPatternSteps{
+		newTestStringPatternSteps([][]StringPattern{{a}}),
+		newTestStringPatternSteps([][]StringPattern{{a}, {b}}),
+	}
+	for _, steps := range invalid {
+		if err := validatePatternFacetRestriction(steps, base); err == nil || err.Error() != "simple type patterns loosen base" {
+			t.Fatalf("validatePatternFacetRestriction() error = %v, want loosen rejection", err)
+		}
 	}
 }
 
 func TestValidateEnumerationFacetRestriction(t *testing.T) {
 	t.Parallel()
 
+	const baseType = SimpleTypeID(7)
+	a := CompiledLiteral{Canonical: "a", Type: baseType}
+	inheritedA := CompiledLiteral{Canonical: "a", Type: 3}
 	tests := []struct {
 		name    string
 		wantErr string
-		shape   EnumerationFacetRestriction
+		derived []CompiledLiteral
+		base    []CompiledLiteral
 	}{
 		{
-			name: "base has no enumeration",
-			shape: EnumerationFacetRestriction{
-				DerivedMatchesBase: []bool{false},
-			},
+			name:    "base has no enumeration",
+			derived: []CompiledLiteral{a},
 		},
 		{
-			name: "derived narrows base",
-			shape: EnumerationFacetRestriction{
-				BaseCount:          2,
-				DerivedMatchesBase: []bool{true},
-			},
+			name:    "derived narrows base",
+			derived: []CompiledLiteral{a},
+			base:    []CompiledLiteral{inheritedA, {Canonical: "b", Type: 3}},
 		},
 		{
-			name: "derived omits enumeration",
-			shape: EnumerationFacetRestriction{
-				BaseCount: 1,
-			},
+			name:    "derived omits enumeration",
+			base:    []CompiledLiteral{inheritedA},
 			wantErr: "simple type enumeration loosens base",
 		},
 		{
-			name: "derived literal outside base",
-			shape: EnumerationFacetRestriction{
-				BaseCount:          1,
-				DerivedMatchesBase: []bool{true, false},
-			},
-			wantErr: "simple type enumeration loosens base",
-		},
-		{
-			name: "invalid base count",
-			shape: EnumerationFacetRestriction{
-				BaseCount: -1,
-			},
-			wantErr: "simple type enumeration shape is invalid",
+			name:    "derived literal has wrong compilation type",
+			derived: []CompiledLiteral{inheritedA},
+			base:    []CompiledLiteral{inheritedA},
+			wantErr: "simple type enumeration literal was not compiled against base",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateEnumerationFacetRestriction(tt.shape)
+			err := validateEnumerationFacetRestriction(tt.derived, tt.base, baseType)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateEnumerationFacetRestriction() error = %v", err)
@@ -1627,6 +1457,42 @@ func TestValidateEnumerationFacetRestriction(t *testing.T) {
 			}
 			if err == nil || err.Error() != tt.wantErr {
 				t.Fatalf("ValidateEnumerationFacetRestriction() error = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+
+	inherited := []CompiledLiteral{inheritedA}
+	if err := validateEnumerationFacetRestriction(inherited, inherited, baseType); err != nil {
+		t.Fatalf("inherited enumeration restriction error = %v", err)
+	}
+}
+
+func TestCompiledLiteralActualUsesNormalizedLexical(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		primitive  PrimitiveKind
+		lexical    string
+		equivalent string
+	}{
+		{name: "duration whitespace", primitive: PrimitiveDuration, lexical: " P1Y ", equivalent: "P12M"},
+		{name: "month-day whitespace", primitive: PrimitiveGMonthDay, lexical: " --02-03 ", equivalent: "--02-03"},
+		{name: "day whitespace", primitive: PrimitiveGDay, lexical: " ---03 ", equivalent: "---03"},
+		{name: "month whitespace", primitive: PrimitiveGMonth, lexical: " --02 ", equivalent: "--02"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			typ := SimpleType{Variety: SimpleVarietyAtomic, Primitive: tt.primitive, Whitespace: WhitespaceCollapse}
+			got := NewCompiledLiteralForSimpleType(typ, 0, tt.lexical, normalizeSimpleValueLexical(tt.lexical, typ.Whitespace), nil)
+			want := NewCompiledLiteralForSimpleType(typ, 0, tt.equivalent, tt.equivalent, nil)
+			if !got.Actual.Valid || got.Actual.Kind != tt.primitive {
+				t.Fatalf("compiled actual = %+v, want valid %v", got.Actual, tt.primitive)
+			}
+			if !EqualCompiledLiterals(&got, &want) {
+				t.Fatalf("compiled literals %q and %q are not value-equal", tt.lexical, tt.equivalent)
 			}
 		})
 	}
@@ -2332,310 +2198,6 @@ func TestSimpleFixedStringFastPath(t *testing.T) {
 	}
 }
 
-func TestSimpleFixedStringFastPathForType(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		typ      SimpleValueType
-		hasFixed bool
-		want     bool
-	}{
-		{
-			name: "fixed preserve string accept",
-			typ: SimpleValueType{
-				Variety:    SimpleVarietyAtomic,
-				Primitive:  PrimitiveString,
-				Whitespace: WhitespacePreserve,
-			},
-			hasFixed: true,
-			want:     true,
-		},
-		{
-			name: "missing fixed value",
-			typ: SimpleValueType{
-				Variety:    SimpleVarietyAtomic,
-				Primitive:  PrimitiveString,
-				Whitespace: WhitespacePreserve,
-			},
-		},
-		{
-			name: "collapse whitespace",
-			typ: SimpleValueType{
-				Variety:    SimpleVarietyAtomic,
-				Primitive:  PrimitiveString,
-				Whitespace: WhitespaceCollapse,
-			},
-			hasFixed: true,
-		},
-		{
-			name: "identity",
-			typ: SimpleValueType{
-				Variety:    SimpleVarietyAtomic,
-				Primitive:  PrimitiveString,
-				Whitespace: WhitespacePreserve,
-				Identity:   SimpleIdentityID,
-			},
-			hasFixed: true,
-		},
-		{
-			name: "list",
-			typ: SimpleValueType{
-				Variety:    SimpleVarietyList,
-				Primitive:  PrimitiveString,
-				Whitespace: WhitespacePreserve,
-			},
-			hasFixed: true,
-		},
-		{
-			name: "union",
-			typ: SimpleValueType{
-				Variety:    SimpleVarietyUnion,
-				Primitive:  PrimitiveString,
-				Whitespace: WhitespacePreserve,
-			},
-			hasFixed: true,
-		},
-		{
-			name: "non string",
-			typ: SimpleValueType{
-				Variety:    SimpleVarietyAtomic,
-				Primitive:  PrimitiveBoolean,
-				Whitespace: WhitespacePreserve,
-			},
-			hasFixed: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := SimpleFixedStringFastPathForType(SimpleFixedStringTypeShape{
-				Type:     tt.typ,
-				HasFixed: tt.hasFixed,
-			})
-			if got != tt.want {
-				t.Fatalf("SimpleFixedStringFastPathForType() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSimpleRawAtomicFastPath(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		shape SimpleRawAtomicFastPathShape
-		want  SimpleRawAtomicFastPathAction
-	}{
-		{
-			name: "none requires full path",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassNone,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "accept string ignores raw whitespace facts",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassAcceptString,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathAccept,
-		},
-		{
-			name: "string patterns require normalized raw bytes",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:              SimpleValueBypassValidateStringPatterns,
-				RawEqualsNormalized: true,
-			},
-			want: SimpleRawAtomicFastPathValidateStringPatterns,
-		},
-		{
-			name: "string patterns reject normalized mismatch",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateStringPatterns,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "string enumeration requires normalized raw bytes",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:              SimpleValueBypassValidateStringEnumeration,
-				RawEqualsNormalized: true,
-			},
-			want: SimpleRawAtomicFastPathValidateStringEnumeration,
-		},
-		{
-			name: "string enumeration rejects normalized mismatch",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateStringEnumeration,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "int raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateInt,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "int raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateInt,
-			},
-			want: SimpleRawAtomicFastPathValidateInt,
-		},
-		{
-			name: "decimal raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateDecimal,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "decimal raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateDecimal,
-			},
-			want: SimpleRawAtomicFastPathValidateDecimal,
-		},
-		{
-			name: "anyURI raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateAnyURI,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "anyURI raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateAnyURI,
-			},
-			want: SimpleRawAtomicFastPathValidateAnyURI,
-		},
-		{
-			name: "hexBinary raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateHexBinary,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "hexBinary raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateHexBinary,
-			},
-			want: SimpleRawAtomicFastPathValidateHexBinary,
-		},
-		{
-			name: "base64Binary raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateBase64Binary,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "base64Binary raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateBase64Binary,
-			},
-			want: SimpleRawAtomicFastPathValidateBase64Binary,
-		},
-		{
-			name: "float raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateFloat,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "float raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateFloat,
-			},
-			want: SimpleRawAtomicFastPathValidateFloat,
-		},
-		{
-			name: "duration raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateDuration,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "duration raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateDuration,
-			},
-			want: SimpleRawAtomicFastPathValidateDuration,
-		},
-		{
-			name: "boolean raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateBoolean,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "boolean raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateBoolean,
-			},
-			want: SimpleRawAtomicFastPathValidateBoolean,
-		},
-		{
-			name: "temporal raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateTemporal,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "temporal raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateTemporal,
-			},
-			want: SimpleRawAtomicFastPathValidateTemporal,
-		},
-		{
-			name: "date raw path rejects whitespace",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass:        SimpleValueBypassValidateDate,
-				HasWhitespace: true,
-			},
-			want: SimpleRawAtomicFastPathNone,
-		},
-		{
-			name: "date raw path accepts no-whitespace input",
-			shape: SimpleRawAtomicFastPathShape{
-				Bypass: SimpleValueBypassValidateDate,
-			},
-			want: SimpleRawAtomicFastPathValidateDate,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := SimpleRawAtomicFastPath(tt.shape); got != tt.want {
-				t.Fatalf("SimpleRawAtomicFastPath() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestValidateSimpleTypeFinalAllows(t *testing.T) {
 	t.Parallel()
 
@@ -3195,24 +2757,6 @@ func TestValidateSimpleTypeIdentity(t *testing.T) {
 				t.Fatalf("ValidateSimpleTypeIdentity() error = %v, want %q", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestSimpleTypeIsID(t *testing.T) {
-	t.Parallel()
-
-	rt := simpleIdentityRuntimeStub{
-		1: SimpleIdentityID,
-		2: SimpleIdentityIDREF,
-	}
-	if !SimpleTypeIsID(rt, 1) {
-		t.Fatal("ID simple type was not recognized")
-	}
-	if SimpleTypeIsID(rt, 2) {
-		t.Fatal("IDREF simple type was recognized as ID")
-	}
-	if SimpleTypeIsID(rt, 99) {
-		t.Fatal("missing simple type was recognized as ID")
 	}
 }
 
@@ -4031,42 +3575,42 @@ func TestBooleanCanonical(t *testing.T) {
 	}
 }
 
-func TestValidateSimpleTypeGraph(t *testing.T) {
+func TestValidateSimpleTypeGraphForSimpleTypes(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		wantErr string
-		nodes   []SimpleTypeGraphNode
+		types   []SimpleType
 	}{
 		{
 			name: "valid",
-			nodes: []SimpleTypeGraphNode{
-				atomicSimpleGraphNode(NoSimpleType),
-				atomicSimpleGraphNode(0),
+			types: []SimpleType{
+				atomicSimpleGraphType(NoSimpleType),
+				atomicSimpleGraphType(0),
 				{Base: 0, ListItem: 1, Variety: SimpleVarietyList},
 				{Base: 0, ListItem: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{1}},
 			},
 		},
 		{
 			name: "invalid reference",
-			nodes: []SimpleTypeGraphNode{
+			types: []SimpleType{
 				{Base: NoSimpleType, ListItem: SimpleTypeID(99), Variety: SimpleVarietyList},
 			},
 			wantErr: "simple type graph references invalid type",
 		},
 		{
 			name: "cycle",
-			nodes: []SimpleTypeGraphNode{
-				atomicSimpleGraphNode(1),
-				atomicSimpleGraphNode(0),
+			types: []SimpleType{
+				atomicSimpleGraphType(1),
+				atomicSimpleGraphType(0),
 			},
 			wantErr: "simple type graph contains cycle",
 		},
 		{
 			name: "list item is list through union",
-			nodes: []SimpleTypeGraphNode{
-				atomicSimpleGraphNode(NoSimpleType),
+			types: []SimpleType{
+				atomicSimpleGraphType(NoSimpleType),
 				{Base: 0, ListItem: 0, Variety: SimpleVarietyList},
 				{Base: 0, ListItem: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{1}},
 				{Base: 0, ListItem: 2, Variety: SimpleVarietyList},
@@ -4075,7 +3619,7 @@ func TestValidateSimpleTypeGraph(t *testing.T) {
 		},
 		{
 			name: "invalid variety",
-			nodes: []SimpleTypeGraphNode{
+			types: []SimpleType{
 				{Base: NoSimpleType, ListItem: NoSimpleType, Variety: SimpleVariety(99)},
 			},
 			wantErr: "simple type graph has invalid variety",
@@ -4085,55 +3629,36 @@ func TestValidateSimpleTypeGraph(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleTypeGraph(tt.nodes)
+			err := ValidateSimpleTypeGraphForSimpleTypes(tt.types)
 			if tt.wantErr == "" {
 				if err != nil {
-					t.Fatalf("ValidateSimpleTypeGraph() error = %v", err)
+					t.Fatalf("ValidateSimpleTypeGraphForSimpleTypes() error = %v", err)
 				}
 				return
 			}
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("ValidateSimpleTypeGraph() error = %v, want %q", err, tt.wantErr)
+				t.Fatalf("ValidateSimpleTypeGraphForSimpleTypes() error = %v, want %q", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestSimpleTypeGraphHasListVariety(t *testing.T) {
+func TestValidateSimpleTypeGraphHandlesDeepForwardChain(t *testing.T) {
 	t.Parallel()
 
-	nodes := []SimpleTypeGraphNode{
-		atomicSimpleGraphNode(NoSimpleType),
-		{Base: 0, ListItem: 0, Variety: SimpleVarietyList},
-		{Base: 0, ListItem: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{0}},
-		{Base: 0, ListItem: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{1}},
-		{Base: 0, ListItem: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{4}},
+	const depth = 10_000
+	types := make([]SimpleType, depth)
+	for i := range depth - 1 {
+		types[i] = atomicSimpleGraphType(SimpleTypeID(i + 1))
 	}
-	tests := []struct {
-		name string
-		id   SimpleTypeID
-		want bool
-	}{
-		{name: "atomic", id: 0},
-		{name: "list", id: 1, want: true},
-		{name: "union without list", id: 2},
-		{name: "union with list", id: 3, want: true},
-		{name: "union cycle without list", id: 4},
-		{name: "invalid", id: 99},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := SimpleTypeGraphHasListVariety(nodes, tt.id); got != tt.want {
-				t.Fatalf("SimpleTypeGraphHasListVariety(..., %d) = %v, want %v", tt.id, got, tt.want)
-			}
-		})
+	types[depth-1] = atomicSimpleGraphType(NoSimpleType)
+	if err := ValidateSimpleTypeGraphForSimpleTypes(types); err != nil {
+		t.Fatalf("ValidateSimpleTypeGraphForSimpleTypes() error = %v", err)
 	}
 }
 
-func atomicSimpleGraphNode(base SimpleTypeID) SimpleTypeGraphNode {
-	return SimpleTypeGraphNode{
+func atomicSimpleGraphType(base SimpleTypeID) SimpleType {
+	return SimpleType{
 		Base:     base,
 		ListItem: NoSimpleType,
 		Variety:  SimpleVarietyAtomic,

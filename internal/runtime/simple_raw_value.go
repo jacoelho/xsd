@@ -6,50 +6,89 @@ import (
 	"github.com/jacoelho/xsd/internal/lex"
 )
 
-// RawSimpleValueType is the runtime-owned projection needed to route raw
-// simple-value validation.
-type RawSimpleValueType struct {
-	DecimalMinInclusive RawDecimalBound
-	DecimalMaxInclusive RawDecimalBound
-	StringPatterns      []StringPatternGroup
-	LengthFacets        LengthFacetValues
-	ListItem            SimpleTypeID
-	Facets              FacetMask
-	Variety             SimpleVariety
-	Primitive           PrimitiveKind
-	Builtin             BuiltinValidationKind
-	Whitespace          WhitespaceMode
-	Identity            SimpleIdentityKind
-	Fast                SimpleFastKind
-	RawBypass           SimpleValueBypassAction
+type rawSimpleValueResolver struct {
+	runtime *schemaRuntime
 }
 
-type rawSimpleValueMetadataReader interface {
-	rawSimpleValueType(id SimpleTypeID) (RawSimpleValueType, bool)
-	rawSimpleValueUnionMemberCount(id SimpleTypeID) (int, bool)
-	rawSimpleValueUnionMember(id SimpleTypeID, index int) (SimpleTypeID, bool)
-	rawSimpleValueStringEnumeration(id SimpleTypeID, normalized []byte) (bool, bool)
+type rawSimpleValueView struct {
+	route *simpleValueRouteRead
+	cold  *simpleValueColdRead
 }
 
-func validateRawSimpleValue[R rawSimpleValueMetadataReader](reader R, id SimpleTypeID, raw []byte) (bool, error) {
-	typ, ok := reader.rawSimpleValueType(id)
+func (r rawSimpleValueResolver) resolveRawSimpleValue(id SimpleTypeID) (rawSimpleValueView, bool) {
+	if r.runtime == nil {
+		return rawSimpleValueView{}, false
+	}
+	route, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id)
+	if !ok {
+		return rawSimpleValueView{}, false
+	}
+	cold, ok := r.runtime.SimpleValueCold.read(id)
+	if !ok || cold == nil && (route.facets != 0 || route.variety == SimpleVarietyUnion) {
+		return rawSimpleValueView{}, false
+	}
+	return rawSimpleValueView{route: route, cold: cold}, true
+}
+
+func validateRawSimpleValuePatterns(cold *simpleValueColdRead, raw []byte) error {
+	if cold == nil {
+		return ErrSimpleValueMetadata
+	}
+	return validateRawStringPatternStepReads(cold.facets.patterns, raw)
+}
+
+func rawLengthFacets(cold *simpleValueColdRead) LengthFacetValues {
+	if cold == nil {
+		return LengthFacetValues{}
+	}
+	return cold.facets.lengthValues()
+}
+
+func (v rawSimpleValueView) rawUnionMemberCount() (int, bool) {
+	if v.cold == nil || len(v.cold.union) == 0 {
+		return 0, false
+	}
+	return len(v.cold.union), true
+}
+
+func (v rawSimpleValueView) rawUnionMember(index int) (SimpleTypeID, bool) {
+	if v.cold == nil || index < 0 || index >= len(v.cold.union) {
+		return NoSimpleType, false
+	}
+	return v.cold.union[index], true
+}
+
+func rawStringEnumeration(cold *simpleValueColdRead, normalized []byte) (bool, bool) {
+	if cold == nil {
+		return false, false
+	}
+	for _, literal := range cold.enumeration {
+		if byteStringEqual(literal.canonical, normalized) {
+			return true, true
+		}
+	}
+	return false, true
+}
+
+func validateResolvedRawSimpleValue(resolver rawSimpleValueResolver, id SimpleTypeID, raw []byte) (bool, error) {
+	typ, ok := resolver.resolveRawSimpleValue(id)
 	if !ok {
 		if id != NoSimpleType {
 			return false, ErrSimpleValueMetadata
 		}
 		return false, nil
 	}
-	return validateRawSimpleValueType(reader, id, typ, raw)
+	return validateRawSimpleValueView(resolver, id, typ, raw)
 }
 
-func validateRawSimpleValueType[R rawSimpleValueMetadataReader](reader R, id SimpleTypeID, typ RawSimpleValueType, raw []byte) (bool, error) {
-	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: typ.Variety, Known: true}) {
+func validateRawSimpleValueView(resolver rawSimpleValueResolver, id SimpleTypeID, typ rawSimpleValueView, raw []byte) (bool, error) {
+	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: typ.route.variety, Known: true}) {
 	case SimpleValueRouteAtomic:
-		return validateRawAtomicSimpleValue(reader, id, typ, raw)
+		return validateRawAtomicSimpleValue(typ.route, typ.cold, raw)
 	case SimpleValueRouteList:
-		return validateRawListSimpleValue(reader, typ, raw)
+		return validateRawListSimpleValue(resolver, typ, raw)
 	case SimpleValueRouteUnion:
-		return validateRawUnionSimpleValue(reader, id, typ, raw)
+		return validateRawUnionSimpleValue(resolver, typ, raw)
 	case SimpleValueRouteInvalid:
 		return false, ErrSimpleValueMetadata
 	case SimpleValueRouteUntyped, SimpleValueRouteMissing:
@@ -58,23 +97,32 @@ func validateRawSimpleValueType[R rawSimpleValueMetadataReader](reader R, id Sim
 	return false, nil
 }
 
-func validateRawAtomicSimpleValue[R rawSimpleValueMetadataReader](reader R, id SimpleTypeID, typ RawSimpleValueType, raw []byte) (bool, error) {
-	if typ.Primitive == PrimitiveString && typ.Builtin == BuiltinValidationNone &&
-		typ.Identity == SimpleIdentityNone && typ.Facets != 0 && typ.Facets&^runtimeLengthFacetMask == 0 {
-		return true, validateRawStringLength(raw, typ.Whitespace, typ.LengthFacets)
+func validateRawAtomicSimpleValue(
+	route *simpleValueRouteRead,
+	cold *simpleValueColdRead,
+	raw []byte,
+) (bool, error) {
+	facets := route.facets
+	primitive := route.primitive
+	if primitive == PrimitiveString && route.builtin == BuiltinValidationNone &&
+		route.identity == SimpleIdentityNone && facets != 0 && facets&^runtimeLengthFacetMask == 0 {
+		return true, validateRawStringLength(raw, route.whitespace, rawLengthFacets(cold))
 	}
-	action := typ.RawBypass
-	if action == SimpleValueBypassNone {
-		action = SimpleValueBypass(rawSimpleValueBypassShape(typ))
-	}
-	shape, rawNorm := rawAtomicFastPathFacts(action, typ.Whitespace, raw)
-	switch SimpleRawAtomicFastPath(shape) {
-	case SimpleRawAtomicFastPathAccept:
+	switch route.rawBypass {
+	case SimpleValueBypassAcceptString:
 		return true, nil
-	case SimpleRawAtomicFastPathValidateStringPatterns:
-		return true, ValidateRawStringPatterns(typ.StringPatterns, rawNorm)
-	case SimpleRawAtomicFastPathValidateStringEnumeration:
-		matched, known := reader.rawSimpleValueStringEnumeration(id, rawNorm)
+	case SimpleValueBypassValidateStringPatterns:
+		rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
+		if !ok {
+			return false, nil
+		}
+		return true, validateRawSimpleValuePatterns(cold, rawNorm)
+	case SimpleValueBypassValidateStringEnumeration:
+		rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
+		if !ok {
+			return false, nil
+		}
+		matched, known := rawStringEnumeration(cold, rawNorm)
 		if !known {
 			return false, ErrSimpleValueMetadata
 		}
@@ -82,38 +130,68 @@ func validateRawAtomicSimpleValue[R rawSimpleValueMetadataReader](reader R, id S
 			return true, errors.New("enumeration facet failed")
 		}
 		return true, nil
-	case SimpleRawAtomicFastPathValidateInt:
+	case SimpleValueBypassValidateInt:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
 		return true, ValidateFastIntLexical(raw)
-	case SimpleRawAtomicFastPathValidateDecimal:
+	case SimpleValueBypassValidateDecimal:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
 		return ValidateFastDecimalLexical(RawDecimalFastPathShape{
-			Facets:       typ.Facets,
-			MinInclusive: typ.DecimalMinInclusive,
-			MaxInclusive: typ.DecimalMaxInclusive,
+			Facets:       facets,
+			MinInclusive: route.minInclusive,
+			MaxInclusive: route.maxInclusive,
 		}, raw)
-	case SimpleRawAtomicFastPathValidateAnyURI:
+	case SimpleValueBypassValidateAnyURI:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
 		return true, ValidateAnyURILexical(raw)
-	case SimpleRawAtomicFastPathValidateHexBinary:
+	case SimpleValueBypassValidateHexBinary:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
 		return true, ValidateHexBinaryLexical(raw)
-	case SimpleRawAtomicFastPathValidateBase64Binary:
+	case SimpleValueBypassValidateBase64Binary:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
 		return true, ValidateBase64BinaryLexical(raw)
-	case SimpleRawAtomicFastPathValidateFloat:
-		return true, ValidateFloatLexical(raw, simpleValueFloatBits(typ.Primitive))
-	case SimpleRawAtomicFastPathValidateDuration:
+	case SimpleValueBypassValidateFloat:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateFloatLexical(raw, simpleValueFloatBits(primitive))
+	case SimpleValueBypassValidateDuration:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
 		return true, ValidateDurationLexical(raw)
-	case SimpleRawAtomicFastPathValidateBoolean:
+	case SimpleValueBypassValidateBoolean:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
 		return true, ValidateBooleanLexical(raw)
-	case SimpleRawAtomicFastPathValidateTemporal:
-		return true, ValidateTemporalLexical(typ.Primitive, raw)
-	case SimpleRawAtomicFastPathValidateDate:
+	case SimpleValueBypassValidateTemporal:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
+		return true, ValidateTemporalLexical(primitive, raw)
+	case SimpleValueBypassValidateDate:
+		if lex.HasXMLWhitespaceBytes(raw) {
+			return false, nil
+		}
 		return ValidateFastDateLexical(raw)
-	case SimpleRawAtomicFastPathNone:
+	case SimpleValueBypassNone:
 		return false, nil
 	}
 	return false, nil
 }
 
-func validateRawListSimpleValue[R rawSimpleValueMetadataReader](reader R, typ RawSimpleValueType, raw []byte) (bool, error) {
-	shape, ok := rawSimpleListFastPathShape(reader, typ)
+func validateRawListSimpleValue(resolver rawSimpleValueResolver, typ rawSimpleValueView, raw []byte) (bool, error) {
+	shape, ok := rawSimpleListFastPathShape(resolver, typ)
 	if !ok {
 		return false, ErrSimpleValueMetadata
 	}
@@ -126,10 +204,10 @@ func validateRawListSimpleValue[R rawSimpleValueMetadataReader](reader R, typ Ra
 	return false, nil
 }
 
-func validateRawUnionSimpleValue[R rawSimpleValueMetadataReader](reader R, id SimpleTypeID, typ RawSimpleValueType, raw []byte) (bool, error) {
+func validateRawUnionSimpleValue(resolver rawSimpleValueResolver, typ rawSimpleValueView, raw []byte) (bool, error) {
 	switch SimpleRawUnionFastPath(SimpleRawUnionFastPathShape{
-		Facets:        typ.Facets,
-		Identity:      typ.Identity,
+		Facets:        typ.route.facets,
+		Identity:      typ.route.identity,
 		HasWhitespace: lex.HasXMLWhitespaceBytes(raw),
 	}) {
 	case SimpleRawUnionFastPathValidateMembers:
@@ -137,16 +215,16 @@ func validateRawUnionSimpleValue[R rawSimpleValueMetadataReader](reader R, id Si
 		return false, nil
 	}
 
-	memberCount, ok := reader.rawSimpleValueUnionMemberCount(id)
+	memberCount, ok := typ.rawUnionMemberCount()
 	if !ok || memberCount < 0 {
 		return false, ErrSimpleValueMetadata
 	}
 	for i := range memberCount {
-		member, ok := reader.rawSimpleValueUnionMember(id, i)
+		member, ok := typ.rawUnionMember(i)
 		if !ok {
 			return false, ErrSimpleValueMetadata
 		}
-		memberType, ok := reader.rawSimpleValueType(member)
+		memberType, ok := resolver.resolveRawSimpleValue(member)
 		if !ok {
 			return false, ErrSimpleValueMetadata
 		}
@@ -156,7 +234,7 @@ func validateRawUnionSimpleValue[R rawSimpleValueMetadataReader](reader R, id Si
 				return true, nil
 			}
 		case SimpleRawUnionMemberTryRaw:
-			ok, err := validateRawSimpleValueType(reader, member, memberType, raw)
+			ok, err := validateRawSimpleValueView(resolver, member, memberType, raw)
 			if !ok {
 				return false, nil
 			}
@@ -170,45 +248,34 @@ func validateRawUnionSimpleValue[R rawSimpleValueMetadataReader](reader R, id Si
 	return true, errors.New("value does not match any union member")
 }
 
-func rawSimpleValueBypassShape(typ RawSimpleValueType) SimpleValueBypassShape {
-	return SimpleValueBypassShape{
-		Facets:    typ.Facets,
-		Variety:   typ.Variety,
-		Primitive: typ.Primitive,
-		Builtin:   typ.Builtin,
-		Identity:  typ.Identity,
-		Fast:      typ.Fast,
-	}
-}
-
-func rawSimpleListFastPathShape[R rawSimpleValueMetadataReader](reader R, typ RawSimpleValueType) (SimpleRawListFastPathShape, bool) {
+func rawSimpleListFastPathShape(resolver rawSimpleValueResolver, typ rawSimpleValueView) (SimpleRawListFastPathShape, bool) {
 	shape := SimpleRawListFastPathShape{
-		ListFacets:   typ.Facets,
-		ListIdentity: typ.Identity,
+		ListFacets:   typ.route.facets,
+		ListIdentity: typ.route.identity,
 	}
-	item, ok := reader.rawSimpleValueType(typ.ListItem)
+	item, ok := resolver.resolveRawSimpleValue(typ.route.listItem)
 	if !ok {
 		return shape, false
 	}
 	shape.ItemKnown = true
-	shape.ItemFacets = item.Facets
-	shape.ItemVariety = item.Variety
-	shape.ItemBuiltin = item.Builtin
-	shape.ItemIdentity = item.Identity
+	shape.ItemFacets = item.route.facets
+	shape.ItemVariety = item.route.variety
+	shape.ItemBuiltin = item.route.builtin
+	shape.ItemIdentity = item.route.identity
 	return shape, true
 }
 
-func rawSimpleUnionMemberShape(typ RawSimpleValueType, ok bool) SimpleRawUnionMemberShape {
+func rawSimpleUnionMemberShape(typ rawSimpleValueView, ok bool) SimpleRawUnionMemberShape {
 	if !ok {
 		return SimpleRawUnionMemberShape{}
 	}
 	return SimpleRawUnionMemberShape{
-		Facets:    typ.Facets,
-		Variety:   typ.Variety,
-		Primitive: typ.Primitive,
-		Builtin:   typ.Builtin,
-		Identity:  typ.Identity,
-		Fast:      typ.Fast,
+		Facets:    typ.route.facets,
+		Variety:   typ.route.variety,
+		Primitive: typ.route.primitive,
+		Builtin:   typ.route.builtin,
+		Identity:  typ.route.identity,
+		Fast:      typ.route.fast,
 		Known:     true,
 	}
 }

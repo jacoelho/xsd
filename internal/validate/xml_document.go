@@ -25,22 +25,14 @@ type xmlDocumentElement[P any] struct {
 	expandedPath bool
 }
 
-type xmlDocumentLimits struct {
-	depth      int
-	attributes int
-}
-
 func (d *xmlDocument[P]) PrepareStart(
 	start stream.StartElement,
 	values *stream.Cache,
-	limits xmlDocumentLimits,
+	maxDepth int,
 	line, col int,
 ) (stream.StartElement, error) {
-	if limits.depth > 0 && d.Depth()+1 > limits.depth {
+	if maxDepth > 0 && d.Depth()+1 > maxDepth {
 		return stream.StartElement{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
-	}
-	if limits.attributes > 0 && len(start.Attr) > limits.attributes {
-		return stream.StartElement{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance attribute limit exceeded")
 	}
 	if pushErr := d.ns.PushStream(start.Attr, values); pushErr != nil {
 		return stream.StartElement{}, validation(d.context(line, col), xsderrors.CodeValidationXML, pushErr.Error())

@@ -77,14 +77,6 @@ type EndIdentityRuntime interface {
 	ElementHasSimpleContent(typ runtime.TypeID, elem runtime.ElementID) (bool, bool)
 }
 
-// SimpleValueIdentity returns the ID/IDREF projection of a validated simple value.
-func SimpleValueIdentity(value runtime.SimpleValue) IdentityValue {
-	return IdentityValue{
-		IDs:    value.IDs,
-		IDRefs: value.IDRefs,
-	}
-}
-
 // SimpleValueIdentityRuntime supplies simple-type facts needed to derive
 // identity field keys for values without a precomputed identity payload.
 type SimpleValueIdentityRuntime interface {
@@ -206,10 +198,10 @@ func (s *IdentityState) Reset(maxRetainedIDs, maxRetainedSlices int) {
 // ReserveEntry reserves one identity entry against global identity limits.
 func (s *IdentityState) ReserveEntry(key string, limits IdentityLimits, ctx StartContext) error {
 	if limits.TupleBytes > 0 && int64(len(key)) > limits.TupleBytes {
-		return validation(ctx, xsderrors.CodeValidationIdentity, "identity tuple byte limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
 	}
 	if limits.Entries > 0 && s.entries >= limits.Entries {
-		return validation(ctx, xsderrors.CodeValidationIdentity, "identity entry limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, "identity entry limit exceeded")
 	}
 	s.entries++
 	return nil
@@ -237,7 +229,7 @@ func (s *IdentityState) startScope(constraints runtime.IdentityConstraintIDs, de
 		return nil
 	}
 	if maxScopes > 0 && len(s.scopes) >= maxScopes {
-		return validation(ctx, xsderrors.CodeValidationIdentity, "identity scope limit exceeded")
+		return validation(ctx, xsderrors.CodeValidationLimit, "identity scope limit exceeded")
 	}
 	s.scopes = append(s.scopes, identityScope{
 		depth:       depth,
@@ -246,8 +238,8 @@ func (s *IdentityState) startScope(constraints runtime.IdentityConstraintIDs, de
 	return nil
 }
 
-// StartElementScope starts an identity scope declared on elem.
-func (s *IdentityState) StartElementScope(rt IdentityRuntime, elem runtime.ElementID, depth int, maxScopes int, ctx StartContext) error {
+// startElementScope starts an identity scope declared on elem.
+func (s *IdentityState) startElementScope(rt identityScopeRuntime, elem runtime.ElementID, depth int, maxScopes int, ctx StartContext) error {
 	if elem == runtime.NoElement {
 		return nil
 	}
@@ -304,8 +296,8 @@ func (s *IdentityState) FieldMatches() []IdentityFieldMatch {
 	return s.matches
 }
 
-// ElementFieldMatches returns active identity fields matching the current element.
-func (s *IdentityState) ElementFieldMatches(rt IdentityRuntime, namePath []runtime.RuntimeName) ([]IdentityFieldMatch, error) {
+// elementFieldMatches returns active identity fields matching the current element.
+func (s *IdentityState) elementFieldMatches(rt identityElementFieldRuntime, namePath []runtime.RuntimeName) ([]IdentityFieldMatch, error) {
 	s.ResetFieldMatches()
 	depth := len(namePath)
 	for i := range s.selections {
@@ -327,8 +319,8 @@ func (s *IdentityState) ElementFieldMatches(rt IdentityRuntime, namePath []runti
 	return s.FieldMatches(), nil
 }
 
-// AttributeFieldMatches returns active identity fields matching the current attribute.
-func (s *IdentityState) AttributeFieldMatches(rt IdentityRuntime, namePath []runtime.RuntimeName, name runtime.QName) ([]IdentityFieldMatch, error) {
+// attributeFieldMatches returns active identity fields matching the current attribute.
+func (s *IdentityState) attributeFieldMatches(rt identityAttributeFieldRuntime, namePath []runtime.RuntimeName, name runtime.QName) ([]IdentityFieldMatch, error) {
 	s.ResetFieldMatches()
 	depth := len(namePath)
 	for i := range s.selections {
@@ -375,8 +367,8 @@ func (s *IdentityState) SelectionPath(selection int) (string, bool) {
 	return s.selections[selection].path, true
 }
 
-// MatchSelectors starts selections whose selectors match the current element.
-func (s *IdentityState) MatchSelectors(rt IdentityRuntime, namePath []runtime.RuntimeName, ctx StartContext) error {
+// matchSelectors starts selections whose selectors match the current element.
+func (s *IdentityState) matchSelectors(rt identitySelectorRuntime, namePath []runtime.RuntimeName, ctx StartContext) error {
 	if !s.HasScopes() {
 		return nil
 	}
@@ -405,7 +397,7 @@ func (s *IdentityState) MatchSelectors(rt IdentityRuntime, namePath []runtime.Ru
 	return nil
 }
 
-func identitySelectorMatches(rt IdentityRuntime, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (bool, bool) {
+func identitySelectorMatches(rt identitySelectorPathRuntime, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (bool, bool) {
 	paths, ok := rt.IdentitySelectorPaths(id)
 	if !ok {
 		return false, false
@@ -554,7 +546,7 @@ func identityTupleKey(fields []identityFieldValue, limits IdentityLimits, ctx St
 		}
 		size += int64(len(field.value))
 		if limits.TupleBytes > 0 && size > limits.TupleBytes {
-			return "", validation(ctx, xsderrors.CodeValidationIdentity, "identity tuple byte limit exceeded")
+			return "", validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
 		}
 	}
 	if len(fields) == 1 {

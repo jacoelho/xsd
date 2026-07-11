@@ -93,34 +93,6 @@ func SameCompiledParticle(a, b Particle) bool {
 	return a.Kind == b.Kind && a.Element == b.Element && a.Wildcard == b.Wildcard
 }
 
-// EqualCompiledModels reports whether two compiled content models are
-// structurally identical, including optional DFA row indexes.
-func EqualCompiledModels(a, b CompiledModel) bool {
-	return a.Source == b.Source &&
-		a.Start == b.Start &&
-		a.AllBitLen == b.AllBitLen &&
-		a.Kind == b.Kind &&
-		a.Mixed == b.Mixed &&
-		a.Empty == b.Empty &&
-		equalCompiledModelRows(a.Rows, b.Rows) &&
-		slices.Equal(a.All, b.All)
-}
-
-func equalCompiledModelRows(a, b []CompiledModelRow) bool {
-	return slices.EqualFunc(a, b, equalCompiledModelRow)
-}
-
-func equalCompiledModelRow(a, b CompiledModelRow) bool {
-	return a.CountParticle == b.CountParticle &&
-		a.Min == b.Min &&
-		a.Max == b.Max &&
-		a.Accept == b.Accept &&
-		a.Counted == b.Counted &&
-		a.Unbounded == b.Unbounded &&
-		slices.Equal(a.Edges, b.Edges) &&
-		equalDFARowIndex(a.Index, b.Index)
-}
-
 func equalDFARowIndex(a, b DFARowIndex) bool {
 	return a.Enabled == b.Enabled &&
 		maps.Equal(a.NameToEdge, b.NameToEdge) &&

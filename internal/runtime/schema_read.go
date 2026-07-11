@@ -7,7 +7,11 @@ func (rt *Schema) AttributeDecl(id AttributeID) (AttributeDeclRead, bool) {
 
 // SimpleTypePrimitive returns the primitive kind for a simple type.
 func (rt *Schema) SimpleTypePrimitive(id SimpleTypeID) (PrimitiveKind, bool) {
-	return SimpleTypePrimitiveByID(rt.runtime.SimpleTypePrimitives, id)
+	read, ok := simpleValueRouteSlotByID(rt.runtime.SimpleValueRoutes, id)
+	if !ok {
+		return 0, false
+	}
+	return read.primitive, true
 }
 
 // ElementIdentityConstraints returns an immutable view of identity constraints
@@ -53,13 +57,13 @@ func (rt *Schema) IdentityConstraintInfo(id IdentityConstraintID) (IdentityConst
 
 func (rt *Schema) elementChildContent(t TypeID) (ElementChildContent, bool) {
 	if simple, ok := t.Simple(); ok {
-		return ElementChildContent{}, ValidSimpleTypeID(simple, len(rt.runtime.SimpleTypePrimitives))
+		return ElementChildContent{}, ValidSimpleTypeID(simple, len(rt.runtime.SimpleValueRoutes))
 	}
 	id, ok := t.Complex()
 	if !ok || !ValidComplexTypeID(id, len(rt.runtime.ComplexTypes)) {
 		return ElementChildContent{}, false
 	}
-	return rt.runtime.ComplexTypes[id].childContent, true
+	return rt.runtime.ComplexTypes[id].childContent(), true
 }
 
 func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, bool) {
@@ -86,23 +90,27 @@ func (rt *Schema) AttributeUseSetForType(typ TypeID) (AttributeUseSetRead, bool,
 // SimpleContentType returns the simple-content type for a runtime type.
 func (rt *Schema) SimpleContentType(t TypeID) (SimpleTypeID, bool, bool) {
 	if id, ok := t.Simple(); ok {
-		return id, true, ValidSimpleTypeID(id, len(rt.runtime.SimpleTypePrimitives))
+		return id, true, ValidSimpleTypeID(id, len(rt.runtime.SimpleValueRoutes))
 	}
 	id, ok := t.Complex()
 	if !ok || !ValidComplexTypeID(id, len(rt.runtime.ComplexTypes)) {
 		return NoSimpleType, false, false
 	}
-	read := rt.runtime.ComplexTypes[id].simpleContent
+	read := rt.runtime.ComplexTypes[id].simpleContent()
 	if !read.HasSimpleContent() {
 		return NoSimpleType, false, true
 	}
 	textType := read.TypeID()
-	return textType, true, ValidSimpleTypeID(textType, len(rt.runtime.SimpleTypePrimitives))
+	return textType, true, ValidSimpleTypeID(textType, len(rt.runtime.SimpleValueRoutes))
 }
 
 // SimpleIdentity returns identity behavior for a simple type.
 func (rt *Schema) SimpleIdentity(id SimpleTypeID) SimpleIdentityKind {
-	return SimpleTypeIdentityByID(rt.runtime.SimpleTypeIdentities, id)
+	read, ok := simpleValueRouteSlotByID(rt.runtime.SimpleValueRoutes, id)
+	if !ok {
+		return SimpleIdentityNone
+	}
+	return read.identity
 }
 
 // ElementValueConstraints returns value constraints for an element declaration.
@@ -121,15 +129,15 @@ func (rt *Schema) ElementTextContent(t TypeID, elem ElementID) (ElementTextConte
 		}
 		if elem != NoElement {
 			if _, fixed := rt.runtime.ElementValueConstraints[elem].FixedValue(); fixed {
-				return rt.runtime.ComplexTypes[id].fixedText, true
+				return rt.runtime.ComplexTypes[id].textContent(true), true
 			}
 		}
-		return rt.runtime.ComplexTypes[id].textContent, true
+		return rt.runtime.ComplexTypes[id].textContent(false), true
 	}
-	if id, ok := t.Simple(); !ok || !ValidSimpleTypeID(id, len(rt.runtime.SimpleTypePrimitives)) {
+	if id, ok := t.Simple(); !ok || !ValidSimpleTypeID(id, len(rt.runtime.SimpleValueRoutes)) {
 		return ElementTextContent{}, false
 	}
-	return rt.runtime.SimpleTextContent, true
+	return NewElementTextContent(ElementTextContentShape{Simple: true}), true
 }
 
 // ElementHasSimpleContent reports whether a runtime type and element have simple content.

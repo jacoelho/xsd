@@ -282,6 +282,75 @@ func TestValidateContentModelRuntimeRejectsInvalidParticleReferences(t *testing.
 	}
 }
 
+func TestValidateContentModelGraphRejectsCycles(t *testing.T) {
+	t.Parallel()
+
+	one := Occurrence{Min: 1, Max: 1}
+	model := func(children ...ContentModelID) ContentModel {
+		particles := make([]Particle, len(children))
+		for i, child := range children {
+			particles[i] = ModelParticle(child, one)
+		}
+		return ContentModel{Kind: ModelSequence, Occurs: one, Particles: particles}
+	}
+	tests := []struct {
+		name    string
+		wantErr string
+		models  []ContentModel
+	}{
+		{name: "acyclic", models: []ContentModel{model(1), {Kind: ModelEmpty}}},
+		{name: "self cycle", models: []ContentModel{model(0)}, wantErr: "content model graph contains cycle"},
+		{name: "multi-node cycle", models: []ContentModel{model(1), model(0)}, wantErr: "content model graph contains cycle"},
+		{name: "invalid reference", models: []ContentModel{model(1)}, wantErr: "content model graph references invalid model"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateContentModelGraph(tt.models)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validateContentModelGraph() error = %v", err)
+				}
+				return
+			}
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("validateContentModelGraph() error = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateContentModelGraphHandlesDeepChain(t *testing.T) {
+	t.Parallel()
+
+	const count = 10_000
+	one := Occurrence{Min: 1, Max: 1}
+	models := make([]ContentModel, count)
+	for i := range count - 1 {
+		models[i] = ContentModel{
+			Kind:      ModelSequence,
+			Occurs:    one,
+			Particles: []Particle{ModelParticle(ContentModelID(i+1), one)},
+		}
+	}
+	models[count-1] = ContentModel{Kind: ModelEmpty}
+	if err := validateContentModelGraph(models); err != nil {
+		t.Fatalf("validateContentModelGraph() error = %v", err)
+	}
+}
+
+func TestValidateContentModelGraphHandlesWideFlatTable(t *testing.T) {
+	t.Parallel()
+
+	models := make([]ContentModel, 10_000)
+	for i := range models {
+		models[i] = ContentModel{Kind: ModelEmpty}
+	}
+	if err := validateContentModelGraph(models); err != nil {
+		t.Fatalf("validateContentModelGraph() error = %v", err)
+	}
+}
+
 func TestComplexContentExtendsBase(t *testing.T) {
 	t.Parallel()
 
@@ -758,6 +827,10 @@ func (rt choiceLimitRestrictionRuntime) AnyTypeID() ComplexTypeID {
 
 func (rt choiceLimitRestrictionRuntime) ComplexTypeCount() int {
 	return len(rt.complexDerivations)
+}
+
+func (rt choiceLimitRestrictionRuntime) SimpleTypeCount() int {
+	return len(rt.simpleDerivations)
 }
 
 func (rt choiceLimitRestrictionRuntime) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool) {

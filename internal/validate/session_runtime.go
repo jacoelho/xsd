@@ -28,17 +28,6 @@ type Session struct {
 	session session
 }
 
-// NewSession creates a reusable validation session. Reused sessions retain
-// bounded scratch buffers and string caches; create a new session to release
-// retained cache contents.
-func NewSession(rt *runtime.Schema, opts Options) (*Session, error) {
-	s := &Session{}
-	if err := s.Init(rt, opts); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
 // Init prepares s as a validation session.
 func (s *Session) Init(rt *runtime.Schema, opts Options) error {
 	limits, err := NormalizeOptions(opts)
@@ -298,10 +287,7 @@ func (s *session) recover(err error) error {
 }
 
 func (s *session) start(line, col int, se stream.StartElement) error {
-	se, err := s.doc.PrepareStart(se, &s.valueStrings, xmlDocumentLimits{
-		depth:      s.maxInstanceDepth,
-		attributes: s.maxInstanceAttributes,
-	}, line, col)
+	se, err := s.doc.PrepareStart(se, &s.valueStrings, s.maxInstanceDepth, line, col)
 	if err != nil {
 		return err
 	}

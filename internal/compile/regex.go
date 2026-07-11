@@ -15,7 +15,7 @@ func CompilePatternFacet(source string, categories RegexCategoryCache) (runtime.
 		return runtime.StringPattern{}, err
 	}
 	if fast := runtime.CompileSimpleStringPattern(source); fast != nil {
-		return runtime.NewFastStringPattern(source, fast), nil
+		return runtime.NewFastStringPattern(fast), nil
 	}
 	if goUnsupported {
 		return runtime.StringPattern{}, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source)
@@ -26,5 +26,5 @@ func CompilePatternFacet(source string, categories RegexCategoryCache) (runtime.
 	if err != nil {
 		return runtime.StringPattern{}, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "invalid or unsupported regex "+source)
 	}
-	return runtime.NewRegexpStringPattern(source, goSource, re), nil
+	return runtime.NewRegexpStringPattern(re), nil
 }

@@ -1,47 +1,136 @@
 package runtime
 
 import (
-	"regexp"
+	"math"
 	"testing"
 )
 
-func TestCloneStringPatternGroupsDeepClonesFastPattern(t *testing.T) {
+func newTestStringPatternSteps(groups [][]StringPattern) stringPatternSteps {
+	var steps stringPatternSteps
+	for _, patterns := range groups {
+		steps = appendStringPatternStep(steps, patterns)
+	}
+	return steps
+}
+
+func TestStringPatternSourcesRejectCorruptChains(t *testing.T) {
 	t.Parallel()
 
-	fast := CompileSimpleStringPattern("[A-Z]")
-	if fast == nil {
-		t.Fatal("CompileSimpleStringPattern returned nil")
+	pattern := NewFastStringPattern(CompileSimpleStringPattern("[A-Z]"))
+	self := &stringPatternStep{patterns: []StringPattern{pattern}, count: 1}
+	self.parent = self
+	first := &stringPatternStep{patterns: []StringPattern{pattern}, count: 1}
+	second := &stringPatternStep{parent: first, patterns: []StringPattern{pattern}, count: 2}
+	first.parent = second
+	tests := []struct {
+		name string
+		tail *stringPatternStep
+	}{
+		{name: "self cycle", tail: self},
+		{name: "multi-node cycle", tail: second},
+		{name: "count mismatch", tail: &stringPatternStep{patterns: []StringPattern{pattern}, count: 2}},
 	}
-	groups := []StringPatternGroup{{
-		Patterns: []StringPattern{NewFastStringPattern("[A-Z]", fast)},
-	}}
-
-	cloned := CloneStringPatternGroups(groups)
-	groups[0].Patterns[0].fast.atoms = nil
-
-	if !cloned[0].Patterns[0].MatchString("A") {
-		t.Fatal("clone aliases original fast pattern")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			types := []SimpleType{{Facets: FacetSet{patterns: stringPatternSteps{tail: tt.tail}}}}
+			if err := validateStringPatternSourcesForSimpleTypes(types); err == nil {
+				t.Fatal("validateStringPatternSourcesForSimpleTypes() accepted corrupt chain")
+			}
+		})
 	}
 }
 
-func TestCloneStringPatternGroupsSharesRegexpPattern(t *testing.T) {
+func TestStringPatternReadBuildHandlesDeepChain(t *testing.T) {
 	t.Parallel()
 
-	re := regexp.MustCompile(`^[A-Z]{2}\d{2}$`)
-	groups := []StringPatternGroup{{
-		Patterns: []StringPattern{NewRegexpStringPattern(`[A-Z]{2}\d{2}`, `^[A-Z]{2}\d{2}$`, re)},
-	}}
+	pattern := NewFastStringPattern(CompileSimpleStringPattern("[A-Z]"))
+	var steps stringPatternSteps
+	var midpoint *stringPatternStep
+	for i := range 10_000 {
+		steps = appendStringPatternStep(steps, []StringPattern{pattern})
+		if i == 4_999 {
+			midpoint = steps.tail
+		}
+	}
+	if err := validateStringPatternSourcesForSimpleTypes([]SimpleType{{Facets: FacetSet{patterns: steps}}}); err != nil {
+		t.Fatalf("validateStringPatternSourcesForSimpleTypes() error = %v", err)
+	}
+	types := []SimpleType{{Facets: FacetSet{patterns: steps}}}
+	pool := newStringPatternReadPoolForSimpleTypes(types)
+	read := pool[steps.tail]
+	if read == nil || read.count != 10_000 || pool[midpoint] == nil {
+		t.Fatalf("deep pattern read = %#v, midpoint = %#v", read, pool[midpoint])
+	}
+	if read.parent == nil {
+		t.Fatal("deep pattern read omitted pooled parent")
+	}
+}
 
-	cloned := CloneStringPatternGroups(groups)
-	if cloned[0].Patterns[0].re != re {
-		t.Fatal("regexp pattern was recompiled instead of shared")
+func TestStringPatternReadPoolPreservesSharingAndBoundaries(t *testing.T) {
+	t.Parallel()
+
+	a := NewFastStringPattern(CompileSimpleStringPattern("a"))
+	b := NewFastStringPattern(CompileSimpleStringPattern("b"))
+	base := appendStringPatternStep(stringPatternSteps{}, []StringPattern{a})
+	left := appendStringPatternStep(base, []StringPattern{a})
+	right := appendStringPatternStep(base, []StringPattern{b})
+	types := []SimpleType{
+		{},
+		{Facets: FacetSet{patterns: base}},
+		{Facets: FacetSet{patterns: left}},
+		{Facets: FacetSet{patterns: left}},
+		{Facets: FacetSet{patterns: right}},
 	}
-	if !cloned[0].Patterns[0].MatchString("AB12") {
-		t.Fatal("shared regexp clone rejected matching value")
+
+	pool := newStringPatternReadPoolForSimpleTypes(types)
+	if pool[nil] != nil {
+		t.Fatal("nil pattern source has a read")
 	}
-	if cloned[0].Patterns[0].MatchString("ab12") {
-		t.Fatal("shared regexp clone accepted non-matching value")
+	if pool[left.tail] == nil || pool[left.tail] != pool[types[3].Facets.patterns.tail] {
+		t.Fatal("shared pattern tail did not reuse one read")
 	}
+	if pool[left.tail].parent != pool[base.tail] || pool[right.tail].parent != pool[base.tail] {
+		t.Fatal("shared pattern ancestor did not reuse one read")
+	}
+	for source, read := range pool {
+		if cap(read.patterns) != len(read.patterns) {
+			t.Fatalf("pattern step %p capacity = %d/%d", source, len(read.patterns), cap(read.patterns))
+		}
+	}
+	pool[left.tail].patterns[0] = stringPatternRead{}
+	if pool[right.tail].patterns[0].fast == nil || pool[base.tail].patterns[0].fast == nil {
+		t.Fatal("pattern matcher subslices overlap")
+	}
+}
+
+var stringPatternReadPoolAllocationSink map[*stringPatternStep]*stringPatternStepRead
+
+func TestStringPatternReadPoolAllocationCountIsBounded(t *testing.T) {
+	pattern := NewFastStringPattern(CompileSimpleStringPattern("a"))
+	var steps stringPatternSteps
+	for range 10_000 {
+		steps = appendStringPatternStep(steps, []StringPattern{pattern})
+	}
+	types := []SimpleType{{Facets: FacetSet{patterns: steps}}}
+
+	allocs := testing.AllocsPerRun(3, func() {
+		stringPatternReadPoolAllocationSink = newStringPatternReadPoolForSimpleTypes(types)
+	})
+	if allocs > 128 {
+		t.Fatalf("newStringPatternReadPoolForSimpleTypes() allocations = %v, want at most 128", allocs)
+	}
+}
+
+func TestAddStringPatternReadCountRejectsOverflow(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("addStringPatternReadCount() accepted overflowing count")
+		}
+	}()
+	addStringPatternReadCount(math.MaxInt, 1)
 }
 
 func TestSimplePatternFastPathMatchesXSDDigitClass(t *testing.T) {

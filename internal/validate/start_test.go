@@ -216,7 +216,7 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := NewSession(rt, Options{})
+	s, err := newSessionForTest(rt, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

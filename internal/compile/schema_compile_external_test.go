@@ -2,6 +2,7 @@ package compile_test
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,6 +12,34 @@ import (
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestCompileInheritedEnumerationRestrictionChain(t *testing.T) {
+	t.Parallel()
+
+	const (
+		depth            = 100
+		enumerationCount = 100
+	)
+	var schema strings.Builder
+	schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	schema.WriteString(`<xs:simpleType name="t0"><xs:restriction base="xs:decimal">`)
+	for i := range enumerationCount {
+		fmt.Fprintf(&schema, `<xs:enumeration value="%d"/>`, i)
+	}
+	schema.WriteString(`</xs:restriction></xs:simpleType>`)
+	for i := 1; i <= depth; i++ {
+		fmt.Fprintf(&schema, `<xs:simpleType name="t%d"><xs:restriction base="t%d"><xs:minInclusive value="0"/></xs:restriction></xs:simpleType>`, i, i-1)
+	}
+	fmt.Fprintf(&schema, `<xs:element name="root" type="t%d"/></xs:schema>`, depth)
+
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("schema.xsd", []byte(schema.String())),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<root>0</root>`)
+}
 
 func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 	tests := []struct {
@@ -988,39 +1017,6 @@ func TestRuntimeKeyRefAmbiguousSiblingKeysWithSameDisplayPathDoesNotResolve(t *t
 	mustNotValidateRuntime(t, engine, `<root rid="1"><group id="1"/><group id="1"/></root>`, xsderrors.CodeValidationIdentity)
 }
 
-func TestCompileRejectsCompiledModelDerivationDrift(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="r">
-    <xs:complexType>
-      <xs:choice>
-        <xs:element name="a" type="xs:string"/>
-        <xs:element name="b" type="xs:string"/>
-      </xs:choice>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	c := compiledCompilerRuntime(t, schema)
-	build := c.RuntimeForTest()
-	root := build.GlobalElements[mustQName(t, build, "r")]
-	rootType, ok := build.Elements[root].Type.Complex()
-	if !ok {
-		t.Fatal("root type is not complex")
-	}
-	modelID := build.ComplexTypes[rootType].Content
-	model := &build.CompiledModels[modelID]
-	for i := range model.Rows {
-		row := &model.Rows[i]
-		if row.Index.IsEnabled() || len(row.Edges) < 2 {
-			continue
-		}
-		row.Edges[0].To = row.Edges[1].To
-		err := compile.ValidateCompiledModelDerivedForTest(build, modelID, *model)
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		return
-	}
-	t.Fatal("no unindexed row with two edges")
-}
-
 func TestFreezeRuntimeConsumesCompilerRuntime(t *testing.T) {
 	c, rt := frozenCompilerRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="Code">
@@ -1086,8 +1082,9 @@ func TestFreezeRuntimeKeepsCompilerStateOnValidationFailure(t *testing.T) {
 	c := compiledCompilerRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	<xs:element name="r" type="xs:string"/>
 </xs:schema>`)
-	rootName := mustQName(t, c.RuntimeForTest(), "r")
-	c.RuntimeForTest().GlobalElements[rootName] = runtime.NoElement
+	build := c.RuntimeForTest()
+	rootName := mustQName(t, &build.Names, "r")
+	build.GlobalElements[rootName] = runtime.NoElement
 
 	_, err := compile.FreezeCompilerRuntimeForTest(c)
 	if err == nil {
@@ -1182,10 +1179,10 @@ func TestSimpleContentFacetRestrictionRecomputesFastPath(t *testing.T) {
         </xs:restriction>
       </xs:simpleContent>
     </xs:complexType>
-  </xs:element>
+	</xs:element>
 </xs:schema>`
 	build := mutableSchemaBuild(t, schema)
-	root := build.GlobalElements[mustQName(t, build, "root")]
+	root := build.GlobalElements[mustQName(t, &build.Names, "root")]
 	complexID, ok := build.Elements[root].Type.Complex()
 	if !ok {
 		t.Fatal("root type is not complex")
@@ -1218,9 +1215,11 @@ func TestSimpleContentRestrictionAllowsEmptiableMixedBaseWithInlineType(t *testi
 	mustValidateRuntime(t, engine, `<root>value</root>`)
 }
 
-func mustQName[T interface {
-	LookupQName(ns, local string) (runtime.QName, bool)
-}](t *testing.T, rt T, local string) runtime.QName {
+type qnameLookup interface {
+	LookupQName(namespace, local string) (runtime.QName, bool)
+}
+
+func mustQName(t *testing.T, rt qnameLookup, local string) runtime.QName {
 	t.Helper()
 	q, ok := rt.LookupQName("", local)
 	if !ok {
@@ -1282,12 +1281,8 @@ func TestRuntimeElementAccessor(t *testing.T) {
 		t.Error("element(out of range) resolved, want miss")
 	}
 	rootName := mustQName(t, rt, "root")
-	rootID, rootInfo, ok := rt.RootElement(runtime.RuntimeName{Known: true, Name: rootName})
+	_, rootInfo, ok := rt.RootElement(runtime.RuntimeName{Known: true, Name: rootName})
 	if !ok || rootInfo.Type.Kind != runtime.TypeSimple {
 		t.Fatal("root element is missing")
-	}
-	name, ok := rt.ElementName(rootID)
-	if !ok || name != rootName {
-		t.Errorf("elementName(root) = (%v, %v), want root declaration", name, ok)
 	}
 }

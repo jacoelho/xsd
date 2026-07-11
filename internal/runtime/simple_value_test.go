@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"errors"
+	"math"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -22,12 +24,159 @@ type qnameResolution struct {
 	ok        bool
 }
 
+func TestPublishedSimpleTypeScalarReadsUseRouteSlots(t *testing.T) {
+	t.Parallel()
+
+	types := []SimpleType{
+		{Primitive: PrimitiveDecimal, Identity: SimpleIdentityID},
+		{Missing: true},
+	}
+	rt := &Schema{runtime: schemaRuntime{SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types)}}
+
+	if got, ok := rt.SimpleTypePrimitive(0); !ok || got != PrimitiveDecimal {
+		t.Fatalf("SimpleTypePrimitive(0) = %v, %v; want decimal, true", got, ok)
+	}
+	if got := rt.SimpleIdentity(0); got != SimpleIdentityID {
+		t.Fatalf("SimpleIdentity(0) = %v, want ID", got)
+	}
+
+	if got, ok := rt.SimpleTypePrimitive(1); !ok || got != 0 {
+		t.Fatalf("SimpleTypePrimitive(missing) = %v, %v; want zero, true", got, ok)
+	}
+	if got := rt.SimpleIdentity(1); got != SimpleIdentityNone {
+		t.Fatalf("SimpleIdentity(missing) = %v, want none", got)
+	}
+	if got, ok := rt.SimpleTypePrimitive(2); ok || got != 0 {
+		t.Fatalf("SimpleTypePrimitive(invalid) = %v, %v; want zero, false", got, ok)
+	}
+	if got := rt.SimpleIdentity(2); got != SimpleIdentityNone {
+		t.Fatalf("SimpleIdentity(invalid) = %v, want none", got)
+	}
+}
+
+func TestSimpleValueFacetProjectorPoolsEnumerationBySourceIdentity(t *testing.T) {
+	t.Parallel()
+
+	shared := []CompiledLiteral{{Canonical: "a"}, {Canonical: "b"}}
+	distinct := slices.Clone(shared)
+	var projector SimpleValueFacetProjector
+	first := projector.Project(FacetSet{Enumeration: shared})
+	second := projector.Project(FacetSet{Enumeration: shared})
+	third := projector.Project(FacetSet{Enumeration: distinct})
+	if &first.Enumeration[0] != &second.Enumeration[0] {
+		t.Fatal("shared enumeration source did not reuse its projection")
+	}
+	if &first.Enumeration[0] == &third.Enumeration[0] {
+		t.Fatal("distinct enumeration sources shared a projection by content")
+	}
+	if len(projector.enumerations) != 2 {
+		t.Fatalf("enumeration projection count = %d, want 2", len(projector.enumerations))
+	}
+}
+
+func TestSimpleValueColdEnumerationReadPoolPreservesIdentityAndIsolation(t *testing.T) {
+	t.Parallel()
+
+	shared := []CompiledLiteral{{Canonical: "a"}, {Canonical: "b"}}
+	distinct := slices.Clone(shared)
+	types := []SimpleType{
+		{Facets: FacetSet{Present: FacetLength, Length: 1}},
+		{Facets: FacetSet{Present: FacetEnumeration, Enumeration: shared}},
+		{Facets: FacetSet{Present: FacetEnumeration, Enumeration: shared}},
+		{Facets: FacetSet{Present: FacetEnumeration, Enumeration: distinct}},
+	}
+	table := newSimpleValueColdReadTable(types)
+	if err := validateSimpleValueColdReadProjectionForTypes(table, types); err != nil {
+		t.Fatalf("validateSimpleValueColdReadProjectionForTypes() error = %v", err)
+	}
+	zero, _ := table.read(0)
+	first, _ := table.read(1)
+	second, _ := table.read(2)
+	third, _ := table.read(3)
+	if zero == nil || zero.enumeration != nil {
+		t.Fatalf("empty enumeration projection = %#v, want nil", zero)
+	}
+	if &first.enumeration[0] != &second.enumeration[0] {
+		t.Fatal("shared enumeration source did not reuse one read")
+	}
+	if &first.enumeration[0] == &third.enumeration[0] {
+		t.Fatal("distinct enumeration sources share a read")
+	}
+	for i, read := range []*simpleValueColdRead{first, second, third} {
+		if cap(read.enumeration) != len(read.enumeration) {
+			t.Fatalf("enumeration %d capacity = %d/%d", i, len(read.enumeration), cap(read.enumeration))
+		}
+	}
+
+	shared[0].Canonical = "changed source"
+	if first.enumeration[0].canonical != "a" {
+		t.Fatal("enumeration read aliases source literals")
+	}
+	first.enumeration[0].canonical = "changed read"
+	if third.enumeration[0].canonical != "a" {
+		t.Fatal("distinct enumeration read subslices overlap")
+	}
+}
+
+var simpleValueEnumerationReadAllocationSink simpleValueColdReadTable
+
+func TestSimpleValueColdEnumerationReadAllocationCountIsBounded(t *testing.T) {
+	types := make([]SimpleType, 10_000)
+	for i := range types {
+		types[i].Facets.Present = FacetEnumeration
+		types[i].Facets.Enumeration = []CompiledLiteral{{Canonical: "x"}}
+	}
+
+	allocs := testing.AllocsPerRun(3, func() {
+		simpleValueEnumerationReadAllocationSink = newSimpleValueColdReadTable(types)
+	})
+	if allocs > 256 {
+		t.Fatalf("newSimpleValueColdReadTable() allocations = %v, want at most 256", allocs)
+	}
+}
+
+func TestAddSimpleValueEnumerationReadCountRejectsOverflow(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("addSimpleValueEnumerationReadCount() accepted overflowing count")
+		}
+	}()
+	addSimpleValueEnumerationReadCount(math.MaxInt, 1)
+}
+
+func TestValidateSimpleValueQNameResolverNeedsHandlesDeepNestedUnions(t *testing.T) {
+	t.Parallel()
+
+	const depth = 10_000
+	types := make([]SimpleType, depth)
+	members := make([]SimpleTypeID, depth-1)
+	for i := range depth - 1 {
+		members[i] = SimpleTypeID(i + 1)
+		types[i] = SimpleType{Variety: SimpleVarietyUnion, Union: members[i : i+1]}
+	}
+	types[depth-1] = SimpleType{Variety: SimpleVarietyAtomic, Primitive: PrimitiveQName}
+	reads := make([]bool, depth)
+	for i := range reads {
+		reads[i] = true
+	}
+
+	if err := validateSimpleValueQNameResolverNeedsForSimpleTypes(reads, types); err != nil {
+		t.Fatalf("validateSimpleValueQNameResolverNeedsForSimpleTypes() error = %v", err)
+	}
+	reads[depth-1] = false
+	if err := validateSimpleValueQNameResolverNeedsForSimpleTypes(reads, types); err == nil {
+		t.Fatal("validateSimpleValueQNameResolverNeedsForSimpleTypes() accepted a corrupt deep-union projection")
+	}
+}
+
 func (s *simpleValueCallbackStub) callbacks() SimpleValueCallbacks {
 	cb := SimpleValueCallbacks{
-		Type:                     s.typ,
-		Facets:                   s.simpleValueFacets,
-		ForEachStringEnumeration: s.forEachStringEnumeration,
-		Unsupported:              s.isUnsupported,
+		Type:              s.typ,
+		Facets:            s.simpleValueFacets,
+		StringEnumeration: s.stringEnumerationContains,
+		Unsupported:       s.isUnsupported,
 	}
 	if s.qnames != nil {
 		cb.ResolveQName = s.resolveQName
@@ -43,12 +192,8 @@ func (s *simpleValueCallbackStub) typ(id SimpleTypeID) (SimpleValueType, bool) {
 	return typ, ok
 }
 
-func (s *simpleValueCallbackStub) forEachStringEnumeration(id SimpleTypeID, yield func(string) bool) {
-	for _, canonical := range s.enums[id] {
-		if !yield(canonical) {
-			return
-		}
-	}
+func (s *simpleValueCallbackStub) stringEnumerationContains(id SimpleTypeID, canonical string) (bool, bool) {
+	return slices.Contains(s.enums[id], canonical), true
 }
 
 func (s *simpleValueCallbackStub) simpleValueFacets(id SimpleTypeID) (SimpleValueFacets, bool) {
@@ -906,11 +1051,9 @@ func TestValidateSimpleValueAtomicStringFacetBypassDoesNotCallExecutor(t *testin
 	t.Parallel()
 
 	pattern := StringFacetValues{
-		Patterns: []StringPatternGroup{{
-			Patterns: []StringPattern{
-				NewFastStringPattern("ok", CompileSimpleStringPattern("ok")),
-			},
-		}},
+		patternSource: newTestStringPatternSteps([][]StringPattern{{
+			NewFastStringPattern(CompileSimpleStringPattern("ok")),
+		}}),
 	}
 	tests := []struct {
 		enums   map[SimpleTypeID][]string
@@ -1099,18 +1242,14 @@ func TestValidateSimpleValueListStringFacets(t *testing.T) {
 	t.Parallel()
 
 	matchingPattern := StringFacetValues{
-		Patterns: []StringPatternGroup{{
-			Patterns: []StringPattern{
-				NewFastStringPattern("a b", CompileSimpleStringPattern("a b")),
-			},
-		}},
+		patternSource: newTestStringPatternSteps([][]StringPattern{{
+			NewFastStringPattern(CompileSimpleStringPattern("a b")),
+		}}),
 	}
 	failingPattern := StringFacetValues{
-		Patterns: []StringPatternGroup{{
-			Patterns: []StringPattern{
-				NewFastStringPattern("z", CompileSimpleStringPattern("z")),
-			},
-		}},
+		patternSource: newTestStringPatternSteps([][]StringPattern{{
+			NewFastStringPattern(CompileSimpleStringPattern("z")),
+		}}),
 	}
 	tests := []struct {
 		enums   map[SimpleTypeID][]string
@@ -1197,11 +1336,9 @@ func TestValidateSimpleValueUnionStringFacets(t *testing.T) {
 	t.Parallel()
 
 	pattern := StringFacetValues{
-		Patterns: []StringPatternGroup{{
-			Patterns: []StringPattern{
-				NewFastStringPattern("raw", CompileSimpleStringPattern("raw")),
-			},
-		}},
+		patternSource: newTestStringPatternSteps([][]StringPattern{{
+			NewFastStringPattern(CompileSimpleStringPattern("raw")),
+		}}),
 	}
 	tests := []struct {
 		enums   map[SimpleTypeID][]string

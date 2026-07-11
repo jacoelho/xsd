@@ -15,11 +15,6 @@ func (rt *Schema) ElementValueConstraintsForTest(id ElementID) (ElementValueCons
 	return rt.ElementValueConstraints(id)
 }
 
-// DeclaredElementTypeForTest exposes declared element type projection reads.
-func (rt *Schema) DeclaredElementTypeForTest(id ElementID) (TypeID, bool) {
-	return DeclaredElementTypeByID(rt.runtime.ElementStarts, id)
-}
-
 // ElementChildContentForTest exposes child-content projection reads.
 func (rt *Schema) ElementChildContentForTest(t TypeID) (ElementChildContent, bool) {
 	return rt.elementChildContent(t)

@@ -1,6 +1,10 @@
 package runtime
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/jacoelho/xsd/xsderrors"
+)
 
 // PublishSchema audits compiler-owned state, constructs every validation read
 // projection, verifies those projections, and seals the result. The build is
@@ -18,6 +22,9 @@ func PublishSchema(build *SchemaBuild) (*Schema, error) {
 }
 
 func newAuditedSchema(build *SchemaBuild) (*Schema, error) {
+	if err := validateStringPatternSourcesForSimpleTypes(build.SimpleTypes); err != nil {
+		return nil, xsderrors.InternalInvariant(err.Error())
+	}
 	candidate := &Schema{runtime: newSchemaRuntime(build)}
 	audit := schemaAudit{Schema: *candidate, build: *build}
 	if err := validateSchema(&audit); err != nil {
@@ -30,36 +37,29 @@ func newAuditedSchema(build *SchemaBuild) (*Schema, error) {
 }
 
 func newSchemaRuntime(build *SchemaBuild) schemaRuntime {
-	globalReads := NewGlobalReadMapProjection(build.GlobalAttributes, build.GlobalElements, build.GlobalTypes)
 	simpleValueRoutes := newSimpleValueRouteReadsForSimpleTypes(build.SimpleTypes)
 	simpleValueCold := newSimpleValueColdReadTable(build.SimpleTypes)
 	reads := schemaRuntime{
-		Builtin:                 build.Builtin,
-		GlobalAttributes:        globalReads.Attributes,
-		GlobalElements:          globalReads.Elements,
-		GlobalTypes:             globalReads.Types,
-		Substitutions:           build.Substitutions,
+		GlobalAttributes:        build.GlobalAttributes,
+		GlobalElements:          build.GlobalElements,
+		GlobalTypes:             build.GlobalTypes,
 		SubstitutionLookup:      build.SubstitutionLookup,
 		Names:                   NewBorrowedNameReadView(&build.Names),
 		Notations:               NewNotationReadMap(&build.Names, build.Notations),
 		Attributes:              NewAttributeDeclReadsForDecls(build.Attributes),
 		TypeDerivations:         NewBorrowedTypeDerivationReadForTypes(build.Builtin.AnyType, build.SimpleTypes, build.ComplexTypes),
-		SimpleTypePrimitives:    NewSimpleTypePrimitiveReadsForTypes(build.SimpleTypes),
-		SimpleTypeIdentities:    NewSimpleTypeIdentityReadsForTypes(build.SimpleTypes),
-		SimpleTypeFinals:        NewSimpleTypeFinalReadsForTypes(build.SimpleTypes),
 		SimpleValueRoutes:       simpleValueRoutes,
 		SimpleValueCold:         simpleValueCold,
 		ComplexTypes:            newComplexTypeReads(build.ComplexTypes),
 		Wildcards:               NewWildcardViews(&build.Names, build.Wildcards),
-		CompiledModels:          NewBorrowedCompiledModelViews(build.CompiledModels),
+		CompiledModels:          newCompiledModelReads(build.CompiledModels),
 		ElementNames:            NewElementNameReadsForDecls(build.Elements),
 		ElementStarts:           NewElementStartInfosForElementDecls(build.Elements),
 		ElementIdentities:       moveElementIdentityConstraintReads(build.Elements),
 		Identities:              moveIdentityConstraintReads(build.Identities),
 		ElementValueConstraints: NewElementValueConstraintReadsForDecls(build.Elements),
-		SimpleTextContent:       NewElementTextContentForSimpleType(),
 	}
-	reads.SimpleValueQNameNeeds = NewSimpleValueQNameResolverNeedsForSimpleTypes(build.SimpleTypes)
+	reads.SimpleValueQNameNeeds = newSimpleValueQNameResolverNeedsForSimpleTypes(build.SimpleTypes)
 	reads.AttributeUseSets = moveAttributeUseSetReads(&build.Names, build.AttributeUseSets, build.SimpleTypes)
 	return reads
 }

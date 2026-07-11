@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"errors"
+	"math"
 	"regexp"
 	"slices"
 	"strconv"
@@ -8,28 +10,184 @@ import (
 	"unicode/utf8"
 )
 
-// StringPatternGroup is one pattern-facet derivation step. Patterns inside a
-// group are OR-ed; groups are AND-ed in derivation order.
-type StringPatternGroup struct {
-	Patterns []StringPattern
-}
-
 // StringPattern is a compiled string pattern matcher used during validation.
 type StringPattern struct {
-	re        *regexp.Regexp
-	fast      *SimplePattern
-	xsdSource string
-	goSource  string
+	re   *regexp.Regexp
+	fast *SimplePattern
+}
+
+type stringPatternSteps struct {
+	tail *stringPatternStep
+}
+
+type stringPatternStep struct {
+	parent   *stringPatternStep
+	patterns []StringPattern
+	count    uint32
+}
+
+type stringPatternStepRead struct {
+	parent   *stringPatternStepRead
+	patterns []stringPatternRead
+	count    uint32
+}
+
+type stringPatternRead struct {
+	re   *regexp.Regexp
+	fast *SimplePattern
+}
+
+func appendStringPatternStep(steps stringPatternSteps, patterns []StringPattern) stringPatternSteps {
+	count := uint32(1)
+	if steps.tail != nil {
+		count = steps.tail.count + 1
+	}
+	return stringPatternSteps{tail: &stringPatternStep{parent: steps.tail, patterns: patterns, count: count}}
+}
+
+// AppendPatternFacetGroup appends one immutable pattern derivation step.
+func AppendPatternFacetGroup(f *FacetSet, patterns []StringPattern) {
+	f.patterns = appendStringPatternStep(f.patterns, patterns)
+	SetFacetPresent(f, FacetPattern)
+}
+
+func newStringPatternReadPoolForSimpleTypes(types []SimpleType) map[*stringPatternStep]*stringPatternStepRead {
+	hint := 0
+	for i := range types {
+		tail := types[i].Facets.patterns.tail
+		if tail == nil {
+			continue
+		}
+		if uint64(tail.count) > uint64(math.MaxInt) {
+			panic("string pattern read step count exceeds int capacity")
+		}
+		hint = max(hint, int(tail.count))
+	}
+	if hint == 0 {
+		return nil
+	}
+
+	sources := make([]*stringPatternStep, 0, hint)
+	missing := make([]*stringPatternStep, 0, min(hint, 1_024))
+	pool := make(map[*stringPatternStep]*stringPatternStepRead, hint)
+	patternCount := 0
+	for i := range types {
+		missing = missing[:0]
+		for step := types[i].Facets.patterns.tail; step != nil; step = step.parent {
+			if _, ok := pool[step]; ok {
+				break
+			}
+			pool[step] = nil
+			missing = append(missing, step)
+		}
+		addStringPatternReadCount(len(sources), len(missing))
+		for _, step := range slices.Backward(missing) {
+			patternCount = addStringPatternReadCount(patternCount, len(step.patterns))
+			sources = append(sources, step)
+		}
+	}
+
+	reads := make([]stringPatternStepRead, len(sources))
+	patterns := make([]stringPatternRead, patternCount)
+	patternOffset := 0
+	for i, source := range sources {
+		var stepPatterns []stringPatternRead
+		if len(source.patterns) != 0 {
+			end := patternOffset + len(source.patterns)
+			stepPatterns = patterns[patternOffset:end:end]
+			patternOffset = end
+			for j, pattern := range source.patterns {
+				stepPatterns[j] = stringPatternRead(pattern)
+			}
+		}
+		reads[i] = stringPatternStepRead{
+			parent:   pool[source.parent],
+			patterns: stepPatterns,
+			count:    source.count,
+		}
+		pool[source] = &reads[i]
+	}
+	return pool
+}
+
+func addStringPatternReadCount(total, count int) int {
+	if count > math.MaxInt-total {
+		panic("string pattern read projection size exceeds int capacity")
+	}
+	return total + count
+}
+
+func (s stringPatternSteps) count() uint32 {
+	if s.tail == nil {
+		return 0
+	}
+	return s.tail.count
+}
+
+func validateStringPatternSourcesForSimpleTypes(types []SimpleType) error {
+	var validated map[*stringPatternStep]struct{}
+	for i := range types {
+		tail := types[i].Facets.patterns.tail
+		if tail == nil {
+			continue
+		}
+		step := tail
+		for walked := uint32(0); step != nil; walked++ {
+			if _, ok := validated[step]; ok {
+				break
+			}
+			if walked >= tail.count || step.count == 0 ||
+				(step.parent == nil) != (step.count == 1) ||
+				step.parent != nil && step.parent.count+1 != step.count {
+				return errors.New("simple type pattern facet chain is invalid")
+			}
+			if err := validateStringPatternStepShape(step); err != nil {
+				return err
+			}
+			if validated == nil {
+				validated = make(map[*stringPatternStep]struct{})
+			}
+			validated[step] = struct{}{}
+			step = step.parent
+		}
+	}
+	return nil
+}
+
+func validateStringPatternStepShape(step *stringPatternStep) error {
+	if len(step.patterns) == 0 {
+		return errors.New("simple type pattern facet group has no patterns")
+	}
+	for _, pattern := range step.patterns {
+		if (pattern.fast == nil) == (pattern.re == nil) {
+			return errors.New("simple type pattern facet has invalid matcher")
+		}
+	}
+	return nil
+}
+
+func (p stringPatternRead) matchString(s string) bool {
+	if p.fast != nil {
+		return p.fast.MatchString(s)
+	}
+	return p.re.MatchString(s)
+}
+
+func (p stringPatternRead) matchBytes(s []byte) bool {
+	if p.fast != nil {
+		return p.fast.MatchBytes(s)
+	}
+	return p.re.Match(s)
 }
 
 // NewFastStringPattern returns a pattern backed by the runtime fast matcher.
-func NewFastStringPattern(source string, fast *SimplePattern) StringPattern {
-	return StringPattern{xsdSource: source, fast: fast}
+func NewFastStringPattern(fast *SimplePattern) StringPattern {
+	return StringPattern{fast: fast}
 }
 
 // NewRegexpStringPattern returns a pattern backed by a Go regexp.
-func NewRegexpStringPattern(xsdSource, goSource string, re *regexp.Regexp) StringPattern {
-	return StringPattern{xsdSource: xsdSource, goSource: goSource, re: re}
+func NewRegexpStringPattern(re *regexp.Regexp) StringPattern {
+	return StringPattern{re: re}
 }
 
 // MatchString reports whether s matches p.
@@ -40,87 +198,21 @@ func (p StringPattern) MatchString(s string) bool {
 	return p.re.MatchString(s)
 }
 
-// MatchBytes reports whether s matches p.
-func (p StringPattern) MatchBytes(s []byte) bool {
-	if p.fast != nil {
-		return p.fast.MatchBytes(s)
+func equalSimplePattern(a, b *SimplePattern) bool {
+	if a == nil || b == nil {
+		return a == b
 	}
-	return p.re.Match(s)
-}
-
-// FacetProjection returns the freeze-comparable projection of p.
-func (p StringPattern) FacetProjection() PatternFacet {
-	out := PatternFacet{
-		XSDSource: p.xsdSource,
-		GoSource:  p.goSource,
+	if a.variable != b.variable || len(a.atoms) != len(b.atoms) {
+		return false
 	}
-	if p.re != nil {
-		out.HasRegexp = true
-		out.Regexp = p.re.String()
-	}
-	if p.fast != nil {
-		out.HasFast = true
-		out.FastSignature = p.fast.signature()
-	}
-	return out
-}
-
-// CloneStringPatternGroups clones pattern groups and mutable fast matchers.
-func CloneStringPatternGroups(in []StringPatternGroup) []StringPatternGroup {
-	out := slices.Clone(in)
-	for i, group := range in {
-		out[i].Patterns = cloneStringPatterns(group.Patterns)
-	}
-	return out
-}
-
-func cloneStringPatterns(in []StringPattern) []StringPattern {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i].fast = cloneSimplePattern(in[i].fast)
-	}
-	return out
-}
-
-func cloneSimplePattern(in *SimplePattern) *SimplePattern {
-	if in == nil {
-		return nil
-	}
-	out := *in
-	out.atoms = slices.Clone(in.atoms)
-	for i := range out.atoms {
-		out.atoms[i].class.ranges = slices.Clone(in.atoms[i].class.ranges)
-	}
-	return &out
-}
-
-func (p *SimplePattern) signature() string {
-	var b strings.Builder
-	b.WriteString("variable=")
-	if p.variable {
-		b.WriteString("true")
-	} else {
-		b.WriteString("false")
-	}
-	for _, atom := range p.atoms {
-		b.WriteString("|min=")
-		b.WriteString(strconv.Itoa(atom.min))
-		b.WriteString("|max=")
-		b.WriteString(strconv.Itoa(atom.max))
-		b.WriteString("|digit=")
-		if atom.class.digit {
-			b.WriteString("true")
-		} else {
-			b.WriteString("false")
-		}
-		for _, r := range atom.class.ranges {
-			b.WriteString("|range=")
-			b.WriteString(strconv.Itoa(int(r.lo)))
-			b.WriteByte('-')
-			b.WriteString(strconv.Itoa(int(r.hi)))
+	for i := range a.atoms {
+		aa, ba := a.atoms[i], b.atoms[i]
+		if aa.min != ba.min || aa.max != ba.max || aa.class.digit != ba.class.digit ||
+			!slices.Equal(aa.class.ranges, ba.class.ranges) {
+			return false
 		}
 	}
-	return b.String()
+	return true
 }
 
 // SimplePattern is a small compiled subset of XSD regex syntax.

@@ -27,19 +27,6 @@ func NewSimpleContentTypeRead(shape SimpleContentTypeReadShape) SimpleContentTyp
 	}
 }
 
-// NewSimpleContentTypeReadForComplexType returns the immutable simple-content
-// type projection for ct.
-func NewSimpleContentTypeReadForComplexType(ct ComplexType) SimpleContentTypeRead {
-	return NewSimpleContentTypeRead(simpleContentTypeReadShapeForComplexType(ct))
-}
-
-func simpleContentTypeReadShapeForComplexType(ct ComplexType) SimpleContentTypeReadShape {
-	return SimpleContentTypeReadShape{
-		Type:    ct.TextType,
-		Present: ct.SimpleContent(),
-	}
-}
-
 // TypeID returns the text type used for simple-content validation.
 func (r SimpleContentTypeRead) TypeID() SimpleTypeID {
 	return r.typ

@@ -38,13 +38,13 @@ func (rt *Schema) Namespace(id NamespaceID) string {
 // TypeInfo returns validation start data for a runtime type.
 func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 	if simple, ok := id.Simple(); ok {
-		return TypeInfo{}, ValidSimpleTypeID(simple, len(rt.runtime.SimpleTypePrimitives))
+		return TypeInfo{}, ValidSimpleTypeID(simple, len(rt.runtime.SimpleValueRoutes))
 	}
 	complexID, ok := id.Complex()
 	if !ok || !ValidComplexTypeID(complexID, len(rt.runtime.ComplexTypes)) {
 		return TypeInfo{}, false
 	}
-	return rt.runtime.ComplexTypes[complexID].info, true
+	return rt.runtime.ComplexTypes[complexID].typeInfo(), true
 }
 
 // TypeDerivation reports how derived derives from base.

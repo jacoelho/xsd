@@ -179,8 +179,16 @@ func applyPrimitiveBounds(kind PrimitiveKind, f SimpleValueFacets, normalized st
 }
 
 func applyPatternAndEnumeration(f SimpleValueFacets, normalized, canonical string, actual PrimitiveActualValue) error {
-	if err := ValidateStringPatterns(f.StringFacets.Patterns, normalized); err != nil {
+	if err := f.StringFacets.validatePatterns(normalized); err != nil {
 		return err
+	}
+	if len(f.enumeration) != 0 {
+		for _, lit := range f.enumeration {
+			if EqualPrimitiveActualValues(actual, canonical, lit.actual, lit.canonical) {
+				return nil
+			}
+		}
+		return errors.New("enumeration facet failed")
 	}
 	if len(f.Enumeration) != 0 {
 		for _, lit := range f.Enumeration {

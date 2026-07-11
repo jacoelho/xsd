@@ -33,14 +33,11 @@ func TestElementTextContentRead(t *testing.T) {
 func TestElementTextContentForSimpleType(t *testing.T) {
 	t.Parallel()
 
-	read := NewElementTextContentForSimpleType()
+	read := NewElementTextContent(ElementTextContentShape{Simple: true})
 	if !read.HasSimpleContent() || read.IsComplexType() ||
 		read.AllowsMixedContent() || read.HasFixedElementValue() {
-		t.Fatalf("NewElementTextContentForSimpleType() = simple %v complex %v mixed %v fixed %v, want simple=true complex=false mixed=false fixed=false",
+		t.Fatalf("NewElementTextContent() = simple %v complex %v mixed %v fixed %v, want simple=true complex=false mixed=false fixed=false",
 			read.HasSimpleContent(), read.IsComplexType(), read.AllowsMixedContent(), read.HasFixedElementValue())
-	}
-	if !EqualElementTextContentForSimpleType(read) {
-		t.Fatal("EqualElementTextContentForSimpleType() = false, want true")
 	}
 
 	tests := []struct {
@@ -77,8 +74,8 @@ func TestElementTextContentForSimpleType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if EqualElementTextContentForSimpleType(tt.read) {
-				t.Fatal("EqualElementTextContentForSimpleType() = true, want false")
+			if tt.read == read {
+				t.Fatal("simple text content accepted mismatched flags")
 			}
 		})
 	}
@@ -137,102 +134,22 @@ func TestElementTextContentForComplexType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			read := NewElementTextContentForComplexType(tt.ct, tt.fixed)
+			read := NewElementTextContent(ElementTextContentShape{
+				Simple:  tt.ct.SimpleContent(),
+				Complex: true,
+				Mixed:   tt.ct.Mixed(),
+				Fixed:   tt.fixed,
+			})
 			if !read.IsComplexType() || read.HasSimpleContent() != tt.simple ||
 				read.AllowsMixedContent() != tt.mixed || read.HasFixedElementValue() != tt.hasFixed {
-				t.Fatalf("NewElementTextContentForComplexType() = complex %v simple %v mixed %v fixed %v, want true %v %v %v",
+				t.Fatalf("NewElementTextContent() = complex %v simple %v mixed %v fixed %v, want true %v %v %v",
 					read.IsComplexType(), read.HasSimpleContent(), read.AllowsMixedContent(), read.HasFixedElementValue(),
 					tt.simple, tt.mixed, tt.hasFixed)
 			}
-			if !EqualElementTextContent(read, NewElementTextContentForComplexType(tt.ct, tt.fixed)) {
-				t.Fatal("text content does not match complex type projection")
-			}
-			if EqualElementTextContent(read, NewElementTextContentForComplexType(tt.ct, !tt.fixed)) {
+			if read == NewElementTextContent(ElementTextContentShape{
+				Simple: tt.ct.SimpleContent(), Complex: true, Mixed: tt.ct.Mixed(), Fixed: !tt.fixed,
+			}) {
 				t.Fatal("text content accepted wrong fixed flag")
-			}
-		})
-	}
-}
-
-func TestValidateElementTextContentForSimpleType(t *testing.T) {
-	t.Parallel()
-
-	if err := ValidateElementTextContentForSimpleType(NewElementTextContentForSimpleType()); err != nil {
-		t.Fatalf("ValidateElementTextContentForSimpleType() error = %v", err)
-	}
-	if err := ValidateElementTextContentForSimpleType(NewElementTextContent(ElementTextContentShape{Complex: true})); err == nil || err.Error() != "simple text content read projection does not match simple type" {
-		t.Fatalf("ValidateElementTextContentForSimpleType(mismatch) error = %v, want mismatch invariant", err)
-	}
-}
-
-func TestEqualElementTextContent(t *testing.T) {
-	t.Parallel()
-
-	content := NewElementTextContent(ElementTextContentShape{
-		Simple:  true,
-		Complex: true,
-		Mixed:   true,
-		Fixed:   true,
-	})
-	tests := []struct {
-		name string
-		a    ElementTextContent
-		b    ElementTextContent
-		want bool
-	}{
-		{
-			name: "equal",
-			a:    content,
-			b: NewElementTextContent(ElementTextContentShape{
-				Simple:  true,
-				Complex: true,
-				Mixed:   true,
-				Fixed:   true,
-			}),
-			want: true,
-		},
-		{
-			name: "simple differs",
-			a:    content,
-			b: NewElementTextContent(ElementTextContentShape{
-				Complex: true,
-				Mixed:   true,
-				Fixed:   true,
-			}),
-		},
-		{
-			name: "complex differs",
-			a:    content,
-			b: NewElementTextContent(ElementTextContentShape{
-				Simple: true,
-				Mixed:  true,
-				Fixed:  true,
-			}),
-		},
-		{
-			name: "mixed differs",
-			a:    content,
-			b: NewElementTextContent(ElementTextContentShape{
-				Simple:  true,
-				Complex: true,
-				Fixed:   true,
-			}),
-		},
-		{
-			name: "fixed differs",
-			a:    content,
-			b: NewElementTextContent(ElementTextContentShape{
-				Simple:  true,
-				Complex: true,
-				Mixed:   true,
-			}),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := EqualElementTextContent(tt.a, tt.b); got != tt.want {
-				t.Fatalf("EqualElementTextContent() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -316,13 +233,10 @@ func TestElementChildContentForComplexType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			read := NewElementChildContentForComplexType(tt.ct)
+			read := NewElementChildContent(ElementChildContentShape{Complex: true, Simple: tt.ct.SimpleContent()})
 			if !read.IsComplexType() || read.HasSimpleContent() != tt.simple {
-				t.Fatalf("NewElementChildContentForComplexType() = complex %v simple %v, want true %v",
+				t.Fatalf("NewElementChildContent() = complex %v simple %v, want true %v",
 					read.IsComplexType(), read.HasSimpleContent(), tt.simple)
-			}
-			if read != NewElementChildContentForComplexType(tt.ct) {
-				t.Fatal("child content does not match complex type projection")
 			}
 			mismatch := tt.ct
 			if tt.simple {
@@ -330,7 +244,7 @@ func TestElementChildContentForComplexType(t *testing.T) {
 			} else {
 				mismatch.ContentKind = ContentSimple
 			}
-			if read == NewElementChildContentForComplexType(mismatch) {
+			if read == NewElementChildContent(ElementChildContentShape{Complex: true, Simple: mismatch.SimpleContent()}) {
 				t.Fatal("child content accepted wrong content kind")
 			}
 		})

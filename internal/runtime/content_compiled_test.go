@@ -52,77 +52,132 @@ func TestContentScratchAllBitInvariants(t *testing.T) {
 	}
 }
 
-func TestEqualCompiledModelViewProjection(t *testing.T) {
-	t.Parallel()
-
-	model := CompiledModel{
-		Source:    1,
-		Kind:      CompiledModelAll,
-		Start:     2,
-		AllBitLen: 1,
-		All: []CompiledAllTerm{{
-			Particle: ElementParticle(3, Occurrence{Min: 1, Max: 1}),
-			Required: true,
-		}},
-	}
-	view := NewBorrowedCompiledModelViews([]CompiledModel{model})[0]
-	if !EqualCompiledModelViewProjection(view, &model) {
-		t.Fatal("EqualCompiledModelViewProjection() = false, want true")
-	}
-
-	changed := model
-	changed.Kind = CompiledModelEmpty
-	changed.All = nil
-	if EqualCompiledModelViewProjection(view, &changed) {
-		t.Fatal("EqualCompiledModelViewProjection() = true for different model")
-	}
-}
-
-func TestCompiledModelViewProjectionTable(t *testing.T) {
+func TestCompiledModelReadProjection(t *testing.T) {
 	t.Parallel()
 
 	models := []CompiledModel{
 		{
-			Source:    1,
+			Source:    7,
 			Kind:      CompiledModelAll,
-			Start:     2,
+			Mixed:     true,
 			AllBitLen: 1,
 			All: []CompiledAllTerm{{
 				Particle: ElementParticle(3, Occurrence{Min: 1, Max: 1}),
 				Required: true,
 			}},
 		},
-		{Source: 4, Kind: CompiledModelEmpty, Empty: true},
+		{Source: 8, Kind: CompiledModelEmpty, Empty: true},
+		{
+			Source: 9,
+			Kind:   CompiledModelDFA,
+			Rows: []CompiledModelRow{{
+				CountParticle: ElementParticle(4, Occurrence{Min: 2, Max: 3}),
+				Edges: []CompiledModelEdge{{
+					Particle: ElementParticle(4, Occurrence{Min: 5, Max: 6}),
+					To:       0,
+				}},
+				Counted: true,
+			}},
+		},
 	}
-	views := NewBorrowedCompiledModelViews(models)
-	if !EqualCompiledModelViewProjectionTable(views, models) {
-		t.Fatalf("NewBorrowedCompiledModelViews() = %#v, want projection for %#v", views, models)
+	reads := newCompiledModelReads(models)
+	if err := validateCompiledModelReadProjectionTable(reads, models); err != nil {
+		t.Fatalf("validateCompiledModelReadProjectionTable() error = %v", err)
 	}
-	if got, ok := CompiledModelViewByID(views, 1); !ok || !EqualCompiledModelViewProjection(got, &models[1]) {
-		t.Fatalf("CompiledModelViewByID() = %#v, %v; want view 1, true", got, ok)
+	models[0].Source = 99
+	models[0].Mixed = false
+	models[0].All[0].Particle.Occurs = Occurrence{Min: 9, Max: 10}
+	models[0].All[0].Particle.Model = 11
+	models[2].Rows[0].CountParticle.Occurs = Occurrence{Min: 12, Max: 13}
+	models[2].Rows[0].CountParticle.Model = 14
+	models[2].Rows[0].Edges[0].Particle.Occurs = Occurrence{Min: 15, Max: 16}
+	models[2].Rows[0].Edges[0].Particle.Model = 17
+	if err := validateCompiledModelReadProjectionTable(reads, models); err != nil {
+		t.Fatalf("projection audit depends on discarded compiler fields: %v", err)
 	}
-	if got, ok := CompiledModelViewByID(views, ContentModelID(99)); ok || !EqualCompiledModelViewProjection(got, nil) {
-		t.Fatalf("CompiledModelViewByID(invalid) = %#v, %v; want zero, false", got, ok)
+	models[2].Rows[0].Edges[0].Particle.Element = 99
+	if err := validateCompiledModelReadProjectionTable(reads, models); err == nil {
+		t.Fatal("projection audit accepted changed validation fields")
 	}
-	if EqualCompiledModelViewProjectionTable(views[:1], models) {
-		t.Fatal("EqualCompiledModelViewProjectionTable() accepted mismatched table length")
+	if err := validateCompiledModelReadProjectionTable(reads[:1], models); err == nil {
+		t.Fatal("projection audit accepted mismatched table length")
+	}
+}
+
+func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
+	t.Parallel()
+
+	models := []CompiledModel{
+		{},
+		{Rows: []CompiledModelRow{{}}},
+		{
+			Rows: []CompiledModelRow{
+				{Edges: []CompiledModelEdge{{To: 1}}},
+				{Edges: []CompiledModelEdge{{To: 2}}},
+			},
+			All: []CompiledAllTerm{{Required: true}},
+		},
+		{
+			Rows: []CompiledModelRow{{Edges: []CompiledModelEdge{{To: 3}}}},
+			All:  []CompiledAllTerm{{Required: false}},
+		},
 	}
 
-	changed := append([]CompiledModel(nil), models...)
-	changed[0].Kind = CompiledModelEmpty
-	changed[0].All = nil
-	if EqualCompiledModelViewProjectionTable(views, changed) {
-		t.Fatal("EqualCompiledModelViewProjectionTable() accepted mismatched model")
+	reads := newCompiledModelReads(models)
+	if reads[0].Rows != nil || reads[0].All != nil {
+		t.Fatalf("empty model projection = rows %#v all %#v, want nil slices", reads[0].Rows, reads[0].All)
 	}
-	if err := ValidateCompiledModelViewProjectionTable(views, models); err != nil {
-		t.Fatalf("ValidateCompiledModelViewProjectionTable() error = %v", err)
+	if reads[1].Rows == nil || reads[1].Rows[0].Edges != nil {
+		t.Fatalf("empty row projection = rows %#v, want non-nil rows and nil edges", reads[1].Rows)
 	}
-	if err := ValidateCompiledModelViewProjectionTable(views[:1], models); err == nil || err.Error() != "compiled model view projection count does not match compiled models" {
-		t.Fatalf("ValidateCompiledModelViewProjectionTable(short) error = %v, want count invariant", err)
+	for i := 2; i < len(reads); i++ {
+		if cap(reads[i].Rows) != len(reads[i].Rows) || cap(reads[i].All) != len(reads[i].All) {
+			t.Fatalf("model %d projection capacities = rows %d/%d all %d/%d", i, len(reads[i].Rows), cap(reads[i].Rows), len(reads[i].All), cap(reads[i].All))
+		}
+		for j := range reads[i].Rows {
+			if cap(reads[i].Rows[j].Edges) != len(reads[i].Rows[j].Edges) {
+				t.Fatalf("model %d row %d edge capacity = %d/%d", i, j, len(reads[i].Rows[j].Edges), cap(reads[i].Rows[j].Edges))
+			}
+		}
 	}
-	if err := ValidateCompiledModelViewProjectionTable(views, changed); err == nil || err.Error() != "compiled model view projection does not match compiled model" {
-		t.Fatalf("ValidateCompiledModelViewProjectionTable(changed) error = %v, want mismatch invariant", err)
+
+	reads[2].Rows[0].Edges[0].To = 99
+	reads[2].Rows[1].Edges[0].To = 98
+	reads[2].All[0].Required = false
+	if reads[3].Rows[0].Edges[0].To != 3 || reads[3].All[0].Required {
+		t.Fatalf("projection pools overlap: model 3 = %+v", reads[3])
 	}
+	if models[2].Rows[0].Edges[0].To != 1 || !models[2].All[0].Required {
+		t.Fatalf("projection aliases source: model 2 = %+v", models[2])
+	}
+}
+
+var compiledModelReadAllocationSink []compiledModelRead
+
+func TestCompiledModelReadProjectionAllocationCountIsConstant(t *testing.T) {
+	models := make([]CompiledModel, 10_000)
+	for i := range models {
+		models[i].Rows = []CompiledModelRow{{Edges: []CompiledModelEdge{{To: uint32(i)}}}}
+		models[i].All = []CompiledAllTerm{{Required: true}}
+	}
+
+	allocs := testing.AllocsPerRun(3, func() {
+		compiledModelReadAllocationSink = newCompiledModelReads(models)
+	})
+	if allocs > 4 {
+		t.Fatalf("newCompiledModelReads() allocations = %v, want at most 4 flat tables", allocs)
+	}
+}
+
+func TestAddCompiledModelReadCountRejectsOverflow(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("addCompiledModelReadCount() accepted overflowing count")
+		}
+	}()
+	addCompiledModelReadCount(math.MaxInt, 1)
 }
 
 func TestAdvanceContentAnyReturnsGlobalElement(t *testing.T) {
@@ -521,7 +576,7 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 		GlobalElements:     s.globalElements,
 		SubstitutionLookup: s.substitutionLookup,
 		ComplexTypes:       complexTypes,
-		CompiledModels:     NewBorrowedCompiledModelViews(models),
+		CompiledModels:     newCompiledModelReads(models),
 		ElementNames:       elementNames,
 		Wildcards:          wildcards,
 	}}

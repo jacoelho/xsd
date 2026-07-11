@@ -55,11 +55,6 @@ func (c *compiler) DocumentNamesForTest() []string {
 	return names
 }
 
-// ValidateCompiledModelDerivedForTest validates a compiled model against its source.
-func ValidateCompiledModelDerivedForTest(rt *runtime.SchemaBuild, id runtime.ContentModelID, model runtime.CompiledModel) error {
-	return ValidateCompiledModelDerived(&rt.Names, rt, id, model)
-}
-
 // ParseSchemaRootForTest parses a schema document and returns its root node.
 func ParseSchemaRootForTest(data []byte, limits Limits) (*RawNode, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))

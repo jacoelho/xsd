@@ -2,7 +2,6 @@ package compile
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
@@ -72,6 +71,8 @@ type compilerBuildState struct {
 	localDone                map[*rawNode]runtime.ElementID
 	identityDeclared         map[*rawNode]runtime.IdentityConstraintID
 	regexCategories          RegexCategoryCache
+	simpleListReach          simpleTypeListReachability
+	simpleFacetCache         simpleValueFacetCache
 	deferredAnonymousComplex []deferredAnonymousComplex
 }
 
@@ -314,7 +315,7 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 			continue
 		}
 		base := c.rt.ComplexTypes[baseID]
-		if err := ValidateContentRestrictionWithModels(&c.rt, c.rt.Models, base.Content, ct.Content); err != nil {
+		if err := ValidateContentRestriction(&c.rt, c.rt.Models, base.Content, ct.Content); err != nil {
 			return err
 		}
 	}
@@ -604,13 +605,13 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name runti
 }
 
 // derivedSimpleType copies base as the starting point of a restriction step.
-// Facet slices are cloned lazily when the restriction declares a facet.
+// Completed-base union and facet storage is immutable and remains shared until
+// the restriction replaces a facet value or appends a persistent pattern step.
 func derivedSimpleType(base runtime.SimpleType, baseID runtime.SimpleTypeID, name runtime.QName) runtime.SimpleType {
 	st := base
 	st.Name = name
 	st.Base = baseID
 	st.Final = 0
-	st.Union = slices.Clone(base.Union)
 	return st
 }
 
@@ -646,7 +647,7 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name runtime.QNam
 	if err := CheckSimpleTypeFinalAllows(c.rt.SimpleTypes[item].Final, runtime.DerivationList, SimpleTypeFinalListItem); err != nil {
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 	}
-	if err := CheckSimpleListItemType(c.rt.SimpleTypes, item); err != nil {
+	if err := checkSimpleListItemType(c.simpleListReach.reachesList(c.rt.SimpleTypes, item)); err != nil {
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 	}
 	return runtime.SimpleType{Name: name, Variety: runtime.SimpleVarietyList, Primitive: runtime.PrimitiveString, Base: c.rt.Builtin.AnySimpleType, Whitespace: runtime.WhitespaceCollapse, ListItem: item}, nil

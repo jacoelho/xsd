@@ -1,7 +1,5 @@
 package runtime
 
-import "errors"
-
 // ChildContentInfo summarizes whether a type can accept child elements.
 type ChildContentInfo struct {
 	Complex bool
@@ -45,48 +43,6 @@ func NewElementTextContent(shape ElementTextContentShape) ElementTextContent {
 	}
 }
 
-// NewElementTextContentForSimpleType returns the character-data content
-// projection for a simple type.
-func NewElementTextContentForSimpleType() ElementTextContent {
-	return NewElementTextContent(ElementTextContentShape{Simple: true})
-}
-
-// NewElementTextContentForComplexType returns the character-data content
-// projection for a complex type.
-func NewElementTextContentForComplexType(ct ComplexType, fixed bool) ElementTextContent {
-	return NewElementTextContent(elementTextContentShapeForComplexType(ct, fixed))
-}
-
-// EqualElementTextContent reports whether two character-data content
-// projections expose the same validation-facing content facts.
-func EqualElementTextContent(a, b ElementTextContent) bool {
-	return a == b
-}
-
-// EqualElementTextContentForSimpleType reports whether read exposes the
-// runtime-owned character-data content projection for a simple type.
-func EqualElementTextContentForSimpleType(read ElementTextContent) bool {
-	return EqualElementTextContent(read, NewElementTextContentForSimpleType())
-}
-
-// ValidateElementTextContentForSimpleType validates the simple-type text
-// content read projection.
-func ValidateElementTextContentForSimpleType(read ElementTextContent) error {
-	if !EqualElementTextContentForSimpleType(read) {
-		return errors.New("simple text content read projection does not match simple type")
-	}
-	return nil
-}
-
-func elementTextContentShapeForComplexType(ct ComplexType, fixed bool) ElementTextContentShape {
-	return ElementTextContentShape{
-		Simple:  ct.SimpleContent(),
-		Complex: true,
-		Mixed:   ct.Mixed(),
-		Fixed:   fixed,
-	}
-}
-
 // HasSimpleContent reports whether the frame accepts simple character content.
 func (c ElementTextContent) HasSimpleContent() bool {
 	return c.simple
@@ -127,19 +83,6 @@ func NewElementChildContent(shape ElementChildContentShape) ElementChildContent 
 	return ElementChildContent{
 		complex: shape.Complex,
 		simple:  shape.Simple,
-	}
-}
-
-// NewElementChildContentForComplexType returns the child-content projection for
-// a complex type.
-func NewElementChildContentForComplexType(ct ComplexType) ElementChildContent {
-	return NewElementChildContent(elementChildContentShapeForComplexType(ct))
-}
-
-func elementChildContentShapeForComplexType(ct ComplexType) ElementChildContentShape {
-	return ElementChildContentShape{
-		Complex: true,
-		Simple:  ct.SimpleContent(),
 	}
 }
 

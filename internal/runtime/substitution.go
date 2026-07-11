@@ -267,18 +267,6 @@ func EqualSubstitutionLookup(a, b map[ElementID]map[QName]ElementID) bool {
 	return true
 }
 
-// ValidateSubstitutionReadMaps validates freeze-published substitution read
-// maps against the runtime substitution maps.
-func ValidateSubstitutionReadMaps(reads map[ElementID][]ElementID, lookupReads map[ElementID]map[QName]ElementID, substitutions map[ElementID][]ElementID, lookup map[ElementID]map[QName]ElementID) error {
-	if !EqualSubstitutionMap(reads, substitutions) {
-		return errors.New("substitution read map does not match substitutions")
-	}
-	if !EqualSubstitutionLookup(lookupReads, lookup) {
-		return errors.New("substitution lookup read map does not match lookup")
-	}
-	return nil
-}
-
 func elementIndexID(id int) (ElementID, bool) {
 	if id < 0 || uint64(id) > uint64(invalidID) {
 		return NoElement, false

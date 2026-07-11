@@ -227,7 +227,7 @@ func TestWildcardViewProjectionTable(t *testing.T) {
 func TestWildcardSetPredicates(t *testing.T) {
 	t.Parallel()
 
-	table, names := wildcardValidationFixture(t)
+	_, names := wildcardValidationFixture(t)
 	anyWildcard := Wildcard{Mode: WildcardAny, Process: ProcessStrict}
 	otherA := Wildcard{Mode: WildcardOther, OtherThan: names["urn:a"], Process: ProcessStrict}
 	local := Wildcard{Mode: WildcardLocal, Process: ProcessStrict}
@@ -240,12 +240,6 @@ func TestWildcardSetPredicates(t *testing.T) {
 	}
 	if !WildcardAllowsNamespace(local, EmptyNamespaceID) || WildcardAllowsNamespace(local, names["urn:a"]) {
 		t.Fatal("##local namespace admission is wrong")
-	}
-	if !WildcardAllowsURI(&table, otherA, "urn:not-in-schema") {
-		t.Fatal("##other did not allow uninterned non-empty namespace")
-	}
-	if WildcardAllowsURI(&table, listAB, "urn:not-in-schema") {
-		t.Fatal("finite wildcard allowed uninterned namespace")
 	}
 	if !WildcardSubset(listAB, anyWildcard) || WildcardSubset(anyWildcard, listAB) {
 		t.Fatal("wildcard subset relation is wrong")

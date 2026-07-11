@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -13,7 +14,80 @@ import (
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlns"
+	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
+	valueSchema, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:IDREFS"/>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name string
+		opts Options
+		doc  string
+		msg  string
+	}{
+		{
+			name: "entry",
+			opts: Options{MaxIdentityEntries: 1},
+			doc:  "<root>a b c</root>",
+			msg:  "identity entry limit exceeded",
+		},
+		{
+			name: "tuple bytes",
+			opts: Options{MaxIdentityTupleBytes: 3},
+			doc:  "<root>longer</root>",
+			msg:  "identity tuple byte limit exceeded",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testSession, sessionErr := newSessionForTest(valueSchema, tt.opts)
+			if sessionErr != nil {
+				t.Fatal(sessionErr)
+			}
+			assertSingleIdentityLimit(t, testSession.Validate(strings.NewReader(tt.doc)), tt.msg)
+		})
+	}
+
+	scopeSchema, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence><xs:element ref="root" minOccurs="0"/></xs:sequence>
+    </xs:complexType>
+    <xs:key name="unused">
+      <xs:selector xpath="never"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := newSessionForTest(scopeSchema, Options{MaxIdentityScopes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSingleIdentityLimit(t, session.Validate(strings.NewReader("<root><root/></root>")), "identity scope limit exceeded")
+}
+
+func assertSingleIdentityLimit(t *testing.T, err error, message string) {
+	t.Helper()
+	requireCode(t, err, xsderrors.CodeValidationLimit)
+	if !strings.Contains(err.Error(), message) {
+		t.Fatalf("Validate() error = %v, want %q", err, message)
+	}
+	var multiple xsderrors.Errors
+	if errors.As(err, &multiple) {
+		t.Fatalf("Validate() returned recoverable error collection: %v", err)
+	}
+}
 
 func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
 	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
@@ -23,7 +97,7 @@ func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, err := NewSession(rt, Options{})
+	session, err := newSessionForTest(rt, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +130,7 @@ func TestSessionDetachesReaderAfterPreflightFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, err := NewSession(rt, Options{})
+	session, err := newSessionForTest(rt, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +292,7 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 	doc := nestedIdentityDocument(depth, true)
 
 	t.Run("completed document", func(t *testing.T) {
-		session, err := NewSession(rt, Options{})
+		session, err := newSessionForTest(rt, Options{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -229,7 +303,7 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 	})
 
 	t.Run("aborted document reset", func(t *testing.T) {
-		session, err := NewSession(rt, Options{})
+		session, err := newSessionForTest(rt, Options{})
 		if err != nil {
 			t.Fatal(err)
 		}

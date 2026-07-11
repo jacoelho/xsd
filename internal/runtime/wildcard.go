@@ -58,11 +58,6 @@ type WildcardView struct {
 	valid      bool
 }
 
-// Mode returns the namespace constraint mode.
-func (v WildcardView) Mode() WildcardMode {
-	return v.mode
-}
-
 // NewWildcardView returns a read-only validation view over wildcard.
 func NewWildcardView(names *NameTable, wildcard *Wildcard) WildcardView {
 	if wildcard == nil {
@@ -273,22 +268,6 @@ func WildcardAllowsNamespace(w Wildcard, ns NamespaceID) bool {
 	default:
 		return false
 	}
-}
-
-// WildcardAllowsURI reports whether w admits namespace uri, including URIs not
-// interned in names.
-func WildcardAllowsURI(names *NameTable, w Wildcard, uri string) bool {
-	if w.Mode == WildcardAny {
-		return true
-	}
-	if names == nil {
-		return false
-	}
-	id, ok := names.LookupNamespace(uri)
-	if !ok {
-		return w.Mode == WildcardOther
-	}
-	return WildcardAllowsNamespace(w, id)
 }
 
 // WildcardSubset reports whether derived admits only namespaces admitted by
