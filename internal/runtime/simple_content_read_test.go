@@ -68,9 +68,11 @@ func TestSimpleContentTypeReadForComplexType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			read := NewSimpleContentTypeReadForComplexType(tt.ct)
+			read := NewSimpleContentTypeRead(SimpleContentTypeReadShape{
+				Type: tt.ct.TextType, Present: tt.ct.SimpleContent(),
+			})
 			if read.TypeID() != tt.want || read.HasSimpleContent() != tt.present {
-				t.Fatalf("NewSimpleContentTypeReadForComplexType() = type %d present %v, want %d %v",
+				t.Fatalf("NewSimpleContentTypeRead() = type %d present %v, want %d %v",
 					read.TypeID(), read.HasSimpleContent(), tt.want, tt.present)
 			}
 		})

@@ -13,17 +13,9 @@ type contentRestrictionValidator struct {
 	wildcards []runtime.Wildcard
 }
 
-// ValidateContentRestriction validates that derived is a legal restriction of base.
-func ValidateContentRestriction(rt runtime.ParticleRestrictionRuntime, baseID, derivedID runtime.ContentModelID) error {
-	if rt == nil {
-		return xsderrors.InternalInvariant("content restriction requires runtime")
-	}
-	return contentRestrictionValidator{rt: rt}.validateContentRestriction(baseID, derivedID)
-}
-
-// ValidateContentRestrictionWithModels validates content-model restriction using
-// a caller-owned model slice for direct model reads.
-func ValidateContentRestrictionWithModels(rt runtime.ParticleRestrictionRuntime, models []runtime.ContentModel, baseID, derivedID runtime.ContentModelID) error {
+// ValidateContentRestriction validates content-model restriction using a
+// caller-owned model slice for direct model reads.
+func ValidateContentRestriction(rt runtime.ParticleRestrictionRuntime, models []runtime.ContentModel, baseID, derivedID runtime.ContentModelID) error {
 	if rt == nil {
 		return xsderrors.InternalInvariant("content restriction requires runtime")
 	}

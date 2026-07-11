@@ -65,7 +65,7 @@ func CheckSimpleContentComplexBaseExists(exists bool) error {
 
 // CheckSimpleContentDerivationBase maps runtime base admissibility into the
 // schema diagnostic for xs:simpleContent derivation.
-func CheckSimpleContentDerivationBase(rt runtime.ParticleRuntime, base runtime.ComplexType, restriction bool) error {
+func CheckSimpleContentDerivationBase(rt runtime.ContentModelRuntime, base runtime.ComplexType, restriction bool) error {
 	if !runtime.SimpleContentDerivationBaseAllowed(rt, base, restriction) {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "simpleContent base must have simple content")
 	}
@@ -92,7 +92,7 @@ func CheckSimpleContentRestrictionTextType(rt runtime.TypeDerivationRuntime, der
 
 // CheckComplexContentMixedDerivationBase maps runtime mixed-base admission into
 // the schema diagnostic for xs:complexContent derivation.
-func CheckComplexContentMixedDerivationBase(rt runtime.ParticleRuntime, base runtime.ComplexType, extension, mixed bool) error {
+func CheckComplexContentMixedDerivationBase(rt runtime.ContentModelRuntime, base runtime.ComplexType, extension, mixed bool) error {
 	if err := runtime.ValidateComplexContentMixedDerivationBase(rt, base, extension, mixed); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
 	}

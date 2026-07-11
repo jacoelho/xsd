@@ -66,10 +66,6 @@ func TestCompilePatternFacetUsesFastMatcherBeforeGoUnsupportedRepeatLimit(t *tes
 	if err != nil {
 		t.Fatalf("CompilePatternFacet() error = %v", err)
 	}
-	projection := pattern.FacetProjection()
-	if !projection.HasFast || projection.HasRegexp {
-		t.Fatalf("projection = %+v, want fast-only matcher", projection)
-	}
 	if !pattern.MatchString(strings.Repeat("0", 1001)) {
 		t.Fatal("fast pattern does not match exact repeat count")
 	}

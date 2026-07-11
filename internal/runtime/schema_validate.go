@@ -1,6 +1,10 @@
 package runtime
 
-import "github.com/jacoelho/xsd/xsderrors"
+import (
+	"slices"
+
+	"github.com/jacoelho/xsd/xsderrors"
+)
 
 // schemaAudit joins compiler-owned source records with a candidate published
 // runtime only while publication invariants are checked. Schema never retains
@@ -21,7 +25,7 @@ func validateSchema(rt *schemaAudit) error {
 	if err := validateRuntimeSubstitutions(rt); err != nil {
 		return err
 	}
-	if err := validateBuiltins(rt); err != nil {
+	if err := validateBuiltins(&ctx); err != nil {
 		return err
 	}
 	if err := validateRuntimeComponents(&ctx); err != nil {
@@ -34,7 +38,8 @@ func validateSchema(rt *schemaAudit) error {
 }
 
 type schemaValidationContext struct {
-	rt *schemaAudit
+	rt                     *schemaAudit
+	validatedBoundLiterals map[*CompiledLiteral]struct{}
 }
 
 func validateNameTable(rt *schemaAudit) error {
@@ -105,16 +110,6 @@ func validateRuntimeSubstitutions(rt *schemaAudit) error {
 
 func validateRuntimeComponents(ctx *schemaValidationContext) error {
 	rt := ctx.rt
-	for i := range rt.build.Elements {
-		if err := validateElementDecl(ctx, rt.build.Elements[i]); err != nil {
-			return err
-		}
-	}
-	for i := range rt.build.Attributes {
-		if err := validateAttributeDecl(ctx, rt.build.Attributes[i]); err != nil {
-			return err
-		}
-	}
 	for i := range rt.build.SimpleTypes {
 		if err := validateSimpleType(ctx, SimpleTypeID(i), rt.build.SimpleTypes[i]); err != nil {
 			return err
@@ -122,6 +117,19 @@ func validateRuntimeComponents(ctx *schemaValidationContext) error {
 	}
 	if err := validateSimpleTypeGraph(rt); err != nil {
 		return err
+	}
+	if err := validateCompiledFacetLiterals(ctx); err != nil {
+		return err
+	}
+	for i := range rt.build.Elements {
+		if err := validateElementDeclShape(rt, rt.build.Elements[i]); err != nil {
+			return err
+		}
+	}
+	for i := range rt.build.Attributes {
+		if err := validateAttributeDecl(ctx, rt.build.Attributes[i]); err != nil {
+			return err
+		}
 	}
 	for i := range rt.build.Wildcards {
 		if err := ValidateWildcard(&rt.build.Names, rt.build.Wildcards[i]); err != nil {
@@ -143,25 +151,35 @@ func validateRuntimeComponents(ctx *schemaValidationContext) error {
 			return xsderrors.InternalInvariant(err.Error())
 		}
 	}
+	if err := validateContentModelGraph(rt.build.Models); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
 	for i := range rt.build.ComplexTypes {
-		if err := validateComplexType(ctx, ComplexTypeID(i), rt.build.ComplexTypes[i], rt.build.Models); err != nil {
+		if err := validateComplexTypeRecord(&rt.build, ComplexTypeID(i), rt.build.ComplexTypes[i]); err != nil {
+			return err
+		}
+	}
+	if err := validateComplexTypeGraph(rt.build.ComplexTypes); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	for i := range rt.build.ComplexTypes {
+		if err := validateComplexTypeDerivation(rt, ComplexTypeID(i), rt.build.ComplexTypes[i]); err != nil {
 			return err
 		}
 	}
 	if err := ValidateIdentityConstraints(&rt.build.Names, rt.build.Identities); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
+	for i := range rt.build.Elements {
+		if err := validateElementDeclValueConstraints(ctx, rt.build.Elements[i]); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func validateRuntimeReadProjections(rt *schemaAudit) error {
 	if err := validateAttributeDeclReads(rt); err != nil {
-		return err
-	}
-	if err := validateGlobalReadMaps(rt); err != nil {
-		return err
-	}
-	if err := validateSubstitutionReadMaps(rt); err != nil {
 		return err
 	}
 	if err := validateNameReads(rt); err != nil {
@@ -177,15 +195,6 @@ func validateRuntimeReadProjections(rt *schemaAudit) error {
 		return err
 	}
 	if err := validateTypeDerivations(rt); err != nil {
-		return err
-	}
-	if err := validateSimpleTypePrimitives(rt); err != nil {
-		return err
-	}
-	if err := validateSimpleTypeIdentities(rt); err != nil {
-		return err
-	}
-	if err := validateSimpleTypeFinals(rt); err != nil {
 		return err
 	}
 	if err := validateSimpleValueReads(rt); err != nil {
@@ -209,26 +218,11 @@ func validateRuntimeReadProjections(rt *schemaAudit) error {
 	if err := validateWildcardReads(rt); err != nil {
 		return err
 	}
-	if err := validateCompiledModelViews(rt); err != nil {
-		return err
-	}
-	if err := ValidateElementTextContentForSimpleType(rt.runtime.SimpleTextContent); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
+	return validateCompiledModelReads(rt)
 }
 
 func validateAttributeDeclReads(rt *schemaAudit) error {
 	if err := ValidateAttributeDeclReadProjectionForDecls(rt.runtime.Attributes, rt.build.Attributes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateGlobalReadMaps(rt *schemaAudit) error {
-	reads := NewGlobalReadMapProjection(rt.runtime.GlobalAttributes, rt.runtime.GlobalElements, rt.runtime.GlobalTypes)
-	globals := NewGlobalDeclarationMaps(rt.build.GlobalAttributes, rt.build.GlobalElements, rt.build.GlobalTypes)
-	if err := ValidateGlobalReadMaps(reads, globals); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
@@ -248,36 +242,8 @@ func validateElementValueConstraintReads(rt *schemaAudit) error {
 	return nil
 }
 
-func validateSubstitutionReadMaps(rt *schemaAudit) error {
-	if err := ValidateSubstitutionReadMaps(rt.runtime.Substitutions, rt.runtime.SubstitutionLookup, rt.build.Substitutions, rt.build.SubstitutionLookup); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
 func validateNameReads(rt *schemaAudit) error {
 	if err := ValidateNameReadProjection(rt.runtime.Names, &rt.build.Names); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateSimpleTypePrimitives(rt *schemaAudit) error {
-	if err := ValidateSimpleTypePrimitiveReadProjectionForTypes(rt.runtime.SimpleTypePrimitives, rt.build.SimpleTypes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateSimpleTypeIdentities(rt *schemaAudit) error {
-	if err := ValidateSimpleTypeIdentityReadProjectionForTypes(rt.runtime.SimpleTypeIdentities, rt.build.SimpleTypes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	return nil
-}
-
-func validateSimpleTypeFinals(rt *schemaAudit) error {
-	if err := ValidateSimpleTypeFinalReadProjectionForTypes(rt.runtime.SimpleTypeFinals, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
@@ -290,7 +256,7 @@ func validateSimpleValueReads(rt *schemaAudit) error {
 	if err := validateSimpleValueColdReadProjectionForTypes(rt.runtime.SimpleValueCold, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	if err := ValidateSimpleValueQNameResolverNeedsForSimpleTypes(rt.runtime.SimpleValueQNameNeeds, rt.build.SimpleTypes); err != nil {
+	if err := validateSimpleValueQNameResolverNeedsForSimpleTypes(rt.runtime.SimpleValueQNameNeeds, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
@@ -344,14 +310,7 @@ func validateComplexTypeReads(rt *schemaAudit) error {
 	}
 	for i := range rt.build.ComplexTypes {
 		ct := rt.build.ComplexTypes[i]
-		read := rt.runtime.ComplexTypes[i]
-		if read.info != NewTypeInfoForComplexType(ct) ||
-			read.attributeUseSet != ct.Attrs ||
-			read.contentModel != ct.Content ||
-			read.simpleContent != NewSimpleContentTypeReadForComplexType(ct) ||
-			read.childContent != NewElementChildContentForComplexType(ct) ||
-			read.textContent != NewElementTextContentForComplexType(ct, false) ||
-			read.fixedText != NewElementTextContentForComplexType(ct, true) {
+		if rt.runtime.ComplexTypes[i] != newComplexTypeRead(ct) {
 			return xsderrors.InternalInvariant("complex type read projection does not match type")
 		}
 	}
@@ -365,8 +324,8 @@ func validateWildcardReads(rt *schemaAudit) error {
 	return nil
 }
 
-func validateCompiledModelViews(rt *schemaAudit) error {
-	if err := ValidateCompiledModelViewProjectionTable(rt.runtime.CompiledModels, rt.build.CompiledModels); err != nil {
+func validateCompiledModelReads(rt *schemaAudit) error {
+	if err := validateCompiledModelReadProjectionTable(rt.runtime.CompiledModels, rt.build.CompiledModels); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
@@ -391,11 +350,12 @@ func validateRuntimeChoiceLimits(rt *schemaAudit) error {
 	return nil
 }
 
-func validateBuiltins(rt *schemaAudit) error {
-	return validateBuiltinIDs(rt)
+func validateBuiltins(ctx *schemaValidationContext) error {
+	return validateBuiltinIDs(ctx)
 }
 
-func validateBuiltinIDs(rt *schemaAudit) error {
+func validateBuiltinIDs(ctx *schemaValidationContext) error {
+	rt := ctx.rt
 	if err := validateBuiltinDeclarations(rt); err != nil {
 		return err
 	}
@@ -405,8 +365,18 @@ func validateBuiltinIDs(rt *schemaAudit) error {
 		if err != nil {
 			return err
 		}
-		if err := validateBuiltinSimpleFacets(rt.build.SimpleTypes[id], exp.facetExpectation(id)); err != nil {
+		st := rt.build.SimpleTypes[id]
+		if err := validateBuiltinSimpleFacets(st, exp.facetExpectation(st.Base)); err != nil {
 			return err
+		}
+		for _, literal := range st.Facets.bounds {
+			if literal == nil {
+				continue
+			}
+			if ctx.validatedBoundLiterals == nil {
+				ctx.validatedBoundLiterals = make(map[*CompiledLiteral]struct{})
+			}
+			ctx.validatedBoundLiterals[literal] = struct{}{}
 		}
 	}
 	return validateBuiltinAnyType(rt)
@@ -557,8 +527,7 @@ func validateBuiltinAnyType(rt *schemaAudit) error {
 	return nil
 }
 
-func validateElementDecl(ctx *schemaValidationContext, decl ElementDecl) error {
-	rt := ctx.rt
+func validateElementDeclShape(rt *schemaAudit, decl ElementDecl) error {
 	if err := ValidateElementDeclRuntime(&rt.build.Names, NewElementDeclValidationForDecl(decl), DeclRefLimits{
 		SimpleTypeCount:  len(rt.build.SimpleTypes),
 		ComplexTypeCount: len(rt.build.ComplexTypes),
@@ -567,6 +536,11 @@ func validateElementDecl(ctx *schemaValidationContext, decl ElementDecl) error {
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
+	return nil
+}
+
+func validateElementDeclValueConstraints(ctx *schemaValidationContext, decl ElementDecl) error {
+	rt := ctx.rt
 	defaultType, err := elementValueConstraintType(rt, decl)
 	if err != nil {
 		return err
@@ -625,6 +599,167 @@ func validateSimpleTypeGraph(rt *schemaAudit) error {
 	return nil
 }
 
+func validateCompiledFacetLiterals(ctx *schemaValidationContext) error {
+	types := ctx.rt.build.SimpleTypes
+	ancestry := newSimpleTypeBaseAncestry(types)
+	var enumerations map[simpleValueEnumerationSource]SimpleTypeID
+	for i := range ctx.rt.build.SimpleTypes {
+		owner := SimpleTypeID(i)
+		facets := &types[i].Facets
+		for _, literal := range facets.bounds {
+			if literal == nil {
+				continue
+			}
+			if !ancestry.strictAncestor(literal.Type, owner) {
+				return xsderrors.InternalInvariant("facet literal compilation type is not an owner ancestor")
+			}
+			if err := ctx.validateCompiledBoundLiteralOnce(literal); err != nil {
+				return err
+			}
+		}
+		if len(facets.Enumeration) == 0 {
+			continue
+		}
+		source, _ := simpleValueEnumerationSourceForLiterals(facets.Enumeration)
+		compilationType, audited := enumerations[source]
+		if !audited {
+			compilationType = facets.Enumeration[0].Type
+		}
+		if !ancestry.strictAncestor(compilationType, owner) {
+			return xsderrors.InternalInvariant("facet literal compilation type is not an owner ancestor")
+		}
+		if !audited {
+			if enumerations == nil {
+				enumerations = make(map[simpleValueEnumerationSource]SimpleTypeID)
+			}
+			for j := range facets.Enumeration {
+				literal := &facets.Enumeration[j]
+				if literal.Type != compilationType {
+					return xsderrors.InternalInvariant("facet enumeration has mixed compilation types")
+				}
+				if err := ctx.validateCompiledFacetLiteral(*literal); err != nil {
+					return err
+				}
+			}
+			enumerations[source] = compilationType
+		}
+	}
+	return nil
+}
+
+type simpleTypeBaseAncestry struct {
+	start []int
+	end   []int
+}
+
+type simpleTypeAncestryFrame struct {
+	id        SimpleTypeID
+	nextChild SimpleTypeID
+	entered   bool
+}
+
+func newSimpleTypeBaseAncestry(types []SimpleType) simpleTypeBaseAncestry {
+	firstChild := make([]SimpleTypeID, len(types))
+	nextSibling := make([]SimpleTypeID, len(types))
+	for i := range types {
+		firstChild[i] = NoSimpleType
+		nextSibling[i] = NoSimpleType
+	}
+	for i := range slices.Backward(types) {
+		base := types[i].Base
+		if base == NoSimpleType {
+			continue
+		}
+		id := SimpleTypeID(i) //nolint:gosec // schema simple-type tables are bounded to uint32 IDs.
+		nextSibling[id] = firstChild[base]
+		firstChild[base] = id
+	}
+
+	ancestry := simpleTypeBaseAncestry{start: make([]int, len(types)), end: make([]int, len(types))}
+	stack := make([]simpleTypeAncestryFrame, 0, min(len(types), 1_024))
+	clock := 0
+	for i := range types {
+		if types[i].Base != NoSimpleType {
+			continue
+		}
+		stack = appendDFSFrame(stack, simpleTypeAncestryFrame{id: SimpleTypeID(i)}, len(types))
+		for len(stack) != 0 {
+			last := len(stack) - 1
+			frame := &stack[last]
+			if !frame.entered {
+				ancestry.start[frame.id] = clock
+				clock++
+				frame.nextChild = firstChild[frame.id]
+				frame.entered = true
+			}
+			if frame.nextChild == NoSimpleType {
+				ancestry.end[frame.id] = clock
+				stack = stack[:last]
+				continue
+			}
+			child := frame.nextChild
+			frame.nextChild = nextSibling[child]
+			stack = appendDFSFrame(stack, simpleTypeAncestryFrame{id: child}, len(types))
+		}
+	}
+	return ancestry
+}
+
+func (a simpleTypeBaseAncestry) strictAncestor(ancestor, owner SimpleTypeID) bool {
+	if ancestor == owner || !ValidSimpleTypeID(ancestor, len(a.start)) || !ValidSimpleTypeID(owner, len(a.start)) {
+		return false
+	}
+	return a.start[ancestor] <= a.start[owner] && a.end[owner] <= a.end[ancestor]
+}
+
+func (ctx *schemaValidationContext) validateCompiledBoundLiteralOnce(literal *CompiledLiteral) error {
+	if _, ok := ctx.validatedBoundLiterals[literal]; ok {
+		return nil
+	}
+	if err := ctx.validateCompiledFacetLiteral(*literal); err != nil {
+		return err
+	}
+	if ctx.validatedBoundLiterals == nil {
+		ctx.validatedBoundLiterals = make(map[*CompiledLiteral]struct{})
+	}
+	ctx.validatedBoundLiterals[literal] = struct{}{}
+	return nil
+}
+
+func (ctx *schemaValidationContext) validateCompiledFacetLiteral(literal CompiledLiteral) error {
+	rt := ctx.rt
+	if !ValidSimpleTypeID(literal.Type, len(rt.build.SimpleTypes)) {
+		return xsderrors.InternalInvariant("facet literal references invalid compilation type")
+	}
+	replay, err := NewValueConstraintNameReplay(literal.ResolvedNames)
+	if err != nil {
+		return xsderrors.InternalInvariant("facet literal resolved-name proof is invalid")
+	}
+	value, err := rt.ValidateSimpleValue(literal.Type, literal.Lexical, replay.ResolveQName, SimpleNeedCanonical)
+	if err != nil {
+		return xsderrors.InternalInvariant("facet literal lexical replay failed")
+	}
+	if err := replay.ValidateConsumed(); err != nil {
+		return xsderrors.InternalInvariant("facet literal resolved-name proof was not fully consumed")
+	}
+	expected := NewCompiledLiteralForSimpleType(rt.build.SimpleTypes[literal.Type], literal.Type, literal.Lexical, value.Canonical, nil)
+	if !equalCompiledLiteralCache(literal, expected) {
+		return xsderrors.InternalInvariant("facet literal cache does not match lexical value")
+	}
+	return nil
+}
+
+func equalCompiledLiteralCache(got, want CompiledLiteral) bool {
+	if got.Type != want.Type || got.Canonical != want.Canonical || got.Actual.Valid != want.Actual.Valid {
+		return false
+	}
+	if !got.Actual.Valid {
+		return true
+	}
+	return got.Actual.Kind == want.Actual.Kind &&
+		EqualPrimitiveActualValues(got.Actual, got.Canonical, want.Actual, want.Canonical)
+}
+
 func validateSimpleTypeDerivation(rt *schemaAudit, id SimpleTypeID, st SimpleType) error {
 	if !SimpleTypeRestrictionRequired(id, st.Base, rt.build.Builtin) {
 		return nil
@@ -648,17 +783,16 @@ func validateSimpleTypeDerivation(rt *schemaAudit, id SimpleTypeID, st SimpleTyp
 	return nil
 }
 
-func validateComplexType(ctx *schemaValidationContext, id ComplexTypeID, ct ComplexType, models []ContentModel) error {
-	rt := ctx.rt
-	if err := ValidateComplexTypeRuntime(&rt.build.Names, id, ct, models, ComplexTypeRefLimits{
-		SimpleTypeCount:      len(rt.build.SimpleTypes),
-		ComplexTypeCount:     len(rt.build.ComplexTypes),
-		AttributeUseSetCount: len(rt.build.AttributeUseSets),
-		AnyType:              rt.build.Builtin.AnyType,
+func validateComplexTypeRecord(build *SchemaBuild, id ComplexTypeID, ct ComplexType) error {
+	if err := ValidateComplexTypeRuntime(&build.Names, id, ct, build.Models, ComplexTypeRefLimits{
+		SimpleTypeCount:      len(build.SimpleTypes),
+		ComplexTypeCount:     len(build.ComplexTypes),
+		AttributeUseSetCount: len(build.AttributeUseSets),
+		AnyType:              build.Builtin.AnyType,
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	return validateComplexTypeDerivation(rt, id, ct)
+	return nil
 }
 
 func validateComplexTypeDerivation(rt *schemaAudit, id ComplexTypeID, ct ComplexType) error {

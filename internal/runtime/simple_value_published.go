@@ -55,7 +55,7 @@ func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id Simp
 		return false, true
 	}
 	for _, literal := range cold.enumeration {
-		if literal.Canonical == canonical {
+		if literal.canonical == canonical {
 			return true, true
 		}
 	}
@@ -70,78 +70,8 @@ func (publishedSimpleValueMetadataReader) simpleValueUnsupported(err error) bool
 	return xsderrors.IsUnsupported(err)
 }
 
-func (r publishedSimpleValueMetadataReader) rawSimpleValueType(id SimpleTypeID) (RawSimpleValueType, bool) {
-	route, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id)
-	if !ok {
-		return RawSimpleValueType{}, false
-	}
-	cold, ok := r.runtime.SimpleValueCold.read(id)
-	if !ok {
-		return RawSimpleValueType{}, false
-	}
-	if cold == nil && (route.facets != 0 || route.variety == SimpleVarietyUnion) {
-		return RawSimpleValueType{}, false
-	}
-	read := RawSimpleValueType{
-		DecimalMinInclusive: route.minInclusive,
-		DecimalMaxInclusive: route.maxInclusive,
-		ListItem:            route.listItem,
-		Facets:              route.facets,
-		Variety:             route.variety,
-		Primitive:           route.primitive,
-		Builtin:             route.builtin,
-		Whitespace:          route.whitespace,
-		Identity:            route.identity,
-		Fast:                route.fast,
-		RawBypass:           route.rawBypass,
-	}
-	if cold != nil {
-		read.StringPatterns = cold.facets.Patterns
-		read.LengthFacets = lengthFacetValues(cold.facets)
-	}
-	return read, true
-}
-
-func (r publishedSimpleValueMetadataReader) rawSimpleValueUnionMemberCount(id SimpleTypeID) (int, bool) {
-	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
-		return 0, false
-	}
-	cold, ok := r.runtime.SimpleValueCold.read(id)
-	if !ok || cold == nil || len(cold.union) == 0 {
-		return 0, false
-	}
-	return len(cold.union), true
-}
-
-func (r publishedSimpleValueMetadataReader) rawSimpleValueUnionMember(id SimpleTypeID, index int) (SimpleTypeID, bool) {
-	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
-		return NoSimpleType, false
-	}
-	cold, ok := r.runtime.SimpleValueCold.read(id)
-	if !ok || cold == nil || index < 0 || index >= len(cold.union) {
-		return NoSimpleType, false
-	}
-	return cold.union[index], true
-}
-
-func (r publishedSimpleValueMetadataReader) rawSimpleValueStringEnumeration(id SimpleTypeID, normalized []byte) (bool, bool) {
-	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
-		return false, false
-	}
-	cold, ok := r.runtime.SimpleValueCold.read(id)
-	if !ok || cold == nil {
-		return false, false
-	}
-	for _, literal := range cold.enumeration {
-		if byteStringEqual(literal.Canonical, normalized) {
-			return true, true
-		}
-	}
-	return false, true
-}
-
 func (rt *Schema) validatePublishedRawSimpleValue(id SimpleTypeID, raw []byte) (bool, error) {
-	return validateRawSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, raw)
+	return validateResolvedRawSimpleValue(rawSimpleValueResolver{runtime: &rt.runtime}, id, raw)
 }
 
 func validateRawStringLength(raw []byte, whitespace WhitespaceMode, facets LengthFacetValues) error {

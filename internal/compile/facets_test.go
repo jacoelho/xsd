@@ -1,13 +1,77 @@
 package compile
 
 import (
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestDerivedSimpleTypeSharesImmutableInheritedStorage(t *testing.T) {
+	t.Parallel()
+
+	members := []runtime.SimpleTypeID{1, 2}
+	enumeration := []runtime.CompiledLiteral{{Canonical: "inherited"}}
+	base := runtime.SimpleType{
+		Union:      members,
+		Base:       runtime.NoSimpleType,
+		ListItem:   runtime.NoSimpleType,
+		Variety:    runtime.SimpleVarietyUnion,
+		Primitive:  runtime.PrimitiveString,
+		Whitespace: runtime.WhitespaceCollapse,
+		Facets: runtime.FacetSet{
+			Enumeration: enumeration,
+			Present:     runtime.FacetEnumeration,
+		},
+	}
+	derived := derivedSimpleType(base, 0, runtime.QName{})
+	if &derived.Union[0] != &base.Union[0] {
+		t.Fatal("derived restriction cloned immutable union storage")
+	}
+	if &derived.Facets.Enumeration[0] != &base.Facets.Enumeration[0] {
+		t.Fatal("derived restriction cloned immutable enumeration storage")
+	}
+
+	c := compiler{rt: runtime.SchemaBuild{SimpleTypes: []runtime.SimpleType{base}}}
+	pattern := &rawNode{
+		Name: xml.Name{Space: runtime.XSDNamespaceURI, Local: vocab.XSDFacetPattern},
+		Attr: []xml.Attr{{Name: xml.Name{Local: vocab.XSDAttrValue}, Value: "[A-Z]+"}},
+	}
+	if err := c.compileFacets(&rawNode{Children: []*rawNode{pattern}}, &derived, 0, 0); err != nil {
+		t.Fatalf("compileFacets() error = %v", err)
+	}
+	if &derived.Union[0] != &base.Union[0] {
+		t.Fatal("facet compilation detached immutable union storage")
+	}
+	if &base.Facets.Enumeration[0] != &enumeration[0] || base.Facets.Present != runtime.FacetEnumeration {
+		t.Fatal("facet compilation mutated base facets")
+	}
+	if derived.Facets.Present&runtime.FacetPattern == 0 {
+		t.Fatal("pattern facet was not compiled")
+	}
+}
+
+func TestCompiledFacetStatePreservesUnmodifiedEnumeration(t *testing.T) {
+	t.Parallel()
+
+	enumeration := []runtime.CompiledLiteral{{Canonical: "a"}}
+	base := runtime.SimpleType{Facets: runtime.FacetSet{
+		Enumeration: enumeration,
+		Present:     runtime.FacetEnumeration,
+	}}
+
+	derived := base
+	var scalarStep compiledFacetState
+	scalarStep.beginStep(&derived)
+	scalarStep.apply(&derived)
+	if &derived.Facets.Enumeration[0] != &base.Facets.Enumeration[0] {
+		t.Fatal("unmodified enumeration storage was cloned")
+	}
+}
 
 func TestParseSizeFacetValue(t *testing.T) {
 	t.Parallel()

@@ -70,10 +70,7 @@ func (c *xmlWellFormedChecker) check(r io.Reader) error {
 }
 
 func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, values *stream.Cache) error {
-	translated, err := c.doc.PrepareStart(se, values, xmlDocumentLimits{
-		depth:      c.maxDepth,
-		attributes: c.maxAttributes,
-	}, line, col)
+	translated, err := c.doc.PrepareStart(se, values, c.maxDepth, line, col)
 	if err != nil {
 		return err
 	}

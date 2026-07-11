@@ -105,81 +105,172 @@ type ContentFrame struct {
 	allLen int
 }
 
-// CompiledModelView is a read-only validation view over a frozen compiled
-// content model.
-type CompiledModelView struct {
-	model *CompiledModel
+type compiledModelRead struct {
+	Rows      []compiledModelRowRead
+	All       []compiledAllTermRead
+	Start     uint32
+	AllBitLen uint32
+	Kind      CompiledModelKind
+	Empty     bool
 }
 
-// NewBorrowedCompiledModelViews returns validation views over immutable compiled
-// content models owned by a published schema.
-func NewBorrowedCompiledModelViews(models []CompiledModel) []CompiledModelView {
-	out := make([]CompiledModelView, len(models))
+type compiledModelRowRead struct {
+	Edges         []compiledModelEdgeRead
+	Index         DFARowIndex
+	CountParticle compiledParticleRead
+	Min           uint32
+	Max           uint32
+	Accept        bool
+	Counted       bool
+	Unbounded     bool
+}
+
+type compiledModelEdgeRead struct {
+	Particle compiledParticleRead
+	To       uint32
+}
+
+type compiledAllTermRead struct {
+	Particle compiledParticleRead
+	Required bool
+}
+
+type compiledParticleRead struct {
+	Element  ElementID
+	Wildcard WildcardID
+	Kind     ParticleKind
+}
+
+func newCompiledParticleRead(p Particle) compiledParticleRead {
+	return compiledParticleRead{Element: p.Element, Wildcard: p.Wildcard, Kind: p.Kind}
+}
+
+func newCompiledModelReads(models []CompiledModel) []compiledModelRead {
+	rowCount, edgeCount, allCount := compiledModelReadCounts(models)
+	reads := make([]compiledModelRead, len(models))
+	rows := make([]compiledModelRowRead, rowCount)
+	edges := make([]compiledModelEdgeRead, edgeCount)
+	all := make([]compiledAllTermRead, allCount)
+	rowOffset, edgeOffset, allOffset := 0, 0, 0
+	for i, model := range models {
+		var modelRows []compiledModelRowRead
+		if len(model.Rows) != 0 {
+			end := rowOffset + len(model.Rows)
+			modelRows = rows[rowOffset:end:end]
+			rowOffset = end
+		}
+		for j, row := range model.Rows {
+			var rowEdges []compiledModelEdgeRead
+			if len(row.Edges) != 0 {
+				end := edgeOffset + len(row.Edges)
+				rowEdges = edges[edgeOffset:end:end]
+				edgeOffset = end
+				for k, edge := range row.Edges {
+					rowEdges[k] = compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
+				}
+			}
+			modelRows[j] = compiledModelRowRead{
+				Edges:         rowEdges,
+				Index:         row.Index,
+				CountParticle: newCompiledParticleRead(row.CountParticle),
+				Min:           row.Min,
+				Max:           row.Max,
+				Accept:        row.Accept,
+				Counted:       row.Counted,
+				Unbounded:     row.Unbounded,
+			}
+		}
+		var modelAll []compiledAllTermRead
+		if len(model.All) != 0 {
+			end := allOffset + len(model.All)
+			modelAll = all[allOffset:end:end]
+			allOffset = end
+			for j, term := range model.All {
+				modelAll[j] = compiledAllTermRead{Particle: newCompiledParticleRead(term.Particle), Required: term.Required}
+			}
+		}
+		reads[i] = compiledModelRead{
+			Rows:      modelRows,
+			All:       modelAll,
+			Start:     model.Start,
+			AllBitLen: model.AllBitLen,
+			Kind:      model.Kind,
+			Empty:     model.Empty,
+		}
+	}
+	return reads
+}
+
+func compiledModelReadCounts(models []CompiledModel) (rows, edges, all int) {
 	for i := range models {
-		out[i] = CompiledModelView{model: &models[i]}
+		rows = addCompiledModelReadCount(rows, len(models[i].Rows))
+		all = addCompiledModelReadCount(all, len(models[i].All))
+		for j := range models[i].Rows {
+			edges = addCompiledModelReadCount(edges, len(models[i].Rows[j].Edges))
+		}
 	}
-	return out
+	return rows, edges, all
 }
 
-var emptyCompiledModelViewModel CompiledModel
-
-// EqualCompiledModelViewProjection reports whether view matches the validation
-// view derived from model.
-func EqualCompiledModelViewProjection(view CompiledModelView, model *CompiledModel) bool {
-	if model == nil {
-		return EqualCompiledModels(*view.compiled(), CompiledModel{})
+func addCompiledModelReadCount(total, count int) int {
+	if count > math.MaxInt-total {
+		panic("compiled model read projection size exceeds int capacity")
 	}
-	return EqualCompiledModels(*view.compiled(), *model)
+	return total + count
 }
 
-// EqualCompiledModelViewProjectionTable reports whether views match validation
-// views derived from models.
-func EqualCompiledModelViewProjectionTable(views []CompiledModelView, models []CompiledModel) bool {
-	if len(views) != len(models) {
+func validateCompiledModelReadProjectionTable(reads []compiledModelRead, models []CompiledModel) error {
+	if len(reads) != len(models) {
+		return errors.New("compiled model read projection count does not match compiled models")
+	}
+	for i := range reads {
+		read, model := reads[i], models[i]
+		if read.Start != model.Start || read.AllBitLen != model.AllBitLen ||
+			read.Kind != model.Kind || read.Empty != model.Empty ||
+			!equalCompiledModelRowReadsForSource(read.Rows, model.Rows) ||
+			!equalCompiledAllTermReadsForSource(read.All, model.All) {
+			return errors.New("compiled model read projection does not match compiled model")
+		}
+	}
+	return nil
+}
+
+func equalCompiledModelRowReadsForSource(reads []compiledModelRowRead, rows []CompiledModelRow) bool {
+	if len(reads) != len(rows) {
 		return false
 	}
-	for i := range views {
-		if !EqualCompiledModelViewProjection(views[i], &models[i]) {
+	for i, read := range reads {
+		row := rows[i]
+		if read.Min != row.Min || read.Max != row.Max || read.Accept != row.Accept ||
+			read.Counted != row.Counted || read.Unbounded != row.Unbounded ||
+			read.CountParticle != newCompiledParticleRead(row.CountParticle) ||
+			!equalDFARowIndex(read.Index, row.Index) || len(read.Edges) != len(row.Edges) {
+			return false
+		}
+		for j, edge := range read.Edges {
+			source := row.Edges[j]
+			if edge.To != source.To || edge.Particle != newCompiledParticleRead(source.Particle) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func equalCompiledAllTermReadsForSource(reads []compiledAllTermRead, terms []CompiledAllTerm) bool {
+	if len(reads) != len(terms) {
+		return false
+	}
+	for i, read := range reads {
+		if read.Required != terms[i].Required || read.Particle != newCompiledParticleRead(terms[i].Particle) {
 			return false
 		}
 	}
 	return true
 }
 
-// ValidateCompiledModelViewProjectionTable validates compiled-model read
-// projections against frozen compiled model records.
-func ValidateCompiledModelViewProjectionTable(views []CompiledModelView, models []CompiledModel) error {
-	if len(views) != len(models) {
-		return errors.New("compiled model view projection count does not match compiled models")
-	}
-	if !EqualCompiledModelViewProjectionTable(views, models) {
-		return errors.New("compiled model view projection does not match compiled model")
-	}
-	return nil
-}
-
-// CompiledModelViewByID returns a validation compiled-model view from the
-// frozen compiled-model view projection table.
-func CompiledModelViewByID(views []CompiledModelView, id ContentModelID) (CompiledModelView, bool) {
-	if !ValidContentModelID(id, len(views)) {
-		return CompiledModelView{}, false
-	}
-	return views[id], true
-}
-
-func (v CompiledModelView) compiled() *CompiledModel {
-	if v.model == nil {
-		return &emptyCompiledModelViewModel
-	}
-	return v.model
-}
-
-func (v CompiledModelView) start() uint32 {
-	return v.compiled().Start
-}
-
-func (v CompiledModelView) allBitLen() uint32 {
-	return v.compiled().AllBitLen
+func sameCompiledParticleRead(a, b compiledParticleRead) bool {
+	return a == b
 }
 
 // ContentState returns the initial mutable content-model state for the frame.
@@ -206,8 +297,8 @@ func (rt *Schema) ContentFrame(typ TypeID) ContentFrame {
 		return frame
 	}
 	model := rt.runtime.CompiledModels[modelID]
-	frame.state.state = model.start()
-	frame.allLen = int(model.allBitLen())
+	frame.state.state = model.Start
+	frame.allLen = int(model.AllBitLen)
 	return frame
 }
 
@@ -223,7 +314,7 @@ func (rt *Schema) AdvanceContent(st *ContentState, in ContentInput, scratch *Con
 	if !ValidContentModelID(st.model, len(rt.runtime.CompiledModels)) {
 		return NoContentMatch(), ContentAdvanceInvalid
 	}
-	model := rt.runtime.CompiledModels[st.model].compiled()
+	model := &rt.runtime.CompiledModels[st.model]
 	switch model.Kind {
 	case CompiledModelAny:
 		return rt.matchPublishedAnyContent(in), ContentAdvanceMatched
@@ -244,7 +335,7 @@ func (rt *Schema) CompleteContent(st ContentState, scratch *ContentScratch) Cont
 	if !ValidContentModelID(st.model, len(rt.runtime.CompiledModels)) {
 		return ContentCompletionInvalid
 	}
-	model := rt.runtime.CompiledModels[st.model].compiled()
+	model := &rt.runtime.CompiledModels[st.model]
 	switch model.Kind {
 	case CompiledModelEmpty, CompiledModelAny:
 		return ContentCompletionComplete
@@ -266,7 +357,7 @@ func (rt *Schema) matchPublishedAnyContent(in ContentInput) ContentMatch {
 	return ContentMatch{Element: NoElement}
 }
 
-func (rt *Schema) advancePublishedAllContent(model *CompiledModel, in ContentInput, scratch *ContentScratch) (ContentMatch, ContentAdvanceStatus) {
+func (rt *Schema) advancePublishedAllContent(model *compiledModelRead, in ContentInput, scratch *ContentScratch) (ContentMatch, ContentAdvanceStatus) {
 	for i, term := range model.All {
 		seen, valid := scratch.AllSeen(i)
 		if !valid {
@@ -290,7 +381,7 @@ func (rt *Schema) advancePublishedAllContent(model *CompiledModel, in ContentInp
 	return NoContentMatch(), ContentAdvanceNoMatch
 }
 
-func completePublishedAllContent(model *CompiledModel, scratch *ContentScratch) ContentCompletionStatus {
+func completePublishedAllContent(model *compiledModelRead, scratch *ContentScratch) ContentCompletionStatus {
 	empty := true
 	missingRequired := false
 	for i, term := range model.All {
@@ -315,7 +406,7 @@ func completePublishedAllContent(model *CompiledModel, scratch *ContentScratch) 
 	return ContentCompletionComplete
 }
 
-func (rt *Schema) advancePublishedDFAContent(st *ContentState, model *CompiledModel, in ContentInput) (ContentMatch, ContentAdvanceStatus) {
+func (rt *Schema) advancePublishedDFAContent(st *ContentState, model *compiledModelRead, in ContentInput) (ContentMatch, ContentAdvanceStatus) {
 	if !ValidUint32Index(st.state, len(model.Rows)) {
 		return NoContentMatch(), ContentAdvanceInvalid
 	}
@@ -339,7 +430,7 @@ func (rt *Schema) advancePublishedDFAContent(st *ContentState, model *CompiledMo
 	return NoContentMatch(), ContentAdvanceNoMatch
 }
 
-func completePublishedDFAContent(st ContentState, model *CompiledModel) ContentCompletionStatus {
+func completePublishedDFAContent(st ContentState, model *compiledModelRead) ContentCompletionStatus {
 	if !ValidUint32Index(st.state, len(model.Rows)) {
 		return ContentCompletionInvalid
 	}
@@ -350,7 +441,7 @@ func completePublishedDFAContent(st ContentState, model *CompiledModel) ContentC
 	return ContentCompletionIncomplete
 }
 
-func (rt *Schema) advancePublishedIndexedDFAContent(st *ContentState, model *CompiledModel, row *CompiledModelRow, idx DFARowIndex, in ContentInput) (ContentMatch, ContentAdvanceStatus) {
+func (rt *Schema) advancePublishedIndexedDFAContent(st *ContentState, model *compiledModelRead, row *compiledModelRowRead, idx DFARowIndex, in ContentInput) (ContentMatch, ContentAdvanceStatus) {
 	elemPos := -1
 	if in.Name.Known {
 		if pos, ok := idx.NameToEdge[in.Name.Name]; ok {
@@ -385,7 +476,7 @@ func (rt *Schema) advancePublishedIndexedDFAContent(st *ContentState, model *Com
 	}
 }
 
-func (rt *Schema) matchPublishedDirectParticle(p Particle, in ContentInput) (ContentMatch, bool, bool) {
+func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in ContentInput) (ContentMatch, bool, bool) {
 	switch p.Kind {
 	case ParticleElement:
 		if !ValidElementID(p.Element, len(rt.runtime.ElementNames)) {
@@ -441,12 +532,12 @@ func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput
 	return NoContentMatch(), true
 }
 
-func advancePublishedDFAState(st *ContentState, model *CompiledModel, edge CompiledModelEdge) bool {
+func advancePublishedDFAState(st *ContentState, model *compiledModelRead, edge compiledModelEdgeRead) bool {
 	to := edge.To
 	from := &model.Rows[st.state]
 	next := &model.Rows[to]
 	count := uint32(0)
-	if from.Counted && to == st.state && SameCompiledParticle(edge.Particle, from.CountParticle) {
+	if from.Counted && to == st.state && sameCompiledParticleRead(edge.Particle, from.CountParticle) {
 		if !from.Unbounded && st.count >= from.Max {
 			return false
 		}
@@ -458,7 +549,7 @@ func advancePublishedDFAState(st *ContentState, model *CompiledModel, edge Compi
 		if from.Counted && st.count < from.Min {
 			return false
 		}
-		if next.Counted && SameCompiledParticle(edge.Particle, next.CountParticle) {
+		if next.Counted && sameCompiledParticleRead(edge.Particle, next.CountParticle) {
 			count = 1
 		}
 	}

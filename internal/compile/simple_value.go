@@ -5,16 +5,37 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+type simpleValueFacetCache struct {
+	projector runtime.SimpleValueFacetProjector
+	index     []uint32
+	values    []runtime.SimpleValueFacets
+}
+
+func (c *simpleValueFacetCache) read(types []runtime.SimpleType, id runtime.SimpleTypeID) (runtime.SimpleValueFacets, bool) {
+	if !runtime.ValidSimpleTypeID(id, len(types)) || types[id].Missing {
+		return runtime.SimpleValueFacets{}, false
+	}
+	if missing := len(types) - len(c.index); missing > 0 {
+		c.index = append(c.index, make([]uint32, missing)...)
+	}
+	if slot := c.index[id]; slot != 0 {
+		return c.values[slot-1], true
+	}
+	facets := types[id].Facets
+	c.values = append(c.values, c.projector.Project(facets))
+	c.index[id] = uint32(len(c.values)) //nolint:gosec // the compiler bounds simple-type IDs to uint32.
+	return c.values[len(c.values)-1], true
+}
+
 func (c *compiler) validateSimpleValue(id runtime.SimpleTypeID, lexical string, resolve runtime.ResolveQNameParts, needs runtime.SimpleValueNeed) (runtime.SimpleValue, error) {
 	cb := c.simpleValues
 	if cb.Type == nil {
 		cb = runtime.SimpleValueCallbacks{
-			Type:                     c.simpleValueType,
-			Facets:                   c.simpleValueFacets,
-			ForEachStringEnumeration: c.forEachStringEnumeration,
-			StringEnumeration:        c.stringEnumerationContains,
-			Notation:                 c.notationDeclared,
-			Unsupported:              xsderrors.IsUnsupported,
+			Type:              c.simpleValueType,
+			Facets:            c.simpleValueFacets,
+			StringEnumeration: c.stringEnumerationContains,
+			Notation:          c.notationDeclared,
+			Unsupported:       xsderrors.IsUnsupported,
 		}
 		c.simpleValues = cb
 	}
@@ -31,23 +52,7 @@ func (c *compiler) simpleValueType(id runtime.SimpleTypeID) (runtime.SimpleValue
 }
 
 func (c *compiler) simpleValueFacets(id runtime.SimpleTypeID) (runtime.SimpleValueFacets, bool) {
-	st, ok := c.rt.UsableSimpleType(id)
-	if !ok {
-		return runtime.SimpleValueFacets{}, false
-	}
-	return runtime.SimpleValueFacetsForFacetSet(st.Facets), true
-}
-
-func (c *compiler) forEachStringEnumeration(id runtime.SimpleTypeID, yield func(string) bool) {
-	st, ok := c.rt.UsableSimpleType(id)
-	if !ok {
-		return
-	}
-	for _, lit := range st.Facets.Enumeration {
-		if !yield(lit.Canonical) {
-			return
-		}
-	}
+	return c.simpleFacetCache.read(c.rt.SimpleTypes, id)
 }
 
 func (c *compiler) stringEnumerationContains(id runtime.SimpleTypeID, canonical string) (bool, bool) {

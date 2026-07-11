@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -40,204 +39,211 @@ func TestValidateRawStringLengthUsesNormalizedCodePointCount(t *testing.T) {
 	}
 }
 
-type rawSimpleValueCallbackStub struct {
-	types                    map[SimpleTypeID]RawSimpleValueType
-	unions                   map[SimpleTypeID][]SimpleTypeID
-	enumerations             map[SimpleTypeID][]string
-	calls                    []string
-	typeCalls                []SimpleTypeID
-	missingUnionMemberAccess bool
+type rawSimpleValueFixture struct {
+	routes       map[SimpleTypeID]simpleValueRouteRead
+	unions       map[SimpleTypeID][]SimpleTypeID
+	enumerations map[SimpleTypeID][]string
+	patterns     map[SimpleTypeID]*stringPatternStepRead
 }
 
-func (s *rawSimpleValueCallbackStub) rawSimpleValueType(id SimpleTypeID) (RawSimpleValueType, bool) {
-	s.typeCalls = append(s.typeCalls, id)
-	typ, ok := s.types[id]
-	return typ, ok
+func (f rawSimpleValueFixture) validate(id SimpleTypeID, raw []byte) (bool, error) {
+	resolver := f.resolver()
+	return validateResolvedRawSimpleValue(resolver, id, raw)
 }
 
-func (s *rawSimpleValueCallbackStub) rawSimpleValueUnionMemberCount(id SimpleTypeID) (int, bool) {
-	if s.missingUnionMemberAccess {
-		return 1, true
+func (f rawSimpleValueFixture) resolver() rawSimpleValueResolver {
+	count := 0
+	for id := range f.routes {
+		count = max(count, int(id)+1)
 	}
-	members, ok := s.unions[id]
-	return len(members), ok
-}
-
-func (s *rawSimpleValueCallbackStub) rawSimpleValueUnionMember(id SimpleTypeID, index int) (SimpleTypeID, bool) {
-	if s.missingUnionMemberAccess {
-		return NoSimpleType, false
+	routes := make([]simpleValueRouteRead, count)
+	cold := simpleValueColdReadTable{index: make([]uint32, count)}
+	for i := range cold.index {
+		cold.index[i] = invalidID
 	}
-	members, ok := s.unions[id]
-	if !ok || index < 0 || index >= len(members) {
-		return NoSimpleType, false
-	}
-	return members[index], true
-}
-
-func (s *rawSimpleValueCallbackStub) rawSimpleValueStringEnumeration(id SimpleTypeID, normalized []byte) (bool, bool) {
-	for _, canonical := range s.enumerations[id] {
-		if byteStringEqual(canonical, normalized) {
-			return true, true
+	for id, route := range f.routes {
+		route.present = true
+		typ := route.simpleValueType()
+		route.rawBypass = SimpleValueBypass(simpleValueAtomicBypassShape(&typ, 0))
+		routes[id] = route
+		if route.facets == 0 && route.variety != SimpleVarietyUnion {
+			continue
 		}
+		read := simpleValueColdRead{union: f.unions[id]}
+		for _, canonical := range f.enumerations[id] {
+			read.enumeration = append(read.enumeration, simpleValueLiteralRead{canonical: canonical})
+		}
+		read.facets = simpleValueFacetRead{patterns: f.patterns[id], present: route.facets}
+		cold.index[id] = uint32(len(cold.values)) //nolint:gosec // Test fixture size is bounded by its inline route table.
+		cold.values = append(cold.values, read)
 	}
-	return false, true
+	runtime := schemaRuntime{SimpleValueRoutes: routes, SimpleValueCold: cold}
+	return rawSimpleValueResolver{runtime: &runtime}
+}
+
+func rawSimpleValueTestPatterns(groups [][]StringPattern) *stringPatternStepRead {
+	var steps stringPatternSteps
+	for _, patterns := range groups {
+		steps = appendStringPatternStep(steps, patterns)
+	}
+	types := []SimpleType{{Facets: FacetSet{patterns: steps}}}
+	return newStringPatternReadPoolForSimpleTypes(types)[steps.tail]
 }
 
 func TestValidateRawSimpleValueAtomicDispatch(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		input  string
-		typ    RawSimpleValueType
-		wantOK bool
+		name     string
+		input    string
+		typ      simpleValueRouteRead
+		patterns *stringPatternStepRead
+		wantOK   bool
 	}{
 		{
 			name: "accept string",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveString,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveString,
 			},
 			wantOK: true,
 		},
 		{
 			name: "string patterns",
-			typ: RawSimpleValueType{
-				Facets: FacetPattern,
-				StringPatterns: []StringPatternGroup{{
-					Patterns: []StringPattern{
-						NewFastStringPattern("raw", CompileSimpleStringPattern("raw")),
-					},
-				}},
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveString,
+			typ: simpleValueRouteRead{
+				facets:    FacetPattern,
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveString,
 			},
+			patterns: rawSimpleValueTestPatterns([][]StringPattern{{
+				NewFastStringPattern(CompileSimpleStringPattern("raw")),
+			}}),
 			wantOK: true,
 		},
 		{
 			name: "string enumeration",
-			typ: RawSimpleValueType{
-				Facets:    FacetEnumeration,
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveString,
+			typ: simpleValueRouteRead{
+				facets:    FacetEnumeration,
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveString,
 			},
 			wantOK: true,
 		},
 		{
 			name: "integer fast path",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveDecimal,
-				Builtin:   BuiltinValidationInteger,
-				Fast:      SimpleFastInt,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveDecimal,
+				builtin:   BuiltinValidationInteger,
+				fast:      SimpleFastInt,
 			},
 			input:  "1",
 			wantOK: true,
 		},
 		{
 			name: "decimal validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveDecimal,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveDecimal,
 			},
 			input:  "1.0",
 			wantOK: true,
 		},
 		{
 			name: "decimal unsupported facet falls back",
-			typ: RawSimpleValueType{
-				Facets:    FacetTotalDigits,
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveDecimal,
+			typ: simpleValueRouteRead{
+				facets:    FacetTotalDigits,
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveDecimal,
 			},
 		},
 		{
 			name: "boolean validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveBoolean,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveBoolean,
 			},
 			input:  "true",
 			wantOK: true,
 		},
 		{
 			name: "date validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveDate,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveDate,
 			},
 			input:  "2006-01-02",
 			wantOK: true,
 		},
 		{
 			name: "anyURI validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveAnyURI,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveAnyURI,
 			},
 			input:  "https://example.test/a%20b",
 			wantOK: true,
 		},
 		{
 			name: "hexBinary validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveHexBinary,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveHexBinary,
 			},
 			input:  "0a2F",
 			wantOK: true,
 		},
 		{
 			name: "base64Binary validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveBase64Binary,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveBase64Binary,
 			},
 			input:  "AQID",
 			wantOK: true,
 		},
 		{
 			name: "float validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveFloat,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveFloat,
 			},
 			input:  "1.25",
 			wantOK: true,
 		},
 		{
 			name: "double validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveDouble,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveDouble,
 			},
 			input:  "1E9999",
 			wantOK: true,
 		},
 		{
 			name: "duration validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveDuration,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveDuration,
 			},
 			input:  "P1Y2M3DT4H5M6.7S",
 			wantOK: true,
 		},
 		{
 			name: "temporal validator",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveDateTime,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveDateTime,
 			},
 			input:  "2026-05-18T24:00:00Z",
 			wantOK: true,
 		},
 		{
 			name: "unsupported builtin",
-			typ: RawSimpleValueType{
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveString,
-				Builtin:   BuiltinValidationName,
+			typ: simpleValueRouteRead{
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveString,
+				builtin:   BuiltinValidationName,
 			},
 		},
 	}
@@ -245,15 +251,16 @@ func TestValidateRawSimpleValueAtomicDispatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			stub := &rawSimpleValueCallbackStub{
-				types:        map[SimpleTypeID]RawSimpleValueType{1: tt.typ},
+			stub := rawSimpleValueFixture{
+				routes:       map[SimpleTypeID]simpleValueRouteRead{1: tt.typ},
 				enumerations: map[SimpleTypeID][]string{1: {"raw"}},
+				patterns:     map[SimpleTypeID]*stringPatternStepRead{1: tt.patterns},
 			}
 			input := tt.input
 			if input == "" {
 				input = "raw"
 			}
-			ok, err := validateRawSimpleValue(stub, 1, []byte(input))
+			ok, err := stub.validate(1, []byte(input))
 			if err != nil {
 				t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 			}
@@ -267,25 +274,25 @@ func TestValidateRawSimpleValueAtomicDispatch(t *testing.T) {
 func TestValidateRawSimpleValueStringExecutors(t *testing.T) {
 	t.Parallel()
 
-	pattern := NewFastStringPattern("ok", CompileSimpleStringPattern("ok"))
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
+	pattern := NewFastStringPattern(CompileSimpleStringPattern("ok"))
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
 			1: {
-				Facets:         FacetPattern,
-				StringPatterns: []StringPatternGroup{{Patterns: []StringPattern{pattern}}},
-				Variety:        SimpleVarietyAtomic,
-				Primitive:      PrimitiveString,
+				facets:    FacetPattern,
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveString,
 			},
 			2: {
-				Facets:    FacetEnumeration,
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveString,
+				facets:    FacetEnumeration,
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveString,
 			},
 		},
 		enumerations: map[SimpleTypeID][]string{2: {"ok"}},
+		patterns:     map[SimpleTypeID]*stringPatternStepRead{1: rawSimpleValueTestPatterns([][]StringPattern{{pattern}})},
 	}
 
-	ok, err := validateRawSimpleValue(stub, 1, []byte("bad"))
+	ok, err := stub.validate(1, []byte("bad"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -293,7 +300,7 @@ func TestValidateRawSimpleValueStringExecutors(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want pattern facet failed", err)
 	}
 
-	ok, err = validateRawSimpleValue(stub, 2, []byte("bad"))
+	ok, err = stub.validate(2, []byte("bad"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -302,118 +309,76 @@ func TestValidateRawSimpleValueStringExecutors(t *testing.T) {
 	}
 }
 
-func TestValidateRawStringPatternsGroups(t *testing.T) {
+func TestValidateStringPatternStepsGroups(t *testing.T) {
 	t.Parallel()
 
-	a := NewFastStringPattern("a", CompileSimpleStringPattern("a"))
-	b := NewFastStringPattern("b", CompileSimpleStringPattern("b"))
-	digit := NewFastStringPattern(`\d`, CompileSimpleStringPattern(`\d`))
-	groups := []StringPatternGroup{
-		{Patterns: []StringPattern{a, b}},
-		{Patterns: []StringPattern{digit}},
+	a := NewFastStringPattern(CompileSimpleStringPattern("a"))
+	b := NewFastStringPattern(CompileSimpleStringPattern("b"))
+	digit := NewFastStringPattern(CompileSimpleStringPattern(`\d`))
+	groups := [][]StringPattern{{a, b}, {digit}}
+	steps := newTestStringPatternSteps(groups)
+	if err := validateStringPatternSteps(steps, "1"); err == nil || err.Error() != "pattern facet failed" {
+		t.Fatalf("validateStringPatternSteps() error = %v, want pattern facet failed", err)
+	}
+	if err := validateStringPatternSteps(newTestStringPatternSteps(groups[:1]), "b"); err != nil {
+		t.Fatalf("validateStringPatternSteps() error = %v", err)
 	}
 
-	if err := ValidateRawStringPatterns(groups, []byte("1")); err == nil || err.Error() != "pattern facet failed" {
-		t.Fatalf("ValidateRawStringPatterns() error = %v, want pattern facet failed", err)
+	read := newStringPatternReadPoolForSimpleTypes([]SimpleType{{Facets: FacetSet{patterns: steps}}})[steps.tail]
+	if err := validateRawStringPatternStepReads(read, []byte("1")); err == nil || err.Error() != "pattern facet failed" {
+		t.Fatalf("validateRawStringPatternStepReads() error = %v, want pattern facet failed", err)
 	}
-	if err := ValidateRawStringPatterns(groups[:1], []byte("b")); err != nil {
-		t.Fatalf("ValidateRawStringPatterns() error = %v", err)
-	}
-}
-
-func TestValidateStringPatternsGroups(t *testing.T) {
-	t.Parallel()
-
-	a := NewFastStringPattern("a", CompileSimpleStringPattern("a"))
-	b := NewFastStringPattern("b", CompileSimpleStringPattern("b"))
-	digit := NewFastStringPattern(`\d`, CompileSimpleStringPattern(`\d`))
-	groups := []StringPatternGroup{
-		{Patterns: []StringPattern{a, b}},
-		{Patterns: []StringPattern{digit}},
-	}
-
-	if err := ValidateStringPatterns(groups, "1"); err == nil || err.Error() != "pattern facet failed" {
-		t.Fatalf("ValidateStringPatterns() error = %v, want pattern facet failed", err)
-	}
-	if err := ValidateStringPatterns(groups[:1], "b"); err != nil {
-		t.Fatalf("ValidateStringPatterns() error = %v", err)
-	}
-}
-
-func TestValidateStringEnumeration(t *testing.T) {
-	t.Parallel()
-
-	forEach := func(id SimpleTypeID, yield func(string) bool) {
-		if id != 1 {
-			t.Fatalf("id = %d, want 1", id)
-		}
-		for _, value := range []string{"a", "b"} {
-			if !yield(value) {
-				return
-			}
-		}
-	}
-	if err := ValidateStringEnumeration(1, forEach, "b"); err != nil {
-		t.Fatalf("ValidateStringEnumeration() error = %v", err)
-	}
-	if err := ValidateStringEnumeration(1, forEach, "c"); err == nil || err.Error() != "enumeration facet failed" {
-		t.Fatalf("ValidateStringEnumeration() error = %v, want enumeration facet failed", err)
-	}
-	if err := ValidateStringEnumeration(1, nil, "b"); !errors.Is(err, ErrSimpleValueMetadata) {
-		t.Fatalf("ValidateStringEnumeration() error = %v, want metadata sentinel", err)
+	base := newTestStringPatternSteps(groups[:1])
+	read = newStringPatternReadPoolForSimpleTypes([]SimpleType{{Facets: FacetSet{patterns: base}}})[base.tail]
+	if err := validateRawStringPatternStepReads(read, []byte("b")); err != nil {
+		t.Fatalf("validateRawStringPatternStepReads() error = %v", err)
 	}
 }
 
 func TestValidateRawSimpleValueListDispatch(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyList, ListItem: 2},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyList, listItem: 2},
 			2: {
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveString,
-				Builtin:   BuiltinValidationNMTOKEN,
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveString,
+				builtin:   BuiltinValidationNMTOKEN,
 			},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("a b"))
+	ok, err := stub.validate(1, []byte("a b"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
-	}
-	if got := strings.Join(stub.calls, ","); got != "" {
-		t.Fatalf("raw validator calls = %q", got)
 	}
 }
 
 func TestValidateRawSimpleValueNMTOKENListExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyList, ListItem: 2},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyList, listItem: 2},
 			2: {
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveString,
-				Builtin:   BuiltinValidationNMTOKEN,
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveString,
+				builtin:   BuiltinValidationNMTOKEN,
 			},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("good bad:name 1"))
+	ok, err := stub.validate(1, []byte("good bad:name 1"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("good <bad>"))
+	ok, err = stub.validate(1, []byte("good <bad>"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -425,54 +390,48 @@ func TestValidateRawSimpleValueNMTOKENListExecutor(t *testing.T) {
 func TestValidateRawSimpleValueFastIntExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
 			1: {
-				Variety:   SimpleVarietyAtomic,
-				Primitive: PrimitiveDecimal,
-				Builtin:   BuiltinValidationInteger,
-				Fast:      SimpleFastInt,
+				variety:   SimpleVarietyAtomic,
+				primitive: PrimitiveDecimal,
+				builtin:   BuiltinValidationInteger,
+				fast:      SimpleFastInt,
 			},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("2147483648"))
+	ok, err := stub.validate(1, []byte("2147483648"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
 	if err == nil || err.Error() != fastIntErrMaxInclusive {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want maxInclusive failure", err)
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 }
 
 func TestValidateRawSimpleValueDecimalExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
 			1: {
-				Facets:              FacetMinInclusive | FacetMaxInclusive,
-				DecimalMinInclusive: RawDecimalBound{Present: true, Int: "1"},
-				DecimalMaxInclusive: RawDecimalBound{Present: true, Int: "10", Frac: "5"},
-				Variety:             SimpleVarietyAtomic,
-				Primitive:           PrimitiveDecimal,
+				facets:       FacetMinInclusive | FacetMaxInclusive,
+				minInclusive: RawDecimalBound{Present: true, Int: "1"},
+				maxInclusive: RawDecimalBound{Present: true, Int: "10", Frac: "5"},
+				variety:      SimpleVarietyAtomic,
+				primitive:    PrimitiveDecimal,
 			},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("10.50"))
+	ok, err := stub.validate(1, []byte("10.50"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("0.99"))
+	ok, err = stub.validate(1, []byte("0.99"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -480,7 +439,7 @@ func TestValidateRawSimpleValueDecimalExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want minInclusive failure", err)
 	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("10.51"))
+	ok, err = stub.validate(1, []byte("10.51"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -492,23 +451,20 @@ func TestValidateRawSimpleValueDecimalExecutor(t *testing.T) {
 func TestValidateRawSimpleValueAnyURIExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveAnyURI},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyAtomic, primitive: PrimitiveAnyURI},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("https://example.test/a%20b"))
+	ok, err := stub.validate(1, []byte("https://example.test/a%20b"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("a^b"))
+	ok, err = stub.validate(1, []byte("a^b"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -516,7 +472,7 @@ func TestValidateRawSimpleValueAnyURIExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid anyURI", err)
 	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte(" a "))
+	ok, err = stub.validate(1, []byte(" a "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -528,23 +484,20 @@ func TestValidateRawSimpleValueAnyURIExecutor(t *testing.T) {
 func TestValidateRawSimpleValueHexBinaryExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveHexBinary},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyAtomic, primitive: PrimitiveHexBinary},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("0a2F"))
+	ok, err := stub.validate(1, []byte("0a2F"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("0g"))
+	ok, err = stub.validate(1, []byte("0g"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -556,23 +509,20 @@ func TestValidateRawSimpleValueHexBinaryExecutor(t *testing.T) {
 func TestValidateRawSimpleValueBase64BinaryExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBase64Binary},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyAtomic, primitive: PrimitiveBase64Binary},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("AQID"))
+	ok, err := stub.validate(1, []byte("AQID"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("AQI"))
+	ok, err = stub.validate(1, []byte("AQI"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -580,7 +530,7 @@ func TestValidateRawSimpleValueBase64BinaryExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid base64Binary", err)
 	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("A Q I D"))
+	ok, err = stub.validate(1, []byte("A Q I D"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -592,24 +542,21 @@ func TestValidateRawSimpleValueBase64BinaryExecutor(t *testing.T) {
 func TestValidateRawSimpleValueFloatExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveFloat},
-			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDouble},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyAtomic, primitive: PrimitiveFloat},
+			2: {variety: SimpleVarietyAtomic, primitive: PrimitiveDouble},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("1.25"))
+	ok, err := stub.validate(1, []byte("1.25"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err = validateRawSimpleValue(stub, 2, []byte("1E9999"))
+	ok, err = stub.validate(2, []byte("1E9999"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() overflow error = %v", err)
 	}
@@ -617,7 +564,7 @@ func TestValidateRawSimpleValueFloatExecutor(t *testing.T) {
 		t.Fatal("ValidateRawSimpleValue() overflow handled = false, want true")
 	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("+INF"))
+	ok, err = stub.validate(1, []byte("+INF"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -625,7 +572,7 @@ func TestValidateRawSimpleValueFloatExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid float", err)
 	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte(" 1 "))
+	ok, err = stub.validate(1, []byte(" 1 "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -637,23 +584,20 @@ func TestValidateRawSimpleValueFloatExecutor(t *testing.T) {
 func TestValidateRawSimpleValueDurationExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDuration},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyAtomic, primitive: PrimitiveDuration},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("P1Y2M3DT4H5M6.7S"))
+	ok, err := stub.validate(1, []byte("P1Y2M3DT4H5M6.7S"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("P"))
+	ok, err = stub.validate(1, []byte("P"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -661,7 +605,7 @@ func TestValidateRawSimpleValueDurationExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid duration", err)
 	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte(" P3D "))
+	ok, err = stub.validate(1, []byte(" P3D "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -673,15 +617,15 @@ func TestValidateRawSimpleValueDurationExecutor(t *testing.T) {
 func TestValidateRawSimpleValueTemporalExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDateTime},
-			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveTime},
-			3: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveGYearMonth},
-			4: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveGYear},
-			5: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveGMonthDay},
-			6: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveGDay},
-			7: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveGMonth},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyAtomic, primitive: PrimitiveDateTime},
+			2: {variety: SimpleVarietyAtomic, primitive: PrimitiveTime},
+			3: {variety: SimpleVarietyAtomic, primitive: PrimitiveGYearMonth},
+			4: {variety: SimpleVarietyAtomic, primitive: PrimitiveGYear},
+			5: {variety: SimpleVarietyAtomic, primitive: PrimitiveGMonthDay},
+			6: {variety: SimpleVarietyAtomic, primitive: PrimitiveGDay},
+			7: {variety: SimpleVarietyAtomic, primitive: PrimitiveGMonth},
 		},
 	}
 	for _, tt := range []struct {
@@ -696,7 +640,7 @@ func TestValidateRawSimpleValueTemporalExecutor(t *testing.T) {
 		{id: 6, input: "---31-14:00"},
 		{id: 7, input: "--12Z"},
 	} {
-		ok, err := validateRawSimpleValue(stub, tt.id, []byte(tt.input))
+		ok, err := stub.validate(tt.id, []byte(tt.input))
 		if err != nil {
 			t.Fatalf("ValidateRawSimpleValue(%q) error = %v", tt.input, err)
 		}
@@ -704,11 +648,8 @@ func TestValidateRawSimpleValueTemporalExecutor(t *testing.T) {
 			t.Fatalf("ValidateRawSimpleValue(%q) handled = false, want true", tt.input)
 		}
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err := validateRawSimpleValue(stub, 1, []byte("2026-05-18T24:00:00.1"))
+	ok, err := stub.validate(1, []byte("2026-05-18T24:00:00.1"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -716,7 +657,7 @@ func TestValidateRawSimpleValueTemporalExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid dateTime", err)
 	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte(" 2026-05-18T24:00:00Z "))
+	ok, err = stub.validate(1, []byte(" 2026-05-18T24:00:00Z "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
@@ -728,13 +669,13 @@ func TestValidateRawSimpleValueTemporalExecutor(t *testing.T) {
 func TestValidateRawSimpleValueBooleanExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBoolean},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyAtomic, primitive: PrimitiveBoolean},
 		},
 	}
 	for _, input := range []string{"true", "false", "1", "0"} {
-		ok, err := validateRawSimpleValue(stub, 1, []byte(input))
+		ok, err := stub.validate(1, []byte(input))
 		if err != nil {
 			t.Fatalf("ValidateRawSimpleValue(%q) error = %v", input, err)
 		}
@@ -742,45 +683,39 @@ func TestValidateRawSimpleValueBooleanExecutor(t *testing.T) {
 			t.Fatalf("ValidateRawSimpleValue(%q) handled = false, want true", input)
 		}
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("yes"))
+	ok, err := stub.validate(1, []byte("yes"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
 	if err == nil || err.Error() != "invalid boolean" {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid boolean", err)
 	}
-	ok, err = validateRawSimpleValue(stub, 1, []byte(" true "))
+	ok, err = stub.validate(1, []byte(" true "))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() whitespace fallback error = %v", err)
 	}
 	if ok {
 		t.Fatal("ValidateRawSimpleValue() handled = true, want whitespace fallback")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 }
 
 func TestValidateRawSimpleValueDateExecutor(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDate},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyAtomic, primitive: PrimitiveDate},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("2000-02-29"))
+	ok, err := stub.validate(1, []byte("2000-02-29"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("1900-02-29"))
+	ok, err = stub.validate(1, []byte("1900-02-29"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
@@ -788,7 +723,7 @@ func TestValidateRawSimpleValueDateExecutor(t *testing.T) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid date/time", err)
 	}
 
-	ok, err = validateRawSimpleValue(stub, 1, []byte("2000-02-29Z"))
+	ok, err = stub.validate(1, []byte("2000-02-29Z"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -800,8 +735,8 @@ func TestValidateRawSimpleValueDateExecutor(t *testing.T) {
 func TestValidateRawSimpleValueMissingType(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
+	stub := rawSimpleValueFixture{}
+	ok, err := stub.validate(1, []byte("raw"))
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
 	}
@@ -813,12 +748,12 @@ func TestValidateRawSimpleValueMissingType(t *testing.T) {
 func TestValidateRawSimpleValueInvalidVariety(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVariety(99)},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVariety(99)},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
+	ok, err := stub.validate(1, []byte("raw"))
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
 	}
@@ -830,12 +765,12 @@ func TestValidateRawSimpleValueInvalidVariety(t *testing.T) {
 func TestValidateRawSimpleValueListMissingItem(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyList, ListItem: 2},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyList, listItem: 2},
 		},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("a b"))
+	ok, err := stub.validate(1, []byte("a b"))
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
 	}
@@ -847,15 +782,15 @@ func TestValidateRawSimpleValueListMissingItem(t *testing.T) {
 func TestValidateRawSimpleValueUnionBooleanMember(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyUnion},
-			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBoolean},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyUnion},
+			2: {variety: SimpleVarietyAtomic, primitive: PrimitiveBoolean},
 		},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2}},
 	}
 	for _, input := range []string{"true", "false", "1", "0"} {
-		ok, err := validateRawSimpleValue(stub, 1, []byte(input))
+		ok, err := stub.validate(1, []byte(input))
 		if err != nil {
 			t.Fatalf("ValidateRawSimpleValue(%q) error = %v", input, err)
 		}
@@ -863,71 +798,45 @@ func TestValidateRawSimpleValueUnionBooleanMember(t *testing.T) {
 			t.Fatalf("ValidateRawSimpleValue(%q) handled = false, want true", input)
 		}
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("yes"))
+	ok, err := stub.validate(1, []byte("yes"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
 	if err == nil || err.Error() != "value does not match any union member" {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want union mismatch", err)
 	}
-	if len(stub.calls) != 0 {
-		t.Fatalf("raw validator calls = %v, want none", stub.calls)
-	}
 }
 
 func TestValidateRawSimpleValueUnionStopsAfterMatch(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyUnion},
-			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBoolean},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyUnion},
+			2: {variety: SimpleVarietyAtomic, primitive: PrimitiveBoolean},
 		},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2, 3}},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("true"))
+	ok, err := stub.validate(1, []byte("true"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
-	}
-}
-
-func TestValidateRawSimpleValueUnionLoadsEachAttemptedMemberOnce(t *testing.T) {
-	t.Parallel()
-
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyUnion},
-			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBoolean},
-			3: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveString},
-		},
-		unions: map[SimpleTypeID][]SimpleTypeID{1: {2, 3}},
-	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("value"))
-	if err != nil {
-		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
-	}
-	if !ok {
-		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
-	}
-	if len(stub.typeCalls) != 3 || stub.typeCalls[0] != 1 || stub.typeCalls[1] != 2 || stub.typeCalls[2] != 3 {
-		t.Fatalf("raw type lookups = %v, want [1 2 3]", stub.typeCalls)
 	}
 }
 
 func TestValidateRawSimpleValueUnionUnhandledMember(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyUnion},
-			2: {Facets: FacetTotalDigits, Variety: SimpleVarietyAtomic, Primitive: PrimitiveDecimal},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyUnion},
+			2: {facets: FacetTotalDigits, variety: SimpleVarietyAtomic, primitive: PrimitiveDecimal},
 		},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2}},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
+	ok, err := stub.validate(1, []byte("raw"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
@@ -939,27 +848,11 @@ func TestValidateRawSimpleValueUnionUnhandledMember(t *testing.T) {
 func TestValidateRawSimpleValueUnionMissingMember(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types:  map[SimpleTypeID]RawSimpleValueType{1: {Variety: SimpleVarietyUnion}},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{1: {variety: SimpleVarietyUnion}},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2}},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
-	if !errors.Is(err, ErrSimpleValueMetadata) {
-		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
-	}
-	if ok {
-		t.Fatal("ValidateRawSimpleValue() handled = true, want false")
-	}
-}
-
-func TestValidateRawSimpleValueUnionMissingMemberAccess(t *testing.T) {
-	t.Parallel()
-
-	stub := &rawSimpleValueCallbackStub{
-		types:                    map[SimpleTypeID]RawSimpleValueType{1: {Variety: SimpleVarietyUnion}},
-		missingUnionMemberAccess: true,
-	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
+	ok, err := stub.validate(1, []byte("raw"))
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want metadata sentinel", err)
 	}
@@ -971,34 +864,31 @@ func TestValidateRawSimpleValueUnionMissingMemberAccess(t *testing.T) {
 func TestValidateRawSimpleValueUnionInvalidMembers(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types: map[SimpleTypeID]RawSimpleValueType{
-			1: {Variety: SimpleVarietyUnion},
-			2: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveBoolean},
-			3: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDecimal},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{
+			1: {variety: SimpleVarietyUnion},
+			2: {variety: SimpleVarietyAtomic, primitive: PrimitiveBoolean},
+			3: {variety: SimpleVarietyAtomic, primitive: PrimitiveDecimal},
 		},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2, 3}},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("raw"))
+	ok, err := stub.validate(1, []byte("raw"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
 	if err == nil || err.Error() != "value does not match any union member" {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}
-	if got := strings.Join(stub.calls, ","); got != "" {
-		t.Fatalf("raw validator calls = %q", got)
-	}
 }
 
 func TestValidateRawSimpleValueUnionWhitespaceDisablesRawPath(t *testing.T) {
 	t.Parallel()
 
-	stub := &rawSimpleValueCallbackStub{
-		types:  map[SimpleTypeID]RawSimpleValueType{1: {Variety: SimpleVarietyUnion}},
+	stub := rawSimpleValueFixture{
+		routes: map[SimpleTypeID]simpleValueRouteRead{1: {variety: SimpleVarietyUnion}},
 		unions: map[SimpleTypeID][]SimpleTypeID{1: {2}},
 	}
-	ok, err := validateRawSimpleValue(stub, 1, []byte("a b"))
+	ok, err := stub.validate(1, []byte("a b"))
 	if err != nil {
 		t.Fatalf("ValidateRawSimpleValue() error = %v", err)
 	}

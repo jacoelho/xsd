@@ -127,7 +127,7 @@ func modelParticleChildKind(p runtime.Particle) ModelChildKind {
 
 // ValidateComplexExtensionModelAdmission validates compile-time complex-content
 // extension model admission rules.
-func ValidateComplexExtensionModelAdmission(rt runtime.ParticleRuntime, admission ComplexExtensionModelAdmission) error {
+func ValidateComplexExtensionModelAdmission(rt runtime.ContentModelRuntime, admission ComplexExtensionModelAdmission) error {
 	if !admission.BaseIsAnyType && admission.BaseMixed && !admission.Mixed {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot drop mixed base content")
 	}
@@ -162,7 +162,7 @@ func ValidateComplexExtensionContentAdmission(admission ComplexExtensionContentA
 
 // ExtendSequenceModel lowers a complex-content extension by combining base and
 // extension content into a sequence model when both sides contribute particles.
-func ExtendSequenceModel(rt runtime.ParticleRuntime, add AddContentModelFunc, baseID, extID runtime.ContentModelID) (runtime.ContentModelID, error) {
+func ExtendSequenceModel(rt runtime.ContentModelRuntime, add AddContentModelFunc, baseID, extID runtime.ContentModelID) (runtime.ContentModelID, error) {
 	if baseID == runtime.NoContentModel {
 		return extID, nil
 	}
@@ -197,7 +197,7 @@ func ExtendSequenceModel(rt runtime.ParticleRuntime, add AddContentModelFunc, ba
 
 // ModelWithMixed returns id when its mixed flag already matches, or appends a
 // copy with the requested mixed flag.
-func ModelWithMixed(rt runtime.ParticleRuntime, add AddContentModelFunc, id runtime.ContentModelID, mixed bool) (runtime.ContentModelID, error) {
+func ModelWithMixed(rt runtime.ContentModelRuntime, add AddContentModelFunc, id runtime.ContentModelID, mixed bool) (runtime.ContentModelID, error) {
 	if id == runtime.NoContentModel {
 		return id, nil
 	}
@@ -214,7 +214,7 @@ func ModelWithMixed(rt runtime.ParticleRuntime, add AddContentModelFunc, id runt
 
 // AppendModelParticle appends a model particle for id when the referenced
 // model can contribute content.
-func AppendModelParticle(rt runtime.ParticleRuntime, add AddContentModelFunc, model *runtime.ContentModel, id runtime.ContentModelID) error {
+func AppendModelParticle(rt runtime.ContentModelRuntime, add AddContentModelFunc, model *runtime.ContentModel, id runtime.ContentModelID) error {
 	p, ok, err := ModelParticle(rt, add, id)
 	if err != nil || !ok {
 		return err
@@ -225,7 +225,7 @@ func AppendModelParticle(rt runtime.ParticleRuntime, add AddContentModelFunc, mo
 
 // ModelParticle lowers a referenced content model into a particle. Repeated
 // model references are normalized through a generated exactly-one model slot.
-func ModelParticle(rt runtime.ParticleRuntime, add AddContentModelFunc, id runtime.ContentModelID) (runtime.Particle, bool, error) {
+func ModelParticle(rt runtime.ContentModelRuntime, add AddContentModelFunc, id runtime.ContentModelID) (runtime.Particle, bool, error) {
 	model, ok := rt.ContentModel(id)
 	if !ok {
 		return runtime.Particle{}, false, xsderrors.InternalInvariant("model particle references missing content model")

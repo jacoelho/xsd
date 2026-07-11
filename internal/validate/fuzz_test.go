@@ -39,7 +39,7 @@ func FuzzValidateNeverPanics(f *testing.F) {
 		if len(doc) > 4096 {
 			t.Skip()
 		}
-		session, err := NewSession(rt, Options{})
+		session, err := newSessionForTest(rt, Options{})
 		if err != nil {
 			t.Fatal(err)
 		}

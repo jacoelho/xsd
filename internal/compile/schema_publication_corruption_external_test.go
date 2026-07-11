@@ -46,6 +46,76 @@ func TestPublishSchemaRejectsMisclassifiedSimpleIdentityWithoutConsumingBuild(t 
 	}
 }
 
+func TestPublishSchemaRejectsContentModelCyclesWithoutConsumingBuild(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
+	one := runtime.Occurrence{Min: 1, Max: 1}
+	addCycle := func(build *runtime.SchemaBuild, size int) {
+		start := len(build.Models)
+		for range size {
+			build.Models = append(build.Models, runtime.ContentModel{Kind: runtime.ModelSequence, Occurs: one})
+		}
+		for i := range size {
+			child := start + (i+1)%size
+			childID := runtime.ContentModelID(child) //nolint:gosec // the test model table is bounded to two added entries.
+			build.Models[start+i].Particles = []runtime.Particle{runtime.ModelParticle(childID, one)}
+		}
+	}
+	for _, size := range []int{1, 2} {
+		t.Run(map[int]string{1: "self", 2: "multi-node"}[size], func(t *testing.T) {
+			build := mutableSchemaBuild(t, schema)
+			addCycle(build, size)
+			expected := mutableSchemaBuild(t, schema)
+			addCycle(expected, size)
+
+			published, err := runtime.PublishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil {
+				t.Fatal("PublishSchema() returned a schema for cyclic content models")
+			}
+			if !reflect.DeepEqual(*build, *expected) {
+				t.Fatal("PublishSchema() changed build after cyclic-model audit failure")
+			}
+		})
+	}
+}
+
+func TestPublishSchemaRejectsComplexTypeCyclesWithoutConsumingBuild(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A"/>
+  <xs:complexType name="B"/>
+</xs:schema>`
+	addCycle := func(t *testing.T, build *runtime.SchemaBuild, size int) {
+		t.Helper()
+		a := complexBuildTypeIDByName(t, build, "A")
+		build.ComplexTypes[a].ExplicitDerivation = true
+		if size == 1 {
+			build.ComplexTypes[a].Base = runtime.ComplexRef(a)
+			return
+		}
+		b := complexBuildTypeIDByName(t, build, "B")
+		build.ComplexTypes[a].Base = runtime.ComplexRef(b)
+		build.ComplexTypes[b].Base = runtime.ComplexRef(a)
+		build.ComplexTypes[b].ExplicitDerivation = true
+	}
+	for _, size := range []int{1, 2} {
+		t.Run(map[int]string{1: "self", 2: "multi-node"}[size], func(t *testing.T) {
+			build := mutableSchemaBuild(t, schema)
+			addCycle(t, build, size)
+			expected := mutableSchemaBuild(t, schema)
+			addCycle(t, expected, size)
+
+			published, err := runtime.PublishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil {
+				t.Fatal("PublishSchema() returned a schema for cyclic complex types")
+			}
+			if !reflect.DeepEqual(*build, *expected) {
+				t.Fatal("PublishSchema() changed build after complex-type cycle audit failure")
+			}
+		})
+	}
+}
+
 func mutableSchemaBuild(t *testing.T, schema string) *runtime.SchemaBuild {
 	t.Helper()
 	return compiledCompilerRuntime(t, schema).RuntimeForTest()
@@ -59,7 +129,7 @@ func validateSchemaBuild(build *runtime.SchemaBuild) error {
 
 func rootBuildContentModel(t *testing.T, build *runtime.SchemaBuild) runtime.ContentModelID {
 	t.Helper()
-	root := build.GlobalElements[mustQName(t, build, rootContentModelName)]
+	root := build.GlobalElements[mustQName(t, &build.Names, rootContentModelName)]
 	typ, ok := build.Elements[root].Type.Complex()
 	if !ok {
 		t.Fatal("root type is not complex")
@@ -69,7 +139,7 @@ func rootBuildContentModel(t *testing.T, build *runtime.SchemaBuild) runtime.Con
 
 func rootBuildAttributeUseSet(t *testing.T, build *runtime.SchemaBuild) *runtime.AttributeUseSet {
 	t.Helper()
-	root := build.GlobalElements[mustQName(t, build, "root")]
+	root := build.GlobalElements[mustQName(t, &build.Names, "root")]
 	typ, ok := build.Elements[root].Type.Complex()
 	if !ok {
 		t.Fatal("root type is not complex")
@@ -83,7 +153,7 @@ func rootBuildAttributeUseSet(t *testing.T, build *runtime.SchemaBuild) *runtime
 
 func complexBuildTypeIDByName(t *testing.T, build *runtime.SchemaBuild, local string) runtime.ComplexTypeID {
 	t.Helper()
-	typ, ok := build.GlobalType(mustQName(t, build, local))
+	typ, ok := build.GlobalTypes[mustQName(t, &build.Names, local)]
 	if !ok {
 		t.Fatalf("global type %q not found", local)
 	}
@@ -96,7 +166,7 @@ func complexBuildTypeIDByName(t *testing.T, build *runtime.SchemaBuild, local st
 
 func simpleBuildTypeIDByName(t *testing.T, build *runtime.SchemaBuild, local string) runtime.SimpleTypeID {
 	t.Helper()
-	typ, ok := build.GlobalType(mustQName(t, build, local))
+	typ, ok := build.GlobalTypes[mustQName(t, &build.Names, local)]
 	if !ok {
 		t.Fatalf("global type %q not found", local)
 	}
@@ -188,9 +258,9 @@ func TestFreezeRejectsSubstitutionClosureDrift(t *testing.T) {
 			if err := validateSchemaBuild(rt); err != nil {
 				t.Fatalf("ValidateSchema() before mutation error = %v", err)
 			}
-			head := rt.GlobalElements[mustQName(t, rt, "head")]
-			member := rt.GlobalElements[mustQName(t, rt, "member")]
-			other := rt.GlobalElements[mustQName(t, rt, "other")]
+			head := rt.GlobalElements[mustQName(t, &rt.Names, "head")]
+			member := rt.GlobalElements[mustQName(t, &rt.Names, "member")]
+			other := rt.GlobalElements[mustQName(t, &rt.Names, "other")]
 			tc.mutate(t, rt, head, member, other)
 			err := validateSchemaBuild(rt)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
@@ -202,7 +272,7 @@ func TestFreezeRejectsSubstitutionMapsWithoutHeads(t *testing.T) {
 	rt := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`)
-	root := rt.GlobalElements[mustQName(t, rt, "root")]
+	root := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	rt.Substitutions = map[runtime.ElementID][]runtime.ElementID{root: {root}}
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
@@ -335,7 +405,7 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 			if err := validateSchemaBuild(rt); err != nil {
 				t.Fatalf("ValidateSchema() before mutation error = %v", err)
 			}
-			rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+			rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 			tc.mutate(rt, &rt.Elements[rootID])
 			err := validateSchemaBuild(rt)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
@@ -361,7 +431,7 @@ func TestFreezeRejectsBothDefaultAndFixedValueConstraints(t *testing.T) {
 			name: "element declaration",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				id := rt.GlobalElements[mustQName(t, rt, "value")]
+				id := rt.GlobalElements[mustQName(t, &rt.Names, "value")]
 				rt.Elements[id].Fixed = cloneBuildValueConstraint(rt.Elements[id].Default)
 			},
 		},
@@ -369,7 +439,7 @@ func TestFreezeRejectsBothDefaultAndFixedValueConstraints(t *testing.T) {
 			name: "attribute declaration",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				id := rt.GlobalAttributes[mustQName(t, rt, "ga")]
+				id := rt.GlobalAttributes[mustQName(t, &rt.Names, "ga")]
 				rt.Attributes[id].Fixed = cloneBuildValueConstraint(rt.Attributes[id].Default)
 			},
 		},
@@ -406,7 +476,7 @@ func TestFreezeRejectsUnionValueConstraintStoredAsOwnerType(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	unionID := simpleBuildTypeIDByName(t, rt, "U")
 	rt.Elements[rootID].Default.Value.Type = unionID
 	err := validateSchemaBuild(rt)
@@ -426,7 +496,7 @@ func TestFreezeRejectsValueConstraintThatNoLongerSatisfiesFacets(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	defaultValue := rt.Elements[rootID].Default
 	defaultValue.Lexical = "B"
 	defaultValue.Canonical = "B"
@@ -445,7 +515,7 @@ func TestFreezeRejectsInvalidResolvedQNameReplay(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	defaultValue := rt.Elements[rootID].Default
 	defaultValue.Lexical = "bad::item"
 	defaultValue.Canonical = runtime.FormatExpandedName("urn:test", "item")
@@ -465,7 +535,7 @@ func TestFreezeRejectsUnusedResolvedNameProof(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	defaultValue := rt.Elements[rootID].Default
 	defaultValue.ResolvedNames = append(defaultValue.ResolvedNames, runtime.ResolvedValueName{Lexical: "t:other", NS: "urn:test", Local: "other"})
 	err := validateSchemaBuild(rt)
@@ -484,7 +554,7 @@ func TestFreezeRejectsNondeterministicResolvedNameProof(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	defaultValue := rt.Elements[rootID].Default
 	if len(defaultValue.ResolvedNames) != 2 {
 		t.Fatalf("resolved names = %d, want 2", len(defaultValue.ResolvedNames))
@@ -508,7 +578,7 @@ func TestFreezeRejectsMixedValueConstraintIdentityPayload(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	rt.Elements[rootID].Default.Value.Identity = "stale"
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
@@ -524,7 +594,7 @@ func TestFreezeRejectsMixedValueConstraintResolvedNameProof(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+	rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	rt.Elements[rootID].Default.ResolvedNames = []runtime.ResolvedValueName{{Lexical: "p:x", NS: "urn:test", Local: "x"}}
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
@@ -601,28 +671,28 @@ func TestFreezeRejectsGlobalNameMismatch(t *testing.T) {
 			name: "global element points at other declaration",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.GlobalElements[mustQName(t, rt, "a")] = rt.GlobalElements[mustQName(t, rt, "b")]
+				rt.GlobalElements[mustQName(t, &rt.Names, "a")] = rt.GlobalElements[mustQName(t, &rt.Names, "b")]
 			},
 		},
 		{
 			name: "global attribute points at other declaration",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.GlobalAttributes[mustQName(t, rt, "ga")] = rt.GlobalAttributes[mustQName(t, rt, "gb")]
+				rt.GlobalAttributes[mustQName(t, &rt.Names, "ga")] = rt.GlobalAttributes[mustQName(t, &rt.Names, "gb")]
 			},
 		},
 		{
 			name: "global type points at other type",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.GlobalTypes[mustQName(t, rt, "t1")] = rt.GlobalTypes[mustQName(t, rt, "t2")]
+				rt.GlobalTypes[mustQName(t, &rt.Names, "t1")] = rt.GlobalTypes[mustQName(t, &rt.Names, "t2")]
 			},
 		},
 		{
 			name: "global identity points at other constraint",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.GlobalIdentities[mustQName(t, rt, "k1")] = rt.GlobalIdentities[mustQName(t, rt, "k2")]
+				rt.GlobalIdentities[mustQName(t, &rt.Names, "k1")] = rt.GlobalIdentities[mustQName(t, &rt.Names, "k2")]
 			},
 		},
 	}
@@ -690,7 +760,7 @@ func TestFreezeRejectsIdentityFieldLookupDrift(t *testing.T) {
 			if err := validateSchemaBuild(rt); err != nil {
 				t.Fatalf("ValidateSchema() before mutation error = %v", err)
 			}
-			id := rt.GlobalIdentities[mustQName(t, rt, "k1")]
+			id := rt.GlobalIdentities[mustQName(t, &rt.Names, "k1")]
 			tc.mutate(&rt.Identities[id])
 			err := validateSchemaBuild(rt)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
@@ -732,28 +802,28 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			name: "key stores refer",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]].Refer = rt.GlobalIdentities[mustQName(t, rt, "kr1")]
+				rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]].Refer = rt.GlobalIdentities[mustQName(t, &rt.Names, "kr1")]
 			},
 		},
 		{
 			name: "keyref missing refer",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "kr1")]].Refer = runtime.NoIdentityConstraint
+				rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "kr1")]].Refer = runtime.NoIdentityConstraint
 			},
 		},
 		{
 			name: "keyref references keyref",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "kr1")]].Refer = rt.GlobalIdentities[mustQName(t, rt, "kr2")]
+				rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "kr1")]].Refer = rt.GlobalIdentities[mustQName(t, &rt.Names, "kr2")]
 			},
 		},
 		{
 			name: "keyref field count drift",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				kr := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "kr1")]]
+				kr := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "kr1")]]
 				kr.Fields = append(kr.Fields, runtime.IdentityField{})
 				kr.ElementFields, kr.AttributeFields, kr.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(kr.Fields)
 			},
@@ -762,14 +832,14 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			name: "missing selector",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]].Selector = nil
+				rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]].Selector = nil
 			},
 		},
 		{
 			name: "missing fields",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
+				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields = nil
 				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
 			},
@@ -778,7 +848,7 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			name: "field without paths",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
+				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields[0].Paths = nil
 				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
 			},
@@ -787,12 +857,12 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			name: "selector self stores ignored path",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
+				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Selector[0] = runtime.IdentityPath{
 					Self:       true,
 					Descendant: true,
 					Steps: []runtime.IdentityStep{{
-						Name: mustQName(t, rt, "item"),
+						Name: mustQName(t, &rt.Names, "item"),
 					}},
 				}
 			},
@@ -801,7 +871,7 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			name: "selector wildcard stores ignored name",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
+				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Selector[0].Steps[0].Wildcard = true
 				ic.Selector[0].Steps[0].Name = runtime.QName{}
 			},
@@ -810,11 +880,11 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			name: "field self stores ignored attribute",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
+				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields[0].Paths[0] = runtime.IdentityFieldPath{
 					Self:      true,
 					Attr:      true,
-					Attribute: mustQName(t, rt, "id"),
+					Attribute: mustQName(t, &rt.Names, "id"),
 				}
 				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
 			},
@@ -823,10 +893,10 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			name: "element field stores ignored attribute",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
+				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields[0].Paths[0] = runtime.IdentityFieldPath{
 					Steps: []runtime.IdentityStep{{
-						Name: mustQName(t, rt, "item"),
+						Name: mustQName(t, &rt.Names, "item"),
 					}},
 					Attribute: runtime.QName{},
 				}
@@ -837,9 +907,9 @@ func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
 			name: "attribute wildcard stores ignored name",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
+				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, &rt.Names, "k")]]
 				ic.Fields[0].Paths[0].AttrWildcard = true
-				ic.Fields[0].Paths[0].Attribute = mustQName(t, rt, "id")
+				ic.Fields[0].Paths[0].Attribute = mustQName(t, &rt.Names, "id")
 				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
 			},
 		},
@@ -874,7 +944,7 @@ func TestFreezeRejectsAttributeUseSetIndexDrift(t *testing.T) {
 		if len(set.Uses) != 0 {
 			t.Fatalf("expected empty attribute uses, got %d", len(set.Uses))
 		}
-		set.Index = map[runtime.QName]uint32{mustQName(t, rt, "root"): 5}
+		set.Index = map[runtime.QName]uint32{mustQName(t, &rt.Names, "root"): 5}
 		err := validateSchemaBuild(rt)
 		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	})
@@ -951,7 +1021,7 @@ func TestFreezeRejectsPublishedProhibitedAttributeUse(t *testing.T) {
 </xs:schema>`
 	useByName := func(t *testing.T, rt *runtime.SchemaBuild, set *runtime.AttributeUseSet, local string) *runtime.AttributeUse {
 		t.Helper()
-		name := mustQName(t, rt, local)
+		name := mustQName(t, &rt.Names, local)
 		for i := range set.Uses {
 			if set.Uses[i].Name == name {
 				return &set.Uses[i]
@@ -1000,7 +1070,7 @@ func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
 		if err := validateSchemaBuild(rt); err != nil {
 			t.Fatalf("ValidateSchema() before mutation error = %v", err)
 		}
-		attr := rt.GlobalAttributes[mustQName(t, rt, "a")]
+		attr := rt.GlobalAttributes[mustQName(t, &rt.Names, "a")]
 		rt.Attributes[attr].Type = rt.Builtin.ID
 		rt.Attributes[attr].Default = buildValueConstraint(t, rt, rt.Builtin.ID, "abc")
 		err := validateSchemaBuild(rt)
@@ -1013,7 +1083,7 @@ func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
 		if err := validateSchemaBuild(rt); err != nil {
 			t.Fatalf("ValidateSchema() before mutation error = %v", err)
 		}
-		root := rt.GlobalElements[mustQName(t, rt, "root")]
+		root := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 		rt.Elements[root].Type = runtime.SimpleRef(rt.Builtin.ID)
 		rt.Elements[root].Default = buildValueConstraint(t, rt, rt.Builtin.ID, "abc")
 		err := validateSchemaBuild(rt)
@@ -1061,7 +1131,7 @@ func TestFreezeRejectsBareNotationElementValueConstraint(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	root := rt.GlobalElements[mustQName(t, rt, "root")]
+	root := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 	notationQName, ok := rt.Names.LookupQName(vocab.XSDNamespaceURI, "NOTATION")
 	if !ok {
 		t.Fatal("missing NOTATION builtin QName")
@@ -1285,7 +1355,7 @@ func TestFreezeRejectsInconsistentSimpleVariety(t *testing.T) {
 			if err := validateSchemaBuild(rt); err != nil {
 				t.Fatalf("ValidateSchema() before mutation error = %v", err)
 			}
-			id, ok := rt.GlobalTypes[mustQName(t, rt, tc.typeName)].Simple()
+			id, ok := rt.GlobalTypes[mustQName(t, &rt.Names, tc.typeName)].Simple()
 			if !ok {
 				t.Fatalf("%s is not a simple type", tc.typeName)
 			}
@@ -1309,7 +1379,7 @@ func TestFreezeRejectsZeroTypeID(t *testing.T) {
 			name: "element type",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rootID := rt.GlobalElements[mustQName(t, rt, "root")]
+				rootID := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 				rt.Elements[rootID].Type = runtime.TypeID{}
 			},
 		},
@@ -1317,7 +1387,7 @@ func TestFreezeRejectsZeroTypeID(t *testing.T) {
 			name: "complex type base",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				ctID, ok := rt.GlobalTypes[mustQName(t, rt, "CT")].Complex()
+				ctID, ok := rt.GlobalTypes[mustQName(t, &rt.Names, "CT")].Complex()
 				if !ok {
 					t.Fatal("CT is not a complex type")
 				}
@@ -1328,7 +1398,7 @@ func TestFreezeRejectsZeroTypeID(t *testing.T) {
 			name: "global type",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				rt.GlobalTypes[mustQName(t, rt, "CT")] = runtime.TypeID{}
+				rt.GlobalTypes[mustQName(t, &rt.Names, "CT")] = runtime.TypeID{}
 			},
 		},
 	}
@@ -1359,7 +1429,7 @@ func TestFreezeRejectsMisclassifiedSimpleIdentity(t *testing.T) {
 			name: "idref restriction loses identity",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				id, ok := rt.GlobalTypes[mustQName(t, rt, "Ref")].Simple()
+				id, ok := rt.GlobalTypes[mustQName(t, &rt.Names, "Ref")].Simple()
 				if !ok {
 					t.Fatal("Ref is not a simple type")
 				}
@@ -1370,7 +1440,7 @@ func TestFreezeRejectsMisclassifiedSimpleIdentity(t *testing.T) {
 			name: "plain type gains identity",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
 				t.Helper()
-				id, ok := rt.GlobalTypes[mustQName(t, rt, "Plain")].Simple()
+				id, ok := rt.GlobalTypes[mustQName(t, &rt.Names, "Plain")].Simple()
 				if !ok {
 					t.Fatal("Plain is not a simple type")
 				}
@@ -1546,6 +1616,15 @@ func TestFreezeRejectsBuiltinHandleDrift(t *testing.T) {
 				t.Helper()
 				mutateBuildBoundFacet(t, &rt.SimpleTypes[rt.Builtin.Int].Facets, runtime.FacetMaxInclusive, func(lit *runtime.CompiledLiteral) {
 					lit.Canonical = "1"
+				})
+			},
+		},
+		{
+			name: "builtin facet provenance drift",
+			mutate: func(t *testing.T, rt *runtime.SchemaBuild) {
+				t.Helper()
+				mutateBuildBoundFacet(t, &rt.SimpleTypes[rt.Builtin.Int].Facets, runtime.FacetMaxInclusive, func(lit *runtime.CompiledLiteral) {
+					lit.Type = rt.Builtin.String
 				})
 			},
 		},
@@ -1791,6 +1870,89 @@ func TestFreezeRejectsFixedFacetMutation(t *testing.T) {
 	}
 }
 
+func TestFreezeRejectsFacetLiteralCacheDrift(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+		mutate func(*runtime.SchemaBuild, runtime.SimpleTypeID)
+	}{
+		{
+			name: "bound actual",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="T"><xs:restriction base="xs:decimal"><xs:minInclusive value="1"/></xs:restriction></xs:simpleType>
+</xs:schema>`,
+			mutate: func(rt *runtime.SchemaBuild, id runtime.SimpleTypeID) {
+				parsed, err := runtime.ParsePrimitiveActual(runtime.PrimitiveDecimal, "0", runtime.PrimitiveNeedCanonical|runtime.PrimitiveNeedLength)
+				if err != nil {
+					t.Fatal(err)
+				}
+				mutateBuildBoundFacet(t, &rt.SimpleTypes[id].Facets, runtime.FacetMinInclusive, func(lit *runtime.CompiledLiteral) {
+					lit.Actual = parsed.Actual
+				})
+			},
+		},
+		{
+			name: "enumeration canonical",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:enumeration value="a"/></xs:restriction></xs:simpleType>
+</xs:schema>`,
+			mutate: func(rt *runtime.SchemaBuild, id runtime.SimpleTypeID) {
+				rt.SimpleTypes[id].Facets.Enumeration[0].Canonical = "b"
+			},
+		},
+		{
+			name: "QName resolution proof",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:test">
+  <xs:simpleType name="T"><xs:restriction base="xs:QName"><xs:enumeration value="t:item"/></xs:restriction></xs:simpleType>
+</xs:schema>`,
+			mutate: func(rt *runtime.SchemaBuild, id runtime.SimpleTypeID) {
+				rt.SimpleTypes[id].Facets.Enumeration[0].ResolvedNames = nil
+			},
+		},
+		{
+			name: "self compilation type",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:enumeration value="a"/></xs:restriction></xs:simpleType>
+</xs:schema>`,
+			mutate: func(rt *runtime.SchemaBuild, id runtime.SimpleTypeID) {
+				rt.SimpleTypes[id].Facets.Enumeration[0].Type = id
+			},
+		},
+		{
+			name: "unrelated compilation type",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:enumeration value="a"/></xs:restriction></xs:simpleType>
+</xs:schema>`,
+			mutate: func(rt *runtime.SchemaBuild, id runtime.SimpleTypeID) {
+				rt.SimpleTypes[id].Facets.Enumeration[0].Type = simpleBuildTypeIDByName(t, rt, "U")
+			},
+		},
+		{
+			name: "non-immediate ancestor compilation type",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Base"><xs:restriction base="xs:string"><xs:enumeration value="a"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="T"><xs:restriction base="Base"><xs:enumeration value="a"/></xs:restriction></xs:simpleType>
+</xs:schema>`,
+			mutate: func(rt *runtime.SchemaBuild, id runtime.SimpleTypeID) {
+				rt.SimpleTypes[id].Facets.Enumeration[0].Type = rt.Builtin.String
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt := mutableSchemaBuild(t, tt.schema)
+			if err := validateSchemaBuild(rt); err != nil {
+				t.Fatalf("ValidateSchema() before mutation error = %v", err)
+			}
+			id := simpleBuildTypeIDByName(t, rt, "T")
+			tt.mutate(rt, id)
+			err := validateSchemaBuild(rt)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		})
+	}
+}
+
 func TestFreezeRejectsInheritedFacetLoss(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -1961,7 +2123,7 @@ func TestFreezeRejectsLimitedContentModelSharedByNonRestriction(t *testing.T) {
 	if limited == runtime.NoContentModel {
 		t.Fatal("no limited content model found")
 	}
-	otherID, ok := rt.GlobalTypes[mustQName(t, rt, "Other")].Complex()
+	otherID, ok := rt.GlobalTypes[mustQName(t, &rt.Names, "Other")].Complex()
 	if !ok {
 		t.Fatal("Other is not complex")
 	}
@@ -2071,7 +2233,7 @@ func TestFreezeRejectsInvalidComplexTypeShape(t *testing.T) {
 			if err := validateSchemaBuild(rt); err != nil {
 				t.Fatalf("ValidateSchema() before mutation error = %v", err)
 			}
-			root := rt.GlobalElements[mustQName(t, rt, "root")]
+			root := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 			ctID, ok := rt.Elements[root].Type.Complex()
 			if !ok {
 				t.Fatal("root type is not complex")
@@ -2168,7 +2330,7 @@ func TestFreezeRejectsInvalidElementMasks(t *testing.T) {
 			if err := validateSchemaBuild(rt); err != nil {
 				t.Fatalf("ValidateSchema() before mutation error = %v", err)
 			}
-			root := rt.GlobalElements[mustQName(t, rt, "root")]
+			root := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
 			tc.mutate(&rt.Elements[root])
 			err := validateSchemaBuild(rt)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
@@ -2194,46 +2356,6 @@ func TestFreezeRejectsMisclassifiedSimpleFastPath(t *testing.T) {
 	rt.SimpleTypes[id].Fast = runtime.SimpleFastInt
 	err = validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsInvalidPatternFacetRepresentation(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Patterned">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[A-Z]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:element name="root" type="Patterned"/>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(f *runtime.FacetSet)
-	}{
-		{
-			name: "empty pattern group",
-			mutate: func(f *runtime.FacetSet) {
-				f.Patterns[0].Patterns = nil
-			},
-		},
-		{
-			name: "pattern without matcher",
-			mutate: func(f *runtime.FacetSet) {
-				f.Patterns[0].Patterns[0] = runtime.StringPattern{}
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			rt := mutableSchemaBuild(t, schema)
-			if err := validateSchemaBuild(rt); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := simpleBuildTypeIDByName(t, rt, "Patterned")
-			tc.mutate(&rt.SimpleTypes[id].Facets)
-			err := validateSchemaBuild(rt)
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
 }
 
 func TestFreezeRejectsCompiledModelSourceMismatch(t *testing.T) {
@@ -2381,7 +2503,7 @@ func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
 			if err := validateSchemaBuild(rt); err != nil {
 				t.Fatalf("ValidateSchema() before mutation error = %v", err)
 			}
-			typ := rt.GlobalTypes[mustQName(t, rt, "Sized")]
+			typ := rt.GlobalTypes[mustQName(t, &rt.Names, "Sized")]
 			id, ok := typ.Simple()
 			if !ok {
 				t.Fatal("Sized is not a simple type")
@@ -2406,7 +2528,7 @@ func TestFreezeRejectsDecimalBoundWithoutActual(t *testing.T) {
 	if err := validateSchemaBuild(rt); err != nil {
 		t.Fatalf("ValidateSchema() before mutation error = %v", err)
 	}
-	typ := rt.GlobalTypes[mustQName(t, rt, "Positive")]
+	typ := rt.GlobalTypes[mustQName(t, &rt.Names, "Positive")]
 	id, ok := typ.Simple()
 	if !ok {
 		t.Fatal("Positive is not a simple type")
@@ -2431,7 +2553,7 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 </xs:schema>`
 	complexID := func(t *testing.T, rt *runtime.SchemaBuild, local string) runtime.ComplexTypeID {
 		t.Helper()
-		typ := rt.GlobalTypes[mustQName(t, rt, local)]
+		typ := rt.GlobalTypes[mustQName(t, &rt.Names, local)]
 		id, ok := typ.Complex()
 		if !ok {
 			t.Fatalf("%s is not a complex type", local)

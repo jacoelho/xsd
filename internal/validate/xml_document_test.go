@@ -20,7 +20,7 @@ func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 	_, err := doc.PrepareStart(testXMLStart(
 		xml.Name{Space: "missing", Local: "root"}, "",
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
-	), &values, xmlDocumentLimits{}, 2, 3)
+	), &values, 0, 2, 3)
 	requireCode(t, err, xsderrors.CodeValidationXML)
 	if _, ok := doc.LookupNamespace("p"); ok {
 		t.Fatal("failed start retained namespace binding")
@@ -29,7 +29,7 @@ func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 		t.Fatalf("depth = %d, want 0", doc.Depth())
 	}
 
-	_, err = doc.PrepareStart(testXMLStart(xml.Name{Space: "p", Local: "root"}, ""), &values, xmlDocumentLimits{}, 4, 5)
+	_, err = doc.PrepareStart(testXMLStart(xml.Name{Space: "p", Local: "root"}, ""), &values, 0, 4, 5)
 	if !strings.Contains(err.Error(), "unbound namespace prefix p") {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
@@ -44,7 +44,7 @@ func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "q"}, "urn:test"),
 		testXMLAttr(xml.Name{Space: "p", Local: "id"}, ""),
 		testXMLAttr(xml.Name{Space: "q", Local: "id"}, ""),
-	), &values, xmlDocumentLimits{}, 2, 3)
+	), &values, 0, 2, 3)
 	requireCode(t, err, xsderrors.CodeValidationXML)
 	if !strings.Contains(err.Error(), "duplicate attribute {urn:test}id") {
 		t.Fatalf("PrepareStart() error = %v", err)
@@ -54,29 +54,18 @@ func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 	}
 }
 
-func TestXMLDocumentStateEnforcesStartLimits(t *testing.T) {
+func TestXMLDocumentStateEnforcesDepthLimit(t *testing.T) {
 	values := stream.NewCache()
 	var doc emptyXMLDocument
-	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "root"}, ""), &values, xmlDocumentLimits{}, 2, 3)
+	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "root"}, ""), &values, 0, 2, 3)
 	if err != nil {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
 	doc.CommitStart(start.Name, "root", false, struct{}{})
 
-	_, err = doc.PrepareStart(testXMLStart(xml.Name{Local: "child"}, ""), &values, xmlDocumentLimits{depth: 1}, 4, 5)
+	_, err = doc.PrepareStart(testXMLStart(xml.Name{Local: "child"}, ""), &values, 1, 4, 5)
 	requireCode(t, err, xsderrors.CodeValidationLimit)
 	if !strings.Contains(err.Error(), "instance depth limit exceeded") {
-		t.Fatalf("PrepareStart() error = %v", err)
-	}
-
-	var attributeDoc emptyXMLDocument
-	_, err = attributeDoc.PrepareStart(testXMLStart(
-		xml.Name{Local: "root"}, "",
-		testXMLAttr(xml.Name{Local: "first"}, ""),
-		testXMLAttr(xml.Name{Local: "second"}, ""),
-	), &values, xmlDocumentLimits{attributes: 1}, 6, 7)
-	requireCode(t, err, xsderrors.CodeValidationLimit)
-	if !strings.Contains(err.Error(), "instance attribute limit exceeded") {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
 }
@@ -84,7 +73,7 @@ func TestXMLDocumentStateEnforcesStartLimits(t *testing.T) {
 func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 	var doc emptyXMLDocument
 	values := stream.NewCache()
-	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "a"}, "a"), &values, xmlDocumentLimits{}, 1, 1)
+	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "a"}, "a"), &values, 0, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +85,7 @@ func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 		t.Fatal(commitErr)
 	}
 
-	_, err = doc.PrepareStart(testXMLStart(xml.Name{Space: "p", Local: "b"}, "p:b"), &values, xmlDocumentLimits{}, 1, 5)
+	_, err = doc.PrepareStart(testXMLStart(xml.Name{Space: "p", Local: "b"}, "p:b"), &values, 0, 1, 5)
 	if !strings.Contains(err.Error(), "unbound namespace prefix p") {
 		t.Fatalf("PrepareStart() error = %v, want namespace error before multiple roots", err)
 	}
@@ -104,7 +93,7 @@ func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 	_, err = doc.PrepareStart(testXMLStart(
 		xml.Name{Space: "p", Local: "b"}, "p:b",
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
-	), &values, xmlDocumentLimits{}, 1, 5)
+	), &values, 0, 1, 5)
 	if !strings.Contains(err.Error(), "multiple root elements") {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
@@ -117,7 +106,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 		xml.Name{Space: "p", Local: "root"}, "p:root",
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "q"}, "urn:test"),
-	), &values, xmlDocumentLimits{}, 2, 3)
+	), &values, 0, 2, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +125,7 @@ func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
 	requireCode(t, doc.Complete(), xsderrors.CodeValidationRoot)
 
 	values := stream.NewCache()
-	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "root"}, ""), &values, xmlDocumentLimits{}, 2, 3)
+	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "root"}, ""), &values, 0, 2, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +159,7 @@ func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) 
 	_, err := doc.PrepareStart(testXMLStart(
 		xml.Name{Space: "missing", Local: "bad"}, "",
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "temporary"}, "urn:temporary"),
-	), &values, xmlDocumentLimits{}, 4, 5)
+	), &values, 0, 4, 5)
 	if err == nil {
 		t.Fatal("PrepareStart() succeeded")
 	}
@@ -220,7 +209,7 @@ func TestXMLSyntaxDiagnosticParity(t *testing.T) {
 	for _, input := range tests {
 		t.Run(input, func(t *testing.T) {
 			preflightErr := CheckXMLWellFormed(strings.NewReader(input), Options{})
-			session, err := NewSession(rt, Options{})
+			session, err := newSessionForTest(rt, Options{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -237,7 +226,7 @@ func TestXMLSyntaxDiagnosticParity(t *testing.T) {
 
 func commitDocumentStart(t *testing.T, doc *emptyXMLDocument, values *stream.Cache, local string) {
 	t.Helper()
-	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: local}, local), values, xmlDocumentLimits{}, 1, 1)
+	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: local}, local), values, 0, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -324,8 +324,7 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 	)
 	refreshIdentityLookup(&identities[0])
 	want := cloneIdentityConstraintsForTest(identities)
-
-	reads := NewIdentityConstraintReads(identities)
+	reads := moveIdentityConstraintReads(identities)
 	if !EqualIdentityConstraintReadProjection(reads, identities) {
 		t.Fatal("EqualIdentityConstraintReadProjection() rejected matching projection")
 	}
@@ -333,30 +332,28 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 		t.Fatal("EqualIdentityConstraintReadProjection() accepted mismatched table length")
 	}
 
-	identities[0].Selector[0].Steps[0].Name = names["child"]
-	identities[0].Fields = nil
-	identities[0].ElementFields[0].Paths[0].Steps[0].Name = names["child"]
-	identities[0].AttributeFields[names["id"]][0].Paths[0].Attribute = names["child"]
-	identities[0].AttributeWildcardFields = []CompiledIdentityField{{
+	changed := cloneIdentityConstraintsForTest(want)
+	changed[0].Selector[0].Steps[0].Name = names["child"]
+	changed[0].Fields = nil
+	changed[0].ElementFields[0].Paths[0].Steps[0].Name = names["child"]
+	changed[0].AttributeFields[names["id"]][0].Paths[0].Attribute = names["child"]
+	changed[0].AttributeWildcardFields = []CompiledIdentityField{{
 		Field: 9,
 		Paths: []IdentityFieldPath{{Attr: true, AttrWildcard: true}},
 	}}
-	identities[0].Kind = IdentityKeyRef
-	identities[0].Refer = 1
+	changed[0].Kind = IdentityKeyRef
+	changed[0].Refer = 1
 
-	if !EqualIdentityConstraintReadProjection(reads, want) {
-		t.Fatal("identity constraint reads were aliased to source metadata")
-	}
-	if EqualIdentityConstraintReadProjection(reads, identities) {
+	if EqualIdentityConstraintReadProjection(reads, changed) {
 		t.Fatal("EqualIdentityConstraintReadProjection() accepted mismatched projection")
 	}
-	if err := ValidateIdentityConstraintReadProjection(NewIdentityConstraintReads(want), want); err != nil {
+	if err := ValidateIdentityConstraintReadProjection(moveIdentityConstraintReads(want), want); err != nil {
 		t.Fatalf("ValidateIdentityConstraintReadProjection() error = %v", err)
 	}
 	if err := ValidateIdentityConstraintReadProjection(reads[:1], want); err == nil || err.Error() != "identity constraint read projection count does not match constraints" {
 		t.Fatalf("ValidateIdentityConstraintReadProjection(short) error = %v, want count invariant", err)
 	}
-	if err := ValidateIdentityConstraintReadProjection(reads, identities); err == nil || err.Error() != "identity constraint read projection does not match constraints" {
+	if err := ValidateIdentityConstraintReadProjection(reads, changed); err == nil || err.Error() != "identity constraint read projection does not match constraints" {
 		t.Fatalf("ValidateIdentityConstraintReadProjection(changed) error = %v, want mismatch invariant", err)
 	}
 
@@ -394,9 +391,7 @@ func cloneIdentityConstraintsForTest(in []IdentityConstraint) []IdentityConstrai
 		out[i] = in[i]
 		out[i].Selector = CloneIdentityPaths(in[i].Selector)
 		out[i].Fields = CloneIdentityFields(in[i].Fields)
-		out[i].ElementFields = cloneCompiledIdentityFields(in[i].ElementFields)
-		out[i].AttributeFields = cloneCompiledIdentityFieldMap(in[i].AttributeFields)
-		out[i].AttributeWildcardFields = cloneCompiledIdentityFields(in[i].AttributeWildcardFields)
+		out[i].ElementFields, out[i].AttributeFields, out[i].AttributeWildcardFields = BuildIdentityFieldLookup(out[i].Fields)
 	}
 	return out
 }
@@ -411,7 +406,7 @@ func TestIdentityReadAccessors(t *testing.T) {
 		IdentityFieldPath{Attr: true, AttrWildcard: true},
 	)
 	refreshIdentityLookup(&identities[0])
-	reads := NewIdentityConstraintReads(identities)
+	reads := moveIdentityConstraintReads(identities)
 	invalid := IdentityConstraintID(99)
 
 	constraints, constraintsOK := ElementIdentityConstraintIDs([][]IdentityConstraintID{{0, 1}}, 0)

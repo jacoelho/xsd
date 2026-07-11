@@ -221,30 +221,6 @@ type IdentityConstraintRead struct {
 	fieldCount              int
 }
 
-// NewIdentityConstraintRead returns an immutable validation read projection for
-// one identity constraint.
-func NewIdentityConstraintRead(identity IdentityConstraint) IdentityConstraintRead {
-	return IdentityConstraintRead{
-		selector:                CloneIdentityPaths(identity.Selector),
-		elementFields:           cloneCompiledIdentityFields(identity.ElementFields),
-		attributeFields:         cloneCompiledIdentityFieldMap(identity.AttributeFields),
-		attributeWildcardFields: cloneCompiledIdentityFields(identity.AttributeWildcardFields),
-		refer:                   identity.Refer,
-		kind:                    identity.Kind,
-		fieldCount:              len(identity.Fields),
-	}
-}
-
-// NewIdentityConstraintReads returns immutable validation read projections for
-// identity constraints.
-func NewIdentityConstraintReads(identities []IdentityConstraint) []IdentityConstraintRead {
-	out := make([]IdentityConstraintRead, len(identities))
-	for i := range identities {
-		out[i] = NewIdentityConstraintRead(identities[i])
-	}
-	return out
-}
-
 func moveIdentityConstraintReads(identities []IdentityConstraint) []IdentityConstraintRead {
 	out := make([]IdentityConstraintRead, len(identities))
 	for i := range identities {

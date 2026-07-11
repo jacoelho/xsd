@@ -204,14 +204,14 @@ func (s *session) identityElementFields() ([]IdentityFieldMatch, error) {
 	if !s.hasIdentityConstraints {
 		return nil, nil
 	}
-	return s.doc.identity.ElementFieldMatches(s.rt, s.doc.namePath)
+	return s.doc.identity.elementFieldMatches(s.rt, s.doc.namePath)
 }
 
 func (s *session) identityAttributeFields(name runtime.QName) ([]IdentityFieldMatch, error) {
 	if !s.hasIdentityConstraints {
 		return nil, nil
 	}
-	return s.doc.identity.AttributeFieldMatches(s.rt, s.doc.namePath, name)
+	return s.doc.identity.attributeFieldMatches(s.rt, s.doc.namePath, name)
 }
 
 func (s *session) recordAttributeIdentity(value runtime.SimpleValue, line, col int, seenID *bool) error {
@@ -258,10 +258,10 @@ func (s *session) recordIdentityFields(ids, idrefs string, line, col int) error 
 
 func (s *session) reserveIdentityEntry(key string, line, col int) error {
 	if s.maxIdentityTupleBytes > 0 && int64(len(key)) > s.maxIdentityTupleBytes {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationIdentity, "identity tuple byte limit exceeded")
+		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
 	}
 	if s.maxIdentityEntries > 0 && s.doc.identity.entries >= s.maxIdentityEntries {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationIdentity, "identity entry limit exceeded")
+		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "identity entry limit exceeded")
 	}
 	s.doc.identity.entries++
 	return nil
@@ -277,14 +277,14 @@ func (s *session) startIdentityScope(elem runtime.ElementID, line, col int) erro
 	if !s.hasIdentityConstraints {
 		return nil
 	}
-	return s.doc.identity.StartElementScope(s.rt, elem, len(s.doc.namePath), s.maxIdentityScopes, s.startContext(line, col))
+	return s.doc.identity.startElementScope(s.rt, elem, len(s.doc.namePath), s.maxIdentityScopes, s.startContext(line, col))
 }
 
 func (s *session) matchIdentitySelectors(line, col int) error {
 	if !s.hasIdentityConstraints {
 		return nil
 	}
-	return s.doc.identity.MatchSelectors(s.rt, s.doc.namePath, s.startContext(line, col))
+	return s.doc.identity.matchSelectors(s.rt, s.doc.namePath, s.startContext(line, col))
 }
 
 func (s *session) captureIdentityFieldKey(fields []IdentityFieldMatch, key string, line, col int) error {

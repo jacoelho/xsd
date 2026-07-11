@@ -231,9 +231,12 @@ type BuiltinUnsignedFacet struct {
 // BuiltinDecimalFacet is the runtime projection of a decimal bound facet.
 type BuiltinDecimalFacet struct {
 	Canonical            string
+	Lexical              string
 	ActualKind           PrimitiveKind
+	Type                 SimpleTypeID
 	Present              bool
 	ActualValid          bool
+	HasResolvedNames     bool
 	ValueMatchesExpected bool
 }
 
@@ -345,11 +348,12 @@ func buildBuiltinSimpleSeedTable() []BuiltinSimpleSeed {
 }
 
 func builtinSimpleSeedForExpectation(exp builtinSimpleExpectation) BuiltinSimpleSeed {
+	base := builtinSimpleDependencyID(exp.baseLocal)
 	return BuiltinSimpleSeed{
 		Namespace:         XSDNamespaceURI,
 		Local:             exp.local,
 		MinLength:         exp.minLength,
-		Base:              builtinSimpleDependencyID(exp.baseLocal),
+		Base:              base,
 		ListItem:          builtinSimpleDependencyID(exp.listItemLocal),
 		Variety:           exp.variety,
 		Primitive:         exp.primitive,
@@ -362,8 +366,8 @@ func builtinSimpleSeedForExpectation(exp builtinSimpleExpectation) BuiltinSimple
 		hasMinInclusive:   exp.minInclusive != "",
 		hasMaxInclusive:   exp.maxInclusive != "",
 		handle:            builtinSimpleHandleForLocal(exp.local),
-		minInclusive:      builtinDecimalLiteral(exp.minInclusive),
-		maxInclusive:      builtinDecimalLiteral(exp.maxInclusive),
+		minInclusive:      builtinDecimalLiteral(base, exp.minInclusive),
+		maxInclusive:      builtinDecimalLiteral(base, exp.maxInclusive),
 	}
 }
 
@@ -460,23 +464,21 @@ func (s *BuiltinSimpleFacetStorage) facetSet(seed *BuiltinSimpleSeed) FacetSet {
 	return f
 }
 
-func builtinDecimalLiteral(v string) CompiledLiteral {
+func builtinDecimalLiteral(base SimpleTypeID, v string) CompiledLiteral {
 	if v == "" {
 		return CompiledLiteral{}
 	}
 	dec, err := ParseDecimalCanonical(v)
 	if err != nil {
-		return CompiledLiteral{Lexical: v, Canonical: v}
+		return CompiledLiteral{Lexical: v, Canonical: v, Type: base}
 	}
-	return CompiledLiteral{
-		Lexical:   v,
-		Canonical: dec.IntegerCanonicalText(),
-		Actual: PrimitiveActualValue{
-			Kind:    PrimitiveDecimal,
-			Valid:   true,
-			Decimal: dec,
-		},
-	}
+	return NewCompiledLiteralForSimpleType(
+		SimpleType{Variety: SimpleVarietyAtomic, Primitive: PrimitiveDecimal},
+		base,
+		v,
+		dec.IntegerCanonicalText(),
+		nil,
+	)
 }
 
 func builtinSimpleDependencyID(local string) SimpleTypeID {
@@ -583,7 +585,7 @@ func NewBuiltinSimpleFacetValidation(f FacetSet, exp BuiltinSimpleFacetExpectati
 		FractionDigits:  newBuiltinUnsignedFacet(f.FractionDigits, f.Present&FacetFractionDigits != 0),
 		MinLength:       newBuiltinUnsignedFacet(f.MinLength, f.Present&FacetMinLength != 0),
 		EnumerationSize: len(f.Enumeration),
-		PatternSize:     len(f.Patterns),
+		PatternSize:     int(f.patterns.count()),
 		Present:         f.Present,
 		Fixed:           f.Fixed,
 		HasLength:       f.Present&FacetLength != 0,
@@ -615,9 +617,12 @@ func newBuiltinDecimalFacet(got CompiledLiteral, present bool, want string) Buil
 	}
 	return BuiltinDecimalFacet{
 		Canonical:            got.Canonical,
+		Lexical:              got.Lexical,
 		ActualKind:           got.Actual.Kind,
+		Type:                 got.Type,
 		Present:              true,
 		ActualValid:          got.Actual.Valid,
+		HasResolvedNames:     len(got.ResolvedNames) != 0,
 		ValueMatchesExpected: proof,
 	}
 }
@@ -672,8 +677,8 @@ func ValidateBuiltinSimpleFacets(shape BuiltinSimpleFacetValidation, exp Builtin
 	if exp.HasMinLength && !builtinUnsignedFacetValue(shape.MinLength, exp.MinLength) {
 		return errors.New("builtin list minLength facet does not match handle")
 	}
-	if !builtinDecimalFacetValue(shape.MinInclusive, exp.MinInclusive) ||
-		!builtinDecimalFacetValue(shape.MaxInclusive, exp.MaxInclusive) {
+	if !builtinDecimalFacetValue(shape.MinInclusive, exp.MinInclusive, exp.Type) ||
+		!builtinDecimalFacetValue(shape.MaxInclusive, exp.MaxInclusive, exp.Type) {
 		return errors.New("builtin numeric bound facet does not match handle")
 	}
 	if shape.HasLength ||
@@ -709,14 +714,17 @@ func builtinUnsignedFacetValue(got BuiltinUnsignedFacet, want uint32) bool {
 	return got.Present && got.Value == want
 }
 
-func builtinDecimalFacetValue(got BuiltinDecimalFacet, want string) bool {
+func builtinDecimalFacetValue(got BuiltinDecimalFacet, want string, compilationType SimpleTypeID) bool {
 	if want == "" {
 		return !got.Present
 	}
 	return got.Present &&
 		got.ActualValid &&
 		got.ActualKind == PrimitiveDecimal &&
+		got.Lexical == want &&
 		got.Canonical == want &&
+		got.Type == compilationType &&
+		!got.HasResolvedNames &&
 		got.ValueMatchesExpected
 }
 
@@ -727,12 +735,12 @@ func builtinSimpleQName(names *NameTable, local string) (QName, bool) {
 	return names.LookupQName(XSDNamespaceURI, local)
 }
 
-func (exp builtinSimpleExpectation) facetExpectation(id SimpleTypeID) BuiltinSimpleFacetExpectation {
+func (exp builtinSimpleExpectation) facetExpectation(compilationType SimpleTypeID) BuiltinSimpleFacetExpectation {
 	return BuiltinSimpleFacetExpectation{
 		Local:             exp.local,
 		MinInclusive:      exp.minInclusive,
 		MaxInclusive:      exp.maxInclusive,
-		Type:              id,
+		Type:              compilationType,
 		MinLength:         exp.minLength,
 		HasFractionDigits: exp.hasFractionDigits,
 		HasMinLength:      exp.hasMinLength,

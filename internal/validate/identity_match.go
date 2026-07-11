@@ -7,16 +7,33 @@ type IdentityNames interface {
 	Namespace(id runtime.NamespaceID) string
 }
 
-// IdentityRuntime exposes identity-constraint metadata needed during validation.
-type IdentityRuntime interface {
-	IdentityNames
+// identityScopeRuntime supplies the constraints declared on an element.
+type identityScopeRuntime interface {
 	ElementIdentityConstraints(id runtime.ElementID) (runtime.IdentityConstraintIDs, bool)
+}
+
+type identitySelectorPathRuntime interface {
+	IdentityNames
 	IdentitySelectorPaths(id runtime.IdentityConstraintID) (runtime.IdentityPathReads, bool)
+}
+
+// identitySelectorRuntime supplies selector paths and field counts.
+type identitySelectorRuntime interface {
+	identitySelectorPathRuntime
 	IdentityFieldCount(id runtime.IdentityConstraintID) (int, bool)
+}
+
+// identityElementFieldRuntime supplies element field paths and namespace names.
+type identityElementFieldRuntime interface {
+	IdentityNames
 	IdentityElementFields(id runtime.IdentityConstraintID) (runtime.CompiledIdentityFieldReads, bool)
+}
+
+// identityAttributeFieldRuntime supplies attribute field paths and namespace names.
+type identityAttributeFieldRuntime interface {
+	IdentityNames
 	IdentityAttributeFields(id runtime.IdentityConstraintID, name runtime.QName) (runtime.CompiledIdentityFieldReads, bool)
 	IdentityAttributeWildcardFields(id runtime.IdentityConstraintID) (runtime.CompiledIdentityFieldReads, bool)
-	IdentityConstraintInfo(id runtime.IdentityConstraintID) (runtime.IdentityConstraintInfo, bool)
 }
 
 func identityCompiledFieldPathsMatch(

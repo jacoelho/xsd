@@ -53,15 +53,6 @@ func NewElementStartInfosForElementDecls(decls []ElementDecl) []ElementStartInfo
 	return out
 }
 
-// DeclaredElementTypeByID returns the declared type for an element from the
-// frozen start projection table.
-func DeclaredElementTypeByID(infos []ElementStartInfo, id ElementID) (TypeID, bool) {
-	if !ValidElementID(id, len(infos)) {
-		return TypeID{}, false
-	}
-	return infos[id].Type, true
-}
-
 // ElementStartInfoByID returns validation start data for an element from the
 // frozen start projection table.
 func ElementStartInfoByID(infos []ElementStartInfo, id ElementID) (ElementStartInfo, bool) {
@@ -128,12 +119,4 @@ type TypeInfoShape struct {
 // NewTypeInfo returns the start projection for one runtime type.
 func NewTypeInfo(shape TypeInfoShape) TypeInfo {
 	return TypeInfo(shape)
-}
-
-// NewTypeInfoForComplexType returns the start projection for one complex type.
-func NewTypeInfoForComplexType(ct ComplexType) TypeInfo {
-	return NewTypeInfo(TypeInfoShape{
-		Block:    ct.Block,
-		Abstract: ct.Abstract,
-	})
 }

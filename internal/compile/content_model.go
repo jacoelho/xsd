@@ -145,6 +145,13 @@ func (c *contentModelCompiler) ComplexTypeCount() int {
 	return 0
 }
 
+func (c *contentModelCompiler) SimpleTypeCount() int {
+	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
+		return rt.SimpleTypeCount()
+	}
+	return 0
+}
+
 func (c *contentModelCompiler) SimpleTypeDerivation(id runtime.SimpleTypeID) (runtime.SimpleTypeDerivation, bool) {
 	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
 		return rt.SimpleTypeDerivation(id)
@@ -525,29 +532,6 @@ func (c *contentModelCompiler) modelStartParticles(model runtime.ContentModel) [
 	default:
 	}
 	return out
-}
-
-// ValidateCompiledModelDerived recompiles one content model and checks that the
-// stored compiled representation is exactly derivable from the source model.
-func ValidateCompiledModelDerived(
-	names *runtime.NameTable,
-	rt runtime.CompiledModelRuntime,
-	id runtime.ContentModelID,
-	model runtime.CompiledModel,
-) error {
-	c := newContentModelCompiler(names, rt, int(^uint(0)>>1))
-	expected, err := c.compileContentModel(id)
-	if err != nil {
-		return xsderrors.InternalInvariant("compiled content model cannot be rederived from source model")
-	}
-	expected.Source = id
-	if err := runtime.IndexCompiledModelRows(rt, &expected); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
-	}
-	if !runtime.EqualCompiledModels(model, expected) {
-		return xsderrors.InternalInvariant("compiled content model does not match source model")
-	}
-	return nil
 }
 
 func (c *contentModelCompiler) compileContentModel(id runtime.ContentModelID) (runtime.CompiledModel, error) {

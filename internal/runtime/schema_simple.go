@@ -1,10 +1,5 @@
 package runtime
 
-// SimpleTypeIdentity returns the stored ID/IDREF behavior for simple type id.
-func (rt *Schema) SimpleTypeIdentity(id SimpleTypeID) (SimpleIdentityKind, bool) {
-	return SimpleTypeIdentityByID(rt.runtime.SimpleTypeIdentities, id), ValidSimpleTypeID(id, len(rt.runtime.SimpleTypeIdentities))
-}
-
 // SimpleTypeIdentity returns compiler-owned identity metadata.
 func (rt *SchemaBuild) SimpleTypeIdentity(id SimpleTypeID) (SimpleIdentityKind, bool) {
 	st, ok := rt.UsableSimpleType(id)

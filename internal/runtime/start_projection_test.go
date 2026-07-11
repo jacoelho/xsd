@@ -68,12 +68,6 @@ func TestElementStartInfoForDecl(t *testing.T) {
 	if len(infos) != 1 || infos[0] != info {
 		t.Fatalf("NewElementStartInfosForElementDecls() = %+v, want single projected declaration fact", infos)
 	}
-	if got, ok := DeclaredElementTypeByID(infos, 0); !ok || got != decl.Type {
-		t.Fatalf("DeclaredElementTypeByID() = %v, %v; want %v, true", got, ok, decl.Type)
-	}
-	if got, ok := DeclaredElementTypeByID(infos, ElementID(99)); ok || got != (TypeID{}) {
-		t.Fatalf("DeclaredElementTypeByID(invalid) = %v, %v; want zero, false", got, ok)
-	}
 	if got, ok := ElementStartInfoByID(infos, 0); !ok || got != info {
 		t.Fatalf("ElementStartInfoByID() = %+v, %v; want %+v, true", got, ok, info)
 	}
@@ -154,8 +148,8 @@ func TestTypeInfoForComplexType(t *testing.T) {
 		Block:    DerivationExtension,
 		Abstract: true,
 	}
-	info := NewTypeInfoForComplexType(ct)
+	info := NewTypeInfo(TypeInfoShape{Block: ct.Block, Abstract: ct.Abstract})
 	if info.Block != ct.Block || info.Abstract != ct.Abstract {
-		t.Fatalf("NewTypeInfoForComplexType() = %+v, want projected complex type facts", info)
+		t.Fatalf("NewTypeInfo() = %+v, want projected complex type facts", info)
 	}
 }

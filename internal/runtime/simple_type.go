@@ -194,220 +194,6 @@ const (
 	SimpleIdentityIDREFList
 )
 
-// SimpleTypeReadShape is the source projection for simple-type scalar reads.
-type SimpleTypeReadShape struct {
-	Primitive PrimitiveKind
-	Identity  SimpleIdentityKind
-	Final     DerivationMask
-}
-
-// NewSimpleTypePrimitiveReads projects primitive kinds for frozen runtime
-// publication.
-func NewSimpleTypePrimitiveReads(shapes []SimpleTypeReadShape) []PrimitiveKind {
-	out := make([]PrimitiveKind, len(shapes))
-	for i := range shapes {
-		out[i] = shapes[i].Primitive
-	}
-	return out
-}
-
-// NewSimpleTypeIdentityReads projects ID/IDREF behavior for frozen runtime
-// publication.
-func NewSimpleTypeIdentityReads(shapes []SimpleTypeReadShape) []SimpleIdentityKind {
-	out := make([]SimpleIdentityKind, len(shapes))
-	for i := range shapes {
-		out[i] = shapes[i].Identity
-	}
-	return out
-}
-
-// NewSimpleTypeFinalReads projects final derivation masks for frozen runtime
-// publication.
-func NewSimpleTypeFinalReads(shapes []SimpleTypeReadShape) []DerivationMask {
-	out := make([]DerivationMask, len(shapes))
-	for i := range shapes {
-		out[i] = shapes[i].Final
-	}
-	return out
-}
-
-// NewSimpleTypePrimitiveReadsForTypes projects primitive kinds from simple
-// types for frozen runtime publication.
-func NewSimpleTypePrimitiveReadsForTypes(types []SimpleType) []PrimitiveKind {
-	out := make([]PrimitiveKind, len(types))
-	for i := range types {
-		out[i] = types[i].Primitive
-	}
-	return out
-}
-
-// NewSimpleTypeIdentityReadsForTypes projects ID/IDREF behavior from simple
-// types for frozen runtime publication.
-func NewSimpleTypeIdentityReadsForTypes(types []SimpleType) []SimpleIdentityKind {
-	out := make([]SimpleIdentityKind, len(types))
-	for i := range types {
-		out[i] = types[i].Identity
-	}
-	return out
-}
-
-// NewSimpleTypeFinalReadsForTypes projects final derivation masks from simple
-// types for frozen runtime publication.
-func NewSimpleTypeFinalReadsForTypes(types []SimpleType) []DerivationMask {
-	out := make([]DerivationMask, len(types))
-	for i := range types {
-		out[i] = types[i].Final
-	}
-	return out
-}
-
-// SimpleTypePrimitiveByID returns the primitive kind for id from a frozen read
-// projection.
-func SimpleTypePrimitiveByID(reads []PrimitiveKind, id SimpleTypeID) (PrimitiveKind, bool) {
-	if !ValidSimpleTypeID(id, len(reads)) {
-		return 0, false
-	}
-	return reads[id], true
-}
-
-// SimpleTypeIdentityByID returns the ID/IDREF behavior for id from a frozen
-// read projection.
-func SimpleTypeIdentityByID(reads []SimpleIdentityKind, id SimpleTypeID) SimpleIdentityKind {
-	if !ValidSimpleTypeID(id, len(reads)) {
-		return SimpleIdentityNone
-	}
-	return reads[id]
-}
-
-// SimpleTypeFinalByID returns the final derivation mask for id from a frozen
-// read projection.
-func SimpleTypeFinalByID(reads []DerivationMask, id SimpleTypeID) (DerivationMask, bool) {
-	if !ValidSimpleTypeID(id, len(reads)) {
-		return 0, false
-	}
-	return reads[id], true
-}
-
-// EqualSimpleTypePrimitiveReadProjection reports whether reads expose each
-// simple type's primitive kind.
-func EqualSimpleTypePrimitiveReadProjection(reads []PrimitiveKind, shapes []SimpleTypeReadShape) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		if reads[i] != shapes[i].Primitive {
-			return false
-		}
-	}
-	return true
-}
-
-// EqualSimpleTypePrimitiveReadProjectionForTypes reports whether reads expose
-// each simple type's primitive kind.
-func EqualSimpleTypePrimitiveReadProjectionForTypes(reads []PrimitiveKind, types []SimpleType) bool {
-	if len(reads) != len(types) {
-		return false
-	}
-	for i := range reads {
-		if reads[i] != types[i].Primitive {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateSimpleTypePrimitiveReadProjectionForTypes validates simple-type
-// primitive read projections against frozen simple types.
-func ValidateSimpleTypePrimitiveReadProjectionForTypes(reads []PrimitiveKind, types []SimpleType) error {
-	if len(reads) != len(types) {
-		return errors.New("simple type primitive projection count does not match types")
-	}
-	if !EqualSimpleTypePrimitiveReadProjectionForTypes(reads, types) {
-		return errors.New("simple type primitive projection does not match type")
-	}
-	return nil
-}
-
-// EqualSimpleTypeIdentityReadProjection reports whether reads expose each
-// simple type's ID/IDREF behavior.
-func EqualSimpleTypeIdentityReadProjection(reads []SimpleIdentityKind, shapes []SimpleTypeReadShape) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		if reads[i] != shapes[i].Identity {
-			return false
-		}
-	}
-	return true
-}
-
-// EqualSimpleTypeIdentityReadProjectionForTypes reports whether reads expose
-// each simple type's ID/IDREF behavior.
-func EqualSimpleTypeIdentityReadProjectionForTypes(reads []SimpleIdentityKind, types []SimpleType) bool {
-	if len(reads) != len(types) {
-		return false
-	}
-	for i := range reads {
-		if reads[i] != types[i].Identity {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateSimpleTypeIdentityReadProjectionForTypes validates simple-type
-// identity read projections against frozen simple types.
-func ValidateSimpleTypeIdentityReadProjectionForTypes(reads []SimpleIdentityKind, types []SimpleType) error {
-	if len(reads) != len(types) {
-		return errors.New("simple type identity projection count does not match types")
-	}
-	if !EqualSimpleTypeIdentityReadProjectionForTypes(reads, types) {
-		return errors.New("simple type identity projection does not match type")
-	}
-	return nil
-}
-
-// EqualSimpleTypeFinalReadProjection reports whether reads expose each simple
-// type's final derivation mask.
-func EqualSimpleTypeFinalReadProjection(reads []DerivationMask, shapes []SimpleTypeReadShape) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		if reads[i] != shapes[i].Final {
-			return false
-		}
-	}
-	return true
-}
-
-// EqualSimpleTypeFinalReadProjectionForTypes reports whether reads expose each
-// simple type's final derivation mask.
-func EqualSimpleTypeFinalReadProjectionForTypes(reads []DerivationMask, types []SimpleType) bool {
-	if len(reads) != len(types) {
-		return false
-	}
-	for i := range reads {
-		if reads[i] != types[i].Final {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateSimpleTypeFinalReadProjectionForTypes validates simple-type final
-// read projections against frozen simple types.
-func ValidateSimpleTypeFinalReadProjectionForTypes(reads []DerivationMask, types []SimpleType) error {
-	if len(reads) != len(types) {
-		return errors.New("simple type final projection count does not match types")
-	}
-	if !EqualSimpleTypeFinalReadProjectionForTypes(reads, types) {
-		return errors.New("simple type final projection does not match type")
-	}
-	return nil
-}
-
 // FacetMask records which facet families are present or fixed on a simple type.
 type FacetMask uint16
 
@@ -442,8 +228,8 @@ const (
 // FacetSet stores compiled facet values attached to a simple type.
 type FacetSet struct {
 	bounds         facetBounds
+	patterns       stringPatternSteps
 	Enumeration    []CompiledLiteral
-	Patterns       []StringPatternGroup
 	Length         uint32
 	MinLength      uint32
 	MaxLength      uint32
@@ -465,9 +251,40 @@ const (
 // CompiledLiteral stores a facet literal in lexical, canonical, and parsed
 // value-space forms.
 type CompiledLiteral struct {
-	Lexical   string
-	Canonical string
-	Actual    PrimitiveActualValue
+	Lexical       string
+	Canonical     string
+	ResolvedNames []ResolvedValueName
+	Actual        PrimitiveActualValue
+	Type          SimpleTypeID
+}
+
+// NewCompiledLiteralForSimpleType constructs a facet literal cache with the
+// type and QName-resolution proof needed for publication replay.
+func NewCompiledLiteralForSimpleType(typ SimpleType, id SimpleTypeID, lexical, canonical string, resolvedNames []ResolvedValueName) CompiledLiteral {
+	return CompiledLiteral{
+		Lexical:       lexical,
+		Canonical:     canonical,
+		ResolvedNames: slices.Clone(resolvedNames),
+		Actual:        compiledLiteralActualValue(typ, lexical),
+		Type:          id,
+	}
+}
+
+func compiledLiteralActualValue(typ SimpleType, lexical string) PrimitiveActualValue {
+	if typ.Variety != SimpleVarietyAtomic {
+		return PrimitiveActualValue{}
+	}
+	switch typ.Primitive {
+	case PrimitiveQName, PrimitiveNotation:
+		return PrimitiveActualValue{Kind: typ.Primitive, Valid: true}
+	default:
+		normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
+		parsed, err := ParsePrimitiveActual(typ.Primitive, normalized, PrimitiveNeedCanonical|PrimitiveNeedLength)
+		if err != nil {
+			return PrimitiveActualValue{}
+		}
+		return parsed.Actual
+	}
 }
 
 // EqualCompiledLiterals reports whether two compiled facet literals represent
@@ -498,6 +315,7 @@ func SetBoundFacet(f *FacetSet, flag FacetMask, lit CompiledLiteral, fixed bool)
 	if !ok {
 		return
 	}
+	lit.ResolvedNames = slices.Clone(lit.ResolvedNames)
 	f.bounds[idx] = &lit
 	SetFacet(f, flag, fixed)
 }
@@ -522,7 +340,7 @@ func ClearFacet(f *FacetSet, flag FacetMask) {
 	case FacetEnumeration:
 		f.Enumeration = nil
 	case FacetPattern:
-		f.Patterns = nil
+		f.patterns = stringPatternSteps{}
 	default:
 	}
 }
@@ -591,7 +409,7 @@ func actualFacetMask(f FacetSet) FacetMask {
 	if len(f.Enumeration) != 0 {
 		actual |= FacetEnumeration
 	}
-	if len(f.Patterns) != 0 {
+	if f.patterns.count() != 0 {
 		actual |= FacetPattern
 	}
 	return actual
@@ -1249,121 +1067,40 @@ func (r OrderedFacetRelation) valid() bool {
 	return r <= OrderedFacetIncomparable
 }
 
-// PatternFacet is the freeze-comparable projection of one pattern facet.
-type PatternFacet struct {
-	XSDSource     string
-	GoSource      string
-	Regexp        string
-	FastSignature string
-	HasRegexp     bool
-	HasFast       bool
-}
-
-// PatternFacetGroup is one pattern-facet derivation step. Patterns inside a
-// group are OR-ed; groups are AND-ed in derivation order.
-type PatternFacetGroup struct {
-	Patterns []PatternFacet
-}
-
-// PatternFacetGroupsForStringPatterns returns freeze-comparable pattern facet
-// projections for compiled string pattern groups.
-func PatternFacetGroupsForStringPatterns(in []StringPatternGroup) []PatternFacetGroup {
-	out := make([]PatternFacetGroup, len(in))
-	for i, group := range in {
-		out[i].Patterns = make([]PatternFacet, len(group.Patterns))
-		for j, p := range group.Patterns {
-			out[i].Patterns[j] = p.FacetProjection()
-		}
-	}
-	return out
-}
-
-// ValidatePatternFacetShape validates pattern facet groups and their matcher
-// representation.
-func ValidatePatternFacetShape(groups []PatternFacetGroup) error {
-	for _, group := range groups {
-		if len(group.Patterns) == 0 {
-			return errors.New("simple type pattern facet group has no patterns")
-		}
-		for _, p := range group.Patterns {
-			if p.HasFast == p.HasRegexp {
-				return errors.New("simple type pattern facet has invalid matcher")
-			}
-		}
-	}
-	return nil
-}
-
-// ValidatePatternFacetRestriction validates that a derived simple type keeps
-// all base pattern derivation steps in their original order.
-func ValidatePatternFacetRestriction(derived, base []PatternFacetGroup) error {
-	if len(derived) < len(base) {
+func validatePatternFacetRestriction(derived, base stringPatternSteps) error {
+	if derived.count() < base.count() {
 		return errors.New("simple type patterns loosen base")
 	}
-	for i := range base {
-		if !patternFacetGroupsEqual(derived[i], base[i]) {
+	step := derived.tail
+	for count := derived.count(); count > base.count(); count-- {
+		if step == nil {
 			return errors.New("simple type patterns loosen base")
+		}
+		step = step.parent
+	}
+	if step != base.tail {
+		return errors.New("simple type patterns loosen base")
+	}
+	return nil
+}
+
+func validateEnumerationFacetRestriction(derived, base []CompiledLiteral, compilationType SimpleTypeID) error {
+	if sameCompiledLiteralStorage(derived, base) {
+		return nil
+	}
+	if len(base) != 0 && len(derived) == 0 {
+		return errors.New("simple type enumeration loosens base")
+	}
+	for i := range derived {
+		if derived[i].Type != compilationType {
+			return errors.New("simple type enumeration literal was not compiled against base")
 		}
 	}
 	return nil
 }
 
-func patternFacetGroupsEqual(a, b PatternFacetGroup) bool {
-	return slices.EqualFunc(a.Patterns, b.Patterns, patternFacetsEqual)
-}
-
-// ValidatePatternFacetShapeForFacetSet validates pattern facet groups stored in f.
-func ValidatePatternFacetShapeForFacetSet(f FacetSet) error {
-	return ValidatePatternFacetShape(PatternFacetGroupsForStringPatterns(f.Patterns))
-}
-
-// EnumerationFacetRestriction is the runtime projection for enumeration
-// restriction. Literal equality is supplied by the caller as membership facts.
-type EnumerationFacetRestriction struct {
-	DerivedMatchesBase []bool
-	BaseCount          int
-}
-
-// EnumerationFacetRestrictionForLiterals returns the runtime-owned
-// enumeration restriction projection for compiled literal sets.
-func EnumerationFacetRestrictionForLiterals(derived, base []CompiledLiteral) EnumerationFacetRestriction {
-	matches := make([]bool, len(derived))
-	for i, lit := range derived {
-		matches[i] = slices.ContainsFunc(base, func(baseLit CompiledLiteral) bool {
-			return EqualCompiledLiterals(&lit, &baseLit)
-		})
-	}
-	return EnumerationFacetRestriction{
-		DerivedMatchesBase: matches,
-		BaseCount:          len(base),
-	}
-}
-
-// ValidateEnumerationFacetRestriction validates that derived enumeration
-// literals do not loosen the base enumeration.
-func ValidateEnumerationFacetRestriction(shape EnumerationFacetRestriction) error {
-	if shape.BaseCount < 0 {
-		return errors.New("simple type enumeration shape is invalid")
-	}
-	if shape.BaseCount == 0 {
-		return nil
-	}
-	if len(shape.DerivedMatchesBase) == 0 {
-		return errors.New("simple type enumeration loosens base")
-	}
-	if slices.Contains(shape.DerivedMatchesBase, false) {
-		return errors.New("simple type enumeration loosens base")
-	}
-	return nil
-}
-
-func patternFacetsEqual(a, b PatternFacet) bool {
-	return a.XSDSource == b.XSDSource &&
-		a.GoSource == b.GoSource &&
-		a.HasRegexp == b.HasRegexp &&
-		a.Regexp == b.Regexp &&
-		a.HasFast == b.HasFast &&
-		a.FastSignature == b.FastSignature
+func sameCompiledLiteralStorage(a, b []CompiledLiteral) bool {
+	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0])
 }
 
 // ValidateFacetRestrictionForSimpleTypes validates facet restriction rules
@@ -1375,10 +1112,10 @@ func ValidateFacetRestrictionForSimpleTypes(derived, base SimpleType) error {
 	if !OrderedFacetSetRestricts(derived.Variety, derived.Primitive, derived.Facets, base.Facets) {
 		return errors.New("simple type ordered facets loosen base")
 	}
-	if err := ValidateEnumerationFacetRestriction(EnumerationFacetRestrictionForLiterals(derived.Facets.Enumeration, base.Facets.Enumeration)); err != nil {
+	if err := validateEnumerationFacetRestriction(derived.Facets.Enumeration, base.Facets.Enumeration, derived.Base); err != nil {
 		return err
 	}
-	return ValidatePatternFacetRestriction(PatternFacetGroupsForStringPatterns(derived.Facets.Patterns), PatternFacetGroupsForStringPatterns(base.Facets.Patterns))
+	return validatePatternFacetRestriction(derived.Facets.patterns, base.Facets.patterns)
 }
 
 // ValidateFacetLegalityAndConsistencyForSimpleType validates facet bitsets,
@@ -1388,9 +1125,6 @@ func ValidateFacetLegalityAndConsistencyForSimpleType(st SimpleType) error {
 		return err
 	}
 	if err := ValidateDecimalBoundFacetLiteralsForSimpleType(st); err != nil {
-		return err
-	}
-	if err := ValidatePatternFacetShapeForFacetSet(st.Facets); err != nil {
 		return err
 	}
 	if err := ValidateFacetCardinalityShape(FacetCardinalityShapeForSimpleType(st)); err != nil {
@@ -1815,7 +1549,7 @@ func SimpleFastPathValidationForSimpleType(st SimpleType) SimpleFastPathValidati
 	return SimpleFastPathValidation{
 		FractionDigits:           facetCardinalityValue(st.Facets.FractionDigits, st.Facets.Present&FacetFractionDigits != 0),
 		EnumerationSize:          len(st.Facets.Enumeration),
-		PatternGroupSize:         len(st.Facets.Patterns),
+		PatternGroupSize:         int(st.Facets.patterns.count()),
 		Stored:                   st.Fast,
 		Variety:                  st.Variety,
 		Primitive:                st.Primitive,
@@ -1970,56 +1704,6 @@ type SimpleFixedStringFastPathShape struct {
 	HasFixed   bool
 }
 
-// SimpleFixedStringTypeShape is the freeze-published simple-value projection
-// needed to decide whether a fixed attribute can use raw string comparison.
-type SimpleFixedStringTypeShape struct {
-	Type     SimpleValueType
-	HasFixed bool
-}
-
-// SimpleRawAtomicFastPathAction identifies a raw atomic validator that may
-// validate without full value construction.
-type SimpleRawAtomicFastPathAction uint8
-
-const (
-	// SimpleRawAtomicFastPathNone means the full simple-value path is required.
-	SimpleRawAtomicFastPathNone SimpleRawAtomicFastPathAction = iota
-	// SimpleRawAtomicFastPathAccept accepts an unconstrained raw string value.
-	SimpleRawAtomicFastPathAccept
-	// SimpleRawAtomicFastPathValidateStringPatterns validates string pattern facets.
-	SimpleRawAtomicFastPathValidateStringPatterns
-	// SimpleRawAtomicFastPathValidateStringEnumeration validates string enumeration facets.
-	SimpleRawAtomicFastPathValidateStringEnumeration
-	// SimpleRawAtomicFastPathValidateInt validates the stored integer fast path.
-	SimpleRawAtomicFastPathValidateInt
-	// SimpleRawAtomicFastPathValidateDecimal validates a decimal value without output.
-	SimpleRawAtomicFastPathValidateDecimal
-	// SimpleRawAtomicFastPathValidateAnyURI validates an anyURI value without output.
-	SimpleRawAtomicFastPathValidateAnyURI
-	// SimpleRawAtomicFastPathValidateHexBinary validates a hexBinary value without output.
-	SimpleRawAtomicFastPathValidateHexBinary
-	// SimpleRawAtomicFastPathValidateBase64Binary validates a base64Binary value without output.
-	SimpleRawAtomicFastPathValidateBase64Binary
-	// SimpleRawAtomicFastPathValidateFloat validates a float/double value without output.
-	SimpleRawAtomicFastPathValidateFloat
-	// SimpleRawAtomicFastPathValidateDuration validates a duration value without output.
-	SimpleRawAtomicFastPathValidateDuration
-	// SimpleRawAtomicFastPathValidateBoolean validates a boolean value without output.
-	SimpleRawAtomicFastPathValidateBoolean
-	// SimpleRawAtomicFastPathValidateTemporal validates a temporal value without output.
-	SimpleRawAtomicFastPathValidateTemporal
-	// SimpleRawAtomicFastPathValidateDate validates a date value without output.
-	SimpleRawAtomicFastPathValidateDate
-)
-
-// SimpleRawAtomicFastPathShape is the raw-input projection used to choose
-// whether an atomic simple value may use a raw datatype executor.
-type SimpleRawAtomicFastPathShape struct {
-	Bypass              SimpleValueBypassAction
-	RawEqualsNormalized bool
-	HasWhitespace       bool
-}
-
 // SimpleRawListFastPathAction identifies a raw list validator that may validate
 // a list simple value without full item value construction.
 type SimpleRawListFastPathAction uint8
@@ -2159,82 +1843,6 @@ func SimpleFixedStringFastPath(shape SimpleFixedStringFastPathShape) bool {
 	return shape.HasFixed &&
 		shape.Whitespace == WhitespacePreserve &&
 		shape.Bypass == SimpleValueBypassAcceptString
-}
-
-// SimpleFixedStringFastPathForType reports whether a fixed attribute value can
-// use raw string comparison from a freeze-published simple-value type.
-func SimpleFixedStringFastPathForType(shape SimpleFixedStringTypeShape) bool {
-	return SimpleFixedStringFastPath(SimpleFixedStringFastPathShape{
-		Bypass: SimpleValueBypass(SimpleValueBypassShape{
-			Facets:    shape.Type.Facets,
-			Variety:   shape.Type.Variety,
-			Primitive: shape.Type.Primitive,
-			Builtin:   shape.Type.Builtin,
-			Identity:  shape.Type.Identity,
-			Fast:      shape.Type.Fast,
-		}),
-		Whitespace: shape.Type.Whitespace,
-		HasFixed:   shape.HasFixed,
-	})
-}
-
-// SimpleRawAtomicFastPath chooses the cheapest semantically valid raw atomic
-// validator for a preselected simple-value bypass action and raw input facts.
-func SimpleRawAtomicFastPath(shape SimpleRawAtomicFastPathShape) SimpleRawAtomicFastPathAction {
-	switch shape.Bypass {
-	case SimpleValueBypassAcceptString:
-		return SimpleRawAtomicFastPathAccept
-	case SimpleValueBypassValidateStringPatterns:
-		if shape.RawEqualsNormalized {
-			return SimpleRawAtomicFastPathValidateStringPatterns
-		}
-	case SimpleValueBypassValidateStringEnumeration:
-		if shape.RawEqualsNormalized {
-			return SimpleRawAtomicFastPathValidateStringEnumeration
-		}
-	case SimpleValueBypassValidateInt:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateInt
-		}
-	case SimpleValueBypassValidateDecimal:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateDecimal
-		}
-	case SimpleValueBypassValidateAnyURI:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateAnyURI
-		}
-	case SimpleValueBypassValidateHexBinary:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateHexBinary
-		}
-	case SimpleValueBypassValidateBase64Binary:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateBase64Binary
-		}
-	case SimpleValueBypassValidateFloat:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateFloat
-		}
-	case SimpleValueBypassValidateDuration:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateDuration
-		}
-	case SimpleValueBypassValidateBoolean:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateBoolean
-		}
-	case SimpleValueBypassValidateTemporal:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateTemporal
-		}
-	case SimpleValueBypassValidateDate:
-		if !shape.HasWhitespace {
-			return SimpleRawAtomicFastPathValidateDate
-		}
-	case SimpleValueBypassNone:
-	}
-	return SimpleRawAtomicFastPathNone
 }
 
 // SimpleRawListFastPath chooses the cheapest semantically valid raw list
@@ -2613,12 +2221,6 @@ func ValidateSimpleTypeIdentity(
 	return nil
 }
 
-// SimpleTypeIsID reports whether id has ID identity behavior.
-func SimpleTypeIsID(rt SimpleTypeIdentityRuntime, id SimpleTypeID) bool {
-	identity, ok := rt.SimpleTypeIdentity(id)
-	return ok && identity == SimpleIdentityID
-}
-
 // ValidateSimpleValuePayload validates cached simple-value identity payloads
 // against the simple-type metadata that produced them.
 func ValidateSimpleValuePayload(value SimpleValue, typ SimpleValuePayloadType) error {
@@ -2688,34 +2290,6 @@ func BooleanCanonical(v bool) string {
 	return booleanCanonicalFalse
 }
 
-// SimpleTypeGraphNode is the graph-shaped runtime metadata for a simple type.
-type SimpleTypeGraphNode struct {
-	Union    []SimpleTypeID
-	Base     SimpleTypeID
-	ListItem SimpleTypeID
-	Variety  SimpleVariety
-}
-
-// NewSimpleTypeGraphNodeForSimpleType returns the graph-shaped projection for st.
-func NewSimpleTypeGraphNodeForSimpleType(st SimpleType) SimpleTypeGraphNode {
-	return CloneSimpleTypeGraphNode(SimpleTypeGraphNode{
-		Union:    st.Union,
-		Base:     st.Base,
-		ListItem: st.ListItem,
-		Variety:  st.Variety,
-	})
-}
-
-// NewSimpleTypeGraphNodesForSimpleTypes returns graph-shaped projections for
-// a simple-type table.
-func NewSimpleTypeGraphNodesForSimpleTypes(types []SimpleType) []SimpleTypeGraphNode {
-	nodes := make([]SimpleTypeGraphNode, len(types))
-	for i, st := range types {
-		nodes[i] = NewSimpleTypeGraphNodeForSimpleType(st)
-	}
-	return nodes
-}
-
 type simpleTypeGraphState uint8
 
 const (
@@ -2724,151 +2298,113 @@ const (
 	simpleTypeGraphChecked
 )
 
-// ValidateSimpleTypeGraph validates simple-type base/list/union topology.
-func ValidateSimpleTypeGraph(nodes []SimpleTypeGraphNode) error {
-	state := make([]simpleTypeGraphState, len(nodes))
-	for id := range nodes {
-		if err := validateSimpleTypeGraphNode(nodes, SimpleTypeID(id), state); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // ValidateSimpleTypeGraphForSimpleTypes validates simple-type base/list/union
-// topology directly from runtime records.
+// topology from runtime records.
 func ValidateSimpleTypeGraphForSimpleTypes(types []SimpleType) error {
 	state := make([]simpleTypeGraphState, len(types))
-	for id := range types {
-		if err := validateSimpleTypeGraphRecord(types, SimpleTypeID(id), state); err != nil {
-			return err
+	reachesList := make([]bool, len(types))
+	stack := make([]simpleTypeGraphFrame, 0, min(len(types), 1_024))
+	for root := range types {
+		if state[root] != simpleTypeGraphUnchecked {
+			continue
+		}
+		state[root] = simpleTypeGraphChecking
+		stack = appendDFSFrame(stack, simpleTypeGraphFrame{id: SimpleTypeID(root), next: -1}, len(types))
+		for len(stack) != 0 {
+			last := len(stack) - 1
+			frame := &stack[last]
+			st := types[frame.id]
+			if frame.next < 0 {
+				if st.Base != NoSimpleType {
+					if !validSimpleTypeGraphID(types, st.Base) {
+						return errors.New("simple type graph references invalid type")
+					}
+					switch state[st.Base] {
+					case simpleTypeGraphChecking:
+						return errors.New("simple type graph contains cycle")
+					case simpleTypeGraphUnchecked:
+						state[st.Base] = simpleTypeGraphChecking
+						stack = appendDFSFrame(stack, simpleTypeGraphFrame{id: st.Base, next: -1}, len(types))
+						continue
+					case simpleTypeGraphChecked:
+					}
+				}
+				frame.next = 0
+			}
+
+			switch st.Variety {
+			case SimpleVarietyAtomic:
+				state[frame.id] = simpleTypeGraphChecked
+				stack = stack[:last]
+			case SimpleVarietyList:
+				if !validSimpleTypeGraphID(types, st.ListItem) {
+					return errors.New("simple type graph references invalid type")
+				}
+				switch state[st.ListItem] {
+				case simpleTypeGraphChecking:
+					return errors.New("simple type graph contains cycle")
+				case simpleTypeGraphUnchecked:
+					state[st.ListItem] = simpleTypeGraphChecking
+					stack = appendDFSFrame(stack, simpleTypeGraphFrame{id: st.ListItem, next: -1}, len(types))
+					continue
+				case simpleTypeGraphChecked:
+				}
+				if reachesList[st.ListItem] {
+					return errors.New("list simple type uses list item type")
+				}
+				reachesList[frame.id] = true
+				state[frame.id] = simpleTypeGraphChecked
+				stack = stack[:last]
+			case SimpleVarietyUnion:
+				if frame.next == len(st.Union) {
+					state[frame.id] = simpleTypeGraphChecked
+					stack = stack[:last]
+					continue
+				}
+				member := st.Union[frame.next]
+				if !validSimpleTypeGraphID(types, member) {
+					return errors.New("simple type graph references invalid type")
+				}
+				switch state[member] {
+				case simpleTypeGraphChecking:
+					return errors.New("simple type graph contains cycle")
+				case simpleTypeGraphUnchecked:
+					state[member] = simpleTypeGraphChecking
+					stack = appendDFSFrame(stack, simpleTypeGraphFrame{id: member, next: -1}, len(types))
+					continue
+				case simpleTypeGraphChecked:
+				}
+				reachesList[frame.id] = reachesList[frame.id] || reachesList[member]
+				frame.next++
+			default:
+				return errors.New("simple type graph has invalid variety")
+			}
 		}
 	}
 	return nil
 }
 
-func validateSimpleTypeGraphNode(nodes []SimpleTypeGraphNode, id SimpleTypeID, state []simpleTypeGraphState) error {
-	if !validSimpleTypeGraphID(nodes, id) {
-		return errors.New("simple type graph references invalid type")
-	}
-	switch state[id] {
-	case simpleTypeGraphChecked:
-		return nil
-	case simpleTypeGraphChecking:
-		return errors.New("simple type graph contains cycle")
-	case simpleTypeGraphUnchecked:
-	}
-	state[id] = simpleTypeGraphChecking
-	st := nodes[id]
-	if st.Base != NoSimpleType {
-		if err := validateSimpleTypeGraphNode(nodes, st.Base, state); err != nil {
-			return err
-		}
-	}
-	switch st.Variety {
-	case SimpleVarietyAtomic:
-	case SimpleVarietyList:
-		if err := validateSimpleTypeGraphNode(nodes, st.ListItem, state); err != nil {
-			return err
-		}
-		if SimpleTypeGraphHasListVariety(nodes, st.ListItem) {
-			return errors.New("list simple type uses list item type")
-		}
-	case SimpleVarietyUnion:
-		for _, member := range st.Union {
-			if err := validateSimpleTypeGraphNode(nodes, member, state); err != nil {
-				return err
-			}
-		}
-	default:
-		return errors.New("simple type graph has invalid variety")
-	}
-	state[id] = simpleTypeGraphChecked
-	return nil
+type simpleTypeGraphFrame struct {
+	id   SimpleTypeID
+	next int
 }
 
-func validateSimpleTypeGraphRecord(types []SimpleType, id SimpleTypeID, state []simpleTypeGraphState) error {
-	if !ValidSimpleTypeID(id, len(types)) {
-		return errors.New("simple type graph references invalid type")
+func appendDFSFrame[T any](stack []T, frame T, limit int) []T {
+	if len(stack) < cap(stack) {
+		return append(stack, frame)
 	}
-	switch state[id] {
-	case simpleTypeGraphChecked:
-		return nil
-	case simpleTypeGraphChecking:
-		return errors.New("simple type graph contains cycle")
-	case simpleTypeGraphUnchecked:
+	if len(stack) >= limit {
+		panic("DFS stack exceeds graph size")
 	}
-	state[id] = simpleTypeGraphChecking
-	st := types[id]
-	if st.Base != NoSimpleType {
-		if err := validateSimpleTypeGraphRecord(types, st.Base, state); err != nil {
-			return err
-		}
+	newCapacity := limit
+	if cap(stack) <= limit/2 {
+		newCapacity = max(1, cap(stack)*2)
 	}
-	switch st.Variety {
-	case SimpleVarietyAtomic:
-	case SimpleVarietyList:
-		if err := validateSimpleTypeGraphRecord(types, st.ListItem, state); err != nil {
-			return err
-		}
-		if simpleTypeRecordsHaveListVariety(types, st.ListItem) {
-			return errors.New("list simple type uses list item type")
-		}
-	case SimpleVarietyUnion:
-		for _, member := range st.Union {
-			if err := validateSimpleTypeGraphRecord(types, member, state); err != nil {
-				return err
-			}
-		}
-	default:
-		return errors.New("simple type graph has invalid variety")
-	}
-	state[id] = simpleTypeGraphChecked
-	return nil
+	grown := make([]T, len(stack), newCapacity)
+	copy(grown, stack)
+	return append(grown, frame)
 }
 
-func validSimpleTypeGraphID(nodes []SimpleTypeGraphNode, id SimpleTypeID) bool {
-	return ValidUint32Index(uint32(id), len(nodes))
-}
-
-// SimpleTypeGraphHasListVariety reports whether id reaches a list simple type.
-func SimpleTypeGraphHasListVariety(nodes []SimpleTypeGraphNode, id SimpleTypeID) bool {
-	return simpleTypeGraphHasListVariety(nodes, id, make(map[SimpleTypeID]bool))
-}
-
-func simpleTypeGraphHasListVariety(nodes []SimpleTypeGraphNode, id SimpleTypeID, seen map[SimpleTypeID]bool) bool {
-	if !validSimpleTypeGraphID(nodes, id) || seen[id] {
-		return false
-	}
-	seen[id] = true
-	st := nodes[id]
-	if st.Variety == SimpleVarietyList {
-		return true
-	}
-	if st.Variety == SimpleVarietyUnion {
-		for _, member := range st.Union {
-			if simpleTypeGraphHasListVariety(nodes, member, seen) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func simpleTypeRecordsHaveListVariety(types []SimpleType, id SimpleTypeID) bool {
-	if !ValidSimpleTypeID(id, len(types)) {
-		return false
-	}
-	st := types[id]
-	if st.Variety == SimpleVarietyList {
-		return true
-	}
-	if st.Variety == SimpleVarietyUnion {
-		for _, member := range st.Union {
-			if simpleTypeRecordsHaveListVariety(types, member) {
-				return true
-			}
-		}
-	}
-	return false
+func validSimpleTypeGraphID(types []SimpleType, id SimpleTypeID) bool {
+	return ValidUint32Index(uint32(id), len(types))
 }

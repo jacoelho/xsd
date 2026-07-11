@@ -6,6 +6,14 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
+func newSessionForTest(rt *runtime.Schema, opts Options) (*Session, error) {
+	s := &Session{}
+	if err := s.Init(rt, opts); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 // MaxRetainedBufferCapForTest exposes the retained byte-buffer cap to tests.
 func MaxRetainedBufferCapForTest() int {
 	return maxRetainedBufferCap

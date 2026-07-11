@@ -234,7 +234,7 @@ func TestIdentityStateLimitFailuresDoNotAppendOrInsert(t *testing.T) {
 		t.Fatalf("RecordValue(ID) error = %v", err)
 	}
 	err := recordValueWithLimitsForTest(&state, IdentityValue{IDRefs: "b"}, IdentityLimits{Entries: 1}, StartContext{Path: "/ref", Line: 4, Column: 5})
-	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if len(state.idrefs) != 0 {
 		t.Fatalf("idrefs = %d, want 0 after failed reserve", len(state.idrefs))
 	}
@@ -244,7 +244,7 @@ func TestIdentityStateLimitFailuresDoNotAppendOrInsert(t *testing.T) {
 
 	var tooLong IdentityState
 	err = recordValueWithLimitsForTest(&tooLong, IdentityValue{IDs: "abcd"}, IdentityLimits{TupleBytes: 3}, StartContext{Path: "/id", Line: 2, Column: 3})
-	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if len(tooLong.ids) != 0 || tooLong.entries != 0 {
 		t.Fatalf("tuple limit mutated state: ids=%d entries=%d", len(tooLong.ids), tooLong.entries)
 	}
@@ -357,13 +357,13 @@ func TestIdentityStateStartScopeEnforcesLimit(t *testing.T) {
 	if !ok {
 		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
 	}
-	rt := identityRuntimeStub{elements: map[runtime.ElementID]runtime.IdentityConstraintIDs{elem: constraints}}
+	rt := identityScopeRuntimeStub{elements: map[runtime.ElementID]runtime.IdentityConstraintIDs{elem: constraints}}
 	ctx := StartContext{Path: "/root", Line: 2, Column: 3}
-	if err := state.StartElementScope(rt, elem, 1, 1, ctx); err != nil {
-		t.Fatalf("StartElementScope(first) error = %v", err)
+	if err := state.startElementScope(rt, elem, 1, 1, ctx); err != nil {
+		t.Fatalf("startElementScope(first) error = %v", err)
 	}
-	err := state.StartElementScope(rt, elem, 2, 1, ctx)
-	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
+	err := state.startElementScope(rt, elem, 2, 1, ctx)
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	expectXSDMessage(t, err, "identity scope limit exceeded")
 	if len(state.scopes) != 1 {
 		t.Fatalf("scopes = %d, want 1", len(state.scopes))
@@ -783,11 +783,11 @@ func recordAttributeSimpleValueForTest(s *IdentityState, value runtime.SimpleVal
 			*seenID = true
 		}
 	}
-	return recordValueForTest(s, SimpleValueIdentity(value), ctx)
+	return recordValueForTest(s, IdentityValue{IDs: value.IDs, IDRefs: value.IDRefs}, ctx)
 }
 
 func recordSimpleValueForTest(s *IdentityState, value runtime.SimpleValue, ctx StartContext) error {
-	return recordValueForTest(s, SimpleValueIdentity(value), ctx)
+	return recordValueForTest(s, IdentityValue{IDs: value.IDs, IDRefs: value.IDRefs}, ctx)
 }
 
 func recordValueForTest(s *IdentityState, value IdentityValue, ctx StartContext) error {
@@ -864,10 +864,10 @@ func startIdentityScope(t *testing.T, state *IdentityState, constraints []runtim
 	if !ok {
 		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
 	}
-	rt := identityRuntimeStub{elements: map[runtime.ElementID]runtime.IdentityConstraintIDs{elem: constraintIDs}}
-	err := state.StartElementScope(rt, elem, depth, 0, StartContext{Path: path})
+	rt := identityScopeRuntimeStub{elements: map[runtime.ElementID]runtime.IdentityConstraintIDs{elem: constraintIDs}}
+	err := state.startElementScope(rt, elem, depth, 0, StartContext{Path: path})
 	if err != nil {
-		t.Fatalf("StartElementScope(depth=%d) error = %v", depth, err)
+		t.Fatalf("startElementScope(depth=%d) error = %v", depth, err)
 	}
 }
 

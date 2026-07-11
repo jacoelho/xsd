@@ -1,9 +1,6 @@
 package runtime
 
-import (
-	"maps"
-	"slices"
-)
+import "slices"
 
 // CloneWildcard deep-clones wildcard metadata.
 func CloneWildcard(in Wildcard) Wildcard {
@@ -22,24 +19,6 @@ func CloneContentModel(in ContentModel) ContentModel {
 // metadata.
 func CloneSimpleTypeDerivation(in SimpleTypeDerivation) SimpleTypeDerivation {
 	in.Union = slices.Clone(in.Union)
-	return in
-}
-
-// CloneFacetSet deep-clones compiled facet storage.
-func CloneFacetSet(in FacetSet) FacetSet {
-	in.bounds = cloneFacetBounds(in.bounds)
-	in.Enumeration = slices.Clone(in.Enumeration)
-	in.Patterns = CloneStringPatternGroups(in.Patterns)
-	return in
-}
-
-func cloneFacetBounds(in facetBounds) facetBounds {
-	for i, lit := range in {
-		if lit != nil {
-			cloned := *lit
-			in[i] = &cloned
-		}
-	}
 	return in
 }
 
@@ -64,12 +43,6 @@ func CloneSimpleTypeRestrictionValidation(in SimpleTypeRestrictionValidation) Si
 	return in
 }
 
-// CloneSimpleTypeGraphNode deep-clones simple-type graph projection metadata.
-func CloneSimpleTypeGraphNode(in SimpleTypeGraphNode) SimpleTypeGraphNode {
-	in.Union = slices.Clone(in.Union)
-	return in
-}
-
 // CloneValueConstraintIdentity deep-clones value-constraint identity
 // projection metadata.
 func CloneValueConstraintIdentity(in ValueConstraintIdentity) ValueConstraintIdentity {
@@ -77,51 +50,9 @@ func CloneValueConstraintIdentity(in ValueConstraintIdentity) ValueConstraintIde
 	return in
 }
 
-// CloneRuntimeGlobals deep-clones runtime global declaration-map validation
-// metadata.
-func CloneRuntimeGlobals(in RuntimeGlobals) RuntimeGlobals {
-	return RuntimeGlobals{
-		GlobalAttributes: maps.Clone(in.GlobalAttributes),
-		GlobalElements:   maps.Clone(in.GlobalElements),
-		GlobalTypes:      maps.Clone(in.GlobalTypes),
-		GlobalIdentities: maps.Clone(in.GlobalIdentities),
-		Notations:        maps.Clone(in.Notations),
-		AttributeNames:   slices.Clone(in.AttributeNames),
-		ElementNames:     slices.Clone(in.ElementNames),
-		SimpleTypeNames:  slices.Clone(in.SimpleTypeNames),
-		ComplexTypeNames: slices.Clone(in.ComplexTypeNames),
-		IdentityNames:    slices.Clone(in.IdentityNames),
-	}
-}
-
 // CloneElementDeclValidation deep-clones element-declaration validation
 // projection metadata.
 func CloneElementDeclValidation(in ElementDeclValidation) ElementDeclValidation {
 	in.Identity = slices.Clone(in.Identity)
 	return in
-}
-
-// CloneCompiledModel deep-clones compiled content-model metadata for frozen
-// runtime publication.
-func CloneCompiledModel(in CompiledModel) CompiledModel {
-	in.Rows = cloneCompiledModelRows(in.Rows)
-	in.All = slices.Clone(in.All)
-	return in
-}
-
-func cloneCompiledModelRows(in []CompiledModelRow) []CompiledModelRow {
-	out := slices.Clone(in)
-	for i, row := range in {
-		out[i].Index = cloneDFARowIndex(row.Index)
-		out[i].Edges = slices.Clone(row.Edges)
-	}
-	return out
-}
-
-func cloneDFARowIndex(in DFARowIndex) DFARowIndex {
-	return DFARowIndex{
-		NameToEdge:    maps.Clone(in.NameToEdge),
-		WildcardEdges: slices.Clone(in.WildcardEdges),
-		Enabled:       in.Enabled,
-	}
 }

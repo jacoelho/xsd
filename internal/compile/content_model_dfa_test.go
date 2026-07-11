@@ -28,20 +28,6 @@ func TestCompileContentModelsBuildsIndexedRows(t *testing.T) {
 	}
 }
 
-func TestValidateCompiledModelDerivedRejectsDrift(t *testing.T) {
-	t.Parallel()
-
-	names, rt := compiledModelRuntimeFixture(t, runtime.ModelChoice)
-	models, err := CompileContentModels(&names, rt, 1, 32)
-	if err != nil {
-		t.Fatalf("CompileContentModels() error = %v", err)
-	}
-	model := models[0]
-	model.Rows[0].Edges[0].To = model.Rows[0].Edges[1].To
-	err = ValidateCompiledModelDerived(&names, rt, 0, model)
-	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
 func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	t.Parallel()
 
@@ -157,7 +143,7 @@ func TestValidateContentRestrictionRejectsElementNillableLoosening(t *testing.T)
 			2: {Type: runtime.SimpleRef(1), Nillable: true},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1)
+	err := ValidateContentRestriction(rt, nil, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -184,7 +170,7 @@ func TestValidateContentRestrictionAllowsSubstitutionMemberName(t *testing.T) {
 			1: {memberName: 2},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
+	if err := ValidateContentRestriction(rt, nil, 0, 1); err != nil {
 		t.Fatalf("ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -208,7 +194,7 @@ func TestValidateContentRestrictionRejectsFixedValueMismatch(t *testing.T) {
 			2: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraint("derived", "derived")},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1)
+	err := ValidateContentRestriction(rt, nil, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -231,7 +217,7 @@ func TestValidateContentRestrictionAllowsFixedCanonicalMatch(t *testing.T) {
 			2: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraint("1   2   3", "1 2 3")},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
+	if err := ValidateContentRestriction(rt, nil, 0, 1); err != nil {
 		t.Fatalf("ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -260,7 +246,7 @@ func TestValidateContentRestrictionAllowsFixedValueIdentityMatch(t *testing.T) {
 			2: {Base: 1, Variety: runtime.SimpleVarietyAtomic},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
+	if err := ValidateContentRestriction(rt, nil, 0, 1); err != nil {
 		t.Fatalf("ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -293,7 +279,7 @@ func TestValidateContentRestrictionRejectsWildcardOutsideBase(t *testing.T) {
 			1: {Mode: runtime.WildcardLocal},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1)
+	err := ValidateContentRestriction(rt, nil, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -310,7 +296,7 @@ func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T)
 			},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1)
+	err := ValidateContentRestriction(rt, nil, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
@@ -524,6 +510,10 @@ func (s compiledModelRuntimeStub) ComplexTypeCount() int {
 		count = max(count, int(s.anyType)+1)
 	}
 	return count
+}
+
+func (s compiledModelRuntimeStub) SimpleTypeCount() int {
+	return len(s.simpleDerivations)
 }
 
 func (s compiledModelRuntimeStub) SimpleTypeDerivation(id runtime.SimpleTypeID) (runtime.SimpleTypeDerivation, bool) {

@@ -49,8 +49,8 @@ func mustNotValidate(t *testing.T, rt *runtime.Schema, doc string, code xsderror
 }
 
 func validateWithRuntime(rt *runtime.Schema, doc string) error {
-	session, err := validate.NewSession(rt, validate.Options{})
-	if err != nil {
+	session := &validate.Session{}
+	if err := session.Init(rt, validate.Options{}); err != nil {
 		return err
 	}
 	return session.Validate(strings.NewReader(doc))
