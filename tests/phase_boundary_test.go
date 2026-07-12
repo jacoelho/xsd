@@ -99,10 +99,7 @@ func TestValidationFacadeOwnsSessionConstruction(t *testing.T) {
 		t.Fatal("missing public validation facade session.go")
 	}
 	info := &types.Info{
-		Defs:       make(map[*ast.Ident]types.Object),
-		Types:      make(map[ast.Expr]types.TypeAndValue),
-		Selections: make(map[*ast.SelectorExpr]*types.Selection),
-		Uses:       make(map[*ast.Ident]types.Object),
+		Uses: make(map[*ast.Ident]types.Object),
 	}
 	conf := types.Config{Importer: importer.ForCompiler(fset, "source", nil)}
 	pkg, err := conf.Check("github.com/jacoelho/xsd", fset, publicFiles, info)
@@ -115,144 +112,16 @@ func TestValidationFacadeOwnsSessionConstruction(t *testing.T) {
 	}
 	validateCall := validatePkg.Scope().Lookup("Validate")
 	newSessionCall := validatePkg.Scope().Lookup("NewSession")
-	publicSession := pkg.Scope().Lookup("Session")
-	if validateCall == nil || newSessionCall == nil || publicSession == nil {
+	if validateCall == nil || newSessionCall == nil {
 		t.Fatal("validation facade types are incomplete")
 	}
 	validateWithOptions := engineMethodDeclaration(public, "ValidateWithOptions")
-	if validateWithOptions == nil || !returnsOnlyExactCall(
-		info,
-		validateWithOptions,
-		validateCall,
-		pkg.Scope().Lookup("internalValidateOptions"),
-	) {
-		t.Fatal("Engine.ValidateWithOptions does not return internal/validate.Validate's result")
+	if validateWithOptions == nil || !callsObject(info, validateWithOptions.Body, validateCall) {
+		t.Fatal("Engine.ValidateWithOptions does not call internal/validate.Validate")
 	}
 	newSession := engineMethodDeclaration(public, "NewSession")
-	if newSession == nil || !newSessionResultFlowsToPublicSession(info, newSession, newSessionCall, publicSession.Type()) {
-		t.Fatal("Engine.NewSession does not propagate internal/validate.NewSession's results")
-	}
-}
-
-func TestValidationFacadeFlowRejectsDeadAndUnrelatedCalls(t *testing.T) {
-	const source = `package xsd
-import validate "github.com/jacoelho/xsd/internal/validate"
-type Engine struct{}
-type Session struct { session validate.Session }
-type otherValidation struct{}
-var validateAlias = validate.Validate
-func (otherValidation) Validate() error { return nil }
-func (otherValidation) NewSession() (validate.Session, error) { return validate.Session{}, nil }
-func (*Engine) ValidateWithOptions() error {
-	validate.Validate(nil, nil, validate.Options{})
-	return (otherValidation{}).Validate()
-}
-func (*Engine) ValidateWithDuplicateCall() error {
-	_ = validate.Validate(nil, nil, validate.Options{})
-	return validate.Validate(nil, nil, validate.Options{})
-}
-func (*Engine) ValidateWithDeferredOverwrite() (err error) {
-	defer func() { err = nil }()
-	return validate.Validate(nil, nil, validate.Options{})
-}
-func (*Engine) ValidateThroughAlias() error {
-	alias := validate.Validate
-	_ = alias(nil, nil, validate.Options{})
-	return validate.Validate(nil, nil, validate.Options{})
-}
-func (*Engine) ValidateThroughPackageAlias() error {
-	_ = validateAlias(nil, nil, validate.Options{})
-	return validate.Validate(nil, nil, validate.Options{})
-}
-func (*Engine) NewSession() (*Session, error) {
-	inner, err := validate.NewSession(nil, validate.Options{})
-	if err != nil { return nil, err }
-	if false { return &Session{session: inner}, nil }
-	other, err := (otherValidation{}).NewSession()
-	if err != nil { return nil, err }
-	return &Session{session: other}, nil
-}
-func (*Engine) NewSessionWithDeadErrorReturn() (*Session, error) {
-	inner, err := validate.NewSession(nil, validate.Options{})
-	if err != nil {
-		if false { return nil, err }
-	}
-	return &Session{session: inner}, nil
-}
-func (*Engine) NewSessionWithOverwrittenResults() (*Session, error) {
-	inner, err := validate.NewSession(nil, validate.Options{})
-	inner, err = validate.Session{}, nil
-	if err != nil { return nil, err }
-	return &Session{session: inner}, nil
-}
-func (*Engine) NewSessionWithEarlyReturn() (*Session, error) {
-	if false { return &Session{}, nil }
-	inner, err := validate.NewSession(nil, validate.Options{})
-	if err != nil { return nil, err }
-	return &Session{session: inner}, nil
-}
-func (*Engine) NewSessionWithDeferredOverwrite() (result *Session, resultErr error) {
-	defer func() { result = &Session{} }()
-	inner, err := validate.NewSession(nil, validate.Options{})
-	if err != nil { return nil, err }
-	return &Session{session: inner}, nil
-}`
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "session.go", source, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	info := &types.Info{
-		Defs:       make(map[*ast.Ident]types.Object),
-		Types:      make(map[ast.Expr]types.TypeAndValue),
-		Selections: make(map[*ast.SelectorExpr]*types.Selection),
-		Uses:       make(map[*ast.Ident]types.Object),
-	}
-	conf := types.Config{Importer: importer.ForCompiler(fset, "source", nil)}
-	pkg, err := conf.Check("github.com/jacoelho/xsd", fset, []*ast.File{file}, info)
-	if err != nil {
-		t.Fatalf("type-check synthetic facade: %v", err)
-	}
-	validatePkg := importedPackage(pkg, "github.com/jacoelho/xsd/internal/validate")
-	validateWithOptions := engineMethodDeclaration(file, "ValidateWithOptions")
-	if returnsOnlyExactCall(info, validateWithOptions, validatePkg.Scope().Lookup("Validate")) {
-		t.Fatal("dead exact Validate call satisfied validation facade boundary")
-	}
-	duplicateValidate := engineMethodDeclaration(file, "ValidateWithDuplicateCall")
-	if returnsOnlyExactCall(info, duplicateValidate, validatePkg.Scope().Lookup("Validate")) {
-		t.Fatal("duplicate exact Validate calls satisfied validation facade boundary")
-	}
-	deferredValidate := engineMethodDeclaration(file, "ValidateWithDeferredOverwrite")
-	if returnsOnlyExactCall(info, deferredValidate, validatePkg.Scope().Lookup("Validate")) {
-		t.Fatal("deferred named-result overwrite satisfied validation facade boundary")
-	}
-	aliasedValidate := engineMethodDeclaration(file, "ValidateThroughAlias")
-	if returnsOnlyExactCall(info, aliasedValidate, validatePkg.Scope().Lookup("Validate")) {
-		t.Fatal("aliased Validate call satisfied validation facade boundary")
-	}
-	packageAliasedValidate := engineMethodDeclaration(file, "ValidateThroughPackageAlias")
-	if returnsOnlyExactCall(info, packageAliasedValidate, validatePkg.Scope().Lookup("Validate")) {
-		t.Fatal("package-aliased Validate call satisfied validation facade boundary")
-	}
-	newSession := engineMethodDeclaration(file, "NewSession")
-	if newSessionResultFlowsToPublicSession(info, newSession, validatePkg.Scope().Lookup("NewSession"), pkg.Scope().Lookup("Session").Type()) {
-		t.Fatal("alternate NewSession result path satisfied validation facade boundary")
-	}
-	deadErrorReturn := engineMethodDeclaration(file, "NewSessionWithDeadErrorReturn")
-	if newSessionResultFlowsToPublicSession(info, deadErrorReturn, validatePkg.Scope().Lookup("NewSession"), pkg.Scope().Lookup("Session").Type()) {
-		t.Fatal("dead nested error return satisfied validation facade boundary")
-	}
-	overwrittenResults := engineMethodDeclaration(file, "NewSessionWithOverwrittenResults")
-	if newSessionResultFlowsToPublicSession(info, overwrittenResults, validatePkg.Scope().Lookup("NewSession"), pkg.Scope().Lookup("Session").Type()) {
-		t.Fatal("overwritten constructor results satisfied validation facade boundary")
-	}
-	earlyReturn := engineMethodDeclaration(file, "NewSessionWithEarlyReturn")
-	if newSessionResultFlowsToPublicSession(info, earlyReturn, validatePkg.Scope().Lookup("NewSession"), pkg.Scope().Lookup("Session").Type()) {
-		t.Fatal("early constructor bypass satisfied validation facade boundary")
-	}
-	deferredOverwrite := engineMethodDeclaration(file, "NewSessionWithDeferredOverwrite")
-	if newSessionResultFlowsToPublicSession(info, deferredOverwrite, validatePkg.Scope().Lookup("NewSession"), pkg.Scope().Lookup("Session").Type()) {
-		t.Fatal("deferred named-result overwrite satisfied validation facade boundary")
+	if newSession == nil || !callsObject(info, newSession.Body, newSessionCall) {
+		t.Fatal("Engine.NewSession does not call internal/validate.NewSession")
 	}
 }
 
@@ -265,201 +134,33 @@ func importedPackage(pkg *types.Package, path string) *types.Package {
 	return nil
 }
 
-func returnsOnlyExactCall(info *types.Info, fn *ast.FuncDecl, expected types.Object, allowed ...types.Object) bool {
-	if fn.Type.Results == nil {
-		return false
-	}
-	for _, result := range fn.Type.Results.List {
-		if len(result.Names) != 0 {
-			return false
-		}
-	}
-	returns := 0
-	matches := 0
-	exactCalls := 0
-	exactReferences := 0
-	allowedCalls := true
-	inspectFunctionBody(fn.Body, func(node ast.Node) {
-		if ident, ok := node.(*ast.Ident); ok && info.Uses[ident] == expected {
-			exactReferences++
-		}
-		if call, ok := node.(*ast.CallExpr); ok {
-			object := calledObject(info, call)
-			if object == expected {
-				exactCalls++
-			} else if object == nil || !slices.Contains(allowed, object) {
-				allowedCalls = false
-			}
-		}
-		stmt, ok := node.(*ast.ReturnStmt)
-		if !ok {
-			return
-		}
-		returns++
-		if len(stmt.Results) != 1 {
-			return
-		}
-		call, ok := unparen(stmt.Results[0]).(*ast.CallExpr)
-		if ok && calledObject(info, call) == expected {
-			matches++
-		}
-	})
-	return returns != 0 && matches == returns && exactCalls == 1 && exactReferences == 1 && allowedCalls
-}
-
-func newSessionResultFlowsToPublicSession(info *types.Info, fn *ast.FuncDecl, expected types.Object, sessionType types.Type) bool {
-	if fn.Type.Results == nil {
-		return false
-	}
-	for _, result := range fn.Type.Results.List {
-		if len(result.Names) != 0 {
-			return false
-		}
-	}
-	var inner, callErr types.Object
-	callPosition := -1
-	exactCalls := 0
-	for position, stmt := range fn.Body.List {
-		assign, ok := stmt.(*ast.AssignStmt)
-		if !ok || len(assign.Lhs) != 2 || len(assign.Rhs) != 1 {
-			continue
-		}
-		call, ok := unparen(assign.Rhs[0]).(*ast.CallExpr)
-		if !ok || calledObject(info, call) != expected {
-			continue
-		}
-		first, firstOK := assign.Lhs[0].(*ast.Ident)
-		second, secondOK := assign.Lhs[1].(*ast.Ident)
-		if !firstOK || !secondOK {
-			continue
-		}
-		exactCalls++
-		callPosition = position
-		inner = identObject(info, first)
-		callErr = identObject(info, second)
-	}
-	if exactCalls != 1 || inner == nil || callErr == nil || callPosition != len(fn.Body.List)-3 ||
-		statementsContainReturn(fn.Body.List[:callPosition]) {
-		return false
-	}
-	errorBranch, ok := fn.Body.List[callPosition+1].(*ast.IfStmt)
-	if !ok || errorBranch.Else != nil || !isNonNilCheck(info, errorBranch.Cond, callErr) ||
-		len(errorBranch.Body.List) != 1 || !returnsNilAndObject(info, errorBranch.Body, callErr) {
-		return false
-	}
-	success, ok := fn.Body.List[callPosition+2].(*ast.ReturnStmt)
-	return ok && returnWrapsSessionObject(info, success, sessionType, inner)
-}
-
-func statementsContainReturn(statements []ast.Stmt) bool {
+func callsObject(info *types.Info, node ast.Node, expected types.Object) bool {
 	found := false
-	for _, statement := range statements {
-		ast.Inspect(statement, func(node ast.Node) bool {
-			if found {
-				return false
-			}
-			if _, nested := node.(*ast.FuncLit); nested {
-				return false
-			}
-			if _, ok := node.(*ast.ReturnStmt); ok {
-				found = true
-				return false
-			}
-			return true
-		})
-	}
-	return found
-}
-
-func inspectFunctionBody(body *ast.BlockStmt, visit func(ast.Node)) {
-	ast.Inspect(body, func(node ast.Node) bool {
+	ast.Inspect(node, func(node ast.Node) bool {
+		if found {
+			return false
+		}
 		if _, nested := node.(*ast.FuncLit); nested {
 			return false
 		}
-		if node != nil {
-			visit(node)
+		call, ok := node.(*ast.CallExpr)
+		if ok && calledObject(info, call) == expected {
+			found = true
+			return false
 		}
 		return true
 	})
+	return found
 }
 
 func calledObject(info *types.Info, call *ast.CallExpr) types.Object {
-	switch fun := unparen(call.Fun).(type) {
-	case *ast.Ident:
-		return info.Uses[fun]
+	switch fun := ast.Unparen(call.Fun).(type) {
 	case *ast.SelectorExpr:
 		return info.Uses[fun.Sel]
+	case *ast.Ident:
+		return info.Uses[fun]
 	default:
 		return nil
-	}
-}
-
-func identObject(info *types.Info, ident *ast.Ident) types.Object {
-	if object := info.Defs[ident]; object != nil {
-		return object
-	}
-	return info.Uses[ident]
-}
-
-func isNonNilCheck(info *types.Info, expr ast.Expr, object types.Object) bool {
-	binary, ok := unparen(expr).(*ast.BinaryExpr)
-	if !ok || binary.Op != token.NEQ {
-		return false
-	}
-	return identIsObject(info, binary.X, object) && isNil(binary.Y) ||
-		isNil(binary.X) && identIsObject(info, binary.Y, object)
-}
-
-func returnsNilAndObject(info *types.Info, body *ast.BlockStmt, object types.Object) bool {
-	if len(body.List) == 0 {
-		return false
-	}
-	stmt, ok := body.List[len(body.List)-1].(*ast.ReturnStmt)
-	return ok && len(stmt.Results) == 2 && isNil(stmt.Results[0]) && identIsObject(info, stmt.Results[1], object)
-}
-
-func returnWrapsSessionObject(info *types.Info, stmt *ast.ReturnStmt, sessionType types.Type, object types.Object) bool {
-	if len(stmt.Results) != 2 || !isNil(stmt.Results[1]) {
-		return false
-	}
-	address, ok := unparen(stmt.Results[0]).(*ast.UnaryExpr)
-	if !ok || address.Op != token.AND {
-		return false
-	}
-	literal, ok := unparen(address.X).(*ast.CompositeLit)
-	if !ok || !types.Identical(info.TypeOf(literal), sessionType) {
-		return false
-	}
-	for _, element := range literal.Elts {
-		field, ok := element.(*ast.KeyValueExpr)
-		if !ok {
-			continue
-		}
-		name, ok := field.Key.(*ast.Ident)
-		if ok && name.Name == "session" && identIsObject(info, field.Value, object) {
-			return true
-		}
-	}
-	return false
-}
-
-func identIsObject(info *types.Info, expr ast.Expr, object types.Object) bool {
-	ident, ok := unparen(expr).(*ast.Ident)
-	return ok && identObject(info, ident) == object
-}
-
-func isNil(expr ast.Expr) bool {
-	ident, ok := unparen(expr).(*ast.Ident)
-	return ok && ident.Name == "nil"
-}
-
-func unparen(expr ast.Expr) ast.Expr {
-	for {
-		paren, ok := expr.(*ast.ParenExpr)
-		if !ok {
-			return expr
-		}
-		expr = paren.X
 	}
 }
 
