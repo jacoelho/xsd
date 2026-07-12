@@ -118,7 +118,7 @@ The boundary is enforced by tests, not only by convention:
 - `tests/stream_boundary_test.go`
   - `TestStreamBorrowedAttributeFieldsStayBehindAccessors`
 - `tests/schema_build_boundary_test.go`
-  - `TestCompilerSchemaTopologyMutationsStayInOwner`
+  - `TestCompilerSchemaBuildTopologyHasOneOwner`
 - `tests/external_api_smoke_test.go`
   - `TestExternalModuleUsesPublicSchemaAPI`
 

@@ -29,7 +29,7 @@ func (c *compiler) addBuiltinSimpleTypes() error {
 }
 
 func (c *compiler) addBuiltinSimpleSeed(seed *runtime.BuiltinSimpleSeed) (runtime.SimpleTypeID, error) {
-	q, err := c.names.InternQName(seed.Namespace, seed.Local)
+	q, err := c.rt.internQName(seed.Namespace, seed.Local)
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
@@ -51,7 +51,7 @@ func (c *compiler) addBuiltinXMLAttributes() error {
 		if !ok {
 			return xsderrors.InternalInvariant("builtin attribute seed index is invalid")
 		}
-		typ, ok := attr.TypeID(c.rt.Builtin, internal)
+		typ, ok := attr.TypeID(c.rt.builtinIDs(), internal)
 		if !ok {
 			return xsderrors.InternalInvariant("builtin attribute references missing type: " + attr.Local)
 		}
@@ -79,11 +79,11 @@ func (c *compiler) addBuiltinAttributeSimpleTypes() (runtime.BuiltinAttributeInt
 }
 
 func (c *compiler) addBuiltinAttributeSimpleSeed(seed runtime.BuiltinAttributeSimpleSeed) (runtime.SimpleTypeID, error) {
-	base, ok := seed.BaseID(c.rt.Builtin)
+	base, ok := seed.BaseID(c.rt.builtinIDs())
 	if !ok {
 		return runtime.NoSimpleType, xsderrors.InternalInvariant("builtin attribute simple type references missing base: " + seed.Local)
 	}
-	q, err := c.names.InternQName(seed.Namespace, seed.Local)
+	q, err := c.rt.internQName(seed.Namespace, seed.Local)
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
@@ -103,7 +103,7 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	q, err := c.names.InternQName(runtime.XSDNamespaceURI, runtime.BuiltinAnyTypeLocalName())
+	q, err := c.rt.internQName(runtime.XSDNamespaceURI, runtime.BuiltinAnyTypeLocalName())
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (c *compiler) addBuiltinAnyType() error {
 }
 
 func (c *compiler) addBuiltinAttribute(ns, local string, typ runtime.SimpleTypeID) error {
-	q, err := c.names.InternQName(ns, local)
+	q, err := c.rt.internQName(ns, local)
 	if err != nil {
 		return err
 	}
@@ -132,11 +132,11 @@ func (c *compiler) missingSimpleType() (runtime.SimpleTypeID, error) {
 	if c.missingSimple != runtime.NoSimpleType {
 		return c.missingSimple, nil
 	}
-	q, err := c.names.InternQName(runtime.EmptyNamespaceURI, runtime.MissingSimpleTypeLocalName())
+	q, err := c.rt.internQName(runtime.EmptyNamespaceURI, runtime.MissingSimpleTypeLocalName())
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
-	id, err := c.addSimpleType(runtime.MissingSimpleType(q, c.rt.Builtin.AnySimpleType))
+	id, err := c.addSimpleType(runtime.MissingSimpleType(q, c.rt.builtinIDs().AnySimpleType))
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}

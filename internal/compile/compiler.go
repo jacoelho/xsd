@@ -107,10 +107,9 @@ type compiler struct {
 	simpleValues  runtime.SimpleValueCallbacks
 	builtinFacets runtime.BuiltinSimpleFacetStorage
 	compilerIndexState
-	names NameInterner
 	compilerModelState
 	schemas       schemaSet
-	rt            runtime.SchemaBuild
+	rt            compilerSchemaBuild
 	limits        Limits
 	missingSimple runtime.SimpleTypeID
 }
@@ -161,7 +160,6 @@ func newCompiler(limits Limits) (*compiler, error) {
 		missingSimple: runtime.NoSimpleType,
 		limits:        limits,
 	}
-	c.names = NewNameInterner(&c.rt.Names)
 	if err := c.addBuiltins(); err != nil {
 		return nil, err
 	}
@@ -169,27 +167,27 @@ func newCompiler(limits Limits) (*compiler, error) {
 }
 
 func (c *compiler) compileGlobals() error {
-	for _, q := range SortedQNames(c.simpleRaw, c.rt.Names) {
+	for _, q := range sortedBuildQNames(&c.rt, c.simpleRaw) {
 		if _, err := c.compileSimpleByQName(q); err != nil {
 			return err
 		}
 	}
-	for _, q := range SortedQNames(c.complexRaw, c.rt.Names) {
+	for _, q := range sortedBuildQNames(&c.rt, c.complexRaw) {
 		if _, err := c.compileComplexByQName(q); err != nil {
 			return err
 		}
 	}
-	for _, q := range SortedQNames(c.attributeRaw, c.rt.Names) {
+	for _, q := range sortedBuildQNames(&c.rt, c.attributeRaw) {
 		if _, err := c.compileAttributeByQName(q); err != nil {
 			return err
 		}
 	}
-	for _, q := range SortedQNames(c.attrGroupRaw, c.rt.Names) {
+	for _, q := range sortedBuildQNames(&c.rt, c.attrGroupRaw) {
 		if _, _, err := c.compileAttributeGroupByQName(q); err != nil {
 			return err
 		}
 	}
-	for _, q := range SortedQNames(c.groupRaw, c.rt.Names) {
+	for _, q := range sortedBuildQNames(&c.rt, c.groupRaw) {
 		if err := c.compileModelGroupByQName(q); err != nil {
 			return err
 		}
@@ -197,7 +195,7 @@ func (c *compiler) compileGlobals() error {
 	if err := c.declareAllIdentityConstraints(); err != nil {
 		return err
 	}
-	for _, q := range SortedQNames(c.elementRaw, c.rt.Names) {
+	for _, q := range sortedBuildQNames(&c.rt, c.elementRaw) {
 		if _, err := c.compileElementByQName(q); err != nil {
 			return err
 		}
@@ -224,7 +222,7 @@ func (c *compiler) compileGlobals() error {
 }
 
 func (c *compiler) compileModelGroupByQName(q runtime.QName) error {
-	label := c.rt.Names.Format(q)
+	label := c.rt.formatName(q)
 	raw, ok := c.groupRaw[q]
 	if err := CheckSchemaComponentExists(SchemaComponentModelGroup, ok, label); err != nil {
 		return err
@@ -238,25 +236,21 @@ func (c *compiler) compileModelGroupByQName(q runtime.QName) error {
 }
 
 func (c *compiler) validateCompiledComplexRestrictions() error {
-	for id, ct := range c.rt.ComplexTypes {
-		if id == int(c.rt.Builtin.AnyType) || ct.Derivation != runtime.DerivationKindRestriction {
+	for id := range c.rt.ComplexTypeCount() {
+		ct := c.rt.complexType(runtime.ComplexTypeID(id))
+		if id == int(c.rt.builtinIDs().AnyType) || ct.Derivation != runtime.DerivationKindRestriction {
 			continue
 		}
 		baseID, ok := ct.Base.Complex()
-		if !ok || baseID == c.rt.Builtin.AnyType {
+		if !ok || baseID == c.rt.builtinIDs().AnyType {
 			continue
 		}
-		base := c.rt.ComplexTypes[baseID]
+		base := c.rt.complexType(baseID)
 		if err := ValidateContentRestriction(&c.rt, base.Content, ct.Content); err != nil {
 			return err
 		}
 	}
-	updates, err := runtime.RestrictionChoiceLimitUpdates(
-		&c.rt,
-		c.rt.ComplexTypes,
-		c.rt.Models,
-		c.rt.Builtin.AnyType,
-	)
+	updates, err := c.restrictionChoiceLimitUpdates()
 	if err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -265,7 +259,7 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 		if err != nil {
 			return err
 		}
-		ct := c.rt.ComplexTypes[update.ComplexType]
+		ct := c.rt.complexType(update.ComplexType)
 		ct.Content = id
 		c.completeComplexType(update.ComplexType, ct)
 	}
@@ -295,7 +289,7 @@ func (c *compiler) resolveQNameChecked(n *rawNode, ctx *schemaContext, lexical s
 	if err != nil {
 		return runtime.QName{}, err
 	}
-	return c.names.InternQName(ns, local)
+	return c.rt.internQName(ns, local)
 }
 
 func (c *compiler) validateAttributeDeclValueConstraintIdentity(decl *runtime.AttributeDecl) error {
@@ -306,7 +300,7 @@ func (c *compiler) validateAttributeDeclValueConstraintIdentity(decl *runtime.At
 }
 
 func (c *compiler) validateAttributeDeclName(n *rawNode, q runtime.QName) error {
-	if err := runtime.ValidateAttributeDeclName(&c.rt.Names, q); err != nil {
+	if err := c.validateAttributeDeclNameBuild(q); err != nil {
 		return withSchemaCompileLocation(n, invalidAttributeError(err))
 	}
 	return nil
@@ -374,14 +368,14 @@ func validateAttributeUseFixedValueAdmission(
 }
 
 func (c *compiler) validateAttributeUseSet(set runtime.AttributeUseSet) error {
-	if err := runtime.ValidateAttributeUseSetRecord(&c.rt.Names, &c.rt, set); err != nil {
+	if err := c.validateAttributeUseSetBuild(set); err != nil {
 		return invalidAttributeError(err)
 	}
 	return nil
 }
 
 func (c *compiler) compileSimpleByQName(q runtime.QName) (runtime.SimpleTypeID, error) {
-	label := c.rt.Names.Format(q)
+	label := c.rt.formatName(q)
 	if c.compilingSimple[q] {
 		err := CheckSchemaComponentCycle(SchemaComponentSimpleType, true, label)
 		if raw, ok := c.simpleRaw[q]; ok {
@@ -398,7 +392,7 @@ func (c *compiler) compileSimpleByQName(q runtime.QName) (runtime.SimpleTypeID, 
 	}
 	c.compilingSimple[q] = true
 	defer delete(c.compilingSimple, q)
-	id, err := c.registerGlobalSimpleType(q, runtime.SimpleType{Name: q, Variety: runtime.SimpleVarietyAtomic, Primitive: runtime.PrimitiveString, Base: c.rt.Builtin.AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespacePreserve})
+	id, err := c.registerGlobalSimpleType(q, runtime.SimpleType{Name: q, Variety: runtime.SimpleVarietyAtomic, Primitive: runtime.PrimitiveString, Base: c.rt.builtinIDs().AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespacePreserve})
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
@@ -423,11 +417,11 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (runti
 	if err := checkLocalSimpleTypeAttributes(n); err != nil {
 		return runtime.NoSimpleType, err
 	}
-	q, err := c.names.InternQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
+	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", c.rt.SimpleTypeCount()))
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
-	id, err := c.addSimpleType(runtime.SimpleType{Name: q, Variety: runtime.SimpleVarietyAtomic, Primitive: runtime.PrimitiveString, Base: c.rt.Builtin.AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespacePreserve})
+	id, err := c.addSimpleType(runtime.SimpleType{Name: q, Variety: runtime.SimpleVarietyAtomic, Primitive: runtime.PrimitiveString, Base: c.rt.builtinIDs().AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespacePreserve})
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
@@ -520,29 +514,17 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name runti
 		}
 		baseID = id
 	}
-	if err := CheckSimpleRestrictionBase(baseID, c.rt.Builtin.AnySimpleType); err != nil {
+	if err := CheckSimpleRestrictionBase(baseID, c.rt.builtinIDs().AnySimpleType); err != nil {
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 	}
-	base := c.rt.SimpleTypes[baseID]
-	if err := CheckSimpleTypeFinalAllows(base.Final, runtime.DerivationRestriction, SimpleTypeFinalBaseRestriction); err != nil {
+	if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinal(baseID), runtime.DerivationRestriction, SimpleTypeFinalBaseRestriction); err != nil {
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 	}
-	st := derivedSimpleType(base, baseID, name)
+	st := c.rt.derivedSimpleType(baseID, name)
 	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 	}
 	return st, nil
-}
-
-// derivedSimpleType copies base as the starting point of a restriction step.
-// Completed-base union and facet storage is immutable and remains shared until
-// the restriction replaces a facet value or appends a persistent pattern step.
-func derivedSimpleType(base runtime.SimpleType, baseID runtime.SimpleTypeID, name runtime.QName) runtime.SimpleType {
-	st := base
-	st.Name = name
-	st.Base = baseID
-	st.Final = 0
-	return st
 }
 
 func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name runtime.QName) (runtime.SimpleType, error) {
@@ -574,13 +556,13 @@ func (c *compiler) compileList(n *rawNode, ctx *schemaContext, name runtime.QNam
 	if item == runtime.NoSimpleType {
 		return runtime.SimpleType{}, xsderrors.InternalInvariant("list source validator admitted missing item type")
 	}
-	if err := CheckSimpleTypeFinalAllows(c.rt.SimpleTypes[item].Final, runtime.DerivationList, SimpleTypeFinalListItem); err != nil {
+	if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinal(item), runtime.DerivationList, SimpleTypeFinalListItem); err != nil {
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 	}
-	if err := checkSimpleListItemType(c.simpleListReach.reachesList(c.rt.SimpleTypes, item)); err != nil {
+	if err := checkSimpleListItemType(c.simpleListItemReachesList(item)); err != nil {
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 	}
-	return runtime.SimpleType{Name: name, Variety: runtime.SimpleVarietyList, Primitive: runtime.PrimitiveString, Base: c.rt.Builtin.AnySimpleType, Whitespace: runtime.WhitespaceCollapse, ListItem: item}, nil
+	return runtime.SimpleType{Name: name, Variety: runtime.SimpleVarietyList, Primitive: runtime.PrimitiveString, Base: c.rt.builtinIDs().AnySimpleType, Whitespace: runtime.WhitespaceCollapse, ListItem: item}, nil
 }
 
 func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType string) (runtime.SimpleTypeID, error) {
@@ -593,7 +575,7 @@ func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType 
 		return id, withSchemaCompileLocation(n, err)
 	}
 	if c.typeQNameKnown(q) {
-		err := CheckSchemaComponentExists(SchemaComponentSimpleType, false, c.rt.Names.Format(q))
+		err := CheckSchemaComponentExists(SchemaComponentSimpleType, false, c.rt.formatName(q))
 		return runtime.NoSimpleType, withSchemaCompileLocation(n, err)
 	}
 	return c.missingSimpleType()
@@ -603,7 +585,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name runtime.QNa
 	if err := checkChildOrderRules(n, simpleUnionChildOrder); err != nil {
 		return runtime.SimpleType{}, err
 	}
-	st := runtime.SimpleType{Name: name, Variety: runtime.SimpleVarietyUnion, Primitive: runtime.PrimitiveString, Base: c.rt.Builtin.AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespaceCollapse}
+	st := runtime.SimpleType{Name: name, Variety: runtime.SimpleVarietyUnion, Primitive: runtime.PrimitiveString, Base: c.rt.builtinIDs().AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespaceCollapse}
 	simpleTypeChildren := n.xsSimpleTypeChildren()
 	mt, hasMemberTypes := n.attr(vocab.XSDAttrMemberTypes)
 	memberTypes, err := parseUnionMemberTypes(n, mt, hasMemberTypes, len(simpleTypeChildren) != 0)
@@ -619,7 +601,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name runtime.QNa
 		if err != nil {
 			return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 		}
-		if err := CheckSimpleTypeFinalAllows(c.rt.SimpleTypes[id].Final, runtime.DerivationUnion, SimpleTypeFinalUnionMember); err != nil {
+		if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinal(id), runtime.DerivationUnion, SimpleTypeFinalUnionMember); err != nil {
 			return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 		}
 		st.Union = append(st.Union, id)
@@ -629,7 +611,7 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name runtime.QNa
 		if err != nil {
 			return runtime.SimpleType{}, err
 		}
-		if err := CheckSimpleTypeFinalAllows(c.rt.SimpleTypes[id].Final, runtime.DerivationUnion, SimpleTypeFinalUnionMember); err != nil {
+		if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinal(id), runtime.DerivationUnion, SimpleTypeFinalUnionMember); err != nil {
 			return runtime.SimpleType{}, withSchemaCompileLocation(child, err)
 		}
 		st.Union = append(st.Union, id)
