@@ -26,12 +26,20 @@ type AttributeSeen struct {
 	mask uint64
 }
 
-// NewAttributeSeen returns presence state sized for n declared attribute uses.
-func NewAttributeSeen(n int) AttributeSeen {
-	if n > 64 {
+func newAttributeSeenWithScratch(n int, scratch *[]bool) AttributeSeen {
+	if n <= 64 {
+		return AttributeSeen{}
+	}
+	if n > maxRetainedSliceCap {
 		return AttributeSeen{list: make([]bool, n)}
 	}
-	return AttributeSeen{}
+	if cap(*scratch) < n {
+		*scratch = make([]bool, n)
+	} else {
+		*scratch = (*scratch)[:n]
+		clear(*scratch)
+	}
+	return AttributeSeen{list: *scratch}
 }
 
 func (s *AttributeSeen) mark(slot int) bool {
@@ -57,12 +65,6 @@ func (s *AttributeSeen) has(slot int) bool {
 	return s.mask&(uint64(1)<<slot) != 0
 }
 
-// AttributeRuntime supplies runtime facts needed for attribute wildcard matching.
-type AttributeRuntime interface {
-	WildcardView(id runtime.WildcardID) (runtime.WildcardView, bool)
-	GlobalAttribute(name runtime.QName) (runtime.AttributeID, bool, bool)
-}
-
 // AttributeWildcardMatch is the result of matching an attribute wildcard.
 type AttributeWildcardMatch struct {
 	Attribute    runtime.AttributeID
@@ -73,7 +75,7 @@ type AttributeWildcardMatch struct {
 }
 
 // MatchAttributeWildcard matches an instance attribute against an attribute wildcard.
-func MatchAttributeWildcard(rt AttributeRuntime, wildcard runtime.WildcardID, name runtime.RuntimeName) (AttributeWildcardMatch, bool) {
+func MatchAttributeWildcard(rt *runtime.Schema, wildcard runtime.WildcardID, name runtime.RuntimeName) (AttributeWildcardMatch, bool) {
 	if wildcard == runtime.NoWildcard {
 		return AttributeWildcardMatch{}, true
 	}
@@ -88,13 +90,13 @@ func MatchAttributeWildcard(rt AttributeRuntime, wildcard runtime.WildcardID, na
 		return AttributeWildcardMatch{Matched: true, Skip: true}, true
 	}
 	if name.Known {
-		id, found, ok := rt.GlobalAttribute(name.Name)
-		if !ok {
+		attribute, found, valid := rt.GlobalAttribute(name.Name)
+		if !valid {
 			return AttributeWildcardMatch{}, false
 		}
 		if found {
 			return AttributeWildcardMatch{
-				Attribute:    id,
+				Attribute:    attribute,
 				Matched:      true,
 				HasAttribute: true,
 			}, true

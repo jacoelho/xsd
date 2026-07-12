@@ -271,7 +271,9 @@ func builtinSimpleFacetTestShape(exp BuiltinSimpleFacetExpectation) BuiltinSimpl
 	if exp.MinInclusive != "" {
 		shape.MinInclusive = BuiltinDecimalFacet{
 			Canonical:            exp.MinInclusive,
+			Lexical:              exp.MinInclusive,
 			ActualKind:           PrimitiveDecimal,
+			Type:                 exp.Type,
 			Present:              true,
 			ActualValid:          true,
 			ValueMatchesExpected: true,
@@ -280,7 +282,9 @@ func builtinSimpleFacetTestShape(exp BuiltinSimpleFacetExpectation) BuiltinSimpl
 	if exp.MaxInclusive != "" {
 		shape.MaxInclusive = BuiltinDecimalFacet{
 			Canonical:            exp.MaxInclusive,
+			Lexical:              exp.MaxInclusive,
 			ActualKind:           PrimitiveDecimal,
+			Type:                 exp.Type,
 			Present:              true,
 			ActualValid:          true,
 			ValueMatchesExpected: true,

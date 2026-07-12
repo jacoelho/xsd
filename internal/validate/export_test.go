@@ -1,6 +1,18 @@
 package validate
 
-import "github.com/jacoelho/xsd/internal/runtime"
+import (
+	"encoding/xml"
+
+	"github.com/jacoelho/xsd/internal/runtime"
+)
+
+func newSessionForTest(rt *runtime.Schema, opts Options) (*Session, error) {
+	s, err := NewSession(rt, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
 
 // MaxRetainedBufferCapForTest exposes the retained byte-buffer cap to tests.
 func MaxRetainedBufferCapForTest() int {
@@ -37,12 +49,12 @@ func NewIdentityRecorderForTest() *IdentityRecorderForTest {
 
 // PushPath appends a path segment.
 func (r *IdentityRecorderForTest) PushPath(local string) {
-	r.session.pushPath(local)
+	r.session.doc.CommitStart(xml.Name{Local: local}, local, false, frame{})
 }
 
 // PathString returns the current validation path.
 func (r *IdentityRecorderForTest) PathString() string {
-	return r.session.pathString()
+	return r.session.doc.PathString()
 }
 
 // ResetIdentity resets retained identity state.

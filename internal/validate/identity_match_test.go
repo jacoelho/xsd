@@ -3,8 +3,9 @@ package validate
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/xsderrors"
+	"github.com/jacoelho/xsd/internal/source"
 )
 
 type identityMatchNames map[runtime.NamespaceID]string
@@ -13,90 +14,31 @@ func (n identityMatchNames) Namespace(id runtime.NamespaceID) string {
 	return n[id]
 }
 
-type identityRuntimeStub struct {
-	names       identityMatchNames
-	elements    map[runtime.ElementID][]runtime.IdentityConstraintID
-	constraints map[runtime.IdentityConstraintID]runtime.IdentityConstraint
+type identityPathForTest struct {
+	path runtime.IdentityPath
 }
 
-func (s identityRuntimeStub) Namespace(id runtime.NamespaceID) string {
-	return s.names.Namespace(id)
+func (p identityPathForTest) StepCount() int {
+	return len(p.path.Steps)
 }
 
-func (s identityRuntimeStub) ForEachElementIdentityConstraint(id runtime.ElementID, fn func(runtime.IdentityConstraintID) bool) {
-	for _, constraint := range s.elements[id] {
-		if !fn(constraint) {
-			return
-		}
+func (p identityPathForTest) Step(index int) (runtime.IdentityStep, bool) {
+	if index < 0 || index >= len(p.path.Steps) {
+		return runtime.IdentityStep{}, false
 	}
+	return p.path.Steps[index], true
 }
 
-func (s identityRuntimeStub) ForEachIdentitySelector(id runtime.IdentityConstraintID, fn func(runtime.IdentityPath) bool) bool {
-	ic, ok := s.constraints[id]
-	if !ok {
-		return false
-	}
-	for _, path := range ic.Selector {
-		if !fn(path) {
-			return true
-		}
-	}
-	return true
+func (p identityPathForTest) Descendant() bool {
+	return p.path.Descendant
 }
 
-func (s identityRuntimeStub) IdentityFieldCount(id runtime.IdentityConstraintID) (int, bool) {
-	ic, ok := s.constraints[id]
-	if !ok {
-		return 0, false
-	}
-	return len(ic.Fields), true
+func (p identityPathForTest) Self() bool {
+	return p.path.Self
 }
 
-func (s identityRuntimeStub) ForEachIdentityElementField(id runtime.IdentityConstraintID, fn func(runtime.CompiledIdentityField) bool) bool {
-	ic, ok := s.constraints[id]
-	if !ok {
-		return false
-	}
-	for _, field := range ic.ElementFields {
-		if !fn(field) {
-			return true
-		}
-	}
-	return true
-}
-
-func (s identityRuntimeStub) ForEachIdentityAttributeField(id runtime.IdentityConstraintID, name runtime.QName, fn func(runtime.CompiledIdentityField) bool) bool {
-	ic, ok := s.constraints[id]
-	if !ok {
-		return false
-	}
-	for _, field := range ic.AttributeFields[name] {
-		if !fn(field) {
-			return true
-		}
-	}
-	return true
-}
-
-func (s identityRuntimeStub) ForEachIdentityAttributeWildcardField(id runtime.IdentityConstraintID, fn func(runtime.CompiledIdentityField) bool) bool {
-	ic, ok := s.constraints[id]
-	if !ok {
-		return false
-	}
-	for _, field := range ic.AttributeWildcardFields {
-		if !fn(field) {
-			return true
-		}
-	}
-	return true
-}
-
-func (s identityRuntimeStub) IdentityConstraintInfo(id runtime.IdentityConstraintID) (runtime.IdentityConstraintInfo, bool) {
-	ic, ok := s.constraints[id]
-	if !ok {
-		return runtime.IdentityConstraintInfo{}, false
-	}
-	return runtime.IdentityConstraintInfo{Refer: ic.Refer, Kind: ic.Kind}, true
+func matchIdentityPathForTest(names identityMatchNames, namePath []runtime.RuntimeName, scopeDepth, currentDepth int, path runtime.IdentityPath) bool {
+	return identityPathMatches(names, namePath, scopeDepth, currentDepth, identityPathForTest{path: path})
 }
 
 func TestIdentitySelectorMatchesSelfDescendantAndExactPaths(t *testing.T) {
@@ -112,21 +54,21 @@ func TestIdentitySelectorMatchesSelfDescendantAndExactPaths(t *testing.T) {
 		{Known: true, Name: leaf},
 	}
 
-	if !IdentitySelectorMatches(names, namePath, 1, 1, []runtime.IdentityPath{{Self: true}}) {
+	if !matchIdentityPathForTest(names, namePath, 1, 1, runtime.IdentityPath{Self: true}) {
 		t.Fatal("self selector did not match selected depth")
 	}
-	if IdentitySelectorMatches(names, namePath, 1, 2, []runtime.IdentityPath{{Self: true}}) {
+	if matchIdentityPathForTest(names, namePath, 1, 2, runtime.IdentityPath{Self: true}) {
 		t.Fatal("self selector matched child depth")
 	}
-	if !IdentitySelectorMatches(names, namePath, 1, 3, []runtime.IdentityPath{{
+	if !matchIdentityPathForTest(names, namePath, 1, 3, runtime.IdentityPath{
 		Steps: []runtime.IdentityStep{{Name: child}, {Name: leaf}},
-	}}) {
+	}) {
 		t.Fatal("exact selector did not match relative path")
 	}
-	if !IdentitySelectorMatches(names, namePath, 0, 3, []runtime.IdentityPath{{
+	if !matchIdentityPathForTest(names, namePath, 0, 3, runtime.IdentityPath{
 		Descendant: true,
 		Steps:      []runtime.IdentityStep{{Name: leaf}},
-	}}) {
+	}) {
 		t.Fatal("descendant selector did not match suffix")
 	}
 }
@@ -141,19 +83,19 @@ func TestIdentitySelectorWildcardNamespaceMatchesKnownAndUnknownRuntimeNames(t *
 	unknown := []runtime.RuntimeName{
 		{NS: "urn:a", Local: "external"},
 	}
-	path := []runtime.IdentityPath{{
+	path := runtime.IdentityPath{
 		Steps: []runtime.IdentityStep{{Wildcard: true, NamespaceSet: true, Namespace: 1}},
-	}}
+	}
 
-	if !IdentitySelectorMatches(names, known, 0, 1, path) {
+	if !matchIdentityPathForTest(names, known, 0, 1, path) {
 		t.Fatal("namespace wildcard did not match known runtime name")
 	}
-	if !IdentitySelectorMatches(names, unknown, 0, 1, path) {
+	if !matchIdentityPathForTest(names, unknown, 0, 1, path) {
 		t.Fatal("namespace wildcard did not match unknown runtime name by URI")
 	}
-	if IdentitySelectorMatches(names, known, 0, 1, []runtime.IdentityPath{{
+	if matchIdentityPathForTest(names, known, 0, 1, runtime.IdentityPath{
 		Steps: []runtime.IdentityStep{{Wildcard: true, NamespaceSet: true, Namespace: 2}},
-	}}) {
+	}) {
 		t.Fatal("namespace wildcard matched wrong namespace")
 	}
 }
@@ -161,142 +103,119 @@ func TestIdentitySelectorWildcardNamespaceMatchesKnownAndUnknownRuntimeNames(t *
 func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.T) {
 	t.Parallel()
 
-	const (
-		elemID       runtime.ElementID            = 1
-		constraintID runtime.IdentityConstraintID = 2
-	)
-	elemName := runtime.QName{Namespace: 1, Local: 1}
-	attrName := runtime.QName{Namespace: 1, Local: 2}
-	rt := identityRuntimeStub{
-		names:    identityMatchNames{1: "urn:a"},
-		elements: map[runtime.ElementID][]runtime.IdentityConstraintID{elemID: {constraintID}},
-		constraints: map[runtime.IdentityConstraintID]runtime.IdentityConstraint{
-			constraintID: {
-				Selector: []runtime.IdentityPath{{Self: true}},
-				Fields:   []runtime.IdentityField{{}},
-				ElementFields: []runtime.CompiledIdentityField{{
-					Field: 0,
-					Paths: []runtime.IdentityFieldPath{{Self: true}},
-				}},
-				AttributeFields: map[runtime.QName][]runtime.CompiledIdentityField{
-					attrName: {{
-						Field: 0,
-						Paths: []runtime.IdentityFieldPath{{Self: true, Attr: true, Attribute: attrName}},
-					}},
-				},
-				AttributeWildcardFields: []runtime.CompiledIdentityField{{
-					Field: 0,
-					Paths: []runtime.IdentityFieldPath{{
-						Self:             true,
-						Attr:             true,
-						AttrWildcard:     true,
-						AttrNamespaceSet: true,
-						AttrNamespace:    1,
-					}},
-				}},
-			},
-		},
-	}
+	rt, elemID, _, elemName, attrName := compiledIdentityRuntimeForTest(t)
 	namePath := []runtime.RuntimeName{{Known: true, Name: elemName}}
 
 	var state IdentityState
-	if err := state.StartElementScope(rt, elemID, len(namePath), 0, StartContext{Path: "/root"}); err != nil {
-		t.Fatalf("StartElementScope() error = %v", err)
+	if err := state.startElementScope(rt, elemID, len(namePath), 0, StartContext{Path: "/root"}); err != nil {
+		t.Fatalf("startElementScope() error = %v", err)
 	}
-	if err := state.MatchSelectors(rt, namePath, StartContext{Path: "/root", Line: 2, Column: 3}); err != nil {
-		t.Fatalf("MatchSelectors() error = %v", err)
+	if err := state.matchSelectors(rt, namePath, StartContext{Path: "/root", Line: 2, Column: 3}); err != nil {
+		t.Fatalf("matchSelectors() error = %v", err)
 	}
 	if len(state.selections) != 1 {
 		t.Fatalf("selections = %d, want 1", len(state.selections))
 	}
 
-	elementMatches, err := state.ElementFieldMatches(rt, namePath)
+	elementMatches, err := state.elementFieldMatches(rt, namePath)
 	if err != nil {
-		t.Fatalf("ElementFieldMatches() error = %v", err)
+		t.Fatalf("elementFieldMatches() error = %v", err)
 	}
 	if len(elementMatches) != 1 || elementMatches[0] != (IdentityFieldMatch{Selection: 0, Field: 0}) {
-		t.Fatalf("ElementFieldMatches() = %+v, want selection 0 field 0", elementMatches)
+		t.Fatalf("elementFieldMatches() = %+v, want selection 0 field 0", elementMatches)
 	}
 
-	attrMatches, err := state.AttributeFieldMatches(rt, namePath, attrName)
+	attrMatches, err := state.attributeFieldMatches(rt, namePath, attrName)
 	if err != nil {
-		t.Fatalf("AttributeFieldMatches() error = %v", err)
+		t.Fatalf("attributeFieldMatches() error = %v", err)
 	}
 	if len(attrMatches) != 1 || attrMatches[0] != (IdentityFieldMatch{Selection: 0, Field: 0}) {
-		t.Fatalf("AttributeFieldMatches() = %+v, want one deduplicated field match", attrMatches)
+		t.Fatalf("attributeFieldMatches() = %+v, want one deduplicated field match", attrMatches)
 	}
 }
 
-func TestIdentityStateRejectsInvalidRuntimeIdentityMetadata(t *testing.T) {
+func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T) {
 	t.Parallel()
 
-	const invalidConstraint runtime.IdentityConstraintID = 99
-	rt := identityRuntimeStub{}
-
-	t.Run("selector", func(t *testing.T) {
-		t.Parallel()
-
-		var state IdentityState
-		if err := state.StartScope([]runtime.IdentityConstraintID{invalidConstraint}, 0, 0, StartContext{Path: "/root"}); err != nil {
-			t.Fatalf("StartScope() error = %v", err)
-		}
-		err := state.MatchSelectors(rt, []runtime.RuntimeName{{}}, StartContext{Path: "/root", Line: 1, Column: 2})
-		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-	})
-
-	t.Run("element field", func(t *testing.T) {
-		t.Parallel()
-
-		var state IdentityState
-		state.StartSelection(0, 1, invalidConstraint, 1, StartContext{Path: "/root"})
-		_, err := state.ElementFieldMatches(rt, []runtime.RuntimeName{{}})
-		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-	})
-
-	t.Run("attribute field", func(t *testing.T) {
-		t.Parallel()
-
-		var state IdentityState
-		state.StartSelection(0, 1, invalidConstraint, 1, StartContext{Path: "/root"})
-		_, err := state.AttributeFieldMatches(rt, []runtime.RuntimeName{{}}, runtime.QName{})
-		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-	})
-}
-
-func TestIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T) {
-	t.Parallel()
-
-	names := identityMatchNames{1: "urn:a", 2: "urn:b"}
-	elem := runtime.QName{Namespace: 1, Local: 1}
-	attr := runtime.QName{Namespace: 1, Local: 2}
-	otherAttr := runtime.QName{Namespace: 2, Local: 2}
+	rt, _, constraintID, elem, attr := compiledIdentityRuntimeForTest(t)
+	otherAttr := runtime.QName{Namespace: 999, Local: attr.Local}
 	namePath := []runtime.RuntimeName{{Known: true, Name: elem}}
 
-	if !IdentityFieldPathsMatch(names, namePath, 0, 1, []runtime.IdentityFieldPath{{
-		Steps: []runtime.IdentityStep{{Name: elem}},
-	}}) {
+	elementFields, ok := rt.IdentityElementFields(constraintID)
+	if !ok {
+		t.Fatal("IdentityElementFields() rejected runtime metadata")
+	}
+	elementField, ok := elementFields.At(0)
+	if !ok {
+		t.Fatal("IdentityElementFields() returned no field")
+	}
+	if !identityCompiledFieldPathsMatch(rt, namePath, 1, 1, elementField) {
 		t.Fatal("element field path did not match")
 	}
-	if !IdentityAttributeFieldPathsMatch(names, namePath, 1, 1, attr, []runtime.IdentityFieldPath{{
-		Attr:      true,
-		Attribute: attr,
-	}}) {
+
+	attributeFields, ok := rt.IdentityAttributeFields(constraintID, attr)
+	if !ok {
+		t.Fatal("IdentityAttributeFields() rejected runtime metadata")
+	}
+	exactAttributeField, ok := attributeFields.At(0)
+	if !ok {
+		t.Fatal("IdentityAttributeFields() returned no exact field")
+	}
+	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, attr, exactAttributeField) {
 		t.Fatal("exact attribute field path did not match")
 	}
-	if !IdentityAttributeFieldPathsMatch(names, namePath, 1, 1, attr, []runtime.IdentityFieldPath{{
-		Attr:             true,
-		AttrWildcard:     true,
-		AttrNamespaceSet: true,
-		AttrNamespace:    1,
-	}}) {
+	attributeFields, ok = rt.IdentityAttributeWildcardFields(constraintID)
+	if !ok {
+		t.Fatal("IdentityAttributeWildcardFields() rejected runtime metadata")
+	}
+	wildcardAttributeField, ok := attributeFields.At(0)
+	if !ok {
+		t.Fatal("IdentityAttributeWildcardFields() returned no wildcard field")
+	}
+	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, attr, wildcardAttributeField) {
 		t.Fatal("attribute namespace wildcard did not match")
 	}
-	if IdentityAttributeFieldPathsMatch(names, namePath, 1, 1, otherAttr, []runtime.IdentityFieldPath{{
-		Attr:             true,
-		AttrWildcard:     true,
-		AttrNamespaceSet: true,
-		AttrNamespace:    1,
-	}}) {
+	if identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, otherAttr, wildcardAttributeField) {
 		t.Fatal("attribute namespace wildcard matched wrong namespace")
 	}
+}
+
+func compiledIdentityRuntimeForTest(t *testing.T) (*runtime.Schema, runtime.ElementID, runtime.IdentityConstraintID, runtime.QName, runtime.QName) {
+	t.Helper()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:a" targetNamespace="urn:a" elementFormDefault="qualified">
+	<xs:attribute name="id" type="xs:string"/>
+  <xs:element name="root">
+	<xs:complexType mixed="true"><xs:attribute ref="t:id"/></xs:complexType>
+	<xs:key name="k">
+	  <xs:selector xpath="."/>
+	  <xs:field xpath=". | @t:id | @t:*"/>
+	</xs:key>
+  </xs:element>
+</xs:schema>`
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("identity.xsd", []byte(schema))})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	elemName, ok := rt.LookupQName("urn:a", "root")
+	if !ok {
+		t.Fatal("LookupQName(root) failed")
+	}
+	attrName, ok := rt.LookupQName("urn:a", "id")
+	if !ok {
+		t.Fatal("LookupQName(id) failed")
+	}
+	elemID, _, ok := rt.RootElement(runtime.RuntimeName{Known: true, Name: elemName})
+	if !ok {
+		t.Fatal("RootElement(root) failed")
+	}
+	constraints, ok := rt.ElementIdentityConstraints(elemID)
+	if !ok {
+		t.Fatal("ElementIdentityConstraints(root) failed")
+	}
+	constraintID, ok := constraints.At(0)
+	if !ok {
+		t.Fatal("root has no identity constraint")
+	}
+	return rt, elemID, constraintID, elemName, attrName
 }

@@ -210,8 +210,8 @@ func allowedBorrowedStartAttrUse(sel *ast.SelectorExpr, parents map[ast.Node]ast
 	}
 	switch parentCallName(parent) {
 	case "len", "pushNamespaces", "translateStartElement", "xsiStartAttributeFlagsFor", "recordSchemaLocationHints",
-		"schemaElementStart", "ElementStart", "validateAttributes", "HasXSITypeAttribute", "RootStart",
-		"ValidateUniqueAttributes":
+		"assessElementStart", "validateAttributes", "RootStart",
+		"PushStream", "ValidateUniqueAttributes":
 		return true
 	default:
 		return false

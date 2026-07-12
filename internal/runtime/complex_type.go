@@ -119,91 +119,6 @@ func (ct ComplexType) SimpleContent() bool {
 	return ct.ContentKind.Simple()
 }
 
-// EqualComplexAttributeUseSetIDProjection reports whether ids expose the same
-// per-complex-type attribute-use-set projection as complexTypes.
-func EqualComplexAttributeUseSetIDProjection(ids []AttributeUseSetID, complexTypes []ComplexType) bool {
-	if len(ids) != len(complexTypes) {
-		return false
-	}
-	for i, id := range ids {
-		if id != complexTypes[i].Attrs {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateComplexAttributeUseSetIDProjection validates the per-complex-type
-// attribute-use-set ID projection.
-func ValidateComplexAttributeUseSetIDProjection(ids []AttributeUseSetID, complexTypes []ComplexType) error {
-	if len(ids) != len(complexTypes) {
-		return errors.New("complex attribute use-set projection count does not match types")
-	}
-	if !EqualComplexAttributeUseSetIDProjection(ids, complexTypes) {
-		return errors.New("complex attribute use-set projection does not match type")
-	}
-	return nil
-}
-
-// NewComplexAttributeUseSetIDProjection returns the per-complex-type
-// attribute-use-set IDs needed by validation.
-func NewComplexAttributeUseSetIDProjection(complexTypes []ComplexType) []AttributeUseSetID {
-	out := make([]AttributeUseSetID, len(complexTypes))
-	for i := range complexTypes {
-		out[i] = complexTypes[i].Attrs
-	}
-	return out
-}
-
-// EqualComplexContentModelIDProjection reports whether ids expose the same
-// per-complex-type content-model projection as complexTypes.
-func EqualComplexContentModelIDProjection(ids []ContentModelID, complexTypes []ComplexType) bool {
-	if len(ids) != len(complexTypes) {
-		return false
-	}
-	for i, id := range ids {
-		if id != complexTypes[i].Content {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateComplexContentModelIDProjection validates the per-complex-type
-// content-model ID projection.
-func ValidateComplexContentModelIDProjection(ids []ContentModelID, complexTypes []ComplexType) error {
-	if len(ids) != len(complexTypes) {
-		return errors.New("complex content-model projection count does not match types")
-	}
-	if !EqualComplexContentModelIDProjection(ids, complexTypes) {
-		return errors.New("complex content-model projection does not match type")
-	}
-	return nil
-}
-
-// NewComplexContentModelIDProjection returns the per-complex-type content-model
-// IDs needed by validation.
-func NewComplexContentModelIDProjection(complexTypes []ComplexType) []ContentModelID {
-	out := make([]ContentModelID, len(complexTypes))
-	for i := range complexTypes {
-		out[i] = complexTypes[i].Content
-	}
-	return out
-}
-
-// ContentModelForTypeByID returns the content model used to validate children
-// of a runtime type from the per-complex-type content-model projection.
-func ContentModelForTypeByID(ids []ContentModelID, typ TypeID) ContentModelID {
-	id, ok := typ.Complex()
-	if !ok {
-		return NoContentModel
-	}
-	if !ValidComplexTypeID(id, len(ids)) {
-		return NoContentModel
-	}
-	return ids[id]
-}
-
 // ValidateComplexTypeRuntime validates complex-type metadata that can be
 // expressed in runtime vocabulary.
 func ValidateComplexTypeRuntime(
@@ -258,6 +173,54 @@ func ValidateComplexTypeRuntime(
 	}
 	if models[ct.Content].Kind != ModelEmpty {
 		return errors.New("complex type simple content must have empty content model")
+	}
+	return nil
+}
+
+type complexTypeGraphState uint8
+
+const (
+	complexTypeGraphUnchecked complexTypeGraphState = iota
+	complexTypeGraphChecking
+	complexTypeGraphChecked
+)
+
+func validateComplexTypeGraph(types []ComplexType) error {
+	state := make([]complexTypeGraphState, len(types))
+	stack := make([]ComplexTypeID, 0, min(len(types), 1_024))
+	for root := range types {
+		if state[root] != complexTypeGraphUnchecked {
+			continue
+		}
+		state[root] = complexTypeGraphChecking
+		stack = appendDFSFrame(stack, ComplexTypeID(root), len(types))
+		for len(stack) != 0 {
+			last := len(stack) - 1
+			id := stack[last]
+			base := types[id].Base
+			switch base.Kind {
+			case TypeNone, TypeSimple:
+				state[id] = complexTypeGraphChecked
+				stack = stack[:last]
+			case TypeComplex:
+				baseID := ComplexTypeID(base.ID)
+				if !ValidComplexTypeID(baseID, len(types)) {
+					return errors.New("complex type graph references invalid base")
+				}
+				switch state[baseID] {
+				case complexTypeGraphUnchecked:
+					state[baseID] = complexTypeGraphChecking
+					stack = appendDFSFrame(stack, baseID, len(types))
+				case complexTypeGraphChecking:
+					return errors.New("complex type graph contains cycle")
+				case complexTypeGraphChecked:
+					state[id] = complexTypeGraphChecked
+					stack = stack[:last]
+				}
+			default:
+				return errors.New("complex type graph references invalid base")
+			}
+		}
 	}
 	return nil
 }
@@ -322,7 +285,7 @@ func ValidateComplexTypeFinalAllows(final, derivation DerivationMask) error {
 
 // ValidateComplexTypeExtensionRuntime validates complex-type extension rules
 // that do not depend on attribute-use value-constraint equality.
-func ValidateComplexTypeExtensionRuntime(rt ParticleRuntime, base, derived ComplexType, anyType ComplexTypeID) error {
+func ValidateComplexTypeExtensionRuntime(rt ContentModelRuntime, base, derived ComplexType, anyType ComplexTypeID) error {
 	if err := ValidateComplexTypeFinalAllows(base.Final, DerivationExtension); err != nil {
 		return err
 	}
@@ -347,7 +310,7 @@ func ValidateComplexTypeExtensionRuntime(rt ParticleRuntime, base, derived Compl
 // ComplexTypeSimpleBaseRuntime supplies runtime metadata needed to validate
 // complex-type extension from a simple-type base.
 type ComplexTypeSimpleBaseRuntime interface {
-	ParticleRuntime
+	ContentModelRuntime
 	SimpleTypeFinalRuntime
 }
 
@@ -377,7 +340,7 @@ func ValidateComplexTypeSimpleBaseExtensionRuntime(rt ComplexTypeSimpleBaseRunti
 // rules that do not depend on content-particle restriction traversal or
 // attribute-use-set validation.
 func ValidateComplexTypeRestrictionRuntime(rt interface {
-	ParticleRuntime
+	ContentModelRuntime
 	TypeDerivationRuntime
 }, base, derived ComplexType) error {
 	if err := ValidateComplexTypeFinalAllows(base.Final, DerivationRestriction); err != nil {
@@ -419,7 +382,7 @@ func ValidateSimpleBaseComplexExtensionFinalAllows(final DerivationMask) error {
 // SimpleContentDerivationBaseAllowed reports whether a simpleContent derivation
 // may use base. Restrictions may derive simple content from an emptiable mixed
 // complex base; extensions require an existing simple-content base.
-func SimpleContentDerivationBaseAllowed(rt ParticleRuntime, base ComplexType, restriction bool) bool {
+func SimpleContentDerivationBaseAllowed(rt ContentModelRuntime, base ComplexType, restriction bool) bool {
 	if base.SimpleContent() {
 		return true
 	}
@@ -428,7 +391,7 @@ func SimpleContentDerivationBaseAllowed(rt ParticleRuntime, base ComplexType, re
 
 // ComplexContentMixedDerivationBaseAllowed reports whether a complexContent
 // derivation with mixed=true may derive from base.
-func ComplexContentMixedDerivationBaseAllowed(rt ParticleRuntime, base ComplexType, extension bool) bool {
+func ComplexContentMixedDerivationBaseAllowed(rt ContentModelRuntime, base ComplexType, extension bool) bool {
 	if base.Mixed() {
 		return true
 	}
@@ -437,14 +400,14 @@ func ComplexContentMixedDerivationBaseAllowed(rt ParticleRuntime, base ComplexTy
 
 // ValidateComplexContentMixedDerivationBase validates complexContent mixed
 // derivation admission against the compiled base type.
-func ValidateComplexContentMixedDerivationBase(rt ParticleRuntime, base ComplexType, extension, mixed bool) error {
+func ValidateComplexContentMixedDerivationBase(rt ContentModelRuntime, base ComplexType, extension, mixed bool) error {
 	if mixed && !ComplexContentMixedDerivationBaseAllowed(rt, base, extension) {
 		return errors.New("complexContent mixed derivation requires mixed base")
 	}
 	return nil
 }
 
-func contentModelKind(rt ParticleRuntime, id ContentModelID, kind ModelKind) bool {
+func contentModelKind(rt ContentModelRuntime, id ContentModelID, kind ModelKind) bool {
 	model, ok := rt.ContentModel(id)
 	return ok && model.Kind == kind
 }

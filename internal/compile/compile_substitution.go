@@ -7,7 +7,7 @@ import (
 
 func (c *compiler) compileSubstitutions() error {
 	direct := make(map[runtime.ElementID][]runtime.ElementID)
-	for _, memberQName := range SortedQNames(c.elementRaw, c.rt.Names) {
+	for _, memberQName := range sortedBuildQNames(&c.rt, c.elementRaw) {
 		raw := c.elementRaw[memberQName]
 		headLex, ok := raw.node.attr(vocab.XSDAttrSubstitutionGroup)
 		if !ok {
@@ -28,54 +28,49 @@ func (c *compiler) compileSubstitutions() error {
 		if err != nil {
 			return err
 		}
+		member := c.rt.elementCopy(memberID)
 		if elementUsesSubstitutionType(raw.node) {
-			member := c.rt.Elements[memberID]
-			member.Type = c.rt.Elements[headID].Type
+			headType, _ := c.rt.ElementType(headID)
+			member.Type = headType
 			replayErr := c.validateElementValueConstraints(&member, raw.node)
 			if replayErr != nil {
 				return withSchemaCompileLocation(raw.node, replayErr)
 			}
-			c.rt.Elements[memberID] = member
+			c.completeElement(memberID, member)
 		}
-		head := c.rt.Elements[headID]
-		member := c.rt.Elements[memberID]
+		head := c.rt.elementCopy(headID)
 		err = ValidateSubstitutionMembership(
 			&c.rt,
 			head,
 			member,
 			SubstitutionMembershipLabels{
-				MemberName: c.rt.Names.Format(member.Name),
+				MemberName: c.rt.formatName(member.Name),
 				MemberType: c.rt.TypeLabel(member.Type),
-				HeadName:   c.rt.Names.Format(head.Name),
+				HeadName:   c.rt.formatName(head.Name),
 				HeadType:   c.rt.TypeLabel(head.Type),
 			},
 		)
 		if err != nil {
 			return err
 		}
-		c.rt.Elements[memberID].SubstHead = headID
+		member.SubstHead = headID
+		c.completeElement(memberID, member)
 		direct[headID] = append(direct[headID], memberID)
 	}
 	substitutions, err := BuildSubstitutionClosure(direct, c.substitutionCycleLabel)
 	if err != nil {
 		return err
 	}
-	c.rt.Substitutions = substitutions
-	c.compileSubstitutionLookup()
+	c.installSubstitutions(substitutions)
 	return nil
 }
 
 func (c *compiler) substitutionCycleLabel(id runtime.ElementID) (string, bool) {
-	if !runtime.ValidElementID(id, len(c.rt.Elements)) {
+	name, ok := c.rt.ElementName(id)
+	if !ok {
 		return "", false
 	}
-	return c.rt.Names.Format(c.rt.Elements[id].Name), true
-}
-
-func (c *compiler) compileSubstitutionLookup() {
-	c.rt.SubstitutionLookup = runtime.BuildSubstitutionLookup(&c.rt, c.rt.Elements, c.rt.Substitutions)
-	c.rt.SubstitutionReads = runtime.CloneSubstitutionMap(c.rt.Substitutions)
-	c.rt.SubstitutionLookupReads = runtime.CloneSubstitutionLookup(c.rt.SubstitutionLookup)
+	return c.rt.formatName(name), true
 }
 
 func elementUsesSubstitutionType(n *rawNode) bool {
@@ -110,7 +105,7 @@ func (c *compiler) resolveTypeQName(q runtime.QName) (runtime.TypeID, error) {
 		}
 		return runtime.ComplexRef(id), nil
 	}
-	err := CheckSchemaComponentExists(SchemaComponentType, false, c.rt.Names.Format(q))
+	err := CheckSchemaComponentExists(SchemaComponentType, false, c.rt.formatName(q))
 	return runtime.TypeID{}, err
 }
 

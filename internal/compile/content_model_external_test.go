@@ -1,6 +1,8 @@
 package compile_test
 
 import (
+	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -8,6 +10,7 @@ import (
 	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/internal/validate"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -294,6 +297,50 @@ func TestStrictWildcardRequiresGlobalElementDeclaration(t *testing.T) {
 </xs:schema>`)
 	mustNotValidateRuntime(t, engine, `<root><unknown/></root>`, xsderrors.CodeValidationElement)
 	mustValidateRuntime(t, engine, `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><unknown xsi:type="xs:string" xmlns:xs="http://www.w3.org/2001/XMLSchema">x</unknown></root>`)
+}
+
+func TestStrictWildcardRecoveryConsumesOccurrenceBeforeRequiredSibling(t *testing.T) {
+	engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##any" processContents="strict"/>
+        <xs:element name="after" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	session, err := validate.NewSession(engine, validate.Options{MaxErrors: 10})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	err = session.Validate(strings.NewReader(`<root><unknown/><after>ok</after></root>`))
+	codes := validationErrorCodes(err)
+	want := []xsderrors.Code{xsderrors.CodeValidationElement}
+	if !slices.Equal(codes, want) {
+		t.Fatalf("validation codes = %v, want %v; err=%v", codes, want, err)
+	}
+}
+
+func validationErrorCodes(err error) []xsderrors.Code {
+	if err == nil {
+		return nil
+	}
+	if errs, ok := errors.AsType[xsderrors.Errors](err); ok {
+		codes := make([]xsderrors.Code, 0, len(errs))
+		for _, item := range errs {
+			if x, ok := errors.AsType[*xsderrors.Error](item); ok {
+				codes = append(codes, x.Code)
+			}
+		}
+		return codes
+	}
+	if x, ok := errors.AsType[*xsderrors.Error](err); ok {
+		return []xsderrors.Code{x.Code}
+	}
+	return nil
 }
 
 func TestEmptyChoiceWithRequiredOccurrenceRejectsEmptyContent(t *testing.T) {
@@ -1480,7 +1527,7 @@ func TestRepeatedMixedBranchChoicePartitionsByLength(t *testing.T) {
 }
 
 func TestLargeMaxOccursUsesCountedState(t *testing.T) {
-	engine := mustCompileRuntime(t, `
+	schema := `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
@@ -1489,16 +1536,17 @@ func TestLargeMaxOccursUsesCountedState(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
   </xs:element>
-</xs:schema>`)
-	modelID := rootContentModel(t, engine)
-	if got := len(publishedRuntime(t, engine).CompiledModels[modelID].Rows); got > 3 {
+</xs:schema>`
+	engine := mustCompileRuntime(t, schema)
+	model := compiledRootModel(t, schema)
+	if got := len(model.Rows); got > 3 {
 		t.Fatalf("compiled rows = %d, want compact counted state", got)
 	}
 	mustValidateRuntime(t, engine, repeatedA(8))
 }
 
 func TestLargeMinOccursInSequenceUsesCountedState(t *testing.T) {
-	engine := mustCompileRuntime(t, `
+	schema := `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
@@ -1508,9 +1556,10 @@ func TestLargeMinOccursInSequenceUsesCountedState(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
   </xs:element>
-</xs:schema>`)
-	modelID := rootContentModel(t, engine)
-	if got := len(publishedRuntime(t, engine).CompiledModels[modelID].Rows); got > 4 {
+</xs:schema>`
+	engine := mustCompileRuntime(t, schema)
+	model := compiledRootModel(t, schema)
+	if got := len(model.Rows); got > 4 {
 		t.Fatalf("compiled rows = %d, want compact counted state", got)
 	}
 	mustValidateRuntime(t, engine, repeatedAWithB(10))
@@ -1985,9 +2034,15 @@ func wideChoiceSchema(width int, extraParticles string) string {
 	return sb.String()
 }
 
-func requireIndexedRootModel(t *testing.T, engine *runtime.Schema) {
+func compiledRootModel(t *testing.T, schema string) runtime.CompiledModel {
 	t.Helper()
-	model := publishedRuntime(t, engine).CompiledModels[rootContentModel(t, engine)]
+	build := mutableSchemaBuild(t, schema)
+	return build.CompiledModels[rootBuildContentModel(t, build)]
+}
+
+func requireIndexedRootModel(t *testing.T, schema string) {
+	t.Helper()
+	model := compiledRootModel(t, schema)
 	if model.Kind != runtime.CompiledModelDFA {
 		t.Fatalf("root model kind = %v, want DFA", model.Kind)
 	}
@@ -1999,8 +2054,9 @@ func requireIndexedRootModel(t *testing.T, engine *runtime.Schema) {
 }
 
 func TestWideChoiceIndexedDispatch(t *testing.T) {
-	engine := mustCompileRuntime(t, wideChoiceSchema(16, ""))
-	requireIndexedRootModel(t, engine)
+	schema := wideChoiceSchema(16, "")
+	engine := mustCompileRuntime(t, schema)
+	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f0/><f15/><f7/><f7/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><f0/><zzz/></r>`, xsderrors.CodeValidationElement)
 	mustNotValidateRuntime(t, engine, `<r><f0/><r/></r>`, xsderrors.CodeValidationElement)
@@ -2021,8 +2077,9 @@ func TestWideSequenceIndexedDispatch(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	engine := mustCompileRuntime(t, sb.String())
-	requireIndexedRootModel(t, engine)
+	schema := sb.String()
+	engine := mustCompileRuntime(t, schema)
+	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f3/><f10/><last/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><f3/></r>`, xsderrors.CodeValidationContent)
 	mustNotValidateRuntime(t, engine, `<r><last/><f3/></r>`, xsderrors.CodeValidationElement)
@@ -2045,31 +2102,35 @@ func TestWideChoiceIndexedSubstitutionGroup(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	engine := mustCompileRuntime(t, sb.String())
-	requireIndexedRootModel(t, engine)
+	schema := sb.String()
+	engine := mustCompileRuntime(t, schema)
+	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><member/><f0/><head/><member/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><zzz/></r>`, xsderrors.CodeValidationElement)
 }
 
 func TestWideChoiceIndexedWildcardSkip(t *testing.T) {
-	engine := mustCompileRuntime(t, wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="skip"/>
-`))
-	requireIndexedRootModel(t, engine)
+	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="skip"/>
+`)
+	engine := mustCompileRuntime(t, schema)
+	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f0/><o:x xmlns:o="urn:o"><o:y/></o:x><f14/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><zzz/></r>`, xsderrors.CodeValidationElement)
 }
 
 func TestWideChoiceIndexedWildcardLax(t *testing.T) {
-	engine := mustCompileRuntime(t, wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="lax"/>
-`))
-	requireIndexedRootModel(t, engine)
+	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="lax"/>
+`)
+	engine := mustCompileRuntime(t, schema)
+	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><o:x xmlns:o="urn:o"/><f3/></r>`)
 }
 
 func TestWideChoiceIndexedWildcardStrict(t *testing.T) {
-	engine := mustCompileRuntime(t, wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="strict"/>
-`))
-	requireIndexedRootModel(t, engine)
+	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="strict"/>
+`)
+	engine := mustCompileRuntime(t, schema)
+	requireIndexedRootModel(t, schema)
 	mustNotValidateRuntime(t, engine, `<r><o:x xmlns:o="urn:o"/></r>`, xsderrors.CodeValidationElement)
 }
 
@@ -2089,8 +2150,9 @@ func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	engine := mustCompileRuntime(t, sb.String())
-	model := publishedRuntime(t, engine).CompiledModels[rootContentModel(t, engine)]
+	schema := sb.String()
+	engine := mustCompileRuntime(t, schema)
+	model := compiledRootModel(t, schema)
 	ambiguousRow := false
 	for _, row := range model.Rows {
 		if len(row.Edges) >= runtime.CompiledDFARowIndexMinEdges && !row.Index.IsEnabled() {

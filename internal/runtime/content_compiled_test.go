@@ -10,32 +10,25 @@ func TestContentFrameForTypeUsesCompiledModelInitialState(t *testing.T) {
 
 	typ := ComplexRef(1)
 	modelID := ContentModelID(2)
-	rt := compiledContentRuntimeStub{
+	rt := publishedContentSchema(contentSchemaFixture{
 		contentModels: map[TypeID]ContentModelID{
 			typ: modelID,
 		},
 		models: map[ContentModelID]CompiledModel{
 			modelID: {Start: 7, AllBitLen: 130},
 		},
-	}
-	got := ContentFrameForType(rt, typ)
+	})
+	got := rt.ContentFrame(typ)
 	state := got.ContentState()
 	if state.model != modelID || state.state != 7 || got.AllBitLen() != 130 {
-		t.Fatalf("ContentFrameForType() = %+v, want model %v state 7 bitLen 130", got, modelID)
+		t.Fatalf("ContentFrame() = %+v, want model %v state 7 bitLen 130", got, modelID)
 	}
 
-	got = ContentFrameForType(compiledContentRuntimeStub{}, typ)
+	got = publishedContentSchema(contentSchemaFixture{
+		contentModels: map[TypeID]ContentModelID{typ: NoContentModel},
+	}).ContentFrame(typ)
 	if got.ContentState().HasModel() {
-		t.Fatalf("ContentFrameForType(no model) = %+v, want no model", got)
-	}
-	got = ContentFrameForType(compiledContentRuntimeStub{
-		contentModels: map[TypeID]ContentModelID{
-			typ: modelID,
-		},
-	}, typ)
-	state = got.ContentState()
-	if state.model != modelID || state.state != 0 || got.AllBitLen() != 0 {
-		t.Fatalf("ContentFrameForType(missing compiled model) = %+v, want model %v with zero state", got, modelID)
+		t.Fatalf("ContentFrame(no model) = %+v, want no model", got)
 	}
 }
 
@@ -59,104 +52,159 @@ func TestContentScratchAllBitInvariants(t *testing.T) {
 	}
 }
 
-func TestEqualCompiledModelViewProjection(t *testing.T) {
-	t.Parallel()
-
-	model := CompiledModel{
-		Source:    1,
-		Kind:      CompiledModelAll,
-		Start:     2,
-		AllBitLen: 1,
-		All: []CompiledAllTerm{{
-			Particle: ElementParticle(3, Occurrence{Min: 1, Max: 1}),
-			Required: true,
-		}},
-	}
-	view := NewCompiledModelView(&model)
-	if !EqualCompiledModelViewProjection(view, &model) {
-		t.Fatal("EqualCompiledModelViewProjection() = false, want true")
-	}
-
-	changed := model
-	changed.Kind = CompiledModelEmpty
-	changed.All = nil
-	if EqualCompiledModelViewProjection(view, &changed) {
-		t.Fatal("EqualCompiledModelViewProjection() = true for different model")
-	}
-}
-
-func TestCompiledModelViewProjectionTable(t *testing.T) {
+func TestCompiledModelReadProjection(t *testing.T) {
 	t.Parallel()
 
 	models := []CompiledModel{
 		{
-			Source:    1,
+			Source:    7,
 			Kind:      CompiledModelAll,
-			Start:     2,
+			Mixed:     true,
 			AllBitLen: 1,
 			All: []CompiledAllTerm{{
 				Particle: ElementParticle(3, Occurrence{Min: 1, Max: 1}),
 				Required: true,
 			}},
 		},
-		{Source: 4, Kind: CompiledModelEmpty, Empty: true},
+		{Source: 8, Kind: CompiledModelEmpty, Empty: true},
+		{
+			Source: 9,
+			Kind:   CompiledModelDFA,
+			Rows: []CompiledModelRow{{
+				CountParticle: ElementParticle(4, Occurrence{Min: 2, Max: 3}),
+				Edges: []CompiledModelEdge{{
+					Particle: ElementParticle(4, Occurrence{Min: 5, Max: 6}),
+					To:       0,
+				}},
+				Counted: true,
+			}},
+		},
 	}
-	views := NewCompiledModelViews(models)
-	if !EqualCompiledModelViewProjectionTable(views, models) {
-		t.Fatalf("NewCompiledModelViews() = %#v, want projection for %#v", views, models)
+	reads := newCompiledModelReads(models)
+	if err := validateCompiledModelReadProjectionTable(reads, models); err != nil {
+		t.Fatalf("validateCompiledModelReadProjectionTable() error = %v", err)
 	}
-	if got, ok := CompiledModelViewByID(views, 1); !ok || !EqualCompiledModelViews(got, views[1]) {
-		t.Fatalf("CompiledModelViewByID() = %#v, %v; want view 1, true", got, ok)
+	models[0].Source = 99
+	models[0].Mixed = false
+	models[0].All[0].Particle.Occurs = Occurrence{Min: 9, Max: 10}
+	models[0].All[0].Particle.Model = 11
+	models[2].Rows[0].CountParticle.Occurs = Occurrence{Min: 12, Max: 13}
+	models[2].Rows[0].CountParticle.Model = 14
+	models[2].Rows[0].Edges[0].Particle.Occurs = Occurrence{Min: 15, Max: 16}
+	models[2].Rows[0].Edges[0].Particle.Model = 17
+	if err := validateCompiledModelReadProjectionTable(reads, models); err != nil {
+		t.Fatalf("projection audit depends on discarded compiler fields: %v", err)
 	}
-	if got, ok := CompiledModelViewByID(views, ContentModelID(99)); ok || !EqualCompiledModelViews(got, CompiledModelView{}) {
-		t.Fatalf("CompiledModelViewByID(invalid) = %#v, %v; want zero, false", got, ok)
+	models[2].Rows[0].Edges[0].Particle.Element = 99
+	if err := validateCompiledModelReadProjectionTable(reads, models); err == nil {
+		t.Fatal("projection audit accepted changed validation fields")
 	}
-	if EqualCompiledModelViewProjectionTable(views[:1], models) {
-		t.Fatal("EqualCompiledModelViewProjectionTable() accepted mismatched table length")
-	}
-
-	changed := append([]CompiledModel(nil), models...)
-	changed[0].Kind = CompiledModelEmpty
-	changed[0].All = nil
-	if EqualCompiledModelViewProjectionTable(views, changed) {
-		t.Fatal("EqualCompiledModelViewProjectionTable() accepted mismatched model")
-	}
-	if err := ValidateCompiledModelViewProjectionTable(NewCompiledModelViews(models), models); err != nil {
-		t.Fatalf("ValidateCompiledModelViewProjectionTable() error = %v", err)
-	}
-	if err := ValidateCompiledModelViewProjectionTable(views[:1], models); err == nil || err.Error() != "compiled model view projection count does not match compiled models" {
-		t.Fatalf("ValidateCompiledModelViewProjectionTable(short) error = %v, want count invariant", err)
-	}
-	if err := ValidateCompiledModelViewProjectionTable(views, changed); err == nil || err.Error() != "compiled model view projection does not match compiled model" {
-		t.Fatalf("ValidateCompiledModelViewProjectionTable(changed) error = %v, want mismatch invariant", err)
+	if err := validateCompiledModelReadProjectionTable(reads[:1], models); err == nil {
+		t.Fatal("projection audit accepted mismatched table length")
 	}
 }
 
-func TestAdvanceCompiledContentAnyReturnsGlobalElement(t *testing.T) {
+func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
+	t.Parallel()
+
+	models := []CompiledModel{
+		{},
+		{Rows: []CompiledModelRow{{}}},
+		{
+			Rows: []CompiledModelRow{
+				{Edges: []CompiledModelEdge{{To: 1}}},
+				{Edges: []CompiledModelEdge{{To: 2}}},
+			},
+			All: []CompiledAllTerm{{Required: true}},
+		},
+		{
+			Rows: []CompiledModelRow{{Edges: []CompiledModelEdge{{To: 3}}}},
+			All:  []CompiledAllTerm{{Required: false}},
+		},
+	}
+
+	reads := newCompiledModelReads(models)
+	if reads[0].Rows != nil || reads[0].All != nil {
+		t.Fatalf("empty model projection = rows %#v all %#v, want nil slices", reads[0].Rows, reads[0].All)
+	}
+	if reads[1].Rows == nil || reads[1].Rows[0].Edges != nil {
+		t.Fatalf("empty row projection = rows %#v, want non-nil rows and nil edges", reads[1].Rows)
+	}
+	for i := 2; i < len(reads); i++ {
+		if cap(reads[i].Rows) != len(reads[i].Rows) || cap(reads[i].All) != len(reads[i].All) {
+			t.Fatalf("model %d projection capacities = rows %d/%d all %d/%d", i, len(reads[i].Rows), cap(reads[i].Rows), len(reads[i].All), cap(reads[i].All))
+		}
+		for j := range reads[i].Rows {
+			if cap(reads[i].Rows[j].Edges) != len(reads[i].Rows[j].Edges) {
+				t.Fatalf("model %d row %d edge capacity = %d/%d", i, j, len(reads[i].Rows[j].Edges), cap(reads[i].Rows[j].Edges))
+			}
+		}
+	}
+
+	reads[2].Rows[0].Edges[0].To = 99
+	reads[2].Rows[1].Edges[0].To = 98
+	reads[2].All[0].Required = false
+	if reads[3].Rows[0].Edges[0].To != 3 || reads[3].All[0].Required {
+		t.Fatalf("projection pools overlap: model 3 = %+v", reads[3])
+	}
+	if models[2].Rows[0].Edges[0].To != 1 || !models[2].All[0].Required {
+		t.Fatalf("projection aliases source: model 2 = %+v", models[2])
+	}
+}
+
+var compiledModelReadAllocationSink []compiledModelRead
+
+func TestCompiledModelReadProjectionAllocationCountIsConstant(t *testing.T) {
+	models := make([]CompiledModel, 10_000)
+	for i := range models {
+		models[i].Rows = []CompiledModelRow{{Edges: []CompiledModelEdge{{To: uint32(i)}}}}
+		models[i].All = []CompiledAllTerm{{Required: true}}
+	}
+
+	allocs := testing.AllocsPerRun(3, func() {
+		compiledModelReadAllocationSink = newCompiledModelReads(models)
+	})
+	if allocs > 4 {
+		t.Fatalf("newCompiledModelReads() allocations = %v, want at most 4 flat tables", allocs)
+	}
+}
+
+func TestAddCompiledModelReadCountRejectsOverflow(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("addCompiledModelReadCount() accepted overflowing count")
+		}
+	}()
+	addCompiledModelReadCount(math.MaxInt, 1)
+}
+
+func TestAdvanceContentAnyReturnsGlobalElement(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
 	elem := ElementID(2)
-	rt := compiledContentRuntimeStub{
+	rt := publishedContentSchema(contentSchemaFixture{
 		models:         map[ContentModelID]CompiledModel{0: {Kind: CompiledModelAny}},
 		globalElements: map[QName]ElementID{name: elem},
-	}
+	})
 	st := ContentState{model: 0, present: true}
-	match, matched, valid := AdvanceCompiledContent(rt, &st, ContentInput{
+	match, status := rt.AdvanceContent(&st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	if !valid || !matched || match.Element != elem || match.Skip || match.StrictMissing {
-		t.Fatalf("AdvanceCompiledContent(any) = %+v/%v/%v, want global element", match, matched, valid)
+	if status != ContentAdvanceMatched || match.Element != elem || match.Skip || match.StrictMissing {
+		t.Fatalf("AdvanceContent(any) = %+v/%v, want global element", match, status)
 	}
 }
 
-func TestAdvanceCompiledContentAllMarksScratchAndCompletes(t *testing.T) {
+func TestAdvanceContentAllMarksScratchAndCompletes(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
 	elem := ElementID(2)
 	model := ContentModelID(3)
-	rt := compiledContentRuntimeStub{
+	rt := publishedContentSchema(contentSchemaFixture{
 		models: map[ContentModelID]CompiledModel{
 			model: {
 				Kind:      CompiledModelAll,
@@ -167,26 +215,25 @@ func TestAdvanceCompiledContentAllMarksScratchAndCompletes(t *testing.T) {
 			},
 		},
 		elementNames: map[ElementID]QName{elem: name},
-	}
+	})
 	scratch := NewContentScratch(make([]uint64, 1), 0, 1)
 	st := ContentState{model: model, present: true}
-	match, matched, valid := AdvanceCompiledContent(rt, &st, ContentInput{
+	match, status := rt.AdvanceContent(&st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &scratch)
-	if !valid || !matched || match.Element != elem {
-		t.Fatalf("AdvanceCompiledContent(all) = %+v/%v/%v, want element", match, matched, valid)
+	if status != ContentAdvanceMatched || match.Element != elem {
+		t.Fatalf("AdvanceContent(all) = %+v/%v, want element", match, status)
 	}
 	seen, ok := scratch.AllSeen(0)
 	if !ok || !seen {
 		t.Fatalf("AllSeen(0) = %v/%v, want true/true", seen, ok)
 	}
-	complete, ok := CompleteCompiledContent(rt, st, &scratch)
-	if !ok || !complete {
-		t.Fatalf("CompleteCompiledContent(all) = %v/%v, want complete", complete, ok)
+	if status := rt.CompleteContent(st, &scratch); status != ContentCompletionComplete {
+		t.Fatalf("CompleteContent(all) = %v, want complete", status)
 	}
 }
 
-func TestAdvanceCompiledContentIndexedSubstitutionReturnsMember(t *testing.T) {
+func TestAdvanceContentIndexedSubstitutionReturnsMember(t *testing.T) {
 	t.Parallel()
 
 	head := ElementID(1)
@@ -194,7 +241,7 @@ func TestAdvanceCompiledContentIndexedSubstitutionReturnsMember(t *testing.T) {
 	headName := QName{Local: 1}
 	memberName := QName{Local: 2}
 	model := ContentModelID(3)
-	rt := compiledContentRuntimeStub{
+	rt := publishedContentSchema(contentSchemaFixture{
 		models: map[ContentModelID]CompiledModel{
 			model: {
 				Kind: CompiledModelDFA,
@@ -214,24 +261,24 @@ func TestAdvanceCompiledContentIndexedSubstitutionReturnsMember(t *testing.T) {
 		substitutionLookup: map[ElementID]map[QName]ElementID{
 			head: {memberName: member},
 		},
-	}
+	})
 	st := ContentState{model: model, present: true}
-	match, matched, valid := AdvanceCompiledContent(rt, &st, ContentInput{
+	match, status := rt.AdvanceContent(&st, ContentInput{
 		Name: RuntimeName{Known: true, Name: memberName, Local: "member"},
 	}, &ContentScratch{})
-	if !valid || !matched || match.Element != member || st.state != 1 {
-		t.Fatalf("AdvanceCompiledContent(indexed substitution) = %+v/%v/%v state %d, want member state 1", match, matched, valid, st.state)
+	if status != ContentAdvanceMatched || match.Element != member || st.state != 1 {
+		t.Fatalf("AdvanceContent(indexed substitution) = %+v/%v state %d, want member state 1", match, status, st.state)
 	}
 }
 
-func TestAdvanceCompiledContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
+func TestAdvanceContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 	t.Parallel()
 
 	elem := ElementID(1)
 	wildcard := WildcardID(2)
 	name := QName{Local: 1}
 	model := ContentModelID(3)
-	rt := compiledContentRuntimeStub{
+	rt := publishedContentSchema(contentSchemaFixture{
 		models: map[ContentModelID]CompiledModel{
 			model: {
 				Kind: CompiledModelDFA,
@@ -260,17 +307,17 @@ func TestAdvanceCompiledContentIndexedPreservesWildcardBeforeElement(t *testing.
 		},
 		elementNames: map[ElementID]QName{elem: name},
 		wildcards:    map[WildcardID]Wildcard{wildcard: {Mode: WildcardAny, Process: ProcessSkip}},
-	}
+	})
 	st := ContentState{model: model, present: true}
-	match, matched, valid := AdvanceCompiledContent(rt, &st, ContentInput{
+	match, status := rt.AdvanceContent(&st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	if !valid || !matched || !match.Skip || match.Element != NoElement || st.state != 1 {
-		t.Fatalf("AdvanceCompiledContent(indexed order) = %+v/%v/%v state %d, want wildcard skip state 1", match, matched, valid, st.state)
+	if status != ContentAdvanceMatched || !match.Skip || match.Element != NoElement || st.state != 1 {
+		t.Fatalf("AdvanceContent(indexed order) = %+v/%v state %d, want wildcard skip state 1", match, status, st.state)
 	}
 }
 
-func TestAdvanceCompiledContentWildcardProcessContents(t *testing.T) {
+func TestAdvanceContentWildcardProcessContents(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
@@ -318,7 +365,11 @@ func TestAdvanceCompiledContentWildcardProcessContents(t *testing.T) {
 			t.Parallel()
 
 			wildcard := WildcardID(4)
-			rt := compiledContentRuntimeStub{
+			var globalElements map[QName]ElementID
+			if tt.global {
+				globalElements = map[QName]ElementID{name: elem}
+			}
+			rt := publishedContentSchema(contentSchemaFixture{
 				models: map[ContentModelID]CompiledModel{
 					model: {
 						Kind: CompiledModelDFA,
@@ -333,18 +384,20 @@ func TestAdvanceCompiledContentWildcardProcessContents(t *testing.T) {
 						},
 					},
 				},
-				wildcards: map[WildcardID]Wildcard{wildcard: {Mode: WildcardAny, Process: tt.process}},
-			}
-			if tt.global {
-				rt.globalElements = map[QName]ElementID{name: elem}
-			}
+				globalElements: globalElements,
+				wildcards:      map[WildcardID]Wildcard{wildcard: {Mode: WildcardAny, Process: tt.process}},
+			})
 			st := ContentState{model: model, present: true}
-			match, matched, valid := AdvanceCompiledContent(rt, &st, ContentInput{
+			match, status := rt.AdvanceContent(&st, ContentInput{
 				Name:       RuntimeName{Known: true, Name: name, Local: "e"},
 				HasXSIType: tt.xsiType,
 			}, &ContentScratch{})
-			if !valid || matched != tt.wantMatch || match != tt.want {
-				t.Fatalf("AdvanceCompiledContent(wildcard) = %+v/%v/%v, want %+v/%v/true", match, matched, valid, tt.want, tt.wantMatch)
+			wantStatus := ContentAdvanceNoMatch
+			if tt.wantMatch {
+				wantStatus = ContentAdvanceMatched
+			}
+			if status != wantStatus || match != tt.want {
+				t.Fatalf("AdvanceContent(wildcard) = %+v/%v, want %+v/%v", match, status, tt.want, wantStatus)
 			}
 			if match.StrictMissing != tt.wantStrict {
 				t.Fatalf("StrictMissing = %v, want %v", match.StrictMissing, tt.wantStrict)
@@ -353,7 +406,7 @@ func TestAdvanceCompiledContentWildcardProcessContents(t *testing.T) {
 	}
 }
 
-func TestAdvanceCompiledContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
+func TestAdvanceContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 	t.Parallel()
 
 	model := ContentModelID(4)
@@ -376,7 +429,7 @@ func TestAdvanceCompiledContentInvalidParticleReferenceIsInvalidState(t *testing
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			rt := compiledContentRuntimeStub{
+			rt := publishedContentSchema(contentSchemaFixture{
 				models: map[ContentModelID]CompiledModel{
 					model: {
 						Kind: CompiledModelDFA,
@@ -392,44 +445,44 @@ func TestAdvanceCompiledContentInvalidParticleReferenceIsInvalidState(t *testing
 						},
 					},
 				},
-			}
+			})
 			st := ContentState{model: model, present: true}
-			match, matched, valid := AdvanceCompiledContent(rt, &st, ContentInput{
+			match, status := rt.AdvanceContent(&st, ContentInput{
 				Name: RuntimeName{Known: true, Name: childName, Local: "child"},
 			}, &ContentScratch{})
-			if valid || matched {
-				t.Fatalf("AdvanceCompiledContent() = %+v/%v/%v, want invalid state", match, matched, valid)
+			if status != ContentAdvanceInvalid {
+				t.Fatalf("AdvanceContent() = %+v/%v, want invalid state", match, status)
 			}
 		})
 	}
 }
 
-func TestCompleteCompiledContentInvalidDFAStateIsInvalid(t *testing.T) {
+func TestCompleteContentInvalidDFAStateIsInvalid(t *testing.T) {
 	t.Parallel()
 
 	model := ContentModelID(4)
-	rt := compiledContentRuntimeStub{
+	rt := publishedContentSchema(contentSchemaFixture{
 		models: map[ContentModelID]CompiledModel{
 			model: {
 				Kind: CompiledModelDFA,
 				Rows: []CompiledModelRow{{Accept: true}},
 			},
 		},
-	}
-	complete, ok := CompleteCompiledContent(rt, ContentState{model: model, state: 1, present: true}, &ContentScratch{})
-	if ok || complete {
-		t.Fatalf("CompleteCompiledContent() = %v/%v, want invalid", complete, ok)
+	})
+	status := rt.CompleteContent(ContentState{model: model, state: 1, present: true}, &ContentScratch{})
+	if status != ContentCompletionInvalid {
+		t.Fatalf("CompleteContent() = %v, want invalid", status)
 	}
 }
 
-func TestAdvanceCompiledContentCountSaturatesAtUint32Max(t *testing.T) {
+func TestAdvanceContentCountSaturatesAtUint32Max(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
 	elem := ElementID(2)
 	model := ContentModelID(3)
 	particle := ElementParticle(elem, Occurrence{Min: 2, Unbounded: true})
-	rt := compiledContentRuntimeStub{
+	rt := publishedContentSchema(contentSchemaFixture{
 		models: map[ContentModelID]CompiledModel{
 			model: {
 				Kind: CompiledModelDFA,
@@ -447,24 +500,23 @@ func TestAdvanceCompiledContentCountSaturatesAtUint32Max(t *testing.T) {
 			},
 		},
 		elementNames: map[ElementID]QName{elem: name},
-	}
+	})
 	st := ContentState{model: model, count: math.MaxUint32, present: true}
-	match, matched, valid := AdvanceCompiledContent(rt, &st, ContentInput{
+	match, status := rt.AdvanceContent(&st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	if !valid || !matched || match.Element != elem {
-		t.Fatalf("AdvanceCompiledContent() = %+v/%v/%v, want matched valid transition", match, matched, valid)
+	if status != ContentAdvanceMatched || match.Element != elem {
+		t.Fatalf("AdvanceContent() = %+v/%v, want matched valid transition", match, status)
 	}
 	if st.count != math.MaxUint32 {
 		t.Fatalf("Count = %d, want saturation at %d", st.count, uint32(math.MaxUint32))
 	}
-	complete, ok := CompleteCompiledContent(rt, st, &ContentScratch{})
-	if !ok || !complete {
-		t.Fatalf("CompleteCompiledContent() after saturated count = %v/%v, want complete", complete, ok)
+	if status := rt.CompleteContent(st, &ContentScratch{}); status != ContentCompletionComplete {
+		t.Fatalf("CompleteContent() after saturated count = %v, want complete", status)
 	}
 }
 
-type compiledContentRuntimeStub struct {
+type contentSchemaFixture struct {
 	contentModels      map[TypeID]ContentModelID
 	models             map[ContentModelID]CompiledModel
 	globalElements     map[QName]ElementID
@@ -473,44 +525,59 @@ type compiledContentRuntimeStub struct {
 	substitutionLookup map[ElementID]map[QName]ElementID
 }
 
-func (s compiledContentRuntimeStub) ContentModelForType(id TypeID) ContentModelID {
-	if s.contentModels == nil {
-		return NoContentModel
+func publishedContentSchema(s contentSchemaFixture) *Schema {
+	maxComplex := -1
+	for typ := range s.contentModels {
+		if id, ok := typ.Complex(); ok && int(id) > maxComplex {
+			maxComplex = int(id)
+		}
 	}
-	return s.contentModels[id]
-}
-
-func (s compiledContentRuntimeStub) CompiledContentModelView(id ContentModelID) (CompiledModelView, bool) {
-	model, ok := s.models[id]
-	if !ok {
-		return CompiledModelView{}, false
+	complexTypes := make([]complexTypeRead, maxComplex+1)
+	for typ, model := range s.contentModels {
+		if id, ok := typ.Complex(); ok {
+			complexTypes[id].contentModel = model
+		}
 	}
-	return NewCompiledModelView(&model), true
-}
 
-func (s compiledContentRuntimeStub) GlobalElement(name QName) (ElementID, bool) {
-	id, ok := s.globalElements[name]
-	return id, ok
-}
-
-func (s compiledContentRuntimeStub) ElementName(id ElementID) (QName, bool) {
-	name, ok := s.elementNames[id]
-	return name, ok
-}
-
-func (s compiledContentRuntimeStub) WildcardView(id WildcardID) (WildcardView, bool) {
-	w, ok := s.wildcards[id]
-	if !ok {
-		return WildcardView{}, false
+	maxModel := -1
+	for id := range s.models {
+		if int(id) > maxModel {
+			maxModel = int(id)
+		}
 	}
-	return NewWildcardView(nil, &w), true
-}
-
-func (s compiledContentRuntimeStub) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
-	members := s.substitutionLookup[id]
-	if members == nil {
-		return NoElement, false
+	models := make([]CompiledModel, maxModel+1)
+	for id, model := range s.models {
+		models[id] = model
 	}
-	member, ok := members[name]
-	return member, ok
+
+	maxElement := -1
+	for id := range s.elementNames {
+		if int(id) > maxElement {
+			maxElement = int(id)
+		}
+	}
+	elementNames := make([]QName, maxElement+1)
+	for id, name := range s.elementNames {
+		elementNames[id] = name
+	}
+
+	maxWildcard := -1
+	for id := range s.wildcards {
+		if int(id) > maxWildcard {
+			maxWildcard = int(id)
+		}
+	}
+	wildcards := make([]WildcardView, maxWildcard+1)
+	for id, wildcard := range s.wildcards {
+		wildcards[id] = NewWildcardView(nil, &wildcard)
+	}
+
+	return &Schema{runtime: schemaRuntime{
+		GlobalElements:     s.globalElements,
+		SubstitutionLookup: s.substitutionLookup,
+		ComplexTypes:       complexTypes,
+		CompiledModels:     newCompiledModelReads(models),
+		ElementNames:       elementNames,
+		Wildcards:          wildcards,
+	}}
 }

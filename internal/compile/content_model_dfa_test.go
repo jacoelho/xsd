@@ -28,20 +28,6 @@ func TestCompileContentModelsBuildsIndexedRows(t *testing.T) {
 	}
 }
 
-func TestValidateCompiledModelDerivedRejectsDrift(t *testing.T) {
-	t.Parallel()
-
-	names, rt := compiledModelRuntimeFixture(t, runtime.ModelChoice)
-	models, err := CompileContentModels(&names, rt, 1, 32)
-	if err != nil {
-		t.Fatalf("CompileContentModels() error = %v", err)
-	}
-	model := models[0]
-	model.Rows[0].Edges[0].To = model.Rows[0].Edges[1].To
-	err = ValidateCompiledModelDerived(&names, rt, 0, model)
-	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
 func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	t.Parallel()
 
@@ -498,6 +484,10 @@ func (s compiledModelRuntimeStub) ForEachSubstitutionMember(id runtime.ElementID
 	}
 }
 
+func (s compiledModelRuntimeStub) HasSubstitutionMembers(id runtime.ElementID) bool {
+	return len(s.substitutions[id]) != 0
+}
+
 func (s compiledModelRuntimeStub) SubstitutionMemberByName(id runtime.ElementID, name runtime.QName) (runtime.ElementID, bool) {
 	members := s.substitutions[id]
 	if members == nil {
@@ -507,8 +497,12 @@ func (s compiledModelRuntimeStub) SubstitutionMemberByName(id runtime.ElementID,
 	return member, ok
 }
 
-func (s compiledModelRuntimeStub) SubstitutionMembersByName(id runtime.ElementID) map[runtime.QName]runtime.ElementID {
-	return s.substitutions[id]
+func (s compiledModelRuntimeStub) SubstitutionNames(id runtime.ElementID) runtime.SubstitutionNameRead {
+	names := make([]runtime.QName, 0, len(s.substitutions[id]))
+	for name := range s.substitutions[id] {
+		names = append(names, name)
+	}
+	return runtime.NewSubstitutionNameRead(names)
 }
 
 func (s compiledModelRuntimeStub) AnyTypeID() runtime.ComplexTypeID {
@@ -524,6 +518,10 @@ func (s compiledModelRuntimeStub) ComplexTypeCount() int {
 		count = max(count, int(s.anyType)+1)
 	}
 	return count
+}
+
+func (s compiledModelRuntimeStub) SimpleTypeCount() int {
+	return len(s.simpleDerivations)
 }
 
 func (s compiledModelRuntimeStub) SimpleTypeDerivation(id runtime.SimpleTypeID) (runtime.SimpleTypeDerivation, bool) {

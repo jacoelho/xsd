@@ -174,7 +174,7 @@ func TestValidateDateLexical(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			bytesErr := ValidateDateLexical([]byte(tt.input))
+			bytesErr := validateDateLexical([]byte(tt.input))
 			if got := errorMessage(bytesErr); got != tt.wantErr {
 				t.Fatalf("ValidateDateLexical() error = %q, want %q", got, tt.wantErr)
 			}

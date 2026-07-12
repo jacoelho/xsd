@@ -1,30 +1,187 @@
 package validate
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/xml"
-	"strconv"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlns"
+	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
+	valueSchema, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:IDREFS"/>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name string
+		opts Options
+		doc  string
+		msg  string
+	}{
+		{
+			name: "entry",
+			opts: Options{MaxIdentityEntries: 1},
+			doc:  "<root>a b c</root>",
+			msg:  "identity entry limit exceeded",
+		},
+		{
+			name: "tuple bytes",
+			opts: Options{MaxIdentityTupleBytes: 3},
+			doc:  "<root>longer</root>",
+			msg:  "identity tuple byte limit exceeded",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testSession, sessionErr := newSessionForTest(valueSchema, tt.opts)
+			if sessionErr != nil {
+				t.Fatal(sessionErr)
+			}
+			assertSingleIdentityLimit(t, testSession.Validate(strings.NewReader(tt.doc)), tt.msg)
+		})
+	}
+
+	scopeSchema, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence><xs:element ref="root" minOccurs="0"/></xs:sequence>
+    </xs:complexType>
+    <xs:key name="unused">
+      <xs:selector xpath="never"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := newSessionForTest(scopeSchema, Options{MaxIdentityScopes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSingleIdentityLimit(t, session.Validate(strings.NewReader("<root><root/></root>")), "identity scope limit exceeded")
+}
+
+func assertSingleIdentityLimit(t *testing.T, err error, message string) {
+	t.Helper()
+	requireCode(t, err, xsderrors.CodeValidationLimit)
+	if !strings.Contains(err.Error(), message) {
+		t.Fatalf("Validate() error = %v, want %q", err, message)
+	}
+	if multiple, ok := errors.AsType[xsderrors.Errors](err); ok {
+		t.Fatalf("Validate() returned recoverable error collection: %v", multiple)
+	}
+}
+
+func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := newSessionForTest(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var source bytes.Buffer
+	source.WriteString("<root/>")
+	callerReader := bufio.NewReaderSize(&source, 128*1024)
+	if err = session.Validate(callerReader); err != nil {
+		t.Fatal(err)
+	}
+	if err = session.Validate(strings.NewReader("<root/>")); err != nil {
+		t.Fatal(err)
+	}
+
+	source.WriteString("sentinel")
+	got, err := callerReader.ReadString('l')
+	if err != nil {
+		t.Fatalf("caller reader was reset by session reuse: %v", err)
+	}
+	if got != "sentinel" {
+		t.Fatalf("caller reader returned %q, want sentinel", got)
+	}
+}
+
+func TestSessionDetachesReaderAfterPreflightFailure(t *testing.T) {
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := newSessionForTest(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader("<root/>")); err != nil {
+		t.Fatal(err)
+	}
+	reader := session.session.reader
+	size := reader.Size()
+
+	invalid := string([]byte{0xFE, 0xFF}) + strings.Repeat("x", 1024)
+	if err := session.Validate(strings.NewReader(invalid)); err == nil {
+		t.Fatal("Validate() accepted UTF-16 input")
+	}
+	if session.session.reader != reader {
+		t.Fatal("Validate() replaced the reusable reader after preflight failure")
+	}
+	if reader.Size() != size {
+		t.Fatalf("reader size = %d, want retained size %d", reader.Size(), size)
+	}
+	if reader.Buffered() != 0 {
+		t.Fatalf("reader retained %d source bytes after preflight failure", reader.Buffered())
+	}
+}
+
+func TestSessionResetDetachesReaderAndKeepsBuffer(t *testing.T) {
+	reader := bufio.NewReaderSize(strings.NewReader("retained source"), 1024)
+	if _, err := reader.Peek(1); err != nil {
+		t.Fatal(err)
+	}
+	s := session{reader: reader}
+
+	s.reset()
+
+	if s.reader != reader {
+		t.Fatal("reset replaced the reusable reader")
+	}
+	if reader.Size() != 1024 {
+		t.Fatalf("reader size = %d, want 1024", reader.Size())
+	}
+	if reader.Buffered() != 0 {
+		t.Fatalf("reader retained %d source bytes after reset", reader.Buffered())
+	}
+}
 
 func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	var s session
 	s.doc.errors = make([]error, 1, maxRetainedSliceCap+1)
-	s.doc.stack = make([]frame, 1, maxRetainedSliceCap+1)
 	s.doc.ns = xmlns.NewStackWithCapacity(maxRetainedSliceCap+1, maxRetainedSliceCap+1)
+	s.doc.elements = make([]xmlDocumentElement[frame], 1, maxRetainedSliceCap+1)
 	s.doc.text = make([]byte, 1, maxRetainedBufferCap+1)
-	s.doc.path = make([]string, 1, maxRetainedSliceCap+1)
 	s.doc.namePath = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
-	s.doc.elementNames = make([]xml.Name, 1, maxRetainedSliceCap+1)
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
-	s.pathCache = make(map[pathCacheKey]string, maxRetainedMapLen+1)
-	for i := range maxRetainedMapLen + 1 {
-		key := strconv.Itoa(i)
-		s.pathCache[pathCacheKey{Parent: key, Local: key}] = key
-	}
 	if err := recordValueForTest(&s.doc.identity, IdentityValue{IDs: "stale"}, s.startContext(1, 1)); err != nil {
 		t.Fatalf("record identity state: %v", err)
 	}
@@ -35,13 +192,11 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.reset()
 
 	if cap(s.doc.errors) != 0 ||
-		cap(s.doc.stack) != 0 ||
 		s.doc.ns.FrameCapacity() != 0 ||
 		s.doc.ns.BindingCapacity() != 0 ||
+		cap(s.doc.elements) != 0 ||
 		cap(s.doc.text) != 0 ||
-		cap(s.doc.path) != 0 ||
 		cap(s.doc.namePath) != 0 ||
-		cap(s.doc.elementNames) != 0 ||
 		cap(s.doc.allBits) != 0 {
 		t.Fatalf("reset retained oversized state")
 	}
@@ -51,18 +206,15 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("check IDREFs after reset: %v", err)
 	}
-	if s.pathCache != nil {
-		t.Fatalf("path cache retained after reset")
-	}
 	if s.doc.schemaLocationHints.Has("urn:stale") {
 		t.Fatalf("schema location hint retained after reset")
 	}
 }
 
-func TestSessionResetClearsRetainedSliceCapacity(t *testing.T) {
+func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	var s session
-	s.doc.path = append(make([]string, 0, maxRetainedSliceCap), "stale")
-	s.doc.path = s.doc.path[:0]
+	s.doc.elements = make([]xmlDocumentElement[frame], 0, maxRetainedSliceCap)
+	s.doc.CommitStart(xml.Name{Local: "stale"}, "stale", false, frame{})
 	s.doc.pathText = "stale"
 	s.doc.pathTextDepth = 1
 
@@ -74,10 +226,10 @@ func TestSessionResetClearsRetainedSliceCapacity(t *testing.T) {
 	if s.doc.pathTextDepth != 0 {
 		t.Fatal("reset retained stale path text depth")
 	}
-	if cap(s.doc.path) == 0 {
+	if cap(s.doc.elements) == 0 {
 		t.Fatal("path capacity was not retained")
 	}
-	if s.doc.path[:cap(s.doc.path)][0] != "" {
+	if s.doc.elements[:cap(s.doc.elements)][0] != (xmlDocumentElement[frame]{}) {
 		t.Fatal("reset retained stale path string")
 	}
 }
@@ -88,40 +240,124 @@ func staleSchemaLocationHintName() xml.Name {
 
 func TestSessionPathStringMaterializesLazily(t *testing.T) {
 	var s session
-	s.pushPath("root")
-	s.pushPath("row")
+	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false, frame{})
+	s.doc.CommitStart(xml.Name{Local: "row"}, "row", false, frame{})
 
 	if s.doc.pathText != "" {
 		t.Fatal("pushPath materialized path text")
 	}
-	if len(s.pathCache) != 0 {
-		t.Fatal("pushPath populated path cache")
-	}
-	if got := s.pathString(); got != "/root/row" {
+	if got := s.doc.PathString(); got != "/root/row" {
 		t.Fatalf("pathString() = %q, want /root/row", got)
 	}
-	if s.doc.pathTextDepth != len(s.doc.path) {
-		t.Fatalf("path text depth = %d, want %d", s.doc.pathTextDepth, len(s.doc.path))
+	if s.doc.pathTextDepth != s.doc.Depth() {
+		t.Fatalf("path text depth = %d, want %d", s.doc.pathTextDepth, s.doc.Depth())
 	}
 }
 
 func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	var s session
-	s.pushPath("root")
-	if got := s.pathString(); got != "/root" {
+	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false, frame{})
+	if got := s.doc.PathString(); got != "/root" {
 		t.Fatalf("pathString() = %q, want /root", got)
 	}
-	s.pushPath("child")
-	if got := s.pathString(); got != "/root/child" {
+	s.doc.CommitStart(xml.Name{Local: "child"}, "child", false, frame{})
+	if got := s.doc.PathString(); got != "/root/child" {
 		t.Fatalf("pathString() = %q, want /root/child", got)
 	}
 
-	s.popPath()
+	if err := s.doc.CommitEnd(); err != nil {
+		t.Fatal(err)
+	}
 
-	if got := s.pathString(); got != "/root" {
+	if got := s.doc.PathString(); got != "/root" {
 		t.Fatalf("pathString() after pop = %q, want /root", got)
 	}
 	if s.doc.pathText != "/root" {
 		t.Fatalf("pathText after pop = %q, want /root", s.doc.pathText)
+	}
+}
+
+func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType">
+    <xs:key name="ids"><xs:selector xpath=".//never"/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const depth = 128
+	doc := nestedIdentityDocument(depth, true)
+
+	t.Run("completed document", func(t *testing.T) {
+		session, err := newSessionForTest(rt, Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			t.Fatal(err)
+		}
+		assertReleasedReferencesZero(t, &session.session)
+	})
+
+	t.Run("aborted document reset", func(t *testing.T) {
+		session, err := newSessionForTest(rt, Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := session.Validate(strings.NewReader(nestedIdentityDocument(depth, false))); err == nil {
+			t.Fatal("Validate() succeeded for unclosed document")
+		}
+		session.Reset()
+		assertReleasedReferencesZero(t, &session.session)
+	})
+}
+
+func nestedIdentityDocument(depth int, closeElements bool) string {
+	var b strings.Builder
+	b.WriteString("<root>")
+	for i := range depth {
+		fmt.Fprintf(&b, `<a id="%d">`, i)
+	}
+	if closeElements {
+		for range depth {
+			b.WriteString("</a>")
+		}
+		b.WriteString("</root>")
+	}
+	return b.String()
+}
+
+func assertReleasedReferencesZero(t *testing.T, s *session) {
+	t.Helper()
+	if len(s.doc.elements) != 0 || len(s.doc.namePath) != 0 {
+		t.Fatalf("active document state remains: elements=%d names=%d", len(s.doc.elements), len(s.doc.namePath))
+	}
+	for i, element := range s.doc.elements[:cap(s.doc.elements)] {
+		if element != (xmlDocumentElement[frame]{}) {
+			t.Fatalf("element tail %d retains references: %+v", i, element)
+		}
+	}
+	for i, name := range s.doc.namePath[:cap(s.doc.namePath)] {
+		if name != (runtime.RuntimeName{}) {
+			t.Fatalf("name path tail %d retains references: %+v", i, name)
+		}
+	}
+	identity := &s.doc.identity
+	for i, scope := range identity.scopes[:cap(identity.scopes)] {
+		if scope.tables != nil || scope.constraints.Len() != 0 || scope.refs != nil {
+			t.Fatalf("identity scope tail %d retains references: %+v", i, scope)
+		}
+	}
+	for i, selection := range identity.selections[:cap(identity.selections)] {
+		if selection.path != "" {
+			t.Fatalf("identity selection tail %d retains path %q", i, selection.path)
+		}
+	}
+	for i, field := range identity.fieldValues[:cap(identity.fieldValues)] {
+		if field.value != "" {
+			t.Fatalf("identity field tail %d retains value %q", i, field.value)
+		}
 	}
 }

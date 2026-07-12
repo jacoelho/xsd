@@ -270,22 +270,6 @@ func WildcardAllowsNamespace(w Wildcard, ns NamespaceID) bool {
 	}
 }
 
-// WildcardAllowsURI reports whether w admits namespace uri, including URIs not
-// interned in names.
-func WildcardAllowsURI(names *NameTable, w Wildcard, uri string) bool {
-	if w.Mode == WildcardAny {
-		return true
-	}
-	if names == nil {
-		return false
-	}
-	id, ok := names.LookupNamespace(uri)
-	if !ok {
-		return w.Mode == WildcardOther
-	}
-	return WildcardAllowsNamespace(w, id)
-}
-
 // WildcardSubset reports whether derived admits only namespaces admitted by
 // base and is no less strict in processContents.
 func WildcardSubset(derived, base Wildcard) bool {

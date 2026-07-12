@@ -4,6 +4,7 @@ MAKEFLAGS+=-r -R
 BIN := $(CURDIR)/bin
 STATICCHECK_VERSION := v0.7.0
 GOLANGCI_LINT_VERSION := v2.12.2
+BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
 export GOBIN := $(BIN)
 
 .PHONY: test
@@ -13,6 +14,10 @@ test:
 .PHONY: race
 race:
 	go test -race ./...
+
+.PHONY: wasm-test
+wasm-test:
+	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/wasmxsd
 
 .PHONY: fuzz-smoke
 fuzz-smoke:
@@ -29,6 +34,12 @@ bench:
 bench-smoke:
 	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
 
+.PHONY: benchstat
+benchstat: $(BIN)/benchstat
+
+$(BIN)/benchstat: go.mod Makefile | $(BIN)
+	go install golang.org/x/perf/cmd/benchstat@$(BENCHSTAT_VERSION)
+
 .PHONY: xmllint
 xmllint: | $(BIN)
 	go build -o $(BIN)/xmllint ./cmd/xmllint
@@ -41,6 +52,10 @@ wasm: | docs
 .PHONY: web
 web:
 	go run ./cmd/xsdweb
+
+.PHONY: web-test
+web-test:
+	node --test docs/js/validation-flow.test.js
 
 .PHONY: staticcheck
 staticcheck: $(BIN)/staticcheck

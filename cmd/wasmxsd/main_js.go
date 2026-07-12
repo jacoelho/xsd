@@ -29,14 +29,37 @@ func formatXMLJS(this js.Value, args []js.Value) any {
 	if len(args) != 1 {
 		return marshalResponse(formatResponse{Error: "invalid number of arguments"})
 	}
-	return marshalResponse(formatXMLData(args[0].String()))
+	input, inputErr := jsStringArgument(args[0], "XML", maxXMLBytes)
+	if inputErr != "" {
+		return marshalResponse(formatResponse{Error: inputErr})
+	}
+	return marshalResponse(formatXMLData(input))
 }
 
 func validateXMLJS(this js.Value, args []js.Value) any {
 	if len(args) != 2 {
 		return marshalResponse(validateResponse{Error: "invalid number of arguments"})
 	}
-	return marshalResponse(validateXMLData(args[0].String(), args[1].String()))
+	xmlText, xmlErr := jsStringArgument(args[0], "XML", maxXMLBytes)
+	if xmlErr != "" {
+		return marshalResponse(validateResponse{Error: xmlErr})
+	}
+	xsdText, xsdErr := jsStringArgument(args[1], "XSD", maxXSDBytes)
+	if xsdErr != "" {
+		return marshalResponse(validateResponse{Error: xsdErr})
+	}
+	return marshalResponse(validateXMLData(xmlText, xsdText))
+}
+
+func jsStringArgument(value js.Value, label string, maxBytes int64) (string, string) {
+	if value.Type() != js.TypeString {
+		return "", label + " must be a string"
+	}
+	boxed := js.Global().Get("Object").Invoke(value)
+	if int64(boxed.Get("length").Int()) > maxBytes {
+		return "", label + " exceeds " + byteLimit(maxBytes) + " limit"
+	}
+	return value.String(), ""
 }
 
 func marshalResponse(v any) string {

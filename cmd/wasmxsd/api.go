@@ -8,6 +8,7 @@ import (
 
 	"github.com/jacoelho/xsd"
 	"github.com/jacoelho/xsd/internal/format"
+	"github.com/jacoelho/xsd/internal/validate"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -73,12 +74,14 @@ func validateXMLData(xmlText, xsdText string) validateResponse {
 	if int64(len(xsdText)) > maxXSDBytes {
 		return validateResponse{Error: fmt.Sprintf("XSD exceeds %s limit", byteLimit(maxXSDBytes))}
 	}
-
-	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(xsdText)))
-	if err != nil {
-		return validateResponse{Errors: collectErrors(err, "xsd")}
+	engine, compileErr := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(xsdText)))
+	if compileErr != nil {
+		if xmlErr := validate.CheckXMLWellFormed(strings.NewReader(xmlText), validate.Options{}); xmlErr != nil {
+			return validateResponse{Errors: collectErrors(xmlErr, "xml")}
+		}
+		return validateResponse{Errors: collectErrors(compileErr, "xsd")}
 	}
-	err = engine.ValidateWithOptions(strings.NewReader(xmlText), xsd.ValidateOptions{MaxErrors: maxValidationErrors})
+	err := engine.ValidateWithOptions(strings.NewReader(xmlText), xsd.ValidateOptions{MaxErrors: maxValidationErrors})
 	if err != nil {
 		return validateResponse{Errors: collectErrors(err, "xml")}
 	}

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 const benchmarkSchema = `
@@ -70,6 +71,18 @@ func BenchmarkCompileSmallSchema(b *testing.B) {
 	}
 }
 
+func BenchmarkCompileAndFirstSession(b *testing.B) {
+	for b.Loop() {
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
+		if err != nil {
+			b.Fatal(err)
+		}
+		if _, err := engine.NewSession(xsd.ValidateOptions{}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
 	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
@@ -123,6 +136,33 @@ func BenchmarkSessionValidateRepeatedQNameValues(b *testing.B) {
 		b.Fatal(err)
 	}
 	doc := benchmarkQNameDoc()
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateRepeatedLaxWildcard(b *testing.B) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := `<root><o:unknown xmlns:o="urn:other"/></root>`
+	if err := session.Validate(strings.NewReader(doc)); err != nil {
+		b.Fatal(err)
+	}
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
@@ -302,6 +342,30 @@ func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateDeepThenShallow(b *testing.B) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:anyType"/></xs:schema>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	const depth = 4096
+	deep := `<root>` + strings.Repeat(`<a>`, depth) + strings.Repeat(`</a>`, depth) + `</root>`
+	if err := session.Validate(strings.NewReader(deep)); err != nil {
+		b.Fatal(err)
+	}
+	shallow := `<root/>`
+	b.SetBytes(int64(len(shallow)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(shallow)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkValidateDuplicateAttributes(b *testing.B) {
 	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
 	if err != nil {
@@ -332,6 +396,60 @@ func BenchmarkCompileDuplicateSchemaSources(b *testing.B) {
 	}
 }
 
+func BenchmarkCompileIncludeGraph(b *testing.B) {
+	const (
+		depth = 3
+		width = 4
+	)
+	source, totalBytes := includeGraphSource(depth, width)
+	b.SetBytes(totalBytes)
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := xsd.Compile(source); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkCompileChameleonTargetFanout(b *testing.B) {
+	for _, targetCount := range []int{1, 8, 32} {
+		b.Run(fmt.Sprintf("targets_%d", targetCount), func(b *testing.B) {
+			sources, totalBytes := chameleonTargetFanoutSources(targetCount)
+			b.SetBytes(totalBytes)
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := xsd.Compile(sources...); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func chameleonTargetFanoutSources(targetCount int) ([]xsd.SchemaSource, int64) {
+	const common = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="leaf.xsd"/><xs:element name="common" type="xs:string"/></xs:schema>`
+	const leaf = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="leaf" type="xs:string"/></xs:schema>`
+	resolver := xsd.ResolverFunc(func(_, location string) (xsd.SchemaSource, error) {
+		switch location {
+		case "common.xsd":
+			return xsd.Bytes("common.xsd", []byte(common)), nil
+		case "leaf.xsd":
+			return xsd.Bytes("leaf.xsd", []byte(leaf)), nil
+		default:
+			return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
+		}
+	})
+	sources := make([]xsd.SchemaSource, targetCount)
+	totalBytes := int64(len(common) + len(leaf))
+	for i := range sources {
+		target := fmt.Sprintf("urn:target:%d", i)
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="` + target + `"><xs:include schemaLocation="common.xsd"/></xs:schema>`
+		sources[i] = xsd.Bytes(fmt.Sprintf("root-%d.xsd", i), []byte(schema)).WithResolver(resolver)
+		totalBytes += int64(len(schema))
+	}
+	return sources, totalBytes
+}
+
 func BenchmarkCompileSchemaText(b *testing.B) {
 	schema := largeSchemaWithText(256 << 10)
 	b.SetBytes(int64(len(schema)))
@@ -341,6 +459,53 @@ func BenchmarkCompileSchemaText(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func includeGraphSource(depth, width int) (xsd.SchemaSource, int64) {
+	type graphNode struct {
+		children []int
+		level    int
+	}
+	nodes := []graphNode{{}}
+	levelStart := 0
+	levelEnd := 1
+	for level := range depth {
+		for i := levelStart; i < levelEnd; i++ {
+			for range width {
+				child := len(nodes)
+				nodes[i].children = append(nodes[i].children, child)
+				nodes = append(nodes, graphNode{level: level + 1})
+			}
+		}
+		levelStart, levelEnd = levelEnd, len(nodes)
+	}
+
+	sources := make(map[string]xsd.SchemaSource, len(nodes))
+	var totalBytes int64
+	for i, node := range nodes {
+		var schema strings.Builder
+		schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+		for _, child := range node.children {
+			fmt.Fprintf(&schema, `<xs:include schemaLocation="node-%d.xsd"/>`, child)
+		}
+		fmt.Fprintf(&schema, `<xs:simpleType name="T%d"><xs:restriction base="xs:string"/></xs:simpleType>`, i)
+		if node.level == 0 {
+			schema.WriteString(`<xs:element name="root" type="T0"/>`)
+		}
+		schema.WriteString(`</xs:schema>`)
+		data := []byte(schema.String())
+		totalBytes += int64(len(data))
+		name := fmt.Sprintf("node-%d.xsd", i)
+		sources[name] = xsd.Bytes(name, data)
+	}
+	resolver := xsd.ResolverFunc(func(_, location string) (xsd.SchemaSource, error) {
+		source, ok := sources[location]
+		if !ok {
+			return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
+		}
+		return source, nil
+	})
+	return sources["node-0.xsd"].WithResolver(resolver), totalBytes
 }
 
 func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
@@ -448,6 +613,29 @@ func BenchmarkCompileCountedChoiceDFA(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+func BenchmarkCompileSubstitutionGroups(b *testing.B) {
+	const (
+		headCount      = 20
+		membersPerHead = 10
+	)
+	var schema strings.Builder
+	schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	for head := range headCount {
+		fmt.Fprintf(&schema, `<xs:element name="head%d" type="xs:string"/>`, head)
+		for member := range membersPerHead {
+			fmt.Fprintf(&schema, `<xs:element name="member%d_%d" substitutionGroup="head%d" type="xs:string"/>`, head, member, head)
+		}
+	}
+	schema.WriteString(`</xs:schema>`)
+	data := []byte(schema.String())
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := xsd.Compile(xsd.Bytes("schema.xsd", data)); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

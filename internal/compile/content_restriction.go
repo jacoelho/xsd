@@ -8,29 +8,15 @@ import (
 )
 
 type contentRestrictionValidator struct {
-	rt        runtime.ParticleRestrictionRuntime
-	models    []runtime.ContentModel
-	wildcards []runtime.Wildcard
+	rt runtime.ParticleRestrictionRuntime
 }
 
-// ValidateContentRestriction validates that derived is a legal restriction of base.
+// ValidateContentRestriction validates content-model restriction.
 func ValidateContentRestriction(rt runtime.ParticleRestrictionRuntime, baseID, derivedID runtime.ContentModelID) error {
 	if rt == nil {
 		return xsderrors.InternalInvariant("content restriction requires runtime")
 	}
-	return contentRestrictionValidator{rt: rt}.validateContentRestriction(baseID, derivedID)
-}
-
-// ValidateContentRestrictionWithModels validates content-model restriction using
-// a caller-owned model slice for direct model reads.
-func ValidateContentRestrictionWithModels(rt runtime.ParticleRestrictionRuntime, models []runtime.ContentModel, baseID, derivedID runtime.ContentModelID) error {
-	if rt == nil {
-		return xsderrors.InternalInvariant("content restriction requires runtime")
-	}
-	validator := contentRestrictionValidator{rt: rt, models: models}
-	if schema, ok := rt.(*runtime.Schema); ok {
-		validator.wildcards = schema.Wildcards
-	}
+	validator := contentRestrictionValidator{rt: rt}
 	return validator.validateContentRestriction(baseID, derivedID)
 }
 
@@ -163,7 +149,7 @@ func (v contentRestrictionValidator) particleContainsNestedChoice(p runtime.Part
 	if p.Kind != runtime.ParticleModel {
 		return false
 	}
-	model, ok := v.model(p.Model)
+	model, ok := v.rt.ContentModel(p.Model)
 	if !ok {
 		return false
 	}
@@ -178,7 +164,7 @@ func (v contentRestrictionValidator) modelContainsChoiceBelow(model runtime.Cont
 		if p.Kind != runtime.ParticleModel {
 			continue
 		}
-		nested, ok := v.model(p.Model)
+		nested, ok := v.rt.ContentModel(p.Model)
 		if ok && v.modelContainsChoiceBelow(nested, depth+1) {
 			return true
 		}
@@ -342,7 +328,7 @@ func (v contentRestrictionValidator) particleContainsWildcard(p runtime.Particle
 	case runtime.ParticleWildcard:
 		return true
 	case runtime.ParticleModel:
-		model, ok := v.model(p.Model)
+		model, ok := v.rt.ContentModel(p.Model)
 		return ok && v.modelContainsWildcard(model)
 	default:
 		return false
@@ -543,25 +529,15 @@ func (v contentRestrictionValidator) validateParticleRestrictsWildcard(base, der
 }
 
 func (v contentRestrictionValidator) contentModel(id runtime.ContentModelID) (runtime.ContentModel, error) {
-	model, ok := v.model(id)
+	model, ok := v.rt.ContentModel(id)
 	if !ok {
 		return runtime.ContentModel{}, xsderrors.InternalInvariant("content restriction references missing content model")
 	}
 	return model, nil
 }
 
-func (v contentRestrictionValidator) model(id runtime.ContentModelID) (runtime.ContentModel, bool) {
-	if v.models != nil {
-		if !runtime.ValidContentModelID(id, len(v.models)) {
-			return runtime.ContentModel{}, false
-		}
-		return v.models[id], true
-	}
-	return v.rt.ContentModel(id)
-}
-
 func (v contentRestrictionValidator) ContentModel(id runtime.ContentModelID) (runtime.ContentModel, bool) {
-	return v.model(id)
+	return v.rt.ContentModel(id)
 }
 
 func (v contentRestrictionValidator) ElementName(id runtime.ElementID) (runtime.QName, bool) {
@@ -569,12 +545,6 @@ func (v contentRestrictionValidator) ElementName(id runtime.ElementID) (runtime.
 }
 
 func (v contentRestrictionValidator) Wildcard(id runtime.WildcardID) (runtime.Wildcard, bool) {
-	if v.wildcards != nil {
-		if !runtime.ValidWildcardID(id, len(v.wildcards)) {
-			return runtime.Wildcard{}, false
-		}
-		return v.wildcards[id], true
-	}
 	return v.rt.Wildcard(id)
 }
 

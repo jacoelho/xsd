@@ -30,7 +30,7 @@ func (c *compiler) compileAttributeWildcard(n *rawNode, ctx *schemaContext) (run
 func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (runtime.WildcardID, error) {
 	ns, hasNS := n.attr(vocab.XSDAttrNamespace)
 	process, hasProcess := n.attr(vocab.XSDAttrProcessContents)
-	w, err := ParseWildcard(c.names, WildcardAttrs{
+	w, err := ParseWildcard(&c.rt, WildcardAttrs{
 		Namespace:          ns,
 		ProcessContents:    process,
 		TargetNamespace:    ctx.targetNS,
@@ -43,22 +43,10 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (runtime.Wild
 	return c.addWildcard(w)
 }
 
-func (c *compiler) addWildcard(w runtime.Wildcard) (runtime.WildcardID, error) {
-	id, err := NextWildcardID(len(c.rt.Wildcards))
-	if err != nil {
-		return runtime.NoWildcard, err
-	}
-	c.rt.Wildcards = append(c.rt.Wildcards, w)
-	return id, nil
-}
-
 // Wildcard returns compiler-owned wildcard metadata for internal compile
 // helpers.
 func (c *compiler) Wildcard(id runtime.WildcardID) (runtime.Wildcard, bool) {
-	if !runtime.ValidWildcardID(id, len(c.rt.Wildcards)) {
-		return runtime.Wildcard{}, false
-	}
-	return c.rt.Wildcards[id], true
+	return c.rt.Wildcard(id)
 }
 
 // AddWildcard stores wildcard metadata produced by internal compile helpers.

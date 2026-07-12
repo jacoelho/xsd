@@ -16,6 +16,11 @@ func TestNormalizeOptionsRejectsNegativeLimits(t *testing.T) {
 		{name: "attributes", opts: Options{MaxSchemaAttributes: -1}},
 		{name: "token bytes", opts: Options{MaxSchemaTokenBytes: -1}},
 		{name: "source bytes", opts: Options{MaxSchemaSourceBytes: -1}},
+		{name: "sources", opts: Options{MaxSchemaSources: -1}},
+		{name: "total source bytes", opts: Options{MaxSchemaTotalBytes: -1}},
+		{name: "references", opts: Options{MaxSchemaReferences: -1}},
+		{name: "target contexts", opts: Options{MaxSchemaTargetContexts: -1}},
+		{name: "instantiated nodes", opts: Options{MaxSchemaInstantiatedNodes: -1}},
 		{name: "names", opts: Options{MaxSchemaNames: -1}},
 		{name: "content model states", opts: Options{MaxContentModelStates: -1}},
 	}
@@ -52,6 +57,21 @@ func TestNormalizeOptionsAppliesDefaultsAndCopiesLimits(t *testing.T) {
 	}
 	if limits.MaxSchemaSourceBytes != defaultMaxSchemaSourceBytes {
 		t.Fatalf("MaxSchemaSourceBytes = %d, want %d", limits.MaxSchemaSourceBytes, defaultMaxSchemaSourceBytes)
+	}
+	if limits.MaxSchemaSources != defaultMaxSchemaSources {
+		t.Fatalf("MaxSchemaSources = %d, want %d", limits.MaxSchemaSources, defaultMaxSchemaSources)
+	}
+	if limits.MaxSchemaTotalBytes != defaultMaxSchemaTotalBytes {
+		t.Fatalf("MaxSchemaTotalBytes = %d, want %d", limits.MaxSchemaTotalBytes, defaultMaxSchemaTotalBytes)
+	}
+	if limits.MaxSchemaReferences != defaultMaxSchemaReferences {
+		t.Fatalf("MaxSchemaReferences = %d, want %d", limits.MaxSchemaReferences, defaultMaxSchemaReferences)
+	}
+	if limits.MaxSchemaTargetContexts != defaultMaxSchemaTargetContexts {
+		t.Fatalf("MaxSchemaTargetContexts = %d, want %d", limits.MaxSchemaTargetContexts, defaultMaxSchemaTargetContexts)
+	}
+	if limits.MaxSchemaInstantiatedNodes != defaultMaxSchemaInstantiatedNodes {
+		t.Fatalf("MaxSchemaInstantiatedNodes = %d, want %d", limits.MaxSchemaInstantiatedNodes, defaultMaxSchemaInstantiatedNodes)
 	}
 	if limits.MaxContentModelStates != defaultMaxContentModelStates {
 		t.Fatalf("MaxContentModelStates = %d, want %d", limits.MaxContentModelStates, defaultMaxContentModelStates)

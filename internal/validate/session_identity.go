@@ -148,23 +148,14 @@ func (s *session) simpleContentNeeds(
 }
 
 func (s *session) simpleContentType(typ runtime.TypeID) (runtime.SimpleTypeID, bool, bool) {
-	if s.schema != nil {
-		return s.schema.SimpleContentType(typ)
-	}
 	return s.rt.SimpleContentType(typ)
 }
 
 func (s *session) elementValueConstraints(id runtime.ElementID) (runtime.ElementValueConstraints, bool, bool) {
-	if s.schema != nil {
-		return s.schema.ElementValueConstraints(id)
-	}
 	return s.rt.ElementValueConstraints(id)
 }
 
 func (s *session) simpleIdentity(id runtime.SimpleTypeID) runtime.SimpleIdentityKind {
-	if s.schema != nil {
-		return s.schema.SimpleIdentity(id)
-	}
 	return s.rt.SimpleIdentity(id)
 }
 
@@ -213,20 +204,14 @@ func (s *session) identityElementFields() ([]IdentityFieldMatch, error) {
 	if !s.hasIdentityConstraints {
 		return nil, nil
 	}
-	if s.schema != nil {
-		return s.doc.identity.ElementFieldMatchesSchema(s.schema, s.doc.namePath)
-	}
-	return s.doc.identity.ElementFieldMatches(s.rt, s.doc.namePath)
+	return s.doc.identity.elementFieldMatches(s.rt, s.doc.namePath)
 }
 
 func (s *session) identityAttributeFields(name runtime.QName) ([]IdentityFieldMatch, error) {
 	if !s.hasIdentityConstraints {
 		return nil, nil
 	}
-	if s.schema != nil {
-		return s.doc.identity.AttributeFieldMatchesSchema(s.schema, s.doc.namePath, name)
-	}
-	return s.doc.identity.AttributeFieldMatches(s.rt, s.doc.namePath, name)
+	return s.doc.identity.attributeFieldMatches(s.rt, s.doc.namePath, name)
 }
 
 func (s *session) recordAttributeIdentity(value runtime.SimpleValue, line, col int, seenID *bool) error {
@@ -249,7 +234,7 @@ func (s *session) recordIdentityFields(ids, idrefs string, line, col int) error 
 	if ids == "" && idrefs == "" {
 		return nil
 	}
-	path := s.pathString()
+	path := s.doc.PathString()
 	for canonical := range lex.XMLFieldsSeq(ids) {
 		if s.doc.identity.ids == nil {
 			s.doc.identity.ids = make(map[string]string)
@@ -273,10 +258,10 @@ func (s *session) recordIdentityFields(ids, idrefs string, line, col int) error 
 
 func (s *session) reserveIdentityEntry(key string, line, col int) error {
 	if s.maxIdentityTupleBytes > 0 && int64(len(key)) > s.maxIdentityTupleBytes {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationIdentity, "identity tuple byte limit exceeded")
+		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
 	}
 	if s.maxIdentityEntries > 0 && s.doc.identity.entries >= s.maxIdentityEntries {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationIdentity, "identity entry limit exceeded")
+		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "identity entry limit exceeded")
 	}
 	s.doc.identity.entries++
 	return nil
@@ -292,20 +277,14 @@ func (s *session) startIdentityScope(elem runtime.ElementID, line, col int) erro
 	if !s.hasIdentityConstraints {
 		return nil
 	}
-	if s.schema != nil {
-		return s.doc.identity.StartElementScopeSchema(s.schema, elem, len(s.doc.namePath), s.maxIdentityScopes, s.startContext(line, col))
-	}
-	return s.doc.identity.StartElementScope(s.rt, elem, len(s.doc.namePath), s.maxIdentityScopes, s.startContext(line, col))
+	return s.doc.identity.startElementScope(s.rt, elem, len(s.doc.namePath), s.maxIdentityScopes, s.startContext(line, col))
 }
 
 func (s *session) matchIdentitySelectors(line, col int) error {
 	if !s.hasIdentityConstraints {
 		return nil
 	}
-	if s.schema != nil {
-		return s.doc.identity.MatchSelectorsSchema(s.schema, s.doc.namePath, s.startContext(line, col))
-	}
-	return s.doc.identity.MatchSelectors(s.rt, s.doc.namePath, s.startContext(line, col))
+	return s.doc.identity.matchSelectors(s.rt, s.doc.namePath, s.startContext(line, col))
 }
 
 func (s *session) captureIdentityFieldKey(fields []IdentityFieldMatch, key string, line, col int) error {
@@ -316,9 +295,6 @@ func (s *session) captureIdentityFieldKey(fields []IdentityFieldMatch, key strin
 }
 
 func (s *session) captureSimpleValueIdentityFields(fields []IdentityFieldMatch, value runtime.SimpleValue, ctx StartContext) error {
-	if s.schema != nil {
-		return s.doc.identity.CaptureSimpleValueFieldsSchema(s.schema, fields, value, ctx)
-	}
 	return s.doc.identity.CaptureSimpleValueFields(s.rt, fields, value, ctx)
 }
 
@@ -330,7 +306,7 @@ func (s *session) captureIdentityXSIAttribute(attrName xml.Name, lexical string,
 		s.rt,
 		attrName,
 		lexical,
-		s.resolveLexicalQNamePartsFunc,
+		s.qnameResolver(),
 		s.startContext(line, col),
 	)
 	if err != nil {
@@ -372,7 +348,7 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 			dst = append(dst, sel)
 			continue
 		}
-		if err := s.finishIdentitySelection(sel, limits, ctx); err != nil {
+		if err := state.finishSelection(s.rt, sel, limits, ctx); err != nil {
 			clear(state.selectionFields(sel))
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
@@ -390,67 +366,6 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 	state.selections = dst
 	state.truncateFieldValues()
 	return nil
-}
-
-func (s *session) finishIdentitySelection(sel identitySelection, limits IdentityLimits, ctx StartContext) error {
-	info, ok := s.identityConstraintInfo(sel.constraint)
-	if !ok {
-		return xsderrors.InternalInvariant("identity constraint metadata is invalid")
-	}
-	fields := s.doc.identity.selectionFields(sel)
-	for _, field := range fields {
-		if !field.present {
-			if info.Kind == runtime.IdentityKey {
-				return validation(StartContext{Path: sel.path, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "key field is missing")
-			}
-			return nil
-		}
-	}
-	key, err := identityTupleKey(fields, limits, ctx)
-	if err != nil {
-		return err
-	}
-	if sel.scope < 0 || sel.scope >= len(s.doc.identity.scopes) {
-		return xsderrors.InternalInvariant("identity selection references invalid scope")
-	}
-	scope := &s.doc.identity.scopes[sel.scope]
-	switch info.Kind {
-	case runtime.IdentityUnique, runtime.IdentityKey:
-		if scope.tables == nil {
-			scope.tables = make(map[runtime.IdentityConstraintID]map[string]identityTableEntry)
-		}
-		table := scope.tables[sel.constraint]
-		if table == nil {
-			table = make(map[string]identityTableEntry)
-			scope.tables[sel.constraint] = table
-		}
-		if prev, exists := table[key]; exists {
-			return validation(StartContext{Path: sel.path, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "duplicate identity value first seen at "+prev.path)
-		}
-		if err := s.reserveIdentityEntry(key, ctx.Line, ctx.Column); err != nil {
-			return err
-		}
-		table[key] = identityTableEntry{path: sel.path, node: sel.node}
-	case runtime.IdentityKeyRef:
-		if err := s.reserveIdentityEntry(key, ctx.Line, ctx.Column); err != nil {
-			return err
-		}
-		scope.refs = append(scope.refs, identityTupleRef{
-			refer: info.Refer,
-			key:   key,
-			path:  sel.path,
-			line:  sel.line,
-			col:   sel.col,
-		})
-	}
-	return nil
-}
-
-func (s *session) identityConstraintInfo(id runtime.IdentityConstraintID) (runtime.IdentityConstraintInfo, bool) {
-	if s.schema != nil {
-		return runtime.IdentityConstraintInfoByID(s.schema.IdentityConstraintReads, id)
-	}
-	return s.rt.IdentityConstraintInfo(id)
 }
 
 func (s *session) identityLimits() IdentityLimits {

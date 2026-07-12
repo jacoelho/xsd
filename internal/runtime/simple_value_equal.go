@@ -5,234 +5,210 @@ import (
 	"slices"
 )
 
-// EqualSimpleValueTypeReadProjectionForTypes reports whether reads expose the
-// same hot simple-value type facts as frozen simple types.
-func EqualSimpleValueTypeReadProjectionForTypes(reads []SimpleValueTypeRead, simpleTypes []SimpleType) bool {
-	if len(reads) != len(simpleTypes) {
-		return false
+func validateSimpleValueRouteReadProjectionForTypes(reads []simpleValueRouteRead, types []SimpleType) error {
+	if len(reads) != len(types) {
+		return errors.New("simple value route projection count does not match types")
 	}
 	for i := range reads {
-		st := simpleTypes[i]
-		if reads[i].Present == st.Missing {
+		expected := newSimpleValueRouteReadForSimpleType(types[i])
+		if reads[i] != expected {
+			return errors.New("simple value route projection does not match type")
+		}
+	}
+	return nil
+}
+
+func validateSimpleValueColdReadProjectionForTypes(reads simpleValueColdReadTable, types []SimpleType) error {
+	if len(reads.index) != len(types) {
+		return errors.New("simple value cold projection count does not match types")
+	}
+	boundIndexes := simpleValueBoundReadIndexes(types)
+	if len(reads.boundReads) != len(boundIndexes) {
+		return errors.New("simple value bound read pool does not match types")
+	}
+	for source, index := range boundIndexes {
+		if !ValidUint32Index(index, len(reads.boundReads)) ||
+			!equalSimpleValueLiteralReadForCompiled(reads.boundReads[index], *source) {
+			return errors.New("simple value bound read pool does not match types")
+		}
+	}
+	var enumerationPool simpleValueEnumerationPoolAudit
+	var patternPool simpleValuePatternPoolAudit
+	next := uint32(0)
+	for i := range types {
+		idx := reads.index[i]
+		if !simpleValueTypeNeedsColdRead(types[i]) {
+			if idx != invalidID {
+				return errors.New("simple value cold projection stores unexpected type")
+			}
+			continue
+		}
+		if idx != next || !ValidUint32Index(idx, len(reads.values)) {
+			return errors.New("simple value cold projection index does not match type")
+		}
+		read := reads.values[idx]
+		if !slices.Equal(read.union, types[i].Union) ||
+			!equalColdFacetProjection(read.facets, types[i].Facets) ||
+			!equalColdBoundPoolProjection(read.facets, types[i].Facets, reads.boundReads, boundIndexes) ||
+			!enumerationPool.matches(types[i].Facets.Enumeration, read.enumeration) ||
+			!patternPool.matches(types[i].Facets.patterns, read.facets.patterns) {
+			return errors.New("simple value cold projection does not match type")
+		}
+		next++
+	}
+	if int(next) != len(reads.values) {
+		return errors.New("simple value cold projection value count does not match types")
+	}
+	return nil
+}
+
+type simpleValuePatternPoolAudit struct {
+	reads   map[*stringPatternStep]*stringPatternStepRead
+	sources map[*stringPatternStepRead]*stringPatternStep
+}
+
+func (a *simpleValuePatternPoolAudit) matches(source stringPatternSteps, read *stringPatternStepRead) bool {
+	for sourceStep := source.tail; sourceStep != nil; sourceStep = sourceStep.parent {
+		if read == nil {
 			return false
 		}
-		if reads[i].Present && !EqualSimpleValueTypeForSimpleType(reads[i].Type, st) {
+		if existing, ok := a.reads[sourceStep]; ok {
+			return existing == read && a.sources[read] == sourceStep
+		}
+		if read.count != sourceStep.count || !equalStringPatternStepReadForSource(read, sourceStep) {
+			return false
+		}
+		if existing, ok := a.sources[read]; ok && existing != sourceStep {
+			return false
+		}
+		if a.reads == nil {
+			a.reads = make(map[*stringPatternStep]*stringPatternStepRead)
+			a.sources = make(map[*stringPatternStepRead]*stringPatternStep)
+		}
+		a.reads[sourceStep] = read
+		a.sources[read] = sourceStep
+		read = read.parent
+	}
+	return read == nil
+}
+
+type simpleValueEnumerationPoolAudit struct {
+	reads   map[simpleValueEnumerationSource]simpleValueEnumerationRead
+	sources map[simpleValueEnumerationRead]simpleValueEnumerationSource
+}
+
+func (a *simpleValueEnumerationPoolAudit) matches(source []CompiledLiteral, read []simpleValueLiteralRead) bool {
+	sourceID, sourcePresent := simpleValueEnumerationSourceForLiterals(source)
+	readID, readPresent := simpleValueEnumerationReadForLiterals(read)
+	if sourcePresent != readPresent {
+		return false
+	}
+	if !sourcePresent {
+		return true
+	}
+	if existing, ok := a.reads[sourceID]; ok {
+		return existing == readID && a.sources[readID] == sourceID
+	}
+	if !equalSimpleValueEnumerationReadForSource(read, source) {
+		return false
+	}
+	if _, ok := a.sources[readID]; ok {
+		return false
+	}
+	if a.reads == nil {
+		a.reads = make(map[simpleValueEnumerationSource]simpleValueEnumerationRead)
+		a.sources = make(map[simpleValueEnumerationRead]simpleValueEnumerationSource)
+	}
+	a.reads[sourceID] = readID
+	a.sources[readID] = sourceID
+	return true
+}
+
+func equalColdBoundPoolProjection(read simpleValueFacetRead, facets FacetSet, pool []simpleValueLiteralRead, indexes map[*CompiledLiteral]uint32) bool {
+	for i, source := range facets.bounds {
+		if source == nil {
+			if read.bounds[i] != nil {
+				return false
+			}
+			continue
+		}
+		index, ok := indexes[source]
+		if !ok || !ValidUint32Index(index, len(pool)) || read.bounds[i] != &pool[index] {
 			return false
 		}
 	}
 	return true
 }
 
-// ValidateSimpleValueTypeReadProjectionForTypes validates hot simple-value type
-// projections against frozen simple types.
-func ValidateSimpleValueTypeReadProjectionForTypes(reads []SimpleValueTypeRead, simpleTypes []SimpleType) error {
-	if len(reads) != len(simpleTypes) {
-		return errors.New("simple value type read projection count does not match types")
-	}
-	if !EqualSimpleValueTypeReadProjectionForTypes(reads, simpleTypes) {
-		return errors.New("simple value type read projection does not match type")
-	}
-	return nil
-}
-
-// EqualSimpleValueFacetReadProjectionForTypes reports whether full facet reads
-// expose the same cold simple-value facet facts as frozen simple types.
-func EqualSimpleValueFacetReadProjectionForTypes(reads SimpleValueFacetReadTable, simpleTypes []SimpleType) bool {
-	if len(reads.Index) != len(simpleTypes) {
+func equalSimpleValueEnumerationReadForSource(read []simpleValueLiteralRead, source []CompiledLiteral) bool {
+	if len(read) != len(source) {
 		return false
 	}
-	next := uint32(0)
-	for i, st := range simpleTypes {
-		idx := reads.Index[i]
-		if st.Missing || st.Facets.Present == 0 {
-			if idx != invalidID {
-				return false
-			}
-			continue
-		}
-		if idx != next || !ValidUint32Index(idx, len(reads.Values)) {
+	for i := range source {
+		if !equalSimpleValueLiteralReadForCompiled(read[i], source[i]) {
 			return false
 		}
-		if !EqualSimpleValueFacetsForFacetSet(reads.Values[idx], st.Facets) {
-			return false
-		}
-		next++
 	}
-	return int(next) == len(reads.Values)
+	return true
 }
 
-// ValidateSimpleValueFacetReadProjectionForTypes validates full facet reads
-// against frozen simple types.
-func ValidateSimpleValueFacetReadProjectionForTypes(reads SimpleValueFacetReadTable, simpleTypes []SimpleType) error {
-	if len(reads.Index) != len(simpleTypes) {
-		return errors.New("simple value facet read projection count does not match types")
-	}
-	if !EqualSimpleValueFacetReadProjectionForTypes(reads, simpleTypes) {
-		return errors.New("simple value facet read projection does not match type")
-	}
-	return nil
-}
-
-// EqualSimpleValueQNameResolverNeedsForSimpleTypes reports whether reads expose
-// the QName/NOTATION namespace-resolution needs for frozen simple types.
-func EqualSimpleValueQNameResolverNeedsForSimpleTypes(reads []bool, simpleTypes []SimpleType) bool {
-	if len(reads) != len(simpleTypes) {
+func equalColdFacetProjection(read simpleValueFacetRead, facets FacetSet) bool {
+	if read.length != facets.Length || read.minLength != facets.MinLength || read.maxLength != facets.MaxLength ||
+		read.totalDigits != facets.TotalDigits || read.fractionDigits != facets.FractionDigits ||
+		read.present != facets.Present {
 		return false
 	}
-	expected := NewSimpleValueQNameResolverNeedsForSimpleTypes(simpleTypes)
-	return slices.Equal(reads, expected)
+	for i := range read.bounds {
+		if !equalSimpleValueBoundReadForCompiled(read.bounds[i], facets.bounds[i]) {
+			return false
+		}
+	}
+	return true
 }
 
-// ValidateSimpleValueQNameResolverNeedsForSimpleTypes validates QName resolver
-// need projections against frozen simple types.
-func ValidateSimpleValueQNameResolverNeedsForSimpleTypes(reads []bool, simpleTypes []SimpleType) error {
+func equalSimpleValueBoundReadForCompiled(a *simpleValueLiteralRead, b *CompiledLiteral) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return equalSimpleValueLiteralReadForCompiled(*a, *b)
+}
+
+func equalSimpleValueLiteralReadForCompiled(got simpleValueLiteralRead, want CompiledLiteral) bool {
+	return got.actual.Valid == want.Actual.Valid &&
+		(!got.actual.Valid || got.actual.Kind == want.Actual.Kind) &&
+		got.canonical == want.Canonical &&
+		EqualPrimitiveActualValues(got.actual, got.canonical, want.Actual, want.Canonical)
+}
+
+func equalStringPatternStepReadForSource(read *stringPatternStepRead, source *stringPatternStep) bool {
+	if len(read.patterns) != len(source.patterns) {
+		return false
+	}
+	for i, patternRead := range read.patterns {
+		pattern := source.patterns[i]
+		if (patternRead.re == nil) != (pattern.re == nil) ||
+			patternRead.re != nil && patternRead.re.String() != pattern.re.String() ||
+			!equalSimplePattern(patternRead.fast, pattern.fast) {
+			return false
+		}
+	}
+	return true
+}
+
+// equalSimpleValueQNameResolverNeedsForSimpleTypes reports whether reads expose
+// the QName/NOTATION namespace-resolution needs for completed compiler-owned simple types.
+func equalSimpleValueQNameResolverNeedsForSimpleTypes(reads []bool, simpleTypes []SimpleType) bool {
+	return slices.Equal(reads, newSimpleValueQNameResolverNeedsForSimpleTypes(simpleTypes))
+}
+
+// validateSimpleValueQNameResolverNeedsForSimpleTypes validates QName resolver
+// need projections against completed compiler-owned simple types.
+func validateSimpleValueQNameResolverNeedsForSimpleTypes(reads []bool, simpleTypes []SimpleType) error {
 	if len(reads) != len(simpleTypes) {
 		return errors.New("simple value QName resolver projection count does not match types")
 	}
-	if !EqualSimpleValueQNameResolverNeedsForSimpleTypes(reads, simpleTypes) {
+	if !equalSimpleValueQNameResolverNeedsForSimpleTypes(reads, simpleTypes) {
 		return errors.New("simple value QName resolver projection does not match type")
 	}
 	return nil
-}
-
-// EqualSimpleValueTypes reports whether two full simple-value read projections
-// expose the same validation-facing type facts.
-func EqualSimpleValueTypes(a, b SimpleValueType) bool {
-	return a.DecimalMinInclusive == b.DecimalMinInclusive &&
-		a.DecimalMaxInclusive == b.DecimalMaxInclusive &&
-		slices.Equal(a.UnionMembers, b.UnionMembers) &&
-		EqualStringFacetValues(a.StringFacets, b.StringFacets) &&
-		a.DecimalFacets == b.DecimalFacets &&
-		a.LengthFacets == b.LengthFacets &&
-		a.ListItem == b.ListItem &&
-		a.Facets == b.Facets &&
-		a.Variety == b.Variety &&
-		a.Primitive == b.Primitive &&
-		a.Builtin == b.Builtin &&
-		a.Whitespace == b.Whitespace &&
-		a.Identity == b.Identity &&
-		a.Fast == b.Fast &&
-		a.RawBypass == b.RawBypass
-}
-
-// EqualSimpleValueTypeForSimpleType reports whether read exposes the same type
-// facts as st without constructing another read projection.
-func EqualSimpleValueTypeForSimpleType(read SimpleValueType, st SimpleType) bool {
-	f := st.Facets
-	return read.DecimalMinInclusive == rawDecimalBoundFacet(f, FacetMinInclusive) &&
-		read.DecimalMaxInclusive == rawDecimalBoundFacet(f, FacetMaxInclusive) &&
-		slices.Equal(read.UnionMembers, st.Union) &&
-		EqualStringFacetValues(read.StringFacets, stringFacetValues(f)) &&
-		read.DecimalFacets == decimalFacetValues(f) &&
-		read.LengthFacets == lengthFacetValues(f) &&
-		read.ListItem == st.ListItem &&
-		read.Facets == f.Present &&
-		read.Variety == st.Variety &&
-		read.Primitive == st.Primitive &&
-		read.Builtin == st.Builtin &&
-		read.Whitespace == st.Whitespace &&
-		read.Identity == st.Identity &&
-		read.Fast == st.Fast &&
-		read.RawBypass == SimpleValueBypass(simpleValueAtomicBypassShape(&read, 0))
-}
-
-// EqualRawSimpleValueTypes reports whether two raw simple-value read
-// projections expose the same raw-fast-path type facts.
-func EqualRawSimpleValueTypes(a, b RawSimpleValueType) bool {
-	return a.DecimalMinInclusive == b.DecimalMinInclusive &&
-		a.DecimalMaxInclusive == b.DecimalMaxInclusive &&
-		EqualStringPatternGroups(a.StringPatterns, b.StringPatterns) &&
-		a.ListItem == b.ListItem &&
-		a.Facets == b.Facets &&
-		a.Variety == b.Variety &&
-		a.Primitive == b.Primitive &&
-		a.Builtin == b.Builtin &&
-		a.Whitespace == b.Whitespace &&
-		a.Identity == b.Identity &&
-		a.Fast == b.Fast
-}
-
-// EqualStringFacetValues reports whether two string facet projections expose
-// the same pattern and canonical enumeration facts.
-func EqualStringFacetValues(a, b StringFacetValues) bool {
-	return a.HasEnumeration == b.HasEnumeration &&
-		slices.Equal(a.CanonicalEnumeration, b.CanonicalEnumeration) &&
-		EqualStringPatternGroups(a.Patterns, b.Patterns)
-}
-
-// EqualStringPatternGroups reports whether two compiled string pattern group
-// projections expose the same freeze-comparable pattern facets.
-func EqualStringPatternGroups(a, b []StringPatternGroup) bool {
-	return slices.EqualFunc(a, b, equalStringPatternGroup)
-}
-
-func equalStringPatternGroup(a, b StringPatternGroup) bool {
-	return slices.EqualFunc(a.Patterns, b.Patterns, equalStringPattern)
-}
-
-func equalStringPattern(a, b StringPattern) bool {
-	return a.FacetProjection() == b.FacetProjection()
-}
-
-// EqualSimpleValueFacets reports whether two simple-value facet read
-// projections expose the same validation-facing facet facts.
-func EqualSimpleValueFacets(a, b SimpleValueFacets) bool {
-	return equalSimpleValueFacetLiteral(a.MinInclusive, b.MinInclusive) &&
-		equalSimpleValueFacetLiteral(a.MaxInclusive, b.MaxInclusive) &&
-		equalSimpleValueFacetLiteral(a.MinExclusive, b.MinExclusive) &&
-		equalSimpleValueFacetLiteral(a.MaxExclusive, b.MaxExclusive) &&
-		slices.EqualFunc(a.Enumeration, b.Enumeration, equalSimpleValueFacetLiteral) &&
-		EqualStringFacetValues(a.StringFacets, b.StringFacets) &&
-		a.DecimalFacets == b.DecimalFacets &&
-		a.LengthFacets == b.LengthFacets &&
-		a.Facets == b.Facets
-}
-
-// EqualSimpleValueFacetsForFacetSet reports whether read exposes the same
-// facet facts as f without constructing another read projection.
-func EqualSimpleValueFacetsForFacetSet(read SimpleValueFacets, f FacetSet) bool {
-	if !equalSimpleValueFacetLiteralForBound(read.MinInclusive, f, FacetMinInclusive) ||
-		!equalSimpleValueFacetLiteralForBound(read.MaxInclusive, f, FacetMaxInclusive) ||
-		!equalSimpleValueFacetLiteralForBound(read.MinExclusive, f, FacetMinExclusive) ||
-		!equalSimpleValueFacetLiteralForBound(read.MaxExclusive, f, FacetMaxExclusive) {
-		return false
-	}
-	if len(read.Enumeration) != len(f.Enumeration) {
-		return false
-	}
-	for i := range f.Enumeration {
-		if !equalSimpleValueFacetLiteralForCompiled(read.Enumeration[i], f.Enumeration[i], true) {
-			return false
-		}
-	}
-	return EqualStringFacetValues(read.StringFacets, StringFacetValues{
-		Patterns:             f.Patterns,
-		CanonicalEnumeration: canonicalEnumerationValues(f.Enumeration),
-		HasEnumeration:       len(f.Enumeration) != 0,
-	}) &&
-		read.DecimalFacets == decimalFacetValues(f) &&
-		read.LengthFacets == lengthFacetValues(f) &&
-		read.Facets == f.Present
-}
-
-func equalSimpleValueFacetLiteral(a, b SimpleValueFacetLiteral) bool {
-	return a.Present == b.Present &&
-		a.Lexical == b.Lexical &&
-		a.Canonical == b.Canonical &&
-		EqualPrimitiveActualValues(a.Actual, a.Canonical, b.Actual, b.Canonical)
-}
-
-func equalSimpleValueFacetLiteralForBound(got SimpleValueFacetLiteral, f FacetSet, flag FacetMask) bool {
-	lit, present := BoundFacet(f, flag)
-	return equalSimpleValueFacetLiteralForCompiled(got, lit, present)
-}
-
-func equalSimpleValueFacetLiteralForCompiled(got SimpleValueFacetLiteral, want CompiledLiteral, present bool) bool {
-	if !present {
-		return got == SimpleValueFacetLiteral{}
-	}
-	return got.Present &&
-		got.Lexical == want.Lexical &&
-		got.Canonical == want.Canonical &&
-		EqualPrimitiveActualValues(got.Actual, got.Canonical, want.Actual, want.Canonical)
 }

@@ -2,12 +2,6 @@ package runtime
 
 import "slices"
 
-// ElementIdentityConstraintReadShape is the source projection for the identity
-// constraints attached to one element declaration.
-type ElementIdentityConstraintReadShape struct {
-	Identity []IdentityConstraintID
-}
-
 // NewDeclaredIdentityConstraint constructs a declared but not yet compiled
 // identity constraint placeholder.
 func NewDeclaredIdentityConstraint(name QName) IdentityConstraint {
@@ -35,28 +29,10 @@ func NewIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstrai
 	}
 }
 
-// CloneIdentityConstraintIDs clones an identity-constraint ID list for frozen
-// runtime publication.
-func CloneIdentityConstraintIDs(in []IdentityConstraintID) []IdentityConstraintID {
-	return slices.Clone(in)
-}
-
-// NewElementIdentityConstraintReads clones per-element identity constraint IDs
-// for frozen runtime publication.
-func NewElementIdentityConstraintReads(shapes []ElementIdentityConstraintReadShape) [][]IdentityConstraintID {
-	out := make([][]IdentityConstraintID, len(shapes))
-	for i := range shapes {
-		out[i] = CloneIdentityConstraintIDs(shapes[i].Identity)
-	}
-	return out
-}
-
-// NewElementIdentityConstraintReadsForDecls clones per-element identity
-// constraint IDs from frozen element declarations for runtime publication.
-func NewElementIdentityConstraintReadsForDecls(decls []ElementDecl) [][]IdentityConstraintID {
+func moveElementIdentityConstraintReads(decls []ElementDecl) [][]IdentityConstraintID {
 	out := make([][]IdentityConstraintID, len(decls))
 	for i := range decls {
-		out[i] = CloneIdentityConstraintIDs(decls[i].Identity)
+		out[i] = decls[i].Identity
 	}
 	return out
 }
@@ -90,23 +66,4 @@ func cloneIdentityFieldPaths(in []IdentityFieldPath) []IdentityFieldPath {
 func cloneIdentityFieldPath(in IdentityFieldPath) IdentityFieldPath {
 	in.Steps = slices.Clone(in.Steps)
 	return in
-}
-
-func cloneCompiledIdentityFields(in []CompiledIdentityField) []CompiledIdentityField {
-	out := slices.Clone(in)
-	for i := range out {
-		out[i].Paths = cloneIdentityFieldPaths(in[i].Paths)
-	}
-	return out
-}
-
-func cloneCompiledIdentityFieldMap(in map[QName][]CompiledIdentityField) map[QName][]CompiledIdentityField {
-	if in == nil {
-		return nil
-	}
-	out := make(map[QName][]CompiledIdentityField, len(in))
-	for name, fields := range in {
-		out[name] = cloneCompiledIdentityFields(fields)
-	}
-	return out
 }

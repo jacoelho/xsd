@@ -11,7 +11,7 @@ import (
 )
 
 // XSIAttributeIdentityKey returns the identity-field key for an xsi attribute.
-func XSIAttributeIdentityKey(rt NameRuntime, name xml.Name, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (runtime.QName, string, bool, error) {
+func XSIAttributeIdentityKey(rt *runtime.Schema, name xml.Name, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (runtime.QName, string, bool, error) {
 	rn := ResolveRuntimeName(rt, name)
 	if !rn.Known {
 		return runtime.QName{}, "", false, nil

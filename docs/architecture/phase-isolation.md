@@ -23,20 +23,24 @@ types/functions; those belong to `xsderrors` and `format`.
 
 ## Internal Packages
 
-- `internal/source` owns schema source primitives, resolver adaptation,
-  source-name validation, schemaLocation normalization, include/import planning,
-  loaded-source de-duplication, chameleon include decisions, and source-key
-  canonicalization.
+- `internal/source` owns schema source primitives, resolver adaptation, bounded
+  reads, schemaLocation path mechanics, and source-key canonicalization. It
+  does not own XSD vocabulary or schema-graph policy.
 - `internal/compile` owns schema parsing and compilation: schema XML limits,
   component syntax, child-order and admission rules, name/index allocation,
   built-in declarations, facets, derivation checks, identity-constraint
-  compilation, content-model compilation, source loading, and freeze-time
-  schema validation before publication.
-- `internal/runtime` owns immutable schema runtime data and runtime vocabulary:
+  compilation, content-model compilation, transitive source loading,
+  include/import and chameleon graph semantics, and construction of
+  compiler-owned mutable `runtime.SchemaBuild` state. Correlated topology
+  mutations are confined to `internal/compile/schema_build.go`; compiler
+  algorithms may mutate nested records but must use that owner for declaration
+  registration, placeholder completion, ID allocation, substitution indexes,
+  compiled-model alignment, builtin handles, notations, and publication.
+- `internal/runtime` owns the schema runtime model and publication boundary:
   typed IDs, names, declarations, simple and complex type metadata, facets,
   value constraints, identity metadata, wildcards, substitution groups,
-  content-model execution, read projections, clone helpers, and runtime
-  invariant validation.
+  `SchemaBuild` invariant validation, `PublishSchema`, sealed `Schema` state,
+  validation read projections, content-model execution, and clone helpers.
 - `internal/validate` owns instance validation: option normalization, XML
   reader preflight, parser error classification, validation recovery,
   document structure, start/end element decisions, attributes, content,
@@ -60,19 +64,24 @@ Compilation flow:
 
 1. Public callers provide `xsd.SchemaSource` values.
 2. Root `xsd` converts them to `internal/source.Source` values.
-3. `internal/compile` loads source documents, compiles schema components, builds
-   runtime tables, validates runtime invariants, and returns a runtime read
-   boundary.
-4. Root `xsd.Engine` stores only the validation-facing runtime interface.
+3. `internal/compile` loads and resolves the complete schema set, applies XSD
+   include/import and chameleon rules, compiles schema components, and
+   populates a compiler-owned mutable `runtime.SchemaBuild`.
+4. `internal/runtime.PublishSchema` audits the build and its validation read
+   projections, then moves the build into a sealed `*runtime.Schema`.
+5. Root `xsd.Engine` stores that sealed validation schema.
 
 Validation flow:
 
 1. Public callers validate through `Engine.Validate`, `ValidateWithOptions`, or
    a reusable `Session`.
 2. Root `xsd` adapts public validation options.
-3. `internal/validate` owns the validation session and reads immutable schema
-   data through runtime interfaces.
-4. Runtime table execution and metadata checks stay in `internal/runtime`;
+3. Root `xsd` delegates construction and one-shot validation to
+   `validate.NewSession` and `validate.Validate`; there is no separately
+   initializable internal session state.
+4. `internal/validate` reads immutable schema facts through methods on the
+   sealed `*runtime.Schema`, then applies validation policy to those facts.
+5. Runtime table execution and metadata checks stay in `internal/runtime`;
    instance-validation policy stays in `internal/validate`.
 
 Formatting flow:
@@ -102,12 +111,14 @@ The boundary is enforced by tests, not only by convention:
 - `tests/phase_boundary_test.go`
   - `TestInternalImplementationPackagesExist`
   - `TestRootCompileIsFacade`
-  - `TestRootDoesNotImportRuntimeImplementation`
+  - `TestRootRuntimeImportIsConfinedToEngineAndSession`
   - `TestRootDoesNotExposeOldPublicAPIs`
 - `tests/root_public_shape_test.go`
   - `TestRootTestsUsePublicPackage`
 - `tests/stream_boundary_test.go`
   - `TestStreamBorrowedAttributeFieldsStayBehindAccessors`
+- `tests/schema_build_boundary_test.go`
+  - `TestCompilerSchemaBuildTopologyHasOneOwner`
 - `tests/external_api_smoke_test.go`
   - `TestExternalModuleUsesPublicSchemaAPI`
 

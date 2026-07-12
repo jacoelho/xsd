@@ -6,20 +6,12 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func (c *compiler) addModel(m runtime.ContentModel) (runtime.ContentModelID, error) {
-	id, err := NextContentModelID(len(c.rt.Models))
-	if err != nil {
-		return runtime.NoContentModel, err
-	}
-	c.rt.Models = append(c.rt.Models, m)
-	return id, nil
-}
-
 func (c *compiler) contentModel(id runtime.ContentModelID, msg string) (runtime.ContentModel, error) {
-	if !runtime.ValidContentModelID(id, len(c.rt.Models)) {
+	model, ok := c.rt.ContentModel(id)
+	if !ok {
 		return runtime.ContentModel{}, xsderrors.InternalInvariant(msg)
 	}
-	return c.rt.Models[id], nil
+	return model, nil
 }
 
 func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (runtime.ContentModelID, error) {
@@ -66,7 +58,7 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (runtime.Content
 	if err := c.checkElementDeclarationsConsistent(m); err != nil {
 		return runtime.NoContentModel, withSchemaCompileLocation(n, err)
 	}
-	c.rt.Models[id] = m
+	c.completeModel(id, m)
 	return id, nil
 }
 
@@ -79,7 +71,7 @@ func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 	if err != nil {
 		return runtime.NoContentModel, err
 	}
-	label := c.rt.Names.Format(q)
+	label := c.rt.formatName(q)
 	raw, ok := c.groupRaw[q]
 	if existsErr := CheckSchemaComponentExists(SchemaComponentModelGroup, ok, label); existsErr != nil {
 		return runtime.NoContentModel, withSchemaCompileLocation(n, existsErr)
@@ -113,7 +105,7 @@ func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 
 func (c *compiler) recursiveModelGroupRef(q runtime.QName, id runtime.ContentModelID, occurs runtime.Occurrence, modelNode *rawNode) (runtime.ContentModelID, error) {
 	if c.elementDepth <= c.modelDepth[modelNode] {
-		err := CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, c.rt.Names.Format(q))
+		err := CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, c.rt.formatName(q))
 		return runtime.NoContentModel, withSchemaCompileLocation(modelNode, err)
 	}
 	ref := runtime.ContentModel{
@@ -250,11 +242,10 @@ func (c *compiler) modelParticle(id runtime.ContentModelID) (runtime.Particle, b
 }
 
 func (c *compiler) validateComplexExtensionModelAdmission(baseID runtime.ComplexTypeID, base runtime.ComplexType, ext runtime.ContentModelID, mixed bool) error {
-	modelRT := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates)
-	return ValidateComplexExtensionModelAdmission(&modelRT, ComplexExtensionModelAdmission{
+	return ValidateComplexExtensionModelAdmission(&c.rt, ComplexExtensionModelAdmission{
 		Extension:     ext,
 		BaseContent:   base.Content,
-		BaseIsAnyType: baseID == c.rt.Builtin.AnyType,
+		BaseIsAnyType: baseID == c.rt.builtinIDs().AnyType,
 		BaseMixed:     base.Mixed(),
 		Mixed:         mixed,
 	})
@@ -280,27 +271,21 @@ func occurrenceAttrs(n *rawNode) OccurrenceAttrs {
 }
 
 func (c *compiler) compileContentModels() error {
-	models, err := CompileContentModels(
-		&c.rt.Names,
-		&c.rt,
-		len(c.rt.Models),
-		c.limits.MaxContentModelStates,
-	)
+	models, err := c.compileContentModelsBuild()
 	if err != nil {
 		return err
 	}
-	c.rt.CompiledModels = models
-	return nil
+	return c.installCompiledModels(models)
 }
 
 func (c *compiler) checkCompiledModelsUPA() error {
-	return CheckContentModelsUPA(&c.rt.Names, &c.rt, len(c.rt.Models))
+	return c.checkContentModelsUPABuild()
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
-	return CheckContentModelElementDeclarationsConsistent(elementDeclarationModelRuntime{rt: &c.rt, models: c.rt.Models}, len(c.rt.Models))
+	return c.checkContentModelElementDeclarationsConsistentBuild()
 }
 
 func (c *compiler) checkElementDeclarationsConsistent(model runtime.ContentModel) error {
-	return CheckElementDeclarationsConsistent(elementDeclarationModelRuntime{rt: &c.rt, models: c.rt.Models}, model)
+	return CheckElementDeclarationsConsistent(&c.rt, model)
 }

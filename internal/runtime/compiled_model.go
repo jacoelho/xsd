@@ -93,34 +93,6 @@ func SameCompiledParticle(a, b Particle) bool {
 	return a.Kind == b.Kind && a.Element == b.Element && a.Wildcard == b.Wildcard
 }
 
-// EqualCompiledModels reports whether two compiled content models are
-// structurally identical, including optional DFA row indexes.
-func EqualCompiledModels(a, b CompiledModel) bool {
-	return a.Source == b.Source &&
-		a.Start == b.Start &&
-		a.AllBitLen == b.AllBitLen &&
-		a.Kind == b.Kind &&
-		a.Mixed == b.Mixed &&
-		a.Empty == b.Empty &&
-		equalCompiledModelRows(a.Rows, b.Rows) &&
-		slices.Equal(a.All, b.All)
-}
-
-func equalCompiledModelRows(a, b []CompiledModelRow) bool {
-	return slices.EqualFunc(a, b, equalCompiledModelRow)
-}
-
-func equalCompiledModelRow(a, b CompiledModelRow) bool {
-	return a.CountParticle == b.CountParticle &&
-		a.Min == b.Min &&
-		a.Max == b.Max &&
-		a.Accept == b.Accept &&
-		a.Counted == b.Counted &&
-		a.Unbounded == b.Unbounded &&
-		slices.Equal(a.Edges, b.Edges) &&
-		equalDFARowIndex(a.Index, b.Index)
-}
-
 func equalDFARowIndex(a, b DFARowIndex) bool {
 	return a.Enabled == b.Enabled &&
 		maps.Equal(a.NameToEdge, b.NameToEdge) &&
@@ -162,7 +134,9 @@ func indexCompiledModelRow(rt DFARowIndexRuntime, row *CompiledModelRow) error {
 			if !indexEdgeName(index, name, edgePos) {
 				return nil
 			}
-			for name := range rt.SubstitutionMembersByName(edge.Particle.Element) {
+			names := rt.SubstitutionNames(edge.Particle.Element)
+			for i := range names.Len() {
+				name, _ := names.At(i)
 				if !indexEdgeName(index, name, edgePos) {
 					return nil
 				}
@@ -412,7 +386,7 @@ func validateCompiledParticle(rt CompiledModelRuntime, p Particle) error {
 type DFARowIndexRuntime interface {
 	ElementName(id ElementID) (QName, bool)
 	SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool)
-	SubstitutionMembersByName(id ElementID) map[QName]ElementID
+	SubstitutionNames(id ElementID) SubstitutionNameRead
 }
 
 // ValidateDFARowIndex checks that row.Index mirrors row.Edges exactly.
@@ -451,7 +425,9 @@ func ValidateDFARowIndex(names *NameTable, rt DFARowIndexRuntime, row CompiledMo
 			if err := requireIndexedName(idx, name, edgePos); err != nil {
 				return err
 			}
-			for name := range rt.SubstitutionMembersByName(edge.Particle.Element) {
+			names := rt.SubstitutionNames(edge.Particle.Element)
+			for i := range names.Len() {
+				name, _ := names.At(i)
 				if err := requireIndexedName(idx, name, edgePos); err != nil {
 					return errors.New("compiled content model name index is missing element edge")
 				}

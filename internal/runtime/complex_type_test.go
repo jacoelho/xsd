@@ -120,77 +120,6 @@ func TestComplexTypeByID(t *testing.T) {
 	}
 }
 
-func TestEqualComplexAttributeUseSetIDProjection(t *testing.T) {
-	t.Parallel()
-
-	complexTypes := []ComplexType{
-		{Attrs: 1},
-		{Attrs: 2},
-	}
-	projection := NewComplexAttributeUseSetIDProjection(complexTypes)
-	if !EqualComplexAttributeUseSetIDProjection(projection, complexTypes) {
-		t.Fatal("NewComplexAttributeUseSetIDProjection() did not produce matching projection")
-	}
-	if !EqualComplexAttributeUseSetIDProjection([]AttributeUseSetID{1, 2}, complexTypes) {
-		t.Fatal("EqualComplexAttributeUseSetIDProjection() rejected matching projection")
-	}
-	if EqualComplexAttributeUseSetIDProjection([]AttributeUseSetID{1}, complexTypes) {
-		t.Fatal("EqualComplexAttributeUseSetIDProjection() accepted short projection")
-	}
-	if EqualComplexAttributeUseSetIDProjection([]AttributeUseSetID{1, 3}, complexTypes) {
-		t.Fatal("EqualComplexAttributeUseSetIDProjection() accepted mismatched projection")
-	}
-	if err := ValidateComplexAttributeUseSetIDProjection(NewComplexAttributeUseSetIDProjection(complexTypes), complexTypes); err != nil {
-		t.Fatalf("ValidateComplexAttributeUseSetIDProjection() error = %v", err)
-	}
-	if err := ValidateComplexAttributeUseSetIDProjection([]AttributeUseSetID{1}, complexTypes); err == nil || err.Error() != "complex attribute use-set projection count does not match types" {
-		t.Fatalf("ValidateComplexAttributeUseSetIDProjection(short) error = %v, want count invariant", err)
-	}
-	if err := ValidateComplexAttributeUseSetIDProjection([]AttributeUseSetID{1, 3}, complexTypes); err == nil || err.Error() != "complex attribute use-set projection does not match type" {
-		t.Fatalf("ValidateComplexAttributeUseSetIDProjection(changed) error = %v, want mismatch invariant", err)
-	}
-}
-
-func TestEqualComplexContentModelIDProjection(t *testing.T) {
-	t.Parallel()
-
-	complexTypes := []ComplexType{
-		{Content: 1},
-		{Content: 2},
-	}
-	projection := NewComplexContentModelIDProjection(complexTypes)
-	if !EqualComplexContentModelIDProjection(projection, complexTypes) {
-		t.Fatal("NewComplexContentModelIDProjection() did not produce matching projection")
-	}
-	if !EqualComplexContentModelIDProjection([]ContentModelID{1, 2}, complexTypes) {
-		t.Fatal("EqualComplexContentModelIDProjection() rejected matching projection")
-	}
-	if EqualComplexContentModelIDProjection([]ContentModelID{1}, complexTypes) {
-		t.Fatal("EqualComplexContentModelIDProjection() accepted short projection")
-	}
-	if EqualComplexContentModelIDProjection([]ContentModelID{1, 3}, complexTypes) {
-		t.Fatal("EqualComplexContentModelIDProjection() accepted mismatched projection")
-	}
-	if got := ContentModelForTypeByID(projection, ComplexRef(1)); got != 2 {
-		t.Fatalf("ContentModelForTypeByID(complex) = %v, want 2", got)
-	}
-	if got := ContentModelForTypeByID(projection, SimpleRef(0)); got != NoContentModel {
-		t.Fatalf("ContentModelForTypeByID(simple) = %v, want no content model", got)
-	}
-	if got := ContentModelForTypeByID(projection, ComplexRef(99)); got != NoContentModel {
-		t.Fatalf("ContentModelForTypeByID(invalid) = %v, want no content model", got)
-	}
-	if err := ValidateComplexContentModelIDProjection(NewComplexContentModelIDProjection(complexTypes), complexTypes); err != nil {
-		t.Fatalf("ValidateComplexContentModelIDProjection() error = %v", err)
-	}
-	if err := ValidateComplexContentModelIDProjection([]ContentModelID{1}, complexTypes); err == nil || err.Error() != "complex content-model projection count does not match types" {
-		t.Fatalf("ValidateComplexContentModelIDProjection(short) error = %v, want count invariant", err)
-	}
-	if err := ValidateComplexContentModelIDProjection([]ContentModelID{1, 3}, complexTypes); err == nil || err.Error() != "complex content-model projection does not match type" {
-		t.Fatalf("ValidateComplexContentModelIDProjection(changed) error = %v, want mismatch invariant", err)
-	}
-}
-
 func TestValidateComplexTypeRuntime(t *testing.T) {
 	t.Parallel()
 
@@ -392,6 +321,75 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 				t.Fatalf("ValidateComplexTypeRuntime() error = %v, want %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestValidateComplexTypeGraph(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		wantErr string
+		types   []ComplexType
+	}{
+		{
+			name: "valid forward backward and shared bases",
+			types: []ComplexType{
+				{Base: ComplexRef(2)},
+				{Base: SimpleRef(0)},
+				{},
+				{Base: ComplexRef(2)},
+				{Base: ComplexRef(0)},
+			},
+		},
+		{
+			name:    "invalid base",
+			types:   []ComplexType{{Base: ComplexRef(1)}},
+			wantErr: "complex type graph references invalid base",
+		},
+		{
+			name:    "self cycle",
+			types:   []ComplexType{{Base: ComplexRef(0)}},
+			wantErr: "complex type graph contains cycle",
+		},
+		{
+			name: "multi-node cycle",
+			types: []ComplexType{
+				{Base: ComplexRef(1)},
+				{Base: ComplexRef(0)},
+			},
+			wantErr: "complex type graph contains cycle",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validateComplexTypeGraph(tt.types)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validateComplexTypeGraph() error = %v", err)
+				}
+				return
+			}
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("validateComplexTypeGraph() error = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateComplexTypeGraphHandlesDeepForwardChain(t *testing.T) {
+	t.Parallel()
+
+	const depth = 10_000
+	types := make([]ComplexType, depth)
+	for i := range depth - 1 {
+		types[i].Base = ComplexRef(ComplexTypeID(i + 1))
+	}
+	types[depth-1].Base = SimpleRef(0)
+	if err := validateComplexTypeGraph(types); err != nil {
+		t.Fatalf("validateComplexTypeGraph() error = %v", err)
 	}
 }
 

@@ -35,32 +35,24 @@ func (c *compiler) CompileGlobalsForTest() error {
 }
 
 // RuntimeForTest returns the compiler-owned mutable runtime for white-box tests.
-func (c *compiler) RuntimeForTest() *runtime.Schema {
-	return &c.rt
+func (c *compiler) RuntimeForTest() *runtime.SchemaBuild {
+	return &c.rt.build
 }
 
 // NameInternerIsZeroForTest reports whether the compiler name interner was cleared.
 func (c *compiler) NameInternerIsZeroForTest() bool {
-	return c.names.IsZero()
+	return c.rt.build.Names.NameCount() == 0
 }
 
 // DocumentNamesForTest returns loaded schema document names in compiler order.
 func (c *compiler) DocumentNamesForTest() []string {
-	names := make([]string, len(c.docs))
-	for i, doc := range c.docs {
-		names[i] = doc.name
+	names := make([]string, 0, len(c.schemas.documents))
+	for _, document := range c.schemas.documents {
+		if document.indexDeclarations {
+			names = append(names, document.doc.name)
+		}
 	}
 	return names
-}
-
-// ValidateRuntimeSchemaForTest validates runtime invariants for white-box tests.
-func ValidateRuntimeSchemaForTest(rt *runtime.Schema) error {
-	return runtime.ValidateSchema(rt)
-}
-
-// ValidateCompiledModelDerivedForTest validates a compiled model against its source.
-func ValidateCompiledModelDerivedForTest(rt *runtime.Schema, id runtime.ContentModelID, model runtime.CompiledModel) error {
-	return ValidateCompiledModelDerived(&rt.Names, rt, id, model)
 }
 
 // ParseSchemaRootForTest parses a schema document and returns its root node.
@@ -81,5 +73,5 @@ func ParseSchemaRootForTest(data []byte, limits Limits) (*RawNode, error) {
 
 // FreezeCompilerRuntimeForTest freezes a compiler runtime for white-box tests.
 func FreezeCompilerRuntimeForTest(c *Compiler) (*runtime.Schema, error) {
-	return freezeCompilerRuntime(c)
+	return c.publishSchema()
 }

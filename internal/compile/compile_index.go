@@ -3,16 +3,20 @@ package compile
 import "github.com/jacoelho/xsd/internal/vocab"
 
 func (c *compiler) index() error {
-	for _, doc := range c.docs {
-		if err := c.indexSchemaDocument(doc); err != nil {
+	for _, document := range c.schemas.documents {
+		if !document.indexDeclarations {
+			continue
+		}
+		if err := c.indexSchemaDocument(document); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *compiler) indexSchemaDocument(doc *rawDoc) error {
-	ctx, err := c.schemaContext(doc)
+func (c *compiler) indexSchemaDocument(document schemaSetDocument) error {
+	doc := document.doc
+	ctx, err := c.schemaContext(document)
 	if err != nil {
 		return err
 	}
@@ -25,7 +29,8 @@ func (c *compiler) indexSchemaDocument(doc *rawDoc) error {
 	return nil
 }
 
-func (c *compiler) schemaContext(doc *rawDoc) (*schemaContext, error) {
+func (c *compiler) schemaContext(document schemaSetDocument) (*schemaContext, error) {
+	doc := document.doc
 	root := doc.root
 	defaults, err := parseSchemaDefaults(root)
 	if err != nil {
@@ -38,10 +43,11 @@ func (c *compiler) schemaContext(doc *rawDoc) (*schemaContext, error) {
 		attrQualified:    defaults.AttributeQualified,
 		blockDefault:     defaults.BlockDefault,
 		finalDefault:     defaults.FinalDefault,
-		imports:          c.imports[doc.key],
+		imports:          document.imports,
+		adoptedTarget:    document.adoptedTarget,
 	}
-	if ctx.targetNS == "" && c.adoptTarget[doc.key] != "" {
-		ctx.targetNS = c.adoptTarget[doc.key]
+	if ctx.targetNS == "" {
+		ctx.targetNS = document.effectiveTargetNS
 	}
 	return ctx, nil
 }
@@ -71,11 +77,11 @@ func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) 
 	if !ok {
 		return nil
 	}
-	q, err := c.names.InternQName(ctx.targetNS, name)
+	q, err := c.rt.internQName(ctx.targetNS, name)
 	if err != nil {
 		return err
 	}
-	label := c.rt.Names.Format(q)
+	label := c.rt.formatName(q)
 	component := rawComponent{child, ctx}
 	switch child.Name.Local {
 	case vocab.XSDElemSimpleType:
@@ -93,7 +99,7 @@ func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) 
 	case vocab.XSDElemElement:
 		return withSchemaCompileLocation(child, AddSchemaComponent(c.elementRaw, q, component, label))
 	case vocab.XSDElemAttribute:
-		return withSchemaCompileLocation(child, AddGlobalAttributeComponent(c.attributeRaw, c.rt.GlobalAttributes, q, component, label))
+		return withSchemaCompileLocation(child, c.indexGlobalAttribute(q, component, label))
 	case vocab.XSDElemGroup:
 		model, err := checkTopLevelGroupChildren(child)
 		if err != nil {
@@ -125,11 +131,11 @@ func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
 		return err
 	}
 	name, _ := n.attr(vocab.XSDAttrName)
-	q, err := c.names.InternQName(ctx.targetNS, name)
+	q, err := c.rt.internQName(ctx.targetNS, name)
 	if err != nil {
 		return err
 	}
-	return withSchemaCompileLocation(n, AddNotation(c.rt.Notations, q, c.rt.Names.Format(q)))
+	return withSchemaCompileLocation(n, c.addNotation(q, c.rt.formatName(q)))
 }
 
 func validateRawModelGroupSyntax(n *rawNode, limits Limits) error {

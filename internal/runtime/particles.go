@@ -2,10 +2,15 @@ package runtime
 
 import "slices"
 
-// ParticleRuntime supplies read-only runtime tables needed for particle
-// semantics.
-type ParticleRuntime interface {
+// ContentModelRuntime supplies content models for model-shape algorithms.
+type ContentModelRuntime interface {
 	ContentModel(id ContentModelID) (ContentModel, bool)
+}
+
+// ParticleRuntime supplies read-only runtime tables needed for particle
+// matching semantics.
+type ParticleRuntime interface {
+	ContentModelRuntime
 	ElementName(id ElementID) (QName, bool)
 	Wildcard(id WildcardID) (Wildcard, bool)
 	ForEachSubstitutionMember(id ElementID, fn func(ElementID) bool)
@@ -13,7 +18,7 @@ type ParticleRuntime interface {
 }
 
 // ModelEmptiable reports whether modelID can match an empty sequence.
-func ModelEmptiable(rt ParticleRuntime, modelID ContentModelID) bool {
+func ModelEmptiable(rt ContentModelRuntime, modelID ContentModelID) bool {
 	if modelID == NoContentModel {
 		return true
 	}
@@ -44,7 +49,7 @@ func ModelEmptiable(rt ParticleRuntime, modelID ContentModelID) bool {
 }
 
 // ModelHasNoParticles reports whether modelID is structurally empty.
-func ModelHasNoParticles(rt ParticleRuntime, modelID ContentModelID) bool {
+func ModelHasNoParticles(rt ContentModelRuntime, modelID ContentModelID) bool {
 	if modelID == NoContentModel {
 		return true
 	}
@@ -63,7 +68,7 @@ func ModelHasNoParticles(rt ParticleRuntime, modelID ContentModelID) bool {
 }
 
 // ParticleEmptiable reports whether p can match an empty sequence.
-func ParticleEmptiable(rt ParticleRuntime, p Particle) bool {
+func ParticleEmptiable(rt ContentModelRuntime, p Particle) bool {
 	if p.Occurs.Min == 0 {
 		return true
 	}
@@ -75,7 +80,7 @@ func ParticleEmptiable(rt ParticleRuntime, p Particle) bool {
 
 // ParticleEffectiveMin reports the effective minimum occurrence for p after
 // accounting for an emptiable nested model.
-func ParticleEffectiveMin(rt ParticleRuntime, p Particle) uint32 {
+func ParticleEffectiveMin(rt ContentModelRuntime, p Particle) uint32 {
 	if p.Kind == ParticleModel && ModelEmptiable(rt, p.Model) {
 		return 0
 	}
@@ -83,7 +88,7 @@ func ParticleEffectiveMin(rt ParticleRuntime, p Particle) uint32 {
 }
 
 // ModelCountRange reports the minimum and maximum element count a model can consume.
-func ModelCountRange(rt ParticleRuntime, modelID ContentModelID) Occurrence {
+func ModelCountRange(rt ContentModelRuntime, modelID ContentModelID) Occurrence {
 	if modelID == NoContentModel {
 		return Occurrence{}
 	}
@@ -115,7 +120,7 @@ func ModelCountRange(rt ParticleRuntime, modelID ContentModelID) Occurrence {
 }
 
 // ParticleCountRange reports the minimum and maximum element count p can consume.
-func ParticleCountRange(rt ParticleRuntime, p Particle) Occurrence {
+func ParticleCountRange(rt ContentModelRuntime, p Particle) Occurrence {
 	var term Occurrence
 	switch p.Kind {
 	case ParticleElement, ParticleWildcard:

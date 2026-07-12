@@ -20,11 +20,19 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
+      - uses: 'actions/setup-node@v6'
+        with:
+          node-version: '24'
+
       - run: make staticcheck
 
       - run: make lint
 
       - run: make test
+
+      - run: make wasm-test
+
+      - run: make web-test
 
       - run: make race
 

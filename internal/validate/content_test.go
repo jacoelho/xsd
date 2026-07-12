@@ -7,705 +7,73 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-type contentRuntimeStub struct {
-	compiledContentModel func(runtime.ContentModelID) (runtime.CompiledModel, bool)
-	textContent          characterDataContentStub
-	childContent         map[runtime.TypeID]runtime.ChildContentInfo
-	contentModels        map[runtime.TypeID]runtime.ContentModelID
-	elementTypes         map[runtime.ElementID]runtime.TypeID
-	models               map[runtime.ContentModelID]runtime.CompiledModel
-	globalElements       map[runtime.QName]runtime.ElementID
-	elementNames         map[runtime.ElementID]runtime.QName
-	wildcards            map[runtime.WildcardID]runtime.Wildcard
-	substitutionLookup   map[runtime.ElementID]map[runtime.QName]runtime.ElementID
-	anyType              runtime.TypeID
-	textContentOK        bool
-}
-
-func (s contentRuntimeStub) AnyType() runtime.TypeID {
-	return s.anyType
-}
-
-func (s contentRuntimeStub) ChildContent(id runtime.TypeID) (runtime.ChildContentInfo, bool) {
-	info, ok := s.childContent[id]
-	return info, ok
-}
-
-func (s contentRuntimeStub) ElementTextContent(runtime.TypeID, runtime.ElementID) (characterDataContentStub, bool) {
-	return s.textContent, s.textContentOK
-}
-
-func (s contentRuntimeStub) ContentModelForType(id runtime.TypeID) runtime.ContentModelID {
-	if s.contentModels == nil {
-		return runtime.NoContentModel
-	}
-	return s.contentModels[id]
-}
-
-func (s contentRuntimeStub) DeclaredElementType(id runtime.ElementID) (runtime.TypeID, bool) {
-	typ, ok := s.elementTypes[id]
-	return typ, ok
-}
-
-func (s contentRuntimeStub) CompiledContentModelView(id runtime.ContentModelID) (runtime.CompiledModelView, bool) {
-	if s.compiledContentModel != nil {
-		model, ok := s.compiledContentModel(id)
-		if !ok {
-			return runtime.CompiledModelView{}, false
-		}
-		return runtime.NewCompiledModelView(&model), true
-	}
-	model, ok := s.models[id]
-	if !ok {
-		return runtime.CompiledModelView{}, false
-	}
-	return runtime.NewCompiledModelView(&model), true
-}
-
-func (s contentRuntimeStub) GlobalElement(name runtime.QName) (runtime.ElementID, bool) {
-	id, ok := s.globalElements[name]
-	return id, ok
-}
-
-func (s contentRuntimeStub) ElementName(id runtime.ElementID) (runtime.QName, bool) {
-	name, ok := s.elementNames[id]
-	return name, ok
-}
-
-func (s contentRuntimeStub) WildcardView(id runtime.WildcardID) (runtime.WildcardView, bool) {
-	w, ok := s.wildcards[id]
-	if !ok {
-		return runtime.WildcardView{}, false
-	}
-	return runtime.NewWildcardView(nil, &w), true
-}
-
-func (s contentRuntimeStub) SubstitutionMemberByName(id runtime.ElementID, name runtime.QName) (runtime.ElementID, bool) {
-	members := s.substitutionLookup[id]
-	if members == nil {
-		return runtime.NoElement, false
-	}
-	member, ok := members[name]
-	return member, ok
-}
-
-type characterDataContentStub struct {
-	simple  bool
-	complex bool
-	mixed   bool
-	fixed   bool
-}
-
-func (s characterDataContentStub) HasSimpleContent() bool {
-	return s.simple
-}
-
-func (s characterDataContentStub) IsComplexType() bool {
-	return s.complex
-}
-
-func (s characterDataContentStub) AllowsMixedContent() bool {
-	return s.mixed
-}
-
-func (s characterDataContentStub) HasFixedElementValue() bool {
-	return s.fixed
-}
-
-func TestChildStartAdvancesContentAndReturnsDeclaredType(t *testing.T) {
+func TestValidateDocumentCharacterData(t *testing.T) {
 	t.Parallel()
 
-	parent := runtime.ComplexRef(1)
-	childType := runtime.ComplexRef(2)
-	child := runtime.ElementID(3)
-	model := runtime.ContentModelID(4)
-	childName := runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 1}
-	compiled := runtime.CompiledModel{
-		Kind:  runtime.CompiledModelDFA,
-		Start: 7,
-		Rows:  make([]runtime.CompiledModelRow, 9),
-	}
-	compiled.Rows[7] = runtime.CompiledModelRow{
-		Edges: []runtime.CompiledModelEdge{{
-			Particle: runtime.ElementParticle(child, runtime.Occurrence{Min: 1, Max: 1}),
-			To:       8,
-		}},
-	}
-	compiled.Rows[8] = runtime.CompiledModelRow{Accept: true}
-	rt := contentRuntimeStub{
-		anyType:       runtime.ComplexRef(100),
-		childContent:  map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
-		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
-		elementTypes:  map[runtime.ElementID]runtime.TypeID{child: childType},
-		models:        map[runtime.ContentModelID]runtime.CompiledModel{model: compiled},
-		elementNames:  map[runtime.ElementID]runtime.QName{child: childName},
-	}
-	parentContent := runtime.ContentFrameForType(rt, parent).ContentState()
-
-	got, err := ChildStart(rt, ChildInput{
-		Context:       StartContext{Path: "/root", Line: 2, Column: 3},
-		Scratch:       runtime.NewContentScratch(make([]uint64, 1), 0, 1),
-		Name:          runtime.RuntimeName{Known: true, Name: childName, Local: "child"},
-		ParentContent: parentContent,
-		ParentType:    parent,
-	})
-	if err != nil {
-		t.Fatalf("ChildStart() error = %v", err)
-	}
-	if got.Element != child || got.Type != childType || got.Skip || !got.Content.HasModel() {
-		t.Fatalf("ChildStart() = %+v", got)
-	}
-	if err := ContentComplete(rt, CompleteInput{Type: parent, Content: got.Content}); err != nil {
-		t.Fatalf("ContentComplete(updated content) error = %v", err)
-	}
-}
-
-func TestChildStartInvalidCompiledContentIsInternalInvariant(t *testing.T) {
-	t.Parallel()
-
-	model := runtime.ContentModelID(4)
-	parent := runtime.ComplexRef(1)
-	child := runtime.ElementID(3)
-	childName := runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 1}
+	ctx := StartContext{Path: "/", Line: 2, Column: 3}
 	tests := []struct {
-		name  string
-		index runtime.DFARowIndex
+		name    string
+		data    string
+		cdata   bool
+		wantErr xsderrors.Code
 	}{
-		{name: "linear"},
-		{
-			name: "indexed",
-			index: runtime.DFARowIndex{
-				NameToEdge: map[runtime.QName]uint32{childName: 0},
-				Enabled:    true,
-			},
-		},
+		{name: "CDATA", data: "x", cdata: true, wantErr: xsderrors.CodeValidationXML},
+		{name: "text", data: "x", wantErr: xsderrors.CodeValidationText},
+		{name: "whitespace", data: " \n\t"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			compiled := runtime.CompiledModel{
-				Kind: runtime.CompiledModelDFA,
-				Rows: []runtime.CompiledModelRow{
-					{
-						Index: tc.index,
-						Edges: []runtime.CompiledModelEdge{{
-							Particle: runtime.ElementParticle(child, runtime.Occurrence{Min: 1, Max: 1}),
-							To:       1,
-						}},
-					},
-					{Accept: true},
-				},
-			}
-			rt := contentRuntimeStub{
-				anyType:       runtime.ComplexRef(100),
-				childContent:  map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
-				contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
-				models:        map[runtime.ContentModelID]runtime.CompiledModel{model: compiled},
-			}
-			parentContent := runtime.ContentFrameForType(rt, parent).ContentState()
-			_, err := ChildStart(rt, ChildInput{
-				Context:       StartContext{Path: "/root", Line: 2, Column: 3},
-				Name:          runtime.RuntimeName{Known: true, Name: childName, Local: "child"},
-				ParentContent: parentContent,
-				ParentType:    parent,
-			})
-			expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestChildStartRejectsInvalidMatchedElementType(t *testing.T) {
-	t.Parallel()
-
-	parent := runtime.ComplexRef(1)
-	child := runtime.ElementID(3)
-	model := runtime.ContentModelID(4)
-	childName := runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 1}
-	compiled := runtime.CompiledModel{
-		Kind: runtime.CompiledModelDFA,
-		Rows: []runtime.CompiledModelRow{
-			{
-				Edges: []runtime.CompiledModelEdge{{
-					Particle: runtime.ElementParticle(child, runtime.Occurrence{Min: 1, Max: 1}),
-					To:       1,
-				}},
-			},
-			{Accept: true},
-		},
-	}
-	rt := contentRuntimeStub{
-		anyType:       runtime.ComplexRef(100),
-		childContent:  map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
-		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
-		models:        map[runtime.ContentModelID]runtime.CompiledModel{model: compiled},
-		elementNames:  map[runtime.ElementID]runtime.QName{child: childName},
-	}
-	parentContent := runtime.ContentFrameForType(rt, parent).ContentState()
-
-	_, err := ChildStart(rt, ChildInput{
-		Context:       StartContext{Path: "/root", Line: 2, Column: 3},
-		Name:          runtime.RuntimeName{Known: true, Name: childName, Local: "child"},
-		ParentContent: parentContent,
-		ParentType:    parent,
-	})
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-}
-
-func TestChildStartRejectsInvalidParentContentMetadata(t *testing.T) {
-	t.Parallel()
-
-	_, err := ChildStart(contentRuntimeStub{
-		anyType: runtime.ComplexRef(100),
-	}, ChildInput{
-		Context:    StartContext{Path: "/root", Line: 2, Column: 3},
-		ParentType: runtime.ComplexRef(1),
-	})
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-}
-
-func TestValidateCharacterData(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		input   CharacterDataInput
-		want    CharacterDataResult
-		wantErr xsderrors.Code
-	}{
-		{
-			name: "CDATA outside root",
-			input: CharacterDataInput{
-				Data:  []byte("x"),
-				CDATA: true,
-			},
-			wantErr: xsderrors.CodeValidationXML,
-		},
-		{
-			name: "text outside root",
-			input: CharacterDataInput{
-				Data: []byte("x"),
-			},
-			wantErr: xsderrors.CodeValidationText,
-		},
-		{
-			name: "whitespace outside root",
-			input: CharacterDataInput{
-				Data: []byte(" \n\t"),
-			},
-		},
-		{
-			name: "simple content appends text",
-			input: CharacterDataInput{
-				Data:       []byte("x"),
-				Content:    characterDataContentStub{simple: true},
-				HasElement: true,
-			},
-			want: CharacterDataResult{AppendText: true},
-		},
-		{
-			name: "mixed fixed content appends and records text",
-			input: CharacterDataInput{
-				Data:       []byte("x"),
-				Content:    characterDataContentStub{complex: true, mixed: true, fixed: true},
-				HasElement: true,
-			},
-			want: CharacterDataResult{AppendText: true, HasText: true},
-		},
-		{
-			name: "complex whitespace is allowed",
-			input: CharacterDataInput{
-				Data:       []byte(" \n\t"),
-				Content:    characterDataContentStub{complex: true},
-				HasElement: true,
-			},
-		},
-		{
-			name: "complex text is rejected",
-			input: CharacterDataInput{
-				Data:       []byte("x"),
-				Content:    characterDataContentStub{complex: true},
-				HasElement: true,
-			},
-			wantErr: xsderrors.CodeValidationText,
-		},
-		{
-			name: "nilled text is rejected",
-			input: CharacterDataInput{
-				Data:       []byte(" "),
-				Content:    characterDataContentStub{simple: true},
-				HasElement: true,
-				Nilled:     true,
-			},
-			wantErr: xsderrors.CodeValidationNil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			tt.input.Context = StartContext{Path: "/root", Line: 2, Column: 3}
-			got, err := ValidateCharacterData(tt.input)
-			if tt.wantErr != "" {
-				expectXSDCode(t, err, tt.wantErr)
+			err := ValidateDocumentCharacterData([]byte(tc.data), tc.cdata, ctx)
+			if tc.wantErr != "" {
+				expectXSDCode(t, err, tc.wantErr)
 				return
 			}
 			if err != nil {
-				t.Fatalf("ValidateCharacterData() error = %v", err)
-			}
-			if got != tt.want {
-				t.Fatalf("ValidateCharacterData() = %+v, want %+v", got, tt.want)
+				t.Fatalf("ValidateDocumentCharacterData() error = %v", err)
 			}
 		})
 	}
 }
 
-func TestValidateElementCharacterDataUsesRuntimeContent(t *testing.T) {
+func TestChildPolicies(t *testing.T) {
 	t.Parallel()
 
-	got, err := ValidateElementCharacterData(contentRuntimeStub{
-		textContent:   characterDataContentStub{simple: true},
-		textContentOK: true,
-	}, ElementCharacterDataInput{
-		Data:    []byte("x"),
-		Type:    runtime.ComplexRef(1),
-		Element: 1,
-		Context: StartContext{Path: "/root", Line: 2, Column: 3},
-	})
-	if err != nil {
-		t.Fatalf("ValidateElementCharacterData() error = %v", err)
+	if got := childFramePolicy(true, true); !got.skip || got.issue.valid() {
+		t.Fatalf("childFramePolicy(skip) = %+v", got)
 	}
-	if got != (CharacterDataResult{AppendText: true}) {
-		t.Fatalf("ValidateElementCharacterData() = %+v, want append text", got)
+	if got := childFramePolicy(false, true); got.skip || got.issue.code != xsderrors.CodeValidationNil {
+		t.Fatalf("childFramePolicy(nilled) = %+v", got)
 	}
-}
 
-func TestValidateElementCharacterDataRejectsMissingContentMetadata(t *testing.T) {
-	t.Parallel()
-
-	_, err := ValidateElementCharacterData(contentRuntimeStub{}, ElementCharacterDataInput{
-		Data:    []byte("x"),
-		Type:    runtime.ComplexRef(1),
-		Element: 1,
-		Context: StartContext{Path: "/root", Line: 2, Column: 3},
-	})
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-}
-
-func TestChildStartRejectsInvalidParentContent(t *testing.T) {
-	t.Parallel()
-
-	parent := runtime.ComplexRef(1)
+	name := runtime.RuntimeName{Local: "child"}
 	tests := []struct {
-		name string
-		in   ChildInput
-		rt   contentRuntimeStub
-		code xsderrors.Code
+		name  string
+		child runtime.ChildContentInfo
+		code  xsderrors.Code
 	}{
-		{
-			name: "nilled",
-			in: ChildInput{
-				ParentNilled: true,
-			},
-			code: xsderrors.CodeValidationNil,
-		},
-		{
-			name: "simple type",
-			in: ChildInput{
-				ParentType: parent,
-			},
-			rt: contentRuntimeStub{
-				childContent: map[runtime.TypeID]runtime.ChildContentInfo{parent: {}},
-			},
-			code: xsderrors.CodeValidationContent,
-		},
-		{
-			name: "simple content",
-			in: ChildInput{
-				ParentType: parent,
-			},
-			rt: contentRuntimeStub{
-				childContent: map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true, Simple: true}},
-			},
-			code: xsderrors.CodeValidationContent,
-		},
-		{
-			name: "no model",
-			in: ChildInput{
-				Name:       runtime.RuntimeName{Local: "child"},
-				ParentType: parent,
-			},
-			rt: contentRuntimeStub{
-				childContent: map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
-			},
-			code: xsderrors.CodeValidationElement,
-		},
+		{name: "simple type", code: xsderrors.CodeValidationContent},
+		{name: "simple content", child: runtime.ChildContentInfo{Complex: true, Simple: true}, code: xsderrors.CodeValidationContent},
+		{name: "no model", child: runtime.ChildContentInfo{Complex: true}, code: xsderrors.CodeValidationElement},
 	}
-
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-
-			if tc.rt.anyType == (runtime.TypeID{}) {
-				tc.rt.anyType = runtime.ComplexRef(100)
-			}
-			tc.in.Context = StartContext{Path: "/root", Line: 2, Column: 3}
-			got, err := ChildStart(tc.rt, tc.in)
-			expectXSDCode(t, err, tc.code)
-			if got.Element != runtime.NoElement || got.Type != tc.rt.anyType || !got.Skip || !got.Recover {
-				t.Fatalf("ChildStart() = %+v, want recoverable skipped anyType child", got)
+			if got := childContentPolicy(tc.child, runtime.ContentState{}, name); got.code != tc.code {
+				t.Fatalf("childContentPolicy() = %+v, want code %q", got, tc.code)
 			}
 		})
 	}
 }
 
-func TestValidateNilledContent(t *testing.T) {
+func TestContentCompletionRequiredPolicy(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		input   NilledContentInput
-		wantErr bool
-	}{
-		{
-			name: "nilled with text",
-			input: NilledContentInput{
-				Nilled:  true,
-				HasText: true,
-			},
-			wantErr: true,
-		},
-		{
-			name: "nilled with child",
-			input: NilledContentInput{
-				Nilled:   true,
-				HasChild: true,
-			},
-			wantErr: true,
-		},
-		{
-			name: "nilled empty",
-			input: NilledContentInput{
-				Nilled: true,
-			},
-		},
-		{
-			name: "not nilled with content",
-			input: NilledContentInput{
-				HasText:  true,
-				HasChild: true,
-			},
-		},
+	if contentCompletionRequired(false, runtime.ComplexRef(1), runtime.ContentState{}) {
+		t.Fatal("contentCompletionRequired(no model) = true")
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			tt.input.Context = StartContext{Path: "/root", Line: 2, Column: 3}
-			err := ValidateNilledContent(tt.input)
-			if !tt.wantErr {
-				if err != nil {
-					t.Fatalf("ValidateNilledContent() error = %v", err)
-				}
-				return
-			}
-			expectXSDCode(t, err, xsderrors.CodeValidationNil)
-		})
-	}
-}
-
-func TestChildStartUnexpectedChildIsRecoverable(t *testing.T) {
-	t.Parallel()
-
-	parent := runtime.ComplexRef(1)
-	model := runtime.ContentModelID(4)
-	compiled := runtime.CompiledModel{
-		Kind: runtime.CompiledModelDFA,
-		Rows: []runtime.CompiledModelRow{{}},
-	}
-	rt := contentRuntimeStub{
-		anyType:       runtime.ComplexRef(100),
-		childContent:  map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
-		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
-		models:        map[runtime.ContentModelID]runtime.CompiledModel{model: compiled},
-	}
-	parentContent := runtime.ContentFrameForType(rt, parent).ContentState()
-	got, err := ChildStart(rt, ChildInput{
-		Context:       StartContext{Path: "/root", Line: 2, Column: 3},
-		Name:          runtime.RuntimeName{Local: "child"},
-		ParentContent: parentContent,
-		ParentType:    parent,
-	})
-	expectXSDCode(t, err, xsderrors.CodeValidationElement)
-	if got.Element != runtime.NoElement || got.Type != rt.anyType || !got.Skip || !got.Recover {
-		t.Fatalf("ChildStart() = %+v, want recoverable skipped anyType child", got)
-	}
-}
-
-func TestChildStartSchemaLocationStrictWildcardIsUnsupported(t *testing.T) {
-	t.Parallel()
-
-	parent := runtime.ComplexRef(1)
-	model := runtime.ContentModelID(4)
-	wildcard := runtime.WildcardID(5)
-	compiled := runtime.CompiledModel{
-		Kind: runtime.CompiledModelDFA,
-		Rows: []runtime.CompiledModelRow{
-			{
-				Edges: []runtime.CompiledModelEdge{{
-					Particle: runtime.WildcardParticle(wildcard, runtime.Occurrence{Min: 1, Max: 1}),
-					To:       1,
-				}},
-			},
-			{Accept: true},
-		},
-	}
-	rt := contentRuntimeStub{
-		anyType:       runtime.ComplexRef(100),
-		childContent:  map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
-		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
-		models:        map[runtime.ContentModelID]runtime.CompiledModel{model: compiled},
-		wildcards:     map[runtime.WildcardID]runtime.Wildcard{wildcard: {Mode: runtime.WildcardAny, Process: runtime.ProcessStrict}},
-	}
-	parentContent := runtime.ContentFrameForType(rt, parent).ContentState()
-	got, err := ChildStart(rt, ChildInput{
-		HasSchemaLocation: func(ns string) bool { return ns == "urn:t" },
-		Context:           StartContext{Path: "/root", Line: 2, Column: 3},
-		Name:              runtime.RuntimeName{NS: "urn:t", Local: "child"},
-		ParentContent:     parentContent,
-		ParentType:        parent,
-	})
-	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
-	if got.Recover || got.Skip {
-		t.Fatalf("ChildStart() = %+v, want non-recoverable unsupported schemaLocation", got)
-	}
-}
-
-func TestChildStartStrictWildcardAllowsUndeclaredXSIType(t *testing.T) {
-	t.Parallel()
-
-	parent := runtime.ComplexRef(1)
-	model := runtime.ContentModelID(4)
-	wildcard := runtime.WildcardID(5)
-	compiled := runtime.CompiledModel{
-		Kind: runtime.CompiledModelDFA,
-		Rows: []runtime.CompiledModelRow{
-			{
-				Edges: []runtime.CompiledModelEdge{{
-					Particle: runtime.WildcardParticle(wildcard, runtime.Occurrence{Min: 1, Max: 1}),
-					To:       1,
-				}},
-			},
-			{Accept: true},
-		},
-	}
-	rt := contentRuntimeStub{
-		anyType:       runtime.ComplexRef(100),
-		childContent:  map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
-		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
-		models:        map[runtime.ContentModelID]runtime.CompiledModel{model: compiled},
-		wildcards:     map[runtime.WildcardID]runtime.Wildcard{wildcard: {Mode: runtime.WildcardAny, Process: runtime.ProcessStrict}},
-	}
-	parentContent := runtime.ContentFrameForType(rt, parent).ContentState()
-	got, err := ChildStart(rt, ChildInput{
-		HasSchemaLocation: func(ns string) bool { return ns == "urn:t" },
-		Context:           StartContext{Path: "/root", Line: 2, Column: 3},
-		Name:              runtime.RuntimeName{NS: "urn:t", Local: "child"},
-		ParentContent:     parentContent,
-		ParentType:        parent,
-		HasXSIType:        true,
-	})
-	if err != nil {
-		t.Fatalf("ChildStart() error = %v", err)
-	}
-	if got.Element != runtime.NoElement || got.Type != rt.anyType || got.Skip {
-		t.Fatalf("ChildStart() = %+v, want undeclared anyType child", got)
-	}
-}
-
-func TestChildStartInvalidContentStateIsInternalInvariant(t *testing.T) {
-	t.Parallel()
-
-	parent := runtime.ComplexRef(1)
-	rt := contentRuntimeStub{
-		anyType:       runtime.ComplexRef(100),
-		childContent:  map[runtime.TypeID]runtime.ChildContentInfo{parent: {Complex: true}},
-		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: runtime.ContentModelID(4)},
-	}
-	parentContent := runtime.ContentFrameForType(rt, parent).ContentState()
-	_, err := ChildStart(rt, ChildInput{
-		Context:       StartContext{Path: "/root", Line: 2, Column: 3},
-		Name:          runtime.RuntimeName{Local: "child"},
-		ParentContent: parentContent,
-		ParentType:    parent,
-	})
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-}
-
-func TestContentCompleteValidatesEndState(t *testing.T) {
-	t.Parallel()
-
-	model := runtime.ContentModelID(4)
-	compiled := runtime.CompiledModel{
-		Kind:  runtime.CompiledModelDFA,
-		Start: 7,
-		Rows:  make([]runtime.CompiledModelRow, 8),
-	}
-	parent := runtime.ComplexRef(1)
-	rt := contentRuntimeStub{
-		contentModels: map[runtime.TypeID]runtime.ContentModelID{parent: model},
-		models:        map[runtime.ContentModelID]runtime.CompiledModel{model: compiled},
-	}
-	content := runtime.ContentFrameForType(rt, parent).ContentState()
-	err := ContentComplete(rt, CompleteInput{
-		Context: StartContext{Path: "/root", Line: 2, Column: 3},
-		Type:    parent,
-		Content: content,
-	})
-	expectXSDCode(t, err, xsderrors.CodeValidationContent)
-}
-
-func TestContentCompleteSkipsNilledContentModel(t *testing.T) {
-	t.Parallel()
-
-	called := false
-	rt := contentRuntimeStub{
-		compiledContentModel: func(runtime.ContentModelID) (runtime.CompiledModel, bool) {
-			called = true
-			return runtime.CompiledModel{}, false
-		},
-	}
-	err := ContentComplete(rt, CompleteInput{
-		Type:   runtime.ComplexRef(1),
-		Nilled: true,
-	})
-	if err != nil {
-		t.Fatalf("ContentComplete() error = %v", err)
-	}
-	if called {
-		t.Fatal("ContentComplete() inspected content model for nilled input")
-	}
-}
-
-func TestContentCompleteIgnoresNonComplexOrAbsentModel(t *testing.T) {
-	t.Parallel()
-
-	called := false
-	rt := contentRuntimeStub{
-		compiledContentModel: func(runtime.ContentModelID) (runtime.CompiledModel, bool) {
-			called = true
-			return runtime.CompiledModel{}, true
-		},
-	}
-	for _, in := range []CompleteInput{
-		{Type: runtime.SimpleRef(1)},
-		{Type: runtime.ComplexRef(1)},
-	} {
-		if err := ContentComplete(rt, in); err != nil {
-			t.Fatalf("ContentComplete() error = %v", err)
-		}
-	}
-	if called {
-		t.Fatalf("ContentComplete() called runtime for non-content input")
+	if contentCompletionRequired(false, runtime.SimpleRef(1), runtime.ContentState{}) {
+		t.Fatal("contentCompletionRequired(simple type) = true")
 	}
 }

@@ -1,6 +1,9 @@
 package runtime
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 type derivationRuntimeStub struct {
 	simple  []SimpleTypeDerivation
@@ -16,6 +19,10 @@ func (s derivationRuntimeStub) ComplexTypeCount() int {
 	return len(s.complex)
 }
 
+func (s derivationRuntimeStub) SimpleTypeCount() int {
+	return len(s.simple)
+}
+
 func (s derivationRuntimeStub) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool) {
 	if !ValidUint32Index(uint32(id), len(s.simple)) {
 		return SimpleTypeDerivation{}, false
@@ -28,68 +35,6 @@ func (s derivationRuntimeStub) ComplexTypeDerivation(id ComplexTypeID) (ComplexT
 		return ComplexTypeDerivation{}, false
 	}
 	return s.complex[id], true
-}
-
-func TestEqualSimpleTypeDerivations(t *testing.T) {
-	t.Parallel()
-
-	base := SimpleTypeDerivation{
-		Union:   []SimpleTypeID{1, 2},
-		Base:    3,
-		Variety: SimpleVarietyUnion,
-	}
-	tests := []struct {
-		name string
-		a    SimpleTypeDerivation
-		b    SimpleTypeDerivation
-		want bool
-	}{
-		{
-			name: "equal",
-			a:    base,
-			b: SimpleTypeDerivation{
-				Union:   []SimpleTypeID{1, 2},
-				Base:    3,
-				Variety: SimpleVarietyUnion,
-			},
-			want: true,
-		},
-		{
-			name: "union differs",
-			a:    base,
-			b: SimpleTypeDerivation{
-				Union:   []SimpleTypeID{2, 1},
-				Base:    3,
-				Variety: SimpleVarietyUnion,
-			},
-		},
-		{
-			name: "base differs",
-			a:    base,
-			b: SimpleTypeDerivation{
-				Union:   []SimpleTypeID{1, 2},
-				Base:    4,
-				Variety: SimpleVarietyUnion,
-			},
-		},
-		{
-			name: "variety differs",
-			a:    base,
-			b: SimpleTypeDerivation{
-				Union:   []SimpleTypeID{1, 2},
-				Base:    3,
-				Variety: SimpleVarietyAtomic,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := EqualSimpleTypeDerivations(tt.a, tt.b); got != tt.want {
-				t.Fatalf("EqualSimpleTypeDerivations() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }
 
 func TestEqualComplexTypeDerivations(t *testing.T) {
@@ -203,11 +148,9 @@ func TestSimpleTypeDerivationForSimpleType(t *testing.T) {
 		Variety: SimpleVarietyUnion,
 	}
 	projection := NewSimpleTypeDerivationForSimpleType(st)
-	if !EqualSimpleTypeDerivations(projection, SimpleTypeDerivation{
-		Union:   []SimpleTypeID{1, 2},
-		Base:    NoSimpleType,
-		Variety: SimpleVarietyUnion,
-	}) {
+	if projection.Base != NoSimpleType ||
+		projection.Variety != SimpleVarietyUnion ||
+		!slices.Equal(projection.Union, []SimpleTypeID{1, 2}) {
 		t.Fatalf("NewSimpleTypeDerivationForSimpleType() = %+v, want projected simple type facts", projection)
 	}
 	st.Union[0] = 9
@@ -233,19 +176,17 @@ func TestSimpleTypeDerivationForSimpleType(t *testing.T) {
 func TestTypeDerivationRead(t *testing.T) {
 	t.Parallel()
 
-	simple := []SimpleTypeDerivation{{
+	simpleTypes := []SimpleType{{
 		Union:   []SimpleTypeID{1},
 		Base:    NoSimpleType,
 		Variety: SimpleVarietyUnion,
 	}}
-	complexDerivations := []ComplexTypeDerivation{{
-		Base:  ComplexRef(0),
-		Kind:  DerivationKindExtension,
-		Block: DerivationRestriction,
+	complexTypes := []ComplexType{{
+		Base:       ComplexRef(0),
+		Derivation: DerivationKindExtension,
+		Block:      DerivationRestriction,
 	}}
-	read := NewTypeDerivationRead(0, simple, complexDerivations)
-	simple[0].Union[0] = 9
-	complexDerivations[0].Kind = DerivationKindRestriction
+	read := NewBorrowedTypeDerivationReadForTypes(0, simpleTypes, complexTypes)
 
 	if read.AnyTypeID() != 0 {
 		t.Fatalf("AnyTypeID() = %d, want 0", read.AnyTypeID())
@@ -261,139 +202,51 @@ func TestTypeDerivationRead(t *testing.T) {
 		t.Fatal("ValidTypeID() did not match published graph bounds")
 	}
 
-	gotSimple, ok := read.SimpleTypeDerivation(0)
-	if !ok || !EqualSimpleTypeDerivations(gotSimple, SimpleTypeDerivation{
-		Union:   []SimpleTypeID{1},
-		Base:    NoSimpleType,
-		Variety: SimpleVarietyUnion,
-	}) {
-		t.Fatalf("SimpleTypeDerivation() = %+v, %v; want cloned simple projection", gotSimple, ok)
-	}
-	gotSimple.Union[0] = 8
-	again, ok := read.SimpleTypeDerivation(0)
-	if !ok || again.Union[0] != 1 {
-		t.Fatalf("SimpleTypeDerivation() aliased union slice: %+v, %v", again, ok)
-	}
 	gotComplex, ok := read.ComplexTypeDerivation(0)
 	if !ok || gotComplex.Kind != DerivationKindExtension {
-		t.Fatalf("ComplexTypeDerivation() = %+v, %v; want cloned complex projection", gotComplex, ok)
-	}
-	if got := RuntimeAnyTypeID(read, BuiltinIDs{AnyType: 9}); got != 0 {
-		t.Fatalf("RuntimeAnyTypeID(published) = %d, want 0", got)
-	}
-	if got := RuntimeComplexTypeCount(read, []ComplexType{{}, {}}); got != 1 {
-		t.Fatalf("RuntimeComplexTypeCount(published) = %d, want 1", got)
-	}
-	if got, ok := RuntimeSimpleTypeDerivation(read, []SimpleType{{Base: 9}}, 0); !ok || !EqualSimpleTypeDerivations(got, again) {
-		t.Fatalf("RuntimeSimpleTypeDerivation(published) = %+v, %v; want published projection", got, ok)
-	}
-	if got, ok := RuntimeComplexTypeDerivation(read, []ComplexType{{Derivation: DerivationKindRestriction}}, 0); !ok || got.Kind != DerivationKindExtension {
-		t.Fatalf("RuntimeComplexTypeDerivation(published) = %+v, %v; want published projection", got, ok)
+		t.Fatalf("ComplexTypeDerivation() = %+v, %v; want complex projection", gotComplex, ok)
 	}
 
-	emptyRead := TypeDerivationRead{}
-	compileSimpleTypes := []SimpleType{{
+	if !EqualSimpleTypeDerivationReadProjectionForTypes(read, simpleTypes) {
+		t.Fatal("EqualSimpleTypeDerivationReadProjectionForTypes() rejected matching projection")
+	}
+	changedSimpleTypes := []SimpleType{{
 		Union:   []SimpleTypeID{1},
-		Base:    NoSimpleType,
+		Base:    1,
 		Variety: SimpleVarietyUnion,
 	}}
-	compileComplexTypes := []ComplexType{{
-		Base:       ComplexRef(0),
-		Derivation: DerivationKindExtension,
-		Block:      DerivationRestriction,
-	}}
-	if got := RuntimeAnyTypeID(emptyRead, BuiltinIDs{AnyType: 2}); got != 2 {
-		t.Fatalf("RuntimeAnyTypeID(compile) = %d, want 2", got)
-	}
-	if got := RuntimeComplexTypeCount(emptyRead, compileComplexTypes); got != 1 {
-		t.Fatalf("RuntimeComplexTypeCount(compile) = %d, want 1", got)
-	}
-	if got, ok := RuntimeSimpleTypeDerivation(emptyRead, compileSimpleTypes, 0); !ok || !EqualSimpleTypeDerivations(got, again) {
-		t.Fatalf("RuntimeSimpleTypeDerivation(compile) = %+v, %v; want type-derived projection", got, ok)
-	}
-	if got, ok := RuntimeComplexTypeDerivation(emptyRead, compileComplexTypes, 0); !ok || got.Kind != DerivationKindExtension {
-		t.Fatalf("RuntimeComplexTypeDerivation(compile) = %+v, %v; want type-derived projection", got, ok)
+	if EqualSimpleTypeDerivationReadProjectionForTypes(read, changedSimpleTypes) {
+		t.Fatal("EqualSimpleTypeDerivationReadProjectionForTypes() accepted mismatched simple type")
 	}
 
-	expectedSimple := []SimpleTypeDerivation{{
-		Union:   []SimpleTypeID{1},
-		Base:    NoSimpleType,
-		Variety: SimpleVarietyUnion,
-	}}
-	if !EqualSimpleTypeDerivationReadProjection(read, expectedSimple) {
-		t.Fatal("EqualSimpleTypeDerivationReadProjection() rejected matching projection")
-	}
-	expectedSimple[0].Base = 1
-	if EqualSimpleTypeDerivationReadProjection(read, expectedSimple) {
-		t.Fatal("EqualSimpleTypeDerivationReadProjection() accepted mismatched projection")
-	}
-
-	complexTypes := []ComplexType{{
-		Base:       ComplexRef(0),
-		Derivation: DerivationKindExtension,
-		Block:      DerivationRestriction,
-	}}
 	if !EqualComplexTypeDerivationReadProjection(read, complexTypes) {
 		t.Fatal("EqualComplexTypeDerivationReadProjection() rejected matching projection")
 	}
-	complexTypes[0].Derivation = DerivationKindRestriction
-	if EqualComplexTypeDerivationReadProjection(read, complexTypes) {
+	changedComplexTypes := []ComplexType{{
+		Base:       ComplexRef(0),
+		Derivation: DerivationKindRestriction,
+		Block:      DerivationRestriction,
+	}}
+	if EqualComplexTypeDerivationReadProjection(read, changedComplexTypes) {
 		t.Fatal("EqualComplexTypeDerivationReadProjection() accepted mismatched projection")
 	}
 
-	simpleTypes := []SimpleType{{
-		Union:   []SimpleTypeID{1},
-		Base:    NoSimpleType,
-		Variety: SimpleVarietyUnion,
-	}}
-	read = NewTypeDerivationReadForTypes(0, simpleTypes, []ComplexType{{
-		Base:       ComplexRef(0),
-		Derivation: DerivationKindExtension,
-		Block:      DerivationRestriction,
-	}})
-	simpleTypes[0].Union[0] = 9
-	if !EqualSimpleTypeDerivationReadProjectionForTypes(read, []SimpleType{{
-		Union:   []SimpleTypeID{1},
-		Base:    NoSimpleType,
-		Variety: SimpleVarietyUnion,
-	}}) {
-		t.Fatal("NewTypeDerivationReadForTypes() did not publish cloned simple-type projection")
-	}
-	if EqualSimpleTypeDerivationReadProjectionForTypes(read, simpleTypes) {
-		t.Fatal("EqualSimpleTypeDerivationReadProjectionForTypes() accepted mismatched simple type")
-	}
-	if err := ValidateTypeDerivationReadProjection(read, 0, []SimpleType{{
-		Union:   []SimpleTypeID{1},
-		Base:    NoSimpleType,
-		Variety: SimpleVarietyUnion,
-	}}, []ComplexType{{
-		Base:       ComplexRef(0),
-		Derivation: DerivationKindExtension,
-		Block:      DerivationRestriction,
-	}}); err != nil {
+	if err := ValidateTypeDerivationReadProjection(read, 0, simpleTypes, complexTypes); err != nil {
 		t.Fatalf("ValidateTypeDerivationReadProjection() error = %v", err)
 	}
 	if err := ValidateTypeDerivationReadProjection(read, 1, simpleTypes, complexTypes); err == nil || err.Error() != "type derivation projection stores invalid anyType" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(anyType) error = %v, want anyType invariant", err)
 	}
-	if err := ValidateTypeDerivationReadProjection(NewTypeDerivationRead(0, nil, NewComplexTypeDerivationsForComplexTypes(complexTypes)), 0, simpleTypes, complexTypes); err == nil || err.Error() != "simple type derivation projection count does not match types" {
+	if err := ValidateTypeDerivationReadProjection(NewBorrowedTypeDerivationReadForTypes(0, nil, complexTypes), 0, simpleTypes, complexTypes); err == nil || err.Error() != "simple type derivation projection count does not match types" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(simple count) error = %v, want simple count invariant", err)
 	}
-	if err := ValidateTypeDerivationReadProjection(NewTypeDerivationRead(0, NewSimpleTypeDerivationsForSimpleTypes(simpleTypes), nil), 0, simpleTypes, complexTypes); err == nil || err.Error() != "complex type derivation projection count does not match types" {
+	if err := ValidateTypeDerivationReadProjection(NewBorrowedTypeDerivationReadForTypes(0, simpleTypes, nil), 0, simpleTypes, complexTypes); err == nil || err.Error() != "complex type derivation projection count does not match types" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(complex count) error = %v, want complex count invariant", err)
 	}
-	if err := ValidateTypeDerivationReadProjection(read, 0, simpleTypes, []ComplexType{{
-		Base:       ComplexRef(0),
-		Derivation: DerivationKindRestriction,
-		Block:      DerivationRestriction,
-	}}); err == nil || err.Error() != "simple type derivation projection does not match type" {
+	if err := ValidateTypeDerivationReadProjection(read, 0, changedSimpleTypes, complexTypes); err == nil || err.Error() != "simple type derivation projection does not match type" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(simple mismatch) error = %v, want simple mismatch invariant", err)
 	}
-	if err := ValidateTypeDerivationReadProjection(read, 0, []SimpleType{{
-		Union:   []SimpleTypeID{1},
-		Base:    NoSimpleType,
-		Variety: SimpleVarietyUnion,
-	}}, complexTypes); err == nil || err.Error() != "complex type derivation projection does not match type" {
+	if err := ValidateTypeDerivationReadProjection(read, 0, simpleTypes, changedComplexTypes); err == nil || err.Error() != "complex type derivation projection does not match type" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(complex mismatch) error = %v, want complex mismatch invariant", err)
 	}
 }
@@ -480,6 +333,102 @@ func TestTypeDerivationMaskRejectsInvalidOrCyclicGraph(t *testing.T) {
 	}
 	if mask, ok := TypeDerivationMask(rt, ComplexRef(1), ComplexRef(0)); ok {
 		t.Fatalf("cyclic complex type derived with mask %08b", mask)
+	}
+	if mask, ok := TypeDerivationMask(rt, ComplexRef(1), SimpleRef(0)); ok || mask != 0 {
+		t.Fatalf("cyclic complex type derived from simple type with mask %08b, %v", mask, ok)
+	}
+}
+
+func TestTypeDerivationMaskHandlesDeepComplexSimpleChain(t *testing.T) {
+	t.Parallel()
+
+	const depth = 10_000
+	complexTypes := make([]ComplexTypeDerivation, depth)
+	for i := range depth - 1 {
+		complexTypes[i] = ComplexTypeDerivation{
+			Base: ComplexRef(ComplexTypeID(i + 1)),
+			Kind: DerivationKindExtension,
+		}
+	}
+	complexTypes[depth-1] = ComplexTypeDerivation{Base: SimpleRef(0), Kind: DerivationKindExtension}
+	rt := derivationRuntimeStub{complex: complexTypes}
+	mask, ok := TypeDerivationMask(rt, ComplexRef(0), SimpleRef(0))
+	if !ok || mask != DerivationExtension {
+		t.Fatalf("deep complex simple-base mask = %08b, %v; want extension, true", mask, ok)
+	}
+}
+
+func TestTypeDerivationMaskHandlesDeepComplexSimpleBaseChain(t *testing.T) {
+	t.Parallel()
+
+	const depth = 10_000
+	simpleTypes := make([]SimpleTypeDerivation, depth)
+	for i := range depth - 1 {
+		simpleTypes[i] = SimpleTypeDerivation{Base: SimpleTypeID(i + 1), Variety: SimpleVarietyAtomic}
+	}
+	simpleTypes[depth-1] = SimpleTypeDerivation{Base: NoSimpleType, Variety: SimpleVarietyAtomic}
+	rt := derivationRuntimeStub{
+		simple:  simpleTypes,
+		complex: []ComplexTypeDerivation{{Base: SimpleRef(0), Kind: DerivationKindExtension}},
+	}
+	mask, ok := TypeDerivationMask(rt, ComplexRef(0), SimpleRef(depth-1))
+	want := DerivationExtension | DerivationRestriction
+	if !ok || mask != want {
+		t.Fatalf("deep complex simple-base chain mask = %08b, %v; want %08b, true", mask, ok, want)
+	}
+}
+
+func TestTypeDerivationMaskSimpleUnionBranchingAndCycles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		simple  []SimpleTypeDerivation
+		derived SimpleTypeID
+		base    SimpleTypeID
+		want    bool
+	}{
+		{
+			name: "later union member",
+			simple: []SimpleTypeDerivation{
+				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+				{Base: 0, Variety: SimpleVarietyAtomic},
+				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+				{Base: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{2, 0}},
+			},
+			derived: 1,
+			base:    3,
+			want:    true,
+		},
+		{
+			name: "base cycle",
+			simple: []SimpleTypeDerivation{
+				{Base: 1, Variety: SimpleVarietyAtomic},
+				{Base: 0, Variety: SimpleVarietyAtomic},
+				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+			},
+			derived: 0,
+			base:    2,
+		},
+		{
+			name: "union cycle",
+			simple: []SimpleTypeDerivation{
+				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+				{Base: NoSimpleType, Variety: SimpleVarietyUnion, Union: []SimpleTypeID{1}},
+			},
+			derived: 0,
+			base:    1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mask, ok := TypeDerivationMask(derivationRuntimeStub{simple: tt.simple}, SimpleRef(tt.derived), SimpleRef(tt.base))
+			if ok != tt.want || ok && mask != DerivationRestriction || !ok && mask != 0 {
+				t.Fatalf("TypeDerivationMask() = %08b, %v; want restriction=%v", mask, ok, tt.want)
+			}
+		})
 	}
 }
 

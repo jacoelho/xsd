@@ -15,7 +15,6 @@ func (c *compiler) compileFacetList(children []*rawNode, st *runtime.SimpleType,
 }
 
 func (c *compiler) compileFacetChildren(children []*rawNode, st *runtime.SimpleType, base, literalType runtime.SimpleTypeID, skipNonFacets bool) error {
-	baseType := c.rt.SimpleTypes[base]
 	var state compiledFacetState
 	for _, child := range children {
 		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
@@ -32,7 +31,7 @@ func (c *compiler) compileFacetChildren(children []*rawNode, st *runtime.SimpleT
 		return nil
 	}
 	state.apply(st)
-	return ValidateCompiledFacets(*st, baseType, state.orderedStep)
+	return c.validateCompiledFacetsBuild(*st, base, state.orderedStep)
 }
 
 type compiledFacetState struct {
@@ -45,11 +44,10 @@ type compiledFacetState struct {
 	sawFacet              bool
 }
 
-func (s *compiledFacetState) ensureFacetOwnership(st *runtime.SimpleType) {
+func (s *compiledFacetState) beginStep(st *runtime.SimpleType) {
 	if s.sawFacet {
 		return
 	}
-	st.Facets = runtime.CloneFacetSet(st.Facets)
 	s.inheritedEnumeration = st.Facets.Enumeration
 	s.sawFacet = true
 }
@@ -66,8 +64,7 @@ func (s *compiledFacetState) apply(st *runtime.SimpleType) {
 		runtime.ClearFacet(&st.Facets, runtime.FacetEnumeration)
 	}
 	if len(s.stepPatterns) != 0 {
-		st.Facets.Patterns = append(st.Facets.Patterns, runtime.StringPatternGroup{Patterns: s.stepPatterns})
-		runtime.SetFacetPresent(&st.Facets, runtime.FacetPattern)
+		runtime.AppendPatternFacetGroup(&st.Facets, s.stepPatterns)
 	}
 }
 
@@ -93,7 +90,7 @@ func (c *compiler) compileFacetChild(child *rawNode, st *runtime.SimpleType, bas
 		}
 		state.stepSingleFacets |= mask
 	}
-	state.ensureFacetOwnership(st)
+	state.beginStep(st)
 	facet, err := facetAttrs(child)
 	if err != nil {
 		return err
@@ -192,7 +189,7 @@ func (c *compiler) compileBoundFacet(st *runtime.SimpleType, base runtime.Simple
 }
 
 func (c *compiler) compileWhitespaceFacet(st *runtime.SimpleType, base runtime.SimpleTypeID, n *rawNode, value string, fixed bool) error {
-	mode, err := ParseWhitespaceFacetValue(value, c.rt.SimpleTypes[base].Whitespace)
+	mode, err := ParseWhitespaceFacetValue(value, c.rt.simpleTypeWhitespace(base))
 	if err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
@@ -202,34 +199,14 @@ func (c *compiler) compileWhitespaceFacet(st *runtime.SimpleType, base runtime.S
 }
 
 func (c *compiler) compileLiteral(base runtime.SimpleTypeID, lexical string, resolve runtime.ResolveQNameParts) (runtime.CompiledLiteral, error) {
-	value, err := c.validateSimpleValue(base, lexical, resolve, runtime.SimpleNeedCanonical)
+	recorder := valueConstraintResolver{resolve: resolve}
+	replayResolve := resolve
+	if resolve != nil {
+		replayResolve = recorder.resolveQName
+	}
+	value, err := c.validateSimpleValue(base, lexical, replayResolve, runtime.SimpleNeedCanonical)
 	if err != nil {
 		return runtime.CompiledLiteral{}, FacetValueError(lexical, err)
 	}
-	return runtime.CompiledLiteral{
-		Lexical:   lexical,
-		Canonical: value.Canonical,
-		Actual:    literalActualValue(&c.rt, base, lexical, value.Canonical),
-	}, nil
-}
-
-func literalActualValue(rt *runtime.Schema, id runtime.SimpleTypeID, lexical, canonical string) runtime.PrimitiveActualValue {
-	st, ok := rt.SimpleType(id)
-	if !ok || st.Variety != runtime.SimpleVarietyAtomic {
-		return runtime.PrimitiveActualValue{}
-	}
-	text := canonical
-	if st.Primitive == runtime.PrimitiveGMonthDay || st.Primitive == runtime.PrimitiveGDay || st.Primitive == runtime.PrimitiveGMonth || st.Primitive == runtime.PrimitiveDuration {
-		text = lexical
-	}
-	switch st.Primitive {
-	case runtime.PrimitiveQName, runtime.PrimitiveNotation:
-		return runtime.PrimitiveActualValue{Kind: st.Primitive, Valid: true}
-	default:
-		parsed, err := runtime.ParsePrimitiveActual(st.Primitive, text, runtime.PrimitiveNeedCanonical|runtime.PrimitiveNeedLength)
-		if err != nil {
-			return runtime.PrimitiveActualValue{}
-		}
-		return parsed.Actual
-	}
+	return c.compiledLiteralForSimpleType(base, lexical, value.Canonical, recorder.names), nil
 }

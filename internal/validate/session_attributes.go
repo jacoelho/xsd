@@ -27,25 +27,15 @@ func (s *session) validateAttributes(typ runtime.TypeID, attrs []stream.Attr, li
 	return s.validateAttributeSet(set, attrs, line, col)
 }
 
-func (s *session) attributeUseSetForType(typ runtime.TypeID) (*runtime.AttributeUseSetRead, bool, bool) {
-	if s.schema != nil {
-		return s.schema.AttributeUseSetForTypePtr(typ)
-	}
-	set, isComplex, ok := s.rt.AttributeUseSetForType(typ)
-	return &set, isComplex, ok
+func (s *session) attributeUseSetForType(typ runtime.TypeID) (runtime.AttributeUseSetRead, bool, bool) {
+	return s.rt.AttributeUseSetForType(typ)
 }
 
 func (s *session) attributeDecl(id runtime.AttributeID) (runtime.AttributeDeclRead, bool) {
-	if s.schema != nil {
-		return s.schema.AttributeDecl(id)
-	}
 	return s.rt.AttributeDecl(id)
 }
 
 func (s *session) validateRawSimpleValue(id runtime.SimpleTypeID, raw []byte) (bool, error) {
-	if s.schema != nil {
-		return s.schema.ValidateRawSimpleValue(id, raw)
-	}
 	return s.rt.ValidateRawSimpleValue(id, raw)
 }
 
@@ -55,14 +45,11 @@ func (s *session) validateSimpleValue(
 	resolve runtime.ResolveQNameParts,
 	needs runtime.SimpleValueNeed,
 ) (runtime.SimpleValue, error) {
-	if s.schema != nil {
-		return s.schema.ValidateSimpleValue(id, lexical, resolve, needs)
-	}
 	return s.rt.ValidateSimpleValue(id, lexical, resolve, needs)
 }
 
-func (s *session) validateAttributeSet(set *runtime.AttributeUseSetRead, attrs []stream.Attr, line, col int) error {
-	seen := NewAttributeSeen(set.UseCount())
+func (s *session) validateAttributeSet(set runtime.AttributeUseSetRead, attrs []stream.Attr, line, col int) error {
+	seen := newAttributeSeenWithScratch(set.UseCount(), &s.attributeSeen)
 	seenIDAttr := false
 	ctx := s.startContext(line, col)
 	for i := range attrs {
@@ -80,7 +67,7 @@ func (s *session) validateAttributeSet(set *runtime.AttributeUseSetRead, attrs [
 		}
 		rn := s.runtimeName(a.Name)
 		if rn.Known {
-			if use, slot, ok := runtime.AttributeUseSetReadDeclaredUsePtr(set, rn.Name); ok {
+			if use, slot, ok := set.DeclaredUse(rn.Name); ok {
 				if !seen.mark(slot) {
 					if err := s.recover(attributeValidation(ctx, "duplicate attribute "+rn.Label())); err != nil {
 						return err
@@ -138,7 +125,7 @@ func (s *session) validateSimpleTypeAttributes(attrs []stream.Attr, line, col in
 }
 
 func (s *session) validateDeclaredAttributeUse(
-	use *runtime.AttributeUseRead,
+	use runtime.AttributeUseRead,
 	rn runtime.RuntimeName,
 	attr *stream.Attr,
 	ctx StartContext,
@@ -210,7 +197,7 @@ func (s *session) validateDeclaredAttributeUse(
 }
 
 func (s *session) validateWildcardAttribute(
-	set *runtime.AttributeUseSetRead,
+	set runtime.AttributeUseSetRead,
 	rn runtime.RuntimeName,
 	attr *stream.Attr,
 	ctx StartContext,
@@ -287,17 +274,22 @@ func (s *session) validateKnownWildcardAttribute(
 }
 
 func (s *session) validateRequiredAndDefaultAttributes(
-	set *runtime.AttributeUseSetRead,
+	set runtime.AttributeUseSetRead,
 	seen AttributeSeen,
 	ctx StartContext,
 	line, col int,
 	seenIDAttr *bool,
 ) error {
-	for _, slot := range set.RequiredSlots() {
+	required := set.RequiredSlots()
+	for slotIndex := range required.Len() {
+		slot, ok := required.At(slotIndex)
+		if !ok {
+			return xsderrors.InternalInvariant("required attribute slot is invalid")
+		}
 		if seen.has(int(slot)) {
 			continue
 		}
-		use, ok := runtime.AttributeUseSetReadUseAtPtr(set, int(slot))
+		use, ok := set.UseAt(int(slot))
 		if !ok {
 			return xsderrors.InternalInvariant("required attribute slot is invalid")
 		}
@@ -305,11 +297,16 @@ func (s *session) validateRequiredAndDefaultAttributes(
 			return err
 		}
 	}
-	for _, slot := range set.ValueConstraintSlots() {
+	valueConstraints := set.ValueConstraintSlots()
+	for slotIndex := range valueConstraints.Len() {
+		slot, ok := valueConstraints.At(slotIndex)
+		if !ok {
+			return xsderrors.InternalInvariant("value constraint attribute slot is invalid")
+		}
 		if seen.has(int(slot)) {
 			continue
 		}
-		use, ok := runtime.AttributeUseSetReadUseAtPtr(set, int(slot))
+		use, ok := set.UseAt(int(slot))
 		if !ok {
 			return xsderrors.InternalInvariant("value constraint attribute slot is invalid")
 		}

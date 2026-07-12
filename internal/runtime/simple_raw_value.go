@@ -6,48 +6,89 @@ import (
 	"github.com/jacoelho/xsd/internal/lex"
 )
 
-// RawSimpleValueType is the runtime-owned projection needed to route raw
-// simple-value validation.
-type RawSimpleValueType struct {
-	DecimalMinInclusive RawDecimalBound
-	DecimalMaxInclusive RawDecimalBound
-	StringPatterns      []StringPatternGroup
-	ListItem            SimpleTypeID
-	Facets              FacetMask
-	Variety             SimpleVariety
-	Primitive           PrimitiveKind
-	Builtin             BuiltinValidationKind
-	Whitespace          WhitespaceMode
-	Identity            SimpleIdentityKind
-	Fast                SimpleFastKind
+type rawSimpleValueResolver struct {
+	runtime *schemaRuntime
 }
 
-// RawSimpleValueCallbacks supplies schema-private facts used by the
-// runtime-owned raw simple-value dispatcher.
-type RawSimpleValueCallbacks struct {
-	Type                     func(id SimpleTypeID) (RawSimpleValueType, bool)
-	ForEachUnionMember       func(id SimpleTypeID, yield func(SimpleTypeID) bool)
-	ForEachStringEnumeration func(id SimpleTypeID, yield func(string) bool)
+type rawSimpleValueView struct {
+	route *simpleValueRouteRead
+	cold  *simpleValueColdRead
 }
 
-// ValidateRawSimpleValue validates raw text through a runtime-owned executor or
-// remaining schema-private executor when the frozen simple-type shape admits a
-// raw fast path.
-func ValidateRawSimpleValue(cb RawSimpleValueCallbacks, id SimpleTypeID, raw []byte) (bool, error) {
-	typ, ok := cb.Type(id)
+func (r rawSimpleValueResolver) resolveRawSimpleValue(id SimpleTypeID) (rawSimpleValueView, bool) {
+	if r.runtime == nil {
+		return rawSimpleValueView{}, false
+	}
+	route, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id)
+	if !ok {
+		return rawSimpleValueView{}, false
+	}
+	cold, ok := r.runtime.SimpleValueCold.read(id)
+	if !ok || cold == nil && (route.facets != 0 || route.variety == SimpleVarietyUnion) {
+		return rawSimpleValueView{}, false
+	}
+	return rawSimpleValueView{route: route, cold: cold}, true
+}
+
+func validateRawSimpleValuePatterns(cold *simpleValueColdRead, raw []byte) error {
+	if cold == nil {
+		return ErrSimpleValueMetadata
+	}
+	return validateRawStringPatternStepReads(cold.facets.patterns, raw)
+}
+
+func rawLengthFacets(cold *simpleValueColdRead) LengthFacetValues {
+	if cold == nil {
+		return LengthFacetValues{}
+	}
+	return cold.facets.lengthValues()
+}
+
+func (v rawSimpleValueView) rawUnionMemberCount() (int, bool) {
+	if v.cold == nil || len(v.cold.union) == 0 {
+		return 0, false
+	}
+	return len(v.cold.union), true
+}
+
+func (v rawSimpleValueView) rawUnionMember(index int) (SimpleTypeID, bool) {
+	if v.cold == nil || index < 0 || index >= len(v.cold.union) {
+		return NoSimpleType, false
+	}
+	return v.cold.union[index], true
+}
+
+func rawStringEnumeration(cold *simpleValueColdRead, normalized []byte) (bool, bool) {
+	if cold == nil {
+		return false, false
+	}
+	for _, literal := range cold.enumeration {
+		if byteStringEqual(literal.canonical, normalized) {
+			return true, true
+		}
+	}
+	return false, true
+}
+
+func validateResolvedRawSimpleValue(resolver rawSimpleValueResolver, id SimpleTypeID, raw []byte) (bool, error) {
+	typ, ok := resolver.resolveRawSimpleValue(id)
 	if !ok {
 		if id != NoSimpleType {
 			return false, ErrSimpleValueMetadata
 		}
 		return false, nil
 	}
-	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: typ.Variety, Known: true}) {
+	return validateRawSimpleValueView(resolver, id, typ, raw)
+}
+
+func validateRawSimpleValueView(resolver rawSimpleValueResolver, id SimpleTypeID, typ rawSimpleValueView, raw []byte) (bool, error) {
+	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: typ.route.variety, Known: true}) {
 	case SimpleValueRouteAtomic:
-		return validateRawAtomicSimpleValue(cb, id, typ, raw)
+		return validateRawAtomicSimpleValue(typ.route, typ.cold, raw)
 	case SimpleValueRouteList:
-		return validateRawListSimpleValue(cb, typ, raw)
+		return validateRawListSimpleValue(resolver, typ, raw)
 	case SimpleValueRouteUnion:
-		return validateRawUnionSimpleValue(cb, id, typ, raw)
+		return validateRawUnionSimpleValue(resolver, typ, raw)
 	case SimpleValueRouteInvalid:
 		return false, ErrSimpleValueMetadata
 	case SimpleValueRouteUntyped, SimpleValueRouteMissing:
@@ -56,54 +97,39 @@ func ValidateRawSimpleValue(cb RawSimpleValueCallbacks, id SimpleTypeID, raw []b
 	return false, nil
 }
 
-// ValidateRawSimpleValueFromTypeReads validates raw text directly from the
-// published simple-value type reads, avoiding per-value raw projection copies.
-func ValidateRawSimpleValueFromTypeReads(types []SimpleValueTypeRead, facets SimpleValueFacetReadTable, id SimpleTypeID, raw []byte) (bool, error) {
-	read, ok := simpleValueTypeReadByID(types, id)
-	if !ok {
-		if id != NoSimpleType {
-			return false, ErrSimpleValueMetadata
-		}
-		return false, nil
+func validateRawAtomicSimpleValue(
+	route *simpleValueRouteRead,
+	cold *simpleValueColdRead,
+	raw []byte,
+) (bool, error) {
+	facets := route.facets
+	primitive := route.primitive
+	if primitive == PrimitiveString && route.builtin == BuiltinValidationNone &&
+		route.identity == SimpleIdentityNone && facets != 0 && facets&^runtimeLengthFacetMask == 0 {
+		return true, validateRawStringLength(raw, route.whitespace, rawLengthFacets(cold))
 	}
-	return validateRawSimpleValueType(types, facets, id, &read.Type, raw)
-}
-
-func validateRawSimpleValueType(types []SimpleValueTypeRead, facets SimpleValueFacetReadTable, id SimpleTypeID, typ *SimpleValueType, raw []byte) (bool, error) {
-	switch typ.Variety {
-	case SimpleVarietyAtomic:
-		return validateRawAtomicSimpleValueType(facets, id, typ, raw)
-	case SimpleVarietyList:
-		return validateRawListSimpleValueType(types, typ, raw)
-	case SimpleVarietyUnion:
-		return validateRawUnionSimpleValueType(types, facets, typ, raw)
-	}
-	return false, ErrSimpleValueMetadata
-}
-
-func validateRawAtomicSimpleValueType(facets SimpleValueFacetReadTable, id SimpleTypeID, typ *SimpleValueType, raw []byte) (bool, error) {
-	action := typ.RawBypass
-	if action == SimpleValueBypassNone {
-		action = SimpleValueBypass(simpleValueAtomicBypassShape(typ, 0))
-	}
-	switch action {
+	switch route.rawBypass {
 	case SimpleValueBypassAcceptString:
 		return true, nil
 	case SimpleValueBypassValidateStringPatterns:
-		rawNorm, ok := rawEqualsNormalizedString(typ.Whitespace, raw)
+		rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
 		if !ok {
 			return false, nil
 		}
-		return true, ValidateRawStringPatterns(typ.StringFacets.Patterns, rawNorm)
+		return true, validateRawSimpleValuePatterns(cold, rawNorm)
 	case SimpleValueBypassValidateStringEnumeration:
-		rawNorm, ok := rawEqualsNormalizedString(typ.Whitespace, raw)
+		rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
 		if !ok {
 			return false, nil
 		}
-		if len(typ.StringFacets.CanonicalEnumeration) != 0 {
-			return true, validateRawStringEnumeration(typ.StringFacets.CanonicalEnumeration, rawNorm)
+		matched, known := rawStringEnumeration(cold, rawNorm)
+		if !known {
+			return false, ErrSimpleValueMetadata
 		}
-		return true, validateRawStringEnumerationFromTable(facets, id, rawNorm)
+		if !matched {
+			return true, errors.New("enumeration facet failed")
+		}
+		return true, nil
 	case SimpleValueBypassValidateInt:
 		if lex.HasXMLWhitespaceBytes(raw) {
 			return false, nil
@@ -113,10 +139,10 @@ func validateRawAtomicSimpleValueType(facets SimpleValueFacetReadTable, id Simpl
 		if lex.HasXMLWhitespaceBytes(raw) {
 			return false, nil
 		}
-		return validateFastDecimalLexicalPublished(RawDecimalFastPathShape{
-			Facets:       typ.Facets,
-			MinInclusive: typ.DecimalMinInclusive,
-			MaxInclusive: typ.DecimalMaxInclusive,
+		return ValidateFastDecimalLexical(RawDecimalFastPathShape{
+			Facets:       facets,
+			MinInclusive: route.minInclusive,
+			MaxInclusive: route.maxInclusive,
 		}, raw)
 	case SimpleValueBypassValidateAnyURI:
 		if lex.HasXMLWhitespaceBytes(raw) {
@@ -137,7 +163,7 @@ func validateRawAtomicSimpleValueType(facets SimpleValueFacetReadTable, id Simpl
 		if lex.HasXMLWhitespaceBytes(raw) {
 			return false, nil
 		}
-		return true, ValidateFloatLexical(raw, simpleValueFloatBits(typ.Primitive))
+		return true, ValidateFloatLexical(raw, simpleValueFloatBits(primitive))
 	case SimpleValueBypassValidateDuration:
 		if lex.HasXMLWhitespaceBytes(raw) {
 			return false, nil
@@ -152,7 +178,7 @@ func validateRawAtomicSimpleValueType(facets SimpleValueFacetReadTable, id Simpl
 		if lex.HasXMLWhitespaceBytes(raw) {
 			return false, nil
 		}
-		return true, ValidateTemporalLexical(typ.Primitive, raw)
+		return true, ValidateTemporalLexical(primitive, raw)
 	case SimpleValueBypassValidateDate:
 		if lex.HasXMLWhitespaceBytes(raw) {
 			return false, nil
@@ -164,130 +190,8 @@ func validateRawAtomicSimpleValueType(facets SimpleValueFacetReadTable, id Simpl
 	return false, nil
 }
 
-func validateRawStringEnumeration(enumeration []string, rawNorm []byte) error {
-	for _, lit := range enumeration {
-		if byteStringEqual(lit, rawNorm) {
-			return nil
-		}
-	}
-	return errors.New("enumeration facet failed")
-}
-
-func validateRawStringEnumerationFromTable(facets SimpleValueFacetReadTable, id SimpleTypeID, rawNorm []byte) error {
-	f, ok := facets.Facets(id)
-	if !ok {
-		return ErrSimpleValueMetadata
-	}
-	for _, lit := range f.Enumeration {
-		if byteStringEqual(lit.Canonical, rawNorm) {
-			return nil
-		}
-	}
-	return errors.New("enumeration facet failed")
-}
-
-func validateRawListSimpleValueType(types []SimpleValueTypeRead, typ *SimpleValueType, raw []byte) (bool, error) {
-	if typ.Identity != SimpleIdentityNone || typ.Facets != 0 {
-		return false, nil
-	}
-	item, ok := simpleValueTypeReadByID(types, typ.ListItem)
-	if !ok {
-		return false, ErrSimpleValueMetadata
-	}
-	if item.Type.Variety == SimpleVarietyAtomic &&
-		item.Type.Builtin == BuiltinValidationNMTOKEN &&
-		item.Type.Identity == SimpleIdentityNone &&
-		item.Type.Facets == 0 {
-		return true, ValidateNMTOKENListBytes(raw)
-	}
-	return false, nil
-}
-
-func validateRawUnionSimpleValueType(types []SimpleValueTypeRead, facets SimpleValueFacetReadTable, typ *SimpleValueType, raw []byte) (bool, error) {
-	if typ.Identity != SimpleIdentityNone || typ.Facets != 0 || lex.HasXMLWhitespaceBytes(raw) {
-		return false, nil
-	}
-
-	var matched, unhandled bool
-	for _, member := range typ.UnionMembers {
-		memberType, ok := simpleValueTypeReadByID(types, member)
-		if !ok {
-			return false, ErrSimpleValueMetadata
-		}
-		if memberType.Type.Variety != SimpleVarietyAtomic || memberType.Type.Identity != SimpleIdentityNone {
-			unhandled = true
-			break
-		}
-		if memberType.Type.Primitive == PrimitiveBoolean &&
-			memberType.Type.Builtin == BuiltinValidationNone &&
-			memberType.Type.Facets == 0 {
-			if BooleanLexicalOK(raw) {
-				matched = true
-				break
-			}
-			continue
-		}
-		ok, err := validateRawSimpleValueType(types, facets, member, &memberType.Type, raw)
-		if !ok {
-			unhandled = true
-			break
-		}
-		if err == nil {
-			matched = true
-			break
-		}
-	}
-	if matched {
-		return true, nil
-	}
-	if unhandled {
-		return false, nil
-	}
-	return true, errors.New("value does not match any union member")
-}
-
-func validateRawAtomicSimpleValue(cb RawSimpleValueCallbacks, id SimpleTypeID, typ RawSimpleValueType, raw []byte) (bool, error) {
-	action := SimpleValueBypass(rawSimpleValueBypassShape(typ))
-	shape, rawNorm := rawAtomicFastPathFacts(action, typ.Whitespace, raw)
-	switch SimpleRawAtomicFastPath(shape) {
-	case SimpleRawAtomicFastPathAccept:
-		return true, nil
-	case SimpleRawAtomicFastPathValidateStringPatterns:
-		return true, ValidateRawStringPatterns(typ.StringPatterns, rawNorm)
-	case SimpleRawAtomicFastPathValidateStringEnumeration:
-		return true, ValidateRawStringEnumeration(id, cb.ForEachStringEnumeration, rawNorm)
-	case SimpleRawAtomicFastPathValidateInt:
-		return true, ValidateFastIntLexical(raw)
-	case SimpleRawAtomicFastPathValidateDecimal:
-		return ValidateFastDecimalLexical(RawDecimalFastPathShape{
-			Facets:       typ.Facets,
-			MinInclusive: typ.DecimalMinInclusive,
-			MaxInclusive: typ.DecimalMaxInclusive,
-		}, raw)
-	case SimpleRawAtomicFastPathValidateAnyURI:
-		return true, ValidateAnyURILexical(raw)
-	case SimpleRawAtomicFastPathValidateHexBinary:
-		return true, ValidateHexBinaryLexical(raw)
-	case SimpleRawAtomicFastPathValidateBase64Binary:
-		return true, ValidateBase64BinaryLexical(raw)
-	case SimpleRawAtomicFastPathValidateFloat:
-		return true, ValidateFloatLexical(raw, simpleValueFloatBits(typ.Primitive))
-	case SimpleRawAtomicFastPathValidateDuration:
-		return true, ValidateDurationLexical(raw)
-	case SimpleRawAtomicFastPathValidateBoolean:
-		return true, ValidateBooleanLexical(raw)
-	case SimpleRawAtomicFastPathValidateTemporal:
-		return true, ValidateTemporalLexical(typ.Primitive, raw)
-	case SimpleRawAtomicFastPathValidateDate:
-		return ValidateFastDateLexical(raw)
-	case SimpleRawAtomicFastPathNone:
-		return false, nil
-	}
-	return false, nil
-}
-
-func validateRawListSimpleValue(cb RawSimpleValueCallbacks, typ RawSimpleValueType, raw []byte) (bool, error) {
-	shape, ok := rawSimpleListFastPathShape(cb, typ)
+func validateRawListSimpleValue(resolver rawSimpleValueResolver, typ rawSimpleValueView, raw []byte) (bool, error) {
+	shape, ok := rawSimpleListFastPathShape(resolver, typ)
 	if !ok {
 		return false, ErrSimpleValueMetadata
 	}
@@ -300,10 +204,10 @@ func validateRawListSimpleValue(cb RawSimpleValueCallbacks, typ RawSimpleValueTy
 	return false, nil
 }
 
-func validateRawUnionSimpleValue(cb RawSimpleValueCallbacks, id SimpleTypeID, typ RawSimpleValueType, raw []byte) (bool, error) {
+func validateRawUnionSimpleValue(resolver rawSimpleValueResolver, typ rawSimpleValueView, raw []byte) (bool, error) {
 	switch SimpleRawUnionFastPath(SimpleRawUnionFastPathShape{
-		Facets:        typ.Facets,
-		Identity:      typ.Identity,
+		Facets:        typ.route.facets,
+		Identity:      typ.route.identity,
 		HasWhitespace: lex.HasXMLWhitespaceBytes(raw),
 	}) {
 	case SimpleRawUnionFastPathValidateMembers:
@@ -311,89 +215,67 @@ func validateRawUnionSimpleValue(cb RawSimpleValueCallbacks, id SimpleTypeID, ty
 		return false, nil
 	}
 
-	var matched, unhandled bool
-	var metadataErr error
-	cb.ForEachUnionMember(id, func(member SimpleTypeID) bool {
-		memberType, ok := cb.Type(member)
+	memberCount, ok := typ.rawUnionMemberCount()
+	if !ok || memberCount < 0 {
+		return false, ErrSimpleValueMetadata
+	}
+	for i := range memberCount {
+		member, ok := typ.rawUnionMember(i)
 		if !ok {
-			metadataErr = ErrSimpleValueMetadata
-			return false
+			return false, ErrSimpleValueMetadata
+		}
+		memberType, ok := resolver.resolveRawSimpleValue(member)
+		if !ok {
+			return false, ErrSimpleValueMetadata
 		}
 		switch SimpleRawUnionMember(rawSimpleUnionMemberShape(memberType, ok)) {
 		case SimpleRawUnionMemberTryBoolean:
 			if BooleanLexicalOK(raw) {
-				matched = true
-				return false
+				return true, nil
 			}
-			return true
 		case SimpleRawUnionMemberTryRaw:
-			ok, err := ValidateRawSimpleValue(cb, member, raw)
+			ok, err := validateRawSimpleValueView(resolver, member, memberType, raw)
 			if !ok {
-				unhandled = true
-				return false
+				return false, nil
 			}
 			if err == nil {
-				matched = true
-				return false
+				return true, nil
 			}
-			return true
 		case SimpleRawUnionMemberNone:
-			unhandled = true
-			return false
+			return false, nil
 		}
-		return false
-	})
-	if metadataErr != nil {
-		return false, metadataErr
-	}
-	if matched {
-		return true, nil
-	}
-	if unhandled {
-		return false, nil
 	}
 	return true, errors.New("value does not match any union member")
 }
 
-func rawSimpleValueBypassShape(typ RawSimpleValueType) SimpleValueBypassShape {
-	return SimpleValueBypassShape{
-		Facets:    typ.Facets,
-		Variety:   typ.Variety,
-		Primitive: typ.Primitive,
-		Builtin:   typ.Builtin,
-		Identity:  typ.Identity,
-		Fast:      typ.Fast,
-	}
-}
-
-func rawSimpleListFastPathShape(cb RawSimpleValueCallbacks, typ RawSimpleValueType) (SimpleRawListFastPathShape, bool) {
+func rawSimpleListFastPathShape(resolver rawSimpleValueResolver, typ rawSimpleValueView) (SimpleRawListFastPathShape, bool) {
 	shape := SimpleRawListFastPathShape{
-		ListFacets:   typ.Facets,
-		ListIdentity: typ.Identity,
+		ListFacets:   typ.route.facets,
+		ListIdentity: typ.route.identity,
 	}
-	item, ok := cb.Type(typ.ListItem)
+	item, ok := resolver.resolveRawSimpleValue(typ.route.listItem)
 	if !ok {
 		return shape, false
 	}
 	shape.ItemKnown = true
-	shape.ItemFacets = item.Facets
-	shape.ItemVariety = item.Variety
-	shape.ItemBuiltin = item.Builtin
-	shape.ItemIdentity = item.Identity
+	shape.ItemFacets = item.route.facets
+	shape.ItemVariety = item.route.variety
+	shape.ItemBuiltin = item.route.builtin
+	shape.ItemIdentity = item.route.identity
 	return shape, true
 }
 
-func rawSimpleUnionMemberShape(typ RawSimpleValueType, ok bool) SimpleRawUnionMemberShape {
+func rawSimpleUnionMemberShape(typ rawSimpleValueView, ok bool) SimpleRawUnionMemberShape {
 	if !ok {
 		return SimpleRawUnionMemberShape{}
 	}
 	return SimpleRawUnionMemberShape{
-		Facets:    typ.Facets,
-		Variety:   typ.Variety,
-		Primitive: typ.Primitive,
-		Builtin:   typ.Builtin,
-		Identity:  typ.Identity,
-		Fast:      typ.Fast,
+		Facets:    typ.route.facets,
+		Variety:   typ.route.variety,
+		Primitive: typ.route.primitive,
+		Builtin:   typ.route.builtin,
+		Identity:  typ.route.identity,
+		Fast:      typ.route.fast,
 		Known:     true,
 	}
 }

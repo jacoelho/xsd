@@ -2,6 +2,9 @@ package compile_test
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -9,9 +12,36 @@ import (
 	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestCompileInheritedEnumerationRestrictionChain(t *testing.T) {
+	t.Parallel()
+
+	const (
+		depth            = 100
+		enumerationCount = 100
+	)
+	var schema strings.Builder
+	schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	schema.WriteString(`<xs:simpleType name="t0"><xs:restriction base="xs:decimal">`)
+	for i := range enumerationCount {
+		fmt.Fprintf(&schema, `<xs:enumeration value="%d"/>`, i)
+	}
+	schema.WriteString(`</xs:restriction></xs:simpleType>`)
+	for i := 1; i <= depth; i++ {
+		fmt.Fprintf(&schema, `<xs:simpleType name="t%d"><xs:restriction base="t%d"><xs:minInclusive value="0"/></xs:restriction></xs:simpleType>`, i, i-1)
+	}
+	fmt.Fprintf(&schema, `<xs:element name="root" type="t%d"/></xs:schema>`, depth)
+
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("schema.xsd", []byte(schema.String())),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<root>0</root>`)
+}
 
 func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 	tests := []struct {
@@ -102,6 +132,655 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 			expectSchemaCompileLine(t, err, lineOf(test.schema, test.needle))
 		})
 	}
+}
+
+func TestMissingIncludedSchemaLocationDoesNotInvalidateSchema(t *testing.T) {
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		if location != "missing.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		return source.Source{}, xsderrors.ErrSchemaNotFound
+	})
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="missing.xsd"/>
+</xs:schema>`)).WithResolver(resolver)})
+	if err != nil {
+		t.Fatalf("Compile() error = %v, want nil", err)
+	}
+}
+
+func TestMissingResolvedIncludeDoesNotInvalidateSchema(t *testing.T) {
+	readErrors := []struct {
+		name string
+		err  error
+	}{
+		{name: "not exist", err: os.ErrNotExist},
+		{name: "wrapped not exist", err: fmt.Errorf("open: %w", os.ErrNotExist)},
+		{name: "schema not found", err: xsderrors.ErrSchemaNotFound},
+		{name: "wrapped schema not found", err: fmt.Errorf("open: %w", xsderrors.ErrSchemaNotFound)},
+	}
+	for _, tt := range readErrors {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := source.Resolver(func(_, location string) (source.Source, error) {
+				if location != "optional.xsd" {
+					return source.Source{}, errors.New("unexpected location " + location)
+				}
+				return source.Opener("optional.xsd", func() (io.ReadCloser, error) {
+					return nil, tt.err
+				}), nil
+			})
+			_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="optional.xsd"/>
+</xs:schema>`)).WithResolver(resolver)})
+			if err != nil {
+				t.Fatalf("Compile() error = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestSchemaSetReferenceRules(t *testing.T) {
+	validSchema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
+	readFailure := errors.New("read failed")
+	resolved := func(name, schema string) source.Resolver {
+		return func(_, location string) (source.Source, error) {
+			if location != name {
+				return source.Source{}, errors.New("unexpected location " + location)
+			}
+			return source.Bytes(name, []byte(schema)), nil
+		}
+	}
+	tests := []struct {
+		name     string
+		sources  func() []source.Source
+		category xsderrors.Category
+		code     xsderrors.Code
+		message  string
+		line     int
+	}{
+		{
+			name:     "source name required",
+			sources:  func() []source.Source { return []source.Source{source.Bytes("", validSchema)} },
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaRead,
+			message:  "schema source name is required",
+		},
+		{
+			name: "read error",
+			sources: func() []source.Source {
+				return []source.Source{source.Opener("broken.xsd", func() (io.ReadCloser, error) { return nil, readFailure })}
+			},
+			category: xsderrors.CategorySchemaParse,
+			code:     xsderrors.CodeSchemaRead,
+			message:  "read schema broken.xsd",
+		},
+		{
+			name: "include missing location",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n  <xs:include/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "include missing schemaLocation",
+			line:     2,
+		},
+		{
+			name: "include whitespace location",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n  <xs:include schemaLocation=\"   \"/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "include missing schemaLocation",
+			line:     2,
+		},
+		{
+			name: "import without namespace from no-target schema",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n  <xs:import/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "import without namespace requires enclosing schema targetNamespace",
+			line:     2,
+		},
+		{
+			name: "empty import namespace",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"urn:a\">\n  <xs:import namespace=\"\"/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaInvalidAttribute,
+			message:  "import namespace cannot be empty",
+			line:     2,
+		},
+		{
+			name: "import matches enclosing target",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"urn:a\">\n  <xs:import namespace=\"urn:a\"/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "import namespace cannot match enclosing schema targetNamespace",
+			line:     2,
+		},
+		{
+			name: "import target mismatch",
+			sources: func() []source.Source {
+				schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"urn:a\">\n  <xs:import namespace=\"urn:b\" schemaLocation=\"other.xsd\"/>\n</xs:schema>"
+				return []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolved("other.xsd", `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:c"/>`))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "import namespace does not match imported schema targetNamespace",
+			line:     2,
+		},
+		{
+			name: "include target mismatch",
+			sources: func() []source.Source {
+				schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"urn:a\">\n  <xs:include schemaLocation=\"other.xsd\"/>\n</xs:schema>"
+				return []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolved("other.xsd", `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "included schema targetNamespace does not match including schema",
+			line:     2,
+		},
+		{
+			name: "unimported QName",
+			sources: func() []source.Source {
+				schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:b=\"urn:b\" targetNamespace=\"urn:a\">\n  <xs:element name=\"root\" type=\"b:Missing\"/>\n</xs:schema>"
+				return []source.Source{source.Bytes("schema.xsd", []byte(schema))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "namespace is not imported: urn:b",
+			line:     2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := compile.Compile(compile.Options{}, tt.sources())
+			expectCategoryCode(t, err, tt.category, tt.code)
+			if !strings.Contains(err.Error(), tt.message) {
+				t.Fatalf("Compile() error = %v, want message containing %q", err, tt.message)
+			}
+			if tt.line != 0 {
+				expectSchemaCompileLine(t, err, tt.line)
+			}
+		})
+	}
+}
+
+func TestSchemaSetValidReferenceRules(t *testing.T) {
+	tests := []struct {
+		name      string
+		root      string
+		child     string
+		childName string
+	}{
+		{
+			name:      "import no namespace from targeted schema",
+			root:      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:import schemaLocation="child.xsd"/></xs:schema>`,
+			child:     `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
+			childName: "child.xsd",
+		},
+		{
+			name:      "foreign import matches imported target",
+			root:      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:import namespace="urn:b" schemaLocation="child.xsd"/></xs:schema>`,
+			child:     `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`,
+			childName: "child.xsd",
+		},
+		{
+			name:      "include matching target",
+			root:      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:include schemaLocation="child.xsd"/></xs:schema>`,
+			child:     `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"/>`,
+			childName: "child.xsd",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := source.Resolver(func(_, location string) (source.Source, error) {
+				if location != tt.childName {
+					return source.Source{}, errors.New("unexpected location " + location)
+				}
+				return source.Bytes(tt.childName, []byte(tt.child)), nil
+			})
+			if _, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(tt.root)).WithResolver(resolver)}); err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestXMLNamespaceImportDoesNotCallResolver(t *testing.T) {
+	called := false
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		called = true
+		return source.Source{}, errors.New("unexpected resolver call for " + location)
+	})
+	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/></xs:schema>`
+	if _, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolver)}); err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if called {
+		t.Fatal("XML namespace import called resolver")
+	}
+}
+
+func TestResolverAliasTakesPrecedenceOverLocationCandidate(t *testing.T) {
+	main := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:main"><xs:include schemaLocation="common.xsd"/></xs:schema>`
+	alias := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="fromAlias"/></xs:schema>`
+	competing := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:other"><xs:element name="fromCandidate"/></xs:schema>`
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		if location != "common.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		return source.Bytes("alias/common.xsd", []byte(alias)), nil
+	})
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("dir/main.xsd", []byte(main)).WithResolver(resolver),
+		source.Bytes("dir/common.xsd", []byte(competing)),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<fromAlias xmlns="urn:main"/>`)
+}
+
+func TestSchemaLoaderKeepsFirstCanonicalSource(t *testing.T) {
+	first := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="first"/></xs:schema>`
+	second := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="second"/></xs:schema>`
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("dir/../schema.xsd", []byte(first)),
+		source.Bytes("schema.xsd", []byte(second)),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<first/>`)
+	mustNotValidateRuntime(t, engine, `<second/>`, xsderrors.CodeValidationRoot)
+}
+
+func TestSchemaLoaderResolvesBreadthFirst(t *testing.T) {
+	var calls []string
+	documents := map[string]string{
+		"a.xsd":      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="leaf-a.xsd"/></xs:schema>`,
+		"b.xsd":      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="leaf-b.xsd"/></xs:schema>`,
+		"leaf-a.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
+		"leaf-b.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
+	}
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		calls = append(calls, location)
+		schema, ok := documents[location]
+		if !ok {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		return source.Bytes(location, []byte(schema)), nil
+	})
+	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="a.xsd"/><xs:include schemaLocation="b.xsd"/></xs:schema>`
+	if _, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)}); err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	want := []string{"a.xsd", "b.xsd", "leaf-a.xsd", "leaf-b.xsd"}
+	if !reflect.DeepEqual(calls, want) {
+		t.Fatalf("resolver calls = %v, want %v", calls, want)
+	}
+}
+
+func TestResolvedSourceNameAndResolverErrorsRemainStructured(t *testing.T) {
+	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/></xs:schema>`
+	tests := []struct {
+		name     string
+		resolver source.Resolver
+		category xsderrors.Category
+		message  string
+	}{
+		{
+			name: "empty resolved source name",
+			resolver: func(_, _ string) (source.Source, error) {
+				return source.Bytes("", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)), nil
+			},
+			category: xsderrors.CategorySchemaCompile,
+			message:  "schema source name is required",
+		},
+		{
+			name: "resolver error",
+			resolver: func(_, _ string) (source.Source, error) {
+				return source.Source{}, errors.New("resolver failed")
+			},
+			category: xsderrors.CategorySchemaParse,
+			message:  "resolve schema child.xsd",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(tt.resolver)})
+			expectCategoryCode(t, err, tt.category, xsderrors.CodeSchemaRead)
+			if !strings.Contains(err.Error(), tt.message) {
+				t.Fatalf("Compile() error = %v, want message containing %q", err, tt.message)
+			}
+		})
+	}
+}
+
+func TestSchemaReferenceErrorsFollowSourceNameOrder(t *testing.T) {
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/../a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include/></xs:schema>`)),
+		source.Bytes("a/../b.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace=""/></xs:schema>`)),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
+}
+
+func TestIncludeTargetMismatchPrecedesExplicitImportErrors(t *testing.T) {
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:import namespace="urn:a"/></xs:schema>`)),
+		source.Bytes("z.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:z"><xs:include schemaLocation="child.xsd"/></xs:schema>`)),
+		source.Bytes("child.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:child"/>`)),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaReference)
+	if !strings.Contains(err.Error(), "included schema targetNamespace does not match including schema") {
+		t.Fatalf("Compile() error = %v, want include target mismatch", err)
+	}
+}
+
+func TestChameleonIncludesCloneTransitivelyForMultipleTargets(t *testing.T) {
+	const common = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="leaf.xsd"/>
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`
+	const leaf = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="leaf" type="xs:string"/>
+</xs:schema>`
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		switch location {
+		case "common.xsd":
+			return source.Bytes("common.xsd", []byte(common)), nil
+		case "leaf.xsd":
+			return source.Bytes("leaf.xsd", []byte(leaf)), nil
+		default:
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+	})
+	root := func(target string) source.Source {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="` + target + `">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`
+		return source.Bytes(target+".xsd", []byte(schema)).WithResolver(resolver)
+	}
+	engine, err := compile.Compile(compile.Options{}, []source.Source{root("urn:b"), root("urn:a")})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	for _, doc := range []string{
+		`<common xmlns="urn:a">a</common>`,
+		`<leaf xmlns="urn:a">a</leaf>`,
+		`<common xmlns="urn:b">b</common>`,
+		`<leaf xmlns="urn:b">b</leaf>`,
+	} {
+		mustValidateRuntime(t, engine, doc)
+	}
+	mustNotValidateRuntime(t, engine, `<common/>`, xsderrors.CodeValidationRoot)
+	mustNotValidateRuntime(t, engine, `<leaf/>`, xsderrors.CodeValidationRoot)
+}
+
+func TestChameleonIncludesInstantiateAbsentAndNonEmptyTargetsTransitively(t *testing.T) {
+	const common = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="leaf.xsd"/>
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`
+	const leaf = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="leaf" type="xs:string"/>
+</xs:schema>`
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		switch location {
+		case "common.xsd":
+			return source.Bytes("common.xsd", []byte(common)), nil
+		case "leaf.xsd":
+			return source.Bytes("leaf.xsd", []byte(leaf)), nil
+		default:
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+	})
+	root := func(name, target string) source.Source {
+		targetAttribute := ""
+		if target != "" {
+			targetAttribute = ` targetNamespace="` + target + `"`
+		}
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"` + targetAttribute + `>
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`
+		return source.Bytes(name, []byte(schema)).WithResolver(resolver)
+	}
+	for _, tt := range []struct {
+		name       string
+		absentName string
+		namedName  string
+	}{
+		{name: "absent target assigned first", absentName: "a-absent.xsd", namedName: "z-named.xsd"},
+		{name: "non-empty target assigned first", absentName: "z-absent.xsd", namedName: "a-named.xsd"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			engine, err := compile.Compile(compile.Options{}, []source.Source{
+				root(tt.absentName, ""),
+				root(tt.namedName, "urn:test"),
+			})
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+			for _, doc := range []string{
+				`<common>absent</common>`,
+				`<leaf>absent</leaf>`,
+				`<common xmlns="urn:test">named</common>`,
+				`<leaf xmlns="urn:test">named</leaf>`,
+			} {
+				mustValidateRuntime(t, engine, doc)
+			}
+		})
+	}
+}
+
+func TestImportedAbsentTargetChecksTransitiveIncludeTarget(t *testing.T) {
+	const root = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root">
+  <xs:import schemaLocation="child.xsd"/>
+</xs:schema>`
+	const child = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="foreign.xsd"/>
+</xs:schema>`
+	const foreign = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:foreign"/>`
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("root.xsd", []byte(root)),
+		source.Bytes("child.xsd", []byte(child)),
+		source.Bytes("foreign.xsd", []byte(foreign)),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaReference)
+	if !strings.Contains(err.Error(), "included schema targetNamespace does not match including schema") {
+		t.Fatalf("Compile() error = %v, want include target mismatch", err)
+	}
+}
+
+func TestResolverImportAndNamedIncludeInstantiateSharedChameleonTransitively(t *testing.T) {
+	const root = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:named">
+  <xs:import schemaLocation="imported.xsd"/>
+  <xs:include schemaLocation="shared.xsd"/>
+</xs:schema>`
+	documents := map[string]string{
+		"imported.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="middle.xsd"/>
+</xs:schema>`,
+		"middle.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="shared.xsd"/>
+</xs:schema>`,
+		"shared.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="shared" type="xs:string"/>
+</xs:schema>`,
+	}
+	var resolver source.Resolver
+	resolver = func(_, location string) (source.Source, error) {
+		schema, ok := documents[location]
+		if !ok {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		return source.Bytes(location, []byte(schema)).WithResolver(resolver), nil
+	}
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("root.xsd", []byte(root)).WithResolver(resolver),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<shared>absent</shared>`)
+	mustValidateRuntime(t, engine, `<shared xmlns="urn:named">named</shared>`)
+}
+
+func TestAbsentTargetIncludeCycleEstablishesRootContext(t *testing.T) {
+	const a = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="b.xsd"/>
+  <xs:element name="a" type="xs:string"/>
+</xs:schema>`
+	const b = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="a.xsd"/>
+  <xs:element name="b" type="xs:string"/>
+</xs:schema>`
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("a.xsd", []byte(a)),
+		source.Bytes("b.xsd", []byte(b)),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<a>one</a>`)
+	mustValidateRuntime(t, engine, `<b>two</b>`)
+}
+
+func TestByteIdenticalSchemasResolveSourceRelativeIncludesIndependently(t *testing.T) {
+	const main = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+	resolver := source.Resolver(func(base, location string) (source.Source, error) {
+		if location != "common.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		switch base {
+		case "a/main.xsd":
+			return source.Bytes("a/common.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="a"/>
+</xs:schema>`)), nil
+		case "b/main.xsd":
+			return source.Bytes("b/common.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="b"/>
+</xs:schema>`)), nil
+		default:
+			return source.Source{}, errors.New("unexpected base " + base)
+		}
+	})
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/main.xsd", []byte(main)).WithResolver(resolver),
+		source.Bytes("a/main.xsd", []byte(main)).WithResolver(resolver),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	mustValidateRuntime(t, engine, `<t:a xmlns:t="urn:test"/>`)
+	mustValidateRuntime(t, engine, `<t:b xmlns:t="urn:test"/>`)
+	mustValidateRuntime(t, engine, `<t:root xmlns:t="urn:test">ok</t:root>`)
+}
+
+func TestByteIdenticalSchemasDoNotSuppressDuplicateSourceRelativeIncludes(t *testing.T) {
+	const main = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`
+	const common = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="dup"/>
+</xs:schema>`
+	resolver := source.Resolver(func(base, location string) (source.Source, error) {
+		if location != "common.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		switch base {
+		case "a/main.xsd":
+			return source.Bytes("a/common.xsd", []byte(common)), nil
+		case "b/main.xsd":
+			return source.Bytes("b/common.xsd", []byte(common)), nil
+		default:
+			return source.Source{}, errors.New("unexpected base " + base)
+		}
+	})
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/main.xsd", []byte(main)).WithResolver(resolver),
+		source.Bytes("a/main.xsd", []byte(main)).WithResolver(resolver),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaDuplicate)
+	if !strings.Contains(err.Error(), "duplicate schema component") {
+		t.Fatalf("error = %v, want duplicate schema component", err)
+	}
+}
+
+func TestByteIdenticalSameTargetDuplicateKeepsImportGraphValidation(t *testing.T) {
+	const main = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:main">
+  <xs:import namespace="urn:dep" schemaLocation="dep.xsd"/>
+</xs:schema>`
+	resolver := source.Resolver(func(base, location string) (source.Source, error) {
+		if location != "dep.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		switch base {
+		case "a/main.xsd":
+			return source.Bytes("a/dep.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:dep"/>`)), nil
+		case "b/main.xsd":
+			return source.Bytes("b/dep.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:wrong"/>`)), nil
+		default:
+			return source.Source{}, errors.New("unexpected base " + base)
+		}
+	})
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/main.xsd", []byte(main)).WithResolver(resolver),
+		source.Bytes("a/main.xsd", []byte(main)).WithResolver(resolver),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaReference)
+}
+
+func TestByteIdenticalSameTargetSourcesCompileIdentityOnce(t *testing.T) {
+	const schema = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="code" type="xs:string" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemCode">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@code"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/schema.xsd", []byte(schema)),
+		source.Bytes("a/schema.xsd", []byte(schema)),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	mustValidateRuntime(t, engine, `<t:root xmlns:t="urn:test"><item code="a"/><item code="b"/></t:root>`)
+	mustNotValidateRuntime(t, engine, `<t:root xmlns:t="urn:test"><item code="a"/><item code="a"/></t:root>`, xsderrors.CodeValidationIdentity)
 }
 
 func expectSchemaCompileLine(t *testing.T, err error, line int) {
@@ -619,155 +1298,6 @@ func TestContentModelSubstitutionRespectsElementBlock(t *testing.T) {
 	mustNotValidateRuntime(t, engine, `<root><blockedMember>1</blockedMember></root>`, xsderrors.CodeValidationElement)
 }
 
-func TestFreezeRejectsSubstitutionClosureDrift(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="head" type="xs:string"/>
-  <xs:element name="member" substitutionGroup="head" type="xs:string"/>
-  <xs:element name="other" type="xs:string"/>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema, head, member, other runtime.ElementID)
-	}{
-		{
-			name: "phantom substitution member",
-			mutate: func(t *testing.T, rt *runtime.Schema, head, _, other runtime.ElementID) {
-				t.Helper()
-				rt.Substitutions[head] = append(rt.Substitutions[head], other)
-				rt.SubstitutionLookup[head][rt.Elements[other].Name] = other
-			},
-		},
-		{
-			name: "missing declared member",
-			mutate: func(t *testing.T, rt *runtime.Schema, head, _, _ runtime.ElementID) {
-				t.Helper()
-				rt.Substitutions[head] = nil
-				rt.SubstitutionLookup[head] = nil
-			},
-		},
-		{
-			name: "stale lookup",
-			mutate: func(t *testing.T, rt *runtime.Schema, head, member, _ runtime.ElementID) {
-				t.Helper()
-				delete(rt.SubstitutionLookup[head], rt.Elements[member].Name)
-			},
-		},
-		{
-			name: "cycle",
-			mutate: func(t *testing.T, rt *runtime.Schema, head, member, _ runtime.ElementID) {
-				t.Helper()
-				rt.Elements[head].SubstHead = member
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			head := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "head")]
-			member := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "member")]
-			other := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "other")]
-			tc.mutate(t, publishedRuntime(t, engine), head, member, other)
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsSubstitutionMapsWithoutHeads(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`)
-	root := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	publishedRuntime(t, engine).Substitutions = map[runtime.ElementID][]runtime.ElementID{root: {root}}
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsInvalidWildcards(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:any namespace="urn:b urn:a" processContents="lax" minOccurs="0"/>
-      </xs:sequence>
-      <xs:anyAttribute namespace="##other" processContents="skip"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	wildcardByMode := func(t *testing.T, rt *runtime.Schema, mode runtime.WildcardMode) *runtime.Wildcard {
-		t.Helper()
-		for i := range rt.Wildcards {
-			if rt.Wildcards[i].Mode == mode {
-				return &rt.Wildcards[i]
-			}
-		}
-		t.Fatalf("wildcard mode %d not found", mode)
-		return nil
-	}
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "invalid process",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				wildcardByMode(t, rt, runtime.WildcardList).Process = runtime.ProcessContents(99)
-			},
-		},
-		{
-			name: "invalid mode",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				wildcardByMode(t, rt, runtime.WildcardList).Mode = runtime.WildcardMode(99)
-			},
-		},
-		{
-			name: "stale other field",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ns, ok := rt.Names.LookupNamespace("urn:a")
-				if !ok {
-					t.Fatal("urn:a namespace not interned")
-				}
-				wildcardByMode(t, rt, runtime.WildcardList).OtherThan = ns
-			},
-		},
-		{
-			name: "unnormalized namespace list",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				w := wildcardByMode(t, rt, runtime.WildcardList)
-				if len(w.Namespaces) < 2 {
-					t.Fatalf("wildcard namespace list length = %d, want >= 2", len(w.Namespaces))
-				}
-				w.Namespaces[0], w.Namespaces[1] = w.Namespaces[1], w.Namespaces[0]
-			},
-		},
-		{
-			name: "invalid namespace id",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				wildcardByMode(t, rt, runtime.WildcardOther).OtherThan = runtime.NamespaceID(1 << 30)
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
 func TestAnonymousLocalTypeCanRestrictContainingType(t *testing.T) {
 	engine := mustCompileRuntime(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns="urn:test">
@@ -956,433 +1486,14 @@ func TestCompileOptionsRejectNegativeLimits(t *testing.T) {
 	}
 }
 
-func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:string" default="abc"/>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(rt *runtime.Schema, decl *runtime.ElementDecl)
-	}{
-		{
-			name: "canonical value mismatch",
-			mutate: func(_ *runtime.Schema, decl *runtime.ElementDecl) {
-				decl.Default.Value.Canonical = "other"
-			},
-		},
-		{
-			name: "invalid value type",
-			mutate: func(_ *runtime.Schema, decl *runtime.ElementDecl) {
-				decl.Default.Value.Type = runtime.SimpleTypeID(1 << 30)
-			},
-		},
-		{
-			name: "stale valid value type",
-			mutate: func(rt *runtime.Schema, decl *runtime.ElementDecl) {
-				decl.Default.Value.Type = rt.Builtin.Boolean
-			},
-		},
-		{
-			name: "stale identity key",
-			mutate: func(_ *runtime.Schema, decl *runtime.ElementDecl) {
-				decl.Default.Value.Identity = "stale"
-			},
-		},
-		{
-			name: "stale idref payload",
-			mutate: func(_ *runtime.Schema, decl *runtime.ElementDecl) {
-				decl.Default.Value.IDRefs = decl.Default.Value.Canonical
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-			tc.mutate(publishedRuntime(t, engine), &publishedRuntime(t, engine).Elements[rootID])
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsBothDefaultAndFixedValueConstraints(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:attribute name="ga" type="xs:string" default="a"/>
-  <xs:element name="value" type="xs:string" default="v"/>
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute name="la" type="xs:string" default="b"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "element declaration",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				id := rt.GlobalElements[mustQName(t, rt, "value")]
-				rt.Elements[id].Fixed = cloneValueConstraint(rt.Elements[id].Default)
-			},
-		},
-		{
-			name: "attribute declaration",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				id := rt.GlobalAttributes[mustQName(t, rt, "ga")]
-				rt.Attributes[id].Fixed = cloneValueConstraint(rt.Attributes[id].Default)
-			},
-		},
-		{
-			name: "attribute use",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				engine := rt
-				set := rootAttributeUseSet(t, engine)
-				set.Uses[0].Fixed = cloneValueConstraint(set.Uses[0].Default)
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func cloneValueConstraint(in *runtime.ValueConstraint) *runtime.ValueConstraint {
-	if in == nil {
-		return nil
-	}
-	out := new(runtime.ValueConstraint)
-	*out = *in
-	out.ResolvedNames = append([]runtime.ResolvedValueName(nil), in.ResolvedNames...)
-	return out
-}
-
-func TestFreezeRejectsUnionValueConstraintStoredAsOwnerType(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="U">
-    <xs:union memberTypes="xs:int xs:boolean"/>
-  </xs:simpleType>
-  <xs:element name="root" type="U" default="1"/>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	unionID := simpleTypeIDByName(t, publishedRuntime(t, engine), "U")
-	publishedRuntime(t, engine).Elements[rootID].Default.Value.Type = unionID
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsValueConstraintThatNoLongerSatisfiesFacets(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Code">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="A"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:element name="root" type="Code" default="A"/>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	defaultValue := publishedRuntime(t, engine).Elements[rootID].Default
-	defaultValue.Lexical = "B"
-	defaultValue.Canonical = "B"
-	defaultValue.Value.Canonical = "B"
-	defaultValue.Value.Identity = runtime.SimpleIdentityKey(runtime.PrimitiveString, "B")
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
 func TestFreezeReplaysResolvedQNameValueConstraint(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
     xmlns:t="urn:test">
   <xs:element name="root" type="xs:QName" default="t:item"/>
 </xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() error = %v", err)
-	}
-}
-
-func TestFreezeRejectsInvalidResolvedQNameReplay(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-    xmlns:t="urn:test">
-  <xs:element name="root" type="xs:QName" default="t:item"/>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	defaultValue := publishedRuntime(t, engine).Elements[rootID].Default
-	defaultValue.Lexical = "bad::item"
-	defaultValue.Canonical = runtime.FormatExpandedName("urn:test", "item")
-	defaultValue.Value.Canonical = defaultValue.Canonical
-	defaultValue.Value.Identity = runtime.SimpleIdentityKey(runtime.PrimitiveQName, defaultValue.Canonical)
-	defaultValue.ResolvedNames = []runtime.ResolvedValueName{{Lexical: defaultValue.Lexical, NS: "urn:test", Local: "item"}}
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsUnusedResolvedNameProof(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-    xmlns:t="urn:test">
-  <xs:element name="root" type="xs:QName" default="t:item"/>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	defaultValue := publishedRuntime(t, engine).Elements[rootID].Default
-	defaultValue.ResolvedNames = append(defaultValue.ResolvedNames, runtime.ResolvedValueName{Lexical: "t:other", NS: "urn:test", Local: "other"})
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsNondeterministicResolvedNameProof(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-    xmlns:p="urn:a">
-  <xs:simpleType name="QNames">
-    <xs:list itemType="xs:QName"/>
-  </xs:simpleType>
-  <xs:element name="root" type="QNames" default="p:x p:x"/>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	defaultValue := publishedRuntime(t, engine).Elements[rootID].Default
-	if len(defaultValue.ResolvedNames) != 2 {
-		t.Fatalf("resolved names = %d, want 2", len(defaultValue.ResolvedNames))
-	}
-	canonical := runtime.FormatExpandedName("urn:a", "x") + " " + runtime.FormatExpandedName("urn:b", "x")
-	defaultValue.ResolvedNames[1].NS = "urn:b"
-	defaultValue.Canonical = canonical
-	defaultValue.Value.Canonical = canonical
-	defaultValue.Value.Identity = runtime.SimpleIdentityKey(runtime.PrimitiveString, canonical)
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsMixedValueConstraintIdentityPayload(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" default="text">
-    <xs:complexType mixed="true"/>
-  </xs:element>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	publishedRuntime(t, engine).Elements[rootID].Default.Value.Identity = "stale"
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsMixedValueConstraintResolvedNameProof(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" default="text">
-    <xs:complexType mixed="true"/>
-  </xs:element>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	publishedRuntime(t, engine).Elements[rootID].Default.ResolvedNames = []runtime.ResolvedValueName{{Lexical: "p:x", NS: "urn:test", Local: "x"}}
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsCyclicUnionValueConstraintOwner(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="U">
-    <xs:union memberTypes="xs:int xs:boolean"/>
-  </xs:simpleType>
-  <xs:element name="root" type="U" default="1"/>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	unionID := simpleTypeIDByName(t, publishedRuntime(t, engine), "U")
-	publishedRuntime(t, engine).SimpleTypes[unionID].Union = []runtime.SimpleTypeID{unionID}
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsInconsistentNameTable(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	publishedRuntime(t, engine).Names = runtime.NameTable{}
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsGlobalNameMismatch(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="a" type="xs:string"/>
-  <xs:element name="b" type="xs:string"/>
-  <xs:attribute name="ga" type="xs:string"/>
-  <xs:attribute name="gb" type="xs:string"/>
-  <xs:simpleType name="t1">
-    <xs:restriction base="xs:string"/>
-  </xs:simpleType>
-  <xs:simpleType name="t2">
-    <xs:restriction base="xs:string"/>
-  </xs:simpleType>
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="item" maxOccurs="unbounded">
-          <xs:complexType>
-            <xs:attribute name="id" type="xs:string"/>
-            <xs:attribute name="id2" type="xs:string"/>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-    </xs:complexType>
-    <xs:key name="k1">
-      <xs:selector xpath="item"/>
-      <xs:field xpath="@id"/>
-    </xs:key>
-    <xs:key name="k2">
-      <xs:selector xpath="item"/>
-      <xs:field xpath="@id2"/>
-    </xs:key>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "global element points at other declaration",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.GlobalElements[mustQName(t, rt, "a")] = rt.GlobalElements[mustQName(t, rt, "b")]
-			},
-		},
-		{
-			name: "global attribute points at other declaration",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.GlobalAttributes[mustQName(t, rt, "ga")] = rt.GlobalAttributes[mustQName(t, rt, "gb")]
-			},
-		},
-		{
-			name: "global type points at other type",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.GlobalTypes[mustQName(t, rt, "t1")] = rt.GlobalTypes[mustQName(t, rt, "t2")]
-			},
-		},
-		{
-			name: "global identity points at other constraint",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.GlobalIdentities[mustQName(t, rt, "k1")] = rt.GlobalIdentities[mustQName(t, rt, "k2")]
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsIdentityFieldLookupDrift(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="item" maxOccurs="unbounded">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="name" type="xs:string"/>
-            </xs:sequence>
-            <xs:attribute name="id" type="xs:string"/>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-    </xs:complexType>
-    <xs:key name="k1">
-      <xs:selector xpath="item"/>
-      <xs:field xpath="@id"/>
-      <xs:field xpath="name"/>
-    </xs:key>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(ic *runtime.IdentityConstraint)
-	}{
-		{
-			name: "dropped attribute lookup",
-			mutate: func(ic *runtime.IdentityConstraint) {
-				ic.AttributeFields = nil
-			},
-		},
-		{
-			name: "element lookup field index drift",
-			mutate: func(ic *runtime.IdentityConstraint) {
-				ic.ElementFields[0].Field = 7
-			},
-		},
-		{
-			name: "extra wildcard lookup entry",
-			mutate: func(ic *runtime.IdentityConstraint) {
-				ic.AttributeWildcardFields = append(ic.AttributeWildcardFields, runtime.CompiledIdentityField{Field: 0})
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := publishedRuntime(t, engine).GlobalIdentities[mustQName(t, publishedRuntime(t, engine), "k1")]
-			tc.mutate(&publishedRuntime(t, engine).Identities[id])
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
+	build := mutableSchemaBuild(t, schema)
+	if err := validateSchemaBuild(build); err != nil {
+		t.Fatalf("validateSchemaBuild() error = %v", err)
 	}
 }
 
@@ -1413,1528 +1524,6 @@ func TestRuntimeKeyRefAmbiguousSiblingKeysWithSameDisplayPathDoesNotResolve(t *t
 	mustNotValidateRuntime(t, engine, `<root rid="1"><group id="1"/><group id="1"/></root>`, xsderrors.CodeValidationIdentity)
 }
 
-func TestFreezeRejectsIdentityKindReferMismatch(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="item" maxOccurs="unbounded">
-          <xs:complexType>
-            <xs:attribute name="id" type="xs:string"/>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-    </xs:complexType>
-    <xs:key name="k">
-      <xs:selector xpath="item"/>
-      <xs:field xpath="@id"/>
-    </xs:key>
-    <xs:keyref name="kr1" refer="k">
-      <xs:selector xpath="item"/>
-      <xs:field xpath="@id"/>
-    </xs:keyref>
-    <xs:keyref name="kr2" refer="k">
-      <xs:selector xpath="item"/>
-      <xs:field xpath="@id"/>
-    </xs:keyref>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "key stores refer",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]].Refer = rt.GlobalIdentities[mustQName(t, rt, "kr1")]
-			},
-		},
-		{
-			name: "keyref missing refer",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "kr1")]].Refer = runtime.NoIdentityConstraint
-			},
-		},
-		{
-			name: "keyref references keyref",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "kr1")]].Refer = rt.GlobalIdentities[mustQName(t, rt, "kr2")]
-			},
-		},
-		{
-			name: "keyref field count drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				kr := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "kr1")]]
-				kr.Fields = append(kr.Fields, runtime.IdentityField{})
-				kr.ElementFields, kr.AttributeFields, kr.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(kr.Fields)
-			},
-		},
-		{
-			name: "missing selector",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]].Selector = nil
-			},
-		},
-		{
-			name: "missing fields",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
-				ic.Fields = nil
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
-			},
-		},
-		{
-			name: "field without paths",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
-				ic.Fields[0].Paths = nil
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
-			},
-		},
-		{
-			name: "selector self stores ignored path",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
-				ic.Selector[0] = runtime.IdentityPath{
-					Self:       true,
-					Descendant: true,
-					Steps: []runtime.IdentityStep{{
-						Name: mustQName(t, rt, "item"),
-					}},
-				}
-			},
-		},
-		{
-			name: "selector wildcard stores ignored name",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
-				ic.Selector[0].Steps[0].Wildcard = true
-				ic.Selector[0].Steps[0].Name = runtime.QName{}
-			},
-		},
-		{
-			name: "field self stores ignored attribute",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
-				ic.Fields[0].Paths[0] = runtime.IdentityFieldPath{
-					Self:      true,
-					Attr:      true,
-					Attribute: mustQName(t, rt, "id"),
-				}
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
-			},
-		},
-		{
-			name: "element field stores ignored attribute",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
-				ic.Fields[0].Paths[0] = runtime.IdentityFieldPath{
-					Steps: []runtime.IdentityStep{{
-						Name: mustQName(t, rt, "item"),
-					}},
-					Attribute: runtime.QName{},
-				}
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
-			},
-		},
-		{
-			name: "attribute wildcard stores ignored name",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ic := &rt.Identities[rt.GlobalIdentities[mustQName(t, rt, "k")]]
-				ic.Fields[0].Paths[0].AttrWildcard = true
-				ic.Fields[0].Paths[0].Attribute = mustQName(t, rt, "id")
-				ic.ElementFields, ic.AttributeFields, ic.AttributeWildcardFields = runtime.BuildIdentityFieldLookup(ic.Fields)
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func rootAttributeUseSet(t *testing.T, engine *runtime.Schema) *runtime.AttributeUseSet {
-	t.Helper()
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	ctID, ok := publishedRuntime(t, engine).Elements[rootID].Type.Complex()
-	if !ok {
-		t.Fatal("root element type is not complex")
-	}
-	attrs := publishedRuntime(t, engine).ComplexTypes[ctID].Attrs
-	if attrs == runtime.NoAttributeUseSet {
-		t.Fatal("root complex type has no attribute use set")
-	}
-	return &publishedRuntime(t, engine).AttributeUseSets[attrs]
-}
-
-func TestFreezeRejectsAttributeUseSetIndexDrift(t *testing.T) {
-	t.Run("stale index on empty uses", func(t *testing.T) {
-		const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:anyAttribute processContents="lax"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-		engine := mustCompileRuntime(t, schema)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		set := rootAttributeUseSet(t, engine)
-		if len(set.Uses) != 0 {
-			t.Fatalf("expected empty attribute uses, got %d", len(set.Uses))
-		}
-		set.Index = map[runtime.QName]uint32{mustQName(t, publishedRuntime(t, engine), "root"): 5}
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-	t.Run("missing index entry", func(t *testing.T) {
-		const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute name="a" type="xs:string"/>
-      <xs:attribute name="b" type="xs:string"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-		engine := mustCompileRuntime(t, schema)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		set := rootAttributeUseSet(t, engine)
-		if len(set.Uses) != 2 {
-			t.Fatalf("expected two attribute uses, got %d", len(set.Uses))
-		}
-		delete(set.Index, set.Uses[0].Name)
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-}
-
-func TestFreezeRejectsAttributeUseSetDerivedSlotDrift(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute name="required" type="xs:string" use="required"/>
-      <xs:attribute name="defaulted" type="xs:string" default="x"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(set *runtime.AttributeUseSet)
-	}{
-		{
-			name: "missing required slot",
-			mutate: func(set *runtime.AttributeUseSet) {
-				set.Required = nil
-			},
-		},
-		{
-			name: "missing value constraint slot",
-			mutate: func(set *runtime.AttributeUseSet) {
-				set.ValueConstraints = nil
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(rootAttributeUseSet(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsPublishedProhibitedAttributeUse(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute name="plain" type="xs:string"/>
-      <xs:attribute name="defaulted" type="xs:string" default="x"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	useByName := func(t *testing.T, rt *runtime.Schema, set *runtime.AttributeUseSet, local string) *runtime.AttributeUse {
-		t.Helper()
-		name := mustQName(t, rt, local)
-		for i := range set.Uses {
-			if set.Uses[i].Name == name {
-				return &set.Uses[i]
-			}
-		}
-		t.Fatalf("attribute use %q not found", local)
-		return nil
-	}
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema, set *runtime.AttributeUseSet)
-	}{
-		{
-			name: "plain prohibited",
-			mutate: func(t *testing.T, rt *runtime.Schema, set *runtime.AttributeUseSet) {
-				t.Helper()
-				useByName(t, rt, set, "plain").Prohibited = true
-			},
-		},
-		{
-			name: "prohibited with default",
-			mutate: func(t *testing.T, rt *runtime.Schema, set *runtime.AttributeUseSet) {
-				t.Helper()
-				useByName(t, rt, set, "defaulted").Prohibited = true
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine), rootAttributeUseSet(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsIDAttributeSchemaInvariantDrift(t *testing.T) {
-	t.Run("attribute declaration value constraint", func(t *testing.T) {
-		engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:attribute name="a" type="xs:string"/>
-</xs:schema>`)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		attr := publishedRuntime(t, engine).GlobalAttributes[mustQName(t, publishedRuntime(t, engine), "a")]
-		publishedRuntime(t, engine).Attributes[attr].Type = publishedRuntime(t, engine).Builtin.ID
-		publishedRuntime(t, engine).Attributes[attr].Default = runtimeValueConstraint(t, publishedRuntime(t, engine), publishedRuntime(t, engine).Builtin.ID, "abc")
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-	t.Run("element declaration value constraint", func(t *testing.T) {
-		engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		root := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-		publishedRuntime(t, engine).Elements[root].Type = runtime.SimpleRef(publishedRuntime(t, engine).Builtin.ID)
-		publishedRuntime(t, engine).Elements[root].Default = runtimeValueConstraint(t, publishedRuntime(t, engine), publishedRuntime(t, engine).Builtin.ID, "abc")
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-	t.Run("attribute use value constraint", func(t *testing.T) {
-		engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType><xs:attribute name="a" type="xs:string"/></xs:complexType>
-  </xs:element>
-</xs:schema>`)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		set := rootAttributeUseSet(t, engine)
-		set.Uses[0].Type = publishedRuntime(t, engine).Builtin.ID
-		set.Uses[0].Default = runtimeValueConstraint(t, publishedRuntime(t, engine), publishedRuntime(t, engine).Builtin.ID, "abc")
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-	t.Run("multiple ID attribute uses", func(t *testing.T) {
-		engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute name="a" type="xs:ID"/>
-      <xs:attribute name="b" type="xs:string"/>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		set := rootAttributeUseSet(t, engine)
-		set.Uses[1].Type = publishedRuntime(t, engine).Builtin.ID
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-}
-
-func TestFreezeRejectsBareNotationElementValueConstraint(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:notation name="gif" public="image/gif"/>
-  <xs:element name="root" type="xs:NOTATION"/>
-</xs:schema>`)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	root := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	notationQName, ok := publishedRuntime(t, engine).Names.LookupQName(vocab.XSDNamespaceURI, "NOTATION")
-	if !ok {
-		t.Fatal("missing NOTATION builtin QName")
-	}
-	notationID, ok := publishedRuntime(t, engine).GlobalTypes[notationQName].Simple()
-	if !ok {
-		t.Fatal("NOTATION builtin is not a simple type")
-	}
-	publishedRuntime(t, engine).Elements[root].Default = runtimeValueConstraint(t, publishedRuntime(t, engine), notationID, "gif")
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsBrokenDFARowIndex(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="head" type="xs:string" abstract="true"/>
-  <xs:element name="sub" type="xs:string" substitutionGroup="head"/>
-  <xs:element name="r">
-    <xs:complexType>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:element name="c1" type="xs:string"/>
-        <xs:element name="c2" type="xs:string"/>
-        <xs:element name="c3" type="xs:string"/>
-        <xs:element name="c4" type="xs:string"/>
-        <xs:element name="c5" type="xs:string"/>
-        <xs:element name="c6" type="xs:string"/>
-        <xs:element name="c7" type="xs:string"/>
-        <xs:element ref="head"/>
-        <xs:any namespace="urn:a" processContents="lax"/>
-        <xs:any namespace="urn:b" processContents="lax"/>
-      </xs:choice>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	indexedRow := func(t *testing.T, engine *runtime.Schema) *runtime.CompiledModelRow {
-		t.Helper()
-		model := publishedRuntime(t, engine).CompiledModels[rootContentModel(t, engine)]
-		for i := range model.Rows {
-			if model.Rows[i].Index.IsEnabled() {
-				return &model.Rows[i]
-			}
-		}
-		t.Fatal("no indexed row in root content model")
-		return nil
-	}
-	anyKey := func(t *testing.T, idx runtime.DFARowIndex) runtime.QName {
-		t.Helper()
-		for k := range idx.NameToEdge {
-			return k
-		}
-		t.Fatal("name index is empty")
-		return runtime.QName{}
-	}
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, row *runtime.CompiledModelRow)
-	}{
-		{
-			name: "name index position out of range",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				row.Index.NameToEdge[anyKey(t, row.Index)] = ^uint32(0)
-			},
-		},
-		{
-			name: "name index points at wildcard edge",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				row.Index.NameToEdge[anyKey(t, row.Index)] = row.Index.WildcardEdges[0]
-			},
-		},
-		{
-			name: "name index key does not match edge element",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				idx := row.Index
-				a := anyKey(t, idx)
-				own := idx.NameToEdge[a]
-				for _, pos := range idx.NameToEdge {
-					if pos != own {
-						idx.NameToEdge[a] = pos
-						return
-					}
-				}
-				t.Fatal("name index has no second edge position")
-			},
-		},
-		{
-			name: "element edge missing from name index",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				delete(row.Index.NameToEdge, anyKey(t, row.Index))
-			},
-		},
-		{
-			name: "wildcard edge positions out of order",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				w := row.Index.WildcardEdges
-				if len(w) < 2 {
-					t.Fatalf("len(WildcardEdges) = %d, want >= 2", len(w))
-				}
-				w[0], w[1] = w[1], w[0]
-			},
-		},
-		{
-			name: "wildcard list contains element edge",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				row.Index.WildcardEdges[0] = row.Index.NameToEdge[anyKey(t, row.Index)]
-			},
-		},
-		{
-			name: "wildcard edge missing from wildcard list",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				row.Index.WildcardEdges = row.Index.WildcardEdges[:len(row.Index.WildcardEdges)-1]
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, indexedRow(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsAmbiguousDFARow(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="r">
-    <xs:complexType>
-      <xs:choice>
-        <xs:element name="a" type="xs:string"/>
-        <xs:element name="b" type="xs:string"/>
-      </xs:choice>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	model := &publishedRuntime(t, engine).CompiledModels[rootContentModel(t, engine)]
-	for i := range model.Rows {
-		row := &model.Rows[i]
-		if row.Index.IsEnabled() || len(row.Edges) < 2 {
-			continue
-		}
-		row.Edges[1].Particle = row.Edges[0].Particle
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		return
-	}
-	t.Fatal("no unindexed row with two edges")
-}
-
-func TestCompileRejectsCompiledModelDerivationDrift(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="r">
-    <xs:complexType>
-      <xs:choice>
-        <xs:element name="a" type="xs:string"/>
-        <xs:element name="b" type="xs:string"/>
-      </xs:choice>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	modelID := rootContentModel(t, engine)
-	model := &publishedRuntime(t, engine).CompiledModels[modelID]
-	for i := range model.Rows {
-		row := &model.Rows[i]
-		if row.Index.IsEnabled() || len(row.Edges) < 2 {
-			continue
-		}
-		row.Edges[0].To = row.Edges[1].To
-		err := compile.ValidateCompiledModelDerivedForTest(publishedRuntime(t, engine), modelID, *model)
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		return
-	}
-	t.Fatal("no unindexed row with two edges")
-}
-
-func TestFreezeRejectsInconsistentSimpleVariety(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="atomicT"><xs:restriction base="xs:string"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="listT"><xs:list itemType="xs:int"/></xs:simpleType>
-  <xs:simpleType name="unionT"><xs:union memberTypes="xs:int xs:string"/></xs:simpleType>
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`
-	mutations := []struct {
-		name     string
-		typeName string
-		mutate   func(rt *runtime.Schema, st *runtime.SimpleType)
-	}{
-		{
-			name:     "atomic with union members",
-			typeName: "atomicT",
-			mutate: func(rt *runtime.Schema, st *runtime.SimpleType) {
-				st.Union = []runtime.SimpleTypeID{rt.Builtin.String}
-			},
-		},
-		{
-			name:     "atomic with list item",
-			typeName: "atomicT",
-			mutate: func(rt *runtime.Schema, st *runtime.SimpleType) {
-				st.ListItem = rt.Builtin.String
-			},
-		},
-		{
-			name:     "list without list item",
-			typeName: "listT",
-			mutate: func(rt *runtime.Schema, st *runtime.SimpleType) {
-				st.ListItem = runtime.NoSimpleType
-			},
-		},
-		{
-			name:     "list with union members",
-			typeName: "listT",
-			mutate: func(rt *runtime.Schema, st *runtime.SimpleType) {
-				st.Union = []runtime.SimpleTypeID{rt.Builtin.String}
-			},
-		},
-		{
-			name:     "union without members",
-			typeName: "unionT",
-			mutate: func(rt *runtime.Schema, st *runtime.SimpleType) {
-				st.Union = nil
-			},
-		},
-		{
-			name:     "union with list item",
-			typeName: "unionT",
-			mutate: func(rt *runtime.Schema, st *runtime.SimpleType) {
-				st.ListItem = rt.Builtin.String
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id, ok := publishedRuntime(t, engine).GlobalTypes[mustQName(t, publishedRuntime(t, engine), tc.typeName)].Simple()
-			if !ok {
-				t.Fatalf("%s is not a simple type", tc.typeName)
-			}
-			tc.mutate(publishedRuntime(t, engine), &publishedRuntime(t, engine).SimpleTypes[id])
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsZeroTypeID(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="CT"><xs:sequence/></xs:complexType>
-  <xs:element name="root" type="CT"/>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "element type",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rootID := rt.GlobalElements[mustQName(t, rt, "root")]
-				rt.Elements[rootID].Type = runtime.TypeID{}
-			},
-		},
-		{
-			name: "complex type base",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				ctID, ok := rt.GlobalTypes[mustQName(t, rt, "CT")].Complex()
-				if !ok {
-					t.Fatal("CT is not a complex type")
-				}
-				rt.ComplexTypes[ctID].Base = runtime.TypeID{}
-			},
-		},
-		{
-			name: "global type",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.GlobalTypes[mustQName(t, rt, "CT")] = runtime.TypeID{}
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsMisclassifiedSimpleIdentity(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Ref"><xs:restriction base="xs:IDREF"/></xs:simpleType>
-  <xs:simpleType name="Plain"><xs:restriction base="xs:string"/></xs:simpleType>
-  <xs:element name="root" type="Plain"/>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "idref restriction loses identity",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				id, ok := rt.GlobalTypes[mustQName(t, rt, "Ref")].Simple()
-				if !ok {
-					t.Fatal("Ref is not a simple type")
-				}
-				rt.SimpleTypes[id].Identity = runtime.SimpleIdentityNone
-			},
-		},
-		{
-			name: "plain type gains identity",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				id, ok := rt.GlobalTypes[mustQName(t, rt, "Plain")].Simple()
-				if !ok {
-					t.Fatal("Plain is not a simple type")
-				}
-				rt.SimpleTypes[id].Identity = runtime.SimpleIdentityID
-			},
-		},
-		{
-			name: "builtin ID loses identity",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.SimpleTypes[rt.Builtin.ID].Identity = runtime.SimpleIdentityNone
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsInvalidSimpleTypeEnums(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Plain"><xs:restriction base="xs:string"/></xs:simpleType>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(st *runtime.SimpleType)
-	}{
-		{
-			name: "invalid primitive",
-			mutate: func(st *runtime.SimpleType) {
-				st.Primitive = runtime.PrimitiveKind(255)
-			},
-		},
-		{
-			name: "invalid whitespace",
-			mutate: func(st *runtime.SimpleType) {
-				st.Whitespace = runtime.WhitespaceMode(255)
-			},
-		},
-		{
-			name: "invalid builtin validation",
-			mutate: func(st *runtime.SimpleType) {
-				st.Builtin = runtime.BuiltinValidationKind(255)
-			},
-		},
-		{
-			name: "invalid final mask",
-			mutate: func(st *runtime.SimpleType) {
-				st.Final = runtime.DerivationExtension
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := simpleTypeIDByName(t, publishedRuntime(t, engine), "Plain")
-			tc.mutate(&publishedRuntime(t, engine).SimpleTypes[id])
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsSimpleTypeSemanticDrift(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Plain"><xs:restriction base="xs:string"/></xs:simpleType>
-</xs:schema>`)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	id := simpleTypeIDByName(t, publishedRuntime(t, engine), "Plain")
-	publishedRuntime(t, engine).SimpleTypes[id].Primitive = runtime.PrimitiveBoolean
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsBuiltinHandleDrift(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "simple handle points at wrong valid type",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.Builtin.String = rt.Builtin.Boolean
-			},
-		},
-		{
-			name: "simple shape drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.SimpleTypes[rt.Builtin.String].Whitespace = runtime.WhitespaceCollapse
-			},
-		},
-		{
-			name: "global type binding drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				q, ok := rt.Names.LookupQName(vocab.XSDNamespaceURI, "string")
-				if !ok {
-					t.Fatal("xs:string name not found")
-				}
-				rt.GlobalTypes[q] = runtime.SimpleRef(rt.Builtin.Boolean)
-			},
-		},
-		{
-			name: "missing builtin declaration table",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.Wildcards = nil
-			},
-		},
-		{
-			name: "builtin attribute handle drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				q, ok := rt.Names.LookupQName(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
-				if !ok {
-					t.Fatal("xml:base name not found")
-				}
-				id, ok := rt.GlobalAttributes[q]
-				if !ok {
-					t.Fatal("xml:base attribute not found")
-				}
-				rt.Attributes[id].Type = rt.Builtin.String
-			},
-		},
-		{
-			name: "builtin attribute lexical validator drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				q, ok := rt.Names.LookupQName(vocab.XMLNamespaceURI, vocab.XMLAttrLang)
-				if !ok {
-					t.Fatal("xml:lang name not found")
-				}
-				id, ok := rt.GlobalAttributes[q]
-				if !ok {
-					t.Fatal("xml:lang attribute not found")
-				}
-				rt.SimpleTypes[rt.Attributes[id].Type].Builtin = runtime.BuiltinValidationNone
-			},
-		},
-		{
-			name: "anyType shape drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.ComplexTypes[rt.Builtin.AnyType].ContentKind = runtime.ContentElementOnly
-			},
-		},
-		{
-			name: "builtin list item drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.SimpleTypes[rt.Builtin.IDREFS].ListItem = rt.Builtin.String
-			},
-		},
-		{
-			name: "builtin facet drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				mutateBoundFacet(t, &rt.SimpleTypes[rt.Builtin.Int].Facets, runtime.FacetMaxInclusive, func(lit *runtime.CompiledLiteral) {
-					lit.Canonical = "1"
-				})
-			},
-		},
-		{
-			name: "anyType wildcard drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				attrs := rt.ComplexTypes[rt.Builtin.AnyType].Attrs
-				rt.AttributeUseSets[attrs].Wildcard = runtime.NoWildcard
-			},
-		},
-		{
-			name: "non-handle builtin drift",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				q, ok := rt.Names.LookupQName(vocab.XSDNamespaceURI, "long")
-				if !ok {
-					t.Fatal("xs:long name not found")
-				}
-				id, ok := rt.GlobalTypes[q].Simple()
-				if !ok {
-					t.Fatal("xs:long is not simple")
-				}
-				rt.SimpleTypes[id].Whitespace = runtime.WhitespacePreserve
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsInvalidContentModelShape(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="r">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="a" type="xs:string"/>
-        <xs:element name="b" type="xs:string" maxOccurs="unbounded"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "invalid kind",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				rt.Models[rootContentModel(t, rt)].Kind = runtime.ModelKind(255)
-			},
-		},
-		{
-			name: "invalid occurrence range",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				model := &rt.Models[rootContentModel(t, rt)]
-				model.Occurs = runtime.Occurrence{Min: 2, Max: 1}
-			},
-		},
-		{
-			name: "unsorted choice limits",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				model := &rt.Models[rootContentModel(t, rt)]
-				model.ChoiceLimits = []uint32{1, 0}
-			},
-		},
-		{
-			name: "unjustified choice limits",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				model := &rt.Models[rootContentModel(t, rt)]
-				model.ChoiceLimits = []uint32{1}
-			},
-		},
-		{
-			name: "choice limit on non-sequence",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				model := &rt.Models[rootContentModel(t, rt)]
-				model.Kind = runtime.ModelChoice
-				model.ChoiceLimits = []uint32{1}
-			},
-		},
-		{
-			name: "any model inactive state",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				model := &rt.Models[rt.ComplexTypes[rt.Builtin.AnyType].Content]
-				model.Occurs = runtime.Occurrence{Min: 1, Max: 1}
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsSimpleFacetLoosening(t *testing.T) {
-	tests := []struct {
-		name   string
-		schema string
-		mutate func(*runtime.FacetSet)
-	}{
-		{
-			name: "length",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:string"><xs:length value="2"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
-</xs:schema>`,
-			mutate: func(f *runtime.FacetSet) {
-				f.Length = 3
-			},
-		},
-		{
-			name: "minLength",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:string"><xs:minLength value="2"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
-</xs:schema>`,
-			mutate: func(f *runtime.FacetSet) {
-				f.MinLength = 1
-			},
-		},
-		{
-			name: "maxLength",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:string"><xs:maxLength value="2"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
-</xs:schema>`,
-			mutate: func(f *runtime.FacetSet) {
-				f.MaxLength = 3
-			},
-		},
-		{
-			name: "totalDigits",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:decimal"><xs:totalDigits value="2"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
-</xs:schema>`,
-			mutate: func(f *runtime.FacetSet) {
-				f.TotalDigits = 3
-			},
-		},
-		{
-			name: "fractionDigits",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:decimal"><xs:fractionDigits value="2"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
-</xs:schema>`,
-			mutate: func(f *runtime.FacetSet) {
-				f.FractionDigits = 3
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, tt.schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := simpleTypeIDByName(t, publishedRuntime(t, engine), "Derived")
-			tt.mutate(&publishedRuntime(t, engine).SimpleTypes[id].Facets)
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsFixedFacetMutation(t *testing.T) {
-	tests := []struct {
-		name   string
-		schema string
-		mutate func(*runtime.Schema, *runtime.SimpleType)
-	}{
-		{
-			name: "fixed maxLength",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:string"><xs:maxLength value="5" fixed="true"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"><xs:maxLength value="5"/></xs:restriction></xs:simpleType>
-</xs:schema>`,
-			mutate: func(_ *runtime.Schema, st *runtime.SimpleType) {
-				st.Facets.MaxLength = 4
-			},
-		},
-		{
-			name: "fixed whiteSpace",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:string"><xs:whiteSpace value="replace" fixed="true"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"><xs:whiteSpace value="replace"/></xs:restriction></xs:simpleType>
-</xs:schema>`,
-			mutate: func(_ *runtime.Schema, st *runtime.SimpleType) {
-				st.Whitespace = runtime.WhitespaceCollapse
-			},
-		},
-		{
-			name: "fixed ordered literal",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:decimal"><xs:minInclusive value="5" fixed="true"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Other"><xs:restriction base="xs:decimal"><xs:minInclusive value="6"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"><xs:minInclusive value="5.0"/></xs:restriction></xs:simpleType>
-</xs:schema>`,
-			mutate: func(rt *runtime.Schema, st *runtime.SimpleType) {
-				id := simpleTypeIDByName(t, rt, "Other")
-				lit, ok := runtime.BoundFacet(rt.SimpleTypes[id].Facets, runtime.FacetMinInclusive)
-				if !ok {
-					t.Fatal("Other minInclusive facet is missing")
-				}
-				runtime.SetBoundFacet(&st.Facets, runtime.FacetMinInclusive, lit, false)
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, tt.schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := simpleTypeIDByName(t, publishedRuntime(t, engine), "Derived")
-			tt.mutate(publishedRuntime(t, engine), &publishedRuntime(t, engine).SimpleTypes[id])
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsInheritedFacetLoss(t *testing.T) {
-	tests := []struct {
-		name   string
-		schema string
-		mutate func(*runtime.FacetSet)
-	}{
-		{
-			name: "totalDigits",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:decimal"><xs:totalDigits value="2"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
-</xs:schema>`,
-			mutate: func(f *runtime.FacetSet) {
-				f.TotalDigits = 0
-				f.Present &^= runtime.FacetTotalDigits
-			},
-		},
-		{
-			name: "date minInclusive",
-			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:date"><xs:minInclusive value="2020-01-01"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"/></xs:simpleType>
-</xs:schema>`,
-			mutate: func(f *runtime.FacetSet) {
-				mutateBoundFacet(t, f, runtime.FacetMinInclusive, func(lit *runtime.CompiledLiteral) {
-					*lit = runtime.CompiledLiteral{}
-				})
-				f.Present &^= runtime.FacetMinInclusive
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, tt.schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := simpleTypeIDByName(t, publishedRuntime(t, engine), "Derived")
-			tt.mutate(&publishedRuntime(t, engine).SimpleTypes[id].Facets)
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsOrderedFacetLoosening(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Base"><xs:restriction base="xs:date"><xs:minInclusive value="2020-01-01"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Earlier"><xs:restriction base="xs:date"><xs:minInclusive value="2019-01-01"/></xs:restriction></xs:simpleType>
-  <xs:simpleType name="Derived"><xs:restriction base="Base"><xs:minInclusive value="2021-01-01"/></xs:restriction></xs:simpleType>
-</xs:schema>`)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	derivedID := simpleTypeIDByName(t, publishedRuntime(t, engine), "Derived")
-	earlierID := simpleTypeIDByName(t, publishedRuntime(t, engine), "Earlier")
-	lit, ok := runtime.BoundFacet(publishedRuntime(t, engine).SimpleTypes[earlierID].Facets, runtime.FacetMinInclusive)
-	if !ok {
-		t.Fatal("Earlier minInclusive facet is missing")
-	}
-	runtime.SetBoundFacet(&publishedRuntime(t, engine).SimpleTypes[derivedID].Facets, runtime.FacetMinInclusive, lit, false)
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsLengthFacetInconsistency(t *testing.T) {
-	tests := []struct {
-		name   string
-		mutate func(*runtime.FacetSet)
-	}{
-		{
-			name: "length differs from minLength",
-			mutate: func(f *runtime.FacetSet) {
-				f.MinLength = 1
-			},
-		},
-		{
-			name: "length differs from maxLength",
-			mutate: func(f *runtime.FacetSet) {
-				f.MaxLength = 3
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Sized">
-    <xs:restriction base="xs:string">
-      <xs:length value="2"/>
-      <xs:minLength value="2"/>
-      <xs:maxLength value="2"/>
-    </xs:restriction>
-  </xs:simpleType>
-</xs:schema>`)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := simpleTypeIDByName(t, publishedRuntime(t, engine), "Sized")
-			tt.mutate(&publishedRuntime(t, engine).SimpleTypes[id].Facets)
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsSimpleTypeGraphInvalidity(t *testing.T) {
-	t.Run("base cycle", func(t *testing.T) {
-		engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="A"><xs:restriction base="xs:string"/></xs:simpleType>
-  <xs:simpleType name="B"><xs:restriction base="A"/></xs:simpleType>
-</xs:schema>`)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		a := simpleTypeIDByName(t, publishedRuntime(t, engine), "A")
-		b := simpleTypeIDByName(t, publishedRuntime(t, engine), "B")
-		publishedRuntime(t, engine).SimpleTypes[a].Base = b
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-	t.Run("list item is list variety", func(t *testing.T) {
-		engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Words"><xs:list itemType="xs:string"/></xs:simpleType>
-  <xs:simpleType name="Bad"><xs:list itemType="xs:string"/></xs:simpleType>
-</xs:schema>`)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		words := simpleTypeIDByName(t, publishedRuntime(t, engine), "Words")
-		bad := simpleTypeIDByName(t, publishedRuntime(t, engine), "Bad")
-		publishedRuntime(t, engine).SimpleTypes[bad].ListItem = words
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-}
-
-func TestFreezeRejectsLimitedContentModelSharedByNonRestriction(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="Base">
-    <xs:sequence>
-      <xs:choice maxOccurs="unbounded">
-        <xs:element name="a" type="xs:string"/>
-        <xs:element name="b" type="xs:string"/>
-      </xs:choice>
-    </xs:sequence>
-  </xs:complexType>
-  <xs:complexType name="Derived">
-    <xs:complexContent>
-      <xs:restriction base="Base">
-        <xs:sequence><xs:element name="a" type="xs:string" maxOccurs="unbounded"/></xs:sequence>
-      </xs:restriction>
-    </xs:complexContent>
-  </xs:complexType>
-  <xs:complexType name="Other">
-    <xs:sequence><xs:element name="other" type="xs:string"/></xs:sequence>
-  </xs:complexType>
-</xs:schema>`)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	limited := runtime.NoContentModel
-	for id, model := range publishedRuntime(t, engine).Models {
-		if len(model.ChoiceLimits) != 0 {
-			limited = runtime.ContentModelID(id)
-			break
-		}
-	}
-	if limited == runtime.NoContentModel {
-		t.Fatal("no limited content model found")
-	}
-	otherID, ok := publishedRuntime(t, engine).GlobalTypes[mustQName(t, publishedRuntime(t, engine), "Other")].Complex()
-	if !ok {
-		t.Fatal("Other is not complex")
-	}
-	publishedRuntime(t, engine).ComplexTypes[otherID].Content = limited
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsComplexExtensionDroppingOptionalBaseParticle(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="Base">
-    <xs:sequence><xs:element name="a" type="xs:string" minOccurs="0"/></xs:sequence>
-  </xs:complexType>
-  <xs:complexType name="Derived">
-    <xs:complexContent><xs:extension base="Base"><xs:sequence><xs:element name="b" type="xs:string"/></xs:sequence></xs:extension></xs:complexContent>
-  </xs:complexType>
-  <xs:complexType name="OnlyB">
-    <xs:sequence><xs:element name="b" type="xs:string"/></xs:sequence>
-  </xs:complexType>
-</xs:schema>`)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	derived := complexTypeIDByName(t, publishedRuntime(t, engine), "Derived")
-	onlyB := complexTypeIDByName(t, publishedRuntime(t, engine), "OnlyB")
-	publishedRuntime(t, engine).ComplexTypes[derived].Content = publishedRuntime(t, engine).ComplexTypes[onlyB].Content
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsComplexExtensionWrapperOccurrenceDrift(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="Base">
-    <xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>
-  </xs:complexType>
-  <xs:complexType name="Derived">
-    <xs:complexContent><xs:extension base="Base"><xs:sequence><xs:element name="b" type="xs:string"/></xs:sequence></xs:extension></xs:complexContent>
-  </xs:complexType>
-</xs:schema>`)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	derived := complexTypeIDByName(t, publishedRuntime(t, engine), "Derived")
-	publishedRuntime(t, engine).Models[publishedRuntime(t, engine).ComplexTypes[derived].Content].Occurs.Min = 0
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsInvalidComplexTypeShape(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:sequence><xs:element name="child" type="xs:string"/></xs:sequence>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema, ct *runtime.ComplexType)
-	}{
-		{
-			name: "missing content",
-			mutate: func(t *testing.T, rt *runtime.Schema, ct *runtime.ComplexType) {
-				t.Helper()
-				ct.Content = runtime.NoContentModel
-			},
-		},
-		{
-			name: "missing attrs",
-			mutate: func(t *testing.T, rt *runtime.Schema, ct *runtime.ComplexType) {
-				t.Helper()
-				ct.Attrs = runtime.NoAttributeUseSet
-			},
-		},
-		{
-			name: "invalid content kind",
-			mutate: func(t *testing.T, rt *runtime.Schema, ct *runtime.ComplexType) {
-				t.Helper()
-				ct.ContentKind = runtime.ContentKind(255)
-			},
-		},
-		{
-			name: "invalid derivation",
-			mutate: func(t *testing.T, rt *runtime.Schema, ct *runtime.ComplexType) {
-				t.Helper()
-				ct.Derivation = runtime.DerivationKind(255)
-			},
-		},
-		{
-			name: "invalid block mask",
-			mutate: func(t *testing.T, rt *runtime.Schema, ct *runtime.ComplexType) {
-				t.Helper()
-				ct.Block = runtime.DerivationSubstitution
-			},
-		},
-		{
-			name: "invalid final mask",
-			mutate: func(t *testing.T, rt *runtime.Schema, ct *runtime.ComplexType) {
-				t.Helper()
-				ct.Final = runtime.DerivationSubstitution
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			root := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-			ctID, ok := publishedRuntime(t, engine).Elements[root].Type.Complex()
-			if !ok {
-				t.Fatal("root type is not complex")
-			}
-			tc.mutate(t, publishedRuntime(t, engine), &publishedRuntime(t, engine).ComplexTypes[ctID])
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsAttributeWildcardBaseMismatch(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="Base">
-    <xs:anyAttribute namespace="##other" processContents="lax"/>
-  </xs:complexType>
-  <xs:complexType name="Derived">
-    <xs:complexContent><xs:extension base="Base"><xs:anyAttribute namespace="##local" processContents="lax"/></xs:extension></xs:complexContent>
-  </xs:complexType>
-</xs:schema>`)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	derived := complexTypeIDByName(t, publishedRuntime(t, engine), "Derived")
-	set := &publishedRuntime(t, engine).AttributeUseSets[publishedRuntime(t, engine).ComplexTypes[derived].Attrs]
-	if set.WildcardDeclared == runtime.NoWildcard {
-		t.Fatal("derived attribute wildcard did not record declared wildcard")
-	}
-	set.WildcardBase = runtime.NoWildcard
-	set.Wildcard = set.WildcardDeclared
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-}
-
-func TestFreezeRejectsInvalidDerivationSourceBeforeReplay(t *testing.T) {
-	t.Run("invalid base wildcard", func(t *testing.T) {
-		engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="Base"><xs:anyAttribute namespace="##other" processContents="skip"/></xs:complexType>
-  <xs:complexType name="Derived"><xs:complexContent><xs:restriction base="Base"/></xs:complexContent></xs:complexType>
-</xs:schema>`)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		base := complexTypeIDByName(t, publishedRuntime(t, engine), "Base")
-		set := &publishedRuntime(t, engine).AttributeUseSets[publishedRuntime(t, engine).ComplexTypes[base].Attrs]
-		bad := runtime.WildcardID(1 << 30)
-		set.Wildcard = bad
-		set.WildcardDeclared = bad
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-	t.Run("invalid model particle", func(t *testing.T) {
-		engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="Base"><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence></xs:complexType>
-  <xs:complexType name="Derived">
-    <xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence></xs:restriction></xs:complexContent>
-  </xs:complexType>
-</xs:schema>`)
-		if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-			t.Fatalf("ValidateSchema() before mutation error = %v", err)
-		}
-		base := complexTypeIDByName(t, publishedRuntime(t, engine), "Base")
-		model := &publishedRuntime(t, engine).Models[publishedRuntime(t, engine).ComplexTypes[base].Content]
-		model.Particles[0] = runtime.ModelParticle(runtime.ContentModelID(1<<30), runtime.Occurrence{Min: 1, Max: 1})
-		err := runtime.ValidateSchema(publishedRuntime(t, engine))
-		expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	})
-}
-
-func TestFreezeRejectsInvalidElementMasks(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(decl *runtime.ElementDecl)
-	}{
-		{
-			name: "invalid block",
-			mutate: func(decl *runtime.ElementDecl) {
-				decl.Block = runtime.DerivationList
-			},
-		},
-		{
-			name: "invalid final",
-			mutate: func(decl *runtime.ElementDecl) {
-				decl.Final = runtime.DerivationSubstitution
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			root := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-			tc.mutate(&publishedRuntime(t, engine).Elements[root])
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
 func TestFreezeRuntimeConsumesCompilerRuntime(t *testing.T) {
 	c, rt := frozenCompilerRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="Code">
@@ -2960,9 +1549,6 @@ func TestFreezeRuntimeConsumesCompilerRuntime(t *testing.T) {
 
 	if !reflect.ValueOf(*c.RuntimeForTest()).IsZero() {
 		t.Fatal("freezeRuntime did not clear compile.Compiler runtime")
-	}
-	if err := runtime.ValidateSchema(rt); err != nil {
-		t.Fatalf("published runtime after compile.Compiler consume = %v", err)
 	}
 	mustValidateRuntime(t, engine, `<r code="US"><child>x</child></r>`)
 }
@@ -2996,9 +1582,6 @@ func TestFreezeRuntimeClearsCompilerMutationAliases(t *testing.T) {
 	if !c.NameInternerIsZeroForTest() {
 		t.Fatal("freezeRuntime did not clear compile.Compiler name interner")
 	}
-	if err := runtime.ValidateSchema(rt); err != nil {
-		t.Fatalf("published runtime after compile.Compiler consume = %v", err)
-	}
 	mustValidateRuntime(t, engine, `<r code="US"><child>x</child></r>`)
 }
 
@@ -3006,8 +1589,9 @@ func TestFreezeRuntimeKeepsCompilerStateOnValidationFailure(t *testing.T) {
 	c := compiledCompilerRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	<xs:element name="r" type="xs:string"/>
 </xs:schema>`)
-	rootName := mustQName(t, c.RuntimeForTest(), "r")
-	c.RuntimeForTest().GlobalElements[rootName] = runtime.NoElement
+	build := c.RuntimeForTest()
+	rootName := mustQName(t, &build.Names, "r")
+	build.GlobalElements[rootName] = runtime.NoElement
 
 	_, err := compile.FreezeCompilerRuntimeForTest(c)
 	if err == nil {
@@ -3035,9 +1619,6 @@ func frozenCompilerRuntime(t *testing.T, schema string) (*compile.Compiler, *run
 func validationRuntimeForTest(tb testing.TB, rt *runtime.Schema) *runtime.Schema {
 	tb.Helper()
 	if rt != nil {
-		if err := rt.EnsurePublished(); err != nil {
-			tb.Fatalf("publish runtime: %v", err)
-		}
 		return rt
 	}
 	tb.Fatal("frozen runtime view is nil")
@@ -3070,28 +1651,28 @@ func compiledCompilerRuntime(t *testing.T, schema string) *compile.Compiler {
 }
 
 func TestCompiledSimpleFastPathDerivedFromFacets(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="MyInt"><xs:restriction base="xs:int"/></xs:simpleType>
   <xs:simpleType name="MyShort"><xs:restriction base="xs:short"/></xs:simpleType>
   <xs:simpleType name="TightInt"><xs:restriction base="xs:int"><xs:maxInclusive value="10"/></xs:restriction></xs:simpleType>
 </xs:schema>`)
 
-	if got := publishedRuntime(t, engine).SimpleTypes[publishedRuntime(t, engine).Builtin.Int].Fast; got != runtime.SimpleFastInt {
+	if got := build.SimpleTypes[build.Builtin.Int].Fast; got != runtime.SimpleFastInt {
 		t.Fatalf("xs:int Fast = %v, want runtime.SimpleFastInt", got)
 	}
-	if got := simpleTypeByName(t, publishedRuntime(t, engine), "MyInt").Fast; got != runtime.SimpleFastInt {
+	if got := build.SimpleTypes[simpleBuildTypeIDByName(t, build, "MyInt")].Fast; got != runtime.SimpleFastInt {
 		t.Fatalf("MyInt Fast = %v, want runtime.SimpleFastInt", got)
 	}
-	if got := simpleTypeByName(t, publishedRuntime(t, engine), "MyShort").Fast; got != runtime.SimpleFastNone {
+	if got := build.SimpleTypes[simpleBuildTypeIDByName(t, build, "MyShort")].Fast; got != runtime.SimpleFastNone {
 		t.Fatalf("MyShort Fast = %v, want runtime.SimpleFastNone", got)
 	}
-	if got := simpleTypeByName(t, publishedRuntime(t, engine), "TightInt").Fast; got != runtime.SimpleFastNone {
+	if got := build.SimpleTypes[simpleBuildTypeIDByName(t, build, "TightInt")].Fast; got != runtime.SimpleFastNone {
 		t.Fatalf("TightInt Fast = %v, want runtime.SimpleFastNone", got)
 	}
 }
 
 func TestSimpleContentFacetRestrictionRecomputesFastPath(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base">
     <xs:simpleContent>
       <xs:extension base="xs:int"/>
@@ -3105,18 +1686,19 @@ func TestSimpleContentFacetRestrictionRecomputesFastPath(t *testing.T) {
         </xs:restriction>
       </xs:simpleContent>
     </xs:complexType>
-  </xs:element>
-</xs:schema>`)
-
-	rootID := publishedRuntime(t, engine).GlobalElements[mustQName(t, publishedRuntime(t, engine), "root")]
-	ctID, ok := publishedRuntime(t, engine).Elements[rootID].Type.Complex()
+	</xs:element>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	root := build.GlobalElements[mustQName(t, &build.Names, "root")]
+	complexID, ok := build.Elements[root].Type.Complex()
 	if !ok {
 		t.Fatal("root type is not complex")
 	}
-	textType := publishedRuntime(t, engine).ComplexTypes[ctID].TextType
-	if got := publishedRuntime(t, engine).SimpleTypes[textType].Fast; got != runtime.SimpleFastNone {
+	textType := build.ComplexTypes[complexID].TextType
+	if got := build.SimpleTypes[textType].Fast; got != runtime.SimpleFastNone {
 		t.Fatalf("simple content text type Fast = %v, want runtime.SimpleFastNone", got)
 	}
+	engine := mustCompileRuntime(t, schema)
 	mustValidateRuntime(t, engine, `<root>10</root>`)
 	mustNotValidateRuntime(t, engine, `<root>11</root>`, xsderrors.CodeValidationFacet)
 }
@@ -3140,309 +1722,17 @@ func TestSimpleContentRestrictionAllowsEmptiableMixedBaseWithInlineType(t *testi
 	mustValidateRuntime(t, engine, `<root>value</root>`)
 }
 
-func TestFreezeRejectsMisclassifiedSimpleFastPath(t *testing.T) {
-	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="MyInt"><xs:restriction base="xs:int"/></xs:simpleType>
-  <xs:simpleType name="Plain"><xs:restriction base="xs:string"/></xs:simpleType>
-</xs:schema>`)
-
-	id := simpleTypeIDByName(t, publishedRuntime(t, engine), "MyInt")
-	publishedRuntime(t, engine).SimpleTypes[id].Fast = runtime.SimpleFastNone
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-
-	engine = mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Plain"><xs:restriction base="xs:string"/></xs:simpleType>
-</xs:schema>`)
-	id = simpleTypeIDByName(t, publishedRuntime(t, engine), "Plain")
-	publishedRuntime(t, engine).SimpleTypes[id].Fast = runtime.SimpleFastInt
-	err = runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+type qnameLookup interface {
+	LookupQName(namespace, local string) (runtime.QName, bool)
 }
 
-func TestFreezeRejectsInvalidPatternFacetRepresentation(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Patterned">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[A-Z]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:element name="root" type="Patterned"/>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(f *runtime.FacetSet)
-	}{
-		{
-			name: "empty pattern group",
-			mutate: func(f *runtime.FacetSet) {
-				f.Patterns[0].Patterns = nil
-			},
-		},
-		{
-			name: "pattern without matcher",
-			mutate: func(f *runtime.FacetSet) {
-				f.Patterns[0].Patterns[0] = runtime.StringPattern{}
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			id := simpleTypeIDByName(t, publishedRuntime(t, engine), "Patterned")
-			tc.mutate(&publishedRuntime(t, engine).SimpleTypes[id].Facets)
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsCompiledModelSourceMismatch(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="r">
-    <xs:complexType>
-      <xs:sequence><xs:element name="child" type="xs:string"/></xs:sequence>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(model *runtime.CompiledModel)
-	}{
-		{
-			name: "source id drift",
-			mutate: func(model *runtime.CompiledModel) {
-				model.Source = runtime.NoContentModel
-			},
-		},
-		{
-			name: "kind drift",
-			mutate: func(model *runtime.CompiledModel) {
-				model.Kind = runtime.CompiledModelEmpty
-				model.Rows = nil
-				model.Empty = true
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			modelID := rootContentModel(t, engine)
-			tc.mutate(&publishedRuntime(t, engine).CompiledModels[modelID])
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsParticleWithStaleInactiveFields(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:sequence><xs:element name="child" type="xs:string"/></xs:sequence>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, rt *runtime.Schema)
-	}{
-		{
-			name: "model particle",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				for i := range rt.Models {
-					for j := range rt.Models[i].Particles {
-						p := &rt.Models[i].Particles[j]
-						if p.Kind == runtime.ParticleElement {
-							p.Wildcard = 0
-							return
-						}
-					}
-				}
-				t.Fatal("no element particle found")
-			},
-		},
-		{
-			name: "compiled edge particle",
-			mutate: func(t *testing.T, rt *runtime.Schema) {
-				t.Helper()
-				for i := range rt.CompiledModels {
-					for j := range rt.CompiledModels[i].Rows {
-						row := &rt.CompiledModels[i].Rows[j]
-						for k := range row.Edges {
-							if row.Edges[k].Particle.Kind == runtime.ParticleElement {
-								row.Edges[k].Particle.Model = 0
-								return
-							}
-						}
-					}
-				}
-				t.Fatal("no compiled element edge found")
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, publishedRuntime(t, engine))
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func mustQName(t *testing.T, rt *runtime.Schema, local string) runtime.QName {
+func mustQName(t *testing.T, rt qnameLookup, local string) runtime.QName {
 	t.Helper()
-	q, ok := rt.Names.LookupQName("", local)
+	q, ok := rt.LookupQName("", local)
 	if !ok {
 		t.Fatalf("LookupQName(%q) failed", local)
 	}
 	return q
-}
-
-func mutateBoundFacet(t *testing.T, f *runtime.FacetSet, flag runtime.FacetMask, mutate func(*runtime.CompiledLiteral)) {
-	t.Helper()
-	lit, ok := runtime.BoundFacet(*f, flag)
-	if !ok {
-		t.Fatalf("bound facet %d is missing", flag)
-	}
-	mutate(&lit)
-	runtime.SetBoundFacet(f, flag, lit, false)
-}
-
-func complexTypeIDByName(t *testing.T, rt *runtime.Schema, local string) runtime.ComplexTypeID {
-	t.Helper()
-	typ, ok := rt.GlobalTypes[mustQName(t, rt, local)]
-	if !ok {
-		t.Fatalf("global type %q not found", local)
-	}
-	id, ok := typ.Complex()
-	if !ok {
-		t.Fatalf("global type %q is not complex", local)
-	}
-	return id
-}
-
-func simpleTypeIDByName(t *testing.T, rt *runtime.Schema, local string) runtime.SimpleTypeID {
-	t.Helper()
-	typ, ok := rt.GlobalTypes[mustQName(t, rt, local)]
-	if !ok {
-		t.Fatalf("global type %q not found", local)
-	}
-	id, ok := typ.Simple()
-	if !ok {
-		t.Fatalf("global type %q is not simple", local)
-	}
-	return id
-}
-
-func simpleTypeByName(t *testing.T, rt *runtime.Schema, local string) runtime.SimpleType {
-	t.Helper()
-	return rt.SimpleTypes[simpleTypeIDByName(t, rt, local)]
-}
-
-func runtimeValueConstraint(t *testing.T, rt *runtime.Schema, id runtime.SimpleTypeID, lexical string) *runtime.ValueConstraint {
-	t.Helper()
-	value, err := rt.ValidateSimpleValue(id, lexical, nil, runtime.SimpleNeedCanonical|runtime.SimpleNeedIdentity)
-	if err != nil {
-		t.Fatalf("validateSimpleValueRuntimeBoundary(%q) error = %v", lexical, err)
-	}
-	return &runtime.ValueConstraint{
-		Lexical:   lexical,
-		Canonical: value.Canonical,
-		Value:     value,
-	}
-}
-
-func TestFreezeRejectsFacetPresenceMismatch(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Sized">
-    <xs:restriction base="xs:string">
-      <xs:maxLength value="4"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:element name="root" type="Sized"/>
-</xs:schema>`
-	mutations := []struct {
-		name   string
-		mutate func(f *runtime.FacetSet)
-	}{
-		{
-			name: "bit without value",
-			mutate: func(f *runtime.FacetSet) {
-				f.Present |= runtime.FacetLength
-			},
-		},
-		{
-			name: "value without bit",
-			mutate: func(f *runtime.FacetSet) {
-				f.Present &^= runtime.FacetMaxLength
-			},
-		},
-		{
-			name: "whiteSpace bit in presence mask",
-			mutate: func(f *runtime.FacetSet) {
-				f.Present |= runtime.FacetWhiteSpace
-			},
-		},
-		{
-			name: "fixed facet without presence",
-			mutate: func(f *runtime.FacetSet) {
-				f.Fixed |= runtime.FacetMinInclusive
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			typ := publishedRuntime(t, engine).GlobalTypes[mustQName(t, publishedRuntime(t, engine), "Sized")]
-			id, ok := typ.Simple()
-			if !ok {
-				t.Fatal("Sized is not a simple type")
-			}
-			tc.mutate(&publishedRuntime(t, engine).SimpleTypes[id].Facets)
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
-func TestFreezeRejectsDecimalBoundWithoutActual(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Positive">
-    <xs:restriction base="xs:int">
-      <xs:minInclusive value="1"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:element name="root" type="Positive"/>
-</xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() before mutation error = %v", err)
-	}
-	typ := publishedRuntime(t, engine).GlobalTypes[mustQName(t, publishedRuntime(t, engine), "Positive")]
-	id, ok := typ.Simple()
-	if !ok {
-		t.Fatal("Positive is not a simple type")
-	}
-	mutateBoundFacet(t, &publishedRuntime(t, engine).SimpleTypes[id].Facets, runtime.FacetMinInclusive, func(lit *runtime.CompiledLiteral) {
-		lit.Actual = runtime.PrimitiveActualValue{}
-	})
-	err := runtime.ValidateSchema(publishedRuntime(t, engine))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
 func TestFixedWhitespaceFacetFreezes(t *testing.T) {
@@ -3454,9 +1744,9 @@ func TestFixedWhitespaceFacetFreezes(t *testing.T) {
   </xs:simpleType>
   <xs:element name="root" type="Collapsed"/>
 </xs:schema>`
-	engine := mustCompileRuntime(t, schema)
-	if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-		t.Fatalf("ValidateSchema() error = %v", err)
+	build := mutableSchemaBuild(t, schema)
+	if err := validateSchemaBuild(build); err != nil {
+		t.Fatalf("validateSchemaBuild() error = %v", err)
 	}
 }
 
@@ -3488,78 +1778,18 @@ func TestMixedSimpleContentExtensionChain(t *testing.T) {
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
-func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="S">
-    <xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent>
-  </xs:complexType>
-  <xs:complexType name="E">
-    <xs:sequence><xs:element name="child"/></xs:sequence>
-  </xs:complexType>
-  <xs:element name="s" type="S"/>
-  <xs:element name="e" type="E"/>
-</xs:schema>`
-	complexID := func(t *testing.T, engine *runtime.Schema, local string) runtime.ComplexTypeID {
-		t.Helper()
-		typ := publishedRuntime(t, engine).GlobalTypes[mustQName(t, publishedRuntime(t, engine), local)]
-		id, ok := typ.Complex()
-		if !ok {
-			t.Fatalf("%s is not a complex type", local)
-		}
-		return id
-	}
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, engine *runtime.Schema)
-	}{
-		{
-			name: "text type without simple content",
-			mutate: func(t *testing.T, engine *runtime.Schema) {
-				t.Helper()
-				publishedRuntime(t, engine).ComplexTypes[complexID(t, engine, "E")].TextType = publishedRuntime(t, engine).Builtin.String
-			},
-		},
-		{
-			name: "simple content with particles",
-			mutate: func(t *testing.T, engine *runtime.Schema) {
-				t.Helper()
-				elementOnly := publishedRuntime(t, engine).ComplexTypes[complexID(t, engine, "E")]
-				publishedRuntime(t, engine).ComplexTypes[complexID(t, engine, "S")].Content = elementOnly.Content
-			},
-		},
-		{
-			name: "simple content with invalid text type",
-			mutate: func(t *testing.T, engine *runtime.Schema) {
-				t.Helper()
-				publishedRuntime(t, engine).ComplexTypes[complexID(t, engine, "S")].TextType = runtime.SimpleTypeID(1 << 30)
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			engine := mustCompileRuntime(t, schema)
-			if err := runtime.ValidateSchema(publishedRuntime(t, engine)); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, engine)
-			err := runtime.ValidateSchema(publishedRuntime(t, engine))
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
 func TestRuntimeElementAccessor(t *testing.T) {
 	engine := mustCompileRuntime(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
 	rt := publishedRuntime(t, engine)
-	if _, ok := rt.ElementDecl(runtime.NoElement); ok {
+	if _, ok := rt.Element(runtime.NoElement); ok {
 		t.Error("element(noElement) resolved, want miss")
 	}
-	if _, ok := rt.ElementDecl(runtime.ElementID(1 << 30)); ok {
+	if _, ok := rt.Element(runtime.ElementID(1 << 30)); ok {
 		t.Error("element(out of range) resolved, want miss")
 	}
-	rootID := rt.GlobalElements[mustQName(t, rt, "root")]
-	decl, ok := rt.ElementDecl(rootID)
-	if !ok || decl.Name != mustQName(t, rt, "root") {
-		t.Errorf("element(root) = (%v, %v), want root declaration", decl, ok)
+	rootName := mustQName(t, rt, "root")
+	_, rootInfo, ok := rt.RootElement(runtime.RuntimeName{Known: true, Name: rootName})
+	if !ok || rootInfo.Type.Kind != runtime.TypeSimple {
+		t.Fatal("root element is missing")
 	}
 }

@@ -18,7 +18,11 @@ func identityConstraintNodes(n *rawNode) []*rawNode {
 }
 
 func (c *compiler) declareAllIdentityConstraints() error {
-	for _, doc := range c.docs {
+	for _, document := range c.schemas.documents {
+		if !document.indexDeclarations {
+			continue
+		}
+		doc := document.doc
 		ctx := c.contexts[doc]
 		if err := c.declareIdentityConstraintsInTree(doc.root, ctx); err != nil {
 			return err
@@ -55,11 +59,11 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 		if err := ValidateIdentityConstraintNameSource(hasName && name != ""); err != nil {
 			return nil, withSchemaCompileLocation(node, err)
 		}
-		q, err := c.names.InternQName(ctx.targetNS, name)
+		q, err := c.rt.internQName(ctx.targetNS, name)
 		if err != nil {
 			return nil, err
 		}
-		if duplicateErr := CheckIdentityConstraintNameAvailable(c.rt.GlobalIdentities, q, c.rt.Names.Format(q)); duplicateErr != nil {
+		if duplicateErr := c.checkIdentityConstraintNameAvailable(q); duplicateErr != nil {
 			return nil, withSchemaCompileLocation(node, duplicateErr)
 		}
 		id, err := c.registerGlobalIdentity(q, runtime.NewDeclaredIdentityConstraint(q))
@@ -75,17 +79,17 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 func (c *compiler) compileDeclaredIdentityConstraints(nodes []*rawNode, ids []runtime.IdentityConstraintID, ctx *schemaContext) error {
 	for i, node := range nodes {
 		id := ids[i]
-		ic, err := c.compileIdentityConstraint(node, ctx, c.rt.Identities[id].Name)
+		ic, err := c.compileIdentityConstraint(node, ctx, c.rt.identityName(id))
 		if err != nil {
 			return err
 		}
-		c.rt.Identities[id] = ic
+		c.completeIdentity(id, ic)
 	}
 	return nil
 }
 
 func (c *compiler) validateIdentityReferences() error {
-	return ValidateIdentityReferences(c.rt.Identities)
+	return c.validateIdentityReferencesBuild()
 }
 
 func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext, name runtime.QName) (runtime.IdentityConstraint, error) {
@@ -104,7 +108,7 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext, nam
 		if resolveErr != nil {
 			return empty, resolveErr
 		}
-		ref, referErr := ResolveIdentityConstraintRefer(c.rt.GlobalIdentities, q, c.rt.Names.Format(q))
+		ref, referErr := c.resolveIdentityConstraintRefer(q)
 		if referErr != nil {
 			return empty, withSchemaCompileLocation(n, referErr)
 		}
@@ -167,7 +171,7 @@ func (r identityXPathResolver) ResolveIdentityQName(prefix, local string, prefix
 			return runtime.QName{}, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
 		}
 	}
-	return r.compiler.names.InternQName(ns, local)
+	return r.compiler.rt.internQName(ns, local)
 }
 
 func (r identityXPathResolver) ResolveIdentityWildcardNamespace(prefix string) (runtime.NamespaceID, error) {
@@ -175,5 +179,5 @@ func (r identityXPathResolver) ResolveIdentityWildcardNamespace(prefix string) (
 	if !ok {
 		return 0, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
 	}
-	return r.compiler.names.InternNamespace(ns)
+	return r.compiler.rt.InternNamespace(ns)
 }

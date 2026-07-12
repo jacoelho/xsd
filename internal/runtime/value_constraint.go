@@ -464,7 +464,7 @@ type ValueConstraintRuntime interface {
 // ElementValueConstraintRuntime supplies runtime metadata needed to determine
 // the owner type for an element value constraint.
 type ElementValueConstraintRuntime interface {
-	ParticleRuntime
+	ContentModelRuntime
 	ValueConstraintComplexType(id ComplexTypeID) (ValueConstraintComplexType, bool)
 }
 

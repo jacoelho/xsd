@@ -1,8 +1,6 @@
 package compile
 
 import (
-	"slices"
-
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/vocab"
 )
@@ -11,7 +9,7 @@ func (c *compiler) compileAttributeByQName(q runtime.QName) (runtime.AttributeID
 	if id, ok := c.attributeDone[q]; ok {
 		return id, nil
 	}
-	label := c.rt.Names.Format(q)
+	label := c.rt.formatName(q)
 	if c.compilingAttr[q] {
 		err := CheckSchemaComponentCycle(SchemaComponentAttribute, true, label)
 		if raw, ok := c.attributeRaw[q]; ok {
@@ -44,7 +42,7 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q runtim
 	if err := c.validateAttributeDeclName(n, q); err != nil {
 		return runtime.AttributeDecl{}, err
 	}
-	typ := c.rt.Builtin.AnySimpleType
+	typ := c.rt.builtinIDs().AnySimpleType
 	if typeLex, ok := n.attr(vocab.XSDAttrType); ok {
 		if err := ValidateAttributeTypeSource(true, n.firstXS(vocab.XSDElemSimpleType) != nil); err != nil {
 			return runtime.AttributeDecl{}, withSchemaCompileLocation(n, err)
@@ -114,7 +112,7 @@ func (c *compiler) validateValueConstraint(id runtime.SimpleTypeID, lexical stri
 	}
 	value, err := c.validateSimpleValue(id, lexical, replayResolve, runtime.SimpleNeedCanonical|runtime.SimpleNeedIdentity)
 	if err != nil {
-		return nil, DeclarationValueConstraintError(label, c.rt.Names.Format(owner), err)
+		return nil, DeclarationValueConstraintError(label, c.rt.formatName(owner), err)
 	}
 	return &runtime.ValueConstraint{
 		ResolvedNames: recorder.names,
@@ -153,7 +151,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 			return runtime.NoAttributeUseSet, err
 		}
 	}
-	uses := slices.Clone(inherited)
+	uses := inherited
 	merger := NewAttributeUseMerger(inherited, inheritedWildcard, mode)
 	wildcards := NewAttributeWildcardBuilder(inheritedWildcard, mode)
 	for _, child := range parent.Children {
@@ -201,10 +199,6 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 		return runtime.NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	finalUses := RemoveProhibitedAttributeUses(uses)
-	id, err := NextAttributeUseSetID(len(c.rt.AttributeUseSets))
-	if err != nil {
-		return runtime.NoAttributeUseSet, err
-	}
 	set, err := newAttributeUseSet(finalUses, wildcard, attributeWildcardProvenance{
 		base:     inheritedWildcard,
 		declared: declaredWildcard,
@@ -216,8 +210,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 	if err = c.validateAttributeUseSet(set); err != nil {
 		return runtime.NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
-	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, set)
-	return id, nil
+	return c.addAttributeUseSet(set)
 }
 
 func (c *compiler) mergeAttributeUse(uses []runtime.AttributeUse, merger *AttributeUseMerger, use runtime.AttributeUse) ([]runtime.AttributeUse, error) {
@@ -263,14 +256,6 @@ func newAttributeUseSet(uses []runtime.AttributeUse, wildcard runtime.WildcardID
 		}
 	}
 	return set, nil
-}
-
-func (c *compiler) attrUsesAndWildcard(id runtime.AttributeUseSetID) ([]runtime.AttributeUse, runtime.WildcardID) {
-	if id == runtime.NoAttributeUseSet {
-		return nil, runtime.NoWildcard
-	}
-	set := c.rt.AttributeUseSets[id]
-	return set.Uses, set.Wildcard
 }
 
 type attributeUseBase struct {
@@ -355,7 +340,7 @@ func (c *compiler) compileAttributeRefUse(n *rawNode, ctx *schemaContext, ref st
 	if err != nil {
 		return attributeUseBase{}, withSchemaCompileLocation(n, err)
 	}
-	use := attributeUseFromDecl(c.rt.Attributes[id])
+	use := c.rt.attributeUse(id)
 	base := attributeUseBase{use: use, ref: true}
 	if use.Fixed != nil {
 		base.refFixed = use.Fixed
@@ -381,7 +366,7 @@ func (c *compiler) compileLocalAttributeUse(n *rawNode, ctx *schemaContext) (run
 	if qualified {
 		ns = ctx.targetNS
 	}
-	nameID, err := c.names.InternQName(ns, name)
+	nameID, err := c.rt.internQName(ns, name)
 	if err != nil {
 		return runtime.AttributeUse{}, err
 	}
@@ -419,10 +404,10 @@ func (c *compiler) compileAttributeGroupUse(n *rawNode, ctx *schemaContext) ([]r
 
 func (c *compiler) compileAttributeGroupByQName(q runtime.QName) ([]runtime.AttributeUse, runtime.WildcardID, error) {
 	if id, ok := c.attrGroupDone[q]; ok {
-		set := c.rt.AttributeUseSets[id]
-		return set.Uses, set.Wildcard, nil
+		uses, wildcard := c.rt.attributeUsesAndWildcard(id)
+		return uses, wildcard, nil
 	}
-	label := c.rt.Names.Format(q)
+	label := c.rt.formatName(q)
 	raw, ok := c.attrGroupRaw[q]
 	if err := CheckSchemaComponentExists(SchemaComponentAttributeGroup, ok, label); err != nil {
 		return nil, runtime.NoWildcard, err
@@ -438,6 +423,6 @@ func (c *compiler) compileAttributeGroupByQName(q runtime.QName) ([]runtime.Attr
 		return nil, runtime.NoWildcard, err
 	}
 	c.attrGroupDone[q] = id
-	set := c.rt.AttributeUseSets[id]
-	return set.Uses, set.Wildcard, nil
+	uses, wildcard := c.rt.attributeUsesAndWildcard(id)
+	return uses, wildcard, nil
 }

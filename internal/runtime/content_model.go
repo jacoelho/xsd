@@ -179,9 +179,62 @@ func ValidateContentModelRuntime(model ContentModel, limits ContentModelRefLimit
 	return nil
 }
 
+type contentModelGraphState uint8
+
+const (
+	contentModelGraphUnchecked contentModelGraphState = iota
+	contentModelGraphChecking
+	contentModelGraphChecked
+)
+
+type contentModelGraphFrame struct {
+	id   ContentModelID
+	next int
+}
+
+func validateContentModelGraph(models []ContentModel) error {
+	state := make([]contentModelGraphState, len(models))
+	stack := make([]contentModelGraphFrame, 0, min(len(models), 1_024))
+	for i := range models {
+		root := ContentModelID(i)
+		if state[root] == contentModelGraphChecked {
+			continue
+		}
+		state[root] = contentModelGraphChecking
+		stack = appendDFSFrame(stack, contentModelGraphFrame{id: root}, len(models))
+		for len(stack) != 0 {
+			top := len(stack) - 1
+			frame := &stack[top]
+			particles := models[frame.id].Particles
+			for frame.next < len(particles) && particles[frame.next].Kind != ParticleModel {
+				frame.next++
+			}
+			if frame.next == len(particles) {
+				state[frame.id] = contentModelGraphChecked
+				stack = stack[:top]
+				continue
+			}
+			child := particles[frame.next].Model
+			frame.next++
+			if !ValidContentModelID(child, len(models)) {
+				return errors.New("content model graph references invalid model")
+			}
+			switch state[child] {
+			case contentModelGraphUnchecked:
+				state[child] = contentModelGraphChecking
+				stack = appendDFSFrame(stack, contentModelGraphFrame{id: child}, len(models))
+			case contentModelGraphChecking:
+				return errors.New("content model graph contains cycle")
+			case contentModelGraphChecked:
+			}
+		}
+	}
+	return nil
+}
+
 // ComplexContentExtendsBase reports whether derived preserves base as the
 // leading content of a complex-type extension.
-func ComplexContentExtendsBase(rt ParticleRuntime, baseID, derivedID ContentModelID) bool {
+func ComplexContentExtendsBase(rt ContentModelRuntime, baseID, derivedID ContentModelID) bool {
 	if baseID == derivedID || ModelHasNoParticles(rt, baseID) {
 		return true
 	}

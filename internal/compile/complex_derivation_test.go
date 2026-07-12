@@ -132,6 +132,8 @@ func (emptyTypeDerivationRuntime) AnyTypeID() runtime.ComplexTypeID { return 0 }
 
 func (emptyTypeDerivationRuntime) ComplexTypeCount() int { return 0 }
 
+func (emptyTypeDerivationRuntime) SimpleTypeCount() int { return 0 }
+
 func (emptyTypeDerivationRuntime) SimpleTypeDerivation(runtime.SimpleTypeID) (runtime.SimpleTypeDerivation, bool) {
 	return runtime.SimpleTypeDerivation{}, false
 }

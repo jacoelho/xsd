@@ -124,6 +124,10 @@ func (s substitutionMembershipRuntime) ComplexTypeCount() int {
 	return len(s.complex)
 }
 
+func (s substitutionMembershipRuntime) SimpleTypeCount() int {
+	return len(s.simple)
+}
+
 func (s substitutionMembershipRuntime) SimpleTypeDerivation(id runtime.SimpleTypeID) (runtime.SimpleTypeDerivation, bool) {
 	derivation, ok := s.simple[id]
 	return derivation, ok
