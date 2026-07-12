@@ -42,7 +42,7 @@ const (
 )
 
 // EndIdentityCapture selects the identity capture action for an element end.
-func EndIdentityCapture(rt EndIdentityRuntime, in EndIdentityInput) (EndIdentityCaptureAction, error) {
+func EndIdentityCapture(rt *runtime.Schema, in EndIdentityInput) (EndIdentityCaptureAction, error) {
 	if in.ContentCaptured {
 		return EndIdentityCaptureNone, nil
 	}
@@ -53,13 +53,17 @@ func EndIdentityCapture(rt EndIdentityRuntime, in EndIdentityInput) (EndIdentity
 	if !ok {
 		return EndIdentityCaptureNone, xsderrors.InternalInvariant("end identity content info is invalid")
 	}
+	return endIdentityCapture(hasSimpleContent, in), nil
+}
+
+func endIdentityCapture(hasSimpleContent bool, in EndIdentityInput) EndIdentityCaptureAction {
 	if in.Nilled && in.Element != runtime.NoElement {
-		return EndIdentityCaptureNilledElement, nil
+		return EndIdentityCaptureNilledElement
 	}
 	if !hasSimpleContent {
-		return EndIdentityCaptureComplexElement, nil
+		return EndIdentityCaptureComplexElement
 	}
-	return EndIdentityCaptureNone, nil
+	return EndIdentityCaptureNone
 }
 
 // EndIdentityInput is the validation state needed to finish element identity
@@ -71,21 +75,9 @@ type EndIdentityInput struct {
 	Nilled          bool
 }
 
-// EndIdentityRuntime supplies element content metadata needed to finish
-// identity field capture after content validation.
-type EndIdentityRuntime interface {
-	ElementHasSimpleContent(typ runtime.TypeID, elem runtime.ElementID) (bool, bool)
-}
-
-// SimpleValueIdentityRuntime supplies simple-type facts needed to derive
-// identity field keys for values without a precomputed identity payload.
-type SimpleValueIdentityRuntime interface {
-	SimpleTypePrimitive(id runtime.SimpleTypeID) (runtime.PrimitiveKind, bool)
-}
-
 // SimpleValueIdentityKey returns the comparable identity field key for a
 // validated simple value.
-func SimpleValueIdentityKey(rt SimpleValueIdentityRuntime, value runtime.SimpleValue) (string, bool) {
+func SimpleValueIdentityKey(rt *runtime.Schema, value runtime.SimpleValue) (string, bool) {
 	if value.Identity != "" {
 		return value.Identity, true
 	}
@@ -165,12 +157,6 @@ type IdentityFieldMatch struct {
 	Field     int
 }
 
-// IdentityConstraintRuntime supplies identity-constraint metadata needed to
-// finish selected identity tuples.
-type IdentityConstraintRuntime interface {
-	IdentityConstraintInfo(id runtime.IdentityConstraintID) (runtime.IdentityConstraintInfo, bool)
-}
-
 // Reset clears document identity state, retaining bounded map/slice capacity.
 func (s *IdentityState) Reset(maxRetainedIDs, maxRetainedSlices int) {
 	if s == nil {
@@ -239,7 +225,7 @@ func (s *IdentityState) startScope(constraints runtime.IdentityConstraintIDs, de
 }
 
 // startElementScope starts an identity scope declared on elem.
-func (s *IdentityState) startElementScope(rt identityScopeRuntime, elem runtime.ElementID, depth int, maxScopes int, ctx StartContext) error {
+func (s *IdentityState) startElementScope(rt *runtime.Schema, elem runtime.ElementID, depth int, maxScopes int, ctx StartContext) error {
 	if elem == runtime.NoElement {
 		return nil
 	}
@@ -297,7 +283,7 @@ func (s *IdentityState) FieldMatches() []IdentityFieldMatch {
 }
 
 // elementFieldMatches returns active identity fields matching the current element.
-func (s *IdentityState) elementFieldMatches(rt identityElementFieldRuntime, namePath []runtime.RuntimeName) ([]IdentityFieldMatch, error) {
+func (s *IdentityState) elementFieldMatches(rt *runtime.Schema, namePath []runtime.RuntimeName) ([]IdentityFieldMatch, error) {
 	s.ResetFieldMatches()
 	depth := len(namePath)
 	for i := range s.selections {
@@ -320,7 +306,7 @@ func (s *IdentityState) elementFieldMatches(rt identityElementFieldRuntime, name
 }
 
 // attributeFieldMatches returns active identity fields matching the current attribute.
-func (s *IdentityState) attributeFieldMatches(rt identityAttributeFieldRuntime, namePath []runtime.RuntimeName, name runtime.QName) ([]IdentityFieldMatch, error) {
+func (s *IdentityState) attributeFieldMatches(rt *runtime.Schema, namePath []runtime.RuntimeName, name runtime.QName) ([]IdentityFieldMatch, error) {
 	s.ResetFieldMatches()
 	depth := len(namePath)
 	for i := range s.selections {
@@ -368,7 +354,7 @@ func (s *IdentityState) SelectionPath(selection int) (string, bool) {
 }
 
 // matchSelectors starts selections whose selectors match the current element.
-func (s *IdentityState) matchSelectors(rt identitySelectorRuntime, namePath []runtime.RuntimeName, ctx StartContext) error {
+func (s *IdentityState) matchSelectors(rt *runtime.Schema, namePath []runtime.RuntimeName, ctx StartContext) error {
 	if !s.HasScopes() {
 		return nil
 	}
@@ -397,7 +383,7 @@ func (s *IdentityState) matchSelectors(rt identitySelectorRuntime, namePath []ru
 	return nil
 }
 
-func identitySelectorMatches(rt identitySelectorPathRuntime, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (bool, bool) {
+func identitySelectorMatches(rt *runtime.Schema, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (bool, bool) {
 	paths, ok := rt.IdentitySelectorPaths(id)
 	if !ok {
 		return false, false
@@ -435,7 +421,7 @@ func (s *IdentityState) CaptureFields(matches []IdentityFieldMatch, value string
 }
 
 // CaptureSimpleValueFields records the identity field key for a selected simple value.
-func (s *IdentityState) CaptureSimpleValueFields(rt SimpleValueIdentityRuntime, matches []IdentityFieldMatch, value runtime.SimpleValue, ctx StartContext) error {
+func (s *IdentityState) CaptureSimpleValueFields(rt *runtime.Schema, matches []IdentityFieldMatch, value runtime.SimpleValue, ctx StartContext) error {
 	if len(matches) == 0 {
 		return nil
 	}
@@ -464,7 +450,7 @@ func (s *IdentityState) CaptureComplexElementFields(matches []IdentityFieldMatch
 }
 
 func (s *IdentityState) finishSelection(
-	rt IdentityConstraintRuntime,
+	rt *runtime.Schema,
 	sel identitySelection,
 	limits IdentityLimits,
 	ctx StartContext,
@@ -473,6 +459,15 @@ func (s *IdentityState) finishSelection(
 	if !ok {
 		return xsderrors.InternalInvariant("identity constraint metadata is invalid")
 	}
+	return s.finishSelectionWithInfo(info, sel, limits, ctx)
+}
+
+func (s *IdentityState) finishSelectionWithInfo(
+	info runtime.IdentityConstraintInfo,
+	sel identitySelection,
+	limits IdentityLimits,
+	ctx StartContext,
+) error {
 	fields := s.selectionFields(sel)
 	for _, field := range fields {
 		if !field.present {

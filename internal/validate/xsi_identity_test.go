@@ -12,16 +12,10 @@ import (
 func TestXSIAttributeIdentityKey(t *testing.T) {
 	t.Parallel()
 
-	nilName := runtime.QName{Namespace: 1, Local: 1}
-	typeName := runtime.QName{Namespace: 1, Local: 2}
-	otherName := runtime.QName{Namespace: 1, Local: 3}
-	rt := startRuntimeStub{
-		names: map[expandedName]runtime.QName{
-			{ns: vocab.XSINamespaceURI, local: vocab.XSIAttrNil}:  nilName,
-			{ns: vocab.XSINamespaceURI, local: vocab.XSIAttrType}: typeName,
-			{ns: vocab.XSINamespaceURI, local: "other"}:           otherName,
-		},
-	}
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
+	nilName, _ := rt.LookupQName(vocab.XSINamespaceURI, vocab.XSIAttrNil)
+	typeName, _ := rt.LookupQName(vocab.XSINamespaceURI, vocab.XSIAttrType)
+	schemaLocationName, _ := rt.LookupQName(vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation)
 	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
 
 	name, key, ok, err := XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, " 1 ", nil, ctx)
@@ -47,26 +41,24 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 		t.Fatalf("XSIAttributeIdentityKey(type) = %v %q %v, want type key", name, key, ok)
 	}
 
-	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "other"}, " a\tb ", nil, ctx)
+	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation}, " a\tb ", nil, ctx)
 	if err != nil {
-		t.Fatalf("XSIAttributeIdentityKey(other) error = %v", err)
+		t.Fatalf("XSIAttributeIdentityKey(schemaLocation) error = %v", err)
 	}
-	if !ok || name != otherName || key != runtime.SimpleIdentityKey(runtime.PrimitiveString, "a b") {
-		t.Fatalf("XSIAttributeIdentityKey(other) = %v %q %v, want collapsed string", name, key, ok)
+	if !ok || name != schemaLocationName || key != runtime.SimpleIdentityKey(runtime.PrimitiveString, "a b") {
+		t.Fatalf("XSIAttributeIdentityKey(schemaLocation) = %v %q %v, want collapsed string", name, key, ok)
+	}
+
+	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "other"}, " a\tb ", nil, ctx)
+	if err != nil || ok || name != (runtime.QName{}) || key != "" {
+		t.Fatalf("XSIAttributeIdentityKey(other) = %v %q %v err %v, want ignored", name, key, ok, err)
 	}
 }
 
 func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 	t.Parallel()
 
-	nilName := runtime.QName{Namespace: 1, Local: 1}
-	typeName := runtime.QName{Namespace: 1, Local: 2}
-	rt := startRuntimeStub{
-		names: map[expandedName]runtime.QName{
-			{ns: vocab.XSINamespaceURI, local: vocab.XSIAttrNil}:  nilName,
-			{ns: vocab.XSINamespaceURI, local: vocab.XSIAttrType}: typeName,
-		},
-	}
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
 
 	name, key, ok, err := XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "unknown"}, "x", nil, ctx)

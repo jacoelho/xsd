@@ -6,15 +6,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func (c *compiler) addModel(m runtime.ContentModel) (runtime.ContentModelID, error) {
-	id, err := NextContentModelID(len(c.rt.Models))
-	if err != nil {
-		return runtime.NoContentModel, err
-	}
-	c.rt.Models = append(c.rt.Models, m)
-	return id, nil
-}
-
 func (c *compiler) contentModel(id runtime.ContentModelID, msg string) (runtime.ContentModel, error) {
 	if !runtime.ValidContentModelID(id, len(c.rt.Models)) {
 		return runtime.ContentModel{}, xsderrors.InternalInvariant(msg)
@@ -66,7 +57,7 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (runtime.Content
 	if err := c.checkElementDeclarationsConsistent(m); err != nil {
 		return runtime.NoContentModel, withSchemaCompileLocation(n, err)
 	}
-	c.rt.Models[id] = m
+	c.completeModel(id, m)
 	return id, nil
 }
 
@@ -250,8 +241,7 @@ func (c *compiler) modelParticle(id runtime.ContentModelID) (runtime.Particle, b
 }
 
 func (c *compiler) validateComplexExtensionModelAdmission(baseID runtime.ComplexTypeID, base runtime.ComplexType, ext runtime.ContentModelID, mixed bool) error {
-	modelRT := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates)
-	return ValidateComplexExtensionModelAdmission(&modelRT, ComplexExtensionModelAdmission{
+	return ValidateComplexExtensionModelAdmission(&c.rt, ComplexExtensionModelAdmission{
 		Extension:     ext,
 		BaseContent:   base.Content,
 		BaseIsAnyType: baseID == c.rt.Builtin.AnyType,
@@ -289,8 +279,7 @@ func (c *compiler) compileContentModels() error {
 	if err != nil {
 		return err
 	}
-	c.rt.CompiledModels = models
-	return nil
+	return c.installCompiledModels(models)
 }
 
 func (c *compiler) checkCompiledModelsUPA() error {
@@ -298,9 +287,9 @@ func (c *compiler) checkCompiledModelsUPA() error {
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
-	return CheckContentModelElementDeclarationsConsistent(elementDeclarationModelRuntime{rt: &c.rt, models: c.rt.Models}, len(c.rt.Models))
+	return CheckContentModelElementDeclarationsConsistent(&c.rt, len(c.rt.Models))
 }
 
 func (c *compiler) checkElementDeclarationsConsistent(model runtime.ContentModel) error {
-	return CheckElementDeclarationsConsistent(elementDeclarationModelRuntime{rt: &c.rt, models: c.rt.Models}, model)
+	return CheckElementDeclarationsConsistent(&c.rt, model)
 }

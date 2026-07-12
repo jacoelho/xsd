@@ -43,15 +43,6 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (runtime.Wild
 	return c.addWildcard(w)
 }
 
-func (c *compiler) addWildcard(w runtime.Wildcard) (runtime.WildcardID, error) {
-	id, err := NextWildcardID(len(c.rt.Wildcards))
-	if err != nil {
-		return runtime.NoWildcard, err
-	}
-	c.rt.Wildcards = append(c.rt.Wildcards, w)
-	return id, nil
-}
-
 // Wildcard returns compiler-owned wildcard metadata for internal compile
 // helpers.
 func (c *compiler) Wildcard(id runtime.WildcardID) (runtime.Wildcard, bool) {

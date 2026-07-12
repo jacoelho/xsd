@@ -18,7 +18,7 @@ func identityConstraintNodes(n *rawNode) []*rawNode {
 }
 
 func (c *compiler) declareAllIdentityConstraints() error {
-	for _, document := range c.documents {
+	for _, document := range c.schemas.documents {
 		if !document.indexDeclarations {
 			continue
 		}
@@ -83,7 +83,7 @@ func (c *compiler) compileDeclaredIdentityConstraints(nodes []*rawNode, ids []ru
 		if err != nil {
 			return err
 		}
-		c.rt.Identities[id] = ic
+		c.completeIdentity(id, ic)
 	}
 	return nil
 }

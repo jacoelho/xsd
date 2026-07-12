@@ -7,11 +7,11 @@ import (
 )
 
 func newSessionForTest(rt *runtime.Schema, opts Options) (*Session, error) {
-	s := &Session{}
-	if err := s.Init(rt, opts); err != nil {
+	s, err := NewSession(rt, opts)
+	if err != nil {
 		return nil, err
 	}
-	return s, nil
+	return &s, nil
 }
 
 // MaxRetainedBufferCapForTest exposes the retained byte-buffer cap to tests.

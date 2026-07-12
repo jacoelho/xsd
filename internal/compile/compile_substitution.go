@@ -35,7 +35,7 @@ func (c *compiler) compileSubstitutions() error {
 			if replayErr != nil {
 				return withSchemaCompileLocation(raw.node, replayErr)
 			}
-			c.rt.Elements[memberID] = member
+			c.completeElement(memberID, member)
 		}
 		head := c.rt.Elements[headID]
 		member := c.rt.Elements[memberID]
@@ -53,15 +53,15 @@ func (c *compiler) compileSubstitutions() error {
 		if err != nil {
 			return err
 		}
-		c.rt.Elements[memberID].SubstHead = headID
+		member.SubstHead = headID
+		c.completeElement(memberID, member)
 		direct[headID] = append(direct[headID], memberID)
 	}
 	substitutions, err := BuildSubstitutionClosure(direct, c.substitutionCycleLabel)
 	if err != nil {
 		return err
 	}
-	c.rt.Substitutions = substitutions
-	c.compileSubstitutionLookup()
+	c.installSubstitutions(substitutions)
 	return nil
 }
 
@@ -70,10 +70,6 @@ func (c *compiler) substitutionCycleLabel(id runtime.ElementID) (string, bool) {
 		return "", false
 	}
 	return c.rt.Names.Format(c.rt.Elements[id].Name), true
-}
-
-func (c *compiler) compileSubstitutionLookup() {
-	c.rt.SubstitutionLookup = runtime.BuildSubstitutionLookup(&c.rt, c.rt.Elements, c.rt.Substitutions)
 }
 
 func elementUsesSubstitutionType(n *rawNode) bool {

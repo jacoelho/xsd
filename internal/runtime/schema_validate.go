@@ -101,7 +101,7 @@ func validateRuntimeSubstitutions(rt *schemaAudit) error {
 		rt.build.Elements,
 		rt.build.GlobalElements,
 		rt.build.Substitutions,
-		rt.build.SubstitutionLookup,
+		rt.build.SubstitutionIndex.byName,
 	); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -932,7 +932,7 @@ func validateValueConstraintRuntime(ctx *schemaValidationContext, vc *ValueConst
 
 // ValueConstraintSimpleType returns compiler-owned value-constraint metadata.
 func (rt *SchemaBuild) ValueConstraintSimpleType(id SimpleTypeID) (ValueConstraintSimpleType, bool) {
-	st, ok := rt.SimpleType(id)
+	st, ok := SimpleTypeByID(rt.SimpleTypes, id)
 	if !ok {
 		return ValueConstraintSimpleType{}, false
 	}
@@ -941,7 +941,7 @@ func (rt *SchemaBuild) ValueConstraintSimpleType(id SimpleTypeID) (ValueConstrai
 
 // ValueConstraintComplexType returns compiler-owned value-constraint metadata.
 func (rt *SchemaBuild) ValueConstraintComplexType(id ComplexTypeID) (ValueConstraintComplexType, bool) {
-	ct, ok := rt.ComplexType(id)
+	ct, ok := ComplexTypeByID(rt.ComplexTypes, id)
 	if !ok {
 		return ValueConstraintComplexType{}, false
 	}

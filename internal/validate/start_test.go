@@ -14,58 +14,13 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-type startRuntimeStub struct {
-	root       map[runtime.QName]runtime.ElementID
-	elements   map[runtime.ElementID]runtime.ElementStartInfo
-	types      map[runtime.QName]runtime.TypeID
-	names      map[expandedName]runtime.QName
-	namespaces map[runtime.NamespaceID]string
-	anyType    runtime.TypeID
-}
-
-type expandedName struct {
-	ns    string
-	local string
-}
-
-func (s startRuntimeStub) AnyType() runtime.TypeID {
-	return s.anyType
-}
-
-func (s startRuntimeStub) RootElement(name runtime.RuntimeName) (runtime.ElementID, runtime.ElementStartInfo, bool) {
-	if !name.Known {
-		return runtime.NoElement, runtime.ElementStartInfo{}, false
-	}
-	id, ok := s.root[name.Name]
-	if !ok {
-		return runtime.NoElement, runtime.ElementStartInfo{}, false
-	}
-	info, ok := s.elements[id]
-	return id, info, ok
-}
-
-func (s startRuntimeStub) Type(name runtime.QName) (runtime.TypeID, bool) {
-	typ, ok := s.types[name]
-	return typ, ok
-}
-
-func (s startRuntimeStub) LookupQName(ns, local string) (runtime.QName, bool) {
-	q, ok := s.names[expandedName{ns: ns, local: local}]
-	return q, ok
-}
-
-func (s startRuntimeStub) Namespace(id runtime.NamespaceID) string {
-	return s.namespaces[id]
-}
-
 func TestResolveRuntimeName(t *testing.T) {
 	t.Parallel()
 
-	known := runtime.QName{Namespace: runtime.EmptyNamespaceID, Local: 1}
-	rt := startRuntimeStub{
-		names: map[expandedName]runtime.QName{
-			{local: "known"}: known,
-		},
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="known"/></xs:schema>`)
+	known, ok := rt.LookupQName("", "known")
+	if !ok {
+		t.Fatal("compiled runtime is missing known name")
 	}
 	got := ResolveRuntimeName(rt, xml.Name{Local: "known"})
 	if !got.Known || got.Name != known || got.NS != "" || got.Local != "known" {
@@ -166,7 +121,7 @@ func TestXSIStartAttributeFlagsType(t *testing.T) {
 func TestRootStartMissingDeclarationIsRecoverable(t *testing.T) {
 	t.Parallel()
 
-	rt := startRuntimeStub{anyType: runtime.ComplexRef(1)}
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	got, err := RootStart(rt, nil, RootInput{
 		Name:        xml.Name{Local: "root"},
 		RuntimeName: runtime.RuntimeName{Local: "root"},
@@ -175,7 +130,7 @@ func TestRootStartMissingDeclarationIsRecoverable(t *testing.T) {
 	if err == nil {
 		t.Fatal("RootStart() error is nil")
 	}
-	if !got.Skip || !got.Recover || got.Type != rt.anyType {
+	if !got.Skip || !got.Recover || got.Type != rt.AnyType() {
 		t.Fatalf("RootStart() = %+v, want recoverable skip with anyType", got)
 	}
 	expectXSDCode(t, err, xsderrors.CodeValidationRoot)
@@ -184,7 +139,7 @@ func TestRootStartMissingDeclarationIsRecoverable(t *testing.T) {
 func TestRootStartSchemaLocationHintIsUnsupported(t *testing.T) {
 	t.Parallel()
 
-	rt := startRuntimeStub{anyType: runtime.ComplexRef(1)}
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	got, err := RootStart(rt, nil, RootInput{
 		Name:              xml.Name{Space: "urn:missing", Local: "root"},
 		RuntimeName:       runtime.RuntimeName{NS: "urn:missing", Local: "root"},
@@ -250,4 +205,13 @@ func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {
 	if x.Code != code {
 		t.Fatalf("error code = %s, want %s", x.Code, code)
 	}
+}
+
+func compileRuntimeForTest(t *testing.T, schema string) *runtime.Schema {
+	t.Helper()
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rt
 }

@@ -33,12 +33,11 @@ func (c *compiler) addBuiltinSimpleSeed(seed *runtime.BuiltinSimpleSeed) (runtim
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
-	id, err := c.registerGlobalSimpleType(q, c.builtinFacets.SimpleType(seed, q, seed.Base, seed.ListItem))
+	id, err := c.registerBuiltinSimpleType(seed, q, c.builtinFacets.SimpleType(seed, q, seed.Base, seed.ListItem))
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
 	c.simpleDone[q] = id
-	seed.RecordID(&c.rt.Builtin, id)
 	return id, nil
 }
 
@@ -88,12 +87,7 @@ func (c *compiler) addBuiltinAttributeSimpleSeed(seed runtime.BuiltinAttributeSi
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
-	id, err := NextSimpleTypeID(len(c.rt.SimpleTypes))
-	if err != nil {
-		return runtime.NoSimpleType, err
-	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, seed.SimpleType(q, base))
-	return id, nil
+	return c.addSimpleType(seed.SimpleType(q, base))
 }
 
 func (c *compiler) addBuiltinAnyType() error {
@@ -101,11 +95,10 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	attrSet, err := NextAttributeUseSetID(len(c.rt.AttributeUseSets))
+	attrSet, err := c.addAttributeUseSet(runtime.BuiltinAnyTypeAttributeUseSet(anyWildcard))
 	if err != nil {
 		return err
 	}
-	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, runtime.BuiltinAnyTypeAttributeUseSet(anyWildcard))
 	modelID, err := c.addModel(runtime.BuiltinAnyTypeContentModel())
 	if err != nil {
 		return err
@@ -114,11 +107,10 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	complexID, err := c.registerGlobalComplexType(q, runtime.BuiltinAnyTypeComplexType(q, modelID, attrSet))
+	complexID, err := c.registerBuiltinAnyType(q, runtime.BuiltinAnyTypeComplexType(q, modelID, attrSet))
 	if err != nil {
 		return err
 	}
-	c.rt.Builtin.AnyType = complexID
 	c.complexDone[q] = complexID
 	return nil
 }
@@ -144,11 +136,10 @@ func (c *compiler) missingSimpleType() (runtime.SimpleTypeID, error) {
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
-	id, err := NextSimpleTypeID(len(c.rt.SimpleTypes))
+	id, err := c.addSimpleType(runtime.MissingSimpleType(q, c.rt.Builtin.AnySimpleType))
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, runtime.MissingSimpleType(q, c.rt.Builtin.AnySimpleType))
 	c.missingSimple = id
 	return id, nil
 }

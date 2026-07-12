@@ -46,8 +46,8 @@ func (c *compiler) NameInternerIsZeroForTest() bool {
 
 // DocumentNamesForTest returns loaded schema document names in compiler order.
 func (c *compiler) DocumentNamesForTest() []string {
-	names := make([]string, 0, len(c.documents))
-	for _, document := range c.documents {
+	names := make([]string, 0, len(c.schemas.documents))
+	for _, document := range c.schemas.documents {
 		if document.indexDeclarations {
 			names = append(names, document.doc.name)
 		}
@@ -73,5 +73,5 @@ func ParseSchemaRootForTest(data []byte, limits Limits) (*RawNode, error) {
 
 // FreezeCompilerRuntimeForTest freezes a compiler runtime for white-box tests.
 func FreezeCompilerRuntimeForTest(c *Compiler) (*runtime.Schema, error) {
-	return publishCompilerRuntime(c)
+	return c.publishSchema()
 }

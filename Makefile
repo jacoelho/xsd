@@ -4,6 +4,7 @@ MAKEFLAGS+=-r -R
 BIN := $(CURDIR)/bin
 STATICCHECK_VERSION := v0.7.0
 GOLANGCI_LINT_VERSION := v2.12.2
+BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
 export GOBIN := $(BIN)
 
 .PHONY: test
@@ -28,6 +29,12 @@ bench:
 .PHONY: bench-smoke
 bench-smoke:
 	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
+
+.PHONY: benchstat
+benchstat: $(BIN)/benchstat
+
+$(BIN)/benchstat: go.mod Makefile | $(BIN)
+	go install golang.org/x/perf/cmd/benchstat@$(BENCHSTAT_VERSION)
 
 .PHONY: xmllint
 xmllint: | $(BIN)
