@@ -26,8 +26,7 @@ func TestMaxErrorsCapsCollectionWithoutSkippingXMLSyntax(t *testing.T) {
 
 		err := Validate(rt, strings.NewReader(`<root><v>x</v><v>y</v></root>`), Options{MaxErrors: 1})
 		requireCode(t, err, xsderrors.CodeValidationFacet)
-		var multiple xsderrors.Errors
-		if errors.As(err, &multiple) {
+		if multiple, ok := errors.AsType[xsderrors.Errors](err); ok {
 			t.Fatalf("Validate() returned %d errors, want one", len(multiple))
 		}
 	})

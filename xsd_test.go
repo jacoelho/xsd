@@ -30,6 +30,21 @@ func TestNilReadersReturnStructuredErrors(t *testing.T) {
 	}
 }
 
+func TestNewSessionRejectsInvalidOptions(t *testing.T) {
+	t.Parallel()
+
+	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	session, err := engine.NewSession(xsd.ValidateOptions{MaxErrors: -1})
+	if session != nil {
+		t.Fatal("NewSession() session is non-nil for invalid options")
+	}
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationOption)
+}
+
 func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 	t.Parallel()
 
@@ -94,8 +109,7 @@ func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 				}
 				return
 			}
-			var xerr *xsderrors.Error
-			if !errors.As(err, &xerr) || xerr.Code != xsderrors.CodeValidationLimit {
+			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeValidationLimit {
 				t.Fatalf("Validate() error = %v, want validation limit", err)
 			}
 		})
@@ -143,8 +157,7 @@ func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
 				}
 				return
 			}
-			var xerr *xsderrors.Error
-			if !errors.As(err, &xerr) || xerr.Code != xsderrors.CodeSchemaLimit {
+			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
 				t.Fatalf("CompileWithOptions() error = %v, want schema limit", err)
 			}
 		})

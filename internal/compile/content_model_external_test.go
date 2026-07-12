@@ -328,8 +328,7 @@ func validationErrorCodes(err error) []xsderrors.Code {
 	if err == nil {
 		return nil
 	}
-	var errs xsderrors.Errors
-	if errors.As(err, &errs) {
+	if errs, ok := errors.AsType[xsderrors.Errors](err); ok {
 		codes := make([]xsderrors.Code, 0, len(errs))
 		for _, item := range errs {
 			if x, ok := errors.AsType[*xsderrors.Error](item); ok {

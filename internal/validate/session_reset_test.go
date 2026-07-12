@@ -83,9 +83,8 @@ func assertSingleIdentityLimit(t *testing.T, err error, message string) {
 	if !strings.Contains(err.Error(), message) {
 		t.Fatalf("Validate() error = %v, want %q", err, message)
 	}
-	var multiple xsderrors.Errors
-	if errors.As(err, &multiple) {
-		t.Fatalf("Validate() returned recoverable error collection: %v", err)
+	if multiple, ok := errors.AsType[xsderrors.Errors](err); ok {
+		t.Fatalf("Validate() returned recoverable error collection: %v", multiple)
 	}
 }
 
