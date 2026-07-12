@@ -16,9 +16,10 @@ import (
 )
 
 type rawDoc struct {
-	root *rawNode
-	name string
-	key  string
+	root  *rawNode
+	name  string
+	key   string
+	nodes int
 }
 
 type rawNode struct {
@@ -70,7 +71,7 @@ func parseSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc,
 	if err := rejectInvalidAnnotations(state.root); err != nil {
 		return nil, err
 	}
-	return &rawDoc{name: name, key: key, root: state.root}, nil
+	return &rawDoc{name: name, key: key, root: state.root, nodes: state.nodes}, nil
 }
 
 type schemaParseState struct {
@@ -78,6 +79,7 @@ type schemaParseState struct {
 	root    *rawNode
 	stack   []*rawNode
 	nsStack []map[string]string
+	nodes   int
 	limits  Limits
 }
 
@@ -122,6 +124,9 @@ func (s *schemaParseState) handleToken(tok xml.Token) error {
 
 func (s *schemaParseState) handleStartElement(t xml.StartElement) error {
 	line, col := s.dec.InputPos()
+	if s.nodes >= s.limits.MaxSchemaInstantiatedNodes {
+		return xsderrors.SchemaParse(xsderrors.CodeSchemaLimit, line, col, "schema nodes exceed MaxSchemaInstantiatedNodes", nil)
+	}
 	if s.limits.MaxSchemaDepth > 0 && len(s.stack)+1 > s.limits.MaxSchemaDepth {
 		return xsderrors.SchemaParse(xsderrors.CodeSchemaLimit, line, col, "schema XML nesting exceeds configured limit", nil)
 	}
@@ -152,6 +157,7 @@ func (s *schemaParseState) handleStartElement(t xml.StartElement) error {
 		}
 	}
 	n := &rawNode{Name: t.Name, Attr: t.Attr, NS: ns, Line: line, Column: col}
+	s.nodes++
 	if len(s.stack) == 0 {
 		if s.root != nil {
 			return xsderrors.SchemaParse(xsderrors.CodeSchemaRoot, line, col, "schema document has multiple roots", nil)

@@ -331,6 +331,145 @@ func TestAttributeValuesAreOwnedStrings(t *testing.T) {
 	}
 }
 
+func TestXMLStreamParserLimitsAggregateStartPayload(t *testing.T) {
+	t.Parallel()
+
+	for _, lazy := range []bool{false, true} {
+		for _, tt := range []struct {
+			name    string
+			limit   int64
+			wantErr bool
+		}{
+			{name: "exact limit", limit: 7},
+			{name: "over limit", limit: 6, wantErr: true},
+		} {
+			name := fmt.Sprintf("lazy=%t/%s", lazy, tt.name)
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+
+				names := NewCache()
+				values := NewCache()
+				p := new(Parser)
+				p.ResetWithLimit(strings.NewReader(`<r a="12" b="34"/>`), &names, &values, tt.limit)
+				p.SetLazyAttrValue(lazy)
+
+				_, err := p.Next()
+				if tt.wantErr {
+					if !IsTokenLimit(err) {
+						t.Fatalf("Next() error = %v, want token limit", err)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("Next() error = %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestXMLStreamParserLimitsAggregateProcessingInstructionPayload(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name    string
+		limit   int64
+		wantErr bool
+	}{
+		{name: "exact limit", limit: 5},
+		{name: "over limit", limit: 4, wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			names := NewCache()
+			values := NewCache()
+			p := new(Parser)
+			p.ResetWithLimit(strings.NewReader(`<?pi abc?><r/>`), &names, &values, tt.limit)
+			p.SetEmitPI(true)
+
+			_, err := p.Next()
+			if tt.wantErr {
+				if !IsTokenLimit(err) {
+					t.Fatalf("Next() error = %v, want token limit", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Next() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestXMLStreamParserPreservesDisprovedProcessingInstructionTerminatorPrefix(t *testing.T) {
+	t.Parallel()
+
+	names := NewCache()
+	values := NewCache()
+	p := new(Parser)
+	p.ResetWithLimit(strings.NewReader(`<?pi ?x?><r/>`), &names, &values, 4)
+	p.SetEmitPI(true)
+
+	tok, err := p.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if tok.Kind != KindPI || string(tok.Data) != "pi" || string(tok.Directive) != "?x" {
+		t.Fatalf("Next() = %+v, want PI target pi and content ?x", tok)
+	}
+}
+
+func TestXMLStreamParserChargesDecodedEntityPayload(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		xml     string
+		limit   int64
+		token   int
+		wantErr bool
+	}{
+		{name: "character data exact", xml: `<r>&amp;&amp;</r>`, limit: 5, token: 2},
+		{name: "character data over", xml: `<r>&amp;&amp;</r>`, limit: 4, token: 2, wantErr: true},
+		{name: "attribute exact", xml: `<r a="&amp;"/>`, limit: 6, token: 1},
+		{name: "attribute over", xml: `<r a="&amp;"/>`, limit: 5, token: 1, wantErr: true},
+		{name: "numeric UTF-8 exact", xml: `<r>&#x20AC;</r>`, limit: 9, token: 2},
+		{name: "numeric UTF-8 over", xml: `<r>&#x20AC;</r>`, limit: 8, token: 2, wantErr: true},
+		{name: "numeric leading zeros exact", xml: `<r>&#0065;</r>`, limit: 6, token: 2},
+		{name: "numeric leading zeros over", xml: `<r>&#0065;</r>`, limit: 5, token: 2, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			names := NewCache()
+			values := NewCache()
+			p := new(Parser)
+			p.ResetWithLimit(strings.NewReader(tt.xml), &names, &values, tt.limit)
+			var err error
+			for range tt.token {
+				_, err = p.Next()
+				if err != nil {
+					break
+				}
+			}
+			if len(p.entityBuf) != 0 {
+				t.Fatalf("entity scratch length = %d after token", len(p.entityBuf))
+			}
+			if tt.wantErr {
+				if !IsTokenLimit(err) {
+					t.Fatalf("Next() error = %v, want token limit", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Next() error = %v", err)
+			}
+		})
+	}
+}
+
 func TestLazyAttributeValueCopiesSurviveParserAdvance(t *testing.T) {
 	startTag := func(name, value string) string {
 		var b strings.Builder

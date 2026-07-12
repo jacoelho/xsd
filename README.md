@@ -94,13 +94,18 @@ schema := strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSche
 
 engine, err := xsd.CompileWithOptions(
     xsd.CompileOptions{
-        MaxSchemaDepth:        256,
-        MaxSchemaAttributes:   256,
-        MaxSchemaTokenBytes:   4 << 20,
-        MaxSchemaSourceBytes:  64 << 20,
-        MaxSchemaNames:        0,
-        MaxFiniteOccurs:       1_000_000,
-        MaxContentModelStates: 16_384,
+        MaxSchemaDepth:             256,
+        MaxSchemaAttributes:        256,
+        MaxSchemaTokenBytes:        4 << 20,
+        MaxSchemaSourceBytes:       64 << 20,
+        MaxSchemaSources:           1024,
+        MaxSchemaTotalBytes:        256 << 20,
+        MaxSchemaReferences:        16_384,
+        MaxSchemaTargetContexts:    4096,
+        MaxSchemaInstantiatedNodes: 1_000_000,
+        MaxSchemaNames:             0,
+        MaxFiniteOccurs:            1_000_000,
+        MaxContentModelStates:      16_384,
     },
     xsd.Reader("schema.xsd", schema),
 )
@@ -117,13 +122,18 @@ Available options:
 | `MaxSchemaAttributes` | `256` | Max attributes on one schema XML element. |
 | `MaxSchemaTokenBytes` | `4 << 20` | Max retained schema XML token payload. |
 | `MaxSchemaSourceBytes` | `64 << 20` | Max bytes read from each schema source. |
+| `MaxSchemaSources` | `1024` | Max distinct schema sources admitted to one compilation. |
+| `MaxSchemaTotalBytes` | `256 << 20` | Max aggregate bytes read across all schema sources. |
+| `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
+| `MaxSchemaTargetContexts` | `4096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
+| `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate raw schema nodes across all target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
 | `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. |
 
 Negative integer limits are schema compile errors.
 
-`MaxSchemaSourceBytes` applies during compilation to every source, including files, resolver-loaded includes/imports, `Bytes` data, and data captured by `Reader`. Because `Reader` reads eagerly before `CompileWithOptions` runs, callers that need to cap untrusted `io.Reader` input should use `LimitedReader`:
+`MaxSchemaSourceBytes` applies to each source, while `MaxSchemaSources`, `MaxSchemaTotalBytes`, `MaxSchemaReferences`, `MaxSchemaTargetContexts`, and `MaxSchemaInstantiatedNodes` bound the resolver-expanded schema set and its derived target-namespace variants. These limits cover files, resolver-loaded includes/imports, `Bytes` data, and data captured by `Reader`. Because `Reader` reads eagerly before `CompileWithOptions` runs, callers that need to cap untrusted `io.Reader` input should use `LimitedReader`:
 
 ```go
 engine, err := xsd.Compile(xsd.LimitedReader("schema.xsd", r, 64<<20))
@@ -167,7 +177,7 @@ Available validation options:
 | `MaxInstanceDepth` | `0` | Max nested XML elements. `0` means unlimited. |
 | `MaxInstanceAttributes` | `0` | Max attributes on one XML element. `0` means unlimited. |
 | `MaxInstanceTextBytes` | `0` | Max retained character data bytes. `0` means unlimited. |
-| `MaxInstanceTokenBytes` | `0` | Max retained XML token payload bytes. `0` means unlimited. |
+| `MaxInstanceTokenBytes` | `0` | Max parser-owned bytes for one XML token, including retained payload and active construction scratch. `0` means unlimited. |
 
 Negative integer limits are validation errors.
 

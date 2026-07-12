@@ -15,6 +15,10 @@ test:
 race:
 	go test -race ./...
 
+.PHONY: wasm-test
+wasm-test:
+	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/wasmxsd
+
 .PHONY: fuzz-smoke
 fuzz-smoke:
 	go test -run '^$$' -fuzz=FuzzXMLStreamParser -fuzztime=10s ./internal/stream

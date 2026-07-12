@@ -23,7 +23,8 @@ type ValidateOptions struct {
 	MaxInstanceAttributes int
 	// MaxInstanceTextBytes limits retained character data bytes. Zero means unlimited.
 	MaxInstanceTextBytes int64
-	// MaxInstanceTokenBytes limits retained XML token payload bytes. Zero means unlimited.
+	// MaxInstanceTokenBytes limits parser-owned bytes for one XML token, including
+	// retained payload and active construction scratch. Zero means unlimited.
 	MaxInstanceTokenBytes int64
 }
 

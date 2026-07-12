@@ -57,7 +57,7 @@ func LimitedReader(name string, r io.Reader, maxBytes int64) Source {
 	if r == nil {
 		return Source{name: name, err: ErrNilReader}
 	}
-	data, err := readLimitedSchemaSource(name, r, maxBytes)
+	data, _, err := readLimitedSchemaSource(name, r, maxBytes)
 	if err != nil {
 		return Source{name: name, err: err}
 	}
@@ -110,46 +110,54 @@ func (s Source) Resolve(location string) (resolved Source, found bool, err error
 
 // Read returns a copy of the source bytes.
 func (s Source) Read(maxBytes int64) ([]byte, error) {
+	data, _, err := s.ReadWithLimit(maxBytes)
+	return data, err
+}
+
+// ReadWithLimit returns a copy of the source bytes and reports whether this
+// read exceeded maxBytes. A limit error captured while constructing the Source
+// is returned without setting limitExceeded.
+func (s Source) ReadWithLimit(maxBytes int64) (data []byte, limitExceeded bool, err error) {
 	if s.err != nil {
-		return nil, s.err
+		return nil, false, s.err
 	}
 	if s.data != nil {
 		if int64(len(s.data)) > maxBytes {
-			return nil, schemaSourceLimitError(s.name)
+			return nil, true, schemaSourceLimitError(s.name)
 		}
-		return bytes.Clone(s.data), nil
+		return bytes.Clone(s.data), false, nil
 	}
 	if s.open == nil {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source has no data or opener")
+		return nil, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source has no data or opener")
 	}
 	r, err := s.open()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	data, readErr := readLimitedSchemaSource(s.name, r, maxBytes)
+	data, limitExceeded, readErr := readLimitedSchemaSource(s.name, r, maxBytes)
 	closeErr := r.Close()
 	if readErr != nil {
-		return nil, readErr
+		return data, limitExceeded, readErr
 	}
-	return data, closeErr
+	return data, false, closeErr
 }
 
-func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, error) {
-	if maxBytes <= 0 {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit must be positive")
+func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, bool, error) {
+	if maxBytes < 0 {
+		return nil, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative")
 	}
 	reader := r
 	if maxBytes < math.MaxInt64 {
 		reader = io.LimitReader(r, maxBytes+1)
 	}
 	data, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, err
-	}
 	if int64(len(data)) > maxBytes {
-		return nil, schemaSourceLimitError(name)
+		return data, true, schemaSourceLimitError(name)
 	}
-	return data, nil
+	if err != nil {
+		return data, false, err
+	}
+	return data, false, nil
 }
 
 func schemaSourceLimitError(name string) error {

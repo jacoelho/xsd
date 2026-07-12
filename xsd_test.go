@@ -30,6 +30,127 @@ func TestNilReadersReturnStructuredErrors(t *testing.T) {
 	}
 }
 
+func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
+	t.Parallel()
+
+	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r" type="xs:anyType"/></xs:schema>`)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	input := `<r a="12" b="34"/>`
+	tests := []struct {
+		name     string
+		limit    int64
+		validate func(*xsd.Engine, string, xsd.ValidateOptions) error
+		wantErr  bool
+	}{
+		{
+			name:  "engine exact limit",
+			limit: 7,
+			validate: func(engine *xsd.Engine, input string, opts xsd.ValidateOptions) error {
+				return engine.ValidateWithOptions(strings.NewReader(input), opts)
+			},
+		},
+		{
+			name:  "engine over limit",
+			limit: 6,
+			validate: func(engine *xsd.Engine, input string, opts xsd.ValidateOptions) error {
+				return engine.ValidateWithOptions(strings.NewReader(input), opts)
+			},
+			wantErr: true,
+		},
+		{
+			name:  "session exact limit",
+			limit: 7,
+			validate: func(engine *xsd.Engine, input string, opts xsd.ValidateOptions) error {
+				session, err := engine.NewSession(opts)
+				if err != nil {
+					return err
+				}
+				return session.Validate(strings.NewReader(input))
+			},
+		},
+		{
+			name:  "session over limit",
+			limit: 6,
+			validate: func(engine *xsd.Engine, input string, opts xsd.ValidateOptions) error {
+				session, err := engine.NewSession(opts)
+				if err != nil {
+					return err
+				}
+				return session.Validate(strings.NewReader(input))
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.validate(engine, input, xsd.ValidateOptions{MaxInstanceTokenBytes: tt.limit})
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("Validate() error = %v", err)
+				}
+				return
+			}
+			var xerr *xsderrors.Error
+			if !errors.As(err, &xerr) || xerr.Code != xsderrors.CodeValidationLimit {
+				t.Fatalf("Validate() error = %v, want validation limit", err)
+			}
+		})
+	}
+}
+
+func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
+	t.Parallel()
+
+	rootData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/><xs:include schemaLocation="child.xsd"/></xs:schema>`)
+	childData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
+	resolver := xsd.ResolverFunc(func(_, location string) (xsd.SchemaSource, error) {
+		if location == "child.xsd" {
+			return xsd.Bytes("child.xsd", childData), nil
+		}
+		return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
+	})
+	root := xsd.Bytes("root.xsd", rootData).WithResolver(resolver)
+	totalBytes := int64(len(rootData) + len(childData))
+
+	tests := []struct {
+		name    string
+		opts    xsd.CompileOptions
+		wantErr bool
+	}{
+		{name: "exact source count", opts: xsd.CompileOptions{MaxSchemaSources: 2}},
+		{name: "source count exceeded", opts: xsd.CompileOptions{MaxSchemaSources: 1}, wantErr: true},
+		{name: "exact total bytes", opts: xsd.CompileOptions{MaxSchemaTotalBytes: totalBytes}},
+		{name: "total bytes exceeded", opts: xsd.CompileOptions{MaxSchemaTotalBytes: totalBytes - 1}, wantErr: true},
+		{name: "exact references", opts: xsd.CompileOptions{MaxSchemaReferences: 2}},
+		{name: "references exceeded", opts: xsd.CompileOptions{MaxSchemaReferences: 1}, wantErr: true},
+		{name: "exact target contexts", opts: xsd.CompileOptions{MaxSchemaTargetContexts: 2}},
+		{name: "target contexts exceeded", opts: xsd.CompileOptions{MaxSchemaTargetContexts: 1}, wantErr: true},
+		{name: "exact instantiated nodes", opts: xsd.CompileOptions{MaxSchemaInstantiatedNodes: 4}},
+		{name: "instantiated nodes exceeded", opts: xsd.CompileOptions{MaxSchemaInstantiatedNodes: 3}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := xsd.CompileWithOptions(tt.opts, root)
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("CompileWithOptions() error = %v", err)
+				}
+				return
+			}
+			var xerr *xsderrors.Error
+			if !errors.As(err, &xerr) || xerr.Code != xsderrors.CodeSchemaLimit {
+				t.Fatalf("CompileWithOptions() error = %v, want schema limit", err)
+			}
+		})
+	}
+}
+
 func TestBytesSourceCopiesInput(t *testing.T) {
 	data := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
 	source := xsd.Bytes("schema.xsd", data)

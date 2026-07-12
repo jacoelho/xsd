@@ -46,6 +46,9 @@ func (p *Parser) consumeLineFeed() {
 
 func (p *Parser) readEntity(dst *[]byte) error {
 	p.entityBuf = p.entityBuf[:0]
+	defer func() {
+		p.entityBuf = p.entityBuf[:0]
+	}()
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
@@ -54,24 +57,25 @@ func (p *Parser) readEntity(dst *[]byte) error {
 		if b == ';' {
 			break
 		}
-		if err := p.appendTokenByte(&p.entityBuf, b); err != nil {
-			return err
-		}
-		if len(p.entityBuf) > maxEntityReferenceLength {
+		if len(p.entityBuf) == maxEntityReferenceLength {
 			return fmt.Errorf("invalid character entity")
 		}
+		if err := p.checkRetainedPeak(len(p.entityBuf) + 1); err != nil {
+			return err
+		}
+		p.entityBuf = append(p.entityBuf, b)
 	}
 	switch {
 	case bytes.Equal(p.entityBuf, entityLT):
-		return p.appendTokenByte(dst, '<')
+		return p.appendEntityBytes(dst, []byte{'<'})
 	case bytes.Equal(p.entityBuf, entityGT):
-		return p.appendTokenByte(dst, '>')
+		return p.appendEntityBytes(dst, []byte{'>'})
 	case bytes.Equal(p.entityBuf, entityAMP):
-		return p.appendTokenByte(dst, '&')
+		return p.appendEntityBytes(dst, []byte{'&'})
 	case bytes.Equal(p.entityBuf, entityAPOS):
-		return p.appendTokenByte(dst, '\'')
+		return p.appendEntityBytes(dst, []byte{'\''})
 	case bytes.Equal(p.entityBuf, entityQUOT):
-		return p.appendTokenByte(dst, '"')
+		return p.appendEntityBytes(dst, []byte{'"'})
 	default:
 		if len(p.entityBuf) == 0 || p.entityBuf[0] != '#' {
 			if lex.IsXMLNameBytes(p.entityBuf) {
@@ -85,8 +89,19 @@ func (p *Parser) readEntity(dst *[]byte) error {
 		}
 		var buf [utf8.UTFMax]byte
 		n := utf8.EncodeRune(buf[:], r)
-		return p.appendTokenBytes(dst, buf[:n])
+		return p.appendEntityBytes(dst, buf[:n])
 	}
+}
+
+func (p *Parser) appendEntityBytes(dst *[]byte, data []byte) error {
+	if err := p.checkRetainedPeak(len(p.entityBuf) + len(data)); err != nil {
+		return err
+	}
+	if p.maxTokenBytes > 0 {
+		p.retainedBytes += int64(len(data))
+	}
+	*dst = append(*dst, data...)
+	return nil
 }
 
 func parseCharRef(s []byte) (rune, bool) {
@@ -154,17 +169,21 @@ func (p *Parser) readUntil(term string, dst []byte) ([]byte, error) {
 		if err != nil {
 			return nil, p.syntaxError("unexpected EOF", err)
 		}
-		dst = append(dst, b)
-		matched = advanceTermMatch(term, prefix, matched, b)
-		if matched == len(term) {
-			dst = dst[:len(dst)-len(term)]
-			if err := p.checkTokenBytes(int64(len(dst))); err != nil {
+		next := advanceTermMatch(term, prefix, matched, b)
+		confirmed := matched + 1 - next
+		if confirmed > 0 {
+			if err := p.reserveRetainedBytes(confirmed); err != nil {
 				return nil, err
 			}
-			return dst, nil
+			fromTerm := min(confirmed, matched)
+			dst = append(dst, term[:fromTerm]...)
+			if confirmed > matched {
+				dst = append(dst, b)
+			}
 		}
-		if err := p.checkTokenBytes(int64(len(dst) - matched)); err != nil {
-			return nil, err
+		matched = next
+		if matched == len(term) {
+			return dst, nil
 		}
 	}
 }
@@ -190,7 +209,7 @@ func (p *Parser) appendTokenByte(dst *[]byte, b byte) error {
 		*dst = append(*dst, b)
 		return nil
 	}
-	if err := p.checkTokenBytes(int64(len(*dst) + 1)); err != nil {
+	if err := p.reserveRetainedBytes(1); err != nil {
 		return err
 	}
 	*dst = append(*dst, b)
@@ -202,7 +221,7 @@ func (p *Parser) appendTokenBytes(dst *[]byte, data []byte) error {
 		*dst = append(*dst, data...)
 		return nil
 	}
-	if err := p.checkTokenBytes(int64(len(*dst) + len(data))); err != nil {
+	if err := p.reserveRetainedBytes(len(data)); err != nil {
 		return err
 	}
 	*dst = append(*dst, data...)
@@ -214,6 +233,29 @@ func (p *Parser) checkTokenBytes(n int64) error {
 		return errXMLTokenLimit
 	}
 	return nil
+}
+
+func (p *Parser) reserveRetainedBytes(n int) error {
+	next := p.retainedBytes + int64(n)
+	if next < p.retainedBytes {
+		return errXMLTokenLimit
+	}
+	if err := p.checkTokenBytes(next); err != nil {
+		return err
+	}
+	p.retainedBytes = next
+	return nil
+}
+
+func (p *Parser) checkRetainedPeak(transient int) error {
+	if p.maxTokenBytes <= 0 {
+		return nil
+	}
+	peak := p.retainedBytes + int64(transient)
+	if peak < p.retainedBytes {
+		return errXMLTokenLimit
+	}
+	return p.checkTokenBytes(peak)
 }
 
 func termPrefix(term string) []int {

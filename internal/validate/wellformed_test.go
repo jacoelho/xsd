@@ -46,4 +46,10 @@ func TestCheckXMLWellFormedHonorsParserLimits(t *testing.T) {
 
 	err = CheckXMLWellFormed(strings.NewReader(`<root><v/></root>`), Options{MaxInstanceDepth: 1})
 	requireCode(t, err, xsderrors.CodeValidationLimit)
+
+	err = CheckXMLWellFormed(strings.NewReader(`<root>text</root>`), Options{MaxInstanceTokenBytes: 1})
+	requireCode(t, err, xsderrors.CodeValidationLimit)
+
+	err = CheckXMLWellFormed(strings.NewReader(`<r a="12" b="34"/>`), Options{MaxInstanceTokenBytes: 6})
+	requireCode(t, err, xsderrors.CodeValidationLimit)
 }

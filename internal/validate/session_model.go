@@ -1,6 +1,8 @@
 package validate
 
 import (
+	"errors"
+
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -85,13 +87,21 @@ func (s *session) end(line, col int, ee stream.EndElement) error {
 	if err := s.doc.ValidateEnd(ee, line, col); err != nil {
 		return err
 	}
+	if s.doc.syntaxOnly {
+		return s.doc.CommitEnd()
+	}
 	f, ok := s.doc.Current()
 	if !ok {
 		return xsderrors.InternalInvariant("end element has no schema frame")
 	}
 	stop := s.validateFrameEnd(f, line, col)
-	if stop == nil && s.hasIdentityConstraints {
+	if errors.Is(stop, errSemanticStop) {
+		stop = nil
+	} else if stop == nil && s.hasIdentityConstraints {
 		stop = s.finishFrameIdentity(line, col)
+		if errors.Is(stop, errSemanticStop) {
+			stop = nil
+		}
 	}
 	s.doc.allBits = s.doc.allBits[:f.BitBase]
 	s.doc.text = s.doc.text[:f.TextStart]
