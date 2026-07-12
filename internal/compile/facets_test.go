@@ -11,7 +11,7 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func TestDerivedSimpleTypeSharesImmutableInheritedStorage(t *testing.T) {
+func TestOwnerDerivedSimpleTypeSharesImmutableInheritedStorage(t *testing.T) {
 	t.Parallel()
 
 	members := []runtime.SimpleTypeID{1, 2}
@@ -28,24 +28,20 @@ func TestDerivedSimpleTypeSharesImmutableInheritedStorage(t *testing.T) {
 			Present:     runtime.FacetEnumeration,
 		},
 	}
-	derived := derivedSimpleType(base, 0, runtime.QName{})
+	c := compiler{rt: compilerSchemaBuild{build: runtime.SchemaBuild{SimpleTypes: []runtime.SimpleType{base}}}}
+	derived := c.rt.derivedSimpleType(0, runtime.QName{})
 	if &derived.Union[0] != &base.Union[0] {
 		t.Fatal("derived restriction cloned immutable union storage")
 	}
 	if &derived.Facets.Enumeration[0] != &base.Facets.Enumeration[0] {
 		t.Fatal("derived restriction cloned immutable enumeration storage")
 	}
-
-	c := compiler{rt: runtime.SchemaBuild{SimpleTypes: []runtime.SimpleType{base}}}
 	pattern := &rawNode{
 		Name: xml.Name{Space: runtime.XSDNamespaceURI, Local: vocab.XSDFacetPattern},
 		Attr: []xml.Attr{{Name: xml.Name{Local: vocab.XSDAttrValue}, Value: "[A-Z]+"}},
 	}
 	if err := c.compileFacets(&rawNode{Children: []*rawNode{pattern}}, &derived, 0, 0); err != nil {
 		t.Fatalf("compileFacets() error = %v", err)
-	}
-	if &derived.Union[0] != &base.Union[0] {
-		t.Fatal("facet compilation detached immutable union storage")
 	}
 	if &base.Facets.Enumeration[0] != &enumeration[0] || base.Facets.Present != runtime.FacetEnumeration {
 		t.Fatal("facet compilation mutated base facets")

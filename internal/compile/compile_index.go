@@ -77,11 +77,11 @@ func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) 
 	if !ok {
 		return nil
 	}
-	q, err := c.names.InternQName(ctx.targetNS, name)
+	q, err := c.rt.internQName(ctx.targetNS, name)
 	if err != nil {
 		return err
 	}
-	label := c.rt.Names.Format(q)
+	label := c.rt.formatName(q)
 	component := rawComponent{child, ctx}
 	switch child.Name.Local {
 	case vocab.XSDElemSimpleType:
@@ -131,11 +131,11 @@ func (c *compiler) indexNotation(n *rawNode, ctx *schemaContext) error {
 		return err
 	}
 	name, _ := n.attr(vocab.XSDAttrName)
-	q, err := c.names.InternQName(ctx.targetNS, name)
+	q, err := c.rt.internQName(ctx.targetNS, name)
 	if err != nil {
 		return err
 	}
-	return withSchemaCompileLocation(n, c.addNotation(q, c.rt.Names.Format(q)))
+	return withSchemaCompileLocation(n, c.addNotation(q, c.rt.formatName(q)))
 }
 
 func validateRawModelGroupSyntax(n *rawNode, limits Limits) error {

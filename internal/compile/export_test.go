@@ -36,12 +36,12 @@ func (c *compiler) CompileGlobalsForTest() error {
 
 // RuntimeForTest returns the compiler-owned mutable runtime for white-box tests.
 func (c *compiler) RuntimeForTest() *runtime.SchemaBuild {
-	return &c.rt
+	return &c.rt.build
 }
 
 // NameInternerIsZeroForTest reports whether the compiler name interner was cleared.
 func (c *compiler) NameInternerIsZeroForTest() bool {
-	return c.names.IsZero()
+	return c.rt.build.Names.NameCount() == 0
 }
 
 // DocumentNamesForTest returns loaded schema document names in compiler order.

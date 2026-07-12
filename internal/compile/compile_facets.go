@@ -15,7 +15,6 @@ func (c *compiler) compileFacetList(children []*rawNode, st *runtime.SimpleType,
 }
 
 func (c *compiler) compileFacetChildren(children []*rawNode, st *runtime.SimpleType, base, literalType runtime.SimpleTypeID, skipNonFacets bool) error {
-	baseType := c.rt.SimpleTypes[base]
 	var state compiledFacetState
 	for _, child := range children {
 		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
@@ -32,7 +31,7 @@ func (c *compiler) compileFacetChildren(children []*rawNode, st *runtime.SimpleT
 		return nil
 	}
 	state.apply(st)
-	return ValidateCompiledFacets(*st, baseType, state.orderedStep)
+	return c.validateCompiledFacetsBuild(*st, base, state.orderedStep)
 }
 
 type compiledFacetState struct {
@@ -190,7 +189,7 @@ func (c *compiler) compileBoundFacet(st *runtime.SimpleType, base runtime.Simple
 }
 
 func (c *compiler) compileWhitespaceFacet(st *runtime.SimpleType, base runtime.SimpleTypeID, n *rawNode, value string, fixed bool) error {
-	mode, err := ParseWhitespaceFacetValue(value, c.rt.SimpleTypes[base].Whitespace)
+	mode, err := ParseWhitespaceFacetValue(value, c.rt.simpleTypeWhitespace(base))
 	if err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
@@ -209,5 +208,5 @@ func (c *compiler) compileLiteral(base runtime.SimpleTypeID, lexical string, res
 	if err != nil {
 		return runtime.CompiledLiteral{}, FacetValueError(lexical, err)
 	}
-	return runtime.NewCompiledLiteralForSimpleType(c.rt.SimpleTypes[base], base, lexical, value.Canonical, recorder.names), nil
+	return c.compiledLiteralForSimpleType(base, lexical, value.Canonical, recorder.names), nil
 }

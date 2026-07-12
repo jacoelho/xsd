@@ -45,7 +45,7 @@ func (c *compiler) compileElementByQName(q runtime.QName) (runtime.ElementID, er
 	if id, ok := c.elementDone[q]; ok {
 		return id, nil
 	}
-	label := c.rt.Names.Format(q)
+	label := c.rt.formatName(q)
 	if c.compilingElement[q] {
 		err := CheckSchemaComponentCycle(SchemaComponentElement, true, label)
 		if raw, ok := c.elementRaw[q]; ok {
@@ -59,7 +59,7 @@ func (c *compiler) compileElementByQName(q runtime.QName) (runtime.ElementID, er
 	}
 	c.compilingElement[q] = true
 	defer delete(c.compilingElement, q)
-	id, err := c.registerGlobalElement(q, runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.Builtin.AnyType)})
+	id, err := c.registerGlobalElement(q, runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.builtinIDs().AnyType)})
 	if err != nil {
 		return 0, err
 	}
@@ -96,11 +96,11 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (runtime.
 	if qualified {
 		ns = ctx.targetNS
 	}
-	q, err := c.names.InternQName(ns, name)
+	q, err := c.rt.internQName(ns, name)
 	if err != nil {
 		return 0, err
 	}
-	id, err := c.addElement(runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.Builtin.AnyType)})
+	id, err := c.addElement(runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.builtinIDs().AnyType)})
 	if err != nil {
 		return 0, err
 	}
@@ -134,7 +134,7 @@ func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q runtime.
 	if err != nil {
 		return runtime.ElementDecl{}, err
 	}
-	typ := runtime.ComplexRef(c.rt.Builtin.AnyType)
+	typ := runtime.ComplexRef(c.rt.builtinIDs().AnyType)
 	if typeLex, ok := n.attr(vocab.XSDAttrType); ok {
 		attrType, typeErr := c.compileElementTypeAttribute(n, ctx, typeLex)
 		if typeErr != nil {
