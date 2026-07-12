@@ -46,8 +46,7 @@ func TestSchemaSetAggregateLimits(t *testing.T) {
 				}
 				return
 			}
-			var xerr *xsderrors.Error
-			if !errors.As(err, &xerr) || xerr.Code != xsderrors.CodeSchemaLimit {
+			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
 				t.Fatalf("Compile() error = %v, want schema limit", err)
 			}
 		})
@@ -183,6 +182,36 @@ func TestSchemaReferenceLimitPrecedesResolverCalls(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatalf("resolver calls = %d, want 0", calls)
+	}
+}
+
+func TestSchemaReferenceLimitCountsImportsWithoutSchemaLocation(t *testing.T) {
+	t.Parallel()
+
+	rootData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root"><xs:import namespace="urn:a"/><xs:import namespace="urn:b"/></xs:schema>`)
+	root := source.Bytes("root.xsd", rootData)
+	if _, err := Compile(Options{MaxSchemaReferences: 2}, []source.Source{root}); err != nil {
+		t.Fatalf("Compile(exact) error = %v", err)
+	}
+	_, err := Compile(Options{MaxSchemaReferences: 1}, []source.Source{root})
+	if err == nil || !strings.Contains(err.Error(), "MaxSchemaReferences") {
+		t.Fatalf("Compile(over) error = %v, want reference limit", err)
+	}
+}
+
+func TestSchemaReferenceLimitExemptsBuiltinXMLNamespaceImport(t *testing.T) {
+	t.Parallel()
+
+	schema := func(imports string) source.Source {
+		data := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root"><xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/>` + imports + `</xs:schema>`)
+		return source.Bytes("root.xsd", data)
+	}
+	if _, err := Compile(Options{MaxSchemaReferences: 1}, []source.Source{schema(`<xs:import namespace="urn:a"/>`)}); err != nil {
+		t.Fatalf("Compile(exact) error = %v", err)
+	}
+	_, err := Compile(Options{MaxSchemaReferences: 1}, []source.Source{schema(`<xs:import namespace="urn:a"/><xs:import namespace="urn:b"/>`)})
+	if err == nil || !strings.Contains(err.Error(), "MaxSchemaReferences") {
+		t.Fatalf("Compile(over) error = %v, want reference limit", err)
 	}
 }
 
