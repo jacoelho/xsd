@@ -68,9 +68,10 @@ const (
 )
 
 type schemaReference struct {
-	location  string
-	namespace string
-	kind      schemaReferenceKind
+	location    string
+	namespace   string
+	kind        schemaReferenceKind
+	hasLocation bool
 }
 
 type resolvedSchemaReference struct {
@@ -354,7 +355,7 @@ func (l *schemaSetLoader) enqueueReferences(src source.Source, baseKey string, r
 	}
 	l.references += referenceCount
 	for _, ref := range refs {
-		if ref.namespace == vocab.XMLNamespaceURI {
+		if !ref.hasLocation || ref.namespace == vocab.XMLNamespaceURI {
 			continue
 		}
 		*queue = append(*queue, schemaLoadRequest{source: src, baseKey: baseKey, ref: ref, optional: true, resolve: true})
@@ -394,11 +395,8 @@ func schemaDocumentReferences(doc *rawDoc) []schemaReference {
 		default:
 			continue
 		}
-		location, ok := schemaLocationAttr(child)
-		if !ok {
-			continue
-		}
-		ref := schemaReference{kind: kind, location: location}
+		location, hasLocation := schemaLocationAttr(child)
+		ref := schemaReference{kind: kind, location: location, hasLocation: hasLocation}
 		if kind == schemaReferenceImport {
 			ref.namespace, _ = child.attr(vocab.XSDAttrNamespace)
 		}
@@ -526,6 +524,9 @@ func (l *schemaSetLoader) schemaTargetContextInputs() ([]resolvedSchemaReference
 	for i, document := range l.documents {
 		start := len(references)
 		for _, ref := range schemaDocumentReferences(document.doc) {
+			if !ref.hasLocation {
+				continue
+			}
 			targetKey, ok := l.resolveLoadedKey(document.doc, ref.location)
 			if !ok {
 				continue
