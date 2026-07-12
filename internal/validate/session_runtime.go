@@ -28,28 +28,43 @@ type Session struct {
 	session session
 }
 
-// Init prepares s as a validation session.
-func (s *Session) Init(rt *runtime.Schema, opts Options) error {
+// NewSession creates a reusable validation session.
+func NewSession(rt *runtime.Schema, opts Options) (Session, error) {
+	var inner session
+	if err := initializeSession(&inner, rt, opts); err != nil {
+		return Session{}, err
+	}
+	return Session{session: inner}, nil
+}
+
+func initializeSession(s *session, rt *runtime.Schema, opts Options) error {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
 		return err
 	}
 	hasIdentityConstraints := rt != nil && rt.HasIdentityConstraints()
-	*s = Session{
-		session: session{
-			rt:                     rt,
-			hasIdentityConstraints: hasIdentityConstraints,
-			maxErrors:              limits.Errors,
-			maxIdentityScopes:      limits.IdentityScopes,
-			maxIdentityEntries:     limits.IdentityEntries,
-			maxIdentityTupleBytes:  limits.IdentityTupleBytes,
-			maxInstanceDepth:       limits.InstanceDepth,
-			maxInstanceAttributes:  limits.InstanceAttributes,
-			maxInstanceTextBytes:   limits.InstanceTextBytes,
-			maxInstanceTokenBytes:  limits.InstanceTokenBytes,
-		},
+	*s = session{
+		rt:                     rt,
+		hasIdentityConstraints: hasIdentityConstraints,
+		maxErrors:              limits.Errors,
+		maxIdentityScopes:      limits.IdentityScopes,
+		maxIdentityEntries:     limits.IdentityEntries,
+		maxIdentityTupleBytes:  limits.IdentityTupleBytes,
+		maxInstanceDepth:       limits.InstanceDepth,
+		maxInstanceAttributes:  limits.InstanceAttributes,
+		maxInstanceTextBytes:   limits.InstanceTextBytes,
+		maxInstanceTokenBytes:  limits.InstanceTokenBytes,
 	}
 	return nil
+}
+
+// Validate validates one XML instance document with isolated per-call state.
+func Validate(rt *runtime.Schema, r io.Reader, opts Options) error {
+	var s session
+	if err := initializeSession(&s, rt, opts); err != nil {
+		return err
+	}
+	return s.validate(r)
 }
 
 // Validate validates one XML instance document and resets validation state

@@ -3,6 +3,8 @@ package compile_test
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -146,6 +148,511 @@ func TestMissingIncludedSchemaLocationDoesNotInvalidateSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile() error = %v, want nil", err)
 	}
+}
+
+func TestMissingResolvedIncludeDoesNotInvalidateSchema(t *testing.T) {
+	readErrors := []struct {
+		name string
+		err  error
+	}{
+		{name: "not exist", err: os.ErrNotExist},
+		{name: "wrapped not exist", err: fmt.Errorf("open: %w", os.ErrNotExist)},
+		{name: "schema not found", err: xsderrors.ErrSchemaNotFound},
+		{name: "wrapped schema not found", err: fmt.Errorf("open: %w", xsderrors.ErrSchemaNotFound)},
+	}
+	for _, tt := range readErrors {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := source.Resolver(func(_, location string) (source.Source, error) {
+				if location != "optional.xsd" {
+					return source.Source{}, errors.New("unexpected location " + location)
+				}
+				return source.Opener("optional.xsd", func() (io.ReadCloser, error) {
+					return nil, tt.err
+				}), nil
+			})
+			_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="optional.xsd"/>
+</xs:schema>`)).WithResolver(resolver)})
+			if err != nil {
+				t.Fatalf("Compile() error = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestSchemaSetReferenceRules(t *testing.T) {
+	validSchema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
+	readFailure := errors.New("read failed")
+	resolved := func(name, schema string) source.Resolver {
+		return func(_, location string) (source.Source, error) {
+			if location != name {
+				return source.Source{}, errors.New("unexpected location " + location)
+			}
+			return source.Bytes(name, []byte(schema)), nil
+		}
+	}
+	tests := []struct {
+		name     string
+		sources  func() []source.Source
+		category xsderrors.Category
+		code     xsderrors.Code
+		message  string
+		line     int
+	}{
+		{
+			name:     "source name required",
+			sources:  func() []source.Source { return []source.Source{source.Bytes("", validSchema)} },
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaRead,
+			message:  "schema source name is required",
+		},
+		{
+			name: "read error",
+			sources: func() []source.Source {
+				return []source.Source{source.Opener("broken.xsd", func() (io.ReadCloser, error) { return nil, readFailure })}
+			},
+			category: xsderrors.CategorySchemaParse,
+			code:     xsderrors.CodeSchemaRead,
+			message:  "read schema broken.xsd",
+		},
+		{
+			name: "include missing location",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n  <xs:include/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "include missing schemaLocation",
+			line:     2,
+		},
+		{
+			name: "include whitespace location",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n  <xs:include schemaLocation=\"   \"/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "include missing schemaLocation",
+			line:     2,
+		},
+		{
+			name: "import without namespace from no-target schema",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n  <xs:import/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "import without namespace requires enclosing schema targetNamespace",
+			line:     2,
+		},
+		{
+			name: "empty import namespace",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"urn:a\">\n  <xs:import namespace=\"\"/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaInvalidAttribute,
+			message:  "import namespace cannot be empty",
+			line:     2,
+		},
+		{
+			name: "import matches enclosing target",
+			sources: func() []source.Source {
+				return []source.Source{source.Bytes("schema.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"urn:a\">\n  <xs:import namespace=\"urn:a\"/>\n</xs:schema>"))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "import namespace cannot match enclosing schema targetNamespace",
+			line:     2,
+		},
+		{
+			name: "import target mismatch",
+			sources: func() []source.Source {
+				schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"urn:a\">\n  <xs:import namespace=\"urn:b\" schemaLocation=\"other.xsd\"/>\n</xs:schema>"
+				return []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolved("other.xsd", `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:c"/>`))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "import namespace does not match imported schema targetNamespace",
+			line:     2,
+		},
+		{
+			name: "include target mismatch",
+			sources: func() []source.Source {
+				schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"urn:a\">\n  <xs:include schemaLocation=\"other.xsd\"/>\n</xs:schema>"
+				return []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolved("other.xsd", `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "included schema targetNamespace does not match including schema",
+			line:     2,
+		},
+		{
+			name: "unimported QName",
+			sources: func() []source.Source {
+				schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:b=\"urn:b\" targetNamespace=\"urn:a\">\n  <xs:element name=\"root\" type=\"b:Missing\"/>\n</xs:schema>"
+				return []source.Source{source.Bytes("schema.xsd", []byte(schema))}
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaReference,
+			message:  "namespace is not imported: urn:b",
+			line:     2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := compile.Compile(compile.Options{}, tt.sources())
+			expectCategoryCode(t, err, tt.category, tt.code)
+			if !strings.Contains(err.Error(), tt.message) {
+				t.Fatalf("Compile() error = %v, want message containing %q", err, tt.message)
+			}
+			if tt.line != 0 {
+				expectSchemaCompileLine(t, err, tt.line)
+			}
+		})
+	}
+}
+
+func TestSchemaSetValidReferenceRules(t *testing.T) {
+	tests := []struct {
+		name      string
+		root      string
+		child     string
+		childName string
+	}{
+		{
+			name:      "import no namespace from targeted schema",
+			root:      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:import schemaLocation="child.xsd"/></xs:schema>`,
+			child:     `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
+			childName: "child.xsd",
+		},
+		{
+			name:      "foreign import matches imported target",
+			root:      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:import namespace="urn:b" schemaLocation="child.xsd"/></xs:schema>`,
+			child:     `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"/>`,
+			childName: "child.xsd",
+		},
+		{
+			name:      "include matching target",
+			root:      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:include schemaLocation="child.xsd"/></xs:schema>`,
+			child:     `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"/>`,
+			childName: "child.xsd",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := source.Resolver(func(_, location string) (source.Source, error) {
+				if location != tt.childName {
+					return source.Source{}, errors.New("unexpected location " + location)
+				}
+				return source.Bytes(tt.childName, []byte(tt.child)), nil
+			})
+			if _, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(tt.root)).WithResolver(resolver)}); err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestXMLNamespaceImportDoesNotCallResolver(t *testing.T) {
+	called := false
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		called = true
+		return source.Source{}, errors.New("unexpected resolver call for " + location)
+	})
+	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/></xs:schema>`
+	if _, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolver)}); err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if called {
+		t.Fatal("XML namespace import called resolver")
+	}
+}
+
+func TestResolverAliasTakesPrecedenceOverLocationCandidate(t *testing.T) {
+	main := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:main"><xs:include schemaLocation="common.xsd"/></xs:schema>`
+	alias := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="fromAlias"/></xs:schema>`
+	competing := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:other"><xs:element name="fromCandidate"/></xs:schema>`
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		if location != "common.xsd" {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		return source.Bytes("alias/common.xsd", []byte(alias)), nil
+	})
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("dir/main.xsd", []byte(main)).WithResolver(resolver),
+		source.Bytes("dir/common.xsd", []byte(competing)),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<fromAlias xmlns="urn:main"/>`)
+}
+
+func TestSchemaLoaderKeepsFirstCanonicalSource(t *testing.T) {
+	first := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="first"/></xs:schema>`
+	second := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="second"/></xs:schema>`
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("dir/../schema.xsd", []byte(first)),
+		source.Bytes("schema.xsd", []byte(second)),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<first/>`)
+	mustNotValidateRuntime(t, engine, `<second/>`, xsderrors.CodeValidationRoot)
+}
+
+func TestSchemaLoaderResolvesBreadthFirst(t *testing.T) {
+	var calls []string
+	documents := map[string]string{
+		"a.xsd":      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="leaf-a.xsd"/></xs:schema>`,
+		"b.xsd":      `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="leaf-b.xsd"/></xs:schema>`,
+		"leaf-a.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
+		"leaf-b.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
+	}
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		calls = append(calls, location)
+		schema, ok := documents[location]
+		if !ok {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		return source.Bytes(location, []byte(schema)), nil
+	})
+	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="a.xsd"/><xs:include schemaLocation="b.xsd"/></xs:schema>`
+	if _, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)}); err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	want := []string{"a.xsd", "b.xsd", "leaf-a.xsd", "leaf-b.xsd"}
+	if !reflect.DeepEqual(calls, want) {
+		t.Fatalf("resolver calls = %v, want %v", calls, want)
+	}
+}
+
+func TestResolvedSourceNameAndResolverErrorsRemainStructured(t *testing.T) {
+	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/></xs:schema>`
+	tests := []struct {
+		name     string
+		resolver source.Resolver
+		category xsderrors.Category
+		message  string
+	}{
+		{
+			name: "empty resolved source name",
+			resolver: func(_, _ string) (source.Source, error) {
+				return source.Bytes("", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)), nil
+			},
+			category: xsderrors.CategorySchemaCompile,
+			message:  "schema source name is required",
+		},
+		{
+			name: "resolver error",
+			resolver: func(_, _ string) (source.Source, error) {
+				return source.Source{}, errors.New("resolver failed")
+			},
+			category: xsderrors.CategorySchemaParse,
+			message:  "resolve schema child.xsd",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(tt.resolver)})
+			expectCategoryCode(t, err, tt.category, xsderrors.CodeSchemaRead)
+			if !strings.Contains(err.Error(), tt.message) {
+				t.Fatalf("Compile() error = %v, want message containing %q", err, tt.message)
+			}
+		})
+	}
+}
+
+func TestSchemaReferenceErrorsFollowSourceNameOrder(t *testing.T) {
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("b/../a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include/></xs:schema>`)),
+		source.Bytes("a/../b.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace=""/></xs:schema>`)),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
+}
+
+func TestIncludeTargetMismatchPrecedesExplicitImportErrors(t *testing.T) {
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:import namespace="urn:a"/></xs:schema>`)),
+		source.Bytes("z.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:z"><xs:include schemaLocation="child.xsd"/></xs:schema>`)),
+		source.Bytes("child.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:child"/>`)),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaReference)
+	if !strings.Contains(err.Error(), "included schema targetNamespace does not match including schema") {
+		t.Fatalf("Compile() error = %v, want include target mismatch", err)
+	}
+}
+
+func TestChameleonIncludesCloneTransitivelyForMultipleTargets(t *testing.T) {
+	const common = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="leaf.xsd"/>
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`
+	const leaf = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="leaf" type="xs:string"/>
+</xs:schema>`
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		switch location {
+		case "common.xsd":
+			return source.Bytes("common.xsd", []byte(common)), nil
+		case "leaf.xsd":
+			return source.Bytes("leaf.xsd", []byte(leaf)), nil
+		default:
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+	})
+	root := func(target string) source.Source {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="` + target + `">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`
+		return source.Bytes(target+".xsd", []byte(schema)).WithResolver(resolver)
+	}
+	engine, err := compile.Compile(compile.Options{}, []source.Source{root("urn:b"), root("urn:a")})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	for _, doc := range []string{
+		`<common xmlns="urn:a">a</common>`,
+		`<leaf xmlns="urn:a">a</leaf>`,
+		`<common xmlns="urn:b">b</common>`,
+		`<leaf xmlns="urn:b">b</leaf>`,
+	} {
+		mustValidateRuntime(t, engine, doc)
+	}
+	mustNotValidateRuntime(t, engine, `<common/>`, xsderrors.CodeValidationRoot)
+	mustNotValidateRuntime(t, engine, `<leaf/>`, xsderrors.CodeValidationRoot)
+}
+
+func TestChameleonIncludesInstantiateAbsentAndNonEmptyTargetsTransitively(t *testing.T) {
+	const common = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="leaf.xsd"/>
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`
+	const leaf = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="leaf" type="xs:string"/>
+</xs:schema>`
+	resolver := source.Resolver(func(_, location string) (source.Source, error) {
+		switch location {
+		case "common.xsd":
+			return source.Bytes("common.xsd", []byte(common)), nil
+		case "leaf.xsd":
+			return source.Bytes("leaf.xsd", []byte(leaf)), nil
+		default:
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+	})
+	root := func(name, target string) source.Source {
+		targetAttribute := ""
+		if target != "" {
+			targetAttribute = ` targetNamespace="` + target + `"`
+		}
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"` + targetAttribute + `>
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`
+		return source.Bytes(name, []byte(schema)).WithResolver(resolver)
+	}
+	for _, tt := range []struct {
+		name       string
+		absentName string
+		namedName  string
+	}{
+		{name: "absent target assigned first", absentName: "a-absent.xsd", namedName: "z-named.xsd"},
+		{name: "non-empty target assigned first", absentName: "z-absent.xsd", namedName: "a-named.xsd"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			engine, err := compile.Compile(compile.Options{}, []source.Source{
+				root(tt.absentName, ""),
+				root(tt.namedName, "urn:test"),
+			})
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+			for _, doc := range []string{
+				`<common>absent</common>`,
+				`<leaf>absent</leaf>`,
+				`<common xmlns="urn:test">named</common>`,
+				`<leaf xmlns="urn:test">named</leaf>`,
+			} {
+				mustValidateRuntime(t, engine, doc)
+			}
+		})
+	}
+}
+
+func TestImportedAbsentTargetChecksTransitiveIncludeTarget(t *testing.T) {
+	const root = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root">
+  <xs:import schemaLocation="child.xsd"/>
+</xs:schema>`
+	const child = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="foreign.xsd"/>
+</xs:schema>`
+	const foreign = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:foreign"/>`
+	_, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("root.xsd", []byte(root)),
+		source.Bytes("child.xsd", []byte(child)),
+		source.Bytes("foreign.xsd", []byte(foreign)),
+	})
+	expectCode(t, err, xsderrors.CodeSchemaReference)
+	if !strings.Contains(err.Error(), "included schema targetNamespace does not match including schema") {
+		t.Fatalf("Compile() error = %v, want include target mismatch", err)
+	}
+}
+
+func TestResolverImportAndNamedIncludeInstantiateSharedChameleonTransitively(t *testing.T) {
+	const root = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:named">
+  <xs:import schemaLocation="imported.xsd"/>
+  <xs:include schemaLocation="shared.xsd"/>
+</xs:schema>`
+	documents := map[string]string{
+		"imported.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="middle.xsd"/>
+</xs:schema>`,
+		"middle.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="shared.xsd"/>
+</xs:schema>`,
+		"shared.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="shared" type="xs:string"/>
+</xs:schema>`,
+	}
+	var resolver source.Resolver
+	resolver = func(_, location string) (source.Source, error) {
+		schema, ok := documents[location]
+		if !ok {
+			return source.Source{}, errors.New("unexpected location " + location)
+		}
+		return source.Bytes(location, []byte(schema)).WithResolver(resolver), nil
+	}
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("root.xsd", []byte(root)).WithResolver(resolver),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<shared>absent</shared>`)
+	mustValidateRuntime(t, engine, `<shared xmlns="urn:named">named</shared>`)
+}
+
+func TestAbsentTargetIncludeCycleEstablishesRootContext(t *testing.T) {
+	const a = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="b.xsd"/>
+  <xs:element name="a" type="xs:string"/>
+</xs:schema>`
+	const b = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="a.xsd"/>
+  <xs:element name="b" type="xs:string"/>
+</xs:schema>`
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
+		source.Bytes("a.xsd", []byte(a)),
+		source.Bytes("b.xsd", []byte(b)),
+	})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	mustValidateRuntime(t, engine, `<a>one</a>`)
+	mustValidateRuntime(t, engine, `<b>two</b>`)
 }
 
 func TestByteIdenticalSchemasResolveSourceRelativeIncludesIndependently(t *testing.T) {

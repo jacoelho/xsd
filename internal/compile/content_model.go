@@ -74,103 +74,21 @@ type dfaBuilder struct {
 	counters  uint32
 }
 
+// ContentModelCompileRuntime supplies compiler-only substitution facts in addition to runtime model metadata.
+type ContentModelCompileRuntime interface {
+	runtime.CompiledModelRuntime
+	runtime.ParticleRestrictionRuntime
+	HasSubstitutionMembers(id runtime.ElementID) bool
+}
+
 type contentModelCompiler struct {
 	names                 *runtime.NameTable
-	rt                    runtime.CompiledModelRuntime
-	substitutions         map[runtime.ElementID][]runtime.ElementID
-	models                []runtime.ContentModel
-	wildcards             []runtime.Wildcard
+	rt                    ContentModelCompileRuntime
 	maxContentModelStates int
-	directBuildReads      bool
 }
 
-func newContentModelCompiler(names *runtime.NameTable, rt runtime.CompiledModelRuntime, maxContentModelStates int) contentModelCompiler {
-	c := contentModelCompiler{names: names, rt: rt, maxContentModelStates: maxContentModelStates}
-	if build, ok := rt.(*runtime.SchemaBuild); ok {
-		c.models = build.Models
-		c.wildcards = build.Wildcards
-		c.substitutions = build.Substitutions
-		c.directBuildReads = true
-	}
-	return c
-}
-
-func (c *contentModelCompiler) ContentModel(id runtime.ContentModelID) (runtime.ContentModel, bool) {
-	return c.contentModel(id)
-}
-
-func (c *contentModelCompiler) ElementName(id runtime.ElementID) (runtime.QName, bool) {
-	return c.rt.ElementName(id)
-}
-
-func (c *contentModelCompiler) Wildcard(id runtime.WildcardID) (runtime.Wildcard, bool) {
-	if c.wildcards != nil {
-		if !runtime.ValidWildcardID(id, len(c.wildcards)) {
-			return runtime.Wildcard{}, false
-		}
-		return c.wildcards[id], true
-	}
-	return c.rt.Wildcard(id)
-}
-
-func (c *contentModelCompiler) ForEachSubstitutionMember(id runtime.ElementID, fn func(runtime.ElementID) bool) {
-	c.rt.ForEachSubstitutionMember(id, fn)
-}
-
-func (c *contentModelCompiler) SubstitutionMemberByName(id runtime.ElementID, name runtime.QName) (runtime.ElementID, bool) {
-	return c.rt.SubstitutionMemberByName(id, name)
-}
-
-func (c *contentModelCompiler) contentModel(id runtime.ContentModelID) (runtime.ContentModel, bool) {
-	if c.models != nil {
-		if !runtime.ValidContentModelID(id, len(c.models)) {
-			return runtime.ContentModel{}, false
-		}
-		return c.models[id], true
-	}
-	return c.rt.ContentModel(id)
-}
-
-func (c *contentModelCompiler) AnyTypeID() runtime.ComplexTypeID {
-	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
-		return rt.AnyTypeID()
-	}
-	return runtime.NoComplexType
-}
-
-func (c *contentModelCompiler) ComplexTypeCount() int {
-	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
-		return rt.ComplexTypeCount()
-	}
-	return 0
-}
-
-func (c *contentModelCompiler) SimpleTypeCount() int {
-	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
-		return rt.SimpleTypeCount()
-	}
-	return 0
-}
-
-func (c *contentModelCompiler) SimpleTypeDerivation(id runtime.SimpleTypeID) (runtime.SimpleTypeDerivation, bool) {
-	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
-		return rt.SimpleTypeDerivation(id)
-	}
-	return runtime.SimpleTypeDerivation{}, false
-}
-
-func (c *contentModelCompiler) ComplexTypeDerivation(id runtime.ComplexTypeID) (runtime.ComplexTypeDerivation, bool) {
-	if rt, ok := c.rt.(runtime.TypeDerivationRuntime); ok {
-		return rt.ComplexTypeDerivation(id)
-	}
-	return runtime.ComplexTypeDerivation{}, false
-}
-
-func (c *contentModelCompiler) ElementRestriction(id runtime.ElementID) (runtime.ParticleRestrictionElement, bool) {
-	if rt, ok := c.rt.(runtime.ParticleRestrictionRuntime); ok {
-		return rt.ElementRestriction(id)
-	}
-	return runtime.ParticleRestrictionElement{}, false
+func newContentModelCompiler(names *runtime.NameTable, rt ContentModelCompileRuntime, maxContentModelStates int) contentModelCompiler {
+	return contentModelCompiler{names: names, rt: rt, maxContentModelStates: maxContentModelStates}
 }
 
 // ElementDeclarationRuntime supplies model and element metadata for compile-time
@@ -179,29 +97,6 @@ type ElementDeclarationRuntime interface {
 	ContentModel(id runtime.ContentModelID) (runtime.ContentModel, bool)
 	ElementName(id runtime.ElementID) (runtime.QName, bool)
 	ElementType(id runtime.ElementID) (runtime.TypeID, bool)
-}
-
-type elementDeclarationModelRuntime struct {
-	rt     ElementDeclarationRuntime
-	models []runtime.ContentModel
-}
-
-func (r elementDeclarationModelRuntime) ContentModel(id runtime.ContentModelID) (runtime.ContentModel, bool) {
-	if r.models != nil {
-		if !runtime.ValidContentModelID(id, len(r.models)) {
-			return runtime.ContentModel{}, false
-		}
-		return r.models[id], true
-	}
-	return r.rt.ContentModel(id)
-}
-
-func (r elementDeclarationModelRuntime) ElementName(id runtime.ElementID) (runtime.QName, bool) {
-	return r.rt.ElementName(id)
-}
-
-func (r elementDeclarationModelRuntime) ElementType(id runtime.ElementID) (runtime.TypeID, bool) {
-	return r.rt.ElementType(id)
 }
 
 type dfaSourceRow struct {
@@ -225,7 +120,7 @@ type dfaAccept struct {
 // representation.
 func CompileContentModels(
 	names *runtime.NameTable,
-	rt runtime.CompiledModelRuntime,
+	rt ContentModelCompileRuntime,
 	count int,
 	maxContentModelStates int,
 ) ([]runtime.CompiledModel, error) {
@@ -249,14 +144,14 @@ func CompileContentModels(
 // that can be proven before compiled DFA construction.
 func CheckContentModelsUPA(
 	names *runtime.NameTable,
-	rt runtime.CompiledModelRuntime,
+	rt ContentModelCompileRuntime,
 	count int,
 ) error {
 	cc := newContentModelCompiler(names, rt, 0)
 	seen := make([]bool, count)
 	for id := range count {
 		modelID := runtime.ContentModelID(id)
-		model, ok := cc.contentModel(modelID)
+		model, ok := cc.rt.ContentModel(modelID)
 		if !ok {
 			return xsderrors.InternalInvariant("UPA check references missing content model")
 		}
@@ -274,16 +169,12 @@ func CheckContentModelsUPA(
 // CheckContentModelElementDeclarationsConsistent validates element-declaration
 // consistency for every compiled content model.
 func CheckContentModelElementDeclarationsConsistent(rt ElementDeclarationRuntime, count int) error {
-	modelRT := elementDeclarationModelRuntime{rt: rt}
-	if build, ok := rt.(*runtime.SchemaBuild); ok {
-		modelRT.models = build.Models
-	}
 	for id := range count {
-		model, ok := modelRT.ContentModel(runtime.ContentModelID(id))
+		model, ok := rt.ContentModel(runtime.ContentModelID(id))
 		if !ok {
 			return xsderrors.InternalInvariant("element declaration consistency check references missing content model")
 		}
-		if err := CheckElementDeclarationsConsistent(modelRT, model); err != nil {
+		if err := CheckElementDeclarationsConsistent(rt, model); err != nil {
 			return err
 		}
 	}
@@ -374,7 +265,7 @@ func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id runtime.ContentMode
 		if p.Kind != runtime.ParticleModel {
 			continue
 		}
-		child, ok := c.contentModel(p.Model)
+		child, ok := c.rt.ContentModel(p.Model)
 		if !ok {
 			continue
 		}
@@ -449,7 +340,7 @@ func (c *contentModelCompiler) particleContinuationParticles(p runtime.Particle)
 			return []runtime.Particle{p}
 		}
 	case runtime.ParticleModel:
-		model, ok := c.contentModel(p.Model)
+		model, ok := c.rt.ContentModel(p.Model)
 		if !ok {
 			return nil
 		}
@@ -479,7 +370,7 @@ func (c *contentModelCompiler) modelContinuationParticles(model runtime.ContentM
 }
 
 func (c *contentModelCompiler) particleCanOverlapFollowing(p runtime.Particle) bool {
-	r := runtime.ParticleCountRange(c, p)
+	r := runtime.ParticleCountRange(c.rt, p)
 	return r.Unbounded || r.Max > r.Min
 }
 
@@ -506,11 +397,11 @@ func (c *contentModelCompiler) wildcardEquivalentOverlap(a, b runtime.Particle) 
 	if a.Kind != runtime.ParticleWildcard || b.Kind != runtime.ParticleWildcard {
 		return false
 	}
-	wa, ok := c.Wildcard(a.Wildcard)
+	wa, ok := c.rt.Wildcard(a.Wildcard)
 	if !ok {
 		return false
 	}
-	wb, ok := c.Wildcard(b.Wildcard)
+	wb, ok := c.rt.Wildcard(b.Wildcard)
 	if !ok {
 		return false
 	}
@@ -525,7 +416,7 @@ func (c *contentModelCompiler) modelStartParticles(model runtime.ContentModel) [
 	case runtime.ModelSequence:
 		for _, p := range model.Particles {
 			out = append(out, p)
-			if !runtime.ParticleEmptiable(c, p) {
+			if !runtime.ParticleEmptiable(c.rt, p) {
 				break
 			}
 		}
@@ -535,7 +426,7 @@ func (c *contentModelCompiler) modelStartParticles(model runtime.ContentModel) [
 }
 
 func (c *contentModelCompiler) compileContentModel(id runtime.ContentModelID) (runtime.CompiledModel, error) {
-	model, ok := c.contentModel(id)
+	model, ok := c.rt.ContentModel(id)
 	if !ok {
 		return runtime.CompiledModel{}, xsderrors.InternalInvariant("content model compiler references missing content model")
 	}
@@ -737,9 +628,10 @@ func (c *contentModelCompiler) checkCompiledRowsUPA(rows []runtime.CompiledModel
 	return nil
 }
 
+//nolint:dupl // Compiled and source edges stay concrete in this compile hot path.
 func (c *contentModelCompiler) compiledRowNeedsUPACheck(row runtime.CompiledModelRow) bool {
 	for i, edge := range row.Edges {
-		if edge.Particle.Kind != runtime.ParticleElement || c.elementHasSubstitutionMembers(edge.Particle.Element) {
+		if edge.Particle.Kind != runtime.ParticleElement || c.rt.HasSubstitutionMembers(edge.Particle.Element) {
 			return true
 		}
 		name, ok := c.rt.ElementName(edge.Particle.Element)
@@ -748,7 +640,7 @@ func (c *contentModelCompiler) compiledRowNeedsUPACheck(row runtime.CompiledMode
 		}
 		for j := i + 1; j < len(row.Edges); j++ {
 			next := row.Edges[j].Particle
-			if next.Kind != runtime.ParticleElement || c.elementHasSubstitutionMembers(next.Element) {
+			if next.Kind != runtime.ParticleElement || c.rt.HasSubstitutionMembers(next.Element) {
 				return true
 			}
 			nextName, ok := c.rt.ElementName(next.Element)
@@ -760,21 +652,9 @@ func (c *contentModelCompiler) compiledRowNeedsUPACheck(row runtime.CompiledMode
 	return false
 }
 
-func (c *contentModelCompiler) elementHasSubstitutionMembers(id runtime.ElementID) bool {
-	if c.directBuildReads {
-		return len(c.substitutions[id]) != 0
-	}
-	found := false
-	c.rt.ForEachSubstitutionMember(id, func(runtime.ElementID) bool {
-		found = true
-		return false
-	})
-	return found
-}
-
 func (c *contentModelCompiler) particlesNeedUPACheck(particles []runtime.Particle) bool {
 	for i, particle := range particles {
-		if particle.Kind != runtime.ParticleElement || c.elementHasSubstitutionMembers(particle.Element) {
+		if particle.Kind != runtime.ParticleElement || c.rt.HasSubstitutionMembers(particle.Element) {
 			return true
 		}
 		name, ok := c.rt.ElementName(particle.Element)
@@ -783,7 +663,7 @@ func (c *contentModelCompiler) particlesNeedUPACheck(particles []runtime.Particl
 		}
 		for j := i + 1; j < len(particles); j++ {
 			next := particles[j]
-			if next.Kind != runtime.ParticleElement || c.elementHasSubstitutionMembers(next.Element) {
+			if next.Kind != runtime.ParticleElement || c.rt.HasSubstitutionMembers(next.Element) {
 				return true
 			}
 			nextName, ok := c.rt.ElementName(next.Element)
@@ -862,7 +742,7 @@ func (c *contentModelCompiler) checkPairwiseUPA(particles []runtime.Particle, ms
 }
 
 func (c *contentModelCompiler) particlesOverlap(a, b runtime.Particle) (runtime.QName, bool) {
-	return runtime.ParticlesOverlap(c, a, b)
+	return runtime.ParticlesOverlap(c.rt, a, b)
 }
 
 func (c *contentModelCompiler) upaError(msg string, name runtime.QName) error {
@@ -961,7 +841,7 @@ const (
 )
 
 func (b *dfaBuilder) modelNode(id runtime.ContentModelID, scope choiceLimitScope) (dfaNode, error) {
-	model, ok := b.c.contentModel(id)
+	model, ok := b.c.rt.ContentModel(id)
 	if !ok {
 		return dfaNode{}, xsderrors.InternalInvariant("content model DFA references missing content model")
 	}
@@ -1202,9 +1082,10 @@ func (b *dfaBuilder) checkUPA() error {
 	return nil
 }
 
+//nolint:dupl // Compiled and source edges stay concrete in this compile hot path.
 func (c *contentModelCompiler) sourceRowNeedsUPACheck(row dfaSourceRow) bool {
 	for i, edge := range row.Edges {
-		if edge.Particle.Kind != runtime.ParticleElement || c.elementHasSubstitutionMembers(edge.Particle.Element) {
+		if edge.Particle.Kind != runtime.ParticleElement || c.rt.HasSubstitutionMembers(edge.Particle.Element) {
 			return true
 		}
 		name, ok := c.rt.ElementName(edge.Particle.Element)
@@ -1213,7 +1094,7 @@ func (c *contentModelCompiler) sourceRowNeedsUPACheck(row dfaSourceRow) bool {
 		}
 		for j := i + 1; j < len(row.Edges); j++ {
 			next := row.Edges[j].Particle
-			if next.Kind != runtime.ParticleElement || c.elementHasSubstitutionMembers(next.Element) {
+			if next.Kind != runtime.ParticleElement || c.rt.HasSubstitutionMembers(next.Element) {
 				return true
 			}
 			nextName, ok := c.rt.ElementName(next.Element)

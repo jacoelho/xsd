@@ -201,10 +201,6 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 		return runtime.NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
 	finalUses := RemoveProhibitedAttributeUses(uses)
-	id, err := NextAttributeUseSetID(len(c.rt.AttributeUseSets))
-	if err != nil {
-		return runtime.NoAttributeUseSet, err
-	}
 	set, err := newAttributeUseSet(finalUses, wildcard, attributeWildcardProvenance{
 		base:     inheritedWildcard,
 		declared: declaredWildcard,
@@ -216,8 +212,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 	if err = c.validateAttributeUseSet(set); err != nil {
 		return runtime.NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
-	c.rt.AttributeUseSets = append(c.rt.AttributeUseSets, set)
-	return id, nil
+	return c.addAttributeUseSet(set)
 }
 
 func (c *compiler) mergeAttributeUse(uses []runtime.AttributeUse, merger *AttributeUseMerger, use runtime.AttributeUse) ([]runtime.AttributeUse, error) {

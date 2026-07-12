@@ -3,24 +3,24 @@ package runtime
 // SchemaBuild is compiler-owned mutable schema state. PublishSchema is the
 // only supported transition to an immutable validation Schema.
 type SchemaBuild struct {
-	GlobalAttributes   map[QName]AttributeID
-	GlobalElements     map[QName]ElementID
-	Substitutions      map[ElementID][]ElementID
-	SubstitutionLookup map[ElementID]map[QName]ElementID
-	Notations          map[QName]bool
-	GlobalIdentities   map[QName]IdentityConstraintID
-	GlobalTypes        map[QName]TypeID
-	Identities         []IdentityConstraint
-	ComplexTypes       []ComplexType
-	Wildcards          []Wildcard
-	AttributeUseSets   []AttributeUseSet
-	Models             []ContentModel
-	CompiledModels     []CompiledModel
-	SimpleTypes        []SimpleType
-	Attributes         []AttributeDecl
-	Elements           []ElementDecl
-	Names              NameTable
-	Builtin            BuiltinIDs
+	GlobalAttributes  map[QName]AttributeID
+	GlobalElements    map[QName]ElementID
+	Substitutions     map[ElementID][]ElementID
+	SubstitutionIndex SubstitutionIndex
+	Notations         map[QName]bool
+	GlobalIdentities  map[QName]IdentityConstraintID
+	GlobalTypes       map[QName]TypeID
+	Identities        []IdentityConstraint
+	ComplexTypes      []ComplexType
+	Wildcards         []Wildcard
+	AttributeUseSets  []AttributeUseSet
+	Models            []ContentModel
+	CompiledModels    []CompiledModel
+	SimpleTypes       []SimpleType
+	Attributes        []AttributeDecl
+	Elements          []ElementDecl
+	Names             NameTable
+	Builtin           BuiltinIDs
 }
 
 //nolint:govet // Field order groups projections by owning validation subsystem.
@@ -126,26 +126,6 @@ type Schema struct {
 	runtime schemaRuntime
 }
 
-// SimpleType returns compiler-owned simple-type state by ID.
-func (rt *SchemaBuild) SimpleType(id SimpleTypeID) (*SimpleType, bool) {
-	return SimpleTypeByID(rt.SimpleTypes, id)
-}
-
-// UsableSimpleType returns non-sentinel compiler-owned simple-type state by ID.
-func (rt *SchemaBuild) UsableSimpleType(id SimpleTypeID) (*SimpleType, bool) {
-	return UsableSimpleType(rt.SimpleTypes, id)
-}
-
-// ComplexType returns compiler-owned complex-type state by ID.
-func (rt *SchemaBuild) ComplexType(id ComplexTypeID) (*ComplexType, bool) {
-	return ComplexTypeByID(rt.ComplexTypes, id)
-}
-
-// ElementDecl returns a compiler-owned element declaration by ID.
-func (rt *SchemaBuild) ElementDecl(id ElementID) (*ElementDecl, bool) {
-	return ElementDeclByID(rt.Elements, id)
-}
-
 // TypeName returns a compiler-owned type name.
 func (rt *SchemaBuild) TypeName(t TypeID) QName {
 	name, ok := TypeNameByID(rt.SimpleTypes, rt.ComplexTypes, t)
@@ -172,7 +152,7 @@ func (rt *SchemaBuild) SimpleTypeCount() int {
 
 // SimpleTypeFinal returns compiler-owned simple-type final constraints.
 func (rt *SchemaBuild) SimpleTypeFinal(id SimpleTypeID) (DerivationMask, bool) {
-	st, ok := rt.UsableSimpleType(id)
+	st, ok := UsableSimpleType(rt.SimpleTypes, id)
 	if !ok {
 		return 0, false
 	}
@@ -181,7 +161,7 @@ func (rt *SchemaBuild) SimpleTypeFinal(id SimpleTypeID) (DerivationMask, bool) {
 
 // SimpleTypeDerivation returns compiler-owned simple-type derivation metadata.
 func (rt *SchemaBuild) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool) {
-	st, ok := rt.UsableSimpleType(id)
+	st, ok := UsableSimpleType(rt.SimpleTypes, id)
 	if !ok {
 		return SimpleTypeDerivation{}, false
 	}
@@ -190,7 +170,7 @@ func (rt *SchemaBuild) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivati
 
 // ComplexTypeDerivation returns compiler-owned complex-type derivation metadata.
 func (rt *SchemaBuild) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool) {
-	ct, ok := rt.ComplexType(id)
+	ct, ok := ComplexTypeByID(rt.ComplexTypes, id)
 	if !ok {
 		return ComplexTypeDerivation{}, false
 	}
@@ -204,7 +184,7 @@ func (rt *SchemaBuild) ContentModel(id ContentModelID) (ContentModel, bool) {
 
 // ElementName returns a compiler-owned element name by ID.
 func (rt *SchemaBuild) ElementName(id ElementID) (QName, bool) {
-	decl, ok := rt.ElementDecl(id)
+	decl, ok := ElementDeclByID(rt.Elements, id)
 	if !ok {
 		return QName{}, false
 	}
@@ -240,17 +220,36 @@ func (rt *SchemaBuild) ForEachSubstitutionMember(id ElementID, fn func(ElementID
 	ForEachSubstitutionMember(rt.Substitutions, id, fn)
 }
 
-// SubstitutionMemberByName returns a compiler-owned substitution member by name.
-func (rt *SchemaBuild) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
-	return SubstitutionMemberByName(rt.SubstitutionLookup, id, name)
+// HasSubstitutionMembers reports whether a compiler-owned element has substitution members.
+func (rt *SchemaBuild) HasSubstitutionMembers(id ElementID) bool {
+	return len(rt.Substitutions[id]) != 0
 }
 
-// SubstitutionMembersByName returns compiler-owned substitution lookups.
-func (rt *SchemaBuild) SubstitutionMembersByName(id ElementID) map[QName]ElementID {
-	return rt.SubstitutionLookup[id]
+// SubstitutionMemberByName returns a compiler-owned substitution member by name.
+func (rt *SchemaBuild) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
+	return rt.SubstitutionIndex.MemberByName(id, name)
+}
+
+// SubstitutionNames returns a read-only view of substitution names under id.
+func (rt *SchemaBuild) SubstitutionNames(id ElementID) SubstitutionNameRead {
+	return rt.SubstitutionIndex.Names(id)
 }
 
 // TypeLabel formats a compiler-owned type name for diagnostics.
 func (rt *SchemaBuild) TypeLabel(t TypeID) string {
 	return rt.Names.Format(rt.TypeName(t))
+}
+
+// StringEnumerationContains reports whether canonical is in a simple type's string enumeration.
+func (rt *SchemaBuild) StringEnumerationContains(id SimpleTypeID, canonical string) (bool, bool) {
+	st, ok := UsableSimpleType(rt.SimpleTypes, id)
+	if !ok {
+		return false, false
+	}
+	for _, literal := range st.Facets.Enumeration {
+		if literal.Canonical == canonical {
+			return true, true
+		}
+	}
+	return false, true
 }

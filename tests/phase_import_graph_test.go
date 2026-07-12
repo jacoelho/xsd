@@ -106,6 +106,7 @@ func TestSourcePackageImportGraph(t *testing.T) {
 		"github.com/jacoelho/xsd",
 		"github.com/jacoelho/xsd/internal/compile",
 		"github.com/jacoelho/xsd/internal/validate",
+		"github.com/jacoelho/xsd/internal/vocab",
 	)
 }
 

@@ -6,60 +6,12 @@ import (
 	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/xsderrors"
 )
 
 type identityMatchNames map[runtime.NamespaceID]string
 
 func (n identityMatchNames) Namespace(id runtime.NamespaceID) string {
 	return n[id]
-}
-
-type identityScopeRuntimeStub struct {
-	elements map[runtime.ElementID]runtime.IdentityConstraintIDs
-}
-
-func (s identityScopeRuntimeStub) ElementIdentityConstraints(id runtime.ElementID) (runtime.IdentityConstraintIDs, bool) {
-	constraints, ok := s.elements[id]
-	return constraints, ok
-}
-
-type invalidIdentitySelectorRuntime struct{}
-
-func (invalidIdentitySelectorRuntime) Namespace(runtime.NamespaceID) string {
-	return ""
-}
-
-func (invalidIdentitySelectorRuntime) IdentitySelectorPaths(runtime.IdentityConstraintID) (runtime.IdentityPathReads, bool) {
-	return runtime.IdentityPathReads{}, false
-}
-
-func (invalidIdentitySelectorRuntime) IdentityFieldCount(runtime.IdentityConstraintID) (int, bool) {
-	return 0, false
-}
-
-type invalidIdentityElementFieldRuntime struct{}
-
-func (invalidIdentityElementFieldRuntime) Namespace(runtime.NamespaceID) string {
-	return ""
-}
-
-func (invalidIdentityElementFieldRuntime) IdentityElementFields(runtime.IdentityConstraintID) (runtime.CompiledIdentityFieldReads, bool) {
-	return runtime.CompiledIdentityFieldReads{}, false
-}
-
-type invalidIdentityAttributeFieldRuntime struct{}
-
-func (invalidIdentityAttributeFieldRuntime) Namespace(runtime.NamespaceID) string {
-	return ""
-}
-
-func (invalidIdentityAttributeFieldRuntime) IdentityAttributeFields(runtime.IdentityConstraintID, runtime.QName) (runtime.CompiledIdentityFieldReads, bool) {
-	return runtime.CompiledIdentityFieldReads{}, false
-}
-
-func (invalidIdentityAttributeFieldRuntime) IdentityAttributeWildcardFields(runtime.IdentityConstraintID) (runtime.CompiledIdentityFieldReads, bool) {
-	return runtime.CompiledIdentityFieldReads{}, false
 }
 
 type identityPathForTest struct {
@@ -180,47 +132,6 @@ func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.
 	if len(attrMatches) != 1 || attrMatches[0] != (IdentityFieldMatch{Selection: 0, Field: 0}) {
 		t.Fatalf("attributeFieldMatches() = %+v, want one deduplicated field match", attrMatches)
 	}
-}
-
-func TestIdentityStateRejectsInvalidRuntimeIdentityMetadata(t *testing.T) {
-	t.Parallel()
-
-	const invalidConstraint runtime.IdentityConstraintID = 99
-	const elem runtime.ElementID = 0
-	elementConstraints, ok := runtime.ElementIdentityConstraintIDs([][]runtime.IdentityConstraintID{{invalidConstraint}}, elem)
-	if !ok {
-		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
-	}
-	rt := identityScopeRuntimeStub{elements: map[runtime.ElementID]runtime.IdentityConstraintIDs{elem: elementConstraints}}
-
-	t.Run("selector", func(t *testing.T) {
-		t.Parallel()
-
-		var state IdentityState
-		if err := state.startElementScope(rt, elem, 0, 0, StartContext{Path: "/root"}); err != nil {
-			t.Fatalf("startElementScope() error = %v", err)
-		}
-		err := state.matchSelectors(invalidIdentitySelectorRuntime{}, []runtime.RuntimeName{{}}, StartContext{Path: "/root", Line: 1, Column: 2})
-		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-	})
-
-	t.Run("element field", func(t *testing.T) {
-		t.Parallel()
-
-		var state IdentityState
-		state.StartSelection(0, 1, invalidConstraint, 1, StartContext{Path: "/root"})
-		_, err := state.elementFieldMatches(invalidIdentityElementFieldRuntime{}, []runtime.RuntimeName{{}})
-		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-	})
-
-	t.Run("attribute field", func(t *testing.T) {
-		t.Parallel()
-
-		var state IdentityState
-		state.StartSelection(0, 1, invalidConstraint, 1, StartContext{Path: "/root"})
-		_, err := state.attributeFieldMatches(invalidIdentityAttributeFieldRuntime{}, []runtime.RuntimeName{{}}, runtime.QName{})
-		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-	})
 }
 
 func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T) {

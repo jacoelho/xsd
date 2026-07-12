@@ -68,7 +68,7 @@ func (c *compiler) compileElementByQName(q runtime.QName) (runtime.ElementID, er
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Elements[id] = decl
+	c.completeElement(id, decl)
 	return id, nil
 }
 
@@ -100,11 +100,10 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (runtime.
 	if err != nil {
 		return 0, err
 	}
-	id, err := NextElementID(len(c.rt.Elements))
+	id, err := c.addElement(runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.Builtin.AnyType)})
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Elements = append(c.rt.Elements, runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.Builtin.AnyType)})
 	c.localDone[n] = id
 	c.compilingLocal[n] = true
 	defer delete(c.compilingLocal, n)
@@ -112,7 +111,7 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (runtime.
 	if err != nil {
 		return 0, err
 	}
-	c.rt.Elements[id] = decl
+	c.completeElement(id, decl)
 	return id, nil
 }
 

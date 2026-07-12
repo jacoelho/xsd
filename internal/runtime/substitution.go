@@ -44,6 +44,80 @@ func SubstitutionMemberByName(lookupReads map[ElementID]map[QName]ElementID, hea
 	return member, ok
 }
 
+// SubstitutionIndex owns name lookup and read-only name iteration for substitution groups.
+type SubstitutionIndex struct {
+	byName map[ElementID]map[QName]ElementID
+	spans  []substitutionNameSpan
+	names  []QName
+}
+
+type substitutionNameSpan struct {
+	start int
+	count int
+}
+
+// BuildSubstitutionIndex builds the correlated substitution name index.
+func BuildSubstitutionIndex(rt TypeDerivationRuntime, elements []ElementDecl, substitutions map[ElementID][]ElementID) SubstitutionIndex {
+	byName := BuildSubstitutionLookup(rt, elements, substitutions)
+	if len(byName) == 0 {
+		return SubstitutionIndex{}
+	}
+	total := 0
+	for _, members := range byName {
+		total += len(members)
+	}
+	index := SubstitutionIndex{
+		byName: byName,
+		spans:  make([]substitutionNameSpan, len(elements)),
+		names:  make([]QName, 0, total),
+	}
+	for head, members := range byName {
+		span := substitutionNameSpan{start: len(index.names), count: len(members)}
+		for name := range members {
+			index.names = append(index.names, name)
+		}
+		index.spans[head] = span
+	}
+	return index
+}
+
+// MemberByName returns the substitution member registered for name under head.
+func (i SubstitutionIndex) MemberByName(head ElementID, name QName) (ElementID, bool) {
+	return SubstitutionMemberByName(i.byName, head, name)
+}
+
+// Names returns a non-aliasing view of substitution names under head.
+func (i SubstitutionIndex) Names(head ElementID) SubstitutionNameRead {
+	if !ValidElementID(head, len(i.spans)) {
+		return SubstitutionNameRead{}
+	}
+	span := i.spans[head]
+	return SubstitutionNameRead{values: i.names[span.start : span.start+span.count]}
+}
+
+// SubstitutionNameRead is a read-only substitution-name sequence.
+type SubstitutionNameRead struct {
+	values []QName
+}
+
+// NewSubstitutionNameRead copies names into a read-only sequence.
+func NewSubstitutionNameRead(names []QName) SubstitutionNameRead {
+	return SubstitutionNameRead{values: slices.Clone(names)}
+}
+
+// Len returns the number of names.
+func (r SubstitutionNameRead) Len() int {
+	return len(r.values)
+}
+
+// At returns the name at position.
+func (r SubstitutionNameRead) At(position int) (QName, bool) {
+	if position < 0 || position >= len(r.values) {
+		return QName{}, false
+	}
+	return r.values[position], true
+}
+
 // Error returns the stable substitution-cycle message.
 func (e SubstitutionCycleError) Error() string {
 	return "cyclic substitution group"

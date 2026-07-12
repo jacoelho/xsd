@@ -143,7 +143,7 @@ func TestValidateContentRestrictionRejectsElementNillableLoosening(t *testing.T)
 			2: {Type: runtime.SimpleRef(1), Nillable: true},
 		},
 	}
-	err := ValidateContentRestriction(rt, nil, 0, 1)
+	err := ValidateContentRestriction(rt, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -170,7 +170,7 @@ func TestValidateContentRestrictionAllowsSubstitutionMemberName(t *testing.T) {
 			1: {memberName: 2},
 		},
 	}
-	if err := ValidateContentRestriction(rt, nil, 0, 1); err != nil {
+	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
 		t.Fatalf("ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -194,7 +194,7 @@ func TestValidateContentRestrictionRejectsFixedValueMismatch(t *testing.T) {
 			2: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraint("derived", "derived")},
 		},
 	}
-	err := ValidateContentRestriction(rt, nil, 0, 1)
+	err := ValidateContentRestriction(rt, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -217,7 +217,7 @@ func TestValidateContentRestrictionAllowsFixedCanonicalMatch(t *testing.T) {
 			2: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraint("1   2   3", "1 2 3")},
 		},
 	}
-	if err := ValidateContentRestriction(rt, nil, 0, 1); err != nil {
+	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
 		t.Fatalf("ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -246,7 +246,7 @@ func TestValidateContentRestrictionAllowsFixedValueIdentityMatch(t *testing.T) {
 			2: {Base: 1, Variety: runtime.SimpleVarietyAtomic},
 		},
 	}
-	if err := ValidateContentRestriction(rt, nil, 0, 1); err != nil {
+	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
 		t.Fatalf("ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -279,7 +279,7 @@ func TestValidateContentRestrictionRejectsWildcardOutsideBase(t *testing.T) {
 			1: {Mode: runtime.WildcardLocal},
 		},
 	}
-	err := ValidateContentRestriction(rt, nil, 0, 1)
+	err := ValidateContentRestriction(rt, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -296,7 +296,7 @@ func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T)
 			},
 		},
 	}
-	err := ValidateContentRestriction(rt, nil, 0, 1)
+	err := ValidateContentRestriction(rt, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
@@ -484,6 +484,10 @@ func (s compiledModelRuntimeStub) ForEachSubstitutionMember(id runtime.ElementID
 	}
 }
 
+func (s compiledModelRuntimeStub) HasSubstitutionMembers(id runtime.ElementID) bool {
+	return len(s.substitutions[id]) != 0
+}
+
 func (s compiledModelRuntimeStub) SubstitutionMemberByName(id runtime.ElementID, name runtime.QName) (runtime.ElementID, bool) {
 	members := s.substitutions[id]
 	if members == nil {
@@ -493,8 +497,12 @@ func (s compiledModelRuntimeStub) SubstitutionMemberByName(id runtime.ElementID,
 	return member, ok
 }
 
-func (s compiledModelRuntimeStub) SubstitutionMembersByName(id runtime.ElementID) map[runtime.QName]runtime.ElementID {
-	return s.substitutions[id]
+func (s compiledModelRuntimeStub) SubstitutionNames(id runtime.ElementID) runtime.SubstitutionNameRead {
+	names := make([]runtime.QName, 0, len(s.substitutions[id]))
+	for name := range s.substitutions[id] {
+		names = append(names, name)
+	}
+	return runtime.NewSubstitutionNameRead(names)
 }
 
 func (s compiledModelRuntimeStub) AnyTypeID() runtime.ComplexTypeID {

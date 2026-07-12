@@ -46,7 +46,7 @@ func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID
 	ct.Name = q
 	ct.Block = block
 	ct.Final = final
-	c.rt.ComplexTypes[id] = ct
+	c.completeComplexType(id, ct)
 	return id, nil
 }
 
@@ -62,11 +62,10 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (runt
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
-	id, err := NextComplexTypeID(len(c.rt.ComplexTypes))
+	id, err := c.addComplexType(runtime.ComplexType{Name: q, Content: runtime.NoContentModel, Attrs: runtime.NoAttributeUseSet, TextType: runtime.NoSimpleType, Base: runtime.ComplexRef(c.rt.Builtin.AnyType)})
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, runtime.ComplexType{Name: q, Content: runtime.NoContentModel, Attrs: runtime.NoAttributeUseSet, TextType: runtime.NoSimpleType, Base: runtime.ComplexRef(c.rt.Builtin.AnyType)})
 	if deferCompletion {
 		c.deferredAnonymousComplex = append(c.deferredAnonymousComplex, deferredAnonymousComplex{
 			node: n,
@@ -90,7 +89,7 @@ func (c *compiler) completeAnonymousComplex(id runtime.ComplexTypeID, q runtime.
 	}
 	ct.Name = q
 	ct.Final = final
-	c.rt.ComplexTypes[id] = ct
+	c.completeComplexType(id, ct)
 	return id, nil
 }
 
@@ -338,13 +337,11 @@ func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaC
 	if err := c.validateComplexExtensionModelAdmission(baseID, base, ext, mixed); err != nil {
 		return runtime.NoContentModel, withSchemaCompileLocation(modelNode, err)
 	}
-	modelRT := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates)
-	return ExtendSequenceModel(&modelRT, c.addModel, base.Content, ext)
+	return ExtendSequenceModel(&c.rt, c.addModel, base.Content, ext)
 }
 
 func (c *compiler) validateComplexContentMixedDerivationBase(child *rawNode, base runtime.ComplexType, extension, mixed bool) error {
-	modelRT := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates)
-	if err := CheckComplexContentMixedDerivationBase(&modelRT, base, extension, mixed); err != nil {
+	if err := CheckComplexContentMixedDerivationBase(&c.rt, base, extension, mixed); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
 	return nil
@@ -472,8 +469,7 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, kind ContentD
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
 	base := c.rt.ComplexTypes[baseComplex]
-	modelRT := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates)
-	if err := CheckSimpleContentDerivationBase(&modelRT, base, kind == ContentDerivationRestriction); err != nil {
+	if err := CheckSimpleContentDerivationBase(&c.rt, base, kind == ContentDerivationRestriction); err != nil {
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
 	switch kind {
@@ -535,14 +531,9 @@ func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*rawNode
 	if err = c.compileFacetList(facetChildren, &st, baseID, baseID); err != nil {
 		return runtime.NoSimpleType, withSchemaCompileLocation(facetChildren[0], err)
 	}
-	id, err := NextSimpleTypeID(len(c.rt.SimpleTypes))
-	if err != nil {
-		return runtime.NoSimpleType, err
-	}
 	st.Identity = c.rt.DerivedSimpleIdentity(st)
 	st.Fast = runtime.DeriveSimpleFastPathForSimpleType(st)
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
-	return id, nil
+	return c.addSimpleType(st)
 }
 
 func facetChildren(n *rawNode) []*rawNode {

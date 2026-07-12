@@ -43,7 +43,7 @@ func newSchemaRuntime(build *SchemaBuild) schemaRuntime {
 		GlobalAttributes:        build.GlobalAttributes,
 		GlobalElements:          build.GlobalElements,
 		GlobalTypes:             build.GlobalTypes,
-		SubstitutionLookup:      build.SubstitutionLookup,
+		SubstitutionLookup:      build.SubstitutionIndex.byName,
 		Names:                   NewBorrowedNameReadView(&build.Names),
 		Notations:               NewNotationReadMap(&build.Names, build.Notations),
 		Attributes:              NewAttributeDeclReadsForDecls(build.Attributes),

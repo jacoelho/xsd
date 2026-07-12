@@ -190,8 +190,12 @@ func (s dfaRowIndexRuntimeStub) SubstitutionMemberByName(id ElementID, name QNam
 	return member, ok
 }
 
-func (s dfaRowIndexRuntimeStub) SubstitutionMembersByName(id ElementID) map[QName]ElementID {
-	return s.substitutionByName[id]
+func (s dfaRowIndexRuntimeStub) SubstitutionNames(id ElementID) SubstitutionNameRead {
+	names := make([]QName, 0, len(s.substitutionByName[id]))
+	for name := range s.substitutionByName[id] {
+		names = append(names, name)
+	}
+	return NewSubstitutionNameRead(names)
 }
 
 func TestValidateCompiledModelRuntime(t *testing.T) {

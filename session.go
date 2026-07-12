@@ -42,11 +42,11 @@ func (e *Engine) Validate(r io.Reader) error {
 
 // ValidateWithOptions validates one XML instance document with options.
 func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
-	session, err := e.NewSession(opts)
-	if err != nil {
-		return err
+	var rt *runtime.Schema
+	if e != nil {
+		rt = e.rt
 	}
-	return session.Validate(r)
+	return validate.Validate(rt, r, internalValidateOptions(opts))
 }
 
 // NewSession creates a reusable validation session. Reused sessions retain
@@ -57,11 +57,11 @@ func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
 	if e != nil {
 		rt = e.rt
 	}
-	s := &Session{}
-	if err := s.session.Init(rt, internalValidateOptions(opts)); err != nil {
+	inner, err := validate.NewSession(rt, internalValidateOptions(opts))
+	if err != nil {
 		return nil, err
 	}
-	return s, nil
+	return &Session{session: inner}, nil
 }
 
 // Validate validates one XML instance document and resets validation state

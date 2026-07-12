@@ -10,31 +10,8 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-type xsiTypeRuntime interface {
-	Type(name runtime.QName) (runtime.TypeID, bool)
-	LookupQName(ns, local string) (runtime.QName, bool)
-	Namespace(id runtime.NamespaceID) string
-}
-
-// RootStartRuntime supplies semantic runtime facts used at the document root.
-type RootStartRuntime interface {
-	xsiTypeRuntime
-	AnyType() runtime.TypeID
-	RootElement(name runtime.RuntimeName) (runtime.ElementID, runtime.ElementStartInfo, bool)
-}
-
-type xsiTypeOverrideRuntime interface {
-	TypeInfo(id runtime.TypeID) (runtime.TypeInfo, bool)
-	TypeDerivation(derived, base runtime.TypeID) (runtime.DerivationMask, bool)
-}
-
-// NameRuntime resolves expanded XML names against the runtime name table.
-type NameRuntime interface {
-	LookupQName(ns, local string) (runtime.QName, bool)
-}
-
 // ResolveRuntimeName returns name with its runtime QName when the schema knows it.
-func ResolveRuntimeName[RT NameRuntime](rt RT, name xml.Name) runtime.RuntimeName {
+func ResolveRuntimeName(rt *runtime.Schema, name xml.Name) runtime.RuntimeName {
 	q, ok := rt.LookupQName(name.Space, name.Local)
 	if ok {
 		return runtime.RuntimeName{Name: q, Known: true, NS: name.Space, Local: name.Local}
@@ -103,7 +80,7 @@ type StartResult struct {
 }
 
 // RootStart assesses a document element before element-specific checks.
-func RootStart[RT RootStartRuntime](rt RT, attrs []stream.Attr, in RootInput) (StartResult, error) {
+func RootStart(rt *runtime.Schema, attrs []stream.Attr, in RootInput) (StartResult, error) {
 	if id, decl, ok := rt.RootElement(in.RuntimeName); ok {
 		return StartResult{Element: id, Type: decl.Type}, nil
 	}
@@ -122,7 +99,7 @@ func RootStart[RT RootStartRuntime](rt RT, attrs []stream.Attr, in RootInput) (S
 		validation(in.Context, xsderrors.CodeValidationRoot, "root element is not declared: "+formatXMLName(in.Name))
 }
 
-func rootTypeFromXSIType[RT RootStartRuntime](rt RT, attrs []stream.Attr, in RootInput) (runtime.TypeID, bool, error) {
+func rootTypeFromXSIType(rt *runtime.Schema, attrs []stream.Attr, in RootInput) (runtime.TypeID, bool, error) {
 	for i := range attrs {
 		a := &attrs[i]
 		if !IsXSITypeName(a.Name) {
@@ -166,8 +143,8 @@ func validateElementEffectiveState(
 	return typ, nilled, nil
 }
 
-func validateXSITypeOverride[RT xsiTypeOverrideRuntime](
-	rt RT,
+func validateXSITypeOverride(
+	rt *runtime.Schema,
 	declared, override runtime.TypeID,
 	elementBlock runtime.DerivationMask,
 	declaredElement bool,
@@ -194,8 +171,8 @@ func validateXSITypeOverride[RT xsiTypeOverrideRuntime](
 	return nil
 }
 
-func resolveXSIType[RT xsiTypeRuntime](
-	rt RT,
+func resolveXSIType(
+	rt *runtime.Schema,
 	value string,
 	resolve runtime.ResolveQNameParts,
 	hasSchemaLocation HasSchemaLocation,

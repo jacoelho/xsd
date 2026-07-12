@@ -44,11 +44,10 @@ func (c *compiler) validateSimpleValue(id runtime.SimpleTypeID, lexical string, 
 }
 
 func (c *compiler) simpleValueType(id runtime.SimpleTypeID) (runtime.SimpleValueType, bool) {
-	st, ok := c.rt.UsableSimpleType(id)
-	if !ok {
+	if !runtime.ValidSimpleTypeID(id, len(c.rt.SimpleTypes)) || c.rt.SimpleTypes[id].Missing {
 		return runtime.SimpleValueType{}, false
 	}
-	return runtime.SimpleValueTypeForSimpleType(*st), true
+	return runtime.SimpleValueTypeForSimpleType(c.rt.SimpleTypes[id]), true
 }
 
 func (c *compiler) simpleValueFacets(id runtime.SimpleTypeID) (runtime.SimpleValueFacets, bool) {
@@ -56,16 +55,7 @@ func (c *compiler) simpleValueFacets(id runtime.SimpleTypeID) (runtime.SimpleVal
 }
 
 func (c *compiler) stringEnumerationContains(id runtime.SimpleTypeID, canonical string) (bool, bool) {
-	st, ok := c.rt.UsableSimpleType(id)
-	if !ok {
-		return false, false
-	}
-	for _, lit := range st.Facets.Enumeration {
-		if lit.Canonical == canonical {
-			return true, true
-		}
-	}
-	return false, true
+	return c.rt.StringEnumerationContains(id, canonical)
 }
 
 func (c *compiler) notationDeclared(ns, local string) bool {

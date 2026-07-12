@@ -65,12 +65,6 @@ func (s *AttributeSeen) has(slot int) bool {
 	return s.mask&(uint64(1)<<slot) != 0
 }
 
-// AttributeRuntime supplies runtime facts needed for attribute wildcard matching.
-type AttributeRuntime interface {
-	WildcardView(id runtime.WildcardID) (runtime.WildcardView, bool)
-	GlobalAttribute(name runtime.QName) (runtime.AttributeID, bool, bool)
-}
-
 // AttributeWildcardMatch is the result of matching an attribute wildcard.
 type AttributeWildcardMatch struct {
 	Attribute    runtime.AttributeID
@@ -81,7 +75,7 @@ type AttributeWildcardMatch struct {
 }
 
 // MatchAttributeWildcard matches an instance attribute against an attribute wildcard.
-func MatchAttributeWildcard(rt AttributeRuntime, wildcard runtime.WildcardID, name runtime.RuntimeName) (AttributeWildcardMatch, bool) {
+func MatchAttributeWildcard(rt *runtime.Schema, wildcard runtime.WildcardID, name runtime.RuntimeName) (AttributeWildcardMatch, bool) {
 	if wildcard == runtime.NoWildcard {
 		return AttributeWildcardMatch{}, true
 	}
@@ -96,13 +90,13 @@ func MatchAttributeWildcard(rt AttributeRuntime, wildcard runtime.WildcardID, na
 		return AttributeWildcardMatch{Matched: true, Skip: true}, true
 	}
 	if name.Known {
-		id, found, ok := rt.GlobalAttribute(name.Name)
-		if !ok {
+		attribute, found, valid := rt.GlobalAttribute(name.Name)
+		if !valid {
 			return AttributeWildcardMatch{}, false
 		}
 		if found {
 			return AttributeWildcardMatch{
-				Attribute:    id,
+				Attribute:    attribute,
 				Matched:      true,
 				HasAttribute: true,
 			}, true

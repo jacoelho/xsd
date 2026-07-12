@@ -311,10 +311,9 @@ func TestStrictWildcardRecoveryConsumesOccurrenceBeforeRequiredSibling(t *testin
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	session := &validate.Session{}
-	err := session.Init(engine, validate.Options{MaxErrors: 10})
+	session, err := validate.NewSession(engine, validate.Options{MaxErrors: 10})
 	if err != nil {
-		t.Fatalf("Session.Init() error = %v", err)
+		t.Fatalf("NewSession() error = %v", err)
 	}
 
 	err = session.Validate(strings.NewReader(`<root><unknown/><after>ok</after></root>`))

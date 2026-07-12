@@ -226,7 +226,6 @@ func TestFreezeRejectsSubstitutionClosureDrift(t *testing.T) {
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild, head, _, other runtime.ElementID) {
 				t.Helper()
 				rt.Substitutions[head] = append(rt.Substitutions[head], other)
-				rt.SubstitutionLookup[head][rt.Elements[other].Name] = other
 			},
 		},
 		{
@@ -234,14 +233,13 @@ func TestFreezeRejectsSubstitutionClosureDrift(t *testing.T) {
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild, head, _, _ runtime.ElementID) {
 				t.Helper()
 				rt.Substitutions[head] = nil
-				rt.SubstitutionLookup[head] = nil
 			},
 		},
 		{
-			name: "stale lookup",
-			mutate: func(t *testing.T, rt *runtime.SchemaBuild, head, member, _ runtime.ElementID) {
+			name: "missing substitution index",
+			mutate: func(t *testing.T, rt *runtime.SchemaBuild, _, _, _ runtime.ElementID) {
 				t.Helper()
-				delete(rt.SubstitutionLookup[head], rt.Elements[member].Name)
+				rt.SubstitutionIndex = runtime.SubstitutionIndex{}
 			},
 		},
 		{

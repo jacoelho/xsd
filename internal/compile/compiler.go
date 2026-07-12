@@ -31,7 +31,7 @@ func Compile(opts Options, sources []source.Source) (*runtime.Schema, error) {
 	if err = c.compileGlobals(); err != nil {
 		return nil, err
 	}
-	rt, err := publishCompilerRuntime(c)
+	rt, err := c.publishSchema()
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,7 @@ type schemaContext struct {
 	doc              *rawDoc
 	imports          map[string]bool
 	targetNS         string
+	adoptedTarget    bool
 	elementQualified bool
 	attrQualified    bool
 	blockDefault     runtime.DerivationMask
@@ -60,6 +61,7 @@ type compilerIndexState struct {
 	attributeRaw map[runtime.QName]rawComponent
 	groupRaw     map[runtime.QName]rawComponent
 	attrGroupRaw map[runtime.QName]rawComponent
+	contexts     map[*rawDoc]*schemaContext
 }
 
 type compilerBuildState struct {
@@ -107,7 +109,7 @@ type compiler struct {
 	compilerIndexState
 	names NameInterner
 	compilerModelState
-	compilerSourceState
+	schemas       schemaSet
 	rt            runtime.SchemaBuild
 	limits        Limits
 	missingSimple runtime.SimpleTypeID
@@ -121,26 +123,9 @@ func newCompiler(limits Limits) (*compiler, error) {
 	builtinSimpleTypeCount := runtime.BuiltinSimpleTypeCount()
 	builtinAttributeCount := runtime.BuiltinAttributeCount()
 	builtinComplexTypeCount := runtime.BuiltinComplexTypeCount()
-	builtinGlobalTypeCount := runtime.BuiltinGlobalTypeCount()
-	rt := runtime.SchemaBuild{
-		Names:              names,
-		GlobalElements:     make(map[runtime.QName]runtime.ElementID),
-		GlobalAttributes:   make(map[runtime.QName]runtime.AttributeID, builtinAttributeCount),
-		GlobalTypes:        make(map[runtime.QName]runtime.TypeID, builtinGlobalTypeCount),
-		GlobalIdentities:   make(map[runtime.QName]runtime.IdentityConstraintID),
-		Notations:          make(map[runtime.QName]bool),
-		Substitutions:      make(map[runtime.ElementID][]runtime.ElementID),
-		SubstitutionLookup: make(map[runtime.ElementID]map[runtime.QName]runtime.ElementID),
-		SimpleTypes:        make([]runtime.SimpleType, 0, builtinSimpleTypeCount),
-		Attributes:         make([]runtime.AttributeDecl, 0, builtinAttributeCount),
-		ComplexTypes:       make([]runtime.ComplexType, 0, builtinComplexTypeCount),
-		Wildcards:          make([]runtime.Wildcard, 0, 1),
-		AttributeUseSets:   make([]runtime.AttributeUseSet, 0, 1),
-		Models:             make([]runtime.ContentModel, 0, 1),
-	}
+	rt := newCompilerSchemaBuild(names)
 	c := &compiler{
-		builtinFacets:       runtime.NewBuiltinSimpleFacetStorage(),
-		compilerSourceState: newCompilerSourceState(),
+		builtinFacets: runtime.NewBuiltinSimpleFacetStorage(),
 		compilerIndexState: compilerIndexState{
 			simpleRaw:    make(map[runtime.QName]rawComponent),
 			complexRaw:   make(map[runtime.QName]rawComponent),
@@ -148,6 +133,7 @@ func newCompiler(limits Limits) (*compiler, error) {
 			attributeRaw: make(map[runtime.QName]rawComponent),
 			groupRaw:     make(map[runtime.QName]rawComponent),
 			attrGroupRaw: make(map[runtime.QName]rawComponent),
+			contexts:     make(map[*rawDoc]*schemaContext),
 		},
 		compilerBuildState: compilerBuildState{
 			simpleDone:       make(map[runtime.QName]runtime.SimpleTypeID, builtinSimpleTypeCount),
@@ -180,60 +166,6 @@ func newCompiler(limits Limits) (*compiler, error) {
 		return nil, err
 	}
 	return c, nil
-}
-
-// The registerGlobal* helpers append a declaration and publish it in the
-// matching Global* map in one step, so a slice entry and its map key cannot
-// diverge (validateRuntimeGlobals checks the names still match at freeze).
-
-func (c *compiler) registerGlobalElement(q runtime.QName, decl runtime.ElementDecl) (runtime.ElementID, error) {
-	id, err := NextElementID(len(c.rt.Elements))
-	if err != nil {
-		return runtime.NoElement, err
-	}
-	c.rt.Elements = append(c.rt.Elements, decl)
-	c.rt.GlobalElements[q] = id
-	return id, nil
-}
-
-func (c *compiler) registerGlobalAttribute(q runtime.QName, decl runtime.AttributeDecl) (runtime.AttributeID, error) {
-	id, err := NextAttributeID(len(c.rt.Attributes))
-	if err != nil {
-		return 0, err
-	}
-	c.rt.Attributes = append(c.rt.Attributes, decl)
-	c.rt.GlobalAttributes[q] = id
-	return id, nil
-}
-
-func (c *compiler) registerGlobalComplexType(q runtime.QName, ct runtime.ComplexType) (runtime.ComplexTypeID, error) {
-	id, err := NextComplexTypeID(len(c.rt.ComplexTypes))
-	if err != nil {
-		return runtime.NoComplexType, err
-	}
-	c.rt.ComplexTypes = append(c.rt.ComplexTypes, ct)
-	c.rt.GlobalTypes[q] = runtime.ComplexRef(id)
-	return id, nil
-}
-
-func (c *compiler) registerGlobalSimpleType(q runtime.QName, st runtime.SimpleType) (runtime.SimpleTypeID, error) {
-	id, err := NextSimpleTypeID(len(c.rt.SimpleTypes))
-	if err != nil {
-		return runtime.NoSimpleType, err
-	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, st)
-	c.rt.GlobalTypes[q] = runtime.SimpleRef(id)
-	return id, nil
-}
-
-func (c *compiler) registerGlobalIdentity(q runtime.QName, ic runtime.IdentityConstraint) (runtime.IdentityConstraintID, error) {
-	id, err := NextIdentityConstraintID(len(c.rt.Identities))
-	if err != nil {
-		return runtime.NoIdentityConstraint, err
-	}
-	c.rt.Identities = append(c.rt.Identities, ic)
-	c.rt.GlobalIdentities[q] = id
-	return id, nil
 }
 
 func (c *compiler) compileGlobals() error {
@@ -315,13 +247,12 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 			continue
 		}
 		base := c.rt.ComplexTypes[baseID]
-		if err := ValidateContentRestriction(&c.rt, c.rt.Models, base.Content, ct.Content); err != nil {
+		if err := ValidateContentRestriction(&c.rt, base.Content, ct.Content); err != nil {
 			return err
 		}
 	}
-	modelRT := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates)
 	updates, err := runtime.RestrictionChoiceLimitUpdates(
-		&modelRT,
+		&c.rt,
 		c.rt.ComplexTypes,
 		c.rt.Models,
 		c.rt.Builtin.AnyType,
@@ -336,7 +267,7 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 		}
 		ct := c.rt.ComplexTypes[update.ComplexType]
 		ct.Content = id
-		c.rt.ComplexTypes[update.ComplexType] = ct
+		c.completeComplexType(update.ComplexType, ct)
 	}
 	return nil
 }
@@ -484,7 +415,7 @@ func (c *compiler) compileSimpleByQName(q runtime.QName) (runtime.SimpleTypeID, 
 	st.Final = final
 	st.Identity = c.rt.DerivedSimpleIdentity(st)
 	st.Fast = runtime.DeriveSimpleFastPathForSimpleType(st)
-	c.rt.SimpleTypes[id] = st
+	c.completeSimpleType(id, st)
 	return id, nil
 }
 
@@ -496,11 +427,10 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (runti
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
-	id, err := NextSimpleTypeID(len(c.rt.SimpleTypes))
+	id, err := c.addSimpleType(runtime.SimpleType{Name: q, Variety: runtime.SimpleVarietyAtomic, Primitive: runtime.PrimitiveString, Base: c.rt.Builtin.AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespacePreserve})
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
-	c.rt.SimpleTypes = append(c.rt.SimpleTypes, runtime.SimpleType{Name: q, Variety: runtime.SimpleVarietyAtomic, Primitive: runtime.PrimitiveString, Base: c.rt.Builtin.AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespacePreserve})
 	st, err := c.compileSimpleType(n, ctx, q)
 	if err != nil {
 		return runtime.NoSimpleType, err
@@ -513,7 +443,7 @@ func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (runti
 	st.Final = final
 	st.Identity = c.rt.DerivedSimpleIdentity(st)
 	st.Fast = runtime.DeriveSimpleFastPathForSimpleType(st)
-	c.rt.SimpleTypes[id] = st
+	c.completeSimpleType(id, st)
 	return id, nil
 }
 

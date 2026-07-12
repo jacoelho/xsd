@@ -72,7 +72,7 @@ func (b *dfaBuilder) compileDeterministicModel(id runtime.ContentModelID, start 
 	if err := b.c.checkCompiledRowsUPA(rows); err != nil {
 		return runtime.CompiledModel{}, err
 	}
-	model, ok := b.c.contentModel(id)
+	model, ok := b.c.rt.ContentModel(id)
 	if !ok {
 		return runtime.CompiledModel{}, xsderrors.InternalInvariant("content model DFA references missing content model")
 	}
