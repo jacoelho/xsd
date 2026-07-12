@@ -163,6 +163,13 @@ func (d *xmlDocument[P]) Current() (*P, bool) {
 	return &d.elements[len(d.elements)-1].payload, true
 }
 
+func (d *xmlDocument[P]) clearPayloads() {
+	var zero P
+	for i := range d.elements {
+		d.elements[i].payload = zero
+	}
+}
+
 func (d *xmlDocument[P]) LookupNamespace(prefix string) (string, bool) {
 	return d.ns.Lookup(prefix)
 }

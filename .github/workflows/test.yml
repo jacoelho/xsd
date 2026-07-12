@@ -30,6 +30,8 @@ jobs:
 
       - run: make test
 
+      - run: make wasm-test
+
       - run: make web-test
 
       - run: make race

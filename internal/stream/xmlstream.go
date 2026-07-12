@@ -71,8 +71,8 @@ type Parser struct {
 	values        *Cache
 	pendingEnd    EndElement
 	nameBuf       []byte
-	valueBuf      []byte
 	attrValueBuf  []byte
+	attrValueEnds []int
 	entityBuf     []byte
 	textBuf       []byte
 	directive     []byte
@@ -80,6 +80,7 @@ type Parser struct {
 	br            byteStream
 	maxAttrs      int
 	maxTokenBytes int64
+	retainedBytes int64
 	cdataMatched  int
 	hasEnd        bool
 	inCDATA       bool
@@ -100,8 +101,8 @@ func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes
 	p.values = values
 	p.pendingEnd = EndElement{}
 	p.nameBuf = resetRetainedBytes(p.nameBuf)
-	p.valueBuf = resetRetainedBytes(p.valueBuf)
 	p.attrValueBuf = resetRetainedBytes(p.attrValueBuf)
+	p.attrValueEnds = resetRetainedSlice(p.attrValueEnds)
 	p.entityBuf = resetRetainedBytes(p.entityBuf)
 	p.textBuf = resetRetainedBytes(p.textBuf)
 	p.directive = resetRetainedBytes(p.directive)
@@ -109,6 +110,7 @@ func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes
 	p.br.reset(r)
 	p.maxAttrs = 0
 	p.maxTokenBytes = maxTokenBytes
+	p.retainedBytes = 0
 	p.cdataMatched = 0
 	p.hasEnd = false
 	p.inCDATA = false
@@ -124,6 +126,7 @@ func (p *Parser) Next() (Token, error) {
 	clear(p.attrs)
 	p.attrs = p.attrs[:0]
 	if p.inCDATA {
+		p.retainedBytes = 0
 		return p.readCDATAChunk(0, 0)
 	}
 	if p.hasEnd {
@@ -134,6 +137,7 @@ func (p *Parser) Next() (Token, error) {
 		return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
 	}
 	for {
+		p.retainedBytes = 0
 		b, err := p.br.readByte()
 		if err != nil {
 			return Token{}, err
@@ -446,13 +450,17 @@ func (p *Parser) readMarkup(line, col int) (Token, bool, error) {
 		return tok, false, err
 	default:
 		p.directive = p.directive[:0]
-		p.directive = append(p.directive, b)
+		if err := p.appendTokenByte(&p.directive, b); err != nil {
+			return Token{}, false, err
+		}
 		for len(p.directive) <= len(doctypeDirective) {
 			next, err := p.br.readByte()
 			if err != nil {
 				return Token{}, false, p.syntaxError("unexpected EOF in markup declaration", err)
 			}
-			p.directive = append(p.directive, next)
+			if err := p.appendTokenByte(&p.directive, next); err != nil {
+				return Token{}, false, err
+			}
 		}
 		if !IsDOCTYPEDeclaration(p.directive) {
 			return Token{}, false, fmt.Errorf("invalid markup declaration")
@@ -531,6 +539,7 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 	}
 	rawName := lexicalXMLName(name)
 	p.attrValueBuf = p.attrValueBuf[:0]
+	p.attrValueEnds = p.attrValueEnds[:0]
 	for {
 		b, hadSpace, err := p.readPastSpace()
 		if err != nil {
@@ -573,15 +582,16 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 			if b != '"' && b != '\'' {
 				return StartElement{}, false, fmt.Errorf("attribute value must be quoted")
 			}
-			value, err := p.readAttributeValueBytes(b)
+			if !p.lazyAttrValue {
+				p.attrValueBuf = p.attrValueBuf[:0]
+			}
+			value, err := p.readAttributeValueBytes(b, &p.attrValueBuf)
 			if err != nil {
 				return StartElement{}, false, err
 			}
 			attr := Attr{Name: attrName}
 			if p.lazyAttrValue {
-				start := len(p.attrValueBuf)
-				p.attrValueBuf = append(p.attrValueBuf, value...)
-				attr.raw = p.attrValueBuf[start:]
+				p.attrValueEnds = append(p.attrValueEnds, len(p.attrValueBuf))
 			} else {
 				attr.Value = p.values.Intern(value)
 			}
@@ -594,11 +604,11 @@ func (p *Parser) finishLazyAttrValues() {
 	if !p.lazyAttrValue {
 		return
 	}
-	off := 0
+	start := 0
 	for i := range p.attrs {
-		n := len(p.attrs[i].raw)
-		p.attrs[i].raw = p.attrValueBuf[off : off+n]
-		off += n
+		end := p.attrValueEnds[i]
+		p.attrs[i].raw = p.attrValueBuf[start:end]
+		start = end
 	}
 	if len(p.attrs) < LazyAttrRawMinAttrs {
 		for i := range p.attrs {
@@ -698,8 +708,8 @@ func nameChunkLen(chunk []byte) int {
 	return len(chunk)
 }
 
-func (p *Parser) readAttributeValueBytes(quote byte) ([]byte, error) {
-	p.valueBuf = p.valueBuf[:0]
+func (p *Parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error) {
+	start := len(*dst)
 	for {
 		chunk, err := p.br.buffered()
 		if errors.Is(err, io.EOF) {
@@ -709,7 +719,7 @@ func (p *Parser) readAttributeValueBytes(quote byte) ([]byte, error) {
 			return nil, err
 		}
 		if n := attributeValueChunkLen(chunk, quote); n > 0 {
-			if appendErr := p.appendTokenBytes(&p.valueBuf, chunk[:n]); appendErr != nil {
+			if appendErr := p.appendTokenBytes(dst, chunk[:n]); appendErr != nil {
 				return nil, appendErr
 			}
 			p.br.consumeBuffered(n)
@@ -721,24 +731,24 @@ func (p *Parser) readAttributeValueBytes(quote byte) ([]byte, error) {
 		}
 		switch b {
 		case quote:
-			return p.valueBuf, nil
+			return (*dst)[start:], nil
 		case '<':
 			return nil, fmt.Errorf("attribute value cannot contain <")
 		case '\r':
 			p.consumeLineFeed()
-			if err := p.appendTokenByte(&p.valueBuf, ' '); err != nil {
+			if err := p.appendTokenByte(dst, ' '); err != nil {
 				return nil, err
 			}
 		case '\n', '\t':
-			if err := p.appendTokenByte(&p.valueBuf, ' '); err != nil {
+			if err := p.appendTokenByte(dst, ' '); err != nil {
 				return nil, err
 			}
 		case '&':
-			if err := p.readEntity(&p.valueBuf); err != nil {
+			if err := p.readEntity(dst); err != nil {
 				return nil, err
 			}
 		default:
-			if err := p.appendXMLRune(&p.valueBuf, b); err != nil {
+			if err := p.appendXMLRune(dst, b); err != nil {
 				return nil, err
 			}
 		}

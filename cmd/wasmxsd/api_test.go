@@ -1,9 +1,6 @@
 package main
 
 import (
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -87,6 +84,36 @@ func TestValidateXMLDataReportsMalformedXMLAfterSchemaCompiles(t *testing.T) {
 	}
 	if resp.Errors[0].Code != "validation.xml" {
 		t.Fatalf("error code = %q, want validation.xml", resp.Errors[0].Code)
+	}
+}
+
+func TestValidateXMLDataReportsMalformedXMLBeyondValidationErrorLimit(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="v" type="xs:int" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	var input strings.Builder
+	input.WriteString(`<root>`)
+	for range maxValidationErrors {
+		input.WriteString(`<v>x</v>`)
+	}
+	input.WriteString(`<v>1</root>`)
+
+	resp := validateXMLData(input.String(), schema)
+	if resp.Valid {
+		t.Fatal("validateXMLData() accepted malformed XML")
+	}
+	if len(resp.Errors) != 1 {
+		t.Fatalf("len(errors) = %d, want 1: %+v", len(resp.Errors), resp)
+	}
+	if resp.Errors[0].Source != "xml" || resp.Errors[0].Code != "validation.xml" {
+		t.Fatalf("error = %+v, want XML syntax error", resp.Errors[0])
 	}
 }
 
@@ -307,24 +334,5 @@ func TestValidateXMLDataRejectsBookMissingPubDate(t *testing.T) {
 	}
 	if len(resp.Errors) == 0 || resp.Errors[0].Code != "validation.element" {
 		t.Fatalf("validateXMLData() = %+v, formatted XML = %q", resp, formatted.XML)
-	}
-}
-
-func TestWASMTargetBuilds(t *testing.T) {
-	wasm := filepath.Join(t.TempDir(), "xsd.wasm")
-	cmd := exec.CommandContext(t.Context(), "go", "build", "-ldflags=-s -w", "-o", wasm, ".") //nolint:gosec // Test intentionally invokes fixed go build command.
-	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go build js/wasm failed: %v\n%s", err, out)
-	}
-}
-
-func TestHostTargetBuilds(t *testing.T) {
-	bin := filepath.Join(t.TempDir(), "wasmxsd")
-	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, ".") //nolint:gosec // Test intentionally invokes fixed go build command.
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go build host failed: %v\n%s", err, out)
 	}
 }

@@ -21,6 +21,17 @@ type CompileOptions struct {
 	MaxSchemaTokenBytes int64
 	// MaxSchemaSourceBytes caps bytes read from each schema source. Zero uses the default.
 	MaxSchemaSourceBytes int64
+	// MaxSchemaSources caps distinct schema sources admitted to one compilation. Zero uses the default.
+	MaxSchemaSources int
+	// MaxSchemaTotalBytes caps aggregate bytes read across all schema sources. Zero uses the default.
+	MaxSchemaTotalBytes int64
+	// MaxSchemaReferences caps include/import references processed during compilation. Zero uses the default.
+	MaxSchemaReferences int
+	// MaxSchemaTargetContexts caps distinct source/effective-target-namespace contexts,
+	// including primary and chameleon-derived contexts. Zero uses the default.
+	MaxSchemaTargetContexts int
+	// MaxSchemaInstantiatedNodes caps aggregate raw schema nodes across all target contexts. Zero uses the default.
+	MaxSchemaInstantiatedNodes int
 	// MaxSchemaNames caps interned schema names, including built-ins. Zero means no explicit limit.
 	MaxSchemaNames int
 	// MaxFiniteOccurs caps finite maxOccurs values. Zero uses the uint32 runtime cap.
@@ -46,12 +57,17 @@ func CompileWithOptions(opts CompileOptions, sources ...SchemaSource) (*Engine, 
 
 func internalCompileOptions(opts CompileOptions) compile.Options {
 	return compile.Options{
-		MaxSchemaDepth:        opts.MaxSchemaDepth,
-		MaxSchemaAttributes:   opts.MaxSchemaAttributes,
-		MaxSchemaTokenBytes:   opts.MaxSchemaTokenBytes,
-		MaxSchemaSourceBytes:  opts.MaxSchemaSourceBytes,
-		MaxSchemaNames:        opts.MaxSchemaNames,
-		MaxFiniteOccurs:       opts.MaxFiniteOccurs,
-		MaxContentModelStates: opts.MaxContentModelStates,
+		MaxSchemaDepth:             opts.MaxSchemaDepth,
+		MaxSchemaAttributes:        opts.MaxSchemaAttributes,
+		MaxSchemaTokenBytes:        opts.MaxSchemaTokenBytes,
+		MaxSchemaSourceBytes:       opts.MaxSchemaSourceBytes,
+		MaxSchemaSources:           opts.MaxSchemaSources,
+		MaxSchemaTotalBytes:        opts.MaxSchemaTotalBytes,
+		MaxSchemaReferences:        opts.MaxSchemaReferences,
+		MaxSchemaTargetContexts:    opts.MaxSchemaTargetContexts,
+		MaxSchemaInstantiatedNodes: opts.MaxSchemaInstantiatedNodes,
+		MaxSchemaNames:             opts.MaxSchemaNames,
+		MaxFiniteOccurs:            opts.MaxFiniteOccurs,
+		MaxContentModelStates:      opts.MaxContentModelStates,
 	}
 }

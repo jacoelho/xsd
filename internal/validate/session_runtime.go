@@ -13,13 +13,13 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-var errStopValidation = errors.New("validation stopped after maximum errors")
-
 const (
 	maxRetainedSliceCap  = 4096
 	maxRetainedBufferCap = 1 << 20
 	maxRetainedMapLen    = 4096
 )
+
+var errSemanticStop = errors.New("semantic validation stopped after reaching MaxErrors")
 
 // Session validates XML instance documents against one compiled runtime.
 //
@@ -128,6 +128,7 @@ type documentState struct {
 	namePath            []runtime.RuntimeName
 	errors              []error
 	text                []byte
+	syntaxOnly          bool
 }
 
 type frame struct {
@@ -177,24 +178,34 @@ func (s *session) validate(r io.Reader) error {
 			}
 			return s.parseError(tok, err)
 		}
+		syntaxOnly := s.doc.syntaxOnly
 		switch tok.Kind {
 		case stream.KindStart:
 			if err := s.start(tok.Line, tok.Column, tok.Start); err != nil {
-				return s.stopOrError(err)
+				return err
 			}
 		case stream.KindEnd:
 			if err := s.end(tok.Line, tok.Column, tok.End); err != nil {
-				return s.stopOrError(err)
+				return err
 			}
 		case stream.KindCharData:
 			if err := s.chars(tok.Line, tok.Column, tok.Data, tok.CDATA); err != nil {
+				if syntaxOnly {
+					return err
+				}
 				if recoverErr := s.recover(err); recoverErr != nil {
-					return s.stopOrError(recoverErr)
+					if errors.Is(recoverErr, errSemanticStop) {
+						break
+					}
+					return recoverErr
 				}
 			}
 		case stream.KindDirective:
 			return ValidateDirective(s.startContext(tok.Line, tok.Column), tok.Directive)
 		case stream.KindComment, stream.KindPI:
+		}
+		if !syntaxOnly && s.doc.syntaxOnly {
+			s.discardSemanticState()
 		}
 	}
 	return s.finishValidation()
@@ -208,19 +219,18 @@ func (s *session) parseError(tok stream.Token, err error) error {
 	return StreamError(line, col, s.doc.PathString(), err)
 }
 
-func (s *session) stopOrError(err error) error {
-	if errors.Is(err, errStopValidation) {
-		return s.result()
-	}
-	return err
-}
-
 func (s *session) finishValidation() error {
 	if err := s.doc.Complete(); err != nil {
 		return err
 	}
-	if err := s.checkIDRefs(); err != nil {
-		return s.stopOrError(err)
+	if !s.doc.syntaxOnly {
+		if err := s.checkIDRefs(); err != nil {
+			if errors.Is(err, errSemanticStop) {
+				s.discardSemanticState()
+				return s.result()
+			}
+			return err
+		}
 	}
 	return s.result()
 }
@@ -294,14 +304,30 @@ func (s *session) recover(err error) error {
 	if !RecoverableError(err) {
 		return err
 	}
-	s.doc.errors = append(s.doc.errors, err)
-	if RecoveryLimitReached(len(s.doc.errors), s.maxErrors) {
-		return errStopValidation
+	if !RecoveryLimitReached(len(s.doc.errors), s.maxErrors) {
+		s.doc.errors = append(s.doc.errors, err)
+		if RecoveryLimitReached(len(s.doc.errors), s.maxErrors) {
+			s.doc.syntaxOnly = true
+			return errSemanticStop
+		}
 	}
 	return nil
 }
 
+func (s *session) discardSemanticState() {
+	s.doc.clearPayloads()
+	s.doc.identity = IdentityState{}
+	s.doc.schemaLocationHints = SchemaLocationHints{}
+	s.doc.allBits = nil
+	s.doc.namePath = nil
+	s.doc.text = nil
+	s.attributeSeen = nil
+}
+
 func (s *session) start(line, col int, se stream.StartElement) error {
+	if s.doc.syntaxOnly {
+		return s.syntaxStart(line, col, se)
+	}
 	se, err := s.doc.PrepareStart(se, &s.valueStrings, s.maxInstanceDepth, line, col)
 	if err != nil {
 		return err
@@ -311,6 +337,10 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 		if schemaLocationErr := s.recordSchemaLocationHints(se.Attr, line, col); schemaLocationErr != nil {
 			recoverErr := s.recover(schemaLocationErr)
 			if recoverErr != nil {
+				if errors.Is(recoverErr, errSemanticStop) {
+					s.doc.CommitStart(se.Name, se.RawName, false, frame{})
+					return nil
+				}
 				s.doc.AbortStart()
 				return recoverErr
 			}
@@ -319,6 +349,10 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 	rn := s.runtimeName(se.Name)
 	start, err := s.startType(rn, se, xsiFlags.Type, line, col)
 	if err != nil {
+		if errors.Is(err, errSemanticStop) {
+			s.doc.CommitStart(se.Name, se.RawName, false, frame{})
+			return nil
+		}
 		s.doc.AbortStart()
 		return err
 	}
@@ -331,6 +365,10 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 		nilled, err = s.assessElementStart(&start, decl, declared, se.Attr, xsiFlags, ctx)
 		if err != nil {
 			if recoverErr := s.recover(err); recoverErr != nil {
+				if errors.Is(recoverErr, errSemanticStop) {
+					s.doc.CommitStart(se.Name, se.RawName, false, frame{})
+					return nil
+				}
 				s.doc.AbortStart()
 				return recoverErr
 			}
@@ -353,17 +391,35 @@ func (s *session) start(line, col int, se stream.StartElement) error {
 	if s.hasIdentityConstraints {
 		s.doc.namePath = append(s.doc.namePath, rn)
 		if scopeErr := s.startIdentityScope(start.element, line, col); scopeErr != nil {
+			if errors.Is(scopeErr, errSemanticStop) {
+				return nil
+			}
 			return scopeErr
 		}
 		if matchErr := s.matchIdentitySelectors(line, col); matchErr != nil {
+			if errors.Is(matchErr, errSemanticStop) {
+				return nil
+			}
 			return matchErr
 		}
 	}
 	if !start.skip {
 		if attrErr := s.validateAttributes(start.typ, se.Attr, line, col); attrErr != nil {
+			if errors.Is(attrErr, errSemanticStop) {
+				return nil
+			}
 			return attrErr
 		}
 	}
+	return nil
+}
+
+func (s *session) syntaxStart(line, col int, se stream.StartElement) error {
+	start, err := s.doc.PrepareStart(se, &s.valueStrings, s.maxInstanceDepth, line, col)
+	if err != nil {
+		return err
+	}
+	s.doc.CommitStart(start.Name, start.RawName, false, frame{})
 	return nil
 }
 
@@ -553,6 +609,9 @@ func (s *session) schemaFrameSimpleContent(
 }
 
 func (s *session) chars(line, col int, data []byte, cdata bool) error {
+	if s.doc.syntaxOnly && s.doc.Depth() != 0 {
+		return nil
+	}
 	f, ok := s.doc.Current()
 	if !ok {
 		return ValidateDocumentCharacterData(data, cdata, s.startContext(line, col))

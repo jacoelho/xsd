@@ -129,6 +129,67 @@ func TestSourceReadLimit(t *testing.T) {
 	}
 }
 
+func TestSourceReadWithZeroLimitDistinguishesEmptyAndOversize(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name     string
+		source   Source
+		wantData string
+		wantOver bool
+	}{
+		{name: "empty bytes", source: Bytes("empty.xsd", nil)},
+		{name: "empty opener", source: Opener("empty.xsd", func() (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader("")), nil
+		})},
+		{name: "non-empty bytes", source: Bytes("schema.xsd", []byte("x")), wantOver: true},
+		{name: "non-empty opener", source: Opener("schema.xsd", func() (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader("x")), nil
+		}), wantOver: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			data, exceeded, err := tt.source.ReadWithLimit(0)
+			if exceeded != tt.wantOver {
+				t.Fatalf("ReadWithLimit() exceeded = %v, want %v", exceeded, tt.wantOver)
+			}
+			if tt.wantOver {
+				if !IsSchemaLimitError(err) {
+					t.Fatalf("ReadWithLimit() error = %v, want schema limit", err)
+				}
+				return
+			}
+			if err != nil || string(data) != tt.wantData {
+				t.Fatalf("ReadWithLimit() = %q, %v; want %q, nil", data, err, tt.wantData)
+			}
+		})
+	}
+}
+
+func TestSourceReadWithLimitDoesNotReclassifyConstructionError(t *testing.T) {
+	t.Parallel()
+
+	s := LimitedReader("schema.xsd", strings.NewReader("1234"), 3)
+	_, exceeded, err := s.ReadWithLimit(1)
+	if exceeded || !IsSchemaLimitError(err) {
+		t.Fatalf("ReadWithLimit() = exceeded %v, error %v; want pre-existing schema limit", exceeded, err)
+	}
+}
+
+func TestSourceReadWithLimitPreservesBytesBeforeReadError(t *testing.T) {
+	t.Parallel()
+
+	want := errors.New("read failed")
+	s := Opener("schema.xsd", func() (io.ReadCloser, error) {
+		return &dataErrorReader{data: []byte("schema"), err: want}, nil
+	})
+	data, exceeded, err := s.ReadWithLimit(100)
+	if exceeded || !errors.Is(err, want) || string(data) != "schema" {
+		t.Fatalf("ReadWithLimit() = %q, exceeded %v, error %v", data, exceeded, err)
+	}
+}
+
 func TestLimitedReaderRejectsNilAndOversize(t *testing.T) {
 	t.Parallel()
 	if _, err := LimitedReader("schema.xsd", nil, 10).Read(10); !errors.Is(err, ErrNilReader) {
@@ -145,6 +206,22 @@ type closeErrorReader struct {
 }
 
 func (r closeErrorReader) Close() error { return r.err }
+
+type dataErrorReader struct {
+	data []byte
+	err  error
+	done bool
+}
+
+func (r *dataErrorReader) Read(p []byte) (int, error) {
+	if r.done {
+		return 0, r.err
+	}
+	r.done = true
+	return copy(p, r.data), r.err
+}
+
+func (*dataErrorReader) Close() error { return nil }
 
 func TestOpenerReturnsCloseErrorAfterSuccessfulRead(t *testing.T) {
 	t.Parallel()

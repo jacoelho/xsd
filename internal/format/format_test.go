@@ -378,7 +378,7 @@ func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
 
 func TestFormatXMLWithOptionsAllowsTokenAtLimit(t *testing.T) {
 	var out strings.Builder
-	err := XMLWithOptions(&out, strings.NewReader(`<?pi abc?><r/>`), Options{MaxTokenBytes: 3})
+	err := XMLWithOptions(&out, strings.NewReader(`<?pi abc?><r/>`), Options{MaxTokenBytes: 5})
 	if err != nil {
 		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
