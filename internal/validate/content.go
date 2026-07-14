@@ -29,13 +29,9 @@ func (i validationIssue) valid() bool {
 
 type childStartPolicy struct {
 	issue validationIssue
-	skip  bool
 }
 
-func childFramePolicy(skip, nilled bool) childStartPolicy {
-	if skip {
-		return childStartPolicy{skip: true}
-	}
+func childFramePolicy(nilled bool) childStartPolicy {
 	if nilled {
 		return childStartPolicy{issue: nilledContentIssue()}
 	}
@@ -72,7 +68,7 @@ func missingRequiredChildIssue() validationIssue {
 }
 
 func contentCompletionRequired(nilled bool, typ runtime.TypeID, content runtime.ContentState) bool {
-	return !nilled && typ.Kind == runtime.TypeComplex && content.HasModel()
+	return !nilled && typ.IsComplex() && content.HasModel()
 }
 
 func validationFromIssue(ctx StartContext, issue validationIssue) error {

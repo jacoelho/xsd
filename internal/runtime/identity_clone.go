@@ -29,10 +29,21 @@ func NewIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstrai
 	}
 }
 
-func moveElementIdentityConstraintReads(decls []ElementDecl) [][]IdentityConstraintID {
-	out := make([][]IdentityConstraintID, len(decls))
-	for i := range decls {
-		out[i] = decls[i].Identity
+func cloneCompiledIdentityFields(in []CompiledIdentityField) []CompiledIdentityField {
+	out := slices.Clone(in)
+	for i := range out {
+		out[i].Paths = cloneIdentityFieldPaths(in[i].Paths)
+	}
+	return out
+}
+
+func cloneCompiledIdentityFieldMap(in map[QName][]CompiledIdentityField) map[QName][]CompiledIdentityField {
+	if in == nil {
+		return nil
+	}
+	out := make(map[QName][]CompiledIdentityField, len(in))
+	for name, fields := range in {
+		out[name] = cloneCompiledIdentityFields(fields)
 	}
 	return out
 }

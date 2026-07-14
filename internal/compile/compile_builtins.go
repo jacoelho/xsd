@@ -21,7 +21,7 @@ func (c *compiler) addBuiltinSimpleTypes() error {
 		if !ok {
 			return xsderrors.InternalInvariant("builtin simple type seed index is invalid")
 		}
-		if _, err := c.addBuiltinSimpleSeed(seed); err != nil {
+		if _, err := c.addBuiltinSimpleSeed(&seed); err != nil {
 			return err
 		}
 	}

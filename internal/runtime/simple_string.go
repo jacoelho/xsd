@@ -1,6 +1,10 @@
 package runtime
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+
+	"github.com/jacoelho/xsd/internal/uriref"
+)
 
 // TextValue is the value-space projection for text primitive values.
 type TextValue struct {
@@ -14,9 +18,19 @@ func ParseTextValue(kind PrimitiveKind, normalized string, needs PrimitiveValueN
 	switch kind {
 	case PrimitiveString:
 	case PrimitiveAnyURI:
-		if err := ValidateAnyURILexical(normalized); err != nil {
+		characters, err := uriref.Check(normalized)
+		if err != nil {
 			return TextValue{}, err
 		}
+		value := TextValue{Canonical: normalized}
+		if needs.Has(PrimitiveNeedLength) {
+			length, lengthErr := checkedUint32(characters, "anyURI length exceeds uint32 limit")
+			if lengthErr != nil {
+				return TextValue{}, lengthErr
+			}
+			value.Length = length
+		}
+		return value, nil
 	default:
 		return TextValue{}, ErrSimpleValueMetadata
 	}

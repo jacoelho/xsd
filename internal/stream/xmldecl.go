@@ -2,11 +2,23 @@ package stream
 
 import "github.com/jacoelho/xsd/internal/lex"
 
-// UTF8BOM is the byte order mark accepted before XML input.
-var UTF8BOM = []byte{0xEF, 0xBB, 0xBF}
+const utf8BOMLen = 3
 
 // XMLDeclarationPrefixLen is the minimum bytes needed to recognize "<?xml ".
 const XMLDeclarationPrefixLen = len("<?xml ")
+
+// HasUTF8BOM reports whether buf begins with the UTF-8 byte order mark.
+func HasUTF8BOM(buf []byte) bool {
+	return len(buf) >= utf8BOMLen && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF
+}
+
+// TrimUTF8BOM removes one leading UTF-8 byte order mark.
+func TrimUTF8BOM(buf []byte) []byte {
+	if HasUTF8BOM(buf) {
+		return buf[utf8BOMLen:]
+	}
+	return buf
+}
 
 // StartsXMLDeclaration reports whether buf starts with an XML declaration.
 func StartsXMLDeclaration(buf []byte) bool {

@@ -62,6 +62,10 @@ Specifies that field values must be unique within the selected scope. Elements w
 
 - If any field evaluates to empty (absent), that element is excluded from checking
 - Duplicate values among remaining elements cause a validation error
+- A non-empty field must select one node with an assessed simple type. Elements
+  or attributes admitted without assessment by `processContents="skip"` (or by
+  a lax wildcard with no declaration) are invalid field values; they are not
+  treated as absent fields.
 
 ### xs:key
 
@@ -96,7 +100,9 @@ Like `xs:unique`, but additionally requires that all fields must be present for 
 - All selected elements must have values for all fields
 - All field value combinations must be unique
 - Missing fields cause a validation error (unlike `xs:unique`)
-- Fields must not select elements whose declarations are `nillable="true"`
+- A qualified key sequence is invalid when one of its element-valued fields
+  selects a declaration with `nillable="true"`; an absent, multiply selected,
+  complex-valued, or unsuccessfully assessed field does not form that sequence
 
 ### xs:keyref
 
@@ -173,6 +179,8 @@ The XPath expressions used in identity constraints are a restricted subset of XP
 
 - Must select element nodes (not attributes or text)
 - Can use child axis (explicit or abbreviated)
+- An explicit `child::` step requires a name test; `.` is only the abbreviated
+  self step and `child::.` is not valid XPath
 - Can use `|` for union
 - No predicates allowed (unlike full XPath 1.0)
 
@@ -246,16 +254,21 @@ Field values are compared after schema normalization:
 
 - Whitespace is collapsed according to the field's type
 - For numeric types, value equality is used (e.g., `1.0` equals `1`)
+- For durations, value equality is used (e.g., `P1Y` equals `P12M`)
+- List values compare item-by-item using each item's datatype equality
 - For string types, lexical comparison is used
 
 ### Validation Process
 
 1. Evaluate the selector XPath to get the qualified node set
 2. For each selected element, evaluate each field XPath
-3. For `xs:key`: verify all fields have values; error if any missing
-4. Collect value tuples for all qualifying elements
-5. For `xs:unique`/`xs:key`: check for duplicate tuples
-6. For `xs:keyref`: verify each tuple exists in the referenced key's set
+3. For `xs:key`: verify all fields have one successfully assessed simple value;
+   error if any field is missing
+4. Reject a qualified `xs:key` sequence whose element-valued field declaration
+   is nillable
+5. Collect value tuples for all qualifying elements
+6. For `xs:unique`/`xs:key`: check for duplicate tuples
+7. For `xs:keyref`: verify each tuple exists in the referenced key's set
 
 Spec refs: docs/spec/xml/structures.xml#cvc-&constraint;.
 

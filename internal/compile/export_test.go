@@ -1,12 +1,8 @@
 package compile
 
 import (
-	"bytes"
-	"encoding/xml"
-
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/vocab"
 )
 
 type Compiler = compiler
@@ -48,27 +44,18 @@ func (c *compiler) NameInternerIsZeroForTest() bool {
 func (c *compiler) DocumentNamesForTest() []string {
 	names := make([]string, 0, len(c.schemas.documents))
 	for _, document := range c.schemas.documents {
-		if document.indexDeclarations {
-			names = append(names, document.doc.name)
-		}
+		names = append(names, document.doc.name)
 	}
 	return names
 }
 
 // ParseSchemaRootForTest parses a schema document and returns its root node.
 func ParseSchemaRootForTest(data []byte, limits Limits) (*RawNode, error) {
-	dec := xml.NewDecoder(bytes.NewReader(data))
-	state := schemaParseState{
-		dec:    dec,
-		limits: limits,
-		nsStack: []map[string]string{{
-			vocab.XMLPrefix: vocab.XMLNamespaceURI,
-		}},
-	}
-	if err := state.parse(); err != nil {
+	doc, err := parseRawSchemaDocument("test.xsd", "test.xsd", data, limits)
+	if err != nil {
 		return nil, err
 	}
-	return state.root, nil
+	return doc.root, nil
 }
 
 // FreezeCompilerRuntimeForTest freezes a compiler runtime for white-box tests.

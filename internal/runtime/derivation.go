@@ -59,117 +59,219 @@ func EqualComplexTypeDerivationForComplexType(projection ComplexTypeDerivation, 
 	return EqualComplexTypeDerivations(projection, NewComplexTypeDerivationForComplexType(ct))
 }
 
-// TypeDerivationRead is the freeze-published type-derivation graph used by
-// validation-time derivation traversal.
+// TypeDerivationRead is the freeze-published type-derivation index used by
+// validation-time derivation traversal. Simple union edges are owned once by
+// simpleTypes and shared with published simple-value validation.
 type TypeDerivationRead struct {
-	simple  []SimpleTypeDerivation
-	complex []ComplexTypeDerivation
-	anyType ComplexTypeID
+	index *typeDerivationIndex
 }
 
-// NewBorrowedTypeDerivationReadForTypes returns a derivation graph that borrows
-// union-member slices from compiler state transferred to an immutable schema.
-func NewBorrowedTypeDerivationReadForTypes(anyType ComplexTypeID, simpleTypes []SimpleType, complexTypes []ComplexType) TypeDerivationRead {
-	simple := make([]SimpleTypeDerivation, len(simpleTypes))
-	for i, st := range simpleTypes {
-		simple[i] = SimpleTypeDerivation{
-			Union:   st.Union,
-			Base:    st.Base,
-			Variety: st.Variety,
+type typeDerivationIndex struct {
+	simpleTypes       *simpleTypeColdReadTable
+	simpleIn          []uint32
+	simpleOut         []uint32
+	complexIn         []uint32
+	complexOut        []uint32
+	complexExtensions []uint32
+	complexRestricts  []uint32
+	complexSimpleBase []SimpleTypeID
+	complexSimpleMask []DerivationMask
+	anyType           ComplexTypeID
+}
+
+func newTypeDerivationReadForTypes(
+	anyType ComplexTypeID,
+	simpleTypes []SimpleType,
+	complexTypes []ComplexType,
+	reads *simpleTypeColdReadTable,
+) (TypeDerivationRead, error) {
+	if !ValidComplexTypeID(anyType, len(complexTypes)) {
+		return TypeDerivationRead{}, errors.New("type derivation projection stores invalid anyType")
+	}
+	if reads == nil || len(reads.index) != len(simpleTypes) {
+		return TypeDerivationRead{}, errors.New("type derivation simple type reads do not match types")
+	}
+	for i := range simpleTypes {
+		members, ok := reads.unionMembers(SimpleTypeID(i))
+		if !ok || !slices.Equal(members, simpleTypes[i].Union) {
+			return TypeDerivationRead{}, errors.New("type derivation union reads do not match types")
 		}
 	}
-	complexDerivations := make([]ComplexTypeDerivation, len(complexTypes))
-	for i, ct := range complexTypes {
-		complexDerivations[i] = NewComplexTypeDerivationForComplexType(ct)
+	index := &typeDerivationIndex{
+		simpleTypes: reads,
+		anyType:     anyType,
 	}
-	return TypeDerivationRead{
-		simple:  simple,
-		complex: complexDerivations,
-		anyType: anyType,
+	if err := buildTypeDerivationIndex(index, simpleTypes, complexTypes); err != nil {
+		return TypeDerivationRead{}, err
 	}
+	return TypeDerivationRead{index: index}, nil
+}
+
+func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []SimpleType, complexTypes []ComplexType) error {
+	simpleParents := make([]int, len(simpleTypes))
+	for i := range simpleParents {
+		simpleParents[i] = -1
+		base := simpleTypes[i].Base
+		if base == NoSimpleType {
+			continue
+		}
+		if !ValidSimpleTypeID(base, len(simpleTypes)) || int(base) == i {
+			return errors.New("simple type derivation graph references invalid base")
+		}
+		simpleParents[i] = int(base)
+	}
+	var simpleOK bool
+	r.simpleIn, r.simpleOut, _, simpleOK = buildDerivationForest(simpleParents)
+	if !simpleOK {
+		return errors.New("simple type derivation graph contains a cycle")
+	}
+
+	complexParents := make([]int, len(complexTypes))
+	for i := range complexParents {
+		complexParents[i] = -1
+		if base, ok := complexTypes[i].Base.Complex(); ok {
+			if !ValidComplexTypeID(base, len(complexTypes)) || int(base) == i {
+				return errors.New("complex type derivation graph references invalid base")
+			}
+			complexParents[i] = int(base)
+		} else if base, ok := complexTypes[i].Base.Simple(); ok && !ValidSimpleTypeID(base, len(simpleTypes)) {
+			return errors.New("complex type derivation graph references invalid simple base")
+		}
+	}
+	var order []int
+	var complexOK bool
+	r.complexIn, r.complexOut, order, complexOK = buildDerivationForest(complexParents)
+	if !complexOK {
+		return errors.New("complex type derivation graph contains a cycle")
+	}
+	r.complexExtensions = make([]uint32, len(complexTypes))
+	r.complexRestricts = make([]uint32, len(complexTypes))
+	r.complexSimpleBase = make([]SimpleTypeID, len(complexTypes))
+	r.complexSimpleMask = make([]DerivationMask, len(complexTypes))
+	for i := range r.complexSimpleBase {
+		r.complexSimpleBase[i] = NoSimpleType
+	}
+	for _, i := range order {
+		ct := complexTypes[i]
+		if parent := complexParents[i]; parent >= 0 {
+			r.complexExtensions[i] = r.complexExtensions[parent]
+			r.complexRestricts[i] = r.complexRestricts[parent]
+			r.complexSimpleBase[i] = r.complexSimpleBase[parent]
+			r.complexSimpleMask[i] = r.complexSimpleMask[parent]
+		} else if base, ok := ct.Base.Simple(); ok {
+			r.complexSimpleBase[i] = base
+		}
+		switch ct.Derivation {
+		case DerivationKindExtension:
+			r.complexExtensions[i]++
+			r.complexSimpleMask[i] |= DerivationExtension
+		case DerivationKindRestriction:
+			r.complexRestricts[i]++
+			r.complexSimpleMask[i] |= DerivationRestriction
+		case DerivationKindNone:
+		default:
+			return errors.New("complex type derivation graph stores invalid derivation kind")
+		}
+	}
+	return nil
+}
+
+type derivationForestFrame struct {
+	node  int
+	child int
+}
+
+func buildDerivationForest(parents []int) (in, out []uint32, order []int, ok bool) {
+	firstChild := make([]int, len(parents))
+	nextSibling := make([]int, len(parents))
+	for i := range firstChild {
+		firstChild[i] = -1
+		nextSibling[i] = -1
+	}
+	for child, parent := range parents {
+		if parent < 0 {
+			continue
+		}
+		if parent >= len(parents) {
+			return nil, nil, nil, false
+		}
+		nextSibling[child] = firstChild[parent]
+		firstChild[parent] = child
+	}
+	in = make([]uint32, len(parents))
+	out = make([]uint32, len(parents))
+	state := make([]uint8, len(parents))
+	order = make([]int, 0, len(parents))
+	stack := make([]derivationForestFrame, 0, min(len(parents), 1_024))
+	var clock uint32
+	visit := func(root int) bool {
+		state[root] = 1
+		in[root] = clock
+		clock++
+		order = append(order, root)
+		stack = append(stack, derivationForestFrame{node: root, child: firstChild[root]})
+		for len(stack) != 0 {
+			last := len(stack) - 1
+			frame := &stack[last]
+			if frame.child < 0 {
+				out[frame.node] = clock
+				state[frame.node] = 2
+				stack = stack[:last]
+				continue
+			}
+			child := frame.child
+			frame.child = nextSibling[child]
+			if state[child] != 0 {
+				return false
+			}
+			state[child] = 1
+			in[child] = clock
+			clock++
+			order = append(order, child)
+			stack = append(stack, derivationForestFrame{node: child, child: firstChild[child]})
+		}
+		return true
+	}
+	for i, parent := range parents {
+		if parent < 0 && state[i] == 0 && !visit(i) {
+			return nil, nil, nil, false
+		}
+	}
+	if slices.Contains(state, uint8(0)) {
+		return nil, nil, nil, false
+	}
+	return in, out, order, true
 }
 
 // AnyTypeID returns the complex type ID of xs:anyType.
 func (r TypeDerivationRead) AnyTypeID() ComplexTypeID {
-	return r.anyType
+	if r.index == nil {
+		return 0
+	}
+	return r.index.anyType
 }
 
 // SimpleTypeCount returns the number of simple-type derivation nodes.
 func (r TypeDerivationRead) SimpleTypeCount() int {
-	return len(r.simple)
+	if r.index == nil {
+		return 0
+	}
+	return len(r.index.simpleIn)
 }
 
 // ComplexTypeCount returns the number of complex-type derivation nodes.
 func (r TypeDerivationRead) ComplexTypeCount() int {
-	return len(r.complex)
-}
-
-func (r TypeDerivationRead) simpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool) {
-	if !ValidSimpleTypeID(id, len(r.simple)) {
-		return SimpleTypeDerivation{}, false
+	if r.index == nil {
+		return 0
 	}
-	return r.simple[id], true
+	return len(r.index.complexIn)
 }
 
-// ComplexTypeDerivation returns graph metadata for complex-type derivation
-// traversal.
-func (r TypeDerivationRead) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool) {
-	if !ValidComplexTypeID(id, len(r.complex)) {
-		return ComplexTypeDerivation{}, false
+func (r TypeDerivationRead) simpleTypeTable() *simpleTypeColdReadTable {
+	if r.index == nil {
+		return nil
 	}
-	return r.complex[id], true
-}
-
-type typeDerivationReadRuntime struct {
-	read TypeDerivationRead
-}
-
-func (r typeDerivationReadRuntime) AnyTypeID() ComplexTypeID {
-	return r.read.AnyTypeID()
-}
-
-func (r typeDerivationReadRuntime) SimpleTypeCount() int {
-	return r.read.SimpleTypeCount()
-}
-
-func (r typeDerivationReadRuntime) ComplexTypeCount() int {
-	return r.read.ComplexTypeCount()
-}
-
-func (r typeDerivationReadRuntime) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivation, bool) {
-	return r.read.simpleTypeDerivation(id)
-}
-
-func (r typeDerivationReadRuntime) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDerivation, bool) {
-	return r.read.ComplexTypeDerivation(id)
-}
-
-// EqualSimpleTypeDerivationReadProjectionForTypes reports whether read exposes
-// the simple-type derivation graph for simpleTypes.
-func EqualSimpleTypeDerivationReadProjectionForTypes(read TypeDerivationRead, simpleTypes []SimpleType) bool {
-	if read.SimpleTypeCount() != len(simpleTypes) {
-		return false
-	}
-	for i := range simpleTypes {
-		if !EqualSimpleTypeDerivationForSimpleType(read.simple[i], simpleTypes[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// EqualComplexTypeDerivationReadProjection reports whether read exposes the
-// complex-type derivation graph for complexTypes.
-func EqualComplexTypeDerivationReadProjection(read TypeDerivationRead, complexTypes []ComplexType) bool {
-	if read.ComplexTypeCount() != len(complexTypes) {
-		return false
-	}
-	for i := range complexTypes {
-		if !EqualComplexTypeDerivationForComplexType(read.complex[i], complexTypes[i]) {
-			return false
-		}
-	}
-	return true
+	return r.index.simpleTypes
 }
 
 // ValidateTypeDerivationReadProjection validates type-derivation read metadata
@@ -184,11 +286,20 @@ func ValidateTypeDerivationReadProjection(read TypeDerivationRead, anyType Compl
 	if read.ComplexTypeCount() != len(complexTypes) {
 		return errors.New("complex type derivation projection count does not match types")
 	}
-	if !EqualSimpleTypeDerivationReadProjectionForTypes(read, simpleTypes) {
-		return errors.New("simple type derivation projection does not match type")
+	expected, err := newTypeDerivationReadForTypes(anyType, simpleTypes, complexTypes, read.simpleTypeTable())
+	if err != nil {
+		return err
 	}
-	if !EqualComplexTypeDerivationReadProjection(read, complexTypes) {
-		return errors.New("complex type derivation projection does not match type")
+	if read.index == nil || expected.index == nil ||
+		!slices.Equal(read.index.simpleIn, expected.index.simpleIn) ||
+		!slices.Equal(read.index.simpleOut, expected.index.simpleOut) ||
+		!slices.Equal(read.index.complexIn, expected.index.complexIn) ||
+		!slices.Equal(read.index.complexOut, expected.index.complexOut) ||
+		!slices.Equal(read.index.complexExtensions, expected.index.complexExtensions) ||
+		!slices.Equal(read.index.complexRestricts, expected.index.complexRestricts) ||
+		!slices.Equal(read.index.complexSimpleBase, expected.index.complexSimpleBase) ||
+		!slices.Equal(read.index.complexSimpleMask, expected.index.complexSimpleMask) {
+		return errors.New("type derivation index does not match type graph")
 	}
 	return nil
 }
@@ -230,6 +341,216 @@ func TypeDerivationMask[T TypeDerivationRuntime](rt T, derived, base TypeID) (De
 	return 0, false
 }
 
+type typeDerivationPair struct {
+	derived TypeID
+	base    TypeID
+}
+
+type typeDerivationResult struct {
+	mask  DerivationMask
+	found bool
+}
+
+// TypeDerivationScratch owns reusable state for union derivation queries.
+// It is document-local and must not be shared concurrently.
+type TypeDerivationScratch struct {
+	owner           *typeDerivationIndex
+	memo            map[typeDerivationPair]typeDerivationResult
+	unionSeen       []uint32
+	unionStack      []SimpleTypeID
+	unionGeneration uint32
+}
+
+// Reset clears document-local derivation state while retaining bounded storage.
+func (s *TypeDerivationScratch) Reset(maxRetainedEntries int) {
+	if s == nil {
+		return
+	}
+	if cap(s.unionStack) > maxRetainedEntries {
+		s.unionStack = nil
+	} else {
+		s.unionStack = s.unionStack[:0]
+	}
+	if len(s.unionSeen) > maxRetainedEntries {
+		s.unionSeen = nil
+		s.unionGeneration = 0
+	}
+	if len(s.memo) > maxRetainedEntries {
+		s.memo = nil
+	} else {
+		clear(s.memo)
+	}
+}
+
+func (s *TypeDerivationScratch) bind(owner *typeDerivationIndex) {
+	if s.owner == owner {
+		return
+	}
+	s.owner = owner
+	s.memo = nil
+	s.unionSeen = nil
+	s.unionStack = nil
+	s.unionGeneration = 0
+}
+
+func (r TypeDerivationRead) derivation(derived, base TypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
+	if scratch != nil {
+		scratch.bind(r.index)
+	}
+	index := r.index
+	if index == nil {
+		return 0, false
+	}
+	if derived == base {
+		return 0, true
+	}
+	if scratch != nil && scratch.memo != nil {
+		if result, ok := scratch.memo[typeDerivationPair{derived: derived, base: base}]; ok {
+			return result.mask, result.found
+		}
+	}
+	var mask DerivationMask
+	var found bool
+	derivedComplex, derivedIsComplex := derived.Complex()
+	baseComplex, baseIsComplex := base.Complex()
+	derivedSimple, derivedIsSimple := derived.Simple()
+	baseSimple, baseIsSimple := base.Simple()
+	switch {
+	case base == ComplexRef(index.anyType):
+		if derivedIsComplex {
+			mask, found = r.complexAnyTypeDerivation(derivedComplex)
+		} else if derivedIsSimple {
+			mask, found = DerivationRestriction, true
+		}
+	case derivedIsComplex && baseIsComplex:
+		mask, found = r.complexDerivation(derivedComplex, baseComplex)
+	case derivedIsComplex && baseIsSimple:
+		if ValidComplexTypeID(derivedComplex, len(index.complexSimpleBase)) {
+			anchor := index.complexSimpleBase[derivedComplex]
+			if anchor != NoSimpleType {
+				var simpleMask DerivationMask
+				simpleMask, found = r.simpleDerivation(anchor, baseSimple, scratch)
+				if found {
+					mask = index.complexSimpleMask[derivedComplex] | simpleMask
+				}
+			}
+		}
+	case derivedIsSimple && baseIsSimple:
+		mask, found = r.simpleDerivation(derivedSimple, baseSimple, scratch)
+	}
+	if scratch != nil {
+		if scratch.memo == nil {
+			scratch.memo = make(map[typeDerivationPair]typeDerivationResult)
+		}
+		const maxMemoEntries = 256
+		if len(scratch.memo) < maxMemoEntries {
+			scratch.memo[typeDerivationPair{derived: derived, base: base}] = typeDerivationResult{mask: mask, found: found}
+		}
+	}
+	return mask, found
+}
+
+func (r TypeDerivationRead) simpleDerivation(derived, base SimpleTypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
+	index := r.index
+	if index == nil {
+		return 0, false
+	}
+	if derived == base {
+		return 0, true
+	}
+	if !ValidSimpleTypeID(derived, len(index.simpleIn)) || !ValidSimpleTypeID(base, len(index.simpleIn)) {
+		return 0, false
+	}
+	if index.simpleIn[base] <= index.simpleIn[derived] && index.simpleIn[derived] < index.simpleOut[base] {
+		return DerivationRestriction, true
+	}
+	members, ok := index.simpleTypes.unionMembers(base)
+	if !ok || len(members) == 0 {
+		return 0, false
+	}
+	if scratch == nil {
+		var local TypeDerivationScratch
+		scratch = &local
+	}
+	return r.simpleUnionDerivation(derived, base, scratch)
+}
+
+func (r TypeDerivationRead) simpleUnionDerivation(derived, base SimpleTypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
+	index := r.index
+	if index == nil {
+		return 0, false
+	}
+	if len(scratch.unionSeen) != len(index.simpleIn) {
+		scratch.unionSeen = make([]uint32, len(index.simpleIn))
+		scratch.unionGeneration = 0
+	}
+	scratch.unionGeneration++
+	if scratch.unionGeneration == 0 {
+		clear(scratch.unionSeen)
+		scratch.unionGeneration = 1
+	}
+	generation := scratch.unionGeneration
+	stack := scratch.unionStack[:0]
+	stack = append(stack, base)
+	defer func() { scratch.unionStack = stack[:0] }()
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		candidate := stack[last]
+		stack = stack[:last]
+		if !ValidSimpleTypeID(candidate, len(index.simpleIn)) {
+			return 0, false
+		}
+		if scratch.unionSeen[candidate] == generation {
+			continue
+		}
+		scratch.unionSeen[candidate] = generation
+		if index.simpleIn[candidate] <= index.simpleIn[derived] && index.simpleIn[derived] < index.simpleOut[candidate] {
+			return DerivationRestriction, true
+		}
+		members, ok := index.simpleTypes.unionMembers(candidate)
+		if !ok {
+			return 0, false
+		}
+		if len(members) != 0 {
+			stack = append(stack, members...)
+		}
+	}
+	return 0, false
+}
+
+func (r TypeDerivationRead) complexDerivation(derived, base ComplexTypeID) (DerivationMask, bool) {
+	index := r.index
+	if index == nil || !ValidComplexTypeID(derived, len(index.complexIn)) || !ValidComplexTypeID(base, len(index.complexIn)) ||
+		index.complexIn[base] > index.complexIn[derived] || index.complexIn[derived] >= index.complexOut[base] {
+		return 0, false
+	}
+	var mask DerivationMask
+	if index.complexExtensions[derived] > index.complexExtensions[base] {
+		mask |= DerivationExtension
+	}
+	if index.complexRestricts[derived] > index.complexRestricts[base] {
+		mask |= DerivationRestriction
+	}
+	return mask, true
+}
+
+func (r TypeDerivationRead) complexAnyTypeDerivation(derived ComplexTypeID) (DerivationMask, bool) {
+	index := r.index
+	if index == nil || !ValidComplexTypeID(derived, len(index.complexIn)) || !ValidComplexTypeID(index.anyType, len(index.complexIn)) {
+		return 0, false
+	}
+	if derived == index.anyType {
+		return 0, true
+	}
+	if mask, ok := r.complexDerivation(derived, index.anyType); ok {
+		return mask, true
+	}
+	if index.complexSimpleBase[derived] != NoSimpleType {
+		return index.complexSimpleMask[derived] | DerivationRestriction, true
+	}
+	return 0, false
+}
+
 // SubstitutionDerivationAllowed reports whether derived may substitute for base after block constraints.
 func SubstitutionDerivationAllowed(rt TypeDerivationRuntime, derived, base TypeID, block DerivationMask) bool {
 	mask, ok := TypeDerivationMask(rt, derived, base)
@@ -243,6 +564,9 @@ func SubstitutionDerivationAllowed(rt TypeDerivationRuntime, derived, base TypeI
 }
 
 func substitutionTypeBlocks(rt TypeDerivationRuntime, derived, base TypeID) DerivationMask {
+	if derived == base {
+		return 0
+	}
 	var blocks DerivationMask
 	if baseID, ok := base.Complex(); ok {
 		if baseCT, ok := rt.ComplexTypeDerivation(baseID); ok {
@@ -322,7 +646,7 @@ func complexAnyTypeDerivationMask[T TypeDerivationRuntime](rt T, derived Complex
 			mask |= DerivationRestriction
 		case DerivationKindNone:
 		}
-		if ct.Base.Kind == TypeSimple {
+		if ct.Base.IsSimple() {
 			return mask | DerivationRestriction, true
 		}
 		parent, ok := ct.Base.Complex()

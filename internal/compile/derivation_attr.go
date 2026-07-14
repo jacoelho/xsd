@@ -21,18 +21,25 @@ const (
 	elementFinalLabel     = "element final"
 )
 
-var (
-	// ComplexTypeBlockDerivation parses xs:complexType block.
-	ComplexTypeBlockDerivation = DerivationAttrRule{Name: vocab.XSDAttrBlock, Label: complexTypeBlockLabel, Allowed: runtime.DerivationComplexMask}
-	// ComplexTypeFinalDerivation parses xs:complexType final.
-	ComplexTypeFinalDerivation = DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: complexTypeFinalLabel, Allowed: runtime.DerivationComplexMask}
-	// SimpleTypeFinalDerivation parses xs:simpleType final.
-	SimpleTypeFinalDerivation = DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: simpleTypeFinalLabel, Allowed: runtime.DerivationSimpleFinalMask}
-	// ElementBlockDerivation parses xs:element block.
-	ElementBlockDerivation = DerivationAttrRule{Name: vocab.XSDAttrBlock, Label: elementBlockLabel, Allowed: runtime.DerivationBlockDefaultMask}
-	// ElementFinalDerivation parses xs:element final.
-	ElementFinalDerivation = DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: elementFinalLabel, Allowed: runtime.DerivationComplexMask}
-)
+func complexTypeBlockDerivation() DerivationAttrRule {
+	return DerivationAttrRule{Name: vocab.XSDAttrBlock, Label: complexTypeBlockLabel, Allowed: runtime.DerivationComplexMask}
+}
+
+func complexTypeFinalDerivation() DerivationAttrRule {
+	return DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: complexTypeFinalLabel, Allowed: runtime.DerivationComplexMask}
+}
+
+func simpleTypeFinalDerivation() DerivationAttrRule {
+	return DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: simpleTypeFinalLabel, Allowed: runtime.DerivationSimpleFinalMask}
+}
+
+func elementBlockDerivation() DerivationAttrRule {
+	return DerivationAttrRule{Name: vocab.XSDAttrBlock, Label: elementBlockLabel, Allowed: runtime.DerivationBlockDefaultMask}
+}
+
+func elementFinalDerivation() DerivationAttrRule {
+	return DerivationAttrRule{Name: vocab.XSDAttrFinal, Label: elementFinalLabel, Allowed: runtime.DerivationComplexMask}
+}
 
 // ParseDerivationAttrWithDefault parses a derivation-set attribute or applies
 // the schema default restricted to the rule's allowed derivation class.

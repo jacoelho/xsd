@@ -17,7 +17,7 @@ func (rt *Schema) SimpleTypePrimitive(id SimpleTypeID) (PrimitiveKind, bool) {
 // ElementIdentityConstraints returns an immutable view of identity constraints
 // attached to an element.
 func (rt *Schema) ElementIdentityConstraints(id ElementID) (IdentityConstraintIDs, bool) {
-	return ElementIdentityConstraintIDs(rt.runtime.ElementIdentities, id)
+	return rt.runtime.Elements.identityConstraints(id)
 }
 
 // HasIdentityConstraints reports whether the schema has identity constraints.
@@ -115,12 +115,12 @@ func (rt *Schema) SimpleIdentity(id SimpleTypeID) SimpleIdentityKind {
 
 // ElementValueConstraints returns value constraints for an element declaration.
 func (rt *Schema) ElementValueConstraints(id ElementID) (ElementValueConstraints, bool, bool) {
-	return ElementValueConstraintsByID(rt.runtime.ElementValueConstraints, id)
+	return rt.runtime.Elements.valueConstraints(id)
 }
 
 // ElementTextContent returns text-content metadata for a runtime type and element.
 func (rt *Schema) ElementTextContent(t TypeID, elem ElementID) (ElementTextContent, bool) {
-	if elem != NoElement && !ValidElementID(elem, len(rt.runtime.ElementValueConstraints)) {
+	if elem != NoElement && !ValidElementID(elem, rt.runtime.Elements.len()) {
 		return ElementTextContent{}, false
 	}
 	if id, ok := t.Complex(); ok {
@@ -128,7 +128,11 @@ func (rt *Schema) ElementTextContent(t TypeID, elem ElementID) (ElementTextConte
 			return ElementTextContent{}, false
 		}
 		if elem != NoElement {
-			if _, fixed := rt.runtime.ElementValueConstraints[elem].FixedValue(); fixed {
+			constraints, _, valid := rt.runtime.Elements.valueConstraints(elem)
+			if !valid {
+				return ElementTextContent{}, false
+			}
+			if _, fixed := constraints.FixedValue(); fixed {
 				return rt.runtime.ComplexTypes[id].textContent(true), true
 			}
 		}
@@ -160,8 +164,14 @@ func (rt *Schema) SimpleValueNeedsQNameResolver(id SimpleTypeID) bool {
 
 // ValidateRawSimpleValue validates raw simple content through fast-path reads.
 func (rt *Schema) ValidateRawSimpleValue(id SimpleTypeID, raw []byte) (bool, error) {
+	return rt.ValidateRawSimpleValueWithScratch(id, raw, nil)
+}
+
+// ValidateRawSimpleValueWithScratch validates raw simple content through
+// fast-path reads while reusing caller-owned string-pattern buffers.
+func (rt *Schema) ValidateRawSimpleValueWithScratch(id SimpleTypeID, raw []byte, scratch *StringPatternScratch) (bool, error) {
 	if id == NoSimpleType {
 		return false, nil
 	}
-	return rt.validatePublishedRawSimpleValue(id, raw)
+	return rt.validatePublishedRawSimpleValueWithScratch(id, raw, scratch)
 }

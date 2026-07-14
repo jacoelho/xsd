@@ -6,19 +6,31 @@ func schemaCompileAt(n *rawNode, code xsderrors.Code, msg string) error {
 	if n == nil {
 		return xsderrors.SchemaCompile(code, msg)
 	}
-	return schemaCompileAtPosition(n.Line, n.Column, code, msg)
-}
-
-func schemaCompileAtPosition(line, col int, code xsderrors.Code, msg string) error {
-	if line == 0 && col == 0 {
-		return xsderrors.SchemaCompile(code, msg)
+	path := ""
+	if n.doc != nil {
+		path = n.doc.name
 	}
-	return xsderrors.SchemaCompileAt(line, col, code, msg)
+	return xsderrors.SchemaCompileAt(path, n.Line, n.Column, code, msg)
 }
 
 func withSchemaCompileLocation(n *rawNode, err error) error {
 	if n == nil || err == nil {
 		return err
 	}
-	return xsderrors.WithSchemaCompileLocation(n.Line, n.Column, err)
+	path := ""
+	if n.doc != nil {
+		path = n.doc.name
+	}
+	return xsderrors.WithSchemaCompileLocation(path, n.Line, n.Column, err)
+}
+
+func unsupportedAtSchemaNode(n *rawNode, code xsderrors.Code, msg string) error {
+	if n == nil {
+		return xsderrors.Unsupported(code, msg)
+	}
+	path := ""
+	if n.doc != nil {
+		path = n.doc.name
+	}
+	return xsderrors.UnsupportedAt(code, n.Line, n.Column, path, msg, nil)
 }

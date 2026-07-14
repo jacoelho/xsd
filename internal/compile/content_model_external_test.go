@@ -76,20 +76,83 @@ func TestPatternFacetGroupsOrWithinStepAndAcrossDerivation(t *testing.T) {
 }
 
 func TestCompatibleLengthFacetBoundsAreAllowed(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		base       string
+		baseFacets string
+		valid      string
+		invalid    string
+	}{
+		{name: "string", base: "xs:string", baseFacets: `<xs:minLength value="1"/><xs:maxLength value="3"/>`, valid: "ab", invalid: "a"},
+		{name: "binary", base: "xs:hexBinary", baseFacets: `<xs:minLength value="1"/><xs:maxLength value="3"/>`, valid: "0A0B", invalid: "0A"},
+		{name: "list", base: "xs:NMTOKENS", baseFacets: `<xs:maxLength value="3"/>`, valid: "a b", invalid: "a"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:simpleType name="Base">
+		<xs:restriction base="`+test.base+`">`+test.baseFacets+`</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Sized">
+		<xs:restriction base="Base">
+			<xs:length value="2"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="v" type="Sized"/>
+</xs:schema>`)
+			mustValidateRuntime(t, engine, `<v>`+test.valid+`</v>`)
+			mustNotValidateRuntime(t, engine, `<v>`+test.invalid+`</v>`, xsderrors.CodeValidationFacet)
+		})
+	}
+}
+
+func TestLengthFacetBoundsRequireAncestor(t *testing.T) {
+	for _, restriction := range []string{
+		`<xs:length value="2"/><xs:minLength value="2"/>`,
+		`<xs:length value="2"/><xs:maxLength value="2"/>`,
+	} {
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:simpleType name="Invalid"><xs:restriction base="xs:string">`+restriction+`</xs:restriction></xs:simpleType>
+</xs:schema>`))})
+		expectCode(t, err, xsderrors.CodeSchemaFacet)
+	}
+}
+
+func TestLengthFacetMayRedeclareWitnessedBounds(t *testing.T) {
 	engine := mustCompileRuntime(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="v">
-    <xs:simpleType>
-      <xs:restriction base="xs:NMTOKENS">
-        <xs:length value="2"/>
-        <xs:minLength value="1"/>
-        <xs:maxLength value="2"/>
-      </xs:restriction>
-    </xs:simpleType>
-  </xs:element>
+	<xs:simpleType name="Bounds">
+		<xs:restriction base="xs:string"><xs:minLength value="1"/><xs:maxLength value="3"/></xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Sized">
+		<xs:restriction base="Bounds"><xs:length value="2"/><xs:minLength value="1"/><xs:maxLength value="3"/></xs:restriction>
+	</xs:simpleType>
+	<xs:element name="v" type="Sized"/>
 </xs:schema>`)
-	mustValidateRuntime(t, engine, `<v>a b</v>`)
+	mustValidateRuntime(t, engine, `<v>ab</v>`)
 	mustNotValidateRuntime(t, engine, `<v>a</v>`, xsderrors.CodeValidationFacet)
+}
+
+func TestSimpleContentLengthFacetBoundsRequireAncestor(t *testing.T) {
+	engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:simpleType name="Bounded"><xs:restriction base="xs:string"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
+	<xs:complexType name="Base"><xs:simpleContent><xs:extension base="Bounded"/></xs:simpleContent></xs:complexType>
+	<xs:complexType name="Sized"><xs:simpleContent><xs:restriction base="Base"><xs:length value="2"/></xs:restriction></xs:simpleContent></xs:complexType>
+	<xs:element name="v" type="Sized"/>
+</xs:schema>`)
+	mustValidateRuntime(t, engine, `<v>ab</v>`)
+	mustNotValidateRuntime(t, engine, `<v>a</v>`, xsderrors.CodeValidationFacet)
+
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:complexType name="Base"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType>
+	<xs:complexType name="Invalid">
+		<xs:simpleContent><xs:restriction base="Base"><xs:length value="2"/><xs:minLength value="2"/></xs:restriction></xs:simpleContent>
+	</xs:complexType>
+</xs:schema>`))})
+	expectCode(t, err, xsderrors.CodeSchemaFacet)
 }
 
 func TestAttributeRestrictionMustRespectBaseWildcard(t *testing.T) {
@@ -468,12 +531,34 @@ func TestModelGroupSyntaxIsValidated(t *testing.T) {
 		{`<xs:complexType name="t"><xs:all><xs:any namespace="##any"/></xs:all></xs:complexType>`, xsderrors.CodeSchemaContentModel},
 		{`<xs:complexType name="t"><xs:sequence><xs:group/></xs:sequence></xs:complexType>`, xsderrors.CodeSchemaReference},
 		{`<xs:complexType name="t"><xs:sequence><xs:group ref="g"><xs:element name="a"/></xs:group></xs:sequence></xs:complexType>`, xsderrors.CodeSchemaContentModel},
+		{`<xs:group name="g"><xs:sequence/></xs:group><xs:complexType name="t"><xs:sequence><xs:group name="bad" ref="g"/></xs:sequence></xs:complexType>`, xsderrors.CodeSchemaInvalidAttribute},
 		{`<xs:complexType name="t"><xs:sequence><xs:attribute name="a"/></xs:sequence></xs:complexType>`, xsderrors.CodeSchemaContentModel},
 		{`<xs:group name="g"><xs:all><xs:element name="a"/></xs:all></xs:group><xs:complexType name="t"><xs:sequence><xs:group ref="g"/></xs:sequence></xs:complexType>`, xsderrors.CodeSchemaContentModel},
 	}
 	for _, test := range tests {
 		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+test.body+`</xs:schema>`))})
 		expectCode(t, err, test.code)
+	}
+}
+
+func TestAnonymousTypeAttributesAreValidated(t *testing.T) {
+	tests := []string{
+		`<xs:element name="e"><xs:simpleType final="restriction"><xs:restriction base="xs:string"/></xs:simpleType></xs:element>`,
+		`<xs:element name="e"><xs:complexType abstract="true"/></xs:element>`,
+		`<xs:element name="e"><xs:complexType block="extension"/></xs:element>`,
+		`<xs:element name="e"><xs:complexType final="restriction"/></xs:element>`,
+	}
+	for _, body := range tests {
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
+	}
+
+	const valid = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		<xs:simpleType name="s" final="restriction"><xs:restriction base="xs:string"/></xs:simpleType>
+		<xs:complexType name="c" abstract="true" block="extension" final="restriction"/>
+	</xs:schema>`
+	if _, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(valid))}); err != nil {
+		t.Fatalf("Compile(global type attributes) error = %v", err)
 	}
 }
 
@@ -860,17 +945,66 @@ func TestRestrictionSequenceToChoiceRequiresValidBranchMap(t *testing.T) {
 	}
 }
 
-func TestRestrictionChoiceCanRestrictSequenceWithEmptiableRemainder(t *testing.T) {
+func TestRestrictionPointlessChoiceCanRestrictSequenceWithEmptiableRemainder(t *testing.T) {
 	mustCompileRuntime(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:sequence><xs:element name="e1" minOccurs="0"/><xs:element name="e2" minOccurs="0"/></xs:sequence></xs:complexType>
   <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice><xs:element name="e1" minOccurs="0"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>
 </xs:schema>`)
+}
 
-	mustCompileRuntime(t, `
+func TestRestrictionNonPointlessChoiceCannotRestrictSequence(t *testing.T) {
+	for _, derived := range []string{
+		`<xs:choice minOccurs="0"><xs:element name="e1"/></xs:choice>`,
+		`<xs:choice><xs:element name="e1"/><xs:element name="e2"/></xs:choice>`,
+	} {
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:sequence><xs:element name="e1" minOccurs="0"/><xs:element name="e2" minOccurs="0"/></xs:sequence></xs:complexType>
-  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice minOccurs="0"><xs:element name="e1"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base">`+derived+`</xs:restriction></xs:complexContent></xs:complexType>
+</xs:schema>`))})
+		expectCode(t, err, xsderrors.CodeSchemaContentModel)
+	}
+}
+
+func TestRestrictionLocalIdentityConstraintsMustBeSubset(t *testing.T) {
+	common := `<xs:complexType name="T"><xs:sequence><xs:element name="row" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType></xs:element></xs:sequence></xs:complexType>`
+	key := `<xs:key name="k"><xs:selector xpath="row"/><xs:field xpath="@id"/></xs:key>`
+
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+common+`
+  <xs:complexType name="base"><xs:sequence><xs:element name="e" type="T"/></xs:sequence></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element name="e" type="T">`+key+`</xs:element></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+</xs:schema>`))})
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
+
+	mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+common+`
+  <xs:complexType name="base"><xs:sequence><xs:element name="e" type="T">`+key+`</xs:element></xs:sequence></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element name="e" type="T"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+</xs:schema>`)
+}
+
+func TestRestrictionUsesEffectiveSubstitutionMemberDeclaration(t *testing.T) {
+	mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="headType"><xs:sequence><xs:element name="base" minOccurs="0"/></xs:sequence></xs:complexType>
+  <xs:complexType name="memberType"><xs:complexContent><xs:extension base="headType"><xs:sequence><xs:element name="extra" minOccurs="0"/></xs:sequence></xs:extension></xs:complexContent></xs:complexType>
+  <xs:element name="head" type="headType"/>
+  <xs:element name="member" type="memberType" substitutionGroup="head" nillable="true"/>
+  <xs:complexType name="base"><xs:sequence><xs:element ref="head"/></xs:sequence></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element ref="member"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+</xs:schema>`)
+}
+
+func TestRestrictionChoiceMayReuseSubstitutionHeadBranch(t *testing.T) {
+	mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test" elementFormDefault="qualified">
+  <xs:element name="head" type="xs:string"/>
+  <xs:element name="member1" type="xs:string" substitutionGroup="t:head"/>
+  <xs:element name="member2" type="xs:string" substitutionGroup="t:head"/>
+  <xs:complexType name="base"><xs:choice><xs:element ref="t:head"/></xs:choice></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent><xs:restriction base="t:base"><xs:choice><xs:element ref="t:member1"/><xs:element ref="t:member2"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>
 </xs:schema>`)
 }
 

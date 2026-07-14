@@ -519,47 +519,36 @@ func TestValidateFacetCardinalityShape(t *testing.T) {
 		shape   FacetCardinalityShape
 	}{
 		{
-			name: "valid atomic exact length",
+			name: "length within bounds",
 			shape: FacetCardinalityShape{
-				Variety:   SimpleVarietyAtomic,
+				Length:    value(2),
+				MinLength: value(1),
+				MaxLength: value(3),
+			},
+		},
+		{
+			name: "length equals bounds",
+			shape: FacetCardinalityShape{
 				Length:    value(2),
 				MinLength: value(2),
 				MaxLength: value(2),
 			},
 		},
 		{
-			name: "valid list length with lower minLength",
+			name: "length less than minLength",
 			shape: FacetCardinalityShape{
-				Variety:   SimpleVarietyList,
-				Length:    value(2),
-				MinLength: value(1),
-			},
-		},
-		{
-			name: "non-list length differs from minLength",
-			shape: FacetCardinalityShape{
-				Variety:   SimpleVarietyAtomic,
-				Length:    value(2),
-				MinLength: value(1),
-			},
-			wantErr: "length must equal minLength",
-		},
-		{
-			name: "list length less than minLength",
-			shape: FacetCardinalityShape{
-				Variety:   SimpleVarietyList,
 				Length:    value(1),
 				MinLength: value(2),
 			},
 			wantErr: "length cannot be less than minLength",
 		},
 		{
-			name: "length differs from maxLength",
+			name: "length exceeds maxLength",
 			shape: FacetCardinalityShape{
-				Length:    value(2),
-				MaxLength: value(3),
+				Length:    value(3),
+				MaxLength: value(2),
 			},
-			wantErr: "length must equal maxLength",
+			wantErr: "length cannot exceed maxLength",
 		},
 		{
 			name: "minLength exceeds maxLength",
@@ -592,6 +581,88 @@ func TestValidateFacetCardinalityShape(t *testing.T) {
 			}
 			if err == nil || err.Error() != tt.wantErr {
 				t.Fatalf("ValidateFacetCardinalityShape() error = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateFacetCardinalityAncestry(t *testing.T) {
+	t.Parallel()
+
+	value := func(v uint32) FacetCardinalityValue {
+		return FacetCardinalityValue{Value: v, Present: true}
+	}
+	tests := []struct {
+		name    string
+		wantErr string
+		derived FacetCardinalityShape
+		base    FacetCardinalityShape
+	}{
+		{
+			name: "inherited minLength witnesses length",
+			derived: FacetCardinalityShape{
+				Length:    value(2),
+				MinLength: value(1),
+			},
+			base: FacetCardinalityShape{MinLength: value(1)},
+		},
+		{
+			name: "valid pair propagates witness",
+			derived: FacetCardinalityShape{
+				Length:    value(2),
+				MinLength: value(1),
+				MaxLength: value(3),
+			},
+			base: FacetCardinalityShape{
+				Length:    value(2),
+				MinLength: value(1),
+				MaxLength: value(3),
+			},
+		},
+		{
+			name: "missing minLength witness",
+			derived: FacetCardinalityShape{
+				Length:    value(2),
+				MinLength: value(2),
+			},
+			wantErr: "length requires an inherited minLength with the same value",
+		},
+		{
+			name: "different minLength witness",
+			derived: FacetCardinalityShape{
+				Length:    value(2),
+				MinLength: value(2),
+			},
+			base:    FacetCardinalityShape{MinLength: value(1)},
+			wantErr: "length requires an inherited minLength with the same value",
+		},
+		{
+			name: "missing maxLength witness",
+			derived: FacetCardinalityShape{
+				Length:    value(2),
+				MaxLength: value(2),
+			},
+			wantErr: "length requires an inherited maxLength with the same value",
+		},
+		{
+			name:    "length without bounds needs no witness",
+			derived: FacetCardinalityShape{Length: value(2)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateFacetCardinalityAncestry(tt.derived, tt.base)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("ValidateFacetCardinalityAncestry() error = %v", err)
+				}
+				return
+			}
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("ValidateFacetCardinalityAncestry() error = %v, want %q", err, tt.wantErr)
 			}
 		})
 	}
@@ -3171,7 +3242,7 @@ func TestSimpleValueListNeeds(t *testing.T) {
 				Identity: SimpleIdentityNone,
 				Needs:    SimpleNeedIdentity,
 			},
-			want: ListSimpleValueNeedPlan{NeedStrings: true, ItemNeeds: SimpleNeedCanonical},
+			want: ListSimpleValueNeedPlan{NeedStrings: true, ItemNeeds: SimpleNeedCanonical | SimpleNeedIdentity},
 		},
 		{
 			name: "list identity needs strings and item canonical",
@@ -3440,15 +3511,16 @@ func TestListSimpleValue(t *testing.T) {
 	}
 
 	got := ListSimpleValue(ListSimpleValueProjection{
-		Canonical:  "a b",
-		ItemIDRefs: refs.String(),
-		Type:       5,
-		Needs:      SimpleNeedIdentity,
+		Canonical:    "a b",
+		ItemIDRefs:   refs.String(),
+		ItemIdentity: "3:a\x1eb3:b\x1ec",
+		Type:         5,
+		Needs:        SimpleNeedIdentity,
 	})
 	want := SimpleValue{
 		Canonical: "a b",
 		IDRefs:    "a b c",
-		Identity:  SimpleIdentityKey(PrimitiveString, "a b"),
+		Identity:  SimpleIdentityKey(PrimitiveString, "3:a\x1eb3:b\x1ec"),
 		Type:      5,
 	}
 	if got != want {
@@ -3479,7 +3551,10 @@ func TestValidateSimpleValuePayload(t *testing.T) {
 			value: SimpleValue{
 				Canonical: "a b",
 				IDRefs:    "a b",
-				Identity:  SimpleIdentityKey(PrimitiveString, "a b"),
+				Identity: SimpleIdentityKey(
+					PrimitiveString,
+					"3:"+SimpleIdentityKey(PrimitiveString, "a")+"3:"+SimpleIdentityKey(PrimitiveString, "b"),
+				),
 			},
 			typ: SimpleValuePayloadType{Primitive: PrimitiveDecimal, Variety: SimpleVarietyList, Identity: SimpleIdentityIDREFList},
 		},
@@ -3546,6 +3621,30 @@ func TestValidateSimpleValuePayload(t *testing.T) {
 				Identity:  SimpleIdentityKey(PrimitiveDecimal, "bad"),
 			},
 			typ:     SimpleValuePayloadType{Primitive: PrimitiveDecimal, Identity: SimpleIdentityNone},
+			wantErr: "identity payload does not match canonical value",
+		},
+		{
+			name: "negative list identity frame",
+			value: SimpleValue{
+				Identity: SimpleIdentityKey(PrimitiveString, "-1:x"),
+			},
+			typ:     SimpleValuePayloadType{Variety: SimpleVarietyList, Identity: SimpleIdentityNone},
+			wantErr: "identity payload does not match canonical value",
+		},
+		{
+			name: "signed list identity frame",
+			value: SimpleValue{
+				Identity: SimpleIdentityKey(PrimitiveString, "+3:"+SimpleIdentityKey(PrimitiveString, "a")),
+			},
+			typ:     SimpleValuePayloadType{Variety: SimpleVarietyList, Identity: SimpleIdentityNone},
+			wantErr: "identity payload does not match canonical value",
+		},
+		{
+			name: "invalid list item primitive",
+			value: SimpleValue{
+				Identity: SimpleIdentityKey(PrimitiveString, "3:"+string([]byte{0xfe, '\x1e', 'a'})),
+			},
+			typ:     SimpleValuePayloadType{Variety: SimpleVarietyList, Identity: SimpleIdentityNone},
 			wantErr: "identity payload does not match canonical value",
 		},
 	}

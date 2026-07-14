@@ -139,11 +139,11 @@ func TestValidateContentRestrictionRejectsElementNillableLoosening(t *testing.T)
 			2: name,
 		},
 		elementRestrictions: map[runtime.ElementID]runtime.ParticleRestrictionElement{
-			1: {Type: runtime.SimpleRef(1)},
-			2: {Type: runtime.SimpleRef(1), Nillable: true},
+			1: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal},
+			2: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Nillable: true},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1)
+	err := runtime.ValidateContentRestriction(rt, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -163,15 +163,15 @@ func TestValidateContentRestrictionAllowsSubstitutionMemberName(t *testing.T) {
 			2: memberName,
 		},
 		elementRestrictions: map[runtime.ElementID]runtime.ParticleRestrictionElement{
-			1: {Type: runtime.SimpleRef(1)},
-			2: {Type: runtime.SimpleRef(1)},
+			1: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeGlobal},
+			2: {Type: runtime.SimpleRef(2), Scope: runtime.DeclarationScopeGlobal, Nillable: true},
 		},
 		substitutions: map[runtime.ElementID]map[runtime.QName]runtime.ElementID{
 			1: {memberName: 2},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
-		t.Fatalf("ValidateContentRestriction() error = %v", err)
+	if err := runtime.ValidateContentRestriction(rt, 0, 1); err != nil {
+		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
 
@@ -190,11 +190,11 @@ func TestValidateContentRestrictionRejectsFixedValueMismatch(t *testing.T) {
 			2: name,
 		},
 		elementRestrictions: map[runtime.ElementID]runtime.ParticleRestrictionElement{
-			1: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraint("base", "base")},
-			2: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraint("derived", "derived")},
+			1: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Fixed: fixedValueConstraint("base", "base")},
+			2: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Fixed: fixedValueConstraint("derived", "derived")},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1)
+	err := runtime.ValidateContentRestriction(rt, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -213,12 +213,12 @@ func TestValidateContentRestrictionAllowsFixedCanonicalMatch(t *testing.T) {
 			2: name,
 		},
 		elementRestrictions: map[runtime.ElementID]runtime.ParticleRestrictionElement{
-			1: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraint("1 2 3", "1 2 3")},
-			2: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraint("1   2   3", "1 2 3")},
+			1: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Fixed: fixedValueConstraint("1 2 3", "1 2 3")},
+			2: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Fixed: fixedValueConstraint("1   2   3", "1 2 3")},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
-		t.Fatalf("ValidateContentRestriction() error = %v", err)
+	if err := runtime.ValidateContentRestriction(rt, 0, 1); err != nil {
+		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
 
@@ -238,16 +238,16 @@ func TestValidateContentRestrictionAllowsFixedValueIdentityMatch(t *testing.T) {
 			2: name,
 		},
 		elementRestrictions: map[runtime.ElementID]runtime.ParticleRestrictionElement{
-			1: {Type: runtime.SimpleRef(1), Fixed: fixedValueConstraintWithIdentity("5.0", "5.0", 1, identity)},
-			2: {Type: runtime.SimpleRef(2), Fixed: fixedValueConstraintWithIdentity("5", "5", 2, identity)},
+			1: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Fixed: fixedValueConstraintWithIdentity("5.0", "5.0", 1, identity)},
+			2: {Type: runtime.SimpleRef(2), Scope: runtime.DeclarationScopeNonGlobal, Fixed: fixedValueConstraintWithIdentity("5", "5", 2, identity)},
 		},
 		simpleDerivations: map[runtime.SimpleTypeID]runtime.SimpleTypeDerivation{
 			1: {Base: runtime.NoSimpleType, Variety: runtime.SimpleVarietyAtomic},
 			2: {Base: 1, Variety: runtime.SimpleVarietyAtomic},
 		},
 	}
-	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
-		t.Fatalf("ValidateContentRestriction() error = %v", err)
+	if err := runtime.ValidateContentRestriction(rt, 0, 1); err != nil {
+		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
 
@@ -273,13 +273,13 @@ func TestValidateContentRestrictionRejectsWildcardOutsideBase(t *testing.T) {
 			1: name,
 		},
 		elementRestrictions: map[runtime.ElementID]runtime.ParticleRestrictionElement{
-			1: {Type: runtime.SimpleRef(1)},
+			1: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal},
 		},
 		wildcards: map[runtime.WildcardID]runtime.Wildcard{
 			1: {Mode: runtime.WildcardLocal},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1)
+	err := runtime.ValidateContentRestriction(rt, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -296,7 +296,7 @@ func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T)
 			},
 		},
 	}
-	err := ValidateContentRestriction(rt, 0, 1)
+	err := runtime.ValidateContentRestriction(rt, 0, 1)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
@@ -464,7 +464,7 @@ func (s compiledModelRuntimeStub) ElementRestriction(id runtime.ElementID) (runt
 	if !ok {
 		return runtime.ParticleRestrictionElement{}, false
 	}
-	return runtime.ParticleRestrictionElement{Type: typ}, true
+	return runtime.ParticleRestrictionElement{Type: typ, Scope: runtime.DeclarationScopeNonGlobal}, true
 }
 
 func (s compiledModelRuntimeStub) Wildcard(id runtime.WildcardID) (runtime.Wildcard, bool) {
@@ -497,12 +497,12 @@ func (s compiledModelRuntimeStub) SubstitutionMemberByName(id runtime.ElementID,
 	return member, ok
 }
 
-func (s compiledModelRuntimeStub) SubstitutionNames(id runtime.ElementID) runtime.SubstitutionNameRead {
-	names := make([]runtime.QName, 0, len(s.substitutions[id]))
-	for name := range s.substitutions[id] {
-		names = append(names, name)
+func (s compiledModelRuntimeStub) ForEachSubstitutionEntry(id runtime.ElementID, fn func(runtime.QName, runtime.ElementID) bool) {
+	for name, member := range s.substitutions[id] {
+		if !fn(name, member) {
+			return
+		}
 	}
-	return runtime.NewSubstitutionNameRead(names)
 }
 
 func (s compiledModelRuntimeStub) AnyTypeID() runtime.ComplexTypeID {

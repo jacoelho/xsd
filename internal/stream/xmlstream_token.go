@@ -4,15 +4,15 @@ import "encoding/xml"
 
 // StartElement is a parsed XML start element.
 type StartElement struct {
-	Name    xml.Name
-	RawName string
-	Attr    []Attr
+	// Name.Space is the lexical namespace prefix.
+	Name xml.Name
+	Attr []Attr
 }
 
 // EndElement is a parsed XML end element.
 type EndElement struct {
-	Name    xml.Name
-	RawName string
+	// Name.Space is the lexical namespace prefix.
+	Name xml.Name
 }
 
 // Attr may hold a parser-owned raw value. raw is valid only through the current
@@ -22,6 +22,29 @@ type Attr struct {
 	Name  xml.Name
 	Value string
 	raw   []byte
+}
+
+// OwnedAttr returns an attribute whose value does not borrow parser storage.
+func OwnedAttr(name xml.Name, value string) Attr {
+	return Attr{Name: name, Value: value}
+}
+
+// OwnedAttrs returns an owned copy of attrs, materializing borrowed values.
+func OwnedAttrs(attrs ...Attr) []Attr {
+	owned := make([]Attr, len(attrs))
+	for i, attr := range attrs {
+		value := attr.Value
+		if value == "" && len(attr.raw) != 0 {
+			value = string(attr.raw)
+		}
+		owned[i] = Attr{Name: attr.Name, Value: value}
+	}
+	return owned
+}
+
+// OwnedStartElement returns a start element that does not borrow parser storage.
+func OwnedStartElement(name xml.Name, attrs ...Attr) StartElement {
+	return StartElement{Name: name, Attr: OwnedAttrs(attrs...)}
 }
 
 // StringValue returns the attribute value as an owned string. It must be called
@@ -47,20 +70,14 @@ func (a *Attr) HasBorrowedValue() bool {
 	return len(a.raw) != 0
 }
 
-// RawValue returns the borrowed raw value when one is available.
+// RawValue returns the borrowed raw value when one is available. Repository
+// boundary checks restrict the result to the validation fast path; it must not
+// be retained or used after the parser advances.
 func (a *Attr) RawValue() ([]byte, bool) {
 	if len(a.raw) == 0 {
 		return nil, false
 	}
 	return a.raw, true
-}
-
-// WithRawValue calls fn with the borrowed raw value when one is available.
-func (a *Attr) WithRawValue(fn func([]byte) (bool, error)) (bool, error) {
-	if len(a.raw) == 0 {
-		return false, nil
-	}
-	return fn(a.raw)
 }
 
 // AppendData appends token character data or PI target bytes to dst.
@@ -84,11 +101,4 @@ func (s StartElement) XMLStartElement() xml.StartElement {
 		attrs[i] = xml.Attr{Name: attr.Name, Value: value}
 	}
 	return xml.StartElement{Name: s.Name, Attr: attrs}
-}
-
-func lexicalXMLName(name xml.Name) string {
-	if name.Space == "" {
-		return name.Local
-	}
-	return name.Space + ":" + name.Local
 }

@@ -20,9 +20,14 @@ type xmlDocument[P any] struct {
 type xmlDocumentElement[P any] struct {
 	payload      P
 	name         xml.Name
-	rawName      string
+	prefix       string
 	pathLength   int
 	expandedPath bool
+}
+
+type preparedXMLStart struct {
+	name   xml.Name
+	prefix string
 }
 
 func (d *xmlDocument[P]) PrepareStart(
@@ -30,18 +35,19 @@ func (d *xmlDocument[P]) PrepareStart(
 	values *stream.Cache,
 	maxDepth int,
 	line, col int,
-) (stream.StartElement, error) {
+) (preparedXMLStart, error) {
 	if maxDepth > 0 && d.Depth()+1 > maxDepth {
-		return stream.StartElement{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
+		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
 	}
+	prefix := start.Name.Space
 	if pushErr := d.ns.PushStream(start.Attr, values); pushErr != nil {
-		return stream.StartElement{}, validation(d.context(line, col), xsderrors.CodeValidationXML, pushErr.Error())
+		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, pushErr.Error())
 	}
 	var err error
 	start.Name, err = d.resolveName(start.Name, xmlns.ElementName, line, col)
 	if err != nil {
 		d.ns.Pop()
-		return stream.StartElement{}, err
+		return preparedXMLStart{}, err
 	}
 	for i := range start.Attr {
 		attr := &start.Attr[i]
@@ -51,33 +57,33 @@ func (d *xmlDocument[P]) PrepareStart(
 		attr.Name, err = d.resolveName(attr.Name, xmlns.AttributeName, line, col)
 		if err != nil {
 			d.ns.Pop()
-			return stream.StartElement{}, err
+			return preparedXMLStart{}, err
 		}
 	}
 	if err := xmlns.ValidateUniqueAttributes(start.Attr); err != nil {
 		d.ns.Pop()
-		return stream.StartElement{}, validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
+		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
 	if d.seenRoot && d.Depth() == 0 {
 		d.ns.Pop()
-		return stream.StartElement{}, validation(d.context(line, col), xsderrors.CodeValidationXML, "multiple root elements")
+		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, "multiple root elements")
 	}
 
-	return start, nil
+	return preparedXMLStart{name: start.Name, prefix: prefix}, nil
 }
 
-func (d *xmlDocument[P]) CommitStart(name xml.Name, rawName string, expandedPath bool, payload P) {
-	pathLength := 1 + len(name.Local)
+func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, expandedPath bool, payload P) {
+	pathLength := 1 + len(start.name.Local)
 	if expandedPath {
-		pathLength += len(name.Space) + 2
+		pathLength += len(start.name.Space) + 2
 	}
 	if len(d.elements) != 0 {
 		pathLength += d.elements[len(d.elements)-1].pathLength
 	}
 	d.elements = append(d.elements, xmlDocumentElement[P]{
 		payload:      payload,
-		name:         name,
-		rawName:      rawName,
+		name:         start.name,
+		prefix:       start.prefix,
 		pathLength:   pathLength,
 		expandedPath: expandedPath,
 	})
@@ -98,8 +104,8 @@ func (d *xmlDocument[P]) ValidateEnd(end stream.EndElement, line, col int) error
 		return err
 	}
 	expected := d.elements[len(d.elements)-1]
-	if (end.RawName != "" || expected.rawName != "") && end.RawName != expected.rawName {
-		return validation(d.context(line, col), xsderrors.CodeValidationXML, "end element </"+formatElementName(end.RawName, name)+"> does not match start element <"+formatElementName(expected.rawName, expected.name)+">")
+	if end.Name.Space != expected.prefix || end.Name.Local != expected.name.Local {
+		return validation(d.context(line, col), xsderrors.CodeValidationXML, "end element </"+formatLexicalName(end.Name.Space, end.Name.Local)+"> does not match start element <"+formatLexicalName(expected.prefix, expected.name.Local)+">")
 	}
 	if name != expected.name {
 		return validation(d.context(line, col), xsderrors.CodeValidationXML, "end element </"+formatXMLName(name)+"> does not match start element <"+formatXMLName(expected.name)+">")
@@ -217,9 +223,9 @@ func (d *xmlDocument[P]) resolveName(name xml.Name, kind xmlns.NameKind, line, c
 	return resolved, nil
 }
 
-func formatElementName(raw string, name xml.Name) string {
-	if raw != "" {
-		return raw
+func formatLexicalName(prefix, local string) string {
+	if prefix == "" {
+		return local
 	}
-	return formatXMLName(name)
+	return prefix + ":" + local
 }

@@ -2,13 +2,25 @@ package runtime
 
 import (
 	"errors"
-	"maps"
 	"slices"
 )
 
 // SubstitutionCycleError reports a cyclic substitution group rooted at Element.
 type SubstitutionCycleError struct {
 	Element ElementID
+}
+
+// SubstitutionClosureLimitError reports that the aggregate number of raw
+// head/member ancestor pairs exceeds the configured bound.
+type SubstitutionClosureLimitError struct {
+	Limit int
+}
+
+// SubstitutionMembershipError identifies an invalid direct member/head edge.
+type SubstitutionMembershipError struct {
+	Cause  error
+	Member ElementID
+	Head   ElementID
 }
 
 var (
@@ -20,102 +32,386 @@ var (
 	ErrSubstitutionMemberTypeExcludedDerivation = errors.New("substitution member type uses excluded derivation")
 )
 
-// ForEachSubstitutionMember iterates freeze-published substitution members for
-// head until fn returns false.
-func ForEachSubstitutionMember(reads map[ElementID][]ElementID, head ElementID, fn func(ElementID) bool) {
-	for _, member := range reads[head] {
-		if !fn(member) {
+// SubstitutionTable is the immutable substitution-group projection shared by
+// compilation and published validation. Its slices are intentionally private.
+type SubstitutionTable struct {
+	spans   []substitutionSpan
+	entries []substitutionEntry
+}
+
+type substitutionSpan struct {
+	start int
+	count int
+}
+
+type substitutionEntry struct {
+	name      QName
+	member    ElementID
+	effective bool
+}
+
+// BuildSubstitutionTable validates the direct substitution forest and builds a
+// bounded transitive table. maxClosureEntries counts every raw ancestor pair,
+// including entries later excluded from effective name matching.
+func BuildSubstitutionTable(
+	rt TypeDerivationRuntime,
+	names *NameTable,
+	elements []ElementDecl,
+	globals map[QName]ElementID,
+	maxClosureEntries int,
+) (SubstitutionTable, error) {
+	if maxClosureEntries < 0 {
+		return SubstitutionTable{}, errors.New("substitution closure entry limit must be non-negative")
+	}
+	forest, err := validateSubstitutionForest(names, elements, globals)
+	if err != nil {
+		return SubstitutionTable{}, err
+	}
+	if forest.total == 0 {
+		return SubstitutionTable{}, nil
+	}
+	if forest.total > maxClosureEntries {
+		return SubstitutionTable{}, SubstitutionClosureLimitError{Limit: maxClosureEntries}
+	}
+	edges, err := validateSubstitutionEdges(rt, elements, forest.parents)
+	if err != nil {
+		return SubstitutionTable{}, err
+	}
+
+	counts := make([]int, len(elements))
+	for member := range elements {
+		for head := forest.parents[member]; head != NoElement; head = forest.parents[head] {
+			counts[head]++
+		}
+	}
+	table := SubstitutionTable{
+		spans:   make([]substitutionSpan, len(elements)),
+		entries: make([]substitutionEntry, forest.total),
+	}
+	next := make([]int, len(elements))
+	start := 0
+	for head, count := range counts {
+		table.spans[head] = substitutionSpan{start: start, count: count}
+		next[head] = start
+		start += count
+	}
+	for member := range elements {
+		memberID := ElementID(member)
+		memberDecl, _ := ElementDeclByID(elements, memberID)
+		var mask, blocks DerivationMask
+		for current, head := memberID, forest.parents[member]; head != NoElement; current, head = head, forest.parents[head] {
+			mask |= edges[current].mask
+			blocks |= edges[current].blocks
+			headDecl, _ := ElementDeclByID(elements, head)
+			pos := next[head]
+			table.entries[pos] = substitutionEntry{
+				name:      memberDecl.Name,
+				member:    memberID,
+				effective: substitutionEffective(*headDecl, *memberDecl, mask, blocks),
+			}
+			next[head]++
+		}
+	}
+	for _, span := range table.spans {
+		entries := table.entries[span.start : span.start+span.count]
+		slices.SortFunc(entries, compareSubstitutionEntry)
+	}
+	return table, nil
+}
+
+// ValidateSubstitutionTable independently audits a constructed table without
+// allocating another closure-sized representation.
+func ValidateSubstitutionTable(
+	rt TypeDerivationRuntime,
+	names *NameTable,
+	elements []ElementDecl,
+	globals map[QName]ElementID,
+	table SubstitutionTable,
+) error {
+	forest, err := validateSubstitutionForest(names, elements, globals)
+	if err != nil {
+		return err
+	}
+	if forest.total == 0 {
+		if table.spans != nil || table.entries != nil {
+			return errors.New("substitution table is non-zero without substitution heads")
+		}
+		return nil
+	}
+	if len(table.spans) != len(elements) || len(table.entries) != forest.total {
+		return errors.New("substitution table shape does not match substitution forest")
+	}
+	edges, err := validateSubstitutionEdges(rt, elements, forest.parents)
+	if err != nil {
+		return err
+	}
+
+	orderedMembers := make([]ElementID, 0, len(elements))
+	for i, parent := range forest.parents {
+		if parent != NoElement {
+			orderedMembers = append(orderedMembers, ElementID(i))
+		}
+	}
+	slices.SortFunc(orderedMembers, func(a, b ElementID) int {
+		return compareQName(elements[a].Name, elements[b].Name)
+	})
+
+	cursors := make([]int, len(elements))
+	start := 0
+	for head := range elements {
+		span := table.spans[head]
+		if span.start != start || span.count < 0 || span.count > len(table.entries)-start {
+			return errors.New("substitution table has invalid span")
+		}
+		cursors[head] = start
+		start += span.count
+	}
+	if start != len(table.entries) {
+		return errors.New("substitution table spans do not cover entries")
+	}
+	for _, member := range orderedMembers {
+		var mask, blocks DerivationMask
+		for current, head := member, forest.parents[member]; head != NoElement; current, head = head, forest.parents[head] {
+			mask |= edges[current].mask
+			blocks |= edges[current].blocks
+			span := table.spans[head]
+			position := cursors[head]
+			if position >= span.start+span.count {
+				return errors.New("substitution table is missing ancestor pair")
+			}
+			expected := substitutionEntry{
+				name:      elements[member].Name,
+				member:    member,
+				effective: substitutionEffective(elements[head], elements[member], mask, blocks),
+			}
+			if table.entries[position] != expected {
+				return errors.New("substitution table entry does not match substitution forest")
+			}
+			cursors[head]++
+		}
+	}
+	for head, position := range cursors {
+		span := table.spans[head]
+		if position != span.start+span.count {
+			return errors.New("substitution table has unexpected ancestor pair")
+		}
+	}
+	return nil
+}
+
+// ForEachMember iterates all raw transitive members for head until fn returns
+// false. Abstract and blocked members remain visible to compilation checks.
+func (t SubstitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool) {
+	span, ok := t.span(head)
+	if !ok {
+		return
+	}
+	for _, entry := range t.entries[span.start : span.start+span.count] {
+		if !fn(entry.member) {
 			return
 		}
 	}
 }
 
-// SubstitutionMemberByName returns the freeze-published substitution member
-// for name under head.
-func SubstitutionMemberByName(lookupReads map[ElementID]map[QName]ElementID, head ElementID, name QName) (ElementID, bool) {
-	members := lookupReads[head]
-	if members == nil {
-		return NoElement, false
+// ForEachEntry iterates effective name/member entries for head until fn returns
+// false.
+func (t SubstitutionTable) ForEachEntry(head ElementID, fn func(QName, ElementID) bool) {
+	span, ok := t.span(head)
+	if !ok {
+		return
 	}
-	member, ok := members[name]
+	for _, entry := range t.entries[span.start : span.start+span.count] {
+		if entry.effective && !fn(entry.name, entry.member) {
+			return
+		}
+	}
+}
+
+// MemberByName returns the effective substitution member registered under head.
+func (t SubstitutionTable) MemberByName(head ElementID, name QName) (ElementID, bool) {
+	span, ok := t.span(head)
 	if !ok {
 		return NoElement, false
 	}
-	return member, ok
+	entries := t.entries[span.start : span.start+span.count]
+	position, found := slices.BinarySearchFunc(entries, name, func(entry substitutionEntry, target QName) int {
+		return compareQName(entry.name, target)
+	})
+	if !found || !entries[position].effective {
+		return NoElement, false
+	}
+	return entries[position].member, true
 }
 
-// SubstitutionIndex owns name lookup and read-only name iteration for substitution groups.
-type SubstitutionIndex struct {
-	byName map[ElementID]map[QName]ElementID
-	spans  []substitutionNameSpan
-	names  []QName
+// HasMembers reports whether head has raw transitive substitution members.
+func (t SubstitutionTable) HasMembers(head ElementID) bool {
+	span, ok := t.span(head)
+	return ok && span.count != 0
 }
 
-type substitutionNameSpan struct {
-	start int
-	count int
+func (t SubstitutionTable) span(head ElementID) (substitutionSpan, bool) {
+	if !ValidElementID(head, len(t.spans)) {
+		return substitutionSpan{}, false
+	}
+	span := t.spans[head]
+	if span.start < 0 || span.count < 0 || span.start > len(t.entries) || span.count > len(t.entries)-span.start {
+		return substitutionSpan{}, false
+	}
+	return span, true
 }
 
-// BuildSubstitutionIndex builds the correlated substitution name index.
-func BuildSubstitutionIndex(rt TypeDerivationRuntime, elements []ElementDecl, substitutions map[ElementID][]ElementID) SubstitutionIndex {
-	byName := BuildSubstitutionLookup(rt, elements, substitutions)
-	if len(byName) == 0 {
-		return SubstitutionIndex{}
+type substitutionForest struct {
+	parents []ElementID
+	total   int
+}
+
+func validateSubstitutionForest(
+	names *NameTable,
+	elements []ElementDecl,
+	globals map[QName]ElementID,
+) (substitutionForest, error) {
+	if names == nil {
+		return substitutionForest{}, errors.New("substitution table requires name table")
+	}
+	parents := make([]ElementID, len(elements))
+	for i := range parents {
+		parents[i] = NoElement
+	}
+	hasHeads := false
+	for index, member := range elements {
+		if member.SubstHead == NoElement {
+			continue
+		}
+		hasHeads = true
+		memberID, ok := elementIndexID(index)
+		if !ok {
+			return substitutionForest{}, errors.New("substitution member element ID is invalid")
+		}
+		if !names.ValidQName(member.Name) {
+			return substitutionForest{}, errors.New("substitution member name is invalid")
+		}
+		globalMember, ok := globals[member.Name]
+		if !ok || globalMember != memberID {
+			return substitutionForest{}, errors.New("substitution member is not a global element")
+		}
+		if !validSubstitutionElementID(elements, member.SubstHead) {
+			return substitutionForest{}, errors.New("element declaration references invalid substitution head")
+		}
+		head := elements[member.SubstHead]
+		if !names.ValidQName(head.Name) {
+			return substitutionForest{}, errors.New("substitution head name is invalid")
+		}
+		globalHead, ok := globals[head.Name]
+		if !ok || globalHead != member.SubstHead {
+			return substitutionForest{}, errors.New("substitution head is not a global element")
+		}
+		parents[index] = member.SubstHead
+	}
+	if !hasHeads {
+		return substitutionForest{}, nil
+	}
+
+	state := make([]uint8, len(elements))
+	depth := make([]int, len(elements))
+	path := make([]ElementID, 0, len(elements))
+	for start := range elements {
+		if state[start] == 2 {
+			continue
+		}
+		path = path[:0]
+		for current := ElementID(start); current != NoElement && state[current] != 2; current = parents[current] {
+			if state[current] == 1 {
+				return substitutionForest{}, SubstitutionCycleError{Element: current}
+			}
+			state[current] = 1
+			path = append(path, current)
+		}
+		for _, current := range slices.Backward(path) {
+			if parent := parents[current]; parent != NoElement {
+				depth[current] = depth[parent] + 1
+			}
+			state[current] = 2
+		}
 	}
 	total := 0
-	for _, members := range byName {
-		total += len(members)
-	}
-	index := SubstitutionIndex{
-		byName: byName,
-		spans:  make([]substitutionNameSpan, len(elements)),
-		names:  make([]QName, 0, total),
-	}
-	for head, members := range byName {
-		span := substitutionNameSpan{start: len(index.names), count: len(members)}
-		for name := range members {
-			index.names = append(index.names, name)
+	for _, ancestors := range depth {
+		if ancestors > int(^uint(0)>>1)-total {
+			return substitutionForest{}, SubstitutionClosureLimitError{Limit: int(^uint(0) >> 1)}
 		}
-		index.spans[head] = span
+		total += ancestors
 	}
-	return index
+	return substitutionForest{parents: parents, total: total}, nil
 }
 
-// MemberByName returns the substitution member registered for name under head.
-func (i SubstitutionIndex) MemberByName(head ElementID, name QName) (ElementID, bool) {
-	return SubstitutionMemberByName(i.byName, head, name)
+type substitutionEdge struct {
+	mask   DerivationMask
+	blocks DerivationMask
 }
 
-// Names returns a non-aliasing view of substitution names under head.
-func (i SubstitutionIndex) Names(head ElementID) SubstitutionNameRead {
-	if !ValidElementID(head, len(i.spans)) {
-		return SubstitutionNameRead{}
+func validateSubstitutionEdges(
+	rt TypeDerivationRuntime,
+	elements []ElementDecl,
+	parents []ElementID,
+) ([]substitutionEdge, error) {
+	edges := make([]substitutionEdge, len(elements))
+	for member, head := range parents {
+		if head == NoElement {
+			continue
+		}
+		mask, ok := TypeDerivationMask(rt, elements[member].Type, elements[head].Type)
+		if !ok {
+			return nil, SubstitutionMembershipError{
+				Cause:  ErrSubstitutionMemberTypeNotDerived,
+				Member: ElementID(member),
+				Head:   head,
+			}
+		}
+		if elements[head].Final&mask != 0 {
+			return nil, SubstitutionMembershipError{
+				Cause:  ErrSubstitutionMemberTypeExcludedDerivation,
+				Member: ElementID(member),
+				Head:   head,
+			}
+		}
+		edges[member] = substitutionEdge{
+			mask:   mask,
+			blocks: substitutionTypeBlocks(rt, elements[member].Type, elements[head].Type),
+		}
 	}
-	span := i.spans[head]
-	return SubstitutionNameRead{values: i.names[span.start : span.start+span.count]}
+	return edges, nil
 }
 
-// SubstitutionNameRead is a read-only substitution-name sequence.
-type SubstitutionNameRead struct {
-	values []QName
-}
-
-// NewSubstitutionNameRead copies names into a read-only sequence.
-func NewSubstitutionNameRead(names []QName) SubstitutionNameRead {
-	return SubstitutionNameRead{values: slices.Clone(names)}
-}
-
-// Len returns the number of names.
-func (r SubstitutionNameRead) Len() int {
-	return len(r.values)
-}
-
-// At returns the name at position.
-func (r SubstitutionNameRead) At(position int) (QName, bool) {
-	if position < 0 || position >= len(r.values) {
-		return QName{}, false
+func compareSubstitutionEntry(a, b substitutionEntry) int {
+	if order := compareQName(a.name, b.name); order != 0 {
+		return order
 	}
-	return r.values[position], true
+	return int64Compare(int64(a.member), int64(b.member))
+}
+
+func compareQName(a, b QName) int {
+	if a.Namespace < b.Namespace {
+		return -1
+	}
+	if a.Namespace > b.Namespace {
+		return 1
+	}
+	if a.Local < b.Local {
+		return -1
+	}
+	if a.Local > b.Local {
+		return 1
+	}
+	return 0
+}
+
+func int64Compare(a, b int64) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
 }
 
 // Error returns the stable substitution-cycle message.
@@ -123,118 +419,19 @@ func (e SubstitutionCycleError) Error() string {
 	return "cyclic substitution group"
 }
 
-// ValidateSubstitutionMaps validates frozen substitution closure and lookup maps.
-func ValidateSubstitutionMaps(
-	rt TypeDerivationRuntime,
-	names *NameTable,
-	elements []ElementDecl,
-	globalElements map[QName]ElementID,
-	substitutions map[ElementID][]ElementID,
-	lookup map[ElementID]map[QName]ElementID,
-) error {
-	if names == nil {
-		return errors.New("substitution maps require name table")
-	}
-	if !hasSubstitutionHeads(elements) {
-		if len(substitutions) != 0 || len(lookup) != 0 {
-			return errors.New("substitution maps exist without substitution heads")
-		}
-		return nil
-	}
-	expected, err := expectedSubstitutions(rt, elements, globalElements)
-	if err != nil {
-		return err
-	}
-	if !EqualSubstitutionMap(substitutions, expected) {
-		return errors.New("substitution map does not match element substitution heads")
-	}
-	for head, members := range substitutions {
-		if !validSubstitutionElementID(elements, head) {
-			return errors.New("substitution head references invalid element")
-		}
-		for _, member := range members {
-			if !validSubstitutionElementID(elements, member) {
-				return errors.New("substitution member references invalid element")
-			}
-		}
-	}
-	for head, members := range lookup {
-		if !validSubstitutionElementID(elements, head) {
-			return errors.New("substitution lookup head references invalid element")
-		}
-		for name, member := range members {
-			if !names.ValidQName(name) || !validSubstitutionElementID(elements, member) {
-				return errors.New("substitution lookup references invalid element")
-			}
-			if elements[member].Name != name {
-				return errors.New("substitution lookup name does not match element")
-			}
-		}
-	}
-	expectedLookup := BuildSubstitutionLookup(rt, elements, expected)
-	if !EqualSubstitutionLookup(lookup, expectedLookup) {
-		return errors.New("substitution lookup does not match substitutions")
-	}
-	return nil
+// Error returns the stable substitution closure limit message.
+func (e SubstitutionClosureLimitError) Error() string {
+	return "substitution closure entry limit exceeded"
 }
 
-func hasSubstitutionHeads(elements []ElementDecl) bool {
-	for _, decl := range elements {
-		if decl.SubstHead != NoElement {
-			return true
-		}
-	}
-	return false
+// Error returns the stable invalid-membership message.
+func (e SubstitutionMembershipError) Error() string {
+	return "substitution member is not allowed by head"
 }
 
-func expectedSubstitutions(
-	rt TypeDerivationRuntime,
-	elements []ElementDecl,
-	globalElements map[QName]ElementID,
-) (map[ElementID][]ElementID, error) {
-	direct := make(map[ElementID][]ElementID)
-	for id, decl := range elements {
-		if decl.SubstHead == NoElement {
-			continue
-		}
-		member, ok := elementIndexID(id)
-		if !ok {
-			return nil, errors.New("substitution member element ID is invalid")
-		}
-		if decl.SubstHead == member {
-			return nil, errors.New("element substitution head references itself")
-		}
-		if globalElements[decl.Name] != member {
-			return nil, errors.New("substitution member is not a global element")
-		}
-		if !validSubstitutionElementID(elements, decl.SubstHead) {
-			return nil, errors.New("element declaration references invalid substitution head")
-		}
-		head := elements[decl.SubstHead]
-		if globalElements[head.Name] != decl.SubstHead {
-			return nil, errors.New("substitution head is not a global element")
-		}
-		direct[decl.SubstHead] = append(direct[decl.SubstHead], member)
-	}
-	if err := checkSubstitutionMembership(rt, elements, direct); err != nil {
-		return nil, err
-	}
-	return BuildSubstitutionClosure(direct)
-}
-
-func checkSubstitutionMembership(
-	rt TypeDerivationRuntime,
-	elements []ElementDecl,
-	direct map[ElementID][]ElementID,
-) error {
-	for id := range direct {
-		for _, member := range direct[id] {
-			if err := ValidateSubstitutionMembership(rt, elements[id], elements[member]); err != nil {
-				return errors.New("substitution member is not allowed by head")
-			}
-		}
-	}
-	return nil
+// Unwrap returns the precise direct-membership failure.
+func (e SubstitutionMembershipError) Unwrap() error {
+	return e.Cause
 }
 
 // ValidateSubstitutionMembership validates that member can substitute for head
@@ -250,104 +447,23 @@ func ValidateSubstitutionMembership(rt TypeDerivationRuntime, head, member Eleme
 	return nil
 }
 
-// BuildSubstitutionClosure builds transitive substitution members for each
-// direct substitution head.
-func BuildSubstitutionClosure(direct map[ElementID][]ElementID) (map[ElementID][]ElementID, error) {
-	out := make(map[ElementID][]ElementID, len(direct))
-	heads := make([]ElementID, 0, len(direct))
-	for head := range direct {
-		heads = append(heads, head)
+func substitutionEffective(head, member ElementDecl, mask, typeBlocks DerivationMask) bool {
+	if member.Abstract {
+		return false
 	}
-	slices.Sort(heads)
-	for _, head := range heads {
-		visiting := make(map[ElementID]bool)
-		seen := make(map[ElementID]bool)
-		var members []ElementID
-		var walk func(ElementID) error
-		walk = func(id ElementID) error {
-			if visiting[id] {
-				return SubstitutionCycleError{Element: id}
-			}
-			visiting[id] = true
-			for _, member := range direct[id] {
-				if !seen[member] {
-					seen[member] = true
-					members = append(members, member)
-				}
-				if err := walk(member); err != nil {
-					return err
-				}
-			}
-			delete(visiting, id)
-			return nil
-		}
-		if err := walk(head); err != nil {
-			return nil, err
-		}
-		slices.Sort(members)
-		out[head] = members
-	}
-	return out, nil
-}
-
-// BuildSubstitutionLookup builds the name-indexed substitution lookup map from
-// a substitution closure.
-func BuildSubstitutionLookup(
-	rt TypeDerivationRuntime,
-	elements []ElementDecl,
-	substitutions map[ElementID][]ElementID,
-) map[ElementID]map[QName]ElementID {
-	out := make(map[ElementID]map[QName]ElementID, len(substitutions))
-	for head, members := range substitutions {
-		for _, member := range members {
-			if !substitutionAllowed(rt, elements[head], elements[member]) {
-				continue
-			}
-			byName := out[head]
-			if byName == nil {
-				byName = make(map[QName]ElementID, len(members))
-				out[head] = byName
-			}
-			byName[elements[member].Name] = member
-		}
-	}
-	return out
-}
-
-func substitutionAllowed(rt TypeDerivationRuntime, head, member ElementDecl) bool {
 	if head.Block&DerivationSubstitution != 0 {
 		return false
 	}
-	return SubstitutionDerivationAllowed(rt, member.Type, head.Type, head.Block)
-}
-
-// EqualSubstitutionMap reports whether two substitution closure maps expose
-// the same head-to-members projection.
-func EqualSubstitutionMap(a, b map[ElementID][]ElementID) bool {
-	return maps.EqualFunc(a, b, slices.Equal[[]ElementID, ElementID])
-}
-
-// EqualSubstitutionLookup reports whether two substitution lookup maps expose
-// the same head/name-to-member projection.
-func EqualSubstitutionLookup(a, b map[ElementID]map[QName]ElementID) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for head, byName := range a {
-		if !maps.Equal(byName, b[head]) {
-			return false
-		}
-	}
-	return true
+	return mask&head.Block == 0 && mask&typeBlocks == 0
 }
 
 func elementIndexID(id int) (ElementID, bool) {
-	if id < 0 || uint64(id) > uint64(invalidID) {
+	if id < 0 || uint64(id) >= uint64(invalidID) {
 		return NoElement, false
 	}
 	return ElementID(uint32(id)), true
 }
 
 func validSubstitutionElementID(elements []ElementDecl, id ElementID) bool {
-	return ValidUint32Index(uint32(id), len(elements))
+	return ValidElementID(id, len(elements))
 }

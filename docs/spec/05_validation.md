@@ -131,7 +131,10 @@ For each attribute on an element:
    - Check all type facets (pattern, enumeration, bounds, etc.)
 
 4. **Apply constraints:**
-   - If `fixed`, value must equal fixed value
+   - A fixed constraint owned by an attribute declaration uses datatype value
+     equality
+   - A fixed constraint owned by an attribute use matches the normalized value
+     to the constraint's canonical lexical representation, as required by XSD 1.0
    - If `default` and absent, default is supplied in PSVI
 
 5. **Wildcard processing** (if matched by `xs:anyAttribute`):

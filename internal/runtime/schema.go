@@ -3,48 +3,43 @@ package runtime
 // SchemaBuild is compiler-owned mutable schema state. PublishSchema is the
 // only supported transition to an immutable validation Schema.
 type SchemaBuild struct {
-	GlobalAttributes  map[QName]AttributeID
-	GlobalElements    map[QName]ElementID
-	Substitutions     map[ElementID][]ElementID
-	SubstitutionIndex SubstitutionIndex
-	Notations         map[QName]bool
-	GlobalIdentities  map[QName]IdentityConstraintID
-	GlobalTypes       map[QName]TypeID
-	Identities        []IdentityConstraint
-	ComplexTypes      []ComplexType
-	Wildcards         []Wildcard
-	AttributeUseSets  []AttributeUseSet
-	Models            []ContentModel
-	CompiledModels    []CompiledModel
-	SimpleTypes       []SimpleType
-	Attributes        []AttributeDecl
-	Elements          []ElementDecl
-	Names             NameTable
-	Builtin           BuiltinIDs
+	GlobalAttributes map[QName]AttributeID
+	GlobalElements   map[QName]ElementID
+	Substitutions    SubstitutionTable
+	Notations        map[QName]bool
+	GlobalIdentities map[QName]IdentityConstraintID
+	GlobalTypes      map[QName]TypeID
+	Identities       []IdentityConstraint
+	ComplexTypes     []ComplexType
+	Wildcards        []Wildcard
+	AttributeUseSets []AttributeUseSet
+	Models           []ContentModel
+	CompiledModels   []CompiledModel
+	SimpleTypes      []SimpleType
+	Attributes       []AttributeDecl
+	Elements         []ElementDecl
+	Names            NameTable
+	Builtin          BuiltinIDs
 }
 
-//nolint:govet // Field order groups projections by owning validation subsystem.
 type schemaRuntime struct {
-	GlobalAttributes        map[QName]AttributeID
-	GlobalElements          map[QName]ElementID
-	GlobalTypes             map[QName]TypeID
-	SubstitutionLookup      map[ElementID]map[QName]ElementID
-	Notations               map[ExpandedName]bool
-	Names                   NameReadView
-	Identities              []IdentityConstraintRead
-	TypeDerivations         TypeDerivationRead
-	SimpleValueRoutes       []simpleValueRouteRead
-	SimpleValueCold         simpleValueColdReadTable
-	SimpleValueQNameNeeds   []bool
-	ComplexTypes            []complexTypeRead
-	Wildcards               []WildcardView
-	AttributeUseSets        []AttributeUseSetRead
-	CompiledModels          []compiledModelRead
-	Attributes              []AttributeDeclRead
-	ElementNames            []QName
-	ElementStarts           []ElementStartInfo
-	ElementIdentities       [][]IdentityConstraintID
-	ElementValueConstraints []ElementValueConstraints
+	GlobalAttributes      map[QName]AttributeID
+	GlobalElements        map[QName]ElementID
+	GlobalTypes           map[QName]TypeID
+	Substitutions         SubstitutionTable
+	Notations             map[ExpandedName]bool
+	Names                 NameReadView
+	Identities            []IdentityConstraintRead
+	TypeDerivations       TypeDerivationRead
+	SimpleValueRoutes     []simpleValueRouteRead
+	SimpleTypeCold        *simpleTypeColdReadTable
+	SimpleValueQNameNeeds []bool
+	ComplexTypes          []complexTypeRead
+	Wildcards             []WildcardView
+	AttributeUseSets      []AttributeUseSetRead
+	CompiledModels        []compiledModelRead
+	Attributes            []AttributeDeclRead
+	Elements              elementReadTable
 }
 
 type complexTypeRead struct {
@@ -203,10 +198,12 @@ func (rt *SchemaBuild) ElementRestriction(id ElementID) (ParticleRestrictionElem
 	}
 	decl := rt.Elements[id]
 	return ParticleRestrictionElement{
-		Type:     decl.Type,
-		Block:    decl.Block,
-		Fixed:    NewValueConstraintIdentity(decl.Fixed),
-		Nillable: decl.Nillable,
+		Identities: borrowedIdentityConstraintIDs(decl.Identity),
+		Type:       decl.Type,
+		Block:      decl.Block,
+		Fixed:      NewValueConstraintIdentity(decl.Fixed),
+		Scope:      decl.Scope,
+		Nillable:   decl.Nillable,
 	}, true
 }
 
@@ -217,22 +214,22 @@ func (rt *SchemaBuild) Wildcard(id WildcardID) (Wildcard, bool) {
 
 // ForEachSubstitutionMember iterates compiler-owned substitution members.
 func (rt *SchemaBuild) ForEachSubstitutionMember(id ElementID, fn func(ElementID) bool) {
-	ForEachSubstitutionMember(rt.Substitutions, id, fn)
+	rt.Substitutions.ForEachMember(id, fn)
 }
 
 // HasSubstitutionMembers reports whether a compiler-owned element has substitution members.
 func (rt *SchemaBuild) HasSubstitutionMembers(id ElementID) bool {
-	return len(rt.Substitutions[id]) != 0
+	return rt.Substitutions.HasMembers(id)
 }
 
 // SubstitutionMemberByName returns a compiler-owned substitution member by name.
 func (rt *SchemaBuild) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
-	return rt.SubstitutionIndex.MemberByName(id, name)
+	return rt.Substitutions.MemberByName(id, name)
 }
 
-// SubstitutionNames returns a read-only view of substitution names under id.
-func (rt *SchemaBuild) SubstitutionNames(id ElementID) SubstitutionNameRead {
-	return rt.SubstitutionIndex.Names(id)
+// ForEachSubstitutionEntry iterates effective substitution entries under id.
+func (rt *SchemaBuild) ForEachSubstitutionEntry(id ElementID, fn func(QName, ElementID) bool) {
+	rt.Substitutions.ForEachEntry(id, fn)
 }
 
 // TypeLabel formats a compiler-owned type name for diagnostics.

@@ -422,6 +422,27 @@ func TestFixedValueConstraintEqual(t *testing.T) {
 	}
 }
 
+func TestFixedAttributeValueEqualDistinguishesConstraintOwner(t *testing.T) {
+	t.Parallel()
+
+	fixed := NewValueConstraintRead(
+		"P1Y",
+		"P1Y",
+		SimpleValue{Canonical: "P1Y", Identity: "duration:12-months", Type: 1},
+	)
+	actual := SimpleValue{Canonical: "P12M", Identity: "duration:12-months", Type: 1}
+	if equal, valid := FixedAttributeValueEqual(actual, fixed, false); equal || !valid {
+		t.Fatalf("use-owned equality = %v, %v, want false, true", equal, valid)
+	}
+	if equal, valid := FixedAttributeValueEqual(actual, fixed, true); !equal || !valid {
+		t.Fatalf("declaration-owned equality = %v, %v, want true, true", equal, valid)
+	}
+	actual.Identity = ""
+	if equal, valid := FixedAttributeValueEqual(actual, fixed, true); equal || valid {
+		t.Fatalf("missing identity equality = %v, %v, want false, false", equal, valid)
+	}
+}
+
 func TestSimpleTypeUsesBareNotation(t *testing.T) {
 	t.Parallel()
 

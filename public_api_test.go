@@ -54,11 +54,10 @@ func TestZeroAndNilValidationReceiversReturnPublicErrors(t *testing.T) {
 	err = nilSession.Validate(strings.NewReader(`<root/>`))
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	assertPublicErrorTree(t, err)
-	nilSession.Reset()
 }
 
 func TestPublicAggregateErrorsDoNotExposeInternalDiagnostics(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>

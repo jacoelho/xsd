@@ -19,7 +19,6 @@ func newCompilerSchemaBuild(names runtime.NameTable) compilerSchemaBuild {
 		GlobalTypes:      make(map[runtime.QName]runtime.TypeID, runtime.BuiltinGlobalTypeCount()),
 		GlobalIdentities: make(map[runtime.QName]runtime.IdentityConstraintID),
 		Notations:        make(map[runtime.QName]bool),
-		Substitutions:    make(map[runtime.ElementID][]runtime.ElementID),
 		SimpleTypes:      make([]runtime.SimpleType, 0, runtime.BuiltinSimpleTypeCount()),
 		Attributes:       make([]runtime.AttributeDecl, 0, runtime.BuiltinAttributeCount()),
 		ComplexTypes:     make([]runtime.ComplexType, 0, runtime.BuiltinComplexTypeCount()),
@@ -81,16 +80,16 @@ func (rt *compilerSchemaBuild) ForEachSubstitutionMember(id runtime.ElementID, f
 	rt.build.ForEachSubstitutionMember(id, fn)
 }
 
+func (rt *compilerSchemaBuild) ForEachSubstitutionEntry(id runtime.ElementID, fn func(runtime.QName, runtime.ElementID) bool) {
+	rt.build.ForEachSubstitutionEntry(id, fn)
+}
+
 func (rt *compilerSchemaBuild) HasSubstitutionMembers(id runtime.ElementID) bool {
 	return rt.build.HasSubstitutionMembers(id)
 }
 
 func (rt *compilerSchemaBuild) SubstitutionMemberByName(id runtime.ElementID, name runtime.QName) (runtime.ElementID, bool) {
 	return rt.build.SubstitutionMemberByName(id, name)
-}
-
-func (rt *compilerSchemaBuild) SubstitutionNames(id runtime.ElementID) runtime.SubstitutionNameRead {
-	return rt.build.SubstitutionNames(id)
 }
 
 func (rt *compilerSchemaBuild) TypeLabel(t runtime.TypeID) string {
@@ -125,6 +124,10 @@ func (rt *compilerSchemaBuild) formatName(q runtime.QName) string {
 	return rt.build.Names.Format(q)
 }
 
+func (rt *compilerSchemaBuild) namespaceURI(id runtime.NamespaceID) string {
+	return rt.build.Names.Namespace(id)
+}
+
 func (rt *compilerSchemaBuild) lookupQName(ns, local string) (runtime.QName, bool) {
 	return rt.build.Names.LookupQName(ns, local)
 }
@@ -157,6 +160,32 @@ func (rt *compilerSchemaBuild) simpleTypeWhitespace(id runtime.SimpleTypeID) run
 	return rt.build.SimpleTypes[id].Whitespace
 }
 
+func (rt *compilerSchemaBuild) appendFlattenedUnionMember(
+	dst *[]runtime.SimpleTypeID,
+	id runtime.SimpleTypeID,
+	seen map[runtime.SimpleTypeID]struct{},
+	remaining int,
+) (int, bool) {
+	typ := rt.build.SimpleTypes[id]
+	members := []runtime.SimpleTypeID{id}
+	if typ.Variety == runtime.SimpleVarietyUnion {
+		members = typ.Union
+	}
+	added := 0
+	for _, member := range members {
+		if _, ok := seen[member]; ok {
+			continue
+		}
+		if added == remaining {
+			return added, false
+		}
+		seen[member] = struct{}{}
+		*dst = append(*dst, member)
+		added++
+	}
+	return added, true
+}
+
 // derivedSimpleType copies base as the starting point of a restriction step.
 // Completed-base union and facet storage is immutable and remains shared until
 // the restriction replaces a facet value or appends a persistent pattern step.
@@ -164,6 +193,7 @@ func (rt *compilerSchemaBuild) derivedSimpleType(id runtime.SimpleTypeID, name r
 	st := rt.build.SimpleTypes[id]
 	st.Name = name
 	st.Base = id
+	st.UnionSources = nil
 	st.Final = 0
 	return st
 }
@@ -202,13 +232,28 @@ func (rt *compilerSchemaBuild) elementCopy(id runtime.ElementID) runtime.Element
 	return decl
 }
 
+func (c *compiler) elementCopies() []runtime.ElementDecl {
+	return slices.Clone(c.rt.build.Elements)
+}
+
+func (rt *compilerSchemaBuild) buildSubstitutionTable(elements []runtime.ElementDecl, maxEntries int) (runtime.SubstitutionTable, error) {
+	return runtime.BuildSubstitutionTable(
+		&rt.build,
+		&rt.build.Names,
+		elements,
+		rt.build.GlobalElements,
+		maxEntries,
+	)
+}
+
 func (rt *compilerSchemaBuild) attributeUse(id runtime.AttributeID) runtime.AttributeUse {
 	decl := rt.build.Attributes[id]
 	return runtime.AttributeUse{
-		Name:    decl.Name,
-		Type:    decl.Type,
-		Default: cloneValueConstraint(decl.Default),
-		Fixed:   cloneValueConstraint(decl.Fixed),
+		Name:                 decl.Name,
+		Type:                 decl.Type,
+		Default:              cloneValueConstraint(decl.Default),
+		Fixed:                cloneValueConstraint(decl.Fixed),
+		FixedFromDeclaration: decl.Fixed != nil,
 	}
 }
 
@@ -259,7 +304,18 @@ func (c *compiler) checkContentModelsUPABuild() error {
 }
 
 func (c *compiler) checkContentModelElementDeclarationsConsistentBuild() error {
-	return CheckContentModelElementDeclarationsConsistent(&c.rt, len(c.rt.build.Models))
+	if len(c.modelSources) != len(c.rt.build.Models) {
+		return xsderrors.InternalInvariant("content model provenance count does not match model count")
+	}
+	for id, model := range c.rt.build.Models {
+		if err := CheckElementDeclarationsConsistent(&c.rt, model); err != nil {
+			if c.modelSources[id] != nil {
+				return withSchemaCompileLocation(c.modelSources[id], err)
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *compiler) restrictionChoiceLimitUpdates() ([]runtime.RestrictionChoiceLimitUpdate, error) {
@@ -288,6 +344,7 @@ func (c *compiler) registerGlobalElement(q runtime.QName, decl runtime.ElementDe
 	if err != nil {
 		return runtime.NoElement, err
 	}
+	c.rt.build.Elements[id].Scope = runtime.DeclarationScopeGlobal
 	c.rt.build.GlobalElements[q] = id
 	return id, nil
 }
@@ -307,6 +364,7 @@ func (c *compiler) registerGlobalComplexType(q runtime.QName, typ runtime.Comple
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
+	c.rt.build.ComplexTypes[id].Scope = runtime.DeclarationScopeGlobal
 	c.rt.build.GlobalTypes[q] = runtime.ComplexRef(id)
 	return id, nil
 }
@@ -316,6 +374,7 @@ func (c *compiler) registerGlobalSimpleType(q runtime.QName, typ runtime.SimpleT
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
+	c.rt.build.SimpleTypes[id].Scope = runtime.DeclarationScopeGlobal
 	c.rt.build.GlobalTypes[q] = runtime.SimpleRef(id)
 	return id, nil
 }
@@ -335,11 +394,13 @@ func (c *compiler) addElement(decl runtime.ElementDecl) (runtime.ElementID, erro
 	if err != nil {
 		return runtime.NoElement, err
 	}
+	decl.Scope = runtime.DeclarationScopeNonGlobal
 	c.rt.build.Elements = append(c.rt.build.Elements, decl)
 	return id, nil
 }
 
 func (c *compiler) completeElement(id runtime.ElementID, decl runtime.ElementDecl) {
+	decl.Scope = c.rt.build.Elements[id].Scope
 	c.rt.build.Elements[id] = decl
 }
 
@@ -348,11 +409,13 @@ func (c *compiler) addComplexType(typ runtime.ComplexType) (runtime.ComplexTypeI
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
+	typ.Scope = runtime.DeclarationScopeNonGlobal
 	c.rt.build.ComplexTypes = append(c.rt.build.ComplexTypes, typ)
 	return id, nil
 }
 
 func (c *compiler) completeComplexType(id runtime.ComplexTypeID, typ runtime.ComplexType) {
+	typ.Scope = c.rt.build.ComplexTypes[id].Scope
 	c.rt.build.ComplexTypes[id] = typ
 }
 
@@ -361,12 +424,34 @@ func (c *compiler) addSimpleType(typ runtime.SimpleType) (runtime.SimpleTypeID, 
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
+	typ.Scope = runtime.DeclarationScopeNonGlobal
 	c.rt.build.SimpleTypes = append(c.rt.build.SimpleTypes, typ)
+	c.simpleTypeUnavailable = append(c.simpleTypeUnavailable, c.simpleTypeHasMissingDependency(typ))
 	return id, nil
 }
 
 func (c *compiler) completeSimpleType(id runtime.SimpleTypeID, typ runtime.SimpleType) {
+	typ.Scope = c.rt.build.SimpleTypes[id].Scope
 	c.rt.build.SimpleTypes[id] = typ
+	c.simpleTypeUnavailable[id] = c.simpleTypeHasMissingDependency(typ)
+}
+
+func (c *compiler) simpleTypeHasMissingDependency(typ runtime.SimpleType) bool {
+	if typ.Missing {
+		return true
+	}
+	if typ.Base != runtime.NoSimpleType && runtime.ValidSimpleTypeID(typ.Base, len(c.simpleTypeUnavailable)) && c.simpleTypeUnavailable[typ.Base] {
+		return true
+	}
+	if typ.Variety == runtime.SimpleVarietyList && runtime.ValidSimpleTypeID(typ.ListItem, len(c.simpleTypeUnavailable)) && c.simpleTypeUnavailable[typ.ListItem] {
+		return true
+	}
+	for _, member := range typ.Union {
+		if runtime.ValidSimpleTypeID(member, len(c.simpleTypeUnavailable)) && c.simpleTypeUnavailable[member] {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *compiler) completeIdentity(id runtime.IdentityConstraintID, identity runtime.IdentityConstraint) {
@@ -397,7 +482,16 @@ func (c *compiler) addModel(model runtime.ContentModel) (runtime.ContentModelID,
 		return runtime.NoContentModel, err
 	}
 	c.rt.build.Models = append(c.rt.build.Models, model)
+	c.modelSources = append(c.modelSources, nil)
 	return id, nil
+}
+
+func (c *compiler) addModelAt(model runtime.ContentModel, source *rawNode) (runtime.ContentModelID, error) {
+	id, err := c.addModel(model)
+	if err == nil {
+		c.modelSources[id] = source
+	}
+	return id, err
 }
 
 func (c *compiler) completeModel(id runtime.ContentModelID, model runtime.ContentModel) {
@@ -412,9 +506,9 @@ func (c *compiler) installCompiledModels(models []runtime.CompiledModel) error {
 	return nil
 }
 
-func (c *compiler) installSubstitutions(substitutions map[runtime.ElementID][]runtime.ElementID) {
+func (c *compiler) installFinalizedElements(elements []runtime.ElementDecl, substitutions runtime.SubstitutionTable) {
+	c.rt.build.Elements = elements
 	c.rt.build.Substitutions = substitutions
-	c.rt.build.SubstitutionIndex = runtime.BuildSubstitutionIndex(&c.rt.build, c.rt.build.Elements, substitutions)
 }
 
 func (c *compiler) indexGlobalAttribute(q runtime.QName, component rawComponent, label string) error {
@@ -444,6 +538,9 @@ func (c *compiler) registerBuiltinAnyType(q runtime.QName, typ runtime.ComplexTy
 }
 
 func (c *compiler) publishSchema() (*runtime.Schema, error) {
+	if len(c.pendingElementConstraints) != 0 {
+		return nil, xsderrors.InternalInvariant("element value constraints were not finalized")
+	}
 	published, err := runtime.PublishSchema(&c.rt.build)
 	if err != nil {
 		return nil, err

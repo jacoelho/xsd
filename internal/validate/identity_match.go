@@ -25,12 +25,12 @@ func identityCompiledAttributeFieldPathsMatch[Names identityNames](
 	names Names,
 	namePath []runtime.RuntimeName,
 	selectedDepth, currentDepth int,
-	name runtime.QName,
+	name runtime.RuntimeName,
 	field runtime.CompiledIdentityFieldRead,
 ) bool {
 	for i := range field.PathCount() {
 		path, ok := field.Path(i)
-		if ok && identityFieldAttributeMatches(path, name) &&
+		if ok && identityFieldAttributeMatches(names, path, name) &&
 			identityFieldPathMatches(names, namePath, selectedDepth, currentDepth, path) {
 			return true
 		}
@@ -84,14 +84,20 @@ func identityStepMatches[Names identityNames](names Names, rn runtime.RuntimeNam
 	return rn.NS == identityNamespace(names, step.Namespace)
 }
 
-func identityFieldAttributeMatches(path runtime.IdentityFieldPathRead, name runtime.QName) bool {
+func identityFieldAttributeMatches[Names identityNames](names Names, path runtime.IdentityFieldPathRead, name runtime.RuntimeName) bool {
 	if !path.IsAttribute() {
 		return false
 	}
 	if !path.AttributeWildcard() {
-		return path.Attribute() == name
+		return name.Known && path.Attribute() == name.Name
 	}
-	return !path.AttributeNamespaceSet() || path.AttributeNamespace() == name.Namespace
+	if !path.AttributeNamespaceSet() {
+		return true
+	}
+	if name.Known {
+		return path.AttributeNamespace() == name.Name.Namespace
+	}
+	return identityNamespace(names, path.AttributeNamespace()) == name.NS
 }
 
 func identityMatchExists(matches []IdentityFieldMatch, selection, field int) bool {

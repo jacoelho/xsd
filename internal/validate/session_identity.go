@@ -71,6 +71,9 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	}
 	value, err := s.validateSimpleValue(typeID, input.text, s.simpleValueQNameResolver(typeID), s.simpleContentNeeds(typeID, constraints, declared, len(identityFields) != 0))
 	if err != nil {
+		if invalidateErr := s.invalidateIdentityFields(identityFields); invalidateErr != nil {
+			return false, invalidateErr
+		}
 		if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
 			return false, invariantErr
 		}
@@ -80,10 +83,16 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		return false, validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+err.Error())
 	}
 	if err := s.recordIdentityValue(value, line, col); err != nil {
+		if invalidateErr := s.invalidateIdentityFields(identityFields); invalidateErr != nil {
+			return false, invalidateErr
+		}
 		return false, err
 	}
 	if declared {
 		if fixed, ok := constraints.FixedValue(); ok && value.CanonicalText() != fixed.CanonicalText() {
+			if invalidateErr := s.invalidateIdentityFields(identityFields); invalidateErr != nil {
+				return false, invalidateErr
+			}
 			return false, validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
 		}
 	}
@@ -190,6 +199,9 @@ func (s *session) recordElementSimpleContent(
 	line, col int,
 ) (bool, error) {
 	if err := s.recordIdentityValue(value, line, col); err != nil {
+		if invalidateErr := s.invalidateIdentityFields(identityFields); invalidateErr != nil {
+			return false, invalidateErr
+		}
 		return false, err
 	}
 	if len(identityFields) != 0 {
@@ -207,11 +219,15 @@ func (s *session) identityElementFields() ([]IdentityFieldMatch, error) {
 	return s.doc.identity.elementFieldMatches(s.rt, s.doc.namePath)
 }
 
-func (s *session) identityAttributeFields(name runtime.QName) ([]IdentityFieldMatch, error) {
+func (s *session) identityAttributeFields(name runtime.RuntimeName) ([]IdentityFieldMatch, error) {
 	if !s.hasIdentityConstraints {
 		return nil, nil
 	}
 	return s.doc.identity.attributeFieldMatches(s.rt, s.doc.namePath, name)
+}
+
+func knownIdentityAttributeName(name runtime.QName) runtime.RuntimeName {
+	return runtime.RuntimeName{Name: name, Known: true}
 }
 
 func (s *session) recordAttributeIdentity(value runtime.SimpleValue, line, col int, seenID *bool) error {
@@ -284,7 +300,7 @@ func (s *session) matchIdentitySelectors(line, col int) error {
 	if !s.hasIdentityConstraints {
 		return nil
 	}
-	return s.doc.identity.matchSelectors(s.rt, s.doc.namePath, s.startContext(line, col))
+	return s.doc.identity.matchSelectors(s.rt, s.doc.namePath, s.maxIdentityEntries, s.startContext(line, col))
 }
 
 func (s *session) captureIdentityFieldKey(fields []IdentityFieldMatch, key string, line, col int) error {
@@ -302,7 +318,15 @@ func (s *session) captureIdentityXSIAttribute(attrName xml.Name, lexical string,
 	if !s.hasIdentityConstraints {
 		return nil
 	}
-	name, key, ok, err := XSIAttributeIdentityKey(
+	rn := ResolveRuntimeName(s.rt, attrName)
+	fields, err := s.identityAttributeFields(rn)
+	if err != nil {
+		return err
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	_, key, ok, err := XSIAttributeIdentityKey(
 		s.rt,
 		attrName,
 		lexical,
@@ -310,19 +334,20 @@ func (s *session) captureIdentityXSIAttribute(attrName xml.Name, lexical string,
 		s.startContext(line, col),
 	)
 	if err != nil {
-		return err
+		if invalidateErr := s.invalidateIdentityFields(fields); invalidateErr != nil {
+			return invalidateErr
+		}
+		// Element start assessment owns xsi:nil and xsi:type diagnostics. This
+		// second conversion exists only to derive a matched identity-field key.
+		return nil
 	}
 	if !ok {
 		return nil
 	}
-	fields, err := s.identityAttributeFields(name)
-	if err != nil {
-		return err
-	}
 	return s.captureIdentityFieldKey(fields, key, line, col)
 }
 
-func (s *session) captureIdentityComplexElement(rawText []byte, line, col int) error {
+func (s *session) rejectIdentityElementWithoutSimpleValue(line, col int) error {
 	if !s.hasIdentityConstraints {
 		return nil
 	}
@@ -330,10 +355,38 @@ func (s *session) captureIdentityComplexElement(rawText []byte, line, col int) e
 	if err != nil {
 		return err
 	}
-	return s.doc.identity.CaptureComplexElementFields(fields, rawText, s.startContext(line, col))
+	return s.doc.identity.RejectFieldsWithoutSimpleValue(fields, s.startContext(line, col))
 }
 
-func (s *session) finishIdentitySelections(depth, line, col int) error {
+func (s *session) rejectUnassessedIdentityElement(line, col int, report bool) error {
+	if !s.hasIdentityConstraints {
+		return nil
+	}
+	fields, err := s.identityElementFields()
+	if err != nil {
+		return err
+	}
+	if report {
+		return s.recover(s.doc.identity.RejectFieldsWithoutSimpleValue(fields, s.startContext(line, col)))
+	}
+	return s.doc.identity.InvalidateFields(fields)
+}
+
+func (s *session) invalidateIdentityFields(fields []IdentityFieldMatch) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return s.doc.identity.InvalidateFields(fields)
+}
+
+type identitySelectionPhase uint8
+
+const (
+	identitySelectionsOwnedHere identitySelectionPhase = iota
+	identitySelectionsOwnedElsewhere
+)
+
+func (s *session) finishIdentitySelections(depth, line, col int, phase identitySelectionPhase) error {
 	if !s.hasIdentityConstraints || len(s.doc.identity.selections) == 0 {
 		return nil
 	}
@@ -348,8 +401,29 @@ func (s *session) finishIdentitySelections(depth, line, col int) error {
 			dst = append(dst, sel)
 			continue
 		}
+		ownedHere, err := state.selectionOwnedAtDepth(sel, depth)
+		if err != nil {
+			dst = append(dst, orig[i:]...)
+			clear(orig[len(dst):])
+			state.selections = dst
+			state.truncateFieldValues()
+			return err
+		}
+		if ownedHere != (phase == identitySelectionsOwnedHere) {
+			dst = append(dst, sel)
+			continue
+		}
 		if err := state.finishSelection(s.rt, sel, limits, ctx); err != nil {
 			clear(state.selectionFields(sel))
+			if RecoverableError(err) {
+				if invalidateErr := state.invalidateSelectionScope(sel); invalidateErr != nil {
+					dst = append(dst, orig[i+1:]...)
+					clear(orig[len(dst):])
+					state.selections = dst
+					state.truncateFieldValues()
+					return invalidateErr
+				}
+			}
 			recoverErr := s.recover(err)
 			if recoverErr != nil {
 				dst = append(dst, orig[i+1:]...)
@@ -375,9 +449,9 @@ func (s *session) identityLimits() IdentityLimits {
 	}
 }
 
-func (s *session) closeIdentityScopes(depth int) error {
+func (s *session) closeIdentityScopes(depth int) (bool, error) {
 	if !s.hasIdentityConstraints {
-		return nil
+		return false, nil
 	}
 	return s.doc.identity.CloseScopes(depth, func(err error) error {
 		return s.recover(err)

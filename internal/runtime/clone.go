@@ -49,10 +49,3 @@ func CloneValueConstraintIdentity(in ValueConstraintIdentity) ValueConstraintIde
 	in.ResolvedNames = slices.Clone(in.ResolvedNames)
 	return in
 }
-
-// CloneElementDeclValidation deep-clones element-declaration validation
-// projection metadata.
-func CloneElementDeclValidation(in ElementDeclValidation) ElementDeclValidation {
-	in.Identity = slices.Clone(in.Identity)
-	return in
-}

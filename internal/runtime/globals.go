@@ -2,82 +2,23 @@ package runtime
 
 import "errors"
 
-// NewElementNameReadsForDecls projects element declaration names for frozen
-// runtime publication.
-func NewElementNameReadsForDecls(elems []ElementDecl) []QName {
-	out := make([]QName, len(elems))
-	for i := range elems {
-		out[i] = elems[i].Name
-	}
-	return out
-}
-
-// EqualElementNameReadProjectionForDecls reports whether reads expose each
-// element declaration's name.
-func EqualElementNameReadProjectionForDecls(reads []QName, elems []ElementDecl) bool {
-	if len(reads) != len(elems) {
-		return false
-	}
-	for i := range reads {
-		if reads[i] != elems[i].Name {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateElementNameReadProjectionForDecls validates element-name read
-// projections against frozen element declarations.
-func ValidateElementNameReadProjectionForDecls(reads []QName, elems []ElementDecl) error {
-	if len(reads) != len(elems) {
-		return errors.New("element name projection count does not match declarations")
-	}
-	if !EqualElementNameReadProjectionForDecls(reads, elems) {
-		return errors.New("element name projection does not match declaration")
-	}
-	return nil
-}
-
 // TypeNameByID resolves a runtime type ID against simple and complex type
 // declaration tables.
 func TypeNameByID(simpleTypes []SimpleType, complexTypes []ComplexType, typ TypeID) (QName, bool) {
-	if !ValidTypeID(typ, len(simpleTypes), len(complexTypes)) {
+	if !validTypeID(typ, len(simpleTypes), len(complexTypes)) {
 		return QName{}, false
 	}
-	if typ.Kind == TypeSimple {
-		return simpleTypes[typ.ID].Name, true
+	if id, ok := typ.Simple(); ok {
+		return simpleTypes[id].Name, true
 	}
-	return complexTypes[typ.ID].Name, true
-}
-
-// RootElementByName returns validation start data for a known runtime root
-// element name from frozen global and element-start read projections.
-func RootElementByName(reads map[QName]ElementID, infos []ElementStartInfo, name RuntimeName) (ElementID, ElementStartInfo, bool) {
-	if !name.Known {
-		return NoElement, ElementStartInfo{}, false
-	}
-	id, ok := GlobalElementByName(reads, infos, name.Name)
-	if !ok {
-		return NoElement, ElementStartInfo{}, false
-	}
-	info, ok := ElementStartInfoByID(infos, id)
-	return id, info, ok
-}
-
-// GlobalElementByName returns a global element declaration ID from a frozen
-// global element read map.
-func GlobalElementByName(reads map[QName]ElementID, infos []ElementStartInfo, name QName) (ElementID, bool) {
-	id, ok := reads[name]
-	if !ok || !ValidElementID(id, len(infos)) {
-		return NoElement, false
-	}
-	return id, true
+	id, _ := typ.Complex()
+	return complexTypes[id].Name, true
 }
 
 // GlobalTypeByName returns a global type ID from a frozen global type read map.
 func GlobalTypeByName(reads map[QName]TypeID, derivations TypeDerivationRead, name QName) (TypeID, bool) {
 	typ, ok := reads[name]
-	if !ok || !ValidTypeID(typ, derivations.SimpleTypeCount(), derivations.ComplexTypeCount()) {
+	if !ok || !validTypeID(typ, derivations.SimpleTypeCount(), derivations.ComplexTypeCount()) {
 		return TypeID{}, false
 	}
 	return typ, true

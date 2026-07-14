@@ -62,6 +62,7 @@ const (
 	CodeValidationNil          Code = "validation.nil"
 	CodeValidationIdentity     Code = "validation.identity"
 	CodeValidationOption       Code = "validation.option"
+	CodeValidationSession      Code = "validation.session"
 	CodeValidationLimit        Code = "validation.limit"
 	CodeInternalInvariant      Code = "internal.invariant"
 )
@@ -110,13 +111,24 @@ func (e *Error) Error() string {
 }
 
 func (e Errors) Error() string {
-	switch len(e) {
+	var first error
+	count := 0
+	for _, err := range e {
+		if err == nil {
+			continue
+		}
+		if first == nil {
+			first = err
+		}
+		count++
+	}
+	switch count {
 	case 0:
 		return nilErrorString
 	case 1:
-		return e[0].Error()
+		return first.Error()
 	default:
-		return fmt.Sprintf("%d validation errors: %s", len(e), e[0])
+		return fmt.Sprintf("%d validation errors: %s", count, first)
 	}
 }
 
@@ -128,6 +140,19 @@ func (e *Error) Unwrap() error {
 }
 
 func (e Errors) Unwrap() []error {
+	for i, err := range e {
+		if err != nil {
+			continue
+		}
+		children := make([]error, 0, len(e)-1)
+		children = append(children, e[:i]...)
+		for _, child := range e[i+1:] {
+			if child != nil {
+				children = append(children, child)
+			}
+		}
+		return children
+	}
 	return []error(e)
 }
 
@@ -166,24 +191,45 @@ func SchemaCompile(code Code, msg string) error {
 	return &Error{Category: CategorySchemaCompile, Code: code, Message: msg}
 }
 
-// SchemaCompileAt returns a schema compilation diagnostic with source position.
-func SchemaCompileAt(line, col int, code Code, msg string) error {
-	return &Error{Category: CategorySchemaCompile, Code: code, Line: line, Column: col, Message: msg}
+// SchemaCompileAt returns a schema compilation diagnostic with source location.
+func SchemaCompileAt(path string, line, col int, code Code, msg string) error {
+	return &Error{Category: CategorySchemaCompile, Code: code, Path: path, Line: line, Column: col, Message: msg}
 }
 
-// WithSchemaCompileLocation attaches a source position to a compile diagnostic when it has none.
-func WithSchemaCompileLocation(line, col int, err error) error {
-	if line <= 0 || err == nil {
-		return err
+// WithSchemaCompileLocation attaches a source location to a compile diagnostic
+// when it has none.
+func WithSchemaCompileLocation(path string, line, col int, err error) error {
+	if err == nil {
+		return nil
 	}
-	x, ok := errors.AsType[*Error](err)
-	if !ok || x.Category != CategorySchemaCompile || x.Line > 0 {
+	x, ok := directDiagnostic(err)
+	if !ok || x.Category != CategorySchemaCompile || x.Line > 0 || x.Path != "" {
 		return err
 	}
 	y := *x
-	y.Line = line
-	y.Column = col
+	y.Path, y.Line, y.Column = path, line, col
 	return &y
+}
+
+// WithPath attaches path to a structured diagnostic when it has none.
+func WithPath(path string, err error) error {
+	if path == "" || err == nil {
+		return err
+	}
+	x, ok := directDiagnostic(err)
+	if !ok || x.Path != "" {
+		return err
+	}
+	y := *x
+	y.Path = path
+	return &y
+}
+
+func directDiagnostic(err error) (*Error, bool) {
+	// Decoration is intentionally restricted to a top-level diagnostic. Traversing
+	// wrappers or aggregates would discard their error-tree structure when cloning.
+	x, ok := err.(*Error) //nolint:errorlint // Exact top-level matching is required here.
+	return x, ok && x != nil
 }
 
 // Unsupported returns an unsupported-feature diagnostic.

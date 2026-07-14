@@ -16,8 +16,23 @@ type DeclRefLimits struct {
 	SimpleTypeCount  int
 	ComplexTypeCount int
 	ElementCount     int
-	IdentityCount    int
 }
+
+// DeclarationScope records whether a compiler-owned declaration must have an
+// exact global registry binding. Publication erases this construction
+// provenance from validation-facing read projections.
+type DeclarationScope uint8
+
+const (
+	// DeclarationScopeInvalid is the unset construction-provenance state.
+	DeclarationScopeInvalid DeclarationScope = iota
+	// DeclarationScopeNonGlobal identifies local, anonymous, sentinel, or
+	// compiler-synthetic declarations without a global registry binding.
+	DeclarationScopeNonGlobal
+	// DeclarationScopeGlobal identifies declarations requiring an exact global
+	// registry binding.
+	DeclarationScopeGlobal
+)
 
 // ElementDecl is the runtime record for one element declaration.
 type ElementDecl struct {
@@ -31,6 +46,7 @@ type ElementDecl struct {
 	Abstract  bool
 	Block     DerivationMask
 	Final     DerivationMask
+	Scope     DeclarationScope
 }
 
 // ElementDeclByID resolves an element declaration ID against an element table.
@@ -62,7 +78,6 @@ type AttributeDecl struct {
 // ElementDeclValidation is the runtime projection needed to validate element
 // declaration shape and references.
 type ElementDeclValidation struct {
-	Identity   []IdentityConstraintID
 	Name       QName
 	Type       TypeID
 	SubstHead  ElementID
@@ -84,8 +99,7 @@ type AttributeDeclValidation struct {
 // NewElementDeclValidationForDecl projects a runtime element declaration into
 // the shape needed for declaration invariant validation.
 func NewElementDeclValidationForDecl(decl ElementDecl) ElementDeclValidation {
-	return CloneElementDeclValidation(ElementDeclValidation{
-		Identity:   decl.Identity,
+	return ElementDeclValidation{
 		Name:       decl.Name,
 		Type:       decl.Type,
 		SubstHead:  decl.SubstHead,
@@ -93,7 +107,7 @@ func NewElementDeclValidationForDecl(decl ElementDecl) ElementDeclValidation {
 		Final:      decl.Final,
 		HasDefault: decl.Default != nil,
 		HasFixed:   decl.Fixed != nil,
-	})
+	}
 }
 
 // NewAttributeDeclValidationForDecl projects a runtime attribute declaration
@@ -110,7 +124,7 @@ func NewAttributeDeclValidationForDecl(decl AttributeDecl) AttributeDeclValidati
 // ValidateElementDeclRuntime validates element declaration metadata that can be
 // expressed in runtime vocabulary.
 func ValidateElementDeclRuntime(names *NameTable, decl ElementDeclValidation, limits DeclRefLimits) error {
-	if names == nil || !names.ValidQName(decl.Name) || !validRuntimeTypeID(decl.Type, limits) {
+	if names == nil || !names.ValidQName(decl.Name) || !validTypeID(decl.Type, limits.SimpleTypeCount, limits.ComplexTypeCount) {
 		return errors.New("element declaration references invalid name or type")
 	}
 	if !ValidElementBlockMask(decl.Block) {
@@ -119,16 +133,11 @@ func ValidateElementDeclRuntime(names *NameTable, decl ElementDeclValidation, li
 	if !ValidElementFinalMask(decl.Final) {
 		return errors.New("element declaration final mask contains invalid derivation")
 	}
-	if decl.SubstHead != NoElement && !ValidUint32Index(uint32(decl.SubstHead), limits.ElementCount) {
+	if decl.SubstHead != NoElement && !ValidElementID(decl.SubstHead, limits.ElementCount) {
 		return errors.New("element declaration references invalid substitution head")
 	}
 	if decl.HasDefault && decl.HasFixed {
 		return errors.New("element declaration stores both default and fixed value constraints")
-	}
-	for _, id := range decl.Identity {
-		if !ValidUint32Index(uint32(id), limits.IdentityCount) {
-			return errors.New("element declaration references invalid identity constraint")
-		}
 	}
 	return nil
 }
@@ -136,7 +145,7 @@ func ValidateElementDeclRuntime(names *NameTable, decl ElementDeclValidation, li
 // ValidateAttributeDeclRuntime validates attribute declaration metadata that can
 // be expressed in runtime vocabulary.
 func ValidateAttributeDeclRuntime(names *NameTable, decl AttributeDeclValidation, limits DeclRefLimits) error {
-	if names == nil || !names.ValidQName(decl.Name) || !ValidUint32Index(uint32(decl.Type), limits.SimpleTypeCount) {
+	if names == nil || !names.ValidQName(decl.Name) || !ValidSimpleTypeID(decl.Type, limits.SimpleTypeCount) {
 		return errors.New("attribute declaration references invalid name or type")
 	}
 	if err := ValidateAttributeDeclName(names, decl.Name); err != nil {
@@ -201,15 +210,4 @@ func validateDeclValueConstraintIdentity(rt SimpleTypeIdentityRuntime, typ Simpl
 		return errors.New(msg)
 	}
 	return nil
-}
-
-func validRuntimeTypeID(typ TypeID, limits DeclRefLimits) bool {
-	switch typ.Kind {
-	case TypeSimple:
-		return ValidUint32Index(typ.ID, limits.SimpleTypeCount)
-	case TypeComplex:
-		return ValidUint32Index(typ.ID, limits.ComplexTypeCount)
-	default:
-		return false
-	}
 }

@@ -7,6 +7,20 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
+func TestBuiltinSimpleSeedAtReturnsIndependentValue(t *testing.T) {
+	first, ok := BuiltinSimpleSeedAt(0)
+	if !ok {
+		t.Fatal("BuiltinSimpleSeedAt(0) did not return a seed")
+	}
+	wantLocal := first.Local
+	first.Local = "poison"
+
+	second, ok := BuiltinSimpleSeedAt(0)
+	if !ok || second.Local != wantLocal {
+		t.Fatalf("BuiltinSimpleSeedAt(0).Local = %q, want %q", second.Local, wantLocal)
+	}
+}
+
 func TestValidateBuiltinDeclarationCounts(t *testing.T) {
 	t.Parallel()
 

@@ -82,7 +82,7 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 	t.Parallel()
 
 	def := runtime.DerivationBlockDefaultMask
-	got, err := ParseDerivationAttrWithDefault("", false, def, ComplexTypeBlockDerivation)
+	got, err := ParseDerivationAttrWithDefault("", false, def, complexTypeBlockDerivation())
 	if err != nil {
 		t.Fatalf("ParseDerivationAttrWithDefault(absent) error = %v", err)
 	}
@@ -91,7 +91,7 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 		t.Fatalf("ParseDerivationAttrWithDefault(absent) = %08b, want %08b", got, want)
 	}
 
-	got, err = ParseDerivationAttrWithDefault("extension", true, def, ComplexTypeBlockDerivation)
+	got, err = ParseDerivationAttrWithDefault("extension", true, def, complexTypeBlockDerivation())
 	if err != nil {
 		t.Fatalf("ParseDerivationAttrWithDefault(present) error = %v", err)
 	}
@@ -99,6 +99,18 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 		t.Fatalf("ParseDerivationAttrWithDefault(present) = %08b, want extension", got)
 	}
 
-	_, err = ParseDerivationAttrWithDefault("list", true, def, ComplexTypeBlockDerivation)
+	_, err = ParseDerivationAttrWithDefault("list", true, def, complexTypeBlockDerivation())
 	expectInvalidAttributeMessage(t, err, "complexType block cannot contain list")
+}
+
+func TestDerivationRulesReturnIndependentValues(t *testing.T) {
+	first := complexTypeBlockDerivation()
+	want := first
+	first.Name = "poison"
+	first.Label = "poison"
+	first.Allowed = 0
+
+	if got := complexTypeBlockDerivation(); got != want {
+		t.Fatalf("complexTypeBlockDerivation() = %#v, want %#v", got, want)
+	}
 }

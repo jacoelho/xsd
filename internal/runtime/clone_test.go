@@ -64,11 +64,4 @@ func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
 	if clonedValueConstraintIdentity.ResolvedNames[0].Lexical != "p:item" {
 		t.Fatalf("CloneValueConstraintIdentity aliased resolved-name slice: %#v", clonedValueConstraintIdentity.ResolvedNames)
 	}
-
-	elementDecl := ElementDeclValidation{Identity: []IdentityConstraintID{1}, Name: QName{Local: 1}}
-	clonedElementDecl := CloneElementDeclValidation(elementDecl)
-	elementDecl.Identity[0] = 9
-	if clonedElementDecl.Identity[0] != 1 {
-		t.Fatalf("CloneElementDeclValidation aliased identity slice: %#v", clonedElementDecl.Identity)
-	}
 }

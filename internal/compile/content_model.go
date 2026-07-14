@@ -77,7 +77,6 @@ type dfaBuilder struct {
 // ContentModelCompileRuntime supplies compiler-only substitution facts in addition to runtime model metadata.
 type ContentModelCompileRuntime interface {
 	runtime.CompiledModelRuntime
-	runtime.ParticleRestrictionRuntime
 	HasSubstitutionMembers(id runtime.ElementID) bool
 }
 

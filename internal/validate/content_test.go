@@ -40,10 +40,7 @@ func TestValidateDocumentCharacterData(t *testing.T) {
 func TestChildPolicies(t *testing.T) {
 	t.Parallel()
 
-	if got := childFramePolicy(true, true); !got.skip || got.issue.valid() {
-		t.Fatalf("childFramePolicy(skip) = %+v", got)
-	}
-	if got := childFramePolicy(false, true); got.skip || got.issue.code != xsderrors.CodeValidationNil {
+	if got := childFramePolicy(true); got.issue.code != xsderrors.CodeValidationNil {
 		t.Fatalf("childFramePolicy(nilled) = %+v", got)
 	}
 

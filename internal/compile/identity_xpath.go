@@ -68,7 +68,7 @@ func parseIdentityFieldPathBranch(part string, resolver IdentityNameResolver) (r
 		return runtime.IdentityFieldPath{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
 	}
 	if part == "." && !desc {
-		return runtime.IdentityFieldPath{Self: true, Attribute: runtime.NoQName}, nil
+		return runtime.IdentityFieldPath{Self: true, Attribute: runtime.NoQName()}, nil
 	}
 	part, attrName, attr, err := parseIdentityFieldAttribute(part, resolver)
 	if err != nil {
@@ -109,7 +109,7 @@ func parseIdentityFieldAttribute(part string, resolver IdentityNameResolver) (st
 		return "", identityNameTest{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+part)
 	}
 	if !ok {
-		return part, identityNameTest{name: runtime.NoQName}, false, nil
+		return part, identityNameTest{name: runtime.NoQName()}, false, nil
 	}
 	attrName, err := parseIdentityNameTestParts(name, resolver)
 	return elementPath, attrName, true, err
@@ -156,7 +156,7 @@ type identityNameTest struct {
 func parseIdentityNameTestParts(lexical string, resolver IdentityNameResolver) (identityNameTest, error) {
 	lexical = lex.TrimXMLWhitespaceString(lexical)
 	if lexical == "*" {
-		return identityNameTest{name: runtime.NoQName, wildcard: true}, nil
+		return identityNameTest{name: runtime.NoQName(), wildcard: true}, nil
 	}
 	prefix, wildcard, err := parseIdentityQNamePrefixWildcard(lexical)
 	if err != nil {
@@ -170,7 +170,7 @@ func parseIdentityNameTestParts(lexical string, resolver IdentityNameResolver) (
 		if nsErr != nil {
 			return identityNameTest{}, nsErr
 		}
-		return identityNameTest{name: runtime.NoQName, wildcard: true, namespaceSet: true, namespace: nsID}, nil
+		return identityNameTest{name: runtime.NoQName(), wildcard: true, namespaceSet: true, namespace: nsID}, nil
 	}
 	q, err := parseIdentityQName(lexical, resolver)
 	if err != nil {
@@ -198,7 +198,7 @@ func parseIdentitySteps(path string, resolver IdentityNameResolver) ([]runtime.I
 				return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step "+part)
 			}
 			part = name
-			if name == "" {
+			if name == "" || name == "." {
 				return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step child::")
 			}
 		}

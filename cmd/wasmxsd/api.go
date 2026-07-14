@@ -74,12 +74,14 @@ func validateXMLData(xmlText, xsdText string) validateResponse {
 	if int64(len(xsdText)) > maxXSDBytes {
 		return validateResponse{Error: fmt.Sprintf("XSD exceeds %s limit", byteLimit(maxXSDBytes))}
 	}
-	engine, compileErr := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(xsdText)))
+	engine, compileErr := xsd.Compile(xsd.Bytes("schema.xsd", []byte(xsdText)))
 	if compileErr != nil {
+		schemaErrors := collectErrors(compileErr, "xsd")
 		if xmlErr := validate.CheckXMLWellFormed(strings.NewReader(xmlText), validate.Options{}); xmlErr != nil {
-			return validateResponse{Errors: collectErrors(xmlErr, "xml")}
+			xmlErrors := collectErrors(xmlErr, "xml")
+			return validateResponse{Errors: append(xmlErrors, schemaErrors...)}
 		}
-		return validateResponse{Errors: collectErrors(compileErr, "xsd")}
+		return validateResponse{Errors: schemaErrors}
 	}
 	err := engine.ValidateWithOptions(strings.NewReader(xmlText), xsd.ValidateOptions{MaxErrors: maxValidationErrors})
 	if err != nil {

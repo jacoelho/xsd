@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -44,6 +45,7 @@ func ValidateFacetSource(source FacetSource) (bool, error) {
 // ParseWhitespaceFacetValue parses and validates an xs:whiteSpace facet value
 // against the base simple type's whitespace mode.
 func ParseWhitespaceFacetValue(value string, base runtime.WhitespaceMode) (runtime.WhitespaceMode, error) {
+	value = lex.CollapseXMLWhitespace(value)
 	var mode runtime.WhitespaceMode
 	switch value {
 	case vocab.XSDWhitespacePreserve:

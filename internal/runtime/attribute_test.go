@@ -31,14 +31,15 @@ func TestAttributeUseRead(t *testing.T) {
 	fixed := NewValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 7})
 	def := NewValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 7})
 	use := newTestAttributeUseRead(AttributeUseReadShape{
-		Name:       name,
-		Type:       7,
-		Label:      "a",
-		Fixed:      fixed,
-		Default:    def,
-		Required:   true,
-		HasFixed:   true,
-		HasDefault: true,
+		Name:                 name,
+		Type:                 7,
+		Label:                "a",
+		Fixed:                fixed,
+		Default:              def,
+		Required:             true,
+		HasFixed:             true,
+		HasDefault:           true,
+		FixedFromDeclaration: true,
 	})
 	if use.Name() != name {
 		t.Fatalf("Name() = %v, want %v", use.Name(), name)
@@ -51,6 +52,9 @@ func TestAttributeUseRead(t *testing.T) {
 	}
 	if !use.Required() {
 		t.Fatal("Required() = false, want true")
+	}
+	if !use.FixedUsesValueSpace() {
+		t.Fatal("FixedUsesValueSpace() = false, want true")
 	}
 	if !use.CanValidateFixedStringFast() {
 		t.Fatal("CanValidateFixedStringFast() = false, want true")
@@ -76,6 +80,41 @@ func TestAttributeUseRead(t *testing.T) {
 	}
 	if got, ok := zero.AbsentValueConstraint(); ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("zero AbsentValueConstraint() = %+v, %v; want zero, false", got, ok)
+	}
+}
+
+func TestAttributeUseReadProjectionPreservesFixedProvenance(t *testing.T) {
+	t.Parallel()
+
+	names, err := NewNameTable(8, []string{EmptyNamespaceURI}, []ExpandedName{{Local: "v"}})
+	if err != nil {
+		t.Fatalf("NewNameTable() error = %v", err)
+	}
+	name, ok := names.LookupQName("", "v")
+	if !ok {
+		t.Fatal("LookupQName(v) failed")
+	}
+	fixed := &ValueConstraint{Canonical: "P1Y", Value: SimpleValue{Canonical: "P1Y", Identity: "duration-key", Type: 7}}
+	sets := []AttributeUseSet{{
+		Index: map[QName]uint32{name: 0},
+		Uses: []AttributeUse{{
+			Name:                 name,
+			Type:                 7,
+			Fixed:                fixed,
+			FixedFromDeclaration: true,
+		}},
+		ValueConstraints: []uint32{0},
+		Wildcard:         NoWildcard,
+		WildcardBase:     NoWildcard,
+		WildcardDeclared: NoWildcard,
+	}}
+	reads := newAttributeUseSetReads(&names, sets, testAttributeSimpleTypes())
+	if !reads[0].uses[0].FixedUsesValueSpace() {
+		t.Fatal("published attribute use lost fixed declaration provenance")
+	}
+	reads[0].uses[0].fixedFromDeclaration = false
+	if EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads, &names, sets, testAttributeSimpleTypes()) {
+		t.Fatal("attribute use projection audit accepted mismatched fixed declaration provenance")
 	}
 }
 
@@ -265,7 +304,7 @@ func TestAttributeUseSetReadProjectionHelpers(t *testing.T) {
 		},
 		{Uses: []AttributeUse{{Name: secondName, Type: 7}}, Wildcard: 8},
 	}
-	reads := moveAttributeUseSetReads(&names, sets, testAttributeSimpleTypes())
+	reads := newAttributeUseSetReads(&names, sets, testAttributeSimpleTypes())
 	if err := ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads, &names, sets, testAttributeSimpleTypes()); err != nil {
 		t.Fatal(err)
 	}
@@ -402,7 +441,7 @@ func TestAttributeUseSetReadRejectsInvalidDeclaredUseLookup(t *testing.T) {
 	}
 	if _, _, ok := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
 		Index: map[QName]uint32{name: 0},
-		Uses:  []AttributeUseReadShape{{Name: NoQName}},
+		Uses:  []AttributeUseReadShape{{Name: NoQName()}},
 	}).DeclaredUse(name); ok {
 		t.Fatal("DeclaredUse() succeeded with stale index name")
 	}
@@ -421,8 +460,8 @@ func TestAttributeUseSetReadReturnsUsesByValue(t *testing.T) {
 	if !ok {
 		t.Fatal("DeclaredUse() failed")
 	}
-	declared.name = NoQName
-	if declared.Name() != NoQName {
+	declared.name = NoQName()
+	if declared.Name() != NoQName() {
 		t.Fatalf("mutated declared use name = %v; want no name", declared.Name())
 	}
 
@@ -430,8 +469,8 @@ func TestAttributeUseSetReadReturnsUsesByValue(t *testing.T) {
 	if !ok || stored.Name() != name {
 		t.Fatalf("UseAt(0) = %v, %v; want %v, true", stored.Name(), ok, name)
 	}
-	stored.name = NoQName
-	if stored.Name() != NoQName {
+	stored.name = NoQName()
+	if stored.Name() != NoQName() {
 		t.Fatalf("mutated stored use name = %v; want no name", stored.Name())
 	}
 
@@ -627,6 +666,13 @@ func TestValidateAttributeUseSetRecord(t *testing.T) {
 				set.Uses[0].Fixed = &ValueConstraint{}
 			},
 			wantErr: "attribute use stores both default and fixed value constraints",
+		},
+		{
+			name: "declaration provenance without fixed value",
+			mutate: func(set *AttributeUseSet) {
+				set.Uses[0].FixedFromDeclaration = true
+			},
+			wantErr: "attribute use marks absent fixed value as declaration-owned",
 		},
 		{
 			name: "ID value constraint",
@@ -1062,6 +1108,14 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 			name: "fixed canonical mismatch",
 			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
 				uses[1].Fixed.Canonical = "other"
+				return uses
+			},
+			wantErr: "complex extension does not preserve base attribute use",
+		},
+		{
+			name: "fixed provenance mismatch",
+			mutate: func(uses []AttributeUseExtensionValidation) []AttributeUseExtensionValidation {
+				uses[1].FixedFromDeclaration = true
 				return uses
 			},
 			wantErr: "complex extension does not preserve base attribute use",

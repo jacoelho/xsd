@@ -49,7 +49,7 @@ func TestValidateXMLDataValidAndInvalid(t *testing.T) {
 	}
 }
 
-func TestValidateXMLDataReportsMalformedXMLBeforeSchemaErrors(t *testing.T) {
+func TestValidateXMLDataReportsMalformedXMLBeforeSchemaErrorsWithoutDiscardingEither(t *testing.T) {
 	resp := validateXMLData(`<root><v>1</root>`, `<!DOCTYPE xs:schema><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	if resp.Valid {
 		t.Fatal("validateXMLData() accepted malformed XML")
@@ -57,14 +57,17 @@ func TestValidateXMLDataReportsMalformedXMLBeforeSchemaErrors(t *testing.T) {
 	if resp.Error != "" {
 		t.Fatalf("error = %q, want XML error list", resp.Error)
 	}
-	if len(resp.Errors) != 1 {
-		t.Fatalf("len(errors) = %d, want 1: %+v", len(resp.Errors), resp)
+	if len(resp.Errors) != 2 {
+		t.Fatalf("len(errors) = %d, want 2: %+v", len(resp.Errors), resp)
 	}
 	if resp.Errors[0].Source != "xml" {
 		t.Fatalf("error source = %q, want xml", resp.Errors[0].Source)
 	}
 	if resp.Errors[0].Code != "validation.xml" {
 		t.Fatalf("error code = %q, want validation.xml", resp.Errors[0].Code)
+	}
+	if resp.Errors[1].Source != "xsd" || resp.Errors[1].Code != "unsupported.dtd" {
+		t.Fatalf("second error = %+v, want xsd unsupported.dtd", resp.Errors[1])
 	}
 }
 

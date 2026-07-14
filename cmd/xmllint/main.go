@@ -1,4 +1,4 @@
-// Package main implements an xmllint-compatible validation CLI.
+// Package main implements an xmllint-style validation CLI.
 package main
 
 import (
@@ -65,8 +65,6 @@ func parseArgs(args []string) (config, error) {
 	var cfg config
 	fs := flag.NewFlagSet("xmllint", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	fs.Bool("noout", false, "suppress document output")
-	fs.Bool("huge", false, "accepted for xmllint compatibility")
 	fs.IntVar(&cfg.maxErrors, "max-errors", 0, "maximum validation errors to collect")
 	fs.StringVar(&cfg.schema, "schema", "", "schema path")
 	if err := fs.Parse(args); err != nil {

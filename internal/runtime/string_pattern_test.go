@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -184,5 +185,93 @@ func TestSimplePatternVariableFastPath(t *testing.T) {
 				t.Fatalf("MatchBytes(%q against %q) = %v, want %v", value, test.source, got, want)
 			}
 		}
+	}
+}
+
+func TestStringPatternScratchMatchesDirectMatcher(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		source string
+		value  string
+	}{
+		{source: `[a-z]{0,}[a-z]{0,}x`, value: strings.Repeat("a", 4096)},
+		{source: `é{2048,4096}x`, value: strings.Repeat("é", 4096) + "x"},
+		{source: `a{1001,1002}`, value: strings.Repeat("a", 1002)},
+		{source: `[ab]{0,4096}ab`, value: strings.Repeat("a", 4095) + "ab"},
+	}
+	for _, test := range tests {
+		pattern := CompileSimpleStringPattern(test.source)
+		if pattern == nil {
+			t.Fatalf("CompileSimpleStringPattern(%q) = nil", test.source)
+		}
+		read := stringPatternRead{fast: pattern}
+		var scratch StringPatternScratch
+		stringInput := simplePatternInput{text: test.value}
+		if got, want := read.matchStringWithScratch(test.value, &stringInput, &scratch), pattern.MatchString(test.value); got != want {
+			t.Fatalf("scratch string match %q = %v, want %v", test.source, got, want)
+		}
+		raw := []byte(test.value)
+		byteInput := simplePatternInput{bytes: raw}
+		if got, want := read.matchBytesWithScratch(raw, &byteInput, &scratch), pattern.MatchBytes(raw); got != want {
+			t.Fatalf("scratch byte match %q = %v, want %v", test.source, got, want)
+		}
+	}
+}
+
+func TestStringPatternScratchClearsStateBetweenInputs(t *testing.T) {
+	t.Parallel()
+
+	pattern := CompileSimpleStringPattern(`a{0,}x`)
+	read := stringPatternRead{fast: pattern}
+	var scratch StringPatternScratch
+	for _, test := range []struct {
+		value string
+		want  bool
+	}{
+		{value: strings.Repeat("a", 1024) + "x", want: true},
+		{value: strings.Repeat("b", 1024), want: false},
+		{value: strings.Repeat("a", 1024), want: false},
+		{value: strings.Repeat("a", 512) + "x", want: true},
+		{value: strings.Repeat("b", 512), want: false},
+	} {
+		input := simplePatternInput{text: test.value}
+		if got := read.matchStringWithScratch(test.value, &input, &scratch); got != test.want {
+			t.Fatalf("scratch match after reuse for length %d = %v, want %v", len(test.value), got, test.want)
+		}
+	}
+}
+
+func TestStringPatternScratchResetRetention(t *testing.T) {
+	t.Parallel()
+
+	scratch := StringPatternScratch{
+		runes:  make([]rune, 1, 128),
+		states: make([]bool, 1, 258),
+	}
+	scratch.Reset(128)
+	if len(scratch.runes) != 0 || cap(scratch.runes) != 128 || len(scratch.states) != 0 || cap(scratch.states) != 258 {
+		t.Fatalf("bounded scratch reset = runes %d/%d, states %d/%d", len(scratch.runes), cap(scratch.runes), len(scratch.states), cap(scratch.states))
+	}
+	scratch.runes = make([]rune, 1, 129)
+	scratch.states = make([]bool, 1, 259)
+	scratch.Reset(128)
+	if scratch.runes != nil || scratch.states != nil {
+		t.Fatalf("oversized scratch retained runes %d, states %d", cap(scratch.runes), cap(scratch.states))
+	}
+}
+
+func TestStringPatternScratchSmallMatchDoesNotAllocate(t *testing.T) {
+	pattern := stringPatternRead{fast: CompileSimpleStringPattern(`[a-z]{0,}x`)}
+	value := strings.Repeat("a", 24) + "x"
+	var scratch StringPatternScratch
+	allocs := testing.AllocsPerRun(100, func() {
+		input := simplePatternInput{text: value}
+		if !pattern.matchStringWithScratch(value, &input, &scratch) {
+			t.Fatal("small scratch match failed")
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("small scratch match allocations = %v, want 0", allocs)
 	}
 }

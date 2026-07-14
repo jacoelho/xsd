@@ -43,7 +43,6 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 		SimpleTypeCount:  1,
 		ComplexTypeCount: 1,
 		ElementCount:     1,
-		IdentityCount:    1,
 	}
 	tests := []struct {
 		name    string
@@ -109,15 +108,6 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 				HasFixed:   true,
 			},
 			wantErr: "element declaration stores both default and fixed value constraints",
-		},
-		{
-			name: "invalid identity",
-			decl: ElementDeclValidation{
-				Identity: []IdentityConstraintID{1},
-				Name:     validName,
-				Type:     SimpleRef(0),
-			},
-			wantErr: "element declaration references invalid identity constraint",
 		},
 	}
 	for _, tt := range tests {

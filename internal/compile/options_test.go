@@ -23,6 +23,8 @@ func TestNormalizeOptionsRejectsNegativeLimits(t *testing.T) {
 		{name: "instantiated nodes", opts: Options{MaxSchemaInstantiatedNodes: -1}},
 		{name: "names", opts: Options{MaxSchemaNames: -1}},
 		{name: "content model states", opts: Options{MaxContentModelStates: -1}},
+		{name: "substitution closure entries", opts: Options{MaxSubstitutionClosureEntries: -1}},
+		{name: "simple union member entries", opts: Options{MaxSimpleUnionMemberEntries: -1}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -75,6 +77,12 @@ func TestNormalizeOptionsAppliesDefaultsAndCopiesLimits(t *testing.T) {
 	}
 	if limits.MaxContentModelStates != defaultMaxContentModelStates {
 		t.Fatalf("MaxContentModelStates = %d, want %d", limits.MaxContentModelStates, defaultMaxContentModelStates)
+	}
+	if limits.MaxSubstitutionClosureEntries != defaultMaxSubstitutionClosureEntries {
+		t.Fatalf("MaxSubstitutionClosureEntries = %d, want %d", limits.MaxSubstitutionClosureEntries, defaultMaxSubstitutionClosureEntries)
+	}
+	if limits.MaxSimpleUnionMemberEntries != defaultMaxSimpleUnionMemberEntries {
+		t.Fatalf("MaxSimpleUnionMemberEntries = %d, want %d", limits.MaxSimpleUnionMemberEntries, defaultMaxSimpleUnionMemberEntries)
 	}
 	if limits.MaxSchemaNames != 7 {
 		t.Fatalf("MaxSchemaNames = %d, want 7", limits.MaxSchemaNames)

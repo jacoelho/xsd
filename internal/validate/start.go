@@ -126,7 +126,7 @@ func validateElementEffectiveState(
 	if !infoKnown {
 		return typ, nilled, xsderrors.InternalInvariant("start type metadata is invalid")
 	}
-	if typ.Kind == runtime.TypeComplex && info.Abstract {
+	if typ.IsComplex() && info.Abstract {
 		return typ, nilled, validation(ctx, xsderrors.CodeValidationType, "complex type is abstract")
 	}
 	if nilSpecified && declared && !decl.Nillable {
@@ -148,24 +148,20 @@ func validateXSITypeOverride(
 	declared, override runtime.TypeID,
 	elementBlock runtime.DerivationMask,
 	declaredElement bool,
+	scratch *runtime.TypeDerivationScratch,
 	ctx StartContext,
 ) error {
-	derivation, derived := rt.TypeDerivation(override, declared)
+	derivation, derived := rt.TypeDerivationWithScratch(override, declared, scratch)
 	if !derived {
 		return validation(ctx, xsderrors.CodeValidationType, "xsi:type is not derived from declared type")
 	}
 	if !declaredElement || override == declared {
 		return nil
 	}
-	info, validType := rt.TypeInfo(declared)
-	if !validType {
-		return xsderrors.InternalInvariant("declared type metadata is invalid")
-	}
-	block := elementBlock | info.Block
-	if block&runtime.DerivationExtension != 0 && derivation&runtime.DerivationExtension != 0 {
+	if elementBlock&runtime.DerivationExtension != 0 && derivation&runtime.DerivationExtension != 0 {
 		return validation(ctx, xsderrors.CodeValidationType, "xsi:type extension is blocked")
 	}
-	if block&runtime.DerivationRestriction != 0 && derivation&runtime.DerivationRestriction != 0 {
+	if elementBlock&runtime.DerivationRestriction != 0 && derivation&runtime.DerivationRestriction != 0 {
 		return validation(ctx, xsderrors.CodeValidationType, "xsi:type restriction is blocked")
 	}
 	return nil
@@ -194,7 +190,7 @@ func resolveXSIType(
 			Name:  q,
 			Known: knownName,
 			NS:    ns,
-			Local: value,
+			Local: local,
 		})
 	}
 	return runtime.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)

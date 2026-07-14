@@ -72,6 +72,28 @@ func TestDurationValueEquality(t *testing.T) {
 	}
 }
 
+func TestDurationIdentityCanonicalMatchesValueEquality(t *testing.T) {
+	t.Parallel()
+
+	equal := [][2]string{
+		{"P1Y", "P12M"},
+		{"PT1S", "PT1.0S"},
+		{"-PT0.0S", "PT0S"},
+	}
+	for _, pair := range equal {
+		a := mustParseDurationValue(t, pair[0])
+		b := mustParseDurationValue(t, pair[1])
+		if got, want := durationIdentityCanonical(a), durationIdentityCanonical(b); got != want {
+			t.Fatalf("durationIdentityCanonical(%q) = %q, want %q for equal %q", pair[0], got, want, pair[1])
+		}
+	}
+	a := durationIdentityCanonical(mustParseDurationValue(t, "P1Y"))
+	b := durationIdentityCanonical(mustParseDurationValue(t, "P365D"))
+	if a == b {
+		t.Fatalf("durationIdentityCanonical(P1Y) = durationIdentityCanonical(P365D) = %q", a)
+	}
+}
+
 func TestCompareDurationValuesMatchesXSDExamples(t *testing.T) {
 	t.Parallel()
 

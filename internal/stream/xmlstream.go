@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"unicode/utf8"
 
@@ -91,12 +92,15 @@ type Parser struct {
 }
 
 // Reset prepares p to read r using the supplied string caches.
-func (p *Parser) Reset(r io.Reader, names, values *Cache) {
-	p.ResetWithLimit(r, names, values, 0)
+func (p *Parser) Reset(r io.Reader, names, values *Cache) error {
+	return p.ResetWithLimit(r, names, values, 0)
 }
 
 // ResetWithLimit prepares p to read r and enforces maxTokenBytes when positive.
-func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes int64) {
+func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes int64) error {
+	if isNilReader(r) {
+		r = nil
+	}
 	p.names = names
 	p.values = values
 	p.pendingEnd = EndElement{}
@@ -118,6 +122,35 @@ func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes
 	p.emitComments = false
 	p.emitPI = false
 	p.lazyAttrValue = false
+	if err := p.prepareXMLProlog(); err != nil {
+		p.Detach()
+		return err
+	}
+	return nil
+}
+
+func isNilReader(r io.Reader) bool {
+	if r == nil {
+		return true
+	}
+	v := reflect.ValueOf(r)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
+}
+
+// Detach drops references to the current input while retaining bounded parser
+// buffers for reuse.
+func (p *Parser) Detach() {
+	p.br.detach()
+	p.names = nil
+	p.values = nil
+	p.pendingEnd = EndElement{}
+	clear(p.attrs)
+	p.attrs = p.attrs[:0]
 }
 
 // Next returns the next token. Returned token byte slices are valid until the
@@ -186,7 +219,7 @@ func (p *Parser) Next() (Token, error) {
 			}
 			p.atStart = false
 			if selfClosing {
-				p.pendingEnd = EndElement{Name: start.Name, RawName: start.RawName}
+				p.pendingEnd = EndElement{Name: start.Name}
 				p.hasEnd = true
 			}
 			return Token{Kind: KindStart, Start: start, Line: line, Column: col}, nil
@@ -537,7 +570,6 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 	if err != nil {
 		return StartElement{}, false, err
 	}
-	rawName := lexicalXMLName(name)
 	p.attrValueBuf = p.attrValueBuf[:0]
 	p.attrValueEnds = p.attrValueEnds[:0]
 	for {
@@ -548,7 +580,7 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 		switch b {
 		case '>':
 			p.finishLazyAttrValues()
-			return StartElement{Name: name, RawName: rawName, Attr: p.attrs}, false, nil
+			return StartElement{Name: name, Attr: p.attrs}, false, nil
 		case '/':
 			next, err := p.br.readByte()
 			if err != nil {
@@ -558,7 +590,7 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 				return StartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
 			}
 			p.finishLazyAttrValues()
-			return StartElement{Name: name, RawName: rawName, Attr: p.attrs}, true, nil
+			return StartElement{Name: name, Attr: p.attrs}, true, nil
 		default:
 			if !hadSpace {
 				return StartElement{}, false, fmt.Errorf("expected whitespace before attribute")
@@ -638,7 +670,7 @@ func (p *Parser) readEndElement() (EndElement, error) {
 	if b != '>' {
 		return EndElement{}, fmt.Errorf("expected > after end element name")
 	}
-	return EndElement{Name: name, RawName: lexicalXMLName(name)}, nil
+	return EndElement{Name: name}, nil
 }
 
 func (p *Parser) readName(first byte) (xml.Name, error) {
@@ -961,13 +993,16 @@ func (p *Parser) skipUntil(term string) error {
 // ValidateXMLDeclContent validates the content inside an XML declaration.
 func ValidateXMLDeclContent(content []byte) error {
 	name, version, rest, ok := ScanXMLDeclAttr(content, XMLDeclFirstAttr)
-	if !ok || name != xsdAttrVersion || version != xmlVersion10 {
+	if !ok || name != xsdAttrVersion {
 		return fmt.Errorf("invalid XML declaration")
+	}
+	if version != xmlVersion10 {
+		return UnsupportedXMLVersionError{Version: version}
 	}
 	name, value, next, ok := ScanXMLDeclAttr(rest, XMLDeclNextAttr)
 	if ok && name == "encoding" {
 		if !strings.EqualFold(value, "UTF-8") && !strings.EqualFold(value, "UTF8") {
-			return fmt.Errorf("invalid XML declaration")
+			return ErrUnsupportedNonUTF8
 		}
 		rest = next
 		name, value, next, ok = ScanXMLDeclAttr(rest, XMLDeclNextAttr)

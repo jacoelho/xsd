@@ -140,7 +140,7 @@ func TestResolveIdentityConstraintRefer(t *testing.T) {
 func TestValidateIdentityReferences(t *testing.T) {
 	t.Parallel()
 
-	field := runtime.IdentityField{Paths: []runtime.IdentityFieldPath{{Self: true, Attribute: runtime.NoQName}}}
+	field := runtime.IdentityField{Paths: []runtime.IdentityFieldPath{{Self: true, Attribute: runtime.NoQName()}}}
 	twoFields := []runtime.IdentityField{field, field}
 
 	tests := []struct {

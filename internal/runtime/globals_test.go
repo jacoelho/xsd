@@ -2,52 +2,17 @@ package runtime
 
 import "testing"
 
-func TestElementNameReadProjectionHelpers(t *testing.T) {
-	t.Parallel()
-
-	_, qnames := runtimeGlobalsFixture(t)
-	decls := []ElementDecl{{Name: qnames["elem"]}, {Name: qnames["other"]}}
-	reads := NewElementNameReadsForDecls(decls)
-	if !EqualElementNameReadProjectionForDecls(reads, decls) {
-		t.Fatalf("NewElementNameReadsForDecls() = %v, want projection for %v", reads, decls)
-	}
-	reads[1] = qnames["attr"]
-	if EqualElementNameReadProjectionForDecls(reads, decls) {
-		t.Fatal("EqualElementNameReadProjectionForDecls() accepted mismatched name")
-	}
-	if err := ValidateElementNameReadProjectionForDecls(NewElementNameReadsForDecls(decls), decls); err != nil {
-		t.Fatalf("ValidateElementNameReadProjectionForDecls() error = %v", err)
-	}
-	if err := ValidateElementNameReadProjectionForDecls(reads[:1], decls); err == nil || err.Error() != "element name projection count does not match declarations" {
-		t.Fatalf("ValidateElementNameReadProjectionForDecls(short) error = %v, want count invariant", err)
-	}
-	if err := ValidateElementNameReadProjectionForDecls(reads, decls); err == nil || err.Error() != "element name projection does not match declaration" {
-		t.Fatalf("ValidateElementNameReadProjectionForDecls(changed) error = %v, want mismatch invariant", err)
-	}
-}
-
 func TestGlobalLookupHelpers(t *testing.T) {
 	t.Parallel()
 
 	_, qnames := runtimeGlobalsFixture(t)
 	attributes := map[QName]AttributeID{qnames["attr"]: 0}
-	elements := map[QName]ElementID{qnames["elem"]: 0}
 	types := map[QName]TypeID{qnames["simple"]: SimpleRef(0)}
-	elementInfo := ElementStartInfo{Type: SimpleRef(0)}
-	elementInfos := []ElementStartInfo{elementInfo}
-	if id, ok := GlobalElementByName(elements, elementInfos, qnames["elem"]); !ok || id != 0 {
-		t.Fatalf("GlobalElementByName() = %v, %v; want 0, true", id, ok)
-	}
-	if id, info, ok := RootElementByName(elements, elementInfos, RuntimeName{Name: qnames["elem"], Known: true}); !ok || id != 0 || info != elementInfo {
-		t.Fatalf("RootElementByName() = %v, %+v, %v; want 0, %+v, true", id, info, ok, elementInfo)
-	}
-	if id, info, ok := RootElementByName(elements, elementInfos, RuntimeName{Name: qnames["elem"]}); ok || id != NoElement || info != (ElementStartInfo{}) {
-		t.Fatalf("RootElementByName(unknown) = %v, %+v, %v; want no element, zero, false", id, info, ok)
-	}
-	if id, ok := GlobalElementByName(map[QName]ElementID{qnames["elem"]: 99}, elementInfos, qnames["elem"]); ok || id != NoElement {
-		t.Fatalf("GlobalElementByName(invalid) = %v, %v; want no element, false", id, ok)
-	}
-	derivations := NewBorrowedTypeDerivationReadForTypes(0, []SimpleType{{}}, []ComplexType{{}})
+	derivations := newTypeDerivationReadForTest(
+		t,
+		[]SimpleType{{Base: NoSimpleType}},
+		[]ComplexType{{Derivation: DerivationKindNone}},
+	)
 	if typ, ok := GlobalTypeByName(types, derivations, qnames["simple"]); !ok || typ != SimpleRef(0) {
 		t.Fatalf("GlobalTypeByName() = %v, %v; want simple 0, true", typ, ok)
 	}

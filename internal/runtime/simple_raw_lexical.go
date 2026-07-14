@@ -52,10 +52,15 @@ func validateStringPatternSteps(steps stringPatternSteps, normalized string) err
 }
 
 func validateStringPatternStepReads(step *stringPatternStepRead, normalized string) error {
+	return validateStringPatternStepReadsWithScratch(step, normalized, nil)
+}
+
+func validateStringPatternStepReadsWithScratch(step *stringPatternStepRead, normalized string, scratch *StringPatternScratch) error {
+	input := simplePatternInput{text: normalized}
 	for ; step != nil; step = step.parent {
 		ok := false
 		for _, pattern := range step.patterns {
-			if pattern.matchString(normalized) {
+			if pattern.matchStringWithScratch(normalized, &input, scratch) {
 				ok = true
 				break
 			}
@@ -68,10 +73,15 @@ func validateStringPatternStepReads(step *stringPatternStepRead, normalized stri
 }
 
 func validateRawStringPatternStepReads(step *stringPatternStepRead, rawNorm []byte) error {
+	return validateRawStringPatternStepReadsWithScratch(step, rawNorm, nil)
+}
+
+func validateRawStringPatternStepReadsWithScratch(step *stringPatternStepRead, rawNorm []byte, scratch *StringPatternScratch) error {
+	input := simplePatternInput{bytes: rawNorm}
 	for ; step != nil; step = step.parent {
 		ok := false
 		for _, pattern := range step.patterns {
-			if pattern.matchBytes(rawNorm) {
+			if pattern.matchBytesWithScratch(rawNorm, &input, scratch) {
 				ok = true
 				break
 			}

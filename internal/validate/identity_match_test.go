@@ -110,7 +110,7 @@ func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.
 	if err := state.startElementScope(rt, elemID, len(namePath), 0, StartContext{Path: "/root"}); err != nil {
 		t.Fatalf("startElementScope() error = %v", err)
 	}
-	if err := state.matchSelectors(rt, namePath, StartContext{Path: "/root", Line: 2, Column: 3}); err != nil {
+	if err := state.matchSelectors(rt, namePath, 0, StartContext{Path: "/root", Line: 2, Column: 3}); err != nil {
 		t.Fatalf("matchSelectors() error = %v", err)
 	}
 	if len(state.selections) != 1 {
@@ -125,12 +125,26 @@ func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.
 		t.Fatalf("elementFieldMatches() = %+v, want selection 0 field 0", elementMatches)
 	}
 
-	attrMatches, err := state.attributeFieldMatches(rt, namePath, attrName)
+	attrMatches, err := state.attributeFieldMatches(rt, namePath, runtime.RuntimeName{Name: attrName, Known: true})
 	if err != nil {
 		t.Fatalf("attributeFieldMatches() error = %v", err)
 	}
 	if len(attrMatches) != 1 || attrMatches[0] != (IdentityFieldMatch{Selection: 0, Field: 0}) {
 		t.Fatalf("attributeFieldMatches() = %+v, want one deduplicated field match", attrMatches)
+	}
+	unknownMatches, err := state.attributeFieldMatches(rt, namePath, runtime.RuntimeName{NS: "urn:a", Local: "unknown"})
+	if err != nil {
+		t.Fatalf("attributeFieldMatches(unknown) error = %v", err)
+	}
+	if len(unknownMatches) != 1 || unknownMatches[0] != (IdentityFieldMatch{Selection: 0, Field: 0}) {
+		t.Fatalf("attributeFieldMatches(unknown) = %+v, want namespace-wildcard match", unknownMatches)
+	}
+	wrongNamespace, err := state.attributeFieldMatches(rt, namePath, runtime.RuntimeName{NS: "urn:other", Local: "unknown"})
+	if err != nil {
+		t.Fatalf("attributeFieldMatches(wrong namespace) error = %v", err)
+	}
+	if len(wrongNamespace) != 0 {
+		t.Fatalf("attributeFieldMatches(wrong namespace) = %+v, want no match", wrongNamespace)
 	}
 }
 
@@ -161,7 +175,7 @@ func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T
 	if !ok {
 		t.Fatal("IdentityAttributeFields() returned no exact field")
 	}
-	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, attr, exactAttributeField) {
+	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, runtime.RuntimeName{Name: attr, Known: true}, exactAttributeField) {
 		t.Fatal("exact attribute field path did not match")
 	}
 	attributeFields, ok = rt.IdentityAttributeWildcardFields(constraintID)
@@ -172,10 +186,10 @@ func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T
 	if !ok {
 		t.Fatal("IdentityAttributeWildcardFields() returned no wildcard field")
 	}
-	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, attr, wildcardAttributeField) {
+	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, runtime.RuntimeName{Name: attr, Known: true}, wildcardAttributeField) {
 		t.Fatal("attribute namespace wildcard did not match")
 	}
-	if identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, otherAttr, wildcardAttributeField) {
+	if identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, runtime.RuntimeName{Name: otherAttr, Known: true}, wildcardAttributeField) {
 		t.Fatal("attribute namespace wildcard matched wrong namespace")
 	}
 }

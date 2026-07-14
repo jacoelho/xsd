@@ -17,13 +17,23 @@ import (
 )
 
 type manifest struct {
-	Cases []manifestCase `json:"cases"`
+	Totals manifestTotals `json:"totals"`
+	Cases  []manifestCase `json:"cases"`
+}
+
+type manifestTotals struct {
+	Cases        int `json:"cases"`
+	SchemaCases  int `json:"schemaCases"`
+	InstanceRuns int `json:"instanceRuns"`
+	W3CCases     int `json:"w3cCases"`
+	InternalRuns int `json:"internalRuns"`
+	XercesJCases int `json:"xercesJCases"`
 }
 
 type manifestCase struct {
 	ID             string             `json:"id"`
 	ExpectedSource string             `json:"expectedSource"`
-	Schema         manifestSchema     `json:"schema"`
+	Schema         *manifestSchema    `json:"schema"`
 	Instances      []manifestInstance `json:"instances"`
 	Files          []manifestFile     `json:"files"`
 }
@@ -50,6 +60,109 @@ type manifestFile struct {
 	Role string `json:"role"`
 }
 
+func (m *manifest) UnmarshalJSON(data []byte) error {
+	var decoded struct {
+		Totals manifestTotals `json:"totals"`
+		Cases  []manifestCase `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*m = manifest{Totals: decoded.Totals, Cases: decoded.Cases}
+	return m.validate()
+}
+
+func (m *manifest) validate() error {
+	caseIdentities := make(map[string]bool, len(m.Cases))
+	observed := manifestTotals{Cases: len(m.Cases)}
+	for i, tc := range m.Cases {
+		if tc.ExpectedSource == "" || tc.ID == "" {
+			return fmt.Errorf("manifest case %d has empty expectedSource or id", i)
+		}
+		identity := tc.ExpectedSource + "\x00" + tc.ID
+		if caseIdentities[identity] {
+			return fmt.Errorf("manifest duplicates case identity %q/%q", tc.ExpectedSource, tc.ID)
+		}
+		caseIdentities[identity] = true
+
+		if tc.Schema != nil {
+			observed.SchemaCases++
+			documents := make(map[string]bool, len(tc.Schema.Documents))
+			for _, doc := range tc.Schema.Documents {
+				if documents[doc.File] {
+					return fmt.Errorf("manifest case %q/%q duplicates schema document %q", tc.ExpectedSource, tc.ID, doc.File)
+				}
+				documents[doc.File] = true
+			}
+		}
+
+		instances := make(map[string]bool, len(tc.Instances))
+		for _, inst := range tc.Instances {
+			name := instanceName(inst)
+			if instances[name] {
+				return fmt.Errorf("manifest case %q/%q duplicates instance name %q", tc.ExpectedSource, tc.ID, name)
+			}
+			instances[name] = true
+		}
+		observed.InstanceRuns += len(tc.Instances)
+		switch tc.ExpectedSource {
+		case "w3c":
+			observed.W3CCases++
+		case "project":
+			observed.InternalRuns++
+		case "xerces-j":
+			observed.XercesJCases++
+		default:
+			return fmt.Errorf("manifest case %q has unknown expectedSource %q", tc.ID, tc.ExpectedSource)
+		}
+	}
+	if m.Totals != observed {
+		return fmt.Errorf("manifest totals = %+v, want %+v", m.Totals, observed)
+	}
+	return nil
+}
+
+func (c *manifestCase) UnmarshalJSON(data []byte) error {
+	var decoded struct {
+		ID             string             `json:"id"`
+		ExpectedSource string             `json:"expectedSource"`
+		Schema         json.RawMessage    `json:"schema"`
+		Instances      []manifestInstance `json:"instances"`
+		Files          []manifestFile     `json:"files"`
+	}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var schema *manifestSchema
+	if decoded.Schema != nil {
+		if err := json.Unmarshal(decoded.Schema, &schema); err != nil {
+			return fmt.Errorf("manifest case %q schema: %w", decoded.ID, err)
+		}
+	}
+	if schema != nil {
+		switch schema.Expected {
+		case "valid", "invalid":
+		default:
+			return fmt.Errorf("manifest case %q has unknown schema expected value %q", decoded.ID, schema.Expected)
+		}
+	}
+	for _, inst := range decoded.Instances {
+		switch inst.Expected {
+		case "valid", "invalid":
+		default:
+			return fmt.Errorf("manifest case %q instance %q has unknown expected value %q", decoded.ID, instanceName(inst), inst.Expected)
+		}
+	}
+	*c = manifestCase{
+		ID:             decoded.ID,
+		ExpectedSource: decoded.ExpectedSource,
+		Schema:         schema,
+		Instances:      decoded.Instances,
+		Files:          decoded.Files,
+	}
+	return nil
+}
+
 func TestHarness(t *testing.T) {
 	dir := testDir(t)
 	m := readManifest(t, filepath.Join(dir, "manifest.json"))
@@ -73,23 +186,29 @@ func TestHarness(t *testing.T) {
 }
 
 type harnessRunCoverage struct {
-	schemaCases  int
-	instanceRuns int
+	schemaCases         int
+	schemaLessCases     int
+	instanceRuns        int
+	blockedInstanceRuns int
 }
 
 func (r harnessRunCoverage) complete(m manifest) bool {
-	return r.schemaCases == len(m.Cases) && r.instanceRuns == manifestValidatedInstances(m)
+	schemaCases, schemaLessCases, instanceRuns := manifestRunCounts(m)
+	return r.schemaCases == schemaCases &&
+		r.schemaLessCases == schemaLessCases &&
+		r.instanceRuns+r.blockedInstanceRuns == instanceRuns
 }
 
-func manifestValidatedInstances(m manifest) int {
-	total := 0
+func manifestRunCounts(m manifest) (schemaCases, schemaLessCases, instanceRuns int) {
 	for _, tc := range m.Cases {
-		if tc.Schema.Expected != "valid" {
+		instanceRuns += len(tc.Instances)
+		if tc.Schema == nil {
+			schemaLessCases++
 			continue
 		}
-		total += len(tc.Instances)
+		schemaCases++
 	}
-	return total
+	return schemaCases, schemaLessCases, instanceRuns
 }
 
 func testDir(t *testing.T) string {
@@ -134,11 +253,24 @@ func manifestSources(m manifest) []string {
 
 func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc manifestCase, run *harnessRunCoverage) {
 	t.Helper()
+	if tc.Schema == nil {
+		run.schemaLessCases++
+		for _, inst := range tc.Instances {
+			t.Run(instanceName(inst), func(t *testing.T) {
+				run.instanceRuns++
+				t.Skip("schema-less assessment is unsupported by the precompiled Engine harness")
+			})
+		}
+		return
+	}
 	run.schemaCases++
 	engine, err := xsd.Compile(schemaSources(dir, tc)...)
 	switch tc.Schema.Expected {
 	case "valid":
 		if err != nil {
+			if xsderrors.IsUnsupported(err) {
+				run.blockedInstanceRuns += len(tc.Instances)
+			}
 			skipUnsupported(t, unsupported, unsupportedSchemaKey(tc), err)
 			t.Fatalf("Compile() error = %v", err)
 		}
@@ -148,12 +280,21 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 		}
 		if tc.Schema.ErrorCode != "" {
 			expectErrorCode(t, err, tc.Schema.ErrorCode)
-			return
+		} else {
+			if xsderrors.IsUnsupported(err) {
+				run.blockedInstanceRuns += len(tc.Instances)
+			}
+			skipUnsupported(t, unsupported, unsupportedSchemaKey(tc), err)
 		}
-		skipUnsupported(t, unsupported, unsupportedSchemaKey(tc), err)
+		for _, inst := range tc.Instances {
+			t.Run(instanceName(inst), func(t *testing.T) {
+				run.blockedInstanceRuns++
+				t.Skip("instance assessment is blocked by the expected-invalid schema")
+			})
+		}
 		return
 	default:
-		t.Skipf("schema expected value is %q", tc.Schema.Expected)
+		t.Fatalf("unknown schema expected value %q", tc.Schema.Expected)
 	}
 	for _, inst := range tc.Instances {
 		t.Run(instanceName(inst), func(t *testing.T) {
@@ -190,7 +331,7 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 		}
 		skipUnsupported(t, unsupported, unsupportedInstanceKey(tc, inst), err)
 	default:
-		t.Skipf("instance expected value is %q", inst.Expected)
+		t.Fatalf("unknown instance expected value %q", inst.Expected)
 	}
 }
 
@@ -354,25 +495,23 @@ func unsupportedErrorCode(err error) string {
 }
 
 func schemaSources(dir string, tc manifestCase) []xsd.SchemaSource {
-	seen := make(map[string]bool)
-	sources := make([]xsd.SchemaSource, 0, len(tc.Schema.Documents))
-	for _, doc := range tc.Schema.Documents {
-		addSource(dir, &sources, seen, doc.File)
-	}
-	for _, file := range tc.Files {
-		if file.Role == "principal" || file.Role == "dependency" {
-			addSource(dir, &sources, seen, file.File)
-		}
+	files := schemaDocumentFiles(tc)
+	sources := make([]xsd.SchemaSource, 0, len(files))
+	for _, file := range files {
+		sources = append(sources, xsd.File(harnessFile(dir, file)))
 	}
 	return sources
 }
 
-func addSource(dir string, sources *[]xsd.SchemaSource, seen map[string]bool, name string) {
-	if seen[name] {
-		return
+func schemaDocumentFiles(tc manifestCase) []string {
+	if tc.Schema == nil {
+		return nil
 	}
-	seen[name] = true
-	*sources = append(*sources, xsd.File(harnessFile(dir, name)))
+	files := make([]string, len(tc.Schema.Documents))
+	for i, doc := range tc.Schema.Documents {
+		files[i] = doc.File
+	}
+	return files
 }
 
 func harnessFile(dir, name string) string {

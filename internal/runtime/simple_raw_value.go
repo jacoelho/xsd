@@ -4,10 +4,12 @@ import (
 	"errors"
 
 	"github.com/jacoelho/xsd/internal/lex"
+	"github.com/jacoelho/xsd/internal/uriref"
 )
 
 type rawSimpleValueResolver struct {
 	runtime *schemaRuntime
+	scratch *StringPatternScratch
 }
 
 type rawSimpleValueView struct {
@@ -23,18 +25,18 @@ func (r rawSimpleValueResolver) resolveRawSimpleValue(id SimpleTypeID) (rawSimpl
 	if !ok {
 		return rawSimpleValueView{}, false
 	}
-	cold, ok := r.runtime.SimpleValueCold.read(id)
+	cold, ok := r.runtime.SimpleTypeCold.read(id)
 	if !ok || cold == nil && (route.facets != 0 || route.variety == SimpleVarietyUnion) {
 		return rawSimpleValueView{}, false
 	}
 	return rawSimpleValueView{route: route, cold: cold}, true
 }
 
-func validateRawSimpleValuePatterns(cold *simpleValueColdRead, raw []byte) error {
+func validateRawSimpleValuePatterns(cold *simpleValueColdRead, raw []byte, scratch *StringPatternScratch) error {
 	if cold == nil {
 		return ErrSimpleValueMetadata
 	}
-	return validateRawStringPatternStepReads(cold.facets.patterns, raw)
+	return validateRawStringPatternStepReadsWithScratch(cold.facets.patterns, raw, scratch)
 }
 
 func rawLengthFacets(cold *simpleValueColdRead) LengthFacetValues {
@@ -84,7 +86,7 @@ func validateResolvedRawSimpleValue(resolver rawSimpleValueResolver, id SimpleTy
 func validateRawSimpleValueView(resolver rawSimpleValueResolver, id SimpleTypeID, typ rawSimpleValueView, raw []byte) (bool, error) {
 	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: typ.route.variety, Known: true}) {
 	case SimpleValueRouteAtomic:
-		return validateRawAtomicSimpleValue(typ.route, typ.cold, raw)
+		return validateRawAtomicSimpleValue(typ.route, typ.cold, raw, resolver.scratch)
 	case SimpleValueRouteList:
 		return validateRawListSimpleValue(resolver, typ, raw)
 	case SimpleValueRouteUnion:
@@ -101,6 +103,7 @@ func validateRawAtomicSimpleValue(
 	route *simpleValueRouteRead,
 	cold *simpleValueColdRead,
 	raw []byte,
+	scratch *StringPatternScratch,
 ) (bool, error) {
 	facets := route.facets
 	primitive := route.primitive
@@ -116,7 +119,7 @@ func validateRawAtomicSimpleValue(
 		if !ok {
 			return false, nil
 		}
-		return true, validateRawSimpleValuePatterns(cold, rawNorm)
+		return true, validateRawSimpleValuePatterns(cold, rawNorm, scratch)
 	case SimpleValueBypassValidateStringEnumeration:
 		rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
 		if !ok {
@@ -148,7 +151,8 @@ func validateRawAtomicSimpleValue(
 		if lex.HasXMLWhitespaceBytes(raw) {
 			return false, nil
 		}
-		return true, ValidateAnyURILexical(raw)
+		_, err := uriref.Check(raw)
+		return true, err
 	case SimpleValueBypassValidateHexBinary:
 		if lex.HasXMLWhitespaceBytes(raw) {
 			return false, nil

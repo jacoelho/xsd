@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -34,6 +35,60 @@ func TestProjectionAuditRejectsCorruption(t *testing.T) {
 	err := validateRuntimeReadProjections(&audit)
 	if err == nil || !strings.Contains(err.Error(), "attribute declaration read projection count does not match declarations") {
 		t.Fatalf("validateRuntimeReadProjections() error = %v", err)
+	}
+}
+
+func TestProjectionAuditRejectsGlobalMapCorruption(t *testing.T) {
+	tests := []struct {
+		name string
+		edit func(*schemaAudit)
+		want string
+	}{
+		{
+			name: "attributes",
+			edit: func(a *schemaAudit) { a.runtime.GlobalAttributes[QName{Local: 1}] = 2 },
+			want: "global attribute read projection does not match build",
+		},
+		{
+			name: "elements",
+			edit: func(a *schemaAudit) { a.runtime.GlobalElements[QName{Local: 1}] = 2 },
+			want: "global element read projection does not match build",
+		},
+		{
+			name: "types",
+			edit: func(a *schemaAudit) { a.runtime.GlobalTypes[QName{Local: 1}] = SimpleRef(2) },
+			want: "global type read projection does not match build",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			audit := schemaAudit{
+				Schema: Schema{runtime: schemaRuntime{
+					GlobalAttributes: map[QName]AttributeID{},
+					GlobalElements:   map[QName]ElementID{},
+					GlobalTypes:      map[QName]TypeID{},
+				}},
+				build: SchemaBuild{
+					GlobalAttributes: map[QName]AttributeID{},
+					GlobalElements:   map[QName]ElementID{},
+					GlobalTypes:      map[QName]TypeID{},
+				},
+			}
+			test.edit(&audit)
+			err := validateRuntimeReadProjections(&audit)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("validateRuntimeReadProjections() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestSimpleValueRouteAuditRejectsAvailabilityCorruption(t *testing.T) {
+	types := []SimpleType{{Base: NoSimpleType, ListItem: NoSimpleType, Variety: SimpleVarietyAtomic}}
+	reads := newSimpleValueRouteReadsForSimpleTypes(types)
+	reads[0].availability = simpleTypeAvailabilityInvalid
+	if err := validateSimpleValueRouteReadProjectionForTypes(reads, types); err == nil || !strings.Contains(err.Error(), "projection does not match type") {
+		t.Fatalf("validateSimpleValueRouteReadProjectionForTypes() error = %v", err)
 	}
 }
 
@@ -90,13 +145,21 @@ func TestSimpleTypeBaseAncestryHandlesDeepAndFlatForests(t *testing.T) {
 }
 
 func TestCompiledBoundLiteralReplayDeduplicatesSharedStorage(t *testing.T) {
-	build := SchemaBuild{SimpleTypes: []SimpleType{{
-		Variety:    SimpleVarietyAtomic,
-		Primitive:  PrimitiveDecimal,
-		Whitespace: WhitespaceCollapse,
-	}}}
+	build := SchemaBuild{
+		SimpleTypes: []SimpleType{{
+			Base:       NoSimpleType,
+			Variety:    SimpleVarietyAtomic,
+			Primitive:  PrimitiveDecimal,
+			Whitespace: WhitespaceCollapse,
+		}},
+		ComplexTypes: []ComplexType{{Derivation: DerivationKindNone}},
+	}
+	reads, err := newSchemaRuntime(&build)
+	if err != nil {
+		t.Fatalf("newSchemaRuntime() error = %v", err)
+	}
 	audit := schemaAudit{
-		Schema: Schema{runtime: newSchemaRuntime(&build)},
+		Schema: Schema{runtime: reads},
 		build:  build,
 	}
 	ctx := schemaValidationContext{rt: &audit}
@@ -162,7 +225,7 @@ func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 	}
 }
 
-func TestSimpleValueColdReadExcludesCompilerSources(t *testing.T) {
+func TestSimpleTypeColdReadExcludesCompilerSources(t *testing.T) {
 	t.Parallel()
 
 	pattern := NewFastStringPattern(CompileSimpleStringPattern("abc"))
@@ -176,7 +239,7 @@ func TestSimpleValueColdReadExcludesCompilerSources(t *testing.T) {
 		Canonical: "bound",
 	}, false)
 	types := []SimpleType{{Facets: facets}}
-	reads := newSimpleValueColdReadTable(types)
+	reads := newSimpleTypeColdReadTable(types)
 
 	read, ok := reads.read(0)
 	if !ok || read == nil {
@@ -195,12 +258,68 @@ func TestSimpleValueColdReadExcludesCompilerSources(t *testing.T) {
 
 	types[0].Facets.Enumeration[0].Lexical = "changed-enumeration-source"
 	types[0].Facets.bounds[minInclusiveBoundIndex].Lexical = "changed-bound-source"
-	if err := validateSimpleValueColdReadProjectionForTypes(reads, types); err != nil {
+	if err := validateSimpleTypeColdReadProjectionForTypes(reads, types); err != nil {
 		t.Fatalf("projection audit depends on discarded compiler sources: %v", err)
 	}
 }
 
-func TestSimpleValueColdReadAuditRejectsMissingBoundActual(t *testing.T) {
+func TestNewSchemaRuntimeSharesSimpleTypeTableWithDerivationIndex(t *testing.T) {
+	t.Parallel()
+
+	build := SchemaBuild{
+		SimpleTypes: []SimpleType{
+			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+			{Union: []SimpleTypeID{0}, Base: NoSimpleType, Variety: SimpleVarietyUnion},
+		},
+		ComplexTypes: []ComplexType{{Derivation: DerivationKindNone}},
+	}
+	reads, err := newSchemaRuntime(&build)
+	if err != nil {
+		t.Fatalf("newSchemaRuntime() error = %v", err)
+	}
+	if reads.TypeDerivations.simpleTypeTable() != reads.SimpleTypeCold {
+		t.Fatal("type derivation index does not share the published simple-type table")
+	}
+	members, ok := reads.SimpleTypeCold.unionMembers(1)
+	if !ok || !slices.Equal(members, []SimpleTypeID{0}) {
+		t.Fatalf("published union members = %v, %v; want [0], true", members, ok)
+	}
+	build.SimpleTypes[1].Union[0] = 1
+	if !slices.Equal(members, []SimpleTypeID{0}) {
+		t.Fatalf("published union members changed through compiler storage: %v", members)
+	}
+	if mask, ok := reads.TypeDerivations.derivation(SimpleRef(0), SimpleRef(1), nil); !ok || mask != DerivationRestriction {
+		t.Fatalf("union derivation = %08b, %v; want restriction, true", mask, ok)
+	}
+	audit := schemaAudit{Schema: Schema{runtime: reads}, build: build}
+	audit.runtime.SimpleTypeCold = newSimpleTypeColdReadTable(build.SimpleTypes)
+	if err := validateTypeDerivations(&audit); err == nil || !strings.Contains(err.Error(), "do not share the simple type table") {
+		t.Fatalf("validateTypeDerivations(distinct table) error = %v, want shared-owner invariant", err)
+	}
+}
+
+func TestSimpleTypeColdReadOwnsPatternMatchers(t *testing.T) {
+	fast := CompileSimpleStringPattern("[A-Z]")
+	re := regexp.MustCompile("a|ab")
+	facets := FacetSet{}
+	AppendPatternFacetGroup(&facets, []StringPattern{
+		NewFastStringPattern(fast),
+		NewRegexpStringPattern(re),
+	})
+	reads := newSimpleTypeColdReadTable([]SimpleType{{Facets: facets}})
+	patterns := reads.values[0].facets.patterns.patterns
+
+	if patterns[0].fast == fast || patterns[1].re == re {
+		t.Fatal("published pattern read retained compiler matcher pointers")
+	}
+	fast.atoms[0].class.ranges[0] = runeRange{lo: '0', hi: '9'}
+	re.Longest()
+	if !patterns[0].matchString("A") || patterns[0].matchString("0") || !patterns[1].matchString("a") {
+		t.Fatal("compiler matcher mutation changed published pattern behavior")
+	}
+}
+
+func TestSimpleTypeColdReadAuditRejectsMissingBoundActual(t *testing.T) {
 	t.Parallel()
 
 	parsed, err := ParsePrimitiveActual(PrimitiveDecimal, "1", 0)
@@ -214,38 +333,38 @@ func TestSimpleValueColdReadAuditRejectsMissingBoundActual(t *testing.T) {
 		Actual:    parsed.Actual,
 	}, false)
 	types := []SimpleType{{Facets: facets}}
-	reads := newSimpleValueColdReadTable(types)
+	reads := newSimpleTypeColdReadTable(types)
 	reads.values[0].facets.bounds[minInclusiveBoundIndex].actual.Valid = false
 
-	if err := validateSimpleValueColdReadProjectionForTypes(reads, types); err == nil {
+	if err := validateSimpleTypeColdReadProjectionForTypes(reads, types); err == nil {
 		t.Fatal("projection audit accepted a bound without its required actual value")
 	}
 }
 
-func TestSimpleValueColdReadInternsInheritedBounds(t *testing.T) {
+func TestSimpleTypeColdReadInternsInheritedBounds(t *testing.T) {
 	t.Parallel()
 
 	facets := FacetSet{}
 	SetBoundFacet(&facets, FacetMinInclusive, CompiledLiteral{Canonical: "1"}, false)
 	types := []SimpleType{{Facets: facets}, {Facets: facets}}
-	reads := newSimpleValueColdReadTable(types)
+	reads := newSimpleTypeColdReadTable(types)
 
 	first := reads.values[0].facets.bounds[minInclusiveBoundIndex]
 	second := reads.values[1].facets.bounds[minInclusiveBoundIndex]
 	if first == nil || first != second || len(reads.boundReads) != 1 {
 		t.Fatalf("inherited bound reads = %p, %p, pool %d; want one shared read", first, second, len(reads.boundReads))
 	}
-	if err := validateSimpleValueColdReadProjectionForTypes(reads, types); err != nil {
-		t.Fatalf("validateSimpleValueColdReadProjectionForTypes() error = %v", err)
+	if err := validateSimpleTypeColdReadProjectionForTypes(reads, types); err != nil {
+		t.Fatalf("validateSimpleTypeColdReadProjectionForTypes() error = %v", err)
 	}
 	duplicate := *second
 	reads.values[1].facets.bounds[minInclusiveBoundIndex] = &duplicate
-	if err := validateSimpleValueColdReadProjectionForTypes(reads, types); err == nil {
+	if err := validateSimpleTypeColdReadProjectionForTypes(reads, types); err == nil {
 		t.Fatal("projection audit accepted a duplicate inherited bound read")
 	}
 }
 
-func TestSimpleValueColdReadInternsInheritedEnumerations(t *testing.T) {
+func TestSimpleTypeColdReadInternsInheritedEnumerations(t *testing.T) {
 	t.Parallel()
 
 	facets := FacetSet{
@@ -257,7 +376,7 @@ func TestSimpleValueColdReadInternsInheritedEnumerations(t *testing.T) {
 		Present:     FacetEnumeration,
 	}
 	types := []SimpleType{{Facets: facets}, {Facets: facets}, {Facets: distinct}}
-	reads := newSimpleValueColdReadTable(types)
+	reads := newSimpleTypeColdReadTable(types)
 
 	first := reads.values[0].enumeration
 	second := reads.values[1].enumeration
@@ -271,16 +390,16 @@ func TestSimpleValueColdReadInternsInheritedEnumerations(t *testing.T) {
 	if &first[0] == &third[0] {
 		t.Fatalf("distinct enumeration sources share read storage: %p, %p", &first[0], &third[0])
 	}
-	if err := validateSimpleValueColdReadProjectionForTypes(reads, types); err != nil {
-		t.Fatalf("validateSimpleValueColdReadProjectionForTypes() error = %v", err)
+	if err := validateSimpleTypeColdReadProjectionForTypes(reads, types); err != nil {
+		t.Fatalf("validateSimpleTypeColdReadProjectionForTypes() error = %v", err)
 	}
 	reads.values[1].enumeration = slices.Clone(second)
-	if err := validateSimpleValueColdReadProjectionForTypes(reads, types); err == nil {
+	if err := validateSimpleTypeColdReadProjectionForTypes(reads, types); err == nil {
 		t.Fatal("projection audit accepted a duplicate inherited enumeration read")
 	}
 }
 
-func TestSimpleValueColdReadInternsInheritedPatterns(t *testing.T) {
+func TestSimpleTypeColdReadInternsInheritedPatterns(t *testing.T) {
 	t.Parallel()
 
 	patterns := [][]StringPattern{{
@@ -293,7 +412,7 @@ func TestSimpleValueColdReadInternsInheritedPatterns(t *testing.T) {
 		NewFastStringPattern(CompileSimpleStringPattern("[0-9]")),
 	})
 	types := []SimpleType{{Facets: facets}, {Facets: facets}, {Facets: distinct}, {Facets: appended}}
-	reads := newSimpleValueColdReadTable(types)
+	reads := newSimpleTypeColdReadTable(types)
 
 	first := reads.values[0].facets.patterns
 	second := reads.values[1].facets.patterns
@@ -311,12 +430,12 @@ func TestSimpleValueColdReadInternsInheritedPatterns(t *testing.T) {
 	if fourth == nil || fourth.count != 2 || fourth.parent != first {
 		t.Fatalf("appended pattern read = %#v, want one new step over %p", fourth, first)
 	}
-	if err := validateSimpleValueColdReadProjectionForTypes(reads, types); err != nil {
-		t.Fatalf("validateSimpleValueColdReadProjectionForTypes() error = %v", err)
+	if err := validateSimpleTypeColdReadProjectionForTypes(reads, types); err != nil {
+		t.Fatalf("validateSimpleTypeColdReadProjectionForTypes() error = %v", err)
 	}
 	duplicate := *second
 	reads.values[1].facets.patterns = &duplicate
-	if err := validateSimpleValueColdReadProjectionForTypes(reads, types); err == nil {
+	if err := validateSimpleTypeColdReadProjectionForTypes(reads, types); err == nil {
 		t.Fatal("projection audit accepted a duplicate inherited pattern read")
 	}
 }

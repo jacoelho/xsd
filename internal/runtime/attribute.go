@@ -52,23 +52,25 @@ type AttributeUseSet struct {
 
 // AttributeUse is the runtime record for one attribute use.
 type AttributeUse struct {
-	Default    *ValueConstraint
-	Fixed      *ValueConstraint
-	Name       QName
-	Type       SimpleTypeID
-	Required   bool
-	Prohibited bool
+	Default              *ValueConstraint
+	Fixed                *ValueConstraint
+	Name                 QName
+	Type                 SimpleTypeID
+	Required             bool
+	Prohibited           bool
+	FixedFromDeclaration bool
 }
 
 // AttributeUseValidation is the runtime projection needed to validate
 // attribute-use metadata.
 type AttributeUseValidation struct {
-	Name       QName
-	Type       SimpleTypeID
-	Required   bool
-	Prohibited bool
-	HasDefault bool
-	HasFixed   bool
+	Name                 QName
+	Type                 SimpleTypeID
+	Required             bool
+	Prohibited           bool
+	HasDefault           bool
+	HasFixed             bool
+	FixedFromDeclaration bool
 }
 
 // NewAttributeWildcardStateForUseSet projects wildcard provenance from an
@@ -86,12 +88,13 @@ func NewAttributeWildcardStateForUseSet(set AttributeUseSet) AttributeWildcardSt
 // shape needed for attribute-use-set invariant validation.
 func NewAttributeUseValidationForUse(use AttributeUse) AttributeUseValidation {
 	return AttributeUseValidation{
-		Name:       use.Name,
-		Type:       use.Type,
-		Required:   use.Required,
-		Prohibited: use.Prohibited,
-		HasDefault: use.Default != nil,
-		HasFixed:   use.Fixed != nil,
+		Name:                 use.Name,
+		Type:                 use.Type,
+		Required:             use.Required,
+		Prohibited:           use.Prohibited,
+		HasDefault:           use.Default != nil,
+		HasFixed:             use.Fixed != nil,
+		FixedFromDeclaration: use.FixedFromDeclaration,
 	}
 }
 
@@ -133,7 +136,7 @@ func attributeUseSetReadHasSingleUse(s AttributeUseSetRead) bool {
 	return ok && slot == 0
 }
 
-func moveAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) []AttributeUseSetRead {
+func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) []AttributeUseSetRead {
 	out := make([]AttributeUseSetRead, len(sets))
 	for i := range sets {
 		set := &sets[i]
@@ -142,10 +145,10 @@ func moveAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTy
 			uses[j] = NewAttributeUseReadForSimpleTypes(attributeUseReadShapeForUse(names, set.Uses[j]), simpleTypes)
 		}
 		out[i] = AttributeUseSetRead{
-			index:            set.Index,
+			index:            maps.Clone(set.Index),
 			uses:             uses,
-			required:         set.Required,
-			valueConstraints: set.ValueConstraints,
+			required:         slices.Clone(set.Required),
+			valueConstraints: slices.Clone(set.ValueConstraints),
 			wildcard:         set.Wildcard,
 		}
 		out[i].singleUse = attributeUseSetReadHasSingleUse(out[i])
@@ -157,14 +160,15 @@ func attributeUseReadShapeForUse(names *NameTable, use AttributeUse) AttributeUs
 	fixed, hasFixed := NewValueConstraintReadFromConstraint(use.Fixed)
 	def, hasDefault := NewValueConstraintReadFromConstraint(use.Default)
 	return AttributeUseReadShape{
-		Name:       use.Name,
-		Type:       use.Type,
-		Label:      names.Format(use.Name),
-		Fixed:      fixed,
-		Default:    def,
-		Required:   use.Required,
-		HasFixed:   hasFixed,
-		HasDefault: hasDefault,
+		Name:                 use.Name,
+		Type:                 use.Type,
+		Label:                names.Format(use.Name),
+		Fixed:                fixed,
+		Default:              def,
+		Required:             use.Required,
+		HasFixed:             hasFixed,
+		HasDefault:           hasDefault,
+		FixedFromDeclaration: use.FixedFromDeclaration,
 	}
 }
 
@@ -216,15 +220,9 @@ func (s AttributeUseSetRead) ValueConstraintSlots() AttributeUseSlots {
 // expose the same validation-facing attribute-use sets as frozen runtime records
 // using published simple types.
 func EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) bool {
-	if len(reads) != len(sets) {
-		return false
-	}
-	for i := range reads {
-		if !equalAttributeUseSetReadForSet(reads[i], names, sets[i], simpleTypes) {
-			return false
-		}
-	}
-	return true
+	return slices.EqualFunc(reads, sets, func(read AttributeUseSetRead, set AttributeUseSet) bool {
+		return equalAttributeUseSetReadForSet(read, names, set, simpleTypes)
+	})
 }
 
 func equalAttributeUseSetReadForSet(
@@ -266,6 +264,7 @@ func equalAttributeUseReadForUse(
 	hasDefault := use.Default != nil
 	if read.name != use.Name || read.typ != use.Type || read.required != use.Required ||
 		read.hasFixed != hasFixed || read.hasDefault != hasDefault ||
+		read.fixedFromDeclaration != use.FixedFromDeclaration ||
 		!formattedQNameEqual(names, use.Name, read.label) {
 		return false
 	}
@@ -314,14 +313,15 @@ func ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []Attribu
 
 // AttributeUseReadShape is the runtime-read projection for one attribute use.
 type AttributeUseReadShape struct {
-	Label      string
-	Fixed      ValueConstraintRead
-	Default    ValueConstraintRead
-	Name       QName
-	Type       SimpleTypeID
-	Required   bool
-	HasFixed   bool
-	HasDefault bool
+	Label                string
+	Fixed                ValueConstraintRead
+	Default              ValueConstraintRead
+	Name                 QName
+	Type                 SimpleTypeID
+	Required             bool
+	HasFixed             bool
+	HasDefault           bool
+	FixedFromDeclaration bool
 }
 
 // AttributeUseRead exposes validation-facing facts for one declared attribute
@@ -335,6 +335,7 @@ type AttributeUseRead struct {
 	required                   bool
 	hasFixed                   bool
 	hasDefault                 bool
+	fixedFromDeclaration       bool
 	canValidateFixedStringFast bool
 }
 
@@ -350,6 +351,7 @@ func NewAttributeUseReadForSimpleTypes(shape AttributeUseReadShape, simpleTypes 
 		required:                   shape.Required,
 		hasFixed:                   shape.HasFixed,
 		hasDefault:                 shape.HasDefault,
+		fixedFromDeclaration:       shape.FixedFromDeclaration,
 		canValidateFixedStringFast: attributeUseFixedStringFastForSimpleTypes(shape, simpleTypes),
 	}
 }
@@ -399,6 +401,12 @@ func (u AttributeUseRead) Required() bool {
 // FixedValue returns the fixed value, if present.
 func (u AttributeUseRead) FixedValue() (ValueConstraintRead, bool) {
 	return u.fixed, u.hasFixed
+}
+
+// FixedUsesValueSpace reports whether the fixed constraint originated on the
+// referenced attribute declaration and therefore uses datatype value equality.
+func (u AttributeUseRead) FixedUsesValueSpace() bool {
+	return u.fixedFromDeclaration
 }
 
 // AbsentValueConstraint returns the fixed/default value applied when the
@@ -539,12 +547,13 @@ type AttributeUseRestrictionValidation struct {
 // AttributeUseExtensionValidation is the runtime projection needed to prove
 // that complex-type extension preserved inherited attribute uses unchanged.
 type AttributeUseExtensionValidation struct {
-	Default    ValueConstraintIdentity
-	Fixed      ValueConstraintIdentity
-	Name       QName
-	Type       SimpleTypeID
-	Required   bool
-	Prohibited bool
+	Default              ValueConstraintIdentity
+	Fixed                ValueConstraintIdentity
+	Name                 QName
+	Type                 SimpleTypeID
+	Required             bool
+	Prohibited           bool
+	FixedFromDeclaration bool
 }
 
 // NewAttributeUseRestrictionValidationForUse projects one runtime attribute
@@ -573,12 +582,13 @@ func NewAttributeUseRestrictionValidationsForUses(uses []AttributeUse) []Attribu
 // into the shape needed for extension preservation validation.
 func NewAttributeUseExtensionValidationForUse(use AttributeUse) AttributeUseExtensionValidation {
 	return AttributeUseExtensionValidation{
-		Default:    NewValueConstraintIdentity(use.Default),
-		Fixed:      NewValueConstraintIdentity(use.Fixed),
-		Name:       use.Name,
-		Type:       use.Type,
-		Required:   use.Required,
-		Prohibited: use.Prohibited,
+		Default:              NewValueConstraintIdentity(use.Default),
+		Fixed:                NewValueConstraintIdentity(use.Fixed),
+		Name:                 use.Name,
+		Type:                 use.Type,
+		Required:             use.Required,
+		Prohibited:           use.Prohibited,
+		FixedFromDeclaration: use.FixedFromDeclaration,
 	}
 }
 
@@ -772,7 +782,8 @@ func attributeUseExtensionEqual(a, b AttributeUseExtensionValidation) bool {
 		ValueConstraintIdentityEqual(a.Default, b.Default) &&
 		ValueConstraintIdentityEqual(a.Fixed, b.Fixed) &&
 		a.Required == b.Required &&
-		a.Prohibited == b.Prohibited
+		a.Prohibited == b.Prohibited &&
+		a.FixedFromDeclaration == b.FixedFromDeclaration
 }
 
 func validateAttributeUseRuntime(
@@ -798,6 +809,9 @@ func validateAttributeUseRuntime(
 	}
 	if use.HasDefault && use.HasFixed {
 		return SimpleIdentityNone, errors.New("attribute use stores both default and fixed value constraints")
+	}
+	if use.FixedFromDeclaration && !use.HasFixed {
+		return SimpleIdentityNone, errors.New("attribute use marks absent fixed value as declaration-owned")
 	}
 	return identity, nil
 }

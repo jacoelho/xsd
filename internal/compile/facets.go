@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -14,6 +15,7 @@ const facetTotalDigits = "totalDigits"
 // ParseSizeFacetValue parses length/minLength/maxLength/totalDigits/
 // fractionDigits facet values.
 func ParseSizeFacetValue(name, value string) (uint32, error) {
+	value = lex.CollapseXMLWhitespace(value)
 	size, err := parseSizeFacetInteger(value)
 	if err != nil {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid "+name+" facet "+value)
@@ -30,6 +32,9 @@ func ParseSizeFacetValue(name, value string) (uint32, error) {
 // ValidateCompiledFacets validates a compiled restriction step's facet state.
 func ValidateCompiledFacets(st runtime.SimpleType, base runtime.SimpleType, orderedStep runtime.OrderedFacetStep) error {
 	if err := runtime.ValidateFacetCardinalityShape(runtime.FacetCardinalityShapeForSimpleType(st)); err != nil {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
+	}
+	if err := runtime.ValidateFacetCardinalityAncestry(runtime.FacetCardinalityShapeForSimpleType(st), runtime.FacetCardinalityShapeForSimpleType(base)); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
 	}
 	if err := runtime.ValidateFacetCardinalityRestriction(runtime.FacetCardinalityShapeForSimpleType(st), runtime.FacetCardinalityShapeForSimpleType(base)); err != nil {

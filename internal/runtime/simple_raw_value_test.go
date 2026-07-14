@@ -57,7 +57,7 @@ func (f rawSimpleValueFixture) resolver() rawSimpleValueResolver {
 		count = max(count, int(id)+1)
 	}
 	routes := make([]simpleValueRouteRead, count)
-	cold := simpleValueColdReadTable{index: make([]uint32, count)}
+	cold := &simpleTypeColdReadTable{index: make([]uint32, count)}
 	for i := range cold.index {
 		cold.index[i] = invalidID
 	}
@@ -77,7 +77,7 @@ func (f rawSimpleValueFixture) resolver() rawSimpleValueResolver {
 		cold.index[id] = uint32(len(cold.values)) //nolint:gosec // Test fixture size is bounded by its inline route table.
 		cold.values = append(cold.values, read)
 	}
-	runtime := schemaRuntime{SimpleValueRoutes: routes, SimpleValueCold: cold}
+	runtime := schemaRuntime{SimpleValueRoutes: routes, SimpleTypeCold: cold}
 	return rawSimpleValueResolver{runtime: &runtime}
 }
 
@@ -465,6 +465,14 @@ func TestValidateRawSimpleValueAnyURIExecutor(t *testing.T) {
 	}
 
 	ok, err = stub.validate(1, []byte("a^b"))
+	if err != nil {
+		t.Fatalf("ValidateRawSimpleValue(extended URI) error = %v", err)
+	}
+	if !ok {
+		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
+	}
+
+	ok, err = stub.validate(1, []byte(":a"))
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}

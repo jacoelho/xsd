@@ -20,6 +20,7 @@ schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii02	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6ii04	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6si01	unsupported.xsd_1_1
 schema	w3c	w3c/ibmMeta/anyAttribute.testSet/s3_10_6si02	unsupported.xsd_1_1
+schema	w3c	w3c/ibmMeta/constraintsOnAttribute.testSet/s3_2_3si05	unsupported.non_utf8
 schema	w3c	w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si01	unsupported.xs_redefine
 schema	w3c	w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si01b	unsupported.xs_redefine
 schema	w3c	w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet/s4_2_4si02	unsupported.xs_redefine

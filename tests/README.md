@@ -4,13 +4,15 @@ Standalone XSD 1.0 validation corpus plus a Go test runner. This directory conta
 
 ## Contents
 
-- Cases: 14534
+- Cases: 14548
 - W3C cases: 14414
 - Xerces-J cases: 13
-- Project cases: 107
-- Schema checks: 14484
-- Instance checks: 25185
-- Manifest file references: 39726
+- Project cases: 121
+- Schema checks: 14498
+- Schema-backed instance validations: 25128
+- Expected-invalid schema instance skips: 21
+- Explicit schema-less instance skips: 50
+- Unique manifest file references: 39754
 
 ## Files
 
@@ -50,7 +52,15 @@ go test ./tests -run '^TestHarness/w3c'
 
 A runner SHOULD read `manifest.json`, compile each case schema document set, then validate each listed instance against that schema. Expected values are `valid` or `invalid`. If a consumer is comparing against Xerces-J, use `oracle.xerces.expected` when present; otherwise use the case expected value.
 
-A schema document with role `principal` is the entry schema. Files listed with role `dependency` are copied dependencies used through relative schema locations. Instance file paths are independent validation inputs.
+Every entry in `schema.documents` is a compilation root, in manifest order.
+Entries listed only in `files` with role `dependency` are copied dependencies
+used through relative schema locations and are never promoted to roots.
+Instance file paths are independent validation inputs.
+
+Cases without a `schema` member require schema-less or instance-directed schema
+assessment, which the precompiled `Engine` contract deliberately does not
+perform. The Go runner exposes each such instance as an explicit skipped
+subtest; it does not invent roots from instance hints.
 
 `unsupported.txt` is part of the test oracle. Each line is tab-separated:
 
@@ -63,4 +73,4 @@ The file MUST stay sorted and unique. New unsupported skips fail until added del
 
 ## Export Evidence
 
-- Manifest closure check: 39726 referenced files, all present under `corpus/`.
+- Manifest closure check: 39754 unique referenced files, all present under `corpus/`.

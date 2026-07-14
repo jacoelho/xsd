@@ -37,19 +37,17 @@ type NameReadView struct {
 	nsIndex    map[string]NamespaceID
 	localIndex map[string]LocalNameID
 	namespaces []string
-	locals     []string
 }
 
-// NewBorrowedNameReadView returns a read view over immutable published names.
-func NewBorrowedNameReadView(names *NameTable) NameReadView {
+// NewNameReadView returns an owned immutable read view of names.
+func NewNameReadView(names *NameTable) NameReadView {
 	if names == nil {
 		return NameReadView{}
 	}
 	return NameReadView{
-		nsIndex:    names.nsIndex,
-		localIndex: names.localIndex,
-		namespaces: names.namespaces,
-		locals:     names.locals,
+		nsIndex:    maps.Clone(names.nsIndex),
+		localIndex: maps.Clone(names.localIndex),
+		namespaces: slices.Clone(names.namespaces),
 	}
 }
 
@@ -71,7 +69,7 @@ func (v NameReadView) LookupQName(ns, local string) (QName, bool) {
 
 // Namespace returns the URI for id, or "" when id is not valid.
 func (v NameReadView) Namespace(id NamespaceID) string {
-	if !ValidUint32Index(uint32(id), len(v.namespaces)) {
+	if !validRuntimeID(uint32(id), len(v.namespaces)) {
 		return ""
 	}
 	return v.namespaces[id]
@@ -83,8 +81,7 @@ func ValidateNameReadProjection(read NameReadView, names *NameTable) error {
 	if names == nil ||
 		!maps.Equal(read.nsIndex, names.nsIndex) ||
 		!maps.Equal(read.localIndex, names.localIndex) ||
-		!slices.Equal(read.namespaces, names.namespaces) ||
-		!slices.Equal(read.locals, names.locals) {
+		!slices.Equal(read.namespaces, names.namespaces) {
 		return errors.New("name read projection does not match name table")
 	}
 	return nil
@@ -195,7 +192,7 @@ func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []Expand
 		}
 	}
 	for uri, id := range n.nsIndex {
-		if !ValidUint32Index(uint32(id), len(n.namespaces)) || n.namespaces[id] != uri {
+		if !validRuntimeID(uint32(id), len(n.namespaces)) || n.namespaces[id] != uri {
 			return errors.New("name table namespace slice does not match namespace index")
 		}
 	}
@@ -206,7 +203,7 @@ func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []Expand
 		}
 	}
 	for local, id := range n.localIndex {
-		if !ValidUint32Index(uint32(id), len(n.locals)) || n.locals[id] != local {
+		if !validRuntimeID(uint32(id), len(n.locals)) || n.locals[id] != local {
 			return errors.New("name table local slice does not match local index")
 		}
 	}
@@ -227,13 +224,13 @@ func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []Expand
 
 // ValidQName reports whether q indexes interned namespace and local names.
 func (n *NameTable) ValidQName(q QName) bool {
-	return ValidUint32Index(uint32(q.Namespace), len(n.namespaces)) &&
-		ValidUint32Index(uint32(q.Local), len(n.locals))
+	return validRuntimeID(uint32(q.Namespace), len(n.namespaces)) &&
+		validRuntimeID(uint32(q.Local), len(n.locals))
 }
 
 // ValidNamespaceID reports whether id indexes an interned namespace URI.
 func (n *NameTable) ValidNamespaceID(id NamespaceID) bool {
-	return ValidUint32Index(uint32(id), len(n.namespaces))
+	return validRuntimeID(uint32(id), len(n.namespaces))
 }
 
 // LookupNamespace returns the interned namespace ID for uri.
@@ -278,7 +275,7 @@ func (n *NameTable) Namespace(id NamespaceID) string {
 
 // Local returns the local name for id, or "" when id is not valid.
 func (n *NameTable) Local(id LocalNameID) string {
-	if !ValidUint32Index(uint32(id), len(n.locals)) {
+	if !validRuntimeID(uint32(id), len(n.locals)) {
 		return ""
 	}
 	return n.locals[id]
@@ -350,21 +347,17 @@ func (n NameInterner) InternQName(ns, local string) (QName, error) {
 	if err := table.checkLimit(need); err != nil {
 		return QName{}, err
 	}
+	nextNS, nextLocal, err := nextQNameIDs(len(table.namespaces), len(table.locals), !nsOK, !localOK)
+	if err != nil {
+		return QName{}, err
+	}
 	if !nsOK {
-		var err error
-		nsID, err = nextNamespaceID(len(table.namespaces))
-		if err != nil {
-			return QName{}, err
-		}
+		nsID = nextNS
 		table.namespaces = append(table.namespaces, ns)
 		table.nsIndex[ns] = nsID
 	}
 	if !localOK {
-		var err error
-		localID, err = nextLocalNameID(len(table.locals))
-		if err != nil {
-			return QName{}, err
-		}
+		localID = nextLocal
 		table.locals = append(table.locals, local)
 		table.localIndex[local] = localID
 	}
@@ -382,15 +375,34 @@ func (n *NameTable) checkLimit(need int) error {
 }
 
 func nextNamespaceID(n int) (NamespaceID, error) {
-	if n < 0 || uint64(n) > uint64(invalidID) {
+	if n < 0 || uint64(n) >= uint64(invalidID) {
 		return 0, ErrNamespaceLimit
 	}
 	return NamespaceID(n), nil
 }
 
 func nextLocalNameID(n int) (LocalNameID, error) {
-	if n < 0 || uint64(n) > uint64(invalidID) {
+	if n < 0 || uint64(n) >= uint64(invalidID) {
 		return 0, ErrLocalNameLimit
 	}
 	return LocalNameID(n), nil
+}
+
+func nextQNameIDs(namespaceCount, localCount int, needNamespace, needLocal bool) (NamespaceID, LocalNameID, error) {
+	var namespace NamespaceID
+	var local LocalNameID
+	var err error
+	if needNamespace {
+		namespace, err = nextNamespaceID(namespaceCount)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	if needLocal {
+		local, err = nextLocalNameID(localCount)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	return namespace, local, nil
 }
