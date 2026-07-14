@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -34,10 +35,11 @@ func BenchmarkCheckXMLWellFormedNested(b *testing.B) {
 	for _, depth := range []int{10, 100, 1000} {
 		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {
 			xml := strings.Repeat("<a>", depth) + strings.Repeat("</a>", depth)
+			opts := Options{MaxInstanceDepth: depth}
 			b.ReportAllocs()
 			b.SetBytes(int64(len(xml)))
 			for b.Loop() {
-				if err := CheckXMLWellFormed(strings.NewReader(xml), Options{}); err != nil {
+				if err := CheckXMLWellFormed(context.Background(), strings.NewReader(xml), opts); err != nil {
 					b.Fatal(err)
 				}
 			}

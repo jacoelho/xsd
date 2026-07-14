@@ -96,10 +96,12 @@ func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) erro
 	names := stream.NewCache()
 	values := stream.NewCache()
 	var p stream.Parser
-	if err := p.ResetWithLimit(strings.NewReader(doc), &names, &values, maxTokenBytes); err != nil {
+	if err := p.ResetWithLimits(strings.NewReader(doc), &names, &values, stream.Limits{
+		MaxTokenBytes: maxTokenBytes,
+		MaxAttrs:      maxAttrs,
+	}); err != nil {
 		return err
 	}
-	p.SetMaxAttrs(maxAttrs)
 	for {
 		_, err := p.Next()
 		if err != nil {

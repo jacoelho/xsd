@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"context"
 	"encoding/xml"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -283,10 +284,14 @@ func (s *session) reserveIdentityEntry(key string, line, col int) error {
 	return nil
 }
 
-func (s *session) checkIDRefs() error {
+func (s *session) checkIDRefs(ctx context.Context, done <-chan struct{}) error {
+	var check func() error
+	if done != nil {
+		check = func() error { return validationContextDoneError(ctx, done, nil) }
+	}
 	return s.doc.identity.CheckIDRefs(func(err error) error {
 		return s.recover(err)
-	})
+	}, check)
 }
 
 func (s *session) startIdentityScope(elem runtime.ElementID, line, col int) error {

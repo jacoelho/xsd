@@ -22,6 +22,7 @@ replace github.com/jacoelho/xsd => `+strconv.Quote(repoRoot(t))+`
 	writeExternalSmokeFile(t, filepath.Join(dir, "api_test.go"), `package external_api_smoke
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -31,14 +32,14 @@ import (
 )
 
 func TestExternalAPI(t *testing.T) {
-	var _ xsd.Resolver = xsd.ResolverFunc(func(string, string) (xsd.SchemaSource, error) {
+	var _ xsd.Resolver = xsd.ResolverFunc(func(context.Context, string, string) (xsd.SchemaSource, error) {
 		return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
 	})
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`+"`"+`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`+"`"+`)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`+"`"+`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`+"`"+`)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = engine.Validate(strings.NewReader(`+"`"+`<root>x</root>`+"`"+`))
+	err = engine.Validate(context.Background(), strings.NewReader(`+"`"+`<root>x</root>`+"`"+`))
 	var xerr *xsderrors.Error
 	if !errors.As(err, &xerr) {
 		t.Fatalf("error type = %T", err)

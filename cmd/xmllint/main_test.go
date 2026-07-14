@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 const xmllintTestSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -29,6 +32,8 @@ func TestParseArgsRejectsInvalidInputs(t *testing.T) {
 		{name: "missing_schema", args: []string{"doc.xml"}, want: "--schema is required"},
 		{name: "missing_doc", args: []string{"--schema", "schema.xsd"}, want: "one XML document path is required"},
 		{name: "negative_max_errors", args: []string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, want: "--max-errors cannot be negative"},
+		{name: "negative_max_identity_entries", args: []string{"--schema", "schema.xsd", "--max-identity-entries", "-1", "doc.xml"}, want: "--max-identity-entries cannot be negative"},
+		{name: "negative_max_instance_bytes", args: []string{"--schema", "schema.xsd", "--max-instance-bytes", "-1", "doc.xml"}, want: "--max-instance-bytes cannot be negative"},
 		{name: "rejects_noout", args: []string{"--noout", "--schema", "schema.xsd", "doc.xml"}, want: "flag provided but not defined: -noout"},
 		{name: "rejects_huge", args: []string{"--huge", "--schema", "schema.xsd", "doc.xml"}, want: "flag provided but not defined: -huge"},
 	}
@@ -51,7 +56,7 @@ func TestRunValidatesDocument(t *testing.T) {
 	doc := writeXMLLintTestFile(t, dir, "valid.xml", `<root><v>7</v></root>`)
 
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
+	if code := runWithOpen(context.Background(), []string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
 		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
 	}); code != 0 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
@@ -67,7 +72,7 @@ func TestRunReportsValidationFailure(t *testing.T) {
 	doc := writeXMLLintTestFile(t, dir, "invalid.xml", `<root><v>x</v></root>`)
 
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
+	if code := runWithOpen(context.Background(), []string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
 		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
 	}); code != 1 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
@@ -80,9 +85,40 @@ func TestRunReportsValidationFailure(t *testing.T) {
 	}
 }
 
+func TestRunEnforcesMaxInstanceBytes(t *testing.T) {
+	dir := t.TempDir()
+	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
+	doc := writeXMLLintTestFile(t, dir, "valid.xml", `<root><v>7</v></root>`)
+
+	var stderr bytes.Buffer
+	args := []string{"--schema", schema, "--max-instance-bytes", "4", doc}
+	if code := runWithOpen(context.Background(), args, &stderr, func(path string) (io.ReadCloser, error) {
+		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
+	}); code != 1 {
+		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), string(xsderrors.CodeValidationLimit)) {
+		t.Fatalf("run() stderr = %q, want validation limit", stderr.String())
+	}
+}
+
+func TestRunHonorsCanceledContextBeforeOpeningDocument(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	opened := false
+	var stderr bytes.Buffer
+	code := runWithOpen(ctx, []string{"--schema", "schema.xsd", "doc.xml"}, &stderr, func(string) (io.ReadCloser, error) {
+		opened = true
+		return nil, errors.New("unexpected open")
+	})
+	if code != 1 || opened || !strings.Contains(stderr.String(), string(xsderrors.CodeCompileCanceled)) {
+		t.Fatalf("run() = %d, opened = %v, stderr = %q", code, opened, stderr.String())
+	}
+}
+
 func TestRunReportsArgumentFailure(t *testing.T) {
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, &stderr, nil); code != 2 {
+	if code := runWithOpen(context.Background(), []string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, &stderr, nil); code != 2 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "--max-errors cannot be negative") {
@@ -92,7 +128,7 @@ func TestRunReportsArgumentFailure(t *testing.T) {
 
 func TestRunReturnsArgumentFailureWhenStderrWriteFails(t *testing.T) {
 	stderr := errWriter{err: errors.New("write failed")}
-	if code := runWithOpen([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, stderr, nil); code != 2 {
+	if code := runWithOpen(context.Background(), []string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, stderr, nil); code != 2 {
 		t.Fatalf("run() code = %d, want 2", code)
 	}
 }
@@ -109,7 +145,7 @@ func TestRunReportsDocumentCloseFailure(t *testing.T) {
 	}
 
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", schema, "valid.xml"}, &stderr, open); code != 1 {
+	if code := runWithOpen(context.Background(), []string{"--schema", schema, "valid.xml"}, &stderr, open); code != 1 {
 		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), docErr.Error()) {
@@ -132,7 +168,7 @@ func TestRunReportsValidationFailureBeforeCloseFailure(t *testing.T) {
 	}
 
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", schema, "invalid.xml"}, &stderr, open); code != 1 {
+	if code := runWithOpen(context.Background(), []string{"--schema", schema, "invalid.xml"}, &stderr, open); code != 1 {
 		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "validation.facet") {

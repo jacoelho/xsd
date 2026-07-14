@@ -1,19 +1,55 @@
 package compile_test
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+type cancelAfterContextChecks struct {
+	checks int
+	allow  int
+}
+
+func (*cancelAfterContextChecks) Deadline() (time.Time, bool) { return time.Time{}, false }
+func (*cancelAfterContextChecks) Done() <-chan struct{}       { return nil }
+func (c *cancelAfterContextChecks) Err() error {
+	c.checks++
+	if c.checks > c.allow {
+		return context.Canceled
+	}
+	return nil
+}
+func (*cancelAfterContextChecks) Value(any) any { return nil }
+
+func TestPublishSchemaCancellationDuringAuditLeavesBuildRetryable(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	expected := mutableSchemaBuild(t, schema)
+	published, err := runtime.PublishSchema(&cancelAfterContextChecks{allow: 2}, build)
+	expectCategoryCode(t, err, xsderrors.CategoryCanceled, xsderrors.CodeCompileCanceled)
+	if published != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("PublishSchema() = (%v, %v), want nil canceled result", published, err)
+	}
+	if !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("PublishSchema() consumed build after cancellation")
+	}
+	if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
+		t.Fatalf("PublishSchema() retry error = %v", err)
+	}
+}
+
 func TestPublishSchemaConsumesBuildOnSuccess(t *testing.T) {
 	t.Parallel()
 
 	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`)
-	published, err := runtime.PublishSchema(build)
+	published, err := runtime.PublishSchema(context.Background(), build)
 	if err != nil {
 		t.Fatalf("PublishSchema() error = %v", err)
 	}
@@ -34,7 +70,7 @@ func TestPublishSchemaRejectsMissingGlobalAttributeBindingAndAllowsRetry(t *test
 	expected := mutableSchemaBuild(t, schema)
 	delete(expected.GlobalAttributes, mustQName(t, &expected.Names, "ga"))
 
-	published, err := runtime.PublishSchema(build)
+	published, err := runtime.PublishSchema(context.Background(), build)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if published != nil {
 		t.Fatal("PublishSchema() returned a schema for an incomplete global attribute registry")
@@ -43,7 +79,7 @@ func TestPublishSchemaRejectsMissingGlobalAttributeBindingAndAllowsRetry(t *test
 		t.Fatal("PublishSchema() changed build after global attribute ownership audit failure")
 	}
 	build.GlobalAttributes[q] = id
-	if _, err := runtime.PublishSchema(build); err != nil {
+	if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 		t.Fatalf("PublishSchema() retry error = %v", err)
 	}
 }
@@ -95,7 +131,7 @@ func TestPublishSchemaRejectsMissingGlobalElementAndTypeBindingsAndAllowsRetry(t
 			expected := mutableSchemaBuild(t, test.schema)
 			test.remove(t, expected)
 
-			published, err := runtime.PublishSchema(build)
+			published, err := runtime.PublishSchema(context.Background(), build)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 			if published != nil {
 				t.Fatal("PublishSchema() returned a schema for an incomplete global registry")
@@ -104,7 +140,7 @@ func TestPublishSchemaRejectsMissingGlobalElementAndTypeBindingsAndAllowsRetry(t
 				t.Fatal("PublishSchema() changed build after global ownership audit failure")
 			}
 			restore()
-			if _, err := runtime.PublishSchema(build); err != nil {
+			if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 				t.Fatalf("PublishSchema() retry error = %v", err)
 			}
 		})
@@ -127,7 +163,7 @@ func TestPublishSchemaRejectsMissingGlobalIdentityBindingAndAllowsRetry(t *testi
 	expected := mutableSchemaBuild(t, schema)
 	delete(expected.GlobalIdentities, expected.Identities[0].Name)
 
-	published, err := runtime.PublishSchema(build)
+	published, err := runtime.PublishSchema(context.Background(), build)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if published != nil {
 		t.Fatal("PublishSchema() returned a schema for an incomplete global identity registry")
@@ -136,7 +172,7 @@ func TestPublishSchemaRejectsMissingGlobalIdentityBindingAndAllowsRetry(t *testi
 		t.Fatal("PublishSchema() changed build after global identity ownership audit failure")
 	}
 	build.GlobalIdentities[q] = id
-	if _, err := runtime.PublishSchema(build); err != nil {
+	if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 		t.Fatalf("PublishSchema() retry error = %v", err)
 	}
 }
@@ -150,13 +186,13 @@ func TestPublishSchemaRejectsInvalidDeclarationScopeAndAllowsRetry(t *testing.T)
 	expectedID := expected.GlobalElements[mustQName(t, &expected.Names, "root")]
 	expected.Elements[expectedID].Scope = runtime.DeclarationScopeInvalid
 
-	published, err := runtime.PublishSchema(build)
+	published, err := runtime.PublishSchema(context.Background(), build)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if published != nil || !reflect.DeepEqual(*build, *expected) {
 		t.Fatal("PublishSchema() consumed build after invalid declaration scope")
 	}
 	build.Elements[id].Scope = runtime.DeclarationScopeGlobal
-	if _, err := runtime.PublishSchema(build); err != nil {
+	if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 		t.Fatalf("PublishSchema() retry error = %v", err)
 	}
 }
@@ -176,7 +212,7 @@ func TestPublishSchemaAcceptsNonGlobalMissingSimpleTypeSentinel(t *testing.T) {
 	if !found {
 		t.Fatal("compiler did not create missing simple type sentinel")
 	}
-	if _, err := runtime.PublishSchema(build); err != nil {
+	if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 		t.Fatalf("PublishSchema() error = %v", err)
 	}
 }
@@ -222,7 +258,7 @@ func TestPublishSchemaRejectsInvalidIdentityOwnershipAndAllowsRetry(t *testing.T
 			expected := mutableSchemaBuild(t, schema)
 			test.mutate(t, expected)
 
-			published, err := runtime.PublishSchema(build)
+			published, err := runtime.PublishSchema(context.Background(), build)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 			if published != nil {
 				t.Fatal("PublishSchema() returned a schema for invalid identity ownership")
@@ -231,7 +267,7 @@ func TestPublishSchemaRejectsInvalidIdentityOwnershipAndAllowsRetry(t *testing.T
 				t.Fatal("PublishSchema() changed build after identity ownership audit failure")
 			}
 			*build = *mutableSchemaBuild(t, schema)
-			if _, err := runtime.PublishSchema(build); err != nil {
+			if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 				t.Fatalf("PublishSchema() retry error = %v", err)
 			}
 		})
@@ -249,7 +285,7 @@ func TestPublishSchemaRejectsMisclassifiedSimpleIdentityWithoutConsumingBuild(t 
 	expectedID := simpleBuildTypeIDByName(t, expected, "Ref")
 	expected.SimpleTypes[expectedID].Identity = runtime.SimpleIdentityNone
 
-	published, err := runtime.PublishSchema(build)
+	published, err := runtime.PublishSchema(context.Background(), build)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if published != nil {
 		t.Fatal("PublishSchema() returned a schema for an invalid build")
@@ -270,7 +306,7 @@ func TestPublishSchemaRejectsForgedMissingSimpleTypeWithoutConsumingBuild(t *tes
 	expectedID := simpleBuildTypeIDByName(t, expected, "User")
 	expected.SimpleTypes[expectedID].Missing = true
 
-	published, err := runtime.PublishSchema(build)
+	published, err := runtime.PublishSchema(context.Background(), build)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if published != nil {
 		t.Fatal("PublishSchema() returned a schema for a forged missing type")
@@ -301,7 +337,7 @@ func TestPublishSchemaRejectsContentModelCyclesWithoutConsumingBuild(t *testing.
 			expected := mutableSchemaBuild(t, schema)
 			addCycle(expected, size)
 
-			published, err := runtime.PublishSchema(build)
+			published, err := runtime.PublishSchema(context.Background(), build)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 			if published != nil {
 				t.Fatal("PublishSchema() returned a schema for cyclic content models")
@@ -338,7 +374,7 @@ func TestPublishSchemaRejectsComplexTypeCyclesWithoutConsumingBuild(t *testing.T
 			expected := mutableSchemaBuild(t, schema)
 			addCycle(t, expected, size)
 
-			published, err := runtime.PublishSchema(build)
+			published, err := runtime.PublishSchema(context.Background(), build)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 			if published != nil {
 				t.Fatal("PublishSchema() returned a schema for cyclic complex types")
@@ -357,7 +393,7 @@ func mutableSchemaBuild(t *testing.T, schema string) *runtime.SchemaBuild {
 
 func validateSchemaBuild(build *runtime.SchemaBuild) error {
 	snapshot := *build
-	_, err := runtime.PublishSchema(&snapshot)
+	_, err := runtime.PublishSchema(context.Background(), &snapshot)
 	return err
 }
 
@@ -414,7 +450,7 @@ func simpleBuildTypeIDByName(t *testing.T, build *runtime.SchemaBuild, local str
 func buildValueConstraint(t *testing.T, build *runtime.SchemaBuild, id runtime.SimpleTypeID, lexical string) *runtime.ValueConstraint {
 	t.Helper()
 	snapshot := *build
-	rt, err := runtime.PublishSchema(&snapshot)
+	rt, err := runtime.PublishSchema(context.Background(), &snapshot)
 	if err != nil {
 		t.Fatalf("PublishSchema() error = %v", err)
 	}
@@ -654,7 +690,7 @@ func TestPublishSchemaRejectsMalformedListIdentityFrameAndAllowsRetry(t *testing
 			expectedRootID := expected.GlobalElements[mustQName(t, &expected.Names, "root")]
 			expected.Elements[expectedRootID].Default.Value.Identity = test.identity
 
-			published, err := runtime.PublishSchema(build)
+			published, err := runtime.PublishSchema(context.Background(), build)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 			if published != nil {
 				t.Fatal("PublishSchema() returned a schema for a malformed list identity frame")
@@ -663,7 +699,7 @@ func TestPublishSchemaRejectsMalformedListIdentityFrameAndAllowsRetry(t *testing
 				t.Fatal("PublishSchema() consumed build after malformed list identity frame audit failure")
 			}
 			build.Elements[rootID].Default.Value.Identity = validIdentity
-			if _, err := runtime.PublishSchema(build); err != nil {
+			if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 				t.Fatalf("PublishSchema() retry error = %v", err)
 			}
 		})
@@ -1633,7 +1669,7 @@ func TestFreezeRejectsUnflattenedUnionMember(t *testing.T) {
 	outer := simpleBuildTypeIDByName(t, build, "outer")
 	build.SimpleTypes[outer].Union = []runtime.SimpleTypeID{inner}
 
-	_, err := runtime.PublishSchema(build)
+	_, err := runtime.PublishSchema(context.Background(), build)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
@@ -1671,7 +1707,7 @@ func TestFreezeRejectsInvalidSimpleDerivationFinalEdges(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			build := mutableSchemaBuild(t, schema)
 			test.mutate(t, build)
-			_, err := runtime.PublishSchema(build)
+			_, err := runtime.PublishSchema(context.Background(), build)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
@@ -1719,7 +1755,7 @@ func TestFreezeRejectsInvalidSimpleUnionProvenance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			build := mutableSchemaBuild(t, schema)
 			test.mutate(t, build)
-			_, err := runtime.PublishSchema(build)
+			_, err := runtime.PublishSchema(context.Background(), build)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
@@ -2427,7 +2463,7 @@ func TestPublishSchemaRejectsMissingLengthFacetAncestorAndAllowsRetry(t *testing
 	expected := mutableSchemaBuild(t, schema)
 	runtime.ClearFacet(&expected.SimpleTypes[simpleBuildTypeIDByName(t, expected, "Bounds")].Facets, runtime.FacetMinLength)
 
-	published, err := runtime.PublishSchema(build)
+	published, err := runtime.PublishSchema(context.Background(), build)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if published != nil {
 		t.Fatal("PublishSchema() returned a schema without a length-facet ancestor")
@@ -2437,7 +2473,7 @@ func TestPublishSchemaRejectsMissingLengthFacetAncestorAndAllowsRetry(t *testing
 	}
 	runtime.SetFacetPresent(&build.SimpleTypes[boundsID].Facets, runtime.FacetMinLength)
 	build.SimpleTypes[boundsID].Facets.MinLength = 1
-	if _, err := runtime.PublishSchema(build); err != nil {
+	if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 		t.Fatalf("PublishSchema() retry error = %v", err)
 	}
 }
@@ -2560,7 +2596,7 @@ func TestPublishSchemaRejectsInvalidComplexContentRestrictionAndAllowsRetry(t *t
 	expectedOther := complexBuildTypeIDByName(t, expected, "Other")
 	expected.ComplexTypes[expectedDerived].Content = expected.ComplexTypes[expectedOther].Content
 
-	published, err := runtime.PublishSchema(build)
+	published, err := runtime.PublishSchema(context.Background(), build)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if published != nil {
 		t.Fatal("PublishSchema() returned a schema for an invalid complex content restriction")
@@ -2569,7 +2605,7 @@ func TestPublishSchemaRejectsInvalidComplexContentRestrictionAndAllowsRetry(t *t
 		t.Fatal("PublishSchema() changed build after content-restriction audit failure")
 	}
 	build.ComplexTypes[derived].Content = validContent
-	if _, err := runtime.PublishSchema(build); err != nil {
+	if _, err := runtime.PublishSchema(context.Background(), build); err != nil {
 		t.Fatalf("PublishSchema() retry error = %v", err)
 	}
 }

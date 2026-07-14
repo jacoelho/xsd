@@ -19,6 +19,9 @@ func identityConstraintNodes(n *rawNode) []*rawNode {
 
 func (c *compiler) declareAllIdentityConstraints() error {
 	for _, document := range c.schemas.documents {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if !document.indexDeclarations {
 			continue
 		}
@@ -32,6 +35,9 @@ func (c *compiler) declareAllIdentityConstraints() error {
 }
 
 func (c *compiler) declareIdentityConstraintsInTree(n *rawNode, ctx *schemaContext) error {
+	if err := compileContextError(c.ctx); err != nil {
+		return err
+	}
 	if n.Name.Space == vocab.XSDNamespaceURI && n.Name.Local == vocab.XSDElemElement {
 		if _, err := c.declareIdentityConstraints(identityConstraintNodes(n), ctx); err != nil {
 			return err

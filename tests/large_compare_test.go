@@ -44,10 +44,11 @@ type largeCompareConfig struct {
 }
 
 type largeProfile struct {
-	name   string
-	schema string
-	xml    string
-	bytes  int64
+	name               string
+	schema             string
+	xml                string
+	bytes              int64
+	maxIdentityEntries int
 }
 
 type commandMetrics struct {
@@ -261,13 +262,17 @@ func generateStreamingProfile(t *testing.T, schema, dir string, size largeCompar
 
 func generateIdentityProfile(t *testing.T, dir string, rows int) largeProfile {
 	t.Helper()
+	if rows > math.MaxInt/5 {
+		t.Fatal("identity row count is too large to derive a validation-entry budget")
+	}
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", dir, err)
 	}
 	profile := largeProfile{
-		name:   "identity",
-		schema: filepath.Join(dir, "schema.xsd"),
-		xml:    filepath.Join(dir, "document.xml"),
+		name:               "identity",
+		schema:             filepath.Join(dir, "schema.xsd"),
+		xml:                filepath.Join(dir, "document.xml"),
+		maxIdentityEntries: rows * 5,
 	}
 	writeFileString(t, profile.schema, largeIdentitySchema)
 	profile.bytes = writeLargeIdentityXML(t, profile.xml, rows)
@@ -278,7 +283,10 @@ func compareLargeProfile(t *testing.T, repoXMLLint, libxml2 string, profile larg
 	t.Helper()
 	t.Logf("schema=%s", profile.schema)
 	t.Logf("xml=%s bytes=%d", profile.xml, profile.bytes)
-	goArgs := []string{"--schema", profile.schema, profile.xml}
+	goArgs := []string{"--schema", profile.schema, "--max-instance-bytes", strconv.FormatInt(profile.bytes, 10), profile.xml}
+	if profile.maxIdentityEntries != 0 {
+		goArgs = slices.Insert(goArgs, len(goArgs)-1, "--max-identity-entries", strconv.Itoa(profile.maxIdentityEntries))
+	}
 	libxml2Args := []string{"--noout", "--huge", "--schema", profile.schema, profile.xml}
 	goMetrics, libxml2Metrics, pairs := runPairedMeasuredCommands(t, runs, repoXMLLint, goArgs, libxml2, libxml2Args)
 	logPairedCommandMetrics(t, pairs, profile.bytes)

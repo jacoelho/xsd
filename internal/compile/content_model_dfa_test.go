@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -12,7 +13,7 @@ func TestCompileContentModelsBuildsIndexedRows(t *testing.T) {
 	t.Parallel()
 
 	names, rt := compiledModelRuntimeFixture(t, runtime.ModelChoice)
-	models, err := CompileContentModels(&names, rt, 1, 32)
+	models, err := CompileContentModels(context.Background(), &names, rt, 1, 32)
 	if err != nil {
 		t.Fatalf("CompileContentModels() error = %v", err)
 	}
@@ -56,7 +57,7 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 			2: name,
 		},
 	}
-	err = CheckContentModelsUPA(&names, rt, 1)
+	err = CheckContentModelsUPA(context.Background(), &names, rt, 1)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 

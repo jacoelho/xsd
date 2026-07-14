@@ -23,9 +23,10 @@ types/functions; those belong to `xsderrors` and `format`.
 
 ## Internal Packages
 
-- `internal/source` owns immutable/repeatable schema source primitives, staged
-  bounded reads, resolver adaptation, local and generic backend policy, and
-  source identity. It does not own XSD vocabulary or schema-graph policy.
+- `internal/source` owns immutable/repeatable schema source primitives,
+  context-aware callbacks, staged bounded reads, resolver adaptation, local and
+  generic backend policy, and source identity. It does not own XSD vocabulary
+  or schema-graph policy.
 - `internal/uriref` owns XSD 1.0 URI-reference validity after XLink escaping,
   raw and escaped projections, fragment syntax, and raw-preserving RFC 2396
   composition. Arbitrary source names and Unix paths do not enter this type.
@@ -50,11 +51,13 @@ types/functions; those belong to `xsderrors` and `format`.
   table that owns union-member storage for both derivation and value validation,
   the canonical content-model restriction relation shared by compilation and
   publication audit, validation reads, content-model execution, and
-  publication-owned clones.
+  publication-owned clones. Publication accepts the compile context, audits
+  without consuming compiler state, then performs one final cancellation check
+  before the build-consumption linearization point.
   Cross-table `TypeID` values expose only typed constructors, classification,
   and projections; their tag and payload remain runtime-owned. Identity-path
   QName absence is returned by value and has no mutable package-global state.
-- `internal/validate` owns instance validation: option normalization, XML
+- `internal/validate` owns instance validation: finite default limits, option normalization, XML
   reader preflight, parser error classification, validation recovery,
   document structure, start/end element decisions, attributes, content,
   simple-content assessment, identity-state storage and resolution, XSI
@@ -87,6 +90,9 @@ Compilation flow:
    one source budget. It applies inherited `xml:base` per resolver context,
    accounts every source byte and failure stage,
    and parses every schema token against XML namespace and resource limits.
+   The compile context is call-local and is passed unchanged to resolver and
+   opener callbacks. Cancellation is checked around callbacks, reads, tokens,
+   graph work, and major compilation batches.
    Schema-provided URI references are admitted before graph resolution, and graph
    edges retain a validated reference rather than a reparsable string. Their
    whitespace-normalized spelling remains the datatype and custom-resolver
@@ -115,7 +121,10 @@ Compilation flow:
    retained substitution lookup.
 4. `internal/runtime.PublishSchema` audits exact global registries and component
    ownership before constructing validation reads, audits those projections,
-   then moves the build into a sealed `*runtime.Schema`.
+   and checks cancellation before consuming the build. A failure, including
+   cancellation, leaves compiler state retryable. Once the final check passes,
+   build consumption and successful return form one commit with no later
+   cancellation override.
 5. Root `xsd.Engine` stores that sealed validation schema.
 
 Validation flow:
@@ -131,7 +140,9 @@ Validation flow:
    That owner also holds bounded scalar scratch for type derivation and compiled
    string-pattern execution; immutable schema tables never hold validation work
    buffers. Every return path clears document-local state before releasing the
-   overlap guard, while returned diagnostics remain caller-owned.
+   overlap guard, while returned diagnostics remain caller-owned. The context
+   is call-local and is not retained by a session. The overlap guard is acquired
+   before context inspection, and cleanup completes before that guard is released.
 4. `internal/validate` reads immutable schema facts through methods on the
    sealed `*runtime.Schema`, then applies validation policy to those facts.
    Element frames distinguish assessed nodes, nodes admitted by a
@@ -153,6 +164,12 @@ Validation flow:
    diagnostics.
 5. Runtime table execution and metadata checks stay in `internal/runtime`;
    instance-validation policy stays in `internal/validate`.
+
+Cancellation is cooperative at effect and batch boundaries. The library cannot
+forcibly interrupt a resolver, opener, file operation, or arbitrary `io.Reader`
+that ignores cancellation. Public callbacks MUST honor their context; callers
+that require hard interruption of validation reads MUST provide a reader that
+unblocks or is closed when its context is canceled.
 
 Formatting flow:
 

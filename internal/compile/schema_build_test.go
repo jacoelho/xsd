@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"context"
 	"reflect"
 	"slices"
 	"testing"
@@ -56,7 +57,7 @@ func TestElementCompilationFailureKeepsReservedPlaceholder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := newCompiler(limits)
+	c, err := newCompiler(context.Background(), limits)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +94,7 @@ func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := newCompiler(limits)
+	c, err := newCompiler(context.Background(), limits)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +165,7 @@ func TestSchemaBuildBuiltinHandlesMatchRegisteredDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := newCompiler(limits)
+	c, err := newCompiler(context.Background(), limits)
 	if err != nil {
 		t.Fatal(err)
 	}

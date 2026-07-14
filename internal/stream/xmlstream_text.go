@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"unicode/utf8"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -34,14 +33,18 @@ func validXMLPrefix(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func (p *Parser) consumeLineFeed() {
+func (p *Parser) consumeLineFeed() error {
 	b, err := p.br.readByte()
 	if err != nil {
-		return
+		if IsOnlyEOF(err) {
+			return nil
+		}
+		return err
 	}
 	if b != '\n' {
 		p.br.unreadByte()
 	}
+	return nil
 }
 
 func (p *Parser) readEntity(dst *[]byte) error {
@@ -296,7 +299,7 @@ func (p *Parser) expectString(s string) error {
 }
 
 func (p *Parser) syntaxError(msg string, err error) error {
-	if errors.Is(err, io.EOF) {
+	if IsOnlyEOF(err) {
 		return errors.New(msg)
 	}
 	return err

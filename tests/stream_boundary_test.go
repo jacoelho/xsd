@@ -752,7 +752,7 @@ func parserInvalidationBodyIssue(info *types.Info, body *ast.BlockStmt) (token.P
 		switch identity.name {
 		case "Next":
 			nextCalls = append(nextCalls, call)
-		case "Reset", "ResetWithLimit", "Detach":
+		case "Reset", "ResetWithLimits", "Detach":
 			invalidators = append(invalidators, call)
 		}
 		return true
@@ -1339,6 +1339,7 @@ func TestParserNextRequiresFreshLocalAndOneAcquisitionSite(t *testing.T) {
 		{name: "fresh local", body: `token, err := parser.Next(); _, _ = token, err`, allowedNext: true},
 		{name: "existing destination", body: `retained, _ = parser.Next()`},
 		{name: "second acquisition", body: `token, _ := parser.Next(); _, _ = parser.Next(); _ = token`, allowedNext: true, invalidationFail: true},
+		{name: "reset with limits", body: `names, values := new(stream.Cache), new(stream.Cache); token, _ := parser.Next(); _ = parser.ResetWithLimits(nil, names, values, stream.Limits{}); _ = token`, allowedNext: true, invalidationFail: true},
 		{name: "stored method expression", body: `next := (*stream.Parser).Next; token, _ := next(parser); _ = token`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

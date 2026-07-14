@@ -2,6 +2,7 @@ package format
 
 import (
 	"errors"
+	"io"
 	"strconv"
 	"strings"
 	"testing"
@@ -9,6 +10,20 @@ import (
 
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+type formatDataErrorReader struct {
+	data string
+	err  error
+	done bool
+}
+
+func (r *formatDataErrorReader) Read(p []byte) (int, error) {
+	if r.done {
+		return 0, r.err
+	}
+	r.done = true
+	return copy(p, r.data), r.err
+}
 
 func TestFormatXMLIndentsElements(t *testing.T) {
 	var out strings.Builder
@@ -25,6 +40,24 @@ func TestFormatXMLIndentsElements(t *testing.T) {
 </root>`
 	if out.String() != want {
 		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+	}
+}
+
+func TestFormatXMLDataWithEOFRequiresPureEOF(t *testing.T) {
+	const input = `<root/>`
+	var pure strings.Builder
+	if err := XML(&pure, &formatDataErrorReader{data: input, err: io.EOF}); err != nil {
+		t.Fatalf("XML(pure EOF) error = %v", err)
+	}
+
+	sentinel := errors.New("read failed")
+	var joined strings.Builder
+	err := XML(&joined, &formatDataErrorReader{data: input, err: errors.Join(io.EOF, sentinel)})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("XML(joined EOF) error = %v, want reader cause", err)
+	}
+	if joined.Len() != 0 {
+		t.Fatalf("XML(joined EOF) wrote %q before rejecting input", joined.String())
 	}
 }
 

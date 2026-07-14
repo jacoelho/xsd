@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -264,7 +265,7 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 		return
 	}
 	run.schemaCases++
-	engine, err := xsd.Compile(schemaSources(dir, tc)...)
+	engine, err := xsd.Compile(context.Background(), schemaSources(dir, tc)...)
 	switch tc.Schema.Expected {
 	case "valid":
 		if err != nil {
@@ -310,7 +311,7 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
-	err = engine.Validate(f)
+	err = engine.Validate(context.Background(), f)
 	closeErr := f.Close()
 	if closeErr != nil {
 		t.Fatalf("Close() error = %v", closeErr)

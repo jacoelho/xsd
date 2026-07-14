@@ -3,7 +3,6 @@ package stream
 import (
 	"bytes"
 	"errors"
-	"io"
 	"strings"
 )
 
@@ -26,13 +25,13 @@ func (e UnsupportedXMLVersionError) Error() string {
 
 func (p *Parser) prepareXMLProlog() error {
 	peek, err := p.br.ensure(XMLDeclarationPrefixLen)
-	if err != nil && !errors.Is(err, io.EOF) {
+	if err != nil && !IsOnlyEOF(err) {
 		return err
 	}
 	if HasUTF8BOM(peek) {
 		p.br.discardUTF8BOM()
 		peek, err = p.br.ensure(XMLDeclarationPrefixLen)
-		if err != nil && !errors.Is(err, io.EOF) {
+		if err != nil && !IsOnlyEOF(err) {
 			return err
 		}
 	}

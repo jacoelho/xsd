@@ -98,6 +98,9 @@ func (c *compiler) drainDeferredAnonymousComplex() error {
 		pending := c.deferredAnonymousComplex
 		c.deferredAnonymousComplex = nil
 		for _, item := range pending {
+			if err := compileContextError(c.ctx); err != nil {
+				return err
+			}
 			if _, err := c.completeAnonymousComplex(item.id, item.name, item.node, item.ctx); err != nil {
 				return err
 			}

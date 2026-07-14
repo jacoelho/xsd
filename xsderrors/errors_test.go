@@ -1,10 +1,22 @@
 package xsderrors
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 )
+
+func TestCanceledPreservesStructuredCodeAndCause(t *testing.T) {
+	err := Canceled(CodeCompileCanceled, "schema compilation canceled", context.Canceled)
+	diagnostic := requireDiagnostic(t, err)
+	if diagnostic.Category != CategoryCanceled || diagnostic.Code != CodeCompileCanceled {
+		t.Fatalf("Canceled() = (%s, %s), want (%s, %s)", diagnostic.Category, diagnostic.Code, CategoryCanceled, CodeCompileCanceled)
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Canceled() error = %v, want context.Canceled cause", err)
+	}
+}
 
 func TestErrorsIgnoreNilChildren(t *testing.T) {
 	target := Validation(CodeValidationType, 1, 2, "/root", "bad type")

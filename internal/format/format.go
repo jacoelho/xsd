@@ -83,7 +83,7 @@ func XMLWithOptions(w io.Writer, r io.Reader, opts Options) error {
 	names := stream.NewCache()
 	values := stream.NewCache()
 	p := new(stream.Parser)
-	err = p.ResetWithLimit(reader, &names, &values, limits.maxTokenBytes)
+	err = p.ResetWithLimits(reader, &names, &values, stream.Limits{MaxTokenBytes: limits.maxTokenBytes})
 	if err != nil {
 		return formatReaderErr(err)
 	}
@@ -249,7 +249,7 @@ type formatElement struct {
 func (f *xmlFormatter) format() error {
 	for {
 		tok, err := f.p.Next()
-		if errors.Is(err, io.EOF) {
+		if stream.IsOnlyEOF(err) {
 			return f.finish()
 		}
 		if err != nil {
