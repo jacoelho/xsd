@@ -953,11 +953,6 @@
       return `${n} bytes`;
     }
 
-    function lineMessage(err) {
-      if (err.line) return `${err.error} at ${err.line}:${err.column || 0}.`;
-      return err.error || "validation failed";
-    }
-
     function errorSource(err) {
       if (err.source) return err.source;
       return err.category === "schema_parse" || err.category === "schema_compile" ? "xsd" : "xml";
