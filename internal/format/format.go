@@ -82,12 +82,12 @@ func XMLWithOptions(w io.Writer, r io.Reader, opts Options) error {
 
 	names := stream.NewCache()
 	values := stream.NewCache()
-	reader, err = stream.PrepareXMLReaderWithBuffer(reader, nil)
+	p := new(stream.Parser)
+	err = p.ResetWithLimit(reader, &names, &values, limits.maxTokenBytes)
 	if err != nil {
 		return formatReaderErr(err)
 	}
-	p := new(stream.Parser)
-	p.ResetWithLimit(reader, &names, &values, limits.maxTokenBytes)
+	defer p.Detach()
 	p.SetEmitComments(true)
 	p.SetEmitPI(true)
 	f := xmlFormatter{w: writer, p: p, maxDepth: limits.maxDepth, maxNodes: limits.maxNodes}

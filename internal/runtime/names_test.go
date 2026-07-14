@@ -2,8 +2,44 @@ package runtime
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 )
+
+func TestNameIDAllocatorsReserveAbsentSentinel(t *testing.T) {
+	names, err := NewNameTable(0, testRequiredNamespaces, testRequiredNames)
+	if err != nil {
+		t.Fatalf("NewNameTable() error = %v", err)
+	}
+	if names.ValidQName(NoQName()) {
+		t.Fatal("NameTable.ValidQName() accepted NoQName()")
+	}
+	if _, err := nextNamespaceID(-1); !errors.Is(err, ErrNamespaceLimit) {
+		t.Fatalf("nextNamespaceID(-1) error = %v, want ErrNamespaceLimit", err)
+	}
+	if _, err := nextLocalNameID(-1); !errors.Is(err, ErrLocalNameLimit) {
+		t.Fatalf("nextLocalNameID(-1) error = %v, want ErrLocalNameLimit", err)
+	}
+	if strconv.IntSize <= 32 {
+		return
+	}
+	sentinel := uint64(invalidID)
+	if id, err := nextNamespaceID(int(sentinel - 1)); err != nil || uint64(id) != sentinel-1 {
+		t.Fatalf("nextNamespaceID(invalidID-1) = %d, %v", id, err)
+	}
+	if _, err := nextNamespaceID(int(sentinel)); !errors.Is(err, ErrNamespaceLimit) {
+		t.Fatalf("nextNamespaceID(invalidID) error = %v, want ErrNamespaceLimit", err)
+	}
+	if id, err := nextLocalNameID(int(sentinel - 1)); err != nil || uint64(id) != sentinel-1 {
+		t.Fatalf("nextLocalNameID(invalidID-1) = %d, %v", id, err)
+	}
+	if _, err := nextLocalNameID(int(sentinel)); !errors.Is(err, ErrLocalNameLimit) {
+		t.Fatalf("nextLocalNameID(invalidID) error = %v, want ErrLocalNameLimit", err)
+	}
+	if _, _, err := nextQNameIDs(0, int(sentinel), true, true); !errors.Is(err, ErrLocalNameLimit) {
+		t.Fatalf("nextQNameIDs(local exhausted) error = %v, want ErrLocalNameLimit", err)
+	}
+}
 
 var testRequiredNamespaces = []string{
 	EmptyNamespaceURI,
@@ -134,7 +170,7 @@ func TestValidateNameReadProjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
-	read := NewBorrowedNameReadView(&names)
+	read := NewNameReadView(&names)
 	if err := ValidateNameReadProjection(read, &names); err != nil {
 		t.Fatalf("ValidateNameReadProjection() error = %v", err)
 	}

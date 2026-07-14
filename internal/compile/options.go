@@ -4,48 +4,54 @@ package compile
 import "github.com/jacoelho/xsd/xsderrors"
 
 const (
-	defaultMaxSchemaDepth             = 256
-	defaultMaxSchemaAttributes        = 256
-	defaultMaxSchemaTokenBytes        = int64(4 << 20)
-	defaultMaxSchemaSourceBytes       = int64(64 << 20)
-	defaultMaxSchemaSources           = 1024
-	defaultMaxSchemaTotalBytes        = int64(256 << 20)
-	defaultMaxSchemaReferences        = 16_384
-	defaultMaxSchemaTargetContexts    = 4096
-	defaultMaxSchemaInstantiatedNodes = 1_000_000
-	defaultMaxContentModelStates      = 16_384
+	defaultMaxSchemaDepth                = 256
+	defaultMaxSchemaAttributes           = 256
+	defaultMaxSchemaTokenBytes           = int64(4 << 20)
+	defaultMaxSchemaSourceBytes          = int64(64 << 20)
+	defaultMaxSchemaSources              = 1024
+	defaultMaxSchemaTotalBytes           = int64(256 << 20)
+	defaultMaxSchemaReferences           = 16_384
+	defaultMaxSchemaTargetContexts       = 4096
+	defaultMaxSchemaInstantiatedNodes    = 1_000_000
+	defaultMaxContentModelStates         = 16_384
+	defaultMaxSubstitutionClosureEntries = 1_000_000
+	defaultMaxSimpleUnionMemberEntries   = 1_000_000
 )
 
 // Options controls schema compilation resource limits.
 type Options struct {
-	MaxSchemaDepth             int
-	MaxSchemaAttributes        int
-	MaxSchemaTokenBytes        int64
-	MaxSchemaSourceBytes       int64
-	MaxSchemaSources           int
-	MaxSchemaTotalBytes        int64
-	MaxSchemaReferences        int
-	MaxSchemaTargetContexts    int
-	MaxSchemaInstantiatedNodes int
-	MaxSchemaNames             int
-	MaxFiniteOccurs            uint64
-	MaxContentModelStates      int
+	MaxSchemaDepth                int
+	MaxSchemaAttributes           int
+	MaxSchemaTokenBytes           int64
+	MaxSchemaSourceBytes          int64
+	MaxSchemaSources              int
+	MaxSchemaTotalBytes           int64
+	MaxSchemaReferences           int
+	MaxSchemaTargetContexts       int
+	MaxSchemaInstantiatedNodes    int
+	MaxSchemaNames                int
+	MaxFiniteOccurs               uint64
+	MaxContentModelStates         int
+	MaxSubstitutionClosureEntries int
+	MaxSimpleUnionMemberEntries   int
 }
 
 // Limits is the normalized internal form of Options.
 type Limits struct {
-	MaxSchemaDepth             int
-	MaxSchemaAttributes        int
-	MaxSchemaTokenBytes        int64
-	MaxSchemaSourceBytes       int64
-	MaxSchemaSources           int
-	MaxSchemaTotalBytes        int64
-	MaxSchemaReferences        int
-	MaxSchemaTargetContexts    int
-	MaxSchemaInstantiatedNodes int
-	MaxSchemaNames             int
-	MaxContentModelStates      int
-	MaxFiniteOccurs            uint64
+	MaxSchemaDepth                int
+	MaxSchemaAttributes           int
+	MaxSchemaTokenBytes           int64
+	MaxSchemaSourceBytes          int64
+	MaxSchemaSources              int
+	MaxSchemaTotalBytes           int64
+	MaxSchemaReferences           int
+	MaxSchemaTargetContexts       int
+	MaxSchemaInstantiatedNodes    int
+	MaxSchemaNames                int
+	MaxContentModelStates         int
+	MaxSubstitutionClosureEntries int
+	MaxSimpleUnionMemberEntries   int
+	MaxFiniteOccurs               uint64
 }
 
 // NormalizeOptions validates options and fills default limits.
@@ -93,19 +99,29 @@ func NormalizeOptions(opts Options) (Limits, error) {
 	if err != nil {
 		return Limits{}, err
 	}
+	substitutionEntries, err := limitOrDefault("MaxSubstitutionClosureEntries", opts.MaxSubstitutionClosureEntries, defaultMaxSubstitutionClosureEntries)
+	if err != nil {
+		return Limits{}, err
+	}
+	unionEntries, err := limitOrDefault("MaxSimpleUnionMemberEntries", opts.MaxSimpleUnionMemberEntries, defaultMaxSimpleUnionMemberEntries)
+	if err != nil {
+		return Limits{}, err
+	}
 	return Limits{
-		MaxSchemaDepth:             depth,
-		MaxSchemaAttributes:        attrs,
-		MaxSchemaTokenBytes:        tokenBytes,
-		MaxSchemaSourceBytes:       sourceBytes,
-		MaxSchemaSources:           sources,
-		MaxSchemaTotalBytes:        totalBytes,
-		MaxSchemaReferences:        references,
-		MaxSchemaTargetContexts:    targetContexts,
-		MaxSchemaInstantiatedNodes: instantiatedNodes,
-		MaxSchemaNames:             opts.MaxSchemaNames,
-		MaxContentModelStates:      modelStates,
-		MaxFiniteOccurs:            opts.MaxFiniteOccurs,
+		MaxSchemaDepth:                depth,
+		MaxSchemaAttributes:           attrs,
+		MaxSchemaTokenBytes:           tokenBytes,
+		MaxSchemaSourceBytes:          sourceBytes,
+		MaxSchemaSources:              sources,
+		MaxSchemaTotalBytes:           totalBytes,
+		MaxSchemaReferences:           references,
+		MaxSchemaTargetContexts:       targetContexts,
+		MaxSchemaInstantiatedNodes:    instantiatedNodes,
+		MaxSchemaNames:                opts.MaxSchemaNames,
+		MaxContentModelStates:         modelStates,
+		MaxSubstitutionClosureEntries: substitutionEntries,
+		MaxSimpleUnionMemberEntries:   unionEntries,
+		MaxFiniteOccurs:               opts.MaxFiniteOccurs,
 	}, nil
 }
 

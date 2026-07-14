@@ -27,6 +27,59 @@ func BenchmarkSimplePatternVariableNoMatchBytes(b *testing.B) {
 	}
 }
 
+func BenchmarkSimplePatternVariableNoMatchStringScratch(b *testing.B) {
+	read := stringPatternRead{fast: CompileSimpleStringPattern(`[a-z]{0,}[a-z]{0,}x`)}
+	input := strings.Repeat("a", 4096)
+	var scratch StringPatternScratch
+	prepared := simplePatternInput{text: input}
+	read.matchStringWithScratch(input, &prepared, &scratch)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		prepared = simplePatternInput{text: input}
+		if read.matchStringWithScratch(input, &prepared, &scratch) {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkSimplePatternVariableNoMatchBytesScratch(b *testing.B) {
+	read := stringPatternRead{fast: CompileSimpleStringPattern(`[a-z]{0,}[a-z]{0,}x`)}
+	input := []byte(strings.Repeat("a", 4096))
+	var scratch StringPatternScratch
+	prepared := simplePatternInput{bytes: input}
+	read.matchBytesWithScratch(input, &prepared, &scratch)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		prepared = simplePatternInput{bytes: input}
+		if read.matchBytesWithScratch(input, &prepared, &scratch) {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkSimplePatternVariableNoMatchGroupScratch(b *testing.B) {
+	pattern := CompileSimpleStringPattern(`[a-z]{0,}[a-z]{0,}x`)
+	patterns := make([]stringPatternRead, 8)
+	for i := range patterns {
+		patterns[i] = stringPatternRead{fast: pattern}
+	}
+	step := &stringPatternStepRead{patterns: patterns}
+	input := strings.Repeat("a", 4096)
+	var scratch StringPatternScratch
+	if err := validateStringPatternStepReadsWithScratch(step, input, &scratch); err == nil {
+		b.Fatal("unexpected match")
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if err := validateStringPatternStepReadsWithScratch(step, input, &scratch); err == nil {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
 func BenchmarkSimplePatternVariableSmallString(b *testing.B) {
 	p := CompileSimpleStringPattern(`[a-z]{0,}[a-z]{0,}x`)
 	input := strings.Repeat("a", 24) + "x"
@@ -66,6 +119,38 @@ func BenchmarkSimplePatternVariableNoMatchMultibyteBytes(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		if p.MatchBytes(input) {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkSimplePatternVariableNoMatchMultibyteStringScratch(b *testing.B) {
+	read := stringPatternRead{fast: CompileSimpleStringPattern(`é{0,}é{0,}x`)}
+	input := strings.Repeat("é", 4096)
+	var scratch StringPatternScratch
+	prepared := simplePatternInput{text: input}
+	read.matchStringWithScratch(input, &prepared, &scratch)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		prepared = simplePatternInput{text: input}
+		if read.matchStringWithScratch(input, &prepared, &scratch) {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkSimplePatternVariableNoMatchMultibyteBytesScratch(b *testing.B) {
+	read := stringPatternRead{fast: CompileSimpleStringPattern(`é{0,}é{0,}x`)}
+	input := []byte(strings.Repeat("é", 4096))
+	var scratch StringPatternScratch
+	prepared := simplePatternInput{bytes: input}
+	read.matchBytesWithScratch(input, &prepared, &scratch)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		prepared = simplePatternInput{bytes: input}
+		if read.matchBytesWithScratch(input, &prepared, &scratch) {
 			b.Fatal("unexpected match")
 		}
 	}
@@ -111,12 +196,12 @@ func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
 	}
 	schema := &Schema{runtime: schemaRuntime{
 		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
-		SimpleValueCold:   newSimpleValueColdReadTable(types),
+		SimpleTypeCold:    newSimpleTypeColdReadTable(types),
 	}}
 	raw := []byte("value")
 	b.ReportAllocs()
 	for b.Loop() {
-		handled, err := schema.validatePublishedRawSimpleValue(0, raw)
+		handled, err := schema.validatePublishedRawSimpleValueWithScratch(0, raw, nil)
 		if err != nil || !handled {
 			b.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
 		}

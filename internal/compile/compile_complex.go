@@ -39,7 +39,7 @@ func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
-	final, err := derivationMaskWithDefaultChecked(raw.node, raw.ctx.finalDefault, ComplexTypeFinalDerivation)
+	final, err := derivationMaskWithDefaultChecked(raw.node, raw.ctx.finalDefault, complexTypeFinalDerivation())
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
@@ -83,7 +83,7 @@ func (c *compiler) completeAnonymousComplex(id runtime.ComplexTypeID, q runtime.
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
-	final, err := derivationMaskWithDefaultChecked(n, ctx.finalDefault, ComplexTypeFinalDerivation)
+	final, err := derivationMaskWithDefaultChecked(n, ctx.finalDefault, complexTypeFinalDerivation())
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
@@ -337,7 +337,10 @@ func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaC
 	if err := c.validateComplexExtensionModelAdmission(baseID, base, ext, mixed); err != nil {
 		return runtime.NoContentModel, withSchemaCompileLocation(modelNode, err)
 	}
-	return ExtendSequenceModel(&c.rt, c.addModel, base.Content, ext)
+	addAtModelNode := func(model runtime.ContentModel) (runtime.ContentModelID, error) {
+		return c.addModelAt(model, modelNode)
+	}
+	return ExtendSequenceModel(&c.rt, addAtModelNode, base.Content, ext)
 }
 
 func (c *compiler) validateComplexContentMixedDerivationBase(child *rawNode, base runtime.ComplexType, extension, mixed bool) error {
@@ -527,8 +530,18 @@ func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*rawNode
 		return runtime.NoSimpleType, err
 	}
 	st := c.rt.derivedSimpleType(baseID, q)
-	if err = c.compileFacetList(facetChildren, &st, baseID, baseID); err != nil {
+	if c.simpleTypeUnavailable[baseID] {
+		err = c.validateUnavailableFacetChildren(facetChildren, &st, baseID, false)
+	} else {
+		err = c.compileFacetList(facetChildren, &st, baseID, baseID)
+	}
+	if err != nil {
 		return runtime.NoSimpleType, withSchemaCompileLocation(facetChildren[0], err)
+	}
+	if st.Variety == runtime.SimpleVarietyUnion {
+		if err := c.chargeSimpleUnionMemberEntries(facetChildren[0], len(st.Union)); err != nil {
+			return runtime.NoSimpleType, err
+		}
 	}
 	st.Identity = c.rt.DerivedSimpleIdentity(st)
 	st.Fast = runtime.DeriveSimpleFastPathForSimpleType(st)

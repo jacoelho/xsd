@@ -86,27 +86,19 @@ func TestStackLifecycleZeroesReleasedBindings(t *testing.T) {
 func TestValidateUniqueAttributes(t *testing.T) {
 	t.Parallel()
 
-	err := ValidateUniqueAttributes(streamAttrs(
-		xml.Name{Space: "urn:x", Local: "id"},
-		xml.Name{Space: "urn:y", Local: "id"},
+	err := ValidateUniqueAttributes(stream.OwnedAttrs(
+		stream.OwnedAttr(xml.Name{Space: "urn:x", Local: "id"}, ""),
+		stream.OwnedAttr(xml.Name{Space: "urn:y", Local: "id"}, ""),
 	))
 	if err != nil {
 		t.Fatalf("ValidateUniqueAttributes() error = %v", err)
 	}
 
-	err = ValidateUniqueAttributes(streamAttrs(
-		xml.Name{Space: "urn:x", Local: "id"},
-		xml.Name{Space: "urn:x", Local: "id"},
+	err = ValidateUniqueAttributes(stream.OwnedAttrs(
+		stream.OwnedAttr(xml.Name{Space: "urn:x", Local: "id"}, ""),
+		stream.OwnedAttr(xml.Name{Space: "urn:x", Local: "id"}, ""),
 	))
 	if err == nil || !strings.Contains(err.Error(), "duplicate attribute {urn:x}id") {
 		t.Fatalf("ValidateUniqueAttributes() error = %v, want duplicate expanded name", err)
 	}
-}
-
-func streamAttrs(names ...xml.Name) []stream.Attr {
-	attrs := make([]stream.Attr, len(names))
-	for i, name := range names {
-		attrs[i].Name = name
-	}
-	return attrs
 }

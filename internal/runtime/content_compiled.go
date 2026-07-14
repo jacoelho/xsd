@@ -2,7 +2,9 @@ package runtime
 
 import (
 	"errors"
+	"maps"
 	"math"
+	"slices"
 )
 
 // ContentState is the mutable validation state for one compiled content model.
@@ -170,8 +172,12 @@ func newCompiledModelReads(models []CompiledModel) []compiledModelRead {
 				}
 			}
 			modelRows[j] = compiledModelRowRead{
-				Edges:         rowEdges,
-				Index:         row.Index,
+				Edges: rowEdges,
+				Index: DFARowIndex{
+					NameToEdge:    maps.Clone(row.Index.NameToEdge),
+					WildcardEdges: slices.Clone(row.Index.WildcardEdges),
+					Enabled:       row.Index.Enabled,
+				},
 				CountParticle: newCompiledParticleRead(row.CountParticle),
 				Min:           row.Min,
 				Max:           row.Max,
@@ -479,18 +485,16 @@ func (rt *Schema) advancePublishedIndexedDFAContent(st *ContentState, model *com
 func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in ContentInput) (ContentMatch, bool, bool) {
 	switch p.Kind {
 	case ParticleElement:
-		if !ValidElementID(p.Element, len(rt.runtime.ElementNames)) {
+		name, ok := rt.runtime.Elements.name(p.Element)
+		if !ok {
 			return NoContentMatch(), false, false
 		}
-		name := rt.runtime.ElementNames[p.Element]
 		if in.Name.Known {
 			if name == in.Name.Name {
 				return ContentMatch{Element: p.Element}, true, true
 			}
-			if byName := rt.runtime.SubstitutionLookup[p.Element]; byName != nil {
-				if member, ok := byName[in.Name.Name]; ok {
-					return ContentMatch{Element: member}, true, true
-				}
+			if member, ok := rt.runtime.Substitutions.MemberByName(p.Element, in.Name.Name); ok {
+				return ContentMatch{Element: member}, true, true
 			}
 		}
 	case ParticleWildcard:

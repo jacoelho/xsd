@@ -9,16 +9,22 @@ func validateSimpleValueRouteReadProjectionForTypes(reads []simpleValueRouteRead
 	if len(reads) != len(types) {
 		return errors.New("simple value route projection count does not match types")
 	}
+	expected := newSimpleValueRouteReadsForSimpleTypes(types)
 	for i := range reads {
-		expected := newSimpleValueRouteReadForSimpleType(types[i])
-		if reads[i] != expected {
+		if reads[i] != expected[i] {
 			return errors.New("simple value route projection does not match type")
+		}
+		if reads[i].availability == simpleTypeAvailabilityInvalid {
+			return errors.New("simple value route projection has invalid availability")
 		}
 	}
 	return nil
 }
 
-func validateSimpleValueColdReadProjectionForTypes(reads simpleValueColdReadTable, types []SimpleType) error {
+func validateSimpleTypeColdReadProjectionForTypes(reads *simpleTypeColdReadTable, types []SimpleType) error {
+	if reads == nil {
+		return errors.New("simple type cold projection is missing")
+	}
 	if len(reads.index) != len(types) {
 		return errors.New("simple value cold projection count does not match types")
 	}
@@ -37,7 +43,7 @@ func validateSimpleValueColdReadProjectionForTypes(reads simpleValueColdReadTabl
 	next := uint32(0)
 	for i := range types {
 		idx := reads.index[i]
-		if !simpleValueTypeNeedsColdRead(types[i]) {
+		if !simpleTypeNeedsColdRead(types[i]) {
 			if idx != invalidID {
 				return errors.New("simple value cold projection stores unexpected type")
 			}

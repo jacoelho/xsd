@@ -2,6 +2,7 @@ package compile
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -18,7 +19,7 @@ func TestSchemaBuildGlobalRegistrationIsAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != 0 || c.rt.build.GlobalElements[name] != id || len(c.rt.build.Elements) != 1 {
+	if id != 0 || c.rt.build.GlobalElements[name] != id || len(c.rt.build.Elements) != 1 || c.rt.build.Elements[id].Scope != runtime.DeclarationScopeGlobal {
 		t.Fatalf("registration = id %d globals %v elements %d", id, c.rt.build.GlobalElements, len(c.rt.build.Elements))
 	}
 }
@@ -42,6 +43,7 @@ func TestSchemaBuildPlaceholderCompletionKeepsStableID(t *testing.T) {
 	}
 	completed := runtime.ElementDecl{Name: firstName, Nillable: true}
 	c.completeElement(first, completed)
+	completed.Scope = runtime.DeclarationScopeNonGlobal
 	if !reflect.DeepEqual(c.rt.build.Elements[first], completed) || c.rt.build.Elements[second].Name != secondName {
 		t.Fatal("completion changed IDs or the wrong declaration")
 	}
@@ -78,7 +80,7 @@ func TestElementCompilationFailureKeepsReservedPlaceholder(t *testing.T) {
 	if !ok {
 		t.Fatal("failed element did not retain its reserved global ID")
 	}
-	want := runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.build.Builtin.AnyType)}
+	want := runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.build.Builtin.AnyType), Scope: runtime.DeclarationScopeGlobal}
 	if got := c.rt.build.Elements[id]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("failed element = %#v, want reserved placeholder %#v", got, want)
 	}
@@ -87,27 +89,49 @@ func TestElementCompilationFailureKeepsReservedPlaceholder(t *testing.T) {
 func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 	t.Parallel()
 
-	c := compiler{rt: newCompilerSchemaBuild(runtime.NameTable{})}
-	headName := runtime.QName{Local: 1}
-	memberName := runtime.QName{Local: 2}
-	head, err := c.addElement(runtime.ElementDecl{Name: headName})
+	limits, err := NormalizeOptions(Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	member, err := c.addElement(runtime.ElementDecl{Name: memberName, SubstHead: head})
+	c, err := newCompiler(limits)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.installSubstitutions(map[runtime.ElementID][]runtime.ElementID{head: {member}})
-	if got := c.rt.build.Substitutions[head]; len(got) != 1 || got[0] != member {
-		t.Fatalf("substitutions = %v", got)
+	headName, err := c.rt.internQName("urn:test", "head")
+	if err != nil {
+		t.Fatal(err)
 	}
+	memberName, err := c.rt.internQName("urn:test", "member")
+	if err != nil {
+		t.Fatal(err)
+	}
+	typ := runtime.ComplexRef(c.rt.build.Builtin.AnyType)
+	head, err := c.registerGlobalElement(headName, runtime.ElementDecl{Name: headName, Type: typ, SubstHead: runtime.NoElement})
+	if err != nil {
+		t.Fatal(err)
+	}
+	member, err := c.registerGlobalElement(memberName, runtime.ElementDecl{Name: memberName, Type: typ, SubstHead: head})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := runtime.BuildSubstitutionTable(&c.rt.build, &c.rt.build.Names, c.rt.build.Elements, c.rt.build.GlobalElements, limits.MaxSubstitutionClosureEntries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.installFinalizedElements(slices.Clone(c.rt.build.Elements), table)
 	if got, ok := c.rt.SubstitutionMemberByName(head, memberName); !ok || got != member {
 		t.Fatalf("substitution lookup = %d/%v, want %d/true", got, ok, member)
 	}
-	names := c.rt.SubstitutionNames(head)
-	if got, ok := names.At(0); names.Len() != 1 || !ok || got != memberName {
-		t.Fatalf("substitution names = len %d, first %v/%v", names.Len(), got, ok)
+	var entries int
+	c.rt.ForEachSubstitutionEntry(head, func(name runtime.QName, got runtime.ElementID) bool {
+		entries++
+		if name != memberName || got != member {
+			t.Fatalf("substitution entry = %v/%d, want %v/%d", name, got, memberName, member)
+		}
+		return true
+	})
+	if entries != 1 {
+		t.Fatalf("substitution entries = %d, want 1", entries)
 	}
 }
 

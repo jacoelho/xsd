@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"math"
+	"slices"
 	"testing"
 )
 
@@ -557,8 +558,10 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 		}
 	}
 	elementNames := make([]QName, maxElement+1)
+	elements := make([]ElementDecl, maxElement+1)
 	for id, name := range s.elementNames {
 		elementNames[id] = name
+		elements[id] = ElementDecl{Name: name}
 	}
 
 	maxWildcard := -1
@@ -573,11 +576,27 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 	}
 
 	return &Schema{runtime: schemaRuntime{
-		GlobalElements:     s.globalElements,
-		SubstitutionLookup: s.substitutionLookup,
-		ComplexTypes:       complexTypes,
-		CompiledModels:     newCompiledModelReads(models),
-		ElementNames:       elementNames,
-		Wildcards:          wildcards,
+		GlobalElements: s.globalElements,
+		Substitutions:  testSubstitutionTable(s.substitutionLookup, len(elements)),
+		ComplexTypes:   complexTypes,
+		CompiledModels: newCompiledModelReads(models),
+		Elements:       newElementReadTable(elements, nil),
+		Wildcards:      wildcards,
 	}}
+}
+
+func testSubstitutionTable(lookup map[ElementID]map[QName]ElementID, elementCount int) SubstitutionTable {
+	if len(lookup) == 0 {
+		return SubstitutionTable{}
+	}
+	table := SubstitutionTable{spans: make([]substitutionSpan, elementCount)}
+	for head := range elementCount {
+		members := lookup[ElementID(head)]
+		table.spans[head] = substitutionSpan{start: len(table.entries), count: len(members)}
+		for name, member := range members {
+			table.entries = append(table.entries, substitutionEntry{name: name, member: member, effective: true})
+		}
+		slices.SortFunc(table.entries[table.spans[head].start:], compareSubstitutionEntry)
+	}
+	return table
 }

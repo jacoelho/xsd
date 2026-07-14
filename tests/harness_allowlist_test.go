@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -88,18 +89,51 @@ func TestUnsupportedAllowlistUseRequiresKnownCode(t *testing.T) {
 func TestHarnessRunCoverageRequiresFullCorpus(t *testing.T) {
 	m := manifest{
 		Cases: []manifestCase{
-			{Schema: manifestSchema{Expected: "valid"}, Instances: []manifestInstance{{}, {}}},
-			{Schema: manifestSchema{Expected: "valid"}, Instances: []manifestInstance{{}}},
-			{Schema: manifestSchema{Expected: "invalid"}, Instances: []manifestInstance{{}}},
+			{Schema: &manifestSchema{Expected: "valid"}, Instances: []manifestInstance{{}, {}}},
+			{Schema: &manifestSchema{Expected: "valid"}, Instances: []manifestInstance{{}}},
+			{Schema: &manifestSchema{Expected: "invalid"}, Instances: []manifestInstance{{}}},
+			{Instances: []manifestInstance{{}}},
 		},
 	}
-	if !(harnessRunCoverage{schemaCases: 3, instanceRuns: 3}).complete(m) {
+	if !(harnessRunCoverage{schemaCases: 3, schemaLessCases: 1, instanceRuns: 4, blockedInstanceRuns: 1}).complete(m) {
 		t.Fatal("complete run reported incomplete")
 	}
-	if (harnessRunCoverage{schemaCases: 2, instanceRuns: 3}).complete(m) {
+	if (harnessRunCoverage{schemaCases: 2, schemaLessCases: 1, instanceRuns: 4, blockedInstanceRuns: 1}).complete(m) {
 		t.Fatal("partial schema run reported complete")
 	}
-	if (harnessRunCoverage{schemaCases: 3, instanceRuns: 2}).complete(m) {
+	if (harnessRunCoverage{schemaCases: 3, schemaLessCases: 0, instanceRuns: 4, blockedInstanceRuns: 1}).complete(m) {
+		t.Fatal("partial schema-less run reported complete")
+	}
+	if (harnessRunCoverage{schemaCases: 3, schemaLessCases: 1, instanceRuns: 3, blockedInstanceRuns: 1}).complete(m) {
 		t.Fatal("partial instance run reported complete")
+	}
+	if !(harnessRunCoverage{schemaCases: 3, schemaLessCases: 1, instanceRuns: 2, blockedInstanceRuns: 3}).complete(m) {
+		t.Fatal("instances behind a selected unsupported schema reported incomplete")
+	}
+}
+
+func TestInvalidSchemaInstancesAreAccountedAsBlocked(t *testing.T) {
+	dir := t.TempDir()
+	writeHarnessTestFile(t, filepath.Join(dir, "schema.xsd"), `<xs:schema`)
+	tc := manifestCase{
+		ID:             "invalid-schema",
+		ExpectedSource: "project",
+		Schema: &manifestSchema{
+			Expected:  "invalid",
+			Documents: []manifestDocument{{File: "schema.xsd"}},
+		},
+		Instances: []manifestInstance{
+			{TestName: "first", Expected: "valid"},
+			{TestName: "second", Expected: "invalid"},
+		},
+	}
+	var run harnessRunCoverage
+	if !t.Run("case", func(t *testing.T) {
+		runCase(t, dir, nil, tc, &run)
+	}) {
+		t.Fatal("expected-invalid schema case failed")
+	}
+	if run.schemaCases != 1 || run.instanceRuns != 0 || run.blockedInstanceRuns != 2 {
+		t.Fatalf("run coverage = %+v, want one schema and two blocked instances", run)
 	}
 }

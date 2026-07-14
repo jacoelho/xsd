@@ -26,7 +26,7 @@ func (r *oneByteReader) Read(p []byte) (int, error) {
 	return 1, nil
 }
 
-func TestPrepareInstanceReaderRejectsInvalidInputs(t *testing.T) {
+func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
@@ -39,24 +39,25 @@ func TestPrepareInstanceReaderRejectsInvalidInputs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := PrepareInstanceReaderWithBuffer(strings.NewReader(tt.in), nil)
-			requireCode(t, err, tt.code)
+			var p stream.Parser
+			requireCode(t, instanceReaderError(p.Reset(strings.NewReader(tt.in), nil, nil)), tt.code)
 		})
 	}
 }
 
-func TestPrepareInstanceReaderRejectsNilReader(t *testing.T) {
-	_, err := PrepareInstanceReaderWithBuffer(nil, nil)
-	requireCode(t, err, xsderrors.CodeValidationXML)
+func TestParserPreflightRejectsNilReader(t *testing.T) {
+	var p stream.Parser
+	requireCode(t, instanceReaderError(p.Reset(nil, nil, nil)), xsderrors.CodeValidationXML)
 }
 
-func TestPrepareInstanceReaderDoesNotReadWholeDocumentWithoutDeclaration(t *testing.T) {
+func TestParserPreflightDoesNotReadWholeDocumentWithoutDeclaration(t *testing.T) {
 	r := &oneByteReader{s: `<root>` + strings.Repeat("x", 1024)}
-	if _, err := PrepareInstanceReaderWithBuffer(r, nil); err != nil {
-		t.Fatalf("PrepareInstanceReaderWithBuffer() error = %v", err)
+	var p stream.Parser
+	if err := p.Reset(r, nil, nil); err != nil {
+		t.Fatalf("Parser.Reset() error = %v", err)
 	}
 	if r.reads > stream.XMLDeclarationPrefixLen {
-		t.Fatalf("PrepareInstanceReaderWithBuffer() reads = %d, want at most %d", r.reads, stream.XMLDeclarationPrefixLen)
+		t.Fatalf("Parser.Reset() reads = %d, want at most %d", r.reads, stream.XMLDeclarationPrefixLen)
 	}
 }
 
@@ -68,6 +69,8 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 	}{
 		{name: "token limit", err: parserErr(t, `<root>text</root>`, 1, 0), code: xsderrors.CodeValidationLimit},
 		{name: "attribute limit", err: parserErr(t, `<root a="1" b="2"/>`, 0, 1), code: xsderrors.CodeValidationLimit},
+		{name: "non utf8", err: stream.ErrUnsupportedNonUTF8, code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "xml 11", err: stream.UnsupportedXMLVersionError{Version: "1.1"}, code: xsderrors.CodeUnsupportedXML11},
 		{name: "entity", err: parserErr(t, `<root>&missing;</root>`, 0, 0), code: xsderrors.CodeUnsupportedExternal},
 		{name: "syntax", err: errors.New("bad xml"), code: xsderrors.CodeValidationXML},
 	}
@@ -93,7 +96,9 @@ func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) erro
 	names := stream.NewCache()
 	values := stream.NewCache()
 	var p stream.Parser
-	p.ResetWithLimit(strings.NewReader(doc), &names, &values, maxTokenBytes)
+	if err := p.ResetWithLimit(strings.NewReader(doc), &names, &values, maxTokenBytes); err != nil {
+		return err
+	}
 	p.SetMaxAttrs(maxAttrs)
 	for {
 		_, err := p.Next()

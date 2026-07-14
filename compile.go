@@ -3,7 +3,6 @@ package xsd
 import (
 	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/source"
 )
 
 // Engine is an immutable compiled schema validator.
@@ -21,7 +20,8 @@ type CompileOptions struct {
 	MaxSchemaTokenBytes int64
 	// MaxSchemaSourceBytes caps bytes read from each schema source. Zero uses the default.
 	MaxSchemaSourceBytes int64
-	// MaxSchemaSources caps distinct schema sources admitted to one compilation. Zero uses the default.
+	// MaxSchemaSources caps explicit source descriptors and distinct resolver-loaded
+	// source identities admitted to one compilation. Zero uses the default.
 	MaxSchemaSources int
 	// MaxSchemaTotalBytes caps aggregate bytes read across all schema sources. Zero uses the default.
 	MaxSchemaTotalBytes int64
@@ -38,6 +38,10 @@ type CompileOptions struct {
 	MaxFiniteOccurs uint64
 	// MaxContentModelStates caps compiled content-model DFA states. Zero uses the default.
 	MaxContentModelStates int
+	// MaxSubstitutionClosureEntries caps aggregate transitive substitution-group relationships. Zero uses the default.
+	MaxSubstitutionClosureEntries int
+	// MaxSimpleUnionMemberEntries caps aggregate flattened simple-union members. Zero uses the default.
+	MaxSimpleUnionMemberEntries int
 }
 
 // Compile compiles schema sources into an immutable validation engine.
@@ -47,8 +51,7 @@ func Compile(sources ...SchemaSource) (*Engine, error) {
 
 // CompileWithOptions compiles schema sources with explicit resource limits.
 func CompileWithOptions(opts CompileOptions, sources ...SchemaSource) (*Engine, error) {
-	var scratch [1]source.Source
-	rt, err := compile.Compile(internalCompileOptions(opts), internalSchemaSources(sources, scratch[:0]))
+	rt, err := compile.CompileMappedSources(internalCompileOptions(opts), sources, internalSchemaSource)
 	if err != nil {
 		return nil, err
 	}
@@ -57,17 +60,19 @@ func CompileWithOptions(opts CompileOptions, sources ...SchemaSource) (*Engine, 
 
 func internalCompileOptions(opts CompileOptions) compile.Options {
 	return compile.Options{
-		MaxSchemaDepth:             opts.MaxSchemaDepth,
-		MaxSchemaAttributes:        opts.MaxSchemaAttributes,
-		MaxSchemaTokenBytes:        opts.MaxSchemaTokenBytes,
-		MaxSchemaSourceBytes:       opts.MaxSchemaSourceBytes,
-		MaxSchemaSources:           opts.MaxSchemaSources,
-		MaxSchemaTotalBytes:        opts.MaxSchemaTotalBytes,
-		MaxSchemaReferences:        opts.MaxSchemaReferences,
-		MaxSchemaTargetContexts:    opts.MaxSchemaTargetContexts,
-		MaxSchemaInstantiatedNodes: opts.MaxSchemaInstantiatedNodes,
-		MaxSchemaNames:             opts.MaxSchemaNames,
-		MaxFiniteOccurs:            opts.MaxFiniteOccurs,
-		MaxContentModelStates:      opts.MaxContentModelStates,
+		MaxSchemaDepth:                opts.MaxSchemaDepth,
+		MaxSchemaAttributes:           opts.MaxSchemaAttributes,
+		MaxSchemaTokenBytes:           opts.MaxSchemaTokenBytes,
+		MaxSchemaSourceBytes:          opts.MaxSchemaSourceBytes,
+		MaxSchemaSources:              opts.MaxSchemaSources,
+		MaxSchemaTotalBytes:           opts.MaxSchemaTotalBytes,
+		MaxSchemaReferences:           opts.MaxSchemaReferences,
+		MaxSchemaTargetContexts:       opts.MaxSchemaTargetContexts,
+		MaxSchemaInstantiatedNodes:    opts.MaxSchemaInstantiatedNodes,
+		MaxSchemaNames:                opts.MaxSchemaNames,
+		MaxFiniteOccurs:               opts.MaxFiniteOccurs,
+		MaxContentModelStates:         opts.MaxContentModelStates,
+		MaxSubstitutionClosureEntries: opts.MaxSubstitutionClosureEntries,
+		MaxSimpleUnionMemberEntries:   opts.MaxSimpleUnionMemberEntries,
 	}
 }

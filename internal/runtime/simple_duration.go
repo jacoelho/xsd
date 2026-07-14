@@ -96,6 +96,21 @@ func EqualDurationValues(a, b DurationValue) bool {
 		compareFraction(a.frac, b.frac) == 0
 }
 
+func durationIdentityCanonical(value DurationValue) string {
+	buf := make([]byte, 0, 44+len(value.frac))
+	buf = strconv.AppendInt(buf, value.months, 10)
+	buf = append(buf, '\x1f')
+	buf = strconv.AppendInt(buf, value.seconds, 10)
+	buf = append(buf, '\x1f')
+	if value.negativeFrac {
+		buf = append(buf, '-')
+	} else {
+		buf = append(buf, '+')
+	}
+	buf = append(buf, value.frac...)
+	return string(buf)
+}
+
 // CompareDurationValues compares xs:duration values using the XML Schema
 // partial order.
 func CompareDurationValues(a, b DurationValue) OrderedFacetRelation {

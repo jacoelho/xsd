@@ -13,17 +13,12 @@ func CheckXMLWellFormed(r io.Reader, opts Options) error {
 	if err != nil {
 		return err
 	}
-	reader, err := PrepareInstanceReaderWithBuffer(r, nil)
-	if err != nil {
-		return err
-	}
-
 	c := xmlWellFormedChecker{
 		maxDepth:      limits.InstanceDepth,
 		maxAttributes: limits.InstanceAttributes,
 		maxTokenBytes: limits.InstanceTokenBytes,
 	}
-	return c.check(reader)
+	return c.check(r)
 }
 
 type xmlWellFormedChecker struct {
@@ -37,7 +32,10 @@ func (c *xmlWellFormedChecker) check(r io.Reader) error {
 	names := stream.NewCache()
 	values := stream.NewCache()
 	var parser stream.Parser
-	parser.ResetWithLimit(r, &names, &values, c.maxTokenBytes)
+	if err := parser.ResetWithLimit(r, &names, &values, c.maxTokenBytes); err != nil {
+		return instanceReaderError(err)
+	}
+	defer parser.Detach()
 	parser.SetLazyAttrValue(true)
 	parser.SetMaxAttrs(c.maxAttributes)
 	for {
@@ -74,7 +72,7 @@ func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, valu
 	if err != nil {
 		return err
 	}
-	c.doc.CommitStart(translated.Name, translated.RawName, false, struct{}{})
+	c.doc.CommitStart(translated, false, struct{}{})
 	return nil
 }
 

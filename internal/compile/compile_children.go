@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/jacoelho/xsd/internal/lex"
+	"github.com/jacoelho/xsd/internal/uriref"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlns"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -69,6 +70,17 @@ func checkGroupOccurrenceAttributes(n *rawNode) error {
 	return checkAllowedRawAttributes(n, "group", isGroupOccurrenceAttribute)
 }
 
+func checkXMLBaseAttribute(n *rawNode) error {
+	value, ok := n.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
+	if !ok {
+		return nil
+	}
+	if _, err := uriref.Check(value); err != nil {
+		return schemaCompileAt(n, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
+	}
+	return nil
+}
+
 func checkRawSchemaAttributes(n *rawNode) error {
 	for _, attr := range n.Attr {
 		if xmlns.IsNamespaceAttr(attr) || attr.Name.Space != "" {
@@ -76,6 +88,16 @@ func checkRawSchemaAttributes(n *rawNode) error {
 		}
 		if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
 			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, n.Name.Local+" cannot have attribute "+attr.Name.Local)
+		}
+		if schemaAnyURIAttribute(n.Name.Local, attr.Name.Local) {
+			value := lex.CollapseXMLWhitespace(attr.Value)
+			if _, err := uriref.Check(value); err != nil {
+				code := xsderrors.CodeSchemaInvalidAttribute
+				if attr.Name.Local == vocab.XSDAttrSchemaLocation {
+					code = xsderrors.CodeSchemaReference
+				}
+				return schemaCompileAt(n, code, "invalid "+attr.Name.Local+": "+err.Error())
+			}
 		}
 	}
 	return nil
@@ -88,32 +110,32 @@ func checkUnsupportedSchemaNode(n, parent *rawNode) (bool, error) {
 		parentLocal = parent.Name.Local
 		parentXSD = parent.Name.Space == vocab.XSDNamespaceURI
 	}
-	if parentXSD && parentLocal == annotationChild &&
-		n.Name.Space == vocab.XSDNamespaceURI &&
-		(n.Name.Local == vocab.XSDElemAppinfo || n.Name.Local == vocab.XSDElemDocumentation) {
-		return true, nil
-	}
 	for _, attr := range n.Attr {
 		if attr.Name.Space == vocab.XSDNamespaceURI {
 			return false, schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "schema namespace attribute "+attr.Name.Local+" is not allowed")
 		}
 	}
+	if parentXSD && parentLocal == annotationChild &&
+		n.Name.Space == vocab.XSDNamespaceURI &&
+		(n.Name.Local == vocab.XSDElemAppinfo || n.Name.Local == vocab.XSDElemDocumentation) {
+		return true, nil
+	}
 	if n.Name.Space != vocab.XSDNamespaceURI {
-		return false, nil
+		return false, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+n.Name.Local+" is not allowed in schema grammar")
 	}
 	switch n.Name.Local {
 	case redefineChild:
-		return false, xsderrors.Unsupported(xsderrors.CodeUnsupportedRedefine, "xs:redefine is not supported")
+		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedRedefine, "xs:redefine is not supported")
 	case notationChild:
 		if !parentXSD || parentLocal != vocab.XSDElemSchema {
 			return false, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:notation must be a top-level schema child")
 		}
 	case assertChild, "alternative", "override", "openContent", "defaultOpenContent":
-		return false, xsderrors.Unsupported(xsderrors.CodeUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
+		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
 	case anyChild, anyAttribute:
 		for _, attr := range []string{vocab.XSDAttrNotNamespace, vocab.XSDAttrNotQName} {
 			if _, ok := n.attr(attr); ok {
-				return false, xsderrors.Unsupported(xsderrors.CodeUnsupportedXSD11, "XSD 1.1 wildcard attribute "+attr+" is not supported")
+				return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 wildcard attribute "+attr+" is not supported")
 			}
 		}
 	}
@@ -270,7 +292,8 @@ func validateRawSchemaAnnotationNode(n *rawNode) (schemaAnnotationAction, error)
 		return schemaAnnotationAction{SkipChildren: true}, nil
 	case vocab.XSDElemDocumentation:
 		for _, attr := range n.Attr {
-			if attr.Name.Space == vocab.XMLNamespaceURI && attr.Name.Local == vocab.XMLAttrLang && !lex.IsLanguage(attr.Value) {
+			if attr.Name.Space == vocab.XMLNamespaceURI && attr.Name.Local == vocab.XMLAttrLang &&
+				!lex.IsLanguage(lex.CollapseXMLWhitespace(attr.Value)) {
 				return schemaAnnotationAction{SkipChildren: true}, schemaAnnotationSyntaxError(-1, xsderrors.CodeSchemaInvalidAttribute, "invalid xml:lang on xs:documentation")
 			}
 		}
@@ -339,15 +362,19 @@ func checkLocalElementSource(n *rawNode) error {
 }
 
 func checkLocalSimpleTypeAttributes(n *rawNode) error {
-	if _, ok := n.attr(vocab.XSDAttrName); ok {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local simpleType cannot have name")
+	for _, attr := range []string{vocab.XSDAttrName, vocab.XSDAttrFinal} {
+		if _, ok := n.attr(attr); ok {
+			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local simpleType cannot have "+attr)
+		}
 	}
 	return nil
 }
 
 func checkLocalComplexTypeAttributes(n *rawNode) error {
-	if _, ok := n.attr(vocab.XSDAttrName); ok {
-		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have name")
+	for _, attr := range []string{vocab.XSDAttrName, vocab.XSDAttrAbstract, vocab.XSDAttrBlock, vocab.XSDAttrFinal} {
+		if _, ok := n.attr(attr); ok {
+			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "local complexType cannot have "+attr)
+		}
 	}
 	return nil
 }

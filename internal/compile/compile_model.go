@@ -30,7 +30,7 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (runtime.Content
 		}
 		return id, nil
 	}
-	id, err := c.addModel(runtime.ContentModel{})
+	id, err := c.addModelAt(runtime.ContentModel{}, n)
 	if err != nil {
 		return runtime.NoContentModel, err
 	}
@@ -54,9 +54,6 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (runtime.Content
 	m := runtime.ContentModel{Kind: kind, Occurs: occurs}
 	if err := c.compileModelChildren(n, ctx, &m); err != nil {
 		return runtime.NoContentModel, err
-	}
-	if err := c.checkElementDeclarationsConsistent(m); err != nil {
-		return runtime.NoContentModel, withSchemaCompileLocation(n, err)
 	}
 	c.completeModel(id, m)
 	return id, nil
@@ -100,7 +97,7 @@ func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 		}
 	}
 	model.Occurs = occurs
-	return c.addModel(model)
+	return c.addModelAt(model, n)
 }
 
 func (c *compiler) recursiveModelGroupRef(q runtime.QName, id runtime.ContentModelID, occurs runtime.Occurrence, modelNode *rawNode) (runtime.ContentModelID, error) {
@@ -113,7 +110,7 @@ func (c *compiler) recursiveModelGroupRef(q runtime.QName, id runtime.ContentMod
 		Occurs:    occurs,
 		Particles: []runtime.Particle{runtime.ModelParticle(id, runtime.Occurrence{Min: 1, Max: 1})},
 	}
-	return c.addModel(ref)
+	return c.addModelAt(ref, modelNode)
 }
 
 func modelKindForNode(n *rawNode) (runtime.ModelKind, error) {
@@ -233,7 +230,7 @@ func (c *compiler) modelParticle(id runtime.ContentModelID) (runtime.Particle, b
 		normalized := model
 		normalized.Occurs = runtime.Occurrence{Min: 1, Max: 1}
 		var err error
-		modelID, err = c.addModel(normalized)
+		modelID, err = c.addModelAt(normalized, c.modelSources[id])
 		if err != nil {
 			return runtime.Particle{}, false, err
 		}
@@ -284,8 +281,4 @@ func (c *compiler) checkCompiledModelsUPA() error {
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
 	return c.checkContentModelElementDeclarationsConsistentBuild()
-}
-
-func (c *compiler) checkElementDeclarationsConsistent(model runtime.ContentModel) error {
-	return CheckElementDeclarationsConsistent(&c.rt, model)
 }

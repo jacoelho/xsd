@@ -83,10 +83,12 @@ type ContentModelRefLimits struct {
 // ParticleRestrictionElement is the element-declaration projection needed to
 // evaluate particle restriction over frozen runtime metadata.
 type ParticleRestrictionElement struct {
-	Fixed    ValueConstraintIdentity
-	Type     TypeID
-	Block    DerivationMask
-	Nillable bool
+	Identities IdentityConstraintIDs
+	Fixed      ValueConstraintIdentity
+	Type       TypeID
+	Block      DerivationMask
+	Scope      DeclarationScope
+	Nillable   bool
 }
 
 // ParticleRestrictionRuntime supplies read-only runtime metadata needed to
@@ -161,15 +163,15 @@ func ValidateContentModelRuntime(model ContentModel, limits ContentModelRefLimit
 	for _, p := range model.Particles {
 		switch p.Kind {
 		case ParticleElement:
-			if !ValidUint32Index(uint32(p.Element), limits.ElementCount) {
+			if !ValidElementID(p.Element, limits.ElementCount) {
 				return errors.New("particle references invalid element")
 			}
 		case ParticleModel:
-			if !ValidUint32Index(uint32(p.Model), limits.ContentModelCount) {
+			if !ValidContentModelID(p.Model, limits.ContentModelCount) {
 				return errors.New("particle references invalid content model")
 			}
 		case ParticleWildcard:
-			if !ValidUint32Index(uint32(p.Wildcard), limits.WildcardCount) {
+			if !ValidWildcardID(p.Wildcard, limits.WildcardCount) {
 				return errors.New("particle references invalid wildcard")
 			}
 		default:
@@ -284,444 +286,6 @@ func validateChoiceLimits(model ContentModel) error {
 	return nil
 }
 
-// ParticleRestricts reports whether derived is a valid restriction of base
-// using frozen runtime metadata only.
-func ParticleRestricts(rt ParticleRestrictionRuntime, base, derived Particle) bool {
-	if rt == nil {
-		return false
-	}
-	return particleRestrictionValidator{rt: rt}.particleRestricts(base, derived)
-}
-
-type particleRestrictionValidator struct {
-	rt ParticleRestrictionRuntime
-}
-
-func (v particleRestrictionValidator) contentRestricts(baseID, derivedID ContentModelID) bool {
-	if baseID == NoContentModel || derivedID == NoContentModel {
-		return true
-	}
-	base, ok := v.rt.ContentModel(baseID)
-	if !ok {
-		return false
-	}
-	derived, ok := v.rt.ContentModel(derivedID)
-	if !ok {
-		return false
-	}
-	if ModelEmptiable(v.rt, derivedID) && !ModelEmptiable(v.rt, baseID) {
-		return false
-	}
-	if !OccurrenceRangeSubset(ModelCountRange(v.rt, derivedID), ModelCountRange(v.rt, baseID)) {
-		return false
-	}
-	if base.Kind == ModelAny || ModelHasNoParticles(v.rt, derivedID) {
-		return true
-	}
-	if len(base.Particles) == 1 && base.Particles[0].Kind == ParticleWildcard {
-		for _, p := range derived.Particles {
-			if !v.particleRestrictsWildcard(base.Particles[0], p) {
-				return false
-			}
-		}
-		return true
-	}
-	if handled, ok := v.knownGroupRestricts(base, derived); handled {
-		return ok
-	}
-	if v.modelContainsWildcard(derived) && !v.modelContainsWildcard(base) {
-		return false
-	}
-	if base.Kind != derived.Kind || len(base.Particles) != len(derived.Particles) {
-		return false
-	}
-	for i := range base.Particles {
-		if !v.particleRestricts(base.Particles[i], derived.Particles[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-func (v particleRestrictionValidator) knownGroupRestricts(base, derived ContentModel) (bool, bool) {
-	switch {
-	case base.Kind == ModelChoice && derived.Kind == ModelChoice:
-		return true, v.choiceRestricts(base, derived)
-	case base.Kind == ModelSequence && derived.Kind == ModelSequence:
-		return true, v.orderedGroupRestricts(base, derived)
-	case base.Kind == ModelSequence && derived.Kind == ModelChoice:
-		return true, v.choiceRestrictsSequence(base, derived)
-	case base.Kind == ModelAll && derived.Kind == ModelAll:
-		return true, v.orderedGroupRestricts(base, derived)
-	case base.Kind == ModelAll && derived.Kind == ModelSequence:
-		return true, v.sequenceRestrictsAll(base, derived)
-	case base.Kind == ModelChoice && derived.Kind == ModelSequence:
-		return true, v.sequenceRestrictsChoice(base, derived)
-	case base.Kind == ModelSequence && derived.Kind == ModelAll:
-		if len(base.Particles) == 1 && len(derived.Particles) == 1 {
-			return true, v.particleRestricts(base.Particles[0], derived.Particles[0])
-		}
-		return true, false
-	default:
-		return false, false
-	}
-}
-
-func (v particleRestrictionValidator) choiceBranchAllowed(base []Particle, derived Particle) bool {
-	for _, b := range base {
-		if v.choiceBranchRestricts(b, derived) {
-			return true
-		}
-	}
-	return false
-}
-
-func (v particleRestrictionValidator) choiceRestricts(base, derived ContentModel) bool {
-	if !OccurrenceRangeSubset(derived.Occurs, base.Occurs) || v.choiceRestrictionRequiresXSD11(base, derived) {
-		return false
-	}
-	baseIndex := 0
-	for _, derivedParticle := range derived.Particles {
-		matched := false
-		for baseIndex < len(base.Particles) {
-			if v.choiceBranchRestricts(base.Particles[baseIndex], derivedParticle) {
-				baseIndex++
-				matched = true
-				break
-			}
-			baseIndex++
-		}
-		if !matched {
-			return false
-		}
-	}
-	return true
-}
-
-func (v particleRestrictionValidator) choiceRestrictionRequiresXSD11(base, derived ContentModel) bool {
-	if base.Occurs.IsExactlyOne() && derived.Occurs.Min < base.Occurs.Min {
-		return true
-	}
-	if base.Occurs.IsExactlyOne() && derived.Occurs.IsExactlyOne() && len(derived.Particles) < len(base.Particles) {
-		for _, p := range derived.Particles {
-			if p.Kind == ParticleModel && ParticleCountRange(v.rt, p).Unbounded {
-				return true
-			}
-		}
-	}
-	return slices.ContainsFunc(derived.Particles, v.particleContainsNestedChoice)
-}
-
-func (v particleRestrictionValidator) particleContainsNestedChoice(p Particle) bool {
-	if p.Kind != ParticleModel {
-		return false
-	}
-	model, ok := v.rt.ContentModel(p.Model)
-	return ok && v.modelContainsChoiceBelow(model, 0)
-}
-
-func (v particleRestrictionValidator) modelContainsChoiceBelow(model ContentModel, depth int) bool {
-	if depth > 0 && model.Kind == ModelChoice {
-		return true
-	}
-	for _, p := range model.Particles {
-		if p.Kind != ParticleModel {
-			continue
-		}
-		nested, ok := v.rt.ContentModel(p.Model)
-		if ok && v.modelContainsChoiceBelow(nested, depth+1) {
-			return true
-		}
-	}
-	return false
-}
-
-func (v particleRestrictionValidator) choiceBranchRestricts(base, derived Particle) bool {
-	candidate := derived
-	if base.Kind != ParticleModel && base.Occurs.IsExactlyOne() && v.particleNeedsChoiceBranchNormalization(derived) {
-		candidate.Occurs = Occurrence{Min: 1, Max: 1}
-	}
-	return v.particleRestricts(base, candidate)
-}
-
-func (v particleRestrictionValidator) particleNeedsChoiceBranchNormalization(p Particle) bool {
-	if ParticleEffectiveMin(v.rt, p) > 0 {
-		return true
-	}
-	r := ParticleCountRange(v.rt, p)
-	return r.Unbounded || r.Max > 1
-}
-
-func (v particleRestrictionValidator) orderedGroupRestricts(base, derived ContentModel) bool {
-	if !OccurrenceRangeSubset(derived.Occurs, base.Occurs) {
-		return false
-	}
-	baseIndex := 0
-	for _, derivedParticle := range derived.Particles {
-		matched := false
-		for baseIndex < len(base.Particles) {
-			if v.particleRestricts(base.Particles[baseIndex], derivedParticle) {
-				baseIndex++
-				matched = true
-				break
-			}
-			if !ParticleEmptiable(v.rt, base.Particles[baseIndex]) {
-				return false
-			}
-			baseIndex++
-		}
-		if !matched {
-			return false
-		}
-	}
-	for ; baseIndex < len(base.Particles); baseIndex++ {
-		if !ParticleEmptiable(v.rt, base.Particles[baseIndex]) {
-			return false
-		}
-	}
-	return true
-}
-
-func (v particleRestrictionValidator) sequenceRestrictsAll(base, derived ContentModel) bool {
-	return OccurrenceRangeSubset(derived.Occurs, base.Occurs) && v.mappedGroupRestricts(base, derived)
-}
-
-func (v particleRestrictionValidator) mappedGroupRestricts(base, derived ContentModel) bool {
-	mapped := make([]bool, len(base.Particles))
-	for _, derivedParticle := range derived.Particles {
-		match := -1
-		for i, baseParticle := range base.Particles {
-			if !mapped[i] && v.particleRestricts(baseParticle, derivedParticle) {
-				match = i
-				break
-			}
-		}
-		if match < 0 {
-			return false
-		}
-		mapped[match] = true
-	}
-	for i, baseParticle := range base.Particles {
-		if !mapped[i] && !ParticleEmptiable(v.rt, baseParticle) {
-			return false
-		}
-	}
-	return true
-}
-
-func (v particleRestrictionValidator) sequenceRestrictsChoice(base, derived ContentModel) bool {
-	if !OccurrenceRangeSubset(SequenceChoiceRange(derived), base.Occurs) {
-		return false
-	}
-	for _, derivedParticle := range derived.Particles {
-		if !v.choiceBranchAllowed(base.Particles, derivedParticle) {
-			return false
-		}
-	}
-	return true
-}
-
-func (v particleRestrictionValidator) choiceRestrictsSequence(base, derived ContentModel) bool {
-	if derived.Occurs.Max == 0 && !derived.Occurs.Unbounded {
-		return true
-	}
-	if derived.Occurs.Unbounded || derived.Occurs.Max > 1 {
-		return false
-	}
-	for _, derivedParticle := range derived.Particles {
-		if !v.choiceBranchRestrictsSequence(base, derivedParticle) {
-			return false
-		}
-	}
-	return true
-}
-
-func (v particleRestrictionValidator) choiceBranchRestrictsSequence(base ContentModel, derived Particle) bool {
-	for i, baseParticle := range base.Particles {
-		if v.particleRestricts(baseParticle, derived) && v.sequenceRemainderEmptiable(base.Particles, i) {
-			return true
-		}
-	}
-	return false
-}
-
-func (v particleRestrictionValidator) sequenceRemainderEmptiable(particles []Particle, selected int) bool {
-	for i, p := range particles {
-		if i != selected && !ParticleEmptiable(v.rt, p) {
-			return false
-		}
-	}
-	return true
-}
-
-func (v particleRestrictionValidator) modelContainsWildcard(model ContentModel) bool {
-	return slices.ContainsFunc(model.Particles, v.particleContainsWildcard)
-}
-
-func (v particleRestrictionValidator) particleContainsWildcard(p Particle) bool {
-	switch p.Kind {
-	case ParticleWildcard:
-		return true
-	case ParticleModel:
-		model, ok := v.rt.ContentModel(p.Model)
-		return ok && v.modelContainsWildcard(model)
-	default:
-		return false
-	}
-}
-
-func (v particleRestrictionValidator) particleRestricts(base, derived Particle) bool {
-	if !OccurrenceRangeSubset(ParticleCountRange(v.rt, derived), ParticleCountRange(v.rt, base)) {
-		return false
-	}
-	switch base.Kind {
-	case ParticleWildcard:
-		return v.particleRestrictsWildcard(base, derived)
-	case ParticleElement:
-		return v.particleRestrictsElement(base, derived)
-	case ParticleModel:
-		return v.particleRestrictsModel(base, derived)
-	default:
-		return true
-	}
-}
-
-func (v particleRestrictionValidator) particleRestrictsElement(base, derived Particle) bool {
-	switch derived.Kind {
-	case ParticleWildcard:
-		return false
-	case ParticleModel:
-		model, ok := v.rt.ContentModel(derived.Model)
-		if !ok || model.Kind != ModelChoice {
-			return false
-		}
-		for _, p := range model.Particles {
-			if !v.choiceBranchRestricts(base, p) {
-				return false
-			}
-		}
-		return true
-	case ParticleElement:
-	default:
-		return true
-	}
-	baseDecl, ok := v.rt.ElementRestriction(base.Element)
-	if !ok {
-		return false
-	}
-	derivedDecl, ok := v.rt.ElementRestriction(derived.Element)
-	if !ok {
-		return false
-	}
-	baseName, ok := v.rt.ElementName(base.Element)
-	if !ok {
-		return false
-	}
-	derivedName, ok := v.rt.ElementName(derived.Element)
-	if !ok {
-		return false
-	}
-	if baseName != derivedName {
-		allowed, ok := v.rt.SubstitutionMemberByName(base.Element, derivedName)
-		if !ok || allowed != derived.Element {
-			return false
-		}
-	}
-	if mask, ok := TypeDerivationMask(v.rt, derivedDecl.Type, baseDecl.Type); !ok || mask&DerivationExtension != 0 {
-		return false
-	}
-	if derivedDecl.Nillable && !baseDecl.Nillable {
-		return false
-	}
-	if derivedDecl.Block&baseDecl.Block != baseDecl.Block {
-		return false
-	}
-	return !baseDecl.Fixed.Present || FixedValueConstraintEqual(baseDecl.Fixed, derivedDecl.Fixed)
-}
-
-func (v particleRestrictionValidator) particleRestrictsModel(base, derived Particle) bool {
-	model, ok := v.rt.ContentModel(base.Model)
-	if !ok {
-		return false
-	}
-	if model.Kind == ModelChoice {
-		return v.particleRestrictsChoiceModel(base, derived, model)
-	}
-	if len(model.Particles) == 1 {
-		return v.particleRestricts(model.Particles[0], derived)
-	}
-	if derived.Kind == ParticleWildcard {
-		return false
-	}
-	if model.Kind == ModelSequence && derived.Kind == ParticleElement {
-		return v.elementParticleRestrictsSequenceModel(model, derived)
-	}
-	if derived.Kind != ParticleModel {
-		return true
-	}
-	return v.contentRestricts(base.Model, derived.Model)
-}
-
-func (v particleRestrictionValidator) particleRestrictsChoiceModel(base, derived Particle, model ContentModel) bool {
-	if derived.Kind == ParticleModel {
-		derivedModel, ok := v.rt.ContentModel(derived.Model)
-		if !ok {
-			return false
-		}
-		if derivedModel.Kind == ModelChoice && derived.Occurs.Min < base.Occurs.Min {
-			return false
-		}
-		switch derivedModel.Kind {
-		case ModelChoice:
-			return v.choiceRestricts(model, derivedModel)
-		case ModelSequence:
-			return v.sequenceRestrictsChoice(model, derivedModel)
-		default:
-			return false
-		}
-	}
-	return v.choiceBranchAllowed(model.Particles, derived)
-}
-
-func (v particleRestrictionValidator) elementParticleRestrictsSequenceModel(base ContentModel, derived Particle) bool {
-	for i, baseParticle := range base.Particles {
-		if v.particleRestricts(baseParticle, derived) && v.sequenceRemainderEmptiable(base.Particles, i) {
-			return true
-		}
-	}
-	return false
-}
-
-func (v particleRestrictionValidator) particleRestrictsWildcard(base, derived Particle) bool {
-	switch derived.Kind {
-	case ParticleElement:
-		baseWildcard, ok := v.rt.Wildcard(base.Wildcard)
-		if !ok {
-			return false
-		}
-		derivedName, ok := v.rt.ElementName(derived.Element)
-		return ok && WildcardAllowsNamespace(baseWildcard, derivedName.Namespace)
-	case ParticleWildcard:
-		derivedWildcard, ok := v.rt.Wildcard(derived.Wildcard)
-		if !ok {
-			return false
-		}
-		baseWildcard, ok := v.rt.Wildcard(base.Wildcard)
-		return ok && WildcardSubset(derivedWildcard, baseWildcard)
-	case ParticleModel:
-		model, ok := v.rt.ContentModel(derived.Model)
-		if !ok {
-			return false
-		}
-		for _, child := range model.Particles {
-			if !v.particleRestrictsWildcard(base, child) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 // RestrictionRepeatedChoiceParticles derives the derived sequence particle
 // slots that must be limited to one match because they restrict a repeated
 // base choice.
@@ -729,30 +293,42 @@ func RestrictionRepeatedChoiceParticles(
 	models []ContentModel,
 	baseID, derivedID ContentModelID,
 	rt ParticleRestrictionRuntime,
-) []uint32 {
-	if rt == nil ||
-		!ValidUint32Index(uint32(baseID), len(models)) ||
-		!ValidUint32Index(uint32(derivedID), len(models)) {
-		return nil
+) ([]uint32, error) {
+	if rt == nil {
+		return nil, errors.New("choice-limit derivation requires runtime")
+	}
+	if !ValidContentModelID(baseID, len(models)) ||
+		!ValidContentModelID(derivedID, len(models)) {
+		return nil, errors.New("choice-limit derivation references invalid content model")
 	}
 	base := models[baseID]
 	derived := models[derivedID]
 	if base.Kind != ModelSequence || derived.Kind != ModelSequence {
-		return nil
+		return nil, nil
 	}
 	var out []uint32
-	validator := particleRestrictionValidator{rt: rt}
+	validator := contentRestrictionValidator{rt: rt, modelStates: make(map[ContentModelID]uint8)}
+	if err := validator.validateContentModelGraph(baseID); err != nil {
+		return nil, err
+	}
+	if err := validator.validateContentModelGraph(derivedID); err != nil {
+		return nil, err
+	}
 	baseIndex := 0
 	for derivedIndex, derivedParticle := range derived.Particles {
 		for baseIndex < len(base.Particles) {
 			baseParticle := base.Particles[baseIndex]
-			if !validator.particleRestricts(baseParticle, derivedParticle) {
+			err := validator.validateParticleRestriction(baseParticle, derivedParticle)
+			if err != nil {
+				if !isContentRestrictionMismatch(err) {
+					return nil, err
+				}
 				baseIndex++
 				continue
 			}
 			if restrictionRepeatedChoiceParticle(models, baseParticle, derivedParticle) {
 				if uint64(derivedIndex) > uint64(^uint32(0)) {
-					return out
+					return nil, errors.New("choice-limit particle index exceeds uint32")
 				}
 				out = append(out, uint32(derivedIndex))
 			}
@@ -760,14 +336,14 @@ func RestrictionRepeatedChoiceParticles(
 			break
 		}
 	}
-	return out
+	return out, nil
 }
 
 func restrictionRepeatedChoiceParticle(models []ContentModel, baseParticle, derivedParticle Particle) bool {
 	if baseParticle.Kind != ParticleModel || baseParticle.Occurs.IsExactlyOne() {
 		return false
 	}
-	if !ValidUint32Index(uint32(baseParticle.Model), len(models)) {
+	if !ValidContentModelID(baseParticle.Model, len(models)) {
 		return false
 	}
 	model := models[baseParticle.Model]
@@ -797,7 +373,7 @@ func RestrictionChoiceLimitUpdates(
 	}
 	var updates []RestrictionChoiceLimitUpdate
 	for i, ct := range complexTypes {
-		if uint64(i) > uint64(^uint32(0)) {
+		if uint64(i) >= uint64(invalidID) {
 			return nil, errors.New("complex type index limit exceeded")
 		}
 		if ct.Derivation != DerivationKindRestriction {
@@ -807,17 +383,20 @@ func RestrictionChoiceLimitUpdates(
 		if !ok || baseID == anyType {
 			continue
 		}
-		if !ValidUint32Index(uint32(baseID), len(complexTypes)) {
+		if !ValidComplexTypeID(baseID, len(complexTypes)) {
 			return nil, errors.New("choice-limit restriction references invalid base complex type")
 		}
-		if !ValidUint32Index(uint32(ct.Content), len(models)) {
+		if !ValidContentModelID(ct.Content, len(models)) {
 			return nil, errors.New("choice-limit restriction references invalid derived content model")
 		}
 		baseContent := complexTypes[baseID].Content
-		if !ValidUint32Index(uint32(baseContent), len(models)) {
+		if !ValidContentModelID(baseContent, len(models)) {
 			return nil, errors.New("choice-limit restriction references invalid base content model")
 		}
-		repeated := RestrictionRepeatedChoiceParticles(models, baseContent, ct.Content, rt)
+		repeated, err := RestrictionRepeatedChoiceParticles(models, baseContent, ct.Content, rt)
+		if err != nil {
+			return nil, err
+		}
 		if len(repeated) == 0 {
 			continue
 		}
@@ -849,10 +428,10 @@ func ValidateChoiceLimitDerivations(
 	expected := make(map[ContentModelID][]uint32)
 	owners := make(map[ContentModelID][]ComplexTypeID)
 	for i, ct := range complexTypes {
-		if uint64(i) > uint64(^uint32(0)) {
+		if uint64(i) >= uint64(invalidID) {
 			return errors.New("complex type index limit exceeded")
 		}
-		if !ValidUint32Index(uint32(ct.Content), len(models)) {
+		if !ValidContentModelID(ct.Content, len(models)) {
 			continue
 		}
 		id := ComplexTypeID(i)
@@ -861,10 +440,13 @@ func ValidateChoiceLimitDerivations(
 			continue
 		}
 		baseID, ok := ct.Base.Complex()
-		if !ok || baseID == anyType || !ValidUint32Index(uint32(baseID), len(complexTypes)) {
+		if !ok || baseID == anyType || !ValidComplexTypeID(baseID, len(complexTypes)) {
 			continue
 		}
-		repeated := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, ct.Content, rt)
+		repeated, err := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, ct.Content, rt)
+		if err != nil {
+			return err
+		}
 		if len(repeated) == 0 {
 			continue
 		}
@@ -874,7 +456,7 @@ func ValidateChoiceLimitDerivations(
 		expected[ct.Content] = repeated
 	}
 	for i, model := range models {
-		if uint64(i) > uint64(^uint32(0)) {
+		if uint64(i) >= uint64(invalidID) {
 			return errors.New("content model index limit exceeded")
 		}
 		id := ContentModelID(i)
@@ -885,7 +467,7 @@ func ValidateChoiceLimitDerivations(
 			continue
 		}
 		for _, ownerID := range owners[id] {
-			if !ValidUint32Index(uint32(ownerID), len(complexTypes)) {
+			if !ValidComplexTypeID(ownerID, len(complexTypes)) {
 				return errors.New("limited content model has invalid restriction owner")
 			}
 			owner := complexTypes[ownerID]
@@ -893,10 +475,13 @@ func ValidateChoiceLimitDerivations(
 				return errors.New("limited content model is used outside restricting complex type")
 			}
 			baseID, ok := owner.Base.Complex()
-			if !ok || baseID == anyType || !ValidUint32Index(uint32(baseID), len(complexTypes)) {
+			if !ok || baseID == anyType || !ValidComplexTypeID(baseID, len(complexTypes)) {
 				return errors.New("limited content model has invalid restriction owner")
 			}
-			repeated := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, owner.Content, rt)
+			repeated, err := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, owner.Content, rt)
+			if err != nil {
+				return err
+			}
 			if !slices.Equal(repeated, model.ChoiceLimits) {
 				return errors.New("limited content model owner does not derive choice limits")
 			}

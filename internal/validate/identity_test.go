@@ -9,6 +9,35 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// StartSelection starts an unbounded selection for white-box state tests.
+func (s *IdentityState) StartSelection(scope, depth int, constraint runtime.IdentityConstraintID, fieldCount int, ctx StartContext) {
+	if err := s.startSelection(scope, depth, constraint, fieldCount, 0, ctx); err != nil {
+		panic(err)
+	}
+}
+
+func TestIdentitySelectionLimitPrecedesPendingStateAllocation(t *testing.T) {
+	var state IdentityState
+	state.StartSelection(0, 1, 0, 2, StartContext{Path: "/root/a", Line: 2, Column: 3})
+	wantSelections := len(state.selections)
+	wantFields := len(state.fieldValues)
+	wantNodeID := state.nextNodeID
+
+	err := state.startSelection(0, 2, 0, 3, 1, StartContext{Path: "/root/a/a", Line: 4, Column: 5})
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
+	if len(state.selections) != wantSelections || len(state.fieldValues) != wantFields || state.nextNodeID != wantNodeID {
+		t.Fatalf(
+			"denied selection mutated state: selections=%d fields=%d node=%d, want %d/%d/%d",
+			len(state.selections),
+			len(state.fieldValues),
+			state.nextNodeID,
+			wantSelections,
+			wantFields,
+			wantNodeID,
+		)
+	}
+}
+
 func TestIdentityStateRejectsDuplicateIDWithoutMutating(t *testing.T) {
 	t.Parallel()
 
@@ -273,7 +302,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 			identitySelection{path: "/selected", fieldStart: 0, fieldLen: 1},
 		),
 		fieldValues: append(make([]identityFieldValue, 0, 2),
-			identityFieldValue{value: "a", present: true},
+			identityFieldValue{value: "a", state: identityFieldPresent},
 		),
 		matches: append(make([]IdentityFieldMatch, 0, 2),
 			IdentityFieldMatch{Selection: 1, Field: 2},
@@ -308,7 +337,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	if got := state.scopes[:cap(state.scopes)][0]; got.tables != nil || got.constraints.Len() != 0 || got.refs != nil {
 		t.Fatalf("Reset() retained scoped identity references: %+v", got)
 	}
-	if got := state.fieldValues[:cap(state.fieldValues)][0]; got.present || got.value != "" {
+	if got := state.fieldValues[:cap(state.fieldValues)][0]; got.state != identityFieldAbsent || got.value != "" {
 		t.Fatalf("Reset() retained field value: %+v", got)
 	}
 
@@ -383,9 +412,26 @@ func TestIdentityStateCaptureFieldsRejectsInvalidAndDuplicateMatches(t *testing.
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
 	expectXSDMessage(t, err, "identity field selects multiple values")
 	expectXSDLocation(t, err, "/row", 8, 9)
+	if state.fieldValues[0].state != identityFieldInvalid {
+		t.Fatal("duplicate field match did not invalidate field")
+	}
+	if !state.scopes[0].invalid {
+		t.Fatal("duplicate field match did not invalidate its owning scope")
+	}
+	if err := state.finishSelectionWithInfo(
+		runtime.IdentityConstraintInfo{Kind: runtime.IdentityUnique},
+		state.selections[0],
+		IdentityLimits{},
+		StartContext{Path: "/row", Line: 10, Column: 11},
+	); err != nil {
+		t.Fatalf("finishSelectionWithInfo(invalid duplicate) error = %v", err)
+	}
+	if state.scopes[0].tables != nil {
+		t.Fatal("invalid duplicate field published an identity tuple")
+	}
 }
 
-func TestIdentityStateCaptureComplexElementFields(t *testing.T) {
+func TestIdentityStateRejectFieldsWithoutSimpleValueInvalidatesField(t *testing.T) {
 	t.Parallel()
 
 	var state IdentityState
@@ -393,17 +439,26 @@ func TestIdentityStateCaptureComplexElementFields(t *testing.T) {
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{id}, 1, "/root")
 	state.StartSelection(0, 2, id, 1, StartContext{Path: "/root/item", Line: 4, Column: 5})
 
-	err := state.CaptureComplexElementFields(
+	err := state.RejectFieldsWithoutSimpleValue(
 		[]IdentityFieldMatch{{Selection: 0, Field: 0}},
-		[]byte(" a\t b "),
 		StartContext{Path: "/root/item", Line: 6, Column: 7},
 	)
-	if err != nil {
-		t.Fatalf("CaptureComplexElementFields() error = %v", err)
+	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
+	expectXSDMessage(t, err, "identity field has no simple value")
+	expectXSDLocation(t, err, "/root/item", 6, 7)
+	if state.fieldValues[0].state != identityFieldInvalid {
+		t.Fatal("field not invalid after rejected field node")
 	}
-	want := runtime.SimpleIdentityKey(runtime.PrimitiveString, "a b")
-	if got := state.fieldValues[0].value; got != want {
-		t.Fatalf("complex element field value = %q, want %q", got, want)
+	if !state.scopes[0].invalid {
+		t.Fatal("rejected field node did not invalidate its owning scope")
+	}
+	if err := state.finishSelectionWithInfo(
+		runtime.IdentityConstraintInfo{Kind: runtime.IdentityKey},
+		state.selections[0],
+		IdentityLimits{},
+		StartContext{Path: "/root/item", Line: 8, Column: 9},
+	); err != nil {
+		t.Fatalf("finishSelectionWithInfo(invalid key field) error = %v", err)
 	}
 }
 
@@ -441,13 +496,23 @@ func TestEndIdentityCapture(t *testing.T) {
 			want: EndIdentityCaptureNone,
 		},
 		{
-			name: "nilled declared element",
+			name: "nilled declared element with simple content",
 			in: EndIdentityInput{
 				Type:    typ,
 				Element: elem,
 				Nilled:  true,
 			},
-			want: EndIdentityCaptureNilledElement,
+			simpleContent: true,
+			want:          EndIdentityCaptureNilledElement,
+		},
+		{
+			name: "nilled declared element with complex content",
+			in: EndIdentityInput{
+				Type:    typ,
+				Element: elem,
+				Nilled:  true,
+			},
+			want: EndIdentityCaptureComplexElement,
 		},
 		{
 			name: "nilled undeclared element without simple content",
@@ -502,27 +567,6 @@ func TestEndIdentityCaptureRejectsMissingContentMetadata(t *testing.T) {
 		Element: 1,
 	})
 	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-}
-
-func TestIdentityStateCaptureComplexElementFieldsRejectsEmptyValue(t *testing.T) {
-	t.Parallel()
-
-	var state IdentityState
-	const id runtime.IdentityConstraintID = 1
-	startIdentityScope(t, &state, []runtime.IdentityConstraintID{id}, 1, "/root")
-	state.StartSelection(0, 2, id, 1, StartContext{Path: "/root/item", Line: 4, Column: 5})
-
-	err := state.CaptureComplexElementFields(
-		[]IdentityFieldMatch{{Selection: 0, Field: 0}},
-		[]byte(" \t\r\n"),
-		StartContext{Path: "/root/item", Line: 6, Column: 7},
-	)
-	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
-	expectXSDMessage(t, err, "identity field has no simple value")
-	expectXSDLocation(t, err, "/root/item", 6, 7)
-	if state.fieldValues[0].present {
-		t.Fatalf("field present after failed complex capture")
-	}
 }
 
 func TestIdentityStateFinishSelectionsReportsMissingKeyField(t *testing.T) {
@@ -600,9 +644,12 @@ func TestIdentityStateCloseScopesResolvesKeyRefWithinScope(t *testing.T) {
 	if err := finishSelectionsForTest(&state, info, 2, StartContext{Path: "/root", Line: 8, Column: 9}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections() error = %v", err)
 	}
-	err := state.CloseScopes(1, failIdentityReport(t))
+	invalid, err := state.CloseScopes(1, failIdentityReport(t))
 	if err != nil {
 		t.Fatalf("CloseScopes() error = %v", err)
+	}
+	if invalid {
+		t.Fatal("CloseScopes() invalid = true for resolved constraints")
 	}
 }
 
@@ -624,12 +671,15 @@ func TestIdentityStateCloseScopesReportsUnresolvedKeyRef(t *testing.T) {
 	}
 
 	var got error
-	err := state.CloseScopes(1, func(err error) error {
+	invalid, err := state.CloseScopes(1, func(err error) error {
 		got = err
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("CloseScopes() error = %v", err)
+	}
+	if !invalid {
+		t.Fatal("CloseScopes() invalid = false, want true")
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
 	expectXSDMessage(t, got, "keyref does not resolve")
@@ -656,7 +706,7 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/a", Line: 6, Column: 7}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(first child) error = %v", err)
 	}
-	if err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
 		t.Fatalf("CloseScopes(first child) error = %v", err)
 	}
 
@@ -666,7 +716,7 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/b", Line: 10, Column: 11}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(second child) error = %v", err)
 	}
-	if err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
 		t.Fatalf("CloseScopes(second child) error = %v", err)
 	}
 
@@ -677,7 +727,7 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	}
 
 	var got error
-	if err := state.CloseScopes(1, func(err error) error {
+	if _, err := state.CloseScopes(1, func(err error) error {
 		got = err
 		return nil
 	}); err != nil {
@@ -708,7 +758,7 @@ func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/group", Line: 6, Column: 7}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(first child) error = %v", err)
 	}
-	if err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
 		t.Fatalf("CloseScopes(first child) error = %v", err)
 	}
 
@@ -718,7 +768,7 @@ func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/group", Line: 10, Column: 11}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(second child) error = %v", err)
 	}
-	if err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
 		t.Fatalf("CloseScopes(second child) error = %v", err)
 	}
 
@@ -729,7 +779,7 @@ func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T
 	}
 
 	var got error
-	if err := state.CloseScopes(1, func(err error) error {
+	if _, err := state.CloseScopes(1, func(err error) error {
 		got = err
 		return nil
 	}); err != nil {

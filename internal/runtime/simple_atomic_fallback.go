@@ -17,6 +17,7 @@ type AtomicSimpleValueInput struct {
 	Facets       SimpleValueFacets
 	Type         SimpleValueType
 	Needs        PrimitiveValueNeed
+	NeedIdentity bool
 	Present      bool
 }
 
@@ -25,6 +26,10 @@ type simpleValueNotationReader interface {
 }
 
 func validateAtomicSimpleValueFallbackWithReader[R simpleValueNotationReader](reader R, in AtomicSimpleValueInput) (AtomicSimpleValueResult, error) {
+	return validateAtomicSimpleValueFallbackWithReaderAndScratch(reader, in, nil)
+}
+
+func validateAtomicSimpleValueFallbackWithReaderAndScratch[R simpleValueNotationReader](reader R, in AtomicSimpleValueInput, scratch *StringPatternScratch) (AtomicSimpleValueResult, error) {
 	if !in.Present {
 		return AtomicSimpleValueResult{}, ErrSimpleValueMetadata
 	}
@@ -42,13 +47,23 @@ func validateAtomicSimpleValueFallbackWithReader[R simpleValueNotationReader](re
 		if err := applyAtomicFacets(typ.Primitive, typ.Builtin, facets, in.Normalized, parsed.Actual); err != nil {
 			return AtomicSimpleValueResult{}, err
 		}
-		if err := applyPatternAndEnumeration(facets, in.Normalized, canon, parsed.Actual); err != nil {
+		if err := applyPatternAndEnumeration(facets, in.Normalized, canon, parsed.Actual, scratch); err != nil {
 			return AtomicSimpleValueResult{}, err
 		}
 	}
 	identityCanonical := ""
-	if typ.Primitive == PrimitiveDecimal && parsed.Actual.Valid && parsed.Actual.Kind == PrimitiveDecimal {
-		identityCanonical = parsed.Actual.Decimal.CanonicalText()
+	if in.NeedIdentity && parsed.Actual.Valid {
+		switch typ.Primitive {
+		case PrimitiveDecimal:
+			if parsed.Actual.Kind == PrimitiveDecimal {
+				identityCanonical = parsed.Actual.Decimal.CanonicalText()
+			}
+		case PrimitiveDuration:
+			if parsed.Actual.Kind == PrimitiveDuration {
+				identityCanonical = durationIdentityCanonical(parsed.Actual.Duration)
+			}
+		default:
+		}
 	}
 	return AtomicSimpleValueResult{
 		Canonical:         canon,
@@ -178,8 +193,8 @@ func applyPrimitiveBounds(kind PrimitiveKind, f SimpleValueFacets, normalized st
 	}
 }
 
-func applyPatternAndEnumeration(f SimpleValueFacets, normalized, canonical string, actual PrimitiveActualValue) error {
-	if err := f.StringFacets.validatePatterns(normalized); err != nil {
+func applyPatternAndEnumeration(f SimpleValueFacets, normalized, canonical string, actual PrimitiveActualValue, scratch *StringPatternScratch) error {
+	if err := f.StringFacets.validatePatterns(normalized, scratch); err != nil {
 		return err
 	}
 	if len(f.enumeration) != 0 {

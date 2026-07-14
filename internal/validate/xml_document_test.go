@@ -17,8 +17,8 @@ type emptyXMLDocument = xmlDocument[struct{}]
 func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 	var doc emptyXMLDocument
 	values := stream.NewCache()
-	_, err := doc.PrepareStart(testXMLStart(
-		xml.Name{Space: "missing", Local: "root"}, "",
+	_, err := prepareXMLStartForTest(&doc, testXMLStart(
+		xml.Name{Space: "missing", Local: "root"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
 	), &values, 0, 2, 3)
 	requireCode(t, err, xsderrors.CodeValidationXML)
@@ -29,7 +29,7 @@ func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 		t.Fatalf("depth = %d, want 0", doc.Depth())
 	}
 
-	_, err = doc.PrepareStart(testXMLStart(xml.Name{Space: "p", Local: "root"}, ""), &values, 0, 4, 5)
+	_, err = prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Space: "p", Local: "root"}), &values, 0, 4, 5)
 	if !strings.Contains(err.Error(), "unbound namespace prefix p") {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
@@ -38,8 +38,8 @@ func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 	var doc emptyXMLDocument
 	values := stream.NewCache()
-	_, err := doc.PrepareStart(testXMLStart(
-		xml.Name{Local: "root"}, "",
+	_, err := prepareXMLStartForTest(&doc, testXMLStart(
+		xml.Name{Local: "root"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "q"}, "urn:test"),
 		testXMLAttr(xml.Name{Space: "p", Local: "id"}, ""),
@@ -57,13 +57,13 @@ func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 func TestXMLDocumentStateEnforcesDepthLimit(t *testing.T) {
 	values := stream.NewCache()
 	var doc emptyXMLDocument
-	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "root"}, ""), &values, 0, 2, 3)
+	start, err := prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "root"}), &values, 0, 2, 3)
 	if err != nil {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
-	doc.CommitStart(start.Name, "root", false, struct{}{})
+	doc.CommitStart(start, false, struct{}{})
 
-	_, err = doc.PrepareStart(testXMLStart(xml.Name{Local: "child"}, ""), &values, 1, 4, 5)
+	_, err = prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "child"}), &values, 1, 4, 5)
 	requireCode(t, err, xsderrors.CodeValidationLimit)
 	if !strings.Contains(err.Error(), "instance depth limit exceeded") {
 		t.Fatalf("PrepareStart() error = %v", err)
@@ -73,25 +73,25 @@ func TestXMLDocumentStateEnforcesDepthLimit(t *testing.T) {
 func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 	var doc emptyXMLDocument
 	values := stream.NewCache()
-	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "a"}, "a"), &values, 0, 1, 1)
+	start, err := prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "a"}), &values, 0, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, false, struct{}{})
-	if endErr := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "a"}, RawName: "a"}, 1, 4); endErr != nil {
+	doc.CommitStart(start, false, struct{}{})
+	if endErr := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "a"}}, 1, 4); endErr != nil {
 		t.Fatal(endErr)
 	}
 	if commitErr := doc.CommitEnd(); commitErr != nil {
 		t.Fatal(commitErr)
 	}
 
-	_, err = doc.PrepareStart(testXMLStart(xml.Name{Space: "p", Local: "b"}, "p:b"), &values, 0, 1, 5)
+	_, err = prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Space: "p", Local: "b"}), &values, 0, 1, 5)
 	if !strings.Contains(err.Error(), "unbound namespace prefix p") {
 		t.Fatalf("PrepareStart() error = %v, want namespace error before multiple roots", err)
 	}
 
-	_, err = doc.PrepareStart(testXMLStart(
-		xml.Name{Space: "p", Local: "b"}, "p:b",
+	_, err = prepareXMLStartForTest(&doc, testXMLStart(
+		xml.Name{Space: "p", Local: "b"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
 	), &values, 0, 1, 5)
 	if !strings.Contains(err.Error(), "multiple root elements") {
@@ -102,16 +102,16 @@ func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 	var doc emptyXMLDocument
 	values := stream.NewCache()
-	start, err := doc.PrepareStart(testXMLStart(
-		xml.Name{Space: "p", Local: "root"}, "p:root",
+	start, err := prepareXMLStartForTest(&doc, testXMLStart(
+		xml.Name{Space: "p", Local: "root"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "q"}, "urn:test"),
 	), &values, 0, 2, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, false, struct{}{})
-	err = doc.ValidateEnd(stream.EndElement{Name: xml.Name{Space: "q", Local: "root"}, RawName: "q:root"}, 4, 5)
+	doc.CommitStart(start, false, struct{}{})
+	err = doc.ValidateEnd(stream.EndElement{Name: xml.Name{Space: "q", Local: "root"}}, 4, 5)
 	if !strings.Contains(err.Error(), "end element </q:root> does not match start element <p:root>") {
 		t.Fatalf("ValidateEnd() error = %v", err)
 	}
@@ -125,11 +125,11 @@ func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
 	requireCode(t, doc.Complete(), xsderrors.CodeValidationRoot)
 
 	values := stream.NewCache()
-	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: "root"}, ""), &values, 0, 2, 3)
+	start, err := prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "root"}), &values, 0, 2, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, false, struct{}{})
+	doc.CommitStart(start, false, struct{}{})
 	err = doc.Complete()
 	requireCode(t, err, xsderrors.CodeValidationXML)
 	if !strings.Contains(err.Error(), "unclosed element") {
@@ -145,7 +145,7 @@ func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) 
 	if doc.pathText != "" {
 		t.Fatalf("successful starts materialized path %q", doc.pathText)
 	}
-	if err := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "child"}, RawName: "child"}, 2, 1); err != nil {
+	if err := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "child"}}, 2, 1); err != nil {
 		t.Fatal(err)
 	}
 	if err := doc.CommitEnd(); err != nil {
@@ -156,8 +156,8 @@ func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) 
 	}
 	commitDocumentStart(t, &doc, &values, "child")
 
-	_, err := doc.PrepareStart(testXMLStart(
-		xml.Name{Space: "missing", Local: "bad"}, "",
+	_, err := prepareXMLStartForTest(&doc, testXMLStart(
+		xml.Name{Space: "missing", Local: "bad"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "temporary"}, "urn:temporary"),
 	), &values, 0, 4, 5)
 	if err == nil {
@@ -226,17 +226,26 @@ func TestXMLSyntaxDiagnosticParity(t *testing.T) {
 
 func commitDocumentStart(t *testing.T, doc *emptyXMLDocument, values *stream.Cache, local string) {
 	t.Helper()
-	start, err := doc.PrepareStart(testXMLStart(xml.Name{Local: local}, local), values, 0, 1, 1)
+	start, err := prepareXMLStartForTest(doc, testXMLStart(xml.Name{Local: local}), values, 0, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start.Name, start.RawName, false, struct{}{})
+	doc.CommitStart(start, false, struct{}{})
 }
 
-func testXMLStart(name xml.Name, rawName string, attrs ...stream.Attr) stream.StartElement {
-	return stream.StartElement{Name: name, RawName: rawName, Attr: attrs}
+func prepareXMLStartForTest(
+	doc *emptyXMLDocument,
+	start stream.StartElement,
+	values *stream.Cache,
+	maxDepth, line, col int,
+) (preparedXMLStart, error) {
+	return doc.PrepareStart(start, values, maxDepth, line, col)
+}
+
+func testXMLStart(name xml.Name, attrs ...stream.Attr) stream.StartElement {
+	return stream.OwnedStartElement(name, attrs...)
 }
 
 func testXMLAttr(name xml.Name, value string) stream.Attr {
-	return stream.Attr{Name: name, Value: value}
+	return stream.OwnedAttr(name, value)
 }

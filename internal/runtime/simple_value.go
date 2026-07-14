@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/lex"
+	"github.com/jacoelho/xsd/internal/uriref"
 )
 
 // ErrSimpleValueMetadata reports invalid frozen simple-type metadata discovered
@@ -110,9 +111,9 @@ func (f StringFacetValues) patternCount() int {
 	return int(f.patternSource.count())
 }
 
-func (f StringFacetValues) validatePatterns(normalized string) error {
+func (f StringFacetValues) validatePatterns(normalized string, scratch *StringPatternScratch) error {
 	if f.patternReads != nil {
-		return validateStringPatternStepReads(f.patternReads, normalized)
+		return validateStringPatternStepReadsWithScratch(f.patternReads, normalized, scratch)
 	}
 	return validateStringPatternSteps(f.patternSource, normalized)
 }
@@ -160,8 +161,17 @@ type simpleValueRouteRead struct {
 	identity     SimpleIdentityKind
 	fast         SimpleFastKind
 	rawBypass    SimpleValueBypassAction
+	availability simpleTypeAvailability
 	present      bool
 }
+
+type simpleTypeAvailability uint8
+
+const (
+	simpleTypeAvailabilityInvalid simpleTypeAvailability = iota
+	simpleTypeAvailabilityAvailable
+	simpleTypeAvailabilityUnavailable
+)
 
 type simpleValueColdRead struct {
 	union       []SimpleTypeID
@@ -287,20 +297,20 @@ func (f simpleValueFacetRead) decimalBound(flag FacetMask) DecimalFacetValue {
 	}
 }
 
-type simpleValueColdReadTable struct {
+type simpleTypeColdReadTable struct {
 	index      []uint32
 	values     []simpleValueColdRead
 	boundReads []simpleValueLiteralRead
 }
 
-func newSimpleValueColdReadTable(types []SimpleType) simpleValueColdReadTable {
+func newSimpleTypeColdReadTable(types []SimpleType) *simpleTypeColdReadTable {
 	count := 0
 	for i := range types {
-		if simpleValueTypeNeedsColdRead(types[i]) {
+		if simpleTypeNeedsColdRead(types[i]) {
 			count++
 		}
 	}
-	table := simpleValueColdReadTable{
+	table := simpleTypeColdReadTable{
 		index:  make([]uint32, len(types)),
 		values: make([]simpleValueColdRead, 0, count),
 	}
@@ -315,7 +325,7 @@ func newSimpleValueColdReadTable(types []SimpleType) simpleValueColdReadTable {
 	enumerationPool := newSimpleValueEnumerationReadPool(types)
 	patternPool := newStringPatternReadPoolForSimpleTypes(types)
 	for i := range types {
-		if !simpleValueTypeNeedsColdRead(types[i]) {
+		if !simpleTypeNeedsColdRead(types[i]) {
 			continue
 		}
 		if len(table.values) >= int(invalidID) {
@@ -332,19 +342,19 @@ func newSimpleValueColdReadTable(types []SimpleType) simpleValueColdReadTable {
 			patterns = patternPool[source]
 		}
 		table.values = append(table.values, simpleValueColdRead{
-			union:       types[i].Union,
+			union:       slices.Clone(types[i].Union),
 			enumeration: enumeration,
 			facets:      newSimpleValueFacetRead(types[i].Facets, table.boundReads, boundIndexes, patterns),
 		})
 	}
-	return table
+	return &table
 }
 
 func newSimpleValueEnumerationReadPool(types []SimpleType) map[simpleValueEnumerationSource][]simpleValueLiteralRead {
 	var pool map[simpleValueEnumerationSource][]simpleValueLiteralRead
 	literalCount := 0
 	for i := range types {
-		if !simpleValueTypeNeedsColdRead(types[i]) {
+		if !simpleTypeNeedsColdRead(types[i]) {
 			continue
 		}
 		literals := types[i].Facets.Enumeration
@@ -409,7 +419,7 @@ func simpleValueEnumerationReadForLiterals(in []simpleValueLiteralRead) (simpleV
 func simpleValueBoundReadIndexes(types []SimpleType) map[*CompiledLiteral]uint32 {
 	var indexes map[*CompiledLiteral]uint32
 	for i := range types {
-		if !simpleValueTypeNeedsColdRead(types[i]) {
+		if !simpleTypeNeedsColdRead(types[i]) {
 			continue
 		}
 		for _, literal := range types[i].Facets.bounds {
@@ -431,11 +441,14 @@ func simpleValueBoundReadIndexes(types []SimpleType) map[*CompiledLiteral]uint32
 	return indexes
 }
 
-func simpleValueTypeNeedsColdRead(st SimpleType) bool {
+func simpleTypeNeedsColdRead(st SimpleType) bool {
 	return !st.Missing && (len(st.Union) != 0 || st.Facets.Present != 0)
 }
 
-func (t simpleValueColdReadTable) read(id SimpleTypeID) (*simpleValueColdRead, bool) {
+func (t *simpleTypeColdReadTable) read(id SimpleTypeID) (*simpleValueColdRead, bool) {
+	if t == nil {
+		return nil, false
+	}
 	if !ValidSimpleTypeID(id, len(t.index)) {
 		return nil, false
 	}
@@ -449,17 +462,32 @@ func (t simpleValueColdReadTable) read(id SimpleTypeID) (*simpleValueColdRead, b
 	return &t.values[idx], true
 }
 
+func (t *simpleTypeColdReadTable) unionMembers(id SimpleTypeID) ([]SimpleTypeID, bool) {
+	read, ok := t.read(id)
+	if !ok {
+		return nil, false
+	}
+	if read == nil {
+		return nil, true
+	}
+	return read.union, true
+}
+
 func newSimpleValueRouteReadsForSimpleTypes(types []SimpleType) []simpleValueRouteRead {
 	reads := make([]simpleValueRouteRead, len(types))
 	for i := range types {
 		reads[i] = newSimpleValueRouteReadForSimpleType(types[i])
+	}
+	availability := simpleTypeAvailabilities(types)
+	for i := range reads {
+		reads[i].availability = availability[i]
 	}
 	return reads
 }
 
 func newSimpleValueRouteReadForSimpleType(st SimpleType) simpleValueRouteRead {
 	if st.Missing {
-		return simpleValueRouteRead{}
+		return simpleValueRouteRead{availability: simpleTypeAvailabilityUnavailable}
 	}
 	read := simpleValueRouteRead{
 		minInclusive: rawDecimalBoundFacet(st.Facets, FacetMinInclusive),
@@ -472,11 +500,106 @@ func newSimpleValueRouteReadForSimpleType(st SimpleType) simpleValueRouteRead {
 		whitespace:   st.Whitespace,
 		identity:     st.Identity,
 		fast:         st.Fast,
+		availability: simpleTypeAvailabilityAvailable,
 		present:      true,
 	}
 	typ := read.simpleValueType()
 	read.rawBypass = SimpleValueBypass(simpleValueAtomicBypassShape(&typ, 0))
 	return read
+}
+
+func simpleTypeAvailabilities(types []SimpleType) []simpleTypeAvailability {
+	availability := make([]simpleTypeAvailability, len(types))
+	state := make([]simpleTypeGraphState, len(types))
+	stack := make([]simpleTypeAvailabilityFrame, 0, min(len(types), 1_024))
+	for root := range types {
+		if state[root] != simpleTypeGraphUnchecked {
+			continue
+		}
+		state[root] = simpleTypeGraphChecking
+		stack = appendDFSFrame(stack, simpleTypeAvailabilityFrame{id: SimpleTypeID(root)}, len(types))
+		for len(stack) != 0 {
+			last := len(stack) - 1
+			frame := &stack[last]
+			st := types[frame.id]
+			if st.Missing {
+				availability[frame.id] = simpleTypeAvailabilityUnavailable
+				state[frame.id] = simpleTypeGraphChecked
+				stack = stack[:last]
+				continue
+			}
+			if !validSimpleTypeAvailabilityShape(st) {
+				state[frame.id] = simpleTypeGraphChecked
+				stack = stack[:last]
+				continue
+			}
+			dependency, ok := simpleTypeAvailabilityDependency(st, frame.next)
+			if !ok {
+				if availability[frame.id] == simpleTypeAvailabilityInvalid {
+					availability[frame.id] = simpleTypeAvailabilityAvailable
+				}
+				state[frame.id] = simpleTypeGraphChecked
+				stack = stack[:last]
+				continue
+			}
+			if !ValidSimpleTypeID(dependency, len(types)) {
+				state[frame.id] = simpleTypeGraphChecked
+				stack = stack[:last]
+				continue
+			}
+			switch state[dependency] {
+			case simpleTypeGraphUnchecked:
+				state[dependency] = simpleTypeGraphChecking
+				stack = appendDFSFrame(stack, simpleTypeAvailabilityFrame{id: dependency}, len(types))
+				continue
+			case simpleTypeGraphChecking:
+				state[frame.id] = simpleTypeGraphChecked
+				stack = stack[:last]
+				continue
+			case simpleTypeGraphChecked:
+			}
+			if availability[dependency] == simpleTypeAvailabilityInvalid {
+				state[frame.id] = simpleTypeGraphChecked
+				stack = stack[:last]
+				continue
+			}
+			if availability[dependency] == simpleTypeAvailabilityUnavailable {
+				availability[frame.id] = simpleTypeAvailabilityUnavailable
+			}
+			frame.next++
+		}
+	}
+	return availability
+}
+
+func validSimpleTypeAvailabilityShape(st SimpleType) bool {
+	return st.Variety == SimpleVarietyAtomic || st.Variety == SimpleVarietyList || st.Variety == SimpleVarietyUnion
+}
+
+func simpleTypeAvailabilityDependency(st SimpleType, index int) (SimpleTypeID, bool) {
+	if st.Base != NoSimpleType {
+		if index == 0 {
+			return st.Base, true
+		}
+		index--
+	}
+	switch st.Variety {
+	case SimpleVarietyAtomic:
+	case SimpleVarietyList:
+		if index == 0 {
+			return st.ListItem, true
+		}
+	case SimpleVarietyUnion:
+		if index < len(st.Union) {
+			return st.Union[index], true
+		}
+	}
+	return NoSimpleType, false
+}
+
+type simpleTypeAvailabilityFrame struct {
+	id   SimpleTypeID
+	next int
 }
 
 func (r simpleValueRouteRead) simpleValueType() SimpleValueType {
@@ -779,10 +902,10 @@ type AtomicSimpleValueResult struct {
 // list splitting, route, list-recursion, union-recursion, primitive parsing,
 // and facet execution policy.
 func ValidateSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, lexical string, needs SimpleValueNeed) (SimpleValue, error) {
-	return validateSimpleValue(callbackSimpleValueMetadataReader{callbacks: cb}, id, lexical, cb.ResolveQName, needs)
+	return validateSimpleValue(callbackSimpleValueMetadataReader{callbacks: cb}, id, lexical, cb.ResolveQName, needs, nil)
 }
 
-func validateSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
+func validateSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
 	var typ SimpleValueType
 	known := false
 	if id != NoSimpleType {
@@ -792,11 +915,11 @@ func validateSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID,
 	case SimpleValueRouteUntyped:
 		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, nil
 	case SimpleValueRouteAtomic:
-		return validateAtomicSimpleValue(reader, id, typ, lexical, resolve, needs)
+		return validateAtomicSimpleValue(reader, id, typ, lexical, resolve, needs, scratch)
 	case SimpleValueRouteList:
-		return validateListSimpleValue(reader, id, typ, lexical, resolve, needs)
+		return validateListSimpleValue(reader, id, typ, lexical, resolve, needs, scratch)
 	case SimpleValueRouteUnion:
-		return validateUnionSimpleValue(reader, id, typ, lexical, resolve, needs)
+		return validateUnionSimpleValue(reader, id, typ, lexical, resolve, needs, scratch)
 	case SimpleValueRouteMissing, SimpleValueRouteInvalid:
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
@@ -854,7 +977,7 @@ func validateAtomicSimpleValueRouteReadFast(
 		}
 		return SimpleValue{Type: id}, true, nil
 	case SimpleValueBypassValidateAnyURI:
-		if err := ValidateAnyURILexical(normalized); err != nil {
+		if _, err := uriref.Check(normalized); err != nil {
 			return SimpleValue{}, true, err
 		}
 		return SimpleValue{Type: id}, true, nil
@@ -943,7 +1066,7 @@ func (n publishedSimpleValueNotations) simpleValueNotation(ns, local string) (bo
 	return n[ExpandedName{Namespace: ns, Local: local}], true
 }
 
-func validateAtomicSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
+func validateAtomicSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
 	normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
 	switch SimpleValueBypass(simpleValueAtomicBypassShape(&typ, needs)) {
 	case SimpleValueBypassAcceptString:
@@ -954,12 +1077,12 @@ func validateAtomicSimpleValue[R simpleValueMetadataReader](reader R, id SimpleT
 		}
 		return SimpleValue{Type: id}, nil
 	case SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
-		if err := validateSimpleValueStringFacets(reader, id, typ, normalized, normalized); err != nil {
+		if err := validateSimpleValueStringFacets(reader, id, typ, normalized, normalized, scratch); err != nil {
 			return SimpleValue{}, err
 		}
 		return SimpleValue{Type: id}, nil
 	case SimpleValueBypassValidateAnyURI:
-		if err := ValidateAnyURILexical(normalized); err != nil {
+		if _, err := uriref.Check(normalized); err != nil {
 			return SimpleValue{}, err
 		}
 		return SimpleValue{Type: id}, nil
@@ -1002,7 +1125,7 @@ func validateAtomicSimpleValue[R simpleValueMetadataReader](reader R, id SimpleT
 		if value, ok, err := validateAtomicStringSimpleValueFallback(id, typ, normalized, needs); ok {
 			return value, err
 		}
-		return validateAtomicSimpleValueFallback(reader, id, typ, normalized, resolve, needs)
+		return validateAtomicSimpleValueFallback(reader, id, typ, normalized, resolve, needs, scratch)
 	case SimpleValueBypassValidateDecimal:
 		handled, err := ValidateFastDecimalLexical(RawDecimalFastPathShape{
 			MinInclusive: typ.DecimalMinInclusive,
@@ -1063,7 +1186,7 @@ func validateAtomicStringSimpleValueFallback(id SimpleTypeID, typ SimpleValueTyp
 	return value, true, nil
 }
 
-func validateAtomicSimpleValueFallback[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, normalized string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
+func validateAtomicSimpleValueFallback[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, normalized string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
 	if err := validateRuntimeAtomicBuiltin(typ, normalized); err != nil {
 		return SimpleValue{}, err
 	}
@@ -1074,7 +1197,7 @@ func validateAtomicSimpleValueFallback[R simpleValueMetadataReader](reader R, id
 	if !ok {
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
-	result, err := validateAtomicSimpleValueFallbackWithReader(reader, AtomicSimpleValueInput{
+	result, err := validateAtomicSimpleValueFallbackWithReaderAndScratch(reader, AtomicSimpleValueInput{
 		Type:         typ,
 		Facets:       facets,
 		ResolveQName: resolve,
@@ -1086,8 +1209,9 @@ func validateAtomicSimpleValueFallback[R simpleValueMetadataReader](reader R, id
 			Identity:  typ.Identity,
 			Needs:     needs,
 		}),
-		Present: true,
-	})
+		NeedIdentity: needs.Has(SimpleNeedIdentity),
+		Present:      true,
+	}, scratch)
 	if err != nil {
 		return SimpleValue{}, err
 	}
@@ -1144,7 +1268,7 @@ func simpleValueFloatBits(kind PrimitiveKind) int {
 	return 64
 }
 
-func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
+func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
 	needPlan := SimpleValueListNeeds(ListSimpleValueNeedShape{
 		Facets:   typ.Facets,
 		Identity: typ.Identity,
@@ -1153,10 +1277,11 @@ func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTyp
 	var canon strings.Builder
 	var norm strings.Builder
 	var refs strings.Builder
+	var identity strings.Builder
 	var validateErr error
 	count := uint32(0)
 	forEachSimpleValueListItem(lexical, func(item string) bool {
-		itemValue, err := validateSimpleValue(reader, typ.ListItem, item, resolve, needPlan.ItemNeeds)
+		itemValue, err := validateSimpleValue(reader, typ.ListItem, item, resolve, needPlan.ItemNeeds, scratch)
 		if err != nil {
 			validateErr = err
 			return false
@@ -1170,6 +1295,10 @@ func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTyp
 			norm.WriteString(item)
 		}
 		AppendSimpleValueIDRefs(&refs, itemValue)
+		if needs.Has(SimpleNeedIdentity) && !AppendSimpleValueListIdentity(&identity, itemValue) {
+			validateErr = ErrSimpleValueMetadata
+			return false
+		}
 		count++
 		return true
 	})
@@ -1189,15 +1318,16 @@ func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTyp
 		}
 	}
 	if facetPlan.ValidateLexical {
-		if err := validateSimpleValueStringFacets(reader, id, typ, normalized, canonical); err != nil {
+		if err := validateSimpleValueStringFacets(reader, id, typ, normalized, canonical, scratch); err != nil {
 			return SimpleValue{}, err
 		}
 	}
 	return ListSimpleValue(ListSimpleValueProjection{
-		Canonical:  canonical,
-		ItemIDRefs: refs.String(),
-		Type:       id,
-		Needs:      needs,
+		Canonical:    canonical,
+		ItemIDRefs:   refs.String(),
+		ItemIdentity: identity.String(),
+		Type:         id,
+		Needs:        needs,
 	}), nil
 }
 
@@ -1229,7 +1359,7 @@ func validateSimpleValueLengthFacets(typ SimpleValueType, length uint32) error {
 	return ValidateLengthFacets(typ.LengthFacets, length)
 }
 
-func validateUnionSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
+func validateUnionSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
 	if len(typ.UnionMembers) == 0 {
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
@@ -1244,10 +1374,10 @@ func validateUnionSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTy
 	var validateErr error
 	var unsupportedErr error
 	for _, member := range typ.UnionMembers {
-		value, err := validateSimpleValue(reader, member, normalized, resolve, memberNeeds)
+		value, err := validateSimpleValue(reader, member, normalized, resolve, memberNeeds, scratch)
 		if err == nil {
 			if SimpleValueUnionFacetValidation(typ.Facets) {
-				if facetErr := validateSimpleValueStringFacets(reader, id, typ, normalized, value.Canonical); facetErr != nil {
+				if facetErr := validateSimpleValueStringFacets(reader, id, typ, normalized, value.Canonical, scratch); facetErr != nil {
 					validateErr = facetErr
 					break
 				}
@@ -1272,14 +1402,14 @@ func validateUnionSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTy
 	return SimpleValue{}, errors.New("value does not match any union member")
 }
 
-func validateSimpleValueStringFacets[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, normalized, canonical string) error {
+func validateSimpleValueStringFacets[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, normalized, canonical string, scratch *StringPatternScratch) error {
 	if typ.Facets&FacetPattern != 0 && typ.StringFacets.patternCount() == 0 {
 		return ErrSimpleValueMetadata
 	}
 	if typ.Facets&FacetEnumeration != 0 && !typ.StringFacets.HasEnumeration {
 		return ErrSimpleValueMetadata
 	}
-	if err := typ.StringFacets.validatePatterns(normalized); err != nil {
+	if err := typ.StringFacets.validatePatterns(normalized, scratch); err != nil {
 		return err
 	}
 	if typ.StringFacets.HasEnumeration {

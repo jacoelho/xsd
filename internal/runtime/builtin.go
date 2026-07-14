@@ -330,11 +330,11 @@ func BuiltinSimpleSeedCount() int {
 }
 
 // BuiltinSimpleSeedAt returns one fixed XSD simple-type declaration seed.
-func BuiltinSimpleSeedAt(i int) (*BuiltinSimpleSeed, bool) {
+func BuiltinSimpleSeedAt(i int) (BuiltinSimpleSeed, bool) {
 	if i < 0 || i >= len(builtinSimpleSeedTable) {
-		return nil, false
+		return BuiltinSimpleSeed{}, false
 	}
-	return &builtinSimpleSeedTable[i], true
+	return builtinSimpleSeedTable[i], true
 }
 
 var builtinSimpleSeedTable = buildBuiltinSimpleSeedTable()

@@ -134,12 +134,13 @@ func indexCompiledModelRow(rt DFARowIndexRuntime, row *CompiledModelRow) error {
 			if !indexEdgeName(index, name, edgePos) {
 				return nil
 			}
-			names := rt.SubstitutionNames(edge.Particle.Element)
-			for i := range names.Len() {
-				name, _ := names.At(i)
-				if !indexEdgeName(index, name, edgePos) {
-					return nil
-				}
+			unique := true
+			rt.ForEachSubstitutionEntry(edge.Particle.Element, func(name QName, _ ElementID) bool {
+				unique = indexEdgeName(index, name, edgePos)
+				return unique
+			})
+			if !unique {
+				return nil
 			}
 		case ParticleWildcard:
 			wildcards = append(wildcards, edgePos)
@@ -386,7 +387,7 @@ func validateCompiledParticle(rt CompiledModelRuntime, p Particle) error {
 type DFARowIndexRuntime interface {
 	ElementName(id ElementID) (QName, bool)
 	SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool)
-	SubstitutionNames(id ElementID) SubstitutionNameRead
+	ForEachSubstitutionEntry(id ElementID, fn func(QName, ElementID) bool)
 }
 
 // ValidateDFARowIndex checks that row.Index mirrors row.Edges exactly.
@@ -425,12 +426,13 @@ func ValidateDFARowIndex(names *NameTable, rt DFARowIndexRuntime, row CompiledMo
 			if err := requireIndexedName(idx, name, edgePos); err != nil {
 				return err
 			}
-			names := rt.SubstitutionNames(edge.Particle.Element)
-			for i := range names.Len() {
-				name, _ := names.At(i)
-				if err := requireIndexedName(idx, name, edgePos); err != nil {
-					return errors.New("compiled content model name index is missing element edge")
-				}
+			indexed := true
+			rt.ForEachSubstitutionEntry(edge.Particle.Element, func(name QName, _ ElementID) bool {
+				indexed = requireIndexedName(idx, name, edgePos) == nil
+				return indexed
+			})
+			if !indexed {
+				return errors.New("compiled content model name index is missing element edge")
 			}
 		case ParticleWildcard:
 			if wi >= len(idx.WildcardEdges) || idx.WildcardEdges[wi] != edgePos {

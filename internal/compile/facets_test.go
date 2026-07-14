@@ -84,6 +84,7 @@ func TestParseSizeFacetValue(t *testing.T) {
 		{name: "plus", facet: "length", value: "+1", want: 1},
 		{name: "negative zero", facet: "length", value: "-0", want: 0},
 		{name: "leading zeros", facet: "minLength", value: "00012", want: 12},
+		{name: "collapsed whitespace", facet: "fractionDigits", value: " \t2\n", want: 2},
 		{name: "max uint32", facet: "maxLength", value: "4294967295", want: 4294967295},
 		{
 			name:  "empty",

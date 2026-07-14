@@ -161,6 +161,10 @@ func scanBase64BinaryLexical[T byteText](raw T) (base64BinaryScan, error) {
 	return scan, nil
 }
 
+func isHexDigit(b byte) bool {
+	return '0' <= b && b <= '9' || 'a' <= b && b <= 'f' || 'A' <= b && b <= 'F'
+}
+
 func base64Value(b byte) (byte, bool) {
 	switch {
 	case 'A' <= b && b <= 'Z':

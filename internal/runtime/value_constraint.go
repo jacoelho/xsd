@@ -76,6 +76,20 @@ func (v ValueConstraintRead) SimpleValue() SimpleValue {
 	return v.value
 }
 
+// FixedAttributeValueEqual compares an attribute value with a fixed
+// constraint. Declaration-owned constraints use datatype value equality;
+// use-owned constraints use canonical lexical equality. valid is false when a
+// requested value-space comparison lacks its precomputed identity projection.
+func FixedAttributeValueEqual(actual SimpleValue, fixed ValueConstraintRead, valueSpace bool) (equal, valid bool) {
+	if !valueSpace {
+		return actual.Canonical == fixed.canonical, true
+	}
+	if actual.Identity == "" || fixed.value.Identity == "" {
+		return false, false
+	}
+	return actual.Identity == fixed.value.Identity, true
+}
+
 // AbsentValueConstraint selects the value applied when an attribute is absent:
 // fixed values take precedence over defaults.
 func AbsentValueConstraint(fixed ValueConstraintRead, hasFixed bool, def ValueConstraintRead, hasDefault bool) (ValueConstraintRead, bool) {

@@ -13,10 +13,19 @@ type ValidateOptions struct {
 	MaxErrors int
 	// MaxIdentityScopes limits active identity-constraint scopes. Zero means unlimited.
 	MaxIdentityScopes int
-	// MaxIdentityEntries limits stored ID, IDREF, key, unique, and keyref entries. Zero means unlimited.
+	// MaxIdentityEntries limits stored ID, IDREF, key, unique, and keyref
+	// entries and simultaneously pending identity-selector matches. Zero means
+	// unlimited.
 	MaxIdentityEntries int
 	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero means unlimited.
 	MaxIdentityTupleBytes int64
+	// MaxSchemaLocationNamespaces limits distinct schema-location namespace
+	// hints retained for one document. Zero uses the default of 256.
+	MaxSchemaLocationNamespaces int
+	// MaxSchemaLocationNamespaceBytes limits aggregate retained namespace-name
+	// bytes. Zero uses the default of 64 KiB. MaxInstanceTokenBytes separately
+	// bounds each complete hint attribute when configured.
+	MaxSchemaLocationNamespaceBytes int64
 	// MaxInstanceDepth limits nested XML elements. Zero means unlimited.
 	MaxInstanceDepth int
 	// MaxInstanceAttributes limits attributes on one XML element. Zero means unlimited.
@@ -30,10 +39,11 @@ type ValidateOptions struct {
 
 // Session validates XML instance documents against one Engine.
 //
-// A Session is not goroutine-safe. Use Engine.Validate or separate sessions for
-// concurrent validation.
+// Copies of a Session refer to the same reusable state. Concurrent use of one
+// session, including through copies, fails with CodeValidationSession. Use
+// Engine.Validate or separately constructed sessions for concurrent validation.
 type Session struct {
-	session validate.Session
+	session *validate.Session
 }
 
 // Validate validates one XML instance document.
@@ -65,8 +75,9 @@ func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
 	return &Session{session: inner}, nil
 }
 
-// Validate validates one XML instance document and resets validation state
-// first. It may retain bounded scratch buffers and string caches for reuse.
+// Validate validates one XML instance document. It clears document-local state
+// before returning and may retain bounded scratch buffers and string caches for
+// reuse.
 func (s *Session) Validate(r io.Reader) error {
 	if s == nil {
 		return (*validate.Session)(nil).Validate(r)
@@ -74,25 +85,17 @@ func (s *Session) Validate(r io.Reader) error {
 	return s.session.Validate(r)
 }
 
-// Reset clears validation state while preserving options. It may retain bounded
-// scratch buffers and string caches; create a new session to release retained
-// cache contents.
-func (s *Session) Reset() {
-	if s == nil {
-		return
-	}
-	s.session.Reset()
-}
-
 func internalValidateOptions(opts ValidateOptions) validate.Options {
 	return validate.Options{
-		MaxErrors:             opts.MaxErrors,
-		MaxIdentityScopes:     opts.MaxIdentityScopes,
-		MaxIdentityEntries:    opts.MaxIdentityEntries,
-		MaxIdentityTupleBytes: opts.MaxIdentityTupleBytes,
-		MaxInstanceDepth:      opts.MaxInstanceDepth,
-		MaxInstanceAttributes: opts.MaxInstanceAttributes,
-		MaxInstanceTextBytes:  opts.MaxInstanceTextBytes,
-		MaxInstanceTokenBytes: opts.MaxInstanceTokenBytes,
+		MaxErrors:                       opts.MaxErrors,
+		MaxIdentityScopes:               opts.MaxIdentityScopes,
+		MaxIdentityEntries:              opts.MaxIdentityEntries,
+		MaxIdentityTupleBytes:           opts.MaxIdentityTupleBytes,
+		MaxSchemaLocationNamespaces:     opts.MaxSchemaLocationNamespaces,
+		MaxSchemaLocationNamespaceBytes: opts.MaxSchemaLocationNamespaceBytes,
+		MaxInstanceDepth:                opts.MaxInstanceDepth,
+		MaxInstanceAttributes:           opts.MaxInstanceAttributes,
+		MaxInstanceTextBytes:            opts.MaxInstanceTextBytes,
+		MaxInstanceTokenBytes:           opts.MaxInstanceTokenBytes,
 	}
 }

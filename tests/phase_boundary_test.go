@@ -44,8 +44,8 @@ func TestRootCompileIsFacade(t *testing.T) {
 	if !importsPath(parsed, "github.com/jacoelho/xsd/internal/compile") {
 		t.Fatal("compile.go does not import internal/compile")
 	}
-	if !callsSelector(parsed, "compile", "Compile") {
-		t.Fatal("CompileWithOptions does not delegate to compile.Compile")
+	if !callsSelector(parsed, "compile", "CompileMappedSources") {
+		t.Fatal("CompileWithOptions does not delegate to compile.CompileMappedSources")
 	}
 	for _, decl := range parsed.Decls {
 		fn, ok := decl.(*ast.FuncDecl)

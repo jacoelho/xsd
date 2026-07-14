@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/uriref"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -88,6 +89,9 @@ func parseWildcardNamespaceList(names NamespaceInterner, targetNS, nsSpec string
 			uri = targetNS
 		default:
 			if strings.HasPrefix(part, "##") {
+				return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+part)
+			}
+			if _, err := uriref.Check(part); err != nil {
 				return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+part)
 			}
 			uri = part

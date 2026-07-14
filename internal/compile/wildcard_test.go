@@ -81,6 +81,14 @@ func TestParseWildcard(t *testing.T) {
 			wantCode: xsderrors.CodeSchemaInvalidAttribute,
 		},
 		{
+			name: "invalid anyURI namespace",
+			attrs: WildcardAttrs{
+				Namespace:    "urn:a %zz",
+				HasNamespace: true,
+			},
+			wantCode: xsderrors.CodeSchemaInvalidAttribute,
+		},
+		{
 			name: "invalid process contents",
 			attrs: WildcardAttrs{
 				ProcessContents:    "open",

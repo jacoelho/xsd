@@ -56,7 +56,7 @@ func TestParseIdentityFieldPaths(t *testing.T) {
 	if len(paths) != 3 {
 		t.Fatalf("path count = %d, want 3", len(paths))
 	}
-	if !paths[0].Self || paths[0].Attribute != runtime.NoQName {
+	if !paths[0].Self || paths[0].Attribute != runtime.NoQName() {
 		t.Fatalf("first field path = %#v, want self", paths[0])
 	}
 	if !paths[1].Attr || paths[1].Attribute != resolver.qnames["p:ref"] || len(paths[1].Steps) != 1 || paths[1].Steps[0].Name != resolver.qnames[":row"] {
@@ -99,6 +99,24 @@ func TestParseIdentityXPathErrors(t *testing.T) {
 			name: "invalid child axis",
 			parse: func() error {
 				_, err := ParseIdentityPaths("child::", resolver)
+				return err
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaIdentity,
+		},
+		{
+			name: "child axis requires node test",
+			parse: func() error {
+				_, err := ParseIdentityPaths("child :: .", resolver)
+				return err
+			},
+			category: xsderrors.CategorySchemaCompile,
+			code:     xsderrors.CodeSchemaIdentity,
+		},
+		{
+			name: "field child axis requires node test",
+			parse: func() error {
+				_, err := ParseIdentityFieldPaths("child::.", resolver)
 				return err
 			},
 			category: xsderrors.CategorySchemaCompile,

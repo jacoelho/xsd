@@ -2,39 +2,6 @@ package runtime
 
 import "testing"
 
-func TestValidateAnyURILexical(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		input   string
-		wantErr string
-	}{
-		{name: "empty"},
-		{name: "plain", input: "https://example.test/a%20b"},
-		{name: "rejects leading colon", input: ":a", wantErr: "invalid anyURI"},
-		{name: "rejects trailing colon", input: "a:", wantErr: "invalid anyURI"},
-		{name: "rejects incomplete escape", input: "%", wantErr: "invalid anyURI"},
-		{name: "rejects bad escape", input: "%xz", wantErr: "invalid anyURI"},
-		{name: "rejects caret", input: "a^b", wantErr: "invalid anyURI"},
-		{name: "rejects backslash", input: `a\b`, wantErr: "invalid anyURI"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			bytesErr := ValidateAnyURILexical([]byte(tt.input))
-			if got := errorMessage(bytesErr); got != tt.wantErr {
-				t.Fatalf("ValidateAnyURILexical() error = %q, want %q", got, tt.wantErr)
-			}
-			stringErr := ValidateAnyURILexical(tt.input)
-			if errorMessage(stringErr) != errorMessage(bytesErr) {
-				t.Fatalf("ValidateAnyURILexical string error for %q = %v, bytes error = %v", tt.input, stringErr, bytesErr)
-			}
-		})
-	}
-}
-
 func TestParseTextValueAnyURICanonicalAndLength(t *testing.T) {
 	t.Parallel()
 
@@ -65,5 +32,48 @@ func TestParseTextValueAnyURICanonicalAndLength(t *testing.T) {
 				t.Fatalf("PrimitiveLength(%q) error = %v, want invalid anyURI", input, err)
 			}
 		})
+	}
+}
+
+func TestAnyURIRawSpellingDefinesValueIdentityAndEnumeration(t *testing.T) {
+	t.Parallel()
+	plain := &simpleValueCallbackStub{
+		types: map[SimpleTypeID]SimpleValueType{
+			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveAnyURI, Whitespace: WhitespaceCollapse},
+		},
+	}
+	space, err := ValidateSimpleValue(plain.callbacks(), 1, "a b", SimpleNeedCanonical|SimpleNeedIdentity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escaped, err := ValidateSimpleValue(plain.callbacks(), 1, "a%20b", SimpleNeedCanonical|SimpleNeedIdentity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if space.Canonical != "a b" || escaped.Canonical != "a%20b" || space.Identity == escaped.Identity {
+		t.Fatalf("anyURI values = %+v and %+v, want distinct raw canonical identities", space, escaped)
+	}
+
+	restricted := &simpleValueCallbackStub{
+		types: map[SimpleTypeID]SimpleValueType{
+			1: {
+				StringFacets: StringFacetValues{HasEnumeration: true},
+				Facets:       FacetEnumeration, Variety: SimpleVarietyAtomic,
+				Primitive: PrimitiveAnyURI, Whitespace: WhitespaceCollapse,
+			},
+		},
+		facets: map[SimpleTypeID]SimpleValueFacets{
+			1: {
+				Facets:       FacetEnumeration,
+				StringFacets: StringFacetValues{HasEnumeration: true},
+				Enumeration:  []SimpleValueFacetLiteral{{Canonical: "a b"}},
+			},
+		},
+	}
+	if _, err := ValidateSimpleValue(restricted.callbacks(), 1, "a b", 0); err != nil {
+		t.Fatalf("ValidateSimpleValue(enumeration match) error = %v", err)
+	}
+	if _, err := ValidateSimpleValue(restricted.callbacks(), 1, "a%20b", 0); err == nil || err.Error() != "enumeration facet failed" {
+		t.Fatalf("ValidateSimpleValue(escaped spelling) error = %v, want enumeration failure", err)
 	}
 }

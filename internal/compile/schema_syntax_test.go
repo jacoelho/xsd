@@ -120,14 +120,17 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 		{
 			name: "appinfo under annotation skips subtree",
 			node: testRawNode(vocab.XSDElemAppinfo, true, []xml.Attr{
-				testRawAttr(vocab.XSDNamespaceURI, "unknown", ""),
+				testRawAttr("urn:foreign", "unknown", ""),
 			}),
 			parent:   testRawNode(annotationChild, true, nil),
 			wantSkip: true,
 		},
 		{
-			name: "non schema node",
-			node: testRawNode("other", false, nil),
+			name:     "non schema node",
+			node:     testRawNode("other", false, nil),
+			wantCat:  xsderrors.CategorySchemaCompile,
+			wantCode: xsderrors.CodeSchemaContentModel,
+			wantMsg:  "foreign element other is not allowed in schema grammar",
 		},
 		{
 			name: "schema namespace attribute",

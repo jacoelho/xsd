@@ -89,6 +89,8 @@ func newStringPatternReadPoolForSimpleTypes(types []SimpleType) map[*stringPatte
 
 	reads := make([]stringPatternStepRead, len(sources))
 	patterns := make([]stringPatternRead, patternCount)
+	fastCopies := make(map[*SimplePattern]*SimplePattern)
+	regexpCopies := make(map[*regexp.Regexp]*regexp.Regexp)
 	patternOffset := 0
 	for i, source := range sources {
 		var stepPatterns []stringPatternRead
@@ -97,7 +99,7 @@ func newStringPatternReadPoolForSimpleTypes(types []SimpleType) map[*stringPatte
 			stepPatterns = patterns[patternOffset:end:end]
 			patternOffset = end
 			for j, pattern := range source.patterns {
-				stepPatterns[j] = stringPatternRead(pattern)
+				stepPatterns[j] = newStringPatternRead(pattern, fastCopies, regexpCopies)
 			}
 		}
 		reads[i] = stringPatternStepRead{
@@ -108,6 +110,35 @@ func newStringPatternReadPoolForSimpleTypes(types []SimpleType) map[*stringPatte
 		pool[source] = &reads[i]
 	}
 	return pool
+}
+
+func newStringPatternRead(
+	pattern StringPattern,
+	fastCopies map[*SimplePattern]*SimplePattern,
+	regexpCopies map[*regexp.Regexp]*regexp.Regexp,
+) stringPatternRead {
+	if pattern.fast != nil {
+		if fast := fastCopies[pattern.fast]; fast != nil {
+			return stringPatternRead{fast: fast}
+		}
+		fast := &SimplePattern{
+			atoms:    slices.Clone(pattern.fast.atoms),
+			variable: pattern.fast.variable,
+		}
+		for i := range fast.atoms {
+			fast.atoms[i].class.ranges = slices.Clone(pattern.fast.atoms[i].class.ranges)
+		}
+		fastCopies[pattern.fast] = fast
+		return stringPatternRead{fast: fast}
+	}
+	if re := regexpCopies[pattern.re]; re != nil {
+		return stringPatternRead{re: re}
+	}
+	// Validation only asks whether the expression matches, so recompiling the
+	// same source preserves its language without sharing Longest's mutable flag.
+	re := regexp.MustCompile(pattern.re.String())
+	regexpCopies[pattern.re] = re
+	return stringPatternRead{re: re}
 }
 
 func addStringPatternReadCount(total, count int) int {
@@ -173,8 +204,34 @@ func (p stringPatternRead) matchString(s string) bool {
 	return p.re.MatchString(s)
 }
 
+func (p stringPatternRead) matchStringWithScratch(s string, input *simplePatternInput, scratch *StringPatternScratch) bool {
+	if scratch == nil {
+		return p.matchString(s)
+	}
+	if p.fast != nil {
+		if p.fast.variable && len(s) > smallPatternRunes {
+			return p.fast.matchVariableRunesWithScratch(input.stringRunes(scratch), scratch)
+		}
+		return p.fast.MatchString(s)
+	}
+	return p.re.MatchString(s)
+}
+
 func (p stringPatternRead) matchBytes(s []byte) bool {
 	if p.fast != nil {
+		return p.fast.MatchBytes(s)
+	}
+	return p.re.Match(s)
+}
+
+func (p stringPatternRead) matchBytesWithScratch(s []byte, input *simplePatternInput, scratch *StringPatternScratch) bool {
+	if scratch == nil {
+		return p.matchBytes(s)
+	}
+	if p.fast != nil {
+		if p.fast.variable && input.byteNeedsScratch() {
+			return p.fast.matchVariableRunesWithScratch(input.byteRunes(scratch), scratch)
+		}
 		return p.fast.MatchBytes(s)
 	}
 	return p.re.Match(s)
@@ -219,6 +276,110 @@ func equalSimplePattern(a, b *SimplePattern) bool {
 type SimplePattern struct {
 	atoms    []simplePatternAtom
 	variable bool
+}
+
+// StringPatternScratch owns reusable scalar buffers for published string
+// pattern validation. It must not be shared by concurrent validations.
+type StringPatternScratch struct {
+	runes  []rune
+	states []bool
+}
+
+// Reset clears scratch state and drops buffers larger than maxRetainedRunes.
+func (s *StringPatternScratch) Reset(maxRetainedRunes int) {
+	if s == nil {
+		return
+	}
+	if maxRetainedRunes < 0 || cap(s.runes) > maxRetainedRunes {
+		s.runes = nil
+	} else {
+		s.runes = s.runes[:0]
+	}
+	maxStates := 0
+	if maxRetainedRunes >= 0 && maxRetainedRunes <= (math.MaxInt-2)/2 {
+		maxStates = 2 * (maxRetainedRunes + 1)
+	}
+	if maxRetainedRunes < 0 || maxStates == 0 || cap(s.states) > maxStates {
+		s.states = nil
+	} else {
+		s.states = s.states[:0]
+	}
+}
+
+// simplePatternInput scopes decoded input reuse to one pattern facet chain.
+// It never survives the validation call that owns the input.
+type simplePatternInput struct {
+	text      string
+	bytes     []byte
+	runes     []rune
+	runeCount int
+	prepared  bool
+	counted   bool
+}
+
+func (i *simplePatternInput) stringRunes(scratch *StringPatternScratch) []rune {
+	if i.prepared {
+		return i.runes
+	}
+	if cap(scratch.runes) < len(i.text) {
+		runeCount := utf8.RuneCountInString(i.text)
+		if cap(scratch.runes) < runeCount {
+			scratch.runes = make([]rune, 0, runeCount)
+		} else {
+			scratch.runes = scratch.runes[:0]
+		}
+	} else {
+		scratch.runes = scratch.runes[:0]
+	}
+	text := i.text
+	for text != "" {
+		r, size := utf8.DecodeRuneInString(text)
+		scratch.runes = append(scratch.runes, r)
+		text = text[size:]
+	}
+	i.runes = scratch.runes
+	i.prepared = true
+	return i.runes
+}
+
+func (i *simplePatternInput) byteRuneCount() int {
+	if !i.counted {
+		i.runeCount = countUTF8Runes(i.bytes)
+		i.counted = true
+	}
+	return i.runeCount
+}
+
+func (i *simplePatternInput) byteNeedsScratch() bool {
+	if len(i.bytes) > smallPatternRunes*utf8.UTFMax {
+		return true
+	}
+	return i.byteRuneCount() > smallPatternRunes
+}
+
+func (i *simplePatternInput) byteRunes(scratch *StringPatternScratch) []rune {
+	if i.prepared {
+		return i.runes
+	}
+	if cap(scratch.runes) < len(i.bytes) {
+		runeCount := i.byteRuneCount()
+		if cap(scratch.runes) < runeCount {
+			scratch.runes = make([]rune, 0, runeCount)
+		} else {
+			scratch.runes = scratch.runes[:0]
+		}
+	} else {
+		scratch.runes = scratch.runes[:0]
+	}
+	raw := i.bytes
+	for len(raw) > 0 {
+		r, size := utf8.DecodeRune(raw)
+		scratch.runes = append(scratch.runes, r)
+		raw = raw[size:]
+	}
+	i.runes = scratch.runes
+	i.prepared = true
+	return i.runes
 }
 
 type simplePatternAtom struct {
@@ -464,7 +625,7 @@ func (p *SimplePattern) matchVariableString(s string) bool {
 func (p *SimplePattern) matchVariableBytes(s []byte) bool {
 	var stack [smallPatternRunes]rune
 	runes := stack[:0]
-	if n := utf8.RuneCount(s); n > len(stack) {
+	if n := countUTF8Runes(s); n > len(stack) {
 		runes = make([]rune, 0, n)
 	}
 	for len(s) > 0 {
@@ -473,6 +634,16 @@ func (p *SimplePattern) matchVariableBytes(s []byte) bool {
 		s = s[size:]
 	}
 	return p.matchVariableRunes(runes)
+}
+
+func countUTF8Runes(s []byte) int {
+	count := 0
+	for len(s) > 0 {
+		_, size := utf8.DecodeRune(s)
+		s = s[size:]
+		count++
+	}
+	return count
 }
 
 func (p *SimplePattern) matchVariableRunes(runes []rune) bool {
@@ -484,7 +655,13 @@ func (p *SimplePattern) matchVariableRunes(runes []rune) bool {
 	} else {
 		buf = make([]bool, size)
 	}
+	return p.matchVariableRunesWithBuffer(runes, buf)
+}
+
+func (p *SimplePattern) matchVariableRunesWithBuffer(runes []rune, buf []bool) bool {
+	runeCount := len(runes)
 	prev, next := buf[:runeCount+1], buf[runeCount+1:]
+	clear(prev)
 	prev[0] = true
 	for _, atom := range p.atoms {
 		clear(next)
@@ -514,6 +691,16 @@ func (p *SimplePattern) matchVariableRunes(runes []rune) bool {
 		prev, next = next, prev
 	}
 	return prev[runeCount]
+}
+
+func (p *SimplePattern) matchVariableRunesWithScratch(runes []rune, scratch *StringPatternScratch) bool {
+	size := 2 * (len(runes) + 1)
+	if cap(scratch.states) < size {
+		scratch.states = make([]bool, size)
+	} else {
+		scratch.states = scratch.states[:size]
+	}
+	return p.matchVariableRunesWithBuffer(runes, scratch.states)
 }
 
 func markRepeatedRun(prev, next []bool, start, end, minRepeat, maxRepeat int) {

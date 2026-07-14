@@ -25,6 +25,219 @@ func TestPublishSchemaConsumesBuildOnSuccess(t *testing.T) {
 	}
 }
 
+func TestPublishSchemaRejectsMissingGlobalAttributeBindingAndAllowsRetry(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:attribute name="ga" type="xs:string"/></xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	q := mustQName(t, &build.Names, "ga")
+	id := build.GlobalAttributes[q]
+	delete(build.GlobalAttributes, q)
+	expected := mutableSchemaBuild(t, schema)
+	delete(expected.GlobalAttributes, mustQName(t, &expected.Names, "ga"))
+
+	published, err := runtime.PublishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("PublishSchema() returned a schema for an incomplete global attribute registry")
+	}
+	if !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("PublishSchema() changed build after global attribute ownership audit failure")
+	}
+	build.GlobalAttributes[q] = id
+	if _, err := runtime.PublishSchema(build); err != nil {
+		t.Fatalf("PublishSchema() retry error = %v", err)
+	}
+}
+
+func TestPublishSchemaRejectsMissingGlobalElementAndTypeBindingsAndAllowsRetry(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+		remove func(t *testing.T, build *runtime.SchemaBuild) func()
+	}{
+		{
+			name:   "element",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`,
+			remove: func(t *testing.T, build *runtime.SchemaBuild) func() {
+				t.Helper()
+				q := mustQName(t, &build.Names, "root")
+				id := build.GlobalElements[q]
+				delete(build.GlobalElements, q)
+				return func() { build.GlobalElements[q] = id }
+			},
+		},
+		{
+			name:   "simple type",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:restriction base="xs:string"/></xs:simpleType></xs:schema>`,
+			remove: func(t *testing.T, build *runtime.SchemaBuild) func() {
+				t.Helper()
+				q := mustQName(t, &build.Names, "T")
+				id := build.GlobalTypes[q]
+				delete(build.GlobalTypes, q)
+				return func() { build.GlobalTypes[q] = id }
+			},
+		},
+		{
+			name:   "complex type",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="T"/></xs:schema>`,
+			remove: func(t *testing.T, build *runtime.SchemaBuild) func() {
+				t.Helper()
+				q := mustQName(t, &build.Names, "T")
+				id := build.GlobalTypes[q]
+				delete(build.GlobalTypes, q)
+				return func() { build.GlobalTypes[q] = id }
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			build := mutableSchemaBuild(t, test.schema)
+			restore := test.remove(t, build)
+			expected := mutableSchemaBuild(t, test.schema)
+			test.remove(t, expected)
+
+			published, err := runtime.PublishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil {
+				t.Fatal("PublishSchema() returned a schema for an incomplete global registry")
+			}
+			if !reflect.DeepEqual(*build, *expected) {
+				t.Fatal("PublishSchema() changed build after global ownership audit failure")
+			}
+			restore()
+			if _, err := runtime.PublishSchema(build); err != nil {
+				t.Fatalf("PublishSchema() retry error = %v", err)
+			}
+		})
+	}
+}
+
+func TestPublishSchemaRejectsMissingGlobalIdentityBindingAndAllowsRetry(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="."/></xs:key>
+  </xs:element>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	q := build.Identities[0].Name
+	id, ok := build.GlobalIdentities[q]
+	if !ok || id != runtime.IdentityConstraintID(0) {
+		t.Fatalf("global identity binding = %d, %t; want 0, true", id, ok)
+	}
+	delete(build.GlobalIdentities, q)
+	expected := mutableSchemaBuild(t, schema)
+	delete(expected.GlobalIdentities, expected.Identities[0].Name)
+
+	published, err := runtime.PublishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("PublishSchema() returned a schema for an incomplete global identity registry")
+	}
+	if !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("PublishSchema() changed build after global identity ownership audit failure")
+	}
+	build.GlobalIdentities[q] = id
+	if _, err := runtime.PublishSchema(build); err != nil {
+		t.Fatalf("PublishSchema() retry error = %v", err)
+	}
+}
+
+func TestPublishSchemaRejectsInvalidDeclarationScopeAndAllowsRetry(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	id := build.GlobalElements[mustQName(t, &build.Names, "root")]
+	build.Elements[id].Scope = runtime.DeclarationScopeInvalid
+	expected := mutableSchemaBuild(t, schema)
+	expectedID := expected.GlobalElements[mustQName(t, &expected.Names, "root")]
+	expected.Elements[expectedID].Scope = runtime.DeclarationScopeInvalid
+
+	published, err := runtime.PublishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil || !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("PublishSchema() consumed build after invalid declaration scope")
+	}
+	build.Elements[id].Scope = runtime.DeclarationScopeGlobal
+	if _, err := runtime.PublishSchema(build); err != nil {
+		t.Fatalf("PublishSchema() retry error = %v", err)
+	}
+}
+
+func TestPublishSchemaAcceptsNonGlobalMissingSimpleTypeSentinel(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:m="urn:missing"><xs:import namespace="urn:missing"/><xs:element name="root" type="m:T"/></xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	found := false
+	for _, typ := range build.SimpleTypes {
+		if typ.Missing {
+			found = true
+			if typ.Scope != runtime.DeclarationScopeNonGlobal {
+				t.Fatalf("missing simple type scope = %v, want non-global", typ.Scope)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("compiler did not create missing simple type sentinel")
+	}
+	if _, err := runtime.PublishSchema(build); err != nil {
+		t.Fatalf("PublishSchema() error = %v", err)
+	}
+}
+
+func TestPublishSchemaRejectsInvalidIdentityOwnershipAndAllowsRetry(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="other"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element name="row" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" use="required"/></xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:key name="k"><xs:selector xpath="row"/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, build *runtime.SchemaBuild)
+	}{
+		{name: "orphan", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			root := build.GlobalElements[mustQName(t, &build.Names, "root")]
+			build.Elements[root].Identity = nil
+		}},
+		{name: "duplicate on owner", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			root := build.GlobalElements[mustQName(t, &build.Names, "root")]
+			build.Elements[root].Identity = append(build.Elements[root].Identity, build.Elements[root].Identity[0])
+		}},
+		{name: "shared by elements", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			root := build.GlobalElements[mustQName(t, &build.Names, "root")]
+			other := build.GlobalElements[mustQName(t, &build.Names, "other")]
+			build.Elements[other].Identity = append(build.Elements[other].Identity, build.Elements[root].Identity[0])
+		}},
+		{name: "invalid id", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			root := build.GlobalElements[mustQName(t, &build.Names, "root")]
+			build.Elements[root].Identity[0] = runtime.NoIdentityConstraint
+		}},
+	}
+	for _, test := range mutations {
+		t.Run(test.name, func(t *testing.T) {
+			build := mutableSchemaBuild(t, schema)
+			test.mutate(t, build)
+			expected := mutableSchemaBuild(t, schema)
+			test.mutate(t, expected)
+
+			published, err := runtime.PublishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil {
+				t.Fatal("PublishSchema() returned a schema for invalid identity ownership")
+			}
+			if !reflect.DeepEqual(*build, *expected) {
+				t.Fatal("PublishSchema() changed build after identity ownership audit failure")
+			}
+			*build = *mutableSchemaBuild(t, schema)
+			if _, err := runtime.PublishSchema(build); err != nil {
+				t.Fatalf("PublishSchema() retry error = %v", err)
+			}
+		})
+	}
+}
+
 func TestPublishSchemaRejectsMisclassifiedSimpleIdentityWithoutConsumingBuild(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="Ref"><xs:restriction base="xs:IDREF"/></xs:simpleType>
@@ -43,6 +256,27 @@ func TestPublishSchemaRejectsMisclassifiedSimpleIdentityWithoutConsumingBuild(t 
 	}
 	if !reflect.DeepEqual(*build, *expected) {
 		t.Fatal("PublishSchema() changed build after failed audit")
+	}
+}
+
+func TestPublishSchemaRejectsForgedMissingSimpleTypeWithoutConsumingBuild(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="User"><xs:restriction base="xs:string"/></xs:simpleType>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	id := simpleBuildTypeIDByName(t, build, "User")
+	build.SimpleTypes[id].Missing = true
+	expected := mutableSchemaBuild(t, schema)
+	expectedID := simpleBuildTypeIDByName(t, expected, "User")
+	expected.SimpleTypes[expectedID].Missing = true
+
+	published, err := runtime.PublishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("PublishSchema() returned a schema for a forged missing type")
+	}
+	if !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("PublishSchema() changed build after failed missing-sentinel audit")
 	}
 }
 
@@ -211,7 +445,7 @@ func mutateBuildBoundFacet(t *testing.T, facets *runtime.FacetSet, flag runtime.
 	runtime.SetBoundFacet(facets, flag, lit, false)
 }
 
-func TestFreezeRejectsSubstitutionClosureDrift(t *testing.T) {
+func TestFreezeRejectsSubstitutionStateDrift(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="head" type="xs:string"/>
   <xs:element name="member" substitutionGroup="head" type="xs:string"/>
@@ -222,24 +456,10 @@ func TestFreezeRejectsSubstitutionClosureDrift(t *testing.T) {
 		mutate func(t *testing.T, rt *runtime.SchemaBuild, head, member, other runtime.ElementID)
 	}{
 		{
-			name: "phantom substitution member",
-			mutate: func(t *testing.T, rt *runtime.SchemaBuild, head, _, other runtime.ElementID) {
-				t.Helper()
-				rt.Substitutions[head] = append(rt.Substitutions[head], other)
-			},
-		},
-		{
-			name: "missing declared member",
-			mutate: func(t *testing.T, rt *runtime.SchemaBuild, head, _, _ runtime.ElementID) {
-				t.Helper()
-				rt.Substitutions[head] = nil
-			},
-		},
-		{
-			name: "missing substitution index",
+			name: "missing substitution table",
 			mutate: func(t *testing.T, rt *runtime.SchemaBuild, _, _, _ runtime.ElementID) {
 				t.Helper()
-				rt.SubstitutionIndex = runtime.SubstitutionIndex{}
+				rt.Substitutions = runtime.SubstitutionTable{}
 			},
 		},
 		{
@@ -266,12 +486,12 @@ func TestFreezeRejectsSubstitutionClosureDrift(t *testing.T) {
 	}
 }
 
-func TestFreezeRejectsSubstitutionMapsWithoutHeads(t *testing.T) {
+func TestFreezeRejectsSubstitutionHeadWithoutTable(t *testing.T) {
 	rt := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`)
 	root := rt.GlobalElements[mustQName(t, &rt.Names, "root")]
-	rt.Substitutions = map[runtime.ElementID][]runtime.ElementID{root: {root}}
+	rt.Elements[root].SubstHead = root
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
@@ -407,6 +627,45 @@ func TestFreezeRejectsInconsistentValueConstraints(t *testing.T) {
 			tc.mutate(rt, &rt.Elements[rootID])
 			err := validateSchemaBuild(rt)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		})
+	}
+}
+
+func TestPublishSchemaRejectsMalformedListIdentityFrameAndAllowsRetry(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Items"><xs:list itemType="xs:string"/></xs:simpleType>
+  <xs:element name="root" type="Items" default="a"/>
+</xs:schema>`
+	identities := []struct {
+		name     string
+		identity string
+	}{
+		{name: "negative length", identity: runtime.SimpleIdentityKey(runtime.PrimitiveString, "-1:x")},
+		{name: "signed length", identity: runtime.SimpleIdentityKey(runtime.PrimitiveString, "+3:"+runtime.SimpleIdentityKey(runtime.PrimitiveString, "a"))},
+		{name: "invalid primitive", identity: runtime.SimpleIdentityKey(runtime.PrimitiveString, "3:"+string([]byte{0xfe, '\x1e', 'a'}))},
+	}
+	for _, test := range identities {
+		t.Run(test.name, func(t *testing.T) {
+			build := mutableSchemaBuild(t, schema)
+			rootID := build.GlobalElements[mustQName(t, &build.Names, "root")]
+			validIdentity := build.Elements[rootID].Default.Value.Identity
+			build.Elements[rootID].Default.Value.Identity = test.identity
+			expected := mutableSchemaBuild(t, schema)
+			expectedRootID := expected.GlobalElements[mustQName(t, &expected.Names, "root")]
+			expected.Elements[expectedRootID].Default.Value.Identity = test.identity
+
+			published, err := runtime.PublishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil {
+				t.Fatal("PublishSchema() returned a schema for a malformed list identity frame")
+			}
+			if !reflect.DeepEqual(*build, *expected) {
+				t.Fatal("PublishSchema() consumed build after malformed list identity frame audit failure")
+			}
+			build.Elements[rootID].Default.Value.Identity = validIdentity
+			if _, err := runtime.PublishSchema(build); err != nil {
+				t.Fatalf("PublishSchema() retry error = %v", err)
+			}
 		})
 	}
 }
@@ -1364,6 +1623,108 @@ func TestFreezeRejectsInconsistentSimpleVariety(t *testing.T) {
 	}
 }
 
+func TestFreezeRejectsUnflattenedUnionMember(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="inner"><xs:union memberTypes="xs:int xs:string"/></xs:simpleType>
+  <xs:simpleType name="outer"><xs:union memberTypes="xs:boolean"/></xs:simpleType>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	inner := simpleBuildTypeIDByName(t, build, "inner")
+	outer := simpleBuildTypeIDByName(t, build, "outer")
+	build.SimpleTypes[outer].Union = []runtime.SimpleTypeID{inner}
+
+	_, err := runtime.PublishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+}
+
+func TestFreezeRejectsInvalidSimpleDerivationFinalEdges(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="base"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:simpleType name="restricted"><xs:restriction base="base"/></xs:simpleType>
+  <xs:simpleType name="listed"><xs:list itemType="base"/></xs:simpleType>
+  <xs:simpleType name="inner"><xs:union memberTypes="xs:int xs:string"/></xs:simpleType>
+  <xs:simpleType name="atomicUnion"><xs:union memberTypes="base"/></xs:simpleType>
+  <xs:simpleType name="nestedUnion"><xs:union memberTypes="inner"/></xs:simpleType>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, build *runtime.SchemaBuild)
+	}{
+		{name: "restriction", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			build.SimpleTypes[simpleBuildTypeIDByName(t, build, "base")].Final |= runtime.DerivationRestriction
+		}},
+		{name: "list", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			build.SimpleTypes[simpleBuildTypeIDByName(t, build, "base")].Final |= runtime.DerivationList
+		}},
+		{name: "atomic union member", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			build.SimpleTypes[simpleBuildTypeIDByName(t, build, "base")].Final |= runtime.DerivationUnion
+		}},
+		{name: "union-valued member", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			build.SimpleTypes[simpleBuildTypeIDByName(t, build, "inner")].Final |= runtime.DerivationUnion
+		}},
+	}
+	for _, test := range mutations {
+		t.Run(test.name, func(t *testing.T) {
+			build := mutableSchemaBuild(t, schema)
+			test.mutate(t, build)
+			_, err := runtime.PublishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		})
+	}
+}
+
+func TestFreezeRejectsInvalidSimpleUnionProvenance(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="inner"><xs:union memberTypes="xs:int xs:string"/></xs:simpleType>
+  <xs:simpleType name="outer"><xs:union memberTypes="inner xs:boolean"/></xs:simpleType>
+  <xs:simpleType name="restricted"><xs:restriction base="inner"/></xs:simpleType>
+</xs:schema>`
+	mutations := []struct {
+		name   string
+		mutate func(t *testing.T, build *runtime.SchemaBuild)
+	}{
+		{name: "invalid source", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			outer := simpleBuildTypeIDByName(t, build, "outer")
+			build.SimpleTypes[outer].UnionSources[0] = runtime.NoSimpleType
+		}},
+		{name: "effective mismatch", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			outer := simpleBuildTypeIDByName(t, build, "outer")
+			build.SimpleTypes[outer].Union = build.SimpleTypes[outer].Union[1:]
+		}},
+		{name: "provenance on restriction", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			restricted := simpleBuildTypeIDByName(t, build, "restricted")
+			build.SimpleTypes[restricted].UnionSources = []runtime.SimpleTypeID{build.Builtin.String}
+		}},
+		{name: "source cycle", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			inner := simpleBuildTypeIDByName(t, build, "inner")
+			outer := simpleBuildTypeIDByName(t, build, "outer")
+			build.SimpleTypes[inner].UnionSources = []runtime.SimpleTypeID{outer}
+		}},
+		{name: "combined source and base cycle", mutate: func(t *testing.T, build *runtime.SchemaBuild) {
+			t.Helper()
+			inner := simpleBuildTypeIDByName(t, build, "inner")
+			restricted := simpleBuildTypeIDByName(t, build, "restricted")
+			build.SimpleTypes[inner].UnionSources = []runtime.SimpleTypeID{restricted}
+		}},
+	}
+	for _, test := range mutations {
+		t.Run(test.name, func(t *testing.T) {
+			build := mutableSchemaBuild(t, schema)
+			test.mutate(t, build)
+			_, err := runtime.PublishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		})
+	}
+}
+
 func TestFreezeRejectsZeroTypeID(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="CT"><xs:sequence/></xs:complexType>
@@ -2022,28 +2383,27 @@ func TestFreezeRejectsLengthFacetInconsistency(t *testing.T) {
 		mutate func(*runtime.FacetSet)
 	}{
 		{
-			name: "length differs from minLength",
+			name: "length less than minLength",
 			mutate: func(f *runtime.FacetSet) {
-				f.MinLength = 1
+				f.MinLength = 3
 			},
 		},
 		{
-			name: "length differs from maxLength",
+			name: "length exceeds maxLength",
 			mutate: func(f *runtime.FacetSet) {
-				f.MaxLength = 3
+				f.MaxLength = 1
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rt := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:simpleType name="Sized">
-    <xs:restriction base="xs:string">
-      <xs:length value="2"/>
-      <xs:minLength value="2"/>
-      <xs:maxLength value="2"/>
-    </xs:restriction>
-  </xs:simpleType>
+	<xs:simpleType name="Bounds">
+		<xs:restriction base="xs:string"><xs:minLength value="2"/><xs:maxLength value="2"/></xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Sized">
+		<xs:restriction base="Bounds"><xs:length value="2"/></xs:restriction>
+	</xs:simpleType>
 </xs:schema>`)
 			if err := validateSchemaBuild(rt); err != nil {
 				t.Fatalf("ValidateSchema() before mutation error = %v", err)
@@ -2053,6 +2413,32 @@ func TestFreezeRejectsLengthFacetInconsistency(t *testing.T) {
 			err := validateSchemaBuild(rt)
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
+	}
+}
+
+func TestPublishSchemaRejectsMissingLengthFacetAncestorAndAllowsRetry(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:simpleType name="Bounds"><xs:restriction base="xs:string"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
+	<xs:simpleType name="Sized"><xs:restriction base="Bounds"><xs:length value="2"/></xs:restriction></xs:simpleType>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	boundsID := simpleBuildTypeIDByName(t, build, "Bounds")
+	runtime.ClearFacet(&build.SimpleTypes[boundsID].Facets, runtime.FacetMinLength)
+	expected := mutableSchemaBuild(t, schema)
+	runtime.ClearFacet(&expected.SimpleTypes[simpleBuildTypeIDByName(t, expected, "Bounds")].Facets, runtime.FacetMinLength)
+
+	published, err := runtime.PublishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("PublishSchema() returned a schema without a length-facet ancestor")
+	}
+	if !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("PublishSchema() changed build after length-facet ancestry audit failure")
+	}
+	runtime.SetFacetPresent(&build.SimpleTypes[boundsID].Facets, runtime.FacetMinLength)
+	build.SimpleTypes[boundsID].Facets.MinLength = 1
+	if _, err := runtime.PublishSchema(build); err != nil {
+		t.Fatalf("PublishSchema() retry error = %v", err)
 	}
 }
 
@@ -2150,6 +2536,42 @@ func TestFreezeRejectsComplexExtensionDroppingOptionalBaseParticle(t *testing.T)
 	rt.ComplexTypes[derived].Content = rt.ComplexTypes[onlyB].Content
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+}
+
+func TestPublishSchemaRejectsInvalidComplexContentRestrictionAndAllowsRetry(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Base">
+    <xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent><xs:restriction base="Base"><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence></xs:restriction></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Other">
+    <xs:sequence><xs:element name="b" type="xs:string"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`
+	build := mutableSchemaBuild(t, schema)
+	derived := complexBuildTypeIDByName(t, build, "Derived")
+	other := complexBuildTypeIDByName(t, build, "Other")
+	validContent := build.ComplexTypes[derived].Content
+	build.ComplexTypes[derived].Content = build.ComplexTypes[other].Content
+	expected := mutableSchemaBuild(t, schema)
+	expectedDerived := complexBuildTypeIDByName(t, expected, "Derived")
+	expectedOther := complexBuildTypeIDByName(t, expected, "Other")
+	expected.ComplexTypes[expectedDerived].Content = expected.ComplexTypes[expectedOther].Content
+
+	published, err := runtime.PublishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("PublishSchema() returned a schema for an invalid complex content restriction")
+	}
+	if !reflect.DeepEqual(*build, *expected) {
+		t.Fatal("PublishSchema() changed build after content-restriction audit failure")
+	}
+	build.ComplexTypes[derived].Content = validContent
+	if _, err := runtime.PublishSchema(build); err != nil {
+		t.Fatalf("PublishSchema() retry error = %v", err)
+	}
 }
 
 func TestFreezeRejectsComplexExtensionWrapperOccurrenceDrift(t *testing.T) {

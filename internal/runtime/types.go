@@ -20,8 +20,10 @@ type QName struct {
 	Local     LocalNameID
 }
 
-// NoQName is the absent QName sentinel used in runtime identity paths.
-var NoQName = QName{Namespace: NamespaceID(invalidID), Local: LocalNameID(invalidID)}
+// NoQName returns the absent QName sentinel used in runtime identity paths.
+func NoQName() QName {
+	return QName{Namespace: NamespaceID(invalidID), Local: LocalNameID(invalidID)}
+}
 
 // EmptyNamespaceID is the name-table ID for the empty namespace URI.
 const EmptyNamespaceID NamespaceID = 0
@@ -283,6 +285,14 @@ func newRuntimeID(n int) (uint32, bool) {
 	return uint32(n), true
 }
 
+func validRuntimeID(id uint32, n int) bool {
+	return id != invalidID && ValidUint32Index(id, n)
+}
+
+func validRuntimeIDTableLength(n int) bool {
+	return n >= 0 && uint64(n) <= uint64(invalidID)
+}
+
 // NextSimpleTypeID returns the next simple-type ID for a table of length n.
 func NextSimpleTypeID(n int) (SimpleTypeID, bool) {
 	id, ok := newRuntimeID(n)
@@ -332,60 +342,64 @@ func NextIdentityConstraintID(n int) (IdentityConstraintID, bool) {
 	return IdentityConstraintID(id), ok
 }
 
-// TypeKind identifies the component table referenced by a TypeID.
-type TypeKind uint8
+type typeKind uint8
 
 const (
-	// TypeNone is the zero kind and does not reference a real type.
-	TypeNone TypeKind = iota
-	// TypeSimple references a simple type.
-	TypeSimple
-	// TypeComplex references a complex type.
-	TypeComplex
+	typeNone typeKind = iota
+	typeSimple
+	typeComplex
 )
 
 // TypeID identifies either a simple type or complex type in a runtime schema.
 type TypeID struct {
-	Kind TypeKind
-	ID   uint32
+	kind typeKind
+	id   uint32
 }
 
 // SimpleRef returns a runtime reference to a simple type.
 func SimpleRef(id SimpleTypeID) TypeID {
-	return TypeID{Kind: TypeSimple, ID: uint32(id)}
+	return TypeID{kind: typeSimple, id: uint32(id)}
 }
 
 // ComplexRef returns a runtime reference to a complex type.
 func ComplexRef(id ComplexTypeID) TypeID {
-	return TypeID{Kind: TypeComplex, ID: uint32(id)}
+	return TypeID{kind: typeComplex, id: uint32(id)}
+}
+
+// IsSimple reports whether t references the simple-type table.
+func (t TypeID) IsSimple() bool {
+	return t.kind == typeSimple
+}
+
+// IsComplex reports whether t references the complex-type table.
+func (t TypeID) IsComplex() bool {
+	return t.kind == typeComplex
 }
 
 // Simple returns the simple-type ID if t references a simple type.
 func (t TypeID) Simple() (SimpleTypeID, bool) {
-	if t.Kind != TypeSimple {
+	if !t.IsSimple() {
 		return NoSimpleType, false
 	}
-	return SimpleTypeID(t.ID), true
+	return SimpleTypeID(t.id), true
 }
 
 // Complex returns the complex-type ID if t references a complex type.
 func (t TypeID) Complex() (ComplexTypeID, bool) {
-	if t.Kind != TypeComplex {
+	if !t.IsComplex() {
 		return NoComplexType, false
 	}
-	return ComplexTypeID(t.ID), true
+	return ComplexTypeID(t.id), true
 }
 
-// ValidTypeID reports whether typ indexes one of the runtime type tables.
-func ValidTypeID(typ TypeID, simpleCount, complexCount int) bool {
-	switch typ.Kind {
-	case TypeSimple:
-		return ValidUint32Index(typ.ID, simpleCount)
-	case TypeComplex:
-		return ValidUint32Index(typ.ID, complexCount)
-	default:
-		return false
+func validTypeID(typ TypeID, simpleCount, complexCount int) bool {
+	if id, ok := typ.Simple(); ok {
+		return ValidSimpleTypeID(id, simpleCount)
 	}
+	if id, ok := typ.Complex(); ok {
+		return ValidComplexTypeID(id, complexCount)
+	}
+	return false
 }
 
 // ValidUint32Index reports whether id is a valid index into a slice of length n.
@@ -398,42 +412,42 @@ func ValidUint32Index(id uint32, n int) bool {
 
 // ValidSimpleTypeID reports whether id indexes a simple-type table of length n.
 func ValidSimpleTypeID(id SimpleTypeID, n int) bool {
-	return ValidUint32Index(uint32(id), n)
+	return validRuntimeID(uint32(id), n)
 }
 
 // ValidComplexTypeID reports whether id indexes a complex-type table of length n.
 func ValidComplexTypeID(id ComplexTypeID, n int) bool {
-	return ValidUint32Index(uint32(id), n)
+	return validRuntimeID(uint32(id), n)
 }
 
 // ValidElementID reports whether id indexes an element-declaration table of length n.
 func ValidElementID(id ElementID, n int) bool {
-	return ValidUint32Index(uint32(id), n)
+	return validRuntimeID(uint32(id), n)
 }
 
 // ValidAttributeID reports whether id indexes an attribute-declaration table of length n.
 func ValidAttributeID(id AttributeID, n int) bool {
-	return ValidUint32Index(uint32(id), n)
+	return validRuntimeID(uint32(id), n)
 }
 
 // ValidContentModelID reports whether id indexes a content-model table of length n.
 func ValidContentModelID(id ContentModelID, n int) bool {
-	return ValidUint32Index(uint32(id), n)
+	return validRuntimeID(uint32(id), n)
 }
 
 // ValidAttributeUseSetID reports whether id indexes an attribute-use-set table of length n.
 func ValidAttributeUseSetID(id AttributeUseSetID, n int) bool {
-	return ValidUint32Index(uint32(id), n)
+	return validRuntimeID(uint32(id), n)
 }
 
 // ValidWildcardID reports whether id indexes a wildcard table of length n.
 func ValidWildcardID(id WildcardID, n int) bool {
-	return ValidUint32Index(uint32(id), n)
+	return validRuntimeID(uint32(id), n)
 }
 
 // ValidIdentityConstraintID reports whether id indexes an identity-constraint table of length n.
 func ValidIdentityConstraintID(id IdentityConstraintID, n int) bool {
-	return ValidUint32Index(uint32(id), n)
+	return validRuntimeID(uint32(id), n)
 }
 
 // RuntimeName is an XML name resolved against the runtime name table when known.

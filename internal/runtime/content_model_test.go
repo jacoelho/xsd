@@ -1,9 +1,12 @@
 package runtime
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestContentModelByID(t *testing.T) {
@@ -466,20 +469,23 @@ func TestRestrictionRepeatedChoiceParticles(t *testing.T) {
 		},
 	}
 	rt := choiceLimitRuntimeWith(models)
-	got := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt)
+	got, err := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !slices.Equal(got, []uint32{0}) {
 		t.Fatalf("RestrictionRepeatedChoiceParticles() = %v, want [0]", got)
 	}
 	models[baseID].Particles[0].Occurs = one
 	rt = choiceLimitRuntimeWith(models)
-	if got := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt); len(got) != 0 {
-		t.Fatalf("RestrictionRepeatedChoiceParticles() with exact-one base = %v, want nil", got)
+	if got, err := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt); err != nil || len(got) != 0 {
+		t.Fatalf("RestrictionRepeatedChoiceParticles() with exact-one base = %v, %v; want nil, nil", got, err)
 	}
 	models[baseID].Particles[0].Occurs = repeat
 	models[derivedID].Particles[0].Occurs = one
 	rt = choiceLimitRuntimeWith(models)
-	if got := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt); len(got) != 0 {
-		t.Fatalf("RestrictionRepeatedChoiceParticles() with non-repeating derived = %v, want nil", got)
+	if got, err := RestrictionRepeatedChoiceParticles(models, baseID, derivedID, rt); err != nil || len(got) != 0 {
+		t.Fatalf("RestrictionRepeatedChoiceParticles() with non-repeating derived = %v, %v; want nil, nil", got, err)
 	}
 }
 
@@ -525,8 +531,8 @@ func TestRestrictionChoiceLimitUpdates(t *testing.T) {
 		models:   models,
 		elements: []QName{name, name},
 		elementRestrictions: []ParticleRestrictionElement{
-			{Type: ComplexRef(anyType)},
-			{Type: ComplexRef(anyType)},
+			{Type: ComplexRef(anyType), Scope: DeclarationScopeNonGlobal},
+			{Type: ComplexRef(anyType), Scope: DeclarationScopeNonGlobal},
 		},
 		anyType: anyType,
 	}
@@ -599,8 +605,8 @@ func TestValidateChoiceLimitDerivationsUsesRuntimeParticleRestriction(t *testing
 		},
 		elements: []QName{name, name},
 		elementRestrictions: []ParticleRestrictionElement{
-			{Type: ComplexRef(anyType)},
-			{Type: ComplexRef(anyType)},
+			{Type: ComplexRef(anyType), Scope: DeclarationScopeNonGlobal},
+			{Type: ComplexRef(anyType), Scope: DeclarationScopeNonGlobal},
 		},
 		anyType: anyType,
 	}
@@ -615,7 +621,7 @@ func TestValidateChoiceLimitDerivationsUsesRuntimeParticleRestriction(t *testing
 	}
 }
 
-func TestParticleRestrictsUsesFixedValueIdentity(t *testing.T) {
+func TestContentRestrictionUsesFixedValueIdentity(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -628,8 +634,8 @@ func TestParticleRestrictsUsesFixedValueIdentity(t *testing.T) {
 	rt := choiceLimitRestrictionRuntime{
 		elements: []QName{name, name},
 		elementRestrictions: []ParticleRestrictionElement{
-			{Type: SimpleRef(baseType), Fixed: fixedValueConstraintIdentity("5.0", "5.0", baseType, identity)},
-			{Type: SimpleRef(derivedType), Fixed: fixedValueConstraintIdentity("5", "5", derivedType, identity)},
+			{Type: SimpleRef(baseType), Fixed: fixedValueConstraintIdentity("5.0", "5.0", baseType, identity), Scope: DeclarationScopeNonGlobal},
+			{Type: SimpleRef(derivedType), Fixed: fixedValueConstraintIdentity("5", "5", derivedType, identity), Scope: DeclarationScopeNonGlobal},
 		},
 		simpleDerivations: []SimpleTypeDerivation{
 			{},
@@ -637,13 +643,114 @@ func TestParticleRestrictsUsesFixedValueIdentity(t *testing.T) {
 			{Base: baseType, Variety: SimpleVarietyAtomic},
 		},
 	}
-	if !ParticleRestricts(rt, ElementParticle(0, one), ElementParticle(1, one)) {
-		t.Fatal("ParticleRestricts() rejected equal fixed value identities")
+	validator := contentRestrictionValidator{rt: rt}
+	if err := validator.validateParticleRestriction(ElementParticle(0, one), ElementParticle(1, one)); err != nil {
+		t.Fatalf("validateParticleRestriction() error = %v", err)
 	}
 
 	rt.elementRestrictions[1].Fixed.Value.Identity = SimpleIdentityKey(PrimitiveString, "5")
-	if ParticleRestricts(rt, ElementParticle(0, one), ElementParticle(1, one)) {
-		t.Fatal("ParticleRestricts() accepted different fixed value identities")
+	validator.rt = rt
+	if err := validator.validateParticleRestriction(ElementParticle(0, one), ElementParticle(1, one)); err == nil {
+		t.Fatal("validateParticleRestriction() accepted different fixed value identities")
+	}
+}
+
+func TestContentRestrictionRequiresLocalIdentitySubset(t *testing.T) {
+	t.Parallel()
+
+	one := Occurrence{Min: 1, Max: 1}
+	name := QName{Namespace: EmptyNamespaceID, Local: 1}
+	rt := choiceLimitRestrictionRuntime{
+		models: []ContentModel{
+			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
+			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
+		},
+		elements: []QName{name, name},
+		elementRestrictions: []ParticleRestrictionElement{
+			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{1, 2})},
+			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{2})},
+		},
+		simpleDerivations: []SimpleTypeDerivation{{Base: NoSimpleType, Variety: SimpleVarietyAtomic}},
+	}
+	if err := ValidateContentRestriction(rt, 0, 1); err != nil {
+		t.Fatalf("ValidateContentRestriction(subset) error = %v", err)
+	}
+	rt.elementRestrictions[1].Identities = borrowedIdentityConstraintIDs([]IdentityConstraintID{3})
+	if err := ValidateContentRestriction(rt, 0, 1); err == nil {
+		t.Fatal("ValidateContentRestriction() accepted a local identity constraint outside the base set")
+	}
+}
+
+func TestContentRestrictionRejectsInvalidElementScope(t *testing.T) {
+	t.Parallel()
+
+	one := Occurrence{Min: 1, Max: 1}
+	name := QName{Namespace: EmptyNamespaceID, Local: 1}
+	rt := choiceLimitRestrictionRuntime{
+		models: []ContentModel{
+			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
+			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, one)}},
+		},
+		elements: []QName{name, name},
+		elementRestrictions: []ParticleRestrictionElement{
+			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal},
+			{Type: SimpleRef(0), Scope: DeclarationScopeInvalid},
+		},
+		simpleDerivations: []SimpleTypeDerivation{{Base: NoSimpleType, Variety: SimpleVarietyAtomic}},
+	}
+	err := ValidateContentRestriction(rt, 0, 1)
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Category != xsderrors.CategoryInternal || !strings.Contains(err.Error(), "invalid scope") {
+		t.Fatalf("ValidateContentRestriction() error = %v, want invalid-scope invariant", err)
+	}
+}
+
+func TestContentRestrictionPropagatesMissingNestedModel(t *testing.T) {
+	t.Parallel()
+
+	one := Occurrence{Min: 1, Max: 1}
+	models := []ContentModel{
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(99, one)}},
+		{Kind: ModelSequence, Occurs: one},
+	}
+	rt := choiceLimitRuntimeWith(models)
+	err := ValidateContentRestriction(rt, 0, 1)
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Category != xsderrors.CategoryInternal || !strings.Contains(err.Error(), "missing content model") {
+		t.Fatalf("ValidateContentRestriction() error = %v, want missing-model invariant", err)
+	}
+
+	_, err = RestrictionRepeatedChoiceParticles(models, 0, 1, rt)
+	diagnostic, ok = errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Category != xsderrors.CategoryInternal || !strings.Contains(err.Error(), "missing content model") {
+		t.Fatalf("RestrictionRepeatedChoiceParticles() error = %v, want missing-model invariant", err)
+	}
+}
+
+func TestRestrictionChoiceLimitDerivationPropagatesInvalidElementScope(t *testing.T) {
+	t.Parallel()
+
+	one := Occurrence{Min: 1, Max: 1}
+	repeat := Occurrence{Min: 0, Unbounded: true}
+	name := QName{Namespace: EmptyNamespaceID, Local: 1}
+	models := []ContentModel{
+		{Kind: ModelChoice, Occurs: one, Particles: []Particle{ElementParticle(0, one)}},
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(0, repeat)}},
+		{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, repeat)}},
+	}
+	rt := choiceLimitRestrictionRuntime{
+		models:   models,
+		elements: []QName{name, name},
+		elementRestrictions: []ParticleRestrictionElement{
+			{Type: SimpleRef(0), Scope: DeclarationScopeNonGlobal},
+			{Type: SimpleRef(0), Scope: DeclarationScopeInvalid},
+		},
+		simpleDerivations: []SimpleTypeDerivation{{Base: NoSimpleType, Variety: SimpleVarietyAtomic}},
+	}
+	_, err := RestrictionRepeatedChoiceParticles(models, 1, 2, rt)
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Category != xsderrors.CategoryInternal || !strings.Contains(err.Error(), "invalid scope") {
+		t.Fatalf("RestrictionRepeatedChoiceParticles() error = %v, want invalid-scope invariant", err)
 	}
 }
 
@@ -780,8 +887,8 @@ func choiceLimitRuntimeWith(models []ContentModel) choiceLimitRestrictionRuntime
 		elements: []QName{{}, nameA, nameB},
 		elementRestrictions: []ParticleRestrictionElement{
 			{},
-			{Type: ComplexRef(0)},
-			{Type: ComplexRef(0)},
+			{Type: ComplexRef(0), Scope: DeclarationScopeNonGlobal},
+			{Type: ComplexRef(0), Scope: DeclarationScopeNonGlobal},
 		},
 		anyType: 0,
 	}

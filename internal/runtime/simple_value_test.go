@@ -74,7 +74,7 @@ func TestSimpleValueFacetProjectorPoolsEnumerationBySourceIdentity(t *testing.T)
 	}
 }
 
-func TestSimpleValueColdEnumerationReadPoolPreservesIdentityAndIsolation(t *testing.T) {
+func TestSimpleTypeColdEnumerationReadPoolPreservesIdentityAndIsolation(t *testing.T) {
 	t.Parallel()
 
 	shared := []CompiledLiteral{{Canonical: "a"}, {Canonical: "b"}}
@@ -85,9 +85,9 @@ func TestSimpleValueColdEnumerationReadPoolPreservesIdentityAndIsolation(t *test
 		{Facets: FacetSet{Present: FacetEnumeration, Enumeration: shared}},
 		{Facets: FacetSet{Present: FacetEnumeration, Enumeration: distinct}},
 	}
-	table := newSimpleValueColdReadTable(types)
-	if err := validateSimpleValueColdReadProjectionForTypes(table, types); err != nil {
-		t.Fatalf("validateSimpleValueColdReadProjectionForTypes() error = %v", err)
+	table := newSimpleTypeColdReadTable(types)
+	if err := validateSimpleTypeColdReadProjectionForTypes(table, types); err != nil {
+		t.Fatalf("validateSimpleTypeColdReadProjectionForTypes() error = %v", err)
 	}
 	zero, _ := table.read(0)
 	first, _ := table.read(1)
@@ -118,9 +118,9 @@ func TestSimpleValueColdEnumerationReadPoolPreservesIdentityAndIsolation(t *test
 	}
 }
 
-var simpleValueEnumerationReadAllocationSink simpleValueColdReadTable
+var simpleValueEnumerationReadAllocationSink *simpleTypeColdReadTable
 
-func TestSimpleValueColdEnumerationReadAllocationCountIsBounded(t *testing.T) {
+func TestSimpleTypeColdEnumerationReadAllocationCountIsBounded(t *testing.T) {
 	types := make([]SimpleType, 10_000)
 	for i := range types {
 		types[i].Facets.Present = FacetEnumeration
@@ -128,10 +128,10 @@ func TestSimpleValueColdEnumerationReadAllocationCountIsBounded(t *testing.T) {
 	}
 
 	allocs := testing.AllocsPerRun(3, func() {
-		simpleValueEnumerationReadAllocationSink = newSimpleValueColdReadTable(types)
+		simpleValueEnumerationReadAllocationSink = newSimpleTypeColdReadTable(types)
 	})
 	if allocs > 256 {
-		t.Fatalf("newSimpleValueColdReadTable() allocations = %v, want at most 256", allocs)
+		t.Fatalf("newSimpleTypeColdReadTable() allocations = %v, want at most 256", allocs)
 	}
 }
 
@@ -249,7 +249,7 @@ func TestPublishedSimpleValueSharedFallback(t *testing.T) {
 	types[0].Fast = DeriveSimpleFastPathForSimpleType(types[0])
 	schema := &Schema{runtime: schemaRuntime{
 		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
-		SimpleValueCold:   newSimpleValueColdReadTable(types),
+		SimpleTypeCold:    newSimpleTypeColdReadTable(types),
 	}}
 
 	if _, err := schema.validatePublishedSimpleValue(0, "allowed", nil, 0); err != nil {
@@ -258,10 +258,10 @@ func TestPublishedSimpleValueSharedFallback(t *testing.T) {
 	if _, err := schema.validatePublishedSimpleValue(0, "rejected", nil, 0); err == nil || err.Error() != "enumeration facet failed" {
 		t.Fatalf("validatePublishedSimpleValue() error = %v, want enumeration failure", err)
 	}
-	if handled, err := schema.validatePublishedRawSimpleValue(0, []byte("allowed")); !handled || err != nil {
+	if handled, err := schema.validatePublishedRawSimpleValueWithScratch(0, []byte("allowed"), nil); !handled || err != nil {
 		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
 	}
-	if handled, err := schema.validatePublishedRawSimpleValue(0, []byte("rejected")); !handled || err == nil || err.Error() != "enumeration facet failed" {
+	if handled, err := schema.validatePublishedRawSimpleValueWithScratch(0, []byte("rejected"), nil); !handled || err == nil || err.Error() != "enumeration facet failed" {
 		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want handled enumeration failure", handled, err)
 	}
 }
@@ -276,7 +276,7 @@ func TestPublishedSimpleValueFastPathAllocations(t *testing.T) {
 	}}
 	schema := &Schema{runtime: schemaRuntime{
 		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
-		SimpleValueCold:   newSimpleValueColdReadTable(types),
+		SimpleTypeCold:    newSimpleTypeColdReadTable(types),
 	}}
 	var value SimpleValue
 	var err error
@@ -291,6 +291,49 @@ func TestPublishedSimpleValueFastPathAllocations(t *testing.T) {
 	}
 }
 
+func TestPublishedSimpleValuePatternScratchAllocations(t *testing.T) {
+	facets := FacetSet{}
+	AppendPatternFacetGroup(&facets, []StringPattern{
+		NewFastStringPattern(CompileSimpleStringPattern(`[a-z]{0,}x`)),
+	})
+	types := []SimpleType{{
+		Facets:     facets,
+		Variety:    SimpleVarietyAtomic,
+		Primitive:  PrimitiveString,
+		Whitespace: WhitespacePreserve,
+	}}
+	types[0].Fast = DeriveSimpleFastPathForSimpleType(types[0])
+	schema := &Schema{runtime: schemaRuntime{
+		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
+		SimpleTypeCold:    newSimpleTypeColdReadTable(types),
+	}}
+	input := strings.Repeat("a", 4096) + "x"
+	var scratch StringPatternScratch
+	if _, err := schema.ValidateSimpleValueWithScratch(0, input, nil, 0, &scratch); err != nil {
+		t.Fatalf("ValidateSimpleValueWithScratch() warmup error = %v", err)
+	}
+	allocs := testing.AllocsPerRun(100, func() {
+		if _, err := schema.ValidateSimpleValueWithScratch(0, input, nil, 0, &scratch); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("ValidateSimpleValueWithScratch() allocations = %v, want 0", allocs)
+	}
+	raw := []byte(input)
+	if handled, err := schema.ValidateRawSimpleValueWithScratch(0, raw, &scratch); !handled || err != nil {
+		t.Fatalf("ValidateRawSimpleValueWithScratch() warmup = %v, %v", handled, err)
+	}
+	allocs = testing.AllocsPerRun(100, func() {
+		if handled, err := schema.ValidateRawSimpleValueWithScratch(0, raw, &scratch); !handled || err != nil {
+			t.Fatalf("ValidateRawSimpleValueWithScratch() = %v, %v", handled, err)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("ValidateRawSimpleValueWithScratch() allocations = %v, want 0", allocs)
+	}
+}
+
 func TestPublishedNotationFastPathAllocations(t *testing.T) {
 	types := []SimpleType{{
 		Variety:    SimpleVarietyAtomic,
@@ -299,7 +342,7 @@ func TestPublishedNotationFastPathAllocations(t *testing.T) {
 	}}
 	schema := &Schema{runtime: schemaRuntime{
 		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
-		SimpleValueCold:   newSimpleValueColdReadTable(types),
+		SimpleTypeCold:    newSimpleTypeColdReadTable(types),
 		Notations:         map[ExpandedName]bool{{Local: "declared"}: true},
 	}}
 	var value SimpleValue
@@ -328,13 +371,13 @@ func TestPublishedRawUnionFastPathAllocations(t *testing.T) {
 	}
 	schema := &Schema{runtime: schemaRuntime{
 		SimpleValueRoutes: newSimpleValueRouteReadsForSimpleTypes(types),
-		SimpleValueCold:   newSimpleValueColdReadTable(types),
+		SimpleTypeCold:    newSimpleTypeColdReadTable(types),
 	}}
 	raw := []byte("true")
 	var handled bool
 	var err error
 	allocs := testing.AllocsPerRun(1_000, func() {
-		handled, err = schema.validatePublishedRawSimpleValue(0, raw)
+		handled, err = schema.validatePublishedRawSimpleValueWithScratch(0, raw, nil)
 	})
 	if err != nil || !handled {
 		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
@@ -421,13 +464,13 @@ func TestValidateSimpleValueAtomicAnyURIBypassDoesNotCallExecutor(t *testing.T) 
 			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveAnyURI, Whitespace: WhitespaceCollapse},
 		},
 	}
-	for _, lexical := range []string{"", "https://example.test/a%20b", " urn:test "} {
+	for _, lexical := range []string{"", "https://example.test/a%20b", " urn:test ", "a^b", `a\b`} {
 		_, err := ValidateSimpleValue(stub.callbacks(), 1, lexical, 0)
 		if err != nil {
 			t.Fatalf("ValidateSimpleValue(%q) error = %v", lexical, err)
 		}
 	}
-	for _, lexical := range []string{":a", "a:", "%", "a^b", `a\b`} {
+	for _, lexical := range []string{":a", "a:", "%", "http://[bad]/"} {
 		_, err := ValidateSimpleValue(stub.callbacks(), 1, lexical, 0)
 		if err == nil || err.Error() != "invalid anyURI" {
 			t.Fatalf("ValidateSimpleValue(%q) error = %v, want invalid anyURI", lexical, err)
@@ -1044,6 +1087,55 @@ func TestValidateSimpleValueAtomicFallbackBuildsProjection(t *testing.T) {
 	}
 	if len(stub.calls) != 0 {
 		t.Fatalf("calls = %v, want no edge callbacks", stub.calls)
+	}
+}
+
+func TestValidateSimpleValueDurationIdentityUsesValueSpace(t *testing.T) {
+	t.Parallel()
+
+	stub := &simpleValueCallbackStub{
+		types: map[SimpleTypeID]SimpleValueType{
+			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDuration},
+		},
+	}
+	first, err := ValidateSimpleValue(stub.callbacks(), 1, "P1Y", SimpleNeedIdentity)
+	if err != nil {
+		t.Fatalf("ValidateSimpleValue(P1Y) error = %v", err)
+	}
+	second, err := ValidateSimpleValue(stub.callbacks(), 1, "P12M", SimpleNeedIdentity)
+	if err != nil {
+		t.Fatalf("ValidateSimpleValue(P12M) error = %v", err)
+	}
+	if first.Identity == "" || first.Identity != second.Identity {
+		t.Fatalf("duration identity keys = %q and %q, want equal non-empty keys", first.Identity, second.Identity)
+	}
+}
+
+func TestValidateSimpleValueDurationListIdentityUsesItemValueSpace(t *testing.T) {
+	t.Parallel()
+
+	stub := &simpleValueCallbackStub{
+		types: map[SimpleTypeID]SimpleValueType{
+			1: {Variety: SimpleVarietyAtomic, Primitive: PrimitiveDuration},
+			2: {Variety: SimpleVarietyList, ListItem: 1},
+			3: {Variety: SimpleVarietyUnion, UnionMembers: []SimpleTypeID{2}},
+		},
+	}
+	for _, typeID := range []SimpleTypeID{2, 3} {
+		first, err := ValidateSimpleValue(stub.callbacks(), typeID, "P1Y", SimpleNeedIdentity)
+		if err != nil {
+			t.Fatalf("ValidateSimpleValue(type %d, P1Y) error = %v", typeID, err)
+		}
+		second, err := ValidateSimpleValue(stub.callbacks(), typeID, "P12M", SimpleNeedIdentity)
+		if err != nil {
+			t.Fatalf("ValidateSimpleValue(type %d, P12M) error = %v", typeID, err)
+		}
+		if first.Identity == "" || first.Identity != second.Identity {
+			t.Fatalf("type %d list identity keys = %q and %q, want equal non-empty keys", typeID, first.Identity, second.Identity)
+		}
+		if first.Canonical == second.Canonical {
+			t.Fatalf("type %d canonical values unexpectedly collapsed to %q", typeID, first.Canonical)
+		}
 	}
 }
 

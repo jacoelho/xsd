@@ -1,5 +1,7 @@
 package runtime
 
+import "slices"
+
 // IdentityConstraintInfo is the runtime metadata needed to finish a selected
 // identity tuple.
 type IdentityConstraintInfo struct {
@@ -28,6 +30,16 @@ func (r IdentityConstraintIDs) At(index int) (IdentityConstraintID, bool) {
 		return 0, false
 	}
 	return r.values[index], true
+}
+
+// IsSubsetOf reports whether every constraint handle in r occurs in base.
+func (r IdentityConstraintIDs) IsSubsetOf(base IdentityConstraintIDs) bool {
+	for _, id := range r.values {
+		if !slices.Contains(base.values, id) {
+			return false
+		}
+	}
+	return true
 }
 
 // IdentityPathRead is an immutable selector-path view.
@@ -221,15 +233,15 @@ type IdentityConstraintRead struct {
 	fieldCount              int
 }
 
-func moveIdentityConstraintReads(identities []IdentityConstraint) []IdentityConstraintRead {
+func newIdentityConstraintReads(identities []IdentityConstraint) []IdentityConstraintRead {
 	out := make([]IdentityConstraintRead, len(identities))
 	for i := range identities {
 		identity := &identities[i]
 		out[i] = IdentityConstraintRead{
-			selector:                identity.Selector,
-			elementFields:           identity.ElementFields,
-			attributeFields:         identity.AttributeFields,
-			attributeWildcardFields: identity.AttributeWildcardFields,
+			selector:                CloneIdentityPaths(identity.Selector),
+			elementFields:           cloneCompiledIdentityFields(identity.ElementFields),
+			attributeFields:         cloneCompiledIdentityFieldMap(identity.AttributeFields),
+			attributeWildcardFields: cloneCompiledIdentityFields(identity.AttributeWildcardFields),
 			refer:                   identity.Refer,
 			kind:                    identity.Kind,
 			fieldCount:              len(identity.Fields),

@@ -101,6 +101,41 @@ func TestMaxErrorsStopsSemanticValidationWithinTriggeringToken(t *testing.T) {
 	requireCode(t, err, xsderrors.CodeValidationAttribute)
 }
 
+func TestNilledChildConsumesOneErrorSlot(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence>
+      <xs:element name="n" nillable="true">
+        <xs:complexType><xs:sequence><xs:element name="child"/></xs:sequence></xs:complexType>
+      </xs:element>
+      <xs:element name="v" type="xs:int"/>
+    </xs:sequence></xs:complexType>
+  </xs:element>
+</xs:schema>`)
+	doc := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><n xsi:nil="true"><child/></n><v>x</v></root>`
+	err := Validate(rt, strings.NewReader(doc), Options{MaxErrors: 2})
+	multiple, ok := errors.AsType[xsderrors.Errors](err)
+	if !ok || len(multiple) != 2 {
+		t.Fatalf("Validate() error = %v, want two validation errors", err)
+	}
+	want := []xsderrors.Code{xsderrors.CodeValidationNil, xsderrors.CodeValidationFacet}
+	for i, item := range multiple {
+		xerr, ok := errors.AsType[*xsderrors.Error](item)
+		if !ok || xerr.Code != want[i] {
+			t.Fatalf("Validate() error %d = %v, want code %s", i, item, want[i])
+		}
+	}
+
+	err = Validate(
+		rt,
+		strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><n xsi:nil="true">text</n><v>1</v></root>`),
+		Options{},
+	)
+	requireCode(t, err, xsderrors.CodeValidationNil)
+}
+
 func TestSessionReuseClearsSyntaxOnlyMode(t *testing.T) {
 	t.Parallel()
 

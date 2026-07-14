@@ -2,6 +2,20 @@ package stream
 
 import "testing"
 
+func TestUTF8BOMHelpers(t *testing.T) {
+	input := []byte{0xEF, 0xBB, 0xBF, '<'}
+	if !HasUTF8BOM(input) {
+		t.Fatal("HasUTF8BOM() = false for UTF-8 BOM")
+	}
+	trimmed := TrimUTF8BOM(input)
+	if string(trimmed) != "<" {
+		t.Fatalf("TrimUTF8BOM() = %q, want '<'", trimmed)
+	}
+	if got := TrimUTF8BOM([]byte("<")); string(got) != "<" {
+		t.Fatalf("TrimUTF8BOM(no BOM) = %q, want '<'", got)
+	}
+}
+
 func TestDeclaredXMLVersion(t *testing.T) {
 	tests := []struct {
 		in   string

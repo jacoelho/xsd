@@ -7,22 +7,25 @@ import (
 	"io"
 	"iter"
 	"maps"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/internal/xmlns"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 type rawDoc struct {
-	root  *rawNode
-	name  string
-	key   string
-	nodes int
+	root       *rawNode
+	name       string
+	key        string
+	defaults   SchemaDefaults
+	references []schemaReference
+	nodes      int
 }
 
 type rawNode struct {
+	doc      *rawDoc
 	NS       map[string]string
 	Name     xml.Name
 	Text     string
@@ -34,64 +37,91 @@ type rawNode struct {
 }
 
 func parseSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc, error) {
-	data = bytes.TrimPrefix(data, stream.UTF8BOM)
-	if enc := stream.DeclaredEncoding(data); enc != "" && !strings.EqualFold(enc, "UTF-8") && !strings.EqualFold(enc, "UTF8") {
-		return nil, xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "schema documents must be UTF-8")
+	doc, err := parseRawSchemaDocument(name, key, data, limits)
+	if err != nil {
+		return nil, err
 	}
-	if version := stream.DeclaredXMLVersion(data); version != "" && version != vocab.XMLVersion10 {
-		return nil, xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, "XML version "+version+" is not supported")
+	if admitErr := admitSchemaDocument(doc); admitErr != nil {
+		return nil, xsderrors.WithPath(name, admitErr)
 	}
-	dec := xml.NewDecoder(bytes.NewReader(data))
-	dec.Strict = true
+	defaults, err := parseSchemaDefaults(doc.root)
+	if err != nil {
+		return nil, xsderrors.WithPath(name, err)
+	}
+	doc.defaults = defaults
+	return doc, nil
+}
+
+func parseSchemaDefaults(root *rawNode) (SchemaDefaults, error) {
+	target, hasTarget := root.attr(vocab.XSDAttrTargetNamespace)
+	elementForm, hasElementForm := root.attr(vocab.XSDAttrElementFormDefault)
+	attributeForm, hasAttributeForm := root.attr(vocab.XSDAttrAttributeFormDefault)
+	defaults, err := ParseSchemaDefaults(SchemaDefaultAttrs{
+		TargetNamespace:         target,
+		BlockDefault:            root.attrValue(vocab.XSDAttrBlockDefault),
+		FinalDefault:            root.attrValue(vocab.XSDAttrFinalDefault),
+		ElementFormDefault:      elementForm,
+		AttributeFormDefault:    attributeForm,
+		HasTargetNamespace:      hasTarget,
+		HasElementFormDefault:   hasElementForm,
+		HasAttributeFormDefault: hasAttributeForm,
+	})
+	return defaults, withSchemaCompileLocation(root, err)
+}
+
+func parseRawSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc, error) {
+	doc := &rawDoc{name: name, key: key}
+	names := stream.NewCache()
+	values := stream.NewCache()
+	parser := new(stream.Parser)
+	if err := parser.ResetWithLimit(bytes.NewReader(data), &names, &values, limits.MaxSchemaTokenBytes); err != nil {
+		return nil, xsderrors.WithPath(name, schemaReaderError(err))
+	}
+	defer parser.Detach()
+	parser.SetMaxAttrs(limits.MaxSchemaAttributes)
+	parser.SetEmitComments(true)
+	parser.SetEmitPI(true)
 	state := schemaParseState{
-		dec:    dec,
+		parser: parser,
+		values: &values,
+		doc:    doc,
 		limits: limits,
-		nsStack: []map[string]string{{
-			vocab.XMLPrefix: vocab.XMLNamespaceURI,
-		}},
 	}
 	if err := state.parse(); err != nil {
-		return nil, err
+		return nil, xsderrors.WithPath(name, err)
 	}
-	if err := validateSchemaRoot(state.root); err != nil {
-		return nil, err
-	}
-	if err := rejectUnsupportedSchemaNodes(state.root, nil); err != nil {
-		return nil, err
-	}
-	if err := rejectUnknownSchemaAttributes(state.root); err != nil {
-		return nil, err
-	}
-	if err := checkSchemaIDs(state.root); err != nil {
-		return nil, err
-	}
-	if err := rejectInvalidSchemaNames(state.root, nil); err != nil {
-		return nil, err
-	}
-	if err := rejectInvalidAnnotations(state.root); err != nil {
-		return nil, err
-	}
-	return &rawDoc{name: name, key: key, root: state.root, nodes: state.nodes}, nil
+	doc.root, doc.nodes = state.root, state.nodes
+	return doc, nil
+}
+
+type schemaParseFrame struct {
+	node       *rawNode
+	namespaces map[string]string
+	name       xml.Name
+	prefix     string
+	textBytes  int64
 }
 
 type schemaParseState struct {
-	dec     *xml.Decoder
-	root    *rawNode
-	stack   []*rawNode
-	nsStack []map[string]string
-	nodes   int
-	limits  Limits
+	parser *stream.Parser
+	values *stream.Cache
+	doc    *rawDoc
+	root   *rawNode
+	stack  []schemaParseFrame
+	ns     xmlns.Stack
+	nodes  int
+	limits Limits
 }
 
 func (s *schemaParseState) parse() error {
 	for {
-		tok, err := s.dec.Token()
+		tok, err := s.parser.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			line, col := s.dec.InputPos()
-			return xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", err)
+			line, col := s.parser.Pos()
+			return schemaStreamError(line, col, err)
 		}
 		if err := s.handleToken(tok); err != nil {
 			return err
@@ -103,43 +133,67 @@ func (s *schemaParseState) parse() error {
 	return nil
 }
 
-func (s *schemaParseState) handleToken(tok xml.Token) error {
-	switch t := tok.(type) {
-	case xml.StartElement:
-		return s.handleStartElement(t)
-	case xml.EndElement:
-		return s.handleEndElement()
-	case xml.CharData:
-		return s.handleCharData(t)
-	case xml.Directive:
-		return s.handleDirective(t)
-	case xml.ProcInst:
-		return s.handleProcInst(t)
-	case xml.Comment:
-		return s.handleComment(t)
+func schemaReaderError(err error) error {
+	return schemaStreamError(0, 0, err)
+}
+
+func schemaStreamError(line, col int, err error) error {
+	if errors.Is(err, stream.ErrUnsupportedNonUTF8) {
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "schema documents must be UTF-8")
+	}
+	var versionErr stream.UnsupportedXMLVersionError
+	if errors.As(err, &versionErr) {
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error())
+	}
+	if stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {
+		return xsderrors.SchemaParse(xsderrors.CodeSchemaLimit, line, col, err.Error(), err)
+	}
+	return xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", err)
+}
+
+func (s *schemaParseState) handleToken(tok stream.Token) error {
+	switch tok.Kind {
+	case stream.KindStart:
+		return s.start(tok.Start, tok.Line, tok.Column)
+	case stream.KindEnd:
+		return s.handleEndElement(tok.End, tok.Line, tok.Column)
+	case stream.KindCharData:
+		return s.chars(tok.Data, tok.Line, tok.Column)
+	case stream.KindDirective, stream.KindComment:
+		return s.ValidateDirective(tok.Kind, tok.Directive, nil, tok.Line, tok.Column)
+	case stream.KindPI:
+		return s.ValidateDirective(tok.Kind, tok.Data, tok.Directive, tok.Line, tok.Column)
 	default:
 		return nil
 	}
 }
 
-func (s *schemaParseState) handleStartElement(t xml.StartElement) error {
-	line, col := s.dec.InputPos()
+func (s *schemaParseState) start(start stream.StartElement, line, col int) error {
+	prefix := start.Name.Space
 	if s.nodes >= s.limits.MaxSchemaInstantiatedNodes {
 		return xsderrors.SchemaParse(xsderrors.CodeSchemaLimit, line, col, "schema nodes exceed MaxSchemaInstantiatedNodes", nil)
 	}
 	if s.limits.MaxSchemaDepth > 0 && len(s.stack)+1 > s.limits.MaxSchemaDepth {
 		return xsderrors.SchemaParse(xsderrors.CodeSchemaLimit, line, col, "schema XML nesting exceeds configured limit", nil)
 	}
-	if s.limits.MaxSchemaAttributes > 0 && len(t.Attr) > s.limits.MaxSchemaAttributes {
+	if s.limits.MaxSchemaAttributes > 0 && len(start.Attr) > s.limits.MaxSchemaAttributes {
 		return xsderrors.SchemaParse(xsderrors.CodeSchemaLimit, line, col, "schema XML attributes exceed configured limit", nil)
 	}
-	if err := checkSchemaStartElementLimit(t, s.limits, line, col); err != nil {
+	if err := s.ns.PushStream(start.Attr, s.values); err != nil {
+		return xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", err)
+	}
+	prepared, err := s.prepareSchemaStart(start, line, col)
+	if err != nil {
+		s.ns.Pop()
 		return err
 	}
-	parentNS := s.nsStack[len(s.nsStack)-1]
+	parentNS := map[string]string{vocab.XMLPrefix: vocab.XMLNamespaceURI}
+	if len(s.stack) != 0 {
+		parentNS = s.stack[len(s.stack)-1].namespaces
+	}
 	ns := parentNS
 	clonedNS := false
-	for _, a := range t.Attr {
+	for _, a := range prepared.Attr {
 		if a.Name.Space == vocab.XMLNSPrefix {
 			if !clonedNS {
 				ns = cloneNS(parentNS)
@@ -156,39 +210,81 @@ func (s *schemaParseState) handleStartElement(t xml.StartElement) error {
 			ns[""] = a.Value
 		}
 	}
-	n := &rawNode{Name: t.Name, Attr: t.Attr, NS: ns, Line: line, Column: col}
+	opaque := (len(s.stack) != 0 && s.stack[len(s.stack)-1].node == nil) || s.annotationPayloadEnvelopeOpen()
+	var n *rawNode
+	if !opaque {
+		n = &rawNode{doc: s.doc, Name: prepared.Name, Attr: prepared.Attr, NS: ns, Line: line, Column: col}
+	}
+	if len(s.stack) == 0 && s.root != nil {
+		s.ns.Pop()
+		return xsderrors.SchemaParse(xsderrors.CodeSchemaRoot, line, col, "schema document has multiple roots", nil)
+	}
 	s.nodes++
-	if len(s.stack) == 0 {
-		if s.root != nil {
-			return xsderrors.SchemaParse(xsderrors.CodeSchemaRoot, line, col, "schema document has multiple roots", nil)
-		}
+	if n != nil && len(s.stack) == 0 {
 		s.root = n
-	} else {
-		parent := s.stack[len(s.stack)-1]
+	} else if n != nil {
+		parent := s.stack[len(s.stack)-1].node
 		parent.Children = append(parent.Children, n)
 	}
-	s.stack = append(s.stack, n)
-	s.nsStack = append(s.nsStack, ns)
+	s.stack = append(s.stack, schemaParseFrame{
+		node: n, namespaces: ns, name: prepared.Name, prefix: prefix,
+	})
 	return nil
 }
 
-func (s *schemaParseState) handleEndElement() error {
+func (s *schemaParseState) prepareSchemaStart(start stream.StartElement, line, col int) (xml.StartElement, error) {
+	name, ok := s.ns.ResolveName(start.Name, xmlns.ElementName)
+	if !ok {
+		return xml.StartElement{}, xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", errors.New("unbound namespace prefix "+start.Name.Space))
+	}
+	for i := range start.Attr {
+		attr := &start.Attr[i]
+		if xmlns.IsNamespaceName(attr.Name) || attr.Name.Space == "" {
+			continue
+		}
+		resolved, ok := s.ns.ResolveName(attr.Name, xmlns.AttributeName)
+		if !ok {
+			return xml.StartElement{}, xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", errors.New("unbound namespace prefix "+attr.Name.Space))
+		}
+		attr.Name = resolved
+	}
+	if err := xmlns.ValidateUniqueAttributes(start.Attr); err != nil {
+		return xml.StartElement{}, xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", err)
+	}
+	attrs := make([]xml.Attr, len(start.Attr))
+	for i := range start.Attr {
+		attrs[i] = xml.Attr{Name: start.Attr[i].Name, Value: start.Attr[i].StringValue(s.values)}
+	}
+	prepared := xml.StartElement{Name: name, Attr: attrs}
+	if err := checkSchemaStartElementLimit(prepared, s.limits, line, col); err != nil {
+		return xml.StartElement{}, err
+	}
+	return prepared, nil
+}
+
+func (s *schemaParseState) handleEndElement(end stream.EndElement, line, col int) error {
 	if len(s.stack) == 0 {
-		line, col := s.dec.InputPos()
 		return xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "unexpected end element", nil)
 	}
-	n := s.stack[len(s.stack)-1]
-	if n.text != nil {
+	frame := s.stack[len(s.stack)-1]
+	name, ok := s.ns.ResolveName(end.Name, xmlns.ElementName)
+	if !ok {
+		return xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", errors.New("unbound namespace prefix "+end.Name.Space))
+	}
+	if end.Name.Space != frame.prefix || end.Name.Local != frame.name.Local || name != frame.name {
+		return xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "end element does not match start element", nil)
+	}
+	n := frame.node
+	if n != nil && n.text != nil {
 		n.Text = string(n.text)
 		n.text = nil
 	}
 	s.stack = s.stack[:len(s.stack)-1]
-	s.nsStack = s.nsStack[:len(s.nsStack)-1]
+	s.ns.Pop()
 	return nil
 }
 
-func (s *schemaParseState) handleCharData(t xml.CharData) error {
-	line, col := s.dec.InputPos()
+func (s *schemaParseState) chars(t []byte, line, col int) error {
 	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
@@ -198,10 +294,15 @@ func (s *schemaParseState) handleCharData(t xml.CharData) error {
 		}
 		return nil
 	}
-	n := s.stack[len(s.stack)-1]
-	if err := checkSchemaTokenLimit(int64(len(n.Text)+len(n.text)+len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
+	last := len(s.stack) - 1
+	s.stack[last].textBytes += int64(len(t))
+	if err := checkSchemaTokenLimit(s.stack[last].textBytes, s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
+	if s.stack[last].node == nil || s.annotationPayloadEnvelopeOpen() {
+		return nil
+	}
+	n := s.stack[last].node
 	if n.Text == "" && n.text == nil {
 		n.Text = string(t)
 		return nil
@@ -214,26 +315,96 @@ func (s *schemaParseState) handleCharData(t xml.CharData) error {
 	return nil
 }
 
-func (s *schemaParseState) handleDirective(t xml.Directive) error {
-	line, col := s.dec.InputPos()
-	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML directive exceeds configured limit"); err != nil {
+func (s *schemaParseState) annotationPayloadEnvelopeOpen() bool {
+	if len(s.stack) < 2 {
+		return false
+	}
+	n := s.stack[len(s.stack)-1].node
+	parent := s.stack[len(s.stack)-2].node
+	if n == nil || parent == nil || parent.Name.Space != vocab.XSDNamespaceURI || parent.Name.Local != annotationChild {
+		return false
+	}
+	return n.Name.Space == vocab.XSDNamespaceURI &&
+		(n.Name.Local == vocab.XSDElemAppinfo || n.Name.Local == vocab.XSDElemDocumentation)
+}
+
+func admitSchemaDocument(doc *rawDoc) error {
+	if err := validateSchemaRoot(doc.root); err != nil {
 		return err
 	}
-	if stream.IsDOCTYPEDeclaration(t) {
-		return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedDTD, line, col, "", "DTD declarations are not supported", nil)
+	if err := rejectUnsupportedSchemaNodes(doc.root, nil); err != nil {
+		return err
 	}
-	return xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", nil)
+	if err := validateSchemaTopLevelOrder(doc.root); err != nil {
+		return err
+	}
+	if err := rejectUnknownSchemaAttributes(doc.root); err != nil {
+		return err
+	}
+	if err := checkSchemaIDs(doc.root); err != nil {
+		return err
+	}
+	if err := rejectInvalidSchemaNames(doc.root, nil); err != nil {
+		return err
+	}
+	if err := rejectInvalidAnnotations(doc.root); err != nil {
+		return err
+	}
+	return rejectInvalidSchemaTextAndDirectives(doc.root)
 }
 
-func (s *schemaParseState) handleProcInst(t xml.ProcInst) error {
-	line, col := s.dec.InputPos()
-	size := int64(len(t.Target) + len(t.Inst))
-	return checkSchemaTokenLimit(size, s.limits, line, col, "schema XML processing instruction exceeds configured limit")
+func validateSchemaTopLevelOrder(root *rawNode) error {
+	sawDeclaration := false
+	for child := range root.xsdChildren() {
+		switch child.Name.Local {
+		case annotationChild:
+			continue
+		case includeChild, importChild:
+			if sawDeclaration {
+				return schemaCompileAt(child, xsderrors.CodeSchemaContentModel, "xs:"+child.Name.Local+" must precede global declarations")
+			}
+		default:
+			sawDeclaration = true
+		}
+	}
+	return nil
 }
 
-func (s *schemaParseState) handleComment(t xml.Comment) error {
-	line, col := s.dec.InputPos()
-	return checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML comment exceeds configured limit")
+func rejectInvalidSchemaTextAndDirectives(n *rawNode) error {
+	if n.Name.Space == vocab.XSDNamespaceURI && n.Name.Local != vocab.XSDElemAppinfo &&
+		n.Name.Local != vocab.XSDElemDocumentation && lex.TrimXMLWhitespaceString(n.Text) != "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+n.Name.Local+" cannot contain text")
+	}
+	if n.Name.Space == vocab.XSDNamespaceURI && (n.Name.Local == includeChild || n.Name.Local == importChild) {
+		if err := checkChildOrderRules(n, annotationOnlyChildOrder(n.Name.Local)); err != nil {
+			return err
+		}
+	}
+	for _, child := range n.Children {
+		if err := rejectInvalidSchemaTextAndDirectives(child); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *schemaParseState) ValidateDirective(kind stream.TokenKind, first, second []byte, line, col int) error {
+	switch kind {
+	case stream.KindDirective:
+		if err := checkSchemaTokenLimit(int64(len(first)), s.limits, line, col, "schema XML directive exceeds configured limit"); err != nil {
+			return err
+		}
+		if stream.IsDOCTYPEDeclaration(first) {
+			return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedDTD, line, col, "", "DTD declarations are not supported", nil)
+		}
+		return xsderrors.SchemaParse(xsderrors.CodeSchemaXML, line, col, "invalid schema XML", nil)
+	case stream.KindPI:
+		return checkSchemaTokenLimit(int64(len(first)+len(second)), s.limits, line, col, "schema XML processing instruction exceeds configured limit")
+	case stream.KindComment:
+		return checkSchemaTokenLimit(int64(len(first)), s.limits, line, col, "schema XML comment exceeds configured limit")
+	default:
+		return xsderrors.InternalInvariant("unexpected schema directive token")
+	}
 }
 
 func validateSchemaRoot(root *rawNode) error {
@@ -294,6 +465,9 @@ func rejectUnsupportedSchemaNodes(n, parent *rawNode) error {
 }
 
 func rejectUnknownSchemaAttributes(n *rawNode) error {
+	if err := checkXMLBaseAttribute(n); err != nil {
+		return err
+	}
 	if n.Name.Space == vocab.XSDNamespaceURI {
 		if err := checkRawSchemaAttributes(n); err != nil {
 			return err
@@ -335,13 +509,25 @@ func rejectInvalidAnnotations(n *rawNode) error {
 func (n *rawNode) attr(local string) (string, bool) {
 	for _, a := range n.Attr {
 		if a.Name.Space == "" && a.Name.Local == local {
-			if local == vocab.XSDAttrName || local == vocab.XSDAttrID {
+			if n.collapseAttributeWhitespace(local) {
 				return lex.CollapseXMLWhitespace(a.Value), true
 			}
-			return lex.ReplaceXMLWhitespace(a.Value), true
+			return a.Value, true
 		}
 	}
 	return "", false
+}
+
+func (n *rawNode) collapseAttributeWhitespace(local string) bool {
+	switch local {
+	case vocab.XSDAttrDefault, vocab.XSDAttrValue:
+		return false
+	case vocab.XSDAttrFixed:
+		return n.Name.Space == vocab.XSDNamespaceURI &&
+			n.Name.Local != vocab.XSDElemElement && n.Name.Local != vocab.XSDElemAttribute
+	default:
+		return true
+	}
 }
 
 func (n *rawNode) attrValue(local string) string {
@@ -349,6 +535,18 @@ func (n *rawNode) attrValue(local string) string {
 		return v
 	}
 	return ""
+}
+
+func (n *rawNode) attrNS(namespace, local string) (string, bool) {
+	for _, a := range n.Attr {
+		if a.Name.Space == namespace && a.Name.Local == local {
+			if namespace == vocab.XMLNamespaceURI && local == vocab.XMLAttrBase {
+				return lex.CollapseXMLWhitespace(a.Value), true
+			}
+			return lex.ReplaceXMLWhitespace(a.Value), true
+		}
+	}
+	return "", false
 }
 
 func (n *rawNode) xsSimpleTypeChildren() []*rawNode {

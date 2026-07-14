@@ -76,6 +76,23 @@ func schemaElementAttributeAllowed(element, attr string) bool {
 	}
 }
 
+func schemaAnyURIAttribute(element, attr string) bool {
+	switch element {
+	case vocab.XSDElemSchema:
+		return attr == vocab.XSDAttrTargetNamespace
+	case vocab.XSDElemInclude:
+		return attr == vocab.XSDAttrSchemaLocation
+	case vocab.XSDElemImport:
+		return attr == vocab.XSDAttrNamespace || attr == vocab.XSDAttrSchemaLocation
+	case vocab.XSDElemAppinfo, vocab.XSDElemDocumentation:
+		return attr == vocab.XSDAttrSource
+	case vocab.XSDElemNotation:
+		return attr == vocab.XSDAttrSystem
+	default:
+		return false
+	}
+}
+
 func schemaDocumentAttributeAllowed(element, attr string) bool {
 	switch element {
 	case vocab.XSDElemSchema:

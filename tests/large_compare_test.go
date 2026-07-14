@@ -278,8 +278,9 @@ func compareLargeProfile(t *testing.T, repoXMLLint, libxml2 string, profile larg
 	t.Helper()
 	t.Logf("schema=%s", profile.schema)
 	t.Logf("xml=%s bytes=%d", profile.xml, profile.bytes)
-	args := []string{"--noout", "--huge", "--schema", profile.schema, profile.xml}
-	goMetrics, libxml2Metrics, pairs := runPairedMeasuredCommands(t, runs, repoXMLLint, args, libxml2, args)
+	goArgs := []string{"--schema", profile.schema, profile.xml}
+	libxml2Args := []string{"--noout", "--huge", "--schema", profile.schema, profile.xml}
+	goMetrics, libxml2Metrics, pairs := runPairedMeasuredCommands(t, runs, repoXMLLint, goArgs, libxml2, libxml2Args)
 	logPairedCommandMetrics(t, pairs, profile.bytes)
 	logCommandMetrics(t, "bin/xmllint", goMetrics, profile.bytes)
 	logCommandMetrics(t, "libxml2-xmllint", libxml2Metrics, profile.bytes)

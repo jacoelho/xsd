@@ -2,7 +2,6 @@ package xsd
 
 import (
 	"io"
-	"math"
 
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -29,7 +28,9 @@ func (f ResolverFunc) ResolveSchema(base, location string) (SchemaSource, error)
 	return f(base, location)
 }
 
-// File returns a file schema source and resolves local schemaLocation refs.
+// File returns a file schema source and resolves local schemaLocation refs. A
+// relative path is made absolute when File is called so its identity and
+// include base remain stable if the process working directory changes.
 func File(path string) SchemaSource {
 	return SchemaSource{src: source.File(path)}
 }
@@ -39,34 +40,22 @@ func Bytes(name string, data []byte) SchemaSource {
 	return SchemaSource{src: source.Bytes(name, data)}
 }
 
-// Reader reads r into an in-memory schema source.
-func Reader(name string, r io.Reader) SchemaSource {
-	return LimitedReader(name, r, math.MaxInt64)
+// Open returns a reusable schema source backed by open. The function must
+// return a new independent reader on every call.
+func Open(name string, open func() (io.ReadCloser, error)) SchemaSource {
+	return SchemaSource{src: source.Opener(name, open)}
 }
 
-// LimitedReader reads at most maxBytes from r into an in-memory schema source.
-func LimitedReader(name string, r io.Reader, maxBytes int64) SchemaSource {
-	return SchemaSource{src: source.LimitedReader(name, r, maxBytes)}
-}
-
-// WithResolver returns s with r used for schema include/import resolution.
+// WithResolver returns s with r used for every schema include/import reached
+// from s. A source returned by r remains in that resolver-owned graph, and its
+// non-empty name is the authoritative document identity for deduplication and
+// descendant resolution.
 func (s SchemaSource) WithResolver(r Resolver) SchemaSource {
 	s.src = s.src.WithResolver(adaptPublicResolver(r))
 	return s
 }
 
-func internalSchemaSources(sources []SchemaSource, scratch []source.Source) []source.Source {
-	var out []source.Source
-	if len(sources) <= cap(scratch) {
-		out = scratch[:len(sources)]
-	} else {
-		out = make([]source.Source, len(sources))
-	}
-	for i, src := range sources {
-		out[i] = src.src
-	}
-	return out
-}
+func internalSchemaSource(src SchemaSource) source.Source { return src.src }
 
 func adaptPublicResolver(r Resolver) source.Resolver {
 	if r == nil {

@@ -25,9 +25,8 @@ func (s *session) simpleValueQNameResolver(id runtime.SimpleTypeID) runtime.Reso
 }
 
 func (s *session) qnameResolver() runtime.ResolveQNameParts {
-	if s.resolveLexicalQNamePartsOwner != s {
+	if s.resolveLexicalQNamePartsFunc == nil {
 		s.resolveLexicalQNamePartsFunc = s.resolveLexicalQNameParts
-		s.resolveLexicalQNamePartsOwner = s
 	}
 	return s.resolveLexicalQNamePartsFunc
 }

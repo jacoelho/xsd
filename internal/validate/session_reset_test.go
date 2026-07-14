@@ -133,44 +133,90 @@ func TestSessionDetachesReaderAfterPreflightFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := session.Validate(strings.NewReader("<root/>")); err != nil {
-		t.Fatal(err)
-	}
-	reader := session.session.reader
-	size := reader.Size()
-
 	invalid := string([]byte{0xFE, 0xFF}) + strings.Repeat("x", 1024)
 	if err := session.Validate(strings.NewReader(invalid)); err == nil {
 		t.Fatal("Validate() accepted UTF-16 input")
 	}
-	if session.session.reader != reader {
-		t.Fatal("Validate() replaced the reusable reader after preflight failure")
-	}
-	if reader.Size() != size {
-		t.Fatalf("reader size = %d, want retained size %d", reader.Size(), size)
-	}
-	if reader.Buffered() != 0 {
-		t.Fatalf("reader retained %d source bytes after preflight failure", reader.Buffered())
+	if err := session.Validate(strings.NewReader("<root/>")); err != nil {
+		t.Fatalf("Validate() after preflight failure: %v", err)
 	}
 }
 
-func TestSessionResetDetachesReaderAndKeepsBuffer(t *testing.T) {
-	reader := bufio.NewReaderSize(strings.NewReader("retained source"), 1024)
-	if _, err := reader.Peek(1); err != nil {
+func TestReusableSessionClearsDocumentStateBeforeReturning(t *testing.T) {
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:simpleContent><xs:extension base="xs:string">
+      <xs:attribute name="id" type="xs:ID" use="required"/>
+    </xs:extension></xs:simpleContent></xs:complexType>
+    <xs:key name="ids"><xs:selector xpath="."/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>`)
+	const start = `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:payload" id="item" xsi:schemaLocation="urn:hint hint.xsd">payload`
+
+	t.Run("success", func(t *testing.T) {
+		s, err := newSessionForTest(rt, Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Validate(strings.NewReader(start + `</root>`)); err != nil {
+			t.Fatalf("Validate() error = %v", err)
+		}
+		assertReusableSessionReset(t, s)
+		if cap(s.session.doc.text) == 0 || cap(s.session.doc.text) > maxRetainedBufferCap {
+			t.Fatalf("retained text capacity = %d, want 1..%d", cap(s.session.doc.text), maxRetainedBufferCap)
+		}
+	})
+
+	for _, test := range []struct {
+		name string
+		doc  string
+	}{
+		{name: "unclosed", doc: start},
+		{name: "mismatched end", doc: start + `</other>`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s, err := newSessionForTest(rt, Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			validationErr := s.Validate(strings.NewReader(test.doc))
+			requireCode(t, validationErr, xsderrors.CodeValidationXML)
+			assertReusableSessionReset(t, s)
+		})
+	}
+}
+
+func TestReusableSessionCleanupPreservesReturnedAggregateErrors(t *testing.T) {
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="value" type="xs:int" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`)
+	s, err := newSessionForTest(rt, Options{})
+	if err != nil {
 		t.Fatal(err)
 	}
-	s := session{reader: reader}
 
-	s.reset()
+	validationErr := s.Validate(strings.NewReader(`<root><value>first</value><value>second</value></root>`))
+	errs, ok := errors.AsType[xsderrors.Errors](validationErr)
+	if !ok || len(errs) != 2 {
+		t.Fatalf("Validate() error = %v, want two returned errors", validationErr)
+	}
+	for i, err := range errs {
+		xerr, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || xerr.Code != xsderrors.CodeValidationFacet {
+			t.Fatalf("Validate() error %d = %v, want validation facet error", i, err)
+		}
+	}
+	want := validationErr.Error()
+	assertReusableSessionReset(t, s)
 
-	if s.reader != reader {
-		t.Fatal("reset replaced the reusable reader")
+	if err := s.Validate(strings.NewReader(`<root><value>1</value></root>`)); err != nil {
+		t.Fatalf("Validate(valid) error = %v", err)
 	}
-	if reader.Size() != 1024 {
-		t.Fatalf("reader size = %d, want 1024", reader.Size())
-	}
-	if reader.Buffered() != 0 {
-		t.Fatalf("reader retained %d source bytes after reset", reader.Buffered())
+	assertReusableSessionReset(t, s)
+	if got := validationErr.Error(); got != want {
+		t.Fatalf("returned aggregate changed after cleanup and reuse:\ngot:  %s\nwant: %s", got, want)
 	}
 }
 
@@ -185,7 +231,7 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	if err := recordValueForTest(&s.doc.identity, IdentityValue{IDs: "stale"}, s.startContext(1, 1)); err != nil {
 		t.Fatalf("record identity state: %v", err)
 	}
-	if err := s.doc.schemaLocationHints.RecordAttribute(staleSchemaLocationHintName(), "urn:stale stale.xsd", s.startContext(1, 1)); err != nil {
+	if err := s.doc.schemaLocationHints.RecordAttribute(staleSchemaLocationHintName(), "urn:stale stale.xsd", testSchemaLocationHintLimits, s.startContext(1, 1)); err != nil {
 		t.Fatalf("record schema-location hint: %v", err)
 	}
 
@@ -214,7 +260,7 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	var s session
 	s.doc.elements = make([]xmlDocumentElement[frame], 0, maxRetainedSliceCap)
-	s.doc.CommitStart(xml.Name{Local: "stale"}, "stale", false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "stale"}}, false, frame{})
 	s.doc.pathText = "stale"
 	s.doc.pathTextDepth = 1
 
@@ -240,8 +286,8 @@ func staleSchemaLocationHintName() xml.Name {
 
 func TestSessionPathStringMaterializesLazily(t *testing.T) {
 	var s session
-	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false, frame{})
-	s.doc.CommitStart(xml.Name{Local: "row"}, "row", false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "row"}}, false, frame{})
 
 	if s.doc.pathText != "" {
 		t.Fatal("pushPath materialized path text")
@@ -256,11 +302,11 @@ func TestSessionPathStringMaterializesLazily(t *testing.T) {
 
 func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	var s session
-	s.doc.CommitStart(xml.Name{Local: "root"}, "root", false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, false, frame{})
 	if got := s.doc.PathString(); got != "/root" {
 		t.Fatalf("pathString() = %q, want /root", got)
 	}
-	s.doc.CommitStart(xml.Name{Local: "child"}, "child", false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "child"}}, false, frame{})
 	if got := s.doc.PathString(); got != "/root/child" {
 		t.Fatalf("pathString() = %q, want /root/child", got)
 	}
@@ -298,10 +344,10 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			t.Fatal(err)
 		}
-		assertReleasedReferencesZero(t, &session.session)
+		assertReusableSessionReset(t, session)
 	})
 
-	t.Run("aborted document reset", func(t *testing.T) {
+	t.Run("aborted document", func(t *testing.T) {
 		session, err := newSessionForTest(rt, Options{})
 		if err != nil {
 			t.Fatal(err)
@@ -309,8 +355,11 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 		if err := session.Validate(strings.NewReader(nestedIdentityDocument(depth, false))); err == nil {
 			t.Fatal("Validate() succeeded for unclosed document")
 		}
-		session.Reset()
-		assertReleasedReferencesZero(t, &session.session)
+		assertReusableSessionReset(t, session)
+		if err := session.Validate(strings.NewReader(`<root/>`)); err != nil {
+			t.Fatalf("Validate() after aborted document: %v", err)
+		}
+		assertReusableSessionReset(t, session)
 	})
 }
 
@@ -329,10 +378,32 @@ func nestedIdentityDocument(depth int, closeElements bool) string {
 	return b.String()
 }
 
-func assertReleasedReferencesZero(t *testing.T, s *session) {
+func assertReusableSessionReset(t *testing.T, reusable *Session) {
 	t.Helper()
+	if reusable.inUse.Load() {
+		t.Fatal("session remained in use after Validate returned")
+	}
+	assertSessionDocumentStateReset(t, &reusable.session)
+}
+
+func assertSessionDocumentStateReset(t *testing.T, s *session) {
+	t.Helper()
+	if s.doc.seenRoot || s.doc.pathText != "" || s.doc.pathTextDepth != 0 || s.doc.syntaxOnly {
+		t.Fatalf("document scalars remain after reset: %+v", s.doc)
+	}
 	if len(s.doc.elements) != 0 || len(s.doc.namePath) != 0 {
 		t.Fatalf("active document state remains: elements=%d names=%d", len(s.doc.elements), len(s.doc.namePath))
+	}
+	if len(s.doc.errors) != 0 || len(s.doc.text) != 0 || len(s.doc.allBits) != 0 {
+		t.Fatalf("document buffers remain: errors=%d text=%d allBits=%d", len(s.doc.errors), len(s.doc.text), len(s.doc.allBits))
+	}
+	if _, ok := s.doc.LookupNamespace("xsi"); ok {
+		t.Fatal("namespace bindings remain after reset")
+	}
+	for i, err := range s.doc.errors[:cap(s.doc.errors)] {
+		if err != nil {
+			t.Fatalf("error tail %d retains %v", i, err)
+		}
 	}
 	for i, element := range s.doc.elements[:cap(s.doc.elements)] {
 		if element != (xmlDocumentElement[frame]{}) {
@@ -345,19 +416,32 @@ func assertReleasedReferencesZero(t *testing.T, s *session) {
 		}
 	}
 	identity := &s.doc.identity
+	if len(identity.ids) != 0 || len(identity.idrefs) != 0 || len(identity.scopes) != 0 ||
+		len(identity.selections) != 0 || len(identity.fieldValues) != 0 || len(identity.matches) != 0 ||
+		identity.entries != 0 || identity.nextNodeID != 0 {
+		t.Fatalf("identity state remains after reset: %+v", *identity)
+	}
+	for i, ref := range identity.idrefs[:cap(identity.idrefs)] {
+		if ref != (identityRef{}) {
+			t.Fatalf("identity reference tail %d retains references: %+v", i, ref)
+		}
+	}
 	for i, scope := range identity.scopes[:cap(identity.scopes)] {
-		if scope.tables != nil || scope.constraints.Len() != 0 || scope.refs != nil {
+		if scope.tables != nil || scope.constraints.Len() != 0 || scope.refs != nil || scope.depth != 0 || scope.invalid {
 			t.Fatalf("identity scope tail %d retains references: %+v", i, scope)
 		}
 	}
 	for i, selection := range identity.selections[:cap(identity.selections)] {
-		if selection.path != "" {
-			t.Fatalf("identity selection tail %d retains path %q", i, selection.path)
+		if selection != (identitySelection{}) {
+			t.Fatalf("identity selection tail %d retains state: %+v", i, selection)
 		}
 	}
 	for i, field := range identity.fieldValues[:cap(identity.fieldValues)] {
-		if field.value != "" {
-			t.Fatalf("identity field tail %d retains value %q", i, field.value)
+		if field != (identityFieldValue{}) {
+			t.Fatalf("identity field tail %d retains state: %+v", i, field)
 		}
+	}
+	if len(s.doc.schemaLocationHints.namespaces) != 0 || s.doc.schemaLocationHints.namespaceBytes != 0 {
+		t.Fatalf("schema-location hints remain after reset: %+v", s.doc.schemaLocationHints)
 	}
 }

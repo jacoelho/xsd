@@ -117,6 +117,39 @@ func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateRepeatedXSIType(b *testing.B) {
+	const depth = 256
+	var schema strings.Builder
+	schema.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t" xmlns:t="urn:t" elementFormDefault="qualified">`)
+	schema.WriteString(`<xs:complexType name="T0"/>`)
+	for i := 1; i < depth; i++ {
+		fmt.Fprintf(&schema, `<xs:complexType name="T%d"><xs:complexContent><xs:extension base="t:T%d"/></xs:complexContent></xs:complexType>`, i, i-1)
+	}
+	schema.WriteString(`<xs:element name="root"><xs:complexType><xs:sequence><xs:element name="item" type="t:T0" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element></xs:schema>`)
+	engine, err := xsd.Compile(xsd.Bytes("xsi-type.xsd", []byte(schema.String())))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	var doc strings.Builder
+	doc.WriteString(`<t:root xmlns:t="urn:t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`)
+	for range 100 {
+		fmt.Fprintf(&doc, `<t:item xsi:type="t:T%d"/>`, depth-1)
+	}
+	doc.WriteString(`</t:root>`)
+	instance := doc.String()
+	b.SetBytes(int64(len(instance)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(instance)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkSessionValidateRepeatedQNameValues(b *testing.B) {
 	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -876,8 +909,8 @@ func regexCategoryEscapesSchema(types int) string {
 }
 
 // BenchmarkCompileDeepSimpleTypeChain guards compile cost on long derivation
-// chains: derivation checks must stay on demand, not flattened per type
-// (flattening is quadratic in chain depth).
+// chains: publication indexes must remain linear rather than flattening every
+// type's complete ancestry.
 func BenchmarkCompileDeepSimpleTypeChain(b *testing.B) {
 	var sb strings.Builder
 	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
@@ -890,6 +923,40 @@ func BenchmarkCompileDeepSimpleTypeChain(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		if _, err := xsd.Compile(xsd.Bytes("chain.xsd", schema)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkCompileRepeatedNestedUnionMembers(b *testing.B) {
+	const depth = 256
+	var sb strings.Builder
+	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	sb.WriteString(`<xs:simpleType name="u0"><xs:union memberTypes="xs:int"/></xs:simpleType>`)
+	for i := 1; i < depth; i++ {
+		fmt.Fprintf(&sb, `<xs:simpleType name="u%d"><xs:union memberTypes="u%d u%d"/></xs:simpleType>`, i, i-1, i-1)
+	}
+	fmt.Fprintf(&sb, `<xs:element name="root" type="u%d"/></xs:schema>`, depth-1)
+	schema := []byte(sb.String())
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := xsd.Compile(xsd.Bytes("nested-unions.xsd", schema)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkCompileOpaqueAnnotationPayload(b *testing.B) {
+	var sb strings.Builder
+	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:appinfo>`)
+	for i := range 1_000 {
+		fmt.Fprintf(&sb, `<meta index="%d"><nested>payload</nested></meta>`, i)
+	}
+	sb.WriteString(`</xs:appinfo></xs:annotation><xs:element name="root"/></xs:schema>`)
+	schema := []byte(sb.String())
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := xsd.Compile(xsd.Bytes("annotation.xsd", schema)); err != nil {
 			b.Fatal(err)
 		}
 	}

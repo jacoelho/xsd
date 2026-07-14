@@ -3,6 +3,7 @@ package compile
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func (c *compiler) compileAttributeByQName(q runtime.QName) (runtime.AttributeID, error) {
@@ -10,19 +11,10 @@ func (c *compiler) compileAttributeByQName(q runtime.QName) (runtime.AttributeID
 		return id, nil
 	}
 	label := c.rt.formatName(q)
-	if c.compilingAttr[q] {
-		err := CheckSchemaComponentCycle(SchemaComponentAttribute, true, label)
-		if raw, ok := c.attributeRaw[q]; ok {
-			return 0, withSchemaCompileLocation(raw.node, err)
-		}
-		return 0, err
-	}
 	raw, ok := c.attributeRaw[q]
 	if err := CheckSchemaComponentExists(SchemaComponentAttribute, ok, label); err != nil {
 		return 0, err
 	}
-	c.compilingAttr[q] = true
-	defer delete(c.compilingAttr, q)
 	decl, err := c.compileAttributeDecl(raw.node, raw.ctx, q)
 	if err != nil {
 		return 0, err
@@ -51,7 +43,7 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q runtim
 		if err != nil {
 			return runtime.AttributeDecl{}, err
 		}
-		id, err := c.compileSimpleByQName(tq)
+		id, err := c.compileSimpleTypeReference(n, tq)
 		if err != nil {
 			return runtime.AttributeDecl{}, err
 		}
@@ -80,6 +72,14 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q runtim
 }
 
 func (c *compiler) validateAttributeValueConstraints(decl *runtime.AttributeDecl, n *rawNode) error {
+	if !runtime.ValidSimpleTypeID(decl.Type, len(c.simpleTypeUnavailable)) {
+		return xsderrors.InternalInvariant("attribute value constraint references invalid simple type")
+	}
+	if c.simpleTypeUnavailable[decl.Type] {
+		decl.Default = nil
+		decl.Fixed = nil
+		return nil
+	}
 	if err := c.validateAttributeDeclValueConstraintIdentity(decl); err != nil {
 		return err
 	}
@@ -274,6 +274,7 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (runtime.
 	fixedValue, hasFixed := n.attr(vocab.XSDAttrFixed)
 	if base.ref && hasFixed {
 		use.Fixed = &runtime.ValueConstraint{Lexical: fixedValue}
+		use.FixedFromDeclaration = false
 	}
 	modeLexical, hasMode := n.attr(vocab.XSDAttrUse)
 	mode, err := parseAttributeUseModeChecked(n, modeLexical, hasMode)
@@ -309,6 +310,7 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (runtime.
 		}
 		if hasFixed {
 			use.Fixed = decl.Fixed
+			use.FixedFromDeclaration = false
 		}
 	}
 	if err := validateAttributeUseFixedValueAdmission(n, runtime.NewValueConstraintIdentity(use.Fixed), runtime.NewValueConstraintIdentity(base.refFixed)); err != nil {

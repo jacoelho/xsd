@@ -11,6 +11,12 @@ import (
 
 // Compile compiles internal schema sources into a published validation runtime.
 func Compile(opts Options, sources []source.Source) (*runtime.Schema, error) {
+	return CompileMappedSources(opts, sources, func(src source.Source) source.Source { return src })
+}
+
+// CompileMappedSources compiles a caller-owned source slice without converting
+// it until the normalized explicit-source bound has been enforced.
+func CompileMappedSources[T any](opts Options, sources []T, sourceOf func(T) source.Source) (*runtime.Schema, error) {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
 		return nil, err
@@ -18,11 +24,24 @@ func Compile(opts Options, sources []source.Source) (*runtime.Schema, error) {
 	if len(sources) == 0 {
 		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaNoSources, "at least one schema source is required")
 	}
+	if len(sources) > limits.MaxSchemaSources {
+		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema source count exceeds MaxSchemaSources")
+	}
+	if sourceOf == nil {
+		return nil, xsderrors.InternalInvariant("schema source mapper is nil")
+	}
 	c, err := newCompiler(limits)
 	if err != nil {
 		return nil, err
 	}
-	if err = c.load(sources); err != nil {
+	owned := make([]source.Source, len(sources))
+	for i, input := range sources {
+		owned[i] = sourceOf(input)
+		if owned[i].Name() == "" {
+			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required")
+		}
+	}
+	if err = c.loadOwned(owned); err != nil {
 		return nil, err
 	}
 	if err = c.index(); err != nil {
@@ -65,17 +84,20 @@ type compilerIndexState struct {
 }
 
 type compilerBuildState struct {
-	simpleDone               map[runtime.QName]runtime.SimpleTypeID
-	complexDone              map[runtime.QName]runtime.ComplexTypeID
-	attributeDone            map[runtime.QName]runtime.AttributeID
-	attrGroupDone            map[runtime.QName]runtime.AttributeUseSetID
-	elementDone              map[runtime.QName]runtime.ElementID
-	localDone                map[*rawNode]runtime.ElementID
-	identityDeclared         map[*rawNode]runtime.IdentityConstraintID
-	regexCategories          RegexCategoryCache
-	simpleListReach          simpleTypeListReachability
-	simpleFacetCache         simpleValueFacetCache
-	deferredAnonymousComplex []deferredAnonymousComplex
+	simpleDone                map[runtime.QName]runtime.SimpleTypeID
+	complexDone               map[runtime.QName]runtime.ComplexTypeID
+	attributeDone             map[runtime.QName]runtime.AttributeID
+	attrGroupDone             map[runtime.QName]runtime.AttributeUseSetID
+	elementDone               map[runtime.QName]runtime.ElementID
+	localDone                 map[*rawNode]runtime.ElementID
+	identityDeclared          map[*rawNode]runtime.IdentityConstraintID
+	regexCategories           RegexCategoryCache
+	simpleListReach           simpleTypeListReachability
+	simpleFacetCache          simpleValueFacetCache
+	simpleTypeUnavailable     []bool
+	deferredAnonymousComplex  []deferredAnonymousComplex
+	pendingElementConstraints []pendingElementConstraint
+	unionMemberEntries        int
 }
 
 type deferredAnonymousComplex struct {
@@ -88,9 +110,6 @@ type deferredAnonymousComplex struct {
 type compilerCycleState struct {
 	compilingSimple  map[runtime.QName]bool
 	compilingComplex map[runtime.QName]bool
-	compilingElement map[runtime.QName]bool
-	compilingAttr    map[runtime.QName]bool
-	compilingLocal   map[*rawNode]bool
 	compilingAttrGrp map[runtime.QName]bool
 	compilingModel   map[*rawNode]bool
 }
@@ -98,6 +117,7 @@ type compilerCycleState struct {
 type compilerModelState struct {
 	modelDone    map[*rawNode]runtime.ContentModelID
 	modelDepth   map[*rawNode]int
+	modelSources []*rawNode
 	elementDepth int
 }
 
@@ -146,9 +166,6 @@ func newCompiler(limits Limits) (*compiler, error) {
 		compilerCycleState: compilerCycleState{
 			compilingSimple:  make(map[runtime.QName]bool),
 			compilingComplex: make(map[runtime.QName]bool),
-			compilingElement: make(map[runtime.QName]bool),
-			compilingAttr:    make(map[runtime.QName]bool),
-			compilingLocal:   make(map[*rawNode]bool),
 			compilingAttrGrp: make(map[runtime.QName]bool),
 			compilingModel:   make(map[*rawNode]bool),
 		},
@@ -246,7 +263,7 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 			continue
 		}
 		base := c.rt.complexType(baseID)
-		if err := ValidateContentRestriction(&c.rt, base.Content, ct.Content); err != nil {
+		if err := runtime.ValidateContentRestriction(&c.rt, base.Content, ct.Content); err != nil {
 			return err
 		}
 	}
@@ -267,11 +284,11 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 }
 
 func complexBlockMaskWithDefault(n *rawNode, def runtime.DerivationMask) (runtime.DerivationMask, error) {
-	return derivationMaskWithDefaultChecked(n, def, ComplexTypeBlockDerivation)
+	return derivationMaskWithDefaultChecked(n, def, complexTypeBlockDerivation())
 }
 
 func simpleFinalMaskWithDefaultChecked(n *rawNode, def runtime.DerivationMask) (runtime.DerivationMask, error) {
-	return derivationMaskWithDefaultChecked(n, def, SimpleTypeFinalDerivation)
+	return derivationMaskWithDefaultChecked(n, def, simpleTypeFinalDerivation())
 }
 
 func derivationMaskWithDefaultChecked(n *rawNode, def runtime.DerivationMask, rule DerivationAttrRule) (runtime.DerivationMask, error) {
@@ -521,8 +538,17 @@ func (c *compiler) compileRestriction(n *rawNode, ctx *schemaContext, name runti
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 	}
 	st := c.rt.derivedSimpleType(baseID, name)
-	if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
+	if c.simpleTypeUnavailable[baseID] {
+		if err := c.validateUnavailableFacetChildren(n.Children, &st, baseID, true); err != nil {
+			return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
+		}
+	} else if err := c.compileFacets(n, &st, baseID, baseID); err != nil {
 		return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
+	}
+	if st.Variety == runtime.SimpleVarietyUnion {
+		if err := c.chargeSimpleUnionMemberEntries(n, len(st.Union)); err != nil {
+			return runtime.SimpleType{}, err
+		}
 	}
 	return st, nil
 }
@@ -570,13 +596,21 @@ func (c *compiler) compileListItemType(n *rawNode, ctx *schemaContext, itemType 
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}
+	return c.compileSimpleTypeReference(n, q)
+}
+
+func (c *compiler) compileSimpleTypeReference(n *rawNode, q runtime.QName) (runtime.SimpleTypeID, error) {
 	if c.simpleTypeQNameKnown(q) {
-		id, err := c.compileSimpleByQName(q)
-		return id, withSchemaCompileLocation(n, err)
+		id, compileErr := c.compileSimpleByQName(q)
+		return id, withSchemaCompileLocation(n, compileErr)
 	}
 	if c.typeQNameKnown(q) {
-		err := CheckSchemaComponentExists(SchemaComponentSimpleType, false, c.rt.formatName(q))
-		return runtime.NoSimpleType, withSchemaCompileLocation(n, err)
+		missingErr := CheckSchemaComponentExists(SchemaComponentSimpleType, false, c.rt.formatName(q))
+		return runtime.NoSimpleType, withSchemaCompileLocation(n, missingErr)
+	}
+	if !c.typeQNameMayBeUnavailable(q) {
+		missingErr := CheckSchemaComponentExists(SchemaComponentSimpleType, false, c.rt.formatName(q))
+		return runtime.NoSimpleType, withSchemaCompileLocation(n, missingErr)
 	}
 	return c.missingSimpleType()
 }
@@ -592,19 +626,32 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name runtime.QNa
 	if err != nil {
 		return runtime.SimpleType{}, err
 	}
+	seen := make(map[runtime.SimpleTypeID]struct{})
+	appendMember := func(node *rawNode, id runtime.SimpleTypeID) error {
+		st.UnionSources = append(st.UnionSources, id)
+		remaining := c.limits.MaxSimpleUnionMemberEntries - c.unionMemberEntries
+		added, ok := c.rt.appendFlattenedUnionMember(&st.Union, id, seen, remaining)
+		c.unionMemberEntries += added
+		if !ok {
+			return withSchemaCompileLocation(node, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple union members exceed MaxSimpleUnionMemberEntries"))
+		}
+		return nil
+	}
 	for _, part := range memberTypes {
 		q, err := c.resolveQNameChecked(n, ctx, part)
 		if err != nil {
 			return runtime.SimpleType{}, err
 		}
-		id, err := c.compileSimpleByQName(q)
+		id, err := c.compileSimpleTypeReference(n, q)
 		if err != nil {
-			return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
+			return runtime.SimpleType{}, err
 		}
 		if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinal(id), runtime.DerivationUnion, SimpleTypeFinalUnionMember); err != nil {
 			return runtime.SimpleType{}, withSchemaCompileLocation(n, err)
 		}
-		st.Union = append(st.Union, id)
+		if err := appendMember(n, id); err != nil {
+			return runtime.SimpleType{}, err
+		}
 	}
 	for _, child := range simpleTypeChildren {
 		id, err := c.compileAnonymousSimple(child, ctx)
@@ -614,10 +661,20 @@ func (c *compiler) compileUnion(n *rawNode, ctx *schemaContext, name runtime.QNa
 		if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinal(id), runtime.DerivationUnion, SimpleTypeFinalUnionMember); err != nil {
 			return runtime.SimpleType{}, withSchemaCompileLocation(child, err)
 		}
-		st.Union = append(st.Union, id)
+		if err := appendMember(child, id); err != nil {
+			return runtime.SimpleType{}, err
+		}
 	}
 	if len(st.Union) == 0 {
 		return runtime.SimpleType{}, xsderrors.InternalInvariant("union source validator admitted missing member types")
 	}
 	return st, nil
+}
+
+func (c *compiler) chargeSimpleUnionMemberEntries(node *rawNode, count int) error {
+	if count > c.limits.MaxSimpleUnionMemberEntries-c.unionMemberEntries {
+		return withSchemaCompileLocation(node, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple union members exceed MaxSimpleUnionMemberEntries"))
+	}
+	c.unionMemberEntries += count
+	return nil
 }

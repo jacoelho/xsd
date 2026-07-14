@@ -155,6 +155,36 @@ func TestRootStartSchemaLocationHintIsUnsupported(t *testing.T) {
 	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
 }
 
+func TestResolveXSITypeSchemaHintUsesResolvedLocalName(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
+	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
+	const want = "unsupported.xsi_schema_location at 2:3 /root: xsi:schemaLocation loading is not supported for type {urn:missing}Missing"
+	for _, lexical := range []string{"p:Missing", "Missing"} {
+		t.Run(lexical, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := resolveXSIType(
+				rt,
+				lexical,
+				func(value string) (string, string, bool) {
+					if value != lexical {
+						return "", "", false
+					}
+					return "urn:missing", "Missing", true
+				},
+				func(ns string) bool { return ns == "urn:missing" },
+				ctx,
+			)
+			if err == nil || err.Error() != want {
+				t.Fatalf("resolveXSIType(%q) error = %v, want %q", lexical, err, want)
+			}
+			expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
+		})
+	}
+}
+
 func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
     targetNamespace="urn:t" xmlns:t="urn:t" elementFormDefault="qualified">
@@ -162,8 +192,13 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
   <xs:complexType name="Derived">
     <xs:complexContent><xs:extension base="t:Base"/></xs:complexContent>
   </xs:complexType>
+  <xs:complexType name="TypeBlockedBase" block="extension"/>
+  <xs:complexType name="TypeBlockedDerived">
+    <xs:complexContent><xs:extension base="t:TypeBlockedBase"/></xs:complexContent>
+  </xs:complexType>
   <xs:element name="allowed" type="t:Base" nillable="true" block="substitution"/>
   <xs:element name="blocked" type="t:Base" block="extension"/>
+  <xs:element name="typeBlocked" type="t:TypeBlockedBase"/>
 </xs:schema>`
 	rt, err := compile.Compile(compile.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(schema)),
@@ -182,18 +217,20 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
 	}
 	err = s.Validate(strings.NewReader(`<t:blocked ` + namespaces + ` xsi:type="t:Derived"/>`))
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
+	err = s.Validate(strings.NewReader(`<t:typeBlocked ` + namespaces + ` xsi:type="t:TypeBlockedDerived"/>`))
+	expectXSDCode(t, err, xsderrors.CodeValidationType)
 }
 
 func xsiAttr(local, value string) stream.Attr {
-	return stream.Attr{Name: xml.Name{Space: vocab.XSINamespaceURI, Local: local}, Value: value}
+	return stream.OwnedAttr(xml.Name{Space: vocab.XSINamespaceURI, Local: local}, value)
 }
 
 func startAttr(ns, local, value string) stream.Attr {
-	return stream.Attr{Name: xml.Name{Space: ns, Local: local}, Value: value}
+	return stream.OwnedAttr(xml.Name{Space: ns, Local: local}, value)
 }
 
 func startAttrs(attrs ...stream.Attr) []stream.Attr {
-	return attrs
+	return stream.OwnedAttrs(attrs...)
 }
 
 func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {

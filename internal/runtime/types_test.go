@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"reflect"
 	"strconv"
 	"testing"
 )
@@ -119,7 +120,40 @@ func TestTypedIDValidators(t *testing.T) {
 			if tt.absent(3) {
 				t.Fatal("absent sentinel should not be a valid ID")
 			}
+			if strconv.IntSize > 32 {
+				maxID := uint64(invalidID)
+				if tt.absent(int(maxID + 1)) {
+					t.Fatal("absent sentinel should not be valid for an oversized table")
+				}
+			}
 		})
+	}
+}
+
+func TestRuntimeIDTableLength(t *testing.T) {
+	t.Parallel()
+
+	if strconv.IntSize <= 32 {
+		t.Skip("runtime ID table boundary requires a 64-bit int")
+	}
+	maxID := uint64(invalidID)
+	if !validRuntimeIDTableLength(int(maxID)) {
+		t.Fatal("maximum sentinel-excluding table length should be valid")
+	}
+	if validRuntimeIDTableLength(int(maxID + 1)) {
+		t.Fatal("table length containing the absent sentinel should be invalid")
+	}
+}
+
+func TestElementIndexIDRejectsAbsentSentinel(t *testing.T) {
+	t.Parallel()
+
+	if strconv.IntSize <= 32 {
+		t.Skip("absent sentinel cannot be represented as a non-negative int")
+	}
+	maxID := uint64(invalidID)
+	if id, ok := elementIndexID(int(maxID)); ok || id != NoElement {
+		t.Fatalf("elementIndexID(invalidID) = %d, %v, want NoElement, false", id, ok)
 	}
 }
 
@@ -199,6 +233,9 @@ func TestTypeID(t *testing.T) {
 	t.Parallel()
 
 	simple := SimpleTypeID(7)
+	if !SimpleRef(simple).IsSimple() || SimpleRef(simple).IsComplex() {
+		t.Fatalf("SimpleRef(%d) has wrong classification", simple)
+	}
 	if got, ok := SimpleRef(simple).Simple(); !ok || got != simple {
 		t.Fatalf("SimpleRef(%d).Simple() = %d, %v; want %d, true", simple, got, ok, simple)
 	}
@@ -207,34 +244,65 @@ func TestTypeID(t *testing.T) {
 	}
 
 	complexID := ComplexTypeID(11)
+	if !ComplexRef(complexID).IsComplex() || ComplexRef(complexID).IsSimple() {
+		t.Fatalf("ComplexRef(%d) has wrong classification", complexID)
+	}
 	if got, ok := ComplexRef(complexID).Complex(); !ok || got != complexID {
 		t.Fatalf("ComplexRef(%d).Complex() = %d, %v; want %d, true", complexID, got, ok, complexID)
 	}
 	if got, ok := ComplexRef(complexID).Simple(); ok || got != NoSimpleType {
 		t.Fatalf("ComplexRef(%d).Simple() = %d, %v; want NoSimpleType, false", complexID, got, ok)
 	}
+	if (TypeID{}).IsSimple() || (TypeID{}).IsComplex() {
+		t.Fatal("zero TypeID has a concrete classification")
+	}
+	invalid := TypeID{kind: typeKind(255), id: 1}
+	if invalid.IsSimple() || invalid.IsComplex() {
+		t.Fatal("invalid TypeID tag has a concrete classification")
+	}
+}
+
+func TestTypeIDRepresentationIsOpaque(t *testing.T) {
+	typ := reflect.TypeFor[TypeID]()
+	for field := range typ.Fields() {
+		if field.IsExported() {
+			t.Fatalf("TypeID field %s is exported", field.Name)
+		}
+	}
 }
 
 func TestValidTypeID(t *testing.T) {
 	t.Parallel()
 
-	if !ValidTypeID(SimpleRef(2), 3, 0) {
+	if !validTypeID(SimpleRef(2), 3, 0) {
 		t.Fatal("SimpleRef(2) should be valid into simple length 3")
 	}
-	if ValidTypeID(SimpleRef(3), 3, 0) {
+	if validTypeID(SimpleRef(3), 3, 0) {
 		t.Fatal("SimpleRef(3) should be invalid into simple length 3")
 	}
-	if !ValidTypeID(ComplexRef(2), 0, 3) {
+	if !validTypeID(ComplexRef(2), 0, 3) {
 		t.Fatal("ComplexRef(2) should be valid into complex length 3")
 	}
-	if ValidTypeID(ComplexRef(3), 0, 3) {
+	if validTypeID(ComplexRef(3), 0, 3) {
 		t.Fatal("ComplexRef(3) should be invalid into complex length 3")
 	}
-	if ValidTypeID(TypeID{}, 3, 3) {
+	if validTypeID(TypeID{}, 3, 3) {
 		t.Fatal("zero TypeID should be invalid")
 	}
-	if ValidTypeID(SimpleRef(0), -1, 3) || ValidTypeID(ComplexRef(0), 3, -1) {
+	if validTypeID(SimpleRef(0), -1, 3) || validTypeID(ComplexRef(0), 3, -1) {
 		t.Fatal("negative table length should reject type IDs")
+	}
+}
+
+func TestNoQNameReturnsIndependentValue(t *testing.T) {
+	first := NoQName()
+	first.Namespace = EmptyNamespaceID
+	first.Local = 0
+	if first == NoQName() {
+		t.Fatal("mutating returned QName did not change the caller-owned value")
+	}
+	if second := NoQName(); second.Namespace != NamespaceID(invalidID) || second.Local != LocalNameID(invalidID) {
+		t.Fatalf("NoQName() after caller mutation = %+v", second)
 	}
 }
 

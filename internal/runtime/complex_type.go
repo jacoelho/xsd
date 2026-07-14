@@ -90,6 +90,7 @@ type ComplexType struct {
 	ExplicitDerivation bool
 	Block              DerivationMask
 	Final              DerivationMask
+	Scope              DeclarationScope
 }
 
 // ComplexTypeByID resolves a complex type ID against a complex-type table.
@@ -150,16 +151,13 @@ func ValidateComplexTypeRuntime(
 		if id != limits.AnyType {
 			return errors.New("complex type has no base type")
 		}
-	} else if !validRuntimeTypeID(ct.Base, DeclRefLimits{
-		SimpleTypeCount:  limits.SimpleTypeCount,
-		ComplexTypeCount: limits.ComplexTypeCount,
-	}) {
+	} else if !validTypeID(ct.Base, limits.SimpleTypeCount, limits.ComplexTypeCount) {
 		return errors.New("complex type references invalid base")
 	}
-	if !ValidUint32Index(uint32(ct.Content), len(models)) {
+	if !ValidContentModelID(ct.Content, len(models)) {
 		return errors.New("complex type references invalid content model")
 	}
-	if !ValidUint32Index(uint32(ct.Attrs), limits.AttributeUseSetCount) {
+	if !ValidAttributeUseSetID(ct.Attrs, limits.AttributeUseSetCount) {
 		return errors.New("complex type references invalid attribute use set")
 	}
 	if !ct.SimpleContent() {
@@ -168,7 +166,7 @@ func ValidateComplexTypeRuntime(
 		}
 		return nil
 	}
-	if !ValidUint32Index(uint32(ct.TextType), limits.SimpleTypeCount) {
+	if !ValidSimpleTypeID(ct.TextType, limits.SimpleTypeCount) {
 		return errors.New("complex type references invalid text type")
 	}
 	if models[ct.Content].Kind != ModelEmpty {
@@ -198,12 +196,12 @@ func validateComplexTypeGraph(types []ComplexType) error {
 			last := len(stack) - 1
 			id := stack[last]
 			base := types[id].Base
-			switch base.Kind {
-			case TypeNone, TypeSimple:
+			switch {
+			case base == (TypeID{}), base.IsSimple():
 				state[id] = complexTypeGraphChecked
 				stack = stack[:last]
-			case TypeComplex:
-				baseID := ComplexTypeID(base.ID)
+			case base.IsComplex():
+				baseID, _ := base.Complex()
 				if !ValidComplexTypeID(baseID, len(types)) {
 					return errors.New("complex type graph references invalid base")
 				}
@@ -256,7 +254,7 @@ func ValidateComplexTypeDerivationRuntime(anyType, id ComplexTypeID, ct ComplexT
 // whose base must be a complex type.
 func ComplexTypeDerivationBaseID(base TypeID, complexTypeCount int) (ComplexTypeID, error) {
 	baseID, ok := base.Complex()
-	if !ok || !ValidUint32Index(uint32(baseID), complexTypeCount) {
+	if !ok || !ValidComplexTypeID(baseID, complexTypeCount) {
 		return NoComplexType, errors.New("complex type derivation references non-complex base")
 	}
 	return baseID, nil

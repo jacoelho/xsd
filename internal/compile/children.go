@@ -480,12 +480,12 @@ func simpleContentDerivationOrder(derivation string) ChildOrder {
 		},
 		{
 			Match:    matchChildLocal(attributeChild, attributeGroup),
-			Level:    1,
+			Level:    2,
 			OrderMsg: "simpleContent" + attributeOutOfOrderSuffix,
 		},
 		{
 			Match:  matchChildLocal(anyAttribute),
-			Level:  2,
+			Level:  3,
 			MaxOne: true,
 			DupMsg: "simpleContent" + oneAnyAttributeSuffix,
 		},
@@ -493,7 +493,7 @@ func simpleContentDerivationOrder(derivation string) ChildOrder {
 	if derivation == restrictionChild {
 		rules = append(rules, ChildRule{
 			Match:    isFacetChild,
-			Level:    0,
+			Level:    1,
 			OrderMsg: simpleContentFacetOutOfOrder,
 		})
 	} else {

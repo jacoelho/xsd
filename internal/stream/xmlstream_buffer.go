@@ -21,10 +21,12 @@ type byteStream struct {
 	nlIndex int
 	line    int
 	col     int
-	buf     [64 * 1024]byte
+	buf     [xmlInputBufferSize]byte
 	unread  bool
 	last    byte
 }
+
+const xmlInputBufferSize = 64 * 1024
 
 func (b *byteStream) reset(r io.Reader) {
 	b.r = r
@@ -37,6 +39,49 @@ func (b *byteStream) reset(r io.Reader) {
 	b.col = 0
 	b.unread = false
 	b.last = 0
+}
+
+func (b *byteStream) detach() {
+	b.r = nil
+	b.err = nil
+	b.off = 0
+	b.end = 0
+	b.nlIndex = -1
+	b.unread = false
+	b.last = 0
+}
+
+// ensure returns the non-consuming input window after reading until at least n
+// bytes are available, an error is known, or the fixed input buffer is full.
+// An error returned with bytes is deferred when the window already satisfies n.
+func (b *byteStream) ensure(n int) ([]byte, error) {
+	for b.end-b.off < n && b.end < len(b.buf) {
+		if b.err != nil {
+			return b.buf[b.off:b.end], b.err
+		}
+		if b.r == nil {
+			return b.buf[b.off:b.end], ErrXMLInputNilReader
+		}
+		read, err := b.r.Read(b.buf[b.end:])
+		if read > 0 {
+			b.end += read
+			b.err = err
+			continue
+		}
+		if err != nil {
+			b.err = err
+			return b.buf[b.off:b.end], err
+		}
+		return b.buf[b.off:b.end], io.ErrNoProgress
+	}
+	return b.buf[b.off:b.end], nil
+}
+
+func (b *byteStream) discardUTF8BOM() {
+	copy(b.buf[:], b.buf[utf8BOMLen:b.end])
+	b.end -= utf8BOMLen
+	b.off = 0
+	b.nlIndex = -1
 }
 
 type bytePosition struct {
@@ -55,6 +100,9 @@ func (b *byteStream) readByte() (byte, error) {
 			err := b.err
 			b.err = nil
 			return 0, err
+		}
+		if b.r == nil {
+			return 0, ErrXMLInputNilReader
 		}
 		n, err := b.r.Read(b.buf[:])
 		if n <= 0 {
@@ -94,6 +142,9 @@ func (b *byteStream) fill() error {
 		err := b.err
 		b.err = nil
 		return err
+	}
+	if b.r == nil {
+		return ErrXMLInputNilReader
 	}
 	n, err := b.r.Read(b.buf[:])
 	if n > 0 {

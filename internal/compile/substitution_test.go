@@ -69,48 +69,6 @@ func TestValidateSubstitutionMembershipMapsRuntimeErrors(t *testing.T) {
 	}
 }
 
-func TestBuildSubstitutionClosureMapsCycleError(t *testing.T) {
-	t.Parallel()
-
-	_, err := BuildSubstitutionClosure(
-		map[runtime.ElementID][]runtime.ElementID{
-			0: {1},
-			1: {0},
-		},
-		func(id runtime.ElementID) (string, bool) {
-			if id == 0 {
-				return "head", true
-			}
-			return "", false
-		},
-	)
-	xerr, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok {
-		t.Fatalf("BuildSubstitutionClosure() error = %T %v, want *xsderrors.Error", err, err)
-	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaReference {
-		t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category, xerr.Code)
-	}
-	if xerr.Message != "cyclic substitution group head" {
-		t.Fatalf("message = %q, want cyclic substitution group head", xerr.Message)
-	}
-}
-
-func TestBuildSubstitutionClosureReturnsRuntimeClosure(t *testing.T) {
-	t.Parallel()
-
-	got, err := BuildSubstitutionClosure(map[runtime.ElementID][]runtime.ElementID{
-		0: {1},
-		1: {2},
-	}, nil)
-	if err != nil {
-		t.Fatalf("BuildSubstitutionClosure() error = %v", err)
-	}
-	if len(got[0]) != 2 || got[0][0] != 1 || got[0][1] != 2 {
-		t.Fatalf("closure[0] = %#v, want [1 2]", got[0])
-	}
-}
-
 type substitutionMembershipRuntime struct {
 	simple  map[runtime.SimpleTypeID]runtime.SimpleTypeDerivation
 	complex map[runtime.ComplexTypeID]runtime.ComplexTypeDerivation

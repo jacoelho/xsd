@@ -23,7 +23,9 @@ func FuzzXMLStreamParser(f *testing.F) {
 		names := NewCache()
 		values := NewCache()
 		parser := new(Parser)
-		parser.Reset(strings.NewReader(input), &names, &values)
+		if err := parser.Reset(strings.NewReader(input), &names, &values); err != nil {
+			return
+		}
 		for tokens := 0; ; tokens++ {
 			if tokens > 4096 {
 				t.Skip()

@@ -11,7 +11,7 @@ func newSessionForTest(rt *runtime.Schema, opts Options) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &s, nil
+	return s, nil
 }
 
 // MaxRetainedBufferCapForTest exposes the retained byte-buffer cap to tests.
@@ -49,7 +49,7 @@ func NewIdentityRecorderForTest() *IdentityRecorderForTest {
 
 // PushPath appends a path segment.
 func (r *IdentityRecorderForTest) PushPath(local string) {
-	r.session.doc.CommitStart(xml.Name{Local: local}, local, false, frame{})
+	r.session.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: local}}, false, frame{})
 }
 
 // PathString returns the current validation path.

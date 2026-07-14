@@ -29,6 +29,8 @@ func TestParseArgsRejectsInvalidInputs(t *testing.T) {
 		{name: "missing_schema", args: []string{"doc.xml"}, want: "--schema is required"},
 		{name: "missing_doc", args: []string{"--schema", "schema.xsd"}, want: "one XML document path is required"},
 		{name: "negative_max_errors", args: []string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, want: "--max-errors cannot be negative"},
+		{name: "rejects_noout", args: []string{"--noout", "--schema", "schema.xsd", "doc.xml"}, want: "flag provided but not defined: -noout"},
+		{name: "rejects_huge", args: []string{"--huge", "--schema", "schema.xsd", "doc.xml"}, want: "flag provided but not defined: -huge"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -49,7 +51,7 @@ func TestRunValidatesDocument(t *testing.T) {
 	doc := writeXMLLintTestFile(t, dir, "valid.xml", `<root><v>7</v></root>`)
 
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--noout", "--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
+	if code := runWithOpen([]string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
 		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
 	}); code != 0 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())

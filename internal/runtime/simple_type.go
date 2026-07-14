@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -92,19 +93,23 @@ func ValidPrimitiveKind(kind PrimitiveKind) bool {
 
 // SimpleType is the runtime record for one simple type.
 type SimpleType struct {
-	Union      []SimpleTypeID
-	Facets     FacetSet
-	Name       QName
-	Base       SimpleTypeID
-	ListItem   SimpleTypeID
-	Variety    SimpleVariety
-	Primitive  PrimitiveKind
-	Final      DerivationMask
-	Whitespace WhitespaceMode
-	Builtin    BuiltinValidationKind
-	Identity   SimpleIdentityKind
-	Fast       SimpleFastKind
-	Missing    bool
+	Union []SimpleTypeID
+	// UnionSources records direct union-member derivation edges until audited
+	// publication. Published validation projections do not retain it.
+	UnionSources []SimpleTypeID
+	Facets       FacetSet
+	Name         QName
+	Base         SimpleTypeID
+	ListItem     SimpleTypeID
+	Variety      SimpleVariety
+	Primitive    PrimitiveKind
+	Final        DerivationMask
+	Whitespace   WhitespaceMode
+	Builtin      BuiltinValidationKind
+	Identity     SimpleIdentityKind
+	Fast         SimpleFastKind
+	Missing      bool
+	Scope        DeclarationScope
 }
 
 // SimpleTypeByID resolves a simple type ID against a simple-type table.
@@ -565,7 +570,6 @@ type FacetCardinalityValue struct {
 // FacetCardinalityShape is the simple-type numeric facet projection used to
 // validate relationships between length and digit-count facets.
 type FacetCardinalityShape struct {
-	Variety        SimpleVariety
 	Length         FacetCardinalityValue
 	MinLength      FacetCardinalityValue
 	MaxLength      FacetCardinalityValue
@@ -577,7 +581,6 @@ type FacetCardinalityShape struct {
 // projection for st.
 func FacetCardinalityShapeForSimpleType(st SimpleType) FacetCardinalityShape {
 	return FacetCardinalityShape{
-		Variety:        st.Variety,
 		Length:         facetCardinalityValue(st.Facets.Length, st.Facets.Present&FacetLength != 0),
 		MinLength:      facetCardinalityValue(st.Facets.MinLength, st.Facets.Present&FacetMinLength != 0),
 		MaxLength:      facetCardinalityValue(st.Facets.MaxLength, st.Facets.Present&FacetMaxLength != 0),
@@ -587,25 +590,33 @@ func FacetCardinalityShapeForSimpleType(st SimpleType) FacetCardinalityShape {
 }
 
 // ValidateFacetCardinalityShape validates numeric facet relationships that
-// depend only on simple-type variety and facet values.
+// depend only on effective facet values.
 func ValidateFacetCardinalityShape(shape FacetCardinalityShape) error {
-	if shape.Length.Present && shape.MinLength.Present {
-		if shape.Variety == SimpleVarietyList {
-			if shape.Length.Value < shape.MinLength.Value {
-				return errors.New("length cannot be less than minLength")
-			}
-		} else if shape.Length.Value != shape.MinLength.Value {
-			return errors.New("length must equal minLength")
-		}
+	if shape.Length.Present && shape.MinLength.Present && shape.Length.Value < shape.MinLength.Value {
+		return errors.New("length cannot be less than minLength")
 	}
-	if shape.Length.Present && shape.MaxLength.Present && shape.Length.Value != shape.MaxLength.Value {
-		return errors.New("length must equal maxLength")
+	if shape.Length.Present && shape.MaxLength.Present && shape.Length.Value > shape.MaxLength.Value {
+		return errors.New("length cannot exceed maxLength")
 	}
 	if shape.MinLength.Present && shape.MaxLength.Present && shape.MinLength.Value > shape.MaxLength.Value {
 		return errors.New("minLength cannot exceed maxLength")
 	}
 	if shape.TotalDigits.Present && shape.FractionDigits.Present && shape.FractionDigits.Value > shape.TotalDigits.Value {
 		return errors.New("fractionDigits cannot exceed totalDigits")
+	}
+	return nil
+}
+
+// ValidateFacetCardinalityAncestry validates the XSD 1.0 restriction-history
+// requirement for effective length with minLength or maxLength. A matching
+// direct-base bound is an inductive witness: validating every base row reaches
+// the required ancestor in which that bound exists without length.
+func ValidateFacetCardinalityAncestry(derived, base FacetCardinalityShape) error {
+	if derived.Length.Present && derived.MinLength.Present && !facetCardinalityEqual(derived.MinLength, base.MinLength) {
+		return errors.New("length requires an inherited minLength with the same value")
+	}
+	if derived.Length.Present && derived.MaxLength.Present && !facetCardinalityEqual(derived.MaxLength, base.MaxLength) {
+		return errors.New("length requires an inherited maxLength with the same value")
 	}
 	return nil
 }
@@ -1227,10 +1238,11 @@ type AtomicSimpleValueProjection struct {
 // ListSimpleValueProjection is the runtime-owned simple-value payload projection
 // for one validated list value.
 type ListSimpleValueProjection struct {
-	Canonical  string
-	ItemIDRefs string
-	Type       SimpleTypeID
-	Needs      SimpleValueNeed
+	Canonical    string
+	ItemIDRefs   string
+	ItemIdentity string
+	Type         SimpleTypeID
+	Needs        SimpleValueNeed
 }
 
 // SimpleValuePayloadType is the simple-type projection needed to validate a
@@ -1369,6 +1381,9 @@ func SimpleValueListNeeds(shape ListSimpleValueNeedShape) ListSimpleValueNeedPla
 	if needStrings {
 		itemNeeds = SimpleNeedCanonical
 	}
+	if shape.Needs.Has(SimpleNeedIdentity) {
+		itemNeeds |= SimpleNeedIdentity
+	}
 	return ListSimpleValueNeedPlan{
 		ItemNeeds:   itemNeeds,
 		NeedStrings: needStrings,
@@ -1432,7 +1447,7 @@ func ListSimpleValue(proj ListSimpleValueProjection) SimpleValue {
 		Type:      proj.Type,
 	}
 	if proj.Needs.Has(SimpleNeedIdentity) {
-		v.Identity = SimpleIdentityKey(PrimitiveString, proj.Canonical)
+		v.Identity = SimpleIdentityKey(PrimitiveString, proj.ItemIdentity)
 	}
 	return v
 }
@@ -1447,6 +1462,21 @@ func AppendSimpleValueIDRefs(refs *strings.Builder, item SimpleValue) {
 		refs.WriteByte(' ')
 	}
 	refs.WriteString(item.IDRefs)
+}
+
+// AppendSimpleValueListIdentity appends one length-framed item identity to a
+// list identity projection. Length framing prevents adjacent item keys from
+// colliding regardless of their primitive canonical representation.
+func AppendSimpleValueListIdentity(identity *strings.Builder, item SimpleValue) bool {
+	if item.Identity == "" {
+		return false
+	}
+	var length [20]byte
+	digits := strconv.AppendInt(length[:0], int64(len(item.Identity)), 10)
+	identity.Write(digits)
+	identity.WriteByte(':')
+	identity.WriteString(item.Identity)
+	return true
 }
 
 // BuiltinValidationKind identifies extra validation attached to built-in types.
@@ -2118,7 +2148,7 @@ func ValidateSimpleTypeRuntime(names *NameTable, st SimpleTypeValidation, limits
 }
 
 func validSimpleTypeRuntimeID(id SimpleTypeID, limits SimpleTypeRefLimits) bool {
-	return ValidUint32Index(uint32(id), limits.SimpleTypeCount)
+	return ValidSimpleTypeID(id, limits.SimpleTypeCount)
 }
 
 // SimpleTypeRestrictionRequired reports whether a simple type is a
@@ -2240,6 +2270,12 @@ func ValidateSimpleValuePayload(value SimpleValue, typ SimpleValuePayloadType) e
 	default:
 		return errors.New("stores invalid simple identity kind")
 	}
+	if typ.Variety == SimpleVarietyList {
+		if !validSimpleListIdentityKey(value.Identity) {
+			return errors.New("identity payload does not match canonical value")
+		}
+		return nil
+	}
 	identity, ok := expectedSimpleValueIdentity(typ, value.Canonical)
 	if !ok || value.Identity != identity {
 		return errors.New("identity payload does not match canonical value")
@@ -2247,17 +2283,54 @@ func ValidateSimpleValuePayload(value SimpleValue, typ SimpleValuePayloadType) e
 	return nil
 }
 
+func validSimpleListIdentityKey(key string) bool {
+	if len(key) < 2 || key[0] != byte(PrimitiveString) || key[1] != '\x1e' {
+		return false
+	}
+	payload := key[2:]
+	for payload != "" {
+		separator := strings.IndexByte(payload, ':')
+		if separator <= 0 || separator > 1 && payload[0] == '0' {
+			return false
+		}
+		for i := range separator {
+			if payload[i] < '0' || payload[i] > '9' {
+				return false
+			}
+		}
+		length, err := strconv.Atoi(payload[:separator])
+		if err != nil || length < 0 || length > len(payload)-separator-1 {
+			return false
+		}
+		payload = payload[separator+1:]
+		item := payload[:length]
+		if len(item) < 2 || !ValidPrimitiveKind(PrimitiveKind(item[0])) || item[1] != '\x1e' {
+			return false
+		}
+		payload = payload[length:]
+	}
+	return true
+}
+
 func expectedSimpleValueIdentity(typ SimpleValuePayloadType, canonical string) (string, bool) {
 	primitive := typ.Primitive
 	if typ.Variety == SimpleVarietyList {
 		primitive = PrimitiveString
 	}
-	if primitive == PrimitiveDecimal {
+	switch primitive {
+	case PrimitiveDecimal:
 		value, err := ParseDecimalValue(canonical)
 		if err != nil {
 			return "", false
 		}
 		canonical = value.CanonicalText()
+	case PrimitiveDuration:
+		value, err := ParseDurationValue(canonical)
+		if err != nil {
+			return "", false
+		}
+		canonical = durationIdentityCanonical(value)
+	default:
 	}
 	return SimpleIdentityKey(primitive, canonical), true
 }
@@ -2362,8 +2435,8 @@ func ValidateSimpleTypeGraphForSimpleTypes(types []SimpleType) error {
 					continue
 				}
 				member := st.Union[frame.next]
-				if !validSimpleTypeGraphID(types, member) {
-					return errors.New("simple type graph references invalid type")
+				if err := validateUnionGraphMember(types, member); err != nil {
+					return err
 				}
 				switch state[member] {
 				case simpleTypeGraphChecking:
@@ -2380,6 +2453,16 @@ func ValidateSimpleTypeGraphForSimpleTypes(types []SimpleType) error {
 				return errors.New("simple type graph has invalid variety")
 			}
 		}
+	}
+	return nil
+}
+
+func validateUnionGraphMember(types []SimpleType, member SimpleTypeID) error {
+	if !validSimpleTypeGraphID(types, member) {
+		return errors.New("simple type graph references invalid type")
+	}
+	if types[member].Variety == SimpleVarietyUnion {
+		return errors.New("union simple type references unflattened union member")
 	}
 	return nil
 }
@@ -2406,5 +2489,5 @@ func appendDFSFrame[T any](stack []T, frame T, limit int) []T {
 }
 
 func validSimpleTypeGraphID(types []SimpleType, id SimpleTypeID) bool {
-	return ValidUint32Index(uint32(id), len(types))
+	return ValidSimpleTypeID(id, len(types))
 }

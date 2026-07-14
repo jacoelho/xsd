@@ -10,9 +10,7 @@ import (
 )
 
 type acceptedChild struct {
-	element runtime.ElementID
-	typ     runtime.TypeID
-	skip    bool
+	start   schemaStart
 	recover bool
 }
 
@@ -21,10 +19,10 @@ func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType 
 }
 
 func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeName, hasXSIType bool, line, col int) (acceptedChild, error) {
-	policy := childFramePolicy(parent.Skip, parent.Nilled)
-	if policy.skip {
-		return s.publishedSchemaSkippedChild(), nil
+	if parent.Mode != elementAssessed {
+		return acceptedChild{start: schemaStart{element: runtime.NoElement, mode: parent.Mode}}, nil
 	}
+	policy := childFramePolicy(parent.Nilled)
 	if policy.issue.valid() {
 		return s.recoverablePublishedSchemaChildIssue(line, col, policy.issue)
 	}
@@ -60,17 +58,16 @@ func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeNa
 	}
 	parent.Content = st
 	if match.Element == runtime.NoElement {
-		return acceptedChild{element: runtime.NoElement, typ: s.rt.AnyType(), skip: match.Skip}, nil
+		if match.Skip {
+			return acceptedChild{start: wildcardSkippedSchemaStart()}, nil
+		}
+		return acceptedChild{start: assessedSchemaStart(runtime.NoElement, s.rt.AnyType())}, nil
 	}
 	decl, declared := s.rt.Element(match.Element)
 	if !declared {
 		return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
 	}
-	return acceptedChild{element: match.Element, typ: decl.Type, skip: match.Skip}, nil
-}
-
-func (s *session) publishedSchemaSkippedChild() acceptedChild {
-	return acceptedChild{element: runtime.NoElement, typ: s.rt.AnyType(), skip: true}
+	return acceptedChild{start: assessedSchemaStart(match.Element, decl.Type)}, nil
 }
 
 func (s *session) recoverablePublishedSchemaChildIssue(line, col int, issue validationIssue) (acceptedChild, error) {
@@ -78,7 +75,7 @@ func (s *session) recoverablePublishedSchemaChildIssue(line, col int, issue vali
 }
 
 func (s *session) recoverablePublishedSchemaChildIssueAt(ctx StartContext, issue validationIssue) (acceptedChild, error) {
-	out := s.publishedSchemaSkippedChild()
+	out := acceptedChild{start: recoverySchemaStart()}
 	out.recover = true
 	return out, validationFromIssue(ctx, issue)
 }
@@ -98,7 +95,7 @@ func (s *session) end(line, col int, ee stream.EndElement) error {
 	if errors.Is(stop, errSemanticStop) {
 		stop = nil
 	} else if stop == nil && s.hasIdentityConstraints {
-		stop = s.finishFrameIdentity(line, col)
+		stop = s.finishFrameIdentity(f, line, col)
 		if errors.Is(stop, errSemanticStop) {
 			stop = nil
 		}
@@ -117,18 +114,18 @@ func (s *session) end(line, col int, ee stream.EndElement) error {
 }
 
 func (s *session) validateFrameEnd(f *frame, line, col int) error {
-	if f.Skip {
-		return nil
-	}
-	if f.Nilled && (f.HasChild || f.HasText) {
-		err := validation(s.startContext(line, col), xsderrors.CodeValidationNil, "nilled element must be empty")
-		if recoverErr := s.recover(err); recoverErr != nil {
-			return recoverErr
-		}
+	switch f.Mode {
+	case elementWildcardSkipped:
+		return s.rejectUnassessedIdentityElement(line, col, true)
+	case elementRecovery:
+		return s.rejectUnassessedIdentityElement(line, col, false)
+	case elementAssessed:
+	default:
+		return xsderrors.InternalInvariant("element assessment mode is invalid")
 	}
 	if !f.Nilled {
 		if err := s.completeFrame(f, line, col); err != nil {
-			if recoverErr := s.recover(err); recoverErr != nil {
+			if recoverErr := s.recoverAssessment(err); recoverErr != nil {
 				return recoverErr
 			}
 		}
@@ -140,12 +137,33 @@ func (s *session) validateFrameEnd(f *frame, line, col int) error {
 	}
 	contentCaptured, err := s.validateSimpleContent(f, line, col)
 	if err != nil {
-		return s.recover(err)
+		return s.recoverAssessment(err)
 	}
 	if !s.hasIdentityConstraints {
 		return nil
 	}
 	return s.captureEndIdentity(f, contentCaptured, line, col)
+}
+
+func (s *session) finishNillableKeyFields(f *frame) error {
+	if !f.ElementDeclared {
+		return nil
+	}
+	decl, ok := s.rt.Element(f.Element)
+	if !ok {
+		return xsderrors.InternalInvariant("element declaration metadata is invalid")
+	}
+	if !decl.Nillable {
+		return nil
+	}
+	fields, err := s.identityElementFields()
+	if err != nil {
+		return err
+	}
+	if f.AssessmentInvalid {
+		return s.doc.identity.InvalidateFields(fields)
+	}
+	return s.doc.identity.MarkNillableKeyFields(s.rt, fields)
 }
 
 func (s *session) captureEndIdentity(f *frame, contentCaptured bool, line, col int) error {
@@ -168,17 +186,31 @@ func (s *session) captureEndIdentity(f *frame, contentCaptured bool, line, col i
 		}
 		return s.recover(s.captureIdentityFieldKey(fields, NilledElementIdentityKey(), line, col))
 	case EndIdentityCaptureComplexElement:
-		return s.recover(s.captureIdentityComplexElement(s.doc.text[f.TextStart:], line, col))
+		return s.recover(s.rejectIdentityElementWithoutSimpleValue(line, col))
 	default:
 		return xsderrors.InternalInvariant("unknown end identity capture action")
 	}
 }
 
-func (s *session) finishFrameIdentity(line, col int) error {
-	if err := s.finishIdentitySelections(len(s.doc.namePath), line, col); err != nil {
+func (s *session) finishFrameIdentity(f *frame, line, col int) error {
+	depth := len(s.doc.namePath)
+	if err := s.finishNillableKeyFields(f); err != nil {
 		return err
 	}
-	return s.closeIdentityScopes(len(s.doc.namePath))
+	if err := s.finishIdentitySelections(depth, line, col, identitySelectionsOwnedHere); err != nil {
+		return err
+	}
+	invalid, err := s.closeIdentityScopes(depth)
+	if err != nil {
+		return err
+	}
+	if invalid {
+		f.AssessmentInvalid = true
+		if err := s.finishNillableKeyFields(f); err != nil {
+			return err
+		}
+	}
+	return s.finishIdentitySelections(depth, line, col, identitySelectionsOwnedElsewhere)
 }
 
 func (s *session) completeFrame(f *frame, line, col int) error {

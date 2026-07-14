@@ -16,6 +16,8 @@ func TestNormalizeOptionsRejectsNegativeLimits(t *testing.T) {
 		{name: "identity scopes", opts: Options{MaxIdentityScopes: -1}},
 		{name: "identity entries", opts: Options{MaxIdentityEntries: -1}},
 		{name: "identity tuple bytes", opts: Options{MaxIdentityTupleBytes: -1}},
+		{name: "schema location namespaces", opts: Options{MaxSchemaLocationNamespaces: -1}},
+		{name: "schema location namespace bytes", opts: Options{MaxSchemaLocationNamespaceBytes: -1}},
 		{name: "instance depth", opts: Options{MaxInstanceDepth: -1}},
 		{name: "instance attributes", opts: Options{MaxInstanceAttributes: -1}},
 		{name: "instance text bytes", opts: Options{MaxInstanceTextBytes: -1}},
@@ -40,29 +42,44 @@ func TestNormalizeOptionsRejectsNegativeLimits(t *testing.T) {
 
 func TestNormalizeOptionsCopiesLimits(t *testing.T) {
 	limits, err := NormalizeOptions(Options{
-		MaxErrors:             1,
-		MaxIdentityScopes:     2,
-		MaxIdentityEntries:    3,
-		MaxIdentityTupleBytes: 4,
-		MaxInstanceDepth:      5,
-		MaxInstanceAttributes: 6,
-		MaxInstanceTextBytes:  7,
-		MaxInstanceTokenBytes: 8,
+		MaxErrors:                       1,
+		MaxIdentityScopes:               2,
+		MaxIdentityEntries:              3,
+		MaxIdentityTupleBytes:           4,
+		MaxSchemaLocationNamespaces:     5,
+		MaxSchemaLocationNamespaceBytes: 6,
+		MaxInstanceDepth:                7,
+		MaxInstanceAttributes:           8,
+		MaxInstanceTextBytes:            9,
+		MaxInstanceTokenBytes:           10,
 	})
 	if err != nil {
 		t.Fatalf("NormalizeOptions() error = %v", err)
 	}
 	want := Limits{
-		Errors:             1,
-		IdentityScopes:     2,
-		IdentityEntries:    3,
-		IdentityTupleBytes: 4,
-		InstanceDepth:      5,
-		InstanceAttributes: 6,
-		InstanceTextBytes:  7,
-		InstanceTokenBytes: 8,
+		Errors:                       1,
+		IdentityScopes:               2,
+		IdentityEntries:              3,
+		IdentityTupleBytes:           4,
+		SchemaLocationNamespaces:     5,
+		SchemaLocationNamespaceBytes: 6,
+		InstanceDepth:                7,
+		InstanceAttributes:           8,
+		InstanceTextBytes:            9,
+		InstanceTokenBytes:           10,
 	}
 	if limits != want {
 		t.Fatalf("limits = %+v, want %+v", limits, want)
+	}
+}
+
+func TestNormalizeOptionsUsesFiniteSchemaLocationDefaults(t *testing.T) {
+	limits, err := NormalizeOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if limits.SchemaLocationNamespaces != defaultMaxSchemaLocationNamespaces ||
+		limits.SchemaLocationNamespaceBytes != defaultMaxSchemaLocationNamespaceBytes {
+		t.Fatalf("schema-location defaults = %d, %d", limits.SchemaLocationNamespaces, limits.SchemaLocationNamespaceBytes)
 	}
 }

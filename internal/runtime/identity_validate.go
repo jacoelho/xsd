@@ -18,34 +18,23 @@ func ValidateIdentityConstraints(names *NameTable, identities []IdentityConstrai
 	return nil
 }
 
-// EqualIdentityConstraintIDs reports whether two identity-constraint ID lists
-// expose the same per-element identity constraint projection.
-func EqualIdentityConstraintIDs(a, b []IdentityConstraintID) bool {
-	return slices.Equal(a, b)
-}
-
-// EqualElementIdentityConstraintReadProjectionForDecls reports whether reads
-// expose the identity constraints attached to each element declaration.
-func EqualElementIdentityConstraintReadProjectionForDecls(reads [][]IdentityConstraintID, decls []ElementDecl) bool {
-	if len(reads) != len(decls) {
-		return false
-	}
-	for i := range reads {
-		if !EqualIdentityConstraintIDs(reads[i], decls[i].Identity) {
-			return false
+func validateIdentityConstraintOwnership(elements []ElementDecl, identityCount int) error {
+	owned := make([]bool, identityCount)
+	for _, element := range elements {
+		for _, id := range element.Identity {
+			if !ValidIdentityConstraintID(id, identityCount) {
+				return errors.New("element declaration references invalid identity constraint")
+			}
+			if owned[id] {
+				return errors.New("identity constraint is attached more than once")
+			}
+			owned[id] = true
 		}
 	}
-	return true
-}
-
-// ValidateElementIdentityConstraintReadProjectionForDecls validates the
-// per-element identity-constraint read projection table.
-func ValidateElementIdentityConstraintReadProjectionForDecls(reads [][]IdentityConstraintID, decls []ElementDecl) error {
-	if len(reads) != len(decls) {
-		return errors.New("element identity constraint projection count does not match declarations")
-	}
-	if !EqualElementIdentityConstraintReadProjectionForDecls(reads, decls) {
-		return errors.New("element identity constraint projection does not match declaration")
+	for _, attached := range owned {
+		if !attached {
+			return errors.New("identity constraint is not attached to an element declaration")
+		}
 	}
 	return nil
 }
@@ -86,7 +75,7 @@ func validateIdentityConstraint(names *NameTable, identities []IdentityConstrain
 			return errors.New("non-keyref identity constraint stores refer")
 		}
 	case IdentityKeyRef:
-		if !ValidUint32Index(uint32(ic.Refer), len(identities)) {
+		if !ValidIdentityConstraintID(ic.Refer, len(identities)) {
 			return errors.New("keyref identity constraint references invalid key")
 		}
 		ref := identities[ic.Refer]
@@ -169,7 +158,7 @@ func validIdentityFieldPath(names *NameTable, path IdentityFieldPath) bool {
 			!path.Attr &&
 			!path.AttrWildcard &&
 			!path.AttrNamespaceSet &&
-			path.Attribute == NoQName &&
+			path.Attribute == NoQName() &&
 			path.AttrNamespace == EmptyNamespaceID
 	}
 	if !validIdentityAttributePath(names, path) {
@@ -182,7 +171,7 @@ func validIdentityAttributePath(names *NameTable, path IdentityFieldPath) bool {
 	if !path.Attr {
 		return !path.AttrWildcard &&
 			!path.AttrNamespaceSet &&
-			path.Attribute == NoQName &&
+			path.Attribute == NoQName() &&
 			path.AttrNamespace == EmptyNamespaceID
 	}
 	if !path.AttrWildcard {
@@ -190,7 +179,7 @@ func validIdentityAttributePath(names *NameTable, path IdentityFieldPath) bool {
 			path.AttrNamespace == EmptyNamespaceID &&
 			names.ValidQName(path.Attribute)
 	}
-	if path.Attribute != NoQName {
+	if path.Attribute != NoQName() {
 		return false
 	}
 	if !path.AttrNamespaceSet {
@@ -214,7 +203,7 @@ func validIdentityStep(names *NameTable, step IdentityStep) bool {
 			step.Namespace == EmptyNamespaceID &&
 			names.ValidQName(step.Name)
 	}
-	if step.Name != NoQName {
+	if step.Name != NoQName() {
 		return false
 	}
 	if !step.NamespaceSet {

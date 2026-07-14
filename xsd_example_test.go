@@ -3,6 +3,7 @@ package xsd_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,7 @@ func (r readmeResolver) ResolveSchema(_ string, location string) (xsd.SchemaSour
 }
 
 func ExampleCompile() {
-	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(publicAPISchema)))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -39,15 +40,17 @@ func ExampleCompile() {
 func ExampleCompileWithOptions() {
 	engine, err := xsd.CompileWithOptions(
 		xsd.CompileOptions{
-			MaxSchemaDepth:        256,
-			MaxSchemaAttributes:   256,
-			MaxSchemaTokenBytes:   4 << 20,
-			MaxSchemaSourceBytes:  64 << 20,
-			MaxSchemaNames:        0,
-			MaxFiniteOccurs:       1_000_000,
-			MaxContentModelStates: 16_384,
+			MaxSchemaDepth:                256,
+			MaxSchemaAttributes:           256,
+			MaxSchemaTokenBytes:           4 << 20,
+			MaxSchemaSourceBytes:          64 << 20,
+			MaxSchemaNames:                0,
+			MaxFiniteOccurs:               1_000_000,
+			MaxContentModelStates:         16_384,
+			MaxSubstitutionClosureEntries: 1_000_000,
+			MaxSimpleUnionMemberEntries:   1_000_000,
 		},
-		xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)),
+		xsd.Bytes("schema.xsd", []byte(publicAPISchema)),
 	)
 	if err != nil {
 		fmt.Println(err)
@@ -58,8 +61,10 @@ func ExampleCompileWithOptions() {
 	// Output: valid: true
 }
 
-func ExampleReader() {
-	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)))
+func ExampleOpen() {
+	engine, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
+		return io.NopCloser(strings.NewReader(publicAPISchema)), nil
+	}))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -80,23 +85,12 @@ func ExampleBytes() {
 	// Output: valid: true
 }
 
-func ExampleLimitedReader() {
-	engine, err := xsd.Compile(xsd.LimitedReader("schema.xsd", strings.NewReader(publicAPISchema), 64<<20))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	err = engine.Validate(strings.NewReader(`<root>42</root>`))
-	fmt.Println("valid:", err == nil)
-	// Output: valid: true
-}
-
 func ExampleSchemaSource_WithResolver() {
-	schema := strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:include schemaLocation="types.xsd"/>
   <xs:element name="root" type="Root"/>
 </xs:schema>`)
-	engine, err := xsd.Compile(xsd.Reader("schema.xsd", schema).WithResolver(readmeResolver{
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", schema).WithResolver(readmeResolver{
 		"types.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Root"><xs:sequence/></xs:complexType>
 </xs:schema>`,
@@ -111,7 +105,7 @@ func ExampleSchemaSource_WithResolver() {
 }
 
 func Example_diagnostics() {
-	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(publicAPISchema)))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -127,7 +121,7 @@ func Example_diagnostics() {
 }
 
 func ExampleEngine_Validate() {
-	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(publicAPISchema)))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -153,7 +147,7 @@ func ExampleEngine_Validate() {
 }
 
 func TestPublicErrorInspection(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Reader("schema.xsd", strings.NewReader(publicAPISchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(publicAPISchema)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}

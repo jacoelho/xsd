@@ -217,7 +217,7 @@ func TestValidateIdentityConstraints(t *testing.T) {
 			mutate: func(identities []IdentityConstraint, names map[string]QName) {
 				identities[0].Fields = []IdentityField{{
 					Paths: []IdentityFieldPath{{
-						Attribute: NoQName,
+						Attribute: NoQName(),
 						Steps:     []IdentityStep{{Name: names["child"]}},
 					}},
 				}}
@@ -270,7 +270,7 @@ func TestValidateIdentityConstraintsAllowsEmptyAttributeLookupMap(t *testing.T) 
 		Selector: []IdentityPath{{Steps: []IdentityStep{{Name: names["item"]}}}},
 		Fields: []IdentityField{{
 			Paths: []IdentityFieldPath{{
-				Attribute: NoQName,
+				Attribute: NoQName(),
 				Steps:     []IdentityStep{{Name: names["child"]}},
 			}},
 		}},
@@ -285,35 +285,6 @@ func TestValidateIdentityConstraintsAllowsEmptyAttributeLookupMap(t *testing.T) 
 	}
 }
 
-func TestElementIdentityConstraintReadProjectionForDecls(t *testing.T) {
-	t.Parallel()
-
-	decls := []ElementDecl{
-		{Identity: []IdentityConstraintID{1, 2}},
-		{Identity: []IdentityConstraintID{3}},
-	}
-	declReads := moveElementIdentityConstraintReads(decls)
-	if !EqualElementIdentityConstraintReadProjectionForDecls(declReads, decls) {
-		t.Fatalf("moveElementIdentityConstraintReads() = %v, want projection for %v", declReads, decls)
-	}
-	if EqualElementIdentityConstraintReadProjectionForDecls(declReads[:1], decls) {
-		t.Fatal("EqualElementIdentityConstraintReadProjectionForDecls() accepted mismatched table length")
-	}
-	if err := ValidateElementIdentityConstraintReadProjectionForDecls(declReads, decls); err != nil {
-		t.Fatalf("ValidateElementIdentityConstraintReadProjectionForDecls() error = %v", err)
-	}
-	if err := ValidateElementIdentityConstraintReadProjectionForDecls(declReads[:1], decls); err == nil || err.Error() != "element identity constraint projection count does not match declarations" {
-		t.Fatalf("ValidateElementIdentityConstraintReadProjectionForDecls(short) error = %v, want count invariant", err)
-	}
-	malformed := [][]IdentityConstraintID{{9, 2}, {3}}
-	if EqualElementIdentityConstraintReadProjectionForDecls(malformed, decls) {
-		t.Fatal("EqualElementIdentityConstraintReadProjectionForDecls() accepted mismatched declaration")
-	}
-	if err := ValidateElementIdentityConstraintReadProjectionForDecls(malformed, decls); err == nil || err.Error() != "element identity constraint projection does not match declaration" {
-		t.Fatalf("ValidateElementIdentityConstraintReadProjectionForDecls(changed) error = %v, want mismatch invariant", err)
-	}
-}
-
 func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -324,7 +295,7 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 	)
 	refreshIdentityLookup(&identities[0])
 	want := cloneIdentityConstraintsForTest(identities)
-	reads := moveIdentityConstraintReads(identities)
+	reads := newIdentityConstraintReads(identities)
 	if !EqualIdentityConstraintReadProjection(reads, identities) {
 		t.Fatal("EqualIdentityConstraintReadProjection() rejected matching projection")
 	}
@@ -347,7 +318,7 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 	if EqualIdentityConstraintReadProjection(reads, changed) {
 		t.Fatal("EqualIdentityConstraintReadProjection() accepted mismatched projection")
 	}
-	if err := ValidateIdentityConstraintReadProjection(moveIdentityConstraintReads(want), want); err != nil {
+	if err := ValidateIdentityConstraintReadProjection(newIdentityConstraintReads(want), want); err != nil {
 		t.Fatalf("ValidateIdentityConstraintReadProjection() error = %v", err)
 	}
 	if err := ValidateIdentityConstraintReadProjection(reads[:1], want); err == nil || err.Error() != "identity constraint read projection count does not match constraints" {
@@ -406,7 +377,7 @@ func TestIdentityReadAccessors(t *testing.T) {
 		IdentityFieldPath{Attr: true, AttrWildcard: true},
 	)
 	refreshIdentityLookup(&identities[0])
-	reads := moveIdentityConstraintReads(identities)
+	reads := newIdentityConstraintReads(identities)
 	invalid := IdentityConstraintID(99)
 
 	constraints, constraintsOK := ElementIdentityConstraintIDs([][]IdentityConstraintID{{0, 1}}, 0)

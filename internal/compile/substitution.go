@@ -16,9 +16,6 @@ type SubstitutionMembershipLabels struct {
 	HeadType   string
 }
 
-// ElementLabelFunc returns a formatted element label for diagnostics.
-type ElementLabelFunc func(runtime.ElementID) (string, bool)
-
 // ValidateSubstitutionMembership validates one declared substitution member and
 // maps runtime rejection reasons to schema diagnostics.
 func ValidateSubstitutionMembership(
@@ -26,7 +23,10 @@ func ValidateSubstitutionMembership(
 	head, member runtime.ElementDecl,
 	labels SubstitutionMembershipLabels,
 ) error {
-	err := runtime.ValidateSubstitutionMembership(rt, head, member)
+	return substitutionMembershipDiagnostic(runtime.ValidateSubstitutionMembership(rt, head, member), labels)
+}
+
+func substitutionMembershipDiagnostic(err error, labels SubstitutionMembershipLabels) error {
 	switch {
 	case err == nil:
 		return nil
@@ -41,19 +41,4 @@ func ValidateSubstitutionMembership(
 	default:
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, err.Error())
 	}
-}
-
-// BuildSubstitutionClosure delegates closure construction to runtime and maps
-// construction failures to schema diagnostics.
-func BuildSubstitutionClosure(direct map[runtime.ElementID][]runtime.ElementID, label ElementLabelFunc) (map[runtime.ElementID][]runtime.ElementID, error) {
-	closure, err := runtime.BuildSubstitutionClosure(direct)
-	if err == nil {
-		return closure, nil
-	}
-	if cycle, ok := errors.AsType[runtime.SubstitutionCycleError](err); ok && label != nil {
-		if name, ok := label(cycle.Element); ok {
-			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+name)
-		}
-	}
-	return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, err.Error())
 }

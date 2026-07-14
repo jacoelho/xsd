@@ -16,10 +16,7 @@ func (c *compiler) index() error {
 
 func (c *compiler) indexSchemaDocument(document schemaSetDocument) error {
 	doc := document.doc
-	ctx, err := c.schemaContext(document)
-	if err != nil {
-		return err
-	}
+	ctx := c.schemaContext(document)
 	c.contexts[doc] = ctx
 	for child := range doc.root.xsdChildren() {
 		if err := c.indexTopLevelSchemaChild(child, ctx); err != nil {
@@ -29,13 +26,9 @@ func (c *compiler) indexSchemaDocument(document schemaSetDocument) error {
 	return nil
 }
 
-func (c *compiler) schemaContext(document schemaSetDocument) (*schemaContext, error) {
+func (c *compiler) schemaContext(document schemaSetDocument) *schemaContext {
 	doc := document.doc
-	root := doc.root
-	defaults, err := parseSchemaDefaults(root)
-	if err != nil {
-		return nil, err
-	}
+	defaults := doc.defaults
 	ctx := &schemaContext{
 		doc:              doc,
 		targetNS:         defaults.TargetNamespace,
@@ -49,24 +42,7 @@ func (c *compiler) schemaContext(document schemaSetDocument) (*schemaContext, er
 	if ctx.targetNS == "" {
 		ctx.targetNS = document.effectiveTargetNS
 	}
-	return ctx, nil
-}
-
-func parseSchemaDefaults(root *rawNode) (SchemaDefaults, error) {
-	target, hasTarget := root.attr(vocab.XSDAttrTargetNamespace)
-	elementForm, hasElementForm := root.attr(vocab.XSDAttrElementFormDefault)
-	attributeForm, hasAttributeForm := root.attr(vocab.XSDAttrAttributeFormDefault)
-	defaults, err := ParseSchemaDefaults(SchemaDefaultAttrs{
-		TargetNamespace:         target,
-		BlockDefault:            root.attrValue(vocab.XSDAttrBlockDefault),
-		FinalDefault:            root.attrValue(vocab.XSDAttrFinalDefault),
-		ElementFormDefault:      elementForm,
-		AttributeFormDefault:    attributeForm,
-		HasTargetNamespace:      hasTarget,
-		HasElementFormDefault:   hasElementForm,
-		HasAttributeFormDefault: hasAttributeForm,
-	})
-	return defaults, withSchemaCompileLocation(root, err)
+	return ctx
 }
 
 func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) error {
@@ -166,6 +142,9 @@ func validateRawModelGroupSyntax(n *rawNode, limits Limits) error {
 				return err
 			}
 		case vocab.XSDElemGroup:
+			if err := checkGroupOccurrenceAttributes(child); err != nil {
+				return err
+			}
 			_, hasRef := child.attr(vocab.XSDAttrRef)
 			if err := ValidateGroupUseSource(hasRef); err != nil {
 				return withSchemaCompileLocation(child, err)

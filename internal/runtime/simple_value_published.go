@@ -10,10 +10,14 @@ import (
 )
 
 func (rt *Schema) validatePublishedSimpleValue(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
+	return rt.validatePublishedSimpleValueWithScratch(id, lexical, resolve, needs, nil)
+}
+
+func (rt *Schema) validatePublishedSimpleValueWithScratch(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
 	if value, handled, err := validateSimpleValueRouteReadFast(rt.runtime.SimpleValueRoutes, rt.runtime.Notations, id, lexical, resolve, needs); handled {
 		return value, err
 	}
-	return validateSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs)
+	return validateSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs, scratch)
 }
 
 type publishedSimpleValueMetadataReader struct {
@@ -25,7 +29,7 @@ func (r publishedSimpleValueMetadataReader) simpleValueType(id SimpleTypeID) (Si
 	if !ok {
 		return SimpleValueType{}, false
 	}
-	cold, ok := r.runtime.SimpleValueCold.read(id)
+	cold, ok := r.runtime.SimpleTypeCold.read(id)
 	if !ok {
 		return SimpleValueType{}, false
 	}
@@ -36,7 +40,7 @@ func (r publishedSimpleValueMetadataReader) simpleValueFacets(id SimpleTypeID) (
 	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
 		return SimpleValueFacets{}, false
 	}
-	cold, ok := r.runtime.SimpleValueCold.read(id)
+	cold, ok := r.runtime.SimpleTypeCold.read(id)
 	if !ok {
 		return SimpleValueFacets{}, false
 	}
@@ -47,7 +51,7 @@ func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id Simp
 	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
 		return false, false
 	}
-	cold, ok := r.runtime.SimpleValueCold.read(id)
+	cold, ok := r.runtime.SimpleTypeCold.read(id)
 	if !ok {
 		return false, false
 	}
@@ -70,8 +74,8 @@ func (publishedSimpleValueMetadataReader) simpleValueUnsupported(err error) bool
 	return xsderrors.IsUnsupported(err)
 }
 
-func (rt *Schema) validatePublishedRawSimpleValue(id SimpleTypeID, raw []byte) (bool, error) {
-	return validateResolvedRawSimpleValue(rawSimpleValueResolver{runtime: &rt.runtime}, id, raw)
+func (rt *Schema) validatePublishedRawSimpleValueWithScratch(id SimpleTypeID, raw []byte, scratch *StringPatternScratch) (bool, error) {
+	return validateResolvedRawSimpleValue(rawSimpleValueResolver{runtime: &rt.runtime, scratch: scratch}, id, raw)
 }
 
 func validateRawStringLength(raw []byte, whitespace WhitespaceMode, facets LengthFacetValues) error {

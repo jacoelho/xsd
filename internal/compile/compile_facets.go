@@ -34,6 +34,86 @@ func (c *compiler) compileFacetChildren(children []*rawNode, st *runtime.SimpleT
 	return c.validateCompiledFacetsBuild(*st, base, state.orderedStep)
 }
 
+func (c *compiler) validateUnavailableFacetChildren(
+	children []*rawNode,
+	st *runtime.SimpleType,
+	base runtime.SimpleTypeID,
+	skipNonFacets bool,
+) error {
+	probe := *st
+	var single runtime.FacetMask
+	var ordered runtime.OrderedFacetStep
+	var patterns []runtime.StringPattern
+	for _, child := range children {
+		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
+			continue
+		}
+		if skipNonFacets && !IsFacetLocal(child.Name.Local) {
+			continue
+		}
+		_, hasValue := child.attr(vocab.XSDAttrValue)
+		compile, err := ValidateFacetSource(FacetSource{
+			Local: child.Name.Local, InXSDNamespace: true, HasValue: hasValue,
+			Variety: probe.Variety, Primitive: probe.Primitive,
+		})
+		if err != nil {
+			return withSchemaCompileLocation(child, err)
+		}
+		if !compile {
+			continue
+		}
+		mask, _ := facetMaskForLocal(child.Name.Local)
+		if mask != runtime.FacetPattern && mask != runtime.FacetEnumeration {
+			if single&mask != 0 {
+				return withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "duplicate "+child.Name.Local+" facet"))
+			}
+			single |= mask
+		}
+		facet, err := facetAttrs(child)
+		if err != nil {
+			return err
+		}
+		switch child.Name.Local {
+		case vocab.XSDFacetLength, vocab.XSDFacetMinLength, vocab.XSDFacetMaxLength, vocab.XSDFacetTotalDigits, vocab.XSDFacetFractionDigits:
+			if err := compileSizeFacet(&probe, child, facet.value, facet.fixed); err != nil {
+				return err
+			}
+		case vocab.XSDFacetMinInclusive:
+			ordered.MinInclusive = true
+		case vocab.XSDFacetMaxInclusive:
+			ordered.MaxInclusive = true
+		case vocab.XSDFacetMinExclusive:
+			ordered.MinExclusive = true
+		case vocab.XSDFacetMaxExclusive:
+			ordered.MaxExclusive = true
+		case vocab.XSDFacetPattern:
+			if c.regexCategories == nil {
+				c.regexCategories = make(RegexCategoryCache)
+			}
+			pattern, err := CompilePatternFacet(facet.value, c.regexCategories)
+			if err != nil {
+				return withSchemaCompileLocation(child, err)
+			}
+			patterns = append(patterns, pattern)
+		case vocab.XSDFacetWhiteSpace:
+			if err := c.compileWhitespaceFacet(&probe, base, child, facet.value, facet.fixed); err != nil {
+				return err
+			}
+		}
+	}
+	if err := runtime.ValidateOrderedFacetStep(ordered); err != nil {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
+	}
+	if len(patterns) != 0 {
+		runtime.AppendPatternFacetGroup(&probe.Facets, patterns)
+	}
+	if err := c.validateCompiledFacetsBuild(probe, base, runtime.OrderedFacetStep{}); err != nil {
+		return err
+	}
+	*st = probe
+	return nil
+}
+
 type compiledFacetState struct {
 	inheritedEnumeration  []runtime.CompiledLiteral
 	restrictedEnumeration []runtime.CompiledLiteral

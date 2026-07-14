@@ -203,10 +203,10 @@ func TestCheckLocalTypeAttributes(t *testing.T) {
 		wantMessage string
 	}{
 		{
-			name:     "simple type accepts anonymous attrs",
+			name:     "simple type accepts anonymous id",
 			validate: checkLocalSimpleTypeAttributes,
 			local:    simpleTypeChild,
-			attrs:    []string{"id", "final"},
+			attrs:    []string{"id"},
 		},
 		{
 			name:        "simple type rejects name",
@@ -214,6 +214,13 @@ func TestCheckLocalTypeAttributes(t *testing.T) {
 			local:       simpleTypeChild,
 			attrs:       []string{"id", "name"},
 			wantMessage: "local simpleType cannot have name",
+		},
+		{
+			name:        "simple type rejects final",
+			validate:    checkLocalSimpleTypeAttributes,
+			local:       simpleTypeChild,
+			attrs:       []string{"id", "final"},
+			wantMessage: "local simpleType cannot have final",
 		},
 		{
 			name:     "complex type accepts anonymous attrs",
@@ -227,6 +234,27 @@ func TestCheckLocalTypeAttributes(t *testing.T) {
 			local:       complexTypeChild,
 			attrs:       []string{"id", "name"},
 			wantMessage: "local complexType cannot have name",
+		},
+		{
+			name:        "complex type rejects abstract",
+			validate:    checkLocalComplexTypeAttributes,
+			local:       complexTypeChild,
+			attrs:       []string{"id", "abstract"},
+			wantMessage: "local complexType cannot have abstract",
+		},
+		{
+			name:        "complex type rejects block",
+			validate:    checkLocalComplexTypeAttributes,
+			local:       complexTypeChild,
+			attrs:       []string{"id", "block"},
+			wantMessage: "local complexType cannot have block",
+		},
+		{
+			name:        "complex type rejects final",
+			validate:    checkLocalComplexTypeAttributes,
+			local:       complexTypeChild,
+			attrs:       []string{"id", "final"},
+			wantMessage: "local complexType cannot have final",
 		},
 	}
 	for _, tt := range tests {

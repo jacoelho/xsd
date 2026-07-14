@@ -1,22 +1,11 @@
 package validate
 
 import (
-	"bufio"
 	"errors"
-	"io"
 
 	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
-
-// PrepareInstanceReaderWithBuffer validates the instance prolog and returns a buffered reader.
-func PrepareInstanceReaderWithBuffer(r io.Reader, br *bufio.Reader) (*bufio.Reader, error) {
-	reader, err := stream.PrepareXMLReaderWithBuffer(r, br)
-	if err != nil {
-		return nil, instanceReaderError(err)
-	}
-	return reader, nil
-}
 
 func instanceReaderError(err error) error {
 	switch {
@@ -35,6 +24,13 @@ func instanceReaderError(err error) error {
 
 // StreamError classifies parser errors as validation diagnostics.
 func StreamError(line, col int, path string, err error) error {
+	if errors.Is(err, stream.ErrUnsupportedNonUTF8) {
+		return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedNonUTF8, line, col, path, "instance documents must be UTF-8", err)
+	}
+	var versionErr stream.UnsupportedXMLVersionError
+	if errors.As(err, &versionErr) {
+		return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedXML11, line, col, path, versionErr.Error(), err)
+	}
 	if stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {
 		return xsderrors.Validation(xsderrors.CodeValidationLimit, line, col, path, err.Error())
 	}

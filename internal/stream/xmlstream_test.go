@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"bytes"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -9,6 +10,39 @@ import (
 	"testing"
 	"time"
 )
+
+func TestXMLStreamParserRejectsTypedNilReader(t *testing.T) {
+	var names Cache
+	var values Cache
+	var p Parser
+	if err := p.Reset(strings.NewReader(`<old/>`), &names, &values); err != nil {
+		t.Fatalf("Parser.Reset(old) error = %v", err)
+	}
+	if _, err := p.Next(); err != nil {
+		t.Fatalf("Parser.Next(old start) error = %v", err)
+	}
+	if !p.hasEnd {
+		t.Fatal("Parser.Next(old start) did not leave a synthetic end pending")
+	}
+
+	var reader *bytes.Reader
+	if err := p.Reset(reader, &names, &values); !errors.Is(err, ErrXMLInputNilReader) {
+		t.Fatalf("Parser.Reset() error = %v, want ErrXMLInputNilReader", err)
+	}
+	if p.br.r != nil || p.names != nil || p.values != nil || p.hasEnd || p.pendingEnd != (EndElement{}) {
+		t.Fatalf("Parser state retained after failed reset: br.r=%v names=%p values=%p hasEnd=%v pendingEnd=%+v", p.br.r, p.names, p.values, p.hasEnd, p.pendingEnd)
+	}
+	if _, err := p.Next(); !errors.Is(err, ErrXMLInputNilReader) {
+		t.Fatalf("Parser.Next() after failed reset error = %v, want ErrXMLInputNilReader", err)
+	}
+	if err := p.Reset(strings.NewReader(`<new/>`), &names, &values); err != nil {
+		t.Fatalf("Parser.Reset(new) error = %v", err)
+	}
+	start, err := p.Next()
+	if err != nil || start.Kind != KindStart || start.Start.Name.Local != "new" {
+		t.Fatalf("Parser.Next(new start) = %+v, %v", start, err)
+	}
+}
 
 type eofWithDataReader struct {
 	data []byte
@@ -27,7 +61,9 @@ func TestXMLStreamParserConsumesBytesReturnedWithEOF(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(&eofWithDataReader{data: []byte(`<root/>`)}, &names, &values)
+	if err := p.Reset(&eofWithDataReader{data: []byte(`<root/>`)}, &names, &values); err != nil {
+		t.Fatal(err)
+	}
 
 	tok, err := p.Next()
 	if err != nil {
@@ -51,11 +87,37 @@ func TestXMLStreamParserConsumesBytesReturnedWithEOF(t *testing.T) {
 	}
 }
 
+func TestXMLStreamParserPreservesLexicalPrefixForSyntheticEnd(t *testing.T) {
+	names := NewCache()
+	values := NewCache()
+	p := new(Parser)
+	if err := p.Reset(strings.NewReader(`<p:root xmlns:p="urn:test"/>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
+
+	start, err := p.Next()
+	if err != nil {
+		t.Fatalf("next start error = %v", err)
+	}
+	if start.Kind != KindStart || start.Start.Name != (xml.Name{Space: "p", Local: "root"}) {
+		t.Fatalf("start token = %+v, want lexical p:root", start)
+	}
+	end, err := p.Next()
+	if err != nil {
+		t.Fatalf("next synthetic end error = %v", err)
+	}
+	if end.Kind != KindEnd || end.End.Name != start.Start.Name {
+		t.Fatalf("synthetic end = %+v, want start lexical name %+v", end, start.Start)
+	}
+}
+
 func TestXMLStreamParserSkipsCommentsByDefault(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(strings.NewReader(`<root><!--`+strings.Repeat("x", 1<<20)+`--><v>1</v></root>`), &names, &values)
+	if err := p.Reset(strings.NewReader(`<root><!--`+strings.Repeat("x", 1<<20)+`--><v>1</v></root>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 
 	tok, err := p.Next()
 	if err != nil {
@@ -84,7 +146,9 @@ func TestXMLStreamParserSkipsUnicodeCommentsByDefault(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(strings.NewReader(`<root><!--é--><v>1</v></root>`), &names, &values)
+	if err := p.Reset(strings.NewReader(`<root><!--é--><v>1</v></root>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := p.Next(); err != nil {
 		t.Fatalf("next root start error = %v", err)
@@ -102,7 +166,9 @@ func TestXMLStreamParserEmitsCommentsWhenEnabled(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(strings.NewReader(`<root><!-- note --></root>`), &names, &values)
+	if err := p.Reset(strings.NewReader(`<root><!-- note --></root>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 	p.emitComments = true
 
 	if _, err := p.Next(); err != nil {
@@ -125,7 +191,11 @@ func TestXMLStreamParserHandlesBareCRText(t *testing.T) {
 		names := NewCache()
 		values := NewCache()
 		p := new(Parser)
-		p.Reset(strings.NewReader("<root>a\rb</root>"), &names, &values)
+		err = p.Reset(strings.NewReader("<root>a\rb</root>"), &names, &values)
+		if err != nil {
+			close(done)
+			return
+		}
 		if _, err = p.Next(); err != nil {
 			close(done)
 			return
@@ -169,7 +239,9 @@ func TestXMLStreamParserNormalizesCDATALineEndings(t *testing.T) {
 			names := NewCache()
 			values := NewCache()
 			p := new(Parser)
-			p.Reset(strings.NewReader(test.in), &names, &values)
+			if err := p.Reset(strings.NewReader(test.in), &names, &values); err != nil {
+				t.Fatal(err)
+			}
 			if _, err := p.Next(); err != nil {
 				t.Fatalf("next root start error = %v", err)
 			}
@@ -188,7 +260,9 @@ func TestXMLStreamParserRejectsInvalidSkippedComment(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(strings.NewReader(`<root><!-- invalid -- comment --></root>`), &names, &values)
+	if err := p.Reset(strings.NewReader(`<root><!-- invalid -- comment --></root>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := p.Next(); err != nil {
 		t.Fatalf("next root start error = %v", err)
@@ -203,7 +277,9 @@ func TestXMLStreamParserRejectsInvalidUTF8InSkippedComment(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(strings.NewReader("<root><!--\xff--></root>"), &names, &values)
+	if err := p.Reset(strings.NewReader("<root><!--\xff--></root>"), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := p.Next(); err != nil {
 		t.Fatalf("next root start error = %v", err)
@@ -219,7 +295,9 @@ func TestXMLStreamParserChunksLargeCDATA(t *testing.T) {
 	values := NewCache()
 	data := strings.Repeat("x", 70*1024)
 	p := new(Parser)
-	p.Reset(strings.NewReader(`<root><![CDATA[`+data+`]]></root>`), &names, &values)
+	if err := p.Reset(strings.NewReader(`<root><![CDATA[`+data+`]]></root>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := p.Next(); err != nil {
 		t.Fatalf("next root start error = %v", err)
@@ -314,7 +392,9 @@ func TestAttributeValuesAreOwnedStrings(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(strings.NewReader(doc.String()), &names, &values)
+	if err := p.Reset(strings.NewReader(doc.String()), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 
 	tok, err := p.Next()
 	if err != nil {
@@ -350,7 +430,9 @@ func TestXMLStreamParserLimitsAggregateStartPayload(t *testing.T) {
 				names := NewCache()
 				values := NewCache()
 				p := new(Parser)
-				p.ResetWithLimit(strings.NewReader(`<r a="12" b="34"/>`), &names, &values, tt.limit)
+				if err := p.ResetWithLimit(strings.NewReader(`<r a="12" b="34"/>`), &names, &values, tt.limit); err != nil {
+					t.Fatal(err)
+				}
 				p.SetLazyAttrValue(lazy)
 
 				_, err := p.Next()
@@ -385,7 +467,9 @@ func TestXMLStreamParserLimitsAggregateProcessingInstructionPayload(t *testing.T
 			names := NewCache()
 			values := NewCache()
 			p := new(Parser)
-			p.ResetWithLimit(strings.NewReader(`<?pi abc?><r/>`), &names, &values, tt.limit)
+			if err := p.ResetWithLimit(strings.NewReader(`<?pi abc?><r/>`), &names, &values, tt.limit); err != nil {
+				t.Fatal(err)
+			}
 			p.SetEmitPI(true)
 
 			_, err := p.Next()
@@ -408,7 +492,9 @@ func TestXMLStreamParserPreservesDisprovedProcessingInstructionTerminatorPrefix(
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.ResetWithLimit(strings.NewReader(`<?pi ?x?><r/>`), &names, &values, 4)
+	if err := p.ResetWithLimit(strings.NewReader(`<?pi ?x?><r/>`), &names, &values, 4); err != nil {
+		t.Fatal(err)
+	}
 	p.SetEmitPI(true)
 
 	tok, err := p.Next()
@@ -446,7 +532,9 @@ func TestXMLStreamParserChargesDecodedEntityPayload(t *testing.T) {
 			names := NewCache()
 			values := NewCache()
 			p := new(Parser)
-			p.ResetWithLimit(strings.NewReader(tt.xml), &names, &values, tt.limit)
+			if err := p.ResetWithLimit(strings.NewReader(tt.xml), &names, &values, tt.limit); err != nil {
+				t.Fatal(err)
+			}
 			var err error
 			for range tt.token {
 				_, err = p.Next()
@@ -484,7 +572,9 @@ func TestLazyAttributeValueCopiesSurviveParserAdvance(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(strings.NewReader(startTag("r", "1111111111111111")+startTag("s", "2222222222222222")), &names, &values)
+	if err := p.Reset(strings.NewReader(startTag("r", "1111111111111111")+startTag("s", "2222222222222222")), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 	p.lazyAttrValue = true
 
 	first, err := p.Next()
@@ -553,7 +643,9 @@ func BenchmarkParserLazyWideAttributes(b *testing.B) {
 	b.SetBytes(int64(len(text)))
 	b.ReportAllocs()
 	for b.Loop() {
-		p.Reset(strings.NewReader(text), &names, &values)
+		if err := p.Reset(strings.NewReader(text), &names, &values); err != nil {
+			b.Fatal(err)
+		}
 		p.lazyAttrValue = true
 		for {
 			_, err := p.Next()
@@ -571,7 +663,9 @@ func TestParserZeroesReleasedAttributeReferences(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	var parser Parser
-	parser.Reset(strings.NewReader(`<r a="1" b="2"/><s c="3"/>`), &names, &values)
+	if err := parser.Reset(strings.NewReader(`<r a="1" b="2"/><s c="3"/>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := parser.Next(); err != nil {
 		t.Fatal(err)
 	}
@@ -608,7 +702,9 @@ func TestStreamTokenAppendDataCopiesBorrowedBytes(t *testing.T) {
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	p.Reset(strings.NewReader(`<r>alpha</r><s>bravo</s>`), &names, &values)
+	if err := p.Reset(strings.NewReader(`<r>alpha</r><s>bravo</s>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := p.Next(); err != nil {
 		t.Fatalf("first start next() error = %v", err)

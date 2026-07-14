@@ -115,6 +115,7 @@ func TestParseWhitespaceFacetValue(t *testing.T) {
 		{name: "preserve", value: "preserve", base: runtime.WhitespacePreserve, want: runtime.WhitespacePreserve},
 		{name: "replace", value: "replace", base: runtime.WhitespacePreserve, want: runtime.WhitespaceReplace},
 		{name: "collapse", value: "collapse", base: runtime.WhitespaceReplace, want: runtime.WhitespaceCollapse},
+		{name: "collapsed lexical", value: " \tcollapse\n", base: runtime.WhitespaceReplace, want: runtime.WhitespaceCollapse},
 		{name: "invalid lexical", value: "trim", base: runtime.WhitespacePreserve, wantMessage: "invalid whiteSpace facet trim"},
 		{name: "looser", value: "replace", base: runtime.WhitespaceCollapse, wantMessage: "whiteSpace cannot loosen base whiteSpace"},
 	}
