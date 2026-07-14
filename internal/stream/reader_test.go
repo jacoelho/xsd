@@ -3,7 +3,9 @@ package stream
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"strings"
 	"testing"
 )
@@ -127,6 +129,108 @@ func TestParserResetReturnsErrorWithShortPrefix(t *testing.T) {
 	}
 	if parser.br.r != nil {
 		t.Fatal("failed Parser.Reset() retained short-prefix reader")
+	}
+}
+
+type chunkReader struct {
+	r io.Reader
+	n int
+}
+
+func (r chunkReader) Read(p []byte) (int, error) {
+	if len(p) > r.n {
+		p = p[:r.n]
+	}
+	return r.r.Read(p)
+}
+
+func consumeWithInputLimit(r io.Reader, limit int64) error {
+	var parser Parser
+	names, values := NewCache(), NewCache()
+	if err := parser.ResetWithLimits(r, &names, &values, Limits{MaxInputBytes: limit}); err != nil {
+		return err
+	}
+	defer parser.Detach()
+	for {
+		if _, err := parser.Next(); err != nil {
+			return err
+		}
+	}
+}
+
+func TestParserInputByteLimitAcceptsExactBoundary(t *testing.T) {
+	doc := `<r/>`
+	err := consumeWithInputLimit(strings.NewReader(doc), int64(len(doc)))
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("consumeWithInputLimit() error = %v, want EOF", err)
+	}
+}
+
+func TestParserInputByteLimitWithDataAndEOF(t *testing.T) {
+	doc := []byte(`<r/>`)
+	if err := consumeWithInputLimit(&eofWithDataReader{data: doc}, int64(len(doc))); !errors.Is(err, io.EOF) {
+		t.Fatalf("consumeWithInputLimit(exact) error = %v, want EOF", err)
+	}
+	over := append(append([]byte(nil), doc...), 'X')
+	if err := consumeWithInputLimit(&eofWithDataReader{data: over}, int64(len(doc))); !IsInputLimit(err) {
+		t.Fatalf("consumeWithInputLimit(over) error = %v, want input limit", err)
+	}
+}
+
+func TestParserInputByteLimitAcceptsMaxInt64(t *testing.T) {
+	err := consumeWithInputLimit(strings.NewReader(`<r/>`), math.MaxInt64)
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("consumeWithInputLimit() error = %v, want EOF", err)
+	}
+}
+
+func TestParserInputByteLimitRejectsFirstExcessByteAcrossReadSizes(t *testing.T) {
+	doc := `<root attr="value">text</root>`
+	for _, chunkSize := range []int{1, 2, 7, len(doc)} {
+		t.Run(fmt.Sprintf("chunk=%d", chunkSize), func(t *testing.T) {
+			r := chunkReader{r: strings.NewReader(doc), n: chunkSize}
+			err := consumeWithInputLimit(r, int64(len(doc)-1))
+			if !IsInputLimit(err) {
+				t.Fatalf("consumeWithInputLimit() error = %v, want input limit", err)
+			}
+		})
+	}
+}
+
+func TestParserInputByteLimitCountsUTF8BOM(t *testing.T) {
+	doc := `<r/>`
+	err := consumeWithInputLimit(strings.NewReader("\ufeff"+doc), int64(len(doc)))
+	if !IsInputLimit(err) {
+		t.Fatalf("consumeWithInputLimit() error = %v, want input limit", err)
+	}
+}
+
+func TestParserInputByteLimitPreservesSimultaneousReaderError(t *testing.T) {
+	sentinel := errors.New("sentinel")
+	err := consumeWithInputLimit(
+		&dataErrorReader{data: []byte(`<root/>`), err: sentinel},
+		int64(len(`<root/>`)-1),
+	)
+	if !IsInputLimit(err) || !errors.Is(err, sentinel) {
+		t.Fatalf("consumeWithInputLimit() error = %v, want input limit and sentinel", err)
+	}
+}
+
+func TestParserPreservesJoinedErrorAfterBareCR(t *testing.T) {
+	sentinel := errors.New("sentinel")
+	names, values := NewCache(), NewCache()
+	var parser Parser
+	if err := parser.Reset(&dataErrorReader{data: []byte(`<r/>\r`), err: errors.Join(io.EOF, sentinel)}, &names, &values); err != nil {
+		t.Fatalf("Parser.Reset() error = %v", err)
+	}
+	defer parser.Detach()
+	for range 2 {
+		if _, err := parser.Next(); err != nil {
+			t.Fatalf("Parser.Next(element) error = %v", err)
+		}
+	}
+	if _, err := parser.Next(); !errors.Is(err, sentinel) {
+		t.Fatalf("Parser.Next(CR) error = %v, want sentinel", err)
 	}
 }
 

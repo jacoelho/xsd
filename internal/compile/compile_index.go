@@ -4,6 +4,9 @@ import "github.com/jacoelho/xsd/internal/vocab"
 
 func (c *compiler) index() error {
 	for _, document := range c.schemas.documents {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if !document.indexDeclarations {
 			continue
 		}
@@ -19,6 +22,9 @@ func (c *compiler) indexSchemaDocument(document schemaSetDocument) error {
 	ctx := c.schemaContext(document)
 	c.contexts[doc] = ctx
 	for child := range doc.root.xsdChildren() {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if err := c.indexTopLevelSchemaChild(child, ctx); err != nil {
 			return err
 		}

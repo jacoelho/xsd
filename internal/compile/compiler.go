@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -10,13 +11,16 @@ import (
 )
 
 // Compile compiles internal schema sources into a published validation runtime.
-func Compile(opts Options, sources []source.Source) (*runtime.Schema, error) {
-	return CompileMappedSources(opts, sources, func(src source.Source) source.Source { return src })
+func Compile(ctx context.Context, opts Options, sources []source.Source) (*runtime.Schema, error) {
+	return CompileMappedSources(ctx, opts, sources, func(src source.Source) source.Source { return src })
 }
 
 // CompileMappedSources compiles a caller-owned source slice without converting
 // it until the normalized explicit-source bound has been enforced.
-func CompileMappedSources[T any](opts Options, sources []T, sourceOf func(T) source.Source) (*runtime.Schema, error) {
+func CompileMappedSources[T any](ctx context.Context, opts Options, sources []T, sourceOf func(T) source.Source) (*runtime.Schema, error) {
+	if err := compileContextError(ctx); err != nil {
+		return nil, err
+	}
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
 		return nil, err
@@ -30,13 +34,19 @@ func CompileMappedSources[T any](opts Options, sources []T, sourceOf func(T) sou
 	if sourceOf == nil {
 		return nil, xsderrors.InternalInvariant("schema source mapper is nil")
 	}
-	c, err := newCompiler(limits)
+	c, err := newCompiler(ctx, limits)
 	if err != nil {
 		return nil, err
 	}
 	owned := make([]source.Source, len(sources))
 	for i, input := range sources {
+		if contextErr := compileContextError(ctx); contextErr != nil {
+			return nil, contextErr
+		}
 		owned[i] = sourceOf(input)
+		if contextErr := compileContextError(ctx); contextErr != nil {
+			return nil, contextErr
+		}
 		if owned[i].Name() == "" {
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required")
 		}
@@ -121,6 +131,7 @@ type compilerModelState struct {
 	elementDepth int
 }
 
+//nolint:govet // Field order groups the compiler's lifecycle-owned state.
 type compiler struct {
 	compilerBuildState
 	compilerCycleState
@@ -131,10 +142,11 @@ type compiler struct {
 	schemas       schemaSet
 	rt            compilerSchemaBuild
 	limits        Limits
+	ctx           context.Context
 	missingSimple runtime.SimpleTypeID
 }
 
-func newCompiler(limits Limits) (*compiler, error) {
+func newCompiler(ctx context.Context, limits Limits) (*compiler, error) {
 	names, err := NewNameTable(limits.MaxSchemaNames)
 	if err != nil {
 		return nil, err
@@ -144,6 +156,7 @@ func newCompiler(limits Limits) (*compiler, error) {
 	builtinComplexTypeCount := runtime.BuiltinComplexTypeCount()
 	rt := newCompilerSchemaBuild(names)
 	c := &compiler{
+		ctx:           ctx,
 		builtinFacets: runtime.NewBuiltinSimpleFacetStorage(),
 		compilerIndexState: compilerIndexState{
 			simpleRaw:    make(map[runtime.QName]rawComponent),
@@ -185,26 +198,41 @@ func newCompiler(limits Limits) (*compiler, error) {
 
 func (c *compiler) compileGlobals() error {
 	for _, q := range sortedBuildQNames(&c.rt, c.simpleRaw) {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if _, err := c.compileSimpleByQName(q); err != nil {
 			return err
 		}
 	}
 	for _, q := range sortedBuildQNames(&c.rt, c.complexRaw) {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if _, err := c.compileComplexByQName(q); err != nil {
 			return err
 		}
 	}
 	for _, q := range sortedBuildQNames(&c.rt, c.attributeRaw) {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if _, err := c.compileAttributeByQName(q); err != nil {
 			return err
 		}
 	}
 	for _, q := range sortedBuildQNames(&c.rt, c.attrGroupRaw) {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if _, _, err := c.compileAttributeGroupByQName(q); err != nil {
 			return err
 		}
 	}
 	for _, q := range sortedBuildQNames(&c.rt, c.groupRaw) {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if err := c.compileModelGroupByQName(q); err != nil {
 			return err
 		}
@@ -213,6 +241,9 @@ func (c *compiler) compileGlobals() error {
 		return err
 	}
 	for _, q := range sortedBuildQNames(&c.rt, c.elementRaw) {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if _, err := c.compileElementByQName(q); err != nil {
 			return err
 		}
@@ -220,7 +251,13 @@ func (c *compiler) compileGlobals() error {
 	if err := c.drainDeferredAnonymousComplex(); err != nil {
 		return err
 	}
+	if err := compileContextError(c.ctx); err != nil {
+		return err
+	}
 	if err := c.compileSubstitutions(); err != nil {
+		return err
+	}
+	if err := compileContextError(c.ctx); err != nil {
 		return err
 	}
 	if err := c.validateCompiledComplexRestrictions(); err != nil {
@@ -229,10 +266,16 @@ func (c *compiler) compileGlobals() error {
 	if err := c.checkCompiledElementDeclarationsConsistent(); err != nil {
 		return err
 	}
+	if err := compileContextError(c.ctx); err != nil {
+		return err
+	}
 	if err := c.validateIdentityReferences(); err != nil {
 		return err
 	}
 	if err := c.checkCompiledModelsUPA(); err != nil {
+		return err
+	}
+	if err := compileContextError(c.ctx); err != nil {
 		return err
 	}
 	return c.compileContentModels()

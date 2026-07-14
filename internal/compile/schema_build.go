@@ -292,6 +292,7 @@ func (c *compiler) validateIdentityReferencesBuild() error {
 
 func (c *compiler) compileContentModelsBuild() ([]runtime.CompiledModel, error) {
 	return CompileContentModels(
+		c.ctx,
 		&c.rt.build.Names,
 		&c.rt,
 		len(c.rt.build.Models),
@@ -300,7 +301,7 @@ func (c *compiler) compileContentModelsBuild() ([]runtime.CompiledModel, error) 
 }
 
 func (c *compiler) checkContentModelsUPABuild() error {
-	return CheckContentModelsUPA(&c.rt.build.Names, &c.rt, len(c.rt.build.Models))
+	return CheckContentModelsUPA(c.ctx, &c.rt.build.Names, &c.rt, len(c.rt.build.Models))
 }
 
 func (c *compiler) checkContentModelElementDeclarationsConsistentBuild() error {
@@ -308,6 +309,9 @@ func (c *compiler) checkContentModelElementDeclarationsConsistentBuild() error {
 		return xsderrors.InternalInvariant("content model provenance count does not match model count")
 	}
 	for id, model := range c.rt.build.Models {
+		if err := compileContextError(c.ctx); err != nil {
+			return err
+		}
 		if err := CheckElementDeclarationsConsistent(&c.rt, model); err != nil {
 			if c.modelSources[id] != nil {
 				return withSchemaCompileLocation(c.modelSources[id], err)
@@ -541,7 +545,7 @@ func (c *compiler) publishSchema() (*runtime.Schema, error) {
 	if len(c.pendingElementConstraints) != 0 {
 		return nil, xsderrors.InternalInvariant("element value constraints were not finalized")
 	}
-	published, err := runtime.PublishSchema(&c.rt.build)
+	published, err := runtime.PublishSchema(c.ctx, &c.rt.build)
 	if err != nil {
 		return nil, err
 	}

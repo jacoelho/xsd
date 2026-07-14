@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"context"
 	"encoding/xml"
 	"errors"
 	"strings"
@@ -200,9 +201,10 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
   <xs:element name="blocked" type="t:Base" block="extension"/>
   <xs:element name="typeBlocked" type="t:TypeBlockedBase"/>
 </xs:schema>`
-	rt, err := compile.Compile(compile.Options{}, []source.Source{
+	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(schema)),
 	})
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,13 +213,13 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	const namespaces = `xmlns:t="urn:t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`
-	err = s.Validate(strings.NewReader(`<t:allowed ` + namespaces + ` xsi:type="t:Derived" xsi:nil="true"/>`))
+	err = s.Validate(context.Background(), strings.NewReader(`<t:allowed `+namespaces+` xsi:type="t:Derived" xsi:nil="true"/>`))
 	if err != nil {
 		t.Fatalf("valid xsi:type/xsi:nil: %v", err)
 	}
-	err = s.Validate(strings.NewReader(`<t:blocked ` + namespaces + ` xsi:type="t:Derived"/>`))
+	err = s.Validate(context.Background(), strings.NewReader(`<t:blocked `+namespaces+` xsi:type="t:Derived"/>`))
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
-	err = s.Validate(strings.NewReader(`<t:typeBlocked ` + namespaces + ` xsi:type="t:TypeBlockedDerived"/>`))
+	err = s.Validate(context.Background(), strings.NewReader(`<t:typeBlocked `+namespaces+` xsi:type="t:TypeBlockedDerived"/>`))
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
 }
 
@@ -246,7 +248,7 @@ func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {
 
 func compileRuntimeForTest(t *testing.T, schema string) *runtime.Schema {
 	t.Helper()
-	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatal(err)
 	}

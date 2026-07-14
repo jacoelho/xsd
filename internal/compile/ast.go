@@ -2,9 +2,9 @@ package compile
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
-	"io"
 	"iter"
 	"maps"
 
@@ -36,8 +36,8 @@ type rawNode struct {
 	Column   int
 }
 
-func parseSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc, error) {
-	doc, err := parseRawSchemaDocument(name, key, data, limits)
+func parseSchemaDocument(ctx context.Context, name, key string, data []byte, limits Limits) (*rawDoc, error) {
+	doc, err := parseRawSchemaDocument(ctx, name, key, data, limits)
 	if err != nil {
 		return nil, err
 	}
@@ -69,19 +69,26 @@ func parseSchemaDefaults(root *rawNode) (SchemaDefaults, error) {
 	return defaults, withSchemaCompileLocation(root, err)
 }
 
-func parseRawSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc, error) {
+func parseRawSchemaDocument(ctx context.Context, name, key string, data []byte, limits Limits) (*rawDoc, error) {
 	doc := &rawDoc{name: name, key: key}
 	names := stream.NewCache()
 	values := stream.NewCache()
 	parser := new(stream.Parser)
-	if err := parser.ResetWithLimit(bytes.NewReader(data), &names, &values, limits.MaxSchemaTokenBytes); err != nil {
+	if err := parser.ResetWithLimits(bytes.NewReader(data), &names, &values, stream.Limits{
+		Context:       ctx,
+		MaxTokenBytes: limits.MaxSchemaTokenBytes,
+		MaxAttrs:      limits.MaxSchemaAttributes,
+	}); err != nil {
+		if contextErr := compileContextErrorWith(ctx, err); contextErr != nil {
+			return nil, xsderrors.WithPath(name, contextErr)
+		}
 		return nil, xsderrors.WithPath(name, schemaReaderError(err))
 	}
 	defer parser.Detach()
-	parser.SetMaxAttrs(limits.MaxSchemaAttributes)
 	parser.SetEmitComments(true)
 	parser.SetEmitPI(true)
 	state := schemaParseState{
+		ctx:    ctx,
 		parser: parser,
 		values: &values,
 		doc:    doc,
@@ -103,6 +110,7 @@ type schemaParseFrame struct {
 }
 
 type schemaParseState struct {
+	ctx    context.Context
 	parser *stream.Parser
 	values *stream.Cache
 	doc    *rawDoc
@@ -115,8 +123,14 @@ type schemaParseState struct {
 
 func (s *schemaParseState) parse() error {
 	for {
+		if err := compileContextError(s.ctx); err != nil {
+			return err
+		}
 		tok, err := s.parser.Next()
-		if errors.Is(err, io.EOF) {
+		if contextErr := compileContextError(s.ctx); contextErr != nil {
+			return contextErr
+		}
+		if stream.IsOnlyEOF(err) {
 			break
 		}
 		if err != nil {

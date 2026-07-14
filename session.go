@@ -1,6 +1,7 @@
 package xsd
 
 import (
+	"context"
 	"io"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -9,15 +10,15 @@ import (
 
 // ValidateOptions controls instance validation.
 type ValidateOptions struct {
-	// MaxErrors limits collected validation errors. Zero means unlimited.
+	// MaxErrors limits collected validation errors. Zero uses the default.
 	MaxErrors int
-	// MaxIdentityScopes limits active identity-constraint scopes. Zero means unlimited.
+	// MaxIdentityScopes limits active identity-constraint scopes. Zero uses the default.
 	MaxIdentityScopes int
 	// MaxIdentityEntries limits stored ID, IDREF, key, unique, and keyref
 	// entries and simultaneously pending identity-selector matches. Zero means
-	// unlimited.
+	// the default.
 	MaxIdentityEntries int
-	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero means unlimited.
+	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero uses the default.
 	MaxIdentityTupleBytes int64
 	// MaxSchemaLocationNamespaces limits distinct schema-location namespace
 	// hints retained for one document. Zero uses the default of 256.
@@ -26,15 +27,17 @@ type ValidateOptions struct {
 	// bytes. Zero uses the default of 64 KiB. MaxInstanceTokenBytes separately
 	// bounds each complete hint attribute when configured.
 	MaxSchemaLocationNamespaceBytes int64
-	// MaxInstanceDepth limits nested XML elements. Zero means unlimited.
+	// MaxInstanceDepth limits nested XML elements. Zero uses the default.
 	MaxInstanceDepth int
-	// MaxInstanceAttributes limits attributes on one XML element. Zero means unlimited.
+	// MaxInstanceAttributes limits attributes on one XML element. Zero uses the default.
 	MaxInstanceAttributes int
-	// MaxInstanceTextBytes limits retained character data bytes. Zero means unlimited.
+	// MaxInstanceTextBytes limits retained character data bytes. Zero uses the default.
 	MaxInstanceTextBytes int64
 	// MaxInstanceTokenBytes limits parser-owned bytes for one XML token, including
-	// retained payload and active construction scratch. Zero means unlimited.
+	// retained payload and active construction scratch. Zero uses the default.
 	MaxInstanceTokenBytes int64
+	// MaxInstanceBytes limits aggregate raw XML bytes read. Zero uses the default.
+	MaxInstanceBytes int64
 }
 
 // Session validates XML instance documents against one Engine.
@@ -46,18 +49,20 @@ type Session struct {
 	session *validate.Session
 }
 
-// Validate validates one XML instance document.
-func (e *Engine) Validate(r io.Reader) error {
-	return e.ValidateWithOptions(r, ValidateOptions{})
+// Validate validates one XML instance document. Cancellation is cooperative:
+// callers that need to interrupt a blocked read must provide a context-aware reader.
+func (e *Engine) Validate(ctx context.Context, r io.Reader) error {
+	return e.ValidateWithOptions(ctx, r, ValidateOptions{})
 }
 
-// ValidateWithOptions validates one XML instance document with options.
-func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
+// ValidateWithOptions validates one XML instance document with options. ctx
+// must be non-nil.
+func (e *Engine) ValidateWithOptions(ctx context.Context, r io.Reader, opts ValidateOptions) error {
 	var rt *runtime.Schema
 	if e != nil {
 		rt = e.rt
 	}
-	return validate.Validate(rt, r, internalValidateOptions(opts))
+	return validate.Validate(ctx, rt, r, internalValidateOptions(opts))
 }
 
 // NewSession creates a reusable validation session. Reused sessions retain
@@ -76,13 +81,13 @@ func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
 }
 
 // Validate validates one XML instance document. It clears document-local state
-// before returning and may retain bounded scratch buffers and string caches for
-// reuse.
-func (s *Session) Validate(r io.Reader) error {
+// and the call context before returning and may retain bounded scratch buffers
+// and string caches for reuse.
+func (s *Session) Validate(ctx context.Context, r io.Reader) error {
 	if s == nil {
-		return (*validate.Session)(nil).Validate(r)
+		return (*validate.Session)(nil).Validate(ctx, r)
 	}
-	return s.session.Validate(r)
+	return s.session.Validate(ctx, r)
 }
 
 func internalValidateOptions(opts ValidateOptions) validate.Options {
@@ -97,5 +102,6 @@ func internalValidateOptions(opts ValidateOptions) validate.Options {
 		MaxInstanceAttributes:           opts.MaxInstanceAttributes,
 		MaxInstanceTextBytes:            opts.MaxInstanceTextBytes,
 		MaxInstanceTokenBytes:           opts.MaxInstanceTokenBytes,
+		MaxInstanceBytes:                opts.MaxInstanceBytes,
 	}
 }

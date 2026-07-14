@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"context"
 	"slices"
 	"testing"
 
@@ -12,7 +13,7 @@ func TestLoadedSchemaDocumentsSortBySourceName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NormalizeOptions() error = %v", err)
 	}
-	c, err := newCompiler(limits)
+	c, err := newCompiler(context.Background(), limits)
 	if err != nil {
 		t.Fatalf("newCompiler() error = %v", err)
 	}

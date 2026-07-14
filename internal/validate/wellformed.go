@@ -1,14 +1,17 @@
 package validate
 
 import (
-	"errors"
+	"context"
 	"io"
 
 	"github.com/jacoelho/xsd/internal/stream"
 )
 
 // CheckXMLWellFormed checks XML instance syntax without compiling or using a schema runtime.
-func CheckXMLWellFormed(r io.Reader, opts Options) error {
+func CheckXMLWellFormed(ctx context.Context, r io.Reader, opts Options) error {
+	if err := validationContextError(ctx); err != nil {
+		return err
+	}
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
 		return err
@@ -17,8 +20,9 @@ func CheckXMLWellFormed(r io.Reader, opts Options) error {
 		maxDepth:      limits.InstanceDepth,
 		maxAttributes: limits.InstanceAttributes,
 		maxTokenBytes: limits.InstanceTokenBytes,
+		maxInputBytes: limits.InstanceBytes,
 	}
-	return c.check(r)
+	return c.check(ctx, r)
 }
 
 type xmlWellFormedChecker struct {
@@ -26,22 +30,38 @@ type xmlWellFormedChecker struct {
 	maxDepth      int
 	maxAttributes int
 	maxTokenBytes int64
+	maxInputBytes int64
 }
 
-func (c *xmlWellFormedChecker) check(r io.Reader) error {
+func (c *xmlWellFormedChecker) check(ctx context.Context, r io.Reader) error {
+	done := ctx.Done()
 	names := stream.NewCache()
 	values := stream.NewCache()
 	var parser stream.Parser
-	if err := parser.ResetWithLimit(r, &names, &values, c.maxTokenBytes); err != nil {
+	if err := parser.ResetWithLimits(r, &names, &values, stream.Limits{
+		Context:       ctx,
+		MaxInputBytes: c.maxInputBytes,
+		MaxTokenBytes: c.maxTokenBytes,
+		MaxAttrs:      c.maxAttributes,
+	}); err != nil {
+		if done != nil {
+			if contextErr := validationContextDoneError(ctx, done, err); contextErr != nil {
+				return contextErr
+			}
+		}
 		return instanceReaderError(err)
 	}
 	defer parser.Detach()
 	parser.SetLazyAttrValue(true)
-	parser.SetMaxAttrs(c.maxAttributes)
 	for {
 		tok, err := parser.Next()
+		if done != nil {
+			if contextErr := validationContextDoneError(ctx, done, err); contextErr != nil {
+				return contextErr
+			}
+		}
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if stream.IsOnlyEOF(err) {
 				break
 			}
 			return c.streamError(&parser, tok, err)
@@ -62,6 +82,11 @@ func (c *xmlWellFormedChecker) check(r io.Reader) error {
 		case stream.KindDirective:
 			return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
 		case stream.KindComment, stream.KindPI:
+		}
+	}
+	if done != nil {
+		if err := validationContextDoneError(ctx, done, nil); err != nil {
+			return err
 		}
 	}
 	return c.doc.Complete()

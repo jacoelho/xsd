@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -161,10 +162,10 @@ func TestSchemaSourcesDoNotPromoteDependencyFiles(t *testing.T) {
 	if len(sources) != 1 {
 		t.Fatalf("len(schemaSources()) = %d, want one manifest schema document", len(sources))
 	}
-	if _, err := xsd.Compile(sources...); err != nil {
+	if _, err := xsd.Compile(context.Background(), sources...); err != nil {
 		t.Fatalf("Compile() principal error = %v", err)
 	}
-	if _, err := xsd.Compile(append(sources, xsd.File(dependency))...); err == nil {
+	if _, err := xsd.Compile(context.Background(), append(sources, xsd.File(dependency))...); err == nil {
 		t.Fatal("Compile() accepted an invalid dependency promoted to a root; fixture does not exercise dependency promotion")
 	}
 }

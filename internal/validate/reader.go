@@ -13,12 +13,14 @@ func instanceReaderError(err error) error {
 		return xsderrors.Validation(xsderrors.CodeValidationXML, 0, 0, "", "instance reader is nil")
 	case errors.Is(err, stream.ErrUnsupportedNonUTF8):
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "instance documents must be UTF-8")
+	case stream.IsInputLimit(err) || stream.IsTokenLimit(err) || stream.IsAttributeLimit(err):
+		return validationReaderCause(xsderrors.CodeValidationLimit, 0, 0, "", err)
 	default:
 		var versionErr stream.UnsupportedXMLVersionError
 		if errors.As(err, &versionErr) {
 			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error())
 		}
-		return err
+		return validationReaderCause(xsderrors.CodeValidationXML, 0, 0, "", err)
 	}
 }
 
@@ -31,13 +33,24 @@ func StreamError(line, col int, path string, err error) error {
 	if errors.As(err, &versionErr) {
 		return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedXML11, line, col, path, versionErr.Error(), err)
 	}
-	if stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {
-		return xsderrors.Validation(xsderrors.CodeValidationLimit, line, col, path, err.Error())
+	if stream.IsInputLimit(err) || stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {
+		return validationReaderCause(xsderrors.CodeValidationLimit, line, col, path, err)
 	}
 	if stream.IsUnsupportedEntityReference(err) {
 		return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedExternal, line, col, path, "external or undeclared entity resolution is not supported", err)
 	}
-	return xsderrors.Validation(xsderrors.CodeValidationXML, line, col, path, err.Error())
+	return validationReaderCause(xsderrors.CodeValidationXML, line, col, path, err)
+}
+
+func validationReaderCause(code xsderrors.Code, line, col int, path string, err error) error {
+	return &xsderrors.Error{
+		Err:      err,
+		Category: xsderrors.CategoryValidation,
+		Code:     code,
+		Line:     line,
+		Column:   col,
+		Path:     path,
+	}
 }
 
 // ValidateDirective rejects instance markup declarations. The stream parser

@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/compile"
@@ -207,7 +208,7 @@ func compiledIdentityRuntimeForTest(t *testing.T) (*runtime.Schema, runtime.Elem
 	</xs:key>
   </xs:element>
 </xs:schema>`
-	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("identity.xsd", []byte(schema))})
+	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("identity.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}

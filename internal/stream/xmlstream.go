@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/xml"
 	"errors"
@@ -53,6 +54,7 @@ type Token struct {
 var (
 	errUnsupportedEntityReference = errors.New("unsupported entity reference")
 	errXMLAttributeLimit          = errors.New("XML attribute count limit exceeded")
+	errXMLInputLimit              = errors.New("XML input byte limit exceeded")
 	errXMLTokenLimit              = errors.New("XML token byte limit exceeded")
 )
 
@@ -91,13 +93,22 @@ type Parser struct {
 	lazyAttrValue bool
 }
 
-// Reset prepares p to read r using the supplied string caches.
-func (p *Parser) Reset(r io.Reader, names, values *Cache) error {
-	return p.ResetWithLimit(r, names, values, 0)
+// Limits bounds parser-owned input and token state. Zero disables a limit;
+// production callers are responsible for supplying normalized finite values.
+type Limits struct {
+	Context       context.Context
+	MaxInputBytes int64
+	MaxTokenBytes int64
+	MaxAttrs      int
 }
 
-// ResetWithLimit prepares p to read r and enforces maxTokenBytes when positive.
-func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes int64) error {
+// Reset prepares p to read r using the supplied string caches.
+func (p *Parser) Reset(r io.Reader, names, values *Cache) error {
+	return p.ResetWithLimits(r, names, values, Limits{})
+}
+
+// ResetWithLimits prepares p to read r and enforces positive limits.
+func (p *Parser) ResetWithLimits(r io.Reader, names, values *Cache, limits Limits) error {
 	if isNilReader(r) {
 		r = nil
 	}
@@ -111,9 +122,9 @@ func (p *Parser) ResetWithLimit(r io.Reader, names, values *Cache, maxTokenBytes
 	p.textBuf = resetRetainedBytes(p.textBuf)
 	p.directive = resetRetainedBytes(p.directive)
 	p.attrs = resetRetainedSlice(p.attrs)
-	p.br.reset(r)
-	p.maxAttrs = 0
-	p.maxTokenBytes = maxTokenBytes
+	p.br.reset(limits.Context, r, limits.MaxInputBytes)
+	p.maxAttrs = limits.MaxAttrs
+	p.maxTokenBytes = limits.MaxTokenBytes
 	p.retainedBytes = 0
 	p.cdataMatched = 0
 	p.hasEnd = false
@@ -232,12 +243,6 @@ func (p *Parser) Pos() (int, int) {
 	return p.br.pos()
 }
 
-// SetMaxAttrs sets the maximum attributes allowed on one element. Zero means
-// unlimited.
-func (p *Parser) SetMaxAttrs(n int) {
-	p.maxAttrs = n
-}
-
 // SetEmitComments controls whether comment tokens are emitted.
 func (p *Parser) SetEmitComments(enabled bool) {
 	p.emitComments = enabled
@@ -259,6 +264,11 @@ func IsTokenLimit(err error) bool {
 	return errors.Is(err, errXMLTokenLimit)
 }
 
+// IsInputLimit reports whether err is the parser aggregate input-byte limit.
+func IsInputLimit(err error) bool {
+	return errors.Is(err, errXMLInputLimit)
+}
+
 // IsAttributeLimit reports whether err is the parser attribute-count limit error.
 func IsAttributeLimit(err error) bool {
 	return errors.Is(err, errXMLAttributeLimit)
@@ -268,6 +278,33 @@ func IsAttributeLimit(err error) bool {
 // XML entity reference.
 func IsUnsupportedEntityReference(err error) bool {
 	return errors.Is(err, errUnsupportedEntityReference)
+}
+
+// IsOnlyEOF reports whether every cause in err is io.EOF. Joined errors with
+// any non-EOF cause must not be treated as successful stream completion.
+func IsOnlyEOF(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == io.EOF { //nolint:errorlint // Exact identity is required before inspecting every wrapped or joined cause.
+		return true
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		causes := joined.Unwrap()
+		if len(causes) == 0 {
+			return false
+		}
+		for _, cause := range causes {
+			if !IsOnlyEOF(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
+		return IsOnlyEOF(wrapped.Unwrap())
+	}
+	return false
 }
 
 func (p *Parser) readCharData(first byte) (Token, error) {
@@ -280,7 +317,9 @@ func (p *Parser) readCharData(first byte) (Token, error) {
 			return Token{}, err
 		}
 	case '\r':
-		p.consumeLineFeed()
+		if err := p.consumeLineFeed(); err != nil {
+			return Token{}, err
+		}
 		if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
 			return Token{}, err
 		}
@@ -295,7 +334,7 @@ func (p *Parser) readCharData(first byte) (Token, error) {
 	}
 	for {
 		chunk, err := p.br.buffered()
-		if errors.Is(err, io.EOF) {
+		if IsOnlyEOF(err) {
 			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
 		}
 		if err != nil {
@@ -322,7 +361,9 @@ func (p *Parser) readCharData(first byte) (Token, error) {
 			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
 		}
 		if b == '\r' {
-			p.consumeLineFeed()
+			if err := p.consumeLineFeed(); err != nil {
+				return Token{}, err
+			}
 			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
 				return Token{}, err
 			}
@@ -546,7 +587,9 @@ func (p *Parser) readCDATAChunk(line, col int) (Token, error) {
 			if err := appendPending(); err != nil {
 				return Token{}, err
 			}
-			p.consumeLineFeed()
+			if err := p.consumeLineFeed(); err != nil {
+				return Token{}, err
+			}
 			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
 				return Token{}, err
 			}
@@ -681,7 +724,7 @@ func (p *Parser) readName(first byte) (xml.Name, error) {
 	for {
 		chunk, err := p.br.buffered()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if IsOnlyEOF(err) {
 				return xml.Name{}, fmt.Errorf("unexpected EOF in XML name")
 			}
 			return xml.Name{}, err
@@ -744,7 +787,7 @@ func (p *Parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error
 	start := len(*dst)
 	for {
 		chunk, err := p.br.buffered()
-		if errors.Is(err, io.EOF) {
+		if IsOnlyEOF(err) {
 			return nil, p.syntaxError("unexpected EOF in attribute value", err)
 		}
 		if err != nil {
@@ -767,7 +810,9 @@ func (p *Parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error
 		case '<':
 			return nil, fmt.Errorf("attribute value cannot contain <")
 		case '\r':
-			p.consumeLineFeed()
+			if err := p.consumeLineFeed(); err != nil {
+				return nil, err
+			}
 			if err := p.appendTokenByte(dst, ' '); err != nil {
 				return nil, err
 			}
@@ -931,7 +976,7 @@ func (p *Parser) readXMLDeclContent() error {
 
 func (p *Parser) skipPIContent() error {
 	if err := p.skipUntil("?>"); err != nil {
-		if errors.Is(err, io.EOF) {
+		if IsOnlyEOF(err) {
 			return p.syntaxError("unexpected EOF in processing instruction", err)
 		}
 		return err

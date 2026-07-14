@@ -2,6 +2,7 @@ package xsd_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -18,7 +19,7 @@ func TestOpenDefersAndBoundsSchemaReadUntilCompile(t *testing.T) {
 	t.Parallel()
 
 	reads := 0
-	src := xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
+	src := xsd.Open("schema.xsd", func(context.Context) (io.ReadCloser, error) {
 		return io.NopCloser(countingReader{
 			read: func(p []byte) (int, error) {
 				reads += len(p)
@@ -32,7 +33,7 @@ func TestOpenDefersAndBoundsSchemaReadUntilCompile(t *testing.T) {
 	if reads != 0 {
 		t.Fatalf("Open() consumed %d bytes before compilation", reads)
 	}
-	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaSourceBytes: 8}, src)
+	_, err := xsd.CompileWithOptions(context.Background(), xsd.CompileOptions{MaxSchemaSourceBytes: 8}, src)
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 	if reads != 9 {
 		t.Fatalf("CompileWithOptions() consumed %d bytes, want limit plus one", reads)
@@ -43,10 +44,10 @@ func TestOpenRejectsRepeatedEmptyReadsAndCloses(t *testing.T) {
 	t.Parallel()
 
 	reader := &emptySchemaReadCloser{terminal: errors.New("unbounded empty reads")}
-	_, err := xsd.CompileWithOptions(
+	_, err := xsd.CompileWithOptions(context.Background(),
 		xsd.CompileOptions{MaxSchemaSourceBytes: 1},
-		xsd.Open("schema.xsd", func() (io.ReadCloser, error) { return reader, nil }),
-	)
+		xsd.Open("schema.xsd", func(context.Context) (io.ReadCloser, error) { return reader, nil }))
+
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaRead)
 	if reader.reads > 100 || !reader.closed {
 		t.Fatalf("reader = %d empty reads, closed %v; want bounded and closed", reader.reads, reader.closed)
@@ -61,18 +62,18 @@ func TestFileResolvesPercentEncodedSchemaLocation(t *testing.T) {
 	child := filepath.Join(dir, "child name.xsd")
 	writeTestFile(t, root, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child%20name.xsd"/></xs:schema>`)
 	writeTestFile(t, child, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="child"/></xs:schema>`)
-	engine, err := xsd.Compile(xsd.File(root))
+	engine, err := xsd.Compile(context.Background(), xsd.File(root))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-	if err := engine.Validate(strings.NewReader(`<child/>`)); err != nil {
+	if err := engine.Validate(context.Background(), strings.NewReader(`<child/>`)); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
 }
 
 func TestValidateUnsupportedXMLDeclarationClassificationDoesNotDependOnPreviewLength(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +88,7 @@ func TestValidateUnsupportedXMLDeclarationClassificationDoesNotDependOnPreviewLe
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			doc := `<?xml` + strings.Repeat(" ", 70<<10) + test.content + `?><root/>`
-			expectCategoryCode(t, engine.Validate(strings.NewReader(doc)), xsderrors.CategoryUnsupported, test.code)
+			expectCategoryCode(t, engine.Validate(context.Background(), strings.NewReader(doc)), xsderrors.CategoryUnsupported, test.code)
 		})
 	}
 }
@@ -96,12 +97,12 @@ func TestResolverReceivesInheritedXMLBase(t *testing.T) {
 	t.Parallel()
 
 	var gotBase, gotLocation string
-	resolver := xsd.ResolverFunc(func(base, location string) (xsd.SchemaSource, error) {
+	resolver := xsd.ResolverFunc(func(_ context.Context, base, location string) (xsd.SchemaSource, error) {
 		gotBase, gotLocation = base, location
 		return xsd.Bytes("ignored.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="child"/></xs:schema>`)), nil
 	})
 	root := xsd.Bytes("schemas/root.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xml:base="sub/"><xs:include xml:base="nested/" schemaLocation="child.xsd"/></xs:schema>`)).WithResolver(resolver)
-	engine, err := xsd.Compile(root)
+	engine, err := xsd.Compile(context.Background(), root)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -109,7 +110,7 @@ func TestResolverReceivesInheritedXMLBase(t *testing.T) {
 	if gotBase != wantBase || gotLocation != "child.xsd" {
 		t.Fatalf("resolver arguments = (%q, %q), want (%q, child.xsd)", gotBase, gotLocation, wantBase)
 	}
-	if err := engine.Validate(strings.NewReader(`<child/>`)); err != nil {
+	if err := engine.Validate(context.Background(), strings.NewReader(`<child/>`)); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
 }
@@ -139,11 +140,11 @@ func TestIdentityFieldsRejectComplexElements(t *testing.T) {
 			    <xs:unique name="u"><xs:selector xpath="item"/><xs:field xpath="."/></xs:unique>
 			  </xs:element>
 			</xs:schema>`
-			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
-			expectCategoryCode(t, engine.Validate(strings.NewReader(test.instance)), xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
+			expectCategoryCode(t, engine.Validate(context.Background(), strings.NewReader(test.instance)), xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
 		})
 	}
 }
@@ -156,13 +157,13 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:unique name="durations"><xs:selector xpath="item"/><xs:field xpath="."/></xs:unique>
   </xs:element>
 </xs:schema>`
-		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
 		expectCategoryCode(
 			t,
-			engine.Validate(strings.NewReader(`<root><item>P1Y</item><item>P12M</item></root>`)),
+			engine.Validate(context.Background(), strings.NewReader(`<root><item>P1Y</item><item>P12M</item></root>`)),
 			xsderrors.CategoryValidation,
 			xsderrors.CodeValidationIdentity,
 		)
@@ -176,13 +177,13 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:unique name="values"><xs:selector xpath="item"/><xs:field xpath="@v"/></xs:unique>
   </xs:element>
 </xs:schema>`
-		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
 		expectCategoryCode(
 			t,
-			engine.Validate(strings.NewReader(`<root><item v="P1Y"/><item v="P12M"/></root>`)),
+			engine.Validate(context.Background(), strings.NewReader(`<root><item v="P1Y"/><item v="P12M"/></root>`)),
 			xsderrors.CategoryValidation,
 			xsderrors.CodeValidationIdentity,
 		)
@@ -198,11 +199,11 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:keyref name="references" refer="values"><xs:selector xpath="refs/item"/><xs:field xpath="@v"/></xs:keyref>
   </xs:element>
 </xs:schema>`
-		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
-		if err := engine.Validate(strings.NewReader(`<root><keys><item v="P1Y"/></keys><refs><item v="P12M"/></refs></root>`)); err != nil {
+		if err := engine.Validate(context.Background(), strings.NewReader(`<root><keys><item v="P1Y"/></keys><refs><item v="P12M"/></refs></root>`)); err != nil {
 			t.Fatalf("Validate() error = %v", err)
 		}
 	})
@@ -216,13 +217,13 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:unique name="values"><xs:selector xpath="item"/><xs:field xpath="."/></xs:unique>
   </xs:element>
 </xs:schema>`
-		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
 		expectCategoryCode(
 			t,
-			engine.Validate(strings.NewReader(`<root><item>P1Y</item><item>P12M</item></root>`)),
+			engine.Validate(context.Background(), strings.NewReader(`<root><item>P1Y</item><item>P12M</item></root>`)),
 			xsderrors.CategoryValidation,
 			xsderrors.CodeValidationIdentity,
 		)
@@ -237,7 +238,7 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:key name="codes"><xs:selector xpath="row"/><xs:field xpath="code"/></xs:key>
   </xs:element>
 </xs:schema>`
-		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
@@ -245,7 +246,7 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 			`<root><row><code>present</code></row></root>`,
 			`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><row><code xsi:nil="true"/></row></root>`,
 		} {
-			err = engine.Validate(strings.NewReader(doc))
+			err = engine.Validate(context.Background(), strings.NewReader(doc))
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
 			if !strings.Contains(err.Error(), "key field selects nillable element declaration") {
 				t.Fatalf("Validate(%s) error = %v, want nillable key-field error", doc, err)
@@ -262,11 +263,11 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:unique name="codes"><xs:selector xpath="row"/><xs:field xpath="code"/></xs:unique>
   </xs:element>
 </xs:schema>`
-		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
-		if err := engine.Validate(strings.NewReader(`<root><row><code>present</code></row></root>`)); err != nil {
+		if err := engine.Validate(context.Background(), strings.NewReader(`<root><row><code>present</code></row></root>`)); err != nil {
 			t.Fatalf("Validate() error = %v", err)
 		}
 	})
@@ -278,7 +279,7 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:key name="codes"><xs:selector xpath="."/><xs:field xpath="code"/></xs:key>
   </xs:element>
 </xs:schema>`
-		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
@@ -286,7 +287,7 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 			`<root><code>not-an-int</code></root>`,
 			`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><code xsi:nil="bogus">1</code></root>`,
 		} {
-			err = engine.ValidateWithOptions(strings.NewReader(doc), xsd.ValidateOptions{MaxErrors: 0})
+			err = engine.ValidateWithOptions(context.Background(), strings.NewReader(doc), xsd.ValidateOptions{MaxErrors: 0})
 			if err == nil {
 				t.Fatalf("Validate(%s) succeeded", doc)
 			}
@@ -302,11 +303,11 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:key name="codes"><xs:selector xpath="."/><xs:field xpath="code"/></xs:key>
   </xs:element>
 </xs:schema>`
-		attributeEngine, err := xsd.Compile(xsd.Bytes("attribute-schema.xsd", []byte(attributeSchema)))
+		attributeEngine, err := xsd.Compile(context.Background(), xsd.Bytes("attribute-schema.xsd", []byte(attributeSchema)))
 		if err != nil {
 			t.Fatalf("Compile(attribute schema) error = %v", err)
 		}
-		err = attributeEngine.ValidateWithOptions(strings.NewReader(`<root><code>1</code></root>`), xsd.ValidateOptions{MaxErrors: 0})
+		err = attributeEngine.ValidateWithOptions(context.Background(), strings.NewReader(`<root><code>1</code></root>`), xsd.ValidateOptions{MaxErrors: 0})
 		if err == nil {
 			t.Fatal("Validate(missing required attribute) succeeded")
 		}
@@ -322,7 +323,7 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:key name="codes"><xs:selector xpath="."/><xs:field xpath="code"/></xs:key>
   </xs:element>
 </xs:schema>`
-		complexEngine, err := xsd.Compile(xsd.Bytes("complex-schema.xsd", []byte(complexSchema)))
+		complexEngine, err := xsd.Compile(context.Background(), xsd.Bytes("complex-schema.xsd", []byte(complexSchema)))
 		if err != nil {
 			t.Fatalf("Compile(complex schema) error = %v", err)
 		}
@@ -330,7 +331,7 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
 			`<root><code><value>1</value></code></root>`,
 			`<root><code><value>not-an-int</value></code></root>`,
 		} {
-			err = complexEngine.ValidateWithOptions(strings.NewReader(doc), xsd.ValidateOptions{MaxErrors: 0})
+			err = complexEngine.ValidateWithOptions(context.Background(), strings.NewReader(doc), xsd.ValidateOptions{MaxErrors: 0})
 			if err == nil || !errorTreeContains(err, "identity field has no simple value") {
 				t.Fatalf("Validate(%s) error = %v, want complex-field identity error", doc, err)
 			}
@@ -348,11 +349,11 @@ func TestIdentityConstraintValueSpaceRules(t *testing.T) {
     <xs:key name="codes"><xs:selector xpath="row"/><xs:field xpath="code"/><xs:field xpath="other"/></xs:key>
   </xs:element>
 </xs:schema>`
-		incompleteKeyEngine, err := xsd.Compile(xsd.Bytes("incomplete-key-schema.xsd", []byte(incompleteKeySchema)))
+		incompleteKeyEngine, err := xsd.Compile(context.Background(), xsd.Bytes("incomplete-key-schema.xsd", []byte(incompleteKeySchema)))
 		if err != nil {
 			t.Fatalf("Compile(incomplete key schema) error = %v", err)
 		}
-		err = incompleteKeyEngine.ValidateWithOptions(strings.NewReader(`<root><row><code>present</code></row></root>`), xsd.ValidateOptions{MaxErrors: 0})
+		err = incompleteKeyEngine.ValidateWithOptions(context.Background(), strings.NewReader(`<root><row><code>present</code></row></root>`), xsd.ValidateOptions{MaxErrors: 0})
 		if err == nil || !errorTreeContains(err, "key field is missing") {
 			t.Fatalf("Validate(incomplete key) error = %v, want missing-field error", err)
 		}
@@ -405,7 +406,7 @@ func TestIdentityCaptureDoesNotDuplicateXSIStartDiagnostics(t *testing.T) {
     <xs:unique name="typeValue"><xs:selector xpath="."/><xs:field xpath="@xsi:type"/></xs:unique>
   </xs:element>
 </xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -421,7 +422,7 @@ func TestIdentityCaptureDoesNotDuplicateXSIStartDiagnostics(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			validationErr := engine.ValidateWithOptions(strings.NewReader(test.doc), xsd.ValidateOptions{MaxErrors: 0})
+			validationErr := engine.ValidateWithOptions(context.Background(), strings.NewReader(test.doc), xsd.ValidateOptions{MaxErrors: 0})
 			if validationErr == nil || !errorTreeContains(validationErr, test.text) {
 				t.Fatalf("Validate() error = %v, want %q", validationErr, test.text)
 			}
@@ -431,10 +432,10 @@ func TestIdentityCaptureDoesNotDuplicateXSIStartDiagnostics(t *testing.T) {
 		})
 	}
 
-	err = engine.ValidateWithOptions(
+	err = engine.ValidateWithOptions(context.Background(),
 		strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="bogus"><number>not-an-int</number></root>`),
-		xsd.ValidateOptions{MaxErrors: 2},
-	)
+		xsd.ValidateOptions{MaxErrors: 2})
+
 	if count := errorTreeLeafCount(err); count != 2 {
 		t.Fatalf("Validate(MaxErrors=2) errors = %d, want 2: %v", count, err)
 	}
@@ -461,29 +462,32 @@ func TestXSIHintIdentityKeysMatchOrdinaryAnyURIValues(t *testing.T) {
     <xs:keyref name="locationsRef" refer="locations"><xs:selector xpath="ref"/><xs:field xpath="@many"/></xs:keyref>
   </xs:element>
 </xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
 	const prefix = `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <source xsi:noNamespaceSchemaLocation="&#x9;one.xsd&#xA;" xsi:schemaLocation="urn:a&#x9;a.xsd&#xA;urn:b  b.xsd"/>`
-	err = engine.Validate(strings.NewReader(prefix + `
+	err = engine.Validate(context.Background(), strings.NewReader(prefix+`
   <ref single="one.xsd" many="urn:a a.xsd urn:b b.xsd"/>
 </root>`))
+
 	if err != nil {
 		t.Fatalf("Validate(equivalent anyURI values) error = %v", err)
 	}
 
-	err = engine.Validate(strings.NewReader(prefix + `
+	err = engine.Validate(context.Background(), strings.NewReader(prefix+`
   <ref single="one.xsd" many="urn:a a.xsd urn:b different.xsd"/>
 </root>`))
+
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
 
-	err = engine.Validate(strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	err = engine.Validate(context.Background(), strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <source xsi:noNamespaceSchemaLocation="&#x9; " xsi:schemaLocation="urn:a a.xsd urn:b b.xsd"/>
   <ref single="" many="urn:a a.xsd urn:b b.xsd"/>
 </root>`))
+
 	if err != nil {
 		t.Fatalf("Validate(empty noNamespaceSchemaLocation) error = %v", err)
 	}
@@ -505,7 +509,7 @@ func TestXSIHintIdentityKeysMatchOrdinaryAnyURIValues(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			err := engine.ValidateWithOptions(strings.NewReader(test.doc), xsd.ValidateOptions{MaxErrors: 10})
+			err := engine.ValidateWithOptions(context.Background(), strings.NewReader(test.doc), xsd.ValidateOptions{MaxErrors: 10})
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationAttribute)
 			if count := errorTreeLeafCount(err); count != 1 || !errorTreeContains(err, test.text) {
 				t.Fatalf("Validate() error = %v, want one %q diagnostic", err, test.text)
@@ -546,7 +550,7 @@ func TestXSIStartAssessmentIsAttributeOrderIndependent(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(test.schema)))
+			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(test.schema)))
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
@@ -556,7 +560,7 @@ func TestXSIStartAssessmentIsAttributeOrderIndependent(t *testing.T) {
 			}
 			var got [2]error
 			for i, document := range test.documents {
-				got[i] = session.Validate(strings.NewReader(document))
+				got[i] = session.Validate(context.Background(), strings.NewReader(document))
 				if count := errorTreeLeafCount(got[i]); count != len(test.diagnostics) {
 					t.Fatalf("Validate(document %d) errors = %d, want %d: %v", i, count, len(test.diagnostics), got[i])
 				}
@@ -579,7 +583,7 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
     <xs:key name="self"><xs:selector xpath="."/><xs:field xpath="."/></xs:key>
   </xs:element>
 </xs:schema>`
-	selfKeyEngine, compileErr := xsd.Compile(xsd.Bytes("self-key-schema.xsd", []byte(selfKeySchema)))
+	selfKeyEngine, compileErr := xsd.Compile(context.Background(), xsd.Bytes("self-key-schema.xsd", []byte(selfKeySchema)))
 	if compileErr != nil {
 		t.Fatalf("Compile(self-key schema) error = %v", compileErr)
 	}
@@ -587,7 +591,7 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 		`<root>value</root>`,
 		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>`,
 	} {
-		validationErr := selfKeyEngine.Validate(strings.NewReader(document))
+		validationErr := selfKeyEngine.Validate(context.Background(), strings.NewReader(document))
 		if !errorTreeContains(validationErr, "key field selects nillable element declaration") {
 			t.Fatalf("Validate(self key %s) error = %v, want nillable-key error", document, validationErr)
 		}
@@ -616,7 +620,7 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 	for _, outer := range outerKeys {
 		t.Run(outer.name, func(t *testing.T) {
 			schema := strings.Replace(schemaTemplate, "%s", outer.key, 1)
-			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
@@ -625,7 +629,7 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 				t.Fatalf("NewSession() error = %v", err)
 			}
 
-			validationErr := session.Validate(strings.NewReader(`<root><code>value</code></root>`))
+			validationErr := session.Validate(context.Background(), strings.NewReader(`<root><code>value</code></root>`))
 			if !errorTreeContains(validationErr, "key field is missing") {
 				t.Fatalf("Validate(missing inner key) error = %v, want missing-field error", validationErr)
 			}
@@ -636,7 +640,7 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 				t.Fatalf("Validate(missing inner key) errors = %d, want 1: %v", count, validationErr)
 			}
 
-			validationErr = session.Validate(strings.NewReader(`<root><code id="present">value</code></root>`))
+			validationErr = session.Validate(context.Background(), strings.NewReader(`<root><code id="present">value</code></root>`))
 			if !errorTreeContains(validationErr, "key field selects nillable element declaration") {
 				t.Fatalf("Validate(valid inner key) error = %v, want nillable-key error", validationErr)
 			}
@@ -661,14 +665,14 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
     <xs:key name="outer"><xs:selector xpath="code"/><xs:field xpath="."/></xs:key>
   </xs:element>
 </xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("keyref-schema.xsd", []byte(keyrefSchema)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("keyref-schema.xsd", []byte(keyrefSchema)))
 	if err != nil {
 		t.Fatalf("Compile(keyref schema) error = %v", err)
 	}
-	validationErr := engine.ValidateWithOptions(
+	validationErr := engine.ValidateWithOptions(context.Background(),
 		strings.NewReader(`<root><code id="one" ref="two">value</code></root>`),
-		xsd.ValidateOptions{MaxErrors: 2},
-	)
+		xsd.ValidateOptions{MaxErrors: 2})
+
 	if !errorTreeContains(validationErr, "keyref does not resolve") {
 		t.Fatalf("Validate(unresolved inner keyref) error = %v, want keyref error", validationErr)
 	}
@@ -727,11 +731,11 @@ func TestFixedAttributeConstraintComparisonUsesItsSchemaOwner(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schemaPrefix+test.body+schemaSuffix)))
+			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schemaPrefix+test.body+schemaSuffix)))
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
-			err = engine.Validate(strings.NewReader(test.doc))
+			err = engine.Validate(context.Background(), strings.NewReader(test.doc))
 			if test.wantErr {
 				expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationAttribute)
 				return
@@ -751,7 +755,7 @@ func TestIdentityFieldsRejectUnassessedWildcardElements(t *testing.T) {
     <xs:unique name="u"><xs:selector xpath="*"/><xs:field xpath="."/></xs:unique>
   </xs:element>
 </xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -765,7 +769,7 @@ func TestIdentityFieldsRejectUnassessedWildcardElements(t *testing.T) {
 		{name: "xsi any type ignored", doc: `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema"><unknown xsi:type="xs:anyType">value</unknown></root>`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			err := engine.Validate(strings.NewReader(test.doc))
+			err := engine.Validate(context.Background(), strings.NewReader(test.doc))
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
 			if !strings.Contains(err.Error(), "identity field has no simple value") {
 				t.Fatalf("Validate() error = %v, want no-simple-value identity error", err)
@@ -824,11 +828,11 @@ func TestIdentityFieldsRejectUnassessedWildcardAttributes(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(test.schema)))
+			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(test.schema)))
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
-			err = engine.Validate(strings.NewReader(test.instance))
+			err = engine.Validate(context.Background(), strings.NewReader(test.instance))
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
 			if !strings.Contains(err.Error(), "identity field has no simple value") {
 				t.Fatalf("Validate() error = %v, want no-simple-value identity error", err)
@@ -847,16 +851,16 @@ func TestIdentityFieldsCaptureAssessedLaxWildcardAttributes(t *testing.T) {
     <xs:unique name="u"><xs:selector xpath="row"/><xs:field xpath="@code"/></xs:unique>
   </xs:element>
 </xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-	if err := engine.Validate(strings.NewReader(`<root><row code="a"/><row code="b"/></root>`)); err != nil {
+	if err := engine.Validate(context.Background(), strings.NewReader(`<root><row code="a"/><row code="b"/></root>`)); err != nil {
 		t.Fatalf("Validate(distinct) error = %v", err)
 	}
 	expectCategoryCode(
 		t,
-		engine.Validate(strings.NewReader(`<root><row code="a"/><row code="a"/></root>`)),
+		engine.Validate(context.Background(), strings.NewReader(`<root><row code="a"/><row code="a"/></root>`)),
 		xsderrors.CategoryValidation,
 		xsderrors.CodeValidationIdentity,
 	)
@@ -871,11 +875,11 @@ func TestIdentityRecoveryDoesNotReclassifyMatchedNodesAsMissing(t *testing.T) {
     <xs:key name="k"><xs:selector xpath="row"/><xs:field xpath="bad"/></xs:key>
   </xs:element>
 </xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-	err = engine.ValidateWithOptions(strings.NewReader(`<root><row><bad/></row></root>`), xsd.ValidateOptions{MaxErrors: 10})
+	err = engine.ValidateWithOptions(context.Background(), strings.NewReader(`<root><row><bad/></row></root>`), xsd.ValidateOptions{MaxErrors: 10})
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationElement)
 	if strings.Contains(err.Error(), "key field is missing") {
 		t.Fatalf("Validate() added missing-field cascade after recovery: %v", err)
@@ -910,11 +914,11 @@ func TestInvalidTypedIdentityFieldsDoNotBecomeMissingFields(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(test.schema)))
+			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(test.schema)))
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
-			err = engine.ValidateWithOptions(strings.NewReader(test.instance), xsd.ValidateOptions{MaxErrors: 10})
+			err = engine.ValidateWithOptions(context.Background(), strings.NewReader(test.instance), xsd.ValidateOptions{MaxErrors: 10})
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
 			if strings.Contains(err.Error(), "key field is missing") {
 				t.Fatalf("Validate() added missing-field cascade after invalid typed value: %v", err)
@@ -970,38 +974,39 @@ func writeTestFile(t *testing.T, path, data string) {
 }
 
 func TestNilReadersReturnStructuredErrors(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
-	err = engine.Validate(nil)
+	err = engine.Validate(context.Background(), nil)
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
 
-	err = engine.ValidateWithOptions(nil, xsd.ValidateOptions{})
+	err = engine.ValidateWithOptions(context.Background(), nil, xsd.ValidateOptions{})
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
 
 	var typedNil *bytes.Reader
-	err = engine.Validate(typedNil)
+	err = engine.Validate(context.Background(), typedNil)
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
 
-	err = engine.ValidateWithOptions(typedNil, xsd.ValidateOptions{})
+	err = engine.ValidateWithOptions(context.Background(), typedNil, xsd.ValidateOptions{})
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
 
 	session, err := engine.NewSession(xsd.ValidateOptions{})
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
-	err = session.Validate(typedNil)
+	err = session.Validate(context.Background(), typedNil)
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
-	err = session.Validate(strings.NewReader(`<root/>`))
+	err = session.Validate(context.Background(), strings.NewReader(`<root/>`))
 	if err != nil {
 		t.Fatalf("Session.Validate() after typed nil error = %v", err)
 	}
 
-	_, err = xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
+	_, err = xsd.Compile(context.Background(), xsd.Open("schema.xsd", func(context.Context) (io.ReadCloser, error) {
 		return nil, errors.New("nil schema reader")
 	}))
+
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaRead)
 	if !strings.Contains(err.Error(), "nil schema reader") {
 		t.Fatalf("Compile() error = %v, want nil schema reader", err)
@@ -1011,7 +1016,7 @@ func TestNilReadersReturnStructuredErrors(t *testing.T) {
 func TestNewSessionRejectsInvalidOptions(t *testing.T) {
 	t.Parallel()
 
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1062,7 +1067,7 @@ func (r *blockingReader) Read(p []byte) (int, error) {
 }
 
 func TestCopiedSessionRejectsOverlappingValidationBeforeReading(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1077,14 +1082,17 @@ func TestCopiedSessionRejectsOverlappingValidationBeforeReading(t *testing.T) {
 		release: make(chan struct{}),
 	}
 	activeErr := make(chan error, 1)
-	go func() { activeErr <- session.Validate(activeReader) }()
+	go func() { activeErr <- session.Validate(context.Background(), activeReader) }()
 	<-activeReader.started
 
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
 	losingReads := 0
-	err = copySession.Validate(countingReader{read: func([]byte) (int, error) {
+	err = copySession.Validate(canceledCtx, countingReader{read: func([]byte) (int, error) {
 		losingReads++
 		return 0, io.EOF
 	}})
+
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationSession)
 	if losingReads != 0 {
 		t.Fatalf("overlapping Validate() consumed losing reader %d times", losingReads)
@@ -1094,7 +1102,7 @@ func TestCopiedSessionRejectsOverlappingValidationBeforeReading(t *testing.T) {
 	if err := <-activeErr; err != nil {
 		t.Fatalf("active Validate() error = %v", err)
 	}
-	if err := copySession.Validate(strings.NewReader(`<root/>`)); err != nil {
+	if err := copySession.Validate(context.Background(), strings.NewReader(`<root/>`)); err != nil {
 		t.Fatalf("Validate() after overlap error = %v", err)
 	}
 }
@@ -1102,7 +1110,7 @@ func TestCopiedSessionRejectsOverlappingValidationBeforeReading(t *testing.T) {
 func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 	t.Parallel()
 
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r" type="xs:anyType"/></xs:schema>`)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r" type="xs:anyType"/></xs:schema>`)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1117,14 +1125,14 @@ func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 			name:  "engine exact limit",
 			limit: 7,
 			validate: func(engine *xsd.Engine, input string, opts xsd.ValidateOptions) error {
-				return engine.ValidateWithOptions(strings.NewReader(input), opts)
+				return engine.ValidateWithOptions(context.Background(), strings.NewReader(input), opts)
 			},
 		},
 		{
 			name:  "engine over limit",
 			limit: 6,
 			validate: func(engine *xsd.Engine, input string, opts xsd.ValidateOptions) error {
-				return engine.ValidateWithOptions(strings.NewReader(input), opts)
+				return engine.ValidateWithOptions(context.Background(), strings.NewReader(input), opts)
 			},
 			wantErr: true,
 		},
@@ -1136,7 +1144,7 @@ func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				return session.Validate(strings.NewReader(input))
+				return session.Validate(context.Background(), strings.NewReader(input))
 			},
 		},
 		{
@@ -1147,7 +1155,7 @@ func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				return session.Validate(strings.NewReader(input))
+				return session.Validate(context.Background(), strings.NewReader(input))
 			},
 			wantErr: true,
 		},
@@ -1171,25 +1179,26 @@ func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 }
 
 func TestValidateOptionsBoundSchemaLocationNamespaces(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	doc := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:a a.xsd urn:b b.xsd"/>`
 
-	err = engine.ValidateWithOptions(strings.NewReader(doc), xsd.ValidateOptions{
+	err = engine.ValidateWithOptions(context.Background(), strings.NewReader(doc), xsd.ValidateOptions{
 		MaxErrors:                   10,
 		MaxSchemaLocationNamespaces: 1,
 	})
+
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
 
 	session, err := engine.NewSession(xsd.ValidateOptions{MaxSchemaLocationNamespaceBytes: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = session.Validate(strings.NewReader(doc))
+	err = session.Validate(context.Background(), strings.NewReader(doc))
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
-	if err := session.Validate(strings.NewReader(`<root/>`)); err != nil {
+	if err := session.Validate(context.Background(), strings.NewReader(`<root/>`)); err != nil {
 		t.Fatalf("session reuse after schema-location limit: %v", err)
 	}
 }
@@ -1203,7 +1212,7 @@ func TestMaxIdentityEntriesRejectsPendingSelectionBeforeItsEnd(t *testing.T) {
     <xs:key name="ids"><xs:selector xpath=".//a"/><xs:field xpath="@id"/></xs:key>
   </xs:element>
 </xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1213,12 +1222,12 @@ func TestMaxIdentityEntriesRejectsPendingSelectionBeforeItsEnd(t *testing.T) {
 	}
 	doc := `<root><a id="one"><a id="two"></a></a></root>`
 	reader := &oneByteCountingReader{data: doc}
-	err = session.Validate(reader)
+	err = session.Validate(context.Background(), reader)
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
 	if firstClose := strings.Index(doc, `</a>`); reader.off > firstClose {
 		t.Fatalf("validation consumed %d bytes, want at most %d before the first selected element end", reader.off, firstClose)
 	}
-	if err := session.Validate(strings.NewReader(`<root><a id="one"/></root>`)); err != nil {
+	if err := session.Validate(context.Background(), strings.NewReader(`<root><a id="one"/></root>`)); err != nil {
 		t.Fatalf("session reuse after pending identity limit: %v", err)
 	}
 }
@@ -1228,7 +1237,7 @@ func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
 
 	rootData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/><xs:include schemaLocation="child.xsd"/></xs:schema>`)
 	childData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	resolver := xsd.ResolverFunc(func(_, location string) (xsd.SchemaSource, error) {
+	resolver := xsd.ResolverFunc(func(_ context.Context, _, location string) (xsd.SchemaSource, error) {
 		if location == "child.xsd" {
 			return xsd.Bytes("child.xsd", childData), nil
 		}
@@ -1259,7 +1268,7 @@ func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := xsd.CompileWithOptions(tt.opts, root)
+			_, err := xsd.CompileWithOptions(context.Background(), tt.opts, root)
 			if !tt.wantErr {
 				if err != nil {
 					t.Fatalf("CompileWithOptions() error = %v", err)
@@ -1279,16 +1288,16 @@ func TestCompileExplicitSourceLimitPrecedesSameIdentityOpeners(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
 	openCalls := 0
 	sourceFor := func() xsd.SchemaSource {
-		return xsd.Open("same.xsd", func() (io.ReadCloser, error) {
+		return xsd.Open("same.xsd", func(context.Context) (io.ReadCloser, error) {
 			openCalls++
 			return io.NopCloser(strings.NewReader(schema)), nil
 		})
 	}
-	_, err := xsd.CompileWithOptions(
+	_, err := xsd.CompileWithOptions(context.Background(),
 		xsd.CompileOptions{MaxSchemaSources: 1},
 		sourceFor(),
-		sourceFor(),
-	)
+		sourceFor())
+
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
 		t.Fatalf("CompileWithOptions() error = %v, want schema limit", err)
 	}
@@ -1306,10 +1315,10 @@ func TestCompileOptionsSubstitutionClosureLimit(t *testing.T) {
   <xs:element name="h2" substitutionGroup="h1"/>
   <xs:element name="h3" substitutionGroup="h2"/>
 </xs:schema>`))
-	if _, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSubstitutionClosureEntries: 6}, schema); err != nil {
+	if _, err := xsd.CompileWithOptions(context.Background(), xsd.CompileOptions{MaxSubstitutionClosureEntries: 6}, schema); err != nil {
 		t.Fatalf("CompileWithOptions(exact limit) error = %v", err)
 	}
-	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSubstitutionClosureEntries: 5}, schema)
+	_, err := xsd.CompileWithOptions(context.Background(), xsd.CompileOptions{MaxSubstitutionClosureEntries: 5}, schema)
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
 		t.Fatalf("CompileWithOptions(over limit) error = %v, want schema limit", err)
 	}
@@ -1321,13 +1330,13 @@ func TestBytesSourceCopiesInput(t *testing.T) {
 	for i := range data {
 		data[i] = 0
 	}
-	if _, err := xsd.Compile(source); err != nil {
+	if _, err := xsd.Compile(context.Background(), source); err != nil {
 		t.Fatalf("Compile(Bytes(...)) error after caller mutation = %v", err)
 	}
 }
 
 func TestCopiedEngineSharesPublishedSchema(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`)))
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`)))
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1338,7 +1347,7 @@ func TestCopiedEngineSharesPublishedSchema(t *testing.T) {
 		wg.Add(1)
 		go func(e *xsd.Engine) {
 			defer wg.Done()
-			if err := e.Validate(strings.NewReader(`<root>7</root>`)); err != nil {
+			if err := e.Validate(context.Background(), strings.NewReader(`<root>7</root>`)); err != nil {
 				t.Errorf("Validate() error = %v", err)
 			}
 		}(e)
@@ -1352,7 +1361,7 @@ func TestCopiedEngineSharesPublishedSchema(t *testing.T) {
 // and fixed values, a variable-length pattern facet, a wide DFA row index, a
 // substitution group, and xs:ID/xs:IDREF tracking.
 func TestEngineConcurrentValidation(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="head" type="xs:string" abstract="true"/>
   <xs:element name="sub" type="xs:string" substitutionGroup="head"/>
   <xs:element name="root">
@@ -1400,6 +1409,7 @@ func TestEngineConcurrentValidation(t *testing.T) {
     </xs:keyref>
   </xs:element>
 </xs:schema>`)))
+
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1429,7 +1439,7 @@ func TestEngineConcurrentValidation(t *testing.T) {
 	for range 8 {
 		wg.Go(func() {
 			for range 25 {
-				check("engine", engine.Validate)
+				check("engine", func(r io.Reader) error { return engine.Validate(context.Background(), r) })
 			}
 		})
 		wg.Go(func() {
@@ -1439,7 +1449,7 @@ func TestEngineConcurrentValidation(t *testing.T) {
 				return
 			}
 			for range 25 {
-				check("session", session.Validate)
+				check("session", func(r io.Reader) error { return session.Validate(context.Background(), r) })
 			}
 		})
 	}
@@ -1447,10 +1457,11 @@ func TestEngineConcurrentValidation(t *testing.T) {
 }
 
 func TestCopiedSessionResolvesQNameValuesWithCopyState(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:QName"/>
 </xs:schema>`)))
+
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1459,13 +1470,13 @@ func TestCopiedSessionResolvesQNameValuesWithCopyState(t *testing.T) {
 		t.Fatalf("NewSession() error = %v", err)
 	}
 	copySession := *session
-	if err := copySession.Validate(strings.NewReader(`<root xmlns:p="urn:test">p:item</root>`)); err != nil {
+	if err := copySession.Validate(context.Background(), strings.NewReader(`<root xmlns:p="urn:test">p:item</root>`)); err != nil {
 		t.Fatalf("copied Session.Validate() error = %v", err)
 	}
 }
 
 func TestValidationPathsPreserveNameSpelling(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="known" type="xs:int"/>
   <xs:element name="root">
@@ -1475,6 +1486,7 @@ func TestValidationPathsPreserveNameSpelling(t *testing.T) {
     <xs:complexType><xs:sequence><xs:any processContents="strict" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
   </xs:element>
 </xs:schema>`)))
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1490,7 +1502,7 @@ func TestValidationPathsPreserveNameSpelling(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := engine.Validate(strings.NewReader(tc.doc))
+			err := engine.Validate(context.Background(), strings.NewReader(tc.doc))
 			x, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok {
 				t.Fatalf("Validate() error = %v, want structured error", err)
@@ -1503,13 +1515,14 @@ func TestValidationPathsPreserveNameSpelling(t *testing.T) {
 }
 
 func TestLaxWildcardValidationAllocationsMatchKnownName(t *testing.T) {
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:s" xmlns:s="urn:s" elementFormDefault="qualified">
   <xs:element name="known" type="xs:anyType"/>
   <xs:element name="root">
     <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
   </xs:element>
 </xs:schema>`)))
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1524,20 +1537,20 @@ func TestLaxWildcardValidationAllocationsMatchKnownName(t *testing.T) {
 	knownDoc := `<s:root xmlns:s="urn:s"><k:known xmlns:k="urn:s"/></s:root>`
 	laxDoc := `<s:root xmlns:s="urn:s"><o:unknown xmlns:o="urn:o"/></s:root>`
 	for range 10 {
-		if err := known.Validate(strings.NewReader(knownDoc)); err != nil {
+		if err := known.Validate(context.Background(), strings.NewReader(knownDoc)); err != nil {
 			t.Fatal(err)
 		}
-		if err := lax.Validate(strings.NewReader(laxDoc)); err != nil {
+		if err := lax.Validate(context.Background(), strings.NewReader(laxDoc)); err != nil {
 			t.Fatal(err)
 		}
 	}
 	knownAllocs := testing.AllocsPerRun(100, func() {
-		if err := known.Validate(strings.NewReader(knownDoc)); err != nil {
+		if err := known.Validate(context.Background(), strings.NewReader(knownDoc)); err != nil {
 			panic(err)
 		}
 	})
 	laxAllocs := testing.AllocsPerRun(100, func() {
-		if err := lax.Validate(strings.NewReader(laxDoc)); err != nil {
+		if err := lax.Validate(context.Background(), strings.NewReader(laxDoc)); err != nil {
 			panic(err)
 		}
 	})

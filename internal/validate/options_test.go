@@ -22,6 +22,7 @@ func TestNormalizeOptionsRejectsNegativeLimits(t *testing.T) {
 		{name: "instance attributes", opts: Options{MaxInstanceAttributes: -1}},
 		{name: "instance text bytes", opts: Options{MaxInstanceTextBytes: -1}},
 		{name: "instance token bytes", opts: Options{MaxInstanceTokenBytes: -1}},
+		{name: "instance bytes", opts: Options{MaxInstanceBytes: -1}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -52,6 +53,7 @@ func TestNormalizeOptionsCopiesLimits(t *testing.T) {
 		MaxInstanceAttributes:           8,
 		MaxInstanceTextBytes:            9,
 		MaxInstanceTokenBytes:           10,
+		MaxInstanceBytes:                11,
 	})
 	if err != nil {
 		t.Fatalf("NormalizeOptions() error = %v", err)
@@ -67,19 +69,32 @@ func TestNormalizeOptionsCopiesLimits(t *testing.T) {
 		InstanceAttributes:           8,
 		InstanceTextBytes:            9,
 		InstanceTokenBytes:           10,
+		InstanceBytes:                11,
 	}
 	if limits != want {
 		t.Fatalf("limits = %+v, want %+v", limits, want)
 	}
 }
 
-func TestNormalizeOptionsUsesFiniteSchemaLocationDefaults(t *testing.T) {
+func TestNormalizeOptionsUsesFiniteDefaults(t *testing.T) {
 	limits, err := NormalizeOptions(Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if limits.SchemaLocationNamespaces != defaultMaxSchemaLocationNamespaces ||
-		limits.SchemaLocationNamespaceBytes != defaultMaxSchemaLocationNamespaceBytes {
-		t.Fatalf("schema-location defaults = %d, %d", limits.SchemaLocationNamespaces, limits.SchemaLocationNamespaceBytes)
+	want := Limits{
+		Errors:                       defaultMaxErrors,
+		IdentityScopes:               defaultMaxIdentityScopes,
+		IdentityEntries:              defaultMaxIdentityEntries,
+		IdentityTupleBytes:           defaultMaxIdentityTupleBytes,
+		SchemaLocationNamespaces:     defaultMaxSchemaLocationNamespaces,
+		SchemaLocationNamespaceBytes: defaultMaxSchemaLocationNamespaceBytes,
+		InstanceDepth:                defaultMaxInstanceDepth,
+		InstanceAttributes:           defaultMaxInstanceAttributes,
+		InstanceTextBytes:            defaultMaxInstanceTextBytes,
+		InstanceTokenBytes:           defaultMaxInstanceTokenBytes,
+		InstanceBytes:                defaultMaxInstanceBytes,
+	}
+	if limits != want {
+		t.Fatalf("limits = %+v, want %+v", limits, want)
 	}
 }

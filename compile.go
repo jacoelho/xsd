@@ -1,6 +1,8 @@
 package xsd
 
 import (
+	"context"
+
 	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -44,14 +46,15 @@ type CompileOptions struct {
 	MaxSimpleUnionMemberEntries int
 }
 
-// Compile compiles schema sources into an immutable validation engine.
-func Compile(sources ...SchemaSource) (*Engine, error) {
-	return CompileWithOptions(CompileOptions{}, sources...)
+// Compile compiles schema sources into an immutable validation engine. ctx must
+// be non-nil; cancellation is cooperative at callback, read, and batch boundaries.
+func Compile(ctx context.Context, sources ...SchemaSource) (*Engine, error) {
+	return CompileWithOptions(ctx, CompileOptions{}, sources...)
 }
 
 // CompileWithOptions compiles schema sources with explicit resource limits.
-func CompileWithOptions(opts CompileOptions, sources ...SchemaSource) (*Engine, error) {
-	rt, err := compile.CompileMappedSources(internalCompileOptions(opts), sources, internalSchemaSource)
+func CompileWithOptions(ctx context.Context, opts CompileOptions, sources ...SchemaSource) (*Engine, error) {
+	rt, err := compile.CompileMappedSources(ctx, internalCompileOptions(opts), sources, internalSchemaSource)
 	if err != nil {
 		return nil, err
 	}

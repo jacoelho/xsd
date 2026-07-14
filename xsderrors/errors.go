@@ -13,7 +13,7 @@ const nilErrorString = "<nil>"
 // ErrSchemaNotFound reports that a resolver could not resolve a schema.
 var ErrSchemaNotFound = errors.New("schema not found")
 
-// Category identifies the validation phase that produced an error.
+// Category identifies the operation class that produced an error.
 type Category string
 
 // Error categories.
@@ -22,6 +22,7 @@ const (
 	CategorySchemaCompile Category = "schema_compile"
 	CategoryUnsupported   Category = "unsupported"
 	CategoryValidation    Category = "validation"
+	CategoryCanceled      Category = "canceled"
 	CategoryInternal      Category = "internal"
 )
 
@@ -42,6 +43,7 @@ const (
 	CodeSchemaInvalidAttribute Code = "schema.invalid_attribute"
 	CodeSchemaIdentity         Code = "schema.identity"
 	CodeSchemaLimit            Code = "schema.limit"
+	CodeCompileCanceled        Code = "compile.canceled"
 	CodeUnsupportedDTD         Code = "unsupported.dtd"
 	CodeUnsupportedExternal    Code = "unsupported.external_entity"
 	CodeUnsupportedEntity      Code = "unsupported.entity"
@@ -64,6 +66,7 @@ const (
 	CodeValidationOption       Code = "validation.option"
 	CodeValidationSession      Code = "validation.session"
 	CodeValidationLimit        Code = "validation.limit"
+	CodeValidationCanceled     Code = "validation.canceled"
 	CodeInternalInvariant      Code = "internal.invariant"
 )
 
@@ -245,6 +248,11 @@ func UnsupportedAt(code Code, line, col int, path, msg string, err error) error 
 // Validation returns a document validation diagnostic.
 func Validation(code Code, line, col int, path, msg string) error {
 	return &Error{Category: CategoryValidation, Code: code, Line: line, Column: col, Path: path, Message: msg}
+}
+
+// Canceled returns a structured cancellation diagnostic that preserves cause.
+func Canceled(code Code, msg string, cause error) error {
+	return &Error{Category: CategoryCanceled, Code: code, Message: msg, Err: cause}
 }
 
 // InternalInvariant returns an internal invariant diagnostic.

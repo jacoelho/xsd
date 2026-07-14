@@ -1,6 +1,7 @@
 package compile_test
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ import (
 
 func mustCompileRuntime(t *testing.T, schema string) *runtime.Schema {
 	t.Helper()
-	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -51,7 +52,7 @@ func validateWithRuntime(rt *runtime.Schema, doc string) error {
 	if err != nil {
 		return err
 	}
-	return session.Validate(strings.NewReader(doc))
+	return session.Validate(context.Background(), strings.NewReader(doc))
 }
 
 func expectCode(t *testing.T, err error, code xsderrors.Code) {

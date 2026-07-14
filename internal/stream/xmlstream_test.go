@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -331,7 +332,7 @@ func TestXMLStreamParserChunksLargeCDATA(t *testing.T) {
 
 func TestByteStreamConsumeBufferedTracksNewlines(t *testing.T) {
 	bs := new(byteStream)
-	bs.reset(strings.NewReader("ab\ncd\nef"))
+	bs.reset(context.Background(), strings.NewReader("ab\ncd\nef"), 0)
 	chunk, err := bs.buffered()
 	if err != nil {
 		t.Fatalf("buffered() error = %v", err)
@@ -345,7 +346,7 @@ func TestByteStreamConsumeBufferedTracksNewlines(t *testing.T) {
 
 func TestByteStreamConsumeBufferedAfterReadByteNewlines(t *testing.T) {
 	bs := new(byteStream)
-	bs.reset(strings.NewReader("a\nbc\nde"))
+	bs.reset(context.Background(), strings.NewReader("a\nbc\nde"), 0)
 	if _, err := bs.buffered(); err != nil {
 		t.Fatalf("buffered() error = %v", err)
 	}
@@ -368,7 +369,7 @@ func TestByteStreamConsumeBufferedAfterReadByteNewlines(t *testing.T) {
 
 func TestByteStreamConsumeBufferedNewlineThenCleanChunk(t *testing.T) {
 	bs := new(byteStream)
-	bs.reset(strings.NewReader("a\nb\n\ncdef"))
+	bs.reset(context.Background(), strings.NewReader("a\nb\n\ncdef"), 0)
 	if _, err := bs.buffered(); err != nil {
 		t.Fatalf("buffered() error = %v", err)
 	}
@@ -430,7 +431,7 @@ func TestXMLStreamParserLimitsAggregateStartPayload(t *testing.T) {
 				names := NewCache()
 				values := NewCache()
 				p := new(Parser)
-				if err := p.ResetWithLimit(strings.NewReader(`<r a="12" b="34"/>`), &names, &values, tt.limit); err != nil {
+				if err := p.ResetWithLimits(strings.NewReader(`<r a="12" b="34"/>`), &names, &values, Limits{MaxTokenBytes: tt.limit}); err != nil {
 					t.Fatal(err)
 				}
 				p.SetLazyAttrValue(lazy)
@@ -467,7 +468,7 @@ func TestXMLStreamParserLimitsAggregateProcessingInstructionPayload(t *testing.T
 			names := NewCache()
 			values := NewCache()
 			p := new(Parser)
-			if err := p.ResetWithLimit(strings.NewReader(`<?pi abc?><r/>`), &names, &values, tt.limit); err != nil {
+			if err := p.ResetWithLimits(strings.NewReader(`<?pi abc?><r/>`), &names, &values, Limits{MaxTokenBytes: tt.limit}); err != nil {
 				t.Fatal(err)
 			}
 			p.SetEmitPI(true)
@@ -492,7 +493,7 @@ func TestXMLStreamParserPreservesDisprovedProcessingInstructionTerminatorPrefix(
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	if err := p.ResetWithLimit(strings.NewReader(`<?pi ?x?><r/>`), &names, &values, 4); err != nil {
+	if err := p.ResetWithLimits(strings.NewReader(`<?pi ?x?><r/>`), &names, &values, Limits{MaxTokenBytes: 4}); err != nil {
 		t.Fatal(err)
 	}
 	p.SetEmitPI(true)
@@ -532,7 +533,7 @@ func TestXMLStreamParserChargesDecodedEntityPayload(t *testing.T) {
 			names := NewCache()
 			values := NewCache()
 			p := new(Parser)
-			if err := p.ResetWithLimit(strings.NewReader(tt.xml), &names, &values, tt.limit); err != nil {
+			if err := p.ResetWithLimits(strings.NewReader(tt.xml), &names, &values, Limits{MaxTokenBytes: tt.limit}); err != nil {
 				t.Fatal(err)
 			}
 			var err error

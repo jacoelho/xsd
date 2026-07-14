@@ -70,7 +70,8 @@ func TestIdentityStateResolvesIDREFAgainstLaterID(t *testing.T) {
 	err := state.CheckIDRefs(func(err error) error {
 		t.Fatalf("CheckIDRefs reported resolved ref: %v", err)
 		return nil
-	})
+	}, nil)
+
 	if err != nil {
 		t.Fatalf("CheckIDRefs() error = %v", err)
 	}
@@ -87,7 +88,8 @@ func TestIdentityStateReportsMissingIDREFAtOriginalLocation(t *testing.T) {
 	err := state.CheckIDRefs(func(err error) error {
 		got = err
 		return nil
-	})
+	}, nil)
+
 	if err != nil {
 		t.Fatalf("CheckIDRefs() error = %v", err)
 	}
@@ -113,7 +115,7 @@ func TestIdentityStateUsesXMLWhitespaceFields(t *testing.T) {
 	if err := state.CheckIDRefs(func(err error) error {
 		got = err
 		return nil
-	}); err != nil {
+	}, nil); err != nil {
 		t.Fatalf("CheckIDRefs() error = %v", err)
 	}
 	expectXSDMessage(t, got, "IDREF does not resolve: a\u00a0b")
@@ -140,7 +142,7 @@ func TestIdentityStateRecordsSimpleValueProjection(t *testing.T) {
 	if err := state.CheckIDRefs(func(err error) error {
 		got = err
 		return nil
-	}); err != nil {
+	}, nil); err != nil {
 		t.Fatalf("CheckIDRefs() error = %v", err)
 	}
 	expectXSDMessage(t, got, "IDREF does not resolve: ref")
