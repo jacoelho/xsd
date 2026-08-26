@@ -1,8 +1,6 @@
 package validate
 
 import (
-	"context"
-
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -206,12 +204,8 @@ func knownIdentityAttributeName(name runtime.QName) runtime.RuntimeName {
 	return runtime.RuntimeName{Name: name, Known: true}
 }
 
-func (s *session) checkIDRefs(ctx context.Context, done <-chan struct{}) error {
-	var check func() error
-	if done != nil {
-		check = func() error { return validationContextDoneError(ctx, done, nil) }
-	}
+func (s *session) checkIDRefs() error {
 	return s.doc.identity.endDocument(func(err error) error {
 		return s.recover(err)
-	}, check)
+	})
 }

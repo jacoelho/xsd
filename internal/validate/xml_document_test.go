@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"context"
 	"encoding/xml"
 	"strings"
 	"testing"
@@ -193,7 +192,7 @@ func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) 
 }
 
 func TestXMLSyntaxDiagnosticParity(t *testing.T) {
-	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="a" type="xs:anyType"/>
 </xs:schema>`))})
@@ -210,12 +209,12 @@ func TestXMLSyntaxDiagnosticParity(t *testing.T) {
 	}
 	for _, input := range tests {
 		t.Run(input, func(t *testing.T) {
-			preflightErr := CheckXMLWellFormed(context.Background(), strings.NewReader(input), Options{})
+			preflightErr := CheckXMLWellFormed(strings.NewReader(input), Options{})
 			session, err := newSessionForTest(rt, Options{})
 			if err != nil {
 				t.Fatal(err)
 			}
-			validationErr := session.Validate(context.Background(), strings.NewReader(input))
+			validationErr := session.Validate(strings.NewReader(input))
 			if preflightErr == nil || validationErr == nil {
 				t.Fatalf("errors = preflight %v, validation %v", preflightErr, validationErr)
 			}

@@ -1,7 +1,6 @@
 package compile
 
 import (
-	"context"
 	"math"
 	"slices"
 
@@ -119,7 +118,6 @@ type dfaAccept struct {
 // CompileContentModels compiles every runtime content model into its validation
 // representation.
 func CompileContentModels(
-	ctx context.Context,
 	names *runtime.NameTable,
 	rt ContentModelCompileRuntime,
 	count int,
@@ -128,9 +126,6 @@ func CompileContentModels(
 	cc := newContentModelCompiler(names, rt, maxContentModelStates)
 	compiled := make([]runtime.CompiledModel, count)
 	for id := range count {
-		if err := compileContextError(ctx); err != nil {
-			return nil, err
-		}
 		m, err := cc.compileContentModel(runtime.ContentModelID(id))
 		if err != nil {
 			return nil, err
@@ -147,7 +142,6 @@ func CompileContentModels(
 // CheckContentModelsUPA validates direct unique-particle-attribution checks
 // that can be proven before compiled DFA construction.
 func CheckContentModelsUPA(
-	ctx context.Context,
 	names *runtime.NameTable,
 	rt ContentModelCompileRuntime,
 	count int,
@@ -155,9 +149,6 @@ func CheckContentModelsUPA(
 	cc := newContentModelCompiler(names, rt, 0)
 	seen := make([]bool, count)
 	for id := range count {
-		if err := compileContextError(ctx); err != nil {
-			return err
-		}
 		modelID := runtime.ContentModelID(id)
 		model, ok := cc.rt.ContentModel(modelID)
 		if !ok {

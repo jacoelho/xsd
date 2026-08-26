@@ -2,13 +2,11 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 
 	"github.com/jacoelho/xsd"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -23,20 +21,18 @@ type config struct {
 }
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	code := runWithOpen(ctx, os.Args[1:], os.Stderr, func(path string) (io.ReadCloser, error) {
+	code := runWithOpen(os.Args[1:], os.Stderr, func(path string) (io.ReadCloser, error) {
 		return os.Open(path) //nolint:gosec // xmllint intentionally validates caller-provided document paths.
 	})
-	stop()
 	os.Exit(code)
 }
 
-func runWithOpen(ctx context.Context, args []string, stderr io.Writer, openDoc func(string) (io.ReadCloser, error)) int {
+func runWithOpen(args []string, stderr io.Writer, openDoc func(string) (io.ReadCloser, error)) int {
 	cfg, err := parseArgs(args)
 	if err != nil {
 		return writeStatus(stderr, 2, "%v\n", err)
 	}
-	engine, err := xsd.Compile(ctx, xsd.File(cfg.schema))
+	engine, err := xsd.Compile(xsd.File(cfg.schema))
 	if err != nil {
 		return writeStatus(stderr, 1, "%s fails to compile\n%v\n", cfg.schema, err)
 	}
@@ -44,7 +40,7 @@ func runWithOpen(ctx context.Context, args []string, stderr io.Writer, openDoc f
 	if err != nil {
 		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, err)
 	}
-	validationErr := engine.ValidateWithOptions(ctx, f, xsd.ValidateOptions{
+	validationErr := engine.ValidateWithOptions(f, xsd.ValidateOptions{
 		MaxErrors:          cfg.maxErrors,
 		MaxIdentityEntries: cfg.maxIdentityEntries,
 		MaxInstanceBytes:   cfg.maxBytes,

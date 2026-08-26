@@ -544,8 +544,8 @@ func reportIdentityError(err error, report func(error) error) error {
 	return report(err)
 }
 
-func (e *identityEvaluation) endDocument(report func(error) error, check func() error) error {
-	return e.checkIDRefs(report, check)
+func (e *identityEvaluation) endDocument(report func(error) error) error {
+	return e.checkIDRefs(report)
 }
 
 func (e *identityEvaluation) popElement() {

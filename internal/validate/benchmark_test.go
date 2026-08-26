@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -39,7 +38,7 @@ func BenchmarkCheckXMLWellFormedNested(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(xml)))
 			for b.Loop() {
-				if err := CheckXMLWellFormed(context.Background(), strings.NewReader(xml), opts); err != nil {
+				if err := CheckXMLWellFormed(strings.NewReader(xml), opts); err != nil {
 					b.Fatal(err)
 				}
 			}

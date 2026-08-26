@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"context"
 	"errors"
 	"io"
 	"slices"
@@ -70,23 +69,20 @@ func initializeSession(s *session, rt *runtime.Schema, opts Options) error {
 }
 
 // Validate validates one XML instance document with isolated per-call state.
-func Validate(ctx context.Context, rt *runtime.Schema, r io.Reader, opts Options) error {
-	if err := validationContextError(ctx); err != nil {
-		return err
-	}
+func Validate(rt *runtime.Schema, r io.Reader, opts Options) error {
 	var s session
 	if err := initializeSession(&s, rt, opts); err != nil {
 		return err
 	}
-	return s.validate(ctx, r)
+	return s.validate(r)
 }
 
 // Validate validates one XML instance document. It clears document-local state
 // before returning and may retain bounded scratch buffers and string caches for
 // reuse.
-func (s *Session) Validate(ctx context.Context, r io.Reader) error {
+func (s *Session) Validate(r io.Reader) error {
 	if s == nil {
-		return (*session)(nil).validate(ctx, r)
+		return (*session)(nil).validate(r)
 	}
 	if !s.inUse.CompareAndSwap(false, true) {
 		return xsderrors.Validation(xsderrors.CodeValidationSession, 0, 0, "", "validation session is already in use")
@@ -94,7 +90,7 @@ func (s *Session) Validate(ctx context.Context, r io.Reader) error {
 	// Defers run in LIFO order: cleanup must finish before copies can enter.
 	defer s.inUse.Store(false)
 	defer s.session.reset()
-	return s.session.validate(ctx, r)
+	return s.session.validate(r)
 }
 
 // session holds the state for validating documents against one Engine.
@@ -174,7 +170,7 @@ const (
 	elementWildcardSkipped
 )
 
-func (s *session) validate(ctx context.Context, r io.Reader) error {
+func (s *session) validate(r io.Reader) error {
 	if s == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
@@ -182,31 +178,16 @@ func (s *session) validate(ctx context.Context, r io.Reader) error {
 	if s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
-	if err := validationContextError(ctx); err != nil {
-		return err
-	}
-	done := ctx.Done()
 	if err := s.parser.ResetWithLimits(r, &s.nameStrings, &s.valueStrings, stream.Limits{
-		Context:       ctx,
 		MaxInputBytes: s.maxInstanceBytes,
 		MaxTokenBytes: s.maxInstanceTokenBytes,
 		MaxAttrs:      s.maxInstanceAttributes,
 	}); err != nil {
-		if done != nil {
-			if contextErr := validationContextDoneError(ctx, done, err); contextErr != nil {
-				return contextErr
-			}
-		}
 		return instanceReaderError(err)
 	}
 	s.parser.SetLazyAttrValue(true)
 	for {
 		tok, err := s.parser.Next()
-		if done != nil {
-			if contextErr := validationContextDoneError(ctx, done, err); contextErr != nil {
-				return contextErr
-			}
-		}
 		if err != nil {
 			if stream.IsOnlyEOF(err) {
 				break
@@ -243,12 +224,7 @@ func (s *session) validate(ctx context.Context, r io.Reader) error {
 			s.discardSemanticState()
 		}
 	}
-	if done != nil {
-		if err := validationContextDoneError(ctx, done, nil); err != nil {
-			return err
-		}
-	}
-	return s.finishValidation(ctx, done)
+	return s.finishValidation()
 }
 
 func (s *session) parseError(tok stream.Token, err error) error {
@@ -259,12 +235,12 @@ func (s *session) parseError(tok stream.Token, err error) error {
 	return StreamError(line, col, s.doc.PathString(), err)
 }
 
-func (s *session) finishValidation(ctx context.Context, done <-chan struct{}) error {
+func (s *session) finishValidation() error {
 	if err := s.doc.Complete(); err != nil {
 		return err
 	}
 	if !s.doc.syntaxOnly {
-		if err := s.checkIDRefs(ctx, done); err != nil {
+		if err := s.checkIDRefs(); err != nil {
 			if errors.Is(err, errSemanticStop) {
 				s.discardSemanticState()
 				return s.result()

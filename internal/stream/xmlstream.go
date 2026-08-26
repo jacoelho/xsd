@@ -2,7 +2,6 @@ package stream
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"encoding/xml"
 	"errors"
@@ -96,7 +95,6 @@ type Parser struct {
 // Limits bounds parser-owned input and token state. Zero disables a limit;
 // production callers are responsible for supplying normalized finite values.
 type Limits struct {
-	Context       context.Context
 	MaxInputBytes int64
 	MaxTokenBytes int64
 	MaxAttrs      int
@@ -122,7 +120,7 @@ func (p *Parser) ResetWithLimits(r io.Reader, names, values *Cache, limits Limit
 	p.textBuf = resetRetainedBytes(p.textBuf)
 	p.directive = resetRetainedBytes(p.directive)
 	p.attrs = resetRetainedSlice(p.attrs)
-	p.br.reset(limits.Context, r, limits.MaxInputBytes)
+	p.br.reset(r, limits.MaxInputBytes)
 	p.maxAttrs = limits.MaxAttrs
 	p.maxTokenBytes = limits.MaxTokenBytes
 	p.retainedBytes = 0

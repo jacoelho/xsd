@@ -1,17 +1,13 @@
 package validate
 
 import (
-	"context"
 	"io"
 
 	"github.com/jacoelho/xsd/internal/stream"
 )
 
 // CheckXMLWellFormed checks XML instance syntax without compiling or using a schema runtime.
-func CheckXMLWellFormed(ctx context.Context, r io.Reader, opts Options) error {
-	if err := validationContextError(ctx); err != nil {
-		return err
-	}
+func CheckXMLWellFormed(r io.Reader, opts Options) error {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
 		return err
@@ -22,7 +18,7 @@ func CheckXMLWellFormed(ctx context.Context, r io.Reader, opts Options) error {
 		maxTokenBytes: limits.InstanceTokenBytes,
 		maxInputBytes: limits.InstanceBytes,
 	}
-	return c.check(ctx, r)
+	return c.check(r)
 }
 
 type xmlWellFormedChecker struct {
@@ -33,33 +29,21 @@ type xmlWellFormedChecker struct {
 	maxInputBytes int64
 }
 
-func (c *xmlWellFormedChecker) check(ctx context.Context, r io.Reader) error {
-	done := ctx.Done()
+func (c *xmlWellFormedChecker) check(r io.Reader) error {
 	names := stream.NewCache()
 	values := stream.NewCache()
 	var parser stream.Parser
 	if err := parser.ResetWithLimits(r, &names, &values, stream.Limits{
-		Context:       ctx,
 		MaxInputBytes: c.maxInputBytes,
 		MaxTokenBytes: c.maxTokenBytes,
 		MaxAttrs:      c.maxAttributes,
 	}); err != nil {
-		if done != nil {
-			if contextErr := validationContextDoneError(ctx, done, err); contextErr != nil {
-				return contextErr
-			}
-		}
 		return instanceReaderError(err)
 	}
 	defer parser.Detach()
 	parser.SetLazyAttrValue(true)
 	for {
 		tok, err := parser.Next()
-		if done != nil {
-			if contextErr := validationContextDoneError(ctx, done, err); contextErr != nil {
-				return contextErr
-			}
-		}
 		if err != nil {
 			if stream.IsOnlyEOF(err) {
 				break
@@ -82,11 +66,6 @@ func (c *xmlWellFormedChecker) check(ctx context.Context, r io.Reader) error {
 		case stream.KindDirective:
 			return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
 		case stream.KindComment, stream.KindPI:
-		}
-	}
-	if done != nil {
-		if err := validationContextDoneError(ctx, done, nil); err != nil {
-			return err
 		}
 	}
 	return c.doc.Complete()

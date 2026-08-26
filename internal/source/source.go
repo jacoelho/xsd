@@ -3,7 +3,6 @@ package source
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"io"
 	"math"
@@ -20,7 +19,7 @@ import (
 // Source identifies a schema document passed to compilation.
 type Source struct {
 	resolver          *resolverOwner
-	open              func(context.Context) (io.ReadCloser, error)
+	open              func() (io.ReadCloser, error)
 	name              string
 	data              []byte
 	localFileFallback bool
@@ -169,19 +168,19 @@ type resolverOwner struct {
 
 var fileResolverOwner = &resolverOwner{}
 
-func (o *resolverOwner) resolveSchema(ctx context.Context, base, location string) (Source, error) {
-	return o.resolve.ResolveSchema(ctx, base, location)
+func (o *resolverOwner) resolveSchema(base, location string) (Source, error) {
+	return o.resolve.ResolveSchema(base, location)
 }
 
 // Resolver resolves schema include/import locations during compilation.
-type Resolver func(ctx context.Context, base, location string) (Source, error)
+type Resolver func(base, location string) (Source, error)
 
 // ResolveSchema resolves one schema include/import location.
-func (r Resolver) ResolveSchema(ctx context.Context, base, location string) (Source, error) {
+func (r Resolver) ResolveSchema(base, location string) (Source, error) {
 	if r == nil {
 		return Source{}, xsderrors.ErrSchemaNotFound
 	}
-	return r(ctx, base, location)
+	return r(base, location)
 }
 
 // File returns a file schema source and resolves local schemaLocation refs.
@@ -193,10 +192,7 @@ func File(file string) Source {
 	}
 	return Source{
 		name: file,
-		open: func(ctx context.Context) (io.ReadCloser, error) {
-			if err := contextCause(ctx); err != nil {
-				return nil, err
-			}
+		open: func() (io.ReadCloser, error) {
 			if absoluteErr != nil {
 				return nil, absoluteErr
 			}
@@ -220,7 +216,7 @@ func Bytes(name string, data []byte) Source {
 }
 
 // Opener returns a schema source backed by an opener.
-func Opener(name string, open func(context.Context) (io.ReadCloser, error)) Source {
+func Opener(name string, open func() (io.ReadCloser, error)) Source {
 	return Source{name: name, open: open}
 }
 
@@ -269,32 +265,20 @@ func (r Resolution) Target() string {
 // generic URI-reference identity resolution. A resolver-returned source name
 // is authoritative for the referenced document identity. The parent graph
 // resolver owns resolution of references from returned sources.
-func (s Source) Resolve(ctx context.Context, base, location string) (Resolution, error) {
-	if err := contextCause(ctx); err != nil {
-		return Resolution{}, err
-	}
+func (s Source) Resolve(base, location string) (Resolution, error) {
 	reference, err := uriref.Parse(location)
 	if err != nil {
 		return Resolution{}, referenceResolutionError{err: err}
 	}
-	return s.ResolveFrom(ctx, NewReferenceBase(base), reference)
+	return s.ResolveFrom(NewReferenceBase(base), reference)
 }
 
 // ResolveFrom resolves location from a base whose custom-resolver spelling and
 // built-in fallback capability have been tracked independently.
-func (s Source) ResolveFrom(ctx context.Context, base ReferenceBase, location uriref.Reference) (Resolution, error) {
-	if err := contextCause(ctx); err != nil {
-		return Resolution{}, err
-	}
+func (s Source) ResolveFrom(base ReferenceBase, location uriref.Reference) (Resolution, error) {
 	if s.resolver != nil && s.resolver != fileResolverOwner {
 		if resolverBase, ok := base.ResolverValue(); ok {
-			resolved, resolveErr := s.resolver.resolveSchema(ctx, resolverBase, location.Raw())
-			if cause := contextCause(ctx); cause != nil {
-				if resolveErr != nil {
-					cause = errors.Join(cause, resolveErr)
-				}
-				return Resolution{}, cause
-			}
+			resolved, resolveErr := s.resolver.resolveSchema(resolverBase, location.Raw())
 			switch {
 			case resolveErr == nil:
 				if resolved.name == "" {
@@ -347,8 +331,8 @@ func IsReferenceResolutionError(err error) bool {
 }
 
 // Read returns a copy of the source bytes.
-func (s Source) Read(ctx context.Context, maxBytes int64) ([]byte, error) {
-	result := s.Acquire(ctx, maxBytes)
+func (s Source) Read(maxBytes int64) ([]byte, error) {
+	result := s.Acquire(maxBytes)
 	return bytes.Clone(result.Data), result.Err
 }
 
@@ -378,10 +362,7 @@ type ReadResult struct {
 
 // Acquire reads at most maxBytes from s and preserves the failure stage and
 // bytes consumed before an error.
-func (s Source) Acquire(ctx context.Context, maxBytes int64) ReadResult {
-	if err := contextCause(ctx); err != nil {
-		return ReadResult{Err: err, Stage: ReadStageOpen}
-	}
+func (s Source) Acquire(maxBytes int64) ReadResult {
 	if s.data != nil {
 		if int64(len(s.data)) > maxBytes {
 			return ReadResult{Err: schemaSourceLimitError(s.name), LimitExceeded: true}
@@ -394,18 +375,7 @@ func (s Source) Acquire(ctx context.Context, maxBytes int64) ReadResult {
 			Stage: ReadStageOpen,
 		}
 	}
-	r, err := s.open(ctx)
-	if cause := contextCause(ctx); cause != nil {
-		if err != nil {
-			cause = errors.Join(cause, err)
-		}
-		if !isNilReadCloser(r) {
-			if closeErr := r.Close(); closeErr != nil {
-				cause = errors.Join(cause, closeErr)
-			}
-		}
-		return ReadResult{Err: cause, Stage: ReadStageOpen}
-	}
+	r, err := s.open()
 	if err != nil {
 		openNotFound := errorIsOnly(err, os.ErrNotExist)
 		if !isNilReadCloser(r) {
@@ -422,21 +392,8 @@ func (s Source) Acquire(ctx context.Context, maxBytes int64) ReadResult {
 			Stage: ReadStageOpen,
 		}
 	}
-	data, limitExceeded, readErr := readLimitedSchemaSource(ctx, s.name, r, maxBytes)
+	data, limitExceeded, readErr := readLimitedSchemaSource(s.name, r, maxBytes)
 	closeErr := r.Close()
-	if cause := contextCause(ctx); cause != nil {
-		if readErr != nil {
-			if errors.Is(readErr, cause) {
-				cause = readErr
-			} else {
-				cause = errors.Join(cause, readErr)
-			}
-		}
-		if closeErr != nil {
-			cause = errors.Join(cause, closeErr)
-		}
-		return ReadResult{Data: data, LimitExceeded: limitExceeded, Err: cause, Stage: ReadStageRead}
-	}
 	if readErr != nil {
 		if closeErr != nil {
 			readErr = errors.Join(readErr, closeErr)
@@ -462,7 +419,7 @@ func isNilReadCloser(r io.ReadCloser) bool {
 	}
 }
 
-func readLimitedSchemaSource(ctx context.Context, name string, r io.Reader, maxBytes int64) ([]byte, bool, error) {
+func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, bool, error) {
 	if maxBytes < 0 {
 		return nil, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative")
 	}
@@ -470,7 +427,7 @@ func readLimitedSchemaSource(ctx context.Context, name string, r io.Reader, maxB
 	if maxBytes < math.MaxInt64 {
 		reader = io.LimitReader(r, maxBytes+1)
 	}
-	data, err := io.ReadAll(&schemaProgressReader{ctx: ctx, reader: reader})
+	data, err := io.ReadAll(&schemaProgressReader{reader: reader})
 	if int64(len(data)) > maxBytes {
 		limitErr := schemaSourceLimitError(name)
 		if err != nil {
@@ -487,22 +444,12 @@ func readLimitedSchemaSource(ctx context.Context, name string, r io.Reader, maxB
 const maxConsecutiveEmptySchemaReads = 100
 
 type schemaProgressReader struct {
-	ctx        context.Context
 	reader     io.Reader
 	emptyReads int
 }
 
 func (r *schemaProgressReader) Read(p []byte) (int, error) {
-	if err := contextCause(r.ctx); err != nil {
-		return 0, err
-	}
 	n, err := r.reader.Read(p)
-	if cause := contextCause(r.ctx); cause != nil {
-		if err != nil {
-			cause = errors.Join(cause, err)
-		}
-		return 0, cause
-	}
 	if n != 0 || err != nil {
 		r.emptyReads = 0
 		return n, err
@@ -512,13 +459,6 @@ func (r *schemaProgressReader) Read(p []byte) (int, error) {
 		return 0, io.ErrNoProgress
 	}
 	return 0, nil
-}
-
-func contextCause(ctx context.Context) error {
-	if ctx == nil {
-		return errors.New("context is nil")
-	}
-	return context.Cause(ctx)
 }
 
 func schemaSourceLimitError(name string) error {

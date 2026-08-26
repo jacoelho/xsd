@@ -1,7 +1,6 @@
 package xsd
 
 import (
-	"context"
 	"io"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -49,20 +48,18 @@ type Session struct {
 	session *validate.Session
 }
 
-// Validate validates one XML instance document. Cancellation is cooperative:
-// callers that need to interrupt a blocked read must provide a context-aware reader.
-func (e *Engine) Validate(ctx context.Context, r io.Reader) error {
-	return e.ValidateWithOptions(ctx, r, ValidateOptions{})
+// Validate validates one XML instance document.
+func (e *Engine) Validate(r io.Reader) error {
+	return e.ValidateWithOptions(r, ValidateOptions{})
 }
 
-// ValidateWithOptions validates one XML instance document with options. ctx
-// must be non-nil.
-func (e *Engine) ValidateWithOptions(ctx context.Context, r io.Reader, opts ValidateOptions) error {
+// ValidateWithOptions validates one XML instance document with options.
+func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 	var rt *runtime.Schema
 	if e != nil {
 		rt = e.rt
 	}
-	return validate.Validate(ctx, rt, r, internalValidateOptions(opts))
+	return validate.Validate(rt, r, internalValidateOptions(opts))
 }
 
 // NewSession creates a reusable validation session. Reused sessions retain
@@ -81,13 +78,13 @@ func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
 }
 
 // Validate validates one XML instance document. It clears document-local state
-// and the call context before returning and may retain bounded scratch buffers
-// and string caches for reuse.
-func (s *Session) Validate(ctx context.Context, r io.Reader) error {
+// before returning and may retain bounded scratch buffers and string caches for
+// reuse.
+func (s *Session) Validate(r io.Reader) error {
 	if s == nil {
-		return (*validate.Session)(nil).Validate(ctx, r)
+		return (*validate.Session)(nil).Validate(r)
 	}
-	return s.session.Validate(ctx, r)
+	return s.session.Validate(r)
 }
 
 func internalValidateOptions(opts ValidateOptions) validate.Options {

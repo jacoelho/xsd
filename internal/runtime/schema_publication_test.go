@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"context"
 	"reflect"
 	"regexp"
 	"slices"
@@ -20,7 +19,7 @@ func TestPublishSchemaRejectsRawCorruptionWithoutMutation(t *testing.T) {
 		Elements:       []ElementDecl{{Name: badName}},
 	}
 
-	_, err := PublishSchema(context.Background(), &build)
+	_, err := PublishSchema(&build)
 	if err == nil {
 		t.Fatal("PublishSchema() succeeded for invalid name references")
 	}

@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -10,7 +9,7 @@ import (
 )
 
 func FuzzValidateNeverPanics(f *testing.F) {
-	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{
+	rt, err := compile.Compile(compile.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
@@ -45,7 +44,7 @@ func FuzzValidateNeverPanics(f *testing.F) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			return
 		}
 	})

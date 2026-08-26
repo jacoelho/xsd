@@ -69,7 +69,7 @@ func TestIdentityStateResolvesIDREFAgainstLaterID(t *testing.T) {
 	err := evaluation.endDocument(func(err error) error {
 		t.Fatalf("checkIDRefs reported resolved ref: %v", err)
 		return nil
-	}, nil)
+	})
 
 	if err != nil {
 		t.Fatalf("checkIDRefs() error = %v", err)
@@ -87,7 +87,7 @@ func TestIdentityStateReportsMissingIDREFAtOriginalLocation(t *testing.T) {
 	err := evaluation.endDocument(func(err error) error {
 		got = err
 		return nil
-	}, nil)
+	})
 
 	if err != nil {
 		t.Fatalf("checkIDRefs() error = %v", err)
@@ -114,7 +114,7 @@ func TestIdentityStateUsesXMLWhitespaceFields(t *testing.T) {
 	if err := evaluation.endDocument(func(err error) error {
 		got = err
 		return nil
-	}, nil); err != nil {
+	}); err != nil {
 		t.Fatalf("checkIDRefs() error = %v", err)
 	}
 	expectXSDMessage(t, got, "IDREF does not resolve: a\u00a0b")

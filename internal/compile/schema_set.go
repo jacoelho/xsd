@@ -3,7 +3,6 @@ package compile
 import (
 	"bytes"
 	"cmp"
-	"context"
 	"errors"
 	"hash/maphash"
 	"slices"
@@ -29,7 +28,6 @@ type schemaSetDocument struct {
 }
 
 type schemaSetLoader struct {
-	ctx               context.Context
 	byKey             map[string]loadedSchemaDocument
 	resolvedSources   map[string]struct{}
 	pendingReferences map[string][]*schemaReference
@@ -186,9 +184,8 @@ func (c *schemaTargetContexts) add(source int, target string) error {
 	return nil
 }
 
-func loadSchemaSetOwned(ctx context.Context, sources []source.Source, limits Limits) (schemaSet, error) {
+func loadSchemaSetOwned(sources []source.Source, limits Limits) (schemaSet, error) {
 	l := schemaSetLoader{
-		ctx:             ctx,
 		limits:          limits,
 		byKey:           make(map[string]loadedSchemaDocument),
 		resolvedSources: make(map[string]struct{}),
@@ -221,7 +218,7 @@ func (c *compiler) load(sources []source.Source) error {
 }
 
 func (c *compiler) loadOwned(sources []source.Source) error {
-	set, err := loadSchemaSetOwned(c.ctx, sources, c.limits)
+	set, err := loadSchemaSetOwned(sources, c.limits)
 	if err != nil {
 		return err
 	}
@@ -241,9 +238,6 @@ func (l *schemaSetLoader) loadOwned(ordered []source.Source) error {
 		queue = append(queue, schemaLoadRequest{source: src})
 	}
 	for len(queue) != 0 {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
 		item := queue[0]
 		queue[0] = schemaLoadRequest{}
 		queue = queue[1:]
@@ -267,10 +261,7 @@ func (l *schemaSetLoader) loadOwned(ordered []source.Source) error {
 		}
 		l.loadedSource = append(l.loadedSource, loadedSource)
 	}
-	identifiedSources, err := l.identifySchemaDocumentContents()
-	if err != nil {
-		return err
-	}
+	identifiedSources := l.identifySchemaDocumentContents()
 	for _, identified := range identifiedSources {
 		loaded := l.byKey[identified.source.doc.key]
 		l.documents = append(l.documents, schemaSetDocument{
@@ -306,10 +297,7 @@ func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadReques
 	}
 	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
 	readLimit := min(l.limits.MaxSchemaSourceBytes, remaining)
-	result := src.Acquire(l.ctx, readLimit)
-	if err := compileContextErrorWith(l.ctx, result.Err); err != nil {
-		return loadedSchemaSource{}, false, err
-	}
+	result := src.Acquire(readLimit)
 	data := result.Data
 	dataBytes := int64(len(data))
 	if dataBytes > remaining {
@@ -331,7 +319,7 @@ func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadReques
 	}
 	parseLimits := l.limits
 	parseLimits.MaxSchemaInstantiatedNodes -= l.parsedNodes
-	doc, err := parseSchemaDocument(l.ctx, name, key, data, parseLimits)
+	doc, err := parseSchemaDocument(name, key, data, parseLimits)
 	if err != nil {
 		return loadedSchemaSource{}, false, err
 	}
@@ -378,10 +366,7 @@ func (l *schemaSetLoader) readLoaded(
 	}
 	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
 	readLimit := min(l.limits.MaxSchemaSourceBytes, remaining)
-	result := src.Acquire(l.ctx, readLimit)
-	if err := compileContextErrorWith(l.ctx, result.Err); err != nil {
-		return loadedSchemaSource{}, false, err
-	}
+	result := src.Acquire(readLimit)
 	dataBytes := int64(len(result.Data))
 	if dataBytes > remaining {
 		return loadedSchemaSource{}, false, schemaTotalBytesLimitError(result.Err)
@@ -485,10 +470,7 @@ func (l *schemaSetLoader) enqueueReferences(src source.Source, refs []schemaRefe
 }
 
 func (l *schemaSetLoader) resolveReference(request schemaLoadRequest) (schemaLoadRequest, bool, error) {
-	resolution, err := request.source.ResolveFrom(l.ctx, request.base, request.ref.location)
-	if contextErr := compileContextErrorWith(l.ctx, err); contextErr != nil {
-		return schemaLoadRequest{}, false, contextErr
-	}
+	resolution, err := request.source.ResolveFrom(request.base, request.ref.location)
 	if err != nil {
 		if source.IsReferenceResolutionError(err) {
 			return schemaLoadRequest{}, false, schemaReferenceCompileAt(request.source, request.ref.node, "invalid schemaLocation: "+err.Error())
@@ -684,9 +666,6 @@ func schemaLocationAttr(n *rawNode) (string, bool) {
 
 func (l *schemaSetLoader) validateLoadedReferenceTargets() error {
 	for i := range l.documents {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
 		for j := range l.documents[i].doc.references {
 			ref := &l.documents[i].doc.references[j]
 			if ref.target == "" {
@@ -732,18 +711,12 @@ func (l *schemaSetLoader) instantiateTargetContexts() error {
 			return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts")
 		}
 		for i := range l.documents {
-			if err := compileContextError(l.ctx); err != nil {
-				return err
-			}
 			l.documents[i].effectiveTargetNS = l.documents[i].doc.defaults.TargetNamespace
 		}
 		return nil
 	}
 
 	for i, document := range l.documents {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
 		target := document.doc.defaults.TargetNamespace
 		if target != "" || contexts.documents[i].importTarget || document.explicitRoot {
 			if err := contexts.add(i, target); err != nil {
@@ -755,9 +728,6 @@ func (l *schemaSetLoader) instantiateTargetContexts() error {
 		return err
 	}
 	for i := range l.documents {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
 		if contexts.documents[i].hasPrimary {
 			continue
 		}
@@ -806,9 +776,6 @@ func (l *schemaSetLoader) schemaTargetContextInputs() ([]resolvedSchemaReference
 
 func (l *schemaSetLoader) propagateTargetContexts(contexts *schemaTargetContexts, references []resolvedSchemaReference) error {
 	for contexts.next < len(contexts.queue) {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
 		context := contexts.queue[contexts.next]
 		contexts.next++
 		span := contexts.documents[context.source].references
@@ -832,9 +799,6 @@ func (l *schemaSetLoader) applyTargetContexts(contexts schemaTargetContexts) err
 	baseCount := len(l.documents)
 	var clones []schemaSetDocument
 	for i := range baseCount {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
 		document := &l.documents[i]
 		state := contexts.documents[i]
 		declaredTarget := document.doc.defaults.TargetNamespace
@@ -842,16 +806,10 @@ func (l *schemaSetLoader) applyTargetContexts(contexts schemaTargetContexts) err
 		document.adoptedTarget = declaredTarget == "" && state.primary != ""
 	}
 	for _, context := range contexts.additional {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
 		document := &l.documents[context.source]
 		declaredTarget := document.doc.defaults.TargetNamespace
 		cloneKey := document.doc.key + "\x00" + context.target
-		clone, err := cloneRawDocument(l.ctx, document.doc, cloneKey)
-		if err != nil {
-			return err
-		}
+		clone := cloneRawDocument(document.doc, cloneKey)
 		clones = append(clones, schemaSetDocument{
 			doc:               clone,
 			imports:           document.imports,
@@ -864,40 +822,29 @@ func (l *schemaSetLoader) applyTargetContexts(contexts schemaTargetContexts) err
 	return nil
 }
 
-func cloneRawDocument(ctx context.Context, doc *rawDoc, key string) (*rawDoc, error) {
+func cloneRawDocument(doc *rawDoc, key string) *rawDoc {
 	nodes := make(map[*rawNode]*rawNode)
 	clone := &rawDoc{name: doc.name, key: key, defaults: doc.defaults, nodes: doc.nodes}
-	root, err := cloneRawTree(ctx, doc.root, nodes, clone)
-	if err != nil {
-		return nil, err
-	}
-	clone.root = root
+	clone.root = cloneRawTree(doc.root, nodes, clone)
 	clone.references = make([]schemaReference, len(doc.references))
 	copy(clone.references, doc.references)
 	for i := range clone.references {
 		clone.references[i].node = nodes[clone.references[i].node]
 	}
-	return clone, nil
+	return clone
 }
 
-func cloneRawTree(ctx context.Context, n *rawNode, nodes map[*rawNode]*rawNode, doc *rawDoc) (*rawNode, error) {
-	if err := compileContextError(ctx); err != nil {
-		return nil, err
-	}
+func cloneRawTree(n *rawNode, nodes map[*rawNode]*rawNode, doc *rawDoc) *rawNode {
 	copied := *n
 	copied.doc = doc
 	nodes[n] = &copied
 	if len(n.Children) > 0 {
 		copied.Children = make([]*rawNode, len(n.Children))
 		for i, child := range n.Children {
-			cloned, err := cloneRawTree(ctx, child, nodes, doc)
-			if err != nil {
-				return nil, err
-			}
-			copied.Children[i] = cloned
+			copied.Children[i] = cloneRawTree(child, nodes, doc)
 		}
 	}
-	return &copied, nil
+	return &copied
 }
 
 type identifiedSchemaDocument struct {
@@ -905,7 +852,7 @@ type identifiedSchemaDocument struct {
 	identity int
 }
 
-func (l *schemaSetLoader) identifySchemaDocumentContents() ([]identifiedSchemaDocument, error) {
+func (l *schemaSetLoader) identifySchemaDocumentContents() []identifiedSchemaDocument {
 	ordered := slices.Clone(l.loadedSource)
 	slices.SortFunc(ordered, func(a, b loadedSchemaSource) int { return cmp.Compare(a.doc.key, b.doc.key) })
 	seed := maphash.MakeSeed()
@@ -921,9 +868,6 @@ func (l *schemaSetLoader) identifySchemaDocumentContents() ([]identifiedSchemaDo
 	identified := make([]identifiedSchemaDocument, 0, len(ordered))
 	nextIdentity := 1
 	for _, src := range ordered {
-		if err := compileContextError(l.ctx); err != nil {
-			return nil, err
-		}
 		key := contentKey{size: len(src.data), hash: maphash.Bytes(seed, src.data)}
 		identity := 0
 		for _, entry := range seen[key] {
@@ -939,7 +883,7 @@ func (l *schemaSetLoader) identifySchemaDocumentContents() ([]identifiedSchemaDo
 		}
 		identified = append(identified, identifiedSchemaDocument{source: src, identity: identity})
 	}
-	return identified, nil
+	return identified
 }
 
 func (l *schemaSetLoader) selectDeclarationDocuments() {

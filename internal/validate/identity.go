@@ -191,18 +191,12 @@ func (s *identityState) reserveEntry(key string, limits identityLimits, ctx Star
 	return nil
 }
 
-// checkIDRefs reports unresolved IDREFs through report. When check is non-nil,
-// it runs before each retained reference.
-func (s *identityState) checkIDRefs(report func(error) error, check func() error) error {
+// checkIDRefs reports unresolved IDREFs through report.
+func (s *identityState) checkIDRefs(report func(error) error) error {
 	if s == nil || len(s.idrefs) == 0 {
 		return nil
 	}
 	for _, ref := range s.idrefs {
-		if check != nil {
-			if err := check(); err != nil {
-				return err
-			}
-		}
 		if _, ok := s.ids[ref.Value]; ok {
 			continue
 		}

@@ -2,7 +2,6 @@ package stream
 
 import (
 	"bytes"
-	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -332,7 +331,7 @@ func TestXMLStreamParserChunksLargeCDATA(t *testing.T) {
 
 func TestByteStreamConsumeBufferedTracksNewlines(t *testing.T) {
 	bs := new(byteStream)
-	bs.reset(context.Background(), strings.NewReader("ab\ncd\nef"), 0)
+	bs.reset(strings.NewReader("ab\ncd\nef"), 0)
 	chunk, err := bs.buffered()
 	if err != nil {
 		t.Fatalf("buffered() error = %v", err)
@@ -346,7 +345,7 @@ func TestByteStreamConsumeBufferedTracksNewlines(t *testing.T) {
 
 func TestByteStreamConsumeBufferedAfterReadByteNewlines(t *testing.T) {
 	bs := new(byteStream)
-	bs.reset(context.Background(), strings.NewReader("a\nbc\nde"), 0)
+	bs.reset(strings.NewReader("a\nbc\nde"), 0)
 	if _, err := bs.buffered(); err != nil {
 		t.Fatalf("buffered() error = %v", err)
 	}
@@ -369,7 +368,7 @@ func TestByteStreamConsumeBufferedAfterReadByteNewlines(t *testing.T) {
 
 func TestByteStreamConsumeBufferedNewlineThenCleanChunk(t *testing.T) {
 	bs := new(byteStream)
-	bs.reset(context.Background(), strings.NewReader("a\nb\n\ncdef"), 0)
+	bs.reset(strings.NewReader("a\nb\n\ncdef"), 0)
 	if _, err := bs.buffered(); err != nil {
 		t.Fatalf("buffered() error = %v", err)
 	}

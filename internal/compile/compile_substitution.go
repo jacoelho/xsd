@@ -9,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func (c *compiler) compileSubstitutions() error { //nolint:funlen // Checkpoints make each graph phase cancellable in place.
+func (c *compiler) compileSubstitutions() error {
 	elements := c.elementCopies()
 	children := make([][]runtime.ElementID, len(elements))
 	indegree := make([]uint8, len(elements))
@@ -17,9 +17,6 @@ func (c *compiler) compileSubstitutions() error { //nolint:funlen // Checkpoints
 	members := sortedBuildQNames(&c.rt, c.elementRaw)
 
 	for _, memberQName := range members {
-		if err := compileContextError(c.ctx); err != nil {
-			return err
-		}
 		raw := c.elementRaw[memberQName]
 		headLex, ok := raw.node.attr(vocab.XSDAttrSubstitutionGroup)
 		if !ok {
@@ -53,9 +50,6 @@ func (c *compiler) compileSubstitutions() error { //nolint:funlen // Checkpoints
 		}
 	}
 	for next := 0; next < len(queue); next++ {
-		if err := compileContextError(c.ctx); err != nil {
-			return err
-		}
 		headID := queue[next]
 		for _, memberID := range children[headID] {
 			if inheritsType[memberID] {
@@ -66,9 +60,6 @@ func (c *compiler) compileSubstitutions() error { //nolint:funlen // Checkpoints
 		}
 	}
 	for _, memberQName := range members {
-		if err := compileContextError(c.ctx); err != nil {
-			return err
-		}
 		memberID, ok := c.elementDone[memberQName]
 		if !ok || indegree[memberID] == 0 {
 			continue
@@ -86,9 +77,6 @@ func (c *compiler) compileSubstitutions() error { //nolint:funlen // Checkpoints
 	}
 
 	for _, pending := range c.pendingElementConstraints {
-		if err := compileContextError(c.ctx); err != nil {
-			return err
-		}
 		if !runtime.ValidElementID(pending.element, len(elements)) {
 			return xsderrors.InternalInvariant("pending element constraint references invalid element")
 		}

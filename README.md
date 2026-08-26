@@ -10,7 +10,7 @@ The public API is intentionally small:
 - reuse document-local state with `Engine.NewSession` when useful
 - inspect failures with `errors.AsType[*xsderrors.Error]`
 
-Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document. Compilation and validation take a `context.Context` for cooperative cancellation.
+Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document.
 
 `File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file, including inherited `xml:base`. XSD 1.0 extended URI references are validated after XLink escaping: a custom resolver receives the whitespace-normalized, unescaped location and composed base, while built-in generic and file fallback uses the escaped URI projection. A resolver success is authoritative. Fragment-bearing locations are offered to a custom resolver; built-in file and generic identity resolution cannot interpret fragments and treat those optional hints as unresolved. Arbitrary source names remain identities rather than being reinterpreted as URI references, including Unix paths containing `#` or `?`. `Bytes` copies caller-owned schema bytes into a reusable source. `Open` calls a repeatable opener during compilation, so schema byte limits govern the first read. `Bytes` and `Open` use only sources passed to `Compile` unless paired with a `Resolver`; a resolver-returned source must have a non-empty name, which becomes that document's identity. HTTP and network schema loading are not performed by default.
 
@@ -39,15 +39,14 @@ schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:int"/>
 </xs:schema>`
 
-ctx := context.Background()
-engine, err := xsd.Compile(ctx, xsd.Open("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+engine, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
     return io.NopCloser(strings.NewReader(schema)), nil
 }))
 if err != nil {
     return err
 }
 
-err = engine.Validate(ctx, strings.NewReader(`<root>7</root>`))
+err = engine.Validate(strings.NewReader(`<root>7</root>`))
 if err != nil {
     return err
 }
@@ -60,8 +59,7 @@ schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:int"/>
 </xs:schema>`)
 
-ctx := context.Background()
-engine, err := xsd.Compile(ctx, xsd.Bytes("schema.xsd", schema))
+engine, err := xsd.Compile(xsd.Bytes("schema.xsd", schema))
 if err != nil {
     return err
 }
@@ -70,8 +68,7 @@ if err != nil {
 ## Compile From File
 
 ```go
-ctx := context.Background()
-engine, err := xsd.Compile(ctx, xsd.File("schema.xsd"))
+engine, err := xsd.Compile(xsd.File("schema.xsd"))
 if err != nil {
     return err
 }
@@ -82,7 +79,7 @@ if err != nil {
 }
 defer f.Close()
 
-err = engine.Validate(ctx, f)
+err = engine.Validate(f)
 if err != nil {
     return err
 }
@@ -97,9 +94,7 @@ schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:int"/>
 </xs:schema>`)
 
-ctx := context.Background()
 engine, err := xsd.CompileWithOptions(
-    ctx,
     xsd.CompileOptions{
         MaxSchemaDepth:             256,
         MaxSchemaAttributes:        256,
@@ -147,7 +142,7 @@ Negative integer limits are schema compile errors.
 `MaxSchemaSourceBytes` applies to each source. `MaxSchemaSources` bounds both the explicit source-descriptor count before conversion and the distinct identities admitted from the resolver-expanded graph; repeated resolver references remain bounded by `MaxSchemaReferences` and `MaxSchemaTotalBytes`. `MaxSchemaTargetContexts` and `MaxSchemaInstantiatedNodes` bound derived target-namespace variants. `MaxSubstitutionClosureEntries` and `MaxSimpleUnionMemberEntries` bound derived compilation structures before immutable runtime lookups are published. These limits cover files, resolver-loaded includes/imports, `Bytes` data, and streams acquired by `Open`. `Open` must return a new independent reader on every call so the source remains retryable and safe for concurrent compilation:
 
 ```go
-engine, err := xsd.Compile(ctx, xsd.Open("schema.xsd", func(_ context.Context) (io.ReadCloser, error) {
+engine, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
     return openSchema()
 }))
 if err != nil {
@@ -162,7 +157,6 @@ Finite `minOccurs` and `maxOccurs` values above `4294967295` are schema compile 
 Use `ValidateWithOptions` for one validation call, or `NewSession` to reuse document-local buffers and bounded string caches across calls:
 
 ```go
-ctx := context.Background()
 session, err := engine.NewSession(xsd.ValidateOptions{
     MaxErrors:             1,
     MaxIdentityScopes:     10_000,
@@ -174,7 +168,7 @@ if err != nil {
 }
 
 for _, doc := range docs {
-    if err := session.Validate(ctx, strings.NewReader(doc)); err != nil {
+    if err := session.Validate(strings.NewReader(doc)); err != nil {
         return err
     }
 }
@@ -200,20 +194,16 @@ Negative integer limits are validation errors.
 
 `Engine` is goroutine-safe. Copies of a `Session` refer to the same reusable state, and overlapping calls fail with `xsderrors.CodeValidationSession` before consuming the second input. Use separately constructed sessions for concurrent validation. `Session.Validate` clears document state before returning from each call but may retain bounded scratch buffers and small string caches; discard the session to release retained cache contents.
 
-## Cancellation
+## I/O Interruption
 
-`Compile`, `CompileWithOptions`, `Engine.Validate`, `Engine.ValidateWithOptions`, and `Session.Validate` require a non-nil `context.Context`. The compile context is passed unchanged to `Resolver.ResolveSchema` and `Open` callbacks. Cancellation is checked before and after callbacks and reads, between parsed tokens, during graph and compilation batches, and before mutable schema state is published.
-
-Cancellation is cooperative. An `Open` or resolver callback MUST honor its context. An arbitrary `io.Reader` has no cancellation method, so callers that must interrupt a blocked validation read MUST use a context-aware reader or close/unblock it themselves. A callback or reader that ignores cancellation can delay return until that operation completes.
-
-Canceled operations return `xsderrors.CategoryCanceled` with `CodeCompileCanceled` or `CodeValidationCanceled`. `errors.Is` matches `context.Canceled`, `context.DeadlineExceeded`, or a custom `context.WithCancelCause` cause. A `Session` does not retain the call context after return.
+Compilation and validation are synchronous. Configured limits bound admitted input and retained work, but the library cannot interrupt a blocked opener, resolver, file operation, or `io.Reader`. Callers that require interruption must provide I/O that they can close or otherwise unblock.
 
 ## Resolve Includes From Bytes
 
 ```go
 type mapResolver map[string]string
 
-func (r mapResolver) ResolveSchema(_ context.Context, base, location string) (xsd.SchemaSource, error) {
+func (r mapResolver) ResolveSchema(base, location string) (xsd.SchemaSource, error) {
     data, ok := r[location]
     if !ok {
         return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
@@ -226,8 +216,7 @@ schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="Root"/>
 </xs:schema>`)
 
-ctx := context.Background()
-engine, err := xsd.Compile(ctx, xsd.Bytes("schema.xsd", schema).WithResolver(mapResolver{
+engine, err := xsd.Compile(xsd.Bytes("schema.xsd", schema).WithResolver(mapResolver{
     "types.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Root"><xs:sequence/></xs:complexType>
 </xs:schema>`,
@@ -236,7 +225,7 @@ if err != nil {
     return err
 }
 
-err = engine.Validate(ctx, strings.NewReader(`<root/>`))
+err = engine.Validate(strings.NewReader(`<root/>`))
 if err != nil {
     return err
 }
@@ -245,8 +234,7 @@ if err != nil {
 ## Inspect Errors
 
 ```go
-ctx := context.Background()
-err := engine.Validate(ctx, strings.NewReader(`<root>x</root>`))
+err := engine.Validate(strings.NewReader(`<root>x</root>`))
 
 if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
     fmt.Println(xerr.Category)
@@ -262,7 +250,6 @@ Error categories:
 - `schema_compile`
 - `unsupported`
 - `validation`
-- `canceled`
 - `internal`
 
 Use `xsderrors.IsUnsupported(err)` when only unsupported-feature detection matters.
@@ -274,12 +261,11 @@ Use `xsderrors.IsUnsupported(err)` when only unsupported-feature detection matte
 ```go
 docs := []string{`<root>1</root>`, `<root>2</root>`, `<root>3</root>`}
 
-ctx := context.Background()
 var wg sync.WaitGroup
 errs := make(chan error, len(docs))
 for _, doc := range docs {
     wg.Go(func() {
-        errs <- engine.Validate(ctx, strings.NewReader(doc))
+        errs <- engine.Validate(strings.NewReader(doc))
     })
 }
 wg.Wait()

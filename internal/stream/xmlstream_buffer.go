@@ -2,7 +2,6 @@ package stream
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"io"
 )
@@ -16,7 +15,6 @@ import (
 // chunks without line breaks skip scanning entirely.
 type byteStream struct {
 	r         io.Reader
-	ctx       context.Context
 	err       error
 	lastPos   bytePosition
 	off       int
@@ -33,9 +31,8 @@ type byteStream struct {
 
 const xmlInputBufferSize = 64 * 1024
 
-func (b *byteStream) reset(ctx context.Context, r io.Reader, maxBytes int64) {
+func (b *byteStream) reset(r io.Reader, maxBytes int64) {
 	b.r = r
-	b.ctx = ctx
 	b.err = nil
 	b.lastPos = bytePosition{}
 	b.off = 0
@@ -51,7 +48,6 @@ func (b *byteStream) reset(ctx context.Context, r io.Reader, maxBytes int64) {
 
 func (b *byteStream) detach() {
 	b.r = nil
-	b.ctx = nil
 	b.err = nil
 	b.off = 0
 	b.end = 0
@@ -65,13 +61,8 @@ func (b *byteStream) detach() {
 // read admits at most maxBytes raw input bytes to the parser. It may consume
 // one additional byte from the caller to prove that the limit was exceeded,
 // but that byte is never exposed to tokenization. When the boundary-crossing
-// read also fails, both causes are retained. Cancellation observed after the
-// underlying read takes precedence over a simultaneous byte-limit crossing;
-// none of that read's bytes are exposed in that case.
+// read also fails, both causes are retained.
 func (b *byteStream) read(p []byte) (int, error) {
-	if cause := contextCause(b.ctx); cause != nil {
-		return 0, cause
-	}
 	if b.maxBytes > 0 {
 		remaining := b.maxBytes - b.readBytes
 		if remaining < 0 {
@@ -82,12 +73,6 @@ func (b *byteStream) read(p []byte) (int, error) {
 		}
 	}
 	n, err := b.r.Read(p)
-	if cause := contextCause(b.ctx); cause != nil {
-		if err != nil {
-			cause = errors.Join(cause, err)
-		}
-		return 0, cause
-	}
 	if n <= 0 || b.maxBytes <= 0 {
 		return n, err
 	}
@@ -102,13 +87,6 @@ func (b *byteStream) read(p []byte) (int, error) {
 		limitErr = errors.Join(limitErr, err)
 	}
 	return admitted, limitErr
-}
-
-func contextCause(ctx context.Context) error {
-	if ctx == nil {
-		return nil
-	}
-	return context.Cause(ctx)
 }
 
 // ensure returns the non-consuming input window after reading until at least n
