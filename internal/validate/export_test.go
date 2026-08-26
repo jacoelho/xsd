@@ -59,10 +59,10 @@ func (r *IdentityRecorderForTest) PathString() string {
 
 // ResetIdentity resets retained identity state.
 func (r *IdentityRecorderForTest) ResetIdentity() {
-	r.session.doc.identity.Reset(maxRetainedMapLen, maxRetainedSliceCap)
+	r.session.doc.identity.reset(maxRetainedMapLen, maxRetainedSliceCap)
 }
 
 // RecordIdentityValue records one simple value identity payload.
 func (r *IdentityRecorderForTest) RecordIdentityValue(value runtime.SimpleValue, line, col int) error {
-	return r.session.recordIdentityValue(value, line, col)
+	return r.session.doc.identity.recordIdentityFields(value.IDs, value.IDRefs, r.session.startContext(line, col))
 }

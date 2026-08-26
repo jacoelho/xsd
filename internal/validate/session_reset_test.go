@@ -231,9 +231,9 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.doc.ns = xmlns.NewStackWithCapacity(maxRetainedSliceCap+1, maxRetainedSliceCap+1)
 	s.doc.elements = make([]xmlDocumentElement[frame], 1, maxRetainedSliceCap+1)
 	s.doc.text = make([]byte, 1, maxRetainedBufferCap+1)
-	s.doc.namePath = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
+	s.doc.identity.path = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
-	if err := recordValueForTest(&s.doc.identity, IdentityValue{IDs: "stale"}, s.startContext(1, 1)); err != nil {
+	if err := s.doc.identity.recordIdentityFields("stale", "", s.startContext(1, 1)); err != nil {
 		t.Fatalf("record identity state: %v", err)
 	}
 	if err := s.doc.schemaLocationHints.RecordAttribute(staleSchemaLocationHintName(), "urn:stale stale.xsd", testSchemaLocationHintLimits, s.startContext(1, 1)); err != nil {
@@ -247,11 +247,11 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 		s.doc.ns.BindingCapacity() != 0 ||
 		cap(s.doc.elements) != 0 ||
 		cap(s.doc.text) != 0 ||
-		cap(s.doc.namePath) != 0 ||
+		cap(s.doc.identity.path) != 0 ||
 		cap(s.doc.allBits) != 0 {
 		t.Fatalf("reset retained oversized state")
 	}
-	if err := s.doc.identity.CheckIDRefs(func(err error) error {
+	if err := s.doc.identity.endDocument(func(err error) error {
 		t.Fatalf("identity state retained after reset: %v", err)
 		return nil
 	}, nil); err != nil {
@@ -397,8 +397,13 @@ func assertSessionDocumentStateReset(t *testing.T, s *session) {
 	if s.doc.seenRoot || s.doc.pathText != "" || s.doc.pathTextDepth != 0 || s.doc.syntaxOnly {
 		t.Fatalf("document scalars remain after reset: %+v", s.doc)
 	}
-	if len(s.doc.elements) != 0 || len(s.doc.namePath) != 0 {
-		t.Fatalf("active document state remains: elements=%d names=%d", len(s.doc.elements), len(s.doc.namePath))
+	if len(s.doc.elements) != 0 || len(s.doc.identity.path) != 0 || len(s.doc.identity.elements) != 0 {
+		t.Fatalf(
+			"active document state remains: elements=%d identity elements=%d names=%d",
+			len(s.doc.elements),
+			len(s.doc.identity.elements),
+			len(s.doc.identity.path),
+		)
 	}
 	if len(s.doc.errors) != 0 || len(s.doc.text) != 0 || len(s.doc.allBits) != 0 {
 		t.Fatalf("document buffers remain: errors=%d text=%d allBits=%d", len(s.doc.errors), len(s.doc.text), len(s.doc.allBits))
@@ -416,7 +421,7 @@ func assertSessionDocumentStateReset(t *testing.T, s *session) {
 			t.Fatalf("element tail %d retains references: %+v", i, element)
 		}
 	}
-	for i, name := range s.doc.namePath[:cap(s.doc.namePath)] {
+	for i, name := range s.doc.identity.path[:cap(s.doc.identity.path)] {
 		if name != (runtime.RuntimeName{}) {
 			t.Fatalf("name path tail %d retains references: %+v", i, name)
 		}

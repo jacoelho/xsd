@@ -100,7 +100,7 @@ func identityFieldAttributeMatches[Names identityNames](names Names, path runtim
 	return identityNamespace(names, path.AttributeNamespace()) == name.NS
 }
 
-func identityMatchExists(matches []IdentityFieldMatch, selection, field int) bool {
+func identityMatchExists(matches []identityFieldMatch, selection, field int) bool {
 	for _, match := range matches {
 		if match.Selection == selection && match.Field == field {
 			return true

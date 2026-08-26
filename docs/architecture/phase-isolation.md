@@ -49,6 +49,7 @@ types/functions; those belong to `xsderrors` and `format`.
   the bounded immutable substitution table, canonical element read table,
   precomputed type-derivation indexes, the single published simple-type cold
   table that owns union-member storage for both derivation and value validation,
+  one aggregate immutable identity-constraint read per constraint,
   the canonical content-model restriction relation shared by compilation and
   publication audit, validation reads, content-model execution, and
   publication-owned clones. Publication accepts the compile context, audits
@@ -57,11 +58,11 @@ types/functions; those belong to `xsderrors` and `format`.
   Cross-table `TypeID` values expose only typed constructors, classification,
   and projections; their tag and payload remain runtime-owned. Identity-path
   QName absence is returned by value and has no mutable package-global state.
-- `internal/validate` owns instance validation: finite default limits, option normalization, XML
-  reader preflight, parser error classification, validation recovery,
-  document structure, start/end element decisions, attributes, content,
-  simple-content assessment, identity-state storage and resolution, XSI
-  handling, and schemaLocation hint handling.
+- `internal/validate` owns instance validation: finite default limits, option
+  normalization, XML reader preflight, parser error classification, validation
+  recovery, document structure, start/end element decisions, attributes,
+  content, simple-content assessment, the concrete document-local identity
+  evaluator and its lifecycle, XSI handling, and schemaLocation hint handling.
 - `internal/stream` owns XML token streaming and declaration scanning shared by
   schema parsing, instance validation, and formatting. Its parser owns prolog
   preflight, the sole input buffer, and reader detachment for each stream.
@@ -145,6 +146,15 @@ Validation flow:
    before context inspection, and cleanup completes before that guard is released.
 4. `internal/validate` reads immutable schema facts through methods on the
    sealed `*runtime.Schema`, then applies validation policy to those facts.
+   Identity evaluation reads each constraint through one aggregate runtime
+   projection. One concrete evaluator owns the element identity stack, matching
+   path, per-element ID state, document IDs and IDREFs, key/unique/keyref scopes,
+   pending selections, resource accounting, and reset/discard behavior. Value
+   capture uses one borrowed prepared target at a time: callers prepare, record,
+   capture, then commit, or reject the target on validation failure. Element-end
+   finalization is also evaluator-owned, including recoverable diagnostic
+   reporting and the ordering of field completion, scope closure, ancestor
+   invalidation, and path/stack release.
    Element frames distinguish assessed nodes, nodes admitted by a
    `processContents="skip"` wildcard, and validation-recovery containment.
    Identity fields distinguish an absent field from a validated value and a
@@ -162,6 +172,10 @@ Validation flow:
    fails, and owns their diagnostics. Identity capture only records a matched
    value or invalidates the matched field, so it cannot duplicate those
    diagnostics.
+   Generic event-sink or matcher interfaces are intentionally absent: there is
+   one evaluator implementation and one validation caller, while an interface
+   would hide the required transaction and element-lifecycle sequencing without
+   providing a real substitution boundary.
 5. Runtime table execution and metadata checks stay in `internal/runtime`;
    instance-validation policy stays in `internal/validate`.
 

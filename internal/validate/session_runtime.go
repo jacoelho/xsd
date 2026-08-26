@@ -48,10 +48,8 @@ func initializeSession(s *session, rt *runtime.Schema, opts Options) error {
 	if rt == nil {
 		return xsderrors.InternalInvariant("nil validation schema")
 	}
-	hasIdentityConstraints := rt.HasIdentityConstraints()
 	*s = session{
 		rt:                              rt,
-		hasIdentityConstraints:          hasIdentityConstraints,
 		maxErrors:                       limits.Errors,
 		maxIdentityScopes:               limits.IdentityScopes,
 		maxIdentityEntries:              limits.IdentityEntries,
@@ -64,6 +62,10 @@ func initializeSession(s *session, rt *runtime.Schema, opts Options) error {
 		maxInstanceTokenBytes:           limits.InstanceTokenBytes,
 		maxInstanceBytes:                limits.InstanceBytes,
 	}
+	s.doc.identity = newIdentityEvaluation(rt, identityLimits{
+		Entries:    limits.IdentityEntries,
+		TupleBytes: limits.IdentityTupleBytes,
+	}, limits.IdentityScopes)
 	return nil
 }
 
@@ -119,7 +121,6 @@ type session struct {
 	maxInstanceTextBytes            int64
 	maxInstanceTokenBytes           int64
 	maxInstanceBytes                int64
-	hasIdentityConstraints          bool
 }
 
 // documentState is the mutable state of one document validation. XML syntax
@@ -134,10 +135,9 @@ type session struct {
 //nolint:govet // Field order groups retained validation state by owning subsystem.
 type documentState struct {
 	xmlDocument[frame]
-	identity            IdentityState
+	identity            identityEvaluation
 	schemaLocationHints SchemaLocationHints
 	allBits             []uint64
-	namePath            []runtime.RuntimeName
 	errors              []error
 	text                []byte
 	syntaxOnly          bool
@@ -288,12 +288,11 @@ func (s *session) reset() {
 	schemaLocationHints := s.doc.schemaLocationHints
 	schemaLocationHints.Reset(maxRetainedMapLen)
 	identity := s.doc.identity
-	identity.Reset(maxRetainedMapLen, maxRetainedSliceCap)
+	identity.reset(maxRetainedMapLen, maxRetainedSliceCap)
 	s.doc = documentState{
 		xmlDocument:         xmlDocument,
 		errors:              resetRetainedReferences(s.doc.errors, maxRetainedSliceCap),
 		text:                resetRetainedBytes(s.doc.text),
-		namePath:            resetRetainedReferences(s.doc.namePath, maxRetainedSliceCap),
 		allBits:             resetRetainedValues(s.doc.allBits, maxRetainedSliceCap),
 		identity:            identity,
 		schemaLocationHints: schemaLocationHints,
@@ -369,10 +368,9 @@ func assessmentFailure(err error) bool {
 
 func (s *session) discardSemanticState() {
 	s.doc.clearPayloads()
-	s.doc.identity = IdentityState{}
+	s.doc.identity.discard()
 	s.doc.schemaLocationHints = SchemaLocationHints{}
 	s.doc.allBits = nil
-	s.doc.namePath = nil
 	s.doc.text = nil
 	s.attributeSeen = nil
 }
@@ -437,7 +435,7 @@ func (s *session) start(line, col int, token stream.StartElement) error {
 		declared && (decl.Fixed || decl.Default),
 	)
 	s.doc.CommitStart(se, start.mode == elementAssessed && !rn.Known && rn.NS != "", schemaFrame)
-	if identityErr := s.startFrameIdentity(start, rn, line, col); identityErr != nil {
+	if identityErr := s.startFrameIdentity(start, rn, schemaFrame, line, col); identityErr != nil {
 		if errors.Is(identityErr, errSemanticStop) {
 			return nil
 		}
@@ -452,18 +450,16 @@ func (s *session) start(line, col int, token stream.StartElement) error {
 	return nil
 }
 
-func (s *session) startFrameIdentity(start schemaStart, rn runtime.RuntimeName, line, col int) error {
-	if !s.hasIdentityConstraints {
-		return nil
-	}
-	s.doc.namePath = append(s.doc.namePath, rn)
-	if start.mode == elementRecovery {
-		return nil
-	}
-	if err := s.startIdentityScope(start.element, line, col); err != nil {
-		return err
-	}
-	return s.matchIdentitySelectors(line, col)
+func (s *session) startFrameIdentity(start schemaStart, rn runtime.RuntimeName, f frame, line, col int) error {
+	return s.doc.identity.startElement(identityElementStart{
+		Name:     rn,
+		Type:     f.Type,
+		Element:  f.Element,
+		Mode:     start.mode,
+		Context:  s.startContext(line, col),
+		Nilled:   f.Nilled,
+		Declared: f.ElementDeclared,
+	})
 }
 
 func (s *session) validateStartAttributes(start schemaStart, attrs []stream.Attr, line, col int) error {

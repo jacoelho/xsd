@@ -107,7 +107,7 @@ func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.
 	rt, elemID, _, elemName, attrName := compiledIdentityRuntimeForTest(t)
 	namePath := []runtime.RuntimeName{{Known: true, Name: elemName}}
 
-	var state IdentityState
+	var state identityState
 	if err := state.startElementScope(rt, elemID, len(namePath), 0, StartContext{Path: "/root"}); err != nil {
 		t.Fatalf("startElementScope() error = %v", err)
 	}
@@ -122,7 +122,7 @@ func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.
 	if err != nil {
 		t.Fatalf("elementFieldMatches() error = %v", err)
 	}
-	if len(elementMatches) != 1 || elementMatches[0] != (IdentityFieldMatch{Selection: 0, Field: 0}) {
+	if len(elementMatches) != 1 || elementMatches[0] != (identityFieldMatch{Selection: 0, Field: 0}) {
 		t.Fatalf("elementFieldMatches() = %+v, want selection 0 field 0", elementMatches)
 	}
 
@@ -130,14 +130,14 @@ func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.
 	if err != nil {
 		t.Fatalf("attributeFieldMatches() error = %v", err)
 	}
-	if len(attrMatches) != 1 || attrMatches[0] != (IdentityFieldMatch{Selection: 0, Field: 0}) {
+	if len(attrMatches) != 1 || attrMatches[0] != (identityFieldMatch{Selection: 0, Field: 0}) {
 		t.Fatalf("attributeFieldMatches() = %+v, want one deduplicated field match", attrMatches)
 	}
 	unknownMatches, err := state.attributeFieldMatches(rt, namePath, runtime.RuntimeName{NS: "urn:a", Local: "unknown"})
 	if err != nil {
 		t.Fatalf("attributeFieldMatches(unknown) error = %v", err)
 	}
-	if len(unknownMatches) != 1 || unknownMatches[0] != (IdentityFieldMatch{Selection: 0, Field: 0}) {
+	if len(unknownMatches) != 1 || unknownMatches[0] != (identityFieldMatch{Selection: 0, Field: 0}) {
 		t.Fatalf("attributeFieldMatches(unknown) = %+v, want namespace-wildcard match", unknownMatches)
 	}
 	wrongNamespace, err := state.attributeFieldMatches(rt, namePath, runtime.RuntimeName{NS: "urn:other", Local: "unknown"})
@@ -156,36 +156,31 @@ func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T
 	otherAttr := runtime.QName{Namespace: 999, Local: attr.Local}
 	namePath := []runtime.RuntimeName{{Known: true, Name: elem}}
 
-	elementFields, ok := rt.IdentityElementFields(constraintID)
+	constraint, ok := rt.IdentityConstraint(constraintID)
 	if !ok {
-		t.Fatal("IdentityElementFields() rejected runtime metadata")
+		t.Fatal("IdentityConstraint() rejected runtime metadata")
 	}
+	elementFields := constraint.ElementFields()
 	elementField, ok := elementFields.At(0)
 	if !ok {
-		t.Fatal("IdentityElementFields() returned no field")
+		t.Fatal("IdentityConstraint().ElementFields() returned no field")
 	}
 	if !identityCompiledFieldPathsMatch(rt, namePath, 1, 1, elementField) {
 		t.Fatal("element field path did not match")
 	}
 
-	attributeFields, ok := rt.IdentityAttributeFields(constraintID, attr)
-	if !ok {
-		t.Fatal("IdentityAttributeFields() rejected runtime metadata")
-	}
+	attributeFields := constraint.AttributeFields(attr)
 	exactAttributeField, ok := attributeFields.At(0)
 	if !ok {
-		t.Fatal("IdentityAttributeFields() returned no exact field")
+		t.Fatal("IdentityConstraint().AttributeFields() returned no exact field")
 	}
 	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, runtime.RuntimeName{Name: attr, Known: true}, exactAttributeField) {
 		t.Fatal("exact attribute field path did not match")
 	}
-	attributeFields, ok = rt.IdentityAttributeWildcardFields(constraintID)
-	if !ok {
-		t.Fatal("IdentityAttributeWildcardFields() rejected runtime metadata")
-	}
+	attributeFields = constraint.AttributeWildcardFields()
 	wildcardAttributeField, ok := attributeFields.At(0)
 	if !ok {
-		t.Fatal("IdentityAttributeWildcardFields() returned no wildcard field")
+		t.Fatal("IdentityConstraint().AttributeWildcardFields() returned no wildcard field")
 	}
 	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, runtime.RuntimeName{Name: attr, Known: true}, wildcardAttributeField) {
 		t.Fatal("attribute namespace wildcard did not match")

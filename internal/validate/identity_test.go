@@ -4,21 +4,20 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// StartSelection starts an unbounded selection for white-box state tests.
-func (s *IdentityState) StartSelection(scope, depth int, constraint runtime.IdentityConstraintID, fieldCount int, ctx StartContext) {
+// startSelectionForTest starts an unbounded selection for white-box state tests.
+func (s *identityState) startSelectionForTest(scope, depth int, constraint runtime.IdentityConstraintID, fieldCount int, ctx StartContext) {
 	if err := s.startSelection(scope, depth, constraint, fieldCount, 0, ctx); err != nil {
 		panic(err)
 	}
 }
 
 func TestIdentitySelectionLimitPrecedesPendingStateAllocation(t *testing.T) {
-	var state IdentityState
-	state.StartSelection(0, 1, 0, 2, StartContext{Path: "/root/a", Line: 2, Column: 3})
+	var state identityState
+	state.startSelectionForTest(0, 1, 0, 2, StartContext{Path: "/root/a", Line: 2, Column: 3})
 	wantSelections := len(state.selections)
 	wantFields := len(state.fieldValues)
 	wantNodeID := state.nextNodeID
@@ -41,18 +40,18 @@ func TestIdentitySelectionLimitPrecedesPendingStateAllocation(t *testing.T) {
 func TestIdentityStateRejectsDuplicateIDWithoutMutating(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var evaluation identityEvaluation
 	ctx := StartContext{Path: "/first", Line: 2, Column: 3}
-	if err := recordValueForTest(&state, IdentityValue{IDs: "a"}, ctx); err != nil {
-		t.Fatalf("RecordValue(first) error = %v", err)
+	if err := evaluation.recordIdentityFields("a", "", ctx); err != nil {
+		t.Fatalf("recordValue(first) error = %v", err)
 	}
-	err := recordValueForTest(&state, IdentityValue{IDs: "a"}, StartContext{Path: "/second", Line: 4, Column: 5})
+	err := evaluation.recordIdentityFields("a", "", StartContext{Path: "/second", Line: 4, Column: 5})
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
 	expectXSDMessage(t, err, "duplicate ID a first seen at /first")
-	if state.entries != 1 {
-		t.Fatalf("entries = %d, want 1", state.entries)
+	if evaluation.entries != 1 {
+		t.Fatalf("entries = %d, want 1", evaluation.entries)
 	}
-	if got := state.ids["a"]; got != "/first" {
+	if got := evaluation.ids["a"]; got != "/first" {
 		t.Fatalf("ids[a] = %q, want /first", got)
 	}
 }
@@ -60,38 +59,38 @@ func TestIdentityStateRejectsDuplicateIDWithoutMutating(t *testing.T) {
 func TestIdentityStateResolvesIDREFAgainstLaterID(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
-	if err := recordValueForTest(&state, IdentityValue{IDRefs: "a"}, StartContext{Path: "/ref", Line: 2, Column: 3}); err != nil {
-		t.Fatalf("RecordValue(IDREF) error = %v", err)
+	var evaluation identityEvaluation
+	if err := evaluation.recordIdentityFields("", "a", StartContext{Path: "/ref", Line: 2, Column: 3}); err != nil {
+		t.Fatalf("recordValue(IDREF) error = %v", err)
 	}
-	if err := recordValueForTest(&state, IdentityValue{IDs: "a"}, StartContext{Path: "/id", Line: 4, Column: 5}); err != nil {
-		t.Fatalf("RecordValue(ID) error = %v", err)
+	if err := evaluation.recordIdentityFields("a", "", StartContext{Path: "/id", Line: 4, Column: 5}); err != nil {
+		t.Fatalf("recordValue(ID) error = %v", err)
 	}
-	err := state.CheckIDRefs(func(err error) error {
-		t.Fatalf("CheckIDRefs reported resolved ref: %v", err)
+	err := evaluation.endDocument(func(err error) error {
+		t.Fatalf("checkIDRefs reported resolved ref: %v", err)
 		return nil
 	}, nil)
 
 	if err != nil {
-		t.Fatalf("CheckIDRefs() error = %v", err)
+		t.Fatalf("checkIDRefs() error = %v", err)
 	}
 }
 
 func TestIdentityStateReportsMissingIDREFAtOriginalLocation(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
-	if err := recordValueForTest(&state, IdentityValue{IDRefs: "missing"}, StartContext{Path: "/ref", Line: 2, Column: 3}); err != nil {
-		t.Fatalf("RecordValue(IDREF) error = %v", err)
+	var evaluation identityEvaluation
+	if err := evaluation.recordIdentityFields("", "missing", StartContext{Path: "/ref", Line: 2, Column: 3}); err != nil {
+		t.Fatalf("recordValue(IDREF) error = %v", err)
 	}
 	var got error
-	err := state.CheckIDRefs(func(err error) error {
+	err := evaluation.endDocument(func(err error) error {
 		got = err
 		return nil
 	}, nil)
 
 	if err != nil {
-		t.Fatalf("CheckIDRefs() error = %v", err)
+		t.Fatalf("checkIDRefs() error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationType)
 	expectXSDMessage(t, got, "IDREF does not resolve: missing")
@@ -101,51 +100,24 @@ func TestIdentityStateReportsMissingIDREFAtOriginalLocation(t *testing.T) {
 func TestIdentityStateUsesXMLWhitespaceFields(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
-	if err := recordValueForTest(&state, IdentityValue{IDs: "a\tb\nc"}, StartContext{Path: "/ids", Line: 2, Column: 3}); err != nil {
-		t.Fatalf("RecordValue(IDs) error = %v", err)
+	var evaluation identityEvaluation
+	if err := evaluation.recordIdentityFields("a\tb\nc", "", StartContext{Path: "/ids", Line: 2, Column: 3}); err != nil {
+		t.Fatalf("recordValue(IDs) error = %v", err)
 	}
-	if len(state.ids) != 3 {
-		t.Fatalf("ids = %d, want 3", len(state.ids))
+	if len(evaluation.ids) != 3 {
+		t.Fatalf("ids = %d, want 3", len(evaluation.ids))
 	}
-	if err := recordValueForTest(&state, IdentityValue{IDRefs: "a\u00a0b"}, StartContext{Path: "/refs", Line: 4, Column: 5}); err != nil {
-		t.Fatalf("RecordValue(IDRefs) error = %v", err)
+	if err := evaluation.recordIdentityFields("", "a\u00a0b", StartContext{Path: "/refs", Line: 4, Column: 5}); err != nil {
+		t.Fatalf("recordValue(IDRefs) error = %v", err)
 	}
 	var got error
-	if err := state.CheckIDRefs(func(err error) error {
+	if err := evaluation.endDocument(func(err error) error {
 		got = err
 		return nil
 	}, nil); err != nil {
-		t.Fatalf("CheckIDRefs() error = %v", err)
+		t.Fatalf("checkIDRefs() error = %v", err)
 	}
 	expectXSDMessage(t, got, "IDREF does not resolve: a\u00a0b")
-}
-
-func TestIdentityStateRecordsSimpleValueProjection(t *testing.T) {
-	t.Parallel()
-
-	var state IdentityState
-	value := runtime.SimpleValue{
-		IDs:       "id",
-		IDRefs:    "ref",
-		Canonical: "ignored",
-		Identity:  "ignored",
-		Type:      runtime.SimpleTypeID(3),
-	}
-	if err := recordSimpleValueForTest(&state, value, StartContext{Path: "/value", Line: 2, Column: 3}); err != nil {
-		t.Fatalf("RecordSimpleValue() error = %v", err)
-	}
-	if got := state.ids["id"]; got != "/value" {
-		t.Fatalf("ids[id] = %q, want /value", got)
-	}
-	var got error
-	if err := state.CheckIDRefs(func(err error) error {
-		got = err
-		return nil
-	}, nil); err != nil {
-		t.Fatalf("CheckIDRefs() error = %v", err)
-	}
-	expectXSDMessage(t, got, "IDREF does not resolve: ref")
 }
 
 func TestSimpleValueIdentityKey(t *testing.T) {
@@ -187,92 +159,35 @@ func TestSimpleValueIdentityKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, ok := SimpleValueIdentityKey(rt, tt.value)
+			got, ok := simpleValueIdentityKey(rt, tt.value)
 			if ok != tt.ok {
-				t.Fatalf("SimpleValueIdentityKey() ok = %v, want %v", ok, tt.ok)
+				t.Fatalf("simpleValueIdentityKey() ok = %v, want %v", ok, tt.ok)
 			}
 			if got != tt.want {
-				t.Fatalf("SimpleValueIdentityKey() = %q, want %q", got, tt.want)
+				t.Fatalf("simpleValueIdentityKey() = %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestIdentityStateCaptureSimpleValueFields(t *testing.T) {
-	t.Parallel()
-
-	var state IdentityState
-	const id runtime.IdentityConstraintID = 1
-	const canonicalTrue = "true"
-	rt, booleanType := booleanRuntimeForTest(t)
-	startIdentityScope(t, &state, []runtime.IdentityConstraintID{id}, 1, "/root")
-	state.StartSelection(0, 2, id, 1, StartContext{Path: "/root/flag", Line: 4, Column: 5})
-
-	err := state.CaptureSimpleValueFields(
-		rt,
-		[]IdentityFieldMatch{{Selection: 0, Field: 0}},
-		runtime.SimpleValue{Canonical: canonicalTrue, Type: booleanType},
-		StartContext{Path: "/root/flag", Line: 6, Column: 7},
-	)
-	if err != nil {
-		t.Fatalf("CaptureSimpleValueFields() error = %v", err)
-	}
-	want := runtime.SimpleIdentityKey(runtime.PrimitiveBoolean, canonicalTrue)
-	if got := state.fieldValues[0].value; got != want {
-		t.Fatalf("simple value field value = %q, want %q", got, want)
-	}
-}
-
-func TestIdentityStateCaptureSimpleValueFieldsRejectsInvalidType(t *testing.T) {
-	t.Parallel()
-
-	var state IdentityState
-	const id runtime.IdentityConstraintID = 1
-	rt, _ := booleanRuntimeForTest(t)
-	startIdentityScope(t, &state, []runtime.IdentityConstraintID{id}, 1, "/root")
-	state.StartSelection(0, 2, id, 1, StartContext{Path: "/root/value", Line: 4, Column: 5})
-
-	err := state.CaptureSimpleValueFields(
-		rt,
-		[]IdentityFieldMatch{{Selection: 0, Field: 0}},
-		runtime.SimpleValue{Canonical: "x", Type: runtime.SimpleTypeID(99)},
-		StartContext{Path: "/root/value", Line: 6, Column: 7},
-	)
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
-	expectXSDMessage(t, err, "identity field value references invalid simple type")
-}
-
-func TestIdentityStateRecordAttributeSimpleValueRejectsSecondID(t *testing.T) {
-	t.Parallel()
-
-	var state IdentityState
-	seenID := true
-	err := recordAttributeSimpleValueForTest(&state, runtime.SimpleValue{IDs: "second"}, &seenID, StartContext{Path: "/attr", Line: 2, Column: 3})
-	expectXSDCode(t, err, xsderrors.CodeValidationType)
-	expectXSDMessage(t, err, "multiple ID attributes")
-	if state.entries != 0 {
-		t.Fatalf("entries = %d, want 0", state.entries)
 	}
 }
 
 func TestIdentityStateLimitFailuresDoNotAppendOrInsert(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
-	if err := recordValueWithLimitsForTest(&state, IdentityValue{IDs: "a"}, IdentityLimits{Entries: 1}, StartContext{Path: "/id", Line: 2, Column: 3}); err != nil {
-		t.Fatalf("RecordValue(ID) error = %v", err)
+	evaluation := identityEvaluation{limits: identityLimits{Entries: 1}}
+	if err := evaluation.recordIdentityFields("a", "", StartContext{Path: "/id", Line: 2, Column: 3}); err != nil {
+		t.Fatalf("recordValue(ID) error = %v", err)
 	}
-	err := recordValueWithLimitsForTest(&state, IdentityValue{IDRefs: "b"}, IdentityLimits{Entries: 1}, StartContext{Path: "/ref", Line: 4, Column: 5})
+	err := evaluation.recordIdentityFields("", "b", StartContext{Path: "/ref", Line: 4, Column: 5})
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
-	if len(state.idrefs) != 0 {
-		t.Fatalf("idrefs = %d, want 0 after failed reserve", len(state.idrefs))
+	if len(evaluation.idrefs) != 0 {
+		t.Fatalf("idrefs = %d, want 0 after failed reserve", len(evaluation.idrefs))
 	}
-	if state.entries != 1 {
-		t.Fatalf("entries = %d, want 1", state.entries)
+	if evaluation.entries != 1 {
+		t.Fatalf("entries = %d, want 1", evaluation.entries)
 	}
 
-	var tooLong IdentityState
-	err = recordValueWithLimitsForTest(&tooLong, IdentityValue{IDs: "abcd"}, IdentityLimits{TupleBytes: 3}, StartContext{Path: "/id", Line: 2, Column: 3})
+	tooLong := identityEvaluation{limits: identityLimits{TupleBytes: 3}}
+	err = tooLong.recordIdentityFields("abcd", "", StartContext{Path: "/id", Line: 2, Column: 3})
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if len(tooLong.ids) != 0 || tooLong.entries != 0 {
 		t.Fatalf("tuple limit mutated state: ids=%d entries=%d", len(tooLong.ids), tooLong.entries)
@@ -286,7 +201,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	if !ok {
 		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
 	}
-	state := IdentityState{
+	state := identityState{
 		ids: map[string]string{"a": "/id"},
 		idrefs: append(make([]identityRef, 0, 2),
 			identityRef{Value: "a"},
@@ -306,13 +221,13 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 		fieldValues: append(make([]identityFieldValue, 0, 2),
 			identityFieldValue{value: "a", state: identityFieldPresent},
 		),
-		matches: append(make([]IdentityFieldMatch, 0, 2),
-			IdentityFieldMatch{Selection: 1, Field: 2},
+		matches: append(make([]identityFieldMatch, 0, 2),
+			identityFieldMatch{Selection: 1, Field: 2},
 		),
 		entries:    3,
 		nextNodeID: 4,
 	}
-	state.Reset(1, 2)
+	state.reset(1, 2)
 	if state.ids == nil {
 		t.Fatalf("Reset() dropped bounded ID map")
 	}
@@ -348,10 +263,10 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	state.scopes = append(make([]identityScope, 0, 3), identityScope{})
 	state.selections = append(make([]identitySelection, 0, 3), identitySelection{})
 	state.fieldValues = append(make([]identityFieldValue, 0, 3), identityFieldValue{})
-	state.matches = append(make([]IdentityFieldMatch, 0, 3), IdentityFieldMatch{})
+	state.matches = append(make([]identityFieldMatch, 0, 3), identityFieldMatch{})
 	state.entries = 2
 	state.nextNodeID = 5
-	state.Reset(1, 2)
+	state.reset(1, 2)
 	if state.ids != nil ||
 		state.idrefs != nil ||
 		state.scopes != nil ||
@@ -377,7 +292,7 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 func TestIdentityStateStartScopeEnforcesLimit(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const id runtime.IdentityConstraintID = 1
 	constraints, ok := runtime.ElementIdentityConstraintIDs([][]runtime.IdentityConstraintID{{id}}, 0)
 	if !ok {
@@ -398,19 +313,19 @@ func TestIdentityStateStartScopeEnforcesLimit(t *testing.T) {
 func TestIdentityStateCaptureFieldsRejectsInvalidAndDuplicateMatches(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const id runtime.IdentityConstraintID = 1
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{id}, 1, "/root")
-	state.StartSelection(0, 2, id, 1, StartContext{Path: "/row", Line: 4, Column: 5})
+	state.startSelectionForTest(0, 2, id, 1, StartContext{Path: "/row", Line: 4, Column: 5})
 
-	err := state.CaptureFields([]IdentityFieldMatch{{Selection: 1, Field: 0}}, "a", StartContext{Path: "/row/id", Line: 6, Column: 7})
+	err := state.captureFields([]identityFieldMatch{{Selection: 1, Field: 0}}, "a", StartContext{Path: "/row/id", Line: 6, Column: 7})
 	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 
-	err = state.CaptureFields([]IdentityFieldMatch{{Selection: 0, Field: 0}}, "a", StartContext{Path: "/row/id", Line: 6, Column: 7})
+	err = state.captureFields([]identityFieldMatch{{Selection: 0, Field: 0}}, "a", StartContext{Path: "/row/id", Line: 6, Column: 7})
 	if err != nil {
-		t.Fatalf("CaptureFields(first) error = %v", err)
+		t.Fatalf("captureFields(first) error = %v", err)
 	}
-	err = state.CaptureFields([]IdentityFieldMatch{{Selection: 0, Field: 0}}, "b", StartContext{Path: "/row/id", Line: 8, Column: 9})
+	err = state.captureFields([]identityFieldMatch{{Selection: 0, Field: 0}}, "b", StartContext{Path: "/row/id", Line: 8, Column: 9})
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
 	expectXSDMessage(t, err, "identity field selects multiple values")
 	expectXSDLocation(t, err, "/row", 8, 9)
@@ -420,10 +335,11 @@ func TestIdentityStateCaptureFieldsRejectsInvalidAndDuplicateMatches(t *testing.
 	if !state.scopes[0].invalid {
 		t.Fatal("duplicate field match did not invalidate its owning scope")
 	}
-	if err := state.finishSelectionWithInfo(
-		runtime.IdentityConstraintInfo{Kind: runtime.IdentityUnique},
+	if err := state.finishSelectionWithConstraint(
+		runtime.IdentityUnique,
+		runtime.NoIdentityConstraint,
 		state.selections[0],
-		IdentityLimits{},
+		identityLimits{},
 		StartContext{Path: "/row", Line: 10, Column: 11},
 	); err != nil {
 		t.Fatalf("finishSelectionWithInfo(invalid duplicate) error = %v", err)
@@ -436,13 +352,13 @@ func TestIdentityStateCaptureFieldsRejectsInvalidAndDuplicateMatches(t *testing.
 func TestIdentityStateRejectFieldsWithoutSimpleValueInvalidatesField(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const id runtime.IdentityConstraintID = 1
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{id}, 1, "/root")
-	state.StartSelection(0, 2, id, 1, StartContext{Path: "/root/item", Line: 4, Column: 5})
+	state.startSelectionForTest(0, 2, id, 1, StartContext{Path: "/root/item", Line: 4, Column: 5})
 
-	err := state.RejectFieldsWithoutSimpleValue(
-		[]IdentityFieldMatch{{Selection: 0, Field: 0}},
+	err := state.rejectFieldsWithoutSimpleValue(
+		[]identityFieldMatch{{Selection: 0, Field: 0}},
 		StartContext{Path: "/root/item", Line: 6, Column: 7},
 	)
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
@@ -454,10 +370,11 @@ func TestIdentityStateRejectFieldsWithoutSimpleValueInvalidatesField(t *testing.
 	if !state.scopes[0].invalid {
 		t.Fatal("rejected field node did not invalidate its owning scope")
 	}
-	if err := state.finishSelectionWithInfo(
-		runtime.IdentityConstraintInfo{Kind: runtime.IdentityKey},
+	if err := state.finishSelectionWithConstraint(
+		runtime.IdentityKey,
+		runtime.NoIdentityConstraint,
 		state.selections[0],
-		IdentityLimits{},
+		identityLimits{},
 		StartContext{Path: "/root/item", Line: 8, Column: 9},
 	); err != nil {
 		t.Fatalf("finishSelectionWithInfo(invalid key field) error = %v", err)
@@ -467,9 +384,9 @@ func TestIdentityStateRejectFieldsWithoutSimpleValueInvalidatesField(t *testing.
 func TestNilledElementIdentityKeyIsStableAndDistinct(t *testing.T) {
 	t.Parallel()
 
-	got := NilledElementIdentityKey()
+	got := nilledElementIdentityKey
 	if got != "\xff\x1e\x00nil" {
-		t.Fatalf("NilledElementIdentityKey() = %q", got)
+		t.Fatalf("nilledElementIdentityKeyForTest() = %q", got)
 	}
 	if got == runtime.SimpleIdentityKey(runtime.PrimitiveString, "nil") {
 		t.Fatal("nilled element identity key collided with string nil")
@@ -483,64 +400,64 @@ func TestEndIdentityCapture(t *testing.T) {
 	typ := runtime.ComplexRef(1)
 	tests := []struct {
 		name          string
-		in            EndIdentityInput
+		in            endIdentityInput
 		simpleContent bool
-		want          EndIdentityCaptureAction
+		want          endIdentityCaptureAction
 	}{
 		{
 			name: "simple content already captured",
-			in: EndIdentityInput{
+			in: endIdentityInput{
 				Type:            typ,
 				Element:         elem,
 				ContentCaptured: true,
 				Nilled:          true,
 			},
-			want: EndIdentityCaptureNone,
+			want: endIdentityCaptureNone,
 		},
 		{
 			name: "nilled declared element with simple content",
-			in: EndIdentityInput{
+			in: endIdentityInput{
 				Type:    typ,
 				Element: elem,
 				Nilled:  true,
 			},
 			simpleContent: true,
-			want:          EndIdentityCaptureNilledElement,
+			want:          endIdentityCaptureNilledElement,
 		},
 		{
 			name: "nilled declared element with complex content",
-			in: EndIdentityInput{
+			in: endIdentityInput{
 				Type:    typ,
 				Element: elem,
 				Nilled:  true,
 			},
-			want: EndIdentityCaptureComplexElement,
+			want: endIdentityCaptureComplexElement,
 		},
 		{
 			name: "nilled undeclared element without simple content",
-			in: EndIdentityInput{
+			in: endIdentityInput{
 				Type:    typ,
 				Element: runtime.NoElement,
 				Nilled:  true,
 			},
-			want: EndIdentityCaptureComplexElement,
+			want: endIdentityCaptureComplexElement,
 		},
 		{
 			name: "complex element",
-			in: EndIdentityInput{
+			in: endIdentityInput{
 				Type:    typ,
 				Element: elem,
 			},
-			want: EndIdentityCaptureComplexElement,
+			want: endIdentityCaptureComplexElement,
 		},
 		{
 			name: "simple element without captured field",
-			in: EndIdentityInput{
+			in: endIdentityInput{
 				Type:    typ,
 				Element: elem,
 			},
 			simpleContent: true,
-			want:          EndIdentityCaptureNone,
+			want:          endIdentityCaptureNone,
 		},
 	}
 	for _, tt := range tests {
@@ -549,13 +466,13 @@ func TestEndIdentityCapture(t *testing.T) {
 			got := endIdentityCapture(tt.simpleContent, tt.in)
 			if tt.in.ContentCaptured {
 				var err error
-				got, err = EndIdentityCapture(nil, tt.in)
+				got, err = endIdentityCaptureForElement(nil, tt.in)
 				if err != nil {
-					t.Fatalf("EndIdentityCapture() error = %v", err)
+					t.Fatalf("endIdentityCaptureForElement() error = %v", err)
 				}
 			}
 			if got != tt.want {
-				t.Fatalf("EndIdentityCapture() = %v, want %v", got, tt.want)
+				t.Fatalf("endIdentityCaptureForElement() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -564,7 +481,7 @@ func TestEndIdentityCapture(t *testing.T) {
 func TestEndIdentityCaptureRejectsMissingContentMetadata(t *testing.T) {
 	t.Parallel()
 
-	_, err := EndIdentityCapture(nil, EndIdentityInput{
+	_, err := endIdentityCaptureForElement(nil, endIdentityInput{
 		Type:    runtime.ComplexRef(1),
 		Element: 1,
 	})
@@ -574,13 +491,13 @@ func TestEndIdentityCaptureRejectsMissingContentMetadata(t *testing.T) {
 func TestIdentityStateFinishSelectionsReportsMissingKeyField(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const keyID runtime.IdentityConstraintID = 1
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID}, 1, "/root")
-	state.StartSelection(0, 2, keyID, 1, StartContext{Path: "/row", Line: 4, Column: 5})
+	state.startSelectionForTest(0, 2, keyID, 1, StartContext{Path: "/row", Line: 4, Column: 5})
 
 	var got error
-	err := finishSelectionsForTest(&state, identityInfo(map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo{
+	err := finishSelectionsForTest(&state, identityInfo(map[runtime.IdentityConstraintID]identityConstraintInfoForTest{
 		keyID: {Kind: runtime.IdentityKey},
 	}), 2, StartContext{Path: "/row", Line: 6, Column: 7}, func(err error) error {
 		got = err
@@ -600,16 +517,16 @@ func TestIdentityStateFinishSelectionsReportsMissingKeyField(t *testing.T) {
 func TestIdentityStateFinishSelectionsRejectsDuplicateKeyWithoutSecondReserve(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const keyID runtime.IdentityConstraintID = 1
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID}, 1, "/root")
-	state.StartSelection(0, 2, keyID, 1, StartContext{Path: "/first", Line: 4, Column: 5})
-	state.StartSelection(0, 2, keyID, 1, StartContext{Path: "/second", Line: 6, Column: 7})
+	state.startSelectionForTest(0, 2, keyID, 1, StartContext{Path: "/first", Line: 4, Column: 5})
+	state.startSelectionForTest(0, 2, keyID, 1, StartContext{Path: "/second", Line: 6, Column: 7})
 	captureIdentityField(t, &state, 0, "a")
 	captureIdentityField(t, &state, 1, "a")
 
 	var got error
-	err := finishSelectionsForTest(&state, identityInfo(map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo{
+	err := finishSelectionsForTest(&state, identityInfo(map[runtime.IdentityConstraintID]identityConstraintInfoForTest{
 		keyID: {Kind: runtime.IdentityKey},
 	}), 2, StartContext{Path: "/second", Line: 8, Column: 9}, func(err error) error {
 		got = err
@@ -629,59 +546,59 @@ func TestIdentityStateFinishSelectionsRejectsDuplicateKeyWithoutSecondReserve(t 
 func TestIdentityStateCloseScopesResolvesKeyRefWithinScope(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const (
 		keyID runtime.IdentityConstraintID = 1
 		refID runtime.IdentityConstraintID = 2
 	)
-	info := identityInfo(map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo{
+	info := identityInfo(map[runtime.IdentityConstraintID]identityConstraintInfoForTest{
 		keyID: {Kind: runtime.IdentityKey},
 		refID: {Kind: runtime.IdentityKeyRef, Refer: keyID},
 	})
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID, refID}, 1, "/root")
-	state.StartSelection(0, 2, keyID, 1, StartContext{Path: "/key", Line: 4, Column: 5})
-	state.StartSelection(0, 2, refID, 1, StartContext{Path: "/ref", Line: 6, Column: 7})
+	state.startSelectionForTest(0, 2, keyID, 1, StartContext{Path: "/key", Line: 4, Column: 5})
+	state.startSelectionForTest(0, 2, refID, 1, StartContext{Path: "/ref", Line: 6, Column: 7})
 	captureIdentityField(t, &state, 0, "a")
 	captureIdentityField(t, &state, 1, "a")
 	if err := finishSelectionsForTest(&state, info, 2, StartContext{Path: "/root", Line: 8, Column: 9}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections() error = %v", err)
 	}
-	invalid, err := state.CloseScopes(1, failIdentityReport(t))
+	invalid, err := state.closeScopes(1, failIdentityReport(t))
 	if err != nil {
-		t.Fatalf("CloseScopes() error = %v", err)
+		t.Fatalf("closeScopes() error = %v", err)
 	}
 	if invalid {
-		t.Fatal("CloseScopes() invalid = true for resolved constraints")
+		t.Fatal("closeScopes() invalid = true for resolved constraints")
 	}
 }
 
 func TestIdentityStateCloseScopesReportsUnresolvedKeyRef(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const (
 		keyID runtime.IdentityConstraintID = 1
 		refID runtime.IdentityConstraintID = 2
 	)
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{refID}, 1, "/root")
-	state.StartSelection(0, 2, refID, 1, StartContext{Path: "/ref", Line: 4, Column: 5})
+	state.startSelectionForTest(0, 2, refID, 1, StartContext{Path: "/ref", Line: 4, Column: 5})
 	captureIdentityField(t, &state, 0, "missing")
-	if err := finishSelectionsForTest(&state, identityInfo(map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo{
+	if err := finishSelectionsForTest(&state, identityInfo(map[runtime.IdentityConstraintID]identityConstraintInfoForTest{
 		refID: {Kind: runtime.IdentityKeyRef, Refer: keyID},
 	}), 2, StartContext{Path: "/ref", Line: 6, Column: 7}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections() error = %v", err)
 	}
 
 	var got error
-	invalid, err := state.CloseScopes(1, func(err error) error {
+	invalid, err := state.closeScopes(1, func(err error) error {
 		got = err
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("CloseScopes() error = %v", err)
+		t.Fatalf("closeScopes() error = %v", err)
 	}
 	if !invalid {
-		t.Fatal("CloseScopes() invalid = false, want true")
+		t.Fatal("closeScopes() invalid = false, want true")
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
 	expectXSDMessage(t, got, "keyref does not resolve")
@@ -691,49 +608,49 @@ func TestIdentityStateCloseScopesReportsUnresolvedKeyRef(t *testing.T) {
 func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const (
 		keyID runtime.IdentityConstraintID = 1
 		refID runtime.IdentityConstraintID = 2
 	)
-	info := identityInfo(map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo{
+	info := identityInfo(map[runtime.IdentityConstraintID]identityConstraintInfoForTest{
 		keyID: {Kind: runtime.IdentityKey},
 		refID: {Kind: runtime.IdentityKeyRef, Refer: keyID},
 	})
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{refID}, 1, "/root")
 
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID}, 2, "/root/a")
-	state.StartSelection(1, 3, keyID, 1, StartContext{Path: "/root/a/id", Line: 4, Column: 5})
+	state.startSelectionForTest(1, 3, keyID, 1, StartContext{Path: "/root/a/id", Line: 4, Column: 5})
 	captureIdentityField(t, &state, 0, "x")
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/a", Line: 6, Column: 7}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(first child) error = %v", err)
 	}
-	if _, err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
-		t.Fatalf("CloseScopes(first child) error = %v", err)
+	if _, err := state.closeScopes(2, failIdentityReport(t)); err != nil {
+		t.Fatalf("closeScopes(first child) error = %v", err)
 	}
 
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID}, 2, "/root/b")
-	state.StartSelection(1, 3, keyID, 1, StartContext{Path: "/root/b/id", Line: 8, Column: 9})
+	state.startSelectionForTest(1, 3, keyID, 1, StartContext{Path: "/root/b/id", Line: 8, Column: 9})
 	captureIdentityField(t, &state, 0, "x")
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/b", Line: 10, Column: 11}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(second child) error = %v", err)
 	}
-	if _, err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
-		t.Fatalf("CloseScopes(second child) error = %v", err)
+	if _, err := state.closeScopes(2, failIdentityReport(t)); err != nil {
+		t.Fatalf("closeScopes(second child) error = %v", err)
 	}
 
-	state.StartSelection(0, 3, refID, 1, StartContext{Path: "/root/ref", Line: 12, Column: 13})
+	state.startSelectionForTest(0, 3, refID, 1, StartContext{Path: "/root/ref", Line: 12, Column: 13})
 	captureIdentityField(t, &state, 0, "x")
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/ref", Line: 14, Column: 15}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(ref) error = %v", err)
 	}
 
 	var got error
-	if _, err := state.CloseScopes(1, func(err error) error {
+	if _, err := state.closeScopes(1, func(err error) error {
 		got = err
 		return nil
 	}); err != nil {
-		t.Fatalf("CloseScopes(parent) error = %v", err)
+		t.Fatalf("closeScopes(parent) error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
 	expectXSDMessage(t, got, "keyref does not resolve")
@@ -743,109 +660,68 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T) {
 	t.Parallel()
 
-	var state IdentityState
+	var state identityState
 	const (
 		keyID runtime.IdentityConstraintID = 1
 		refID runtime.IdentityConstraintID = 2
 	)
-	info := identityInfo(map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo{
+	info := identityInfo(map[runtime.IdentityConstraintID]identityConstraintInfoForTest{
 		keyID: {Kind: runtime.IdentityKey},
 		refID: {Kind: runtime.IdentityKeyRef, Refer: keyID},
 	})
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{refID}, 1, "/root")
 
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID}, 2, "/root/group")
-	state.StartSelection(1, 3, keyID, 1, StartContext{Path: "/root/group/id", Line: 4, Column: 5})
+	state.startSelectionForTest(1, 3, keyID, 1, StartContext{Path: "/root/group/id", Line: 4, Column: 5})
 	captureIdentityField(t, &state, 0, "x")
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/group", Line: 6, Column: 7}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(first child) error = %v", err)
 	}
-	if _, err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
-		t.Fatalf("CloseScopes(first child) error = %v", err)
+	if _, err := state.closeScopes(2, failIdentityReport(t)); err != nil {
+		t.Fatalf("closeScopes(first child) error = %v", err)
 	}
 
 	startIdentityScope(t, &state, []runtime.IdentityConstraintID{keyID}, 2, "/root/group")
-	state.StartSelection(1, 3, keyID, 1, StartContext{Path: "/root/group/id", Line: 8, Column: 9})
+	state.startSelectionForTest(1, 3, keyID, 1, StartContext{Path: "/root/group/id", Line: 8, Column: 9})
 	captureIdentityField(t, &state, 0, "x")
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/group", Line: 10, Column: 11}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(second child) error = %v", err)
 	}
-	if _, err := state.CloseScopes(2, failIdentityReport(t)); err != nil {
-		t.Fatalf("CloseScopes(second child) error = %v", err)
+	if _, err := state.closeScopes(2, failIdentityReport(t)); err != nil {
+		t.Fatalf("closeScopes(second child) error = %v", err)
 	}
 
-	state.StartSelection(0, 3, refID, 1, StartContext{Path: "/root/ref", Line: 12, Column: 13})
+	state.startSelectionForTest(0, 3, refID, 1, StartContext{Path: "/root/ref", Line: 12, Column: 13})
 	captureIdentityField(t, &state, 0, "x")
 	if err := finishSelectionsForTest(&state, info, 3, StartContext{Path: "/root/ref", Line: 14, Column: 15}, failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(ref) error = %v", err)
 	}
 
 	var got error
-	if _, err := state.CloseScopes(1, func(err error) error {
+	if _, err := state.closeScopes(1, func(err error) error {
 		got = err
 		return nil
 	}); err != nil {
-		t.Fatalf("CloseScopes(parent) error = %v", err)
+		t.Fatalf("closeScopes(parent) error = %v", err)
 	}
 	expectXSDCode(t, got, xsderrors.CodeValidationIdentity)
 	expectXSDMessage(t, got, "keyref does not resolve")
 	expectXSDLocation(t, got, "/root/ref", 12, 13)
 }
 
-type identityInfoRuntime map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo
+type identityConstraintInfoForTest struct {
+	Kind  runtime.IdentityKind
+	Refer runtime.IdentityConstraintID
+}
 
-func identityInfo(in map[runtime.IdentityConstraintID]runtime.IdentityConstraintInfo) identityInfoRuntime {
+type identityInfoRuntime map[runtime.IdentityConstraintID]identityConstraintInfoForTest
+
+func identityInfo(in map[runtime.IdentityConstraintID]identityConstraintInfoForTest) identityInfoRuntime {
 	return identityInfoRuntime(in)
 }
 
-func recordAttributeSimpleValueForTest(s *IdentityState, value runtime.SimpleValue, seenID *bool, ctx StartContext) error {
-	if value.IDs != "" {
-		if seenID != nil && *seenID {
-			return validation(ctx, xsderrors.CodeValidationType, "multiple ID attributes")
-		}
-		if seenID != nil {
-			*seenID = true
-		}
-	}
-	return recordValueForTest(s, IdentityValue{IDs: value.IDs, IDRefs: value.IDRefs}, ctx)
-}
-
-func recordSimpleValueForTest(s *IdentityState, value runtime.SimpleValue, ctx StartContext) error {
-	return recordValueForTest(s, IdentityValue{IDs: value.IDs, IDRefs: value.IDRefs}, ctx)
-}
-
-func recordValueForTest(s *IdentityState, value IdentityValue, ctx StartContext) error {
-	return recordValueWithLimitsForTest(s, value, IdentityLimits{}, ctx)
-}
-
-func recordValueWithLimitsForTest(s *IdentityState, value IdentityValue, limits IdentityLimits, ctx StartContext) error {
-	if value.IDs == "" && value.IDRefs == "" {
-		return nil
-	}
-	path := ctx.PathString()
-	for canonical := range lex.XMLFieldsSeq(value.IDs) {
-		if s.ids == nil {
-			s.ids = make(map[string]string)
-		}
-		if prev, exists := s.ids[canonical]; exists {
-			return validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
-		}
-		if err := s.ReserveEntry(canonical, limits, ctx); err != nil {
-			return err
-		}
-		s.ids[canonical] = path
-	}
-	for canonical := range lex.XMLFieldsSeq(value.IDRefs) {
-		if err := s.ReserveEntry(canonical, limits, ctx); err != nil {
-			return err
-		}
-		s.idrefs = append(s.idrefs, identityRef{Value: canonical, Path: path, Line: ctx.Line, Col: ctx.Column})
-	}
-	return nil
-}
-
 func finishSelectionsForTest(
-	s *IdentityState,
+	s *identityState,
 	infoByID identityInfoRuntime,
 	depth int,
 	ctx StartContext,
@@ -866,7 +742,7 @@ func finishSelectionsForTest(
 		if !ok {
 			return xsderrors.InternalInvariant("identity constraint metadata is invalid")
 		}
-		if err := s.finishSelectionWithInfo(info, sel, IdentityLimits{}, ctx); err != nil {
+		if err := s.finishSelectionWithConstraint(info.Kind, info.Refer, sel, identityLimits{}, ctx); err != nil {
 			clear(s.selectionFields(sel))
 			if recoverErr := report(err); recoverErr != nil {
 				dst = append(dst, orig[i+1:]...)
@@ -885,7 +761,7 @@ func finishSelectionsForTest(
 	return nil
 }
 
-func startIdentityScope(t *testing.T, state *IdentityState, constraints []runtime.IdentityConstraintID, depth int, path string) {
+func startIdentityScope(t *testing.T, state *identityState, constraints []runtime.IdentityConstraintID, depth int, path string) {
 	t.Helper()
 	const elem runtime.ElementID = 0
 	constraintIDs, ok := runtime.ElementIdentityConstraintIDs([][]runtime.IdentityConstraintID{constraints}, elem)
@@ -898,11 +774,11 @@ func startIdentityScope(t *testing.T, state *IdentityState, constraints []runtim
 	}
 }
 
-func captureIdentityField(t *testing.T, state *IdentityState, selection int, value string) {
+func captureIdentityField(t *testing.T, state *identityState, selection int, value string) {
 	t.Helper()
-	err := state.CaptureFields([]IdentityFieldMatch{{Selection: selection, Field: 0}}, value, StartContext{Path: "/field", Line: 1, Column: 1})
+	err := state.captureFields([]identityFieldMatch{{Selection: selection, Field: 0}}, value, StartContext{Path: "/field", Line: 1, Column: 1})
 	if err != nil {
-		t.Fatalf("CaptureFields(selection=%d) error = %v", selection, err)
+		t.Fatalf("captureFields(selection=%d) error = %v", selection, err)
 	}
 }
 

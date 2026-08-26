@@ -613,6 +613,29 @@ func BenchmarkValidateIdentityConstraintsRows(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateIdentityConstraintsRows(b *testing.B) {
+	for _, rows := range []int{10, 100, 1000} {
+		b.Run(fmt.Sprintf("rows_%d", rows), func(b *testing.B) {
+			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(identityBenchmarkSchema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{})
+			if err != nil {
+				b.Fatal(err)
+			}
+			doc := identityBenchmarkDoc(rows)
+			b.SetBytes(int64(len(doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkValidateIdentityConstraintsFields(b *testing.B) {
 	for _, fields := range []int{1, 3, 8} {
 		b.Run(fmt.Sprintf("fields_%d", fields), func(b *testing.B) {

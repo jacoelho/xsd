@@ -91,126 +91,54 @@ func (s *session) end(line, col int, ee stream.EndElement) error {
 	if !ok {
 		return xsderrors.InternalInvariant("end element has no schema frame")
 	}
-	stop := s.validateFrameEnd(f, line, col)
+	contentCaptured, stop := s.validateFrameEnd(f, line, col)
 	if errors.Is(stop, errSemanticStop) {
 		stop = nil
-	} else if stop == nil && s.hasIdentityConstraints {
-		stop = s.finishFrameIdentity(f, line, col)
+	} else if stop == nil {
+		result, identityErr := s.doc.identity.endElement(identityElementEnd{
+			Context:           s.startContext(line, col),
+			ContentCaptured:   contentCaptured,
+			AssessmentInvalid: f.AssessmentInvalid,
+		}, s.recover)
+		f.AssessmentInvalid = result.AssessmentInvalid
+		stop = identityErr
 		if errors.Is(stop, errSemanticStop) {
 			stop = nil
 		}
 	}
 	s.doc.allBits = s.doc.allBits[:f.BitBase]
 	s.doc.text = s.doc.text[:f.TextStart]
-	if s.hasIdentityConstraints && len(s.doc.namePath) > 0 {
-		nameIndex := len(s.doc.namePath) - 1
-		s.doc.namePath[nameIndex] = runtime.RuntimeName{}
-		s.doc.namePath = s.doc.namePath[:nameIndex]
-	}
 	if err := s.doc.CommitEnd(); err != nil {
 		return err
 	}
 	return stop
 }
 
-func (s *session) validateFrameEnd(f *frame, line, col int) error {
+func (s *session) validateFrameEnd(f *frame, line, col int) (bool, error) {
 	switch f.Mode {
-	case elementWildcardSkipped:
-		return s.rejectUnassessedIdentityElement(line, col, true)
-	case elementRecovery:
-		return s.rejectUnassessedIdentityElement(line, col, false)
+	case elementWildcardSkipped, elementRecovery:
+		return false, nil
 	case elementAssessed:
 	default:
-		return xsderrors.InternalInvariant("element assessment mode is invalid")
+		return false, xsderrors.InternalInvariant("element assessment mode is invalid")
 	}
 	if !f.Nilled {
 		if err := s.completeFrame(f, line, col); err != nil {
 			if recoverErr := s.recoverAssessment(err); recoverErr != nil {
-				return recoverErr
+				return false, recoverErr
 			}
 		}
 	}
-	if !s.hasIdentityConstraints &&
+	if !s.doc.identity.hasConstraints() &&
 		f.SimpleContentKnown && !f.HasSimpleContent &&
 		f.ElementValueKnown && !f.ElementHasValueConstraint {
-		return nil
+		return false, nil
 	}
 	contentCaptured, err := s.validateSimpleContent(f, line, col)
 	if err != nil {
-		return s.recoverAssessment(err)
+		return false, s.recoverAssessment(err)
 	}
-	if !s.hasIdentityConstraints {
-		return nil
-	}
-	return s.captureEndIdentity(f, contentCaptured, line, col)
-}
-
-func (s *session) finishNillableKeyFields(f *frame) error {
-	if !f.ElementDeclared {
-		return nil
-	}
-	decl, ok := s.rt.Element(f.Element)
-	if !ok {
-		return xsderrors.InternalInvariant("element declaration metadata is invalid")
-	}
-	if !decl.Nillable {
-		return nil
-	}
-	fields, err := s.identityElementFields()
-	if err != nil {
-		return err
-	}
-	if f.AssessmentInvalid {
-		return s.doc.identity.InvalidateFields(fields)
-	}
-	return s.doc.identity.MarkNillableKeyFields(s.rt, fields)
-}
-
-func (s *session) captureEndIdentity(f *frame, contentCaptured bool, line, col int) error {
-	action, err := EndIdentityCapture(s.rt, EndIdentityInput{
-		Type:            f.Type,
-		Element:         f.Element,
-		ContentCaptured: contentCaptured,
-		Nilled:          f.Nilled,
-	})
-	if err != nil {
-		return err
-	}
-	switch action {
-	case EndIdentityCaptureNone:
-		return nil
-	case EndIdentityCaptureNilledElement:
-		fields, err := s.identityElementFields()
-		if err != nil {
-			return s.recover(err)
-		}
-		return s.recover(s.captureIdentityFieldKey(fields, NilledElementIdentityKey(), line, col))
-	case EndIdentityCaptureComplexElement:
-		return s.recover(s.rejectIdentityElementWithoutSimpleValue(line, col))
-	default:
-		return xsderrors.InternalInvariant("unknown end identity capture action")
-	}
-}
-
-func (s *session) finishFrameIdentity(f *frame, line, col int) error {
-	depth := len(s.doc.namePath)
-	if err := s.finishNillableKeyFields(f); err != nil {
-		return err
-	}
-	if err := s.finishIdentitySelections(depth, line, col, identitySelectionsOwnedHere); err != nil {
-		return err
-	}
-	invalid, err := s.closeIdentityScopes(depth)
-	if err != nil {
-		return err
-	}
-	if invalid {
-		f.AssessmentInvalid = true
-		if err := s.finishNillableKeyFields(f); err != nil {
-			return err
-		}
-	}
-	return s.finishIdentitySelections(depth, line, col, identitySelectionsOwnedElsewhere)
+	return contentCaptured, nil
 }
 
 func (s *session) completeFrame(f *frame, line, col int) error {

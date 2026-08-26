@@ -11,8 +11,8 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// XSIAttributeIdentityKey returns the identity-field key for an xsi attribute.
-func XSIAttributeIdentityKey(rt *runtime.Schema, name xml.Name, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (runtime.QName, string, bool, error) {
+// xsiAttributeIdentityKey returns the identity-field key for an xsi attribute.
+func xsiAttributeIdentityKey(rt *runtime.Schema, name xml.Name, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (runtime.QName, string, bool, error) {
 	rn := ResolveRuntimeName(rt, name)
 	if !rn.Known {
 		return runtime.QName{}, "", false, nil

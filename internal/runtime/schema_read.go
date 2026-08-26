@@ -25,34 +25,9 @@ func (rt *Schema) HasIdentityConstraints() bool {
 	return len(rt.runtime.Identities) != 0
 }
 
-// IdentitySelectorPaths returns immutable selector paths for an identity constraint.
-func (rt *Schema) IdentitySelectorPaths(id IdentityConstraintID) (IdentityPathReads, bool) {
-	return IdentitySelectorPathReads(rt.runtime.Identities, id)
-}
-
-// IdentityFieldCount returns the number of fields for an identity constraint.
-func (rt *Schema) IdentityFieldCount(id IdentityConstraintID) (int, bool) {
-	return IdentityFieldCount(rt.runtime.Identities, id)
-}
-
-// IdentityElementFields returns immutable element fields for an identity constraint.
-func (rt *Schema) IdentityElementFields(id IdentityConstraintID) (CompiledIdentityFieldReads, bool) {
-	return IdentityElementFieldReads(rt.runtime.Identities, id)
-}
-
-// IdentityAttributeFields returns immutable attribute fields for an identity constraint.
-func (rt *Schema) IdentityAttributeFields(id IdentityConstraintID, name QName) (CompiledIdentityFieldReads, bool) {
-	return IdentityAttributeFieldReads(rt.runtime.Identities, id, name)
-}
-
-// IdentityAttributeWildcardFields returns immutable wildcard fields for an identity constraint.
-func (rt *Schema) IdentityAttributeWildcardFields(id IdentityConstraintID) (CompiledIdentityFieldReads, bool) {
-	return IdentityAttributeWildcardFieldReads(rt.runtime.Identities, id)
-}
-
-// IdentityConstraintInfo returns metadata for an identity constraint.
-func (rt *Schema) IdentityConstraintInfo(id IdentityConstraintID) (IdentityConstraintInfo, bool) {
-	return IdentityConstraintInfoByID(rt.runtime.Identities, id)
+// IdentityConstraint returns the aggregate validation read for an identity constraint.
+func (rt *Schema) IdentityConstraint(id IdentityConstraintID) (IdentityConstraintRead, bool) {
+	return IdentityConstraintReadByID(rt.runtime.Identities, id)
 }
 
 func (rt *Schema) elementChildContent(t TypeID) (ElementChildContent, bool) {

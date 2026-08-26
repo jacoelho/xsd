@@ -2,13 +2,6 @@ package runtime
 
 import "slices"
 
-// IdentityConstraintInfo is the runtime metadata needed to finish a selected
-// identity tuple.
-type IdentityConstraintInfo struct {
-	Refer IdentityConstraintID
-	Kind  IdentityKind
-}
-
 // IdentityConstraintIDs is an immutable ordered view of identity-constraint
 // handles. Its backing slice is never exposed.
 type IdentityConstraintIDs struct {
@@ -266,62 +259,13 @@ func identityConstraintReadByIDPtr(reads []IdentityConstraintRead, id IdentityCo
 	return &reads[id], true
 }
 
-// IdentitySelectorPathReads returns immutable selector-path views for id.
-func IdentitySelectorPathReads(reads []IdentityConstraintRead, id IdentityConstraintID) (IdentityPathReads, bool) {
+// IdentityConstraintReadByID returns the aggregate validation read for id.
+func IdentityConstraintReadByID(reads []IdentityConstraintRead, id IdentityConstraintID) (IdentityConstraintRead, bool) {
 	ic, ok := identityConstraintReadByIDPtr(reads, id)
 	if !ok {
-		return IdentityPathReads{}, false
+		return IdentityConstraintRead{}, false
 	}
-	return borrowedIdentityPathReads(ic.selector), true
-}
-
-// IdentityFieldCount returns the field count for id.
-func IdentityFieldCount(reads []IdentityConstraintRead, id IdentityConstraintID) (int, bool) {
-	ic, ok := identityConstraintReadByIDPtr(reads, id)
-	if !ok {
-		return 0, false
-	}
-	return ic.FieldCount(), true
-}
-
-// IdentityElementFieldReads returns immutable element-field views for id.
-func IdentityElementFieldReads(reads []IdentityConstraintRead, id IdentityConstraintID) (CompiledIdentityFieldReads, bool) {
-	ic, ok := identityConstraintReadByIDPtr(reads, id)
-	if !ok {
-		return CompiledIdentityFieldReads{}, false
-	}
-	return borrowedCompiledIdentityFieldReads(ic.elementFields), true
-}
-
-// IdentityAttributeFieldReads returns immutable matching attribute-field views
-// for id and name.
-func IdentityAttributeFieldReads(reads []IdentityConstraintRead, id IdentityConstraintID, name QName) (CompiledIdentityFieldReads, bool) {
-	ic, ok := identityConstraintReadByIDPtr(reads, id)
-	if !ok {
-		return CompiledIdentityFieldReads{}, false
-	}
-	return borrowedCompiledIdentityFieldReads(ic.attributeFields[name]), true
-}
-
-// IdentityAttributeWildcardFieldReads returns immutable wildcard-field views for id.
-func IdentityAttributeWildcardFieldReads(reads []IdentityConstraintRead, id IdentityConstraintID) (CompiledIdentityFieldReads, bool) {
-	ic, ok := identityConstraintReadByIDPtr(reads, id)
-	if !ok {
-		return CompiledIdentityFieldReads{}, false
-	}
-	return borrowedCompiledIdentityFieldReads(ic.attributeWildcardFields), true
-}
-
-// IdentityConstraintInfoByID returns the validation metadata for id.
-func IdentityConstraintInfoByID(reads []IdentityConstraintRead, id IdentityConstraintID) (IdentityConstraintInfo, bool) {
-	ic, ok := identityConstraintReadByIDPtr(reads, id)
-	if !ok {
-		return IdentityConstraintInfo{}, false
-	}
-	return IdentityConstraintInfo{
-		Refer: ic.Refer(),
-		Kind:  ic.Kind(),
-	}, true
+	return *ic, true
 }
 
 // EqualIdentityConstraintReadProjection reports whether reads expose the same
@@ -353,6 +297,26 @@ func EqualIdentityConstraintRead(read IdentityConstraintRead, identity IdentityC
 // FieldCount returns the declared identity field count.
 func (r IdentityConstraintRead) FieldCount() int {
 	return r.fieldCount
+}
+
+// SelectorPaths returns the immutable selector paths.
+func (r IdentityConstraintRead) SelectorPaths() IdentityPathReads {
+	return borrowedIdentityPathReads(r.selector)
+}
+
+// ElementFields returns the immutable element-field lookup.
+func (r IdentityConstraintRead) ElementFields() CompiledIdentityFieldReads {
+	return borrowedCompiledIdentityFieldReads(r.elementFields)
+}
+
+// AttributeFields returns the immutable exact-name attribute-field lookup.
+func (r IdentityConstraintRead) AttributeFields(name QName) CompiledIdentityFieldReads {
+	return borrowedCompiledIdentityFieldReads(r.attributeFields[name])
+}
+
+// AttributeWildcardFields returns the immutable wildcard attribute-field lookup.
+func (r IdentityConstraintRead) AttributeWildcardFields() CompiledIdentityFieldReads {
+	return borrowedCompiledIdentityFieldReads(r.attributeWildcardFields)
 }
 
 // Refer returns the referenced key for keyref constraints.
