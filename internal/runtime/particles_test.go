@@ -2,6 +2,70 @@ package runtime
 
 import "testing"
 
+func TestContentModelAnalysisBoundsAndMemoizesFacts(t *testing.T) {
+	t.Parallel()
+
+	one := Occurrence{Min: 1, Max: 1}
+	rt := testParticleRuntime{
+		models: []ContentModel{
+			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ModelParticle(1, one)}},
+			{Kind: ModelEmpty},
+		},
+		elements: []QName{{Local: 1}},
+	}
+	spent := 0
+	work := func(steps int) error {
+		spent += steps
+		return nil
+	}
+	analysis, err := NewContentModelAnalysis(rt, work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if emptiable, err := analysis.ModelEmptiable(0); err != nil || !emptiable {
+		t.Fatalf("ModelEmptiable() = %v, %v; want true, nil", emptiable, err)
+	}
+	afterEmpty := spent
+	if _, err := analysis.ModelEmptiable(0); err != nil {
+		t.Fatal(err)
+	}
+	if spent != afterEmpty {
+		t.Fatalf("memoized emptiability spent %d additional steps", spent-afterEmpty)
+	}
+	if _, err := analysis.ModelCountRange(0); err != nil {
+		t.Fatal(err)
+	}
+	afterRange := spent
+	if _, err := analysis.ModelCountRange(0); err != nil {
+		t.Fatal(err)
+	}
+	if spent != afterRange {
+		t.Fatalf("memoized count range spent %d additional steps", spent-afterRange)
+	}
+
+	cyclic := testParticleRuntime{models: []ContentModel{{
+		Kind:      ModelSequence,
+		Occurs:    one,
+		Particles: []Particle{ModelParticle(0, one)},
+	}}}
+	cycleAnalysis := unlimitedContentModelAnalysis(cyclic)
+	if _, err := cycleAnalysis.ModelEmptiable(0); err == nil {
+		t.Fatal("ModelEmptiable() accepted a model cycle")
+	}
+	if _, err := cycleAnalysis.ModelCountRange(0); err == nil {
+		t.Fatal("ModelCountRange() accepted a model cycle")
+	}
+	if _, err := analysis.ModelEmptiable(99); err == nil {
+		t.Fatal("ModelEmptiable() accepted a missing model")
+	}
+	if _, err := NewContentModelAnalysis(nil, work); err == nil {
+		t.Fatal("NewContentModelAnalysis() accepted nil runtime")
+	}
+	if _, err := NewContentModelAnalysis(rt, nil); err == nil {
+		t.Fatal("NewContentModelAnalysis() accepted nil work budget")
+	}
+}
+
 func TestParticleModelEmptiability(t *testing.T) {
 	t.Parallel()
 
@@ -18,9 +82,10 @@ func TestParticleModelEmptiability(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		name  string
-		model ContentModelID
-		want  bool
+		name    string
+		model   ContentModelID
+		want    bool
+		wantErr bool
 	}{
 		{name: "absent", model: NoContentModel, want: true},
 		{name: "empty", model: 0, want: true},
@@ -29,13 +94,23 @@ func TestParticleModelEmptiability(t *testing.T) {
 		{name: "choice with empty branch", model: 3, want: true},
 		{name: "sequence with required tail", model: 4, want: false},
 		{name: "choice without empty branch", model: 5, want: false},
-		{name: "invalid", model: 99, want: false},
+		{name: "invalid", model: 99, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := ModelEmptiable(rt, tt.model); got != tt.want {
+			got, err := unlimitedContentModelAnalysis(rt).ModelEmptiable(tt.model)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("ModelEmptiable() succeeded, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ModelEmptiable() error = %v", err)
+			}
+			if got != tt.want {
 				t.Fatalf("ModelEmptiable() = %v, want %v", got, tt.want)
 			}
 		})
@@ -113,12 +188,20 @@ func TestParticleCountRange(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := ModelCountRange(rt, tt.model); got != tt.want {
+			got, err := unlimitedContentModelAnalysis(rt).ModelCountRange(tt.model)
+			if err != nil {
+				t.Fatalf("ModelCountRange() error = %v", err)
+			}
+			if got != tt.want {
 				t.Fatalf("ModelCountRange() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}
-	if got, want := ParticleCountRange(rt, ModelParticle(0, Occurrence{Min: 2, Max: 2})), (Occurrence{Min: 4, Max: 8}); got != want {
+	got, err := unlimitedContentModelAnalysis(rt).ParticleCountRange(ModelParticle(0, Occurrence{Min: 2, Max: 2}))
+	if err != nil {
+		t.Fatalf("ParticleCountRange() error = %v", err)
+	}
+	if want := (Occurrence{Min: 4, Max: 8}); got != want {
 		t.Fatalf("ParticleCountRange() = %+v, want %+v", got, want)
 	}
 }
@@ -169,6 +252,7 @@ func TestParticlesOverlap(t *testing.T) {
 		b        Particle
 		wantName QName
 		want     bool
+		wantErr  bool
 	}{
 		{
 			name:     "same element",
@@ -215,66 +299,28 @@ func TestParticlesOverlap(t *testing.T) {
 			b:    ElementParticle(2, one),
 		},
 		{
-			name: "invalid model",
-			a:    ModelParticle(99, one),
-			b:    ElementParticle(0, one),
+			name:    "invalid model",
+			a:       ModelParticle(99, one),
+			b:       ElementParticle(0, one),
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotName, got := ParticlesOverlap(rt, tt.a, tt.b)
-			if got != tt.want || gotName != tt.wantName {
-				t.Fatalf("ParticlesOverlap() = (%+v, %v), want (%+v, %v)", gotName, got, tt.wantName, tt.want)
+			gotName, got, err := unlimitedContentModelAnalysis(rt).Overlap(tt.a, tt.b)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("Overlap() succeeded, want error")
+				}
+				return
 			}
-		})
-	}
-}
-
-func TestParticleMatchesName(t *testing.T) {
-	t.Parallel()
-
-	one := Occurrence{Min: 1, Max: 1}
-	optional := Occurrence{Min: 0, Max: 1}
-	nameA := QName{Namespace: EmptyNamespaceID, Local: 1}
-	nameB := QName{Namespace: EmptyNamespaceID, Local: 2}
-	nameC := QName{Namespace: EmptyNamespaceID, Local: 3}
-	foreign := QName{Namespace: 1, Local: 4}
-	rt := testParticleRuntime{
-		models: []ContentModel{
-			{Kind: ModelSequence, Occurs: one, Particles: []Particle{ElementParticle(1, optional), ElementParticle(2, one)}},
-		},
-		elements: []QName{nameA, nameB, nameC},
-		wildcards: []Wildcard{
-			{Mode: WildcardTargetNamespace, Namespaces: []NamespaceID{1}, Process: ProcessStrict},
-		},
-		substitutions: map[ElementID][]ElementID{
-			0: {2},
-		},
-		substitutionLookup: map[ElementID]map[QName]ElementID{
-			0: {nameC: 2},
-		},
-	}
-	tests := []struct {
-		name string
-		p    Particle
-		q    QName
-		want bool
-	}{
-		{name: "element direct", p: ElementParticle(0, one), q: nameA, want: true},
-		{name: "element substitution member", p: ElementParticle(0, one), q: nameC, want: true},
-		{name: "wildcard namespace", p: WildcardParticle(0, one), q: foreign, want: true},
-		{name: "model start skips optional", p: ModelParticle(0, one), q: nameC, want: true},
-		{name: "unknown name", p: ElementParticle(0, one), q: nameB, want: false},
-		{name: "invalid element", p: ElementParticle(99, one), q: nameA, want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := ParticleMatchesName(rt, tt.p, tt.q); got != tt.want {
-				t.Fatalf("ParticleMatchesName() = %v, want %v", got, tt.want)
+			if err != nil {
+				t.Fatalf("Overlap() error = %v", err)
+			}
+			if got != tt.want || gotName != tt.wantName {
+				t.Fatalf("Overlap() = (%+v, %v), want (%+v, %v)", gotName, got, tt.wantName, tt.want)
 			}
 		})
 	}

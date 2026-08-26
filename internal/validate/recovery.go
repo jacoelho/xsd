@@ -10,7 +10,7 @@ import (
 // collected while validation continues.
 func RecoverableError(err error) bool {
 	x, ok := errors.AsType[*xsderrors.Error](err)
-	return ok && RecoverableValidation(x.Category, x.Code)
+	return ok && RecoverableValidation(x.Category(), x.Code())
 }
 
 // RecoverableValidation reports whether a validation diagnostic can be

@@ -99,11 +99,11 @@ func TestCheckIdentityConstraintNameAvailable(t *testing.T) {
 	if !ok {
 		t.Fatalf("CheckIdentityConstraintNameAvailable(duplicate) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if diag.Category != xsderrors.CategorySchemaCompile || diag.Code != xsderrors.CodeSchemaDuplicate {
-		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", diag.Category, diag.Code)
+	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaDuplicate {
+		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", diag.Category(), diag.Code())
 	}
-	if diag.Message != "duplicate identity constraint p:k" {
-		t.Fatalf("message = %q, want duplicate identity constraint label", diag.Message)
+	if diag.Message() != "duplicate identity constraint p:k" {
+		t.Fatalf("message = %q, want duplicate identity constraint label", diag.Message())
 	}
 }
 
@@ -129,11 +129,11 @@ func TestResolveIdentityConstraintRefer(t *testing.T) {
 	if !ok {
 		t.Fatalf("ResolveIdentityConstraintRefer(missing) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if diag.Category != xsderrors.CategorySchemaCompile || diag.Code != xsderrors.CodeSchemaReference {
-		t.Fatalf("diagnostic = %s/%s, want schema compile reference", diag.Category, diag.Code)
+	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaReference {
+		t.Fatalf("diagnostic = %s/%s, want schema compile reference", diag.Category(), diag.Code())
 	}
-	if diag.Message != "unknown keyref refer p:missing" {
-		t.Fatalf("message = %q, want unknown keyref refer label", diag.Message)
+	if diag.Message() != "unknown keyref refer p:missing" {
+		t.Fatalf("message = %q, want unknown keyref refer label", diag.Message())
 	}
 }
 
@@ -219,9 +219,9 @@ func expectSchemaIdentityMessage(t *testing.T, err error, message string) {
 	if !ok {
 		t.Fatalf("error = %T %[1]v, want xsderrors.Error", err)
 	}
-	if diag.Category != xsderrors.CategorySchemaCompile || diag.Code != xsderrors.CodeSchemaIdentity || diag.Message != message {
+	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaIdentity || diag.Message() != message {
 		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)",
-			diag.Category, diag.Code, diag.Message,
+			diag.Category(), diag.Code(), diag.Message(),
 			xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaIdentity, message)
 	}
 }

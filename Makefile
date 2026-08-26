@@ -32,7 +32,7 @@ bench:
 
 .PHONY: bench-smoke
 bench-smoke:
-	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
+	go test -run '^$$' -bench='Benchmark(ParseXSDTime|SessionValidateWideChoice|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileCountedChoiceDFA|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
 
 .PHONY: benchstat
 benchstat: $(BIN)/benchstat
@@ -50,12 +50,16 @@ wasm: | docs
 	cp $$(go env GOROOT)/lib/wasm/wasm_exec.js docs/wasm_exec.js
 
 .PHONY: web
-web:
+web: wasm
 	go run ./cmd/xsdweb
 
 .PHONY: web-test
 web-test:
-	node --test docs/js/validation-flow.test.js
+	node --test docs/js/*.test.js
+
+.PHONY: browser-test
+browser-test:
+	npm --prefix docs/js run test:browser
 
 .PHONY: staticcheck
 staticcheck: $(BIN)/staticcheck

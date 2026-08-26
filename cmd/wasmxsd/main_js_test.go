@@ -23,6 +23,13 @@ func TestJSStringArgumentAllowsBoundedUTF8ExpansionForExactAPIByteCheck(t *testi
 	}
 }
 
+func TestJSStringArgumentMeasuresUTF8Bytes(t *testing.T) {
+	value, errText := jsStringArgument(js.ValueOf("€"), "XML", 2)
+	if value != "" || errText != "XML exceeds 2 bytes limit" {
+		t.Fatalf("jsStringArgument() = %q, %q; want UTF-8 byte-limit error", value, errText)
+	}
+}
+
 func TestJSStringArgumentRejectsOversizePrimitiveBeforeConversion(t *testing.T) {
 	value, errText := jsStringArgument(js.ValueOf("root"), "XML", 3)
 	if value != "" || errText != "XML exceeds 3 bytes limit" {
@@ -55,7 +62,7 @@ func TestFormatXMLJSRejectsInvalidArguments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var response formatResponse
 			decodeJSResponse(t, formatXMLJS(js.Undefined(), tt.args), &response)
-			if response.Error != tt.wantErr {
+			if response.Status != statusError || response.Error != tt.wantErr {
 				t.Fatalf("formatXMLJS() error = %q, want %q", response.Error, tt.wantErr)
 			}
 		})
@@ -65,7 +72,7 @@ func TestFormatXMLJSRejectsInvalidArguments(t *testing.T) {
 func TestFormatXMLJSReturnsSerializedFormatResponse(t *testing.T) {
 	var response formatResponse
 	decodeJSResponse(t, formatXMLJS(js.Undefined(), []js.Value{js.ValueOf(`<root/>`)}), &response)
-	if response.Error != "" || response.XML != `<root></root>` {
+	if response.Status != statusOK || response.Error != "" || response.XML != `<root></root>` {
 		t.Fatalf("formatXMLJS() = %+v, want formatted XML response", response)
 	}
 }
@@ -102,7 +109,7 @@ func TestValidateXMLJSRejectsInvalidArguments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var response validateResponse
 			decodeJSResponse(t, validateXMLJS(js.Undefined(), tt.args), &response)
-			if response.Error != tt.wantErr {
+			if response.Status != statusError || response.Error != tt.wantErr {
 				t.Fatalf("validateXMLJS() error = %q, want %q", response.Error, tt.wantErr)
 			}
 		})
@@ -113,7 +120,7 @@ func TestValidateXMLJSReturnsSerializedValidationResponse(t *testing.T) {
 	args := []js.Value{js.ValueOf(`<root><v>1</v></root>`), js.ValueOf(testSchema)}
 	var response validateResponse
 	decodeJSResponse(t, validateXMLJS(js.Undefined(), args), &response)
-	if !response.Valid || response.Error != "" || len(response.Errors) != 0 {
+	if response.Status != statusValid || response.Error != "" || len(response.Errors) != 0 {
 		t.Fatalf("validateXMLJS() = %+v, want valid response", response)
 	}
 }

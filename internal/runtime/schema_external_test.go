@@ -63,7 +63,7 @@ func expectCode(t *testing.T, err error, code xsderrors.Code) {
 	if !ok {
 		t.Fatalf("error %v is not *xsderrors.Error", err)
 	}
-	if x.Code != code {
-		t.Fatalf("error code = %s, want %s; err=%v", x.Code, code, err)
+	if x.Code() != code {
+		t.Fatalf("error code = %s, want %s; err=%v", x.Code(), code, err)
 	}
 }

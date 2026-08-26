@@ -898,7 +898,8 @@ func TestElementValueConstraintType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ElementValueConstraintType(tt.rt, tt.typ)
+			analysis := unlimitedContentModelAnalysis(rt)
+			got, err := ElementValueConstraintType(tt.rt, analysis, tt.typ)
 			if got != tt.want {
 				t.Fatalf("ElementValueConstraintType() type = %d, want %d", got, tt.want)
 			}

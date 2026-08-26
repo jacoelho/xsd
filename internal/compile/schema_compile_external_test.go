@@ -1004,8 +1004,8 @@ func TestSameResolvedIdentityRejectsDifferentDocumentContent(t *testing.T) {
 		t.Fatalf("Compile() error = %v, want identity-content conflict", err)
 	}
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || xerr.Path != "b.xsd" || xerr.Column <= 1 {
-		t.Fatalf("Compile() location = path %q column %d, want second referring root include", xerr.Path, xerr.Column)
+	if !ok || xerr.Path() != "b.xsd" || xerr.Column() <= 1 {
+		t.Fatalf("Compile() location = path %q column %d, want second referring root include", xerr.Path(), xerr.Column())
 	}
 }
 
@@ -1024,8 +1024,8 @@ func TestSameResolverGraphRejectsDifferentContentForOneIdentity(t *testing.T) {
 		t.Fatalf("Compile() error = %v, want identity-content conflict", err)
 	}
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || xerr.Path != "root.xsd" || xerr.Column <= 1 {
-		t.Fatalf("Compile() location = path %q column %d, want referring root include", xerr.Path, xerr.Column)
+	if !ok || xerr.Path() != "root.xsd" || xerr.Column() <= 1 {
+		t.Fatalf("Compile() location = path %q column %d, want referring root include", xerr.Path(), xerr.Column())
 	}
 }
 
@@ -1315,7 +1315,7 @@ func TestSchemaLoaderRejectsConflictingCanonicalSource(t *testing.T) {
 		t.Fatalf("Compile() error = %v, want identity content conflict", err)
 	}
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || xerr.Path != "schema.xsd" {
+	if !ok || xerr.Path() != "schema.xsd" {
 		t.Fatalf("Compile() error path = %#v, want second source schema.xsd", err)
 	}
 }
@@ -1599,7 +1599,7 @@ func TestResolvedSourceNameAndResolverErrorsRemainStructured(t *testing.T) {
 			_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(tt.resolver)})
 			expectCategoryCode(t, err, tt.category, xsderrors.CodeSchemaRead)
 			xerr, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok || xerr.Path != "root.xsd" || xerr.Line != 2 || xerr.Column == 0 {
+			if !ok || xerr.Path() != "root.xsd" || xerr.Line() != 2 || xerr.Column() == 0 {
 				t.Fatalf("Compile() error = %#v, want root.xsd:2 with a column", err)
 			}
 			if !strings.Contains(err.Error(), tt.message) {
@@ -1992,11 +1992,11 @@ func expectSchemaCompileLine(t *testing.T, err error, line int) {
 	if !ok {
 		t.Fatalf("error type = %T, want *xsderrors.Error", err)
 	}
-	if x.Category != xsderrors.CategorySchemaCompile {
-		t.Fatalf("error category = %s, want %s", x.Category, xsderrors.CategorySchemaCompile)
+	if x.Category() != xsderrors.CategorySchemaCompile {
+		t.Fatalf("error category = %s, want %s", x.Category(), xsderrors.CategorySchemaCompile)
 	}
-	if x.Line != line || x.Column == 0 {
-		t.Fatalf("error location = %d:%d, want line %d and non-zero column", x.Line, x.Column, line)
+	if x.Line() != line || x.Column() == 0 {
+		t.Fatalf("error location = %d:%d, want line %d and non-zero column", x.Line(), x.Column(), line)
 	}
 }
 
@@ -2497,7 +2497,7 @@ func TestMissingSchemaNamespaceTypesInvalidateSchema(t *testing.T) {
 
 			expectCode(t, err, xsderrors.CodeSchemaReference)
 			xerr, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok || xerr.Path != "schema.xsd" || xerr.Line != 2 || xerr.Column == 0 {
+			if !ok || xerr.Path() != "schema.xsd" || xerr.Line() != 2 || xerr.Column() == 0 {
 				t.Fatalf("Compile() location = %#v, want schema.xsd:2 with nonzero column", err)
 			}
 		})
@@ -2852,7 +2852,7 @@ func TestSchemaCompileDiagnosticIdentifiesSource(t *testing.T) {
 	})
 
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
-	if !ok || xerr.Path != "broken.xsd" || xerr.Line != 2 {
+	if !ok || xerr.Path() != "broken.xsd" || xerr.Line() != 2 {
 		t.Fatalf("Compile() error = %#v, want broken.xsd:2", err)
 	}
 }
@@ -3041,29 +3041,29 @@ func TestSchemaNamespaceContextsAreIsolated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse() error = %v", err)
 	}
-	if got := root.NS["t"]; got != "urn:test" {
+	if got, _ := root.NS.Lookup("t"); got != "urn:test" {
 		t.Fatalf("root prefix t = %q, want urn:test", got)
 	}
-	if got := root.NS[""]; got != "urn:test" {
+	if got, _ := root.NS.Lookup(""); got != "urn:test" {
 		t.Fatalf("root default namespace = %q, want urn:test", got)
 	}
 	annotation := root.Children[1]
-	if got := annotation.NS["t"]; got != "urn:other" {
+	if got, _ := annotation.NS.Lookup("t"); got != "urn:other" {
 		t.Fatalf("annotation prefix t = %q, want urn:other", got)
 	}
-	if got := annotation.NS[""]; got != "" {
+	if got, _ := annotation.NS.Lookup(""); got != "" {
 		t.Fatalf("annotation default namespace = %q, want empty", got)
 	}
 	prefixed := root.Children[2]
-	if got := prefixed.NS["t"]; got != "urn:test" {
+	if got, _ := prefixed.NS.Lookup("t"); got != "urn:test" {
 		t.Fatalf("sibling prefix t = %q, want urn:test", got)
 	}
 	defaulted := root.Children[3]
-	if got := defaulted.NS[""]; got != "urn:test" {
+	if got, _ := defaulted.NS.Lookup(""); got != "urn:test" {
 		t.Fatalf("sibling default namespace = %q, want urn:test", got)
 	}
 	local := root.Children[4]
-	if got := local.NS["u"]; got != "urn:test" {
+	if got, _ := local.NS.Lookup("u"); got != "urn:test" {
 		t.Fatalf("local prefix u = %q, want urn:test", got)
 	}
 }
@@ -3234,7 +3234,7 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	modelID := aliases.ComplexTypes[rootType].Content
 	identityID := aliases.Elements[rootID].Identity[0]
 
-	published, err := runtime.PublishSchema(build)
+	published, err := publishSchema(build)
 	if err != nil {
 		t.Fatalf("runtime.PublishSchema() error = %v", err)
 	}

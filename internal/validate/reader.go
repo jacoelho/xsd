@@ -10,15 +10,15 @@ import (
 func instanceReaderError(err error) error {
 	switch {
 	case errors.Is(err, stream.ErrXMLInputNilReader):
-		return xsderrors.Validation(xsderrors.CodeValidationXML, 0, 0, "", "instance reader is nil")
+		return xsderrors.Validation(xsderrors.CodeValidationXML, "instance reader is nil", nil)
 	case errors.Is(err, stream.ErrUnsupportedNonUTF8):
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "instance documents must be UTF-8")
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "instance documents must be UTF-8", err)
 	case stream.IsInputLimit(err) || stream.IsTokenLimit(err) || stream.IsAttributeLimit(err):
 		return validationReaderCause(xsderrors.CodeValidationLimit, 0, 0, "", err)
 	default:
 		var versionErr stream.UnsupportedXMLVersionError
 		if errors.As(err, &versionErr) {
-			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error())
+			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
 		}
 		return validationReaderCause(xsderrors.CodeValidationXML, 0, 0, "", err)
 	}
@@ -27,34 +27,28 @@ func instanceReaderError(err error) error {
 // StreamError classifies parser errors as validation diagnostics.
 func StreamError(line, col int, path string, err error) error {
 	if errors.Is(err, stream.ErrUnsupportedNonUTF8) {
-		return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedNonUTF8, line, col, path, "instance documents must be UTF-8", err)
+		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "instance documents must be UTF-8", err))
 	}
 	var versionErr stream.UnsupportedXMLVersionError
 	if errors.As(err, &versionErr) {
-		return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedXML11, line, col, path, versionErr.Error(), err)
+		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil))
 	}
 	if stream.IsInputLimit(err) || stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {
 		return validationReaderCause(xsderrors.CodeValidationLimit, line, col, path, err)
 	}
 	if stream.IsUnsupportedEntityReference(err) {
-		return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedExternal, line, col, path, "external or undeclared entity resolution is not supported", err)
+		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, "external or undeclared entity resolution is not supported", err))
 	}
 	return validationReaderCause(xsderrors.CodeValidationXML, line, col, path, err)
 }
 
 func validationReaderCause(code xsderrors.Code, line, col int, path string, err error) error {
-	return &xsderrors.Error{
-		Err:      err,
-		Category: xsderrors.CategoryValidation,
-		Code:     code,
-		Line:     line,
-		Column:   col,
-		Path:     path,
-	}
+	return xsderrors.WithLocation(path, line, col, xsderrors.Validation(code, "", err))
 }
 
 // ValidateDirective rejects instance markup declarations. The stream parser
 // only returns KindDirective for DOCTYPE declarations.
 func ValidateDirective(ctx StartContext, _ []byte) error {
-	return xsderrors.UnsupportedAt(xsderrors.CodeUnsupportedDTD, ctx.Line, ctx.Column, ctx.PathString(), "DTD declarations are not supported", nil)
+	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column,
+		xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "DTD declarations are not supported", nil))
 }

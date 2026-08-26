@@ -10,8 +10,11 @@ import (
 )
 
 type acceptedChild struct {
-	start   schemaStart
-	recover bool
+	start             schemaStart
+	transition        runtime.ContentTransition
+	recover           bool
+	advances          bool
+	invalidatesParent bool
 }
 
 func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType bool, line, col int) (acceptedChild, error) {
@@ -37,37 +40,38 @@ func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeNa
 	if issue := childContentPolicy(parentContent, parent.Content, rn); issue.valid() {
 		return s.recoverablePublishedSchemaChildIssue(line, col, issue)
 	}
-	st := parent.Content
 	scratch := s.contentScratch(parent)
-	match, status := s.rt.AdvanceContent(&st, runtime.ContentInput{
+	transition, status := s.rt.NextContent(parent.Content, runtime.ContentInput{
 		Name:       rn,
 		HasXSIType: hasXSIType,
 	}, &scratch)
-	if status == runtime.ContentAdvanceInvalid {
+	if status == runtime.ContentTransitionInvalid {
 		return acceptedChild{}, xsderrors.InternalInvariant("content model state is invalid")
 	}
-	if status == runtime.ContentAdvanceNoMatch {
+	if status == runtime.ContentTransitionNoMatch {
 		return s.recoverablePublishedSchemaChildIssue(line, col, unexpectedChildIssue(rn))
 	}
+	match := transition.Match()
 	if match.StrictMissing {
 		if hasSchemaLocation := s.schemaLocationHintLookup(); hasSchemaLocation != nil && hasSchemaLocation(rn.NS) {
 			return acceptedChild{}, unsupportedSchemaLocation(s.startContext(line, col), vocab.XSDElemElement, rn)
 		}
-		parent.Content = st
-		return s.recoverablePublishedSchemaChildIssue(line, col, strictMissingChildIssue(rn))
+		accepted, err := s.recoverablePublishedSchemaChildIssue(line, col, strictMissingChildIssue(rn))
+		accepted.transition = transition
+		accepted.advances = true
+		return accepted, err
 	}
-	parent.Content = st
 	if match.Element == runtime.NoElement {
 		if match.Skip {
-			return acceptedChild{start: wildcardSkippedSchemaStart()}, nil
+			return acceptedChild{start: wildcardSkippedSchemaStart(), transition: transition, advances: true}, nil
 		}
-		return acceptedChild{start: assessedSchemaStart(runtime.NoElement, s.rt.AnyType())}, nil
+		return acceptedChild{start: assessedSchemaStart(runtime.NoElement, s.rt.AnyType()), transition: transition, advances: true}, nil
 	}
 	decl, declared := s.rt.Element(match.Element)
 	if !declared {
 		return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
 	}
-	return acceptedChild{start: assessedSchemaStart(match.Element, decl.Type)}, nil
+	return acceptedChild{start: assessedSchemaStart(match.Element, decl.Type), transition: transition, advances: true}, nil
 }
 
 func (s *session) recoverablePublishedSchemaChildIssue(line, col int, issue validationIssue) (acceptedChild, error) {

@@ -6,161 +6,159 @@ import (
 	"testing"
 )
 
-func TestErrorsIgnoreNilChildren(t *testing.T) {
-	target := Validation(CodeValidationType, 1, 2, "/root", "bad type")
-	unsupported := Unsupported(CodeUnsupportedRegex, "unsupported regex")
-	tests := []struct {
-		name         string
-		errors       Errors
-		wantText     string
-		wantChildren []error
-	}{
-		{name: "empty", errors: Errors{}, wantText: nilErrorString},
-		{name: "nil", errors: Errors{nil}, wantText: nilErrorString},
-		{name: "mixed singleton", errors: Errors{nil, target, nil}, wantText: target.Error(), wantChildren: []error{target}},
-		{
-			name:         "mixed aggregate",
-			errors:       Errors{nil, target, nil, unsupported},
-			wantText:     "2 validation errors: " + target.Error(),
-			wantChildren: []error{target, unsupported},
-		},
+func TestDiagnosticAccessorsAndLocationAreImmutable(t *testing.T) {
+	t.Parallel()
+
+	cause := errors.New("cause")
+	original := requireDiagnostic(t, SchemaParse(CodeSchemaXML, "invalid schema XML", cause))
+	located := requireDiagnostic(t, WithLocation("schema.xsd", 3, 4, original))
+	if located == original {
+		t.Fatal("WithLocation() mutated the original diagnostic")
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := test.errors.Error(); got != test.wantText {
-				t.Fatalf("Error() = %q, want %q", got, test.wantText)
-			}
-			children := test.errors.Unwrap()
-			if len(children) != len(test.wantChildren) {
-				t.Fatalf("Unwrap() = %#v, want %#v", children, test.wantChildren)
-			}
-			for i := range children {
-				if children[i] != test.wantChildren[i] { //nolint:errorlint // Exact child identity is the contract under test.
-					t.Fatalf("Unwrap()[%d] = %#v, want %#v", i, children[i], test.wantChildren[i])
-				}
-			}
-			if errors.Is(test.errors, target) != (len(test.wantChildren) > 0) {
-				t.Fatalf("errors.Is(target) = %v", errors.Is(test.errors, target))
-			}
-		})
+	if original.Path() != "" || original.Line() != 0 || original.Column() != 0 {
+		t.Fatalf("original location changed to %q %d:%d", original.Path(), original.Line(), original.Column())
 	}
-	if !IsUnsupported(Errors{nil, unsupported, nil}) {
-		t.Fatal("IsUnsupported() ignored non-nil child among nil children")
+	if located.Category() != CategorySchemaParse || located.Code() != CodeSchemaXML ||
+		located.Path() != "schema.xsd" || located.Line() != 3 || located.Column() != 4 ||
+		located.Message() != "invalid schema XML" || !errors.Is(located.Cause(), cause) {
+		t.Fatalf("located diagnostic = %#v", located)
+	}
+	if !errors.Is(located, cause) {
+		t.Fatal("located diagnostic lost its cause")
 	}
 }
 
-func TestErrorsUnwrapDoesNotAllocateWithoutNilChildren(t *testing.T) {
-	children := Errors{
-		Validation(CodeValidationType, 1, 2, "/root", "bad type"),
-		Unsupported(CodeUnsupportedRegex, "unsupported regex"),
+func TestWithLocationPreservesWrappersAndExistingFields(t *testing.T) {
+	t.Parallel()
+
+	original := WithLocation("original.xsd", 1, 2, SchemaCompile(CodeSchemaReference, "missing type"))
+	if got := WithLocation("replacement.xsd", 3, 4, original); got != original { //nolint:errorlint // Identity is the no-op contract.
+		t.Fatal("WithLocation() replaced an already located diagnostic")
 	}
-	unwrapped := children.Unwrap()
-	if len(unwrapped) != len(children) || &unwrapped[0] != &children[0] {
-		t.Fatal("Unwrap() copied a nil-free error list")
+	wrapper := fmt.Errorf("context: %w", original)
+	if got := WithLocation("replacement.xsd", 3, 4, wrapper); got != wrapper { //nolint:errorlint // Wrappers are never discarded.
+		t.Fatal("WithLocation() replaced a wrapper")
 	}
 }
 
-func TestIsUnsupportedRecursesThroughWrappedDiagnostics(t *testing.T) {
+func TestErrorsOwnChildrenAndFilterNil(t *testing.T) {
+	t.Parallel()
+
+	target := Validation(CodeValidationType, "bad type", nil)
+	unsupported := Unsupported(CodeUnsupportedRegex, "unsupported regex", nil)
+	input := []error{nil, target, unsupported, nil}
+	aggregate, ok := NewErrors(input...).(Errors) //nolint:errorlint // Constructor returns this exact immutable aggregate.
+	if !ok {
+		t.Fatalf("NewErrors() type = %T, want Errors", NewErrors(input...))
+	}
+	input[1] = nil
+	children := aggregate.Unwrap()
+	children[0] = nil
+	first := aggregate.At(0)
+	if aggregate.Len() != 2 || first != target { //nolint:errorlint // Exact ownership is under test.
+		t.Fatalf("aggregate changed through an input/output slice: len=%d first=%v", aggregate.Len(), first)
+	}
+	if got := aggregate.Error(); got != "2 validation errors: "+target.Error() {
+		t.Fatalf("Error() = %q", got)
+	}
+	if !errors.Is(aggregate, target) || !IsUnsupported(aggregate) {
+		t.Fatal("aggregate traversal did not reach its children")
+	}
+}
+
+func TestNewErrorsCollapsesEmptyAndSingletonInputs(t *testing.T) {
+	t.Parallel()
+
+	var typedNil *Error
+	if got := NewErrors(nil, typedNil); got != nil {
+		t.Fatalf("NewErrors(nil) = %#v", got)
+	}
+	target := Validation(CodeValidationType, "bad type", nil)
+	if got := NewErrors(nil, target, typedNil); got != target { //nolint:errorlint // Singleton identity is the contract.
+		t.Fatalf("NewErrors(singleton) = %#v", got)
+	}
+	if got := Flatten(typedNil); got != nil {
+		t.Fatalf("Flatten(typed nil) = %#v", got)
+	}
+	if IsUnsupported(typedNil) {
+		t.Fatal("IsUnsupported(typed nil) = true")
+	}
+}
+
+func TestFlattenUsesCanonicalAggregateProjection(t *testing.T) {
+	t.Parallel()
+
+	first := Validation(CodeValidationType, "bad type", nil)
+	second := Unsupported(CodeUnsupportedRegex, "unsupported regex", nil)
+	aggregate := NewErrors(first, second)
+	flat := Flatten(fmt.Errorf("outer: %w", aggregate))
+	if len(flat) != 2 || flat[0] != first || flat[1] != second { //nolint:errorlint // Child identity and order are the projection contract.
+		t.Fatalf("Flatten() = %#v", flat)
+	}
+}
+
+func TestFlattenTraversesEveryJoinedAggregateInOrder(t *testing.T) {
+	t.Parallel()
+
+	first := Validation(CodeValidationType, "first", nil)
+	second := Validation(CodeValidationType, "second", nil)
+	third := Validation(CodeValidationType, "third", nil)
+	fourth := Validation(CodeValidationType, "fourth", nil)
+	leaf := errors.New("leaf")
+	err := errors.Join(
+		NewErrors(first, second),
+		fmt.Errorf("wrapped aggregate: %w", NewErrors(third, fourth)),
+		leaf,
+	)
+	flat := Flatten(err)
+	want := []error{first, second, third, fourth, leaf}
+	if len(flat) != len(want) {
+		t.Fatalf("Flatten() = %#v, want %#v", flat, want)
+	}
+	for i := range want {
+		if flat[i] != want[i] { //nolint:errorlint // Exact identity and order are the projection contract.
+			t.Fatalf("Flatten()[%d] = %#v, want %#v", i, flat[i], want[i])
+		}
+	}
+	flat[0] = nil
+	if got := Flatten(err); got[0] != first { //nolint:errorlint // Returned storage must be owned.
+		t.Fatal("Flatten() returned aliased storage")
+	}
+}
+
+func TestFlattenKeepsPublicDiagnosticAsLeaf(t *testing.T) {
+	t.Parallel()
+
+	child := NewErrors(errors.New("first"), errors.New("second"))
+	diagnostic := Validation(CodeValidationType, "invalid type", child)
+	flat := Flatten(diagnostic)
+	if len(flat) != 1 || flat[0] != diagnostic { //nolint:errorlint // Public diagnostic context is terminal.
+		t.Fatalf("Flatten() = %#v, want diagnostic leaf", flat)
+	}
+}
+
+func TestDiagnosticCatalogRejectsMismatchedCategoryAndCode(t *testing.T) {
+	t.Parallel()
+
+	if !ValidCategoryCode(CategoryFormat, CodeFormatLimit) || ValidCategoryCode(CategoryValidation, CodeFormatLimit) {
+		t.Fatal("ValidCategoryCode() returned an invalid catalog result")
+	}
+	diagnostic := requireDiagnostic(t, Validation(CodeSchemaXML, "wrong category", nil))
+	if diagnostic.Category() != CategoryInternal || diagnostic.Code() != CodeInternalInvariant {
+		t.Fatalf("invalid constructor pair produced %s/%s", diagnostic.Category(), diagnostic.Code())
+	}
+}
+
+func TestIsUnsupportedRecursesThroughDiagnosticCause(t *testing.T) {
+	t.Parallel()
+
 	err := SchemaParse(
 		CodeSchemaXML,
-		1,
-		2,
 		"invalid schema XML",
-		Unsupported(CodeUnsupportedRegex, "unsupported regex"),
+		Unsupported(CodeUnsupportedRegex, "unsupported regex", nil),
 	)
-	wrapped := fmt.Errorf("outer: %w", err)
-	if !IsUnsupported(wrapped) {
-		t.Fatalf("IsUnsupported(%v) = false", wrapped)
-	}
-}
-
-func TestIsUnsupportedRecursesThroughWrappedAggregates(t *testing.T) {
-	err := fmt.Errorf("outer: %w", Errors{
-		SchemaCompile(CodeSchemaReference, "missing type"),
-		SchemaParse(
-			CodeSchemaXML,
-			1,
-			2,
-			"invalid schema XML",
-			Unsupported(CodeUnsupportedRegex, "unsupported regex"),
-		),
-	})
-	if !IsUnsupported(err) {
+	if !IsUnsupported(fmt.Errorf("outer: %w", err)) {
 		t.Fatalf("IsUnsupported(%v) = false", err)
-	}
-}
-
-func TestIsUnsupportedIgnoresTypedNilDiagnostics(t *testing.T) {
-	var xerr *Error
-	if IsUnsupported(xerr) {
-		t.Fatal("IsUnsupported(typed nil *Error) = true")
-	}
-	if IsUnsupported(Errors{xerr}) {
-		t.Fatal("IsUnsupported(Errors{typed nil *Error}) = true")
-	}
-}
-
-func TestLocationDecoratorsPreserveNestedErrorTrees(t *testing.T) {
-	child := SchemaCompile(CodeSchemaReference, "missing type")
-	sibling := Validation(CodeValidationType, 1, 2, "/root", "bad type")
-	wrapped := fmt.Errorf("context: %w", child)
-	if got := WithPath("schema.xsd", wrapped); got != wrapped { //nolint:errorlint // Require wrapper identity, not only chain membership.
-		t.Fatalf("WithPath(wrapped) = %v, want original wrapper", got)
-	}
-	if got := WithSchemaCompileLocation("schema.xsd", 3, 4, wrapped); got != wrapped { //nolint:errorlint // Require wrapper identity.
-		t.Fatalf("WithSchemaCompileLocation(wrapped) = %v, want original wrapper", got)
-	}
-
-	multiple := Errors{child, sibling}
-	for name, got := range map[string]error{
-		"path":     WithPath("schema.xsd", multiple),
-		"location": WithSchemaCompileLocation("schema.xsd", 3, 4, multiple),
-	} {
-		preserved, ok := got.(Errors)                                                       //nolint:errorlint // Verify the top-level aggregate is unchanged.
-		if !ok || len(preserved) != 2 || preserved[0] != child || preserved[1] != sibling { //nolint:errorlint // Require child identity.
-			t.Fatalf("%s decorator = %#v, want original two-error aggregate", name, got)
-		}
-	}
-}
-
-func TestLocationDecoratorsHandleTypedNilDiagnostics(t *testing.T) {
-	var xerr *Error
-	var err error = xerr
-	if got := WithPath("schema.xsd", err); !isTypedNilDiagnostic(got) {
-		t.Fatalf("WithPath(typed nil) = %#v, want typed nil *Error", got)
-	}
-	if got := WithSchemaCompileLocation("schema.xsd", 1, 2, err); !isTypedNilDiagnostic(got) {
-		t.Fatalf("WithSchemaCompileLocation(typed nil) = %#v, want typed nil *Error", got)
-	}
-}
-
-func TestLocationDecoratorsCloneDirectDiagnostics(t *testing.T) {
-	original := requireDiagnostic(t, SchemaCompile(CodeSchemaReference, "missing type"))
-	withPath := requireDiagnostic(t, WithPath("schema.xsd", original))
-	if withPath == original || withPath.Path != "schema.xsd" || original.Path != "" {
-		t.Fatalf("WithPath() = %#v, original %#v", withPath, original)
-	}
-	withLocation := requireDiagnostic(t, WithSchemaCompileLocation("schema.xsd", 3, 4, original))
-	if withLocation == original || withLocation.Path != "schema.xsd" || withLocation.Line != 3 || withLocation.Column != 4 {
-		t.Fatalf("WithSchemaCompileLocation() = %#v, original %#v", withLocation, original)
-	}
-}
-
-func TestLocationDecoratorsPreserveIneligibleDirectDiagnostics(t *testing.T) {
-	alreadyLocated := requireDiagnostic(t, SchemaCompileAt("original.xsd", 1, 2, CodeSchemaReference, "missing type"))
-	alreadyPathed := requireDiagnostic(t, Validation(CodeValidationType, 1, 2, "/root", "bad type"))
-	nonCompile := requireDiagnostic(t, Validation(CodeValidationType, 0, 0, "", "bad type"))
-	for name, test := range map[string]struct {
-		original error
-		got      error
-	}{
-		"compile location": {alreadyLocated, WithSchemaCompileLocation("replacement.xsd", 3, 4, alreadyLocated)},
-		"path":             {alreadyPathed, WithPath("replacement.xsd", alreadyPathed)},
-		"category":         {nonCompile, WithSchemaCompileLocation("schema.xsd", 3, 4, nonCompile)},
-	} {
-		if test.got != test.original { //nolint:errorlint // Ineligible decorators must preserve exact identity.
-			t.Fatalf("%s decorator replaced ineligible diagnostic: got %#v, want %#v", name, test.got, test.original)
-		}
 	}
 }
 
@@ -172,9 +170,4 @@ func requireDiagnostic(t *testing.T, err error) *Error {
 	}
 	t.Fatalf("error type = %T, want non-nil *Error", err)
 	return nil
-}
-
-func isTypedNilDiagnostic(err error) bool {
-	xerr, ok := err.(*Error) //nolint:errorlint // Verify the exact top-level typed-nil result.
-	return ok && xerr == nil
 }

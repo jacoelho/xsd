@@ -206,8 +206,8 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 			if !ok {
 				t.Fatalf("checkUnsupportedSchemaNode() error = %T %[1]v, want xsderrors.Error", err)
 			}
-			if diag.Category != tt.wantCat || diag.Code != tt.wantCode || diag.Message != tt.wantMsg {
-				t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category, diag.Code, diag.Message, tt.wantCat, tt.wantCode, tt.wantMsg)
+			if diag.Category() != tt.wantCat || diag.Code() != tt.wantCode || diag.Message() != tt.wantMsg {
+				t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category(), diag.Code(), diag.Message(), tt.wantCat, tt.wantCode, tt.wantMsg)
 			}
 		})
 	}
@@ -287,8 +287,8 @@ func TestValidateSchemaTargetNamespace(t *testing.T) {
 			if !ok {
 				t.Fatalf("ValidateSchemaTargetNamespace() error = %T %[1]v, want xsderrors.Error", err)
 			}
-			if diag.Category != xsderrors.CategorySchemaCompile || diag.Code != xsderrors.CodeSchemaInvalidAttribute || diag.Message != tt.wantMsg {
-				t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category, diag.Code, diag.Message, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute, tt.wantMsg)
+			if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaInvalidAttribute || diag.Message() != tt.wantMsg {
+				t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category(), diag.Code(), diag.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute, tt.wantMsg)
 			}
 		})
 	}

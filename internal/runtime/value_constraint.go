@@ -485,7 +485,11 @@ type ElementValueConstraintRuntime interface {
 // ElementValueConstraintType returns the simple type that must own an element's
 // value constraint. NoSimpleType means the constraint is allowed only as mixed
 // lexical text.
-func ElementValueConstraintType(rt ElementValueConstraintRuntime, typ TypeID) (SimpleTypeID, error) {
+func ElementValueConstraintType(
+	rt ElementValueConstraintRuntime,
+	analysis *ContentModelAnalysis,
+	typ TypeID,
+) (SimpleTypeID, error) {
 	if id, ok := typ.Simple(); ok {
 		return id, nil
 	}
@@ -500,8 +504,17 @@ func ElementValueConstraintType(rt ElementValueConstraintRuntime, typ TypeID) (S
 	if ct.ContentKind.Simple() {
 		return ct.TextType, nil
 	}
-	if ct.ContentKind.Mixed() && ModelEmptiable(rt, ct.Content) {
-		return NoSimpleType, nil
+	if ct.ContentKind.Mixed() {
+		if analysis == nil {
+			return NoSimpleType, errors.New("content model analysis is nil")
+		}
+		emptiable, err := analysis.ModelEmptiable(ct.Content)
+		if err != nil {
+			return NoSimpleType, err
+		}
+		if emptiable {
+			return NoSimpleType, nil
+		}
 	}
 	return NoSimpleType, errors.New("element value constraint requires simple content")
 }

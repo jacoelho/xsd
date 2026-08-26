@@ -59,11 +59,11 @@ func TestValidateSubstitutionMembershipMapsRuntimeErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("ValidateSubstitutionMembership() error = %T %v, want *xsderrors.Error", err, err)
 			}
-			if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaReference {
-				t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category, xerr.Code)
+			if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaReference {
+				t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category(), xerr.Code())
 			}
-			if !strings.Contains(xerr.Message, tt.message) {
-				t.Fatalf("message = %q, want %q", xerr.Message, tt.message)
+			if !strings.Contains(xerr.Message(), tt.message) {
+				t.Fatalf("message = %q, want %q", xerr.Message(), tt.message)
 			}
 		})
 	}

@@ -88,19 +88,19 @@ func ValidateNameReadProjection(read NameReadView, names *NameTable) error {
 }
 
 var requiredRuntimeNamespaces = []string{
-	EmptyNamespaceURI,
-	XSDNamespaceURI,
-	XSINamespaceURI,
-	XMLNamespaceURI,
-	XLinkNamespaceURI,
-	XMLNSNamespaceURI,
+	vocab.EmptyNamespaceURI,
+	vocab.XSDNamespaceURI,
+	vocab.XSINamespaceURI,
+	vocab.XMLNamespaceURI,
+	vocab.XLinkNamespaceURI,
+	vocab.XMLNSNamespaceURI,
 }
 
 var requiredRuntimeNames = []ExpandedName{
-	{Namespace: XSINamespaceURI, Local: vocab.XSIAttrType},
-	{Namespace: XSINamespaceURI, Local: vocab.XSIAttrNil},
-	{Namespace: XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation},
-	{Namespace: XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation},
+	{Namespace: vocab.XSINamespaceURI, Local: vocab.XSIAttrType},
+	{Namespace: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil},
+	{Namespace: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation},
+	{Namespace: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation},
 }
 
 // NewRuntimeNameTable returns a runtime name table seeded with required XML

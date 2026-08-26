@@ -247,7 +247,7 @@ func IsXMLNameChar(r rune) bool {
 
 // IsXMLName reports whether s is an XML Name.
 func IsXMLName(s string) bool {
-	if s == "" {
+	if s == "" || !utf8.ValidString(s) {
 		return false
 	}
 	for i, r := range s {
@@ -266,7 +266,7 @@ func IsXMLName(s string) bool {
 
 // IsNCName reports whether s is an XML NCName.
 func IsNCName(s string) bool {
-	if s == "" {
+	if s == "" || !utf8.ValidString(s) {
 		return false
 	}
 	for i, r := range s {
@@ -288,7 +288,7 @@ func IsNCName(s string) bool {
 
 // IsNMTOKEN reports whether s is an XML NMTOKEN.
 func IsNMTOKEN(s string) bool {
-	if s == "" {
+	if s == "" || !utf8.ValidString(s) {
 		return false
 	}
 	for _, r := range s {

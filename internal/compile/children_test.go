@@ -373,8 +373,8 @@ func TestValidateContentDerivationBase(t *testing.T) {
 			if !ok {
 				t.Fatalf("ValidateContentDerivationBase() error = %T %[1]v, want xsderrors.Error", err)
 			}
-			if diag.Code != xsderrors.CodeSchemaReference || diag.Message != tt.wantMsg {
-				t.Fatalf("diagnostic = (%s, %q), want (%s, %q)", diag.Code, diag.Message, xsderrors.CodeSchemaReference, tt.wantMsg)
+			if diag.Code() != xsderrors.CodeSchemaReference || diag.Message() != tt.wantMsg {
+				t.Fatalf("diagnostic = (%s, %q), want (%s, %q)", diag.Code(), diag.Message(), xsderrors.CodeSchemaReference, tt.wantMsg)
 			}
 		})
 	}

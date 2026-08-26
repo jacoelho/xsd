@@ -37,7 +37,7 @@ type Parts struct {
 
 // Parts returns a copy of the reference's parsed components.
 func (r Reference) Parts() Parts {
-	c := split(r.raw)
+	c := r.components
 	return Parts{
 		Scheme: c.scheme, Authority: c.authority, Path: c.path, Query: c.query,
 		Fragment: c.fragment, HasScheme: c.hasScheme, HasAuthority: c.hasAuthority,
@@ -50,8 +50,8 @@ func (r Reference) Parts() Parts {
 // Appendix C, and does not normalize dot segments in absolute-path or
 // scheme-bearing references.
 func Resolve(base, ref Reference) (Reference, error) {
-	b := split(base.raw)
-	r := split(ref.raw)
+	b := base.components
+	r := ref.components
 	if r.path == "" && !r.hasScheme && !r.hasAuthority && !r.hasQuery {
 		without := base.WithoutFragment()
 		if !r.hasFragment {
@@ -84,7 +84,7 @@ func Resolve(base, ref Reference) (Reference, error) {
 		// preserving the opaque path while replacing its query.
 		r.path = b.path
 	} else {
-		r.path = removeRelativeDotSegments(mergePath(b.path, r.path))
+		r.path = removeRelativeDotSegments(mergePath(b, r.path))
 	}
 	r.scheme, r.hasScheme = b.scheme, b.hasScheme
 	r.authority, r.hasAuthority = b.authority, b.hasAuthority
@@ -92,6 +92,10 @@ func Resolve(base, ref Reference) (Reference, error) {
 }
 
 func compose(c components) (Reference, error) {
+	return Parse(spell(c))
+}
+
+func spell(c components) string {
 	size := len(c.path)
 	if c.hasScheme {
 		size += len(c.scheme) + 1
@@ -124,7 +128,7 @@ func compose(c components) (Reference, error) {
 		out.WriteByte('#')
 		out.WriteString(c.fragment)
 	}
-	return Parse(out.String())
+	return out.String()
 }
 
 func split(raw string) components {
@@ -172,9 +176,12 @@ func opaque(c components) bool {
 	return c.hasScheme && !c.hasAuthority && (c.path == "" || c.path[0] != '/')
 }
 
-func mergePath(base, ref string) string {
-	if i := strings.LastIndexByte(base, '/'); i >= 0 {
-		return base[:i+1] + ref
+func mergePath(base components, ref string) string {
+	if i := strings.LastIndexByte(base.path, '/'); i >= 0 {
+		return base.path[:i+1] + ref
+	}
+	if base.hasAuthority {
+		return "/" + ref
 	}
 	return ref
 }

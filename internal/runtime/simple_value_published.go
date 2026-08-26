@@ -14,9 +14,6 @@ func (rt *Schema) validatePublishedSimpleValue(id SimpleTypeID, lexical string, 
 }
 
 func (rt *Schema) validatePublishedSimpleValueWithScratch(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
-	if value, handled, err := validateSimpleValueRouteReadFast(rt.runtime.SimpleValueRoutes, rt.runtime.Notations, id, lexical, resolve, needs); handled {
-		return value, err
-	}
 	return validateSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs, scratch)
 }
 

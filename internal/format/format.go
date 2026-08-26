@@ -16,15 +16,7 @@ import (
 
 const maxFormatDepth = 4096
 
-const (
-	categoryFormat   xsderrors.Category = "format"
-	codeFormatXML    xsderrors.Code     = "format.xml"
-	codeFormatOption xsderrors.Code     = "format.option"
-	codeFormatLimit  xsderrors.Code     = "format.limit"
-)
-
 var (
-	errFormatInputLimit  = errors.New("XML input byte limit exceeded")
 	errFormatOutputLimit = errors.New("XML formatted output byte limit exceeded")
 )
 
@@ -71,10 +63,6 @@ func XMLWithOptions(w io.Writer, r io.Reader, opts Options) error {
 	if err != nil {
 		return formatOptionErr(err)
 	}
-	reader := r
-	if limits.maxInputBytes > 0 {
-		reader = &maxBytesReader{r: reader, max: limits.maxInputBytes, err: errFormatInputLimit}
-	}
 	writer := w
 	if limits.maxOutputBytes > 0 {
 		writer = &maxBytesWriter{w: writer, max: limits.maxOutputBytes, err: errFormatOutputLimit}
@@ -83,17 +71,22 @@ func XMLWithOptions(w io.Writer, r io.Reader, opts Options) error {
 	names := stream.NewCache()
 	values := stream.NewCache()
 	p := new(stream.Parser)
-	err = p.ResetWithLimits(reader, &names, &values, stream.Limits{MaxTokenBytes: limits.maxTokenBytes})
+	err = p.ResetWithConfig(r, &names, &values, stream.Config{
+		Limits: stream.Limits{
+			MaxInputBytes: limits.maxInputBytes,
+			MaxTokenBytes: limits.maxTokenBytes,
+		},
+		EmitComments: true,
+		EmitPI:       true,
+	})
 	if err != nil {
 		return formatReaderErr(err)
 	}
 	defer p.Detach()
-	p.SetEmitComments(true)
-	p.SetEmitPI(true)
 	f := xmlFormatter{w: writer, p: p, maxDepth: limits.maxDepth, maxNodes: limits.maxNodes}
 	err = f.format()
 	var formatErr *xsderrors.Error
-	if err != nil && !errors.As(err, &formatErr) && (errors.Is(err, errFormatInputLimit) || errors.Is(err, errFormatOutputLimit)) {
+	if err != nil && !errors.As(err, &formatErr) && (stream.IsInputLimit(err) || errors.Is(err, errFormatOutputLimit)) {
 		return formatLimitErr(0, 0, err)
 	}
 	return err
@@ -104,13 +97,13 @@ func formatReaderErr(err error) error {
 	case errors.Is(err, stream.ErrXMLInputNilReader):
 		return formatOptionErr(errors.New("nil reader"))
 	case errors.Is(err, stream.ErrUnsupportedNonUTF8):
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "XML documents must be UTF-8")
-	case errors.Is(err, errFormatInputLimit):
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "XML documents must be UTF-8", err)
+	case stream.IsInputLimit(err):
 		return formatLimitErr(0, 0, err)
 	default:
 		var versionErr stream.UnsupportedXMLVersionError
 		if errors.As(err, &versionErr) {
-			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error())
+			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
 		}
 		return formatXMLErr(0, 0, err)
 	}
@@ -145,39 +138,6 @@ func normalizeFormatOptions(opts Options) (formatOptions, error) {
 	}, nil
 }
 
-type maxBytesReader struct {
-	r        io.Reader
-	err      error
-	max      int64
-	n        int64
-	exceeded bool
-}
-
-func (r *maxBytesReader) Read(p []byte) (int, error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-	if r.exceeded {
-		return 0, r.err
-	}
-	if r.n >= r.max {
-		var one [1]byte
-		n, err := r.r.Read(one[:])
-		if n > 0 {
-			r.exceeded = true
-			return 0, r.err
-		}
-		return 0, err
-	}
-	remaining := r.max - r.n
-	if int64(len(p)) > remaining {
-		p = p[:int(remaining)]
-	}
-	n, err := r.r.Read(p)
-	r.n += int64(n)
-	return n, err
-}
-
 type maxBytesWriter struct {
 	w   io.Writer
 	err error
@@ -210,9 +170,9 @@ func (w *maxBytesWriter) Write(p []byte) (int, error) {
 type xmlFormatter struct {
 	w        io.Writer
 	p        *stream.Parser
-	ns       xmlns.Stack
 	stack    []*formatElement
 	items    []formatItem
+	ns       xmlns.Stack
 	nodes    int
 	maxDepth int
 	maxNodes int
@@ -239,11 +199,12 @@ type formatItem struct {
 }
 
 type formatElement struct {
-	start    xml.StartElement
-	children []formatItem
-	line     int
-	col      int
-	preserve bool
+	namespace xmlns.Frame
+	start     xml.StartElement
+	children  []formatItem
+	line      int
+	col       int
+	preserve  bool
 }
 
 func (f *xmlFormatter) format() error {
@@ -297,15 +258,16 @@ func (f *xmlFormatter) collectStart(tok stream.Token) error {
 		return formatLimitErr(tok.Line, tok.Column, fmt.Errorf("XML nesting exceeds %d element limit", f.maxDepth))
 	}
 	start := tok.Start.XMLStartElement()
-	if err := f.ns.Push(start.Attr); err != nil {
-		return xmlFormatErr(tok.Line, tok.Column, err)
-	}
-	if err := f.validateStartNamespaces(start); err != nil {
+	frame, _, err := f.ns.StartXML(start)
+	if err != nil {
 		return xmlFormatErr(tok.Line, tok.Column, err)
 	}
 	preserve := xmlSpacePreserve(start.Attr, xmlSpaceDefault)
 	if len(f.stack) == 0 {
 		if f.rootSeen {
+			if abortErr := f.ns.Abort(frame); abortErr != nil {
+				return errors.Join(xmlFormatErr(tok.Line, tok.Column, errors.New("XML document has multiple roots")), abortErr)
+			}
 			return xmlFormatErr(tok.Line, tok.Column, errors.New("XML document has multiple roots"))
 		}
 		f.rootSeen = true
@@ -313,8 +275,11 @@ func (f *xmlFormatter) collectStart(tok stream.Token) error {
 		parent := f.stack[len(f.stack)-1]
 		preserve = xmlSpacePreserve(start.Attr, parent.preserve)
 	}
-	elem := &formatElement{start: start, line: tok.Line, col: tok.Column, preserve: preserve}
+	elem := &formatElement{start: start, namespace: frame, line: tok.Line, col: tok.Column, preserve: preserve}
 	if err := f.appendItem(formatItem{kind: formatItemElement, elem: elem, line: tok.Line, col: tok.Column}); err != nil {
+		if abortErr := f.ns.Abort(frame); abortErr != nil {
+			return errors.Join(err, abortErr)
+		}
 		return err
 	}
 	f.stack = append(f.stack, elem)
@@ -326,11 +291,10 @@ func (f *xmlFormatter) collectEnd(tok stream.Token) error {
 		return xmlFormatErr(tok.Line, tok.Column, errors.New("unexpected end element"))
 	}
 	frame := f.stack[len(f.stack)-1]
-	if frame.start.Name != tok.End.Name {
-		return xmlFormatErr(tok.Line, tok.Column, fmt.Errorf("end element </%s> does not match start element <%s>", xmlQName(tok.End.Name), xmlQName(frame.start.Name)))
+	if err := f.ns.End(frame.namespace, xmlns.Lexical(tok.End.Name)); err != nil {
+		return xmlFormatErr(tok.Line, tok.Column, err)
 	}
 	f.stack = f.stack[:len(f.stack)-1]
-	f.ns.Pop()
 	return nil
 }
 
@@ -359,35 +323,6 @@ func (f *xmlFormatter) appendItem(item formatItem) error {
 	parent := f.stack[len(f.stack)-1]
 	parent.children = append(parent.children, item)
 	return nil
-}
-
-func (f *xmlFormatter) validateStartNamespaces(start xml.StartElement) error {
-	if _, err := f.resolveFormatName(start.Name, xmlns.ElementName); err != nil {
-		return err
-	}
-	var seen xmlns.NameSet
-	for _, attr := range start.Attr {
-		name := attr.Name
-		if !xmlns.IsNamespaceAttr(attr) {
-			var err error
-			name, err = f.resolveFormatName(attr.Name, xmlns.AttributeName)
-			if err != nil {
-				return err
-			}
-		}
-		if err := seen.AddAttribute(name); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (f *xmlFormatter) resolveFormatName(name xml.Name, kind xmlns.NameKind) (xml.Name, error) {
-	resolved, ok := f.ns.ResolveName(name, kind)
-	if !ok {
-		return xml.Name{}, errors.New("unbound namespace prefix " + name.Space)
-	}
-	return resolved, nil
 }
 
 func (f *xmlFormatter) writeDocument() error {
@@ -568,26 +503,26 @@ func xmlFormatErr(line, col int, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, errFormatInputLimit) || errors.Is(err, errFormatOutputLimit) || stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {
+	if stream.IsInputLimit(err) || errors.Is(err, errFormatOutputLimit) || stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {
 		return formatLimitErr(line, col, err)
 	}
 	return formatXMLErr(line, col, err)
 }
 
 func formatOptionErr(err error) error {
-	return formatErr(codeFormatOption, 0, 0, err)
+	return formatErr(xsderrors.CodeFormatOption, 0, 0, err)
 }
 
 func formatXMLErr(line, col int, err error) error {
-	return formatErr(codeFormatXML, line, col, err)
+	return formatErr(xsderrors.CodeFormatXML, line, col, err)
 }
 
 func formatLimitErr(line, col int, err error) error {
-	return formatErr(codeFormatLimit, line, col, err)
+	return formatErr(xsderrors.CodeFormatLimit, line, col, err)
 }
 
 func formatErr(code xsderrors.Code, line, col int, err error) error {
-	return &xsderrors.Error{Category: categoryFormat, Code: code, Line: line, Column: col, Err: err}
+	return xsderrors.WithLocation("", line, col, xsderrors.Format(code, err))
 }
 
 func writeXMLStart(w io.Writer, start xml.StartElement) error {

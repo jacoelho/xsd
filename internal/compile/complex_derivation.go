@@ -65,8 +65,16 @@ func CheckSimpleContentComplexBaseExists(exists bool) error {
 
 // CheckSimpleContentDerivationBase maps runtime base admissibility into the
 // schema diagnostic for xs:simpleContent derivation.
-func CheckSimpleContentDerivationBase(rt runtime.ContentModelRuntime, base runtime.ComplexType, restriction bool) error {
-	if !runtime.SimpleContentDerivationBaseAllowed(rt, base, restriction) {
+func CheckSimpleContentDerivationBase(
+	analysis *runtime.ContentModelAnalysis,
+	base runtime.ComplexType,
+	restriction bool,
+) error {
+	allowed, err := runtime.SimpleContentDerivationBaseAllowed(analysis, base, restriction)
+	if err != nil {
+		return contentRestrictionCompileError(err)
+	}
+	if !allowed {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "simpleContent base must have simple content")
 	}
 	return nil

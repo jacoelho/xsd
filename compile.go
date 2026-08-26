@@ -27,6 +27,9 @@ type CompileOptions struct {
 	MaxSchemaTotalBytes int64
 	// MaxSchemaReferences caps include/import references processed during compilation. Zero uses the default.
 	MaxSchemaReferences int
+	// MaxSchemaDependencySteps caps aggregate schema-graph expansion, target-context
+	// propagation, and component-dependency resolution work. Zero uses the default.
+	MaxSchemaDependencySteps int
 	// MaxSchemaTargetContexts caps distinct source/effective-target-namespace contexts,
 	// including primary and chameleon-derived contexts. Zero uses the default.
 	MaxSchemaTargetContexts int
@@ -38,6 +41,8 @@ type CompileOptions struct {
 	MaxFiniteOccurs uint64
 	// MaxContentModelStates caps compiled content-model DFA states. Zero uses the default.
 	MaxContentModelStates int
+	// MaxContentModelAnalysisSteps caps content-model traversal, determinization, and ambiguity-analysis work. Zero uses the default.
+	MaxContentModelAnalysisSteps int
 	// MaxSubstitutionClosureEntries caps aggregate transitive substitution-group relationships. Zero uses the default.
 	MaxSubstitutionClosureEntries int
 	// MaxSimpleUnionMemberEntries caps aggregate flattened simple-union members. Zero uses the default.
@@ -67,11 +72,13 @@ func internalCompileOptions(opts CompileOptions) compile.Options {
 		MaxSchemaSources:              opts.MaxSchemaSources,
 		MaxSchemaTotalBytes:           opts.MaxSchemaTotalBytes,
 		MaxSchemaReferences:           opts.MaxSchemaReferences,
+		MaxSchemaDependencySteps:      opts.MaxSchemaDependencySteps,
 		MaxSchemaTargetContexts:       opts.MaxSchemaTargetContexts,
 		MaxSchemaInstantiatedNodes:    opts.MaxSchemaInstantiatedNodes,
 		MaxSchemaNames:                opts.MaxSchemaNames,
 		MaxFiniteOccurs:               opts.MaxFiniteOccurs,
 		MaxContentModelStates:         opts.MaxContentModelStates,
+		MaxContentModelAnalysisSteps:  opts.MaxContentModelAnalysisSteps,
 		MaxSubstitutionClosureEntries: opts.MaxSubstitutionClosureEntries,
 		MaxSimpleUnionMemberEntries:   opts.MaxSimpleUnionMemberEntries,
 	}

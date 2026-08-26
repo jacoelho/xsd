@@ -281,6 +281,10 @@ func (b *byteStream) pos() (int, int) {
 // at most maxByteStringCacheEntries strings no longer than
 // maxByteStringCacheLen bytes.
 type Cache struct {
+	state *cacheState
+}
+
+type cacheState struct {
 	recent  [8]string
 	buckets map[uint64][]int
 	entries []byteStringEntry
@@ -293,7 +297,7 @@ type byteStringEntry struct {
 
 // NewCache returns an initialized string cache.
 func NewCache() Cache {
-	return Cache{buckets: make(map[uint64][]int)}
+	return Cache{state: &cacheState{buckets: make(map[uint64][]int)}}
 }
 
 // Intern returns a cached string copy of b when b is small enough to cache.
@@ -301,35 +305,40 @@ func (c *Cache) Intern(b []byte) string {
 	if len(b) == 0 {
 		return ""
 	}
-	if s, ok := c.recentString(b); ok {
+	state := c.cacheState()
+	if s, ok := state.recentString(b); ok {
 		return s
-	}
-	if c.buckets == nil {
-		*c = NewCache()
 	}
 	if len(b) > maxByteStringCacheLen {
 		return string(b)
 	}
 	h := hashBytes(b)
-	for _, idx := range c.buckets[h] {
-		if stringBytesEqual(c.entries[idx].text, b) {
-			s := c.entries[idx].text
-			c.remember(s)
+	for _, idx := range state.buckets[h] {
+		if stringBytesEqual(state.entries[idx].text, b) {
+			s := state.entries[idx].text
+			state.remember(s)
 			return s
 		}
 	}
 	s := string(b)
-	if len(c.entries) >= maxByteStringCacheEntries {
+	if len(state.entries) >= maxByteStringCacheEntries {
 		return s
 	}
-	idx := len(c.entries)
-	c.entries = append(c.entries, byteStringEntry{text: s})
-	c.buckets[h] = append(c.buckets[h], idx)
-	c.remember(s)
+	idx := len(state.entries)
+	state.entries = append(state.entries, byteStringEntry{text: s})
+	state.buckets[h] = append(state.buckets[h], idx)
+	state.remember(s)
 	return s
 }
 
-func (c *Cache) recentString(b []byte) (string, bool) {
+func (c *Cache) cacheState() *cacheState {
+	if c.state == nil {
+		c.state = &cacheState{buckets: make(map[uint64][]int)}
+	}
+	return c.state
+}
+
+func (c *cacheState) recentString(b []byte) (string, bool) {
 	for _, s := range c.recent {
 		if stringBytesEqual(s, b) {
 			return s, true
@@ -338,7 +347,7 @@ func (c *Cache) recentString(b []byte) (string, bool) {
 	return "", false
 }
 
-func (c *Cache) remember(s string) {
+func (c *cacheState) remember(s string) {
 	c.recent[c.next%uint8(len(c.recent))] = s
 	c.next++
 }

@@ -83,7 +83,7 @@ func checkXMLBaseAttribute(n *rawNode) error {
 
 func checkRawSchemaAttributes(n *rawNode) error {
 	for _, attr := range n.Attr {
-		if xmlns.IsNamespaceAttr(attr) || attr.Name.Space != "" {
+		if xmlns.IsNamespaceName(attr.Name) || attr.Name.Space != "" {
 			continue
 		}
 		if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
@@ -696,7 +696,7 @@ func childLocalNames(children []*rawNode) []string {
 
 func checkAllowedRawAttributes(n *rawNode, label string, allowed func(string) bool) error {
 	for _, attr := range n.Attr {
-		if xmlns.IsNamespaceAttr(attr) || attr.Name.Space != "" {
+		if xmlns.IsNamespaceName(attr.Name) || attr.Name.Space != "" {
 			continue
 		}
 		if !allowed(attr.Name.Local) {

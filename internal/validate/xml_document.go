@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/xml"
+	"errors"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/stream"
@@ -20,14 +21,52 @@ type xmlDocument[P any] struct {
 type xmlDocumentElement[P any] struct {
 	payload      P
 	name         xml.Name
+	namespace    xmlns.Frame
 	prefix       string
 	pathLength   int
 	expandedPath bool
 }
 
 type preparedXMLStart struct {
-	name   xml.Name
-	prefix string
+	name      xml.Name
+	namespace xmlns.Frame
+	prefix    string
+}
+
+type xmlDocumentCheckpoint struct {
+	pathText      string
+	depth         int
+	pathTextDepth int
+	seenRoot      bool
+}
+
+func (d *xmlDocument[P]) startCheckpoint() xmlDocumentCheckpoint {
+	return xmlDocumentCheckpoint{
+		pathText:      d.pathText,
+		depth:         d.Depth(),
+		pathTextDepth: d.pathTextDepth,
+		seenRoot:      d.seenRoot,
+	}
+}
+
+func (d *xmlDocument[P]) rollbackStart(checkpoint xmlDocumentCheckpoint, namespace xmlns.Frame) error {
+	clear(d.elements[checkpoint.depth:])
+	d.elements = d.elements[:checkpoint.depth]
+	d.pathText = checkpoint.pathText
+	d.pathTextDepth = checkpoint.pathTextDepth
+	d.seenRoot = checkpoint.seenRoot
+	if namespace.IsZero() {
+		return nil
+	}
+	return d.ns.Abort(namespace)
+}
+
+func (d *xmlDocument[P]) clearCurrentPayload() {
+	if len(d.elements) == 0 {
+		return
+	}
+	var zero P
+	d.elements[len(d.elements)-1].payload = zero
 }
 
 func (d *xmlDocument[P]) PrepareStart(
@@ -39,37 +78,19 @@ func (d *xmlDocument[P]) PrepareStart(
 	if maxDepth > 0 && d.Depth()+1 > maxDepth {
 		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
 	}
-	prefix := start.Name.Space
-	if pushErr := d.ns.PushStream(start.Attr, values); pushErr != nil {
-		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, pushErr.Error())
-	}
-	var err error
-	start.Name, err = d.resolveName(start.Name, xmlns.ElementName, line, col)
+	namespace, element, err := d.ns.StartStream(&start, values)
 	if err != nil {
-		d.ns.Pop()
-		return preparedXMLStart{}, err
-	}
-	for i := range start.Attr {
-		attr := &start.Attr[i]
-		if xmlns.IsNamespaceName(attr.Name) || attr.Name.Space == "" {
-			continue
-		}
-		attr.Name, err = d.resolveName(attr.Name, xmlns.AttributeName, line, col)
-		if err != nil {
-			d.ns.Pop()
-			return preparedXMLStart{}, err
-		}
-	}
-	if err := xmlns.ValidateUniqueAttributes(start.Attr); err != nil {
-		d.ns.Pop()
 		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
 	if d.seenRoot && d.Depth() == 0 {
-		d.ns.Pop()
-		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, "multiple root elements")
+		primary := validation(d.context(line, col), xsderrors.CodeValidationXML, "multiple root elements")
+		if abortErr := d.ns.Abort(namespace); abortErr != nil {
+			return preparedXMLStart{}, errors.Join(primary, abortErr)
+		}
+		return preparedXMLStart{}, primary
 	}
 
-	return preparedXMLStart{name: start.Name, prefix: prefix}, nil
+	return preparedXMLStart{name: element.Name, namespace: namespace, prefix: element.Lexical.Prefix}, nil
 }
 
 func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, expandedPath bool, payload P) {
@@ -83,6 +104,7 @@ func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, expandedPath bool, 
 	d.elements = append(d.elements, xmlDocumentElement[P]{
 		payload:      payload,
 		name:         start.name,
+		namespace:    start.namespace,
 		prefix:       start.prefix,
 		pathLength:   pathLength,
 		expandedPath: expandedPath,
@@ -90,8 +112,11 @@ func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, expandedPath bool, 
 	d.seenRoot = true
 }
 
-func (d *xmlDocument[P]) AbortStart() {
-	d.ns.Pop()
+func (d *xmlDocument[P]) AbortStart(start preparedXMLStart) error {
+	if start.namespace.IsZero() {
+		return nil
+	}
+	return d.ns.Abort(start.namespace)
 }
 
 func (d *xmlDocument[P]) ValidateEnd(end stream.EndElement, line, col int) error {
@@ -99,16 +124,9 @@ func (d *xmlDocument[P]) ValidateEnd(end stream.EndElement, line, col int) error
 		return validation(d.context(line, col), xsderrors.CodeValidationXML, "unexpected end element")
 	}
 
-	name, err := d.resolveName(end.Name, xmlns.ElementName, line, col)
-	if err != nil {
-		return err
-	}
 	expected := d.elements[len(d.elements)-1]
-	if end.Name.Space != expected.prefix || end.Name.Local != expected.name.Local {
-		return validation(d.context(line, col), xsderrors.CodeValidationXML, "end element </"+formatLexicalName(end.Name.Space, end.Name.Local)+"> does not match start element <"+formatLexicalName(expected.prefix, expected.name.Local)+">")
-	}
-	if name != expected.name {
-		return validation(d.context(line, col), xsderrors.CodeValidationXML, "end element </"+formatXMLName(name)+"> does not match start element <"+formatXMLName(expected.name)+">")
+	if err := d.ns.MatchEnd(expected.namespace, xmlns.Lexical(end.Name)); err != nil {
+		return validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
 	return nil
 }
@@ -119,9 +137,14 @@ func (d *xmlDocument[P]) CommitEnd() error {
 	}
 
 	i := len(d.elements) - 1
+	namespace := d.elements[i].namespace
 	d.elements[i] = xmlDocumentElement[P]{}
 	d.elements = d.elements[:i]
-	d.ns.Pop()
+	if !namespace.IsZero() {
+		if err := d.ns.Abort(namespace); err != nil {
+			return xsderrors.InternalInvariant(err.Error())
+		}
+	}
 	if d.pathTextDepth <= i {
 		return nil
 	}
@@ -213,19 +236,4 @@ func (d *xmlDocument[P]) PathString() string {
 
 func (d *xmlDocument[P]) context(line, col int) StartContext {
 	return StartContext{document: d, Line: line, Column: col}
-}
-
-func (d *xmlDocument[P]) resolveName(name xml.Name, kind xmlns.NameKind, line, col int) (xml.Name, error) {
-	resolved, ok := d.ns.ResolveName(name, kind)
-	if !ok {
-		return xml.Name{}, validation(d.context(line, col), xsderrors.CodeValidationXML, "unbound namespace prefix "+name.Space)
-	}
-	return resolved, nil
-}
-
-func formatLexicalName(prefix, local string) string {
-	if prefix == "" {
-		return local
-	}
-	return prefix + ":" + local
 }

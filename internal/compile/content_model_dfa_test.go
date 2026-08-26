@@ -2,17 +2,43 @@ package compile
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func unlimitedContentModelWork(int) error { return nil }
+
+func mustContentModelAnalysis(
+	tb testing.TB,
+	rt runtime.ParticleRuntime,
+	work runtime.ContentModelWork,
+) *runtime.ContentModelAnalysis {
+	tb.Helper()
+	analysis, err := runtime.NewContentModelAnalysis(rt, work)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return analysis
+}
+
+func checkElementDeclarationsConsistent(rt ElementDeclarationRuntime, model runtime.ContentModel) error {
+	work := newWorkBudget(contentModelWorkBudget, 10_000)
+	checker := newElementDeclarationConsistencyChecker(rt, &work)
+	_, err := checker.collectParticles(model.Particles)
+	return err
+}
 
 func TestCompileContentModelsBuildsIndexedRows(t *testing.T) {
 	t.Parallel()
 
 	names, rt := compiledModelRuntimeFixture(t, runtime.ModelChoice)
-	models, err := CompileContentModels(&names, rt, 1, 32)
+	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+	analysis := mustContentModelAnalysis(t, rt, work.spend)
+	models, err := CompileContentModels(&names, rt, 1, 32, &work, analysis)
 	if err != nil {
 		t.Fatalf("CompileContentModels() error = %v", err)
 	}
@@ -31,7 +57,7 @@ func TestCompileContentModelsBuildsIndexedRows(t *testing.T) {
 func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	t.Parallel()
 
-	names, err := runtime.NewNameTable(8, []string{runtime.EmptyNamespaceURI}, []runtime.ExpandedName{{Local: "a"}})
+	names, err := runtime.NewNameTable(8, []string{vocab.EmptyNamespaceURI}, []runtime.ExpandedName{{Local: "a"}})
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}
@@ -56,7 +82,9 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 			2: name,
 		},
 	}
-	err = CheckContentModelsUPA(&names, rt, 1)
+	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+	analysis := mustContentModelAnalysis(t, rt, work.spend)
+	err = CheckContentModelsUPA(&names, rt, 1, &work, analysis)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -90,7 +118,7 @@ func TestCheckElementDeclarationsConsistentRejectsSameNameDifferentType(t *testi
 			2: runtime.SimpleRef(2),
 		},
 	}
-	err := CheckElementDeclarationsConsistent(rt, rt.models[0])
+	err := checkElementDeclarationsConsistent(rt, rt.models[0])
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -119,7 +147,7 @@ func TestCheckElementDeclarationsConsistentAllowsSameNameSameType(t *testing.T) 
 			2: runtime.ComplexRef(1),
 		},
 	}
-	if err := CheckElementDeclarationsConsistent(rt, rt.models[0]); err != nil {
+	if err := checkElementDeclarationsConsistent(rt, rt.models[0]); err != nil {
 		t.Fatalf("CheckElementDeclarationsConsistent() error = %v", err)
 	}
 }
@@ -143,8 +171,10 @@ func TestValidateContentRestrictionRejectsElementNillableLoosening(t *testing.T)
 			2: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Nillable: true},
 		},
 	}
-	err := runtime.ValidateContentRestriction(rt, 0, 1)
-	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
+	err := runtime.ValidateContentRestriction(rt, 0, 1, unlimitedContentModelWork, mustContentModelAnalysis(t, rt, unlimitedContentModelWork))
+	if !runtime.IsContentRestrictionMismatch(err) {
+		t.Fatalf("ValidateContentRestriction() error = %v, want mismatch", err)
+	}
 }
 
 func TestValidateContentRestrictionAllowsSubstitutionMemberName(t *testing.T) {
@@ -170,7 +200,7 @@ func TestValidateContentRestrictionAllowsSubstitutionMemberName(t *testing.T) {
 			1: {memberName: 2},
 		},
 	}
-	if err := runtime.ValidateContentRestriction(rt, 0, 1); err != nil {
+	if err := runtime.ValidateContentRestriction(rt, 0, 1, unlimitedContentModelWork, mustContentModelAnalysis(t, rt, unlimitedContentModelWork)); err != nil {
 		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -194,8 +224,10 @@ func TestValidateContentRestrictionRejectsFixedValueMismatch(t *testing.T) {
 			2: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Fixed: fixedValueConstraint("derived", "derived")},
 		},
 	}
-	err := runtime.ValidateContentRestriction(rt, 0, 1)
-	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
+	err := runtime.ValidateContentRestriction(rt, 0, 1, unlimitedContentModelWork, mustContentModelAnalysis(t, rt, unlimitedContentModelWork))
+	if !runtime.IsContentRestrictionMismatch(err) {
+		t.Fatalf("ValidateContentRestriction() error = %v, want mismatch", err)
+	}
 }
 
 func TestValidateContentRestrictionAllowsFixedCanonicalMatch(t *testing.T) {
@@ -217,7 +249,7 @@ func TestValidateContentRestrictionAllowsFixedCanonicalMatch(t *testing.T) {
 			2: {Type: runtime.SimpleRef(1), Scope: runtime.DeclarationScopeNonGlobal, Fixed: fixedValueConstraint("1   2   3", "1 2 3")},
 		},
 	}
-	if err := runtime.ValidateContentRestriction(rt, 0, 1); err != nil {
+	if err := runtime.ValidateContentRestriction(rt, 0, 1, unlimitedContentModelWork, mustContentModelAnalysis(t, rt, unlimitedContentModelWork)); err != nil {
 		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -246,7 +278,7 @@ func TestValidateContentRestrictionAllowsFixedValueIdentityMatch(t *testing.T) {
 			2: {Base: 1, Variety: runtime.SimpleVarietyAtomic},
 		},
 	}
-	if err := runtime.ValidateContentRestriction(rt, 0, 1); err != nil {
+	if err := runtime.ValidateContentRestriction(rt, 0, 1, unlimitedContentModelWork, mustContentModelAnalysis(t, rt, unlimitedContentModelWork)); err != nil {
 		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
 	}
 }
@@ -279,8 +311,10 @@ func TestValidateContentRestrictionRejectsWildcardOutsideBase(t *testing.T) {
 			1: {Mode: runtime.WildcardLocal},
 		},
 	}
-	err := runtime.ValidateContentRestriction(rt, 0, 1)
-	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
+	err := runtime.ValidateContentRestriction(rt, 0, 1, unlimitedContentModelWork, mustContentModelAnalysis(t, rt, unlimitedContentModelWork))
+	if !runtime.IsContentRestrictionMismatch(err) {
+		t.Fatalf("ValidateContentRestriction() error = %v, want mismatch", err)
+	}
 }
 
 func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T) {
@@ -296,12 +330,16 @@ func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T)
 			},
 		},
 	}
-	err := runtime.ValidateContentRestriction(rt, 0, 1)
-	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	err := runtime.ValidateContentRestriction(rt, 0, 1, unlimitedContentModelWork, mustContentModelAnalysis(t, rt, unlimitedContentModelWork))
+	if !runtime.IsContentRestrictionInvariant(err) {
+		t.Fatalf("ValidateContentRestriction() error = %v, want invariant", err)
+	}
 }
 
 func TestDeterministicRowCapsTransitionGroupBeforeStateLookup(t *testing.T) {
+	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	b := &dfaBuilder{
+		c:     &contentModelCompiler{work: &work},
 		limit: 1,
 		rows: []dfaSourceRow{{
 			Edges: []dfaSourceEdge{
@@ -322,7 +360,9 @@ func TestDeterministicRowCapsTransitionGroupBeforeStateLookup(t *testing.T) {
 }
 
 func TestDeterministicRowDeduplicatesTransitionGroupBeforeLimit(t *testing.T) {
+	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	b := &dfaBuilder{
+		c:     &contentModelCompiler{work: &work},
 		limit: 1,
 		rows: []dfaSourceRow{{
 			Edges: []dfaSourceEdge{
@@ -344,14 +384,116 @@ func TestDeterministicRowDeduplicatesTransitionGroupBeforeLimit(t *testing.T) {
 	}
 }
 
+func TestDeterministicRowChargesRejectedGuards(t *testing.T) {
+	t.Parallel()
+
+	work := newWorkBudget(contentModelWorkBudget, 2)
+	b := &dfaBuilder{
+		c: &contentModelCompiler{work: &work},
+		rows: []dfaSourceRow{{
+			Edges: []dfaSourceEdge{{
+				Particle: runtime.ElementParticle(1, runtime.Occurrence{Min: 1, Max: 1}),
+				Guards: []compiledGuard{
+					{Slot: 0, N: 1, Kind: compiledGuardLoopMax},
+					{Slot: 1, N: 1, Kind: compiledGuardLoopMax},
+				},
+			}},
+		}},
+	}
+	_, err := b.deterministicRow(
+		dfaDeterministicState{Configs: []dfaConfig{{}}},
+		nil,
+		func(dfaDeterministicState) (uint32, error) { return 0, nil },
+	)
+	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+}
+
+func TestNormalizeFollowsChargesEntryStorage(t *testing.T) {
+	t.Parallel()
+
+	work := newWorkBudget(contentModelWorkBudget, 3)
+	b := &dfaBuilder{
+		c: &contentModelCompiler{work: &work},
+		follow: map[int][]dfaEntry{
+			0: {{Pos: 1, Guards: []compiledGuard{{}, {}}}},
+		},
+	}
+	err := b.normalizeFollows()
+	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+}
+
+func TestNormalizeSingleParticleModelCollapsesContiguousOccurrenceRange(t *testing.T) {
+	t.Parallel()
+
+	model := runtime.ContentModel{
+		Kind:   runtime.ModelChoice,
+		Occurs: runtime.Occurrence{Min: 0, Max: 40},
+		Particles: []runtime.Particle{runtime.ElementParticle(1, runtime.Occurrence{
+			Min: 0,
+			Max: 100,
+		})},
+	}
+	got := normalizeSingleParticleModel(model)
+	if got.Kind != runtime.ModelSequence || !got.Occurs.IsExactlyOne() || len(got.Particles) != 1 {
+		t.Fatalf("normalized model = %+v", got)
+	}
+	if want := (runtime.Occurrence{Min: 0, Max: 4000}); got.Particles[0].Occurs != want {
+		t.Fatalf("normalized occurrence = %+v, want %+v", got.Particles[0].Occurs, want)
+	}
+}
+
+func TestNormalizeSingleParticleModelPreservesDiscontinuousOccurrenceRange(t *testing.T) {
+	t.Parallel()
+
+	model := runtime.ContentModel{
+		Kind:      runtime.ModelSequence,
+		Occurs:    runtime.Occurrence{Min: 0, Max: 2},
+		Particles: []runtime.Particle{runtime.ElementParticle(1, runtime.Occurrence{Min: 2, Max: 3})},
+	}
+	got := normalizeSingleParticleModel(model)
+	if got.Kind != model.Kind || got.Occurs != model.Occurs || got.Particles[0].Occurs != model.Particles[0].Occurs {
+		t.Fatalf("unsafe normalization changed model: got %+v want %+v", got, model)
+	}
+}
+
+func TestNormalizeSingleParticleModelPreservesOverflowingOccurrenceProduct(t *testing.T) {
+	t.Parallel()
+
+	model := runtime.ContentModel{
+		Kind:      runtime.ModelSequence,
+		Occurs:    runtime.Occurrence{Min: 2, Max: 2},
+		Particles: []runtime.Particle{runtime.ElementParticle(1, runtime.Occurrence{Min: 3_000_000_000, Max: 3_000_000_000})},
+	}
+	got := normalizeSingleParticleModel(model)
+	if got.Kind != model.Kind || got.Occurs != model.Occurs || got.Particles[0].Occurs != model.Particles[0].Occurs {
+		t.Fatalf("overflowing normalization changed model: got %+v want %+v", got, model)
+	}
+}
+
+func TestNormalizeSingleParticleModelPreservesChoiceLimits(t *testing.T) {
+	t.Parallel()
+
+	model := runtime.ContentModel{
+		Kind:         runtime.ModelSequence,
+		Occurs:       runtime.Occurrence{Min: 1, Max: 1},
+		Particles:    []runtime.Particle{runtime.ElementParticle(1, runtime.Occurrence{Min: 0, Unbounded: true})},
+		ChoiceLimits: []uint32{0},
+	}
+	got := normalizeSingleParticleModel(model)
+	if got.Kind != model.Kind || got.Occurs != model.Occurs ||
+		!slices.Equal(got.Particles, model.Particles) || !slices.Equal(got.ChoiceLimits, model.ChoiceLimits) {
+		t.Fatalf("choice-limited normalization changed model: got %+v want %+v", got, model)
+	}
+}
+
 func expectDiagnostic(t *testing.T, err error, category xsderrors.Category, code xsderrors.Code) {
 	t.Helper()
 	var diag *xsderrors.Error
 	if !errors.As(err, &diag) {
 		t.Fatalf("error = %v, want xsderrors.Error", err)
 	}
-	if diag.Category != category || diag.Code != code {
-		t.Fatalf("diagnostic = (%s, %s), want (%s, %s)", diag.Category, diag.Code, category, code)
+	if diag.Category() != category || diag.Code() != code {
+		t.Fatalf("diagnostic = (%s, %s), want (%s, %s)", diag.Category(), diag.Code(), category, code)
 	}
 }
 
@@ -410,7 +552,7 @@ func compiledModelRuntimeFixture(t *testing.T, kind runtime.ModelKind) (runtime.
 		local := string(rune('a' + i))
 		required = append(required, runtime.ExpandedName{Local: local})
 	}
-	names, err := runtime.NewNameTable(64, []string{runtime.EmptyNamespaceURI}, required)
+	names, err := runtime.NewNameTable(64, []string{vocab.EmptyNamespaceURI}, required)
 	if err != nil {
 		t.Fatalf("NewNameTable() error = %v", err)
 	}

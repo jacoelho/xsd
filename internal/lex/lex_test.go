@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+func TestStringNameValidatorsRejectMalformedUTF8(t *testing.T) {
+	t.Parallel()
+	malformed := string([]byte{'n', 0xff})
+	if IsXMLName(malformed) {
+		t.Fatal("IsXMLName accepted malformed UTF-8")
+	}
+	if IsNCName(malformed) {
+		t.Fatal("IsNCName accepted malformed UTF-8")
+	}
+	if IsNMTOKEN(malformed) {
+		t.Fatal("IsNMTOKEN accepted malformed UTF-8")
+	}
+	if _, _, _, ok := SplitQName(malformed); ok {
+		t.Fatal("SplitQName accepted malformed UTF-8")
+	}
+
+	validReplacement := "n\uFFFD"
+	if !IsXMLName(validReplacement) || !IsNCName(validReplacement) || !IsNMTOKEN(validReplacement) {
+		t.Fatal("name validators rejected an encoded U+FFFD")
+	}
+}
+
 func TestXMLWhitespaceHelpers(t *testing.T) {
 	t.Parallel()
 

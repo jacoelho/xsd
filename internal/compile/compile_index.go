@@ -3,7 +3,7 @@ package compile
 import "github.com/jacoelho/xsd/internal/vocab"
 
 func (c *compiler) index() error {
-	for _, document := range c.schemas.documents {
+	for _, document := range c.plan.documents {
 		if !document.indexDeclarations {
 			continue
 		}

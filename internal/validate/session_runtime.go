@@ -10,6 +10,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/internal/xmlns"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -48,18 +49,8 @@ func initializeSession(s *session, rt *runtime.Schema, opts Options) error {
 		return xsderrors.InternalInvariant("nil validation schema")
 	}
 	*s = session{
-		rt:                              rt,
-		maxErrors:                       limits.Errors,
-		maxIdentityScopes:               limits.IdentityScopes,
-		maxIdentityEntries:              limits.IdentityEntries,
-		maxIdentityTupleBytes:           limits.IdentityTupleBytes,
-		maxSchemaLocationNamespaces:     limits.SchemaLocationNamespaces,
-		maxSchemaLocationNamespaceBytes: limits.SchemaLocationNamespaceBytes,
-		maxInstanceDepth:                limits.InstanceDepth,
-		maxInstanceAttributes:           limits.InstanceAttributes,
-		maxInstanceTextBytes:            limits.InstanceTextBytes,
-		maxInstanceTokenBytes:           limits.InstanceTokenBytes,
-		maxInstanceBytes:                limits.InstanceBytes,
+		rt:     rt,
+		limits: limits,
 	}
 	s.doc.identity = newIdentityEvaluation(rt, identityLimits{
 		Entries:    limits.IdentityEntries,
@@ -85,7 +76,7 @@ func (s *Session) Validate(r io.Reader) error {
 		return (*session)(nil).validate(r)
 	}
 	if !s.inUse.CompareAndSwap(false, true) {
-		return xsderrors.Validation(xsderrors.CodeValidationSession, 0, 0, "", "validation session is already in use")
+		return xsderrors.Validation(xsderrors.CodeValidationSession, "validation session is already in use", nil)
 	}
 	// Defers run in LIFO order: cleanup must finish before copies can enter.
 	defer s.inUse.Store(false)
@@ -97,26 +88,16 @@ func (s *Session) Validate(r io.Reader) error {
 // Per-document state lives in doc; everything else is retained across
 // documents: options, the reader buffer and parser, and the string caches.
 type session struct {
-	rt                              *runtime.Schema
-	resolveLexicalQNamePartsFunc    runtime.ResolveQNameParts
-	doc                             documentState
-	nameStrings                     stream.Cache
-	valueStrings                    stream.Cache
-	derivationScratch               runtime.TypeDerivationScratch
-	stringPatternScratch            runtime.StringPatternScratch
-	attributeSeen                   []bool
-	parser                          stream.Parser
-	maxErrors                       int
-	maxIdentityScopes               int
-	maxIdentityEntries              int
-	maxIdentityTupleBytes           int64
-	maxSchemaLocationNamespaces     int
-	maxSchemaLocationNamespaceBytes int64
-	maxInstanceDepth                int
-	maxInstanceAttributes           int
-	maxInstanceTextBytes            int64
-	maxInstanceTokenBytes           int64
-	maxInstanceBytes                int64
+	rt                           *runtime.Schema
+	resolveLexicalQNamePartsFunc runtime.ResolveQNameParts
+	doc                          documentState
+	nameStrings                  stream.Cache
+	valueStrings                 stream.Cache
+	derivationScratch            runtime.TypeDerivationScratch
+	stringPatternScratch         runtime.StringPatternScratch
+	attributeSeen                []bool
+	parser                       stream.Parser
+	limits                       Limits
 }
 
 // documentState is the mutable state of one document validation. XML syntax
@@ -178,14 +159,16 @@ func (s *session) validate(r io.Reader) error {
 	if s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
-	if err := s.parser.ResetWithLimits(r, &s.nameStrings, &s.valueStrings, stream.Limits{
-		MaxInputBytes: s.maxInstanceBytes,
-		MaxTokenBytes: s.maxInstanceTokenBytes,
-		MaxAttrs:      s.maxInstanceAttributes,
+	if err := s.parser.ResetWithConfig(r, &s.nameStrings, &s.valueStrings, stream.Config{
+		Limits: stream.Limits{
+			MaxInputBytes: s.limits.InstanceBytes,
+			MaxTokenBytes: s.limits.InstanceTokenBytes,
+			MaxAttrs:      s.limits.InstanceAttributes,
+		},
+		LazyAttrValues: true,
 	}); err != nil {
 		return instanceReaderError(err)
 	}
-	s.parser.SetLazyAttrValue(true)
 	for {
 		tok, err := s.parser.Next()
 		if err != nil {
@@ -304,7 +287,7 @@ func (s *session) result() error {
 	case 1:
 		return s.doc.errors[0]
 	default:
-		return xsderrors.Errors(slices.Clone(s.doc.errors))
+		return xsderrors.NewErrors(s.doc.errors...)
 	}
 }
 
@@ -315,9 +298,9 @@ func (s *session) recover(err error) error {
 	if !RecoverableError(err) {
 		return err
 	}
-	if !RecoveryLimitReached(len(s.doc.errors), s.maxErrors) {
+	if !RecoveryLimitReached(len(s.doc.errors), s.limits.Errors) {
 		s.doc.errors = append(s.doc.errors, err)
-		if RecoveryLimitReached(len(s.doc.errors), s.maxErrors) {
+		if RecoveryLimitReached(len(s.doc.errors), s.limits.Errors) {
 			s.doc.syntaxOnly = true
 			return errSemanticStop
 		}
@@ -337,9 +320,9 @@ func (s *session) recoverAssessment(err error) error {
 func assessmentFailure(err error) bool {
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	return ok && diagnostic != nil &&
-		diagnostic.Category == xsderrors.CategoryValidation &&
-		diagnostic.Code != xsderrors.CodeValidationIdentity &&
-		diagnostic.Code != xsderrors.CodeValidationLimit
+		diagnostic.Category() == xsderrors.CategoryValidation &&
+		diagnostic.Code() != xsderrors.CodeValidationIdentity &&
+		diagnostic.Code() != xsderrors.CodeValidationLimit
 }
 
 func (s *session) discardSemanticState() {
@@ -351,38 +334,183 @@ func (s *session) discardSemanticState() {
 	s.attributeSeen = nil
 }
 
+//nolint:govet // Fields are grouped by the state restored together.
+type sessionStartTransaction struct {
+	s                 *session
+	xml               xmlDocumentCheckpoint
+	hints             SchemaLocationHints
+	transition        runtime.ContentTransition
+	namespace         xmlns.Frame
+	allBitsLen        int
+	errorsLen         int
+	parentIndex       int
+	syntaxOnly        bool
+	done              bool
+	hasParent         bool
+	advances          bool
+	invalidatesParent bool
+	xmlCommitted      bool
+}
+
+func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, namespace xmlns.Frame) (sessionStartTransaction, error) {
+	transaction := sessionStartTransaction{
+		s:           s,
+		xml:         xmlCheckpoint,
+		hints:       s.doc.schemaLocationHints,
+		allBitsLen:  len(s.doc.allBits),
+		errorsLen:   len(s.doc.errors),
+		parentIndex: xmlCheckpoint.depth - 1,
+		namespace:   namespace,
+		syntaxOnly:  s.doc.syntaxOnly,
+		hasParent:   xmlCheckpoint.depth != 0,
+	}
+	if err := s.doc.identity.beginStart(); err != nil {
+		return sessionStartTransaction{}, err
+	}
+	return transaction, nil
+}
+
+func (t *sessionStartTransaction) stageContent(accepted acceptedChild) {
+	t.transition = accepted.transition
+	t.advances = accepted.advances
+	t.invalidatesParent = accepted.invalidatesParent
+}
+
+func (t *sessionStartTransaction) commitXMLStart(start preparedXMLStart, expandedPath bool, payload frame) error {
+	if t.done || t.xmlCommitted || t.s.doc.Depth() != t.xml.depth {
+		return xsderrors.InternalInvariant("XML start transaction phase is invalid")
+	}
+	t.s.doc.CommitStart(start, expandedPath, payload)
+	t.xmlCommitted = true
+	return nil
+}
+
+func (t *sessionStartTransaction) commit() error {
+	if t.done || !t.xmlCommitted {
+		return xsderrors.InternalInvariant("start transaction commit phase is invalid")
+	}
+	var parent *frame
+	if t.hasParent {
+		if t.parentIndex < 0 || t.parentIndex >= len(t.s.doc.elements) {
+			return xsderrors.InternalInvariant("start transaction parent frame is invalid")
+		}
+		parent = &t.s.doc.elements[t.parentIndex].payload
+	}
+	if t.advances {
+		if parent == nil {
+			return xsderrors.InternalInvariant("root start has a parent content transition")
+		}
+		scratch := t.s.contentScratch(parent)
+		if !t.transition.CanCommit(parent.Content, &scratch) {
+			return xsderrors.InternalInvariant("parent content transition is stale")
+		}
+	}
+	if err := t.s.doc.identity.validateStartCommit(); err != nil {
+		return err
+	}
+	if t.advances {
+		scratch := t.s.contentScratch(parent)
+		if !t.transition.Commit(&parent.Content, &scratch) {
+			return xsderrors.InternalInvariant("parent content transition commit failed")
+		}
+	}
+	t.s.doc.identity.commitStart()
+	if parent != nil {
+		if t.invalidatesParent {
+			parent.AssessmentInvalid = true
+		}
+		parent.HasChild = true
+	}
+	t.done = true
+	return nil
+}
+
+func (t *sessionStartTransaction) stopSemanticValidation(start preparedXMLStart) error {
+	t.restoreSemanticState(false)
+	if !t.xmlCommitted {
+		if err := t.commitXMLStart(start, false, frame{}); err != nil {
+			return err
+		}
+	} else {
+		t.s.doc.clearCurrentPayload()
+	}
+	t.done = true
+	return nil
+}
+
+func (t *sessionStartTransaction) abort() error {
+	if t.done {
+		return nil
+	}
+	t.restoreSemanticState(true)
+	err := t.s.doc.rollbackStart(t.xml, t.namespace)
+	t.done = true
+	return err
+}
+
+func (t *sessionStartTransaction) restoreSemanticState(restoreRecovery bool) {
+	t.s.doc.identity.abortStart()
+	t.s.doc.schemaLocationHints = t.hints
+	clear(t.s.doc.allBits[t.allBitsLen:])
+	t.s.doc.allBits = t.s.doc.allBits[:t.allBitsLen]
+	if restoreRecovery {
+		clear(t.s.doc.errors[t.errorsLen:])
+		t.s.doc.errors = t.s.doc.errors[:t.errorsLen]
+		t.s.doc.syntaxOnly = t.syntaxOnly
+	}
+}
+
 func (s *session) start(line, col int, token stream.StartElement) error {
 	if s.doc.syntaxOnly {
 		return s.syntaxStart(line, col, token)
 	}
-	se, err := s.doc.PrepareStart(token, &s.valueStrings, s.maxInstanceDepth, line, col)
+	xmlCheckpoint := s.doc.startCheckpoint()
+	se, err := s.doc.PrepareStart(token, &s.valueStrings, s.limits.InstanceDepth, line, col)
 	if err != nil {
 		return err
 	}
+	transaction, err := s.beginStartTransaction(xmlCheckpoint, se.namespace)
+	if err != nil {
+		if abortErr := s.doc.AbortStart(se); abortErr != nil {
+			return errors.Join(err, abortErr)
+		}
+		return err
+	}
+	resultErr := s.runStartTransaction(&transaction, se, token, line, col)
+	if abortErr := transaction.abort(); abortErr != nil {
+		return errors.Join(resultErr, abortErr)
+	}
+	return resultErr
+}
+
+func (s *session) runStartTransaction(
+	transaction *sessionStartTransaction,
+	se preparedXMLStart,
+	token stream.StartElement,
+	line, col int,
+) error {
 	xsiFlags := xsiStartAttributeFlagsFor(token.Attr)
 	if xsiFlags.SchemaLocation {
 		if schemaLocationErr := s.recordSchemaLocationHints(token.Attr, line, col); schemaLocationErr != nil {
 			recoverErr := s.recover(schemaLocationErr)
 			if recoverErr != nil {
 				if errors.Is(recoverErr, errSemanticStop) {
-					s.doc.CommitStart(se, false, frame{})
-					return nil
+					return transaction.stopSemanticValidation(se)
 				}
-				s.doc.AbortStart()
 				return recoverErr
 			}
 		}
 	}
 	rn := s.runtimeName(se.name)
-	start, err := s.startType(rn, se, token, xsiFlags.Type, line, col)
+	accepted, err := s.startType(rn, se, token, xsiFlags.Type, line, col)
 	if err != nil {
 		if errors.Is(err, errSemanticStop) {
-			s.doc.CommitStart(se, false, frame{})
-			return nil
+			return transaction.stopSemanticValidation(se)
 		}
-		s.doc.AbortStart()
 		return err
 	}
+	transaction.stageContent(accepted)
+	start := accepted.start
 	var nilled bool
 	var decl runtime.ElementStartInfo
 	var declared bool
@@ -392,10 +520,8 @@ func (s *session) start(line, col int, token stream.StartElement) error {
 		nilled, err = s.assessElementStart(&start, decl, declared, token.Attr, xsiFlags, ctx)
 		if err != nil {
 			if errors.Is(err, errSemanticStop) {
-				s.doc.CommitStart(se, false, frame{})
-				return nil
+				return transaction.stopSemanticValidation(se)
 			}
-			s.doc.AbortStart()
 			return err
 		}
 		if start.mode != elementAssessed {
@@ -410,20 +536,22 @@ func (s *session) start(line, col int, token stream.StartElement) error {
 		declared,
 		declared && (decl.Fixed || decl.Default),
 	)
-	s.doc.CommitStart(se, start.mode == elementAssessed && !rn.Known && rn.NS != "", schemaFrame)
+	if err := transaction.commitXMLStart(se, start.mode == elementAssessed && !rn.Known && rn.NS != "", schemaFrame); err != nil {
+		return err
+	}
 	if identityErr := s.startFrameIdentity(start, rn, schemaFrame, line, col); identityErr != nil {
 		if errors.Is(identityErr, errSemanticStop) {
-			return nil
+			return transaction.stopSemanticValidation(se)
 		}
 		return identityErr
 	}
 	if attrErr := s.validateStartAttributes(start, token.Attr, line, col); attrErr != nil {
 		if errors.Is(attrErr, errSemanticStop) {
-			return nil
+			return transaction.stopSemanticValidation(se)
 		}
 		return attrErr
 	}
-	return nil
+	return transaction.commit()
 }
 
 func (s *session) startFrameIdentity(start schemaStart, rn runtime.RuntimeName, f frame, line, col int) error {
@@ -452,7 +580,7 @@ func (s *session) validateStartAttributes(start schemaStart, attrs []stream.Attr
 }
 
 func (s *session) syntaxStart(line, col int, token stream.StartElement) error {
-	start, err := s.doc.PrepareStart(token, &s.valueStrings, s.maxInstanceDepth, line, col)
+	start, err := s.doc.PrepareStart(token, &s.valueStrings, s.limits.InstanceDepth, line, col)
 	if err != nil {
 		return err
 	}
@@ -571,27 +699,28 @@ func recoverySchemaStart() schemaStart {
 	return schemaStart{element: runtime.NoElement, mode: elementRecovery}
 }
 
-func (s *session) startType(rn runtime.RuntimeName, se preparedXMLStart, token stream.StartElement, hasXSIType bool, line, col int) (schemaStart, error) {
+func (s *session) startType(rn runtime.RuntimeName, se preparedXMLStart, token stream.StartElement, hasXSIType bool, line, col int) (acceptedChild, error) {
 	if s.doc.Depth() == 0 {
-		return s.rootStartType(rn, se, token, hasXSIType, line, col)
+		start, err := s.rootStartType(rn, se, token, hasXSIType, line, col)
+		return acceptedChild{start: start}, err
 	}
 	parent, ok := s.doc.Current()
 	if !ok {
-		return schemaStart{}, xsderrors.InternalInvariant("child start has no parent frame")
+		return acceptedChild{}, xsderrors.InternalInvariant("child start has no parent frame")
 	}
-	parent.HasChild = true
 	accepted, err := s.acceptChild(parent, rn, hasXSIType, line, col)
 	if err == nil {
-		return accepted.start, nil
+		return accepted, nil
 	}
 	if !accepted.recover {
-		return schemaStart{}, err
+		return acceptedChild{}, err
 	}
-	recoverErr := s.recoverAssessment(err)
+	accepted.invalidatesParent = assessmentFailure(err)
+	recoverErr := s.recover(err)
 	if recoverErr != nil {
-		return schemaStart{}, recoverErr
+		return acceptedChild{}, recoverErr
 	}
-	return accepted.start, nil
+	return accepted, nil
 }
 
 func (s *session) rootStartType(rn runtime.RuntimeName, se preparedXMLStart, token stream.StartElement, hasXSIType bool, line, col int) (schemaStart, error) {
@@ -749,7 +878,7 @@ func frameHasSimpleContent(f *frame) bool {
 }
 
 func (s *session) appendText(data []byte, line, col int) error {
-	if s.maxInstanceTextBytes > 0 && int64(len(s.doc.text)) > s.maxInstanceTextBytes-int64(len(data)) {
+	if s.limits.InstanceTextBytes > 0 && int64(len(s.doc.text)) > s.limits.InstanceTextBytes-int64(len(data)) {
 		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "instance text byte limit exceeded")
 	}
 	s.doc.text = append(s.doc.text, data...)

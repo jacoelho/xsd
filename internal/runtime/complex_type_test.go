@@ -1085,7 +1085,8 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeRestrictionRuntime(rt, tt.base, tt.derived)
+			analysis := unlimitedContentModelAnalysis(rt)
+			err := ValidateComplexTypeRestrictionRuntime(rt, analysis, tt.base, tt.derived)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeRestrictionRuntime() error = %v", err)
@@ -1206,7 +1207,12 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := SimpleContentDerivationBaseAllowed(rt, tt.base, tt.restriction); got != tt.want {
+			analysis := unlimitedContentModelAnalysis(rt)
+			got, err := SimpleContentDerivationBaseAllowed(analysis, tt.base, tt.restriction)
+			if err != nil {
+				t.Fatalf("SimpleContentDerivationBaseAllowed() error = %v", err)
+			}
+			if got != tt.want {
 				t.Fatalf("SimpleContentDerivationBaseAllowed() = %v, want %v", got, tt.want)
 			}
 		})

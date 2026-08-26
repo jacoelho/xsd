@@ -26,11 +26,11 @@ func TestAddSchemaComponentRejectsDuplicate(t *testing.T) {
 	if !ok {
 		t.Fatalf("AddSchemaComponent(duplicate) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaDuplicate {
-		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaDuplicate {
+		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category(), xerr.Code())
 	}
-	if !strings.Contains(xerr.Message, "duplicate schema component p:thing") {
-		t.Fatalf("message = %q, want duplicate component label", xerr.Message)
+	if !strings.Contains(xerr.Message(), "duplicate schema component p:thing") {
+		t.Fatalf("message = %q, want duplicate component label", xerr.Message())
 	}
 	if got := components[name]; got != "first" {
 		t.Fatalf("duplicate replaced component with %q", got)
@@ -49,11 +49,11 @@ func TestCheckSchemaTypeNameAvailableRejectsDuplicate(t *testing.T) {
 	if !ok {
 		t.Fatalf("CheckSchemaTypeNameAvailable(true) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaDuplicate {
-		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaDuplicate {
+		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category(), xerr.Code())
 	}
-	if !strings.Contains(xerr.Message, "duplicate type p:Thing") {
-		t.Fatalf("message = %q, want duplicate type label", xerr.Message)
+	if !strings.Contains(xerr.Message(), "duplicate type p:Thing") {
+		t.Fatalf("message = %q, want duplicate type label", xerr.Message())
 	}
 }
 
@@ -83,11 +83,11 @@ func TestAddGlobalAttributeComponentRejectsSchemaDuplicate(t *testing.T) {
 	if !ok {
 		t.Fatalf("AddGlobalAttributeComponent(duplicate) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaDuplicate {
-		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaDuplicate {
+		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category(), xerr.Code())
 	}
-	if !strings.Contains(xerr.Message, "duplicate schema component p:attr") {
-		t.Fatalf("message = %q, want duplicate component label", xerr.Message)
+	if !strings.Contains(xerr.Message(), "duplicate schema component p:attr") {
+		t.Fatalf("message = %q, want duplicate component label", xerr.Message())
 	}
 	if got := components[name]; got != "first" {
 		t.Fatalf("duplicate replaced component with %q", got)
@@ -121,11 +121,11 @@ func TestCheckSchemaComponentCycle(t *testing.T) {
 			if !ok {
 				t.Fatalf("CheckSchemaComponentCycle(true) error = %T %v, want *xsderrors.Error", err, err)
 			}
-			if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaReference {
-				t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category, xerr.Code)
+			if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaReference {
+				t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category(), xerr.Code())
 			}
-			if xerr.Message != tt.want {
-				t.Fatalf("message = %q, want %q", xerr.Message, tt.want)
+			if xerr.Message() != tt.want {
+				t.Fatalf("message = %q, want %q", xerr.Message(), tt.want)
 			}
 		})
 	}
@@ -143,11 +143,11 @@ func TestCheckSchemaComponentRecursion(t *testing.T) {
 	if !ok {
 		t.Fatalf("CheckSchemaComponentRecursion(true) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaReference {
-		t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaReference {
+		t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category(), xerr.Code())
 	}
-	if xerr.Message != "recursive model group p:g" {
-		t.Fatalf("message = %q, want recursive model group label", xerr.Message)
+	if xerr.Message() != "recursive model group p:g" {
+		t.Fatalf("message = %q, want recursive model group label", xerr.Message())
 	}
 
 	err = CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, "")
@@ -155,8 +155,8 @@ func TestCheckSchemaComponentRecursion(t *testing.T) {
 	if !ok {
 		t.Fatalf("CheckSchemaComponentRecursion(unlabeled) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Message != "recursive model group" {
-		t.Fatalf("message = %q, want unlabeled recursive model group", xerr.Message)
+	if xerr.Message() != "recursive model group" {
+		t.Fatalf("message = %q, want unlabeled recursive model group", xerr.Message())
 	}
 }
 
@@ -172,11 +172,11 @@ func TestCheckSchemaComponentExists(t *testing.T) {
 	if !ok {
 		t.Fatalf("CheckSchemaComponentExists(false) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaReference {
-		t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaReference {
+		t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category(), xerr.Code())
 	}
-	if xerr.Message != "unknown element p:missing" {
-		t.Fatalf("message = %q, want unknown element label", xerr.Message)
+	if xerr.Message() != "unknown element p:missing" {
+		t.Fatalf("message = %q, want unknown element label", xerr.Message())
 	}
 
 	err = CheckSchemaComponentExists(SchemaComponentAttributeGroup, false, "p:attrs")
@@ -184,8 +184,8 @@ func TestCheckSchemaComponentExists(t *testing.T) {
 	if !ok {
 		t.Fatalf("CheckSchemaComponentExists(attribute group) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Message != "unknown attribute group p:attrs" {
-		t.Fatalf("message = %q, want unknown attribute group label", xerr.Message)
+	if xerr.Message() != "unknown attribute group p:attrs" {
+		t.Fatalf("message = %q, want unknown attribute group label", xerr.Message())
 	}
 
 	err = CheckSchemaComponentExists(SchemaComponentType, false, "p:T")
@@ -193,8 +193,8 @@ func TestCheckSchemaComponentExists(t *testing.T) {
 	if !ok {
 		t.Fatalf("CheckSchemaComponentExists(type) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Message != "unknown type p:T" {
-		t.Fatalf("message = %q, want unknown type label", xerr.Message)
+	if xerr.Message() != "unknown type p:T" {
+		t.Fatalf("message = %q, want unknown type label", xerr.Message())
 	}
 }
 
@@ -215,10 +215,10 @@ func TestAddNotationRejectsDuplicate(t *testing.T) {
 	if !ok {
 		t.Fatalf("AddNotation(duplicate) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaDuplicate {
-		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaDuplicate {
+		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category(), xerr.Code())
 	}
-	if !strings.Contains(xerr.Message, "duplicate notation p:notation") {
-		t.Fatalf("message = %q, want duplicate notation label", xerr.Message)
+	if !strings.Contains(xerr.Message(), "duplicate notation p:notation") {
+		t.Fatalf("message = %q, want duplicate notation label", xerr.Message())
 	}
 }

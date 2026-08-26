@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -73,6 +74,20 @@ func TestFormatXMLPreservesWhitespaceOnlyText(t *testing.T) {
 </root>`
 	if out.String() != want {
 		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+	}
+}
+
+func TestFormatXMLRejectsXML11WithoutInternalCause(t *testing.T) {
+	t.Parallel()
+
+	var out strings.Builder
+	err := XML(&out, strings.NewReader(`<?xml version="1.1"?><root/>`))
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Code() != xsderrors.CodeUnsupportedXML11 {
+		t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeUnsupportedXML11)
+	}
+	if diagnostic.Cause() != nil {
+		t.Fatalf("XML() XML 1.1 cause = %T, want nil", diagnostic.Cause())
 	}
 }
 
@@ -461,11 +476,11 @@ func TestFormatXMLWithOptionsRejectsInputBytesAfterSniff(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 	}
-	if xerr.Code != codeFormatLimit {
-		t.Fatalf("XMLWithOptions() code = %q, want %q", xerr.Code, codeFormatLimit)
+	if xerr.Code() != xsderrors.CodeFormatLimit {
+		t.Fatalf("XMLWithOptions() code = %q, want %q", xerr.Code(), xsderrors.CodeFormatLimit)
 	}
-	if !errors.Is(err, errFormatInputLimit) {
-		t.Fatalf("XMLWithOptions() error = %v, want %v", err, errFormatInputLimit)
+	if !stream.IsInputLimit(err) {
+		t.Fatalf("XMLWithOptions() error = %v, want input limit", err)
 	}
 }
 
@@ -535,8 +550,8 @@ func TestFormatXMLReportsLine(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("XML() error type = %T, want *xsderrors.Error", err)
 	}
-	if xerr.Line != 2 {
-		t.Fatalf("Line = %d, want 2", xerr.Line)
+	if xerr.Line() != 2 {
+		t.Fatalf("Line = %d, want 2", xerr.Line())
 	}
 }
 

@@ -43,9 +43,11 @@ func ExampleCompileWithOptions() {
 		MaxSchemaAttributes:           256,
 		MaxSchemaTokenBytes:           4 << 20,
 		MaxSchemaSourceBytes:          64 << 20,
+		MaxSchemaDependencySteps:      1_000_000,
 		MaxSchemaNames:                0,
 		MaxFiniteOccurs:               1_000_000,
 		MaxContentModelStates:         16_384,
+		MaxContentModelAnalysisSteps:  16_777_216,
 		MaxSubstitutionClosureEntries: 1_000_000,
 		MaxSimpleUnionMemberEntries:   1_000_000,
 	},
@@ -113,8 +115,8 @@ func Example_diagnostics() {
 	}
 	err = engine.Validate(strings.NewReader(`<root>x</root>`))
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
-		fmt.Println(xerr.Category)
-		fmt.Println(xerr.Code)
+		fmt.Println(xerr.Category())
+		fmt.Println(xerr.Code())
 	}
 	// Output:
 	// validation
@@ -160,8 +162,8 @@ func TestPublicErrorInspection(t *testing.T) {
 	if !ok {
 		t.Fatalf("Validate() error type = %T", err)
 	}
-	if xerr.Category != xsderrors.CategoryValidation || xerr.Code != xsderrors.CodeValidationFacet {
-		t.Fatalf("Validate() error = %s/%s", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategoryValidation || xerr.Code() != xsderrors.CodeValidationFacet {
+		t.Fatalf("Validate() error = %s/%s", xerr.Category(), xerr.Code())
 	}
 }
 

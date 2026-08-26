@@ -341,8 +341,8 @@ func expectErrorCode(t *testing.T, err error, code string) {
 	if !ok {
 		t.Fatalf("error %v is not *xsderrors.Error", err)
 	}
-	if string(xerr.Code) != code {
-		t.Fatalf("error code = %s, want %s; err=%v", xerr.Code, code, err)
+	if string(xerr.Code()) != code {
+		t.Fatalf("error code = %s, want %s; err=%v", xerr.Code(), code, err)
 	}
 }
 
@@ -356,7 +356,7 @@ func skipUnsupported(t *testing.T, unsupported unsupportedAllowlist, key unsuppo
 		t.Fatal(useErr)
 	}
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
-		t.Skipf("unsupported feature %s: %s", xerr.Code, xerr.Message)
+		t.Skipf("unsupported feature %s: %s", xerr.Code(), xerr.Message())
 	}
 	t.Skipf("unsupported feature: %v", err)
 }
@@ -489,7 +489,7 @@ func unsupportedInstanceKey(tc manifestCase, inst manifestInstance) unsupportedK
 
 func unsupportedErrorCode(err error) string {
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
-		return string(xerr.Code)
+		return string(xerr.Code())
 	}
 	return "unsupported"
 }

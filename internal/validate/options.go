@@ -112,5 +112,5 @@ func byteLimitOrDefault(value, def int64) int64 {
 }
 
 func optionError(msg string) error {
-	return xsderrors.Validation(xsderrors.CodeValidationOption, 0, 0, "", msg)
+	return xsderrors.Validation(xsderrors.CodeValidationOption, msg, nil)
 }

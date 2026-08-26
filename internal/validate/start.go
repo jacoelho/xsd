@@ -197,18 +197,16 @@ func resolveXSIType(
 }
 
 func validation(ctx StartContext, code xsderrors.Code, msg string) error {
-	return xsderrors.Validation(code, ctx.Line, ctx.Column, ctx.PathString(), msg)
+	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(code, msg, nil))
 }
 
 func unsupportedSchemaLocation(ctx StartContext, component string, rn runtime.RuntimeName) error {
-	return xsderrors.UnsupportedAt(
-		xsderrors.CodeUnsupportedSchemaHint,
-		ctx.Line,
-		ctx.Column,
-		ctx.PathString(),
-		"xsi:schemaLocation loading is not supported for "+component+" "+rn.Label(),
-		nil,
-	)
+	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column,
+		xsderrors.Unsupported(
+			xsderrors.CodeUnsupportedSchemaHint,
+			"xsi:schemaLocation loading is not supported for "+component+" "+rn.Label(),
+			nil,
+		))
 }
 
 // IsXSITypeName reports whether name is the xsi:type attribute.

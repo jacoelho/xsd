@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/xml"
+	"maps"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -21,6 +22,13 @@ type SchemaLocationHints struct {
 type schemaLocationHintLimits struct {
 	Namespaces     int
 	NamespaceBytes int64
+}
+
+func cloneSchemaLocationHints(h SchemaLocationHints) SchemaLocationHints {
+	return SchemaLocationHints{
+		namespaces:     maps.Clone(h.namespaces),
+		namespaceBytes: h.namespaceBytes,
+	}
 }
 
 // RecordAttribute records one xsi:schemaLocation or

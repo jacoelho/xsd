@@ -48,11 +48,11 @@ func TestSchemaXMLNamespaceWellFormedness(t *testing.T) {
 			if !errors.As(err, &schemaErr) {
 				t.Fatalf("Compile() error = %v, want structured schema error", err)
 			}
-			if schemaErr.Code != xsderrors.CodeSchemaXML || schemaErr.Path != "malformed.xsd" {
+			if schemaErr.Code() != xsderrors.CodeSchemaXML || schemaErr.Path() != "malformed.xsd" {
 				t.Fatalf("Compile() error = %#v, want code %q and source path", schemaErr, xsderrors.CodeSchemaXML)
 			}
-			if schemaErr.Line == 0 || schemaErr.Column == 0 {
-				t.Fatalf("Compile() location = %d:%d, want nonzero", schemaErr.Line, schemaErr.Column)
+			if schemaErr.Line() == 0 || schemaErr.Column() == 0 {
+				t.Fatalf("Compile() location = %d:%d, want nonzero", schemaErr.Line(), schemaErr.Column())
 			}
 		})
 	}
@@ -72,8 +72,11 @@ func TestSchemaUnsupportedXMLDeclarationClassificationDoesNotDependOnPreviewLeng
 			schema := `<?xml` + strings.Repeat(" ", 70<<10) + test.content + `?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
 			_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 			var schemaErr *xsderrors.Error
-			if !errors.As(err, &schemaErr) || schemaErr.Code != test.code {
+			if !errors.As(err, &schemaErr) || schemaErr.Code() != test.code {
 				t.Fatalf("Compile() error = %v, want %q", err, test.code)
+			}
+			if test.code == xsderrors.CodeUnsupportedXML11 && schemaErr.Cause() != nil {
+				t.Fatalf("Compile() XML 1.1 cause = %T, want nil", schemaErr.Cause())
 			}
 		})
 	}
@@ -90,7 +93,7 @@ func TestSchemaAttributeDatatypeWhitespaceIsCollapsed(t *testing.T) {
 
 	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace=" "/>`))})
 	var schemaErr *xsderrors.Error
-	if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaInvalidAttribute {
+	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaInvalidAttribute {
 		t.Fatalf("Compile(whitespace targetNamespace) error = %v, want %q", err, xsderrors.CodeSchemaInvalidAttribute)
 	}
 }
@@ -201,11 +204,11 @@ func TestSchemaGraphAnyURIsFailBeforeResolution(t *testing.T) {
 				t.Fatal("resolver called before URI lexical validation")
 			}
 			var schemaErr *xsderrors.Error
-			if !errors.As(err, &schemaErr) || schemaErr.Code != test.code || schemaErr.Path != "root.xsd" {
+			if !errors.As(err, &schemaErr) || schemaErr.Code() != test.code || schemaErr.Path() != "root.xsd" {
 				t.Fatalf("Compile() error = %v, want %q at root.xsd", err, test.code)
 			}
-			if schemaErr.Line == 0 || schemaErr.Column == 0 {
-				t.Fatalf("Compile() location = %d:%d, want nonzero", schemaErr.Line, schemaErr.Column)
+			if schemaErr.Line() == 0 || schemaErr.Column() == 0 {
+				t.Fatalf("Compile() location = %d:%d, want nonzero", schemaErr.Line(), schemaErr.Column())
 			}
 		})
 	}
@@ -223,7 +226,7 @@ func TestResolvedSchemaTargetNamespaceAnyURIIsValidated(t *testing.T) {
 		t.Fatalf("resolver calls = %d, want 1", called)
 	}
 	var schemaErr *xsderrors.Error
-	if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaInvalidAttribute || schemaErr.Path != "child.xsd" {
+	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaInvalidAttribute || schemaErr.Path() != "child.xsd" {
 		t.Fatalf("Compile() error = %v, want %q at child.xsd", err, xsderrors.CodeSchemaInvalidAttribute)
 	}
 }
@@ -238,7 +241,7 @@ func TestSchemaAnyURIAttributesAreValidated(t *testing.T) {
 	for _, body := range tests {
 		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		var schemaErr *xsderrors.Error
-		if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaInvalidAttribute {
+		if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaInvalidAttribute {
 			t.Fatalf("Compile(%s) error = %v, want %q", body, err, xsderrors.CodeSchemaInvalidAttribute)
 		}
 	}
@@ -361,7 +364,7 @@ func TestChameleonStructuralChecksUseDeclaredTargetNamespace(t *testing.T) {
 			root := source.Bytes("root.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:include schemaLocation="child.xsd"/></xs:schema>`)).WithResolver(resolver)
 			_, err := compile.Compile(compile.Options{}, []source.Source{root})
 			var schemaErr *xsderrors.Error
-			if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaReference {
+			if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaReference {
 				t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaReference)
 			}
 		})

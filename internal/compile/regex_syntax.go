@@ -21,7 +21,7 @@ func ValidateXSDRegexSyntax(source string, categories RegexCategoryCache) error 
 		return err
 	}
 	if goUnsupported {
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source)
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source, nil)
 	}
 	return nil
 }

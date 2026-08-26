@@ -77,16 +77,60 @@ type ContentMatch struct {
 	StrictMissing bool
 }
 
-// ContentAdvanceStatus reports the outcome of one content-model transition.
-type ContentAdvanceStatus uint8
+// ContentTransition is one validated content-model transition. It owns the
+// parent state and all-group bit update until Commit applies both together.
+type ContentTransition struct {
+	match    ContentMatch
+	from     ContentState
+	next     ContentState
+	allIndex int
+	markAll  bool
+	valid    bool
+}
+
+// Match returns the declaration or wildcard result selected by the transition.
+func (t ContentTransition) Match() ContentMatch {
+	return t.match
+}
+
+// CanCommit reports whether state and scratch still match the transition's
+// preconditions.
+func (t ContentTransition) CanCommit(state ContentState, scratch *ContentScratch) bool {
+	if !t.valid || state != t.from {
+		return false
+	}
+	if !t.markAll {
+		return true
+	}
+	seen, ok := scratch.AllSeen(t.allIndex)
+	return ok && !seen
+}
+
+// Commit applies a transition produced for state and scratch. It returns false
+// when either no transition was planned or its parent state is stale.
+func (t ContentTransition) Commit(state *ContentState, scratch *ContentScratch) bool {
+	if state == nil || !t.CanCommit(*state, scratch) {
+		return false
+	}
+	if t.markAll {
+		if !scratch.SetAllSeen(t.allIndex) {
+			return false
+		}
+	}
+	*state = t.next
+	return true
+}
+
+// ContentTransitionStatus reports the outcome of planning one content-model transition.
+type ContentTransitionStatus uint8
 
 const (
-	// ContentAdvanceInvalid reports invalid published metadata or state.
-	ContentAdvanceInvalid ContentAdvanceStatus = iota
-	// ContentAdvanceNoMatch reports a valid state with no matching transition.
-	ContentAdvanceNoMatch
-	// ContentAdvanceMatched reports a committed matching transition.
-	ContentAdvanceMatched
+	// ContentTransitionInvalid reports invalid published metadata or state.
+	ContentTransitionInvalid ContentTransitionStatus = iota
+	// ContentTransitionNoMatch reports a valid state with no matching transition.
+	ContentTransitionNoMatch
+	// ContentTransitionMatched reports a valid, uncommitted matching transition.
+	ContentTransitionMatched
 )
 
 // ContentCompletionStatus reports whether a content-model state may end.
@@ -147,7 +191,13 @@ func newCompiledParticleRead(p Particle) compiledParticleRead {
 	return compiledParticleRead{Element: p.Element, Wildcard: p.Wildcard, Kind: p.Kind}
 }
 
-func newCompiledModelReads(models []CompiledModel) []compiledModelRead {
+func newCompiledModelReads(models []CompiledModel, work ContentModelWork) ([]compiledModelRead, error) {
+	if err := requireContentModelWork(work); err != nil {
+		return nil, err
+	}
+	if err := chargeCompiledModelProjectionWork(models, work); err != nil {
+		return nil, err
+	}
 	rowCount, edgeCount, allCount := compiledModelReadCounts(models)
 	reads := make([]compiledModelRead, len(models))
 	rows := make([]compiledModelRowRead, rowCount)
@@ -204,7 +254,41 @@ func newCompiledModelReads(models []CompiledModel) []compiledModelRead {
 			Empty:     model.Empty,
 		}
 	}
-	return reads
+	return reads, nil
+}
+
+func chargeCompiledModelProjectionWork(models []CompiledModel, work ContentModelWork) error {
+	for _, model := range models {
+		if err := spendContentModelWork(work); err != nil {
+			return err
+		}
+		for range model.All {
+			if err := spendContentModelWork(work); err != nil {
+				return err
+			}
+		}
+		for _, row := range model.Rows {
+			if err := spendContentModelWork(work); err != nil {
+				return err
+			}
+			for range row.Edges {
+				if err := spendContentModelWork(work); err != nil {
+					return err
+				}
+			}
+			for range row.Index.NameToEdge {
+				if err := spendContentModelWork(work); err != nil {
+					return err
+				}
+			}
+			for range row.Index.WildcardEdges {
+				if err := spendContentModelWork(work); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func compiledModelReadCounts(models []CompiledModel) (rows, edges, all int) {
@@ -225,9 +309,19 @@ func addCompiledModelReadCount(total, count int) int {
 	return total + count
 }
 
-func validateCompiledModelReadProjectionTable(reads []compiledModelRead, models []CompiledModel) error {
+func validateCompiledModelReadProjectionTable(
+	reads []compiledModelRead,
+	models []CompiledModel,
+	work ContentModelWork,
+) error {
+	if err := requireContentModelWork(work); err != nil {
+		return err
+	}
 	if len(reads) != len(models) {
 		return errors.New("compiled model read projection count does not match compiled models")
+	}
+	if err := chargeCompiledModelProjectionWork(models, work); err != nil {
+		return err
 	}
 	for i := range reads {
 		read, model := reads[i], models[i]
@@ -308,29 +402,30 @@ func (rt *Schema) ContentFrame(typ TypeID) ContentFrame {
 	return frame
 }
 
-// AdvanceContent advances one freeze-validated content-model state directly
-// from published schema slices.
-func (rt *Schema) AdvanceContent(st *ContentState, in ContentInput, scratch *ContentScratch) (ContentMatch, ContentAdvanceStatus) {
-	if st == nil {
-		return NoContentMatch(), ContentAdvanceInvalid
-	}
+// NextContent derives one transition from published schema slices without
+// mutating the parent state or caller-owned all-group scratch.
+func (rt *Schema) NextContent(st ContentState, in ContentInput, scratch *ContentScratch) (ContentTransition, ContentTransitionStatus) {
 	if !st.HasModel() {
-		return NoContentMatch(), ContentAdvanceInvalid
+		return ContentTransition{}, ContentTransitionInvalid
 	}
 	if !ValidContentModelID(st.model, len(rt.runtime.CompiledModels)) {
-		return NoContentMatch(), ContentAdvanceInvalid
+		return ContentTransition{}, ContentTransitionInvalid
 	}
 	model := &rt.runtime.CompiledModels[st.model]
 	switch model.Kind {
 	case CompiledModelAny:
-		return rt.matchPublishedAnyContent(in), ContentAdvanceMatched
+		return newContentTransition(st, st, rt.matchPublishedAnyContent(in)), ContentTransitionMatched
 	case CompiledModelAll:
-		return rt.advancePublishedAllContent(model, in, scratch)
+		return rt.nextPublishedAllContent(st, model, in, scratch)
 	case CompiledModelDFA:
-		return rt.advancePublishedDFAContent(st, model, in)
+		return rt.nextPublishedDFAContent(st, model, in)
 	default:
-		return NoContentMatch(), ContentAdvanceInvalid
+		return ContentTransition{}, ContentTransitionInvalid
 	}
+}
+
+func newContentTransition(from, next ContentState, match ContentMatch) ContentTransition {
+	return ContentTransition{match: match, from: from, next: next, valid: true}
 }
 
 // CompleteContent reports whether a freeze-validated content state may end.
@@ -363,28 +458,28 @@ func (rt *Schema) matchPublishedAnyContent(in ContentInput) ContentMatch {
 	return ContentMatch{Element: NoElement}
 }
 
-func (rt *Schema) advancePublishedAllContent(model *compiledModelRead, in ContentInput, scratch *ContentScratch) (ContentMatch, ContentAdvanceStatus) {
+func (rt *Schema) nextPublishedAllContent(st ContentState, model *compiledModelRead, in ContentInput, scratch *ContentScratch) (ContentTransition, ContentTransitionStatus) {
 	for i, term := range model.All {
 		seen, valid := scratch.AllSeen(i)
 		if !valid {
-			return NoContentMatch(), ContentAdvanceInvalid
+			return ContentTransition{}, ContentTransitionInvalid
 		}
 		if seen {
 			continue
 		}
 		match, matched, valid := rt.matchPublishedDirectParticle(term.Particle, in)
 		if !valid {
-			return NoContentMatch(), ContentAdvanceInvalid
+			return ContentTransition{}, ContentTransitionInvalid
 		}
 		if !matched {
 			continue
 		}
-		if !scratch.SetAllSeen(i) {
-			return NoContentMatch(), ContentAdvanceInvalid
-		}
-		return match, ContentAdvanceMatched
+		transition := newContentTransition(st, st, match)
+		transition.allIndex = i
+		transition.markAll = true
+		return transition, ContentTransitionMatched
 	}
-	return NoContentMatch(), ContentAdvanceNoMatch
+	return ContentTransition{}, ContentTransitionNoMatch
 }
 
 func completePublishedAllContent(model *compiledModelRead, scratch *ContentScratch) ContentCompletionStatus {
@@ -412,28 +507,29 @@ func completePublishedAllContent(model *compiledModelRead, scratch *ContentScrat
 	return ContentCompletionComplete
 }
 
-func (rt *Schema) advancePublishedDFAContent(st *ContentState, model *compiledModelRead, in ContentInput) (ContentMatch, ContentAdvanceStatus) {
+func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
 	if !ValidUint32Index(st.state, len(model.Rows)) {
-		return NoContentMatch(), ContentAdvanceInvalid
+		return ContentTransition{}, ContentTransitionInvalid
 	}
 	row := &model.Rows[st.state]
 	if row.Index.IsEnabled() {
-		return rt.advancePublishedIndexedDFAContent(st, model, row, row.Index, in)
+		return rt.nextPublishedIndexedDFAContent(st, model, row, row.Index, in)
 	}
 	for _, edge := range row.Edges {
 		match, matched, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
 		if !valid {
-			return NoContentMatch(), ContentAdvanceInvalid
+			return ContentTransition{}, ContentTransitionInvalid
 		}
 		if !matched {
 			continue
 		}
-		if !advancePublishedDFAState(st, model, edge) {
+		next, ok := nextPublishedDFAState(st, model, edge)
+		if !ok {
 			continue
 		}
-		return match, ContentAdvanceMatched
+		return newContentTransition(st, next, match), ContentTransitionMatched
 	}
-	return NoContentMatch(), ContentAdvanceNoMatch
+	return ContentTransition{}, ContentTransitionNoMatch
 }
 
 func completePublishedDFAContent(st ContentState, model *compiledModelRead) ContentCompletionStatus {
@@ -447,7 +543,7 @@ func completePublishedDFAContent(st ContentState, model *compiledModelRead) Cont
 	return ContentCompletionIncomplete
 }
 
-func (rt *Schema) advancePublishedIndexedDFAContent(st *ContentState, model *compiledModelRead, row *compiledModelRowRead, idx DFARowIndex, in ContentInput) (ContentMatch, ContentAdvanceStatus) {
+func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, idx DFARowIndex, in ContentInput) (ContentTransition, ContentTransitionStatus) {
 	elemPos := -1
 	if in.Name.Known {
 		if pos, ok := idx.NameToEdge[in.Name.Name]; ok {
@@ -465,20 +561,21 @@ func (rt *Schema) advancePublishedIndexedDFAContent(st *ContentState, model *com
 			pos = elemPos
 			elemPos = -1
 		default:
-			return NoContentMatch(), ContentAdvanceNoMatch
+			return ContentTransition{}, ContentTransitionNoMatch
 		}
 		edge := row.Edges[pos]
 		match, matched, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
 		if !valid {
-			return NoContentMatch(), ContentAdvanceInvalid
+			return ContentTransition{}, ContentTransitionInvalid
 		}
 		if !matched {
 			continue
 		}
-		if !advancePublishedDFAState(st, model, edge) {
+		next, ok := nextPublishedDFAState(st, model, edge)
+		if !ok {
 			continue
 		}
-		return match, ContentAdvanceMatched
+		return newContentTransition(st, next, match), ContentTransitionMatched
 	}
 }
 
@@ -536,14 +633,14 @@ func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput
 	return NoContentMatch(), true
 }
 
-func advancePublishedDFAState(st *ContentState, model *compiledModelRead, edge compiledModelEdgeRead) bool {
+func nextPublishedDFAState(st ContentState, model *compiledModelRead, edge compiledModelEdgeRead) (ContentState, bool) {
 	to := edge.To
 	from := &model.Rows[st.state]
 	next := &model.Rows[to]
 	count := uint32(0)
 	if from.Counted && to == st.state && sameCompiledParticleRead(edge.Particle, from.CountParticle) {
 		if !from.Unbounded && st.count >= from.Max {
-			return false
+			return ContentState{}, false
 		}
 		count = st.count
 		if count != math.MaxUint32 {
@@ -551,7 +648,7 @@ func advancePublishedDFAState(st *ContentState, model *compiledModelRead, edge c
 		}
 	} else {
 		if from.Counted && st.count < from.Min {
-			return false
+			return ContentState{}, false
 		}
 		if next.Counted && sameCompiledParticleRead(edge.Particle, next.CountParticle) {
 			count = 1
@@ -559,5 +656,5 @@ func advancePublishedDFAState(st *ContentState, model *compiledModelRead, edge c
 	}
 	st.state = to
 	st.count = count
-	return true
+	return st, true
 }

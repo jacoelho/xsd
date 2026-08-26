@@ -24,7 +24,8 @@ func TestParserResetClassifiesXMLProlog(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var parser Parser
-			err := parser.Reset(strings.NewReader(test.xml), nil, nil)
+			names, values := NewCache(), NewCache()
+			err := parser.Reset(strings.NewReader(test.xml), &names, &values)
 			if !errors.Is(err, test.want) {
 				var gotVersion UnsupportedXMLVersionError
 				var wantVersion UnsupportedXMLVersionError
@@ -67,7 +68,8 @@ func TestParserResetBOMPreservesFullDeclarationPreview(t *testing.T) {
 	declaration := prefix + strings.Repeat(" ", xmlInputBufferSize-len(prefix)-len(suffix)) + suffix
 	for _, bom := range []string{"", "\ufeff"} {
 		var parser Parser
-		err := parser.Reset(strings.NewReader(bom+declaration+`<r/>`), nil, nil)
+		names, values := NewCache(), NewCache()
+		err := parser.Reset(strings.NewReader(bom+declaration+`<r/>`), &names, &values)
 		if !errors.Is(err, ErrUnsupportedNonUTF8) {
 			t.Fatalf("BOM %t: Parser.Reset() error = %v, want %v", bom != "", err, ErrUnsupportedNonUTF8)
 		}
@@ -80,7 +82,8 @@ func (noProgressReader) Read([]byte) (int, error) { return 0, nil }
 
 func TestParserResetRejectsNoProgressAndDetaches(t *testing.T) {
 	var parser Parser
-	err := parser.Reset(noProgressReader{}, nil, nil)
+	names, values := NewCache(), NewCache()
+	err := parser.Reset(noProgressReader{}, &names, &values)
 	if !errors.Is(err, io.ErrNoProgress) {
 		t.Fatalf("Parser.Reset() error = %v, want %v", err, io.ErrNoProgress)
 	}
@@ -124,7 +127,8 @@ func TestParserResetReturnsErrorWithShortPrefix(t *testing.T) {
 	sentinel := errors.New("sentinel")
 	reader := &dataErrorReader{data: []byte(`<r`), err: sentinel}
 	var parser Parser
-	if err := parser.Reset(reader, nil, nil); !errors.Is(err, sentinel) {
+	names, values := NewCache(), NewCache()
+	if err := parser.Reset(reader, &names, &values); !errors.Is(err, sentinel) {
 		t.Fatalf("Parser.Reset() error = %v, want %v", err, sentinel)
 	}
 	if parser.br.r != nil {
@@ -147,7 +151,7 @@ func (r chunkReader) Read(p []byte) (int, error) {
 func consumeWithInputLimit(r io.Reader, limit int64) error {
 	var parser Parser
 	names, values := NewCache(), NewCache()
-	if err := parser.ResetWithLimits(r, &names, &values, Limits{MaxInputBytes: limit}); err != nil {
+	if err := parser.ResetWithConfig(r, &names, &values, Config{Limits: Limits{MaxInputBytes: limit}}); err != nil {
 		return err
 	}
 	defer parser.Detach()
@@ -277,7 +281,8 @@ func TestParserNextPreservesUnsupportedDeclarationClassificationBeyondPreview(t 
 func TestParserDetachDoesNotResetCallerBufferedReader(t *testing.T) {
 	callerReader := bufio.NewReaderSize(strings.NewReader("<root/>"), xmlInputBufferSize*2)
 	var parser Parser
-	if err := parser.Reset(callerReader, nil, nil); err != nil {
+	names, values := NewCache(), NewCache()
+	if err := parser.Reset(callerReader, &names, &values); err != nil {
 		t.Fatal(err)
 	}
 	parser.Detach()

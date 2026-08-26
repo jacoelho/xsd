@@ -62,7 +62,7 @@ func TestSchemaSetAggregateLimits(t *testing.T) {
 				}
 				return
 			}
-			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
+			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 				t.Fatalf("Compile() error = %v, want schema limit", err)
 			}
 		})
@@ -76,7 +76,7 @@ func TestSchemaTotalByteLimitPreservesAcquisitionErrors(t *testing.T) {
 	assertLimitAndClose := func(t *testing.T, err error) {
 		t.Helper()
 		xerr, ok := errors.AsType[*xsderrors.Error](err)
-		if !ok || xerr.Code != xsderrors.CodeSchemaLimit || !errors.Is(err, closeErr) {
+		if !ok || xerr.Code() != xsderrors.CodeSchemaLimit || !errors.Is(err, closeErr) {
 			t.Fatalf("Compile() error = %v, want total-byte limit preserving close error", err)
 		}
 	}
@@ -120,7 +120,26 @@ func TestExplicitSchemaSourceLimitPrecedesMappingAndOpening(t *testing.T) {
 			})
 		})
 
-	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
+		t.Fatalf("CompileMappedSources() error = %v, want schema limit", err)
+	}
+	if mapperCalls != 0 {
+		t.Fatalf("source mapper calls = %d, want 0", mapperCalls)
+	}
+}
+
+func TestBuiltinNameLimitPrecedesSourceMappingAndOpening(t *testing.T) {
+	t.Parallel()
+
+	mapperCalls := 0
+	_, err := CompileMappedSources(Options{MaxSchemaNames: 1}, []string{"schema.xsd"}, func(name string) source.Source {
+		mapperCalls++
+		return source.Opener(name, func() (io.ReadCloser, error) {
+			t.Fatal("source was opened after fixed-name preflight failed")
+			return nil, nil
+		})
+	})
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("CompileMappedSources() error = %v, want schema limit", err)
 	}
 	if mapperCalls != 0 {
@@ -140,7 +159,7 @@ func TestExplicitSchemaSourceLimitCountsSameIdentityDescriptors(t *testing.T) {
 		})
 	}
 	_, err := Compile(Options{MaxSchemaSources: 1}, []source.Source{sourceFor(), sourceFor()})
-	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("Compile() error = %v, want schema limit", err)
 	}
 	if openCalls != 0 {
@@ -172,7 +191,7 @@ func TestSchemaSourceLimitCombinesExplicitDescriptorsAndResolvedIdentities(t *te
 	}
 
 	resolverCalls, childOpenCalls, err := compileWithLimit(2)
-	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("Compile(limit 2) error = %v, want schema limit", err)
 	}
 	if resolverCalls != 1 || childOpenCalls != 0 {
@@ -267,7 +286,7 @@ func TestSchemaSetAggregateByteLimitIncludesDirectIdentityVerificationReads(t *t
 		t.Fatalf("Compile(exact identity verification budget) error = %v", err)
 	}
 	_, err := Compile(Options{MaxSchemaTotalBytes: int64(2*len(data) - 1)}, sources)
-	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("Compile(over identity verification budget) error = %v, want schema limit", err)
 	}
 }
@@ -352,6 +371,27 @@ func TestSchemaReferenceLimitPrecedesResolverCalls(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatalf("resolver calls = %d, want 0", calls)
+	}
+}
+
+func TestSchemaDependencyStepLimitStopsResolutionIncrementally(t *testing.T) {
+	t.Parallel()
+
+	rootData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="a.xsd"/><xs:include schemaLocation="b.xsd"/></xs:schema>`)
+	calls := 0
+	resolver := source.Resolver(func(_, _ string) (source.Source, error) {
+		calls++
+		return source.Source{}, xsderrors.ErrSchemaNotFound
+	})
+	_, err := Compile(Options{MaxSchemaDependencySteps: 1}, []source.Source{
+		source.Bytes("root.xsd", rootData).WithResolver(resolver),
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "MaxSchemaDependencySteps") {
+		t.Fatalf("Compile() error = %v, want dependency-step limit", err)
+	}
+	if calls != 1 {
+		t.Fatalf("resolver calls = %d, want 1", calls)
 	}
 }
 

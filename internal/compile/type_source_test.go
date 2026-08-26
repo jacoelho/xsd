@@ -142,8 +142,8 @@ func TestParseUnionMemberTypes(t *testing.T) {
 				if !ok {
 					t.Fatalf("ParseUnionMemberTypes() error = %T %[1]v, want xsderrors.Error", err)
 				}
-				if diag.Code != xsderrors.CodeSchemaReference || diag.Message != tt.wantMessage {
-					t.Fatalf("diagnostic = (%s, %q), want (%s, %q)", diag.Code, diag.Message, xsderrors.CodeSchemaReference, tt.wantMessage)
+				if diag.Code() != xsderrors.CodeSchemaReference || diag.Message() != tt.wantMessage {
+					t.Fatalf("diagnostic = (%s, %q), want (%s, %q)", diag.Code(), diag.Message(), xsderrors.CodeSchemaReference, tt.wantMessage)
 				}
 				return
 			}
@@ -163,8 +163,8 @@ func expectXSDMessage(t *testing.T, err error, code xsderrors.Code, message stri
 	if !ok {
 		t.Fatalf("error = %T %[1]v, want xsderrors.Error", err)
 	}
-	if diag.Category != xsderrors.CategorySchemaCompile || diag.Code != code || diag.Message != message {
+	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != code || diag.Message() != message {
 		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)",
-			diag.Category, diag.Code, diag.Message, xsderrors.CategorySchemaCompile, code, message)
+			diag.Category(), diag.Code(), diag.Message(), xsderrors.CategorySchemaCompile, code, message)
 	}
 }

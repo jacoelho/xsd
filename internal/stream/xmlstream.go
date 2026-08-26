@@ -55,6 +55,8 @@ var (
 	errXMLAttributeLimit          = errors.New("XML attribute count limit exceeded")
 	errXMLInputLimit              = errors.New("XML input byte limit exceeded")
 	errXMLTokenLimit              = errors.New("XML token byte limit exceeded")
+	errXMLNilCache                = errors.New("XML string cache is nil")
+	errXMLNegativeLimit           = errors.New("XML parser limit cannot be negative")
 )
 
 var (
@@ -100,15 +102,33 @@ type Limits struct {
 	MaxAttrs      int
 }
 
-// Reset prepares p to read r using the supplied string caches.
-func (p *Parser) Reset(r io.Reader, names, values *Cache) error {
-	return p.ResetWithLimits(r, names, values, Limits{})
+// Config defines one parser input lifecycle. Modes cannot change after reset.
+type Config struct {
+	Limits         Limits
+	EmitComments   bool
+	EmitPI         bool
+	LazyAttrValues bool
 }
 
-// ResetWithLimits prepares p to read r and enforces positive limits.
-func (p *Parser) ResetWithLimits(r io.Reader, names, values *Cache, limits Limits) error {
+// Reset prepares p to read r using the supplied string caches.
+func (p *Parser) Reset(r io.Reader, names, values *Cache) error {
+	return p.ResetWithConfig(r, names, values, Config{})
+}
+
+// ResetWithConfig atomically prepares p to read r with one validated configuration.
+func (p *Parser) ResetWithConfig(r io.Reader, names, values *Cache, config Config) error {
+	limits := config.Limits
 	if isNilReader(r) {
-		r = nil
+		p.Detach()
+		return ErrXMLInputNilReader
+	}
+	if names == nil || values == nil {
+		p.Detach()
+		return errXMLNilCache
+	}
+	if limits.MaxInputBytes < 0 || limits.MaxTokenBytes < 0 || limits.MaxAttrs < 0 {
+		p.Detach()
+		return errXMLNegativeLimit
 	}
 	p.names = names
 	p.values = values
@@ -128,9 +148,9 @@ func (p *Parser) ResetWithLimits(r io.Reader, names, values *Cache, limits Limit
 	p.hasEnd = false
 	p.inCDATA = false
 	p.atStart = true
-	p.emitComments = false
-	p.emitPI = false
-	p.lazyAttrValue = false
+	p.emitComments = config.EmitComments
+	p.emitPI = config.EmitPI
+	p.lazyAttrValue = config.LazyAttrValues
 	if err := p.prepareXMLProlog(); err != nil {
 		p.Detach()
 		return err
@@ -158,6 +178,16 @@ func (p *Parser) Detach() {
 	p.names = nil
 	p.values = nil
 	p.pendingEnd = EndElement{}
+	p.hasEnd = false
+	p.inCDATA = false
+	p.atStart = false
+	p.cdataMatched = 0
+	p.retainedBytes = 0
+	p.maxAttrs = 0
+	p.maxTokenBytes = 0
+	p.emitComments = false
+	p.emitPI = false
+	p.lazyAttrValue = false
 	clear(p.attrs)
 	p.attrs = p.attrs[:0]
 }
@@ -239,22 +269,6 @@ func (p *Parser) Next() (Token, error) {
 // Pos returns the current parser line and byte column.
 func (p *Parser) Pos() (int, int) {
 	return p.br.pos()
-}
-
-// SetEmitComments controls whether comment tokens are emitted.
-func (p *Parser) SetEmitComments(enabled bool) {
-	p.emitComments = enabled
-}
-
-// SetEmitPI controls whether processing-instruction tokens are emitted.
-func (p *Parser) SetEmitPI(enabled bool) {
-	p.emitPI = enabled
-}
-
-// SetLazyAttrValue controls whether attributes keep parser-owned raw bytes
-// until callers ask for an owned string.
-func (p *Parser) SetLazyAttrValue(enabled bool) {
-	p.lazyAttrValue = enabled
 }
 
 // IsTokenLimit reports whether err is the parser token-byte limit error.

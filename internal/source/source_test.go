@@ -207,21 +207,6 @@ func TestResolveFromPreservesExtendedResolverInputs(t *testing.T) {
 	}
 }
 
-func TestResolveRejectsMalformedReferenceBeforeResolver(t *testing.T) {
-	t.Parallel()
-	called := false
-	s := Bytes("root.xsd", nil).WithResolver(func(_, _ string) (Source, error) {
-		called = true
-		return Bytes("child.xsd", nil), nil
-	})
-	if _, err := s.Resolve("root.xsd", "http://[bad]/"); !IsReferenceResolutionError(err) {
-		t.Fatalf("Resolve() error = %v, want reference-resolution error", err)
-	}
-	if called {
-		t.Fatal("Resolve() called resolver for a malformed reference")
-	}
-}
-
 func TestFileResolverUsesEscapedProjectionAfterCustomBoundary(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -234,7 +219,7 @@ func TestFileResolverUsesEscapedProjectionAfterCustomBoundary(t *testing.T) {
 	if err := os.WriteFile(child, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	resolution, err := File(root).Resolve(root, childName)
+	resolution, err := File(root).ResolveFrom(NewReferenceBase(root), mustURIReference(t, childName))
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
@@ -308,38 +293,37 @@ func TestKeyPreservesLocalMarkerForSchemeShapedInvalidURI(t *testing.T) {
 
 func TestBytesNilIsEmptySource(t *testing.T) {
 	t.Parallel()
-	data, err := Bytes("empty.xsd", nil).Read(1)
-	if err != nil {
-		t.Fatalf("Bytes(nil).Read() error = %v", err)
+	result := Bytes("empty.xsd", nil).Acquire(1)
+	if result.Err != nil {
+		t.Fatalf("Bytes(nil).Acquire() error = %v", result.Err)
 	}
-	if data == nil || len(data) != 0 {
-		t.Fatalf("Bytes(nil).Read() = %#v, want non-nil empty slice", data)
+	if result.Data == nil || len(result.Data) != 0 {
+		t.Fatalf("Bytes(nil).Acquire() = %#v, want non-nil empty slice", result.Data)
 	}
 }
 
-func TestBytesCopiesInputAndOutput(t *testing.T) {
+func TestBytesCopiesInput(t *testing.T) {
 	t.Parallel()
 	input := []byte("schema")
 	s := Bytes("schema.xsd", input)
 	input[0] = 'X'
-	first, err := s.Read(100)
-	if err != nil {
-		t.Fatal(err)
+	result := s.Acquire(100)
+	if result.Err != nil {
+		t.Fatal(result.Err)
 	}
-	first[0] = 'Y'
-	second, err := s.Read(100)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := string(second); got != "schema" {
-		t.Fatalf("second read = %q, want schema", got)
+	if got := string(result.Data); got != "schema" {
+		t.Fatalf("acquired data = %q, want schema", got)
 	}
 }
 
 func TestSourceResolve(t *testing.T) {
 	t.Parallel()
 	resolve := func(s Source, base, location string) (Source, string, bool, error) {
-		resolution, err := s.Resolve(base, location)
+		reference, err := uriref.Parse(location)
+		if err != nil {
+			return Source{}, "", false, err
+		}
+		resolution, err := s.ResolveFrom(NewReferenceBase(base), reference)
 		resolved, found := resolution.Source()
 		return resolved, resolution.Target(), found, err
 	}
@@ -558,11 +542,11 @@ func TestSourceResolve(t *testing.T) {
 		}
 	})
 
-	t.Run("malformed generic fragment is classified", func(t *testing.T) {
+	t.Run("malformed generic fragment is rejected at lexical boundary", func(t *testing.T) {
 		t.Parallel()
 		_, _, found, err := resolve(Bytes("base.xsd", nil), "base.xsd", "child.xsd#%zz")
-		if found || !IsReferenceResolutionError(err) {
-			t.Fatalf("Resolve() = found %v error %v, want reference-resolution error", found, err)
+		if found || err == nil {
+			t.Fatalf("Resolve() = found %v error %v, want lexical error", found, err)
 		}
 	})
 
@@ -574,7 +558,7 @@ func TestSourceResolve(t *testing.T) {
 			return Bytes("child.xsd", nil), nil
 		})
 		_, _, found, err := resolve(s, "base.xsd", "child.xsd#%zz")
-		if found || !IsReferenceResolutionError(err) {
+		if found || err == nil {
 			t.Fatalf("Resolve() = found %v error %v, want malformed reference error", found, err)
 		}
 		if called {
@@ -593,7 +577,7 @@ func TestSourceResolve(t *testing.T) {
 
 func TestSourceReadLimit(t *testing.T) {
 	t.Parallel()
-	_, err := Bytes("schema.xsd", []byte("1234")).Read(3)
+	err := Bytes("schema.xsd", []byte("1234")).Acquire(3).Err
 	if !IsSchemaLimitError(err) {
 		t.Fatalf("Read() error = %v, want schema limit", err)
 	}
@@ -824,7 +808,7 @@ func TestOpenerReturnsCloseErrorAfterSuccessfulRead(t *testing.T) {
 	s := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return closeErrorReader{Reader: strings.NewReader("schema"), err: want}, nil
 	})
-	if _, err := s.Read(100); !errors.Is(err, want) {
+	if err := s.Acquire(100).Err; !errors.Is(err, want) {
 		t.Fatalf("Read() error = %v, want %v", err, want)
 	}
 }

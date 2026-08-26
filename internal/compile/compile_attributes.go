@@ -7,14 +7,26 @@ import (
 )
 
 func (c *compiler) compileAttributeByQName(q runtime.QName) (runtime.AttributeID, error) {
+	raw, exists := c.attributeRaw[q]
+	var source *rawNode
+	if exists {
+		source = raw.node
+	}
+	if err := c.spendComponentDependency(source); err != nil {
+		return 0, err
+	}
 	if id, ok := c.attributeDone[q]; ok {
 		return id, nil
 	}
 	label := c.rt.formatName(q)
-	raw, ok := c.attributeRaw[q]
-	if err := CheckSchemaComponentExists(SchemaComponentAttribute, ok, label); err != nil {
+	if err := CheckSchemaComponentExists(SchemaComponentAttribute, exists, label); err != nil {
 		return 0, err
 	}
+	leave, err := c.enterComponent(raw.node)
+	if err != nil {
+		return 0, err
+	}
+	defer leave()
 	decl, err := c.compileAttributeDecl(raw.node, raw.ctx, q)
 	if err != nil {
 		return 0, err
@@ -155,7 +167,7 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 	merger := NewAttributeUseMerger(inherited, inheritedWildcard, mode)
 	wildcards := NewAttributeWildcardBuilder(inheritedWildcard, mode)
 	for _, child := range parent.Children {
-		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
+		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
 			continue
 		}
 		switch ClassifyAttributeUseChild(child.Name.Local) {
@@ -351,7 +363,15 @@ func (c *compiler) compileAttributeRefUse(n *rawNode, ctx *schemaContext, ref st
 }
 
 func (c *compiler) compileLocalAttributeUse(n *rawNode, ctx *schemaContext) (runtime.AttributeUse, error) {
-	if err := checkAttributeUseSource(n); err != nil {
+	if err := c.spendComponentDependency(n); err != nil {
+		return runtime.AttributeUse{}, err
+	}
+	leave, err := c.enterComponent(n)
+	if err != nil {
+		return runtime.AttributeUse{}, err
+	}
+	defer leave()
+	if err = checkAttributeUseSource(n); err != nil {
 		return runtime.AttributeUse{}, err
 	}
 	name, _ := n.attr(vocab.XSDAttrName)
@@ -405,19 +425,31 @@ func (c *compiler) compileAttributeGroupUse(n *rawNode, ctx *schemaContext) ([]r
 }
 
 func (c *compiler) compileAttributeGroupByQName(q runtime.QName) ([]runtime.AttributeUse, runtime.WildcardID, error) {
-	if id, ok := c.attrGroupDone[q]; ok {
-		uses, wildcard := c.rt.attributeUsesAndWildcard(id)
-		return uses, wildcard, nil
-	}
 	label := c.rt.formatName(q)
-	raw, ok := c.attrGroupRaw[q]
-	if err := CheckSchemaComponentExists(SchemaComponentAttributeGroup, ok, label); err != nil {
-		return nil, runtime.NoWildcard, err
-	}
+	raw, exists := c.attrGroupRaw[q]
 	if c.compilingAttrGrp[q] {
 		err := CheckSchemaComponentRecursion(SchemaComponentAttributeGroup, true, label)
 		return nil, runtime.NoWildcard, withSchemaCompileLocation(raw.node, err)
 	}
+	var source *rawNode
+	if exists {
+		source = raw.node
+	}
+	if err := c.spendComponentDependency(source); err != nil {
+		return nil, runtime.NoWildcard, err
+	}
+	if id, ok := c.attrGroupDone[q]; ok {
+		uses, wildcard := c.rt.attributeUsesAndWildcard(id)
+		return uses, wildcard, nil
+	}
+	if err := CheckSchemaComponentExists(SchemaComponentAttributeGroup, exists, label); err != nil {
+		return nil, runtime.NoWildcard, err
+	}
+	leave, err := c.enterComponent(raw.node)
+	if err != nil {
+		return nil, runtime.NoWildcard, err
+	}
+	defer leave()
 	c.compilingAttrGrp[q] = true
 	defer delete(c.compilingAttrGrp, q)
 	id, err := c.compileAttributeUses(raw.node, raw.ctx, nil, runtime.NoWildcard, AttributeMergeNormal)

@@ -315,30 +315,47 @@ type TypeDerivationRuntime interface {
 
 // TypeDerivationMask reports the derivation steps used by derived to derive from base.
 func TypeDerivationMask[T TypeDerivationRuntime](rt T, derived, base TypeID) (DerivationMask, bool) {
+	mask, ok, err := typeDerivationMask(rt, derived, base, unboundedTypeDerivationWork)
+	if err != nil {
+		return 0, false
+	}
+	return mask, ok
+}
+
+func unboundedTypeDerivationWork(int) error { return nil }
+
+func typeDerivationMask[T TypeDerivationRuntime](
+	rt T,
+	derived, base TypeID,
+	work func(int) error,
+) (DerivationMask, bool, error) {
+	if err := work(1); err != nil {
+		return 0, false, err
+	}
 	if derived == base {
-		return 0, true
+		return 0, true, nil
 	}
 	if base == ComplexRef(rt.AnyTypeID()) {
 		if id, ok := derived.Complex(); ok {
-			return complexAnyTypeDerivationMask(rt, id)
+			return complexAnyTypeDerivationMask(rt, id, work)
 		}
-		return DerivationRestriction, true
+		return DerivationRestriction, true, nil
 	}
 	if derivedID, ok := derived.Complex(); ok {
 		if baseID, ok := base.Simple(); ok {
-			return complexSimpleTypeDerivationMask(rt, derivedID, baseID)
+			return complexSimpleTypeDerivationMask(rt, derivedID, baseID, work)
 		}
 		if baseID, ok := base.Complex(); ok {
-			return complexTypeDerivationMask(rt, derivedID, baseID)
+			return complexTypeDerivationMask(rt, derivedID, baseID, work)
 		}
-		return 0, false
+		return 0, false, nil
 	}
 	if derivedID, ok := derived.Simple(); ok {
 		if baseID, ok := base.Simple(); ok {
-			return simpleTypeDerivationMaskOf(rt, derivedID, baseID)
+			return simpleTypeDerivationMaskOf(rt, derivedID, baseID, work)
 		}
 	}
-	return 0, false
+	return 0, false, nil
 }
 
 type typeDerivationPair struct {
@@ -599,12 +616,20 @@ func substitutionTypeBlocks(rt TypeDerivationRuntime, derived, base TypeID) Deri
 	return blocks
 }
 
-func complexSimpleTypeDerivationMask[T TypeDerivationRuntime](rt T, derived ComplexTypeID, base SimpleTypeID) (DerivationMask, bool) {
+func complexSimpleTypeDerivationMask[T TypeDerivationRuntime](
+	rt T,
+	derived ComplexTypeID,
+	base SimpleTypeID,
+	work func(int) error,
+) (DerivationMask, bool, error) {
 	var mask DerivationMask
 	for range rt.ComplexTypeCount() {
+		if err := work(1); err != nil {
+			return 0, false, err
+		}
 		ct, ok := rt.ComplexTypeDerivation(derived)
 		if !ok {
-			return 0, false
+			return 0, false, nil
 		}
 		switch ct.Kind {
 		case DerivationKindExtension:
@@ -614,30 +639,40 @@ func complexSimpleTypeDerivationMask[T TypeDerivationRuntime](rt T, derived Comp
 		case DerivationKindNone:
 		}
 		if baseSimple, simple := ct.Base.Simple(); simple {
-			simpleMask, found := simpleTypeDerivationMaskOf(rt, baseSimple, base)
-			if !found {
-				return 0, false
+			simpleMask, found, err := simpleTypeDerivationMaskOf(rt, baseSimple, base, work)
+			if err != nil {
+				return 0, false, err
 			}
-			return mask | simpleMask, true
+			if !found {
+				return 0, false, nil
+			}
+			return mask | simpleMask, true, nil
 		}
 		baseComplex, ok := ct.Base.Complex()
 		if !ok {
-			return 0, false
+			return 0, false, nil
 		}
 		derived = baseComplex
 	}
-	return 0, false
+	return 0, false, nil
 }
 
-func complexAnyTypeDerivationMask[T TypeDerivationRuntime](rt T, derived ComplexTypeID) (DerivationMask, bool) {
+func complexAnyTypeDerivationMask[T TypeDerivationRuntime](
+	rt T,
+	derived ComplexTypeID,
+	work func(int) error,
+) (DerivationMask, bool, error) {
 	var mask DerivationMask
 	for range rt.ComplexTypeCount() {
+		if err := work(1); err != nil {
+			return 0, false, err
+		}
 		if derived == rt.AnyTypeID() {
-			return mask, true
+			return mask, true, nil
 		}
 		ct, ok := rt.ComplexTypeDerivation(derived)
 		if !ok {
-			return 0, false
+			return 0, false, nil
 		}
 		switch ct.Kind {
 		case DerivationKindExtension:
@@ -647,66 +682,74 @@ func complexAnyTypeDerivationMask[T TypeDerivationRuntime](rt T, derived Complex
 		case DerivationKindNone:
 		}
 		if ct.Base.IsSimple() {
-			return mask | DerivationRestriction, true
+			return mask | DerivationRestriction, true, nil
 		}
 		parent, ok := ct.Base.Complex()
 		if !ok {
-			return 0, false
+			return 0, false, nil
 		}
 		derived = parent
 	}
-	return 0, false
+	return 0, false, nil
 }
 
 func simpleTypeDerivationMaskOf[T TypeDerivationRuntime](
 	rt T,
 	derived, base SimpleTypeID,
-) (DerivationMask, bool) {
+	work func(int) error,
+) (DerivationMask, bool, error) {
 	if derived == base {
-		return 0, true
+		return 0, true, nil
+	}
+	if err := work(2); err != nil {
+		return 0, false, err
 	}
 	st, ok := rt.SimpleTypeDerivation(derived)
 	if !ok {
-		return 0, false
+		return 0, false, nil
 	}
 	baseType, ok := rt.SimpleTypeDerivation(base)
 	if !ok {
-		return 0, false
+		return 0, false, nil
 	}
 	if baseType.Variety != SimpleVarietyUnion {
-		return simpleTypeBaseChainDerivationMask(rt, derived, base, st)
+		return simpleTypeBaseChainDerivationMask(rt, derived, base, st, work)
 	}
-	return simpleTypeUnionDerivationMask(rt, derived, base)
+	return simpleTypeUnionDerivationMask(rt, derived, base, work)
 }
 
 func simpleTypeBaseChainDerivationMask[T TypeDerivationRuntime](
 	rt T,
 	derived, base SimpleTypeID,
 	st SimpleTypeDerivation,
-) (DerivationMask, bool) {
+	work func(int) error,
+) (DerivationMask, bool, error) {
 	anchor := derived
 	power, distance := uint64(1), uint64(0)
 	for {
 		if st.Base == NoSimpleType || st.Base == derived {
-			return 0, false
+			return 0, false, nil
 		}
 		derived = st.Base
 		if derived == base {
-			return DerivationRestriction, true
+			return DerivationRestriction, true, nil
 		}
 		distance++
 		if derived == anchor {
-			return 0, false
+			return 0, false, nil
 		}
 		if distance == power {
 			anchor = derived
 			power *= 2
 			distance = 0
 		}
+		if err := work(1); err != nil {
+			return 0, false, err
+		}
 		var ok bool
 		st, ok = rt.SimpleTypeDerivation(derived)
 		if !ok {
-			return 0, false
+			return 0, false, nil
 		}
 	}
 }
@@ -718,16 +761,26 @@ type simpleTypeDerivationFrame struct {
 	entered bool
 }
 
-func simpleTypeUnionDerivationMask[T TypeDerivationRuntime](rt T, derived, base SimpleTypeID) (DerivationMask, bool) {
+func simpleTypeUnionDerivationMask[T TypeDerivationRuntime](
+	rt T,
+	derived, base SimpleTypeID,
+	work func(int) error,
+) (DerivationMask, bool, error) {
 	limit := simpleTypeDerivationPairLimit(rt.SimpleTypeCount())
+	if err := work(min(limit, 1_024) + 2); err != nil {
+		return 0, false, err
+	}
 	stack := make([]simpleTypeDerivationFrame, 0, min(limit, 1_024))
 	stack = appendDFSFrame(stack, simpleTypeDerivationFrame{derived: derived, base: base}, limit)
 	seen := make(map[[2]SimpleTypeID]bool)
 	for len(stack) != 0 {
+		if err := work(3); err != nil {
+			return 0, false, err
+		}
 		last := len(stack) - 1
 		frame := &stack[last]
 		if frame.derived == frame.base {
-			return DerivationRestriction, true
+			return DerivationRestriction, true, nil
 		}
 		st, ok := rt.SimpleTypeDerivation(frame.derived)
 		if !ok {
@@ -745,6 +798,9 @@ func simpleTypeUnionDerivationMask[T TypeDerivationRuntime](rt T, derived, base 
 				stack = stack[:last]
 				continue
 			}
+			if err := work(1); err != nil {
+				return 0, false, err
+			}
 			seen[pair] = true
 			frame.entered = true
 		}
@@ -753,10 +809,13 @@ func simpleTypeUnionDerivationMask[T TypeDerivationRuntime](rt T, derived, base 
 			memberCount = len(baseType.Union)
 		}
 		if frame.next < memberCount {
+			if err := work(1); err != nil {
+				return 0, false, err
+			}
 			member := baseType.Union[frame.next]
 			frame.next++
 			if frame.derived == member {
-				return DerivationRestriction, true
+				return DerivationRestriction, true, nil
 			}
 			if seen[[2]SimpleTypeID{frame.derived, member}] {
 				continue
@@ -768,7 +827,7 @@ func simpleTypeUnionDerivationMask[T TypeDerivationRuntime](rt T, derived, base 
 			frame.next++
 			if st.Base != NoSimpleType && st.Base != frame.derived {
 				if st.Base == frame.base {
-					return DerivationRestriction, true
+					return DerivationRestriction, true, nil
 				}
 				if seen[[2]SimpleTypeID{st.Base, frame.base}] {
 					continue
@@ -779,7 +838,7 @@ func simpleTypeUnionDerivationMask[T TypeDerivationRuntime](rt T, derived, base 
 		}
 		stack = stack[:last]
 	}
-	return 0, false
+	return 0, false, nil
 }
 
 func simpleTypeDerivationPairLimit(count int) int {
@@ -793,16 +852,23 @@ func simpleTypeDerivationPairLimit(count int) int {
 	return count * count
 }
 
-func complexTypeDerivationMask[T TypeDerivationRuntime](rt T, derived, base ComplexTypeID) (DerivationMask, bool) {
+func complexTypeDerivationMask[T TypeDerivationRuntime](
+	rt T,
+	derived, base ComplexTypeID,
+	work func(int) error,
+) (DerivationMask, bool, error) {
 	var mask DerivationMask
 	for range rt.ComplexTypeCount() {
+		if err := work(1); err != nil {
+			return 0, false, err
+		}
 		ct, ok := rt.ComplexTypeDerivation(derived)
 		if !ok {
-			return 0, false
+			return 0, false, nil
 		}
 		parent, ok := ct.Base.Complex()
 		if !ok {
-			return 0, false
+			return 0, false, nil
 		}
 		switch ct.Kind {
 		case DerivationKindExtension:
@@ -812,9 +878,9 @@ func complexTypeDerivationMask[T TypeDerivationRuntime](rt T, derived, base Comp
 		case DerivationKindNone:
 		}
 		if parent == base {
-			return mask, true
+			return mask, true, nil
 		}
 		derived = parent
 	}
-	return 0, false
+	return 0, false, nil
 }

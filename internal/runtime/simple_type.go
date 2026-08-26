@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/jacoelho/xsd/internal/vocab"
 )
 
 // SimpleVariety identifies the runtime simple-type variety.
@@ -2018,11 +2020,11 @@ func ValidateSimpleTypeFinalAllows(final, derivation DerivationMask) error {
 func simpleTypeFinalDerivationName(derivation DerivationMask) string {
 	switch derivation {
 	case DerivationRestriction:
-		return derivationSetRestrictionToken
+		return vocab.XSDElemRestriction
 	case DerivationList:
-		return derivationSetListToken
+		return vocab.XSDElemList
 	case DerivationUnion:
-		return derivationSetUnionToken
+		return vocab.XSDElemUnion
 	default:
 		return "derivation"
 	}

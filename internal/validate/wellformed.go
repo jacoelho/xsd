@@ -33,15 +33,17 @@ func (c *xmlWellFormedChecker) check(r io.Reader) error {
 	names := stream.NewCache()
 	values := stream.NewCache()
 	var parser stream.Parser
-	if err := parser.ResetWithLimits(r, &names, &values, stream.Limits{
-		MaxInputBytes: c.maxInputBytes,
-		MaxTokenBytes: c.maxTokenBytes,
-		MaxAttrs:      c.maxAttributes,
+	if err := parser.ResetWithConfig(r, &names, &values, stream.Config{
+		Limits: stream.Limits{
+			MaxInputBytes: c.maxInputBytes,
+			MaxTokenBytes: c.maxTokenBytes,
+			MaxAttrs:      c.maxAttributes,
+		},
+		LazyAttrValues: true,
 	}); err != nil {
 		return instanceReaderError(err)
 	}
 	defer parser.Detach()
-	parser.SetLazyAttrValue(true)
 	for {
 		tok, err := parser.Next()
 		if err != nil {

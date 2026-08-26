@@ -85,8 +85,8 @@ func expectSchemaLimitDiagnostic(t *testing.T, err error, msg string) {
 	if !ok {
 		t.Fatalf("error = %T %[1]v, want *xsderrors.Error", err)
 	}
-	if x.Category != xsderrors.CategorySchemaCompile || x.Code != xsderrors.CodeSchemaLimit || x.Message != msg {
-		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", x.Category, x.Code, x.Message, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit, msg)
+	if x.Category() != xsderrors.CategorySchemaCompile || x.Code() != xsderrors.CodeSchemaLimit || x.Message() != msg {
+		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", x.Category(), x.Code(), x.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit, msg)
 	}
 }
 

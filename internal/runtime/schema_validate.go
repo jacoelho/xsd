@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -13,6 +14,8 @@ import (
 // runtime only while publication invariants are checked. Schema never retains
 // this source after publication.
 type schemaAudit struct {
+	contentModelWork ContentModelWork
+	contentAnalysis  *ContentModelAnalysis
 	Schema
 	build SchemaBuild
 }
@@ -219,6 +222,14 @@ func validateRuntimeComponents(ctx *schemaValidationContext) error {
 		WildcardCount:     len(rt.build.Wildcards),
 	}
 	for i := range rt.build.Models {
+		if err := spendContentModelWork(rt.contentModelWork); err != nil {
+			return err
+		}
+		for range rt.build.Models[i].Particles {
+			if err := spendContentModelWork(rt.contentModelWork); err != nil {
+				return err
+			}
+		}
 		if err := ValidateContentModelRuntime(rt.build.Models[i], contentModelLimits); err != nil {
 			return xsderrors.InternalInvariant(err.Error())
 		}
@@ -251,7 +262,7 @@ func validateRuntimeComponents(ctx *schemaValidationContext) error {
 }
 
 func validateMissingSimpleType(rt *schemaAudit) error {
-	missingName, hasMissingName := rt.build.Names.LookupQName(EmptyNamespaceURI, MissingSimpleTypeLocalName())
+	missingName, hasMissingName := rt.build.Names.LookupQName(vocab.EmptyNamespaceURI, MissingSimpleTypeLocalName())
 	missingID := NoSimpleType
 	for i := range rt.build.SimpleTypes {
 		st := rt.build.SimpleTypes[i]
@@ -423,15 +434,27 @@ func validateWildcardReads(rt *schemaAudit) error {
 }
 
 func validateCompiledModelReads(rt *schemaAudit) error {
-	if err := validateCompiledModelReadProjectionTable(rt.runtime.CompiledModels, rt.build.CompiledModels); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+	if err := validateCompiledModelReadProjectionTable(
+		rt.runtime.CompiledModels,
+		rt.build.CompiledModels,
+		rt.contentModelWork,
+	); err != nil {
+		return contentModelAuditError(err)
 	}
 	return nil
 }
 
 func validateRuntimeCompiledModels(rt *schemaAudit) error {
-	if err := validateCompiledModelsRuntime(&rt.build.Names, &rt.build, rt.build.Models, rt.build.CompiledModels, true); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+	if err := validateCompiledModelsRuntime(
+		&rt.build.Names,
+		&rt.build,
+		rt.build.Models,
+		rt.build.CompiledModels,
+		true,
+		rt.contentModelWork,
+		rt.contentAnalysis,
+	); err != nil {
+		return contentModelAuditError(err)
 	}
 	return nil
 }
@@ -442,8 +465,10 @@ func validateRuntimeChoiceLimits(rt *schemaAudit) error {
 		rt.build.ComplexTypes,
 		rt.build.Models,
 		rt.build.Builtin.AnyType,
+		rt.contentModelWork,
+		rt.contentAnalysis,
 	); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return contentModelAuditError(err)
 	}
 	return nil
 }
@@ -1053,13 +1078,27 @@ func validateComplexRestrictionRuntime(rt *schemaAudit, ct ComplexType) error {
 	if err != nil {
 		return err
 	}
-	if err := ValidateComplexTypeRestrictionRuntime(&rt.build, base, ct); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+	if err := ValidateComplexTypeRestrictionRuntime(&rt.build, rt.contentAnalysis, base, ct); err != nil {
+		return contentModelAuditError(err)
 	}
-	if err := ValidateContentRestriction(&rt.build, base.Content, ct.Content); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+	if err := ValidateContentRestriction(
+		&rt.build,
+		base.Content,
+		ct.Content,
+		rt.contentModelWork,
+		rt.contentAnalysis,
+	); err != nil {
+		return contentModelAuditError(err)
 	}
 	return validateAttributeUsesRestrict(rt, base.Attrs, ct.Attrs, ct.ExplicitDerivation)
+}
+
+func contentModelAuditError(err error) error {
+	var diagnostic *xsderrors.Error
+	if errors.As(err, &diagnostic) {
+		return err
+	}
+	return xsderrors.InternalInvariant(err.Error())
 }
 
 func complexBaseRuntime(rt *schemaAudit, ct ComplexType) (ComplexType, error) {
@@ -1122,9 +1161,9 @@ func elementValueConstraintType(rt *schemaAudit, decl ElementDecl) (SimpleTypeID
 	if decl.Default == nil && decl.Fixed == nil {
 		return NoSimpleType, nil
 	}
-	id, err := ElementValueConstraintType(&rt.build, decl.Type)
+	id, err := ElementValueConstraintType(&rt.build, rt.contentAnalysis, decl.Type)
 	if err != nil {
-		return NoSimpleType, xsderrors.InternalInvariant(err.Error())
+		return NoSimpleType, contentModelAuditError(err)
 	}
 	return id, nil
 }

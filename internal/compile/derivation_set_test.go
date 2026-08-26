@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/vocab"
 )
 
 func TestParseDerivationSet(t *testing.T) {
@@ -36,6 +37,27 @@ func TestParseDerivationSet(t *testing.T) {
 			label:   "complexType final",
 			allowed: allowed,
 			want:    allowed,
+		},
+		{
+			name:        "non XML whitespace is not a separator",
+			value:       "extension\u00a0restriction",
+			label:       "complexType final",
+			allowed:     allowed,
+			wantMessage: "invalid complexType final value extension\u00a0restriction",
+		},
+		{
+			name:        "repeated all",
+			value:       "#all #all",
+			label:       "complexType final",
+			allowed:     allowed,
+			wantMessage: "complexType final cannot combine #all with other values",
+		},
+		{
+			name:    "duplicate token is idempotent",
+			value:   vocab.XSDElemExtension + " " + vocab.XSDElemExtension,
+			label:   "complexType final",
+			allowed: allowed,
+			want:    runtime.DerivationExtension,
 		},
 		{
 			name:        "all combination",

@@ -288,14 +288,22 @@ func validateChoiceLimits(model ContentModel) error {
 
 // RestrictionRepeatedChoiceParticles derives the derived sequence particle
 // slots that must be limited to one match because they restrict a repeated
-// base choice.
+// base choice, charging all analysis to work.
 func RestrictionRepeatedChoiceParticles(
 	models []ContentModel,
 	baseID, derivedID ContentModelID,
 	rt ParticleRestrictionRuntime,
+	work ContentModelWork,
+	analysis *ContentModelAnalysis,
 ) ([]uint32, error) {
 	if rt == nil {
 		return nil, errors.New("choice-limit derivation requires runtime")
+	}
+	if err := requireContentModelWork(work); err != nil {
+		return nil, err
+	}
+	if analysis == nil {
+		return nil, errors.New("choice-limit derivation requires content model analysis")
 	}
 	if !ValidContentModelID(baseID, len(models)) ||
 		!ValidContentModelID(derivedID, len(models)) {
@@ -307,7 +315,7 @@ func RestrictionRepeatedChoiceParticles(
 		return nil, nil
 	}
 	var out []uint32
-	validator := contentRestrictionValidator{rt: rt, modelStates: make(map[ContentModelID]uint8)}
+	validator := newContentRestrictionValidator(rt, work, analysis)
 	if err := validator.validateContentModelGraph(baseID); err != nil {
 		return nil, err
 	}
@@ -320,7 +328,7 @@ func RestrictionRepeatedChoiceParticles(
 			baseParticle := base.Particles[baseIndex]
 			err := validator.validateParticleRestriction(baseParticle, derivedParticle)
 			if err != nil {
-				if !isContentRestrictionMismatch(err) {
+				if !IsContentRestrictionMismatch(err) {
 					return nil, err
 				}
 				baseIndex++
@@ -336,7 +344,7 @@ func RestrictionRepeatedChoiceParticles(
 			break
 		}
 	}
-	return out, nil
+	return out, validator.finish(nil)
 }
 
 func restrictionRepeatedChoiceParticle(models []ContentModel, baseParticle, derivedParticle Particle) bool {
@@ -361,18 +369,27 @@ type RestrictionChoiceLimitUpdate struct {
 }
 
 // RestrictionChoiceLimitUpdates derives owner-private content-model copies for
-// restricting complex types whose particles need repeated-choice limits.
+// restricting complex types whose particles need repeated-choice limits,
+// charging all analysis to work.
 func RestrictionChoiceLimitUpdates(
 	rt ParticleRestrictionRuntime,
 	complexTypes []ComplexType,
 	models []ContentModel,
 	anyType ComplexTypeID,
+	work ContentModelWork,
+	analysis *ContentModelAnalysis,
 ) ([]RestrictionChoiceLimitUpdate, error) {
 	if rt == nil {
 		return nil, errors.New("choice-limit derivation requires runtime")
 	}
+	if err := requireContentModelWork(work); err != nil {
+		return nil, err
+	}
 	var updates []RestrictionChoiceLimitUpdate
 	for i, ct := range complexTypes {
+		if err := spendContentModelWork(work); err != nil {
+			return nil, err
+		}
 		if uint64(i) >= uint64(invalidID) {
 			return nil, errors.New("complex type index limit exceeded")
 		}
@@ -393,7 +410,7 @@ func RestrictionChoiceLimitUpdates(
 		if !ValidContentModelID(baseContent, len(models)) {
 			return nil, errors.New("choice-limit restriction references invalid base content model")
 		}
-		repeated, err := RestrictionRepeatedChoiceParticles(models, baseContent, ct.Content, rt)
+		repeated, err := RestrictionRepeatedChoiceParticles(models, baseContent, ct.Content, rt, work, analysis)
 		if err != nil {
 			return nil, err
 		}
@@ -415,19 +432,25 @@ func RestrictionChoiceLimitUpdates(
 
 // ValidateChoiceLimitDerivations validates that every ContentModel.ChoiceLimits
 // entry is exactly justified by restricting complex-type derivations, and that
-// limited content models are not shared outside those owners.
+// limited content models are not shared outside those owners. All analysis is
+// charged to work.
 func ValidateChoiceLimitDerivations(
 	rt ParticleRestrictionRuntime,
 	complexTypes []ComplexType,
 	models []ContentModel,
 	anyType ComplexTypeID,
+	work ContentModelWork,
+	analysis *ContentModelAnalysis,
 ) error {
-	if rt == nil {
-		return errors.New("choice-limit validation requires runtime")
+	if err := requireChoiceLimitAnalysis(rt, work, "choice-limit validation requires runtime"); err != nil {
+		return err
 	}
 	expected := make(map[ContentModelID][]uint32)
 	owners := make(map[ContentModelID][]ComplexTypeID)
 	for i, ct := range complexTypes {
+		if err := spendContentModelWork(work); err != nil {
+			return err
+		}
 		if uint64(i) >= uint64(invalidID) {
 			return errors.New("complex type index limit exceeded")
 		}
@@ -443,7 +466,7 @@ func ValidateChoiceLimitDerivations(
 		if !ok || baseID == anyType || !ValidComplexTypeID(baseID, len(complexTypes)) {
 			continue
 		}
-		repeated, err := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, ct.Content, rt)
+		repeated, err := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, ct.Content, rt, work, analysis)
 		if err != nil {
 			return err
 		}
@@ -456,6 +479,9 @@ func ValidateChoiceLimitDerivations(
 		expected[ct.Content] = repeated
 	}
 	for i, model := range models {
+		if err := spendContentModelWork(work); err != nil {
+			return err
+		}
 		if uint64(i) >= uint64(invalidID) {
 			return errors.New("content model index limit exceeded")
 		}
@@ -467,6 +493,9 @@ func ValidateChoiceLimitDerivations(
 			continue
 		}
 		for _, ownerID := range owners[id] {
+			if err := spendContentModelWork(work); err != nil {
+				return err
+			}
 			if !ValidComplexTypeID(ownerID, len(complexTypes)) {
 				return errors.New("limited content model has invalid restriction owner")
 			}
@@ -478,7 +507,7 @@ func ValidateChoiceLimitDerivations(
 			if !ok || baseID == anyType || !ValidComplexTypeID(baseID, len(complexTypes)) {
 				return errors.New("limited content model has invalid restriction owner")
 			}
-			repeated, err := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, owner.Content, rt)
+			repeated, err := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, owner.Content, rt, work, analysis)
 			if err != nil {
 				return err
 			}
@@ -488,6 +517,27 @@ func ValidateChoiceLimitDerivations(
 		}
 	}
 	return nil
+}
+
+func spendContentModelWork(work ContentModelWork) error {
+	if err := requireContentModelWork(work); err != nil {
+		return err
+	}
+	return work(1)
+}
+
+func requireContentModelWork(work ContentModelWork) error {
+	if work == nil {
+		return errors.New("content-model work budget is required")
+	}
+	return nil
+}
+
+func requireChoiceLimitAnalysis(rt ParticleRestrictionRuntime, work ContentModelWork, missingRuntime string) error {
+	if rt == nil {
+		return errors.New(missingRuntime)
+	}
+	return requireContentModelWork(work)
 }
 
 func validOccurrence(o Occurrence) bool {

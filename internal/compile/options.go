@@ -4,16 +4,20 @@ package compile
 import "github.com/jacoelho/xsd/xsderrors"
 
 const (
-	defaultMaxSchemaDepth                = 256
-	defaultMaxSchemaAttributes           = 256
-	defaultMaxSchemaTokenBytes           = int64(4 << 20)
-	defaultMaxSchemaSourceBytes          = int64(64 << 20)
-	defaultMaxSchemaSources              = 1024
-	defaultMaxSchemaTotalBytes           = int64(256 << 20)
-	defaultMaxSchemaReferences           = 16_384
-	defaultMaxSchemaTargetContexts       = 4096
-	defaultMaxSchemaInstantiatedNodes    = 1_000_000
-	defaultMaxContentModelStates         = 16_384
+	defaultMaxSchemaDepth             = 256
+	defaultMaxSchemaAttributes        = 256
+	defaultMaxSchemaTokenBytes        = int64(4 << 20)
+	defaultMaxSchemaSourceBytes       = int64(64 << 20)
+	defaultMaxSchemaSources           = 1024
+	defaultMaxSchemaTotalBytes        = int64(256 << 20)
+	defaultMaxSchemaReferences        = 16_384
+	defaultMaxSchemaDependencySteps   = 1_000_000
+	defaultMaxSchemaTargetContexts    = 4096
+	defaultMaxSchemaInstantiatedNodes = 1_000_000
+	defaultMaxContentModelStates      = 16_384
+	// Counter determinization can perform many scalar configuration operations
+	// per retained DFA state; keep the work cap proportional to the state cap.
+	defaultMaxContentModelAnalysisSteps  = defaultMaxContentModelStates * 1024
 	defaultMaxSubstitutionClosureEntries = 1_000_000
 	defaultMaxSimpleUnionMemberEntries   = 1_000_000
 )
@@ -27,11 +31,13 @@ type Options struct {
 	MaxSchemaSources              int
 	MaxSchemaTotalBytes           int64
 	MaxSchemaReferences           int
+	MaxSchemaDependencySteps      int
 	MaxSchemaTargetContexts       int
 	MaxSchemaInstantiatedNodes    int
 	MaxSchemaNames                int
 	MaxFiniteOccurs               uint64
 	MaxContentModelStates         int
+	MaxContentModelAnalysisSteps  int
 	MaxSubstitutionClosureEntries int
 	MaxSimpleUnionMemberEntries   int
 }
@@ -45,10 +51,12 @@ type Limits struct {
 	MaxSchemaSources              int
 	MaxSchemaTotalBytes           int64
 	MaxSchemaReferences           int
+	MaxSchemaDependencySteps      int
 	MaxSchemaTargetContexts       int
 	MaxSchemaInstantiatedNodes    int
 	MaxSchemaNames                int
 	MaxContentModelStates         int
+	MaxContentModelAnalysisSteps  int
 	MaxSubstitutionClosureEntries int
 	MaxSimpleUnionMemberEntries   int
 	MaxFiniteOccurs               uint64
@@ -84,6 +92,10 @@ func NormalizeOptions(opts Options) (Limits, error) {
 	if err != nil {
 		return Limits{}, err
 	}
+	dependencySteps, err := limitOrDefault("MaxSchemaDependencySteps", opts.MaxSchemaDependencySteps, defaultMaxSchemaDependencySteps)
+	if err != nil {
+		return Limits{}, err
+	}
 	targetContexts, err := limitOrDefault("MaxSchemaTargetContexts", opts.MaxSchemaTargetContexts, defaultMaxSchemaTargetContexts)
 	if err != nil {
 		return Limits{}, err
@@ -96,6 +108,10 @@ func NormalizeOptions(opts Options) (Limits, error) {
 		return Limits{}, limitError("MaxSchemaNames cannot be negative")
 	}
 	modelStates, err := limitOrDefault("MaxContentModelStates", opts.MaxContentModelStates, defaultMaxContentModelStates)
+	if err != nil {
+		return Limits{}, err
+	}
+	modelAnalysisSteps, err := limitOrDefault("MaxContentModelAnalysisSteps", opts.MaxContentModelAnalysisSteps, defaultMaxContentModelAnalysisSteps)
 	if err != nil {
 		return Limits{}, err
 	}
@@ -115,10 +131,12 @@ func NormalizeOptions(opts Options) (Limits, error) {
 		MaxSchemaSources:              sources,
 		MaxSchemaTotalBytes:           totalBytes,
 		MaxSchemaReferences:           references,
+		MaxSchemaDependencySteps:      dependencySteps,
 		MaxSchemaTargetContexts:       targetContexts,
 		MaxSchemaInstantiatedNodes:    instantiatedNodes,
 		MaxSchemaNames:                opts.MaxSchemaNames,
 		MaxContentModelStates:         modelStates,
+		MaxContentModelAnalysisSteps:  modelAnalysisSteps,
 		MaxSubstitutionClosureEntries: substitutionEntries,
 		MaxSimpleUnionMemberEntries:   unionEntries,
 		MaxFiniteOccurs:               opts.MaxFiniteOccurs,

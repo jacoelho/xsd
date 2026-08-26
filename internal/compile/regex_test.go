@@ -40,7 +40,7 @@ func TestTranslateXSDRegexToGoDotAndLiteralAnchors(t *testing.T) {
 func TestValidateXSDRegexSyntaxReportsSchemaAndUnsupportedErrors(t *testing.T) {
 	err := ValidateXSDRegexSyntax(`a{,2}`, nil)
 	var diag *xsderrors.Error
-	if !errors.As(err, &diag) || diag.Code != xsderrors.CodeSchemaFacet {
+	if !errors.As(err, &diag) || diag.Code() != xsderrors.CodeSchemaFacet {
 		t.Fatalf("ValidateXSDRegexSyntax invalid quantifier error = %v, want %s", err, xsderrors.CodeSchemaFacet)
 	}
 

@@ -318,7 +318,7 @@ func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 		Substitutions: table,
 		ComplexTypes:  []ComplexType{{Derivation: DerivationKindNone}},
 	}
-	reads, err := newSchemaRuntime(&build)
+	reads, err := newSchemaRuntime(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaRuntime() error = %v", err)
 	}

@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/xml"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -96,6 +97,93 @@ func newIdentityEvaluation(rt *runtime.Schema, limits identityLimits, maxScopes 
 
 func (e *identityEvaluation) hasConstraints() bool {
 	return e != nil && e.constraintsEnabled
+}
+
+func (e *identityEvaluation) beginStart() error {
+	if e.startJournal.active {
+		return xsderrors.InternalInvariant("identity start transaction already active")
+	}
+	if e.targetPhase != identityTargetInactive {
+		return xsderrors.InternalInvariant("identity value target remains active at element start")
+	}
+	j := &e.startJournal
+	clear(j.addedIDs)
+	clear(j.fieldUndos)
+	clear(j.scopeUndos)
+	*j = identityStartJournal{
+		active:         true,
+		pathLen:        len(e.path),
+		elementsLen:    len(e.elements),
+		idrefsLen:      len(e.idrefs),
+		scopesLen:      len(e.scopes),
+		selectionsLen:  len(e.selections),
+		fieldValuesLen: len(e.fieldValues),
+		entries:        e.entries,
+		nextNodeID:     e.nextNodeID,
+		addedIDs:       j.addedIDs[:0],
+		fieldUndos:     j.fieldUndos[:0],
+		scopeUndos:     j.scopeUndos[:0],
+	}
+	return nil
+}
+
+func (e *identityEvaluation) validateStartCommit() error {
+	if !e.startJournal.active {
+		return xsderrors.InternalInvariant("identity start transaction is not active")
+	}
+	if e.targetPhase != identityTargetInactive {
+		return xsderrors.InternalInvariant("identity value target remains active at start commit")
+	}
+	return nil
+}
+
+func (e *identityEvaluation) commitStart() {
+	e.clearStartJournal()
+}
+
+func (e *identityEvaluation) abortStart() {
+	j := &e.startJournal
+	if !j.active {
+		return
+	}
+	for _, undo := range slices.Backward(j.fieldUndos) {
+		e.fieldValues[undo.index] = undo.value
+	}
+	for _, undo := range slices.Backward(j.scopeUndos) {
+		e.scopes[undo.index].invalid = undo.invalid
+	}
+	for _, id := range j.addedIDs {
+		delete(e.ids, id)
+	}
+	clear(e.idrefs[j.idrefsLen:])
+	e.idrefs = e.idrefs[:j.idrefsLen]
+	clear(e.scopes[j.scopesLen:])
+	e.scopes = e.scopes[:j.scopesLen]
+	clear(e.selections[j.selectionsLen:])
+	e.selections = e.selections[:j.selectionsLen]
+	clear(e.fieldValues[j.fieldValuesLen:])
+	e.fieldValues = e.fieldValues[:j.fieldValuesLen]
+	clear(e.path[j.pathLen:])
+	e.path = e.path[:j.pathLen]
+	clear(e.elements[j.elementsLen:])
+	e.elements = e.elements[:j.elementsLen]
+	e.entries = j.entries
+	e.nextNodeID = j.nextNodeID
+	e.releaseTarget()
+	e.generation++
+	e.clearStartJournal()
+}
+
+func (e *identityEvaluation) clearStartJournal() {
+	j := &e.startJournal
+	clear(j.addedIDs)
+	clear(j.fieldUndos)
+	clear(j.scopeUndos)
+	*j = identityStartJournal{
+		addedIDs:   j.addedIDs[:0],
+		fieldUndos: j.fieldUndos[:0],
+		scopeUndos: j.scopeUndos[:0],
+	}
 }
 
 func (e *identityEvaluation) startElement(in identityElementStart) error {
@@ -336,22 +424,44 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx StartC
 		return nil
 	}
 	path := ctx.PathString()
+	pendingIDs := make([]string, 0, 1)
+	pendingIDSet := make(map[string]struct{})
 	for canonical := range lex.XMLFieldsSeq(ids) {
-		if e.ids == nil {
-			e.ids = make(map[string]string)
-		}
 		if prev, exists := e.ids[canonical]; exists {
 			return validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
 		}
-		if err := e.reserveEntry(canonical, e.limits, ctx); err != nil {
-			return err
+		if _, exists := pendingIDSet[canonical]; exists {
+			return validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+path)
 		}
+		pendingIDSet[canonical] = struct{}{}
+		pendingIDs = append(pendingIDs, canonical)
+	}
+	pendingRefs := make([]string, 0, 1)
+	for canonical := range lex.XMLFieldsSeq(idrefs) {
+		pendingRefs = append(pendingRefs, canonical)
+	}
+	entryCount := len(pendingIDs) + len(pendingRefs)
+	if e.limits.Entries > 0 && (e.entries > e.limits.Entries || entryCount > e.limits.Entries-e.entries) {
+		return validation(ctx, xsderrors.CodeValidationLimit, "identity entry limit exceeded")
+	}
+	for _, canonical := range pendingIDs {
+		if e.limits.TupleBytes > 0 && int64(len(canonical)) > e.limits.TupleBytes {
+			return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
+		}
+	}
+	for _, canonical := range pendingRefs {
+		if e.limits.TupleBytes > 0 && int64(len(canonical)) > e.limits.TupleBytes {
+			return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
+		}
+	}
+	if len(pendingIDs) != 0 && e.ids == nil {
+		e.ids = make(map[string]string, len(pendingIDs))
+	}
+	for _, canonical := range pendingIDs {
+		e.rememberAddedID(canonical)
 		e.ids[canonical] = path
 	}
-	for canonical := range lex.XMLFieldsSeq(idrefs) {
-		if err := e.reserveEntry(canonical, e.limits, ctx); err != nil {
-			return err
-		}
+	for _, canonical := range pendingRefs {
 		e.idrefs = append(e.idrefs, identityRef{
 			Value: canonical,
 			Path:  path,
@@ -359,6 +469,7 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx StartC
 			Col:   ctx.Column,
 		})
 	}
+	e.entries += entryCount
 	return nil
 }
 

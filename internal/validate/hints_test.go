@@ -213,6 +213,20 @@ func TestSchemaLocationHintsRecordAttributesFiltersHints(t *testing.T) {
 	}
 }
 
+func TestSchemaLocationHintsRecordAttributesIsAtomic(t *testing.T) {
+	t.Parallel()
+
+	hints := SchemaLocationHints{namespaces: map[string]struct{}{"urn:existing": {}}, namespaceBytes: 12}
+	err := hints.RecordAttributes(hintAttrs(
+		hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation, "urn:new new.xsd"),
+		hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrNoNamespaceSchemaLocation, "%zz"),
+	), nil, testSchemaLocationHintLimits, StartContext{Path: "/root", Line: 2, Column: 3})
+	expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
+	if !hints.Has("urn:existing") || hints.Has("urn:new") || hints.Has("") {
+		t.Fatalf("failed RecordAttributes() changed hints: %+v", hints)
+	}
+}
+
 func TestSchemaLocationHintsResetClearsAndDropsOversizedMaps(t *testing.T) {
 	t.Parallel()
 
@@ -253,7 +267,7 @@ func expectXSDMessage(t *testing.T, err error, message string) {
 	if !errors.As(err, &x) {
 		t.Fatalf("error = %v, want *xsderrors.Error", err)
 	}
-	if x.Message != message {
-		t.Fatalf("error message = %q, want %q", x.Message, message)
+	if x.Message() != message {
+		t.Fatalf("error message = %q, want %q", x.Message(), message)
 	}
 }

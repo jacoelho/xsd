@@ -80,15 +80,47 @@ func simpleValueIdentityKey(rt *runtime.Schema, value runtime.SimpleValue) (stri
 
 // identityState stores the evaluator's document-wide ID/IDREF and
 // key/unique/keyref data.
+//
+//nolint:govet // State is grouped by identity lifecycle.
 type identityState struct {
-	ids         map[string]string
-	idrefs      []identityRef
-	scopes      []identityScope
-	selections  []identitySelection
-	fieldValues []identityFieldValue
-	matches     []identityFieldMatch
-	entries     int
-	nextNodeID  uint64
+	ids          map[string]string
+	idrefs       []identityRef
+	scopes       []identityScope
+	selections   []identitySelection
+	fieldValues  []identityFieldValue
+	matches      []identityFieldMatch
+	entries      int
+	nextNodeID   uint64
+	startJournal identityStartJournal
+}
+
+type identityFieldUndo struct {
+	value identityFieldValue
+	index int
+}
+
+type identityScopeUndo struct {
+	index   int
+	invalid bool
+}
+
+// identityStartJournal records only mutations to state that predates the
+// current element. Appended state is restored from the captured lengths.
+//
+//nolint:govet // Slices are retained together across transactions.
+type identityStartJournal struct {
+	active         bool
+	pathLen        int
+	elementsLen    int
+	idrefsLen      int
+	scopesLen      int
+	selectionsLen  int
+	fieldValuesLen int
+	entries        int
+	nextNodeID     uint64
+	addedIDs       []string
+	fieldUndos     []identityFieldUndo
+	scopeUndos     []identityScopeUndo
 }
 
 type identityRef struct {
@@ -177,6 +209,37 @@ func (s *identityState) reset(maxRetainedIDs, maxRetainedSlices int) {
 	s.matches = resetRetainedValues(s.matches, maxRetainedSlices)
 	s.entries = 0
 	s.nextNodeID = 0
+	s.startJournal = identityStartJournal{
+		addedIDs:   resetRetainedValues(s.startJournal.addedIDs, maxRetainedSlices),
+		fieldUndos: resetRetainedValues(s.startJournal.fieldUndos, maxRetainedSlices),
+		scopeUndos: resetRetainedValues(s.startJournal.scopeUndos, maxRetainedSlices),
+	}
+}
+
+func (s *identityState) rememberAddedID(id string) {
+	if s.startJournal.active {
+		s.startJournal.addedIDs = append(s.startJournal.addedIDs, id)
+	}
+}
+
+func (s *identityState) rememberField(index int) {
+	if !s.startJournal.active || index >= s.startJournal.fieldValuesLen {
+		return
+	}
+	s.startJournal.fieldUndos = append(s.startJournal.fieldUndos, identityFieldUndo{
+		index: index,
+		value: s.fieldValues[index],
+	})
+}
+
+func (s *identityState) markScopeInvalid(index int) {
+	if s.startJournal.active && index < s.startJournal.scopesLen {
+		s.startJournal.scopeUndos = append(s.startJournal.scopeUndos, identityScopeUndo{
+			index:   index,
+			invalid: s.scopes[index].invalid,
+		})
+	}
+	s.scopes[index].invalid = true
 }
 
 // reserveEntry reserves one identity entry against global identity limits.
@@ -381,15 +444,18 @@ func (s *identityState) captureFields(matches []identityFieldMatch, value string
 	var duplicatePath string
 	for _, match := range matches {
 		sel := &s.selections[match.Selection]
-		field := &s.selectionFields(*sel)[match.Field]
+		fieldIndex := sel.fieldStart + match.Field
+		field := &s.fieldValues[fieldIndex]
 		switch field.state {
 		case identityFieldAbsent:
+			s.rememberField(fieldIndex)
 			field.value = value
 			field.state = identityFieldPresent
 		case identityFieldPresent:
+			s.rememberField(fieldIndex)
 			field.value = ""
 			field.state = identityFieldInvalid
-			s.scopes[sel.scope].invalid = true
+			s.markScopeInvalid(sel.scope)
 			if duplicatePath == "" {
 				duplicatePath = sel.path
 			}
@@ -455,10 +521,12 @@ func (s *identityState) invalidateFields(matches []identityFieldMatch) error {
 	}
 	for _, match := range matches {
 		sel := &s.selections[match.Selection]
-		field := &s.selectionFields(*sel)[match.Field]
+		fieldIndex := sel.fieldStart + match.Field
+		s.rememberField(fieldIndex)
+		field := &s.fieldValues[fieldIndex]
 		field.value = ""
 		field.state = identityFieldInvalid
-		s.scopes[sel.scope].invalid = true
+		s.markScopeInvalid(sel.scope)
 	}
 	return nil
 }

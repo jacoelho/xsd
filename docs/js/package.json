@@ -1,3 +1,12 @@
 {
-  "type": "module"
+  "name": "xsd-browser-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.js",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
 }

@@ -219,7 +219,7 @@ func validIPv6[T byteText](text T, start, end int) bool {
 			return false
 		}
 	}
-	return groups == 8 || compressed && groups < 8
+	return !compressed && groups == 8 || compressed && groups < 8
 }
 
 func validIPv4[T byteText](text T, start, end int) bool {

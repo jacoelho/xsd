@@ -18,10 +18,23 @@ import (
 
 // Source identifies a schema document passed to compilation.
 type Source struct {
+	open    func() (io.ReadCloser, error)
+	context resolutionContext
+	name    string
+	data    []byte
+	kind    sourceKind
+}
+
+type sourceKind uint8
+
+const (
+	sourceInvalid sourceKind = iota
+	sourceBytes
+	sourceOpener
+)
+
+type resolutionContext struct {
 	resolver          *resolverOwner
-	open              func() (io.ReadCloser, error)
-	name              string
-	data              []byte
 	localFileFallback bool
 }
 
@@ -192,6 +205,7 @@ func File(file string) Source {
 	}
 	return Source{
 		name: file,
+		kind: sourceOpener,
 		open: func() (io.ReadCloser, error) {
 			if absoluteErr != nil {
 				return nil, absoluteErr
@@ -202,8 +216,7 @@ func File(file string) Source {
 			}
 			return reader, nil
 		},
-		resolver:          fileResolverOwner,
-		localFileFallback: true,
+		context: resolutionContext{resolver: fileResolverOwner, localFileFallback: true},
 	}
 }
 
@@ -212,20 +225,20 @@ func Bytes(name string, data []byte) Source {
 	if data == nil {
 		data = []byte{}
 	}
-	return Source{name: name, data: bytes.Clone(data)}
+	return Source{name: name, data: bytes.Clone(data), kind: sourceBytes}
 }
 
 // Opener returns a schema source backed by an opener.
 func Opener(name string, open func() (io.ReadCloser, error)) Source {
-	return Source{name: name, open: open}
+	return Source{name: name, open: open, kind: sourceOpener}
 }
 
 // WithResolver returns s with r used for schema include/import resolution.
 func (s Source) WithResolver(r Resolver) Source {
 	if r == nil {
-		s.resolver = nil
+		s.context.resolver = nil
 	} else {
-		s.resolver = &resolverOwner{resolve: r}
+		s.context.resolver = &resolverOwner{resolve: r}
 	}
 	return s
 }
@@ -238,7 +251,7 @@ func (s Source) Name() string {
 // SameResolutionContext reports whether s and other resolve descendants with
 // the same resolver owner and built-in backend capabilities.
 func (s Source) SameResolutionContext(other Source) bool {
-	return s.resolver == other.resolver && s.localFileFallback == other.localFileFallback
+	return s.context == other.context
 }
 
 // Resolution is the result of resolving one schema reference. It contains a
@@ -261,30 +274,18 @@ func (r Resolution) Target() string {
 	return r.target
 }
 
-// Resolve resolves location through s's attached resolver before applying
-// generic URI-reference identity resolution. A resolver-returned source name
-// is authoritative for the referenced document identity. The parent graph
-// resolver owns resolution of references from returned sources.
-func (s Source) Resolve(base, location string) (Resolution, error) {
-	reference, err := uriref.Parse(location)
-	if err != nil {
-		return Resolution{}, referenceResolutionError{err: err}
-	}
-	return s.ResolveFrom(NewReferenceBase(base), reference)
-}
-
 // ResolveFrom resolves location from a base whose custom-resolver spelling and
 // built-in fallback capability have been tracked independently.
 func (s Source) ResolveFrom(base ReferenceBase, location uriref.Reference) (Resolution, error) {
-	if s.resolver != nil && s.resolver != fileResolverOwner {
+	if s.context.resolver != nil && s.context.resolver != fileResolverOwner {
 		if resolverBase, ok := base.ResolverValue(); ok {
-			resolved, resolveErr := s.resolver.resolveSchema(resolverBase, location.Raw())
+			resolved, resolveErr := s.context.resolver.resolveSchema(resolverBase, location.Raw())
 			switch {
 			case resolveErr == nil:
 				if resolved.name == "" {
 					return Resolution{}, errors.New("schema resolver returned a source without a name")
 				}
-				resolved.resolver = s.resolver
+				resolved.context.resolver = s.context.resolver
 				return Resolution{source: resolved, target: Key(resolved.name)}, nil
 			case !errorIsOnly(resolveErr, xsderrors.ErrSchemaNotFound):
 				return Resolution{}, resolveErr
@@ -302,10 +303,10 @@ func (s Source) ResolveFrom(base ReferenceBase, location uriref.Reference) (Reso
 		return Resolution{}, nil
 	}
 	target := resolvedBase.fallback
-	if s.localFileFallback {
+	if s.context.localFileFallback {
 		if file, ok := localSchemaFile(target); ok {
 			resolved := File(file)
-			resolved.resolver = s.resolver
+			resolved.context.resolver = s.context.resolver
 			return Resolution{source: resolved, target: Key(resolved.name)}, nil
 		}
 	}
@@ -328,12 +329,6 @@ func (e referenceResolutionError) Unwrap() error { return e.err }
 func IsReferenceResolutionError(err error) bool {
 	var target referenceResolutionError
 	return errors.As(err, &target)
-}
-
-// Read returns a copy of the source bytes.
-func (s Source) Read(maxBytes int64) ([]byte, error) {
-	result := s.Acquire(maxBytes)
-	return bytes.Clone(result.Data), result.Err
 }
 
 // ReadStage identifies the source acquisition stage that failed.
@@ -363,15 +358,23 @@ type ReadResult struct {
 // Acquire reads at most maxBytes from s and preserves the failure stage and
 // bytes consumed before an error.
 func (s Source) Acquire(maxBytes int64) ReadResult {
-	if s.data != nil {
+	switch s.kind {
+	case sourceBytes:
 		if int64(len(s.data)) > maxBytes {
 			return ReadResult{Err: schemaSourceLimitError(s.name), LimitExceeded: true}
 		}
 		return ReadResult{Data: s.data}
-	}
-	if s.open == nil {
+	case sourceOpener:
+		if s.open != nil {
+			break
+		}
 		return ReadResult{
-			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source has no data or opener"),
+			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source opener is nil"),
+			Stage: ReadStageOpen,
+		}
+	default:
+		return ReadResult{
+			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
 			Stage: ReadStageOpen,
 		}
 	}
@@ -472,7 +475,7 @@ func schemaSourceLimitError(name string) error {
 // IsSchemaLimitError reports whether err is a schema source byte-limit diagnostic.
 func IsSchemaLimitError(err error) bool {
 	x, ok := errors.AsType[*xsderrors.Error](err)
-	return ok && x.Code == xsderrors.CodeSchemaLimit
+	return ok && x.Code() == xsderrors.CodeSchemaLimit
 }
 
 // Key canonicalizes a schema source name for loaded-document identity.

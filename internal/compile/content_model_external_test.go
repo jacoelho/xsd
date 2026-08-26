@@ -394,16 +394,16 @@ func validationErrorCodes(err error) []xsderrors.Code {
 		return nil
 	}
 	if errs, ok := errors.AsType[xsderrors.Errors](err); ok {
-		codes := make([]xsderrors.Code, 0, len(errs))
-		for _, item := range errs {
+		codes := make([]xsderrors.Code, 0, errs.Len())
+		for _, item := range xsderrors.Flatten(errs) {
 			if x, ok := errors.AsType[*xsderrors.Error](item); ok {
-				codes = append(codes, x.Code)
+				codes = append(codes, x.Code())
 			}
 		}
 		return codes
 	}
 	if x, ok := errors.AsType[*xsderrors.Error](err); ok {
-		return []xsderrors.Code{x.Code}
+		return []xsderrors.Code{x.Code()}
 	}
 	return nil
 }
@@ -856,6 +856,30 @@ func TestRestrictionRepeatedOptionalElementCanRestrictRepeatedOptionalChoice(t *
 	mustValidateRuntime(t, engine, `<root xmlns="urn:test"><annotation/><element/></root>`)
 	mustNotValidateRuntime(t, engine, `<root xmlns="urn:test"><annotation/><element/><element/></root>`, xsderrors.CodeValidationElement)
 	mustNotValidateRuntime(t, engine, `<root xmlns="urn:test"><annotation/><any/></root>`, xsderrors.CodeValidationElement)
+}
+
+func TestRestrictionSingleRepeatedElementRetainsRepeatedChoiceLimit(t *testing.T) {
+	engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base">
+    <xs:sequence>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="a"/>
+        <xs:element name="b"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:restriction base="base">
+        <xs:sequence><xs:element name="a" maxOccurs="unbounded"/></xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="derived"/>
+</xs:schema>`)
+	mustValidateRuntime(t, engine, `<root><a/></root>`)
+	mustNotValidateRuntime(t, engine, `<root><a/><a/></root>`, xsderrors.CodeValidationElement)
 }
 
 func TestRestrictionRepeatedChoiceLimitDoesNotApplyToNestedGroup(t *testing.T) {
@@ -1430,6 +1454,16 @@ func TestCompileOptionsNameAndOccurrenceLimits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile() content model state boundary error = %v", err)
 	}
+
+	sharedModels := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		<xs:group name="shared"><xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence></xs:group>
+		<xs:element name="r"><xs:complexType><xs:sequence><xs:group ref="shared"/><xs:group ref="shared"/></xs:sequence></xs:complexType></xs:element>
+	</xs:schema>`
+	if _, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(sharedModels))}); err != nil {
+		t.Fatalf("Compile() shared content-model graph error = %v", err)
+	}
+	_, err = compile.Compile(compile.Options{MaxContentModelAnalysisSteps: 4}, []source.Source{source.Bytes("schema.xsd", []byte(sharedModels))})
+	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }
 
 func TestNestedChoiceModelGroup(t *testing.T) {
@@ -2160,9 +2194,11 @@ func wideChoiceSchema(width int, extraParticles string) string {
   <xs:element name="r">
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
-`)
+	`)
 	for i := range width {
-		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+		sb.WriteString(`        <xs:element name="f`)
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString("\" type=\"xs:string\"/>\n")
 	}
 	sb.WriteString(extraParticles)
 	sb.WriteString(`      </xs:choice>
@@ -2206,9 +2242,11 @@ func TestWideSequenceIndexedDispatch(t *testing.T) {
   <xs:element name="r">
     <xs:complexType>
       <xs:sequence>
-`)
+	`)
 	for i := range 15 {
-		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string" minOccurs="0"/>` + "\n")
+		sb.WriteString(`        <xs:element name="f`)
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString("\" type=\"xs:string\" minOccurs=\"0\"/>\n")
 	}
 	sb.WriteString(`        <xs:element name="last" type="xs:string"/>
       </xs:sequence>
@@ -2232,9 +2270,11 @@ func TestWideChoiceIndexedSubstitutionGroup(t *testing.T) {
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element ref="head"/>
-`)
+	`)
 	for i := range 15 {
-		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+		sb.WriteString(`        <xs:element name="f`)
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString("\" type=\"xs:string\"/>\n")
 	}
 	sb.WriteString(`      </xs:choice>
     </xs:complexType>
@@ -2279,9 +2319,11 @@ func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
     <xs:complexType>
       <xs:sequence>
         <xs:element name="a" minOccurs="2" maxOccurs="2"/>
-`)
+	`)
 	for _, name := range []string{"b", "c", "d", "e", "f", "g"} {
-		sb.WriteString(`        <xs:element name="` + name + `" minOccurs="0"/>` + "\n")
+		sb.WriteString(`        <xs:element name="`)
+		sb.WriteString(name)
+		sb.WriteString("\" minOccurs=\"0\"/>\n")
 	}
 	sb.WriteString(`        <xs:element name="a"/>
       </xs:sequence>

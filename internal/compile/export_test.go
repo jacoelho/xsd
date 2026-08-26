@@ -42,8 +42,8 @@ func (c *compiler) NameInternerIsZeroForTest() bool {
 
 // DocumentNamesForTest returns loaded schema document names in compiler order.
 func (c *compiler) DocumentNamesForTest() []string {
-	names := make([]string, 0, len(c.schemas.documents))
-	for _, document := range c.schemas.documents {
+	names := make([]string, 0, len(c.plan.documents))
+	for _, document := range c.plan.documents {
 		names = append(names, document.doc.name)
 	}
 	return names

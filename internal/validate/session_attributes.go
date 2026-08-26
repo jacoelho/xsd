@@ -445,8 +445,8 @@ func (s *session) recordSchemaLocationHints(attrs []stream.Attr, line, col int) 
 		attrs,
 		&s.valueStrings,
 		schemaLocationHintLimits{
-			Namespaces:     s.maxSchemaLocationNamespaces,
-			NamespaceBytes: s.maxSchemaLocationNamespaceBytes,
+			Namespaces:     s.limits.SchemaLocationNamespaces,
+			NamespaceBytes: s.limits.SchemaLocationNamespaceBytes,
 		},
 		s.startContext(line, col),
 	)

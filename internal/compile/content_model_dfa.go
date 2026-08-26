@@ -30,12 +30,14 @@ type particleTermKey struct {
 }
 
 func (b *dfaBuilder) compileDeterministicModel(id runtime.ContentModelID, start uint32) (runtime.CompiledModel, error) {
-	caps := b.counterCaps()
+	caps, capsErr := b.counterCaps()
+	if capsErr != nil {
+		return runtime.CompiledModel{}, capsErr
+	}
 	states := make(map[string]uint32)
 	var queue []dfaDeterministicState
 	var rows []runtime.CompiledModelRow
-	stateID := func(state dfaDeterministicState) (uint32, error) {
-		state.Configs = normalizeDFAConfigs(state.Configs)
+	stateIDNormalized := func(state dfaDeterministicState) (uint32, error) {
 		if len(state.Configs) > b.limit {
 			return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
 		}
@@ -54,6 +56,16 @@ func (b *dfaBuilder) compileDeterministicModel(id runtime.ContentModelID, start 
 		queue = append(queue, state)
 		return id, nil
 	}
+	stateID := func(state dfaDeterministicState) (uint32, error) {
+		if err := b.spendDFAConfigs(state.Configs); err != nil {
+			return 0, err
+		}
+		state.Configs = normalizeDFAConfigs(state.Configs)
+		return stateIDNormalized(state)
+	}
+	if spendErr := b.c.work.spend(int(b.counters)); spendErr != nil {
+		return runtime.CompiledModel{}, spendErr
+	}
 	startCounters := make([]uint32, b.counters)
 	startID, err := stateID(dfaDeterministicState{Configs: []dfaConfig{{State: start, Counters: startCounters}}})
 	if err != nil {
@@ -63,7 +75,10 @@ func (b *dfaBuilder) compileDeterministicModel(id runtime.ContentModelID, start 
 		state := queue[0]
 		queue[0] = dfaDeterministicState{}
 		queue = queue[1:]
-		row, err := b.deterministicRow(state, caps, stateID)
+		if err := b.c.work.spend(len(state.Configs) + 1); err != nil {
+			return runtime.CompiledModel{}, err
+		}
+		row, err := b.deterministicRow(state, caps, stateIDNormalized)
 		if err != nil {
 			return runtime.CompiledModel{}, err
 		}
@@ -93,15 +108,27 @@ func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32
 			return runtime.CompiledModelRow{}, xsderrors.InternalInvariant("content model DFA state out of range")
 		}
 		source := b.rows[config.State]
+		if err := b.c.work.spend(len(source.Accept) + len(source.Edges)); err != nil {
+			return runtime.CompiledModelRow{}, err
+		}
 		for _, accept := range source.Accept {
+			if spendErr := b.c.work.spend(len(accept.Guards)); spendErr != nil {
+				return runtime.CompiledModelRow{}, spendErr
+			}
 			if dfaGuardsOK(config.Counters, caps, accept.Guards) {
 				row.Accept = true
 				break
 			}
 		}
 		for _, edge := range source.Edges {
+			if spendErr := b.c.work.spend(len(edge.Guards)); spendErr != nil {
+				return runtime.CompiledModelRow{}, spendErr
+			}
 			if !dfaGuardsOK(config.Counters, caps, edge.Guards) {
 				continue
+			}
+			if err := b.c.work.spend(len(config.Counters) + len(edge.Actions) + 1); err != nil {
+				return runtime.CompiledModelRow{}, err
 			}
 			counters, err := applyDFAActions(config.Counters, caps, edge.Actions)
 			if err != nil {
@@ -116,6 +143,9 @@ func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32
 			group.Configs = append(group.Configs, dfaConfig{State: edge.To, Counters: counters})
 		}
 	}
+	if err := b.c.work.spend(len(groups)); err != nil {
+		return runtime.CompiledModelRow{}, err
+	}
 	keys := make([]particleTermKey, 0, len(groups))
 	for key := range groups {
 		keys = append(keys, key)
@@ -123,6 +153,9 @@ func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32
 	slices.SortFunc(keys, compareParticleTermKey)
 	for _, key := range keys {
 		group := groups[key]
+		if err := b.spendDFAConfigs(group.Configs); err != nil {
+			return runtime.CompiledModelRow{}, err
+		}
 		group.Configs = normalizeDFAConfigs(group.Configs)
 		if len(group.Configs) > b.limit {
 			return runtime.CompiledModelRow{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
@@ -136,17 +169,38 @@ func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32
 	return row, nil
 }
 
-func (b *dfaBuilder) counterCaps() []uint32 {
+func (b *dfaBuilder) counterCaps() ([]uint32, error) {
+	if err := b.c.work.spend(int(b.counters) + len(b.rows) + 1); err != nil {
+		return nil, err
+	}
 	caps := make([]uint32, b.counters)
 	for _, row := range b.rows {
 		for _, edge := range row.Edges {
+			if err := b.c.work.spend(len(edge.Guards) + 1); err != nil {
+				return nil, err
+			}
 			addCounterCaps(caps, edge.Guards)
 		}
 		for _, accept := range row.Accept {
+			if err := b.c.work.spend(len(accept.Guards) + 1); err != nil {
+				return nil, err
+			}
 			addCounterCaps(caps, accept.Guards)
 		}
 	}
-	return caps
+	return caps, nil
+}
+
+func (b *dfaBuilder) spendDFAConfigs(configs []dfaConfig) error {
+	if err := b.c.work.spend(len(configs) + 1); err != nil {
+		return err
+	}
+	for _, config := range configs {
+		if err := b.c.work.spend(len(config.Counters)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func addCounterCaps(caps []uint32, guards []compiledGuard) {

@@ -1165,7 +1165,7 @@ func TestValidateOptionsMaxInstanceTokenBytes(t *testing.T) {
 				}
 				return
 			}
-			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeValidationLimit {
+			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeValidationLimit {
 				t.Fatalf("Validate() error = %v, want validation limit", err)
 			}
 		})
@@ -1269,7 +1269,7 @@ func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
 				}
 				return
 			}
-			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
+			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 				t.Fatalf("CompileWithOptions() error = %v, want schema limit", err)
 			}
 		})
@@ -1291,7 +1291,7 @@ func TestCompileExplicitSourceLimitPrecedesSameIdentityOpeners(t *testing.T) {
 		sourceFor(),
 		sourceFor())
 
-	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("CompileWithOptions() error = %v, want schema limit", err)
 	}
 	if openCalls != 0 {
@@ -1312,8 +1312,22 @@ func TestCompileOptionsSubstitutionClosureLimit(t *testing.T) {
 		t.Fatalf("CompileWithOptions(exact limit) error = %v", err)
 	}
 	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSubstitutionClosureEntries: 5}, schema)
-	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code != xsderrors.CodeSchemaLimit {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("CompileWithOptions(over limit) error = %v, want schema limit", err)
+	}
+}
+
+func TestCompileOptionsContentModelAnalysisLimit(t *testing.T) {
+	t.Parallel()
+
+	schema := xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:complexType>
+  </xs:element>
+</xs:schema>`))
+	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxContentModelAnalysisSteps: 1}, schema)
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit || !strings.Contains(err.Error(), "MaxContentModelAnalysisSteps") {
+		t.Fatalf("CompileWithOptions() error = %v, want content-model analysis limit", err)
 	}
 }
 
@@ -1500,8 +1514,8 @@ func TestValidationPathsPreserveNameSpelling(t *testing.T) {
 			if !ok {
 				t.Fatalf("Validate() error = %v, want structured error", err)
 			}
-			if x.Path != tc.path {
-				t.Fatalf("path = %q, want %q; err=%v", x.Path, tc.path, err)
+			if x.Path() != tc.path {
+				t.Fatalf("path = %q, want %q; err=%v", x.Path(), tc.path, err)
 			}
 		})
 	}
@@ -1558,7 +1572,7 @@ func expectCategoryCode(t *testing.T, err error, category xsderrors.Category, co
 	if !ok {
 		t.Fatalf("error %v is not *xsderrors.Error", err)
 	}
-	if x.Category != category || x.Code != code {
-		t.Fatalf("error = %s/%s, want %s/%s; err=%v", x.Category, x.Code, category, code, err)
+	if x.Category() != category || x.Code() != code {
+		t.Fatalf("error = %s/%s, want %s/%s; err=%v", x.Category(), x.Code(), category, code, err)
 	}
 }

@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -8,6 +9,8 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+const maxComponentDependencyDepth = 1024
 
 // Compile compiles internal schema sources into a published validation runtime.
 func Compile(opts Options, sources []source.Source) (*runtime.Schema, error) {
@@ -41,9 +44,15 @@ func CompileMappedSources[T any](opts Options, sources []T, sourceOf func(T) sou
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required")
 		}
 	}
-	if err = c.loadOwned(owned); err != nil {
+	graph, err := loadSchemaGraphOwned(owned, limits, &c.dependencyWork)
+	if err != nil {
 		return nil, err
 	}
+	plan, err := graph.plan()
+	if err != nil {
+		return nil, err
+	}
+	c.plan = plan
 	if err = c.index(); err != nil {
 		return nil, err
 	}
@@ -128,10 +137,38 @@ type compiler struct {
 	builtinFacets runtime.BuiltinSimpleFacetStorage
 	compilerIndexState
 	compilerModelState
-	schemas       schemaSet
-	rt            compilerSchemaBuild
-	limits        Limits
-	missingSimple runtime.SimpleTypeID
+	contentAnalysis *runtime.ContentModelAnalysis
+	plan            schemaPlan
+	rt              compilerSchemaBuild
+	contentWork     workBudget
+	dependencyWork  workBudget
+	componentDepth  int
+	limits          Limits
+	missingSimple   runtime.SimpleTypeID
+}
+
+func (c *compiler) spendComponentDependency(n *rawNode) error {
+	if err := c.dependencyWork.spend(1); err != nil {
+		if n != nil {
+			return withSchemaCompileLocation(n, err)
+		}
+		return err
+	}
+	return nil
+}
+
+func (c *compiler) enterComponent(n *rawNode) (func(), error) {
+	if c.componentDepth >= maxComponentDependencyDepth {
+		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema component dependency depth limit exceeded")
+		if n != nil {
+			err = withSchemaCompileLocation(n, err)
+		}
+		return nil, err
+	}
+	c.componentDepth++
+	return func() {
+		c.componentDepth--
+	}, nil
 }
 
 func newCompiler(limits Limits) (*compiler, error) {
@@ -173,11 +210,17 @@ func newCompiler(limits Limits) (*compiler, error) {
 			modelDone:  make(map[*rawNode]runtime.ContentModelID),
 			modelDepth: make(map[*rawNode]int),
 		},
-		rt:            rt,
-		missingSimple: runtime.NoSimpleType,
-		limits:        limits,
+		rt:             rt,
+		missingSimple:  runtime.NoSimpleType,
+		limits:         limits,
+		contentWork:    newWorkBudget(contentModelWorkBudget, limits.MaxContentModelAnalysisSteps),
+		dependencyWork: newWorkBudget(dependencyWorkBudget, limits.MaxSchemaDependencySteps),
 	}
-	if err := c.addBuiltins(); err != nil {
+	if err = c.addBuiltins(); err != nil {
+		return nil, err
+	}
+	c.contentAnalysis, err = runtime.NewContentModelAnalysis(&c.rt, c.contentWork.spend)
+	if err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -263,13 +306,19 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 			continue
 		}
 		base := c.rt.complexType(baseID)
-		if err := runtime.ValidateContentRestriction(&c.rt, base.Content, ct.Content); err != nil {
-			return err
+		if err := runtime.ValidateContentRestriction(
+			&c.rt,
+			base.Content,
+			ct.Content,
+			c.contentWork.spend,
+			c.contentAnalysis,
+		); err != nil {
+			return contentRestrictionCompileError(err)
 		}
 	}
 	updates, err := c.restrictionChoiceLimitUpdates()
 	if err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return contentRestrictionCompileError(err)
 	}
 	for _, update := range updates {
 		id, err := c.addModel(update.Model)
@@ -281,6 +330,20 @@ func (c *compiler) validateCompiledComplexRestrictions() error {
 		c.completeComplexType(update.ComplexType, ct)
 	}
 	return nil
+}
+
+func contentRestrictionCompileError(err error) error {
+	var diagnostic *xsderrors.Error
+	switch {
+	case err == nil:
+		return nil
+	case runtime.IsContentRestrictionMismatch(err):
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
+	case errors.As(err, &diagnostic):
+		return err
+	default:
+		return xsderrors.InternalInvariant(err.Error())
+	}
 }
 
 func complexBlockMaskWithDefault(n *rawNode, def runtime.DerivationMask) (runtime.DerivationMask, error) {
@@ -400,13 +463,25 @@ func (c *compiler) compileSimpleByQName(q runtime.QName) (runtime.SimpleTypeID, 
 		}
 		return runtime.NoSimpleType, err
 	}
+	raw, exists := c.simpleRaw[q]
+	var source *rawNode
+	if exists {
+		source = raw.node
+	}
+	if err := c.spendComponentDependency(source); err != nil {
+		return runtime.NoSimpleType, err
+	}
 	if id, ok := c.simpleDone[q]; ok {
 		return id, nil
 	}
-	raw, ok := c.simpleRaw[q]
-	if err := CheckSchemaComponentExists(SchemaComponentSimpleType, ok, label); err != nil {
+	if err := CheckSchemaComponentExists(SchemaComponentSimpleType, exists, label); err != nil {
 		return runtime.NoSimpleType, err
 	}
+	leave, err := c.enterComponent(raw.node)
+	if err != nil {
+		return runtime.NoSimpleType, err
+	}
+	defer leave()
 	c.compilingSimple[q] = true
 	defer delete(c.compilingSimple, q)
 	id, err := c.registerGlobalSimpleType(q, runtime.SimpleType{Name: q, Variety: runtime.SimpleVarietyAtomic, Primitive: runtime.PrimitiveString, Base: c.rt.builtinIDs().AnySimpleType, ListItem: runtime.NoSimpleType, Whitespace: runtime.WhitespacePreserve})
@@ -431,7 +506,15 @@ func (c *compiler) compileSimpleByQName(q runtime.QName) (runtime.SimpleTypeID, 
 }
 
 func (c *compiler) compileAnonymousSimple(n *rawNode, ctx *schemaContext) (runtime.SimpleTypeID, error) {
-	if err := checkLocalSimpleTypeAttributes(n); err != nil {
+	if err := c.spendComponentDependency(n); err != nil {
+		return runtime.NoSimpleType, err
+	}
+	leave, err := c.enterComponent(n)
+	if err != nil {
+		return runtime.NoSimpleType, err
+	}
+	defer leave()
+	if err = checkLocalSimpleTypeAttributes(n); err != nil {
 		return runtime.NoSimpleType, err
 	}
 	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", c.rt.SimpleTypeCount()))
@@ -480,7 +563,7 @@ func (c *compiler) compileSimpleType(n *rawNode, ctx *schemaContext, name runtim
 
 func simpleTypeDerivationChild(n *rawNode) *rawNode {
 	for _, child := range n.Children {
-		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
+		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
 			continue
 		}
 		return child

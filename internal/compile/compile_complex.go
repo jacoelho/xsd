@@ -9,9 +9,6 @@ import (
 )
 
 func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID, error) {
-	if id, ok := c.complexDone[q]; ok {
-		return id, nil
-	}
 	label := c.rt.formatName(q)
 	if c.compilingComplex[q] {
 		err := CheckSchemaComponentCycle(SchemaComponentComplexType, true, label)
@@ -20,10 +17,25 @@ func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID
 		}
 		return runtime.NoComplexType, err
 	}
-	raw, ok := c.complexRaw[q]
-	if err := CheckSchemaComponentExists(SchemaComponentComplexType, ok, label); err != nil {
+	raw, exists := c.complexRaw[q]
+	var source *rawNode
+	if exists {
+		source = raw.node
+	}
+	if err := c.spendComponentDependency(source); err != nil {
 		return runtime.NoComplexType, err
 	}
+	if id, ok := c.complexDone[q]; ok {
+		return id, nil
+	}
+	if err := CheckSchemaComponentExists(SchemaComponentComplexType, exists, label); err != nil {
+		return runtime.NoComplexType, err
+	}
+	leave, err := c.enterComponent(raw.node)
+	if err != nil {
+		return runtime.NoComplexType, err
+	}
+	defer leave()
 	c.compilingComplex[q] = true
 	defer delete(c.compilingComplex, q)
 	id, err := c.registerGlobalComplexType(q, runtime.ComplexType{Name: q, Content: runtime.NoContentModel, Attrs: runtime.NoAttributeUseSet, TextType: runtime.NoSimpleType, Base: runtime.ComplexRef(c.rt.builtinIDs().AnyType)})
@@ -51,6 +63,9 @@ func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID
 }
 
 func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (runtime.ComplexTypeID, error) {
+	if err := c.spendComponentDependency(n); err != nil {
+		return runtime.NoComplexType, err
+	}
 	if err := checkLocalComplexTypeAttributes(n); err != nil {
 		return runtime.NoComplexType, err
 	}
@@ -79,6 +94,11 @@ func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (runt
 }
 
 func (c *compiler) completeAnonymousComplex(id runtime.ComplexTypeID, q runtime.QName, n *rawNode, ctx *schemaContext) (runtime.ComplexTypeID, error) {
+	leave, err := c.enterComponent(n)
+	if err != nil {
+		return runtime.NoComplexType, err
+	}
+	defer leave()
 	ct, err := c.compileComplexType(n, ctx, q, true)
 	if err != nil {
 		return runtime.NoComplexType, err
@@ -187,7 +207,7 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name runti
 		return c.compileSimpleContent(sc, ctx, ct, anonymous)
 	}
 	for _, child := range n.Children {
-		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
+		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
 			continue
 		}
 		switch child.Name.Local {
@@ -472,7 +492,7 @@ func (c *compiler) compileSimpleContentComplexBase(child *rawNode, kind ContentD
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
 	base := c.rt.complexType(baseComplex)
-	if err := CheckSimpleContentDerivationBase(&c.rt, base, kind == ContentDerivationRestriction); err != nil {
+	if err := CheckSimpleContentDerivationBase(c.contentAnalysis, base, kind == ContentDerivationRestriction); err != nil {
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
 	switch kind {

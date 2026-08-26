@@ -37,7 +37,7 @@ func TestOwnerDerivedSimpleTypeSharesImmutableInheritedStorage(t *testing.T) {
 		t.Fatal("derived restriction cloned immutable enumeration storage")
 	}
 	pattern := &rawNode{
-		Name: xml.Name{Space: runtime.XSDNamespaceURI, Local: vocab.XSDFacetPattern},
+		Name: xml.Name{Space: vocab.XSDNamespaceURI, Local: vocab.XSDFacetPattern},
 		Attr: []xml.Attr{{Name: xml.Name{Local: vocab.XSDAttrValue}, Value: "[A-Z]+"}},
 	}
 	if err := c.compileFacets(&rawNode{Children: []*rawNode{pattern}}, &derived, 0, 0); err != nil {
@@ -154,11 +154,11 @@ func TestParseSizeFacetValue(t *testing.T) {
 			if !errors.As(err, &xerr) {
 				t.Fatalf("ParseSizeFacetValue() error = %v, want *xsderrors.Error", err)
 			}
-			if xerr.Code != tt.code {
-				t.Fatalf("ParseSizeFacetValue() code = %s, want %s", xerr.Code, tt.code)
+			if xerr.Code() != tt.code {
+				t.Fatalf("ParseSizeFacetValue() code = %s, want %s", xerr.Code(), tt.code)
 			}
-			if xerr.Message != tt.msg {
-				t.Fatalf("ParseSizeFacetValue() message = %q, want %q", xerr.Message, tt.msg)
+			if xerr.Message() != tt.msg {
+				t.Fatalf("ParseSizeFacetValue() message = %q, want %q", xerr.Message(), tt.msg)
 			}
 		})
 	}
@@ -186,11 +186,11 @@ func TestValidateCompiledFacets(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("ValidateCompiledFacets(invalid) error = %v, want *xsderrors.Error", err)
 	}
-	if xerr.Code != xsderrors.CodeSchemaFacet {
-		t.Fatalf("ValidateCompiledFacets(invalid) code = %s, want %s", xerr.Code, xsderrors.CodeSchemaFacet)
+	if xerr.Code() != xsderrors.CodeSchemaFacet {
+		t.Fatalf("ValidateCompiledFacets(invalid) code = %s, want %s", xerr.Code(), xsderrors.CodeSchemaFacet)
 	}
-	if xerr.Message != "minLength cannot exceed maxLength" {
-		t.Fatalf("ValidateCompiledFacets(invalid) message = %q, want minLength cannot exceed maxLength", xerr.Message)
+	if xerr.Message() != "minLength cannot exceed maxLength" {
+		t.Fatalf("ValidateCompiledFacets(invalid) message = %q, want minLength cannot exceed maxLength", xerr.Message())
 	}
 }
 
@@ -200,7 +200,7 @@ func TestFacetValueError(t *testing.T) {
 	if err := FacetValueError("bad", nil); err != nil {
 		t.Fatalf("FacetValueError(nil) error = %v", err)
 	}
-	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex")
+	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex", nil)
 	if err := FacetValueError("bad", unsupported); !errors.Is(err, unsupported) {
 		t.Fatalf("FacetValueError(unsupported) = %v, want original unsupported error", err)
 	}
@@ -209,11 +209,11 @@ func TestFacetValueError(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("FacetValueError(reject) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaFacet {
-		t.Fatalf("diagnostic = %s/%s, want schema compile facet", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaFacet {
+		t.Fatalf("diagnostic = %s/%s, want schema compile facet", xerr.Category(), xerr.Code())
 	}
-	if xerr.Message != "invalid facet value bad" {
-		t.Fatalf("message = %q, want invalid facet value", xerr.Message)
+	if xerr.Message() != "invalid facet value bad" {
+		t.Fatalf("message = %q, want invalid facet value", xerr.Message())
 	}
 }
 
@@ -223,7 +223,7 @@ func TestDeclarationValueConstraintError(t *testing.T) {
 	if err := DeclarationValueConstraintError("element fixed", "p:e", nil); err != nil {
 		t.Fatalf("DeclarationValueConstraintError(nil) error = %v", err)
 	}
-	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex")
+	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex", nil)
 	if err := DeclarationValueConstraintError("element fixed", "p:e", unsupported); !errors.Is(err, unsupported) {
 		t.Fatalf("DeclarationValueConstraintError(unsupported) = %v, want original unsupported error", err)
 	}
@@ -232,11 +232,11 @@ func TestDeclarationValueConstraintError(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("DeclarationValueConstraintError(reject) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaFacet {
-		t.Fatalf("diagnostic = %s/%s, want schema compile facet", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaFacet {
+		t.Fatalf("diagnostic = %s/%s, want schema compile facet", xerr.Category(), xerr.Code())
 	}
-	if xerr.Message != "invalid element fixed value for p:e" {
-		t.Fatalf("message = %q, want invalid value constraint", xerr.Message)
+	if xerr.Message() != "invalid element fixed value for p:e" {
+		t.Fatalf("message = %q, want invalid value constraint", xerr.Message())
 	}
 }
 
@@ -251,11 +251,11 @@ func TestElementValueConstraintTypeError(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("ElementValueConstraintTypeError(reject) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaInvalidAttribute {
-		t.Fatalf("diagnostic = %s/%s, want schema compile invalid attribute", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaInvalidAttribute {
+		t.Fatalf("diagnostic = %s/%s, want schema compile invalid attribute", xerr.Category(), xerr.Code())
 	}
-	if xerr.Message != "owner reject" {
-		t.Fatalf("message = %q, want runtime message", xerr.Message)
+	if xerr.Message() != "owner reject" {
+		t.Fatalf("message = %q, want runtime message", xerr.Message())
 	}
 }
 
@@ -271,21 +271,21 @@ func TestElementValueConstraintRuntimeError(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("ElementValueConstraintRuntimeError(bare notation) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaFacet {
-		t.Fatalf("bare notation diagnostic = %s/%s, want schema compile facet", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaFacet {
+		t.Fatalf("bare notation diagnostic = %s/%s, want schema compile facet", xerr.Category(), xerr.Code())
 	}
-	if xerr.Message != runtime.ErrBareNotationValueConstraint.Error() {
-		t.Fatalf("bare notation message = %q, want runtime message", xerr.Message)
+	if xerr.Message() != runtime.ErrBareNotationValueConstraint.Error() {
+		t.Fatalf("bare notation message = %q, want runtime message", xerr.Message())
 	}
 
 	err = ElementValueConstraintRuntimeError(fmt.Errorf("runtime reject"))
 	if !errors.As(err, &xerr) {
 		t.Fatalf("ElementValueConstraintRuntimeError(reject) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaInvalidAttribute {
-		t.Fatalf("runtime reject diagnostic = %s/%s, want schema compile invalid attribute", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaInvalidAttribute {
+		t.Fatalf("runtime reject diagnostic = %s/%s, want schema compile invalid attribute", xerr.Category(), xerr.Code())
 	}
-	if xerr.Message != "runtime reject" {
-		t.Fatalf("runtime reject message = %q, want runtime message", xerr.Message)
+	if xerr.Message() != "runtime reject" {
+		t.Fatalf("runtime reject message = %q, want runtime message", xerr.Message())
 	}
 }

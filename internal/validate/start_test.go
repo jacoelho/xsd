@@ -240,8 +240,8 @@ func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {
 	if !errors.As(err, &x) {
 		t.Fatalf("error = %v, want *xsderrors.Error", err)
 	}
-	if x.Code != code {
-		t.Fatalf("error code = %s, want %s", x.Code, code)
+	if x.Code() != code {
+		t.Fatalf("error code = %s, want %s", x.Code(), code)
 	}
 }
 

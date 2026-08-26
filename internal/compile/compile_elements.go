@@ -43,14 +43,26 @@ func (c *compiler) compileElementParticle(n *rawNode, ctx *schemaContext) (runti
 }
 
 func (c *compiler) compileElementByQName(q runtime.QName) (runtime.ElementID, error) {
+	raw, exists := c.elementRaw[q]
+	var source *rawNode
+	if exists {
+		source = raw.node
+	}
+	if err := c.spendComponentDependency(source); err != nil {
+		return 0, err
+	}
 	if id, ok := c.elementDone[q]; ok {
 		return id, nil
 	}
 	label := c.rt.formatName(q)
-	raw, ok := c.elementRaw[q]
-	if err := CheckSchemaComponentExists(SchemaComponentElement, ok, label); err != nil {
+	if err := CheckSchemaComponentExists(SchemaComponentElement, exists, label); err != nil {
 		return 0, err
 	}
+	leave, err := c.enterComponent(raw.node)
+	if err != nil {
+		return 0, err
+	}
+	defer leave()
 	id, err := c.registerGlobalElement(q, runtime.ElementDecl{Name: q, Type: runtime.ComplexRef(c.rt.builtinIDs().AnyType)})
 	if err != nil {
 		return 0, err
@@ -69,10 +81,18 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (runtime.
 	if id, ok := c.localDone[n]; ok {
 		return id, nil
 	}
-	if err := checkLocalElementAttributes(n); err != nil {
+	if err := c.spendComponentDependency(n); err != nil {
 		return 0, err
 	}
-	if err := checkLocalElementSource(n); err != nil {
+	leave, err := c.enterComponent(n)
+	if err != nil {
+		return 0, err
+	}
+	defer leave()
+	if err = checkLocalElementAttributes(n); err != nil {
+		return 0, err
+	}
+	if err = checkLocalElementSource(n); err != nil {
 		return 0, err
 	}
 	name, _ := n.attr(vocab.XSDAttrName)
@@ -233,7 +253,7 @@ func (c *compiler) validateElementValueConstraints(decl *runtime.ElementDecl, n 
 	if decl.Default == nil && decl.Fixed == nil {
 		return nil
 	}
-	simpleID, err := runtime.ElementValueConstraintType(&c.rt, decl.Type)
+	simpleID, err := runtime.ElementValueConstraintType(&c.rt, c.contentAnalysis, decl.Type)
 	if err != nil {
 		return ElementValueConstraintTypeError(err)
 	}

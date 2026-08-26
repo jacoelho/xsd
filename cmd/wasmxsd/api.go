@@ -19,17 +19,27 @@ const (
 	maxValidationErrors        = 100
 )
 
+type responseStatus string
+
+const (
+	statusOK      responseStatus = "ok"
+	statusValid   responseStatus = "valid"
+	statusInvalid responseStatus = "invalid"
+	statusError   responseStatus = "error"
+)
+
 type formatResponse struct {
-	XML    string `json:"xml,omitempty"`
-	Error  string `json:"error,omitempty"`
-	Line   int    `json:"line,omitempty"`
-	Column int    `json:"column,omitempty"`
+	Status responseStatus `json:"status"`
+	XML    string         `json:"xml,omitempty"`
+	Error  string         `json:"error,omitempty"`
+	Line   int            `json:"line,omitempty"`
+	Column int            `json:"column,omitempty"`
 }
 
 type validateResponse struct {
-	Error  string        `json:"error,omitempty"`
-	Errors []errorOutput `json:"errors,omitempty"`
-	Valid  bool          `json:"valid"`
+	Status responseStatus `json:"status"`
+	Error  string         `json:"error,omitempty"`
+	Errors []errorOutput  `json:"errors,omitempty"`
 }
 
 type errorOutput struct {
@@ -44,62 +54,74 @@ type errorOutput struct {
 
 func formatXMLData(input string) formatResponse {
 	if input == "" {
-		return formatResponse{Error: "XML cannot be empty", Line: 1, Column: 1}
+		return formatFailure("XML cannot be empty", 1, 1)
 	}
 	if int64(len(input)) > maxXMLBytes {
-		return formatResponse{Error: fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes))}
+		return formatFailure(fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes)), 0, 0)
 	}
 
 	var out strings.Builder
 	err := format.XMLWithOptions(&out, strings.NewReader(input), format.Options{MaxOutputBytes: maxFormattedXMLBytes})
 	if err != nil {
-		resp := formatResponse{Error: errorMessage(err)}
+		resp := formatFailure(errorMessage(err), 0, 0)
 		var xerr *xsderrors.Error
 		if errors.As(err, &xerr) {
-			resp.Line = xerr.Line
-			resp.Column = xerr.Column
+			resp.Line = xerr.Line()
+			resp.Column = xerr.Column()
 		}
 		return resp
 	}
-	return formatResponse{XML: out.String()}
+	return formatResponse{Status: statusOK, XML: out.String()}
 }
 
 func validateXMLData(xmlText, xsdText string) validateResponse {
 	if xmlText == "" {
-		return validateResponse{Error: "XML cannot be empty"}
+		return validationFailure("XML cannot be empty")
 	}
 	if int64(len(xmlText)) > maxXMLBytes {
-		return validateResponse{Error: fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes))}
+		return validationFailure(fmt.Sprintf("XML exceeds %s limit", byteLimit(maxXMLBytes)))
 	}
 	if int64(len(xsdText)) > maxXSDBytes {
-		return validateResponse{Error: fmt.Sprintf("XSD exceeds %s limit", byteLimit(maxXSDBytes))}
+		return validationFailure(fmt.Sprintf("XSD exceeds %s limit", byteLimit(maxXSDBytes)))
 	}
 	engine, compileErr := xsd.Compile(xsd.Bytes("schema.xsd", []byte(xsdText)))
 	if compileErr != nil {
 		schemaErrors := collectErrors(compileErr, "xsd")
 		if xmlErr := validate.CheckXMLWellFormed(strings.NewReader(xmlText), validate.Options{}); xmlErr != nil {
 			xmlErrors := collectErrors(xmlErr, "xml")
-			return validateResponse{Errors: append(xmlErrors, schemaErrors...)}
+			return validationInvalid(append(xmlErrors, schemaErrors...))
 		}
-		return validateResponse{Errors: schemaErrors}
+		return validationInvalid(schemaErrors)
 	}
 	err := engine.ValidateWithOptions(strings.NewReader(xmlText), xsd.ValidateOptions{MaxErrors: maxValidationErrors})
 	if err != nil {
-		return validateResponse{Errors: collectErrors(err, "xml")}
+		return validationInvalid(collectErrors(err, "xml"))
 	}
-	return validateResponse{Valid: true}
+	return validateResponse{Status: statusValid}
+}
+
+func formatFailure(message string, line, column int) formatResponse {
+	return formatResponse{Status: statusError, Error: message, Line: line, Column: column}
+}
+
+func validationFailure(message string) validateResponse {
+	return validateResponse{Status: statusError, Error: message}
+}
+
+func validationInvalid(diagnostics []errorOutput) validateResponse {
+	if len(diagnostics) == 0 {
+		return validationFailure("validation failed without diagnostics")
+	}
+	return validateResponse{Status: statusInvalid, Errors: diagnostics}
 }
 
 func collectErrors(err error, source string) []errorOutput {
 	if err == nil {
 		return nil
 	}
-	var errs xsderrors.Errors
-	if !errors.As(err, &errs) {
-		return []errorOutput{errorToOutput(err, source)}
-	}
-	out := make([]errorOutput, 0, len(errs))
-	for _, item := range errs {
+	items := xsderrors.Flatten(err)
+	out := make([]errorOutput, 0, len(items))
+	for _, item := range items {
 		out = append(out, errorToOutput(item, source))
 	}
 	return out
@@ -109,13 +131,13 @@ func errorToOutput(err error, source string) errorOutput {
 	var xerr *xsderrors.Error
 	if errors.As(err, &xerr) {
 		return errorOutput{
-			Category: string(xerr.Category),
-			Code:     string(xerr.Code),
+			Category: string(xerr.Category()),
+			Code:     string(xerr.Code()),
 			Source:   source,
-			Path:     xerr.Path,
+			Path:     xerr.Path(),
 			Message:  xsdErrorMessage(xerr),
-			Line:     xerr.Line,
-			Column:   xerr.Column,
+			Line:     xerr.Line(),
+			Column:   xerr.Column(),
 		}
 	}
 	return errorOutput{Source: source, Message: err.Error()}
@@ -125,12 +147,12 @@ func xsdErrorMessage(err *xsderrors.Error) string {
 	if err == nil {
 		return ""
 	}
-	msg := err.Message
-	if err.Err != nil {
+	msg := err.Message()
+	if err.Cause() != nil {
 		if msg != "" {
 			msg += ": "
 		}
-		msg += err.Err.Error()
+		msg += err.Cause().Error()
 	}
 	if msg == "" {
 		return err.Error()
@@ -140,8 +162,8 @@ func xsdErrorMessage(err *xsderrors.Error) string {
 
 func errorMessage(err error) string {
 	var formatErr *xsderrors.Error
-	if errors.As(err, &formatErr) && formatErr.Err != nil {
-		return formatErr.Err.Error()
+	if errors.As(err, &formatErr) && formatErr.Cause() != nil {
+		return formatErr.Cause().Error()
 	}
 	return err.Error()
 }

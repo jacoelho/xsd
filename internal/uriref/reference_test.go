@@ -23,6 +23,7 @@ func TestParseAndEscape(t *testing.T) {
 		{name: "unicode", raw: "a/\u2603", escaped: "a/%E2%98%83", valid: true, length: 3},
 		{name: "relative colon after slash", raw: "./a:", escaped: "./a:", valid: true, length: 4},
 		{name: "valid IPv6", raw: "http://[::1]/", escaped: "http://[::1]/", valid: true, length: 13},
+		{name: "compressed IPv6 cannot omit zero groups", raw: "http://[1:2:3:4:5:6:7:8::]/"},
 		{name: "empty authority with path", raw: "///", escaped: "///", valid: true, length: 3},
 		{name: "empty authority with query", raw: "//?q", escaped: "//?q", valid: true, length: 4},
 		{name: "leading colon", raw: ":a"},
@@ -60,6 +61,42 @@ func TestParseAndEscape(t *testing.T) {
 	invalidUTF8 := []byte{'a', 0xff}
 	if _, err := Check(invalidUTF8); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("Check(invalid UTF-8) error = %v, want ErrInvalid", err)
+	}
+}
+
+func TestResolveRelativePathAgainstEmptyAuthorityPath(t *testing.T) {
+	t.Parallel()
+	base, err := Parse("http://a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := Parse("g")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := Resolve(base, ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := resolved.Raw(), "http://a/g"; got != want {
+		t.Fatalf("Resolve() = %q, want %q", got, want)
+	}
+}
+
+func TestWithoutFragmentIsTotalForEmptyAuthorityPath(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{"foo://#fragment", "//#fragment"} {
+		ref, err := Parse(raw)
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", raw, err)
+		}
+		without := ref.WithoutFragment()
+		if without.HasFragment() {
+			t.Fatalf("WithoutFragment(%q) retained a fragment", raw)
+		}
+		if got, want := without.Raw(), raw[:len(raw)-len("#fragment")]; got != want {
+			t.Fatalf("WithoutFragment(%q) = %q, want %q", raw, got, want)
+		}
 	}
 }
 

@@ -240,10 +240,10 @@ func expectCompileDiagnostic(t *testing.T, err error, code xsderrors.Code, messa
 	if !errors.As(err, &xerr) {
 		t.Fatalf("error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != code {
-		t.Fatalf("diagnostic = %s/%s, want schema compile/%s", xerr.Category, xerr.Code, code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != code {
+		t.Fatalf("diagnostic = %s/%s, want schema compile/%s", xerr.Category(), xerr.Code(), code)
 	}
-	if xerr.Message != message {
-		t.Fatalf("message = %q, want %q", xerr.Message, message)
+	if xerr.Message() != message {
+		t.Fatalf("message = %q, want %q", xerr.Message(), message)
 	}
 }

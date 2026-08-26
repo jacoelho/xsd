@@ -926,146 +926,6 @@ func validateSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID,
 	return SimpleValue{}, ErrSimpleValueMetadata
 }
 
-func validateSimpleValueRouteReadFast(reads []simpleValueRouteRead, notations map[ExpandedName]bool, id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, bool, error) {
-	if id == NoSimpleType {
-		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, true, nil
-	}
-	read, ok := simpleValueRouteReadByID(reads, id)
-	if !ok {
-		return SimpleValue{}, true, ErrSimpleValueMetadata
-	}
-	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: read.variety, Known: true}) {
-	case SimpleValueRouteAtomic:
-		return validateAtomicSimpleValueRouteReadFast(notations, id, read, lexical, resolve, needs)
-	case SimpleValueRouteList, SimpleValueRouteUnion:
-		return SimpleValue{}, false, nil
-	case SimpleValueRouteUntyped:
-		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, true, nil
-	case SimpleValueRouteMissing, SimpleValueRouteInvalid:
-		return SimpleValue{}, true, ErrSimpleValueMetadata
-	}
-	return SimpleValue{}, true, ErrSimpleValueMetadata
-}
-
-func validateAtomicSimpleValueRouteReadFast(
-	notations map[ExpandedName]bool,
-	id SimpleTypeID,
-	typ *simpleValueRouteRead,
-	lexical string,
-	resolve ResolveQNameParts,
-	needs SimpleValueNeed,
-) (SimpleValue, bool, error) {
-	normalized := normalizeSimpleValueLexical(lexical, typ.whitespace)
-	if value, handled, err := validatePublishedQNameRoute(notations, id, typ, normalized, resolve, needs); handled {
-		return value, true, err
-	}
-	action := SimpleValueBypass(SimpleValueBypassShape{
-		Facets:    typ.facets,
-		Variety:   typ.variety,
-		Primitive: typ.primitive,
-		Builtin:   typ.builtin,
-		Identity:  typ.identity,
-		Fast:      typ.fast,
-		Needs:     needs,
-	})
-	switch action {
-	case SimpleValueBypassAcceptString:
-		return unconstrainedStringSimpleValue(id, normalized, needs), true, nil
-	case SimpleValueBypassValidateInt:
-		if err := ValidateFastIntLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateAnyURI:
-		if _, err := uriref.Check(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateHexBinary:
-		if err := ValidateHexBinaryLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateBase64Binary:
-		if err := ValidateBase64BinaryLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateFloat:
-		if err := ValidateFloatLexical(normalized, simpleValueFloatBits(typ.primitive)); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateDuration:
-		if err := ValidateDurationLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateBoolean:
-		if err := ValidateBooleanLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateTemporal:
-		if err := ValidateTemporalLexical(typ.primitive, normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateDate:
-		if err := validateDateLexical(normalized); err != nil {
-			return SimpleValue{}, true, err
-		}
-		return SimpleValue{Type: id}, true, nil
-	case SimpleValueBypassValidateDecimal:
-		handled, err := ValidateFastDecimalLexical(RawDecimalFastPathShape{
-			MinInclusive: typ.minInclusive,
-			MaxInclusive: typ.maxInclusive,
-			Facets:       typ.facets,
-		}, normalized)
-		if err != nil {
-			return SimpleValue{}, true, err
-		}
-		if handled {
-			return SimpleValue{Type: id}, true, nil
-		}
-		return SimpleValue{}, false, nil
-	case SimpleValueBypassNone:
-		full := typ.simpleValueType()
-		if value, ok, err := validateAtomicStringSimpleValueFallback(id, full, normalized, needs); ok {
-			return value, true, err
-		}
-		return SimpleValue{}, false, nil
-	case SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
-		return SimpleValue{}, false, nil
-	}
-	return SimpleValue{}, true, ErrSimpleValueMetadata
-}
-
-func validatePublishedQNameRoute(notations map[ExpandedName]bool, id SimpleTypeID, typ *simpleValueRouteRead, normalized string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, bool, error) {
-	if typ.facets != 0 || typ.builtin != BuiltinValidationNone ||
-		(typ.primitive != PrimitiveQName && typ.primitive != PrimitiveNotation) {
-		return SimpleValue{}, false, nil
-	}
-	primitiveNeeds := SimpleValuePrimitiveNeeds(PrimitiveValueNeedShape{Primitive: typ.primitive, Identity: typ.identity, Needs: needs})
-	var canonical string
-	var err error
-	if typ.primitive == PrimitiveQName {
-		canonical, err = validateQNamePrimitive(normalized, resolve, primitiveNeeds)
-	} else {
-		canonical, err = validateNotationPrimitive(publishedSimpleValueNotations(notations), normalized, resolve, primitiveNeeds)
-	}
-	if err != nil {
-		return SimpleValue{}, true, err
-	}
-	return AtomicSimpleValue(AtomicSimpleValueProjection{Canonical: canonical, Type: id, Primitive: typ.primitive, Identity: typ.identity, Needs: needs}), true, nil
-}
-
-type publishedSimpleValueNotations map[ExpandedName]bool
-
-func (n publishedSimpleValueNotations) simpleValueNotation(ns, local string) (bool, bool) {
-	return n[ExpandedName{Namespace: ns, Local: local}], true
-}
-
 func validateAtomicSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
 	normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
 	switch SimpleValueBypass(simpleValueAtomicBypassShape(&typ, needs)) {
@@ -1280,11 +1140,11 @@ func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTyp
 	var identity strings.Builder
 	var validateErr error
 	count := uint32(0)
-	forEachSimpleValueListItem(lexical, func(item string) bool {
+	for item := range lex.XMLFieldsSeq(lexical) {
 		itemValue, err := validateSimpleValue(reader, typ.ListItem, item, resolve, needPlan.ItemNeeds, scratch)
 		if err != nil {
 			validateErr = err
-			return false
+			break
 		}
 		if needPlan.NeedStrings {
 			if count > 0 {
@@ -1297,11 +1157,10 @@ func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTyp
 		AppendSimpleValueIDRefs(&refs, itemValue)
 		if needs.Has(SimpleNeedIdentity) && !AppendSimpleValueListIdentity(&identity, itemValue) {
 			validateErr = ErrSimpleValueMetadata
-			return false
+			break
 		}
 		count++
-		return true
-	})
+	}
 	if validateErr != nil {
 		return SimpleValue{}, validateErr
 	}
@@ -1433,26 +1292,5 @@ func normalizeSimpleValueLexical(lexical string, mode WhitespaceMode) string {
 		return lex.ReplaceXMLWhitespace(lexical)
 	default:
 		return lex.CollapseXMLWhitespace(lexical)
-	}
-}
-
-func forEachSimpleValueListItem(lexical string, yield func(string) bool) {
-	start := -1
-	for i := range len(lexical) {
-		if lex.IsXMLWhitespaceByte(lexical[i]) {
-			if start >= 0 {
-				if !yield(lexical[start:i]) {
-					return
-				}
-				start = -1
-			}
-			continue
-		}
-		if start < 0 {
-			start = i
-		}
-	}
-	if start >= 0 {
-		yield(lexical[start:])
 	}
 }

@@ -30,6 +30,14 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (runtime.Content
 		}
 		return id, nil
 	}
+	if err := c.spendComponentDependency(n); err != nil {
+		return runtime.NoContentModel, err
+	}
+	leave, err := c.enterComponent(n)
+	if err != nil {
+		return runtime.NoContentModel, err
+	}
+	defer leave()
 	id, err := c.addModelAt(runtime.ContentModel{}, n)
 	if err != nil {
 		return runtime.NoContentModel, err
@@ -77,8 +85,17 @@ func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 	if err != nil {
 		return runtime.NoContentModel, err
 	}
-	if id, ok := c.modelDone[modelNode]; ok && c.compilingModel[modelNode] {
+	if id, exists := c.modelDone[modelNode]; exists && c.compilingModel[modelNode] {
+		if c.elementDepth <= c.modelDepth[modelNode] {
+			return c.recursiveModelGroupRef(q, id, occurs, modelNode)
+		}
+		if err = c.spendComponentDependency(n); err != nil {
+			return runtime.NoContentModel, err
+		}
 		return c.recursiveModelGroupRef(q, id, occurs, modelNode)
+	}
+	if err = c.spendComponentDependency(n); err != nil {
+		return runtime.NoContentModel, err
 	}
 	id, err := c.compileModel(modelNode, raw.ctx)
 	if err != nil {
@@ -123,7 +140,7 @@ func modelKindForNode(n *rawNode) (runtime.ModelKind, error) {
 
 func (c *compiler) compileModelChildren(n *rawNode, ctx *schemaContext, m *runtime.ContentModel) error {
 	for _, child := range n.Children {
-		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
+		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
 			continue
 		}
 		if err := c.appendModelChild(m, child, ctx); err != nil {

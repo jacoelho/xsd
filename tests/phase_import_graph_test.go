@@ -15,6 +15,50 @@ type listedPackage struct {
 	Deps       []string `json:"Deps"`       //nolint:tagliatelle // go list -json uses exported field names.
 }
 
+func TestInternalCapabilityImportAllowlist(t *testing.T) {
+	const module = "github.com/jacoelho/xsd"
+	allowed := map[string]map[string]bool{
+		module + "/internal/compile": allowProjectImports(
+			"internal/lex", "internal/runtime", "internal/source", "internal/stream",
+			"internal/uriref", "internal/vocab", "internal/xmlns", "xsderrors"),
+		module + "/internal/format": allowProjectImports(
+			"internal/lex", "internal/stream", "internal/vocab", "internal/xmlns", "xsderrors"),
+		module + "/internal/lex": {},
+		module + "/internal/runtime": allowProjectImports(
+			"internal/lex", "internal/uriref", "internal/vocab", "xsderrors"),
+		module + "/internal/source": allowProjectImports("internal/uriref", "xsderrors"),
+		module + "/internal/stream": allowProjectImports("internal/lex", "internal/vocab"),
+		module + "/internal/uriref": {},
+		module + "/internal/validate": allowProjectImports(
+			"internal/lex", "internal/runtime", "internal/stream", "internal/uriref",
+			"internal/vocab", "internal/xmlns", "xsderrors"),
+		module + "/internal/vocab": {},
+		module + "/internal/xmlns": allowProjectImports("internal/stream", "internal/vocab"),
+	}
+
+	packages := listPackages(t, "./internal/...")
+	for path, pkg := range packages {
+		packageAllowed, ok := allowed[path]
+		if !ok {
+			t.Fatalf("internal package %s has no architecture classification", path)
+		}
+		for _, imported := range pkg.Imports {
+			if strings.HasPrefix(imported, module+"/") && !packageAllowed[imported] {
+				t.Fatalf("%s directly imports unapproved project package %s", path, imported)
+			}
+		}
+	}
+}
+
+func allowProjectImports(paths ...string) map[string]bool {
+	const module = "github.com/jacoelho/xsd/"
+	allowed := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		allowed[module+path] = true
+	}
+	return allowed
+}
+
 func TestInternalPhasePackageImportGraph(t *testing.T) {
 	packages := listPackages(t, "./internal/...")
 

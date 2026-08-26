@@ -7,6 +7,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/internal/vocab"
 )
 
 func TestSchemaBuildGlobalRegistrationIsAtomic(t *testing.T) {
@@ -203,7 +204,7 @@ func TestSchemaBuildBuiltinHandlesMatchRegisteredDeclarations(t *testing.T) {
 			t.Fatalf("xs:%s ID = %d", handle.local, handle.id)
 		}
 		declaration := c.rt.build.SimpleTypes[handle.id]
-		if got := c.rt.build.Names.Format(declaration.Name); got != "{"+runtime.XSDNamespaceURI+"}"+handle.local {
+		if got := c.rt.build.Names.Format(declaration.Name); got != "{"+vocab.XSDNamespaceURI+"}"+handle.local {
 			t.Fatalf("builtin ID %d name = %s, want xs:%s", handle.id, got, handle.local)
 		}
 		if got, ok := c.rt.build.GlobalTypes[declaration.Name]; !ok || got != runtime.SimpleRef(handle.id) {

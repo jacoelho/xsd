@@ -13,8 +13,15 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-type schemaSet struct {
+type schemaPlan struct {
 	documents []schemaSetDocument
+}
+
+type loadedSchemaGraph struct {
+	byKey          map[string]loadedSchemaDocument
+	dependencyWork *workBudget
+	documents      []schemaSetDocument
+	limits         Limits
 }
 
 type schemaSetDocument struct {
@@ -31,6 +38,7 @@ type schemaSetLoader struct {
 	byKey             map[string]loadedSchemaDocument
 	resolvedSources   map[string]struct{}
 	pendingReferences map[string][]*schemaReference
+	dependencyWork    *workBudget
 	documents         []schemaSetDocument
 	loadedSource      []loadedSchemaSource
 	totalBytes        int64
@@ -184,15 +192,23 @@ func (c *schemaTargetContexts) add(source int, target string) error {
 	return nil
 }
 
-func loadSchemaSetOwned(sources []source.Source, limits Limits) (schemaSet, error) {
+func loadSchemaGraphOwned(
+	sources []source.Source,
+	limits Limits,
+	dependencyWork *workBudget,
+) (loadedSchemaGraph, error) {
+	if dependencyWork == nil {
+		return loadedSchemaGraph{}, xsderrors.InternalInvariant("schema dependency work budget is nil")
+	}
 	l := schemaSetLoader{
 		limits:          limits,
 		byKey:           make(map[string]loadedSchemaDocument),
 		resolvedSources: make(map[string]struct{}),
 		resolvedLimit:   limits.MaxSchemaSources - len(sources),
+		dependencyWork:  dependencyWork,
 	}
 	if err := l.loadOwned(sources); err != nil {
-		return schemaSet{}, err
+		return loadedSchemaGraph{}, err
 	}
 	slices.SortFunc(l.documents, func(a, b schemaSetDocument) int {
 		return cmp.Compare(a.doc.name, b.doc.name)
@@ -203,14 +219,31 @@ func loadSchemaSetOwned(sources []source.Source, limits Limits) (schemaSet, erro
 		loaded.index = i
 		l.byKey[key] = loaded
 	}
-	if err := l.validateLoadedReferenceTargets(); err != nil {
-		return schemaSet{}, err
+	return loadedSchemaGraph{
+		byKey:          l.byKey,
+		documents:      l.documents,
+		dependencyWork: l.dependencyWork,
+		limits:         limits,
+	}, nil
+}
+
+func (g *loadedSchemaGraph) plan() (schemaPlan, error) {
+	if err := g.validateReferenceTargets(); err != nil {
+		return schemaPlan{}, err
 	}
-	if err := l.instantiateTargetContexts(); err != nil {
-		return schemaSet{}, err
+	if err := g.instantiateTargetContexts(); err != nil {
+		return schemaPlan{}, err
 	}
-	l.selectDeclarationDocuments()
-	return schemaSet{documents: l.documents}, nil
+	g.selectDeclarationDocuments()
+	return schemaPlan{documents: g.documents}, nil
+}
+
+func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork *workBudget) (schemaPlan, error) {
+	graph, err := loadSchemaGraphOwned(sources, limits, dependencyWork)
+	if err != nil {
+		return schemaPlan{}, err
+	}
+	return graph.plan()
 }
 
 func (c *compiler) load(sources []source.Source) error {
@@ -218,11 +251,11 @@ func (c *compiler) load(sources []source.Source) error {
 }
 
 func (c *compiler) loadOwned(sources []source.Source) error {
-	set, err := loadSchemaSetOwned(sources, c.limits)
+	plan, err := loadSchemaPlanOwned(sources, c.limits, &c.dependencyWork)
 	if err != nil {
 		return err
 	}
-	c.schemas = set
+	c.plan = plan
 	return nil
 }
 
@@ -312,10 +345,10 @@ func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadReques
 			return loadedSchemaSource{}, false, schemaTotalBytesLimitError(result.Err)
 		}
 		if result.LimitExceeded || source.IsSchemaLimitError(result.Err) {
-			return loadedSchemaSource{}, false, xsderrors.WithPath(name, result.Err)
+			return loadedSchemaSource{}, false, xsderrors.WithLocation(name, 0, 0, result.Err)
 		}
-		readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, 0, 0, "read schema "+name, result.Err)
-		return loadedSchemaSource{}, false, xsderrors.WithPath(name, readErr)
+		readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "read schema "+name, result.Err)
+		return loadedSchemaSource{}, false, xsderrors.WithLocation(name, 0, 0, readErr)
 	}
 	parseLimits := l.limits
 	parseLimits.MaxSchemaInstantiatedNodes -= l.parsedNodes
@@ -381,17 +414,17 @@ func (l *schemaSetLoader) readLoaded(
 			return loadedSchemaSource{}, false, schemaTotalBytesLimitError(result.Err)
 		}
 		if result.LimitExceeded || source.IsSchemaLimitError(result.Err) {
-			return loadedSchemaSource{}, false, xsderrors.WithPath(src.Name(), result.Err)
+			return loadedSchemaSource{}, false, xsderrors.WithLocation(src.Name(), 0, 0, result.Err)
 		}
-		readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, 0, 0, "read schema "+src.Name(), result.Err)
-		return loadedSchemaSource{}, false, xsderrors.WithPath(src.Name(), readErr)
+		readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "read schema "+src.Name(), result.Err)
+		return loadedSchemaSource{}, false, xsderrors.WithLocation(src.Name(), 0, 0, readErr)
 	}
 	if !useCached && !bytes.Equal(result.Data, loaded.data) {
 		identityErr := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "schema source identity resolves to different document content: "+key)
 		if item.ref != nil {
 			identityErr = withSchemaReferenceLocation(item, identityErr)
 		} else {
-			identityErr = xsderrors.WithPath(src.Name(), identityErr)
+			identityErr = xsderrors.WithLocation(src.Name(), 0, 0, identityErr)
 		}
 		return loadedSchemaSource{}, false, identityErr
 	}
@@ -428,10 +461,10 @@ func hasNonSchemaLimitCause(err error) bool {
 		return false
 	}
 	if diagnostic, ok := err.(*xsderrors.Error); ok { //nolint:errorlint // Classify each error-tree node independently.
-		if diagnostic.Code != xsderrors.CodeSchemaLimit {
+		if diagnostic.Code() != xsderrors.CodeSchemaLimit {
 			return true
 		}
-		return hasNonSchemaLimitCause(diagnostic.Err)
+		return hasNonSchemaLimitCause(diagnostic.Cause())
 	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
 		return slices.ContainsFunc(joined.Unwrap(), hasNonSchemaLimitCause)
@@ -470,6 +503,9 @@ func (l *schemaSetLoader) enqueueReferences(src source.Source, refs []schemaRefe
 }
 
 func (l *schemaSetLoader) resolveReference(request schemaLoadRequest) (schemaLoadRequest, bool, error) {
+	if err := l.dependencyWork.spend(1); err != nil {
+		return schemaLoadRequest{}, false, withSchemaReferenceLocation(request, err)
+	}
 	resolution, err := request.source.ResolveFrom(request.base, request.ref.location)
 	if err != nil {
 		if source.IsReferenceResolutionError(err) {
@@ -479,8 +515,8 @@ func (l *schemaSetLoader) resolveReference(request schemaLoadRequest) (schemaLoa
 		if request.ref.node != nil {
 			line, column = request.ref.node.Line, request.ref.node.Column
 		}
-		resolveErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, line, column, "resolve schema "+request.ref.location.Raw(), err)
-		resolveErr = xsderrors.WithPath(request.source.Name(), resolveErr)
+		resolveErr := xsderrors.WithLocation(request.source.Name(), line, column,
+			xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "resolve schema "+request.ref.location.Raw(), err))
 		return schemaLoadRequest{}, false, resolveErr
 	}
 	target := resolution.Target()
@@ -646,7 +682,7 @@ func schemaReferenceCompileAt(src source.Source, node *rawNode, message string) 
 	if node != nil {
 		line, column = node.Line, node.Column
 	}
-	return xsderrors.SchemaCompileAt(src.Name(), line, column, xsderrors.CodeSchemaReference, message)
+	return xsderrors.WithLocation(src.Name(), line, column, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, message))
 }
 
 func withSchemaReferenceLocation(request schemaLoadRequest, err error) error {
@@ -657,21 +693,21 @@ func withSchemaReferenceLocation(request schemaLoadRequest, err error) error {
 	if path == "" {
 		path = request.source.Name()
 	}
-	return xsderrors.WithSchemaCompileLocation(path, request.ref.node.Line, request.ref.node.Column, err)
+	return xsderrors.WithLocation(path, request.ref.node.Line, request.ref.node.Column, err)
 }
 
 func schemaLocationAttr(n *rawNode) (string, bool) {
 	return n.attr(vocab.XSDAttrSchemaLocation)
 }
 
-func (l *schemaSetLoader) validateLoadedReferenceTargets() error {
-	for i := range l.documents {
-		for j := range l.documents[i].doc.references {
-			ref := &l.documents[i].doc.references[j]
+func (g *loadedSchemaGraph) validateReferenceTargets() error {
+	for i := range g.documents {
+		for j := range g.documents[i].doc.references {
+			ref := &g.documents[i].doc.references[j]
 			if ref.target == "" {
 				continue
 			}
-			loaded, ok := l.byKey[ref.target]
+			loaded, ok := g.byKey[ref.target]
 			if !ok || loaded.doc == nil {
 				continue
 			}
@@ -704,19 +740,19 @@ func validateSchemaReferenceTarget(ref *schemaReference, target *rawDoc) error {
 	return nil
 }
 
-func (l *schemaSetLoader) instantiateTargetContexts() error {
-	references, contexts := l.schemaTargetContextInputs()
+func (g *loadedSchemaGraph) instantiateTargetContexts() error {
+	references, contexts := g.schemaTargetContextInputs()
 	if contexts.documents == nil {
-		if len(l.documents) > l.limits.MaxSchemaTargetContexts {
+		if len(g.documents) > g.limits.MaxSchemaTargetContexts {
 			return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts")
 		}
-		for i := range l.documents {
-			l.documents[i].effectiveTargetNS = l.documents[i].doc.defaults.TargetNamespace
+		for i := range g.documents {
+			g.documents[i].effectiveTargetNS = g.documents[i].doc.defaults.TargetNamespace
 		}
 		return nil
 	}
 
-	for i, document := range l.documents {
+	for i, document := range g.documents {
 		target := document.doc.defaults.TargetNamespace
 		if target != "" || contexts.documents[i].importTarget || document.explicitRoot {
 			if err := contexts.add(i, target); err != nil {
@@ -724,10 +760,10 @@ func (l *schemaSetLoader) instantiateTargetContexts() error {
 			}
 		}
 	}
-	if err := l.propagateTargetContexts(&contexts, references); err != nil {
+	if err := g.propagateTargetContexts(&contexts, references); err != nil {
 		return err
 	}
-	for i := range l.documents {
+	for i := range g.documents {
 		if contexts.documents[i].hasPrimary {
 			continue
 		}
@@ -735,29 +771,29 @@ func (l *schemaSetLoader) instantiateTargetContexts() error {
 			return err
 		}
 	}
-	if err := l.propagateTargetContexts(&contexts, references); err != nil {
+	if err := g.propagateTargetContexts(&contexts, references); err != nil {
 		return err
 	}
 
-	return l.applyTargetContexts(contexts)
+	return g.applyTargetContexts(contexts)
 }
 
-func (l *schemaSetLoader) schemaTargetContextInputs() ([]resolvedSchemaReference, schemaTargetContexts) {
+func (g *loadedSchemaGraph) schemaTargetContextInputs() ([]resolvedSchemaReference, schemaTargetContexts) {
 	var references []resolvedSchemaReference
 	var contexts schemaTargetContexts
-	for i, document := range l.documents {
+	for i, document := range g.documents {
 		start := len(references)
 		for _, ref := range document.doc.references {
 			if !ref.hasLocation {
 				continue
 			}
-			if l.byKey[ref.target].doc == nil {
+			if g.byKey[ref.target].doc == nil {
 				continue
 			}
 			if contexts.documents == nil {
-				contexts = newSchemaTargetContexts(l.documents, l.limits.MaxSchemaTargetContexts, l.limits.MaxSchemaInstantiatedNodes)
+				contexts = newSchemaTargetContexts(g.documents, g.limits.MaxSchemaTargetContexts, g.limits.MaxSchemaInstantiatedNodes)
 			}
-			target := l.byKey[ref.target].index
+			target := g.byKey[ref.target].index
 			references = append(references, resolvedSchemaReference{
 				location: ref.location.Raw(),
 				target:   target,
@@ -774,16 +810,19 @@ func (l *schemaSetLoader) schemaTargetContextInputs() ([]resolvedSchemaReference
 	return references, contexts
 }
 
-func (l *schemaSetLoader) propagateTargetContexts(contexts *schemaTargetContexts, references []resolvedSchemaReference) error {
+func (g *loadedSchemaGraph) propagateTargetContexts(contexts *schemaTargetContexts, references []resolvedSchemaReference) error {
 	for contexts.next < len(contexts.queue) {
 		context := contexts.queue[contexts.next]
 		contexts.next++
 		span := contexts.documents[context.source].references
 		for _, ref := range references[span.start : span.start+span.count] {
+			if err := g.dependencyWork.spend(1); err != nil {
+				return err
+			}
 			if ref.kind != schemaReferenceInclude {
 				continue
 			}
-			referenced := l.documents[ref.target].doc
+			referenced := g.documents[ref.target].doc
 			if referenced.defaults.TargetNamespace != "" {
 				continue
 			}
@@ -795,18 +834,18 @@ func (l *schemaSetLoader) propagateTargetContexts(contexts *schemaTargetContexts
 	return nil
 }
 
-func (l *schemaSetLoader) applyTargetContexts(contexts schemaTargetContexts) error {
-	baseCount := len(l.documents)
+func (g *loadedSchemaGraph) applyTargetContexts(contexts schemaTargetContexts) error {
+	baseCount := len(g.documents)
 	var clones []schemaSetDocument
 	for i := range baseCount {
-		document := &l.documents[i]
+		document := &g.documents[i]
 		state := contexts.documents[i]
 		declaredTarget := document.doc.defaults.TargetNamespace
 		document.effectiveTargetNS = state.primary
 		document.adoptedTarget = declaredTarget == "" && state.primary != ""
 	}
 	for _, context := range contexts.additional {
-		document := &l.documents[context.source]
+		document := &g.documents[context.source]
 		declaredTarget := document.doc.defaults.TargetNamespace
 		cloneKey := document.doc.key + "\x00" + context.target
 		clone := cloneRawDocument(document.doc, cloneKey)
@@ -818,7 +857,7 @@ func (l *schemaSetLoader) applyTargetContexts(contexts schemaTargetContexts) err
 			adoptedTarget:     declaredTarget == "" && context.target != "",
 		})
 	}
-	l.documents = append(l.documents, clones...)
+	g.documents = append(g.documents, clones...)
 	return nil
 }
 
@@ -886,14 +925,14 @@ func (l *schemaSetLoader) identifySchemaDocumentContents() []identifiedSchemaDoc
 	return identified
 }
 
-func (l *schemaSetLoader) selectDeclarationDocuments() {
+func (g *loadedSchemaGraph) selectDeclarationDocuments() {
 	type declarationKey struct {
 		target  string
 		content int
 	}
-	seen := make(map[declarationKey]struct{}, len(l.documents))
-	for i := range l.documents {
-		document := &l.documents[i]
+	seen := make(map[declarationKey]struct{}, len(g.documents))
+	for i := range g.documents {
+		document := &g.documents[i]
 		key := declarationKey{target: document.effectiveTargetNS, content: document.contentIdentity}
 		_, duplicate := seen[key]
 		document.indexDeclarations = !duplicate

@@ -296,19 +296,22 @@ func (c *compiler) compileContentModelsBuild() ([]runtime.CompiledModel, error) 
 		&c.rt,
 		len(c.rt.build.Models),
 		c.limits.MaxContentModelStates,
+		&c.contentWork,
+		c.contentAnalysis,
 	)
 }
 
 func (c *compiler) checkContentModelsUPABuild() error {
-	return CheckContentModelsUPA(&c.rt.build.Names, &c.rt, len(c.rt.build.Models))
+	return CheckContentModelsUPA(&c.rt.build.Names, &c.rt, len(c.rt.build.Models), &c.contentWork, c.contentAnalysis)
 }
 
 func (c *compiler) checkContentModelElementDeclarationsConsistentBuild() error {
 	if len(c.modelSources) != len(c.rt.build.Models) {
 		return xsderrors.InternalInvariant("content model provenance count does not match model count")
 	}
-	for id, model := range c.rt.build.Models {
-		if err := CheckElementDeclarationsConsistent(&c.rt, model); err != nil {
+	checker := newElementDeclarationConsistencyChecker(&c.rt, &c.contentWork)
+	for id := range c.rt.build.Models {
+		if err := checker.checkModel(runtime.ContentModelID(id)); err != nil {
 			if c.modelSources[id] != nil {
 				return withSchemaCompileLocation(c.modelSources[id], err)
 			}
@@ -324,6 +327,8 @@ func (c *compiler) restrictionChoiceLimitUpdates() ([]runtime.RestrictionChoiceL
 		c.rt.build.ComplexTypes,
 		c.rt.build.Models,
 		c.rt.build.Builtin.AnyType,
+		c.contentWork.spend,
+		c.contentAnalysis,
 	)
 }
 
@@ -541,7 +546,7 @@ func (c *compiler) publishSchema() (*runtime.Schema, error) {
 	if len(c.pendingElementConstraints) != 0 {
 		return nil, xsderrors.InternalInvariant("element value constraints were not finalized")
 	}
-	published, err := runtime.PublishSchema(&c.rt.build)
+	published, err := runtime.PublishSchema(&c.rt.build, c.contentWork.spend)
 	if err != nil {
 		return nil, err
 	}

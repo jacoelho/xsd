@@ -78,11 +78,11 @@ func TestPublicAggregateErrorsDoNotExposeInternalDiagnostics(t *testing.T) {
 	if !errors.As(err, &errs) {
 		t.Fatalf("Validate() error type = %T, want xsderrors.Errors; err=%v", err, err)
 	}
-	if len(errs) != 3 {
-		t.Fatalf("len(xsderrors.Errors) = %d, want 3; err=%v", len(errs), err)
+	if errs.Len() != 3 {
+		t.Fatalf("xsderrors.Errors.Len() = %d, want 3; err=%v", errs.Len(), err)
 	}
 	assertPublicErrorTree(t, err)
-	for i, child := range errs {
+	for i, child := range xsderrors.Flatten(errs) {
 		if child == nil {
 			t.Fatalf("xsderrors.Errors[%d] is nil", i)
 		}
@@ -93,11 +93,10 @@ func TestPublicAggregateErrorsDoNotExposeInternalDiagnostics(t *testing.T) {
 func TestPublicDiagnosticsWrapping(t *testing.T) {
 	err := xsderrors.SchemaParse(
 		xsderrors.CodeSchemaXML,
-		1,
-		2,
 		"invalid schema XML",
-		xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex"),
+		xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex", nil),
 	)
+	err = xsderrors.WithLocation("", 1, 2, err)
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaXML)
 	if !xsderrors.IsUnsupported(err) {
 		t.Fatalf("xsderrors.IsUnsupported(%v) = false", err)
@@ -116,12 +115,12 @@ func assertPublicErrorTree(t *testing.T, err error) {
 	}
 	assertPublicErrorValue(t, err)
 	if e, ok := errors.AsType[*xsderrors.Error](err); ok {
-		if e.Err != nil {
-			assertPublicErrorTree(t, e.Err)
+		if e.Cause() != nil {
+			assertPublicErrorTree(t, e.Cause())
 		}
 	}
 	if e, ok := errors.AsType[xsderrors.Errors](err); ok {
-		for _, child := range e {
+		for _, child := range xsderrors.Flatten(e) {
 			assertPublicErrorTree(t, child)
 		}
 	}

@@ -814,7 +814,7 @@ func expectXSDLocation(t *testing.T, err error, path string, line, col int) {
 	if !errors.As(err, &x) {
 		t.Fatalf("error = %v, want *xsderrors.Error", err)
 	}
-	if x.Path != path || x.Line != line || x.Column != col {
-		t.Fatalf("error location = %s %d:%d, want %s %d:%d", x.Path, x.Line, x.Column, path, line, col)
+	if x.Path() != path || x.Line() != line || x.Column() != col {
+		t.Fatalf("error location = %s %d:%d, want %s %d:%d", x.Path(), x.Line(), x.Column(), path, line, col)
 	}
 }

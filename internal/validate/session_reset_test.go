@@ -203,12 +203,12 @@ func TestReusableSessionCleanupPreservesReturnedAggregateErrors(t *testing.T) {
 
 	validationErr := s.Validate(strings.NewReader(`<root><value>first</value><value>second</value></root>`))
 	errs, ok := errors.AsType[xsderrors.Errors](validationErr)
-	if !ok || len(errs) != 2 {
+	if !ok || errs.Len() != 2 {
 		t.Fatalf("Validate() error = %v, want two returned errors", validationErr)
 	}
-	for i, err := range errs {
+	for i, err := range xsderrors.Flatten(errs) {
 		xerr, ok := errors.AsType[*xsderrors.Error](err)
-		if !ok || xerr.Code != xsderrors.CodeValidationFacet {
+		if !ok || xerr.Code() != xsderrors.CodeValidationFacet {
 			t.Fatalf("Validate() error %d = %v, want validation facet error", i, err)
 		}
 	}

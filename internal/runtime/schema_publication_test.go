@@ -19,7 +19,7 @@ func TestPublishSchemaRejectsRawCorruptionWithoutMutation(t *testing.T) {
 		Elements:       []ElementDecl{{Name: badName}},
 	}
 
-	_, err := PublishSchema(&build)
+	_, err := PublishSchema(&build, unlimitedContentModelWork)
 	if err == nil {
 		t.Fatal("PublishSchema() succeeded for invalid name references")
 	}
@@ -154,7 +154,7 @@ func TestCompiledBoundLiteralReplayDeduplicatesSharedStorage(t *testing.T) {
 		}},
 		ComplexTypes: []ComplexType{{Derivation: DerivationKindNone}},
 	}
-	reads, err := newSchemaRuntime(&build)
+	reads, err := newSchemaRuntime(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaRuntime() error = %v", err)
 	}
@@ -273,7 +273,7 @@ func TestNewSchemaRuntimeSharesSimpleTypeTableWithDerivationIndex(t *testing.T) 
 		},
 		ComplexTypes: []ComplexType{{Derivation: DerivationKindNone}},
 	}
-	reads, err := newSchemaRuntime(&build)
+	reads, err := newSchemaRuntime(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaRuntime() error = %v", err)
 	}

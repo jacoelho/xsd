@@ -120,7 +120,7 @@ func ValidateBuiltinDerived(in BuiltinDerivedInput) error {
 		if !lex.IsNCName(in.Norm) {
 			return fmt.Errorf("invalid NCName")
 		}
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedEntity, "ENTITY requires DTD entity declarations, which are not supported")
+		return xsderrors.Unsupported(xsderrors.CodeUnsupportedEntity, "ENTITY requires DTD entity declarations, which are not supported", nil)
 	case BuiltinValidationNMTOKEN:
 		if !lex.IsNMTOKEN(in.Norm) {
 			return fmt.Errorf("invalid NMTOKEN")

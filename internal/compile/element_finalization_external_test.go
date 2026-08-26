@@ -130,7 +130,7 @@ func TestElementConstraintFinalizationIsAtomic(t *testing.T) {
 	}
 	_, err = compile.FreezeCompilerRuntimeForTest(c)
 	var schemaErr *xsderrors.Error
-	if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeInternalInvariant {
+	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeInternalInvariant {
 		t.Fatalf("FreezeCompilerRuntimeForTest() error = %v, want internal invariant", err)
 	}
 }
@@ -175,7 +175,7 @@ func TestSubstitutionConstraintUsesUltimateEffectiveType(t *testing.T) {
 </xs:schema>`
 	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
-	if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaFacet {
+	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaFacet {
 		t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaFacet)
 	}
 }
@@ -206,7 +206,7 @@ func TestSubstitutionClosureEntryLimit(t *testing.T) {
 	}
 	_, err := compile.Compile(compile.Options{MaxSubstitutionClosureEntries: 5}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
-	if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaLimit {
+	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("Compile(over limit) error = %v, want %q", err, xsderrors.CodeSchemaLimit)
 	}
 }
@@ -219,14 +219,14 @@ func TestSubstitutionCycleDiagnosticNamesAndLocatesCycleMember(t *testing.T) {
 </xs:schema>`
 	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
-	if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaReference {
+	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaReference {
 		t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaReference)
 	}
-	if !strings.Contains(schemaErr.Message, "y") && !strings.Contains(schemaErr.Message, "z") {
-		t.Fatalf("Compile() message = %q, want actual cycle member y or z", schemaErr.Message)
+	if !strings.Contains(schemaErr.Message(), "y") && !strings.Contains(schemaErr.Message(), "z") {
+		t.Fatalf("Compile() message = %q, want actual cycle member y or z", schemaErr.Message())
 	}
-	if schemaErr.Path != "schema.xsd" || schemaErr.Line == 0 {
-		t.Fatalf("Compile() location = %q:%d:%d, want schema.xsd with nonzero line", schemaErr.Path, schemaErr.Line, schemaErr.Column)
+	if schemaErr.Path() != "schema.xsd" || schemaErr.Line() == 0 {
+		t.Fatalf("Compile() location = %q:%d:%d, want schema.xsd with nonzero line", schemaErr.Path(), schemaErr.Line(), schemaErr.Column())
 	}
 }
 
@@ -240,11 +240,11 @@ func TestDeferredElementConsistencyDiagnosticRetainsModelLocation(t *testing.T) 
 </xs:schema>`
 	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
-	if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaContentModel {
+	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaContentModel {
 		t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaContentModel)
 	}
-	if schemaErr.Path != "schema.xsd" || schemaErr.Line == 0 {
-		t.Fatalf("Compile() location = %q:%d:%d, want schema.xsd with nonzero line", schemaErr.Path, schemaErr.Line, schemaErr.Column)
+	if schemaErr.Path() != "schema.xsd" || schemaErr.Line() == 0 {
+		t.Fatalf("Compile() location = %q:%d:%d, want schema.xsd with nonzero line", schemaErr.Path(), schemaErr.Line(), schemaErr.Column())
 	}
 }
 
@@ -260,10 +260,10 @@ func TestGeneratedExtensionConsistencyDiagnosticRetainsDerivedLocation(t *testin
 </xs:schema>`
 	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
-	if !errors.As(err, &schemaErr) || schemaErr.Code != xsderrors.CodeSchemaContentModel {
+	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaContentModel {
 		t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaContentModel)
 	}
-	if schemaErr.Path != "schema.xsd" || schemaErr.Line < 5 {
-		t.Fatalf("Compile() location = %q:%d:%d, want derived extension model location", schemaErr.Path, schemaErr.Line, schemaErr.Column)
+	if schemaErr.Path() != "schema.xsd" || schemaErr.Line() < 5 {
+		t.Fatalf("Compile() location = %q:%d:%d, want derived extension model location", schemaErr.Path(), schemaErr.Line(), schemaErr.Column())
 	}
 }

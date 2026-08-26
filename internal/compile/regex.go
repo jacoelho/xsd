@@ -18,13 +18,13 @@ func CompilePatternFacet(source string, categories RegexCategoryCache) (runtime.
 		return runtime.NewFastStringPattern(fast), nil
 	}
 	if goUnsupported {
-		return runtime.StringPattern{}, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source)
+		return runtime.StringPattern{}, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "XSD regex is not representable by Go regexp: "+source, nil)
 	}
 	goPattern := TranslateXSDRegexToGo(source)
 	goSource := "^(?:" + goPattern + ")$"
 	re, err := regexp.Compile(goSource)
 	if err != nil {
-		return runtime.StringPattern{}, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "invalid or unsupported regex "+source)
+		return runtime.StringPattern{}, xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "invalid or unsupported regex "+source, err)
 	}
 	return runtime.NewRegexpStringPattern(re), nil
 }

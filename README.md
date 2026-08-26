@@ -2,6 +2,9 @@
 
 Pure Go XML Schema 1.0 validator.
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for package ownership, lifecycle, data
+flow, failure behavior, resource bounds, and enforced dependency rules.
+
 The public API is intentionally small:
 
 - compile schemas once with `xsd.Compile`
@@ -96,20 +99,22 @@ schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
 engine, err := xsd.CompileWithOptions(
     xsd.CompileOptions{
-        MaxSchemaDepth:             256,
-        MaxSchemaAttributes:        256,
-        MaxSchemaTokenBytes:        4 << 20,
-        MaxSchemaSourceBytes:       64 << 20,
-        MaxSchemaSources:           1024,
-        MaxSchemaTotalBytes:        256 << 20,
-        MaxSchemaReferences:        16_384,
-        MaxSchemaTargetContexts:    4096,
-        MaxSchemaInstantiatedNodes: 1_000_000,
-        MaxSchemaNames:             0,
-        MaxFiniteOccurs:            1_000_000,
-        MaxContentModelStates:             16_384,
-        MaxSubstitutionClosureEntries:     1_000_000,
-        MaxSimpleUnionMemberEntries:       1_000_000,
+        MaxSchemaDepth:                  256,
+        MaxSchemaAttributes:             256,
+        MaxSchemaTokenBytes:             4 << 20,
+        MaxSchemaSourceBytes:            64 << 20,
+        MaxSchemaSources:                1024,
+        MaxSchemaTotalBytes:             256 << 20,
+        MaxSchemaReferences:             16_384,
+        MaxSchemaDependencySteps:        1_000_000,
+        MaxSchemaTargetContexts:         4096,
+        MaxSchemaInstantiatedNodes:      1_000_000,
+        MaxSchemaNames:                  0,
+        MaxFiniteOccurs:                 1_000_000,
+        MaxContentModelStates:           16_384,
+        MaxContentModelAnalysisSteps:    16_777_216,
+        MaxSubstitutionClosureEntries:   1_000_000,
+        MaxSimpleUnionMemberEntries:     1_000_000,
     },
     xsd.Bytes("schema.xsd", schema),
 )
@@ -129,17 +134,19 @@ Available options:
 | `MaxSchemaSources` | `1024` | Max explicit source descriptors and distinct resolver-loaded source identities admitted to one compilation. |
 | `MaxSchemaTotalBytes` | `256 << 20` | Max aggregate bytes read across all schema sources. |
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
+| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. |
 | `MaxSchemaTargetContexts` | `4096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
 | `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate raw schema nodes across all target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
 | `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. |
+| `MaxContentModelAnalysisSteps` | `16_777_216` | Max content-model traversal, determinization, and ambiguity-analysis work. |
 | `MaxSubstitutionClosureEntries` | `1_000_000` | Max aggregate transitive substitution-group relationships. |
 | `MaxSimpleUnionMemberEntries` | `1_000_000` | Max aggregate flattened simple-union members. |
 
 Negative integer limits are schema compile errors.
 
-`MaxSchemaSourceBytes` applies to each source. `MaxSchemaSources` bounds both the explicit source-descriptor count before conversion and the distinct identities admitted from the resolver-expanded graph; repeated resolver references remain bounded by `MaxSchemaReferences` and `MaxSchemaTotalBytes`. `MaxSchemaTargetContexts` and `MaxSchemaInstantiatedNodes` bound derived target-namespace variants. `MaxSubstitutionClosureEntries` and `MaxSimpleUnionMemberEntries` bound derived compilation structures before immutable runtime lookups are published. These limits cover files, resolver-loaded includes/imports, `Bytes` data, and streams acquired by `Open`. `Open` must return a new independent reader on every call so the source remains retryable and safe for concurrent compilation:
+`MaxSchemaSourceBytes` applies to each source. `MaxSchemaSources` bounds both the explicit source-descriptor count before conversion and the distinct identities admitted from the resolver-expanded graph; repeated resolver references remain bounded by `MaxSchemaReferences`, `MaxSchemaDependencySteps`, and `MaxSchemaTotalBytes`. One `MaxSchemaDependencySteps` budget is shared by source-graph expansion, target-context planning, and component-dependency resolution. Active component expansion is also capped at 1024 to protect the compiler stack. `MaxSchemaTargetContexts` and `MaxSchemaInstantiatedNodes` bound derived target-namespace variants. `MaxContentModelAnalysisSteps`, `MaxSubstitutionClosureEntries`, and `MaxSimpleUnionMemberEntries` bound derived compilation work before immutable runtime lookups are published. These limits cover files, resolver-loaded includes/imports, `Bytes` data, and streams acquired by `Open`. `Open` must return a new independent reader on every call so the source remains retryable and safe for concurrent compilation:
 
 ```go
 engine, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
@@ -237,10 +244,10 @@ if err != nil {
 err := engine.Validate(strings.NewReader(`<root>x</root>`))
 
 if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
-    fmt.Println(xerr.Category)
-    fmt.Println(xerr.Code)
-    fmt.Println(xerr.Line, xerr.Column)
-    fmt.Println(xerr.Path)
+    fmt.Println(xerr.Category())
+    fmt.Println(xerr.Code())
+    fmt.Println(xerr.Line(), xerr.Column())
+    fmt.Println(xerr.Path())
 }
 ```
 
@@ -250,9 +257,27 @@ Error categories:
 - `schema_compile`
 - `unsupported`
 - `validation`
+- `format`
 - `internal`
 
 Use `xsderrors.IsUnsupported(err)` when only unsupported-feature detection matters.
+
+## Browser Validator
+
+`make web` builds the Go WASM module and serves the browser validator at
+`http://127.0.0.1:8765`. Validation runs in a Web Worker. The page rejects
+oversized UTF-8 input before highlighting or line rendering, bounds rendered
+line structure, and prevents stale file reads from replacing newer editor
+content. Clearing input cancels active work by replacing the worker.
+
+Run deterministic JavaScript tests with `make web-test`. Install the pinned
+browser dependency and Chromium once, then run the full WASM integration test:
+
+```sh
+npm ci --prefix docs/js
+npm exec --prefix docs/js -- playwright install chromium
+make browser-test
+```
 
 ## Reuse Engine Concurrently
 

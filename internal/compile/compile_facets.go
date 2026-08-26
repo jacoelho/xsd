@@ -17,7 +17,7 @@ func (c *compiler) compileFacetList(children []*rawNode, st *runtime.SimpleType,
 func (c *compiler) compileFacetChildren(children []*rawNode, st *runtime.SimpleType, base, literalType runtime.SimpleTypeID, skipNonFacets bool) error {
 	var state compiledFacetState
 	for _, child := range children {
-		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
+		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
 			continue
 		}
 		if skipNonFacets && !IsFacetLocal(child.Name.Local) {
@@ -45,7 +45,7 @@ func (c *compiler) validateUnavailableFacetChildren(
 	var ordered runtime.OrderedFacetStep
 	var patterns []runtime.StringPattern
 	for _, child := range children {
-		if child.Name.Space != runtime.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
+		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
 			continue
 		}
 		if skipNonFacets && !IsFacetLocal(child.Name.Local) {

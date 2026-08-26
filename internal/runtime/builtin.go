@@ -30,13 +30,13 @@ const (
 
 var builtinAttributeSimpleSeedTable = [...]BuiltinAttributeSimpleSeed{
 	{
-		Namespace: XMLNamespaceURI,
+		Namespace: vocab.XMLNamespaceURI,
 		Local:     vocab.XMLAttrLang,
 		builtin:   BuiltinValidationXMLLang,
 		handle:    builtinAttributeInternalXMLLang,
 	},
 	{
-		Namespace: XMLNamespaceURI,
+		Namespace: vocab.XMLNamespaceURI,
 		Local:     vocab.XMLAttrSpace,
 		builtin:   BuiltinValidationXMLSpace,
 		handle:    builtinAttributeInternalXMLSpace,
@@ -110,17 +110,17 @@ type BuiltinAttributeSeed struct {
 }
 
 var builtinAttributeSeedTable = [...]BuiltinAttributeSeed{
-	{Namespace: XMLNamespaceURI, Local: vocab.XMLAttrBase, handle: builtinSimpleAnyURI},
-	{Namespace: XMLNamespaceURI, Local: vocab.XMLAttrID, handle: builtinSimpleID},
-	{Namespace: XMLNamespaceURI, Local: vocab.XMLAttrLang, builtin: BuiltinValidationXMLLang},
-	{Namespace: XMLNamespaceURI, Local: vocab.XMLAttrSpace, builtin: BuiltinValidationXMLSpace},
-	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrType, handle: builtinSimpleString},
-	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrHref, handle: builtinSimpleAnyURI},
-	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrRole, handle: builtinSimpleAnyURI},
-	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrArcrole, handle: builtinSimpleAnyURI},
-	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrTitle, handle: builtinSimpleString},
-	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrShow, handle: builtinSimpleString},
-	{Namespace: XLinkNamespaceURI, Local: vocab.XLinkAttrActuate, handle: builtinSimpleString},
+	{Namespace: vocab.XMLNamespaceURI, Local: vocab.XMLAttrBase, handle: builtinSimpleAnyURI},
+	{Namespace: vocab.XMLNamespaceURI, Local: vocab.XMLAttrID, handle: builtinSimpleID},
+	{Namespace: vocab.XMLNamespaceURI, Local: vocab.XMLAttrLang, builtin: BuiltinValidationXMLLang},
+	{Namespace: vocab.XMLNamespaceURI, Local: vocab.XMLAttrSpace, builtin: BuiltinValidationXMLSpace},
+	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrType, handle: builtinSimpleString},
+	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrHref, handle: builtinSimpleAnyURI},
+	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrRole, handle: builtinSimpleAnyURI},
+	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrArcrole, handle: builtinSimpleAnyURI},
+	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrTitle, handle: builtinSimpleString},
+	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrShow, handle: builtinSimpleString},
+	{Namespace: vocab.XLinkNamespaceURI, Local: vocab.XLinkAttrActuate, handle: builtinSimpleString},
 }
 
 // BuiltinAttributeSeedAt returns one fixed XML/XLink global attribute seed.
@@ -350,7 +350,7 @@ func buildBuiltinSimpleSeedTable() []BuiltinSimpleSeed {
 func builtinSimpleSeedForExpectation(exp builtinSimpleExpectation) BuiltinSimpleSeed {
 	base := builtinSimpleDependencyID(exp.baseLocal)
 	return BuiltinSimpleSeed{
-		Namespace:         XSDNamespaceURI,
+		Namespace:         vocab.XSDNamespaceURI,
 		Local:             exp.local,
 		MinLength:         exp.minLength,
 		Base:              base,
@@ -732,7 +732,7 @@ func builtinSimpleQName(names *NameTable, local string) (QName, bool) {
 	if names == nil {
 		return QName{}, false
 	}
-	return names.LookupQName(XSDNamespaceURI, local)
+	return names.LookupQName(vocab.XSDNamespaceURI, local)
 }
 
 func (exp builtinSimpleExpectation) facetExpectation(compilationType SimpleTypeID) BuiltinSimpleFacetExpectation {
@@ -758,7 +758,7 @@ func builtinAnyTypeQName(names *NameTable) (QName, bool) {
 	if names == nil {
 		return QName{}, false
 	}
-	return names.LookupQName(XSDNamespaceURI, vocab.XSDValueAnyType)
+	return names.LookupQName(vocab.XSDNamespaceURI, vocab.XSDValueAnyType)
 }
 
 func builtinAttributeExpectationForSeed(seed BuiltinAttributeSeed, builtins BuiltinIDs) builtinAttributeExpectation {

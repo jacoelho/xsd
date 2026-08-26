@@ -44,6 +44,83 @@ func TestXMLStreamParserRejectsTypedNilReader(t *testing.T) {
 	}
 }
 
+func TestParserDetachClearsPendingSyntheticEnd(t *testing.T) {
+	t.Parallel()
+	names, values := NewCache(), NewCache()
+	var parser Parser
+	if err := parser.Reset(strings.NewReader(`<root/>`), &names, &values); err != nil {
+		t.Fatal(err)
+	}
+	if token, err := parser.Next(); err != nil || token.Kind != KindStart {
+		t.Fatalf("Next() = %+v, %v", token, err)
+	}
+	parser.Detach()
+	if token, err := parser.Next(); !errors.Is(err, ErrXMLInputNilReader) {
+		t.Fatalf("Next() after Detach = %+v, %v; want nil-reader error", token, err)
+	}
+}
+
+func TestParserResetRejectsNilCaches(t *testing.T) {
+	var parser Parser
+	cache := NewCache()
+	for _, test := range []struct {
+		name   string
+		names  *Cache
+		values *Cache
+	}{
+		{name: "names", values: &cache},
+		{name: "values", names: &cache},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := parser.Reset(strings.NewReader(`<root/>`), test.names, test.values); err == nil {
+				t.Fatal("Reset() accepted a nil cache")
+			}
+		})
+	}
+}
+
+func TestParserResetRejectsNegativeLimits(t *testing.T) {
+	t.Parallel()
+	for _, limits := range []Limits{
+		{MaxInputBytes: -1},
+		{MaxTokenBytes: -1},
+		{MaxAttrs: -1},
+	} {
+		names, values := NewCache(), NewCache()
+		var parser Parser
+		if err := parser.ResetWithConfig(strings.NewReader(`<root/>`), &names, &values, Config{Limits: limits}); err == nil {
+			t.Fatalf("ResetWithConfig(%+v) succeeded", limits)
+		}
+	}
+}
+
+func TestCopiedCacheSharesOneConsistentState(t *testing.T) {
+	t.Parallel()
+	cache := NewCache()
+	cache.Intern([]byte("first"))
+	copyOfCache := cache
+	cache.Intern([]byte("second"))
+	if got := copyOfCache.Intern([]byte("second")); got != "second" {
+		t.Fatalf("copied Cache returned %q", got)
+	}
+}
+
+func TestLazyAttributeValueIsMaterializedOnDemand(t *testing.T) {
+	t.Parallel()
+	names, values := NewCache(), NewCache()
+	var parser Parser
+	if err := parser.ResetWithConfig(strings.NewReader(`<root value="present"/>`), &names, &values, Config{LazyAttrValues: true}); err != nil {
+		t.Fatal(err)
+	}
+	token, err := parser.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := token.Start.Attr[0].StringValue(&values); got != "present" {
+		t.Fatalf("StringValue() = %q, want present", got)
+	}
+}
+
 type eofWithDataReader struct {
 	data []byte
 	done bool
@@ -430,10 +507,12 @@ func TestXMLStreamParserLimitsAggregateStartPayload(t *testing.T) {
 				names := NewCache()
 				values := NewCache()
 				p := new(Parser)
-				if err := p.ResetWithLimits(strings.NewReader(`<r a="12" b="34"/>`), &names, &values, Limits{MaxTokenBytes: tt.limit}); err != nil {
+				if err := p.ResetWithConfig(strings.NewReader(`<r a="12" b="34"/>`), &names, &values, Config{
+					Limits:         Limits{MaxTokenBytes: tt.limit},
+					LazyAttrValues: lazy,
+				}); err != nil {
 					t.Fatal(err)
 				}
-				p.SetLazyAttrValue(lazy)
 
 				_, err := p.Next()
 				if tt.wantErr {
@@ -467,10 +546,12 @@ func TestXMLStreamParserLimitsAggregateProcessingInstructionPayload(t *testing.T
 			names := NewCache()
 			values := NewCache()
 			p := new(Parser)
-			if err := p.ResetWithLimits(strings.NewReader(`<?pi abc?><r/>`), &names, &values, Limits{MaxTokenBytes: tt.limit}); err != nil {
+			if err := p.ResetWithConfig(strings.NewReader(`<?pi abc?><r/>`), &names, &values, Config{
+				Limits: Limits{MaxTokenBytes: tt.limit},
+				EmitPI: true,
+			}); err != nil {
 				t.Fatal(err)
 			}
-			p.SetEmitPI(true)
 
 			_, err := p.Next()
 			if tt.wantErr {
@@ -492,10 +573,12 @@ func TestXMLStreamParserPreservesDisprovedProcessingInstructionTerminatorPrefix(
 	names := NewCache()
 	values := NewCache()
 	p := new(Parser)
-	if err := p.ResetWithLimits(strings.NewReader(`<?pi ?x?><r/>`), &names, &values, Limits{MaxTokenBytes: 4}); err != nil {
+	if err := p.ResetWithConfig(strings.NewReader(`<?pi ?x?><r/>`), &names, &values, Config{
+		Limits: Limits{MaxTokenBytes: 4},
+		EmitPI: true,
+	}); err != nil {
 		t.Fatal(err)
 	}
-	p.SetEmitPI(true)
 
 	tok, err := p.Next()
 	if err != nil {
@@ -532,7 +615,9 @@ func TestXMLStreamParserChargesDecodedEntityPayload(t *testing.T) {
 			names := NewCache()
 			values := NewCache()
 			p := new(Parser)
-			if err := p.ResetWithLimits(strings.NewReader(tt.xml), &names, &values, Limits{MaxTokenBytes: tt.limit}); err != nil {
+			if err := p.ResetWithConfig(strings.NewReader(tt.xml), &names, &values, Config{
+				Limits: Limits{MaxTokenBytes: tt.limit},
+			}); err != nil {
 				t.Fatal(err)
 			}
 			var err error

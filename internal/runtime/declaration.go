@@ -165,7 +165,7 @@ func ValidateAttributeDeclName(names *NameTable, name QName) error {
 	if names.Local(name.Local) == vocab.XMLNSPrefix {
 		return errors.New("attribute cannot be named xmlns")
 	}
-	if names.Namespace(name.Namespace) == XSINamespaceURI {
+	if names.Namespace(name.Namespace) == vocab.XSINamespaceURI {
 		return errors.New("attribute target namespace cannot be XMLSchema-instance")
 	}
 	return nil

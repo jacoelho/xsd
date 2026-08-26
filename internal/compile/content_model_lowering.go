@@ -273,9 +273,21 @@ func AppendFlattenedModelChild(model *runtime.ContentModel, child runtime.Conten
 }
 
 func canFlattenSingleParticleModel(modelOccurs, particleOccurs runtime.Occurrence) bool {
-	return modelOccurs.IsExactlyOne() ||
-		particleOccurs.Min == 0 ||
-		particleOccurs.IsExactlyOne() ||
-		(particleOccurs.Unbounded && (modelOccurs.Min > 0 || particleOccurs.Min == 1)) ||
-		(!modelOccurs.Unbounded && modelOccurs.Min == modelOccurs.Max)
+	return occurrenceProductRepresentable(modelOccurs, particleOccurs) &&
+		(modelOccurs.IsExactlyOne() ||
+			particleOccurs.Min == 0 ||
+			particleOccurs.IsExactlyOne() ||
+			(particleOccurs.Unbounded && (modelOccurs.Min > 0 || particleOccurs.Min == 1)) ||
+			(!modelOccurs.Unbounded && modelOccurs.Min == modelOccurs.Max))
+}
+
+func occurrenceProductRepresentable(a, b runtime.Occurrence) bool {
+	const maxUint32 = ^uint32(0)
+	if a.Min != 0 && b.Min > maxUint32/a.Min {
+		return false
+	}
+	if a.Unbounded || b.Unbounded {
+		return true
+	}
+	return a.Max == 0 || b.Max <= maxUint32/a.Max
 }

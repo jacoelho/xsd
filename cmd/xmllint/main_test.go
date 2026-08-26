@@ -54,14 +54,28 @@ func TestRunValidatesDocument(t *testing.T) {
 	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
 	doc := writeXMLLintTestFile(t, dir, "valid.xml", `<root><v>7</v></root>`)
 
-	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
+	var stdout, stderr bytes.Buffer
+	if code := runWithOpen([]string{"--schema", schema, doc}, &stdout, &stderr, func(path string) (io.ReadCloser, error) {
 		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
 	}); code != 0 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), doc+" validates") {
-		t.Fatalf("run() stderr = %q", stderr.String())
+	if stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatalf("run() stdout/stderr = %q/%q, want silence", stdout.String(), stderr.String())
+	}
+}
+
+func TestRunHelpWritesUsageToStdout(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	if code := runWithOpen([]string{"--help"}, &stdout, &stderr, nil); code != 0 {
+		t.Fatalf("runWithOpen() code = %d", code)
+	}
+	if stdout.String() != usage {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), usage)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want silence", stderr.String())
 	}
 }
 
@@ -71,7 +85,7 @@ func TestRunReportsValidationFailure(t *testing.T) {
 	doc := writeXMLLintTestFile(t, dir, "invalid.xml", `<root><v>x</v></root>`)
 
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", schema, doc}, &stderr, func(path string) (io.ReadCloser, error) {
+	if code := runWithOpen([]string{"--schema", schema, doc}, io.Discard, &stderr, func(path string) (io.ReadCloser, error) {
 		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
 	}); code != 1 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
@@ -91,7 +105,7 @@ func TestRunEnforcesMaxInstanceBytes(t *testing.T) {
 
 	var stderr bytes.Buffer
 	args := []string{"--schema", schema, "--max-instance-bytes", "4", doc}
-	if code := runWithOpen(args, &stderr, func(path string) (io.ReadCloser, error) {
+	if code := runWithOpen(args, io.Discard, &stderr, func(path string) (io.ReadCloser, error) {
 		return os.Open(path) //nolint:gosec // Test opens files created under t.TempDir.
 	}); code != 1 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
@@ -103,7 +117,7 @@ func TestRunEnforcesMaxInstanceBytes(t *testing.T) {
 
 func TestRunReportsArgumentFailure(t *testing.T) {
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, &stderr, nil); code != 2 {
+	if code := runWithOpen([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, io.Discard, &stderr, nil); code != 2 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "--max-errors cannot be negative") {
@@ -113,8 +127,8 @@ func TestRunReportsArgumentFailure(t *testing.T) {
 
 func TestRunReturnsArgumentFailureWhenStderrWriteFails(t *testing.T) {
 	stderr := errWriter{err: errors.New("write failed")}
-	if code := runWithOpen([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, stderr, nil); code != 2 {
-		t.Fatalf("run() code = %d, want 2", code)
+	if code := runWithOpen([]string{"--schema", "schema.xsd", "--max-errors", "-1", "doc.xml"}, io.Discard, stderr, nil); code != 1 {
+		t.Fatalf("run() code = %d, want 1", code)
 	}
 }
 
@@ -130,7 +144,7 @@ func TestRunReportsDocumentCloseFailure(t *testing.T) {
 	}
 
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", schema, "valid.xml"}, &stderr, open); code != 1 {
+	if code := runWithOpen([]string{"--schema", schema, "valid.xml"}, io.Discard, &stderr, open); code != 1 {
 		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), docErr.Error()) {
@@ -138,6 +152,56 @@ func TestRunReportsDocumentCloseFailure(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "valid.xml fails to validate") {
 		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
+	}
+}
+
+func TestRunClosesReaderReturnedWithOpenError(t *testing.T) {
+	dir := t.TempDir()
+	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
+	openErr := errors.New("open failed")
+	reader := &countingReadCloser{Reader: strings.NewReader(`<root/>`)}
+
+	var stderr bytes.Buffer
+	code := runWithOpen([]string{"--schema", schema, "doc.xml"}, io.Discard, &stderr, func(string) (io.ReadCloser, error) {
+		return reader, openErr //nolint:nilnil // The regression requires the permitted reader-plus-error result.
+	})
+	if code != 1 {
+		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
+	}
+	if reader.closes != 1 {
+		t.Fatalf("reader closes = %d, want 1", reader.closes)
+	}
+}
+
+func TestRunRejectsTypedNilDocumentReader(t *testing.T) {
+	dir := t.TempDir()
+	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
+	var reader *typedNilReadCloser
+
+	var stderr bytes.Buffer
+	code := runWithOpen([]string{"--schema", schema, "doc.xml"}, io.Discard, &stderr, func(string) (io.ReadCloser, error) {
+		return reader, nil
+	})
+	if code != 1 {
+		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "document opener returned nil reader") {
+		t.Fatalf("runWithOpen() stderr = %q", stderr.String())
+	}
+}
+
+func TestRunDoesNotCloseTypedNilReaderReturnedWithError(t *testing.T) {
+	dir := t.TempDir()
+	schema := writeXMLLintTestFile(t, dir, "schema.xsd", xmllintTestSchema)
+	openErr := errors.New("open failed")
+	var reader *typedNilReadCloser
+
+	var stderr bytes.Buffer
+	code := runWithOpen([]string{"--schema", schema, "doc.xml"}, io.Discard, &stderr, func(string) (io.ReadCloser, error) {
+		return reader, openErr //nolint:nilnil // Typed-nil plus error is the regression contract.
+	})
+	if code != 1 || !strings.Contains(stderr.String(), openErr.Error()) {
+		t.Fatalf("runWithOpen() code/stderr = %d/%q", code, stderr.String())
 	}
 }
 
@@ -153,7 +217,7 @@ func TestRunReportsValidationFailureBeforeCloseFailure(t *testing.T) {
 	}
 
 	var stderr bytes.Buffer
-	if code := runWithOpen([]string{"--schema", schema, "invalid.xml"}, &stderr, open); code != 1 {
+	if code := runWithOpen([]string{"--schema", schema, "invalid.xml"}, io.Discard, &stderr, open); code != 1 {
 		t.Fatalf("runWithOpen() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "validation.facet") {
@@ -167,6 +231,26 @@ func TestRunReportsValidationFailureBeforeCloseFailure(t *testing.T) {
 type closeErrorReader struct {
 	io.Reader
 	err error
+}
+
+type countingReadCloser struct {
+	io.Reader
+	closes int
+}
+
+type typedNilReadCloser struct{}
+
+func (*typedNilReadCloser) Read([]byte) (int, error) {
+	panic("typed nil reader must not be read")
+}
+
+func (*typedNilReadCloser) Close() error {
+	panic("typed nil reader must not be closed")
+}
+
+func (r *countingReadCloser) Close() error {
+	r.closes++
+	return nil
 }
 
 func (r closeErrorReader) Close() error {

@@ -9,13 +9,26 @@ import (
 
 var jsFuncs []js.Func
 
+type limitCatalog struct {
+	MaxXMLBytes          int64 `json:"maxXMLBytes"`          //nolint:tagliatelle // Browser API uses conventional initialisms.
+	MaxFormattedXMLBytes int64 `json:"maxFormattedXMLBytes"` //nolint:tagliatelle // Browser API uses conventional initialisms.
+	MaxXSDBytes          int64 `json:"maxXSDBytes"`          //nolint:tagliatelle // Browser API uses conventional initialisms.
+	MaxValidationErrors  int   `json:"maxValidationErrors"`
+}
+
 func main() {
 	holdJSFunc("formatXML", formatXMLJS)
 	holdJSFunc("validateXML", validateXMLJS)
-	js.Global().Set("xsdLimits", map[string]any{
-		"maxXMLBytes": maxXMLBytes,
-		"maxXSDBytes": maxXSDBytes,
+	limitsJSON, err := json.Marshal(limitCatalog{
+		MaxXMLBytes:          maxXMLBytes,
+		MaxFormattedXMLBytes: maxFormattedXMLBytes,
+		MaxXSDBytes:          maxXSDBytes,
+		MaxValidationErrors:  maxValidationErrors,
 	})
+	if err != nil {
+		panic("marshal browser limits: " + err.Error())
+	}
+	js.Global().Set("xsdLimits", string(limitsJSON))
 	select {}
 }
 
@@ -27,26 +40,26 @@ func holdJSFunc(name string, fn func(js.Value, []js.Value) any) {
 
 func formatXMLJS(this js.Value, args []js.Value) any {
 	if len(args) != 1 {
-		return marshalResponse(formatResponse{Error: "invalid number of arguments"})
+		return marshalResponse(formatFailure("invalid number of arguments", 0, 0))
 	}
 	input, inputErr := jsStringArgument(args[0], "XML", maxXMLBytes)
 	if inputErr != "" {
-		return marshalResponse(formatResponse{Error: inputErr})
+		return marshalResponse(formatFailure(inputErr, 0, 0))
 	}
 	return marshalResponse(formatXMLData(input))
 }
 
 func validateXMLJS(this js.Value, args []js.Value) any {
 	if len(args) != 2 {
-		return marshalResponse(validateResponse{Error: "invalid number of arguments"})
+		return marshalResponse(validationFailure("invalid number of arguments"))
 	}
 	xmlText, xmlErr := jsStringArgument(args[0], "XML", maxXMLBytes)
 	if xmlErr != "" {
-		return marshalResponse(validateResponse{Error: xmlErr})
+		return marshalResponse(validationFailure(xmlErr))
 	}
 	xsdText, xsdErr := jsStringArgument(args[1], "XSD", maxXSDBytes)
 	if xsdErr != "" {
-		return marshalResponse(validateResponse{Error: xsdErr})
+		return marshalResponse(validationFailure(xsdErr))
 	}
 	return marshalResponse(validateXMLData(xmlText, xsdText))
 }
@@ -59,13 +72,17 @@ func jsStringArgument(value js.Value, label string, maxBytes int64) (string, str
 	if int64(boxed.Get("length").Int()) > maxBytes {
 		return "", label + " exceeds " + byteLimit(maxBytes) + " limit"
 	}
-	return value.String(), ""
+	text := value.String()
+	if int64(len(text)) > maxBytes {
+		return "", label + " exceeds " + byteLimit(maxBytes) + " limit"
+	}
+	return text, ""
 }
 
 func marshalResponse(v any) string {
 	data, err := json.Marshal(v)
 	if err != nil {
-		return `{"error":"internal serialization error"}`
+		return `{"status":"error","error":"internal serialization error"}`
 	}
 	return string(data)
 }

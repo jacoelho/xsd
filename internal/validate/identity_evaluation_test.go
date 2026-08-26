@@ -185,6 +185,54 @@ func TestIdentityEvaluationCanRejectRecordedOrCapturedValue(t *testing.T) {
 	}
 }
 
+func TestIdentityEvaluationStartTransactionRollsBackState(t *testing.T) {
+	t.Parallel()
+
+	fixture := startedIdentityEvaluationForTest(t)
+	evaluation := fixture.evaluation
+	evaluation.maxScopes = len(evaluation.scopes)
+	pathLen := len(evaluation.path)
+	elementLen := len(evaluation.elements)
+	scopeLen := len(evaluation.scopes)
+	selectionLen := len(evaluation.selections)
+	fieldLen := len(evaluation.fieldValues)
+	if err := evaluation.beginStart(); err != nil {
+		t.Fatal(err)
+	}
+	err := evaluation.startElement(identityElementStart{
+		Context:  StartContext{Path: "/root/child", Line: 2, Column: 3},
+		Name:     runtime.RuntimeName{Known: true, Name: fixture.elemName},
+		Element:  fixture.elemID,
+		Mode:     elementAssessed,
+		Declared: true,
+	})
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
+	evaluation.abortStart()
+	if len(evaluation.path) != pathLen || len(evaluation.elements) != elementLen ||
+		len(evaluation.scopes) != scopeLen || len(evaluation.selections) != selectionLen ||
+		len(evaluation.fieldValues) != fieldLen {
+		t.Fatalf("aborted identity start retained state: path=%d elements=%d scopes=%d selections=%d fields=%d",
+			len(evaluation.path), len(evaluation.elements), len(evaluation.scopes), len(evaluation.selections), len(evaluation.fieldValues))
+	}
+}
+
+func TestIdentityEvaluationRecordsIDBatchAtomically(t *testing.T) {
+	t.Parallel()
+
+	fixture := startedIdentityEvaluationForTest(t)
+	evaluation := fixture.evaluation
+	evaluation.limits.Entries = 1
+	target, err := evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "one two", Identity: "value"}, StartContext{Path: "/root"})
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
+	if len(evaluation.ids) != 0 || evaluation.entries != 0 {
+		t.Fatalf("failed ID batch changed identity state: ids=%v entries=%d", evaluation.ids, evaluation.entries)
+	}
+}
+
 type startedIdentityEvaluationFixture struct {
 	evaluation *identityEvaluation
 	elemID     runtime.ElementID

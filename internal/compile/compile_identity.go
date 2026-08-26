@@ -18,7 +18,7 @@ func identityConstraintNodes(n *rawNode) []*rawNode {
 }
 
 func (c *compiler) declareAllIdentityConstraints() error {
-	for _, document := range c.schemas.documents {
+	for _, document := range c.plan.documents {
 		if !document.indexDeclarations {
 			continue
 		}
@@ -166,7 +166,7 @@ func (r identityXPathResolver) ResolveIdentityQName(prefix, local string, prefix
 	ns := ""
 	if prefixed {
 		var ok bool
-		ns, ok = r.node.NS[prefix]
+		ns, ok = r.node.NS.Lookup(prefix)
 		if !ok {
 			return runtime.QName{}, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
 		}
@@ -175,7 +175,7 @@ func (r identityXPathResolver) ResolveIdentityQName(prefix, local string, prefix
 }
 
 func (r identityXPathResolver) ResolveIdentityWildcardNamespace(prefix string) (runtime.NamespaceID, error) {
-	ns, ok := r.node.NS[prefix]
+	ns, ok := r.node.NS.Lookup(prefix)
 	if !ok {
 		return 0, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
 	}

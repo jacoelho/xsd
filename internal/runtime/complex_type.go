@@ -337,15 +337,20 @@ func ValidateComplexTypeSimpleBaseExtensionRuntime(rt ComplexTypeSimpleBaseRunti
 // ValidateComplexTypeRestrictionRuntime validates complex-type restriction
 // rules that do not depend on content-particle restriction traversal or
 // attribute-use-set validation.
-func ValidateComplexTypeRestrictionRuntime(rt interface {
-	ContentModelRuntime
-	TypeDerivationRuntime
-}, base, derived ComplexType) error {
+func ValidateComplexTypeRestrictionRuntime(
+	rt TypeDerivationRuntime,
+	analysis *ContentModelAnalysis,
+	base, derived ComplexType,
+) error {
 	if err := ValidateComplexTypeFinalAllows(base.Final, DerivationRestriction); err != nil {
 		return err
 	}
 	if derived.SimpleContent() {
-		if !SimpleContentDerivationBaseAllowed(rt, base, true) {
+		allowed, err := SimpleContentDerivationBaseAllowed(analysis, base, true)
+		if err != nil {
+			return err
+		}
+		if !allowed {
 			return errors.New("complex simple-content restriction base is not simple or emptiable mixed")
 		}
 		return ValidateSimpleContentRestrictionTextType(rt, derived.TextType, base.TextType)
@@ -380,11 +385,17 @@ func ValidateSimpleBaseComplexExtensionFinalAllows(final DerivationMask) error {
 // SimpleContentDerivationBaseAllowed reports whether a simpleContent derivation
 // may use base. Restrictions may derive simple content from an emptiable mixed
 // complex base; extensions require an existing simple-content base.
-func SimpleContentDerivationBaseAllowed(rt ContentModelRuntime, base ComplexType, restriction bool) bool {
+func SimpleContentDerivationBaseAllowed(analysis *ContentModelAnalysis, base ComplexType, restriction bool) (bool, error) {
 	if base.SimpleContent() {
-		return true
+		return true, nil
 	}
-	return restriction && base.Mixed() && ModelEmptiable(rt, base.Content)
+	if !restriction || !base.Mixed() {
+		return false, nil
+	}
+	if analysis == nil {
+		return false, errors.New("content model analysis is nil")
+	}
+	return analysis.ModelEmptiable(base.Content)
 }
 
 // ComplexContentMixedDerivationBaseAllowed reports whether a complexContent
