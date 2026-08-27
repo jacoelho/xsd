@@ -510,6 +510,24 @@ func TestFormatXMLWithOptionsRejectsNegativeLimits(t *testing.T) {
 	}
 }
 
+func TestNormalizeFormatOptionsUsesFiniteDefaults(t *testing.T) {
+	t.Parallel()
+	got, err := normalizeFormatOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := formatOptions{
+		maxDepth:       maxFormatDepth,
+		maxNodes:       defaultMaxFormatNodes,
+		maxInputBytes:  defaultMaxFormatInputBytes,
+		maxOutputBytes: defaultMaxFormatOutputBytes,
+		maxTokenBytes:  defaultMaxFormatTokenBytes,
+	}
+	if got != want {
+		t.Fatalf("normalizeFormatOptions() = %+v, want %+v", got, want)
+	}
+}
+
 func TestFormatXMLWithOptionsRejectsNilEndpoints(t *testing.T) {
 	var out strings.Builder
 	if err := XMLWithOptions(nil, strings.NewReader(`<root/>`), Options{}); err == nil {
@@ -552,6 +570,19 @@ func TestFormatXMLReportsLine(t *testing.T) {
 	}
 	if xerr.Line() != 2 {
 		t.Fatalf("Line = %d, want 2", xerr.Line())
+	}
+}
+
+func TestFormatXMLUsesBufferedCharacterFailurePosition(t *testing.T) {
+	t.Parallel()
+	var out strings.Builder
+	err := XML(&out, strings.NewReader("<root>\nabcdefgh\x01</root>"))
+	var xerr *xsderrors.Error
+	if !errors.As(err, &xerr) {
+		t.Fatalf("XML() error = %T %v, want *xsderrors.Error", err, err)
+	}
+	if xerr.Line() != 2 || xerr.Column() != 9 {
+		t.Fatalf("XML() location = %d:%d, want 2:9", xerr.Line(), xerr.Column())
 	}
 }
 

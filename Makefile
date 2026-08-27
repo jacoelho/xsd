@@ -32,7 +32,7 @@ bench:
 
 .PHONY: bench-smoke
 bench-smoke:
-	go test -run '^$$' -bench='Benchmark(ParseXSDTime|SessionValidateWideChoice|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileCountedChoiceDFA|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
+	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ParserLazyWideAttributes|SessionValidateRepeatedSmallDocument|SessionValidateNamespaceAdmissionChurn|SessionValidateWideChoice|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileCountedChoiceDFA|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
 
 .PHONY: benchstat
 benchstat: $(BIN)/benchstat

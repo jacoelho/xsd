@@ -9,17 +9,6 @@ type StartElement struct {
 	Attr []Attr
 }
 
-// ReplaceAttributeNames replaces attribute names in place. names must contain
-// exactly one entry for each attribute.
-func (s StartElement) ReplaceAttributeNames(names []xml.Name) {
-	if len(names) != len(s.Attr) {
-		panic("stream: replacement attribute name count does not match")
-	}
-	for i := range names {
-		s.Attr[i].Name = names[i]
-	}
-}
-
 // EndElement is a parsed XML end element.
 type EndElement struct {
 	// Name.Space is the lexical namespace prefix.

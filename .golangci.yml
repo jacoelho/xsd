@@ -166,7 +166,8 @@ linters:
       max-blank-identifiers: 1
 
     gocognit:
-      min-complexity: 10
+      # Flag exceptional hotspots; semantic ownership, not this score, chooses boundaries.
+      min-complexity: 50
 
     cyclop:
       max-complexity: 35

@@ -60,6 +60,92 @@ func TestParserDetachClearsPendingSyntheticEnd(t *testing.T) {
 	}
 }
 
+func TestParserNextReturnsZeroTokenOnError(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		xml    string
+		config Config
+	}{
+		{name: "end tag", xml: `<root></root x>`},
+		{name: "character data", xml: `<root>abc]]></root>`},
+		{name: "emitted comment", xml: `<root><!--bad--x></root>`, config: Config{EmitComments: true}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			names, values := NewCache(), NewCache()
+			var parser Parser
+			if err := parser.ResetWithConfig(strings.NewReader(test.xml), &names, &values, test.config); err != nil {
+				t.Fatal(err)
+			}
+			for {
+				token, err := parser.Next()
+				if err == nil {
+					continue
+				}
+				if IsOnlyEOF(err) {
+					t.Fatal("Parser.Next() reached EOF without rejecting malformed XML")
+				}
+				if !zeroToken(token) {
+					t.Fatalf("Parser.Next() token with error = %+v, want zero token", token)
+				}
+				break
+			}
+		})
+	}
+}
+
+func TestParserPosTracksCharacterDataFailure(t *testing.T) {
+	t.Parallel()
+	prefix := strings.Repeat("a", xmlInputBufferSize+8)
+	tests := []struct {
+		name      string
+		xml       string
+		line, col int
+	}{
+		{name: "forbidden CDATA close", xml: "<r>\nabc]]></r>", line: 2, col: 6},
+		{name: "control byte", xml: "<r>\nabcdefgh\x01</r>", line: 2, col: 9},
+		{name: "invalid UTF-8", xml: "<r>\nabcdefgh\xff</r>", line: 2, col: 9},
+		{name: "invalid XML rune", xml: "<r>\nab\ufffe</r>", line: 2, col: 5},
+		{name: "multiline", xml: "<r>\nabc\nxy\x01</r>", line: 3, col: 3},
+		{name: "buffer boundary", xml: "<r>\n" + prefix + "\x01</r>", line: 2, col: len(prefix) + 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			names, values := NewCache(), NewCache()
+			var parser Parser
+			if err := parser.Reset(strings.NewReader(test.xml), &names, &values); err != nil {
+				t.Fatal(err)
+			}
+			for {
+				token, err := parser.Next()
+				if err == nil {
+					continue
+				}
+				if IsOnlyEOF(err) {
+					t.Fatal("Parser.Next() reached EOF without rejecting malformed character data")
+				}
+				if !zeroToken(token) {
+					t.Fatalf("Parser.Next() token with error = %+v, want zero token", token)
+				}
+				if line, col := parser.Pos(); line != test.line || col != test.col {
+					t.Fatalf("Parser.Pos() = %d:%d, want %d:%d", line, col, test.line, test.col)
+				}
+				break
+			}
+		})
+	}
+}
+
+func zeroToken(token Token) bool {
+	return token.End == (EndElement{}) &&
+		token.Start.Name == (xml.Name{}) && token.Start.Attr == nil &&
+		token.Data == nil && token.Directive == nil &&
+		token.Line == 0 && token.Column == 0 && token.Kind == KindStart && !token.CDATA
+}
+
 func TestParserResetRejectsNilCaches(t *testing.T) {
 	var parser Parser
 	cache := NewCache()
@@ -333,37 +419,37 @@ func TestXMLStreamParserNormalizesCDATALineEndings(t *testing.T) {
 	}
 }
 
-func TestXMLStreamParserRejectsInvalidSkippedComment(t *testing.T) {
-	names := NewCache()
-	values := NewCache()
-	p := new(Parser)
-	if err := p.Reset(strings.NewReader(`<root><!-- invalid -- comment --></root>`), &names, &values); err != nil {
-		t.Fatal(err)
+func TestParserXMLRuneValidationDoesNotDependOnEmission(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		xml    string
+		config Config
+	}{
+		{name: "skipped comment invalid UTF-8", xml: "<root><!--\xff--></root>"},
+		{name: "emitted comment invalid UTF-8", xml: "<root><!--\xff--></root>", config: Config{EmitComments: true}},
+		{name: "skipped comment invalid XML rune", xml: "<root><!--\ufffe--></root>"},
+		{name: "emitted comment invalid XML rune", xml: "<root><!--\ufffe--></root>", config: Config{EmitComments: true}},
+		{name: "skipped PI invalid UTF-8", xml: "<root><?p \xff?></root>"},
+		{name: "emitted PI invalid UTF-8", xml: "<root><?p \xff?></root>", config: Config{EmitPI: true}},
+		{name: "skipped PI invalid XML rune", xml: "<root><?p \ufffe?></root>"},
+		{name: "emitted PI invalid XML rune", xml: "<root><?p \ufffe?></root>", config: Config{EmitPI: true}},
 	}
-
-	if _, err := p.Next(); err != nil {
-		t.Fatalf("next root start error = %v", err)
-	}
-	_, err := p.Next()
-	if err == nil || errors.Is(err, io.EOF) {
-		t.Fatalf("invalid comment error = %v", err)
-	}
-}
-
-func TestXMLStreamParserRejectsInvalidUTF8InSkippedComment(t *testing.T) {
-	names := NewCache()
-	values := NewCache()
-	p := new(Parser)
-	if err := p.Reset(strings.NewReader("<root><!--\xff--></root>"), &names, &values); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := p.Next(); err != nil {
-		t.Fatalf("next root start error = %v", err)
-	}
-	_, err := p.Next()
-	if err == nil || errors.Is(err, io.EOF) {
-		t.Fatalf("invalid UTF-8 comment error = %v", err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			names, values := NewCache(), NewCache()
+			var parser Parser
+			if err := parser.ResetWithConfig(strings.NewReader(test.xml), &names, &values, test.config); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := parser.Next(); err != nil {
+				t.Fatalf("Parser.Next(root) error = %v", err)
+			}
+			if token, err := parser.Next(); err == nil || errors.Is(err, io.EOF) || !zeroToken(token) {
+				t.Fatalf("Parser.Next(invalid markup) = %+v, %v; want zero token and syntax error", token, err)
+			}
+		})
 	}
 }
 
@@ -711,35 +797,83 @@ func TestLazyAttributeValueCopiesSurviveParserAdvance(t *testing.T) {
 }
 
 func BenchmarkParserLazyWideAttributes(b *testing.B) {
+	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), Config{LazyAttrValues: true}, false)
+}
+
+func BenchmarkParserLazyWideAttributesMaterialized(b *testing.B) {
+	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), Config{LazyAttrValues: true}, true)
+}
+
+func benchmarkParserWideAttributesDocument() string {
+	const attributeCount = 64
 	var doc strings.Builder
 	doc.WriteString("<root>")
 	for elem := range 128 {
 		fmt.Fprintf(&doc, "<e%d", elem)
-		for attr := range LazyAttrRawMinAttrs {
+		for attr := range attributeCount {
 			fmt.Fprintf(&doc, ` a%d="value-%d-%d"`, attr, elem, attr)
 		}
 		doc.WriteString("/>")
 	}
 	doc.WriteString("</root>")
-	text := doc.String()
-	names := NewCache()
-	values := NewCache()
-	var p Parser
+	return doc.String()
+}
+
+func BenchmarkParserCharacterData(b *testing.B) {
+	benchmarkParserDocument(b, `<root>`+strings.Repeat("abcdefgh", 8<<10)+`</root>`, Config{}, false)
+}
+
+func BenchmarkParserMixedSmallTokens(b *testing.B) {
+	benchmarkParserDocument(b, `<root>`+strings.Repeat(`<e a="v">x</e>`, 4_000)+`</root>`, Config{LazyAttrValues: true}, false)
+}
+
+func BenchmarkParserCDATABufferBoundary(b *testing.B) {
+	benchmarkParserDocument(b, `<root><![CDATA[`+strings.Repeat("x", 64<<10)+`]]></root>`, Config{}, false)
+}
+
+func benchmarkParserDocument(b *testing.B, text string, config Config, materializeAttrs bool) {
+	b.Helper()
+	names, values := NewCache(), NewCache()
+	var parser Parser
+	wantTokens, wantPayload, err := consumeParserBenchmarkDocument(&parser, &names, &values, text, config, materializeAttrs)
+	if err != nil {
+		b.Fatal(err)
+	}
 	b.SetBytes(int64(len(text)))
 	b.ReportAllocs()
+	b.ResetTimer()
 	for b.Loop() {
-		if err := p.Reset(strings.NewReader(text), &names, &values); err != nil {
+		tokens, payload, err := consumeParserBenchmarkDocument(&parser, &names, &values, text, config, materializeAttrs)
+		if err != nil {
 			b.Fatal(err)
 		}
-		p.lazyAttrValue = true
-		for {
-			_, err := p.Next()
-			if errors.Is(err, io.EOF) {
-				break
+		if tokens != wantTokens || payload != wantPayload {
+			b.Fatalf("parsed result = %d tokens/%d payload bytes, want %d/%d", tokens, payload, wantTokens, wantPayload)
+		}
+	}
+}
+
+func consumeParserBenchmarkDocument(parser *Parser, names, values *Cache, text string, config Config, materializeAttrs bool) (int, int, error) {
+	if err := parser.ResetWithConfig(strings.NewReader(text), names, values, config); err != nil {
+		return 0, 0, err
+	}
+	tokens, payload := 0, 0
+	for {
+		token, err := parser.Next()
+		if errors.Is(err, io.EOF) {
+			return tokens, payload, nil
+		}
+		if err != nil {
+			return 0, 0, err
+		}
+		tokens++
+		payload += len(token.Data) + len(token.Directive) + len(token.Start.Name.Space) + len(token.Start.Name.Local)
+		for i := range token.Start.Attr {
+			if raw, ok := token.Start.Attr[i].RawValue(); ok && !materializeAttrs {
+				payload += len(raw)
+				continue
 			}
-			if err != nil {
-				b.Fatal(err)
-			}
+			payload += len(token.Start.Attr[i].StringValue(values))
 		}
 	}
 }

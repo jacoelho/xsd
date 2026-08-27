@@ -818,19 +818,36 @@ func mergeIdentityTables(dst, src *identityScope) {
 			dst.tables[id] = srcTable
 			continue
 		}
-		mergeIdentityTable(dstTable, srcTable)
+		dst.tables[id] = mergeIdentityTable(dstTable, srcTable)
 	}
 }
 
-func mergeIdentityTable(dst, src map[string]identityTableEntry) {
-	for key, entry := range src {
-		prev, exists := dst[key]
-		switch {
-		case !exists:
-			dst[key] = entry
-		case prev.conflict:
-		case entry.conflict || prev.node != entry.node:
-			dst[key] = identityTableEntry{path: prev.path, node: prev.node, conflict: true}
+func mergeIdentityTable(parent, child map[string]identityTableEntry) map[string]identityTableEntry {
+	if len(parent) >= len(child) {
+		for key, childEntry := range child {
+			parentEntry, exists := parent[key]
+			if !exists {
+				parent[key] = childEntry
+				continue
+			}
+			parent[key] = mergeIdentityTableEntry(parentEntry, childEntry)
 		}
+		return parent
 	}
+	for key, parentEntry := range parent {
+		childEntry, exists := child[key]
+		if !exists {
+			child[key] = parentEntry
+			continue
+		}
+		child[key] = mergeIdentityTableEntry(parentEntry, childEntry)
+	}
+	return child
+}
+
+func mergeIdentityTableEntry(parent, child identityTableEntry) identityTableEntry {
+	if !parent.conflict && (child.conflict || parent.node != child.node) {
+		parent.conflict = true
+	}
+	return parent
 }

@@ -791,58 +791,31 @@ func complexSimpleTypeDerivationMask[T TypeDerivationRuntime](
 ) (DerivationMask, bool, error) {
 	var mask DerivationMask
 	for range rt.ComplexTypeCount() {
-		step, err := nextComplexSimpleDerivation(rt, derived, base, work)
-		if err != nil {
+		if err := work(1); err != nil {
 			return 0, false, err
 		}
-		if !step.valid {
+		typ, ok := rt.ComplexTypeDerivation(derived)
+		if !ok {
 			return 0, false, nil
 		}
-		mask |= step.mask
-		if step.done {
-			return mask, true, nil
+		mask |= derivationKindMask(typ.Kind)
+		if simpleBase, simpleOK := typ.Base.Simple(); simpleOK {
+			simpleMask, found, err := simpleTypeDerivationMaskOf(rt, simpleBase, base, work)
+			if err != nil {
+				return 0, false, err
+			}
+			if !found {
+				return 0, false, nil
+			}
+			return mask | simpleMask, true, nil
 		}
-		derived = step.next
+		parent, ok := typ.Base.Complex()
+		if !ok {
+			return 0, false, nil
+		}
+		derived = parent
 	}
 	return 0, false, nil
-}
-
-type complexSimpleDerivationStep struct {
-	next  ComplexTypeID
-	mask  DerivationMask
-	done  bool
-	valid bool
-}
-
-func nextComplexSimpleDerivation[T TypeDerivationRuntime](
-	rt T,
-	derived ComplexTypeID,
-	base SimpleTypeID,
-	work func(int) error,
-) (complexSimpleDerivationStep, error) {
-	if err := work(1); err != nil {
-		return complexSimpleDerivationStep{}, err
-	}
-	typ, ok := rt.ComplexTypeDerivation(derived)
-	if !ok {
-		return complexSimpleDerivationStep{}, nil
-	}
-	step := complexSimpleDerivationStep{mask: derivationKindMask(typ.Kind), valid: true}
-	if simpleBase, simpleOK := typ.Base.Simple(); simpleOK {
-		simpleMask, found, err := simpleTypeDerivationMaskOf(rt, simpleBase, base, work)
-		if err != nil || !found {
-			return complexSimpleDerivationStep{}, err
-		}
-		step.mask |= simpleMask
-		step.done = true
-		return step, nil
-	}
-	next, ok := typ.Base.Complex()
-	if !ok {
-		return complexSimpleDerivationStep{}, nil
-	}
-	step.next = next
-	return step, nil
 }
 
 func complexAnyTypeDerivationMask[T TypeDerivationRuntime](
@@ -852,56 +825,27 @@ func complexAnyTypeDerivationMask[T TypeDerivationRuntime](
 ) (DerivationMask, bool, error) {
 	var mask DerivationMask
 	for range rt.ComplexTypeCount() {
-		step, err := nextComplexAnyTypeDerivation(rt, derived, work)
-		if err != nil {
+		if err := work(1); err != nil {
 			return 0, false, err
 		}
-		if !step.valid {
-			return 0, false, nil
-		}
-		mask |= step.mask
-		if step.done {
+		if derived == rt.AnyTypeID() {
 			return mask, true, nil
 		}
-		derived = step.next
+		typ, ok := rt.ComplexTypeDerivation(derived)
+		if !ok {
+			return 0, false, nil
+		}
+		mask |= derivationKindMask(typ.Kind)
+		if typ.Base.IsSimple() {
+			return mask | DerivationRestriction, true, nil
+		}
+		parent, ok := typ.Base.Complex()
+		if !ok {
+			return 0, false, nil
+		}
+		derived = parent
 	}
 	return 0, false, nil
-}
-
-type complexAnyTypeDerivationStep struct {
-	next  ComplexTypeID
-	mask  DerivationMask
-	done  bool
-	valid bool
-}
-
-func nextComplexAnyTypeDerivation[T TypeDerivationRuntime](
-	rt T,
-	derived ComplexTypeID,
-	work func(int) error,
-) (complexAnyTypeDerivationStep, error) {
-	if err := work(1); err != nil {
-		return complexAnyTypeDerivationStep{}, err
-	}
-	if derived == rt.AnyTypeID() {
-		return complexAnyTypeDerivationStep{done: true, valid: true}, nil
-	}
-	typ, ok := rt.ComplexTypeDerivation(derived)
-	if !ok {
-		return complexAnyTypeDerivationStep{}, nil
-	}
-	step := complexAnyTypeDerivationStep{mask: derivationKindMask(typ.Kind), valid: true}
-	if typ.Base.IsSimple() {
-		step.mask |= DerivationRestriction
-		step.done = true
-		return step, nil
-	}
-	parent, ok := typ.Base.Complex()
-	if !ok {
-		return complexAnyTypeDerivationStep{}, nil
-	}
-	step.next = parent
-	return step, nil
 }
 
 func simpleTypeDerivationMaskOf[T TypeDerivationRuntime](

@@ -13,9 +13,10 @@ import (
 )
 
 type binding struct {
-	Prefix string
-	URI    string
-	Parent uint32
+	Prefix       string
+	URI          string
+	Parent       uint32
+	PreviousSame uint32
 }
 
 type contextStore struct {
@@ -27,16 +28,19 @@ type stackFrame struct {
 	element     Element
 	previous    uint32
 	bindingMark int
+	bindingEnd  int
 }
 
 // Stack owns nested XML namespace frames. Every admitted start returns the
 // capability required to close or abort that exact frame.
 type Stack struct {
 	store         *contextStore
+	active        map[string]uint32
 	frames        []stackFrame
 	resolvedAttrs []xml.Name
 	seen          nameSet
 	serial        uint64
+	activePeak    int
 	head          uint32
 	persistent    bool
 }
@@ -124,7 +128,9 @@ func (s *Stack) StartStream(start *stream.StartElement, values *stream.Cache) (F
 		resolved[i] = name
 	}
 	frame := s.commitAdmission(mark, previous, element)
-	start.ReplaceAttributeNames(s.resolvedAttrs)
+	for i := range start.Attr {
+		start.Attr[i].Name = resolved[i]
+	}
 	s.clearAttributeAdmission()
 	return frame, element, nil
 }
@@ -247,11 +253,13 @@ func (s *Stack) commitAdmission(mark int, previous uint32, element Element) Fram
 		element:     element,
 		previous:    previous,
 		bindingMark: mark,
+		bindingEnd:  len(s.store.bindings),
 	})
 	return frame
 }
 
 func (s *Stack) rollbackAdmission(mark int, previous uint32) {
+	s.restoreActiveBindings(mark, len(s.store.bindings))
 	clear(s.store.bindings[mark:])
 	s.store.bindings = s.store.bindings[:mark]
 	s.head = previous
@@ -264,6 +272,7 @@ func (s *Stack) pop() {
 	s.frames[i] = stackFrame{}
 	s.frames = s.frames[:i]
 	s.head = current.previous
+	s.restoreActiveBindings(current.bindingMark, current.bindingEnd)
 	if !s.persistent {
 		clear(s.store.bindings[current.bindingMark:])
 		s.store.bindings = s.store.bindings[:current.bindingMark]
@@ -273,6 +282,17 @@ func (s *Stack) pop() {
 func (s *Stack) ensureStore() {
 	if s.store == nil {
 		s.store = new(contextStore)
+	}
+}
+
+func (s *Stack) restoreActiveBindings(start, end int) {
+	for i := end - 1; i >= start; i-- {
+		current := s.store.bindings[i]
+		if current.PreviousSame == 0 {
+			delete(s.active, current.Prefix)
+			continue
+		}
+		s.active[current.Prefix] = current.PreviousSame
 	}
 }
 
@@ -404,7 +424,13 @@ func (s *Stack) Reset(maxRetainedCap int) {
 	} else if s.store != nil {
 		s.store.bindings = resetRetainedReferences(s.store.bindings, maxRetainedCap)
 	}
+	if s.activePeak > maxRetainedCap {
+		s.active = nil
+	} else {
+		clear(s.active)
+	}
 	s.head = 0
+	s.activePeak = 0
 	s.persistent = false
 }
 
@@ -444,8 +470,19 @@ func (s *Stack) appendBinding(name xml.Name, uri string) error {
 	if uint64(len(s.store.bindings)) >= uint64(math.MaxUint32) {
 		return errors.New("namespace binding limit exceeded")
 	}
-	s.store.bindings = append(s.store.bindings, binding{Prefix: prefix, URI: uri, Parent: s.head})
+	if s.active == nil {
+		s.active = make(map[string]uint32)
+	}
+	previousSame := s.active[prefix]
+	s.store.bindings = append(s.store.bindings, binding{
+		Prefix:       prefix,
+		URI:          uri,
+		Parent:       s.head,
+		PreviousSame: previousSame,
+	})
 	s.head = uint32(len(s.store.bindings)) //nolint:gosec // The MaxUint32 guard above proves the conversion safe.
+	s.active[prefix] = s.head
+	s.activePeak = max(s.activePeak, len(s.active))
 	return nil
 }
 
@@ -473,7 +510,16 @@ func (s *Stack) resolveName(name xml.Name, kind nameKind) (xml.Name, bool) {
 
 // Lookup resolves a namespace prefix in the active stack.
 func (s *Stack) Lookup(prefix string) (string, bool) {
-	return lookup(s.store, s.head, prefix)
+	if prefix == vocab.XMLPrefix {
+		return vocab.XMLNamespaceURI, true
+	}
+	if head, ok := s.active[prefix]; ok {
+		return s.store.bindings[head-1].URI, true
+	}
+	if prefix == "" {
+		return "", true
+	}
+	return "", false
 }
 
 func lookup(store *contextStore, head uint32, prefix string) (string, bool) {

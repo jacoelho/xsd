@@ -65,45 +65,49 @@ func (s *AttributeSeen) has(slot int) bool {
 	return s.mask&(uint64(1)<<slot) != 0
 }
 
-// AttributeWildcardMatch is the result of matching an attribute wildcard.
-type AttributeWildcardMatch struct {
-	Attribute    runtime.AttributeID
-	Matched      bool
-	Skip         bool
-	LaxMissing   bool
-	HasAttribute bool
+type attributeWildcardDisposition uint8
+
+const (
+	attributeWildcardNoMatch attributeWildcardDisposition = iota
+	attributeWildcardSkip
+	attributeWildcardDeclared
+	attributeWildcardLaxMissing
+	attributeWildcardStrictMissing
+)
+
+type attributeWildcardMatch struct {
+	attribute   runtime.AttributeID
+	disposition attributeWildcardDisposition
 }
 
-// MatchAttributeWildcard matches an instance attribute against an attribute wildcard.
-func MatchAttributeWildcard(rt *runtime.Schema, wildcard runtime.WildcardID, name runtime.RuntimeName) (AttributeWildcardMatch, bool) {
+func matchAttributeWildcard(rt *runtime.Schema, wildcard runtime.WildcardID, name runtime.RuntimeName) (attributeWildcardMatch, bool) {
 	if wildcard == runtime.NoWildcard {
-		return AttributeWildcardMatch{}, true
+		return attributeWildcardMatch{}, true
 	}
 	w, ok := rt.WildcardView(wildcard)
 	if !ok {
-		return AttributeWildcardMatch{}, false
+		return attributeWildcardMatch{}, false
 	}
 	if !w.AllowsURI(name.NS) {
-		return AttributeWildcardMatch{}, true
+		return attributeWildcardMatch{}, true
 	}
 	if w.Process() == runtime.ProcessSkip {
-		return AttributeWildcardMatch{Matched: true, Skip: true}, true
+		return attributeWildcardMatch{disposition: attributeWildcardSkip}, true
 	}
 	if name.Known {
 		attribute, found, valid := rt.GlobalAttribute(name.Name)
 		if !valid {
-			return AttributeWildcardMatch{}, false
+			return attributeWildcardMatch{}, false
 		}
 		if found {
-			return AttributeWildcardMatch{
-				Attribute:    attribute,
-				Matched:      true,
-				HasAttribute: true,
+			return attributeWildcardMatch{
+				attribute:   attribute,
+				disposition: attributeWildcardDeclared,
 			}, true
 		}
 	}
-	return AttributeWildcardMatch{
-		Matched:    true,
-		LaxMissing: w.Process() == runtime.ProcessLax,
-	}, true
+	if w.Process() == runtime.ProcessLax {
+		return attributeWildcardMatch{disposition: attributeWildcardLaxMissing}, true
+	}
+	return attributeWildcardMatch{disposition: attributeWildcardStrictMissing}, true
 }

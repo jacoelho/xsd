@@ -182,3 +182,91 @@ func TestContextIsImmutableAcrossStackChangesAndReset(t *testing.T) {
 		t.Fatalf("Context allocations = %g, want 0", got)
 	}
 }
+
+func TestStackActiveBindingsTrackShadowRollbackAndPersistentPop(t *testing.T) {
+	t.Parallel()
+	var ns Stack
+	parent, _, err := ns.StartXML(xml.StartElement{
+		Name: xml.Name{Local: "parent"},
+		Attr: []xml.Attr{{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, Value: "urn:parent"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	context := ns.Context()
+	child, _, err := ns.StartXML(xml.StartElement{
+		Name: xml.Name{Local: "child"},
+		Attr: []xml.Attr{
+			{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, Value: "urn:child"},
+			{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "q"}, Value: "urn:q"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	childRecord := ns.frames[len(ns.frames)-1]
+	if childRecord.bindingEnd-childRecord.bindingMark != 2 {
+		t.Fatalf("child binding range = [%d:%d], want exactly two bindings", childRecord.bindingMark, childRecord.bindingEnd)
+	}
+	if got, ok := ns.Lookup("p"); !ok || got != "urn:child" {
+		t.Fatalf("Lookup(p) in child = %q, %v", got, ok)
+	}
+	if _, _, err := ns.StartXML(xml.StartElement{Attr: []xml.Attr{
+		{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, Value: "urn:failed"},
+		{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: vocab.XMLPrefix}, Value: "urn:not-xml"},
+	}}); err == nil {
+		t.Fatal("StartXML() accepted invalid binding after a shadow")
+	}
+	if got, ok := ns.Lookup("p"); !ok || got != "urn:child" {
+		t.Fatalf("Lookup(p) after rollback = %q, %v", got, ok)
+	}
+	if err := ns.End(child, LexicalName{Local: "child"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := ns.Lookup("p"); !ok || got != "urn:parent" {
+		t.Fatalf("Lookup(p) after child pop = %q, %v", got, ok)
+	}
+	if _, ok := ns.Lookup("q"); ok {
+		t.Fatal("Lookup(q) retained a popped child binding")
+	}
+	sibling, _, siblingErr := ns.StartXML(xml.StartElement{
+		Name: xml.Name{Local: "sibling"},
+		Attr: []xml.Attr{{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, Value: "urn:sibling"}},
+	})
+	if siblingErr != nil {
+		t.Fatal(siblingErr)
+	}
+	grandchild, _, grandchildErr := ns.StartXML(xml.StartElement{
+		Name: xml.Name{Local: "grandchild"},
+		Attr: []xml.Attr{{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, Value: "urn:grandchild"}},
+	})
+	if grandchildErr != nil {
+		t.Fatal(grandchildErr)
+	}
+	_ = ns.Context()
+	if err := ns.End(grandchild, LexicalName{Local: "grandchild"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := ns.Lookup("p"); !ok || got != "urn:sibling" {
+		t.Fatalf("Lookup(p) after persistent grandchild pop = %q, %v", got, ok)
+	}
+	if err := ns.End(sibling, LexicalName{Local: "sibling"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := ns.Lookup("p"); !ok || got != "urn:parent" {
+		t.Fatalf("Lookup(p) after persistent sibling pop = %q, %v", got, ok)
+	}
+	if got, ok := context.Lookup("p"); !ok || got != "urn:parent" {
+		t.Fatalf("Context.Lookup(p) = %q, %v", got, ok)
+	}
+	if err := ns.End(parent, LexicalName{Local: "parent"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := ns.Lookup("p"); ok {
+		t.Fatal("Lookup(p) retained a popped parent binding")
+	}
+	ns.Reset(1)
+	if ns.active != nil {
+		t.Fatal("Reset() retained an active-prefix index beyond its bound")
+	}
+}

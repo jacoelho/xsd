@@ -123,6 +123,29 @@ func TestParserResetDefersErrorReturnedWithBufferedDocument(t *testing.T) {
 	}
 }
 
+func TestParserNextPreservesReaderErrorAfterBufferedCharacterData(t *testing.T) {
+	t.Parallel()
+	sentinel := errors.New("sentinel")
+	names, values := NewCache(), NewCache()
+	var parser Parser
+	if err := parser.Reset(&dataErrorReader{data: []byte(`<root>abc`), err: sentinel}, &names, &values); err != nil {
+		t.Fatalf("Parser.Reset() error = %v", err)
+	}
+	if token, err := parser.Next(); err != nil || token.Kind != KindStart {
+		t.Fatalf("Parser.Next(root) = %+v, %v", token, err)
+	}
+	token, err := parser.Next()
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("Parser.Next(character data) error = %v, want %v", err, sentinel)
+	}
+	if !zeroToken(token) {
+		t.Fatalf("Parser.Next(character data) token = %+v, want zero token", token)
+	}
+	if line, col := parser.Pos(); line != 1 || col != 9 {
+		t.Fatalf("Parser.Pos() = %d:%d, want 1:9", line, col)
+	}
+}
+
 func TestParserResetReturnsErrorWithShortPrefix(t *testing.T) {
 	sentinel := errors.New("sentinel")
 	reader := &dataErrorReader{data: []byte(`<r`), err: sentinel}

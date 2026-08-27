@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -50,6 +51,18 @@ func TestCheckXMLWellFormed(t *testing.T) {
 			}
 			requireCode(t, err, tt.code)
 		})
+	}
+}
+
+func TestCheckXMLWellFormedUsesBufferedCharacterFailurePosition(t *testing.T) {
+	t.Parallel()
+	err := CheckXMLWellFormed(strings.NewReader("<root>\nabcdefgh\x01</root>"), Options{})
+	var xerr *xsderrors.Error
+	if !errors.As(err, &xerr) {
+		t.Fatalf("CheckXMLWellFormed() error = %T %v, want *xsderrors.Error", err, err)
+	}
+	if xerr.Code() != xsderrors.CodeValidationXML || xerr.Line() != 2 || xerr.Column() != 9 {
+		t.Fatalf("diagnostic = %s at %d:%d, want %s at 2:9", xerr.Code(), xerr.Line(), xerr.Column(), xsderrors.CodeValidationXML)
 	}
 }
 

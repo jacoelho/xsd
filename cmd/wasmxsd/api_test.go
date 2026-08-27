@@ -127,6 +127,28 @@ func TestValidateXMLDataReportsMalformedXMLAfterSchemaCompiles(t *testing.T) {
 	}
 }
 
+func TestValidateXMLDataUsesParserFailurePosition(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		xml       string
+		line, col int
+	}{
+		{name: "end tag", xml: "<root>\n</root x>", line: 2, col: 8},
+		{name: "buffered character data", xml: "<root>\n<v>1</v>\nabcdefgh\x01</root>", line: 3, col: 9},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resp := validateXMLData(test.xml, testSchema)
+			if resp.Status != statusInvalid || len(resp.Errors) != 1 {
+				t.Fatalf("validateXMLData() = %+v, want one invalid diagnostic", resp)
+			}
+			got := resp.Errors[0]
+			if got.Code != "validation.xml" || got.Line != test.line || got.Column != test.col {
+				t.Fatalf("diagnostic = %s at %d:%d, want validation.xml at %d:%d", got.Code, got.Line, got.Column, test.line, test.col)
+			}
+		})
+	}
+}
+
 func TestValidateXMLDataReportsMalformedXMLBeyondValidationErrorLimit(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">

@@ -75,9 +75,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   recovery, document structure, start/end element decisions, attributes,
   content, simple-content assessment, the concrete document-local identity
   evaluator and its lifecycle, XSI handling, and schemaLocation hint handling.
-- `internal/format` owns repository-internal XML formatting and its output
-  bound. It consumes the shared stream and namespace boundaries and exposes no
-  root-package API.
+- `internal/format` owns repository-internal XML formatting and finite default
+  input, token, retained-node, depth, and output bounds. It consumes the shared
+  stream and namespace boundaries and exposes no root-package API.
 - `internal/stream` owns XML token streaming and declaration scanning shared by
   schema parsing, instance validation, and formatting. Its parser owns prolog
   preflight, the sole input buffer, and reader detachment for each stream.
@@ -85,6 +85,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   code.
 - `internal/xmlns` owns namespace binding validity, lexical-name resolution,
   and duplicate expanded-attribute detection for both schema and instance XML.
+  Its append-only binding chain is authoritative for retained immutable
+  contexts. A stack-local active-prefix index is a reproducible projection of
+  that chain; admission, rollback, and pop update it atomically, and reset drops
+  it when its observed active-prefix bound exceeds retained-session capacity.
 - `internal/vocab` owns XML/XSD namespace and vocabulary constants.
 
 Internal packages MUST NOT import root `xsd`. Compile-time packages MUST NOT

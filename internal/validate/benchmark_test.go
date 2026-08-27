@@ -46,6 +46,33 @@ func BenchmarkCheckXMLWellFormedNested(b *testing.B) {
 	}
 }
 
+func BenchmarkNestedIdentityTablePropagation(b *testing.B) {
+	const constraint runtime.IdentityConstraintID = 1
+	for _, depth := range []int{16, 64, 256} {
+		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {
+			keys := make([]string, depth)
+			for i := range keys {
+				keys[i] = strconv.Itoa(i)
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				scopes := make([]identityScope, depth)
+				for i := range scopes {
+					scopes[i].tables = map[runtime.IdentityConstraintID]map[string]identityTableEntry{
+						constraint: {keys[i]: {node: uint64(i + 1)}},
+					}
+				}
+				state := identityState{scopes: scopes}
+				for len(state.scopes) > 1 {
+					last := len(state.scopes) - 1
+					state.mergeClosedIdentityScope(&state.scopes[last])
+					state.scopes = state.scopes[:last]
+				}
+			}
+		})
+	}
+}
+
 func benchmarkIDREFS(refs int) string {
 	var b strings.Builder
 	for i := range refs {

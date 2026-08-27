@@ -14,7 +14,13 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-const maxFormatDepth = 4096
+const (
+	maxFormatDepth              = 4096
+	defaultMaxFormatNodes       = 1_000_000
+	defaultMaxFormatInputBytes  = int64(64 << 20)
+	defaultMaxFormatOutputBytes = int64(64 << 20)
+	defaultMaxFormatTokenBytes  = int64(4 << 20)
+)
 
 var (
 	errFormatOutputLimit = errors.New("XML formatted output byte limit exceeded")
@@ -24,13 +30,13 @@ var (
 type Options struct {
 	// MaxDepth limits nested XML elements. Zero uses the default formatter limit.
 	MaxDepth int
-	// MaxNodes limits retained XML nodes. Zero means unlimited.
+	// MaxNodes limits retained XML nodes. Zero uses the default formatter limit.
 	MaxNodes int
-	// MaxInputBytes limits bytes read from r. Zero means unlimited.
+	// MaxInputBytes limits bytes read from r. Zero uses the default formatter limit.
 	MaxInputBytes int64
-	// MaxOutputBytes limits bytes written to w. Zero means unlimited.
+	// MaxOutputBytes limits bytes written to w. Zero uses the default formatter limit.
 	MaxOutputBytes int64
-	// MaxTokenBytes limits retained XML token payload bytes. Zero means unlimited.
+	// MaxTokenBytes limits retained XML token payload bytes. Zero uses the default formatter limit.
 	MaxTokenBytes int64
 }
 
@@ -63,10 +69,7 @@ func XMLWithOptions(w io.Writer, r io.Reader, opts Options) error {
 	if err != nil {
 		return formatOptionErr(err)
 	}
-	writer := w
-	if limits.maxOutputBytes > 0 {
-		writer = &maxBytesWriter{w: writer, max: limits.maxOutputBytes, err: errFormatOutputLimit}
-	}
+	writer := &maxBytesWriter{w: w, max: limits.maxOutputBytes, err: errFormatOutputLimit}
 
 	names := stream.NewCache()
 	values := stream.NewCache()
@@ -129,12 +132,28 @@ func normalizeFormatOptions(opts Options) (formatOptions, error) {
 	if maxDepth == 0 {
 		maxDepth = maxFormatDepth
 	}
+	maxNodes := opts.MaxNodes
+	if maxNodes == 0 {
+		maxNodes = defaultMaxFormatNodes
+	}
+	maxInputBytes := opts.MaxInputBytes
+	if maxInputBytes == 0 {
+		maxInputBytes = defaultMaxFormatInputBytes
+	}
+	maxOutputBytes := opts.MaxOutputBytes
+	if maxOutputBytes == 0 {
+		maxOutputBytes = defaultMaxFormatOutputBytes
+	}
+	maxTokenBytes := opts.MaxTokenBytes
+	if maxTokenBytes == 0 {
+		maxTokenBytes = defaultMaxFormatTokenBytes
+	}
 	return formatOptions{
 		maxDepth:       maxDepth,
-		maxNodes:       opts.MaxNodes,
-		maxInputBytes:  opts.MaxInputBytes,
-		maxOutputBytes: opts.MaxOutputBytes,
-		maxTokenBytes:  opts.MaxTokenBytes,
+		maxNodes:       maxNodes,
+		maxInputBytes:  maxInputBytes,
+		maxOutputBytes: maxOutputBytes,
+		maxTokenBytes:  maxTokenBytes,
 	}, nil
 }
 

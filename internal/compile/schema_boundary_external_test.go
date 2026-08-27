@@ -58,6 +58,19 @@ func TestSchemaXMLNamespaceWellFormedness(t *testing.T) {
 	}
 }
 
+func TestSchemaXMLUsesBufferedCharacterFailurePosition(t *testing.T) {
+	t.Parallel()
+	schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\nabcdefgh\x01</xs:schema>"
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("malformed.xsd", []byte(schema))})
+	var xerr *xsderrors.Error
+	if !errors.As(err, &xerr) {
+		t.Fatalf("Compile() error = %T %v, want *xsderrors.Error", err, err)
+	}
+	if xerr.Code() != xsderrors.CodeSchemaXML || xerr.Path() != "malformed.xsd" || xerr.Line() != 2 || xerr.Column() != 9 {
+		t.Fatalf("Compile() diagnostic = %s %q at %d:%d, want %s malformed.xsd at 2:9", xerr.Code(), xerr.Path(), xerr.Line(), xerr.Column(), xsderrors.CodeSchemaXML)
+	}
+}
+
 func TestSchemaUnsupportedXMLDeclarationClassificationDoesNotDependOnPreviewLength(t *testing.T) {
 	tests := []struct {
 		name    string

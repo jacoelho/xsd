@@ -633,6 +633,37 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	expectXSDLocation(t, got, "/root/ref", 12, 13)
 }
 
+func TestMergeIdentityTableUsesLargerMapWithoutChangingParentPrecedence(t *testing.T) {
+	t.Parallel()
+	parent := map[string]identityTableEntry{
+		"same": {path: "/parent", node: 1},
+	}
+	child := map[string]identityTableEntry{
+		"same":   {path: "/child", node: 1},
+		"other1": {path: "/child/1", node: 2},
+		"other2": {path: "/child/2", node: 3},
+	}
+	merged := mergeIdentityTable(parent, child)
+	if got := merged["same"]; got != (identityTableEntry{path: "/parent", node: 1}) {
+		t.Fatalf("same-node entry = %+v, want parent entry", got)
+	}
+	if len(merged) != 3 {
+		t.Fatalf("merged table len = %d, want 3", len(merged))
+	}
+
+	conflict := mergeIdentityTable(
+		map[string]identityTableEntry{"same": {path: "/parent", node: 1}},
+		map[string]identityTableEntry{
+			"same":   {path: "/child", node: 2},
+			"other1": {node: 3},
+			"other2": {node: 4},
+		},
+	)
+	if got := conflict["same"]; got != (identityTableEntry{path: "/parent", node: 1, conflict: true}) {
+		t.Fatalf("conflict entry = %+v, want parent location and node", got)
+	}
+}
+
 func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T) {
 	t.Parallel()
 

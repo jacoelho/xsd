@@ -124,3 +124,31 @@ func TestValidationPreflightReaderErrorIsStructured(t *testing.T) {
 		t.Fatalf("Validate() error = %v, want joined reader causes", err)
 	}
 }
+
+func TestValidationParserErrorUsesFailurePosition(t *testing.T) {
+	t.Parallel()
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(validationReaderTestSchema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name      string
+		xml       string
+		line, col int
+	}{
+		{name: "end tag", xml: "<r>\n</r x>", line: 2, col: 5},
+		{name: "buffered character data", xml: "<r>\nabcdefgh\x01</r>", line: 2, col: 9},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			err := engine.Validate(strings.NewReader(test.xml))
+			var xerr *xsderrors.Error
+			if !errors.As(err, &xerr) {
+				t.Fatalf("Validate() error = %T %v, want *xsderrors.Error", err, err)
+			}
+			if xerr.Code() != xsderrors.CodeValidationXML || xerr.Line() != test.line || xerr.Column() != test.col {
+				t.Fatalf("Validate() diagnostic = %s at %d:%d, want %s at %d:%d", xerr.Code(), xerr.Line(), xerr.Column(), xsderrors.CodeValidationXML, test.line, test.col)
+			}
+		})
+	}
+}

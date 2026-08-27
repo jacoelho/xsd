@@ -51,9 +51,12 @@ func wideChoiceSchema(width int, extraParticles string) string {
   <xs:element name="r">
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
-`)
+	`)
 	for i := range width {
-		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+		sb.WriteString(`        <xs:element name="f`)
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString(`" type="xs:string"/>`)
+		sb.WriteByte('\n')
 	}
 	sb.WriteString(extraParticles)
 	sb.WriteString(`      </xs:choice>
@@ -115,6 +118,62 @@ func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkSessionValidateNamespaceAdmissionChurn(b *testing.B) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="e">
+    <xs:complexType>
+      <xs:sequence><xs:element ref="e" minOccurs="0"/></xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("namespace-admission.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	for _, depth := range []int{16, 64, 256} {
+		for _, churn := range []bool{false, true} {
+			name := fmt.Sprintf("depth_%d/churn_%t", depth, churn)
+			b.Run(name, func(b *testing.B) {
+				doc := namespaceAdmissionBenchmarkDocument(depth, churn)
+				session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth})
+				if err != nil {
+					b.Fatal(err)
+				}
+				if err := session.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+				b.SetBytes(int64(len(doc)))
+				b.ReportAllocs()
+				b.ResetTimer()
+				for b.Loop() {
+					if err := session.Validate(strings.NewReader(doc)); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+	}
+}
+
+func namespaceAdmissionBenchmarkDocument(depth int, churn bool) string {
+	var doc strings.Builder
+	for i := range depth {
+		doc.WriteString("<e")
+		if churn {
+			doc.WriteString(` xmlns:p`)
+			doc.WriteString(strconv.Itoa(i))
+			doc.WriteString(`="urn:`)
+			doc.WriteString(strconv.Itoa(i))
+			doc.WriteByte('"')
+		}
+		doc.WriteByte('>')
+	}
+	for range depth {
+		doc.WriteString("</e>")
+	}
+	return doc.String()
 }
 
 func BenchmarkSessionValidateRepeatedXSIType(b *testing.B) {
@@ -250,7 +309,11 @@ func BenchmarkSessionValidateWideChoice(b *testing.B) {
 	sb.WriteString("<r>")
 	for i := range 4000 {
 		name := "f" + strconv.Itoa(i%width)
-		sb.WriteString("<" + name + ">x</" + name + ">")
+		sb.WriteByte('<')
+		sb.WriteString(name)
+		sb.WriteString(">x</")
+		sb.WriteString(name)
+		sb.WriteByte('>')
 	}
 	sb.WriteString("</r>")
 	doc := sb.String()

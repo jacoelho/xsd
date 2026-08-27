@@ -51,7 +51,7 @@ func (c *xmlWellFormedChecker) checkTokens(parser *stream.Parser, values *stream
 	for {
 		tok, err := parser.Next()
 		if err != nil {
-			return c.finishTokenStream(parser, tok, err)
+			return c.finishTokenStream(parser, err)
 		}
 		if err := c.checkToken(tok, values); err != nil {
 			return err
@@ -59,11 +59,11 @@ func (c *xmlWellFormedChecker) checkTokens(parser *stream.Parser, values *stream
 	}
 }
 
-func (c *xmlWellFormedChecker) finishTokenStream(parser *stream.Parser, tok stream.Token, err error) error {
+func (c *xmlWellFormedChecker) finishTokenStream(parser *stream.Parser, err error) error {
 	if stream.IsOnlyEOF(err) {
 		return c.doc.Complete()
 	}
-	return c.streamError(parser, tok, err)
+	return c.streamError(parser, err)
 }
 
 func (c *xmlWellFormedChecker) checkToken(tok stream.Token, values *stream.Cache) error {
@@ -104,10 +104,7 @@ func (c *xmlWellFormedChecker) chars(line, col int, data []byte, cdata bool) err
 	return ValidateDocumentCharacterData(data, cdata, c.doc.context(line, col))
 }
 
-func (c *xmlWellFormedChecker) streamError(parser *stream.Parser, tok stream.Token, err error) error {
-	line, col := tok.Line, tok.Column
-	if line == 0 {
-		line, col = parser.Pos()
-	}
+func (c *xmlWellFormedChecker) streamError(parser *stream.Parser, err error) error {
+	line, col := parser.Pos()
 	return StreamError(line, col, c.doc.PathString(), err)
 }
