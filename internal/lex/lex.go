@@ -127,25 +127,29 @@ func CollapseXMLWhitespace(s string) string {
 // XMLFieldsSeq returns fields split on XML whitespace.
 func XMLFieldsSeq(s string) iter.Seq[string] {
 	return func(yield func(string) bool) {
-		start := -1
-		for i := range len(s) {
-			if IsXMLWhitespaceByte(s[i]) {
-				if start >= 0 {
-					if !yield(s[start:i]) {
-						return
-					}
-					start = -1
-				}
-				continue
+		for {
+			field, rest, ok := nextXMLField(s)
+			if !ok || !yield(field) {
+				return
 			}
-			if start < 0 {
-				start = i
-			}
-		}
-		if start >= 0 {
-			yield(s[start:])
+			s = rest
 		}
 	}
+}
+
+func nextXMLField(s string) (field, rest string, ok bool) {
+	start := 0
+	for start < len(s) && IsXMLWhitespaceByte(s[start]) {
+		start++
+	}
+	if start == len(s) {
+		return "", "", false
+	}
+	end := start + 1
+	for end < len(s) && !IsXMLWhitespaceByte(s[end]) {
+		end++
+	}
+	return s[start:end], s[end:], true
 }
 
 // SplitQName splits and validates an XML QName into prefix and local parts.
@@ -167,32 +171,25 @@ func SplitQName(s string) (prefix, local string, prefixed, ok bool) {
 }
 
 func firstXMLWhitespaceCollapseChange(s string) int {
-	runStart := -1
-	runNeedsCollapse := false
-	for i := range len(s) {
-		if IsXMLWhitespaceByte(s[i]) {
-			if runStart < 0 {
-				runStart = i
-			}
-			if i == 0 || IsNonSpaceXMLWhitespaceByte(s[i]) {
-				runNeedsCollapse = true
-			}
+	for i := 0; i < len(s); {
+		if !IsXMLWhitespaceByte(s[i]) {
+			i++
 			continue
 		}
-
-		if runStart < 0 {
-			continue
+		end := i + 1
+		for end < len(s) && IsXMLWhitespaceByte(s[end]) {
+			end++
 		}
-		if runNeedsCollapse || i-runStart > 1 {
-			return runStart
+		if xmlWhitespaceRunNeedsCollapse(s, i, end) {
+			return i
 		}
-		runStart = -1
-		runNeedsCollapse = false
-	}
-	if runStart >= 0 {
-		return runStart
+		i = end
 	}
 	return -1
+}
+
+func xmlWhitespaceRunNeedsCollapse(s string, start, end int) bool {
+	return start == 0 || end == len(s) || end-start > 1 || IsNonSpaceXMLWhitespaceByte(s[start])
 }
 
 func indexNonSpaceXMLWhitespace(s string) int {
@@ -216,22 +213,30 @@ func IsXMLChar(r rune) bool {
 
 // IsXMLNameStartChar reports whether r can start an XML Name.
 func IsXMLNameStartChar(r rune) bool {
-	return r == ':' ||
-		r == '_' ||
-		(r >= 'A' && r <= 'Z') ||
-		(r >= 'a' && r <= 'z') ||
-		(r >= 0xC0 && r <= 0xD6) ||
-		(r >= 0xD8 && r <= 0xF6) ||
-		(r >= 0xF8 && r <= 0x2FF) ||
-		(r >= 0x370 && r <= 0x37D) ||
-		(r >= 0x37F && r <= 0x1FFF) ||
-		(r >= 0x200C && r <= 0x200D) ||
-		(r >= 0x2070 && r <= 0x218F) ||
-		(r >= 0x2C00 && r <= 0x2FEF) ||
-		(r >= 0x3001 && r <= 0xD7FF) ||
-		(r >= 0xF900 && r <= 0xFDCF) ||
-		(r >= 0xFDF0 && r <= 0xFFFD) ||
-		(r >= 0x10000 && r <= 0xEFFFF)
+	switch {
+	case r == ':', r == '_',
+		inRuneRange(r, 'A', 'Z'),
+		inRuneRange(r, 'a', 'z'),
+		inRuneRange(r, 0xC0, 0xD6),
+		inRuneRange(r, 0xD8, 0xF6),
+		inRuneRange(r, 0xF8, 0x2FF),
+		inRuneRange(r, 0x370, 0x37D),
+		inRuneRange(r, 0x37F, 0x1FFF),
+		inRuneRange(r, 0x200C, 0x200D),
+		inRuneRange(r, 0x2070, 0x218F),
+		inRuneRange(r, 0x2C00, 0x2FEF),
+		inRuneRange(r, 0x3001, 0xD7FF),
+		inRuneRange(r, 0xF900, 0xFDCF),
+		inRuneRange(r, 0xFDF0, 0xFFFD),
+		inRuneRange(r, 0x10000, 0xEFFFF):
+		return true
+	default:
+		return false
+	}
+}
+
+func inRuneRange(r, first, last rune) bool {
+	return r >= first && r <= last
 }
 
 // IsXMLNameChar reports whether r can appear in an XML Name.
@@ -247,43 +252,43 @@ func IsXMLNameChar(r rune) bool {
 
 // IsXMLName reports whether s is an XML Name.
 func IsXMLName(s string) bool {
-	if s == "" || !utf8.ValidString(s) {
-		return false
-	}
-	for i, r := range s {
-		if i == 0 {
-			if !IsXMLNameStartChar(r) {
-				return false
-			}
-			continue
-		}
-		if !IsXMLNameChar(r) {
-			return false
-		}
-	}
-	return true
+	return isName(s, xmlName)
 }
 
 // IsNCName reports whether s is an XML NCName.
 func IsNCName(s string) bool {
+	return isName(s, ncName)
+}
+
+type nameKind uint8
+
+const (
+	xmlName nameKind = iota
+	ncName
+)
+
+func isName(s string, kind nameKind) bool {
 	if s == "" || !utf8.ValidString(s) {
 		return false
 	}
-	for i, r := range s {
-		if r == ':' {
+	first := true
+	for _, r := range s {
+		if !kind.acceptsRune(r, first) {
 			return false
 		}
-		if i == 0 {
-			if !IsXMLNameStartChar(r) {
-				return false
-			}
-			continue
-		}
-		if !IsXMLNameChar(r) {
-			return false
-		}
+		first = false
 	}
 	return true
+}
+
+func (k nameKind) acceptsRune(r rune, first bool) bool {
+	if k == ncName && r == ':' {
+		return false
+	}
+	if first {
+		return IsXMLNameStartChar(r)
+	}
+	return IsXMLNameChar(r)
 }
 
 // IsNMTOKEN reports whether s is an XML NMTOKEN.
@@ -301,45 +306,106 @@ func IsNMTOKEN(s string) bool {
 
 // IsLanguage reports whether s matches the lexical space of xs:language.
 func IsLanguage(s string) bool {
-	if s == "" {
-		return false
-	}
-	i := 0
+	kind := primaryLanguageSubtag
 	for part := range strings.SplitSeq(s, "-") {
-		if part == "" || len(part) > 8 {
+		if !kind.valid(part) {
 			return false
 		}
-		for j := range len(part) {
-			c := part[j]
-			if i == 0 {
-				if !isASCIILetter(c) {
-					return false
-				}
-				continue
-			}
-			if !isASCIILetter(c) && !isASCIIDigit(c) {
-				return false
-			}
-		}
-		i++
+		kind = subsequentLanguageSubtag
 	}
 	return true
 }
 
+type languageSubtagKind uint8
+
+const (
+	primaryLanguageSubtag languageSubtagKind = iota
+	subsequentLanguageSubtag
+)
+
+func (k languageSubtagKind) valid(part string) bool {
+	if part == "" || len(part) > 8 {
+		return false
+	}
+	for i := range len(part) {
+		if !k.accepts(part[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (k languageSubtagKind) accepts(c byte) bool {
+	return isASCIILetter(c) || k == subsequentLanguageSubtag && isASCIIDigit(c)
+}
+
 // IsXMLNameBytes reports whether b is an XML Name.
 func IsXMLNameBytes(b []byte) bool {
+	return isNameBytes(b, xmlName)
+}
+
+// IsNCNameBytes reports whether b is an XML NCName.
+func IsNCNameBytes(b []byte) bool {
+	return isNameBytes(b, ncName)
+}
+
+func isNameBytes(b []byte, kind nameKind) bool {
+	if len(b) == 0 {
+		return false
+	}
+	if b[0] >= utf8.RuneSelf {
+		return isNameBytesUnicode(b, kind, true)
+	}
+	if !kind.acceptsASCII(b[0], true) {
+		return false
+	}
+	for i := 1; i < len(b); i++ {
+		if b[i] >= utf8.RuneSelf {
+			return isNameBytesUnicode(b[i:], kind, false)
+		}
+		if !kind.acceptsASCII(b[i], false) {
+			return false
+		}
+	}
+	return true
+}
+
+func isNameBytesUnicode(b []byte, kind nameKind, first bool) bool {
+	for len(b) > 0 {
+		r, size := utf8.DecodeRune(b)
+		if r == utf8.RuneError && size == 1 {
+			return false
+		}
+		if !kind.acceptsRune(r, first) {
+			return false
+		}
+		first = false
+		b = b[size:]
+	}
+	return true
+}
+
+func (k nameKind) acceptsASCII(c byte, first bool) bool {
+	if k == ncName {
+		if first {
+			return IsASCIINCNameStart(c)
+		}
+		return IsASCIINCNameChar(c)
+	}
+	if first {
+		return IsASCIIXMLNameStart(c)
+	}
+	return IsASCIIXMLNameChar(c)
+}
+
+// IsNMTOKENBytes reports whether b is an XML NMTOKEN.
+func IsNMTOKENBytes(b []byte) bool {
 	if len(b) == 0 {
 		return false
 	}
 	for i, c := range b {
 		if c >= utf8.RuneSelf {
-			return isXMLNameBytesUnicode(b)
-		}
-		if i == 0 {
-			if !IsASCIIXMLNameStart(c) {
-				return false
-			}
-			continue
+			return isNMTOKENBytesUnicode(b[i:])
 		}
 		if !IsASCIIXMLNameChar(c) {
 			return false
@@ -348,85 +414,8 @@ func IsXMLNameBytes(b []byte) bool {
 	return true
 }
 
-func isXMLNameBytesUnicode(b []byte) bool {
-	first := true
+func isNMTOKENBytesUnicode(b []byte) bool {
 	for len(b) > 0 {
-		r, size := utf8.DecodeRune(b)
-		if r == utf8.RuneError && size == 1 {
-			return false
-		}
-		if first {
-			if !IsXMLNameStartChar(r) {
-				return false
-			}
-			first = false
-		} else if !IsXMLNameChar(r) {
-			return false
-		}
-		b = b[size:]
-	}
-	return true
-}
-
-// IsNCNameBytes reports whether b is an XML NCName.
-func IsNCNameBytes(b []byte) bool {
-	if len(b) == 0 {
-		return false
-	}
-	for i, c := range b {
-		if c >= utf8.RuneSelf {
-			return isNCNameBytesUnicode(b)
-		}
-		if i == 0 {
-			if !IsASCIINCNameStart(c) {
-				return false
-			}
-			continue
-		}
-		if !IsASCIINCNameChar(c) {
-			return false
-		}
-	}
-	return true
-}
-
-func isNCNameBytesUnicode(b []byte) bool {
-	first := true
-	for len(b) > 0 {
-		r, size := utf8.DecodeRune(b)
-		if r == utf8.RuneError && size == 1 {
-			return false
-		}
-		if r == ':' {
-			return false
-		}
-		if first {
-			if !IsXMLNameStartChar(r) {
-				return false
-			}
-			first = false
-		} else if !IsXMLNameChar(r) {
-			return false
-		}
-		b = b[size:]
-	}
-	return true
-}
-
-// IsNMTOKENBytes reports whether b is an XML NMTOKEN.
-func IsNMTOKENBytes(b []byte) bool {
-	if len(b) == 0 {
-		return false
-	}
-	for len(b) > 0 {
-		c := b[0]
-		if c < utf8.RuneSelf {
-			if !IsASCIIXMLNameChar(c) {
-				return false
-			}
-			b = b[1:]
-			continue
-		}
 		r, size := utf8.DecodeRune(b)
 		if r == utf8.RuneError && size == 1 {
 			return false
@@ -441,38 +430,48 @@ func IsNMTOKENBytes(b []byte) bool {
 
 // SplitASCIIQNameBytes splits an ASCII QName into prefix and local parts.
 func SplitASCIIQNameBytes(b []byte) (prefix, local []byte, ascii, ok bool) {
-	if len(b) == 0 {
+	colon, ascii, ok := scanASCIIQNamePart(b)
+	if !ascii {
+		return nil, nil, false, false
+	}
+	if !ok {
 		return nil, nil, true, false
 	}
-	colon := -1
-	partStart := true
-	for i, c := range b {
-		if c >= utf8.RuneSelf {
-			return nil, nil, false, false
-		}
-		if c == ':' {
-			if colon >= 0 || partStart || i == len(b)-1 {
-				return nil, nil, true, false
-			}
-			colon = i
-			partStart = true
-			continue
-		}
-		if partStart {
-			if !IsASCIINCNameStart(c) {
-				return nil, nil, true, false
-			}
-			partStart = false
-			continue
-		}
-		if !IsASCIINCNameChar(c) {
-			return nil, nil, true, false
-		}
-	}
-	if colon < 0 {
+	if colon == len(b) {
 		return nil, b, true, true
 	}
+	localEnd, ascii, ok := scanASCIIQNamePart(b[colon+1:])
+	if !ascii {
+		return nil, nil, false, false
+	}
+	if !ok || localEnd != len(b)-colon-1 {
+		return nil, nil, true, false
+	}
 	return b[:colon], b[colon+1:], true, true
+}
+
+func scanASCIIQNamePart(b []byte) (end int, ascii, ok bool) {
+	if len(b) == 0 {
+		return 0, true, false
+	}
+	if b[0] >= utf8.RuneSelf {
+		return 0, false, false
+	}
+	if !IsASCIINCNameStart(b[0]) {
+		return 0, true, false
+	}
+	for i := 1; i < len(b); i++ {
+		if b[i] >= utf8.RuneSelf {
+			return i, false, false
+		}
+		if b[i] == ':' {
+			return i, true, true
+		}
+		if !IsASCIINCNameChar(b[i]) {
+			return i, true, false
+		}
+	}
+	return len(b), true, true
 }
 
 // IsASCIIXMLNameStart reports whether c starts an ASCII XML Name.

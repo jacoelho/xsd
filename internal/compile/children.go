@@ -317,42 +317,62 @@ func invalidModelGroupChild(local string) string { return "invalid model group c
 // ValidateTopLevelGroupChildren validates top-level xs:group child syntax and
 // returns the selected model group child index.
 func ValidateTopLevelGroupChildren(children []TopLevelGroupChild) (TopLevelGroupSyntax, error) {
-	syntax := TopLevelGroupSyntax{Model: -1}
-	seenAnnotation := false
-	seenNonAnnotation := false
+	state := topLevelGroupSyntaxState{syntax: TopLevelGroupSyntax{Model: -1}}
 	for i, child := range children {
-		switch child.Local {
-		case annotationChild:
-			if seenAnnotation {
-				return syntax, topLevelGroupSyntaxError(i, xsderrors.CodeSchemaContentModel, "top-level group can contain at most one annotation")
-			}
-			if seenNonAnnotation {
-				return syntax, topLevelGroupSyntaxError(i, xsderrors.CodeSchemaContentModel, "top-level group annotation must be first")
-			}
-			seenAnnotation = true
-		case sequenceChild, choiceChild, allChild:
-			if syntax.Model >= 0 {
-				return syntax, topLevelGroupSyntaxError(i, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
-			}
-			syntax.Model = i
-			seenNonAnnotation = true
-		case groupChild:
-			return syntax, topLevelGroupSyntaxError(i, xsderrors.CodeSchemaContentModel, "top-level group cannot contain group ref")
-		default:
-			return syntax, topLevelGroupSyntaxError(i, xsderrors.CodeSchemaContentModel, "invalid top-level group child "+child.Local)
+		if err := state.add(i, child.Local); err != nil {
+			return state.syntax, err
 		}
 	}
-	if syntax.Model < 0 {
-		return syntax, topLevelGroupSyntaxError(-1, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
+	if state.syntax.Model < 0 {
+		return state.syntax, topLevelGroupSyntaxError(-1, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
 	}
-	model := children[syntax.Model]
+	model := children[state.syntax.Model]
 	if model.HasMinOccurs {
-		return syntax, topLevelGroupSyntaxError(syntax.Model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have minOccurs")
+		return state.syntax, topLevelGroupSyntaxError(state.syntax.Model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have minOccurs")
 	}
 	if model.HasMaxOccurs {
-		return syntax, topLevelGroupSyntaxError(syntax.Model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have maxOccurs")
+		return state.syntax, topLevelGroupSyntaxError(state.syntax.Model, xsderrors.CodeSchemaOccurrence, "top-level model group cannot have maxOccurs")
 	}
-	return syntax, nil
+	return state.syntax, nil
+}
+
+type topLevelGroupSyntaxState struct {
+	syntax            TopLevelGroupSyntax
+	seenAnnotation    bool
+	seenNonAnnotation bool
+}
+
+func (s *topLevelGroupSyntaxState) add(index int, local string) error {
+	switch local {
+	case annotationChild:
+		return s.addAnnotation(index)
+	case sequenceChild, choiceChild, allChild:
+		return s.addModel(index)
+	case groupChild:
+		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "top-level group cannot contain group ref")
+	default:
+		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "invalid top-level group child "+local)
+	}
+}
+
+func (s *topLevelGroupSyntaxState) addAnnotation(index int) error {
+	if s.seenAnnotation {
+		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "top-level group can contain at most one annotation")
+	}
+	if s.seenNonAnnotation {
+		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "top-level group annotation must be first")
+	}
+	s.seenAnnotation = true
+	return nil
+}
+
+func (s *topLevelGroupSyntaxState) addModel(index int) error {
+	if s.syntax.Model >= 0 {
+		return topLevelGroupSyntaxError(index, xsderrors.CodeSchemaContentModel, "top-level group must contain exactly one model group")
+	}
+	s.syntax.Model = index
+	s.seenNonAnnotation = true
+	return nil
 }
 
 // ValidateAttributeDeclarationChildren validates xs:attribute declaration child
@@ -365,45 +385,64 @@ func ValidateAttributeDeclarationChildren(children []string) error {
 // CheckOrderedChildren validates component child order over local element
 // names and returns a ChildOrderError whose index maps back to the input slice.
 func CheckOrderedChildren(children []string, order ChildOrder) error {
-	var seen uint64
-	annotationSeen := false
-	nonAnnotationSeen := false
-	terminalSeen := false
-	maxLevelSeen := -1
+	state := childOrderState{maxLevelSeen: -1}
 	for childIndex, child := range children {
-		if terminalSeen {
-			return childOrderError(childIndex, order.InvalidMsg(child))
-		}
-		if child == annotationChild {
-			if nonAnnotationSeen || (order.SingleAnnotation && annotationSeen) {
-				return childOrderError(childIndex, order.AnnotationFirstMsg)
-			}
-			annotationSeen = true
-			continue
-		}
-		idx := childRuleIndex(child, order.Rules)
-		if idx < 0 {
-			return childOrderError(childIndex, order.InvalidMsg(child))
-		}
-		rule := order.Rules[idx]
-		if rule.ForbiddenMsg != "" {
-			return childOrderError(childIndex, rule.ForbiddenMsg)
-		}
-		nonAnnotationSeen = true
-		if maxLevelSeen > rule.Level {
-			return childOrderError(childIndex, rule.OrderMsg)
-		}
-		bit, err := childRuleSeenBit(idx)
-		if err != nil {
+		if err := state.accept(childIndex, child, order); err != nil {
 			return err
 		}
-		if seen&bit != 0 && rule.MaxOne {
-			return childOrderError(childIndex, rule.DupMsg)
-		}
-		seen |= bit
-		maxLevelSeen = max(maxLevelSeen, rule.Level)
-		terminalSeen = rule.Terminal
 	}
+	return nil
+}
+
+type childOrderState struct {
+	seen              uint64
+	annotationSeen    bool
+	nonAnnotationSeen bool
+	terminalSeen      bool
+	maxLevelSeen      int
+}
+
+func (s *childOrderState) accept(index int, child string, order ChildOrder) error {
+	if s.terminalSeen {
+		return childOrderError(index, order.InvalidMsg(child))
+	}
+	if child == annotationChild {
+		return s.acceptAnnotation(index, order)
+	}
+	return s.acceptRule(index, child, order)
+}
+
+func (s *childOrderState) acceptAnnotation(index int, order ChildOrder) error {
+	if s.nonAnnotationSeen || order.SingleAnnotation && s.annotationSeen {
+		return childOrderError(index, order.AnnotationFirstMsg)
+	}
+	s.annotationSeen = true
+	return nil
+}
+
+func (s *childOrderState) acceptRule(index int, child string, order ChildOrder) error {
+	ruleIndex := childRuleIndex(child, order.Rules)
+	if ruleIndex < 0 {
+		return childOrderError(index, order.InvalidMsg(child))
+	}
+	rule := order.Rules[ruleIndex]
+	if rule.ForbiddenMsg != "" {
+		return childOrderError(index, rule.ForbiddenMsg)
+	}
+	s.nonAnnotationSeen = true
+	if s.maxLevelSeen > rule.Level {
+		return childOrderError(index, rule.OrderMsg)
+	}
+	bit, err := childRuleSeenBit(ruleIndex)
+	if err != nil {
+		return err
+	}
+	if s.seen&bit != 0 && rule.MaxOne {
+		return childOrderError(index, rule.DupMsg)
+	}
+	s.seen |= bit
+	s.maxLevelSeen = max(s.maxLevelSeen, rule.Level)
+	s.terminalSeen = rule.Terminal
 	return nil
 }
 

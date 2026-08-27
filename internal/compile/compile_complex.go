@@ -10,11 +10,7 @@ import (
 
 func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID, error) {
 	label := c.rt.formatName(q)
-	if c.compilingComplex[q] {
-		err := CheckSchemaComponentCycle(SchemaComponentComplexType, true, label)
-		if raw, ok := c.complexRaw[q]; ok {
-			return runtime.NoComplexType, withSchemaCompileLocation(raw.node, err)
-		}
+	if err := c.rejectComplexTypeCycle(q, label); err != nil {
 		return runtime.NoComplexType, err
 	}
 	raw, exists := c.complexRaw[q]
@@ -47,19 +43,37 @@ func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
+	if err := c.completeGlobalComplexType(raw, q, id, &ct); err != nil {
+		return runtime.NoComplexType, err
+	}
+	return id, nil
+}
+
+func (c *compiler) rejectComplexTypeCycle(q runtime.QName, label string) error {
+	if !c.compilingComplex[q] {
+		return nil
+	}
+	err := CheckSchemaComponentCycle(SchemaComponentComplexType, true, label)
+	if raw, ok := c.complexRaw[q]; ok {
+		return withSchemaCompileLocation(raw.node, err)
+	}
+	return err
+}
+
+func (c *compiler) completeGlobalComplexType(raw rawComponent, q runtime.QName, id runtime.ComplexTypeID, ct *runtime.ComplexType) error {
 	block, err := complexBlockMaskWithDefault(raw.node, raw.ctx.blockDefault)
 	if err != nil {
-		return runtime.NoComplexType, err
+		return err
 	}
 	final, err := derivationMaskWithDefaultChecked(raw.node, raw.ctx.finalDefault, complexTypeFinalDerivation())
 	if err != nil {
-		return runtime.NoComplexType, err
+		return err
 	}
 	ct.Name = q
 	ct.Block = block
 	ct.Final = final
-	c.completeComplexType(id, ct)
-	return id, nil
+	c.completeComplexType(id, *ct)
+	return nil
 }
 
 func (c *compiler) compileAnonymousComplex(n *rawNode, ctx *schemaContext) (runtime.ComplexTypeID, error) {
@@ -131,28 +145,36 @@ func (c *compiler) shouldDeferAnonymousComplex(n *rawNode, ctx *schemaContext) (
 		return false, err
 	}
 	if cc := n.firstXS(vocab.XSDElemComplexContent); cc != nil {
-		source, err := checkComplexContentSyntax(cc)
-		if err != nil {
-			return false, err
-		}
-		base, err := c.contentDerivationBaseQName(vocab.XSDElemComplexContent, source.kind, source.node, ctx)
-		if err != nil {
-			return false, err
-		}
-		return c.compilingComplex[base], nil
+		return c.shouldDeferComplexContent(cc, ctx)
 	}
 	if sc := n.firstXS(vocab.XSDElemSimpleContent); sc != nil {
-		source, err := checkSimpleContentSyntax(sc)
-		if err != nil {
-			return false, err
-		}
-		base, err := c.contentDerivationBaseQName(vocab.XSDElemSimpleContent, source.kind, source.node, ctx)
-		if err != nil {
-			return false, err
-		}
-		return c.compilingComplex[base], nil
+		return c.shouldDeferSimpleContent(sc, ctx)
 	}
 	return false, nil
+}
+
+func (c *compiler) shouldDeferComplexContent(n *rawNode, ctx *schemaContext) (bool, error) {
+	source, err := checkComplexContentSyntax(n)
+	if err != nil {
+		return false, err
+	}
+	base, err := c.contentDerivationBaseQName(vocab.XSDElemComplexContent, source.kind, source.node, ctx)
+	if err != nil {
+		return false, err
+	}
+	return c.compilingComplex[base], nil
+}
+
+func (c *compiler) shouldDeferSimpleContent(n *rawNode, ctx *schemaContext) (bool, error) {
+	source, err := checkSimpleContentSyntax(n)
+	if err != nil {
+		return false, err
+	}
+	base, err := c.contentDerivationBaseQName(vocab.XSDElemSimpleContent, source.kind, source.node, ctx)
+	if err != nil {
+		return false, err
+	}
+	return c.compilingComplex[base], nil
 }
 
 func schemaBoolAttr(n *rawNode, name string) (bool, error) {
@@ -177,17 +199,31 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name runti
 	if err := checkComplexTypeChildren(n); err != nil {
 		return runtime.ComplexType{}, err
 	}
-	mixed, err := schemaBoolAttr(n, vocab.XSDAttrMixed)
+	ct, mixed, err := c.newComplexType(n, ctx, name)
 	if err != nil {
 		return runtime.ComplexType{}, err
+	}
+	if complexContent := n.firstXS(vocab.XSDElemComplexContent); complexContent != nil {
+		return c.compileComplexContent(complexContent, ctx, ct, anonymous)
+	}
+	if simpleContent := n.firstXS(vocab.XSDElemSimpleContent); simpleContent != nil {
+		return c.compileSimpleContent(simpleContent, ctx, ct, anonymous)
+	}
+	return c.compileDirectComplexType(n, ctx, ct, mixed)
+}
+
+func (c *compiler) newComplexType(n *rawNode, ctx *schemaContext, name runtime.QName) (runtime.ComplexType, bool, error) {
+	mixed, err := schemaBoolAttr(n, vocab.XSDAttrMixed)
+	if err != nil {
+		return runtime.ComplexType{}, false, err
 	}
 	abstract, err := schemaBoolAttr(n, vocab.XSDAttrAbstract)
 	if err != nil {
-		return runtime.ComplexType{}, err
+		return runtime.ComplexType{}, false, err
 	}
 	block, err := complexBlockMaskWithDefault(n, ctx.blockDefault)
 	if err != nil {
-		return runtime.ComplexType{}, err
+		return runtime.ComplexType{}, false, err
 	}
 	ct := runtime.ComplexType{
 		Name:        name,
@@ -200,28 +236,15 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name runti
 		Derivation:  runtime.DerivationKindRestriction,
 		Block:       block,
 	}
-	if cc := n.firstXS(vocab.XSDElemComplexContent); cc != nil {
-		return c.compileComplexContent(cc, ctx, ct, anonymous)
+	return ct, mixed, nil
+}
+
+func (c *compiler) compileDirectComplexType(n *rawNode, ctx *schemaContext, ct runtime.ComplexType, mixed bool) (runtime.ComplexType, error) {
+	content, err := c.compileDirectComplexModel(n, ctx)
+	if err != nil {
+		return runtime.ComplexType{}, err
 	}
-	if sc := n.firstXS(vocab.XSDElemSimpleContent); sc != nil {
-		return c.compileSimpleContent(sc, ctx, ct, anonymous)
-	}
-	for _, child := range n.Children {
-		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
-			continue
-		}
-		switch child.Name.Local {
-		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
-			if occurrenceErr := validateModelOccurrence(child, c.limits); occurrenceErr != nil {
-				return runtime.ComplexType{}, occurrenceErr
-			}
-			modelID, modelErr := c.compileModel(child, ctx)
-			if modelErr != nil {
-				return runtime.ComplexType{}, modelErr
-			}
-			ct.Content = modelID
-		}
-	}
+	ct.Content = content
 	if ct.Content == runtime.NoContentModel {
 		ct.Content, err = c.addModel(runtime.ContentModel{Kind: runtime.ModelEmpty, Mixed: mixed})
 		if err != nil {
@@ -234,6 +257,36 @@ func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name runti
 	}
 	ct.Attrs = attrs
 	return ct, nil
+}
+
+func (c *compiler) compileDirectComplexModel(n *rawNode, ctx *schemaContext) (runtime.ContentModelID, error) {
+	content := runtime.NoContentModel
+	for _, child := range n.Children {
+		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
+			continue
+		}
+		model, present, err := c.compileDirectComplexModelChild(child, ctx)
+		if err != nil {
+			return runtime.NoContentModel, err
+		}
+		if present {
+			content = model
+		}
+	}
+	return content, nil
+}
+
+func (c *compiler) compileDirectComplexModelChild(child *rawNode, ctx *schemaContext) (runtime.ContentModelID, bool, error) {
+	switch child.Name.Local {
+	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
+		if err := validateModelOccurrence(child, c.limits); err != nil {
+			return runtime.NoContentModel, false, err
+		}
+		model, err := c.compileModel(child, ctx)
+		return model, true, err
+	default:
+		return runtime.NoContentModel, false, nil
+	}
 }
 
 func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct runtime.ComplexType, anonymous bool) (runtime.ComplexType, error) {
@@ -406,46 +459,25 @@ func (c *compiler) compileComplexRestrictionModel(child *rawNode, ctx *schemaCon
 }
 
 func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct runtime.ComplexType, anonymous bool) (runtime.ComplexType, error) {
-	source, err := checkSimpleContentSyntax(n)
+	source, err := c.resolveSimpleContentSource(n, ctx)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
-	child := source.node
-	baseLex, ok := child.attr(vocab.XSDAttrBase)
-	if baseErr := checkContentDerivationBase(vocab.XSDElemSimpleContent, source.kind, child, ok); baseErr != nil {
-		return runtime.ComplexType{}, baseErr
-	}
-	baseQName, err := c.resolveQNameChecked(child, ctx, baseLex)
-	if err != nil {
-		return runtime.ComplexType{}, err
-	}
-	isRestriction := source.kind == ContentDerivationRestriction
 	var textType runtime.SimpleTypeID
-	if c.simpleTypeQNameKnown(baseQName) {
-		ct, textType, err = c.compileSimpleContentSimpleBase(child, source.kind, baseQName, ct)
+	if c.simpleTypeQNameKnown(source.base) {
+		ct, textType, err = c.compileSimpleContentSimpleBase(source.child, source.kind, source.base, ct)
 	} else {
-		ct, textType, err = c.compileSimpleContentComplexBase(child, source.kind, baseQName, ct, anonymous)
+		ct, textType, err = c.compileSimpleContentComplexBase(source.child, source.kind, source.base, ct, anonymous)
 	}
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
-	mergeMode := AttributeMergeNormal
-	derivation := runtime.DerivationKindExtension
-	if isRestriction {
-		if validationErr := checkSimpleContentRestrictionChildren(child); validationErr != nil {
-			return runtime.ComplexType{}, validationErr
-		}
-		textType, err = c.compileSimpleContentRestrictionType(child, ctx, textType)
-		if err != nil {
-			return runtime.ComplexType{}, err
-		}
-		mergeMode = AttributeMergeRestriction
-		derivation = runtime.DerivationKindRestriction
-	} else if validationErr := checkSimpleContentExtensionChildren(child); validationErr != nil {
-		return runtime.ComplexType{}, validationErr
+	textType, mergeMode, derivation, err := c.compileSimpleContentDerivation(source, ctx, textType)
+	if err != nil {
+		return runtime.ComplexType{}, err
 	}
 	inheritedUses, inheritedWildcard := c.rt.attributeUsesAndWildcard(ct.Attrs)
-	attrs, err := c.compileAttributeUses(child, ctx, inheritedUses, inheritedWildcard, mergeMode)
+	attrs, err := c.compileAttributeUses(source.child, ctx, inheritedUses, inheritedWildcard, mergeMode)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
@@ -462,6 +494,42 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct runti
 	ct.Derivation = derivation
 	ct.ExplicitDerivation = true
 	return ct, nil
+}
+
+type simpleContentSource struct {
+	child *rawNode
+	base  runtime.QName
+	kind  ContentDerivationKind
+}
+
+func (c *compiler) resolveSimpleContentSource(n *rawNode, ctx *schemaContext) (simpleContentSource, error) {
+	syntax, err := checkSimpleContentSyntax(n)
+	if err != nil {
+		return simpleContentSource{}, err
+	}
+	baseLexical, ok := syntax.node.attr(vocab.XSDAttrBase)
+	if baseErr := checkContentDerivationBase(vocab.XSDElemSimpleContent, syntax.kind, syntax.node, ok); baseErr != nil {
+		return simpleContentSource{}, baseErr
+	}
+	base, err := c.resolveQNameChecked(syntax.node, ctx, baseLexical)
+	if err != nil {
+		return simpleContentSource{}, err
+	}
+	return simpleContentSource{child: syntax.node, base: base, kind: syntax.kind}, nil
+}
+
+func (c *compiler) compileSimpleContentDerivation(source simpleContentSource, ctx *schemaContext, textType runtime.SimpleTypeID) (runtime.SimpleTypeID, AttributeMergeMode, runtime.DerivationKind, error) {
+	if source.kind != ContentDerivationRestriction {
+		if err := checkSimpleContentExtensionChildren(source.child); err != nil {
+			return runtime.NoSimpleType, AttributeMergeNormal, runtime.DerivationKindExtension, err
+		}
+		return textType, AttributeMergeNormal, runtime.DerivationKindExtension, nil
+	}
+	if err := checkSimpleContentRestrictionChildren(source.child); err != nil {
+		return runtime.NoSimpleType, AttributeMergeRestriction, runtime.DerivationKindRestriction, err
+	}
+	restricted, err := c.compileSimpleContentRestrictionType(source.child, ctx, textType)
+	return restricted, AttributeMergeRestriction, runtime.DerivationKindRestriction, err
 }
 
 func (c *compiler) compileSimpleContentSimpleBase(child *rawNode, kind ContentDerivationKind, baseQName runtime.QName, ct runtime.ComplexType) (runtime.ComplexType, runtime.SimpleTypeID, error) {

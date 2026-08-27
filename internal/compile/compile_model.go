@@ -20,18 +20,11 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (runtime.Content
 			return c.compileModelGroupRef(n, ctx, ref)
 		}
 	}
-	if id, ok := c.modelDone[n]; ok {
-		if c.compilingModel[n] {
-			if c.elementDepth > c.modelDepth[n] {
-				return id, nil
-			}
-			err := CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, "")
-			return runtime.NoContentModel, withSchemaCompileLocation(n, err)
-		}
-		return id, nil
+	if id, done, err := c.existingModel(n); done || err != nil {
+		return id, err
 	}
-	if err := c.spendComponentDependency(n); err != nil {
-		return runtime.NoContentModel, err
+	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
+		return runtime.NoContentModel, dependencyErr
 	}
 	leave, err := c.enterComponent(n)
 	if err != nil {
@@ -46,61 +39,103 @@ func (c *compiler) compileModel(n *rawNode, ctx *schemaContext) (runtime.Content
 	c.modelDepth[n] = c.elementDepth
 	c.compilingModel[n] = true
 	defer delete(c.compilingModel, n)
-	kind, err := modelKindForNode(n)
+	m, err := c.compileModelValue(n, ctx)
 	if err != nil {
-		return runtime.NoContentModel, err
-	}
-	occurs, err := parseOccurs(n, c.limits)
-	if err != nil {
-		return runtime.NoContentModel, err
-	}
-	if kind == runtime.ModelAll {
-		if err := ValidateAllModelOccurrence(occurs); err != nil {
-			return runtime.NoContentModel, withSchemaCompileLocation(n, err)
-		}
-	}
-	m := runtime.ContentModel{Kind: kind, Occurs: occurs}
-	if err := c.compileModelChildren(n, ctx, &m); err != nil {
 		return runtime.NoContentModel, err
 	}
 	c.completeModel(id, m)
 	return id, nil
 }
 
-func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref string) (runtime.ContentModelID, error) {
+func (c *compiler) existingModel(n *rawNode) (runtime.ContentModelID, bool, error) {
+	id, ok := c.modelDone[n]
+	if !ok {
+		return runtime.NoContentModel, false, nil
+	}
+	if !c.compilingModel[n] || c.elementDepth > c.modelDepth[n] {
+		return id, true, nil
+	}
+	err := CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, "")
+	return runtime.NoContentModel, true, withSchemaCompileLocation(n, err)
+}
+
+func (c *compiler) compileModelValue(n *rawNode, ctx *schemaContext) (runtime.ContentModel, error) {
+	kind, err := modelKindForNode(n)
+	if err != nil {
+		return runtime.ContentModel{}, err
+	}
 	occurs, err := parseOccurs(n, c.limits)
+	if err != nil {
+		return runtime.ContentModel{}, err
+	}
+	if kind == runtime.ModelAll {
+		if err := ValidateAllModelOccurrence(occurs); err != nil {
+			return runtime.ContentModel{}, withSchemaCompileLocation(n, err)
+		}
+	}
+	m := runtime.ContentModel{Kind: kind, Occurs: occurs}
+	if err := c.compileModelChildren(n, ctx, &m); err != nil {
+		return runtime.ContentModel{}, err
+	}
+	return m, nil
+}
+
+func (c *compiler) compileModelGroupRef(n *rawNode, ctx *schemaContext, ref string) (runtime.ContentModelID, error) {
+	source, err := c.resolveModelGroupRef(n, ctx, ref)
 	if err != nil {
 		return runtime.NoContentModel, err
 	}
-	q, err := c.resolveQNameChecked(n, ctx, ref)
+	if id, exists := c.modelDone[source.modelNode]; exists && c.compilingModel[source.modelNode] {
+		return c.compileRecursiveModelGroupRef(n, source, id)
+	}
+	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
+		return runtime.NoContentModel, dependencyErr
+	}
+	id, err := c.compileModel(source.modelNode, source.raw.ctx)
 	if err != nil {
 		return runtime.NoContentModel, err
+	}
+	return c.applyModelGroupOccurrence(n, id, source.occurs)
+}
+
+type modelGroupRefSource struct {
+	raw       rawComponent
+	modelNode *rawNode
+	occurs    runtime.Occurrence
+	q         runtime.QName
+}
+
+func (c *compiler) resolveModelGroupRef(n *rawNode, ctx *schemaContext, ref string) (modelGroupRefSource, error) {
+	occurs, err := parseOccurs(n, c.limits)
+	if err != nil {
+		return modelGroupRefSource{}, err
+	}
+	q, err := c.resolveQNameChecked(n, ctx, ref)
+	if err != nil {
+		return modelGroupRefSource{}, err
 	}
 	label := c.rt.formatName(q)
 	raw, ok := c.groupRaw[q]
 	if existsErr := CheckSchemaComponentExists(SchemaComponentModelGroup, ok, label); existsErr != nil {
-		return runtime.NoContentModel, withSchemaCompileLocation(n, existsErr)
+		return modelGroupRefSource{}, withSchemaCompileLocation(n, existsErr)
 	}
 	modelNode, err := checkTopLevelGroupChildren(raw.node)
 	if err != nil {
-		return runtime.NoContentModel, err
+		return modelGroupRefSource{}, err
 	}
-	if id, exists := c.modelDone[modelNode]; exists && c.compilingModel[modelNode] {
-		if c.elementDepth <= c.modelDepth[modelNode] {
-			return c.recursiveModelGroupRef(q, id, occurs, modelNode)
-		}
-		if err = c.spendComponentDependency(n); err != nil {
+	return modelGroupRefSource{raw: raw, q: q, modelNode: modelNode, occurs: occurs}, nil
+}
+
+func (c *compiler) compileRecursiveModelGroupRef(n *rawNode, source modelGroupRefSource, id runtime.ContentModelID) (runtime.ContentModelID, error) {
+	if c.elementDepth > c.modelDepth[source.modelNode] {
+		if err := c.spendComponentDependency(n); err != nil {
 			return runtime.NoContentModel, err
 		}
-		return c.recursiveModelGroupRef(q, id, occurs, modelNode)
 	}
-	if err = c.spendComponentDependency(n); err != nil {
-		return runtime.NoContentModel, err
-	}
-	id, err := c.compileModel(modelNode, raw.ctx)
-	if err != nil {
-		return runtime.NoContentModel, err
-	}
+	return c.recursiveModelGroupRef(source.q, id, source.occurs, source.modelNode)
+}
+
+func (c *compiler) applyModelGroupOccurrence(n *rawNode, id runtime.ContentModelID, occurs runtime.Occurrence) (runtime.ContentModelID, error) {
 	if occurs.IsExactlyOne() {
 		return id, nil
 	}

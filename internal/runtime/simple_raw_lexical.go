@@ -16,23 +16,33 @@ const (
 // ValidateNMTOKENListBytes validates raw as the lexical form of an xs:NMTOKEN
 // list value.
 func ValidateNMTOKENListBytes(raw []byte) error {
-	for len(raw) > 0 {
-		for len(raw) > 0 && lex.IsXMLWhitespaceByte(raw[0]) {
-			raw = raw[1:]
-		}
+	for {
+		raw = trimLeadingXMLWhitespaceBytes(raw)
 		if len(raw) == 0 {
 			return nil
 		}
-		end := 0
-		for end < len(raw) && !lex.IsXMLWhitespaceByte(raw[end]) {
-			end++
-		}
+		end := xmlFieldEnd(raw)
 		if !lex.IsNMTOKENBytes(raw[:end]) {
 			return errors.New("invalid NMTOKEN")
 		}
 		raw = raw[end:]
 	}
-	return nil
+}
+
+func trimLeadingXMLWhitespaceBytes(raw []byte) []byte {
+	for len(raw) > 0 && lex.IsXMLWhitespaceByte(raw[0]) {
+		raw = raw[1:]
+	}
+	return raw
+}
+
+func xmlFieldEnd(raw []byte) int {
+	for i, b := range raw {
+		if lex.IsXMLWhitespaceByte(b) {
+			return i
+		}
+	}
+	return len(raw)
 }
 
 func validateStringPatternSteps(steps stringPatternSteps, normalized string) error {

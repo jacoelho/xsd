@@ -421,36 +421,67 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx StartC
 		return nil
 	}
 	path := ctx.PathString()
+	pendingIDs, err := e.stageIdentityIDs(ids, path, ctx)
+	if err != nil {
+		return err
+	}
+	pendingRefs := stageIdentityRefs(idrefs)
+	if err := e.validatePendingIdentityFields(pendingIDs, pendingRefs, ctx); err != nil {
+		return err
+	}
+	e.commitIdentityFields(pendingIDs, pendingRefs, path, ctx)
+	return nil
+}
+
+func (e *identityEvaluation) stageIdentityIDs(ids, path string, ctx StartContext) ([]string, error) {
 	pendingIDs := make([]string, 0, 1)
 	pendingIDSet := make(map[string]struct{})
 	for canonical := range lex.XMLFieldsSeq(ids) {
 		if prev, exists := e.ids[canonical]; exists {
-			return validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
+			return nil, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
 		}
 		if _, exists := pendingIDSet[canonical]; exists {
-			return validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+path)
+			return nil, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+path)
 		}
 		pendingIDSet[canonical] = struct{}{}
 		pendingIDs = append(pendingIDs, canonical)
 	}
+	return pendingIDs, nil
+}
+
+func stageIdentityRefs(idrefs string) []string {
 	pendingRefs := make([]string, 0, 1)
 	for canonical := range lex.XMLFieldsSeq(idrefs) {
 		pendingRefs = append(pendingRefs, canonical)
 	}
-	entryCount := len(pendingIDs) + len(pendingRefs)
+	return pendingRefs
+}
+
+func (e *identityEvaluation) validatePendingIdentityFields(ids, refs []string, ctx StartContext) error {
+	entryCount := len(ids) + len(refs)
 	if e.limits.Entries > 0 && (e.entries > e.limits.Entries || entryCount > e.limits.Entries-e.entries) {
 		return validation(ctx, xsderrors.CodeValidationLimit, "identity entry limit exceeded")
 	}
-	for _, canonical := range pendingIDs {
-		if e.limits.TupleBytes > 0 && int64(len(canonical)) > e.limits.TupleBytes {
+	if err := validateIdentityFieldTupleBytes(ids, e.limits.TupleBytes, ctx); err != nil {
+		return err
+	}
+	return validateIdentityFieldTupleBytes(refs, e.limits.TupleBytes, ctx)
+}
+
+func validateIdentityFieldTupleBytes(values []string, limit int64, ctx StartContext) error {
+	if limit <= 0 {
+		return nil
+	}
+	for _, value := range values {
+		if int64(len(value)) > limit {
 			return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
 		}
 	}
-	for _, canonical := range pendingRefs {
-		if e.limits.TupleBytes > 0 && int64(len(canonical)) > e.limits.TupleBytes {
-			return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
-		}
-	}
+	return nil
+}
+
+func (e *identityEvaluation) commitIdentityFields(pendingIDs, pendingRefs []string, path string, ctx StartContext) {
+	entryCount := len(pendingIDs) + len(pendingRefs)
 	if len(pendingIDs) != 0 && e.ids == nil {
 		e.ids = make(map[string]string, len(pendingIDs))
 	}
@@ -467,7 +498,6 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx StartC
 		})
 	}
 	e.entries += entryCount
-	return nil
 }
 
 func (e *identityEvaluation) endElement(in identityElementEnd, report func(error) error) (identityElementResult, error) {
@@ -484,19 +514,27 @@ func (e *identityEvaluation) endElement(in identityElementEnd, report func(error
 		return result, nil
 	}
 	depth := len(e.path)
-	if err := e.finishElementValue(element, in, report); err != nil {
-		return result, err
-	}
-	if err := e.finishNillableKeyFields(element, result.AssessmentInvalid); err != nil {
-		return result, err
-	}
-	if err := e.finishSelections(depth, in.Context, identitySelectionsOwnedByCurrentScope, report); err != nil {
+	if err := e.finishCurrentIdentityScope(element, in, depth, report); err != nil {
 		return result, err
 	}
 	invalid, err := e.closeScopes(depth, report)
 	if err != nil {
 		return result, err
 	}
+	return e.finishAncestorIdentitySelections(result, element, in, depth, invalid, report)
+}
+
+func (e *identityEvaluation) finishCurrentIdentityScope(element identityElementState, in identityElementEnd, depth int, report func(error) error) error {
+	if err := e.finishElementValue(element, in, report); err != nil {
+		return err
+	}
+	if err := e.finishNillableKeyFields(element, in.AssessmentInvalid); err != nil {
+		return err
+	}
+	return e.finishSelections(depth, in.Context, identitySelectionsOwnedByCurrentScope, report)
+}
+
+func (e *identityEvaluation) finishAncestorIdentitySelections(result identityElementResult, element identityElementState, in identityElementEnd, depth int, invalid bool, report func(error) error) (identityElementResult, error) {
 	if invalid {
 		result.AssessmentInvalid = true
 		if err := e.finishNillableKeyFields(element, true); err != nil {
@@ -596,39 +634,56 @@ func (e *identityEvaluation) finishSelections(
 	dst := e.selections[:0]
 	for i := range e.selections {
 		sel := e.selections[i]
-		if sel.depth != depth {
+		result, err := e.finishSelectionCandidate(sel, depth, ctx, ownership, report)
+		if result.keep {
 			dst = append(dst, sel)
-			continue
 		}
-		ownedHere, err := e.selectionOwnedAtDepth(sel, depth)
 		if err != nil {
-			e.restoreSelectionsAfterError(orig, dst, i)
+			remainder := i
+			if result.consumed {
+				remainder++
+			}
+			e.restoreSelectionsAfterError(orig, dst, remainder)
 			return err
 		}
-		if ownedHere != (ownership == identitySelectionsOwnedByCurrentScope) {
-			dst = append(dst, sel)
-			continue
-		}
-		if err := e.finishSelection(e.rt, sel, e.limits, ctx); err != nil {
-			clear(e.selectionFields(sel))
-			if RecoverableError(err) {
-				if invalidateErr := e.invalidateSelectionScope(sel); invalidateErr != nil {
-					e.restoreSelectionsAfterError(orig, dst, i+1)
-					return invalidateErr
-				}
-			}
-			if reportErr := reportIdentityError(err, report); reportErr != nil {
-				e.restoreSelectionsAfterError(orig, dst, i+1)
-				return reportErr
-			}
-			continue
-		}
-		clear(e.selectionFields(sel))
 	}
 	clear(orig[len(dst):])
 	e.selections = dst
 	e.truncateFieldValues()
 	return nil
+}
+
+type identitySelectionFinishResult struct {
+	keep     bool
+	consumed bool
+}
+
+func (e *identityEvaluation) finishSelectionCandidate(sel identitySelection, depth int, ctx StartContext, ownership identitySelectionOwnership, report func(error) error) (identitySelectionFinishResult, error) {
+	if sel.depth != depth {
+		return identitySelectionFinishResult{keep: true, consumed: true}, nil
+	}
+	ownedHere, err := e.selectionOwnedAtDepth(sel, depth)
+	if err != nil {
+		return identitySelectionFinishResult{}, err
+	}
+	if ownedHere != (ownership == identitySelectionsOwnedByCurrentScope) {
+		return identitySelectionFinishResult{keep: true, consumed: true}, nil
+	}
+	if err := e.finishSelection(e.rt, sel, e.limits, ctx); err != nil {
+		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, err, report)
+	}
+	clear(e.selectionFields(sel))
+	return identitySelectionFinishResult{consumed: true}, nil
+}
+
+func (e *identityEvaluation) finishSelectionError(sel identitySelection, err error, report func(error) error) error {
+	clear(e.selectionFields(sel))
+	if RecoverableError(err) {
+		if invalidateErr := e.invalidateSelectionScope(sel); invalidateErr != nil {
+			return invalidateErr
+		}
+	}
+	return reportIdentityError(err, report)
 }
 
 func (e *identityEvaluation) restoreSelectionsAfterError(orig, dst []identitySelection, remainder int) {

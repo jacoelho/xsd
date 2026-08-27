@@ -37,14 +37,7 @@ type elementReadTable struct {
 }
 
 func newElementReadTable(decls []ElementDecl, complexTypes []ComplexType) elementReadTable {
-	identityCount := 0
-	constraintCount := 0
-	for i := range decls {
-		identityCount += len(decls[i].Identity)
-		if decls[i].Fixed != nil || decls[i].Default != nil {
-			constraintCount++
-		}
-	}
+	identityCount, constraintCount := elementReadStorageCounts(decls)
 	table := elementReadTable{
 		names:       make([]QName, len(decls)),
 		meta:        make([]elementReadMeta, len(decls)),
@@ -52,44 +45,70 @@ func newElementReadTable(decls []ElementDecl, complexTypes []ComplexType) elemen
 		constraints: make([]elementConstraintRead, 0, constraintCount),
 	}
 	for i := range decls {
-		decl := &decls[i]
-		table.names[i] = decl.Name
-		meta := elementReadMeta{
-			typ:           decl.Type,
-			block:         effectiveElementBlock(*decl, complexTypes),
-			identityStart: len(table.identities),
-			identityCount: len(decl.Identity),
-			constraint:    -1,
-		}
-		if decl.Abstract {
-			meta.flags |= elementReadAbstract
-		}
-		if decl.Nillable {
-			meta.flags |= elementReadNillable
-		}
-		table.identities = append(table.identities, decl.Identity...)
-		if decl.Fixed != nil {
-			value, _ := NewValueConstraintReadFromConstraint(decl.Fixed)
-			meta.constraint = len(table.constraints)
-			table.constraints = append(table.constraints, elementConstraintRead{value: value, fixed: true})
-		} else if decl.Default != nil {
-			value, _ := NewValueConstraintReadFromConstraint(decl.Default)
-			meta.constraint = len(table.constraints)
-			table.constraints = append(table.constraints, elementConstraintRead{value: value})
-		}
-		table.meta[i] = meta
+		table.addDeclaration(i, decls[i], complexTypes)
 	}
 	return table
 }
 
-func (t elementReadTable) name(id ElementID) (QName, bool) {
+func elementReadStorageCounts(decls []ElementDecl) (int, int) {
+	identities, constraints := 0, 0
+	for i := range decls {
+		identities += len(decls[i].Identity)
+		if decls[i].Fixed != nil || decls[i].Default != nil {
+			constraints++
+		}
+	}
+	return identities, constraints
+}
+
+func (t *elementReadTable) addDeclaration(index int, decl ElementDecl, complexTypes []ComplexType) {
+	t.names[index] = decl.Name
+	meta := elementReadMeta{
+		typ:           decl.Type,
+		block:         effectiveElementBlock(decl, complexTypes),
+		identityStart: len(t.identities),
+		identityCount: len(decl.Identity),
+		constraint:    -1,
+		flags:         elementFlags(decl),
+	}
+	t.identities = append(t.identities, decl.Identity...)
+	meta.constraint = t.addValueConstraint(decl)
+	t.meta[index] = meta
+}
+
+func elementFlags(decl ElementDecl) elementReadFlags {
+	var flags elementReadFlags
+	if decl.Abstract {
+		flags |= elementReadAbstract
+	}
+	if decl.Nillable {
+		flags |= elementReadNillable
+	}
+	return flags
+}
+
+func (t *elementReadTable) addValueConstraint(decl ElementDecl) int {
+	if decl.Fixed != nil {
+		value, _ := NewValueConstraintReadFromConstraint(decl.Fixed)
+		t.constraints = append(t.constraints, elementConstraintRead{value: value, fixed: true})
+		return len(t.constraints) - 1
+	}
+	if decl.Default != nil {
+		value, _ := NewValueConstraintReadFromConstraint(decl.Default)
+		t.constraints = append(t.constraints, elementConstraintRead{value: value})
+		return len(t.constraints) - 1
+	}
+	return -1
+}
+
+func (t *elementReadTable) name(id ElementID) (QName, bool) {
 	if !ValidElementID(id, len(t.meta)) || len(t.names) != len(t.meta) {
 		return QName{}, false
 	}
 	return t.names[id], true
 }
 
-func (t elementReadTable) start(id ElementID) (ElementStartInfo, bool) {
+func (t *elementReadTable) start(id ElementID) (ElementStartInfo, bool) {
 	if !ValidElementID(id, len(t.meta)) || len(t.names) != len(t.meta) {
 		return ElementStartInfo{}, false
 	}
@@ -112,7 +131,7 @@ func (t elementReadTable) start(id ElementID) (ElementStartInfo, bool) {
 	}, true
 }
 
-func (t elementReadTable) identityConstraints(id ElementID) (IdentityConstraintIDs, bool) {
+func (t *elementReadTable) identityConstraints(id ElementID) (IdentityConstraintIDs, bool) {
 	if !ValidElementID(id, len(t.meta)) {
 		return IdentityConstraintIDs{}, false
 	}
@@ -124,7 +143,7 @@ func (t elementReadTable) identityConstraints(id ElementID) (IdentityConstraintI
 	return borrowedIdentityConstraintIDs(t.identities[meta.identityStart:end]), true
 }
 
-func (t elementReadTable) valueConstraints(id ElementID) (ElementValueConstraints, bool, bool) {
+func (t *elementReadTable) valueConstraints(id ElementID) (ElementValueConstraints, bool, bool) {
 	if id == NoElement {
 		return ElementValueConstraints{}, false, true
 	}
@@ -157,48 +176,85 @@ func validateElementReadTableProjection(table elementReadTable, decls []ElementD
 	if len(table.names) != len(decls) || len(table.meta) != len(decls) {
 		return errors.New("element read table count does not match declarations")
 	}
-	identityOffset := 0
-	constraintOffset := 0
+	audit := elementReadProjectionAudit{table: table, complexTypes: complexTypes}
 	for i := range decls {
-		decl := &decls[i]
-		meta := table.meta[i]
-		if table.names[i] != decl.Name || meta.typ != decl.Type || meta.block != effectiveElementBlock(*decl, complexTypes) ||
-			(meta.flags&elementReadAbstract != 0) != decl.Abstract ||
-			(meta.flags&elementReadNillable != 0) != decl.Nillable ||
-			meta.flags & ^(elementReadAbstract|elementReadNillable) != 0 {
-			return errors.New("element read table metadata does not match declaration")
+		if err := audit.validateDeclaration(i, decls[i]); err != nil {
+			return err
 		}
-		if meta.identityStart != identityOffset || meta.identityCount != len(decl.Identity) {
-			return errors.New("element read table identity span does not match declaration")
-		}
-		end := identityOffset + len(decl.Identity)
-		if end > len(table.identities) || !slices.Equal(table.identities[identityOffset:end], decl.Identity) {
-			return errors.New("element read table identities do not match declaration")
-		}
-		identityOffset = end
-		hasConstraint := decl.Fixed != nil || decl.Default != nil
-		if !hasConstraint {
-			if meta.constraint != -1 {
-				return errors.New("element read table has unexpected value constraint")
-			}
-			continue
-		}
-		if meta.constraint != constraintOffset || constraintOffset >= len(table.constraints) {
-			return errors.New("element read table value constraint index does not match declaration")
-		}
-		got, _, ok := table.valueConstraints(ElementID(i))
-		if !ok {
-			return errors.New("element read table value constraint is invalid")
-		}
-		shape := elementValueConstraintReadShape(*decl)
-		want := NewElementValueConstraints(shape.Owner, shape.Fixed, shape.HasFixed, shape.Default, shape.HasDefault)
-		if !EqualElementValueConstraints(got, want) {
-			return errors.New("element read table value constraint does not match declaration")
-		}
-		constraintOffset++
 	}
-	if identityOffset != len(table.identities) || constraintOffset != len(table.constraints) {
+	if audit.identityOffset != len(table.identities) || audit.constraintOffset != len(table.constraints) {
 		return errors.New("element read table retains unreferenced storage")
+	}
+	return nil
+}
+
+type elementReadProjectionAudit struct {
+	table            elementReadTable
+	complexTypes     []ComplexType
+	identityOffset   int
+	constraintOffset int
+}
+
+func (a *elementReadProjectionAudit) validateDeclaration(index int, decl ElementDecl) error {
+	meta := a.table.meta[index]
+	if !elementReadMetadataMatches(a.table.names[index], meta, decl, a.complexTypes) {
+		return errors.New("element read table metadata does not match declaration")
+	}
+	if err := a.validateIdentities(meta, decl.Identity); err != nil {
+		return err
+	}
+	return a.validateValueConstraint(index, meta, decl)
+}
+
+func elementReadMetadataMatches(name QName, meta elementReadMeta, decl ElementDecl, complexTypes []ComplexType) bool {
+	return name == decl.Name && meta.typ == decl.Type && meta.block == effectiveElementBlock(decl, complexTypes) &&
+		(meta.flags&elementReadAbstract != 0) == decl.Abstract &&
+		(meta.flags&elementReadNillable != 0) == decl.Nillable &&
+		meta.flags & ^(elementReadAbstract|elementReadNillable) == 0
+}
+
+func (a *elementReadProjectionAudit) validateIdentities(meta elementReadMeta, identities []IdentityConstraintID) error {
+	if meta.identityStart != a.identityOffset || meta.identityCount != len(identities) {
+		return errors.New("element read table identity span does not match declaration")
+	}
+	end := a.identityOffset + len(identities)
+	if end > len(a.table.identities) || !slices.Equal(a.table.identities[a.identityOffset:end], identities) {
+		return errors.New("element read table identities do not match declaration")
+	}
+	a.identityOffset = end
+	return nil
+}
+
+func (a *elementReadProjectionAudit) validateValueConstraint(index int, meta elementReadMeta, decl ElementDecl) error {
+	if decl.Fixed == nil && decl.Default == nil {
+		if meta.constraint != -1 {
+			return errors.New("element read table has unexpected value constraint")
+		}
+		return nil
+	}
+	if meta.constraint != a.constraintOffset || a.constraintOffset >= len(a.table.constraints) {
+		return errors.New("element read table value constraint index does not match declaration")
+	}
+	if err := validateElementReadValueConstraint(a.table, index, decl); err != nil {
+		return err
+	}
+	a.constraintOffset++
+	return nil
+}
+
+func validateElementReadValueConstraint(table elementReadTable, index int, decl ElementDecl) error {
+	raw, valid := newRuntimeID(index)
+	if !valid {
+		return errors.New("element read table index limit exceeded")
+	}
+	got, _, ok := table.valueConstraints(ElementID(raw))
+	if !ok {
+		return errors.New("element read table value constraint is invalid")
+	}
+	shape := elementValueConstraintReadShape(decl)
+	want := NewElementValueConstraints(shape.Owner, shape.Fixed, shape.HasFixed, shape.Default, shape.HasDefault)
+	if !EqualElementValueConstraints(got, want) {
+		return errors.New("element read table value constraint does not match declaration")
 	}
 	return nil
 }

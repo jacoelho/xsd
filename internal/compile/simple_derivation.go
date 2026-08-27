@@ -69,10 +69,7 @@ func (r *simpleTypeListReachability) reachesList(types []runtime.SimpleType, id 
 	if !runtime.ValidSimpleTypeID(id, len(types)) {
 		return false
 	}
-	if missing := len(types) - len(r.state); missing > 0 {
-		r.state = append(r.state, make([]simpleTypeListReachState, missing)...)
-		r.reaches = append(r.reaches, make([]bool, missing)...)
-	}
+	r.ensureCapacity(len(types))
 	switch r.state[id] {
 	case simpleTypeListReachChecked:
 		return r.reaches[id]
@@ -80,60 +77,89 @@ func (r *simpleTypeListReachability) reachesList(types []runtime.SimpleType, id 
 		return false
 	case simpleTypeListReachUnchecked:
 	}
-
+	audit := simpleTypeListReachAudit{owner: r, types: types, stack: r.stack[:0]}
 	r.state[id] = simpleTypeListReachChecking
-	stack := r.stack[:0]
-	stack = appendSimpleTypeListReachFrame(stack, simpleTypeListReachFrame{id: id}, len(types))
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		frame := &stack[last]
-		typ := types[frame.id]
-		if typ.Variety == runtime.SimpleVarietyList {
-			for _, active := range stack {
-				r.reaches[active.id] = true
-				r.state[active.id] = simpleTypeListReachChecked
-			}
-			r.stack = stack[:0]
+	audit.stack = appendSimpleTypeListReachFrame(audit.stack, simpleTypeListReachFrame{id: id}, len(types))
+	reaches := audit.run()
+	r.stack = audit.stack[:0]
+	return reaches
+}
+
+func (r *simpleTypeListReachability) ensureCapacity(typeCount int) {
+	if missing := typeCount - len(r.state); missing > 0 {
+		r.state = append(r.state, make([]simpleTypeListReachState, missing)...)
+		r.reaches = append(r.reaches, make([]bool, missing)...)
+	}
+}
+
+type simpleTypeListReachAudit struct {
+	owner *simpleTypeListReachability
+	types []runtime.SimpleType
+	stack []simpleTypeListReachFrame
+}
+
+func (a *simpleTypeListReachAudit) run() bool {
+	for len(a.stack) != 0 {
+		if a.advance() {
 			return true
 		}
-		if typ.Variety != runtime.SimpleVarietyUnion || frame.next == len(typ.Union) {
-			unstable := frame.unstable
-			if unstable {
-				r.state[frame.id] = simpleTypeListReachUnchecked
-			} else {
-				r.state[frame.id] = simpleTypeListReachChecked
-			}
-			stack = stack[:last]
-			if unstable && len(stack) != 0 {
-				stack[len(stack)-1].unstable = true
-			}
-			continue
-		}
-
-		member := typ.Union[frame.next]
-		frame.next++
-		if !runtime.ValidSimpleTypeID(member, len(types)) {
-			continue
-		}
-		switch r.state[member] {
-		case simpleTypeListReachChecked:
-			if r.reaches[member] {
-				for _, active := range stack {
-					r.reaches[active.id] = true
-					r.state[active.id] = simpleTypeListReachChecked
-				}
-				r.stack = stack[:0]
-				return true
-			}
-		case simpleTypeListReachChecking:
-			frame.unstable = true
-		case simpleTypeListReachUnchecked:
-			r.state[member] = simpleTypeListReachChecking
-			stack = appendSimpleTypeListReachFrame(stack, simpleTypeListReachFrame{id: member}, len(types))
-		}
 	}
-	r.stack = stack[:0]
 	return false
+}
+
+func (a *simpleTypeListReachAudit) advance() bool {
+	last := len(a.stack) - 1
+	frame := &a.stack[last]
+	typ := a.types[frame.id]
+	if typ.Variety == runtime.SimpleVarietyList {
+		a.markReached()
+		return true
+	}
+	if typ.Variety != runtime.SimpleVarietyUnion || frame.next == len(typ.Union) {
+		a.complete(last, frame.id, frame.unstable)
+		return false
+	}
+	return a.visitMember(frame, typ.Union[frame.next])
+}
+
+func (a *simpleTypeListReachAudit) complete(last int, id runtime.SimpleTypeID, unstable bool) {
+	if unstable {
+		a.owner.state[id] = simpleTypeListReachUnchecked
+	} else {
+		a.owner.state[id] = simpleTypeListReachChecked
+	}
+	a.stack = a.stack[:last]
+	if unstable && len(a.stack) != 0 {
+		a.stack[len(a.stack)-1].unstable = true
+	}
+}
+
+func (a *simpleTypeListReachAudit) visitMember(frame *simpleTypeListReachFrame, member runtime.SimpleTypeID) bool {
+	frame.next++
+	if !runtime.ValidSimpleTypeID(member, len(a.types)) {
+		return false
+	}
+	switch a.owner.state[member] {
+	case simpleTypeListReachChecked:
+		if a.owner.reaches[member] {
+			a.markReached()
+			return true
+		}
+	case simpleTypeListReachChecking:
+		frame.unstable = true
+	case simpleTypeListReachUnchecked:
+		a.owner.state[member] = simpleTypeListReachChecking
+		a.stack = appendSimpleTypeListReachFrame(a.stack, simpleTypeListReachFrame{id: member}, len(a.types))
+	}
+	return false
+}
+
+func (a *simpleTypeListReachAudit) markReached() {
+	for _, active := range a.stack {
+		a.owner.reaches[active.id] = true
+		a.owner.state[active.id] = simpleTypeListReachChecked
+	}
+	a.stack = a.stack[:0]
 }
 
 func appendSimpleTypeListReachFrame(

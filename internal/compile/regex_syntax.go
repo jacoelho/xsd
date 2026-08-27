@@ -236,31 +236,41 @@ func (v *xsdRegexSyntaxValidator) consumeEscaped(r rune) error {
 	if r == 'i' || r == 'I' || r == 'c' || r == 'C' {
 		v.unsupported = true
 	}
-	if r == 'p' || r == 'P' {
-		if v.insideClass() && v.classPendingRange {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid regex character range")
-		}
-		v.pendingCategory = true
-		v.escaped = false
-		return nil
+	if category, err := v.consumeEscapedCategory(r); category {
+		return err
 	}
-	if v.insideClass() {
-		class := v.currentClass()
-		if isUnsafeXSDRegexClassEscape(r) {
-			class.unsafeEscape = true
-		}
-		if isXSDRegexMultiCharEscape(r) {
-			if err := v.acceptClassSet(); err != nil {
-				return err
-			}
-		} else if err := v.acceptClassRuneAt(r); err != nil {
-			return err
-		}
+	if err := v.consumeEscapedClass(r); err != nil {
+		return err
 	}
 	v.canQuantify = true
 	v.prevQuantifier = false
 	v.escaped = false
 	return nil
+}
+
+func (v *xsdRegexSyntaxValidator) consumeEscapedCategory(r rune) (bool, error) {
+	if r != 'p' && r != 'P' {
+		return false, nil
+	}
+	if v.insideClass() && v.classPendingRange {
+		return true, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid regex character range")
+	}
+	v.pendingCategory = true
+	v.escaped = false
+	return true, nil
+}
+
+func (v *xsdRegexSyntaxValidator) consumeEscapedClass(r rune) error {
+	if !v.insideClass() {
+		return nil
+	}
+	if isUnsafeXSDRegexClassEscape(r) {
+		v.currentClass().unsafeEscape = true
+	}
+	if isXSDRegexMultiCharEscape(r) {
+		return v.acceptClassSet()
+	}
+	return v.acceptClassRuneAt(r)
 }
 
 func (v *xsdRegexSyntaxValidator) checkEscapedClassRange(r rune) error {

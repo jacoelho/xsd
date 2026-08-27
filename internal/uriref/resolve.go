@@ -52,16 +52,8 @@ func (r Reference) Parts() Parts {
 func Resolve(base, ref Reference) (Reference, error) {
 	b := base.components
 	r := ref.components
-	if r.path == "" && !r.hasScheme && !r.hasAuthority && !r.hasQuery {
-		without := base.WithoutFragment()
-		if !r.hasFragment {
-			return without, nil
-		}
-		return compose(components{
-			scheme: b.scheme, authority: b.authority, path: b.path, query: b.query,
-			fragment: r.fragment, hasScheme: b.hasScheme, hasAuthority: b.hasAuthority,
-			hasQuery: b.hasQuery, hasFragment: true,
-		})
+	if isSameDocumentReference(r) {
+		return resolveSameDocumentReference(base, r)
 	}
 	if r.hasScheme {
 		return ref, nil
@@ -89,6 +81,23 @@ func Resolve(base, ref Reference) (Reference, error) {
 	r.scheme, r.hasScheme = b.scheme, b.hasScheme
 	r.authority, r.hasAuthority = b.authority, b.hasAuthority
 	return compose(r)
+}
+
+func isSameDocumentReference(c components) bool {
+	return c.path == "" && !c.hasScheme && !c.hasAuthority && !c.hasQuery
+}
+
+func resolveSameDocumentReference(base Reference, ref components) (Reference, error) {
+	without := base.WithoutFragment()
+	if !ref.hasFragment {
+		return without, nil
+	}
+	b := base.components
+	return compose(components{
+		scheme: b.scheme, authority: b.authority, path: b.path, query: b.query,
+		fragment: ref.fragment, hasScheme: b.hasScheme, hasAuthority: b.hasAuthority,
+		hasQuery: b.hasQuery, hasFragment: true,
+	})
 }
 
 func compose(c components) (Reference, error) {
@@ -196,18 +205,7 @@ func removeRelativeDotSegments(path string) string {
 		start = 1
 	}
 	for _, part := range parts[start:] {
-		switch part {
-		case ".":
-			continue
-		case "..":
-			if len(stack) > 0 && stack[len(stack)-1] != ".." {
-				stack = stack[:len(stack)-1]
-			} else {
-				stack = append(stack, part)
-			}
-		default:
-			stack = append(stack, part)
-		}
+		stack = applyRelativeDotSegment(stack, part)
 	}
 	result := strings.Join(stack, "/")
 	if absolute {
@@ -217,4 +215,16 @@ func removeRelativeDotSegments(path string) string {
 		result += "/"
 	}
 	return result
+}
+
+func applyRelativeDotSegment(stack []string, part string) []string {
+	switch part {
+	case ".":
+		return stack
+	case "..":
+		if len(stack) > 0 && stack[len(stack)-1] != ".." {
+			return stack[:len(stack)-1]
+		}
+	}
+	return append(stack, part)
 }

@@ -30,41 +30,17 @@ type BuiltinDerivedInput struct {
 // ValidateFastIntLexical validates the stored xs:int fast path. The fast path
 // is admitted only after runtime metadata proves the fixed xs:int facet shape.
 func ValidateFastIntLexical[T byteText](s T) error {
-	if len(s) == 0 {
+	scan, err := scanDecimalText(s)
+	if err != nil {
 		return errors.New(fastIntErrInvalidDecimal)
 	}
-	start := 0
-	negative := false
-	if s[0] == '+' || s[0] == '-' {
-		negative = s[0] == '-'
-		start = 1
-	}
-	if start == len(s) {
-		return errors.New(fastIntErrInvalidDecimal)
-	}
-	digits := 0
-	dot := false
-	for i := start; i < len(s); i++ {
-		c := s[i]
-		switch {
-		case c >= '0' && c <= '9':
-			digits++
-		case c == '.':
-			if dot {
-				return errors.New(fastIntErrInvalidDecimal)
-			}
-			dot = true
-		default:
-			return errors.New(fastIntErrInvalidDecimal)
-		}
-	}
-	if digits == 0 {
-		return errors.New(fastIntErrInvalidDecimal)
-	}
-	if dot {
+	if scan.dot {
 		return errors.New(fastIntErrInvalidInteger)
 	}
+	return validateFastIntBounds(s, scan.start, scan.negative)
+}
 
+func validateFastIntBounds[T byteText](s T, start int, negative bool) error {
 	digitStart := skipLeadingZeros(s, start, len(s))
 	if digitStart == len(s) {
 		return nil
@@ -104,39 +80,37 @@ func digitsGreaterThan[T byteText](s T, start int, limit string) bool {
 // behind the runtime boundary.
 func ValidateBuiltinDerived(in BuiltinDerivedInput) error {
 	switch in.Kind {
-	case BuiltinValidationNone:
-		return nil
 	case BuiltinValidationInteger:
 		return ValidateIntegerLexical(in.Norm)
 	case BuiltinValidationName:
-		if !lex.IsXMLName(in.Norm) {
-			return fmt.Errorf("invalid Name")
-		}
+		return lexicalValidation(lex.IsXMLName(in.Norm), "invalid Name")
 	case BuiltinValidationNCName:
-		if !lex.IsNCName(in.Norm) {
-			return fmt.Errorf("invalid NCName")
-		}
+		return lexicalValidation(lex.IsNCName(in.Norm), "invalid NCName")
 	case BuiltinValidationEntity:
-		if !lex.IsNCName(in.Norm) {
-			return fmt.Errorf("invalid NCName")
-		}
-		return xsderrors.Unsupported(xsderrors.CodeUnsupportedEntity, "ENTITY requires DTD entity declarations, which are not supported", nil)
+		return validateEntityLexical(in.Norm)
 	case BuiltinValidationNMTOKEN:
-		if !lex.IsNMTOKEN(in.Norm) {
-			return fmt.Errorf("invalid NMTOKEN")
-		}
+		return lexicalValidation(lex.IsNMTOKEN(in.Norm), "invalid NMTOKEN")
 	case BuiltinValidationLanguage:
-		if !lex.IsLanguage(in.Norm) {
-			return fmt.Errorf("invalid language")
-		}
+		return lexicalValidation(lex.IsLanguage(in.Norm), "invalid language")
 	case BuiltinValidationXMLLang:
-		if in.Norm != "" && !lex.IsLanguage(in.Norm) {
-			return fmt.Errorf("invalid language")
-		}
+		return lexicalValidation(in.Norm == "" || lex.IsLanguage(in.Norm), "invalid language")
 	case BuiltinValidationXMLSpace:
-		if in.Norm != vocab.XMLValueDefault && in.Norm != vocab.XMLValuePreserve {
-			return fmt.Errorf("invalid xml:space")
-		}
+		return lexicalValidation(in.Norm == vocab.XMLValueDefault || in.Norm == vocab.XMLValuePreserve, "invalid xml:space")
+	default:
+		return nil
+	}
+}
+
+func lexicalValidation(valid bool, message string) error {
+	if !valid {
+		return fmt.Errorf("%s", message)
 	}
 	return nil
+}
+
+func validateEntityLexical(normalized string) error {
+	if err := lexicalValidation(lex.IsNCName(normalized), "invalid NCName"); err != nil {
+		return err
+	}
+	return xsderrors.Unsupported(xsderrors.CodeUnsupportedEntity, "ENTITY requires DTD entity declarations, which are not supported", nil)
 }

@@ -29,43 +29,60 @@ func validateSimpleTypeColdReadProjectionForTypes(reads *simpleTypeColdReadTable
 		return errors.New("simple value cold projection count does not match types")
 	}
 	boundIndexes := simpleValueBoundReadIndexes(types)
-	if len(reads.boundReads) != len(boundIndexes) {
-		return errors.New("simple value bound read pool does not match types")
-	}
-	for source, index := range boundIndexes {
-		if !ValidUint32Index(index, len(reads.boundReads)) ||
-			!equalSimpleValueLiteralReadForCompiled(reads.boundReads[index], *source) {
-			return errors.New("simple value bound read pool does not match types")
-		}
+	if err := validateSimpleValueBoundReadPool(reads.boundReads, boundIndexes); err != nil {
+		return err
 	}
 	var enumerationPool simpleValueEnumerationPoolAudit
 	var patternPool simpleValuePatternPoolAudit
 	next := uint32(0)
 	for i := range types {
-		idx := reads.index[i]
-		if !simpleTypeNeedsColdRead(types[i]) {
-			if idx != invalidID {
-				return errors.New("simple value cold projection stores unexpected type")
-			}
-			continue
+		if err := validateSimpleTypeColdReadAt(reads, types[i], i, boundIndexes, &enumerationPool, &patternPool, &next); err != nil {
+			return err
 		}
-		if idx != next || !ValidUint32Index(idx, len(reads.values)) {
-			return errors.New("simple value cold projection index does not match type")
-		}
-		read := reads.values[idx]
-		if !slices.Equal(read.union, types[i].Union) ||
-			!equalColdFacetProjection(read.facets, types[i].Facets) ||
-			!equalColdBoundPoolProjection(read.facets, types[i].Facets, reads.boundReads, boundIndexes) ||
-			!enumerationPool.matches(types[i].Facets.Enumeration, read.enumeration) ||
-			!patternPool.matches(types[i].Facets.patterns, read.facets.patterns) {
-			return errors.New("simple value cold projection does not match type")
-		}
-		next++
 	}
 	if int(next) != len(reads.values) {
 		return errors.New("simple value cold projection value count does not match types")
 	}
 	return nil
+}
+
+func validateSimpleValueBoundReadPool(reads []simpleValueLiteralRead, indexes map[*CompiledLiteral]uint32) error {
+	if len(reads) != len(indexes) {
+		return errors.New("simple value bound read pool does not match types")
+	}
+	for source, index := range indexes {
+		if !ValidUint32Index(index, len(reads)) || !equalSimpleValueLiteralReadForCompiled(reads[index], *source) {
+			return errors.New("simple value bound read pool does not match types")
+		}
+	}
+	return nil
+}
+
+func validateSimpleTypeColdReadAt(reads *simpleTypeColdReadTable, typ SimpleType, typeIndex int, boundIndexes map[*CompiledLiteral]uint32, enumerationPool *simpleValueEnumerationPoolAudit, patternPool *simpleValuePatternPoolAudit, next *uint32) error {
+	idx := reads.index[typeIndex]
+	if !simpleTypeNeedsColdRead(typ) {
+		if idx != invalidID {
+			return errors.New("simple value cold projection stores unexpected type")
+		}
+		return nil
+	}
+	if idx != *next || !ValidUint32Index(idx, len(reads.values)) {
+		return errors.New("simple value cold projection index does not match type")
+	}
+	read := reads.values[idx]
+	if !simpleTypeColdReadMatches(read, typ, reads.boundReads, boundIndexes, enumerationPool, patternPool) {
+		return errors.New("simple value cold projection does not match type")
+	}
+	*next++
+	return nil
+}
+
+func simpleTypeColdReadMatches(read simpleValueColdRead, typ SimpleType, boundReads []simpleValueLiteralRead, boundIndexes map[*CompiledLiteral]uint32, enumerationPool *simpleValueEnumerationPoolAudit, patternPool *simpleValuePatternPoolAudit) bool {
+	return slices.Equal(read.union, typ.Union) &&
+		equalColdFacetProjection(read.facets, typ.Facets) &&
+		equalColdBoundPoolProjection(read.facets, typ.Facets, boundReads, boundIndexes) &&
+		enumerationPool.matches(typ.Facets.Enumeration, read.enumeration) &&
+		patternPool.matches(typ.Facets.patterns, read.facets.patterns)
 }
 
 type simpleValuePatternPoolAudit struct {
@@ -75,27 +92,49 @@ type simpleValuePatternPoolAudit struct {
 
 func (a *simpleValuePatternPoolAudit) matches(source stringPatternSteps, read *stringPatternStepRead) bool {
 	for sourceStep := source.tail; sourceStep != nil; sourceStep = sourceStep.parent {
-		if read == nil {
+		switch a.matchStep(sourceStep, read) {
+		case patternPoolStepInvalid:
 			return false
+		case patternPoolStepKnown:
+			return true
+		case patternPoolStepNew:
+			read = read.parent
 		}
-		if existing, ok := a.reads[sourceStep]; ok {
-			return existing == read && a.sources[read] == sourceStep
-		}
-		if read.count != sourceStep.count || !equalStringPatternStepReadForSource(read, sourceStep) {
-			return false
-		}
-		if existing, ok := a.sources[read]; ok && existing != sourceStep {
-			return false
-		}
-		if a.reads == nil {
-			a.reads = make(map[*stringPatternStep]*stringPatternStepRead)
-			a.sources = make(map[*stringPatternStepRead]*stringPatternStep)
-		}
-		a.reads[sourceStep] = read
-		a.sources[read] = sourceStep
-		read = read.parent
 	}
 	return read == nil
+}
+
+type patternPoolStepMatch uint8
+
+const (
+	patternPoolStepInvalid patternPoolStepMatch = iota
+	patternPoolStepNew
+	patternPoolStepKnown
+)
+
+func (a *simpleValuePatternPoolAudit) matchStep(source *stringPatternStep, read *stringPatternStepRead) patternPoolStepMatch {
+	if read == nil {
+		return patternPoolStepInvalid
+	}
+	if existing, ok := a.reads[source]; ok {
+		if existing == read && a.sources[read] == source {
+			return patternPoolStepKnown
+		}
+		return patternPoolStepInvalid
+	}
+	if read.count != source.count || !equalStringPatternStepReadForSource(read, source) {
+		return patternPoolStepInvalid
+	}
+	if existing, ok := a.sources[read]; ok && existing != source {
+		return patternPoolStepInvalid
+	}
+	if a.reads == nil {
+		a.reads = make(map[*stringPatternStep]*stringPatternStepRead)
+		a.sources = make(map[*stringPatternStepRead]*stringPatternStep)
+	}
+	a.reads[source] = read
+	a.sources[read] = source
+	return patternPoolStepNew
 }
 
 type simpleValueEnumerationPoolAudit struct {

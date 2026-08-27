@@ -166,7 +166,7 @@ linters:
       max-blank-identifiers: 1
 
     gocognit:
-      min-complexity: 50
+      min-complexity: 10
 
     cyclop:
       max-complexity: 35

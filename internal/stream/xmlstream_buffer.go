@@ -134,25 +134,9 @@ func (b *byteStream) readByte() (byte, error) {
 		return b.last, nil
 	}
 	if b.off == b.end {
-		if b.err != nil {
-			err := b.err
-			b.err = nil
+		if err := b.fill(); err != nil {
 			return 0, err
 		}
-		if b.r == nil {
-			return 0, ErrXMLInputNilReader
-		}
-		n, err := b.read(b.buf[:])
-		if n <= 0 {
-			if err != nil {
-				return 0, err
-			}
-			return 0, io.ErrNoProgress
-		}
-		b.off = 0
-		b.end = n
-		b.nlIndex = -1
-		b.err = err
 	}
 	c := b.buf[b.off]
 	b.off++

@@ -64,83 +64,79 @@ type Limits struct {
 
 // NormalizeOptions validates options and fills default limits.
 func NormalizeOptions(opts Options) (Limits, error) {
-	depth, err := limitOrDefault("MaxSchemaDepth", opts.MaxSchemaDepth, defaultMaxSchemaDepth)
-	if err != nil {
+	var limits Limits
+	if err := normalizeSchemaSourceLimits(opts, &limits); err != nil {
 		return Limits{}, err
 	}
-	attrs, err := limitOrDefault("MaxSchemaAttributes", opts.MaxSchemaAttributes, defaultMaxSchemaAttributes)
-	if err != nil {
+	if err := normalizeSchemaGraphLimits(opts, &limits); err != nil {
 		return Limits{}, err
 	}
-	tokenBytes, err := byteLimitOrDefault("MaxSchemaTokenBytes", opts.MaxSchemaTokenBytes, defaultMaxSchemaTokenBytes)
-	if err != nil {
+	if err := normalizeCompilationLimits(opts, &limits); err != nil {
 		return Limits{}, err
 	}
-	sourceBytes, err := byteLimitOrDefault("MaxSchemaSourceBytes", opts.MaxSchemaSourceBytes, defaultMaxSchemaSourceBytes)
-	if err != nil {
-		return Limits{}, err
+	limits.MaxFiniteOccurs = opts.MaxFiniteOccurs
+	return limits, nil
+}
+
+func normalizeSchemaSourceLimits(opts Options, limits *Limits) error {
+	var err error
+	if limits.MaxSchemaDepth, err = limitOrDefault("MaxSchemaDepth", opts.MaxSchemaDepth, defaultMaxSchemaDepth); err != nil {
+		return err
 	}
-	sources, err := limitOrDefault("MaxSchemaSources", opts.MaxSchemaSources, defaultMaxSchemaSources)
-	if err != nil {
-		return Limits{}, err
+	if limits.MaxSchemaAttributes, err = limitOrDefault("MaxSchemaAttributes", opts.MaxSchemaAttributes, defaultMaxSchemaAttributes); err != nil {
+		return err
 	}
-	totalBytes, err := byteLimitOrDefault("MaxSchemaTotalBytes", opts.MaxSchemaTotalBytes, defaultMaxSchemaTotalBytes)
-	if err != nil {
-		return Limits{}, err
+	if limits.MaxSchemaTokenBytes, err = byteLimitOrDefault("MaxSchemaTokenBytes", opts.MaxSchemaTokenBytes, defaultMaxSchemaTokenBytes); err != nil {
+		return err
 	}
-	references, err := limitOrDefault("MaxSchemaReferences", opts.MaxSchemaReferences, defaultMaxSchemaReferences)
-	if err != nil {
-		return Limits{}, err
+	if limits.MaxSchemaSourceBytes, err = byteLimitOrDefault("MaxSchemaSourceBytes", opts.MaxSchemaSourceBytes, defaultMaxSchemaSourceBytes); err != nil {
+		return err
 	}
-	dependencySteps, err := limitOrDefault("MaxSchemaDependencySteps", opts.MaxSchemaDependencySteps, defaultMaxSchemaDependencySteps)
-	if err != nil {
-		return Limits{}, err
+	if limits.MaxSchemaSources, err = limitOrDefault("MaxSchemaSources", opts.MaxSchemaSources, defaultMaxSchemaSources); err != nil {
+		return err
 	}
-	targetContexts, err := limitOrDefault("MaxSchemaTargetContexts", opts.MaxSchemaTargetContexts, defaultMaxSchemaTargetContexts)
-	if err != nil {
-		return Limits{}, err
+	if limits.MaxSchemaTotalBytes, err = byteLimitOrDefault("MaxSchemaTotalBytes", opts.MaxSchemaTotalBytes, defaultMaxSchemaTotalBytes); err != nil {
+		return err
 	}
-	instantiatedNodes, err := limitOrDefault("MaxSchemaInstantiatedNodes", opts.MaxSchemaInstantiatedNodes, defaultMaxSchemaInstantiatedNodes)
-	if err != nil {
-		return Limits{}, err
+	return nil
+}
+
+func normalizeSchemaGraphLimits(opts Options, limits *Limits) error {
+	var err error
+	if limits.MaxSchemaReferences, err = limitOrDefault("MaxSchemaReferences", opts.MaxSchemaReferences, defaultMaxSchemaReferences); err != nil {
+		return err
+	}
+	if limits.MaxSchemaDependencySteps, err = limitOrDefault("MaxSchemaDependencySteps", opts.MaxSchemaDependencySteps, defaultMaxSchemaDependencySteps); err != nil {
+		return err
+	}
+	if limits.MaxSchemaTargetContexts, err = limitOrDefault("MaxSchemaTargetContexts", opts.MaxSchemaTargetContexts, defaultMaxSchemaTargetContexts); err != nil {
+		return err
+	}
+	if limits.MaxSchemaInstantiatedNodes, err = limitOrDefault("MaxSchemaInstantiatedNodes", opts.MaxSchemaInstantiatedNodes, defaultMaxSchemaInstantiatedNodes); err != nil {
+		return err
 	}
 	if opts.MaxSchemaNames < 0 {
-		return Limits{}, limitError("MaxSchemaNames cannot be negative")
+		return limitError("MaxSchemaNames cannot be negative")
 	}
-	modelStates, err := limitOrDefault("MaxContentModelStates", opts.MaxContentModelStates, defaultMaxContentModelStates)
-	if err != nil {
-		return Limits{}, err
+	limits.MaxSchemaNames = opts.MaxSchemaNames
+	return nil
+}
+
+func normalizeCompilationLimits(opts Options, limits *Limits) error {
+	var err error
+	if limits.MaxContentModelStates, err = limitOrDefault("MaxContentModelStates", opts.MaxContentModelStates, defaultMaxContentModelStates); err != nil {
+		return err
 	}
-	modelAnalysisSteps, err := limitOrDefault("MaxContentModelAnalysisSteps", opts.MaxContentModelAnalysisSteps, defaultMaxContentModelAnalysisSteps)
-	if err != nil {
-		return Limits{}, err
+	if limits.MaxContentModelAnalysisSteps, err = limitOrDefault("MaxContentModelAnalysisSteps", opts.MaxContentModelAnalysisSteps, defaultMaxContentModelAnalysisSteps); err != nil {
+		return err
 	}
-	substitutionEntries, err := limitOrDefault("MaxSubstitutionClosureEntries", opts.MaxSubstitutionClosureEntries, defaultMaxSubstitutionClosureEntries)
-	if err != nil {
-		return Limits{}, err
+	if limits.MaxSubstitutionClosureEntries, err = limitOrDefault("MaxSubstitutionClosureEntries", opts.MaxSubstitutionClosureEntries, defaultMaxSubstitutionClosureEntries); err != nil {
+		return err
 	}
-	unionEntries, err := limitOrDefault("MaxSimpleUnionMemberEntries", opts.MaxSimpleUnionMemberEntries, defaultMaxSimpleUnionMemberEntries)
-	if err != nil {
-		return Limits{}, err
+	if limits.MaxSimpleUnionMemberEntries, err = limitOrDefault("MaxSimpleUnionMemberEntries", opts.MaxSimpleUnionMemberEntries, defaultMaxSimpleUnionMemberEntries); err != nil {
+		return err
 	}
-	return Limits{
-		MaxSchemaDepth:                depth,
-		MaxSchemaAttributes:           attrs,
-		MaxSchemaTokenBytes:           tokenBytes,
-		MaxSchemaSourceBytes:          sourceBytes,
-		MaxSchemaSources:              sources,
-		MaxSchemaTotalBytes:           totalBytes,
-		MaxSchemaReferences:           references,
-		MaxSchemaDependencySteps:      dependencySteps,
-		MaxSchemaTargetContexts:       targetContexts,
-		MaxSchemaInstantiatedNodes:    instantiatedNodes,
-		MaxSchemaNames:                opts.MaxSchemaNames,
-		MaxContentModelStates:         modelStates,
-		MaxContentModelAnalysisSteps:  modelAnalysisSteps,
-		MaxSubstitutionClosureEntries: substitutionEntries,
-		MaxSimpleUnionMemberEntries:   unionEntries,
-		MaxFiniteOccurs:               opts.MaxFiniteOccurs,
-	}, nil
+	return nil
 }
 
 func limitOrDefault(name string, value, def int) (int, error) {

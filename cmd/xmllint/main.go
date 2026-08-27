@@ -64,18 +64,21 @@ func runWithOpen(args []string, stdout, stderr io.Writer, openDoc func(string) (
 		MaxIdentityEntries: cfg.maxIdentityEntries,
 		MaxInstanceBytes:   cfg.maxBytes,
 	})
-	closeErr := f.Close()
+	return reportValidation(stderr, cfg.doc, validationErr, f.Close())
+}
+
+func reportValidation(stderr io.Writer, doc string, validationErr, closeErr error) int {
 	if validationErr != nil {
 		if writeErr := printValidationErrors(stderr, validationErr); writeErr != nil {
 			return 1
 		}
 		if closeErr != nil {
-			return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, closeErr)
+			return writeStatus(stderr, 1, "%s fails to validate\n%v\n", doc, closeErr)
 		}
-		return writeStatus(stderr, 1, "%s fails to validate\n", cfg.doc)
+		return writeStatus(stderr, 1, "%s fails to validate\n", doc)
 	}
 	if closeErr != nil {
-		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, closeErr)
+		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", doc, closeErr)
 	}
 	return 0
 }

@@ -180,38 +180,61 @@ func parseIdentityNameTestParts(lexical string, resolver IdentityNameResolver) (
 }
 
 func parseIdentitySteps(path string, resolver IdentityNameResolver) ([]runtime.IdentityStep, error) {
-	if strings.Contains(path, "@") {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath "+path)
-	}
-	if strings.ContainsAny(path, "[]()") || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath "+path)
+	if err := validateIdentityElementPath(path); err != nil {
+		return nil, err
 	}
 	steps := make([]runtime.IdentityStep, 0, strings.Count(path, "/")+1)
 	for part := range strings.SplitSeq(path, "/") {
-		part = lex.TrimXMLWhitespaceString(part)
-		if part == "" {
-			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step")
-		}
-		if strings.Contains(part, "::") {
-			name, ok := parseIdentityAxisStep(part, "child")
-			if !ok {
-				return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step "+part)
-			}
-			part = name
-			if name == "" || name == "." {
-				return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step child::")
-			}
-		}
-		if part == "." {
-			continue
-		}
-		step, err := parseIdentityNameTest(part, resolver)
+		step, present, err := parseIdentityElementStep(part, resolver)
 		if err != nil {
 			return nil, err
+		}
+		if !present {
+			continue
 		}
 		steps = append(steps, step)
 	}
 	return steps, nil
+}
+
+func validateIdentityElementPath(path string) error {
+	if strings.Contains(path, "@") {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath "+path)
+	}
+	if strings.ContainsAny(path, "[]()") || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath "+path)
+	}
+	return nil
+}
+
+func parseIdentityElementStep(part string, resolver IdentityNameResolver) (runtime.IdentityStep, bool, error) {
+	part = lex.TrimXMLWhitespaceString(part)
+	if part == "" {
+		return runtime.IdentityStep{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step")
+	}
+	if strings.Contains(part, "::") {
+		name, err := parseIdentityChildAxisStep(part)
+		if err != nil {
+			return runtime.IdentityStep{}, false, err
+		}
+		part = name
+	}
+	if part == "." {
+		return runtime.IdentityStep{}, false, nil
+	}
+	step, err := parseIdentityNameTest(part, resolver)
+	return step, true, err
+}
+
+func parseIdentityChildAxisStep(part string) (string, error) {
+	name, ok := parseIdentityAxisStep(part, "child")
+	if !ok {
+		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step "+part)
+	}
+	if name == "" || name == "." {
+		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step child::")
+	}
+	return name, nil
 }
 
 func parseIdentityAxisStep(part, axis string) (string, bool) {

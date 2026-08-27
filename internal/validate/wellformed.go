@@ -44,33 +44,41 @@ func (c *xmlWellFormedChecker) check(r io.Reader) error {
 		return instanceReaderError(err)
 	}
 	defer parser.Detach()
+	return c.checkTokens(&parser, &values)
+}
+
+func (c *xmlWellFormedChecker) checkTokens(parser *stream.Parser, values *stream.Cache) error {
 	for {
 		tok, err := parser.Next()
 		if err != nil {
-			if stream.IsOnlyEOF(err) {
-				break
-			}
-			return c.streamError(&parser, tok, err)
+			return c.finishTokenStream(parser, tok, err)
 		}
-		switch tok.Kind {
-		case stream.KindStart:
-			if err := c.start(tok.Line, tok.Column, tok.Start, &values); err != nil {
-				return err
-			}
-		case stream.KindEnd:
-			if err := c.end(tok.Line, tok.Column, tok.End); err != nil {
-				return err
-			}
-		case stream.KindCharData:
-			if err := c.chars(tok.Line, tok.Column, tok.Data, tok.CDATA); err != nil {
-				return err
-			}
-		case stream.KindDirective:
-			return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
-		case stream.KindComment, stream.KindPI:
+		if err := c.checkToken(tok, values); err != nil {
+			return err
 		}
 	}
-	return c.doc.Complete()
+}
+
+func (c *xmlWellFormedChecker) finishTokenStream(parser *stream.Parser, tok stream.Token, err error) error {
+	if stream.IsOnlyEOF(err) {
+		return c.doc.Complete()
+	}
+	return c.streamError(parser, tok, err)
+}
+
+func (c *xmlWellFormedChecker) checkToken(tok stream.Token, values *stream.Cache) error {
+	switch tok.Kind {
+	case stream.KindStart:
+		return c.start(tok.Line, tok.Column, tok.Start, values)
+	case stream.KindEnd:
+		return c.end(tok.Line, tok.Column, tok.End)
+	case stream.KindCharData:
+		return c.chars(tok.Line, tok.Column, tok.Data, tok.CDATA)
+	case stream.KindDirective:
+		return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
+	default:
+		return nil
+	}
 }
 
 func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, values *stream.Cache) error {

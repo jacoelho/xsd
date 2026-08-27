@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"encoding/xml"
 	"errors"
 	"io"
 	"slices"
@@ -153,6 +154,13 @@ func (s *session) validate(r io.Reader) error {
 	if s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
+	if err := s.resetParser(r); err != nil {
+		return err
+	}
+	return s.validateTokens()
+}
+
+func (s *session) resetParser(r io.Reader) error {
 	if err := s.parser.ResetWithConfig(r, &s.nameStrings, &s.valueStrings, stream.Config{
 		Limits: stream.Limits{
 			MaxInputBytes: s.limits.InstanceBytes,
@@ -163,45 +171,57 @@ func (s *session) validate(r io.Reader) error {
 	}); err != nil {
 		return instanceReaderError(err)
 	}
+	return nil
+}
+
+func (s *session) validateTokens() error {
 	for {
 		tok, err := s.parser.Next()
 		if err != nil {
-			if stream.IsOnlyEOF(err) {
-				break
-			}
-			return s.parseError(tok, err)
+			return s.finishTokenStream(tok, err)
 		}
 		syntaxOnly := s.doc.syntaxOnly
-		switch tok.Kind {
-		case stream.KindStart:
-			if err := s.start(tok.Line, tok.Column, tok.Start); err != nil {
-				return err
-			}
-		case stream.KindEnd:
-			if err := s.end(tok.Line, tok.Column, tok.End); err != nil {
-				return err
-			}
-		case stream.KindCharData:
-			if err := s.chars(tok.Line, tok.Column, tok.Data, tok.CDATA); err != nil {
-				if syntaxOnly {
-					return err
-				}
-				if recoverErr := s.recoverAssessment(err); recoverErr != nil {
-					if errors.Is(recoverErr, errSemanticStop) {
-						break
-					}
-					return recoverErr
-				}
-			}
-		case stream.KindDirective:
-			return ValidateDirective(s.startContext(tok.Line, tok.Column), tok.Directive)
-		case stream.KindComment, stream.KindPI:
+		if err := s.validateToken(tok, syntaxOnly); err != nil {
+			return err
 		}
 		if !syntaxOnly && s.doc.syntaxOnly {
 			s.discardSemanticState()
 		}
 	}
-	return s.finishValidation()
+}
+
+func (s *session) finishTokenStream(tok stream.Token, err error) error {
+	if stream.IsOnlyEOF(err) {
+		return s.finishValidation()
+	}
+	return s.parseError(tok, err)
+}
+
+func (s *session) validateToken(tok stream.Token, syntaxOnly bool) error {
+	switch tok.Kind {
+	case stream.KindStart:
+		return s.start(tok.Line, tok.Column, tok.Start)
+	case stream.KindEnd:
+		return s.end(tok.Line, tok.Column, tok.End)
+	case stream.KindCharData:
+		return s.validateCharacterToken(tok, syntaxOnly)
+	case stream.KindDirective:
+		return ValidateDirective(s.startContext(tok.Line, tok.Column), tok.Directive)
+	default:
+		return nil
+	}
+}
+
+func (s *session) validateCharacterToken(tok stream.Token, syntaxOnly bool) error {
+	err := s.chars(tok.Line, tok.Column, tok.Data, tok.CDATA)
+	if err == nil || syntaxOnly {
+		return err
+	}
+	err = s.recoverAssessment(err)
+	if errors.Is(err, errSemanticStop) {
+		return nil
+	}
+	return err
 }
 
 func (s *session) parseError(tok stream.Token, err error) error {
@@ -386,40 +406,67 @@ func (t *sessionStartTransaction) commit() error {
 	if t.phase != startTransactionXMLCommitted {
 		return xsderrors.InternalInvariant("start transaction commit phase is invalid")
 	}
-	var parent *frame
-	if t.parentIndex >= 0 {
-		if t.parentIndex >= len(t.s.doc.elements) {
-			return xsderrors.InternalInvariant("start transaction parent frame is invalid")
-		}
-		parent = &t.s.doc.elements[t.parentIndex].payload
+	parent, _, err := t.parentFrame()
+	if err != nil {
+		return err
 	}
-	if t.transition.IsPlanned() {
-		if parent == nil {
-			return xsderrors.InternalInvariant("root start has a parent content transition")
-		}
-		scratch := t.s.contentScratch(parent)
-		if !t.transition.CanCommit(parent.Content, &scratch) {
-			return xsderrors.InternalInvariant("parent content transition is stale")
-		}
+	if err := t.validateContentTransition(parent); err != nil {
+		return err
 	}
 	if err := t.s.doc.identity.validateStartCommit(); err != nil {
 		return err
 	}
-	if t.transition.IsPlanned() {
-		scratch := t.s.contentScratch(parent)
-		if !t.transition.Commit(&parent.Content, &scratch) {
-			return xsderrors.InternalInvariant("parent content transition commit failed")
-		}
+	if err := t.commitContentTransition(parent); err != nil {
+		return err
 	}
 	t.s.doc.identity.commitStart()
+	t.commitParentState(parent)
+	t.phase = startTransactionDone
+	return nil
+}
+
+func (t *sessionStartTransaction) parentFrame() (*frame, bool, error) {
+	if t.parentIndex < 0 {
+		return nil, false, nil
+	}
+	if t.parentIndex >= len(t.s.doc.elements) {
+		return nil, false, xsderrors.InternalInvariant("start transaction parent frame is invalid")
+	}
+	return &t.s.doc.elements[t.parentIndex].payload, true, nil
+}
+
+func (t *sessionStartTransaction) validateContentTransition(parent *frame) error {
+	if !t.transition.IsPlanned() {
+		return nil
+	}
+	if parent == nil {
+		return xsderrors.InternalInvariant("root start has a parent content transition")
+	}
+	scratch := t.s.contentScratch(parent)
+	if !t.transition.CanCommit(parent.Content, &scratch) {
+		return xsderrors.InternalInvariant("parent content transition is stale")
+	}
+	return nil
+}
+
+func (t *sessionStartTransaction) commitContentTransition(parent *frame) error {
+	if !t.transition.IsPlanned() {
+		return nil
+	}
+	scratch := t.s.contentScratch(parent)
+	if !t.transition.Commit(&parent.Content, &scratch) {
+		return xsderrors.InternalInvariant("parent content transition commit failed")
+	}
+	return nil
+}
+
+func (t *sessionStartTransaction) commitParentState(parent *frame) {
 	if parent != nil {
 		if t.invalidatesParent {
 			parent.AssessmentInvalid = true
 		}
 		parent.HasChild = true
 	}
-	t.phase = startTransactionDone
-	return nil
 }
 
 func (t *sessionStartTransaction) stopSemanticValidation(start preparedXMLStart) error {
@@ -491,60 +538,86 @@ func (s *session) runStartTransaction(
 ) error {
 	xsiFlags := xsiStartAttributeFlagsFor(token.Attr)
 	if xsiFlags.SchemaLocation {
-		if schemaLocationErr := s.recordSchemaLocationHints(token.Attr, line, col); schemaLocationErr != nil {
-			recoverErr := s.recover(schemaLocationErr)
-			if recoverErr != nil {
-				if errors.Is(recoverErr, errSemanticStop) {
-					return transaction.stopSemanticValidation(se)
-				}
-				return recoverErr
-			}
+		if err := s.recover(s.recordSchemaLocationHints(token.Attr, line, col)); err != nil {
+			return s.handleStartTransactionError(transaction, se, err)
 		}
 	}
 	rn := s.runtimeName(se.name)
 	accepted, err := s.startType(rn, se, token, xsiFlags.Type, line, col)
 	if err != nil {
-		if errors.Is(err, errSemanticStop) {
-			return transaction.stopSemanticValidation(se)
-		}
-		return err
+		return s.handleStartTransactionError(transaction, se, err)
 	}
 	transaction.stageContent(accepted)
 	start := accepted.start
-	var nilled bool
-	var decl runtime.ElementStartInfo
-	var declared bool
-	if start.mode == elementAssessed {
-		ctx := s.startContext(line, col)
-		decl, declared = s.rt.Element(start.element)
-		nilled, err = s.assessElementStart(&start, decl, declared, token.Attr, xsiFlags, ctx)
-		if err != nil {
-			if errors.Is(err, errSemanticStop) {
-				return transaction.stopSemanticValidation(se)
-			}
-			return err
-		}
+	nilled, err := s.assessElementStart(&start, token.Attr, xsiFlags, s.startContext(line, col))
+	if err != nil {
+		return s.handleStartTransactionError(transaction, se, err)
 	}
 	schemaFrame, err := s.newSchemaFrame(start, nilled)
 	if err != nil {
 		return err
 	}
-	if err := transaction.commitXMLStart(se, start.mode == elementAssessed && !rn.Known && rn.NS != "", schemaFrame); err != nil {
+	if err := transaction.commitXMLStart(se, expandedInstancePath(start, rn), schemaFrame); err != nil {
 		return err
 	}
 	if identityErr := s.startFrameIdentity(start, rn, schemaFrame, line, col); identityErr != nil {
-		if errors.Is(identityErr, errSemanticStop) {
-			return transaction.stopSemanticValidation(se)
-		}
-		return identityErr
+		return s.handleStartTransactionError(transaction, se, identityErr)
 	}
 	if attrErr := s.validateStartAttributes(start, token.Attr, line, col); attrErr != nil {
-		if errors.Is(attrErr, errSemanticStop) {
-			return transaction.stopSemanticValidation(se)
-		}
-		return attrErr
+		return s.handleStartTransactionError(transaction, se, attrErr)
 	}
 	return transaction.commit()
+}
+
+func (s *session) handleStartTransactionError(transaction *sessionStartTransaction, start preparedXMLStart, err error) error {
+	if errors.Is(err, errSemanticStop) {
+		return transaction.stopSemanticValidation(start)
+	}
+	return err
+}
+
+func (s *session) assessElementStart(
+	start *schemaStart,
+	attrs []stream.Attr,
+	flags xsiStartAttributeFlags,
+	ctx StartContext,
+) (bool, error) {
+	if start.mode != elementAssessed {
+		return false, nil
+	}
+	decl, declared := s.rt.Element(start.element)
+	info, complete, err := s.initialElementAssessment(start, decl, declared, ctx)
+	if complete {
+		return false, err
+	}
+	var nilValue, typeValue string
+	for i := range attrs {
+		a := &attrs[i]
+		switch xsiStartValueFor(a.Name) {
+		case xsiStartNilValue:
+			nilValue = a.StringValue(&s.valueStrings)
+		case xsiStartTypeValue:
+			typeValue = a.StringValue(&s.valueStrings)
+		case xsiStartNoValue:
+		}
+	}
+	nilled, err := s.assessXSINil(start, flags.Nil, nilValue, ctx)
+	if err != nil {
+		return false, err
+	}
+	info, complete, err = s.assessXSIType(start, decl, declared, flags.Type, typeValue, info, ctx)
+	if complete {
+		return nilled, err
+	}
+	var effectiveErr error
+	start.typ, nilled, effectiveErr = validateElementEffectiveState(
+		decl, declared, start.typ, nilled, flags.Nil, info, true, ctx,
+	)
+	return nilled, s.recoverElementStartAssessment(start, effectiveErr)
+}
+
+func expandedInstancePath(start schemaStart, rn runtime.RuntimeName) bool {
+	return start.mode == elementAssessed && !rn.Known && rn.NS != ""
 }
 
 func (s *session) startFrameIdentity(start schemaStart, rn runtime.RuntimeName, f frame, line, col int) error {
@@ -580,89 +653,85 @@ func (s *session) syntaxStart(line, col int, token stream.StartElement) error {
 	return nil
 }
 
-func (s *session) assessElementStart(
-	start *schemaStart,
-	decl runtime.ElementStartInfo,
-	declared bool,
-	attrs []stream.Attr,
-	flags xsiStartAttributeFlags,
-	ctx StartContext,
-) (bool, error) {
+func (s *session) initialElementAssessment(start *schemaStart, decl runtime.ElementStartInfo, declared bool, ctx StartContext) (runtime.TypeInfo, bool, error) {
 	if declared && decl.Abstract {
 		*start = recoverySchemaStart()
 		err := validation(ctx, xsderrors.CodeValidationElement, "abstract element cannot appear directly")
-		return false, s.recoverElementStartAssessment(start, err)
+		return runtime.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
 	}
-	info, infoKnown := s.rt.TypeInfo(start.typ)
-	if !infoKnown {
-		return false, xsderrors.InternalInvariant("start type metadata is invalid")
+	info, known := s.rt.TypeInfo(start.typ)
+	if !known {
+		return runtime.TypeInfo{}, true, xsderrors.InternalInvariant("start type metadata is invalid")
 	}
 	if info.Unavailable {
 		*start = recoverySchemaStart()
 		err := validation(ctx, xsderrors.CodeValidationElement, "element type is unavailable")
-		return false, s.recoverElementStartAssessment(start, err)
+		return runtime.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
 	}
+	return info, false, nil
+}
 
-	nilled := false
-	nilSpecified := flags.Nil
-	var nilValue, typeValue string
-	if flags.Type || flags.Nil {
-		for i := range attrs {
-			a := &attrs[i]
-			if a.Name.Space != vocab.XSINamespaceURI {
-				continue
-			}
-			switch a.Name.Local {
-			case vocab.XSIAttrNil:
-				nilValue = a.StringValue(&s.valueStrings)
-			case vocab.XSIAttrType:
-				typeValue = a.StringValue(&s.valueStrings)
-			}
-		}
-	}
-	if flags.Nil {
-		parsed, ok := ParseXSINil(nilValue)
-		if !ok {
-			err := validation(ctx, xsderrors.CodeValidationNil, "invalid xsi:nil value")
-			if recoverErr := s.recoverElementStartAssessment(start, err); recoverErr != nil {
-				return false, recoverErr
-			}
-		} else {
-			nilled = parsed
-		}
-	}
-	if flags.Type {
-		override, err := resolveXSIType(s.rt, typeValue, s.qnameResolver(), s.schemaLocationHintLookup(), ctx)
-		if err != nil {
-			if recoverErr := s.recoverElementStartAssessment(start, err); recoverErr != nil {
-				return nilled, recoverErr
-			}
-		} else {
-			overrideInfo, known := s.rt.TypeInfo(override)
-			if !known {
-				return nilled, xsderrors.InternalInvariant("start type metadata is invalid")
-			}
-			if overrideInfo.Unavailable {
-				*start = recoverySchemaStart()
-				err := validation(ctx, xsderrors.CodeValidationElement, "element type is unavailable")
-				return nilled, s.recoverElementStartAssessment(start, err)
-			}
-			if err := validateXSITypeOverride(s.rt, start.typ, override, decl.Block, declared, &s.derivationScratch, ctx); err != nil {
-				if recoverErr := s.recoverElementStartAssessment(start, err); recoverErr != nil {
-					return nilled, recoverErr
-				}
-			} else {
-				start.typ = override
-				info = overrideInfo
-			}
-		}
-	}
+type xsiStartValue uint8
 
-	var effectiveErr error
-	start.typ, nilled, effectiveErr = validateElementEffectiveState(
-		decl, declared, start.typ, nilled, nilSpecified, info, infoKnown, ctx,
-	)
-	return nilled, s.recoverElementStartAssessment(start, effectiveErr)
+const (
+	xsiStartNoValue xsiStartValue = iota
+	xsiStartNilValue
+	xsiStartTypeValue
+)
+
+func xsiStartValueFor(name xml.Name) xsiStartValue {
+	if name.Space != vocab.XSINamespaceURI {
+		return xsiStartNoValue
+	}
+	switch name.Local {
+	case vocab.XSIAttrNil:
+		return xsiStartNilValue
+	case vocab.XSIAttrType:
+		return xsiStartTypeValue
+	default:
+		return xsiStartNoValue
+	}
+}
+
+func (s *session) assessXSINil(start *schemaStart, specified bool, value string, ctx StartContext) (bool, error) {
+	if !specified {
+		return false, nil
+	}
+	nilled, ok := ParseXSINil(value)
+	if ok {
+		return nilled, nil
+	}
+	err := validation(ctx, xsderrors.CodeValidationNil, "invalid xsi:nil value")
+	return false, s.recoverElementStartAssessment(start, err)
+}
+
+func (s *session) assessXSIType(start *schemaStart, decl runtime.ElementStartInfo, declared, specified bool, value string, info runtime.TypeInfo, ctx StartContext) (runtime.TypeInfo, bool, error) {
+	if !specified {
+		return info, false, nil
+	}
+	override, err := resolveXSIType(s.rt, value, s.qnameResolver(), s.schemaLocationHintLookup(), ctx)
+	if err != nil {
+		return s.recoverXSITypeError(start, info, err)
+	}
+	overrideInfo, known := s.rt.TypeInfo(override)
+	if !known {
+		return info, true, xsderrors.InternalInvariant("start type metadata is invalid")
+	}
+	if overrideInfo.Unavailable {
+		*start = recoverySchemaStart()
+		err := validation(ctx, xsderrors.CodeValidationElement, "element type is unavailable")
+		return info, true, s.recoverElementStartAssessment(start, err)
+	}
+	if err := validateXSITypeOverride(s.rt, start.typ, override, decl.Block, declared, &s.derivationScratch, ctx); err != nil {
+		return s.recoverXSITypeError(start, info, err)
+	}
+	start.typ = override
+	return overrideInfo, false, nil
+}
+
+func (s *session) recoverXSITypeError(start *schemaStart, info runtime.TypeInfo, err error) (runtime.TypeInfo, bool, error) {
+	err = s.recoverElementStartAssessment(start, err)
+	return info, err != nil, err
 }
 
 func (s *session) recoverElementStartAssessment(start *schemaStart, err error) error {
@@ -807,6 +876,10 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if f.Nilled {
 		return validation(s.startContext(line, col), xsderrors.CodeValidationNil, "nilled element must be empty")
 	}
+	return s.validateAssessedCharacterData(f, data, line, col)
+}
+
+func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col int) error {
 	if f.SimpleContent != runtime.NoSimpleType {
 		return s.appendText(data, line, col)
 	}
@@ -816,14 +889,18 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 		f.HasText = true
 	}
 	if content.AllowsMixedContent() {
-		if content.HasFixedElementValue() {
-			return s.appendText(data, line, col)
-		}
-		return nil
+		return s.captureMixedCharacterData(content, data, line, col)
 	}
 	if !whitespace {
 		ctx := s.startContext(line, col)
 		return validation(ctx, xsderrors.CodeValidationText, "character data is not allowed")
+	}
+	return nil
+}
+
+func (s *session) captureMixedCharacterData(content runtime.ElementTextContent, data []byte, line, col int) error {
+	if content.HasFixedElementValue() {
+		return s.appendText(data, line, col)
 	}
 	return nil
 }

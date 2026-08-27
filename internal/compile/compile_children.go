@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"encoding/xml"
 	"errors"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -86,34 +87,34 @@ func checkRawSchemaAttributes(n *rawNode) error {
 		if xmlns.IsNamespaceName(attr.Name) || attr.Name.Space != "" {
 			continue
 		}
-		if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
-			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, n.Name.Local+" cannot have attribute "+attr.Name.Local)
-		}
-		if schemaAnyURIAttribute(n.Name.Local, attr.Name.Local) {
-			value := lex.CollapseXMLWhitespace(attr.Value)
-			if _, err := uriref.Check(value); err != nil {
-				code := xsderrors.CodeSchemaInvalidAttribute
-				if attr.Name.Local == vocab.XSDAttrSchemaLocation {
-					code = xsderrors.CodeSchemaReference
-				}
-				return schemaCompileAt(n, code, "invalid "+attr.Name.Local+": "+err.Error())
-			}
+		if err := checkRawSchemaAttribute(n, attr); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func checkUnsupportedSchemaNode(n, parent *rawNode) (bool, error) {
-	var parentLocal string
-	var parentXSD bool
-	if parent != nil {
-		parentLocal = parent.Name.Local
-		parentXSD = parent.Name.Space == vocab.XSDNamespaceURI
+func checkRawSchemaAttribute(n *rawNode, attr xml.Attr) error {
+	if !schemaElementAttributeAllowed(n.Name.Local, attr.Name.Local) {
+		return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, n.Name.Local+" cannot have attribute "+attr.Name.Local)
 	}
-	for _, attr := range n.Attr {
-		if attr.Name.Space == vocab.XSDNamespaceURI {
-			return false, schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "schema namespace attribute "+attr.Name.Local+" is not allowed")
+	if !schemaAnyURIAttribute(n.Name.Local, attr.Name.Local) {
+		return nil
+	}
+	if _, err := uriref.Check(lex.CollapseXMLWhitespace(attr.Value)); err != nil {
+		code := xsderrors.CodeSchemaInvalidAttribute
+		if attr.Name.Local == vocab.XSDAttrSchemaLocation {
+			code = xsderrors.CodeSchemaReference
 		}
+		return schemaCompileAt(n, code, "invalid "+attr.Name.Local+": "+err.Error())
+	}
+	return nil
+}
+
+func checkUnsupportedSchemaNode(n, parent *rawNode) (bool, error) {
+	parentLocal, parentXSD := rawSchemaParent(parent)
+	if err := rejectSchemaNamespaceAttributes(n); err != nil {
+		return false, err
 	}
 	if parentXSD && parentLocal == annotationChild &&
 		n.Name.Space == vocab.XSDNamespaceURI &&
@@ -123,6 +124,26 @@ func checkUnsupportedSchemaNode(n, parent *rawNode) (bool, error) {
 	if n.Name.Space != vocab.XSDNamespaceURI {
 		return false, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+n.Name.Local+" is not allowed in schema grammar")
 	}
+	return checkUnsupportedXSDNode(n, parentLocal, parentXSD)
+}
+
+func rawSchemaParent(parent *rawNode) (string, bool) {
+	if parent == nil {
+		return "", false
+	}
+	return parent.Name.Local, parent.Name.Space == vocab.XSDNamespaceURI
+}
+
+func rejectSchemaNamespaceAttributes(n *rawNode) error {
+	for _, attr := range n.Attr {
+		if attr.Name.Space == vocab.XSDNamespaceURI {
+			return schemaCompileAt(n, xsderrors.CodeSchemaInvalidAttribute, "schema namespace attribute "+attr.Name.Local+" is not allowed")
+		}
+	}
+	return nil
+}
+
+func checkUnsupportedXSDNode(n *rawNode, parentLocal string, parentXSD bool) (bool, error) {
 	switch n.Name.Local {
 	case redefineChild:
 		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedRedefine, "xs:redefine is not supported")
@@ -133,10 +154,15 @@ func checkUnsupportedSchemaNode(n, parent *rawNode) (bool, error) {
 	case assertChild, "alternative", "override", "openContent", "defaultOpenContent":
 		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 feature "+n.Name.Local+" is not supported")
 	case anyChild, anyAttribute:
-		for _, attr := range []string{vocab.XSDAttrNotNamespace, vocab.XSDAttrNotQName} {
-			if _, ok := n.attr(attr); ok {
-				return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 wildcard attribute "+attr+" is not supported")
-			}
+		return rejectUnsupportedWildcardAttributes(n)
+	}
+	return false, nil
+}
+
+func rejectUnsupportedWildcardAttributes(n *rawNode) (bool, error) {
+	for _, attr := range []string{vocab.XSDAttrNotNamespace, vocab.XSDAttrNotQName} {
+		if _, ok := n.attr(attr); ok {
+			return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedXSD11, "XSD 1.1 wildcard attribute "+attr+" is not supported")
 		}
 	}
 	return false, nil
@@ -322,23 +348,35 @@ func validateRawAnnotationElement(n *rawNode) error {
 }
 
 func validateRawComponentAnnotationPlacement(n *rawNode) error {
-	annotations := 0
-	seenNonAnnotation := false
+	state := rawComponentAnnotationState{local: n.Name.Local}
 	for i, child := range n.Children {
-		if child.Name.Space != vocab.XSDNamespaceURI {
-			continue
+		if err := state.accept(i, child); err != nil {
+			return err
 		}
-		if child.Name.Local == annotationChild {
-			annotations++
-			if annotations > 1 {
-				return schemaAnnotationSyntaxError(i, xsderrors.CodeSchemaContentModel, "schema component cannot contain multiple annotations")
-			}
-			if seenNonAnnotation {
-				return schemaAnnotationSyntaxError(i, xsderrors.CodeSchemaContentModel, n.Name.Local+" annotation must be first")
-			}
-			continue
-		}
-		seenNonAnnotation = true
+	}
+	return nil
+}
+
+type rawComponentAnnotationState struct {
+	local             string
+	annotations       int
+	seenNonAnnotation bool
+}
+
+func (s *rawComponentAnnotationState) accept(index int, child *rawNode) error {
+	if child.Name.Space != vocab.XSDNamespaceURI {
+		return nil
+	}
+	if child.Name.Local != annotationChild {
+		s.seenNonAnnotation = true
+		return nil
+	}
+	s.annotations++
+	if s.annotations > 1 {
+		return schemaAnnotationSyntaxError(index, xsderrors.CodeSchemaContentModel, "schema component cannot contain multiple annotations")
+	}
+	if s.seenNonAnnotation {
+		return schemaAnnotationSyntaxError(index, xsderrors.CodeSchemaContentModel, s.local+" annotation must be first")
 	}
 	return nil
 }
@@ -598,47 +636,12 @@ func checkChildOrderRules(n *rawNode, order ChildOrder) error {
 }
 
 func checkOrderedRawXSDChildren(n *rawNode, order ChildOrder) error {
-	var seen uint64
-	annotationSeen := false
-	nonAnnotationSeen := false
-	terminalSeen := false
-	maxLevelSeen := -1
+	state := childOrderState{maxLevelSeen: -1}
 	childIndex := 0
 	for child := range n.xsdChildren() {
-		local := child.Name.Local
-		if terminalSeen {
-			return childOrderError(childIndex, order.InvalidMsg(local))
-		}
-		if local == annotationChild {
-			if nonAnnotationSeen || (order.SingleAnnotation && annotationSeen) {
-				return childOrderError(childIndex, order.AnnotationFirstMsg)
-			}
-			annotationSeen = true
-			childIndex++
-			continue
-		}
-		idx := childRuleIndex(local, order.Rules)
-		if idx < 0 {
-			return childOrderError(childIndex, order.InvalidMsg(local))
-		}
-		rule := order.Rules[idx]
-		if rule.ForbiddenMsg != "" {
-			return childOrderError(childIndex, rule.ForbiddenMsg)
-		}
-		nonAnnotationSeen = true
-		if maxLevelSeen > rule.Level {
-			return childOrderError(childIndex, rule.OrderMsg)
-		}
-		bit, err := childRuleSeenBit(idx)
-		if err != nil {
+		if err := state.accept(childIndex, child.Name.Local, order); err != nil {
 			return err
 		}
-		if seen&bit != 0 && rule.MaxOne {
-			return childOrderError(childIndex, rule.DupMsg)
-		}
-		seen |= bit
-		maxLevelSeen = max(maxLevelSeen, rule.Level)
-		terminalSeen = rule.Terminal
 		childIndex++
 	}
 	return nil

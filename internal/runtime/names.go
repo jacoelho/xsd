@@ -185,6 +185,19 @@ func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []Expand
 	if len(n.localIndex) != len(n.locals) {
 		return errors.New("name table local index size does not match local slice")
 	}
+	if err := n.validateNamespaceIndex(); err != nil {
+		return err
+	}
+	if err := n.validateLocalIndex(); err != nil {
+		return err
+	}
+	if err := n.validateRequiredNamespaces(requiredNamespaces); err != nil {
+		return err
+	}
+	return n.validateRequiredNames(requiredNames)
+}
+
+func (n *NameTable) validateNamespaceIndex() error {
 	for i, uri := range n.namespaces {
 		id, ok := n.nsIndex[uri]
 		if !ok || id != NamespaceID(i) {
@@ -196,6 +209,10 @@ func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []Expand
 			return errors.New("name table namespace slice does not match namespace index")
 		}
 	}
+	return nil
+}
+
+func (n *NameTable) validateLocalIndex() error {
 	for i, local := range n.locals {
 		id, ok := n.localIndex[local]
 		if !ok || id != LocalNameID(i) {
@@ -207,13 +224,21 @@ func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []Expand
 			return errors.New("name table local slice does not match local index")
 		}
 	}
-	for _, uri := range requiredNamespaces {
+	return nil
+}
+
+func (n *NameTable) validateRequiredNamespaces(required []string) error {
+	for _, uri := range required {
 		id, ok := n.LookupNamespace(uri)
 		if !ok || n.Namespace(id) != uri {
 			return errors.New("name table is missing required namespace")
 		}
 	}
-	for _, name := range requiredNames {
+	return nil
+}
+
+func (n *NameTable) validateRequiredNames(required []ExpandedName) error {
+	for _, name := range required {
 		q, ok := n.LookupQName(name.Namespace, name.Local)
 		if !ok || !n.ValidQName(q) {
 			return errors.New("name table is missing required name")

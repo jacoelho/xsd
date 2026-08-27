@@ -80,32 +80,15 @@ func Lexical(name xml.Name) LexicalName {
 func (s *Stack) StartXML(start xml.StartElement) (Frame, Element, error) {
 	lexical := Lexical(start.Name)
 	mark, previous := s.beginAdmission()
-	rollback := func(err error) (Frame, Element, error) {
-		s.rollbackAdmission(mark, previous)
-		return Frame{}, Element{}, err
-	}
-	for _, attr := range start.Attr {
-		if !IsNamespaceName(attr.Name) {
-			continue
-		}
-		if err := s.appendBinding(attr.Name, attr.Value); err != nil {
-			return rollback(err)
-		}
+	if err := s.appendXMLBindings(start.Attr); err != nil {
+		return s.abortAdmission(mark, previous, err)
 	}
 	element, err := s.resolveElement(lexical)
 	if err != nil {
-		return rollback(err)
+		return s.abortAdmission(mark, previous, err)
 	}
-	resolved := s.prepareAttributeAdmission(len(start.Attr))
-	for i, attr := range start.Attr {
-		name, err := s.resolveAttribute(attr.Name)
-		if err != nil {
-			return rollback(err)
-		}
-		if err := s.seen.add(name); err != nil {
-			return rollback(err)
-		}
-		resolved[i] = name
+	if err := s.resolveXMLAttributes(start.Attr); err != nil {
+		return s.abortAdmission(mark, previous, err)
 	}
 	return s.commitAdmission(mark, previous, element), element, nil
 }
@@ -118,43 +101,82 @@ func (s *Stack) StartStream(start *stream.StartElement, values *stream.Cache) (F
 	}
 	lexical := Lexical(start.Name)
 	mark, previous := s.beginAdmission()
-	rollback := func(err error) (Frame, Element, error) {
-		s.rollbackAdmission(mark, previous)
-		return Frame{}, Element{}, err
-	}
 	for i := range start.Attr {
 		attr := &start.Attr[i]
 		if !IsNamespaceName(attr.Name) {
 			continue
 		}
-		if attr.HasBorrowedValue() && values == nil {
-			return rollback(errors.New("namespace declaration requires an attribute value cache"))
-		}
-		if err := s.appendBinding(attr.Name, attr.StringValue(values)); err != nil {
-			return rollback(err)
+		value, valueAvailable := attr.MaterializeValue(values)
+		if err := s.appendStreamBinding(attr.Name, value, valueAvailable); err != nil {
+			return s.abortAdmission(mark, previous, err)
 		}
 	}
 	element, err := s.resolveElement(lexical)
 	if err != nil {
-		return rollback(err)
+		return s.abortAdmission(mark, previous, err)
 	}
 	resolved := s.prepareAttributeAdmission(len(start.Attr))
 	for i := range start.Attr {
-		name, err := s.resolveAttribute(start.Attr[i].Name)
+		name, err := s.resolveStreamAttribute(start.Attr[i].Name)
 		if err != nil {
-			return rollback(err)
-		}
-		if err := s.seen.add(name); err != nil {
-			return rollback(err)
+			return s.abortAdmission(mark, previous, err)
 		}
 		resolved[i] = name
 	}
 	frame := s.commitAdmission(mark, previous, element)
-	for i := range start.Attr {
-		start.Attr[i].Name = resolved[i]
-	}
-	clear(resolved)
+	start.ReplaceAttributeNames(s.resolvedAttrs)
+	s.clearAttributeAdmission()
 	return frame, element, nil
+}
+
+func (s *Stack) appendXMLBindings(attrs []xml.Attr) error {
+	for _, attr := range attrs {
+		if !IsNamespaceName(attr.Name) {
+			continue
+		}
+		if err := s.appendBinding(attr.Name, attr.Value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Stack) appendStreamBinding(name xml.Name, value string, valueAvailable bool) error {
+	if !valueAvailable {
+		return errors.New("namespace declaration requires an attribute value cache")
+	}
+	return s.appendBinding(name, value)
+}
+
+func (s *Stack) resolveXMLAttributes(attrs []xml.Attr) error {
+	resolved := s.prepareAttributeAdmission(len(attrs))
+	for i, attr := range attrs {
+		name, err := s.resolveAttribute(attr.Name)
+		if err != nil {
+			return err
+		}
+		if err := s.seen.add(name); err != nil {
+			return err
+		}
+		resolved[i] = name
+	}
+	return nil
+}
+
+func (s *Stack) resolveStreamAttribute(lexical xml.Name) (xml.Name, error) {
+	name, err := s.resolveAttribute(lexical)
+	if err != nil {
+		return xml.Name{}, err
+	}
+	if err := s.seen.add(name); err != nil {
+		return xml.Name{}, err
+	}
+	return name, nil
+}
+
+func (s *Stack) abortAdmission(mark int, previous uint32, err error) (Frame, Element, error) {
+	s.rollbackAdmission(mark, previous)
+	return Frame{}, Element{}, err
 }
 
 // End validates a lexical closing name and releases the identified top frame.

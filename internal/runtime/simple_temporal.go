@@ -625,17 +625,9 @@ type xsdTimeParts struct {
 }
 
 func parseXSDTimeParts(s string) (xsdTimeParts, error) {
-	hour, next, ok := parseTwoDigits(s, 0)
-	if !ok || next >= len(s) || s[next] != ':' {
-		return xsdTimeParts{}, errors.New("invalid time")
-	}
-	minute, next, ok := parseTwoDigits(s, next+1)
-	if !ok || next >= len(s) || s[next] != ':' {
-		return xsdTimeParts{}, errors.New("invalid time")
-	}
-	second, next, ok := parseTwoDigits(s, next+1)
-	if !ok {
-		return xsdTimeParts{}, errors.New("invalid time")
+	hour, minute, second, next, err := parseTimeClock(s)
+	if err != nil {
+		return xsdTimeParts{}, err
 	}
 	frac, next, err := parseFraction(s, next)
 	if err != nil {
@@ -645,14 +637,7 @@ func parseXSDTimeParts(s string) (xsdTimeParts, error) {
 	if err != nil {
 		return xsdTimeParts{}, err
 	}
-	if hour > 24 || minute > 59 {
-		return xsdTimeParts{}, errors.New("invalid time")
-	}
-	if hour == 24 {
-		if minute != 0 || second != 0 || frac != "" {
-			return xsdTimeParts{}, errors.New("invalid time")
-		}
-	} else if second > 59 && (hour != 23 || minute != 59 || second != 60) {
+	if !validTimeClock(hour, minute, second, frac != "") {
 		return xsdTimeParts{}, errors.New("invalid time")
 	}
 	return xsdTimeParts{tz: tz, frac: frac, hour: hour, minute: minute, second: second}, nil
@@ -747,17 +732,9 @@ func validateDateTimeLexical[T byteText](raw T) error {
 }
 
 func validateTimeLexical[T byteText](raw T) error {
-	hour, next, ok := parseTwoDateDigits(raw, 0)
-	if !ok || next >= len(raw) || raw[next] != ':' {
-		return errors.New("invalid time")
-	}
-	minute, next, ok := parseTwoDateDigits(raw, next+1)
-	if !ok || next >= len(raw) || raw[next] != ':' {
-		return errors.New("invalid time")
-	}
-	second, next, ok := parseTwoDateDigits(raw, next+1)
-	if !ok {
-		return errors.New("invalid time")
+	hour, minute, second, next, err := parseTimeClock(raw)
+	if err != nil {
+		return err
 	}
 	nonZeroFraction, next, err := parseTimeFraction(raw, next)
 	if err != nil {
@@ -766,17 +743,36 @@ func validateTimeLexical[T byteText](raw T) error {
 	if err := validateTimezoneToEnd(raw, next, "time"); err != nil {
 		return err
 	}
-	if hour > 24 || minute > 59 {
-		return errors.New("invalid time")
-	}
-	if hour == 24 {
-		if minute != 0 || second != 0 || nonZeroFraction {
-			return errors.New("invalid time")
-		}
-	} else if second > 59 && (hour != 23 || minute != 59 || second != 60) {
+	if !validTimeClock(hour, minute, second, nonZeroFraction) {
 		return errors.New("invalid time")
 	}
 	return nil
+}
+
+func parseTimeClock[T byteText](raw T) (int, int, int, int, error) {
+	hour, next, ok := parseTwoDateDigits(raw, 0)
+	if !ok || next >= len(raw) || raw[next] != ':' {
+		return 0, 0, 0, 0, errors.New("invalid time")
+	}
+	minute, next, ok := parseTwoDateDigits(raw, next+1)
+	if !ok || next >= len(raw) || raw[next] != ':' {
+		return 0, 0, 0, 0, errors.New("invalid time")
+	}
+	second, next, ok := parseTwoDateDigits(raw, next+1)
+	if !ok {
+		return 0, 0, 0, 0, errors.New("invalid time")
+	}
+	return hour, minute, second, next, nil
+}
+
+func validTimeClock(hour, minute, second int, nonZeroFraction bool) bool {
+	if hour > 24 || minute > 59 {
+		return false
+	}
+	if hour == 24 {
+		return minute == 0 && second == 0 && !nonZeroFraction
+	}
+	return second <= 59 || hour == 23 && minute == 59 && second == 60
 }
 
 func parseTimeFraction[T byteText](raw T, i int) (bool, int, error) {

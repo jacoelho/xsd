@@ -98,34 +98,54 @@ func (a *ContentModelAnalysis) modelCountRange(id ContentModelID) (Occurrence, e
 	}
 	a.rangePath[id] = true
 	defer delete(a.rangePath, id)
-	var term Occurrence
-	switch model.Kind {
-	case ModelEmpty:
-	case ModelAny:
-		term = Occurrence{Unbounded: true}
-	case ModelSequence, ModelAll:
-		for _, particle := range model.Particles {
-			child, err := a.ParticleCountRange(particle)
-			if err != nil {
-				return Occurrence{}, err
-			}
-			term = AddOccurrenceRanges(term, child)
-		}
-	case ModelChoice:
-		for i, particle := range model.Particles {
-			child, err := a.ParticleCountRange(particle)
-			if err != nil {
-				return Occurrence{}, err
-			}
-			if i == 0 {
-				term = child
-			} else {
-				term = UnionOccurrenceRanges(term, child)
-			}
-		}
+	term, err := a.modelTermCountRange(model)
+	if err != nil {
+		return Occurrence{}, err
 	}
 	result := MultiplyOccurrence(term, model.Occurs)
 	a.ranges[id] = result
+	return result, nil
+}
+
+func (a *ContentModelAnalysis) modelTermCountRange(model ContentModel) (Occurrence, error) {
+	switch model.Kind {
+	case ModelEmpty:
+		return Occurrence{}, nil
+	case ModelAny:
+		return Occurrence{Unbounded: true}, nil
+	case ModelSequence, ModelAll:
+		return a.sequenceCountRange(model.Particles)
+	case ModelChoice:
+		return a.choiceCountRange(model.Particles)
+	}
+	return Occurrence{}, nil
+}
+
+func (a *ContentModelAnalysis) sequenceCountRange(particles []Particle) (Occurrence, error) {
+	var result Occurrence
+	for _, particle := range particles {
+		child, err := a.ParticleCountRange(particle)
+		if err != nil {
+			return Occurrence{}, err
+		}
+		result = AddOccurrenceRanges(result, child)
+	}
+	return result, nil
+}
+
+func (a *ContentModelAnalysis) choiceCountRange(particles []Particle) (Occurrence, error) {
+	var result Occurrence
+	for i, particle := range particles {
+		child, err := a.ParticleCountRange(particle)
+		if err != nil {
+			return Occurrence{}, err
+		}
+		if i == 0 {
+			result = child
+		} else {
+			result = UnionOccurrenceRanges(result, child)
+		}
+	}
 	return result, nil
 }
 
@@ -134,17 +154,25 @@ func (a *ContentModelAnalysis) Overlap(left, right Particle) (QName, bool, error
 	if err := spendContentModelWork(a.work); err != nil {
 		return QName{}, false, err
 	}
-	if left.Kind == ParticleModel {
+	switch {
+	case left.Kind == ParticleModel:
 		return a.modelStartOverlap(left.Model, right)
-	}
-	if right.Kind == ParticleModel {
+	case right.Kind == ParticleModel:
 		return a.modelStartOverlap(right.Model, left)
+	case left.Kind == ParticleWildcard && right.Kind == ParticleWildcard:
+		return a.wildcardOverlap(left.Wildcard, right.Wildcard)
+	default:
+		return a.elementParticleOverlap(left, right)
 	}
-	if left.Kind == ParticleWildcard && right.Kind == ParticleWildcard {
-		leftWildcard, leftOK := a.rt.Wildcard(left.Wildcard)
-		rightWildcard, rightOK := a.rt.Wildcard(right.Wildcard)
-		return QName{}, leftOK && rightOK && WildcardsOverlap(leftWildcard, rightWildcard), nil
-	}
+}
+
+func (a *ContentModelAnalysis) wildcardOverlap(left, right WildcardID) (QName, bool, error) {
+	leftWildcard, leftOK := a.rt.Wildcard(left)
+	rightWildcard, rightOK := a.rt.Wildcard(right)
+	return QName{}, leftOK && rightOK && WildcardsOverlap(leftWildcard, rightWildcard), nil
+}
+
+func (a *ContentModelAnalysis) elementParticleOverlap(left, right Particle) (QName, bool, error) {
 	if left.Kind == ParticleElement {
 		if name, ok, err := a.elementOverlap(left.Element, right); ok || err != nil {
 			return name, ok, err
@@ -167,23 +195,30 @@ func (a *ContentModelAnalysis) modelStartOverlap(id ContentModelID, particle Par
 		return QName{}, false, nil
 	}
 	for _, child := range model.Particles {
-		if err := spendContentModelWork(a.work); err != nil {
-			return QName{}, false, err
-		}
-		if name, overlap, err := a.Overlap(child, particle); overlap || err != nil {
+		name, overlap, stop, err := a.modelStartParticleOverlap(model.Kind, child, particle)
+		if overlap || err != nil {
 			return name, overlap, err
 		}
-		if model.Kind == ModelSequence {
-			emptiable, err := a.particleEmptiable(child)
-			if err != nil {
-				return QName{}, false, err
-			}
-			if !emptiable {
-				break
-			}
+		if stop {
+			break
 		}
 	}
 	return QName{}, false, nil
+}
+
+func (a *ContentModelAnalysis) modelStartParticleOverlap(
+	kind ModelKind,
+	child, particle Particle,
+) (QName, bool, bool, error) {
+	if err := spendContentModelWork(a.work); err != nil {
+		return QName{}, false, false, err
+	}
+	name, overlap, err := a.Overlap(child, particle)
+	if overlap || err != nil || kind != ModelSequence {
+		return name, overlap, false, err
+	}
+	emptiable, err := a.particleEmptiable(child)
+	return QName{}, false, !emptiable, err
 }
 
 func (a *ContentModelAnalysis) elementOverlap(id ElementID, particle Particle) (QName, bool, error) {
@@ -193,32 +228,42 @@ func (a *ContentModelAnalysis) elementOverlap(id ElementID, particle Particle) (
 	}
 	switch particle.Kind {
 	case ParticleElement:
-		other, otherOK, otherErr := a.acceptedNames(particle.Element)
-		if otherErr != nil || !otherOK {
-			return QName{}, false, otherErr
-		}
-		for _, name := range accepted.ordered {
-			if err := spendContentModelWork(a.work); err != nil {
-				return QName{}, false, err
-			}
-			if _, exists := other.byName[name]; exists {
-				return name, true, nil
-			}
-		}
+		return a.acceptedElementOverlap(accepted, particle.Element)
 	case ParticleWildcard:
-		wildcard, wildcardOK := a.rt.Wildcard(particle.Wildcard)
-		if !wildcardOK {
-			return QName{}, false, nil
-		}
-		for _, name := range accepted.ordered {
-			if err := spendContentModelWork(a.work); err != nil {
-				return QName{}, false, err
-			}
-			if WildcardAllowsNamespace(wildcard, name.Namespace) {
-				return name, true, nil
-			}
-		}
+		return a.acceptedWildcardOverlap(accepted, particle.Wildcard)
 	case ParticleModel:
+	}
+	return QName{}, false, nil
+}
+
+func (a *ContentModelAnalysis) acceptedElementOverlap(accepted particleAcceptedNames, id ElementID) (QName, bool, error) {
+	other, ok, err := a.acceptedNames(id)
+	if err != nil || !ok {
+		return QName{}, false, err
+	}
+	for _, name := range accepted.ordered {
+		if err := spendContentModelWork(a.work); err != nil {
+			return QName{}, false, err
+		}
+		if _, exists := other.byName[name]; exists {
+			return name, true, nil
+		}
+	}
+	return QName{}, false, nil
+}
+
+func (a *ContentModelAnalysis) acceptedWildcardOverlap(accepted particleAcceptedNames, id WildcardID) (QName, bool, error) {
+	wildcard, ok := a.rt.Wildcard(id)
+	if !ok {
+		return QName{}, false, nil
+	}
+	for _, name := range accepted.ordered {
+		if err := spendContentModelWork(a.work); err != nil {
+			return QName{}, false, err
+		}
+		if WildcardAllowsNamespace(wildcard, name.Namespace) {
+			return name, true, nil
+		}
 	}
 	return QName{}, false, nil
 }
@@ -238,31 +283,40 @@ func (a *ContentModelAnalysis) acceptedNames(id ElementID) (particleAcceptedName
 		ordered: []QName{name},
 		byName:  map[QName]ElementID{name: id},
 	}
-	var workErr error
-	a.rt.ForEachSubstitutionMember(id, func(member ElementID) bool {
-		workErr = spendContentModelWork(a.work)
-		if workErr != nil {
-			return false
-		}
-		memberName, memberOK := a.rt.ElementName(member)
-		if !memberOK {
-			return true
-		}
-		allowed, allowedOK := a.rt.SubstitutionMemberByName(id, memberName)
-		if !allowedOK || allowed != member {
-			return true
-		}
-		if _, exists := accepted.byName[memberName]; !exists {
-			accepted.ordered = append(accepted.ordered, memberName)
-			accepted.byName[memberName] = member
-		}
-		return true
-	})
-	if workErr != nil {
-		return particleAcceptedNames{}, false, workErr
+	collector := particleAcceptedNameCollector{analysis: a, head: id, accepted: &accepted}
+	a.rt.ForEachSubstitutionMember(id, collector.collect)
+	if collector.err != nil {
+		return particleAcceptedNames{}, false, collector.err
 	}
 	a.names[id] = accepted
 	return accepted, true, nil
+}
+
+type particleAcceptedNameCollector struct {
+	err      error
+	analysis *ContentModelAnalysis
+	accepted *particleAcceptedNames
+	head     ElementID
+}
+
+func (c *particleAcceptedNameCollector) collect(member ElementID) bool {
+	c.err = spendContentModelWork(c.analysis.work)
+	if c.err != nil {
+		return false
+	}
+	memberName, ok := c.analysis.rt.ElementName(member)
+	if !ok {
+		return true
+	}
+	allowed, ok := c.analysis.rt.SubstitutionMemberByName(c.head, memberName)
+	if !ok || allowed != member {
+		return true
+	}
+	if _, exists := c.accepted.byName[memberName]; !exists {
+		c.accepted.ordered = append(c.accepted.ordered, memberName)
+		c.accepted.byName[memberName] = member
+	}
+	return true
 }
 
 func (a *ContentModelAnalysis) particleEmptiable(particle Particle) (bool, error) {
@@ -294,35 +348,50 @@ func (a *ContentModelAnalysis) modelEmptiable(id ContentModelID) (bool, error) {
 	}
 	a.emptyPath[id] = true
 	defer delete(a.emptyPath, id)
-	result := model.Occurs.Min == 0 || model.Kind == ModelEmpty || model.Kind == ModelAny
-	if !result {
-		switch model.Kind {
-		case ModelEmpty, ModelAny:
-		case ModelSequence, ModelAll:
-			result = true
-			for _, particle := range model.Particles {
-				emptiable, err := a.particleEmptiable(particle)
-				if err != nil {
-					return false, err
-				}
-				if !emptiable {
-					result = false
-					break
-				}
-			}
-		case ModelChoice:
-			for _, particle := range model.Particles {
-				emptiable, err := a.particleEmptiable(particle)
-				if err != nil {
-					return false, err
-				}
-				if emptiable {
-					result = true
-					break
-				}
-			}
-		}
+	result, err := a.modelEmptiableValue(model)
+	if err != nil {
+		return false, err
 	}
 	a.emptiable[id] = result
 	return result, nil
+}
+
+func (a *ContentModelAnalysis) modelEmptiableValue(model ContentModel) (bool, error) {
+	if model.Occurs.Min == 0 || model.Kind == ModelEmpty || model.Kind == ModelAny {
+		return true, nil
+	}
+	switch model.Kind {
+	case ModelSequence, ModelAll:
+		return a.allParticlesEmptiable(model.Particles)
+	case ModelChoice:
+		return a.anyParticleEmptiable(model.Particles)
+	default:
+		return false, nil
+	}
+}
+
+func (a *ContentModelAnalysis) allParticlesEmptiable(particles []Particle) (bool, error) {
+	for _, particle := range particles {
+		emptiable, err := a.particleEmptiable(particle)
+		if err != nil {
+			return false, err
+		}
+		if !emptiable {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (a *ContentModelAnalysis) anyParticleEmptiable(particles []Particle) (bool, error) {
+	for _, particle := range particles {
+		emptiable, err := a.particleEmptiable(particle)
+		if err != nil {
+			return false, err
+		}
+		if emptiable {
+			return true, nil
+		}
+	}
+	return false, nil
 }

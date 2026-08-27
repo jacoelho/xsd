@@ -81,20 +81,9 @@ func parseWildcardNamespace(names NamespaceInterner, attrs WildcardAttrs) (runti
 func parseWildcardNamespaceList(names NamespaceInterner, targetNS, nsSpec string) ([]runtime.NamespaceID, error) {
 	var namespaces []runtime.NamespaceID
 	for part := range lex.XMLFieldsSeq(nsSpec) {
-		var uri string
-		switch part {
-		case wildcardNamespaceLocal:
-			uri = ""
-		case wildcardNamespaceTargetNamespace:
-			uri = targetNS
-		default:
-			if strings.HasPrefix(part, "##") {
-				return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+part)
-			}
-			if _, err := uriref.Check(part); err != nil {
-				return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+part)
-			}
-			uri = part
+		uri, err := wildcardNamespaceURI(part, targetNS)
+		if err != nil {
+			return nil, err
 		}
 		ns, err := internWildcardNamespace(names, uri)
 		if err != nil {
@@ -103,6 +92,23 @@ func parseWildcardNamespaceList(names NamespaceInterner, targetNS, nsSpec string
 		namespaces = append(namespaces, ns)
 	}
 	return runtime.NormalizeNamespaceList(namespaces), nil
+}
+
+func wildcardNamespaceURI(part, targetNS string) (string, error) {
+	switch part {
+	case wildcardNamespaceLocal:
+		return "", nil
+	case wildcardNamespaceTargetNamespace:
+		return targetNS, nil
+	default:
+		if strings.HasPrefix(part, "##") {
+			return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+part)
+		}
+		if _, err := uriref.Check(part); err != nil {
+			return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+part)
+		}
+		return part, nil
+	}
 }
 
 func parseWildcardProcessContents(attrs WildcardAttrs) (runtime.ProcessContents, error) {

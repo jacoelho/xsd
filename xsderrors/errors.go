@@ -245,27 +245,30 @@ func appendFlattened(dst []error, err error) ([]error, bool) {
 	case *Error:
 		return append(dst, direct), false
 	case Errors:
-		for _, child := range direct.children {
-			dst, _ = appendFlattened(dst, child)
-		}
-		return dst, true
+		return appendFlattenedChildren(dst, direct.children), true
 	case interface{ Unwrap() []error }:
-		for _, child := range direct.Unwrap() {
-			dst, _ = appendFlattened(dst, child)
-		}
-		return dst, true
+		return appendFlattenedChildren(dst, direct.Unwrap()), true
 	case interface{ Unwrap() error }:
-		mark := len(dst)
-		var expanded bool
-		dst, expanded = appendFlattened(dst, direct.Unwrap())
-		if expanded {
-			return dst, true
-		}
-		dst = dst[:mark]
-		return append(dst, err), false
+		return appendFlattenedWrapper(dst, err, direct.Unwrap())
 	default:
 		return append(dst, err), false
 	}
+}
+
+func appendFlattenedChildren(dst, children []error) []error {
+	for _, child := range children {
+		dst, _ = appendFlattened(dst, child)
+	}
+	return dst
+}
+
+func appendFlattenedWrapper(dst []error, wrapper, child error) ([]error, bool) {
+	mark := len(dst)
+	dst, expanded := appendFlattened(dst, child)
+	if expanded {
+		return dst, true
+	}
+	return append(dst[:mark], wrapper), false
 }
 
 func isNilDiagnostic(err error) bool {
@@ -287,13 +290,21 @@ func IsUnsupported(err error) bool {
 	case nil:
 		return false
 	case *Error:
-		return x != nil && (x.category == CategoryUnsupported || IsUnsupported(x.cause))
+		return isUnsupportedDiagnostic(x)
 	case Errors:
 		return slices.ContainsFunc(x.children, IsUnsupported)
 	}
-	if x, ok := errors.AsType[*Error](err); ok && x != nil && (x.category == CategoryUnsupported || IsUnsupported(x.cause)) {
+	if x, ok := errors.AsType[*Error](err); ok && isUnsupportedDiagnostic(x) {
 		return true
 	}
+	return isUnsupportedWrapper(err)
+}
+
+func isUnsupportedDiagnostic(err *Error) bool {
+	return err != nil && (err.category == CategoryUnsupported || IsUnsupported(err.cause))
+}
+
+func isUnsupportedWrapper(err error) bool {
 	if x, ok := err.(interface{ Unwrap() []error }); ok {
 		return slices.ContainsFunc(x.Unwrap(), IsUnsupported)
 	}

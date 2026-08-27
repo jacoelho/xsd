@@ -203,62 +203,96 @@ func newCompiledModelReads(models []CompiledModel, work ContentModelWork) ([]com
 	if err := chargeCompiledModelProjectionWork(models, work); err != nil {
 		return nil, err
 	}
-	rowCount, edgeCount, allCount := compiledModelReadCounts(models)
+	builder := newCompiledModelReadBuilder(models)
 	reads := make([]compiledModelRead, len(models))
-	rows := make([]compiledModelRowRead, rowCount)
-	edges := make([]compiledModelEdgeRead, edgeCount)
-	all := make([]compiledAllTermRead, allCount)
-	rowOffset, edgeOffset, allOffset := 0, 0, 0
 	for i, model := range models {
-		var modelRows []compiledModelRowRead
-		if len(model.Rows) != 0 {
-			end := rowOffset + len(model.Rows)
-			modelRows = rows[rowOffset:end:end]
-			rowOffset = end
-		}
-		for j, row := range model.Rows {
-			var rowEdges []compiledModelEdgeRead
-			if len(row.Edges) != 0 {
-				end := edgeOffset + len(row.Edges)
-				rowEdges = edges[edgeOffset:end:end]
-				edgeOffset = end
-				for k, edge := range row.Edges {
-					rowEdges[k] = compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
-				}
-			}
-			modelRows[j] = compiledModelRowRead{
-				Edges: rowEdges,
-				index: dfaRowIndex{
-					nameToEdge:    maps.Clone(row.index.nameToEdge),
-					wildcardEdges: slices.Clone(row.index.wildcardEdges),
-				},
-				CountParticle: newCompiledParticleRead(row.CountParticle),
-				Min:           row.Min,
-				Max:           row.Max,
-				Accept:        row.Accept,
-				Counted:       row.Counted,
-				Unbounded:     row.Unbounded,
-			}
-		}
-		var modelAll []compiledAllTermRead
-		if len(model.All) != 0 {
-			end := allOffset + len(model.All)
-			modelAll = all[allOffset:end:end]
-			allOffset = end
-			for j, term := range model.All {
-				modelAll[j] = compiledAllTermRead{Particle: newCompiledParticleRead(term.Particle), Required: term.Required}
-			}
-		}
-		reads[i] = compiledModelRead{
-			Rows:      modelRows,
-			All:       modelAll,
-			Start:     model.Start,
-			AllBitLen: model.AllBitLen,
-			Kind:      model.Kind,
-			Empty:     model.Empty,
-		}
+		reads[i] = builder.readModel(model)
 	}
 	return reads, nil
+}
+
+type compiledModelReadBuilder struct {
+	rows       []compiledModelRowRead
+	edges      []compiledModelEdgeRead
+	all        []compiledAllTermRead
+	rowOffset  int
+	edgeOffset int
+	allOffset  int
+}
+
+func newCompiledModelReadBuilder(models []CompiledModel) compiledModelReadBuilder {
+	rowCount, edgeCount, allCount := compiledModelReadCounts(models)
+	return compiledModelReadBuilder{
+		rows:  make([]compiledModelRowRead, rowCount),
+		edges: make([]compiledModelEdgeRead, edgeCount),
+		all:   make([]compiledAllTermRead, allCount),
+	}
+}
+
+func (b *compiledModelReadBuilder) readModel(model CompiledModel) compiledModelRead {
+	return compiledModelRead{
+		Rows:      b.readRows(model.Rows),
+		All:       b.readAll(model.All),
+		Start:     model.Start,
+		AllBitLen: model.AllBitLen,
+		Kind:      model.Kind,
+		Empty:     model.Empty,
+	}
+}
+
+func (b *compiledModelReadBuilder) readRows(source []CompiledModelRow) []compiledModelRowRead {
+	if len(source) == 0 {
+		return nil
+	}
+	end := b.rowOffset + len(source)
+	rows := b.rows[b.rowOffset:end:end]
+	b.rowOffset = end
+	for i, row := range source {
+		rows[i] = b.readRow(row)
+	}
+	return rows
+}
+
+func (b *compiledModelReadBuilder) readRow(row CompiledModelRow) compiledModelRowRead {
+	return compiledModelRowRead{
+		Edges: b.readEdges(row.Edges),
+		index: dfaRowIndex{
+			nameToEdge:    maps.Clone(row.index.nameToEdge),
+			wildcardEdges: slices.Clone(row.index.wildcardEdges),
+		},
+		CountParticle: newCompiledParticleRead(row.CountParticle),
+		Min:           row.Min,
+		Max:           row.Max,
+		Accept:        row.Accept,
+		Counted:       row.Counted,
+		Unbounded:     row.Unbounded,
+	}
+}
+
+func (b *compiledModelReadBuilder) readEdges(source []CompiledModelEdge) []compiledModelEdgeRead {
+	if len(source) == 0 {
+		return nil
+	}
+	end := b.edgeOffset + len(source)
+	edges := b.edges[b.edgeOffset:end:end]
+	b.edgeOffset = end
+	for i, edge := range source {
+		edges[i] = compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
+	}
+	return edges
+}
+
+func (b *compiledModelReadBuilder) readAll(source []CompiledAllTerm) []compiledAllTermRead {
+	if len(source) == 0 {
+		return nil
+	}
+	end := b.allOffset + len(source)
+	all := b.all[b.allOffset:end:end]
+	b.allOffset = end
+	for i, term := range source {
+		all[i] = compiledAllTermRead{Particle: newCompiledParticleRead(term.Particle), Required: term.Required}
+	}
+	return all
 }
 
 func chargeCompiledModelProjectionWork(models []CompiledModel, work ContentModelWork) error {
@@ -266,30 +300,35 @@ func chargeCompiledModelProjectionWork(models []CompiledModel, work ContentModel
 		if err := spendContentModelWork(work); err != nil {
 			return err
 		}
-		for range model.All {
-			if err := spendContentModelWork(work); err != nil {
+		if err := spendContentModelWorkN(work, len(model.All)); err != nil {
+			return err
+		}
+		if err := chargeCompiledModelRows(model.Rows, work); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func chargeCompiledModelRows(rows []CompiledModelRow, work ContentModelWork) error {
+	for _, row := range rows {
+		if err := spendContentModelWork(work); err != nil {
+			return err
+		}
+		counts := [...]int{len(row.Edges), len(row.index.nameToEdge), len(row.index.wildcardEdges)}
+		for _, count := range counts {
+			if err := spendContentModelWorkN(work, count); err != nil {
 				return err
 			}
 		}
-		for _, row := range model.Rows {
-			if err := spendContentModelWork(work); err != nil {
-				return err
-			}
-			for range row.Edges {
-				if err := spendContentModelWork(work); err != nil {
-					return err
-				}
-			}
-			for range row.index.nameToEdge {
-				if err := spendContentModelWork(work); err != nil {
-					return err
-				}
-			}
-			for range row.index.wildcardEdges {
-				if err := spendContentModelWork(work); err != nil {
-					return err
-				}
-			}
+	}
+	return nil
+}
+
+func spendContentModelWorkN(work ContentModelWork, count int) error {
+	for range count {
+		if err := spendContentModelWork(work); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -344,18 +383,24 @@ func equalCompiledModelRowReadsForSource(reads []compiledModelRowRead, rows []Co
 		return false
 	}
 	for i, read := range reads {
-		row := rows[i]
-		if read.Min != row.Min || read.Max != row.Max || read.Accept != row.Accept ||
-			read.Counted != row.Counted || read.Unbounded != row.Unbounded ||
-			read.CountParticle != newCompiledParticleRead(row.CountParticle) ||
-			!equalDFARowIndex(read.index, row.index) || len(read.Edges) != len(row.Edges) {
+		if !equalCompiledModelRowReadForSource(read, rows[i]) {
 			return false
 		}
-		for j, edge := range read.Edges {
-			source := row.Edges[j]
-			if edge.To != source.To || edge.Particle != newCompiledParticleRead(source.Particle) {
-				return false
-			}
+	}
+	return true
+}
+
+func equalCompiledModelRowReadForSource(read compiledModelRowRead, row CompiledModelRow) bool {
+	if read.Min != row.Min || read.Max != row.Max || read.Accept != row.Accept ||
+		read.Counted != row.Counted || read.Unbounded != row.Unbounded ||
+		read.CountParticle != newCompiledParticleRead(row.CountParticle) ||
+		!equalDFARowIndex(read.index, row.index) || len(read.Edges) != len(row.Edges) {
+		return false
+	}
+	for i, edge := range read.Edges {
+		source := row.Edges[i]
+		if edge.To != source.To || edge.Particle != newCompiledParticleRead(source.Particle) {
+			return false
 		}
 	}
 	return true
@@ -487,12 +532,26 @@ func (rt *Schema) nextPublishedAllContent(st ContentState, model *compiledModelR
 }
 
 func completePublishedAllContent(model *compiledModelRead, scratch *ContentScratch) ContentCompletionStatus {
+	empty, missingRequired, valid := inspectPublishedAllContent(model, scratch)
+	if !valid {
+		return ContentCompletionInvalid
+	}
+	if empty && model.Empty {
+		return ContentCompletionComplete
+	}
+	if empty || missingRequired {
+		return ContentCompletionIncomplete
+	}
+	return ContentCompletionComplete
+}
+
+func inspectPublishedAllContent(model *compiledModelRead, scratch *ContentScratch) (bool, bool, bool) {
 	empty := true
 	missingRequired := false
 	for i, term := range model.All {
 		seen, valid := scratch.AllSeen(i)
 		if !valid {
-			return ContentCompletionInvalid
+			return false, false, false
 		}
 		if seen {
 			empty = false
@@ -502,13 +561,7 @@ func completePublishedAllContent(model *compiledModelRead, scratch *ContentScrat
 			missingRequired = true
 		}
 	}
-	if empty && model.Empty {
-		return ContentCompletionComplete
-	}
-	if empty || missingRequired {
-		return ContentCompletionIncomplete
-	}
-	return ContentCompletionComplete
+	return empty, missingRequired, true
 }
 
 func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
@@ -548,23 +601,10 @@ func completePublishedDFAContent(st ContentState, model *compiledModelRead) Cont
 }
 
 func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, idx dfaRowIndex, in ContentInput) (ContentTransition, ContentTransitionStatus) {
-	elemPos := -1
-	if in.Name.Known {
-		if pos, ok := idx.nameToEdge[in.Name.Name]; ok {
-			elemPos = int(pos)
-		}
-	}
-	wi := 0
+	candidates := newPublishedDFACandidates(idx, in)
 	for {
-		var pos int
-		switch {
-		case wi < len(idx.wildcardEdges) && (elemPos < 0 || int(idx.wildcardEdges[wi]) < elemPos):
-			pos = int(idx.wildcardEdges[wi])
-			wi++
-		case elemPos >= 0:
-			pos = elemPos
-			elemPos = -1
-		default:
+		pos, ok := candidates.next()
+		if !ok {
 			return ContentTransition{}, ContentTransitionNoMatch
 		}
 		edge := row.Edges[pos]
@@ -583,21 +623,41 @@ func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compile
 	}
 }
 
+type publishedDFACandidates struct {
+	wildcards []uint32
+	element   int
+	nextWild  int
+}
+
+func newPublishedDFACandidates(idx dfaRowIndex, in ContentInput) *publishedDFACandidates {
+	element := -1
+	if in.Name.Known {
+		if pos, ok := idx.nameToEdge[in.Name.Name]; ok {
+			element = int(pos)
+		}
+	}
+	return &publishedDFACandidates{wildcards: idx.wildcardEdges, element: element}
+}
+
+func (c *publishedDFACandidates) next() (int, bool) {
+	switch {
+	case c.nextWild < len(c.wildcards) && (c.element < 0 || int(c.wildcards[c.nextWild]) < c.element):
+		position := int(c.wildcards[c.nextWild])
+		c.nextWild++
+		return position, true
+	case c.element >= 0:
+		position := c.element
+		c.element = -1
+		return position, true
+	default:
+		return 0, false
+	}
+}
+
 func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in ContentInput) (ContentMatch, bool, bool) {
 	switch p.Kind {
 	case ParticleElement:
-		name, ok := rt.runtime.Elements.name(p.Element)
-		if !ok {
-			return NoContentMatch(), false, false
-		}
-		if in.Name.Known {
-			if name == in.Name.Name {
-				return ContentMatch{Element: p.Element}, true, true
-			}
-			if member, ok := rt.runtime.Substitutions.MemberByName(p.Element, in.Name.Name); ok {
-				return ContentMatch{Element: member}, true, true
-			}
-		}
+		return rt.matchPublishedElementParticle(p.Element, in)
 	case ParticleWildcard:
 		if !ValidWildcardID(p.Wildcard, len(rt.runtime.Wildcards)) {
 			return NoContentMatch(), false, false
@@ -606,6 +666,22 @@ func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in Conten
 		return match, matched, true
 	default:
 		return NoContentMatch(), false, false
+	}
+}
+
+func (rt *Schema) matchPublishedElementParticle(element ElementID, in ContentInput) (ContentMatch, bool, bool) {
+	name, ok := rt.runtime.Elements.name(element)
+	if !ok {
+		return NoContentMatch(), false, false
+	}
+	if !in.Name.Known {
+		return NoContentMatch(), false, true
+	}
+	if name == in.Name.Name {
+		return ContentMatch{Element: element}, true, true
+	}
+	if member, ok := rt.runtime.Substitutions.MemberByName(element, in.Name.Name); ok {
+		return ContentMatch{Element: member}, true, true
 	}
 	return NoContentMatch(), false, true
 }
@@ -616,49 +692,74 @@ func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput
 	}
 	switch w.Process() {
 	case ProcessStrict:
-		if in.Name.Known {
-			if id, ok := rt.runtime.GlobalElements[in.Name.Name]; ok {
-				return ContentMatch{Element: id}, true
-			}
-		}
-		if in.HasXSIType {
-			return NoContentMatch(), true
-		}
-		return ContentMatch{Element: NoElement, StrictMissing: true}, true
+		return rt.matchPublishedStrictWildcard(in)
 	case ProcessSkip:
 		return ContentMatch{Element: NoElement, Skip: true}, true
 	case ProcessLax:
-		if in.Name.Known {
-			if id, ok := rt.runtime.GlobalElements[in.Name.Name]; ok {
-				return ContentMatch{Element: id}, true
-			}
+		if match, ok := rt.matchPublishedGlobalElement(in); ok {
+			return match, true
 		}
 	}
 	return NoContentMatch(), true
+}
+
+func (rt *Schema) matchPublishedStrictWildcard(in ContentInput) (ContentMatch, bool) {
+	if match, ok := rt.matchPublishedGlobalElement(in); ok {
+		return match, true
+	}
+	if in.HasXSIType {
+		return NoContentMatch(), true
+	}
+	return ContentMatch{Element: NoElement, StrictMissing: true}, true
+}
+
+func (rt *Schema) matchPublishedGlobalElement(in ContentInput) (ContentMatch, bool) {
+	if !in.Name.Known {
+		return NoContentMatch(), false
+	}
+	id, ok := rt.runtime.GlobalElements[in.Name.Name]
+	return ContentMatch{Element: id}, ok
 }
 
 func nextPublishedDFAState(st ContentState, model *compiledModelRead, edge compiledModelEdgeRead) (ContentState, bool) {
 	to := edge.To
 	from := &model.Rows[st.state]
 	next := &model.Rows[to]
-	count := uint32(0)
+	var count uint32
+	var ok bool
 	if from.Counted && to == st.state && sameCompiledParticleRead(edge.Particle, from.CountParticle) {
-		if !from.Unbounded && st.count >= from.Max {
-			return ContentState{}, false
-		}
-		count = st.count
-		if count != math.MaxUint32 {
-			count++
-		}
+		count, ok = nextPublishedDFASelfCount(st.count, from)
 	} else {
-		if from.Counted && st.count < from.Min {
-			return ContentState{}, false
-		}
-		if next.Counted && sameCompiledParticleRead(edge.Particle, next.CountParticle) {
-			count = 1
-		}
+		count, ok = nextPublishedDFATransitionCount(st.count, from, next, edge.Particle)
+	}
+	if !ok {
+		return ContentState{}, false
 	}
 	st.state = to
 	st.count = count
 	return st, true
+}
+
+func nextPublishedDFASelfCount(count uint32, row *compiledModelRowRead) (uint32, bool) {
+	if !row.Unbounded && count >= row.Max {
+		return 0, false
+	}
+	if count != math.MaxUint32 {
+		count++
+	}
+	return count, true
+}
+
+func nextPublishedDFATransitionCount(
+	count uint32,
+	from, next *compiledModelRowRead,
+	particle compiledParticleRead,
+) (uint32, bool) {
+	if from.Counted && count < from.Min {
+		return 0, false
+	}
+	if next.Counted && sameCompiledParticleRead(particle, next.CountParticle) {
+		return 1, true
+	}
+	return 0, true
 }

@@ -408,49 +408,51 @@ type IdentityFieldPath struct {
 // BuildIdentityFieldLookup partitions identity fields by element, exact
 // attribute, and wildcard attribute lookup.
 func BuildIdentityFieldLookup(fields []IdentityField) ([]CompiledIdentityField, map[QName][]CompiledIdentityField, []CompiledIdentityField) {
-	var elementFields []CompiledIdentityField
-	var attrFields map[QName][]CompiledIdentityField
-	var attrWildcardFields []CompiledIdentityField
+	var lookup identityFieldLookup
 	for fieldIndex := range fields {
-		var elementPaths []IdentityFieldPath
-		var wildcardAttrPaths []IdentityFieldPath
-		var exactAttrPaths map[QName][]IdentityFieldPath
-		for _, path := range fields[fieldIndex].Paths {
-			path = cloneIdentityFieldPath(path)
-			if !path.Attr {
-				elementPaths = append(elementPaths, path)
-				continue
-			}
-			if path.AttrWildcard {
-				wildcardAttrPaths = append(wildcardAttrPaths, path)
-				continue
-			}
-			if exactAttrPaths == nil {
-				exactAttrPaths = make(map[QName][]IdentityFieldPath)
-			}
-			exactAttrPaths[path.Attribute] = append(exactAttrPaths[path.Attribute], path)
+		lookup.add(fieldIndex, fields[fieldIndex])
+	}
+	return lookup.elements, lookup.attributes, lookup.wildcardAttributes
+}
+
+type identityFieldLookup struct {
+	elements           []CompiledIdentityField
+	attributes         map[QName][]CompiledIdentityField
+	wildcardAttributes []CompiledIdentityField
+}
+
+func (l *identityFieldLookup) add(fieldIndex int, field IdentityField) {
+	elementPaths, wildcardPaths, exactPaths := partitionIdentityFieldPaths(field.Paths)
+	if len(elementPaths) != 0 {
+		l.elements = append(l.elements, CompiledIdentityField{Field: fieldIndex, Paths: elementPaths})
+	}
+	if len(wildcardPaths) != 0 {
+		l.wildcardAttributes = append(l.wildcardAttributes, CompiledIdentityField{Field: fieldIndex, Paths: wildcardPaths})
+	}
+	for name, paths := range exactPaths {
+		if l.attributes == nil {
+			l.attributes = make(map[QName][]CompiledIdentityField)
 		}
-		if len(elementPaths) != 0 {
-			elementFields = append(elementFields, CompiledIdentityField{
-				Field: fieldIndex,
-				Paths: elementPaths,
-			})
-		}
-		if len(wildcardAttrPaths) != 0 {
-			attrWildcardFields = append(attrWildcardFields, CompiledIdentityField{
-				Field: fieldIndex,
-				Paths: wildcardAttrPaths,
-			})
-		}
-		for name, paths := range exactAttrPaths {
-			if attrFields == nil {
-				attrFields = make(map[QName][]CompiledIdentityField)
+		l.attributes[name] = append(l.attributes[name], CompiledIdentityField{Field: fieldIndex, Paths: paths})
+	}
+}
+
+func partitionIdentityFieldPaths(paths []IdentityFieldPath) ([]IdentityFieldPath, []IdentityFieldPath, map[QName][]IdentityFieldPath) {
+	var elements, wildcards []IdentityFieldPath
+	var exact map[QName][]IdentityFieldPath
+	for _, path := range paths {
+		path = cloneIdentityFieldPath(path)
+		switch {
+		case !path.Attr:
+			elements = append(elements, path)
+		case path.AttrWildcard:
+			wildcards = append(wildcards, path)
+		default:
+			if exact == nil {
+				exact = make(map[QName][]IdentityFieldPath)
 			}
-			attrFields[name] = append(attrFields[name], CompiledIdentityField{
-				Field: fieldIndex,
-				Paths: paths,
-			})
+			exact[path.Attribute] = append(exact[path.Attribute], path)
 		}
 	}
-	return elementFields, attrFields, attrWildcardFields
+	return elements, wildcards, exact
 }

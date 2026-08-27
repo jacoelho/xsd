@@ -72,30 +72,38 @@ func NewWildcardView(names *NameTable, wildcard *Wildcard) WildcardView {
 	case WildcardAny, WildcardLocal:
 		return view
 	case WildcardOther:
-		if names == nil || !names.ValidNamespaceID(wildcard.OtherThan) {
-			view.valid = false
-			return view
-		}
-		view.otherThan = names.Namespace(wildcard.OtherThan)
-		return view
+		return newOtherWildcardView(view, names, wildcard.OtherThan)
 	case WildcardTargetNamespace, WildcardList:
-		if names == nil {
-			view.valid = false
-			return view
-		}
-		view.namespaces = make([]string, len(wildcard.Namespaces))
-		for i, ns := range wildcard.Namespaces {
-			if !names.ValidNamespaceID(ns) {
-				view.valid = false
-				return view
-			}
-			view.namespaces[i] = names.Namespace(ns)
-		}
-		return view
+		return newFiniteWildcardView(view, names, wildcard.Namespaces)
 	default:
 		view.valid = false
 		return view
 	}
+}
+
+func newOtherWildcardView(view WildcardView, names *NameTable, otherThan NamespaceID) WildcardView {
+	if names == nil || !names.ValidNamespaceID(otherThan) {
+		view.valid = false
+		return view
+	}
+	view.otherThan = names.Namespace(otherThan)
+	return view
+}
+
+func newFiniteWildcardView(view WildcardView, names *NameTable, namespaces []NamespaceID) WildcardView {
+	if names == nil {
+		view.valid = false
+		return view
+	}
+	view.namespaces = make([]string, len(namespaces))
+	for i, ns := range namespaces {
+		if !names.ValidNamespaceID(ns) {
+			view.valid = false
+			return view
+		}
+		view.namespaces[i] = names.Namespace(ns)
+	}
+	return view
 }
 
 // NewWildcardViews returns read-only validation views over wildcards.
@@ -192,33 +200,63 @@ func ValidateWildcard(names *NameTable, w Wildcard) error {
 	if names == nil {
 		return errors.New("wildcard requires name table")
 	}
-	switch w.Process {
-	case ProcessStrict, ProcessLax, ProcessSkip:
-	default:
+	if !validProcessContents(w.Process) {
 		return errors.New("wildcard has invalid process contents")
 	}
+	return validateWildcardNamespaceShape(names, w)
+}
+
+func validProcessContents(process ProcessContents) bool {
+	switch process {
+	case ProcessStrict, ProcessLax, ProcessSkip:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateWildcardNamespaceShape(names *NameTable, w Wildcard) error {
 	switch w.Mode {
 	case WildcardAny, WildcardLocal:
-		if len(w.Namespaces) != 0 || w.OtherThan != EmptyNamespaceID {
-			return errors.New("wildcard stores inactive namespace fields")
-		}
+		return validateInactiveWildcardNamespaces(w)
 	case WildcardOther:
-		if len(w.Namespaces) != 0 || !names.ValidNamespaceID(w.OtherThan) {
-			return errors.New("wildcard other namespace is invalid")
-		}
+		return validateOtherWildcardNamespace(names, w)
 	case WildcardTargetNamespace:
-		if len(w.Namespaces) != 1 || w.OtherThan != EmptyNamespaceID || !names.ValidNamespaceID(w.Namespaces[0]) {
-			return errors.New("targetNamespace wildcard has invalid namespace")
-		}
+		return validateTargetWildcardNamespace(names, w)
 	case WildcardList:
-		if w.OtherThan != EmptyNamespaceID {
-			return errors.New("namespace list wildcard stores inactive other namespace")
-		}
-		if !validWildcardNamespaceList(names, w.Namespaces) {
-			return errors.New("namespace list wildcard is invalid")
-		}
+		return validateListWildcardNamespaces(names, w)
 	default:
 		return errors.New("wildcard has invalid mode")
+	}
+}
+
+func validateInactiveWildcardNamespaces(w Wildcard) error {
+	if len(w.Namespaces) != 0 || w.OtherThan != EmptyNamespaceID {
+		return errors.New("wildcard stores inactive namespace fields")
+	}
+	return nil
+}
+
+func validateOtherWildcardNamespace(names *NameTable, w Wildcard) error {
+	if len(w.Namespaces) != 0 || !names.ValidNamespaceID(w.OtherThan) {
+		return errors.New("wildcard other namespace is invalid")
+	}
+	return nil
+}
+
+func validateTargetWildcardNamespace(names *NameTable, w Wildcard) error {
+	if len(w.Namespaces) != 1 || w.OtherThan != EmptyNamespaceID || !names.ValidNamespaceID(w.Namespaces[0]) {
+		return errors.New("targetNamespace wildcard has invalid namespace")
+	}
+	return nil
+}
+
+func validateListWildcardNamespaces(names *NameTable, w Wildcard) error {
+	if w.OtherThan != EmptyNamespaceID {
+		return errors.New("namespace list wildcard stores inactive other namespace")
+	}
+	if !validWildcardNamespaceList(names, w.Namespaces) {
+		return errors.New("namespace list wildcard is invalid")
 	}
 	return nil
 }
@@ -299,10 +337,7 @@ func WildcardSubset(derived, base Wildcard) bool {
 
 // WildcardsOverlap reports whether two wildcards can admit the same namespace.
 func WildcardsOverlap(a, b Wildcard) bool {
-	if a.Mode == WildcardAny || b.Mode == WildcardAny {
-		return true
-	}
-	if a.Mode == WildcardOther && b.Mode == WildcardOther {
+	if wildcardsAlwaysOverlap(a, b) {
 		return true
 	}
 	if a.Mode == WildcardOther {
@@ -311,15 +346,28 @@ func WildcardsOverlap(a, b Wildcard) bool {
 	if b.Mode == WildcardOther {
 		return wildcardHasNamespaceOtherThan(a, b.OtherThan)
 	}
-	if a.Mode == WildcardLocal && b.Mode == WildcardLocal {
-		return true
+	if overlap, handled := localWildcardOverlap(a, b); handled {
+		return overlap
 	}
+	return finiteWildcardsOverlap(a, b)
+}
+
+func wildcardsAlwaysOverlap(a, b Wildcard) bool {
+	return a.Mode == WildcardAny || b.Mode == WildcardAny ||
+		a.Mode == WildcardOther && b.Mode == WildcardOther
+}
+
+func localWildcardOverlap(a, b Wildcard) (bool, bool) {
 	if a.Mode == WildcardLocal {
-		return WildcardAllowsNamespace(b, EmptyNamespaceID)
+		return WildcardAllowsNamespace(b, EmptyNamespaceID), true
 	}
 	if b.Mode == WildcardLocal {
-		return WildcardAllowsNamespace(a, EmptyNamespaceID)
+		return WildcardAllowsNamespace(a, EmptyNamespaceID), true
 	}
+	return false, false
+}
+
+func finiteWildcardsOverlap(a, b Wildcard) bool {
 	for _, ns := range wildcardNamespaces(a) {
 		if WildcardAllowsNamespace(b, ns) {
 			return true
@@ -370,18 +418,26 @@ func IntersectWildcard(wa, wb Wildcard, process ProcessContents) (Wildcard, erro
 		return out, nil
 	}
 	if wa.Mode == WildcardOther && wb.Mode == WildcardOther {
-		if wa.OtherThan == EmptyNamespaceID {
-			out := CloneWildcard(wb)
-			out.Process = process
-			return out, nil
-		}
-		if wb.OtherThan == EmptyNamespaceID {
-			out := CloneWildcard(wa)
-			out.Process = process
-			return out, nil
-		}
-		return Wildcard{}, errors.New("attribute wildcard intersection is not expressible")
+		return intersectOtherWildcards(wa, wb, process)
 	}
+	return intersectFiniteWildcards(wa, wb, process), nil
+}
+
+func intersectOtherWildcards(wa, wb Wildcard, process ProcessContents) (Wildcard, error) {
+	if wa.OtherThan == EmptyNamespaceID {
+		out := CloneWildcard(wb)
+		out.Process = process
+		return out, nil
+	}
+	if wb.OtherThan == EmptyNamespaceID {
+		out := CloneWildcard(wa)
+		out.Process = process
+		return out, nil
+	}
+	return Wildcard{}, errors.New("attribute wildcard intersection is not expressible")
+}
+
+func intersectFiniteWildcards(wa, wb Wildcard, process ProcessContents) Wildcard {
 	candidates := append(wildcardFiniteNamespaces(wa), wildcardFiniteNamespaces(wb)...)
 	candidates = NormalizeNamespaceList(candidates)
 	var namespaces []NamespaceID
@@ -390,7 +446,7 @@ func IntersectWildcard(wa, wb Wildcard, process ProcessContents) (Wildcard, erro
 			namespaces = append(namespaces, ns)
 		}
 	}
-	return Wildcard{Mode: WildcardList, Namespaces: namespaces, Process: process}, nil
+	return Wildcard{Mode: WildcardList, Namespaces: namespaces, Process: process}
 }
 
 func unionOtherWithFinite(other, finite Wildcard, process ProcessContents) (Wildcard, error) {

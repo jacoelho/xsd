@@ -27,39 +27,52 @@ type OccurrenceAttrs struct {
 // ParseOccurrence parses minOccurs/maxOccurs and applies compile-time finite
 // occurrence limits.
 func ParseOccurrence(attrs OccurrenceAttrs, limits Limits) (runtime.Occurrence, error) {
-	minOccurs := uint32(1)
-	minDigits := "1"
-	if attrs.HasMinOccurs {
-		digits, err := parseOccurrenceDigits(attrs.MinOccurs)
-		if err != nil {
-			return runtime.Occurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid minOccurs "+attrs.MinOccurs)
-		}
-		minDigits = digits
-		if occurrenceUint32LimitExceeded(digits) {
-			return runtime.Occurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "minOccurs exceeds uint32 limit")
-		}
-		minOccurs = occurrenceUint32(digits)
+	minOccurs, minDigits, err := parseMinOccurrence(attrs)
+	if err != nil {
+		return runtime.Occurrence{}, err
 	}
-	maxOccurs := uint32(1)
-	maxDigits := "1"
-	if attrs.HasMaxOccurs {
-		if lex.TrimXMLWhitespaceString(attrs.MaxOccurs) == occurrenceUnboundedLexical {
-			return runtime.Occurrence{Min: minOccurs, Unbounded: true}, nil
-		}
-		digits, err := parseOccurrenceDigits(attrs.MaxOccurs)
-		if err != nil {
-			return runtime.Occurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid maxOccurs "+attrs.MaxOccurs)
-		}
-		if maxOccursLimitExceeded(digits, limits.MaxFiniteOccurs) {
-			return runtime.Occurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, maxOccursLimitMessage(limits.MaxFiniteOccurs))
-		}
-		maxDigits = digits
-		maxOccurs = occurrenceUint32(digits)
+	maxOccurs, maxDigits, unbounded, err := parseMaxOccurrence(attrs, limits.MaxFiniteOccurs)
+	if err != nil {
+		return runtime.Occurrence{}, err
+	}
+	if unbounded {
+		return runtime.Occurrence{Min: minOccurs, Unbounded: true}, nil
 	}
 	if compareUnsignedDecimalText(maxDigits, minDigits) < 0 {
 		return runtime.Occurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "maxOccurs is less than minOccurs")
 	}
 	return runtime.Occurrence{Min: minOccurs, Max: maxOccurs}, nil
+}
+
+func parseMinOccurrence(attrs OccurrenceAttrs) (uint32, string, error) {
+	if !attrs.HasMinOccurs {
+		return 1, "1", nil
+	}
+	digits, err := parseOccurrenceDigits(attrs.MinOccurs)
+	if err != nil {
+		return 0, "", xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid minOccurs "+attrs.MinOccurs)
+	}
+	if occurrenceUint32LimitExceeded(digits) {
+		return 0, "", xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "minOccurs exceeds uint32 limit")
+	}
+	return occurrenceUint32(digits), digits, nil
+}
+
+func parseMaxOccurrence(attrs OccurrenceAttrs, limit uint64) (uint32, string, bool, error) {
+	if !attrs.HasMaxOccurs {
+		return 1, "1", false, nil
+	}
+	if lex.TrimXMLWhitespaceString(attrs.MaxOccurs) == occurrenceUnboundedLexical {
+		return 0, "", true, nil
+	}
+	digits, err := parseOccurrenceDigits(attrs.MaxOccurs)
+	if err != nil {
+		return 0, "", false, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid maxOccurs "+attrs.MaxOccurs)
+	}
+	if maxOccursLimitExceeded(digits, limit) {
+		return 0, "", false, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, maxOccursLimitMessage(limit))
+	}
+	return occurrenceUint32(digits), digits, false, nil
 }
 
 // ValidateAllModelOccurrence validates xs:all model group occurrence admission.

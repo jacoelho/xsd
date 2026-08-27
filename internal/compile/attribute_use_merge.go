@@ -61,21 +61,29 @@ func NewAttributeUseMerger(
 // Add merges use and returns the concrete storage operation callers must apply.
 func (m *AttributeUseMerger) Add(rt AttributeUseMergeRuntime, uses []runtime.AttributeUse, use runtime.AttributeUse) (AttributeUseMergeResult, error) {
 	if i, ok := m.seen[use.Name]; ok {
-		if i >= len(uses) {
-			return AttributeUseMergeResult{}, xsderrors.InternalInvariant("attribute use merger index outside concrete use set")
-		}
-		if m.mode != AttributeMergeRestriction && !uses[i].Prohibited && !use.Prohibited {
-			return AttributeUseMergeResult{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
-		}
-		if m.mode == AttributeMergeRestriction {
-			base := runtime.NewAttributeUseRestrictionValidationForUse(uses[i])
-			derived := runtime.NewAttributeUseRestrictionValidationForUse(use)
-			if err := runtime.ValidateAttributeUseRestriction(rt, base, derived); err != nil {
-				return AttributeUseMergeResult{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
-			}
-		}
-		return AttributeUseMergeResult{Index: i}, nil
+		return m.replace(rt, uses, use, i)
 	}
+	return m.append(rt, uses, use)
+}
+
+func (m *AttributeUseMerger) replace(rt AttributeUseMergeRuntime, uses []runtime.AttributeUse, use runtime.AttributeUse, index int) (AttributeUseMergeResult, error) {
+	if index >= len(uses) {
+		return AttributeUseMergeResult{}, xsderrors.InternalInvariant("attribute use merger index outside concrete use set")
+	}
+	if m.mode != AttributeMergeRestriction && !uses[index].Prohibited && !use.Prohibited {
+		return AttributeUseMergeResult{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
+	}
+	if m.mode == AttributeMergeRestriction {
+		base := runtime.NewAttributeUseRestrictionValidationForUse(uses[index])
+		derived := runtime.NewAttributeUseRestrictionValidationForUse(use)
+		if err := runtime.ValidateAttributeUseRestriction(rt, base, derived); err != nil {
+			return AttributeUseMergeResult{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
+		}
+	}
+	return AttributeUseMergeResult{Index: index}, nil
+}
+
+func (m *AttributeUseMerger) append(rt AttributeUseMergeRuntime, uses []runtime.AttributeUse, use runtime.AttributeUse) (AttributeUseMergeResult, error) {
 	if m.mode == AttributeMergeRestriction && !use.Prohibited {
 		if !m.inheritedWildcardAllows(rt, use.Name) {
 			return AttributeUseMergeResult{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "new restricted attribute is not allowed by base wildcard")

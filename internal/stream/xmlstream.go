@@ -194,71 +194,80 @@ func (p *Parser) Detach() {
 func (p *Parser) Next() (Token, error) {
 	clear(p.attrs)
 	p.attrs = p.attrs[:0]
-	if p.inCDATA {
-		p.retainedBytes = 0
-		return p.readCDATAChunk(0, 0)
-	}
-	if p.pendingEnd.Name.Local != "" {
-		end := p.pendingEnd
-		p.pendingEnd = EndElement{}
-		line, col := p.br.pos()
-		return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
+	if tok, ready, err := p.pendingToken(); ready {
+		return tok, err
 	}
 	for {
-		p.retainedBytes = 0
-		b, err := p.br.readByte()
-		if err != nil {
-			return Token{}, err
-		}
-		if b != '<' {
-			p.atStart = false
-			return p.readCharData(b)
-		}
-		line, col := p.br.pos()
-		next, err := p.br.readByte()
-		if err != nil {
-			return Token{}, p.syntaxError("unexpected EOF after <", err)
-		}
-		switch next {
-		case '/':
-			end, err := p.readEndElement()
-			if err != nil {
-				return Token{}, err
-			}
-			p.atStart = false
-			return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
-		case '!':
-			tok, skip, err := p.readMarkup(line, col)
-			if err != nil {
-				return Token{}, err
-			}
-			p.atStart = false
-			if skip {
-				continue
-			}
-			return tok, nil
-		case '?':
-			tok, skip, err := p.readPI(p.atStart, line, col)
-			if err != nil {
-				return Token{}, err
-			}
-			p.atStart = false
-			if skip {
-				continue
-			}
-			return tok, nil
-		default:
-			start, selfClosing, err := p.readStartElement(next)
-			if err != nil {
-				return Token{}, err
-			}
-			p.atStart = false
-			if selfClosing {
-				p.pendingEnd = EndElement{Name: start.Name}
-			}
-			return Token{Kind: KindStart, Start: start, Line: line, Column: col}, nil
+		tok, skip, err := p.readNextToken()
+		if err != nil || !skip {
+			return tok, err
 		}
 	}
+}
+
+func (p *Parser) pendingToken() (Token, bool, error) {
+	if p.inCDATA {
+		p.retainedBytes = 0
+		tok, err := p.readCDATAChunk(0, 0)
+		return tok, true, err
+	}
+	if p.pendingEnd.Name.Local == "" {
+		return Token{}, false, nil
+	}
+	end := p.pendingEnd
+	p.pendingEnd = EndElement{}
+	line, col := p.br.pos()
+	return Token{Kind: KindEnd, End: end, Line: line, Column: col}, true, nil
+}
+
+func (p *Parser) readNextToken() (Token, bool, error) {
+	p.retainedBytes = 0
+	b, err := p.br.readByte()
+	if err != nil {
+		return Token{}, false, err
+	}
+	if b != '<' {
+		p.atStart = false
+		tok, charErr := p.readCharData(b)
+		return tok, false, charErr
+	}
+	line, col := p.br.pos()
+	next, err := p.br.readByte()
+	if err != nil {
+		return Token{}, false, p.syntaxError("unexpected EOF after <", err)
+	}
+	return p.readMarkupToken(next, line, col)
+}
+
+func (p *Parser) readMarkupToken(next byte, line, col int) (Token, bool, error) {
+	atDocumentStart := p.atStart
+	p.atStart = false
+	switch next {
+	case '/':
+		return p.readEndToken(line, col)
+	case '!':
+		return p.readMarkup(line, col)
+	case '?':
+		return p.readPI(atDocumentStart, line, col)
+	default:
+		return p.readStartToken(next, line, col)
+	}
+}
+
+func (p *Parser) readEndToken(line, col int) (Token, bool, error) {
+	end, err := p.readEndElement()
+	return Token{Kind: KindEnd, End: end, Line: line, Column: col}, false, err
+}
+
+func (p *Parser) readStartToken(first byte, line, col int) (Token, bool, error) {
+	start, selfClosing, err := p.readStartElement(first)
+	if err != nil {
+		return Token{}, false, err
+	}
+	if selfClosing {
+		p.pendingEnd = EndElement{Name: start.Name}
+	}
+	return Token{Kind: KindStart, Start: start, Line: line, Column: col}, false, nil
 }
 
 // Pos returns the current parser line and byte column.
@@ -297,16 +306,7 @@ func IsOnlyEOF(err error) bool {
 		return true
 	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		causes := joined.Unwrap()
-		if len(causes) == 0 {
-			return false
-		}
-		for _, cause := range causes {
-			if !IsOnlyEOF(cause) {
-				return false
-			}
-		}
-		return true
+		return joinedErrorsAreOnlyEOF(joined.Unwrap())
 	}
 	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
 		return IsOnlyEOF(wrapped.Unwrap())
@@ -314,87 +314,110 @@ func IsOnlyEOF(err error) bool {
 	return false
 }
 
+func joinedErrorsAreOnlyEOF(causes []error) bool {
+	if len(causes) == 0 {
+		return false
+	}
+	for _, cause := range causes {
+		if !IsOnlyEOF(cause) {
+			return false
+		}
+	}
+	return true
+}
+
 func (p *Parser) readCharData(first byte) (Token, error) {
 	line, col := p.br.pos()
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
-	switch first {
-	case '&':
-		if err := p.readEntity(&p.textBuf); err != nil {
-			return Token{}, err
-		}
-	case '\r':
-		if err := p.consumeLineFeed(); err != nil {
-			return Token{}, err
-		}
-		if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
-			return Token{}, err
-		}
-	default:
-		cdataEnd = advanceCDataEnd(cdataEnd, first)
-		if cdataEnd == len(cdataEndTerm) {
-			return Token{}, fmt.Errorf("]]> cannot appear in character data")
-		}
-		if err := p.appendXMLRune(&p.textBuf, first); err != nil {
-			return Token{}, err
-		}
+	if err := p.appendCharDataByte(first, &cdataEnd); err != nil {
+		return Token{}, err
 	}
 	for {
-		chunk, err := p.br.buffered()
-		if IsOnlyEOF(err) {
-			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
-		}
-		if err != nil {
-			return Token{}, err
-		}
-		n, nextCDataEnd, err := scanCharDataChunk(chunk, cdataEnd)
-		if err != nil {
-			return Token{}, err
-		}
-		if n > 0 {
-			if appendErr := p.appendTokenBytes(&p.textBuf, chunk[:n]); appendErr != nil {
-				return Token{}, appendErr
-			}
-			p.br.consumeBuffered(n)
-			cdataEnd = nextCDataEnd
-			continue
-		}
-		b, err := p.br.readByte()
-		if err != nil {
-			return Token{}, err
-		}
-		if b == '<' {
-			p.br.unreadByte()
-			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
-		}
-		if b == '\r' {
-			if err := p.consumeLineFeed(); err != nil {
-				return Token{}, err
-			}
-			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
-				return Token{}, err
-			}
-			cdataEnd = 0
-			continue
-		}
-		if b == '&' {
-			if err := p.readEntity(&p.textBuf); err != nil {
-				return Token{}, err
-			}
-			cdataEnd = 0
-			continue
-		}
-		cdataEnd = advanceCDataEnd(cdataEnd, b)
-		if cdataEnd == len(cdataEndTerm) {
-			return Token{}, fmt.Errorf("]]> cannot appear in character data")
-		}
-		if err := p.appendXMLRune(&p.textBuf, b); err != nil {
-			return Token{}, err
+		done, err := p.readCharDataStep(&cdataEnd)
+		if err != nil || done {
+			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, err
 		}
 	}
 }
 
+func (p *Parser) readCharDataStep(cdataEnd *int) (bool, error) {
+	progressed, eof, err := p.appendBufferedCharData(cdataEnd)
+	if err != nil || eof {
+		return eof, err
+	}
+	if progressed {
+		return false, nil
+	}
+	b, err := p.br.readByte()
+	if err != nil {
+		return false, err
+	}
+	if b == '<' {
+		p.br.unreadByte()
+		return true, nil
+	}
+	return false, p.appendCharDataByte(b, cdataEnd)
+}
+
+func (p *Parser) appendBufferedCharData(cdataEnd *int) (bool, bool, error) {
+	chunk, err := p.br.buffered()
+	if IsOnlyEOF(err) {
+		return false, true, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	n, nextCDataEnd, err := scanCharDataChunk(chunk, *cdataEnd)
+	if err != nil || n == 0 {
+		return false, false, err
+	}
+	if err := p.appendTokenBytes(&p.textBuf, chunk[:n]); err != nil {
+		return false, false, err
+	}
+	p.br.consumeBuffered(n)
+	*cdataEnd = nextCDataEnd
+	return true, false, nil
+}
+
+func (p *Parser) appendCharDataByte(b byte, cdataEnd *int) error {
+	switch b {
+	case '&':
+		*cdataEnd = 0
+		return p.readEntity(&p.textBuf)
+	case '\r':
+		*cdataEnd = 0
+		return p.appendNormalizedLineFeed(&p.textBuf)
+	default:
+		*cdataEnd = advanceCDataEnd(*cdataEnd, b)
+		if *cdataEnd == len(cdataEndTerm) {
+			return fmt.Errorf("]]> cannot appear in character data")
+		}
+		return p.appendXMLRune(&p.textBuf, b)
+	}
+}
+
+func (p *Parser) appendNormalizedLineFeed(dst *[]byte) error {
+	if err := p.consumeLineFeed(); err != nil {
+		return err
+	}
+	return p.appendTokenByte(dst, '\n')
+}
+
 func scanCharDataChunk(data []byte, cdataEnd int) (int, int, error) {
+	i := scanFastCharData(data, cdataEnd)
+	for i < len(data) {
+		size, next, stop, err := scanCharDataUnit(data[i:], cdataEnd)
+		if err != nil || stop {
+			return i, next, err
+		}
+		i += size
+		cdataEnd = next
+	}
+	return len(data), cdataEnd, nil
+}
+
+func scanFastCharData(data []byte, cdataEnd int) int {
 	i := 0
 	for cdataEnd == 0 && len(data)-i >= 8 {
 		x := binary.LittleEndian.Uint64(data[i:])
@@ -407,44 +430,45 @@ func scanCharDataChunk(data []byte, cdataEnd int) (int, int, error) {
 		}
 		i += 8
 	}
-	for i < len(data) {
-		b := data[i]
-		if b >= 0x20 && b < utf8.RuneSelf {
-			if b == '<' || b == '&' {
-				return i, cdataEnd, nil
-			}
-			cdataEnd = advanceCDataEnd(cdataEnd, b)
-			if cdataEnd == len(cdataEndTerm) {
-				return i, cdataEnd, fmt.Errorf("]]> cannot appear in character data")
-			}
-			i++
-			continue
-		}
-		if b == '\n' || b == '\r' {
-			return i, cdataEnd, nil
-		}
-		if b == '\t' {
-			cdataEnd = 0
-			i++
-			continue
-		}
-		if b < utf8.RuneSelf {
-			return i, cdataEnd, fmt.Errorf("invalid XML character")
-		}
-		if !utf8.FullRune(data[i:]) {
-			return i, cdataEnd, nil
-		}
-		r, size := utf8.DecodeRune(data[i:])
-		if r == utf8.RuneError && size == 1 {
-			return i, cdataEnd, fmt.Errorf("invalid UTF-8")
-		}
-		if !lex.IsXMLChar(r) {
-			return i, cdataEnd, fmt.Errorf("invalid XML character")
-		}
-		cdataEnd = 0
-		i += size
+	return i
+}
+
+func scanCharDataUnit(data []byte, cdataEnd int) (int, int, bool, error) {
+	if data[0] < utf8.RuneSelf {
+		return scanASCIICharDataByte(data[0], cdataEnd)
 	}
-	return len(data), cdataEnd, nil
+	return scanUTF8CharData(data)
+}
+
+func scanASCIICharDataByte(b byte, cdataEnd int) (int, int, bool, error) {
+	switch {
+	case b == '<' || b == '&' || b == '\n' || b == '\r':
+		return 0, cdataEnd, true, nil
+	case b == '\t':
+		return 1, 0, false, nil
+	case b < 0x20:
+		return 0, cdataEnd, false, fmt.Errorf("invalid XML character")
+	default:
+		next := advanceCDataEnd(cdataEnd, b)
+		if next == len(cdataEndTerm) {
+			return 0, next, false, fmt.Errorf("]]> cannot appear in character data")
+		}
+		return 1, next, false, nil
+	}
+}
+
+func scanUTF8CharData(data []byte) (int, int, bool, error) {
+	if !utf8.FullRune(data) {
+		return 0, 0, true, nil
+	}
+	r, size := utf8.DecodeRune(data)
+	if r == utf8.RuneError && size == 1 {
+		return 0, 0, false, fmt.Errorf("invalid UTF-8")
+	}
+	if !lex.IsXMLChar(r) {
+		return 0, 0, false, fmt.Errorf("invalid XML character")
+	}
+	return size, 0, false, nil
 }
 
 const cdataEndTerm = "]]>"
@@ -501,53 +525,66 @@ func (p *Parser) readMarkup(line, col int) (Token, bool, error) {
 	}
 	switch b {
 	case '-':
+		return p.readCommentMarkup(line, col)
+	case '[':
+		return p.readCDATAMarkup(line, col)
+	default:
+		return p.readDirectiveMarkup(b, line, col)
+	}
+}
+
+func (p *Parser) readCommentMarkup(line, col int) (Token, bool, error) {
+	next, err := p.br.readByte()
+	if err != nil {
+		return Token{}, false, p.syntaxError("unexpected EOF in comment", err)
+	}
+	if next != '-' {
+		return Token{}, false, fmt.Errorf("invalid XML comment")
+	}
+	if !p.emitComments {
+		return Token{}, true, p.skipComment()
+	}
+	p.directive = p.directive[:0]
+	data, err := p.readComment(p.directive)
+	p.directive = data
+	return Token{Kind: KindComment, Directive: data, Line: line, Column: col}, false, err
+}
+
+func (p *Parser) readCDATAMarkup(line, col int) (Token, bool, error) {
+	if err := p.expectString("CDATA["); err != nil {
+		return Token{}, false, err
+	}
+	p.inCDATA = true
+	p.cdataMatched = 0
+	tok, err := p.readCDATAChunk(line, col)
+	return tok, false, err
+}
+
+func (p *Parser) readDirectiveMarkup(first byte, line, col int) (Token, bool, error) {
+	p.directive = p.directive[:0]
+	if err := p.appendTokenByte(&p.directive, first); err != nil {
+		return Token{}, false, err
+	}
+	if err := p.readDirectivePrefix(); err != nil {
+		return Token{}, false, err
+	}
+	if !IsDOCTYPEDeclaration(p.directive) {
+		return Token{}, false, fmt.Errorf("invalid markup declaration")
+	}
+	return Token{Kind: KindDirective, Directive: p.directive, Line: line, Column: col}, false, nil
+}
+
+func (p *Parser) readDirectivePrefix() error {
+	for len(p.directive) <= len(doctypeDirective) {
 		next, err := p.br.readByte()
 		if err != nil {
-			return Token{}, false, p.syntaxError("unexpected EOF in comment", err)
+			return p.syntaxError("unexpected EOF in markup declaration", err)
 		}
-		if next != '-' {
-			return Token{}, false, fmt.Errorf("invalid XML comment")
+		if err := p.appendTokenByte(&p.directive, next); err != nil {
+			return err
 		}
-		if !p.emitComments {
-			if commentErr := p.skipComment(); commentErr != nil {
-				return Token{}, false, commentErr
-			}
-			return Token{}, true, nil
-		}
-		p.directive = p.directive[:0]
-		data, err := p.readComment(p.directive)
-		if err != nil {
-			return Token{}, false, err
-		}
-		p.directive = data
-		return Token{Kind: KindComment, Directive: data, Line: line, Column: col}, false, nil
-	case '[':
-		if err := p.expectString("CDATA["); err != nil {
-			return Token{}, false, err
-		}
-		p.inCDATA = true
-		p.cdataMatched = 0
-		tok, err := p.readCDATAChunk(line, col)
-		return tok, false, err
-	default:
-		p.directive = p.directive[:0]
-		if err := p.appendTokenByte(&p.directive, b); err != nil {
-			return Token{}, false, err
-		}
-		for len(p.directive) <= len(doctypeDirective) {
-			next, err := p.br.readByte()
-			if err != nil {
-				return Token{}, false, p.syntaxError("unexpected EOF in markup declaration", err)
-			}
-			if err := p.appendTokenByte(&p.directive, next); err != nil {
-				return Token{}, false, err
-			}
-		}
-		if !IsDOCTYPEDeclaration(p.directive) {
-			return Token{}, false, fmt.Errorf("invalid markup declaration")
-		}
-		return Token{Kind: KindDirective, Directive: p.directive, Line: line, Column: col}, false, nil
 	}
+	return nil
 }
 
 func (p *Parser) readCDATAChunk(line, col int) (Token, error) {
@@ -556,63 +593,84 @@ func (p *Parser) readCDATAChunk(line, col int) (Token, error) {
 	}
 	p.textBuf = p.textBuf[:0]
 	matched := p.cdataMatched
-	appendPending := func() error {
-		for ; matched > 0; matched-- {
-			if err := p.appendTokenByte(&p.textBuf, ']'); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
 	for {
-		b, err := p.br.readByte()
+		done, err := p.readCDATAByte(&matched)
 		if err != nil {
-			return Token{}, p.syntaxError("unexpected EOF in CDATA section", err)
+			return Token{}, err
 		}
-		switch b {
-		case ']':
-			if matched == 2 {
-				if err := p.appendTokenByte(&p.textBuf, ']'); err != nil {
-					return Token{}, err
-				}
-			} else {
-				matched++
-			}
-		case '>':
-			if matched == 2 {
-				p.inCDATA = false
-				p.cdataMatched = 0
-				return Token{Kind: KindCharData, Data: p.textBuf, CDATA: true, Line: line, Column: col}, nil
-			}
-			if err := appendPending(); err != nil {
-				return Token{}, err
-			}
-			if err := p.appendTokenByte(&p.textBuf, '>'); err != nil {
-				return Token{}, err
-			}
-		case '\r':
-			if err := appendPending(); err != nil {
-				return Token{}, err
-			}
-			if err := p.consumeLineFeed(); err != nil {
-				return Token{}, err
-			}
-			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
-				return Token{}, err
-			}
-		default:
-			if err := appendPending(); err != nil {
-				return Token{}, err
-			}
-			if err := p.appendXMLRune(&p.textBuf, b); err != nil {
-				return Token{}, err
-			}
+		if done {
+			p.inCDATA = false
+			p.cdataMatched = 0
+			return p.cdataToken(line, col), nil
 		}
 		if len(p.textBuf) >= len(p.br.buf) {
 			p.cdataMatched = matched
-			return Token{Kind: KindCharData, Data: p.textBuf, CDATA: true, Line: line, Column: col}, nil
+			return p.cdataToken(line, col), nil
 		}
 	}
+}
+
+func (p *Parser) cdataToken(line, col int) Token {
+	return Token{Kind: KindCharData, Data: p.textBuf, CDATA: true, Line: line, Column: col}
+}
+
+func (p *Parser) readCDATAByte(matched *int) (bool, error) {
+	b, err := p.br.readByte()
+	if err != nil {
+		return false, p.syntaxError("unexpected EOF in CDATA section", err)
+	}
+	switch b {
+	case ']':
+		return false, p.appendCDATABracket(matched)
+	case '>':
+		return p.appendCDATAGreaterThan(matched)
+	case '\r':
+		return false, p.appendNormalizedCDATA(matched)
+	default:
+		return false, p.appendCDATARune(matched, b)
+	}
+}
+
+func (p *Parser) appendCDATABracket(matched *int) error {
+	if *matched == 2 {
+		return p.appendTokenByte(&p.textBuf, ']')
+	}
+	*matched++
+	return nil
+}
+
+func (p *Parser) appendCDATAGreaterThan(matched *int) (bool, error) {
+	if *matched == 2 {
+		return true, nil
+	}
+	if err := p.appendPendingCDATA(matched); err != nil {
+		return false, err
+	}
+	return false, p.appendTokenByte(&p.textBuf, '>')
+}
+
+func (p *Parser) appendNormalizedCDATA(matched *int) error {
+	if err := p.appendPendingCDATA(matched); err != nil {
+		return err
+	}
+	return p.appendNormalizedLineFeed(&p.textBuf)
+}
+
+func (p *Parser) appendCDATARune(matched *int, first byte) error {
+	if err := p.appendPendingCDATA(matched); err != nil {
+		return err
+	}
+	return p.appendXMLRune(&p.textBuf, first)
+}
+
+func (p *Parser) appendPendingCDATA(matched *int) error {
+	for *matched > 0 {
+		if err := p.appendTokenByte(&p.textBuf, ']'); err != nil {
+			return err
+		}
+		*matched--
+	}
+	return nil
 }
 
 func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
@@ -629,57 +687,93 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 		}
 		switch b {
 		case '>':
-			p.finishLazyAttrValues()
-			return StartElement{Name: name, Attr: p.attrs}, false, nil
+			return p.completedStartElement(name, false)
 		case '/':
-			next, err := p.br.readByte()
-			if err != nil {
-				return StartElement{}, false, p.syntaxError("unexpected EOF in empty element tag", err)
-			}
-			if next != '>' {
-				return StartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
-			}
-			p.finishLazyAttrValues()
-			return StartElement{Name: name, Attr: p.attrs}, true, nil
+			return p.completeEmptyElement(name)
 		default:
-			if !hadSpace {
-				return StartElement{}, false, fmt.Errorf("expected whitespace before attribute")
-			}
-			attrName, err := p.readName(b)
-			if err != nil {
+			if err := p.readSpacedStartAttribute(b, hadSpace); err != nil {
 				return StartElement{}, false, err
 			}
-			if p.maxAttrs > 0 && len(p.attrs)+1 > p.maxAttrs {
-				return StartElement{}, false, errXMLAttributeLimit
-			}
-			if b, _, err = p.readPastSpace(); err != nil {
-				return StartElement{}, false, err
-			}
-			if b != '=' {
-				return StartElement{}, false, fmt.Errorf("expected = after attribute name")
-			}
-			if b, _, err = p.readPastSpace(); err != nil {
-				return StartElement{}, false, err
-			}
-			if b != '"' && b != '\'' {
-				return StartElement{}, false, fmt.Errorf("attribute value must be quoted")
-			}
-			if !p.lazyAttrValue {
-				p.attrValueBuf = p.attrValueBuf[:0]
-			}
-			value, err := p.readAttributeValueBytes(b, &p.attrValueBuf)
-			if err != nil {
-				return StartElement{}, false, err
-			}
-			attr := Attr{Name: attrName}
-			if p.lazyAttrValue {
-				p.attrValueEnds = append(p.attrValueEnds, len(p.attrValueBuf))
-			} else {
-				attr.Value = p.values.Intern(value)
-			}
-			p.attrs = append(p.attrs, attr)
 		}
 	}
+}
+
+func (p *Parser) completedStartElement(name xml.Name, selfClosing bool) (StartElement, bool, error) {
+	p.finishLazyAttrValues()
+	return StartElement{Name: name, Attr: p.attrs}, selfClosing, nil
+}
+
+func (p *Parser) completeEmptyElement(name xml.Name) (StartElement, bool, error) {
+	next, err := p.br.readByte()
+	if err != nil {
+		return StartElement{}, false, p.syntaxError("unexpected EOF in empty element tag", err)
+	}
+	if next != '>' {
+		return StartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
+	}
+	return p.completedStartElement(name, true)
+}
+
+func (p *Parser) readSpacedStartAttribute(first byte, hadSpace bool) error {
+	if !hadSpace {
+		return fmt.Errorf("expected whitespace before attribute")
+	}
+	return p.readStartAttribute(first)
+}
+
+func (p *Parser) readStartAttribute(first byte) error {
+	name, err := p.readName(first)
+	if err != nil {
+		return err
+	}
+	if p.maxAttrs > 0 && len(p.attrs)+1 > p.maxAttrs {
+		return errXMLAttributeLimit
+	}
+	quote, err := p.readAttributeQuote()
+	if err != nil {
+		return err
+	}
+	value, err := p.readStartAttributeValue(quote)
+	if err != nil {
+		return err
+	}
+	p.recordStartAttribute(name, value)
+	return nil
+}
+
+func (p *Parser) readAttributeQuote() (byte, error) {
+	b, _, err := p.readPastSpace()
+	if err != nil {
+		return 0, err
+	}
+	if b != '=' {
+		return 0, fmt.Errorf("expected = after attribute name")
+	}
+	b, _, err = p.readPastSpace()
+	if err != nil {
+		return 0, err
+	}
+	if b != '"' && b != '\'' {
+		return 0, fmt.Errorf("attribute value must be quoted")
+	}
+	return b, nil
+}
+
+func (p *Parser) readStartAttributeValue(quote byte) ([]byte, error) {
+	if !p.lazyAttrValue {
+		p.attrValueBuf = p.attrValueBuf[:0]
+	}
+	return p.readAttributeValueBytes(quote, &p.attrValueBuf)
+}
+
+func (p *Parser) recordStartAttribute(name xml.Name, value []byte) {
+	attr := Attr{Name: name}
+	if p.lazyAttrValue {
+		p.attrValueEnds = append(p.attrValueEnds, len(p.attrValueBuf))
+	} else {
+		attr.Value = p.values.Intern(value)
+	}
+	p.attrs = append(p.attrs, attr)
 }
 
 func (p *Parser) finishLazyAttrValues() {
@@ -729,56 +823,74 @@ func (p *Parser) readName(first byte) (xml.Name, error) {
 		return xml.Name{}, err
 	}
 	for {
-		chunk, err := p.br.buffered()
+		done, err := p.appendBufferedName()
 		if err != nil {
-			if IsOnlyEOF(err) {
-				return xml.Name{}, fmt.Errorf("unexpected EOF in XML name")
-			}
 			return xml.Name{}, err
 		}
-		n := nameChunkLen(chunk)
-		if n > 0 {
-			if err := p.appendTokenBytes(&p.nameBuf, chunk[:n]); err != nil {
-				return xml.Name{}, err
-			}
-			p.br.consumeBuffered(n)
-		}
-		if n < len(chunk) {
+		if done {
 			break
 		}
 	}
-	if len(p.nameBuf) == 0 {
+	return p.internQName(p.nameBuf)
+}
+
+func (p *Parser) appendBufferedName() (bool, error) {
+	chunk, err := p.br.buffered()
+	if err != nil {
+		return false, xmlNameReadError(err)
+	}
+	n := nameChunkLen(chunk)
+	if err := p.appendTokenBytes(&p.nameBuf, chunk[:n]); err != nil {
+		return false, err
+	}
+	p.br.consumeBuffered(n)
+	return n < len(chunk), nil
+}
+
+func xmlNameReadError(err error) error {
+	if IsOnlyEOF(err) {
+		return fmt.Errorf("unexpected EOF in XML name")
+	}
+	return err
+}
+
+func (p *Parser) internQName(name []byte) (xml.Name, error) {
+	if len(name) == 0 {
 		return xml.Name{}, fmt.Errorf("empty XML name")
 	}
 	if prefix, local, ascii, ok := lex.SplitASCIIQNameBytes(p.nameBuf); ascii {
 		if !ok {
 			return xml.Name{}, fmt.Errorf("invalid XML qualified name")
 		}
-		if prefix == nil {
-			return xml.Name{Local: p.names.Intern(local)}, nil
-		}
-		return xml.Name{
-			Space: p.names.Intern(prefix),
-			Local: p.names.Intern(local),
-		}, nil
+		return p.internQNameParts(prefix, local), nil
 	}
-	colon := bytes.IndexByte(p.nameBuf, ':')
+	prefix, local, ok := splitUnicodeQName(name)
+	if !ok {
+		return xml.Name{}, fmt.Errorf("invalid XML qualified name")
+	}
+	return p.internQNameParts(prefix, local), nil
+}
+
+func splitUnicodeQName(name []byte) ([]byte, []byte, bool) {
+	colon := bytes.IndexByte(name, ':')
 	if colon < 0 {
-		if !lex.IsNCNameBytes(p.nameBuf) {
-			return xml.Name{}, fmt.Errorf("invalid XML qualified name")
-		}
-		return xml.Name{Local: p.names.Intern(p.nameBuf)}, nil
+		return nil, name, lex.IsNCNameBytes(name)
 	}
-	if colon == 0 || colon == len(p.nameBuf)-1 || bytes.IndexByte(p.nameBuf[colon+1:], ':') >= 0 {
-		return xml.Name{}, fmt.Errorf("invalid XML qualified name")
+	if colon == 0 || colon == len(name)-1 || bytes.IndexByte(name[colon+1:], ':') >= 0 {
+		return nil, nil, false
 	}
-	if !lex.IsNCNameBytes(p.nameBuf[:colon]) || !lex.IsNCNameBytes(p.nameBuf[colon+1:]) {
-		return xml.Name{}, fmt.Errorf("invalid XML qualified name")
+	prefix, local := name[:colon], name[colon+1:]
+	return prefix, local, lex.IsNCNameBytes(prefix) && lex.IsNCNameBytes(local)
+}
+
+func (p *Parser) internQNameParts(prefix, local []byte) xml.Name {
+	if prefix == nil {
+		return xml.Name{Local: p.names.Intern(local)}
 	}
 	return xml.Name{
-		Space: p.names.Intern(p.nameBuf[:colon]),
-		Local: p.names.Intern(p.nameBuf[colon+1:]),
-	}, nil
+		Space: p.names.Intern(prefix),
+		Local: p.names.Intern(local),
+	}
 }
 
 func nameChunkLen(chunk []byte) int {
@@ -793,50 +905,68 @@ func nameChunkLen(chunk []byte) int {
 func (p *Parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error) {
 	start := len(*dst)
 	for {
-		chunk, err := p.br.buffered()
-		if IsOnlyEOF(err) {
-			return nil, p.syntaxError("unexpected EOF in attribute value", err)
-		}
+		progressed, err := p.appendBufferedAttributeValue(quote, dst)
 		if err != nil {
 			return nil, err
 		}
-		if n := attributeValueChunkLen(chunk, quote); n > 0 {
-			if appendErr := p.appendTokenBytes(dst, chunk[:n]); appendErr != nil {
-				return nil, appendErr
-			}
-			p.br.consumeBuffered(n)
+		if progressed {
 			continue
 		}
-		b, err := p.br.readByte()
+		done, err := p.readAttributeValueByte(quote, dst)
 		if err != nil {
-			return nil, p.syntaxError("unexpected EOF in attribute value", err)
+			return nil, err
 		}
-		switch b {
-		case quote:
+		if done {
 			return (*dst)[start:], nil
-		case '<':
-			return nil, fmt.Errorf("attribute value cannot contain <")
-		case '\r':
-			if err := p.consumeLineFeed(); err != nil {
-				return nil, err
-			}
-			if err := p.appendTokenByte(dst, ' '); err != nil {
-				return nil, err
-			}
-		case '\n', '\t':
-			if err := p.appendTokenByte(dst, ' '); err != nil {
-				return nil, err
-			}
-		case '&':
-			if err := p.readEntity(dst); err != nil {
-				return nil, err
-			}
-		default:
-			if err := p.appendXMLRune(dst, b); err != nil {
-				return nil, err
-			}
 		}
 	}
+}
+
+func (p *Parser) appendBufferedAttributeValue(quote byte, dst *[]byte) (bool, error) {
+	chunk, err := p.br.buffered()
+	if IsOnlyEOF(err) {
+		return false, p.syntaxError("unexpected EOF in attribute value", err)
+	}
+	if err != nil {
+		return false, err
+	}
+	n := attributeValueChunkLen(chunk, quote)
+	if n == 0 {
+		return false, nil
+	}
+	if err := p.appendTokenBytes(dst, chunk[:n]); err != nil {
+		return false, err
+	}
+	p.br.consumeBuffered(n)
+	return true, nil
+}
+
+func (p *Parser) readAttributeValueByte(quote byte, dst *[]byte) (bool, error) {
+	b, err := p.br.readByte()
+	if err != nil {
+		return false, p.syntaxError("unexpected EOF in attribute value", err)
+	}
+	switch b {
+	case quote:
+		return true, nil
+	case '<':
+		return false, fmt.Errorf("attribute value cannot contain <")
+	case '\r':
+		return false, p.appendNormalizedAttributeSpace(dst)
+	case '\n', '\t':
+		return false, p.appendTokenByte(dst, ' ')
+	case '&':
+		return false, p.readEntity(dst)
+	default:
+		return false, p.appendXMLRune(dst, b)
+	}
+}
+
+func (p *Parser) appendNormalizedAttributeSpace(dst *[]byte) error {
+	if err := p.consumeLineFeed(); err != nil {
+		return err
+	}
+	return p.appendTokenByte(dst, ' ')
 }
 
 func attributeValueChunkLen(chunk []byte, quote byte) int {
@@ -849,55 +979,64 @@ func attributeValueChunkLen(chunk []byte, quote byte) int {
 }
 
 func (p *Parser) readComment(dst []byte) ([]byte, error) {
-	prevDash := false
-	for {
-		b, err := p.br.readByte()
-		if err != nil {
-			return nil, p.syntaxError("unexpected EOF in comment", err)
-		}
-		if b == '-' {
-			if prevDash {
-				if err := p.finishCommentAfterDoubleDash(); err != nil {
-					return nil, err
-				}
-				return dst, nil
-			}
-			prevDash = true
-			continue
-		}
-		if prevDash {
-			if err := p.appendTokenByte(&dst, '-'); err != nil {
-				return nil, err
-			}
-			prevDash = false
-		}
-		if err := p.appendXMLRune(&dst, b); err != nil {
-			return nil, err
-		}
+	if err := p.scanComment(&dst); err != nil {
+		return nil, err
 	}
+	return dst, nil
 }
 
 func (p *Parser) skipComment() error {
+	return p.scanComment(nil)
+}
+
+func (p *Parser) scanComment(dst *[]byte) error {
 	prevDash := false
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
 			return p.syntaxError("unexpected EOF in comment", err)
 		}
-		if b == '-' {
-			if prevDash {
-				return p.finishCommentAfterDoubleDash()
-			}
-			prevDash = true
-			continue
-		}
-		if prevDash {
-			prevDash = false
-		}
-		if err := p.consumeXMLRune(b); err != nil {
+		done, err := p.consumeCommentByte(dst, b, &prevDash)
+		if err != nil {
 			return err
 		}
+		if done {
+			return nil
+		}
 	}
+}
+
+func (p *Parser) consumeCommentByte(dst *[]byte, b byte, prevDash *bool) (bool, error) {
+	switch {
+	case b == '-' && *prevDash:
+		return true, p.finishCommentAfterDoubleDash()
+	case b == '-':
+		*prevDash = true
+		return false, nil
+	default:
+		if err := p.appendPendingCommentDash(dst, prevDash); err != nil {
+			return false, err
+		}
+		return false, p.appendCommentRune(dst, b)
+	}
+}
+
+func (p *Parser) appendPendingCommentDash(dst *[]byte, pending *bool) error {
+	if !*pending {
+		return nil
+	}
+	*pending = false
+	if dst == nil {
+		return nil
+	}
+	return p.appendTokenByte(dst, '-')
+}
+
+func (p *Parser) appendCommentRune(dst *[]byte, first byte) error {
+	if dst == nil {
+		return p.consumeXMLRune(first)
+	}
+	return p.appendXMLRune(dst, first)
 }
 
 func (p *Parser) finishCommentAfterDoubleDash() error {
@@ -1025,50 +1164,79 @@ func (p *Parser) skipUntil(term string) error {
 		if err != nil {
 			return err
 		}
-		if b < utf8.RuneSelf {
-			if !lex.IsXMLChar(rune(b)) {
-				return fmt.Errorf("invalid XML character")
-			}
-			matched = advanceTermMatch(term, prefix, matched, b)
-			if matched == len(term) {
-				return nil
-			}
-			continue
-		}
-		matched = 0
-		if err := p.consumeXMLRune(b); err != nil {
+		done, err := p.skipUntilByte(term, prefix, b, &matched)
+		if err != nil {
 			return err
+		}
+		if done {
+			return nil
 		}
 	}
 }
 
+func (p *Parser) skipUntilByte(term string, prefix []int, b byte, matched *int) (bool, error) {
+	if b >= utf8.RuneSelf {
+		*matched = 0
+		return false, p.consumeXMLRune(b)
+	}
+	if !lex.IsXMLChar(rune(b)) {
+		return false, fmt.Errorf("invalid XML character")
+	}
+	*matched = advanceTermMatch(term, prefix, *matched, b)
+	return *matched == len(term), nil
+}
+
 // ValidateXMLDeclContent validates the content inside an XML declaration.
 func ValidateXMLDeclContent(content []byte) error {
-	name, version, rest, ok := ScanXMLDeclAttr(content, XMLDeclFirstAttr)
-	if !ok || name != xsdAttrVersion {
-		return fmt.Errorf("invalid XML declaration")
+	rest, err := validateXMLVersionAttribute(content)
+	if err != nil {
+		return err
 	}
-	if version != xmlVersion10 {
-		return UnsupportedXMLVersionError{Version: version}
+	rest, err = validateOptionalXMLEncoding(rest)
+	if err != nil {
+		return err
 	}
-	name, value, next, ok := ScanXMLDeclAttr(rest, XMLDeclNextAttr)
-	if ok && name == "encoding" {
-		if !strings.EqualFold(value, "UTF-8") && !strings.EqualFold(value, "UTF8") {
-			return ErrUnsupportedNonUTF8
-		}
-		rest = next
-		name, value, next, ok = ScanXMLDeclAttr(rest, XMLDeclNextAttr)
-	}
-	if ok && name == "standalone" {
-		if value != "yes" && value != "no" {
-			return fmt.Errorf("invalid XML declaration")
-		}
-		rest = next
+	rest, err = validateOptionalXMLStandalone(rest)
+	if err != nil {
+		return err
 	}
 	if len(lex.TrimXMLWhitespaceBytes(rest)) != 0 {
 		return fmt.Errorf("invalid XML declaration")
 	}
 	return nil
+}
+
+func validateXMLVersionAttribute(content []byte) ([]byte, error) {
+	name, version, rest, ok := ScanXMLDeclAttr(content, XMLDeclFirstAttr)
+	if !ok || name != xsdAttrVersion {
+		return nil, fmt.Errorf("invalid XML declaration")
+	}
+	if version != xmlVersion10 {
+		return nil, UnsupportedXMLVersionError{Version: version}
+	}
+	return rest, nil
+}
+
+func validateOptionalXMLEncoding(content []byte) ([]byte, error) {
+	name, value, rest, ok := ScanXMLDeclAttr(content, XMLDeclNextAttr)
+	if !ok || name != "encoding" {
+		return content, nil
+	}
+	if !strings.EqualFold(value, "UTF-8") && !strings.EqualFold(value, "UTF8") {
+		return nil, ErrUnsupportedNonUTF8
+	}
+	return rest, nil
+}
+
+func validateOptionalXMLStandalone(content []byte) ([]byte, error) {
+	name, value, rest, ok := ScanXMLDeclAttr(content, XMLDeclNextAttr)
+	if !ok || name != "standalone" {
+		return content, nil
+	}
+	if value != "yes" && value != "no" {
+		return nil, fmt.Errorf("invalid XML declaration")
+	}
+	return rest, nil
 }
 
 // XMLDeclAttrPosition identifies whether an XML declaration attribute is first
@@ -1086,93 +1254,110 @@ const (
 // The first attribute may have optional leading whitespace; later attributes
 // require it.
 func ScanXMLDeclAttr(content []byte, pos XMLDeclAttrPosition) (string, string, []byte, bool) {
-	if pos == XMLDeclNextAttr && (len(content) == 0 || !lex.IsXMLWhitespaceByte(content[0])) {
+	content, ok := startXMLDeclAttribute(content, pos)
+	if !ok {
 		return "", "", content, false
 	}
-	content = bytes.TrimLeft(content, " \t\r\n")
+	name, content, ok := scanXMLDeclAttributeName(content)
+	if !ok {
+		return "", "", content, false
+	}
+	value, rest, ok := scanXMLDeclAttributeValue(content)
+	if !ok {
+		return "", "", content, false
+	}
+	return name, value, rest, true
+}
+
+func startXMLDeclAttribute(content []byte, pos XMLDeclAttrPosition) ([]byte, bool) {
+	if pos == XMLDeclNextAttr && (len(content) == 0 || !lex.IsXMLWhitespaceByte(content[0])) {
+		return content, false
+	}
+	return bytes.TrimLeft(content, " \t\r\n"), true
+}
+
+func scanXMLDeclAttributeName(content []byte) (string, []byte, bool) {
 	nameLen := 0
-	for nameLen < len(content) && content[nameLen] != '=' && content[nameLen] != '"' && content[nameLen] != '\'' && !lex.IsXMLWhitespaceByte(content[nameLen]) {
+	for nameLen < len(content) && !isXMLDeclNameTerminator(content[nameLen]) {
 		nameLen++
 	}
 	if nameLen == 0 {
-		return "", "", content, false
+		return "", content, false
 	}
-	name := string(content[:nameLen])
-	content = bytes.TrimLeft(content[nameLen:], " \t\r\n")
+	return string(content[:nameLen]), bytes.TrimLeft(content[nameLen:], " \t\r\n"), true
+}
+
+func isXMLDeclNameTerminator(b byte) bool {
+	return b == '=' || b == '"' || b == '\'' || lex.IsXMLWhitespaceByte(b)
+}
+
+func scanXMLDeclAttributeValue(content []byte) (string, []byte, bool) {
 	if len(content) == 0 || content[0] != '=' {
-		return "", "", content, false
+		return "", content, false
 	}
 	content = bytes.TrimLeft(content[1:], " \t\r\n")
 	if len(content) == 0 || content[0] != '"' && content[0] != '\'' {
-		return "", "", content, false
+		return "", content, false
 	}
 	quote := content[0]
 	content = content[1:]
 	end := bytes.IndexByte(content, quote)
 	if end < 0 {
-		return "", "", content, false
+		return "", content, false
 	}
-	return name, string(content[:end]), content[end+1:], true
+	return string(content[:end]), content[end+1:], true
 }
 
 func (p *Parser) appendXMLRune(dst *[]byte, first byte) error {
-	if first < utf8.RuneSelf {
-		if !lex.IsXMLChar(rune(first)) {
-			return fmt.Errorf("invalid XML character")
-		}
-		return p.appendTokenByte(dst, first)
+	runeBytes, err := p.readXMLRuneBytes(first)
+	if err != nil {
+		return err
 	}
-	var buf [utf8.UTFMax]byte
-	buf[0] = first
-	n := 1
-	for !utf8.FullRune(buf[:n]) {
-		if n == len(buf) {
-			return fmt.Errorf("invalid UTF-8")
-		}
-		b, err := p.br.readByte()
-		if err != nil {
-			return p.syntaxError("unexpected EOF in UTF-8 sequence", err)
-		}
-		buf[n] = b
-		n++
-	}
-	r, size := utf8.DecodeRune(buf[:n])
-	if r == utf8.RuneError && size == 1 {
-		return fmt.Errorf("invalid UTF-8")
-	}
-	if !lex.IsXMLChar(r) {
-		return fmt.Errorf("invalid XML character")
-	}
-	return p.appendTokenBytes(dst, buf[:size])
+	return p.appendTokenBytes(dst, runeBytes.buf[:runeBytes.size])
 }
 
 func (p *Parser) consumeXMLRune(first byte) error {
+	_, err := p.readXMLRuneBytes(first)
+	return err
+}
+
+type xmlRuneBytes struct {
+	buf  [utf8.UTFMax]byte
+	size int
+}
+
+func (p *Parser) readXMLRuneBytes(first byte) (xmlRuneBytes, error) {
 	if first < utf8.RuneSelf {
 		if !lex.IsXMLChar(rune(first)) {
-			return fmt.Errorf("invalid XML character")
+			return xmlRuneBytes{}, fmt.Errorf("invalid XML character")
 		}
-		return nil
+		return xmlRuneBytes{buf: [utf8.UTFMax]byte{first}, size: 1}, nil
 	}
-	var buf [utf8.UTFMax]byte
-	buf[0] = first
+	return p.readMultibyteXMLRune(first)
+}
+
+func (p *Parser) readMultibyteXMLRune(first byte) (xmlRuneBytes, error) {
+	var result xmlRuneBytes
+	result.buf[0] = first
 	n := 1
-	for !utf8.FullRune(buf[:n]) {
-		if n == len(buf) {
-			return fmt.Errorf("invalid UTF-8")
+	for !utf8.FullRune(result.buf[:n]) {
+		if n == len(result.buf) {
+			return xmlRuneBytes{}, fmt.Errorf("invalid UTF-8")
 		}
 		b, err := p.br.readByte()
 		if err != nil {
-			return p.syntaxError("unexpected EOF in UTF-8 sequence", err)
+			return xmlRuneBytes{}, p.syntaxError("unexpected EOF in UTF-8 sequence", err)
 		}
-		buf[n] = b
+		result.buf[n] = b
 		n++
 	}
-	r, size := utf8.DecodeRune(buf[:n])
+	r, size := utf8.DecodeRune(result.buf[:n])
 	if r == utf8.RuneError && size == 1 {
-		return fmt.Errorf("invalid UTF-8")
+		return xmlRuneBytes{}, fmt.Errorf("invalid UTF-8")
 	}
 	if !lex.IsXMLChar(r) {
-		return fmt.Errorf("invalid XML character")
+		return xmlRuneBytes{}, fmt.Errorf("invalid XML character")
 	}
-	return nil
+	result.size = size
+	return result, nil
 }

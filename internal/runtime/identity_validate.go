@@ -21,20 +21,27 @@ func ValidateIdentityConstraints(names *NameTable, identities []IdentityConstrai
 func validateIdentityConstraintOwnership(elements []ElementDecl, identityCount int) error {
 	owned := make([]bool, identityCount)
 	for _, element := range elements {
-		for _, id := range element.Identity {
-			if !ValidIdentityConstraintID(id, identityCount) {
-				return errors.New("element declaration references invalid identity constraint")
-			}
-			if owned[id] {
-				return errors.New("identity constraint is attached more than once")
-			}
-			owned[id] = true
+		if err := markOwnedIdentityConstraints(owned, element.Identity); err != nil {
+			return err
 		}
 	}
 	for _, attached := range owned {
 		if !attached {
 			return errors.New("identity constraint is not attached to an element declaration")
 		}
+	}
+	return nil
+}
+
+func markOwnedIdentityConstraints(owned []bool, identities []IdentityConstraintID) error {
+	for _, id := range identities {
+		if !ValidIdentityConstraintID(id, len(owned)) {
+			return errors.New("element declaration references invalid identity constraint")
+		}
+		if owned[id] {
+			return errors.New("identity constraint is attached more than once")
+		}
+		owned[id] = true
 	}
 	return nil
 }
@@ -69,40 +76,77 @@ func validateIdentityConstraint(names *NameTable, identities []IdentityConstrain
 	if len(ic.Fields) == 0 {
 		return errors.New("identity constraint has no fields")
 	}
+	if err := validateIdentityConstraintKind(identities, ic); err != nil {
+		return err
+	}
+	if err := validateIdentitySelectorPaths(names, ic.Selector); err != nil {
+		return err
+	}
+	if err := validateIdentityFieldPaths(names, ic.Fields); err != nil {
+		return err
+	}
+	return validateIdentityFieldLookup(ic)
+}
+
+func validateIdentityConstraintKind(identities []IdentityConstraint, ic IdentityConstraint) error {
 	switch ic.Kind {
 	case IdentityUnique, IdentityKey:
 		if ic.Refer != NoIdentityConstraint {
 			return errors.New("non-keyref identity constraint stores refer")
 		}
+		return nil
 	case IdentityKeyRef:
-		if !ValidIdentityConstraintID(ic.Refer, len(identities)) {
-			return errors.New("keyref identity constraint references invalid key")
-		}
-		ref := identities[ic.Refer]
-		if ref.Kind == IdentityKeyRef {
-			return errors.New("keyref identity constraint references keyref")
-		}
-		if len(ic.Fields) != len(ref.Fields) {
-			return errors.New("keyref identity constraint field count differs from refer")
-		}
+		return validateIdentityKeyRef(identities, ic)
 	default:
 		return errors.New("identity constraint has invalid kind")
 	}
-	for _, path := range ic.Selector {
+}
+
+func validateIdentityKeyRef(identities []IdentityConstraint, ic IdentityConstraint) error {
+	if !ValidIdentityConstraintID(ic.Refer, len(identities)) {
+		return errors.New("keyref identity constraint references invalid key")
+	}
+	ref := identities[ic.Refer]
+	if ref.Kind == IdentityKeyRef {
+		return errors.New("keyref identity constraint references keyref")
+	}
+	if len(ic.Fields) != len(ref.Fields) {
+		return errors.New("keyref identity constraint field count differs from refer")
+	}
+	return nil
+}
+
+func validateIdentitySelectorPaths(names *NameTable, paths []IdentityPath) error {
+	for _, path := range paths {
 		if !validIdentityPath(names, path) {
 			return errors.New("identity selector references invalid name")
 		}
 	}
-	for _, field := range ic.Fields {
+	return nil
+}
+
+func validateIdentityFieldPaths(names *NameTable, fields []IdentityField) error {
+	for _, field := range fields {
 		if len(field.Paths) == 0 {
 			return errors.New("identity field has no paths")
 		}
-		for _, path := range field.Paths {
-			if !validIdentityFieldPath(names, path) {
-				return errors.New("identity field path has invalid shape")
-			}
+		if err := validateIdentityFieldPathSet(names, field.Paths); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+func validateIdentityFieldPathSet(names *NameTable, paths []IdentityFieldPath) error {
+	for _, path := range paths {
+		if !validIdentityFieldPath(names, path) {
+			return errors.New("identity field path has invalid shape")
+		}
+	}
+	return nil
+}
+
+func validateIdentityFieldLookup(ic IdentityConstraint) error {
 	elementFields, attrFields, attrWildcardFields := BuildIdentityFieldLookup(ic.Fields)
 	if !equalCompiledIdentityFields(ic.ElementFields, elementFields) ||
 		!equalCompiledIdentityFieldMaps(ic.AttributeFields, attrFields) ||

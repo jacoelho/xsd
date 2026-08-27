@@ -182,17 +182,21 @@ func ExtendSequenceModel(rt runtime.ContentModelRuntime, add AddContentModelFunc
 		return ModelWithMixed(rt, add, baseID, mixed)
 	}
 	m := runtime.ContentModel{Kind: runtime.ModelSequence, Occurs: runtime.Occurrence{Min: 1, Max: 1}, Mixed: mixed}
-	if base.Kind == runtime.ModelSequence && base.Occurs.IsExactlyOne() {
-		m.Particles = append(m.Particles, base.Particles...)
-	} else if err := AppendModelParticle(rt, add, &m, baseID); err != nil {
+	if err := appendSequenceExtensionOperand(rt, add, &m, baseID, base); err != nil {
 		return runtime.NoContentModel, err
 	}
-	if ext.Kind == runtime.ModelSequence && ext.Occurs.IsExactlyOne() {
-		m.Particles = append(m.Particles, ext.Particles...)
-	} else if err := AppendModelParticle(rt, add, &m, extID); err != nil {
+	if err := appendSequenceExtensionOperand(rt, add, &m, extID, ext); err != nil {
 		return runtime.NoContentModel, err
 	}
 	return add(m)
+}
+
+func appendSequenceExtensionOperand(rt runtime.ContentModelRuntime, add AddContentModelFunc, target *runtime.ContentModel, id runtime.ContentModelID, model runtime.ContentModel) error {
+	if model.Kind == runtime.ModelSequence && model.Occurs.IsExactlyOne() {
+		target.Particles = append(target.Particles, model.Particles...)
+		return nil
+	}
+	return AppendModelParticle(rt, add, target, id)
 }
 
 // ModelWithMixed returns id when its mixed flag already matches, or appends a

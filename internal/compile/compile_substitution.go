@@ -10,98 +10,152 @@ import (
 )
 
 func (c *compiler) compileSubstitutions() error {
-	elements := c.elementCopies()
-	children := make([][]runtime.ElementID, len(elements))
-	indegree := make([]uint8, len(elements))
-	inheritsType := make([]bool, len(elements))
-	members := sortedBuildQNames(&c.rt, c.elementRaw)
+	compilation := newSubstitutionCompilation(c)
+	if err := compilation.linkHeads(); err != nil {
+		return err
+	}
+	compilation.propagateInheritedTypes()
+	if err := compilation.rejectCycles(); err != nil {
+		return err
+	}
+	if err := compilation.finalizeElementConstraints(); err != nil {
+		return err
+	}
+	table, err := c.rt.buildSubstitutionTable(compilation.elements, c.limits.MaxSubstitutionClosureEntries)
+	if err != nil {
+		return c.substitutionTableError(err, compilation.elements)
+	}
+	c.installFinalizedElements(compilation.elements, table)
+	c.pendingElementConstraints = nil
+	return nil
+}
 
-	for _, memberQName := range members {
-		raw := c.elementRaw[memberQName]
-		headLex, ok := raw.node.attr(vocab.XSDAttrSubstitutionGroup)
-		if !ok {
-			continue
-		}
-		memberID, ok := c.elementDone[memberQName]
-		if !ok || !runtime.ValidElementID(memberID, len(elements)) {
-			return xsderrors.InternalInvariant("substitution member was not compiled")
-		}
-		inheritsType[memberID] = elementUsesSubstitutionType(raw.node)
-		headQName, err := c.resolveQNameChecked(raw.node, raw.ctx, headLex)
-		if err != nil {
+type substitutionCompilation struct {
+	compiler     *compiler
+	elements     []runtime.ElementDecl
+	children     [][]runtime.ElementID
+	indegree     []uint8
+	inheritsType []bool
+	members      []runtime.QName
+}
+
+func newSubstitutionCompilation(c *compiler) substitutionCompilation {
+	elements := c.elementCopies()
+	return substitutionCompilation{
+		compiler: c, elements: elements,
+		children: make([][]runtime.ElementID, len(elements)),
+		indegree: make([]uint8, len(elements)), inheritsType: make([]bool, len(elements)),
+		members: sortedBuildQNames(&c.rt, c.elementRaw),
+	}
+}
+
+func (s *substitutionCompilation) linkHeads() error {
+	for _, member := range s.members {
+		if err := s.linkHead(member); err != nil {
 			return err
 		}
-		headID, ok := c.elementDone[headQName]
-		if !ok {
-			continue
-		}
-		if !runtime.ValidElementID(headID, len(elements)) {
-			return xsderrors.InternalInvariant("substitution head was not compiled")
-		}
-		elements[memberID].SubstHead = headID
-		children[headID] = append(children[headID], memberID)
-		indegree[memberID] = 1
 	}
+	return nil
+}
 
-	queue := make([]runtime.ElementID, 0, len(elements))
-	for id, degree := range indegree {
+func (s *substitutionCompilation) linkHead(memberQName runtime.QName) error {
+	raw := s.compiler.elementRaw[memberQName]
+	headLexical, ok := raw.node.attr(vocab.XSDAttrSubstitutionGroup)
+	if !ok {
+		return nil
+	}
+	member, ok := s.compiler.elementDone[memberQName]
+	if !ok || !runtime.ValidElementID(member, len(s.elements)) {
+		return xsderrors.InternalInvariant("substitution member was not compiled")
+	}
+	s.inheritsType[member] = elementUsesSubstitutionType(raw.node)
+	headQName, err := s.compiler.resolveQNameChecked(raw.node, raw.ctx, headLexical)
+	if err != nil {
+		return err
+	}
+	head, ok := s.compiler.elementDone[headQName]
+	if !ok {
+		return nil
+	}
+	if !runtime.ValidElementID(head, len(s.elements)) {
+		return xsderrors.InternalInvariant("substitution head was not compiled")
+	}
+	s.elements[member].SubstHead = head
+	s.children[head] = append(s.children[head], member)
+	s.indegree[member] = 1
+	return nil
+}
+
+func (s *substitutionCompilation) propagateInheritedTypes() {
+	queue := make([]runtime.ElementID, 0, len(s.elements))
+	for id, degree := range s.indegree {
 		if degree == 0 {
 			queue = append(queue, runtime.ElementID(id))
 		}
 	}
 	for next := 0; next < len(queue); next++ {
-		headID := queue[next]
-		for _, memberID := range children[headID] {
-			if inheritsType[memberID] {
-				elements[memberID].Type = elements[headID].Type
+		head := queue[next]
+		for _, member := range s.children[head] {
+			if s.inheritsType[member] {
+				s.elements[member].Type = s.elements[head].Type
 			}
-			indegree[memberID] = 0
-			queue = append(queue, memberID)
+			s.indegree[member] = 0
+			queue = append(queue, member)
 		}
 	}
-	for _, memberQName := range members {
-		memberID, ok := c.elementDone[memberQName]
-		if !ok || indegree[memberID] == 0 {
+}
+
+func (s *substitutionCompilation) rejectCycles() error {
+	for _, memberQName := range s.members {
+		member, ok := s.compiler.elementDone[memberQName]
+		if !ok || s.indegree[member] == 0 {
 			continue
 		}
-		cycleID, err := substitutionCycleElement(memberID, elements)
-		if err != nil {
+		return s.cycleError(member)
+	}
+	return nil
+}
+
+func (s *substitutionCompilation) cycleError(member runtime.ElementID) error {
+	cycle, err := substitutionCycleElement(member, s.elements)
+	if err != nil {
+		return err
+	}
+	name := s.elements[cycle].Name
+	diagnostic := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+s.compiler.rt.formatName(name))
+	if raw, exists := s.compiler.elementRaw[name]; exists {
+		return withSchemaCompileLocation(raw.node, diagnostic)
+	}
+	return diagnostic
+}
+
+func (s *substitutionCompilation) finalizeElementConstraints() error {
+	for _, pending := range s.compiler.pendingElementConstraints {
+		if err := s.finalizeElementConstraint(pending); err != nil {
 			return err
 		}
-		cycleName := elements[cycleID].Name
-		cycleErr := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+c.rt.formatName(cycleName))
-		if raw, exists := c.elementRaw[cycleName]; exists {
-			return withSchemaCompileLocation(raw.node, cycleErr)
-		}
-		return cycleErr
 	}
+	return nil
+}
 
-	for _, pending := range c.pendingElementConstraints {
-		if !runtime.ValidElementID(pending.element, len(elements)) {
-			return xsderrors.InternalInvariant("pending element constraint references invalid element")
-		}
-		decl := elements[pending.element]
-		if decl.Default != nil || decl.Fixed != nil {
-			return xsderrors.InternalInvariant("pending element constraint targets finalized declaration")
-		}
-		if pending.hasDefault {
-			decl.Default = &runtime.ValueConstraint{Lexical: pending.defaultLexical}
-		}
-		if pending.hasFixed {
-			decl.Fixed = &runtime.ValueConstraint{Lexical: pending.fixedLexical}
-		}
-		if err := c.validateElementValueConstraints(&decl, pending.node, c.simpleTypeUnavailable); err != nil {
-			return withSchemaCompileLocation(pending.node, err)
-		}
-		elements[pending.element] = decl
+func (s *substitutionCompilation) finalizeElementConstraint(pending pendingElementConstraint) error {
+	if !runtime.ValidElementID(pending.element, len(s.elements)) {
+		return xsderrors.InternalInvariant("pending element constraint references invalid element")
 	}
-
-	table, err := c.rt.buildSubstitutionTable(elements, c.limits.MaxSubstitutionClosureEntries)
-	if err != nil {
-		return c.substitutionTableError(err, elements)
+	decl := s.elements[pending.element]
+	if decl.Default != nil || decl.Fixed != nil {
+		return xsderrors.InternalInvariant("pending element constraint targets finalized declaration")
 	}
-	c.installFinalizedElements(elements, table)
-	c.pendingElementConstraints = nil
+	if pending.hasDefault {
+		decl.Default = &runtime.ValueConstraint{Lexical: pending.defaultLexical}
+	}
+	if pending.hasFixed {
+		decl.Fixed = &runtime.ValueConstraint{Lexical: pending.fixedLexical}
+	}
+	if err := s.compiler.validateElementValueConstraints(&decl, pending.node, s.compiler.simpleTypeUnavailable); err != nil {
+		return withSchemaCompileLocation(pending.node, err)
+	}
+	s.elements[pending.element] = decl
 	return nil
 }
 

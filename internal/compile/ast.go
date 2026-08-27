@@ -169,6 +169,33 @@ func (s *schemaParseState) handleToken(tok stream.Token) error {
 }
 
 func (s *schemaParseState) start(start stream.StartElement, line, col int) error {
+	if err := s.validateStartLimits(start, line, col); err != nil {
+		return err
+	}
+	namespaceFrame, element, err := s.ns.StartStream(&start, s.values)
+	if err != nil {
+		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
+	}
+	prepared, err := s.prepareSchemaStart(start, element, line, col)
+	if abortErr := s.abortStart(namespaceFrame, err); abortErr != nil {
+		return abortErr
+	}
+	opaque := (len(s.stack) != 0 && s.stack[len(s.stack)-1].node == nil) || s.annotationPayloadEnvelopeOpen()
+	var n *rawNode
+	if !opaque {
+		n = &rawNode{doc: s.doc, Name: prepared.Name, Attr: prepared.Attr, NS: s.ns.Context(), Line: line, Column: col}
+	}
+	if len(s.stack) == 0 && s.root != nil {
+		multipleRoots := schemaParseAt(line, col, xsderrors.CodeSchemaRoot, "schema document has multiple roots", nil)
+		return s.abortStart(namespaceFrame, multipleRoots)
+	}
+	s.nodes++
+	s.attachNode(n)
+	s.stack = append(s.stack, schemaParseFrame{node: n, namespace: namespaceFrame})
+	return nil
+}
+
+func (s *schemaParseState) validateStartLimits(start stream.StartElement, line, col int) error {
 	if s.nodes >= s.limits.MaxSchemaInstantiatedNodes {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, "schema nodes exceed MaxSchemaInstantiatedNodes", nil)
 	}
@@ -178,37 +205,29 @@ func (s *schemaParseState) start(start stream.StartElement, line, col int) error
 	if s.limits.MaxSchemaAttributes > 0 && len(start.Attr) > s.limits.MaxSchemaAttributes {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, "schema XML attributes exceed configured limit", nil)
 	}
-	namespaceFrame, element, err := s.ns.StartStream(&start, s.values)
-	if err != nil {
-		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
-	}
-	prepared, err := s.prepareSchemaStart(start, element, line, col)
-	if err != nil {
-		if abortErr := s.ns.Abort(namespaceFrame); abortErr != nil {
-			return errors.Join(err, abortErr)
-		}
-		return err
-	}
-	opaque := (len(s.stack) != 0 && s.stack[len(s.stack)-1].node == nil) || s.annotationPayloadEnvelopeOpen()
-	var n *rawNode
-	if !opaque {
-		n = &rawNode{doc: s.doc, Name: prepared.Name, Attr: prepared.Attr, NS: s.ns.Context(), Line: line, Column: col}
-	}
-	if len(s.stack) == 0 && s.root != nil {
-		if abortErr := s.ns.Abort(namespaceFrame); abortErr != nil {
-			return errors.Join(schemaParseAt(line, col, xsderrors.CodeSchemaRoot, "schema document has multiple roots", nil), abortErr)
-		}
-		return schemaParseAt(line, col, xsderrors.CodeSchemaRoot, "schema document has multiple roots", nil)
-	}
-	s.nodes++
-	if n != nil && len(s.stack) == 0 {
-		s.root = n
-	} else if n != nil {
-		parent := s.stack[len(s.stack)-1].node
-		parent.Children = append(parent.Children, n)
-	}
-	s.stack = append(s.stack, schemaParseFrame{node: n, namespace: namespaceFrame})
 	return nil
+}
+
+func (s *schemaParseState) abortStart(frame xmlns.Frame, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	if abortErr := s.ns.Abort(frame); abortErr != nil {
+		return errors.Join(cause, abortErr)
+	}
+	return cause
+}
+
+func (s *schemaParseState) attachNode(n *rawNode) {
+	if n == nil {
+		return
+	}
+	if len(s.stack) == 0 {
+		s.root = n
+		return
+	}
+	parent := s.stack[len(s.stack)-1].node
+	parent.Children = append(parent.Children, n)
 }
 
 func (s *schemaParseState) prepareSchemaStart(start stream.StartElement, element xmlns.Element, line, col int) (xml.StartElement, error) {
@@ -327,14 +346,11 @@ func validateSchemaTopLevelOrder(root *rawNode) error {
 }
 
 func rejectInvalidSchemaTextAndDirectives(n *rawNode) error {
-	if n.Name.Space == vocab.XSDNamespaceURI && n.Name.Local != vocab.XSDElemAppinfo &&
-		n.Name.Local != vocab.XSDElemDocumentation && lex.TrimXMLWhitespaceString(n.Text) != "" {
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+n.Name.Local+" cannot contain text")
+	if err := rejectInvalidSchemaText(n); err != nil {
+		return err
 	}
-	if n.Name.Space == vocab.XSDNamespaceURI && (n.Name.Local == includeChild || n.Name.Local == importChild) {
-		if err := checkChildOrderRules(n, annotationOnlyChildOrder(n.Name.Local)); err != nil {
-			return err
-		}
+	if err := rejectInvalidReferenceDirectives(n); err != nil {
+		return err
 	}
 	for _, child := range n.Children {
 		if err := rejectInvalidSchemaTextAndDirectives(child); err != nil {
@@ -342,6 +358,23 @@ func rejectInvalidSchemaTextAndDirectives(n *rawNode) error {
 		}
 	}
 	return nil
+}
+
+func rejectInvalidSchemaText(n *rawNode) error {
+	if n.Name.Space != vocab.XSDNamespaceURI || n.Name.Local == vocab.XSDElemAppinfo || n.Name.Local == vocab.XSDElemDocumentation {
+		return nil
+	}
+	if lex.TrimXMLWhitespaceString(n.Text) != "" {
+		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+n.Name.Local+" cannot contain text")
+	}
+	return nil
+}
+
+func rejectInvalidReferenceDirectives(n *rawNode) error {
+	if n.Name.Space != vocab.XSDNamespaceURI || n.Name.Local != includeChild && n.Name.Local != importChild {
+		return nil
+	}
+	return checkChildOrderRules(n, annotationOnlyChildOrder(n.Name.Local))
 }
 
 func (s *schemaParseState) ValidateDirective(kind stream.TokenKind, first, second []byte, line, col int) error {

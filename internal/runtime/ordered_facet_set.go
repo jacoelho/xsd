@@ -17,38 +17,34 @@ func ValidatePrimitiveFacetRestrictions(st SimpleType, baseFacets FacetSet, step
 func checkPrimitiveFacetRestrictions(st SimpleType, baseFacets FacetSet, step OrderedFacetStep) error {
 	switch st.Primitive {
 	case PrimitiveDecimal:
-		if err := validateDecimalFacetRestriction(st.Facets, baseFacets, step); err != nil {
-			return err
-		}
-		if err := validateDecimalFacetBounds(st.Facets); err != nil {
-			return err
-		}
+		return validateDecimalPrimitiveFacets(st.Facets, baseFacets, step)
 	case PrimitiveFloat, PrimitiveDouble:
-		if err := ValidateFloatFacetSetBounds(st.Primitive, st.Facets); err != nil {
-			return err
-		}
+		return ValidateFloatFacetSetBounds(st.Primitive, st.Facets)
 	case PrimitiveDuration:
-		if err := validateDurationFacetBounds(st.Facets); err != nil {
-			return err
-		}
+		return validateDurationFacetBounds(st.Facets)
 	case PrimitiveGDay, PrimitiveGMonthDay, PrimitiveGMonth, PrimitiveGYearMonth, PrimitiveGYear:
-		if err := validateGValueFacetBounds(st.Primitive, st.Facets); err != nil {
-			return err
-		}
+		return validateGValueFacetBounds(st.Primitive, st.Facets)
 	case PrimitiveDate, PrimitiveDateTime:
-		if err := validateTemporalFacetBounds(st.Primitive, st.Facets); err != nil {
-			return err
-		}
+		return validateTemporalFacetBounds(st.Primitive, st.Facets)
 	case PrimitiveTime:
-		if err := validateTimeFacetRestriction(st.Facets, baseFacets, step); err != nil {
-			return err
-		}
-		if err := validateTemporalFacetBounds(st.Primitive, st.Facets); err != nil {
-			return err
-		}
+		return validateTimePrimitiveFacets(st.Facets, baseFacets, step)
 	default:
+		return nil
 	}
-	return nil
+}
+
+func validateDecimalPrimitiveFacets(facets, base FacetSet, step OrderedFacetStep) error {
+	if err := validateDecimalFacetRestriction(facets, base, step); err != nil {
+		return err
+	}
+	return validateDecimalFacetBounds(facets)
+}
+
+func validateTimePrimitiveFacets(facets, base FacetSet, step OrderedFacetStep) error {
+	if err := validateTimeFacetRestriction(facets, base, step); err != nil {
+		return err
+	}
+	return validateTemporalFacetBounds(PrimitiveTime, facets)
 }
 
 // OrderedFacetSetRestricts reports whether the derived facet set is at least
@@ -84,31 +80,32 @@ func validateDecimalFacetRestriction(f, base FacetSet, step OrderedFacetStep) er
 	if err != nil {
 		return err
 	}
-	if step.MinInclusive {
-		lit, present := BoundFacet(f, FacetMinInclusive)
-		if err := validateDecimalLowerRestriction(vocab.XSDFacetMinInclusive, lit, present, OrderedFacetBoundInclusive, baseLower); err != nil {
-			return err
-		}
+	if err := validateOptionalDecimalLower(step.MinInclusive, vocab.XSDFacetMinInclusive, FacetMinInclusive, OrderedFacetBoundInclusive, f, baseLower); err != nil {
+		return err
 	}
-	if step.MinExclusive {
-		lit, present := BoundFacet(f, FacetMinExclusive)
-		if err := validateDecimalLowerRestriction(vocab.XSDFacetMinExclusive, lit, present, OrderedFacetBoundExclusive, baseLower); err != nil {
-			return err
-		}
+	if err := validateOptionalDecimalLower(step.MinExclusive, vocab.XSDFacetMinExclusive, FacetMinExclusive, OrderedFacetBoundExclusive, f, baseLower); err != nil {
+		return err
 	}
-	if step.MaxInclusive {
-		lit, present := BoundFacet(f, FacetMaxInclusive)
-		if err := validateDecimalUpperRestriction(vocab.XSDFacetMaxInclusive, lit, present, OrderedFacetBoundInclusive, baseUpper); err != nil {
-			return err
-		}
+	if err := validateOptionalDecimalUpper(step.MaxInclusive, vocab.XSDFacetMaxInclusive, FacetMaxInclusive, OrderedFacetBoundInclusive, f, baseUpper); err != nil {
+		return err
 	}
-	if step.MaxExclusive {
-		lit, present := BoundFacet(f, FacetMaxExclusive)
-		if err := validateDecimalUpperRestriction(vocab.XSDFacetMaxExclusive, lit, present, OrderedFacetBoundExclusive, baseUpper); err != nil {
-			return err
-		}
+	return validateOptionalDecimalUpper(step.MaxExclusive, vocab.XSDFacetMaxExclusive, FacetMaxExclusive, OrderedFacetBoundExclusive, f, baseUpper)
+}
+
+func validateOptionalDecimalLower(enabled bool, name string, flag FacetMask, kind OrderedFacetBoundKind, facets FacetSet, base typedFacetBound[DecimalValue]) error {
+	if !enabled {
+		return nil
 	}
-	return nil
+	lit, present := BoundFacet(facets, flag)
+	return validateDecimalLowerRestriction(name, lit, present, kind, base)
+}
+
+func validateOptionalDecimalUpper(enabled bool, name string, flag FacetMask, kind OrderedFacetBoundKind, facets FacetSet, base typedFacetBound[DecimalValue]) error {
+	if !enabled {
+		return nil
+	}
+	lit, present := BoundFacet(facets, flag)
+	return validateDecimalUpperRestriction(name, lit, present, kind, base)
 }
 
 func validateDecimalLowerRestriction(name string, lit CompiledLiteral, litPresent bool, kind OrderedFacetBoundKind, base typedFacetBound[DecimalValue]) error {
@@ -522,31 +519,32 @@ func validateTimeFacetRestriction(f, base FacetSet, step OrderedFacetStep) error
 	if err != nil {
 		return err
 	}
-	if step.MinInclusive && baseLower.present() {
-		lit, present := BoundFacet(f, FacetMinInclusive)
-		if err := validateTimeLowerRestriction(vocab.XSDFacetMinInclusive, lit, present, OrderedFacetBoundInclusive, baseLower); err != nil {
-			return err
-		}
+	if err := validateOptionalTimeLower(step.MinInclusive, vocab.XSDFacetMinInclusive, FacetMinInclusive, OrderedFacetBoundInclusive, f, baseLower); err != nil {
+		return err
 	}
-	if step.MinExclusive && baseLower.present() {
-		lit, present := BoundFacet(f, FacetMinExclusive)
-		if err := validateTimeLowerRestriction(vocab.XSDFacetMinExclusive, lit, present, OrderedFacetBoundExclusive, baseLower); err != nil {
-			return err
-		}
+	if err := validateOptionalTimeLower(step.MinExclusive, vocab.XSDFacetMinExclusive, FacetMinExclusive, OrderedFacetBoundExclusive, f, baseLower); err != nil {
+		return err
 	}
-	if step.MaxInclusive && baseUpper.present() {
-		lit, present := BoundFacet(f, FacetMaxInclusive)
-		if err := validateTimeUpperRestriction(vocab.XSDFacetMaxInclusive, lit, present, OrderedFacetBoundInclusive, baseUpper); err != nil {
-			return err
-		}
+	if err := validateOptionalTimeUpper(step.MaxInclusive, vocab.XSDFacetMaxInclusive, FacetMaxInclusive, OrderedFacetBoundInclusive, f, baseUpper); err != nil {
+		return err
 	}
-	if step.MaxExclusive && baseUpper.present() {
-		lit, present := BoundFacet(f, FacetMaxExclusive)
-		if err := validateTimeUpperRestriction(vocab.XSDFacetMaxExclusive, lit, present, OrderedFacetBoundExclusive, baseUpper); err != nil {
-			return err
-		}
+	return validateOptionalTimeUpper(step.MaxExclusive, vocab.XSDFacetMaxExclusive, FacetMaxExclusive, OrderedFacetBoundExclusive, f, baseUpper)
+}
+
+func validateOptionalTimeLower(enabled bool, name string, flag FacetMask, kind OrderedFacetBoundKind, facets FacetSet, base typedFacetBound[TimeValue]) error {
+	if !enabled || !base.present() {
+		return nil
 	}
-	return nil
+	lit, present := BoundFacet(facets, flag)
+	return validateTimeLowerRestriction(name, lit, present, kind, base)
+}
+
+func validateOptionalTimeUpper(enabled bool, name string, flag FacetMask, kind OrderedFacetBoundKind, facets FacetSet, base typedFacetBound[TimeValue]) error {
+	if !enabled || !base.present() {
+		return nil
+	}
+	lit, present := BoundFacet(facets, flag)
+	return validateTimeUpperRestriction(name, lit, present, kind, base)
 }
 
 func validateTimeLowerRestriction(name string, lit CompiledLiteral, litPresent bool, kind OrderedFacetBoundKind, base typedFacetBound[TimeValue]) error {

@@ -9,6 +9,17 @@ type StartElement struct {
 	Attr []Attr
 }
 
+// ReplaceAttributeNames replaces attribute names in place. names must contain
+// exactly one entry for each attribute.
+func (s StartElement) ReplaceAttributeNames(names []xml.Name) {
+	if len(names) != len(s.Attr) {
+		panic("stream: replacement attribute name count does not match")
+	}
+	for i := range names {
+		s.Attr[i].Name = names[i]
+	}
+}
+
 // EndElement is a parsed XML end element.
 type EndElement struct {
 	// Name.Space is the lexical namespace prefix.
@@ -54,6 +65,15 @@ func (a *Attr) StringValue(cache *Cache) string {
 		a.Value = cache.Intern(a.raw)
 	}
 	return a.Value
+}
+
+// MaterializeValue returns the attribute value as an owned string when cache
+// can materialize any parser-owned storage.
+func (a *Attr) MaterializeValue(cache *Cache) (string, bool) {
+	if a.HasBorrowedValue() && cache == nil {
+		return "", false
+	}
+	return a.StringValue(cache), true
 }
 
 // AppendValue appends the attribute value to dst. It must be called while the

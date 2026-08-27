@@ -501,22 +501,28 @@ func ElementValueConstraintType(
 	if !ok {
 		return NoSimpleType, errors.New("element value constraint references invalid type")
 	}
-	if ct.ContentKind.Simple() {
+	switch {
+	case ct.ContentKind.Simple():
 		return ct.TextType, nil
+	case ct.ContentKind.Mixed():
+		return mixedElementValueConstraintType(analysis, ct.Content)
+	default:
+		return NoSimpleType, errors.New("element value constraint requires simple content")
 	}
-	if ct.ContentKind.Mixed() {
-		if analysis == nil {
-			return NoSimpleType, errors.New("content model analysis is nil")
-		}
-		emptiable, err := analysis.ModelEmptiable(ct.Content)
-		if err != nil {
-			return NoSimpleType, err
-		}
-		if emptiable {
-			return NoSimpleType, nil
-		}
+}
+
+func mixedElementValueConstraintType(analysis *ContentModelAnalysis, content ContentModelID) (SimpleTypeID, error) {
+	if analysis == nil {
+		return NoSimpleType, errors.New("content model analysis is nil")
 	}
-	return NoSimpleType, errors.New("element value constraint requires simple content")
+	emptiable, err := analysis.ModelEmptiable(content)
+	if err != nil {
+		return NoSimpleType, err
+	}
+	if !emptiable {
+		return NoSimpleType, errors.New("element value constraint requires simple content")
+	}
+	return NoSimpleType, nil
 }
 
 // ValidateValueConstraintShape validates cached value-constraint metadata that
@@ -600,14 +606,20 @@ func simpleTypeUsesBareNotation(rt ValueConstraintRuntime, id SimpleTypeID, seen
 	if st.Primitive == PrimitiveNotation && !st.HasEnumeration {
 		return true
 	}
-	if st.Variety == SimpleVarietyList {
+	switch st.Variety {
+	case SimpleVarietyList:
 		return simpleTypeUsesBareNotation(rt, st.ListItem, seen)
+	case SimpleVarietyUnion:
+		return unionUsesBareNotation(rt, st.Union, seen)
+	default:
+		return false
 	}
-	if st.Variety == SimpleVarietyUnion {
-		for _, member := range st.Union {
-			if simpleTypeUsesBareNotation(rt, member, seen) {
-				return true
-			}
+}
+
+func unionUsesBareNotation(rt ValueConstraintRuntime, members []SimpleTypeID, seen map[SimpleTypeID]bool) bool {
+	for _, member := range members {
+		if simpleTypeUsesBareNotation(rt, member, seen) {
+			return true
 		}
 	}
 	return false

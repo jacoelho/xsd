@@ -37,14 +37,13 @@ func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType 
 	if status == runtime.ContentTransitionNoMatch {
 		return s.recoverableChildIssue(line, col, unexpectedChildIssue(rn))
 	}
+	return s.acceptMatchedChild(transition, rn, line, col)
+}
+
+func (s *session) acceptMatchedChild(transition runtime.ContentTransition, rn runtime.RuntimeName, line, col int) (acceptedChild, error) {
 	match := transition.Match()
 	if match.StrictMissing {
-		if hasSchemaLocation := s.schemaLocationHintLookup(); hasSchemaLocation != nil && hasSchemaLocation(rn.NS) {
-			return acceptedChild{}, unsupportedSchemaLocation(s.startContext(line, col), vocab.XSDElemElement, rn)
-		}
-		accepted, err := s.recoverableChildIssue(line, col, strictMissingChildIssue(rn))
-		accepted.transition = transition
-		return accepted, err
+		return s.acceptStrictMissingChild(transition, rn, line, col)
 	}
 	if match.Element == runtime.NoElement {
 		if match.Skip {
@@ -57,6 +56,15 @@ func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType 
 		return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
 	}
 	return acceptedChild{start: assessedSchemaStart(match.Element, decl.Type), transition: transition}, nil
+}
+
+func (s *session) acceptStrictMissingChild(transition runtime.ContentTransition, rn runtime.RuntimeName, line, col int) (acceptedChild, error) {
+	if hasSchemaLocation := s.schemaLocationHintLookup(); hasSchemaLocation != nil && hasSchemaLocation(rn.NS) {
+		return acceptedChild{}, unsupportedSchemaLocation(s.startContext(line, col), vocab.XSDElemElement, rn)
+	}
+	accepted, err := s.recoverableChildIssue(line, col, strictMissingChildIssue(rn))
+	accepted.transition = transition
+	return accepted, err
 }
 
 func (s *session) recoverableChildIssue(line, col int, issue validationIssue) (acceptedChild, error) {

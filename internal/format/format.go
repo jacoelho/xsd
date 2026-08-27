@@ -262,28 +262,36 @@ func (f *xmlFormatter) collectStart(tok stream.Token) error {
 	if err != nil {
 		return xmlFormatErr(tok.Line, tok.Column, err)
 	}
-	preserve := xmlSpacePreserve(start.Attr, xmlSpaceDefault)
-	if len(f.stack) == 0 {
-		if f.rootSeen {
-			if abortErr := f.ns.Abort(frame); abortErr != nil {
-				return errors.Join(xmlFormatErr(tok.Line, tok.Column, errors.New("XML document has multiple roots")), abortErr)
-			}
-			return xmlFormatErr(tok.Line, tok.Column, errors.New("XML document has multiple roots"))
-		}
-		f.rootSeen = true
-	} else {
-		parent := f.stack[len(f.stack)-1]
-		preserve = xmlSpacePreserve(start.Attr, parent.preserve)
+	inherited, err := f.startWhitespaceMode(frame, tok.Line, tok.Column)
+	if err != nil {
+		return err
 	}
+	preserve := xmlSpacePreserve(start.Attr, inherited)
 	elem := &formatElement{start: start, namespace: frame, line: tok.Line, col: tok.Column, preserve: preserve}
 	if err := f.appendItem(formatItem{kind: formatItemElement, elem: elem, line: tok.Line, col: tok.Column}); err != nil {
-		if abortErr := f.ns.Abort(frame); abortErr != nil {
-			return errors.Join(err, abortErr)
-		}
-		return err
+		return f.abortStart(frame, err)
 	}
 	f.stack = append(f.stack, elem)
 	return nil
+}
+
+func (f *xmlFormatter) startWhitespaceMode(frame xmlns.Frame, line, col int) (bool, error) {
+	if len(f.stack) != 0 {
+		return f.stack[len(f.stack)-1].preserve, nil
+	}
+	if f.rootSeen {
+		err := xmlFormatErr(line, col, errors.New("XML document has multiple roots"))
+		return false, f.abortStart(frame, err)
+	}
+	f.rootSeen = true
+	return xmlSpaceDefault, nil
+}
+
+func (f *xmlFormatter) abortStart(frame xmlns.Frame, err error) error {
+	if abortErr := f.ns.Abort(frame); abortErr != nil {
+		return errors.Join(err, abortErr)
+	}
+	return err
 }
 
 func (f *xmlFormatter) collectEnd(tok stream.Token) error {
@@ -375,17 +383,24 @@ func (f *xmlFormatter) writeElement(elem *formatElement, depth int, mode formatW
 		return xmlFormatErr(elem.line, elem.col, err)
 	}
 	if mode == formatInline || elem.inline() {
-		for _, child := range elem.children {
-			if err := f.writeItem(child, depth+1, formatInline); err != nil {
-				return err
-			}
-		}
-		return writeXMLFormatEnd(f.w, elem)
+		return f.writeInlineElement(elem, depth)
 	}
+	return f.writeBlockElement(elem, depth)
+}
 
+func (f *xmlFormatter) writeInlineElement(elem *formatElement, depth int) error {
+	for _, child := range elem.children {
+		if err := f.writeItem(child, depth+1, formatInline); err != nil {
+			return err
+		}
+	}
+	return writeXMLFormatEnd(f.w, elem)
+}
+
+func (f *xmlFormatter) writeBlockElement(elem *formatElement, depth int) error {
 	wroteChild := false
 	for _, child := range elem.children {
-		if child.kind == formatItemText && !child.cdata && lex.IsXMLWhitespaceBytes(child.data) {
+		if child.ignorableBlockWhitespace() {
 			continue
 		}
 		if err := writeXMLIndent(f.w, depth+1); err != nil {
@@ -404,6 +419,10 @@ func (f *xmlFormatter) writeElement(elem *formatElement, depth int, mode formatW
 	return writeXMLFormatEnd(f.w, elem)
 }
 
+func (item formatItem) ignorableBlockWhitespace() bool {
+	return item.kind == formatItemText && !item.cdata && lex.IsXMLWhitespaceBytes(item.data)
+}
+
 func (e *formatElement) inline() bool {
 	if e.preserve {
 		return true
@@ -411,22 +430,42 @@ func (e *formatElement) inline() bool {
 	hasElement := false
 	hasNonElementLayout := false
 	for _, child := range e.children {
-		switch child.kind {
-		case formatItemElement:
+		switch child.inlineDisposition() {
+		case inlineElement:
 			hasElement = true
-		case formatItemComment, formatItemPI:
+		case inlineLayout:
 			hasNonElementLayout = true
-		case formatItemText:
-			if child.cdata || !lex.IsXMLWhitespaceBytes(child.data) {
-				return true
-			}
-			if !hasXMLLineBreak(child.data) {
-				return true
-			}
-			hasNonElementLayout = true
+		case inlineContent:
+			return true
+		case inlineIgnored:
 		}
 	}
 	return !hasElement && hasNonElementLayout
+}
+
+type inlineItemDisposition uint8
+
+const (
+	inlineIgnored inlineItemDisposition = iota
+	inlineElement
+	inlineLayout
+	inlineContent
+)
+
+func (item formatItem) inlineDisposition() inlineItemDisposition {
+	switch item.kind {
+	case formatItemElement:
+		return inlineElement
+	case formatItemComment, formatItemPI:
+		return inlineLayout
+	case formatItemText:
+		if item.cdata || !lex.IsXMLWhitespaceBytes(item.data) || !hasXMLLineBreak(item.data) {
+			return inlineContent
+		}
+		return inlineLayout
+	default:
+		return inlineIgnored
+	}
 }
 
 func writeXMLFormatEnd(w io.Writer, elem *formatElement) error {
@@ -533,23 +572,28 @@ func writeXMLStart(w io.Writer, start xml.StartElement) error {
 		return err
 	}
 	for _, attr := range start.Attr {
-		if _, err := io.WriteString(w, " "); err != nil {
-			return err
-		}
-		if err := writeXMLQName(w, attr.Name); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, "=\""); err != nil {
-			return err
-		}
-		if err := writeXMLAttrValue(w, attr.Value); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, "\""); err != nil {
+		if err := writeXMLAttribute(w, attr); err != nil {
 			return err
 		}
 	}
 	_, err := io.WriteString(w, ">")
+	return err
+}
+
+func writeXMLAttribute(w io.Writer, attr xml.Attr) error {
+	if _, err := io.WriteString(w, " "); err != nil {
+		return err
+	}
+	if err := writeXMLQName(w, attr.Name); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "=\""); err != nil {
+		return err
+	}
+	if err := writeXMLAttrValue(w, attr.Value); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, "\"")
 	return err
 }
 
@@ -592,30 +636,11 @@ func writeXMLIndent(w io.Writer, depth int) error {
 func writeXMLAttrValue(w io.Writer, value string) error {
 	start := 0
 	for i := range len(value) {
-		var esc string
-		switch value[i] {
-		case '&':
-			esc = "&amp;"
-		case '<':
-			esc = "&lt;"
-		case '"':
-			esc = "&quot;"
-		case '\n':
-			esc = "&#10;"
-		case '\r':
-			esc = "&#13;"
-		case '\t':
-			esc = "&#9;"
-		}
+		esc := xmlAttributeEscape(value[i])
 		if esc == "" {
 			continue
 		}
-		if start < i {
-			if _, err := io.WriteString(w, value[start:i]); err != nil {
-				return err
-			}
-		}
-		if _, err := io.WriteString(w, esc); err != nil {
+		if err := writeXMLAttributeChunk(w, value[start:i], esc); err != nil {
 			return err
 		}
 		start = i + 1
@@ -626,6 +651,35 @@ func writeXMLAttrValue(w io.Writer, value string) error {
 		}
 	}
 	return nil
+}
+
+func xmlAttributeEscape(b byte) string {
+	switch b {
+	case '&':
+		return "&amp;"
+	case '<':
+		return "&lt;"
+	case '"':
+		return "&quot;"
+	case '\n':
+		return "&#10;"
+	case '\r':
+		return "&#13;"
+	case '\t':
+		return "&#9;"
+	default:
+		return ""
+	}
+}
+
+func writeXMLAttributeChunk(w io.Writer, raw, escaped string) error {
+	if raw != "" {
+		if _, err := io.WriteString(w, raw); err != nil {
+			return err
+		}
+	}
+	_, err := io.WriteString(w, escaped)
+	return err
 }
 
 func writeXMLCDATA(w io.Writer, data []byte) error {

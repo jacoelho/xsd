@@ -129,6 +129,16 @@ func ValidateComplexTypeRuntime(
 	models []ContentModel,
 	limits ComplexTypeRefLimits,
 ) error {
+	if err := validateComplexTypeShape(names, ct); err != nil {
+		return err
+	}
+	if err := validateComplexTypeReferences(id, ct, models, limits); err != nil {
+		return err
+	}
+	return validateComplexTypeContent(ct, models, limits.SimpleTypeCount)
+}
+
+func validateComplexTypeShape(names *NameTable, ct ComplexType) error {
 	if names == nil || !names.ValidQName(ct.Name) {
 		return errors.New("complex type references invalid name")
 	}
@@ -147,6 +157,10 @@ func ValidateComplexTypeRuntime(
 	if ct.ExplicitDerivation && ct.Derivation == DerivationKindNone {
 		return errors.New("complex type marks explicit derivation without derivation kind")
 	}
+	return nil
+}
+
+func validateComplexTypeReferences(id ComplexTypeID, ct ComplexType, models []ContentModel, limits ComplexTypeRefLimits) error {
 	if ct.Base == (TypeID{}) {
 		if id != limits.AnyType {
 			return errors.New("complex type has no base type")
@@ -160,13 +174,17 @@ func ValidateComplexTypeRuntime(
 	if !ValidAttributeUseSetID(ct.Attrs, limits.AttributeUseSetCount) {
 		return errors.New("complex type references invalid attribute use set")
 	}
+	return nil
+}
+
+func validateComplexTypeContent(ct ComplexType, models []ContentModel, simpleTypeCount int) error {
 	if !ct.SimpleContent() {
 		if ct.TextType != NoSimpleType {
 			return errors.New("complex type stores text type without simple content")
 		}
 		return nil
 	}
-	if !ValidSimpleTypeID(ct.TextType, limits.SimpleTypeCount) {
+	if !ValidSimpleTypeID(ct.TextType, simpleTypeCount) {
 		return errors.New("complex type references invalid text type")
 	}
 	if models[ct.Content].Kind != ModelEmpty {
@@ -192,35 +210,57 @@ func validateComplexTypeGraph(types []ComplexType) error {
 		}
 		state[root] = complexTypeGraphChecking
 		stack = appendDFSFrame(stack, ComplexTypeID(root), len(types))
-		for len(stack) != 0 {
-			last := len(stack) - 1
-			id := stack[last]
-			base := types[id].Base
-			switch {
-			case base == (TypeID{}), base.IsSimple():
-				state[id] = complexTypeGraphChecked
-				stack = stack[:last]
-			case base.IsComplex():
-				baseID, _ := base.Complex()
-				if !ValidComplexTypeID(baseID, len(types)) {
-					return errors.New("complex type graph references invalid base")
-				}
-				switch state[baseID] {
-				case complexTypeGraphUnchecked:
-					state[baseID] = complexTypeGraphChecking
-					stack = appendDFSFrame(stack, baseID, len(types))
-				case complexTypeGraphChecking:
-					return errors.New("complex type graph contains cycle")
-				case complexTypeGraphChecked:
-					state[id] = complexTypeGraphChecked
-					stack = stack[:last]
-				}
-			default:
-				return errors.New("complex type graph references invalid base")
-			}
+		if err := walkComplexTypeGraph(types, state, &stack); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func walkComplexTypeGraph(types []ComplexType, state []complexTypeGraphState, stack *[]ComplexTypeID) error {
+	for len(*stack) != 0 {
+		if err := advanceComplexTypeGraph(types, state, stack); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func advanceComplexTypeGraph(types []ComplexType, state []complexTypeGraphState, stack *[]ComplexTypeID) error {
+	last := len(*stack) - 1
+	id := (*stack)[last]
+	base := types[id].Base
+	switch {
+	case base == (TypeID{}), base.IsSimple():
+		state[id] = complexTypeGraphChecked
+		*stack = (*stack)[:last]
+		return nil
+	case base.IsComplex():
+		baseID, _ := base.Complex()
+		return advanceComplexTypeBase(types, state, stack, id, baseID)
+	default:
+		return errors.New("complex type graph references invalid base")
+	}
+}
+
+func advanceComplexTypeBase(types []ComplexType, state []complexTypeGraphState, stack *[]ComplexTypeID, id, baseID ComplexTypeID) error {
+	if !ValidComplexTypeID(baseID, len(types)) {
+		return errors.New("complex type graph references invalid base")
+	}
+	switch state[baseID] {
+	case complexTypeGraphUnchecked:
+		state[baseID] = complexTypeGraphChecking
+		*stack = appendDFSFrame(*stack, baseID, len(types))
+		return nil
+	case complexTypeGraphChecking:
+		return errors.New("complex type graph contains cycle")
+	case complexTypeGraphChecked:
+		state[id] = complexTypeGraphChecked
+		*stack = (*stack)[:len(*stack)-1]
+		return nil
+	default:
+		return errors.New("complex type graph references invalid base")
+	}
 }
 
 // ValidateComplexTypeDerivationRuntime validates derivation-mode rules common

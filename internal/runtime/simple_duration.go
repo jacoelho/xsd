@@ -34,22 +34,10 @@ func ParseDurationValue(s string) (DurationValue, error) {
 }
 
 func parseDurationValue[T byteText](raw T) (DurationValue, error) {
-	if len(raw) == 0 {
-		return DurationValue{}, errors.New("invalid duration")
+	i, negative, err := parseDurationPrefix(raw)
+	if err != nil {
+		return DurationValue{}, err
 	}
-	i := 0
-	negative := false
-	if raw[i] == '-' {
-		negative = true
-		i++
-		if i == len(raw) {
-			return DurationValue{}, errors.New("invalid duration")
-		}
-	}
-	if raw[i] != 'P' {
-		return DurationValue{}, errors.New("invalid duration")
-	}
-	i++
 	date, err := parseDurationDateParts(raw, &i)
 	if err != nil {
 		return DurationValue{}, err
@@ -61,24 +49,9 @@ func parseDurationValue[T byteText](raw T) (DurationValue, error) {
 	if i != len(raw) || !date.seen && !tm.seen {
 		return DurationValue{}, errors.New("invalid duration")
 	}
-	monthTotal, err := checkedDurationMulInt64(date.years, 12)
+	monthTotal, secondTotal, err := durationTotals(date, tm, negative)
 	if err != nil {
 		return DurationValue{}, err
-	}
-	monthTotal, err = checkedDurationAddInt64(monthTotal, date.months)
-	if err != nil {
-		return DurationValue{}, err
-	}
-	secondTotal, err := checkedDurationWholeSeconds(date, tm)
-	if err != nil {
-		return DurationValue{}, err
-	}
-	if negative {
-		if monthTotal == minInt64Value || secondTotal == minInt64Value {
-			return DurationValue{}, errors.New("invalid duration")
-		}
-		monthTotal = -monthTotal
-		secondTotal = -secondTotal
 	}
 	return DurationValue{
 		frac:         tm.frac,
@@ -86,6 +59,43 @@ func parseDurationValue[T byteText](raw T) (DurationValue, error) {
 		seconds:      secondTotal,
 		negativeFrac: negative && tm.frac != "",
 	}, nil
+}
+
+func parseDurationPrefix[T byteText](raw T) (int, bool, error) {
+	if len(raw) == 0 {
+		return 0, false, errors.New("invalid duration")
+	}
+	i := 0
+	negative := raw[i] == '-'
+	if negative {
+		i++
+	}
+	if i >= len(raw) || raw[i] != 'P' {
+		return 0, false, errors.New("invalid duration")
+	}
+	return i + 1, negative, nil
+}
+
+func durationTotals(date durationDateParts, tm durationTimeParts, negative bool) (int64, int64, error) {
+	months, err := checkedDurationMulInt64(date.years, 12)
+	if err != nil {
+		return 0, 0, err
+	}
+	months, err = checkedDurationAddInt64(months, date.months)
+	if err != nil {
+		return 0, 0, err
+	}
+	seconds, err := checkedDurationWholeSeconds(date, tm)
+	if err != nil {
+		return 0, 0, err
+	}
+	if !negative {
+		return months, seconds, nil
+	}
+	if months == minInt64Value || seconds == minInt64Value {
+		return 0, 0, errors.New("invalid duration")
+	}
+	return -months, -seconds, nil
 }
 
 // EqualDurationValues reports XML Schema equality for xs:duration values.
@@ -122,6 +132,10 @@ func CompareDurationValues(a, b DurationValue) OrderedFacetRelation {
 	if seconds == 0 || months == seconds {
 		return orderedFacetRelationFromInt(months)
 	}
+	return compareDurationAtReferenceDates(a, b)
+}
+
+func compareDurationAtReferenceDates(a, b DurationValue) OrderedFacetRelation {
 	refs := [...]xsdDateTimePoint{
 		{year: xsdYear{digits: "1696"}, month: 9, day: 1},
 		{year: xsdYear{digits: "1697"}, month: 2, day: 1},
@@ -165,32 +179,39 @@ func parseDurationDateParts[T byteText](raw T, i *int) (durationDateParts, error
 		if err != nil || *i >= len(raw) {
 			return durationDateParts{}, errors.New("invalid duration")
 		}
-		switch raw[*i] {
-		case 'Y':
-			if stage >= 1 {
-				return durationDateParts{}, errors.New("invalid duration")
-			}
-			out.years = value
-			stage = 1
-		case 'M':
-			if stage >= 2 {
-				return durationDateParts{}, errors.New("invalid duration")
-			}
-			out.months = value
-			stage = 2
-		case 'D':
-			if stage >= 3 {
-				return durationDateParts{}, errors.New("invalid duration")
-			}
-			out.days = value
-			stage = 3
-		default:
-			return durationDateParts{}, errors.New("invalid duration")
+		if err := appendDurationDatePart(&out, &stage, raw[*i], value); err != nil {
+			return durationDateParts{}, err
 		}
 		*i++
 		out.seen = true
 	}
 	return out, nil
+}
+
+func appendDurationDatePart(out *durationDateParts, stage *int, designator byte, value int64) error {
+	switch designator {
+	case 'Y':
+		if *stage >= 1 {
+			return errors.New("invalid duration")
+		}
+		out.years = value
+		*stage = 1
+	case 'M':
+		if *stage >= 2 {
+			return errors.New("invalid duration")
+		}
+		out.months = value
+		*stage = 2
+	case 'D':
+		if *stage >= 3 {
+			return errors.New("invalid duration")
+		}
+		out.days = value
+		*stage = 3
+	default:
+		return errors.New("invalid duration")
+	}
+	return nil
 }
 
 type durationTimeParts struct {
@@ -212,47 +233,61 @@ func parseDurationTimeParts[T byteText](raw T, i *int) (durationTimeParts, error
 	var out durationTimeParts
 	stage := 0
 	for *i < len(raw) {
-		value, err := parseDurationUnsigned(raw, i)
-		if err != nil {
+		if err := parseDurationTimePart(raw, i, &out, &stage); err != nil {
 			return durationTimeParts{}, err
 		}
-		frac, hadFrac, err := parseDurationFraction(raw, i)
-		if err != nil {
-			return durationTimeParts{}, err
-		}
-		if *i >= len(raw) {
-			return durationTimeParts{}, errors.New("invalid duration")
-		}
-		switch raw[*i] {
-		case 'H':
-			if stage >= 1 || hadFrac {
-				return durationTimeParts{}, errors.New("invalid duration")
-			}
-			out.hours = value
-			stage = 1
-		case 'M':
-			if stage >= 2 || hadFrac {
-				return durationTimeParts{}, errors.New("invalid duration")
-			}
-			out.minutes = value
-			stage = 2
-		case 'S':
-			if stage >= 3 {
-				return durationTimeParts{}, errors.New("invalid duration")
-			}
-			out.seconds = value
-			out.frac = frac
-			stage = 3
-		default:
-			return durationTimeParts{}, errors.New("invalid duration")
-		}
-		*i++
-		out.seen = true
 	}
 	if !out.seen {
 		return durationTimeParts{}, errors.New("invalid duration")
 	}
 	return out, nil
+}
+
+func parseDurationTimePart[T byteText](raw T, i *int, out *durationTimeParts, stage *int) error {
+	value, err := parseDurationUnsigned(raw, i)
+	if err != nil {
+		return err
+	}
+	frac, hadFrac, err := parseDurationFraction(raw, i)
+	if err != nil {
+		return err
+	}
+	if *i >= len(raw) {
+		return errors.New("invalid duration")
+	}
+	if err := appendDurationTimePart(out, stage, raw[*i], value, frac, hadFrac); err != nil {
+		return err
+	}
+	*i++
+	out.seen = true
+	return nil
+}
+
+func appendDurationTimePart(out *durationTimeParts, stage *int, designator byte, value int64, frac string, hadFrac bool) error {
+	switch designator {
+	case 'H':
+		if *stage >= 1 || hadFrac {
+			return errors.New("invalid duration")
+		}
+		out.hours = value
+		*stage = 1
+	case 'M':
+		if *stage >= 2 || hadFrac {
+			return errors.New("invalid duration")
+		}
+		out.minutes = value
+		*stage = 2
+	case 'S':
+		if *stage >= 3 {
+			return errors.New("invalid duration")
+		}
+		out.seconds = value
+		out.frac = frac
+		*stage = 3
+	default:
+		return errors.New("invalid duration")
+	}
+	return nil
 }
 
 func parseDurationFraction[T byteText](raw T, i *int) (string, bool, error) {

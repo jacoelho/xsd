@@ -18,19 +18,7 @@ func ParseTextValue(kind PrimitiveKind, normalized string, needs PrimitiveValueN
 	switch kind {
 	case PrimitiveString:
 	case PrimitiveAnyURI:
-		characters, err := uriref.Check(normalized)
-		if err != nil {
-			return TextValue{}, err
-		}
-		value := TextValue{Canonical: normalized}
-		if needs.Has(PrimitiveNeedLength) {
-			length, lengthErr := checkedUint32(characters, "anyURI length exceeds uint32 limit")
-			if lengthErr != nil {
-				return TextValue{}, lengthErr
-			}
-			value.Length = length
-		}
-		return value, nil
+		return parseAnyURITextValue(normalized, needs)
 	default:
 		return TextValue{}, ErrSimpleValueMetadata
 	}
@@ -42,6 +30,23 @@ func ParseTextValue(kind PrimitiveKind, normalized string, needs PrimitiveValueN
 		}
 		value.Length = length
 	}
+	return value, nil
+}
+
+func parseAnyURITextValue(normalized string, needs PrimitiveValueNeed) (TextValue, error) {
+	characters, err := uriref.Check(normalized)
+	if err != nil {
+		return TextValue{}, err
+	}
+	value := TextValue{Canonical: normalized}
+	if !needs.Has(PrimitiveNeedLength) {
+		return value, nil
+	}
+	length, err := checkedUint32(characters, "anyURI length exceeds uint32 limit")
+	if err != nil {
+		return TextValue{}, err
+	}
+	value.Length = length
 	return value, nil
 }
 

@@ -46,34 +46,12 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q runtim
 	if err := c.validateAttributeDeclName(n, q); err != nil {
 		return runtime.AttributeDecl{}, err
 	}
-	typ := c.rt.builtinIDs().AnySimpleType
-	if typeLex, ok := n.attr(vocab.XSDAttrType); ok {
-		if err := ValidateAttributeTypeSource(true, n.firstXS(vocab.XSDElemSimpleType) != nil); err != nil {
-			return runtime.AttributeDecl{}, withSchemaCompileLocation(n, err)
-		}
-		tq, err := c.resolveQNameChecked(n, ctx, typeLex)
-		if err != nil {
-			return runtime.AttributeDecl{}, err
-		}
-		id, err := c.compileSimpleTypeReference(n, tq)
-		if err != nil {
-			return runtime.AttributeDecl{}, err
-		}
-		typ = id
-	} else if st := n.firstXS(vocab.XSDElemSimpleType); st != nil {
-		id, err := c.compileAnonymousSimple(st, ctx)
-		if err != nil {
-			return runtime.AttributeDecl{}, err
-		}
-		typ = id
+	typ, err := c.compileAttributeDeclType(n, ctx)
+	if err != nil {
+		return runtime.AttributeDecl{}, err
 	}
 	decl := runtime.AttributeDecl{Name: q, Type: typ}
-	if v, ok := n.attr(vocab.XSDAttrDefault); ok {
-		decl.Default = &runtime.ValueConstraint{Lexical: v}
-	}
-	if v, ok := n.attr(vocab.XSDAttrFixed); ok {
-		decl.Fixed = &runtime.ValueConstraint{Lexical: v}
-	}
+	readAttributeDeclValueConstraints(n, &decl)
 	if err := validateAttributeDeclValueConstraintAdmission(n, decl.Default != nil, decl.Fixed != nil); err != nil {
 		return runtime.AttributeDecl{}, err
 	}
@@ -81,6 +59,32 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q runtim
 		return runtime.AttributeDecl{}, withSchemaCompileLocation(n, err)
 	}
 	return decl, nil
+}
+
+func (c *compiler) compileAttributeDeclType(n *rawNode, ctx *schemaContext) (runtime.SimpleTypeID, error) {
+	if typeLex, ok := n.attr(vocab.XSDAttrType); ok {
+		if err := ValidateAttributeTypeSource(true, n.firstXS(vocab.XSDElemSimpleType) != nil); err != nil {
+			return runtime.NoSimpleType, withSchemaCompileLocation(n, err)
+		}
+		q, err := c.resolveQNameChecked(n, ctx, typeLex)
+		if err != nil {
+			return runtime.NoSimpleType, err
+		}
+		return c.compileSimpleTypeReference(n, q)
+	}
+	if simple := n.firstXS(vocab.XSDElemSimpleType); simple != nil {
+		return c.compileAnonymousSimple(simple, ctx)
+	}
+	return c.rt.builtinIDs().AnySimpleType, nil
+}
+
+func readAttributeDeclValueConstraints(n *rawNode, decl *runtime.AttributeDecl) {
+	if value, ok := n.attr(vocab.XSDAttrDefault); ok {
+		decl.Default = &runtime.ValueConstraint{Lexical: value}
+	}
+	if value, ok := n.attr(vocab.XSDAttrFixed); ok {
+		decl.Fixed = &runtime.ValueConstraint{Lexical: value}
+	}
 }
 
 func (c *compiler) validateAttributeValueConstraints(decl *runtime.AttributeDecl, n *rawNode) error {
@@ -99,20 +103,21 @@ func (c *compiler) validateAttributeValueConstraints(decl *runtime.AttributeDecl
 		return nil
 	}
 	resolve := c.schemaQNameResolver(n)
-	if decl.Default != nil {
-		vc, err := c.validateValueConstraint(decl.Type, decl.Default.Lexical, resolve, decl.Name, "attribute default")
-		if err != nil {
-			return err
-		}
-		decl.Default = vc
+	if err := c.validateAttributeConstraint(&decl.Default, decl, resolve, "attribute default"); err != nil {
+		return err
 	}
-	if decl.Fixed != nil {
-		vc, err := c.validateValueConstraint(decl.Type, decl.Fixed.Lexical, resolve, decl.Name, "attribute fixed")
-		if err != nil {
-			return err
-		}
-		decl.Fixed = vc
+	return c.validateAttributeConstraint(&decl.Fixed, decl, resolve, "attribute fixed")
+}
+
+func (c *compiler) validateAttributeConstraint(constraint **runtime.ValueConstraint, decl *runtime.AttributeDecl, resolve runtime.ResolveQNameParts, label string) error {
+	if *constraint == nil {
+		return nil
 	}
+	validated, err := c.validateValueConstraint(decl.Type, (*constraint).Lexical, resolve, decl.Name, label)
+	if err != nil {
+		return err
+	}
+	*constraint = validated
 	return nil
 }
 
@@ -163,54 +168,89 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 			return runtime.NoAttributeUseSet, err
 		}
 	}
-	uses := inherited
-	merger := NewAttributeUseMerger(inherited, inheritedWildcard, mode)
-	wildcards := NewAttributeWildcardBuilder(inheritedWildcard, mode)
+	compilation := attributeUseCompilation{
+		compiler:  c,
+		ctx:       ctx,
+		uses:      inherited,
+		merger:    NewAttributeUseMerger(inherited, inheritedWildcard, mode),
+		wildcards: NewAttributeWildcardBuilder(inheritedWildcard, mode),
+	}
 	for _, child := range parent.Children {
 		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation {
 			continue
 		}
-		switch ClassifyAttributeUseChild(child.Name.Local) {
-		case AttributeUseChildAttribute:
-			u, err := c.compileAttributeUse(child, ctx)
-			if err != nil {
-				return runtime.NoAttributeUseSet, err
-			}
-			uses, err = c.mergeAttributeUse(uses, &merger, u)
-			if err != nil {
-				return runtime.NoAttributeUseSet, withSchemaCompileLocation(child, err)
-			}
-		case AttributeUseChildGroup:
-			groupUses, groupWildcard, err := c.compileAttributeGroupUse(child, ctx)
-			if err != nil {
-				return runtime.NoAttributeUseSet, err
-			}
-			for _, u := range groupUses {
-				uses, err = c.mergeAttributeUse(uses, &merger, u)
-				if err != nil {
-					return runtime.NoAttributeUseSet, withSchemaCompileLocation(child, err)
-				}
-			}
-			if err := wildcards.AddGroup(c, groupWildcard); err != nil {
-				return runtime.NoAttributeUseSet, withSchemaCompileLocation(child, err)
-			}
-		case AttributeUseChildWildcard:
-			id, err := c.compileAttributeWildcard(child, ctx)
-			if err != nil {
-				return runtime.NoAttributeUseSet, err
-			}
-			if err := wildcards.AddAnyAttribute(c, id); err != nil {
-				return runtime.NoAttributeUseSet, withSchemaCompileLocation(child, err)
-			}
-		case AttributeUseChildIgnored:
+		if err := compilation.add(child); err != nil {
+			return runtime.NoAttributeUseSet, err
 		}
 	}
-	declaredWildcard := wildcards.Declared()
-	wildcard, err := wildcards.Finish(c, parent.Name.Local == vocab.XSDElemExtension)
+	return compilation.finish(parent, inheritedWildcard, mode)
+}
+
+type attributeUseCompilation struct {
+	compiler  *compiler
+	ctx       *schemaContext
+	merger    AttributeUseMerger
+	uses      []runtime.AttributeUse
+	wildcards AttributeWildcardBuilder
+}
+
+func (b *attributeUseCompilation) add(child *rawNode) error {
+	switch ClassifyAttributeUseChild(child.Name.Local) {
+	case AttributeUseChildAttribute:
+		return b.addAttribute(child)
+	case AttributeUseChildGroup:
+		return b.addGroup(child)
+	case AttributeUseChildWildcard:
+		return b.addWildcard(child)
+	default:
+		return nil
+	}
+}
+
+func (b *attributeUseCompilation) addAttribute(child *rawNode) error {
+	use, err := b.compiler.compileAttributeUse(child, b.ctx)
+	if err != nil {
+		return err
+	}
+	b.uses, err = b.compiler.mergeAttributeUse(b.uses, &b.merger, use)
+	return withSchemaCompileLocation(child, err)
+}
+
+func (b *attributeUseCompilation) addGroup(child *rawNode) error {
+	uses, wildcard, err := b.compiler.compileAttributeGroupUse(child, b.ctx)
+	if err != nil {
+		return err
+	}
+	for _, use := range uses {
+		b.uses, err = b.compiler.mergeAttributeUse(b.uses, &b.merger, use)
+		if err != nil {
+			return withSchemaCompileLocation(child, err)
+		}
+	}
+	if err := b.wildcards.AddGroup(b.compiler, wildcard); err != nil {
+		return withSchemaCompileLocation(child, err)
+	}
+	return nil
+}
+
+func (b *attributeUseCompilation) addWildcard(child *rawNode) error {
+	id, err := b.compiler.compileAttributeWildcard(child, b.ctx)
+	if err != nil {
+		return err
+	}
+	if err := b.wildcards.AddAnyAttribute(b.compiler, id); err != nil {
+		return withSchemaCompileLocation(child, err)
+	}
+	return nil
+}
+
+func (b *attributeUseCompilation) finish(parent *rawNode, inheritedWildcard runtime.WildcardID, mode AttributeMergeMode) (runtime.AttributeUseSetID, error) {
+	declaredWildcard := b.wildcards.Declared()
+	wildcard, err := b.wildcards.Finish(b.compiler, parent.Name.Local == vocab.XSDElemExtension)
 	if err != nil {
 		return runtime.NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
-	finalUses := RemoveProhibitedAttributeUses(uses)
+	finalUses := RemoveProhibitedAttributeUses(b.uses)
 	set, err := newAttributeUseSet(finalUses, wildcard, attributeWildcardProvenance{
 		base:     inheritedWildcard,
 		declared: declaredWildcard,
@@ -219,10 +259,10 @@ func (c *compiler) compileAttributeUses(parent *rawNode, ctx *schemaContext, inh
 	if err != nil {
 		return runtime.NoAttributeUseSet, err
 	}
-	if err = c.validateAttributeUseSet(set); err != nil {
+	if err = b.compiler.validateAttributeUseSet(set); err != nil {
 		return runtime.NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
-	return c.addAttributeUseSet(set)
+	return b.compiler.addAttributeUseSet(set)
 }
 
 func (c *compiler) mergeAttributeUse(uses []runtime.AttributeUse, merger *AttributeUseMerger, use runtime.AttributeUse) ([]runtime.AttributeUse, error) {
@@ -282,53 +322,97 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (runtime.
 		return runtime.AttributeUse{}, err
 	}
 	use := base.use
-	defaultValue, hasDefault := n.attr(vocab.XSDAttrDefault)
-	fixedValue, hasFixed := n.attr(vocab.XSDAttrFixed)
-	if base.ref && hasFixed {
-		use.Fixed = &runtime.ValueConstraint{Lexical: fixedValue}
-		use.FixedFromDeclaration = false
-	}
-	modeLexical, hasMode := n.attr(vocab.XSDAttrUse)
-	mode, err := parseAttributeUseModeChecked(n, modeLexical, hasMode)
+	overrides := readAttributeUseOverrides(n)
+	applyAttributeUseFixedOverride(&use, base, overrides)
+	mode, err := validateAttributeUseMode(n, overrides, base.refFixed != nil)
 	if err != nil {
 		return runtime.AttributeUse{}, err
 	}
-	err = validateAttributeUseValueConstraintAdmission(n, mode, hasDefault, hasFixed, base.refFixed != nil)
-	if err != nil {
-		return runtime.AttributeUse{}, err
-	}
-	modeState, err := applyAttributeUseMode(n, mode, hasFixed)
+	modeState, err := applyAttributeUseMode(n, mode, overrides.hasFixed)
 	if err != nil {
 		return runtime.AttributeUse{}, err
 	}
 	use.Required = modeState.Required
 	use.Prohibited = modeState.Prohibited
-	if base.ref && hasDefault {
-		use.Default = &runtime.ValueConstraint{Lexical: defaultValue}
-	}
-	if base.ref && (hasDefault || hasFixed) {
-		decl := runtime.AttributeDecl{Name: use.Name, Type: use.Type}
-		if hasDefault {
-			decl.Default = &runtime.ValueConstraint{Lexical: defaultValue}
-		}
-		if hasFixed {
-			decl.Fixed = &runtime.ValueConstraint{Lexical: fixedValue}
-		}
-		if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
-			return runtime.AttributeUse{}, withSchemaCompileLocation(n, err)
-		}
-		if hasDefault {
-			use.Default = decl.Default
-		}
-		if hasFixed {
-			use.Fixed = decl.Fixed
-			use.FixedFromDeclaration = false
-		}
+	applyAttributeUseDefaultOverride(&use, base, overrides)
+	if err := c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
+		return runtime.AttributeUse{}, err
 	}
 	if err := validateAttributeUseFixedValueAdmission(n, runtime.NewValueConstraintIdentity(use.Fixed), runtime.NewValueConstraintIdentity(base.refFixed)); err != nil {
 		return runtime.AttributeUse{}, err
 	}
 	return use, nil
+}
+
+type attributeUseOverrides struct {
+	defaultValue string
+	fixedValue   string
+	modeLexical  string
+	hasDefault   bool
+	hasFixed     bool
+	hasMode      bool
+}
+
+func readAttributeUseOverrides(n *rawNode) attributeUseOverrides {
+	defaultValue, hasDefault := n.attr(vocab.XSDAttrDefault)
+	fixedValue, hasFixed := n.attr(vocab.XSDAttrFixed)
+	modeLexical, hasMode := n.attr(vocab.XSDAttrUse)
+	return attributeUseOverrides{
+		defaultValue: defaultValue, fixedValue: fixedValue, modeLexical: modeLexical,
+		hasDefault: hasDefault, hasFixed: hasFixed, hasMode: hasMode,
+	}
+}
+
+func applyAttributeUseFixedOverride(use *runtime.AttributeUse, base attributeUseBase, overrides attributeUseOverrides) {
+	if base.ref && overrides.hasFixed {
+		use.Fixed = &runtime.ValueConstraint{Lexical: overrides.fixedValue}
+		use.FixedFromDeclaration = false
+	}
+}
+
+func validateAttributeUseMode(n *rawNode, overrides attributeUseOverrides, inheritedFixed bool) (AttributeUseMode, error) {
+	mode, err := parseAttributeUseModeChecked(n, overrides.modeLexical, overrides.hasMode)
+	if err != nil {
+		return AttributeUseOptional, err
+	}
+	if err := validateAttributeUseValueConstraintAdmission(n, mode, overrides.hasDefault, overrides.hasFixed, inheritedFixed); err != nil {
+		return AttributeUseOptional, err
+	}
+	return mode, nil
+}
+
+func applyAttributeUseDefaultOverride(use *runtime.AttributeUse, base attributeUseBase, overrides attributeUseOverrides) {
+	if base.ref && overrides.hasDefault {
+		use.Default = &runtime.ValueConstraint{Lexical: overrides.defaultValue}
+	}
+}
+
+func (c *compiler) validateAttributeUseOverrides(n *rawNode, use *runtime.AttributeUse, base attributeUseBase, overrides attributeUseOverrides) error {
+	if !base.ref || !overrides.hasDefault && !overrides.hasFixed {
+		return nil
+	}
+	decl := runtime.AttributeDecl{Name: use.Name, Type: use.Type}
+	if overrides.hasDefault {
+		decl.Default = &runtime.ValueConstraint{Lexical: overrides.defaultValue}
+	}
+	if overrides.hasFixed {
+		decl.Fixed = &runtime.ValueConstraint{Lexical: overrides.fixedValue}
+	}
+	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
+		return withSchemaCompileLocation(n, err)
+	}
+	applyValidatedAttributeUseOverrides(use, decl, overrides)
+	return nil
+}
+
+func applyValidatedAttributeUseOverrides(use *runtime.AttributeUse, decl runtime.AttributeDecl, overrides attributeUseOverrides) {
+	if overrides.hasDefault {
+		use.Default = decl.Default
+	}
+	if overrides.hasFixed {
+		use.Fixed = decl.Fixed
+		use.FixedFromDeclaration = false
+	}
 }
 
 func (c *compiler) compileAttributeUseBase(n *rawNode, ctx *schemaContext) (attributeUseBase, error) {

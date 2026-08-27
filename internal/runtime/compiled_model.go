@@ -148,51 +148,64 @@ func (a *dfaRowIndexAnalysis) indexRow(row *CompiledModelRow) error {
 	if len(row.Edges) < compiledDFARowIndexMinEdges {
 		return nil
 	}
-	for range row.Edges {
-		if err := spendContentModelWork(a.work); err != nil {
-			return err
-		}
+	if err := spendContentModelWorkN(a.work, len(row.Edges)); err != nil {
+		return err
 	}
 	index := make(map[QName]uint32, len(row.Edges))
 	var wildcards []uint32
 	for pos, edge := range row.Edges {
-		edgePos := uint32(pos)
-		switch edge.Particle.Kind {
-		case ParticleElement:
-			name, ok := a.rt.ElementName(edge.Particle.Element)
-			if !ok {
-				return errors.New("compiled content model index references invalid element")
-			}
-			if !indexEdgeName(index, name, edgePos) {
-				return nil
-			}
-			unique := true
-			entries, err := a.substitutionEntries(edge.Particle.Element)
-			if err != nil {
-				return err
-			}
-			for _, entry := range entries {
-				if err := spendContentModelWork(a.work); err != nil {
-					return err
-				}
-				unique = indexEdgeName(index, entry, edgePos)
-				if !unique {
-					break
-				}
-			}
-			if !unique {
-				return nil
-			}
-		case ParticleWildcard:
-			wildcards = append(wildcards, edgePos)
-		case ParticleModel:
+		indexed, err := a.indexEdge(index, &wildcards, uint32(pos), edge)
+		if err != nil {
+			return err
+		}
+		if !indexed {
 			return nil
-		default:
-			return errors.New("compiled content model index has invalid edge particle")
 		}
 	}
 	row.index = dfaRowIndex{nameToEdge: index, wildcardEdges: wildcards}
 	return nil
+}
+
+func (a *dfaRowIndexAnalysis) indexEdge(
+	index map[QName]uint32,
+	wildcards *[]uint32,
+	position uint32,
+	edge CompiledModelEdge,
+) (bool, error) {
+	switch edge.Particle.Kind {
+	case ParticleElement:
+		return a.indexElementEdge(index, position, edge.Particle.Element)
+	case ParticleWildcard:
+		*wildcards = append(*wildcards, position)
+		return true, nil
+	case ParticleModel:
+		return false, nil
+	default:
+		return false, errors.New("compiled content model index has invalid edge particle")
+	}
+}
+
+func (a *dfaRowIndexAnalysis) indexElementEdge(index map[QName]uint32, position uint32, element ElementID) (bool, error) {
+	name, ok := a.rt.ElementName(element)
+	if !ok {
+		return false, errors.New("compiled content model index references invalid element")
+	}
+	if !indexEdgeName(index, name, position) {
+		return false, nil
+	}
+	entries, err := a.substitutionEntries(element)
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range entries {
+		if err := spendContentModelWork(a.work); err != nil {
+			return false, err
+		}
+		if !indexEdgeName(index, entry, position) {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (a *dfaRowIndexAnalysis) substitutionEntries(id ElementID) ([]QName, error) {
@@ -319,6 +332,21 @@ func validateCompiledModelRuntime(
 	overlap *ContentModelAnalysis,
 	indexes *dfaRowIndexAnalysis,
 ) error {
+	if err := validateCompiledModelIdentity(id, source, model); err != nil {
+		return err
+	}
+	switch model.Kind {
+	case CompiledModelEmpty, CompiledModelAny:
+		return validateCompiledEmptyOrAnyRuntime(source, model)
+	case CompiledModelAll:
+		return validateCompiledAllModelRuntime(rt, source, model, work)
+	case CompiledModelDFA:
+		return validateCompiledDFAModelRuntime(names, rt, source, model, validateUPA, work, overlap, indexes)
+	}
+	return nil
+}
+
+func validateCompiledModelIdentity(id ContentModelID, source ContentModel, model CompiledModel) error {
 	if model.Source != id {
 		return errors.New("compiled content model source does not match model slot")
 	}
@@ -328,48 +356,80 @@ func validateCompiledModelRuntime(
 	if !ValidCompiledModelKind(model.Kind) {
 		return errors.New("compiled content model has invalid kind")
 	}
-	switch model.Kind {
-	case CompiledModelEmpty, CompiledModelAny:
-		if (source.Kind == ModelEmpty) != (model.Kind == CompiledModelEmpty) ||
-			(source.Kind == ModelAny) != (model.Kind == CompiledModelAny) {
-			return errors.New("compiled content model kind does not match source model")
-		}
-		if len(model.Rows) != 0 || len(model.All) != 0 || model.Start != 0 || model.AllBitLen != 0 || !model.Empty {
-			return errors.New("compiled empty/any content model stores inactive fields")
-		}
-	case CompiledModelAll:
-		if source.Kind != ModelAll {
-			return errors.New("compiled all content model kind does not match source model")
-		}
-		if len(model.Rows) != 0 || model.Start != 0 {
-			return errors.New("compiled all content model stores inactive DFA fields")
-		}
-		if err := validateCompiledAllRuntime(source, model, work); err != nil {
+	return nil
+}
+
+func validateCompiledEmptyOrAnyRuntime(source ContentModel, model CompiledModel) error {
+	if (source.Kind == ModelEmpty) != (model.Kind == CompiledModelEmpty) ||
+		(source.Kind == ModelAny) != (model.Kind == CompiledModelAny) {
+		return errors.New("compiled content model kind does not match source model")
+	}
+	if len(model.Rows) != 0 || len(model.All) != 0 || model.Start != 0 || model.AllBitLen != 0 || !model.Empty {
+		return errors.New("compiled empty/any content model stores inactive fields")
+	}
+	return nil
+}
+
+func validateCompiledAllModelRuntime(
+	rt CompiledModelRuntime,
+	source ContentModel,
+	model CompiledModel,
+	work ContentModelWork,
+) error {
+	if source.Kind != ModelAll {
+		return errors.New("compiled all content model kind does not match source model")
+	}
+	if len(model.Rows) != 0 || model.Start != 0 {
+		return errors.New("compiled all content model stores inactive DFA fields")
+	}
+	if err := validateCompiledAllRuntime(source, model, work); err != nil {
+		return err
+	}
+	for _, term := range model.All {
+		if err := spendContentModelWork(work); err != nil {
 			return err
 		}
-		for _, term := range model.All {
-			if err := spendContentModelWork(work); err != nil {
-				return err
-			}
-			if err := validateCompiledParticle(rt, term.Particle); err != nil {
-				return err
-			}
-		}
-	case CompiledModelDFA:
-		if source.Kind == ModelEmpty || source.Kind == ModelAny || source.Kind == ModelAll {
-			return errors.New("compiled DFA content model kind does not match source model")
-		}
-		if len(model.All) != 0 || model.AllBitLen != 0 {
-			return errors.New("compiled DFA content model stores inactive all fields")
-		}
-		if err := validateCompiledDFARuntime(names, rt, model, validateUPA, work, overlap, indexes); err != nil {
+		if err := validateCompiledParticle(rt, term.Particle); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func validateCompiledDFAModelRuntime(
+	names *NameTable,
+	rt CompiledModelRuntime,
+	source ContentModel,
+	model CompiledModel,
+	validateUPA bool,
+	work ContentModelWork,
+	overlap *ContentModelAnalysis,
+	indexes *dfaRowIndexAnalysis,
+) error {
+	if source.Kind == ModelEmpty || source.Kind == ModelAny || source.Kind == ModelAll {
+		return errors.New("compiled DFA content model kind does not match source model")
+	}
+	if len(model.All) != 0 || model.AllBitLen != 0 {
+		return errors.New("compiled DFA content model stores inactive all fields")
+	}
+	return validateCompiledDFARuntime(names, rt, model, validateUPA, work, overlap, indexes)
+}
+
 func validateCompiledAllRuntime(source ContentModel, model CompiledModel, work ContentModelWork) error {
+	if err := validateCompiledAllShape(source, model); err != nil {
+		return err
+	}
+	required, err := validateCompiledAllTerms(source.Particles, model.All, work)
+	if err != nil {
+		return err
+	}
+	if model.Empty != (source.Occurs.Min == 0 || !required) {
+		return errors.New("compiled all content model empty flag does not match source model")
+	}
+	return nil
+}
+
+func validateCompiledAllShape(source ContentModel, model CompiledModel) error {
 	if len(model.All) != len(source.Particles) {
 		return errors.New("compiled all content model term count does not match source model")
 	}
@@ -377,29 +437,37 @@ func validateCompiledAllRuntime(source ContentModel, model CompiledModel, work C
 	if allBitLen > int(^uint32(0)) || model.AllBitLen != uint32(allBitLen) {
 		return errors.New("compiled all content model bit length does not match terms")
 	}
+	return nil
+}
+
+func validateCompiledAllTerms(source []Particle, terms []CompiledAllTerm, work ContentModelWork) (bool, error) {
 	required := false
-	for i, term := range model.All {
+	for i, term := range terms {
 		if err := spendContentModelWork(work); err != nil {
-			return err
+			return false, err
 		}
-		sourceParticle := source.Particles[i]
-		if sourceParticle.Kind == ParticleModel {
-			return errors.New("compiled all content model source has model particle")
+		termRequired, err := validateCompiledAllTerm(source[i], term)
+		if err != nil {
+			return false, err
 		}
-		if !SameCompiledParticle(term.Particle, sourceParticle) || term.Particle.Occurs != sourceParticle.Occurs {
-			return errors.New("compiled all content model term does not match source particle")
-		}
-		if term.Required != (sourceParticle.Occurs.Min > 0) {
-			return errors.New("compiled all content model required flag does not match source particle")
-		}
-		if term.Required {
+		if termRequired {
 			required = true
 		}
 	}
-	if model.Empty != (source.Occurs.Min == 0 || !required) {
-		return errors.New("compiled all content model empty flag does not match source model")
+	return required, nil
+}
+
+func validateCompiledAllTerm(source Particle, term CompiledAllTerm) (bool, error) {
+	if source.Kind == ParticleModel {
+		return false, errors.New("compiled all content model source has model particle")
 	}
-	return nil
+	if !SameCompiledParticle(term.Particle, source) || term.Particle.Occurs != source.Occurs {
+		return false, errors.New("compiled all content model term does not match source particle")
+	}
+	if term.Required != (source.Occurs.Min > 0) {
+		return false, errors.New("compiled all content model required flag does not match source particle")
+	}
+	return term.Required, nil
 }
 
 func validateCompiledDFARuntime(
@@ -442,31 +510,12 @@ func validateCompiledDFARow(
 	overlap *ContentModelAnalysis,
 	indexes *dfaRowIndexAnalysis,
 ) error {
-	if row.Counted && !row.Unbounded && row.Max < row.Min {
-		return errors.New("compiled content model counted state has invalid range")
+	if err := validateCompiledCountedRow(rt, row); err != nil {
+		return err
 	}
-	if row.Counted {
-		if err := validateCompiledParticle(rt, row.CountParticle); err != nil {
-			return err
-		}
-	}
-	countedLoops := 0
-	for _, edge := range row.Edges {
-		if err := spendContentModelWork(work); err != nil {
-			return err
-		}
-		if !ValidUint32Index(edge.To, len(model.Rows)) {
-			return errors.New("compiled content model edge target is invalid")
-		}
-		if err := validateCompiledParticle(rt, edge.Particle); err != nil {
-			return err
-		}
-		if row.Counted && edge.To == index {
-			if !SameCompiledParticle(edge.Particle, row.CountParticle) {
-				return errors.New("compiled content model counted state has non-counted self loop")
-			}
-			countedLoops++
-		}
+	countedLoops, err := validateCompiledDFAEdges(rt, model, row, index, work)
+	if err != nil {
+		return err
 	}
 	if row.Counted && countedLoops != 1 {
 		return errors.New("compiled content model counted state must have one counted self loop")
@@ -482,6 +531,61 @@ func validateCompiledDFARow(
 	return nil
 }
 
+func validateCompiledCountedRow(rt CompiledModelRuntime, row CompiledModelRow) error {
+	if row.Counted && !row.Unbounded && row.Max < row.Min {
+		return errors.New("compiled content model counted state has invalid range")
+	}
+	if row.Counted {
+		return validateCompiledParticle(rt, row.CountParticle)
+	}
+	return nil
+}
+
+func validateCompiledDFAEdges(
+	rt CompiledModelRuntime,
+	model CompiledModel,
+	row CompiledModelRow,
+	index uint32,
+	work ContentModelWork,
+) (int, error) {
+	countedLoops := 0
+	for _, edge := range row.Edges {
+		if err := spendContentModelWork(work); err != nil {
+			return 0, err
+		}
+		counted, err := validateCompiledDFAEdge(rt, model, row, index, edge)
+		if err != nil {
+			return 0, err
+		}
+		if counted {
+			countedLoops++
+		}
+	}
+	return countedLoops, nil
+}
+
+func validateCompiledDFAEdge(
+	rt CompiledModelRuntime,
+	model CompiledModel,
+	row CompiledModelRow,
+	index uint32,
+	edge CompiledModelEdge,
+) (bool, error) {
+	if !ValidUint32Index(edge.To, len(model.Rows)) {
+		return false, errors.New("compiled content model edge target is invalid")
+	}
+	if err := validateCompiledParticle(rt, edge.Particle); err != nil {
+		return false, err
+	}
+	if !row.Counted || edge.To != index {
+		return false, nil
+	}
+	if !SameCompiledParticle(edge.Particle, row.CountParticle) {
+		return false, errors.New("compiled content model counted state has non-counted self loop")
+	}
+	return true, nil
+}
+
 func validateCompiledDFARowUPA(
 	row CompiledModelRow,
 	index uint32,
@@ -489,21 +593,31 @@ func validateCompiledDFARowUPA(
 	overlap *ContentModelAnalysis,
 ) error {
 	for i, a := range row.Edges {
-		for j := i + 1; j < len(row.Edges); j++ {
-			if err := spendContentModelWork(work); err != nil {
-				return err
-			}
-			next := row.Edges[j]
-			_, overlaps, err := overlap.Overlap(a.Particle, next.Particle)
-			if err != nil {
-				return err
-			}
-			if !overlaps {
-				continue
-			}
-			if CompiledCountingException(index, row, a, next) {
-				continue
-			}
+		if err := validateCompiledDFAEdgeOverlaps(row, index, i, a, work, overlap); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCompiledDFAEdgeOverlaps(
+	row CompiledModelRow,
+	index uint32,
+	position int,
+	edge CompiledModelEdge,
+	work ContentModelWork,
+	overlap *ContentModelAnalysis,
+) error {
+	for nextPosition := position + 1; nextPosition < len(row.Edges); nextPosition++ {
+		if err := spendContentModelWork(work); err != nil {
+			return err
+		}
+		next := row.Edges[nextPosition]
+		_, overlaps, err := overlap.Overlap(edge.Particle, next.Particle)
+		if err != nil {
+			return err
+		}
+		if overlaps && !CompiledCountingException(index, row, edge, next) {
 			return errors.New("compiled content model row has overlapping particles")
 		}
 	}
@@ -549,70 +663,119 @@ func (a *dfaRowIndexAnalysis) validateRow(names *NameTable, row CompiledModelRow
 	if idx.nameToEdge == nil {
 		return errors.New("compiled content model name index is nil")
 	}
+	if err := a.validateNameIndex(names, row); err != nil {
+		return err
+	}
+	return a.validateIndexedEdges(row)
+}
+
+func (a *dfaRowIndexAnalysis) validateNameIndex(names *NameTable, row CompiledModelRow) error {
+	idx := row.index
 	for name, pos := range idx.nameToEdge {
 		if err := spendContentModelWork(a.work); err != nil {
 			return err
 		}
-		if names == nil || !names.ValidQName(name) || !ValidUint32Index(pos, len(row.Edges)) {
-			return errors.New("compiled content model name index entry is invalid")
-		}
-		p := row.Edges[pos].Particle
-		if p.Kind != ParticleElement {
-			return errors.New("compiled content model name index targets non-element edge")
-		}
-		elementName, ok := a.rt.ElementName(p.Element)
-		if !ok {
-			return errors.New("compiled content model name index key does not match edge element")
-		}
-		if elementName != name {
-			if _, ok := a.rt.SubstitutionMemberByName(p.Element, name); !ok {
-				return errors.New("compiled content model name index key does not match edge element")
-			}
+		if err := a.validateNameIndexEntry(names, row, name, pos); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+func (a *dfaRowIndexAnalysis) validateNameIndexEntry(
+	names *NameTable,
+	row CompiledModelRow,
+	name QName,
+	position uint32,
+) error {
+	if names == nil || !names.ValidQName(name) || !ValidUint32Index(position, len(row.Edges)) {
+		return errors.New("compiled content model name index entry is invalid")
+	}
+	particle := row.Edges[position].Particle
+	if particle.Kind != ParticleElement {
+		return errors.New("compiled content model name index targets non-element edge")
+	}
+	elementName, ok := a.rt.ElementName(particle.Element)
+	if !ok {
+		return errors.New("compiled content model name index key does not match edge element")
+	}
+	if elementName == name {
+		return nil
+	}
+	if _, ok := a.rt.SubstitutionMemberByName(particle.Element, name); !ok {
+		return errors.New("compiled content model name index key does not match edge element")
+	}
+	return nil
+}
+
+func (a *dfaRowIndexAnalysis) validateIndexedEdges(row CompiledModelRow) error {
+	idx := row.index
 	wi := 0
 	for pos, edge := range row.Edges {
 		if err := spendContentModelWork(a.work); err != nil {
 			return err
 		}
-		edgePos := uint32(pos)
-		switch edge.Particle.Kind {
-		case ParticleElement:
-			name, ok := a.rt.ElementName(edge.Particle.Element)
-			if !ok {
-				return errors.New("compiled content model indexed row has invalid element edge")
-			}
-			if err := requireIndexedName(idx, name, edgePos); err != nil {
-				return err
-			}
-			entries, err := a.substitutionEntries(edge.Particle.Element)
-			if err != nil {
-				return err
-			}
-			indexed := true
-			for _, entry := range entries {
-				if err := spendContentModelWork(a.work); err != nil {
-					return err
-				}
-				indexed = requireIndexedName(idx, entry, edgePos) == nil
-				if !indexed {
-					break
-				}
-			}
-			if !indexed {
-				return errors.New("compiled content model name index is missing element edge")
-			}
-		case ParticleWildcard:
-			if wi >= len(idx.wildcardEdges) || idx.wildcardEdges[wi] != edgePos {
-				return errors.New("compiled content model wildcard list does not match wildcard edges")
-			}
-			wi++
-		default:
-			return errors.New("compiled content model indexed row has model edge")
+		if err := a.validateIndexedEdge(idx, uint32(pos), edge, &wi); err != nil {
+			return err
 		}
 	}
 	if wi != len(idx.wildcardEdges) {
 		return errors.New("compiled content model wildcard list does not match wildcard edges")
+	}
+	return nil
+}
+
+func (a *dfaRowIndexAnalysis) validateIndexedEdge(
+	idx dfaRowIndex,
+	position uint32,
+	edge CompiledModelEdge,
+	wildcardIndex *int,
+) error {
+	switch edge.Particle.Kind {
+	case ParticleElement:
+		return a.validateIndexedElementEdge(idx, position, edge.Particle.Element)
+	case ParticleWildcard:
+		if *wildcardIndex >= len(idx.wildcardEdges) || idx.wildcardEdges[*wildcardIndex] != position {
+			return errors.New("compiled content model wildcard list does not match wildcard edges")
+		}
+		*wildcardIndex++
+		return nil
+	default:
+		return errors.New("compiled content model indexed row has model edge")
+	}
+}
+
+func (a *dfaRowIndexAnalysis) validateIndexedElementEdge(
+	idx dfaRowIndex,
+	position uint32,
+	element ElementID,
+) error {
+	name, ok := a.rt.ElementName(element)
+	if !ok {
+		return errors.New("compiled content model indexed row has invalid element edge")
+	}
+	if err := requireIndexedName(idx, name, position); err != nil {
+		return err
+	}
+	entries, err := a.substitutionEntries(element)
+	if err != nil {
+		return err
+	}
+	return a.validateIndexedSubstitutionEntries(idx, position, entries)
+}
+
+func (a *dfaRowIndexAnalysis) validateIndexedSubstitutionEntries(
+	idx dfaRowIndex,
+	position uint32,
+	entries []QName,
+) error {
+	for _, entry := range entries {
+		if err := spendContentModelWork(a.work); err != nil {
+			return err
+		}
+		if err := requireIndexedName(idx, entry, position); err != nil {
+			return errors.New("compiled content model name index is missing element edge")
+		}
 	}
 	return nil
 }

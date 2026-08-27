@@ -52,6 +52,15 @@ func AppendPatternFacetGroup(f *FacetSet, patterns []StringPattern) {
 }
 
 func newStringPatternReadPoolForSimpleTypes(types []SimpleType) map[*stringPatternStep]*stringPatternStepRead {
+	hint := stringPatternReadPoolHint(types)
+	if hint == 0 {
+		return nil
+	}
+	sources, patternCount, pool := collectStringPatternReadSources(types, hint)
+	return buildStringPatternReadPool(sources, patternCount, pool)
+}
+
+func stringPatternReadPoolHint(types []SimpleType) int {
 	hint := 0
 	for i := range types {
 		tail := types[i].Facets.patterns.tail
@@ -63,45 +72,55 @@ func newStringPatternReadPoolForSimpleTypes(types []SimpleType) map[*stringPatte
 		}
 		hint = max(hint, int(tail.count))
 	}
-	if hint == 0 {
-		return nil
-	}
+	return hint
+}
 
+func collectStringPatternReadSources(
+	types []SimpleType,
+	hint int,
+) ([]*stringPatternStep, int, map[*stringPatternStep]*stringPatternStepRead) {
 	sources := make([]*stringPatternStep, 0, hint)
 	missing := make([]*stringPatternStep, 0, min(hint, 1_024))
 	pool := make(map[*stringPatternStep]*stringPatternStepRead, hint)
 	patternCount := 0
 	for i := range types {
-		missing = missing[:0]
-		for step := types[i].Facets.patterns.tail; step != nil; step = step.parent {
-			if _, ok := pool[step]; ok {
-				break
-			}
-			pool[step] = nil
-			missing = append(missing, step)
-		}
+		missing = collectMissingStringPatternSteps(types[i].Facets.patterns.tail, pool, missing[:0])
 		addStringPatternReadCount(len(sources), len(missing))
 		for _, step := range slices.Backward(missing) {
 			patternCount = addStringPatternReadCount(patternCount, len(step.patterns))
 			sources = append(sources, step)
 		}
 	}
+	return sources, patternCount, pool
+}
 
+func collectMissingStringPatternSteps(
+	step *stringPatternStep,
+	pool map[*stringPatternStep]*stringPatternStepRead,
+	missing []*stringPatternStep,
+) []*stringPatternStep {
+	for ; step != nil; step = step.parent {
+		if _, ok := pool[step]; ok {
+			break
+		}
+		pool[step] = nil
+		missing = append(missing, step)
+	}
+	return missing
+}
+
+func buildStringPatternReadPool(
+	sources []*stringPatternStep,
+	patternCount int,
+	pool map[*stringPatternStep]*stringPatternStepRead,
+) map[*stringPatternStep]*stringPatternStepRead {
 	reads := make([]stringPatternStepRead, len(sources))
 	patterns := make([]stringPatternRead, patternCount)
 	fastCopies := make(map[*SimplePattern]*SimplePattern)
 	regexpCopies := make(map[*regexp.Regexp]*regexp.Regexp)
 	patternOffset := 0
 	for i, source := range sources {
-		var stepPatterns []stringPatternRead
-		if len(source.patterns) != 0 {
-			end := patternOffset + len(source.patterns)
-			stepPatterns = patterns[patternOffset:end:end]
-			patternOffset = end
-			for j, pattern := range source.patterns {
-				stepPatterns[j] = newStringPatternRead(pattern, fastCopies, regexpCopies)
-			}
-		}
+		stepPatterns := projectStringPatternReads(source.patterns, patterns, &patternOffset, fastCopies, regexpCopies)
 		reads[i] = stringPatternStepRead{
 			parent:   pool[source.parent],
 			patterns: stepPatterns,
@@ -110,6 +129,25 @@ func newStringPatternReadPoolForSimpleTypes(types []SimpleType) map[*stringPatte
 		pool[source] = &reads[i]
 	}
 	return pool
+}
+
+func projectStringPatternReads(
+	source []StringPattern,
+	patterns []stringPatternRead,
+	offset *int,
+	fastCopies map[*SimplePattern]*SimplePattern,
+	regexpCopies map[*regexp.Regexp]*regexp.Regexp,
+) []stringPatternRead {
+	if len(source) == 0 {
+		return nil
+	}
+	end := *offset + len(source)
+	reads := patterns[*offset:end:end]
+	*offset = end
+	for i, pattern := range source {
+		reads[i] = newStringPatternRead(pattern, fastCopies, regexpCopies)
+	}
+	return reads
 }
 
 func newStringPatternRead(
@@ -162,27 +200,43 @@ func validateStringPatternSourcesForSimpleTypes(types []SimpleType) error {
 		if tail == nil {
 			continue
 		}
-		step := tail
-		for walked := uint32(0); step != nil; walked++ {
-			if _, ok := validated[step]; ok {
-				break
-			}
-			if walked >= tail.count || step.count == 0 ||
-				(step.parent == nil) != (step.count == 1) ||
-				step.parent != nil && step.parent.count+1 != step.count {
-				return errors.New("simple type pattern facet chain is invalid")
-			}
-			if err := validateStringPatternStepShape(step); err != nil {
-				return err
-			}
-			if validated == nil {
-				validated = make(map[*stringPatternStep]struct{})
-			}
-			validated[step] = struct{}{}
-			step = step.parent
+		var err error
+		validated, err = validateStringPatternSource(tail, validated)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func validateStringPatternSource(
+	tail *stringPatternStep,
+	validated map[*stringPatternStep]struct{},
+) (map[*stringPatternStep]struct{}, error) {
+	step := tail
+	for walked := uint32(0); step != nil; walked++ {
+		if _, ok := validated[step]; ok {
+			break
+		}
+		if invalidStringPatternStepLink(tail, step, walked) {
+			return nil, errors.New("simple type pattern facet chain is invalid")
+		}
+		if err := validateStringPatternStepShape(step); err != nil {
+			return nil, err
+		}
+		if validated == nil {
+			validated = make(map[*stringPatternStep]struct{})
+		}
+		validated[step] = struct{}{}
+		step = step.parent
+	}
+	return validated, nil
+}
+
+func invalidStringPatternStepLink(tail, step *stringPatternStep, walked uint32) bool {
+	return walked >= tail.count || step.count == 0 ||
+		(step.parent == nil) != (step.count == 1) ||
+		step.parent != nil && step.parent.count+1 != step.count
 }
 
 func validateStringPatternStepShape(step *stringPatternStep) error {
@@ -409,24 +463,24 @@ func CompileSimpleStringPattern(source string) *SimplePattern {
 		if !ok {
 			return nil
 		}
-		repeatMin := 1
-		repeatMax := 1
-		if next < len(source) && source[next] == '{' {
-			parsedMin, parsedMax, after, ok := parseSimplePatternRepeat(source, next)
-			if !ok {
-				return nil
-			}
-			repeatMin = parsedMin
-			repeatMax = parsedMax
-			next = after
+		repeatMin, repeatMax, after, ok := parseSimplePatternQuantifier(source, next)
+		if !ok {
+			return nil
 		}
 		if repeatMin != repeatMax {
 			out.variable = true
 		}
 		out.atoms = append(out.atoms, simplePatternAtom{class: class, min: repeatMin, max: repeatMax})
-		i = next
+		i = after
 	}
 	return &out
+}
+
+func parseSimplePatternQuantifier(source string, position int) (int, int, int, bool) {
+	if position >= len(source) || source[position] != '{' {
+		return 1, 1, position, true
+	}
+	return parseSimplePatternRepeat(source, position)
 }
 
 func parseSimplePatternAtom(source string, i int) (simplePatternClass, int, bool) {
@@ -480,23 +534,29 @@ func parseSimplePatternClass(source string, i int) (simplePatternClass, int, boo
 			}
 			return class, i + 1, true
 		}
-		lo, next, ok := parseSimplePatternClassRune(source, i)
+		parsedRange, next, ok := parseSimplePatternClassItem(source, i)
 		if !ok {
 			return simplePatternClass{}, 0, false
 		}
-		if next < len(source) && source[next] == '-' && next+1 < len(source) && source[next+1] != ']' {
-			hi, after, ok := parseSimplePatternClassRune(source, next+1)
-			if !ok || hi < lo {
-				return simplePatternClass{}, 0, false
-			}
-			class.ranges = append(class.ranges, runeRange{lo: lo, hi: hi})
-			i = after
-			continue
-		}
-		class.ranges = append(class.ranges, runeRange{lo: lo, hi: lo})
+		class.ranges = append(class.ranges, parsedRange)
 		i = next
 	}
 	return simplePatternClass{}, 0, false
+}
+
+func parseSimplePatternClassItem(source string, position int) (runeRange, int, bool) {
+	lo, next, ok := parseSimplePatternClassRune(source, position)
+	if !ok {
+		return runeRange{}, 0, false
+	}
+	if next >= len(source) || source[next] != '-' || next+1 >= len(source) || source[next+1] == ']' {
+		return runeRange{lo: lo, hi: lo}, next, true
+	}
+	hi, after, ok := parseSimplePatternClassRune(source, next+1)
+	if !ok || hi < lo {
+		return runeRange{}, 0, false
+	}
+	return runeRange{lo: lo, hi: hi}, after, true
 }
 
 func parseSimplePatternClassRune(source string, i int) (rune, int, bool) {
@@ -565,21 +625,28 @@ func (p *SimplePattern) MatchString(s string) bool {
 	}
 	i := 0
 	for _, atom := range p.atoms {
-		for range atom.min {
-			if i >= len(s) {
-				return false
-			}
-			r, size := utf8.DecodeRuneInString(s[i:])
-			if r == utf8.RuneError && size == 0 {
-				return false
-			}
-			if !atom.class.matches(r) {
-				return false
-			}
-			i += size
+		if !matchFixedStringAtom(atom, s, &i) {
+			return false
 		}
 	}
 	return i == len(s)
+}
+
+func matchFixedStringAtom(atom simplePatternAtom, input string, position *int) bool {
+	for range atom.min {
+		if *position >= len(input) {
+			return false
+		}
+		r, size := utf8.DecodeRuneInString(input[*position:])
+		if r == utf8.RuneError && size == 0 {
+			return false
+		}
+		if !atom.class.matches(r) {
+			return false
+		}
+		*position += size
+	}
+	return true
 }
 
 // MatchBytes reports whether s matches p.
@@ -589,21 +656,28 @@ func (p *SimplePattern) MatchBytes(s []byte) bool {
 	}
 	i := 0
 	for _, atom := range p.atoms {
-		for range atom.min {
-			if i >= len(s) {
-				return false
-			}
-			r, size := utf8.DecodeRune(s[i:])
-			if r == utf8.RuneError && size == 0 {
-				return false
-			}
-			if !atom.class.matches(r) {
-				return false
-			}
-			i += size
+		if !matchFixedByteAtom(atom, s, &i) {
+			return false
 		}
 	}
 	return i == len(s)
+}
+
+func matchFixedByteAtom(atom simplePatternAtom, input []byte, position *int) bool {
+	for range atom.min {
+		if *position >= len(input) {
+			return false
+		}
+		r, size := utf8.DecodeRune(input[*position:])
+		if r == utf8.RuneError && size == 0 {
+			return false
+		}
+		if !atom.class.matches(r) {
+			return false
+		}
+		*position += size
+	}
+	return true
 }
 
 // smallPatternRunes is the input length up to which variable-length matching
@@ -664,33 +738,43 @@ func (p *SimplePattern) matchVariableRunesWithBuffer(runes []rune, buf []bool) b
 	clear(prev)
 	prev[0] = true
 	for _, atom := range p.atoms {
-		clear(next)
-		if atom.min == 0 {
-			copy(next, prev)
-		}
-		if atom.max != 0 {
-			minRepeat := atom.min
-			if minRepeat == 0 {
-				minRepeat = 1
-			}
-			start := 0
-			for start < runeCount {
-				for start < runeCount && !atom.class.matches(runes[start]) {
-					start++
-				}
-				runStart := start
-				for start < runeCount && atom.class.matches(runes[start]) {
-					start++
-				}
-				markRepeatedRun(prev, next, runStart, start, minRepeat, atom.max)
-			}
-		}
-		if !hasReachableOffset(next) {
+		if !matchVariablePatternAtom(runes, prev, next, atom) {
 			return false
 		}
 		prev, next = next, prev
 	}
 	return prev[runeCount]
+}
+
+func matchVariablePatternAtom(runes []rune, prev, next []bool, atom simplePatternAtom) bool {
+	clear(next)
+	if atom.min == 0 {
+		copy(next, prev)
+	}
+	if atom.max != 0 {
+		minRepeat := max(atom.min, 1)
+		markMatchingRuneRuns(runes, prev, next, atom.class, minRepeat, atom.max)
+	}
+	return hasReachableOffset(next)
+}
+
+func markMatchingRuneRuns(
+	runes []rune,
+	prev, next []bool,
+	class simplePatternClass,
+	minRepeat, maxRepeat int,
+) {
+	start := 0
+	for start < len(runes) {
+		for start < len(runes) && !class.matches(runes[start]) {
+			start++
+		}
+		runStart := start
+		for start < len(runes) && class.matches(runes[start]) {
+			start++
+		}
+		markRepeatedRun(prev, next, runStart, start, minRepeat, maxRepeat)
+	}
 }
 
 func (p *SimplePattern) matchVariableRunesWithScratch(runes []rune, scratch *StringPatternScratch) bool {
@@ -707,16 +791,34 @@ func markRepeatedRun(prev, next []bool, start, end, minRepeat, maxRepeat int) {
 	if end-start < minRepeat {
 		return
 	}
+	if maxRepeat == simplePatternUnbounded {
+		markUnboundedRepeatedRun(prev, next, start, end, minRepeat)
+		return
+	}
+	markBoundedRepeatedRun(prev, next, start, end, minRepeat, maxRepeat)
+}
+
+func markUnboundedRepeatedRun(prev, next []bool, start, end, minRepeat int) {
 	active := 0
 	for pos := start + minRepeat; pos <= end; pos++ {
 		if prev[pos-minRepeat] {
 			active++
 		}
-		if maxRepeat != simplePatternUnbounded {
-			remove := pos - maxRepeat - 1
-			if remove >= start && prev[remove] {
-				active--
-			}
+		if active > 0 {
+			next[pos] = true
+		}
+	}
+}
+
+func markBoundedRepeatedRun(prev, next []bool, start, end, minRepeat, maxRepeat int) {
+	active := 0
+	for pos := start + minRepeat; pos <= end; pos++ {
+		if prev[pos-minRepeat] {
+			active++
+		}
+		remove := pos - maxRepeat - 1
+		if remove >= start && prev[remove] {
+			active--
 		}
 		if active > 0 {
 			next[pos] = true
@@ -747,29 +849,33 @@ func (c simplePatternClass) matches(r rune) bool {
 
 func isXSDDigitRune(r rune) bool {
 	switch {
-	case r >= 0x0030 && r <= 0x0039,
-		r >= 0x0660 && r <= 0x0669,
-		r >= 0x06F0 && r <= 0x06F9,
-		r >= 0x0966 && r <= 0x096F,
-		r >= 0x09E6 && r <= 0x09EF,
-		r >= 0x0A66 && r <= 0x0A6F,
-		r >= 0x0AE6 && r <= 0x0AEF,
-		r >= 0x0B66 && r <= 0x0B6F,
-		r >= 0x0BE7 && r <= 0x0BEF,
-		r >= 0x0C66 && r <= 0x0C6F,
-		r >= 0x0CE6 && r <= 0x0CEF,
-		r >= 0x0D66 && r <= 0x0D6F,
-		r >= 0x0E50 && r <= 0x0E59,
-		r >= 0x0ED0 && r <= 0x0ED9,
-		r >= 0x0F20 && r <= 0x0F29,
-		r >= 0x1040 && r <= 0x1049,
-		r >= 0x1369 && r <= 0x1371,
-		r >= 0x17E0 && r <= 0x17E9,
-		r >= 0x1810 && r <= 0x1819,
-		r >= 0x1D7CE && r <= 0x1D7FF,
-		r >= 0xFF10 && r <= 0xFF19:
+	case runeInRange(r, 0x0030, 0x0039),
+		runeInRange(r, 0x0660, 0x0669),
+		runeInRange(r, 0x06F0, 0x06F9),
+		runeInRange(r, 0x0966, 0x096F),
+		runeInRange(r, 0x09E6, 0x09EF),
+		runeInRange(r, 0x0A66, 0x0A6F),
+		runeInRange(r, 0x0AE6, 0x0AEF),
+		runeInRange(r, 0x0B66, 0x0B6F),
+		runeInRange(r, 0x0BE7, 0x0BEF),
+		runeInRange(r, 0x0C66, 0x0C6F),
+		runeInRange(r, 0x0CE6, 0x0CEF),
+		runeInRange(r, 0x0D66, 0x0D6F),
+		runeInRange(r, 0x0E50, 0x0E59),
+		runeInRange(r, 0x0ED0, 0x0ED9),
+		runeInRange(r, 0x0F20, 0x0F29),
+		runeInRange(r, 0x1040, 0x1049),
+		runeInRange(r, 0x1369, 0x1371),
+		runeInRange(r, 0x17E0, 0x17E9),
+		runeInRange(r, 0x1810, 0x1819),
+		runeInRange(r, 0x1D7CE, 0x1D7FF),
+		runeInRange(r, 0xFF10, 0xFF19):
 		return true
 	default:
 		return false
 	}
+}
+
+func runeInRange(r, lower, upper rune) bool {
+	return r >= lower && r <= upper
 }

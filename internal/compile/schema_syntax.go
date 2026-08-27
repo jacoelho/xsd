@@ -183,51 +183,70 @@ func ValidateTopLevelSchemaChild(child TopLevelSchemaChild) error {
 	case simpleTypeChild, complexTypeChild:
 		return requireTopLevelName(child)
 	case attributeGroup:
-		if child.HasRef {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+attributeGroup+" cannot have ref")
+		if err := rejectTopLevelReference(child, attributeGroup); err != nil {
+			return err
 		}
 		return requireTopLevelName(child)
 	case groupChild:
-		if child.HasRef {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+groupChild+" cannot have ref")
-		}
-		if child.HasMinOccurs {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+groupChild+" cannot have minOccurs")
-		}
-		if child.HasMaxOccurs {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+groupChild+" cannot have maxOccurs")
-		}
-		return requireTopLevelName(child)
+		return validateTopLevelGroup(child)
 	case attributeChild:
-		if child.HasRef {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+attributeChild+" cannot have ref")
-		}
-		if child.HasForm {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+attributeChild+" cannot have form")
-		}
-		if child.HasUse {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+attributeChild+" cannot have use")
-		}
-		return requireTopLevelName(child)
+		return validateTopLevelAttribute(child)
 	case elementChild:
-		if child.HasRef {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+elementChild+" cannot have ref")
-		}
-		if child.HasForm {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+elementChild+" cannot have form")
-		}
-		if child.HasMinOccurs {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+elementChild+" cannot have minOccurs")
-		}
-		if child.HasMaxOccurs {
-			return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+elementChild+" cannot have maxOccurs")
-		}
-		return requireTopLevelName(child)
+		return validateTopLevelElement(child)
 	case uniqueChild, keyChild, keyrefChild, selectorChild, fieldChild:
 		return topLevelSchemaChildError(xsderrors.CodeSchemaContentModel, "identity constraint must be inside element")
 	default:
 		return topLevelSchemaChildError(xsderrors.CodeSchemaContentModel, "invalid top-level schema child "+child.Local)
 	}
+}
+
+func rejectTopLevelReference(child TopLevelSchemaChild, local string) error {
+	if child.HasRef {
+		return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+local+" cannot have ref")
+	}
+	return nil
+}
+
+func validateTopLevelGroup(child TopLevelSchemaChild) error {
+	if err := rejectTopLevelReference(child, groupChild); err != nil {
+		return err
+	}
+	if child.HasMinOccurs {
+		return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+groupChild+" cannot have minOccurs")
+	}
+	if child.HasMaxOccurs {
+		return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+groupChild+" cannot have maxOccurs")
+	}
+	return requireTopLevelName(child)
+}
+
+func validateTopLevelAttribute(child TopLevelSchemaChild) error {
+	if err := rejectTopLevelReference(child, attributeChild); err != nil {
+		return err
+	}
+	if child.HasForm {
+		return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+attributeChild+" cannot have form")
+	}
+	if child.HasUse {
+		return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+attributeChild+" cannot have use")
+	}
+	return requireTopLevelName(child)
+}
+
+func validateTopLevelElement(child TopLevelSchemaChild) error {
+	if err := rejectTopLevelReference(child, elementChild); err != nil {
+		return err
+	}
+	if child.HasForm {
+		return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+elementChild+" cannot have form")
+	}
+	if child.HasMinOccurs {
+		return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+elementChild+" cannot have minOccurs")
+	}
+	if child.HasMaxOccurs {
+		return topLevelSchemaChildError(xsderrors.CodeSchemaInvalidAttribute, "top-level "+elementChild+" cannot have maxOccurs")
+	}
+	return requireTopLevelName(child)
 }
 
 func requireTopLevelName(child TopLevelSchemaChild) error {

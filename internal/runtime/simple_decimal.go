@@ -118,21 +118,28 @@ func (d DecimalValue) CanonicalText() string {
 		return decimalZeroCanonical
 	}
 	if intDigits > 0 && fracDigits > 0 {
-		if d.negative {
-			if d.intTrimStart == d.start {
-				return d.text[:d.fracTrimEnd]
-			}
-			var b strings.Builder
-			b.Grow(1 + intDigits + 1 + fracDigits)
-			b.WriteByte('-')
-			b.WriteString(d.text[d.intTrimStart:d.intEnd])
-			b.WriteByte('.')
-			b.WriteString(d.text[d.fracStart:d.fracTrimEnd])
-			return b.String()
-		}
+		return d.canonicalTextWithBothParts(intDigits, fracDigits)
+	}
+	return d.canonicalTextWithZeroPart(intDigits, fracDigits)
+}
+
+func (d DecimalValue) canonicalTextWithBothParts(intDigits, fracDigits int) string {
+	if !d.negative {
 		return d.text[d.intTrimStart:d.fracTrimEnd]
 	}
+	if d.intTrimStart == d.start {
+		return d.text[:d.fracTrimEnd]
+	}
+	var b strings.Builder
+	b.Grow(1 + intDigits + 1 + fracDigits)
+	b.WriteByte('-')
+	b.WriteString(d.text[d.intTrimStart:d.intEnd])
+	b.WriteByte('.')
+	b.WriteString(d.text[d.fracStart:d.fracTrimEnd])
+	return b.String()
+}
 
+func (d DecimalValue) canonicalTextWithZeroPart(intDigits, fracDigits int) string {
 	intPart := "0"
 	if intDigits > 0 {
 		intPart = d.text[d.intTrimStart:d.intEnd]
@@ -236,53 +243,46 @@ func CompareDecimalValues(a, b DecimalValue) int {
 
 // ValidateDecimalFacets validates xs:decimal value-space facets.
 func ValidateDecimalFacets(f DecimalFacetValues, value DecimalValue) error {
-	if f.Facets&FacetTotalDigits != 0 {
-		if !f.TotalDigits.Present {
-			return ErrSimpleValueMetadata
-		}
-		if value.TotalDigits > f.TotalDigits.Value {
-			return errors.New("totalDigits facet failed")
-		}
+	if err := validateDecimalCardinalityFacet(f.Facets&FacetTotalDigits != 0, f.TotalDigits, value.TotalDigits, "totalDigits facet failed"); err != nil {
+		return err
 	}
-	if f.Facets&FacetFractionDigits != 0 {
-		if !f.FractionDigits.Present {
-			return ErrSimpleValueMetadata
-		}
-		if value.FractionDigits > f.FractionDigits.Value {
-			return errors.New("fractionDigits facet failed")
-		}
+	if err := validateDecimalCardinalityFacet(f.Facets&FacetFractionDigits != 0, f.FractionDigits, value.FractionDigits, "fractionDigits facet failed"); err != nil {
+		return err
 	}
-	if f.Facets&FacetMinInclusive != 0 {
-		if !f.MinInclusive.Present {
-			return ErrSimpleValueMetadata
-		}
-		if CompareDecimalValues(value, f.MinInclusive.Value) < 0 {
-			return errors.New("minInclusive facet failed")
-		}
+	if err := validateDecimalBoundFacet(f.Facets&FacetMinInclusive != 0, f.MinInclusive, CompareDecimalValues(value, f.MinInclusive.Value) >= 0, "minInclusive facet failed"); err != nil {
+		return err
 	}
-	if f.Facets&FacetMaxInclusive != 0 {
-		if !f.MaxInclusive.Present {
-			return ErrSimpleValueMetadata
-		}
-		if CompareDecimalValues(value, f.MaxInclusive.Value) > 0 {
-			return errors.New("maxInclusive facet failed")
-		}
+	if err := validateDecimalBoundFacet(f.Facets&FacetMaxInclusive != 0, f.MaxInclusive, CompareDecimalValues(value, f.MaxInclusive.Value) <= 0, "maxInclusive facet failed"); err != nil {
+		return err
 	}
-	if f.Facets&FacetMinExclusive != 0 {
-		if !f.MinExclusive.Present {
-			return ErrSimpleValueMetadata
-		}
-		if CompareDecimalValues(value, f.MinExclusive.Value) <= 0 {
-			return errors.New("minExclusive facet failed")
-		}
+	if err := validateDecimalBoundFacet(f.Facets&FacetMinExclusive != 0, f.MinExclusive, CompareDecimalValues(value, f.MinExclusive.Value) > 0, "minExclusive facet failed"); err != nil {
+		return err
 	}
-	if f.Facets&FacetMaxExclusive != 0 {
-		if !f.MaxExclusive.Present {
-			return ErrSimpleValueMetadata
-		}
-		if CompareDecimalValues(value, f.MaxExclusive.Value) >= 0 {
-			return errors.New("maxExclusive facet failed")
-		}
+	return validateDecimalBoundFacet(f.Facets&FacetMaxExclusive != 0, f.MaxExclusive, CompareDecimalValues(value, f.MaxExclusive.Value) < 0, "maxExclusive facet failed")
+}
+
+func validateDecimalCardinalityFacet(enabled bool, facet FacetCardinalityValue, value uint32, message string) error {
+	if !enabled {
+		return nil
+	}
+	if !facet.Present {
+		return ErrSimpleValueMetadata
+	}
+	if value > facet.Value {
+		return errors.New(message)
+	}
+	return nil
+}
+
+func validateDecimalBoundFacet(enabled bool, facet DecimalFacetValue, accepted bool, message string) error {
+	if !enabled {
+		return nil
+	}
+	if !facet.Present {
+		return ErrSimpleValueMetadata
+	}
+	if !accepted {
+		return errors.New(message)
 	}
 	return nil
 }
@@ -291,11 +291,22 @@ func comparePositiveDecimalValues(a, b DecimalValue) int {
 	if n := cmp.Compare(a.intDigits(), b.intDigits()); n != 0 {
 		return n
 	}
+	if n := compareDecimalIntegerValues(a, b); n != 0 {
+		return n
+	}
+	return compareDecimalFractionValues(a, b)
+}
+
+func compareDecimalIntegerValues(a, b DecimalValue) int {
 	for i := range a.intDigits() {
 		if n := cmp.Compare(a.text[a.intTrimStart+i], b.text[b.intTrimStart+i]); n != 0 {
 			return n
 		}
 	}
+	return 0
+}
+
+func compareDecimalFractionValues(a, b DecimalValue) int {
 	n := max(a.fracDigits(), b.fracDigits())
 	for i := range n {
 		ad := byte('0')
