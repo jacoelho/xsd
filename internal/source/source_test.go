@@ -83,8 +83,8 @@ func TestReferenceBaseWithXMLBaseStripsFragment(t *testing.T) {
 				t.Fatalf("WithXMLBase() error = %v", err)
 			}
 			resolver, ok := got.ResolverValue()
-			if !ok || resolver != test.want || !got.fallbackOK || got.fallback != test.want {
-				t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q/%v, want %q/true", resolver, ok, got.fallback, got.fallbackOK, test.want)
+			if !ok || resolver != test.want || got.fallback != test.want {
+				t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q, want %q/true", resolver, ok, got.fallback, test.want)
 			}
 		})
 	}
@@ -102,8 +102,8 @@ func TestReferenceBaseUsesRFC2396ForResolverAndFallback(t *testing.T) {
 	}
 	const want = "http://a/b/c/?y"
 	resolver, ok := base.ResolverValue()
-	if !ok || resolver != want || !base.fallbackOK || base.fallback != want {
-		t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q/%v, want %q/true", resolver, ok, base.fallback, base.fallbackOK, want)
+	if !ok || resolver != want || base.fallback != want {
+		t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q, want %q/true", resolver, ok, base.fallback, want)
 	}
 }
 
@@ -117,7 +117,7 @@ func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := base.ResolverValue(); ok || base.fallbackOK {
+		if _, ok := base.ResolverValue(); ok || base.fallback != "" {
 			t.Fatalf("WithXMLBase() left resolver/fallback available: %+v", base)
 		}
 	})
@@ -130,7 +130,7 @@ func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if base.fallbackOK {
+		if base.fallback != "" {
 			t.Fatalf("query-bearing local fallback = %q/true, want unavailable", base.fallback)
 		}
 		base, err = base.WithXMLBase(mustURIReference(t, "child.xsd"))
@@ -139,8 +139,8 @@ func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 		}
 		want := filepath.Join("schemas", "child.xsd")
 		resolver, resolverOK := base.ResolverValue()
-		if !resolverOK || resolver != want || !base.fallbackOK || base.fallback != want {
-			t.Fatalf("path replacement = resolver %q/%v fallback %q/%v, want %q/true", resolver, resolverOK, base.fallback, base.fallbackOK, want)
+		if !resolverOK || resolver != want || base.fallback != want {
+			t.Fatalf("path replacement = resolver %q/%v fallback %q, want %q/true", resolver, resolverOK, base.fallback, want)
 		}
 	})
 
@@ -157,8 +157,8 @@ func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 			t.Fatal(err)
 		}
 		resolver, resolverOK := base.ResolverValue()
-		if !resolverOK || resolver != "//cdn.example/tmp/child.xsd" || base.fallbackOK {
-			t.Fatalf("network path = resolver %q/%v fallback %q/%v", resolver, resolverOK, base.fallback, base.fallbackOK)
+		if !resolverOK || resolver != "//cdn.example/tmp/child.xsd" || base.fallback != "" {
+			t.Fatalf("network path = resolver %q/%v fallback %q", resolver, resolverOK, base.fallback)
 		}
 	})
 }

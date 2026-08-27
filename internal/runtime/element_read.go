@@ -82,10 +82,6 @@ func newElementReadTable(decls []ElementDecl, complexTypes []ComplexType) elemen
 	return table
 }
 
-func (t elementReadTable) len() int {
-	return len(t.meta)
-}
-
 func (t elementReadTable) name(id ElementID) (QName, bool) {
 	if !ValidElementID(id, len(t.meta)) || len(t.names) != len(t.meta) {
 		return QName{}, false

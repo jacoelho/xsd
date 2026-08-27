@@ -86,7 +86,6 @@ type Parser struct {
 	maxTokenBytes int64
 	retainedBytes int64
 	cdataMatched  int
-	hasEnd        bool
 	inCDATA       bool
 	atStart       bool
 	emitComments  bool
@@ -145,7 +144,6 @@ func (p *Parser) ResetWithConfig(r io.Reader, names, values *Cache, config Confi
 	p.maxTokenBytes = limits.MaxTokenBytes
 	p.retainedBytes = 0
 	p.cdataMatched = 0
-	p.hasEnd = false
 	p.inCDATA = false
 	p.atStart = true
 	p.emitComments = config.EmitComments
@@ -178,7 +176,6 @@ func (p *Parser) Detach() {
 	p.names = nil
 	p.values = nil
 	p.pendingEnd = EndElement{}
-	p.hasEnd = false
 	p.inCDATA = false
 	p.atStart = false
 	p.cdataMatched = 0
@@ -201,8 +198,7 @@ func (p *Parser) Next() (Token, error) {
 		p.retainedBytes = 0
 		return p.readCDATAChunk(0, 0)
 	}
-	if p.hasEnd {
-		p.hasEnd = false
+	if p.pendingEnd.Name.Local != "" {
 		end := p.pendingEnd
 		p.pendingEnd = EndElement{}
 		line, col := p.br.pos()
@@ -259,7 +255,6 @@ func (p *Parser) Next() (Token, error) {
 			p.atStart = false
 			if selfClosing {
 				p.pendingEnd = EndElement{Name: start.Name}
-				p.hasEnd = true
 			}
 			return Token{Kind: KindStart, Start: start, Line: line, Column: col}, nil
 		}

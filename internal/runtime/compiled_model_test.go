@@ -24,13 +24,13 @@ func TestCompiledModelKindValidity(t *testing.T) {
 	}
 }
 
-func TestDFARowIndexIsEnabled(t *testing.T) {
+func TestDFARowIndexEnabledState(t *testing.T) {
 	t.Parallel()
 
-	if (DFARowIndex{}).IsEnabled() {
+	if (dfaRowIndex{}).enabled() {
 		t.Fatal("zero-value row index is enabled")
 	}
-	if !(DFARowIndex{Enabled: true}).IsEnabled() {
+	if !(dfaRowIndex{nameToEdge: map[QName]uint32{}}).enabled() {
 		t.Fatal("enabled row index reported disabled")
 	}
 }
@@ -68,7 +68,7 @@ func TestIndexCompiledModelRows(t *testing.T) {
 		{Particle: ElementParticle(head, one), To: 1},
 		{Particle: WildcardParticle(1, one), To: 1},
 	}
-	for id := ElementID(2); len(edges) < CompiledDFARowIndexMinEdges; id++ {
+	for id := ElementID(2); len(edges) < compiledDFARowIndexMinEdges; id++ {
 		elementNames[id] = QName{Local: LocalNameID(id)}
 		edges = append(edges, CompiledModelEdge{Particle: ElementParticle(id, one), To: 1})
 	}
@@ -82,25 +82,25 @@ func TestIndexCompiledModelRows(t *testing.T) {
 		Kind: CompiledModelDFA,
 		Rows: []CompiledModelRow{
 			{Edges: edges},
-			{Edges: edges[:CompiledDFARowIndexMinEdges-1]},
+			{Edges: edges[:compiledDFARowIndexMinEdges-1]},
 		},
 	}
-	if err := IndexCompiledModelRows(rt, &model, unlimitedContentModelWork); err != nil {
+	if err := newDFARowIndexAnalysis(rt, unlimitedContentModelWork).indexModel(&model); err != nil {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
-	if !model.Rows[0].Index.IsEnabled() {
+	if !model.Rows[0].index.enabled() {
 		t.Fatal("wide row was not indexed")
 	}
-	if got, ok := model.Rows[0].Index.NameToEdge[headName]; !ok || got != 0 {
+	if got, ok := model.Rows[0].index.nameToEdge[headName]; !ok || got != 0 {
 		t.Fatalf("head index = %d, %v; want 0, true", got, ok)
 	}
-	if got, ok := model.Rows[0].Index.NameToEdge[subName]; !ok || got != 0 {
+	if got, ok := model.Rows[0].index.nameToEdge[subName]; !ok || got != 0 {
 		t.Fatalf("substitution index = %d, %v; want 0, true", got, ok)
 	}
-	if got := model.Rows[0].Index.WildcardEdges; len(got) != 1 || got[0] != 1 {
+	if got := model.Rows[0].index.wildcardEdges; len(got) != 1 || got[0] != 1 {
 		t.Fatalf("wildcard index = %v, want [1]", got)
 	}
-	if model.Rows[1].Index.IsEnabled() {
+	if model.Rows[1].index.enabled() {
 		t.Fatal("narrow row was indexed")
 	}
 }
@@ -112,7 +112,7 @@ func TestIndexCompiledModelsRowsBoundsSubstitutionExpansion(t *testing.T) {
 	one := Occurrence{Min: 1, Max: 1}
 	elementNames := map[ElementID]QName{head: {Local: 1}}
 	edges := []CompiledModelEdge{{Particle: ElementParticle(head, one), To: 1}}
-	for id := ElementID(2); len(edges) < CompiledDFARowIndexMinEdges; id++ {
+	for id := ElementID(2); len(edges) < compiledDFARowIndexMinEdges; id++ {
 		elementNames[id] = QName{Local: LocalNameID(id)}
 		edges = append(edges, CompiledModelEdge{Particle: ElementParticle(id, one), To: 1})
 	}
@@ -141,7 +141,7 @@ func TestIndexCompiledModelsRowsBoundsSubstitutionExpansion(t *testing.T) {
 	if !errors.Is(err, budgetExceeded) {
 		t.Fatalf("IndexCompiledModelsRows() error = %v, want budget error", err)
 	}
-	if models[0].Rows[0].Index.IsEnabled() {
+	if models[0].Rows[0].index.enabled() {
 		t.Fatal("budget failure published a partial row index")
 	}
 }
@@ -156,7 +156,7 @@ func TestIndexCompiledModelRowsKeepsLinearScanForDuplicateNames(t *testing.T) {
 		2: duplicateName,
 	}
 	var edges []CompiledModelEdge
-	for id := ElementID(1); len(edges) < CompiledDFARowIndexMinEdges; id++ {
+	for id := ElementID(1); len(edges) < compiledDFARowIndexMinEdges; id++ {
 		if _, ok := elementNames[id]; !ok {
 			elementNames[id] = QName{Local: LocalNameID(id)}
 		}
@@ -166,10 +166,10 @@ func TestIndexCompiledModelRowsKeepsLinearScanForDuplicateNames(t *testing.T) {
 		Kind: CompiledModelDFA,
 		Rows: []CompiledModelRow{{Edges: edges}},
 	}
-	if err := IndexCompiledModelRows(dfaRowIndexRuntimeStub{elementNames: elementNames}, &model, unlimitedContentModelWork); err != nil {
+	if err := newDFARowIndexAnalysis(dfaRowIndexRuntimeStub{elementNames: elementNames}, unlimitedContentModelWork).indexModel(&model); err != nil {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
-	if model.Rows[0].Index.IsEnabled() {
+	if model.Rows[0].index.enabled() {
 		t.Fatal("ambiguous row was indexed")
 	}
 }
@@ -178,7 +178,7 @@ func TestIndexCompiledModelRowsRejectsInvalidElement(t *testing.T) {
 	t.Parallel()
 
 	one := Occurrence{Min: 1, Max: 1}
-	edges := make([]CompiledModelEdge, CompiledDFARowIndexMinEdges)
+	edges := make([]CompiledModelEdge, compiledDFARowIndexMinEdges)
 	for i := range edges {
 		edges[i] = CompiledModelEdge{Particle: ElementParticle(ElementID(i+1), one), To: 1}
 	}
@@ -186,7 +186,7 @@ func TestIndexCompiledModelRowsRejectsInvalidElement(t *testing.T) {
 		Kind: CompiledModelDFA,
 		Rows: []CompiledModelRow{{Edges: edges}},
 	}
-	err := IndexCompiledModelRows(dfaRowIndexRuntimeStub{}, &model, unlimitedContentModelWork)
+	err := newDFARowIndexAnalysis(dfaRowIndexRuntimeStub{}, unlimitedContentModelWork).indexModel(&model)
 	if err == nil || !strings.Contains(err.Error(), "compiled content model index references invalid element") {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
@@ -400,22 +400,6 @@ func TestValidateCompiledModelRuntime(t *testing.T) {
 			wantErr: "compiled content model counted state has invalid range",
 		},
 		{
-			name:   "DFA inactive row index stores data",
-			source: sourceDFA,
-			model: CompiledModel{
-				Kind:   CompiledModelDFA,
-				Source: sourceID,
-				Rows: []CompiledModelRow{
-					{
-						Edges: []CompiledModelEdge{{Particle: ElementParticle(child, one), To: 1}},
-						Index: DFARowIndex{NameToEdge: map[QName]uint32{childName: 0}},
-					},
-					{Accept: true},
-				},
-			},
-			wantErr: "compiled content model inactive row index stores data",
-		},
-		{
 			name:   "DFA stale particle inactive field",
 			source: sourceDFA,
 			model: CompiledModel{
@@ -596,17 +580,16 @@ func TestValidateDFARowIndex(t *testing.T) {
 			{Particle: ElementParticle(head, Occurrence{Min: 1, Max: 1}), To: 1},
 			{Particle: WildcardParticle(WildcardID(1), Occurrence{Min: 1, Max: 1}), To: 1},
 		},
-		Index: DFARowIndex{
-			NameToEdge: map[QName]uint32{
+		index: dfaRowIndex{
+			nameToEdge: map[QName]uint32{
 				headName: 0,
 				subName:  0,
 			},
-			WildcardEdges: []uint32{1},
-			Enabled:       true,
+			wildcardEdges: []uint32{1},
 		},
 	}
-	if err := ValidateDFARowIndex(&names, rt, validRow, unlimitedContentModelWork); err != nil {
-		t.Fatalf("ValidateDFARowIndex() error = %v", err)
+	if err := newDFARowIndexAnalysis(rt, unlimitedContentModelWork).validateRow(&names, validRow); err != nil {
+		t.Fatalf("validateRow() error = %v", err)
 	}
 
 	tests := []struct {
@@ -617,17 +600,16 @@ func TestValidateDFARowIndex(t *testing.T) {
 			name: "nil name index",
 			row: CompiledModelRow{
 				Edges: validRow.Edges,
-				Index: DFARowIndex{Enabled: true},
+				index: dfaRowIndex{},
 			},
 		},
 		{
 			name: "name points at wildcard",
 			row: CompiledModelRow{
 				Edges: validRow.Edges,
-				Index: DFARowIndex{
-					NameToEdge:    map[QName]uint32{headName: 1, subName: 0},
-					WildcardEdges: []uint32{1},
-					Enabled:       true,
+				index: dfaRowIndex{
+					nameToEdge:    map[QName]uint32{headName: 1, subName: 0},
+					wildcardEdges: []uint32{1},
 				},
 			},
 		},
@@ -635,10 +617,9 @@ func TestValidateDFARowIndex(t *testing.T) {
 			name: "name does not match element or substitution",
 			row: CompiledModelRow{
 				Edges: validRow.Edges,
-				Index: DFARowIndex{
-					NameToEdge:    map[QName]uint32{headName: 0, subName: 0, otherName: 0},
-					WildcardEdges: []uint32{1},
-					Enabled:       true,
+				index: dfaRowIndex{
+					nameToEdge:    map[QName]uint32{headName: 0, subName: 0, otherName: 0},
+					wildcardEdges: []uint32{1},
 				},
 			},
 		},
@@ -646,10 +627,9 @@ func TestValidateDFARowIndex(t *testing.T) {
 			name: "substitution missing from index",
 			row: CompiledModelRow{
 				Edges: validRow.Edges,
-				Index: DFARowIndex{
-					NameToEdge:    map[QName]uint32{headName: 0},
-					WildcardEdges: []uint32{1},
-					Enabled:       true,
+				index: dfaRowIndex{
+					nameToEdge:    map[QName]uint32{headName: 0},
+					wildcardEdges: []uint32{1},
 				},
 			},
 		},
@@ -657,9 +637,8 @@ func TestValidateDFARowIndex(t *testing.T) {
 			name: "wildcard missing from index",
 			row: CompiledModelRow{
 				Edges: validRow.Edges,
-				Index: DFARowIndex{
-					NameToEdge: map[QName]uint32{headName: 0, subName: 0},
-					Enabled:    true,
+				index: dfaRowIndex{
+					nameToEdge: map[QName]uint32{headName: 0, subName: 0},
 				},
 			},
 		},
@@ -668,8 +647,8 @@ func TestValidateDFARowIndex(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := ValidateDFARowIndex(&names, rt, tc.row, unlimitedContentModelWork); err == nil {
-				t.Fatal("ValidateDFARowIndex() accepted invalid row")
+			if err := newDFARowIndexAnalysis(rt, unlimitedContentModelWork).validateRow(&names, tc.row); err == nil {
+				t.Fatal("validateRow() accepted invalid row")
 			}
 		})
 	}

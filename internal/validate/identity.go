@@ -28,22 +28,10 @@ const (
 	endIdentityCaptureComplexElement
 )
 
-// endIdentityCaptureForElement selects the identity capture action for an element end.
-func endIdentityCaptureForElement(rt *runtime.Schema, in endIdentityInput) (endIdentityCaptureAction, error) {
-	if in.ContentCaptured {
-		return endIdentityCaptureNone, nil
-	}
-	if rt == nil {
-		return endIdentityCaptureNone, xsderrors.InternalInvariant("end identity runtime is missing")
-	}
-	hasSimpleContent, ok := rt.ElementHasSimpleContent(in.Type, in.Element)
-	if !ok {
-		return endIdentityCaptureNone, xsderrors.InternalInvariant("end identity content info is invalid")
-	}
-	return endIdentityCapture(hasSimpleContent, in), nil
-}
-
 func endIdentityCapture(hasSimpleContent bool, in endIdentityInput) endIdentityCaptureAction {
+	if in.ContentCaptured {
+		return endIdentityCaptureNone
+	}
 	if !hasSimpleContent {
 		return endIdentityCaptureComplexElement
 	}
@@ -56,7 +44,6 @@ func endIdentityCapture(hasSimpleContent bool, in endIdentityInput) endIdentityC
 // endIdentityInput is the validation state needed to finish element identity
 // field capture after content validation.
 type endIdentityInput struct {
-	Type            runtime.TypeID
 	Element         runtime.ElementID
 	ContentCaptured bool
 	Nilled          bool

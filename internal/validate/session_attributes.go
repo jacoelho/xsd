@@ -53,16 +53,10 @@ func (s *session) validateAttributeSet(set runtime.AttributeUseSetRead, attrs []
 	ctx := s.startContext(line, col)
 	for i := range attrs {
 		a := &attrs[i]
-		if a.Name.Space != "" || a.Name.Local == vocab.XMLNSPrefix {
-			if xmlns.IsNamespaceName(a.Name) {
-				continue
-			}
-			if isXSIAttributeName(a.Name) {
-				if err := s.validateXSIAttribute(a.Name, a.StringValue(&s.valueStrings), line, col); err != nil {
-					return err
-				}
-				continue
-			}
+		if handled, err := s.validateReservedAttribute(a, line, col); err != nil {
+			return err
+		} else if handled {
+			continue
 		}
 		rn := s.runtimeName(a.Name)
 		if rn.Known {
@@ -105,16 +99,10 @@ func (s *session) validateSimpleTypeAttributes(attrs []stream.Attr, line, col in
 	ctx := s.startContext(line, col)
 	for i := range attrs {
 		a := &attrs[i]
-		if a.Name.Space != "" || a.Name.Local == vocab.XMLNSPrefix {
-			if xmlns.IsNamespaceName(a.Name) {
-				continue
-			}
-			if isXSIAttributeName(a.Name) {
-				if err := s.validateXSIAttribute(a.Name, a.StringValue(&s.valueStrings), line, col); err != nil {
-					return err
-				}
-				continue
-			}
+		if handled, err := s.validateReservedAttribute(a, line, col); err != nil {
+			return err
+		} else if handled {
+			continue
 		}
 		rn := s.runtimeName(a.Name)
 		if err := s.recoverUnassessedIdentityAttribute(rn, ctx, attributeValidation(ctx, "simple type does not allow attributes")); err != nil {
@@ -122,6 +110,20 @@ func (s *session) validateSimpleTypeAttributes(attrs []stream.Attr, line, col in
 		}
 	}
 	return nil
+}
+
+func (s *session) validateReservedAttribute(attr *stream.Attr, line, col int) (bool, error) {
+	name := attr.Name
+	if name.Space == "" && name.Local != vocab.XMLNSPrefix {
+		return false, nil
+	}
+	if xmlns.IsNamespaceName(name) {
+		return true, nil
+	}
+	if !isXSIAttributeName(name) {
+		return false, nil
+	}
+	return true, s.validateXSIAttribute(name, attr.StringValue(&s.valueStrings), line, col)
 }
 
 func (s *session) validateDeclaredAttributeUse(

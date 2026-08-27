@@ -38,11 +38,11 @@ func childFramePolicy(nilled bool) childStartPolicy {
 	return childStartPolicy{}
 }
 
-func childContentPolicy(content runtime.ChildContentInfo, state runtime.ContentState, name runtime.RuntimeName) validationIssue {
-	if !content.Complex {
+func childContentPolicy(typ runtime.TypeID, simpleContent runtime.SimpleTypeID, state runtime.ContentState, name runtime.RuntimeName) validationIssue {
+	if !typ.IsComplex() {
 		return validationIssue{code: xsderrors.CodeValidationContent, message: "simple type cannot contain child elements"}
 	}
-	if content.Simple {
+	if simpleContent != runtime.NoSimpleType {
 		return validationIssue{code: xsderrors.CodeValidationContent, message: "simple content cannot contain child elements"}
 	}
 	if !state.HasModel() {

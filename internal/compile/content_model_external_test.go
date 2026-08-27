@@ -2214,23 +2214,9 @@ func compiledRootModel(t *testing.T, schema string) runtime.CompiledModel {
 	return build.CompiledModels[rootBuildContentModel(t, build)]
 }
 
-func requireIndexedRootModel(t *testing.T, schema string) {
-	t.Helper()
-	model := compiledRootModel(t, schema)
-	if model.Kind != runtime.CompiledModelDFA {
-		t.Fatalf("root model kind = %v, want DFA", model.Kind)
-	}
-	for _, row := range model.Rows {
-		if len(row.Edges) >= runtime.CompiledDFARowIndexMinEdges && !row.Index.IsEnabled() {
-			t.Fatalf("row with %d edges has no name index", len(row.Edges))
-		}
-	}
-}
-
 func TestWideChoiceIndexedDispatch(t *testing.T) {
 	schema := wideChoiceSchema(16, "")
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f0/><f15/><f7/><f7/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><f0/><zzz/></r>`, xsderrors.CodeValidationElement)
 	mustNotValidateRuntime(t, engine, `<r><f0/><r/></r>`, xsderrors.CodeValidationElement)
@@ -2255,7 +2241,6 @@ func TestWideSequenceIndexedDispatch(t *testing.T) {
 </xs:schema>`)
 	schema := sb.String()
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f3/><f10/><last/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><f3/></r>`, xsderrors.CodeValidationContent)
 	mustNotValidateRuntime(t, engine, `<r><last/><f3/></r>`, xsderrors.CodeValidationElement)
@@ -2282,7 +2267,6 @@ func TestWideChoiceIndexedSubstitutionGroup(t *testing.T) {
 </xs:schema>`)
 	schema := sb.String()
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><member/><f0/><head/><member/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><zzz/></r>`, xsderrors.CodeValidationElement)
 }
@@ -2291,7 +2275,6 @@ func TestWideChoiceIndexedWildcardSkip(t *testing.T) {
 	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="skip"/>
 `)
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f0/><o:x xmlns:o="urn:o"><o:y/></o:x><f14/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><zzz/></r>`, xsderrors.CodeValidationElement)
 }
@@ -2300,7 +2283,6 @@ func TestWideChoiceIndexedWildcardLax(t *testing.T) {
 	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="lax"/>
 `)
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><o:x xmlns:o="urn:o"/><f3/></r>`)
 }
 
@@ -2308,11 +2290,10 @@ func TestWideChoiceIndexedWildcardStrict(t *testing.T) {
 	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="strict"/>
 `)
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustNotValidateRuntime(t, engine, `<r><o:x xmlns:o="urn:o"/></r>`, xsderrors.CodeValidationElement)
 }
 
-func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
+func TestWideCountingExceptionDispatch(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
@@ -2332,16 +2313,6 @@ func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
 </xs:schema>`)
 	schema := sb.String()
 	engine := mustCompileRuntime(t, schema)
-	model := compiledRootModel(t, schema)
-	ambiguousRow := false
-	for _, row := range model.Rows {
-		if len(row.Edges) >= runtime.CompiledDFARowIndexMinEdges && !row.Index.IsEnabled() {
-			ambiguousRow = true
-		}
-	}
-	if !ambiguousRow {
-		t.Fatal("expected a wide row without a name index")
-	}
 	mustValidateRuntime(t, engine, `<r><a/><a/><a/></r>`)
 	mustValidateRuntime(t, engine, `<r><a/><a/><b/><g/><a/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><a/><a/><a/><a/></r>`, xsderrors.CodeValidationElement)

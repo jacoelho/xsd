@@ -31,7 +31,7 @@ func validateSchema(rt *schemaAudit) error {
 	if err := validateRuntimeSubstitutions(rt); err != nil {
 		return err
 	}
-	if err := validateBuiltins(&ctx); err != nil {
+	if err := validateBuiltinIDs(&ctx); err != nil {
 		return err
 	}
 	if err := validateRuntimeComponents(&ctx); err != nil {
@@ -471,10 +471,6 @@ func validateRuntimeChoiceLimits(rt *schemaAudit) error {
 		return contentModelAuditError(err)
 	}
 	return nil
-}
-
-func validateBuiltins(ctx *schemaValidationContext) error {
-	return validateBuiltinIDs(ctx)
 }
 
 func validateBuiltinIDs(ctx *schemaValidationContext) error {

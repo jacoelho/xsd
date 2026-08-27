@@ -12,33 +12,19 @@ import (
 type acceptedChild struct {
 	start             schemaStart
 	transition        runtime.ContentTransition
-	recover           bool
-	advances          bool
 	invalidatesParent bool
 }
 
 func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType bool, line, col int) (acceptedChild, error) {
-	return s.acceptPublishedSchemaChild(parent, rn, hasXSIType, line, col)
-}
-
-func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeName, hasXSIType bool, line, col int) (acceptedChild, error) {
 	if parent.Mode != elementAssessed {
 		return acceptedChild{start: schemaStart{element: runtime.NoElement, mode: parent.Mode}}, nil
 	}
 	policy := childFramePolicy(parent.Nilled)
 	if policy.issue.valid() {
-		return s.recoverablePublishedSchemaChildIssue(line, col, policy.issue)
+		return s.recoverableChildIssue(line, col, policy.issue)
 	}
-	parentContent := parent.Child
-	if !parent.ChildOK {
-		var ok bool
-		parentContent, ok = s.schemaChildContentInfo(parent.Type)
-		if !ok {
-			return acceptedChild{}, xsderrors.InternalInvariant("child content metadata is invalid")
-		}
-	}
-	if issue := childContentPolicy(parentContent, parent.Content, rn); issue.valid() {
-		return s.recoverablePublishedSchemaChildIssue(line, col, issue)
+	if issue := childContentPolicy(parent.Type, parent.SimpleContent, parent.Content, rn); issue.valid() {
+		return s.recoverableChildIssue(line, col, issue)
 	}
 	scratch := s.contentScratch(parent)
 	transition, status := s.rt.NextContent(parent.Content, runtime.ContentInput{
@@ -49,39 +35,32 @@ func (s *session) acceptPublishedSchemaChild(parent *frame, rn runtime.RuntimeNa
 		return acceptedChild{}, xsderrors.InternalInvariant("content model state is invalid")
 	}
 	if status == runtime.ContentTransitionNoMatch {
-		return s.recoverablePublishedSchemaChildIssue(line, col, unexpectedChildIssue(rn))
+		return s.recoverableChildIssue(line, col, unexpectedChildIssue(rn))
 	}
 	match := transition.Match()
 	if match.StrictMissing {
 		if hasSchemaLocation := s.schemaLocationHintLookup(); hasSchemaLocation != nil && hasSchemaLocation(rn.NS) {
 			return acceptedChild{}, unsupportedSchemaLocation(s.startContext(line, col), vocab.XSDElemElement, rn)
 		}
-		accepted, err := s.recoverablePublishedSchemaChildIssue(line, col, strictMissingChildIssue(rn))
+		accepted, err := s.recoverableChildIssue(line, col, strictMissingChildIssue(rn))
 		accepted.transition = transition
-		accepted.advances = true
 		return accepted, err
 	}
 	if match.Element == runtime.NoElement {
 		if match.Skip {
-			return acceptedChild{start: wildcardSkippedSchemaStart(), transition: transition, advances: true}, nil
+			return acceptedChild{start: wildcardSkippedSchemaStart(), transition: transition}, nil
 		}
-		return acceptedChild{start: assessedSchemaStart(runtime.NoElement, s.rt.AnyType()), transition: transition, advances: true}, nil
+		return acceptedChild{start: assessedSchemaStart(runtime.NoElement, s.rt.AnyType()), transition: transition}, nil
 	}
 	decl, declared := s.rt.Element(match.Element)
 	if !declared {
 		return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
 	}
-	return acceptedChild{start: assessedSchemaStart(match.Element, decl.Type), transition: transition, advances: true}, nil
+	return acceptedChild{start: assessedSchemaStart(match.Element, decl.Type), transition: transition}, nil
 }
 
-func (s *session) recoverablePublishedSchemaChildIssue(line, col int, issue validationIssue) (acceptedChild, error) {
-	return s.recoverablePublishedSchemaChildIssueAt(s.startContext(line, col), issue)
-}
-
-func (s *session) recoverablePublishedSchemaChildIssueAt(ctx StartContext, issue validationIssue) (acceptedChild, error) {
-	out := acceptedChild{start: recoverySchemaStart()}
-	out.recover = true
-	return out, validationFromIssue(ctx, issue)
+func (s *session) recoverableChildIssue(line, col int, issue validationIssue) (acceptedChild, error) {
+	return acceptedChild{start: recoverySchemaStart()}, validationFromIssue(s.startContext(line, col), issue)
 }
 
 func (s *session) end(line, col int, ee stream.EndElement) error {
@@ -134,8 +113,7 @@ func (s *session) validateFrameEnd(f *frame, line, col int) (bool, error) {
 		}
 	}
 	if !s.doc.identity.hasConstraints() &&
-		f.SimpleContentKnown && !f.HasSimpleContent &&
-		f.ElementValueKnown && !f.ElementHasValueConstraint {
+		f.SimpleContent == runtime.NoSimpleType && !f.TextContent.HasValueConstraint() {
 		return false, nil
 	}
 	contentCaptured, err := s.validateSimpleContent(f, line, col)
@@ -146,10 +124,6 @@ func (s *session) validateFrameEnd(f *frame, line, col int) (bool, error) {
 }
 
 func (s *session) completeFrame(f *frame, line, col int) error {
-	return s.completePublishedSchemaFrame(f, line, col)
-}
-
-func (s *session) completePublishedSchemaFrame(f *frame, line, col int) error {
 	if !contentCompletionRequired(f.Nilled, f.Type, f.Content) {
 		return nil
 	}

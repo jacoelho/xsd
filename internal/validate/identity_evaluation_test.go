@@ -98,11 +98,10 @@ func TestIdentityEvaluationResetInvalidatesBorrowedTarget(t *testing.T) {
 		t.Fatal("reset() retained active evaluator lifecycle state")
 	}
 	err = evaluation.startElement(identityElementStart{
-		Context:  StartContext{Path: "/root"},
-		Name:     runtime.RuntimeName{Known: true, Name: fixture.elemName},
-		Element:  fixture.elemID,
-		Mode:     elementAssessed,
-		Declared: true,
+		Context: StartContext{Path: "/root"},
+		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
+		Element: fixture.elemID,
+		Mode:    elementAssessed,
 	})
 	if err != nil {
 		t.Fatalf("startElement() after reset error = %v", err)
@@ -200,11 +199,10 @@ func TestIdentityEvaluationStartTransactionRollsBackState(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := evaluation.startElement(identityElementStart{
-		Context:  StartContext{Path: "/root/child", Line: 2, Column: 3},
-		Name:     runtime.RuntimeName{Known: true, Name: fixture.elemName},
-		Element:  fixture.elemID,
-		Mode:     elementAssessed,
-		Declared: true,
+		Context: StartContext{Path: "/root/child", Line: 2, Column: 3},
+		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
+		Element: fixture.elemID,
+		Mode:    elementAssessed,
 	})
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	evaluation.abortStart()
@@ -246,11 +244,10 @@ func startedIdentityEvaluationForTest(t *testing.T) startedIdentityEvaluationFix
 	rt, elemID, _, elemName, attrName := compiledIdentityRuntimeForTest(t)
 	evaluation := newIdentityEvaluation(rt, identityLimits{}, 0)
 	if err := evaluation.startElement(identityElementStart{
-		Context:  StartContext{Path: "/root", Line: 1, Column: 1},
-		Name:     runtime.RuntimeName{Known: true, Name: elemName},
-		Element:  elemID,
-		Mode:     elementAssessed,
-		Declared: true,
+		Context: StartContext{Path: "/root", Line: 1, Column: 1},
+		Name:    runtime.RuntimeName{Known: true, Name: elemName},
+		Element: elemID,
+		Mode:    elementAssessed,
 	}); err != nil {
 		t.Fatalf("startElement() error = %v", err)
 	}

@@ -10,38 +10,28 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		return false, nil
 	}
 	typeID := f.SimpleContent
-	hasSimpleContent := f.HasSimpleContent
-	if !f.SimpleContentKnown {
-		var ok bool
-		typeID, hasSimpleContent, ok = s.simpleContentType(f.Type)
-		if !ok {
-			return false, xsderrors.InternalInvariant("simple content type metadata is invalid")
-		}
-	}
+	hasSimpleContent := typeID != runtime.NoSimpleType
 	rawText := s.doc.text[f.TextStart:]
 	var constraints runtime.ElementValueConstraints
-	declared := f.ElementDeclared
-	hasValueConstraint := f.ElementHasValueConstraint
-	if !f.ElementValueKnown || hasValueConstraint {
+	if f.TextContent.HasValueConstraint() {
 		var ok bool
-		constraints, declared, ok = s.elementValueConstraints(f.Element)
+		constraints, _, ok = s.rt.ElementValueConstraints(f.Element)
 		if !ok {
 			return false, xsderrors.InternalInvariant("element value constraint metadata is invalid")
 		}
-		hasValueConstraint = constraints.HasAny()
 	}
 	if !hasSimpleContent {
-		if !hasValueConstraint {
+		if !f.TextContent.HasValueConstraint() {
 			return false, nil
 		}
 		ctx := s.startContext(line, col)
-		return false, s.validateNonSimpleFixedContent(f, constraints, declared, rawText, ctx)
+		return false, s.validateNonSimpleFixedContent(f, constraints, rawText, ctx)
 	}
 	identityTarget, identityErr := s.doc.identity.prepareElementValue()
 	if identityErr != nil {
 		return false, identityErr
 	}
-	if !identityTarget.needsIdentity() && !hasValueConstraint {
+	if !identityTarget.needsIdentity() && !f.TextContent.HasValueConstraint() {
 		ok, rawErr := s.validateRawSimpleValue(typeID, rawText)
 		if rawErr != nil {
 			if invariantErr := simpleValueMetadataInvariant(rawErr); invariantErr != nil {
@@ -58,11 +48,11 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		}
 	}
 	ctx := s.startContext(line, col)
-	input := s.simpleContentValueInput(f.Type, rawText, constraints, declared)
+	input := s.simpleContentValueInput(f.Type, rawText, constraints)
 	if input.prevalidated {
 		return s.recordElementSimpleContent(input.value, identityTarget, ctx)
 	}
-	value, err := s.validateSimpleValue(typeID, input.text, s.simpleValueQNameResolver(typeID), s.simpleContentNeeds(typeID, constraints, declared, identityTarget.needsIdentity()))
+	value, err := s.validateSimpleValue(typeID, input.text, s.simpleValueQNameResolver(typeID), s.simpleContentNeeds(typeID, constraints, identityTarget.needsIdentity()))
 	if err != nil {
 		if invalidateErr := s.doc.identity.rejectValue(identityTarget, identityInvalidValue, ctx); invalidateErr != nil {
 			return false, invalidateErr
@@ -78,13 +68,11 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if err := s.doc.identity.recordValue(identityTarget, value, ctx); err != nil {
 		return false, err
 	}
-	if declared {
-		if fixed, ok := constraints.FixedValue(); ok && value.CanonicalText() != fixed.CanonicalText() {
-			if invalidateErr := s.doc.identity.rejectValue(identityTarget, identityInvalidValue, ctx); invalidateErr != nil {
-				return false, invalidateErr
-			}
-			return false, validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
+	if fixed, ok := constraints.FixedValue(); ok && value.CanonicalText() != fixed.CanonicalText() {
+		if invalidateErr := s.doc.identity.rejectValue(identityTarget, identityInvalidValue, ctx); invalidateErr != nil {
+			return false, invalidateErr
 		}
+		return false, validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
 	}
 	if err := s.doc.identity.captureValue(identityTarget, ctx); err != nil {
 		return false, err
@@ -105,9 +93,8 @@ func (s *session) simpleContentValueInput(
 	typ runtime.TypeID,
 	rawText []byte,
 	constraints runtime.ElementValueConstraints,
-	declared bool,
 ) sessionSimpleContentInput {
-	if len(rawText) != 0 || !declared {
+	if len(rawText) != 0 {
 		return sessionSimpleContentInput{text: s.valueStrings.Intern(rawText)}
 	}
 	if fixed, ok := constraints.FixedValue(); ok {
@@ -128,7 +115,6 @@ func (s *session) simpleContentValueInput(
 func (s *session) simpleContentNeeds(
 	typeID runtime.SimpleTypeID,
 	constraints runtime.ElementValueConstraints,
-	declared bool,
 	needIdentity bool,
 ) runtime.SimpleValueNeed {
 	var needs runtime.SimpleValueNeed
@@ -139,20 +125,10 @@ func (s *session) simpleContentNeeds(
 		needs |= runtime.SimpleNeedCanonical
 		return needs
 	}
-	if declared {
-		if _, fixed := constraints.FixedValue(); fixed {
-			needs |= runtime.SimpleNeedCanonical
-		}
+	if _, fixed := constraints.FixedValue(); fixed {
+		needs |= runtime.SimpleNeedCanonical
 	}
 	return needs
-}
-
-func (s *session) simpleContentType(typ runtime.TypeID) (runtime.SimpleTypeID, bool, bool) {
-	return s.rt.SimpleContentType(typ)
-}
-
-func (s *session) elementValueConstraints(id runtime.ElementID) (runtime.ElementValueConstraints, bool, bool) {
-	return s.rt.ElementValueConstraints(id)
 }
 
 func (s *session) simpleIdentity(id runtime.SimpleTypeID) runtime.SimpleIdentityKind {
@@ -162,13 +138,9 @@ func (s *session) simpleIdentity(id runtime.SimpleTypeID) runtime.SimpleIdentity
 func (s *session) validateNonSimpleFixedContent(
 	f *frame,
 	constraints runtime.ElementValueConstraints,
-	declared bool,
 	rawText []byte,
 	ctx StartContext,
 ) error {
-	if !declared {
-		return nil
-	}
 	fixed, ok := constraints.FixedValue()
 	if !ok {
 		return nil

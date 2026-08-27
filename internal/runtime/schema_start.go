@@ -94,15 +94,6 @@ func (rt *Schema) TypeDerivationWithScratch(derived, base TypeID, scratch *TypeD
 	return rt.runtime.TypeDerivations.derivation(derived, base, scratch)
 }
 
-// ChildContent returns validation content data for a runtime type.
-func (rt *Schema) ChildContent(id TypeID) (ChildContentInfo, bool) {
-	content, ok := rt.elementChildContent(id)
-	if !ok {
-		return ChildContentInfo{}, false
-	}
-	return NewChildContentInfoForElementChildContent(content), true
-}
-
 // ContentModelForType returns the content model used to validate children of a runtime type.
 func (rt *Schema) ContentModelForType(t TypeID) ContentModelID {
 	id, ok := t.Complex()

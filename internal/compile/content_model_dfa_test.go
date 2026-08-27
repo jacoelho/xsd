@@ -32,7 +32,7 @@ func checkElementDeclarationsConsistent(rt ElementDeclarationRuntime, model runt
 	return err
 }
 
-func TestCompileContentModelsBuildsIndexedRows(t *testing.T) {
+func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 	t.Parallel()
 
 	names, rt := compiledModelRuntimeFixture(t, runtime.ModelChoice)
@@ -49,8 +49,8 @@ func TestCompileContentModelsBuildsIndexedRows(t *testing.T) {
 	if model.Source != 0 || model.Kind != runtime.CompiledModelDFA {
 		t.Fatalf("compiled model = {Source:%d Kind:%d}, want source 0 DFA", model.Source, model.Kind)
 	}
-	if len(model.Rows) == 0 || !model.Rows[0].Index.IsEnabled() {
-		t.Fatal("wide compiled row was not indexed")
+	if len(model.Rows) == 0 {
+		t.Fatal("wide DFA has no rows")
 	}
 }
 
@@ -547,7 +547,7 @@ func compiledModelRuntimeFixture(t *testing.T, kind runtime.ModelKind) (runtime.
 
 	var required []runtime.ExpandedName
 	elementNames := make(map[runtime.ElementID]runtime.QName)
-	particles := make([]runtime.Particle, runtime.CompiledDFARowIndexMinEdges)
+	particles := make([]runtime.Particle, 8)
 	for i := range particles {
 		local := string(rune('a' + i))
 		required = append(required, runtime.ExpandedName{Local: local})

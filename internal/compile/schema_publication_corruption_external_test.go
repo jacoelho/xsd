@@ -1428,126 +1428,6 @@ func TestFreezeRejectsBareNotationElementValueConstraint(t *testing.T) {
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }
 
-func TestFreezeRejectsBrokenDFARowIndex(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="head" type="xs:string" abstract="true"/>
-  <xs:element name="sub" type="xs:string" substitutionGroup="head"/>
-  <xs:element name="r">
-    <xs:complexType>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:element name="c1" type="xs:string"/>
-        <xs:element name="c2" type="xs:string"/>
-        <xs:element name="c3" type="xs:string"/>
-        <xs:element name="c4" type="xs:string"/>
-        <xs:element name="c5" type="xs:string"/>
-        <xs:element name="c6" type="xs:string"/>
-        <xs:element name="c7" type="xs:string"/>
-        <xs:element ref="head"/>
-        <xs:any namespace="urn:a" processContents="lax"/>
-        <xs:any namespace="urn:b" processContents="lax"/>
-      </xs:choice>
-    </xs:complexType>
-  </xs:element>
-</xs:schema>`
-	indexedRow := func(t *testing.T, rt *runtime.SchemaBuild) *runtime.CompiledModelRow {
-		t.Helper()
-		model := rt.CompiledModels[rootBuildContentModel(t, rt)]
-		for i := range model.Rows {
-			if model.Rows[i].Index.IsEnabled() {
-				return &model.Rows[i]
-			}
-		}
-		t.Fatal("no indexed row in root content model")
-		return nil
-	}
-	anyKey := func(t *testing.T, idx runtime.DFARowIndex) runtime.QName {
-		t.Helper()
-		for k := range idx.NameToEdge {
-			return k
-		}
-		t.Fatal("name index is empty")
-		return runtime.QName{}
-	}
-	mutations := []struct {
-		name   string
-		mutate func(t *testing.T, row *runtime.CompiledModelRow)
-	}{
-		{
-			name: "name index position out of range",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				row.Index.NameToEdge[anyKey(t, row.Index)] = ^uint32(0)
-			},
-		},
-		{
-			name: "name index points at wildcard edge",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				row.Index.NameToEdge[anyKey(t, row.Index)] = row.Index.WildcardEdges[0]
-			},
-		},
-		{
-			name: "name index key does not match edge element",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				idx := row.Index
-				a := anyKey(t, idx)
-				own := idx.NameToEdge[a]
-				for _, pos := range idx.NameToEdge {
-					if pos != own {
-						idx.NameToEdge[a] = pos
-						return
-					}
-				}
-				t.Fatal("name index has no second edge position")
-			},
-		},
-		{
-			name: "element edge missing from name index",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				delete(row.Index.NameToEdge, anyKey(t, row.Index))
-			},
-		},
-		{
-			name: "wildcard edge positions out of order",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				w := row.Index.WildcardEdges
-				if len(w) < 2 {
-					t.Fatalf("len(WildcardEdges) = %d, want >= 2", len(w))
-				}
-				w[0], w[1] = w[1], w[0]
-			},
-		},
-		{
-			name: "wildcard list contains element edge",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				row.Index.WildcardEdges[0] = row.Index.NameToEdge[anyKey(t, row.Index)]
-			},
-		},
-		{
-			name: "wildcard edge missing from wildcard list",
-			mutate: func(t *testing.T, row *runtime.CompiledModelRow) {
-				t.Helper()
-				row.Index.WildcardEdges = row.Index.WildcardEdges[:len(row.Index.WildcardEdges)-1]
-			},
-		},
-	}
-	for _, tc := range mutations {
-		t.Run(tc.name, func(t *testing.T) {
-			rt := mutableSchemaBuild(t, schema)
-			if err := validateSchemaBuild(rt); err != nil {
-				t.Fatalf("ValidateSchema() before mutation error = %v", err)
-			}
-			tc.mutate(t, indexedRow(t, rt))
-			err := validateSchemaBuild(rt)
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-		})
-	}
-}
-
 func TestFreezeRejectsAmbiguousDFARow(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
@@ -1566,7 +1446,7 @@ func TestFreezeRejectsAmbiguousDFARow(t *testing.T) {
 	model := &rt.CompiledModels[rootBuildContentModel(t, rt)]
 	for i := range model.Rows {
 		row := &model.Rows[i]
-		if row.Index.IsEnabled() || len(row.Edges) < 2 {
+		if len(row.Edges) < 2 {
 			continue
 		}
 		row.Edges[1].Particle = row.Edges[0].Particle

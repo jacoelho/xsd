@@ -257,7 +257,7 @@ func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 				Kind: CompiledModelDFA,
 				Rows: []CompiledModelRow{
 					{
-						Index: DFARowIndex{Enabled: true, NameToEdge: map[QName]uint32{memberName: 0}},
+						index: dfaRowIndex{nameToEdge: map[QName]uint32{memberName: 0}},
 						Edges: []CompiledModelEdge{{
 							Particle: ElementParticle(head, Occurrence{Min: 1, Max: 1}),
 							To:       1,
@@ -298,10 +298,9 @@ func TestNextContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 				Kind: CompiledModelDFA,
 				Rows: []CompiledModelRow{
 					{
-						Index: DFARowIndex{
-							Enabled:       true,
-							NameToEdge:    map[QName]uint32{name: 1},
-							WildcardEdges: []uint32{0},
+						index: dfaRowIndex{
+							nameToEdge:    map[QName]uint32{name: 1},
+							wildcardEdges: []uint32{0},
 						},
 						Edges: []CompiledModelEdge{
 							{
@@ -433,14 +432,13 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 	childName := QName{Namespace: EmptyNamespaceID, Local: 1}
 	tests := []struct {
 		name  string
-		index DFARowIndex
+		index dfaRowIndex
 	}{
 		{name: "linear"},
 		{
 			name: "indexed",
-			index: DFARowIndex{
-				NameToEdge: map[QName]uint32{childName: 0},
-				Enabled:    true,
+			index: dfaRowIndex{
+				nameToEdge: map[QName]uint32{childName: 0},
 			},
 		},
 	}
@@ -454,7 +452,7 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 						Kind: CompiledModelDFA,
 						Rows: []CompiledModelRow{
 							{
-								Index: tc.index,
+								index: tc.index,
 								Edges: []CompiledModelEdge{{
 									Particle: ElementParticle(child, Occurrence{Min: 1, Max: 1}),
 									To:       1,

@@ -30,17 +30,6 @@ func (rt *Schema) IdentityConstraint(id IdentityConstraintID) (IdentityConstrain
 	return IdentityConstraintReadByID(rt.runtime.Identities, id)
 }
 
-func (rt *Schema) elementChildContent(t TypeID) (ElementChildContent, bool) {
-	if simple, ok := t.Simple(); ok {
-		return ElementChildContent{}, ValidSimpleTypeID(simple, len(rt.runtime.SimpleValueRoutes))
-	}
-	id, ok := t.Complex()
-	if !ok || !ValidComplexTypeID(id, len(rt.runtime.ComplexTypes)) {
-		return ElementChildContent{}, false
-	}
-	return rt.runtime.ComplexTypes[id].childContent(), true
-}
-
 func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, bool) {
 	if !ValidComplexTypeID(id, len(rt.runtime.ComplexTypes)) {
 		return AttributeUseSetRead{}, false
@@ -95,34 +84,25 @@ func (rt *Schema) ElementValueConstraints(id ElementID) (ElementValueConstraints
 
 // ElementTextContent returns text-content metadata for a runtime type and element.
 func (rt *Schema) ElementTextContent(t TypeID, elem ElementID) (ElementTextContent, bool) {
-	if elem != NoElement && !ValidElementID(elem, rt.runtime.Elements.len()) {
-		return ElementTextContent{}, false
+	var constraints ElementValueConstraints
+	if elem != NoElement {
+		var declared, valid bool
+		constraints, declared, valid = rt.runtime.Elements.valueConstraints(elem)
+		if !valid || !declared {
+			return ElementTextContent{}, false
+		}
 	}
 	if id, ok := t.Complex(); ok {
 		if !ValidComplexTypeID(id, len(rt.runtime.ComplexTypes)) {
 			return ElementTextContent{}, false
 		}
-		if elem != NoElement {
-			constraints, _, valid := rt.runtime.Elements.valueConstraints(elem)
-			if !valid {
-				return ElementTextContent{}, false
-			}
-			if _, fixed := constraints.FixedValue(); fixed {
-				return rt.runtime.ComplexTypes[id].textContent(true), true
-			}
-		}
-		return rt.runtime.ComplexTypes[id].textContent(false), true
+		_, fixed := constraints.FixedValue()
+		return rt.runtime.ComplexTypes[id].textContent(fixed, constraints.HasAny()), true
 	}
 	if id, ok := t.Simple(); !ok || !ValidSimpleTypeID(id, len(rt.runtime.SimpleValueRoutes)) {
 		return ElementTextContent{}, false
 	}
-	return NewElementTextContent(ElementTextContentShape{Simple: true}), true
-}
-
-// ElementHasSimpleContent reports whether a runtime type and element have simple content.
-func (rt *Schema) ElementHasSimpleContent(t TypeID, elem ElementID) (bool, bool) {
-	content, ok := rt.ElementTextContent(t, elem)
-	return content.HasSimpleContent(), ok
+	return ElementTextContent{constrained: constraints.HasAny()}, true
 }
 
 // SimpleValueNeedsQNameResolver reports whether validating id can require
@@ -148,5 +128,5 @@ func (rt *Schema) ValidateRawSimpleValueWithScratch(id SimpleTypeID, raw []byte,
 	if id == NoSimpleType {
 		return false, nil
 	}
-	return rt.validatePublishedRawSimpleValueWithScratch(id, raw, scratch)
+	return validateResolvedRawSimpleValue(rawSimpleValueResolver{runtime: &rt.runtime, scratch: scratch}, id, raw)
 }

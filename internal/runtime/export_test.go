@@ -15,17 +15,7 @@ func (rt *Schema) ElementValueConstraintsForTest(id ElementID) (ElementValueCons
 	return rt.ElementValueConstraints(id)
 }
 
-// ElementChildContentForTest exposes child-content projection reads.
-func (rt *Schema) ElementChildContentForTest(t TypeID) (ElementChildContent, bool) {
-	return rt.elementChildContent(t)
-}
-
 // ComplexAttributeUsesForTest exposes complex attribute-use projection reads.
 func (rt *Schema) ComplexAttributeUsesForTest(id ComplexTypeID) (AttributeUseSetRead, bool) {
 	return rt.complexAttributeUses(id)
-}
-
-// ElementTextContentForTest exposes text-content projection reads.
-func (rt *Schema) ElementTextContentForTest(t TypeID, elem ElementID) (ElementTextContent, bool) {
-	return rt.ElementTextContent(t, elem)
 }

@@ -100,20 +100,12 @@ func (r complexTypeRead) simpleContent() SimpleContentTypeRead {
 	})
 }
 
-func (r complexTypeRead) childContent() ElementChildContent {
-	return NewElementChildContent(ElementChildContentShape{
-		Complex: true,
-		Simple:  r.flags&complexTypeReadSimple != 0,
-	})
-}
-
-func (r complexTypeRead) textContent(fixed bool) ElementTextContent {
-	return NewElementTextContent(ElementTextContentShape{
-		Simple:  r.flags&complexTypeReadSimple != 0,
-		Complex: true,
-		Mixed:   r.flags&complexTypeReadMixed != 0,
-		Fixed:   fixed,
-	})
+func (r complexTypeRead) textContent(fixed, constrained bool) ElementTextContent {
+	return ElementTextContent{
+		mixed:       r.flags&complexTypeReadMixed != 0,
+		fixed:       fixed,
+		constrained: constrained,
+	}
 }
 
 // Schema is sealed validation-ready schema state.

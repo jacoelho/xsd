@@ -21,7 +21,7 @@ func TestXMLStreamParserRejectsTypedNilReader(t *testing.T) {
 	if _, err := p.Next(); err != nil {
 		t.Fatalf("Parser.Next(old start) error = %v", err)
 	}
-	if !p.hasEnd {
+	if p.pendingEnd.Name.Local == "" {
 		t.Fatal("Parser.Next(old start) did not leave a synthetic end pending")
 	}
 
@@ -29,8 +29,8 @@ func TestXMLStreamParserRejectsTypedNilReader(t *testing.T) {
 	if err := p.Reset(reader, &names, &values); !errors.Is(err, ErrXMLInputNilReader) {
 		t.Fatalf("Parser.Reset() error = %v, want ErrXMLInputNilReader", err)
 	}
-	if p.br.r != nil || p.names != nil || p.values != nil || p.hasEnd || p.pendingEnd != (EndElement{}) {
-		t.Fatalf("Parser state retained after failed reset: br.r=%v names=%p values=%p hasEnd=%v pendingEnd=%+v", p.br.r, p.names, p.values, p.hasEnd, p.pendingEnd)
+	if p.br.r != nil || p.names != nil || p.values != nil || p.pendingEnd != (EndElement{}) {
+		t.Fatalf("Parser state retained after failed reset: br.r=%v names=%p values=%p pendingEnd=%+v", p.br.r, p.names, p.values, p.pendingEnd)
 	}
 	if _, err := p.Next(); !errors.Is(err, ErrXMLInputNilReader) {
 		t.Fatalf("Parser.Next() after failed reset error = %v, want ErrXMLInputNilReader", err)

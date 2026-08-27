@@ -211,15 +211,9 @@ func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 	if got := read.simpleContent(); got != wantSimple {
 		t.Fatalf("simpleContent() = %+v, want %+v", got, wantSimple)
 	}
-	wantChild := NewElementChildContent(ElementChildContentShape{Complex: true, Simple: ct.SimpleContent()})
-	if got := read.childContent(); got != wantChild {
-		t.Fatalf("childContent() = %+v, want %+v", got, wantChild)
-	}
 	for _, fixed := range []bool{false, true} {
-		wantText := NewElementTextContent(ElementTextContentShape{
-			Simple: ct.SimpleContent(), Complex: true, Mixed: ct.Mixed(), Fixed: fixed,
-		})
-		if got := read.textContent(fixed); got != wantText {
+		wantText := ElementTextContent{mixed: ct.Mixed(), fixed: fixed, constrained: fixed}
+		if got := read.textContent(fixed, fixed); got != wantText {
 			t.Fatalf("textContent(%v) = %+v, want %+v", fixed, got, wantText)
 		}
 	}

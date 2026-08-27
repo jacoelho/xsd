@@ -3227,11 +3227,6 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	codeID := simpleBuildTypeIDByName(t, &aliases, "Code")
 	itemType := complexBuildTypeIDByName(t, &aliases, "Item")
 	attrSetID := aliases.ComplexTypes[itemType].Attrs
-	rootType, ok := aliases.Elements[rootID].Type.Complex()
-	if !ok {
-		t.Fatal("root element type is not complex")
-	}
-	modelID := aliases.ComplexTypes[rootType].Content
 	identityID := aliases.Elements[rootID].Identity[0]
 
 	published, err := publishSchema(build)
@@ -3253,15 +3248,6 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	attrs.Required[0] = codeSlot
 	attrs.ValueConstraints[0] = 0
 
-	for rowIndex := range aliases.CompiledModels[modelID].Rows {
-		row := &aliases.CompiledModels[modelID].Rows[rowIndex]
-		for name := range row.Index.NameToEdge {
-			row.Index.NameToEdge[name] = 0
-		}
-		for i := range row.Index.WildcardEdges {
-			row.Index.WildcardEdges[i] = 0
-		}
-	}
 	interner := runtime.NewNameInterner(&aliases.Names)
 	if _, err := interner.InternQName("urn:poison", "poison"); err != nil {
 		t.Fatalf("InternQName() error = %v", err)

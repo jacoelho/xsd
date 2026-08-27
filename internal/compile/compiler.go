@@ -44,15 +44,9 @@ func CompileMappedSources[T any](opts Options, sources []T, sourceOf func(T) sou
 			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required")
 		}
 	}
-	graph, err := loadSchemaGraphOwned(owned, limits, &c.dependencyWork)
-	if err != nil {
+	if err = c.loadOwned(owned); err != nil {
 		return nil, err
 	}
-	plan, err := graph.plan()
-	if err != nil {
-		return nil, err
-	}
-	c.plan = plan
 	if err = c.index(); err != nil {
 		return nil, err
 	}

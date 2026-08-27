@@ -9,14 +9,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func (rt *Schema) validatePublishedSimpleValue(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
-	return rt.validatePublishedSimpleValueWithScratch(id, lexical, resolve, needs, nil)
-}
-
-func (rt *Schema) validatePublishedSimpleValueWithScratch(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
-	return validateSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs, scratch)
-}
-
 type publishedSimpleValueMetadataReader struct {
 	runtime *schemaRuntime
 }
@@ -69,10 +61,6 @@ func (r publishedSimpleValueMetadataReader) simpleValueNotation(ns, local string
 
 func (publishedSimpleValueMetadataReader) simpleValueUnsupported(err error) bool {
 	return xsderrors.IsUnsupported(err)
-}
-
-func (rt *Schema) validatePublishedRawSimpleValueWithScratch(id SimpleTypeID, raw []byte, scratch *StringPatternScratch) (bool, error) {
-	return validateResolvedRawSimpleValue(rawSimpleValueResolver{runtime: &rt.runtime, scratch: scratch}, id, raw)
 }
 
 func validateRawStringLength(raw []byte, whitespace WhitespaceMode, facets LengthFacetValues) error {

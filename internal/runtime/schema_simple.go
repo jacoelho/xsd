@@ -16,11 +16,11 @@ func (rt *SchemaBuild) DerivedSimpleIdentity(st SimpleType) SimpleIdentityKind {
 
 // ValidateSimpleValue validates a lexical simple value using frozen runtime reads.
 func (rt *Schema) ValidateSimpleValue(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
-	return rt.validatePublishedSimpleValue(id, lexical, resolve, needs)
+	return rt.ValidateSimpleValueWithScratch(id, lexical, resolve, needs, nil)
 }
 
 // ValidateSimpleValueWithScratch validates a lexical simple value while reusing
 // caller-owned string-pattern buffers.
 func (rt *Schema) ValidateSimpleValueWithScratch(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
-	return rt.validatePublishedSimpleValueWithScratch(id, lexical, resolve, needs, scratch)
+	return validateSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs, scratch)
 }

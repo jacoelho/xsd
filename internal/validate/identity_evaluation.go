@@ -43,13 +43,12 @@ func (t identityValueTarget) needsIdentity() bool {
 }
 
 type identityElementStart struct {
-	Context  StartContext
-	Name     runtime.RuntimeName
-	Type     runtime.TypeID
-	Element  runtime.ElementID
-	Mode     elementMode
-	Nilled   bool
-	Declared bool
+	Context       StartContext
+	Name          runtime.RuntimeName
+	Element       runtime.ElementID
+	Mode          elementMode
+	Nilled        bool
+	SimpleContent bool
 }
 
 type identityElementEnd struct {
@@ -63,12 +62,11 @@ type identityElementResult struct {
 }
 
 type identityElementState struct {
-	typ      runtime.TypeID
-	element  runtime.ElementID
-	mode     elementMode
-	nilled   bool
-	declared bool
-	seenID   bool
+	element       runtime.ElementID
+	mode          elementMode
+	nilled        bool
+	simpleContent bool
+	seenID        bool
 }
 
 // identityEvaluation owns all document-local XML and XSD identity state.
@@ -196,11 +194,10 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 		return xsderrors.InternalInvariant("element assessment mode is invalid")
 	}
 	e.elements = append(e.elements, identityElementState{
-		typ:      in.Type,
-		element:  in.Element,
-		mode:     in.Mode,
-		nilled:   in.Nilled,
-		declared: in.Declared,
+		element:       in.Element,
+		mode:          in.Mode,
+		nilled:        in.Nilled,
+		simpleContent: in.SimpleContent,
 	})
 	if !e.constraintsEnabled {
 		return nil
@@ -526,15 +523,11 @@ func (e *identityEvaluation) finishElementValue(
 	default:
 		return xsderrors.InternalInvariant("element assessment mode is invalid")
 	}
-	action, err := endIdentityCaptureForElement(e.rt, endIdentityInput{
-		Type:            element.typ,
+	action := endIdentityCapture(element.simpleContent, endIdentityInput{
 		Element:         element.element,
 		ContentCaptured: in.ContentCaptured,
 		Nilled:          element.nilled,
 	})
-	if err != nil {
-		return err
-	}
 	switch action {
 	case endIdentityCaptureNone:
 		return nil
@@ -563,7 +556,7 @@ func (e *identityEvaluation) rejectCurrentElement(reason identityRejection, ctx 
 }
 
 func (e *identityEvaluation) finishNillableKeyFields(element identityElementState, invalid bool) error {
-	if !element.declared {
+	if element.element == runtime.NoElement {
 		return nil
 	}
 	decl, ok := e.rt.Element(element.element)

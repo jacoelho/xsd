@@ -397,7 +397,6 @@ func TestEndIdentityCapture(t *testing.T) {
 	t.Parallel()
 
 	const elem runtime.ElementID = 1
-	typ := runtime.ComplexRef(1)
 	tests := []struct {
 		name          string
 		in            endIdentityInput
@@ -407,7 +406,6 @@ func TestEndIdentityCapture(t *testing.T) {
 		{
 			name: "simple content already captured",
 			in: endIdentityInput{
-				Type:            typ,
 				Element:         elem,
 				ContentCaptured: true,
 				Nilled:          true,
@@ -417,7 +415,6 @@ func TestEndIdentityCapture(t *testing.T) {
 		{
 			name: "nilled declared element with simple content",
 			in: endIdentityInput{
-				Type:    typ,
 				Element: elem,
 				Nilled:  true,
 			},
@@ -427,7 +424,6 @@ func TestEndIdentityCapture(t *testing.T) {
 		{
 			name: "nilled declared element with complex content",
 			in: endIdentityInput{
-				Type:    typ,
 				Element: elem,
 				Nilled:  true,
 			},
@@ -436,7 +432,6 @@ func TestEndIdentityCapture(t *testing.T) {
 		{
 			name: "nilled undeclared element without simple content",
 			in: endIdentityInput{
-				Type:    typ,
 				Element: runtime.NoElement,
 				Nilled:  true,
 			},
@@ -445,7 +440,6 @@ func TestEndIdentityCapture(t *testing.T) {
 		{
 			name: "complex element",
 			in: endIdentityInput{
-				Type:    typ,
 				Element: elem,
 			},
 			want: endIdentityCaptureComplexElement,
@@ -453,7 +447,6 @@ func TestEndIdentityCapture(t *testing.T) {
 		{
 			name: "simple element without captured field",
 			in: endIdentityInput{
-				Type:    typ,
 				Element: elem,
 			},
 			simpleContent: true,
@@ -464,28 +457,11 @@ func TestEndIdentityCapture(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := endIdentityCapture(tt.simpleContent, tt.in)
-			if tt.in.ContentCaptured {
-				var err error
-				got, err = endIdentityCaptureForElement(nil, tt.in)
-				if err != nil {
-					t.Fatalf("endIdentityCaptureForElement() error = %v", err)
-				}
-			}
 			if got != tt.want {
-				t.Fatalf("endIdentityCaptureForElement() = %v, want %v", got, tt.want)
+				t.Fatalf("endIdentityCapture() = %v, want %v", got, tt.want)
 			}
 		})
 	}
-}
-
-func TestEndIdentityCaptureRejectsMissingContentMetadata(t *testing.T) {
-	t.Parallel()
-
-	_, err := endIdentityCaptureForElement(nil, endIdentityInput{
-		Type:    runtime.ComplexRef(1),
-		Element: 1,
-	})
-	expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 }
 
 func TestIdentityStateFinishSelectionsReportsMissingKeyField(t *testing.T) {

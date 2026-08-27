@@ -43,22 +43,19 @@ type CompiledModel struct {
 	Empty     bool
 }
 
-// DFARowIndex stores the optional name index for a compiled DFA row.
-type DFARowIndex struct {
-	NameToEdge    map[QName]uint32
-	WildcardEdges []uint32
-	Enabled       bool
+type dfaRowIndex struct {
+	nameToEdge    map[QName]uint32
+	wildcardEdges []uint32
 }
 
-// IsEnabled reports whether the row index should be used.
-func (idx DFARowIndex) IsEnabled() bool {
-	return idx.Enabled
+func (idx dfaRowIndex) enabled() bool {
+	return idx.nameToEdge != nil
 }
 
 // CompiledModelRow stores a compiled DFA state.
 type CompiledModelRow struct {
 	Edges         []CompiledModelEdge
-	Index         DFARowIndex
+	index         dfaRowIndex
 	CountParticle Particle
 	Min           uint32
 	Max           uint32
@@ -93,30 +90,17 @@ func SameCompiledParticle(a, b Particle) bool {
 	return a.Kind == b.Kind && a.Element == b.Element && a.Wildcard == b.Wildcard
 }
 
-func equalDFARowIndex(a, b DFARowIndex) bool {
-	return a.Enabled == b.Enabled &&
-		maps.Equal(a.NameToEdge, b.NameToEdge) &&
-		slices.Equal(a.WildcardEdges, b.WildcardEdges)
+func equalDFARowIndex(a, b dfaRowIndex) bool {
+	return maps.Equal(a.nameToEdge, b.nameToEdge) &&
+		slices.Equal(a.wildcardEdges, b.wildcardEdges)
 }
 
-// CompiledDFARowIndexMinEdges is the edge count at which a compiled DFA row
-// gets a name index instead of using the linear edge scan during validation.
-const CompiledDFARowIndexMinEdges = 8
+const compiledDFARowIndexMinEdges = 8
 
 type dfaRowIndexAnalysis struct {
 	rt      DFARowIndexRuntime
 	work    ContentModelWork
 	entries map[ElementID][]QName
-}
-
-// IndexCompiledModelRows builds optional name indexes for wide compiled DFA
-// rows. Rows where one name maps to multiple edges keep the linear scan.
-func IndexCompiledModelRows(rt DFARowIndexRuntime, model *CompiledModel, work ContentModelWork) error {
-	if err := requireContentModelWork(work); err != nil {
-		return err
-	}
-	analysis := newDFARowIndexAnalysis(rt, work)
-	return analysis.indexModel(model)
 }
 
 // IndexCompiledModelsRows builds row indexes for a model table and
@@ -161,7 +145,7 @@ func (a *dfaRowIndexAnalysis) indexModel(model *CompiledModel) error {
 }
 
 func (a *dfaRowIndexAnalysis) indexRow(row *CompiledModelRow) error {
-	if len(row.Edges) < CompiledDFARowIndexMinEdges {
+	if len(row.Edges) < compiledDFARowIndexMinEdges {
 		return nil
 	}
 	for range row.Edges {
@@ -207,7 +191,7 @@ func (a *dfaRowIndexAnalysis) indexRow(row *CompiledModelRow) error {
 			return errors.New("compiled content model index has invalid edge particle")
 		}
 	}
-	row.Index = DFARowIndex{NameToEdge: index, WildcardEdges: wildcards, Enabled: true}
+	row.index = dfaRowIndex{nameToEdge: index, wildcardEdges: wildcards}
 	return nil
 }
 
@@ -492,11 +476,8 @@ func validateCompiledDFARow(
 			return err
 		}
 	}
-	if row.Index.IsEnabled() {
+	if row.index.enabled() {
 		return indexes.validateRow(names, row)
-	}
-	if row.Index.NameToEdge != nil || row.Index.WildcardEdges != nil {
-		return errors.New("compiled content model inactive row index stores data")
 	}
 	return nil
 }
@@ -563,20 +544,12 @@ type DFARowIndexRuntime interface {
 	ForEachSubstitutionEntry(id ElementID, fn func(QName, ElementID) bool)
 }
 
-// ValidateDFARowIndex checks that row.Index mirrors row.Edges exactly.
-func ValidateDFARowIndex(names *NameTable, rt DFARowIndexRuntime, row CompiledModelRow, work ContentModelWork) error {
-	if err := requireContentModelWork(work); err != nil {
-		return err
-	}
-	return newDFARowIndexAnalysis(rt, work).validateRow(names, row)
-}
-
 func (a *dfaRowIndexAnalysis) validateRow(names *NameTable, row CompiledModelRow) error {
-	idx := row.Index
-	if idx.NameToEdge == nil {
+	idx := row.index
+	if idx.nameToEdge == nil {
 		return errors.New("compiled content model name index is nil")
 	}
-	for name, pos := range idx.NameToEdge {
+	for name, pos := range idx.nameToEdge {
 		if err := spendContentModelWork(a.work); err != nil {
 			return err
 		}
@@ -630,7 +603,7 @@ func (a *dfaRowIndexAnalysis) validateRow(names *NameTable, row CompiledModelRow
 				return errors.New("compiled content model name index is missing element edge")
 			}
 		case ParticleWildcard:
-			if wi >= len(idx.WildcardEdges) || idx.WildcardEdges[wi] != edgePos {
+			if wi >= len(idx.wildcardEdges) || idx.wildcardEdges[wi] != edgePos {
 				return errors.New("compiled content model wildcard list does not match wildcard edges")
 			}
 			wi++
@@ -638,14 +611,14 @@ func (a *dfaRowIndexAnalysis) validateRow(names *NameTable, row CompiledModelRow
 			return errors.New("compiled content model indexed row has model edge")
 		}
 	}
-	if wi != len(idx.WildcardEdges) {
+	if wi != len(idx.wildcardEdges) {
 		return errors.New("compiled content model wildcard list does not match wildcard edges")
 	}
 	return nil
 }
 
-func requireIndexedName(idx DFARowIndex, name QName, pos uint32) error {
-	if got, ok := idx.NameToEdge[name]; !ok || got != pos {
+func requireIndexedName(idx dfaRowIndex, name QName, pos uint32) error {
+	if got, ok := idx.nameToEdge[name]; !ok || got != pos {
 		return errors.New("compiled content model name index is missing element edge")
 	}
 	return nil

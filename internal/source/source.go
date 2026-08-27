@@ -43,34 +43,53 @@ type resolutionContext struct {
 // Applying xml:base may preserve a valid resolver base while making built-in
 // fallback unavailable.
 type ReferenceBase struct {
-	resolver           string
-	fallback           string
-	resolverLocalPath  string
-	resolverLocalQuery string
-	resolverOK         bool
-	fallbackOK         bool
-	resolverLocal      bool
-	resolverHasQuery   bool
+	fallback string
+	resolver resolverBase
+}
+
+type resolverBaseKind uint8
+
+const (
+	resolverBaseUnavailable resolverBaseKind = iota
+	resolverBaseURI
+	resolverBaseLocal
+)
+
+type resolverBase struct {
+	value     string
+	localPath string
+	query     string
+	kind      resolverBaseKind
+	hasQuery  bool
+}
+
+func (b resolverBase) available() bool {
+	return b.kind != resolverBaseUnavailable
 }
 
 // NewReferenceBase returns the unresolved base for one source context. The
 // source name is preserved exactly for custom resolver callbacks until an
 // xml:base value is applied.
 func NewReferenceBase(name string) ReferenceBase {
-	local := name != "" && isLocalName(name)
 	return ReferenceBase{
-		resolver:          name,
-		fallback:          name,
-		resolverLocalPath: name,
-		resolverOK:        name != "",
-		fallbackOK:        name != "",
-		resolverLocal:     local,
+		resolver: newResolverBase(name),
+		fallback: name,
 	}
+}
+
+func newResolverBase(value string) resolverBase {
+	if value == "" {
+		return resolverBase{}
+	}
+	if isLocalName(value) {
+		return localResolverBase(value, "", false)
+	}
+	return resolverBase{value: value, kind: resolverBaseURI}
 }
 
 // ResolverValue returns the effective base to present to a custom resolver.
 func (b ReferenceBase) ResolverValue() (string, bool) {
-	return b.resolver, b.resolverOK
+	return b.resolver.value, b.resolver.available()
 }
 
 // WithXMLBase applies one xml:base value. Syntactically valid URI forms that
@@ -80,13 +99,11 @@ func (b ReferenceBase) WithXMLBase(reference uriref.Reference) (ReferenceBase, e
 	reference = reference.WithoutFragment()
 	next := b
 	if reference.Raw() == "" {
-		if next.resolverOK && !next.resolverLocal {
-			next.resolver = withoutFragment(next.resolver)
-			next.resolverOK = next.resolver != ""
+		if next.resolver.kind == resolverBaseURI {
+			next.resolver = uriResolverBaseValue(withoutFragment(next.resolver.value))
 		}
-		if next.fallbackOK && !isLocalName(next.fallback) {
+		if next.fallback != "" && !isLocalName(next.fallback) {
 			next.fallback = withoutFragment(next.fallback)
-			next.fallbackOK = next.fallback != ""
 		}
 		return next, nil
 	}
@@ -94,78 +111,64 @@ func (b ReferenceBase) WithXMLBase(reference uriref.Reference) (ReferenceBase, e
 	if err != nil {
 		return ReferenceBase{}, err
 	}
-	if !resolver.local {
-		resolver.value = withoutFragment(resolver.value)
-		resolver.ok = resolver.value != ""
+	if resolver.kind == resolverBaseURI {
+		resolver = uriResolverBaseValue(withoutFragment(resolver.value))
 	}
-	next.resolver = resolver.value
-	next.resolverLocalPath = resolver.localPath
-	next.resolverLocalQuery = resolver.query
-	next.resolverOK = resolver.ok
-	next.resolverLocal = resolver.local
-	next.resolverHasQuery = resolver.hasQuery
+	next.resolver = resolver
 
-	fallback, fallbackOK, fallbackErr := resolveFallbackBase(b, reference)
+	fallback, fallbackErr := resolveFallbackBase(b, reference)
 	if fallbackErr != nil {
 		return ReferenceBase{}, fallbackErr
 	}
-	if fallbackOK {
-		if !isLocalName(fallback) {
-			fallback = withoutFragment(fallback)
-		}
-		next.fallback = fallback
-		next.fallbackOK = fallback != ""
-	} else {
-		next.fallback = ""
-		next.fallbackOK = false
+	if fallback != "" && !isLocalName(fallback) {
+		fallback = withoutFragment(fallback)
 	}
+	next.fallback = fallback
 	return next, nil
 }
 
-func resolveFallbackBase(base ReferenceBase, reference uriref.Reference) (string, bool, error) {
+func resolveFallbackBase(base ReferenceBase, reference uriref.Reference) (string, error) {
 	fallbackBase := base.fallback
-	fallbackOK := base.fallbackOK
 	parts := reference.Parts()
-	if !fallbackOK && parts.HasScheme {
+	if fallbackBase == "" && parts.HasScheme {
 		return canonicalFallbackReference(reference)
 	}
-	if !fallbackOK && base.resolverLocal && parts.Path != "" {
-		fallbackBase = base.resolverLocalPath
-		fallbackOK = fallbackBase != ""
+	if fallbackBase == "" && base.resolver.kind == resolverBaseLocal && parts.Path != "" {
+		fallbackBase = base.resolver.localPath
 	}
-	if !fallbackOK {
-		return "", false, nil
+	if fallbackBase == "" {
+		return "", nil
 	}
 	if isLocalName(fallbackBase) {
 		resolved, err := ResolveReference(fallbackBase, reference.Escaped())
 		if IsReferenceUnavailable(err) {
-			return "", false, nil
+			return "", nil
 		}
-		return resolved, err == nil && resolved != "", err
+		return resolved, err
 	}
 	if parts.HasScheme {
 		return canonicalFallbackReference(reference)
 	}
 	baseReference, err := uriref.Parse(fallbackBase)
 	if err != nil {
-		return "", false, nil //nolint:nilerr // Arbitrary source names are identities, not schema-provided URI syntax.
+		return "", nil //nolint:nilerr // Arbitrary source names are identities, not schema-provided URI syntax.
 	}
 	resolved, err := uriref.Resolve(baseReference, reference)
 	if errors.Is(err, uriref.ErrOpaqueBase) {
-		return "", false, nil
+		return "", nil
 	}
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	return canonicalFallbackReference(resolved)
 }
 
-func canonicalFallbackReference(reference uriref.Reference) (string, bool, error) {
+func canonicalFallbackReference(reference uriref.Reference) (string, error) {
 	resolved, err := ResolveReference("", reference.Escaped())
 	if IsReferenceUnavailable(err) {
-		return "", false, nil
+		return "", nil
 	}
-	return resolved, err == nil && resolved != "", err
+	return resolved, err
 }
 
 func withoutFragment(uri string) string {
@@ -299,7 +302,7 @@ func (s Source) ResolveFrom(base ReferenceBase, location uriref.Reference) (Reso
 	if err != nil {
 		return Resolution{}, referenceResolutionError{err: err}
 	}
-	if !resolvedBase.fallbackOK {
+	if resolvedBase.fallback == "" {
 		return Resolution{}, nil
 	}
 	target := resolvedBase.fallback
@@ -506,65 +509,63 @@ func IsReferenceUnavailable(err error) bool {
 	return errors.Is(err, errReferenceUnavailable)
 }
 
-type resolverBaseState struct {
-	value     string
-	localPath string
-	query     string
-	ok        bool
-	local     bool
-	hasQuery  bool
-}
-
-func resolveResolverBase(base ReferenceBase, reference uriref.Reference) (resolverBaseState, error) {
-	if base.resolverOK {
-		if base.resolverLocal {
-			return resolveLocalResolverBase(base, reference), nil
+func resolveResolverBase(base ReferenceBase, reference uriref.Reference) (resolverBase, error) {
+	if base.resolver.available() {
+		if base.resolver.kind == resolverBaseLocal {
+			return resolveLocalResolverBase(base.resolver, reference), nil
 		}
-		baseReference, err := uriref.Parse(base.resolver)
+		baseReference, err := uriref.Parse(base.resolver.value)
 		if err != nil {
 			if reference.Parts().HasScheme {
 				return uriResolverBase(reference), nil
 			}
-			return resolverBaseState{}, nil
+			return resolverBase{}, nil
 		}
 		resolved, err := uriref.Resolve(baseReference, reference)
 		if errors.Is(err, uriref.ErrOpaqueBase) {
-			return resolverBaseState{}, nil
+			return resolverBase{}, nil
 		}
 		if err != nil {
-			return resolverBaseState{}, err
+			return resolverBase{}, err
 		}
 		return uriResolverBase(resolved), nil
 	}
 	if reference.Parts().HasScheme {
 		return uriResolverBase(reference), nil
 	}
-	return resolverBaseState{}, nil
+	return resolverBase{}, nil
 }
 
-func uriResolverBase(reference uriref.Reference) resolverBaseState {
-	return resolverBaseState{value: reference.Raw(), ok: reference.Raw() != ""}
+func uriResolverBase(reference uriref.Reference) resolverBase {
+	return uriResolverBaseValue(reference.Raw())
 }
 
-func resolveLocalResolverBase(base ReferenceBase, reference uriref.Reference) resolverBaseState {
+func uriResolverBaseValue(value string) resolverBase {
+	if value == "" {
+		return resolverBase{}
+	}
+	return resolverBase{value: value, kind: resolverBaseURI}
+}
+
+func resolveLocalResolverBase(base resolverBase, reference uriref.Reference) resolverBase {
 	parts := reference.Parts()
 	if parts.HasScheme || parts.HasAuthority {
 		return uriResolverBase(reference)
 	}
 	path := parts.Path
 	if path == "" {
-		query, hasQuery := base.resolverLocalQuery, base.resolverHasQuery
+		query, hasQuery := base.query, base.hasQuery
 		if parts.HasQuery {
 			query, hasQuery = parts.Query, true
 		}
-		return localResolverBase(base.resolverLocalPath, query, hasQuery)
+		return localResolverBase(base.localPath, query, hasQuery)
 	}
 	if filepath.IsAbs(filepath.FromSlash(path)) || os.IsPathSeparator(path[0]) {
 		path = filepath.FromSlash(path)
 	} else {
-		dir := filepath.Dir(base.resolverLocalPath)
-		if localDirectoryForm(base.resolverLocalPath) {
-			dir = base.resolverLocalPath
+		dir := filepath.Dir(base.localPath)
+		if localDirectoryForm(base.localPath) {
+			dir = base.localPath
 		}
 		path = filepath.Join(dir, filepath.FromSlash(path))
 	}
@@ -572,13 +573,16 @@ func resolveLocalResolverBase(base ReferenceBase, reference uriref.Reference) re
 	return localResolverBase(path, parts.Query, parts.HasQuery)
 }
 
-func localResolverBase(path, query string, hasQuery bool) resolverBaseState {
+func localResolverBase(path, query string, hasQuery bool) resolverBase {
 	value := path
 	if hasQuery {
 		value += "?" + query
 	}
-	return resolverBaseState{
-		value: value, localPath: path, query: query, ok: value != "", local: true, hasQuery: hasQuery,
+	if value == "" {
+		return resolverBase{}
+	}
+	return resolverBase{
+		value: value, localPath: path, query: query, kind: resolverBaseLocal, hasQuery: hasQuery,
 	}
 }
 

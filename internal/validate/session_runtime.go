@@ -121,26 +121,20 @@ type documentState struct {
 }
 
 type frame struct {
-	Index                     int
-	BitBase                   int
-	BitLen                    int
-	TextStart                 int
-	Content                   runtime.ContentState
-	Child                     runtime.ChildContentInfo
-	Type                      runtime.TypeID
-	SimpleContent             runtime.SimpleTypeID
-	Element                   runtime.ElementID
-	Nilled                    bool
-	Mode                      elementMode
-	SimpleContentKnown        bool
-	HasSimpleContent          bool
-	HasChild                  bool
-	HasText                   bool
-	ChildOK                   bool
-	ElementValueKnown         bool
-	ElementDeclared           bool
-	ElementHasValueConstraint bool
-	AssessmentInvalid         bool
+	Index             int
+	BitBase           int
+	BitLen            int
+	TextStart         int
+	Content           runtime.ContentState
+	Type              runtime.TypeID
+	SimpleContent     runtime.SimpleTypeID
+	Element           runtime.ElementID
+	TextContent       runtime.ElementTextContent
+	Nilled            bool
+	Mode              elementMode
+	HasChild          bool
+	HasText           bool
+	AssessmentInvalid bool
 }
 
 type elementMode uint8
@@ -334,6 +328,14 @@ func (s *session) discardSemanticState() {
 	s.attributeSeen = nil
 }
 
+type startTransactionPhase uint8
+
+const (
+	startTransactionPrepared startTransactionPhase = iota
+	startTransactionXMLCommitted
+	startTransactionDone
+)
+
 //nolint:govet // Fields are grouped by the state restored together.
 type sessionStartTransaction struct {
 	s                 *session
@@ -345,11 +347,8 @@ type sessionStartTransaction struct {
 	errorsLen         int
 	parentIndex       int
 	syntaxOnly        bool
-	done              bool
-	hasParent         bool
-	advances          bool
 	invalidatesParent bool
-	xmlCommitted      bool
+	phase             startTransactionPhase
 }
 
 func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, namespace xmlns.Frame) (sessionStartTransaction, error) {
@@ -362,7 +361,6 @@ func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, nam
 		parentIndex: xmlCheckpoint.depth - 1,
 		namespace:   namespace,
 		syntaxOnly:  s.doc.syntaxOnly,
-		hasParent:   xmlCheckpoint.depth != 0,
 	}
 	if err := s.doc.identity.beginStart(); err != nil {
 		return sessionStartTransaction{}, err
@@ -372,31 +370,30 @@ func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, nam
 
 func (t *sessionStartTransaction) stageContent(accepted acceptedChild) {
 	t.transition = accepted.transition
-	t.advances = accepted.advances
 	t.invalidatesParent = accepted.invalidatesParent
 }
 
 func (t *sessionStartTransaction) commitXMLStart(start preparedXMLStart, expandedPath bool, payload frame) error {
-	if t.done || t.xmlCommitted || t.s.doc.Depth() != t.xml.depth {
+	if t.phase != startTransactionPrepared || t.s.doc.Depth() != t.xml.depth {
 		return xsderrors.InternalInvariant("XML start transaction phase is invalid")
 	}
 	t.s.doc.CommitStart(start, expandedPath, payload)
-	t.xmlCommitted = true
+	t.phase = startTransactionXMLCommitted
 	return nil
 }
 
 func (t *sessionStartTransaction) commit() error {
-	if t.done || !t.xmlCommitted {
+	if t.phase != startTransactionXMLCommitted {
 		return xsderrors.InternalInvariant("start transaction commit phase is invalid")
 	}
 	var parent *frame
-	if t.hasParent {
-		if t.parentIndex < 0 || t.parentIndex >= len(t.s.doc.elements) {
+	if t.parentIndex >= 0 {
+		if t.parentIndex >= len(t.s.doc.elements) {
 			return xsderrors.InternalInvariant("start transaction parent frame is invalid")
 		}
 		parent = &t.s.doc.elements[t.parentIndex].payload
 	}
-	if t.advances {
+	if t.transition.IsPlanned() {
 		if parent == nil {
 			return xsderrors.InternalInvariant("root start has a parent content transition")
 		}
@@ -408,7 +405,7 @@ func (t *sessionStartTransaction) commit() error {
 	if err := t.s.doc.identity.validateStartCommit(); err != nil {
 		return err
 	}
-	if t.advances {
+	if t.transition.IsPlanned() {
 		scratch := t.s.contentScratch(parent)
 		if !t.transition.Commit(&parent.Content, &scratch) {
 			return xsderrors.InternalInvariant("parent content transition commit failed")
@@ -421,30 +418,33 @@ func (t *sessionStartTransaction) commit() error {
 		}
 		parent.HasChild = true
 	}
-	t.done = true
+	t.phase = startTransactionDone
 	return nil
 }
 
 func (t *sessionStartTransaction) stopSemanticValidation(start preparedXMLStart) error {
 	t.restoreSemanticState(false)
-	if !t.xmlCommitted {
+	switch t.phase {
+	case startTransactionPrepared:
 		if err := t.commitXMLStart(start, false, frame{}); err != nil {
 			return err
 		}
-	} else {
+	case startTransactionXMLCommitted:
 		t.s.doc.clearCurrentPayload()
+	default:
+		return xsderrors.InternalInvariant("start transaction stop phase is invalid")
 	}
-	t.done = true
+	t.phase = startTransactionDone
 	return nil
 }
 
 func (t *sessionStartTransaction) abort() error {
-	if t.done {
+	if t.phase == startTransactionDone {
 		return nil
 	}
 	t.restoreSemanticState(true)
 	err := t.s.doc.rollbackStart(t.xml, t.namespace)
-	t.done = true
+	t.phase = startTransactionDone
 	return err
 }
 
@@ -524,18 +524,11 @@ func (s *session) runStartTransaction(
 			}
 			return err
 		}
-		if start.mode != elementAssessed {
-			decl = runtime.ElementStartInfo{}
-			declared = false
-		}
 	}
-	schemaFrame := s.newSchemaFrame(
-		start,
-		nilled,
-		start.mode == elementAssessed,
-		declared,
-		declared && (decl.Fixed || decl.Default),
-	)
+	schemaFrame, err := s.newSchemaFrame(start, nilled)
+	if err != nil {
+		return err
+	}
 	if err := transaction.commitXMLStart(se, start.mode == elementAssessed && !rn.Known && rn.NS != "", schemaFrame); err != nil {
 		return err
 	}
@@ -556,13 +549,12 @@ func (s *session) runStartTransaction(
 
 func (s *session) startFrameIdentity(start schemaStart, rn runtime.RuntimeName, f frame, line, col int) error {
 	return s.doc.identity.startElement(identityElementStart{
-		Name:     rn,
-		Type:     f.Type,
-		Element:  f.Element,
-		Mode:     start.mode,
-		Context:  s.startContext(line, col),
-		Nilled:   f.Nilled,
-		Declared: f.ElementDeclared,
+		Name:          rn,
+		Element:       f.Element,
+		Mode:          start.mode,
+		Context:       s.startContext(line, col),
+		Nilled:        f.Nilled,
+		SimpleContent: f.SimpleContent != runtime.NoSimpleType,
 	})
 }
 
@@ -712,9 +704,6 @@ func (s *session) startType(rn runtime.RuntimeName, se preparedXMLStart, token s
 	if err == nil {
 		return accepted, nil
 	}
-	if !accepted.recover {
-		return acceptedChild{}, err
-	}
 	accepted.invalidatesParent = assessmentFailure(err)
 	recoverErr := s.recover(err)
 	if recoverErr != nil {
@@ -758,24 +747,30 @@ func (s *session) startContext(line, col int) StartContext {
 func (s *session) newSchemaFrame(
 	start schemaStart,
 	nilled bool,
-	elementValueKnown, elementDeclared, elementHasValueConstraint bool,
-) frame {
+) (frame, error) {
 	if start.mode != elementAssessed {
 		return frame{
-			Element:   runtime.NoElement,
-			BitBase:   len(s.doc.allBits),
-			TextStart: len(s.doc.text),
-			Mode:      start.mode,
-		}
+			Element:       runtime.NoElement,
+			SimpleContent: runtime.NoSimpleType,
+			BitBase:       len(s.doc.allBits),
+			TextStart:     len(s.doc.text),
+			Mode:          start.mode,
+		}, nil
 	}
 	elem := start.element
 	typ := start.typ
-	contentFrame := s.rt.ContentFrame(typ)
-	childContent, childContentOK := s.schemaChildContentInfo(typ)
-	if !childContentOK {
-		childContent = runtime.ChildContentInfo{}
+	simpleContent, hasSimpleContent, ok := s.rt.SimpleContentType(typ)
+	if !ok {
+		return frame{}, xsderrors.InternalInvariant("simple content type metadata is invalid")
 	}
-	simpleContent, hasSimpleContent, simpleContentKnown := s.schemaFrameSimpleContent(typ, childContent, childContentOK)
+	if !hasSimpleContent {
+		simpleContent = runtime.NoSimpleType
+	}
+	textContent, ok := s.rt.ElementTextContent(typ, elem)
+	if !ok {
+		return frame{}, xsderrors.InternalInvariant("character data content info is invalid")
+	}
+	contentFrame := s.rt.ContentFrame(typ)
 	bitLen := contentFrame.AllBitLen()
 	bitBase := len(s.doc.allBits)
 	if bitLen > 0 {
@@ -784,49 +779,18 @@ func (s *session) newSchemaFrame(
 		clear(s.doc.allBits[bitBase:])
 	}
 	return frame{
-		Element:                   elem,
-		Type:                      typ,
-		BitBase:                   bitBase,
-		BitLen:                    bitLen,
-		Content:                   contentFrame.ContentState(),
-		Child:                     childContent,
-		SimpleContent:             simpleContent,
-		TextStart:                 len(s.doc.text),
-		Nilled:                    nilled,
-		Mode:                      elementAssessed,
-		SimpleContentKnown:        simpleContentKnown,
-		HasSimpleContent:          hasSimpleContent,
-		ChildOK:                   childContentOK,
-		ElementValueKnown:         elementValueKnown,
-		ElementDeclared:           elementDeclared,
-		ElementHasValueConstraint: elementHasValueConstraint,
-		AssessmentInvalid:         start.invalid,
-	}
-}
-
-func (s *session) schemaChildContentInfo(typ runtime.TypeID) (runtime.ChildContentInfo, bool) {
-	return s.rt.ChildContent(typ)
-}
-
-func (s *session) schemaFrameSimpleContent(
-	typ runtime.TypeID,
-	child runtime.ChildContentInfo,
-	childOK bool,
-) (runtime.SimpleTypeID, bool, bool) {
-	if id, ok := typ.Simple(); ok {
-		return id, true, true
-	}
-	if !childOK {
-		return runtime.NoSimpleType, false, false
-	}
-	if !child.Simple {
-		return runtime.NoSimpleType, false, true
-	}
-	id, hasSimpleContent, ok := s.rt.SimpleContentType(typ)
-	if !ok {
-		return runtime.NoSimpleType, false, false
-	}
-	return id, hasSimpleContent, true
+		Element:           elem,
+		Type:              typ,
+		BitBase:           bitBase,
+		BitLen:            bitLen,
+		Content:           contentFrame.ContentState(),
+		TextContent:       textContent,
+		SimpleContent:     simpleContent,
+		TextStart:         len(s.doc.text),
+		Nilled:            nilled,
+		Mode:              elementAssessed,
+		AssessmentInvalid: start.invalid,
+	}, nil
 }
 
 func (s *session) chars(line, col int, data []byte, cdata bool) error {
@@ -843,16 +807,10 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if f.Nilled {
 		return validation(s.startContext(line, col), xsderrors.CodeValidationNil, "nilled element must be empty")
 	}
-	if frameHasSimpleContent(f) {
+	if f.SimpleContent != runtime.NoSimpleType {
 		return s.appendText(data, line, col)
 	}
-	content, ok := s.rt.ElementTextContent(f.Type, f.Element)
-	if !ok {
-		return xsderrors.InternalInvariant("character data content info is invalid")
-	}
-	if content.HasSimpleContent() {
-		return s.appendText(data, line, col)
-	}
+	content := f.TextContent
 	whitespace := lex.IsXMLWhitespaceBytes(data)
 	if !whitespace {
 		f.HasText = true
@@ -863,18 +821,11 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 		}
 		return nil
 	}
-	if content.IsComplexType() && !whitespace {
+	if !whitespace {
 		ctx := s.startContext(line, col)
 		return validation(ctx, xsderrors.CodeValidationText, "character data is not allowed")
 	}
 	return nil
-}
-
-func frameHasSimpleContent(f *frame) bool {
-	if f.SimpleContentKnown {
-		return f.HasSimpleContent
-	}
-	return f.Type.IsSimple() || (f.ChildOK && f.Child.Simple)
 }
 
 func (s *session) appendText(data []byte, line, col int) error {
