@@ -167,23 +167,32 @@ type maxBytesWriter struct {
 func (w *maxBytesWriter) Write(p []byte) (int, error) {
 	remaining := w.max - w.n
 	if int64(len(p)) <= remaining {
-		n, err := w.w.Write(p)
-		w.n += int64(n)
-		return n, err
+		return w.write(p)
 	}
 	if remaining <= 0 {
 		return 0, w.err
 	}
 	allowed := int(remaining)
-	n, err := w.w.Write(p[:allowed])
-	w.n += int64(n)
+	n, err := w.write(p[:allowed])
 	if err != nil {
 		return n, err
 	}
-	if n != allowed {
+	return allowed, w.err
+}
+
+func (w *maxBytesWriter) write(p []byte) (int, error) {
+	n, err := w.w.Write(p)
+	if n < 0 || n > len(p) {
+		if err != nil {
+			return 0, errors.Join(io.ErrShortWrite, err)
+		}
+		return 0, io.ErrShortWrite
+	}
+	w.n += int64(n)
+	if n != len(p) && err == nil {
 		return n, io.ErrShortWrite
 	}
-	return allowed, w.err
+	return n, err
 }
 
 type xmlFormatter struct {

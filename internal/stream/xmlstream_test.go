@@ -68,6 +68,9 @@ func TestParserNextReturnsZeroTokenOnError(t *testing.T) {
 		config Config
 	}{
 		{name: "end tag", xml: `<root></root x>`},
+		{name: "truncated end tag", xml: `<root></root></`},
+		{name: "truncated end tag after whitespace", xml: `<root></root></root `},
+		{name: "truncated start tag after whitespace", xml: `<root></root><next `},
 		{name: "character data", xml: `<root>abc]]></root>`},
 		{name: "emitted comment", xml: `<root><!--bad--x></root>`, config: Config{EmitComments: true}},
 	}
@@ -419,6 +422,112 @@ func TestXMLStreamParserNormalizesCDATALineEndings(t *testing.T) {
 	}
 }
 
+func TestXMLStreamParserNormalizesDirectiveLineEndings(t *testing.T) {
+	names := NewCache()
+	values := NewCache()
+	var parser Parser
+	if err := parser.ResetWithConfig(
+		chunkReader{r: strings.NewReader("<root><!--a\rb--><?p a\r\nb?></root>"), n: 1},
+		&names,
+		&values,
+		Config{EmitComments: true, EmitPI: true},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parser.Next(); err != nil {
+		t.Fatalf("Parser.Next(root) error = %v", err)
+	}
+	comment, err := parser.Next()
+	if err != nil {
+		t.Fatalf("Parser.Next(comment) error = %v", err)
+	}
+	if comment.Kind != KindComment || string(comment.Directive) != "a\nb" {
+		t.Fatalf("comment = %+v, want normalized payload", comment)
+	}
+	pi, err := parser.Next()
+	if err != nil {
+		t.Fatalf("Parser.Next(PI) error = %v", err)
+	}
+	if pi.Kind != KindPI || string(pi.Directive) != "a\nb" {
+		t.Fatalf("PI = %+v, want normalized payload", pi)
+	}
+}
+
+func TestXMLStreamParserNormalizesCRLFProcessingInstructionSeparator(t *testing.T) {
+	names := NewCache()
+	values := NewCache()
+	var parser Parser
+	if err := parser.ResetWithConfig(
+		chunkReader{r: strings.NewReader("<root><?p\r\nx?></root>"), n: 1},
+		&names,
+		&values,
+		Config{EmitPI: true},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parser.Next(); err != nil {
+		t.Fatalf("Parser.Next(root) error = %v", err)
+	}
+	pi, err := parser.Next()
+	if err != nil {
+		t.Fatalf("Parser.Next(PI) error = %v", err)
+	}
+	if pi.Kind != KindPI || string(pi.Directive) != "x" {
+		t.Fatalf("PI = %+v, want normalized payload %q", pi, "x")
+	}
+}
+
+func TestXMLStreamParserNormalizesAttributeLineEndings(t *testing.T) {
+	names := NewCache()
+	values := NewCache()
+	var parser Parser
+	if err := parser.Reset(
+		chunkReader{r: strings.NewReader("<root a=\"x\ry\" b=\"x\r\ny\"/>"), n: 1},
+		&names,
+		&values,
+	); err != nil {
+		t.Fatal(err)
+	}
+	token, err := parser.Next()
+	if err != nil {
+		t.Fatalf("Parser.Next() error = %v", err)
+	}
+	for i := range token.Start.Attr {
+		if got := token.Start.Attr[i].StringValue(&values); got != "x y" {
+			t.Fatalf("attribute %d value = %q, want %q", i, got, "x y")
+		}
+	}
+}
+
+func TestParserPositionNormalizesXMLLineEndings(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		reader io.Reader
+	}{
+		{name: "bare CR", reader: strings.NewReader("<r>a\rb\x01</r>")},
+		{name: "CRLF", reader: strings.NewReader("<r>a\r\nb\x01</r>")},
+		{name: "split CRLF", reader: chunkReader{r: strings.NewReader("<r>a\r\nb\x01</r>"), n: 1}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			names := NewCache()
+			values := NewCache()
+			var parser Parser
+			if err := parser.Reset(test.reader, &names, &values); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := parser.Next(); err != nil {
+				t.Fatalf("Parser.Next(root) error = %v", err)
+			}
+			if _, err := parser.Next(); err == nil {
+				t.Fatal("Parser.Next(character data) succeeded")
+			}
+			if line, col := parser.Pos(); line != 2 || col != 2 {
+				t.Fatalf("Parser.Pos() = %d:%d, want 2:2", line, col)
+			}
+		})
+	}
+}
+
 func TestParserXMLRuneValidationDoesNotDependOnEmission(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -489,59 +598,6 @@ func TestXMLStreamParserChunksLargeCDATA(t *testing.T) {
 	}
 	if chunks < 2 {
 		t.Fatalf("CDATA chunks = %d, want multiple chunks", chunks)
-	}
-}
-
-func TestByteStreamConsumeBufferedTracksNewlines(t *testing.T) {
-	bs := new(byteStream)
-	bs.reset(strings.NewReader("ab\ncd\nef"), 0)
-	chunk, err := bs.buffered()
-	if err != nil {
-		t.Fatalf("buffered() error = %v", err)
-	}
-	bs.consumeBuffered(len(chunk))
-	line, col := bs.pos()
-	if line != 3 || col != 2 {
-		t.Fatalf("pos() = %d:%d, want 3:2", line, col)
-	}
-}
-
-func TestByteStreamConsumeBufferedAfterReadByteNewlines(t *testing.T) {
-	bs := new(byteStream)
-	bs.reset(strings.NewReader("a\nbc\nde"), 0)
-	if _, err := bs.buffered(); err != nil {
-		t.Fatalf("buffered() error = %v", err)
-	}
-	bs.consumeBuffered(1)
-	if b, err := bs.readByte(); err != nil || b != '\n' {
-		t.Fatalf("readByte() = %q, %v, want '\\n'", b, err)
-	}
-	bs.consumeBuffered(2)
-	if line, col := bs.pos(); line != 2 || col != 2 {
-		t.Fatalf("pos() = %d:%d, want 2:2", line, col)
-	}
-	if b, err := bs.readByte(); err != nil || b != '\n' {
-		t.Fatalf("readByte() = %q, %v, want '\\n'", b, err)
-	}
-	bs.consumeBuffered(2)
-	if line, col := bs.pos(); line != 3 || col != 2 {
-		t.Fatalf("pos() = %d:%d, want 3:2", line, col)
-	}
-}
-
-func TestByteStreamConsumeBufferedNewlineThenCleanChunk(t *testing.T) {
-	bs := new(byteStream)
-	bs.reset(strings.NewReader("a\nb\n\ncdef"), 0)
-	if _, err := bs.buffered(); err != nil {
-		t.Fatalf("buffered() error = %v", err)
-	}
-	bs.consumeBuffered(5)
-	if line, col := bs.pos(); line != 4 || col != 0 {
-		t.Fatalf("pos() = %d:%d, want 4:0", line, col)
-	}
-	bs.consumeBuffered(4)
-	if line, col := bs.pos(); line != 4 || col != 4 {
-		t.Fatalf("pos() = %d:%d, want 4:4", line, col)
 	}
 }
 
@@ -650,6 +706,27 @@ func TestXMLStreamParserLimitsAggregateProcessingInstructionPayload(t *testing.T
 				t.Fatalf("Next() error = %v", err)
 			}
 		})
+	}
+}
+
+func TestXMLStreamParserProcessingInstructionLimitUsesNormalizedLineEndings(t *testing.T) {
+	names := NewCache()
+	values := NewCache()
+	var parser Parser
+	if err := parser.ResetWithConfig(
+		chunkReader{r: strings.NewReader("<?p a\r\nb?><r/>"), n: 1},
+		&names,
+		&values,
+		Config{Limits: Limits{MaxTokenBytes: 4}, EmitPI: true},
+	); err != nil {
+		t.Fatal(err)
+	}
+	token, err := parser.Next()
+	if err != nil {
+		t.Fatalf("Parser.Next() error = %v", err)
+	}
+	if token.Kind != KindPI || string(token.Directive) != "a\nb" {
+		t.Fatalf("PI = %+v, want normalized payload", token)
 	}
 }
 
@@ -797,11 +874,11 @@ func TestLazyAttributeValueCopiesSurviveParserAdvance(t *testing.T) {
 }
 
 func BenchmarkParserLazyWideAttributes(b *testing.B) {
-	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), Config{LazyAttrValues: true}, false)
+	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), newParserBenchmarkOracle(258, 90_390, 0xe98b3c97c304f556), Config{LazyAttrValues: true}, false)
 }
 
 func BenchmarkParserLazyWideAttributesMaterialized(b *testing.B) {
-	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), Config{LazyAttrValues: true}, true)
+	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), newParserBenchmarkOracle(258, 90_390, 0xe98b3c97c304f556), Config{LazyAttrValues: true}, true)
 }
 
 func benchmarkParserWideAttributesDocument() string {
@@ -820,61 +897,203 @@ func benchmarkParserWideAttributesDocument() string {
 }
 
 func BenchmarkParserCharacterData(b *testing.B) {
-	benchmarkParserDocument(b, `<root>`+strings.Repeat("abcdefgh", 8<<10)+`</root>`, Config{}, false)
+	text := `<root>` + strings.Repeat("abcdefgh", 8<<10) + `</root>`
+	benchmarkParserDocument(b, text, newParserBenchmarkOracle(3, 65_540, 0x069139cfad00a11b), Config{}, false)
 }
 
 func BenchmarkParserMixedSmallTokens(b *testing.B) {
-	benchmarkParserDocument(b, `<root>`+strings.Repeat(`<e a="v">x</e>`, 4_000)+`</root>`, Config{LazyAttrValues: true}, false)
+	text := `<root>` + strings.Repeat(`<e a="v">x</e>`, 4_000) + `</root>`
+	benchmarkParserDocument(b, text, newParserBenchmarkOracle(12_002, 12_004, 0xf020b93837f5e1c), Config{LazyAttrValues: true}, false)
 }
 
 func BenchmarkParserCDATABufferBoundary(b *testing.B) {
-	benchmarkParserDocument(b, `<root><![CDATA[`+strings.Repeat("x", 64<<10)+`]]></root>`, Config{}, false)
+	text := `<root><![CDATA[` + strings.Repeat("x", xmlInputBufferSize) + `]]></root>`
+	benchmarkParserDocument(b, text, newParserBenchmarkOracle(4, 65_540, 0xfd95ace67cb7de45), Config{}, false)
 }
 
-func benchmarkParserDocument(b *testing.B, text string, config Config, materializeAttrs bool) {
+func TestParserBenchmarkOracleDistinguishesSemanticChanges(t *testing.T) {
+	t.Parallel()
+	parse := func(text string) parserBenchmarkDigest {
+		t.Helper()
+		names, values := NewCache(), NewCache()
+		var parser Parser
+		got, err := digestParserBenchmarkDocument(&parser, &names, &values, text, Config{}, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	for _, test := range []struct {
+		name          string
+		first, second string
+	}{
+		{name: "names values and data", first: `<a x="1">y</a>`, second: `<b x="2">z</b>`},
+		{name: "CDATA", first: `<a>x</a>`, second: `<a><![CDATA[x]]></a>`},
+		{name: "token order", first: `<r><a/><b/></r>`, second: `<r><b/><a/></r>`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if parse(test.first) == parse(test.second) {
+				t.Fatal("benchmark oracle accepted a semantic token change")
+			}
+		})
+	}
+}
+
+const (
+	parserBenchmarkDigestOffset = uint64(14695981039346656037)
+	parserBenchmarkDigestPrime  = uint64(1099511628211)
+)
+
+type parserBenchmarkDigest struct {
+	hash   uint64
+	tokens int
+}
+
+type parserBenchmarkSample struct {
+	tokens  int
+	payload int
+}
+
+type parserBenchmarkOracle struct {
+	digest parserBenchmarkDigest
+	sample parserBenchmarkSample
+}
+
+func newParserBenchmarkOracle(tokens, payload int, hash uint64) parserBenchmarkOracle {
+	return parserBenchmarkOracle{
+		digest: parserBenchmarkDigest{hash: hash, tokens: tokens},
+		sample: parserBenchmarkSample{tokens: tokens, payload: payload},
+	}
+}
+
+func (d *parserBenchmarkDigest) addToken(token Token, values *Cache, materializeAttrs bool) {
+	d.tokens++
+	d.addUint64(uint64(token.Kind))
+	d.addBool(token.CDATA)
+	d.addName(token.Start.Name)
+	d.addUint64(uint64(len(token.Start.Attr)))
+	for i := range token.Start.Attr {
+		attr := &token.Start.Attr[i]
+		d.addName(attr.Name)
+		if raw, ok := attr.RawValue(); ok && !materializeAttrs {
+			d.addBytes(raw)
+			continue
+		}
+		d.addString(attr.StringValue(values))
+	}
+	d.addName(token.End.Name)
+	d.addBytes(token.Data)
+	d.addBytes(token.Directive)
+}
+
+func (s *parserBenchmarkSample) addToken(token Token, values *Cache, materializeAttrs bool) {
+	s.tokens++
+	s.payload += len(token.Data) + len(token.Directive) + len(token.Start.Name.Space) + len(token.Start.Name.Local)
+	for i := range token.Start.Attr {
+		if raw, ok := token.Start.Attr[i].RawValue(); ok && !materializeAttrs {
+			s.payload += len(raw)
+			continue
+		}
+		s.payload += len(token.Start.Attr[i].StringValue(values))
+	}
+}
+
+func (d *parserBenchmarkDigest) addName(name xml.Name) {
+	d.addString(name.Space)
+	d.addString(name.Local)
+}
+
+func (d *parserBenchmarkDigest) addBool(value bool) {
+	if value {
+		d.addUint64(1)
+		return
+	}
+	d.addUint64(0)
+}
+
+func (d *parserBenchmarkDigest) addString(value string) {
+	d.addUint64(uint64(len(value)))
+	for i := range len(value) {
+		d.addByte(value[i])
+	}
+}
+
+func (d *parserBenchmarkDigest) addBytes(value []byte) {
+	d.addUint64(uint64(len(value)))
+	for _, b := range value {
+		d.addByte(b)
+	}
+}
+
+func (d *parserBenchmarkDigest) addUint64(value uint64) {
+	for range 8 {
+		d.addByte(byte(value))
+		value >>= 8
+	}
+}
+
+func (d *parserBenchmarkDigest) addByte(value byte) {
+	d.hash ^= uint64(value)
+	d.hash *= parserBenchmarkDigestPrime
+}
+
+func benchmarkParserDocument(b *testing.B, text string, want parserBenchmarkOracle, config Config, materializeAttrs bool) {
 	b.Helper()
 	names, values := NewCache(), NewCache()
 	var parser Parser
-	wantTokens, wantPayload, err := consumeParserBenchmarkDocument(&parser, &names, &values, text, config, materializeAttrs)
+	digest, err := digestParserBenchmarkDocument(&parser, &names, &values, text, config, materializeAttrs)
 	if err != nil {
 		b.Fatal(err)
+	}
+	if digest != want.digest {
+		b.Fatalf("parsed semantic result = %d tokens/%016x digest, want %d/%016x", digest.tokens, digest.hash, want.digest.tokens, want.digest.hash)
 	}
 	b.SetBytes(int64(len(text)))
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		tokens, payload, err := consumeParserBenchmarkDocument(&parser, &names, &values, text, config, materializeAttrs)
+		got, err := consumeParserBenchmarkDocument(&parser, &names, &values, text, config, materializeAttrs)
 		if err != nil {
 			b.Fatal(err)
 		}
-		if tokens != wantTokens || payload != wantPayload {
-			b.Fatalf("parsed result = %d tokens/%d payload bytes, want %d/%d", tokens, payload, wantTokens, wantPayload)
+		if got != want.sample {
+			b.Fatalf("parsed result = %d tokens/%d payload bytes, want %d/%d", got.tokens, got.payload, want.sample.tokens, want.sample.payload)
 		}
 	}
 }
 
-func consumeParserBenchmarkDocument(parser *Parser, names, values *Cache, text string, config Config, materializeAttrs bool) (int, int, error) {
+func digestParserBenchmarkDocument(parser *Parser, names, values *Cache, text string, config Config, materializeAttrs bool) (parserBenchmarkDigest, error) {
 	if err := parser.ResetWithConfig(strings.NewReader(text), names, values, config); err != nil {
-		return 0, 0, err
+		return parserBenchmarkDigest{}, err
 	}
-	tokens, payload := 0, 0
+	got := parserBenchmarkDigest{hash: parserBenchmarkDigestOffset}
 	for {
 		token, err := parser.Next()
-		if errors.Is(err, io.EOF) {
-			return tokens, payload, nil
+		if IsOnlyEOF(err) {
+			return got, nil
 		}
 		if err != nil {
-			return 0, 0, err
+			return parserBenchmarkDigest{}, err
 		}
-		tokens++
-		payload += len(token.Data) + len(token.Directive) + len(token.Start.Name.Space) + len(token.Start.Name.Local)
-		for i := range token.Start.Attr {
-			if raw, ok := token.Start.Attr[i].RawValue(); ok && !materializeAttrs {
-				payload += len(raw)
-				continue
-			}
-			payload += len(token.Start.Attr[i].StringValue(values))
+		got.addToken(token, values, materializeAttrs)
+	}
+}
+
+func consumeParserBenchmarkDocument(parser *Parser, names, values *Cache, text string, config Config, materializeAttrs bool) (parserBenchmarkSample, error) {
+	if err := parser.ResetWithConfig(strings.NewReader(text), names, values, config); err != nil {
+		return parserBenchmarkSample{}, err
+	}
+	var got parserBenchmarkSample
+	for {
+		token, err := parser.Next()
+		if IsOnlyEOF(err) {
+			return got, nil
 		}
+		if err != nil {
+			return parserBenchmarkSample{}, err
+		}
+		got.addToken(token, values, materializeAttrs)
 	}
 }
 

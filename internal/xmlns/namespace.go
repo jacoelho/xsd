@@ -357,6 +357,7 @@ type nameSet struct {
 	index map[xml.Name]struct{}
 	names [nameSetLinearLimit]xml.Name
 	n     int
+	peak  int
 }
 
 func (s *nameSet) reset() {
@@ -371,6 +372,9 @@ func (s *nameSet) add(name xml.Name) error {
 			return duplicateAttributeError(name)
 		}
 		s.index[name] = struct{}{}
+		if len(s.index) > s.peak {
+			s.peak = len(s.index)
+		}
 		return nil
 	}
 	if slices.Contains(s.names[:s.n], name) {
@@ -379,6 +383,9 @@ func (s *nameSet) add(name xml.Name) error {
 	if s.n < len(s.names) {
 		s.names[s.n] = name
 		s.n++
+		if s.n > s.peak {
+			s.peak = s.n
+		}
 		return nil
 	}
 	s.index = make(map[xml.Name]struct{}, s.n+1)
@@ -386,7 +393,16 @@ func (s *nameSet) add(name xml.Name) error {
 		s.index[existing] = struct{}{}
 	}
 	s.index[name] = struct{}{}
+	s.peak = len(s.index)
 	return nil
+}
+
+func (s *nameSet) resetRetained(maxRetained int) {
+	if s.peak > maxRetained {
+		s.index = nil
+	}
+	s.reset()
+	s.peak = 0
 }
 
 func duplicateAttributeError(name xml.Name) error {
@@ -414,11 +430,7 @@ func NewStackWithCapacity(frameCap, bindingCap int) Stack {
 func (s *Stack) Reset(maxRetainedCap int) {
 	s.frames = resetRetainedReferences(s.frames, maxRetainedCap)
 	s.resolvedAttrs = resetRetainedReferences(s.resolvedAttrs, maxRetainedCap)
-	if len(s.seen.index) > maxRetainedCap {
-		s.seen.index = nil
-	} else {
-		s.seen.reset()
-	}
+	s.seen.resetRetained(maxRetainedCap)
 	if s.persistent {
 		s.store = nil
 	} else if s.store != nil {

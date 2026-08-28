@@ -18,6 +18,12 @@ type formatDataErrorReader struct {
 	done bool
 }
 
+type shortNilWriter struct{}
+
+func (shortNilWriter) Write(p []byte) (int, error) {
+	return len(p) - 1, nil
+}
+
 func (r *formatDataErrorReader) Read(p []byte) (int, error) {
 	if r.done {
 		return 0, r.err
@@ -222,6 +228,17 @@ func TestFormatXMLNormalizesCDATALineEndings(t *testing.T) {
 	}
 }
 
+func TestFormatXMLNormalizesCommentAndProcessingInstructionLineEndings(t *testing.T) {
+	var out strings.Builder
+	err := XML(&out, strings.NewReader("<root><!--a\rb--><?p a\r\nb?></root>"))
+	if err != nil {
+		t.Fatalf("XML() error = %v", err)
+	}
+	if out.String() != "<root><!--a\nb--><?p a\nb?></root>" {
+		t.Fatalf("XML() = %q", out.String())
+	}
+}
+
 func TestFormatXMLPreservesProcessingInstructions(t *testing.T) {
 	var out strings.Builder
 	err := XML(&out, strings.NewReader(`<?xml version="1.0"?><?xml-stylesheet type="text/xsl" href="style.xsl"?><root><?pi data?><v>1</v></root><?tail?>`))
@@ -409,6 +426,24 @@ func TestFormatXMLRejectsEmptyAndUnclosedDocuments(t *testing.T) {
 	}
 }
 
+func TestFormatXMLRejectsTruncatedTrailingMarkup(t *testing.T) {
+	t.Parallel()
+	for _, suffix := range []string{`</`, `</root `, `<next `} {
+		t.Run(suffix, func(t *testing.T) {
+			t.Parallel()
+			var out strings.Builder
+			err := XML(&out, strings.NewReader(`<root/>`+suffix))
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Code() != xsderrors.CodeFormatXML {
+				t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeFormatXML)
+			}
+			if out.Len() != 0 {
+				t.Fatalf("XML() wrote %q before rejecting input", out.String())
+			}
+		})
+	}
+}
+
 func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
 	var out strings.Builder
 	err := XMLWithOptions(&out, strings.NewReader(`<root><a/><b/></root>`), Options{MaxNodes: 2})
@@ -462,6 +497,13 @@ func TestFormatXMLWithOptionsRejectsOutputBytesAfterPartialWrite(t *testing.T) {
 	}
 	if out.Len() > 8 {
 		t.Fatalf("output len = %d, want <= 8", out.Len())
+	}
+}
+
+func TestFormatXMLRejectsShortWriteWithoutWriterError(t *testing.T) {
+	err := XML(shortNilWriter{}, strings.NewReader(`<root/>`))
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("XML() error = %v, want %v", err, io.ErrShortWrite)
 	}
 }
 

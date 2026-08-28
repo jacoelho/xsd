@@ -180,67 +180,12 @@ func (p *Parser) readPastSpace() (byte, bool, error) {
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
-			return 0, hadSpace, err
+			return 0, hadSpace, p.syntaxError("unexpected EOF in XML tag", err)
 		}
 		if !lex.IsXMLWhitespaceByte(b) {
 			return b, hadSpace, nil
 		}
 		hadSpace = true
-	}
-}
-
-func (p *Parser) readUntil(term string, dst []byte) ([]byte, error) {
-	if p.maxTokenBytes <= 0 {
-		return p.readUntilNoLimit(term, dst)
-	}
-	prefix := termPrefix(term)
-	matched := 0
-	for {
-		b, err := p.br.readByte()
-		if err != nil {
-			return nil, p.syntaxError("unexpected EOF", err)
-		}
-		next := advanceTermMatch(term, prefix, matched, b)
-		dst, err = p.appendConfirmedTermBytes(dst, term, matched, next, b)
-		if err != nil {
-			return nil, err
-		}
-		matched = next
-		if matched == len(term) {
-			return dst, nil
-		}
-	}
-}
-
-func (p *Parser) appendConfirmedTermBytes(dst []byte, term string, matched, next int, b byte) ([]byte, error) {
-	confirmed := matched + 1 - next
-	if confirmed == 0 {
-		return dst, nil
-	}
-	if err := p.reserveRetainedBytes(confirmed); err != nil {
-		return nil, err
-	}
-	fromTerm := min(confirmed, matched)
-	dst = append(dst, term[:fromTerm]...)
-	if confirmed > matched {
-		dst = append(dst, b)
-	}
-	return dst, nil
-}
-
-func (p *Parser) readUntilNoLimit(term string, dst []byte) ([]byte, error) {
-	prefix := termPrefix(term)
-	matched := 0
-	for {
-		b, err := p.br.readByte()
-		if err != nil {
-			return nil, p.syntaxError("unexpected EOF", err)
-		}
-		dst = append(dst, b)
-		matched = advanceTermMatch(term, prefix, matched, b)
-		if matched == len(term) {
-			return dst[:len(dst)-len(term)], nil
-		}
 	}
 }
 

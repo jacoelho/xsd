@@ -2,11 +2,66 @@ package validate
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestIdentityStateRecordIDREFSReusesStaging(t *testing.T) {
+	for _, refs := range []int{1, 1000} {
+		t.Run(strconv.Itoa(refs), func(t *testing.T) {
+			evaluation := identityEvaluation{limits: identityLimits{
+				Entries:    defaultMaxIdentityEntries,
+				TupleBytes: defaultMaxIdentityTupleBytes,
+			}}
+			value := strings.Repeat("id ", refs)
+			ctx := StartContext{Path: "/refs", Line: 2, Column: 3}
+			if err := evaluation.recordIdentityFields("", value, ctx); err != nil {
+				t.Fatal(err)
+			}
+			evaluation.reset(maxRetainedMapLen, maxRetainedSliceCap)
+
+			var recordErr error
+			allocs := testing.AllocsPerRun(100, func() {
+				recordErr = evaluation.recordIdentityFields("", value, ctx)
+				evaluation.reset(maxRetainedMapLen, maxRetainedSliceCap)
+			})
+			if recordErr != nil {
+				t.Fatal(recordErr)
+			}
+			if allocs != 0 {
+				t.Fatalf("recordIdentityFields() allocations = %v, want 0", allocs)
+			}
+		})
+	}
+}
+
+func TestIdentityStateLimitsBoundStaging(t *testing.T) {
+	tests := []struct {
+		name      string
+		limits    identityLimits
+		refs      string
+		message   string
+		maxStaged int
+	}{
+		{name: "entries", limits: identityLimits{Entries: 1}, refs: "a b c", message: "identity entry limit exceeded", maxStaged: 1},
+		{name: "tuple bytes", limits: identityLimits{TupleBytes: 1}, refs: "aa bb", message: "identity tuple byte limit exceeded", maxStaged: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluation := identityEvaluation{limits: tt.limits}
+			err := evaluation.stageIdentityRefs(tt.refs, StartContext{Path: "/refs", Line: 2, Column: 3})
+			expectXSDCode(t, err, xsderrors.CodeValidationLimit)
+			expectXSDMessage(t, err, tt.message)
+			if got := len(evaluation.fieldStaging.values); got > tt.maxStaged {
+				t.Fatalf("staged values = %d, want at most %d", got, tt.maxStaged)
+			}
+		})
+	}
+}
 
 // startSelectionForTest starts an unbounded selection for white-box state tests.
 func (s *identityState) startSelectionForTest(scope, depth int, constraint runtime.IdentityConstraintID, fieldCount int, ctx StartContext) {
@@ -51,8 +106,22 @@ func TestIdentityStateRejectsDuplicateIDWithoutMutating(t *testing.T) {
 	if evaluation.entries != 1 {
 		t.Fatalf("entries = %d, want 1", evaluation.entries)
 	}
+	if len(evaluation.fieldStaging.ids) != 0 || len(evaluation.fieldStaging.values) != 0 {
+		t.Fatalf("duplicate ID retained staging: %+v", evaluation.fieldStaging)
+	}
 	if got := evaluation.ids["a"]; got != "/first" {
 		t.Fatalf("ids[a] = %q, want /first", got)
+	}
+
+	batch := identityEvaluation{limits: identityLimits{Entries: 1}}
+	err = batch.recordIdentityFields("a a", "", StartContext{Path: "/batch", Line: 6, Column: 7})
+	expectXSDCode(t, err, xsderrors.CodeValidationType)
+	expectXSDMessage(t, err, "duplicate ID a first seen at /batch")
+	if len(batch.ids) != 0 || batch.entries != 0 {
+		t.Fatalf("duplicate ID batch mutated state: ids=%v entries=%d", batch.ids, batch.entries)
+	}
+	if len(batch.fieldStaging.ids) != 0 || len(batch.fieldStaging.values) != 0 {
+		t.Fatalf("duplicate ID batch retained staging: %+v", batch.fieldStaging)
 	}
 }
 
@@ -185,12 +254,18 @@ func TestIdentityStateLimitFailuresDoNotAppendOrInsert(t *testing.T) {
 	if evaluation.entries != 1 {
 		t.Fatalf("entries = %d, want 1", evaluation.entries)
 	}
+	if len(evaluation.fieldStaging.ids) != 0 || len(evaluation.fieldStaging.values) != 0 {
+		t.Fatalf("entry limit retained staging: %+v", evaluation.fieldStaging)
+	}
 
 	tooLong := identityEvaluation{limits: identityLimits{TupleBytes: 3}}
-	err = tooLong.recordIdentityFields("abcd", "", StartContext{Path: "/id", Line: 2, Column: 3})
+	err = tooLong.recordIdentityFields("", "a abcd", StartContext{Path: "/ref", Line: 2, Column: 3})
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
-	if len(tooLong.ids) != 0 || tooLong.entries != 0 {
-		t.Fatalf("tuple limit mutated state: ids=%d entries=%d", len(tooLong.ids), tooLong.entries)
+	if len(tooLong.idrefs) != 0 || tooLong.entries != 0 {
+		t.Fatalf("tuple limit mutated state: idrefs=%d entries=%d", len(tooLong.idrefs), tooLong.entries)
+	}
+	if len(tooLong.fieldStaging.ids) != 0 || len(tooLong.fieldStaging.values) != 0 {
+		t.Fatalf("tuple limit retained staging: %+v", tooLong.fieldStaging)
 	}
 }
 
@@ -206,6 +281,10 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 		idrefs: append(make([]identityRef, 0, 2),
 			identityRef{Value: "a"},
 		),
+		fieldStaging: identityFieldStaging{
+			ids:    map[string]struct{}{"a": {}},
+			values: append(make([]string, 0, 2), "a"),
+		},
 		scopes: append(make([]identityScope, 0, 2),
 			identityScope{
 				tables: map[runtime.IdentityConstraintID]map[string]identityTableEntry{
@@ -233,6 +312,8 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	}
 	if len(state.ids) != 0 ||
 		len(state.idrefs) != 0 ||
+		len(state.fieldStaging.ids) != 0 ||
+		len(state.fieldStaging.values) != 0 ||
 		len(state.scopes) != 0 ||
 		len(state.selections) != 0 ||
 		len(state.fieldValues) != 0 ||
@@ -240,9 +321,11 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 		state.entries != 0 ||
 		state.nextNodeID != 0 {
 		t.Fatalf(
-			"Reset() retained state: ids=%d idrefs=%d scopes=%d selections=%d fields=%d matches=%d entries=%d nextNodeID=%d",
+			"Reset() retained state: ids=%d idrefs=%d staged_ids=%d staged_values=%d scopes=%d selections=%d fields=%d matches=%d entries=%d nextNodeID=%d",
 			len(state.ids),
 			len(state.idrefs),
+			len(state.fieldStaging.ids),
+			len(state.fieldStaging.values),
 			len(state.scopes),
 			len(state.selections),
 			len(state.fieldValues),
@@ -257,9 +340,16 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	if got := state.fieldValues[:cap(state.fieldValues)][0]; got.state != identityFieldAbsent || got.value != "" {
 		t.Fatalf("Reset() retained field value: %+v", got)
 	}
+	if got := state.fieldStaging.values[:cap(state.fieldStaging.values)][0]; got != "" {
+		t.Fatalf("Reset() retained staged identity value %q", got)
+	}
 
 	state.ids = map[string]string{"a": "/a", "b": "/b"}
 	state.idrefs = append(make([]identityRef, 0, 3), identityRef{Value: "a"})
+	state.fieldStaging = identityFieldStaging{
+		ids:    map[string]struct{}{"a": {}, "b": {}},
+		values: append(make([]string, 0, 3), "a"),
+	}
 	state.scopes = append(make([]identityScope, 0, 3), identityScope{})
 	state.selections = append(make([]identitySelection, 0, 3), identitySelection{})
 	state.fieldValues = append(make([]identityFieldValue, 0, 3), identityFieldValue{})
@@ -269,6 +359,8 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	state.reset(1, 2)
 	if state.ids != nil ||
 		state.idrefs != nil ||
+		state.fieldStaging.ids != nil ||
+		state.fieldStaging.values != nil ||
 		state.scopes != nil ||
 		state.selections != nil ||
 		state.fieldValues != nil ||
@@ -276,9 +368,11 @@ func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 		state.entries != 0 ||
 		state.nextNodeID != 0 {
 		t.Fatalf(
-			"Reset() retained oversized state: ids=%v idrefs=%v scopes=%v selections=%v fields=%v matches=%v entries=%d nextNodeID=%d",
+			"Reset() retained oversized state: ids=%v idrefs=%v staged_ids=%v staged_values=%v scopes=%v selections=%v fields=%v matches=%v entries=%d nextNodeID=%d",
 			state.ids,
 			state.idrefs,
+			state.fieldStaging.ids,
+			state.fieldStaging.values,
 			state.scopes,
 			state.selections,
 			state.fieldValues,

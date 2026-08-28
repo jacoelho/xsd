@@ -420,63 +420,61 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx StartC
 	if ids == "" && idrefs == "" {
 		return nil
 	}
+	staging := &e.fieldStaging
+	staging.reset(maxRetainedMapLen, maxRetainedSliceCap)
+	defer staging.reset(maxRetainedMapLen, maxRetainedSliceCap)
+
 	path := ctx.PathString()
-	pendingIDs, err := e.stageIdentityIDs(ids, path, ctx)
+	pendingIDCount, err := e.stageIdentityIDs(ids, path, ctx)
 	if err != nil {
 		return err
 	}
-	pendingRefs := stageIdentityRefs(idrefs)
-	if err := e.validatePendingIdentityFields(pendingIDs, pendingRefs, ctx); err != nil {
+	if err := e.stageIdentityRefs(idrefs, ctx); err != nil {
 		return err
 	}
+	pendingIDs := staging.values[:pendingIDCount]
+	pendingRefs := staging.values[pendingIDCount:]
 	e.commitIdentityFields(pendingIDs, pendingRefs, path, ctx)
 	return nil
 }
 
-func (e *identityEvaluation) stageIdentityIDs(ids, path string, ctx StartContext) ([]string, error) {
-	pendingIDs := make([]string, 0, 1)
-	pendingIDSet := make(map[string]struct{})
+func (e *identityEvaluation) stageIdentityIDs(ids, path string, ctx StartContext) (int, error) {
 	for canonical := range lex.XMLFieldsSeq(ids) {
 		if prev, exists := e.ids[canonical]; exists {
-			return nil, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
+			return 0, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
 		}
-		if _, exists := pendingIDSet[canonical]; exists {
-			return nil, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+path)
+		if _, exists := e.fieldStaging.ids[canonical]; exists {
+			return 0, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+path)
 		}
-		pendingIDSet[canonical] = struct{}{}
-		pendingIDs = append(pendingIDs, canonical)
+		if err := e.stageIdentityField(canonical, ctx); err != nil {
+			return 0, err
+		}
+		if e.fieldStaging.ids == nil {
+			e.fieldStaging.ids = make(map[string]struct{}, 1)
+		}
+		e.fieldStaging.ids[canonical] = struct{}{}
 	}
-	return pendingIDs, nil
+	return len(e.fieldStaging.values), nil
 }
 
-func stageIdentityRefs(idrefs string) []string {
-	pendingRefs := make([]string, 0, 1)
+func (e *identityEvaluation) stageIdentityRefs(idrefs string, ctx StartContext) error {
 	for canonical := range lex.XMLFieldsSeq(idrefs) {
-		pendingRefs = append(pendingRefs, canonical)
+		if err := e.stageIdentityField(canonical, ctx); err != nil {
+			return err
+		}
 	}
-	return pendingRefs
+	return nil
 }
 
-func (e *identityEvaluation) validatePendingIdentityFields(ids, refs []string, ctx StartContext) error {
-	entryCount := len(ids) + len(refs)
-	if e.limits.Entries > 0 && (e.entries > e.limits.Entries || entryCount > e.limits.Entries-e.entries) {
+func (e *identityEvaluation) stageIdentityField(value string, ctx StartContext) error {
+	staged := len(e.fieldStaging.values)
+	if e.limits.Entries > 0 && (e.entries >= e.limits.Entries || staged >= e.limits.Entries-e.entries) {
 		return validation(ctx, xsderrors.CodeValidationLimit, "identity entry limit exceeded")
 	}
-	if err := validateIdentityFieldTupleBytes(ids, e.limits.TupleBytes, ctx); err != nil {
-		return err
+	if e.limits.TupleBytes > 0 && int64(len(value)) > e.limits.TupleBytes {
+		return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
 	}
-	return validateIdentityFieldTupleBytes(refs, e.limits.TupleBytes, ctx)
-}
-
-func validateIdentityFieldTupleBytes(values []string, limit int64, ctx StartContext) error {
-	if limit <= 0 {
-		return nil
-	}
-	for _, value := range values {
-		if int64(len(value)) > limit {
-			return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
-		}
-	}
+	e.fieldStaging.values = append(e.fieldStaging.values, value)
 	return nil
 }
 

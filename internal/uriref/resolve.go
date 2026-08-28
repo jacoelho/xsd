@@ -67,7 +67,8 @@ func Resolve(base, ref Reference) (Reference, error) {
 		r.authority, r.hasAuthority = b.authority, b.hasAuthority
 		return compose(r)
 	}
-	if opaque(b) {
+	switch {
+	case opaque(b):
 		if r.path != "" {
 			return Reference{}, ErrOpaqueBase
 		}
@@ -75,7 +76,9 @@ func Resolve(base, ref Reference) (Reference, error) {
 		// Query-only references are retained as a narrow XML Base extension,
 		// preserving the opaque path while replacing its query.
 		r.path = b.path
-	} else {
+	case r.path == "":
+		r.path = b.path
+	default:
 		r.path = removeRelativeDotSegments(mergePath(b, r.path))
 	}
 	r.scheme, r.hasScheme = b.scheme, b.hasScheme

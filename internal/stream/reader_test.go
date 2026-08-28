@@ -146,6 +146,35 @@ func TestParserNextPreservesReaderErrorAfterBufferedCharacterData(t *testing.T) 
 	}
 }
 
+func TestParserTruncatedMarkupPreservesReaderError(t *testing.T) {
+	t.Parallel()
+	for _, text := range []string{`<root/></`, `<root/><next `} {
+		t.Run(text, func(t *testing.T) {
+			t.Parallel()
+			sentinel := errors.New("sentinel")
+			names, values := NewCache(), NewCache()
+			var parser Parser
+			readerErr := errors.Join(io.EOF, sentinel)
+			if err := parser.Reset(&dataErrorReader{data: []byte(text), err: readerErr}, &names, &values); err != nil {
+				t.Fatalf("Parser.Reset() error = %v", err)
+			}
+			for {
+				token, err := parser.Next()
+				if err == nil {
+					continue
+				}
+				if !errors.Is(err, sentinel) {
+					t.Fatalf("Parser.Next() error = %v, want reader cause", err)
+				}
+				if !zeroToken(token) {
+					t.Fatalf("Parser.Next() token = %+v, want zero token", token)
+				}
+				break
+			}
+		})
+	}
+}
+
 func TestParserResetReturnsErrorWithShortPrefix(t *testing.T) {
 	sentinel := errors.New("sentinel")
 	reader := &dataErrorReader{data: []byte(`<r`), err: sentinel}

@@ -100,7 +100,7 @@ func TestReferenceBaseUsesRFC2396ForResolverAndFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "http://a/b/c/?y"
+	const want = "http://a/b/c/d;p?y"
 	resolver, ok := base.ResolverValue()
 	if !ok || resolver != want || base.fallback != want {
 		t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q, want %q/true", resolver, ok, base.fallback, want)

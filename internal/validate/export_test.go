@@ -44,7 +44,12 @@ type IdentityRecorderForTest struct {
 
 // NewIdentityRecorderForTest creates a benchmark identity recorder.
 func NewIdentityRecorderForTest() *IdentityRecorderForTest {
-	return &IdentityRecorderForTest{}
+	recorder := &IdentityRecorderForTest{}
+	recorder.session.doc.identity.limits = identityLimits{
+		Entries:    defaultMaxIdentityEntries,
+		TupleBytes: defaultMaxIdentityTupleBytes,
+	}
+	return recorder
 }
 
 // PushPath appends a path segment.

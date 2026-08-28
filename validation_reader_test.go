@@ -138,6 +138,7 @@ func TestValidationParserErrorUsesFailurePosition(t *testing.T) {
 	}{
 		{name: "end tag", xml: "<r>\n</r x>", line: 2, col: 5},
 		{name: "buffered character data", xml: "<r>\nabcdefgh\x01</r>", line: 2, col: 9},
+		{name: "bare CR", xml: "<r>a\rb\x01</r>", line: 2, col: 2},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -149,6 +150,21 @@ func TestValidationParserErrorUsesFailurePosition(t *testing.T) {
 			if xerr.Code() != xsderrors.CodeValidationXML || xerr.Line() != test.line || xerr.Column() != test.col {
 				t.Fatalf("Validate() diagnostic = %s at %d:%d, want %s at %d:%d", xerr.Code(), xerr.Line(), xerr.Column(), xsderrors.CodeValidationXML, test.line, test.col)
 			}
+		})
+	}
+}
+
+func TestValidationRejectsTruncatedTrailingMarkup(t *testing.T) {
+	t.Parallel()
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(validationReaderTestSchema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{`</`, `</r `, `<next `} {
+		t.Run(suffix, func(t *testing.T) {
+			t.Parallel()
+			err := engine.Validate(strings.NewReader(`<r/>` + suffix))
+			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationXML)
 		})
 	}
 }

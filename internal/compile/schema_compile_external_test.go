@@ -1517,7 +1517,7 @@ func TestQueryOnlyXMLBaseUsesRFC2396ForGenericIdentity(t *testing.T) {
 	child := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="from-child"/></xs:schema>`
 	engine, err := compile.Compile(compile.Options{}, []source.Source{
 		source.Bytes("http://a/b/c/d;p?q", []byte(root)),
-		source.Bytes("http://a/b/c/?y", []byte(child)),
+		source.Bytes("http://a/b/c/d;p?y", []byte(child)),
 	})
 
 	if err != nil {

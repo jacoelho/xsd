@@ -1,25 +1,18 @@
 package stream
 
 import (
-	"bytes"
 	"errors"
 	"io"
 )
 
 // byteStream tracks line and column positions in bytes, not runes; columns
 // inside multibyte UTF-8 sequences report byte offsets.
-//
-// nlIndex caches the index of the first '\n' at or after the position of the
-// last newline scan: -1 marks the buffer window as unscanned, end marks a
-// window with no remaining newline. consumeBuffered compares against it so
-// chunks without line breaks skip scanning entirely.
 type byteStream struct {
 	r         io.Reader
 	err       error
 	lastPos   bytePosition
 	off       int
 	end       int
-	nlIndex   int
 	line      int
 	col       int
 	maxBytes  int64
@@ -27,6 +20,7 @@ type byteStream struct {
 	buf       [xmlInputBufferSize]byte
 	unread    bool
 	last      byte
+	afterCR   bool
 }
 
 const xmlInputBufferSize = 64 * 1024
@@ -37,13 +31,13 @@ func (b *byteStream) reset(r io.Reader, maxBytes int64) {
 	b.lastPos = bytePosition{}
 	b.off = 0
 	b.end = 0
-	b.nlIndex = -1
 	b.line = 1
 	b.col = 0
 	b.maxBytes = maxBytes
 	b.readBytes = 0
 	b.unread = false
 	b.last = 0
+	b.afterCR = false
 }
 
 func (b *byteStream) detach() {
@@ -51,9 +45,9 @@ func (b *byteStream) detach() {
 	b.err = nil
 	b.off = 0
 	b.end = 0
-	b.nlIndex = -1
 	b.unread = false
 	b.last = 0
+	b.afterCR = false
 	b.maxBytes = 0
 	b.readBytes = 0
 }
@@ -119,12 +113,12 @@ func (b *byteStream) discardUTF8BOM() {
 	copy(b.buf[:], b.buf[utf8BOMLen:b.end])
 	b.end -= utf8BOMLen
 	b.off = 0
-	b.nlIndex = -1
 }
 
 type bytePosition struct {
-	line int
-	col  int
+	line    int
+	col     int
+	afterCR bool
 }
 
 func (b *byteStream) readByte() (byte, error) {
@@ -141,7 +135,7 @@ func (b *byteStream) readByte() (byte, error) {
 	c := b.buf[b.off]
 	b.off++
 	b.last = c
-	b.lastPos = bytePosition{line: b.line, col: b.col}
+	b.lastPos = bytePosition{line: b.line, col: b.col, afterCR: b.afterCR}
 	b.advance(c)
 	return c, nil
 }
@@ -172,7 +166,6 @@ func (b *byteStream) fill() error {
 	if n > 0 {
 		b.off = 0
 		b.end = n
-		b.nlIndex = -1
 		b.err = err
 		return nil
 	}
@@ -182,61 +175,17 @@ func (b *byteStream) fill() error {
 	return io.ErrNoProgress
 }
 
-// consumeBuffered advances past n bytes previously returned by buffered;
-// callers pass n > 0. Consumed bytes are checked for line breaks so position
-// tracking stays correct for any chunk content.
+// consumeBuffered advances past n bytes previously returned by buffered.
+// Callers pass n > 0 after proving the bytes contain neither CR nor LF.
 func (b *byteStream) consumeBuffered(n int) {
-	if b.unread || b.nlIndex < b.off+n {
-		b.consumeBufferedSlow(n)
-		return
-	}
-	b.off += n
-	b.col += n
-}
-
-func (b *byteStream) consumeBufferedSlow(n int) {
 	if b.unread {
 		b.unread = false
 		b.advance(b.last)
 		return
 	}
-	start := b.off
 	b.off += n
 	b.col += n
-	b.fixupLineBreaks(start)
-}
-
-// fixupLineBreaks repairs line and column after consuming buf[start:b.off]
-// when nlIndex does not rule out a newline in the chunk. It rescans from
-// start when nlIndex is stale (unscanned window, or a newline consumed via
-// readByte) and leaves nlIndex at the first newline at or after b.off.
-func (b *byteStream) fixupLineBreaks(start int) {
-	if b.nlIndex < start {
-		b.nlIndex = b.nextNewline(start)
-		if b.nlIndex >= b.off {
-			return
-		}
-	}
-	last := b.nlIndex
-	lines := 1
-	for {
-		i := bytes.IndexByte(b.buf[last+1:b.off], '\n')
-		if i < 0 {
-			break
-		}
-		last += 1 + i
-		lines++
-	}
-	b.line += lines
-	b.col = b.off - last - 1
-	b.nlIndex = b.nextNewline(b.off)
-}
-
-func (b *byteStream) nextNewline(from int) int {
-	if i := bytes.IndexByte(b.buf[from:b.end], '\n'); i >= 0 {
-		return from + i
-	}
-	return b.end
+	b.afterCR = false
 }
 
 func (b *byteStream) unreadByte() {
@@ -246,13 +195,30 @@ func (b *byteStream) unreadByte() {
 	b.unread = true
 	b.line = b.lastPos.line
 	b.col = b.lastPos.col
+	b.afterCR = b.lastPos.afterCR
 }
 
 func (b *byteStream) advance(c byte) {
-	if c == '\n' {
-		b.line++
-		b.col = 0
-		return
+	// One range check keeps ordinary token bytes on the parser's hot path.
+	if c-'\n' <= '\r'-'\n' {
+		switch c {
+		case '\r':
+			b.line++
+			b.col = 0
+			b.afterCR = true
+			return
+		case '\n':
+			if b.afterCR {
+				b.afterCR = false
+				return
+			}
+			b.line++
+			b.col = 0
+			return
+		}
+	}
+	if b.afterCR {
+		b.afterCR = false
 	}
 	b.col++
 }

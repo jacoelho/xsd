@@ -55,7 +55,7 @@
 - The supported standards are XSD 1.0, XML 1.0, and UTF-8. XML 1.1 remains unsupported and rejected.
 - Schema sources are explicit. The library does not dynamically load schemas over HTTP or another network transport.
 - `internal/compile` owns schema semantics and compiler orchestration. `internal/runtime` owns immutable published schema data and reusable runtime algorithms. `internal/validate` owns document-local validation state. `internal/stream` owns borrowed token lifetimes. `internal/xmlns` owns namespace policy and retained namespace contexts.
-- Compilation and validation are synchronous. Callers own cancellation or interruption of blocking resolvers, openers, files, and readers.
+- Compilation, schema resolution/opening, and validation are synchronous and context-free. Public and internal library APIs must not accept or propagate `context.Context`. Callers own cancellation or interruption of blocking resolvers, openers, files, and readers.
 - Use concrete types unless a present production boundary requires substitution. Do not add an interface solely to make mocking easier.
 - Preserve unrelated dirty-worktree changes. Replace internal paths atomically and delete obsolete implementations; do not add compatibility layers or feature-flagged parallel paths.
 - Bound work, retained memory, queues, recursion, batches, and I/O at their owning boundary. Every reader, goroutine, timer, worker, cache, and scratch buffer has one lifecycle owner and a bounded retention policy.

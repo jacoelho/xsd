@@ -229,6 +229,9 @@ func TestIdentityEvaluationRecordsIDBatchAtomically(t *testing.T) {
 	if len(evaluation.ids) != 0 || evaluation.entries != 0 {
 		t.Fatalf("failed ID batch changed identity state: ids=%v entries=%d", evaluation.ids, evaluation.entries)
 	}
+	if len(evaluation.fieldStaging.ids) != 0 || len(evaluation.fieldStaging.values) != 0 {
+		t.Fatalf("failed ID batch retained staging: %+v", evaluation.fieldStaging)
+	}
 }
 
 type startedIdentityEvaluationFixture struct {

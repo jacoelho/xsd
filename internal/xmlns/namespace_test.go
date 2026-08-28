@@ -59,6 +59,38 @@ func TestStackResetDropsOversizedCapacity(t *testing.T) {
 	}
 }
 
+func TestStackResetDropsAttributeMapAfterOversizedHighWater(t *testing.T) {
+	const maxRetained = 32
+	attrs := make([]xml.Attr, maxRetained+1)
+	for i := range attrs {
+		attrs[i] = xml.Attr{Name: xml.Name{Local: fmt.Sprintf("a%d", i)}, Value: "v"}
+	}
+
+	var ns Stack
+	large, _, err := ns.StartXML(xml.StartElement{Name: xml.Name{Local: "large"}, Attr: attrs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if abortErr := ns.Abort(large); abortErr != nil {
+		t.Fatal(abortErr)
+	}
+	small, _, err := ns.StartXML(xml.StartElement{
+		Name: xml.Name{Local: "small"},
+		Attr: []xml.Attr{{Name: xml.Name{Local: "a"}, Value: "v"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if abortErr := ns.Abort(small); abortErr != nil {
+		t.Fatal(abortErr)
+	}
+
+	ns.Reset(maxRetained)
+	if ns.seen.index != nil {
+		t.Fatal("Reset() retained an attribute map whose document high-water exceeded the bound")
+	}
+}
+
 func TestStackLifecycleZeroesReleasedStorage(t *testing.T) {
 	var ns Stack
 	frames := make([]Frame, 0, 32)

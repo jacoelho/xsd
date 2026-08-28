@@ -727,7 +727,7 @@ func (p *Parser) finishLazyAttrValues() {
 func (p *Parser) readEndElement() (EndElement, error) {
 	b, err := p.br.readByte()
 	if err != nil {
-		return EndElement{}, err
+		return EndElement{}, p.syntaxError("unexpected EOF after </", err)
 	}
 	if lex.IsXMLWhitespaceByte(b) {
 		return EndElement{}, fmt.Errorf("unexpected whitespace after </")
@@ -926,6 +926,15 @@ func (p *Parser) appendPendingCommentDash(dst *[]byte, pending *bool) error {
 }
 
 func (p *Parser) appendCommentRune(dst *[]byte, first byte) error {
+	if first == '\r' {
+		if err := p.consumeLineFeed(); err != nil {
+			return err
+		}
+		if dst == nil {
+			return nil
+		}
+		return p.appendTokenByte(dst, '\n')
+	}
 	if dst == nil {
 		return p.consumeXMLRune(first)
 	}
@@ -954,6 +963,11 @@ func (p *Parser) readPI(atDocumentStart bool, line, col int) (Token, bool, error
 			return p.finishPIWithoutContent(atDocumentStart, line, col)
 		}
 		if lex.IsXMLWhitespaceByte(b) {
+			if b == '\r' {
+				if err := p.consumeLineFeed(); err != nil {
+					return Token{}, false, err
+				}
+			}
 			return p.finishPIWithContent(atDocumentStart, line, col)
 		}
 		if err := p.appendTokenByte(&p.nameBuf, b); err != nil {
@@ -1037,16 +1051,42 @@ func (p *Parser) validatePITarget(atDocumentStart bool) (bool, error) {
 }
 
 func (p *Parser) readPIContent(dst []byte) ([]byte, error) {
-	data, err := p.readUntil("?>", dst)
-	if err != nil {
-		return nil, p.syntaxError("unexpected EOF in processing instruction", err)
+	pendingQuestion := false
+	for {
+		b, err := p.br.readByte()
+		if err != nil {
+			return nil, p.syntaxError("unexpected EOF", err)
+		}
+		if pendingQuestion {
+			if b == '>' {
+				if valid, err := validXMLPrefix(dst); err != nil {
+					return nil, err
+				} else if valid != len(dst) {
+					return nil, fmt.Errorf("invalid UTF-8")
+				}
+				return dst, nil
+			}
+			if err := p.appendTokenByte(&dst, '?'); err != nil {
+				return nil, err
+			}
+			pendingQuestion = false
+		}
+		switch b {
+		case '?':
+			pendingQuestion = true
+		case '\r':
+			if err := p.consumeLineFeed(); err != nil {
+				return nil, err
+			}
+			if err := p.appendTokenByte(&dst, '\n'); err != nil {
+				return nil, err
+			}
+		default:
+			if err := p.appendTokenByte(&dst, b); err != nil {
+				return nil, err
+			}
+		}
 	}
-	if valid, err := validXMLPrefix(data); err != nil {
-		return nil, err
-	} else if valid != len(data) {
-		return nil, fmt.Errorf("invalid UTF-8")
-	}
-	return data, nil
 }
 
 func (p *Parser) skipUntil(term string) error {

@@ -72,6 +72,7 @@ func simpleValueIdentityKey(rt *runtime.Schema, value runtime.SimpleValue) (stri
 type identityState struct {
 	ids          map[string]string
 	idrefs       []identityRef
+	fieldStaging identityFieldStaging
 	scopes       []identityScope
 	selections   []identitySelection
 	fieldValues  []identityFieldValue
@@ -79,6 +80,23 @@ type identityState struct {
 	entries      int
 	nextNodeID   uint64
 	startJournal identityStartJournal
+}
+
+// identityFieldStaging owns the temporary ID/IDREF batch until validation
+// succeeds. Values are cleared after every batch so source strings cannot be
+// retained across validation calls.
+type identityFieldStaging struct {
+	ids    map[string]struct{}
+	values []string
+}
+
+func (s *identityFieldStaging) reset(maxRetainedIDs, maxRetainedValues int) {
+	if len(s.ids) > maxRetainedIDs {
+		s.ids = nil
+	} else {
+		clear(s.ids)
+	}
+	s.values = resetRetainedReferences(s.values, maxRetainedValues)
 }
 
 type identityFieldUndo struct {
@@ -190,6 +208,7 @@ func (s *identityState) reset(maxRetainedIDs, maxRetainedSlices int) {
 		clear(s.idrefs)
 		s.idrefs = s.idrefs[:0]
 	}
+	s.fieldStaging.reset(maxRetainedIDs, maxRetainedSlices)
 	s.scopes = resetRetainedReferences(s.scopes, maxRetainedSlices)
 	s.selections = resetRetainedReferences(s.selections, maxRetainedSlices)
 	s.fieldValues = resetRetainedReferences(s.fieldValues, maxRetainedSlices)

@@ -76,11 +76,17 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   content, simple-content assessment, the concrete document-local identity
   evaluator and its lifecycle, XSI handling, and schemaLocation hint handling.
 - `internal/format` owns repository-internal XML formatting and finite default
-  input, token, retained-node, depth, and output bounds. It consumes the shared
-  stream and namespace boundaries and exposes no root-package API.
+  input, token, retained-node, depth, and output bounds. Its output boundary
+  rejects every incomplete `io.Writer` write, so success means the complete
+  formatted document was written. It consumes the shared stream and namespace
+  boundaries and exposes no root-package API.
 - `internal/stream` owns XML token streaming and declaration scanning shared by
   schema parsing, instance validation, and formatting. Its parser owns prolog
-  preflight, the sole input buffer, and reader detachment for each stream.
+  preflight, the sole input buffer, XML 1.0 line-ending normalization and byte
+  positions, and reader detachment for each stream. Literal CR and CRLF each
+  advance one logical line in every parser mode; emitted payloads contain LF.
+  Only EOF at a token boundary completes a stream; EOF after consumed markup is
+  an XML syntax error, while simultaneous non-EOF reader causes remain observable.
 - `internal/lex` owns low-level XML lexical helpers used by source and stream
   code.
 - `internal/xmlns` owns namespace binding validity, lexical-name resolution,
@@ -89,6 +95,8 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   contexts. A stack-local active-prefix index is a reproducible projection of
   that chain; admission, rollback, and pop update it atomically, and reset drops
   it when its observed active-prefix bound exceeds retained-session capacity.
+  The duplicate-attribute set likewise owns its document high-water mark and
+  drops an oversized map at reset even when a later element was small.
 - `internal/vocab` owns XML/XSD namespace and vocabulary constants.
 
 Internal packages MUST NOT import root `xsd`. Compile-time packages MUST NOT
@@ -196,8 +204,12 @@ Validation flow:
    schema-location hints, parent-content state, content-model bits, and identity
    state. A fatal start rolls all of them back. A semantic-stop transition keeps
    the committed XML syntax state needed to parse the remainder while discarding
-   semantic state. Batched hint and identity writes preflight their full resource
-   cost before mutating their owners.
+   semantic state. Identity field batches admit each value against the remaining
+   document budget before growing one evaluator-owned staging workspace. They
+   commit only complete batches, clear source references on every exit, and retain
+   capacity only below the validation high-water bound. Hint batches stage only
+   new namespaces and copy the bounded retained map only when committing an actual
+   change; no-op or duplicate hints do not snapshot accumulated state.
    Generic event-sink or matcher interfaces are intentionally absent: there is
    one evaluator implementation and one validation caller, while an interface
    would hide the required transaction and element-lifecycle sequencing without
@@ -314,12 +326,45 @@ Build and smoke targets must name the packages that own the code they exercise:
 - Interleaving resolution, graph validation, and component compilation was
   rejected because partially known namespaces made ownership and failure state
   ambiguous. The loaded-graph-to-plan boundary is the only route into indexing.
+- Context-bearing compilation and validation APIs were rejected because the
+  library cannot interrupt arbitrary resolvers, openers, files, or readers.
+  Callers own unblocking those operations; compatibility overloads would create
+  parallel public APIs and execution paths without providing cancellation.
 - A generic runtime matcher/evaluator interface was rejected because there is
   one implementation and one caller; it obscured the required transactional
   sequencing without creating a substitution boundary.
+- Linear live namespace lookup was rejected because repeated resolution through
+  a deep binding chain amplifies declaration churn. A second authoritative map
+  was also rejected because retained contexts require immutable binding history;
+  the active-prefix map is only a frame-owned projection of that history.
+- A universal low cognitive-complexity limit was rejected because it fragments
+  cohesive parsers, state machines, and invariant audits. The configured limit
+  identifies exceptional review targets; ownership and invariants determine
+  semantic boundaries.
+- Unlimited zero-value formatter limits were rejected because formatting retains
+  a complete tree before writing output. Finite defaults bound every retained
+  dimension, while positive options allow explicit smaller or larger budgets.
+- Trusting a writer's nil error after an incomplete write was rejected because
+  formatter success must imply complete XML output; the bounded writer checks
+  every delegated write in one place.
+- Per-element copies of the accumulated schema-location hint map were rejected
+  because valid repeated or absent hints multiplied bounded state by document
+  length. A staged delta preserves start-transaction rollback and copies only
+  when a batch adds a namespace.
+- Per-value heap staging and post-hoc limit checks for ID and IDREF batches were
+  rejected because transactional validation then created garbage proportional to
+  every value and could exceed the configured identity budget before failing. One
+  bounded evaluator-owned workspace admits each field before growth, preserves
+  all-or-nothing commits, and is cleared after success and failure.
+- Parser-mode-specific line counters were rejected because CR/CRLF behavior and
+  diagnostics then diverge. The byte stream owns logical line positions, while
+  token modes own normalization of their emitted payloads.
 - Main-thread WASM execution was rejected because synchronous validation blocks
   rendering and cannot be interrupted. Worker termination is the cancellation
   boundary.
+- Boolean-only WASM results and object-valued window globals were rejected. A
+  tagged response distinguishes invalid documents from operational failures,
+  while worker-owned limits keep the browser boundary explicit and isolated.
 - Compatibility fields, aliases, and parallel constructors for diagnostics were
   rejected because they would preserve two representations and two location
   paths for the same fact.

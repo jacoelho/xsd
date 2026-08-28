@@ -58,6 +58,23 @@ func TestSchemaXMLNamespaceWellFormedness(t *testing.T) {
 	}
 }
 
+func TestCompileRejectsTruncatedTrailingMarkup(t *testing.T) {
+	t.Parallel()
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
+	for _, suffix := range []string{`</`, `</xs:schema `, `<next `} {
+		t.Run(suffix, func(t *testing.T) {
+			t.Parallel()
+			_, err := compile.Compile(compile.Options{}, []source.Source{
+				source.Bytes("malformed.xsd", []byte(schema+suffix)),
+			})
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Code() != xsderrors.CodeSchemaXML {
+				t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaXML)
+			}
+		})
+	}
+}
+
 func TestSchemaXMLUsesBufferedCharacterFailurePosition(t *testing.T) {
 	t.Parallel()
 	schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\nabcdefgh\x01</xs:schema>"
