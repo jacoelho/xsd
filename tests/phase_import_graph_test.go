@@ -2,8 +2,15 @@ package tests_test
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/importer"
+	"go/parser"
+	"go/token"
+	"go/types"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -48,6 +55,245 @@ func TestInternalCapabilityImportAllowlist(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestLibraryPackagesAreContextFree(t *testing.T) {
+	fset := token.NewFileSet()
+	for _, path := range productionLibraryGoFiles(t) {
+		parsed, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		if importsPath(parsed, "context") {
+			t.Fatalf("library file %s imports context", path)
+		}
+	}
+}
+
+func TestSchemaSourceIOOwnership(t *testing.T) {
+	const sourceImport = "github.com/jacoelho/xsd/internal/source"
+	root := repoRoot(t)
+	sourceDir := filepath.Join(root, "internal", "source") + string(filepath.Separator)
+	compileDir := filepath.Join(root, "internal", "compile") + string(filepath.Separator)
+	publicSourceFacade := filepath.Join(root, "source.go")
+	fset := token.NewFileSet()
+	goImporter := importer.ForCompiler(fset, "source", nil)
+	sourcePkg, err := goImporter.Import(sourceImport)
+	if err != nil {
+		t.Fatalf("import internal/source type information: %v", err)
+	}
+	acquire := sourceMethod(t, sourcePkg, "Source", "Acquire")
+	resolveFrom := sourceMethod(t, sourcePkg, "Source", "ResolveFrom")
+	checkedLoaderCalls := false
+	for _, path := range productionLibraryGoFiles(t) {
+		parsed, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		importsSource := false
+		for _, imp := range parsed.Imports {
+			imported, ok := goImportPath(imp)
+			if !ok {
+				t.Fatalf("decode import path %s in %s", imp.Path.Value, path)
+			}
+			switch {
+			case isSchemaFileIOImport(imported):
+				if !strings.HasPrefix(path, sourceDir) {
+					t.Fatalf("library file %s imports source I/O package %s outside internal/source", path, imported)
+				}
+			case isNetworkTransportImport(imported):
+				t.Fatalf("library file %s imports network-capable package %s", path, imported)
+			}
+			importsSource = importsSource || imported == sourceImport
+		}
+		if !importsSource {
+			continue
+		}
+		info := &types.Info{
+			Defs:       make(map[*ast.Ident]types.Object),
+			Uses:       make(map[*ast.Ident]types.Object),
+			Selections: make(map[*ast.SelectorExpr]*types.Selection),
+		}
+		conf := types.Config{
+			Importer: goImporter,
+			Error:    func(error) {},
+		}
+		packagePath := "github.com/jacoelho/xsd"
+		if dir, err := filepath.Rel(root, filepath.Dir(path)); err == nil && dir != "." {
+			packagePath += "/" + filepath.ToSlash(dir)
+		}
+		_, _ = conf.Check(packagePath, fset, []*ast.File{parsed}, info) //nolint:errcheck // Expected cross-file-name errors do not prevent imported object resolution.
+		for _, obj := range info.Uses {
+			fn, ok := sourcePackageFunction(obj)
+			if !ok || sourceFunctionAllowed(path, publicSourceFacade, compileDir, fn.Name()) {
+				continue
+			}
+			t.Fatalf("library file %s references internal/source.%s outside its owner", path, fn.Name())
+		}
+		for _, selection := range info.Selections {
+			obj := selection.Obj()
+			fn, ok := obj.(*types.Func)
+			if !ok || fn.Pkg() == nil || fn.Pkg().Path() != sourceImport {
+				continue
+			}
+			if !sourceMethodAllowed(path, publicSourceFacade, compileDir, fn) {
+				t.Fatalf("library file %s references unapproved internal/source method %s.%s", path, methodReceiverName(fn), fn.Name())
+			}
+		}
+		if filepath.Base(path) == "schema_set.go" && strings.HasPrefix(path, compileDir) {
+			for _, requirement := range []struct {
+				function string
+				method   types.Object
+			}{
+				{function: "acquireNewSource", method: acquire},
+				{function: "validateLoadedSourceBytes", method: acquire},
+				{function: "resolveReference", method: resolveFrom},
+			} {
+				fn := methodDeclaration(parsed, "schemaSetLoader", requirement.function)
+				method, ok := methodDefinition(info, fn)
+				if !ok || methodReceiverName(method) != "schemaSetLoader" || !callsObject(info, fn.Body, requirement.method) {
+					t.Fatalf("internal/compile.%s does not call internal/source.%s", requirement.function, requirement.method.Name())
+				}
+			}
+			checkedLoaderCalls = true
+		}
+	}
+	if !checkedLoaderCalls {
+		t.Fatal("compiler schema loader source calls were not checked")
+	}
+}
+
+func methodDeclaration(file *ast.File, receiver, name string) *ast.FuncDecl {
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Name.Name == name && receiverTypeName(fn) == receiver {
+			return fn
+		}
+	}
+	return nil
+}
+
+func methodDefinition(info *types.Info, fn *ast.FuncDecl) (*types.Func, bool) {
+	if fn == nil {
+		return nil, false
+	}
+	method, ok := info.Defs[fn.Name].(*types.Func)
+	return method, ok
+}
+
+func sourceMethod(t *testing.T, pkg *types.Package, typeName, methodName string) types.Object {
+	t.Helper()
+	typeObject := pkg.Scope().Lookup(typeName)
+	if typeObject == nil {
+		t.Fatalf("internal/source.%s is missing", typeName)
+	}
+	method, index, indirect := types.LookupFieldOrMethod(typeObject.Type(), true, pkg, methodName)
+	if method == nil {
+		t.Fatalf("internal/source.%s.%s is missing", typeName, methodName)
+	}
+	if len(index) == 0 || indirect {
+		t.Fatalf("internal/source.%s.%s is not a direct value method", typeName, methodName)
+	}
+	return method
+}
+
+func sourcePackageFunction(obj types.Object) (*types.Func, bool) {
+	fn, ok := obj.(*types.Func)
+	if !ok || fn.Pkg() == nil || fn.Pkg().Path() != "github.com/jacoelho/xsd/internal/source" {
+		return nil, false
+	}
+	signature, ok := fn.Type().(*types.Signature)
+	return fn, ok && signature.Recv() == nil
+}
+
+func sourceFunctionAllowed(path, publicFacade, compileDir, name string) bool {
+	if path == publicFacade {
+		return name == "Bytes" || name == "File" || name == "Opener"
+	}
+	if !strings.HasPrefix(path, compileDir) {
+		return false
+	}
+	switch name {
+	case "IsReferenceResolutionError", "IsSchemaLimitError", "Key", "NewReferenceBase":
+		return true
+	default:
+		return false
+	}
+}
+
+func sourceMethodAllowed(path, publicFacade, compileDir string, fn *types.Func) bool {
+	receiver := methodReceiverName(fn)
+	if path == publicFacade {
+		return receiver == "Source" && fn.Name() == "WithResolver"
+	}
+	if !strings.HasPrefix(path, compileDir) {
+		return false
+	}
+	switch receiver {
+	case "ReferenceBase":
+		return fn.Name() == "WithXMLBase"
+	case "Resolution":
+		return fn.Name() == "Source" || fn.Name() == "Target"
+	case "Source":
+		switch fn.Name() {
+		case "Acquire", "Name", "ResolveFrom", "SameResolutionContext":
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+func methodReceiverName(fn *types.Func) string {
+	signature, ok := fn.Type().(*types.Signature)
+	if !ok || signature.Recv() == nil {
+		return ""
+	}
+	receiver := signature.Recv().Type()
+	if pointer, pointerOK := receiver.(*types.Pointer); pointerOK {
+		receiver = pointer.Elem()
+	}
+	named, namedOK := receiver.(*types.Named)
+	if !namedOK {
+		return ""
+	}
+	return named.Obj().Name()
+}
+
+func isSchemaFileIOImport(path string) bool {
+	return path == "os" || strings.HasPrefix(path, "os/") ||
+		path == "io/ioutil" || path == "syscall" ||
+		path == "golang.org/x/sys" || strings.HasPrefix(path, "golang.org/x/sys/")
+}
+
+func isNetworkTransportImport(path string) bool {
+	return path == "net" || path == "net/smtp" || path == "crypto/tls" ||
+		path == "net/http" || strings.HasPrefix(path, "net/http/") ||
+		path == "net/rpc" || strings.HasPrefix(path, "net/rpc/")
+}
+
+func productionLibraryGoFiles(t *testing.T) []string {
+	t.Helper()
+	root := repoRoot(t)
+	files := productionRootFiles(t, root)
+	for _, dir := range []string{"internal", "xsderrors"} {
+		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() || filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			files = append(files, path)
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk %s: %v", dir, err)
+		}
+	}
+	return files
 }
 
 func allowProjectImports(paths ...string) map[string]bool {

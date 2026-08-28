@@ -28,7 +28,7 @@ func FuzzXMLStreamParser(f *testing.F) {
 		}
 		for tokens := 0; ; tokens++ {
 			if tokens > 4096 {
-				t.Skip()
+				t.Fatalf("Parser.Next emitted more than 4096 tokens for %d input bytes", len(input))
 			}
 			_, err := parser.Next()
 			if errors.Is(err, io.EOF) {

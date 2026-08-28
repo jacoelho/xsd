@@ -30,7 +30,10 @@ func TestRootTestsUsePublicPackage(t *testing.T) {
 			t.Fatalf("%s package = %s, want xsd_test", path, parsed.Name.Name)
 		}
 		for _, imp := range parsed.Imports {
-			importPath := strings.Trim(imp.Path.Value, `"`)
+			importPath, ok := goImportPath(imp)
+			if !ok {
+				t.Fatalf("decode import path %s in %s", imp.Path.Value, path)
+			}
 			if strings.Contains(importPath, "/internal/") {
 				t.Fatalf("%s imports internal package %s", path, importPath)
 			}

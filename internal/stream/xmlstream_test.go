@@ -72,6 +72,7 @@ func TestParserNextReturnsZeroTokenOnError(t *testing.T) {
 		{name: "truncated end tag after whitespace", xml: `<root></root></root `},
 		{name: "truncated start tag after whitespace", xml: `<root></root><next `},
 		{name: "character data", xml: `<root>abc]]></root>`},
+		{name: "skipped comment", xml: `<root><!--bad--x></root>`},
 		{name: "emitted comment", xml: `<root><!--bad--x></root>`, config: Config{EmitComments: true}},
 	}
 	for _, test := range tests {

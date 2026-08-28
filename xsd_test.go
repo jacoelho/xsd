@@ -4,15 +4,156 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacoelho/xsd"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestCompileRequiresExplicitSchemaSource(t *testing.T) {
+	tests := []struct {
+		name    string
+		compile func() (*xsd.Engine, error)
+	}{
+		{name: "Compile", compile: func() (*xsd.Engine, error) { return xsd.Compile() }},
+		{name: "CompileWithOptions", compile: func() (*xsd.Engine, error) { return xsd.CompileWithOptions(xsd.CompileOptions{}) }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			engine, err := test.compile()
+			if engine != nil {
+				t.Fatal("compile returned an engine without a schema source")
+			}
+			expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaNoSources)
+		})
+	}
+}
+
+func TestCompileRejectsUnsupportedSchemaXML(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+		code   xsderrors.Code
+	}{
+		{
+			name:   "XML 1.1",
+			schema: `<?xml version="1.1"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
+			code:   xsderrors.CodeUnsupportedXML11,
+		},
+		{
+			name:   "non-UTF-8",
+			schema: `<?xml version="1.0" encoding="ISO-8859-1"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`,
+			code:   xsderrors.CodeUnsupportedNonUTF8,
+		},
+	}
+	compilers := []struct {
+		name    string
+		compile func(xsd.SchemaSource) (*xsd.Engine, error)
+	}{
+		{name: "Compile", compile: func(src xsd.SchemaSource) (*xsd.Engine, error) { return xsd.Compile(src) }},
+		{name: "CompileWithOptions", compile: func(src xsd.SchemaSource) (*xsd.Engine, error) {
+			return xsd.CompileWithOptions(xsd.CompileOptions{}, src)
+		}},
+	}
+	sources := []struct {
+		name   string
+		create func(*testing.T, string) xsd.SchemaSource
+	}{
+		{name: "Bytes", create: func(_ *testing.T, schema string) xsd.SchemaSource {
+			return xsd.Bytes("schema.xsd", []byte(schema))
+		}},
+		{name: "Open", create: func(_ *testing.T, schema string) xsd.SchemaSource {
+			return xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
+				return io.NopCloser(strings.NewReader(schema)), nil
+			})
+		}},
+		{name: "File", create: func(t *testing.T, schema string) xsd.SchemaSource {
+			t.Helper()
+			path := filepath.Join(t.TempDir(), "schema.xsd")
+			writeTestFile(t, path, schema)
+			return xsd.File(path)
+		}},
+	}
+	for _, test := range tests {
+		for _, source := range sources {
+			for _, compiler := range compilers {
+				t.Run(test.name+"/"+source.name+"/"+compiler.name, func(t *testing.T) {
+					engine, err := compiler.compile(source.create(t, test.schema))
+					if engine != nil {
+						t.Fatal("compile returned an engine for unsupported schema XML")
+					}
+					expectCategoryCode(t, err, xsderrors.CategoryUnsupported, test.code)
+				})
+			}
+		}
+	}
+}
+
+func TestLibraryDoesNotLoadSchemasOverNetwork(t *testing.T) {
+	t.Run("schema include", func(t *testing.T) {
+		var requests atomic.Int64
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			requests.Add(1)
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="` + server.URL + `/child.xsd"/></xs:schema>`
+		engine, err := xsd.Compile(xsd.Bytes("root.xsd", []byte(root)))
+		if got := requests.Load(); got != 0 {
+			t.Fatalf("Compile() made %d network requests", got)
+		}
+		if err != nil || engine == nil {
+			t.Fatalf("Compile() with an unavailable optional include = %v, engine nil = %t", err, engine == nil)
+		}
+	})
+
+	t.Run("file schema include", func(t *testing.T) {
+		var requests atomic.Int64
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			requests.Add(1)
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		rootPath := filepath.Join(t.TempDir(), "root.xsd")
+		root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xml:base="` + server.URL + `/schemas/"><xs:include schemaLocation="child.xsd"/></xs:schema>`
+		writeTestFile(t, rootPath, root)
+		engine, err := xsd.Compile(xsd.File(rootPath))
+		if got := requests.Load(); got != 0 {
+			t.Fatalf("Compile(File) made %d network requests", got)
+		}
+		if err != nil || engine == nil {
+			t.Fatalf("Compile(File) with an unavailable optional include = %v, engine nil = %t", err, engine == nil)
+		}
+	})
+
+	t.Run("validation hint", func(t *testing.T) {
+		var requests atomic.Int64
+		server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			requests.Add(1)
+		}))
+		defer server.Close()
+
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:known"><xs:element name="known"/></xs:schema>`)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc := `<missing xmlns="urn:missing" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:missing ` + server.URL + `/missing.xsd"/>`
+		err = engine.Validate(strings.NewReader(doc))
+		if got := requests.Load(); got != 0 {
+			t.Fatalf("Validate() made %d network requests", got)
+		}
+		expectCategoryCode(t, err, xsderrors.CategoryUnsupported, xsderrors.CodeUnsupportedSchemaHint)
+	})
+}
 
 func TestOpenDefersAndBoundsSchemaReadUntilCompile(t *testing.T) {
 	t.Parallel()

@@ -24,6 +24,12 @@ func (shortNilWriter) Write(p []byte) (int, error) {
 	return len(p) - 1, nil
 }
 
+type formatWriterFunc func([]byte) (int, error)
+
+func (f formatWriterFunc) Write(p []byte) (int, error) {
+	return f(p)
+}
+
 func (r *formatDataErrorReader) Read(p []byte) (int, error) {
 	if r.done {
 		return 0, r.err
@@ -504,6 +510,45 @@ func TestFormatXMLRejectsShortWriteWithoutWriterError(t *testing.T) {
 	err := XML(shortNilWriter{}, strings.NewReader(`<root/>`))
 	if !errors.Is(err, io.ErrShortWrite) {
 		t.Fatalf("XML() error = %v, want %v", err, io.ErrShortWrite)
+	}
+}
+
+func TestFormatXMLRejectsInvalidWriterCounts(t *testing.T) {
+	writeErr := errors.New("write failed")
+	tests := []struct {
+		name      string
+		write     formatWriterFunc
+		wantCause bool
+	}{
+		{
+			name:  "negative",
+			write: func([]byte) (int, error) { return -1, nil },
+		},
+		{
+			name:  "oversized",
+			write: func(p []byte) (int, error) { return len(p) + 1, nil },
+		},
+		{
+			name:      "negative with error",
+			write:     func([]byte) (int, error) { return -1, writeErr },
+			wantCause: true,
+		},
+		{
+			name:      "oversized with error",
+			write:     func(p []byte) (int, error) { return len(p) + 1, writeErr },
+			wantCause: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := XML(test.write, strings.NewReader(`<root/>`))
+			if !errors.Is(err, io.ErrShortWrite) {
+				t.Fatalf("XML() error = %v, want %v", err, io.ErrShortWrite)
+			}
+			if errors.Is(err, writeErr) != test.wantCause {
+				t.Fatalf("XML() error = %v, write cause present = %t, want %t", err, errors.Is(err, writeErr), test.wantCause)
+			}
+		})
 	}
 }
 
