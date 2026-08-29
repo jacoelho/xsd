@@ -128,11 +128,15 @@ func (s *Stack) StartStream(start *stream.StartElement, values *stream.Cache) (F
 		resolved[i] = name
 	}
 	frame := s.commitAdmission(mark, previous, element)
+	replaceStreamAttributeNames(start, resolved)
+	s.clearAttributeAdmission()
+	return frame, element, nil
+}
+
+func replaceStreamAttributeNames(start *stream.StartElement, resolved []xml.Name) {
 	for i := range start.Attr {
 		start.Attr[i].Name = resolved[i]
 	}
-	s.clearAttributeAdmission()
-	return frame, element, nil
 }
 
 func (s *Stack) appendXMLBindings(attrs []xml.Attr) error {
