@@ -234,8 +234,14 @@ type Cache struct {
 	state *cacheState
 }
 
+// The recent ring uses masking and must remain a power of two.
+const (
+	recentCacheEntries = 8
+	recentCacheMask    = recentCacheEntries - 1
+)
+
 type cacheState struct {
-	recent  [8]string
+	recent  [recentCacheEntries]string
 	buckets map[uint64][]int
 	entries []byteStringEntry
 	next    uint8
@@ -289,7 +295,9 @@ func (c *Cache) cacheState() *cacheState {
 }
 
 func (c *cacheState) recentString(b []byte) (string, bool) {
-	for _, s := range c.recent {
+	for offset := range recentCacheEntries {
+		index := (int(c.next) + recentCacheEntries - 1 - offset) & recentCacheMask
+		s := c.recent[index]
 		if stringBytesEqual(s, b) {
 			return s, true
 		}
@@ -298,7 +306,7 @@ func (c *cacheState) recentString(b []byte) (string, bool) {
 }
 
 func (c *cacheState) remember(s string) {
-	c.recent[c.next%uint8(len(c.recent))] = s
+	c.recent[c.next&recentCacheMask] = s
 	c.next++
 }
 

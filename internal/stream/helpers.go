@@ -32,15 +32,7 @@ func resetRetainedBytes(s []byte) []byte {
 }
 
 func stringBytesEqual(s string, b []byte) bool {
-	if len(s) != len(b) {
-		return false
-	}
-	for i := range b {
-		if s[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return s == string(b)
 }
 
 // IsDOCTYPEDeclaration reports whether b is a DOCTYPE declaration body.
