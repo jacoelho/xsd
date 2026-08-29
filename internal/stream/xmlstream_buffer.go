@@ -23,7 +23,10 @@ type byteStream struct {
 	afterCR   bool
 }
 
-const xmlInputBufferSize = 64 * 1024
+const (
+	xmlInputBufferSize          = 64 * 1024
+	maxConsecutiveEmptyXMLReads = 100
+)
 
 func (b *byteStream) reset(r io.Reader, maxBytes int64) {
 	b.r = r
@@ -66,7 +69,7 @@ func (b *byteStream) read(p []byte) (int, error) {
 			p = p[:remaining+1]
 		}
 	}
-	n, err := b.r.Read(p)
+	n, err := b.readUnderlying(p)
 	if n <= 0 || b.maxBytes <= 0 {
 		return n, err
 	}
@@ -81,6 +84,16 @@ func (b *byteStream) read(p []byte) (int, error) {
 		limitErr = errors.Join(limitErr, err)
 	}
 	return admitted, limitErr
+}
+
+func (b *byteStream) readUnderlying(p []byte) (int, error) {
+	for range maxConsecutiveEmptyXMLReads {
+		n, err := b.r.Read(p)
+		if n != 0 || err != nil {
+			return n, err
+		}
+	}
+	return 0, io.ErrNoProgress
 }
 
 // ensure returns the non-consuming input window after reading until at least n

@@ -76,19 +76,111 @@ func TestParserResetBOMPreservesFullDeclarationPreview(t *testing.T) {
 	}
 }
 
-type noProgressReader struct{}
+type noProgressReader struct {
+	reads int
+}
 
-func (noProgressReader) Read([]byte) (int, error) { return 0, nil }
+func (r *noProgressReader) Read([]byte) (int, error) {
+	r.reads++
+	return 0, nil
+}
 
 func TestParserResetRejectsNoProgressAndDetaches(t *testing.T) {
 	var parser Parser
 	names, values := NewCache(), NewCache()
-	err := parser.Reset(noProgressReader{}, &names, &values)
+	reader := &noProgressReader{}
+	err := parser.Reset(reader, &names, &values)
 	if !errors.Is(err, io.ErrNoProgress) {
 		t.Fatalf("Parser.Reset() error = %v, want %v", err, io.ErrNoProgress)
 	}
+	if reader.reads != 100 {
+		t.Fatalf("reader calls = %d, want 100", reader.reads)
+	}
 	if parser.br.r != nil {
 		t.Fatal("failed Parser.Reset() retained no-progress reader")
+	}
+	if err := parser.Reset(strings.NewReader(`<root/>`), &names, &values); err != nil {
+		t.Fatalf("Parser.Reset() after no progress = %v", err)
+	}
+	parser.Detach()
+}
+
+type transientEmptyReader struct {
+	r       io.Reader
+	empty   int
+	chunk   int
+	between bool
+}
+
+func (r *transientEmptyReader) Read(p []byte) (int, error) {
+	if r.empty > 0 {
+		r.empty--
+		return 0, nil
+	}
+	if r.chunk > 0 && len(p) > r.chunk {
+		p = p[:r.chunk]
+	}
+	n, err := r.r.Read(p)
+	if n > 0 && r.between {
+		r.empty = 1
+	}
+	return n, err
+}
+
+func TestParserAcceptsBoundedTransientEmptyReads(t *testing.T) {
+	t.Parallel()
+
+	for _, empties := range []int{1, 99} {
+		t.Run(fmt.Sprintf("empties=%d", empties), func(t *testing.T) {
+			t.Parallel()
+			reader := &transientEmptyReader{r: strings.NewReader(`<root/>`), empty: empties}
+			var parser Parser
+			names, values := NewCache(), NewCache()
+			if err := parser.Reset(reader, &names, &values); err != nil {
+				t.Fatalf("Parser.Reset() error = %v", err)
+			}
+			defer parser.Detach()
+			for range 2 {
+				if _, err := parser.Next(); err != nil {
+					t.Fatalf("Parser.Next() error = %v", err)
+				}
+			}
+			if _, err := parser.Next(); !errors.Is(err, io.EOF) {
+				t.Fatalf("Parser.Next() terminal error = %v, want EOF", err)
+			}
+		})
+	}
+}
+
+func TestParserAcceptsTransientEmptyReadsBetweenChunks(t *testing.T) {
+	t.Parallel()
+
+	doc := `<root>` + strings.Repeat(`<item a="v">text</item>`, 8_000) + `</root>`
+	reader := &transientEmptyReader{r: strings.NewReader(doc), chunk: 17, between: true}
+	var parser Parser
+	names, values := NewCache(), NewCache()
+	if err := parser.Reset(reader, &names, &values); err != nil {
+		t.Fatalf("Parser.Reset() error = %v", err)
+	}
+	defer parser.Detach()
+	for {
+		_, err := parser.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Parser.Next() error = %v", err)
+		}
+	}
+}
+
+func TestParserInputLimitSurvivesTransientEmptyProbe(t *testing.T) {
+	t.Parallel()
+
+	doc := `<root/>x`
+	reader := &transientEmptyReader{r: strings.NewReader(doc), empty: 3, chunk: 1, between: true}
+	if err := consumeWithInputLimit(reader, int64(len(doc)-1)); !IsInputLimit(err) {
+		t.Fatalf("consumeWithInputLimit() error = %v, want input limit", err)
 	}
 }
 
