@@ -146,6 +146,32 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 	}
 }
 
+func TestIdentityEvaluationRejectsSecondIDAfterFirstIDRecordFails(t *testing.T) {
+	t.Parallel()
+
+	fixture := startedIdentityEvaluationForTest(t)
+	evaluation := fixture.evaluation
+	evaluation.limits.TupleBytes = 1
+	ctx := StartContext{Path: "/root", Line: 2, Column: 3}
+	target, err := evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	if err != nil {
+		t.Fatalf("prepareAttributeValue(first) error = %v", err)
+	}
+	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "too-long", Identity: "too-long"}, ctx)
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
+
+	target, err = evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	if err != nil {
+		t.Fatalf("prepareAttributeValue(second) error = %v", err)
+	}
+	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "x", Identity: "x"}, ctx)
+	expectXSDCode(t, err, xsderrors.CodeValidationType)
+	expectXSDMessage(t, err, "multiple ID attributes")
+	if _, ok := evaluation.ids["x"]; ok {
+		t.Fatal("recordValue(second) stored the rejected ID")
+	}
+}
+
 func TestIdentityEvaluationCanRejectRecordedOrCapturedValue(t *testing.T) {
 	for _, capture := range []bool{false, true} {
 		name := "recorded"
@@ -211,6 +237,33 @@ func TestIdentityEvaluationStartTransactionRollsBackState(t *testing.T) {
 		len(evaluation.fieldValues) != fieldLen {
 		t.Fatalf("aborted identity start retained state: path=%d elements=%d scopes=%d selections=%d fields=%d",
 			len(evaluation.path), len(evaluation.elements), len(evaluation.scopes), len(evaluation.selections), len(evaluation.fieldValues))
+	}
+}
+
+func TestIdentityEvaluationStartTransactionRestoresPreexistingMutations(t *testing.T) {
+	t.Parallel()
+
+	fixture := startedIdentityEvaluationForTest(t)
+	evaluation := fixture.evaluation
+	evaluation.fieldValues[0] = identityFieldValue{value: "original", state: identityFieldPresent}
+	if err := evaluation.beginStart(); err != nil {
+		t.Fatal(err)
+	}
+	err := evaluation.captureFields(
+		[]identityFieldMatch{{Selection: 0, Field: 0}},
+		"duplicate",
+		StartContext{Path: "/root/child", Line: 2, Column: 3},
+	)
+	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
+	if !evaluation.scopes[0].invalid || evaluation.fieldValues[0].state != identityFieldInvalid {
+		t.Fatal("test mutation did not invalidate the pre-existing field and scope")
+	}
+	evaluation.abortStart()
+	if got := evaluation.fieldValues[0]; got != (identityFieldValue{value: "original", state: identityFieldPresent}) {
+		t.Fatalf("abort restored field = %+v, want original present value", got)
+	}
+	if evaluation.scopes[0].invalid {
+		t.Fatal("abort retained pre-existing scope invalidation")
 	}
 }
 

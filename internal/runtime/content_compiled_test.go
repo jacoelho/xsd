@@ -243,6 +243,42 @@ func TestNextContentAllDefersScratchUntilCommit(t *testing.T) {
 	}
 }
 
+func TestContentTransitionRejectsStaleAllStateWithoutMutation(t *testing.T) {
+	t.Parallel()
+
+	name := QName{Local: 1}
+	elem := ElementID(2)
+	model := ContentModelID(3)
+	rt := publishedContentSchema(contentSchemaFixture{
+		models: map[ContentModelID]CompiledModel{
+			model: {
+				Kind:      CompiledModelAll,
+				AllBitLen: 1,
+				All: []CompiledAllTerm{
+					{Particle: ElementParticle(elem, Occurrence{Min: 1, Max: 1}), Required: true},
+				},
+			},
+		},
+		elementNames: map[ElementID]QName{elem: name},
+	})
+	bits := make([]uint64, 1)
+	scratch := NewContentScratch(bits, 0, 1)
+	state := ContentState{model: model, present: true}
+	transition, status := rt.NextContent(state, ContentInput{Name: RuntimeName{Known: true, Name: name}}, &scratch)
+	if status != ContentTransitionMatched {
+		t.Fatalf("NextContent(all) status = %v, want matched", status)
+	}
+	state.state++
+	wantState := state
+	wantBits := slices.Clone(bits)
+	if transition.Commit(&state, &scratch) {
+		t.Fatal("ContentTransition.Commit() accepted stale state")
+	}
+	if state != wantState || !slices.Equal(bits, wantBits) {
+		t.Fatalf("stale commit mutated state: state=%+v bits=%v, want %+v/%v", state, bits, wantState, wantBits)
+	}
+}
+
 func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 	t.Parallel()
 

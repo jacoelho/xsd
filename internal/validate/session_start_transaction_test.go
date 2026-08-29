@@ -275,6 +275,134 @@ func TestSessionStartRollsBackIdentityAfterXMLCommit(t *testing.T) {
 	}
 }
 
+func TestSessionStartRollsBackCompositeStateAfterIdentityFailure(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:all>
+      <xs:element name="child">
+        <xs:complexType>
+          <xs:attribute name="a" type="xs:ID"/>
+          <xs:attribute name="b" type="xs:IDREF"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:all></xs:complexType>
+    <xs:key name="byA"><xs:selector xpath="child"/><xs:field xpath="@a"/></xs:key>
+  </xs:element>
+</xs:schema>`)
+	var s session
+	if err := initializeSession(&s, rt, Options{MaxIdentityEntries: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+		t.Fatal(err)
+	}
+	parent, ok := s.doc.Current()
+	if !ok {
+		t.Fatal("root start did not create a frame")
+	}
+	parentBefore := *parent
+	bitsBefore := slices.Clone(s.doc.allBits)
+	errorsBefore := len(s.doc.errors)
+
+	err := s.start(2, 1, testXMLStart(
+		xml.Name{Local: "child"},
+		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
+		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:admitted"),
+		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:hint hint.xsd"),
+		testXMLAttr(xml.Name{Local: "unexpected"}, "recoverable"),
+		testXMLAttr(xml.Name{Local: "a"}, "one"),
+		testXMLAttr(xml.Name{Local: "b"}, "two"),
+	))
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
+
+	parent, ok = s.doc.Current()
+	if !ok || s.doc.Depth() != 1 || *parent != parentBefore {
+		t.Fatalf("failed child start changed parent: depth=%d frame=%+v want=%+v", s.doc.Depth(), parent, parentBefore)
+	}
+	if !slices.Equal(s.doc.allBits, bitsBefore) {
+		t.Fatalf("failed child start changed xs:all bits: got %v want %v", s.doc.allBits, bitsBefore)
+	}
+	if len(s.doc.errors) != errorsBefore || s.doc.syntaxOnly {
+		t.Fatalf("failed child retained recovery state: errors=%d syntaxOnly=%v", len(s.doc.errors), s.doc.syntaxOnly)
+	}
+	if s.doc.schemaLocationHints.Has("urn:hint") {
+		t.Fatal("failed child retained schema-location hint")
+	}
+	if _, ok := s.doc.LookupNamespace("p"); ok {
+		t.Fatal("failed child retained namespace admission")
+	}
+	identity := &s.doc.identity
+	if len(identity.path) != 1 || len(identity.elements) != 1 || len(identity.scopes) != 1 ||
+		len(identity.selections) != 0 || len(identity.fieldValues) != 0 || len(identity.idrefs) != 0 ||
+		identity.entries != 0 || identity.nextNodeID != 0 || identity.targetPhase != identityTargetInactive ||
+		identity.startJournal.active {
+		t.Fatalf("failed child start retained identity state: %+v", identity.identityState)
+	}
+	if _, exists := identity.ids["one"]; exists {
+		t.Fatal("failed child start retained ID")
+	}
+
+	identity.limits.Entries = 4
+	if err := s.start(3, 1, testXMLStart(
+		xml.Name{Local: "child"},
+		testXMLAttr(xml.Name{Local: "a"}, "one"),
+		testXMLAttr(xml.Name{Local: "b"}, "one"),
+	)); err != nil {
+		t.Fatalf("retry child start error = %v", err)
+	}
+}
+
+func TestSessionSemanticStopPreservesOnlyXMLLifecycle(t *testing.T) {
+	t.Parallel()
+
+	t.Run("before identity activation", func(t *testing.T) {
+		rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
+		var s session
+		if err := initializeSession(&s, rt, Options{MaxErrors: 1}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.start(1, 1, testXMLStart(xml.Name{Local: "missing"})); err != nil {
+			t.Fatalf("semantic stop start error = %v", err)
+		}
+		assertSemanticStopState(t, &s, "missing")
+	})
+
+	t.Run("after identity activation", func(t *testing.T) {
+		rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType>
+    <xs:key name="byID"><xs:selector xpath="."/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>`)
+		var s session
+		if err := initializeSession(&s, rt, Options{MaxErrors: 1}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.start(1, 1, testXMLStart(
+			xml.Name{Local: "root"},
+			testXMLAttr(xml.Name{Local: "unexpected"}, "value"),
+		)); err != nil {
+			t.Fatalf("semantic stop start error = %v", err)
+		}
+		assertSemanticStopState(t, &s, "root")
+	})
+}
+
+func assertSemanticStopState(t *testing.T, s *session, local string) {
+	t.Helper()
+	if !s.doc.syntaxOnly || s.doc.Depth() != 1 || len(s.doc.errors) != 1 {
+		t.Fatalf("semantic stop state: syntaxOnly=%v depth=%d errors=%d", s.doc.syntaxOnly, s.doc.Depth(), len(s.doc.errors))
+	}
+	if len(s.doc.identity.path) != 0 || len(s.doc.identity.elements) != 0 || s.doc.identity.startJournal.active {
+		t.Fatal("semantic stop retained identity lifecycle state")
+	}
+	if err := s.end(2, 1, stream.EndElement{Name: xml.Name{Local: local}}); err != nil {
+		t.Fatalf("syntax-only end error = %v", err)
+	}
+}
+
 func TestSessionStartTransactionReusesParentTransitionStorage(t *testing.T) {
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root"><xs:complexType><xs:sequence>

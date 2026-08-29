@@ -209,6 +209,59 @@ func BenchmarkSessionValidateRepeatedXSIType(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateIDAttributeStart(b *testing.B) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="item" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" type="xs:ID" use="required"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+	var doc strings.Builder
+	doc.WriteString(`<root>`)
+	for i := range 100 {
+		fmt.Fprintf(&doc, `<item id="id%d"/>`, i)
+	}
+	doc.WriteString(`</root>`)
+	benchmarkSessionDocument(b, schema, doc.String())
+}
+
+func BenchmarkSessionValidateSimpleIDEnd(b *testing.B) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="id" type="xs:ID" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+	var doc strings.Builder
+	doc.WriteString(`<root>`)
+	for i := range 100 {
+		fmt.Fprintf(&doc, `<id>id%d</id>`, i)
+	}
+	doc.WriteString(`</root>`)
+	benchmarkSessionDocument(b, schema, doc.String())
+}
+
+func benchmarkSessionDocument(b *testing.B, schema, doc string) {
+	b.Helper()
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader(doc)); err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkSessionValidateRepeatedQNameValues(b *testing.B) {
 	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
