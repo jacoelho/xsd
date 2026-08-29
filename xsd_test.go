@@ -3,11 +3,13 @@ package xsd_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -33,6 +35,65 @@ func TestCompileRequiresExplicitSchemaSource(t *testing.T) {
 			}
 			expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaNoSources)
 		})
+	}
+}
+
+func TestCompileOptionsFacadeForwardsEveryField(t *testing.T) {
+	t.Parallel()
+
+	typ := reflect.TypeFor[xsd.CompileOptions]()
+	for i := range typ.NumField() {
+		field := typ.Field(i)
+		if field.Name == "MaxFiniteOccurs" {
+			continue
+		}
+		t.Run(field.Name, func(t *testing.T) {
+			t.Parallel()
+			var opts xsd.CompileOptions
+			value := reflect.ValueOf(&opts).Elem().Field(i)
+			if !value.CanSet() || value.Kind() != reflect.Int && value.Kind() != reflect.Int64 {
+				t.Fatalf("CompileOptions.%s type = %s, want signed limit", field.Name, field.Type)
+			}
+			value.SetInt(-1)
+			_, err := xsd.CompileWithOptions(opts)
+			expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+			if !strings.Contains(err.Error(), field.Name) {
+				t.Fatalf("CompileWithOptions() error = %v, want option name %s", err, field.Name)
+			}
+		})
+	}
+
+	const allowedOccursSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="item" maxOccurs="1"/></xs:sequence></xs:complexType></xs:element></xs:schema>`
+	if _, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxFiniteOccurs: 1}, xsd.Bytes("schema.xsd", []byte(allowedOccursSchema))); err != nil {
+		t.Fatalf("CompileWithOptions(MaxFiniteOccurs boundary) error = %v", err)
+	}
+
+	const rejectedOccursSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="item" maxOccurs="2"/></xs:sequence></xs:complexType></xs:element></xs:schema>`
+	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxFiniteOccurs: 1}, xsd.Bytes("schema.xsd", []byte(rejectedOccursSchema)))
+	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+	if !strings.Contains(err.Error(), "maxOccurs exceeds configured limit") {
+		t.Fatalf("CompileWithOptions(MaxFiniteOccurs exceeded) error = %v, want maxOccurs diagnostic", err)
+	}
+}
+
+func TestCompileMatchesZeroOptionCompileWithOptions(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`
+	plain, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	explicit, err := xsd.CompileWithOptions(xsd.CompileOptions{}, xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatalf("CompileWithOptions() error = %v", err)
+	}
+	for _, document := range []string{`<root>7</root>`, `<root>bad</root>`} {
+		plainErr := plain.Validate(strings.NewReader(document))
+		explicitErr := explicit.Validate(strings.NewReader(document))
+		if fmt.Sprint(plainErr) != fmt.Sprint(explicitErr) {
+			t.Fatalf("validation errors for %q = %v / %v", document, plainErr, explicitErr)
+		}
 	}
 }
 
@@ -191,6 +252,122 @@ func TestOpenRejectsRepeatedEmptyReadsAndCloses(t *testing.T) {
 	if reader.reads > 100 || !reader.closed {
 		t.Fatalf("reader = %d empty reads, closed %v; want bounded and closed", reader.reads, reader.closed)
 	}
+}
+
+func TestOpenOwnsEveryReturnedReader(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		reader := &trackingSchemaReadCloser{Reader: strings.NewReader(schema)}
+		if _, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) { return reader, nil })); err != nil {
+			t.Fatalf("Compile() error = %v", err)
+		}
+		if !reader.closed {
+			t.Fatal("Compile() did not close successful reader")
+		}
+	})
+
+	t.Run("reader with open error", func(t *testing.T) {
+		t.Parallel()
+		openErr := errors.New("open failed")
+		closeErr := errors.New("close failed")
+		reader := &trackingSchemaReadCloser{Reader: strings.NewReader(schema), closeErr: closeErr}
+		_, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
+			return reader, openErr //nolint:nilnil // A non-nil reader returned with an error is still owned and closed.
+		}))
+		if !errors.Is(err, openErr) || !errors.Is(err, closeErr) || !reader.closed {
+			t.Fatalf("Compile() = %v, closed %v; want both causes and closed reader", err, reader.closed)
+		}
+	})
+
+	t.Run("close error", func(t *testing.T) {
+		t.Parallel()
+		closeErr := errors.New("close failed")
+		reader := &trackingSchemaReadCloser{Reader: strings.NewReader(schema), closeErr: closeErr}
+		_, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) { return reader, nil }))
+		if !errors.Is(err, closeErr) || !reader.closed {
+			t.Fatalf("Compile() = %v, closed %v; want close cause and closed reader", err, reader.closed)
+		}
+	})
+}
+
+func TestResolverBoundaryProtocol(t *testing.T) {
+	t.Parallel()
+
+	const rootSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/></xs:schema>`
+	rootWith := func(resolver xsd.ResolverFunc) xsd.SchemaSource {
+		return xsd.Bytes("root.xsd", []byte(rootSchema)).WithResolver(resolver)
+	}
+
+	t.Run("exclusive miss", func(t *testing.T) {
+		t.Parallel()
+		engine, err := xsd.Compile(rootWith(func(_, _ string) (xsd.SchemaSource, error) {
+			return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
+		}))
+		if err != nil || engine == nil {
+			t.Fatalf("Compile() = %v, engine nil %v; want unavailable optional reference", err, engine == nil)
+		}
+	})
+
+	t.Run("fatal error", func(t *testing.T) {
+		t.Parallel()
+		fatal := errors.New("resolver failed")
+		_, err := xsd.Compile(rootWith(func(_, _ string) (xsd.SchemaSource, error) {
+			return xsd.SchemaSource{}, fatal
+		}))
+		if !errors.Is(err, fatal) {
+			t.Fatalf("Compile() error = %v, want resolver cause", err)
+		}
+	})
+
+	t.Run("miss joined with fatal error", func(t *testing.T) {
+		t.Parallel()
+		fatal := errors.New("resolver failed")
+		_, err := xsd.Compile(rootWith(func(_, _ string) (xsd.SchemaSource, error) {
+			return xsd.SchemaSource{}, errors.Join(xsderrors.ErrSchemaNotFound, fatal)
+		}))
+		if !errors.Is(err, fatal) {
+			t.Fatalf("Compile() error = %v, want joined resolver cause", err)
+		}
+	})
+
+	t.Run("successful source requires name", func(t *testing.T) {
+		t.Parallel()
+		_, err := xsd.Compile(rootWith(func(_, _ string) (xsd.SchemaSource, error) {
+			return xsd.Bytes("", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)), nil
+		}))
+		if err == nil || !strings.Contains(err.Error(), "without a name") {
+			t.Fatalf("Compile() error = %v, want unnamed-source failure", err)
+		}
+	})
+
+	t.Run("resolver owns descendants", func(t *testing.T) {
+		t.Parallel()
+		calls := make(map[string]int)
+		resolver := xsd.ResolverFunc(func(_, location string) (xsd.SchemaSource, error) {
+			calls[location]++
+			switch location {
+			case "child.xsd":
+				return xsd.Bytes("child.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="grandchild.xsd"/></xs:schema>`)), nil
+			case "grandchild.xsd":
+				return xsd.Bytes("grandchild.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)), nil
+			default:
+				return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
+			}
+		})
+		engine, err := xsd.Compile(rootWith(resolver))
+		if err != nil {
+			t.Fatalf("Compile() error = %v", err)
+		}
+		if calls["child.xsd"] != 1 || calls["grandchild.xsd"] != 1 {
+			t.Fatalf("resolver calls = %v, want each descendant once", calls)
+		}
+		if err := engine.Validate(strings.NewReader(`<root/>`)); err != nil {
+			t.Fatalf("Validate() error = %v", err)
+		}
+	})
 }
 
 func TestFileResolvesPercentEncodedSchemaLocation(t *testing.T) {
@@ -1074,6 +1251,17 @@ type emptySchemaReadCloser struct {
 	terminal error
 	reads    int
 	closed   bool
+}
+
+type trackingSchemaReadCloser struct {
+	io.Reader
+	closeErr error
+	closed   bool
+}
+
+func (r *trackingSchemaReadCloser) Close() error {
+	r.closed = true
+	return r.closeErr
 }
 
 func (r *emptySchemaReadCloser) Read([]byte) (int, error) {

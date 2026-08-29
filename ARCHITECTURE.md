@@ -29,9 +29,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   resolver adaptation, local and generic backend policy, resolution context,
   and source identity. `Source.Acquire` is the only source-read path and
   `Source.ResolveFrom` is the only reference-resolution path. The package does
-  not own XSD vocabulary or schema-graph policy. Compiler loader transitions
-  call those two boundary methods directly; compiler helpers do not wrap or
-  replace them.
+  not own XSD vocabulary or schema-graph policy. The compiler has one canonical
+  source-loading path and may delegate within that path, but it must not replace,
+  bypass, or duplicate either source boundary capability.
 - `internal/uriref` owns XSD 1.0 URI-reference validity after XLink escaping,
   raw and escaped projections, fragment syntax, and raw-preserving RFC 2396
   composition. Arbitrary source names and Unix paths do not enter this type.
@@ -277,7 +277,7 @@ The boundary is enforced by tests, not only by convention:
   - `TestSourcePackageImportGraph`
 - `tests/phase_boundary_test.go`
   - `TestInternalImplementationPackagesExist`
-  - `TestRootCompileIsFacade`
+  - `TestRootCompileHasSingleInternalExecutionEdge`
   - `TestRootRuntimeImportIsConfinedToEngineAndSession`
   - `TestRootDoesNotExposeOldPublicAPIs`
 - `tests/root_public_shape_test.go`

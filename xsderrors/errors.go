@@ -10,7 +10,9 @@ import (
 
 const nilErrorString = "<nil>"
 
-// ErrSchemaNotFound reports that a resolver could not resolve a schema.
+// ErrSchemaNotFound reports that a resolver could not resolve a schema. A
+// resolver miss must return this error without joining another cause; a joined
+// error is a fatal resolver failure.
 var ErrSchemaNotFound = errors.New("schema not found")
 
 // Category identifies the operation class that produced an error.

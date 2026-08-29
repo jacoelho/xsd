@@ -190,7 +190,7 @@ func TestRunLibrarySamplesUsesConfiguredSampleCount(t *testing.T) {
 	if len(samples) != 5 {
 		t.Fatalf("runLibrarySamples() returned %d samples, want 5", len(samples))
 	}
-	count, err := os.ReadFile(countPath)
+	count, err := os.ReadFile(countPath) //nolint:gosec // Parent test owns the t.TempDir path passed to this helper process.
 	if err != nil {
 		t.Fatalf("ReadFile(%s) error = %v", countPath, err)
 	}
@@ -205,7 +205,7 @@ func TestLibraryCommandProcess(t *testing.T) {
 	}
 	path := os.Getenv("XSD_TEST_LIBRARY_COUNT")
 	count := 0
-	if data, err := os.ReadFile(path); err == nil {
+	if data, err := os.ReadFile(path); err == nil { //nolint:gosec // Parent test owns the t.TempDir path passed through the environment.
 		count, err = strconv.Atoi(string(data))
 		if err != nil {
 			t.Fatalf("Atoi(%q) error = %v", string(data), err)
@@ -213,7 +213,7 @@ func TestLibraryCommandProcess(t *testing.T) {
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("ReadFile(%s) error = %v", path, err)
 	}
-	if err := os.WriteFile(path, []byte(strconv.Itoa(count+1)), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(strconv.Itoa(count+1)), 0o600); err != nil { //nolint:gosec // Parent test owns the t.TempDir path passed through the environment.
 		t.Fatalf("WriteFile(%s) error = %v", path, err)
 	}
 }
