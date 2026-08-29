@@ -69,7 +69,7 @@ func XMLWithOptions(w io.Writer, r io.Reader, opts Options) error {
 	if err != nil {
 		return formatOptionErr(err)
 	}
-	writer := &maxBytesWriter{w: w, max: limits.maxOutputBytes, err: errFormatOutputLimit}
+	writer := newMaxBytesWriter(w, limits.maxOutputBytes, errFormatOutputLimit)
 
 	names := stream.NewCache()
 	values := stream.NewCache()
@@ -164,35 +164,77 @@ type maxBytesWriter struct {
 	n   int64
 }
 
+func newMaxBytesWriter(w io.Writer, maxBytes int64, err error) io.Writer {
+	bounded := maxBytesWriter{w: w, max: maxBytes, err: err}
+	if _, ok := w.(io.StringWriter); ok {
+		return &maxBytesStringWriter{maxBytesWriter: bounded}
+	}
+	return &bounded
+}
+
+type maxBytesStringWriter struct {
+	maxBytesWriter
+}
+
 func (w *maxBytesWriter) Write(p []byte) (int, error) {
 	remaining := w.max - w.n
 	if int64(len(p)) <= remaining {
-		return w.write(p)
+		n, err := w.w.Write(p)
+		return w.record(len(p), n, err)
 	}
 	if remaining <= 0 {
 		return 0, w.err
 	}
 	allowed := int(remaining)
-	n, err := w.write(p[:allowed])
+	n, err := w.w.Write(p[:allowed])
+	n, err = w.record(allowed, n, err)
 	if err != nil {
 		return n, err
 	}
-	return allowed, w.err
+	return n, w.err
 }
 
-func (w *maxBytesWriter) write(p []byte) (int, error) {
-	n, err := w.w.Write(p)
-	if n < 0 || n > len(p) {
+func (w *maxBytesStringWriter) WriteString(s string) (int, error) {
+	remaining := w.max - w.n
+	if int64(len(s)) <= remaining {
+		n, err := w.stringWriter().WriteString(s)
+		return w.record(len(s), n, err)
+	}
+	if remaining <= 0 {
+		return 0, w.err
+	}
+	allowed := int(remaining)
+	n, err := w.stringWriter().WriteString(s[:allowed])
+	n, err = w.record(allowed, n, err)
+	if err != nil {
+		return n, err
+	}
+	return n, w.err
+}
+
+func (w *maxBytesStringWriter) stringWriter() io.StringWriter {
+	sw, ok := w.w.(io.StringWriter)
+	if !ok {
+		panic("format: maxBytesStringWriter delegate lost io.StringWriter")
+	}
+	return sw
+}
+
+func (w *maxBytesWriter) record(want, n int, err error) (int, error) {
+	if n < 0 || n > want {
 		if err != nil {
 			return 0, errors.Join(io.ErrShortWrite, err)
 		}
 		return 0, io.ErrShortWrite
 	}
 	w.n += int64(n)
-	if n != len(p) && err == nil {
+	if n != want && err == nil {
 		return n, io.ErrShortWrite
 	}
-	return n, err
+	if err != nil {
+		return n, err
+	}
+	return n, nil
 }
 
 type xmlFormatter struct {

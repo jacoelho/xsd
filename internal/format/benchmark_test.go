@@ -1,9 +1,18 @@
 package format
 
 import (
+	"io"
 	"strings"
 	"testing"
 )
+
+type benchmarkWriterOnly struct {
+	w io.Writer
+}
+
+func (w benchmarkWriterOnly) Write(p []byte) (int, error) {
+	return w.w.Write(p)
+}
 
 func BenchmarkXMLDuplicateAttributes(b *testing.B) {
 	doc := duplicateAttributeDoc()
@@ -38,6 +47,19 @@ func BenchmarkXMLMixedEscapedAttribute(b *testing.B) {
 	for b.Loop() {
 		var out strings.Builder
 		if err := XML(&out, strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkXMLMixedEscapedAttributeWriterOnly(b *testing.B) {
+	value := strings.Repeat("abc&amp;&#10;&quot;", 4096)
+	doc := `<root a="` + value + `"/>`
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		var out strings.Builder
+		if err := XML(benchmarkWriterOnly{w: &out}, strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}

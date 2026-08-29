@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -28,6 +29,191 @@ type formatWriterFunc func([]byte) (int, error)
 
 func (f formatWriterFunc) Write(p []byte) (int, error) {
 	return f(p)
+}
+
+type formatDualWriter struct {
+	write       func([]byte) (int, error)
+	writeString func(string) (int, error)
+	writes      int
+	strings     int
+}
+
+func (w *formatDualWriter) Write(p []byte) (int, error) {
+	w.writes++
+	return w.write(p)
+}
+
+func (w *formatDualWriter) WriteString(s string) (int, error) {
+	w.strings++
+	return w.writeString(s)
+}
+
+func TestMaxBytesWriterWriteAndWriteStringShareSemantics(t *testing.T) {
+	t.Parallel()
+
+	limitErr := errors.New("limit")
+	writeErr := errors.New("write")
+	tests := []struct {
+		name      string
+		max       int64
+		input     string
+		delegateN int
+		delegate  error
+		wantN     int
+		wantErr   error
+		wantCause error
+		rejectErr error
+		wantBytes int64
+	}{
+		{name: "exact", max: 3, input: "abc", delegateN: 3, wantN: 3, wantBytes: 3},
+		{name: "crossed limit", max: 2, input: "€x", delegateN: 2, wantN: 2, wantErr: limitErr, wantBytes: 2},
+		{name: "crossed limit with writer error", max: 2, input: "abc", delegateN: 2, delegate: writeErr, wantN: 2, wantErr: writeErr, rejectErr: limitErr, wantBytes: 2},
+		{name: "negative count", max: 3, input: "abc", delegateN: -1, wantErr: io.ErrShortWrite},
+		{name: "negative count with cause", max: 3, input: "abc", delegateN: -1, delegate: writeErr, wantErr: io.ErrShortWrite, wantCause: writeErr},
+		{name: "oversized count", max: 3, input: "abc", delegateN: 4, wantErr: io.ErrShortWrite},
+		{name: "oversized count with cause", max: 3, input: "abc", delegateN: 4, delegate: writeErr, wantErr: io.ErrShortWrite, wantCause: writeErr},
+		{name: "short nil", max: 3, input: "abc", delegateN: 2, wantN: 2, wantErr: io.ErrShortWrite, wantBytes: 2},
+		{name: "partial with cause", max: 3, input: "abc", delegateN: 2, delegate: writeErr, wantN: 2, wantErr: writeErr, wantBytes: 2},
+		{name: "complete with cause", max: 3, input: "abc", delegateN: 3, delegate: writeErr, wantN: 3, wantErr: writeErr, wantBytes: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			for _, method := range []string{"Write", "WriteString"} {
+				t.Run(method, func(t *testing.T) {
+					t.Parallel()
+					var delegated string
+					delegate := func(s string) (int, error) {
+						delegated = s
+						return tt.delegateN, tt.delegate
+					}
+					underlying := &formatDualWriter{
+						write:       func(p []byte) (int, error) { return delegate(string(p)) },
+						writeString: delegate,
+					}
+					var bounded *maxBytesWriter
+					var n int
+					var err error
+					if method == "Write" {
+						bounded = &maxBytesWriter{w: underlying, max: tt.max, err: limitErr}
+						n, err = bounded.Write([]byte(tt.input))
+						if underlying.writes != 1 || underlying.strings != 0 {
+							t.Fatalf("delegate calls = Write %d, WriteString %d", underlying.writes, underlying.strings)
+						}
+					} else {
+						w := &maxBytesStringWriter{
+							maxBytesWriter: maxBytesWriter{w: underlying, max: tt.max, err: limitErr},
+						}
+						bounded = &w.maxBytesWriter
+						n, err = w.WriteString(tt.input)
+						if underlying.writes != 0 || underlying.strings != 1 {
+							t.Fatalf("delegate calls = Write %d, WriteString %d", underlying.writes, underlying.strings)
+						}
+					}
+					if n != tt.wantN || !errors.Is(err, tt.wantErr) || (tt.wantCause != nil && !errors.Is(err, tt.wantCause)) {
+						t.Fatalf("result = %d, %v; want %d, %v with cause %v", n, err, tt.wantN, tt.wantErr, tt.wantCause)
+					}
+					if tt.rejectErr != nil && errors.Is(err, tt.rejectErr) {
+						t.Fatalf("result error = %v, must not contain %v", err, tt.rejectErr)
+					}
+					wantDelegated := tt.input
+					if int64(len(wantDelegated)) > tt.max {
+						wantDelegated = wantDelegated[:tt.max]
+					}
+					if delegated != wantDelegated {
+						t.Fatalf("delegated %q, want byte prefix %q", delegated, wantDelegated)
+					}
+					if bounded.n != tt.wantBytes {
+						t.Fatalf("recorded bytes = %d, want %d", bounded.n, tt.wantBytes)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestMaxBytesWriterExhaustionAndEmptyWrites(t *testing.T) {
+	t.Parallel()
+
+	limitErr := errors.New("limit")
+	var out strings.Builder
+	w := &maxBytesStringWriter{
+		maxBytesWriter: maxBytesWriter{w: &out, max: 1, err: limitErr},
+	}
+	if n, err := w.WriteString("a"); n != 1 || err != nil {
+		t.Fatalf("first WriteString() = %d, %v", n, err)
+	}
+	if n, err := w.WriteString("b"); n != 0 || !errors.Is(err, limitErr) {
+		t.Fatalf("exhausted WriteString() = %d, %v", n, err)
+	}
+	if n, err := w.Write(nil); n != 0 || err != nil {
+		t.Fatalf("empty Write() = %d, %v", n, err)
+	}
+	if n, err := w.WriteString(""); n != 0 || err != nil {
+		t.Fatalf("empty WriteString() = %d, %v", n, err)
+	}
+	if out.String() != "a" || w.n != 1 {
+		t.Fatalf("writer = %q, %d bytes; want a, 1", out.String(), w.n)
+	}
+}
+
+func TestNewMaxBytesWriterSelectsStringWriterCapability(t *testing.T) {
+	t.Parallel()
+
+	var direct strings.Builder
+	withStringWriter := newMaxBytesWriter(&direct, 3, errors.New("limit"))
+	if _, ok := withStringWriter.(io.StringWriter); !ok {
+		t.Fatal("StringWriter delegate lost WriteString capability")
+	}
+
+	var out strings.Builder
+	writer := formatWriterFunc(out.Write)
+	writerOnly := newMaxBytesWriter(writer, 3, errors.New("limit"))
+	if _, ok := writerOnly.(io.StringWriter); ok {
+		t.Fatal("writer-only delegate gained WriteString capability")
+	}
+	if n, err := io.WriteString(writerOnly, "abc"); n != 3 || err != nil {
+		t.Fatalf("io.WriteString() = %d, %v", n, err)
+	}
+	if out.String() != "abc" {
+		t.Fatalf("fallback output = %q", out.String())
+	}
+}
+
+func TestMaxBytesStringWriterDoesNotAddRetainedState(t *testing.T) {
+	t.Parallel()
+
+	if got, want := unsafe.Sizeof(maxBytesStringWriter{}), unsafe.Sizeof(maxBytesWriter{}); got > want {
+		t.Fatalf("StringWriter wrapper size = %d, base writer = %d", got, want)
+	}
+}
+
+func TestMaxBytesWriterAccountsActualBytesBeforeNextLimit(t *testing.T) {
+	t.Parallel()
+
+	limitErr := errors.New("limit")
+	calls := 0
+	writer := formatWriterFunc(func(p []byte) (int, error) {
+		calls++
+		if calls == 1 {
+			return 1, errors.New("first write")
+		}
+		return len(p), nil
+	})
+	w := newMaxBytesWriter(writer, 2, limitErr)
+	if n, err := w.Write([]byte("ab")); n != 1 || err == nil {
+		t.Fatalf("first Write() = %d, %v", n, err)
+	}
+	if n, err := io.WriteString(w, "cd"); n != 1 || !errors.Is(err, limitErr) {
+		t.Fatalf("second io.WriteString() = %d, %v", n, err)
+	}
+	bounded, ok := w.(*maxBytesWriter)
+	if !ok {
+		t.Fatalf("writer-only wrapper type = %T", w)
+	}
+	if bounded.n != 2 {
+		t.Fatalf("recorded bytes = %d, want 2", bounded.n)
+	}
 }
 
 func (r *formatDataErrorReader) Read(p []byte) (int, error) {
