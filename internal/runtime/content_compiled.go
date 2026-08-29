@@ -70,17 +70,33 @@ type ContentInput struct {
 	HasXSIType bool
 }
 
-// ContentMatch is the runtime result of matching one content-model transition.
-type ContentMatch struct {
-	Element       ElementID
-	Skip          bool
-	StrictMissing bool
+// ContentMatchKind identifies the schema assessment selected by a planned
+// content-model transition.
+type ContentMatchKind uint8
+
+const (
+	// ContentMatchInvalid is the zero value. It represents either a valid
+	// non-match or an invalid transition, as reported by the surrounding status.
+	ContentMatchInvalid ContentMatchKind = iota
+	// ContentMatchDeclared selects a concrete element declaration.
+	ContentMatchDeclared
+	// ContentMatchAssessUndeclared selects wildcard assessment without a declaration.
+	ContentMatchAssessUndeclared
+	// ContentMatchSkip selects wildcard skip processing.
+	ContentMatchSkip
+	// ContentMatchStrictMissing records a strict wildcard without a declaration.
+	ContentMatchStrictMissing
+)
+
+type contentMatch struct {
+	element ElementID
+	kind    ContentMatchKind
 }
 
 // ContentTransition is one validated content-model transition. It owns the
 // parent state and all-group bit update until Commit applies both together.
 type ContentTransition struct {
-	match    ContentMatch
+	match    contentMatch
 	from     ContentState
 	next     ContentState
 	allIndex int
@@ -88,9 +104,12 @@ type ContentTransition struct {
 	valid    bool
 }
 
-// Match returns the declaration or wildcard result selected by the transition.
-func (t ContentTransition) Match() ContentMatch {
-	return t.match
+// Match returns the assessment kind and, for ContentMatchDeclared, its element.
+func (t ContentTransition) Match() (ContentMatchKind, ElementID) {
+	if t.match.kind != ContentMatchDeclared {
+		return t.match.kind, NoElement
+	}
+	return t.match.kind, t.match.element
 }
 
 // IsPlanned reports whether the transition was produced by a successful match.
@@ -432,11 +451,6 @@ func (f ContentFrame) AllBitLen() int {
 	return f.allLen
 }
 
-// NoContentMatch returns the empty content-model match.
-func NoContentMatch() ContentMatch {
-	return ContentMatch{Element: NoElement}
-}
-
 // ContentFrame derives the initial content state directly from a published
 // schema. Publication guarantees referenced model IDs are valid.
 func (rt *Schema) ContentFrame(typ TypeID) ContentFrame {
@@ -473,8 +487,13 @@ func (rt *Schema) NextContent(st ContentState, in ContentInput, scratch *Content
 	}
 }
 
-func newContentTransition(from, next ContentState, match ContentMatch) ContentTransition {
-	return ContentTransition{match: match, from: from, next: next, valid: true}
+func newContentTransition(from, next ContentState, match contentMatch) ContentTransition {
+	switch match.kind {
+	case ContentMatchDeclared, ContentMatchAssessUndeclared, ContentMatchSkip, ContentMatchStrictMissing:
+		return ContentTransition{match: match, from: from, next: next, valid: true}
+	default:
+		return ContentTransition{}
+	}
 }
 
 // CompleteContent reports whether a freeze-validated content state may end.
@@ -498,13 +517,13 @@ func (rt *Schema) CompleteContent(st ContentState, scratch *ContentScratch) Cont
 	}
 }
 
-func (rt *Schema) matchPublishedAnyContent(in ContentInput) ContentMatch {
+func (rt *Schema) matchPublishedAnyContent(in ContentInput) contentMatch {
 	if in.Name.Known {
 		if id, ok := rt.runtime.GlobalElements[in.Name.Name]; ok {
-			return ContentMatch{Element: id}
+			return declaredContentMatch(id)
 		}
 	}
-	return ContentMatch{Element: NoElement}
+	return assessUndeclaredContentMatch()
 }
 
 func (rt *Schema) nextPublishedAllContent(st ContentState, model *compiledModelRead, in ContentInput, scratch *ContentScratch) (ContentTransition, ContentTransitionStatus) {
@@ -516,11 +535,11 @@ func (rt *Schema) nextPublishedAllContent(st ContentState, model *compiledModelR
 		if seen {
 			continue
 		}
-		match, matched, valid := rt.matchPublishedDirectParticle(term.Particle, in)
+		match, valid := rt.matchPublishedDirectParticle(term.Particle, in)
 		if !valid {
 			return ContentTransition{}, ContentTransitionInvalid
 		}
-		if !matched {
+		if match.kind == ContentMatchInvalid {
 			continue
 		}
 		transition := newContentTransition(st, st, match)
@@ -573,11 +592,11 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 		return rt.nextPublishedIndexedDFAContent(st, model, row, row.index, in)
 	}
 	for _, edge := range row.Edges {
-		match, matched, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
+		match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
 		if !valid {
 			return ContentTransition{}, ContentTransitionInvalid
 		}
-		if !matched {
+		if match.kind == ContentMatchInvalid {
 			continue
 		}
 		next, ok := nextPublishedDFAState(st, model, edge)
@@ -608,11 +627,11 @@ func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compile
 			return ContentTransition{}, ContentTransitionNoMatch
 		}
 		edge := row.Edges[pos]
-		match, matched, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
+		match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
 		if !valid {
 			return ContentTransition{}, ContentTransitionInvalid
 		}
-		if !matched {
+		if match.kind == ContentMatchInvalid {
 			continue
 		}
 		next, ok := nextPublishedDFAState(st, model, edge)
@@ -654,71 +673,89 @@ func (c *publishedDFACandidates) next() (int, bool) {
 	}
 }
 
-func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in ContentInput) (ContentMatch, bool, bool) {
+func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in ContentInput) (contentMatch, bool) {
 	switch p.Kind {
 	case ParticleElement:
 		return rt.matchPublishedElementParticle(p.Element, in)
 	case ParticleWildcard:
 		if !ValidWildcardID(p.Wildcard, len(rt.runtime.Wildcards)) {
-			return NoContentMatch(), false, false
+			return contentMatch{}, false
 		}
-		match, matched := rt.matchPublishedWildcardParticle(rt.runtime.Wildcards[p.Wildcard], in)
-		return match, matched, true
+		return rt.matchPublishedWildcardParticle(rt.runtime.Wildcards[p.Wildcard], in), true
 	default:
-		return NoContentMatch(), false, false
+		return contentMatch{}, false
 	}
 }
 
-func (rt *Schema) matchPublishedElementParticle(element ElementID, in ContentInput) (ContentMatch, bool, bool) {
+func (rt *Schema) matchPublishedElementParticle(element ElementID, in ContentInput) (contentMatch, bool) {
 	name, ok := rt.runtime.Elements.name(element)
 	if !ok {
-		return NoContentMatch(), false, false
+		return contentMatch{}, false
 	}
 	if !in.Name.Known {
-		return NoContentMatch(), false, true
+		return contentMatch{}, true
 	}
 	if name == in.Name.Name {
-		return ContentMatch{Element: element}, true, true
+		return declaredContentMatch(element), true
 	}
 	if member, ok := rt.runtime.Substitutions.MemberByName(element, in.Name.Name); ok {
-		return ContentMatch{Element: member}, true, true
+		return declaredContentMatch(member), true
 	}
-	return NoContentMatch(), false, true
+	return contentMatch{}, true
 }
 
-func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput) (ContentMatch, bool) {
+func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput) contentMatch {
 	if !w.AllowsURI(in.Name.NS) {
-		return NoContentMatch(), false
+		return contentMatch{}
 	}
 	switch w.Process() {
 	case ProcessStrict:
 		return rt.matchPublishedStrictWildcard(in)
 	case ProcessSkip:
-		return ContentMatch{Element: NoElement, Skip: true}, true
+		return skipContentMatch()
 	case ProcessLax:
 		if match, ok := rt.matchPublishedGlobalElement(in); ok {
-			return match, true
+			return match
 		}
 	}
-	return NoContentMatch(), true
+	return assessUndeclaredContentMatch()
 }
 
-func (rt *Schema) matchPublishedStrictWildcard(in ContentInput) (ContentMatch, bool) {
+func (rt *Schema) matchPublishedStrictWildcard(in ContentInput) contentMatch {
 	if match, ok := rt.matchPublishedGlobalElement(in); ok {
-		return match, true
+		return match
 	}
 	if in.HasXSIType {
-		return NoContentMatch(), true
+		return assessUndeclaredContentMatch()
 	}
-	return ContentMatch{Element: NoElement, StrictMissing: true}, true
+	return strictMissingContentMatch()
 }
 
-func (rt *Schema) matchPublishedGlobalElement(in ContentInput) (ContentMatch, bool) {
+func (rt *Schema) matchPublishedGlobalElement(in ContentInput) (contentMatch, bool) {
 	if !in.Name.Known {
-		return NoContentMatch(), false
+		return contentMatch{}, false
 	}
 	id, ok := rt.runtime.GlobalElements[in.Name.Name]
-	return ContentMatch{Element: id}, ok
+	if !ok {
+		return contentMatch{}, false
+	}
+	return declaredContentMatch(id), true
+}
+
+func declaredContentMatch(element ElementID) contentMatch {
+	return contentMatch{element: element, kind: ContentMatchDeclared}
+}
+
+func assessUndeclaredContentMatch() contentMatch {
+	return contentMatch{element: NoElement, kind: ContentMatchAssessUndeclared}
+}
+
+func skipContentMatch() contentMatch {
+	return contentMatch{element: NoElement, kind: ContentMatchSkip}
+}
+
+func strictMissingContentMatch() contentMatch {
+	return contentMatch{element: NoElement, kind: ContentMatchStrictMissing}
 }
 
 func nextPublishedDFAState(st ContentState, model *compiledModelRead, edge compiledModelEdgeRead) (ContentState, bool) {

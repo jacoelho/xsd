@@ -41,21 +41,23 @@ func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType 
 }
 
 func (s *session) acceptMatchedChild(transition runtime.ContentTransition, rn runtime.RuntimeName, line, col int) (acceptedChild, error) {
-	match := transition.Match()
-	if match.StrictMissing {
+	kind, element := transition.Match()
+	switch kind {
+	case runtime.ContentMatchStrictMissing:
 		return s.acceptStrictMissingChild(transition, rn, line, col)
-	}
-	if match.Element == runtime.NoElement {
-		if match.Skip {
-			return acceptedChild{start: wildcardSkippedSchemaStart(), transition: transition}, nil
-		}
+	case runtime.ContentMatchSkip:
+		return acceptedChild{start: wildcardSkippedSchemaStart(), transition: transition}, nil
+	case runtime.ContentMatchAssessUndeclared:
 		return acceptedChild{start: assessedSchemaStart(runtime.NoElement, s.rt.AnyType()), transition: transition}, nil
+	case runtime.ContentMatchDeclared:
+		decl, declared := s.rt.Element(element)
+		if !declared {
+			return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
+		}
+		return acceptedChild{start: assessedSchemaStart(element, decl.Type), transition: transition}, nil
+	default:
+		return acceptedChild{}, xsderrors.InternalInvariant("planned content transition has invalid match kind")
 	}
-	decl, declared := s.rt.Element(match.Element)
-	if !declared {
-		return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
-	}
-	return acceptedChild{start: assessedSchemaStart(match.Element, decl.Type), transition: transition}, nil
 }
 
 func (s *session) acceptStrictMissingChild(transition runtime.ContentTransition, rn runtime.RuntimeName, line, col int) (acceptedChild, error) {

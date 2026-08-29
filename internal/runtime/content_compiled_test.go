@@ -3,7 +3,9 @@ package runtime
 import (
 	"math"
 	"slices"
+	"strconv"
 	"testing"
+	"unsafe"
 )
 
 func TestContentFrameForTypeUsesCompiledModelInitialState(t *testing.T) {
@@ -194,9 +196,9 @@ func TestNextContentAnyReturnsGlobalElement(t *testing.T) {
 	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	match := transition.Match()
-	if status != ContentTransitionMatched || match.Element != elem || match.Skip || match.StrictMissing {
-		t.Fatalf("NextContent(any) = %+v/%v, want global element", match, status)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+		t.Fatalf("NextContent(any) = %v/%v/%v, want declared element", kind, element, status)
 	}
 }
 
@@ -223,9 +225,9 @@ func TestNextContentAllDefersScratchUntilCommit(t *testing.T) {
 	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &scratch)
-	match := transition.Match()
-	if status != ContentTransitionMatched || match.Element != elem {
-		t.Fatalf("NextContent(all) = %+v/%v, want element", match, status)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+		t.Fatalf("NextContent(all) = %v/%v/%v, want declared element", kind, element, status)
 	}
 	seen, ok := scratch.AllSeen(0)
 	if !ok || seen {
@@ -312,9 +314,9 @@ func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: memberName, Local: "member"},
 	}, &ContentScratch{})
-	match := transition.Match()
-	if status != ContentTransitionMatched || match.Element != member || st.state != 0 {
-		t.Fatalf("NextContent(indexed substitution) = %+v/%v state %d, want member and unchanged state 0", match, status, st.state)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != member || st.state != 0 {
+		t.Fatalf("NextContent(indexed substitution) = %v/%v/%v state %d, want declared member and unchanged state 0", kind, element, status, st.state)
 	}
 	if !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
 		t.Fatalf("ContentTransition.Commit() state = %d, want 1", st.state)
@@ -361,9 +363,9 @@ func TestNextContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	match := transition.Match()
-	if status != ContentTransitionMatched || !match.Skip || match.Element != NoElement || st.state != 0 {
-		t.Fatalf("NextContent(indexed order) = %+v/%v state %d, want wildcard skip and unchanged state 0", match, status, st.state)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchSkip || element != NoElement || st.state != 0 {
+		t.Fatalf("NextContent(indexed order) = %v/%v/%v state %d, want wildcard skip and unchanged state 0", kind, element, status, st.state)
 	}
 	if !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
 		t.Fatalf("ContentTransition.Commit() state = %d, want 1", st.state)
@@ -377,40 +379,44 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 	elem := ElementID(2)
 	model := ContentModelID(3)
 	tests := []struct {
-		name       string
-		process    ProcessContents
-		xsiType    bool
-		global     bool
-		want       ContentMatch
-		wantMatch  bool
-		wantStrict bool
+		name        string
+		process     ProcessContents
+		xsiType     bool
+		global      bool
+		wantKind    ContentMatchKind
+		wantElement ElementID
 	}{
 		{
-			name:       "strict missing",
-			process:    ProcessStrict,
-			want:       ContentMatch{Element: NoElement, StrictMissing: true},
-			wantMatch:  true,
-			wantStrict: true,
+			name:        "strict missing",
+			process:     ProcessStrict,
+			wantKind:    ContentMatchStrictMissing,
+			wantElement: NoElement,
 		},
 		{
-			name:      "strict missing with xsi type",
-			process:   ProcessStrict,
-			xsiType:   true,
-			want:      NoContentMatch(),
-			wantMatch: true,
+			name:        "strict missing with xsi type",
+			process:     ProcessStrict,
+			xsiType:     true,
+			wantKind:    ContentMatchAssessUndeclared,
+			wantElement: NoElement,
 		},
 		{
-			name:      "lax declared",
-			process:   ProcessLax,
-			global:    true,
-			want:      ContentMatch{Element: elem},
-			wantMatch: true,
+			name:        "lax declared",
+			process:     ProcessLax,
+			global:      true,
+			wantKind:    ContentMatchDeclared,
+			wantElement: elem,
 		},
 		{
-			name:      "skip",
-			process:   ProcessSkip,
-			want:      ContentMatch{Element: NoElement, Skip: true},
-			wantMatch: true,
+			name:        "lax undeclared",
+			process:     ProcessLax,
+			wantKind:    ContentMatchAssessUndeclared,
+			wantElement: NoElement,
+		},
+		{
+			name:        "skip",
+			process:     ProcessSkip,
+			wantKind:    ContentMatchSkip,
+			wantElement: NoElement,
 		},
 	}
 	for _, tt := range tests {
@@ -445,16 +451,9 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 				Name:       RuntimeName{Known: true, Name: name, Local: "e"},
 				HasXSIType: tt.xsiType,
 			}, &ContentScratch{})
-			match := transition.Match()
-			wantStatus := ContentTransitionNoMatch
-			if tt.wantMatch {
-				wantStatus = ContentTransitionMatched
-			}
-			if status != wantStatus || match != tt.want {
-				t.Fatalf("NextContent(wildcard) = %+v/%v, want %+v/%v", match, status, tt.want, wantStatus)
-			}
-			if match.StrictMissing != tt.wantStrict {
-				t.Fatalf("StrictMissing = %v, want %v", match.StrictMissing, tt.wantStrict)
+			kind, element := transition.Match()
+			if status != ContentTransitionMatched || kind != tt.wantKind || element != tt.wantElement {
+				t.Fatalf("NextContent(wildcard) = %v/%v/%v, want %v/%v/%v", kind, element, status, tt.wantKind, tt.wantElement, ContentTransitionMatched)
 			}
 		})
 	}
@@ -504,7 +503,8 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 				Name: RuntimeName{Known: true, Name: childName, Local: "child"},
 			}, &ContentScratch{})
 			if status != ContentTransitionInvalid {
-				t.Fatalf("NextContent() = %+v/%v, want invalid state", transition.Match(), status)
+				kind, element := transition.Match()
+				t.Fatalf("NextContent() = %v/%v/%v, want invalid state", kind, element, status)
 			}
 		})
 	}
@@ -558,9 +558,9 @@ func TestNextContentCountSaturatesAtUint32Max(t *testing.T) {
 	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	match := transition.Match()
-	if status != ContentTransitionMatched || match.Element != elem {
-		t.Fatalf("NextContent() = %+v/%v, want matched valid transition", match, status)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+		t.Fatalf("NextContent() = %v/%v/%v, want matched valid transition", kind, element, status)
 	}
 	if !transition.Commit(&st, &ContentScratch{}) {
 		t.Fatal("ContentTransition.Commit() rejected current counted state")
@@ -570,6 +570,35 @@ func TestNextContentCountSaturatesAtUint32Max(t *testing.T) {
 	}
 	if status := rt.CompleteContent(st, &ContentScratch{}); status != ContentCompletionComplete {
 		t.Fatalf("CompleteContent() after saturated count = %v, want complete", status)
+	}
+}
+
+func TestContentTransitionRejectsNonMatchKinds(t *testing.T) {
+	t.Parallel()
+
+	state := ContentState{model: 1, present: true}
+	transition := newContentTransition(state, state, contentMatch{})
+	if transition.IsPlanned() {
+		t.Fatal("newContentTransition(zero) planned a transition")
+	}
+	kind, element := transition.Match()
+	if kind != ContentMatchInvalid || element != NoElement {
+		t.Fatalf("rejected transition match = %v/%v, want invalid/no element", kind, element)
+	}
+}
+
+func TestContentMatchRepresentationDoesNotGrow(t *testing.T) {
+	t.Parallel()
+
+	if got := unsafe.Sizeof(contentMatch{}); got > 8 {
+		t.Fatalf("contentMatch size = %d, want at most 8", got)
+	}
+	wantTransition := uintptr(48)
+	if strconv.IntSize == 64 {
+		wantTransition = 56
+	}
+	if got := unsafe.Sizeof(ContentTransition{}); got > wantTransition {
+		t.Fatalf("ContentTransition size = %d, want at most %d", got, wantTransition)
 	}
 }
 
