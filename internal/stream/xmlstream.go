@@ -192,98 +192,84 @@ func (p *Parser) Detach() {
 // Next returns the next token. Returned token byte slices are valid until the
 // next call to Next or Reset. A non-nil error is returned with a zero Token;
 // Pos reports where the parser detected that error.
+//
+//nolint:gocognit // This loop owns parser state; splitting it adds a call to every token transition.
 func (p *Parser) Next() (Token, error) {
 	clear(p.attrs)
 	p.attrs = p.attrs[:0]
-	if token, ready, err := p.pendingToken(); ready {
+	if p.inCDATA {
+		p.retainedBytes = 0
+		token, err := p.readCDATAChunk(0, 0)
 		if err != nil {
 			return Token{}, err
 		}
 		return token, nil
 	}
+	if p.pendingEnd.Name.Local != "" {
+		end := p.pendingEnd
+		p.pendingEnd = EndElement{}
+		line, col := p.br.pos()
+		return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
+	}
 	for {
-		token, skip, err := p.readNextToken()
+		p.retainedBytes = 0
+		b, err := p.br.readByte()
 		if err != nil {
 			return Token{}, err
 		}
-		if !skip {
+		if b != '<' {
+			p.atStart = false
+			token, charErr := p.readCharData(b)
+			if charErr != nil {
+				return Token{}, charErr
+			}
 			return token, nil
 		}
+		line, col := p.br.pos()
+		next, err := p.br.readByte()
+		if err != nil {
+			return Token{}, p.syntaxError("unexpected EOF after <", err)
+		}
+		switch next {
+		case '/':
+			end, err := p.readEndElement()
+			if err != nil {
+				return Token{}, err
+			}
+			p.atStart = false
+			return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
+		case '!':
+			token, skip, err := p.readMarkup(line, col)
+			if err != nil {
+				return Token{}, err
+			}
+			p.atStart = false
+			if skip {
+				continue
+			}
+			return token, nil
+		case '?':
+			token, skip, err := p.readPI(p.atStart, line, col)
+			if err != nil {
+				return Token{}, err
+			}
+			p.atStart = false
+			if skip {
+				continue
+			}
+			return token, nil
+		default:
+			start, selfClosing, err := p.readStartElement(next)
+			if err != nil {
+				return Token{}, err
+			}
+			p.atStart = false
+			if selfClosing {
+				p.pendingEnd = EndElement{Name: start.Name}
+			}
+			return Token{Kind: KindStart, Start: start, Line: line, Column: col}, nil
+		}
 	}
-}
-
-func (p *Parser) pendingToken() (Token, bool, error) {
-	if p.inCDATA {
-		p.retainedBytes = 0
-		token, err := p.readCDATAChunk(0, 0)
-		return token, true, err
-	}
-	if p.pendingEnd.Name.Local == "" {
-		return Token{}, false, nil
-	}
-	end := p.pendingEnd
-	p.pendingEnd = EndElement{}
-	line, col := p.br.pos()
-	return Token{Kind: KindEnd, End: end, Line: line, Column: col}, true, nil
-}
-
-func (p *Parser) readNextToken() (Token, bool, error) {
-	p.retainedBytes = 0
-	b, err := p.br.readByte()
-	if err != nil {
-		return Token{}, false, err
-	}
-	if b != '<' {
-		p.atStart = false
-		token, charErr := p.readCharData(b)
-		return token, false, charErr
-	}
-	line, col := p.br.pos()
-	next, err := p.br.readByte()
-	if err != nil {
-		return Token{}, false, p.syntaxError("unexpected EOF after <", err)
-	}
-	return p.readMarkupToken(next, line, col)
-}
-
-func (p *Parser) readMarkupToken(next byte, line, col int) (Token, bool, error) {
-	var token Token
-	var skip bool
-	var err error
-	switch next {
-	case '/':
-		token, err = p.readEndToken(line, col)
-	case '!':
-		token, skip, err = p.readMarkup(line, col)
-	case '?':
-		token, skip, err = p.readPI(p.atStart, line, col)
-	default:
-		token, err = p.readStartToken(next, line, col)
-	}
-	if err != nil {
-		return Token{}, false, err
-	}
-	p.atStart = false
-	return token, skip, nil
-}
-
-func (p *Parser) readEndToken(line, col int) (Token, error) {
-	end, err := p.readEndElement()
-	if err != nil {
-		return Token{}, err
-	}
-	return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
-}
-
-func (p *Parser) readStartToken(first byte, line, col int) (Token, error) {
-	start, selfClosing, err := p.readStartElement(first)
-	if err != nil {
-		return Token{}, err
-	}
-	if selfClosing {
-		p.pendingEnd = EndElement{Name: start.Name}
-	}
-	return Token{Kind: KindStart, Start: start, Line: line, Column: col}, nil
 }
 
 // Pos returns the current parser line and byte column.
@@ -342,77 +328,81 @@ func joinedErrorsAreOnlyEOF(causes []error) bool {
 	return true
 }
 
+//nolint:gocognit // One loop owns byte consumption, delimiter state, and token position.
 func (p *Parser) readCharData(first byte) (Token, error) {
 	line, col := p.br.pos()
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
-	if err := p.appendCharDataByte(first, &cdataEnd); err != nil {
-		return Token{}, err
+	switch first {
+	case '&':
+		if err := p.readEntity(&p.textBuf); err != nil {
+			return Token{}, err
+		}
+	case '\r':
+		if err := p.consumeLineFeed(); err != nil {
+			return Token{}, err
+		}
+		if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+			return Token{}, err
+		}
+	default:
+		cdataEnd = advanceCDataEnd(cdataEnd, first)
+		if cdataEnd == len(cdataEndTerm) {
+			return Token{}, fmt.Errorf("]]> cannot appear in character data")
+		}
+		if err := p.appendXMLRune(&p.textBuf, first); err != nil {
+			return Token{}, err
+		}
 	}
 	for {
-		done, err := p.readCharDataStep(&cdataEnd)
+		chunk, err := p.br.buffered()
+		if IsOnlyEOF(err) {
+			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
+		}
 		if err != nil {
 			return Token{}, err
 		}
-		if done {
+		n, nextCDataEnd := scanCharDataChunk(chunk, cdataEnd)
+		if n > 0 {
+			if appendErr := p.appendTokenBytes(&p.textBuf, chunk[:n]); appendErr != nil {
+				return Token{}, appendErr
+			}
+			p.br.consumeBuffered(n)
+			cdataEnd = nextCDataEnd
+			continue
+		}
+		b, err := p.br.readByte()
+		if err != nil {
+			return Token{}, err
+		}
+		if b == '<' {
+			p.br.unreadByte()
 			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
 		}
-	}
-}
-
-func (p *Parser) readCharDataStep(cdataEnd *int) (bool, error) {
-	progressed, eof, err := p.appendBufferedCharData(cdataEnd)
-	if err != nil || eof {
-		return eof, err
-	}
-	if progressed {
-		return false, nil
-	}
-	b, err := p.br.readByte()
-	if err != nil {
-		return false, err
-	}
-	if b == '<' {
-		p.br.unreadByte()
-		return true, nil
-	}
-	return false, p.appendCharDataByte(b, cdataEnd)
-}
-
-func (p *Parser) appendBufferedCharData(cdataEnd *int) (bool, bool, error) {
-	chunk, err := p.br.buffered()
-	if IsOnlyEOF(err) {
-		return false, true, nil
-	}
-	if err != nil {
-		return false, false, err
-	}
-	n, nextCDataEnd := scanCharDataChunk(chunk, *cdataEnd)
-	if n == 0 {
-		return false, false, nil
-	}
-	if err := p.appendTokenBytes(&p.textBuf, chunk[:n]); err != nil {
-		return false, false, err
-	}
-	p.br.consumeBuffered(n)
-	*cdataEnd = nextCDataEnd
-	return true, false, nil
-}
-
-func (p *Parser) appendCharDataByte(b byte, cdataEnd *int) error {
-	switch b {
-	case '&':
-		*cdataEnd = 0
-		return p.readEntity(&p.textBuf)
-	case '\r':
-		*cdataEnd = 0
-		return p.appendNormalizedLineFeed(&p.textBuf)
-	default:
-		*cdataEnd = advanceCDataEnd(*cdataEnd, b)
-		if *cdataEnd == len(cdataEndTerm) {
-			return fmt.Errorf("]]> cannot appear in character data")
+		if b == '\r' {
+			if err := p.consumeLineFeed(); err != nil {
+				return Token{}, err
+			}
+			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+				return Token{}, err
+			}
+			cdataEnd = 0
+			continue
 		}
-		return p.appendXMLRune(&p.textBuf, b)
+		if b == '&' {
+			if err := p.readEntity(&p.textBuf); err != nil {
+				return Token{}, err
+			}
+			cdataEnd = 0
+			continue
+		}
+		cdataEnd = advanceCDataEnd(cdataEnd, b)
+		if cdataEnd == len(cdataEndTerm) {
+			return Token{}, fmt.Errorf("]]> cannot appear in character data")
+		}
+		if err := p.appendXMLRune(&p.textBuf, b); err != nil {
+			return Token{}, err
+		}
 	}
 }
 
@@ -423,20 +413,8 @@ func (p *Parser) appendNormalizedLineFeed(dst *[]byte) error {
 	return p.appendTokenByte(dst, '\n')
 }
 
+//nolint:gocognit // One pass keeps ASCII and UTF-8 scan state local and avoids per-byte calls.
 func scanCharDataChunk(data []byte, cdataEnd int) (int, int) {
-	i := scanFastCharData(data, cdataEnd)
-	for i < len(data) {
-		size, next, stop := scanCharDataUnit(data[i:], cdataEnd)
-		if stop {
-			return i, next
-		}
-		i += size
-		cdataEnd = next
-	}
-	return len(data), cdataEnd
-}
-
-func scanFastCharData(data []byte, cdataEnd int) int {
 	i := 0
 	for cdataEnd == 0 && len(data)-i >= 8 {
 		x := binary.LittleEndian.Uint64(data[i:])
@@ -449,45 +427,45 @@ func scanFastCharData(data []byte, cdataEnd int) int {
 		}
 		i += 8
 	}
-	return i
-}
-
-func scanCharDataUnit(data []byte, cdataEnd int) (int, int, bool) {
-	if data[0] < utf8.RuneSelf {
-		return scanASCIICharDataByte(data[0], cdataEnd)
-	}
-	return scanUTF8CharData(data, cdataEnd)
-}
-
-func scanASCIICharDataByte(b byte, cdataEnd int) (int, int, bool) {
-	switch {
-	case b == '<' || b == '&' || b == '\n' || b == '\r':
-		return 0, cdataEnd, true
-	case b == '\t':
-		return 1, 0, false
-	case b < 0x20:
-		return 0, cdataEnd, true
-	default:
-		next := advanceCDataEnd(cdataEnd, b)
-		if next == len(cdataEndTerm) {
-			return 0, cdataEnd, true
+	for i < len(data) {
+		b := data[i]
+		if b >= 0x20 && b < utf8.RuneSelf {
+			if b == '<' || b == '&' {
+				return i, cdataEnd
+			}
+			nextCDataEnd := advanceCDataEnd(cdataEnd, b)
+			if nextCDataEnd == len(cdataEndTerm) {
+				return i, cdataEnd
+			}
+			cdataEnd = nextCDataEnd
+			i++
+			continue
 		}
-		return 1, next, false
+		if b == '\n' || b == '\r' {
+			return i, cdataEnd
+		}
+		if b == '\t' {
+			cdataEnd = 0
+			i++
+			continue
+		}
+		if b < utf8.RuneSelf {
+			return i, cdataEnd
+		}
+		if !utf8.FullRune(data[i:]) {
+			return i, cdataEnd
+		}
+		r, size := utf8.DecodeRune(data[i:])
+		if r == utf8.RuneError && size == 1 {
+			return i, cdataEnd
+		}
+		if !lex.IsXMLChar(r) {
+			return i, cdataEnd
+		}
+		cdataEnd = 0
+		i += size
 	}
-}
-
-func scanUTF8CharData(data []byte, cdataEnd int) (int, int, bool) {
-	if !utf8.FullRune(data) {
-		return 0, cdataEnd, true
-	}
-	r, size := utf8.DecodeRune(data)
-	if r == utf8.RuneError && size == 1 {
-		return 0, cdataEnd, true
-	}
-	if !lex.IsXMLChar(r) {
-		return 0, cdataEnd, true
-	}
-	return size, 0, false
+	return len(data), cdataEnd
 }
 
 const cdataEndTerm = "]]>"
