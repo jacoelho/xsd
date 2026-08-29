@@ -358,6 +358,8 @@ func TestSessionSemanticStopPreservesOnlyXMLLifecycle(t *testing.T) {
 	t.Parallel()
 
 	t.Run("before identity activation", func(t *testing.T) {
+		t.Parallel()
+
 		rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
 		var s session
 		if err := initializeSession(&s, rt, Options{MaxErrors: 1}); err != nil {
@@ -370,6 +372,8 @@ func TestSessionSemanticStopPreservesOnlyXMLLifecycle(t *testing.T) {
 	})
 
 	t.Run("after identity activation", func(t *testing.T) {
+		t.Parallel()
+
 		rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType>
