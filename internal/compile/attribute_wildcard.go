@@ -10,9 +10,14 @@ import (
 type AttributeMergeMode uint8
 
 const (
-	// AttributeMergeNormal appends local uses and applies extension wildcard
-	// inheritance when compiling xs:extension.
-	AttributeMergeNormal AttributeMergeMode = iota
+	// AttributeMergeInvalid is not a valid attribute derivation operation.
+	AttributeMergeInvalid AttributeMergeMode = iota
+	// AttributeMergeDirect appends locally declared uses without inheriting a
+	// wildcard.
+	AttributeMergeDirect
+	// AttributeMergeExtension appends local uses and unions local and inherited
+	// wildcards.
+	AttributeMergeExtension
 	// AttributeMergeRestriction validates local uses and wildcard declarations
 	// as restrictions of inherited attributes.
 	AttributeMergeRestriction
@@ -106,13 +111,24 @@ func (b *AttributeWildcardBuilder) add(rt AttributeWildcardRuntime, id runtime.W
 	return nil
 }
 
-// Finish returns the final wildcard after restriction checks or extension
-// inheritance.
-func (b *AttributeWildcardBuilder) Finish(rt AttributeWildcardRuntime, extension bool) (runtime.WildcardID, error) {
-	if b.mode == AttributeMergeRestriction {
+// Finish returns the wildcard produced by the builder's derivation operation.
+func (b *AttributeWildcardBuilder) Finish(rt AttributeWildcardRuntime) (runtime.WildcardID, error) {
+	switch b.mode {
+	case AttributeMergeDirect:
+		return b.wildcard, nil
+	case AttributeMergeExtension:
+		return b.finishExtension(rt)
+	case AttributeMergeRestriction:
 		return b.finishRestriction(rt)
+	case AttributeMergeInvalid:
+		return runtime.NoWildcard, xsderrors.InternalInvariant("invalid attribute merge mode")
+	default:
+		return runtime.NoWildcard, xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
-	if !extension || b.inheritedWildcard == runtime.NoWildcard {
+}
+
+func (b *AttributeWildcardBuilder) finishExtension(rt AttributeWildcardRuntime) (runtime.WildcardID, error) {
+	if b.inheritedWildcard == runtime.NoWildcard {
 		return b.wildcard, nil
 	}
 	if b.wildcard == runtime.NoWildcard {
@@ -156,14 +172,19 @@ func (b *AttributeWildcardBuilder) finishRestriction(rt AttributeWildcardRuntime
 
 // AttributeWildcardDerivation returns the provenance kind stored on the
 // compiled attribute-use set.
-func AttributeWildcardDerivation(extension bool, mode AttributeMergeMode) runtime.AttributeWildcardDerivation {
-	if mode == AttributeMergeRestriction {
-		return runtime.AttributeWildcardRestriction
+func AttributeWildcardDerivation(mode AttributeMergeMode) (runtime.AttributeWildcardDerivation, error) {
+	switch mode {
+	case AttributeMergeDirect:
+		return runtime.AttributeWildcardNone, nil
+	case AttributeMergeExtension:
+		return runtime.AttributeWildcardExtension, nil
+	case AttributeMergeRestriction:
+		return runtime.AttributeWildcardRestriction, nil
+	case AttributeMergeInvalid:
+		return runtime.AttributeWildcardNone, xsderrors.InternalInvariant("invalid attribute merge mode")
+	default:
+		return runtime.AttributeWildcardNone, xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
-	if extension {
-		return runtime.AttributeWildcardExtension
-	}
-	return runtime.AttributeWildcardNone
 }
 
 func requiredAttributeWildcard(rt AttributeWildcardRuntime, id runtime.WildcardID) (runtime.Wildcard, error) {

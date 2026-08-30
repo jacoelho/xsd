@@ -34,6 +34,12 @@ jobs:
 
       - run: make web-test
 
+      - run: npm ci --prefix docs/js
+
+      - run: npm exec --prefix docs/js -- playwright install --with-deps chromium
+
+      - run: make browser-test
+
       - run: make fuzz-smoke
 
       - run: make race

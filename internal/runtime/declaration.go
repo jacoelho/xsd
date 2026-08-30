@@ -165,10 +165,44 @@ func ValidateAttributeDeclName(names *NameTable, name QName) error {
 	if names.Local(name.Local) == vocab.XMLNSPrefix {
 		return errors.New("attribute cannot be named xmlns")
 	}
-	if names.Namespace(name.Namespace) == XSINamespaceURI {
+	if names.Namespace(name.Namespace) == vocab.XSINamespaceURI {
 		return errors.New("attribute target namespace cannot be XMLSchema-instance")
 	}
 	return nil
+}
+
+// DeclarationValueConstraint classifies the value constraints on a
+// declaration.
+type DeclarationValueConstraint uint8
+
+const (
+	// DeclarationValueConstraintNone means the declaration has no constraint.
+	DeclarationValueConstraintNone DeclarationValueConstraint = iota
+	// DeclarationValueConstraintDefault means the declaration has a default.
+	DeclarationValueConstraintDefault
+	// DeclarationValueConstraintFixed means the declaration has a fixed value.
+	DeclarationValueConstraintFixed
+	// DeclarationValueConstraintConflict means both mutually exclusive
+	// constraints were supplied.
+	DeclarationValueConstraintConflict
+)
+
+func (c DeclarationValueConstraint) present() bool {
+	return c == DeclarationValueConstraintDefault || c == DeclarationValueConstraintFixed
+}
+
+// DeclarationValueConstraintOf classifies declaration value-constraint values.
+func DeclarationValueConstraintOf[T any](defaultValue, fixedValue *T) DeclarationValueConstraint {
+	switch {
+	case defaultValue != nil && fixedValue != nil:
+		return DeclarationValueConstraintConflict
+	case defaultValue != nil:
+		return DeclarationValueConstraintDefault
+	case fixedValue != nil:
+		return DeclarationValueConstraintFixed
+	default:
+		return DeclarationValueConstraintNone
+	}
 }
 
 // ValidateElementDeclValueConstraintRuntime validates element declaration
@@ -176,11 +210,11 @@ func ValidateAttributeDeclName(names *NameTable, name QName) error {
 func ValidateElementDeclValueConstraintRuntime(rt interface {
 	SimpleTypeIdentityRuntime
 	ValueConstraintRuntime
-}, typ SimpleTypeID, hasDefault, hasFixed bool) error {
-	if err := validateDeclValueConstraintIdentity(rt, typ, hasDefault, hasFixed, "ID-typed element declaration stores value constraint"); err != nil {
+}, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
+	if err := validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed element declaration stores value constraint"); err != nil {
 		return err
 	}
-	if (hasDefault || hasFixed) && SimpleTypeUsesBareNotation(rt, typ) {
+	if constraint.present() && SimpleTypeUsesBareNotation(rt, typ) {
 		return ErrBareNotationValueConstraint
 	}
 	return nil
@@ -188,13 +222,19 @@ func ValidateElementDeclValueConstraintRuntime(rt interface {
 
 // ValidateAttributeDeclValueConstraintRuntime validates attribute declaration
 // value-constraint rules that depend on the declaration's simple type.
-func ValidateAttributeDeclValueConstraintRuntime(rt SimpleTypeIdentityRuntime, typ SimpleTypeID, hasDefault, hasFixed bool) error {
-	return validateDeclValueConstraintIdentity(rt, typ, hasDefault, hasFixed, "ID-typed attribute declaration stores value constraint")
+func ValidateAttributeDeclValueConstraintRuntime(rt SimpleTypeIdentityRuntime, typ SimpleTypeID, constraint DeclarationValueConstraint) error {
+	return validateDeclValueConstraintIdentity(rt, typ, constraint, "ID-typed attribute declaration stores value constraint")
 }
 
-func validateDeclValueConstraintIdentity(rt SimpleTypeIdentityRuntime, typ SimpleTypeID, hasDefault, hasFixed bool, msg string) error {
-	if !hasDefault && !hasFixed {
+func validateDeclValueConstraintIdentity(rt SimpleTypeIdentityRuntime, typ SimpleTypeID, constraint DeclarationValueConstraint, msg string) error {
+	switch constraint {
+	case DeclarationValueConstraintNone:
 		return nil
+	case DeclarationValueConstraintDefault, DeclarationValueConstraintFixed:
+	case DeclarationValueConstraintConflict:
+		return errors.New("declaration stores conflicting value constraints")
+	default:
+		return errors.New("declaration value constraint kind is unknown")
 	}
 	if typ == NoSimpleType {
 		return nil

@@ -2,12 +2,6 @@ package runtime
 
 import "errors"
 
-const (
-	fastDecimalErrInvalid      = "invalid decimal"
-	fastDecimalErrMinInclusive = "minInclusive facet failed"
-	fastDecimalErrMaxInclusive = "maxInclusive facet failed"
-)
-
 // RawDecimalBound is a schema-projected inclusive decimal bound for raw decimal
 // fast-path validation. Int is the trimmed non-negative integer part; Frac is
 // the trimmed fractional part.
@@ -35,7 +29,7 @@ func ValidateIntegerLexical[T byteText](raw T) error {
 		return err
 	}
 	if scan.dot {
-		return errors.New(fastIntErrInvalidInteger)
+		return errors.New(rawDecimalErrInvalidInteger)
 	}
 	return nil
 }
@@ -82,36 +76,16 @@ type decimalTextScan struct {
 }
 
 func scanDecimalText[T byteText](raw T) (decimalTextScan, error) {
-	if len(raw) == 0 {
-		return decimalTextScan{}, errors.New(fastDecimalErrInvalid)
+	start, negative, err := scanDecimalSign(raw)
+	if err != nil {
+		return decimalTextScan{}, err
 	}
-	start := 0
-	negative := false
-	if raw[0] == '+' || raw[0] == '-' {
-		negative = raw[0] == '-'
-		start = 1
-	}
-	if start == len(raw) {
-		return decimalTextScan{}, errors.New(fastDecimalErrInvalid)
-	}
-	dot := -1
-	digits := 0
-	for i := start; i < len(raw); i++ {
-		c := raw[i]
-		switch {
-		case c == '.':
-			if dot >= 0 {
-				return decimalTextScan{}, errors.New(fastDecimalErrInvalid)
-			}
-			dot = i
-		case c >= '0' && c <= '9':
-			digits++
-		default:
-			return decimalTextScan{}, errors.New(fastDecimalErrInvalid)
-		}
+	dot, digits, err := scanDecimalBody(raw, start)
+	if err != nil {
+		return decimalTextScan{}, err
 	}
 	if digits == 0 {
-		return decimalTextScan{}, errors.New(fastDecimalErrInvalid)
+		return decimalTextScan{}, errors.New(rawDecimalErrInvalidDecimal)
 	}
 
 	intEnd := len(raw)
@@ -129,6 +103,34 @@ func scanDecimalText[T byteText](raw T) (decimalTextScan, error) {
 	}, nil
 }
 
+func scanDecimalSign[T byteText](raw T) (int, bool, error) {
+	if len(raw) == 0 {
+		return 0, false, errors.New(rawDecimalErrInvalidDecimal)
+	}
+	if raw[0] != '+' && raw[0] != '-' {
+		return 0, false, nil
+	}
+	if len(raw) == 1 {
+		return 0, false, errors.New(rawDecimalErrInvalidDecimal)
+	}
+	return 1, raw[0] == '-', nil
+}
+
+func scanDecimalBody[T byteText](raw T, start int) (dot, digits int, err error) {
+	dot = -1
+	for i := start; i < len(raw); i++ {
+		switch c := raw[i]; {
+		case c == '.' && dot < 0:
+			dot = i
+		case c >= '0' && c <= '9':
+			digits++
+		default:
+			return 0, 0, errors.New(rawDecimalErrInvalidDecimal)
+		}
+	}
+	return dot, digits, nil
+}
+
 func validateDecimalTextNonNegativeBounds[T byteText](raw T, minBound, maxBound RawDecimalBound) error {
 	scan, err := scanDecimalText(raw)
 	if err != nil {
@@ -139,56 +141,67 @@ func validateDecimalTextNonNegativeBounds[T byteText](raw T, minBound, maxBound 
 	nonZero := intTrimStart < scan.intEnd || fracTrimEnd > scan.fracStart
 	if scan.negative && nonZero {
 		if minBound.Present {
-			return errors.New(fastDecimalErrMinInclusive)
+			return errors.New(rawDecimalErrMinInclusive)
 		}
 		return nil
 	}
 	if minBound.Present && comparePositiveDecimalTextToBound(raw, intTrimStart, scan.intEnd, scan.fracStart, fracTrimEnd, minBound) < 0 {
-		return errors.New(fastDecimalErrMinInclusive)
+		return errors.New(rawDecimalErrMinInclusive)
 	}
 	if maxBound.Present && comparePositiveDecimalTextToBound(raw, intTrimStart, scan.intEnd, scan.fracStart, fracTrimEnd, maxBound) > 0 {
-		return errors.New(fastDecimalErrMaxInclusive)
+		return errors.New(rawDecimalErrMaxInclusive)
 	}
 	return nil
 }
 
 func comparePositiveDecimalTextToBound[T byteText](raw T, intTrimStart, intEnd, fracStart, fracTrimEnd int, bound RawDecimalBound) int {
-	intDigits := intEnd - intTrimStart
+	if order := compareDecimalIntegerText(raw, intTrimStart, intEnd, bound.Int); order != 0 {
+		return order
+	}
+	return compareDecimalFractionText(raw, fracStart, fracTrimEnd, bound.Frac)
+}
+
+func compareDecimalIntegerText[T byteText](raw T, start, end int, bound string) int {
+	intDigits := end - start
 	if intDigits == 0 {
 		intDigits = 1
 	}
-	if intDigits < len(bound.Int) {
+	if intDigits < len(bound) {
 		return -1
 	}
-	if intDigits > len(bound.Int) {
+	if intDigits > len(bound) {
 		return 1
 	}
 	for i := range intDigits {
 		digit := byte('0')
-		if intEnd > intTrimStart {
-			digit = raw[intTrimStart+i]
+		if end > start {
+			digit = raw[start+i]
 		}
-		if digit < bound.Int[i] {
+		if digit < bound[i] {
 			return -1
 		}
-		if digit > bound.Int[i] {
+		if digit > bound[i] {
 			return 1
 		}
 	}
-	fracDigits := fracTrimEnd - fracStart
-	common := min(fracDigits, len(bound.Frac))
+	return 0
+}
+
+func compareDecimalFractionText[T byteText](raw T, start, end int, bound string) int {
+	fracDigits := end - start
+	common := min(fracDigits, len(bound))
 	for i := range common {
-		if raw[fracStart+i] < bound.Frac[i] {
+		if raw[start+i] < bound[i] {
 			return -1
 		}
-		if raw[fracStart+i] > bound.Frac[i] {
+		if raw[start+i] > bound[i] {
 			return 1
 		}
 	}
-	if fracDigits < len(bound.Frac) {
+	if fracDigits < len(bound) {
 		return -1
 	}
-	if fracDigits > len(bound.Frac) {
+	if fracDigits > len(bound) {
 		return 1
 	}
 	return 0

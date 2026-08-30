@@ -412,7 +412,13 @@ func (u AttributeUseRead) FixedUsesValueSpace() bool {
 // AbsentValueConstraint returns the fixed/default value applied when the
 // attribute is absent.
 func (u AttributeUseRead) AbsentValueConstraint() (ValueConstraintRead, bool) {
-	return AbsentValueConstraint(u.fixed, u.hasFixed, u.defaultValue, u.hasDefault)
+	if u.hasFixed {
+		return u.fixed, true
+	}
+	if u.hasDefault {
+		return u.defaultValue, true
+	}
+	return ValueConstraintRead{}, false
 }
 
 // CanValidateFixedStringFast reports whether validation may compare the raw
@@ -632,45 +638,75 @@ func ValidateAttributeUseSetRecord(names *NameTable, rt AttributeUseSetRuntime, 
 	if len(set.Index) != len(set.Uses) {
 		return errors.New("attribute use set index size does not match uses")
 	}
-	idAttrs := 0
-	requiredSlot := 0
-	valueConstraintSlot := 0
+	audit := attributeUseSetAudit{names: names, rt: rt, set: set}
 	for i, use := range set.Uses {
-		validation := NewAttributeUseValidationForUse(use)
-		identity, err := validateAttributeUseRuntime(names, rt, set.Index, i, validation)
-		if err != nil {
+		if err := audit.validateUse(i, use); err != nil {
 			return err
 		}
-		if identity == SimpleIdentityID {
-			if validation.HasDefault || validation.HasFixed {
-				return errors.New("ID-typed attribute use stores value constraint")
-			}
-			idAttrs++
-			if idAttrs > 1 {
-				return errors.New("attribute use set stores multiple ID attributes")
-			}
-		}
-		slot, ok := uint32Index(i)
-		if !ok {
-			return errors.New("attribute use slot is invalid")
-		}
-		if validation.Required {
-			if requiredSlot >= len(set.Required) || set.Required[requiredSlot] != slot {
-				return errors.New("attribute use set required slots do not match uses")
-			}
-			requiredSlot++
-		}
-		if validation.HasDefault || validation.HasFixed {
-			if valueConstraintSlot >= len(set.ValueConstraints) || set.ValueConstraints[valueConstraintSlot] != slot {
-				return errors.New("attribute use set value constraint slots do not match uses")
-			}
-			valueConstraintSlot++
+	}
+	return audit.complete()
+}
+
+type attributeUseSetAudit struct {
+	names               *NameTable
+	rt                  AttributeUseSetRuntime
+	set                 AttributeUseSet
+	idAttrs             int
+	requiredSlot        int
+	valueConstraintSlot int
+}
+
+func (a *attributeUseSetAudit) validateUse(index int, use AttributeUse) error {
+	validation := NewAttributeUseValidationForUse(use)
+	identity, err := validateAttributeUseRuntime(a.names, a.rt, a.set.Index, index, validation)
+	if err != nil {
+		return err
+	}
+	if err := a.validateIDUse(identity, validation); err != nil {
+		return err
+	}
+	slot, ok := uint32Index(index)
+	if !ok {
+		return errors.New("attribute use slot is invalid")
+	}
+	if validation.Required {
+		if err := validateAttributeUseProjection(a.set.Required, &a.requiredSlot, slot, "attribute use set required slots do not match uses"); err != nil {
+			return err
 		}
 	}
-	if requiredSlot != len(set.Required) {
+	if validation.HasDefault || validation.HasFixed {
+		return validateAttributeUseProjection(a.set.ValueConstraints, &a.valueConstraintSlot, slot, "attribute use set value constraint slots do not match uses")
+	}
+	return nil
+}
+
+func (a *attributeUseSetAudit) validateIDUse(identity SimpleIdentityKind, use AttributeUseValidation) error {
+	if identity != SimpleIdentityID {
+		return nil
+	}
+	if use.HasDefault || use.HasFixed {
+		return errors.New("ID-typed attribute use stores value constraint")
+	}
+	a.idAttrs++
+	if a.idAttrs > 1 {
+		return errors.New("attribute use set stores multiple ID attributes")
+	}
+	return nil
+}
+
+func validateAttributeUseProjection(slots []uint32, position *int, slot uint32, message string) error {
+	if *position >= len(slots) || slots[*position] != slot {
+		return errors.New(message)
+	}
+	*position++
+	return nil
+}
+
+func (a *attributeUseSetAudit) complete() error {
+	if a.requiredSlot != len(a.set.Required) {
 		return errors.New("attribute use set required slots do not match uses")
 	}
-	if valueConstraintSlot != len(set.ValueConstraints) {
+	if a.valueConstraintSlot != len(a.set.ValueConstraints) {
 		return errors.New("attribute use set value constraint slots do not match uses")
 	}
 	return nil
@@ -712,7 +748,31 @@ func ValidateAttributeUseSetRestriction(
 	},
 	base, derived []AttributeUseRestrictionValidation,
 	baseWildcard, derivedWildcard AttributeWildcardState,
-	bindWildcard bool,
+	binding AttributeWildcardBinding,
+) error {
+	if err := validateBaseAttributeUseRestrictions(rt, base, derived); err != nil {
+		return err
+	}
+	if err := validateNewRestrictedAttributeUses(rt, base, derived, baseWildcard); err != nil {
+		return err
+	}
+	return validateRestrictedAttributeWildcard(rt, baseWildcard, derivedWildcard, binding)
+}
+
+// AttributeWildcardBinding identifies whether restriction wildcard provenance
+// is required for an explicit derivation.
+type AttributeWildcardBinding uint8
+
+const (
+	// AttributeWildcardUnbound omits explicit wildcard provenance binding.
+	AttributeWildcardUnbound AttributeWildcardBinding = iota
+	// AttributeWildcardBound requires explicit wildcard provenance binding.
+	AttributeWildcardBound
+)
+
+func validateBaseAttributeUseRestrictions(
+	rt TypeDerivationRuntime,
+	base, derived []AttributeUseRestrictionValidation,
 ) error {
 	for _, use := range base {
 		next, ok := attributeUseRestrictionByName(derived, use.Name)
@@ -725,6 +785,14 @@ func ValidateAttributeUseSetRestriction(
 			}
 		}
 	}
+	return nil
+}
+
+func validateNewRestrictedAttributeUses(
+	rt AttributeWildcardRuntime,
+	base, derived []AttributeUseRestrictionValidation,
+	baseWildcard AttributeWildcardState,
+) error {
 	for _, use := range derived {
 		if _, ok := attributeUseRestrictionByName(base, use.Name); ok {
 			continue
@@ -737,13 +805,25 @@ func ValidateAttributeUseSetRestriction(
 			return errors.New("complex restriction adds attribute outside base wildcard")
 		}
 	}
-	if !bindWildcard {
-		if derivedWildcard.Derivation != AttributeWildcardNone {
+	return nil
+}
+
+func validateRestrictedAttributeWildcard(
+	rt AttributeWildcardRuntime,
+	base, derived AttributeWildcardState,
+	binding AttributeWildcardBinding,
+) error {
+	switch binding {
+	case AttributeWildcardUnbound:
+		if derived.Derivation != AttributeWildcardNone {
 			return errors.New("implicit complex type stores derived attribute wildcard provenance")
 		}
 		return nil
+	case AttributeWildcardBound:
+		return ValidateAttributeWildcardDerivation(rt, base, derived, AttributeWildcardRestriction)
+	default:
+		return errors.New("attribute wildcard binding is invalid")
 	}
-	return ValidateAttributeWildcardDerivation(rt, baseWildcard, derivedWildcard, AttributeWildcardRestriction)
 }
 
 func attributeUseRestrictionByName(uses []AttributeUseRestrictionValidation, name QName) (AttributeUseRestrictionValidation, bool) {
@@ -894,33 +974,47 @@ func validateAttributeWildcardRestriction(rt AttributeWildcardRuntime, state Att
 func validateAttributeWildcardExtension(rt AttributeWildcardRuntime, state AttributeWildcardState) error {
 	switch {
 	case state.Base == NoWildcard:
-		if state.Wildcard != state.Declared {
-			return errors.New("attribute wildcard extension without base does not match declared wildcard")
-		}
+		return validateAttributeWildcardExtensionWithoutBase(state)
 	case state.Declared == NoWildcard:
-		if state.Wildcard != state.Base {
-			return errors.New("attribute wildcard extension does not inherit base wildcard")
-		}
+		return validateAttributeWildcardExtensionWithoutDeclaration(state)
 	default:
-		declared, ok := rt.Wildcard(state.Declared)
-		if !ok {
-			return errors.New("attribute use set references invalid declared wildcard")
-		}
-		base, ok := rt.Wildcard(state.Base)
-		if !ok {
-			return errors.New("attribute use set references invalid base wildcard")
-		}
-		actual, ok := rt.Wildcard(state.Wildcard)
-		if !ok {
-			return errors.New("attribute use set references invalid wildcard")
-		}
-		union, err := UnionWildcard(declared, base, declared.Process)
-		if err != nil {
-			return errors.New("attribute wildcard extension cannot be rederived")
-		}
-		if !wildcardsEqual(actual, union) {
-			return errors.New("attribute wildcard extension does not match provenance")
-		}
+		return validateAttributeWildcardExtensionUnion(rt, state)
+	}
+}
+
+func validateAttributeWildcardExtensionWithoutBase(state AttributeWildcardState) error {
+	if state.Wildcard != state.Declared {
+		return errors.New("attribute wildcard extension without base does not match declared wildcard")
+	}
+	return nil
+}
+
+func validateAttributeWildcardExtensionWithoutDeclaration(state AttributeWildcardState) error {
+	if state.Wildcard != state.Base {
+		return errors.New("attribute wildcard extension does not inherit base wildcard")
+	}
+	return nil
+}
+
+func validateAttributeWildcardExtensionUnion(rt AttributeWildcardRuntime, state AttributeWildcardState) error {
+	declared, ok := rt.Wildcard(state.Declared)
+	if !ok {
+		return errors.New("attribute use set references invalid declared wildcard")
+	}
+	base, ok := rt.Wildcard(state.Base)
+	if !ok {
+		return errors.New("attribute use set references invalid base wildcard")
+	}
+	actual, ok := rt.Wildcard(state.Wildcard)
+	if !ok {
+		return errors.New("attribute use set references invalid wildcard")
+	}
+	union, err := UnionWildcard(declared, base, declared.Process)
+	if err != nil {
+		return errors.New("attribute wildcard extension cannot be rederived")
+	}
+	if !wildcardsEqual(actual, union) {
+		return errors.New("attribute wildcard extension does not match provenance")
 	}
 	return nil
 }

@@ -1,7 +1,6 @@
 package xsd_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -42,23 +41,23 @@ func TestDiagnosticsTypesRemainPublic(t *testing.T) {
 
 func TestZeroAndNilValidationReceiversReturnPublicErrors(t *testing.T) {
 	var zero xsd.Engine
-	err := zero.Validate(context.Background(), strings.NewReader(`<root/>`))
+	err := zero.Validate(strings.NewReader(`<root/>`))
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	assertPublicErrorTree(t, err)
 
 	var nilEngine *xsd.Engine
-	err = nilEngine.Validate(context.Background(), strings.NewReader(`<root/>`))
+	err = nilEngine.Validate(strings.NewReader(`<root/>`))
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	assertPublicErrorTree(t, err)
 
 	var nilSession *xsd.Session
-	err = nilSession.Validate(context.Background(), strings.NewReader(`<root/>`))
+	err = nilSession.Validate(strings.NewReader(`<root/>`))
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	assertPublicErrorTree(t, err)
 }
 
 func TestPublicAggregateErrorsDoNotExposeInternalDiagnostics(t *testing.T) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
@@ -74,16 +73,16 @@ func TestPublicAggregateErrorsDoNotExposeInternalDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-	err = engine.Validate(context.Background(), strings.NewReader(`<root><a>x</a><b>y</b></root>`))
+	err = engine.Validate(strings.NewReader(`<root><a>x</a><b>y</b></root>`))
 	var errs xsderrors.Errors
 	if !errors.As(err, &errs) {
 		t.Fatalf("Validate() error type = %T, want xsderrors.Errors; err=%v", err, err)
 	}
-	if len(errs) != 3 {
-		t.Fatalf("len(xsderrors.Errors) = %d, want 3; err=%v", len(errs), err)
+	if errs.Len() != 3 {
+		t.Fatalf("xsderrors.Errors.Len() = %d, want 3; err=%v", errs.Len(), err)
 	}
 	assertPublicErrorTree(t, err)
-	for i, child := range errs {
+	for i, child := range xsderrors.Flatten(errs) {
 		if child == nil {
 			t.Fatalf("xsderrors.Errors[%d] is nil", i)
 		}
@@ -94,11 +93,10 @@ func TestPublicAggregateErrorsDoNotExposeInternalDiagnostics(t *testing.T) {
 func TestPublicDiagnosticsWrapping(t *testing.T) {
 	err := xsderrors.SchemaParse(
 		xsderrors.CodeSchemaXML,
-		1,
-		2,
 		"invalid schema XML",
-		xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex"),
+		xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex", nil),
 	)
+	err = xsderrors.WithLocation("", 1, 2, err)
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaXML)
 	if !xsderrors.IsUnsupported(err) {
 		t.Fatalf("xsderrors.IsUnsupported(%v) = false", err)
@@ -117,12 +115,12 @@ func assertPublicErrorTree(t *testing.T, err error) {
 	}
 	assertPublicErrorValue(t, err)
 	if e, ok := errors.AsType[*xsderrors.Error](err); ok {
-		if e.Err != nil {
-			assertPublicErrorTree(t, e.Err)
+		if e.Cause() != nil {
+			assertPublicErrorTree(t, e.Cause())
 		}
 	}
 	if e, ok := errors.AsType[xsderrors.Errors](err); ok {
-		for _, child := range e {
+		for _, child := range xsderrors.Flatten(e) {
 			assertPublicErrorTree(t, child)
 		}
 	}

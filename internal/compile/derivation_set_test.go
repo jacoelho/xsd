@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/vocab"
 )
 
 func TestParseDerivationSet(t *testing.T) {
@@ -36,6 +37,27 @@ func TestParseDerivationSet(t *testing.T) {
 			label:   "complexType final",
 			allowed: allowed,
 			want:    allowed,
+		},
+		{
+			name:        "non XML whitespace is not a separator",
+			value:       "extension\u00a0restriction",
+			label:       "complexType final",
+			allowed:     allowed,
+			wantMessage: "invalid complexType final value extension\u00a0restriction",
+		},
+		{
+			name:        "repeated all",
+			value:       "#all #all",
+			label:       "complexType final",
+			allowed:     allowed,
+			wantMessage: "complexType final cannot combine #all with other values",
+		},
+		{
+			name:    "duplicate token is idempotent",
+			value:   vocab.XSDElemExtension + " " + vocab.XSDElemExtension,
+			label:   "complexType final",
+			allowed: allowed,
+			want:    runtime.DerivationExtension,
 		},
 		{
 			name:        "all combination",
@@ -82,7 +104,7 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 	t.Parallel()
 
 	def := runtime.DerivationBlockDefaultMask
-	got, err := ParseDerivationAttrWithDefault("", false, def, complexTypeBlockDerivation())
+	got, err := ParseDerivationAttrWithDefault(LexicalAttribute{}, def, complexTypeBlockDerivation())
 	if err != nil {
 		t.Fatalf("ParseDerivationAttrWithDefault(absent) error = %v", err)
 	}
@@ -91,7 +113,7 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 		t.Fatalf("ParseDerivationAttrWithDefault(absent) = %08b, want %08b", got, want)
 	}
 
-	got, err = ParseDerivationAttrWithDefault("extension", true, def, complexTypeBlockDerivation())
+	got, err = ParseDerivationAttrWithDefault(LexicalAttribute{Value: "extension", Present: true}, def, complexTypeBlockDerivation())
 	if err != nil {
 		t.Fatalf("ParseDerivationAttrWithDefault(present) error = %v", err)
 	}
@@ -99,7 +121,7 @@ func TestParseDerivationAttrWithDefault(t *testing.T) {
 		t.Fatalf("ParseDerivationAttrWithDefault(present) = %08b, want extension", got)
 	}
 
-	_, err = ParseDerivationAttrWithDefault("list", true, def, complexTypeBlockDerivation())
+	_, err = ParseDerivationAttrWithDefault(LexicalAttribute{Value: "list", Present: true}, def, complexTypeBlockDerivation())
 	expectInvalidAttributeMessage(t, err, "complexType block cannot contain list")
 }
 

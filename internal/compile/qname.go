@@ -17,9 +17,9 @@ type QNameParts struct {
 // ParseQNameParts parses and validates a lexical QName.
 func ParseQNameParts(lexical string) (QNameParts, error) {
 	lexical = lex.TrimXMLWhitespaceString(lexical)
-	prefix, local, prefixed, ok := lex.SplitQName(lexical)
-	if !ok {
+	parts := lex.SplitQName(lexical)
+	if !parts.Valid {
 		return QNameParts{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, invalidQNameMessagePrefix+lexical)
 	}
-	return QNameParts{Prefix: prefix, Local: local, Prefixed: prefixed}, nil
+	return QNameParts{Prefix: parts.Prefix, Local: parts.Local, Prefixed: parts.Prefixed}, nil
 }

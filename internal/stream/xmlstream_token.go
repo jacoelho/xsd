@@ -56,6 +56,15 @@ func (a *Attr) StringValue(cache *Cache) string {
 	return a.Value
 }
 
+// MaterializeValue returns the attribute value as an owned string when cache
+// can materialize any parser-owned storage.
+func (a *Attr) MaterializeValue(cache *Cache) (string, bool) {
+	if a.HasBorrowedValue() && cache == nil {
+		return "", false
+	}
+	return a.StringValue(cache), true
+}
+
 // AppendValue appends the attribute value to dst. It must be called while the
 // token that produced a raw-backed attribute is still current.
 func (a *Attr) AppendValue(dst []byte, cache *Cache) []byte {

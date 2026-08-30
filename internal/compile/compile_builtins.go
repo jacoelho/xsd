@@ -2,6 +2,7 @@ package compile
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -91,7 +92,7 @@ func (c *compiler) addBuiltinAttributeSimpleSeed(seed runtime.BuiltinAttributeSi
 }
 
 func (c *compiler) addBuiltinAnyType() error {
-	anyWildcard, err := c.addWildcard(runtime.BuiltinAnyTypeWildcard())
+	anyWildcard, err := c.appendWildcard(runtime.BuiltinAnyTypeWildcard())
 	if err != nil {
 		return err
 	}
@@ -103,7 +104,7 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	q, err := c.rt.internQName(runtime.XSDNamespaceURI, runtime.BuiltinAnyTypeLocalName())
+	q, err := c.rt.internQName(vocab.XSDNamespaceURI, runtime.BuiltinAnyTypeLocalName())
 	if err != nil {
 		return err
 	}
@@ -132,7 +133,7 @@ func (c *compiler) missingSimpleType() (runtime.SimpleTypeID, error) {
 	if c.missingSimple != runtime.NoSimpleType {
 		return c.missingSimple, nil
 	}
-	q, err := c.rt.internQName(runtime.EmptyNamespaceURI, runtime.MissingSimpleTypeLocalName())
+	q, err := c.rt.internQName(vocab.EmptyNamespaceURI, runtime.MissingSimpleTypeLocalName())
 	if err != nil {
 		return runtime.NoSimpleType, err
 	}

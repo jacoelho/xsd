@@ -54,19 +54,28 @@ func CheckSimpleContentSimpleBase(kind ContentDerivationKind) error {
 	return nil
 }
 
-// CheckSimpleContentComplexBaseExists maps missing complex-base lookup to the
-// schema diagnostic for xs:simpleContent base resolution.
-func CheckSimpleContentComplexBaseExists(exists bool) error {
-	if !exists {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "simpleContent base must be simple or simple-content complex type")
-	}
-	return nil
+// SimpleContentComplexBaseMissingError reports a missing complex base during
+// xs:simpleContent base resolution.
+func SimpleContentComplexBaseMissingError() error {
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "simpleContent base must be simple or simple-content complex type")
 }
 
 // CheckSimpleContentDerivationBase maps runtime base admissibility into the
 // schema diagnostic for xs:simpleContent derivation.
-func CheckSimpleContentDerivationBase(rt runtime.ContentModelRuntime, base runtime.ComplexType, restriction bool) error {
-	if !runtime.SimpleContentDerivationBaseAllowed(rt, base, restriction) {
+func CheckSimpleContentDerivationBase(
+	analysis *runtime.ContentModelAnalysis,
+	base runtime.ComplexType,
+	derivation ContentDerivationKind,
+) error {
+	runtimeDerivation := runtime.DerivationKindExtension
+	if derivation == ContentDerivationRestriction {
+		runtimeDerivation = runtime.DerivationKindRestriction
+	}
+	allowed, err := runtime.SimpleContentDerivationBaseAllowed(analysis, base, runtimeDerivation)
+	if err != nil {
+		return contentRestrictionCompileError(err)
+	}
+	if !allowed {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "simpleContent base must have simple content")
 	}
 	return nil
@@ -92,8 +101,12 @@ func CheckSimpleContentRestrictionTextType(rt runtime.TypeDerivationRuntime, der
 
 // CheckComplexContentMixedDerivationBase maps runtime mixed-base admission into
 // the schema diagnostic for xs:complexContent derivation.
-func CheckComplexContentMixedDerivationBase(rt runtime.ContentModelRuntime, base runtime.ComplexType, extension, mixed bool) error {
-	if err := runtime.ValidateComplexContentMixedDerivationBase(rt, base, extension, mixed); err != nil {
+func CheckComplexContentMixedDerivationBase(rt runtime.ContentModelRuntime, base runtime.ComplexType, derivation ContentDerivationKind, content runtime.ContentKind) error {
+	runtimeDerivation := runtime.DerivationKindRestriction
+	if derivation == ContentDerivationExtension {
+		runtimeDerivation = runtime.DerivationKindExtension
+	}
+	if err := runtime.ValidateComplexContentMixedDerivationBase(rt, base, runtimeDerivation, content); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
 	}
 	return nil

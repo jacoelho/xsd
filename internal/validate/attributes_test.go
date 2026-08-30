@@ -104,7 +104,7 @@ func TestMatchAttributeWildcard(t *testing.T) {
 		name     string
 		wildcard runtime.WildcardID
 		rn       runtime.RuntimeName
-		want     AttributeWildcardMatch
+		want     attributeWildcardMatch
 		valid    bool
 	}{
 		{
@@ -126,35 +126,35 @@ func TestMatchAttributeWildcard(t *testing.T) {
 			name:     "skip",
 			wildcard: wildcard("skip"),
 			rn:       runtime.RuntimeName{NS: "urn:any", Local: "x"},
-			want:     AttributeWildcardMatch{Matched: true, Skip: true},
+			want:     attributeWildcardMatch{disposition: attributeWildcardSkip},
 			valid:    true,
 		},
 		{
 			name:     "lax missing",
 			wildcard: wildcard("lax"),
 			rn:       runtime.RuntimeName{NS: "urn:any", Local: "x"},
-			want:     AttributeWildcardMatch{Matched: true, LaxMissing: true},
+			want:     attributeWildcardMatch{disposition: attributeWildcardLaxMissing},
 			valid:    true,
 		},
 		{
 			name:     "lax known missing global",
 			wildcard: wildcard("lax"),
 			rn:       runtime.RuntimeName{Known: true, Name: missingName, NS: "urn:test", Local: "strict"},
-			want:     AttributeWildcardMatch{Matched: true, LaxMissing: true},
+			want:     attributeWildcardMatch{disposition: attributeWildcardLaxMissing},
 			valid:    true,
 		},
 		{
 			name:     "strict missing",
 			wildcard: wildcard("strict"),
 			rn:       runtime.RuntimeName{NS: "urn:any", Local: "x"},
-			want:     AttributeWildcardMatch{Matched: true},
+			want:     attributeWildcardMatch{disposition: attributeWildcardStrictMissing},
 			valid:    true,
 		},
 		{
 			name:     "known global",
 			wildcard: wildcard("strict"),
 			rn:       runtime.RuntimeName{Known: true, Name: knownName, NS: "urn:test", Local: "known"},
-			want:     AttributeWildcardMatch{Attribute: knownID, Matched: true, HasAttribute: true},
+			want:     attributeWildcardMatch{attribute: knownID, disposition: attributeWildcardDeclared},
 			valid:    true,
 		},
 	}
@@ -162,9 +162,9 @@ func TestMatchAttributeWildcard(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, valid := MatchAttributeWildcard(rt, tc.wildcard, tc.rn)
+			got, valid := matchAttributeWildcard(rt, tc.wildcard, tc.rn)
 			if valid != tc.valid || got != tc.want {
-				t.Fatalf("MatchAttributeWildcard() = %+v/%v, want %+v/%v", got, valid, tc.want, tc.valid)
+				t.Fatalf("matchAttributeWildcard() = %+v/%v, want %+v/%v", got, valid, tc.want, tc.valid)
 			}
 		})
 	}

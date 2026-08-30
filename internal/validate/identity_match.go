@@ -49,26 +49,32 @@ func identityPathMatches[Names identityNames, Path identityStepPath](names Names
 	if path.Self() {
 		return currentDepth == baseDepth
 	}
-	if currentDepth < baseDepth || baseDepth < 0 || currentDepth > len(namePath) {
+	rel, ok := relativeIdentityPath(namePath, baseDepth, currentDepth, path)
+	if !ok {
 		return false
 	}
-	rel := namePath[baseDepth:currentDepth]
-	stepCount := path.StepCount()
-	if path.Descendant() {
-		if len(rel) < stepCount {
-			return false
-		}
-		rel = rel[len(rel)-stepCount:]
-	} else if len(rel) != stepCount {
-		return false
-	}
-	for i := range stepCount {
+	for i := range path.StepCount() {
 		step, ok := path.Step(i)
 		if !ok || !identityStepMatches(names, rel[i], step) {
 			return false
 		}
 	}
 	return true
+}
+
+func relativeIdentityPath[Path identityStepPath](namePath []runtime.RuntimeName, baseDepth, currentDepth int, path Path) ([]runtime.RuntimeName, bool) {
+	if currentDepth < baseDepth || baseDepth < 0 || currentDepth > len(namePath) {
+		return nil, false
+	}
+	rel := namePath[baseDepth:currentDepth]
+	stepCount := path.StepCount()
+	if path.Descendant() {
+		if len(rel) < stepCount {
+			return nil, false
+		}
+		return rel[len(rel)-stepCount:], true
+	}
+	return rel, len(rel) == stepCount
 }
 
 func identityStepMatches[Names identityNames](names Names, rn runtime.RuntimeName, step runtime.IdentityStep) bool {
@@ -100,7 +106,7 @@ func identityFieldAttributeMatches[Names identityNames](names Names, path runtim
 	return identityNamespace(names, path.AttributeNamespace()) == name.NS
 }
 
-func identityMatchExists(matches []IdentityFieldMatch, selection, field int) bool {
+func identityMatchExists(matches []identityFieldMatch, selection, field int) bool {
 	for _, match := range matches {
 		if match.Selection == selection && match.Field == field {
 			return true
@@ -110,6 +116,9 @@ func identityMatchExists(matches []IdentityFieldMatch, selection, field int) boo
 }
 
 func identityFieldPathMatches[Names identityNames](names Names, namePath []runtime.RuntimeName, selectedDepth, currentDepth int, path runtime.IdentityFieldPathRead) bool {
+	if path.StepCount() == 0 && !path.Descendant() {
+		return currentDepth == selectedDepth
+	}
 	return identityPathMatches(names, namePath, selectedDepth, currentDepth, path)
 }
 

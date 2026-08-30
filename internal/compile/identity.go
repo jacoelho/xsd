@@ -8,17 +8,24 @@ import (
 
 // ValidateIdentityConstraintNameSource validates declaration-level identity
 // constraint name source.
-func ValidateIdentityConstraintNameSource(hasName bool) error {
-	if !hasName {
+func ValidateIdentityConstraintNameSource(name LexicalAttribute) error {
+	if !name.Present || name.Value == "" {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity constraint missing name")
 	}
 	return nil
 }
 
+// IdentityConstraintReferSource keeps the declaration kind and refer attribute
+// together for keyref source admission.
+type IdentityConstraintReferSource struct {
+	Local string
+	Refer LexicalAttribute
+}
+
 // ValidateIdentityConstraintReferSource validates declaration-level keyref
 // reference source.
-func ValidateIdentityConstraintReferSource(local string, hasRefer bool) error {
-	if local == vocab.XSDElemKeyref && !hasRefer {
+func ValidateIdentityConstraintReferSource(source IdentityConstraintReferSource) error {
+	if source.Local == vocab.XSDElemKeyref && !source.Refer.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "keyref missing refer")
 	}
 	return nil

@@ -17,38 +17,36 @@ func ValidatePrimitiveFacetRestrictions(st SimpleType, baseFacets FacetSet, step
 func checkPrimitiveFacetRestrictions(st SimpleType, baseFacets FacetSet, step OrderedFacetStep) error {
 	switch st.Primitive {
 	case PrimitiveDecimal:
-		if err := validateDecimalFacetRestriction(st.Facets, baseFacets, step); err != nil {
-			return err
-		}
-		if err := validateDecimalFacetBounds(st.Facets); err != nil {
-			return err
-		}
+		return validateDecimalPrimitiveFacets(st.Facets, baseFacets, step)
 	case PrimitiveFloat, PrimitiveDouble:
-		if err := ValidateFloatFacetSetBounds(st.Primitive, st.Facets); err != nil {
-			return err
-		}
+		return ValidateFloatFacetSetBounds(st.Primitive, st.Facets)
 	case PrimitiveDuration:
-		if err := validateDurationFacetBounds(st.Facets); err != nil {
-			return err
-		}
+		return validateDurationFacetBounds(st.Facets)
 	case PrimitiveGDay, PrimitiveGMonthDay, PrimitiveGMonth, PrimitiveGYearMonth, PrimitiveGYear:
-		if err := validateGValueFacetBounds(st.Primitive, st.Facets); err != nil {
-			return err
-		}
+		return validateGValueFacetBounds(st.Primitive, st.Facets)
 	case PrimitiveDate, PrimitiveDateTime:
-		if err := validateTemporalFacetBounds(st.Primitive, st.Facets); err != nil {
-			return err
-		}
+		return validateTemporalFacetBounds(st.Primitive, st.Facets)
 	case PrimitiveTime:
-		if err := validateTimeFacetRestriction(st.Facets, baseFacets, step); err != nil {
-			return err
-		}
-		if err := validateTemporalFacetBounds(st.Primitive, st.Facets); err != nil {
-			return err
-		}
+		return validateTimePrimitiveFacets(st.Facets, baseFacets, step)
+	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
+		return nil
 	default:
 	}
 	return nil
+}
+
+func validateDecimalPrimitiveFacets(facets, base FacetSet, step OrderedFacetStep) error {
+	if err := validateDecimalFacetRestriction(facets, base, step); err != nil {
+		return err
+	}
+	return validateDecimalFacetBounds(facets)
+}
+
+func validateTimePrimitiveFacets(facets, base FacetSet, step OrderedFacetStep) error {
+	if err := validateTimeFacetRestriction(facets, base, step); err != nil {
+		return err
+	}
+	return validateTemporalFacetBounds(PrimitiveTime, facets)
 }
 
 // OrderedFacetSetRestricts reports whether the derived facet set is at least
@@ -61,7 +59,7 @@ func OrderedFacetSetRestricts(variety SimpleVariety, primitive PrimitiveKind, fa
 	case PrimitiveDecimal:
 		return decimalOrderedFacetsRestrict(facets, base)
 	case PrimitiveFloat, PrimitiveDouble:
-		return floatOrderedFacetsRestrict(primitive, facets, base)
+		return floatFacetSetRestricts(primitive, facets, base)
 	case PrimitiveDuration:
 		return durationOrderedFacetsRestrict(facets, base)
 	case PrimitiveGDay, PrimitiveGMonthDay, PrimitiveGMonth, PrimitiveGYearMonth, PrimitiveGYear:
@@ -70,52 +68,104 @@ func OrderedFacetSetRestricts(variety SimpleVariety, primitive PrimitiveKind, fa
 		return temporalOrderedFacetsRestrict(primitive, facets, base)
 	case PrimitiveTime:
 		return timeOrderedFacetsRestrict(facets, base)
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return true
+	default:
 	}
+	return true
 }
 
 func validateDecimalFacetRestriction(f, base FacetSet, step OrderedFacetStep) error {
-	baseLower, err := decimalLowerBound(base)
-	if err != nil {
-		return err
-	}
-	baseUpper, err := decimalUpperBound(base)
-	if err != nil {
-		return err
-	}
-	if step.MinInclusive {
-		lit, present := BoundFacet(f, FacetMinInclusive)
-		if err := validateDecimalLowerRestriction(vocab.XSDFacetMinInclusive, lit, present, OrderedFacetBoundInclusive, baseLower); err != nil {
-			return err
-		}
-	}
-	if step.MinExclusive {
-		lit, present := BoundFacet(f, FacetMinExclusive)
-		if err := validateDecimalLowerRestriction(vocab.XSDFacetMinExclusive, lit, present, OrderedFacetBoundExclusive, baseLower); err != nil {
-			return err
-		}
-	}
-	if step.MaxInclusive {
-		lit, present := BoundFacet(f, FacetMaxInclusive)
-		if err := validateDecimalUpperRestriction(vocab.XSDFacetMaxInclusive, lit, present, OrderedFacetBoundInclusive, baseUpper); err != nil {
-			return err
-		}
-	}
-	if step.MaxExclusive {
-		lit, present := BoundFacet(f, FacetMaxExclusive)
-		if err := validateDecimalUpperRestriction(vocab.XSDFacetMaxExclusive, lit, present, OrderedFacetBoundExclusive, baseUpper); err != nil {
-			return err
-		}
-	}
-	return nil
+	return validateOrderedFacetRestrictions(f, base, step, orderedFacetRestrictionOps[DecimalValue]{
+		lowerBound: decimalLowerBound,
+		upperBound: decimalUpperBound,
+		lower:      validateDecimalLowerRestriction,
+		upper:      validateDecimalUpperRestriction,
+	})
 }
 
-func validateDecimalLowerRestriction(name string, lit CompiledLiteral, litPresent bool, kind OrderedFacetBoundKind, base typedFacetBound[DecimalValue]) error {
-	if !litPresent || !base.present() {
+type orderedFacetRestrictionOps[T any] struct {
+	lowerBound func(FacetSet) (typedFacetBound[T], error)
+	upperBound func(FacetSet) (typedFacetBound[T], error)
+	lower      func(string, optionalCompiledLiteral, OrderedFacetBoundKind, typedFacetBound[T]) error
+	upper      func(string, optionalCompiledLiteral, OrderedFacetBoundKind, typedFacetBound[T]) error
+}
+
+func validateOrderedFacetRestrictions[T any](f, base FacetSet, step OrderedFacetStep, ops orderedFacetRestrictionOps[T]) error {
+	baseLower, err := ops.lowerBound(base)
+	if err != nil {
+		return err
+	}
+	baseUpper, err := ops.upperBound(base)
+	if err != nil {
+		return err
+	}
+	if err := validateDeclaredFacetRestriction(facetRestrictionRequest[T]{
+		validate: ops.lower,
+		base:     baseLower,
+		literal:  optionalBoundFacet(f, FacetMinInclusive),
+		name:     vocab.XSDFacetMinInclusive,
+		kind:     OrderedFacetBoundInclusive,
+		present:  step.MinInclusive,
+	}); err != nil {
+		return err
+	}
+	if err := validateDeclaredFacetRestriction(facetRestrictionRequest[T]{
+		validate: ops.lower,
+		base:     baseLower,
+		literal:  optionalBoundFacet(f, FacetMinExclusive),
+		name:     vocab.XSDFacetMinExclusive,
+		kind:     OrderedFacetBoundExclusive,
+		present:  step.MinExclusive,
+	}); err != nil {
+		return err
+	}
+	if err := validateDeclaredFacetRestriction(facetRestrictionRequest[T]{
+		validate: ops.upper,
+		base:     baseUpper,
+		literal:  optionalBoundFacet(f, FacetMaxInclusive),
+		name:     vocab.XSDFacetMaxInclusive,
+		kind:     OrderedFacetBoundInclusive,
+		present:  step.MaxInclusive,
+	}); err != nil {
+		return err
+	}
+	return validateDeclaredFacetRestriction(facetRestrictionRequest[T]{
+		validate: ops.upper,
+		base:     baseUpper,
+		literal:  optionalBoundFacet(f, FacetMaxExclusive),
+		name:     vocab.XSDFacetMaxExclusive,
+		kind:     OrderedFacetBoundExclusive,
+		present:  step.MaxExclusive,
+	})
+}
+
+type facetRestrictionRequest[T any] struct {
+	validate func(string, optionalCompiledLiteral, OrderedFacetBoundKind, typedFacetBound[T]) error
+	base     typedFacetBound[T]
+	name     string
+	literal  optionalCompiledLiteral
+	kind     OrderedFacetBoundKind
+	present  bool
+}
+
+func validateDeclaredFacetRestriction[T any](request facetRestrictionRequest[T]) error {
+	if !request.present {
 		return nil
 	}
-	relation := orderedFacetRelationFromInt(CompareDecimalValues(lit.Actual.Decimal, base.value))
+	return request.validate(request.name, request.literal, request.kind, request.base)
+}
+
+func optionalBoundFacet(facets FacetSet, flag FacetMask) optionalCompiledLiteral {
+	literal, present := BoundFacet(facets, flag)
+	return optionalCompiledLiteral{value: literal, present: present}
+}
+
+func validateDecimalLowerRestriction(name string, literal optionalCompiledLiteral, kind OrderedFacetBoundKind, base typedFacetBound[DecimalValue]) error {
+	if !literal.present || !base.present() {
+		return nil
+	}
+	relation := orderedFacetRelationFromInt(CompareDecimalValues(literal.value.Actual.Decimal, base.value))
 	return ValidateOrderedFacetLowerRestriction(OrderedFacetBoundRestriction{
 		Facet:    name,
 		Derived:  OrderedFacetBound{Kind: kind},
@@ -124,11 +174,11 @@ func validateDecimalLowerRestriction(name string, lit CompiledLiteral, litPresen
 	})
 }
 
-func validateDecimalUpperRestriction(name string, lit CompiledLiteral, litPresent bool, kind OrderedFacetBoundKind, base typedFacetBound[DecimalValue]) error {
-	if !litPresent || !base.present() {
+func validateDecimalUpperRestriction(name string, literal optionalCompiledLiteral, kind OrderedFacetBoundKind, base typedFacetBound[DecimalValue]) error {
+	if !literal.present || !base.present() {
 		return nil
 	}
-	relation := orderedFacetRelationFromInt(CompareDecimalValues(lit.Actual.Decimal, base.value))
+	relation := orderedFacetRelationFromInt(CompareDecimalValues(literal.value.Actual.Decimal, base.value))
 	return ValidateOrderedFacetUpperRestriction(OrderedFacetBoundRestriction{
 		Facet:    name,
 		Derived:  OrderedFacetBound{Kind: kind},
@@ -149,7 +199,7 @@ func validateDecimalFacetBounds(f FacetSet) error {
 	if !lower.present() || !upper.present() {
 		return nil
 	}
-	return validateOrderedFacetBounds(PrimitiveDecimal, lower, upper, func(lower, upper DecimalValue) OrderedFacetRelation {
+	return checkOrderedFacetBounds(PrimitiveDecimal, lower, upper, func(lower, upper DecimalValue) OrderedFacetRelation {
 		return orderedFacetRelationFromInt(CompareDecimalValues(lower, upper))
 	})
 }
@@ -179,35 +229,49 @@ func decimalOrderedFacetsRestrict(f, base FacetSet) bool {
 }
 
 func decimalLowerBound(f FacetSet) (typedFacetBound[DecimalValue], error) {
-	inclusive, inclusivePresent, exclusive, exclusivePresent := lowerBoundFacets(f)
+	bounds := lowerBoundFacets(f)
 	return facetBound(
-		inclusive, inclusivePresent,
-		exclusive, exclusivePresent,
+		bounds,
 		facetCanonical, ParseDecimalValue, func(other, out DecimalValue) bool {
 			return CompareDecimalValues(other, out) >= 0
 		})
 }
 
 func decimalUpperBound(f FacetSet) (typedFacetBound[DecimalValue], error) {
-	inclusive, inclusivePresent, exclusive, exclusivePresent := upperBoundFacets(f)
+	bounds := upperBoundFacets(f)
 	return facetBound(
-		inclusive, inclusivePresent,
-		exclusive, exclusivePresent,
+		bounds,
 		facetCanonical, ParseDecimalValue, func(other, out DecimalValue) bool {
 			return CompareDecimalValues(other, out) <= 0
 		})
 }
 
-func lowerBoundFacets(f FacetSet) (CompiledLiteral, bool, CompiledLiteral, bool) {
-	inclusive, inclusivePresent := BoundFacet(f, FacetMinInclusive)
-	exclusive, exclusivePresent := BoundFacet(f, FacetMinExclusive)
-	return inclusive, inclusivePresent, exclusive, exclusivePresent
+type optionalCompiledLiteral struct {
+	value   CompiledLiteral
+	present bool
 }
 
-func upperBoundFacets(f FacetSet) (CompiledLiteral, bool, CompiledLiteral, bool) {
+type facetBoundLiterals struct {
+	inclusive optionalCompiledLiteral
+	exclusive optionalCompiledLiteral
+}
+
+func lowerBoundFacets(f FacetSet) facetBoundLiterals {
+	inclusive, inclusivePresent := BoundFacet(f, FacetMinInclusive)
+	exclusive, exclusivePresent := BoundFacet(f, FacetMinExclusive)
+	return facetBoundLiterals{
+		inclusive: optionalCompiledLiteral{value: inclusive, present: inclusivePresent},
+		exclusive: optionalCompiledLiteral{value: exclusive, present: exclusivePresent},
+	}
+}
+
+func upperBoundFacets(f FacetSet) facetBoundLiterals {
 	inclusive, inclusivePresent := BoundFacet(f, FacetMaxInclusive)
 	exclusive, exclusivePresent := BoundFacet(f, FacetMaxExclusive)
-	return inclusive, inclusivePresent, exclusive, exclusivePresent
+	return facetBoundLiterals{
+		inclusive: optionalCompiledLiteral{value: inclusive, present: inclusivePresent},
+		exclusive: optionalCompiledLiteral{value: exclusive, present: exclusivePresent},
+	}
 }
 
 // ValidateFloatFacetSetBounds validates effective lower/upper float bound
@@ -220,7 +284,7 @@ func ValidateFloatFacetSetBounds(kind PrimitiveKind, f FacetSet) error {
 	return ValidateFloatFacetBounds(kind, facets)
 }
 
-func floatOrderedFacetsRestrict(kind PrimitiveKind, f, base FacetSet) bool {
+func floatFacetSetRestricts(kind PrimitiveKind, f, base FacetSet) bool {
 	facets, err := floatFacetValues(kind, f)
 	if err != nil {
 		return false
@@ -237,19 +301,19 @@ func floatFacetValues(kind PrimitiveKind, f FacetSet) (FloatFacetValues, error) 
 	maxInclusiveLit, hasMaxInclusive := BoundFacet(f, FacetMaxInclusive)
 	minExclusiveLit, hasMinExclusive := BoundFacet(f, FacetMinExclusive)
 	maxExclusiveLit, hasMaxExclusive := BoundFacet(f, FacetMaxExclusive)
-	minInclusive, err := floatFacetValue(kind, minInclusiveLit, hasMinInclusive)
+	minInclusive, err := floatFacetValue(kind, optionalCompiledLiteral{value: minInclusiveLit, present: hasMinInclusive})
 	if err != nil {
 		return FloatFacetValues{}, err
 	}
-	maxInclusive, err := floatFacetValue(kind, maxInclusiveLit, hasMaxInclusive)
+	maxInclusive, err := floatFacetValue(kind, optionalCompiledLiteral{value: maxInclusiveLit, present: hasMaxInclusive})
 	if err != nil {
 		return FloatFacetValues{}, err
 	}
-	minExclusive, err := floatFacetValue(kind, minExclusiveLit, hasMinExclusive)
+	minExclusive, err := floatFacetValue(kind, optionalCompiledLiteral{value: minExclusiveLit, present: hasMinExclusive})
 	if err != nil {
 		return FloatFacetValues{}, err
 	}
-	maxExclusive, err := floatFacetValue(kind, maxExclusiveLit, hasMaxExclusive)
+	maxExclusive, err := floatFacetValue(kind, optionalCompiledLiteral{value: maxExclusiveLit, present: hasMaxExclusive})
 	if err != nil {
 		return FloatFacetValues{}, err
 	}
@@ -262,10 +326,11 @@ func floatFacetValues(kind PrimitiveKind, f FacetSet) (FloatFacetValues, error) 
 	}, nil
 }
 
-func floatFacetValue(kind PrimitiveKind, lit CompiledLiteral, present bool) (FloatFacetValue, error) {
-	if !present {
+func floatFacetValue(kind PrimitiveKind, literal optionalCompiledLiteral) (FloatFacetValue, error) {
+	if !literal.present {
 		return FloatFacetValue{}, nil
 	}
+	lit := literal.value
 	if lit.Actual.Valid && lit.Actual.Kind == kind {
 		return FloatFacetValue{Value: lit.Actual.Float, Present: true}, nil
 	}
@@ -285,7 +350,7 @@ func validateDurationFacetBounds(f FacetSet) error {
 	if err != nil {
 		return err
 	}
-	return validateOrderedFacetBounds(PrimitiveDuration, lower, upper, CompareDurationValues)
+	return checkOrderedFacetBounds(PrimitiveDuration, lower, upper, CompareDurationValues)
 }
 
 func durationOrderedFacetsRestrict(f, base FacetSet) bool {
@@ -310,8 +375,8 @@ func durationOrderedFacetsRestrict(f, base FacetSet) bool {
 }
 
 func durationLowerBound(f FacetSet) (typedFacetBound[DurationValue], error) {
-	inclusive, inclusivePresent, exclusive, exclusivePresent := lowerBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, ParseDurationValue, func(other, out DurationValue) bool {
+	bounds := lowerBoundFacets(f)
+	return facetBound(bounds, facetCanonical, ParseDurationValue, func(other, out DurationValue) bool {
 		return OrderedFacetLowerBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareDurationValues(other, out),
@@ -320,8 +385,8 @@ func durationLowerBound(f FacetSet) (typedFacetBound[DurationValue], error) {
 }
 
 func durationUpperBound(f FacetSet) (typedFacetBound[DurationValue], error) {
-	inclusive, inclusivePresent, exclusive, exclusivePresent := upperBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, ParseDurationValue, func(other, out DurationValue) bool {
+	bounds := upperBoundFacets(f)
+	return facetBound(bounds, facetCanonical, ParseDurationValue, func(other, out DurationValue) bool {
 		return OrderedFacetUpperBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareDurationValues(other, out),
@@ -338,7 +403,7 @@ func validateGValueFacetBounds(kind PrimitiveKind, f FacetSet) error {
 	if err != nil {
 		return err
 	}
-	return validateOrderedFacetBounds(kind, lower, upper, CompareGValues)
+	return checkOrderedFacetBounds(kind, lower, upper, CompareGValues)
 }
 
 func gValueLowerBound(kind PrimitiveKind, f FacetSet) (typedFacetBound[GValue], error) {
@@ -346,8 +411,8 @@ func gValueLowerBound(kind PrimitiveKind, f FacetSet) (typedFacetBound[GValue], 
 	if !ok {
 		return typedFacetBound[GValue]{}, nil
 	}
-	inclusive, inclusivePresent, exclusive, exclusivePresent := lowerBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, parse, func(other, out GValue) bool {
+	bounds := lowerBoundFacets(f)
+	return facetBound(bounds, facetCanonical, parse, func(other, out GValue) bool {
 		return OrderedFacetLowerBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareGValues(other, out),
@@ -360,8 +425,8 @@ func gValueUpperBound(kind PrimitiveKind, f FacetSet) (typedFacetBound[GValue], 
 	if !ok {
 		return typedFacetBound[GValue]{}, nil
 	}
-	inclusive, inclusivePresent, exclusive, exclusivePresent := upperBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, parse, func(other, out GValue) bool {
+	bounds := upperBoundFacets(f)
+	return facetBound(bounds, facetCanonical, parse, func(other, out GValue) bool {
 		return OrderedFacetUpperBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareGValues(other, out),
@@ -370,66 +435,72 @@ func gValueUpperBound(kind PrimitiveKind, f FacetSet) (typedFacetBound[GValue], 
 }
 
 func gValueOrderedFacetsRestrict(kind PrimitiveKind, f, base FacetSet) bool {
-	lower, baseLower, upper, baseUpper, ok := gValueBounds(kind, f, base)
+	bounds, ok := gValueBounds(kind, f, base)
 	if !ok {
 		return false
 	}
-	return orderedFacetLowerRestrictsCompared(lower, baseLower, CompareGValues) &&
-		orderedFacetUpperRestrictsCompared(upper, baseUpper, CompareGValues)
+	return orderedFacetLowerRestrictsCompared(bounds.derivedLower, bounds.baseLower, CompareGValues) &&
+		orderedFacetUpperRestrictsCompared(bounds.derivedUpper, bounds.baseUpper, CompareGValues)
 }
 
-func gValueBounds(kind PrimitiveKind, f, base FacetSet) (
-	typedFacetBound[GValue],
-	typedFacetBound[GValue],
-	typedFacetBound[GValue],
-	typedFacetBound[GValue],
-	bool,
-) {
+type gValueFacetBounds struct {
+	derivedLower typedFacetBound[GValue]
+	baseLower    typedFacetBound[GValue]
+	derivedUpper typedFacetBound[GValue]
+	baseUpper    typedFacetBound[GValue]
+}
+
+func gValueBounds(kind PrimitiveKind, f, base FacetSet) (gValueFacetBounds, bool) {
 	parse, ok := gValueFacet(kind)
 	if !ok {
-		return typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, false
+		return gValueFacetBounds{}, false
 	}
-	inclusive, inclusivePresent, exclusive, exclusivePresent := lowerBoundFacets(f)
-	lower, err := facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, parse, func(other, out GValue) bool {
+	bounds := lowerBoundFacets(f)
+	lower, err := facetBound(bounds, facetCanonical, parse, func(other, out GValue) bool {
 		return OrderedFacetLowerBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareGValues(other, out),
 		)
 	})
 	if err != nil {
-		return typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, false
+		return gValueFacetBounds{}, false
 	}
-	inclusive, inclusivePresent, exclusive, exclusivePresent = lowerBoundFacets(base)
-	baseLower, err := facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, parse, func(other, out GValue) bool {
+	bounds = lowerBoundFacets(base)
+	baseLower, err := facetBound(bounds, facetCanonical, parse, func(other, out GValue) bool {
 		return OrderedFacetLowerBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareGValues(other, out),
 		)
 	})
 	if err != nil {
-		return typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, false
+		return gValueFacetBounds{}, false
 	}
-	inclusive, inclusivePresent, exclusive, exclusivePresent = upperBoundFacets(f)
-	upper, err := facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, parse, func(other, out GValue) bool {
+	bounds = upperBoundFacets(f)
+	upper, err := facetBound(bounds, facetCanonical, parse, func(other, out GValue) bool {
 		return OrderedFacetUpperBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareGValues(other, out),
 		)
 	})
 	if err != nil {
-		return typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, false
+		return gValueFacetBounds{}, false
 	}
-	inclusive, inclusivePresent, exclusive, exclusivePresent = upperBoundFacets(base)
-	baseUpper, err := facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, parse, func(other, out GValue) bool {
+	bounds = upperBoundFacets(base)
+	baseUpper, err := facetBound(bounds, facetCanonical, parse, func(other, out GValue) bool {
 		return OrderedFacetUpperBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareGValues(other, out),
 		)
 	})
 	if err != nil {
-		return typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, typedFacetBound[GValue]{}, false
+		return gValueFacetBounds{}, false
 	}
-	return lower, baseLower, upper, baseUpper, true
+	return gValueFacetBounds{
+		derivedLower: lower,
+		baseLower:    baseLower,
+		derivedUpper: upper,
+		baseUpper:    baseUpper,
+	}, true
 }
 
 func gValueFacet(kind PrimitiveKind) (func(string) (GValue, error), bool) {
@@ -438,9 +509,13 @@ func gValueFacet(kind PrimitiveKind) (func(string) (GValue, error), bool) {
 		return func(s string) (GValue, error) {
 			return ParseGValue(kind, s)
 		}, true
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate, PrimitiveHexBinary, PrimitiveBase64Binary,
+		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return nil, false
+	default:
 	}
+	return nil, false
 }
 
 func validateTemporalFacetBounds(kind PrimitiveKind, f FacetSet) error {
@@ -455,7 +530,7 @@ func validateTemporalFacetBounds(kind PrimitiveKind, f FacetSet) error {
 	if err != nil {
 		return err
 	}
-	return validateOrderedFacetBounds(kind, lower, upper, CompareTemporalValues)
+	return checkOrderedFacetBounds(kind, lower, upper, CompareTemporalValues)
 }
 
 func temporalOrderedFacetsRestrict(kind PrimitiveKind, f, base FacetSet) bool {
@@ -481,8 +556,8 @@ func temporalOrderedFacetsRestrict(kind PrimitiveKind, f, base FacetSet) bool {
 
 func temporalLowerBound(kind PrimitiveKind, f FacetSet) (typedFacetBound[TemporalValue], error) {
 	parse := func(s string) (TemporalValue, error) { return ParseTemporalValue(kind, s) }
-	inclusive, inclusivePresent, exclusive, exclusivePresent := lowerBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, parse, func(other, out TemporalValue) bool {
+	bounds := lowerBoundFacets(f)
+	return facetBound(bounds, facetCanonical, parse, func(other, out TemporalValue) bool {
 		return OrderedFacetLowerBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareTemporalValues(other, out),
@@ -492,8 +567,8 @@ func temporalLowerBound(kind PrimitiveKind, f FacetSet) (typedFacetBound[Tempora
 
 func temporalUpperBound(kind PrimitiveKind, f FacetSet) (typedFacetBound[TemporalValue], error) {
 	parse := func(s string) (TemporalValue, error) { return ParseTemporalValue(kind, s) }
-	inclusive, inclusivePresent, exclusive, exclusivePresent := upperBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, parse, func(other, out TemporalValue) bool {
+	bounds := upperBoundFacets(f)
+	return facetBound(bounds, facetCanonical, parse, func(other, out TemporalValue) bool {
 		return OrderedFacetUpperBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareTemporalValues(other, out),
@@ -510,50 +585,23 @@ func validateTimeFacetBounds(f FacetSet) error {
 	if err != nil {
 		return err
 	}
-	return validateOrderedFacetBounds(PrimitiveTime, lower, upper, CompareTimePartial)
+	return checkOrderedFacetBounds(PrimitiveTime, lower, upper, CompareTimePartial)
 }
 
 func validateTimeFacetRestriction(f, base FacetSet, step OrderedFacetStep) error {
-	baseLower, err := timeRawLowerBound(base)
-	if err != nil {
-		return err
-	}
-	baseUpper, err := timeRawUpperBound(base)
-	if err != nil {
-		return err
-	}
-	if step.MinInclusive && baseLower.present() {
-		lit, present := BoundFacet(f, FacetMinInclusive)
-		if err := validateTimeLowerRestriction(vocab.XSDFacetMinInclusive, lit, present, OrderedFacetBoundInclusive, baseLower); err != nil {
-			return err
-		}
-	}
-	if step.MinExclusive && baseLower.present() {
-		lit, present := BoundFacet(f, FacetMinExclusive)
-		if err := validateTimeLowerRestriction(vocab.XSDFacetMinExclusive, lit, present, OrderedFacetBoundExclusive, baseLower); err != nil {
-			return err
-		}
-	}
-	if step.MaxInclusive && baseUpper.present() {
-		lit, present := BoundFacet(f, FacetMaxInclusive)
-		if err := validateTimeUpperRestriction(vocab.XSDFacetMaxInclusive, lit, present, OrderedFacetBoundInclusive, baseUpper); err != nil {
-			return err
-		}
-	}
-	if step.MaxExclusive && baseUpper.present() {
-		lit, present := BoundFacet(f, FacetMaxExclusive)
-		if err := validateTimeUpperRestriction(vocab.XSDFacetMaxExclusive, lit, present, OrderedFacetBoundExclusive, baseUpper); err != nil {
-			return err
-		}
-	}
-	return nil
+	return validateOrderedFacetRestrictions(f, base, step, orderedFacetRestrictionOps[TimeValue]{
+		lowerBound: timeRawLowerBound,
+		upperBound: timeRawUpperBound,
+		lower:      validateTimeLowerRestriction,
+		upper:      validateTimeUpperRestriction,
+	})
 }
 
-func validateTimeLowerRestriction(name string, lit CompiledLiteral, litPresent bool, kind OrderedFacetBoundKind, base typedFacetBound[TimeValue]) error {
-	if !litPresent {
+func validateTimeLowerRestriction(name string, literal optionalCompiledLiteral, kind OrderedFacetBoundKind, base typedFacetBound[TimeValue]) error {
+	if !literal.present || !base.present() {
 		return nil
 	}
-	value, err := ParseTimeRawValue(lit.Lexical)
+	value, err := ParseTimeRawValue(literal.value.Lexical)
 	if err != nil {
 		return err
 	}
@@ -566,11 +614,11 @@ func validateTimeLowerRestriction(name string, lit CompiledLiteral, litPresent b
 	})
 }
 
-func validateTimeUpperRestriction(name string, lit CompiledLiteral, litPresent bool, kind OrderedFacetBoundKind, base typedFacetBound[TimeValue]) error {
-	if !litPresent {
+func validateTimeUpperRestriction(name string, literal optionalCompiledLiteral, kind OrderedFacetBoundKind, base typedFacetBound[TimeValue]) error {
+	if !literal.present || !base.present() {
 		return nil
 	}
-	value, err := ParseTimeRawValue(lit.Lexical)
+	value, err := ParseTimeRawValue(literal.value.Lexical)
 	if err != nil {
 		return err
 	}
@@ -605,8 +653,8 @@ func timeOrderedFacetsRestrict(f, base FacetSet) bool {
 }
 
 func timeLowerBound(f FacetSet) (typedFacetBound[TimeValue], error) {
-	inclusive, inclusivePresent, exclusive, exclusivePresent := lowerBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, ParseTimeValue, func(other, out TimeValue) bool {
+	bounds := lowerBoundFacets(f)
+	return facetBound(bounds, facetCanonical, ParseTimeValue, func(other, out TimeValue) bool {
 		return OrderedFacetLowerBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareTimePartial(other, out),
@@ -615,8 +663,8 @@ func timeLowerBound(f FacetSet) (typedFacetBound[TimeValue], error) {
 }
 
 func timeUpperBound(f FacetSet) (typedFacetBound[TimeValue], error) {
-	inclusive, inclusivePresent, exclusive, exclusivePresent := upperBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetCanonical, ParseTimeValue, func(other, out TimeValue) bool {
+	bounds := upperBoundFacets(f)
+	return facetBound(bounds, facetCanonical, ParseTimeValue, func(other, out TimeValue) bool {
 		return OrderedFacetUpperBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareTimePartial(other, out),
@@ -625,8 +673,8 @@ func timeUpperBound(f FacetSet) (typedFacetBound[TimeValue], error) {
 }
 
 func timeRawLowerBound(f FacetSet) (typedFacetBound[TimeValue], error) {
-	inclusive, inclusivePresent, exclusive, exclusivePresent := lowerBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetLexical, ParseTimeRawValue, func(other, out TimeValue) bool {
+	bounds := lowerBoundFacets(f)
+	return facetBound(bounds, facetLexical, ParseTimeRawValue, func(other, out TimeValue) bool {
 		return OrderedFacetLowerBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareTimePartial(other, out),
@@ -635,8 +683,8 @@ func timeRawLowerBound(f FacetSet) (typedFacetBound[TimeValue], error) {
 }
 
 func timeRawUpperBound(f FacetSet) (typedFacetBound[TimeValue], error) {
-	inclusive, inclusivePresent, exclusive, exclusivePresent := upperBoundFacets(f)
-	return facetBound(inclusive, inclusivePresent, exclusive, exclusivePresent, facetLexical, ParseTimeRawValue, func(other, out TimeValue) bool {
+	bounds := upperBoundFacets(f)
+	return facetBound(bounds, facetLexical, ParseTimeRawValue, func(other, out TimeValue) bool {
 		return OrderedFacetUpperBoundAccepts(
 			OrderedFacetBound{Kind: OrderedFacetBoundInclusive},
 			CompareTimePartial(other, out),
@@ -654,33 +702,30 @@ func (b typedFacetBound[T]) present() bool {
 }
 
 func facetBound[T any](
-	inclusive CompiledLiteral,
-	inclusivePresent bool,
-	exclusive CompiledLiteral,
-	exclusivePresent bool,
+	bounds facetBoundLiterals,
 	text func(CompiledLiteral) string,
 	parse func(string) (T, error),
 	preferExclusive func(T, T) bool,
 ) (typedFacetBound[T], error) {
-	if !inclusivePresent {
-		if !exclusivePresent {
+	if !bounds.inclusive.present {
+		if !bounds.exclusive.present {
 			return typedFacetBound[T]{}, nil
 		}
-		out, err := parse(text(exclusive))
+		out, err := parse(text(bounds.exclusive.value))
 		if err != nil {
 			return typedFacetBound[T]{}, err
 		}
 		return typedFacetBound[T]{value: out, bound: OrderedFacetBound{Kind: OrderedFacetBoundExclusive}}, nil
 	}
 
-	out, err := parse(text(inclusive))
+	out, err := parse(text(bounds.inclusive.value))
 	if err != nil {
 		return typedFacetBound[T]{}, err
 	}
-	if !exclusivePresent {
+	if !bounds.exclusive.present {
 		return typedFacetBound[T]{value: out, bound: OrderedFacetBound{Kind: OrderedFacetBoundInclusive}}, nil
 	}
-	other, err := parse(text(exclusive))
+	other, err := parse(text(bounds.exclusive.value))
 	if err != nil {
 		return typedFacetBound[T]{}, err
 	}
@@ -690,7 +735,7 @@ func facetBound[T any](
 	return typedFacetBound[T]{value: out, bound: OrderedFacetBound{Kind: OrderedFacetBoundInclusive}}, nil
 }
 
-func validateOrderedFacetBounds[T any](kind PrimitiveKind, lower, upper typedFacetBound[T], relation func(T, T) OrderedFacetRelation) error {
+func checkOrderedFacetBounds[T any](kind PrimitiveKind, lower, upper typedFacetBound[T], relation func(T, T) OrderedFacetRelation) error {
 	cmp := OrderedFacetIncomparable
 	if lower.present() && upper.present() {
 		cmp = relation(lower.value, upper.value)

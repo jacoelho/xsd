@@ -25,45 +25,9 @@ func (rt *Schema) HasIdentityConstraints() bool {
 	return len(rt.runtime.Identities) != 0
 }
 
-// IdentitySelectorPaths returns immutable selector paths for an identity constraint.
-func (rt *Schema) IdentitySelectorPaths(id IdentityConstraintID) (IdentityPathReads, bool) {
-	return IdentitySelectorPathReads(rt.runtime.Identities, id)
-}
-
-// IdentityFieldCount returns the number of fields for an identity constraint.
-func (rt *Schema) IdentityFieldCount(id IdentityConstraintID) (int, bool) {
-	return IdentityFieldCount(rt.runtime.Identities, id)
-}
-
-// IdentityElementFields returns immutable element fields for an identity constraint.
-func (rt *Schema) IdentityElementFields(id IdentityConstraintID) (CompiledIdentityFieldReads, bool) {
-	return IdentityElementFieldReads(rt.runtime.Identities, id)
-}
-
-// IdentityAttributeFields returns immutable attribute fields for an identity constraint.
-func (rt *Schema) IdentityAttributeFields(id IdentityConstraintID, name QName) (CompiledIdentityFieldReads, bool) {
-	return IdentityAttributeFieldReads(rt.runtime.Identities, id, name)
-}
-
-// IdentityAttributeWildcardFields returns immutable wildcard fields for an identity constraint.
-func (rt *Schema) IdentityAttributeWildcardFields(id IdentityConstraintID) (CompiledIdentityFieldReads, bool) {
-	return IdentityAttributeWildcardFieldReads(rt.runtime.Identities, id)
-}
-
-// IdentityConstraintInfo returns metadata for an identity constraint.
-func (rt *Schema) IdentityConstraintInfo(id IdentityConstraintID) (IdentityConstraintInfo, bool) {
-	return IdentityConstraintInfoByID(rt.runtime.Identities, id)
-}
-
-func (rt *Schema) elementChildContent(t TypeID) (ElementChildContent, bool) {
-	if simple, ok := t.Simple(); ok {
-		return ElementChildContent{}, ValidSimpleTypeID(simple, len(rt.runtime.SimpleValueRoutes))
-	}
-	id, ok := t.Complex()
-	if !ok || !ValidComplexTypeID(id, len(rt.runtime.ComplexTypes)) {
-		return ElementChildContent{}, false
-	}
-	return rt.runtime.ComplexTypes[id].childContent(), true
+// IdentityConstraint returns the aggregate validation read for an identity constraint.
+func (rt *Schema) IdentityConstraint(id IdentityConstraintID) (IdentityConstraintRead, bool) {
+	return IdentityConstraintReadByID(rt.runtime.Identities, id)
 }
 
 func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, bool) {
@@ -78,17 +42,17 @@ func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, b
 }
 
 // AttributeUseSetForType returns attribute-use reads for a runtime type.
-func (rt *Schema) AttributeUseSetForType(typ TypeID) (AttributeUseSetRead, bool, bool) {
+func (rt *Schema) AttributeUseSetForType(typ TypeID) (set AttributeUseSetRead, present, valid bool) {
 	id, ok := typ.Complex()
 	if !ok {
 		return AttributeUseSetRead{}, false, true
 	}
-	set, valid := rt.complexAttributeUses(id)
+	set, valid = rt.complexAttributeUses(id)
 	return set, true, valid
 }
 
 // SimpleContentType returns the simple-content type for a runtime type.
-func (rt *Schema) SimpleContentType(t TypeID) (SimpleTypeID, bool, bool) {
+func (rt *Schema) SimpleContentType(t TypeID) (simpleID SimpleTypeID, present, valid bool) {
 	if id, ok := t.Simple(); ok {
 		return id, true, ValidSimpleTypeID(id, len(rt.runtime.SimpleValueRoutes))
 	}
@@ -114,40 +78,31 @@ func (rt *Schema) SimpleIdentity(id SimpleTypeID) SimpleIdentityKind {
 }
 
 // ElementValueConstraints returns value constraints for an element declaration.
-func (rt *Schema) ElementValueConstraints(id ElementID) (ElementValueConstraints, bool, bool) {
+func (rt *Schema) ElementValueConstraints(id ElementID) (constraints ElementValueConstraints, present, valid bool) {
 	return rt.runtime.Elements.valueConstraints(id)
 }
 
 // ElementTextContent returns text-content metadata for a runtime type and element.
 func (rt *Schema) ElementTextContent(t TypeID, elem ElementID) (ElementTextContent, bool) {
-	if elem != NoElement && !ValidElementID(elem, rt.runtime.Elements.len()) {
-		return ElementTextContent{}, false
+	var constraints ElementValueConstraints
+	if elem != NoElement {
+		var declared, valid bool
+		constraints, declared, valid = rt.runtime.Elements.valueConstraints(elem)
+		if !valid || !declared {
+			return ElementTextContent{}, false
+		}
 	}
 	if id, ok := t.Complex(); ok {
 		if !ValidComplexTypeID(id, len(rt.runtime.ComplexTypes)) {
 			return ElementTextContent{}, false
 		}
-		if elem != NoElement {
-			constraints, _, valid := rt.runtime.Elements.valueConstraints(elem)
-			if !valid {
-				return ElementTextContent{}, false
-			}
-			if _, fixed := constraints.FixedValue(); fixed {
-				return rt.runtime.ComplexTypes[id].textContent(true), true
-			}
-		}
-		return rt.runtime.ComplexTypes[id].textContent(false), true
+		_, fixed := constraints.FixedValue()
+		return rt.runtime.ComplexTypes[id].textContent(fixed, constraints.HasAny()), true
 	}
 	if id, ok := t.Simple(); !ok || !ValidSimpleTypeID(id, len(rt.runtime.SimpleValueRoutes)) {
 		return ElementTextContent{}, false
 	}
-	return NewElementTextContent(ElementTextContentShape{Simple: true}), true
-}
-
-// ElementHasSimpleContent reports whether a runtime type and element have simple content.
-func (rt *Schema) ElementHasSimpleContent(t TypeID, elem ElementID) (bool, bool) {
-	content, ok := rt.ElementTextContent(t, elem)
-	return content.HasSimpleContent(), ok
+	return ElementTextContent{constrained: constraints.HasAny()}, true
 }
 
 // SimpleValueNeedsQNameResolver reports whether validating id can require
@@ -173,5 +128,5 @@ func (rt *Schema) ValidateRawSimpleValueWithScratch(id SimpleTypeID, raw []byte,
 	if id == NoSimpleType {
 		return false, nil
 	}
-	return rt.validatePublishedRawSimpleValueWithScratch(id, raw, scratch)
+	return validateResolvedRawSimpleValue(rawSimpleValueResolver{runtime: &rt.runtime, scratch: scratch}, id, raw)
 }

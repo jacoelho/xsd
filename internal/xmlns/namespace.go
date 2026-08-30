@@ -4,6 +4,8 @@ package xmlns
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
+	"math"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/stream"
@@ -11,32 +13,378 @@ import (
 )
 
 type binding struct {
-	Prefix string
-	URI    string
+	Prefix       string
+	URI          string
+	Parent       uint32
+	PreviousSame uint32
 }
 
-// Stack tracks nested XML namespace declarations and resolves prefixed names.
-type Stack struct {
-	frames   []int
+type contextStore struct {
 	bindings []binding
+}
+
+type stackFrame struct {
+	token       Frame
+	element     Element
+	previous    uint32
+	bindingMark int
+	bindingEnd  int
+}
+
+// Stack owns nested XML namespace frames. Every admitted start returns the
+// capability required to close or abort that exact frame.
+type Stack struct {
+	store         *contextStore
+	active        map[string]uint32
+	frames        []stackFrame
+	resolvedAttrs []xml.Name
+	seen          nameSet
+	serial        uint64
+	activePeak    int
+	head          uint32
+	persistent    bool
+}
+
+// Frame identifies one admitted namespace frame. Its fields are intentionally
+// opaque so callers cannot synthesize ownership of a live frame.
+type Frame struct {
+	store  *contextStore
+	serial uint64
+}
+
+// IsZero reports whether f identifies no admitted frame.
+func (f Frame) IsZero() bool {
+	return f.store == nil && f.serial == 0
+}
+
+// LexicalName is an XML name before namespace expansion.
+type LexicalName struct {
+	Prefix string
+	Local  string
+}
+
+// Element identifies one admitted element by lexical and expanded name.
+type Element struct {
+	Lexical LexicalName
+	Name    xml.Name
+}
+
+// Context is an immutable namespace projection retained beyond stack mutation.
+type Context struct {
+	store *contextStore
+	head  uint32
+}
+
+// Lexical converts the repository's lexical xml.Name spelling to an explicit name.
+func Lexical(name xml.Name) LexicalName {
+	return LexicalName{Prefix: name.Space, Local: name.Local}
+}
+
+// StartXML atomically admits an encoding/xml start element.
+func (s *Stack) StartXML(start xml.StartElement) (Frame, Element, error) {
+	lexical := Lexical(start.Name)
+	mark, previous := s.beginAdmission()
+	if err := s.appendXMLBindings(start.Attr); err != nil {
+		return s.abortAdmission(mark, previous, err)
+	}
+	element, err := s.resolveElement(lexical)
+	if err != nil {
+		return s.abortAdmission(mark, previous, err)
+	}
+	if err := s.resolveXMLAttributes(start.Attr); err != nil {
+		return s.abortAdmission(mark, previous, err)
+	}
+	return s.commitAdmission(mark, previous, element), element, nil
+}
+
+// StartStream atomically admits a borrowed stream start element. On success it
+// replaces every lexical attribute name with its expanded name.
+func (s *Stack) StartStream(start *stream.StartElement, values *stream.Cache) (Frame, Element, error) {
+	if start == nil {
+		return Frame{}, Element{}, errors.New("nil XML start element")
+	}
+	lexical := Lexical(start.Name)
+	mark, previous := s.beginAdmission()
+	for i := range start.Attr {
+		attr := &start.Attr[i]
+		if !IsNamespaceName(attr.Name) {
+			continue
+		}
+		value, available := attr.MaterializeValue(values)
+		if err := s.appendStreamBinding(streamBindingInput{name: attr.Name, value: value, available: available}); err != nil {
+			return s.abortAdmission(mark, previous, err)
+		}
+	}
+	element, err := s.resolveElement(lexical)
+	if err != nil {
+		return s.abortAdmission(mark, previous, err)
+	}
+	resolved := s.prepareAttributeAdmission(len(start.Attr))
+	for i := range start.Attr {
+		name, err := s.resolveStreamAttribute(start.Attr[i].Name)
+		if err != nil {
+			return s.abortAdmission(mark, previous, err)
+		}
+		resolved[i] = name
+	}
+	frame := s.commitAdmission(mark, previous, element)
+	replaceStreamAttributeNames(start, resolved)
+	s.clearAttributeAdmission()
+	return frame, element, nil
+}
+
+type streamBindingInput struct {
+	name      xml.Name
+	value     string
+	available bool
+}
+
+func (s *Stack) appendStreamBinding(input streamBindingInput) error {
+	if !input.available {
+		return errors.New("namespace declaration requires an attribute value cache")
+	}
+	return s.appendBinding(input.name, input.value)
+}
+
+func replaceStreamAttributeNames(start *stream.StartElement, resolved []xml.Name) {
+	for i := range start.Attr {
+		start.Attr[i].Name = resolved[i]
+	}
+}
+
+func (s *Stack) appendXMLBindings(attrs []xml.Attr) error {
+	for _, attr := range attrs {
+		if !IsNamespaceName(attr.Name) {
+			continue
+		}
+		if err := s.appendBinding(attr.Name, attr.Value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Stack) resolveXMLAttributes(attrs []xml.Attr) error {
+	resolved := s.prepareAttributeAdmission(len(attrs))
+	for i, attr := range attrs {
+		name, err := s.resolveAttribute(attr.Name)
+		if err != nil {
+			return err
+		}
+		if err := s.seen.add(name); err != nil {
+			return err
+		}
+		resolved[i] = name
+	}
+	return nil
+}
+
+func (s *Stack) resolveStreamAttribute(lexical xml.Name) (xml.Name, error) {
+	name, err := s.resolveAttribute(lexical)
+	if err != nil {
+		return xml.Name{}, err
+	}
+	if err := s.seen.add(name); err != nil {
+		return xml.Name{}, err
+	}
+	return name, nil
+}
+
+func (s *Stack) abortAdmission(mark int, previous uint32, err error) (Frame, Element, error) {
+	s.rollbackAdmission(mark, previous)
+	return Frame{}, Element{}, err
+}
+
+// End validates a lexical closing name and releases the identified top frame.
+// A failed match leaves the frame live.
+func (s *Stack) End(frame Frame, end LexicalName) error {
+	if err := s.MatchEnd(frame, end); err != nil {
+		return err
+	}
+	s.pop()
+	return nil
+}
+
+// MatchEnd validates a lexical closing name without changing stack state.
+func (s *Stack) MatchEnd(frame Frame, end LexicalName) error {
+	current, err := s.ownedTop(frame)
+	if err != nil {
+		return err
+	}
+	resolved, ok := s.resolveName(xml.Name{Space: end.Prefix, Local: end.Local}, elementName)
+	if !ok {
+		return fmt.Errorf("unbound namespace prefix %s", end.Prefix)
+	}
+	if end != current.element.Lexical {
+		return fmt.Errorf("end element </%s> does not match start element <%s>", formatLexical(end), formatLexical(current.element.Lexical))
+	}
+	if resolved != current.element.Name {
+		return fmt.Errorf("end element </%s> does not match start element <%s>", FormatName(resolved), FormatName(current.element.Name))
+	}
+	return nil
+}
+
+// Abort releases the identified top frame without validating a closing name.
+func (s *Stack) Abort(frame Frame) error {
+	if _, err := s.ownedTop(frame); err != nil {
+		return err
+	}
+	s.pop()
+	return nil
+}
+
+func (s *Stack) ownedTop(frame Frame) (*stackFrame, error) {
+	if frame.IsZero() {
+		return nil, errors.New("namespace frame is empty")
+	}
+	if len(s.frames) == 0 || s.store != frame.store {
+		return nil, errors.New("namespace frame is not owned by this stack")
+	}
+	current := &s.frames[len(s.frames)-1]
+	if current.token != frame {
+		return nil, errors.New("namespace frame is not the current frame")
+	}
+	return current, nil
+}
+
+func (s *Stack) beginAdmission() (int, uint32) {
+	s.ensureStore()
+	return len(s.store.bindings), s.head
+}
+
+func (s *Stack) commitAdmission(mark int, previous uint32, element Element) Frame {
+	s.serial++
+	if s.serial == 0 {
+		s.serial++
+	}
+	frame := Frame{store: s.store, serial: s.serial}
+	s.frames = append(s.frames, stackFrame{
+		token:       frame,
+		element:     element,
+		previous:    previous,
+		bindingMark: mark,
+		bindingEnd:  len(s.store.bindings),
+	})
+	return frame
+}
+
+func (s *Stack) rollbackAdmission(mark int, previous uint32) {
+	s.restoreActiveBindings(mark, len(s.store.bindings))
+	clear(s.store.bindings[mark:])
+	s.store.bindings = s.store.bindings[:mark]
+	s.head = previous
+	s.clearAttributeAdmission()
+}
+
+func (s *Stack) pop() {
+	i := len(s.frames) - 1
+	current := s.frames[i]
+	s.frames[i] = stackFrame{}
+	s.frames = s.frames[:i]
+	s.head = current.previous
+	s.restoreActiveBindings(current.bindingMark, current.bindingEnd)
+	if !s.persistent {
+		clear(s.store.bindings[current.bindingMark:])
+		s.store.bindings = s.store.bindings[:current.bindingMark]
+	}
+}
+
+func (s *Stack) ensureStore() {
+	if s.store == nil {
+		s.store = new(contextStore)
+	}
+}
+
+func (s *Stack) restoreActiveBindings(start, end int) {
+	for i := end - 1; i >= start; i-- {
+		current := s.store.bindings[i]
+		if current.PreviousSame == 0 {
+			delete(s.active, current.Prefix)
+			continue
+		}
+		s.active[current.Prefix] = current.PreviousSame
+	}
+}
+
+func (s *Stack) prepareAttributeAdmission(n int) []xml.Name {
+	s.seen.reset()
+	if cap(s.resolvedAttrs) < n {
+		s.resolvedAttrs = make([]xml.Name, n)
+	} else {
+		s.resolvedAttrs = s.resolvedAttrs[:n]
+		clear(s.resolvedAttrs)
+	}
+	return s.resolvedAttrs
+}
+
+func (s *Stack) clearAttributeAdmission() {
+	clear(s.resolvedAttrs)
+}
+
+func (s *Stack) resolveElement(lexical LexicalName) (Element, error) {
+	name, ok := s.resolveName(xml.Name{Space: lexical.Prefix, Local: lexical.Local}, elementName)
+	if !ok {
+		return Element{}, fmt.Errorf("unbound namespace prefix %s", lexical.Prefix)
+	}
+	return Element{Lexical: lexical, Name: name}, nil
+}
+
+func (s *Stack) resolveAttribute(name xml.Name) (xml.Name, error) {
+	if IsNamespaceName(name) {
+		return name, nil
+	}
+	resolved, ok := s.resolveName(name, attributeName)
+	if !ok {
+		return xml.Name{}, fmt.Errorf("unbound namespace prefix %s", name.Space)
+	}
+	return resolved, nil
+}
+
+func formatLexical(name LexicalName) string {
+	if name.Prefix == "" {
+		return name.Local
+	}
+	return name.Prefix + ":" + name.Local
+}
+
+// Context returns a constant-time immutable view of all active bindings.
+func (s *Stack) Context() Context {
+	if s.store == nil {
+		return Context{}
+	}
+	s.persistent = true
+	return Context{store: s.store, head: s.head}
+}
+
+// Lookup resolves a prefix in an immutable context.
+func (c Context) Lookup(prefix string) (string, bool) {
+	return lookup(c.store, c.head, prefix)
 }
 
 const nameSetLinearLimit = 16
 
-// NameSet tracks resolved XML names and reports duplicate attributes.
-type NameSet struct {
+type nameSet struct {
 	index map[xml.Name]struct{}
 	names [nameSetLinearLimit]xml.Name
 	n     int
+	peak  int
 }
 
-// AddAttribute records name or returns a duplicate-attribute error.
-func (s *NameSet) AddAttribute(name xml.Name) error {
+func (s *nameSet) reset() {
+	clear(s.index)
+	clear(s.names[:s.n])
+	s.n = 0
+}
+
+func (s *nameSet) add(name xml.Name) error {
 	if s.index != nil {
 		if _, ok := s.index[name]; ok {
 			return duplicateAttributeError(name)
 		}
 		s.index[name] = struct{}{}
+		if len(s.index) > s.peak {
+			s.peak = len(s.index)
+		}
 		return nil
 	}
 	if slices.Contains(s.names[:s.n], name) {
@@ -45,6 +393,9 @@ func (s *NameSet) AddAttribute(name xml.Name) error {
 	if s.n < len(s.names) {
 		s.names[s.n] = name
 		s.n++
+		if s.n > s.peak {
+			s.peak = s.n
+		}
 		return nil
 	}
 	s.index = make(map[xml.Name]struct{}, s.n+1)
@@ -52,25 +403,20 @@ func (s *NameSet) AddAttribute(name xml.Name) error {
 		s.index[existing] = struct{}{}
 	}
 	s.index[name] = struct{}{}
+	s.peak = len(s.index)
 	return nil
+}
+
+func (s *nameSet) resetRetained(maxRetained int) {
+	if s.peak > maxRetained {
+		s.index = nil
+	}
+	s.reset()
+	s.peak = 0
 }
 
 func duplicateAttributeError(name xml.Name) error {
 	return errors.New("duplicate attribute " + FormatName(name))
-}
-
-// ValidateUniqueAttributes reports duplicate expanded attribute names.
-func ValidateUniqueAttributes(attrs []stream.Attr) error {
-	if len(attrs) < 2 {
-		return nil
-	}
-	var seen NameSet
-	for _, attr := range attrs {
-		if err := seen.AddAttribute(attr.Name); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // FormatName formats an XML name using expanded-name notation.
@@ -84,30 +430,38 @@ func FormatName(n xml.Name) string {
 // NewStackWithCapacity returns an empty stack with retained slice capacity.
 func NewStackWithCapacity(frameCap, bindingCap int) Stack {
 	return Stack{
-		frames:   make([]int, 0, frameCap),
-		bindings: make([]binding, 0, bindingCap),
+		store:  &contextStore{bindings: make([]binding, 0, bindingCap)},
+		frames: make([]stackFrame, 0, frameCap),
 	}
 }
 
-// Reset clears the stack, retaining bounded slice capacity.
+// Reset invalidates live frames and clears the stack while retaining bounded
+// private storage. A store published through Context is detached, never reused.
 func (s *Stack) Reset(maxRetainedCap int) {
-	s.frames = resetRetainedValues(s.frames, maxRetainedCap)
-	s.bindings = resetRetainedReferences(s.bindings, maxRetainedCap)
+	s.frames = resetRetainedReferences(s.frames, maxRetainedCap)
+	s.resolvedAttrs = resetRetainedReferences(s.resolvedAttrs, maxRetainedCap)
+	s.seen.resetRetained(maxRetainedCap)
+	if s.persistent {
+		s.store = nil
+	} else if s.store != nil {
+		s.store.bindings = resetRetainedReferences(s.store.bindings, maxRetainedCap)
+	}
+	if s.activePeak > maxRetainedCap {
+		s.active = nil
+	} else {
+		clear(s.active)
+	}
+	s.head = 0
+	s.activePeak = 0
+	s.persistent = false
 }
 
-func resetRetainedReferences[T any](s []T, maxRetainedCap int) []T {
-	if cap(s) > maxRetainedCap {
+func resetRetainedReferences[T any](values []T, maxRetainedCap int) []T {
+	if cap(values) > maxRetainedCap {
 		return nil
 	}
-	clear(s)
-	return s[:0]
-}
-
-func resetRetainedValues[T any](s []T, maxRetainedCap int) []T {
-	if cap(s) > maxRetainedCap {
-		return nil
-	}
-	return s[:0]
+	clear(values)
+	return values[:0]
 }
 
 // FrameCapacity returns the retained frame slice capacity.
@@ -115,45 +469,15 @@ func (s *Stack) FrameCapacity() int {
 	return cap(s.frames)
 }
 
-// BindingCapacity returns the retained binding slice capacity.
+// BindingCapacity returns the retained binding arena capacity.
 func (s *Stack) BindingCapacity() int {
-	return cap(s.bindings)
-}
-
-// Push applies namespace declarations from encoding/xml attributes.
-func (s *Stack) Push(attrs []xml.Attr) error {
-	mark := len(s.bindings)
-	for _, a := range attrs {
-		if !IsNamespaceName(a.Name) {
-			continue
-		}
-		if err := s.appendBinding(mark, a.Name, a.Value); err != nil {
-			return err
-		}
+	if s.store == nil {
+		return 0
 	}
-	s.frames = append(s.frames, mark)
-	return nil
+	return cap(s.store.bindings)
 }
 
-// PushStream applies namespace declarations from stream attributes.
-func (s *Stack) PushStream(attrs []stream.Attr, values *stream.Cache) error {
-	mark := len(s.bindings)
-	for i := range attrs {
-		a := &attrs[i]
-		if !IsNamespaceName(a.Name) {
-			continue
-		}
-		if err := s.appendBinding(mark, a.Name, a.StringValue(values)); err != nil {
-			return err
-		}
-	}
-	s.frames = append(s.frames, mark)
-	return nil
-}
-
-// appendBinding validates one xmlns declaration and appends it, rolling back
-// bindings added since mark on error.
-func (s *Stack) appendBinding(mark int, name xml.Name, uri string) error {
+func (s *Stack) appendBinding(name xml.Name, uri string) error {
 	prefix := ""
 	var err error
 	if name.Space == vocab.XMLNSPrefix {
@@ -163,26 +487,35 @@ func (s *Stack) appendBinding(mark int, name xml.Name, uri string) error {
 		err = validateDefaultNamespaceBinding(uri)
 	}
 	if err != nil {
-		clear(s.bindings[mark:])
-		s.bindings = s.bindings[:mark]
 		return err
 	}
-	s.bindings = append(s.bindings, binding{Prefix: prefix, URI: uri})
+	if uint64(len(s.store.bindings)) >= uint64(math.MaxUint32) {
+		return errors.New("namespace binding limit exceeded")
+	}
+	if s.active == nil {
+		s.active = make(map[string]uint32)
+	}
+	previousSame := s.active[prefix]
+	s.store.bindings = append(s.store.bindings, binding{
+		Prefix:       prefix,
+		URI:          uri,
+		Parent:       s.head,
+		PreviousSame: previousSame,
+	})
+	s.head = uint32(len(s.store.bindings)) //nolint:gosec // The MaxUint32 guard above proves the conversion safe.
+	s.active[prefix] = s.head
+	s.activePeak = max(s.activePeak, len(s.active))
 	return nil
 }
 
-// NameKind identifies how default namespaces apply to a name.
-type NameKind uint8
+type nameKind uint8
 
 const (
-	// ElementName resolves unprefixed names through the default namespace.
-	ElementName NameKind = iota
-	// AttributeName leaves unprefixed names in no namespace.
-	AttributeName
+	elementName nameKind = iota
+	attributeName
 )
 
-// ResolveName resolves name using the current namespace bindings.
-func (s *Stack) ResolveName(name xml.Name, kind NameKind) (xml.Name, bool) {
+func (s *Stack) resolveName(name xml.Name, kind nameKind) (xml.Name, bool) {
 	if name.Space != "" {
 		uri, ok := s.Lookup(name.Space)
 		if !ok {
@@ -190,38 +523,20 @@ func (s *Stack) ResolveName(name xml.Name, kind NameKind) (xml.Name, bool) {
 		}
 		return xml.Name{Space: uri, Local: name.Local}, true
 	}
-	if kind == ElementName {
-		if len(s.bindings) == 0 {
-			return name, true
-		}
+	if kind == elementName {
 		uri, _ := s.Lookup("")
 		return xml.Name{Space: uri, Local: name.Local}, true
 	}
 	return name, true
 }
 
-// Pop removes the bindings pushed for the current element.
-func (s *Stack) Pop() {
-	if len(s.frames) == 0 {
-		return
-	}
-	i := len(s.frames) - 1
-	mark := s.frames[i]
-	s.frames[i] = 0
-	s.frames = s.frames[:i]
-	clear(s.bindings[mark:])
-	s.bindings = s.bindings[:mark]
-}
-
-// Lookup resolves a namespace prefix.
+// Lookup resolves a namespace prefix in the active stack.
 func (s *Stack) Lookup(prefix string) (string, bool) {
 	if prefix == vocab.XMLPrefix {
 		return vocab.XMLNamespaceURI, true
 	}
-	for _, binding := range slices.Backward(s.bindings) {
-		if binding.Prefix == prefix {
-			return binding.URI, true
-		}
+	if head, ok := s.active[prefix]; ok {
+		return s.store.bindings[head-1].URI, true
 	}
 	if prefix == "" {
 		return "", true
@@ -229,9 +544,21 @@ func (s *Stack) Lookup(prefix string) (string, bool) {
 	return "", false
 }
 
-// IsNamespaceAttr reports whether a standard xml.Attr declares a namespace.
-func IsNamespaceAttr(a xml.Attr) bool {
-	return IsNamespaceName(a.Name)
+func lookup(store *contextStore, head uint32, prefix string) (string, bool) {
+	if prefix == vocab.XMLPrefix {
+		return vocab.XMLNamespaceURI, true
+	}
+	for head != 0 {
+		current := store.bindings[head-1]
+		if current.Prefix == prefix {
+			return current.URI, true
+		}
+		head = current.Parent
+	}
+	if prefix == "" {
+		return "", true
+	}
+	return "", false
 }
 
 // IsNamespaceName reports whether name is an xmlns declaration name.

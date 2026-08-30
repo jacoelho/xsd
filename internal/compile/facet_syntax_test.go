@@ -144,7 +144,7 @@ func expectSchemaFacetMessage(t *testing.T, err error, message string) {
 	if !ok {
 		t.Fatalf("error = %T %[1]v, want xsderrors.Error", err)
 	}
-	if diag.Category != xsderrors.CategorySchemaCompile || diag.Code != xsderrors.CodeSchemaFacet || diag.Message != message {
-		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category, diag.Code, diag.Message, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaFacet, message)
+	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaFacet || diag.Message() != message {
+		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category(), diag.Code(), diag.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaFacet, message)
 	}
 }

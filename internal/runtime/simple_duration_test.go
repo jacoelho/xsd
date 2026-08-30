@@ -202,7 +202,9 @@ func reverseOrderedFacetRelation(r OrderedFacetRelation) OrderedFacetRelation {
 		return OrderedFacetGreater
 	case OrderedFacetGreater:
 		return OrderedFacetLess
-	default:
+	case OrderedFacetEqual, OrderedFacetIncomparable:
 		return r
+	default:
 	}
+	return r
 }

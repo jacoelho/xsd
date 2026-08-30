@@ -44,12 +44,17 @@ type IdentityRecorderForTest struct {
 
 // NewIdentityRecorderForTest creates a benchmark identity recorder.
 func NewIdentityRecorderForTest() *IdentityRecorderForTest {
-	return &IdentityRecorderForTest{}
+	recorder := &IdentityRecorderForTest{}
+	recorder.session.doc.identity.limits = identityLimits{
+		Entries:    defaultMaxIdentityEntries,
+		TupleBytes: defaultMaxIdentityTupleBytes,
+	}
+	return recorder
 }
 
 // PushPath appends a path segment.
 func (r *IdentityRecorderForTest) PushPath(local string) {
-	r.session.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: local}}, false, frame{})
+	r.session.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: local}}, frame{})
 }
 
 // PathString returns the current validation path.
@@ -59,10 +64,10 @@ func (r *IdentityRecorderForTest) PathString() string {
 
 // ResetIdentity resets retained identity state.
 func (r *IdentityRecorderForTest) ResetIdentity() {
-	r.session.doc.identity.Reset(maxRetainedMapLen, maxRetainedSliceCap)
+	r.session.doc.identity.reset(maxRetainedMapLen, maxRetainedSliceCap)
 }
 
 // RecordIdentityValue records one simple value identity payload.
 func (r *IdentityRecorderForTest) RecordIdentityValue(value runtime.SimpleValue, line, col int) error {
-	return r.session.recordIdentityValue(value, line, col)
+	return r.session.doc.identity.recordIdentityFields(value.IDs, value.IDRefs, r.session.startContext(line, col))
 }

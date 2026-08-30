@@ -143,8 +143,7 @@ func TestBuildSubstitutionTableChecksClosureLimitBeforeDerivationWork(t *testing
 		substitutionGlobals(elements),
 		1,
 	)
-	var limit SubstitutionClosureLimitError
-	if !errors.As(err, &limit) {
+	if diagnostic, ok := errors.AsType[SubstitutionClosureLimitError](err); !ok || diagnostic.Error() == "" {
 		t.Fatalf("BuildSubstitutionTable() error = %T %v, want closure limit", err, err)
 	}
 	if calls != 0 {
@@ -217,8 +216,7 @@ func TestBuildSubstitutionTableDetectsCycleIteratively(t *testing.T) {
 		{Name: qnames["member"], Type: ComplexRef(0), SubstHead: 0},
 	}
 	_, err := BuildSubstitutionTable(rt, &names, elements, substitutionGlobals(elements), 2)
-	var cycle SubstitutionCycleError
-	if !errors.As(err, &cycle) {
+	if diagnostic, ok := errors.AsType[SubstitutionCycleError](err); !ok || diagnostic.Error() == "" {
 		t.Fatalf("BuildSubstitutionTable() error = %T %v, want cycle", err, err)
 	}
 }
@@ -250,8 +248,7 @@ func TestBuildSubstitutionTableDetectsDeepCycleWithoutRecursion(t *testing.T) {
 	}
 	elements[0].SubstHead = ElementID(count - 1)
 	_, err = BuildSubstitutionTable(derivationRuntimeStub{}, &names, elements, globals, 0)
-	var cycle SubstitutionCycleError
-	if !errors.As(err, &cycle) {
+	if diagnostic, ok := errors.AsType[SubstitutionCycleError](err); !ok || diagnostic.Error() == "" {
 		t.Fatalf("BuildSubstitutionTable() error = %T %v, want cycle", err, err)
 	}
 }
@@ -318,7 +315,7 @@ func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 		Substitutions: table,
 		ComplexTypes:  []ComplexType{{Derivation: DerivationKindNone}},
 	}
-	reads, err := newSchemaRuntime(&build)
+	reads, err := newSchemaRuntime(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaRuntime() error = %v", err)
 	}
@@ -356,10 +353,14 @@ type countingDerivationRuntime struct {
 	calls   *int
 }
 
+//nolint:revive // The receiver is required to satisfy TypeDerivationRuntime.
 func (r countingDerivationRuntime) AnyTypeID() ComplexTypeID { return 0 }
-func (r countingDerivationRuntime) SimpleTypeCount() int     { return 0 }
-func (r countingDerivationRuntime) ComplexTypeCount() int    { return len(r.complex) }
 
+//nolint:revive // The receiver is required to satisfy TypeDerivationRuntime.
+func (r countingDerivationRuntime) SimpleTypeCount() int  { return 0 }
+func (r countingDerivationRuntime) ComplexTypeCount() int { return len(r.complex) }
+
+//nolint:revive // The receiver is required to satisfy TypeDerivationRuntime.
 func (r countingDerivationRuntime) SimpleTypeDerivation(SimpleTypeID) (SimpleTypeDerivation, bool) {
 	return SimpleTypeDerivation{}, false
 }

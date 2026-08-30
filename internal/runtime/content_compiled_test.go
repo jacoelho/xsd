@@ -3,7 +3,9 @@ package runtime
 import (
 	"math"
 	"slices"
+	"strconv"
 	"testing"
+	"unsafe"
 )
 
 func TestContentFrameForTypeUsesCompiledModelInitialState(t *testing.T) {
@@ -81,8 +83,8 @@ func TestCompiledModelReadProjection(t *testing.T) {
 			}},
 		},
 	}
-	reads := newCompiledModelReads(models)
-	if err := validateCompiledModelReadProjectionTable(reads, models); err != nil {
+	reads := testCompiledModelReads(models)
+	if err := validateCompiledModelReadProjectionTable(reads, models, unlimitedContentModelWork); err != nil {
 		t.Fatalf("validateCompiledModelReadProjectionTable() error = %v", err)
 	}
 	models[0].Source = 99
@@ -93,14 +95,14 @@ func TestCompiledModelReadProjection(t *testing.T) {
 	models[2].Rows[0].CountParticle.Model = 14
 	models[2].Rows[0].Edges[0].Particle.Occurs = Occurrence{Min: 15, Max: 16}
 	models[2].Rows[0].Edges[0].Particle.Model = 17
-	if err := validateCompiledModelReadProjectionTable(reads, models); err != nil {
+	if err := validateCompiledModelReadProjectionTable(reads, models, unlimitedContentModelWork); err != nil {
 		t.Fatalf("projection audit depends on discarded compiler fields: %v", err)
 	}
 	models[2].Rows[0].Edges[0].Particle.Element = 99
-	if err := validateCompiledModelReadProjectionTable(reads, models); err == nil {
+	if err := validateCompiledModelReadProjectionTable(reads, models, unlimitedContentModelWork); err == nil {
 		t.Fatal("projection audit accepted changed validation fields")
 	}
-	if err := validateCompiledModelReadProjectionTable(reads[:1], models); err == nil {
+	if err := validateCompiledModelReadProjectionTable(reads[:1], models, unlimitedContentModelWork); err == nil {
 		t.Fatal("projection audit accepted mismatched table length")
 	}
 }
@@ -124,7 +126,7 @@ func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
 		},
 	}
 
-	reads := newCompiledModelReads(models)
+	reads := testCompiledModelReads(models)
 	if reads[0].Rows != nil || reads[0].All != nil {
 		t.Fatalf("empty model projection = rows %#v all %#v, want nil slices", reads[0].Rows, reads[0].All)
 	}
@@ -163,7 +165,7 @@ func TestCompiledModelReadProjectionAllocationCountIsConstant(t *testing.T) {
 	}
 
 	allocs := testing.AllocsPerRun(3, func() {
-		compiledModelReadAllocationSink = newCompiledModelReads(models)
+		compiledModelReadAllocationSink = testCompiledModelReads(models)
 	})
 	if allocs > 4 {
 		t.Fatalf("newCompiledModelReads() allocations = %v, want at most 4 flat tables", allocs)
@@ -181,7 +183,7 @@ func TestAddCompiledModelReadCountRejectsOverflow(t *testing.T) {
 	addCompiledModelReadCount(math.MaxInt, 1)
 }
 
-func TestAdvanceContentAnyReturnsGlobalElement(t *testing.T) {
+func TestNextContentAnyReturnsGlobalElement(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
@@ -191,15 +193,16 @@ func TestAdvanceContentAnyReturnsGlobalElement(t *testing.T) {
 		globalElements: map[QName]ElementID{name: elem},
 	})
 	st := ContentState{model: 0, present: true}
-	match, status := rt.AdvanceContent(&st, ContentInput{
+	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	if status != ContentAdvanceMatched || match.Element != elem || match.Skip || match.StrictMissing {
-		t.Fatalf("AdvanceContent(any) = %+v/%v, want global element", match, status)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+		t.Fatalf("NextContent(any) = %v/%v/%v, want declared element", kind, element, status)
 	}
 }
 
-func TestAdvanceContentAllMarksScratchAndCompletes(t *testing.T) {
+func TestNextContentAllDefersScratchUntilCommit(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
@@ -219,22 +222,66 @@ func TestAdvanceContentAllMarksScratchAndCompletes(t *testing.T) {
 	})
 	scratch := NewContentScratch(make([]uint64, 1), 0, 1)
 	st := ContentState{model: model, present: true}
-	match, status := rt.AdvanceContent(&st, ContentInput{
+	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &scratch)
-	if status != ContentAdvanceMatched || match.Element != elem {
-		t.Fatalf("AdvanceContent(all) = %+v/%v, want element", match, status)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+		t.Fatalf("NextContent(all) = %v/%v/%v, want declared element", kind, element, status)
 	}
 	seen, ok := scratch.AllSeen(0)
+	if !ok || seen {
+		t.Fatalf("AllSeen(0) before commit = %v/%v, want false/true", seen, ok)
+	}
+	if !transition.Commit(&st, &scratch) {
+		t.Fatal("ContentTransition.Commit() rejected current all-group state")
+	}
+	seen, ok = scratch.AllSeen(0)
 	if !ok || !seen {
-		t.Fatalf("AllSeen(0) = %v/%v, want true/true", seen, ok)
+		t.Fatalf("AllSeen(0) after commit = %v/%v, want true/true", seen, ok)
 	}
 	if status := rt.CompleteContent(st, &scratch); status != ContentCompletionComplete {
 		t.Fatalf("CompleteContent(all) = %v, want complete", status)
 	}
 }
 
-func TestAdvanceContentIndexedSubstitutionReturnsMember(t *testing.T) {
+func TestContentTransitionRejectsStaleAllStateWithoutMutation(t *testing.T) {
+	t.Parallel()
+
+	name := QName{Local: 1}
+	elem := ElementID(2)
+	model := ContentModelID(3)
+	rt := publishedContentSchema(contentSchemaFixture{
+		models: map[ContentModelID]CompiledModel{
+			model: {
+				Kind:      CompiledModelAll,
+				AllBitLen: 1,
+				All: []CompiledAllTerm{
+					{Particle: ElementParticle(elem, Occurrence{Min: 1, Max: 1}), Required: true},
+				},
+			},
+		},
+		elementNames: map[ElementID]QName{elem: name},
+	})
+	bits := make([]uint64, 1)
+	scratch := NewContentScratch(bits, 0, 1)
+	state := ContentState{model: model, present: true}
+	transition, status := rt.NextContent(state, ContentInput{Name: RuntimeName{Known: true, Name: name}}, &scratch)
+	if status != ContentTransitionMatched {
+		t.Fatalf("NextContent(all) status = %v, want matched", status)
+	}
+	state.state++
+	wantState := state
+	wantBits := slices.Clone(bits)
+	if transition.Commit(&state, &scratch) {
+		t.Fatal("ContentTransition.Commit() accepted stale state")
+	}
+	if state != wantState || !slices.Equal(bits, wantBits) {
+		t.Fatalf("stale commit mutated state: state=%+v bits=%v, want %+v/%v", state, bits, wantState, wantBits)
+	}
+}
+
+func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 	t.Parallel()
 
 	head := ElementID(1)
@@ -248,7 +295,7 @@ func TestAdvanceContentIndexedSubstitutionReturnsMember(t *testing.T) {
 				Kind: CompiledModelDFA,
 				Rows: []CompiledModelRow{
 					{
-						Index: DFARowIndex{Enabled: true, NameToEdge: map[QName]uint32{memberName: 0}},
+						index: dfaRowIndex{nameToEdge: map[QName]uint32{memberName: 0}},
 						Edges: []CompiledModelEdge{{
 							Particle: ElementParticle(head, Occurrence{Min: 1, Max: 1}),
 							To:       1,
@@ -264,15 +311,19 @@ func TestAdvanceContentIndexedSubstitutionReturnsMember(t *testing.T) {
 		},
 	})
 	st := ContentState{model: model, present: true}
-	match, status := rt.AdvanceContent(&st, ContentInput{
+	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: memberName, Local: "member"},
 	}, &ContentScratch{})
-	if status != ContentAdvanceMatched || match.Element != member || st.state != 1 {
-		t.Fatalf("AdvanceContent(indexed substitution) = %+v/%v state %d, want member state 1", match, status, st.state)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != member || st.state != 0 {
+		t.Fatalf("NextContent(indexed substitution) = %v/%v/%v state %d, want declared member and unchanged state 0", kind, element, status, st.state)
+	}
+	if !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
+		t.Fatalf("ContentTransition.Commit() state = %d, want 1", st.state)
 	}
 }
 
-func TestAdvanceContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
+func TestNextContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 	t.Parallel()
 
 	elem := ElementID(1)
@@ -285,10 +336,9 @@ func TestAdvanceContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 				Kind: CompiledModelDFA,
 				Rows: []CompiledModelRow{
 					{
-						Index: DFARowIndex{
-							Enabled:       true,
-							NameToEdge:    map[QName]uint32{name: 1},
-							WildcardEdges: []uint32{0},
+						index: dfaRowIndex{
+							nameToEdge:    map[QName]uint32{name: 1},
+							wildcardEdges: []uint32{0},
 						},
 						Edges: []CompiledModelEdge{
 							{
@@ -310,55 +360,63 @@ func TestAdvanceContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 		wildcards:    map[WildcardID]Wildcard{wildcard: {Mode: WildcardAny, Process: ProcessSkip}},
 	})
 	st := ContentState{model: model, present: true}
-	match, status := rt.AdvanceContent(&st, ContentInput{
+	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	if status != ContentAdvanceMatched || !match.Skip || match.Element != NoElement || st.state != 1 {
-		t.Fatalf("AdvanceContent(indexed order) = %+v/%v state %d, want wildcard skip state 1", match, status, st.state)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchSkip || element != NoElement || st.state != 0 {
+		t.Fatalf("NextContent(indexed order) = %v/%v/%v state %d, want wildcard skip and unchanged state 0", kind, element, status, st.state)
+	}
+	if !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
+		t.Fatalf("ContentTransition.Commit() state = %d, want 1", st.state)
 	}
 }
 
-func TestAdvanceContentWildcardProcessContents(t *testing.T) {
+func TestNextContentWildcardProcessContents(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
 	elem := ElementID(2)
 	model := ContentModelID(3)
 	tests := []struct {
-		name       string
-		process    ProcessContents
-		xsiType    bool
-		global     bool
-		want       ContentMatch
-		wantMatch  bool
-		wantStrict bool
+		name        string
+		process     ProcessContents
+		xsiType     bool
+		global      bool
+		wantKind    ContentMatchKind
+		wantElement ElementID
 	}{
 		{
-			name:       "strict missing",
-			process:    ProcessStrict,
-			want:       ContentMatch{Element: NoElement, StrictMissing: true},
-			wantMatch:  true,
-			wantStrict: true,
+			name:        "strict missing",
+			process:     ProcessStrict,
+			wantKind:    ContentMatchStrictMissing,
+			wantElement: NoElement,
 		},
 		{
-			name:      "strict missing with xsi type",
-			process:   ProcessStrict,
-			xsiType:   true,
-			want:      NoContentMatch(),
-			wantMatch: true,
+			name:        "strict missing with xsi type",
+			process:     ProcessStrict,
+			xsiType:     true,
+			wantKind:    ContentMatchAssessUndeclared,
+			wantElement: NoElement,
 		},
 		{
-			name:      "lax declared",
-			process:   ProcessLax,
-			global:    true,
-			want:      ContentMatch{Element: elem},
-			wantMatch: true,
+			name:        "lax declared",
+			process:     ProcessLax,
+			global:      true,
+			wantKind:    ContentMatchDeclared,
+			wantElement: elem,
 		},
 		{
-			name:      "skip",
-			process:   ProcessSkip,
-			want:      ContentMatch{Element: NoElement, Skip: true},
-			wantMatch: true,
+			name:        "lax undeclared",
+			process:     ProcessLax,
+			wantKind:    ContentMatchAssessUndeclared,
+			wantElement: NoElement,
+		},
+		{
+			name:        "skip",
+			process:     ProcessSkip,
+			wantKind:    ContentMatchSkip,
+			wantElement: NoElement,
 		},
 	}
 	for _, tt := range tests {
@@ -389,25 +447,19 @@ func TestAdvanceContentWildcardProcessContents(t *testing.T) {
 				wildcards:      map[WildcardID]Wildcard{wildcard: {Mode: WildcardAny, Process: tt.process}},
 			})
 			st := ContentState{model: model, present: true}
-			match, status := rt.AdvanceContent(&st, ContentInput{
+			transition, status := rt.NextContent(st, ContentInput{
 				Name:       RuntimeName{Known: true, Name: name, Local: "e"},
 				HasXSIType: tt.xsiType,
 			}, &ContentScratch{})
-			wantStatus := ContentAdvanceNoMatch
-			if tt.wantMatch {
-				wantStatus = ContentAdvanceMatched
-			}
-			if status != wantStatus || match != tt.want {
-				t.Fatalf("AdvanceContent(wildcard) = %+v/%v, want %+v/%v", match, status, tt.want, wantStatus)
-			}
-			if match.StrictMissing != tt.wantStrict {
-				t.Fatalf("StrictMissing = %v, want %v", match.StrictMissing, tt.wantStrict)
+			kind, element := transition.Match()
+			if status != ContentTransitionMatched || kind != tt.wantKind || element != tt.wantElement {
+				t.Fatalf("NextContent(wildcard) = %v/%v/%v, want %v/%v/%v", kind, element, status, tt.wantKind, tt.wantElement, ContentTransitionMatched)
 			}
 		})
 	}
 }
 
-func TestAdvanceContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
+func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 	t.Parallel()
 
 	model := ContentModelID(4)
@@ -415,14 +467,13 @@ func TestAdvanceContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 	childName := QName{Namespace: EmptyNamespaceID, Local: 1}
 	tests := []struct {
 		name  string
-		index DFARowIndex
+		index dfaRowIndex
 	}{
 		{name: "linear"},
 		{
 			name: "indexed",
-			index: DFARowIndex{
-				NameToEdge: map[QName]uint32{childName: 0},
-				Enabled:    true,
+			index: dfaRowIndex{
+				nameToEdge: map[QName]uint32{childName: 0},
 			},
 		},
 	}
@@ -436,7 +487,7 @@ func TestAdvanceContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 						Kind: CompiledModelDFA,
 						Rows: []CompiledModelRow{
 							{
-								Index: tc.index,
+								index: tc.index,
 								Edges: []CompiledModelEdge{{
 									Particle: ElementParticle(child, Occurrence{Min: 1, Max: 1}),
 									To:       1,
@@ -448,11 +499,12 @@ func TestAdvanceContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 				},
 			})
 			st := ContentState{model: model, present: true}
-			match, status := rt.AdvanceContent(&st, ContentInput{
+			transition, status := rt.NextContent(st, ContentInput{
 				Name: RuntimeName{Known: true, Name: childName, Local: "child"},
 			}, &ContentScratch{})
-			if status != ContentAdvanceInvalid {
-				t.Fatalf("AdvanceContent() = %+v/%v, want invalid state", match, status)
+			if status != ContentTransitionInvalid {
+				kind, element := transition.Match()
+				t.Fatalf("NextContent() = %v/%v/%v, want invalid state", kind, element, status)
 			}
 		})
 	}
@@ -476,7 +528,7 @@ func TestCompleteContentInvalidDFAStateIsInvalid(t *testing.T) {
 	}
 }
 
-func TestAdvanceContentCountSaturatesAtUint32Max(t *testing.T) {
+func TestNextContentCountSaturatesAtUint32Max(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
@@ -503,17 +555,50 @@ func TestAdvanceContentCountSaturatesAtUint32Max(t *testing.T) {
 		elementNames: map[ElementID]QName{elem: name},
 	})
 	st := ContentState{model: model, count: math.MaxUint32, present: true}
-	match, status := rt.AdvanceContent(&st, ContentInput{
+	transition, status := rt.NextContent(st, ContentInput{
 		Name: RuntimeName{Known: true, Name: name, Local: "e"},
 	}, &ContentScratch{})
-	if status != ContentAdvanceMatched || match.Element != elem {
-		t.Fatalf("AdvanceContent() = %+v/%v, want matched valid transition", match, status)
+	kind, element := transition.Match()
+	if status != ContentTransitionMatched || kind != ContentMatchDeclared || element != elem {
+		t.Fatalf("NextContent() = %v/%v/%v, want matched valid transition", kind, element, status)
+	}
+	if !transition.Commit(&st, &ContentScratch{}) {
+		t.Fatal("ContentTransition.Commit() rejected current counted state")
 	}
 	if st.count != math.MaxUint32 {
 		t.Fatalf("Count = %d, want saturation at %d", st.count, uint32(math.MaxUint32))
 	}
 	if status := rt.CompleteContent(st, &ContentScratch{}); status != ContentCompletionComplete {
 		t.Fatalf("CompleteContent() after saturated count = %v, want complete", status)
+	}
+}
+
+func TestContentTransitionRejectsNonMatchKinds(t *testing.T) {
+	t.Parallel()
+
+	state := ContentState{model: 1, present: true}
+	transition := newContentTransition(state, state, contentMatch{})
+	if transition.IsPlanned() {
+		t.Fatal("newContentTransition(zero) planned a transition")
+	}
+	kind, element := transition.Match()
+	if kind != ContentMatchInvalid || element != NoElement {
+		t.Fatalf("rejected transition match = %v/%v, want invalid/no element", kind, element)
+	}
+}
+
+func TestContentMatchRepresentationDoesNotGrow(t *testing.T) {
+	t.Parallel()
+
+	if got := unsafe.Sizeof(contentMatch{}); got > 8 {
+		t.Fatalf("contentMatch size = %d, want at most 8", got)
+	}
+	wantTransition := uintptr(48)
+	if strconv.IntSize == 64 {
+		wantTransition = 56
+	}
+	if got := unsafe.Sizeof(ContentTransition{}); got > wantTransition {
+		t.Fatalf("ContentTransition size = %d, want at most %d", got, wantTransition)
 	}
 }
 
@@ -579,7 +664,7 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 		GlobalElements: s.globalElements,
 		Substitutions:  testSubstitutionTable(s.substitutionLookup, len(elements)),
 		ComplexTypes:   complexTypes,
-		CompiledModels: newCompiledModelReads(models),
+		CompiledModels: testCompiledModelReads(models),
 		Elements:       newElementReadTable(elements, nil),
 		Wildcards:      wildcards,
 	}}

@@ -1,23 +1,63 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+# Target: golangci-lint v2.13.2.
+#
+# Stock golangci-lint rules enforce known dependency boundaries and suspicious
+# API shapes. Project-aware architecture tests remain authoritative for
+# transitive boundaries and domain ownership.
 version: "2"
 
 run:
   timeout: 5m
   tests: true
   modules-download-mode: readonly
+  relative-path-mode: gomod
 
 linters:
   default: none
   enable:
+    # Correctness and compiler/static-analysis checks.
     - govet
     - staticcheck
-    - revive
     - errcheck
     - ineffassign
     - unused
+    - unparam
+    - wastedassign
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - errorlint
+    - forcetypeassert
+    - exhaustive
+    - gochecksumtype
+    - copyloopvar
+    - recvcheck
+    - unconvert
+    - reassign
+    - makezero
+    - durationcheck
+    - errchkjson
+    - errname
+    - musttag
+
+    # API, abstraction, ownership, and package-boundary signals.
+    - revive
     - iface
+    - interfacebloat
+    - ireturn
+    - inamedparam
+    - depguard
+    - containedctx
+    - contextcheck
+    - fatcontext
+    - embeddedstructfieldcheck
+    - bodyclose
+    - noctx
+    - gochecknoinits
+
+    # Complexity, duplication, and maintainability signals.
     - dupl
     - dogsled
-    - forbidigo
     - funlen
     - gocritic
     - goconst
@@ -25,47 +65,25 @@ linters:
     - cyclop
     - nestif
     - maintidx
-    - unparam
-    - errorlint
-    - nilerr
-    - nilnil
-    - nilnesserr
-    - wastedassign
-    - forcetypeassert
-    - bodyclose
-    - nolintlint
-    - exhaustive
+
+    # Security, portability, directives, documentation, and modern Go.
     - gosec
-    - ireturn
-    - interfacebloat
-    - copyloopvar
+    - forbidigo
+    - nolintlint
     - predeclared
     - nakedret
-    - contextcheck
-    - reassign
-    - makezero
     - modernize
-    - noctx
-    - recvcheck
-    - unconvert
     - asciicheck
     - bidichk
-    - depguard
     - dupword
-    - durationcheck
-    - errchkjson
-    - errname
     - gocheckcompilerdirectives
-    - gochecknoinits
     - godoclint
     - gomoddirectives
     - goprintffuncname
-    - inamedparam
     - intrange
     - iotamixing
     - mirror
     - misspell
-    - musttag
     - nosprintfhostport
     - tagliatelle
     - testableexamples
@@ -85,8 +103,18 @@ linters:
     copyloopvar:
       check-alias: true
 
+    embeddedstructfieldcheck:
+      empty-line: true
+      forbid-mutex: true
+
     exhaustive:
-      default-signifies-exhaustive: true
+      check:
+        - switch
+      default-signifies-exhaustive: false
+
+    gochecksumtype:
+      default-signifies-exhaustive: false
+      include-shared-interfaces: true
 
     nilnil:
       detect-opposite: true
@@ -99,16 +127,141 @@ linters:
       require-explanation: true
       require-specific: true
       allow-no-explanation: []
+      allow-unused: false
 
+    # The first rule keeps the module dependency-free. The remaining rules
+    # mirror the direct phase contract; go-list architecture tests remain the
+    # authority for transitive dependencies.
     depguard:
       rules:
-        main:
+        module-dependencies:
           list-mode: strict
           files:
             - $all
           allow:
             - $gostd
-            - github.com/jacoelho/xsd
+            - "github.com/jacoelho/xsd$"
+            - github.com/jacoelho/xsd/
+
+        internal-must-not-import-facade:
+          list-mode: lax
+          files:
+            - "**/internal/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd$"
+              desc: internal packages must not import the public facade
+
+        compile-phase:
+          list-mode: lax
+          files:
+            - "**/internal/compile/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd/internal/validate$"
+              desc: compilation must not depend on instance validation
+            - pkg: github.com/jacoelho/xsd/internal/validate/
+              desc: compilation must not depend on instance validation subpackages
+
+        validate-phase:
+          list-mode: lax
+          files:
+            - "**/internal/validate/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd/internal/compile$"
+              desc: instance validation must not depend on compilation
+            - pkg: github.com/jacoelho/xsd/internal/compile/
+              desc: instance validation must not depend on compilation subpackages
+
+        format-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/format/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd/internal/compile$"
+              desc: formatting must not depend on compilation
+            - pkg: github.com/jacoelho/xsd/internal/compile/
+              desc: formatting must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/validate$"
+              desc: formatting must not depend on validation
+            - pkg: github.com/jacoelho/xsd/internal/validate/
+              desc: formatting must not depend on validation subpackages
+
+        stream-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/stream/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd/internal/validate$"
+              desc: XML streaming must remain below instance validation
+            - pkg: github.com/jacoelho/xsd/internal/validate/
+              desc: XML streaming must remain below validation subpackages
+
+        xmlns-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/xmlns/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd/internal/compile$"
+              desc: XML namespace handling must remain below compilation
+            - pkg: github.com/jacoelho/xsd/internal/compile/
+              desc: XML namespace handling must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/validate$"
+              desc: XML namespace handling must remain below validation
+            - pkg: github.com/jacoelho/xsd/internal/validate/
+              desc: XML namespace handling must not depend on validation subpackages
+
+        runtime-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/runtime/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd/internal/compile$"
+              desc: runtime model must not depend on compilation
+            - pkg: github.com/jacoelho/xsd/internal/compile/
+              desc: runtime model must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/validate$"
+              desc: runtime model must not depend on validation
+            - pkg: github.com/jacoelho/xsd/internal/validate/
+              desc: runtime model must not depend on validation subpackages
+
+        source-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/source/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd/internal/compile$"
+              desc: source handling must remain below compilation
+            - pkg: github.com/jacoelho/xsd/internal/compile/
+              desc: source handling must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/validate$"
+              desc: source handling must remain below validation
+            - pkg: github.com/jacoelho/xsd/internal/validate/
+              desc: source handling must not depend on validation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/vocab$"
+              desc: source handling must not depend on XSD vocabulary
+            - pkg: github.com/jacoelho/xsd/internal/vocab/
+              desc: source handling must not depend on XSD vocabulary subpackages
+
+        vocab-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/vocab/**/*.go"
+          deny:
+            - pkg: "github.com/jacoelho/xsd/internal/compile$"
+              desc: vocabulary must remain below compilation
+            - pkg: github.com/jacoelho/xsd/internal/compile/
+              desc: vocabulary must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/validate$"
+              desc: vocabulary must remain below validation
+            - pkg: github.com/jacoelho/xsd/internal/validate/
+              desc: vocabulary must not depend on validation subpackages
+
+    gomoddirectives:
+      exclude-forbidden: true
+      ignore-forbidden: true
+      toolchain-forbidden: true
+      tool-forbidden: true
+      go-debug-forbidden: true
+      check-module-path: true
 
     tagliatelle:
       case:
@@ -116,7 +269,11 @@ linters:
           json: camel
 
     revive:
-      enable-default-rules: true
+      # Pin the full policy rather than inheriting Revive defaults.
+      enable-default-rules: false
+      directives:
+        - name: specify-disable-reason
+          severity: error
       rules:
         - name: blank-imports
         - name: bool-literal-in-expr
@@ -126,12 +283,15 @@ linters:
             - allow-types-before: "*testing.T"
         - name: context-keys-type
         - name: dot-imports
+        - name: empty-block
         - name: empty-lines
+        - name: error-naming
         - name: error-return
         - name: error-strings
+        - name: errorf
         - name: exported
           arguments:
-            - disableStutteringCheck
+            - disable-stuttering-check
         - name: identical-branches
         - name: identical-ifelseif-branches
         - name: identical-ifelseif-conditions
@@ -139,8 +299,11 @@ linters:
         - name: identical-switch-conditions
         - name: if-return
         - name: increment-decrement
+        - name: indent-error-flow
         - name: modifies-value-receiver
         - name: package-comments
+        - name: range
+        - name: receiver-naming
         - name: redefines-builtin-id
         - name: superfluous-else
           arguments:
@@ -149,8 +312,38 @@ linters:
         - name: unchecked-type-assertion
         - name: unexported-return
         - name: unnecessary-if
+        - name: unreachable-code
+        - name: unused-parameter
         - name: var-declaration
         - name: var-naming
+
+        # API-shape and ownership signals.
+        - name: argument-limit
+          arguments: [6]
+        - name: confusing-naming
+        - name: confusing-results
+        - name: flag-parameter
+        - name: function-result-limit
+          arguments: [3]
+        - name: import-shadowing
+        - name: modifies-parameter
+        - name: package-directory-mismatch
+        - name: package-naming
+          arguments:
+            - check-extra-bad-name: true
+              skip-collision-with-common-std: true
+        - name: unused-receiver
+
+        # Control-flow and lifecycle signals.
+        - name: deep-exit
+        - name: early-return
+          arguments:
+            - preserve-scope
+        - name: max-control-nesting
+          arguments: [4]
+        - name: redundant-build-tag
+        - name: redundant-import-alias
+        - name: unconditional-recursion
 
     iface:
       enable:
@@ -158,6 +351,16 @@ linters:
         - unused
         - opaque
         - unexported
+        - unusedmethod
+
+    interfacebloat:
+      max: 5
+
+    ireturn:
+      allow:
+        - error
+        - stdlib
+        - generic
 
     dupl:
       threshold: 120
@@ -165,11 +368,20 @@ linters:
     dogsled:
       max-blank-identifiers: 1
 
+    goconst:
+      min-len: 3
+      min-occurrences: 2
+      match-constant: true
+      find-duplicates: true
+      eval-const-expressions: true
+      ignore-tests: true
+
     gocognit:
-      min-complexity: 50
+      min-complexity: 10
 
     cyclop:
       max-complexity: 35
+      package-average: 10.0
 
     forbidigo:
       analyze-types: true
@@ -225,8 +437,10 @@ linters:
       under: 25
 
   exclusions:
+    generated: strict
+    warn-unused: true
     rules:
-      - path: _test\.go
+      - path: _test\.go$
         linters:
           - cyclop
           - gocognit
@@ -235,11 +449,30 @@ linters:
           - nestif
           - dupl
           - maintidx
-      - path: _test\.go
+      - path: _test\.go$
         text: "unused-parameter:"
         linters:
           - revive
-      - path: _test\.go
+      - path: _test\.go$
         linters:
           - govet
         text: "fieldalignment"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/jacoelho/xsd
+  exclusions:
+    generated: strict
+    warn-unused: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: false

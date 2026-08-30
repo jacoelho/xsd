@@ -3,7 +3,6 @@ package compile
 import (
 	"bytes"
 	"cmp"
-	"context"
 	"errors"
 	"hash/maphash"
 	"slices"
@@ -14,8 +13,15 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-type schemaSet struct {
+type schemaPlan struct {
 	documents []schemaSetDocument
+}
+
+type loadedSchemaGraph struct {
+	byKey          map[string]loadedSchemaDocument
+	dependencyWork *workBudget
+	documents      []schemaSetDocument
+	limits         Limits
 }
 
 type schemaSetDocument struct {
@@ -29,10 +35,10 @@ type schemaSetDocument struct {
 }
 
 type schemaSetLoader struct {
-	ctx               context.Context
 	byKey             map[string]loadedSchemaDocument
 	resolvedSources   map[string]struct{}
 	pendingReferences map[string][]*schemaReference
+	dependencyWork    *workBudget
 	documents         []schemaSetDocument
 	loadedSource      []loadedSchemaSource
 	totalBytes        int64
@@ -55,14 +61,21 @@ type loadedSchemaSource struct {
 	data []byte
 }
 
+type schemaSourceRequirement uint8
+
+const (
+	schemaSourceRequired schemaSourceRequirement = iota
+	schemaSourceOptional
+)
+
 //nolint:govet // Field order keeps the source and its reference adjacent at queue call sites.
 type schemaLoadRequest struct {
-	source   source.Source
-	ref      *schemaReference
-	base     source.ReferenceBase
-	referrer string
-	optional bool
-	resolve  bool
+	source      source.Source
+	ref         *schemaReference
+	base        source.ReferenceBase
+	referrer    string
+	requirement schemaSourceRequirement
+	resolve     bool
 }
 
 type schemaReferenceKind uint8
@@ -134,44 +147,30 @@ func newSchemaTargetContexts(documents []schemaSetDocument, limit, nodeLimit int
 	}
 }
 
-func (c *schemaTargetContexts) checkAddLimits(source int) error {
+func (c *schemaTargetContexts) checkAddLimits(sourceIndex int) error {
 	if len(c.queue) >= c.limit {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts")
 	}
-	nodes := c.nodeCounts[source]
+	nodes := c.nodeCounts[sourceIndex]
 	if nodes > c.nodeLimit-c.nodes {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema context nodes exceed MaxSchemaInstantiatedNodes")
 	}
 	return nil
 }
 
-func (c *schemaTargetContexts) add(source int, target string) error {
-	context := schemaTargetContext{source: source, target: target}
-	document := &c.documents[source]
+func (c *schemaTargetContexts) add(sourceIndex int, target string) error {
+	context := schemaTargetContext{source: sourceIndex, target: target}
+	document := &c.documents[sourceIndex]
 	if document.hasPrimary && document.primary == target {
 		return nil
 	}
-	if c.additionalSet == nil {
-		if slices.Contains(c.additional, context) {
-			return nil
-		}
-		if err := c.checkAddLimits(source); err != nil {
-			return err
-		}
-		if len(c.additional) == 8 {
-			c.additionalSet = make(map[schemaTargetContext]struct{}, len(c.additional)*2)
-			for _, existing := range c.additional {
-				c.additionalSet[existing] = struct{}{}
-			}
-		}
-	} else {
-		if _, ok := c.additionalSet[context]; ok {
-			return nil
-		}
-		if err := c.checkAddLimits(source); err != nil {
-			return err
-		}
+	if c.hasAdditional(context) {
+		return nil
 	}
+	if err := c.checkAddLimits(sourceIndex); err != nil {
+		return err
+	}
+	c.promoteAdditionalSet()
 	if !document.hasPrimary {
 		document.hasPrimary = true
 		document.primary = target
@@ -182,20 +181,45 @@ func (c *schemaTargetContexts) add(source int, target string) error {
 		}
 	}
 	c.queue = append(c.queue, context)
-	c.nodes += c.nodeCounts[source]
+	c.nodes += c.nodeCounts[sourceIndex]
 	return nil
 }
 
-func loadSchemaSetOwned(ctx context.Context, sources []source.Source, limits Limits) (schemaSet, error) {
+func (c *schemaTargetContexts) hasAdditional(context schemaTargetContext) bool {
+	if c.additionalSet != nil {
+		_, ok := c.additionalSet[context]
+		return ok
+	}
+	return slices.Contains(c.additional, context)
+}
+
+func (c *schemaTargetContexts) promoteAdditionalSet() {
+	if c.additionalSet != nil || len(c.additional) != 8 {
+		return
+	}
+	c.additionalSet = make(map[schemaTargetContext]struct{}, len(c.additional)*2)
+	for _, existing := range c.additional {
+		c.additionalSet[existing] = struct{}{}
+	}
+}
+
+func loadSchemaGraphOwned(
+	sources []source.Source,
+	limits Limits,
+	dependencyWork *workBudget,
+) (loadedSchemaGraph, error) {
+	if dependencyWork == nil {
+		return loadedSchemaGraph{}, xsderrors.InternalInvariant("schema dependency work budget is nil")
+	}
 	l := schemaSetLoader{
-		ctx:             ctx,
 		limits:          limits,
 		byKey:           make(map[string]loadedSchemaDocument),
 		resolvedSources: make(map[string]struct{}),
 		resolvedLimit:   limits.MaxSchemaSources - len(sources),
+		dependencyWork:  dependencyWork,
 	}
 	if err := l.loadOwned(sources); err != nil {
-		return schemaSet{}, err
+		return loadedSchemaGraph{}, err
 	}
 	slices.SortFunc(l.documents, func(a, b schemaSetDocument) int {
 		return cmp.Compare(a.doc.name, b.doc.name)
@@ -206,14 +230,31 @@ func loadSchemaSetOwned(ctx context.Context, sources []source.Source, limits Lim
 		loaded.index = i
 		l.byKey[key] = loaded
 	}
-	if err := l.validateLoadedReferenceTargets(); err != nil {
-		return schemaSet{}, err
+	return loadedSchemaGraph{
+		byKey:          l.byKey,
+		documents:      l.documents,
+		dependencyWork: l.dependencyWork,
+		limits:         limits,
+	}, nil
+}
+
+func (g *loadedSchemaGraph) plan() (schemaPlan, error) {
+	if err := g.validateReferenceTargets(); err != nil {
+		return schemaPlan{}, err
 	}
-	if err := l.instantiateTargetContexts(); err != nil {
-		return schemaSet{}, err
+	if err := g.instantiateTargetContexts(); err != nil {
+		return schemaPlan{}, err
 	}
-	l.selectDeclarationDocuments()
-	return schemaSet{documents: l.documents}, nil
+	g.selectDeclarationDocuments()
+	return schemaPlan{documents: g.documents}, nil
+}
+
+func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork *workBudget) (schemaPlan, error) {
+	graph, err := loadSchemaGraphOwned(sources, limits, dependencyWork)
+	if err != nil {
+		return schemaPlan{}, err
+	}
+	return graph.plan()
 }
 
 func (c *compiler) load(sources []source.Source) error {
@@ -221,56 +262,64 @@ func (c *compiler) load(sources []source.Source) error {
 }
 
 func (c *compiler) loadOwned(sources []source.Source) error {
-	set, err := loadSchemaSetOwned(c.ctx, sources, c.limits)
+	plan, err := loadSchemaPlanOwned(sources, c.limits, &c.dependencyWork)
 	if err != nil {
 		return err
 	}
-	c.schemas = set
+	c.plan = plan
 	return nil
 }
 
 func (l *schemaSetLoader) loadOwned(ordered []source.Source) error {
+	sortSchemaSources(ordered)
+	queue := make([]schemaLoadRequest, 0, len(ordered))
+	for _, src := range ordered {
+		queue = append(queue, schemaLoadRequest{source: src})
+	}
+	for len(queue) != 0 {
+		item := queue[0]
+		queue[0] = schemaLoadRequest{}
+		queue = queue[1:]
+		if err := l.processLoadRequest(item, &queue); err != nil {
+			return err
+		}
+	}
+	l.appendIdentifiedDocuments()
+	return nil
+}
+
+func sortSchemaSources(ordered []source.Source) {
 	slices.SortFunc(ordered, func(a, b source.Source) int {
 		if nameOrder := cmp.Compare(a.Name(), b.Name()); nameOrder != 0 {
 			return nameOrder
 		}
 		return cmp.Compare(source.Key(a.Name()), source.Key(b.Name()))
 	})
-	queue := make([]schemaLoadRequest, 0, len(ordered))
-	for _, src := range ordered {
-		queue = append(queue, schemaLoadRequest{source: src})
-	}
-	for len(queue) != 0 {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
-		item := queue[0]
-		queue[0] = schemaLoadRequest{}
-		queue = queue[1:]
-		if item.resolve {
-			var ok bool
-			var err error
-			item, ok, err = l.resolveReference(item)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				continue
-			}
-		}
-		loadedSource, ok, err := l.read(item, &queue)
+}
+
+func (l *schemaSetLoader) processLoadRequest(item schemaLoadRequest, queue *[]schemaLoadRequest) error {
+	if item.resolve {
+		resolved, ok, err := l.resolveReference(item)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			continue
+			return nil
 		}
-		l.loadedSource = append(l.loadedSource, loadedSource)
+		item = resolved
 	}
-	identifiedSources, err := l.identifySchemaDocumentContents()
+	loadedSource, ok, err := l.read(item, queue)
 	if err != nil {
 		return err
 	}
+	if ok {
+		l.loadedSource = append(l.loadedSource, loadedSource)
+	}
+	return nil
+}
+
+func (l *schemaSetLoader) appendIdentifiedDocuments() {
+	identifiedSources := l.identifySchemaDocumentContents()
 	for _, identified := range identifiedSources {
 		loaded := l.byKey[identified.source.doc.key]
 		l.documents = append(l.documents, schemaSetDocument{
@@ -280,7 +329,6 @@ func (l *schemaSetLoader) loadOwned(ordered []source.Source) error {
 			contentIdentity: identified.identity,
 		})
 	}
-	return nil
 }
 
 func (l *schemaSetLoader) admitResolvedSource(key string) error {
@@ -304,34 +352,61 @@ func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadReques
 	if loaded, ok := l.byKey[key]; ok {
 		return l.readLoaded(item, key, loaded, queue)
 	}
-	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
-	readLimit := min(l.limits.MaxSchemaSourceBytes, remaining)
-	result := src.Acquire(l.ctx, readLimit)
-	if err := compileContextErrorWith(l.ctx, result.Err); err != nil {
+	data, acquired, err := l.acquireNewSource(item)
+	if err != nil || !acquired {
 		return loadedSchemaSource{}, false, err
 	}
+	return l.parseNewSource(item, key, data, queue)
+}
+
+func (l *schemaSetLoader) acquireNewSource(item schemaLoadRequest) ([]byte, bool, error) {
+	src := item.source
+	name := src.Name()
+	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
+	readLimit := min(l.limits.MaxSchemaSourceBytes, remaining)
+	result := src.Acquire(readLimit)
 	data := result.Data
 	dataBytes := int64(len(data))
 	if dataBytes > remaining {
-		return loadedSchemaSource{}, false, schemaTotalBytesLimitError(result.Err)
+		return nil, false, schemaTotalBytesLimitError(result.Err)
 	}
 	l.totalBytes += dataBytes
-	if result.Err != nil {
-		if item.optional && result.OpenNotFound {
-			return loadedSchemaSource{}, false, nil
-		}
-		if result.LimitExceeded && readLimit == remaining {
-			return loadedSchemaSource{}, false, schemaTotalBytesLimitError(result.Err)
-		}
-		if result.LimitExceeded || source.IsSchemaLimitError(result.Err) {
-			return loadedSchemaSource{}, false, xsderrors.WithPath(name, result.Err)
-		}
-		readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, 0, 0, "read schema "+name, result.Err)
-		return loadedSchemaSource{}, false, xsderrors.WithPath(name, readErr)
+	missing, err := classifySchemaAcquireResult(name, result, readLimit, remaining, item.requirement)
+	if err != nil || missing {
+		return nil, false, err
 	}
+	return data, true, nil
+}
+
+func classifySchemaAcquireResult(name string, result source.ReadResult, readLimit, remaining int64, requirement schemaSourceRequirement) (bool, error) {
+	if result.Err == nil {
+		return false, nil
+	}
+	switch requirement {
+	case schemaSourceRequired:
+	case schemaSourceOptional:
+		if result.OpenNotFound {
+			return true, nil
+		}
+	default:
+		return false, xsderrors.InternalInvariant("unknown schema source requirement")
+	}
+	if result.LimitExceeded && readLimit == remaining {
+		return false, schemaTotalBytesLimitError(result.Err)
+	}
+	if result.LimitExceeded || source.IsSchemaLimitError(result.Err) {
+		return false, xsderrors.WithLocation(name, 0, 0, result.Err)
+	}
+	readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "read schema "+name, result.Err)
+	return false, xsderrors.WithLocation(name, 0, 0, readErr)
+}
+
+func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string, data []byte, queue *[]schemaLoadRequest) (loadedSchemaSource, bool, error) {
+	src := item.source
+	name := src.Name()
 	parseLimits := l.limits
 	parseLimits.MaxSchemaInstantiatedNodes -= l.parsedNodes
-	doc, err := parseSchemaDocument(l.ctx, name, key, data, parseLimits)
+	doc, err := parseSchemaDocument(name, key, data, parseLimits)
 	if err != nil {
 		return loadedSchemaSource{}, false, err
 	}
@@ -367,48 +442,9 @@ func (l *schemaSetLoader) readLoaded(
 	queue *[]schemaLoadRequest,
 ) (loadedSchemaSource, bool, error) {
 	src := item.source
-	sameSource := false
-	for _, existing := range loaded.sources {
-		if !existing.SameResolutionContext(src) {
-			continue
-		}
-		if existing.Name() == src.Name() {
-			sameSource = true
-		}
-	}
-	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
-	readLimit := min(l.limits.MaxSchemaSourceBytes, remaining)
-	result := src.Acquire(l.ctx, readLimit)
-	if err := compileContextErrorWith(l.ctx, result.Err); err != nil {
+	sameSource := loadedSchemaContainsSource(loaded, src)
+	if err := l.validateLoadedSourceBytes(item, key, loaded); err != nil {
 		return loadedSchemaSource{}, false, err
-	}
-	dataBytes := int64(len(result.Data))
-	if dataBytes > remaining {
-		return loadedSchemaSource{}, false, schemaTotalBytesLimitError(result.Err)
-	}
-	l.totalBytes += dataBytes
-	// A resolved identity may reuse cached bytes when this optional context
-	// cannot open its own representation. The context still owns descendant
-	// resolution and must be registered below.
-	useCached := item.optional && result.OpenNotFound
-	if result.Err != nil && !useCached {
-		if result.LimitExceeded && readLimit == remaining {
-			return loadedSchemaSource{}, false, schemaTotalBytesLimitError(result.Err)
-		}
-		if result.LimitExceeded || source.IsSchemaLimitError(result.Err) {
-			return loadedSchemaSource{}, false, xsderrors.WithPath(src.Name(), result.Err)
-		}
-		readErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, 0, 0, "read schema "+src.Name(), result.Err)
-		return loadedSchemaSource{}, false, xsderrors.WithPath(src.Name(), readErr)
-	}
-	if !useCached && !bytes.Equal(result.Data, loaded.data) {
-		identityErr := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "schema source identity resolves to different document content: "+key)
-		if item.ref != nil {
-			identityErr = withSchemaReferenceLocation(item, identityErr)
-		} else {
-			identityErr = xsderrors.WithPath(src.Name(), identityErr)
-		}
-		return loadedSchemaSource{}, false, identityErr
 	}
 	if item.ref != nil {
 		if err := validateSchemaReferenceTarget(item.ref, loaded.doc); err != nil {
@@ -430,6 +466,44 @@ func (l *schemaSetLoader) readLoaded(
 	return loadedSchemaSource{}, false, nil
 }
 
+func loadedSchemaContainsSource(loaded loadedSchemaDocument, src source.Source) bool {
+	for _, existing := range loaded.sources {
+		if existing.SameResolutionContext(src) && existing.Name() == src.Name() {
+			return true
+		}
+	}
+	return false
+}
+
+func (l *schemaSetLoader) validateLoadedSourceBytes(item schemaLoadRequest, key string, loaded loadedSchemaDocument) error {
+	src := item.source
+	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
+	readLimit := min(l.limits.MaxSchemaSourceBytes, remaining)
+	result := src.Acquire(readLimit)
+	dataBytes := int64(len(result.Data))
+	if dataBytes > remaining {
+		return schemaTotalBytesLimitError(result.Err)
+	}
+	l.totalBytes += dataBytes
+	// A resolved identity may reuse cached bytes when this optional context
+	// cannot open its own representation. The context still owns descendant
+	// resolution and must be registered below.
+	useCached, err := classifySchemaAcquireResult(src.Name(), result, readLimit, remaining, item.requirement)
+	if err != nil {
+		return err
+	}
+	if !useCached && !bytes.Equal(result.Data, loaded.data) {
+		identityErr := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "schema source identity resolves to different document content: "+key)
+		if item.ref != nil {
+			identityErr = withSchemaReferenceLocation(item, identityErr)
+		} else {
+			identityErr = xsderrors.WithLocation(src.Name(), 0, 0, identityErr)
+		}
+		return identityErr
+	}
+	return nil
+}
+
 func schemaTotalBytesLimitError(acquireErr error) error {
 	limitErr := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema sources exceed MaxSchemaTotalBytes")
 	if acquireErr == nil || !hasNonSchemaLimitCause(acquireErr) {
@@ -443,10 +517,10 @@ func hasNonSchemaLimitCause(err error) bool {
 		return false
 	}
 	if diagnostic, ok := err.(*xsderrors.Error); ok { //nolint:errorlint // Classify each error-tree node independently.
-		if diagnostic.Code != xsderrors.CodeSchemaLimit {
+		if diagnostic.Code() != xsderrors.CodeSchemaLimit {
 			return true
 		}
-		return hasNonSchemaLimitCause(diagnostic.Err)
+		return hasNonSchemaLimitCause(diagnostic.Cause())
 	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
 		return slices.ContainsFunc(joined.Unwrap(), hasNonSchemaLimitCause)
@@ -478,56 +552,67 @@ func (l *schemaSetLoader) enqueueReferences(src source.Source, refs []schemaRefe
 			return schemaReferenceCompileAt(src, baseNode, "invalid xml:base: "+err.Error())
 		}
 		*queue = append(*queue, schemaLoadRequest{
-			source: src, ref: ref, base: base, referrer: src.Name(), optional: true, resolve: true,
+			source: src, ref: ref, base: base, referrer: src.Name(), requirement: schemaSourceOptional, resolve: true,
 		})
 	}
 	return nil
 }
 
 func (l *schemaSetLoader) resolveReference(request schemaLoadRequest) (schemaLoadRequest, bool, error) {
-	resolution, err := request.source.ResolveFrom(l.ctx, request.base, request.ref.location)
-	if contextErr := compileContextErrorWith(l.ctx, err); contextErr != nil {
-		return schemaLoadRequest{}, false, contextErr
+	if err := l.dependencyWork.spend(1); err != nil {
+		return schemaLoadRequest{}, false, withSchemaReferenceLocation(request, err)
 	}
+	resolution, err := request.source.ResolveFrom(request.base, request.ref.location)
 	if err != nil {
-		if source.IsReferenceResolutionError(err) {
-			return schemaLoadRequest{}, false, schemaReferenceCompileAt(request.source, request.ref.node, "invalid schemaLocation: "+err.Error())
-		}
-		line, column := 0, 0
-		if request.ref.node != nil {
-			line, column = request.ref.node.Line, request.ref.node.Column
-		}
-		resolveErr := xsderrors.SchemaParse(xsderrors.CodeSchemaRead, line, column, "resolve schema "+request.ref.location.Raw(), err)
-		resolveErr = xsderrors.WithPath(request.source.Name(), resolveErr)
-		return schemaLoadRequest{}, false, resolveErr
+		return schemaLoadRequest{}, false, schemaResolutionError(request, err)
 	}
 	target := resolution.Target()
 	next, found := resolution.Source()
 	if !found {
-		if target == "" || request.ref.target == target {
-			return schemaLoadRequest{}, false, nil
-		}
-		if loaded, ok := l.byKey[target]; ok && loaded.doc != nil {
-			if request.ref.target != "" {
-				return schemaLoadRequest{}, false, schemaReferenceCompileAt(request.source, request.ref.node, "schema reference resolves to different document identities across resolver contexts")
-			}
-			if err := validateSchemaReferenceTarget(request.ref, loaded.doc); err != nil {
-				return schemaLoadRequest{}, false, err
-			}
-			request.ref.target = target
-			return schemaLoadRequest{}, false, nil
-		}
-		l.deferReferenceBinding(target, request.ref)
-		return schemaLoadRequest{}, false, nil
+		return schemaLoadRequest{}, false, l.bindUnopenedReference(request, target)
 	}
 	if request.ref.target != "" && request.ref.target != target {
-		return schemaLoadRequest{}, false, schemaReferenceCompileAt(request.source, request.ref.node, "schema reference resolves to different document identities across resolver contexts")
+		return schemaLoadRequest{}, false, schemaReferenceIdentityError(request)
 	}
 	if err := l.admitResolvedSource(target); err != nil {
 		return schemaLoadRequest{}, false, withSchemaReferenceLocation(request, err)
 	}
 	request.ref.target = target
-	return schemaLoadRequest{source: next, ref: request.ref, referrer: request.referrer, optional: true}, true, nil
+	return schemaLoadRequest{source: next, ref: request.ref, referrer: request.referrer, requirement: schemaSourceOptional}, true, nil
+}
+
+func schemaResolutionError(request schemaLoadRequest, err error) error {
+	if source.IsReferenceResolutionError(err) {
+		return schemaReferenceCompileAt(request.source, request.ref.node, "invalid schemaLocation: "+err.Error())
+	}
+	line, column := 0, 0
+	if request.ref.node != nil {
+		line, column = request.ref.node.Line, request.ref.node.Column
+	}
+	return xsderrors.WithLocation(request.source.Name(), line, column,
+		xsderrors.SchemaParse(xsderrors.CodeSchemaRead, "resolve schema "+request.ref.location.Raw(), err))
+}
+
+func (l *schemaSetLoader) bindUnopenedReference(request schemaLoadRequest, target string) error {
+	if target == "" || request.ref.target == target {
+		return nil
+	}
+	if loaded, ok := l.byKey[target]; ok && loaded.doc != nil {
+		if request.ref.target != "" {
+			return schemaReferenceIdentityError(request)
+		}
+		if err := validateSchemaReferenceTarget(request.ref, loaded.doc); err != nil {
+			return err
+		}
+		request.ref.target = target
+		return nil
+	}
+	l.deferReferenceBinding(target, request.ref)
+	return nil
+}
+
+func schemaReferenceIdentityError(request schemaLoadRequest) error {
+	return schemaReferenceCompileAt(request.source, request.ref.node, "schema reference resolves to different document identities across resolver contexts")
 }
 
 func (l *schemaSetLoader) deferReferenceBinding(target string, ref *schemaReference) {
@@ -555,75 +640,131 @@ func (l *schemaSetLoader) bindPendingReferences(target string, doc *rawDoc) erro
 }
 
 func schemaDocumentReferences(doc *rawDoc) ([]schemaReference, error) {
-	var refs []schemaReference
-	rootBaseRaw, hasRootBase := doc.root.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
-	var rootBase uriref.Reference
-	validatedBase := source.NewReferenceBase(doc.name)
-	if hasRootBase {
-		var err error
-		rootBase, err = uriref.Parse(rootBaseRaw)
-		if err != nil {
-			return nil, schemaCompileAt(doc.root, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
-		}
-		validatedBase, err = validatedBase.WithXMLBase(rootBase)
-		if err != nil {
-			return nil, schemaCompileAt(doc.root, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
-		}
+	context, err := newSchemaDocumentReferenceContext(doc)
+	if err != nil {
+		return nil, err
 	}
+	var refs []schemaReference
 	for child := range doc.root.xsdChildren() {
-		var kind schemaReferenceKind
-		switch child.Name.Local {
-		case vocab.XSDElemInclude:
-			kind = schemaReferenceInclude
-		case vocab.XSDElemImport:
-			kind = schemaReferenceImport
-		default:
-			continue
+		ref, present, err := context.reference(child)
+		if err != nil {
+			return nil, err
 		}
-		locationRaw, hasLocation := schemaLocationAttr(child)
-		var location uriref.Reference
-		if kind == schemaReferenceInclude && !hasLocation {
-			return nil, schemaCompileAt(child, xsderrors.CodeSchemaReference, "include missing schemaLocation")
+		if present {
+			refs = append(refs, ref)
 		}
-		if hasLocation {
-			var err error
-			location, err = uriref.Parse(locationRaw)
-			if err != nil {
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaReference, "invalid schemaLocation: "+err.Error())
-			}
-		}
-		localBaseRaw, hasLocalBase := child.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
-		var localBase uriref.Reference
-		if hasLocalBase {
-			var err error
-			localBase, err = uriref.Parse(localBaseRaw)
-			if err != nil {
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
-			}
-			if _, err := validatedBase.WithXMLBase(localBase); err != nil {
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
-			}
-		}
-		ref := schemaReference{
-			node: child, kind: kind, location: location, hasLocation: hasLocation,
-			rootBase: rootBase, localBase: localBase, hasRootBase: hasRootBase, hasLocalBase: hasLocalBase,
-		}
-		if kind == schemaReferenceImport {
-			ref.namespace, _ = child.attr(vocab.XSDAttrNamespace)
-			target := doc.defaults.TargetNamespace
-			namespace, hasNamespace := child.attr(vocab.XSDAttrNamespace)
-			switch {
-			case hasNamespace && namespace == "":
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty")
-			case !hasNamespace && target == "":
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaReference, "import without namespace requires enclosing schema targetNamespace")
-			case hasNamespace && namespace == target:
-				return nil, schemaCompileAt(child, xsderrors.CodeSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
-			}
-		}
-		refs = append(refs, ref)
 	}
 	return refs, nil
+}
+
+type schemaDocumentReferenceContext struct {
+	targetNS      string
+	validatedBase source.ReferenceBase
+	rootBase      uriref.Reference
+	hasRootBase   bool
+}
+
+func newSchemaDocumentReferenceContext(doc *rawDoc) (schemaDocumentReferenceContext, error) {
+	context := schemaDocumentReferenceContext{
+		validatedBase: source.NewReferenceBase(doc.name),
+		targetNS:      doc.defaults.TargetNamespace,
+	}
+	rootBaseRaw, hasRootBase := doc.root.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
+	context.hasRootBase = hasRootBase
+	if !context.hasRootBase {
+		return context, nil
+	}
+	rootBase, err := uriref.Parse(rootBaseRaw)
+	if err != nil {
+		return schemaDocumentReferenceContext{}, schemaCompileAt(doc.root, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
+	}
+	context.rootBase = rootBase
+	context.validatedBase, err = context.validatedBase.WithXMLBase(rootBase)
+	if err != nil {
+		return schemaDocumentReferenceContext{}, schemaCompileAt(doc.root, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
+	}
+	return context, nil
+}
+
+func (c schemaDocumentReferenceContext) reference(child *rawNode) (schemaReference, bool, error) {
+	kind, present := schemaReferenceKindForLocal(child.Name.Local)
+	if !present {
+		return schemaReference{}, false, nil
+	}
+	location, hasLocation, err := parseSchemaReferenceLocation(child, kind)
+	if err != nil {
+		return schemaReference{}, false, err
+	}
+	localBase, hasLocalBase, err := c.parseLocalBase(child)
+	if err != nil {
+		return schemaReference{}, false, err
+	}
+	ref := schemaReference{
+		node: child, kind: kind, location: location, hasLocation: hasLocation,
+		rootBase: c.rootBase, localBase: localBase, hasRootBase: c.hasRootBase, hasLocalBase: hasLocalBase,
+	}
+	if kind == schemaReferenceImport {
+		if err := validateSchemaImportReference(child, c.targetNS, &ref); err != nil {
+			return schemaReference{}, false, err
+		}
+	}
+	return ref, true, nil
+}
+
+func schemaReferenceKindForLocal(local string) (schemaReferenceKind, bool) {
+	switch local {
+	case vocab.XSDElemInclude:
+		return schemaReferenceInclude, true
+	case vocab.XSDElemImport:
+		return schemaReferenceImport, true
+	default:
+		return 0, false
+	}
+}
+
+func parseSchemaReferenceLocation(child *rawNode, kind schemaReferenceKind) (uriref.Reference, bool, error) {
+	raw, present := schemaLocationAttr(child)
+	if kind == schemaReferenceInclude && !present {
+		return uriref.Reference{}, false, schemaCompileAt(child, xsderrors.CodeSchemaReference, "include missing schemaLocation")
+	}
+	if !present {
+		return uriref.Reference{}, false, nil
+	}
+	location, err := uriref.Parse(raw)
+	if err != nil {
+		return uriref.Reference{}, false, schemaCompileAt(child, xsderrors.CodeSchemaReference, "invalid schemaLocation: "+err.Error())
+	}
+	return location, true, nil
+}
+
+func (c schemaDocumentReferenceContext) parseLocalBase(child *rawNode) (uriref.Reference, bool, error) {
+	raw, present := child.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
+	if !present {
+		return uriref.Reference{}, false, nil
+	}
+	localBase, err := uriref.Parse(raw)
+	if err != nil {
+		return uriref.Reference{}, false, schemaCompileAt(child, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
+	}
+	if _, err := c.validatedBase.WithXMLBase(localBase); err != nil {
+		return uriref.Reference{}, false, schemaCompileAt(child, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
+	}
+	return localBase, true, nil
+}
+
+func validateSchemaImportReference(child *rawNode, target string, ref *schemaReference) error {
+	namespace, hasNamespace := child.attr(vocab.XSDAttrNamespace)
+	ref.namespace = namespace
+	switch {
+	case hasNamespace && namespace == "":
+		return schemaCompileAt(child, xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty")
+	case !hasNamespace && target == "":
+		return schemaCompileAt(child, xsderrors.CodeSchemaReference, "import without namespace requires enclosing schema targetNamespace")
+	case hasNamespace && namespace == target:
+		return schemaCompileAt(child, xsderrors.CodeSchemaReference, "import namespace cannot match enclosing schema targetNamespace")
+	default:
+		return nil
+	}
 }
 
 func schemaDocumentImports(refs []schemaReference) map[string]bool {
@@ -664,7 +805,7 @@ func schemaReferenceCompileAt(src source.Source, node *rawNode, message string) 
 	if node != nil {
 		line, column = node.Line, node.Column
 	}
-	return xsderrors.SchemaCompileAt(src.Name(), line, column, xsderrors.CodeSchemaReference, message)
+	return xsderrors.WithLocation(src.Name(), line, column, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, message))
 }
 
 func withSchemaReferenceLocation(request schemaLoadRequest, err error) error {
@@ -675,30 +816,34 @@ func withSchemaReferenceLocation(request schemaLoadRequest, err error) error {
 	if path == "" {
 		path = request.source.Name()
 	}
-	return xsderrors.WithSchemaCompileLocation(path, request.ref.node.Line, request.ref.node.Column, err)
+	return xsderrors.WithLocation(path, request.ref.node.Line, request.ref.node.Column, err)
 }
 
 func schemaLocationAttr(n *rawNode) (string, bool) {
 	return n.attr(vocab.XSDAttrSchemaLocation)
 }
 
-func (l *schemaSetLoader) validateLoadedReferenceTargets() error {
-	for i := range l.documents {
-		if err := compileContextError(l.ctx); err != nil {
+func (g *loadedSchemaGraph) validateReferenceTargets() error {
+	for i := range g.documents {
+		if err := g.validateDocumentReferenceTargets(g.documents[i].doc); err != nil {
 			return err
 		}
-		for j := range l.documents[i].doc.references {
-			ref := &l.documents[i].doc.references[j]
-			if ref.target == "" {
-				continue
-			}
-			loaded, ok := l.byKey[ref.target]
-			if !ok || loaded.doc == nil {
-				continue
-			}
-			if err := validateSchemaReferenceTarget(ref, loaded.doc); err != nil {
-				return err
-			}
+	}
+	return nil
+}
+
+func (g *loadedSchemaGraph) validateDocumentReferenceTargets(doc *rawDoc) error {
+	for i := range doc.references {
+		ref := &doc.references[i]
+		if ref.target == "" {
+			continue
+		}
+		loaded, ok := g.byKey[ref.target]
+		if !ok || loaded.doc == nil {
+			continue
+		}
+		if err := validateSchemaReferenceTarget(ref, loaded.doc); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -725,39 +870,52 @@ func validateSchemaReferenceTarget(ref *schemaReference, target *rawDoc) error {
 	return nil
 }
 
-func (l *schemaSetLoader) instantiateTargetContexts() error {
-	references, contexts := l.schemaTargetContextInputs()
+func (g *loadedSchemaGraph) instantiateTargetContexts() error {
+	references, contexts := g.schemaTargetContextInputs()
 	if contexts.documents == nil {
-		if len(l.documents) > l.limits.MaxSchemaTargetContexts {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts")
-		}
-		for i := range l.documents {
-			if err := compileContextError(l.ctx); err != nil {
-				return err
-			}
-			l.documents[i].effectiveTargetNS = l.documents[i].doc.defaults.TargetNamespace
-		}
-		return nil
+		return g.applyDeclaredTargetContexts()
 	}
-
-	for i, document := range l.documents {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
-		target := document.doc.defaults.TargetNamespace
-		if target != "" || contexts.documents[i].importTarget || document.explicitRoot {
-			if err := contexts.add(i, target); err != nil {
-				return err
-			}
-		}
-	}
-	if err := l.propagateTargetContexts(&contexts, references); err != nil {
+	if err := g.seedTargetContexts(&contexts); err != nil {
 		return err
 	}
-	for i := range l.documents {
-		if err := compileContextError(l.ctx); err != nil {
+	if err := g.propagateTargetContexts(&contexts, references); err != nil {
+		return err
+	}
+	if err := g.seedUnassignedTargetContexts(&contexts); err != nil {
+		return err
+	}
+	if err := g.propagateTargetContexts(&contexts, references); err != nil {
+		return err
+	}
+
+	return g.applyTargetContexts(contexts)
+}
+
+func (g *loadedSchemaGraph) applyDeclaredTargetContexts() error {
+	if len(g.documents) > g.limits.MaxSchemaTargetContexts {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts")
+	}
+	for i := range g.documents {
+		g.documents[i].effectiveTargetNS = g.documents[i].doc.defaults.TargetNamespace
+	}
+	return nil
+}
+
+func (g *loadedSchemaGraph) seedTargetContexts(contexts *schemaTargetContexts) error {
+	for i, document := range g.documents {
+		target := document.doc.defaults.TargetNamespace
+		if target == "" && !contexts.documents[i].importTarget && !document.explicitRoot {
+			continue
+		}
+		if err := contexts.add(i, target); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (g *loadedSchemaGraph) seedUnassignedTargetContexts(contexts *schemaTargetContexts) error {
+	for i := range g.documents {
 		if contexts.documents[i].hasPrimary {
 			continue
 		}
@@ -765,93 +923,98 @@ func (l *schemaSetLoader) instantiateTargetContexts() error {
 			return err
 		}
 	}
-	if err := l.propagateTargetContexts(&contexts, references); err != nil {
-		return err
-	}
-
-	return l.applyTargetContexts(contexts)
+	return nil
 }
 
-func (l *schemaSetLoader) schemaTargetContextInputs() ([]resolvedSchemaReference, schemaTargetContexts) {
-	var references []resolvedSchemaReference
-	var contexts schemaTargetContexts
-	for i, document := range l.documents {
-		start := len(references)
-		for _, ref := range document.doc.references {
-			if !ref.hasLocation {
-				continue
-			}
-			if l.byKey[ref.target].doc == nil {
-				continue
-			}
-			if contexts.documents == nil {
-				contexts = newSchemaTargetContexts(l.documents, l.limits.MaxSchemaTargetContexts, l.limits.MaxSchemaInstantiatedNodes)
-			}
-			target := l.byKey[ref.target].index
-			references = append(references, resolvedSchemaReference{
-				location: ref.location.Raw(),
-				target:   target,
-				kind:     ref.kind,
-			})
-			if ref.kind == schemaReferenceImport {
-				contexts.documents[target].importTarget = true
-			}
-		}
-		if contexts.documents != nil {
-			contexts.documents[i].references = resolvedSchemaReferenceSpan{start: start, count: len(references) - start}
-		}
+func (g *loadedSchemaGraph) schemaTargetContextInputs() ([]resolvedSchemaReference, schemaTargetContexts) {
+	builder := schemaTargetContextInputBuilder{graph: g}
+	for i, document := range g.documents {
+		builder.addDocument(i, document.doc)
 	}
-	return references, contexts
+	return builder.references, builder.contexts
 }
 
-func (l *schemaSetLoader) propagateTargetContexts(contexts *schemaTargetContexts, references []resolvedSchemaReference) error {
+type schemaTargetContextInputBuilder struct {
+	graph      *loadedSchemaGraph
+	references []resolvedSchemaReference
+	contexts   schemaTargetContexts
+}
+
+func (b *schemaTargetContextInputBuilder) addDocument(index int, doc *rawDoc) {
+	start := len(b.references)
+	for _, ref := range doc.references {
+		b.addReference(ref)
+	}
+	if b.contexts.documents != nil {
+		b.contexts.documents[index].references = resolvedSchemaReferenceSpan{start: start, count: len(b.references) - start}
+	}
+}
+
+func (b *schemaTargetContextInputBuilder) addReference(ref schemaReference) {
+	if !ref.hasLocation {
+		return
+	}
+	loaded := b.graph.byKey[ref.target]
+	if loaded.doc == nil {
+		return
+	}
+	if b.contexts.documents == nil {
+		b.contexts = newSchemaTargetContexts(b.graph.documents, b.graph.limits.MaxSchemaTargetContexts, b.graph.limits.MaxSchemaInstantiatedNodes)
+	}
+	target := loaded.index
+	b.references = append(b.references, resolvedSchemaReference{
+		location: ref.location.Raw(), target: target, kind: ref.kind,
+	})
+	if ref.kind == schemaReferenceImport {
+		b.contexts.documents[target].importTarget = true
+	}
+}
+
+func (g *loadedSchemaGraph) propagateTargetContexts(contexts *schemaTargetContexts, references []resolvedSchemaReference) error {
 	for contexts.next < len(contexts.queue) {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
 		context := contexts.queue[contexts.next]
 		contexts.next++
-		span := contexts.documents[context.source].references
-		for _, ref := range references[span.start : span.start+span.count] {
-			if ref.kind != schemaReferenceInclude {
-				continue
-			}
-			referenced := l.documents[ref.target].doc
-			if referenced.defaults.TargetNamespace != "" {
-				continue
-			}
-			if err := contexts.add(ref.target, context.target); err != nil {
-				return err
-			}
+		if err := g.propagateTargetContext(contexts, references, context); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (l *schemaSetLoader) applyTargetContexts(contexts schemaTargetContexts) error {
-	baseCount := len(l.documents)
-	var clones []schemaSetDocument
-	for i := range baseCount {
-		if err := compileContextError(l.ctx); err != nil {
+func (g *loadedSchemaGraph) propagateTargetContext(contexts *schemaTargetContexts, references []resolvedSchemaReference, context schemaTargetContext) error {
+	span := contexts.documents[context.source].references
+	for _, ref := range references[span.start : span.start+span.count] {
+		if err := g.dependencyWork.spend(1); err != nil {
 			return err
 		}
-		document := &l.documents[i]
+		if ref.kind != schemaReferenceInclude {
+			continue
+		}
+		if g.documents[ref.target].doc.defaults.TargetNamespace != "" {
+			continue
+		}
+		if err := contexts.add(ref.target, context.target); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (g *loadedSchemaGraph) applyTargetContexts(contexts schemaTargetContexts) error {
+	baseCount := len(g.documents)
+	var clones []schemaSetDocument
+	for i := range baseCount {
+		document := &g.documents[i]
 		state := contexts.documents[i]
 		declaredTarget := document.doc.defaults.TargetNamespace
 		document.effectiveTargetNS = state.primary
 		document.adoptedTarget = declaredTarget == "" && state.primary != ""
 	}
 	for _, context := range contexts.additional {
-		if err := compileContextError(l.ctx); err != nil {
-			return err
-		}
-		document := &l.documents[context.source]
+		document := &g.documents[context.source]
 		declaredTarget := document.doc.defaults.TargetNamespace
 		cloneKey := document.doc.key + "\x00" + context.target
-		clone, err := cloneRawDocument(l.ctx, document.doc, cloneKey)
-		if err != nil {
-			return err
-		}
+		clone := cloneRawDocument(document.doc, cloneKey)
 		clones = append(clones, schemaSetDocument{
 			doc:               clone,
 			imports:           document.imports,
@@ -860,44 +1023,33 @@ func (l *schemaSetLoader) applyTargetContexts(contexts schemaTargetContexts) err
 			adoptedTarget:     declaredTarget == "" && context.target != "",
 		})
 	}
-	l.documents = append(l.documents, clones...)
+	g.documents = append(g.documents, clones...)
 	return nil
 }
 
-func cloneRawDocument(ctx context.Context, doc *rawDoc, key string) (*rawDoc, error) {
+func cloneRawDocument(doc *rawDoc, key string) *rawDoc {
 	nodes := make(map[*rawNode]*rawNode)
 	clone := &rawDoc{name: doc.name, key: key, defaults: doc.defaults, nodes: doc.nodes}
-	root, err := cloneRawTree(ctx, doc.root, nodes, clone)
-	if err != nil {
-		return nil, err
-	}
-	clone.root = root
+	clone.root = cloneRawTree(doc.root, nodes, clone)
 	clone.references = make([]schemaReference, len(doc.references))
 	copy(clone.references, doc.references)
 	for i := range clone.references {
 		clone.references[i].node = nodes[clone.references[i].node]
 	}
-	return clone, nil
+	return clone
 }
 
-func cloneRawTree(ctx context.Context, n *rawNode, nodes map[*rawNode]*rawNode, doc *rawDoc) (*rawNode, error) {
-	if err := compileContextError(ctx); err != nil {
-		return nil, err
-	}
+func cloneRawTree(n *rawNode, nodes map[*rawNode]*rawNode, doc *rawDoc) *rawNode {
 	copied := *n
 	copied.doc = doc
 	nodes[n] = &copied
 	if len(n.Children) > 0 {
 		copied.Children = make([]*rawNode, len(n.Children))
 		for i, child := range n.Children {
-			cloned, err := cloneRawTree(ctx, child, nodes, doc)
-			if err != nil {
-				return nil, err
-			}
-			copied.Children[i] = cloned
+			copied.Children[i] = cloneRawTree(child, nodes, doc)
 		}
 	}
-	return &copied, nil
+	return &copied
 }
 
 type identifiedSchemaDocument struct {
@@ -905,7 +1057,7 @@ type identifiedSchemaDocument struct {
 	identity int
 }
 
-func (l *schemaSetLoader) identifySchemaDocumentContents() ([]identifiedSchemaDocument, error) {
+func (l *schemaSetLoader) identifySchemaDocumentContents() []identifiedSchemaDocument {
 	ordered := slices.Clone(l.loadedSource)
 	slices.SortFunc(ordered, func(a, b loadedSchemaSource) int { return cmp.Compare(a.doc.key, b.doc.key) })
 	seed := maphash.MakeSeed()
@@ -921,9 +1073,6 @@ func (l *schemaSetLoader) identifySchemaDocumentContents() ([]identifiedSchemaDo
 	identified := make([]identifiedSchemaDocument, 0, len(ordered))
 	nextIdentity := 1
 	for _, src := range ordered {
-		if err := compileContextError(l.ctx); err != nil {
-			return nil, err
-		}
 		key := contentKey{size: len(src.data), hash: maphash.Bytes(seed, src.data)}
 		identity := 0
 		for _, entry := range seen[key] {
@@ -939,17 +1088,17 @@ func (l *schemaSetLoader) identifySchemaDocumentContents() ([]identifiedSchemaDo
 		}
 		identified = append(identified, identifiedSchemaDocument{source: src, identity: identity})
 	}
-	return identified, nil
+	return identified
 }
 
-func (l *schemaSetLoader) selectDeclarationDocuments() {
+func (g *loadedSchemaGraph) selectDeclarationDocuments() {
 	type declarationKey struct {
 		target  string
 		content int
 	}
-	seen := make(map[declarationKey]struct{}, len(l.documents))
-	for i := range l.documents {
-		document := &l.documents[i]
+	seen := make(map[declarationKey]struct{}, len(g.documents))
+	for i := range g.documents {
+		document := &g.documents[i]
 		key := declarationKey{target: document.effectiveTargetNS, content: document.contentIdentity}
 		_, duplicate := seen[key]
 		document.indexDeclarations = !duplicate
@@ -957,7 +1106,7 @@ func (l *schemaSetLoader) selectDeclarationDocuments() {
 	}
 }
 
-func (c *compiler) checkReferenceNamespace(n *rawNode, ctx *schemaContext, namespace string) (string, error) {
+func checkReferenceNamespace(n *rawNode, ctx *schemaContext, namespace string) (string, error) {
 	if ctx == nil {
 		return namespace, nil
 	}

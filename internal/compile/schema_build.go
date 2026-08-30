@@ -96,7 +96,7 @@ func (rt *compilerSchemaBuild) TypeLabel(t runtime.TypeID) string {
 	return rt.build.TypeLabel(t)
 }
 
-func (rt *compilerSchemaBuild) StringEnumerationContains(id runtime.SimpleTypeID, canonical string) (bool, bool) {
+func (rt *compilerSchemaBuild) StringEnumerationContains(id runtime.SimpleTypeID, canonical string) (contains, valid bool) {
 	return rt.build.StringEnumerationContains(id, canonical)
 }
 
@@ -152,7 +152,7 @@ func (rt *compilerSchemaBuild) internQName(ns, local string) (runtime.QName, err
 	return NewNameInterner(&rt.build.Names).InternQName(ns, local)
 }
 
-func (rt *compilerSchemaBuild) simpleTypeFinal(id runtime.SimpleTypeID) runtime.DerivationMask {
+func (rt *compilerSchemaBuild) simpleTypeFinalMask(id runtime.SimpleTypeID) runtime.DerivationMask {
 	return rt.build.SimpleTypes[id].Final
 }
 
@@ -292,27 +292,26 @@ func (c *compiler) validateIdentityReferencesBuild() error {
 
 func (c *compiler) compileContentModelsBuild() ([]runtime.CompiledModel, error) {
 	return CompileContentModels(
-		c.ctx,
 		&c.rt.build.Names,
 		&c.rt,
 		len(c.rt.build.Models),
 		c.limits.MaxContentModelStates,
+		&c.contentWork,
+		c.contentAnalysis,
 	)
 }
 
 func (c *compiler) checkContentModelsUPABuild() error {
-	return CheckContentModelsUPA(c.ctx, &c.rt.build.Names, &c.rt, len(c.rt.build.Models))
+	return CheckContentModelsUPA(&c.rt.build.Names, &c.rt, len(c.rt.build.Models), &c.contentWork, c.contentAnalysis)
 }
 
 func (c *compiler) checkContentModelElementDeclarationsConsistentBuild() error {
 	if len(c.modelSources) != len(c.rt.build.Models) {
 		return xsderrors.InternalInvariant("content model provenance count does not match model count")
 	}
-	for id, model := range c.rt.build.Models {
-		if err := compileContextError(c.ctx); err != nil {
-			return err
-		}
-		if err := CheckElementDeclarationsConsistent(&c.rt, model); err != nil {
+	checker := newElementDeclarationConsistencyChecker(&c.rt, &c.contentWork)
+	for id := range c.rt.build.Models {
+		if err := checker.checkModel(runtime.ContentModelID(id)); err != nil {
 			if c.modelSources[id] != nil {
 				return withSchemaCompileLocation(c.modelSources[id], err)
 			}
@@ -328,6 +327,8 @@ func (c *compiler) restrictionChoiceLimitUpdates() ([]runtime.RestrictionChoiceL
 		c.rt.build.ComplexTypes,
 		c.rt.build.Models,
 		c.rt.build.Builtin.AnyType,
+		c.contentWork.spend,
+		c.contentAnalysis,
 	)
 }
 
@@ -462,7 +463,7 @@ func (c *compiler) completeIdentity(id runtime.IdentityConstraintID, identity ru
 	c.rt.build.Identities[id] = identity
 }
 
-func (c *compiler) addWildcard(wildcard runtime.Wildcard) (runtime.WildcardID, error) {
+func (c *compiler) appendWildcard(wildcard runtime.Wildcard) (runtime.WildcardID, error) {
 	id, err := NextWildcardID(len(c.rt.build.Wildcards))
 	if err != nil {
 		return runtime.NoWildcard, err
@@ -545,7 +546,7 @@ func (c *compiler) publishSchema() (*runtime.Schema, error) {
 	if len(c.pendingElementConstraints) != 0 {
 		return nil, xsderrors.InternalInvariant("element value constraints were not finalized")
 	}
-	published, err := runtime.PublishSchema(c.ctx, &c.rt.build)
+	published, err := runtime.PublishSchema(&c.rt.build, c.contentWork.spend)
 	if err != nil {
 		return nil, err
 	}

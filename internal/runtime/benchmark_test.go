@@ -201,7 +201,7 @@ func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
 	raw := []byte("value")
 	b.ReportAllocs()
 	for b.Loop() {
-		handled, err := schema.validatePublishedRawSimpleValueWithScratch(0, raw, nil)
+		handled, err := schema.ValidateRawSimpleValueWithScratch(0, raw, nil)
 		if err != nil || !handled {
 			b.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
 		}

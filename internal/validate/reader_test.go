@@ -40,20 +40,26 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var p stream.Parser
-			requireCode(t, instanceReaderError(p.Reset(strings.NewReader(tt.in), nil, nil)), tt.code)
+			names, values := stream.NewCache(), stream.NewCache()
+			diagnostic := requireDiagnostic(t, instanceReaderError(p.Reset(strings.NewReader(tt.in), &names, &values)), tt.code)
+			if tt.code == xsderrors.CodeUnsupportedXML11 && diagnostic.Cause() != nil {
+				t.Fatalf("XML 1.1 cause = %T, want nil", diagnostic.Cause())
+			}
 		})
 	}
 }
 
 func TestParserPreflightRejectsNilReader(t *testing.T) {
 	var p stream.Parser
-	requireCode(t, instanceReaderError(p.Reset(nil, nil, nil)), xsderrors.CodeValidationXML)
+	names, values := stream.NewCache(), stream.NewCache()
+	requireCode(t, instanceReaderError(p.Reset(nil, &names, &values)), xsderrors.CodeValidationXML)
 }
 
 func TestParserPreflightDoesNotReadWholeDocumentWithoutDeclaration(t *testing.T) {
 	r := &oneByteReader{s: `<root>` + strings.Repeat("x", 1024)}
 	var p stream.Parser
-	if err := p.Reset(r, nil, nil); err != nil {
+	names, values := stream.NewCache(), stream.NewCache()
+	if err := p.Reset(r, &names, &values); err != nil {
 		t.Fatalf("Parser.Reset() error = %v", err)
 	}
 	if r.reads > stream.XMLDeclarationPrefixLen {
@@ -76,7 +82,10 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			requireCode(t, StreamError(2, 3, "/root", tt.err), tt.code)
+			diagnostic := requireDiagnostic(t, StreamError(2, 3, "/root", tt.err), tt.code)
+			if tt.code == xsderrors.CodeUnsupportedXML11 && diagnostic.Cause() != nil {
+				t.Fatalf("XML 1.1 cause = %T, want nil", diagnostic.Cause())
+			}
 		})
 	}
 }
@@ -96,10 +105,10 @@ func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) erro
 	names := stream.NewCache()
 	values := stream.NewCache()
 	var p stream.Parser
-	if err := p.ResetWithLimits(strings.NewReader(doc), &names, &values, stream.Limits{
+	if err := p.ResetWithConfig(strings.NewReader(doc), &names, &values, stream.Config{Limits: stream.Limits{
 		MaxTokenBytes: maxTokenBytes,
 		MaxAttrs:      maxAttrs,
-	}); err != nil {
+	}}); err != nil {
 		return err
 	}
 	for {
@@ -112,11 +121,19 @@ func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) erro
 
 func requireCode(t *testing.T, err error, want xsderrors.Code) {
 	t.Helper()
+	if requireDiagnostic(t, err, want) == nil {
+		t.Fatal("requireDiagnostic returned nil")
+	}
+}
+
+func requireDiagnostic(t *testing.T, err error, want xsderrors.Code) *xsderrors.Error {
+	t.Helper()
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
 		t.Fatalf("error type = %T, want *xsderrors.Error", err)
 	}
-	if xerr.Code != want {
-		t.Fatalf("code = %s, want %s", xerr.Code, want)
+	if xerr.Code() != want {
+		t.Fatalf("code = %s, want %s", xerr.Code(), want)
 	}
+	return xerr
 }

@@ -9,17 +9,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func (rt *Schema) validatePublishedSimpleValue(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed) (SimpleValue, error) {
-	return rt.validatePublishedSimpleValueWithScratch(id, lexical, resolve, needs, nil)
-}
-
-func (rt *Schema) validatePublishedSimpleValueWithScratch(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
-	if value, handled, err := validateSimpleValueRouteReadFast(rt.runtime.SimpleValueRoutes, rt.runtime.Notations, id, lexical, resolve, needs); handled {
-		return value, err
-	}
-	return validateSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs, scratch)
-}
-
 type publishedSimpleValueMetadataReader struct {
 	runtime *schemaRuntime
 }
@@ -47,7 +36,7 @@ func (r publishedSimpleValueMetadataReader) simpleValueFacets(id SimpleTypeID) (
 	return simpleValueFacetsForColdRead(cold), true
 }
 
-func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id SimpleTypeID, canonical string) (bool, bool) {
+func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id SimpleTypeID, canonical string) (contains, valid bool) {
 	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
 		return false, false
 	}
@@ -66,7 +55,7 @@ func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id Simp
 	return false, true
 }
 
-func (r publishedSimpleValueMetadataReader) simpleValueNotation(ns, local string) (bool, bool) {
+func (r publishedSimpleValueMetadataReader) simpleValueNotation(ns, local string) (declared, valid bool) {
 	return r.runtime.Notations[ExpandedName{Namespace: ns, Local: local}], true
 }
 
@@ -74,36 +63,52 @@ func (publishedSimpleValueMetadataReader) simpleValueUnsupported(err error) bool
 	return xsderrors.IsUnsupported(err)
 }
 
-func (rt *Schema) validatePublishedRawSimpleValueWithScratch(id SimpleTypeID, raw []byte, scratch *StringPatternScratch) (bool, error) {
-	return validateResolvedRawSimpleValue(rawSimpleValueResolver{runtime: &rt.runtime, scratch: scratch}, id, raw)
+func validateRawStringLength(raw []byte, whitespace WhitespaceMode, facets LengthFacetValues) error {
+	count, err := normalizedRawStringLength(raw, whitespace)
+	if err != nil {
+		return err
+	}
+	return ValidateLengthFacets(facets, count)
 }
 
-func validateRawStringLength(raw []byte, whitespace WhitespaceMode, facets LengthFacetValues) error {
-	var count uint64
-	seen, pendingSpace := false, false
+type rawStringLengthState struct {
+	count        uint64
+	seen         bool
+	pendingSpace bool
+}
+
+func normalizedRawStringLength(raw []byte, whitespace WhitespaceMode) (uint32, error) {
+	var state rawStringLengthState
 	for len(raw) != 0 {
 		r, size := utf8.DecodeRune(raw)
 		if r == utf8.RuneError && size == 1 {
-			return errors.New("invalid UTF-8 string")
+			return 0, errors.New("invalid UTF-8 string")
 		}
 		raw = raw[size:]
-		if whitespace == WhitespaceCollapse && isXMLWhitespaceRune(r) {
-			if seen {
-				pendingSpace = true
-			}
-			continue
-		}
-		if pendingSpace {
-			count++
-			pendingSpace = false
-		}
-		count++
-		seen = true
-		if count > math.MaxUint32 {
-			return fmt.Errorf("string length exceeds %d", uint64(math.MaxUint32))
+		if err := state.appendRune(r, whitespace); err != nil {
+			return 0, err
 		}
 	}
-	return ValidateLengthFacets(facets, uint32(count))
+	return uint32(state.count), nil //nolint:gosec // appendRune rejects counts above uint32.
+}
+
+func (s *rawStringLengthState) appendRune(r rune, whitespace WhitespaceMode) error {
+	if whitespace == WhitespaceCollapse && isXMLWhitespaceRune(r) {
+		if s.seen {
+			s.pendingSpace = true
+		}
+		return nil
+	}
+	if s.pendingSpace {
+		s.count++
+		s.pendingSpace = false
+	}
+	s.count++
+	s.seen = true
+	if s.count > math.MaxUint32 {
+		return fmt.Errorf("string length exceeds %d", uint64(math.MaxUint32))
+	}
+	return nil
 }
 
 func isXMLWhitespaceRune(r rune) bool {

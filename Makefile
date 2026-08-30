@@ -2,9 +2,10 @@
 MAKEFLAGS+=-r -R
 
 BIN := $(CURDIR)/bin
-STATICCHECK_VERSION := v0.7.0
-GOLANGCI_LINT_VERSION := v2.12.2
+STATICCHECK_VERSION := v0.8.1
+GOLANGCI_LINT_VERSION := v2.13.2
 BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
+BENCH_SMOKE_PATTERN := Benchmark(CheckXMLWellFormedNested|Compile(AttributeGroupFanout|CountedChoiceDFA|DeepSimpleTypeChain|RepeatedNestedUnionMembers|SmallSchema|SubstitutionGroups)|NamespaceAdmissionChurn|ParseXSDTime|ParserLazyWideAttributes|SessionValidate(DisjointIdentityPaths|ExpandedIdentityPaths|NamespaceAdmissionChurn|NestedIdentitySelectionPaths|NestedIdentitySelections|RepeatedSmallDocument|RetainedIdentityPaths|SharedExpandedIdentityPrefix|WideChoice)|SimplePatternVariableSmallBytes|Validate(Concurrent|DuplicateAttributes|IdentityConstraintsFields|IdentityConstraintsRows|ManyRecoverablePathErrors|SubstitutionGroup)|XML(DuplicateAttributes|MixedEscapedAttributeWriterOnly))
 export GOBIN := $(BIN)
 
 .PHONY: test
@@ -32,7 +33,7 @@ bench:
 
 .PHONY: bench-smoke
 bench-smoke:
-	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
+	go test -run '^$$' -bench='$(BENCH_SMOKE_PATTERN)$$' -benchtime=100ms -benchmem ./...
 
 .PHONY: benchstat
 benchstat: $(BIN)/benchstat
@@ -50,12 +51,16 @@ wasm: | docs
 	cp $$(go env GOROOT)/lib/wasm/wasm_exec.js docs/wasm_exec.js
 
 .PHONY: web
-web:
+web: wasm
 	go run ./cmd/xsdweb
 
 .PHONY: web-test
 web-test:
-	node --test docs/js/validation-flow.test.js
+	node --test docs/js/*.test.js
+
+.PHONY: browser-test
+browser-test:
+	npm --prefix docs/js run test:browser
 
 .PHONY: staticcheck
 staticcheck: $(BIN)/staticcheck
@@ -64,8 +69,13 @@ staticcheck: $(BIN)/staticcheck
 $(BIN)/staticcheck: go.mod Makefile | $(BIN)
 	go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 
+
+.PHONY: lint-config
+lint-config: $(BIN)/golangci-lint
+	$(BIN)/golangci-lint config verify
+
 .PHONY: lint
-lint: $(BIN)/golangci-lint
+lint: lint-config
 	$(BIN)/golangci-lint run
 
 $(BIN)/golangci-lint: go.mod .golangci.yml Makefile | $(BIN)

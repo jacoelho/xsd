@@ -1,7 +1,6 @@
 package compile_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/compile"
@@ -23,16 +22,15 @@ func FuzzSchemaParserLimits(f *testing.F) {
 		if len(schema) > 8192 {
 			t.Skip()
 		}
-		if _, err := compile.Compile(context.Background(),
-			compile.Options{
-				MaxSchemaDepth:        32,
-				MaxSchemaAttributes:   32,
-				MaxSchemaTokenBytes:   4096,
-				MaxSchemaSourceBytes:  8192,
-				MaxSchemaNames:        256,
-				MaxFiniteOccurs:       256,
-				MaxContentModelStates: 256,
-			},
+		if _, err := compile.Compile(compile.Options{
+			MaxSchemaDepth:        32,
+			MaxSchemaAttributes:   32,
+			MaxSchemaTokenBytes:   4096,
+			MaxSchemaSourceBytes:  8192,
+			MaxSchemaNames:        256,
+			MaxFiniteOccurs:       256,
+			MaxContentModelStates: 256,
+		},
 			[]source.Source{
 				source.Bytes("fuzz.xsd", []byte(schema)),
 			}); err != nil {

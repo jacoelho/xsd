@@ -83,6 +83,9 @@ func ElementValueConstraintTypeError(err error) error {
 	if err == nil {
 		return nil
 	}
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
+		return err
+	}
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
 }
 
@@ -99,14 +102,9 @@ func ElementValueConstraintRuntimeError(err error) error {
 }
 
 func parseSizeFacetInteger(value string) (uint64, error) {
-	if value == "" {
-		return 0, strconv.ErrSyntax
-	}
-	start := 0
-	negative := false
-	if value[0] == '+' || value[0] == '-' {
-		negative = value[0] == '-'
-		start = 1
+	start, negative, err := parseSizeFacetSign(value)
+	if err != nil {
+		return 0, err
 	}
 	if start == len(value) {
 		return 0, strconv.ErrSyntax
@@ -118,8 +116,25 @@ func parseSizeFacetInteger(value string) (uint64, error) {
 	if digitStart == len(value) {
 		return 0, nil
 	}
+	return parseSizeFacetDigits(value, digitStart)
+}
+
+func parseSizeFacetSign(value string) (int, bool, error) {
+	if value == "" {
+		return 0, false, strconv.ErrSyntax
+	}
+	if value[0] == '+' {
+		return 1, false, nil
+	}
+	if value[0] == '-' {
+		return 1, true, nil
+	}
+	return 0, false, nil
+}
+
+func parseSizeFacetDigits(value string, start int) (uint64, error) {
 	var n uint64
-	for i := digitStart; i < len(value); i++ {
+	for i := start; i < len(value); i++ {
 		b := value[i]
 		if b < '0' || b > '9' {
 			return 0, strconv.ErrSyntax

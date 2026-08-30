@@ -21,12 +21,12 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	noNamespaceSchemaLocationName, _ := rt.LookupQName(vocab.XSINamespaceURI, vocab.XSIAttrNoNamespaceSchemaLocation)
 	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
 
-	name, key, ok, err := XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, " 1 ", nil, ctx)
+	identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, " 1 ", nil, ctx)
 	if err != nil {
-		t.Fatalf("XSIAttributeIdentityKey(nil) error = %v", err)
+		t.Fatalf("xsiAttributeIdentityKey(nil) error = %v", err)
 	}
-	if !ok || name != nilName || key != runtime.SimpleIdentityKey(runtime.PrimitiveBoolean, "true") {
-		t.Fatalf("XSIAttributeIdentityKey(nil) = %v %q %v, want nil boolean true", name, key, ok)
+	if !identity.present || identity.name != nilName || identity.key != runtime.SimpleIdentityKey(runtime.PrimitiveBoolean, "true") {
+		t.Fatalf("xsiAttributeIdentityKey(nil) = %+v, want nil boolean true", identity)
 	}
 
 	const typeCanonical = "{urn:test}T"
@@ -36,12 +36,12 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 		}
 		return "urn:test", "T", true
 	}
-	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, " p:T ", resolveType, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, " p:T ", resolveType, ctx)
 	if err != nil {
-		t.Fatalf("XSIAttributeIdentityKey(type) error = %v", err)
+		t.Fatalf("xsiAttributeIdentityKey(type) error = %v", err)
 	}
-	if !ok || name != typeName || key != runtime.SimpleIdentityKey(runtime.PrimitiveQName, typeCanonical) {
-		t.Fatalf("XSIAttributeIdentityKey(type) = %v %q %v, want type key", name, key, ok)
+	if !identity.present || identity.name != typeName || identity.key != runtime.SimpleIdentityKey(runtime.PrimitiveQName, typeCanonical) {
+		t.Fatalf("xsiAttributeIdentityKey(type) = %+v, want type key", identity)
 	}
 
 	anyURI := simpleTypeIDByNameForTest(t, rt, vocab.XSDNamespaceURI, vocab.XSDValueAnyURI)
@@ -49,23 +49,23 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValidateSimpleValue(anyURI) error = %v", err)
 	}
-	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, "  one.xsd\t", nil, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, "  one.xsd\t", nil, ctx)
 	if err != nil {
-		t.Fatalf("XSIAttributeIdentityKey(noNamespaceSchemaLocation) error = %v", err)
+		t.Fatalf("xsiAttributeIdentityKey(noNamespaceSchemaLocation) error = %v", err)
 	}
-	if !ok || name != noNamespaceSchemaLocationName || key != ordinaryAnyURI.Identity {
-		t.Fatalf("XSIAttributeIdentityKey(noNamespaceSchemaLocation) = %v %q %v, want ordinary anyURI key %q", name, key, ok, ordinaryAnyURI.Identity)
+	if !identity.present || identity.name != noNamespaceSchemaLocationName || identity.key != ordinaryAnyURI.Identity {
+		t.Fatalf("xsiAttributeIdentityKey(noNamespaceSchemaLocation) = %+v, want ordinary anyURI key %q", identity, ordinaryAnyURI.Identity)
 	}
 	emptyAnyURI, err := rt.ValidateSimpleValue(anyURI, "", nil, runtime.SimpleNeedIdentity)
 	if err != nil {
 		t.Fatalf("ValidateSimpleValue(empty anyURI) error = %v", err)
 	}
-	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, " \t", nil, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, " \t", nil, ctx)
 	if err != nil {
-		t.Fatalf("XSIAttributeIdentityKey(empty noNamespaceSchemaLocation) error = %v", err)
+		t.Fatalf("xsiAttributeIdentityKey(empty noNamespaceSchemaLocation) error = %v", err)
 	}
-	if !ok || name != noNamespaceSchemaLocationName || key != emptyAnyURI.Identity {
-		t.Fatalf("XSIAttributeIdentityKey(empty noNamespaceSchemaLocation) = %v %q %v, want ordinary empty anyURI key %q", name, key, ok, emptyAnyURI.Identity)
+	if !identity.present || identity.name != noNamespaceSchemaLocationName || identity.key != emptyAnyURI.Identity {
+		t.Fatalf("xsiAttributeIdentityKey(empty noNamespaceSchemaLocation) = %+v, want ordinary empty anyURI key %q", identity, emptyAnyURI.Identity)
 	}
 
 	uriList := simpleTypeIDByNameForTest(t, rt, "", "URIs")
@@ -73,17 +73,17 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValidateSimpleValue(list<anyURI>) error = %v", err)
 	}
-	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation}, " urn:a\ta.xsd\nurn:b  b.xsd ", nil, ctx)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation}, " urn:a\ta.xsd\nurn:b  b.xsd ", nil, ctx)
 	if err != nil {
-		t.Fatalf("XSIAttributeIdentityKey(schemaLocation) error = %v", err)
+		t.Fatalf("xsiAttributeIdentityKey(schemaLocation) error = %v", err)
 	}
-	if !ok || name != schemaLocationName || key != ordinaryList.Identity {
-		t.Fatalf("XSIAttributeIdentityKey(schemaLocation) = %v %q %v, want ordinary list<anyURI> key %q", name, key, ok, ordinaryList.Identity)
+	if !identity.present || identity.name != schemaLocationName || identity.key != ordinaryList.Identity {
+		t.Fatalf("xsiAttributeIdentityKey(schemaLocation) = %+v, want ordinary list<anyURI> key %q", identity, ordinaryList.Identity)
 	}
 
-	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "other"}, " a\tb ", nil, ctx)
-	if err != nil || ok || name != (runtime.QName{}) || key != "" {
-		t.Fatalf("XSIAttributeIdentityKey(other) = %v %q %v err %v, want ignored", name, key, ok, err)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "other"}, " a\tb ", nil, ctx)
+	if err != nil || identity != (xsiIdentityKey{}) {
+		t.Fatalf("xsiAttributeIdentityKey(other) = %+v err %v, want ignored", identity, err)
 	}
 }
 
@@ -93,22 +93,22 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	ctx := StartContext{Line: 2, Column: 3, Path: "/root"}
 
-	name, key, ok, err := XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "unknown"}, "x", nil, ctx)
-	if err != nil || ok || name != (runtime.QName{}) || key != "" {
-		t.Fatalf("XSIAttributeIdentityKey(unknown) = %v %q %v err %v, want ignored", name, key, ok, err)
+	identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "unknown"}, "x", nil, ctx)
+	if err != nil || identity != (xsiIdentityKey{}) {
+		t.Fatalf("xsiAttributeIdentityKey(unknown) = %+v err %v, want ignored", identity, err)
 	}
 
-	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, "maybe", nil, ctx)
-	if name != (runtime.QName{}) || key != "" || ok {
-		t.Fatalf("XSIAttributeIdentityKey(invalid nil) = %v %q %v, want empty error result", name, key, ok)
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}, "maybe", nil, ctx)
+	if identity != (xsiIdentityKey{}) {
+		t.Fatalf("xsiAttributeIdentityKey(invalid nil) = %+v, want empty error result", identity)
 	}
 	expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
 
-	name, key, ok, err = XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, "bad", func(string) (string, string, bool) {
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, "bad", func(string) (string, string, bool) {
 		return "", "", false
 	}, ctx)
-	if name != (runtime.QName{}) || key != "" || ok {
-		t.Fatalf("XSIAttributeIdentityKey(invalid type) = %v %q %v, want empty error result", name, key, ok)
+	if identity != (xsiIdentityKey{}) {
+		t.Fatalf("xsiAttributeIdentityKey(invalid type) = %+v, want empty error result", identity)
 	}
 	expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
 
@@ -123,9 +123,9 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			name, key, ok, err := XSIAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: test.local}, test.lexical, nil, ctx)
-			if name != (runtime.QName{}) || key != "" || ok {
-				t.Fatalf("XSIAttributeIdentityKey(invalid %s) = %v %q %v, want empty error result", test.local, name, key, ok)
+			identity, err := xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: test.local}, test.lexical, nil, ctx)
+			if identity != (xsiIdentityKey{}) {
+				t.Fatalf("xsiAttributeIdentityKey(invalid %s) = %+v, want empty error result", test.local, identity)
 			}
 			expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
 		})

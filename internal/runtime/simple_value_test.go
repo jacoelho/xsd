@@ -192,7 +192,7 @@ func (s *simpleValueCallbackStub) typ(id SimpleTypeID) (SimpleValueType, bool) {
 	return typ, ok
 }
 
-func (s *simpleValueCallbackStub) stringEnumerationContains(id SimpleTypeID, canonical string) (bool, bool) {
+func (s *simpleValueCallbackStub) stringEnumerationContains(id SimpleTypeID, canonical string) (contains, valid bool) {
 	return slices.Contains(s.enums[id], canonical), true
 }
 
@@ -213,7 +213,7 @@ func (s *simpleValueCallbackStub) simpleValueFacets(id SimpleTypeID) (SimpleValu
 	}, true
 }
 
-func (s *simpleValueCallbackStub) resolveQName(lexical string) (string, string, bool) {
+func (s *simpleValueCallbackStub) resolveQName(lexical string) (namespace, local string, ok bool) {
 	s.calls = append(s.calls, "qname:"+lexical)
 	got, ok := s.qnames[lexical]
 	if !ok {
@@ -252,16 +252,16 @@ func TestPublishedSimpleValueSharedFallback(t *testing.T) {
 		SimpleTypeCold:    newSimpleTypeColdReadTable(types),
 	}}
 
-	if _, err := schema.validatePublishedSimpleValue(0, "allowed", nil, 0); err != nil {
+	if _, err := schema.ValidateSimpleValue(0, "allowed", nil, 0); err != nil {
 		t.Fatalf("validatePublishedSimpleValue() error = %v", err)
 	}
-	if _, err := schema.validatePublishedSimpleValue(0, "rejected", nil, 0); err == nil || err.Error() != "enumeration facet failed" {
+	if _, err := schema.ValidateSimpleValue(0, "rejected", nil, 0); err == nil || err.Error() != "enumeration facet failed" {
 		t.Fatalf("validatePublishedSimpleValue() error = %v, want enumeration failure", err)
 	}
-	if handled, err := schema.validatePublishedRawSimpleValueWithScratch(0, []byte("allowed"), nil); !handled || err != nil {
+	if handled, err := schema.ValidateRawSimpleValueWithScratch(0, []byte("allowed"), nil); !handled || err != nil {
 		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
 	}
-	if handled, err := schema.validatePublishedRawSimpleValueWithScratch(0, []byte("rejected"), nil); !handled || err == nil || err.Error() != "enumeration facet failed" {
+	if handled, err := schema.ValidateRawSimpleValueWithScratch(0, []byte("rejected"), nil); !handled || err == nil || err.Error() != "enumeration facet failed" {
 		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want handled enumeration failure", handled, err)
 	}
 }
@@ -281,7 +281,7 @@ func TestPublishedSimpleValueFastPathAllocations(t *testing.T) {
 	var value SimpleValue
 	var err error
 	allocs := testing.AllocsPerRun(1_000, func() {
-		value, err = schema.validatePublishedSimpleValue(0, "7", nil, 0)
+		value, err = schema.ValidateSimpleValue(0, "7", nil, 0)
 	})
 	if err != nil || value.Type != 0 {
 		t.Fatalf("validatePublishedSimpleValue() = %+v, %v", value, err)
@@ -348,7 +348,7 @@ func TestPublishedNotationFastPathAllocations(t *testing.T) {
 	var value SimpleValue
 	var err error
 	allocs := testing.AllocsPerRun(1_000, func() {
-		value, err = schema.validatePublishedSimpleValue(0, "declared", nil, 0)
+		value, err = schema.ValidateSimpleValue(0, "declared", nil, 0)
 	})
 	if err != nil || value.Type != 0 {
 		t.Fatalf("validatePublishedSimpleValue() = %+v, %v", value, err)
@@ -377,7 +377,7 @@ func TestPublishedRawUnionFastPathAllocations(t *testing.T) {
 	var handled bool
 	var err error
 	allocs := testing.AllocsPerRun(1_000, func() {
-		handled, err = schema.validatePublishedRawSimpleValueWithScratch(0, raw, nil)
+		handled, err = schema.ValidateRawSimpleValueWithScratch(0, raw, nil)
 	})
 	if err != nil || !handled {
 		t.Fatalf("validatePublishedRawSimpleValue() = %v, %v; want true, nil", handled, err)
@@ -646,8 +646,8 @@ func TestValidateSimpleValueAtomicDecimalBypassUsesRuntimeWhenHandled(t *testing
 		lexical string
 		wantErr string
 	}{
-		{lexical: "0.99", wantErr: fastDecimalErrMinInclusive},
-		{lexical: "10.51", wantErr: fastDecimalErrMaxInclusive},
+		{lexical: "0.99", wantErr: rawDecimalErrMinInclusive},
+		{lexical: "10.51", wantErr: rawDecimalErrMaxInclusive},
 	} {
 		_, err := ValidateSimpleValue(stub.callbacks(), 1, tt.lexical, 0)
 		if err == nil || err.Error() != tt.wantErr {

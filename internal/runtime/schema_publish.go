@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"context"
 	"errors"
 	"maps"
 
@@ -13,31 +12,23 @@ import (
 // provide exclusive access to build for the duration of the call. On success,
 // build is cleared and the returned schema owns all validation-facing storage;
 // previously retained aliases may be mutated without affecting the schema.
-func PublishSchema(ctx context.Context, build *SchemaBuild) (*Schema, error) {
+func PublishSchema(build *SchemaBuild, work ContentModelWork) (*Schema, error) {
 	if build == nil {
 		return nil, errors.New("nil schema build")
 	}
-	if err := publishContextError(ctx); err != nil {
+	if err := requireContentModelWork(work); err != nil {
 		return nil, err
 	}
-	candidate, err := newAuditedSchema(ctx, build)
+	candidate, err := newAuditedSchema(build, work)
 	if err != nil {
-		return nil, err
-	}
-	// This is the publication linearization point. Once the final cancellation
-	// check passes, consuming build and returning candidate is one commit.
-	if err := publishContextError(ctx); err != nil {
 		return nil, err
 	}
 	*build = SchemaBuild{}
 	return candidate, nil
 }
 
-func newAuditedSchema(ctx context.Context, build *SchemaBuild) (*Schema, error) {
+func newAuditedSchema(build *SchemaBuild, work ContentModelWork) (*Schema, error) {
 	if err := validateSchemaBuildIDDomain(build); err != nil {
-		return nil, err
-	}
-	if err := publishContextError(ctx); err != nil {
 		return nil, err
 	}
 	if err := validateStringPatternSourcesForSimpleTypes(build.SimpleTypes); err != nil {
@@ -46,38 +37,23 @@ func newAuditedSchema(ctx context.Context, build *SchemaBuild) (*Schema, error) 
 	if err := validateSchemaBuildOwnership(build); err != nil {
 		return nil, err
 	}
-	if err := publishContextError(ctx); err != nil {
-		return nil, err
-	}
-	runtime, err := newSchemaRuntime(build)
+	runtime, err := newSchemaRuntime(build, work)
 	if err != nil {
-		return nil, xsderrors.InternalInvariant(err.Error())
+		return nil, contentModelAuditError(err)
 	}
 	candidate := &Schema{runtime: runtime}
-	audit := schemaAudit{Schema: *candidate, build: *build}
-	if err := publishContextError(ctx); err != nil {
+	audit := schemaAudit{Schema: *candidate, build: *build, contentModelWork: work}
+	audit.contentAnalysis, err = NewContentModelAnalysis(&audit.build, work)
+	if err != nil {
 		return nil, err
 	}
 	if err := validateSchema(&audit); err != nil {
-		return nil, err
-	}
-	if err := publishContextError(ctx); err != nil {
 		return nil, err
 	}
 	if err := validateRuntimeReadProjections(&audit); err != nil {
 		return nil, err
 	}
 	return candidate, nil
-}
-
-func publishContextError(ctx context.Context) error {
-	if ctx == nil {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "context is nil")
-	}
-	if cause := context.Cause(ctx); cause != nil {
-		return xsderrors.Canceled(xsderrors.CodeCompileCanceled, "schema publication canceled", cause)
-	}
-	return nil
 }
 
 func validateSchemaBuildIDDomain(build *SchemaBuild) error {
@@ -105,7 +81,11 @@ func validateSchemaBuildIDDomain(build *SchemaBuild) error {
 	return nil
 }
 
-func newSchemaRuntime(build *SchemaBuild) (schemaRuntime, error) {
+func newSchemaRuntime(build *SchemaBuild, work ContentModelWork) (schemaRuntime, error) {
+	compiledModels, err := newCompiledModelReads(build.CompiledModels, work)
+	if err != nil {
+		return schemaRuntime{}, err
+	}
 	simpleValueRoutes := newSimpleValueRouteReadsForSimpleTypes(build.SimpleTypes)
 	simpleTypeCold := newSimpleTypeColdReadTable(build.SimpleTypes)
 	typeDerivations, err := newTypeDerivationReadForTypes(
@@ -130,7 +110,7 @@ func newSchemaRuntime(build *SchemaBuild) (schemaRuntime, error) {
 		SimpleTypeCold:    simpleTypeCold,
 		ComplexTypes:      newComplexTypeReads(build.ComplexTypes),
 		Wildcards:         NewWildcardViews(&build.Names, build.Wildcards),
-		CompiledModels:    newCompiledModelReads(build.CompiledModels),
+		CompiledModels:    compiledModels,
 		Elements:          newElementReadTable(build.Elements, build.ComplexTypes),
 		Identities:        newIdentityConstraintReads(build.Identities),
 	}

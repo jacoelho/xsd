@@ -3087,7 +3087,7 @@ func TestSimpleValuePrimitiveNeeds(t *testing.T) {
 				Primitive: PrimitiveString,
 				Needs:     SimpleNeedIdentity,
 			},
-			want: PrimitiveNeedCanonical,
+			want: PrimitiveNeedCanonical | PrimitiveNeedIdentity,
 		},
 		{
 			name: "decimal identity key can use decimal actual",
@@ -3095,6 +3095,7 @@ func TestSimpleValuePrimitiveNeeds(t *testing.T) {
 				Primitive: PrimitiveDecimal,
 				Needs:     SimpleNeedIdentity,
 			},
+			want: PrimitiveNeedIdentity,
 		},
 		{
 			name: "enumeration facet needs non-decimal primitive canonical",
@@ -3142,7 +3143,7 @@ func TestSimpleValuePrimitiveNeeds(t *testing.T) {
 				Primitive: PrimitiveString,
 				Needs:     SimpleNeedIdentity,
 			},
-			want: PrimitiveNeedCanonical,
+			want: PrimitiveNeedCanonical | PrimitiveNeedIdentity,
 		},
 	}
 	for _, tt := range tests {

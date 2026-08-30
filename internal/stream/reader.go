@@ -24,25 +24,41 @@ func (e UnsupportedXMLVersionError) Error() string {
 }
 
 func (p *Parser) prepareXMLProlog() error {
-	peek, err := p.br.ensure(XMLDeclarationPrefixLen)
-	if err != nil && !IsOnlyEOF(err) {
+	peek, err := p.initialXMLBytes()
+	if err != nil {
 		return err
 	}
-	if HasUTF8BOM(peek) {
-		p.br.discardUTF8BOM()
-		peek, err = p.br.ensure(XMLDeclarationPrefixLen)
-		if err != nil && !IsOnlyEOF(err) {
-			return err
-		}
-	}
-	if len(peek) >= 2 {
-		if (peek[0] == 0xFE && peek[1] == 0xFF) || (peek[0] == 0xFF && peek[1] == 0xFE) {
-			return ErrUnsupportedNonUTF8
-		}
+	if startsUTF16(peek) {
+		return ErrUnsupportedNonUTF8
 	}
 	if StartsXMLDeclaration(peek) {
 		peek = p.peekXMLDeclaration()
 	}
+	return validateXMLDeclarationMetadata(peek)
+}
+
+func (p *Parser) initialXMLBytes() ([]byte, error) {
+	peek, err := p.br.ensure(XMLDeclarationPrefixLen)
+	if err != nil && !IsOnlyEOF(err) {
+		return nil, err
+	}
+	if !HasUTF8BOM(peek) {
+		return peek, nil
+	}
+	p.br.discardUTF8BOM()
+	peek, err = p.br.ensure(XMLDeclarationPrefixLen)
+	if err != nil && !IsOnlyEOF(err) {
+		return nil, err
+	}
+	return peek, nil
+}
+
+func startsUTF16(peek []byte) bool {
+	return len(peek) >= 2 &&
+		(peek[0] == 0xFE && peek[1] == 0xFF || peek[0] == 0xFF && peek[1] == 0xFE)
+}
+
+func validateXMLDeclarationMetadata(peek []byte) error {
 	if enc := DeclaredEncoding(peek); enc != "" && !strings.EqualFold(enc, "UTF-8") && !strings.EqualFold(enc, "UTF8") {
 		return ErrUnsupportedNonUTF8
 	}

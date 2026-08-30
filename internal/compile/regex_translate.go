@@ -5,91 +5,122 @@ import "strings"
 // TranslateXSDRegexToGo translates XSD regex syntax to the Go regexp subset
 // used by compiled pattern facets. Callers must validate syntax first.
 func TranslateXSDRegexToGo(source string) string {
-	var b strings.Builder
-	escaped := false
-	inClass := false
+	translator := xsdRegexTranslator{source: source}
 	for i := 0; i < len(source); i++ {
-		c := source[i]
-		if escaped {
-			if !writeXSDRegexClassEscape(&b, c, inClass) {
-				b.WriteByte('\\')
-				b.WriteByte(c)
-			}
-			escaped = false
-			continue
-		}
-		if c == '\\' {
-			escaped = true
-			continue
-		}
-		switch {
-		case c == '[':
-			inClass = true
-		case c == ']':
-			inClass = false
-		case !inClass && c == '{':
-			end := strings.IndexByte(source[i:], '}')
-			if end >= 0 {
-				end += i
-				b.WriteString(normalizeXSDRegexQuantifier(source[i : end+1]))
-				i = end
-				continue
-			}
-		case !inClass && c == '.':
-			// XSD '.' matches any character except newline and carriage
-			// return; Go '.' only excludes newline.
-			b.WriteString(`[^\n\r]`)
-			continue
-		case !inClass && (c == '^' || c == '$'):
-			b.WriteByte('\\')
-		}
-		b.WriteByte(c)
+		i = translator.consume(i)
 	}
-	if escaped {
-		b.WriteByte('\\')
+	if translator.escaped {
+		translator.output.WriteByte('\\')
 	}
-	return b.String()
+	return translator.output.String()
 }
 
-func writeXSDRegexClassEscape(b *strings.Builder, c byte, inClass bool) bool {
+type xsdRegexTranslator struct {
+	source  string
+	output  strings.Builder
+	escaped bool
+	inClass bool
+}
+
+func (t *xsdRegexTranslator) consume(index int) int {
+	c := t.source[index]
+	if t.escaped {
+		t.writeEscaped(c)
+		return index
+	}
+	if c == '\\' {
+		t.escaped = true
+		return index
+	}
+	if t.inClass {
+		t.inClass = c != ']'
+		t.output.WriteByte(c)
+		return index
+	}
+	if c == '[' {
+		t.inClass = true
+		t.output.WriteByte(c)
+		return index
+	}
+	return t.consumeOutsideClass(index, c)
+}
+
+func (t *xsdRegexTranslator) writeEscaped(c byte) {
+	if !t.writeClassEscape(c) {
+		t.output.WriteByte('\\')
+		t.output.WriteByte(c)
+	}
+	t.escaped = false
+}
+
+func (t *xsdRegexTranslator) consumeOutsideClass(index int, c byte) int {
+	if c == '{' {
+		if end, ok := t.writeQuantifier(index); ok {
+			return end
+		}
+	}
+	if c == '.' {
+		// XSD '.' matches any character except newline and carriage
+		// return; Go '.' only excludes newline.
+		t.output.WriteString(`[^\n\r]`)
+		return index
+	}
+	if c == '^' || c == '$' {
+		t.output.WriteByte('\\')
+	}
+	t.output.WriteByte(c)
+	return index
+}
+
+func (t *xsdRegexTranslator) writeQuantifier(index int) (int, bool) {
+	end := strings.IndexByte(t.source[index:], '}')
+	if end < 0 {
+		return index, false
+	}
+	end += index
+	t.output.WriteString(normalizeXSDRegexQuantifier(t.source[index : end+1]))
+	return end, true
+}
+
+func (t *xsdRegexTranslator) writeClassEscape(c byte) bool {
 	switch c {
 	case 'd':
-		writeXSDRegexClass(b, xsdDigitClassInner, inClass)
+		t.writeClass(xsdDigitClassInner)
 	case 'D':
-		writeNegatedXSDRegexClass(b, xsdDigitClassInner, inClass)
+		t.writeNegatedClass(xsdDigitClassInner)
 	case 's':
-		writeXSDRegexClass(b, xsdSpaceClassInner, inClass)
+		t.writeClass(xsdSpaceClassInner)
 	case 'S':
-		writeNegatedXSDRegexClass(b, xsdSpaceClassInner, inClass)
+		t.writeNegatedClass(xsdSpaceClassInner)
 	case 'w':
-		writeXSDRegexClass(b, xsdWordClassInner, inClass)
+		t.writeClass(xsdWordClassInner)
 	case 'W':
-		writeXSDRegexClass(b, xsdNotWordClassInner, inClass)
+		t.writeClass(xsdNotWordClassInner)
 	default:
 		return false
 	}
 	return true
 }
 
-func writeXSDRegexClass(b *strings.Builder, inner string, inClass bool) {
-	if inClass {
-		b.WriteString(inner)
+func (t *xsdRegexTranslator) writeClass(inner string) {
+	if t.inClass {
+		t.output.WriteString(inner)
 		return
 	}
-	b.WriteByte('[')
-	b.WriteString(inner)
-	b.WriteByte(']')
+	t.output.WriteByte('[')
+	t.output.WriteString(inner)
+	t.output.WriteByte(']')
 }
 
-func writeNegatedXSDRegexClass(b *strings.Builder, inner string, inClass bool) {
-	if inClass {
-		b.WriteByte('^')
-		b.WriteString(inner)
+func (t *xsdRegexTranslator) writeNegatedClass(inner string) {
+	if t.inClass {
+		t.output.WriteByte('^')
+		t.output.WriteString(inner)
 		return
 	}
-	b.WriteString(`[^`)
-	b.WriteString(inner)
-	b.WriteByte(']')
+	t.output.WriteString(`[^`)
+	t.output.WriteString(inner)
+	t.output.WriteByte(']')
 }
 
 func normalizeXSDRegexQuantifier(s string) string {

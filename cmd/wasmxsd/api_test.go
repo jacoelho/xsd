@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -17,7 +18,7 @@ const testSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
 func TestFormatXMLData(t *testing.T) {
 	resp := formatXMLData(`<root><v>1</v></root>`)
-	if resp.Error != "" {
+	if resp.Status != statusOK || resp.Error != "" {
 		t.Fatalf("formatXMLData() error = %s", resp.Error)
 	}
 	if resp.XML != "<root>\n  <v>1</v>\n</root>" {
@@ -27,12 +28,12 @@ func TestFormatXMLData(t *testing.T) {
 
 func TestValidateXMLDataValidAndInvalid(t *testing.T) {
 	valid := validateXMLData("<root>\n  <v>1</v>\n</root>", testSchema)
-	if !valid.Valid || len(valid.Errors) != 0 || valid.Error != "" {
+	if valid.Status != statusValid || len(valid.Errors) != 0 || valid.Error != "" {
 		t.Fatalf("valid response = %+v", valid)
 	}
 
 	invalid := validateXMLData("<root>\n  <v>x</v>\n</root>", testSchema)
-	if invalid.Valid {
+	if invalid.Status != statusInvalid {
 		t.Fatal("invalid document validated")
 	}
 	if len(invalid.Errors) != 1 {
@@ -49,9 +50,45 @@ func TestValidateXMLDataValidAndInvalid(t *testing.T) {
 	}
 }
 
+func TestResponsesMarshalAsDiscriminatedStates(t *testing.T) {
+	tests := []struct {
+		name string
+		got  any
+		want string
+	}{
+		{name: "format success", got: formatResponse{Status: statusOK, XML: "<root/>"}, want: `{"status":"ok","xml":"\u003croot/\u003e"}`},
+		{name: "format error", got: formatFailure("bad XML", 2, 3), want: `{"status":"error","error":"bad XML","line":2,"column":3}`},
+		{name: "valid", got: validateResponse{Status: statusValid}, want: `{"status":"valid"}`},
+		{
+			name: "invalid",
+			got:  validationInvalid([]errorOutput{{Message: "bad value"}}),
+			want: `{"status":"invalid","errors":[{"message":"bad value"}]}`,
+		},
+		{name: "error", got: validationFailure("failed"), want: `{"status":"error","error":"failed"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.got)
+			if err != nil {
+				t.Fatalf("Marshal() error = %v", err)
+			}
+			if string(data) != tt.want {
+				t.Fatalf("Marshal() = %s, want %s", data, tt.want)
+			}
+		})
+	}
+}
+
+func TestInvalidResponseRequiresDiagnostics(t *testing.T) {
+	resp := validationInvalid(nil)
+	if resp.Status != statusError || resp.Error == "" || len(resp.Errors) != 0 {
+		t.Fatalf("validationInvalid(nil) = %+v, want infrastructure error", resp)
+	}
+}
+
 func TestValidateXMLDataReportsMalformedXMLBeforeSchemaErrorsWithoutDiscardingEither(t *testing.T) {
 	resp := validateXMLData(`<root><v>1</root>`, `<!DOCTYPE xs:schema><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	if resp.Valid {
+	if resp.Status != statusInvalid {
 		t.Fatal("validateXMLData() accepted malformed XML")
 	}
 	if resp.Error != "" {
@@ -73,7 +110,7 @@ func TestValidateXMLDataReportsMalformedXMLBeforeSchemaErrorsWithoutDiscardingEi
 
 func TestValidateXMLDataReportsMalformedXMLAfterSchemaCompiles(t *testing.T) {
 	resp := validateXMLData(`<root><v>1</root>`, testSchema)
-	if resp.Valid {
+	if resp.Status != statusInvalid {
 		t.Fatal("validateXMLData() accepted malformed XML")
 	}
 	if resp.Error != "" {
@@ -87,6 +124,28 @@ func TestValidateXMLDataReportsMalformedXMLAfterSchemaCompiles(t *testing.T) {
 	}
 	if resp.Errors[0].Code != "validation.xml" {
 		t.Fatalf("error code = %q, want validation.xml", resp.Errors[0].Code)
+	}
+}
+
+func TestValidateXMLDataUsesParserFailurePosition(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		xml       string
+		line, col int
+	}{
+		{name: "end tag", xml: "<root>\n</root x>", line: 2, col: 8},
+		{name: "buffered character data", xml: "<root>\n<v>1</v>\nabcdefgh\x01</root>", line: 3, col: 9},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resp := validateXMLData(test.xml, testSchema)
+			if resp.Status != statusInvalid || len(resp.Errors) != 1 {
+				t.Fatalf("validateXMLData() = %+v, want one invalid diagnostic", resp)
+			}
+			got := resp.Errors[0]
+			if got.Code != "validation.xml" || got.Line != test.line || got.Column != test.col {
+				t.Fatalf("diagnostic = %s at %d:%d, want validation.xml at %d:%d", got.Code, got.Line, got.Column, test.line, test.col)
+			}
+		})
 	}
 }
 
@@ -109,7 +168,7 @@ func TestValidateXMLDataReportsMalformedXMLBeyondValidationErrorLimit(t *testing
 	input.WriteString(`<v>1</root>`)
 
 	resp := validateXMLData(input.String(), schema)
-	if resp.Valid {
+	if resp.Status != statusInvalid {
 		t.Fatal("validateXMLData() accepted malformed XML")
 	}
 	if len(resp.Errors) != 1 {
@@ -131,21 +190,21 @@ func TestValidateXMLDataAcceptsCompactXMLWithoutFormatting(t *testing.T) {
 	}
 
 	resp := validateXMLData(xml, testSchema)
-	if !resp.Valid || resp.Error != "" || len(resp.Errors) != 0 {
+	if resp.Status != statusValid || resp.Error != "" || len(resp.Errors) != 0 {
 		t.Fatalf("validateXMLData() = %+v", resp)
 	}
 }
 
 func TestValidateXMLDataRejectsOversizeXML(t *testing.T) {
 	resp := validateXMLData(string(make([]byte, int(maxXMLBytes)+1)), testSchema)
-	if resp.Error == "" {
+	if resp.Status != statusError || resp.Error == "" {
 		t.Fatal("validateXMLData() accepted oversize XML")
 	}
 }
 
 func TestValidateXMLDataRejectsOversizeXSD(t *testing.T) {
 	resp := validateXMLData(`<root/>`, string(make([]byte, int(maxXSDBytes)+1)))
-	if resp.Error == "" {
+	if resp.Status != statusError || resp.Error == "" {
 		t.Fatal("validateXMLData() accepted oversize XSD")
 	}
 }
@@ -162,7 +221,7 @@ func TestValidateXMLDataRejectsOversizeXSDBeforeParsingXML(t *testing.T) {
 
 func TestValidateXMLDataReportsWhitespaceOnlySchemaAsSchemaError(t *testing.T) {
 	resp := validateXMLData(`<root/>`, " \t\r\n")
-	if resp.Valid {
+	if resp.Status != statusInvalid {
 		t.Fatal("validateXMLData() accepted whitespace-only schema")
 	}
 	if resp.Error != "" {
@@ -178,7 +237,7 @@ func TestValidateXMLDataReportsWhitespaceOnlySchemaAsSchemaError(t *testing.T) {
 
 func TestValidateXMLDataMarksSchemaErrors(t *testing.T) {
 	resp := validateXMLData(`<root/>`, `<!DOCTYPE xs:schema><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	if resp.Valid {
+	if resp.Status != statusInvalid {
 		t.Fatal("validateXMLData() accepted invalid schema")
 	}
 	if len(resp.Errors) != 1 {
@@ -214,7 +273,7 @@ func TestValidateXMLDataUsesFormattedWhitespaceText(t *testing.T) {
 		t.Fatalf("formatXMLData() error = %s", formatted.Error)
 	}
 	resp := validateXMLData(formatted.XML, schema)
-	if !resp.Valid {
+	if resp.Status != statusValid {
 		t.Fatalf("validateXMLData() = %+v, formatted XML = %q", resp, formatted.XML)
 	}
 }
@@ -238,7 +297,7 @@ func TestValidateXMLDataUsesCommentOnlySimpleContent(t *testing.T) {
 		t.Fatalf("formatted XML = %q", formatted.XML)
 	}
 	resp := validateXMLData(formatted.XML, schema)
-	if !resp.Valid {
+	if resp.Status != statusValid {
 		t.Fatalf("validateXMLData() = %+v, formatted XML = %q", resp, formatted.XML)
 	}
 }
@@ -254,7 +313,7 @@ func TestFormatXMLDataCapsFormattedOutput(t *testing.T) {
 	}
 
 	resp := formatXMLData(input.String())
-	if resp.Error == "" {
+	if resp.Status != statusError || resp.Error == "" {
 		t.Fatal("formatXMLData() accepted oversized formatted output")
 	}
 	if !strings.Contains(resp.Error, "XML formatted output byte limit exceeded") {
@@ -310,7 +369,7 @@ func TestValidateXMLDataAcceptsUnqualifiedLocalElements(t *testing.T) {
 		t.Fatalf("formatXMLData() error = %s", formatted.Error)
 	}
 	resp := validateXMLData(formatted.XML, booksSchema)
-	if !resp.Valid {
+	if resp.Status != statusValid {
 		t.Fatalf("validateXMLData() = %+v, formatted XML = %q", resp, formatted.XML)
 	}
 }
@@ -332,7 +391,7 @@ func TestValidateXMLDataRejectsBookMissingPubDate(t *testing.T) {
 		t.Fatalf("formatXMLData() error = %s", formatted.Error)
 	}
 	resp := validateXMLData(formatted.XML, booksSchema)
-	if resp.Valid {
+	if resp.Status != statusInvalid {
 		t.Fatal("validateXMLData() accepted missing pub_date")
 	}
 	if len(resp.Errors) == 0 || resp.Errors[0].Code != "validation.element" {

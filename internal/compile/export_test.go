@@ -1,8 +1,6 @@
 package compile
 
 import (
-	"context"
-
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
 )
@@ -14,7 +12,7 @@ type RawNode = rawNode
 
 // NewCompilerForTest creates a compiler for package-boundary regression tests.
 func NewCompilerForTest(limits Limits) (*Compiler, error) {
-	return newCompiler(context.Background(), limits)
+	return newCompiler(limits)
 }
 
 // LoadForTest loads schema sources into the compiler for white-box tests.
@@ -44,8 +42,8 @@ func (c *compiler) NameInternerIsZeroForTest() bool {
 
 // DocumentNamesForTest returns loaded schema document names in compiler order.
 func (c *compiler) DocumentNamesForTest() []string {
-	names := make([]string, 0, len(c.schemas.documents))
-	for _, document := range c.schemas.documents {
+	names := make([]string, 0, len(c.plan.documents))
+	for _, document := range c.plan.documents {
 		names = append(names, document.doc.name)
 	}
 	return names
@@ -53,7 +51,7 @@ func (c *compiler) DocumentNamesForTest() []string {
 
 // ParseSchemaRootForTest parses a schema document and returns its root node.
 func ParseSchemaRootForTest(data []byte, limits Limits) (*RawNode, error) {
-	doc, err := parseRawSchemaDocument(context.Background(), "test.xsd", "test.xsd", data, limits)
+	doc, err := parseRawSchemaDocument("test.xsd", "test.xsd", data, limits)
 	if err != nil {
 		return nil, err
 	}

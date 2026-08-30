@@ -1,7 +1,6 @@
 package compile_test
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -15,7 +14,7 @@ import (
 
 func mustCompileRuntime(t *testing.T, schema string) *runtime.Schema {
 	t.Helper()
-	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -52,7 +51,7 @@ func validateWithRuntime(rt *runtime.Schema, doc string) error {
 	if err != nil {
 		return err
 	}
-	return session.Validate(context.Background(), strings.NewReader(doc))
+	return session.Validate(strings.NewReader(doc))
 }
 
 func expectCode(t *testing.T, err error, code xsderrors.Code) {
@@ -61,8 +60,8 @@ func expectCode(t *testing.T, err error, code xsderrors.Code) {
 	if !ok {
 		t.Fatalf("error %v is not *xsderrors.Error", err)
 	}
-	if x.Code != code {
-		t.Fatalf("error code = %s, want %s; err=%v", x.Code, code, err)
+	if x.Code() != code {
+		t.Fatalf("error code = %s, want %s; err=%v", x.Code(), code, err)
 	}
 }
 
@@ -72,8 +71,8 @@ func expectCategoryCode(t *testing.T, err error, category xsderrors.Category, co
 	if !ok {
 		t.Fatalf("error %v is not *xsderrors.Error", err)
 	}
-	if x.Category != category || x.Code != code {
-		t.Fatalf("error = (%s, %s), want (%s, %s): %v", x.Category, x.Code, category, code, err)
+	if x.Category() != category || x.Code() != code {
+		t.Fatalf("error = (%s, %s), want (%s, %s): %v", x.Category(), x.Code(), category, code, err)
 	}
 }
 

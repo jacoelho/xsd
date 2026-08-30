@@ -1,106 +1,119 @@
 package validate
 
 import (
-	"context"
-	"encoding/xml"
-
-	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+//nolint:gocognit // Keeping the raw fast-path gate here avoids copying full constraints into a helper.
 func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if f.Nilled {
 		return false, nil
 	}
 	typeID := f.SimpleContent
-	hasSimpleContent := f.HasSimpleContent
-	if !f.SimpleContentKnown {
-		var ok bool
-		typeID, hasSimpleContent, ok = s.simpleContentType(f.Type)
-		if !ok {
-			return false, xsderrors.InternalInvariant("simple content type metadata is invalid")
-		}
-	}
 	rawText := s.doc.text[f.TextStart:]
-	var constraints runtime.ElementValueConstraints
-	declared := f.ElementDeclared
-	hasValueConstraint := f.ElementHasValueConstraint
-	if !f.ElementValueKnown || hasValueConstraint {
-		var ok bool
-		constraints, declared, ok = s.elementValueConstraints(f.Element)
-		if !ok {
-			return false, xsderrors.InternalInvariant("element value constraint metadata is invalid")
-		}
-		hasValueConstraint = constraints.HasAny()
+	constraints, err := s.frameElementValueConstraints(f)
+	if err != nil {
+		return false, err
 	}
-	if !hasSimpleContent {
-		if !hasValueConstraint {
+	if typeID == runtime.NoSimpleType {
+		if !f.TextContent.HasValueConstraint() {
 			return false, nil
 		}
 		ctx := s.startContext(line, col)
-		return false, s.validateNonSimpleFixedContent(f, constraints, declared, rawText, ctx)
+		return false, s.validateNonSimpleFixedContent(f, constraints, rawText, ctx)
 	}
-	var identityFields []IdentityFieldMatch
-	if s.hasIdentityConstraints {
-		var identityErr error
-		identityFields, identityErr = s.identityElementFields()
-		if identityErr != nil {
-			return false, identityErr
-		}
-	}
-	if len(identityFields) == 0 && !hasValueConstraint {
-		ok, rawErr := s.validateRawSimpleValue(typeID, rawText)
-		if rawErr != nil {
-			if invariantErr := simpleValueMetadataInvariant(rawErr); invariantErr != nil {
-				return false, invariantErr
-			}
-			if ok {
-				ctx := s.startContext(line, col)
-				return false, validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+rawErr.Error())
-			}
-			return false, rawErr
-		}
-		if ok {
-			return true, nil
-		}
+	identityTarget, identityErr := s.doc.identity.prepareElementValue()
+	if identityErr != nil {
+		return false, identityErr
 	}
 	ctx := s.startContext(line, col)
-	input := s.simpleContentValueInput(f.Type, rawText, constraints, declared)
+	if !identityTarget.needsIdentity() && !constraints.HasAny() {
+		rawResult, err := s.validateRawUnconstrainedElementSimpleContent(typeID, rawText, ctx)
+		if rawResult.handled {
+			return rawResult.captured, err
+		}
+	}
+	input := s.simpleContentValueInput(f.Type, rawText, constraints)
 	if input.prevalidated {
-		return s.recordElementSimpleContent(input.value, identityFields, ctx, line, col)
+		return s.recordElementSimpleContent(input.value, identityTarget, ctx)
 	}
-	value, err := s.validateSimpleValue(typeID, input.text, s.simpleValueQNameResolver(typeID), s.simpleContentNeeds(typeID, constraints, declared, len(identityFields) != 0))
+	return s.validateElementSimpleContentValue(typeID, input.text, constraints, identityTarget, ctx)
+}
+
+func (s *session) frameElementValueConstraints(f *frame) (runtime.ElementValueConstraints, error) {
+	if !f.TextContent.HasValueConstraint() {
+		return runtime.ElementValueConstraints{}, nil
+	}
+	constraints, _, ok := s.rt.ElementValueConstraints(f.Element)
+	if !ok {
+		return runtime.ElementValueConstraints{}, xsderrors.InternalInvariant("element value constraint metadata is invalid")
+	}
+	return constraints, nil
+}
+
+type rawElementSimpleContentValidation struct {
+	handled  bool
+	captured bool
+}
+
+func (s *session) validateRawUnconstrainedElementSimpleContent(typeID runtime.SimpleTypeID, rawText []byte, ctx StartContext) (rawElementSimpleContentValidation, error) {
+	result := s.validateRawSimpleValue(typeID, rawText)
+	if result.err != nil {
+		return rawElementSimpleContentValidation{handled: true}, rawElementSimpleContentError(result, ctx)
+	}
+	if result.handled {
+		return rawElementSimpleContentValidation{handled: true, captured: true}, nil
+	}
+	return rawElementSimpleContentValidation{}, nil
+}
+
+func rawElementSimpleContentError(result rawSimpleValueValidation, ctx StartContext) error {
+	if invariantErr := simpleValueMetadataInvariant(result.err); invariantErr != nil {
+		return invariantErr
+	}
+	if result.handled {
+		return validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+result.err.Error())
+	}
+	return result.err
+}
+
+func (s *session) validateElementSimpleContentValue(typeID runtime.SimpleTypeID, text string, constraints runtime.ElementValueConstraints, target identityValueTarget, ctx StartContext) (bool, error) {
+	value, err := s.validateSimpleValue(typeID, text, s.simpleValueQNameResolver(typeID), s.simpleContentNeeds(typeID, constraints, target))
 	if err != nil {
-		if invalidateErr := s.invalidateIdentityFields(identityFields); invalidateErr != nil {
-			return false, invalidateErr
-		}
-		if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
-			return false, invariantErr
-		}
-		if xsderrors.IsUnsupported(err) {
-			return false, err
-		}
-		return false, validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+err.Error())
+		return false, s.elementSimpleContentValueError(target, err, ctx)
 	}
-	if err := s.recordIdentityValue(value, line, col); err != nil {
-		if invalidateErr := s.invalidateIdentityFields(identityFields); invalidateErr != nil {
-			return false, invalidateErr
-		}
+	return s.commitElementSimpleContentValue(value, constraints, target, ctx)
+}
+
+func (s *session) elementSimpleContentValueError(target identityValueTarget, err error, ctx StartContext) error {
+	if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
+		return rejectErr
+	}
+	if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
+		return invariantErr
+	}
+	if xsderrors.IsUnsupported(err) {
+		return err
+	}
+	return validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+err.Error())
+}
+
+func (s *session) commitElementSimpleContentValue(value runtime.SimpleValue, constraints runtime.ElementValueConstraints, target identityValueTarget, ctx StartContext) (bool, error) {
+	if err := s.doc.identity.recordValue(target, value, ctx); err != nil {
 		return false, err
 	}
-	if declared {
-		if fixed, ok := constraints.FixedValue(); ok && value.CanonicalText() != fixed.CanonicalText() {
-			if invalidateErr := s.invalidateIdentityFields(identityFields); invalidateErr != nil {
-				return false, invalidateErr
-			}
-			return false, validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
+	if fixed, ok := constraints.FixedValue(); ok && value.CanonicalText() != fixed.CanonicalText() {
+		if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
+			return false, rejectErr
 		}
+		return false, validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
 	}
-	if len(identityFields) != 0 {
-		if err := s.captureSimpleValueIdentityFields(identityFields, value, ctx); err != nil {
-			return false, err
-		}
+	if err := s.doc.identity.captureValue(target, ctx); err != nil {
+		return false, err
+	}
+	if err := s.doc.identity.commitValue(target); err != nil {
+		return false, err
 	}
 	return true, nil
 }
@@ -115,9 +128,8 @@ func (s *session) simpleContentValueInput(
 	typ runtime.TypeID,
 	rawText []byte,
 	constraints runtime.ElementValueConstraints,
-	declared bool,
 ) sessionSimpleContentInput {
-	if len(rawText) != 0 || !declared {
+	if len(rawText) != 0 {
 		return sessionSimpleContentInput{text: s.valueStrings.Intern(rawText)}
 	}
 	if fixed, ok := constraints.FixedValue(); ok {
@@ -138,31 +150,20 @@ func (s *session) simpleContentValueInput(
 func (s *session) simpleContentNeeds(
 	typeID runtime.SimpleTypeID,
 	constraints runtime.ElementValueConstraints,
-	declared bool,
-	needIdentity bool,
+	target identityValueTarget,
 ) runtime.SimpleValueNeed {
 	var needs runtime.SimpleValueNeed
-	if needIdentity {
+	if target.needsIdentity() {
 		needs |= runtime.SimpleNeedIdentity
 	}
-	if needIdentity || s.simpleIdentity(typeID) != runtime.SimpleIdentityNone {
+	if target.needsIdentity() || s.simpleIdentity(typeID) != runtime.SimpleIdentityNone {
 		needs |= runtime.SimpleNeedCanonical
 		return needs
 	}
-	if declared {
-		if _, fixed := constraints.FixedValue(); fixed {
-			needs |= runtime.SimpleNeedCanonical
-		}
+	if _, fixed := constraints.FixedValue(); fixed {
+		needs |= runtime.SimpleNeedCanonical
 	}
 	return needs
-}
-
-func (s *session) simpleContentType(typ runtime.TypeID) (runtime.SimpleTypeID, bool, bool) {
-	return s.rt.SimpleContentType(typ)
-}
-
-func (s *session) elementValueConstraints(id runtime.ElementID) (runtime.ElementValueConstraints, bool, bool) {
-	return s.rt.ElementValueConstraints(id)
 }
 
 func (s *session) simpleIdentity(id runtime.SimpleTypeID) runtime.SimpleIdentityKind {
@@ -172,13 +173,9 @@ func (s *session) simpleIdentity(id runtime.SimpleTypeID) runtime.SimpleIdentity
 func (s *session) validateNonSimpleFixedContent(
 	f *frame,
 	constraints runtime.ElementValueConstraints,
-	declared bool,
 	rawText []byte,
 	ctx StartContext,
 ) error {
-	if !declared {
-		return nil
-	}
 	fixed, ok := constraints.FixedValue()
 	if !ok {
 		return nil
@@ -195,270 +192,27 @@ func (s *session) validateNonSimpleFixedContent(
 
 func (s *session) recordElementSimpleContent(
 	value runtime.SimpleValue,
-	identityFields []IdentityFieldMatch,
+	identityTarget identityValueTarget,
 	ctx StartContext,
-	line, col int,
 ) (bool, error) {
-	if err := s.recordIdentityValue(value, line, col); err != nil {
-		if invalidateErr := s.invalidateIdentityFields(identityFields); invalidateErr != nil {
-			return false, invalidateErr
-		}
+	if err := s.doc.identity.recordValue(identityTarget, value, ctx); err != nil {
 		return false, err
 	}
-	if len(identityFields) != 0 {
-		if err := s.captureSimpleValueIdentityFields(identityFields, value, ctx); err != nil {
-			return false, err
-		}
+	if err := s.doc.identity.captureValue(identityTarget, ctx); err != nil {
+		return false, err
+	}
+	if err := s.doc.identity.commitValue(identityTarget); err != nil {
+		return false, err
 	}
 	return true, nil
-}
-
-func (s *session) identityElementFields() ([]IdentityFieldMatch, error) {
-	if !s.hasIdentityConstraints {
-		return nil, nil
-	}
-	return s.doc.identity.elementFieldMatches(s.rt, s.doc.namePath)
-}
-
-func (s *session) identityAttributeFields(name runtime.RuntimeName) ([]IdentityFieldMatch, error) {
-	if !s.hasIdentityConstraints {
-		return nil, nil
-	}
-	return s.doc.identity.attributeFieldMatches(s.rt, s.doc.namePath, name)
 }
 
 func knownIdentityAttributeName(name runtime.QName) runtime.RuntimeName {
 	return runtime.RuntimeName{Name: name, Known: true}
 }
 
-func (s *session) recordAttributeIdentity(value runtime.SimpleValue, line, col int, seenID *bool) error {
-	if value.IDs != "" {
-		if seenID != nil && *seenID {
-			return validation(s.startContext(line, col), xsderrors.CodeValidationType, "multiple ID attributes")
-		}
-		if seenID != nil {
-			*seenID = true
-		}
-	}
-	return s.recordIdentityFields(value.IDs, value.IDRefs, line, col)
-}
-
-func (s *session) recordIdentityValue(value runtime.SimpleValue, line, col int) error {
-	return s.recordIdentityFields(value.IDs, value.IDRefs, line, col)
-}
-
-func (s *session) recordIdentityFields(ids, idrefs string, line, col int) error {
-	if ids == "" && idrefs == "" {
-		return nil
-	}
-	path := s.doc.PathString()
-	for canonical := range lex.XMLFieldsSeq(ids) {
-		if s.doc.identity.ids == nil {
-			s.doc.identity.ids = make(map[string]string)
-		}
-		if prev, exists := s.doc.identity.ids[canonical]; exists {
-			return validation(s.startContext(line, col), xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
-		}
-		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
-			return err
-		}
-		s.doc.identity.ids[canonical] = path
-	}
-	for canonical := range lex.XMLFieldsSeq(idrefs) {
-		if err := s.reserveIdentityEntry(canonical, line, col); err != nil {
-			return err
-		}
-		s.doc.identity.idrefs = append(s.doc.identity.idrefs, identityRef{Value: canonical, Path: path, Line: line, Col: col})
-	}
-	return nil
-}
-
-func (s *session) reserveIdentityEntry(key string, line, col int) error {
-	if s.maxIdentityTupleBytes > 0 && int64(len(key)) > s.maxIdentityTupleBytes {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
-	}
-	if s.maxIdentityEntries > 0 && s.doc.identity.entries >= s.maxIdentityEntries {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationLimit, "identity entry limit exceeded")
-	}
-	s.doc.identity.entries++
-	return nil
-}
-
-func (s *session) checkIDRefs(ctx context.Context, done <-chan struct{}) error {
-	var check func() error
-	if done != nil {
-		check = func() error { return validationContextDoneError(ctx, done, nil) }
-	}
-	return s.doc.identity.CheckIDRefs(func(err error) error {
-		return s.recover(err)
-	}, check)
-}
-
-func (s *session) startIdentityScope(elem runtime.ElementID, line, col int) error {
-	if !s.hasIdentityConstraints {
-		return nil
-	}
-	return s.doc.identity.startElementScope(s.rt, elem, len(s.doc.namePath), s.maxIdentityScopes, s.startContext(line, col))
-}
-
-func (s *session) matchIdentitySelectors(line, col int) error {
-	if !s.hasIdentityConstraints {
-		return nil
-	}
-	return s.doc.identity.matchSelectors(s.rt, s.doc.namePath, s.maxIdentityEntries, s.startContext(line, col))
-}
-
-func (s *session) captureIdentityFieldKey(fields []IdentityFieldMatch, key string, line, col int) error {
-	if len(fields) == 0 {
-		return nil
-	}
-	return s.doc.identity.CaptureFields(fields, key, s.startContext(line, col))
-}
-
-func (s *session) captureSimpleValueIdentityFields(fields []IdentityFieldMatch, value runtime.SimpleValue, ctx StartContext) error {
-	return s.doc.identity.CaptureSimpleValueFields(s.rt, fields, value, ctx)
-}
-
-func (s *session) captureIdentityXSIAttribute(attrName xml.Name, lexical string, line, col int) error {
-	if !s.hasIdentityConstraints {
-		return nil
-	}
-	rn := ResolveRuntimeName(s.rt, attrName)
-	fields, err := s.identityAttributeFields(rn)
-	if err != nil {
-		return err
-	}
-	if len(fields) == 0 {
-		return nil
-	}
-	_, key, ok, err := XSIAttributeIdentityKey(
-		s.rt,
-		attrName,
-		lexical,
-		s.qnameResolver(),
-		s.startContext(line, col),
-	)
-	if err != nil {
-		if invalidateErr := s.invalidateIdentityFields(fields); invalidateErr != nil {
-			return invalidateErr
-		}
-		// Element start assessment owns xsi:nil and xsi:type diagnostics. This
-		// second conversion exists only to derive a matched identity-field key.
-		return nil
-	}
-	if !ok {
-		return nil
-	}
-	return s.captureIdentityFieldKey(fields, key, line, col)
-}
-
-func (s *session) rejectIdentityElementWithoutSimpleValue(line, col int) error {
-	if !s.hasIdentityConstraints {
-		return nil
-	}
-	fields, err := s.identityElementFields()
-	if err != nil {
-		return err
-	}
-	return s.doc.identity.RejectFieldsWithoutSimpleValue(fields, s.startContext(line, col))
-}
-
-func (s *session) rejectUnassessedIdentityElement(line, col int, report bool) error {
-	if !s.hasIdentityConstraints {
-		return nil
-	}
-	fields, err := s.identityElementFields()
-	if err != nil {
-		return err
-	}
-	if report {
-		return s.recover(s.doc.identity.RejectFieldsWithoutSimpleValue(fields, s.startContext(line, col)))
-	}
-	return s.doc.identity.InvalidateFields(fields)
-}
-
-func (s *session) invalidateIdentityFields(fields []IdentityFieldMatch) error {
-	if len(fields) == 0 {
-		return nil
-	}
-	return s.doc.identity.InvalidateFields(fields)
-}
-
-type identitySelectionPhase uint8
-
-const (
-	identitySelectionsOwnedHere identitySelectionPhase = iota
-	identitySelectionsOwnedElsewhere
-)
-
-func (s *session) finishIdentitySelections(depth, line, col int, phase identitySelectionPhase) error {
-	if !s.hasIdentityConstraints || len(s.doc.identity.selections) == 0 {
-		return nil
-	}
-	state := &s.doc.identity
-	orig := state.selections
-	dst := state.selections[:0]
-	limits := s.identityLimits()
-	ctx := s.startContext(line, col)
-	for i := range state.selections {
-		sel := state.selections[i]
-		if sel.depth != depth {
-			dst = append(dst, sel)
-			continue
-		}
-		ownedHere, err := state.selectionOwnedAtDepth(sel, depth)
-		if err != nil {
-			dst = append(dst, orig[i:]...)
-			clear(orig[len(dst):])
-			state.selections = dst
-			state.truncateFieldValues()
-			return err
-		}
-		if ownedHere != (phase == identitySelectionsOwnedHere) {
-			dst = append(dst, sel)
-			continue
-		}
-		if err := state.finishSelection(s.rt, sel, limits, ctx); err != nil {
-			clear(state.selectionFields(sel))
-			if RecoverableError(err) {
-				if invalidateErr := state.invalidateSelectionScope(sel); invalidateErr != nil {
-					dst = append(dst, orig[i+1:]...)
-					clear(orig[len(dst):])
-					state.selections = dst
-					state.truncateFieldValues()
-					return invalidateErr
-				}
-			}
-			recoverErr := s.recover(err)
-			if recoverErr != nil {
-				dst = append(dst, orig[i+1:]...)
-				clear(orig[len(dst):])
-				state.selections = dst
-				state.truncateFieldValues()
-				return recoverErr
-			}
-			continue
-		}
-		clear(state.selectionFields(sel))
-	}
-	clear(orig[len(dst):])
-	state.selections = dst
-	state.truncateFieldValues()
-	return nil
-}
-
-func (s *session) identityLimits() IdentityLimits {
-	return IdentityLimits{
-		Entries:    s.maxIdentityEntries,
-		TupleBytes: s.maxIdentityTupleBytes,
-	}
-}
-
-func (s *session) closeIdentityScopes(depth int) (bool, error) {
-	if !s.hasIdentityConstraints {
-		return false, nil
-	}
-	return s.doc.identity.CloseScopes(depth, func(err error) error {
+func (s *session) checkIDRefs() error {
+	return s.doc.identity.endDocument(func(err error) error {
 		return s.recover(err)
 	})
 }

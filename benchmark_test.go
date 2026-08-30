@@ -1,7 +1,6 @@
 package xsd_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -52,9 +51,12 @@ func wideChoiceSchema(width int, extraParticles string) string {
   <xs:element name="r">
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
-`)
+	`)
 	for i := range width {
-		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+		sb.WriteString(`        <xs:element name="f`)
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString(`" type="xs:string"/>`)
+		sb.WriteByte('\n')
 	}
 	sb.WriteString(extraParticles)
 	sb.WriteString(`      </xs:choice>
@@ -66,7 +68,7 @@ func wideChoiceSchema(width int, extraParticles string) string {
 
 func BenchmarkCompileSmallSchema(b *testing.B) {
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(benchmarkSchema))); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema))); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -74,7 +76,7 @@ func BenchmarkCompileSmallSchema(b *testing.B) {
 
 func BenchmarkCompileAndFirstSession(b *testing.B) {
 	for b.Loop() {
-		engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -85,7 +87,7 @@ func BenchmarkCompileAndFirstSession(b *testing.B) {
 }
 
 func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -93,14 +95,14 @@ func BenchmarkValidateRepeatedSmallDocument(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := engine.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := engine.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -112,10 +114,80 @@ func BenchmarkSessionValidateRepeatedSmallDocument(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkSessionValidateNamespaceAdmissionChurn(b *testing.B) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="e">
+    <xs:complexType>
+      <xs:sequence><xs:element ref="e" minOccurs="0"/></xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("namespace-admission.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	for _, depth := range []int{16, 64, 256} {
+		for _, mode := range []namespaceAdmissionBenchmarkMode{namespaceAdmissionStable, namespaceAdmissionChurn} {
+			name := fmt.Sprintf("depth_%d/%s", depth, mode)
+			b.Run(name, func(b *testing.B) {
+				doc := namespaceAdmissionBenchmarkDocument(depth, mode)
+				session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth})
+				if err != nil {
+					b.Fatal(err)
+				}
+				if err := session.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+				b.SetBytes(int64(len(doc)))
+				b.ReportAllocs()
+				b.ResetTimer()
+				for b.Loop() {
+					if err := session.Validate(strings.NewReader(doc)); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+	}
+}
+
+type namespaceAdmissionBenchmarkMode uint8
+
+const (
+	namespaceAdmissionStable namespaceAdmissionBenchmarkMode = iota
+	namespaceAdmissionChurn
+)
+
+func (m namespaceAdmissionBenchmarkMode) String() string {
+	if m == namespaceAdmissionChurn {
+		return "churn_true"
+	}
+	return "churn_false"
+}
+
+func namespaceAdmissionBenchmarkDocument(depth int, mode namespaceAdmissionBenchmarkMode) string {
+	var doc strings.Builder
+	for i := range depth {
+		doc.WriteString("<e")
+		if mode == namespaceAdmissionChurn {
+			doc.WriteString(` xmlns:p`)
+			doc.WriteString(strconv.Itoa(i))
+			doc.WriteString(`="urn:`)
+			doc.WriteString(strconv.Itoa(i))
+			doc.WriteByte('"')
+		}
+		doc.WriteByte('>')
+	}
+	for range depth {
+		doc.WriteString("</e>")
+	}
+	return doc.String()
 }
 
 func BenchmarkSessionValidateRepeatedXSIType(b *testing.B) {
@@ -127,7 +199,7 @@ func BenchmarkSessionValidateRepeatedXSIType(b *testing.B) {
 		fmt.Fprintf(&schema, `<xs:complexType name="T%d"><xs:complexContent><xs:extension base="t:T%d"/></xs:complexContent></xs:complexType>`, i, i-1)
 	}
 	schema.WriteString(`<xs:element name="root"><xs:complexType><xs:sequence><xs:element name="item" type="t:T0" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element></xs:schema>`)
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("xsi-type.xsd", []byte(schema.String())))
+	engine, err := xsd.Compile(xsd.Bytes("xsi-type.xsd", []byte(schema.String())))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -145,14 +217,67 @@ func BenchmarkSessionValidateRepeatedXSIType(b *testing.B) {
 	b.SetBytes(int64(len(instance)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := session.Validate(context.Background(), strings.NewReader(instance)); err != nil {
+		if err := session.Validate(strings.NewReader(instance)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateIDAttributeStart(b *testing.B) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="item" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" type="xs:ID" use="required"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+	var doc strings.Builder
+	doc.WriteString(`<root>`)
+	for i := range 100 {
+		fmt.Fprintf(&doc, `<item id="id%d"/>`, i)
+	}
+	doc.WriteString(`</root>`)
+	benchmarkSessionDocument(b, schema, doc.String())
+}
+
+func BenchmarkSessionValidateSimpleIDEnd(b *testing.B) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="id" type="xs:ID" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+	var doc strings.Builder
+	doc.WriteString(`<root>`)
+	for i := range 100 {
+		fmt.Fprintf(&doc, `<id>id%d</id>`, i)
+	}
+	doc.WriteString(`</root>`)
+	benchmarkSessionDocument(b, schema, doc.String())
+}
+
+func benchmarkSessionDocument(b *testing.B, schema, doc string) {
+	b.Helper()
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader(doc)); err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkSessionValidateRepeatedQNameValues(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
@@ -174,14 +299,14 @@ func BenchmarkSessionValidateRepeatedQNameValues(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkSessionValidateRepeatedLaxWildcard(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
@@ -196,20 +321,20 @@ func BenchmarkSessionValidateRepeatedLaxWildcard(b *testing.B) {
 		b.Fatal(err)
 	}
 	doc := `<root><o:unknown xmlns:o="urn:other"/></root>`
-	if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+	if err := session.Validate(strings.NewReader(doc)); err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	  <xs:element name="root">
 	    <xs:simpleType>
@@ -231,7 +356,7 @@ func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -239,7 +364,7 @@ func BenchmarkSessionValidateStringLengthFacet(b *testing.B) {
 
 func BenchmarkSessionValidateWideChoice(b *testing.B) {
 	const width = 200
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(wideChoiceSchema(width, ""))))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(wideChoiceSchema(width, ""))))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -251,21 +376,25 @@ func BenchmarkSessionValidateWideChoice(b *testing.B) {
 	sb.WriteString("<r>")
 	for i := range 4000 {
 		name := "f" + strconv.Itoa(i%width)
-		sb.WriteString("<" + name + ">x</" + name + ">")
+		sb.WriteByte('<')
+		sb.WriteString(name)
+		sb.WriteString(">x</")
+		sb.WriteString(name)
+		sb.WriteByte('>')
 	}
 	sb.WriteString("</r>")
 	doc := sb.String()
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkValidateSubstitutionGroup(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(substitutionBenchmarkSchema(16))))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(substitutionBenchmarkSchema(16))))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -273,14 +402,14 @@ func BenchmarkValidateSubstitutionGroup(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := engine.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := engine.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkSessionValidateDateDecimalRows(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="rows">
     <xs:complexType>
@@ -315,14 +444,14 @@ func BenchmarkSessionValidateDateDecimalRows(b *testing.B) {
 	b.SetBytes(int64(len(text)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := session.Validate(context.Background(), strings.NewReader(text)); err != nil {
+		if err := session.Validate(strings.NewReader(text)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkValidateSmallInvalidDocument(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -330,14 +459,14 @@ func BenchmarkValidateSmallInvalidDocument(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := engine.Validate(context.Background(), strings.NewReader(doc)); err == nil {
+		if err := engine.Validate(strings.NewReader(doc)); err == nil {
 			b.Fatal("Validate() succeeded unexpectedly")
 		}
 	}
 }
 
 func BenchmarkValidateManyRecoverablePathErrors(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`
 	<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	  <xs:element name="rows">
 	    <xs:complexType>
@@ -356,7 +485,7 @@ func BenchmarkValidateManyRecoverablePathErrors(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := engine.ValidateWithOptions(context.Background(), strings.NewReader(doc), opts); err == nil {
+		if err := engine.ValidateWithOptions(strings.NewReader(doc), opts); err == nil {
 			b.Fatal("ValidateWithOptions() succeeded")
 		}
 	}
@@ -364,8 +493,7 @@ func BenchmarkValidateManyRecoverablePathErrors(b *testing.B) {
 
 func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	const depth = 128
-	engine, err := xsd.CompileWithOptions(context.Background(),
-		xsd.CompileOptions{MaxSchemaDepth: depth*3 + 16},
+	engine, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaDepth: depth*3 + 16},
 		xsd.Bytes("schema.xsd", []byte(deepSchema(depth))))
 
 	if err != nil {
@@ -375,14 +503,14 @@ func BenchmarkValidateDeeplyNestedDocument(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := engine.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := engine.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkSessionValidateDeepThenShallow(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:anyType"/></xs:schema>`)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:anyType"/></xs:schema>`)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -392,21 +520,21 @@ func BenchmarkSessionValidateDeepThenShallow(b *testing.B) {
 		b.Fatal(err)
 	}
 	deep := `<root>` + strings.Repeat(`<a>`, depth) + strings.Repeat(`</a>`, depth) + `</root>`
-	if err := session.Validate(context.Background(), strings.NewReader(deep)); err != nil {
+	if err := session.Validate(strings.NewReader(deep)); err != nil {
 		b.Fatal(err)
 	}
 	shallow := `<root/>`
 	b.SetBytes(int64(len(shallow)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := session.Validate(context.Background(), strings.NewReader(shallow)); err != nil {
+		if err := session.Validate(strings.NewReader(shallow)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkValidateDuplicateAttributes(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -414,7 +542,7 @@ func BenchmarkValidateDuplicateAttributes(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := engine.Validate(context.Background(), strings.NewReader(doc)); err == nil {
+		if err := engine.Validate(strings.NewReader(doc)); err == nil {
 			b.Fatal("Validate() succeeded")
 		}
 	}
@@ -429,7 +557,7 @@ func BenchmarkCompileDuplicateSchemaSources(b *testing.B) {
 	b.SetBytes(int64(len(schema) * len(sources)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), sources...); err != nil {
+		if _, err := xsd.Compile(sources...); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -444,7 +572,7 @@ func BenchmarkCompileIncludeGraph(b *testing.B) {
 	b.SetBytes(totalBytes)
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), source); err != nil {
+		if _, err := xsd.Compile(source); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -457,7 +585,7 @@ func BenchmarkCompileChameleonTargetFanout(b *testing.B) {
 			b.SetBytes(totalBytes)
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := xsd.Compile(context.Background(), sources...); err != nil {
+				if _, err := xsd.Compile(sources...); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -468,7 +596,7 @@ func BenchmarkCompileChameleonTargetFanout(b *testing.B) {
 func chameleonTargetFanoutSources(targetCount int) ([]xsd.SchemaSource, int64) {
 	const common = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="leaf.xsd"/><xs:element name="common" type="xs:string"/></xs:schema>`
 	const leaf = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="leaf" type="xs:string"/></xs:schema>`
-	resolver := xsd.ResolverFunc(func(_ context.Context, _, location string) (xsd.SchemaSource, error) {
+	resolver := xsd.ResolverFunc(func(_, location string) (xsd.SchemaSource, error) {
 		switch location {
 		case "common.xsd":
 			return xsd.Bytes("common.xsd", []byte(common)), nil
@@ -494,7 +622,7 @@ func BenchmarkCompileSchemaText(b *testing.B) {
 	b.SetBytes(int64(len(schema)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -537,7 +665,7 @@ func includeGraphSource(depth, width int) (xsd.SchemaSource, int64) {
 		name := fmt.Sprintf("node-%d.xsd", i)
 		sources[name] = xsd.Bytes(name, data)
 	}
-	resolver := xsd.ResolverFunc(func(_ context.Context, _, location string) (xsd.SchemaSource, error) {
+	resolver := xsd.ResolverFunc(func(_, location string) (xsd.SchemaSource, error) {
 		source, ok := sources[location]
 		if !ok {
 			return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
@@ -553,7 +681,7 @@ func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
 	if schema == "" || doc == "" {
 		b.Skip("set XSD_LARGE_SCHEMA and XSD_LARGE_XML")
 	}
-	engine, err := xsd.Compile(context.Background(), xsd.File(schema))
+	engine, err := xsd.Compile(xsd.File(schema))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -568,7 +696,7 @@ func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		validateErr := engine.ValidateWithOptions(context.Background(), f, xsd.ValidateOptions{MaxInstanceBytes: info.Size()})
+		validateErr := engine.ValidateWithOptions(f, xsd.ValidateOptions{MaxInstanceBytes: info.Size()})
 		closeErr := f.Close()
 		if validateErr != nil {
 			b.Fatal(validateErr)
@@ -580,7 +708,7 @@ func BenchmarkValidateGeneratedLargeXML(b *testing.B) {
 }
 
 func BenchmarkValidateIdentityConstraints(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(identityBenchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(identityBenchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -588,7 +716,7 @@ func BenchmarkValidateIdentityConstraints(b *testing.B) {
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := engine.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := engine.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -597,7 +725,7 @@ func BenchmarkValidateIdentityConstraints(b *testing.B) {
 func BenchmarkValidateIdentityConstraintsRows(b *testing.B) {
 	for _, rows := range []int{10, 100, 1000} {
 		b.Run(fmt.Sprintf("rows_%d", rows), func(b *testing.B) {
-			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(identityBenchmarkSchema)))
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(identityBenchmarkSchema)))
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -605,7 +733,30 @@ func BenchmarkValidateIdentityConstraintsRows(b *testing.B) {
 			b.SetBytes(int64(len(doc)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if err := engine.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+				if err := engine.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSessionValidateIdentityConstraintsRows(b *testing.B) {
+	for _, rows := range []int{10, 100, 1000} {
+		b.Run(fmt.Sprintf("rows_%d", rows), func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(identityBenchmarkSchema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{})
+			if err != nil {
+				b.Fatal(err)
+			}
+			doc := identityBenchmarkDoc(rows)
+			b.SetBytes(int64(len(doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := session.Validate(strings.NewReader(doc)); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -616,7 +767,7 @@ func BenchmarkValidateIdentityConstraintsRows(b *testing.B) {
 func BenchmarkValidateIdentityConstraintsFields(b *testing.B) {
 	for _, fields := range []int{1, 3, 8} {
 		b.Run(fmt.Sprintf("fields_%d", fields), func(b *testing.B) {
-			engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(identityFieldsBenchmarkSchema(fields))))
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(identityFieldsBenchmarkSchema(fields))))
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -624,7 +775,211 @@ func BenchmarkValidateIdentityConstraintsFields(b *testing.B) {
 			b.SetBytes(int64(len(doc)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if err := engine.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+				if err := engine.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSessionValidateNestedIdentitySelections(b *testing.B) {
+	for _, depth := range []int{16, 64, 256} {
+		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(nestedIdentitySelectionsBenchmarkSchema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth + 1})
+			if err != nil {
+				b.Fatal(err)
+			}
+			doc := nestedIdentitySelectionsBenchmarkDoc(depth)
+			b.SetBytes(int64(len(doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := session.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSessionValidateNestedIdentitySelectionPaths(b *testing.B) {
+	const (
+		rootNameBytes = 64 << 10
+		depth         = 64
+	)
+	root := "r" + strings.Repeat("x", rootNameBytes-1)
+	schema := fmt.Sprintf(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="%s">
+    <xs:complexType><xs:sequence><xs:any processContents="skip"/></xs:sequence></xs:complexType>
+    <xs:unique name="ids"><xs:selector xpath=".//*"/><xs:field xpath="@id"/></xs:unique>
+  </xs:element>
+</xs:schema>`, root)
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth + 1})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := nestedIdentitySelectionPathBenchmarkDoc(root, depth)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateRetainedIdentityPaths(b *testing.B) {
+	const (
+		rootNameBytes = 64 << 10
+		rows          = 1000
+	)
+	root := "r" + strings.Repeat("x", rootNameBytes-1)
+	schema := fmt.Sprintf(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="%s">
+    <xs:complexType><xs:sequence><xs:element name="row" maxOccurs="unbounded"><xs:complexType>
+      <xs:attribute name="id" type="xs:ID" use="required"/>
+      <xs:attribute name="ref" type="xs:IDREF" use="optional"/>
+    </xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:key name="rowID"><xs:selector xpath="row"/><xs:field xpath="@id"/></xs:key>
+    <xs:keyref name="rowRef" refer="rowID"><xs:selector xpath="row"/><xs:field xpath="@ref"/></xs:keyref>
+  </xs:element>
+</xs:schema>`, root)
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := retainedIdentityPathsBenchmarkDoc(root, rows)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateDisjointIdentityPaths(b *testing.B) {
+	const (
+		branches = 256
+		depth    = 128
+	)
+	tests := []struct {
+		name   string
+		schema string
+		doc    string
+	}{
+		{
+			name:   "lexical",
+			schema: disjointIdentityPathsBenchmarkSchema,
+			doc:    disjointIdentityPathsBenchmarkDoc(branches, depth),
+		},
+		{
+			name:   "expanded",
+			schema: disjointExpandedIdentityPathsBenchmarkSchema,
+			doc: disjointExpandedIdentityPathsBenchmarkDoc(
+				"urn:"+strings.Repeat("u", 200),
+				branches,
+				depth,
+			),
+		},
+		{
+			name:   "expanded_distinct_namespaces",
+			schema: disjointExpandedIdentityPathsBenchmarkSchema,
+			doc:    disjointDistinctExpandedIdentityPathsBenchmarkDoc(branches, depth),
+		},
+		{
+			name:   "expanded_distinct_control",
+			schema: strings.Replace(disjointExpandedIdentityPathsBenchmarkSchema, `type="xs:ID"`, `type="xs:string"`, 1),
+			doc:    disjointDistinctExpandedIdentityPathsBenchmarkDoc(branches, depth),
+		},
+	}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(tt.schema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth + 1})
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.SetBytes(int64(len(tt.doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := session.Validate(strings.NewReader(tt.doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSessionValidateExpandedIdentityPaths(b *testing.B) {
+	const (
+		namespaceBytes = 64 << 10
+		rows           = 1000
+	)
+	namespace := "urn:" + strings.Repeat("u", namespaceBytes-4)
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(expandedIdentityPathsBenchmarkSchema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := expandedIdentityPathsBenchmarkDoc(namespace, rows)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateSharedExpandedIdentityPrefix(b *testing.B) {
+	const (
+		commonDepth = 62
+		rows        = 10_000
+	)
+	doc := sharedExpandedIdentityPrefixBenchmarkDoc(commonDepth, rows)
+	tests := []struct {
+		name   string
+		schema string
+	}{
+		{name: "identity", schema: sharedExpandedIdentityPrefixBenchmarkSchema},
+		{
+			name:   "control",
+			schema: strings.Replace(sharedExpandedIdentityPrefixBenchmarkSchema, `type="xs:ID"`, `type="xs:string"`, 1),
+		},
+	}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(tt.schema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: commonDepth + 2})
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.SetBytes(int64(len(doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := session.Validate(strings.NewReader(doc)); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -647,7 +1002,7 @@ func BenchmarkCompileCountedChoiceDFA(b *testing.B) {
 			schema := countedChoiceDFASchema(tt.branches, tt.maxOccurs)
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
+				if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -672,7 +1027,7 @@ func BenchmarkCompileSubstitutionGroups(b *testing.B) {
 	data := []byte(schema.String())
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", data)); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("schema.xsd", data)); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -684,7 +1039,7 @@ func BenchmarkCompileAttributeGroupFanout(b *testing.B) {
 			schema := attributeGroupFanoutSchema(refs)
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
+				if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -696,14 +1051,14 @@ func BenchmarkCompileRegexCategoryEscapes(b *testing.B) {
 	schema := regexCategoryEscapesSchema(100)
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema))); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkValidateConcurrent(b *testing.B) {
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(benchmarkSchema)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -716,7 +1071,7 @@ func BenchmarkValidateConcurrent(b *testing.B) {
 	for range workers {
 		wg.Go(func() {
 			for range jobs {
-				if err := engine.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+				if err := engine.Validate(strings.NewReader(doc)); err != nil {
 					b.Error(err)
 					return
 				}
@@ -840,6 +1195,57 @@ const identityBenchmarkSchema = `
   </xs:element>
 </xs:schema>`
 
+const nestedIdentitySelectionsBenchmarkSchema = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="node">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="node" minOccurs="0"/>
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="node"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="nodeID">
+      <xs:selector xpath=".//node"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+const disjointIdentityPathsBenchmarkSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="node"><xs:complexType><xs:sequence><xs:element ref="node" minOccurs="0"/></xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType></xs:element>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="node" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+
+const disjointExpandedIdentityPathsBenchmarkSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="T"><xs:sequence><xs:any processContents="lax" minOccurs="0"/></xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+
+const expandedIdentityPathsBenchmarkSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+    <xs:unique name="values"><xs:selector xpath="*"/><xs:field xpath="."/></xs:unique>
+  </xs:element>
+</xs:schema>`
+
+const sharedExpandedIdentityPrefixBenchmarkSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="T"><xs:sequence><xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/></xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+
 func identityBenchmarkDoc(rows int) string {
 	var b strings.Builder
 	b.WriteString("<rows>")
@@ -851,6 +1257,156 @@ func identityBenchmarkDoc(rows int) string {
 		b.WriteString(`/>`)
 	}
 	b.WriteString("</rows>")
+	return b.String()
+}
+
+func nestedIdentitySelectionsBenchmarkDoc(depth int) string {
+	var b strings.Builder
+	b.WriteString("<root>")
+	for i := range depth {
+		fmt.Fprintf(&b, `<node id="id%d">`, i)
+	}
+	for range depth {
+		b.WriteString("</node>")
+	}
+	b.WriteString("</root>")
+	return b.String()
+}
+
+func nestedIdentitySelectionPathBenchmarkDoc(root string, depth int) string {
+	var b strings.Builder
+	b.Grow(2*len(root) + depth*7 + 5)
+	b.WriteByte('<')
+	b.WriteString(root)
+	b.WriteByte('>')
+	for range depth {
+		b.WriteString("<n>")
+	}
+	for range depth {
+		b.WriteString("</n>")
+	}
+	b.WriteString("</")
+	b.WriteString(root)
+	b.WriteByte('>')
+	return b.String()
+}
+
+func retainedIdentityPathsBenchmarkDoc(root string, rows int) string {
+	var b strings.Builder
+	b.Grow(2*len(root) + rows*32 + 5)
+	b.WriteByte('<')
+	b.WriteString(root)
+	b.WriteByte('>')
+	for i := range rows {
+		fmt.Fprintf(&b, `<row id="id%d"`, i)
+		if i > 0 {
+			fmt.Fprintf(&b, ` ref="id%d"`, i-1)
+		}
+		b.WriteString(`/>`)
+	}
+	b.WriteString("</")
+	b.WriteString(root)
+	b.WriteByte('>')
+	return b.String()
+}
+
+func disjointIdentityPathsBenchmarkDoc(branches, depth int) string {
+	var b strings.Builder
+	b.Grow(branches*depth*13 + 13)
+	b.WriteString("<root>")
+	for branch := range branches {
+		for level := range depth {
+			if level == depth-1 {
+				fmt.Fprintf(&b, `<node id="id%d">`, branch)
+			} else {
+				b.WriteString("<node>")
+			}
+		}
+		for range depth {
+			b.WriteString("</node>")
+		}
+	}
+	b.WriteString("</root>")
+	return b.String()
+}
+
+func disjointExpandedIdentityPathsBenchmarkDoc(namespace string, branches, depth int) string {
+	var b strings.Builder
+	b.Grow(len(namespace) + branches*depth*40 + 96)
+	fmt.Fprintf(
+		&b,
+		`<root xmlns:p="%s" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`,
+		namespace,
+	)
+	for branch := range branches {
+		for level := range depth {
+			if level == depth-1 {
+				fmt.Fprintf(&b, `<p:n xsi:type="T" id="id%d">`, branch)
+			} else {
+				b.WriteString(`<p:n xsi:type="T">`)
+			}
+		}
+		for range depth {
+			b.WriteString("</p:n>")
+		}
+	}
+	b.WriteString("</root>")
+	return b.String()
+}
+
+func disjointDistinctExpandedIdentityPathsBenchmarkDoc(branches, depth int) string {
+	var b strings.Builder
+	b.Grow(branches*depth*52 + 80)
+	b.WriteString(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`)
+	for branch := range branches {
+		for level := range depth {
+			fmt.Fprintf(&b, `<p:n xmlns:p="urn:b%d:l%d" xsi:type="T"`, branch, level)
+			if level == depth-1 {
+				fmt.Fprintf(&b, ` id="id%d"`, branch)
+			}
+			b.WriteByte('>')
+		}
+		for range depth {
+			b.WriteString("</p:n>")
+		}
+	}
+	b.WriteString("</root>")
+	return b.String()
+}
+
+func sharedExpandedIdentityPrefixBenchmarkDoc(commonDepth, rows int) string {
+	var b strings.Builder
+	b.Grow(rows*48 + commonDepth*64 + 96)
+	b.WriteString(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:l="urn:leaf"`)
+	for level := range commonDepth {
+		fmt.Fprintf(&b, ` xmlns:p%d="urn:%02d"`, level, level)
+	}
+	b.WriteByte('>')
+	for level := range commonDepth {
+		fmt.Fprintf(&b, `<p%d:n xsi:type="T">`, level)
+	}
+	for row := range rows {
+		fmt.Fprintf(&b, `<l:n xsi:type="T" id="id%d"/>`, row)
+	}
+	for level := commonDepth - 1; level >= 0; level-- {
+		fmt.Fprintf(&b, `</p%d:n>`, level)
+	}
+	b.WriteString(`</root>`)
+	return b.String()
+}
+
+func expandedIdentityPathsBenchmarkDoc(namespace string, rows int) string {
+	var b strings.Builder
+	b.Grow(len(namespace) + rows*64 + 160)
+	fmt.Fprintf(
+		&b,
+		`<root xmlns:p="%s" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema">`,
+		namespace,
+	)
+	for row := range rows {
+		fmt.Fprintf(&b, `<p:a xsi:type="xs:string">value%d</p:a>`, row)
+	}
+	b.WriteString("</root>")
 	return b.String()
 }
 
@@ -928,7 +1484,7 @@ func BenchmarkCompileDeepSimpleTypeChain(b *testing.B) {
 	schema := []byte(sb.String())
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), xsd.Bytes("chain.xsd", schema)); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("chain.xsd", schema)); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -946,7 +1502,7 @@ func BenchmarkCompileRepeatedNestedUnionMembers(b *testing.B) {
 	schema := []byte(sb.String())
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), xsd.Bytes("nested-unions.xsd", schema)); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("nested-unions.xsd", schema)); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -962,7 +1518,7 @@ func BenchmarkCompileOpaqueAnnotationPayload(b *testing.B) {
 	schema := []byte(sb.String())
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := xsd.Compile(context.Background(), xsd.Bytes("annotation.xsd", schema)); err != nil {
+		if _, err := xsd.Compile(xsd.Bytes("annotation.xsd", schema)); err != nil {
 			b.Fatal(err)
 		}
 	}

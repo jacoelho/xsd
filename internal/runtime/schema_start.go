@@ -68,7 +68,7 @@ func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 	return info, true
 }
 
-func (rt *Schema) simpleTypeAvailability(id SimpleTypeID) (simpleTypeAvailability, bool, bool) {
+func (rt *Schema) simpleTypeAvailability(id SimpleTypeID) (availability simpleTypeAvailability, present, valid bool) {
 	read, ok := simpleValueRouteSlotByID(rt.runtime.SimpleValueRoutes, id)
 	if !ok || read.availability == simpleTypeAvailabilityInvalid {
 		return simpleTypeAvailabilityInvalid, false, false
@@ -94,15 +94,6 @@ func (rt *Schema) TypeDerivationWithScratch(derived, base TypeID, scratch *TypeD
 	return rt.runtime.TypeDerivations.derivation(derived, base, scratch)
 }
 
-// ChildContent returns validation content data for a runtime type.
-func (rt *Schema) ChildContent(id TypeID) (ChildContentInfo, bool) {
-	content, ok := rt.elementChildContent(id)
-	if !ok {
-		return ChildContentInfo{}, false
-	}
-	return NewChildContentInfoForElementChildContent(content), true
-}
-
 // ContentModelForType returns the content model used to validate children of a runtime type.
 func (rt *Schema) ContentModelForType(t TypeID) ContentModelID {
 	id, ok := t.Complex()
@@ -113,7 +104,7 @@ func (rt *Schema) ContentModelForType(t TypeID) ContentModelID {
 }
 
 // GlobalAttribute returns the global attribute declaration for name.
-func (rt *Schema) GlobalAttribute(name QName) (AttributeID, bool, bool) {
+func (rt *Schema) GlobalAttribute(name QName) (id AttributeID, present, valid bool) {
 	return GlobalAttributeByName(rt.runtime.GlobalAttributes, rt.runtime.Attributes, name)
 }
 

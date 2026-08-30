@@ -19,10 +19,10 @@ func TestInvalidAttributeError(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("invalidAttributeError(reject) error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != xsderrors.CodeSchemaInvalidAttribute {
-		t.Fatalf("invalidAttributeError diagnostic = %s/%s, want schema compile invalid attribute", xerr.Category, xerr.Code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaInvalidAttribute {
+		t.Fatalf("invalidAttributeError diagnostic = %s/%s, want schema compile invalid attribute", xerr.Category(), xerr.Code())
 	}
-	if xerr.Message != "runtime reject" {
-		t.Fatalf("invalidAttributeError message = %q, want runtime message", xerr.Message)
+	if xerr.Message() != "runtime reject" {
+		t.Fatalf("invalidAttributeError message = %q, want runtime message", xerr.Message())
 	}
 }

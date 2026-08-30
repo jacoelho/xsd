@@ -2,27 +2,170 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
+	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
 	"time"
 )
 
-func main() {
-	addr := flag.String("addr", ":8765", "listen address")
-	dir := flag.String("dir", "docs", "directory to serve")
-	flag.Parse()
+const (
+	defaultAddress        = "127.0.0.1:8765"
+	javascriptContentType = "text/javascript; charset=utf-8"
+)
 
-	srv := newServer(*addr, *dir)
-	log.Printf("serving %s on %s", *dir, *addr)
-	log.Fatal(srv.ListenAndServe())
+type webAsset struct {
+	route       string
+	name        string
+	contentType string
 }
 
-// newServer keeps server construction testable without opening a listener.
+type commandOptions struct {
+	address string
+	dir     string
+}
+
+var webAssets = [...]webAsset{
+	{route: "/", name: "index.html", contentType: "text/html; charset=utf-8"},
+	{route: "/wasm_exec.js", name: "wasm_exec.js", contentType: javascriptContentType},
+	{route: "/xsd.wasm", name: "xsd.wasm", contentType: "application/wasm"},
+	{route: "/js/validation-flow.js", name: "js/validation-flow.js", contentType: javascriptContentType},
+	{route: "/js/validation-worker.js", name: "js/validation-worker.js", contentType: javascriptContentType},
+	{route: "/js/xsd-worker.js", name: "js/xsd-worker.js", contentType: javascriptContentType},
+}
+
+func main() {
+	options, err := parseCommandOptions(os.Args[1:], os.Stderr)
+	if errors.Is(err, flag.ErrHelp) {
+		return
+	}
+	if err != nil {
+		os.Exit(2)
+	}
+	if err := command(options); err != nil {
+		log.Print(err)
+		os.Exit(1)
+	}
+}
+
+func parseCommandOptions(args []string, output io.Writer) (commandOptions, error) {
+	flags := flag.NewFlagSet("xsdweb", flag.ContinueOnError)
+	flags.SetOutput(output)
+	options := commandOptions{}
+	flags.StringVar(&options.address, "addr", defaultAddress, "listen address")
+	flags.StringVar(&options.dir, "dir", "docs", "directory to serve")
+	if err := flags.Parse(args); err != nil {
+		return commandOptions{}, err
+	}
+	return options, nil
+}
+
+func command(options commandOptions) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return run(ctx, options.address, options.dir)
+}
+
+func run(ctx context.Context, addr, dir string) error {
+	if err := validateAssets(dir); err != nil {
+		return err
+	}
+
+	srv := newServer(addr, dir)
+	var listen net.ListenConfig
+	listener, err := listen.Listen(ctx, "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", addr, err)
+	}
+	log.Printf("serving %s on %s", dir, addr)
+	return serve(ctx, srv, listener)
+}
+
+func serve(ctx context.Context, srv *http.Server, listener net.Listener) error {
+	result := make(chan error, 1)
+	go func() {
+		result <- srv.Serve(listener)
+	}()
+
+	select {
+	case err := <-result:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			return errors.Join(fmt.Errorf("shut down web server: %w", err), srv.Close())
+		}
+		err := <-result
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	}
+}
+
 func newServer(addr, dir string) *http.Server {
 	return &http.Server{
 		Addr:              addr,
-		Handler:           http.FileServer(http.Dir(dir)),
+		Handler:           assetHandler(dir),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
 	}
+}
+
+func validateAssets(dir string) error {
+	for _, asset := range webAssets {
+		path := filepath.Join(dir, filepath.FromSlash(asset.name))
+		info, err := os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("web asset %s is unavailable; run `make wasm`: %w", path, err)
+		}
+		if !info.Mode().IsRegular() || info.Size() == 0 {
+			return fmt.Errorf("web asset %s must be a non-empty regular file; run `make wasm`", path)
+		}
+	}
+	return nil
+}
+
+func assetHandler(dir string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		asset, ok := assetForRoute(r.URL.Path)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", asset.contentType)
+		http.ServeFile(w, r, filepath.Join(dir, filepath.FromSlash(asset.name)))
+	})
+}
+
+func assetForRoute(route string) (webAsset, bool) {
+	for _, asset := range webAssets {
+		if route == asset.route {
+			return asset, true
+		}
+	}
+	return webAsset{}, false
 }

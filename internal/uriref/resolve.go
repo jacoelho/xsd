@@ -37,7 +37,7 @@ type Parts struct {
 
 // Parts returns a copy of the reference's parsed components.
 func (r Reference) Parts() Parts {
-	c := split(r.raw)
+	c := r.components
 	return Parts{
 		Scheme: c.scheme, Authority: c.authority, Path: c.path, Query: c.query,
 		Fragment: c.fragment, HasScheme: c.hasScheme, HasAuthority: c.hasAuthority,
@@ -50,18 +50,10 @@ func (r Reference) Parts() Parts {
 // Appendix C, and does not normalize dot segments in absolute-path or
 // scheme-bearing references.
 func Resolve(base, ref Reference) (Reference, error) {
-	b := split(base.raw)
-	r := split(ref.raw)
-	if r.path == "" && !r.hasScheme && !r.hasAuthority && !r.hasQuery {
-		without := base.WithoutFragment()
-		if !r.hasFragment {
-			return without, nil
-		}
-		return compose(components{
-			scheme: b.scheme, authority: b.authority, path: b.path, query: b.query,
-			fragment: r.fragment, hasScheme: b.hasScheme, hasAuthority: b.hasAuthority,
-			hasQuery: b.hasQuery, hasFragment: true,
-		})
+	b := base.components
+	r := ref.components
+	if isSameDocumentReference(r) {
+		return resolveSameDocumentReference(base, r)
 	}
 	if r.hasScheme {
 		return ref, nil
@@ -75,7 +67,8 @@ func Resolve(base, ref Reference) (Reference, error) {
 		r.authority, r.hasAuthority = b.authority, b.hasAuthority
 		return compose(r)
 	}
-	if opaque(b) {
+	switch {
+	case opaque(b):
 		if r.path != "" {
 			return Reference{}, ErrOpaqueBase
 		}
@@ -83,15 +76,38 @@ func Resolve(base, ref Reference) (Reference, error) {
 		// Query-only references are retained as a narrow XML Base extension,
 		// preserving the opaque path while replacing its query.
 		r.path = b.path
-	} else {
-		r.path = removeRelativeDotSegments(mergePath(b.path, r.path))
+	case r.path == "":
+		r.path = b.path
+	default:
+		r.path = removeRelativeDotSegments(mergePath(b, r.path))
 	}
 	r.scheme, r.hasScheme = b.scheme, b.hasScheme
 	r.authority, r.hasAuthority = b.authority, b.hasAuthority
 	return compose(r)
 }
 
+func isSameDocumentReference(c components) bool {
+	return c.path == "" && !c.hasScheme && !c.hasAuthority && !c.hasQuery
+}
+
+func resolveSameDocumentReference(base Reference, ref components) (Reference, error) {
+	without := base.WithoutFragment()
+	if !ref.hasFragment {
+		return without, nil
+	}
+	b := base.components
+	return compose(components{
+		scheme: b.scheme, authority: b.authority, path: b.path, query: b.query,
+		fragment: ref.fragment, hasScheme: b.hasScheme, hasAuthority: b.hasAuthority,
+		hasQuery: b.hasQuery, hasFragment: true,
+	})
+}
+
 func compose(c components) (Reference, error) {
+	return Parse(spell(c))
+}
+
+func spell(c components) string {
 	size := len(c.path)
 	if c.hasScheme {
 		size += len(c.scheme) + 1
@@ -124,7 +140,7 @@ func compose(c components) (Reference, error) {
 		out.WriteByte('#')
 		out.WriteString(c.fragment)
 	}
-	return Parse(out.String())
+	return out.String()
 }
 
 func split(raw string) components {
@@ -172,9 +188,12 @@ func opaque(c components) bool {
 	return c.hasScheme && !c.hasAuthority && (c.path == "" || c.path[0] != '/')
 }
 
-func mergePath(base, ref string) string {
-	if i := strings.LastIndexByte(base, '/'); i >= 0 {
-		return base[:i+1] + ref
+func mergePath(base components, ref string) string {
+	if i := strings.LastIndexByte(base.path, '/'); i >= 0 {
+		return base.path[:i+1] + ref
+	}
+	if base.hasAuthority {
+		return "/" + ref
 	}
 	return ref
 }
@@ -189,18 +208,7 @@ func removeRelativeDotSegments(path string) string {
 		start = 1
 	}
 	for _, part := range parts[start:] {
-		switch part {
-		case ".":
-			continue
-		case "..":
-			if len(stack) > 0 && stack[len(stack)-1] != ".." {
-				stack = stack[:len(stack)-1]
-			} else {
-				stack = append(stack, part)
-			}
-		default:
-			stack = append(stack, part)
-		}
+		stack = applyRelativeDotSegment(stack, part)
 	}
 	result := strings.Join(stack, "/")
 	if absolute {
@@ -210,4 +218,16 @@ func removeRelativeDotSegments(path string) string {
 		result += "/"
 	}
 	return result
+}
+
+func applyRelativeDotSegment(stack []string, part string) []string {
+	switch part {
+	case ".":
+		return stack
+	case "..":
+		if len(stack) > 0 && stack[len(stack)-1] != ".." {
+			return stack[:len(stack)-1]
+		}
+	}
+	return append(stack, part)
 }

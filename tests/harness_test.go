@@ -1,7 +1,6 @@
 package tests_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -265,7 +264,7 @@ func runCase(t *testing.T, dir string, unsupported unsupportedAllowlist, tc mani
 		return
 	}
 	run.schemaCases++
-	engine, err := xsd.Compile(context.Background(), schemaSources(dir, tc)...)
+	engine, err := xsd.Compile(schemaSources(dir, tc)...)
 	switch tc.Schema.Expected {
 	case "valid":
 		if err != nil {
@@ -311,7 +310,7 @@ func validateInstance(t *testing.T, dir string, engine *xsd.Engine, unsupported 
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
-	err = engine.Validate(context.Background(), f)
+	err = engine.Validate(f)
 	closeErr := f.Close()
 	if closeErr != nil {
 		t.Fatalf("Close() error = %v", closeErr)
@@ -342,8 +341,8 @@ func expectErrorCode(t *testing.T, err error, code string) {
 	if !ok {
 		t.Fatalf("error %v is not *xsderrors.Error", err)
 	}
-	if string(xerr.Code) != code {
-		t.Fatalf("error code = %s, want %s; err=%v", xerr.Code, code, err)
+	if string(xerr.Code()) != code {
+		t.Fatalf("error code = %s, want %s; err=%v", xerr.Code(), code, err)
 	}
 }
 
@@ -357,7 +356,7 @@ func skipUnsupported(t *testing.T, unsupported unsupportedAllowlist, key unsuppo
 		t.Fatal(useErr)
 	}
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
-		t.Skipf("unsupported feature %s: %s", xerr.Code, xerr.Message)
+		t.Skipf("unsupported feature %s: %s", xerr.Code(), xerr.Message())
 	}
 	t.Skipf("unsupported feature: %v", err)
 }
@@ -490,7 +489,7 @@ func unsupportedInstanceKey(tc manifestCase, inst manifestInstance) unsupportedK
 
 func unsupportedErrorCode(err error) string {
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
-		return string(xerr.Code)
+		return string(xerr.Code())
 	}
 	return "unsupported"
 }

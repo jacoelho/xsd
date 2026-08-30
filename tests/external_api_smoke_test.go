@@ -22,8 +22,8 @@ replace github.com/jacoelho/xsd => `+strconv.Quote(repoRoot(t))+`
 	writeExternalSmokeFile(t, filepath.Join(dir, "api_test.go"), `package external_api_smoke
 
 import (
-	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -31,15 +31,25 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+var (
+	_ func(...xsd.SchemaSource) (*xsd.Engine, error)                         = xsd.Compile
+	_ func(xsd.CompileOptions, ...xsd.SchemaSource) (*xsd.Engine, error)     = xsd.CompileWithOptions
+	_ func(*xsd.Engine, io.Reader) error                                    = (*xsd.Engine).Validate
+	_ func(*xsd.Engine, io.Reader, xsd.ValidateOptions) error               = (*xsd.Engine).ValidateWithOptions
+	_ func(*xsd.Session, io.Reader) error                                   = (*xsd.Session).Validate
+	_ func(string, func() (io.ReadCloser, error)) xsd.SchemaSource          = xsd.Open
+	_ xsd.Resolver                                                          = xsd.ResolverFunc(func(string, string) (xsd.SchemaSource, error) { return xsd.SchemaSource{}, nil })
+)
+
 func TestExternalAPI(t *testing.T) {
-	var _ xsd.Resolver = xsd.ResolverFunc(func(context.Context, string, string) (xsd.SchemaSource, error) {
+	var _ xsd.Resolver = xsd.ResolverFunc(func(string, string) (xsd.SchemaSource, error) {
 		return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
 	})
-	engine, err := xsd.Compile(context.Background(), xsd.Bytes("schema.xsd", []byte(`+"`"+`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`+"`"+`)))
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`+"`"+`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:int"/></xs:schema>`+"`"+`)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = engine.Validate(context.Background(), strings.NewReader(`+"`"+`<root>x</root>`+"`"+`))
+	err = engine.Validate(strings.NewReader(`+"`"+`<root>x</root>`+"`"+`))
 	var xerr *xsderrors.Error
 	if !errors.As(err, &xerr) {
 		t.Fatalf("error type = %T", err)

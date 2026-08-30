@@ -1,11 +1,6 @@
 // Package runtime defines stable runtime vocabulary and metadata helpers.
 package runtime
 
-import (
-	"github.com/jacoelho/xsd/internal/lex"
-	"github.com/jacoelho/xsd/internal/vocab"
-)
-
 const invalidID = ^uint32(0)
 
 // NamespaceID indexes a namespace URI in a runtime name table.
@@ -27,21 +22,6 @@ func NoQName() QName {
 
 // EmptyNamespaceID is the name-table ID for the empty namespace URI.
 const EmptyNamespaceID NamespaceID = 0
-
-const (
-	// EmptyNamespaceURI is the no-namespace URI.
-	EmptyNamespaceURI = vocab.EmptyNamespaceURI
-	// XSDNamespaceURI is the XML Schema namespace URI.
-	XSDNamespaceURI = vocab.XSDNamespaceURI
-	// XSINamespaceURI is the XML Schema instance namespace URI.
-	XSINamespaceURI = vocab.XSINamespaceURI
-	// XMLNamespaceURI is the reserved XML namespace URI.
-	XMLNamespaceURI = vocab.XMLNamespaceURI
-	// XLinkNamespaceURI is the XLink namespace URI.
-	XLinkNamespaceURI = vocab.XLinkNamespaceURI
-	// XMLNSNamespaceURI is the reserved xmlns namespace URI.
-	XMLNSNamespaceURI = vocab.XMLNSNamespaceURI
-)
 
 // SimpleTypeID indexes a simple type in a runtime schema.
 type SimpleTypeID uint32
@@ -128,105 +108,6 @@ const (
 	// DerivationSimpleFinalMask is the derivation set allowed for simple-type final.
 	DerivationSimpleFinalMask = DerivationRestriction | DerivationList | DerivationUnion
 )
-
-const (
-	derivationSetAllToken          = "#all"
-	derivationSetExtensionToken    = vocab.XSDElemExtension
-	derivationSetRestrictionToken  = vocab.XSDElemRestriction
-	derivationSetSubstitutionToken = "substitution"
-	derivationSetListToken         = vocab.XSDElemList
-	derivationSetUnionToken        = vocab.XSDElemUnion
-)
-
-// DerivationSetIssueKind classifies derivation-set lexical validation results.
-type DerivationSetIssueKind uint8
-
-const (
-	// DerivationSetOK reports a valid derivation set.
-	DerivationSetOK DerivationSetIssueKind = iota
-	// DerivationSetInvalidToken reports an unknown derivation-set token.
-	DerivationSetInvalidToken
-	// DerivationSetDisallowedToken reports a known token outside the allowed class.
-	DerivationSetDisallowedToken
-	// DerivationSetAllCombination reports #all combined with another token.
-	DerivationSetAllCombination
-)
-
-// DerivationSetIssue reports why a derivation set is invalid.
-type DerivationSetIssue struct {
-	Token string
-	Kind  DerivationSetIssueKind
-}
-
-// ParseDerivationSet parses an XSD derivation-set lexical value.
-func ParseDerivationSet(value string, allowed DerivationMask) (DerivationMask, DerivationSetIssue) {
-	var mask DerivationMask
-	seenAll := false
-	for token := range derivationSetFields(value) {
-		if token == derivationSetAllToken {
-			if seenAll || mask != 0 {
-				return 0, DerivationSetIssue{Kind: DerivationSetAllCombination, Token: token}
-			}
-			seenAll = true
-			continue
-		}
-		if seenAll {
-			return 0, DerivationSetIssue{Kind: DerivationSetAllCombination, Token: token}
-		}
-		bit, ok := derivationSetTokenMask(token)
-		if !ok {
-			return 0, DerivationSetIssue{Kind: DerivationSetInvalidToken, Token: token}
-		}
-		if allowed&bit == 0 {
-			return 0, DerivationSetIssue{Kind: DerivationSetDisallowedToken, Token: token}
-		}
-		mask |= bit
-	}
-	if seenAll {
-		return allowed, DerivationSetIssue{}
-	}
-	return mask, DerivationSetIssue{}
-}
-
-func derivationSetTokenMask(token string) (DerivationMask, bool) {
-	switch token {
-	case derivationSetExtensionToken:
-		return DerivationExtension, true
-	case derivationSetRestrictionToken:
-		return DerivationRestriction, true
-	case derivationSetSubstitutionToken:
-		return DerivationSubstitution, true
-	case derivationSetListToken:
-		return DerivationList, true
-	case derivationSetUnionToken:
-		return DerivationUnion, true
-	default:
-		return 0, false
-	}
-}
-
-func derivationSetFields(value string) func(func(string) bool) {
-	return func(yield func(string) bool) {
-		start := -1
-		for i := range len(value) {
-			if lex.IsXMLWhitespaceByte(value[i]) {
-				if start >= 0 {
-					if !yield(value[start:i]) {
-						return
-					}
-					start = -1
-				}
-				continue
-			}
-			if start < 0 {
-				start = i
-			}
-		}
-		if start >= 0 {
-			yield(value[start:])
-		}
-	}
-}
 
 // ValidElementBlockMask reports whether mask is valid for an element block.
 func ValidElementBlockMask(mask DerivationMask) bool {
@@ -527,49 +408,51 @@ type IdentityFieldPath struct {
 // BuildIdentityFieldLookup partitions identity fields by element, exact
 // attribute, and wildcard attribute lookup.
 func BuildIdentityFieldLookup(fields []IdentityField) ([]CompiledIdentityField, map[QName][]CompiledIdentityField, []CompiledIdentityField) {
-	var elementFields []CompiledIdentityField
-	var attrFields map[QName][]CompiledIdentityField
-	var attrWildcardFields []CompiledIdentityField
+	var lookup identityFieldLookup
 	for fieldIndex := range fields {
-		var elementPaths []IdentityFieldPath
-		var wildcardAttrPaths []IdentityFieldPath
-		var exactAttrPaths map[QName][]IdentityFieldPath
-		for _, path := range fields[fieldIndex].Paths {
-			path = cloneIdentityFieldPath(path)
-			if !path.Attr {
-				elementPaths = append(elementPaths, path)
-				continue
-			}
-			if path.AttrWildcard {
-				wildcardAttrPaths = append(wildcardAttrPaths, path)
-				continue
-			}
-			if exactAttrPaths == nil {
-				exactAttrPaths = make(map[QName][]IdentityFieldPath)
-			}
-			exactAttrPaths[path.Attribute] = append(exactAttrPaths[path.Attribute], path)
+		lookup.add(fieldIndex, fields[fieldIndex])
+	}
+	return lookup.elements, lookup.attributes, lookup.wildcardAttributes
+}
+
+type identityFieldLookup struct {
+	elements           []CompiledIdentityField
+	attributes         map[QName][]CompiledIdentityField
+	wildcardAttributes []CompiledIdentityField
+}
+
+func (l *identityFieldLookup) add(fieldIndex int, field IdentityField) {
+	elementPaths, wildcardPaths, exactPaths := partitionIdentityFieldPaths(field.Paths)
+	if len(elementPaths) != 0 {
+		l.elements = append(l.elements, CompiledIdentityField{Field: fieldIndex, Paths: elementPaths})
+	}
+	if len(wildcardPaths) != 0 {
+		l.wildcardAttributes = append(l.wildcardAttributes, CompiledIdentityField{Field: fieldIndex, Paths: wildcardPaths})
+	}
+	for name, paths := range exactPaths {
+		if l.attributes == nil {
+			l.attributes = make(map[QName][]CompiledIdentityField)
 		}
-		if len(elementPaths) != 0 {
-			elementFields = append(elementFields, CompiledIdentityField{
-				Field: fieldIndex,
-				Paths: elementPaths,
-			})
-		}
-		if len(wildcardAttrPaths) != 0 {
-			attrWildcardFields = append(attrWildcardFields, CompiledIdentityField{
-				Field: fieldIndex,
-				Paths: wildcardAttrPaths,
-			})
-		}
-		for name, paths := range exactAttrPaths {
-			if attrFields == nil {
-				attrFields = make(map[QName][]CompiledIdentityField)
+		l.attributes[name] = append(l.attributes[name], CompiledIdentityField{Field: fieldIndex, Paths: paths})
+	}
+}
+
+func partitionIdentityFieldPaths(paths []IdentityFieldPath) (elements, wildcardAttributes []IdentityFieldPath, exactAttributes map[QName][]IdentityFieldPath) {
+	var wildcards []IdentityFieldPath
+	var exact map[QName][]IdentityFieldPath
+	for _, path := range paths {
+		path = cloneIdentityFieldPath(path)
+		switch {
+		case !path.Attr:
+			elements = append(elements, path)
+		case path.AttrWildcard:
+			wildcards = append(wildcards, path)
+		default:
+			if exact == nil {
+				exact = make(map[QName][]IdentityFieldPath)
 			}
-			attrFields[name] = append(attrFields[name], CompiledIdentityField{
-				Field: fieldIndex,
-				Paths: paths,
-			})
+			exact[path.Attribute] = append(exact[path.Attribute], path)
 		}
 	}
-	return elementFields, attrFields, attrWildcardFields
+	return elements, wildcards, exact
 }

@@ -44,7 +44,7 @@ func TestSessionAppendTextLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			s := session{maxInstanceTextBytes: tt.max}
+			s := session{limits: Limits{InstanceTextBytes: tt.max}}
 			s.doc.text = []byte(tt.current)
 			err := s.appendText([]byte(tt.append), 8, 9)
 			if !tt.wantErr {

@@ -76,30 +76,37 @@ func (v ValueConstraintRead) SimpleValue() SimpleValue {
 	return v.value
 }
 
+// FixedAttributeComparison identifies the equality relation for a fixed
+// attribute constraint.
+type FixedAttributeComparison uint8
+
+const (
+	// FixedAttributeComparisonInvalid is not a valid equality relation.
+	FixedAttributeComparisonInvalid FixedAttributeComparison = iota
+	// FixedAttributeComparisonLexical compares canonical lexical values.
+	FixedAttributeComparisonLexical
+	// FixedAttributeComparisonValueSpace compares datatype identity values.
+	FixedAttributeComparisonValueSpace
+)
+
 // FixedAttributeValueEqual compares an attribute value with a fixed
-// constraint. Declaration-owned constraints use datatype value equality;
-// use-owned constraints use canonical lexical equality. valid is false when a
-// requested value-space comparison lacks its precomputed identity projection.
-func FixedAttributeValueEqual(actual SimpleValue, fixed ValueConstraintRead, valueSpace bool) (equal, valid bool) {
-	if !valueSpace {
+// constraint. valid is false for invalid comparison modes or when a
+// value-space comparison lacks its precomputed identity projection.
+func FixedAttributeValueEqual(actual SimpleValue, fixed ValueConstraintRead, comparison FixedAttributeComparison) (equal, valid bool) {
+	switch comparison {
+	case FixedAttributeComparisonLexical:
 		return actual.Canonical == fixed.canonical, true
+	case FixedAttributeComparisonValueSpace:
+	case FixedAttributeComparisonInvalid:
+		return false, false
+	default:
+		valid := false
+		return false, valid
 	}
 	if actual.Identity == "" || fixed.value.Identity == "" {
 		return false, false
 	}
 	return actual.Identity == fixed.value.Identity, true
-}
-
-// AbsentValueConstraint selects the value applied when an attribute is absent:
-// fixed values take precedence over defaults.
-func AbsentValueConstraint(fixed ValueConstraintRead, hasFixed bool, def ValueConstraintRead, hasDefault bool) (ValueConstraintRead, bool) {
-	if hasFixed {
-		return fixed, true
-	}
-	if hasDefault {
-		return def, true
-	}
-	return ValueConstraintRead{}, false
 }
 
 // ElementValueConstraints exposes prevalidated default/fixed values attached to
@@ -225,7 +232,7 @@ func ValidateElementValueConstraintReadProjectionForDecls(reads []ElementValueCo
 // ElementValueConstraintsByID returns the value-constraint read projection for
 // id. The booleans report declaration presence and metadata validity,
 // respectively.
-func ElementValueConstraintsByID(reads []ElementValueConstraints, id ElementID) (ElementValueConstraints, bool, bool) {
+func ElementValueConstraintsByID(reads []ElementValueConstraints, id ElementID) (constraints ElementValueConstraints, present, valid bool) {
 	if id == NoElement {
 		return ElementValueConstraints{}, false, true
 	}
@@ -295,8 +302,8 @@ type ValueConstraintSimpleValidator func(SimpleTypeID, string, ValueConstraintQN
 func NewValueConstraintNameReplay(entries []ResolvedValueName) (ValueConstraintNameReplay, error) {
 	seen := make(map[string]ResolvedValueName, len(entries))
 	for _, entry := range entries {
-		_, local, _, ok := resolvedValueNameLexicalParts(entry.Lexical)
-		if !ok || entry.Local != local || !lex.IsNCName(entry.Local) {
+		parts := resolvedValueNameLexicalParts(entry.Lexical)
+		if !parts.Valid || entry.Local != parts.Local || !lex.IsNCName(entry.Local) {
 			return ValueConstraintNameReplay{}, errors.New("resolved name proof is not deterministic")
 		}
 		prev, ok := seen[entry.Lexical]
@@ -315,16 +322,16 @@ func NewValueConstraintNameReplay(entries []ResolvedValueName) (ValueConstraintN
 }
 
 // ResolveQName replays one captured QName resolution.
-func (r *ValueConstraintNameReplay) ResolveQName(lexical string) (string, string, bool) {
-	prefix, local, prefixed, ok := resolvedValueNameLexicalParts(lexical)
-	if !ok || prefixed && prefix == "" {
+func (r *ValueConstraintNameReplay) ResolveQName(lexical string) (namespace, local string, ok bool) {
+	parts := resolvedValueNameLexicalParts(lexical)
+	if !parts.Valid || parts.Prefixed && parts.Prefix == "" {
 		return "", "", false
 	}
 	for i, resolved := range r.entries {
 		if r.used[i] || resolved.Lexical != lexical {
 			continue
 		}
-		if resolved.Local != local || !lex.IsNCName(resolved.Local) {
+		if resolved.Local != parts.Local || !lex.IsNCName(resolved.Local) {
 			return "", "", false
 		}
 		r.used[i] = true
@@ -344,16 +351,12 @@ func (r *ValueConstraintNameReplay) ValidateConsumed() error {
 	return nil
 }
 
-func resolvedValueNameLexicalParts(lexical string) (string, string, bool, bool) {
+func resolvedValueNameLexicalParts(lexical string) lex.QNameParts {
 	trimmed := lex.TrimXMLWhitespaceString(lexical)
 	if trimmed == "" {
-		return "", "", false, false
+		return lex.QNameParts{}
 	}
-	prefix, local, prefixed, ok := lex.SplitQName(trimmed)
-	if !ok {
-		return "", "", false, false
-	}
-	return prefix, local, prefixed, true
+	return lex.SplitQName(trimmed)
 }
 
 // ValueConstraintIdentity is the equality projection used when runtime rules
@@ -485,7 +488,11 @@ type ElementValueConstraintRuntime interface {
 // ElementValueConstraintType returns the simple type that must own an element's
 // value constraint. NoSimpleType means the constraint is allowed only as mixed
 // lexical text.
-func ElementValueConstraintType(rt ElementValueConstraintRuntime, typ TypeID) (SimpleTypeID, error) {
+func ElementValueConstraintType(
+	rt ElementValueConstraintRuntime,
+	analysis *ContentModelAnalysis,
+	typ TypeID,
+) (SimpleTypeID, error) {
 	if id, ok := typ.Simple(); ok {
 		return id, nil
 	}
@@ -497,13 +504,28 @@ func ElementValueConstraintType(rt ElementValueConstraintRuntime, typ TypeID) (S
 	if !ok {
 		return NoSimpleType, errors.New("element value constraint references invalid type")
 	}
-	if ct.ContentKind.Simple() {
+	switch {
+	case ct.ContentKind.Simple():
 		return ct.TextType, nil
+	case ct.ContentKind.Mixed():
+		return mixedElementValueConstraintType(analysis, ct.Content)
+	default:
+		return NoSimpleType, errors.New("element value constraint requires simple content")
 	}
-	if ct.ContentKind.Mixed() && ModelEmptiable(rt, ct.Content) {
-		return NoSimpleType, nil
+}
+
+func mixedElementValueConstraintType(analysis *ContentModelAnalysis, content ContentModelID) (SimpleTypeID, error) {
+	if analysis == nil {
+		return NoSimpleType, errors.New("content model analysis is nil")
 	}
-	return NoSimpleType, errors.New("element value constraint requires simple content")
+	emptiable, err := analysis.ModelEmptiable(content)
+	if err != nil {
+		return NoSimpleType, err
+	}
+	if !emptiable {
+		return NoSimpleType, errors.New("element value constraint requires simple content")
+	}
+	return NoSimpleType, nil
 }
 
 // ValidateValueConstraintShape validates cached value-constraint metadata that
@@ -572,10 +594,10 @@ func ValidateValueConstraintReplay(cached ValueConstraintValidation, expected Si
 // SimpleTypeUsesBareNotation reports whether a simple type graph contains
 // xs:NOTATION without an enumeration facet.
 func SimpleTypeUsesBareNotation(rt ValueConstraintRuntime, id SimpleTypeID) bool {
-	return simpleTypeUsesBareNotation(rt, id, make(map[SimpleTypeID]bool))
+	return hasBareNotationUse(rt, id, make(map[SimpleTypeID]bool))
 }
 
-func simpleTypeUsesBareNotation(rt ValueConstraintRuntime, id SimpleTypeID, seen map[SimpleTypeID]bool) bool {
+func hasBareNotationUse(rt ValueConstraintRuntime, id SimpleTypeID, seen map[SimpleTypeID]bool) bool {
 	if rt == nil || id == NoSimpleType || seen[id] {
 		return false
 	}
@@ -587,14 +609,22 @@ func simpleTypeUsesBareNotation(rt ValueConstraintRuntime, id SimpleTypeID, seen
 	if st.Primitive == PrimitiveNotation && !st.HasEnumeration {
 		return true
 	}
-	if st.Variety == SimpleVarietyList {
-		return simpleTypeUsesBareNotation(rt, st.ListItem, seen)
+	switch st.Variety {
+	case SimpleVarietyList:
+		return hasBareNotationUse(rt, st.ListItem, seen)
+	case SimpleVarietyUnion:
+		return unionUsesBareNotation(rt, st.Union, seen)
+	case SimpleVarietyAtomic:
+		return false
+	default:
 	}
-	if st.Variety == SimpleVarietyUnion {
-		for _, member := range st.Union {
-			if simpleTypeUsesBareNotation(rt, member, seen) {
-				return true
-			}
+	return false
+}
+
+func unionUsesBareNotation(rt ValueConstraintRuntime, members []SimpleTypeID, seen map[SimpleTypeID]bool) bool {
+	for _, member := range members {
+		if hasBareNotationUse(rt, member, seen) {
+			return true
 		}
 	}
 	return false

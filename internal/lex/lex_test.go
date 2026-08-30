@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+func TestStringNameValidatorsRejectMalformedUTF8(t *testing.T) {
+	t.Parallel()
+	malformed := string([]byte{'n', 0xff})
+	if IsXMLName(malformed) {
+		t.Fatal("IsXMLName accepted malformed UTF-8")
+	}
+	if IsNCName(malformed) {
+		t.Fatal("IsNCName accepted malformed UTF-8")
+	}
+	if IsNMTOKEN(malformed) {
+		t.Fatal("IsNMTOKEN accepted malformed UTF-8")
+	}
+	if parts := SplitQName(malformed); parts.Valid {
+		t.Fatal("SplitQName accepted malformed UTF-8")
+	}
+
+	validReplacement := "n\uFFFD"
+	if !IsXMLName(validReplacement) || !IsNCName(validReplacement) || !IsNMTOKEN(validReplacement) {
+		t.Fatal("name validators rejected an encoded U+FFFD")
+	}
+}
+
 func TestXMLWhitespaceHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -98,13 +120,15 @@ func TestSplitASCIIQNameBytes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			prefix, local, ascii, ok := SplitASCIIQNameBytes([]byte(tt.in))
-			if ascii != tt.ascii || ok != tt.ok {
-				t.Fatalf("SplitASCIIQNameBytes(%q) ascii=%v ok=%v, want ascii=%v ok=%v", tt.in, ascii, ok, tt.ascii, tt.ok)
+			input := []byte(tt.in)
+			parts := SplitASCIIQNameBytes(input)
+			if parts.ASCII() != tt.ascii || parts.Valid() != tt.ok {
+				t.Fatalf("SplitASCIIQNameBytes(%q) ascii=%v ok=%v, want ascii=%v ok=%v", tt.in, parts.ASCII(), parts.Valid(), tt.ascii, tt.ok)
 			}
-			if !ok {
+			if !parts.Valid() {
 				return
 			}
+			prefix, local := parts.Bytes(input)
 			if got := prefix != nil; got != tt.hasPrefix {
 				t.Fatalf("prefix presence = %v, want %v", got, tt.hasPrefix)
 			}
@@ -139,10 +163,10 @@ func TestSplitQName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			prefix, local, prefixed, ok := SplitQName(tt.in)
-			if ok != tt.ok || prefixed != tt.prefixed || prefix != tt.prefix || local != tt.local {
+			parts := SplitQName(tt.in)
+			if parts.Valid != tt.ok || parts.Prefixed != tt.prefixed || parts.Prefix != tt.prefix || parts.Local != tt.local {
 				t.Fatalf("SplitQName(%q) = (%q, %q, %v, %v), want (%q, %q, %v, %v)",
-					tt.in, prefix, local, prefixed, ok, tt.prefix, tt.local, tt.prefixed, tt.ok)
+					tt.in, parts.Prefix, parts.Local, parts.Prefixed, parts.Valid, tt.prefix, tt.local, tt.prefixed, tt.ok)
 			}
 		})
 	}

@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
+	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -15,6 +17,203 @@ type formatDataErrorReader struct {
 	data string
 	err  error
 	done bool
+}
+
+type shortNilWriter struct{}
+
+func (shortNilWriter) Write(p []byte) (int, error) {
+	return len(p) - 1, nil
+}
+
+type formatWriterFunc func([]byte) (int, error)
+
+func (f formatWriterFunc) Write(p []byte) (int, error) {
+	return f(p)
+}
+
+type formatDualWriter struct {
+	write       func([]byte) (int, error)
+	writeString func(string) (int, error)
+	writes      int
+	strings     int
+}
+
+func (w *formatDualWriter) Write(p []byte) (int, error) {
+	w.writes++
+	return w.write(p)
+}
+
+func (w *formatDualWriter) WriteString(s string) (int, error) {
+	w.strings++
+	return w.writeString(s)
+}
+
+func TestMaxBytesWriterWriteAndWriteStringShareSemantics(t *testing.T) {
+	t.Parallel()
+
+	limitErr := errors.New("limit")
+	writeErr := errors.New("write")
+	tests := []struct {
+		name      string
+		max       int64
+		input     string
+		delegateN int
+		delegate  error
+		wantN     int
+		wantErr   error
+		wantCause error
+		rejectErr error
+		wantBytes int64
+	}{
+		{name: "exact", max: 3, input: "abc", delegateN: 3, wantN: 3, wantBytes: 3},
+		{name: "crossed limit", max: 2, input: "€x", delegateN: 2, wantN: 2, wantErr: limitErr, wantBytes: 2},
+		{name: "crossed limit with writer error", max: 2, input: "abc", delegateN: 2, delegate: writeErr, wantN: 2, wantErr: writeErr, rejectErr: limitErr, wantBytes: 2},
+		{name: "negative count", max: 3, input: "abc", delegateN: -1, wantErr: io.ErrShortWrite},
+		{name: "negative count with cause", max: 3, input: "abc", delegateN: -1, delegate: writeErr, wantErr: io.ErrShortWrite, wantCause: writeErr},
+		{name: "oversized count", max: 3, input: "abc", delegateN: 4, wantErr: io.ErrShortWrite},
+		{name: "oversized count with cause", max: 3, input: "abc", delegateN: 4, delegate: writeErr, wantErr: io.ErrShortWrite, wantCause: writeErr},
+		{name: "short nil", max: 3, input: "abc", delegateN: 2, wantN: 2, wantErr: io.ErrShortWrite, wantBytes: 2},
+		{name: "partial with cause", max: 3, input: "abc", delegateN: 2, delegate: writeErr, wantN: 2, wantErr: writeErr, wantBytes: 2},
+		{name: "complete with cause", max: 3, input: "abc", delegateN: 3, delegate: writeErr, wantN: 3, wantErr: writeErr, wantBytes: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			for _, method := range []string{"Write", "WriteString"} {
+				t.Run(method, func(t *testing.T) {
+					t.Parallel()
+					var delegated string
+					delegate := func(s string) (int, error) {
+						delegated = s
+						return tt.delegateN, tt.delegate
+					}
+					underlying := &formatDualWriter{
+						write:       func(p []byte) (int, error) { return delegate(string(p)) },
+						writeString: delegate,
+					}
+					var bounded *maxBytesWriter
+					var n int
+					var err error
+					if method == "Write" {
+						bounded = &maxBytesWriter{w: underlying, max: tt.max, err: limitErr}
+						n, err = bounded.Write([]byte(tt.input))
+						if underlying.writes != 1 || underlying.strings != 0 {
+							t.Fatalf("delegate calls = Write %d, WriteString %d", underlying.writes, underlying.strings)
+						}
+					} else {
+						w := &maxBytesStringWriter{
+							maxBytesWriter: maxBytesWriter{w: underlying, max: tt.max, err: limitErr},
+						}
+						bounded = &w.maxBytesWriter
+						n, err = w.WriteString(tt.input)
+						if underlying.writes != 0 || underlying.strings != 1 {
+							t.Fatalf("delegate calls = Write %d, WriteString %d", underlying.writes, underlying.strings)
+						}
+					}
+					if n != tt.wantN || !errors.Is(err, tt.wantErr) || (tt.wantCause != nil && !errors.Is(err, tt.wantCause)) {
+						t.Fatalf("result = %d, %v; want %d, %v with cause %v", n, err, tt.wantN, tt.wantErr, tt.wantCause)
+					}
+					if tt.rejectErr != nil && errors.Is(err, tt.rejectErr) {
+						t.Fatalf("result error = %v, must not contain %v", err, tt.rejectErr)
+					}
+					wantDelegated := tt.input
+					if int64(len(wantDelegated)) > tt.max {
+						wantDelegated = wantDelegated[:tt.max]
+					}
+					if delegated != wantDelegated {
+						t.Fatalf("delegated %q, want byte prefix %q", delegated, wantDelegated)
+					}
+					if bounded.n != tt.wantBytes {
+						t.Fatalf("recorded bytes = %d, want %d", bounded.n, tt.wantBytes)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestMaxBytesWriterExhaustionAndEmptyWrites(t *testing.T) {
+	t.Parallel()
+
+	limitErr := errors.New("limit")
+	var out strings.Builder
+	w := &maxBytesStringWriter{
+		maxBytesWriter: maxBytesWriter{w: &out, max: 1, err: limitErr},
+	}
+	if n, err := w.WriteString("a"); n != 1 || err != nil {
+		t.Fatalf("first WriteString() = %d, %v", n, err)
+	}
+	if n, err := w.WriteString("b"); n != 0 || !errors.Is(err, limitErr) {
+		t.Fatalf("exhausted WriteString() = %d, %v", n, err)
+	}
+	if n, err := w.Write(nil); n != 0 || err != nil {
+		t.Fatalf("empty Write() = %d, %v", n, err)
+	}
+	if n, err := w.WriteString(""); n != 0 || err != nil {
+		t.Fatalf("empty WriteString() = %d, %v", n, err)
+	}
+	if out.String() != "a" || w.n != 1 {
+		t.Fatalf("writer = %q, %d bytes; want a, 1", out.String(), w.n)
+	}
+}
+
+func TestNewMaxBytesWriterSelectsStringWriterCapability(t *testing.T) {
+	t.Parallel()
+
+	var direct strings.Builder
+	withStringWriter := newMaxBytesWriter(&direct, 3, errors.New("limit"))
+	if _, ok := withStringWriter.(io.StringWriter); !ok {
+		t.Fatal("StringWriter delegate lost WriteString capability")
+	}
+
+	var out strings.Builder
+	writer := formatWriterFunc(out.Write)
+	writerOnly := newMaxBytesWriter(writer, 3, errors.New("limit"))
+	if _, ok := writerOnly.(io.StringWriter); ok {
+		t.Fatal("writer-only delegate gained WriteString capability")
+	}
+	if n, err := io.WriteString(writerOnly, "abc"); n != 3 || err != nil {
+		t.Fatalf("io.WriteString() = %d, %v", n, err)
+	}
+	if out.String() != "abc" {
+		t.Fatalf("fallback output = %q", out.String())
+	}
+}
+
+func TestMaxBytesStringWriterDoesNotAddRetainedState(t *testing.T) {
+	t.Parallel()
+
+	if got, want := unsafe.Sizeof(maxBytesStringWriter{}), unsafe.Sizeof(maxBytesWriter{}); got > want {
+		t.Fatalf("StringWriter wrapper size = %d, base writer = %d", got, want)
+	}
+}
+
+func TestMaxBytesWriterAccountsActualBytesBeforeNextLimit(t *testing.T) {
+	t.Parallel()
+
+	limitErr := errors.New("limit")
+	calls := 0
+	writer := formatWriterFunc(func(p []byte) (int, error) {
+		calls++
+		if calls == 1 {
+			return 1, errors.New("first write")
+		}
+		return len(p), nil
+	})
+	w := newMaxBytesWriter(writer, 2, limitErr)
+	if n, err := w.Write([]byte("ab")); n != 1 || err == nil {
+		t.Fatalf("first Write() = %d, %v", n, err)
+	}
+	if n, err := io.WriteString(w, "cd"); n != 1 || !errors.Is(err, limitErr) {
+		t.Fatalf("second io.WriteString() = %d, %v", n, err)
+	}
+	bounded, ok := w.(*maxBytesWriter)
+	if !ok {
+		t.Fatalf("writer-only wrapper type = %T", w)
+	}
+	if bounded.n != 2 {
+		t.Fatalf("recorded bytes = %d, want 2", bounded.n)
+	}
 }
 
 func (r *formatDataErrorReader) Read(p []byte) (int, error) {
@@ -73,6 +272,20 @@ func TestFormatXMLPreservesWhitespaceOnlyText(t *testing.T) {
 </root>`
 	if out.String() != want {
 		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+	}
+}
+
+func TestFormatXMLRejectsXML11WithoutInternalCause(t *testing.T) {
+	t.Parallel()
+
+	var out strings.Builder
+	err := XML(&out, strings.NewReader(`<?xml version="1.1"?><root/>`))
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Code() != xsderrors.CodeUnsupportedXML11 {
+		t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeUnsupportedXML11)
+	}
+	if diagnostic.Cause() != nil {
+		t.Fatalf("XML() XML 1.1 cause = %T, want nil", diagnostic.Cause())
 	}
 }
 
@@ -203,6 +416,17 @@ func TestFormatXMLNormalizesCDATALineEndings(t *testing.T) {
 		t.Fatalf("XML() error = %v", err)
 	}
 	if out.String() != "<root><![CDATA[a\nb]]></root>" {
+		t.Fatalf("XML() = %q", out.String())
+	}
+}
+
+func TestFormatXMLNormalizesCommentAndProcessingInstructionLineEndings(t *testing.T) {
+	var out strings.Builder
+	err := XML(&out, strings.NewReader("<root><!--a\rb--><?p a\r\nb?></root>"))
+	if err != nil {
+		t.Fatalf("XML() error = %v", err)
+	}
+	if out.String() != "<root><!--a\nb--><?p a\nb?></root>" {
 		t.Fatalf("XML() = %q", out.String())
 	}
 }
@@ -394,14 +618,31 @@ func TestFormatXMLRejectsEmptyAndUnclosedDocuments(t *testing.T) {
 	}
 }
 
+func TestFormatXMLRejectsTruncatedTrailingMarkup(t *testing.T) {
+	t.Parallel()
+	for _, suffix := range []string{`</`, `</root `, `<next `} {
+		t.Run(suffix, func(t *testing.T) {
+			t.Parallel()
+			var out strings.Builder
+			err := XML(&out, strings.NewReader(`<root/>`+suffix))
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Code() != xsderrors.CodeFormatXML {
+				t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeFormatXML)
+			}
+			if out.Len() != 0 {
+				t.Fatalf("XML() wrote %q before rejecting input", out.String())
+			}
+		})
+	}
+}
+
 func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
 	var out strings.Builder
 	err := XMLWithOptions(&out, strings.NewReader(`<root><a/><b/></root>`), Options{MaxNodes: 2})
 	if err == nil {
 		t.Fatal("XMLWithOptions() succeeded")
 	}
-	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic == nil {
 		t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 	}
 	if !strings.Contains(err.Error(), "XML node limit exceeded") {
@@ -438,8 +679,7 @@ func TestFormatXMLWithOptionsRejectsOutputBytesAfterPartialWrite(t *testing.T) {
 	if err == nil {
 		t.Fatal("XMLWithOptions() succeeded")
 	}
-	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic == nil {
 		t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 	}
 	if !errors.Is(err, errFormatOutputLimit) {
@@ -447,6 +687,52 @@ func TestFormatXMLWithOptionsRejectsOutputBytesAfterPartialWrite(t *testing.T) {
 	}
 	if out.Len() > 8 {
 		t.Fatalf("output len = %d, want <= 8", out.Len())
+	}
+}
+
+func TestFormatXMLRejectsShortWriteWithoutWriterError(t *testing.T) {
+	err := XML(shortNilWriter{}, strings.NewReader(`<root/>`))
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("XML() error = %v, want %v", err, io.ErrShortWrite)
+	}
+}
+
+func TestFormatXMLRejectsInvalidWriterCounts(t *testing.T) {
+	writeErr := errors.New("write failed")
+	tests := []struct {
+		name      string
+		write     formatWriterFunc
+		wantCause bool
+	}{
+		{
+			name:  "negative",
+			write: func([]byte) (int, error) { return -1, nil },
+		},
+		{
+			name:  "oversized",
+			write: func(p []byte) (int, error) { return len(p) + 1, nil },
+		},
+		{
+			name:      "negative with error",
+			write:     func([]byte) (int, error) { return -1, writeErr },
+			wantCause: true,
+		},
+		{
+			name:      "oversized with error",
+			write:     func(p []byte) (int, error) { return len(p) + 1, writeErr },
+			wantCause: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := XML(test.write, strings.NewReader(`<root/>`))
+			if !errors.Is(err, io.ErrShortWrite) {
+				t.Fatalf("XML() error = %v, want %v", err, io.ErrShortWrite)
+			}
+			if errors.Is(err, writeErr) != test.wantCause {
+				t.Fatalf("XML() error = %v, write cause present = %t, want %t", err, errors.Is(err, writeErr), test.wantCause)
+			}
+		})
 	}
 }
 
@@ -461,11 +747,11 @@ func TestFormatXMLWithOptionsRejectsInputBytesAfterSniff(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 	}
-	if xerr.Code != codeFormatLimit {
-		t.Fatalf("XMLWithOptions() code = %q, want %q", xerr.Code, codeFormatLimit)
+	if xerr.Code() != xsderrors.CodeFormatLimit {
+		t.Fatalf("XMLWithOptions() code = %q, want %q", xerr.Code(), xsderrors.CodeFormatLimit)
 	}
-	if !errors.Is(err, errFormatInputLimit) {
-		t.Fatalf("XMLWithOptions() error = %v, want %v", err, errFormatInputLimit)
+	if !stream.IsInputLimit(err) {
+		t.Fatalf("XMLWithOptions() error = %v, want input limit", err)
 	}
 }
 
@@ -487,11 +773,28 @@ func TestFormatXMLWithOptionsRejectsNegativeLimits(t *testing.T) {
 			if err == nil {
 				t.Fatal("XMLWithOptions() succeeded")
 			}
-			var xerr *xsderrors.Error
-			if !errors.As(err, &xerr) {
+			if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic == nil {
 				t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 			}
 		})
+	}
+}
+
+func TestNormalizeFormatOptionsUsesFiniteDefaults(t *testing.T) {
+	t.Parallel()
+	got, err := normalizeFormatOptions(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := formatOptions{
+		maxDepth:       maxFormatDepth,
+		maxNodes:       defaultMaxFormatNodes,
+		maxInputBytes:  defaultMaxFormatInputBytes,
+		maxOutputBytes: defaultMaxFormatOutputBytes,
+		maxTokenBytes:  defaultMaxFormatTokenBytes,
+	}
+	if got != want {
+		t.Fatalf("normalizeFormatOptions() = %+v, want %+v", got, want)
 	}
 }
 
@@ -535,8 +838,21 @@ func TestFormatXMLReportsLine(t *testing.T) {
 	if !errors.As(err, &xerr) {
 		t.Fatalf("XML() error type = %T, want *xsderrors.Error", err)
 	}
-	if xerr.Line != 2 {
-		t.Fatalf("Line = %d, want 2", xerr.Line)
+	if xerr.Line() != 2 {
+		t.Fatalf("Line = %d, want 2", xerr.Line())
+	}
+}
+
+func TestFormatXMLUsesBufferedCharacterFailurePosition(t *testing.T) {
+	t.Parallel()
+	var out strings.Builder
+	err := XML(&out, strings.NewReader("<root>\nabcdefgh\x01</root>"))
+	var xerr *xsderrors.Error
+	if !errors.As(err, &xerr) {
+		t.Fatalf("XML() error = %T %v, want *xsderrors.Error", err, err)
+	}
+	if xerr.Line() != 2 || xerr.Column() != 9 {
+		t.Fatalf("XML() location = %d:%d, want 2:9", xerr.Line(), xerr.Column())
 	}
 }
 

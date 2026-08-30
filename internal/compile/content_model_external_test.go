@@ -1,7 +1,6 @@
 package compile_test
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"strconv"
@@ -112,7 +111,7 @@ func TestLengthFacetBoundsRequireAncestor(t *testing.T) {
 		`<xs:length value="2"/><xs:minLength value="2"/>`,
 		`<xs:length value="2"/><xs:maxLength value="2"/>`,
 	} {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	<xs:simpleType name="Invalid"><xs:restriction base="xs:string">`+restriction+`</xs:restriction></xs:simpleType>
 </xs:schema>`))})
@@ -147,7 +146,7 @@ func TestSimpleContentLengthFacetBoundsRequireAncestor(t *testing.T) {
 	mustValidateRuntime(t, engine, `<v>ab</v>`)
 	mustNotValidateRuntime(t, engine, `<v>a</v>`, xsderrors.CodeValidationFacet)
 
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	<xs:complexType name="Base"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType>
 	<xs:complexType name="Invalid">
@@ -159,7 +158,7 @@ func TestSimpleContentLengthFacetBoundsRequireAncestor(t *testing.T) {
 }
 
 func TestAttributeRestrictionMustRespectBaseWildcard(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:anyAttribute namespace="##other"/></xs:complexType>
   <xs:complexType name="bad"><xs:complexContent><xs:restriction base="base"><xs:attribute name="local"/></xs:restriction></xs:complexContent></xs:complexType>
@@ -167,7 +166,7 @@ func TestAttributeRestrictionMustRespectBaseWildcard(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"/>
   <xs:complexType name="bad"><xs:complexContent><xs:restriction base="base"><xs:anyAttribute namespace="##other"/></xs:restriction></xs:complexContent></xs:complexType>
@@ -175,7 +174,7 @@ func TestAttributeRestrictionMustRespectBaseWildcard(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:anyAttribute namespace="##other"/></xs:complexType>
   <xs:complexType name="bad"><xs:complexContent><xs:restriction base="base"><xs:anyAttribute namespace="##any"/></xs:restriction></xs:complexContent></xs:complexType>
@@ -198,7 +197,7 @@ func TestAttributeRestrictionDoesNotInheritBaseWildcard(t *testing.T) {
 }
 
 func TestComplexContentCannotExtendAllWithParticles(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:all><xs:element name="a"/></xs:all></xs:complexType>
   <xs:complexType name="bad"><xs:complexContent><xs:extension base="base"><xs:sequence><xs:element name="b"/></xs:sequence></xs:extension></xs:complexContent></xs:complexType>
@@ -244,7 +243,7 @@ func TestSchemaNamesAllowXML10FifthEditionNameStartChars(t *testing.T) {
 }
 
 func TestUnionRestrictionAllowsOnlyPatternAndEnumerationFacets(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="base">
     <xs:union memberTypes="xs:NMTOKEN xs:integer"/>
@@ -382,7 +381,7 @@ func TestStrictWildcardRecoveryConsumesOccurrenceBeforeRequiredSibling(t *testin
 		t.Fatalf("NewSession() error = %v", err)
 	}
 
-	err = session.Validate(context.Background(), strings.NewReader(`<root><unknown/><after>ok</after></root>`))
+	err = session.Validate(strings.NewReader(`<root><unknown/><after>ok</after></root>`))
 	codes := validationErrorCodes(err)
 	want := []xsderrors.Code{xsderrors.CodeValidationElement}
 	if !slices.Equal(codes, want) {
@@ -395,16 +394,16 @@ func validationErrorCodes(err error) []xsderrors.Code {
 		return nil
 	}
 	if errs, ok := errors.AsType[xsderrors.Errors](err); ok {
-		codes := make([]xsderrors.Code, 0, len(errs))
-		for _, item := range errs {
+		codes := make([]xsderrors.Code, 0, errs.Len())
+		for _, item := range xsderrors.Flatten(errs) {
 			if x, ok := errors.AsType[*xsderrors.Error](item); ok {
-				codes = append(codes, x.Code)
+				codes = append(codes, x.Code())
 			}
 		}
 		return codes
 	}
 	if x, ok := errors.AsType[*xsderrors.Error](err); ok {
-		return []xsderrors.Code{x.Code}
+		return []xsderrors.Code{x.Code()}
 	}
 	return nil
 }
@@ -420,10 +419,10 @@ func TestEmptyChoiceWithRequiredOccurrenceRejectsEmptyContent(t *testing.T) {
 }
 
 func TestAnyAttributeRejectsOccurrenceAttributes(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:anyAttribute minOccurs="2"/></xs:complexType></xs:element></xs:schema>`))})
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:anyAttribute minOccurs="2"/></xs:complexType></xs:element></xs:schema>`))})
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:anyAttribute maxOccurs="2"/></xs:complexType></xs:element></xs:schema>`))})
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:anyAttribute maxOccurs="2"/></xs:complexType></xs:element></xs:schema>`))})
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 }
 
@@ -433,7 +432,7 @@ func TestInvalidWildcardAttributesAreSchemaErrors(t *testing.T) {
 		`<xs:element name="root"><xs:complexType><xs:anyAttribute processContents="open"/></xs:complexType></xs:element>`,
 	}
 	for _, body := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 	}
 }
@@ -456,7 +455,7 @@ func TestDirectSequenceContentModel(t *testing.T) {
 }
 
 func TestChoiceWildcardOverlapIsUPACompileError(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
   <xs:element name="root">
     <xs:complexType>
@@ -509,7 +508,7 @@ func TestAllModelBeyondBitsetWidth(t *testing.T) {
 }
 
 func TestAllCannotBeNestedInSequence(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
@@ -539,7 +538,7 @@ func TestModelGroupSyntaxIsValidated(t *testing.T) {
 		{`<xs:group name="g"><xs:all><xs:element name="a"/></xs:all></xs:group><xs:complexType name="t"><xs:sequence><xs:group ref="g"/></xs:sequence></xs:complexType>`, xsderrors.CodeSchemaContentModel},
 	}
 	for _, test := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+test.body+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+test.body+`</xs:schema>`))})
 		expectCode(t, err, test.code)
 	}
 }
@@ -552,7 +551,7 @@ func TestAnonymousTypeAttributesAreValidated(t *testing.T) {
 		`<xs:element name="e"><xs:complexType final="restriction"/></xs:element>`,
 	}
 	for _, body := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 	}
 
@@ -560,13 +559,13 @@ func TestAnonymousTypeAttributesAreValidated(t *testing.T) {
 		<xs:simpleType name="s" final="restriction"><xs:restriction base="xs:string"/></xs:simpleType>
 		<xs:complexType name="c" abstract="true" block="extension" final="restriction"/>
 	</xs:schema>`
-	if _, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(valid))}); err != nil {
+	if _, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(valid))}); err != nil {
 		t.Fatalf("Compile(global type attributes) error = %v", err)
 	}
 }
 
 func TestComplexContentExtensionFromEmptyAllBase(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g"><xs:all><xs:element name="a"/></xs:all></xs:group>
   <xs:complexType name="base"><xs:all/></xs:complexType>
@@ -579,7 +578,7 @@ func TestComplexContentExtensionFromEmptyAllBase(t *testing.T) {
 }
 
 func TestComplexContentExtensionCannotUseAllGroupWithNonEmptyBase(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g"><xs:all><xs:element name="b"/></xs:all></xs:group>
   <xs:complexType name="base"><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType>
@@ -590,7 +589,7 @@ func TestComplexContentExtensionCannotUseAllGroupWithNonEmptyBase(t *testing.T) 
 }
 
 func TestComplexContentExtensionCanUseAllWithEmptyBase(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"/>
   <xs:complexType name="derived">
@@ -606,7 +605,7 @@ func TestComplexContentExtensionCanUseAllWithEmptyBase(t *testing.T) {
 }
 
 func TestRestrictionParticleOccurrenceMustBeSubset(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType>
   <xs:complexType name="derived">
@@ -627,7 +626,7 @@ func TestRestrictionParticleCountRangeMustBeSubset(t *testing.T) {
 		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element name="a"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>`,
 	}
 	for _, body := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		expectCode(t, err, xsderrors.CodeSchemaContentModel)
 	}
 }
@@ -653,7 +652,7 @@ func TestRestrictionChoiceCanMapToWildcardRange(t *testing.T) {
 }
 
 func TestRestrictionChoiceWildcardBranchAllowsElementSubset(t *testing.T) {
-	engine, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test" xmlns:o="urn:other" elementFormDefault="qualified">
   <xs:import namespace="urn:other"/>
@@ -668,7 +667,7 @@ func TestRestrictionChoiceWildcardBranchAllowsElementSubset(t *testing.T) {
 	}
 	mustValidateRuntime(t, engine, `<root xmlns="urn:test" xmlns:o="urn:other"><o:foreign/></root>`)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{
+	_, err = compile.Compile(compile.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test" elementFormDefault="qualified">
   <xs:complexType name="base"><xs:sequence><xs:choice><xs:element name="local"/><xs:any namespace="##other"/></xs:choice></xs:sequence></xs:complexType>
@@ -686,7 +685,7 @@ func TestRestrictionRejectsWildcardForElementAndNillableLoosening(t *testing.T) 
 		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element name="e1" nillable="true"/><xs:element name="e2"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>`,
 	}
 	for _, body := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		expectCode(t, err, xsderrors.CodeSchemaContentModel)
 	}
 }
@@ -704,7 +703,7 @@ func TestRestrictionChoiceBranchesMustMapToBaseBranches(t *testing.T) {
 		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:choice><xs:element name="c2"/><xs:element name="c1"/></xs:choice><xs:element name="foo"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>`,
 	}
 	for i, body := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		if err == nil {
 			t.Fatalf("case %d: Compile() succeeded unexpectedly", i)
 		}
@@ -808,7 +807,7 @@ func TestRestrictionChoiceBranchOccurrenceIsPreserved(t *testing.T) {
 }
 
 func TestRestrictionOptionalElementCannotRestrictOptionalChoice(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:sequence>
@@ -857,6 +856,30 @@ func TestRestrictionRepeatedOptionalElementCanRestrictRepeatedOptionalChoice(t *
 	mustValidateRuntime(t, engine, `<root xmlns="urn:test"><annotation/><element/></root>`)
 	mustNotValidateRuntime(t, engine, `<root xmlns="urn:test"><annotation/><element/><element/></root>`, xsderrors.CodeValidationElement)
 	mustNotValidateRuntime(t, engine, `<root xmlns="urn:test"><annotation/><any/></root>`, xsderrors.CodeValidationElement)
+}
+
+func TestRestrictionSingleRepeatedElementRetainsRepeatedChoiceLimit(t *testing.T) {
+	engine := mustCompileRuntime(t, `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base">
+    <xs:sequence>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="a"/>
+        <xs:element name="b"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:restriction base="base">
+        <xs:sequence><xs:element name="a" maxOccurs="unbounded"/></xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="derived"/>
+</xs:schema>`)
+	mustValidateRuntime(t, engine, `<root><a/></root>`)
+	mustNotValidateRuntime(t, engine, `<root><a/><a/></root>`, xsderrors.CodeValidationElement)
 }
 
 func TestRestrictionRepeatedChoiceLimitDoesNotApplyToNestedGroup(t *testing.T) {
@@ -940,7 +963,7 @@ func TestRestrictionSequenceToChoiceRequiresValidBranchMap(t *testing.T) {
 		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>`,
 	}
 	for i, body := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		if err == nil {
 			t.Fatalf("case %d: Compile() succeeded unexpectedly", i)
 		}
@@ -961,7 +984,7 @@ func TestRestrictionNonPointlessChoiceCannotRestrictSequence(t *testing.T) {
 		`<xs:choice minOccurs="0"><xs:element name="e1"/></xs:choice>`,
 		`<xs:choice><xs:element name="e1"/><xs:element name="e2"/></xs:choice>`,
 	} {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:sequence><xs:element name="e1" minOccurs="0"/><xs:element name="e2" minOccurs="0"/></xs:sequence></xs:complexType>
   <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base">`+derived+`</xs:restriction></xs:complexContent></xs:complexType>
@@ -975,7 +998,7 @@ func TestRestrictionLocalIdentityConstraintsMustBeSubset(t *testing.T) {
 	common := `<xs:complexType name="T"><xs:sequence><xs:element name="row" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType></xs:element></xs:sequence></xs:complexType>`
 	key := `<xs:key name="k"><xs:selector xpath="row"/><xs:field xpath="@id"/></xs:key>`
 
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+common+`
   <xs:complexType name="base"><xs:sequence><xs:element name="e" type="T"/></xs:sequence></xs:complexType>
   <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element name="e" type="T">`+key+`</xs:element></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
@@ -1020,7 +1043,7 @@ func TestRestrictionSequenceMappingSkipsOnlyEmptiableBaseParticles(t *testing.T)
   <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element name="b"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
 </xs:schema>`)
 
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{
+	_, err := compile.Compile(compile.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test" xmlns:i="urn:imported">
   <xs:import namespace="urn:imported"/>
@@ -1057,7 +1080,7 @@ func TestRestrictionSequenceToAllRequiresValidParticleMap(t *testing.T) {
 		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:sequence><xs:element name="a1" minOccurs="0"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>`,
 	}
 	for i, body := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		if err == nil {
 			t.Fatalf("case %d: Compile() succeeded unexpectedly", i)
 		}
@@ -1066,7 +1089,7 @@ func TestRestrictionSequenceToAllRequiresValidParticleMap(t *testing.T) {
 }
 
 func TestRestrictionAllCannotRestrictMultiParticleSequence(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:sequence><xs:element name="e1"/><xs:element name="e2"/></xs:sequence></xs:complexType>
   <xs:complexType name="derived">
@@ -1146,7 +1169,7 @@ func TestNestedChoiceBranchOccurrencesInsideSequence(t *testing.T) {
 }
 
 func TestExtensionUPAChecksRepeatableModelRefTerms(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test" elementFormDefault="qualified">
   <xs:complexType name="base"><xs:choice><xs:any namespace="##targetNamespace" maxOccurs="3"/></xs:choice></xs:complexType>
   <xs:element name="doc">
@@ -1162,7 +1185,7 @@ func TestExtensionUPAChecksRepeatableModelRefTerms(t *testing.T) {
 }
 
 func TestAllCanContainOnlyElementParticles(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="t"><xs:all><xs:sequence><xs:element name="a"/></xs:sequence></xs:all></xs:complexType>
 </xs:schema>`))})
@@ -1171,7 +1194,7 @@ func TestAllCanContainOnlyElementParticles(t *testing.T) {
 }
 
 func TestChoiceUPAChecksGroupSequenceFirstElement(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g"><xs:sequence><xs:element name="a"/></xs:sequence></xs:group>
   <xs:complexType name="t"><xs:choice><xs:element name="a"/><xs:group ref="g"/></xs:choice></xs:complexType>
@@ -1181,7 +1204,7 @@ func TestChoiceUPAChecksGroupSequenceFirstElement(t *testing.T) {
 }
 
 func TestRequiredGroupRefWithEmptiableChoiceCanBeAbsent(t *testing.T) {
-	engine, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	engine, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns="urn:test" elementFormDefault="qualified">
   <xs:element name="Root">
     <xs:complexType>
@@ -1206,21 +1229,21 @@ func TestRequiredGroupRefWithEmptiableChoiceCanBeAbsent(t *testing.T) {
 }
 
 func TestTopLevelGroupCompositorCannotHaveOccurs(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g"><xs:choice maxOccurs="2"><xs:element name="a"/></xs:choice></xs:group>
 </xs:schema>`))})
 
 	expectCode(t, err, xsderrors.CodeSchemaOccurrence)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g"><xs:choice><xs:element name="a"/></xs:choice><xs:sequence><xs:element name="b"/></xs:sequence></xs:group>
 </xs:schema>`))})
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g"><xs:all><xs:element name="a" maxOccurs="2"/></xs:all></xs:group>
 </xs:schema>`))})
@@ -1239,7 +1262,7 @@ func TestTopLevelGroupDeclarationAttributesAreValidated(t *testing.T) {
 		{`<xs:group name="g" maxOccurs="1"><xs:sequence><xs:element name="a"/></xs:sequence></xs:group>`, xsderrors.CodeSchemaInvalidAttribute},
 	}
 	for _, test := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+test.group+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+test.group+`</xs:schema>`))})
 		expectCode(t, err, test.code)
 	}
 }
@@ -1251,13 +1274,13 @@ func TestTopLevelGroupDeclarationChildrenAreValidated(t *testing.T) {
 		`<xs:group name="g"><xs:group ref="other"/></xs:group><xs:group name="other"><xs:sequence><xs:element name="a"/></xs:sequence></xs:group>`,
 	}
 	for _, group := range tests {
-		_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+group+`</xs:schema>`))})
+		_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+group+`</xs:schema>`))})
 		expectCode(t, err, xsderrors.CodeSchemaContentModel)
 	}
 }
 
 func TestAnyParticleCanContainOnlyAnnotation(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
@@ -1273,7 +1296,7 @@ func TestAnyParticleCanContainOnlyAnnotation(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g">
     <xs:sequence>
@@ -1382,10 +1405,10 @@ func TestChoiceKeepsSelectedBranch(t *testing.T) {
 }
 
 func TestInvalidOccurrenceIsSchemaCompileError(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:sequence><xs:element name="a" minOccurs="2" maxOccurs="1"/></xs:sequence></xs:complexType></xs:element></xs:schema>`))})
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:sequence><xs:element name="a" minOccurs="2" maxOccurs="1"/></xs:sequence></xs:complexType></xs:element></xs:schema>`))})
 	expectCode(t, err, xsderrors.CodeSchemaOccurrence)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g"><xs:sequence><xs:element name="a"/></xs:sequence></xs:group>
   <xs:element name="r"><xs:complexType><xs:group ref="g" minOccurs="1" maxOccurs="0"/></xs:complexType></xs:element>
@@ -1393,7 +1416,7 @@ func TestInvalidOccurrenceIsSchemaCompileError(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaOccurrence)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g"><xs:all><xs:element name="a"/></xs:all></xs:group>
   <xs:element name="r"><xs:complexType><xs:group ref="g" minOccurs="0" maxOccurs="0"/></xs:complexType></xs:element>
@@ -1403,34 +1426,44 @@ func TestInvalidOccurrenceIsSchemaCompileError(t *testing.T) {
 }
 
 func TestCompileOptionsNameAndOccurrenceLimits(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{MaxSchemaNames: 1}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`))})
+	_, err := compile.Compile(compile.Options{MaxSchemaNames: 1}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 
 	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:sequence><xs:element name="a" maxOccurs="11"/></xs:sequence></xs:complexType></xs:element></xs:schema>`
-	_, err = compile.Compile(context.Background(), compile.Options{MaxFiniteOccurs: 10}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	_, err = compile.Compile(compile.Options{MaxFiniteOccurs: 10}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 
 	boundary := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:sequence><xs:element name="a" maxOccurs="10"/><xs:element name="b" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element></xs:schema>`
-	_, err = compile.Compile(context.Background(), compile.Options{MaxFiniteOccurs: 10}, []source.Source{source.Bytes("schema.xsd", []byte(boundary))})
+	_, err = compile.Compile(compile.Options{MaxFiniteOccurs: 10}, []source.Source{source.Bytes("schema.xsd", []byte(boundary))})
 	if err != nil {
 		t.Fatalf("Compile() maxOccurs boundary error = %v", err)
 	}
 
-	_, err = compile.Compile(context.Background(), compile.Options{MaxContentModelStates: 1}, []source.Source{source.Bytes("schema.xsd", []byte(boundary))})
+	_, err = compile.Compile(compile.Options{MaxContentModelStates: 1}, []source.Source{source.Bytes("schema.xsd", []byte(boundary))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 
 	directSequence := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence></xs:complexType></xs:element></xs:schema>`
-	_, err = compile.Compile(context.Background(), compile.Options{MaxContentModelStates: 1}, []source.Source{source.Bytes("schema.xsd", []byte(directSequence))})
+	_, err = compile.Compile(compile.Options{MaxContentModelStates: 1}, []source.Source{source.Bytes("schema.xsd", []byte(directSequence))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 
 	directChoice := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice></xs:complexType></xs:element></xs:schema>`
-	_, err = compile.Compile(context.Background(), compile.Options{MaxContentModelStates: 1}, []source.Source{source.Bytes("schema.xsd", []byte(directChoice))})
+	_, err = compile.Compile(compile.Options{MaxContentModelStates: 1}, []source.Source{source.Bytes("schema.xsd", []byte(directChoice))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 
-	_, err = compile.Compile(context.Background(), compile.Options{MaxContentModelStates: 32}, []source.Source{source.Bytes("schema.xsd", []byte(boundary))})
+	_, err = compile.Compile(compile.Options{MaxContentModelStates: 32}, []source.Source{source.Bytes("schema.xsd", []byte(boundary))})
 	if err != nil {
 		t.Fatalf("Compile() content model state boundary error = %v", err)
 	}
+
+	sharedModels := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		<xs:group name="shared"><xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence></xs:group>
+		<xs:element name="r"><xs:complexType><xs:sequence><xs:group ref="shared"/><xs:group ref="shared"/></xs:sequence></xs:complexType></xs:element>
+	</xs:schema>`
+	if _, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(sharedModels))}); err != nil {
+		t.Fatalf("Compile() shared content-model graph error = %v", err)
+	}
+	_, err = compile.Compile(compile.Options{MaxContentModelAnalysisSteps: 4}, []source.Source{source.Bytes("schema.xsd", []byte(sharedModels))})
+	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }
 
 func TestNestedChoiceModelGroup(t *testing.T) {
@@ -1514,7 +1547,7 @@ func TestChoiceBranchCanBeSequenceModelGroup(t *testing.T) {
 }
 
 func TestDirectRecursiveModelGroupsAreSchemaErrors(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="g">
     <xs:sequence>
@@ -1530,7 +1563,7 @@ func TestDirectRecursiveModelGroupsAreSchemaErrors(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaReference)
 
-	_, err = compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:group name="a">
     <xs:choice>
@@ -1579,7 +1612,7 @@ func TestRecursiveModelGroupsThroughElements(t *testing.T) {
 }
 
 func TestRecursiveAttributeGroupsAreSchemaErrors(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup name="a">
     <xs:attributeGroup ref="a"/>
@@ -1784,7 +1817,7 @@ func TestNullableExactRepeatCanBeSatisfiedByEmptyOccurrences(t *testing.T) {
 }
 
 func TestNullableSingleParticleRepeatCompilesWithoutStateExplosion(t *testing.T) {
-	engine, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	engine, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
@@ -1808,7 +1841,7 @@ func TestNullableSingleParticleRepeatCompilesWithoutStateExplosion(t *testing.T)
 }
 
 func TestLargeFiniteNestedRepeatReturnsSchemaLimit(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{MaxContentModelStates: 8}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{MaxContentModelStates: 8}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
@@ -1899,7 +1932,7 @@ func TestRepeatingChoiceRestrictionWithDerivedChoiceValidates(t *testing.T) {
 }
 
 func TestSequenceParticleCannotRestrictElementParticle(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test">
   <xs:complexType name="base">
     <xs:choice minOccurs="2" maxOccurs="unbounded">
@@ -1927,7 +1960,7 @@ func TestSequenceParticleCannotRestrictElementParticle(t *testing.T) {
 }
 
 func TestChoiceDuplicateElementIsUPACompileError(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
@@ -1943,7 +1976,7 @@ func TestChoiceDuplicateElementIsUPACompileError(t *testing.T) {
 }
 
 func TestRepeatingChoiceWildcardOverlapIsUPACompileError(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
   <xs:element name="r">
     <xs:complexType>
@@ -1959,7 +1992,7 @@ func TestRepeatingChoiceWildcardOverlapIsUPACompileError(t *testing.T) {
 }
 
 func TestSequenceRepeatedElementCanBeUPACompileError(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="bad">
     <xs:sequence>
@@ -1973,7 +2006,7 @@ func TestSequenceRepeatedElementCanBeUPACompileError(t *testing.T) {
 }
 
 func TestSequenceWildcardElementOverlapIsUPACompileError(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="bad">
     <xs:sequence>
@@ -1987,7 +2020,7 @@ func TestSequenceWildcardElementOverlapIsUPACompileError(t *testing.T) {
 }
 
 func TestSequenceWildcardWildcardOverlapIsUPACompileError(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
   <xs:complexType name="bad">
     <xs:sequence>
@@ -2001,7 +2034,7 @@ func TestSequenceWildcardWildcardOverlapIsUPACompileError(t *testing.T) {
 }
 
 func TestSequenceWildcardLocalAndListOverlapIsUPACompileError(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
   <xs:complexType name="bad">
     <xs:sequence>
@@ -2015,7 +2048,7 @@ func TestSequenceWildcardLocalAndListOverlapIsUPACompileError(t *testing.T) {
 }
 
 func TestRepeatingSequenceWildcardProcessOnlyOverlapCompiles(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="ok">
     <xs:sequence maxOccurs="10">
@@ -2031,7 +2064,7 @@ func TestRepeatingSequenceWildcardProcessOnlyOverlapCompiles(t *testing.T) {
 }
 
 func TestRepeatingSequenceWildcardListOrderIsSetEquivalent(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="ok">
     <xs:sequence maxOccurs="10">
@@ -2047,7 +2080,7 @@ func TestRepeatingSequenceWildcardListOrderIsSetEquivalent(t *testing.T) {
 }
 
 func TestAllParticleCannotRepeat(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
@@ -2062,7 +2095,7 @@ func TestAllParticleCannotRepeat(t *testing.T) {
 }
 
 func TestComplexExtensionUnionsAttributeWildcards(t *testing.T) {
-	engine, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:f="urn:f">
@@ -2088,7 +2121,7 @@ func TestComplexExtensionUnionsAttributeWildcards(t *testing.T) {
 }
 
 func TestComplexExtensionWildcardUnionCoversAllNamedNamespaces(t *testing.T) {
-	engine, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{
+	engine, err := compile.Compile(compile.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:t"
@@ -2138,7 +2171,7 @@ func TestAttributeGroupWildcardsIntersect(t *testing.T) {
 }
 
 func TestAttributeWildcardUnionMustBeExpressible(t *testing.T) {
-	_, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a" xmlns:a="urn:a">
   <xs:complexType name="base">
     <xs:anyAttribute namespace="##other"/>
@@ -2161,9 +2194,11 @@ func wideChoiceSchema(width int, extraParticles string) string {
   <xs:element name="r">
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
-`)
+	`)
 	for i := range width {
-		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+		sb.WriteString(`        <xs:element name="f`)
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString("\" type=\"xs:string\"/>\n")
 	}
 	sb.WriteString(extraParticles)
 	sb.WriteString(`      </xs:choice>
@@ -2179,23 +2214,9 @@ func compiledRootModel(t *testing.T, schema string) runtime.CompiledModel {
 	return build.CompiledModels[rootBuildContentModel(t, build)]
 }
 
-func requireIndexedRootModel(t *testing.T, schema string) {
-	t.Helper()
-	model := compiledRootModel(t, schema)
-	if model.Kind != runtime.CompiledModelDFA {
-		t.Fatalf("root model kind = %v, want DFA", model.Kind)
-	}
-	for _, row := range model.Rows {
-		if len(row.Edges) >= runtime.CompiledDFARowIndexMinEdges && !row.Index.IsEnabled() {
-			t.Fatalf("row with %d edges has no name index", len(row.Edges))
-		}
-	}
-}
-
 func TestWideChoiceIndexedDispatch(t *testing.T) {
 	schema := wideChoiceSchema(16, "")
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f0/><f15/><f7/><f7/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><f0/><zzz/></r>`, xsderrors.CodeValidationElement)
 	mustNotValidateRuntime(t, engine, `<r><f0/><r/></r>`, xsderrors.CodeValidationElement)
@@ -2207,9 +2228,11 @@ func TestWideSequenceIndexedDispatch(t *testing.T) {
   <xs:element name="r">
     <xs:complexType>
       <xs:sequence>
-`)
+	`)
 	for i := range 15 {
-		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string" minOccurs="0"/>` + "\n")
+		sb.WriteString(`        <xs:element name="f`)
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString("\" type=\"xs:string\" minOccurs=\"0\"/>\n")
 	}
 	sb.WriteString(`        <xs:element name="last" type="xs:string"/>
       </xs:sequence>
@@ -2218,7 +2241,6 @@ func TestWideSequenceIndexedDispatch(t *testing.T) {
 </xs:schema>`)
 	schema := sb.String()
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f3/><f10/><last/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><f3/></r>`, xsderrors.CodeValidationContent)
 	mustNotValidateRuntime(t, engine, `<r><last/><f3/></r>`, xsderrors.CodeValidationElement)
@@ -2233,9 +2255,11 @@ func TestWideChoiceIndexedSubstitutionGroup(t *testing.T) {
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element ref="head"/>
-`)
+	`)
 	for i := range 15 {
-		sb.WriteString(`        <xs:element name="f` + strconv.Itoa(i) + `" type="xs:string"/>` + "\n")
+		sb.WriteString(`        <xs:element name="f`)
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString("\" type=\"xs:string\"/>\n")
 	}
 	sb.WriteString(`      </xs:choice>
     </xs:complexType>
@@ -2243,7 +2267,6 @@ func TestWideChoiceIndexedSubstitutionGroup(t *testing.T) {
 </xs:schema>`)
 	schema := sb.String()
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><member/><f0/><head/><member/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><zzz/></r>`, xsderrors.CodeValidationElement)
 }
@@ -2252,7 +2275,6 @@ func TestWideChoiceIndexedWildcardSkip(t *testing.T) {
 	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="skip"/>
 `)
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><f0/><o:x xmlns:o="urn:o"><o:y/></o:x><f14/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><zzz/></r>`, xsderrors.CodeValidationElement)
 }
@@ -2261,7 +2283,6 @@ func TestWideChoiceIndexedWildcardLax(t *testing.T) {
 	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="lax"/>
 `)
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustValidateRuntime(t, engine, `<r><o:x xmlns:o="urn:o"/><f3/></r>`)
 }
 
@@ -2269,20 +2290,21 @@ func TestWideChoiceIndexedWildcardStrict(t *testing.T) {
 	schema := wideChoiceSchema(15, `        <xs:any namespace="##other" processContents="strict"/>
 `)
 	engine := mustCompileRuntime(t, schema)
-	requireIndexedRootModel(t, schema)
 	mustNotValidateRuntime(t, engine, `<r><o:x xmlns:o="urn:o"/></r>`, xsderrors.CodeValidationElement)
 }
 
-func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
+func TestWideCountingExceptionDispatch(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="r">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="a" minOccurs="2" maxOccurs="2"/>
-`)
+	`)
 	for _, name := range []string{"b", "c", "d", "e", "f", "g"} {
-		sb.WriteString(`        <xs:element name="` + name + `" minOccurs="0"/>` + "\n")
+		sb.WriteString(`        <xs:element name="`)
+		sb.WriteString(name)
+		sb.WriteString("\" minOccurs=\"0\"/>\n")
 	}
 	sb.WriteString(`        <xs:element name="a"/>
       </xs:sequence>
@@ -2291,16 +2313,6 @@ func TestWideCountingExceptionRowKeepsLinearScan(t *testing.T) {
 </xs:schema>`)
 	schema := sb.String()
 	engine := mustCompileRuntime(t, schema)
-	model := compiledRootModel(t, schema)
-	ambiguousRow := false
-	for _, row := range model.Rows {
-		if len(row.Edges) >= runtime.CompiledDFARowIndexMinEdges && !row.Index.IsEnabled() {
-			ambiguousRow = true
-		}
-	}
-	if !ambiguousRow {
-		t.Fatal("expected a wide row without a name index")
-	}
 	mustValidateRuntime(t, engine, `<r><a/><a/><a/></r>`)
 	mustValidateRuntime(t, engine, `<r><a/><a/><b/><g/><a/></r>`)
 	mustNotValidateRuntime(t, engine, `<r><a/><a/><a/><a/></r>`, xsderrors.CodeValidationElement)

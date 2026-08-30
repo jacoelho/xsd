@@ -24,7 +24,8 @@ func TestParserResetClassifiesXMLProlog(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var parser Parser
-			err := parser.Reset(strings.NewReader(test.xml), nil, nil)
+			names, values := NewCache(), NewCache()
+			err := parser.Reset(strings.NewReader(test.xml), &names, &values)
 			if !errors.Is(err, test.want) {
 				var gotVersion UnsupportedXMLVersionError
 				var wantVersion UnsupportedXMLVersionError
@@ -67,25 +68,119 @@ func TestParserResetBOMPreservesFullDeclarationPreview(t *testing.T) {
 	declaration := prefix + strings.Repeat(" ", xmlInputBufferSize-len(prefix)-len(suffix)) + suffix
 	for _, bom := range []string{"", "\ufeff"} {
 		var parser Parser
-		err := parser.Reset(strings.NewReader(bom+declaration+`<r/>`), nil, nil)
+		names, values := NewCache(), NewCache()
+		err := parser.Reset(strings.NewReader(bom+declaration+`<r/>`), &names, &values)
 		if !errors.Is(err, ErrUnsupportedNonUTF8) {
 			t.Fatalf("BOM %t: Parser.Reset() error = %v, want %v", bom != "", err, ErrUnsupportedNonUTF8)
 		}
 	}
 }
 
-type noProgressReader struct{}
+type noProgressReader struct {
+	reads int
+}
 
-func (noProgressReader) Read([]byte) (int, error) { return 0, nil }
+func (r *noProgressReader) Read([]byte) (int, error) {
+	r.reads++
+	return 0, nil
+}
 
 func TestParserResetRejectsNoProgressAndDetaches(t *testing.T) {
 	var parser Parser
-	err := parser.Reset(noProgressReader{}, nil, nil)
+	names, values := NewCache(), NewCache()
+	reader := &noProgressReader{}
+	err := parser.Reset(reader, &names, &values)
 	if !errors.Is(err, io.ErrNoProgress) {
 		t.Fatalf("Parser.Reset() error = %v, want %v", err, io.ErrNoProgress)
 	}
+	if reader.reads != 100 {
+		t.Fatalf("reader calls = %d, want 100", reader.reads)
+	}
 	if parser.br.r != nil {
 		t.Fatal("failed Parser.Reset() retained no-progress reader")
+	}
+	if err := parser.Reset(strings.NewReader(`<root/>`), &names, &values); err != nil {
+		t.Fatalf("Parser.Reset() after no progress = %v", err)
+	}
+	parser.Detach()
+}
+
+type transientEmptyReader struct {
+	r       io.Reader
+	empty   int
+	chunk   int
+	between bool
+}
+
+func (r *transientEmptyReader) Read(p []byte) (int, error) {
+	if r.empty > 0 {
+		r.empty--
+		return 0, nil
+	}
+	if r.chunk > 0 && len(p) > r.chunk {
+		p = p[:r.chunk]
+	}
+	n, err := r.r.Read(p)
+	if n > 0 && r.between {
+		r.empty = 1
+	}
+	return n, err
+}
+
+func TestParserAcceptsBoundedTransientEmptyReads(t *testing.T) {
+	t.Parallel()
+
+	for _, empties := range []int{1, 99} {
+		t.Run(fmt.Sprintf("empties=%d", empties), func(t *testing.T) {
+			t.Parallel()
+			reader := &transientEmptyReader{r: strings.NewReader(`<root/>`), empty: empties}
+			var parser Parser
+			names, values := NewCache(), NewCache()
+			if err := parser.Reset(reader, &names, &values); err != nil {
+				t.Fatalf("Parser.Reset() error = %v", err)
+			}
+			defer parser.Detach()
+			for range 2 {
+				if _, err := parser.Next(); err != nil {
+					t.Fatalf("Parser.Next() error = %v", err)
+				}
+			}
+			if _, err := parser.Next(); !errors.Is(err, io.EOF) {
+				t.Fatalf("Parser.Next() terminal error = %v, want EOF", err)
+			}
+		})
+	}
+}
+
+func TestParserAcceptsTransientEmptyReadsBetweenChunks(t *testing.T) {
+	t.Parallel()
+
+	doc := `<root>` + strings.Repeat(`<item a="v">text</item>`, 8_000) + `</root>`
+	reader := &transientEmptyReader{r: strings.NewReader(doc), chunk: 17, between: true}
+	var parser Parser
+	names, values := NewCache(), NewCache()
+	if err := parser.Reset(reader, &names, &values); err != nil {
+		t.Fatalf("Parser.Reset() error = %v", err)
+	}
+	defer parser.Detach()
+	for {
+		_, err := parser.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Parser.Next() error = %v", err)
+		}
+	}
+}
+
+func TestParserInputLimitSurvivesTransientEmptyProbe(t *testing.T) {
+	t.Parallel()
+
+	doc := `<root/>x`
+	reader := &transientEmptyReader{r: strings.NewReader(doc), empty: 3, chunk: 1, between: true}
+	if err := consumeWithInputLimit(reader, int64(len(doc)-1)); !IsInputLimit(err) {
+		t.Fatalf("consumeWithInputLimit() error = %v, want input limit", err)
 	}
 }
 
@@ -120,11 +215,64 @@ func TestParserResetDefersErrorReturnedWithBufferedDocument(t *testing.T) {
 	}
 }
 
+func TestParserNextPreservesReaderErrorAfterBufferedCharacterData(t *testing.T) {
+	t.Parallel()
+	sentinel := errors.New("sentinel")
+	names, values := NewCache(), NewCache()
+	var parser Parser
+	if err := parser.Reset(&dataErrorReader{data: []byte(`<root>abc`), err: sentinel}, &names, &values); err != nil {
+		t.Fatalf("Parser.Reset() error = %v", err)
+	}
+	if token, err := parser.Next(); err != nil || token.Kind != KindStart {
+		t.Fatalf("Parser.Next(root) = %+v, %v", token, err)
+	}
+	token, err := parser.Next()
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("Parser.Next(character data) error = %v, want %v", err, sentinel)
+	}
+	if !zeroToken(token) {
+		t.Fatalf("Parser.Next(character data) token = %+v, want zero token", token)
+	}
+	if line, col := parser.Pos(); line != 1 || col != 9 {
+		t.Fatalf("Parser.Pos() = %d:%d, want 1:9", line, col)
+	}
+}
+
+func TestParserTruncatedMarkupPreservesReaderError(t *testing.T) {
+	t.Parallel()
+	for _, text := range []string{`<root/></`, `<root/><next `} {
+		t.Run(text, func(t *testing.T) {
+			t.Parallel()
+			sentinel := errors.New("sentinel")
+			names, values := NewCache(), NewCache()
+			var parser Parser
+			readerErr := errors.Join(io.EOF, sentinel)
+			if err := parser.Reset(&dataErrorReader{data: []byte(text), err: readerErr}, &names, &values); err != nil {
+				t.Fatalf("Parser.Reset() error = %v", err)
+			}
+			for {
+				token, err := parser.Next()
+				if err == nil {
+					continue
+				}
+				if !errors.Is(err, sentinel) {
+					t.Fatalf("Parser.Next() error = %v, want reader cause", err)
+				}
+				if !zeroToken(token) {
+					t.Fatalf("Parser.Next() token = %+v, want zero token", token)
+				}
+				break
+			}
+		})
+	}
+}
+
 func TestParserResetReturnsErrorWithShortPrefix(t *testing.T) {
 	sentinel := errors.New("sentinel")
 	reader := &dataErrorReader{data: []byte(`<r`), err: sentinel}
 	var parser Parser
-	if err := parser.Reset(reader, nil, nil); !errors.Is(err, sentinel) {
+	names, values := NewCache(), NewCache()
+	if err := parser.Reset(reader, &names, &values); !errors.Is(err, sentinel) {
 		t.Fatalf("Parser.Reset() error = %v, want %v", err, sentinel)
 	}
 	if parser.br.r != nil {
@@ -147,7 +295,7 @@ func (r chunkReader) Read(p []byte) (int, error) {
 func consumeWithInputLimit(r io.Reader, limit int64) error {
 	var parser Parser
 	names, values := NewCache(), NewCache()
-	if err := parser.ResetWithLimits(r, &names, &values, Limits{MaxInputBytes: limit}); err != nil {
+	if err := parser.ResetWithConfig(r, &names, &values, Config{Limits: Limits{MaxInputBytes: limit}}); err != nil {
 		return err
 	}
 	defer parser.Detach()
@@ -277,7 +425,8 @@ func TestParserNextPreservesUnsupportedDeclarationClassificationBeyondPreview(t 
 func TestParserDetachDoesNotResetCallerBufferedReader(t *testing.T) {
 	callerReader := bufio.NewReaderSize(strings.NewReader("<root/>"), xmlInputBufferSize*2)
 	var parser Parser
-	if err := parser.Reset(callerReader, nil, nil); err != nil {
+	names, values := NewCache(), NewCache()
+	if err := parser.Reset(callerReader, &names, &values); err != nil {
 		t.Fatal(err)
 	}
 	parser.Detach()

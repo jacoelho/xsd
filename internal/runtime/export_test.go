@@ -6,26 +6,16 @@ func (rt *Schema) ValidateSimpleValueRuntimeBoundaryForTest(id SimpleTypeID, lex
 }
 
 // SimpleContentTypeForTest exposes simple-content type projection reads.
-func (rt *Schema) SimpleContentTypeForTest(t TypeID) (SimpleTypeID, bool, bool) {
+func (rt *Schema) SimpleContentTypeForTest(t TypeID) (id SimpleTypeID, present, valid bool) {
 	return rt.SimpleContentType(t)
 }
 
 // ElementValueConstraintsForTest exposes element value-constraint projection reads.
-func (rt *Schema) ElementValueConstraintsForTest(id ElementID) (ElementValueConstraints, bool, bool) {
+func (rt *Schema) ElementValueConstraintsForTest(id ElementID) (constraints ElementValueConstraints, present, valid bool) {
 	return rt.ElementValueConstraints(id)
-}
-
-// ElementChildContentForTest exposes child-content projection reads.
-func (rt *Schema) ElementChildContentForTest(t TypeID) (ElementChildContent, bool) {
-	return rt.elementChildContent(t)
 }
 
 // ComplexAttributeUsesForTest exposes complex attribute-use projection reads.
 func (rt *Schema) ComplexAttributeUsesForTest(id ComplexTypeID) (AttributeUseSetRead, bool) {
 	return rt.complexAttributeUses(id)
-}
-
-// ElementTextContentForTest exposes text-content projection reads.
-func (rt *Schema) ElementTextContentForTest(t TypeID, elem ElementID) (ElementTextContent, bool) {
-	return rt.ElementTextContent(t, elem)
 }

@@ -13,7 +13,7 @@ func testRawNodeWithLocalAttrs(local string, attrs []string) *rawNode {
 	for i, attr := range attrs {
 		rawAttrs[i] = testRawAttr("", attr, "")
 	}
-	return testRawNode(local, true, rawAttrs)
+	return testXSDRawNode(local, rawAttrs)
 }
 
 func TestCheckReferenceAttributes(t *testing.T) {
@@ -281,30 +281,38 @@ func TestValidateUseSources(t *testing.T) {
 		validate    func() error
 		wantMessage string
 	}{
-		{name: "local element name", validate: func() error { return ValidateLocalElementSource(true, false) }},
-		{name: "local element ref", validate: func() error { return ValidateLocalElementSource(false, true) }},
+		{name: "local element name", validate: func() error {
+			return ValidateLocalElementSource(NameReferenceSource{Name: LexicalAttribute{Present: true}})
+		}},
+		{name: "local element ref", validate: func() error {
+			return ValidateLocalElementSource(NameReferenceSource{Reference: LexicalAttribute{Present: true}})
+		}},
 		{
 			name:        "local element missing",
-			validate:    func() error { return ValidateLocalElementSource(false, false) },
+			validate:    func() error { return ValidateLocalElementSource(NameReferenceSource{}) },
 			wantMessage: "local element missing name or ref",
 		},
-		{name: "attribute name", validate: func() error { return ValidateAttributeUseSource(true, false) }},
-		{name: "attribute ref", validate: func() error { return ValidateAttributeUseSource(false, true) }},
+		{name: "attribute name", validate: func() error {
+			return ValidateAttributeUseSource(NameReferenceSource{Name: LexicalAttribute{Present: true}})
+		}},
+		{name: "attribute ref", validate: func() error {
+			return ValidateAttributeUseSource(NameReferenceSource{Reference: LexicalAttribute{Present: true}})
+		}},
 		{
 			name:        "attribute missing",
-			validate:    func() error { return ValidateAttributeUseSource(false, false) },
+			validate:    func() error { return ValidateAttributeUseSource(NameReferenceSource{}) },
 			wantMessage: "attribute missing name or ref",
 		},
-		{name: "attribute group ref", validate: func() error { return ValidateAttributeGroupUseSource(true) }},
+		{name: "attribute group ref", validate: func() error { return ValidateAttributeGroupUseSource(LexicalAttribute{Present: true}) }},
 		{
 			name:        "attribute group missing",
-			validate:    func() error { return ValidateAttributeGroupUseSource(false) },
+			validate:    func() error { return ValidateAttributeGroupUseSource(LexicalAttribute{}) },
 			wantMessage: "attributeGroup use missing ref",
 		},
-		{name: "group ref", validate: func() error { return ValidateGroupUseSource(true) }},
+		{name: "group ref", validate: func() error { return ValidateGroupUseSource(LexicalAttribute{Present: true}) }},
 		{
 			name:        "group missing",
-			validate:    func() error { return ValidateGroupUseSource(false) },
+			validate:    func() error { return ValidateGroupUseSource(LexicalAttribute{}) },
 			wantMessage: "group use missing ref",
 		},
 	}
@@ -330,7 +338,7 @@ func expectSchemaReferenceMessage(t *testing.T, err error, message string) {
 	if !ok {
 		t.Fatalf("error = %T %[1]v, want xsderrors.Error", err)
 	}
-	if diag.Category != xsderrors.CategorySchemaCompile || diag.Code != xsderrors.CodeSchemaReference || diag.Message != message {
-		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category, diag.Code, diag.Message, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaReference, message)
+	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaReference || diag.Message() != message {
+		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category(), diag.Code(), diag.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaReference, message)
 	}
 }

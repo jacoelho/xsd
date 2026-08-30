@@ -56,23 +56,6 @@ func TestContentKind(t *testing.T) {
 	}
 }
 
-func TestContentKindConstructors(t *testing.T) {
-	t.Parallel()
-
-	if got := ElementContentKind(false); got != ContentElementOnly {
-		t.Fatalf("ElementContentKind(false) = %d, want %d", got, ContentElementOnly)
-	}
-	if got := ElementContentKind(true); got != ContentMixed {
-		t.Fatalf("ElementContentKind(true) = %d, want %d", got, ContentMixed)
-	}
-	if got := SimpleContentKind(false); got != ContentSimple {
-		t.Fatalf("SimpleContentKind(false) = %d, want %d", got, ContentSimple)
-	}
-	if got := SimpleContentKind(true); got != ContentSimpleMixed {
-		t.Fatalf("SimpleContentKind(true) = %d, want %d", got, ContentSimpleMixed)
-	}
-}
-
 func TestComplexTypeContentHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -810,8 +793,9 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 
 type complexTypeValidationRuntime struct {
 	testParticleRuntime
-	simpleFinal []DerivationMask
 	derivationRuntimeStub
+
+	simpleFinal []DerivationMask
 }
 
 func (rt complexTypeValidationRuntime) SimpleTypeFinal(id SimpleTypeID) (DerivationMask, bool) {
@@ -1085,7 +1069,8 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexTypeRestrictionRuntime(rt, tt.base, tt.derived)
+			analysis := unlimitedContentModelAnalysis(rt)
+			err := ValidateComplexTypeRestrictionRuntime(rt, analysis, tt.base, tt.derived)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeRestrictionRuntime() error = %v", err)
@@ -1156,10 +1141,10 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		name        string
-		base        ComplexType
-		restriction bool
-		want        bool
+		name       string
+		base       ComplexType
+		derivation DerivationKind
+		want       bool
 	}{
 		{
 			name: "simple base",
@@ -1168,7 +1153,8 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 				TextType:    0,
 				ContentKind: ContentSimple,
 			},
-			want: true,
+			derivation: DerivationKindExtension,
+			want:       true,
 		},
 		{
 			name: "emptiable mixed restriction",
@@ -1176,8 +1162,8 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 				Content:     emptyID,
 				ContentKind: ContentMixed,
 			},
-			restriction: true,
-			want:        true,
+			derivation: DerivationKindRestriction,
+			want:       true,
 		},
 		{
 			name: "emptiable mixed extension",
@@ -1185,6 +1171,7 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 				Content:     emptyID,
 				ContentKind: ContentMixed,
 			},
+			derivation: DerivationKindExtension,
 		},
 		{
 			name: "non-emptiable mixed restriction",
@@ -1192,7 +1179,7 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 				Content:     seqID,
 				ContentKind: ContentMixed,
 			},
-			restriction: true,
+			derivation: DerivationKindRestriction,
 		},
 		{
 			name: "element-only restriction",
@@ -1200,13 +1187,18 @@ func TestSimpleContentDerivationBaseAllowed(t *testing.T) {
 				Content:     emptyID,
 				ContentKind: ContentElementOnly,
 			},
-			restriction: true,
+			derivation: DerivationKindRestriction,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := SimpleContentDerivationBaseAllowed(rt, tt.base, tt.restriction); got != tt.want {
+			analysis := unlimitedContentModelAnalysis(rt)
+			got, err := SimpleContentDerivationBaseAllowed(analysis, tt.base, tt.derivation)
+			if err != nil {
+				t.Fatalf("SimpleContentDerivationBaseAllowed() error = %v", err)
+			}
+			if got != tt.want {
 				t.Fatalf("SimpleContentDerivationBaseAllowed() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1231,10 +1223,10 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		name      string
-		base      ComplexType
-		extension bool
-		want      bool
+		name       string
+		base       ComplexType
+		derivation DerivationKind
+		want       bool
 	}{
 		{
 			name: "mixed base",
@@ -1242,7 +1234,8 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 				Content:     seqID,
 				ContentKind: ContentMixed,
 			},
-			want: true,
+			derivation: DerivationKindRestriction,
+			want:       true,
 		},
 		{
 			name: "simple mixed base",
@@ -1251,7 +1244,8 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 				TextType:    0,
 				ContentKind: ContentSimpleMixed,
 			},
-			want: true,
+			derivation: DerivationKindRestriction,
+			want:       true,
 		},
 		{
 			name: "empty element-only extension",
@@ -1259,8 +1253,8 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 				Content:     emptyID,
 				ContentKind: ContentElementOnly,
 			},
-			extension: true,
-			want:      true,
+			derivation: DerivationKindExtension,
+			want:       true,
 		},
 		{
 			name: "empty element-only restriction",
@@ -1268,6 +1262,7 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 				Content:     emptyID,
 				ContentKind: ContentElementOnly,
 			},
+			derivation: DerivationKindRestriction,
 		},
 		{
 			name: "non-empty element-only extension",
@@ -1275,7 +1270,7 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 				Content:     seqID,
 				ContentKind: ContentElementOnly,
 			},
-			extension: true,
+			derivation: DerivationKindExtension,
 		},
 		{
 			name: "simple base without mixed",
@@ -1284,13 +1279,13 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 				TextType:    0,
 				ContentKind: ContentSimple,
 			},
-			extension: true,
+			derivation: DerivationKindExtension,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := ComplexContentMixedDerivationBaseAllowed(rt, tt.base, tt.extension); got != tt.want {
+			if got := ComplexContentMixedDerivationBaseAllowed(rt, tt.base, tt.derivation); got != tt.want {
 				t.Fatalf("ComplexContentMixedDerivationBaseAllowed() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1315,11 +1310,11 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		name      string
-		wantErr   string
-		base      ComplexType
-		extension bool
-		mixed     bool
+		name       string
+		wantErr    string
+		base       ComplexType
+		derivation DerivationKind
+		content    ContentKind
 	}{
 		{
 			name: "not mixed",
@@ -1327,6 +1322,8 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 				Content:     seqID,
 				ContentKind: ContentElementOnly,
 			},
+			derivation: DerivationKindRestriction,
+			content:    ContentElementOnly,
 		},
 		{
 			name: "mixed base",
@@ -1334,7 +1331,8 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 				Content:     seqID,
 				ContentKind: ContentMixed,
 			},
-			mixed: true,
+			derivation: DerivationKindRestriction,
+			content:    ContentMixed,
 		},
 		{
 			name: "empty element-only extension",
@@ -1342,8 +1340,8 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 				Content:     emptyID,
 				ContentKind: ContentElementOnly,
 			},
-			extension: true,
-			mixed:     true,
+			derivation: DerivationKindExtension,
+			content:    ContentMixed,
 		},
 		{
 			name: "non-empty element-only extension",
@@ -1351,9 +1349,9 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 				Content:     seqID,
 				ContentKind: ContentElementOnly,
 			},
-			extension: true,
-			mixed:     true,
-			wantErr:   "complexContent mixed derivation requires mixed base",
+			derivation: DerivationKindExtension,
+			content:    ContentMixed,
+			wantErr:    "complexContent mixed derivation requires mixed base",
 		},
 		{
 			name: "empty element-only restriction",
@@ -1361,15 +1359,16 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 				Content:     emptyID,
 				ContentKind: ContentElementOnly,
 			},
-			mixed:   true,
-			wantErr: "complexContent mixed derivation requires mixed base",
+			derivation: DerivationKindRestriction,
+			content:    ContentMixed,
+			wantErr:    "complexContent mixed derivation requires mixed base",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexContentMixedDerivationBase(rt, tt.base, tt.extension, tt.mixed)
+			err := ValidateComplexContentMixedDerivationBase(rt, tt.base, tt.derivation, tt.content)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexContentMixedDerivationBase() error = %v", err)

@@ -1,7 +1,6 @@
 package xsd
 
 import (
-	"context"
 	"io"
 
 	"github.com/jacoelho/xsd/internal/source"
@@ -13,21 +12,23 @@ type SchemaSource struct {
 	src source.Source
 }
 
-// Resolver resolves schema include/import locations during compilation. An
-// implementation must honor ctx; compilation cannot forcibly interrupt it.
+// Resolver resolves schema include/import locations during compilation.
+// Returning only [xsderrors.ErrSchemaNotFound] reports an unavailable location;
+// any other error, including one joined with ErrSchemaNotFound, stops compilation.
+// A successful result must have a non-empty source name.
 type Resolver interface {
-	ResolveSchema(ctx context.Context, base, location string) (SchemaSource, error)
+	ResolveSchema(base, location string) (SchemaSource, error)
 }
 
 // ResolverFunc adapts a function to Resolver.
-type ResolverFunc func(ctx context.Context, base, location string) (SchemaSource, error)
+type ResolverFunc func(base, location string) (SchemaSource, error)
 
 // ResolveSchema resolves one schema include/import location.
-func (f ResolverFunc) ResolveSchema(ctx context.Context, base, location string) (SchemaSource, error) {
+func (f ResolverFunc) ResolveSchema(base, location string) (SchemaSource, error) {
 	if f == nil {
 		return SchemaSource{}, xsderrors.ErrSchemaNotFound
 	}
-	return f(ctx, base, location)
+	return f(base, location)
 }
 
 // File returns a file schema source and resolves local schemaLocation refs. A
@@ -43,16 +44,18 @@ func Bytes(name string, data []byte) SchemaSource {
 }
 
 // Open returns a reusable schema source backed by open. The function must
-// return a new independent reader on every call and honor ctx while opening.
-// Compilation cannot forcibly interrupt a callback or reader that ignores ctx.
-func Open(name string, open func(context.Context) (io.ReadCloser, error)) SchemaSource {
+// return a new independent reader on every call. Compilation owns and closes
+// every non-nil reader returned by open, including a reader returned with an
+// error, and reports close errors. The caller must not reuse that reader.
+func Open(name string, open func() (io.ReadCloser, error)) SchemaSource {
 	return SchemaSource{src: source.Opener(name, open)}
 }
 
 // WithResolver returns s with r used for every schema include/import reached
-// from s. A source returned by r remains in that resolver-owned graph, and its
-// non-empty name is the authoritative document identity for deduplication and
-// descendant resolution.
+// from s. A source returned by r remains in that resolver-owned graph regardless
+// of its own resolver, and its non-empty name is the authoritative document
+// identity for deduplication and descendant resolution. A nil resolver removes
+// custom resolution from s.
 func (s SchemaSource) WithResolver(r Resolver) SchemaSource {
 	s.src = s.src.WithResolver(adaptPublicResolver(r))
 	return s
@@ -64,8 +67,8 @@ func adaptPublicResolver(r Resolver) source.Resolver {
 	if r == nil {
 		return nil
 	}
-	return func(ctx context.Context, base, location string) (source.Source, error) {
-		src, err := r.ResolveSchema(ctx, base, location)
+	return func(base, location string) (source.Source, error) {
+		src, err := r.ResolveSchema(base, location)
 		return src.src, err
 	}
 }

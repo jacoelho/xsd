@@ -1,7 +1,7 @@
 package validate
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -42,7 +42,7 @@ func TestCheckXMLWellFormed(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := CheckXMLWellFormed(context.Background(), strings.NewReader(tt.xml), Options{})
+			err := CheckXMLWellFormed(strings.NewReader(tt.xml), Options{})
 			if tt.code == "" {
 				if err != nil {
 					t.Fatalf("CheckXMLWellFormed() error = %v", err)
@@ -54,19 +54,31 @@ func TestCheckXMLWellFormed(t *testing.T) {
 	}
 }
 
+func TestCheckXMLWellFormedUsesBufferedCharacterFailurePosition(t *testing.T) {
+	t.Parallel()
+	err := CheckXMLWellFormed(strings.NewReader("<root>\nabcdefgh\x01</root>"), Options{})
+	var xerr *xsderrors.Error
+	if !errors.As(err, &xerr) {
+		t.Fatalf("CheckXMLWellFormed() error = %T %v, want *xsderrors.Error", err, err)
+	}
+	if xerr.Code() != xsderrors.CodeValidationXML || xerr.Line() != 2 || xerr.Column() != 9 {
+		t.Fatalf("diagnostic = %s at %d:%d, want %s at 2:9", xerr.Code(), xerr.Line(), xerr.Column(), xsderrors.CodeValidationXML)
+	}
+}
+
 func TestCheckXMLWellFormedHonorsParserLimits(t *testing.T) {
 	t.Parallel()
 
-	err := CheckXMLWellFormed(context.Background(), strings.NewReader(`<root a="1" b="2"/>`), Options{MaxInstanceAttributes: 1})
+	err := CheckXMLWellFormed(strings.NewReader(`<root a="1" b="2"/>`), Options{MaxInstanceAttributes: 1})
 	requireCode(t, err, xsderrors.CodeValidationLimit)
 
-	err = CheckXMLWellFormed(context.Background(), strings.NewReader(`<root><v/></root>`), Options{MaxInstanceDepth: 1})
+	err = CheckXMLWellFormed(strings.NewReader(`<root><v/></root>`), Options{MaxInstanceDepth: 1})
 	requireCode(t, err, xsderrors.CodeValidationLimit)
 
-	err = CheckXMLWellFormed(context.Background(), strings.NewReader(`<root>text</root>`), Options{MaxInstanceTokenBytes: 1})
+	err = CheckXMLWellFormed(strings.NewReader(`<root>text</root>`), Options{MaxInstanceTokenBytes: 1})
 	requireCode(t, err, xsderrors.CodeValidationLimit)
 
-	err = CheckXMLWellFormed(context.Background(), strings.NewReader(`<r a="12" b="34"/>`), Options{MaxInstanceTokenBytes: 6})
+	err = CheckXMLWellFormed(strings.NewReader(`<r a="12" b="34"/>`), Options{MaxInstanceTokenBytes: 6})
 	requireCode(t, err, xsderrors.CodeValidationLimit)
 }
 
@@ -78,13 +90,13 @@ func TestCheckXMLWellFormedDefaultAllowsW3CAttributeGroupOracle(t *testing.T) {
 	}
 	xml.WriteString("/>")
 
-	if err := CheckXMLWellFormed(context.Background(), strings.NewReader(xml.String()), Options{}); err != nil {
+	if err := CheckXMLWellFormed(strings.NewReader(xml.String()), Options{}); err != nil {
 		t.Fatalf("CheckXMLWellFormed() error = %v", err)
 	}
 }
 
 func TestCheckXMLWellFormedRejectsInputLimitJoinedWithEOF(t *testing.T) {
 	doc := `<r/>`
-	err := CheckXMLWellFormed(context.Background(), &wellFormedEOFReader{data: doc + "X"}, Options{MaxInstanceBytes: int64(len(doc))})
+	err := CheckXMLWellFormed(&wellFormedEOFReader{data: doc + "X"}, Options{MaxInstanceBytes: int64(len(doc))})
 	requireCode(t, err, xsderrors.CodeValidationLimit)
 }

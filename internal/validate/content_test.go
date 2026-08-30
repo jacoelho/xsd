@@ -13,19 +13,20 @@ func TestValidateDocumentCharacterData(t *testing.T) {
 	ctx := StartContext{Path: "/", Line: 2, Column: 3}
 	tests := []struct {
 		name    string
-		data    string
-		cdata   bool
+		input   DocumentCharacterData
 		wantErr xsderrors.Code
 	}{
-		{name: "CDATA", data: "x", cdata: true, wantErr: xsderrors.CodeValidationXML},
-		{name: "text", data: "x", wantErr: xsderrors.CodeValidationText},
-		{name: "whitespace", data: " \n\t"},
+		{name: "CDATA", input: DocumentCharacterData{Kind: CharacterDataCDATA}, wantErr: xsderrors.CodeValidationXML},
+		{name: "text", input: DocumentCharacterData{Kind: CharacterDataText}, wantErr: xsderrors.CodeValidationText},
+		{name: "whitespace", input: DocumentCharacterData{Kind: CharacterDataText, Whitespace: true}},
+		{name: "invalid kind", input: DocumentCharacterData{Kind: CharacterDataInvalid}, wantErr: xsderrors.CodeInternalInvariant},
+		{name: "unknown kind", input: DocumentCharacterData{Kind: CharacterDataKind(99)}, wantErr: xsderrors.CodeInternalInvariant},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateDocumentCharacterData([]byte(tc.data), tc.cdata, ctx)
+			err := ValidateDocumentCharacterData(tc.input, ctx)
 			if tc.wantErr != "" {
 				expectXSDCode(t, err, tc.wantErr)
 				return
@@ -37,27 +38,37 @@ func TestValidateDocumentCharacterData(t *testing.T) {
 	}
 }
 
+func TestValidateTokenRejectsInvalidMode(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []tokenValidationMode{tokenValidationInvalid, tokenValidationMode(99)} {
+		err := validateTokenMode(mode)
+		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
+	}
+}
+
 func TestChildPolicies(t *testing.T) {
 	t.Parallel()
 
-	if got := childFramePolicy(true); got.issue.code != xsderrors.CodeValidationNil {
+	if got := childFramePolicy(&frame{Nilled: true}); got.issue.code != xsderrors.CodeValidationNil {
 		t.Fatalf("childFramePolicy(nilled) = %+v", got)
 	}
 
 	name := runtime.RuntimeName{Local: "child"}
 	tests := []struct {
-		name  string
-		child runtime.ChildContentInfo
-		code  xsderrors.Code
+		name          string
+		typ           runtime.TypeID
+		simpleContent runtime.SimpleTypeID
+		code          xsderrors.Code
 	}{
-		{name: "simple type", code: xsderrors.CodeValidationContent},
-		{name: "simple content", child: runtime.ChildContentInfo{Complex: true, Simple: true}, code: xsderrors.CodeValidationContent},
-		{name: "no model", child: runtime.ChildContentInfo{Complex: true}, code: xsderrors.CodeValidationElement},
+		{name: "simple type", typ: runtime.SimpleRef(0), simpleContent: runtime.NoSimpleType, code: xsderrors.CodeValidationContent},
+		{name: "simple content", typ: runtime.ComplexRef(0), simpleContent: 0, code: xsderrors.CodeValidationContent},
+		{name: "no model", typ: runtime.ComplexRef(0), simpleContent: runtime.NoSimpleType, code: xsderrors.CodeValidationElement},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := childContentPolicy(tc.child, runtime.ContentState{}, name); got.code != tc.code {
+			if got := childContentPolicy(tc.typ, tc.simpleContent, runtime.ContentState{}, name); got.code != tc.code {
 				t.Fatalf("childContentPolicy() = %+v, want code %q", got, tc.code)
 			}
 		})

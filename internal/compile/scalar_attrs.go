@@ -7,6 +7,18 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// LexicalAttribute keeps an XML attribute's lexical value and presence state
+// together after raw-node lookup.
+type LexicalAttribute struct {
+	Value   string
+	Present bool
+}
+
+func rawLexicalAttribute(n *rawNode, name string) LexicalAttribute {
+	value, present := n.attr(name)
+	return LexicalAttribute{Value: value, Present: present}
+}
+
 // BooleanAttr is the raw attribute state needed to parse an XML Schema boolean
 // attribute.
 type BooleanAttr struct {
@@ -64,7 +76,7 @@ type SchemaDefaults struct {
 
 // ParseSchemaDefaults validates and parses xs:schema target/default attributes.
 func ParseSchemaDefaults(attrs SchemaDefaultAttrs) (SchemaDefaults, error) {
-	if err := ValidateSchemaTargetNamespace(attrs.HasTargetNamespace, attrs.TargetNamespace); err != nil {
+	if err := ValidateSchemaTargetNamespace(LexicalAttribute{Value: attrs.TargetNamespace, Present: attrs.HasTargetNamespace}); err != nil {
 		return SchemaDefaults{}, err
 	}
 	blockDefault, err := ParseDerivationSet(attrs.BlockDefault, "schema blockDefault", runtime.DerivationBlockDefaultMask)

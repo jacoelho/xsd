@@ -64,9 +64,12 @@ func ValidateTemporalLexical[T byteText](kind PrimitiveKind, raw T) error {
 		return validateGDayLexical(raw)
 	case PrimitiveGMonth:
 		return validateGMonthLexical(raw)
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return errors.New("invalid temporal primitive")
+	default:
 	}
+	return errors.New("invalid temporal primitive")
 }
 
 // ParseDateValue parses s as an XML Schema xs:date value.
@@ -154,9 +157,13 @@ func ParseTemporalValue(kind PrimitiveKind, s string) (TemporalValue, error) {
 	case PrimitiveDateTime:
 		v, err := ParseDateTimeValue(s)
 		return v.Temporal(), err
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveTime, PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return TemporalValue{}, errors.New("not a temporal type")
+	default:
 	}
+	return TemporalValue{}, errors.New("not a temporal type")
 }
 
 // CompareTemporalValues compares xs:date/xs:dateTime values using the XML
@@ -401,7 +408,7 @@ func subUnsignedDecimalOne(s string) string {
 	return out
 }
 
-func parseTwoDigits(s string, i int) (int, int, bool) {
+func parseTwoDigits(s string, i int) (value, next int, valid bool) {
 	const n = 2
 	if i+n > len(s) {
 		return 0, 0, false
@@ -422,7 +429,7 @@ func daysInMonth(year xsdYear, month int) int {
 	return daysInMonthForLeap(month, leap)
 }
 
-func daysInMonthForLeap(month int, leap bool) int {
+func daysInMonthForLeap(month int, leap bool) int { //nolint:revive // Leap status is an intrinsic calendar fact, not an operation mode.
 	switch month {
 	case 2:
 		if leap {
@@ -530,8 +537,8 @@ func addMinutes(p xsdDateTimePoint, minutes int) xsdDateTimePoint {
 	return addDays(p, days)
 }
 
-func divModDay(second int) (int, int) {
-	days := second / daySeconds
+func divModDay(second int) (days, remainder int) {
+	days = second / daySeconds
 	rest := second % daySeconds
 	if rest < 0 {
 		rest += daySeconds
@@ -625,19 +632,11 @@ type xsdTimeParts struct {
 }
 
 func parseXSDTimeParts(s string) (xsdTimeParts, error) {
-	hour, next, ok := parseTwoDigits(s, 0)
-	if !ok || next >= len(s) || s[next] != ':' {
-		return xsdTimeParts{}, errors.New("invalid time")
+	clock, err := parseTimeClock(s)
+	if err != nil {
+		return xsdTimeParts{}, err
 	}
-	minute, next, ok := parseTwoDigits(s, next+1)
-	if !ok || next >= len(s) || s[next] != ':' {
-		return xsdTimeParts{}, errors.New("invalid time")
-	}
-	second, next, ok := parseTwoDigits(s, next+1)
-	if !ok {
-		return xsdTimeParts{}, errors.New("invalid time")
-	}
-	frac, next, err := parseFraction(s, next)
+	frac, next, err := parseFraction(s, clock.next)
 	if err != nil {
 		return xsdTimeParts{}, err
 	}
@@ -645,17 +644,10 @@ func parseXSDTimeParts(s string) (xsdTimeParts, error) {
 	if err != nil {
 		return xsdTimeParts{}, err
 	}
-	if hour > 24 || minute > 59 {
+	if !validTimeClock(clock.hour, clock.minute, clock.second, frac != "") {
 		return xsdTimeParts{}, errors.New("invalid time")
 	}
-	if hour == 24 {
-		if minute != 0 || second != 0 || frac != "" {
-			return xsdTimeParts{}, errors.New("invalid time")
-		}
-	} else if second > 59 && (hour != 23 || minute != 59 || second != 60) {
-		return xsdTimeParts{}, errors.New("invalid time")
-	}
-	return xsdTimeParts{tz: tz, frac: frac, hour: hour, minute: minute, second: second}, nil
+	return xsdTimeParts{tz: tz, frac: frac, hour: clock.hour, minute: clock.minute, second: clock.second}, nil
 }
 
 func (t xsdTimeParts) hasTZ() bool {
@@ -747,36 +739,54 @@ func validateDateTimeLexical[T byteText](raw T) error {
 }
 
 func validateTimeLexical[T byteText](raw T) error {
-	hour, next, ok := parseTwoDateDigits(raw, 0)
-	if !ok || next >= len(raw) || raw[next] != ':' {
-		return errors.New("invalid time")
+	clock, err := parseTimeClock(raw)
+	if err != nil {
+		return err
 	}
-	minute, next, ok := parseTwoDateDigits(raw, next+1)
-	if !ok || next >= len(raw) || raw[next] != ':' {
-		return errors.New("invalid time")
-	}
-	second, next, ok := parseTwoDateDigits(raw, next+1)
-	if !ok {
-		return errors.New("invalid time")
-	}
-	nonZeroFraction, next, err := parseTimeFraction(raw, next)
+	nonZeroFraction, next, err := parseTimeFraction(raw, clock.next)
 	if err != nil {
 		return err
 	}
 	if err := validateTimezoneToEnd(raw, next, "time"); err != nil {
 		return err
 	}
-	if hour > 24 || minute > 59 {
-		return errors.New("invalid time")
-	}
-	if hour == 24 {
-		if minute != 0 || second != 0 || nonZeroFraction {
-			return errors.New("invalid time")
-		}
-	} else if second > 59 && (hour != 23 || minute != 59 || second != 60) {
+	if !validTimeClock(clock.hour, clock.minute, clock.second, nonZeroFraction) {
 		return errors.New("invalid time")
 	}
 	return nil
+}
+
+type timeClock struct {
+	hour   int
+	minute int
+	second int
+	next   int
+}
+
+func parseTimeClock[T byteText](raw T) (timeClock, error) {
+	hour, next, ok := parseTwoDateDigits(raw, 0)
+	if !ok || next >= len(raw) || raw[next] != ':' {
+		return timeClock{}, errors.New("invalid time")
+	}
+	minute, next, ok := parseTwoDateDigits(raw, next+1)
+	if !ok || next >= len(raw) || raw[next] != ':' {
+		return timeClock{}, errors.New("invalid time")
+	}
+	second, next, ok := parseTwoDateDigits(raw, next+1)
+	if !ok {
+		return timeClock{}, errors.New("invalid time")
+	}
+	return timeClock{hour: hour, minute: minute, second: second, next: next}, nil
+}
+
+func validTimeClock(hour, minute, second int, nonZeroFraction bool) bool {
+	if hour > 24 || minute > 59 {
+		return false
+	}
+	if hour == 24 {
+		return minute == 0 && second == 0 && !nonZeroFraction
+	}
+	return second <= 59 || hour == 23 && minute == 59 && second == 60
 }
 
 func parseTimeFraction[T byteText](raw T, i int) (bool, int, error) {

@@ -1,7 +1,6 @@
 package source
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -55,6 +54,57 @@ func TestKeyCanonicalizesLoadedSourceNames(t *testing.T) {
 	}
 }
 
+func TestCanonicalURLRejectsInvalidSyntaxKinds(t *testing.T) {
+	t.Parallel()
+
+	parsed := &url.URL{Scheme: "https", Host: "example.test", Path: "/schema.xsd"}
+	tests := []struct {
+		name   string
+		syntax uriReferenceSyntax
+	}{
+		{
+			name:   "invalid authority",
+			syntax: uriReferenceSyntax{authority: uriAuthoritySyntax{kind: uriAuthorityInvalid}, fragment: uriFragmentAbsent},
+		},
+		{
+			name:   "unknown authority",
+			syntax: uriReferenceSyntax{authority: uriAuthoritySyntax{kind: uriAuthorityKind(99)}, fragment: uriFragmentAbsent},
+		},
+		{
+			name:   "invalid fragment",
+			syntax: uriReferenceSyntax{authority: uriAuthoritySyntax{kind: uriAuthorityNonEmpty}, fragment: uriFragmentInvalid},
+		},
+		{
+			name:   "unknown fragment",
+			syntax: uriReferenceSyntax{authority: uriAuthoritySyntax{kind: uriAuthorityNonEmpty}, fragment: uriFragmentSyntax(99)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got, ok := canonicalURL(parsed, tt.syntax); ok || got != "" {
+				t.Fatalf("canonicalURL() = %q, %v; want empty, false", got, ok)
+			}
+		})
+	}
+}
+
+func TestCanonicalLocalReferenceRejectsInvalidForm(t *testing.T) {
+	t.Parallel()
+
+	for _, form := range []localPathForm{localPathInvalid, localPathForm(99)} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Fatalf("canonicalLocalReference() accepted form %d", form)
+				}
+			}()
+			canonicalLocalReference("schema.xsd", form)
+		}()
+	}
+}
+
 func TestReferenceBaseWithXMLBaseStripsFragment(t *testing.T) {
 	t.Parallel()
 
@@ -84,8 +134,8 @@ func TestReferenceBaseWithXMLBaseStripsFragment(t *testing.T) {
 				t.Fatalf("WithXMLBase() error = %v", err)
 			}
 			resolver, ok := got.ResolverValue()
-			if !ok || resolver != test.want || !got.fallbackOK || got.fallback != test.want {
-				t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q/%v, want %q/true", resolver, ok, got.fallback, got.fallbackOK, test.want)
+			if !ok || resolver != test.want || got.fallback != test.want {
+				t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q, want %q/true", resolver, ok, got.fallback, test.want)
 			}
 		})
 	}
@@ -101,10 +151,10 @@ func TestReferenceBaseUsesRFC2396ForResolverAndFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "http://a/b/c/?y"
+	const want = "http://a/b/c/d;p?y"
 	resolver, ok := base.ResolverValue()
-	if !ok || resolver != want || !base.fallbackOK || base.fallback != want {
-		t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q/%v, want %q/true", resolver, ok, base.fallback, base.fallbackOK, want)
+	if !ok || resolver != want || base.fallback != want {
+		t.Fatalf("WithXMLBase() = resolver %q/%v fallback %q, want %q/true", resolver, ok, base.fallback, want)
 	}
 }
 
@@ -118,7 +168,7 @@ func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := base.ResolverValue(); ok || base.fallbackOK {
+		if _, ok := base.ResolverValue(); ok || base.fallback != "" {
 			t.Fatalf("WithXMLBase() left resolver/fallback available: %+v", base)
 		}
 	})
@@ -131,7 +181,7 @@ func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if base.fallbackOK {
+		if base.fallback != "" {
 			t.Fatalf("query-bearing local fallback = %q/true, want unavailable", base.fallback)
 		}
 		base, err = base.WithXMLBase(mustURIReference(t, "child.xsd"))
@@ -140,8 +190,8 @@ func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 		}
 		want := filepath.Join("schemas", "child.xsd")
 		resolver, resolverOK := base.ResolverValue()
-		if !resolverOK || resolver != want || !base.fallbackOK || base.fallback != want {
-			t.Fatalf("path replacement = resolver %q/%v fallback %q/%v, want %q/true", resolver, resolverOK, base.fallback, base.fallbackOK, want)
+		if !resolverOK || resolver != want || base.fallback != want {
+			t.Fatalf("path replacement = resolver %q/%v fallback %q, want %q/true", resolver, resolverOK, base.fallback, want)
 		}
 	})
 
@@ -158,8 +208,8 @@ func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 			t.Fatal(err)
 		}
 		resolver, resolverOK := base.ResolverValue()
-		if !resolverOK || resolver != "//cdn.example/tmp/child.xsd" || base.fallbackOK {
-			t.Fatalf("network path = resolver %q/%v fallback %q/%v", resolver, resolverOK, base.fallback, base.fallbackOK)
+		if !resolverOK || resolver != "//cdn.example/tmp/child.xsd" || base.fallback != "" {
+			t.Fatalf("network path = resolver %q/%v fallback %q", resolver, resolverOK, base.fallback)
 		}
 	})
 }
@@ -195,31 +245,16 @@ func TestResolveFromPreservesExtendedResolverInputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	called := false
-	s := Bytes("schemas/root.xsd", nil).WithResolver(func(_ context.Context, gotBase, gotLocation string) (Source, error) {
+	s := Bytes("schemas/root.xsd", nil).WithResolver(func(gotBase, gotLocation string) (Source, error) {
 		called = true
 		if gotBase != "schemas/sub/\x7f/" || gotLocation != "child^name.xsd" {
 			return Source{}, fmt.Errorf("resolver inputs = %q, %q", gotBase, gotLocation)
 		}
 		return Bytes("child.xsd", nil), nil
 	})
-	resolution, err := s.ResolveFrom(context.Background(), base, mustURIReference(t, "child^name.xsd"))
+	resolution, err := s.ResolveFrom(base, mustURIReference(t, "child^name.xsd"))
 	if err != nil || !called {
 		t.Fatalf("ResolveFrom() = %+v, %v; called %v", resolution, err, called)
-	}
-}
-
-func TestResolveRejectsMalformedReferenceBeforeResolver(t *testing.T) {
-	t.Parallel()
-	called := false
-	s := Bytes("root.xsd", nil).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
-		called = true
-		return Bytes("child.xsd", nil), nil
-	})
-	if _, err := s.Resolve(context.Background(), "root.xsd", "http://[bad]/"); !IsReferenceResolutionError(err) {
-		t.Fatalf("Resolve() error = %v, want reference-resolution error", err)
-	}
-	if called {
-		t.Fatal("Resolve() called resolver for a malformed reference")
 	}
 }
 
@@ -235,7 +270,7 @@ func TestFileResolverUsesEscapedProjectionAfterCustomBoundary(t *testing.T) {
 	if err := os.WriteFile(child, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	resolution, err := File(root).Resolve(context.Background(), root, childName)
+	resolution, err := File(root).ResolveFrom(NewReferenceBase(root), mustURIReference(t, childName))
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
@@ -309,38 +344,37 @@ func TestKeyPreservesLocalMarkerForSchemeShapedInvalidURI(t *testing.T) {
 
 func TestBytesNilIsEmptySource(t *testing.T) {
 	t.Parallel()
-	data, err := Bytes("empty.xsd", nil).Read(context.Background(), 1)
-	if err != nil {
-		t.Fatalf("Bytes(nil).Read() error = %v", err)
+	result := Bytes("empty.xsd", nil).Acquire(1)
+	if result.Err != nil {
+		t.Fatalf("Bytes(nil).Acquire() error = %v", result.Err)
 	}
-	if data == nil || len(data) != 0 {
-		t.Fatalf("Bytes(nil).Read() = %#v, want non-nil empty slice", data)
+	if result.Data == nil || len(result.Data) != 0 {
+		t.Fatalf("Bytes(nil).Acquire() = %#v, want non-nil empty slice", result.Data)
 	}
 }
 
-func TestBytesCopiesInputAndOutput(t *testing.T) {
+func TestBytesCopiesInput(t *testing.T) {
 	t.Parallel()
 	input := []byte("schema")
 	s := Bytes("schema.xsd", input)
 	input[0] = 'X'
-	first, err := s.Read(context.Background(), 100)
-	if err != nil {
-		t.Fatal(err)
+	result := s.Acquire(100)
+	if result.Err != nil {
+		t.Fatal(result.Err)
 	}
-	first[0] = 'Y'
-	second, err := s.Read(context.Background(), 100)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := string(second); got != "schema" {
-		t.Fatalf("second read = %q, want schema", got)
+	if got := string(result.Data); got != "schema" {
+		t.Fatalf("acquired data = %q, want schema", got)
 	}
 }
 
 func TestSourceResolve(t *testing.T) {
 	t.Parallel()
 	resolve := func(s Source, base, location string) (Source, string, bool, error) {
-		resolution, err := s.Resolve(context.Background(), base, location)
+		reference, err := uriref.Parse(location)
+		if err != nil {
+			return Source{}, "", false, err
+		}
+		resolution, err := s.ResolveFrom(NewReferenceBase(base), reference)
 		resolved, found := resolution.Source()
 		return resolved, resolution.Target(), found, err
 	}
@@ -355,7 +389,7 @@ func TestSourceResolve(t *testing.T) {
 	t.Run("overrides acquired source resolver", func(t *testing.T) {
 		t.Parallel()
 		var locations []string
-		resolver := Resolver(func(_ context.Context, _, location string) (Source, error) {
+		resolver := Resolver(func(_, location string) (Source, error) {
 			locations = append(locations, location)
 			if location == "child.xsd" {
 				return File(filepath.Join(t.TempDir(), "cached-child.xsd")), nil
@@ -380,7 +414,7 @@ func TestSourceResolve(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		t.Parallel()
-		s := Bytes("base.xsd", nil).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+		s := Bytes("base.xsd", nil).WithResolver(func(_, _ string) (Source, error) {
 			return Source{}, xsderrors.ErrSchemaNotFound
 		})
 		if _, target, found, err := resolve(s, "base.xsd", "child.xsd"); err != nil || found || target != "child.xsd" {
@@ -396,7 +430,7 @@ func TestSourceResolve(t *testing.T) {
 		if err := os.WriteFile(childPath, nil, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		root := File(rootPath).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+		root := File(rootPath).WithResolver(func(_, _ string) (Source, error) {
 			return Source{}, xsderrors.ErrSchemaNotFound
 		})
 		child, target, found, err := resolve(root, root.Name(), "child.xsd")
@@ -413,7 +447,7 @@ func TestSourceResolve(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := errors.New("resolver failed")
-		root := File(rootPath).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+		root := File(rootPath).WithResolver(func(_, _ string) (Source, error) {
 			return Source{}, want
 		})
 		if _, _, found, err := resolve(root, root.Name(), "child.xsd"); found || !errors.Is(err, want) {
@@ -429,7 +463,7 @@ func TestSourceResolve(t *testing.T) {
 		if err := os.WriteFile(grandchildPath, nil, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		root := Bytes("root.xsd", nil).WithResolver(func(_ context.Context, _, location string) (Source, error) {
+		root := Bytes("root.xsd", nil).WithResolver(func(_, location string) (Source, error) {
 			if location == "child.xsd" {
 				return File(childPath), nil
 			}
@@ -449,7 +483,7 @@ func TestSourceResolve(t *testing.T) {
 		t.Parallel()
 		sources := []Source{
 			Bytes("urn:root", nil),
-			Bytes("urn:root", nil).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+			Bytes("urn:root", nil).WithResolver(func(_, _ string) (Source, error) {
 				return Source{}, xsderrors.ErrSchemaNotFound
 			}),
 		}
@@ -478,7 +512,7 @@ func TestSourceResolve(t *testing.T) {
 	t.Run("joined not found and fatal error", func(t *testing.T) {
 		t.Parallel()
 		fatal := errors.New("resolver cleanup failed")
-		s := Bytes("base.xsd", nil).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+		s := Bytes("base.xsd", nil).WithResolver(func(_, _ string) (Source, error) {
 			return Source{}, errors.Join(xsderrors.ErrSchemaNotFound, fatal)
 		})
 		if _, _, found, err := resolve(s, "base.xsd", "child.xsd"); found || !errors.Is(err, fatal) {
@@ -489,7 +523,7 @@ func TestSourceResolve(t *testing.T) {
 	t.Run("inherits resolver", func(t *testing.T) {
 		t.Parallel()
 		var bases []string
-		resolver := Resolver(func(_ context.Context, base, location string) (Source, error) {
+		resolver := Resolver(func(base, location string) (Source, error) {
 			bases = append(bases, base)
 			return Bytes(location, nil), nil
 		})
@@ -509,7 +543,7 @@ func TestSourceResolve(t *testing.T) {
 	t.Run("preserves resolver error", func(t *testing.T) {
 		t.Parallel()
 		want := errors.New("resolver failed")
-		s := Bytes("base.xsd", nil).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+		s := Bytes("base.xsd", nil).WithResolver(func(_, _ string) (Source, error) {
 			return Source{}, want
 		})
 		if _, _, found, err := resolve(s, "base.xsd", "child.xsd"); found || !errors.Is(err, want) {
@@ -519,7 +553,7 @@ func TestSourceResolve(t *testing.T) {
 
 	t.Run("resolver returned name owns identity", func(t *testing.T) {
 		t.Parallel()
-		s := Bytes("urn:root", nil).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+		s := Bytes("urn:root", nil).WithResolver(func(_, _ string) (Source, error) {
 			return Bytes("urn:cache:child#v1", nil), nil
 		})
 		resolved, target, found, err := resolve(s, "urn:root", "relative?query#fragment")
@@ -530,7 +564,7 @@ func TestSourceResolve(t *testing.T) {
 
 	t.Run("resolver returned source requires name", func(t *testing.T) {
 		t.Parallel()
-		s := Bytes("base.xsd", nil).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+		s := Bytes("base.xsd", nil).WithResolver(func(_, _ string) (Source, error) {
 			return Source{}, nil
 		})
 		if _, _, found, err := resolve(s, "base.xsd", "child.xsd"); found || err == nil || !strings.Contains(err.Error(), "without a name") {
@@ -559,23 +593,23 @@ func TestSourceResolve(t *testing.T) {
 		}
 	})
 
-	t.Run("malformed generic fragment is classified", func(t *testing.T) {
+	t.Run("malformed generic fragment is rejected at lexical boundary", func(t *testing.T) {
 		t.Parallel()
 		_, _, found, err := resolve(Bytes("base.xsd", nil), "base.xsd", "child.xsd#%zz")
-		if found || !IsReferenceResolutionError(err) {
-			t.Fatalf("Resolve() = found %v error %v, want reference-resolution error", found, err)
+		if found || err == nil {
+			t.Fatalf("Resolve() = found %v error %v, want lexical error", found, err)
 		}
 	})
 
 	t.Run("malformed location is rejected before custom resolver", func(t *testing.T) {
 		t.Parallel()
 		called := false
-		s := Bytes("base.xsd", nil).WithResolver(func(_ context.Context, _, _ string) (Source, error) {
+		s := Bytes("base.xsd", nil).WithResolver(func(_, _ string) (Source, error) {
 			called = true
 			return Bytes("child.xsd", nil), nil
 		})
 		_, _, found, err := resolve(s, "base.xsd", "child.xsd#%zz")
-		if found || !IsReferenceResolutionError(err) {
+		if found || err == nil {
 			t.Fatalf("Resolve() = found %v error %v, want malformed reference error", found, err)
 		}
 		if called {
@@ -594,7 +628,7 @@ func TestSourceResolve(t *testing.T) {
 
 func TestSourceReadLimit(t *testing.T) {
 	t.Parallel()
-	_, err := Bytes("schema.xsd", []byte("1234")).Read(context.Background(), 3)
+	err := Bytes("schema.xsd", []byte("1234")).Acquire(3).Err
 	if !IsSchemaLimitError(err) {
 		t.Fatalf("Read() error = %v, want schema limit", err)
 	}
@@ -613,18 +647,18 @@ func TestSourceReadWithZeroLimitDistinguishesEmptyAndOversize(t *testing.T) {
 		wantOver bool
 	}{
 		{name: "empty bytes", source: Bytes("empty.xsd", nil)},
-		{name: "empty opener", source: Opener("empty.xsd", func(context.Context) (io.ReadCloser, error) {
+		{name: "empty opener", source: Opener("empty.xsd", func() (io.ReadCloser, error) {
 			return io.NopCloser(strings.NewReader("")), nil
 		})},
 		{name: "non-empty bytes", source: Bytes("schema.xsd", []byte("x")), wantOver: true},
-		{name: "non-empty opener", source: Opener("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+		{name: "non-empty opener", source: Opener("schema.xsd", func() (io.ReadCloser, error) {
 			return io.NopCloser(strings.NewReader("x")), nil
 		}), wantOver: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := tt.source.Acquire(context.Background(), 0)
+			result := tt.source.Acquire(0)
 			if result.LimitExceeded != tt.wantOver {
 				t.Fatalf("Acquire() exceeded = %v, want %v", result.LimitExceeded, tt.wantOver)
 			}
@@ -645,10 +679,10 @@ func TestSourceAcquirePreservesBytesAndStageBeforeReadError(t *testing.T) {
 	t.Parallel()
 
 	want := errors.New("read failed")
-	s := Opener("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+	s := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return &dataErrorReader{data: []byte("schema"), err: want}, nil
 	})
-	result := s.Acquire(context.Background(), 100)
+	result := s.Acquire(100)
 	if result.LimitExceeded || result.Stage != ReadStageRead || !errors.Is(result.Err, want) || string(result.Data) != "schema" {
 		t.Fatalf("Acquire() = %+v", result)
 	}
@@ -658,10 +692,9 @@ func TestSourceAcquirePreservesReadErrorAtByteLimit(t *testing.T) {
 	t.Parallel()
 
 	readErr := errors.New("read failed at limit")
-	result := Opener("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return &dataErrorReader{data: []byte("ab"), err: readErr}, nil
-	}).Acquire(context.Background(),
-
+	}).Acquire(
 		1)
 
 	if !result.LimitExceeded || result.Stage != ReadStageRead || !errors.Is(result.Err, readErr) {
@@ -673,10 +706,9 @@ func TestSourceAcquireRejectsRepeatedEmptyReadsAndCloses(t *testing.T) {
 	t.Parallel()
 
 	reader := &emptyReadCloser{terminal: errors.New("unbounded empty reads")}
-	result := Opener("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return reader, nil
-	}).Acquire(context.Background(),
-
+	}).Acquire(
 		1)
 
 	if result.Stage != ReadStageRead || !errors.Is(result.Err, io.ErrNoProgress) {
@@ -692,10 +724,9 @@ func TestSourceAcquireClosesReaderReturnedWithOpenError(t *testing.T) {
 	openErr := errors.New("open failed")
 	closeErr := errors.New("close failed")
 	reader := &trackingReadCloser{Reader: strings.NewReader("schema"), closeErr: closeErr}
-	result := Opener("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return reader, openErr //nolint:nilnil // Exercise cleanup when an opener returns both values.
-	}).Acquire(context.Background(),
-
+	}).Acquire(
 		100)
 
 	if result.Stage != ReadStageOpen || !errors.Is(result.Err, openErr) || !errors.Is(result.Err, closeErr) {
@@ -709,10 +740,9 @@ func TestSourceAcquireClosesReaderReturnedWithOpenError(t *testing.T) {
 func TestSourceAcquireClassifiesOnlyPureOpenAbsence(t *testing.T) {
 	t.Parallel()
 
-	pure := Opener("missing.xsd", func(context.Context) (io.ReadCloser, error) {
+	pure := Opener("missing.xsd", func() (io.ReadCloser, error) {
 		return nil, fmt.Errorf("open missing schema: %w", os.ErrNotExist)
-	}).Acquire(context.Background(),
-
+	}).Acquire(
 		100)
 
 	if !pure.OpenNotFound {
@@ -721,10 +751,9 @@ func TestSourceAcquireClassifiesOnlyPureOpenAbsence(t *testing.T) {
 
 	closeErr := errors.New("close failed")
 	reader := &trackingReadCloser{Reader: strings.NewReader("schema"), closeErr: closeErr}
-	mixed := Opener("missing.xsd", func(context.Context) (io.ReadCloser, error) {
+	mixed := Opener("missing.xsd", func() (io.ReadCloser, error) {
 		return reader, os.ErrNotExist //nolint:nilnil // Exercise cleanup when an opener returns both values.
-	}).Acquire(context.Background(),
-
+	}).Acquire(
 		100)
 
 	if mixed.OpenNotFound || !errors.Is(mixed.Err, os.ErrNotExist) || !errors.Is(mixed.Err, closeErr) {
@@ -734,7 +763,7 @@ func TestSourceAcquireClassifiesOnlyPureOpenAbsence(t *testing.T) {
 
 func TestMissingFileSourceReturnsPureOpenAbsence(t *testing.T) {
 	t.Parallel()
-	result := File(filepath.Join(t.TempDir(), "missing.xsd")).Acquire(context.Background(), 100)
+	result := File(filepath.Join(t.TempDir(), "missing.xsd")).Acquire(100)
 	if !result.OpenNotFound || result.Stage != ReadStageOpen || !errors.Is(result.Err, os.ErrNotExist) {
 		t.Fatalf("Acquire(missing file) = %+v, want pure open absence", result)
 	}
@@ -746,10 +775,9 @@ func TestMissingFileSourceReturnsPureOpenAbsence(t *testing.T) {
 func TestOpenerNormalizesTypedNilReaderOnOpenFailure(t *testing.T) {
 	t.Parallel()
 	missing := filepath.Join(t.TempDir(), "missing.xsd")
-	result := Opener(missing, func(context.Context) (io.ReadCloser, error) {
+	result := Opener(missing, func() (io.ReadCloser, error) {
 		return os.Open(missing) //nolint:gosec // Test path is contained by t.TempDir.
-	}).Acquire(context.Background(),
-
+	}).Acquire(
 		100)
 
 	if !result.OpenNotFound || result.Stage != ReadStageOpen || !errors.Is(result.Err, os.ErrNotExist) {
@@ -762,10 +790,9 @@ func TestOpenerNormalizesTypedNilReaderOnOpenFailure(t *testing.T) {
 
 func TestSourceAcquireRejectsNilOpener(t *testing.T) {
 	t.Parallel()
-	result := Opener("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return nil, errors.New("open returned nil reader")
-	}).Acquire(context.Background(),
-
+	}).Acquire(
 		10)
 
 	if result.Stage != ReadStageOpen || result.Err == nil {
@@ -775,6 +802,7 @@ func TestSourceAcquireRejectsNilOpener(t *testing.T) {
 
 type closeErrorReader struct {
 	io.Reader
+
 	err error
 }
 
@@ -782,6 +810,7 @@ func (r closeErrorReader) Close() error { return r.err }
 
 type trackingReadCloser struct {
 	io.Reader
+
 	closeErr error
 	closed   bool
 }
@@ -829,10 +858,10 @@ func (r *emptyReadCloser) Close() error {
 func TestOpenerReturnsCloseErrorAfterSuccessfulRead(t *testing.T) {
 	t.Parallel()
 	want := errors.New("close failed")
-	s := Opener("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+	s := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return closeErrorReader{Reader: strings.NewReader("schema"), err: want}, nil
 	})
-	if _, err := s.Read(context.Background(), 100); !errors.Is(err, want) {
+	if err := s.Acquire(100).Err; !errors.Is(err, want) {
 		t.Fatalf("Read() error = %v, want %v", err, want)
 	}
 }
@@ -842,10 +871,9 @@ func TestOpenerPreservesReadAndCloseErrors(t *testing.T) {
 	readErr := errors.New("read failed")
 	closeErr := errors.New("close failed")
 	reader := &trackingReadCloser{Reader: &dataErrorReader{data: []byte("schema"), err: readErr}, closeErr: closeErr}
-	result := Opener("schema.xsd", func(context.Context) (io.ReadCloser, error) {
+	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return reader, nil
-	}).Acquire(context.Background(),
-
+	}).Acquire(
 		100)
 
 	if result.Stage != ReadStageRead || !errors.Is(result.Err, readErr) || !errors.Is(result.Err, closeErr) {
@@ -1003,7 +1031,7 @@ func TestLocalFileURIPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := localFileURIPath(u, strings.IndexByte(raw, '#') >= 0); ok {
+		if _, ok := localFileURIPath(u, uriReferenceSyntaxFor(raw, u).fragment); ok {
 			t.Fatalf("localFileURIPath(%q) succeeded", raw)
 		}
 	}
@@ -1012,7 +1040,7 @@ func TestLocalFileURIPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := filepath.Clean(filepath.FromSlash("/tmp/a%20schema.xsd"))
-	if got, ok := localFileURIPath(u, false); !ok || got != want {
+	if got, ok := localFileURIPath(u, uriFragmentAbsent); !ok || got != want {
 		t.Fatalf("localFileURIPath(literal percent) = %q/%v, want %q/true", got, ok, want)
 	}
 	if runtime.GOOS == "windows" {
@@ -1020,7 +1048,7 @@ func TestLocalFileURIPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got, ok := localFileURIPath(u, false); !ok || got != filepath.Clean(`C:\schemas\a.xsd`) {
+		if got, ok := localFileURIPath(u, uriFragmentAbsent); !ok || got != filepath.Clean(`C:\schemas\a.xsd`) {
 			t.Fatalf("localFileURIPath(drive) = %q/%v", got, ok)
 		}
 	}

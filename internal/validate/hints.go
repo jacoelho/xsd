@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/xml"
+	"maps"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -23,14 +24,35 @@ type schemaLocationHintLimits struct {
 	NamespaceBytes int64
 }
 
+type schemaLocationHintDelta struct {
+	namespaces     map[string]struct{}
+	namespaceBytes int64
+}
+
+func cloneSchemaLocationHints(h SchemaLocationHints) SchemaLocationHints {
+	return SchemaLocationHints{
+		namespaces:     maps.Clone(h.namespaces),
+		namespaceBytes: h.namespaceBytes,
+	}
+}
+
 // RecordAttribute records one xsi:schemaLocation or
 // xsi:noNamespaceSchemaLocation attribute value.
 func (h *SchemaLocationHints) RecordAttribute(name xml.Name, value string, limits schemaLocationHintLimits, ctx StartContext) error {
+	var delta schemaLocationHintDelta
+	if err := h.stageAttribute(name, value, limits, ctx, &delta); err != nil {
+		return err
+	}
+	h.commitNamespaceHints(delta.namespaces, delta.namespaceBytes)
+	return nil
+}
+
+func (h *SchemaLocationHints) stageAttribute(name xml.Name, value string, limits schemaLocationHintLimits, ctx StartContext, delta *schemaLocationHintDelta) error {
 	switch name.Local {
 	case vocab.XSIAttrSchemaLocation:
-		return h.recordNamespaceSchemaLocation(value, limits, ctx)
+		return h.stageNamespaceSchemaLocation(value, limits, ctx, delta)
 	case vocab.XSIAttrNoNamespaceSchemaLocation:
-		return h.recordNoNamespaceSchemaLocation(value, limits, ctx)
+		return h.stageNoNamespaceSchemaLocation(value, limits, ctx, delta)
 	default:
 		return nil
 	}
@@ -58,43 +80,65 @@ func (h *SchemaLocationHints) Reset(maxRetainedNamespaces int) {
 	clear(h.namespaces)
 }
 
-func (h *SchemaLocationHints) recordNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx StartContext) error {
-	count := 0
-	for field := range lex.XMLFieldsSeq(value) {
-		if _, err := uriref.Check(field); err != nil {
-			return validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:schemaLocation URI "+field)
-		}
-		count++
+func (h *SchemaLocationHints) stageNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx StartContext, delta *schemaLocationHintDelta) error {
+	count, err := validateSchemaLocationFields(value, ctx)
+	if err != nil {
+		return err
 	}
 	if count%2 != 0 {
 		return validation(ctx, xsderrors.CodeValidationAttribute, "xsi:schemaLocation must contain namespace/location pairs")
 	}
-	pending := make(map[string]struct{}, min(count/2, limits.Namespaces))
-	var pendingBytes int64
+	return h.stageNamespaceHints(value, delta, limits, ctx)
+}
+
+func validateSchemaLocationFields(value string, ctx StartContext) (int, error) {
+	count := 0
+	for field := range lex.XMLFieldsSeq(value) {
+		if _, err := uriref.Check(field); err != nil {
+			return 0, validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:schemaLocation URI "+field)
+		}
+		count++
+	}
+	return count, nil
+}
+
+func (h *SchemaLocationHints) stageNamespaceHints(value string, delta *schemaLocationHintDelta, limits schemaLocationHintLimits, ctx StartContext) error {
 	index := 0
 	for field := range lex.XMLFieldsSeq(value) {
 		if index%2 == 0 {
-			if _, exists := h.namespaces[field]; exists {
-				index++
-				continue
+			if err := h.stageNamespaceHint(field, delta, limits, ctx); err != nil {
+				return err
 			}
-			if _, exists := pending[field]; exists {
-				index++
-				continue
-			}
-			if len(h.namespaces)+len(pending) >= limits.Namespaces {
-				return validation(ctx, xsderrors.CodeValidationLimit, "schema-location namespace limit exceeded")
-			}
-			fieldBytes := int64(len(field))
-			remaining := limits.NamespaceBytes - h.namespaceBytes
-			if remaining < pendingBytes || fieldBytes > remaining-pendingBytes {
-				return validation(ctx, xsderrors.CodeValidationLimit, "schema-location namespace byte limit exceeded")
-			}
-			pending[field] = struct{}{}
-			pendingBytes += fieldBytes
 		}
 		index++
 	}
+	return nil
+}
+
+func (h *SchemaLocationHints) stageNamespaceHint(ns string, delta *schemaLocationHintDelta, limits schemaLocationHintLimits, ctx StartContext) error {
+	if _, exists := h.namespaces[ns]; exists {
+		return nil
+	}
+	if _, exists := delta.namespaces[ns]; exists {
+		return nil
+	}
+	if len(h.namespaces)+len(delta.namespaces) >= limits.Namespaces {
+		return validation(ctx, xsderrors.CodeValidationLimit, "schema-location namespace limit exceeded")
+	}
+	fieldBytes := int64(len(ns))
+	remaining := limits.NamespaceBytes - h.namespaceBytes
+	if remaining < delta.namespaceBytes || fieldBytes > remaining-delta.namespaceBytes {
+		return validation(ctx, xsderrors.CodeValidationLimit, "schema-location namespace byte limit exceeded")
+	}
+	if delta.namespaces == nil {
+		delta.namespaces = make(map[string]struct{})
+	}
+	delta.namespaces[ns] = struct{}{}
+	delta.namespaceBytes += fieldBytes
+	return nil
+}
+
+func (h *SchemaLocationHints) commitNamespaceHints(pending map[string]struct{}, pendingBytes int64) {
 	if len(pending) != 0 && h.namespaces == nil {
 		h.namespaces = make(map[string]struct{}, len(pending))
 	}
@@ -102,34 +146,14 @@ func (h *SchemaLocationHints) recordNamespaceSchemaLocation(value string, limits
 		h.namespaces[strings.Clone(ns)] = struct{}{}
 	}
 	h.namespaceBytes += pendingBytes
-	return nil
 }
 
-func (h *SchemaLocationHints) recordNoNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx StartContext) error {
+func (h *SchemaLocationHints) stageNoNamespaceSchemaLocation(value string, limits schemaLocationHintLimits, ctx StartContext, delta *schemaLocationHintDelta) error {
 	value = lex.TrimXMLWhitespaceString(value)
 	if _, err := uriref.Check(value); err != nil {
 		return validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:noNamespaceSchemaLocation URI "+value)
 	}
-	return h.add("", limits, ctx)
-}
-
-func (h *SchemaLocationHints) add(ns string, limits schemaLocationHintLimits, ctx StartContext) error {
-	if _, exists := h.namespaces[ns]; exists {
-		return nil
-	}
-	if len(h.namespaces) >= limits.Namespaces {
-		return validation(ctx, xsderrors.CodeValidationLimit, "schema-location namespace limit exceeded")
-	}
-	nsBytes := int64(len(ns))
-	if h.namespaceBytes > limits.NamespaceBytes || nsBytes > limits.NamespaceBytes-h.namespaceBytes {
-		return validation(ctx, xsderrors.CodeValidationLimit, "schema-location namespace byte limit exceeded")
-	}
-	if h.namespaces == nil {
-		h.namespaces = make(map[string]struct{})
-	}
-	h.namespaces[strings.Clone(ns)] = struct{}{}
-	h.namespaceBytes += nsBytes
-	return nil
+	return h.stageNamespaceHint("", delta, limits, ctx)
 }
 
 // IsSchemaLocationHintName reports whether name is an XSI schema-location hint.

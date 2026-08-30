@@ -74,13 +74,16 @@ func TestSimpleTypeListReachability(t *testing.T) {
 		{Variety: runtime.SimpleVarietyUnion, Base: runtime.NoSimpleType, Union: []runtime.SimpleTypeID{3, 2}},
 	}
 	var reach simpleTypeListReachability
-	if err := checkSimpleListItemType(reach.reachesList(types, 1)); err != nil {
-		t.Fatalf("checkSimpleListItemType(atomic) error = %v", err)
+	if reach.reachesList(types, 1) {
+		t.Fatal("atomic type unexpectedly reaches a list")
 	}
-	if err := checkSimpleListItemType(reach.reachesList(types, 3)); err != nil {
-		t.Fatalf("checkSimpleListItemType(union without list) error = %v", err)
+	if reach.reachesList(types, 3) {
+		t.Fatal("union without list unexpectedly reaches a list")
 	}
-	err := checkSimpleListItemType(reach.reachesList(types, 4))
+	if !reach.reachesList(types, 4) {
+		t.Fatal("union containing a list did not reach the list")
+	}
+	err := simpleListItemListReachError()
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "list item type cannot be a list type")
 }
 
@@ -240,10 +243,10 @@ func expectCompileDiagnostic(t *testing.T, err error, code xsderrors.Code, messa
 	if !errors.As(err, &xerr) {
 		t.Fatalf("error = %T %v, want *xsderrors.Error", err, err)
 	}
-	if xerr.Category != xsderrors.CategorySchemaCompile || xerr.Code != code {
-		t.Fatalf("diagnostic = %s/%s, want schema compile/%s", xerr.Category, xerr.Code, code)
+	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != code {
+		t.Fatalf("diagnostic = %s/%s, want schema compile/%s", xerr.Category(), xerr.Code(), code)
 	}
-	if xerr.Message != message {
-		t.Fatalf("message = %q, want %q", xerr.Message, message)
+	if xerr.Message() != message {
+		t.Fatalf("message = %q, want %q", xerr.Message(), message)
 	}
 }

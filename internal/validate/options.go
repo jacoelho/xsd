@@ -49,38 +49,8 @@ type Limits struct {
 
 // NormalizeOptions validates options and returns runtime limits.
 func NormalizeOptions(opts Options) (Limits, error) {
-	if opts.MaxErrors < 0 {
-		return Limits{}, optionError("MaxErrors cannot be negative")
-	}
-	if opts.MaxIdentityScopes < 0 {
-		return Limits{}, optionError("MaxIdentityScopes cannot be negative")
-	}
-	if opts.MaxIdentityEntries < 0 {
-		return Limits{}, optionError("MaxIdentityEntries cannot be negative")
-	}
-	if opts.MaxIdentityTupleBytes < 0 {
-		return Limits{}, optionError("MaxIdentityTupleBytes cannot be negative")
-	}
-	if opts.MaxSchemaLocationNamespaces < 0 {
-		return Limits{}, optionError("MaxSchemaLocationNamespaces cannot be negative")
-	}
-	if opts.MaxSchemaLocationNamespaceBytes < 0 {
-		return Limits{}, optionError("MaxSchemaLocationNamespaceBytes cannot be negative")
-	}
-	if opts.MaxInstanceDepth < 0 {
-		return Limits{}, optionError("MaxInstanceDepth cannot be negative")
-	}
-	if opts.MaxInstanceAttributes < 0 {
-		return Limits{}, optionError("MaxInstanceAttributes cannot be negative")
-	}
-	if opts.MaxInstanceTextBytes < 0 {
-		return Limits{}, optionError("MaxInstanceTextBytes cannot be negative")
-	}
-	if opts.MaxInstanceTokenBytes < 0 {
-		return Limits{}, optionError("MaxInstanceTokenBytes cannot be negative")
-	}
-	if opts.MaxInstanceBytes < 0 {
-		return Limits{}, optionError("MaxInstanceBytes cannot be negative")
+	if err := validateOptions(opts); err != nil {
+		return Limits{}, err
 	}
 	return Limits{
 		Errors:                       intLimitOrDefault(opts.MaxErrors, defaultMaxErrors),
@@ -95,6 +65,31 @@ func NormalizeOptions(opts Options) (Limits, error) {
 		InstanceTokenBytes:           byteLimitOrDefault(opts.MaxInstanceTokenBytes, defaultMaxInstanceTokenBytes),
 		InstanceBytes:                byteLimitOrDefault(opts.MaxInstanceBytes, defaultMaxInstanceBytes),
 	}, nil
+}
+
+func validateOptions(opts Options) error {
+	values := [...]struct {
+		name  string
+		value int64
+	}{
+		{"MaxErrors", int64(opts.MaxErrors)},
+		{"MaxIdentityScopes", int64(opts.MaxIdentityScopes)},
+		{"MaxIdentityEntries", int64(opts.MaxIdentityEntries)},
+		{"MaxIdentityTupleBytes", opts.MaxIdentityTupleBytes},
+		{"MaxSchemaLocationNamespaces", int64(opts.MaxSchemaLocationNamespaces)},
+		{"MaxSchemaLocationNamespaceBytes", opts.MaxSchemaLocationNamespaceBytes},
+		{"MaxInstanceDepth", int64(opts.MaxInstanceDepth)},
+		{"MaxInstanceAttributes", int64(opts.MaxInstanceAttributes)},
+		{"MaxInstanceTextBytes", opts.MaxInstanceTextBytes},
+		{"MaxInstanceTokenBytes", opts.MaxInstanceTokenBytes},
+		{"MaxInstanceBytes", opts.MaxInstanceBytes},
+	}
+	for _, option := range values {
+		if option.value < 0 {
+			return optionError(option.name + " cannot be negative")
+		}
+	}
+	return nil
 }
 
 func intLimitOrDefault(value, def int) int {
@@ -112,5 +107,5 @@ func byteLimitOrDefault(value, def int64) int64 {
 }
 
 func optionError(msg string) error {
-	return xsderrors.Validation(xsderrors.CodeValidationOption, 0, 0, "", msg)
+	return xsderrors.Validation(xsderrors.CodeValidationOption, msg, nil)
 }

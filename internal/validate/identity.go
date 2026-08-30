@@ -1,82 +1,50 @@
 package validate
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// IdentityLimits bounds retained identity values while validating a document.
-type IdentityLimits struct {
+// identityLimits bounds retained identity values while validating a document.
+type identityLimits struct {
 	Entries    int
 	TupleBytes int64
 }
 
-// IdentityValue is the ID/IDREF projection of a validated simple value.
-type IdentityValue struct {
-	IDs    string
-	IDRefs string
-}
-
 const nilledElementIdentityKey = "\xff\x1e\x00nil"
 
-// NilledElementIdentityKey returns the identity-field key used for selected
-// nilled elements.
-func NilledElementIdentityKey() string {
-	return nilledElementIdentityKey
-}
-
-// EndIdentityCaptureAction identifies the identity field capture needed after
+// endIdentityCaptureAction identifies the identity field capture needed after
 // element content validation.
-type EndIdentityCaptureAction uint8
+type endIdentityCaptureAction uint8
 
 const (
-	// EndIdentityCaptureNone means end-of-element handling has no identity value.
-	EndIdentityCaptureNone EndIdentityCaptureAction = iota
-	// EndIdentityCaptureNilledElement means selected fields use the nilled sentinel.
-	EndIdentityCaptureNilledElement
-	// EndIdentityCaptureComplexElement means selected fields use element text.
-	EndIdentityCaptureComplexElement
+	// endIdentityCaptureNone means end-of-element handling has no identity value.
+	endIdentityCaptureNone endIdentityCaptureAction = iota
+	// endIdentityCaptureNilledElement means selected fields use the nilled sentinel.
+	endIdentityCaptureNilledElement
+	// endIdentityCaptureComplexElement means selected fields use element text.
+	endIdentityCaptureComplexElement
 )
 
-// EndIdentityCapture selects the identity capture action for an element end.
-func EndIdentityCapture(rt *runtime.Schema, in EndIdentityInput) (EndIdentityCaptureAction, error) {
+func endIdentityCapture(element identityElementState, in identityElementEnd) endIdentityCaptureAction {
 	if in.ContentCaptured {
-		return EndIdentityCaptureNone, nil
+		return endIdentityCaptureNone
 	}
-	if rt == nil {
-		return EndIdentityCaptureNone, xsderrors.InternalInvariant("end identity runtime is missing")
+	if !element.simpleContent {
+		return endIdentityCaptureComplexElement
 	}
-	hasSimpleContent, ok := rt.ElementHasSimpleContent(in.Type, in.Element)
-	if !ok {
-		return EndIdentityCaptureNone, xsderrors.InternalInvariant("end identity content info is invalid")
+	if element.nilled && element.element != runtime.NoElement {
+		return endIdentityCaptureNilledElement
 	}
-	return endIdentityCapture(hasSimpleContent, in), nil
+	return endIdentityCaptureNone
 }
 
-func endIdentityCapture(hasSimpleContent bool, in EndIdentityInput) EndIdentityCaptureAction {
-	if !hasSimpleContent {
-		return EndIdentityCaptureComplexElement
-	}
-	if in.Nilled && in.Element != runtime.NoElement {
-		return EndIdentityCaptureNilledElement
-	}
-	return EndIdentityCaptureNone
-}
-
-// EndIdentityInput is the validation state needed to finish element identity
-// field capture after content validation.
-type EndIdentityInput struct {
-	Type            runtime.TypeID
-	Element         runtime.ElementID
-	ContentCaptured bool
-	Nilled          bool
-}
-
-// SimpleValueIdentityKey returns the comparable identity field key for a
+// simpleValueIdentityKey returns the comparable identity field key for a
 // validated simple value.
-func SimpleValueIdentityKey(rt *runtime.Schema, value runtime.SimpleValue) (string, bool) {
+func simpleValueIdentityKey(rt *runtime.Schema, value runtime.SimpleValue) (string, bool) {
 	if value.Identity != "" {
 		return value.Identity, true
 	}
@@ -90,21 +58,72 @@ func SimpleValueIdentityKey(rt *runtime.Schema, value runtime.SimpleValue) (stri
 	return runtime.SimpleIdentityKey(primitive, value.Canonical), true
 }
 
-// IdentityState owns document-wide ID/IDREF and key/unique/keyref state.
-type IdentityState struct {
-	ids         map[string]string
-	idrefs      []identityRef
-	scopes      []identityScope
-	selections  []identitySelection
-	fieldValues []identityFieldValue
-	matches     []IdentityFieldMatch
-	entries     int
-	nextNodeID  uint64
+// identityState stores the evaluator's document-wide ID/IDREF and
+// key/unique/keyref data.
+//
+//nolint:govet // State is grouped by identity lifecycle.
+type identityState struct {
+	ids          map[string]retainedPath
+	idrefs       []identityRef
+	fieldStaging identityFieldStaging
+	scopes       []identityScope
+	selections   []identitySelection // Ordered by nondecreasing selection depth.
+	fieldValues  []identityFieldValue
+	matches      []identityFieldMatch
+	entries      int
+	nextNodeID   uint64
+	startJournal identityStartJournal
+}
+
+// identityFieldStaging owns the temporary ID/IDREF batch until validation
+// succeeds. Values are cleared after every batch so source strings cannot be
+// retained across validation calls.
+type identityFieldStaging struct {
+	ids    map[string]struct{}
+	values []string
+}
+
+func (s *identityFieldStaging) reset(maxRetainedIDs, maxRetainedValues int) {
+	if len(s.ids) > maxRetainedIDs {
+		s.ids = nil
+	} else {
+		clear(s.ids)
+	}
+	s.values = resetRetainedReferences(s.values, maxRetainedValues)
+}
+
+type identityFieldUndo struct {
+	value identityFieldValue
+	index int
+}
+
+type identityScopeUndo struct {
+	index   int
+	invalid bool
+}
+
+// identityStartJournal records only mutations to state that predates the
+// current element. Appended state is restored from the captured lengths.
+//
+//nolint:govet // Slices are retained together across transactions.
+type identityStartJournal struct {
+	active         bool
+	pathLen        int
+	elementsLen    int
+	idrefsLen      int
+	scopesLen      int
+	selectionsLen  int
+	fieldValuesLen int
+	entries        int
+	nextNodeID     uint64
+	addedIDs       []string
+	fieldUndos     []identityFieldUndo
+	scopeUndos     []identityScopeUndo
 }
 
 type identityRef struct {
 	Value string
-	Path  string
+	Path  retainedPath
 	Line  int
 	Col   int
 }
@@ -120,21 +139,20 @@ type identityScope struct {
 // identityTableEntry records where a key tuple was first seen. Conflict marks
 // tuples propagated from child scopes with differing selected nodes.
 type identityTableEntry struct {
-	path     string
+	path     retainedPath
 	node     uint64
 	conflict bool
 }
 
 type identityTupleRef struct {
 	key   string
-	path  string
+	path  retainedPath
 	line  int
 	col   int
 	refer runtime.IdentityConstraintID
 }
 
 type identitySelection struct {
-	path       string
 	node       uint64
 	scope      int
 	depth      int
@@ -143,6 +161,14 @@ type identitySelection struct {
 	line       int
 	col        int
 	constraint runtime.IdentityConstraintID
+}
+
+func (s identitySelection) pathString(ctx StartContext) string {
+	return ctx.PathStringAtDepth(s.depth)
+}
+
+func (s identitySelection) retainedPath(ctx StartContext) retainedPath {
+	return ctx.retainPathAtDepth(s.depth)
 }
 
 type identityFieldState uint8
@@ -159,15 +185,15 @@ type identityFieldValue struct {
 	nillable bool
 }
 
-// IdentityFieldMatch identifies one active identity field selected by element
+// identityFieldMatch identifies one active identity field selected by element
 // or attribute content.
-type IdentityFieldMatch struct {
+type identityFieldMatch struct {
 	Selection int
 	Field     int
 }
 
 // Reset clears document identity state, retaining bounded map/slice capacity.
-func (s *IdentityState) Reset(maxRetainedIDs, maxRetainedSlices int) {
+func (s *identityState) reset(maxRetainedIDs, maxRetainedSlices int) {
 	if s == nil {
 		return
 	}
@@ -182,16 +208,48 @@ func (s *IdentityState) Reset(maxRetainedIDs, maxRetainedSlices int) {
 		clear(s.idrefs)
 		s.idrefs = s.idrefs[:0]
 	}
+	s.fieldStaging.reset(maxRetainedIDs, maxRetainedSlices)
 	s.scopes = resetRetainedReferences(s.scopes, maxRetainedSlices)
 	s.selections = resetRetainedReferences(s.selections, maxRetainedSlices)
 	s.fieldValues = resetRetainedReferences(s.fieldValues, maxRetainedSlices)
 	s.matches = resetRetainedValues(s.matches, maxRetainedSlices)
 	s.entries = 0
 	s.nextNodeID = 0
+	s.startJournal = identityStartJournal{
+		addedIDs:   resetRetainedValues(s.startJournal.addedIDs, maxRetainedSlices),
+		fieldUndos: resetRetainedValues(s.startJournal.fieldUndos, maxRetainedSlices),
+		scopeUndos: resetRetainedValues(s.startJournal.scopeUndos, maxRetainedSlices),
+	}
 }
 
-// ReserveEntry reserves one identity entry against global identity limits.
-func (s *IdentityState) ReserveEntry(key string, limits IdentityLimits, ctx StartContext) error {
+func (s *identityState) rememberAddedID(id string) {
+	if s.startJournal.active {
+		s.startJournal.addedIDs = append(s.startJournal.addedIDs, id)
+	}
+}
+
+func (s *identityState) rememberField(index int) {
+	if !s.startJournal.active || index >= s.startJournal.fieldValuesLen {
+		return
+	}
+	s.startJournal.fieldUndos = append(s.startJournal.fieldUndos, identityFieldUndo{
+		index: index,
+		value: s.fieldValues[index],
+	})
+}
+
+func (s *identityState) markScopeInvalid(index int) {
+	if s.startJournal.active && index < s.startJournal.scopesLen {
+		s.startJournal.scopeUndos = append(s.startJournal.scopeUndos, identityScopeUndo{
+			index:   index,
+			invalid: s.scopes[index].invalid,
+		})
+	}
+	s.scopes[index].invalid = true
+}
+
+// reserveEntry reserves one identity entry against global identity limits.
+func (s *identityState) reserveEntry(key string, limits identityLimits, ctx StartContext) error {
 	if limits.TupleBytes > 0 && int64(len(key)) > limits.TupleBytes {
 		return validation(ctx, xsderrors.CodeValidationLimit, "identity tuple byte limit exceeded")
 	}
@@ -202,22 +260,16 @@ func (s *IdentityState) ReserveEntry(key string, limits IdentityLimits, ctx Star
 	return nil
 }
 
-// CheckIDRefs reports unresolved IDREFs through report. When check is non-nil,
-// it runs before each retained reference.
-func (s *IdentityState) CheckIDRefs(report func(error) error, check func() error) error {
+// checkIDRefs reports unresolved IDREFs through report.
+func (s *identityState) checkIDRefs(report func(error) error) error {
 	if s == nil || len(s.idrefs) == 0 {
 		return nil
 	}
 	for _, ref := range s.idrefs {
-		if check != nil {
-			if err := check(); err != nil {
-				return err
-			}
-		}
 		if _, ok := s.ids[ref.Value]; ok {
 			continue
 		}
-		err := validation(StartContext{Path: ref.Path, Line: ref.Line, Column: ref.Col}, xsderrors.CodeValidationType, "IDREF does not resolve: "+ref.Value)
+		err := validation(StartContext{Path: ref.Path.String(), Line: ref.Line, Column: ref.Col}, xsderrors.CodeValidationType, "IDREF does not resolve: "+ref.Value)
 		if recoverErr := report(err); recoverErr != nil {
 			return recoverErr
 		}
@@ -225,7 +277,7 @@ func (s *IdentityState) CheckIDRefs(report func(error) error, check func() error
 	return nil
 }
 
-func (s *IdentityState) startScope(constraints runtime.IdentityConstraintIDs, depth int, maxScopes int, ctx StartContext) error {
+func (s *identityState) startScope(constraints runtime.IdentityConstraintIDs, depth int, maxScopes int, ctx StartContext) error {
 	if constraints.Len() == 0 {
 		return nil
 	}
@@ -240,7 +292,7 @@ func (s *IdentityState) startScope(constraints runtime.IdentityConstraintIDs, de
 }
 
 // startElementScope starts an identity scope declared on elem.
-func (s *IdentityState) startElementScope(rt *runtime.Schema, elem runtime.ElementID, depth int, maxScopes int, ctx StartContext) error {
+func (s *identityState) startElementScope(rt *runtime.Schema, elem runtime.ElementID, depth int, maxScopes int, ctx StartContext) error {
 	if elem == runtime.NoElement {
 		return nil
 	}
@@ -251,16 +303,15 @@ func (s *IdentityState) startElementScope(rt *runtime.Schema, elem runtime.Eleme
 	return s.startScope(constraints, depth, maxScopes, ctx)
 }
 
-// HasScopes reports whether any identity scopes are active.
-func (s *IdentityState) HasScopes() bool {
-	return s != nil && len(s.scopes) != 0
-}
-
 // startSelection starts collecting fields for one matched identity selector
-// after enforcing the active-selection bound at the allocation boundary.
-func (s *IdentityState) startSelection(scope, depth int, constraint runtime.IdentityConstraintID, fieldCount, maxPending int, ctx StartContext) error {
-	if maxPending > 0 && len(s.selections) >= maxPending {
+// after enforcing the pending-selection and field-value bounds.
+func (s *identityState) startSelection(scope, depth int, constraint runtime.IdentityConstraintID, fieldCount, maxEntries int, ctx StartContext) error {
+	if maxEntries > 0 &&
+		(len(s.selections) >= maxEntries || fieldCount > maxEntries-len(s.fieldValues)) {
 		return validation(ctx, xsderrors.CodeValidationLimit, "identity entry limit exceeded")
+	}
+	if len(s.selections) != 0 && s.selections[len(s.selections)-1].depth > depth {
+		return xsderrors.InternalInvariant("identity selections are not ordered by depth")
 	}
 	fieldStart := len(s.fieldValues)
 	for range fieldCount {
@@ -273,7 +324,6 @@ func (s *IdentityState) startSelection(scope, depth int, constraint runtime.Iden
 		depth:      depth,
 		fieldStart: fieldStart,
 		fieldLen:   fieldCount,
-		path:       ctx.PathString(),
 		node:       s.nextNodeID,
 		line:       ctx.Line,
 		col:        ctx.Column,
@@ -281,137 +331,185 @@ func (s *IdentityState) startSelection(scope, depth int, constraint runtime.Iden
 	return nil
 }
 
-// ResetFieldMatches clears the scratch field-match list.
-func (s *IdentityState) ResetFieldMatches() {
-	if s == nil {
-		return
-	}
-	s.matches = s.matches[:0]
-}
-
-// AddFieldMatch records that selection's field matched the current value.
-func (s *IdentityState) AddFieldMatch(selection, field int) {
-	s.matches = append(s.matches, IdentityFieldMatch{Selection: selection, Field: field})
-}
-
-// FieldMatches returns field matches accumulated since ResetFieldMatches.
-func (s *IdentityState) FieldMatches() []IdentityFieldMatch {
-	if s == nil {
-		return nil
-	}
-	return s.matches
+func (s *identityState) selectionStartAtDepth(depth int) (int, bool) {
+	start := sort.Search(len(s.selections), func(i int) bool {
+		return s.selections[i].depth >= depth
+	})
+	return start, start < len(s.selections) && s.selections[start].depth == depth
 }
 
 // elementFieldMatches returns active identity fields matching the current element.
-func (s *IdentityState) elementFieldMatches(rt *runtime.Schema, namePath []runtime.RuntimeName) ([]IdentityFieldMatch, error) {
-	s.ResetFieldMatches()
+func (s *identityState) elementFieldMatches(rt *runtime.Schema, namePath []runtime.RuntimeName) ([]identityFieldMatch, error) {
+	s.matches = s.matches[:0]
 	depth := len(namePath)
 	for i := range s.selections {
-		sel := &s.selections[i]
-		fields, ok := rt.IdentityElementFields(sel.constraint)
+		if err := s.appendElementFieldMatches(rt, namePath, depth, i); err != nil {
+			return nil, err
+		}
+	}
+	return s.matches, nil
+}
+
+func (s *identityState) appendElementFieldMatches(rt *runtime.Schema, namePath []runtime.RuntimeName, depth, selectionIndex int) error {
+	sel := &s.selections[selectionIndex]
+	constraint, ok := rt.IdentityConstraint(sel.constraint)
+	if !ok {
+		return xsderrors.InternalInvariant("identity element field metadata is invalid")
+	}
+	fields := constraint.ElementFields()
+	for fieldIndex := range fields.Len() {
+		field, ok := fields.At(fieldIndex)
 		if !ok {
-			return nil, xsderrors.InternalInvariant("identity element field metadata is invalid")
+			return xsderrors.InternalInvariant("identity element field metadata is invalid")
 		}
-		for fieldIndex := range fields.Len() {
-			field, fieldOK := fields.At(fieldIndex)
-			if !fieldOK {
-				return nil, xsderrors.InternalInvariant("identity element field metadata is invalid")
-			}
-			if identityCompiledFieldPathsMatch(rt, namePath, sel.depth, depth, field) {
-				s.AddFieldMatch(i, field.Field())
-			}
-		}
-	}
-	return s.FieldMatches(), nil
-}
-
-// attributeFieldMatches returns active identity fields matching the current attribute.
-func (s *IdentityState) attributeFieldMatches(rt *runtime.Schema, namePath []runtime.RuntimeName, name runtime.RuntimeName) ([]IdentityFieldMatch, error) {
-	s.ResetFieldMatches()
-	depth := len(namePath)
-	for i := range s.selections {
-		sel := &s.selections[i]
-		start := len(s.matches)
-		if name.Known {
-			fields, ok := rt.IdentityAttributeFields(sel.constraint, name.Name)
-			if !ok {
-				return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
-			}
-			for fieldIndex := range fields.Len() {
-				field, fieldOK := fields.At(fieldIndex)
-				if !fieldOK {
-					return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
-				}
-				if identityCompiledFieldPathsMatch(rt, namePath, sel.depth, depth, field) {
-					s.AddFieldMatch(i, field.Field())
-				}
-			}
-		}
-		fields, ok := rt.IdentityAttributeWildcardFields(sel.constraint)
-		if !ok {
-			return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
-		}
-		for fieldIndex := range fields.Len() {
-			field, ok := fields.At(fieldIndex)
-			if !ok {
-				return nil, xsderrors.InternalInvariant("identity attribute field metadata is invalid")
-			}
-			if identityMatchExists(s.matches[start:], i, field.Field()) {
-				continue
-			}
-			if identityCompiledAttributeFieldPathsMatch(rt, namePath, sel.depth, depth, name, field) {
-				s.AddFieldMatch(i, field.Field())
-			}
-		}
-	}
-	return s.FieldMatches(), nil
-}
-
-// SelectionPath returns the validation path for selection.
-func (s *IdentityState) SelectionPath(selection int) (string, bool) {
-	if s == nil || selection < 0 || selection >= len(s.selections) {
-		return "", false
-	}
-	return s.selections[selection].path, true
-}
-
-// matchSelectors starts selections whose selectors match the current element.
-func (s *IdentityState) matchSelectors(rt *runtime.Schema, namePath []runtime.RuntimeName, maxPending int, ctx StartContext) error {
-	if !s.HasScopes() {
-		return nil
-	}
-	depth := len(namePath)
-	for scopeIndex := range s.scopes {
-		scope := &s.scopes[scopeIndex]
-		for constraintIndex := range scope.constraints.Len() {
-			id, ok := scope.constraints.At(constraintIndex)
-			if !ok {
-				return xsderrors.InternalInvariant("identity scope metadata is invalid")
-			}
-			matched, ok := identitySelectorMatches(rt, id, namePath, scope.depth, depth)
-			if !ok {
-				return xsderrors.InternalInvariant("identity selector metadata is invalid")
-			}
-			if !matched {
-				continue
-			}
-			fieldCount, ok := rt.IdentityFieldCount(id)
-			if !ok {
-				return xsderrors.InternalInvariant("identity field count metadata is invalid")
-			}
-			if err := s.startSelection(scopeIndex, depth, id, fieldCount, maxPending, ctx); err != nil {
-				return err
-			}
+		if identityCompiledFieldPathsMatch(rt, namePath, sel.depth, depth, field) {
+			s.matches = append(s.matches, identityFieldMatch{Selection: selectionIndex, Field: field.Field()})
 		}
 	}
 	return nil
 }
 
-func identitySelectorMatches(rt *runtime.Schema, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (bool, bool) {
-	paths, ok := rt.IdentitySelectorPaths(id)
+// attributeFieldMatches returns active identity fields matching the current attribute.
+func (s *identityState) attributeFieldMatches(rt *runtime.Schema, namePath []runtime.RuntimeName, name runtime.RuntimeName) ([]identityFieldMatch, error) {
+	s.matches = s.matches[:0]
+	depth := len(namePath)
+	for i := range s.selections {
+		if err := s.appendAttributeFieldMatches(rt, namePath, name, depth, i); err != nil {
+			return nil, err
+		}
+	}
+	return s.matches, nil
+}
+
+func (s *identityState) appendAttributeFieldMatches(rt *runtime.Schema, namePath []runtime.RuntimeName, name runtime.RuntimeName, depth, selectionIndex int) error {
+	sel := &s.selections[selectionIndex]
+	constraint, ok := rt.IdentityConstraint(sel.constraint)
+	if !ok {
+		return xsderrors.InternalInvariant("identity attribute field metadata is invalid")
+	}
+	matcher := identityAttributeFieldMatcher{
+		state:          s,
+		rt:             rt,
+		namePath:       namePath,
+		name:           name,
+		depth:          depth,
+		selectionIndex: selectionIndex,
+	}
+	start := len(s.matches)
+	if err := matcher.appendNamed(constraint); err != nil {
+		return err
+	}
+	return matcher.appendWildcard(constraint, start)
+}
+
+type identityAttributeFieldMatcher struct {
+	state          *identityState
+	rt             *runtime.Schema
+	namePath       []runtime.RuntimeName
+	name           runtime.RuntimeName
+	depth          int
+	selectionIndex int
+}
+
+func (m identityAttributeFieldMatcher) appendNamed(constraint runtime.IdentityConstraintRead) error {
+	if !m.name.Known {
+		return nil
+	}
+	fields := constraint.AttributeFields(m.name.Name)
+	for fieldIndex := range fields.Len() {
+		field, ok := fields.At(fieldIndex)
+		if !ok {
+			return xsderrors.InternalInvariant("identity attribute field metadata is invalid")
+		}
+		if identityCompiledFieldPathsMatch(m.rt, m.namePath, m.state.selections[m.selectionIndex].depth, m.depth, field) {
+			m.state.matches = append(m.state.matches, identityFieldMatch{Selection: m.selectionIndex, Field: field.Field()})
+		}
+	}
+	return nil
+}
+
+func (m identityAttributeFieldMatcher) appendWildcard(constraint runtime.IdentityConstraintRead, start int) error {
+	fields := constraint.AttributeWildcardFields()
+	for fieldIndex := range fields.Len() {
+		field, ok := fields.At(fieldIndex)
+		if !ok {
+			return xsderrors.InternalInvariant("identity attribute field metadata is invalid")
+		}
+		if identityMatchExists(m.state.matches[start:], m.selectionIndex, field.Field()) {
+			continue
+		}
+		if identityCompiledAttributeFieldPathsMatch(m.rt, m.namePath, m.state.selections[m.selectionIndex].depth, m.depth, m.name, field) {
+			m.state.matches = append(m.state.matches, identityFieldMatch{Selection: m.selectionIndex, Field: field.Field()})
+		}
+	}
+	return nil
+}
+
+// matchSelectors starts selections whose selectors match the current element.
+func (s *identityState) matchSelectors(rt *runtime.Schema, namePath []runtime.RuntimeName, maxEntries int, ctx StartContext) error {
+	if len(s.scopes) == 0 {
+		return nil
+	}
+	matcher := identitySelectorMatcher{
+		state:      s,
+		rt:         rt,
+		namePath:   namePath,
+		ctx:        ctx,
+		depth:      len(namePath),
+		maxEntries: maxEntries,
+	}
+	for scopeIndex := range s.scopes {
+		if err := matcher.matchScope(scopeIndex); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type identitySelectorMatcher struct {
+	state      *identityState
+	rt         *runtime.Schema
+	namePath   []runtime.RuntimeName
+	ctx        StartContext
+	depth      int
+	maxEntries int
+}
+
+func (m identitySelectorMatcher) matchScope(scopeIndex int) error {
+	scope := &m.state.scopes[scopeIndex]
+	for constraintIndex := range scope.constraints.Len() {
+		id, ok := scope.constraints.At(constraintIndex)
+		if !ok {
+			return xsderrors.InternalInvariant("identity scope metadata is invalid")
+		}
+		if err := m.match(scopeIndex, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m identitySelectorMatcher) match(scopeIndex int, id runtime.IdentityConstraintID) error {
+	matched, ok := identitySelectorMatches(m.rt, id, m.namePath, m.state.scopes[scopeIndex].depth, m.depth)
+	if !ok {
+		return xsderrors.InternalInvariant("identity selector metadata is invalid")
+	}
+	if !matched {
+		return nil
+	}
+	constraint, ok := m.rt.IdentityConstraint(id)
+	if !ok {
+		return xsderrors.InternalInvariant("identity field count metadata is invalid")
+	}
+	return m.state.startSelection(scopeIndex, m.depth, id, constraint.FieldCount(), m.maxEntries, m.ctx)
+}
+
+func identitySelectorMatches(rt *runtime.Schema, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (matched, valid bool) {
+	constraint, ok := rt.IdentityConstraint(id)
 	if !ok {
 		return false, false
 	}
+	paths := constraint.SelectorPaths()
 	for pathIndex := range paths.Len() {
 		path, ok := paths.At(pathIndex)
 		if !ok {
@@ -424,25 +522,28 @@ func identitySelectorMatches(rt *runtime.Schema, id runtime.IdentityConstraintID
 	return false, true
 }
 
-// CaptureFields records one identity value in all matched fields.
-func (s *IdentityState) CaptureFields(matches []IdentityFieldMatch, value string, ctx StartContext) error {
+// captureFields records one identity value in all matched fields.
+func (s *identityState) captureFields(matches []identityFieldMatch, value string, ctx StartContext) error {
 	if err := s.validateFieldMatches(matches); err != nil {
 		return err
 	}
 	var duplicatePath string
 	for _, match := range matches {
 		sel := &s.selections[match.Selection]
-		field := &s.selectionFields(*sel)[match.Field]
+		fieldIndex := sel.fieldStart + match.Field
+		field := &s.fieldValues[fieldIndex]
 		switch field.state {
 		case identityFieldAbsent:
+			s.rememberField(fieldIndex)
 			field.value = value
 			field.state = identityFieldPresent
 		case identityFieldPresent:
+			s.rememberField(fieldIndex)
 			field.value = ""
 			field.state = identityFieldInvalid
-			s.scopes[sel.scope].invalid = true
+			s.markScopeInvalid(sel.scope)
 			if duplicatePath == "" {
-				duplicatePath = sel.path
+				duplicatePath = sel.pathString(ctx)
 			}
 		case identityFieldInvalid:
 		default:
@@ -455,22 +556,10 @@ func (s *IdentityState) CaptureFields(matches []IdentityFieldMatch, value string
 	return nil
 }
 
-// CaptureSimpleValueFields records the identity field key for a selected simple value.
-func (s *IdentityState) CaptureSimpleValueFields(rt *runtime.Schema, matches []IdentityFieldMatch, value runtime.SimpleValue, ctx StartContext) error {
-	if len(matches) == 0 {
-		return nil
-	}
-	key, ok := SimpleValueIdentityKey(rt, value)
-	if !ok {
-		return xsderrors.InternalInvariant("identity field value references invalid simple type")
-	}
-	return s.CaptureFields(matches, key, ctx)
-}
-
-// MarkNillableKeyFields records successfully captured key fields selected from
+// markNillableKeyFields records successfully captured key fields selected from
 // nillable element declarations. The rule is enforced only after the complete
 // key sequence is known to be qualified.
-func (s *IdentityState) MarkNillableKeyFields(rt *runtime.Schema, matches []IdentityFieldMatch) error {
+func (s *identityState) markNillableKeyFields(rt *runtime.Schema, matches []identityFieldMatch) error {
 	if len(matches) == 0 {
 		return nil
 	}
@@ -482,11 +571,11 @@ func (s *IdentityState) MarkNillableKeyFields(rt *runtime.Schema, matches []Iden
 	}
 	for _, match := range matches {
 		sel := &s.selections[match.Selection]
-		info, ok := rt.IdentityConstraintInfo(sel.constraint)
+		constraint, ok := rt.IdentityConstraint(sel.constraint)
 		if !ok {
 			return xsderrors.InternalInvariant("identity constraint metadata is invalid")
 		}
-		if info.Kind != runtime.IdentityKey {
+		if constraint.Kind() != runtime.IdentityKey {
 			continue
 		}
 		field := &s.selectionFields(*sel)[match.Field]
@@ -497,39 +586,38 @@ func (s *IdentityState) MarkNillableKeyFields(rt *runtime.Schema, matches []Iden
 	return nil
 }
 
-// RejectFieldsWithoutSimpleValue invalidates selected field nodes that have no
+// rejectFieldsWithoutSimpleValue invalidates selected field nodes that have no
 // assessment-derived simple value.
-func (s *IdentityState) RejectFieldsWithoutSimpleValue(matches []IdentityFieldMatch, ctx StartContext) error {
+func (s *identityState) rejectFieldsWithoutSimpleValue(matches []identityFieldMatch, ctx StartContext) error {
 	if len(matches) == 0 {
 		return nil
 	}
-	if err := s.InvalidateFields(matches); err != nil {
+	if err := s.invalidateFields(matches); err != nil {
 		return err
 	}
-	path, ok := s.SelectionPath(matches[0].Selection)
-	if !ok {
-		return xsderrors.InternalInvariant("identity field match references invalid selection")
-	}
+	path := s.selections[matches[0].Selection].pathString(ctx)
 	return validation(StartContext{Path: path, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "identity field has no simple value")
 }
 
-// InvalidateFields prevents selected field nodes from being reclassified as
+// invalidateFields prevents selected field nodes from being reclassified as
 // absent or published as identity tuples after another validation failure.
-func (s *IdentityState) InvalidateFields(matches []IdentityFieldMatch) error {
+func (s *identityState) invalidateFields(matches []identityFieldMatch) error {
 	if err := s.validateFieldMatches(matches); err != nil {
 		return err
 	}
 	for _, match := range matches {
 		sel := &s.selections[match.Selection]
-		field := &s.selectionFields(*sel)[match.Field]
+		fieldIndex := sel.fieldStart + match.Field
+		s.rememberField(fieldIndex)
+		field := &s.fieldValues[fieldIndex]
 		field.value = ""
 		field.state = identityFieldInvalid
-		s.scopes[sel.scope].invalid = true
+		s.markScopeInvalid(sel.scope)
 	}
 	return nil
 }
 
-func (s *IdentityState) validateFieldMatches(matches []IdentityFieldMatch) error {
+func (s *identityState) validateFieldMatches(matches []identityFieldMatch) error {
 	for _, match := range matches {
 		if match.Selection < 0 || match.Selection >= len(s.selections) {
 			return xsderrors.InternalInvariant("identity field match references invalid selection")
@@ -545,14 +633,14 @@ func (s *IdentityState) validateFieldMatches(matches []IdentityFieldMatch) error
 	return nil
 }
 
-func (s *IdentityState) selectionOwnedAtDepth(sel identitySelection, depth int) (bool, error) {
+func (s *identityState) selectionOwnedAtDepth(sel identitySelection, depth int) (bool, error) {
 	if sel.scope < 0 || sel.scope >= len(s.scopes) {
 		return false, xsderrors.InternalInvariant("identity selection references invalid scope")
 	}
 	return s.scopes[sel.scope].depth == depth, nil
 }
 
-func (s *IdentityState) invalidateSelectionScope(sel identitySelection) error {
+func (s *identityState) invalidateSelectionScope(sel identitySelection) error {
 	if sel.scope < 0 || sel.scope >= len(s.scopes) {
 		return xsderrors.InternalInvariant("identity selection references invalid scope")
 	}
@@ -560,100 +648,162 @@ func (s *IdentityState) invalidateSelectionScope(sel identitySelection) error {
 	return nil
 }
 
-func (s *IdentityState) finishSelection(
+func (s *identityState) finishSelection(
 	rt *runtime.Schema,
 	sel identitySelection,
-	limits IdentityLimits,
+	limits identityLimits,
 	ctx StartContext,
 ) error {
-	info, ok := rt.IdentityConstraintInfo(sel.constraint)
+	constraint, ok := rt.IdentityConstraint(sel.constraint)
 	if !ok {
 		return xsderrors.InternalInvariant("identity constraint metadata is invalid")
 	}
-	return s.finishSelectionWithInfo(info, sel, limits, ctx)
+	return s.finishSelectionWithConstraint(constraint.Kind(), constraint.Refer(), sel, limits, ctx)
 }
 
-func (s *IdentityState) finishSelectionWithInfo(
-	info runtime.IdentityConstraintInfo,
+func (s *identityState) finishSelectionWithConstraint(
+	kind runtime.IdentityKind,
+	refer runtime.IdentityConstraintID,
 	sel identitySelection,
-	limits IdentityLimits,
+	limits identityLimits,
 	ctx StartContext,
 ) error {
 	fields := s.selectionFields(sel)
-	invalid := false
-	absent := false
-	for _, field := range fields {
-		switch field.state {
-		case identityFieldAbsent:
-			absent = true
-		case identityFieldPresent:
-		case identityFieldInvalid:
-			invalid = true
-		default:
-			return xsderrors.InternalInvariant("identity field state is invalid")
-		}
+	disposition, err := classifyIdentityFields(fields)
+	if err != nil {
+		return err
 	}
-	if invalid {
+	if disposition == identityFieldsInvalid {
 		return nil
 	}
-	if absent {
-		if info.Kind == runtime.IdentityKey {
-			return validation(StartContext{Path: sel.path, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "key field is missing")
+	if disposition == identityFieldsAbsent {
+		if kind == runtime.IdentityKey {
+			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "key field is missing")
 		}
 		return nil
 	}
-	if info.Kind == runtime.IdentityKey {
-		for _, field := range fields {
-			if field.nillable {
-				return validation(StartContext{Path: sel.path, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "key field selects nillable element declaration")
-			}
-		}
+	if fieldErr := validateIdentityKeyFields(kind, fields, sel, ctx); fieldErr != nil {
+		return fieldErr
 	}
 	key, err := identityTupleKey(fields, limits, ctx)
 	if err != nil {
 		return err
 	}
-	if sel.scope < 0 || sel.scope >= len(s.scopes) {
-		return xsderrors.InternalInvariant("identity selection references invalid scope")
+	scope, err := s.selectionScope(sel)
+	if err != nil {
+		return err
 	}
-	scope := &s.scopes[sel.scope]
-	switch info.Kind {
-	case runtime.IdentityUnique, runtime.IdentityKey:
-		if scope.tables == nil {
-			scope.tables = make(map[runtime.IdentityConstraintID]map[string]identityTableEntry)
+	return s.publishIdentityTuple(identityTuplePublication{
+		scope:     scope,
+		selection: sel,
+		key:       key,
+		kind:      kind,
+		refer:     refer,
+	}, limits, ctx)
+}
+
+type identityFieldsDisposition uint8
+
+const (
+	identityFieldsComplete identityFieldsDisposition = iota
+	identityFieldsAbsent
+	identityFieldsInvalid
+)
+
+func classifyIdentityFields(fields []identityFieldValue) (identityFieldsDisposition, error) {
+	disposition := identityFieldsComplete
+	for _, field := range fields {
+		switch field.state {
+		case identityFieldAbsent:
+			if disposition == identityFieldsComplete {
+				disposition = identityFieldsAbsent
+			}
+		case identityFieldPresent:
+		case identityFieldInvalid:
+			disposition = identityFieldsInvalid
+		default:
+			return identityFieldsInvalid, xsderrors.InternalInvariant("identity field state is invalid")
 		}
-		table := scope.tables[sel.constraint]
-		if table == nil {
-			table = make(map[string]identityTableEntry)
-			scope.tables[sel.constraint] = table
+	}
+	return disposition, nil
+}
+
+func validateIdentityKeyFields(kind runtime.IdentityKind, fields []identityFieldValue, sel identitySelection, ctx StartContext) error {
+	if kind != runtime.IdentityKey {
+		return nil
+	}
+	for _, field := range fields {
+		if field.nillable {
+			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "key field selects nillable element declaration")
 		}
-		if prev, exists := table[key]; exists {
-			return validation(StartContext{Path: sel.path, Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "duplicate identity value first seen at "+prev.path)
-		}
-		if err := s.ReserveEntry(key, limits, ctx); err != nil {
-			return err
-		}
-		table[key] = identityTableEntry{path: sel.path, node: sel.node}
-	case runtime.IdentityKeyRef:
-		if err := s.ReserveEntry(key, limits, ctx); err != nil {
-			return err
-		}
-		scope.refs = append(scope.refs, identityTupleRef{
-			refer: info.Refer,
-			key:   key,
-			path:  sel.path,
-			line:  sel.line,
-			col:   sel.col,
-		})
 	}
 	return nil
 }
 
-func (s *IdentityState) selectionFields(sel identitySelection) []identityFieldValue {
+func (s *identityState) selectionScope(sel identitySelection) (*identityScope, error) {
+	if sel.scope < 0 || sel.scope >= len(s.scopes) {
+		return nil, xsderrors.InternalInvariant("identity selection references invalid scope")
+	}
+	return &s.scopes[sel.scope], nil
+}
+
+type identityTuplePublication struct {
+	scope     *identityScope
+	key       string
+	selection identitySelection
+	kind      runtime.IdentityKind
+	refer     runtime.IdentityConstraintID
+}
+
+func (s *identityState) publishIdentityTuple(publication identityTuplePublication, limits identityLimits, ctx StartContext) error {
+	switch publication.kind {
+	case runtime.IdentityUnique, runtime.IdentityKey:
+		return s.publishIdentityKey(publication.scope, publication.selection, publication.key, limits, ctx)
+	case runtime.IdentityKeyRef:
+		return s.publishIdentityKeyRef(publication.scope, publication.refer, publication.selection, publication.key, limits, ctx)
+	default:
+		return nil
+	}
+}
+
+func (s *identityState) publishIdentityKey(scope *identityScope, sel identitySelection, key string, limits identityLimits, ctx StartContext) error {
+	if scope.tables == nil {
+		scope.tables = make(map[runtime.IdentityConstraintID]map[string]identityTableEntry)
+	}
+	table := scope.tables[sel.constraint]
+	if table == nil {
+		table = make(map[string]identityTableEntry)
+		scope.tables[sel.constraint] = table
+	}
+	if prev, exists := table[key]; exists {
+		return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "duplicate identity value first seen at "+prev.path.String())
+	}
+	if err := s.reserveEntry(key, limits, ctx); err != nil {
+		return err
+	}
+	table[key] = identityTableEntry{path: sel.retainedPath(ctx), node: sel.node}
+	return nil
+}
+
+func (s *identityState) publishIdentityKeyRef(scope *identityScope, refer runtime.IdentityConstraintID, sel identitySelection, key string, limits identityLimits, ctx StartContext) error {
+	if err := s.reserveEntry(key, limits, ctx); err != nil {
+		return err
+	}
+	scope.refs = append(scope.refs, identityTupleRef{
+		refer: refer,
+		key:   key,
+		path:  sel.retainedPath(ctx),
+		line:  sel.line,
+		col:   sel.col,
+	})
+	return nil
+}
+
+func (s *identityState) selectionFields(sel identitySelection) []identityFieldValue {
 	return s.fieldValues[sel.fieldStart : sel.fieldStart+sel.fieldLen]
 }
 
-func (s *IdentityState) truncateFieldValues() {
+func (s *identityState) truncateFieldValues() {
 	n := 0
 	for _, sel := range s.selections {
 		end := sel.fieldStart + sel.fieldLen
@@ -665,7 +815,7 @@ func (s *IdentityState) truncateFieldValues() {
 	s.fieldValues = s.fieldValues[:n]
 }
 
-func identityTupleKey(fields []identityFieldValue, limits IdentityLimits, ctx StartContext) (string, error) {
+func identityTupleKey(fields []identityFieldValue, limits identityLimits, ctx StartContext) (string, error) {
 	size := int64(0)
 	for i, field := range fields {
 		if i > 0 {
@@ -690,33 +840,45 @@ func identityTupleKey(fields []identityFieldValue, limits IdentityLimits, ctx St
 	return b.String(), nil
 }
 
-// CloseScopes closes identity scopes at depth, resolves keyrefs, and reports
+// closeScopes closes identity scopes at depth, resolves keyrefs, and reports
 // whether constraints owned by the closed scopes failed.
-func (s *IdentityState) CloseScopes(depth int, report func(error) error) (bool, error) {
+func (s *identityState) closeScopes(depth int, report func(error) error) (bool, error) {
 	if s == nil {
 		return false, nil
 	}
 	invalid := false
 	for len(s.scopes) > 0 && s.scopes[len(s.scopes)-1].depth == depth {
 		scope := &s.scopes[len(s.scopes)-1]
-		for _, ref := range scope.refs {
-			entry, ok := scope.tables[ref.refer][ref.key]
-			if !ok || entry.conflict {
-				scope.invalid = true
-				err := validation(StartContext{Path: ref.path, Line: ref.line, Column: ref.col}, xsderrors.CodeValidationIdentity, "keyref does not resolve")
-				if recoverErr := report(err); recoverErr != nil {
-					return true, recoverErr
-				}
-			}
+		if err := validateIdentityScopeRefs(scope, report); err != nil {
+			return true, err
 		}
 		invalid = invalid || scope.invalid
-		if len(s.scopes) > 1 {
-			mergeIdentityTables(&s.scopes[len(s.scopes)-2], scope)
-		}
+		s.mergeClosedIdentityScope(scope)
 		*scope = identityScope{}
 		s.scopes = s.scopes[:len(s.scopes)-1]
 	}
 	return invalid, nil
+}
+
+func validateIdentityScopeRefs(scope *identityScope, report func(error) error) error {
+	for _, ref := range scope.refs {
+		entry, ok := scope.tables[ref.refer][ref.key]
+		if ok && !entry.conflict {
+			continue
+		}
+		scope.invalid = true
+		unresolvedErr := validation(StartContext{Path: ref.path.String(), Line: ref.line, Column: ref.col}, xsderrors.CodeValidationIdentity, "keyref does not resolve")
+		if reportErr := report(unresolvedErr); reportErr != nil {
+			return reportErr
+		}
+	}
+	return nil
+}
+
+func (s *identityState) mergeClosedIdentityScope(scope *identityScope) {
+	if len(s.scopes) > 1 {
+		mergeIdentityTables(&s.scopes[len(s.scopes)-2], scope)
+	}
 }
 
 func mergeIdentityTables(dst, src *identityScope) {
@@ -732,15 +894,36 @@ func mergeIdentityTables(dst, src *identityScope) {
 			dst.tables[id] = srcTable
 			continue
 		}
-		for key, entry := range srcTable {
-			prev, exists := dstTable[key]
-			switch {
-			case !exists:
-				dstTable[key] = entry
-			case prev.conflict:
-			case entry.conflict || prev.node != entry.node:
-				dstTable[key] = identityTableEntry{path: prev.path, node: prev.node, conflict: true}
-			}
-		}
+		dst.tables[id] = mergeIdentityTable(dstTable, srcTable)
 	}
+}
+
+func mergeIdentityTable(parent, child map[string]identityTableEntry) map[string]identityTableEntry {
+	if len(parent) >= len(child) {
+		for key, childEntry := range child {
+			parentEntry, exists := parent[key]
+			if !exists {
+				parent[key] = childEntry
+				continue
+			}
+			parent[key] = mergeIdentityTableEntry(parentEntry, childEntry)
+		}
+		return parent
+	}
+	for key, parentEntry := range parent {
+		childEntry, exists := child[key]
+		if !exists {
+			child[key] = parentEntry
+			continue
+		}
+		child[key] = mergeIdentityTableEntry(parentEntry, childEntry)
+	}
+	return child
+}
+
+func mergeIdentityTableEntry(parent, child identityTableEntry) identityTableEntry {
+	if !parent.conflict && (child.conflict || parent.node != child.node) {
+		parent.conflict = true
+	}
+	return parent
 }

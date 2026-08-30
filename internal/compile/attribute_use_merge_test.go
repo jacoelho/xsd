@@ -20,7 +20,7 @@ func TestAttributeUseMergerNormalMode(t *testing.T) {
 		uses := []runtime.AttributeUse{
 			{Name: first, Type: 0},
 		}
-		merger := NewAttributeUseMerger(uses, runtime.NoWildcard, AttributeMergeNormal)
+		merger := NewAttributeUseMerger(uses, runtime.NoWildcard, AttributeMergeDirect)
 
 		result, err := merger.Add(rt, uses, runtime.AttributeUse{Name: second, Type: 1})
 		if err != nil {
@@ -37,7 +37,7 @@ func TestAttributeUseMergerNormalMode(t *testing.T) {
 		uses := []runtime.AttributeUse{
 			{Name: first, Type: 0},
 		}
-		merger := NewAttributeUseMerger(uses, runtime.NoWildcard, AttributeMergeNormal)
+		merger := NewAttributeUseMerger(uses, runtime.NoWildcard, AttributeMergeDirect)
 
 		_, err := merger.Add(rt, uses, runtime.AttributeUse{Name: first, Type: 1})
 		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaDuplicate)
@@ -49,7 +49,7 @@ func TestAttributeUseMergerNormalMode(t *testing.T) {
 		uses := []runtime.AttributeUse{
 			{Name: first, Type: 0, Prohibited: true},
 		}
-		merger := NewAttributeUseMerger(uses, runtime.NoWildcard, AttributeMergeNormal)
+		merger := NewAttributeUseMerger(uses, runtime.NoWildcard, AttributeMergeDirect)
 
 		result, err := merger.Add(rt, uses, runtime.AttributeUse{Name: first, Type: 1})
 		if err != nil {

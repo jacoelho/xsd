@@ -77,46 +77,68 @@ func BuildSubstitutionTable(
 	if err != nil {
 		return SubstitutionTable{}, err
 	}
+	counts := substitutionAncestorCounts(forest.parents)
+	table, next := newSubstitutionTable(counts, forest.total)
+	populateSubstitutionTable(&table, next, elements, forest.parents, edges)
+	sortSubstitutionTable(table)
+	return table, nil
+}
 
-	counts := make([]int, len(elements))
-	for member := range elements {
-		for head := forest.parents[member]; head != NoElement; head = forest.parents[head] {
+func substitutionAncestorCounts(parents []ElementID) []int {
+	counts := make([]int, len(parents))
+	for member := range parents {
+		for head := parents[member]; head != NoElement; head = parents[head] {
 			counts[head]++
 		}
 	}
+	return counts
+}
+
+func newSubstitutionTable(counts []int, total int) (SubstitutionTable, []int) {
 	table := SubstitutionTable{
-		spans:   make([]substitutionSpan, len(elements)),
-		entries: make([]substitutionEntry, forest.total),
+		spans:   make([]substitutionSpan, len(counts)),
+		entries: make([]substitutionEntry, total),
 	}
-	next := make([]int, len(elements))
+	next := make([]int, len(counts))
 	start := 0
 	for head, count := range counts {
 		table.spans[head] = substitutionSpan{start: start, count: count}
 		next[head] = start
 		start += count
 	}
+	return table, next
+}
+
+func populateSubstitutionTable(
+	table *SubstitutionTable,
+	next []int,
+	elements []ElementDecl,
+	parents []ElementID,
+	edges []substitutionEdge,
+) {
 	for member := range elements {
 		memberID := ElementID(member)
-		memberDecl, _ := ElementDeclByID(elements, memberID)
+		memberDecl := elements[member]
 		var mask, blocks DerivationMask
-		for current, head := memberID, forest.parents[member]; head != NoElement; current, head = head, forest.parents[head] {
+		for current, head := memberID, parents[member]; head != NoElement; current, head = head, parents[head] {
 			mask |= edges[current].mask
 			blocks |= edges[current].blocks
-			headDecl, _ := ElementDeclByID(elements, head)
 			pos := next[head]
 			table.entries[pos] = substitutionEntry{
 				name:      memberDecl.Name,
 				member:    memberID,
-				effective: substitutionEffective(*headDecl, *memberDecl, mask, blocks),
+				effective: substitutionEffective(elements[head], memberDecl, mask, blocks),
 			}
 			next[head]++
 		}
 	}
+}
+
+func sortSubstitutionTable(table SubstitutionTable) {
 	for _, span := range table.spans {
 		entries := table.entries[span.start : span.start+span.count]
 		slices.SortFunc(entries, compareSubstitutionEntry)
 	}
-	return table, nil
 }
 
 // ValidateSubstitutionTable independently audits a constructed table without
@@ -145,9 +167,26 @@ func ValidateSubstitutionTable(
 	if err != nil {
 		return err
 	}
+	orderedMembers := orderedSubstitutionMembers(elements, forest.parents)
+	audit := substitutionTableAudit{
+		elements: elements,
+		table:    table,
+		parents:  forest.parents,
+		edges:    edges,
+		cursors:  make([]int, len(elements)),
+	}
+	if err := audit.validateSpans(); err != nil {
+		return err
+	}
+	if err := audit.validateEntries(orderedMembers); err != nil {
+		return err
+	}
+	return audit.validateCursors()
+}
 
+func orderedSubstitutionMembers(elements []ElementDecl, parents []ElementID) []ElementID {
 	orderedMembers := make([]ElementID, 0, len(elements))
-	for i, parent := range forest.parents {
+	for i, parent := range parents {
 		if parent != NoElement {
 			orderedMembers = append(orderedMembers, ElementID(i))
 		}
@@ -155,43 +194,61 @@ func ValidateSubstitutionTable(
 	slices.SortFunc(orderedMembers, func(a, b ElementID) int {
 		return compareQName(elements[a].Name, elements[b].Name)
 	})
+	return orderedMembers
+}
 
-	cursors := make([]int, len(elements))
+type substitutionTableAudit struct {
+	elements []ElementDecl
+	table    SubstitutionTable
+	parents  []ElementID
+	edges    []substitutionEdge
+	cursors  []int
+}
+
+func (a *substitutionTableAudit) validateSpans() error {
 	start := 0
-	for head := range elements {
-		span := table.spans[head]
-		if span.start != start || span.count < 0 || span.count > len(table.entries)-start {
+	for head := range a.elements {
+		span := a.table.spans[head]
+		if span.start != start || span.count < 0 || span.count > len(a.table.entries)-start {
 			return errors.New("substitution table has invalid span")
 		}
-		cursors[head] = start
+		a.cursors[head] = start
 		start += span.count
 	}
-	if start != len(table.entries) {
+	if start != len(a.table.entries) {
 		return errors.New("substitution table spans do not cover entries")
 	}
+	return nil
+}
+
+func (a *substitutionTableAudit) validateEntries(orderedMembers []ElementID) error {
 	for _, member := range orderedMembers {
 		var mask, blocks DerivationMask
-		for current, head := member, forest.parents[member]; head != NoElement; current, head = head, forest.parents[head] {
-			mask |= edges[current].mask
-			blocks |= edges[current].blocks
-			span := table.spans[head]
-			position := cursors[head]
+		for current, head := member, a.parents[member]; head != NoElement; current, head = head, a.parents[head] {
+			mask |= a.edges[current].mask
+			blocks |= a.edges[current].blocks
+			span := a.table.spans[head]
+			position := a.cursors[head]
 			if position >= span.start+span.count {
 				return errors.New("substitution table is missing ancestor pair")
 			}
 			expected := substitutionEntry{
-				name:      elements[member].Name,
+				name:      a.elements[member].Name,
 				member:    member,
-				effective: substitutionEffective(elements[head], elements[member], mask, blocks),
+				effective: substitutionEffective(a.elements[head], a.elements[member], mask, blocks),
 			}
-			if table.entries[position] != expected {
+			if a.table.entries[position] != expected {
 				return errors.New("substitution table entry does not match substitution forest")
 			}
-			cursors[head]++
+			a.cursors[head]++
 		}
 	}
-	for head, position := range cursors {
-		span := table.spans[head]
+	return nil
+}
+
+func (a *substitutionTableAudit) validateCursors() error {
+	for head, position := range a.cursors {
+		span := a.table.spans[head]
 		if position != span.start+span.count {
 			return errors.New("substitution table has unexpected ancestor pair")
 		}
@@ -273,74 +330,135 @@ func validateSubstitutionForest(
 	if names == nil {
 		return substitutionForest{}, errors.New("substitution table requires name table")
 	}
+	parents, hasHeads, err := validateSubstitutionParents(names, elements, globals)
+	if err != nil {
+		return substitutionForest{}, err
+	}
+	if !hasHeads {
+		return substitutionForest{}, nil
+	}
+	depth, err := substitutionForestDepths(parents)
+	if err != nil {
+		return substitutionForest{}, err
+	}
+	total, err := substitutionClosureSize(depth)
+	if err != nil {
+		return substitutionForest{}, err
+	}
+	return substitutionForest{parents: parents, total: total}, nil
+}
+
+func validateSubstitutionParents(
+	names *NameTable,
+	elements []ElementDecl,
+	globals map[QName]ElementID,
+) ([]ElementID, bool, error) {
 	parents := make([]ElementID, len(elements))
 	for i := range parents {
 		parents[i] = NoElement
 	}
 	hasHeads := false
 	for index, member := range elements {
-		if member.SubstHead == NoElement {
-			continue
+		parent, err := validateSubstitutionParent(names, elements, globals, index, member)
+		if err != nil {
+			return nil, false, err
 		}
-		hasHeads = true
-		memberID, ok := elementIndexID(index)
-		if !ok {
-			return substitutionForest{}, errors.New("substitution member element ID is invalid")
+		if parent != NoElement {
+			hasHeads = true
+			parents[index] = parent
 		}
-		if !names.ValidQName(member.Name) {
-			return substitutionForest{}, errors.New("substitution member name is invalid")
-		}
-		globalMember, ok := globals[member.Name]
-		if !ok || globalMember != memberID {
-			return substitutionForest{}, errors.New("substitution member is not a global element")
-		}
-		if !validSubstitutionElementID(elements, member.SubstHead) {
-			return substitutionForest{}, errors.New("element declaration references invalid substitution head")
-		}
-		head := elements[member.SubstHead]
-		if !names.ValidQName(head.Name) {
-			return substitutionForest{}, errors.New("substitution head name is invalid")
-		}
-		globalHead, ok := globals[head.Name]
-		if !ok || globalHead != member.SubstHead {
-			return substitutionForest{}, errors.New("substitution head is not a global element")
-		}
-		parents[index] = member.SubstHead
 	}
-	if !hasHeads {
-		return substitutionForest{}, nil
-	}
+	return parents, hasHeads, nil
+}
 
-	state := make([]uint8, len(elements))
-	depth := make([]int, len(elements))
-	path := make([]ElementID, 0, len(elements))
-	for start := range elements {
+func validateSubstitutionParent(
+	names *NameTable,
+	elements []ElementDecl,
+	globals map[QName]ElementID,
+	index int,
+	member ElementDecl,
+) (ElementID, error) {
+	if member.SubstHead == NoElement {
+		return NoElement, nil
+	}
+	memberID, ok := elementIndexID(index)
+	if !ok {
+		return NoElement, errors.New("substitution member element ID is invalid")
+	}
+	if !names.ValidQName(member.Name) {
+		return NoElement, errors.New("substitution member name is invalid")
+	}
+	globalMember, ok := globals[member.Name]
+	if !ok || globalMember != memberID {
+		return NoElement, errors.New("substitution member is not a global element")
+	}
+	if !validSubstitutionElementID(elements, member.SubstHead) {
+		return NoElement, errors.New("element declaration references invalid substitution head")
+	}
+	head := elements[member.SubstHead]
+	if !names.ValidQName(head.Name) {
+		return NoElement, errors.New("substitution head name is invalid")
+	}
+	globalHead, ok := globals[head.Name]
+	if !ok || globalHead != member.SubstHead {
+		return NoElement, errors.New("substitution head is not a global element")
+	}
+	return member.SubstHead, nil
+}
+
+func substitutionForestDepths(parents []ElementID) ([]int, error) {
+	state := make([]uint8, len(parents))
+	depth := make([]int, len(parents))
+	path := make([]ElementID, 0, len(parents))
+	for start := range parents {
 		if state[start] == 2 {
 			continue
 		}
-		path = path[:0]
-		for current := ElementID(start); current != NoElement && state[current] != 2; current = parents[current] {
-			if state[current] == 1 {
-				return substitutionForest{}, SubstitutionCycleError{Element: current}
-			}
-			state[current] = 1
-			path = append(path, current)
+		var err error
+		path, err = traceSubstitutionPath(ElementID(start), parents, state, path[:0])
+		if err != nil {
+			return nil, err
 		}
-		for _, current := range slices.Backward(path) {
-			if parent := parents[current]; parent != NoElement {
-				depth[current] = depth[parent] + 1
-			}
-			state[current] = 2
-		}
+		completeSubstitutionPath(path, parents, state, depth)
 	}
+	return depth, nil
+}
+
+func traceSubstitutionPath(
+	start ElementID,
+	parents []ElementID,
+	state []uint8,
+	path []ElementID,
+) ([]ElementID, error) {
+	for current := start; current != NoElement && state[current] != 2; current = parents[current] {
+		if state[current] == 1 {
+			return nil, SubstitutionCycleError{Element: current}
+		}
+		state[current] = 1
+		path = append(path, current)
+	}
+	return path, nil
+}
+
+func completeSubstitutionPath(path, parents []ElementID, state []uint8, depth []int) {
+	for _, current := range slices.Backward(path) {
+		if parent := parents[current]; parent != NoElement {
+			depth[current] = depth[parent] + 1
+		}
+		state[current] = 2
+	}
+}
+
+func substitutionClosureSize(depth []int) (int, error) {
+	maxInt := int(^uint(0) >> 1)
 	total := 0
 	for _, ancestors := range depth {
-		if ancestors > int(^uint(0)>>1)-total {
-			return substitutionForest{}, SubstitutionClosureLimitError{Limit: int(^uint(0) >> 1)}
+		if ancestors > maxInt-total {
+			return 0, SubstitutionClosureLimitError{Limit: maxInt}
 		}
 		total += ancestors
 	}
-	return substitutionForest{parents: parents, total: total}, nil
+	return total, nil
 }
 
 type substitutionEdge struct {
@@ -415,16 +533,22 @@ func int64Compare(a, b int64) int {
 }
 
 // Error returns the stable substitution-cycle message.
+//
+//nolint:revive // The receiver is required by error and carries type identity.
 func (e SubstitutionCycleError) Error() string {
 	return "cyclic substitution group"
 }
 
 // Error returns the stable substitution closure limit message.
+//
+//nolint:revive // The receiver is required by error and carries type identity.
 func (e SubstitutionClosureLimitError) Error() string {
 	return "substitution closure entry limit exceeded"
 }
 
 // Error returns the stable invalid-membership message.
+//
+//nolint:revive // The receiver is required by error and carries type identity.
 func (e SubstitutionMembershipError) Error() string {
 	return "substitution member is not allowed by head"
 }

@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"context"
 	"reflect"
 	"regexp"
 	"slices"
@@ -20,7 +19,7 @@ func TestPublishSchemaRejectsRawCorruptionWithoutMutation(t *testing.T) {
 		Elements:       []ElementDecl{{Name: badName}},
 	}
 
-	_, err := PublishSchema(context.Background(), &build)
+	_, err := PublishSchema(&build, unlimitedContentModelWork)
 	if err == nil {
 		t.Fatal("PublishSchema() succeeded for invalid name references")
 	}
@@ -155,7 +154,7 @@ func TestCompiledBoundLiteralReplayDeduplicatesSharedStorage(t *testing.T) {
 		}},
 		ComplexTypes: []ComplexType{{Derivation: DerivationKindNone}},
 	}
-	reads, err := newSchemaRuntime(&build)
+	reads, err := newSchemaRuntime(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaRuntime() error = %v", err)
 	}
@@ -212,15 +211,9 @@ func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 	if got := read.simpleContent(); got != wantSimple {
 		t.Fatalf("simpleContent() = %+v, want %+v", got, wantSimple)
 	}
-	wantChild := NewElementChildContent(ElementChildContentShape{Complex: true, Simple: ct.SimpleContent()})
-	if got := read.childContent(); got != wantChild {
-		t.Fatalf("childContent() = %+v, want %+v", got, wantChild)
-	}
 	for _, fixed := range []bool{false, true} {
-		wantText := NewElementTextContent(ElementTextContentShape{
-			Simple: ct.SimpleContent(), Complex: true, Mixed: ct.Mixed(), Fixed: fixed,
-		})
-		if got := read.textContent(fixed); got != wantText {
+		wantText := ElementTextContent{mixed: ct.Mixed(), fixed: fixed, constrained: fixed}
+		if got := read.textContent(fixed, fixed); got != wantText {
 			t.Fatalf("textContent(%v) = %+v, want %+v", fixed, got, wantText)
 		}
 	}
@@ -238,7 +231,7 @@ func TestSimpleTypeColdReadExcludesCompilerSources(t *testing.T) {
 	SetBoundFacet(&facets, FacetMinInclusive, CompiledLiteral{
 		Lexical:   "compiler-bound-source",
 		Canonical: "bound",
-	}, false)
+	})
 	types := []SimpleType{{Facets: facets}}
 	reads := newSimpleTypeColdReadTable(types)
 
@@ -274,7 +267,7 @@ func TestNewSchemaRuntimeSharesSimpleTypeTableWithDerivationIndex(t *testing.T) 
 		},
 		ComplexTypes: []ComplexType{{Derivation: DerivationKindNone}},
 	}
-	reads, err := newSchemaRuntime(&build)
+	reads, err := newSchemaRuntime(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaRuntime() error = %v", err)
 	}
@@ -332,7 +325,7 @@ func TestSimpleTypeColdReadAuditRejectsMissingBoundActual(t *testing.T) {
 		Lexical:   "1",
 		Canonical: parsed.Canonical,
 		Actual:    parsed.Actual,
-	}, false)
+	})
 	types := []SimpleType{{Facets: facets}}
 	reads := newSimpleTypeColdReadTable(types)
 	reads.values[0].facets.bounds[minInclusiveBoundIndex].actual.Valid = false
@@ -346,7 +339,7 @@ func TestSimpleTypeColdReadInternsInheritedBounds(t *testing.T) {
 	t.Parallel()
 
 	facets := FacetSet{}
-	SetBoundFacet(&facets, FacetMinInclusive, CompiledLiteral{Canonical: "1"}, false)
+	SetBoundFacet(&facets, FacetMinInclusive, CompiledLiteral{Canonical: "1"})
 	types := []SimpleType{{Facets: facets}, {Facets: facets}}
 	reads := newSimpleTypeColdReadTable(types)
 

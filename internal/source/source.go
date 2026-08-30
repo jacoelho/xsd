@@ -3,7 +3,6 @@ package source
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"io"
 	"math"
@@ -19,10 +18,23 @@ import (
 
 // Source identifies a schema document passed to compilation.
 type Source struct {
+	open    func() (io.ReadCloser, error)
+	context resolutionContext
+	name    string
+	data    []byte
+	kind    sourceKind
+}
+
+type sourceKind uint8
+
+const (
+	sourceInvalid sourceKind = iota
+	sourceBytes
+	sourceOpener
+)
+
+type resolutionContext struct {
 	resolver          *resolverOwner
-	open              func(context.Context) (io.ReadCloser, error)
-	name              string
-	data              []byte
 	localFileFallback bool
 }
 
@@ -31,34 +43,57 @@ type Source struct {
 // Applying xml:base may preserve a valid resolver base while making built-in
 // fallback unavailable.
 type ReferenceBase struct {
-	resolver           string
-	fallback           string
-	resolverLocalPath  string
-	resolverLocalQuery string
-	resolverOK         bool
-	fallbackOK         bool
-	resolverLocal      bool
-	resolverHasQuery   bool
+	fallback string
+	resolver resolverBase
+}
+
+type resolverBaseKind uint8
+
+const (
+	resolverBaseUnavailable resolverBaseKind = iota
+	resolverBaseURI
+	resolverBaseLocal
+)
+
+type resolverBase struct {
+	value     string
+	localPath string
+	query     resolverQuery
+	kind      resolverBaseKind
+}
+
+type resolverQuery struct {
+	value   string
+	present bool
+}
+
+func (b resolverBase) available() bool {
+	return b.kind != resolverBaseUnavailable
 }
 
 // NewReferenceBase returns the unresolved base for one source context. The
 // source name is preserved exactly for custom resolver callbacks until an
 // xml:base value is applied.
 func NewReferenceBase(name string) ReferenceBase {
-	local := name != "" && isLocalName(name)
 	return ReferenceBase{
-		resolver:          name,
-		fallback:          name,
-		resolverLocalPath: name,
-		resolverOK:        name != "",
-		fallbackOK:        name != "",
-		resolverLocal:     local,
+		resolver: newResolverBase(name),
+		fallback: name,
 	}
+}
+
+func newResolverBase(value string) resolverBase {
+	if value == "" {
+		return resolverBase{}
+	}
+	if isLocalName(value) {
+		return localResolverBase(value, resolverQuery{})
+	}
+	return resolverBase{value: value, kind: resolverBaseURI}
 }
 
 // ResolverValue returns the effective base to present to a custom resolver.
 func (b ReferenceBase) ResolverValue() (string, bool) {
-	return b.resolver, b.resolverOK
+	return b.resolver.value, b.resolver.available()
 }
 
 // WithXMLBase applies one xml:base value. Syntactically valid URI forms that
@@ -66,94 +101,79 @@ func (b ReferenceBase) ResolverValue() (string, bool) {
 // custom resolver without becoming document identities themselves.
 func (b ReferenceBase) WithXMLBase(reference uriref.Reference) (ReferenceBase, error) {
 	reference = reference.WithoutFragment()
-	next := b
 	if reference.Raw() == "" {
-		if next.resolverOK && !next.resolverLocal {
-			next.resolver = withoutFragment(next.resolver)
-			next.resolverOK = next.resolver != ""
-		}
-		if next.fallbackOK && !isLocalName(next.fallback) {
-			next.fallback = withoutFragment(next.fallback)
-			next.fallbackOK = next.fallback != ""
-		}
-		return next, nil
+		return b.withoutFragment(), nil
 	}
 	resolver, err := resolveResolverBase(b, reference)
 	if err != nil {
 		return ReferenceBase{}, err
 	}
-	if !resolver.local {
-		resolver.value = withoutFragment(resolver.value)
-		resolver.ok = resolver.value != ""
-	}
-	next.resolver = resolver.value
-	next.resolverLocalPath = resolver.localPath
-	next.resolverLocalQuery = resolver.query
-	next.resolverOK = resolver.ok
-	next.resolverLocal = resolver.local
-	next.resolverHasQuery = resolver.hasQuery
-
-	fallback, fallbackOK, fallbackErr := resolveFallbackBase(b, reference)
+	fallback, fallbackErr := resolveFallbackBase(b, reference)
 	if fallbackErr != nil {
 		return ReferenceBase{}, fallbackErr
 	}
-	if fallbackOK {
-		if !isLocalName(fallback) {
-			fallback = withoutFragment(fallback)
-		}
-		next.fallback = fallback
-		next.fallbackOK = fallback != ""
-	} else {
-		next.fallback = ""
-		next.fallbackOK = false
-	}
-	return next, nil
+	return (ReferenceBase{resolver: resolver, fallback: fallback}).withoutFragment(), nil
 }
 
-func resolveFallbackBase(base ReferenceBase, reference uriref.Reference) (string, bool, error) {
-	fallbackBase := base.fallback
-	fallbackOK := base.fallbackOK
+func (b ReferenceBase) withoutFragment() ReferenceBase {
+	if b.resolver.kind == resolverBaseURI {
+		b.resolver = uriResolverBaseValue(withoutFragment(b.resolver.value))
+	}
+	if b.fallback != "" && !isLocalName(b.fallback) {
+		b.fallback = withoutFragment(b.fallback)
+	}
+	return b
+}
+
+func resolveFallbackBase(base ReferenceBase, reference uriref.Reference) (string, error) {
+	if base.fallback == "" {
+		return resolveFallbackWithoutBase(base, reference)
+	}
+	return resolveFallbackAgainst(base.fallback, reference)
+}
+
+func resolveFallbackWithoutBase(base ReferenceBase, reference uriref.Reference) (string, error) {
 	parts := reference.Parts()
-	if !fallbackOK && parts.HasScheme {
+	if parts.HasScheme {
 		return canonicalFallbackReference(reference)
 	}
-	if !fallbackOK && base.resolverLocal && parts.Path != "" {
-		fallbackBase = base.resolverLocalPath
-		fallbackOK = fallbackBase != ""
+	if base.resolver.kind != resolverBaseLocal || parts.Path == "" {
+		return "", nil
 	}
-	if !fallbackOK {
-		return "", false, nil
-	}
+	return resolveFallbackAgainst(base.resolver.localPath, reference)
+}
+
+func resolveFallbackAgainst(fallbackBase string, reference uriref.Reference) (string, error) {
 	if isLocalName(fallbackBase) {
 		resolved, err := ResolveReference(fallbackBase, reference.Escaped())
 		if IsReferenceUnavailable(err) {
-			return "", false, nil
+			return "", nil
 		}
-		return resolved, err == nil && resolved != "", err
+		return resolved, err
 	}
-	if parts.HasScheme {
+	if reference.Parts().HasScheme {
 		return canonicalFallbackReference(reference)
 	}
 	baseReference, err := uriref.Parse(fallbackBase)
 	if err != nil {
-		return "", false, nil //nolint:nilerr // Arbitrary source names are identities, not schema-provided URI syntax.
+		return "", nil //nolint:nilerr // Arbitrary source names are identities, not schema-provided URI syntax.
 	}
 	resolved, err := uriref.Resolve(baseReference, reference)
 	if errors.Is(err, uriref.ErrOpaqueBase) {
-		return "", false, nil
+		return "", nil
 	}
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	return canonicalFallbackReference(resolved)
 }
 
-func canonicalFallbackReference(reference uriref.Reference) (string, bool, error) {
+func canonicalFallbackReference(reference uriref.Reference) (string, error) {
 	resolved, err := ResolveReference("", reference.Escaped())
 	if IsReferenceUnavailable(err) {
-		return "", false, nil
+		return "", nil
 	}
-	return resolved, err == nil && resolved != "", err
+	return resolved, err
 }
 
 func withoutFragment(uri string) string {
@@ -169,19 +189,19 @@ type resolverOwner struct {
 
 var fileResolverOwner = &resolverOwner{}
 
-func (o *resolverOwner) resolveSchema(ctx context.Context, base, location string) (Source, error) {
-	return o.resolve.ResolveSchema(ctx, base, location)
+func (o *resolverOwner) resolveSchema(base, location string) (Source, error) {
+	return o.resolve.ResolveSchema(base, location)
 }
 
 // Resolver resolves schema include/import locations during compilation.
-type Resolver func(ctx context.Context, base, location string) (Source, error)
+type Resolver func(base, location string) (Source, error)
 
 // ResolveSchema resolves one schema include/import location.
-func (r Resolver) ResolveSchema(ctx context.Context, base, location string) (Source, error) {
+func (r Resolver) ResolveSchema(base, location string) (Source, error) {
 	if r == nil {
 		return Source{}, xsderrors.ErrSchemaNotFound
 	}
-	return r(ctx, base, location)
+	return r(base, location)
 }
 
 // File returns a file schema source and resolves local schemaLocation refs.
@@ -193,10 +213,8 @@ func File(file string) Source {
 	}
 	return Source{
 		name: file,
-		open: func(ctx context.Context) (io.ReadCloser, error) {
-			if err := contextCause(ctx); err != nil {
-				return nil, err
-			}
+		kind: sourceOpener,
+		open: func() (io.ReadCloser, error) {
 			if absoluteErr != nil {
 				return nil, absoluteErr
 			}
@@ -206,8 +224,7 @@ func File(file string) Source {
 			}
 			return reader, nil
 		},
-		resolver:          fileResolverOwner,
-		localFileFallback: true,
+		context: resolutionContext{resolver: fileResolverOwner, localFileFallback: true},
 	}
 }
 
@@ -216,20 +233,20 @@ func Bytes(name string, data []byte) Source {
 	if data == nil {
 		data = []byte{}
 	}
-	return Source{name: name, data: bytes.Clone(data)}
+	return Source{name: name, data: bytes.Clone(data), kind: sourceBytes}
 }
 
 // Opener returns a schema source backed by an opener.
-func Opener(name string, open func(context.Context) (io.ReadCloser, error)) Source {
-	return Source{name: name, open: open}
+func Opener(name string, open func() (io.ReadCloser, error)) Source {
+	return Source{name: name, open: open, kind: sourceOpener}
 }
 
 // WithResolver returns s with r used for schema include/import resolution.
 func (s Source) WithResolver(r Resolver) Source {
 	if r == nil {
-		s.resolver = nil
+		s.context.resolver = nil
 	} else {
-		s.resolver = &resolverOwner{resolve: r}
+		s.context.resolver = &resolverOwner{resolve: r}
 	}
 	return s
 }
@@ -242,7 +259,7 @@ func (s Source) Name() string {
 // SameResolutionContext reports whether s and other resolve descendants with
 // the same resolver owner and built-in backend capabilities.
 func (s Source) SameResolutionContext(other Source) bool {
-	return s.resolver == other.resolver && s.localFileFallback == other.localFileFallback
+	return s.context == other.context
 }
 
 // Resolution is the result of resolving one schema reference. It contains a
@@ -265,48 +282,42 @@ func (r Resolution) Target() string {
 	return r.target
 }
 
-// Resolve resolves location through s's attached resolver before applying
-// generic URI-reference identity resolution. A resolver-returned source name
-// is authoritative for the referenced document identity. The parent graph
-// resolver owns resolution of references from returned sources.
-func (s Source) Resolve(ctx context.Context, base, location string) (Resolution, error) {
-	if err := contextCause(ctx); err != nil {
-		return Resolution{}, err
-	}
-	reference, err := uriref.Parse(location)
-	if err != nil {
-		return Resolution{}, referenceResolutionError{err: err}
-	}
-	return s.ResolveFrom(ctx, NewReferenceBase(base), reference)
-}
-
 // ResolveFrom resolves location from a base whose custom-resolver spelling and
 // built-in fallback capability have been tracked independently.
-func (s Source) ResolveFrom(ctx context.Context, base ReferenceBase, location uriref.Reference) (Resolution, error) {
-	if err := contextCause(ctx); err != nil {
+func (s Source) ResolveFrom(base ReferenceBase, location uriref.Reference) (Resolution, error) {
+	resolved, err := s.resolveWithCustomResolver(base, location)
+	if err != nil {
 		return Resolution{}, err
 	}
-	if s.resolver != nil && s.resolver != fileResolverOwner {
-		if resolverBase, ok := base.ResolverValue(); ok {
-			resolved, resolveErr := s.resolver.resolveSchema(ctx, resolverBase, location.Raw())
-			if cause := contextCause(ctx); cause != nil {
-				if resolveErr != nil {
-					cause = errors.Join(cause, resolveErr)
-				}
-				return Resolution{}, cause
-			}
-			switch {
-			case resolveErr == nil:
-				if resolved.name == "" {
-					return Resolution{}, errors.New("schema resolver returned a source without a name")
-				}
-				resolved.resolver = s.resolver
-				return Resolution{source: resolved, target: Key(resolved.name)}, nil
-			case !errorIsOnly(resolveErr, xsderrors.ErrSchemaNotFound):
-				return Resolution{}, resolveErr
-			}
-		}
+	if _, ok := resolved.Source(); ok {
+		return resolved, nil
 	}
+	return s.resolveWithBuiltins(base, location)
+}
+
+func (s Source) resolveWithCustomResolver(base ReferenceBase, location uriref.Reference) (Resolution, error) {
+	if s.context.resolver == nil || s.context.resolver == fileResolverOwner {
+		return Resolution{}, nil
+	}
+	resolverBase, ok := base.ResolverValue()
+	if !ok {
+		return Resolution{}, nil
+	}
+	resolved, err := s.context.resolver.resolveSchema(resolverBase, location.Raw())
+	if err != nil {
+		if errorIsOnly(err, xsderrors.ErrSchemaNotFound) {
+			return Resolution{}, nil
+		}
+		return Resolution{}, err
+	}
+	if resolved.name == "" {
+		return Resolution{}, errors.New("schema resolver returned a source without a name")
+	}
+	resolved.context.resolver = s.context.resolver
+	return Resolution{source: resolved, target: Key(resolved.name)}, nil
+}
+
+func (s Source) resolveWithBuiltins(base ReferenceBase, location uriref.Reference) (Resolution, error) {
 	if location.HasFragment() {
 		return Resolution{}, nil
 	}
@@ -314,19 +325,16 @@ func (s Source) ResolveFrom(ctx context.Context, base ReferenceBase, location ur
 	if err != nil {
 		return Resolution{}, referenceResolutionError{err: err}
 	}
-	if !resolvedBase.fallbackOK {
+	if resolvedBase.fallback == "" {
 		return Resolution{}, nil
 	}
 	target := resolvedBase.fallback
-	if s.localFileFallback {
+	if s.context.localFileFallback {
 		if file, ok := localSchemaFile(target); ok {
 			resolved := File(file)
-			resolved.resolver = s.resolver
+			resolved.context.resolver = s.context.resolver
 			return Resolution{source: resolved, target: Key(resolved.name)}, nil
 		}
-	}
-	if target == "" {
-		return Resolution{}, nil
 	}
 	return Resolution{target: Key(target)}, nil
 }
@@ -344,12 +352,6 @@ func (e referenceResolutionError) Unwrap() error { return e.err }
 func IsReferenceResolutionError(err error) bool {
 	var target referenceResolutionError
 	return errors.As(err, &target)
-}
-
-// Read returns a copy of the source bytes.
-func (s Source) Read(ctx context.Context, maxBytes int64) ([]byte, error) {
-	result := s.Acquire(ctx, maxBytes)
-	return bytes.Clone(result.Data), result.Err
 }
 
 // ReadStage identifies the source acquisition stage that failed.
@@ -378,43 +380,38 @@ type ReadResult struct {
 
 // Acquire reads at most maxBytes from s and preserves the failure stage and
 // bytes consumed before an error.
-func (s Source) Acquire(ctx context.Context, maxBytes int64) ReadResult {
-	if err := contextCause(ctx); err != nil {
-		return ReadResult{Err: err, Stage: ReadStageOpen}
-	}
-	if s.data != nil {
+func (s Source) Acquire(maxBytes int64) ReadResult {
+	switch s.kind {
+	case sourceBytes:
 		if int64(len(s.data)) > maxBytes {
 			return ReadResult{Err: schemaSourceLimitError(s.name), LimitExceeded: true}
 		}
 		return ReadResult{Data: s.data}
-	}
-	if s.open == nil {
+	case sourceOpener:
+		if s.open == nil {
+			return ReadResult{
+				Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source opener is nil"),
+				Stage: ReadStageOpen,
+			}
+		}
+		return s.acquireOpenedSource(maxBytes)
+	case sourceInvalid:
 		return ReadResult{
-			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source has no data or opener"),
+			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
 			Stage: ReadStageOpen,
 		}
+	default:
 	}
-	r, err := s.open(ctx)
-	if cause := contextCause(ctx); cause != nil {
-		if err != nil {
-			cause = errors.Join(cause, err)
-		}
-		if !isNilReadCloser(r) {
-			if closeErr := r.Close(); closeErr != nil {
-				cause = errors.Join(cause, closeErr)
-			}
-		}
-		return ReadResult{Err: cause, Stage: ReadStageOpen}
+	return ReadResult{
+		Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
+		Stage: ReadStageOpen,
 	}
+}
+
+func (s Source) acquireOpenedSource(maxBytes int64) ReadResult {
+	r, err := s.open()
 	if err != nil {
-		openNotFound := errorIsOnly(err, os.ErrNotExist)
-		if !isNilReadCloser(r) {
-			if closeErr := r.Close(); closeErr != nil {
-				err = errors.Join(err, closeErr)
-				openNotFound = false
-			}
-		}
-		return ReadResult{Err: err, Stage: ReadStageOpen, OpenNotFound: openNotFound}
+		return openSourceFailure(r, err)
 	}
 	if isNilReadCloser(r) {
 		return ReadResult{
@@ -422,21 +419,23 @@ func (s Source) Acquire(ctx context.Context, maxBytes int64) ReadResult {
 			Stage: ReadStageOpen,
 		}
 	}
-	data, limitExceeded, readErr := readLimitedSchemaSource(ctx, s.name, r, maxBytes)
-	closeErr := r.Close()
-	if cause := contextCause(ctx); cause != nil {
-		if readErr != nil {
-			if errors.Is(readErr, cause) {
-				cause = readErr
-			} else {
-				cause = errors.Join(cause, readErr)
-			}
+	return readAndCloseSource(s.name, r, maxBytes)
+}
+
+func openSourceFailure(r io.ReadCloser, err error) ReadResult {
+	openNotFound := errorIsOnly(err, os.ErrNotExist)
+	if !isNilReadCloser(r) {
+		if closeErr := r.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+			openNotFound = false
 		}
-		if closeErr != nil {
-			cause = errors.Join(cause, closeErr)
-		}
-		return ReadResult{Data: data, LimitExceeded: limitExceeded, Err: cause, Stage: ReadStageRead}
 	}
+	return ReadResult{Err: err, Stage: ReadStageOpen, OpenNotFound: openNotFound}
+}
+
+func readAndCloseSource(name string, r io.ReadCloser, maxBytes int64) ReadResult {
+	data, limitExceeded, readErr := readLimitedSchemaSource(name, r, maxBytes)
+	closeErr := r.Close()
 	if readErr != nil {
 		if closeErr != nil {
 			readErr = errors.Join(readErr, closeErr)
@@ -457,12 +456,18 @@ func isNilReadCloser(r io.ReadCloser) bool {
 	switch v.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
 		return v.IsNil()
-	default:
+	case reflect.Invalid, reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.Array, reflect.Interface, reflect.String, reflect.Struct, reflect.UnsafePointer:
 		return false
+	default:
 	}
+	return false
 }
 
-func readLimitedSchemaSource(ctx context.Context, name string, r io.Reader, maxBytes int64) ([]byte, bool, error) {
+func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, bool, error) {
 	if maxBytes < 0 {
 		return nil, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative")
 	}
@@ -470,7 +475,7 @@ func readLimitedSchemaSource(ctx context.Context, name string, r io.Reader, maxB
 	if maxBytes < math.MaxInt64 {
 		reader = io.LimitReader(r, maxBytes+1)
 	}
-	data, err := io.ReadAll(&schemaProgressReader{ctx: ctx, reader: reader})
+	data, err := io.ReadAll(&schemaProgressReader{reader: reader})
 	if int64(len(data)) > maxBytes {
 		limitErr := schemaSourceLimitError(name)
 		if err != nil {
@@ -487,22 +492,12 @@ func readLimitedSchemaSource(ctx context.Context, name string, r io.Reader, maxB
 const maxConsecutiveEmptySchemaReads = 100
 
 type schemaProgressReader struct {
-	ctx        context.Context
 	reader     io.Reader
 	emptyReads int
 }
 
 func (r *schemaProgressReader) Read(p []byte) (int, error) {
-	if err := contextCause(r.ctx); err != nil {
-		return 0, err
-	}
 	n, err := r.reader.Read(p)
-	if cause := contextCause(r.ctx); cause != nil {
-		if err != nil {
-			cause = errors.Join(cause, err)
-		}
-		return 0, cause
-	}
 	if n != 0 || err != nil {
 		r.emptyReads = 0
 		return n, err
@@ -512,13 +507,6 @@ func (r *schemaProgressReader) Read(p []byte) (int, error) {
 		return 0, io.ErrNoProgress
 	}
 	return 0, nil
-}
-
-func contextCause(ctx context.Context) error {
-	if ctx == nil {
-		return errors.New("context is nil")
-	}
-	return context.Cause(ctx)
 }
 
 func schemaSourceLimitError(name string) error {
@@ -532,7 +520,7 @@ func schemaSourceLimitError(name string) error {
 // IsSchemaLimitError reports whether err is a schema source byte-limit diagnostic.
 func IsSchemaLimitError(err error) bool {
 	x, ok := errors.AsType[*xsderrors.Error](err)
-	return ok && x.Code == xsderrors.CodeSchemaLimit
+	return ok && x.Code() == xsderrors.CodeSchemaLimit
 }
 
 // Key canonicalizes a schema source name for loaded-document identity.
@@ -540,16 +528,15 @@ func Key(name string) string {
 	if isLocalName(name) {
 		return canonicalLocalPath(name)
 	}
-	fragmentPresent := strings.IndexByte(name, '#') >= 0
 	u, err := url.Parse(name)
 	if err != nil {
 		return name
 	}
-	authorityPresent := uriHasAuthoritySyntax(name, u.Scheme)
-	if file, ok := localFileURIPath(u, fragmentPresent); ok {
+	syntax := uriReferenceSyntaxFor(name, u)
+	if file, ok := localFileURIPath(u, syntax.fragment); ok {
 		return file
 	}
-	if canonical, ok := canonicalURL(u, fragmentPresent, authorityPresent); ok {
+	if canonical, ok := canonicalURL(u, syntax); ok {
 		return canonical
 	}
 	return name
@@ -563,79 +550,84 @@ func IsReferenceUnavailable(err error) bool {
 	return errors.Is(err, errReferenceUnavailable)
 }
 
-type resolverBaseState struct {
-	value     string
-	localPath string
-	query     string
-	ok        bool
-	local     bool
-	hasQuery  bool
-}
-
-func resolveResolverBase(base ReferenceBase, reference uriref.Reference) (resolverBaseState, error) {
-	if base.resolverOK {
-		if base.resolverLocal {
-			return resolveLocalResolverBase(base, reference), nil
-		}
-		baseReference, err := uriref.Parse(base.resolver)
-		if err != nil {
-			if reference.Parts().HasScheme {
-				return uriResolverBase(reference), nil
-			}
-			return resolverBaseState{}, nil
-		}
-		resolved, err := uriref.Resolve(baseReference, reference)
-		if errors.Is(err, uriref.ErrOpaqueBase) {
-			return resolverBaseState{}, nil
-		}
-		if err != nil {
-			return resolverBaseState{}, err
-		}
-		return uriResolverBase(resolved), nil
+func resolveResolverBase(base ReferenceBase, reference uriref.Reference) (resolverBase, error) {
+	if base.resolver.available() {
+		return resolveAvailableResolverBase(base.resolver, reference)
 	}
 	if reference.Parts().HasScheme {
 		return uriResolverBase(reference), nil
 	}
-	return resolverBaseState{}, nil
+	return resolverBase{}, nil
 }
 
-func uriResolverBase(reference uriref.Reference) resolverBaseState {
-	return resolverBaseState{value: reference.Raw(), ok: reference.Raw() != ""}
+func resolveAvailableResolverBase(base resolverBase, reference uriref.Reference) (resolverBase, error) {
+	if base.kind == resolverBaseLocal {
+		return resolveLocalResolverBase(base, reference), nil
+	}
+	baseReference, err := uriref.Parse(base.value)
+	if err != nil {
+		if reference.Parts().HasScheme {
+			return uriResolverBase(reference), nil
+		}
+		return resolverBase{}, nil
+	}
+	resolved, err := uriref.Resolve(baseReference, reference)
+	if errors.Is(err, uriref.ErrOpaqueBase) {
+		return resolverBase{}, nil
+	}
+	if err != nil {
+		return resolverBase{}, err
+	}
+	return uriResolverBase(resolved), nil
 }
 
-func resolveLocalResolverBase(base ReferenceBase, reference uriref.Reference) resolverBaseState {
+func uriResolverBase(reference uriref.Reference) resolverBase {
+	return uriResolverBaseValue(reference.Raw())
+}
+
+func uriResolverBaseValue(value string) resolverBase {
+	if value == "" {
+		return resolverBase{}
+	}
+	return resolverBase{value: value, kind: resolverBaseURI}
+}
+
+func resolveLocalResolverBase(base resolverBase, reference uriref.Reference) resolverBase {
 	parts := reference.Parts()
 	if parts.HasScheme || parts.HasAuthority {
 		return uriResolverBase(reference)
 	}
 	path := parts.Path
 	if path == "" {
-		query, hasQuery := base.resolverLocalQuery, base.resolverHasQuery
+		query := base.query
 		if parts.HasQuery {
-			query, hasQuery = parts.Query, true
+			query = resolverQuery{value: parts.Query, present: true}
 		}
-		return localResolverBase(base.resolverLocalPath, query, hasQuery)
+		return localResolverBase(base.localPath, query)
 	}
 	if filepath.IsAbs(filepath.FromSlash(path)) || os.IsPathSeparator(path[0]) {
 		path = filepath.FromSlash(path)
 	} else {
-		dir := filepath.Dir(base.resolverLocalPath)
-		if localDirectoryForm(base.resolverLocalPath) {
-			dir = base.resolverLocalPath
+		dir := filepath.Dir(base.localPath)
+		if localPathFormOf(base.localPath) == localPathDirectory {
+			dir = base.localPath
 		}
 		path = filepath.Join(dir, filepath.FromSlash(path))
 	}
-	path = canonicalLocalReference(path, localDirectoryForm(parts.Path))
-	return localResolverBase(path, parts.Query, parts.HasQuery)
+	path = canonicalLocalReference(path, localPathFormOf(parts.Path))
+	return localResolverBase(path, resolverQuery{value: parts.Query, present: parts.HasQuery})
 }
 
-func localResolverBase(path, query string, hasQuery bool) resolverBaseState {
+func localResolverBase(path string, query resolverQuery) resolverBase {
 	value := path
-	if hasQuery {
-		value += "?" + query
+	if query.present {
+		value += "?" + query.value
 	}
-	return resolverBaseState{
-		value: value, localPath: path, query: query, ok: value != "", local: true, hasQuery: hasQuery,
+	if value == "" {
+		return resolverBase{}
+	}
+	return resolverBase{
+		value: value, localPath: path, query: query, kind: resolverBaseLocal,
 	}
 }
 
@@ -645,159 +637,251 @@ func ResolveReference(base, reference string) (string, error) {
 	baseLocal := isLocalName(base)
 	if reference == "" {
 		if baseLocal {
-			return canonicalLocalReference(base, localDirectoryForm(base)), nil
+			return canonicalLocalReference(base, localPathFormOf(base)), nil
 		}
-		baseURL, err := url.Parse(base)
-		if err != nil {
-			return "", err
-		}
-		fragmentPresent := strings.IndexByte(base, '#') >= 0
-		authorityPresent, _, _ := uriAuthoritySyntax(base, baseURL.Scheme)
-		if file, ok := localFileURIPath(baseURL, fragmentPresent); ok {
-			return file, nil
-		}
-		canonical, ok := canonicalURL(baseURL, fragmentPresent, authorityPresent)
-		if !ok {
-			return "", errors.New("schema base has an invalid URI path")
-		}
-		return canonical, nil
+		return resolveEmptyURIReference(base)
 	}
 	if strings.IndexByte(reference, '#') >= 0 {
 		return "", errors.New("schema reference fragments are not supported")
 	}
 	if baseLocal && filepath.VolumeName(reference) != "" && filepath.IsAbs(reference) {
-		return canonicalLocalReference(reference, localDirectoryForm(reference)), nil
+		return canonicalLocalReference(reference, localPathFormOf(reference)), nil
 	}
 	ref, err := url.Parse(reference)
 	if err != nil {
 		return "", err
 	}
-	refAuthority, emptyRefAuthority, emptyAuthorityPath := uriAuthoritySyntax(reference, ref.Scheme)
+	refAuthority := parseURIAuthoritySyntax(reference, ref.Scheme)
 	if ref.Scheme != "" {
-		if strings.EqualFold(ref.Scheme, "file") {
-			ref.Scheme = "file"
-			if !hasEncodedPathSeparator(ref.EscapedPath()) {
-				if file, ok := localFileURIPath(ref, false); ok {
-					return canonicalLocalReference(file, localDirectoryForm(ref.Path)), nil
-				}
-			}
-		}
-		canonical, ok := canonicalURL(ref, false, refAuthority)
-		if !ok {
-			return "", errors.New("schema reference has an invalid URI path")
-		}
-		return canonical, nil
+		return resolveAbsoluteReference(ref, refAuthority)
 	}
 	if baseLocal {
-		if refAuthority && (!emptyRefAuthority || emptyAuthorityPath == "") {
-			return "", errReferenceUnavailable
-		}
-		if hasEncodedPathSeparator(ref.EscapedPath()) {
-			return "", errReferenceUnavailable
-		}
-		if ref.Host != "" || ref.RawQuery != "" || ref.ForceQuery {
-			return "", errReferenceUnavailable
-		}
-		refPath, decodeErr := url.PathUnescape(ref.EscapedPath())
-		if decodeErr != nil {
-			return "", errors.New("local schema reference has an invalid escaped path")
-		}
-		if strings.IndexByte(refPath, 0) >= 0 {
-			return "", errReferenceUnavailable
-		}
-		basePath := base
-		resolved := filepath.FromSlash(refPath)
-		switch {
-		case filepath.IsAbs(resolved):
-		case resolved != "" && os.IsPathSeparator(resolved[0]):
-			resolved = filepath.Join(filepath.VolumeName(basePath), resolved)
-		default:
-			resolved = filepath.Join(filepath.Dir(basePath), resolved)
-		}
-		return canonicalLocalReference(resolved, localDirectoryForm(refPath)), nil
+		return resolveLocalReference(base, ref, refAuthority)
 	}
+	return resolveURIReference(base, ref, refAuthority)
+}
+
+func resolveEmptyURIReference(base string) (string, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
 		return "", err
 	}
-	baseAuthority := uriHasAuthoritySyntax(base, baseURL.Scheme)
-	if refAuthority {
-		return resolveAuthorityReference(baseURL.Scheme, ref, emptyRefAuthority, emptyAuthorityPath)
+	syntax := uriReferenceSyntaxFor(base, baseURL)
+	if file, ok := localFileURIPath(baseURL, syntax.fragment); ok {
+		return file, nil
 	}
-	if baseURL.Opaque != "" {
-		return "", errReferenceUnavailable
+	canonical, ok := canonicalURL(baseURL, syntax)
+	if !ok {
+		return "", errors.New("schema base has an invalid URI path")
 	}
-	if ref.Opaque != "" {
-		return "", errReferenceUnavailable
+	return canonical, nil
+}
+
+func resolveAbsoluteReference(ref *url.URL, authority uriAuthoritySyntax) (string, error) {
+	if strings.EqualFold(ref.Scheme, "file") {
+		ref.Scheme = "file"
+		if !hasEncodedPathSeparator(ref.EscapedPath()) {
+			if file, ok := localFileURIPath(ref, uriFragmentAbsent); ok {
+				return canonicalLocalReference(file, localPathFormOf(ref.Path)), nil
+			}
+		}
 	}
-	resolved := baseURL.ResolveReference(ref)
-	canonical, ok := canonicalURL(resolved, false, baseAuthority)
+	canonical, ok := canonicalURL(ref, uriReferenceSyntax{authority: authority, fragment: uriFragmentAbsent})
 	if !ok {
 		return "", errors.New("schema reference has an invalid URI path")
 	}
 	return canonical, nil
 }
 
-func canonicalURL(parsed *url.URL, fragmentPresent, authorityPresent bool) (string, bool) {
+func resolveLocalReference(base string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
+	switch authority.kind {
+	case uriAuthorityAbsent:
+	case uriAuthorityNonEmpty:
+		return "", errReferenceUnavailable
+	case uriAuthorityEmpty:
+		if authority.escapedPath == "" {
+			return "", errReferenceUnavailable
+		}
+	case uriAuthorityInvalid:
+		return "", errors.New("schema reference has invalid authority syntax")
+	default:
+		err := errors.New("schema reference has invalid authority syntax")
+		return "", err
+	}
+	if hasEncodedPathSeparator(ref.EscapedPath()) {
+		return "", errReferenceUnavailable
+	}
+	if ref.Host != "" || ref.RawQuery != "" || ref.ForceQuery {
+		return "", errReferenceUnavailable
+	}
+	refPath, err := url.PathUnescape(ref.EscapedPath())
+	if err != nil {
+		return "", errors.New("local schema reference has an invalid escaped path")
+	}
+	if strings.IndexByte(refPath, 0) >= 0 {
+		return "", errReferenceUnavailable
+	}
+	return resolveLocalReferencePath(base, refPath), nil
+}
+
+func resolveLocalReferencePath(base, refPath string) string {
+	resolved := filepath.FromSlash(refPath)
+	switch {
+	case filepath.IsAbs(resolved):
+	case resolved != "" && os.IsPathSeparator(resolved[0]):
+		resolved = filepath.Join(filepath.VolumeName(base), resolved)
+	default:
+		resolved = filepath.Join(filepath.Dir(base), resolved)
+	}
+	return canonicalLocalReference(resolved, localPathFormOf(refPath))
+}
+
+func resolveURIReference(base string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
+	baseURL, err := url.Parse(base)
+	if err != nil {
+		return "", err
+	}
+	if authority.kind != uriAuthorityAbsent {
+		return resolveAuthorityReference(baseURL.Scheme, ref, authority)
+	}
+	if baseURL.Opaque != "" || ref.Opaque != "" {
+		return "", errReferenceUnavailable
+	}
+	resolved := baseURL.ResolveReference(ref)
+	baseAuthority := parseURIAuthoritySyntax(base, baseURL.Scheme)
+	canonical, ok := canonicalURL(resolved, uriReferenceSyntax{authority: baseAuthority, fragment: uriFragmentAbsent})
+	if !ok {
+		return "", errors.New("schema reference has an invalid URI path")
+	}
+	return canonical, nil
+}
+
+type uriAuthorityKind uint8
+
+const (
+	uriAuthorityInvalid uriAuthorityKind = iota
+	uriAuthorityAbsent
+	uriAuthorityNonEmpty
+	uriAuthorityEmpty
+)
+
+type uriAuthoritySyntax struct {
+	escapedPath string
+	kind        uriAuthorityKind
+}
+
+func (a uriAuthoritySyntax) valid() bool {
+	return a.kind == uriAuthorityAbsent || a.kind == uriAuthorityNonEmpty || a.kind == uriAuthorityEmpty
+}
+
+func (a uriAuthoritySyntax) present() bool {
+	return a.kind == uriAuthorityNonEmpty || a.kind == uriAuthorityEmpty
+}
+
+type uriFragmentSyntax uint8
+
+const (
+	uriFragmentInvalid uriFragmentSyntax = iota
+	uriFragmentAbsent
+	uriFragmentPresent
+)
+
+type uriReferenceSyntax struct {
+	authority uriAuthoritySyntax
+	fragment  uriFragmentSyntax
+}
+
+func uriReferenceSyntaxFor(raw string, parsed *url.URL) uriReferenceSyntax {
+	fragment := uriFragmentAbsent
+	if strings.IndexByte(raw, '#') >= 0 {
+		fragment = uriFragmentPresent
+	}
+	return uriReferenceSyntax{
+		authority: parseURIAuthoritySyntax(raw, parsed.Scheme),
+		fragment:  fragment,
+	}
+}
+
+func canonicalURL(parsed *url.URL, syntax uriReferenceSyntax) (string, bool) {
+	if !syntax.authority.valid() || syntax.fragment != uriFragmentAbsent && syntax.fragment != uriFragmentPresent {
+		return "", false
+	}
 	u := *parsed
 	u.Scheme = strings.ToLower(u.Scheme)
 	u.Host = canonicalURIHost(u.Host)
-	if u.Opaque != "" {
-		var ok bool
-		u.Opaque, ok = canonicalEscapedComponent(u.Opaque)
-		if !ok {
-			return "", false
-		}
-	} else {
-		escaped, ok := canonicalEscapedComponent(u.EscapedPath())
-		if !ok {
-			return "", false
-		}
-		escaped = removeURLDotSegments(escaped)
-		decoded, err := url.PathUnescape(escaped)
-		if err != nil {
-			return "", false
-		}
-		u.Path = decoded
-		u.RawPath = escaped
-		plain := &url.URL{Path: decoded}
-		if plain.EscapedPath() == escaped {
-			u.RawPath = ""
-		}
+	if !canonicalizeURLPath(&u) {
+		return "", false
 	}
-	var ok bool
-	u.RawQuery, ok = canonicalEscapedComponent(u.RawQuery)
+	query, ok := canonicalEscapedComponent(u.RawQuery)
 	if !ok {
 		return "", false
 	}
-	escapedFragment, ok := canonicalEscapedComponent(u.EscapedFragment())
-	if !ok {
+	u.RawQuery = query
+	if !canonicalizeURLFragment(&u) {
 		return "", false
 	}
-	fragment, err := url.PathUnescape(escapedFragment)
-	if err != nil {
-		return "", false
-	}
-	u.Fragment = fragment
-	u.RawFragment = escapedFragment
-	plainFragment := &url.URL{Fragment: fragment}
-	if plainFragment.EscapedFragment() == escapedFragment {
-		u.RawFragment = ""
-	}
-	canonical := u.String()
-	if authorityPresent && u.Opaque == "" && u.Host == "" && u.User == nil {
-		start := 0
-		if u.Scheme != "" {
-			start = len(u.Scheme) + 1
-		}
-		if !strings.HasPrefix(canonical[start:], "//") {
-			canonical = canonical[:start] + "//" + canonical[start:]
-		}
-	}
-	if fragmentPresent && u.Fragment == "" {
+	canonical := preserveAuthoritySyntax(u.String(), &u, syntax.authority)
+	if syntax.fragment == uriFragmentPresent && u.Fragment == "" {
 		canonical += "#"
 	}
 	return canonical, true
+}
+
+func canonicalizeURLPath(u *url.URL) bool {
+	if u.Opaque != "" {
+		opaque, ok := canonicalEscapedComponent(u.Opaque)
+		if !ok {
+			return false
+		}
+		u.Opaque = opaque
+		return true
+	}
+	escaped, ok := canonicalEscapedComponent(u.EscapedPath())
+	if !ok {
+		return false
+	}
+	escaped = removeURLDotSegments(escaped)
+	decoded, err := url.PathUnescape(escaped)
+	if err != nil {
+		return false
+	}
+	u.Path = decoded
+	u.RawPath = escaped
+	if (&url.URL{Path: decoded}).EscapedPath() == escaped {
+		u.RawPath = ""
+	}
+	return true
+}
+
+func canonicalizeURLFragment(u *url.URL) bool {
+	escapedFragment, ok := canonicalEscapedComponent(u.EscapedFragment())
+	if !ok {
+		return false
+	}
+	fragment, err := url.PathUnescape(escapedFragment)
+	if err != nil {
+		return false
+	}
+	u.Fragment = fragment
+	u.RawFragment = escapedFragment
+	if (&url.URL{Fragment: fragment}).EscapedFragment() == escapedFragment {
+		u.RawFragment = ""
+	}
+	return true
+}
+
+func preserveAuthoritySyntax(canonical string, u *url.URL, authority uriAuthoritySyntax) string {
+	if !authority.present() || u.Opaque != "" || u.Host != "" || u.User != nil {
+		return canonical
+	}
+	start := 0
+	if u.Scheme != "" {
+		start = len(u.Scheme) + 1
+	}
+	if strings.HasPrefix(canonical[start:], "//") {
+		return canonical
+	}
+	return canonical[:start] + "//" + canonical[start:]
 }
 
 func canonicalURIHost(host string) string {
@@ -816,51 +900,53 @@ func canonicalURIHost(host string) string {
 	return "[" + strings.ToLower(literal[:zone]) + literal[zone:] + host[closingBracket:]
 }
 
-func uriAuthoritySyntax(raw, scheme string) (present, empty bool, escapedPath string) {
+func parseURIAuthoritySyntax(raw, scheme string) uriAuthoritySyntax {
 	rest := raw
 	if scheme != "" {
 		_, after, ok := strings.Cut(raw, ":")
 		if !ok {
-			return false, false, ""
+			return uriAuthoritySyntax{kind: uriAuthorityInvalid}
 		}
 		rest = after
 	}
 	if !strings.HasPrefix(rest, "//") {
-		return false, false, ""
+		return uriAuthoritySyntax{kind: uriAuthorityAbsent}
 	}
 	hierarchy := rest[2:]
 	if end := strings.IndexAny(hierarchy, "?#"); end >= 0 {
 		hierarchy = hierarchy[:end]
 	}
 	if hierarchy == "" {
-		return true, true, ""
+		return uriAuthoritySyntax{kind: uriAuthorityEmpty}
 	}
 	if hierarchy[0] == '/' {
-		return true, true, hierarchy
+		return uriAuthoritySyntax{kind: uriAuthorityEmpty, escapedPath: hierarchy}
 	}
-	return true, false, ""
+	return uriAuthoritySyntax{kind: uriAuthorityNonEmpty}
 }
 
-func uriHasAuthoritySyntax(raw, scheme string) bool {
-	present, _, _ := uriAuthoritySyntax(raw, scheme) //nolint:dogsled // Only delimiter presence is needed here.
-	return present
-}
-
-func resolveAuthorityReference(scheme string, ref *url.URL, empty bool, escapedPath string) (string, error) {
-	if empty {
-		decodedPath, err := url.PathUnescape(escapedPath)
+func resolveAuthorityReference(scheme string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
+	switch authority.kind {
+	case uriAuthorityEmpty:
+		decodedPath, err := url.PathUnescape(authority.escapedPath)
 		if err != nil || strings.IndexByte(decodedPath, 0) >= 0 {
 			return "", errors.New("schema reference has an invalid escaped path")
 		}
 		ref.Path = decodedPath
-		ref.RawPath = escapedPath
+		ref.RawPath = authority.escapedPath
 		plain := &url.URL{Path: decodedPath}
-		if plain.EscapedPath() == escapedPath {
+		if plain.EscapedPath() == authority.escapedPath {
 			ref.RawPath = ""
 		}
+	case uriAuthorityNonEmpty:
+	case uriAuthorityInvalid, uriAuthorityAbsent:
+		return "", errors.New("schema reference has invalid authority syntax")
+	default:
+		err := errors.New("schema reference has invalid authority syntax")
+		return "", err
 	}
 	ref.Scheme = scheme
-	canonical, ok := canonicalURL(ref, false, true)
+	canonical, ok := canonicalURL(ref, uriReferenceSyntax{authority: authority, fragment: uriFragmentAbsent})
 	if !ok {
 		return "", errors.New("schema reference has an invalid URI path")
 	}
@@ -877,15 +963,7 @@ func removeURLDotSegments(escaped string) string {
 	parts := strings.Split(escaped, "/")
 	stack := make([]string, 0, len(parts))
 	for _, elem := range parts {
-		switch elem {
-		case ".":
-		case "..":
-			if len(stack) != 0 && (len(stack) != 1 || stack[0] != "") {
-				stack = stack[:len(stack)-1]
-			}
-		default:
-			stack = append(stack, elem)
-		}
+		stack = applyURLDotSegment(stack, elem)
 	}
 	last := parts[len(parts)-1]
 	if last == "." || last == ".." {
@@ -901,6 +979,20 @@ func removeURLDotSegments(escaped string) string {
 	return cleaned
 }
 
+func applyURLDotSegment(stack []string, elem string) []string {
+	switch elem {
+	case ".":
+		return stack
+	case "..":
+		if len(stack) != 0 && (len(stack) != 1 || stack[0] != "") {
+			return stack[:len(stack)-1]
+		}
+		return stack
+	default:
+		return append(stack, elem)
+	}
+}
+
 func canonicalEscapedComponent(escaped string) (string, bool) {
 	if !strings.Contains(escaped, "%") {
 		return escaped, true
@@ -912,29 +1004,34 @@ func canonicalEscapedComponent(escaped string) (string, bool) {
 			b.WriteByte(escaped[i])
 			continue
 		}
-		if i+2 >= len(escaped) {
-			return "", false
-		}
-		hi, ok := hexValue(escaped[i+1])
+		ok := appendCanonicalEscape(&b, escaped[i:])
 		if !ok {
 			return "", false
-		}
-		lo, ok := hexValue(escaped[i+2])
-		if !ok {
-			return "", false
-		}
-		value := hi<<4 | lo
-		if isURIUnreserved(value) {
-			b.WriteByte(value)
-		} else {
-			const upperHex = "0123456789ABCDEF"
-			b.WriteByte('%')
-			b.WriteByte(upperHex[value>>4])
-			b.WriteByte(upperHex[value&0xf])
 		}
 		i += 2
 	}
 	return b.String(), true
+}
+
+func appendCanonicalEscape(b *strings.Builder, escaped string) bool {
+	if len(escaped) < 3 {
+		return false
+	}
+	hi, hiOK := hexValue(escaped[1])
+	lo, loOK := hexValue(escaped[2])
+	if !hiOK || !loOK {
+		return false
+	}
+	value := hi<<4 | lo
+	if isURIUnreserved(value) {
+		b.WriteByte(value)
+		return true
+	}
+	const upperHex = "0123456789ABCDEF"
+	b.WriteByte('%')
+	b.WriteByte(upperHex[value>>4])
+	b.WriteByte(upperHex[value&0xf])
+	return true
 }
 
 func hexValue(b byte) (byte, bool) {
@@ -972,27 +1069,46 @@ func canonicalLocalPath(name string) string {
 	return cleaned
 }
 
-func canonicalLocalReference(name string, directory bool) string {
+type localPathForm uint8
+
+const (
+	localPathInvalid localPathForm = iota
+	localPathFile
+	localPathDirectory
+)
+
+func canonicalLocalReference(name string, form localPathForm) string {
 	cleaned := canonicalLocalPath(name)
-	if directory && !os.IsPathSeparator(cleaned[len(cleaned)-1]) {
-		cleaned += string(filepath.Separator)
+	switch form {
+	case localPathFile:
+	case localPathDirectory:
+		if !os.IsPathSeparator(cleaned[len(cleaned)-1]) {
+			cleaned += string(filepath.Separator)
+		}
+	case localPathInvalid:
+		panic("local path form is invalid")
+	default:
+		panic("local path form is unknown")
 	}
 	return cleaned
 }
 
-func localDirectoryForm(name string) bool {
+func localPathFormOf(name string) localPathForm {
 	if name == "" {
-		return false
+		return localPathFile
 	}
 	if os.IsPathSeparator(name[len(name)-1]) {
-		return true
+		return localPathDirectory
 	}
 	start := len(name)
 	for start > 0 && !os.IsPathSeparator(name[start-1]) {
 		start--
 	}
 	last := name[start:]
-	return last == "." || last == ".."
+	if last == "." || last == ".." {
+		return localPathDirectory
+	}
+	return localPathFile
 }
 
 func isLocalName(name string) bool {
@@ -1024,16 +1140,7 @@ func errorIsOnly(err, target error) bool {
 		return false
 	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		causes := joined.Unwrap()
-		if len(causes) == 0 {
-			return false
-		}
-		for _, cause := range causes {
-			if !errorIsOnly(cause, target) {
-				return false
-			}
-		}
-		return true
+		return errorsAreOnly(joined.Unwrap(), target)
 	}
 	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
 		if cause := wrapped.Unwrap(); cause != nil {
@@ -1043,10 +1150,22 @@ func errorIsOnly(err, target error) bool {
 	return errors.Is(err, target)
 }
 
+func errorsAreOnly(causes []error, target error) bool {
+	if len(causes) == 0 {
+		return false
+	}
+	for _, cause := range causes {
+		if !errorIsOnly(cause, target) {
+			return false
+		}
+	}
+	return true
+}
+
 func localSchemaFile(resolved string) (string, bool) {
 	u, err := url.Parse(resolved)
 	if err == nil && u.Scheme != "" {
-		return localFileURIPath(u, strings.IndexByte(resolved, '#') >= 0)
+		return localFileURIPath(u, uriReferenceSyntaxFor(resolved, u).fragment)
 	}
 	if !isLocalName(resolved) {
 		return "", false
@@ -1055,9 +1174,9 @@ func localSchemaFile(resolved string) (string, bool) {
 }
 
 // localFileURIPath returns the local filesystem path represented by u.
-// fragmentPresent carries syntax that net/url does not retain for a trailing '#'.
-func localFileURIPath(u *url.URL, fragmentPresent bool) (string, bool) {
-	if !strings.EqualFold(u.Scheme, "file") || u.User != nil || u.RawQuery != "" || u.ForceQuery || fragmentPresent || u.Fragment != "" {
+// fragment carries syntax that net/url does not retain for a trailing '#'.
+func localFileURIPath(u *url.URL, fragment uriFragmentSyntax) (string, bool) {
+	if !strings.EqualFold(u.Scheme, "file") || u.User != nil || u.RawQuery != "" || u.ForceQuery || fragment != uriFragmentAbsent || u.Fragment != "" {
 		return "", false
 	}
 	if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {

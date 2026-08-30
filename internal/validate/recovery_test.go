@@ -10,11 +10,11 @@ import (
 func TestRecoverableError(t *testing.T) {
 	t.Parallel()
 
-	err := xsderrors.Validation(xsderrors.CodeValidationElement, 1, 2, "/root", "unexpected element")
+	err := xsderrors.WithLocation("/root", 1, 2, xsderrors.Validation(xsderrors.CodeValidationElement, "unexpected element", nil))
 	if !RecoverableError(fmt.Errorf("wrapped: %w", err)) {
 		t.Fatal("RecoverableError(wrapped validation element) = false, want true")
 	}
-	if RecoverableError(xsderrors.Validation(xsderrors.CodeValidationXML, 1, 2, "/", "bad XML")) {
+	if RecoverableError(xsderrors.WithLocation("/", 1, 2, xsderrors.Validation(xsderrors.CodeValidationXML, "bad XML", nil))) {
 		t.Fatal("RecoverableError(validation XML) = true, want false")
 	}
 	if RecoverableError(xsderrors.InternalInvariant("broken state")) {

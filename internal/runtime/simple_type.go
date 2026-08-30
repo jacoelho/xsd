@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/jacoelho/xsd/internal/vocab"
 )
 
 // SimpleVariety identifies the runtime simple-type variety.
@@ -282,14 +284,23 @@ func compiledLiteralActualValue(typ SimpleType, lexical string) PrimitiveActualV
 	switch typ.Primitive {
 	case PrimitiveQName, PrimitiveNotation:
 		return PrimitiveActualValue{Kind: typ.Primitive, Valid: true}
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI:
+		return compiledLiteralParsedActualValue(typ, lexical)
 	default:
-		normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
-		parsed, err := ParsePrimitiveActual(typ.Primitive, normalized, PrimitiveNeedCanonical|PrimitiveNeedLength)
-		if err != nil {
-			return PrimitiveActualValue{}
-		}
-		return parsed.Actual
+		return PrimitiveActualValue{}
 	}
+}
+
+func compiledLiteralParsedActualValue(typ SimpleType, lexical string) PrimitiveActualValue {
+	normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
+	parsed, err := ParsePrimitiveActual(typ.Primitive, normalized, PrimitiveNeedCanonical|PrimitiveNeedLength)
+	if err != nil {
+		return PrimitiveActualValue{}
+	}
+	return parsed.Actual
 }
 
 // EqualCompiledLiterals reports whether two compiled facet literals represent
@@ -301,34 +312,44 @@ func EqualCompiledLiterals(a, b *CompiledLiteral) bool {
 	return EqualPrimitiveActualValues(a.Actual, a.Canonical, b.Actual, b.Canonical)
 }
 
-// SetFacet records a facet's presence and, when fixed is true, its fixedness.
-func SetFacet(f *FacetSet, flag FacetMask, fixed bool) {
-	f.Present |= flag
-	if fixed {
-		f.Fixed |= flag
-	}
-}
-
 // SetFacetPresent records a non-fixed facet's presence.
 func SetFacetPresent(f *FacetSet, flag FacetMask) {
-	SetFacet(f, flag, false)
+	f.Present |= flag
+}
+
+// SetFacetFixed records a facet's presence and fixedness.
+func SetFacetFixed(f *FacetSet, flag FacetMask) {
+	f.Present |= flag
+	f.Fixed |= flag
 }
 
 // SetBoundFacet records an ordered bound facet literal and its presence bit.
-func SetBoundFacet(f *FacetSet, flag FacetMask, lit CompiledLiteral, fixed bool) {
+func SetBoundFacet(f *FacetSet, flag FacetMask, lit CompiledLiteral) {
+	storeBoundFacet(f, flag, lit)
+	SetFacetPresent(f, flag)
+}
+
+// SetFixedBoundFacet records a fixed ordered bound facet literal.
+func SetFixedBoundFacet(f *FacetSet, flag FacetMask, lit CompiledLiteral) {
+	storeBoundFacet(f, flag, lit)
+	SetFacetFixed(f, flag)
+}
+
+func storeBoundFacet(f *FacetSet, flag FacetMask, lit CompiledLiteral) {
 	idx, ok := boundFacetIndex(flag)
 	if !ok {
 		return
 	}
 	lit.ResolvedNames = slices.Clone(lit.ResolvedNames)
 	f.bounds[idx] = &lit
-	SetFacet(f, flag, fixed)
 }
 
 // ClearFacet removes a facet from both presence and fixedness masks.
 func ClearFacet(f *FacetSet, flag FacetMask) {
 	f.Present &^= flag
 	f.Fixed &^= flag
+	// FacetMask is a bitmask; only single stored facet bits require cleanup.
+	//exhaustive:ignore
 	switch flag {
 	case FacetLength:
 		f.Length = 0
@@ -359,10 +380,8 @@ func clearBoundFacet(f *FacetSet, flag FacetMask) {
 
 // SetWhiteSpaceFacetFixed records whiteSpace fixedness. The whiteSpace value
 // itself lives on the simple type, so this only affects the fixed mask.
-func SetWhiteSpaceFacetFixed(f *FacetSet, fixed bool) {
-	if fixed {
-		f.Fixed |= FacetWhiteSpace
-	}
+func SetWhiteSpaceFacetFixed(f *FacetSet) {
+	f.Fixed |= FacetWhiteSpace
 }
 
 // FacetMaskShape is the simple-type facet bitset projection validated at
@@ -384,6 +403,19 @@ func FacetMaskShapeForFacetSet(f FacetSet) FacetMaskShape {
 
 func actualFacetMask(f FacetSet) FacetMask {
 	actual := f.Present & cardinalityFacetMask
+	actual |= storedCardinalityFacetMask(f)
+	actual |= storedBoundFacetMask(f)
+	if len(f.Enumeration) != 0 {
+		actual |= FacetEnumeration
+	}
+	if f.patterns.count() != 0 {
+		actual |= FacetPattern
+	}
+	return actual
+}
+
+func storedCardinalityFacetMask(f FacetSet) FacetMask {
+	var actual FacetMask
 	if f.Length != 0 {
 		actual |= FacetLength
 	}
@@ -399,6 +431,11 @@ func actualFacetMask(f FacetSet) FacetMask {
 	if f.FractionDigits != 0 {
 		actual |= FacetFractionDigits
 	}
+	return actual
+}
+
+func storedBoundFacetMask(f FacetSet) FacetMask {
+	var actual FacetMask
 	if compiledLiteralPresent(f.bounds[minInclusiveBoundIndex]) {
 		actual |= FacetMinInclusive
 	}
@@ -410,12 +447,6 @@ func actualFacetMask(f FacetSet) FacetMask {
 	}
 	if compiledLiteralPresent(f.bounds[maxExclusiveBoundIndex]) {
 		actual |= FacetMaxExclusive
-	}
-	if len(f.Enumeration) != 0 {
-		actual |= FacetEnumeration
-	}
-	if f.patterns.count() != 0 {
-		actual |= FacetPattern
 	}
 	return actual
 }
@@ -435,6 +466,8 @@ func BoundFacet(f FacetSet, flag FacetMask) (CompiledLiteral, bool) {
 }
 
 func boundFacetIndex(flag FacetMask) (int, bool) {
+	// FacetMask is a bitmask; only the four ordered-bound bits have indexes.
+	//exhaustive:ignore
 	switch flag {
 	case FacetMinInclusive:
 		return minInclusiveBoundIndex, true
@@ -510,21 +543,18 @@ type DecimalBoundFacetLiteralShape struct {
 // DecimalBoundFacetLiteralShapeForSimpleType returns the runtime-owned
 // ordered decimal bound literal projection for st.
 func DecimalBoundFacetLiteralShapeForSimpleType(st SimpleType) DecimalBoundFacetLiteralShape {
-	minInclusive, hasMinInclusive := BoundFacet(st.Facets, FacetMinInclusive)
-	maxInclusive, hasMaxInclusive := BoundFacet(st.Facets, FacetMaxInclusive)
-	minExclusive, hasMinExclusive := BoundFacet(st.Facets, FacetMinExclusive)
-	maxExclusive, hasMaxExclusive := BoundFacet(st.Facets, FacetMaxExclusive)
 	return DecimalBoundFacetLiteralShape{
 		Variety:      st.Variety,
 		Primitive:    st.Primitive,
-		MinInclusive: decimalBoundFacetLiteral(minInclusive, hasMinInclusive),
-		MaxInclusive: decimalBoundFacetLiteral(maxInclusive, hasMaxInclusive),
-		MinExclusive: decimalBoundFacetLiteral(minExclusive, hasMinExclusive),
-		MaxExclusive: decimalBoundFacetLiteral(maxExclusive, hasMaxExclusive),
+		MinInclusive: decimalBoundFacetLiteral(st.Facets, FacetMinInclusive),
+		MaxInclusive: decimalBoundFacetLiteral(st.Facets, FacetMaxInclusive),
+		MinExclusive: decimalBoundFacetLiteral(st.Facets, FacetMinExclusive),
+		MaxExclusive: decimalBoundFacetLiteral(st.Facets, FacetMaxExclusive),
 	}
 }
 
-func decimalBoundFacetLiteral(lit CompiledLiteral, present bool) DecimalBoundFacetLiteral {
+func decimalBoundFacetLiteral(facets FacetSet, flag FacetMask) DecimalBoundFacetLiteral {
+	lit, present := BoundFacet(facets, flag)
 	if !present {
 		return DecimalBoundFacetLiteral{}
 	}
@@ -581,11 +611,11 @@ type FacetCardinalityShape struct {
 // projection for st.
 func FacetCardinalityShapeForSimpleType(st SimpleType) FacetCardinalityShape {
 	return FacetCardinalityShape{
-		Length:         facetCardinalityValue(st.Facets.Length, st.Facets.Present&FacetLength != 0),
-		MinLength:      facetCardinalityValue(st.Facets.MinLength, st.Facets.Present&FacetMinLength != 0),
-		MaxLength:      facetCardinalityValue(st.Facets.MaxLength, st.Facets.Present&FacetMaxLength != 0),
-		TotalDigits:    facetCardinalityValue(st.Facets.TotalDigits, st.Facets.Present&FacetTotalDigits != 0),
-		FractionDigits: facetCardinalityValue(st.Facets.FractionDigits, st.Facets.Present&FacetFractionDigits != 0),
+		Length:         facetCardinalityValue(st.Facets.Present, FacetLength, st.Facets.Length),
+		MinLength:      facetCardinalityValue(st.Facets.Present, FacetMinLength, st.Facets.MinLength),
+		MaxLength:      facetCardinalityValue(st.Facets.Present, FacetMaxLength, st.Facets.MaxLength),
+		TotalDigits:    facetCardinalityValue(st.Facets.Present, FacetTotalDigits, st.Facets.TotalDigits),
+		FractionDigits: facetCardinalityValue(st.Facets.Present, FacetFractionDigits, st.Facets.FractionDigits),
 	}
 }
 
@@ -723,6 +753,16 @@ func ValidateFixedFacetPreservation(shape FixedFacetPreservation) error {
 	if fixed&^fixedFacetPreservationMask != 0 {
 		return errors.New("fixed facet family cannot be preserved")
 	}
+	if err := validateFixedCardinalityFacets(fixed, shape); err != nil {
+		return err
+	}
+	if fixed&FacetWhiteSpace != 0 && shape.Derived.Whitespace != shape.Base.Whitespace {
+		return errors.New("fixed whiteSpace facet cannot change")
+	}
+	return validateFixedLiteralFacets(fixed, shape)
+}
+
+func validateFixedCardinalityFacets(fixed FacetMask, shape FixedFacetPreservation) error {
 	if fixed&FacetLength != 0 && !facetCardinalityEqual(shape.Derived.Length, shape.Base.Length) {
 		return errors.New("fixed length facet cannot change")
 	}
@@ -738,9 +778,10 @@ func ValidateFixedFacetPreservation(shape FixedFacetPreservation) error {
 	if fixed&FacetFractionDigits != 0 && !facetCardinalityEqual(shape.Derived.FractionDigits, shape.Base.FractionDigits) {
 		return errors.New("fixed fractionDigits facet cannot change")
 	}
-	if fixed&FacetWhiteSpace != 0 && shape.Derived.Whitespace != shape.Base.Whitespace {
-		return errors.New("fixed whiteSpace facet cannot change")
-	}
+	return nil
+}
+
+func validateFixedLiteralFacets(fixed FacetMask, shape FixedFacetPreservation) error {
 	if fixed&FacetMinInclusive != 0 && !shape.MinInclusive.preserved() {
 		return errors.New("fixed minInclusive facet cannot change")
 	}
@@ -909,7 +950,7 @@ func ValidateOrderedFacetBounds(shape OrderedFacetBoundsValidation) error {
 	return nil
 }
 
-func orderedFacetBoundsPolicy(kind PrimitiveKind) (string, bool, bool) {
+func orderedFacetBoundsPolicy(kind PrimitiveKind) (label string, partial, supported bool) {
 	switch kind {
 	case PrimitiveDecimal:
 		return "decimal", false, true
@@ -929,9 +970,12 @@ func orderedFacetBoundsPolicy(kind PrimitiveKind) (string, bool, bool) {
 		return "gDay", true, true
 	case PrimitiveGMonth:
 		return "gMonth", true, true
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary,
+		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return "", false, false
+	default:
 	}
+	return "", false, false
 }
 
 // OrderedFacetBoundRestriction is the value-independent projection needed to
@@ -1156,6 +1200,8 @@ func FacetAllowedForSimpleType(variety SimpleVariety, primitive PrimitiveKind, f
 	case SimpleVarietyAtomic:
 		return atomicFacetAllowed(primitive, facet)
 	case SimpleVarietyList:
+		// FacetMask is a bitmask; only single facet bits are accepted by this predicate.
+		//exhaustive:ignore
 		switch facet {
 		case FacetLength, FacetMinLength, FacetMaxLength, FacetPattern, FacetEnumeration, FacetWhiteSpace:
 			return true
@@ -1182,6 +1228,8 @@ func FacetMaskAllowedForSimpleType(variety SimpleVariety, primitive PrimitiveKin
 }
 
 func atomicFacetAllowed(kind PrimitiveKind, facet FacetMask) bool {
+	// FacetMask is a bitmask; only single facet bits are accepted by this predicate.
+	//exhaustive:ignore
 	switch facet {
 	case FacetPattern, FacetEnumeration, FacetWhiteSpace:
 		return true
@@ -1200,9 +1248,13 @@ func primitiveHasLengthFacet(kind PrimitiveKind) bool {
 	switch kind {
 	case PrimitiveString, PrimitiveAnyURI, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveQName, PrimitiveNotation:
 		return true
-	default:
+	case PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
 		return false
+	default:
 	}
+	return false
 }
 
 func primitiveHasOrderFacet(kind PrimitiveKind) bool {
@@ -1210,9 +1262,12 @@ func primitiveHasOrderFacet(kind PrimitiveKind) bool {
 	case PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
 		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
 		return true
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveHexBinary, PrimitiveBase64Binary,
+		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return false
+	default:
 	}
+	return false
 }
 
 // SimpleValue is the runtime result of validating one simple-typed lexical value.
@@ -1281,6 +1336,8 @@ const (
 	PrimitiveNeedCanonical PrimitiveValueNeed = 1 << iota
 	// PrimitiveNeedLength requests value length from primitive parsing.
 	PrimitiveNeedLength
+	// PrimitiveNeedIdentity requests identity-key data from primitive parsing.
+	PrimitiveNeedIdentity
 )
 
 // Has reports whether n includes need.
@@ -1341,6 +1398,9 @@ type UnionSimpleValueNeedShape struct {
 // to build the requested simple-value result and evaluate stored facets.
 func SimpleValuePrimitiveNeeds(shape PrimitiveValueNeedShape) PrimitiveValueNeed {
 	var needs PrimitiveValueNeed
+	if shape.Needs.Has(SimpleNeedIdentity) {
+		needs |= PrimitiveNeedIdentity
+	}
 	if shape.Needs.Has(SimpleNeedCanonical) ||
 		shape.Identity != SimpleIdentityNone ||
 		shape.Primitive != PrimitiveDecimal && (shape.Facets&FacetEnumeration != 0 || shape.Needs.Has(SimpleNeedIdentity)) {
@@ -1365,9 +1425,14 @@ func SimpleValueAtomicLengthFacets(shape AtomicLengthFacetShape) bool {
 	switch shape.Primitive {
 	case PrimitiveString, PrimitiveAnyURI, PrimitiveHexBinary, PrimitiveBase64Binary:
 		return true
-	default:
+	case PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveQName, PrimitiveNotation:
 		return false
+	default:
 	}
+	return false
 }
 
 // SimpleValueListNeeds derives the item validation projections and whether list
@@ -1577,7 +1642,7 @@ func SimpleFastPathValidationForSimpleType(st SimpleType) SimpleFastPathValidati
 	minInclusive, hasMinInclusive := BoundFacet(st.Facets, FacetMinInclusive)
 	maxInclusive, hasMaxInclusive := BoundFacet(st.Facets, FacetMaxInclusive)
 	return SimpleFastPathValidation{
-		FractionDigits:           facetCardinalityValue(st.Facets.FractionDigits, st.Facets.Present&FacetFractionDigits != 0),
+		FractionDigits:           facetCardinalityValue(st.Facets.Present, FacetFractionDigits, st.Facets.FractionDigits),
 		EnumerationSize:          len(st.Facets.Enumeration),
 		PatternGroupSize:         int(st.Facets.patterns.count()),
 		Stored:                   st.Fast,
@@ -1987,9 +2052,13 @@ func canValidateTemporalNoOutput(shape SimpleValueBypassShape) bool {
 	switch shape.Primitive {
 	case PrimitiveDateTime, PrimitiveTime, PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
 		return shape.Builtin == BuiltinValidationNone && shape.Facets == 0
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDate, PrimitiveHexBinary, PrimitiveBase64Binary,
+		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return false
+	default:
 	}
+	return false
 }
 
 func canValidateDateNoOutput(shape SimpleValueBypassShape) bool {
@@ -2004,6 +2073,8 @@ func ValidateSimpleTypeFinalAllows(final, derivation DerivationMask) error {
 	if !ValidSimpleFinalMask(final) {
 		return errors.New("simple type final mask is invalid")
 	}
+	// DerivationMask is a bitmask; only single simple-derivation bits are valid here.
+	//exhaustive:ignore
 	switch derivation {
 	case DerivationRestriction, DerivationList, DerivationUnion:
 	default:
@@ -2016,13 +2087,15 @@ func ValidateSimpleTypeFinalAllows(final, derivation DerivationMask) error {
 }
 
 func simpleTypeFinalDerivationName(derivation DerivationMask) string {
+	// DerivationMask is a bitmask; only single simple-derivation bits have names.
+	//exhaustive:ignore
 	switch derivation {
 	case DerivationRestriction:
-		return derivationSetRestrictionToken
+		return vocab.XSDElemRestriction
 	case DerivationList:
-		return derivationSetListToken
+		return vocab.XSDElemList
 	case DerivationUnion:
-		return derivationSetUnionToken
+		return vocab.XSDElemUnion
 	default:
 		return "derivation"
 	}
@@ -2096,6 +2169,13 @@ type SimpleTypeFinalRuntime interface {
 // ValidateSimpleTypeRuntime validates simple-type metadata that can be
 // expressed in runtime vocabulary.
 func ValidateSimpleTypeRuntime(names *NameTable, st SimpleTypeValidation, limits SimpleTypeRefLimits) error {
+	if err := validateSimpleTypeMetadata(names, st, limits); err != nil {
+		return err
+	}
+	return validateSimpleTypeVariety(st, limits)
+}
+
+func validateSimpleTypeMetadata(names *NameTable, st SimpleTypeValidation, limits SimpleTypeRefLimits) error {
 	if names == nil || !names.ValidQName(st.Name) {
 		return errors.New("simple type references invalid name")
 	}
@@ -2114,35 +2194,53 @@ func ValidateSimpleTypeRuntime(names *NameTable, st SimpleTypeValidation, limits
 	if !ValidSimpleFinalMask(st.Final) {
 		return errors.New("simple type final mask contains invalid derivation")
 	}
+	return nil
+}
+
+func validateSimpleTypeVariety(st SimpleTypeValidation, limits SimpleTypeRefLimits) error {
 	switch st.Variety {
 	case SimpleVarietyAtomic:
-		if st.ListItem != NoSimpleType {
-			return errors.New("atomic simple type stores list item")
-		}
-		if len(st.Union) != 0 {
-			return errors.New("atomic simple type stores union members")
-		}
+		return validateAtomicSimpleType(st)
 	case SimpleVarietyList:
-		if !validSimpleTypeRuntimeID(st.ListItem, limits) {
-			return errors.New("list simple type references invalid list item")
-		}
-		if len(st.Union) != 0 {
-			return errors.New("list simple type stores union members")
-		}
+		return validateListSimpleType(st, limits)
 	case SimpleVarietyUnion:
-		if st.ListItem != NoSimpleType {
-			return errors.New("union simple type stores list item")
-		}
-		if len(st.Union) == 0 {
-			return errors.New("union simple type has no members")
-		}
-		for _, member := range st.Union {
-			if !validSimpleTypeRuntimeID(member, limits) {
-				return errors.New("simple type references invalid union member")
-			}
-		}
+		return validateUnionSimpleType(st, limits)
 	default:
 		return errors.New("simple type has invalid variety")
+	}
+}
+
+func validateAtomicSimpleType(st SimpleTypeValidation) error {
+	if st.ListItem != NoSimpleType {
+		return errors.New("atomic simple type stores list item")
+	}
+	if len(st.Union) != 0 {
+		return errors.New("atomic simple type stores union members")
+	}
+	return nil
+}
+
+func validateListSimpleType(st SimpleTypeValidation, limits SimpleTypeRefLimits) error {
+	if !validSimpleTypeRuntimeID(st.ListItem, limits) {
+		return errors.New("list simple type references invalid list item")
+	}
+	if len(st.Union) != 0 {
+		return errors.New("list simple type stores union members")
+	}
+	return nil
+}
+
+func validateUnionSimpleType(st SimpleTypeValidation, limits SimpleTypeRefLimits) error {
+	if st.ListItem != NoSimpleType {
+		return errors.New("union simple type stores list item")
+	}
+	if len(st.Union) == 0 {
+		return errors.New("union simple type has no members")
+	}
+	for _, member := range st.Union {
+		if !validSimpleTypeRuntimeID(member, limits) {
+			return errors.New("simple type references invalid union member")
+		}
 	}
 	return nil
 }
@@ -2254,7 +2352,24 @@ func ValidateSimpleTypeIdentity(
 // ValidateSimpleValuePayload validates cached simple-value identity payloads
 // against the simple-type metadata that produced them.
 func ValidateSimpleValuePayload(value SimpleValue, typ SimpleValuePayloadType) error {
-	switch typ.Identity {
+	if err := validateSimpleIdentityPayload(value, typ.Identity); err != nil {
+		return err
+	}
+	if typ.Variety == SimpleVarietyList {
+		if !validSimpleListIdentityKey(value.Identity) {
+			return errors.New("identity payload does not match canonical value")
+		}
+		return nil
+	}
+	identity, ok := expectedSimpleValueIdentity(typ, value.Canonical)
+	if !ok || value.Identity != identity {
+		return errors.New("identity payload does not match canonical value")
+	}
+	return nil
+}
+
+func validateSimpleIdentityPayload(value SimpleValue, identity SimpleIdentityKind) error {
+	switch identity {
 	case SimpleIdentityID:
 		if value.IDs != value.Canonical || value.IDRefs != "" {
 			return errors.New("ID payload does not match canonical value")
@@ -2270,16 +2385,6 @@ func ValidateSimpleValuePayload(value SimpleValue, typ SimpleValuePayloadType) e
 	default:
 		return errors.New("stores invalid simple identity kind")
 	}
-	if typ.Variety == SimpleVarietyList {
-		if !validSimpleListIdentityKey(value.Identity) {
-			return errors.New("identity payload does not match canonical value")
-		}
-		return nil
-	}
-	identity, ok := expectedSimpleValueIdentity(typ, value.Canonical)
-	if !ok || value.Identity != identity {
-		return errors.New("identity payload does not match canonical value")
-	}
 	return nil
 }
 
@@ -2289,25 +2394,40 @@ func validSimpleListIdentityKey(key string) bool {
 	}
 	payload := key[2:]
 	for payload != "" {
-		separator := strings.IndexByte(payload, ':')
-		if separator <= 0 || separator > 1 && payload[0] == '0' {
+		var ok bool
+		payload, ok = consumeSimpleListIdentityItem(payload)
+		if !ok {
 			return false
 		}
-		for i := range separator {
-			if payload[i] < '0' || payload[i] > '9' {
-				return false
-			}
-		}
-		length, err := strconv.Atoi(payload[:separator])
-		if err != nil || length < 0 || length > len(payload)-separator-1 {
+	}
+	return true
+}
+
+func consumeSimpleListIdentityItem(payload string) (string, bool) {
+	separator := strings.IndexByte(payload, ':')
+	if separator <= 0 || separator > 1 && payload[0] == '0' {
+		return "", false
+	}
+	if !decimalDigits(payload[:separator]) {
+		return "", false
+	}
+	length, err := strconv.Atoi(payload[:separator])
+	if err != nil || length < 0 || length > len(payload)-separator-1 {
+		return "", false
+	}
+	payload = payload[separator+1:]
+	item := payload[:length]
+	if len(item) < 2 || !ValidPrimitiveKind(PrimitiveKind(item[0])) || item[1] != '\x1e' {
+		return "", false
+	}
+	return payload[length:], true
+}
+
+func decimalDigits(value string) bool {
+	for i := range value {
+		if value[i] < '0' || value[i] > '9' {
 			return false
 		}
-		payload = payload[separator+1:]
-		item := payload[:length]
-		if len(item) < 2 || !ValidPrimitiveKind(PrimitiveKind(item[0])) || item[1] != '\x1e' {
-			return false
-		}
-		payload = payload[length:]
 	}
 	return true
 }
@@ -2330,7 +2450,12 @@ func expectedSimpleValueIdentity(typ SimpleValuePayloadType, canonical string) (
 			return "", false
 		}
 		canonical = durationIdentityCanonical(value)
+	case PrimitiveString, PrimitiveBoolean, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 	default:
+		return "", false
 	}
 	return SimpleIdentityKey(primitive, canonical), true
 }
@@ -2356,7 +2481,7 @@ func identityKey(kind byte, canonical string) string {
 }
 
 // BooleanCanonical returns the XML Schema canonical form for a boolean value.
-func BooleanCanonical(v bool) string {
+func BooleanCanonical(v bool) string { //nolint:revive // The parameter is the Boolean value being serialized, not a control flag.
 	if v {
 		return booleanCanonicalTrue
 	}
@@ -2374,87 +2499,130 @@ const (
 // ValidateSimpleTypeGraphForSimpleTypes validates simple-type base/list/union
 // topology from runtime records.
 func ValidateSimpleTypeGraphForSimpleTypes(types []SimpleType) error {
-	state := make([]simpleTypeGraphState, len(types))
-	reachesList := make([]bool, len(types))
-	stack := make([]simpleTypeGraphFrame, 0, min(len(types), 1_024))
+	audit := simpleTypeGraphAudit{
+		types:       types,
+		state:       make([]simpleTypeGraphState, len(types)),
+		reachesList: make([]bool, len(types)),
+		stack:       make([]simpleTypeGraphFrame, 0, min(len(types), 1_024)),
+	}
 	for root := range types {
-		if state[root] != simpleTypeGraphUnchecked {
+		if audit.state[root] != simpleTypeGraphUnchecked {
 			continue
 		}
-		state[root] = simpleTypeGraphChecking
-		stack = appendDFSFrame(stack, simpleTypeGraphFrame{id: SimpleTypeID(root), next: -1}, len(types))
-		for len(stack) != 0 {
-			last := len(stack) - 1
-			frame := &stack[last]
-			st := types[frame.id]
-			if frame.next < 0 {
-				if st.Base != NoSimpleType {
-					if !validSimpleTypeGraphID(types, st.Base) {
-						return errors.New("simple type graph references invalid type")
-					}
-					switch state[st.Base] {
-					case simpleTypeGraphChecking:
-						return errors.New("simple type graph contains cycle")
-					case simpleTypeGraphUnchecked:
-						state[st.Base] = simpleTypeGraphChecking
-						stack = appendDFSFrame(stack, simpleTypeGraphFrame{id: st.Base, next: -1}, len(types))
-						continue
-					case simpleTypeGraphChecked:
-					}
-				}
-				frame.next = 0
-			}
-
-			switch st.Variety {
-			case SimpleVarietyAtomic:
-				state[frame.id] = simpleTypeGraphChecked
-				stack = stack[:last]
-			case SimpleVarietyList:
-				if !validSimpleTypeGraphID(types, st.ListItem) {
-					return errors.New("simple type graph references invalid type")
-				}
-				switch state[st.ListItem] {
-				case simpleTypeGraphChecking:
-					return errors.New("simple type graph contains cycle")
-				case simpleTypeGraphUnchecked:
-					state[st.ListItem] = simpleTypeGraphChecking
-					stack = appendDFSFrame(stack, simpleTypeGraphFrame{id: st.ListItem, next: -1}, len(types))
-					continue
-				case simpleTypeGraphChecked:
-				}
-				if reachesList[st.ListItem] {
-					return errors.New("list simple type uses list item type")
-				}
-				reachesList[frame.id] = true
-				state[frame.id] = simpleTypeGraphChecked
-				stack = stack[:last]
-			case SimpleVarietyUnion:
-				if frame.next == len(st.Union) {
-					state[frame.id] = simpleTypeGraphChecked
-					stack = stack[:last]
-					continue
-				}
-				member := st.Union[frame.next]
-				if err := validateUnionGraphMember(types, member); err != nil {
-					return err
-				}
-				switch state[member] {
-				case simpleTypeGraphChecking:
-					return errors.New("simple type graph contains cycle")
-				case simpleTypeGraphUnchecked:
-					state[member] = simpleTypeGraphChecking
-					stack = appendDFSFrame(stack, simpleTypeGraphFrame{id: member, next: -1}, len(types))
-					continue
-				case simpleTypeGraphChecked:
-				}
-				reachesList[frame.id] = reachesList[frame.id] || reachesList[member]
-				frame.next++
-			default:
-				return errors.New("simple type graph has invalid variety")
-			}
+		if err := audit.validateRoot(SimpleTypeID(root)); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+type simpleTypeGraphAudit struct {
+	types       []SimpleType
+	state       []simpleTypeGraphState
+	reachesList []bool
+	stack       []simpleTypeGraphFrame
+}
+
+func (a *simpleTypeGraphAudit) validateRoot(root SimpleTypeID) error {
+	a.push(root)
+	for len(a.stack) != 0 {
+		if err := a.advance(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *simpleTypeGraphAudit) advance() error {
+	last := len(a.stack) - 1
+	frame := &a.stack[last]
+	typ := a.types[frame.id]
+	if frame.next < 0 {
+		pushed, err := a.advanceBase(typ.Base)
+		if err != nil || pushed {
+			return err
+		}
+		frame.next = 0
+	}
+	switch typ.Variety {
+	case SimpleVarietyAtomic:
+		a.complete(last, frame.id)
+		return nil
+	case SimpleVarietyList:
+		return a.advanceList(last, frame.id, typ.ListItem)
+	case SimpleVarietyUnion:
+		return a.advanceUnion(last, frame, typ.Union)
+	default:
+		return errors.New("simple type graph has invalid variety")
+	}
+}
+
+func (a *simpleTypeGraphAudit) advanceBase(base SimpleTypeID) (bool, error) {
+	if base == NoSimpleType {
+		return false, nil
+	}
+	if !validSimpleTypeGraphID(a.types, base) {
+		return false, errors.New("simple type graph references invalid type")
+	}
+	return a.visit(base)
+}
+
+func (a *simpleTypeGraphAudit) advanceList(last int, id, item SimpleTypeID) error {
+	if !validSimpleTypeGraphID(a.types, item) {
+		return errors.New("simple type graph references invalid type")
+	}
+	pushed, err := a.visit(item)
+	if err != nil || pushed {
+		return err
+	}
+	if a.reachesList[item] {
+		return errors.New("list simple type uses list item type")
+	}
+	a.reachesList[id] = true
+	a.complete(last, id)
+	return nil
+}
+
+func (a *simpleTypeGraphAudit) advanceUnion(last int, frame *simpleTypeGraphFrame, members []SimpleTypeID) error {
+	if frame.next == len(members) {
+		a.complete(last, frame.id)
+		return nil
+	}
+	member := members[frame.next]
+	if err := validateUnionGraphMember(a.types, member); err != nil {
+		return err
+	}
+	pushed, err := a.visit(member)
+	if err != nil || pushed {
+		return err
+	}
+	a.reachesList[frame.id] = a.reachesList[frame.id] || a.reachesList[member]
+	frame.next++
+	return nil
+}
+
+func (a *simpleTypeGraphAudit) visit(id SimpleTypeID) (bool, error) {
+	switch a.state[id] {
+	case simpleTypeGraphChecking:
+		return false, errors.New("simple type graph contains cycle")
+	case simpleTypeGraphUnchecked:
+		a.push(id)
+		return true, nil
+	case simpleTypeGraphChecked:
+		return false, nil
+	default:
+	}
+	return false, nil
+}
+
+func (a *simpleTypeGraphAudit) push(id SimpleTypeID) {
+	a.state[id] = simpleTypeGraphChecking
+	a.stack = appendDFSFrame(a.stack, simpleTypeGraphFrame{id: id, next: -1}, len(a.types))
+}
+
+func (a *simpleTypeGraphAudit) complete(last int, id SimpleTypeID) {
+	a.state[id] = simpleTypeGraphChecked
+	a.stack = a.stack[:last]
 }
 
 func validateUnionGraphMember(types []SimpleType, member SimpleTypeID) error {

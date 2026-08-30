@@ -3,7 +3,6 @@ package validate
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -19,7 +18,7 @@ import (
 )
 
 func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
-	valueSchema, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	valueSchema, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:IDREFS"/>
 </xs:schema>`))})
@@ -53,11 +52,11 @@ func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
 			if sessionErr != nil {
 				t.Fatal(sessionErr)
 			}
-			assertSingleIdentityLimit(t, testSession.Validate(context.Background(), strings.NewReader(tt.doc)), tt.msg)
+			assertSingleIdentityLimit(t, testSession.Validate(strings.NewReader(tt.doc)), tt.msg)
 		})
 	}
 
-	scopeSchema, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	scopeSchema, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
@@ -77,7 +76,7 @@ func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertSingleIdentityLimit(t, session.Validate(context.Background(), strings.NewReader("<root><root/></root>")), "identity scope limit exceeded")
+	assertSingleIdentityLimit(t, session.Validate(strings.NewReader("<root><root/></root>")), "identity scope limit exceeded")
 }
 
 func assertSingleIdentityLimit(t *testing.T, err error, message string) {
@@ -92,7 +91,7 @@ func assertSingleIdentityLimit(t *testing.T, err error, message string) {
 }
 
 func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
-	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`))})
@@ -105,17 +104,17 @@ func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var source bytes.Buffer
-	source.WriteString("<root/>")
-	callerReader := bufio.NewReaderSize(&source, 128*1024)
-	if err = session.Validate(context.Background(), callerReader); err != nil {
+	var input bytes.Buffer
+	input.WriteString("<root/>")
+	callerReader := bufio.NewReaderSize(&input, 128*1024)
+	if err = session.Validate(callerReader); err != nil {
 		t.Fatal(err)
 	}
-	if err = session.Validate(context.Background(), strings.NewReader("<root/>")); err != nil {
+	if err = session.Validate(strings.NewReader("<root/>")); err != nil {
 		t.Fatal(err)
 	}
 
-	source.WriteString("sentinel")
+	input.WriteString("sentinel")
 	got, err := callerReader.ReadString('l')
 	if err != nil {
 		t.Fatalf("caller reader was reset by session reuse: %v", err)
@@ -126,7 +125,7 @@ func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
 }
 
 func TestSessionDetachesReaderAfterPreflightFailure(t *testing.T) {
-	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`))})
@@ -139,10 +138,10 @@ func TestSessionDetachesReaderAfterPreflightFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	invalid := string([]byte{0xFE, 0xFF}) + strings.Repeat("x", 1024)
-	if err := session.Validate(context.Background(), strings.NewReader(invalid)); err == nil {
+	if err := session.Validate(strings.NewReader(invalid)); err == nil {
 		t.Fatal("Validate() accepted UTF-16 input")
 	}
-	if err := session.Validate(context.Background(), strings.NewReader("<root/>")); err != nil {
+	if err := session.Validate(strings.NewReader("<root/>")); err != nil {
 		t.Fatalf("Validate() after preflight failure: %v", err)
 	}
 }
@@ -163,7 +162,7 @@ func TestReusableSessionClearsDocumentStateBeforeReturning(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Validate(context.Background(), strings.NewReader(start+`</root>`)); err != nil {
+		if err := s.Validate(strings.NewReader(start + `</root>`)); err != nil {
 			t.Fatalf("Validate() error = %v", err)
 		}
 		assertReusableSessionReset(t, s)
@@ -184,7 +183,7 @@ func TestReusableSessionClearsDocumentStateBeforeReturning(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			validationErr := s.Validate(context.Background(), strings.NewReader(test.doc))
+			validationErr := s.Validate(strings.NewReader(test.doc))
 			requireCode(t, validationErr, xsderrors.CodeValidationXML)
 			assertReusableSessionReset(t, s)
 		})
@@ -202,21 +201,21 @@ func TestReusableSessionCleanupPreservesReturnedAggregateErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validationErr := s.Validate(context.Background(), strings.NewReader(`<root><value>first</value><value>second</value></root>`))
+	validationErr := s.Validate(strings.NewReader(`<root><value>first</value><value>second</value></root>`))
 	errs, ok := errors.AsType[xsderrors.Errors](validationErr)
-	if !ok || len(errs) != 2 {
+	if !ok || errs.Len() != 2 {
 		t.Fatalf("Validate() error = %v, want two returned errors", validationErr)
 	}
-	for i, err := range errs {
+	for i, err := range xsderrors.Flatten(errs) {
 		xerr, ok := errors.AsType[*xsderrors.Error](err)
-		if !ok || xerr.Code != xsderrors.CodeValidationFacet {
+		if !ok || xerr.Code() != xsderrors.CodeValidationFacet {
 			t.Fatalf("Validate() error %d = %v, want validation facet error", i, err)
 		}
 	}
 	want := validationErr.Error()
 	assertReusableSessionReset(t, s)
 
-	if err := s.Validate(context.Background(), strings.NewReader(`<root><value>1</value></root>`)); err != nil {
+	if err := s.Validate(strings.NewReader(`<root><value>1</value></root>`)); err != nil {
 		t.Fatalf("Validate(valid) error = %v", err)
 	}
 	assertReusableSessionReset(t, s)
@@ -230,12 +229,14 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.doc.errors = make([]error, 1, maxRetainedSliceCap+1)
 	s.doc.ns = xmlns.NewStackWithCapacity(maxRetainedSliceCap+1, maxRetainedSliceCap+1)
 	s.doc.elements = make([]xmlDocumentElement[frame], 1, maxRetainedSliceCap+1)
+	s.doc.elements[0].pathMode = xmlPathLexical
+	s.doc.retainedPaths.nodes = make([]documentPathNode, 1, maxRetainedSliceCap+1)
+	s.doc.retainedPaths.namespaces = make([]string, 1, maxRetainedSliceCap+1)
 	s.doc.text = make([]byte, 1, maxRetainedBufferCap+1)
-	s.doc.namePath = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
+	s.doc.identity.path = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
-	if err := recordValueForTest(&s.doc.identity, IdentityValue{IDs: "stale"}, s.startContext(1, 1)); err != nil {
-		t.Fatalf("record identity state: %v", err)
-	}
+	s.doc.identity.ids = map[string]retainedPath{"stale": explicitRetainedPath("/stale")}
+	s.doc.identity.entries = 1
 	if err := s.doc.schemaLocationHints.RecordAttribute(staleSchemaLocationHintName(), "urn:stale stale.xsd", testSchemaLocationHintLimits, s.startContext(1, 1)); err != nil {
 		t.Fatalf("record schema-location hint: %v", err)
 	}
@@ -246,15 +247,17 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 		s.doc.ns.FrameCapacity() != 0 ||
 		s.doc.ns.BindingCapacity() != 0 ||
 		cap(s.doc.elements) != 0 ||
+		cap(s.doc.retainedPaths.nodes) != 0 ||
+		cap(s.doc.retainedPaths.namespaces) != 0 ||
 		cap(s.doc.text) != 0 ||
-		cap(s.doc.namePath) != 0 ||
+		cap(s.doc.identity.path) != 0 ||
 		cap(s.doc.allBits) != 0 {
 		t.Fatalf("reset retained oversized state")
 	}
-	if err := s.doc.identity.CheckIDRefs(func(err error) error {
+	if err := s.doc.identity.endDocument(func(err error) error {
 		t.Fatalf("identity state retained after reset: %v", err)
 		return nil
-	}, nil); err != nil {
+	}); err != nil {
 		t.Fatalf("check IDREFs after reset: %v", err)
 	}
 	if s.doc.schemaLocationHints.Has("urn:stale") {
@@ -265,7 +268,8 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	var s session
 	s.doc.elements = make([]xmlDocumentElement[frame], 0, maxRetainedSliceCap)
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "stale"}}, false, frame{})
+	s.doc.CommitExpandedStart(preparedXMLStart{name: xml.Name{Space: "urn:stale", Local: "stale"}}, frame{})
+	_ = s.doc.retainPathAtDepth(1)
 	s.doc.pathText = "stale"
 	s.doc.pathTextDepth = 1
 
@@ -276,6 +280,12 @@ func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	}
 	if s.doc.pathTextDepth != 0 {
 		t.Fatal("reset retained stale path text depth")
+	}
+	if len(s.doc.retainedPaths.nodes) != 0 {
+		t.Fatal("reset retained document path nodes")
+	}
+	if len(s.doc.retainedPaths.namespaces) != 0 {
+		t.Fatal("reset retained document path namespaces")
 	}
 	if cap(s.doc.elements) == 0 {
 		t.Fatal("path capacity was not retained")
@@ -291,8 +301,8 @@ func staleSchemaLocationHintName() xml.Name {
 
 func TestSessionPathStringMaterializesLazily(t *testing.T) {
 	var s session
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, false, frame{})
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "row"}}, false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "row"}}, frame{})
 
 	if s.doc.pathText != "" {
 		t.Fatal("pushPath materialized path text")
@@ -307,11 +317,11 @@ func TestSessionPathStringMaterializesLazily(t *testing.T) {
 
 func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	var s session
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, frame{})
 	if got := s.doc.PathString(); got != "/root" {
 		t.Fatalf("pathString() = %q, want /root", got)
 	}
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "child"}}, false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "child"}}, frame{})
 	if got := s.doc.PathString(); got != "/root/child" {
 		t.Fatalf("pathString() = %q, want /root/child", got)
 	}
@@ -329,7 +339,7 @@ func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 }
 
 func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
-	rt, err := compile.Compile(context.Background(), compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType">
     <xs:key name="ids"><xs:selector xpath=".//never"/><xs:field xpath="@id"/></xs:key>
@@ -340,14 +350,14 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	const depth = 128
-	doc := nestedIdentityDocument(depth, true)
+	doc := nestedIdentityDocument(depth, nestedIdentityDocumentComplete)
 
 	t.Run("completed document", func(t *testing.T) {
 		session, err := newSessionForTest(rt, Options{})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := session.Validate(context.Background(), strings.NewReader(doc)); err != nil {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			t.Fatal(err)
 		}
 		assertReusableSessionReset(t, session)
@@ -358,24 +368,55 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := session.Validate(context.Background(), strings.NewReader(nestedIdentityDocument(depth, false))); err == nil {
+		if err := session.Validate(strings.NewReader(nestedIdentityDocument(depth, nestedIdentityDocumentUnclosed))); err == nil {
 			t.Fatal("Validate() succeeded for unclosed document")
 		}
 		assertReusableSessionReset(t, session)
-		if err := session.Validate(context.Background(), strings.NewReader(`<root/>`)); err != nil {
+		if err := session.Validate(strings.NewReader(`<root/>`)); err != nil {
 			t.Fatalf("Validate() after aborted document: %v", err)
 		}
 		assertReusableSessionReset(t, session)
 	})
 }
 
-func nestedIdentityDocument(depth int, closeElements bool) string {
+func TestSessionResetClearsRetainedIdentityPaths(t *testing.T) {
+	root := strings.Repeat("r", 255)
+	rt := compileRuntimeForTest(t, fmt.Sprintf(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="%s"><xs:complexType><xs:sequence>
+    <xs:element name="row" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" type="xs:ID" use="required"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`, root))
+	session, err := newSessionForTest(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader(fmt.Sprintf(`<%s><row id="a"/><row id="b"/></%s>`, root, root))); err != nil {
+		t.Fatal(err)
+	}
+	if cap(session.session.doc.retainedPaths.nodes) == 0 {
+		t.Fatal("validation did not exercise retained identity paths")
+	}
+	assertReusableSessionReset(t, session)
+	if err := session.Validate(strings.NewReader(fmt.Sprintf(`<%s><row id="c"/></%s>`, root, root))); err != nil {
+		t.Fatalf("session reuse: %v", err)
+	}
+	assertReusableSessionReset(t, session)
+}
+
+type nestedIdentityDocumentState uint8
+
+const (
+	nestedIdentityDocumentUnclosed nestedIdentityDocumentState = iota
+	nestedIdentityDocumentComplete
+)
+
+func nestedIdentityDocument(depth int, state nestedIdentityDocumentState) string {
 	var b strings.Builder
 	b.WriteString("<root>")
 	for i := range depth {
 		fmt.Fprintf(&b, `<a id="%d">`, i)
 	}
-	if closeElements {
+	if state == nestedIdentityDocumentComplete {
 		for range depth {
 			b.WriteString("</a>")
 		}
@@ -397,8 +438,29 @@ func assertSessionDocumentStateReset(t *testing.T, s *session) {
 	if s.doc.seenRoot || s.doc.pathText != "" || s.doc.pathTextDepth != 0 || s.doc.syntaxOnly {
 		t.Fatalf("document scalars remain after reset: %+v", s.doc)
 	}
-	if len(s.doc.elements) != 0 || len(s.doc.namePath) != 0 {
-		t.Fatalf("active document state remains: elements=%d names=%d", len(s.doc.elements), len(s.doc.namePath))
+	if len(s.doc.retainedPaths.nodes) != 0 {
+		t.Fatalf("document retained-path nodes remain: %d", len(s.doc.retainedPaths.nodes))
+	}
+	if len(s.doc.retainedPaths.namespaces) != 0 {
+		t.Fatalf("document retained-path namespaces remain: %d", len(s.doc.retainedPaths.namespaces))
+	}
+	for i, node := range s.doc.retainedPaths.nodes[:cap(s.doc.retainedPaths.nodes)] {
+		if node != (documentPathNode{}) {
+			t.Fatalf("retained-path node tail %d retains references: %+v", i, node)
+		}
+	}
+	for i, namespace := range s.doc.retainedPaths.namespaces[:cap(s.doc.retainedPaths.namespaces)] {
+		if namespace != "" {
+			t.Fatalf("retained-path namespace tail %d retains %q", i, namespace)
+		}
+	}
+	if len(s.doc.elements) != 0 || len(s.doc.identity.path) != 0 || len(s.doc.identity.elements) != 0 {
+		t.Fatalf(
+			"active document state remains: elements=%d identity elements=%d names=%d",
+			len(s.doc.elements),
+			len(s.doc.identity.elements),
+			len(s.doc.identity.path),
+		)
 	}
 	if len(s.doc.errors) != 0 || len(s.doc.text) != 0 || len(s.doc.allBits) != 0 {
 		t.Fatalf("document buffers remain: errors=%d text=%d allBits=%d", len(s.doc.errors), len(s.doc.text), len(s.doc.allBits))
@@ -416,7 +478,7 @@ func assertSessionDocumentStateReset(t *testing.T, s *session) {
 			t.Fatalf("element tail %d retains references: %+v", i, element)
 		}
 	}
-	for i, name := range s.doc.namePath[:cap(s.doc.namePath)] {
+	for i, name := range s.doc.identity.path[:cap(s.doc.identity.path)] {
 		if name != (runtime.RuntimeName{}) {
 			t.Fatalf("name path tail %d retains references: %+v", i, name)
 		}

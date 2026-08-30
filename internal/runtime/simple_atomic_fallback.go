@@ -17,7 +17,6 @@ type AtomicSimpleValueInput struct {
 	Facets       SimpleValueFacets
 	Type         SimpleValueType
 	Needs        PrimitiveValueNeed
-	NeedIdentity bool
 	Present      bool
 }
 
@@ -39,36 +38,50 @@ func validateAtomicSimpleValueFallbackWithReaderAndScratch[R simpleValueNotation
 	if err != nil {
 		return AtomicSimpleValueResult{}, err
 	}
-	canon := parsed.Canonical
-	if typ.Builtin == BuiltinValidationInteger && in.Needs.Has(PrimitiveNeedCanonical) {
-		canon = parsed.Actual.Decimal.IntegerCanonicalText()
-	}
-	if facets.Facets != 0 {
-		if err := applyAtomicFacets(typ.Primitive, typ.Builtin, facets, in.Normalized, parsed.Actual); err != nil {
-			return AtomicSimpleValueResult{}, err
-		}
-		if err := applyPatternAndEnumeration(facets, in.Normalized, canon, parsed.Actual, scratch); err != nil {
-			return AtomicSimpleValueResult{}, err
-		}
-	}
-	identityCanonical := ""
-	if in.NeedIdentity && parsed.Actual.Valid {
-		switch typ.Primitive {
-		case PrimitiveDecimal:
-			if parsed.Actual.Kind == PrimitiveDecimal {
-				identityCanonical = parsed.Actual.Decimal.CanonicalText()
-			}
-		case PrimitiveDuration:
-			if parsed.Actual.Kind == PrimitiveDuration {
-				identityCanonical = durationIdentityCanonical(parsed.Actual.Duration)
-			}
-		default:
-		}
+	canon := atomicSimpleCanonical(typ, in.Needs, parsed)
+	if err := applyAtomicValueFacets(typ, facets, in.Normalized, canon, parsed.Actual, scratch); err != nil {
+		return AtomicSimpleValueResult{}, err
 	}
 	return AtomicSimpleValueResult{
 		Canonical:         canon,
-		IdentityCanonical: identityCanonical,
+		IdentityCanonical: atomicIdentityCanonical(typ.Primitive, parsed.Actual, in.Needs),
 	}, nil
+}
+
+func atomicSimpleCanonical(typ SimpleValueType, needs PrimitiveValueNeed, parsed PrimitiveActualResult) string {
+	if typ.Builtin == BuiltinValidationInteger && needs.Has(PrimitiveNeedCanonical) {
+		return parsed.Actual.Decimal.IntegerCanonicalText()
+	}
+	return parsed.Canonical
+}
+
+func applyAtomicValueFacets(typ SimpleValueType, facets SimpleValueFacets, normalized, canonical string, actual PrimitiveActualValue, scratch *StringPatternScratch) error {
+	if facets.Facets == 0 {
+		return nil
+	}
+	if err := applyAtomicFacets(typ.Primitive, typ.Builtin, facets, normalized, actual); err != nil {
+		return err
+	}
+	return applyPatternAndEnumeration(facets, normalized, canonical, actual, scratch)
+}
+
+func atomicIdentityCanonical(primitive PrimitiveKind, actual PrimitiveActualValue, needs PrimitiveValueNeed) string {
+	if !needs.Has(PrimitiveNeedIdentity) || !actual.Valid || actual.Kind != primitive {
+		return ""
+	}
+	switch primitive {
+	case PrimitiveDecimal:
+		return actual.Decimal.CanonicalText()
+	case PrimitiveDuration:
+		return durationIdentityCanonical(actual.Duration)
+	case PrimitiveString, PrimitiveBoolean, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
+		return ""
+	default:
+	}
+	return ""
 }
 
 func validateAtomicPrimitiveActual[R simpleValueNotationReader](reader R, kind PrimitiveKind, normalized string, resolve func(string) (string, string, bool), needs PrimitiveValueNeed) (PrimitiveActualResult, error) {
@@ -80,9 +93,14 @@ func validateAtomicPrimitiveActual[R simpleValueNotationReader](reader R, kind P
 	case PrimitiveNotation:
 		canon, err := validateNotationPrimitive(reader, normalized, resolve, needs)
 		return PrimitiveActualResult{Canonical: canon, Actual: actual}, err
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI:
 		return ParsePrimitiveActual(kind, normalized, needs)
+	default:
 	}
+	return ParsePrimitiveActual(kind, normalized, needs)
 }
 
 func validateQNamePrimitive(normalized string, resolve func(string) (string, string, bool), needs PrimitiveValueNeed) (string, error) {
@@ -110,22 +128,16 @@ func validateNotationPrimitive[R simpleValueNotationReader](reader R, normalized
 		if !lex.IsNCName(normalized) {
 			return "", fmt.Errorf("invalid NOTATION")
 		}
-		declared, known := reader.simpleValueNotation("", normalized)
-		if !known {
-			return "", ErrSimpleValueMetadata
-		}
-		if declared {
-			if !needs.Has(PrimitiveNeedCanonical) {
-				return "", nil
-			}
-			return normalized, nil
-		}
-		return "", fmt.Errorf("undeclared notation")
+		return validateResolvedNotation(reader, "", normalized, normalized, needs)
 	}
 	ns, local, ok := resolve(normalized)
 	if !ok {
 		return "", fmt.Errorf("unresolved NOTATION")
 	}
+	return validateResolvedNotation(reader, ns, local, FormatExpandedName(ns, local), needs)
+}
+
+func validateResolvedNotation[R simpleValueNotationReader](reader R, ns, local, canonical string, needs PrimitiveValueNeed) (string, error) {
 	declared, known := reader.simpleValueNotation(ns, local)
 	if !known {
 		return "", ErrSimpleValueMetadata
@@ -136,7 +148,7 @@ func validateNotationPrimitive[R simpleValueNotationReader](reader R, normalized
 	if !needs.Has(PrimitiveNeedCanonical) {
 		return "", nil
 	}
-	return FormatExpandedName(ns, local), nil
+	return canonical, nil
 }
 
 func applyAtomicFacets(primitive PrimitiveKind, builtin BuiltinValidationKind, f SimpleValueFacets, normalized string, actual PrimitiveActualValue) error {
@@ -150,17 +162,21 @@ func applyAtomicFacets(primitive PrimitiveKind, builtin BuiltinValidationKind, f
 		}
 	}
 	if primitive == PrimitiveDecimal {
-		dec := actual.Decimal
-		if !actual.Valid || actual.Kind != PrimitiveDecimal {
-			var err error
-			dec, err = ParseDecimalValue(normalized)
-			if err != nil {
-				return err
-			}
-		}
-		return ValidateDecimalFacets(f.DecimalFacets, dec)
+		return applyAtomicDecimalFacets(f.DecimalFacets, normalized, actual)
 	}
 	return applyPrimitiveBounds(primitive, f, normalized, actual)
+}
+
+func applyAtomicDecimalFacets(facets DecimalFacetValues, normalized string, actual PrimitiveActualValue) error {
+	value := actual.Decimal
+	if !actual.Valid || actual.Kind != PrimitiveDecimal {
+		var err error
+		value, err = ParseDecimalValue(normalized)
+		if err != nil {
+			return err
+		}
+	}
+	return ValidateDecimalFacets(facets, value)
 }
 
 func applyAtomicLengthFacets(primitive PrimitiveKind, f SimpleValueFacets, normalized string, actual PrimitiveActualValue) error {
@@ -188,32 +204,43 @@ func applyPrimitiveBounds(kind PrimitiveKind, f SimpleValueFacets, normalized st
 		return applyGValueBounds(kind, f, normalized, actual)
 	case PrimitiveDate, PrimitiveDateTime, PrimitiveTime:
 		return applyTemporalBounds(kind, f, normalized, actual)
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return nil
+	default:
 	}
+	return nil
 }
 
 func applyPatternAndEnumeration(f SimpleValueFacets, normalized, canonical string, actual PrimitiveActualValue, scratch *StringPatternScratch) error {
 	if err := f.StringFacets.validatePatterns(normalized, scratch); err != nil {
 		return err
 	}
-	if len(f.enumeration) != 0 {
-		for _, lit := range f.enumeration {
-			if EqualPrimitiveActualValues(actual, canonical, lit.actual, lit.canonical) {
-				return nil
-			}
-		}
-		return errors.New("enumeration facet failed")
+	if len(f.enumerationReads) != 0 {
+		return validatePrivateAtomicEnumeration(f.enumerationReads, actual, canonical)
 	}
 	if len(f.Enumeration) != 0 {
-		for _, lit := range f.Enumeration {
-			if EqualPrimitiveActualValues(actual, canonical, lit.Actual, lit.Canonical) {
-				return nil
-			}
-		}
-		return errors.New("enumeration facet failed")
+		return validatePublishedAtomicEnumeration(f.Enumeration, actual, canonical)
 	}
 	return nil
+}
+
+func validatePrivateAtomicEnumeration(enumeration []simpleValueLiteralRead, actual PrimitiveActualValue, canonical string) error {
+	for _, lit := range enumeration {
+		if EqualPrimitiveActualValues(actual, canonical, lit.actual, lit.canonical) {
+			return nil
+		}
+	}
+	return errors.New("enumeration facet failed")
+}
+
+func validatePublishedAtomicEnumeration(enumeration []SimpleValueFacetLiteral, actual PrimitiveActualValue, canonical string) error {
+	for _, lit := range enumeration {
+		if EqualPrimitiveActualValues(actual, canonical, lit.Actual, lit.Canonical) {
+			return nil
+		}
+	}
+	return errors.New("enumeration facet failed")
 }
 
 func applyFloatBounds(kind PrimitiveKind, f SimpleValueFacets, normalized string, actual PrimitiveActualValue) error {
@@ -363,26 +390,30 @@ func actualTimeFacetLiteral(l SimpleValueFacetLiteral) (TimeValue, bool) {
 func applyPartialBoundsParsed[T any](f SimpleValueFacets, value T, parse func(string) (T, error), compare func(T, T) OrderedFacetRelation, actual func(SimpleValueFacetLiteral) (T, bool)) error {
 	inclusive := OrderedFacetBound{Kind: OrderedFacetBoundInclusive}
 	exclusive := OrderedFacetBound{Kind: OrderedFacetBoundExclusive}
-	if err := applyPartialBoundRead(f.MinInclusive, "minInclusive", inclusive, value, parse, compare, actual, OrderedFacetLowerBoundAccepts); err != nil {
+	reader := partialBoundReader[T]{value: value, parse: parse, compare: compare, actual: actual}
+	if err := reader.apply(f.MinInclusive, "minInclusive", inclusive, OrderedFacetLowerBoundAccepts); err != nil {
 		return err
 	}
-	if err := applyPartialBoundRead(f.MaxInclusive, "maxInclusive", inclusive, value, parse, compare, actual, OrderedFacetUpperBoundAccepts); err != nil {
+	if err := reader.apply(f.MaxInclusive, "maxInclusive", inclusive, OrderedFacetUpperBoundAccepts); err != nil {
 		return err
 	}
-	if err := applyPartialBoundRead(f.MinExclusive, "minExclusive", exclusive, value, parse, compare, actual, OrderedFacetLowerBoundAccepts); err != nil {
+	if err := reader.apply(f.MinExclusive, "minExclusive", exclusive, OrderedFacetLowerBoundAccepts); err != nil {
 		return err
 	}
-	return applyPartialBoundRead(f.MaxExclusive, "maxExclusive", exclusive, value, parse, compare, actual, OrderedFacetUpperBoundAccepts)
+	return reader.apply(f.MaxExclusive, "maxExclusive", exclusive, OrderedFacetUpperBoundAccepts)
 }
 
-func applyPartialBoundRead[T any](
+type partialBoundReader[T any] struct {
+	value   T
+	parse   func(string) (T, error)
+	compare func(T, T) OrderedFacetRelation
+	actual  func(SimpleValueFacetLiteral) (T, bool)
+}
+
+func (r partialBoundReader[T]) apply(
 	lit SimpleValueFacetLiteral,
 	name string,
 	bound OrderedFacetBound,
-	value T,
-	parse func(string) (T, error),
-	compare func(T, T) OrderedFacetRelation,
-	actual func(SimpleValueFacetLiteral) (T, bool),
 	accept func(OrderedFacetBound, OrderedFacetRelation) bool,
 ) error {
 	if !lit.Present {
@@ -390,17 +421,17 @@ func applyPartialBoundRead[T any](
 	}
 	var limit T
 	var ok bool
-	if actual != nil {
-		limit, ok = actual(lit)
+	if r.actual != nil {
+		limit, ok = r.actual(lit)
 	}
 	if !ok {
 		var err error
-		limit, err = parse(lit.Canonical)
+		limit, err = r.parse(lit.Canonical)
 		if err != nil {
 			return err
 		}
 	}
-	if !accept(bound, compare(value, limit)) {
+	if !accept(bound, r.compare(r.value, limit)) {
 		return fmt.Errorf("%s facet failed", name)
 	}
 	return nil

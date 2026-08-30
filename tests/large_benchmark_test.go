@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	defaultLargeCompareIdentityRows = 100_000
-	defaultLargeCompareRuns         = 20
+	defaultLargeBenchmarkIdentityRows = 100_000
+	defaultLargeBenchmarkRuns         = 20
 )
 
-var defaultLargeCompareSizes = []largeCompareSize{
+var defaultLargeBenchmarkSizes = []largeBenchmarkSize{
 	{name: "20MB", bytes: 20 * 1024 * 1024},
 	{name: "100MB", bytes: 100 * 1024 * 1024},
 	{name: "500MB", bytes: 500 * 1024 * 1024},
@@ -30,20 +30,20 @@ var defaultLargeCompareSizes = []largeCompareSize{
 	{name: "2GB", bytes: 2 << 30},
 }
 
-type largeCompareSize struct {
+type largeBenchmarkSize struct {
 	name  string
 	bytes int64
 }
 
-type largeCompareConfig struct {
+type largeBenchmarkConfig struct {
 	dir          string
 	keep         bool
-	sizes        []largeCompareSize
+	sizes        []largeBenchmarkSize
 	identityRows int
 	runs         int
 }
 
-type largeProfile struct {
+type largeBenchmarkProfile struct {
 	name               string
 	schema             string
 	xml                string
@@ -57,15 +57,9 @@ type commandMetrics struct {
 	statistic   string
 }
 
-type commandMetricPair struct {
-	goMetrics      commandMetrics
-	libxml2Metrics commandMetrics
-}
-
-type largeCompareResult struct {
-	name           string
-	goMetrics      commandMetrics
-	libxml2Metrics commandMetrics
+type largeBenchmarkResult struct {
+	name    string
+	metrics commandMetrics
 }
 
 type countingWriter struct {
@@ -79,22 +73,22 @@ func (w *countingWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func TestLargeXMLLintComparison(t *testing.T) {
-	if os.Getenv("XSD_LARGE_COMPARE") != "1" {
-		t.Skip("set XSD_LARGE_COMPARE=1")
+func TestLargeXMLLintBenchmark(t *testing.T) {
+	if os.Getenv("XSD_LARGE_BENCHMARK") != "1" {
+		t.Skip("set XSD_LARGE_BENCHMARK=1")
 	}
-	cfg := largeCompareConfigFromEnv(t)
+	cfg := largeBenchmarkConfigFromEnv(t)
 	if err := os.MkdirAll(cfg.dir, 0o750); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
-	t.Logf("large comparison dir: %s", cfg.dir)
+	t.Logf("large benchmark dir: %s", cfg.dir)
 	if cfg.keep {
 		t.Logf("keeping generated files in %s", cfg.dir)
 	}
-	t.Logf("large comparison runs: %d", cfg.runs)
+	t.Logf("large benchmark runs: %d", cfg.runs)
 
-	repoXMLLint, libxml2XMLLint := largeCompareCommands(t)
-	var results []largeCompareResult
+	libraryXMLLint := largeLibraryCommand(t)
+	var results []largeBenchmarkResult
 
 	streamingSchema := filepath.Join(cfg.dir, "streaming", "schema.xsd")
 	writeFileString(t, streamingSchema, largeStreamingSchema)
@@ -105,7 +99,7 @@ func TestLargeXMLLintComparison(t *testing.T) {
 				defer removeAll(t, dir)
 			}
 			profile := generateStreamingProfile(t, streamingSchema, dir, size)
-			results = append(results, compareLargeProfile(t, repoXMLLint, libxml2XMLLint, profile, cfg.runs))
+			results = append(results, runLargeBenchmarkProfile(t, libraryXMLLint, profile, cfg.runs))
 		}) {
 			return
 		}
@@ -117,42 +111,42 @@ func TestLargeXMLLintComparison(t *testing.T) {
 			defer removeAll(t, dir)
 		}
 		profile := generateIdentityProfile(t, dir, cfg.identityRows)
-		results = append(results, compareLargeProfile(t, repoXMLLint, libxml2XMLLint, profile, cfg.runs))
+		results = append(results, runLargeBenchmarkProfile(t, libraryXMLLint, profile, cfg.runs))
 	}) {
 		return
 	}
-	logLargeCompareSummary(t, results)
+	logLargeBenchmarkSummary(t, results)
 }
 
-func largeCompareConfigFromEnv(t *testing.T) largeCompareConfig {
+func largeBenchmarkConfigFromEnv(t *testing.T) largeBenchmarkConfig {
 	t.Helper()
 	dir := os.Getenv("XSD_LARGE_DIR")
 	if dir == "" {
 		dir = t.TempDir()
 	}
-	return largeCompareConfig{
+	return largeBenchmarkConfig{
 		dir:          dir,
 		keep:         os.Getenv("XSD_LARGE_DIR") != "",
-		sizes:        largeCompareSizesFromEnv(t),
-		identityRows: envInt(t, "XSD_LARGE_IDENTITY_ROWS", defaultLargeCompareIdentityRows),
-		runs:         envInt(t, "XSD_LARGE_RUNS", defaultLargeCompareRuns),
+		sizes:        largeBenchmarkSizesFromEnv(t),
+		identityRows: envInt(t, "XSD_LARGE_IDENTITY_ROWS", defaultLargeBenchmarkIdentityRows),
+		runs:         envInt(t, "XSD_LARGE_RUNS", defaultLargeBenchmarkRuns),
 	}
 }
 
-func largeCompareSizesFromEnv(t *testing.T) []largeCompareSize {
+func largeBenchmarkSizesFromEnv(t *testing.T) []largeBenchmarkSize {
 	t.Helper()
 	sizeBytes := os.Getenv("XSD_LARGE_SIZE_BYTES")
 	if sizeBytes == "" {
-		return slices.Clone(defaultLargeCompareSizes)
+		return slices.Clone(defaultLargeBenchmarkSizes)
 	}
 	n := envInt64(t, "XSD_LARGE_SIZE_BYTES", 0)
-	return []largeCompareSize{{name: sizeLabel(n), bytes: n}}
+	return []largeBenchmarkSize{{name: sizeLabel(n), bytes: n}}
 }
 
-func TestLargeCompareDefaultSizesIncludeReadmeSizes(t *testing.T) {
+func TestLargeBenchmarkDefaultSizesIncludeReadmeSizes(t *testing.T) {
 	t.Setenv("XSD_LARGE_SIZE_BYTES", "")
-	sizes := largeCompareSizesFromEnv(t)
-	want := []largeCompareSize{
+	sizes := largeBenchmarkSizesFromEnv(t)
+	want := []largeBenchmarkSize{
 		{name: "20MB", bytes: 20 * 1024 * 1024},
 		{name: "100MB", bytes: 100 * 1024 * 1024},
 		{name: "500MB", bytes: 500 * 1024 * 1024},
@@ -160,27 +154,67 @@ func TestLargeCompareDefaultSizesIncludeReadmeSizes(t *testing.T) {
 		{name: "2GB", bytes: 2 << 30},
 	}
 	if !slices.Equal(sizes, want) {
-		t.Fatalf("largeCompareSizesFromEnv() = %#v, want %#v", sizes, want)
+		t.Fatalf("largeBenchmarkSizesFromEnv() = %#v, want %#v", sizes, want)
 	}
 }
 
-func TestLargeCompareSizeOverrideUsesOneCustomSize(t *testing.T) {
+func TestLargeBenchmarkSizeOverrideUsesOneCustomSize(t *testing.T) {
 	t.Setenv("XSD_LARGE_SIZE_BYTES", "1048576")
-	sizes := largeCompareSizesFromEnv(t)
-	want := []largeCompareSize{{name: "1MB", bytes: 1024 * 1024}}
+	sizes := largeBenchmarkSizesFromEnv(t)
+	want := []largeBenchmarkSize{{name: "1MB", bytes: 1024 * 1024}}
 	if !slices.Equal(sizes, want) {
-		t.Fatalf("largeCompareSizesFromEnv() = %#v, want %#v", sizes, want)
+		t.Fatalf("largeBenchmarkSizesFromEnv() = %#v, want %#v", sizes, want)
 	}
 }
 
-func TestLargeCompareRunsFromEnv(t *testing.T) {
+func TestLargeBenchmarkRunsFromEnv(t *testing.T) {
 	t.Setenv("XSD_LARGE_RUNS", "")
-	if got := largeCompareConfigFromEnv(t).runs; got != defaultLargeCompareRuns {
-		t.Fatalf("largeCompareConfigFromEnv().runs = %d, want %d", got, defaultLargeCompareRuns)
+	if got := largeBenchmarkConfigFromEnv(t).runs; got != defaultLargeBenchmarkRuns {
+		t.Fatalf("largeBenchmarkConfigFromEnv().runs = %d, want %d", got, defaultLargeBenchmarkRuns)
 	}
-	t.Setenv("XSD_LARGE_RUNS", "3")
-	if got := largeCompareConfigFromEnv(t).runs; got != 3 {
-		t.Fatalf("largeCompareConfigFromEnv().runs = %d, want 3", got)
+	t.Setenv("XSD_LARGE_RUNS", "5")
+	if got := largeBenchmarkConfigFromEnv(t).runs; got != 5 {
+		t.Fatalf("largeBenchmarkConfigFromEnv().runs = %d, want 5", got)
+	}
+}
+
+func TestRunLibrarySamplesUsesConfiguredSampleCount(t *testing.T) {
+	countPath := filepath.Join(t.TempDir(), "count")
+	t.Setenv("XSD_TEST_LIBRARY_COMMAND", "1")
+	t.Setenv("XSD_TEST_LIBRARY_COUNT", countPath)
+	command, err := os.Executable()
+	if err != nil {
+		t.Fatalf("Executable() error = %v", err)
+	}
+	_, samples := runLibrarySamples(t, 5, command, "-test.run=^TestLibraryCommandProcess$")
+	if len(samples) != 5 {
+		t.Fatalf("runLibrarySamples() returned %d samples, want 5", len(samples))
+	}
+	count, err := os.ReadFile(countPath) //nolint:gosec // Parent test owns the t.TempDir path passed to this helper process.
+	if err != nil {
+		t.Fatalf("ReadFile(%s) error = %v", countPath, err)
+	}
+	if got, want := string(count), "6"; got != want {
+		t.Fatalf("library command invocations = %s, want %s (one warm-up plus five samples)", got, want)
+	}
+}
+
+func TestLibraryCommandProcess(t *testing.T) {
+	if os.Getenv("XSD_TEST_LIBRARY_COMMAND") != "1" {
+		return
+	}
+	path := os.Getenv("XSD_TEST_LIBRARY_COUNT")
+	count := 0
+	if data, err := os.ReadFile(path); err == nil { //nolint:gosec // Parent test owns the t.TempDir path passed through the environment.
+		count, err = strconv.Atoi(string(data))
+		if err != nil {
+			t.Fatalf("Atoi(%q) error = %v", string(data), err)
+		}
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("ReadFile(%s) error = %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(strconv.Itoa(count+1)), 0o600); err != nil { //nolint:gosec // Parent test owns the t.TempDir path passed through the environment.
+		t.Fatalf("WriteFile(%s) error = %v", path, err)
 	}
 }
 
@@ -246,12 +280,12 @@ func envInt(t *testing.T, name string, def int) int {
 	return int(n)
 }
 
-func generateStreamingProfile(t *testing.T, schema, dir string, size largeCompareSize) largeProfile {
+func generateStreamingProfile(t *testing.T, schema, dir string, size largeBenchmarkSize) largeBenchmarkProfile {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", dir, err)
 	}
-	profile := largeProfile{
+	profile := largeBenchmarkProfile{
 		name:   "streaming/" + size.name,
 		schema: schema,
 		xml:    filepath.Join(dir, "document.xml"),
@@ -260,7 +294,7 @@ func generateStreamingProfile(t *testing.T, schema, dir string, size largeCompar
 	return profile
 }
 
-func generateIdentityProfile(t *testing.T, dir string, rows int) largeProfile {
+func generateIdentityProfile(t *testing.T, dir string, rows int) largeBenchmarkProfile {
 	t.Helper()
 	if rows > math.MaxInt/5 {
 		t.Fatal("identity row count is too large to derive a validation-entry budget")
@@ -268,7 +302,7 @@ func generateIdentityProfile(t *testing.T, dir string, rows int) largeProfile {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", dir, err)
 	}
-	profile := largeProfile{
+	profile := largeBenchmarkProfile{
 		name:               "identity",
 		schema:             filepath.Join(dir, "schema.xsd"),
 		xml:                filepath.Join(dir, "document.xml"),
@@ -279,23 +313,20 @@ func generateIdentityProfile(t *testing.T, dir string, rows int) largeProfile {
 	return profile
 }
 
-func compareLargeProfile(t *testing.T, repoXMLLint, libxml2 string, profile largeProfile, runs int) largeCompareResult {
+func runLargeBenchmarkProfile(t *testing.T, libraryXMLLint string, profile largeBenchmarkProfile, runs int) largeBenchmarkResult {
 	t.Helper()
 	t.Logf("schema=%s", profile.schema)
 	t.Logf("xml=%s bytes=%d", profile.xml, profile.bytes)
-	goArgs := []string{"--schema", profile.schema, "--max-instance-bytes", strconv.FormatInt(profile.bytes, 10), profile.xml}
+	args := []string{"--schema", profile.schema, "--max-instance-bytes", strconv.FormatInt(profile.bytes, 10), profile.xml}
 	if profile.maxIdentityEntries != 0 {
-		goArgs = slices.Insert(goArgs, len(goArgs)-1, "--max-identity-entries", strconv.Itoa(profile.maxIdentityEntries))
+		args = slices.Insert(args, len(args)-1, "--max-identity-entries", strconv.Itoa(profile.maxIdentityEntries))
 	}
-	libxml2Args := []string{"--noout", "--huge", "--schema", profile.schema, profile.xml}
-	goMetrics, libxml2Metrics, pairs := runPairedMeasuredCommands(t, runs, repoXMLLint, goArgs, libxml2, libxml2Args)
-	logPairedCommandMetrics(t, pairs, profile.bytes)
-	logCommandMetrics(t, "bin/xmllint", goMetrics, profile.bytes)
-	logCommandMetrics(t, "libxml2-xmllint", libxml2Metrics, profile.bytes)
-	return largeCompareResult{
-		name:           profile.name,
-		goMetrics:      goMetrics,
-		libxml2Metrics: libxml2Metrics,
+	metrics, samples := runLibrarySamples(t, runs, libraryXMLLint, args...)
+	logLibraryCommandSamples(t, samples, profile.bytes)
+	logCommandMetrics(t, "bin/xmllint", metrics, profile.bytes)
+	return largeBenchmarkResult{
+		name:    profile.name,
+		metrics: metrics,
 	}
 }
 
@@ -516,69 +547,45 @@ func writeFormatf(t *testing.T, w io.Writer, format string, args ...any) {
 	}
 }
 
-func largeCompareCommands(t *testing.T) (string, string) {
+func largeLibraryCommand(t *testing.T) string {
 	t.Helper()
 	root := repoRoot(t)
-	repoXMLLint, err := filepath.Abs(filepath.Join(root, "bin", "xmllint"))
+	libraryXMLLint, err := filepath.Abs(filepath.Join(root, "bin", "xmllint"))
 	if err != nil {
 		t.Fatalf("Abs(bin/xmllint) error = %v", err)
 	}
-	repoInfo, err := os.Stat(repoXMLLint)
+	info, err := os.Stat(libraryXMLLint)
 	if err != nil {
 		t.Fatalf("bin/xmllint not found; run make xmllint")
 	}
-	if repoInfo.IsDir() || repoInfo.Mode()&0o111 == 0 {
+	if info.IsDir() || info.Mode()&0o111 == 0 {
 		t.Fatalf("bin/xmllint is not executable; run make xmllint")
 	}
-
-	libxml2XMLLint, err := exec.LookPath("xmllint")
-	if err != nil {
-		t.Fatalf("libxml2 xmllint not found in PATH")
-	}
-	libxml2Info, err := os.Stat(libxml2XMLLint)
-	if err != nil {
-		t.Fatalf("Stat(%s) error = %v", libxml2XMLLint, err)
-	}
-	if os.SameFile(repoInfo, libxml2Info) {
-		t.Fatalf("PATH xmllint resolves to bin/xmllint; put libxml2 xmllint earlier in PATH")
-	}
-	t.Logf("repo xmllint: %s", repoXMLLint)
-	t.Logf("libxml2 xmllint: %s", libxml2XMLLint)
-	return repoXMLLint, libxml2XMLLint
+	t.Logf("library xmllint: %s", libraryXMLLint)
+	return libraryXMLLint
 }
 
-func runPairedMeasuredCommands(t *testing.T, runs int, goName string, goArgs []string, libxml2Name string, libxml2Args []string) (commandMetrics, commandMetrics, []commandMetricPair) {
+func runLibrarySamples(t *testing.T, runs int, libraryName string, args ...string) (commandMetrics, []commandMetrics) {
 	t.Helper()
 	if runs <= 0 {
 		t.Fatalf("XSD_LARGE_RUNS must be a positive integer")
 	}
-	_ = runMeasuredCommandOnce(t, goName, goArgs...)
-	_ = runMeasuredCommandOnce(t, libxml2Name, libxml2Args...)
-	goSamples := make([]commandMetrics, runs)
-	libxml2Samples := make([]commandMetrics, runs)
-	pairs := make([]commandMetricPair, runs)
+	_ = runMeasuredCommandOnce(t, libraryName, args...)
+	samples := make([]commandMetrics, runs)
 	for i := range runs {
-		if i%2 == 0 {
-			goSamples[i] = runMeasuredCommandOnce(t, goName, goArgs...)
-			libxml2Samples[i] = runMeasuredCommandOnce(t, libxml2Name, libxml2Args...)
-		} else {
-			libxml2Samples[i] = runMeasuredCommandOnce(t, libxml2Name, libxml2Args...)
-			goSamples[i] = runMeasuredCommandOnce(t, goName, goArgs...)
-		}
-		pairs[i] = commandMetricPair{goMetrics: goSamples[i], libxml2Metrics: libxml2Samples[i]}
+		samples[i] = runMeasuredCommandOnce(t, libraryName, args...)
 	}
 	if runs < 20 {
-		logCommandSampleSummary(t, "bin/xmllint", goSamples)
-		logCommandSampleSummary(t, "libxml2-xmllint", libxml2Samples)
+		logCommandSampleSummary(t, "bin/xmllint", samples)
 	}
-	return summarizeCommandMetrics(goSamples), summarizeCommandMetrics(libxml2Samples), pairs
+	return summarizeCommandMetrics(samples), samples
 }
 
 func runMeasuredCommandOnce(t *testing.T, name string, args ...string) commandMetrics {
 	t.Helper()
 	var metrics commandMetrics
 	cmdName, cmdArgs := measuredCommand(name, args...)
-	cmd := exec.CommandContext(t.Context(), cmdName, cmdArgs...) //nolint:gosec // Benchmark intentionally runs configured comparison command.
+	cmd := exec.CommandContext(t.Context(), cmdName, cmdArgs...) //nolint:gosec // Benchmark intentionally runs the configured library command.
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -710,7 +717,7 @@ func isCommandOutputSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\r' || b == '\n'
 }
 
-func logCommandMetrics(t *testing.T, label string, metrics commandMetrics, bytes int64) {
+func logCommandMetrics(t *testing.T, label string, metrics commandMetrics, inputBytes int64) {
 	t.Helper()
 	statistic := metrics.statistic
 	if statistic == "" {
@@ -722,7 +729,7 @@ func logCommandMetrics(t *testing.T, label string, metrics commandMetrics, bytes
 		statistic,
 		metrics.elapsed,
 		statistic,
-		throughputMiB(bytes, metrics.elapsed),
+		throughputMiB(inputBytes, metrics.elapsed),
 		statistic,
 		metrics.maxRSSBytes,
 	)
@@ -754,107 +761,88 @@ func maxCommandMetrics(samples []commandMetrics) commandMetrics {
 	return commandMetrics{statistic: "max", elapsed: summaryElapsed(samples, idx), maxRSSBytes: summaryRSS(samples, idx)}
 }
 
-func logPairedCommandMetrics(t *testing.T, pairs []commandMetricPair, bytes int64) {
+func logLibraryCommandSamples(t *testing.T, samples []commandMetrics, inputBytes int64) {
 	t.Helper()
-	for i, pair := range pairs {
+	for i, metrics := range samples {
 		t.Logf(
-			"paired sample %02d: libxml2_elapsed=%s go_elapsed=%s go_vs_base=%s libxml2_rss=%s go_rss=%s go_rss_vs_base=%s go_throughput=%0.2f MiB/s",
+			"sample %02d: elapsed=%s rss=%s throughput=%0.2f MiB/s",
 			i+1,
-			formatBenchDuration(pair.libxml2Metrics.elapsed),
-			formatBenchDuration(pair.goMetrics.elapsed),
-			percentChange(pair.libxml2Metrics.elapsed.Seconds(), pair.goMetrics.elapsed.Seconds()),
-			formatBenchBytes(pair.libxml2Metrics.maxRSSBytes),
-			formatBenchBytes(pair.goMetrics.maxRSSBytes),
-			percentChange(float64(pair.libxml2Metrics.maxRSSBytes), float64(pair.goMetrics.maxRSSBytes)),
-			throughputMiB(bytes, pair.goMetrics.elapsed),
+			formatBenchDuration(metrics.elapsed),
+			formatBenchBytes(metrics.maxRSSBytes),
+			throughputMiB(inputBytes, metrics.elapsed),
 		)
 	}
 }
 
-func logLargeCompareSummary(t *testing.T, results []largeCompareResult) {
+func logLargeBenchmarkSummary(t *testing.T, results []largeBenchmarkResult) {
 	t.Helper()
 	t.Log("")
 	t.Logf("goos: %s", runtime.GOOS)
 	t.Logf("goarch: %s", runtime.GOARCH)
 	t.Log("pkg: github.com/jacoelho/xsd")
-	logLargeCompareTimeSummary(t, results)
-	logLargeCompareRSSSummary(t, results)
+	logLargeBenchmarkTimeSummary(t, results)
+	logLargeBenchmarkRSSSummary(t, results)
 }
 
-func logLargeCompareTimeSummary(t *testing.T, results []largeCompareResult) {
+func logLargeBenchmarkTimeSummary(t *testing.T, results []largeBenchmarkResult) {
 	t.Helper()
-	statistic := largeCompareStatistic(results)
-	t.Log("                         | libxml2 xmllint |             go xmllint             |")
-	t.Logf("                         | %s sec/op   | %s sec/op   vs base           |", statistic, statistic)
-	var libxml2Values, goValues []float64
+	statistic := largeBenchmarkStatistic(results)
+	t.Log("                         |       bin/xmllint |")
+	t.Logf("                         | %s sec/op        |", statistic)
+	var values []float64
 	for _, result := range results {
-		libxml2Seconds := result.libxml2Metrics.elapsed.Seconds()
-		goSeconds := result.goMetrics.elapsed.Seconds()
-		libxml2Values = append(libxml2Values, libxml2Seconds)
-		goValues = append(goValues, goSeconds)
+		seconds := result.metrics.elapsed.Seconds()
+		values = append(values, seconds)
 		t.Logf(
-			"%-24s   %13s   %13s   %10s",
+			"%-24s   %13s",
 			result.name,
-			formatBenchDuration(result.libxml2Metrics.elapsed),
-			formatBenchDuration(result.goMetrics.elapsed),
-			percentChange(libxml2Seconds, goSeconds),
+			formatBenchDuration(result.metrics.elapsed),
 		)
 	}
 	t.Logf(
-		"%-24s   %13s   %13s   %10s",
+		"%-24s   %13s",
 		"geomean",
-		formatBenchSeconds(geomean(libxml2Values)),
-		formatBenchSeconds(geomean(goValues)),
-		percentChange(geomean(libxml2Values), geomean(goValues)),
+		formatBenchSeconds(geomean(values)),
 	)
 }
 
-func logLargeCompareRSSSummary(t *testing.T, results []largeCompareResult) {
+func logLargeBenchmarkRSSSummary(t *testing.T, results []largeBenchmarkResult) {
 	t.Helper()
-	statistic := largeCompareStatistic(results)
+	statistic := largeBenchmarkStatistic(results)
 	t.Log("")
-	t.Log("                         | libxml2 xmllint |             go xmllint             |")
-	t.Logf("                         | %s rss/op   | %s rss/op   vs base           |", statistic, statistic)
-	var libxml2Values, goValues []float64
+	t.Log("                         |       bin/xmllint |")
+	t.Logf("                         | %s rss/op        |", statistic)
+	var values []float64
 	for _, result := range results {
-		libxml2RSS := float64(result.libxml2Metrics.maxRSSBytes)
-		goRSS := float64(result.goMetrics.maxRSSBytes)
-		libxml2Values = append(libxml2Values, libxml2RSS)
-		goValues = append(goValues, goRSS)
+		rss := float64(result.metrics.maxRSSBytes)
+		values = append(values, rss)
 		t.Logf(
-			"%-24s   %13s   %13s   %10s",
+			"%-24s   %13s",
 			result.name,
-			formatBenchBytes(result.libxml2Metrics.maxRSSBytes),
-			formatBenchBytes(result.goMetrics.maxRSSBytes),
-			percentChange(libxml2RSS, goRSS),
+			formatBenchBytes(result.metrics.maxRSSBytes),
 		)
 	}
 	t.Logf(
-		"%-24s   %13s   %13s   %10s",
+		"%-24s   %13s",
 		"geomean",
-		formatBenchBytes(uint64(geomean(libxml2Values))),
-		formatBenchBytes(uint64(geomean(goValues))),
-		percentChange(geomean(libxml2Values), geomean(goValues)),
+		formatBenchBytes(uint64(geomean(values))),
 	)
 }
 
-func largeCompareStatistic(results []largeCompareResult) string {
+func largeBenchmarkStatistic(results []largeBenchmarkResult) string {
 	for _, result := range results {
-		if result.goMetrics.statistic != "" {
-			return result.goMetrics.statistic
-		}
-		if result.libxml2Metrics.statistic != "" {
-			return result.libxml2Metrics.statistic
+		if result.metrics.statistic != "" {
+			return result.metrics.statistic
 		}
 	}
 	return "p95"
 }
 
-func throughputMiB(bytes int64, elapsed time.Duration) float64 {
+func throughputMiB(inputBytes int64, elapsed time.Duration) float64 {
 	if elapsed <= 0 {
 		return 0
 	}
-	return float64(bytes) / 1024 / 1024 / elapsed.Seconds()
+	return float64(inputBytes) / 1024 / 1024 / elapsed.Seconds()
 }
 
 func geomean(values []float64) float64 {
@@ -869,17 +857,6 @@ func geomean(values []float64) float64 {
 		sum += math.Log(value)
 	}
 	return math.Exp(sum / float64(len(values)))
-}
-
-func percentChange(base, value float64) string {
-	if base == 0 {
-		return "~"
-	}
-	change := (value/base - 1) * 100
-	if math.Abs(change) < 0.005 {
-		return "~"
-	}
-	return fmt.Sprintf("%+.2f%%", change)
 }
 
 func formatBenchDuration(d time.Duration) string {
@@ -899,26 +876,26 @@ func formatBenchSeconds(seconds float64) string {
 	}
 }
 
-func formatBenchBytes(bytes uint64) string {
+func formatBenchBytes(inputBytes uint64) string {
 	switch {
-	case bytes >= 1<<30:
-		return fmt.Sprintf("%.2fGiB", float64(bytes)/(1<<30))
-	case bytes >= 1<<20:
-		return fmt.Sprintf("%.2fMiB", float64(bytes)/(1<<20))
-	case bytes >= 1<<10:
-		return fmt.Sprintf("%.2fKiB", float64(bytes)/(1<<10))
+	case inputBytes >= 1<<30:
+		return fmt.Sprintf("%.2fGiB", float64(inputBytes)/(1<<30))
+	case inputBytes >= 1<<20:
+		return fmt.Sprintf("%.2fMiB", float64(inputBytes)/(1<<20))
+	case inputBytes >= 1<<10:
+		return fmt.Sprintf("%.2fKiB", float64(inputBytes)/(1<<10))
 	default:
-		return fmt.Sprintf("%dB", bytes)
+		return fmt.Sprintf("%dB", inputBytes)
 	}
 }
 
-func sizeLabel(bytes int64) string {
+func sizeLabel(inputBytes int64) string {
 	switch {
-	case bytes%(1<<30) == 0:
-		return fmt.Sprintf("%dGB", bytes/(1<<30))
-	case bytes%(1024*1024) == 0:
-		return fmt.Sprintf("%dMB", bytes/(1024*1024))
+	case inputBytes%(1<<30) == 0:
+		return fmt.Sprintf("%dGB", inputBytes/(1<<30))
+	case inputBytes%(1024*1024) == 0:
+		return fmt.Sprintf("%dMB", inputBytes/(1024*1024))
 	default:
-		return fmt.Sprintf("%dB", bytes)
+		return fmt.Sprintf("%dB", inputBytes)
 	}
 }

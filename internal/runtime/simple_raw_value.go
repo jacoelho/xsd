@@ -60,7 +60,7 @@ func (v rawSimpleValueView) rawUnionMember(index int) (SimpleTypeID, bool) {
 	return v.cold.union[index], true
 }
 
-func rawStringEnumeration(cold *simpleValueColdRead, normalized []byte) (bool, bool) {
+func rawStringEnumeration(cold *simpleValueColdRead, normalized []byte) (contains, valid bool) {
 	if cold == nil {
 		return false, false
 	}
@@ -105,91 +105,90 @@ func validateRawAtomicSimpleValue(
 	raw []byte,
 	scratch *StringPatternScratch,
 ) (bool, error) {
-	facets := route.facets
-	primitive := route.primitive
-	if primitive == PrimitiveString && route.builtin == BuiltinValidationNone &&
-		route.identity == SimpleIdentityNone && facets != 0 && facets&^runtimeLengthFacetMask == 0 {
+	if rawStringLengthFastPath(route) {
 		return true, validateRawStringLength(raw, route.whitespace, rawLengthFacets(cold))
 	}
 	switch route.rawBypass {
 	case SimpleValueBypassAcceptString:
 		return true, nil
 	case SimpleValueBypassValidateStringPatterns:
-		rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
-		if !ok {
-			return false, nil
-		}
-		return true, validateRawSimpleValuePatterns(cold, rawNorm, scratch)
+		return validateRawStringPatterns(route, cold, raw, scratch)
 	case SimpleValueBypassValidateStringEnumeration:
-		rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
-		if !ok {
-			return false, nil
-		}
-		matched, known := rawStringEnumeration(cold, rawNorm)
-		if !known {
-			return false, ErrSimpleValueMetadata
-		}
-		if !matched {
-			return true, errors.New("enumeration facet failed")
-		}
-		return true, nil
+		return validateRawStringEnumeration(route, cold, raw)
+	case SimpleValueBypassNone:
+		return false, nil
+	case SimpleValueBypassValidateInt, SimpleValueBypassValidateDecimal, SimpleValueBypassValidateAnyURI,
+		SimpleValueBypassValidateHexBinary, SimpleValueBypassValidateBase64Binary, SimpleValueBypassValidateFloat,
+		SimpleValueBypassValidateDuration, SimpleValueBypassValidateBoolean, SimpleValueBypassValidateTemporal,
+		SimpleValueBypassValidateDate:
+		return validateRawLexicalBypass(route, raw)
+	default:
+	}
+	return false, nil
+}
+
+func rawStringLengthFastPath(route *simpleValueRouteRead) bool {
+	return route.primitive == PrimitiveString && route.builtin == BuiltinValidationNone &&
+		route.identity == SimpleIdentityNone && route.facets != 0 && route.facets&^runtimeLengthFacetMask == 0
+}
+
+func validateRawStringPatterns(route *simpleValueRouteRead, cold *simpleValueColdRead, raw []byte, scratch *StringPatternScratch) (bool, error) {
+	rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
+	if !ok {
+		return false, nil
+	}
+	return true, validateRawSimpleValuePatterns(cold, rawNorm, scratch)
+}
+
+func validateRawStringEnumeration(route *simpleValueRouteRead, cold *simpleValueColdRead, raw []byte) (bool, error) {
+	rawNorm, ok := rawEqualsNormalizedString(route.whitespace, raw)
+	if !ok {
+		return false, nil
+	}
+	matched, known := rawStringEnumeration(cold, rawNorm)
+	if !known {
+		return false, ErrSimpleValueMetadata
+	}
+	if !matched {
+		return true, errors.New("enumeration facet failed")
+	}
+	return true, nil
+}
+
+func validateRawLexicalBypass(route *simpleValueRouteRead, raw []byte) (bool, error) {
+	if lex.HasXMLWhitespaceBytes(raw) {
+		return false, nil
+	}
+	switch route.rawBypass {
 	case SimpleValueBypassValidateInt:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
 		return true, ValidateFastIntLexical(raw)
 	case SimpleValueBypassValidateDecimal:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
 		return ValidateFastDecimalLexical(RawDecimalFastPathShape{
-			Facets:       facets,
+			Facets:       route.facets,
 			MinInclusive: route.minInclusive,
 			MaxInclusive: route.maxInclusive,
 		}, raw)
 	case SimpleValueBypassValidateAnyURI:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
 		_, err := uriref.Check(raw)
 		return true, err
 	case SimpleValueBypassValidateHexBinary:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
 		return true, ValidateHexBinaryLexical(raw)
 	case SimpleValueBypassValidateBase64Binary:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
 		return true, ValidateBase64BinaryLexical(raw)
 	case SimpleValueBypassValidateFloat:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
-		return true, ValidateFloatLexical(raw, simpleValueFloatBits(primitive))
+		return true, ValidateFloatLexical(raw, simpleValueFloatBits(route.primitive))
 	case SimpleValueBypassValidateDuration:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
 		return true, ValidateDurationLexical(raw)
 	case SimpleValueBypassValidateBoolean:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
 		return true, ValidateBooleanLexical(raw)
 	case SimpleValueBypassValidateTemporal:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
-		return true, ValidateTemporalLexical(primitive, raw)
+		return true, ValidateTemporalLexical(route.primitive, raw)
 	case SimpleValueBypassValidateDate:
-		if lex.HasXMLWhitespaceBytes(raw) {
-			return false, nil
-		}
 		return ValidateFastDateLexical(raw)
-	case SimpleValueBypassNone:
+	case SimpleValueBypassNone, SimpleValueBypassAcceptString,
+		SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
 		return false, nil
+	default:
 	}
 	return false, nil
 }
@@ -224,32 +223,58 @@ func validateRawUnionSimpleValue(resolver rawSimpleValueResolver, typ rawSimpleV
 		return false, ErrSimpleValueMetadata
 	}
 	for i := range memberCount {
-		member, ok := typ.rawUnionMember(i)
-		if !ok {
-			return false, ErrSimpleValueMetadata
+		result, err := validateRawUnionMember(resolver, typ, i, raw)
+		if err != nil {
+			return false, err
 		}
-		memberType, ok := resolver.resolveRawSimpleValue(member)
-		if !ok {
-			return false, ErrSimpleValueMetadata
-		}
-		switch SimpleRawUnionMember(rawSimpleUnionMemberShape(memberType, ok)) {
-		case SimpleRawUnionMemberTryBoolean:
-			if BooleanLexicalOK(raw) {
-				return true, nil
-			}
-		case SimpleRawUnionMemberTryRaw:
-			ok, err := validateRawSimpleValueView(resolver, member, memberType, raw)
-			if !ok {
-				return false, nil
-			}
-			if err == nil {
-				return true, nil
-			}
-		case SimpleRawUnionMemberNone:
+		switch result {
+		case rawUnionMemberMatched:
+			return true, nil
+		case rawUnionMemberUnhandled:
 			return false, nil
+		case rawUnionMemberNoMatch:
 		}
 	}
 	return true, errors.New("value does not match any union member")
+}
+
+type rawUnionMemberResult uint8
+
+const (
+	rawUnionMemberNoMatch rawUnionMemberResult = iota
+	rawUnionMemberMatched
+	rawUnionMemberUnhandled
+)
+
+func validateRawUnionMember(resolver rawSimpleValueResolver, typ rawSimpleValueView, index int, raw []byte) (rawUnionMemberResult, error) {
+	member, ok := typ.rawUnionMember(index)
+	if !ok {
+		return rawUnionMemberUnhandled, ErrSimpleValueMetadata
+	}
+	memberType, ok := resolver.resolveRawSimpleValue(member)
+	if !ok {
+		return rawUnionMemberUnhandled, ErrSimpleValueMetadata
+	}
+	switch SimpleRawUnionMember(rawSimpleUnionMemberShape(memberType)) {
+	case SimpleRawUnionMemberTryBoolean:
+		if BooleanLexicalOK(raw) {
+			return rawUnionMemberMatched, nil
+		}
+		return rawUnionMemberNoMatch, nil
+	case SimpleRawUnionMemberTryRaw:
+		handled, err := validateRawSimpleValueView(resolver, member, memberType, raw)
+		if !handled {
+			return rawUnionMemberUnhandled, nil
+		}
+		if err == nil {
+			return rawUnionMemberMatched, nil
+		}
+		return rawUnionMemberNoMatch, nil
+	case SimpleRawUnionMemberNone:
+		return rawUnionMemberUnhandled, nil
+	default:
+	}
+	return rawUnionMemberUnhandled, nil
 }
 
 func rawSimpleListFastPathShape(resolver rawSimpleValueResolver, typ rawSimpleValueView) (SimpleRawListFastPathShape, bool) {
@@ -269,10 +294,7 @@ func rawSimpleListFastPathShape(resolver rawSimpleValueResolver, typ rawSimpleVa
 	return shape, true
 }
 
-func rawSimpleUnionMemberShape(typ rawSimpleValueView, ok bool) SimpleRawUnionMemberShape {
-	if !ok {
-		return SimpleRawUnionMemberShape{}
-	}
+func rawSimpleUnionMemberShape(typ rawSimpleValueView) SimpleRawUnionMemberShape {
 	return SimpleRawUnionMemberShape{
 		Facets:    typ.route.facets,
 		Variety:   typ.route.variety,

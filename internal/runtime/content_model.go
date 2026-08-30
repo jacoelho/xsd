@@ -117,39 +117,62 @@ func WildcardParticle(id WildcardID, occurs Occurrence) Particle {
 // ValidateContentModelShape validates content-model metadata that does not
 // require cross-table ID lookup.
 func ValidateContentModelShape(model ContentModel) error {
-	switch model.Kind {
-	case ModelEmpty:
-		if len(model.Particles) != 0 || len(model.ChoiceLimits) != 0 || model.Occurs != (Occurrence{}) {
-			return errors.New("empty content model stores inactive fields")
-		}
-	case ModelAny:
-		if len(model.Particles) != 0 || len(model.ChoiceLimits) != 0 || model.Occurs != (Occurrence{}) || !model.Mixed {
-			return errors.New("any content model has invalid shape")
-		}
-	case ModelSequence, ModelChoice:
-		if !validOccurrence(model.Occurs) {
-			return errors.New("content model occurrence is invalid")
-		}
-		if model.Kind != ModelSequence && len(model.ChoiceLimits) != 0 {
-			return errors.New("non-sequence content model stores choice limits")
-		}
-		if err := validateChoiceLimits(model); err != nil {
+	if err := validateContentModelKindShape(model); err != nil {
+		return err
+	}
+	for _, particle := range model.Particles {
+		if err := ValidateParticleShape(particle); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateContentModelKindShape(model ContentModel) error {
+	switch model.Kind {
+	case ModelEmpty:
+		return validateEmptyContentModelShape(model)
+	case ModelAny:
+		return validateAnyContentModelShape(model)
+	case ModelSequence, ModelChoice:
+		return validateCompositorContentModelShape(model)
 	case ModelAll:
-		if !validOccurrence(model.Occurs) || model.Occurs.Unbounded || model.Occurs.Max > 1 || model.Occurs.Min > 1 {
-			return errors.New("all content model occurrence is invalid")
-		}
-		if len(model.ChoiceLimits) != 0 {
-			return errors.New("all content model stores choice limits")
-		}
+		return validateAllContentModelShape(model)
 	default:
 		return errors.New("content model has invalid kind")
 	}
-	for _, p := range model.Particles {
-		if err := ValidateParticleShape(p); err != nil {
-			return err
-		}
+}
+
+func validateEmptyContentModelShape(model ContentModel) error {
+	if len(model.Particles) != 0 || len(model.ChoiceLimits) != 0 || model.Occurs != (Occurrence{}) {
+		return errors.New("empty content model stores inactive fields")
+	}
+	return nil
+}
+
+func validateAnyContentModelShape(model ContentModel) error {
+	if len(model.Particles) != 0 || len(model.ChoiceLimits) != 0 || model.Occurs != (Occurrence{}) || !model.Mixed {
+		return errors.New("any content model has invalid shape")
+	}
+	return nil
+}
+
+func validateCompositorContentModelShape(model ContentModel) error {
+	if !validOccurrence(model.Occurs) {
+		return errors.New("content model occurrence is invalid")
+	}
+	if model.Kind != ModelSequence && len(model.ChoiceLimits) != 0 {
+		return errors.New("non-sequence content model stores choice limits")
+	}
+	return validateChoiceLimits(model)
+}
+
+func validateAllContentModelShape(model ContentModel) error {
+	if !validOccurrence(model.Occurs) || model.Occurs.Unbounded || model.Occurs.Max > 1 || model.Occurs.Min > 1 {
+		return errors.New("all content model occurrence is invalid")
+	}
+	if len(model.ChoiceLimits) != 0 {
+		return errors.New("all content model stores choice limits")
 	}
 	return nil
 }
@@ -160,23 +183,30 @@ func ValidateContentModelRuntime(model ContentModel, limits ContentModelRefLimit
 	if err := ValidateContentModelShape(model); err != nil {
 		return err
 	}
-	for _, p := range model.Particles {
-		switch p.Kind {
-		case ParticleElement:
-			if !ValidElementID(p.Element, limits.ElementCount) {
-				return errors.New("particle references invalid element")
-			}
-		case ParticleModel:
-			if !ValidContentModelID(p.Model, limits.ContentModelCount) {
-				return errors.New("particle references invalid content model")
-			}
-		case ParticleWildcard:
-			if !ValidWildcardID(p.Wildcard, limits.WildcardCount) {
-				return errors.New("particle references invalid wildcard")
-			}
-		default:
-			return errors.New("particle has invalid kind")
+	for _, particle := range model.Particles {
+		if err := validateParticleRuntimeReference(particle, limits); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+func validateParticleRuntimeReference(particle Particle, limits ContentModelRefLimits) error {
+	switch particle.Kind {
+	case ParticleElement:
+		if !ValidElementID(particle.Element, limits.ElementCount) {
+			return errors.New("particle references invalid element")
+		}
+	case ParticleModel:
+		if !ValidContentModelID(particle.Model, limits.ContentModelCount) {
+			return errors.New("particle references invalid content model")
+		}
+	case ParticleWildcard:
+		if !ValidWildcardID(particle.Wildcard, limits.WildcardCount) {
+			return errors.New("particle references invalid wildcard")
+		}
+	default:
+		return errors.New("particle has invalid kind")
 	}
 	return nil
 }
@@ -195,43 +225,73 @@ type contentModelGraphFrame struct {
 }
 
 func validateContentModelGraph(models []ContentModel) error {
-	state := make([]contentModelGraphState, len(models))
-	stack := make([]contentModelGraphFrame, 0, min(len(models), 1_024))
+	audit := contentModelGraphAudit{
+		models: models,
+		state:  make([]contentModelGraphState, len(models)),
+		stack:  make([]contentModelGraphFrame, 0, min(len(models), 1_024)),
+	}
 	for i := range models {
 		root := ContentModelID(i)
-		if state[root] == contentModelGraphChecked {
+		if audit.state[root] == contentModelGraphChecked {
 			continue
 		}
-		state[root] = contentModelGraphChecking
-		stack = appendDFSFrame(stack, contentModelGraphFrame{id: root}, len(models))
-		for len(stack) != 0 {
-			top := len(stack) - 1
-			frame := &stack[top]
-			particles := models[frame.id].Particles
-			for frame.next < len(particles) && particles[frame.next].Kind != ParticleModel {
-				frame.next++
-			}
-			if frame.next == len(particles) {
-				state[frame.id] = contentModelGraphChecked
-				stack = stack[:top]
-				continue
-			}
-			child := particles[frame.next].Model
-			frame.next++
-			if !ValidContentModelID(child, len(models)) {
-				return errors.New("content model graph references invalid model")
-			}
-			switch state[child] {
-			case contentModelGraphUnchecked:
-				state[child] = contentModelGraphChecking
-				stack = appendDFSFrame(stack, contentModelGraphFrame{id: child}, len(models))
-			case contentModelGraphChecking:
-				return errors.New("content model graph contains cycle")
-			case contentModelGraphChecked:
-			}
+		if err := audit.validateRoot(root); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+type contentModelGraphAudit struct {
+	models []ContentModel
+	state  []contentModelGraphState
+	stack  []contentModelGraphFrame
+}
+
+func (a *contentModelGraphAudit) validateRoot(root ContentModelID) error {
+	a.state[root] = contentModelGraphChecking
+	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{id: root}, len(a.models))
+	for len(a.stack) != 0 {
+		if err := a.advance(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *contentModelGraphAudit) advance() error {
+	top := len(a.stack) - 1
+	frame := &a.stack[top]
+	child, ok := nextNestedContentModel(a.models[frame.id].Particles, &frame.next)
+	if !ok {
+		a.state[frame.id] = contentModelGraphChecked
+		a.stack = a.stack[:top]
+		return nil
+	}
+	if !ValidContentModelID(child, len(a.models)) {
+		return errors.New("content model graph references invalid model")
+	}
+	switch a.state[child] {
+	case contentModelGraphUnchecked:
+		a.state[child] = contentModelGraphChecking
+		a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{id: child}, len(a.models))
+	case contentModelGraphChecking:
+		return errors.New("content model graph contains cycle")
+	case contentModelGraphChecked:
+	}
+	return nil
+}
+
+func nextNestedContentModel(particles []Particle, next *int) (ContentModelID, bool) {
+	for *next < len(particles) && particles[*next].Kind != ParticleModel {
+		*next++
+	}
+	if *next == len(particles) {
+		return NoContentModel, false
+	}
+	child := particles[*next].Model
+	*next++
+	return child, true
 }
 
 // ComplexContentExtendsBase reports whether derived preserves base as the
@@ -271,72 +331,129 @@ func validateChoiceLimits(model ContentModel) error {
 	}
 	var prev uint32
 	for i, slot := range model.ChoiceLimits {
-		if !ValidUint32Index(slot, len(model.Particles)) {
-			return errors.New("choice limit references invalid particle")
-		}
-		if i != 0 && slot <= prev {
-			return errors.New("choice limits are not sorted")
-		}
-		p := model.Particles[slot]
-		if p.Kind != ParticleElement || p.Occurs.Min > 1 || (!p.Occurs.Unbounded && p.Occurs.Max <= 1) {
-			return errors.New("choice limit references invalid particle shape")
+		if err := validateChoiceLimit(model, i, slot, prev); err != nil {
+			return err
 		}
 		prev = slot
 	}
 	return nil
 }
 
+func validateChoiceLimit(model ContentModel, index int, slot, previous uint32) error {
+	if !ValidUint32Index(slot, len(model.Particles)) {
+		return errors.New("choice limit references invalid particle")
+	}
+	if index != 0 && slot <= previous {
+		return errors.New("choice limits are not sorted")
+	}
+	particle := model.Particles[slot]
+	if particle.Kind != ParticleElement || particle.Occurs.Min > 1 || (!particle.Occurs.Unbounded && particle.Occurs.Max <= 1) {
+		return errors.New("choice limit references invalid particle shape")
+	}
+	return nil
+}
+
 // RestrictionRepeatedChoiceParticles derives the derived sequence particle
 // slots that must be limited to one match because they restrict a repeated
-// base choice.
+// base choice, charging all analysis to work.
 func RestrictionRepeatedChoiceParticles(
 	models []ContentModel,
 	baseID, derivedID ContentModelID,
 	rt ParticleRestrictionRuntime,
+	work ContentModelWork,
+	analysis *ContentModelAnalysis,
 ) ([]uint32, error) {
-	if rt == nil {
-		return nil, errors.New("choice-limit derivation requires runtime")
-	}
-	if !ValidContentModelID(baseID, len(models)) ||
-		!ValidContentModelID(derivedID, len(models)) {
-		return nil, errors.New("choice-limit derivation references invalid content model")
+	if err := validateRepeatedChoiceInputs(models, baseID, derivedID, rt, work, analysis); err != nil {
+		return nil, err
 	}
 	base := models[baseID]
 	derived := models[derivedID]
 	if base.Kind != ModelSequence || derived.Kind != ModelSequence {
 		return nil, nil
 	}
-	var out []uint32
-	validator := contentRestrictionValidator{rt: rt, modelStates: make(map[ContentModelID]uint8)}
-	if err := validator.validateContentModelGraph(baseID); err != nil {
+	validator := newContentRestrictionValidator(rt, work, analysis)
+	if err := validateRepeatedChoiceGraphs(validator, baseID, derivedID); err != nil {
 		return nil, err
 	}
-	if err := validator.validateContentModelGraph(derivedID); err != nil {
-		return nil, err
+	selector := restrictionRepeatedChoiceSelector{
+		models:    models,
+		base:      base.Particles,
+		validator: validator,
 	}
-	baseIndex := 0
 	for derivedIndex, derivedParticle := range derived.Particles {
-		for baseIndex < len(base.Particles) {
-			baseParticle := base.Particles[baseIndex]
-			err := validator.validateParticleRestriction(baseParticle, derivedParticle)
-			if err != nil {
-				if !isContentRestrictionMismatch(err) {
-					return nil, err
-				}
-				baseIndex++
-				continue
-			}
-			if restrictionRepeatedChoiceParticle(models, baseParticle, derivedParticle) {
-				if uint64(derivedIndex) > uint64(^uint32(0)) {
-					return nil, errors.New("choice-limit particle index exceeds uint32")
-				}
-				out = append(out, uint32(derivedIndex))
-			}
-			baseIndex++
-			break
+		if err := selector.match(derivedIndex, derivedParticle); err != nil {
+			return nil, err
 		}
 	}
-	return out, nil
+	return selector.limits, validator.finish(nil)
+}
+
+func validateRepeatedChoiceInputs(
+	models []ContentModel,
+	baseID, derivedID ContentModelID,
+	rt ParticleRestrictionRuntime,
+	work ContentModelWork,
+	analysis *ContentModelAnalysis,
+) error {
+	if rt == nil {
+		return errors.New("choice-limit derivation requires runtime")
+	}
+	if err := requireContentModelWork(work); err != nil {
+		return err
+	}
+	if analysis == nil {
+		return errors.New("choice-limit derivation requires content model analysis")
+	}
+	if !ValidContentModelID(baseID, len(models)) || !ValidContentModelID(derivedID, len(models)) {
+		return errors.New("choice-limit derivation references invalid content model")
+	}
+	return nil
+}
+
+func validateRepeatedChoiceGraphs(validator contentRestrictionValidator, base, derived ContentModelID) error {
+	if err := validator.validateContentModelGraph(base); err != nil {
+		return err
+	}
+	return validator.validateContentModelGraph(derived)
+}
+
+type restrictionRepeatedChoiceSelector struct {
+	models    []ContentModel
+	base      []Particle
+	validator contentRestrictionValidator
+	limits    []uint32
+	baseIndex int
+}
+
+func (s *restrictionRepeatedChoiceSelector) match(derivedIndex int, derived Particle) error {
+	base, matched, err := s.nextRestrictedBase(derived)
+	if err != nil || !matched {
+		return err
+	}
+	if !restrictionRepeatedChoiceParticle(s.models, base, derived) {
+		return nil
+	}
+	index, ok := NewUint32Index(derivedIndex)
+	if !ok {
+		return errors.New("choice-limit particle index exceeds uint32")
+	}
+	s.limits = append(s.limits, index)
+	return nil
+}
+
+func (s *restrictionRepeatedChoiceSelector) nextRestrictedBase(derived Particle) (Particle, bool, error) {
+	for s.baseIndex < len(s.base) {
+		base := s.base[s.baseIndex]
+		s.baseIndex++
+		err := s.validator.validateParticleRestriction(base, derived)
+		if err == nil {
+			return base, true, nil
+		}
+		if !IsContentRestrictionMismatch(err) {
+			return Particle{}, false, err
+		}
+	}
+	return Particle{}, false, nil
 }
 
 func restrictionRepeatedChoiceParticle(models []ContentModel, baseParticle, derivedParticle Particle) bool {
@@ -361,133 +478,309 @@ type RestrictionChoiceLimitUpdate struct {
 }
 
 // RestrictionChoiceLimitUpdates derives owner-private content-model copies for
-// restricting complex types whose particles need repeated-choice limits.
+// restricting complex types whose particles need repeated-choice limits,
+// charging all analysis to work.
 func RestrictionChoiceLimitUpdates(
 	rt ParticleRestrictionRuntime,
 	complexTypes []ComplexType,
 	models []ContentModel,
 	anyType ComplexTypeID,
+	work ContentModelWork,
+	analysis *ContentModelAnalysis,
 ) ([]RestrictionChoiceLimitUpdate, error) {
-	if rt == nil {
-		return nil, errors.New("choice-limit derivation requires runtime")
+	if err := validateChoiceLimitUpdateInputs(rt, work); err != nil {
+		return nil, err
+	}
+	builder := restrictionChoiceLimitBuilder{
+		rt:           rt,
+		complexTypes: complexTypes,
+		models:       models,
+		anyType:      anyType,
+		work:         work,
+		analysis:     analysis,
 	}
 	var updates []RestrictionChoiceLimitUpdate
 	for i, ct := range complexTypes {
-		if uint64(i) >= uint64(invalidID) {
-			return nil, errors.New("complex type index limit exceeded")
-		}
-		if ct.Derivation != DerivationKindRestriction {
-			continue
-		}
-		baseID, ok := ct.Base.Complex()
-		if !ok || baseID == anyType {
-			continue
-		}
-		if !ValidComplexTypeID(baseID, len(complexTypes)) {
-			return nil, errors.New("choice-limit restriction references invalid base complex type")
-		}
-		if !ValidContentModelID(ct.Content, len(models)) {
-			return nil, errors.New("choice-limit restriction references invalid derived content model")
-		}
-		baseContent := complexTypes[baseID].Content
-		if !ValidContentModelID(baseContent, len(models)) {
-			return nil, errors.New("choice-limit restriction references invalid base content model")
-		}
-		repeated, err := RestrictionRepeatedChoiceParticles(models, baseContent, ct.Content, rt)
+		id, err := spendChoiceLimitComplexType(work, i)
 		if err != nil {
 			return nil, err
 		}
-		if len(repeated) == 0 {
-			continue
+		update, ok, err := builder.update(id, ct)
+		if err != nil {
+			return nil, err
 		}
-		model := CloneContentModel(models[ct.Content])
-		if len(model.ChoiceLimits) != 0 && !slices.Equal(model.ChoiceLimits, repeated) {
-			return nil, errors.New("choice-limit restriction source model already has different choice limits")
+		if ok {
+			updates = append(updates, update)
 		}
-		model.ChoiceLimits = slices.Clone(repeated)
-		updates = append(updates, RestrictionChoiceLimitUpdate{
-			Model:       model,
-			ComplexType: ComplexTypeID(i),
-		})
 	}
 	return updates, nil
 }
 
+func validateChoiceLimitUpdateInputs(rt ParticleRestrictionRuntime, work ContentModelWork) error {
+	if rt == nil {
+		return errors.New("choice-limit derivation requires runtime")
+	}
+	return requireContentModelWork(work)
+}
+
+func spendChoiceLimitComplexType(work ContentModelWork, index int) (ComplexTypeID, error) {
+	if err := spendContentModelWork(work); err != nil {
+		return NoComplexType, err
+	}
+	raw, ok := newRuntimeID(index)
+	if !ok {
+		return NoComplexType, errors.New("complex type index limit exceeded")
+	}
+	return ComplexTypeID(raw), nil
+}
+
+type restrictionChoiceLimitBuilder struct {
+	rt           ParticleRestrictionRuntime
+	work         ContentModelWork
+	analysis     *ContentModelAnalysis
+	complexTypes []ComplexType
+	models       []ContentModel
+	anyType      ComplexTypeID
+}
+
+func (b *restrictionChoiceLimitBuilder) update(
+	index ComplexTypeID,
+	ct ComplexType,
+) (RestrictionChoiceLimitUpdate, bool, error) {
+	content, err := restrictionChoiceLimitContentIDs(b.complexTypes, b.models, b.anyType, ct)
+	if err != nil || !content.eligible {
+		return RestrictionChoiceLimitUpdate{}, false, err
+	}
+	repeated, err := RestrictionRepeatedChoiceParticles(b.models, content.base, content.derived, b.rt, b.work, b.analysis)
+	if err != nil {
+		return RestrictionChoiceLimitUpdate{}, false, err
+	}
+	if len(repeated) == 0 {
+		return RestrictionChoiceLimitUpdate{}, false, nil
+	}
+	model := CloneContentModel(b.models[content.derived])
+	if len(model.ChoiceLimits) != 0 && !slices.Equal(model.ChoiceLimits, repeated) {
+		return RestrictionChoiceLimitUpdate{}, false, errors.New("choice-limit restriction source model already has different choice limits")
+	}
+	model.ChoiceLimits = slices.Clone(repeated)
+	return RestrictionChoiceLimitUpdate{Model: model, ComplexType: index}, true, nil
+}
+
+type restrictionChoiceLimitContent struct {
+	base     ContentModelID
+	derived  ContentModelID
+	eligible bool
+}
+
+func restrictionChoiceLimitContentIDs(
+	complexTypes []ComplexType,
+	models []ContentModel,
+	anyType ComplexTypeID,
+	ct ComplexType,
+) (restrictionChoiceLimitContent, error) {
+	if ct.Derivation != DerivationKindRestriction {
+		return restrictionChoiceLimitContent{}, nil
+	}
+	baseID, ok := ct.Base.Complex()
+	if !ok || baseID == anyType {
+		return restrictionChoiceLimitContent{}, nil
+	}
+	if !ValidComplexTypeID(baseID, len(complexTypes)) {
+		return restrictionChoiceLimitContent{}, errors.New("choice-limit restriction references invalid base complex type")
+	}
+	if !ValidContentModelID(ct.Content, len(models)) {
+		return restrictionChoiceLimitContent{}, errors.New("choice-limit restriction references invalid derived content model")
+	}
+	baseContent := complexTypes[baseID].Content
+	if !ValidContentModelID(baseContent, len(models)) {
+		return restrictionChoiceLimitContent{}, errors.New("choice-limit restriction references invalid base content model")
+	}
+	return restrictionChoiceLimitContent{base: baseContent, derived: ct.Content, eligible: true}, nil
+}
+
 // ValidateChoiceLimitDerivations validates that every ContentModel.ChoiceLimits
 // entry is exactly justified by restricting complex-type derivations, and that
-// limited content models are not shared outside those owners.
+// limited content models are not shared outside those owners. All analysis is
+// charged to work.
 func ValidateChoiceLimitDerivations(
 	rt ParticleRestrictionRuntime,
 	complexTypes []ComplexType,
 	models []ContentModel,
 	anyType ComplexTypeID,
+	work ContentModelWork,
+	analysis *ContentModelAnalysis,
 ) error {
-	if rt == nil {
-		return errors.New("choice-limit validation requires runtime")
+	if err := requireChoiceLimitAnalysis(rt, work, "choice-limit validation requires runtime"); err != nil {
+		return err
 	}
-	expected := make(map[ContentModelID][]uint32)
-	owners := make(map[ContentModelID][]ComplexTypeID)
-	for i, ct := range complexTypes {
-		if uint64(i) >= uint64(invalidID) {
-			return errors.New("complex type index limit exceeded")
-		}
-		if !ValidContentModelID(ct.Content, len(models)) {
-			continue
-		}
-		id := ComplexTypeID(i)
-		owners[ct.Content] = append(owners[ct.Content], id)
-		if ct.Derivation != DerivationKindRestriction {
-			continue
-		}
-		baseID, ok := ct.Base.Complex()
-		if !ok || baseID == anyType || !ValidComplexTypeID(baseID, len(complexTypes)) {
-			continue
-		}
-		repeated, err := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, ct.Content, rt)
-		if err != nil {
+	audit := choiceLimitDerivationAudit{
+		rt:           rt,
+		complexTypes: complexTypes,
+		models:       models,
+		anyType:      anyType,
+		work:         work,
+		analysis:     analysis,
+		expected:     make(map[ContentModelID][]uint32),
+		owners:       make(map[ContentModelID][]ComplexTypeID),
+	}
+	if err := audit.collect(); err != nil {
+		return err
+	}
+	return audit.validateModels()
+}
+
+type choiceLimitDerivationAudit struct {
+	rt           ParticleRestrictionRuntime
+	work         ContentModelWork
+	analysis     *ContentModelAnalysis
+	expected     map[ContentModelID][]uint32
+	owners       map[ContentModelID][]ComplexTypeID
+	complexTypes []ComplexType
+	models       []ContentModel
+	anyType      ComplexTypeID
+}
+
+func (a *choiceLimitDerivationAudit) collect() error {
+	for i, complexType := range a.complexTypes {
+		if err := a.collectComplexType(i, complexType); err != nil {
 			return err
-		}
-		if len(repeated) == 0 {
-			continue
-		}
-		if prev, ok := expected[ct.Content]; ok && !slices.Equal(prev, repeated) {
-			return errors.New("content model choice limits have conflicting derivations")
-		}
-		expected[ct.Content] = repeated
-	}
-	for i, model := range models {
-		if uint64(i) >= uint64(invalidID) {
-			return errors.New("content model index limit exceeded")
-		}
-		id := ContentModelID(i)
-		if !slices.Equal(model.ChoiceLimits, expected[id]) {
-			return errors.New("content model choice limits do not match complex restrictions")
-		}
-		if len(model.ChoiceLimits) == 0 {
-			continue
-		}
-		for _, ownerID := range owners[id] {
-			if !ValidComplexTypeID(ownerID, len(complexTypes)) {
-				return errors.New("limited content model has invalid restriction owner")
-			}
-			owner := complexTypes[ownerID]
-			if owner.Derivation != DerivationKindRestriction {
-				return errors.New("limited content model is used outside restricting complex type")
-			}
-			baseID, ok := owner.Base.Complex()
-			if !ok || baseID == anyType || !ValidComplexTypeID(baseID, len(complexTypes)) {
-				return errors.New("limited content model has invalid restriction owner")
-			}
-			repeated, err := RestrictionRepeatedChoiceParticles(models, complexTypes[baseID].Content, owner.Content, rt)
-			if err != nil {
-				return err
-			}
-			if !slices.Equal(repeated, model.ChoiceLimits) {
-				return errors.New("limited content model owner does not derive choice limits")
-			}
 		}
 	}
 	return nil
+}
+
+func (a *choiceLimitDerivationAudit) collectComplexType(index int, complexType ComplexType) error {
+	if err := spendContentModelWork(a.work); err != nil {
+		return err
+	}
+	raw, ok := newRuntimeID(index)
+	if !ok {
+		return errors.New("complex type index limit exceeded")
+	}
+	if !ValidContentModelID(complexType.Content, len(a.models)) {
+		return nil
+	}
+	a.owners[complexType.Content] = append(a.owners[complexType.Content], ComplexTypeID(raw))
+	repeated, expected, err := a.expectedForRestriction(complexType)
+	if err != nil || !expected {
+		return err
+	}
+	if previous, ok := a.expected[complexType.Content]; ok && !slices.Equal(previous, repeated) {
+		return errors.New("content model choice limits have conflicting derivations")
+	}
+	a.expected[complexType.Content] = repeated
+	return nil
+}
+
+func (a *choiceLimitDerivationAudit) expectedForRestriction(complexType ComplexType) ([]uint32, bool, error) {
+	if complexType.Derivation != DerivationKindRestriction {
+		return nil, false, nil
+	}
+	baseID, ok := complexType.Base.Complex()
+	if !ok || baseID == a.anyType || !ValidComplexTypeID(baseID, len(a.complexTypes)) {
+		return nil, false, nil
+	}
+	repeated, err := RestrictionRepeatedChoiceParticles(
+		a.models,
+		a.complexTypes[baseID].Content,
+		complexType.Content,
+		a.rt,
+		a.work,
+		a.analysis,
+	)
+	if err != nil || len(repeated) == 0 {
+		return nil, false, err
+	}
+	return repeated, true, nil
+}
+
+func (a *choiceLimitDerivationAudit) validateModels() error {
+	for i, model := range a.models {
+		if err := a.validateModel(i, model); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *choiceLimitDerivationAudit) validateModel(index int, model ContentModel) error {
+	if err := spendContentModelWork(a.work); err != nil {
+		return err
+	}
+	raw, ok := newRuntimeID(index)
+	if !ok {
+		return errors.New("content model index limit exceeded")
+	}
+	id := ContentModelID(raw)
+	if !slices.Equal(model.ChoiceLimits, a.expected[id]) {
+		return errors.New("content model choice limits do not match complex restrictions")
+	}
+	if len(model.ChoiceLimits) == 0 {
+		return nil
+	}
+	return a.validateOwners(id, model)
+}
+
+func (a *choiceLimitDerivationAudit) validateOwners(id ContentModelID, model ContentModel) error {
+	for _, owner := range a.owners[id] {
+		if err := a.validateOwner(owner, model); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *choiceLimitDerivationAudit) validateOwner(ownerID ComplexTypeID, model ContentModel) error {
+	if err := spendContentModelWork(a.work); err != nil {
+		return err
+	}
+	if !ValidComplexTypeID(ownerID, len(a.complexTypes)) {
+		return errors.New("limited content model has invalid restriction owner")
+	}
+	owner := a.complexTypes[ownerID]
+	if owner.Derivation != DerivationKindRestriction {
+		return errors.New("limited content model is used outside restricting complex type")
+	}
+	baseID, ok := owner.Base.Complex()
+	if !ok || baseID == a.anyType || !ValidComplexTypeID(baseID, len(a.complexTypes)) {
+		return errors.New("limited content model has invalid restriction owner")
+	}
+	repeated, err := RestrictionRepeatedChoiceParticles(
+		a.models,
+		a.complexTypes[baseID].Content,
+		owner.Content,
+		a.rt,
+		a.work,
+		a.analysis,
+	)
+	if err != nil {
+		return err
+	}
+	if !slices.Equal(repeated, model.ChoiceLimits) {
+		return errors.New("limited content model owner does not derive choice limits")
+	}
+	return nil
+}
+
+func spendContentModelWork(work ContentModelWork) error {
+	if err := requireContentModelWork(work); err != nil {
+		return err
+	}
+	return work(1)
+}
+
+func requireContentModelWork(work ContentModelWork) error {
+	if work == nil {
+		return errors.New("content-model work budget is required")
+	}
+	return nil
+}
+
+func requireChoiceLimitAnalysis(rt ParticleRestrictionRuntime, work ContentModelWork, missingRuntime string) error {
+	if rt == nil {
+		return errors.New(missingRuntime)
+	}
+	return requireContentModelWork(work)
 }
 
 func validOccurrence(o Occurrence) bool {

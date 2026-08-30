@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -34,27 +35,63 @@ func TestInternalImplementationPackagesExist(t *testing.T) {
 	}
 }
 
-func TestRootCompileIsFacade(t *testing.T) {
+func TestRootCompileHasSingleInternalExecutionEdge(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
-	parsed, err := parser.ParseFile(fset, filepath.Join(root, "compile.go"), nil, 0)
+	var rootFiles []*ast.File
+	compileImporters := 0
+	for _, path := range productionRootFiles(t, root) {
+		parsed, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		rootFiles = append(rootFiles, parsed)
+		if importsPath(parsed, "github.com/jacoelho/xsd/internal/compile") {
+			compileImporters++
+		}
+	}
+	if compileImporters != 1 {
+		t.Fatalf("root files importing internal/compile = %d, want 1", compileImporters)
+	}
+	info := &types.Info{
+		Uses: make(map[*ast.Ident]types.Object),
+	}
+	conf := types.Config{Importer: importer.ForCompiler(fset, "source", nil)}
+	pkg, err := conf.Check("github.com/jacoelho/xsd", fset, rootFiles, info)
 	if err != nil {
-		t.Fatalf("parse compile.go: %v", err)
+		t.Fatalf("type-check root compile facade: %v", err)
 	}
-	if !importsPath(parsed, "github.com/jacoelho/xsd/internal/compile") {
-		t.Fatal("compile.go does not import internal/compile")
+	compilePkg := importedPackage(pkg, "github.com/jacoelho/xsd/internal/compile")
+	if compilePkg == nil {
+		t.Fatal("root facade does not import internal/compile")
 	}
-	if !callsSelector(parsed, "compile", "CompileMappedSources") {
-		t.Fatal("CompileWithOptions does not delegate to compile.CompileMappedSources")
-	}
-	for _, decl := range parsed.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
+	expected := compilePkg.Scope().Lookup("CompileMappedSources")
+	var compileCallables []types.Object
+	for _, object := range info.Uses {
+		owner := object.Pkg()
+		_, callable := object.Type().Underlying().(*types.Signature)
+		if owner != nil && owner.Path() == compilePkg.Path() && callable {
+			compileCallables = append(compileCallables, object)
 		}
-		if strings.HasPrefix(fn.Name.Name, "compile") && fn.Name.Name != "Compile" {
-			t.Fatalf("root compile.go owns compiler helper %s", fn.Name.Name)
-		}
+	}
+	if len(compileCallables) != 1 {
+		t.Fatalf("root facade uses internal/compile callables %d times, want exactly one", len(compileCallables))
+	}
+	if compileCallables[0] != expected {
+		t.Fatalf("sole internal/compile callable targets %s, want CompileMappedSources", compileCallables[0].Name())
+	}
+	directCalls := 0
+	for _, file := range rootFiles {
+		ast.Inspect(file, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if ok && calledObject(info, call) == expected {
+				directCalls++
+			}
+			return true
+		})
+	}
+	if directCalls != 1 {
+		t.Fatalf("root facade directly calls compile.CompileMappedSources %d times, want exactly one", directCalls)
 	}
 }
 
@@ -135,9 +172,16 @@ func importedPackage(pkg *types.Package, path string) *types.Package {
 }
 
 func callsObject(info *types.Info, node ast.Node, expected types.Object) bool {
-	found := false
+	return callToObject(info, node, expected) != nil
+}
+
+func callToObject(info *types.Info, node ast.Node, expected types.Object) *ast.CallExpr {
+	if node == nil || expected == nil {
+		return nil
+	}
+	var found *ast.CallExpr
 	ast.Inspect(node, func(node ast.Node) bool {
-		if found {
+		if found != nil {
 			return false
 		}
 		if _, nested := node.(*ast.FuncLit); nested {
@@ -145,7 +189,7 @@ func callsObject(info *types.Info, node ast.Node, expected types.Object) bool {
 		}
 		call, ok := node.(*ast.CallExpr)
 		if ok && calledObject(info, call) == expected {
-			found = true
+			found = call
 			return false
 		}
 		return true
@@ -156,7 +200,13 @@ func callsObject(info *types.Info, node ast.Node, expected types.Object) bool {
 func calledObject(info *types.Info, call *ast.CallExpr) types.Object {
 	switch fun := ast.Unparen(call.Fun).(type) {
 	case *ast.SelectorExpr:
-		return info.Uses[fun.Sel]
+		if obj := info.Uses[fun.Sel]; obj != nil {
+			return obj
+		}
+		if selection := info.Selections[fun]; selection != nil {
+			return selection.Obj()
+		}
+		return nil
 	case *ast.Ident:
 		return info.Uses[fun]
 	default:
@@ -255,34 +305,16 @@ func productionRootFiles(t *testing.T, root string) []string {
 
 func importsPath(file *ast.File, path string) bool {
 	for _, imp := range file.Imports {
-		if strings.Trim(imp.Path.Value, `"`) == path {
+		if imported, ok := goImportPath(imp); ok && imported == path {
 			return true
 		}
 	}
 	return false
 }
 
-func callsSelector(node ast.Node, receiver, name string) bool {
-	found := false
-	ast.Inspect(node, func(n ast.Node) bool {
-		if found {
-			return false
-		}
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok || sel.Sel.Name != name {
-			return true
-		}
-		id, ok := sel.X.(*ast.Ident)
-		if ok && id.Name == receiver {
-			found = true
-		}
-		return true
-	})
-	return found
+func goImportPath(imp *ast.ImportSpec) (string, bool) {
+	path, err := strconv.Unquote(imp.Path.Value)
+	return path, err == nil
 }
 
 func productionGoFiles(t *testing.T, dir string) []string {

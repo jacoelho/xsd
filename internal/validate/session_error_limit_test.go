@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -25,31 +24,31 @@ func TestMaxErrorsCapsCollectionWithoutSkippingXMLSyntax(t *testing.T) {
 	t.Run("caps collected validation errors", func(t *testing.T) {
 		t.Parallel()
 
-		err := Validate(context.Background(), rt, strings.NewReader(`<root><v>x</v><v>y</v></root>`), Options{MaxErrors: 1})
+		err := Validate(rt, strings.NewReader(`<root><v>x</v><v>y</v></root>`), Options{MaxErrors: 1})
 		requireCode(t, err, xsderrors.CodeValidationFacet)
 		if multiple, ok := errors.AsType[xsderrors.Errors](err); ok {
-			t.Fatalf("Validate() returned %d errors, want one", len(multiple))
+			t.Fatalf("Validate() returned %d errors, want one", multiple.Len())
 		}
 	})
 
 	t.Run("reports later XML syntax error", func(t *testing.T) {
 		t.Parallel()
 
-		err := Validate(context.Background(), rt, strings.NewReader(`<root><v>x</v><v>1</root>`), Options{MaxErrors: 1})
+		err := Validate(rt, strings.NewReader(`<root><v>x</v><v>1</root>`), Options{MaxErrors: 1})
 		requireCode(t, err, xsderrors.CodeValidationXML)
 	})
 
 	t.Run("reports XML syntax error at EOF", func(t *testing.T) {
 		t.Parallel()
 
-		err := Validate(context.Background(), rt, strings.NewReader(`<root><v>x</v>`), Options{MaxErrors: 1})
+		err := Validate(rt, strings.NewReader(`<root><v>x</v>`), Options{MaxErrors: 1})
 		requireCode(t, err, xsderrors.CodeValidationXML)
 	})
 
 	t.Run("reports character data after root", func(t *testing.T) {
 		t.Parallel()
 
-		err := Validate(context.Background(), rt, strings.NewReader(`<root><v>x</v></root>tail`), Options{MaxErrors: 1})
+		err := Validate(rt, strings.NewReader(`<root><v>x</v></root>tail`), Options{MaxErrors: 1})
 		requireCode(t, err, xsderrors.CodeValidationText)
 	})
 }
@@ -66,10 +65,10 @@ func TestDefaultMaxErrorsIsFinite(t *testing.T) {
 		doc.WriteString(`<v>x</v>`)
 	}
 	doc.WriteString(`</root>`)
-	err := Validate(context.Background(), rt, strings.NewReader(doc.String()), Options{})
+	err := Validate(rt, strings.NewReader(doc.String()), Options{})
 	multiple, ok := errors.AsType[xsderrors.Errors](err)
-	if !ok || len(multiple) != defaultMaxErrors {
-		t.Fatalf("Validate(default MaxErrors) error count = %d, want %d: %v", len(multiple), defaultMaxErrors, err)
+	if !ok || multiple.Len() != defaultMaxErrors {
+		t.Fatalf("Validate(default MaxErrors) error count = %d, want %d: %v", multiple.Len(), defaultMaxErrors, err)
 	}
 }
 
@@ -86,8 +85,7 @@ func TestMaxErrorsStopsSemanticValidationTail(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 
-	err := Validate(context.Background(),
-		rt,
+	err := Validate(rt,
 		strings.NewReader(`<root><bad/><item>a</item><item>b</item></root>`),
 		Options{MaxErrors: 1, MaxIdentityEntries: 1})
 
@@ -113,12 +111,36 @@ func TestMaxErrorsStopsSemanticValidationWithinTriggeringToken(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	doc := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><child xsi:schemaLocation="odd"/></root>`
-	err := Validate(context.Background(),
-		rt,
+	err := Validate(rt,
 		strings.NewReader(doc),
 		Options{MaxErrors: 1, MaxIdentityScopes: 1})
 
 	requireCode(t, err, xsderrors.CodeValidationAttribute)
+}
+
+func TestMaxErrorsStopsSemanticValidationAfterCommittedStart(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="child" maxOccurs="unbounded">
+      <xs:complexType><xs:attribute name="value" type="xs:int" use="required"/></xs:complexType>
+    </xs:element>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`)
+	session, err := NewSession(rt, Options{MaxErrors: 1})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	err = session.Validate(strings.NewReader(`<root><child value="bad"/><child value="1"/></root>`))
+	requireCode(t, err, xsderrors.CodeValidationFacet)
+	if multiple, ok := errors.AsType[xsderrors.Errors](err); ok {
+		t.Fatalf("Validate() returned %d errors, want one", multiple.Len())
+	}
+	if err := session.Validate(strings.NewReader(`<root><child value="1"/></root>`)); err != nil {
+		t.Fatalf("reused Session.Validate() error = %v", err)
+	}
 }
 
 func TestNilledChildConsumesOneErrorSlot(t *testing.T) {
@@ -135,21 +157,20 @@ func TestNilledChildConsumesOneErrorSlot(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	doc := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><n xsi:nil="true"><child/></n><v>x</v></root>`
-	err := Validate(context.Background(), rt, strings.NewReader(doc), Options{MaxErrors: 2})
+	err := Validate(rt, strings.NewReader(doc), Options{MaxErrors: 2})
 	multiple, ok := errors.AsType[xsderrors.Errors](err)
-	if !ok || len(multiple) != 2 {
+	if !ok || multiple.Len() != 2 {
 		t.Fatalf("Validate() error = %v, want two validation errors", err)
 	}
 	want := []xsderrors.Code{xsderrors.CodeValidationNil, xsderrors.CodeValidationFacet}
-	for i, item := range multiple {
+	for i, item := range xsderrors.Flatten(multiple) {
 		xerr, ok := errors.AsType[*xsderrors.Error](item)
-		if !ok || xerr.Code != want[i] {
+		if !ok || xerr.Code() != want[i] {
 			t.Fatalf("Validate() error %d = %v, want code %s", i, item, want[i])
 		}
 	}
 
-	err = Validate(context.Background(),
-		rt,
+	err = Validate(rt,
 		strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><n xsi:nil="true">text</n><v>1</v></root>`),
 		Options{})
 
@@ -171,8 +192,8 @@ func TestSessionReuseClearsSyntaxOnlyMode(t *testing.T) {
 		t.Fatalf("NewSession() error = %v", err)
 	}
 
-	err = session.Validate(context.Background(), strings.NewReader(`<root><v>x</v><v>y</v></root>`))
+	err = session.Validate(strings.NewReader(`<root><v>x</v><v>y</v></root>`))
 	requireCode(t, err, xsderrors.CodeValidationFacet)
-	err = session.Validate(context.Background(), strings.NewReader(`<root><v>z</v></root>`))
+	err = session.Validate(strings.NewReader(`<root><v>z</v></root>`))
 	requireCode(t, err, xsderrors.CodeValidationFacet)
 }

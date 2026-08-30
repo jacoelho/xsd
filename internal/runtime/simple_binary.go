@@ -21,9 +21,14 @@ func ParseBinaryValue(kind PrimitiveKind, normalized string, needs PrimitiveValu
 		return parseHexBinaryValue(normalized, needs)
 	case PrimitiveBase64Binary:
 		return parseBase64BinaryValue(normalized, needs)
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return BinaryValue{}, errors.New("invalid binary primitive")
+	default:
 	}
+	return BinaryValue{}, errors.New("invalid binary primitive")
 }
 
 // BinaryLength returns the octet length of a normalized binary primitive value.
@@ -33,9 +38,14 @@ func BinaryLength(kind PrimitiveKind, normalized string) (uint32, error) {
 		return hexBinaryLength(normalized)
 	case PrimitiveBase64Binary:
 		return base64BinaryLength(normalized)
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return 0, errors.New("invalid binary primitive")
+	default:
 	}
+	return 0, errors.New("invalid binary primitive")
 }
 
 // ValidateHexBinaryLexical validates raw as an XML Schema hexBinary lexical
@@ -125,40 +135,53 @@ func scanBase64BinaryLexical[T byteText](raw T) (base64BinaryScan, error) {
 	var scan base64BinaryScan
 	var lastData byte
 	for i := range len(raw) {
-		b := raw[i]
-		if lex.IsXMLWhitespaceByte(b) {
-			continue
-		}
-		if b == '=' {
-			scan.pads++
-			scan.cleanLen++
-			continue
-		}
-		if scan.pads > 0 {
+		data, err := scan.append(raw[i])
+		if err != nil {
 			return base64BinaryScan{}, errors.New("invalid base64Binary")
 		}
-		if _, ok := base64Value(b); !ok {
-			return base64BinaryScan{}, errors.New("invalid base64Binary")
+		if data {
+			lastData = raw[i]
 		}
-		lastData = b
-		scan.cleanLen++
 	}
 	if scan.cleanLen%4 != 0 || scan.pads > 2 {
 		return base64BinaryScan{}, errors.New("invalid base64Binary")
 	}
-	switch scan.pads {
-	case 1:
-		v, ok := base64Value(lastData)
-		if !ok || v&0x03 != 0 {
-			return base64BinaryScan{}, errors.New("invalid base64Binary")
-		}
-	case 2:
-		v, ok := base64Value(lastData)
-		if !ok || v&0x0f != 0 {
-			return base64BinaryScan{}, errors.New("invalid base64Binary")
-		}
+	if !validBase64Padding(scan.pads, lastData) {
+		return base64BinaryScan{}, errors.New("invalid base64Binary")
 	}
 	return scan, nil
+}
+
+func (s *base64BinaryScan) append(b byte) (bool, error) {
+	if lex.IsXMLWhitespaceByte(b) {
+		return false, nil
+	}
+	if b == '=' {
+		s.pads++
+		s.cleanLen++
+		return false, nil
+	}
+	if s.pads > 0 {
+		return false, errors.New("invalid base64Binary")
+	}
+	if _, ok := base64Value(b); !ok {
+		return false, errors.New("invalid base64Binary")
+	}
+	s.cleanLen++
+	return true, nil
+}
+
+func validBase64Padding(pads int, lastData byte) bool {
+	switch pads {
+	case 1:
+		v, ok := base64Value(lastData)
+		return ok && v&0x03 == 0
+	case 2:
+		v, ok := base64Value(lastData)
+		return ok && v&0x0f == 0
+	default:
+		return true
+	}
 }
 
 func isHexDigit(b byte) bool {

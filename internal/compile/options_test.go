@@ -19,10 +19,12 @@ func TestNormalizeOptionsRejectsNegativeLimits(t *testing.T) {
 		{name: "sources", opts: Options{MaxSchemaSources: -1}},
 		{name: "total source bytes", opts: Options{MaxSchemaTotalBytes: -1}},
 		{name: "references", opts: Options{MaxSchemaReferences: -1}},
+		{name: "dependency steps", opts: Options{MaxSchemaDependencySteps: -1}},
 		{name: "target contexts", opts: Options{MaxSchemaTargetContexts: -1}},
 		{name: "instantiated nodes", opts: Options{MaxSchemaInstantiatedNodes: -1}},
 		{name: "names", opts: Options{MaxSchemaNames: -1}},
 		{name: "content model states", opts: Options{MaxContentModelStates: -1}},
+		{name: "content model analysis steps", opts: Options{MaxContentModelAnalysisSteps: -1}},
 		{name: "substitution closure entries", opts: Options{MaxSubstitutionClosureEntries: -1}},
 		{name: "simple union member entries", opts: Options{MaxSimpleUnionMemberEntries: -1}},
 	}
@@ -36,8 +38,8 @@ func TestNormalizeOptionsRejectsNegativeLimits(t *testing.T) {
 			if !ok {
 				t.Fatalf("error type = %T, want *xsderrors.Error", err)
 			}
-			if xerr.Code != xsderrors.CodeSchemaLimit {
-				t.Fatalf("code = %s, want %s", xerr.Code, xsderrors.CodeSchemaLimit)
+			if xerr.Code() != xsderrors.CodeSchemaLimit {
+				t.Fatalf("code = %s, want %s", xerr.Code(), xsderrors.CodeSchemaLimit)
 			}
 		})
 	}
@@ -69,6 +71,9 @@ func TestNormalizeOptionsAppliesDefaultsAndCopiesLimits(t *testing.T) {
 	if limits.MaxSchemaReferences != defaultMaxSchemaReferences {
 		t.Fatalf("MaxSchemaReferences = %d, want %d", limits.MaxSchemaReferences, defaultMaxSchemaReferences)
 	}
+	if limits.MaxSchemaDependencySteps != defaultMaxSchemaDependencySteps {
+		t.Fatalf("MaxSchemaDependencySteps = %d, want %d", limits.MaxSchemaDependencySteps, defaultMaxSchemaDependencySteps)
+	}
 	if limits.MaxSchemaTargetContexts != defaultMaxSchemaTargetContexts {
 		t.Fatalf("MaxSchemaTargetContexts = %d, want %d", limits.MaxSchemaTargetContexts, defaultMaxSchemaTargetContexts)
 	}
@@ -77,6 +82,9 @@ func TestNormalizeOptionsAppliesDefaultsAndCopiesLimits(t *testing.T) {
 	}
 	if limits.MaxContentModelStates != defaultMaxContentModelStates {
 		t.Fatalf("MaxContentModelStates = %d, want %d", limits.MaxContentModelStates, defaultMaxContentModelStates)
+	}
+	if limits.MaxContentModelAnalysisSteps != defaultMaxContentModelAnalysisSteps {
+		t.Fatalf("MaxContentModelAnalysisSteps = %d, want %d", limits.MaxContentModelAnalysisSteps, defaultMaxContentModelAnalysisSteps)
 	}
 	if limits.MaxSubstitutionClosureEntries != defaultMaxSubstitutionClosureEntries {
 		t.Fatalf("MaxSubstitutionClosureEntries = %d, want %d", limits.MaxSubstitutionClosureEntries, defaultMaxSubstitutionClosureEntries)

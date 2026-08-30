@@ -11,57 +11,87 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// XSIAttributeIdentityKey returns the identity-field key for an xsi attribute.
-func XSIAttributeIdentityKey(rt *runtime.Schema, name xml.Name, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (runtime.QName, string, bool, error) {
+// xsiAttributeIdentityKey returns the identity-field key for an xsi attribute.
+type xsiIdentityKey struct {
+	key     string
+	name    runtime.QName
+	present bool
+}
+
+func xsiAttributeIdentityKey(rt *runtime.Schema, name xml.Name, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (xsiIdentityKey, error) {
 	rn := ResolveRuntimeName(rt, name)
 	if !rn.Known {
-		return runtime.QName{}, "", false, nil
+		return xsiIdentityKey{}, nil
 	}
-	key := runtime.SimpleIdentityKey(runtime.PrimitiveString, lex.CollapseXMLWhitespace(lexical))
-	switch name.Local {
+	key, err := xsiAttributeIdentity(rt, name.Local, lexical, resolve, ctx)
+	if err != nil {
+		return xsiIdentityKey{}, err
+	}
+	return xsiIdentityKey{name: rn.Name, key: key, present: true}, nil
+}
+
+func xsiAttributeIdentity(rt *runtime.Schema, local, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (string, error) {
+	switch local {
 	case vocab.XSIAttrNil:
-		v, ok := ParseXSINil(lexical)
-		if !ok {
-			return runtime.QName{}, "", false, validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:nil value")
-		}
-		key = runtime.SimpleIdentityKey(runtime.PrimitiveBoolean, runtime.BooleanCanonical(v))
+		return xsiNilIdentity(lexical, ctx)
 	case vocab.XSIAttrType:
-		canonical, err := xsiTypeCanonical(lexical, resolve)
-		if err != nil {
-			return runtime.QName{}, "", false, validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:type: "+err.Error())
-		}
-		key = runtime.SimpleIdentityKey(runtime.PrimitiveQName, canonical)
+		return xsiTypeIdentity(lexical, resolve, ctx)
 	case vocab.XSIAttrNoNamespaceSchemaLocation:
-		anyURI, err := xsiAnyURIType(rt)
-		if err != nil {
-			return runtime.QName{}, "", false, err
-		}
-		value, err := rt.ValidateSimpleValue(anyURI, lexical, nil, runtime.SimpleNeedIdentity)
-		if err != nil {
-			return runtime.QName{}, "", false, validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:noNamespaceSchemaLocation URI "+lexical)
-		}
-		key = value.Identity
+		return xsiURIIdentity(rt, lexical, "invalid xsi:noNamespaceSchemaLocation URI "+lexical, ctx)
 	case vocab.XSIAttrSchemaLocation:
-		anyURI, err := xsiAnyURIType(rt)
-		if err != nil {
-			return runtime.QName{}, "", false, err
-		}
-		var items strings.Builder
-		for field := range lex.XMLFieldsSeq(lexical) {
-			value, err := rt.ValidateSimpleValue(anyURI, field, nil, runtime.SimpleNeedIdentity)
-			if err != nil {
-				return runtime.QName{}, "", false, validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:schemaLocation URI "+field)
-			}
-			if !runtime.AppendSimpleValueListIdentity(&items, value) {
-				return runtime.QName{}, "", false, xsderrors.InternalInvariant("xsi:schemaLocation anyURI identity is missing")
-			}
-		}
-		key = runtime.ListSimpleValue(runtime.ListSimpleValueProjection{
-			ItemIdentity: items.String(),
-			Needs:        runtime.SimpleNeedIdentity,
-		}).Identity
+		return xsiSchemaLocationIdentity(rt, lexical, ctx)
+	default:
+		return runtime.SimpleIdentityKey(runtime.PrimitiveString, lex.CollapseXMLWhitespace(lexical)), nil
 	}
-	return rn.Name, key, true, nil
+}
+
+func xsiNilIdentity(lexical string, ctx StartContext) (string, error) {
+	v, ok := ParseXSINil(lexical)
+	if !ok {
+		return "", validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:nil value")
+	}
+	return runtime.SimpleIdentityKey(runtime.PrimitiveBoolean, runtime.BooleanCanonical(v)), nil
+}
+
+func xsiTypeIdentity(lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (string, error) {
+	canonical, err := xsiTypeCanonical(lexical, resolve)
+	if err != nil {
+		return "", validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:type: "+err.Error())
+	}
+	return runtime.SimpleIdentityKey(runtime.PrimitiveQName, canonical), nil
+}
+
+func xsiURIIdentity(rt *runtime.Schema, lexical, message string, ctx StartContext) (string, error) {
+	anyURI, err := xsiAnyURIType(rt)
+	if err != nil {
+		return "", err
+	}
+	value, err := rt.ValidateSimpleValue(anyURI, lexical, nil, runtime.SimpleNeedIdentity)
+	if err != nil {
+		return "", validation(ctx, xsderrors.CodeValidationAttribute, message)
+	}
+	return value.Identity, nil
+}
+
+func xsiSchemaLocationIdentity(rt *runtime.Schema, lexical string, ctx StartContext) (string, error) {
+	anyURI, err := xsiAnyURIType(rt)
+	if err != nil {
+		return "", err
+	}
+	var items strings.Builder
+	for field := range lex.XMLFieldsSeq(lexical) {
+		value, err := rt.ValidateSimpleValue(anyURI, field, nil, runtime.SimpleNeedIdentity)
+		if err != nil {
+			return "", validation(ctx, xsderrors.CodeValidationAttribute, "invalid xsi:schemaLocation URI "+field)
+		}
+		if !runtime.AppendSimpleValueListIdentity(&items, value) {
+			return "", xsderrors.InternalInvariant("xsi:schemaLocation anyURI identity is missing")
+		}
+	}
+	return runtime.ListSimpleValue(runtime.ListSimpleValueProjection{
+		ItemIdentity: items.String(),
+		Needs:        runtime.SimpleNeedIdentity,
+	}).Identity, nil
 }
 
 func xsiAnyURIType(rt *runtime.Schema) (runtime.SimpleTypeID, error) {

@@ -2,13 +2,12 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
+	"reflect"
 
 	"github.com/jacoelho/xsd"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -22,52 +21,90 @@ type config struct {
 	maxBytes           int64
 }
 
+const usage = "Usage: xmllint --schema PATH [--max-errors N] [--max-identity-entries N] [--max-instance-bytes N] XML\n"
+
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	code := runWithOpen(ctx, os.Args[1:], os.Stderr, func(path string) (io.ReadCloser, error) {
-		return os.Open(path) //nolint:gosec // xmllint intentionally validates caller-provided document paths.
-	})
-	stop()
+	code := runWithOpen(os.Args[1:], os.Stdout, os.Stderr, openDocument)
 	os.Exit(code)
 }
 
-func runWithOpen(ctx context.Context, args []string, stderr io.Writer, openDoc func(string) (io.ReadCloser, error)) int {
+func openDocument(path string) (io.ReadCloser, error) {
+	f, err := os.Open(path) //nolint:gosec // xmllint intentionally validates caller-provided document paths.
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func runWithOpen(args []string, stdout, stderr io.Writer, openDoc func(string) (io.ReadCloser, error)) int {
 	cfg, err := parseArgs(args)
+	if errors.Is(err, flag.ErrHelp) {
+		return writeStatus(stdout, 0, usage)
+	}
 	if err != nil {
 		return writeStatus(stderr, 2, "%v\n", err)
 	}
-	engine, err := xsd.Compile(ctx, xsd.File(cfg.schema))
+	engine, err := xsd.Compile(xsd.File(cfg.schema))
 	if err != nil {
 		return writeStatus(stderr, 1, "%s fails to compile\n%v\n", cfg.schema, err)
 	}
 	f, err := openDoc(cfg.doc)
-	if err != nil {
+	if isNilReadCloser(f) {
+		if err == nil {
+			err = errors.New("document opener returned nil reader")
+		}
 		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, err)
 	}
-	validationErr := engine.ValidateWithOptions(ctx, f, xsd.ValidateOptions{
+	if err != nil {
+		err = errors.Join(err, f.Close())
+		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, err)
+	}
+	validationErr := engine.ValidateWithOptions(f, xsd.ValidateOptions{
 		MaxErrors:          cfg.maxErrors,
 		MaxIdentityEntries: cfg.maxIdentityEntries,
 		MaxInstanceBytes:   cfg.maxBytes,
 	})
-	closeErr := f.Close()
+	return reportValidation(stderr, cfg.doc, validationErr, f.Close())
+}
+
+func reportValidation(stderr io.Writer, doc string, validationErr, closeErr error) int {
 	if validationErr != nil {
 		if writeErr := printValidationErrors(stderr, validationErr); writeErr != nil {
-			return 2
+			return 1
 		}
 		if closeErr != nil {
-			return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, closeErr)
+			return writeStatus(stderr, 1, "%s fails to validate\n%v\n", doc, closeErr)
 		}
-		return writeStatus(stderr, 1, "%s fails to validate\n", cfg.doc)
+		return writeStatus(stderr, 1, "%s fails to validate\n", doc)
 	}
 	if closeErr != nil {
-		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", cfg.doc, closeErr)
+		return writeStatus(stderr, 1, "%s fails to validate\n%v\n", doc, closeErr)
 	}
-	return writeStatus(stderr, 0, "%s validates\n", cfg.doc)
+	return 0
+}
+
+func isNilReadCloser(r io.ReadCloser) bool {
+	if r == nil {
+		return true
+	}
+	v := reflect.ValueOf(r)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return v.IsNil()
+	case reflect.Invalid, reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.Array, reflect.String, reflect.Struct, reflect.UnsafePointer:
+		return false
+	default:
+	}
+	return false
 }
 
 func writeStatus(w io.Writer, code int, format string, args ...any) int {
 	if _, err := fmt.Fprintf(w, format, args...); err != nil {
-		return 2
+		return 1
 	}
 	return code
 }
@@ -77,7 +114,7 @@ func parseArgs(args []string) (config, error) {
 	fs := flag.NewFlagSet("xmllint", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.IntVar(&cfg.maxErrors, "max-errors", 0, "maximum validation errors to collect")
-	fs.IntVar(&cfg.maxIdentityEntries, "max-identity-entries", 0, "maximum retained identity entries")
+	fs.IntVar(&cfg.maxIdentityEntries, "max-identity-entries", 0, "maximum for stored identity entries, pending selector matches, and pending field values")
 	fs.Int64Var(&cfg.maxBytes, "max-instance-bytes", 0, "maximum raw XML bytes to read")
 	fs.StringVar(&cfg.schema, "schema", "", "schema path")
 	if err := fs.Parse(args); err != nil {
@@ -103,15 +140,10 @@ func parseArgs(args []string) (config, error) {
 }
 
 func printValidationErrors(w io.Writer, err error) error {
-	var errs xsderrors.Errors
-	if errors.As(err, &errs) {
-		for _, child := range errs {
-			if _, writeErr := fmt.Fprintln(w, child); writeErr != nil {
-				return writeErr
-			}
+	for _, child := range xsderrors.Flatten(err) {
+		if _, writeErr := fmt.Fprintln(w, child); writeErr != nil {
+			return writeErr
 		}
-		return nil
 	}
-	_, writeErr := fmt.Fprintln(w, err)
-	return writeErr
+	return nil
 }

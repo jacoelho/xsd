@@ -10,29 +10,38 @@ const (
 	dateErrInvalidDateTime = "invalid date/time"
 	dateErrInvalidTimezone = "invalid timezone"
 	dateErrInvalidDate     = "invalid date"
-	fastDateErrInvalid     = dateErrInvalidDateTime
 )
 
 // ValidateNMTOKENListBytes validates raw as the lexical form of an xs:NMTOKEN
 // list value.
 func ValidateNMTOKENListBytes(raw []byte) error {
-	for len(raw) > 0 {
-		for len(raw) > 0 && lex.IsXMLWhitespaceByte(raw[0]) {
-			raw = raw[1:]
-		}
+	for {
+		raw = trimLeadingXMLWhitespaceBytes(raw)
 		if len(raw) == 0 {
 			return nil
 		}
-		end := 0
-		for end < len(raw) && !lex.IsXMLWhitespaceByte(raw[end]) {
-			end++
-		}
+		end := xmlFieldEnd(raw)
 		if !lex.IsNMTOKENBytes(raw[:end]) {
 			return errors.New("invalid NMTOKEN")
 		}
 		raw = raw[end:]
 	}
-	return nil
+}
+
+func trimLeadingXMLWhitespaceBytes(raw []byte) []byte {
+	for len(raw) > 0 && lex.IsXMLWhitespaceByte(raw[0]) {
+		raw = raw[1:]
+	}
+	return raw
+}
+
+func xmlFieldEnd(raw []byte) int {
+	for i, b := range raw {
+		if lex.IsXMLWhitespaceByte(b) {
+			return i
+		}
+	}
+	return len(raw)
 }
 
 func validateStringPatternSteps(steps stringPatternSteps, normalized string) error {
@@ -113,15 +122,15 @@ func ValidateFastDateLexical(raw []byte) (bool, error) {
 	}
 	year, ok := parseFixedDateDigits(raw[0:4])
 	if !ok || year == 0 {
-		return true, errors.New(fastDateErrInvalid)
+		return true, errors.New(dateErrInvalidDateTime)
 	}
 	month, ok := parseFixedDateDigits(raw[5:7])
 	if !ok {
-		return true, errors.New(fastDateErrInvalid)
+		return true, errors.New(dateErrInvalidDateTime)
 	}
 	day, ok := parseFixedDateDigits(raw[8:10])
 	if !ok || month < 1 || month > 12 || day < 1 || day > positiveYearMonthDays(year, month) {
-		return true, errors.New(fastDateErrInvalid)
+		return true, errors.New(dateErrInvalidDateTime)
 	}
 	return true, nil
 }
@@ -197,7 +206,7 @@ func allZeroDateDigits[T byteText](s T, start, end int) bool {
 	return true
 }
 
-func parseTwoDateDigits[T byteText](s T, i int) (int, int, bool) {
+func parseTwoDateDigits[T byteText](s T, i int) (value, next int, valid bool) {
 	const n = 2
 	if i+n > len(s) {
 		return 0, 0, false
@@ -218,7 +227,7 @@ func daysInDateMonth[T byteText](s T, year dateYear, month int) int {
 	return daysInDateMonthForLeap(month, leap)
 }
 
-func daysInDateMonthForLeap(month int, leap bool) int {
+func daysInDateMonthForLeap(month int, leap bool) int { //nolint:revive // Leap status is an intrinsic calendar fact, not an operation mode.
 	switch month {
 	case 2:
 		if leap {

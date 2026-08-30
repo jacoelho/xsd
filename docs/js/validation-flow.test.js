@@ -10,11 +10,11 @@ test("validates the exact raw XML once before formatting", () => {
   const flow = runValidationFlow(xml, "schema", {
     validateXML(input, xsd) {
       calls.push(["validate", input, xsd]);
-      return JSON.stringify({ valid: true });
+      return JSON.stringify({ status: "valid" });
     },
     formatXML(input) {
       calls.push(["format", input]);
-      return JSON.stringify({ xml: "<root>\n  <value> raw </value>\n</root>" });
+      return JSON.stringify({ status: "ok", xml: "<root>\n  <value> raw </value>\n</root>" });
     },
   });
 
@@ -28,16 +28,16 @@ test("validates the exact raw XML once before formatting", () => {
 test("does not format invalid XML", () => {
   let formatCalls = 0;
   const flow = runValidationFlow("<root>", "schema", {
-    validateXML: () => JSON.stringify({ valid: false, errors: [{ message: "unclosed element" }] }),
+    validateXML: () => JSON.stringify({ status: "invalid", errors: [{ message: "unclosed element" }] }),
     formatXML() {
       formatCalls++;
-      return JSON.stringify({ xml: "changed" });
+      return JSON.stringify({ status: "ok", xml: "changed" });
     },
   });
 
   assert.equal(formatCalls, 0);
   assert.equal(flow.xml, "<root>");
-  assert.equal(flow.result.valid, false);
+  assert.equal(flow.result.status, "invalid");
 });
 
 test("reports an invalid validation response", () => {
@@ -52,28 +52,51 @@ test("reports an invalid validation response", () => {
   assert.equal(flow.xml, "<root/>");
 });
 
+test("rejects contradictory and malformed validation result states", () => {
+  for (const response of [
+    { status: "invalid", errors: {} },
+    { status: "invalid", errors: [] },
+    { status: "valid", errors: [{ message: "contradiction" }] },
+    { status: "valid", error: "contradiction" },
+    { status: "error", error: "contradiction", errors: [] },
+    { valid: true },
+    null,
+  ]) {
+    const flow = runValidationFlow("<root/>", "schema", {
+      validateXML: () => response,
+      formatXML: () => {
+        throw new Error("must not format");
+      },
+    });
+    assert.deepEqual(flow.result, {
+      status: "error",
+      error: "Invalid WASM validation response",
+    });
+  }
+});
+
 test("uses successful formatted output", () => {
   const flow = runValidationFlow("<root/>", "schema", {
-    validateXML: () => ({ valid: true }),
-    formatXML: () => ({ xml: "<root />" }),
+    validateXML: () => ({ status: "valid" }),
+    formatXML: () => ({ status: "ok", xml: "<root />" }),
   });
 
-  assert.deepEqual(flow, { result: { valid: true }, xml: "<root />" });
+  assert.deepEqual(flow, { result: { status: "valid" }, xml: "<root />" });
 });
 
 test("preserves valid input when formatting fails", () => {
   const xml = "<root/>";
   for (const formatXML of [
-    () => JSON.stringify({ error: "format failed" }),
+    () => JSON.stringify({ status: "error", error: "format failed" }),
     () => {
       throw new Error("format failed");
     },
   ]) {
     const flow = runValidationFlow(xml, "schema", {
-      validateXML: () => JSON.stringify({ valid: true }),
+      validateXML: () => JSON.stringify({ status: "valid" }),
       formatXML,
     });
     assert.equal(flow.xml, xml);
-    assert.equal(flow.result.valid, true);
+    assert.equal(flow.result.status, "valid");
   }
 });

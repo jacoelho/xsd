@@ -8,105 +8,136 @@ type byteText interface {
 
 func scan[T byteText](text T) (characters, escapedLen int, err error) {
 	for i := 0; i < len(text); {
-		b := text[i]
-		switch {
-		case b == '%':
-			if i+2 >= len(text) || !isHex(text[i+1]) || !isHex(text[i+2]) {
-				return 0, 0, ErrInvalid
-			}
-			characters += 3
-			escapedLen += 3
-			i += 3
-		case b < 0x80:
-			characters++
-			growth := 1
-			if mustEscapeASCII(b) {
-				growth = 3
-			}
-			if escapedLen > int(^uint(0)>>1)-growth {
-				return 0, 0, ErrInvalid
-			}
-			escapedLen += growth
-			i++
-		default:
-			n := utf8SequenceLen(text, i)
-			if n == 0 || escapedLen > int(^uint(0)>>1)-3*n {
-				return 0, 0, ErrInvalid
-			}
-			characters++
-			escapedLen += 3 * n
-			i += n
+		token, ok := scanToken(text, i)
+		if !ok || escapedLen > int(^uint(0)>>1)-token.escapedLen {
+			return 0, 0, ErrInvalid
 		}
+		characters += token.characters
+		escapedLen += token.escapedLen
+		i += token.width
 	}
 	return characters, escapedLen, nil
 }
 
+type scannedToken struct {
+	width      int
+	characters int
+	escapedLen int
+}
+
+func scanToken[T byteText](text T, i int) (scannedToken, bool) {
+	b := text[i]
+	switch {
+	case b == '%':
+		if i+2 >= len(text) || !isHex(text[i+1]) || !isHex(text[i+2]) {
+			return scannedToken{}, false
+		}
+		return scannedToken{width: 3, characters: 3, escapedLen: 3}, true
+	case b < 0x80:
+		growth := 1
+		if mustEscapeASCII(b) {
+			growth = 3
+		}
+		return scannedToken{width: 1, characters: 1, escapedLen: growth}, true
+	default:
+		n := utf8SequenceLen(text, i)
+		return scannedToken{width: n, characters: 1, escapedLen: 3 * n}, n != 0
+	}
+}
+
 func validReference[T byteText](text T) bool {
-	raw := text
-	fragment := len(raw)
-	if i := indexByte(raw, '#'); i >= 0 {
+	suffixes := validReferenceSuffixes(text)
+	if !suffixes.valid {
+		return false
+	}
+	start, hasScheme, ok := validReferenceScheme(text, suffixes.mainEnd)
+	if !ok {
+		return false
+	}
+	if start+2 <= suffixes.mainEnd && text[start] == '/' && text[start+1] == '/' {
+		return validAuthorityReference(text, start+2, suffixes.mainEnd, suffixes.query, suffixes.fragment)
+	}
+	if hasScheme {
+		return validSchemeReference(text, start, suffixes.mainEnd, suffixes.query, suffixes.fragment)
+	}
+	return validRelativeReference(text, start, suffixes.mainEnd)
+}
+
+type referenceSuffixes struct {
+	mainEnd  int
+	query    int
+	fragment int
+	valid    bool
+}
+
+func validReferenceSuffixes[T byteText](text T) referenceSuffixes {
+	fragment := len(text)
+	if i := indexByte(text, '#'); i >= 0 {
 		fragment = i
-		if !validURIC(raw, i+1, len(raw)) {
-			return false
+		if !validURIC(text, i+1, len(text)) {
+			return referenceSuffixes{}
 		}
 	}
 	query := fragment
-	if i := indexByteRange(raw, '?', 0, fragment); i >= 0 {
+	if i := indexByteRange(text, '?', 0, fragment); i >= 0 {
 		query = i
-		if !validURIC(raw, i+1, fragment) {
-			return false
+		if !validURIC(text, i+1, fragment) {
+			return referenceSuffixes{}
 		}
 	}
-	mainEnd := query
-	colon := indexByteRange(raw, ':', 0, mainEnd)
-	slash := indexByteRange(raw, '/', 0, mainEnd)
-	hasScheme := colon >= 0 && (slash < 0 || colon < slash)
-	start := 0
-	if hasScheme {
-		if !validScheme(raw, 0, colon) {
-			return false
-		}
-		start = colon + 1
+	return referenceSuffixes{mainEnd: query, query: query, fragment: fragment, valid: true}
+}
+
+func validReferenceScheme[T byteText](text T, mainEnd int) (start int, hasScheme, ok bool) {
+	colon := indexByteRange(text, ':', 0, mainEnd)
+	slash := indexByteRange(text, '/', 0, mainEnd)
+	hasScheme = colon >= 0 && (slash < 0 || colon < slash)
+	if !hasScheme {
+		return 0, false, true
 	}
-	if start+2 <= mainEnd && raw[start] == '/' && raw[start+1] == '/' {
-		authorityStart := start + 2
-		authorityEnd := mainEnd
-		if i := indexByteRange(raw, '/', authorityStart, mainEnd); i >= 0 {
-			authorityEnd = i
-		}
-		// The XSD 1.0 W3C oracle treats a bare empty authority ("//") as
-		// invalid. Empty authority remains valid when followed by a path,
-		// query, or fragment, including forms such as "///" and "//?q".
-		if authorityStart == authorityEnd && authorityEnd == mainEnd && query == fragment && fragment == len(raw) {
-			return false
-		}
-		if !validAuthority(raw, authorityStart, authorityEnd) {
-			return false
-		}
-		return validPath(raw, authorityEnd, mainEnd)
+	if !validScheme(text, 0, colon) {
+		return 0, false, false
 	}
-	pathStart := start
-	if hasScheme {
-		switch {
-		case pathStart == mainEnd:
-			return query < fragment
-		case raw[pathStart] == '/':
-			return validPath(raw, pathStart, mainEnd)
-		default:
-			return validOpaque(raw, pathStart, mainEnd)
-		}
+	return colon + 1, true, true
+}
+
+func validAuthorityReference[T byteText](text T, authorityStart, mainEnd, query, fragment int) bool {
+	authorityEnd := mainEnd
+	if i := indexByteRange(text, '/', authorityStart, mainEnd); i >= 0 {
+		authorityEnd = i
 	}
+	// The XSD 1.0 W3C oracle treats a bare empty authority ("//") as
+	// invalid. Empty authority remains valid when followed by a path,
+	// query, or fragment, including forms such as "///" and "//?q".
+	if authorityStart == authorityEnd && authorityEnd == mainEnd && query == fragment && fragment == len(text) {
+		return false
+	}
+	return validAuthority(text, authorityStart, authorityEnd) && validPath(text, authorityEnd, mainEnd)
+}
+
+func validSchemeReference[T byteText](text T, pathStart, mainEnd, query, fragment int) bool {
+	switch {
+	case pathStart == mainEnd:
+		return query < fragment
+	case text[pathStart] == '/':
+		return validPath(text, pathStart, mainEnd)
+	default:
+		return validOpaque(text, pathStart, mainEnd)
+	}
+}
+
+func validRelativeReference[T byteText](text T, pathStart, mainEnd int) bool {
 	if pathStart == mainEnd {
 		return true
 	}
-	if raw[pathStart] == '/' {
-		return validPath(raw, pathStart, mainEnd)
+	if text[pathStart] == '/' {
+		return validPath(text, pathStart, mainEnd)
 	}
 	firstEnd := mainEnd
-	if i := indexByteRange(raw, '/', pathStart, mainEnd); i >= 0 {
+	if i := indexByteRange(text, '/', pathStart, mainEnd); i >= 0 {
 		firstEnd = i
 	}
-	return validRelativeSegment(raw, pathStart, firstEnd) && validPath(raw, firstEnd, mainEnd)
+	return validRelativeSegment(text, pathStart, firstEnd) && validPath(text, firstEnd, mainEnd)
 }
 
 func validScheme[T byteText](text T, start, end int) bool {
@@ -126,33 +157,54 @@ func validAuthority[T byteText](text T, start, end int) bool {
 	left := indexByteRange(text, '[', start, end)
 	right := indexByteRange(text, ']', start, end)
 	if left >= 0 || right >= 0 {
-		if left < 0 || right < 0 || right < left || indexByteRange(text, '[', left+1, end) >= 0 || indexByteRange(text, ']', right+1, end) >= 0 {
-			return false
-		}
-		at := lastIndexByteRange(text, '@', start, left)
-		if at >= 0 {
-			if at != left-1 || !validUserInfo(text, start, at) {
-				return false
-			}
-		} else if left != start {
-			return false
-		}
-		if !validIPv6(text, left+1, right) {
-			return false
-		}
-		if right+1 == end {
-			return true
-		}
-		if text[right+1] != ':' {
-			return false
-		}
-		for i := right + 2; i < end; i++ {
-			if !isDigit(text[i]) {
-				return false
-			}
-		}
+		return validIPLiteralAuthority(text, start, end, left, right)
+	}
+	return validPlainAuthority(text, start, end)
+}
+
+func validIPLiteralAuthority[T byteText](text T, start, end, left, right int) bool {
+	if !validBracketPair(text, end, left, right) {
+		return false
+	}
+	if !validIPLiteralPrefix(text, start, left) {
+		return false
+	}
+	if !validIPv6(text, left+1, right) {
+		return false
+	}
+	return validIPLiteralPort(text, right+1, end)
+}
+
+func validBracketPair[T byteText](text T, end, left, right int) bool {
+	return left >= 0 && right >= left &&
+		indexByteRange(text, '[', left+1, end) < 0 &&
+		indexByteRange(text, ']', right+1, end) < 0
+}
+
+func validIPLiteralPrefix[T byteText](text T, start, left int) bool {
+	at := lastIndexByteRange(text, '@', start, left)
+	if at < 0 {
+		return left == start
+	}
+	return at == left-1 && validUserInfo(text, start, at)
+}
+
+func validIPLiteralPort[T byteText](text T, start, end int) bool {
+	if start == end {
 		return true
 	}
+	if text[start] != ':' {
+		return false
+	}
+	for i := start + 1; i < end; i++ {
+		if !isDigit(text[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func validPlainAuthority[T byteText](text T, start, end int) bool {
 	for i := start; i < end; {
 		if next, ok := escapedToken(text, i); ok {
 			i = next
@@ -171,81 +223,104 @@ func validIPv6[T byteText](text T, start, end int) bool {
 	if start == end {
 		return false
 	}
+	compressed := indexDoubleColon(text, start, end)
+	if compressed < 0 {
+		groups, ok := countIPv6Groups(text, start, end, finalIPv6Side)
+		return ok && groups == 8
+	}
+	if indexDoubleColon(text, compressed+2, end) >= 0 {
+		return false
+	}
+	left, leftOK := countIPv6Groups(text, start, compressed, leadingIPv6Side)
+	right, rightOK := countIPv6Groups(text, compressed+2, end, finalIPv6Side)
+	return leftOK && rightOK && left+right < 8
+}
+
+type ipv6SideKind uint8
+
+const (
+	leadingIPv6Side ipv6SideKind = iota
+	finalIPv6Side
+)
+
+func indexDoubleColon[T byteText](text T, start, end int) int {
+	for i := start; i+1 < end; i++ {
+		if text[i] == ':' && text[i+1] == ':' {
+			return i
+		}
+	}
+	return -1
+}
+
+func countIPv6Groups[T byteText](text T, start, end int, kind ipv6SideKind) (int, bool) {
 	groups := 0
-	compressed := false
-	i := start
-	if text[i] == ':' {
-		if i+1 >= end || text[i+1] != ':' {
-			return false
+	for start < end {
+		segmentEnd := indexByteRange(text, ':', start, end)
+		if segmentEnd < 0 {
+			segmentEnd = end
 		}
-		compressed = true
-		i += 2
+		width, ok := ipv6SegmentWidth(text, start, segmentEnd, kind, segmentEnd == end)
+		if !ok {
+			return 0, false
+		}
+		groups += width
+		start = segmentEnd + 1
 	}
-	for i < end {
-		segmentStart := i
-		for i < end && text[i] != ':' {
-			i++
-		}
-		if indexByteRange(text, '.', segmentStart, i) >= 0 {
-			if i != end || !validIPv4(text, segmentStart, i) {
-				return false
-			}
-			groups += 2
-			break
-		}
-		if i-segmentStart < 1 || i-segmentStart > 4 {
-			return false
-		}
-		for j := segmentStart; j < i; j++ {
-			if !isHex(text[j]) {
-				return false
-			}
-		}
-		groups++
-		if groups > 8 || i == end {
-			break
-		}
-		i++
-		if i < end && text[i] == ':' {
-			if compressed {
-				return false
-			}
-			compressed = true
-			i++
-			if i == end {
-				break
-			}
-		} else if i == end {
+	return groups, true
+}
+
+func ipv6SegmentWidth[T byteText](text T, start, end int, kind ipv6SideKind, last bool) (int, bool) {
+	if indexByteRange(text, '.', start, end) >= 0 {
+		return 2, kind == finalIPv6Side && last && validIPv4(text, start, end)
+	}
+	return 1, validIPv6HexGroup(text, start, end)
+}
+
+func validIPv6HexGroup[T byteText](text T, start, end int) bool {
+	if end-start < 1 || end-start > 4 {
+		return false
+	}
+	for i := start; i < end; i++ {
+		if !isHex(text[i]) {
 			return false
 		}
 	}
-	return groups == 8 || compressed && groups < 8
+	return true
 }
 
 func validIPv4[T byteText](text T, start, end int) bool {
 	parts := 0
 	for start < end {
-		partStart := start
-		value := 0
-		for start < end && text[start] != '.' {
-			if !isDigit(text[start]) || start-partStart == 3 {
-				return false
-			}
-			value = value*10 + int(text[start]-'0')
-			start++
-		}
-		if start == partStart || value > 255 {
+		next, ok := scanIPv4Part(text, start, end)
+		if !ok {
 			return false
 		}
 		parts++
-		if start < end {
-			start++
-			if start == end {
-				return false
-			}
-		}
+		start = next
 	}
 	return parts == 4
+}
+
+func scanIPv4Part[T byteText](text T, start, end int) (int, bool) {
+	partStart := start
+	value := 0
+	for start < end && text[start] != '.' {
+		if !isDigit(text[start]) || start-partStart == 3 {
+			return 0, false
+		}
+		value = value*10 + int(text[start]-'0')
+		start++
+	}
+	if start == partStart || value > 255 {
+		return 0, false
+	}
+	if start == end {
+		return end, true
+	}
+	if start+1 == end {
+		return 0, false
+	}
+	return start + 1, true
 }
 
 func validUserInfo[T byteText](text T, start, end int) bool {
@@ -358,40 +433,41 @@ func isAlpha(b byte) bool { return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' 
 func isDigit(b byte) bool { return b >= '0' && b <= '9' }
 func isHex(b byte) bool   { return isDigit(b) || b >= 'a' && b <= 'f' || b >= 'A' && b <= 'F' }
 
-//nolint:cyclop // The explicit branch table is the UTF-8 validity state machine.
 func utf8SequenceLen[T byteText](text T, i int) int {
-	b := text[i]
-	switch {
-	case b >= 0xc2 && b <= 0xdf:
-		if i+1 < len(text) && continuation(text[i+1]) {
-			return 2
-		}
-	case b == 0xe0:
-		if i+2 < len(text) && text[i+1] >= 0xa0 && text[i+1] <= 0xbf && continuation(text[i+2]) {
-			return 3
-		}
-	case b >= 0xe1 && b <= 0xec || b >= 0xee && b <= 0xef:
-		if i+2 < len(text) && continuation(text[i+1]) && continuation(text[i+2]) {
-			return 3
-		}
-	case b == 0xed:
-		if i+2 < len(text) && text[i+1] >= 0x80 && text[i+1] <= 0x9f && continuation(text[i+2]) {
-			return 3
-		}
-	case b == 0xf0:
-		if i+3 < len(text) && text[i+1] >= 0x90 && text[i+1] <= 0xbf && continuation(text[i+2]) && continuation(text[i+3]) {
-			return 4
-		}
-	case b >= 0xf1 && b <= 0xf3:
-		if i+3 < len(text) && continuation(text[i+1]) && continuation(text[i+2]) && continuation(text[i+3]) {
-			return 4
-		}
-	case b == 0xf4:
-		if i+3 < len(text) && text[i+1] >= 0x80 && text[i+1] <= 0x8f && continuation(text[i+2]) && continuation(text[i+3]) {
-			return 4
+	width, secondMin, secondMax := utf8SequenceShape(text[i])
+	if width == 0 || i+width > len(text) {
+		return 0
+	}
+	if text[i+1] < secondMin || text[i+1] > secondMax {
+		return 0
+	}
+	for j := i + 2; j < i+width; j++ {
+		if !continuation(text[j]) {
+			return 0
 		}
 	}
-	return 0
+	return width
+}
+
+func utf8SequenceShape(b byte) (width int, secondMin, secondMax byte) {
+	switch {
+	case b >= 0xc2 && b <= 0xdf:
+		return 2, 0x80, 0xbf
+	case b == 0xe0:
+		return 3, 0xa0, 0xbf
+	case b >= 0xe1 && b <= 0xec, b >= 0xee && b <= 0xef:
+		return 3, 0x80, 0xbf
+	case b == 0xed:
+		return 3, 0x80, 0x9f
+	case b == 0xf0:
+		return 4, 0x90, 0xbf
+	case b >= 0xf1 && b <= 0xf3:
+		return 4, 0x80, 0xbf
+	case b == 0xf4:
+		return 4, 0x80, 0x8f
+	default:
+		return 0, 0, 0
+	}
 }
 
 func continuation(b byte) bool { return b >= 0x80 && b <= 0xbf }

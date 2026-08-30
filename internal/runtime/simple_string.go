@@ -18,21 +18,15 @@ func ParseTextValue(kind PrimitiveKind, normalized string, needs PrimitiveValueN
 	switch kind {
 	case PrimitiveString:
 	case PrimitiveAnyURI:
-		characters, err := uriref.Check(normalized)
-		if err != nil {
-			return TextValue{}, err
-		}
-		value := TextValue{Canonical: normalized}
-		if needs.Has(PrimitiveNeedLength) {
-			length, lengthErr := checkedUint32(characters, "anyURI length exceeds uint32 limit")
-			if lengthErr != nil {
-				return TextValue{}, lengthErr
-			}
-			value.Length = length
-		}
-		return value, nil
-	default:
+		return parseAnyURITextValue(normalized, needs)
+	case PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveQName, PrimitiveNotation:
 		return TextValue{}, ErrSimpleValueMetadata
+	default:
+		err := ErrSimpleValueMetadata
+		return TextValue{}, err
 	}
 	value := TextValue{Canonical: normalized}
 	if needs.Has(PrimitiveNeedLength) {
@@ -42,6 +36,23 @@ func ParseTextValue(kind PrimitiveKind, normalized string, needs PrimitiveValueN
 		}
 		value.Length = length
 	}
+	return value, nil
+}
+
+func parseAnyURITextValue(normalized string, needs PrimitiveValueNeed) (TextValue, error) {
+	characters, err := uriref.Check(normalized)
+	if err != nil {
+		return TextValue{}, err
+	}
+	value := TextValue{Canonical: normalized}
+	if !needs.Has(PrimitiveNeedLength) {
+		return value, nil
+	}
+	length, err := checkedUint32(characters, "anyURI length exceeds uint32 limit")
+	if err != nil {
+		return TextValue{}, err
+	}
+	value.Length = length
 	return value, nil
 }
 
@@ -55,8 +66,14 @@ func PrimitiveLength(kind PrimitiveKind, normalized string) (uint32, error) {
 		return anyURILength(normalized)
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
 		return BinaryLength(kind, normalized)
-	default:
+	case PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveQName, PrimitiveNotation:
 		return 0, ErrSimpleValueMetadata
+	default:
+		err := ErrSimpleValueMetadata
+		return 0, err
 	}
 }
 

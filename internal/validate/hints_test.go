@@ -3,6 +3,7 @@ package validate
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/stream"
@@ -213,6 +214,83 @@ func TestSchemaLocationHintsRecordAttributesFiltersHints(t *testing.T) {
 	}
 }
 
+func TestSchemaLocationHintsRecordAttributesIsAtomic(t *testing.T) {
+	t.Parallel()
+
+	hints := SchemaLocationHints{namespaces: map[string]struct{}{"urn:existing": {}}, namespaceBytes: 12}
+	err := hints.RecordAttributes(hintAttrs(
+		hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation, "urn:new new.xsd"),
+		hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrNoNamespaceSchemaLocation, "%zz"),
+	), nil, testSchemaLocationHintLimits, StartContext{Path: "/root", Line: 2, Column: 3})
+	expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
+	if !hints.Has("urn:existing") || hints.Has("urn:new") || hints.Has("") {
+		t.Fatalf("failed RecordAttributes() changed hints: %+v", hints)
+	}
+}
+
+func BenchmarkSchemaLocationHintsRecordDuplicateAttributes(b *testing.B) {
+	for _, namespaceCount := range []int{1, 256} {
+		b.Run(fmt.Sprintf("namespaces=%d", namespaceCount), func(b *testing.B) {
+			namespaces := make(map[string]struct{}, namespaceCount)
+			var namespaceBytes int64
+			for i := range namespaceCount {
+				ns := fmt.Sprintf("urn:%d", i)
+				namespaces[ns] = struct{}{}
+				namespaceBytes += int64(len(ns))
+			}
+			hints := SchemaLocationHints{namespaces: namespaces, namespaceBytes: namespaceBytes}
+			attrs := hintAttrs(hintStreamAttr(vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation, "urn:0 schema.xsd"))
+			limits := schemaLocationHintLimits{Namespaces: 256, NamespaceBytes: 1 << 20}
+			ctx := StartContext{Path: "/root", Line: 1, Column: 1}
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := hints.RecordAttributes(attrs, nil, limits, ctx); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func TestSchemaLocationHintsNoOpAttributesDoNotAllocate(t *testing.T) {
+	namespaces := make(map[string]struct{}, 256)
+	var namespaceBytes int64
+	for i := range 256 {
+		ns := fmt.Sprintf("urn:%d", i)
+		namespaces[ns] = struct{}{}
+		namespaceBytes += int64(len(ns))
+	}
+	limits := schemaLocationHintLimits{Namespaces: 256, NamespaceBytes: 1 << 20}
+	ctx := StartContext{Path: "/root", Line: 1, Column: 1}
+	test := func(t *testing.T, namespace, local, value string) {
+		t.Helper()
+		hints := SchemaLocationHints{namespaces: namespaces, namespaceBytes: namespaceBytes}
+		allocs := testing.AllocsPerRun(100, func() {
+			if err := recordHintAttributeForAllocationTest(&hints, namespace, local, value, limits, ctx); err != nil {
+				panic(err)
+			}
+		})
+		if allocs != 0 {
+			t.Fatalf("RecordAttributes() allocations = %g, want 0", allocs)
+		}
+	}
+	t.Run("no hint", func(t *testing.T) {
+		test(t, "", "id", "ignored")
+	})
+	t.Run("duplicate hint", func(t *testing.T) {
+		test(t, vocab.XSINamespaceURI, vocab.XSIAttrSchemaLocation, "urn:0 schema.xsd")
+	})
+}
+
+func recordHintAttributeForAllocationTest(hints *SchemaLocationHints, namespace, local, value string, limits schemaLocationHintLimits, ctx StartContext) error {
+	return hints.RecordAttributes(
+		hintAttrs(hintStreamAttr(namespace, local, value)),
+		nil,
+		limits,
+		ctx,
+	)
+}
+
 func TestSchemaLocationHintsResetClearsAndDropsOversizedMaps(t *testing.T) {
 	t.Parallel()
 
@@ -253,7 +331,7 @@ func expectXSDMessage(t *testing.T, err error, message string) {
 	if !errors.As(err, &x) {
 		t.Fatalf("error = %v, want *xsderrors.Error", err)
 	}
-	if x.Message != message {
-		t.Fatalf("error message = %q, want %q", x.Message, message)
+	if x.Message() != message {
+		t.Fatalf("error message = %q, want %q", x.Message(), message)
 	}
 }

@@ -34,8 +34,8 @@ func TestNormalizeOptionsRejectsNegativeLimits(t *testing.T) {
 			if !ok {
 				t.Fatalf("error type = %T, want *xsderrors.Error", err)
 			}
-			if xerr.Code != xsderrors.CodeValidationOption {
-				t.Fatalf("code = %s, want %s", xerr.Code, xsderrors.CodeValidationOption)
+			if xerr.Code() != xsderrors.CodeValidationOption {
+				t.Fatalf("code = %s, want %s", xerr.Code(), xsderrors.CodeValidationOption)
 			}
 		})
 	}

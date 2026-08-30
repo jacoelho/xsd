@@ -47,48 +47,73 @@ func (e *IdentityConstraintSyntaxError) Error() string {
 // ValidateIdentityConstraintChildren validates xs:unique/xs:key/xs:keyref
 // child syntax and returns indexes for the selector and field children.
 func ValidateIdentityConstraintChildren(children []IdentityConstraintChild) (IdentityConstraintSyntax, error) {
-	syntax := IdentityConstraintSyntax{Selector: -1}
-	seenAnnotation := false
+	state := identityConstraintSyntaxState{syntax: IdentityConstraintSyntax{Selector: -1}}
 	for i, child := range children {
-		switch child.Local {
-		case annotationChild:
-			if seenAnnotation {
-				return syntax, identitySyntaxError(i, -1, xsderrors.CodeSchemaContentModel, "identity constraint can contain at most one annotation")
-			}
-			if syntax.Selector >= 0 || len(syntax.Fields) != 0 {
-				return syntax, identitySyntaxError(i, -1, xsderrors.CodeSchemaContentModel, "identity constraint annotation must be first")
-			}
-			seenAnnotation = true
-		case selectorChild:
-			if syntax.Selector >= 0 {
-				return syntax, identitySyntaxError(i, -1, xsderrors.CodeSchemaContentModel, "identity constraint can contain at most one selector")
-			}
-			if len(syntax.Fields) != 0 {
-				return syntax, identitySyntaxError(i, -1, xsderrors.CodeSchemaContentModel, "identity constraint selector must precede fields")
-			}
-			if err := validateIdentityXPathChild(i, child, selectorChild); err != nil {
-				return syntax, err
-			}
-			syntax.Selector = i
-		case fieldChild:
-			if syntax.Selector < 0 {
-				return syntax, identitySyntaxError(i, -1, xsderrors.CodeSchemaContentModel, "identity constraint field requires selector")
-			}
-			if err := validateIdentityXPathChild(i, child, fieldChild); err != nil {
-				return syntax, err
-			}
-			syntax.Fields = append(syntax.Fields, i)
-		default:
-			return syntax, identitySyntaxError(i, -1, xsderrors.CodeSchemaContentModel, "invalid identity constraint child "+child.Local)
+		if err := state.add(i, child); err != nil {
+			return state.syntax, err
 		}
 	}
-	if syntax.Selector < 0 {
-		return syntax, identitySyntaxError(-1, -1, xsderrors.CodeSchemaIdentity, "identity constraint missing selector")
+	if state.syntax.Selector < 0 {
+		return state.syntax, identitySyntaxError(-1, -1, xsderrors.CodeSchemaIdentity, "identity constraint missing selector")
 	}
-	if len(syntax.Fields) == 0 {
-		return syntax, identitySyntaxError(-1, -1, xsderrors.CodeSchemaIdentity, "identity constraint missing fields")
+	if len(state.syntax.Fields) == 0 {
+		return state.syntax, identitySyntaxError(-1, -1, xsderrors.CodeSchemaIdentity, "identity constraint missing fields")
 	}
-	return syntax, nil
+	return state.syntax, nil
+}
+
+type identityConstraintSyntaxState struct {
+	syntax         IdentityConstraintSyntax
+	seenAnnotation bool
+}
+
+func (s *identityConstraintSyntaxState) add(index int, child IdentityConstraintChild) error {
+	switch child.Local {
+	case annotationChild:
+		return s.addAnnotation(index)
+	case selectorChild:
+		return s.addSelector(index, child)
+	case fieldChild:
+		return s.addField(index, child)
+	default:
+		return identitySyntaxError(index, -1, xsderrors.CodeSchemaContentModel, "invalid identity constraint child "+child.Local)
+	}
+}
+
+func (s *identityConstraintSyntaxState) addAnnotation(index int) error {
+	if s.seenAnnotation {
+		return identitySyntaxError(index, -1, xsderrors.CodeSchemaContentModel, "identity constraint can contain at most one annotation")
+	}
+	if s.syntax.Selector >= 0 || len(s.syntax.Fields) != 0 {
+		return identitySyntaxError(index, -1, xsderrors.CodeSchemaContentModel, "identity constraint annotation must be first")
+	}
+	s.seenAnnotation = true
+	return nil
+}
+
+func (s *identityConstraintSyntaxState) addSelector(index int, child IdentityConstraintChild) error {
+	if s.syntax.Selector >= 0 {
+		return identitySyntaxError(index, -1, xsderrors.CodeSchemaContentModel, "identity constraint can contain at most one selector")
+	}
+	if len(s.syntax.Fields) != 0 {
+		return identitySyntaxError(index, -1, xsderrors.CodeSchemaContentModel, "identity constraint selector must precede fields")
+	}
+	if err := validateIdentityXPathChild(index, child, selectorChild); err != nil {
+		return err
+	}
+	s.syntax.Selector = index
+	return nil
+}
+
+func (s *identityConstraintSyntaxState) addField(index int, child IdentityConstraintChild) error {
+	if s.syntax.Selector < 0 {
+		return identitySyntaxError(index, -1, xsderrors.CodeSchemaContentModel, "identity constraint field requires selector")
+	}
+	if err := validateIdentityXPathChild(index, child, fieldChild); err != nil {
+		return err
+	}
+	s.syntax.Fields = append(s.syntax.Fields, index)
+	return nil
 }
 
 func validateIdentityXPathChild(index int, child IdentityConstraintChild, label string) error {

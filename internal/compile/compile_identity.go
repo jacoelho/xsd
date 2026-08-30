@@ -18,10 +18,7 @@ func identityConstraintNodes(n *rawNode) []*rawNode {
 }
 
 func (c *compiler) declareAllIdentityConstraints() error {
-	for _, document := range c.schemas.documents {
-		if err := compileContextError(c.ctx); err != nil {
-			return err
-		}
+	for _, document := range c.plan.documents {
 		if !document.indexDeclarations {
 			continue
 		}
@@ -35,9 +32,6 @@ func (c *compiler) declareAllIdentityConstraints() error {
 }
 
 func (c *compiler) declareIdentityConstraintsInTree(n *rawNode, ctx *schemaContext) error {
-	if err := compileContextError(c.ctx); err != nil {
-		return err
-	}
 	if n.Name.Space == vocab.XSDNamespaceURI && n.Name.Local == vocab.XSDElemElement {
 		if _, err := c.declareIdentityConstraints(identityConstraintNodes(n), ctx); err != nil {
 			return err
@@ -61,25 +55,33 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 			ids = append(ids, id)
 			continue
 		}
-		name, hasName := node.attr(vocab.XSDAttrName)
-		if err := ValidateIdentityConstraintNameSource(hasName && name != ""); err != nil {
-			return nil, withSchemaCompileLocation(node, err)
-		}
-		q, err := c.rt.internQName(ctx.targetNS, name)
+		id, err := c.declareIdentityConstraint(node, ctx)
 		if err != nil {
 			return nil, err
 		}
-		if duplicateErr := c.checkIdentityConstraintNameAvailable(q); duplicateErr != nil {
-			return nil, withSchemaCompileLocation(node, duplicateErr)
-		}
-		id, err := c.registerGlobalIdentity(q, runtime.NewDeclaredIdentityConstraint(q))
-		if err != nil {
-			return nil, err
-		}
-		c.identityDeclared[node] = id
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+func (c *compiler) declareIdentityConstraint(node *rawNode, ctx *schemaContext) (runtime.IdentityConstraintID, error) {
+	name := rawLexicalAttribute(node, vocab.XSDAttrName)
+	if err := ValidateIdentityConstraintNameSource(name); err != nil {
+		return runtime.NoIdentityConstraint, withSchemaCompileLocation(node, err)
+	}
+	q, err := c.rt.internQName(ctx.targetNS, name.Value)
+	if err != nil {
+		return runtime.NoIdentityConstraint, err
+	}
+	if duplicateErr := c.checkIdentityConstraintNameAvailable(q); duplicateErr != nil {
+		return runtime.NoIdentityConstraint, withSchemaCompileLocation(node, duplicateErr)
+	}
+	id, err := c.registerGlobalIdentity(q, runtime.NewDeclaredIdentityConstraint(q))
+	if err != nil {
+		return runtime.NoIdentityConstraint, err
+	}
+	c.identityDeclared[node] = id
+	return id, nil
 }
 
 func (c *compiler) compileDeclaredIdentityConstraints(nodes []*rawNode, ids []runtime.IdentityConstraintID, ctx *schemaContext) error {
@@ -104,21 +106,9 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext, nam
 	if err != nil {
 		return empty, err
 	}
-	refer := runtime.NoIdentityConstraint
-	if n.Name.Local == vocab.XSDElemKeyref {
-		referLexical, hasRefer := n.attr(vocab.XSDAttrRefer)
-		if sourceErr := ValidateIdentityConstraintReferSource(n.Name.Local, hasRefer); sourceErr != nil {
-			return empty, withSchemaCompileLocation(n, sourceErr)
-		}
-		q, resolveErr := c.resolveQNameChecked(n, ctx, referLexical)
-		if resolveErr != nil {
-			return empty, resolveErr
-		}
-		ref, referErr := c.resolveIdentityConstraintRefer(q)
-		if referErr != nil {
-			return empty, withSchemaCompileLocation(n, referErr)
-		}
-		refer = ref
+	refer, err := c.compileIdentityRefer(n, ctx)
+	if err != nil {
+		return empty, err
 	}
 	selector := syntax.selector
 	xpath, _ := selector.attr(vocab.XSDAttrXPath)
@@ -126,20 +116,47 @@ func (c *compiler) compileIdentityConstraint(n *rawNode, ctx *schemaContext, nam
 	if err != nil {
 		return empty, err
 	}
-	fields := make([]runtime.IdentityField, 0, len(syntax.fields))
-	for _, field := range syntax.fields {
-		xpath, _ := field.attr(vocab.XSDAttrXPath)
-		fieldPaths, fieldErr := c.identityFieldPaths(field, xpath)
-		if fieldErr != nil {
-			return empty, fieldErr
-		}
-		fields = append(fields, runtime.IdentityField{Paths: fieldPaths})
+	fields, err := c.compileIdentityFields(syntax.fields)
+	if err != nil {
+		return empty, err
 	}
 	kind, kindErr := IdentityConstraintKindForLocal(n.Name.Local)
 	if kindErr != nil {
 		return empty, withSchemaCompileLocation(n, kindErr)
 	}
 	return runtime.NewIdentityConstraint(kind, name, refer, paths, fields), nil
+}
+
+func (c *compiler) compileIdentityRefer(n *rawNode, ctx *schemaContext) (runtime.IdentityConstraintID, error) {
+	if n.Name.Local != vocab.XSDElemKeyref {
+		return runtime.NoIdentityConstraint, nil
+	}
+	source := IdentityConstraintReferSource{Local: n.Name.Local, Refer: rawLexicalAttribute(n, vocab.XSDAttrRefer)}
+	if err := ValidateIdentityConstraintReferSource(source); err != nil {
+		return runtime.NoIdentityConstraint, withSchemaCompileLocation(n, err)
+	}
+	q, err := c.resolveQNameChecked(n, ctx, source.Refer.Value)
+	if err != nil {
+		return runtime.NoIdentityConstraint, err
+	}
+	refer, err := c.resolveIdentityConstraintRefer(q)
+	if err != nil {
+		return runtime.NoIdentityConstraint, withSchemaCompileLocation(n, err)
+	}
+	return refer, nil
+}
+
+func (c *compiler) compileIdentityFields(nodes []*rawNode) ([]runtime.IdentityField, error) {
+	fields := make([]runtime.IdentityField, 0, len(nodes))
+	for _, field := range nodes {
+		xpath, _ := field.attr(vocab.XSDAttrXPath)
+		paths, err := c.identityFieldPaths(field, xpath)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, runtime.IdentityField{Paths: paths})
+	}
+	return fields, nil
 }
 
 type identityConstraintSyntax struct {
@@ -168,20 +185,20 @@ type identityXPathResolver struct {
 	node     *rawNode
 }
 
-func (r identityXPathResolver) ResolveIdentityQName(prefix, local string, prefixed bool) (runtime.QName, error) {
+func (r identityXPathResolver) ResolveIdentityQName(parts QNameParts) (runtime.QName, error) {
 	ns := ""
-	if prefixed {
+	if parts.Prefixed {
 		var ok bool
-		ns, ok = r.node.NS[prefix]
+		ns, ok = r.node.NS.Lookup(parts.Prefix)
 		if !ok {
-			return runtime.QName{}, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+			return runtime.QName{}, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+parts.Prefix)
 		}
 	}
-	return r.compiler.rt.internQName(ns, local)
+	return r.compiler.rt.internQName(ns, parts.Local)
 }
 
 func (r identityXPathResolver) ResolveIdentityWildcardNamespace(prefix string) (runtime.NamespaceID, error) {
-	ns, ok := r.node.NS[prefix]
+	ns, ok := r.node.NS.Lookup(prefix)
 	if !ok {
 		return 0, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
 	}

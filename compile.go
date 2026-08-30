@@ -1,8 +1,6 @@
 package xsd
 
 import (
-	"context"
-
 	"github.com/jacoelho/xsd/internal/compile"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -29,6 +27,9 @@ type CompileOptions struct {
 	MaxSchemaTotalBytes int64
 	// MaxSchemaReferences caps include/import references processed during compilation. Zero uses the default.
 	MaxSchemaReferences int
+	// MaxSchemaDependencySteps caps aggregate schema-graph expansion, target-context
+	// propagation, and component-dependency resolution work. Zero uses the default.
+	MaxSchemaDependencySteps int
 	// MaxSchemaTargetContexts caps distinct source/effective-target-namespace contexts,
 	// including primary and chameleon-derived contexts. Zero uses the default.
 	MaxSchemaTargetContexts int
@@ -40,21 +41,22 @@ type CompileOptions struct {
 	MaxFiniteOccurs uint64
 	// MaxContentModelStates caps compiled content-model DFA states. Zero uses the default.
 	MaxContentModelStates int
+	// MaxContentModelAnalysisSteps caps content-model traversal, determinization, and ambiguity-analysis work. Zero uses the default.
+	MaxContentModelAnalysisSteps int
 	// MaxSubstitutionClosureEntries caps aggregate transitive substitution-group relationships. Zero uses the default.
 	MaxSubstitutionClosureEntries int
 	// MaxSimpleUnionMemberEntries caps aggregate flattened simple-union members. Zero uses the default.
 	MaxSimpleUnionMemberEntries int
 }
 
-// Compile compiles schema sources into an immutable validation engine. ctx must
-// be non-nil; cancellation is cooperative at callback, read, and batch boundaries.
-func Compile(ctx context.Context, sources ...SchemaSource) (*Engine, error) {
-	return CompileWithOptions(ctx, CompileOptions{}, sources...)
+// Compile compiles schema sources into an immutable validation engine.
+func Compile(sources ...SchemaSource) (*Engine, error) {
+	return CompileWithOptions(CompileOptions{}, sources...)
 }
 
 // CompileWithOptions compiles schema sources with explicit resource limits.
-func CompileWithOptions(ctx context.Context, opts CompileOptions, sources ...SchemaSource) (*Engine, error) {
-	rt, err := compile.CompileMappedSources(ctx, internalCompileOptions(opts), sources, internalSchemaSource)
+func CompileWithOptions(opts CompileOptions, sources ...SchemaSource) (*Engine, error) {
+	rt, err := compile.CompileMappedSources(internalCompileOptions(opts), sources, internalSchemaSource)
 	if err != nil {
 		return nil, err
 	}
@@ -70,11 +72,13 @@ func internalCompileOptions(opts CompileOptions) compile.Options {
 		MaxSchemaSources:              opts.MaxSchemaSources,
 		MaxSchemaTotalBytes:           opts.MaxSchemaTotalBytes,
 		MaxSchemaReferences:           opts.MaxSchemaReferences,
+		MaxSchemaDependencySteps:      opts.MaxSchemaDependencySteps,
 		MaxSchemaTargetContexts:       opts.MaxSchemaTargetContexts,
 		MaxSchemaInstantiatedNodes:    opts.MaxSchemaInstantiatedNodes,
 		MaxSchemaNames:                opts.MaxSchemaNames,
 		MaxFiniteOccurs:               opts.MaxFiniteOccurs,
 		MaxContentModelStates:         opts.MaxContentModelStates,
+		MaxContentModelAnalysisSteps:  opts.MaxContentModelAnalysisSteps,
 		MaxSubstitutionClosureEntries: opts.MaxSubstitutionClosureEntries,
 		MaxSimpleUnionMemberEntries:   opts.MaxSimpleUnionMemberEntries,
 	}

@@ -10,3 +10,6 @@ bin/*
 !bin/.gitkeep
 docs/xsd.wasm
 docs/wasm_exec.js
+node_modules/
+playwright-report/
+test-results/

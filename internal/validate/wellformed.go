@@ -1,17 +1,14 @@
 package validate
 
 import (
-	"context"
 	"io"
 
+	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/stream"
 )
 
 // CheckXMLWellFormed checks XML instance syntax without compiling or using a schema runtime.
-func CheckXMLWellFormed(ctx context.Context, r io.Reader, opts Options) error {
-	if err := validationContextError(ctx); err != nil {
-		return err
-	}
+func CheckXMLWellFormed(r io.Reader, opts Options) error {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
 		return err
@@ -22,7 +19,7 @@ func CheckXMLWellFormed(ctx context.Context, r io.Reader, opts Options) error {
 		maxTokenBytes: limits.InstanceTokenBytes,
 		maxInputBytes: limits.InstanceBytes,
 	}
-	return c.check(ctx, r)
+	return c.check(r)
 }
 
 type xmlWellFormedChecker struct {
@@ -33,63 +30,62 @@ type xmlWellFormedChecker struct {
 	maxInputBytes int64
 }
 
-func (c *xmlWellFormedChecker) check(ctx context.Context, r io.Reader) error {
-	done := ctx.Done()
+func (c *xmlWellFormedChecker) check(r io.Reader) error {
 	names := stream.NewCache()
 	values := stream.NewCache()
 	var parser stream.Parser
-	if err := parser.ResetWithLimits(r, &names, &values, stream.Limits{
-		Context:       ctx,
-		MaxInputBytes: c.maxInputBytes,
-		MaxTokenBytes: c.maxTokenBytes,
-		MaxAttrs:      c.maxAttributes,
+	if err := parser.ResetWithConfig(r, &names, &values, stream.Config{
+		Limits: stream.Limits{
+			MaxInputBytes: c.maxInputBytes,
+			MaxTokenBytes: c.maxTokenBytes,
+			MaxAttrs:      c.maxAttributes,
+		},
+		LazyAttrValues: true,
 	}); err != nil {
-		if done != nil {
-			if contextErr := validationContextDoneError(ctx, done, err); contextErr != nil {
-				return contextErr
-			}
-		}
 		return instanceReaderError(err)
 	}
 	defer parser.Detach()
-	parser.SetLazyAttrValue(true)
+	return c.checkTokens(&parser, &values)
+}
+
+func (c *xmlWellFormedChecker) checkTokens(parser *stream.Parser, values *stream.Cache) error {
 	for {
 		tok, err := parser.Next()
-		if done != nil {
-			if contextErr := validationContextDoneError(ctx, done, err); contextErr != nil {
-				return contextErr
-			}
-		}
 		if err != nil {
-			if stream.IsOnlyEOF(err) {
-				break
-			}
-			return c.streamError(&parser, tok, err)
+			return c.finishTokenStream(parser, err)
 		}
-		switch tok.Kind {
-		case stream.KindStart:
-			if err := c.start(tok.Line, tok.Column, tok.Start, &values); err != nil {
-				return err
-			}
-		case stream.KindEnd:
-			if err := c.end(tok.Line, tok.Column, tok.End); err != nil {
-				return err
-			}
-		case stream.KindCharData:
-			if err := c.chars(tok.Line, tok.Column, tok.Data, tok.CDATA); err != nil {
-				return err
-			}
-		case stream.KindDirective:
-			return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
-		case stream.KindComment, stream.KindPI:
-		}
-	}
-	if done != nil {
-		if err := validationContextDoneError(ctx, done, nil); err != nil {
+		if err := c.checkToken(tok, values); err != nil {
 			return err
 		}
 	}
-	return c.doc.Complete()
+}
+
+func (c *xmlWellFormedChecker) finishTokenStream(parser *stream.Parser, err error) error {
+	if stream.IsOnlyEOF(err) {
+		return c.doc.Complete()
+	}
+	return c.streamError(parser, err)
+}
+
+func (c *xmlWellFormedChecker) checkToken(tok stream.Token, values *stream.Cache) error {
+	switch tok.Kind {
+	case stream.KindStart:
+		return c.start(tok.Line, tok.Column, tok.Start, values)
+	case stream.KindEnd:
+		return c.end(tok.Line, tok.Column, tok.End)
+	case stream.KindCharData:
+		kind := CharacterDataText
+		if tok.CDATA {
+			kind = CharacterDataCDATA
+		}
+		return c.chars(tok.Line, tok.Column, tok.Data, kind)
+	case stream.KindDirective:
+		return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
+	case stream.KindComment, stream.KindPI:
+		return nil
+	default:
+	}
+	return nil
 }
 
 func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, values *stream.Cache) error {
@@ -97,7 +93,7 @@ func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, valu
 	if err != nil {
 		return err
 	}
-	c.doc.CommitStart(translated, false, struct{}{})
+	c.doc.CommitStart(translated, struct{}{})
 	return nil
 }
 
@@ -108,17 +104,17 @@ func (c *xmlWellFormedChecker) end(line, col int, ee stream.EndElement) error {
 	return c.doc.CommitEnd()
 }
 
-func (c *xmlWellFormedChecker) chars(line, col int, data []byte, cdata bool) error {
+func (c *xmlWellFormedChecker) chars(line, col int, data []byte, kind CharacterDataKind) error {
 	if c.doc.Depth() != 0 {
 		return nil
 	}
-	return ValidateDocumentCharacterData(data, cdata, c.doc.context(line, col))
+	return ValidateDocumentCharacterData(DocumentCharacterData{
+		Kind:       kind,
+		Whitespace: lex.IsXMLWhitespaceBytes(data),
+	}, c.doc.context(line, col))
 }
 
-func (c *xmlWellFormedChecker) streamError(parser *stream.Parser, tok stream.Token, err error) error {
-	line, col := tok.Line, tok.Column
-	if line == 0 {
-		line, col = parser.Pos()
-	}
+func (c *xmlWellFormedChecker) streamError(parser *stream.Parser, err error) error {
+	line, col := parser.Pos()
 	return StreamError(line, col, c.doc.PathString(), err)
 }

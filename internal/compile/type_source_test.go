@@ -26,7 +26,10 @@ func TestValidateAttributeTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeTypeSource(tt.hasAttr, tt.hasChild)
+			err := ValidateAttributeTypeSource(AttributeTypeSource{
+				Type:               LexicalAttribute{Present: tt.hasAttr},
+				HasSimpleTypeChild: tt.hasChild,
+			})
 			if tt.wantMessage != "" {
 				expectInvalidAttributeMessage(t, err, tt.wantMessage)
 				return
@@ -57,7 +60,10 @@ func TestValidateSimpleRestrictionTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleRestrictionTypeSource(tt.hasAttr, tt.hasChild)
+			err := ValidateSimpleRestrictionTypeSource(SimpleRestrictionTypeSource{
+				Base:               LexicalAttribute{Present: tt.hasAttr},
+				HasSimpleTypeChild: tt.hasChild,
+			})
 			if tt.wantMessage != "" {
 				expectXSDMessage(t, err, tt.wantCode, tt.wantMessage)
 				return
@@ -88,7 +94,10 @@ func TestValidateSimpleListItemTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleListItemTypeSource(tt.hasAttr, tt.hasChild)
+			err := ValidateSimpleListItemTypeSource(SimpleListItemTypeSource{
+				ItemType:           LexicalAttribute{Present: tt.hasAttr},
+				HasSimpleTypeChild: tt.hasChild,
+			})
 			if tt.wantMessage != "" {
 				expectXSDMessage(t, err, tt.wantCode, tt.wantMessage)
 				return
@@ -136,14 +145,17 @@ func TestParseUnionMemberTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseUnionMemberTypes(tt.memberTypes, tt.hasMemberTypes, tt.hasSimpleTypeChild)
+			got, err := ParseUnionMemberTypes(UnionMemberTypeSource{
+				MemberTypes:        LexicalAttribute{Value: tt.memberTypes, Present: tt.hasMemberTypes},
+				HasSimpleTypeChild: tt.hasSimpleTypeChild,
+			})
 			if tt.wantMessage != "" {
 				diag, ok := errors.AsType[*xsderrors.Error](err)
 				if !ok {
 					t.Fatalf("ParseUnionMemberTypes() error = %T %[1]v, want xsderrors.Error", err)
 				}
-				if diag.Code != xsderrors.CodeSchemaReference || diag.Message != tt.wantMessage {
-					t.Fatalf("diagnostic = (%s, %q), want (%s, %q)", diag.Code, diag.Message, xsderrors.CodeSchemaReference, tt.wantMessage)
+				if diag.Code() != xsderrors.CodeSchemaReference || diag.Message() != tt.wantMessage {
+					t.Fatalf("diagnostic = (%s, %q), want (%s, %q)", diag.Code(), diag.Message(), xsderrors.CodeSchemaReference, tt.wantMessage)
 				}
 				return
 			}
@@ -163,8 +175,8 @@ func expectXSDMessage(t *testing.T, err error, code xsderrors.Code, message stri
 	if !ok {
 		t.Fatalf("error = %T %[1]v, want xsderrors.Error", err)
 	}
-	if diag.Category != xsderrors.CategorySchemaCompile || diag.Code != code || diag.Message != message {
+	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != code || diag.Message() != message {
 		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)",
-			diag.Category, diag.Code, diag.Message, xsderrors.CategorySchemaCompile, code, message)
+			diag.Category(), diag.Code(), diag.Message(), xsderrors.CategorySchemaCompile, code, message)
 	}
 }

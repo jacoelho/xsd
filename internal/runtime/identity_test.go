@@ -328,31 +328,35 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 		t.Fatalf("ValidateIdentityConstraintReadProjection(changed) error = %v, want mismatch invariant", err)
 	}
 
-	selectors, ok := IdentitySelectorPathReads(reads, 0)
-	if !ok || selectors.Len() != len(want[0].Selector) {
-		t.Fatalf("IdentitySelectorPathReads() count = %d, %v; want %d, true", selectors.Len(), ok, len(want[0].Selector))
+	read, ok := IdentityConstraintReadByID(reads, 0)
+	if !ok {
+		t.Fatal("IdentityConstraintReadByID() rejected valid constraint")
 	}
-	if reads[0].FieldCount() != len(want[0].Fields) {
-		t.Fatalf("FieldCount() = %d, want %d", reads[0].FieldCount(), len(want[0].Fields))
+	selectors := read.SelectorPaths()
+	if selectors.Len() != len(want[0].Selector) {
+		t.Fatalf("SelectorPaths() count = %d; want %d", selectors.Len(), len(want[0].Selector))
 	}
-	if reads[0].Kind() != want[0].Kind || reads[0].Refer() != want[0].Refer {
+	if read.FieldCount() != len(want[0].Fields) {
+		t.Fatalf("FieldCount() = %d, want %d", read.FieldCount(), len(want[0].Fields))
+	}
+	if read.Kind() != want[0].Kind || read.Refer() != want[0].Refer {
 		t.Fatalf("identity info = kind %v refer %v, want %v %v",
-			reads[0].Kind(), reads[0].Refer(), want[0].Kind, want[0].Refer)
+			read.Kind(), read.Refer(), want[0].Kind, want[0].Refer)
 	}
 
-	elementFields, ok := IdentityElementFieldReads(reads, 0)
-	if !ok || elementFields.Len() != len(want[0].ElementFields) {
-		t.Fatalf("IdentityElementFieldReads() count = %d, %v; want %d, true", elementFields.Len(), ok, len(want[0].ElementFields))
+	elementFields := read.ElementFields()
+	if elementFields.Len() != len(want[0].ElementFields) {
+		t.Fatalf("ElementFields() count = %d; want %d", elementFields.Len(), len(want[0].ElementFields))
 	}
 
-	attributeFields, ok := IdentityAttributeFieldReads(reads, 0, names["id"])
-	if !ok || attributeFields.Len() != len(want[0].AttributeFields[names["id"]]) {
-		t.Fatalf("IdentityAttributeFieldReads() count = %d, %v; want %d, true", attributeFields.Len(), ok, len(want[0].AttributeFields[names["id"]]))
+	attributeFields := read.AttributeFields(names["id"])
+	if attributeFields.Len() != len(want[0].AttributeFields[names["id"]]) {
+		t.Fatalf("AttributeFields() count = %d; want %d", attributeFields.Len(), len(want[0].AttributeFields[names["id"]]))
 	}
 
-	wildcardFields, ok := IdentityAttributeWildcardFieldReads(reads, 0)
-	if !ok || wildcardFields.Len() != len(want[0].AttributeWildcardFields) {
-		t.Fatalf("IdentityAttributeWildcardFieldReads() count = %d, %v; want %d, true", wildcardFields.Len(), ok, len(want[0].AttributeWildcardFields))
+	wildcardFields := read.AttributeWildcardFields()
+	if wildcardFields.Len() != len(want[0].AttributeWildcardFields) {
+		t.Fatalf("AttributeWildcardFields() count = %d; want %d", wildcardFields.Len(), len(want[0].AttributeWildcardFields))
 	}
 }
 
@@ -379,6 +383,13 @@ func TestIdentityReadAccessors(t *testing.T) {
 	refreshIdentityLookup(&identities[0])
 	reads := newIdentityConstraintReads(identities)
 	invalid := IdentityConstraintID(99)
+	read, readOK := IdentityConstraintReadByID(reads, 0)
+	if !readOK {
+		t.Fatal("IdentityConstraintReadByID() rejected valid constraint")
+	}
+	if _, ok := IdentityConstraintReadByID(reads, invalid); ok {
+		t.Fatal("IdentityConstraintReadByID() accepted invalid constraint")
+	}
 
 	constraints, constraintsOK := ElementIdentityConstraintIDs([][]IdentityConstraintID{{0, 1}}, 0)
 	first, firstOK := constraints.At(0)
@@ -389,40 +400,29 @@ func TestIdentityReadAccessors(t *testing.T) {
 		t.Fatal("ElementIdentityConstraintIDs() accepted invalid element")
 	}
 
-	selectorPaths, selectorOK := IdentitySelectorPathReads(reads, 0)
-	if !selectorOK || selectorPaths.Len() != len(identities[0].Selector) {
-		t.Fatalf("IdentitySelectorPathReads() count = %d, %v; want %d, true", selectorPaths.Len(), selectorOK, len(identities[0].Selector))
-	}
-	if _, ok := IdentitySelectorPathReads(reads, invalid); ok {
-		t.Fatal("IdentitySelectorPathReads accepted invalid constraint")
+	selectorPaths := read.SelectorPaths()
+	if selectorPaths.Len() != len(identities[0].Selector) {
+		t.Fatalf("IdentityConstraintRead.SelectorPaths() count = %d, want %d", selectorPaths.Len(), len(identities[0].Selector))
 	}
 
-	if count, ok := IdentityFieldCount(reads, 0); !ok || count != 1 {
-		t.Fatalf("IdentityFieldCount() = %d, %v; want 1, true", count, ok)
-	}
-	if count, ok := IdentityFieldCount(reads, invalid); ok || count != 0 {
-		t.Fatalf("IdentityFieldCount(invalid) = %d, %v; want 0, false", count, ok)
+	if count := read.FieldCount(); count != 1 {
+		t.Fatalf("IdentityConstraintRead.FieldCount() = %d, want 1", count)
 	}
 
-	elementFields, elementOK := IdentityElementFieldReads(reads, 0)
-	if !elementOK || elementFields.Len() != len(identities[0].ElementFields) {
-		t.Fatalf("IdentityElementFieldReads() count = %d, %v; want %d, true", elementFields.Len(), elementOK, len(identities[0].ElementFields))
+	elementFields := read.ElementFields()
+	if elementFields.Len() != len(identities[0].ElementFields) {
+		t.Fatalf("IdentityConstraintRead.ElementFields() count = %d, want %d", elementFields.Len(), len(identities[0].ElementFields))
 	}
-	attributeFields, attributeOK := IdentityAttributeFieldReads(reads, 0, names["id"])
-	if !attributeOK || attributeFields.Len() != len(identities[0].AttributeFields[names["id"]]) {
-		t.Fatalf("IdentityAttributeFieldReads() count = %d, %v; want %d, true", attributeFields.Len(), attributeOK, len(identities[0].AttributeFields[names["id"]]))
+	attributeFields := read.AttributeFields(names["id"])
+	if attributeFields.Len() != len(identities[0].AttributeFields[names["id"]]) {
+		t.Fatalf("IdentityConstraintRead.AttributeFields() count = %d, want %d", attributeFields.Len(), len(identities[0].AttributeFields[names["id"]]))
 	}
-	wildcardFields, wildcardOK := IdentityAttributeWildcardFieldReads(reads, 0)
-	if !wildcardOK || wildcardFields.Len() != len(identities[0].AttributeWildcardFields) {
-		t.Fatalf("IdentityAttributeWildcardFieldReads() count = %d, %v; want %d, true", wildcardFields.Len(), wildcardOK, len(identities[0].AttributeWildcardFields))
+	wildcardFields := read.AttributeWildcardFields()
+	if wildcardFields.Len() != len(identities[0].AttributeWildcardFields) {
+		t.Fatalf("IdentityConstraintRead.AttributeWildcardFields() count = %d, want %d", wildcardFields.Len(), len(identities[0].AttributeWildcardFields))
 	}
-
-	info, ok := IdentityConstraintInfoByID(reads, 0)
-	if !ok || info.Kind != IdentityKey || info.Refer != NoIdentityConstraint {
-		t.Fatalf("IdentityConstraintInfoByID() = %+v, %v; want key info, true", info, ok)
-	}
-	if info, ok := IdentityConstraintInfoByID(reads, invalid); ok || info != (IdentityConstraintInfo{}) {
-		t.Fatalf("IdentityConstraintInfoByID(invalid) = %+v, %v; want zero, false", info, ok)
+	if read.Kind() != IdentityKey || read.Refer() != NoIdentityConstraint {
+		t.Fatalf("IdentityConstraintRead identity info = %v, %v; want key, no reference", read.Kind(), read.Refer())
 	}
 }
 
