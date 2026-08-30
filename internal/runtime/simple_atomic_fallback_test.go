@@ -8,7 +8,7 @@ import (
 
 type notationReaderStub func(ns, local string) (declared, known bool)
 
-func (r notationReaderStub) simpleValueNotation(ns, local string) (bool, bool) {
+func (r notationReaderStub) simpleValueNotation(ns, local string) (declared, valid bool) {
 	if r == nil {
 		return false, false
 	}
@@ -276,5 +276,22 @@ func TestAtomicSimpleValueFallbackRejectsMissingMetadata(t *testing.T) {
 	_, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(nil), AtomicSimpleValueInput{})
 	if !errors.Is(err, ErrSimpleValueMetadata) {
 		t.Fatalf("validateAtomicSimpleValueFallbackWithReader() error = %v, want metadata sentinel", err)
+	}
+}
+
+func TestAtomicSimpleValueFallbackBuildsIdentityOnDemand(t *testing.T) {
+	t.Parallel()
+
+	result, err := validateAtomicSimpleValueFallbackWithReader(notationReaderStub(nil), AtomicSimpleValueInput{
+		Type:       SimpleValueType{Primitive: PrimitiveDecimal},
+		Normalized: "5.0",
+		Needs:      PrimitiveNeedIdentity,
+		Present:    true,
+	})
+	if err != nil {
+		t.Fatalf("validateAtomicSimpleValueFallbackWithReader() error = %v", err)
+	}
+	if result.IdentityCanonical != "5.0" {
+		t.Fatalf("identity canonical = %q, want %q", result.IdentityCanonical, "5.0")
 	}
 }

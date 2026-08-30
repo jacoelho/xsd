@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -10,10 +9,10 @@ import (
 )
 
 const (
-	fastIntErrInvalidDecimal = "invalid decimal"
-	fastIntErrInvalidInteger = "invalid integer"
-	fastIntErrMinInclusive   = "minInclusive facet failed"
-	fastIntErrMaxInclusive   = "maxInclusive facet failed"
+	rawDecimalErrInvalidDecimal = "invalid decimal"
+	rawDecimalErrInvalidInteger = "invalid integer"
+	rawDecimalErrMinInclusive   = "minInclusive facet failed"
+	rawDecimalErrMaxInclusive   = "maxInclusive facet failed"
 )
 
 type byteText interface {
@@ -32,29 +31,29 @@ type BuiltinDerivedInput struct {
 func ValidateFastIntLexical[T byteText](s T) error {
 	scan, err := scanDecimalText(s)
 	if err != nil {
-		return errors.New(fastIntErrInvalidDecimal)
+		return errors.New(rawDecimalErrInvalidDecimal)
 	}
 	if scan.dot {
-		return errors.New(fastIntErrInvalidInteger)
+		return errors.New(rawDecimalErrInvalidInteger)
 	}
-	return validateFastIntBounds(s, scan.start, scan.negative)
+	return validateFastIntBounds(s, scan)
 }
 
-func validateFastIntBounds[T byteText](s T, start int, negative bool) error {
-	digitStart := skipLeadingZeros(s, start, len(s))
+func validateFastIntBounds[T byteText](s T, scan decimalTextScan) error {
+	digitStart := skipLeadingZeros(s, scan.start, len(s))
 	if digitStart == len(s) {
 		return nil
 	}
 	limit := "2147483647"
-	if negative {
+	if scan.negative {
 		limit = "2147483648"
 	}
 	digitCount := len(s) - digitStart
 	if digitCount > len(limit) || digitCount == len(limit) && digitsGreaterThan(s, digitStart, limit) {
-		if negative {
-			return errors.New(fastIntErrMinInclusive)
+		if scan.negative {
+			return errors.New(rawDecimalErrMinInclusive)
 		}
-		return errors.New(fastIntErrMaxInclusive)
+		return errors.New(rawDecimalErrMaxInclusive)
 	}
 	return nil
 }
@@ -83,33 +82,70 @@ func ValidateBuiltinDerived(in BuiltinDerivedInput) error {
 	case BuiltinValidationInteger:
 		return ValidateIntegerLexical(in.Norm)
 	case BuiltinValidationName:
-		return lexicalValidation(lex.IsXMLName(in.Norm), "invalid Name")
+		return validateXMLNameLexical(in.Norm)
 	case BuiltinValidationNCName:
-		return lexicalValidation(lex.IsNCName(in.Norm), "invalid NCName")
+		return validateNCNameLexical(in.Norm)
 	case BuiltinValidationEntity:
 		return validateEntityLexical(in.Norm)
 	case BuiltinValidationNMTOKEN:
-		return lexicalValidation(lex.IsNMTOKEN(in.Norm), "invalid NMTOKEN")
+		return validateNMTOKENLexical(in.Norm)
 	case BuiltinValidationLanguage:
-		return lexicalValidation(lex.IsLanguage(in.Norm), "invalid language")
+		return validateLanguageLexical(in.Norm)
 	case BuiltinValidationXMLLang:
-		return lexicalValidation(in.Norm == "" || lex.IsLanguage(in.Norm), "invalid language")
+		return validateXMLLangLexical(in.Norm)
 	case BuiltinValidationXMLSpace:
-		return lexicalValidation(in.Norm == vocab.XMLValueDefault || in.Norm == vocab.XMLValuePreserve, "invalid xml:space")
-	default:
+		return validateXMLSpaceLexical(in.Norm)
+	case BuiltinValidationNone:
 		return nil
+	default:
 	}
+	return nil
 }
 
-func lexicalValidation(valid bool, message string) error {
-	if !valid {
-		return fmt.Errorf("%s", message)
+func validateXMLNameLexical(normalized string) error {
+	if !lex.IsXMLName(normalized) {
+		return errors.New("invalid Name")
+	}
+	return nil
+}
+
+func validateNCNameLexical(normalized string) error {
+	if !lex.IsNCName(normalized) {
+		return errors.New("invalid NCName")
+	}
+	return nil
+}
+
+func validateNMTOKENLexical(normalized string) error {
+	if !lex.IsNMTOKEN(normalized) {
+		return errors.New("invalid NMTOKEN")
+	}
+	return nil
+}
+
+func validateLanguageLexical(normalized string) error {
+	if !lex.IsLanguage(normalized) {
+		return errors.New("invalid language")
+	}
+	return nil
+}
+
+func validateXMLLangLexical(normalized string) error {
+	if normalized != "" {
+		return validateLanguageLexical(normalized)
+	}
+	return nil
+}
+
+func validateXMLSpaceLexical(normalized string) error {
+	if normalized != vocab.XMLValueDefault && normalized != vocab.XMLValuePreserve {
+		return errors.New("invalid xml:space")
 	}
 	return nil
 }
 
 func validateEntityLexical(normalized string) error {
-	if err := lexicalValidation(lex.IsNCName(normalized), "invalid NCName"); err != nil {
+	if err := validateNCNameLexical(normalized); err != nil {
 		return err
 	}
 	return xsderrors.Unsupported(xsderrors.CodeUnsupportedEntity, "ENTITY requires DTD entity declarations, which are not supported", nil)

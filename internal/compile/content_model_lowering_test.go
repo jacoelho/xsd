@@ -512,17 +512,21 @@ func (s complexExtensionModelRuntimeStub) ContentModel(id runtime.ContentModelID
 	return s.models[id], true
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (s complexExtensionModelRuntimeStub) ElementName(runtime.ElementID) (runtime.QName, bool) {
 	return runtime.QName{}, false
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (s complexExtensionModelRuntimeStub) Wildcard(runtime.WildcardID) (runtime.Wildcard, bool) {
 	return runtime.Wildcard{}, false
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (s complexExtensionModelRuntimeStub) ForEachSubstitutionMember(runtime.ElementID, func(runtime.ElementID) bool) {
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (s complexExtensionModelRuntimeStub) SubstitutionMemberByName(runtime.ElementID, runtime.QName) (runtime.ElementID, bool) {
 	return 0, false
 }
@@ -559,17 +563,21 @@ func (s *contentModelLoweringRuntime) ContentModel(id runtime.ContentModelID) (r
 	return runtime.CloneContentModel(s.models[id]), true
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (s *contentModelLoweringRuntime) ElementName(runtime.ElementID) (runtime.QName, bool) {
 	return runtime.QName{}, false
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (s *contentModelLoweringRuntime) Wildcard(runtime.WildcardID) (runtime.Wildcard, bool) {
 	return runtime.Wildcard{}, false
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (s *contentModelLoweringRuntime) ForEachSubstitutionMember(runtime.ElementID, func(runtime.ElementID) bool) {
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (s *contentModelLoweringRuntime) SubstitutionMemberByName(runtime.ElementID, runtime.QName) (runtime.ElementID, bool) {
 	return runtime.NoElement, false
 }

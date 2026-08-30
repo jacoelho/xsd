@@ -228,21 +228,22 @@ func TestValidateElementDeclValueConstraintRuntime(t *testing.T) {
 		name       string
 		wantErr    string
 		typ        SimpleTypeID
-		hasDefault bool
-		hasFixed   bool
+		constraint DeclarationValueConstraint
 		nilRuntime bool
 	}{
 		{name: "absent constraint", typ: 1},
-		{name: "mixed constraint", typ: NoSimpleType, hasDefault: true},
-		{name: "non-ID default", typ: 0, hasDefault: true},
-		{name: "ID default", typ: 1, hasDefault: true, wantErr: "ID-typed element declaration stores value constraint"},
-		{name: "ID fixed", typ: 1, hasFixed: true, wantErr: "ID-typed element declaration stores value constraint"},
-		{name: "bare notation default", typ: 2, hasDefault: true, wantErr: "NOTATION value constraint requires enumeration"},
-		{name: "enumerated notation default", typ: 3, hasDefault: true},
-		{name: "bare notation list item", typ: 4, hasDefault: true, wantErr: "NOTATION value constraint requires enumeration"},
-		{name: "bare notation union member", typ: 5, hasDefault: true, wantErr: "NOTATION value constraint requires enumeration"},
-		{name: "invalid value type", typ: 9, hasDefault: true, wantErr: "declaration value constraint references invalid type"},
-		{name: "missing runtime", typ: 0, hasDefault: true, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
+		{name: "mixed constraint", typ: NoSimpleType, constraint: DeclarationValueConstraintDefault},
+		{name: "non-ID default", typ: 0, constraint: DeclarationValueConstraintDefault},
+		{name: "ID default", typ: 1, constraint: DeclarationValueConstraintDefault, wantErr: "ID-typed element declaration stores value constraint"},
+		{name: "ID fixed", typ: 1, constraint: DeclarationValueConstraintFixed, wantErr: "ID-typed element declaration stores value constraint"},
+		{name: "bare notation default", typ: 2, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
+		{name: "enumerated notation default", typ: 3, constraint: DeclarationValueConstraintDefault},
+		{name: "bare notation list item", typ: 4, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
+		{name: "bare notation union member", typ: 5, constraint: DeclarationValueConstraintDefault, wantErr: "NOTATION value constraint requires enumeration"},
+		{name: "invalid value type", typ: 9, constraint: DeclarationValueConstraintDefault, wantErr: "declaration value constraint references invalid type"},
+		{name: "missing runtime", typ: 0, constraint: DeclarationValueConstraintDefault, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
+		{name: "conflicting constraint", typ: 0, constraint: DeclarationValueConstraintConflict, wantErr: "declaration stores conflicting value constraints"},
+		{name: "unknown constraint", typ: 0, constraint: DeclarationValueConstraint(99), wantErr: "declaration value constraint kind is unknown"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -255,7 +256,7 @@ func TestValidateElementDeclValueConstraintRuntime(t *testing.T) {
 			if tt.nilRuntime {
 				runtime = nil
 			}
-			err := ValidateElementDeclValueConstraintRuntime(runtime, tt.typ, tt.hasDefault, tt.hasFixed)
+			err := ValidateElementDeclValueConstraintRuntime(runtime, tt.typ, tt.constraint)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateElementDeclValueConstraintRuntime() error = %v", err)
@@ -295,16 +296,17 @@ func TestValidateAttributeDeclValueConstraintRuntime(t *testing.T) {
 		name       string
 		wantErr    string
 		typ        SimpleTypeID
-		hasDefault bool
-		hasFixed   bool
+		constraint DeclarationValueConstraint
 		nilRuntime bool
 	}{
 		{name: "absent constraint", typ: 1},
-		{name: "non-ID default", typ: 0, hasDefault: true},
-		{name: "ID default", typ: 1, hasDefault: true, wantErr: "ID-typed attribute declaration stores value constraint"},
-		{name: "ID fixed", typ: 1, hasFixed: true, wantErr: "ID-typed attribute declaration stores value constraint"},
-		{name: "invalid value type", typ: 9, hasDefault: true, wantErr: "declaration value constraint references invalid type"},
-		{name: "missing runtime", typ: 0, hasDefault: true, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
+		{name: "non-ID default", typ: 0, constraint: DeclarationValueConstraintDefault},
+		{name: "ID default", typ: 1, constraint: DeclarationValueConstraintDefault, wantErr: "ID-typed attribute declaration stores value constraint"},
+		{name: "ID fixed", typ: 1, constraint: DeclarationValueConstraintFixed, wantErr: "ID-typed attribute declaration stores value constraint"},
+		{name: "invalid value type", typ: 9, constraint: DeclarationValueConstraintDefault, wantErr: "declaration value constraint references invalid type"},
+		{name: "missing runtime", typ: 0, constraint: DeclarationValueConstraintDefault, nilRuntime: true, wantErr: "declaration value constraint references invalid type"},
+		{name: "conflicting constraint", typ: 0, constraint: DeclarationValueConstraintConflict, wantErr: "declaration stores conflicting value constraints"},
+		{name: "unknown constraint", typ: 0, constraint: DeclarationValueConstraint(99), wantErr: "declaration value constraint kind is unknown"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -314,7 +316,7 @@ func TestValidateAttributeDeclValueConstraintRuntime(t *testing.T) {
 			if tt.nilRuntime {
 				runtime = nil
 			}
-			err := ValidateAttributeDeclValueConstraintRuntime(runtime, tt.typ, tt.hasDefault, tt.hasFixed)
+			err := ValidateAttributeDeclValueConstraintRuntime(runtime, tt.typ, tt.constraint)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeDeclValueConstraintRuntime() error = %v", err)
@@ -323,6 +325,32 @@ func TestValidateAttributeDeclValueConstraintRuntime(t *testing.T) {
 			}
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("ValidateAttributeDeclValueConstraintRuntime() error = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDeclarationValueConstraintOf(t *testing.T) {
+	t.Parallel()
+
+	value := 1
+	tests := []struct {
+		name         string
+		defaultValue *int
+		fixedValue   *int
+		want         DeclarationValueConstraint
+	}{
+		{name: "none", want: DeclarationValueConstraintNone},
+		{name: "default", defaultValue: &value, want: DeclarationValueConstraintDefault},
+		{name: "fixed", fixedValue: &value, want: DeclarationValueConstraintFixed},
+		{name: "conflict", defaultValue: &value, fixedValue: &value, want: DeclarationValueConstraintConflict},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := DeclarationValueConstraintOf(tt.defaultValue, tt.fixedValue); got != tt.want {
+				t.Fatalf("DeclarationValueConstraintOf() = %d, want %d", got, tt.want)
 			}
 		})
 	}

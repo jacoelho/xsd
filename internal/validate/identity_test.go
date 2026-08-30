@@ -492,65 +492,47 @@ func TestEndIdentityCapture(t *testing.T) {
 
 	const elem runtime.ElementID = 1
 	tests := []struct {
-		name          string
-		in            endIdentityInput
-		simpleContent bool
-		want          endIdentityCaptureAction
+		name    string
+		element identityElementState
+		end     identityElementEnd
+		want    endIdentityCaptureAction
 	}{
 		{
-			name: "simple content already captured",
-			in: endIdentityInput{
-				Element:         elem,
-				ContentCaptured: true,
-				Nilled:          true,
-			},
-			want: endIdentityCaptureNone,
+			name:    "simple content already captured",
+			element: identityElementState{element: elem, nilled: true},
+			end:     identityElementEnd{ContentCaptured: true},
+			want:    endIdentityCaptureNone,
 		},
 		{
-			name: "nilled declared element with simple content",
-			in: endIdentityInput{
-				Element: elem,
-				Nilled:  true,
-			},
-			simpleContent: true,
-			want:          endIdentityCaptureNilledElement,
+			name:    "nilled declared element with simple content",
+			element: identityElementState{element: elem, nilled: true, simpleContent: true},
+			want:    endIdentityCaptureNilledElement,
 		},
 		{
-			name: "nilled declared element with complex content",
-			in: endIdentityInput{
-				Element: elem,
-				Nilled:  true,
-			},
-			want: endIdentityCaptureComplexElement,
+			name:    "nilled declared element with complex content",
+			element: identityElementState{element: elem, nilled: true},
+			want:    endIdentityCaptureComplexElement,
 		},
 		{
-			name: "nilled undeclared element without simple content",
-			in: endIdentityInput{
-				Element: runtime.NoElement,
-				Nilled:  true,
-			},
-			want: endIdentityCaptureComplexElement,
+			name:    "nilled undeclared element without simple content",
+			element: identityElementState{element: runtime.NoElement, nilled: true},
+			want:    endIdentityCaptureComplexElement,
 		},
 		{
-			name: "complex element",
-			in: endIdentityInput{
-				Element: elem,
-			},
-			want: endIdentityCaptureComplexElement,
+			name:    "complex element",
+			element: identityElementState{element: elem},
+			want:    endIdentityCaptureComplexElement,
 		},
 		{
-			name: "simple element without captured field",
-			in: endIdentityInput{
-				Element: elem,
-			},
-			simpleContent: true,
-			want:          endIdentityCaptureNone,
+			name:    "simple element without captured field",
+			element: identityElementState{element: elem, simpleContent: true},
+			want:    endIdentityCaptureNone,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := endIdentityCapture(tt.simpleContent, tt.in)
+			got := endIdentityCapture(tt.element, tt.end)
 			if got != tt.want {
 				t.Fatalf("endIdentityCapture() = %v, want %v", got, tt.want)
 			}

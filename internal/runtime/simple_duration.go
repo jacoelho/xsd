@@ -22,19 +22,26 @@ type DurationValue struct {
 	negativeFrac bool
 }
 
+type durationSign uint8
+
+const (
+	durationPositive durationSign = iota
+	durationNegative
+)
+
 // ValidateDurationLexical validates raw as an XML Schema duration lexical value.
 func ValidateDurationLexical[T byteText](raw T) error {
-	_, err := parseDurationValue(raw)
+	_, err := parseDurationLexical(raw)
 	return err
 }
 
 // ParseDurationValue parses s as an XML Schema xs:duration value.
 func ParseDurationValue(s string) (DurationValue, error) {
-	return parseDurationValue(s)
+	return parseDurationLexical(s)
 }
 
-func parseDurationValue[T byteText](raw T) (DurationValue, error) {
-	i, negative, err := parseDurationPrefix(raw)
+func parseDurationLexical[T byteText](raw T) (DurationValue, error) {
+	i, sign, err := parseDurationPrefix(raw)
 	if err != nil {
 		return DurationValue{}, err
 	}
@@ -49,7 +56,7 @@ func parseDurationValue[T byteText](raw T) (DurationValue, error) {
 	if i != len(raw) || !date.seen && !tm.seen {
 		return DurationValue{}, errors.New("invalid duration")
 	}
-	monthTotal, secondTotal, err := durationTotals(date, tm, negative)
+	monthTotal, secondTotal, err := durationTotals(date, tm, sign)
 	if err != nil {
 		return DurationValue{}, err
 	}
@@ -57,27 +64,28 @@ func parseDurationValue[T byteText](raw T) (DurationValue, error) {
 		frac:         tm.frac,
 		months:       monthTotal,
 		seconds:      secondTotal,
-		negativeFrac: negative && tm.frac != "",
+		negativeFrac: sign == durationNegative && tm.frac != "",
 	}, nil
 }
 
-func parseDurationPrefix[T byteText](raw T) (int, bool, error) {
+func parseDurationPrefix[T byteText](raw T) (int, durationSign, error) {
 	if len(raw) == 0 {
-		return 0, false, errors.New("invalid duration")
+		return 0, durationPositive, errors.New("invalid duration")
 	}
 	i := 0
-	negative := raw[i] == '-'
-	if negative {
+	sign := durationPositive
+	if raw[i] == '-' {
+		sign = durationNegative
 		i++
 	}
 	if i >= len(raw) || raw[i] != 'P' {
-		return 0, false, errors.New("invalid duration")
+		return 0, durationPositive, errors.New("invalid duration")
 	}
-	return i + 1, negative, nil
+	return i + 1, sign, nil
 }
 
-func durationTotals(date durationDateParts, tm durationTimeParts, negative bool) (int64, int64, error) {
-	months, err := checkedDurationMulInt64(date.years, 12)
+func durationTotals(date durationDateParts, tm durationTimeParts, sign durationSign) (months, seconds int64, err error) {
+	months, err = checkedDurationMulInt64(date.years, 12)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -85,12 +93,16 @@ func durationTotals(date durationDateParts, tm durationTimeParts, negative bool)
 	if err != nil {
 		return 0, 0, err
 	}
-	seconds, err := checkedDurationWholeSeconds(date, tm)
+	seconds, err = checkedDurationWholeSeconds(date, tm)
 	if err != nil {
 		return 0, 0, err
 	}
-	if !negative {
+	switch sign {
+	case durationPositive:
 		return months, seconds, nil
+	case durationNegative:
+	default:
+		return 0, 0, errors.New("invalid duration")
 	}
 	if months == minInt64Value || seconds == minInt64Value {
 		return 0, 0, errors.New("invalid duration")
@@ -248,14 +260,14 @@ func parseDurationTimePart[T byteText](raw T, i *int, out *durationTimeParts, st
 	if err != nil {
 		return err
 	}
-	frac, hadFrac, err := parseDurationFraction(raw, i)
+	frac, err := parseDurationFraction(raw, i)
 	if err != nil {
 		return err
 	}
 	if *i >= len(raw) {
 		return errors.New("invalid duration")
 	}
-	if err := appendDurationTimePart(out, stage, raw[*i], value, frac, hadFrac); err != nil {
+	if err := appendDurationTimePart(out, stage, raw[*i], value, frac); err != nil {
 		return err
 	}
 	*i++
@@ -263,16 +275,21 @@ func parseDurationTimePart[T byteText](raw T, i *int, out *durationTimeParts, st
 	return nil
 }
 
-func appendDurationTimePart(out *durationTimeParts, stage *int, designator byte, value int64, frac string, hadFrac bool) error {
+type durationFraction struct {
+	digits  string
+	present bool
+}
+
+func appendDurationTimePart(out *durationTimeParts, stage *int, designator byte, value int64, fraction durationFraction) error {
 	switch designator {
 	case 'H':
-		if *stage >= 1 || hadFrac {
+		if *stage >= 1 || fraction.present {
 			return errors.New("invalid duration")
 		}
 		out.hours = value
 		*stage = 1
 	case 'M':
-		if *stage >= 2 || hadFrac {
+		if *stage >= 2 || fraction.present {
 			return errors.New("invalid duration")
 		}
 		out.minutes = value
@@ -282,7 +299,7 @@ func appendDurationTimePart(out *durationTimeParts, stage *int, designator byte,
 			return errors.New("invalid duration")
 		}
 		out.seconds = value
-		out.frac = frac
+		out.frac = fraction.digits
 		*stage = 3
 	default:
 		return errors.New("invalid duration")
@@ -290,9 +307,9 @@ func appendDurationTimePart(out *durationTimeParts, stage *int, designator byte,
 	return nil
 }
 
-func parseDurationFraction[T byteText](raw T, i *int) (string, bool, error) {
+func parseDurationFraction[T byteText](raw T, i *int) (durationFraction, error) {
 	if *i >= len(raw) || raw[*i] != '.' {
-		return "", false, nil
+		return durationFraction{}, nil
 	}
 	*i++
 	start := *i
@@ -300,9 +317,9 @@ func parseDurationFraction[T byteText](raw T, i *int) (string, bool, error) {
 		*i++
 	}
 	if *i == start {
-		return "", true, errors.New("invalid duration")
+		return durationFraction{}, errors.New("invalid duration")
 	}
-	return strings.TrimRight(string(raw[start:*i]), "0"), true, nil
+	return durationFraction{digits: strings.TrimRight(string(raw[start:*i]), "0"), present: true}, nil
 }
 
 func parseDurationUnsigned[T byteText](raw T, i *int) (int64, error) {
@@ -424,8 +441,8 @@ func addDurationSeconds64(p xsdDateTimePoint, seconds int64) (xsdDateTimePoint, 
 	return addDurationDays64(p, days)
 }
 
-func durationDivModDay64(second int64) (int64, int64) {
-	days := second / durationDaySeconds
+func durationDivModDay64(second int64) (days, remainder int64) {
+	days = second / durationDaySeconds
 	rest := second % durationDaySeconds
 	if rest < 0 {
 		rest += durationDaySeconds
@@ -443,13 +460,13 @@ func addDurationDays64(p xsdDateTimePoint, days int64) (xsdDateTimePoint, bool) 
 	if !ok {
 		return xsdDateTimePoint{}, false
 	}
-	year, month, day, ok := durationOrdinalDate(ordinal)
+	date, ok := durationOrdinalDate(ordinal)
 	if !ok {
 		return xsdDateTimePoint{}, false
 	}
-	p.year = year
-	p.month = month
-	p.day = day
+	p.year = date.year
+	p.month = date.month
+	p.day = date.day
 	return p, true
 }
 
@@ -505,17 +522,23 @@ func durationDateOrdinal(year xsdYear, month, day int) (int64, bool) {
 	return checkedAddSignedInt64(eraDays, dayOfEra)
 }
 
-func durationOrdinalDate(ordinal int64) (xsdYear, int, int, bool) {
+type durationDate struct {
+	year  xsdYear
+	month int
+	day   int
+}
+
+func durationOrdinalDate(ordinal int64) (durationDate, bool) {
 	era := floorDivInt64(ordinal, 146097)
 	dayOfEra := ordinal - era*146097
 	yearOfEra := (dayOfEra - dayOfEra/1460 + dayOfEra/36524 - dayOfEra/146096) / 365
 	eraYears, ok := checkedMulPositiveInt64(era, 400)
 	if !ok {
-		return xsdYear{}, 0, 0, false
+		return durationDate{}, false
 	}
 	year, ok := checkedAddSignedInt64(yearOfEra, eraYears)
 	if !ok || year > maxDurationOrdinalYear() || year < -maxDurationOrdinalYear() {
-		return xsdYear{}, 0, 0, false
+		return durationDate{}, false
 	}
 	dayOfYear := dayOfEra - (365*yearOfEra + yearOfEra/4 - yearOfEra/100)
 	monthPrime := (5*dayOfYear + 2) / 153
@@ -525,13 +548,13 @@ func durationOrdinalDate(ordinal int64) (xsdYear, int, int, bool) {
 		month = int(monthPrime - 9)
 		year, ok = checkedAddSignedInt64(year, 1)
 		if !ok {
-			return xsdYear{}, 0, 0, false
+			return durationDate{}, false
 		}
 	}
 	if year > maxDurationOrdinalYear() || year < -maxDurationOrdinalYear() {
-		return xsdYear{}, 0, 0, false
+		return durationDate{}, false
 	}
-	return xsdYearFromAstronomicalInt64(year), month, day, true
+	return durationDate{year: xsdYearFromAstronomicalInt64(year), month: month, day: day}, true
 }
 
 func floorDivInt64(a, b int64) int64 {

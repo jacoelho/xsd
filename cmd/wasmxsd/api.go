@@ -64,8 +64,7 @@ func formatXMLData(input string) formatResponse {
 	err := format.XMLWithOptions(&out, strings.NewReader(input), format.Options{MaxOutputBytes: maxFormattedXMLBytes})
 	if err != nil {
 		resp := formatFailure(errorMessage(err), 0, 0)
-		var xerr *xsderrors.Error
-		if errors.As(err, &xerr) {
+		if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
 			resp.Line = xerr.Line()
 			resp.Column = xerr.Column()
 		}
@@ -128,8 +127,7 @@ func collectErrors(err error, source string) []errorOutput {
 }
 
 func errorToOutput(err error, source string) errorOutput {
-	var xerr *xsderrors.Error
-	if errors.As(err, &xerr) {
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
 		return errorOutput{
 			Category: string(xerr.Category()),
 			Code:     string(xerr.Code()),

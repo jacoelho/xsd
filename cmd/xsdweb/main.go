@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -27,6 +28,11 @@ type webAsset struct {
 	contentType string
 }
 
+type commandOptions struct {
+	address string
+	dir     string
+}
+
 var webAssets = [...]webAsset{
 	{route: "/", name: "index.html", contentType: "text/html; charset=utf-8"},
 	{route: "/wasm_exec.js", name: "wasm_exec.js", contentType: javascriptContentType},
@@ -37,20 +43,35 @@ var webAssets = [...]webAsset{
 }
 
 func main() {
-	if err := command(); err != nil {
+	options, err := parseCommandOptions(os.Args[1:], os.Stderr)
+	if errors.Is(err, flag.ErrHelp) {
+		return
+	}
+	if err != nil {
+		os.Exit(2)
+	}
+	if err := command(options); err != nil {
 		log.Print(err)
 		os.Exit(1)
 	}
 }
 
-func command() error {
-	addr := flag.String("addr", defaultAddress, "listen address")
-	dir := flag.String("dir", "docs", "directory to serve")
-	flag.Parse()
+func parseCommandOptions(args []string, output io.Writer) (commandOptions, error) {
+	flags := flag.NewFlagSet("xsdweb", flag.ContinueOnError)
+	flags.SetOutput(output)
+	options := commandOptions{}
+	flags.StringVar(&options.address, "addr", defaultAddress, "listen address")
+	flags.StringVar(&options.dir, "dir", "docs", "directory to serve")
+	if err := flags.Parse(args); err != nil {
+		return commandOptions{}, err
+	}
+	return options, nil
+}
 
+func command(options commandOptions) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return run(ctx, *addr, *dir)
+	return run(ctx, options.address, options.dir)
 }
 
 func run(ctx context.Context, addr, dir string) error {

@@ -1,18 +1,42 @@
 package validate
 
 import (
-	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// CharacterDataKind identifies the lexical source of XML character data.
+type CharacterDataKind uint8
+
+const (
+	// CharacterDataInvalid is not a valid character-data source.
+	CharacterDataInvalid CharacterDataKind = iota
+	// CharacterDataText is ordinary XML character data.
+	CharacterDataText
+	// CharacterDataCDATA is character data from a CDATA section.
+	CharacterDataCDATA
+)
+
+// DocumentCharacterData is character data encountered outside the root.
+type DocumentCharacterData struct {
+	Kind       CharacterDataKind
+	Whitespace bool
+}
+
 // ValidateDocumentCharacterData validates character data outside the root
 // element. Element-owned content is validated directly by session.chars.
-func ValidateDocumentCharacterData(data []byte, cdata bool, ctx StartContext) error {
-	if cdata {
+func ValidateDocumentCharacterData(input DocumentCharacterData, ctx StartContext) error {
+	switch input.Kind {
+	case CharacterDataCDATA:
 		return validation(ctx, xsderrors.CodeValidationXML, "CDATA section outside root element")
+	case CharacterDataText:
+	case CharacterDataInvalid:
+		return xsderrors.InternalInvariant("character data kind is invalid")
+	default:
+		err := xsderrors.InternalInvariant("character data kind is invalid")
+		return err
 	}
-	if lex.IsXMLWhitespaceBytes(data) {
+	if input.Whitespace {
 		return nil
 	}
 	return validation(ctx, xsderrors.CodeValidationText, "text outside root element")
@@ -31,8 +55,8 @@ type childStartPolicy struct {
 	issue validationIssue
 }
 
-func childFramePolicy(nilled bool) childStartPolicy {
-	if nilled {
+func childFramePolicy(parent *frame) childStartPolicy {
+	if parent.Nilled {
 		return childStartPolicy{issue: nilledContentIssue()}
 	}
 	return childStartPolicy{}

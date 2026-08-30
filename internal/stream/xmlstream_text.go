@@ -65,7 +65,7 @@ func (p *Parser) readEntity(dst *[]byte) error {
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
-			return p.syntaxError("unexpected EOF in entity reference", err)
+			return streamSyntaxError("unexpected EOF in entity reference", err)
 		}
 		if b == ';' {
 			break
@@ -180,7 +180,7 @@ func (p *Parser) readPastSpace() (byte, bool, error) {
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
-			return 0, hadSpace, p.syntaxError("unexpected EOF in XML tag", err)
+			return 0, hadSpace, streamSyntaxError("unexpected EOF in XML tag", err)
 		}
 		if !lex.IsXMLWhitespaceByte(b) {
 			return b, hadSpace, nil
@@ -271,7 +271,7 @@ func (p *Parser) expectString(s string) error {
 	for i := range len(s) {
 		b, err := p.br.readByte()
 		if err != nil {
-			return p.syntaxError("unexpected EOF", err)
+			return streamSyntaxError("unexpected EOF", err)
 		}
 		if b != s[i] {
 			return fmt.Errorf("invalid markup declaration")
@@ -280,7 +280,7 @@ func (p *Parser) expectString(s string) error {
 	return nil
 }
 
-func (p *Parser) syntaxError(msg string, err error) error {
+func streamSyntaxError(msg string, err error) error {
 	if IsOnlyEOF(err) {
 		return errors.New(msg)
 	}

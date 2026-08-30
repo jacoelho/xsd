@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"flag"
 	"io"
 	"net"
 	"net/http"
@@ -12,6 +15,42 @@ import (
 	"testing"
 	"time"
 )
+
+func TestParseCommandOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		args    []string
+		want    commandOptions
+		wantErr error
+	}{
+		{name: "defaults", want: commandOptions{address: defaultAddress, dir: "docs"}},
+		{name: "overrides", args: []string{"-addr", "127.0.0.1:9000", "-dir", "site"}, want: commandOptions{address: "127.0.0.1:9000", dir: "site"}},
+		{name: "invalid", args: []string{"-unknown"}, wantErr: flag.ErrHelp},
+		{name: "help", args: []string{"-h"}, wantErr: flag.ErrHelp},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var output bytes.Buffer
+			got, err := parseCommandOptions(tt.args, &output)
+			if tt.name == "invalid" {
+				if err == nil {
+					t.Fatal("parseCommandOptions() accepted unknown flag")
+				}
+				return
+			}
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("parseCommandOptions() error = %v, want %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Fatalf("parseCommandOptions() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestNewServerServesIndex(t *testing.T) {
 	dir := t.TempDir()

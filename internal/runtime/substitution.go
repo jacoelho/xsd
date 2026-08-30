@@ -533,16 +533,22 @@ func int64Compare(a, b int64) int {
 }
 
 // Error returns the stable substitution-cycle message.
+//
+//nolint:revive // The receiver is required by error and carries type identity.
 func (e SubstitutionCycleError) Error() string {
 	return "cyclic substitution group"
 }
 
 // Error returns the stable substitution closure limit message.
+//
+//nolint:revive // The receiver is required by error and carries type identity.
 func (e SubstitutionClosureLimitError) Error() string {
 	return "substitution closure entry limit exceeded"
 }
 
 // Error returns the stable invalid-membership message.
+//
+//nolint:revive // The receiver is required by error and carries type identity.
 func (e SubstitutionMembershipError) Error() string {
 	return "substitution member is not allowed by head"
 }

@@ -545,6 +545,7 @@ func TestSchemaInstantiatedNodeLimit(t *testing.T) {
 
 type countingReadCloser struct {
 	io.Reader
+
 	bytes *int
 }
 
@@ -574,6 +575,7 @@ func (*dataErrorReadCloser) Close() error { return nil }
 
 type closeErrorReadCloser struct {
 	io.Reader
+
 	err error
 }
 

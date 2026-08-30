@@ -146,11 +146,16 @@ func (s *substitutionCompilation) finalizeElementConstraint(pending pendingEleme
 	if decl.Default != nil || decl.Fixed != nil {
 		return xsderrors.InternalInvariant("pending element constraint targets finalized declaration")
 	}
-	if pending.hasDefault {
-		decl.Default = &runtime.ValueConstraint{Lexical: pending.defaultLexical}
-	}
-	if pending.hasFixed {
-		decl.Fixed = &runtime.ValueConstraint{Lexical: pending.fixedLexical}
+	switch pending.kind {
+	case runtime.DeclarationValueConstraintDefault:
+		decl.Default = &runtime.ValueConstraint{Lexical: pending.lexical}
+	case runtime.DeclarationValueConstraintFixed:
+		decl.Fixed = &runtime.ValueConstraint{Lexical: pending.lexical}
+	case runtime.DeclarationValueConstraintNone, runtime.DeclarationValueConstraintConflict:
+		return xsderrors.InternalInvariant("pending element constraint has invalid kind")
+	default:
+		err := xsderrors.InternalInvariant("pending element constraint has invalid kind")
+		return err
 	}
 	if err := s.compiler.validateElementValueConstraints(&decl, pending.node, s.compiler.simpleTypeUnavailable); err != nil {
 		return withSchemaCompileLocation(pending.node, err)
@@ -233,7 +238,7 @@ func (c *compiler) resolveTypeQName(q runtime.QName) (runtime.TypeID, error) {
 		}
 		return runtime.ComplexRef(id), nil
 	}
-	err := CheckSchemaComponentExists(SchemaComponentType, false, c.rt.formatName(q))
+	err := SchemaComponentMissingError(SchemaComponentType, c.rt.formatName(q))
 	return runtime.TypeID{}, err
 }
 

@@ -46,7 +46,7 @@ func (t *xsdRegexTranslator) consume(index int) int {
 }
 
 func (t *xsdRegexTranslator) writeEscaped(c byte) {
-	if !writeXSDRegexClassEscape(&t.output, c, t.inClass) {
+	if !t.writeClassEscape(c) {
 		t.output.WriteByte('\\')
 		t.output.WriteByte(c)
 	}
@@ -82,45 +82,45 @@ func (t *xsdRegexTranslator) writeQuantifier(index int) (int, bool) {
 	return end, true
 }
 
-func writeXSDRegexClassEscape(b *strings.Builder, c byte, inClass bool) bool {
+func (t *xsdRegexTranslator) writeClassEscape(c byte) bool {
 	switch c {
 	case 'd':
-		writeXSDRegexClass(b, xsdDigitClassInner, inClass)
+		t.writeClass(xsdDigitClassInner)
 	case 'D':
-		writeNegatedXSDRegexClass(b, xsdDigitClassInner, inClass)
+		t.writeNegatedClass(xsdDigitClassInner)
 	case 's':
-		writeXSDRegexClass(b, xsdSpaceClassInner, inClass)
+		t.writeClass(xsdSpaceClassInner)
 	case 'S':
-		writeNegatedXSDRegexClass(b, xsdSpaceClassInner, inClass)
+		t.writeNegatedClass(xsdSpaceClassInner)
 	case 'w':
-		writeXSDRegexClass(b, xsdWordClassInner, inClass)
+		t.writeClass(xsdWordClassInner)
 	case 'W':
-		writeXSDRegexClass(b, xsdNotWordClassInner, inClass)
+		t.writeClass(xsdNotWordClassInner)
 	default:
 		return false
 	}
 	return true
 }
 
-func writeXSDRegexClass(b *strings.Builder, inner string, inClass bool) {
-	if inClass {
-		b.WriteString(inner)
+func (t *xsdRegexTranslator) writeClass(inner string) {
+	if t.inClass {
+		t.output.WriteString(inner)
 		return
 	}
-	b.WriteByte('[')
-	b.WriteString(inner)
-	b.WriteByte(']')
+	t.output.WriteByte('[')
+	t.output.WriteString(inner)
+	t.output.WriteByte(']')
 }
 
-func writeNegatedXSDRegexClass(b *strings.Builder, inner string, inClass bool) {
-	if inClass {
-		b.WriteByte('^')
-		b.WriteString(inner)
+func (t *xsdRegexTranslator) writeNegatedClass(inner string) {
+	if t.inClass {
+		t.output.WriteByte('^')
+		t.output.WriteString(inner)
 		return
 	}
-	b.WriteString(`[^`)
-	b.WriteString(inner)
-	b.WriteByte(']')
+	t.output.WriteString(`[^`)
+	t.output.WriteString(inner)
+	t.output.WriteByte(']')
 }
 
 func normalizeXSDRegexQuantifier(s string) string {

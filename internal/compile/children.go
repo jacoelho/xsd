@@ -114,9 +114,11 @@ func (k ContentDerivationKind) String() string {
 		return extensionChild
 	case ContentDerivationRestriction:
 		return restrictionChild
-	default:
+	case ContentDerivationNone:
 		return ""
+	default:
 	}
+	return ""
 }
 
 // ContentDerivationSyntax identifies the selected derivation child in the
@@ -154,13 +156,22 @@ var simpleTypeChildOrder = ChildOrder{
 	InvalidMsg: func(local string) string { return "unsupported simpleType child " + local },
 }
 
+type simpleDerivationKind uint8
+
+const (
+	simpleDerivationInvalid simpleDerivationKind = iota
+	simpleDerivationRestriction
+	simpleDerivationList
+	simpleDerivationUnion
+)
+
 // Union derivations may hold several member simpleType children; restriction
 // and list derivations hold at most one. Only restriction admits facet
 // children: list content is (annotation?, simpleType?) and union content is
 // (annotation?, simpleType*).
-var simpleRestrictionChildOrder = simpleDerivationOrder(restrictionChild, true, true)
-var simpleListChildOrder = simpleDerivationOrder(listChild, true, false)
-var simpleUnionChildOrder = simpleDerivationOrder(unionChild, false, false)
+var simpleRestrictionChildOrder = simpleDerivationOrder(simpleDerivationRestriction)
+var simpleListChildOrder = simpleDerivationOrder(simpleDerivationList)
+var simpleUnionChildOrder = simpleDerivationOrder(simpleDerivationUnion)
 
 var complexTypeChildOrder = ChildOrder{
 	AnnotationFirstMsg: "complexType" + annotationMustBeFirstSuffix,
@@ -263,13 +274,22 @@ func ValidateSimpleContentChildrenSyntax(children []string) (ContentDerivationSy
 	return validateDerivationContainerChildren(simpleContent, children, simpleContentChildOrder)
 }
 
+// ContentDerivationBase owns the lexical and presence state of a required base
+// attribute together with the grammar context used in its diagnostic.
+type ContentDerivationBase struct {
+	Container  string
+	Derivation string
+	Lexical    string
+	Present    bool
+}
+
 // ValidateContentDerivationBase validates that a content derivation has its
 // required base attribute.
-func ValidateContentDerivationBase(container, derivation string, hasBase bool) error {
-	if hasBase {
+func ValidateContentDerivationBase(base ContentDerivationBase) error {
+	if base.Present {
 		return nil
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, container+" "+derivation+" missing base")
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, base.Container+" "+base.Derivation+" missing base")
 }
 
 var (
@@ -470,7 +490,25 @@ func topLevelGroupSyntaxError(index int, code xsderrors.Code, msg string) error 
 	return &TopLevelGroupSyntaxError{Index: index, Code: code, Message: msg}
 }
 
-func simpleDerivationOrder(derivation string, singleChild, allowFacets bool) ChildOrder {
+func simpleDerivationOrder(kind simpleDerivationKind) ChildOrder {
+	var derivation string
+	var singleChild bool
+	var allowFacets bool
+	switch kind {
+	case simpleDerivationRestriction:
+		derivation = restrictionChild
+		singleChild = true
+		allowFacets = true
+	case simpleDerivationList:
+		derivation = listChild
+		singleChild = true
+	case simpleDerivationUnion:
+		derivation = unionChild
+	case simpleDerivationInvalid:
+		panic("invalid simple derivation kind")
+	default:
+		panic("unknown simple derivation kind")
+	}
 	rules := []ChildRule{
 		{
 			Match:    matchChildLocal(simpleTypeChild),

@@ -55,7 +55,7 @@ func (c *compiler) existingModel(n *rawNode) (runtime.ContentModelID, bool, erro
 	if !c.compilingModel[n] || c.elementDepth > c.modelDepth[n] {
 		return id, true, nil
 	}
-	err := CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, "")
+	err := SchemaComponentRecursionError(SchemaComponentModelGroup, "")
 	return runtime.NoContentModel, true, withSchemaCompileLocation(n, err)
 }
 
@@ -116,8 +116,8 @@ func (c *compiler) resolveModelGroupRef(n *rawNode, ctx *schemaContext, ref stri
 	}
 	label := c.rt.formatName(q)
 	raw, ok := c.groupRaw[q]
-	if existsErr := CheckSchemaComponentExists(SchemaComponentModelGroup, ok, label); existsErr != nil {
-		return modelGroupRefSource{}, withSchemaCompileLocation(n, existsErr)
+	if !ok {
+		return modelGroupRefSource{}, withSchemaCompileLocation(n, SchemaComponentMissingError(SchemaComponentModelGroup, label))
 	}
 	modelNode, err := checkTopLevelGroupChildren(raw.node)
 	if err != nil {
@@ -154,7 +154,7 @@ func (c *compiler) applyModelGroupOccurrence(n *rawNode, id runtime.ContentModel
 
 func (c *compiler) recursiveModelGroupRef(q runtime.QName, id runtime.ContentModelID, occurs runtime.Occurrence, modelNode *rawNode) (runtime.ContentModelID, error) {
 	if c.elementDepth <= c.modelDepth[modelNode] {
-		err := CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, c.rt.formatName(q))
+		err := SchemaComponentRecursionError(SchemaComponentModelGroup, c.rt.formatName(q))
 		return runtime.NoContentModel, withSchemaCompileLocation(modelNode, err)
 	}
 	ref := runtime.ContentModel{
@@ -211,7 +211,7 @@ func (c *compiler) appendNestedModelChild(m *runtime.ContentModel, child *rawNod
 	if err != nil {
 		return err
 	}
-	if admissionErr := validateModelGroupChildAdmission(child, m.Kind, admission); admissionErr != nil {
+	if admissionErr := validateModelGroupChildAtNode(child, m.Kind, admission); admissionErr != nil {
 		return admissionErr
 	}
 	childModelID, err := c.compileModel(child, ctx)
@@ -222,7 +222,7 @@ func (c *compiler) appendNestedModelChild(m *runtime.ContentModel, child *rawNod
 	if err != nil {
 		return err
 	}
-	if admissionErr := validateModelGroupChildAdmission(child, m.Kind, ModelChildAdmissionForModelKind(childModel.Kind)); admissionErr != nil {
+	if admissionErr := validateModelGroupChildAtNode(child, m.Kind, ModelChildAdmissionForModelKind(childModel.Kind)); admissionErr != nil {
 		return admissionErr
 	}
 	if AppendFlattenedModelChild(m, childModel) {
@@ -238,7 +238,7 @@ func (c *compiler) appendNestedModelChild(m *runtime.ContentModel, child *rawNod
 	return withSchemaCompileLocation(child, AppendParticle(m, p))
 }
 
-func validateModelGroupChildAdmission(n *rawNode, parent runtime.ModelKind, child ModelChildAdmission) error {
+func validateModelGroupChildAtNode(n *rawNode, parent runtime.ModelKind, child ModelChildAdmission) error {
 	return withSchemaCompileLocation(n, ValidateModelGroupChildAdmission(parent, child))
 }
 
@@ -290,13 +290,13 @@ func (c *compiler) modelParticle(id runtime.ContentModelID) (runtime.Particle, b
 	return runtime.ModelParticle(modelID, occurs), true, nil
 }
 
-func (c *compiler) validateComplexExtensionModelAdmission(baseID runtime.ComplexTypeID, base runtime.ComplexType, ext runtime.ContentModelID, mixed bool) error {
+func (c *compiler) validateComplexExtensionModelAdmission(baseID runtime.ComplexTypeID, base runtime.ComplexType, ext runtime.ContentModelID, contentKind runtime.ContentKind) error {
 	return ValidateComplexExtensionModelAdmission(&c.rt, ComplexExtensionModelAdmission{
 		Extension:     ext,
 		BaseContent:   base.Content,
 		BaseIsAnyType: baseID == c.rt.builtinIDs().AnyType,
 		BaseMixed:     base.Mixed(),
-		Mixed:         mixed,
+		Mixed:         contentKind.Mixed(),
 	})
 }
 

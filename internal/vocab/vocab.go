@@ -41,7 +41,7 @@ const (
 	XSIAttrNil                       = "nil"
 	XSIAttrNoNamespaceSchemaLocation = "noNamespaceSchemaLocation"
 	XSIAttrSchemaLocation            = "schemaLocation"
-	XSIAttrType                      = "type"
+	XSIAttrType                      = "type" //nolint:goconst // XSI and XLink names are separate namespace vocabulary.
 )
 
 // XSD element names.
@@ -81,10 +81,10 @@ const (
 const (
 	XSDAttrAbstract             = "abstract"
 	XSDAttrAttributeFormDefault = "attributeFormDefault"
-	XSDAttrBase                 = "base"
+	XSDAttrBase                 = "base" //nolint:goconst // XML and XSD names are separate namespace vocabulary.
 	XSDAttrBlock                = "block"
 	XSDAttrBlockDefault         = "blockDefault"
-	XSDAttrDefault              = "default"
+	XSDAttrDefault              = "default" //nolint:goconst // XML values and XSD attribute names are distinct vocabulary.
 	XSDAttrElementFormDefault   = "elementFormDefault"
 	XSDAttrFinal                = "final"
 	XSDAttrFinalDefault         = "finalDefault"
@@ -105,12 +105,12 @@ const (
 	XSDAttrPublic               = "public"
 	XSDAttrRef                  = "ref"
 	XSDAttrRefer                = "refer"
-	XSDAttrSchemaLocation       = "schemaLocation"
+	XSDAttrSchemaLocation       = "schemaLocation" //nolint:goconst // XSD and XSI names are separate namespace vocabulary.
 	XSDAttrSource               = "source"
 	XSDAttrSubstitutionGroup    = "substitutionGroup"
 	XSDAttrSystem               = "system"
 	XSDAttrTargetNamespace      = "targetNamespace"
-	XSDAttrType                 = "type"
+	XSDAttrType                 = "type" //nolint:goconst // XSD and XLink names are separate namespace vocabulary.
 	XSDAttrUse                  = "use"
 	XSDAttrValue                = "value"
 	XSDAttrVersion              = "version"
@@ -184,6 +184,6 @@ const (
 	XSDValueQName         = "QName"
 	XSDValueNOTATION      = "NOTATION"
 	XSDWhitespaceCollapse = "collapse"
-	XSDWhitespacePreserve = "preserve"
+	XSDWhitespacePreserve = "preserve" //nolint:goconst // XML and XSD values are separate namespace vocabulary.
 	XSDWhitespaceReplace  = "replace"
 )

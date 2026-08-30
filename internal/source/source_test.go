@@ -54,6 +54,57 @@ func TestKeyCanonicalizesLoadedSourceNames(t *testing.T) {
 	}
 }
 
+func TestCanonicalURLRejectsInvalidSyntaxKinds(t *testing.T) {
+	t.Parallel()
+
+	parsed := &url.URL{Scheme: "https", Host: "example.test", Path: "/schema.xsd"}
+	tests := []struct {
+		name   string
+		syntax uriReferenceSyntax
+	}{
+		{
+			name:   "invalid authority",
+			syntax: uriReferenceSyntax{authority: uriAuthoritySyntax{kind: uriAuthorityInvalid}, fragment: uriFragmentAbsent},
+		},
+		{
+			name:   "unknown authority",
+			syntax: uriReferenceSyntax{authority: uriAuthoritySyntax{kind: uriAuthorityKind(99)}, fragment: uriFragmentAbsent},
+		},
+		{
+			name:   "invalid fragment",
+			syntax: uriReferenceSyntax{authority: uriAuthoritySyntax{kind: uriAuthorityNonEmpty}, fragment: uriFragmentInvalid},
+		},
+		{
+			name:   "unknown fragment",
+			syntax: uriReferenceSyntax{authority: uriAuthoritySyntax{kind: uriAuthorityNonEmpty}, fragment: uriFragmentSyntax(99)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got, ok := canonicalURL(parsed, tt.syntax); ok || got != "" {
+				t.Fatalf("canonicalURL() = %q, %v; want empty, false", got, ok)
+			}
+		})
+	}
+}
+
+func TestCanonicalLocalReferenceRejectsInvalidForm(t *testing.T) {
+	t.Parallel()
+
+	for _, form := range []localPathForm{localPathInvalid, localPathForm(99)} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Fatalf("canonicalLocalReference() accepted form %d", form)
+				}
+			}()
+			canonicalLocalReference("schema.xsd", form)
+		}()
+	}
+}
+
 func TestReferenceBaseWithXMLBaseStripsFragment(t *testing.T) {
 	t.Parallel()
 
@@ -751,6 +802,7 @@ func TestSourceAcquireRejectsNilOpener(t *testing.T) {
 
 type closeErrorReader struct {
 	io.Reader
+
 	err error
 }
 
@@ -758,6 +810,7 @@ func (r closeErrorReader) Close() error { return r.err }
 
 type trackingReadCloser struct {
 	io.Reader
+
 	closeErr error
 	closed   bool
 }
@@ -978,7 +1031,7 @@ func TestLocalFileURIPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := localFileURIPath(u, strings.IndexByte(raw, '#') >= 0); ok {
+		if _, ok := localFileURIPath(u, uriReferenceSyntaxFor(raw, u).fragment); ok {
 			t.Fatalf("localFileURIPath(%q) succeeded", raw)
 		}
 	}
@@ -987,7 +1040,7 @@ func TestLocalFileURIPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := filepath.Clean(filepath.FromSlash("/tmp/a%20schema.xsd"))
-	if got, ok := localFileURIPath(u, false); !ok || got != want {
+	if got, ok := localFileURIPath(u, uriFragmentAbsent); !ok || got != want {
 		t.Fatalf("localFileURIPath(literal percent) = %q/%v, want %q/true", got, ok, want)
 	}
 	if runtime.GOOS == "windows" {
@@ -995,7 +1048,7 @@ func TestLocalFileURIPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got, ok := localFileURIPath(u, false); !ok || got != filepath.Clean(`C:\schemas\a.xsd`) {
+		if got, ok := localFileURIPath(u, uriFragmentAbsent); !ok || got != filepath.Clean(`C:\schemas\a.xsd`) {
 			t.Fatalf("localFileURIPath(drive) = %q/%v", got, ok)
 		}
 	}

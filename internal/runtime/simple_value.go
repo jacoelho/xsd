@@ -49,8 +49,12 @@ type simpleValueMetadataReader interface {
 	simpleValueType(id SimpleTypeID) (SimpleValueType, bool)
 	simpleValueFacets(id SimpleTypeID) (SimpleValueFacets, bool)
 	simpleValueStringEnumeration(id SimpleTypeID, canonical string) (bool, bool)
-	simpleValueNotation(ns, local string) (bool, bool)
 	simpleValueUnsupported(err error) bool
+}
+
+type simpleValueReader interface {
+	simpleValueMetadataReader
+	simpleValueNotationReader
 }
 
 type callbackSimpleValueMetadataReader struct {
@@ -71,14 +75,14 @@ func (r callbackSimpleValueMetadataReader) simpleValueFacets(id SimpleTypeID) (S
 	return r.callbacks.Facets(id)
 }
 
-func (r callbackSimpleValueMetadataReader) simpleValueStringEnumeration(id SimpleTypeID, canonical string) (bool, bool) {
+func (r callbackSimpleValueMetadataReader) simpleValueStringEnumeration(id SimpleTypeID, canonical string) (contains, valid bool) {
 	if r.callbacks.StringEnumeration == nil {
 		return false, false
 	}
 	return r.callbacks.StringEnumeration(id, canonical)
 }
 
-func (r callbackSimpleValueMetadataReader) simpleValueNotation(ns, local string) (bool, bool) {
+func (r callbackSimpleValueMetadataReader) simpleValueNotation(ns, local string) (declared, valid bool) {
 	if r.callbacks.Notation == nil {
 		return false, false
 	}
@@ -129,16 +133,16 @@ type SimpleValueFacetLiteral struct {
 // SimpleValueFacets is the runtime-owned read projection of simple-type facets
 // needed by schema atomic fallback validation.
 type SimpleValueFacets struct {
-	Enumeration   []SimpleValueFacetLiteral
-	StringFacets  StringFacetValues
-	enumeration   []simpleValueLiteralRead
-	MinInclusive  SimpleValueFacetLiteral
-	MaxInclusive  SimpleValueFacetLiteral
-	MinExclusive  SimpleValueFacetLiteral
-	MaxExclusive  SimpleValueFacetLiteral
-	DecimalFacets DecimalFacetValues
-	LengthFacets  LengthFacetValues
-	Facets        FacetMask
+	Enumeration      []SimpleValueFacetLiteral
+	StringFacets     StringFacetValues
+	enumerationReads []simpleValueLiteralRead
+	MinInclusive     SimpleValueFacetLiteral
+	MaxInclusive     SimpleValueFacetLiteral
+	MinExclusive     SimpleValueFacetLiteral
+	MaxExclusive     SimpleValueFacetLiteral
+	DecimalFacets    DecimalFacetValues
+	LengthFacets     LengthFacetValues
+	Facets           FacetMask
 }
 
 // SimpleValueFacetProjector projects immutable facet storage while pooling
@@ -252,25 +256,21 @@ func (f simpleValueFacetRead) bound(flag FacetMask) (simpleValueLiteralRead, boo
 
 func (f simpleValueFacetRead) literal(flag FacetMask) SimpleValueFacetLiteral {
 	lit, present := f.bound(flag)
-	return lit.literal(present)
+	if !present {
+		return SimpleValueFacetLiteral{}
+	}
+	return SimpleValueFacetLiteral{Canonical: lit.canonical, Actual: lit.actual, Present: true}
 }
 
 func newSimpleValueLiteralRead(lit CompiledLiteral) simpleValueLiteralRead {
 	return simpleValueLiteralRead{canonical: lit.Canonical, actual: lit.Actual}
 }
 
-func (r simpleValueLiteralRead) literal(present bool) SimpleValueFacetLiteral {
-	if !present {
-		return SimpleValueFacetLiteral{}
-	}
-	return SimpleValueFacetLiteral{Canonical: r.canonical, Actual: r.actual, Present: true}
-}
-
 func (f simpleValueFacetRead) lengthValues() LengthFacetValues {
 	return LengthFacetValues{
-		Length:    facetCardinalityValue(f.length, f.present&FacetLength != 0),
-		MinLength: facetCardinalityValue(f.minLength, f.present&FacetMinLength != 0),
-		MaxLength: facetCardinalityValue(f.maxLength, f.present&FacetMaxLength != 0),
+		Length:    facetCardinalityValue(f.present, FacetLength, f.length),
+		MinLength: facetCardinalityValue(f.present, FacetMinLength, f.minLength),
+		MaxLength: facetCardinalityValue(f.present, FacetMaxLength, f.maxLength),
 	}
 }
 
@@ -280,8 +280,8 @@ func (f simpleValueFacetRead) decimalValues() DecimalFacetValues {
 		MaxInclusive:   f.decimalBound(FacetMaxInclusive),
 		MinExclusive:   f.decimalBound(FacetMinExclusive),
 		MaxExclusive:   f.decimalBound(FacetMaxExclusive),
-		TotalDigits:    facetCardinalityValue(f.totalDigits, f.present&FacetTotalDigits != 0),
-		FractionDigits: facetCardinalityValue(f.fractionDigits, f.present&FacetFractionDigits != 0),
+		TotalDigits:    facetCardinalityValue(f.present, FacetTotalDigits, f.totalDigits),
+		FractionDigits: facetCardinalityValue(f.present, FacetFractionDigits, f.fractionDigits),
 		Facets:         f.present,
 	}
 }
@@ -713,15 +713,15 @@ func simpleValueFacetsForColdRead(cold *simpleValueColdRead) SimpleValueFacets {
 	}
 	f := cold.facets
 	return SimpleValueFacets{
-		MinInclusive:  f.literal(FacetMinInclusive),
-		MaxInclusive:  f.literal(FacetMaxInclusive),
-		MinExclusive:  f.literal(FacetMinExclusive),
-		MaxExclusive:  f.literal(FacetMaxExclusive),
-		StringFacets:  StringFacetValues{patternReads: f.patterns, HasEnumeration: len(cold.enumeration) != 0},
-		DecimalFacets: f.decimalValues(),
-		LengthFacets:  f.lengthValues(),
-		Facets:        f.present,
-		enumeration:   cold.enumeration,
+		MinInclusive:     f.literal(FacetMinInclusive),
+		MaxInclusive:     f.literal(FacetMaxInclusive),
+		MinExclusive:     f.literal(FacetMinExclusive),
+		MaxExclusive:     f.literal(FacetMaxExclusive),
+		StringFacets:     StringFacetValues{patternReads: f.patterns, HasEnumeration: len(cold.enumeration) != 0},
+		DecimalFacets:    f.decimalValues(),
+		LengthFacets:     f.lengthValues(),
+		Facets:           f.present,
+		enumerationReads: cold.enumeration,
 	}
 }
 
@@ -925,10 +925,6 @@ func simpleValueFacetsForFacetSet(f FacetSet, enumeration []SimpleValueFacetLite
 
 func simpleValueBoundFacetLiteral(f FacetSet, flag FacetMask) SimpleValueFacetLiteral {
 	lit, present := BoundFacet(f, flag)
-	return simpleValueFacetLiteral(lit, present)
-}
-
-func simpleValueFacetLiteral(lit CompiledLiteral, present bool) SimpleValueFacetLiteral {
 	if !present {
 		return SimpleValueFacetLiteral{}
 	}
@@ -942,16 +938,16 @@ func simpleValueFacetLiteral(lit CompiledLiteral, present bool) SimpleValueFacet
 func newSimpleValueFacetLiterals(in []CompiledLiteral) []SimpleValueFacetLiteral {
 	out := make([]SimpleValueFacetLiteral, len(in))
 	for i := range in {
-		out[i] = simpleValueFacetLiteral(in[i], true)
+		out[i] = SimpleValueFacetLiteral{Canonical: in[i].Canonical, Actual: in[i].Actual, Present: true}
 	}
 	return slices.Clip(out)
 }
 
 func lengthFacetValues(f FacetSet) LengthFacetValues {
 	return LengthFacetValues{
-		Length:    facetCardinalityValue(f.Length, f.Present&FacetLength != 0),
-		MinLength: facetCardinalityValue(f.MinLength, f.Present&FacetMinLength != 0),
-		MaxLength: facetCardinalityValue(f.MaxLength, f.Present&FacetMaxLength != 0),
+		Length:    facetCardinalityValue(f.Present, FacetLength, f.Length),
+		MinLength: facetCardinalityValue(f.Present, FacetMinLength, f.MinLength),
+		MaxLength: facetCardinalityValue(f.Present, FacetMaxLength, f.MaxLength),
 	}
 }
 
@@ -961,8 +957,8 @@ func decimalFacetValues(f FacetSet) DecimalFacetValues {
 		MaxInclusive:   decimalBoundFacetValue(f, FacetMaxInclusive),
 		MinExclusive:   decimalBoundFacetValue(f, FacetMinExclusive),
 		MaxExclusive:   decimalBoundFacetValue(f, FacetMaxExclusive),
-		TotalDigits:    facetCardinalityValue(f.TotalDigits, f.Present&FacetTotalDigits != 0),
-		FractionDigits: facetCardinalityValue(f.FractionDigits, f.Present&FacetFractionDigits != 0),
+		TotalDigits:    facetCardinalityValue(f.Present, FacetTotalDigits, f.TotalDigits),
+		FractionDigits: facetCardinalityValue(f.Present, FacetFractionDigits, f.FractionDigits),
 		Facets:         f.Present,
 	}
 }
@@ -978,19 +974,15 @@ func decimalBoundFacetValue(f FacetSet, flag FacetMask) DecimalFacetValue {
 	}
 }
 
-func facetCardinalityValue(v uint32, present bool) FacetCardinalityValue {
-	if !present {
+func facetCardinalityValue(present, flag FacetMask, value uint32) FacetCardinalityValue {
+	if present&flag == 0 {
 		return FacetCardinalityValue{}
 	}
-	return FacetCardinalityValue{Value: v, Present: true}
+	return FacetCardinalityValue{Value: value, Present: true}
 }
 
 func rawDecimalBoundFacet(f FacetSet, flag FacetMask) RawDecimalBound {
 	lit, present := BoundFacet(f, flag)
-	return rawDecimalBound(lit, present)
-}
-
-func rawDecimalBound(lit CompiledLiteral, present bool) RawDecimalBound {
 	if !present {
 		return RawDecimalBound{}
 	}
@@ -1008,58 +1000,67 @@ type AtomicSimpleValueResult struct {
 // list splitting, route, list-recursion, union-recursion, primitive parsing,
 // and facet execution policy.
 func ValidateSimpleValue(cb SimpleValueCallbacks, id SimpleTypeID, lexical string, needs SimpleValueNeed) (SimpleValue, error) {
-	return validateSimpleValue(callbackSimpleValueMetadataReader{callbacks: cb}, id, lexical, cb.ResolveQName, needs, nil)
+	return validateSimpleValueWithReader(callbackSimpleValueMetadataReader{callbacks: cb}, id, lexical, cb.ResolveQName, needs, nil)
 }
 
-func validateSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
+func validateSimpleValueWithReader[R simpleValueReader](reader R, id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
+	validator := simpleValueValidator[R]{reader: reader, resolve: resolve, needs: needs, scratch: scratch}
+	return validator.validate(id, lexical)
+}
+
+type simpleValueValidator[R simpleValueReader] struct {
+	reader  R
+	resolve ResolveQNameParts
+	scratch *StringPatternScratch
+	needs   SimpleValueNeed
+}
+
+func (v simpleValueValidator[R]) validate(id SimpleTypeID, lexical string) (SimpleValue, error) {
 	var typ SimpleValueType
 	known := false
 	if id != NoSimpleType {
-		typ, known = reader.simpleValueType(id)
+		typ, known = v.reader.simpleValueType(id)
 	}
 	switch SimpleValueRoute(SimpleValueRouteShape{Type: id, Variety: typ.Variety, Known: known}) {
 	case SimpleValueRouteUntyped:
 		return SimpleValue{Canonical: lexical, Type: NoSimpleType}, nil
 	case SimpleValueRouteAtomic:
-		return validateAtomicSimpleValue(reader, id, typ, lexical, resolve, needs, scratch)
+		return v.validateAtomic(id, typ, lexical)
 	case SimpleValueRouteList:
-		return validateListSimpleValue(reader, id, typ, lexical, resolve, needs, scratch)
+		return v.validateList(id, typ, lexical)
 	case SimpleValueRouteUnion:
-		return validateUnionSimpleValue(reader, id, typ, lexical, resolve, needs, scratch)
+		return v.validateUnion(id, typ, lexical)
 	case SimpleValueRouteMissing, SimpleValueRouteInvalid:
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
 	return SimpleValue{}, ErrSimpleValueMetadata
 }
 
-func validateAtomicSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
+func (v simpleValueValidator[R]) validateAtomic(id SimpleTypeID, typ SimpleValueType, lexical string) (SimpleValue, error) {
 	normalized := normalizeSimpleValueLexical(lexical, typ.Whitespace)
-	bypass := SimpleValueBypass(simpleValueAtomicBypassShape(&typ, needs))
+	bypass := SimpleValueBypass(simpleValueAtomicBypassShape(&typ, v.needs))
 	if bypass == SimpleValueBypassNone {
-		return validateAtomicSimpleValueWithoutBypass(reader, id, typ, normalized, resolve, needs, scratch)
+		return v.validateAtomicWithoutBypass(id, typ, normalized)
 	}
 	if bypass == SimpleValueBypassValidateDecimal {
 		return validateAtomicDecimalSimpleValue(id, typ, normalized)
 	}
-	return validateAtomicSimpleValueBypass(reader, id, typ, normalized, needs, scratch, bypass)
+	return v.validateAtomicBypass(id, typ, normalized, bypass)
 }
 
-func validateAtomicSimpleValueBypass[R simpleValueMetadataReader](
-	reader R,
+func (v simpleValueValidator[R]) validateAtomicBypass(
 	id SimpleTypeID,
 	typ SimpleValueType,
 	normalized string,
-	needs SimpleValueNeed,
-	scratch *StringPatternScratch,
 	bypass SimpleValueBypassAction,
 ) (SimpleValue, error) {
 	switch bypass {
 	case SimpleValueBypassAcceptString:
-		return unconstrainedStringSimpleValue(id, normalized, needs), nil
+		return unconstrainedStringSimpleValue(id, normalized, v.needs), nil
 	case SimpleValueBypassValidateInt:
 		return validatedAtomicSimpleValue(id, ValidateFastIntLexical(normalized))
 	case SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
-		return validatedAtomicSimpleValue(id, validateSimpleValueStringFacets(reader, id, typ, normalized, normalized, scratch))
+		return validatedAtomicSimpleValue(id, v.validateStringFacets(id, typ, normalized, normalized))
 	case SimpleValueBypassValidateAnyURI:
 		_, err := uriref.Check(normalized)
 		return validatedAtomicSimpleValue(id, err)
@@ -1090,19 +1091,15 @@ func validatedAtomicSimpleValue(id SimpleTypeID, err error) (SimpleValue, error)
 	return SimpleValue{Type: id}, nil
 }
 
-func validateAtomicSimpleValueWithoutBypass[R simpleValueMetadataReader](
-	reader R,
+func (v simpleValueValidator[R]) validateAtomicWithoutBypass(
 	id SimpleTypeID,
 	typ SimpleValueType,
 	normalized string,
-	resolve ResolveQNameParts,
-	needs SimpleValueNeed,
-	scratch *StringPatternScratch,
 ) (SimpleValue, error) {
-	if value, ok, err := validateAtomicStringSimpleValueFallback(id, typ, normalized, needs); ok {
+	if value, ok, err := validateAtomicStringSimpleValueFallback(id, typ, normalized, v.needs); ok {
 		return value, err
 	}
-	return validateAtomicSimpleValueFallback(reader, id, typ, normalized, resolve, needs, scratch)
+	return v.validateAtomicFallback(id, typ, normalized)
 }
 
 func validateAtomicDecimalSimpleValue(id SimpleTypeID, typ SimpleValueType, normalized string) (SimpleValue, error) {
@@ -1160,32 +1157,31 @@ func validateAtomicStringSimpleValueFallback(id SimpleTypeID, typ SimpleValueTyp
 	return value, true, nil
 }
 
-func validateAtomicSimpleValueFallback[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, normalized string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
+func (v simpleValueValidator[R]) validateAtomicFallback(id SimpleTypeID, typ SimpleValueType, normalized string) (SimpleValue, error) {
 	if err := validateRuntimeAtomicBuiltin(typ, normalized); err != nil {
 		return SimpleValue{}, err
 	}
 	if err := validateRuntimeAtomicLengthFacets(typ, normalized); err != nil {
 		return SimpleValue{}, err
 	}
-	facets, ok := reader.simpleValueFacets(id)
+	facets, ok := v.reader.simpleValueFacets(id)
 	if !ok {
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
-	result, err := validateAtomicSimpleValueFallbackWithReaderAndScratch(reader, AtomicSimpleValueInput{
+	result, err := validateAtomicSimpleValueFallbackWithReaderAndScratch(v.reader, AtomicSimpleValueInput{
 		Type:         typ,
 		Facets:       facets,
-		ResolveQName: resolve,
+		ResolveQName: v.resolve,
 		Normalized:   normalized,
 		Needs: SimpleValuePrimitiveNeeds(PrimitiveValueNeedShape{
 			Facets:    typ.Facets,
 			Primitive: typ.Primitive,
 			Builtin:   typ.Builtin,
 			Identity:  typ.Identity,
-			Needs:     needs,
+			Needs:     v.needs,
 		}),
-		NeedIdentity: needs.Has(SimpleNeedIdentity),
-		Present:      true,
-	}, scratch)
+		Present: true,
+	}, v.scratch)
 	if err != nil {
 		return SimpleValue{}, err
 	}
@@ -1195,7 +1191,7 @@ func validateAtomicSimpleValueFallback[R simpleValueMetadataReader](reader R, id
 		Type:              id,
 		Primitive:         typ.Primitive,
 		Identity:          typ.Identity,
-		Needs:             needs,
+		Needs:             v.needs,
 	}), nil
 }
 
@@ -1242,18 +1238,18 @@ func simpleValueFloatBits(kind PrimitiveKind) int {
 	return 64
 }
 
-func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
+func (v simpleValueValidator[R]) validateList(id SimpleTypeID, typ SimpleValueType, lexical string) (SimpleValue, error) {
 	needPlan := SimpleValueListNeeds(ListSimpleValueNeedShape{
 		Facets:   typ.Facets,
 		Identity: typ.Identity,
-		Needs:    needs,
+		Needs:    v.needs,
 	})
 	var values listSimpleValueAccumulator
-	if err := collectListSimpleValueItems(reader, typ.ListItem, lexical, resolve, needs, needPlan, scratch, &values); err != nil {
+	if err := v.collectListItems(typ.ListItem, lexical, needPlan, &values); err != nil {
 		return SimpleValue{}, err
 	}
-	canonical, normalized := values.strings(needPlan.NeedStrings)
-	if err := validateListSimpleValueFacets(reader, id, typ, canonical, normalized, values.count, scratch); err != nil {
+	canonical, normalized := values.strings(needPlan)
+	if err := v.validateListFacets(id, typ, canonical, normalized, values.count); err != nil {
 		return SimpleValue{}, err
 	}
 	return ListSimpleValue(ListSimpleValueProjection{
@@ -1261,7 +1257,7 @@ func validateListSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTyp
 		ItemIDRefs:   values.refs.String(),
 		ItemIdentity: values.identity.String(),
 		Type:         id,
-		Needs:        needs,
+		Needs:        v.needs,
 	}), nil
 }
 
@@ -1273,22 +1269,20 @@ type listSimpleValueAccumulator struct {
 	count      uint32
 }
 
-func collectListSimpleValueItems[R simpleValueMetadataReader](
-	reader R,
+func (v simpleValueValidator[R]) collectListItems(
 	itemType SimpleTypeID,
 	lexical string,
-	resolve ResolveQNameParts,
-	needs SimpleValueNeed,
 	plan ListSimpleValueNeedPlan,
-	scratch *StringPatternScratch,
 	values *listSimpleValueAccumulator,
 ) error {
+	itemValidator := v
+	itemValidator.needs = plan.ItemNeeds
 	for item := range lex.XMLFieldsSeq(lexical) {
-		itemValue, err := validateSimpleValue(reader, itemType, item, resolve, plan.ItemNeeds, scratch)
+		itemValue, err := itemValidator.validate(itemType, item)
 		if err != nil {
 			return err
 		}
-		if !values.append(item, itemValue, needs, plan.NeedStrings) {
+		if !values.append(item, itemValue, v.needs, plan) {
 			return ErrSimpleValueMetadata
 		}
 	}
@@ -1299,9 +1293,9 @@ func (a *listSimpleValueAccumulator) append(
 	normalized string,
 	value SimpleValue,
 	needs SimpleValueNeed,
-	needStrings bool,
+	plan ListSimpleValueNeedPlan,
 ) bool {
-	if needStrings {
+	if plan.NeedStrings {
 		if a.count > 0 {
 			a.canonical.WriteByte(' ')
 			a.normalized.WriteByte(' ')
@@ -1317,20 +1311,18 @@ func (a *listSimpleValueAccumulator) append(
 	return true
 }
 
-func (a *listSimpleValueAccumulator) strings(needed bool) (string, string) {
-	if !needed {
+func (a *listSimpleValueAccumulator) strings(plan ListSimpleValueNeedPlan) (canonical, normalized string) {
+	if !plan.NeedStrings {
 		return "", ""
 	}
 	return a.canonical.String(), a.normalized.String()
 }
 
-func validateListSimpleValueFacets[R simpleValueMetadataReader](
-	reader R,
+func (v simpleValueValidator[R]) validateListFacets(
 	id SimpleTypeID,
 	typ SimpleValueType,
 	canonical, normalized string,
 	count uint32,
-	scratch *StringPatternScratch,
 ) error {
 	facetPlan := SimpleValueListFacetPlan(typ.Facets)
 	if facetPlan.ValidateLength {
@@ -1339,7 +1331,7 @@ func validateListSimpleValueFacets[R simpleValueMetadataReader](
 		}
 	}
 	if facetPlan.ValidateLexical {
-		if err := validateSimpleValueStringFacets(reader, id, typ, normalized, canonical, scratch); err != nil {
+		if err := v.validateStringFacets(id, typ, normalized, canonical); err != nil {
 			return err
 		}
 	}
@@ -1374,7 +1366,7 @@ func validateSimpleValueLengthFacets(typ SimpleValueType, length uint32) error {
 	return ValidateLengthFacets(typ.LengthFacets, length)
 }
 
-func validateUnionSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
+func (v simpleValueValidator[R]) validateUnion(id SimpleTypeID, typ SimpleValueType, lexical string) (SimpleValue, error) {
 	if len(typ.UnionMembers) == 0 {
 		return SimpleValue{}, ErrSimpleValueMetadata
 	}
@@ -1382,69 +1374,72 @@ func validateUnionSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTy
 	memberNeeds := SimpleValueUnionMemberNeeds(UnionSimpleValueNeedShape{
 		Facets:   typ.Facets,
 		Identity: typ.Identity,
-		Needs:    needs,
+		Needs:    v.needs,
 	})
-	matchedValue, matched, unsupportedErr, err := matchUnionSimpleValue(reader, id, typ, normalized, resolve, memberNeeds, scratch)
+	match, err := v.matchUnion(id, typ, normalized, memberNeeds)
 	if err != nil {
 		return SimpleValue{}, err
 	}
-	if matched {
-		return matchedValue, nil
+	if match.matched {
+		return match.value, nil
 	}
-	if unsupportedErr != nil {
-		return SimpleValue{}, unsupportedErr
+	if match.unsupported != nil {
+		return SimpleValue{}, match.unsupported
 	}
 	return SimpleValue{}, errors.New("value does not match any union member")
 }
 
-func matchUnionSimpleValue[R simpleValueMetadataReader](
-	reader R,
+type unionSimpleValueMatch struct {
+	unsupported error
+	value       SimpleValue
+	matched     bool
+}
+
+func (v simpleValueValidator[R]) matchUnion(
 	id SimpleTypeID,
 	typ SimpleValueType,
 	normalized string,
-	resolve ResolveQNameParts,
 	memberNeeds SimpleValueNeed,
-	scratch *StringPatternScratch,
-) (SimpleValue, bool, error, error) {
+) (unionSimpleValueMatch, error) {
 	var unsupported error
+	memberValidator := v
+	memberValidator.needs = memberNeeds
 	for _, member := range typ.UnionMembers {
-		value, err := validateSimpleValue(reader, member, normalized, resolve, memberNeeds, scratch)
+		value, err := memberValidator.validate(member, normalized)
 		if err == nil {
-			facetErr := validateUnionSimpleValueFacets(reader, id, typ, normalized, value.Canonical, scratch)
-			return value, true, unsupported, facetErr
+			facetErr := v.validateUnionFacets(id, typ, normalized, value.Canonical)
+			return unionSimpleValueMatch{value: value, unsupported: unsupported, matched: true}, facetErr
 		}
-		if unsupported == nil && reader.simpleValueUnsupported(err) {
+		if unsupported == nil && v.reader.simpleValueUnsupported(err) {
 			unsupported = err
 		}
 	}
-	return SimpleValue{}, false, unsupported, nil
+	return unionSimpleValueMatch{unsupported: unsupported}, nil
 }
 
-func validateUnionSimpleValueFacets[R simpleValueMetadataReader](
-	reader R,
+func (v simpleValueValidator[R]) validateUnionFacets(
 	id SimpleTypeID,
 	typ SimpleValueType,
 	normalized, canonical string,
-	scratch *StringPatternScratch,
 ) error {
 	if !SimpleValueUnionFacetValidation(typ.Facets) {
 		return nil
 	}
-	return validateSimpleValueStringFacets(reader, id, typ, normalized, canonical, scratch)
+	return v.validateStringFacets(id, typ, normalized, canonical)
 }
 
-func validateSimpleValueStringFacets[R simpleValueMetadataReader](reader R, id SimpleTypeID, typ SimpleValueType, normalized, canonical string, scratch *StringPatternScratch) error {
+func (v simpleValueValidator[R]) validateStringFacets(id SimpleTypeID, typ SimpleValueType, normalized, canonical string) error {
 	if typ.Facets&FacetPattern != 0 && typ.StringFacets.patternCount() == 0 {
 		return ErrSimpleValueMetadata
 	}
 	if typ.Facets&FacetEnumeration != 0 && !typ.StringFacets.HasEnumeration {
 		return ErrSimpleValueMetadata
 	}
-	if err := typ.StringFacets.validatePatterns(normalized, scratch); err != nil {
+	if err := typ.StringFacets.validatePatterns(normalized, v.scratch); err != nil {
 		return err
 	}
 	if typ.StringFacets.HasEnumeration {
-		matched, ok := reader.simpleValueStringEnumeration(id, canonical)
+		matched, ok := v.reader.simpleValueStringEnumeration(id, canonical)
 		if !ok {
 			return ErrSimpleValueMetadata
 		}
@@ -1462,7 +1457,9 @@ func normalizeSimpleValueLexical(lexical string, mode WhitespaceMode) string {
 		return lexical
 	case WhitespaceReplace:
 		return lex.ReplaceXMLWhitespace(lexical)
-	default:
+	case WhitespaceCollapse:
 		return lex.CollapseXMLWhitespace(lexical)
+	default:
 	}
+	return lex.CollapseXMLWhitespace(lexical)
 }

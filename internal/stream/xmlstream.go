@@ -164,9 +164,15 @@ func isNilReader(r io.Reader) bool {
 	switch v.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
 		return v.IsNil()
-	default:
+	case reflect.Invalid, reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.Array, reflect.Interface, reflect.String, reflect.Struct, reflect.UnsafePointer:
 		return false
+	default:
 	}
+	return false
 }
 
 // Detach drops references to the current input while retaining bounded parser
@@ -192,102 +198,92 @@ func (p *Parser) Detach() {
 // Next returns the next token. Returned token byte slices are valid until the
 // next call to Next or Reset. A non-nil error is returned with a zero Token;
 // Pos reports where the parser detected that error.
+//
+//nolint:gocognit // This loop owns parser state; splitting it adds a call to every token transition.
 func (p *Parser) Next() (Token, error) {
 	clear(p.attrs)
 	p.attrs = p.attrs[:0]
-	if token, ready, err := p.pendingToken(); ready {
+	if p.inCDATA {
+		p.retainedBytes = 0
+		token, err := p.readCDATAChunk(0, 0)
 		if err != nil {
 			return Token{}, err
 		}
 		return token, nil
 	}
+	if p.pendingEnd.Name.Local != "" {
+		end := p.pendingEnd
+		p.pendingEnd = EndElement{}
+		line, col := p.br.pos()
+		return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
+	}
 	for {
-		token, skip, err := p.readNextToken()
+		p.retainedBytes = 0
+		b, err := p.br.readByte()
 		if err != nil {
 			return Token{}, err
 		}
-		if !skip {
+		if b != '<' {
+			p.atStart = false
+			token, charErr := p.readCharData(b)
+			if charErr != nil {
+				return Token{}, charErr
+			}
 			return token, nil
+		}
+		line, col := p.br.pos()
+		next, err := p.br.readByte()
+		if err != nil {
+			return Token{}, streamSyntaxError("unexpected EOF after <", err)
+		}
+		switch next {
+		case '/':
+			end, err := p.readEndElement()
+			if err != nil {
+				return Token{}, err
+			}
+			p.atStart = false
+			return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
+		case '!':
+			token, skip, err := p.readMarkup(line, col)
+			if err != nil {
+				return Token{}, err
+			}
+			p.atStart = false
+			if skip {
+				continue
+			}
+			return token, nil
+		case '?':
+			position := processingInstructionWithinDocument
+			if p.atStart {
+				position = processingInstructionAtDocumentStart
+			}
+			token, skip, err := p.readPI(position, line, col)
+			if err != nil {
+				return Token{}, err
+			}
+			p.atStart = false
+			if skip {
+				continue
+			}
+			return token, nil
+		default:
+			start, selfClosing, err := p.readStartElement(next)
+			if err != nil {
+				return Token{}, err
+			}
+			p.atStart = false
+			if selfClosing {
+				p.pendingEnd = EndElement{Name: start.Name}
+			}
+			return Token{Kind: KindStart, Start: start, Line: line, Column: col}, nil
 		}
 	}
 }
 
-func (p *Parser) pendingToken() (Token, bool, error) {
-	if p.inCDATA {
-		p.retainedBytes = 0
-		token, err := p.readCDATAChunk(0, 0)
-		return token, true, err
-	}
-	if p.pendingEnd.Name.Local == "" {
-		return Token{}, false, nil
-	}
-	end := p.pendingEnd
-	p.pendingEnd = EndElement{}
-	line, col := p.br.pos()
-	return Token{Kind: KindEnd, End: end, Line: line, Column: col}, true, nil
-}
-
-func (p *Parser) readNextToken() (Token, bool, error) {
-	p.retainedBytes = 0
-	b, err := p.br.readByte()
-	if err != nil {
-		return Token{}, false, err
-	}
-	if b != '<' {
-		p.atStart = false
-		token, charErr := p.readCharData(b)
-		return token, false, charErr
-	}
-	line, col := p.br.pos()
-	next, err := p.br.readByte()
-	if err != nil {
-		return Token{}, false, p.syntaxError("unexpected EOF after <", err)
-	}
-	return p.readMarkupToken(next, line, col)
-}
-
-func (p *Parser) readMarkupToken(next byte, line, col int) (Token, bool, error) {
-	var token Token
-	var skip bool
-	var err error
-	switch next {
-	case '/':
-		token, err = p.readEndToken(line, col)
-	case '!':
-		token, skip, err = p.readMarkup(line, col)
-	case '?':
-		token, skip, err = p.readPI(p.atStart, line, col)
-	default:
-		token, err = p.readStartToken(next, line, col)
-	}
-	if err != nil {
-		return Token{}, false, err
-	}
-	p.atStart = false
-	return token, skip, nil
-}
-
-func (p *Parser) readEndToken(line, col int) (Token, error) {
-	end, err := p.readEndElement()
-	if err != nil {
-		return Token{}, err
-	}
-	return Token{Kind: KindEnd, End: end, Line: line, Column: col}, nil
-}
-
-func (p *Parser) readStartToken(first byte, line, col int) (Token, error) {
-	start, selfClosing, err := p.readStartElement(first)
-	if err != nil {
-		return Token{}, err
-	}
-	if selfClosing {
-		p.pendingEnd = EndElement{Name: start.Name}
-	}
-	return Token{Kind: KindStart, Start: start, Line: line, Column: col}, nil
-}
-
 // Pos returns the current parser line and byte column.
-func (p *Parser) Pos() (int, int) {
+func (p *Parser) Pos() (line, column int) {
 	return p.br.pos()
 }
 
@@ -342,77 +338,81 @@ func joinedErrorsAreOnlyEOF(causes []error) bool {
 	return true
 }
 
+//nolint:gocognit // One loop owns byte consumption, delimiter state, and token position.
 func (p *Parser) readCharData(first byte) (Token, error) {
 	line, col := p.br.pos()
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
-	if err := p.appendCharDataByte(first, &cdataEnd); err != nil {
-		return Token{}, err
+	switch first {
+	case '&':
+		if err := p.readEntity(&p.textBuf); err != nil {
+			return Token{}, err
+		}
+	case '\r':
+		if err := p.consumeLineFeed(); err != nil {
+			return Token{}, err
+		}
+		if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+			return Token{}, err
+		}
+	default:
+		cdataEnd = advanceCDataEnd(cdataEnd, first)
+		if cdataEnd == len(cdataEndTerm) {
+			return Token{}, fmt.Errorf("]]> cannot appear in character data")
+		}
+		if err := p.appendXMLRune(&p.textBuf, first); err != nil {
+			return Token{}, err
+		}
 	}
 	for {
-		done, err := p.readCharDataStep(&cdataEnd)
+		chunk, err := p.br.buffered()
+		if IsOnlyEOF(err) {
+			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
+		}
 		if err != nil {
 			return Token{}, err
 		}
-		if done {
+		n, nextCDataEnd := scanCharDataChunk(chunk, cdataEnd)
+		if n > 0 {
+			if appendErr := p.appendTokenBytes(&p.textBuf, chunk[:n]); appendErr != nil {
+				return Token{}, appendErr
+			}
+			p.br.consumeBuffered(n)
+			cdataEnd = nextCDataEnd
+			continue
+		}
+		b, err := p.br.readByte()
+		if err != nil {
+			return Token{}, err
+		}
+		if b == '<' {
+			p.br.unreadByte()
 			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
 		}
-	}
-}
-
-func (p *Parser) readCharDataStep(cdataEnd *int) (bool, error) {
-	progressed, eof, err := p.appendBufferedCharData(cdataEnd)
-	if err != nil || eof {
-		return eof, err
-	}
-	if progressed {
-		return false, nil
-	}
-	b, err := p.br.readByte()
-	if err != nil {
-		return false, err
-	}
-	if b == '<' {
-		p.br.unreadByte()
-		return true, nil
-	}
-	return false, p.appendCharDataByte(b, cdataEnd)
-}
-
-func (p *Parser) appendBufferedCharData(cdataEnd *int) (bool, bool, error) {
-	chunk, err := p.br.buffered()
-	if IsOnlyEOF(err) {
-		return false, true, nil
-	}
-	if err != nil {
-		return false, false, err
-	}
-	n, nextCDataEnd := scanCharDataChunk(chunk, *cdataEnd)
-	if n == 0 {
-		return false, false, nil
-	}
-	if err := p.appendTokenBytes(&p.textBuf, chunk[:n]); err != nil {
-		return false, false, err
-	}
-	p.br.consumeBuffered(n)
-	*cdataEnd = nextCDataEnd
-	return true, false, nil
-}
-
-func (p *Parser) appendCharDataByte(b byte, cdataEnd *int) error {
-	switch b {
-	case '&':
-		*cdataEnd = 0
-		return p.readEntity(&p.textBuf)
-	case '\r':
-		*cdataEnd = 0
-		return p.appendNormalizedLineFeed(&p.textBuf)
-	default:
-		*cdataEnd = advanceCDataEnd(*cdataEnd, b)
-		if *cdataEnd == len(cdataEndTerm) {
-			return fmt.Errorf("]]> cannot appear in character data")
+		if b == '\r' {
+			if err := p.consumeLineFeed(); err != nil {
+				return Token{}, err
+			}
+			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+				return Token{}, err
+			}
+			cdataEnd = 0
+			continue
 		}
-		return p.appendXMLRune(&p.textBuf, b)
+		if b == '&' {
+			if err := p.readEntity(&p.textBuf); err != nil {
+				return Token{}, err
+			}
+			cdataEnd = 0
+			continue
+		}
+		cdataEnd = advanceCDataEnd(cdataEnd, b)
+		if cdataEnd == len(cdataEndTerm) {
+			return Token{}, fmt.Errorf("]]> cannot appear in character data")
+		}
+		if err := p.appendXMLRune(&p.textBuf, b); err != nil {
+			return Token{}, err
+		}
 	}
 }
 
@@ -423,20 +423,8 @@ func (p *Parser) appendNormalizedLineFeed(dst *[]byte) error {
 	return p.appendTokenByte(dst, '\n')
 }
 
-func scanCharDataChunk(data []byte, cdataEnd int) (int, int) {
-	i := scanFastCharData(data, cdataEnd)
-	for i < len(data) {
-		size, next, stop := scanCharDataUnit(data[i:], cdataEnd)
-		if stop {
-			return i, next
-		}
-		i += size
-		cdataEnd = next
-	}
-	return len(data), cdataEnd
-}
-
-func scanFastCharData(data []byte, cdataEnd int) int {
+//nolint:gocognit // One pass keeps ASCII and UTF-8 scan state local and avoids per-byte calls.
+func scanCharDataChunk(data []byte, cdataEnd int) (chunkEnd, nextCDataEnd int) {
 	i := 0
 	for cdataEnd == 0 && len(data)-i >= 8 {
 		x := binary.LittleEndian.Uint64(data[i:])
@@ -449,45 +437,45 @@ func scanFastCharData(data []byte, cdataEnd int) int {
 		}
 		i += 8
 	}
-	return i
-}
-
-func scanCharDataUnit(data []byte, cdataEnd int) (int, int, bool) {
-	if data[0] < utf8.RuneSelf {
-		return scanASCIICharDataByte(data[0], cdataEnd)
-	}
-	return scanUTF8CharData(data, cdataEnd)
-}
-
-func scanASCIICharDataByte(b byte, cdataEnd int) (int, int, bool) {
-	switch {
-	case b == '<' || b == '&' || b == '\n' || b == '\r':
-		return 0, cdataEnd, true
-	case b == '\t':
-		return 1, 0, false
-	case b < 0x20:
-		return 0, cdataEnd, true
-	default:
-		next := advanceCDataEnd(cdataEnd, b)
-		if next == len(cdataEndTerm) {
-			return 0, cdataEnd, true
+	for i < len(data) {
+		b := data[i]
+		if b >= 0x20 && b < utf8.RuneSelf {
+			if b == '<' || b == '&' {
+				return i, cdataEnd
+			}
+			nextCDataEnd := advanceCDataEnd(cdataEnd, b)
+			if nextCDataEnd == len(cdataEndTerm) {
+				return i, cdataEnd
+			}
+			cdataEnd = nextCDataEnd
+			i++
+			continue
 		}
-		return 1, next, false
+		if b == '\n' || b == '\r' {
+			return i, cdataEnd
+		}
+		if b == '\t' {
+			cdataEnd = 0
+			i++
+			continue
+		}
+		if b < utf8.RuneSelf {
+			return i, cdataEnd
+		}
+		if !utf8.FullRune(data[i:]) {
+			return i, cdataEnd
+		}
+		r, size := utf8.DecodeRune(data[i:])
+		if r == utf8.RuneError && size == 1 {
+			return i, cdataEnd
+		}
+		if !lex.IsXMLChar(r) {
+			return i, cdataEnd
+		}
+		cdataEnd = 0
+		i += size
 	}
-}
-
-func scanUTF8CharData(data []byte, cdataEnd int) (int, int, bool) {
-	if !utf8.FullRune(data) {
-		return 0, cdataEnd, true
-	}
-	r, size := utf8.DecodeRune(data)
-	if r == utf8.RuneError && size == 1 {
-		return 0, cdataEnd, true
-	}
-	if !lex.IsXMLChar(r) {
-		return 0, cdataEnd, true
-	}
-	return size, 0, false
+	return len(data), cdataEnd
 }
 
 const cdataEndTerm = "]]>"
@@ -540,7 +528,7 @@ func hasZeroByte(x uint64) bool {
 func (p *Parser) readMarkup(line, col int) (Token, bool, error) {
 	b, err := p.br.readByte()
 	if err != nil {
-		return Token{}, false, p.syntaxError("unexpected EOF after <!", err)
+		return Token{}, false, streamSyntaxError("unexpected EOF after <!", err)
 	}
 	switch b {
 	case '-':
@@ -555,7 +543,7 @@ func (p *Parser) readMarkup(line, col int) (Token, bool, error) {
 func (p *Parser) readCommentMarkup(line, col int) (Token, bool, error) {
 	next, err := p.br.readByte()
 	if err != nil {
-		return Token{}, false, p.syntaxError("unexpected EOF in comment", err)
+		return Token{}, false, streamSyntaxError("unexpected EOF in comment", err)
 	}
 	if next != '-' {
 		return Token{}, false, fmt.Errorf("invalid XML comment")
@@ -597,7 +585,7 @@ func (p *Parser) readDirectivePrefix() error {
 	for len(p.directive) <= len(doctypeDirective) {
 		next, err := p.br.readByte()
 		if err != nil {
-			return p.syntaxError("unexpected EOF in markup declaration", err)
+			return streamSyntaxError("unexpected EOF in markup declaration", err)
 		}
 		if err := p.appendTokenByte(&p.directive, next); err != nil {
 			return err
@@ -636,7 +624,7 @@ func (p *Parser) cdataToken(line, col int) Token {
 func (p *Parser) readCDATAByte(matched *int) (bool, error) {
 	b, err := p.br.readByte()
 	if err != nil {
-		return false, p.syntaxError("unexpected EOF in CDATA section", err)
+		return false, streamSyntaxError("unexpected EOF in CDATA section", err)
 	}
 	switch b {
 	case ']':
@@ -710,11 +698,23 @@ func (p *Parser) readStartElement(first byte) (StartElement, bool, error) {
 		case '/':
 			return p.completeEmptyElement(name)
 		default:
-			if err := p.readSpacedStartAttribute(b, hadSpace); err != nil {
+			if err := p.readStartAttributeLead(startAttributeLead{first: b, spaceBefore: hadSpace}); err != nil {
 				return StartElement{}, false, err
 			}
 		}
 	}
+}
+
+type startAttributeLead struct {
+	first       byte
+	spaceBefore bool
+}
+
+func (p *Parser) readStartAttributeLead(lead startAttributeLead) error {
+	if !lead.spaceBefore {
+		return fmt.Errorf("expected whitespace before attribute")
+	}
+	return p.readStartAttribute(lead.first)
 }
 
 func (p *Parser) completedStartElement(name xml.Name, selfClosing bool) (StartElement, bool, error) {
@@ -725,19 +725,12 @@ func (p *Parser) completedStartElement(name xml.Name, selfClosing bool) (StartEl
 func (p *Parser) completeEmptyElement(name xml.Name) (StartElement, bool, error) {
 	next, err := p.br.readByte()
 	if err != nil {
-		return StartElement{}, false, p.syntaxError("unexpected EOF in empty element tag", err)
+		return StartElement{}, false, streamSyntaxError("unexpected EOF in empty element tag", err)
 	}
 	if next != '>' {
 		return StartElement{}, false, fmt.Errorf("expected > after / in empty element tag")
 	}
 	return p.completedStartElement(name, true)
-}
-
-func (p *Parser) readSpacedStartAttribute(first byte, hadSpace bool) error {
-	if !hadSpace {
-		return fmt.Errorf("expected whitespace before attribute")
-	}
-	return p.readStartAttribute(first)
 }
 
 func (p *Parser) readStartAttribute(first byte) error {
@@ -817,7 +810,7 @@ func (p *Parser) finishLazyAttrValues() {
 func (p *Parser) readEndElement() (EndElement, error) {
 	b, err := p.br.readByte()
 	if err != nil {
-		return EndElement{}, p.syntaxError("unexpected EOF after </", err)
+		return EndElement{}, streamSyntaxError("unexpected EOF after </", err)
 	}
 	if lex.IsXMLWhitespaceByte(b) {
 		return EndElement{}, fmt.Errorf("unexpected whitespace after </")
@@ -879,10 +872,11 @@ func (p *Parser) internQName(name []byte) (xml.Name, error) {
 	if len(name) == 0 {
 		return xml.Name{}, fmt.Errorf("empty XML name")
 	}
-	if prefix, local, ascii, ok := lex.SplitASCIIQNameBytes(name); ascii {
-		if !ok {
+	if parts := lex.SplitASCIIQNameBytes(name); parts.ASCII() {
+		if !parts.Valid() {
 			return xml.Name{}, fmt.Errorf("invalid XML qualified name")
 		}
+		prefix, local := parts.Bytes(name)
 		return p.internQNameParts(prefix, local), nil
 	}
 	prefix, local, ok := splitUnicodeQName(name)
@@ -892,7 +886,7 @@ func (p *Parser) internQName(name []byte) (xml.Name, error) {
 	return p.internQNameParts(prefix, local), nil
 }
 
-func splitUnicodeQName(name []byte) ([]byte, []byte, bool) {
+func splitUnicodeQName(name []byte) (prefix, local []byte, valid bool) {
 	colon := bytes.IndexByte(name, ':')
 	if colon < 0 {
 		return nil, name, lex.IsNCNameBytes(name)
@@ -900,7 +894,7 @@ func splitUnicodeQName(name []byte) ([]byte, []byte, bool) {
 	if colon == 0 || colon == len(name)-1 || bytes.IndexByte(name[colon+1:], ':') >= 0 {
 		return nil, nil, false
 	}
-	prefix, local := name[:colon], name[colon+1:]
+	prefix, local = name[:colon], name[colon+1:]
 	return prefix, local, lex.IsNCNameBytes(prefix) && lex.IsNCNameBytes(local)
 }
 
@@ -946,7 +940,7 @@ func (p *Parser) readAttributeValueBytes(quote byte, dst *[]byte) ([]byte, error
 func (p *Parser) appendBufferedAttributeValue(quote byte, dst *[]byte) (bool, error) {
 	chunk, err := p.br.buffered()
 	if IsOnlyEOF(err) {
-		return false, p.syntaxError("unexpected EOF in attribute value", err)
+		return false, streamSyntaxError("unexpected EOF in attribute value", err)
 	}
 	if err != nil {
 		return false, err
@@ -965,7 +959,7 @@ func (p *Parser) appendBufferedAttributeValue(quote byte, dst *[]byte) (bool, er
 func (p *Parser) readAttributeValueByte(quote byte, dst *[]byte) (bool, error) {
 	b, err := p.br.readByte()
 	if err != nil {
-		return false, p.syntaxError("unexpected EOF in attribute value", err)
+		return false, streamSyntaxError("unexpected EOF in attribute value", err)
 	}
 	switch b {
 	case quote:
@@ -1015,7 +1009,7 @@ func (p *Parser) scanComment(dst *[]byte) error {
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
-			return p.syntaxError("unexpected EOF in comment", err)
+			return streamSyntaxError("unexpected EOF in comment", err)
 		}
 		done, err := p.consumeCommentByte(dst, b, &prevDash)
 		if err != nil {
@@ -1072,7 +1066,7 @@ func (p *Parser) appendCommentRune(dst *[]byte, first byte) error {
 func (p *Parser) finishCommentAfterDoubleDash() error {
 	next, err := p.br.readByte()
 	if err != nil {
-		return p.syntaxError("unexpected EOF in comment", err)
+		return streamSyntaxError("unexpected EOF in comment", err)
 	}
 	if next != '>' {
 		return fmt.Errorf("invalid XML comment")
@@ -1080,18 +1074,25 @@ func (p *Parser) finishCommentAfterDoubleDash() error {
 	return nil
 }
 
-func (p *Parser) readPI(atDocumentStart bool, line, col int) (Token, bool, error) {
+type processingInstructionPosition uint8
+
+const (
+	processingInstructionWithinDocument processingInstructionPosition = iota
+	processingInstructionAtDocumentStart
+)
+
+func (p *Parser) readPI(position processingInstructionPosition, line, col int) (Token, bool, error) {
 	p.nameBuf = p.nameBuf[:0]
 	for {
 		b, err := p.br.readByte()
 		if err != nil {
-			return Token{}, false, p.syntaxError("unexpected EOF in processing instruction", err)
+			return Token{}, false, streamSyntaxError("unexpected EOF in processing instruction", err)
 		}
 		if b == '?' {
-			return p.finishPIWithoutContent(atDocumentStart, line, col)
+			return p.finishPIWithoutContent(position, line, col)
 		}
 		if lex.IsXMLWhitespaceByte(b) {
-			return p.finishPIAfterWhitespace(atDocumentStart, line, col, b)
+			return p.finishPIAfterWhitespace(position, line, col, b)
 		}
 		if err := p.appendTokenByte(&p.nameBuf, b); err != nil {
 			return Token{}, false, err
@@ -1099,17 +1100,17 @@ func (p *Parser) readPI(atDocumentStart bool, line, col int) (Token, bool, error
 	}
 }
 
-func (p *Parser) finishPIAfterWhitespace(atDocumentStart bool, line, col int, whitespace byte) (Token, bool, error) {
+func (p *Parser) finishPIAfterWhitespace(position processingInstructionPosition, line, col int, whitespace byte) (Token, bool, error) {
 	if whitespace == '\r' {
 		if err := p.consumeLineFeed(); err != nil {
 			return Token{}, false, err
 		}
 	}
-	return p.finishPIWithContent(atDocumentStart, line, col)
+	return p.finishPIWithContent(position, line, col)
 }
 
-func (p *Parser) finishPIWithoutContent(atDocumentStart bool, line, col int) (Token, bool, error) {
-	isXMLDecl, err := p.validatePITarget(atDocumentStart)
+func (p *Parser) finishPIWithoutContent(position processingInstructionPosition, line, col int) (Token, bool, error) {
+	isXMLDecl, err := p.validatePITarget(position)
 	if err != nil {
 		return Token{}, false, err
 	}
@@ -1118,7 +1119,7 @@ func (p *Parser) finishPIWithoutContent(atDocumentStart bool, line, col int) (To
 	}
 	next, err := p.br.readByte()
 	if err != nil {
-		return Token{}, false, p.syntaxError("unexpected EOF in processing instruction", err)
+		return Token{}, false, streamSyntaxError("unexpected EOF in processing instruction", err)
 	}
 	if next != '>' {
 		return Token{}, false, fmt.Errorf("processing instruction target must be followed by whitespace or ?>")
@@ -1129,8 +1130,8 @@ func (p *Parser) finishPIWithoutContent(atDocumentStart bool, line, col int) (To
 	return Token{Kind: KindPI, Data: p.nameBuf, Line: line, Column: col}, false, nil
 }
 
-func (p *Parser) finishPIWithContent(atDocumentStart bool, line, col int) (Token, bool, error) {
-	isXMLDecl, err := p.validatePITarget(atDocumentStart)
+func (p *Parser) finishPIWithContent(position processingInstructionPosition, line, col int) (Token, bool, error) {
+	isXMLDecl, err := p.validatePITarget(position)
 	if err != nil {
 		return Token{}, false, err
 	}
@@ -1162,19 +1163,19 @@ func (p *Parser) readXMLDeclContent() error {
 func (p *Parser) skipPIContent() error {
 	if err := p.skipUntil("?>"); err != nil {
 		if IsOnlyEOF(err) {
-			return p.syntaxError("unexpected EOF in processing instruction", err)
+			return streamSyntaxError("unexpected EOF in processing instruction", err)
 		}
 		return err
 	}
 	return nil
 }
 
-func (p *Parser) validatePITarget(atDocumentStart bool) (bool, error) {
+func (p *Parser) validatePITarget(position processingInstructionPosition) (bool, error) {
 	if !lex.IsXMLNameBytes(p.nameBuf) {
 		return false, fmt.Errorf("invalid processing instruction target")
 	}
 	if bytes.EqualFold(p.nameBuf, xmlPITarget) {
-		if !atDocumentStart || !bytes.Equal(p.nameBuf, xmlPITarget) {
+		if position != processingInstructionAtDocumentStart || !bytes.Equal(p.nameBuf, xmlPITarget) {
 			return false, fmt.Errorf("xml processing instruction target is reserved")
 		}
 		return true, nil
@@ -1201,7 +1202,7 @@ func (p *Parser) readPIContent(dst []byte) ([]byte, error) {
 func (p *Parser) readPIContentByte(dst *[]byte, pendingQuestion *bool) (bool, error) {
 	b, err := p.br.readByte()
 	if err != nil {
-		return false, p.syntaxError("unexpected EOF", err)
+		return false, streamSyntaxError("unexpected EOF", err)
 	}
 	if *pendingQuestion {
 		if b == '>' {
@@ -1285,36 +1286,36 @@ func ValidateXMLDeclContent(content []byte) error {
 }
 
 func validateXMLVersionAttribute(content []byte) ([]byte, error) {
-	name, version, rest, ok := ScanXMLDeclAttr(content, XMLDeclFirstAttr)
-	if !ok || name != xsdAttrVersion {
+	attr := ScanXMLDeclAttr(content, XMLDeclFirstAttr)
+	if !attr.Valid || attr.Name != xsdAttrVersion {
 		return nil, fmt.Errorf("invalid XML declaration")
 	}
-	if version != xmlVersion10 {
-		return nil, UnsupportedXMLVersionError{Version: version}
+	if attr.Value != xmlVersion10 {
+		return nil, UnsupportedXMLVersionError{Version: attr.Value}
 	}
-	return rest, nil
+	return attr.Rest, nil
 }
 
 func validateOptionalXMLEncoding(content []byte) ([]byte, error) {
-	name, value, rest, ok := ScanXMLDeclAttr(content, XMLDeclNextAttr)
-	if !ok || name != "encoding" {
+	attr := ScanXMLDeclAttr(content, XMLDeclNextAttr)
+	if !attr.Valid || attr.Name != "encoding" {
 		return content, nil
 	}
-	if !strings.EqualFold(value, "UTF-8") && !strings.EqualFold(value, "UTF8") {
+	if !strings.EqualFold(attr.Value, "UTF-8") && !strings.EqualFold(attr.Value, "UTF8") {
 		return nil, ErrUnsupportedNonUTF8
 	}
-	return rest, nil
+	return attr.Rest, nil
 }
 
 func validateOptionalXMLStandalone(content []byte) ([]byte, error) {
-	name, value, rest, ok := ScanXMLDeclAttr(content, XMLDeclNextAttr)
-	if !ok || name != "standalone" {
+	attr := ScanXMLDeclAttr(content, XMLDeclNextAttr)
+	if !attr.Valid || attr.Name != "standalone" {
 		return content, nil
 	}
-	if value != "yes" && value != "no" {
+	if attr.Value != "yes" && attr.Value != "no" {
 		return nil, fmt.Errorf("invalid XML declaration")
 	}
-	return rest, nil
+	return attr.Rest, nil
 }
 
 // XMLDeclAttrPosition identifies whether an XML declaration attribute is first
@@ -1328,23 +1329,31 @@ const (
 	XMLDeclNextAttr
 )
 
+// XMLDeclAttr is one scanned XML declaration attribute.
+type XMLDeclAttr struct {
+	Name  string
+	Value string
+	Rest  []byte
+	Valid bool
+}
+
 // ScanXMLDeclAttr scans the next name="value" pair of an XML declaration.
 // The first attribute may have optional leading whitespace; later attributes
 // require it.
-func ScanXMLDeclAttr(content []byte, pos XMLDeclAttrPosition) (string, string, []byte, bool) {
+func ScanXMLDeclAttr(content []byte, pos XMLDeclAttrPosition) XMLDeclAttr {
 	content, ok := startXMLDeclAttribute(content, pos)
 	if !ok {
-		return "", "", content, false
+		return XMLDeclAttr{Rest: content}
 	}
 	name, content, ok := scanXMLDeclAttributeName(content)
 	if !ok {
-		return "", "", content, false
+		return XMLDeclAttr{Rest: content}
 	}
 	value, rest, ok := scanXMLDeclAttributeValue(content)
 	if !ok {
-		return "", "", content, false
+		return XMLDeclAttr{Rest: content}
 	}
-	return name, value, rest, true
+	return XMLDeclAttr{Name: name, Value: value, Rest: rest, Valid: true}
 }
 
 func startXMLDeclAttribute(content []byte, pos XMLDeclAttrPosition) ([]byte, bool) {
@@ -1417,7 +1426,7 @@ func (p *Parser) readMultibyteXMLRune(buf *[utf8.UTFMax]byte) (int, error) {
 		}
 		b, err := p.br.readByte()
 		if err != nil {
-			return 0, p.syntaxError("unexpected EOF in UTF-8 sequence", err)
+			return 0, streamSyntaxError("unexpected EOF in UTF-8 sequence", err)
 		}
 		buf[n] = b
 		n++

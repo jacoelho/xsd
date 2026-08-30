@@ -43,9 +43,9 @@ func elementFinalDerivation() DerivationAttrRule {
 
 // ParseDerivationAttrWithDefault parses a derivation-set attribute or applies
 // the schema default restricted to the rule's allowed derivation class.
-func ParseDerivationAttrWithDefault(value string, hasValue bool, def runtime.DerivationMask, rule DerivationAttrRule) (runtime.DerivationMask, error) {
-	if hasValue {
-		return ParseDerivationSet(value, rule.Label, rule.Allowed)
+func ParseDerivationAttrWithDefault(attr LexicalAttribute, def runtime.DerivationMask, rule DerivationAttrRule) (runtime.DerivationMask, error) {
+	if attr.Present {
+		return ParseDerivationSet(attr.Value, rule.Label, rule.Allowed)
 	}
 	return def & rule.Allowed, nil
 }

@@ -184,13 +184,13 @@ func TestSchemaSourcesPreserveManifestRootOrder(t *testing.T) {
 	}
 }
 
-func writeHarnessTestFile(t *testing.T, path, data string) {
+func writeHarnessTestFile(t *testing.T, filename, data string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatalf("MkdirAll(%q) error = %v", filepath.Dir(path), err)
+	if err := os.MkdirAll(filepath.Dir(filename), 0o700); err != nil {
+		t.Fatalf("MkdirAll(%q) error = %v", filepath.Dir(filename), err)
 	}
-	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
-		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	if err := os.WriteFile(filename, []byte(data), 0o600); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", filename, err)
 	}
 }
 

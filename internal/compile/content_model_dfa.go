@@ -365,9 +365,11 @@ func particleTermKeyOf(p runtime.Particle) particleTermKey {
 		return particleTermKey{Kind: p.Kind, Element: p.Element}
 	case runtime.ParticleWildcard:
 		return particleTermKey{Kind: p.Kind, Wildcard: p.Wildcard}
-	default:
+	case runtime.ParticleModel:
 		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}
+	default:
 	}
+	return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}
 }
 
 func compareParticleTermKey(a, b particleTermKey) int {

@@ -6,21 +6,29 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+type facetChildMode uint8
+
+const (
+	facetChildModeInvalid facetChildMode = iota
+	facetChildModeDerivation
+	facetChildModeExplicitList
+)
+
 func (c *compiler) compileFacets(parent *rawNode, st *runtime.SimpleType, base, literalType runtime.SimpleTypeID) error {
-	return withSchemaCompileLocation(parent, c.compileFacetChildren(parent.Children, st, base, literalType, true))
+	return withSchemaCompileLocation(parent, c.compileFacetChildren(parent.Children, st, base, literalType, facetChildModeDerivation))
 }
 
 func (c *compiler) compileFacetList(children []*rawNode, st *runtime.SimpleType, base, literalType runtime.SimpleTypeID) error {
-	return c.compileFacetChildren(children, st, base, literalType, false)
+	return c.compileFacetChildren(children, st, base, literalType, facetChildModeExplicitList)
 }
 
-func (c *compiler) compileFacetChildren(children []*rawNode, st *runtime.SimpleType, base, literalType runtime.SimpleTypeID, skipNonFacets bool) error {
+func (c *compiler) compileFacetChildren(children []*rawNode, st *runtime.SimpleType, base, literalType runtime.SimpleTypeID, mode facetChildMode) error {
+	if err := validateFacetChildMode(mode); err != nil {
+		return err
+	}
 	var state compiledFacetState
 	for _, child := range children {
-		if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
-			continue
-		}
-		if skipNonFacets && !IsFacetLocal(child.Name.Local) {
+		if !isFacetCompilationChild(child, mode) {
 			continue
 		}
 		if err := c.compileFacetChild(child, st, base, literalType, &state); err != nil {
@@ -38,11 +46,14 @@ func (c *compiler) validateUnavailableFacetChildren(
 	children []*rawNode,
 	st *runtime.SimpleType,
 	base runtime.SimpleTypeID,
-	skipNonFacets bool,
+	mode facetChildMode,
 ) error {
+	if err := validateFacetChildMode(mode); err != nil {
+		return err
+	}
 	audit := unavailableFacetAudit{compiler: c, probe: *st, base: base}
 	for _, child := range children {
-		if !isFacetCompilationChild(child, skipNonFacets) {
+		if !isFacetCompilationChild(child, mode) {
 			continue
 		}
 		if err := audit.add(child); err != nil {
@@ -62,11 +73,22 @@ func (c *compiler) validateUnavailableFacetChildren(
 	return nil
 }
 
-func isFacetCompilationChild(child *rawNode, skipNonFacets bool) bool {
+func validateFacetChildMode(mode facetChildMode) error {
+	switch mode {
+	case facetChildModeDerivation, facetChildModeExplicitList:
+		return nil
+	case facetChildModeInvalid:
+		return xsderrors.InternalInvariant("invalid facet child mode")
+	default:
+		return xsderrors.InternalInvariant("unknown facet child mode")
+	}
+}
+
+func isFacetCompilationChild(child *rawNode, mode facetChildMode) bool {
 	if child.Name.Space != vocab.XSDNamespaceURI || child.Name.Local == vocab.XSDElemAnnotation || child.Name.Local == vocab.XSDElemSimpleType {
 		return false
 	}
-	return !skipNonFacets || IsFacetLocal(child.Name.Local)
+	return mode == facetChildModeExplicitList || IsFacetLocal(child.Name.Local)
 }
 
 type unavailableFacetAudit struct {
@@ -208,7 +230,7 @@ func (c *compiler) compileFacetValue(child *rawNode, st *runtime.SimpleType, bas
 }
 
 func (c *compiler) compileEnumerationFacet(child *rawNode, literalType runtime.SimpleTypeID, value string, state *compiledFacetState) error {
-	literal, err := c.compileLiteral(literalType, value, c.schemaQNameResolver(child))
+	literal, err := c.compileLiteral(literalType, value, schemaQNameResolver(child))
 	if err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
@@ -231,7 +253,26 @@ func (c *compiler) compilePatternFacet(child *rawNode, value string, state *comp
 
 type facetInput struct {
 	value string
-	fixed bool
+	fixed facetFixedness
+}
+
+type facetFixedness uint8
+
+const (
+	facetFixednessInvalid facetFixedness = iota
+	facetVariable
+	facetFixed
+)
+
+func validateFacetFixedness(fixedness facetFixedness) error {
+	switch fixedness {
+	case facetVariable, facetFixed:
+		return nil
+	case facetFixednessInvalid:
+		return xsderrors.InternalInvariant("facet fixedness is invalid")
+	default:
+		return xsderrors.InternalInvariant("facet fixedness is unknown")
+	}
 }
 
 func facetAttrs(n *rawNode) (facetInput, error) {
@@ -240,10 +281,17 @@ func facetAttrs(n *rawNode) (facetInput, error) {
 	if err != nil {
 		return facetInput{}, err
 	}
-	return facetInput{value: value, fixed: fixed}, nil
+	fixedness := facetVariable
+	if fixed {
+		fixedness = facetFixed
+	}
+	return facetInput{value: value, fixed: fixedness}, nil
 }
 
-func compileSizeFacet(st *runtime.SimpleType, node *rawNode, value string, fixed bool) error {
+func compileSizeFacet(st *runtime.SimpleType, node *rawNode, value string, fixedness facetFixedness) error {
+	if err := validateFacetFixedness(fixedness); err != nil {
+		return err
+	}
 	name := node.Name.Local
 	size, err := ParseSizeFacetValue(name, value)
 	if err != nil {
@@ -267,12 +315,26 @@ func compileSizeFacet(st *runtime.SimpleType, node *rawNode, value string, fixed
 		st.Facets.FractionDigits = size
 		flag = runtime.FacetFractionDigits
 	}
-	runtime.SetFacet(&st.Facets, flag, fixed)
-	return nil
+	switch fixedness {
+	case facetVariable:
+		runtime.SetFacetPresent(&st.Facets, flag)
+		return nil
+	case facetFixed:
+		runtime.SetFacetFixed(&st.Facets, flag)
+		return nil
+	case facetFixednessInvalid:
+		return xsderrors.InternalInvariant("size facet has invalid fixedness")
+	default:
+		err := xsderrors.InternalInvariant("size facet has invalid fixedness")
+		return err
+	}
 }
 
-func (c *compiler) compileBoundFacet(st *runtime.SimpleType, base runtime.SimpleTypeID, child *rawNode, value string, fixed bool, step *runtime.OrderedFacetStep) error {
-	lit, err := c.compileLiteral(base, value, c.schemaQNameResolver(child))
+func (c *compiler) compileBoundFacet(st *runtime.SimpleType, base runtime.SimpleTypeID, child *rawNode, value string, fixedness facetFixedness, step *runtime.OrderedFacetStep) error {
+	if err := validateFacetFixedness(fixedness); err != nil {
+		return err
+	}
+	lit, err := c.compileLiteral(base, value, schemaQNameResolver(child))
 	if err != nil {
 		return err
 	}
@@ -291,18 +353,42 @@ func (c *compiler) compileBoundFacet(st *runtime.SimpleType, base runtime.Simple
 		flag = runtime.FacetMaxExclusive
 		step.MaxExclusive = true
 	}
-	runtime.SetBoundFacet(&st.Facets, flag, lit, fixed)
-	return nil
+	switch fixedness {
+	case facetVariable:
+		runtime.SetBoundFacet(&st.Facets, flag, lit)
+		return nil
+	case facetFixed:
+		runtime.SetFixedBoundFacet(&st.Facets, flag, lit)
+		return nil
+	case facetFixednessInvalid:
+		return xsderrors.InternalInvariant("bound facet has invalid fixedness")
+	default:
+		err := xsderrors.InternalInvariant("bound facet has invalid fixedness")
+		return err
+	}
 }
 
-func (c *compiler) compileWhitespaceFacet(st *runtime.SimpleType, base runtime.SimpleTypeID, n *rawNode, value string, fixed bool) error {
+func (c *compiler) compileWhitespaceFacet(st *runtime.SimpleType, base runtime.SimpleTypeID, n *rawNode, value string, fixedness facetFixedness) error {
+	if err := validateFacetFixedness(fixedness); err != nil {
+		return err
+	}
 	mode, err := ParseWhitespaceFacetValue(value, c.rt.simpleTypeWhitespace(base))
 	if err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	st.Whitespace = mode
-	runtime.SetWhiteSpaceFacetFixed(&st.Facets, fixed)
-	return nil
+	switch fixedness {
+	case facetVariable:
+		return nil
+	case facetFixed:
+		runtime.SetWhiteSpaceFacetFixed(&st.Facets)
+		return nil
+	case facetFixednessInvalid:
+		return xsderrors.InternalInvariant("whiteSpace facet has invalid fixedness")
+	default:
+		err := xsderrors.InternalInvariant("whiteSpace facet has invalid fixedness")
+		return err
+	}
 }
 
 func (c *compiler) compileLiteral(base runtime.SimpleTypeID, lexical string, resolve runtime.ResolveQNameParts) (runtime.CompiledLiteral, error) {

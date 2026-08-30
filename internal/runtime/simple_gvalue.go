@@ -30,9 +30,13 @@ func ParseGValue(kind PrimitiveKind, s string) (GValue, error) {
 		return parseGDayValue(s)
 	case PrimitiveGMonth:
 		return parseGMonthValue(s)
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return GValue{}, errors.New("invalid g value primitive")
+	default:
 	}
+	return GValue{}, errors.New("invalid g value primitive")
 }
 
 // CanonicalText returns the XML Schema canonical lexical form for v.
@@ -48,9 +52,13 @@ func (v GValue) CanonicalText() string {
 		return fmt.Sprintf("---%02d%s", v.day, formatTimezoneSuffix(v.tz))
 	case PrimitiveGMonth:
 		return fmt.Sprintf("--%02d%s", v.month, formatTimezoneSuffix(v.tz))
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return ""
+	default:
 	}
+	return ""
 }
 
 // CompareGValues compares g* values using the XML Schema partial order.

@@ -12,16 +12,22 @@ import (
 )
 
 // xsiAttributeIdentityKey returns the identity-field key for an xsi attribute.
-func xsiAttributeIdentityKey(rt *runtime.Schema, name xml.Name, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (runtime.QName, string, bool, error) {
+type xsiIdentityKey struct {
+	key     string
+	name    runtime.QName
+	present bool
+}
+
+func xsiAttributeIdentityKey(rt *runtime.Schema, name xml.Name, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (xsiIdentityKey, error) {
 	rn := ResolveRuntimeName(rt, name)
 	if !rn.Known {
-		return runtime.QName{}, "", false, nil
+		return xsiIdentityKey{}, nil
 	}
 	key, err := xsiAttributeIdentity(rt, name.Local, lexical, resolve, ctx)
 	if err != nil {
-		return runtime.QName{}, "", false, err
+		return xsiIdentityKey{}, err
 	}
-	return rn.Name, key, true, nil
+	return xsiIdentityKey{name: rn.Name, key: key, present: true}, nil
 }
 
 func xsiAttributeIdentity(rt *runtime.Schema, local, lexical string, resolve runtime.ResolveQNameParts, ctx StartContext) (string, error) {

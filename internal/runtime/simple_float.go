@@ -40,7 +40,7 @@ func ParseFloatValue(kind PrimitiveKind, normalized string, needs PrimitiveValue
 	if !ok {
 		return FloatValue{}, errors.New("invalid float primitive")
 	}
-	value, err := parseFloatValue(normalized, bits)
+	value, err := parseFloatLexical(normalized, bits)
 	if err != nil {
 		return FloatValue{}, err
 	}
@@ -86,29 +86,39 @@ func FloatBoundsRelation(lower, upper float64) OrderedFacetRelation {
 
 // ValidateFloatFacets validates xs:float/xs:double value-space facets.
 func ValidateFloatFacets(f FloatFacetValues, value float64) error {
-	if err := validateFloatFacet(f.Facets&FacetMinInclusive != 0, f.MinInclusive, value >= f.MinInclusive.Value, "minInclusive facet failed"); err != nil {
+	if err := validateFloatBoundFacet(f.Facets, FacetMinInclusive, f.MinInclusive, value); err != nil {
 		return err
 	}
-	if err := validateFloatFacet(f.Facets&FacetMaxInclusive != 0, f.MaxInclusive, value <= f.MaxInclusive.Value, "maxInclusive facet failed"); err != nil {
+	if err := validateFloatBoundFacet(f.Facets, FacetMaxInclusive, f.MaxInclusive, value); err != nil {
 		return err
 	}
-	if err := validateFloatFacet(f.Facets&FacetMinExclusive != 0, f.MinExclusive, value > f.MinExclusive.Value, "minExclusive facet failed"); err != nil {
+	if err := validateFloatBoundFacet(f.Facets, FacetMinExclusive, f.MinExclusive, value); err != nil {
 		return err
 	}
-	return validateFloatFacet(f.Facets&FacetMaxExclusive != 0, f.MaxExclusive, value < f.MaxExclusive.Value, "maxExclusive facet failed")
+	return validateFloatBoundFacet(f.Facets, FacetMaxExclusive, f.MaxExclusive, value)
 }
 
-func validateFloatFacet(enabled bool, facet FloatFacetValue, accepted bool, message string) error {
-	if !enabled {
+func validateFloatBoundFacet(facets, flag FacetMask, facet FloatFacetValue, value float64) error {
+	if facets&flag == 0 {
 		return nil
 	}
 	if !facet.Present {
 		return ErrSimpleValueMetadata
 	}
-	if !accepted {
-		return errors.New(message)
+	relation := FloatBoundsRelation(value, facet.Value)
+	if flag == FacetMinInclusive {
+		return validateLowerFacetRelation(OrderedFacetBoundInclusive, relation, rawDecimalErrMinInclusive)
 	}
-	return nil
+	if flag == FacetMaxInclusive {
+		return validateUpperFacetRelation(OrderedFacetBoundInclusive, relation, rawDecimalErrMaxInclusive)
+	}
+	if flag == FacetMinExclusive {
+		return validateLowerFacetRelation(OrderedFacetBoundExclusive, relation, "minExclusive facet failed")
+	}
+	if flag == FacetMaxExclusive {
+		return validateUpperFacetRelation(OrderedFacetBoundExclusive, relation, "maxExclusive facet failed")
+	}
+	return ErrSimpleValueMetadata
 }
 
 // ValidateFloatFacetBounds validates effective lower/upper float bound
@@ -223,7 +233,7 @@ func formatFloatCanonical(v float64, bits int) string {
 	return strconv.FormatFloat(v, 'g', -1, bits)
 }
 
-func parseFloatValue(s string, bits int) (float64, error) {
+func parseFloatLexical(s string, bits int) (float64, error) {
 	switch s {
 	case xsdFloatINF:
 		return math.Inf(1), nil
@@ -252,9 +262,14 @@ func floatBits(kind PrimitiveKind) (int, bool) {
 		return 32, true
 	case PrimitiveDouble:
 		return 64, true
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveDuration,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return 0, false
+	default:
 	}
+	return 0, false
 }
 
 // ValidateFloatLexical validates raw as an XML Schema float/double lexical
@@ -302,8 +317,8 @@ func skipOptionalFloatSign[T byteText](raw T, i int) (int, bool) {
 	return i, i < len(raw)
 }
 
-func scanFloatMantissa[T byteText](raw T, i int) (int, int) {
-	i, digits := scanFloatDigits(raw, i)
+func scanFloatMantissa[T byteText](raw T, i int) (end, digits int) {
+	i, digits = scanFloatDigits(raw, i)
 	if i < len(raw) && raw[i] == '.' {
 		next, fractionDigits := scanFloatDigits(raw, i+1)
 		return next, digits + fractionDigits
@@ -323,7 +338,7 @@ func scanFloatExponent[T byteText](raw T, i int) (int, bool) {
 	return next, digits != 0
 }
 
-func scanFloatDigits[T byteText](raw T, i int) (int, int) {
+func scanFloatDigits[T byteText](raw T, i int) (end, digits int) {
 	start := i
 	for i < len(raw) && isASCIIDigit(raw[i]) {
 		i++

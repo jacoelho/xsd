@@ -18,7 +18,7 @@ func TestAttributeWildcardBuilderRestriction(t *testing.T) {
 	if err := builder.AddAnyAttribute(store, subset); err != nil {
 		t.Fatalf("AddAnyAttribute() error = %v", err)
 	}
-	got, err := builder.Finish(store, false)
+	got, err := builder.Finish(store)
 	if err != nil {
 		t.Fatalf("Finish() error = %v", err)
 	}
@@ -37,7 +37,7 @@ func TestAttributeWildcardBuilderRejectsRestrictionWithoutBase(t *testing.T) {
 		t.Fatalf("AddAnyAttribute() error = %v", err)
 	}
 
-	_, err := builder.Finish(store, false)
+	_, err := builder.Finish(store)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
 }
 
@@ -52,7 +52,7 @@ func TestAttributeWildcardBuilderRejectsRestrictionOutsideBase(t *testing.T) {
 		t.Fatalf("AddAnyAttribute() error = %v", err)
 	}
 
-	_, err := builder.Finish(store, false)
+	_, err := builder.Finish(store)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
 }
 
@@ -62,12 +62,12 @@ func TestAttributeWildcardBuilderExtensionUnionsDeclaredWithInherited(t *testing
 	store := newAttributeWildcardStore()
 	inherited := store.mustAdd(runtime.Wildcard{Mode: runtime.WildcardList, Namespaces: []runtime.NamespaceID{1}, Process: runtime.ProcessStrict})
 	declared := store.mustAdd(runtime.Wildcard{Mode: runtime.WildcardList, Namespaces: []runtime.NamespaceID{2}, Process: runtime.ProcessSkip})
-	builder := NewAttributeWildcardBuilder(inherited, AttributeMergeNormal)
+	builder := NewAttributeWildcardBuilder(inherited, AttributeMergeExtension)
 	if err := builder.AddAnyAttribute(store, declared); err != nil {
 		t.Fatalf("AddAnyAttribute() error = %v", err)
 	}
 
-	got, err := builder.Finish(store, true)
+	got, err := builder.Finish(store)
 	if err != nil {
 		t.Fatalf("Finish() error = %v", err)
 	}
@@ -89,7 +89,7 @@ func TestAttributeWildcardBuilderIntersectsGroupWithDeclaredProcess(t *testing.T
 	store := newAttributeWildcardStore()
 	declared := store.mustAdd(runtime.Wildcard{Mode: runtime.WildcardAny, Process: runtime.ProcessLax})
 	group := store.mustAdd(runtime.Wildcard{Mode: runtime.WildcardList, Namespaces: []runtime.NamespaceID{1}, Process: runtime.ProcessStrict})
-	builder := NewAttributeWildcardBuilder(runtime.NoWildcard, AttributeMergeNormal)
+	builder := NewAttributeWildcardBuilder(runtime.NoWildcard, AttributeMergeDirect)
 	if err := builder.AddAnyAttribute(store, declared); err != nil {
 		t.Fatalf("AddAnyAttribute() error = %v", err)
 	}
@@ -110,20 +110,26 @@ func TestAttributeWildcardDerivation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		extension bool
-		mode      AttributeMergeMode
-		want      runtime.AttributeWildcardDerivation
+		name    string
+		mode    AttributeMergeMode
+		want    runtime.AttributeWildcardDerivation
+		wantErr bool
 	}{
-		{name: "none", want: runtime.AttributeWildcardNone},
-		{name: "extension", extension: true, want: runtime.AttributeWildcardExtension},
-		{name: "restriction", extension: true, mode: AttributeMergeRestriction, want: runtime.AttributeWildcardRestriction},
+		{name: "direct", mode: AttributeMergeDirect, want: runtime.AttributeWildcardNone},
+		{name: "extension", mode: AttributeMergeExtension, want: runtime.AttributeWildcardExtension},
+		{name: "restriction", mode: AttributeMergeRestriction, want: runtime.AttributeWildcardRestriction},
+		{name: "invalid", mode: AttributeMergeInvalid, wantErr: true},
+		{name: "unknown", mode: AttributeMergeMode(255), wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := AttributeWildcardDerivation(tt.extension, tt.mode); got != tt.want {
+			got, err := AttributeWildcardDerivation(tt.mode)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("AttributeWildcardDerivation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.want {
 				t.Fatalf("AttributeWildcardDerivation() = %d, want %d", got, tt.want)
 			}
 		})

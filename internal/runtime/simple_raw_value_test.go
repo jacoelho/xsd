@@ -404,7 +404,7 @@ func TestValidateRawSimpleValueFastIntExecutor(t *testing.T) {
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if err == nil || err.Error() != fastIntErrMaxInclusive {
+	if err == nil || err.Error() != rawDecimalErrMaxInclusive {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want maxInclusive failure", err)
 	}
 }
@@ -435,7 +435,7 @@ func TestValidateRawSimpleValueDecimalExecutor(t *testing.T) {
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if err == nil || err.Error() != fastDecimalErrMinInclusive {
+	if err == nil || err.Error() != rawDecimalErrMinInclusive {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want minInclusive failure", err)
 	}
 
@@ -443,7 +443,7 @@ func TestValidateRawSimpleValueDecimalExecutor(t *testing.T) {
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if err == nil || err.Error() != fastDecimalErrMaxInclusive {
+	if err == nil || err.Error() != rawDecimalErrMaxInclusive {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want maxInclusive failure", err)
 	}
 }
@@ -727,7 +727,7 @@ func TestValidateRawSimpleValueDateExecutor(t *testing.T) {
 	if !ok {
 		t.Fatal("ValidateRawSimpleValue() handled = false, want true")
 	}
-	if err == nil || err.Error() != fastDateErrInvalid {
+	if err == nil || err.Error() != dateErrInvalidDateTime {
 		t.Fatalf("ValidateRawSimpleValue() error = %v, want invalid date/time", err)
 	}
 

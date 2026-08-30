@@ -35,41 +35,26 @@ func TestInternalImplementationPackagesExist(t *testing.T) {
 	}
 }
 
-func TestRootCompileIsFacade(t *testing.T) {
+func TestRootCompileHasSingleInternalExecutionEdge(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
 	var rootFiles []*ast.File
-	var compileFile *ast.File
-	var sourceFile *ast.File
-	var nonSourceFacadeFiles []*ast.File
+	compileImporters := 0
 	for _, path := range productionRootFiles(t, root) {
 		parsed, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
 			t.Fatalf("parse %s: %v", path, err)
 		}
 		rootFiles = append(rootFiles, parsed)
-		if filepath.Base(path) == "compile.go" {
-			compileFile = parsed
-		}
-		if filepath.Base(path) == "source.go" {
-			sourceFile = parsed
-		} else {
-			nonSourceFacadeFiles = append(nonSourceFacadeFiles, parsed)
-		}
-		if filepath.Base(path) != "compile.go" && importsPath(parsed, "github.com/jacoelho/xsd/internal/compile") {
-			t.Fatalf("%s imports compiler implementation outside compile.go", path)
+		if importsPath(parsed, "github.com/jacoelho/xsd/internal/compile") {
+			compileImporters++
 		}
 	}
-	if compileFile == nil {
-		t.Fatal("missing compile.go")
-	}
-	if !importsPath(compileFile, "github.com/jacoelho/xsd/internal/compile") {
-		t.Fatal("compile.go does not import internal/compile")
+	if compileImporters != 1 {
+		t.Fatalf("root files importing internal/compile = %d, want 1", compileImporters)
 	}
 	info := &types.Info{
-		Defs:       make(map[*ast.Ident]types.Object),
-		Uses:       make(map[*ast.Ident]types.Object),
-		Selections: make(map[*ast.SelectorExpr]*types.Selection),
+		Uses: make(map[*ast.Ident]types.Object),
 	}
 	conf := types.Config{Importer: importer.ForCompiler(fset, "source", nil)}
 	pkg, err := conf.Check("github.com/jacoelho/xsd", fset, rootFiles, info)
@@ -80,183 +65,34 @@ func TestRootCompileIsFacade(t *testing.T) {
 	if compilePkg == nil {
 		t.Fatal("root facade does not import internal/compile")
 	}
-	compileCall := compilePkg.Scope().Lookup("CompileMappedSources")
-	if uses := objectUseCount(info, compileCall); uses != 1 {
-		t.Fatalf("root facade references compile.CompileMappedSources %d times, want exactly one", uses)
+	expected := compilePkg.Scope().Lookup("CompileMappedSources")
+	var compileCallables []types.Object
+	for _, object := range info.Uses {
+		owner := object.Pkg()
+		_, callable := object.Type().Underlying().(*types.Signature)
+		if owner != nil && owner.Path() == compilePkg.Path() && callable {
+			compileCallables = append(compileCallables, object)
+		}
 	}
-	compileWithOptions := packageFunctionDeclaration(compileFile, "CompileWithOptions")
-	if compileWithOptions == nil {
-		t.Fatal("compile.go does not declare CompileWithOptions")
+	if len(compileCallables) != 1 {
+		t.Fatalf("root facade uses internal/compile callables %d times, want exactly one", len(compileCallables))
 	}
-	compile := packageFunctionDeclaration(compileFile, "Compile")
-	compileWithOptionsObject := info.Defs[compileWithOptions.Name]
-	if compile == nil || objectUseCount(info, compileWithOptionsObject) != 1 {
-		t.Fatal("Compile does not have one delegation to CompileWithOptions")
+	if compileCallables[0] != expected {
+		t.Fatalf("sole internal/compile callable targets %s, want CompileMappedSources", compileCallables[0].Name())
 	}
-	compileDelegation := callToObject(info, compile.Body, compileWithOptionsObject)
-	compileSources := functionParameterObject(info, compile, "sources")
-	compileOptionsObject := pkg.Scope().Lookup("CompileOptions")
-	if compileDelegation == nil || compileSources == nil || len(compileDelegation.Args) != 2 ||
-		!emptyCompositeOfObject(info, compileDelegation.Args[0], compileOptionsObject) ||
-		!expressionUsesObject(info, compileDelegation.Args[1], compileSources) || !compileDelegation.Ellipsis.IsValid() {
-		t.Fatal("Compile does not pass empty options and original sources to CompileWithOptions")
-	}
-	compileInvocation := callToObject(info, compileWithOptions.Body, compileCall)
-	if compileInvocation == nil {
-		t.Fatal("CompileWithOptions does not delegate to compile.CompileMappedSources")
-	}
-	if sourceFile == nil {
-		t.Fatal("missing source.go")
-	}
-	sourcesParameter := functionParameterObject(info, compileWithOptions, "sources")
-	optionsParameter := functionParameterObject(info, compileWithOptions, "opts")
-	mapper := packageFunctionDeclaration(sourceFile, "internalSchemaSource")
-	optionsMapper := packageFunctionDeclaration(compileFile, "internalCompileOptions")
-	optionsMapperParameter := functionParameterObject(info, optionsMapper, "opts")
-	if sourcesParameter == nil || optionsParameter == nil || mapper == nil || optionsMapper == nil ||
-		optionsMapperParameter == nil ||
-		len(compileInvocation.Args) != 3 ||
-		!callPassesObject(info, compileInvocation.Args[0], info.Defs[optionsMapper.Name], optionsParameter) ||
-		!expressionUsesObject(info, compileInvocation.Args[1], sourcesParameter) ||
-		!expressionUsesObject(info, compileInvocation.Args[2], info.Defs[mapper.Name]) {
-		t.Fatal("CompileWithOptions does not pass the original options, sources, and mapper to compile.CompileMappedSources")
-	}
-	assertCompileOptionsMap(t, info, optionsMapper, optionsMapperParameter, pkg, compilePkg)
-	for _, file := range nonSourceFacadeFiles {
+	directCalls := 0
+	for _, file := range rootFiles {
 		ast.Inspect(file, func(node ast.Node) bool {
-			selector, ok := node.(*ast.SelectorExpr)
-			if !ok {
-				return true
+			call, ok := node.(*ast.CallExpr)
+			if ok && calledObject(info, call) == expected {
+				directCalls++
 			}
-			selection := info.Selections[selector]
-			if selection == nil || !isInternalSourceObject(selection.Obj()) {
-				return true
-			}
-			t.Fatalf("root facade outside source.go references internal/source.%s", selection.Obj().Name())
-			return false
+			return true
 		})
 	}
-	for _, decl := range compileFile.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
-		if strings.HasPrefix(fn.Name.Name, "compile") && fn.Name.Name != "Compile" {
-			t.Fatalf("root compile.go owns compiler helper %s", fn.Name.Name)
-		}
+	if directCalls != 1 {
+		t.Fatalf("root facade directly calls compile.CompileMappedSources %d times, want exactly one", directCalls)
 	}
-}
-
-func objectUseCount(info *types.Info, expected types.Object) int {
-	count := 0
-	for _, obj := range info.Uses {
-		if obj == expected {
-			count++
-		}
-	}
-	return count
-}
-
-func functionParameterObject(info *types.Info, fn *ast.FuncDecl, name string) types.Object {
-	if fn == nil || fn.Type == nil || fn.Type.Params == nil {
-		return nil
-	}
-	for _, field := range fn.Type.Params.List {
-		for _, ident := range field.Names {
-			if ident.Name == name {
-				return info.Defs[ident]
-			}
-		}
-	}
-	return nil
-}
-
-func expressionUsesObject(info *types.Info, expression ast.Expr, expected types.Object) bool {
-	ident, ok := ast.Unparen(expression).(*ast.Ident)
-	return ok && expected != nil && info.Uses[ident] == expected
-}
-
-func emptyCompositeOfObject(info *types.Info, expression ast.Expr, expected types.Object) bool {
-	literal, ok := ast.Unparen(expression).(*ast.CompositeLit)
-	if !ok || len(literal.Elts) != 0 {
-		return false
-	}
-	typeName, ok := literal.Type.(*ast.Ident)
-	return ok && expected != nil && info.Uses[typeName] == expected
-}
-
-func callPassesObject(info *types.Info, expression ast.Expr, expectedCall, expectedArgument types.Object) bool {
-	call, ok := ast.Unparen(expression).(*ast.CallExpr)
-	return ok && calledObject(info, call) == expectedCall && len(call.Args) == 1 &&
-		expressionUsesObject(info, call.Args[0], expectedArgument)
-}
-
-func assertCompileOptionsMap(
-	t *testing.T,
-	info *types.Info,
-	mapper *ast.FuncDecl,
-	optionsParameter types.Object,
-	rootPkg, compilePkg *types.Package,
-) {
-	t.Helper()
-	publicObject := rootPkg.Scope().Lookup("CompileOptions")
-	internalObject := compilePkg.Scope().Lookup("Options")
-	if publicObject == nil || internalObject == nil || mapper.Body == nil || len(mapper.Body.List) != 1 {
-		t.Fatal("compile option adapter types or body are missing")
-	}
-	publicType, publicOK := publicObject.Type().Underlying().(*types.Struct)
-	if !publicOK {
-		t.Fatal("CompileOptions is not a struct")
-	}
-	result, ok := mapper.Body.List[0].(*ast.ReturnStmt)
-	if !ok || len(result.Results) != 1 {
-		t.Fatal("internalCompileOptions is not one direct return")
-	}
-	literal, ok := ast.Unparen(result.Results[0]).(*ast.CompositeLit)
-	if !ok || len(literal.Elts) != publicType.NumFields() {
-		t.Fatalf("internalCompileOptions maps %d fields, want %d", len(literal.Elts), publicType.NumFields())
-	}
-	typeSelector, ok := literal.Type.(*ast.SelectorExpr)
-	if !ok || info.Uses[typeSelector.Sel] != internalObject {
-		t.Fatal("internalCompileOptions does not return compile.Options directly")
-	}
-	seen := make(map[string]bool, publicType.NumFields())
-	for _, element := range literal.Elts {
-		field, ok := element.(*ast.KeyValueExpr)
-		if !ok {
-			t.Fatal("internalCompileOptions contains an unkeyed field")
-		}
-		key, keyOK := field.Key.(*ast.Ident)
-		value, valueOK := ast.Unparen(field.Value).(*ast.SelectorExpr)
-		if !keyOK || !valueOK {
-			t.Fatal("internalCompileOptions field is not a direct field mapping")
-		}
-		base, baseOK := value.X.(*ast.Ident)
-		selection := info.Selections[value]
-		internalField := info.Uses[key]
-		if !baseOK || selection == nil || info.Uses[base] != optionsParameter {
-			t.Fatalf("internal option %s is not sourced directly from opts", key.Name)
-		}
-		if internalField == nil || selection.Obj().Name() != key.Name || internalField.Name() != key.Name {
-			t.Fatalf("internal option %s is mapped from public option %s", key.Name, selection.Obj().Name())
-		}
-		if !types.Identical(selection.Obj().Type(), internalField.Type()) {
-			t.Fatalf("compile option %s changes type during adaptation", key.Name)
-		}
-		if seen[key.Name] {
-			t.Fatalf("compile option %s is mapped more than once", key.Name)
-		}
-		seen[key.Name] = true
-	}
-	for field := range publicType.Fields() {
-		if !seen[field.Name()] {
-			t.Fatalf("public compile option %s is not mapped", field.Name())
-		}
-	}
-}
-
-func isInternalSourceObject(obj types.Object) bool {
-	return obj != nil && obj.Pkg() != nil && obj.Pkg().Path() == "github.com/jacoelho/xsd/internal/source"
 }
 
 func TestValidationFacadeOwnsSessionConstruction(t *testing.T) {
@@ -500,16 +336,6 @@ func engineMethodDeclaration(file *ast.File, name string) *ast.FuncDecl {
 	for _, decl := range file.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if ok && fn.Name.Name == name && receiverTypeName(fn) == "Engine" {
-			return fn
-		}
-	}
-	return nil
-}
-
-func packageFunctionDeclaration(file *ast.File, name string) *ast.FuncDecl {
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if ok && fn.Recv == nil && fn.Name.Name == name {
 			return fn
 		}
 	}

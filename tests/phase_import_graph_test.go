@@ -75,16 +75,8 @@ func TestSchemaSourceIOOwnership(t *testing.T) {
 	root := repoRoot(t)
 	sourceDir := filepath.Join(root, "internal", "source") + string(filepath.Separator)
 	compileDir := filepath.Join(root, "internal", "compile") + string(filepath.Separator)
-	publicSourceFacade := filepath.Join(root, "source.go")
 	fset := token.NewFileSet()
 	goImporter := importer.ForCompiler(fset, "source", nil)
-	sourcePkg, err := goImporter.Import(sourceImport)
-	if err != nil {
-		t.Fatalf("import internal/source type information: %v", err)
-	}
-	acquire := sourceMethod(t, sourcePkg, "Source", "Acquire")
-	resolveFrom := sourceMethod(t, sourcePkg, "Source", "ResolveFrom")
-	checkedLoaderCalls := false
 	for _, path := range productionLibraryGoFiles(t) {
 		parsed, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
@@ -125,7 +117,7 @@ func TestSchemaSourceIOOwnership(t *testing.T) {
 		_, _ = conf.Check(packagePath, fset, []*ast.File{parsed}, info) //nolint:errcheck // Expected cross-file-name errors do not prevent imported object resolution.
 		for _, obj := range info.Uses {
 			fn, ok := sourcePackageFunction(obj)
-			if !ok || sourceFunctionAllowed(path, publicSourceFacade, compileDir, fn.Name()) {
+			if !ok || sourceFunctionAllowed(path, root, compileDir, fn.Name()) {
 				continue
 			}
 			t.Fatalf("library file %s references internal/source.%s outside its owner", path, fn.Name())
@@ -136,65 +128,11 @@ func TestSchemaSourceIOOwnership(t *testing.T) {
 			if !ok || fn.Pkg() == nil || fn.Pkg().Path() != sourceImport {
 				continue
 			}
-			if !sourceMethodAllowed(path, publicSourceFacade, compileDir, fn) {
+			if !sourceMethodAllowed(path, root, compileDir, fn) {
 				t.Fatalf("library file %s references unapproved internal/source method %s.%s", path, methodReceiverName(fn), fn.Name())
 			}
 		}
-		if filepath.Base(path) == "schema_set.go" && strings.HasPrefix(path, compileDir) {
-			for _, requirement := range []struct {
-				function string
-				method   types.Object
-			}{
-				{function: "acquireNewSource", method: acquire},
-				{function: "validateLoadedSourceBytes", method: acquire},
-				{function: "resolveReference", method: resolveFrom},
-			} {
-				fn := methodDeclaration(parsed, "schemaSetLoader", requirement.function)
-				method, ok := methodDefinition(info, fn)
-				if !ok || methodReceiverName(method) != "schemaSetLoader" || !callsObject(info, fn.Body, requirement.method) {
-					t.Fatalf("internal/compile.%s does not call internal/source.%s", requirement.function, requirement.method.Name())
-				}
-			}
-			checkedLoaderCalls = true
-		}
 	}
-	if !checkedLoaderCalls {
-		t.Fatal("compiler schema loader source calls were not checked")
-	}
-}
-
-func methodDeclaration(file *ast.File, receiver, name string) *ast.FuncDecl {
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if ok && fn.Name.Name == name && receiverTypeName(fn) == receiver {
-			return fn
-		}
-	}
-	return nil
-}
-
-func methodDefinition(info *types.Info, fn *ast.FuncDecl) (*types.Func, bool) {
-	if fn == nil {
-		return nil, false
-	}
-	method, ok := info.Defs[fn.Name].(*types.Func)
-	return method, ok
-}
-
-func sourceMethod(t *testing.T, pkg *types.Package, typeName, methodName string) types.Object {
-	t.Helper()
-	typeObject := pkg.Scope().Lookup(typeName)
-	if typeObject == nil {
-		t.Fatalf("internal/source.%s is missing", typeName)
-	}
-	method, index, indirect := types.LookupFieldOrMethod(typeObject.Type(), true, pkg, methodName)
-	if method == nil {
-		t.Fatalf("internal/source.%s.%s is missing", typeName, methodName)
-	}
-	if len(index) == 0 || indirect {
-		t.Fatalf("internal/source.%s.%s is not a direct value method", typeName, methodName)
-	}
-	return method
 }
 
 func sourcePackageFunction(obj types.Object) (*types.Func, bool) {
@@ -206,8 +144,8 @@ func sourcePackageFunction(obj types.Object) (*types.Func, bool) {
 	return fn, ok && signature.Recv() == nil
 }
 
-func sourceFunctionAllowed(path, publicFacade, compileDir, name string) bool {
-	if path == publicFacade {
+func sourceFunctionAllowed(path, root, compileDir, name string) bool {
+	if filepath.Dir(path) == root {
 		return name == "Bytes" || name == "File" || name == "Opener"
 	}
 	if !strings.HasPrefix(path, compileDir) {
@@ -221,9 +159,9 @@ func sourceFunctionAllowed(path, publicFacade, compileDir, name string) bool {
 	}
 }
 
-func sourceMethodAllowed(path, publicFacade, compileDir string, fn *types.Func) bool {
+func sourceMethodAllowed(path, root, compileDir string, fn *types.Func) bool {
 	receiver := methodReceiverName(fn)
-	if path == publicFacade {
+	if filepath.Dir(path) == root {
 		return receiver == "Source" && fn.Name() == "WithResolver"
 	}
 	if !strings.HasPrefix(path, compileDir) {

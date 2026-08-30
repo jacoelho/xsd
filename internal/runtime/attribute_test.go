@@ -915,7 +915,7 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 		derived      []AttributeUseRestrictionValidation
 		baseState    AttributeWildcardState
 		derivedState AttributeWildcardState
-		bindWildcard bool
+		binding      AttributeWildcardBinding
 	}{
 		{
 			name:         "valid restriction without wildcard binding",
@@ -928,7 +928,7 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 			derived:      derived,
 			baseState:    baseState,
 			derivedState: derivedState,
-			bindWildcard: true,
+			binding:      AttributeWildcardBound,
 		},
 		{
 			name: "missing required base use",
@@ -974,15 +974,23 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 			derived:      derived,
 			baseState:    baseState,
 			derivedState: AttributeWildcardState{Wildcard: derivedWildcard, Base: baseWildcard, Declared: derivedWildcard},
-			bindWildcard: true,
+			binding:      AttributeWildcardBound,
 			wantErr:      "attribute wildcard derivation does not match owning type",
+		},
+		{
+			name:         "invalid wildcard binding",
+			derived:      derived,
+			baseState:    baseState,
+			derivedState: derivedState,
+			binding:      AttributeWildcardBinding(99),
+			wantErr:      "attribute wildcard binding is invalid",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeUseSetRestriction(rt, base, tt.derived, tt.baseState, tt.derivedState, tt.bindWildcard)
+			err := ValidateAttributeUseSetRestriction(rt, base, tt.derived, tt.baseState, tt.derivedState, tt.binding)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseSetRestriction() error = %v", err)
@@ -1183,7 +1191,7 @@ func (rt attributeUseSetRuntimeStub) SimpleTypeIdentity(id SimpleTypeID) (Simple
 	return identity, ok
 }
 
-func attributeUseNameTable(t *testing.T) (NameTable, QName, QName) {
+func attributeUseNameTable(t *testing.T) (names NameTable, first, second QName) {
 	t.Helper()
 
 	names, err := NewNameTable(8, []string{EmptyNamespaceURI}, []ExpandedName{{Local: "first"}, {Local: "second"}})
@@ -1194,7 +1202,7 @@ func attributeUseNameTable(t *testing.T) (NameTable, QName, QName) {
 	if !ok {
 		t.Fatal("missing first QName")
 	}
-	second, ok := names.LookupQName("", "second")
+	second, ok = names.LookupQName("", "second")
 	if !ok {
 		t.Fatal("missing second QName")
 	}

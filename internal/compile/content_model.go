@@ -284,9 +284,11 @@ func (c *elementDeclarationConsistencyChecker) collectParticle(types map[runtime
 		return c.collectElementParticle(types, particle.Element)
 	case runtime.ParticleModel:
 		return c.collectModelParticle(types, particle.Model)
-	default:
+	case runtime.ParticleWildcard:
 		return nil
+	default:
 	}
+	return nil
 }
 
 func (c *elementDeclarationConsistencyChecker) collectElementParticle(types map[runtime.QName]runtime.TypeID, element runtime.ElementID) error {
@@ -339,7 +341,7 @@ func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id runtime.ContentMode
 		}
 		seen[id] = true
 	}
-	if c.choiceNeedsRuntimeSplit(model, model.Occurs) {
+	if choiceNeedsRuntimeSplit(model, model.Occurs) {
 		return true, nil
 	}
 	for _, p := range model.Particles {
@@ -365,13 +367,13 @@ func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle runtime.Partic
 	if !ok {
 		return false, nil
 	}
-	if c.choiceNeedsRuntimeSplit(model, particle.Occurs) {
+	if choiceNeedsRuntimeSplit(model, particle.Occurs) {
 		return true, nil
 	}
 	return c.modelNeedsRuntimeSplitSeen(particle.Model, model, seen)
 }
 
-func (c *contentModelCompiler) choiceNeedsRuntimeSplit(model runtime.ContentModel, occurs runtime.Occurrence) bool {
+func choiceNeedsRuntimeSplit(model runtime.ContentModel, occurs runtime.Occurrence) bool {
 	if model.Kind != runtime.ModelChoice || occurs.IsExactlyOne() {
 		return false
 	}
@@ -391,9 +393,11 @@ func (c *contentModelCompiler) checkDirectUPA(model runtime.ContentModel) error 
 		return c.checkPairwiseUPA(model.Particles, "UPA violation: overlapping particles in all")
 	case runtime.ModelSequence:
 		return c.checkSequenceUPA(model)
-	default:
+	case runtime.ModelEmpty, runtime.ModelAny:
 		return nil
+	default:
 	}
+	return nil
 }
 
 func (c *contentModelCompiler) checkSequenceUPA(model runtime.ContentModel) error {
@@ -505,9 +509,11 @@ func (c *contentModelCompiler) modelContinuationParticles(model runtime.ContentM
 	switch model.Kind {
 	case runtime.ModelSequence, runtime.ModelChoice:
 		return c.appendParticleContinuations(out, model.Particles)
-	default:
+	case runtime.ModelEmpty, runtime.ModelAny, runtime.ModelAll:
 		return out, nil
+	default:
 	}
+	return out, nil
 }
 
 func (c *contentModelCompiler) repeatedModelStartParticles(model runtime.ContentModel) ([]runtime.Particle, error) {
@@ -615,9 +621,11 @@ func (c *contentModelCompiler) modelStartParticles(model runtime.ContentModel) (
 		return slices.Clone(model.Particles), nil
 	case runtime.ModelSequence:
 		return c.sequenceStartParticles(model.Particles)
-	default:
+	case runtime.ModelEmpty, runtime.ModelAny:
 		return nil, nil
+	default:
 	}
+	return nil, nil
 }
 
 func (c *contentModelCompiler) sequenceStartParticles(particles []runtime.Particle) ([]runtime.Particle, error) {
@@ -651,7 +659,7 @@ func (c *contentModelCompiler) compileContentModel(id runtime.ContentModelID) (r
 		return runtime.CompiledModel{Kind: runtime.CompiledModelAny, Mixed: model.Mixed, Empty: true}, nil
 	case runtime.ModelAll:
 		return c.compileAllModel(model)
-	default:
+	case runtime.ModelSequence, runtime.ModelChoice:
 		limits := model.ChoiceLimits
 		if m, ok, err := c.compileDirectModel(model, limits); ok || err != nil {
 			return m, err
@@ -664,6 +672,8 @@ func (c *contentModelCompiler) compileContentModel(id runtime.ContentModelID) (r
 			limit:  c.maxContentModelStates,
 		}
 		return b.compile(id)
+	default:
+		return runtime.CompiledModel{}, xsderrors.InternalInvariant("content model has unknown kind")
 	}
 }
 
@@ -692,9 +702,11 @@ func (c *contentModelCompiler) compileDirectModel(model runtime.ContentModel, li
 		return c.compileDirectSequenceModel(model, limits)
 	case runtime.ModelChoice:
 		return c.compileDirectChoiceModel(model)
-	default:
+	case runtime.ModelEmpty, runtime.ModelAny, runtime.ModelAll:
 		return runtime.CompiledModel{}, false, nil
+	default:
 	}
+	return runtime.CompiledModel{}, false, nil
 }
 
 func (c *contentModelCompiler) compileDirectSequenceModel(model runtime.ContentModel, limits []uint32) (runtime.CompiledModel, bool, error) {
@@ -1240,8 +1252,11 @@ func (b *dfaBuilder) modelNode(id runtime.ContentModelID, scope choiceLimitScope
 		}
 	case runtime.ModelAll:
 		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in DFA content models")
-	default:
+	case runtime.ModelAny:
 		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model")
+	default:
+		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model")
+		return dfaNode{}, err
 	}
 	return b.repeat(node, model.Occurs, -1)
 }
@@ -1274,7 +1289,7 @@ func (b *dfaBuilder) choiceNode(particles []runtime.Particle, scope choiceLimitS
 		if err := b.c.work.spend(len(node.First) + len(node.Last) + len(child.First) + len(child.Last)); err != nil {
 			return dfaNode{}, err
 		}
-		node = b.choice(node, child)
+		node = dfaChoice(node, child)
 	}
 	return node, nil
 }
@@ -1342,7 +1357,7 @@ func (b *dfaBuilder) concat(a, c dfaNode) (dfaNode, error) {
 	}, nil
 }
 
-func (b *dfaBuilder) choice(a, c dfaNode) dfaNode {
+func dfaChoice(a, c dfaNode) dfaNode {
 	return dfaNode{
 		First:    normalizeDFAEntries(append(slices.Clone(a.First), c.First...)),
 		Last:     normalizeDFAEntries(append(slices.Clone(a.Last), c.Last...)),
@@ -1368,23 +1383,23 @@ func (b *dfaBuilder) repeatMultiple(child dfaNode, occurs runtime.Occurrence, sl
 	if err := b.c.work.spend(len(child.First) + len(child.Last) + len(child.Counters)); err != nil {
 		return dfaNode{}, err
 	}
-	self, counted, err := b.repeatCounter(occurs, slot)
+	counter, err := b.repeatCounter(occurs, slot)
 	if err != nil {
 		return dfaNode{}, err
 	}
-	last, err := b.repeatLastEntries(child, occurs, self, counted)
+	last, err := b.repeatLastEntries(child, occurs, counter)
 	if err != nil {
 		return dfaNode{}, err
 	}
 	if occurs.Unbounded || occurs.Max > 1 {
-		if err := b.addRepeatLoopFollows(child, occurs, self, counted); err != nil {
+		if err := b.addRepeatLoopFollows(child, occurs, counter); err != nil {
 			return dfaNode{}, err
 		}
 	}
 	return dfaNode{
 		First:    child.First,
 		Last:     normalizeDFAEntries(last),
-		Counters: repeatCounterSet(child.Counters, self, counted),
+		Counters: repeatCounterSet(child.Counters, counter),
 		Nullable: occurs.Min == 0 || child.Nullable,
 	}, nil
 }
@@ -1400,34 +1415,57 @@ func (b *dfaBuilder) repeatExactlyOnce(child dfaNode, slot int) (dfaNode, error)
 	return b.countNode(child, slotID)
 }
 
-func (b *dfaBuilder) repeatCounter(occurs runtime.Occurrence, slot int) (uint32, bool, error) {
+type dfaRepeatCounterKind uint8
+
+const (
+	dfaRepeatCounterInactive dfaRepeatCounterKind = iota
+	dfaRepeatCounterActive
+)
+
+type dfaRepeatCounter struct {
+	slot uint32
+	kind dfaRepeatCounterKind
+}
+
+func (c dfaRepeatCounter) active() bool {
+	switch c.kind {
+	case dfaRepeatCounterInactive:
+		return false
+	case dfaRepeatCounterActive:
+		return true
+	default:
+		panic("unknown DFA repeat counter kind")
+	}
+}
+
+func (b *dfaBuilder) repeatCounter(occurs runtime.Occurrence, slot int) (dfaRepeatCounter, error) {
 	if slot < 0 && repeatNeedsCounter(occurs) {
 		slot = int(b.newCounter())
 	}
 	if slot < 0 {
-		return ^uint32(0), false, nil
+		return dfaRepeatCounter{slot: ^uint32(0), kind: dfaRepeatCounterInactive}, nil
 	}
 	self, err := checkedUint32(slot, "content model counter limit exceeded")
-	return self, true, err
+	return dfaRepeatCounter{slot: self, kind: dfaRepeatCounterActive}, err
 }
 
-func repeatCounterSet(child []uint32, self uint32, counted bool) []uint32 {
+func repeatCounterSet(child []uint32, counter dfaRepeatCounter) []uint32 {
 	counters := slices.Clone(child)
-	if counted && !slices.Contains(counters, self) {
-		counters = append(counters, self)
+	if counter.active() && !slices.Contains(counters, counter.slot) {
+		counters = append(counters, counter.slot)
 		slices.Sort(counters)
 	}
 	return counters
 }
 
-func (b *dfaBuilder) repeatLastEntries(child dfaNode, occurs runtime.Occurrence, self uint32, counted bool) ([]dfaEntry, error) {
+func (b *dfaBuilder) repeatLastEntries(child dfaNode, occurs runtime.Occurrence, counter dfaRepeatCounter) ([]dfaEntry, error) {
 	var exitGuards []compiledGuard
 	var exitActions []compiledAction
-	if counted {
+	if counter.active() {
 		if occurs.Min > 0 && !child.Nullable {
-			exitGuards = append(exitGuards, compiledGuard{Slot: self, N: occurs.Min, Kind: compiledGuardExitMin})
+			exitGuards = append(exitGuards, compiledGuard{Slot: counter.slot, N: occurs.Min, Kind: compiledGuardExitMin})
 		}
-		exitActions = append(exitActions, compiledAction{Slot: self, Kind: compiledActionInc})
+		exitActions = append(exitActions, compiledAction{Slot: counter.slot, Kind: compiledActionInc})
 	}
 	var last []dfaEntry
 	for _, tail := range child.Last {
@@ -1443,10 +1481,10 @@ func (b *dfaBuilder) repeatLastEntries(child dfaNode, occurs runtime.Occurrence,
 	return last, nil
 }
 
-func (b *dfaBuilder) addRepeatLoopFollows(child dfaNode, occurs runtime.Occurrence, self uint32, counted bool) error {
+func (b *dfaBuilder) addRepeatLoopFollows(child dfaNode, occurs runtime.Occurrence, counter dfaRepeatCounter) error {
 	for _, tail := range child.Last {
 		for _, first := range child.First {
-			if err := b.addRepeatLoopFollow(tail, first, child.Counters, occurs, self, counted); err != nil {
+			if err := b.addRepeatLoopFollow(tail, first, child.Counters, occurs, counter); err != nil {
 				return err
 			}
 		}
@@ -1454,15 +1492,15 @@ func (b *dfaBuilder) addRepeatLoopFollows(child dfaNode, occurs runtime.Occurren
 	return nil
 }
 
-func (b *dfaBuilder) addRepeatLoopFollow(tail, first dfaEntry, childCounters []uint32, occurs runtime.Occurrence, self uint32, counted bool) error {
+func (b *dfaBuilder) addRepeatLoopFollow(tail, first dfaEntry, childCounters []uint32, occurs runtime.Occurrence, counter dfaRepeatCounter) error {
 	extraGuards := 0
-	if counted && !occurs.Unbounded {
+	if counter.active() && !occurs.Unbounded {
 		extraGuards = 1
 	}
 	extraActions := len(childCounters)
-	if counted {
+	if counter.active() {
 		extraActions++
-		if slices.Contains(childCounters, self) {
+		if slices.Contains(childCounters, counter.slot) {
 			extraActions--
 		}
 	}
@@ -1470,14 +1508,14 @@ func (b *dfaBuilder) addRepeatLoopFollow(tail, first dfaEntry, childCounters []u
 		return err
 	}
 	guards := slices.Clone(tail.Guards)
-	if counted && !occurs.Unbounded {
-		guards = append(guards, compiledGuard{Slot: self, N: occurs.Max, Kind: compiledGuardLoopMax})
+	if counter.active() && !occurs.Unbounded {
+		guards = append(guards, compiledGuard{Slot: counter.slot, N: occurs.Max, Kind: compiledGuardLoopMax})
 	}
 	actions := slices.Clone(tail.Actions)
-	if counted {
-		actions = append(actions, compiledAction{Slot: self, Kind: compiledActionInc})
+	if counter.active() {
+		actions = append(actions, compiledAction{Slot: counter.slot, Kind: compiledActionInc})
 	}
-	actions = append(actions, resetActions(childCounters, self)...)
+	actions = append(actions, resetActions(childCounters, counter.slot)...)
 	b.appendFollow(tail.Pos, composeEntry(guards, actions, first))
 	return nil
 }

@@ -36,7 +36,7 @@ func (r publishedSimpleValueMetadataReader) simpleValueFacets(id SimpleTypeID) (
 	return simpleValueFacetsForColdRead(cold), true
 }
 
-func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id SimpleTypeID, canonical string) (bool, bool) {
+func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id SimpleTypeID, canonical string) (contains, valid bool) {
 	if _, ok := simpleValueRouteReadByID(r.runtime.SimpleValueRoutes, id); !ok {
 		return false, false
 	}
@@ -55,7 +55,7 @@ func (r publishedSimpleValueMetadataReader) simpleValueStringEnumeration(id Simp
 	return false, true
 }
 
-func (r publishedSimpleValueMetadataReader) simpleValueNotation(ns, local string) (bool, bool) {
+func (r publishedSimpleValueMetadataReader) simpleValueNotation(ns, local string) (declared, valid bool) {
 	return r.runtime.Notations[ExpandedName{Namespace: ns, Local: local}], true
 }
 

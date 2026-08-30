@@ -50,8 +50,8 @@ func (c *compiler) compileElementByQName(q runtime.QName) (runtime.ElementID, er
 		return id, nil
 	}
 	label := c.rt.formatName(q)
-	if err := CheckSchemaComponentExists(SchemaComponentElement, exists, label); err != nil {
-		return 0, err
+	if !exists {
+		return 0, SchemaComponentMissingError(SchemaComponentElement, label)
 	}
 	leave, err := c.enterComponent(raw.node)
 	if err != nil {
@@ -123,19 +123,15 @@ func (c *compiler) compileLocalElement(n *rawNode, ctx *schemaContext) (runtime.
 }
 
 type elementConstraintDraft struct {
-	defaultLexical string
-	fixedLexical   string
-	hasDefault     bool
-	hasFixed       bool
+	lexical string
+	kind    runtime.DeclarationValueConstraint
 }
 
 type pendingElementConstraint struct {
-	node           *rawNode
-	defaultLexical string
-	fixedLexical   string
-	element        runtime.ElementID
-	hasDefault     bool
-	hasFixed       bool
+	node    *rawNode
+	lexical string
+	element runtime.ElementID
+	kind    runtime.DeclarationValueConstraint
 }
 
 func (c *compiler) compileElementDecl(n *rawNode, ctx *schemaContext, q runtime.QName) (runtime.ElementDecl, elementConstraintDraft, error) {
@@ -225,26 +221,30 @@ func applyElementDerivationMasks(n *rawNode, ctx *schemaContext, decl *runtime.E
 func compileElementConstraintDraft(n *rawNode) (elementConstraintDraft, error) {
 	defaultLexical, hasDefault := n.attr(vocab.XSDAttrDefault)
 	fixedLexical, hasFixed := n.attr(vocab.XSDAttrFixed)
-	if err := validateElementDeclValueConstraintAdmission(n, hasDefault, hasFixed); err != nil {
+	var lexical string
+	var kind runtime.DeclarationValueConstraint
+	switch {
+	case hasDefault && hasFixed:
+		kind = runtime.DeclarationValueConstraintConflict
+	case hasDefault:
+		kind = runtime.DeclarationValueConstraintDefault
+		lexical = defaultLexical
+	case hasFixed:
+		kind = runtime.DeclarationValueConstraintFixed
+		lexical = fixedLexical
+	}
+	if err := validateElementDeclValueConstraintAtNode(n, kind); err != nil {
 		return elementConstraintDraft{}, err
 	}
-	return elementConstraintDraft{
-		defaultLexical: defaultLexical, fixedLexical: fixedLexical,
-		hasDefault: hasDefault, hasFixed: hasFixed,
-	}, nil
+	return elementConstraintDraft{lexical: lexical, kind: kind}, nil
 }
 
 func (c *compiler) addPendingElementConstraint(id runtime.ElementID, n *rawNode, draft elementConstraintDraft) {
-	if !draft.hasDefault && !draft.hasFixed {
+	if draft.kind == runtime.DeclarationValueConstraintNone {
 		return
 	}
 	c.pendingElementConstraints = append(c.pendingElementConstraints, pendingElementConstraint{
-		node:           n,
-		element:        id,
-		defaultLexical: draft.defaultLexical,
-		fixedLexical:   draft.fixedLexical,
-		hasDefault:     draft.hasDefault,
-		hasFixed:       draft.hasFixed,
+		node: n, lexical: draft.lexical, element: id, kind: draft.kind,
 	})
 }
 
@@ -257,7 +257,7 @@ func (c *compiler) compileElementTypeAttribute(n *rawNode, ctx *schemaContext, t
 		return c.resolveTypeQName(typeQName)
 	}
 	if !c.typeQNameMayBeUnavailable(typeQName) {
-		missingErr := CheckSchemaComponentExists(SchemaComponentType, false, c.rt.formatName(typeQName))
+		missingErr := SchemaComponentMissingError(SchemaComponentType, c.rt.formatName(typeQName))
 		return runtime.TypeID{}, withSchemaCompileLocation(n, missingErr)
 	}
 	missing, err := c.missingSimpleType()
@@ -283,10 +283,10 @@ func (c *compiler) validateElementValueConstraints(decl *runtime.ElementDecl, n 
 	if err != nil || unavailableType {
 		return err
 	}
-	if err := runtime.ValidateElementDeclValueConstraintRuntime(&c.rt, simpleID, decl.Default != nil, decl.Fixed != nil); err != nil {
+	if err := runtime.ValidateElementDeclValueConstraintRuntime(&c.rt, simpleID, runtime.DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
 		return ElementValueConstraintRuntimeError(err)
 	}
-	resolve := c.schemaQNameResolver(n)
+	resolve := schemaQNameResolver(n)
 	if err := c.validateElementConstraint(&decl.Default, simpleID, decl, resolve, "element default"); err != nil {
 		return err
 	}

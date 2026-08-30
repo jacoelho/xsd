@@ -27,7 +27,7 @@ func (s *session) validateAttributes(typ runtime.TypeID, attrs []stream.Attr, li
 	return s.validateAttributeSet(set, attrs, line, col)
 }
 
-func (s *session) attributeUseSetForType(typ runtime.TypeID) (runtime.AttributeUseSetRead, bool, bool) {
+func (s *session) attributeUseSetForType(typ runtime.TypeID) (set runtime.AttributeUseSetRead, present, valid bool) {
 	return s.rt.AttributeUseSetForType(typ)
 }
 
@@ -35,8 +35,14 @@ func (s *session) attributeDecl(id runtime.AttributeID) (runtime.AttributeDeclRe
 	return s.rt.AttributeDecl(id)
 }
 
-func (s *session) validateRawSimpleValue(id runtime.SimpleTypeID, raw []byte) (bool, error) {
-	return s.rt.ValidateRawSimpleValueWithScratch(id, raw, &s.stringPatternScratch)
+type rawSimpleValueValidation struct {
+	err     error
+	handled bool
+}
+
+func (s *session) validateRawSimpleValue(id runtime.SimpleTypeID, raw []byte) rawSimpleValueValidation {
+	handled, err := s.rt.ValidateRawSimpleValueWithScratch(id, raw, &s.stringPatternScratch)
+	return rawSimpleValueValidation{handled: handled, err: err}
 }
 
 func (s *session) validateSimpleValue(
@@ -187,8 +193,8 @@ func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr
 		return false, nil
 	}
 	if raw, ok := attr.RawValue(); ok {
-		handled, err := s.validateRawSimpleValue(plan.use.TypeID(), raw)
-		return handled || err != nil, declaredRawAttributeResult(handled, err, rn, ctx)
+		result := s.validateRawSimpleValue(plan.use.TypeID(), raw)
+		return result.handled || result.err != nil, declaredRawAttributeResult(result, rn, ctx)
 	}
 	return false, nil
 }
@@ -200,17 +206,17 @@ func validateFixedAttributeString(value string, fixed runtime.ValueConstraintRea
 	return nil
 }
 
-func declaredRawAttributeResult(handled bool, err error, rn runtime.RuntimeName, ctx StartContext) error {
-	if err == nil {
+func declaredRawAttributeResult(result rawSimpleValueValidation, rn runtime.RuntimeName, ctx StartContext) error {
+	if result.err == nil {
 		return nil
 	}
-	if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
+	if invariantErr := simpleValueMetadataInvariant(result.err); invariantErr != nil {
 		return invariantErr
 	}
-	if handled {
-		return validation(ctx, xsderrors.CodeValidationFacet, "invalid attribute "+rn.Label()+": "+err.Error())
+	if result.handled {
+		return validation(ctx, xsderrors.CodeValidationFacet, "invalid attribute "+rn.Label()+": "+result.err.Error())
 	}
-	return err
+	return result.err
 }
 
 func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lexical string, rn runtime.RuntimeName, ctx StartContext) error {
@@ -226,7 +232,11 @@ func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lex
 		return err
 	}
 	if plan.hasFixed {
-		if err := s.validateFixedAttributeValue(value, plan.fixed, plan.use.FixedUsesValueSpace(), plan.target, ctx, rn.Label()); err != nil {
+		comparison := runtime.FixedAttributeComparisonLexical
+		if plan.use.FixedUsesValueSpace() {
+			comparison = runtime.FixedAttributeComparisonValueSpace
+		}
+		if err := s.validateFixedAttributeValue(value, plan.fixed, comparison, plan.target, ctx, rn.Label()); err != nil {
 			return err
 		}
 	}
@@ -267,7 +277,7 @@ func (s *session) validateWildcardAttribute(
 	case attributeWildcardNoMatch:
 		return false, nil
 	case attributeWildcardSkip, attributeWildcardLaxMissing:
-		return true, s.rejectUnassessedIdentityAttribute(rn, ctx, true)
+		return true, s.rejectUnassessedIdentityAttribute(rn, ctx, identityMissingSimpleValue)
 	case attributeWildcardDeclared:
 		decl, ok := s.attributeDecl(match.attribute)
 		if !ok {
@@ -283,40 +293,47 @@ func (s *session) validateWildcardAttribute(
 	return true, xsderrors.InternalInvariant("attribute wildcard match disposition is invalid")
 }
 
-func (s *session) rejectUnassessedIdentityAttributes(attrs []stream.Attr, line, col int, report bool) error {
+func (s *session) rejectUnassessedIdentityAttributes(attrs []stream.Attr, line, col int, reason identityRejection) error {
+	if reason != identityMissingSimpleValue && reason != identityInvalidValue {
+		return xsderrors.InternalInvariant("unassessed attribute identity rejection is invalid")
+	}
 	ctx := s.startContext(line, col)
 	for i := range attrs {
 		if xmlns.IsNamespaceName(attrs[i].Name) {
 			continue
 		}
 		rn := s.runtimeName(attrs[i].Name)
-		err := s.rejectUnassessedIdentityAttribute(rn, ctx, report)
-		if err == nil {
-			continue
-		}
-		if !report {
-			return err
-		}
-		if recoverErr := s.recoverAssessment(err); recoverErr != nil {
-			return recoverErr
+		if rejectionErr := s.rejectUnassessedIdentityAttribute(rn, ctx, reason); rejectionErr != nil {
+			if recoveryErr := s.handleUnassessedIdentityRejection(rejectionErr, reason); recoveryErr != nil {
+				return recoveryErr
+			}
 		}
 	}
 	return nil
 }
 
-func (s *session) rejectUnassessedIdentityAttribute(rn runtime.RuntimeName, ctx StartContext, report bool) error {
+func (s *session) handleUnassessedIdentityRejection(err error, reason identityRejection) error {
+	if reason == identityInvalidValue {
+		return err
+	}
+	return s.recoverAssessment(err)
+}
+
+func (s *session) rejectUnassessedIdentityAttribute(rn runtime.RuntimeName, ctx StartContext, reason identityRejection) error {
 	target, err := s.doc.identity.prepareAttributeValue(rn)
 	if err != nil {
 		return err
 	}
-	if report {
-		return s.doc.identity.rejectValue(target, identityMissingSimpleValue, ctx)
+	switch reason {
+	case identityMissingSimpleValue, identityInvalidValue:
+		return s.doc.identity.rejectValue(target, reason, ctx)
+	default:
+		return xsderrors.InternalInvariant("unassessed attribute identity rejection is invalid")
 	}
-	return s.doc.identity.rejectValue(target, identityInvalidValue, ctx)
 }
 
 func (s *session) recoverUnassessedIdentityAttribute(rn runtime.RuntimeName, ctx StartContext, err error) error {
-	if invalidateErr := s.rejectUnassessedIdentityAttribute(rn, ctx, false); invalidateErr != nil {
+	if invalidateErr := s.rejectUnassessedIdentityAttribute(rn, ctx, identityInvalidValue); invalidateErr != nil {
 		return invalidateErr
 	}
 	return s.recoverAssessment(err)
@@ -345,7 +362,7 @@ func (s *session) validateKnownWildcardAttribute(
 	if err != nil {
 		return s.wildcardAttributeValueError(identityTarget, rn, ctx, err)
 	}
-	return s.commitKnownWildcardAttributeValue(identityTarget, value, fixed, hasFixed, rn, ctx)
+	return s.commitKnownWildcardAttributeValue(identityTarget, value, optionalFixedAttribute{value: fixed, present: hasFixed}, rn, ctx)
 }
 
 func (s *session) wildcardAttributeValueError(target identityValueTarget, rn runtime.RuntimeName, ctx StartContext, err error) error {
@@ -361,12 +378,17 @@ func (s *session) wildcardAttributeValueError(target identityValueTarget, rn run
 	return validation(ctx, xsderrors.CodeValidationFacet, "invalid wildcard attribute "+rn.Label())
 }
 
-func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValueTarget, value runtime.SimpleValue, fixed runtime.ValueConstraintRead, hasFixed bool, rn runtime.RuntimeName, ctx StartContext) error {
+type optionalFixedAttribute struct {
+	value   runtime.ValueConstraintRead
+	present bool
+}
+
+func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValueTarget, value runtime.SimpleValue, fixed optionalFixedAttribute, rn runtime.RuntimeName, ctx StartContext) error {
 	if err := s.doc.identity.recordValue(identityTarget, value, ctx); err != nil {
 		return err
 	}
-	if hasFixed {
-		if err := s.validateFixedAttributeValue(value, fixed, true, identityTarget, ctx, rn.Label()); err != nil {
+	if fixed.present {
+		if err := s.validateFixedAttributeValue(value, fixed.value, runtime.FixedAttributeComparisonValueSpace, identityTarget, ctx, rn.Label()); err != nil {
 			return err
 		}
 	}
@@ -379,12 +401,12 @@ func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValue
 func (s *session) validateFixedAttributeValue(
 	value runtime.SimpleValue,
 	fixed runtime.ValueConstraintRead,
-	valueSpace bool,
+	comparison runtime.FixedAttributeComparison,
 	identityTarget identityValueTarget,
 	ctx StartContext,
 	label string,
 ) error {
-	equal, valid := runtime.FixedAttributeValueEqual(value, fixed, valueSpace)
+	equal, valid := runtime.FixedAttributeValueEqual(value, fixed, comparison)
 	if equal {
 		return nil
 	}

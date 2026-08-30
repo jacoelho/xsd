@@ -60,7 +60,7 @@ func (v rawSimpleValueView) rawUnionMember(index int) (SimpleTypeID, bool) {
 	return v.cold.union[index], true
 }
 
-func rawStringEnumeration(cold *simpleValueColdRead, normalized []byte) (bool, bool) {
+func rawStringEnumeration(cold *simpleValueColdRead, normalized []byte) (contains, valid bool) {
 	if cold == nil {
 		return false, false
 	}
@@ -117,9 +117,14 @@ func validateRawAtomicSimpleValue(
 		return validateRawStringEnumeration(route, cold, raw)
 	case SimpleValueBypassNone:
 		return false, nil
-	default:
+	case SimpleValueBypassValidateInt, SimpleValueBypassValidateDecimal, SimpleValueBypassValidateAnyURI,
+		SimpleValueBypassValidateHexBinary, SimpleValueBypassValidateBase64Binary, SimpleValueBypassValidateFloat,
+		SimpleValueBypassValidateDuration, SimpleValueBypassValidateBoolean, SimpleValueBypassValidateTemporal,
+		SimpleValueBypassValidateDate:
 		return validateRawLexicalBypass(route, raw)
+	default:
 	}
+	return false, nil
 }
 
 func rawStringLengthFastPath(route *simpleValueRouteRead) bool {
@@ -180,9 +185,12 @@ func validateRawLexicalBypass(route *simpleValueRouteRead, raw []byte) (bool, er
 		return true, ValidateTemporalLexical(route.primitive, raw)
 	case SimpleValueBypassValidateDate:
 		return ValidateFastDateLexical(raw)
-	default:
+	case SimpleValueBypassNone, SimpleValueBypassAcceptString,
+		SimpleValueBypassValidateStringPatterns, SimpleValueBypassValidateStringEnumeration:
 		return false, nil
+	default:
 	}
+	return false, nil
 }
 
 func validateRawListSimpleValue(resolver rawSimpleValueResolver, typ rawSimpleValueView, raw []byte) (bool, error) {
@@ -247,7 +255,7 @@ func validateRawUnionMember(resolver rawSimpleValueResolver, typ rawSimpleValueV
 	if !ok {
 		return rawUnionMemberUnhandled, ErrSimpleValueMetadata
 	}
-	switch SimpleRawUnionMember(rawSimpleUnionMemberShape(memberType, true)) {
+	switch SimpleRawUnionMember(rawSimpleUnionMemberShape(memberType)) {
 	case SimpleRawUnionMemberTryBoolean:
 		if BooleanLexicalOK(raw) {
 			return rawUnionMemberMatched, nil
@@ -262,9 +270,11 @@ func validateRawUnionMember(resolver rawSimpleValueResolver, typ rawSimpleValueV
 			return rawUnionMemberMatched, nil
 		}
 		return rawUnionMemberNoMatch, nil
-	default:
+	case SimpleRawUnionMemberNone:
 		return rawUnionMemberUnhandled, nil
+	default:
 	}
+	return rawUnionMemberUnhandled, nil
 }
 
 func rawSimpleListFastPathShape(resolver rawSimpleValueResolver, typ rawSimpleValueView) (SimpleRawListFastPathShape, bool) {
@@ -284,10 +294,7 @@ func rawSimpleListFastPathShape(resolver rawSimpleValueResolver, typ rawSimpleVa
 	return shape, true
 }
 
-func rawSimpleUnionMemberShape(typ rawSimpleValueView, ok bool) SimpleRawUnionMemberShape {
-	if !ok {
-		return SimpleRawUnionMemberShape{}
-	}
+func rawSimpleUnionMemberShape(typ rawSimpleValueView) SimpleRawUnionMemberShape {
 	return SimpleRawUnionMemberShape{
 		Facets:    typ.route.facets,
 		Variety:   typ.route.variety,

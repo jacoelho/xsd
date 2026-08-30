@@ -875,11 +875,11 @@ func TestLazyAttributeValueCopiesSurviveParserAdvance(t *testing.T) {
 }
 
 func BenchmarkParserLazyWideAttributes(b *testing.B) {
-	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), newParserBenchmarkOracle(258, 90_390, 0xe98b3c97c304f556), Config{LazyAttrValues: true}, false)
+	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), newParserBenchmarkOracle(258, 90_390, 0xe98b3c97c304f556), Config{LazyAttrValues: true}, parserBenchmarkRawAttributes)
 }
 
 func BenchmarkParserLazyWideAttributesMaterialized(b *testing.B) {
-	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), newParserBenchmarkOracle(258, 90_390, 0xe98b3c97c304f556), Config{LazyAttrValues: true}, true)
+	benchmarkParserDocument(b, benchmarkParserWideAttributesDocument(), newParserBenchmarkOracle(258, 90_390, 0xe98b3c97c304f556), Config{LazyAttrValues: true}, parserBenchmarkMaterializedAttributes)
 }
 
 func benchmarkParserWideAttributesDocument() string {
@@ -899,17 +899,17 @@ func benchmarkParserWideAttributesDocument() string {
 
 func BenchmarkParserCharacterData(b *testing.B) {
 	text := `<root>` + strings.Repeat("abcdefgh", 8<<10) + `</root>`
-	benchmarkParserDocument(b, text, newParserBenchmarkOracle(3, 65_540, 0x069139cfad00a11b), Config{}, false)
+	benchmarkParserDocument(b, text, newParserBenchmarkOracle(3, 65_540, 0x069139cfad00a11b), Config{}, parserBenchmarkRawAttributes)
 }
 
 func BenchmarkParserMixedSmallTokens(b *testing.B) {
 	text := `<root>` + strings.Repeat(`<e a="v">x</e>`, 4_000) + `</root>`
-	benchmarkParserDocument(b, text, newParserBenchmarkOracle(12_002, 12_004, 0xf020b93837f5e1c), Config{LazyAttrValues: true}, false)
+	benchmarkParserDocument(b, text, newParserBenchmarkOracle(12_002, 12_004, 0xf020b93837f5e1c), Config{LazyAttrValues: true}, parserBenchmarkRawAttributes)
 }
 
 func BenchmarkParserCDATABufferBoundary(b *testing.B) {
 	text := `<root><![CDATA[` + strings.Repeat("x", xmlInputBufferSize) + `]]></root>`
-	benchmarkParserDocument(b, text, newParserBenchmarkOracle(4, 65_540, 0xfd95ace67cb7de45), Config{}, false)
+	benchmarkParserDocument(b, text, newParserBenchmarkOracle(4, 65_540, 0xfd95ace67cb7de45), Config{}, parserBenchmarkRawAttributes)
 }
 
 func TestParserBenchmarkOracleDistinguishesSemanticChanges(t *testing.T) {
@@ -918,7 +918,7 @@ func TestParserBenchmarkOracleDistinguishesSemanticChanges(t *testing.T) {
 		t.Helper()
 		names, values := NewCache(), NewCache()
 		var parser Parser
-		got, err := digestParserBenchmarkDocument(&parser, &names, &values, text, Config{}, false)
+		got, err := digestParserBenchmarkDocument(&parser, &names, &values, text, Config{}, parserBenchmarkRawAttributes)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -961,6 +961,13 @@ type parserBenchmarkOracle struct {
 	sample parserBenchmarkSample
 }
 
+type parserBenchmarkAttributeMode uint8
+
+const (
+	parserBenchmarkRawAttributes parserBenchmarkAttributeMode = iota
+	parserBenchmarkMaterializedAttributes
+)
+
 func newParserBenchmarkOracle(tokens, payload int, hash uint64) parserBenchmarkOracle {
 	return parserBenchmarkOracle{
 		digest: parserBenchmarkDigest{hash: hash, tokens: tokens},
@@ -968,7 +975,7 @@ func newParserBenchmarkOracle(tokens, payload int, hash uint64) parserBenchmarkO
 	}
 }
 
-func (d *parserBenchmarkDigest) addToken(token Token, values *Cache, materializeAttrs bool) {
+func (d *parserBenchmarkDigest) addToken(token Token, values *Cache, attributeMode parserBenchmarkAttributeMode) {
 	d.tokens++
 	d.addUint64(uint64(token.Kind))
 	d.addBool(token.CDATA)
@@ -977,7 +984,7 @@ func (d *parserBenchmarkDigest) addToken(token Token, values *Cache, materialize
 	for i := range token.Start.Attr {
 		attr := &token.Start.Attr[i]
 		d.addName(attr.Name)
-		if raw, ok := attr.RawValue(); ok && !materializeAttrs {
+		if raw, ok := attr.RawValue(); ok && attributeMode == parserBenchmarkRawAttributes {
 			d.addBytes(raw)
 			continue
 		}
@@ -988,11 +995,11 @@ func (d *parserBenchmarkDigest) addToken(token Token, values *Cache, materialize
 	d.addBytes(token.Directive)
 }
 
-func (s *parserBenchmarkSample) addToken(token Token, values *Cache, materializeAttrs bool) {
+func (s *parserBenchmarkSample) addToken(token Token, values *Cache, attributeMode parserBenchmarkAttributeMode) {
 	s.tokens++
 	s.payload += len(token.Data) + len(token.Directive) + len(token.Start.Name.Space) + len(token.Start.Name.Local)
 	for i := range token.Start.Attr {
-		if raw, ok := token.Start.Attr[i].RawValue(); ok && !materializeAttrs {
+		if raw, ok := token.Start.Attr[i].RawValue(); ok && attributeMode == parserBenchmarkRawAttributes {
 			s.payload += len(raw)
 			continue
 		}
@@ -1005,7 +1012,7 @@ func (d *parserBenchmarkDigest) addName(name xml.Name) {
 	d.addString(name.Local)
 }
 
-func (d *parserBenchmarkDigest) addBool(value bool) {
+func (d *parserBenchmarkDigest) addBool(value bool) { //nolint:revive // Benchmark digest data is the value being hashed, not control flow.
 	if value {
 		d.addUint64(1)
 		return
@@ -1039,11 +1046,11 @@ func (d *parserBenchmarkDigest) addByte(value byte) {
 	d.hash *= parserBenchmarkDigestPrime
 }
 
-func benchmarkParserDocument(b *testing.B, text string, want parserBenchmarkOracle, config Config, materializeAttrs bool) {
+func benchmarkParserDocument(b *testing.B, text string, want parserBenchmarkOracle, config Config, attributeMode parserBenchmarkAttributeMode) {
 	b.Helper()
 	names, values := NewCache(), NewCache()
 	var parser Parser
-	digest, err := digestParserBenchmarkDocument(&parser, &names, &values, text, config, materializeAttrs)
+	digest, err := digestParserBenchmarkDocument(&parser, &names, &values, text, config, attributeMode)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1054,7 +1061,7 @@ func benchmarkParserDocument(b *testing.B, text string, want parserBenchmarkOrac
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		got, err := consumeParserBenchmarkDocument(&parser, &names, &values, text, config, materializeAttrs)
+		got, err := consumeParserBenchmarkDocument(&parser, &names, &values, text, config, attributeMode)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1064,7 +1071,7 @@ func benchmarkParserDocument(b *testing.B, text string, want parserBenchmarkOrac
 	}
 }
 
-func digestParserBenchmarkDocument(parser *Parser, names, values *Cache, text string, config Config, materializeAttrs bool) (parserBenchmarkDigest, error) {
+func digestParserBenchmarkDocument(parser *Parser, names, values *Cache, text string, config Config, attributeMode parserBenchmarkAttributeMode) (parserBenchmarkDigest, error) {
 	if err := parser.ResetWithConfig(strings.NewReader(text), names, values, config); err != nil {
 		return parserBenchmarkDigest{}, err
 	}
@@ -1077,11 +1084,11 @@ func digestParserBenchmarkDocument(parser *Parser, names, values *Cache, text st
 		if err != nil {
 			return parserBenchmarkDigest{}, err
 		}
-		got.addToken(token, values, materializeAttrs)
+		got.addToken(token, values, attributeMode)
 	}
 }
 
-func consumeParserBenchmarkDocument(parser *Parser, names, values *Cache, text string, config Config, materializeAttrs bool) (parserBenchmarkSample, error) {
+func consumeParserBenchmarkDocument(parser *Parser, names, values *Cache, text string, config Config, attributeMode parserBenchmarkAttributeMode) (parserBenchmarkSample, error) {
 	if err := parser.ResetWithConfig(strings.NewReader(text), names, values, config); err != nil {
 		return parserBenchmarkSample{}, err
 	}
@@ -1094,7 +1101,7 @@ func consumeParserBenchmarkDocument(parser *Parser, names, values *Cache, text s
 		if err != nil {
 			return parserBenchmarkSample{}, err
 		}
-		got.addToken(token, values, materializeAttrs)
+		got.addToken(token, values, attributeMode)
 	}
 }
 

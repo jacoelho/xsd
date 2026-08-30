@@ -3,6 +3,7 @@ package validate
 import (
 	"io"
 
+	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/stream"
 )
 
@@ -73,12 +74,18 @@ func (c *xmlWellFormedChecker) checkToken(tok stream.Token, values *stream.Cache
 	case stream.KindEnd:
 		return c.end(tok.Line, tok.Column, tok.End)
 	case stream.KindCharData:
-		return c.chars(tok.Line, tok.Column, tok.Data, tok.CDATA)
+		kind := CharacterDataText
+		if tok.CDATA {
+			kind = CharacterDataCDATA
+		}
+		return c.chars(tok.Line, tok.Column, tok.Data, kind)
 	case stream.KindDirective:
 		return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
-	default:
+	case stream.KindComment, stream.KindPI:
 		return nil
+	default:
 	}
+	return nil
 }
 
 func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, values *stream.Cache) error {
@@ -86,7 +93,7 @@ func (c *xmlWellFormedChecker) start(line, col int, se stream.StartElement, valu
 	if err != nil {
 		return err
 	}
-	c.doc.CommitStart(translated, false, struct{}{})
+	c.doc.CommitStart(translated, struct{}{})
 	return nil
 }
 
@@ -97,11 +104,14 @@ func (c *xmlWellFormedChecker) end(line, col int, ee stream.EndElement) error {
 	return c.doc.CommitEnd()
 }
 
-func (c *xmlWellFormedChecker) chars(line, col int, data []byte, cdata bool) error {
+func (c *xmlWellFormedChecker) chars(line, col int, data []byte, kind CharacterDataKind) error {
 	if c.doc.Depth() != 0 {
 		return nil
 	}
-	return ValidateDocumentCharacterData(data, cdata, c.doc.context(line, col))
+	return ValidateDocumentCharacterData(DocumentCharacterData{
+		Kind:       kind,
+		Whitespace: lex.IsXMLWhitespaceBytes(data),
+	}, c.doc.context(line, col))
 }
 
 func (c *xmlWellFormedChecker) streamError(parser *stream.Parser, err error) error {

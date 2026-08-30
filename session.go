@@ -9,7 +9,10 @@ import (
 
 // ValidateOptions controls instance validation.
 type ValidateOptions struct {
-	// MaxErrors limits collected validation errors. Zero uses the default.
+	// MaxErrors limits reported recoverable validation errors. Once reached,
+	// validation stops semantic assessment but continues reading XML until a
+	// fatal error or the document end; a later fatal error takes precedence.
+	// Zero uses the default.
 	MaxErrors int
 	// MaxIdentityScopes limits active identity-constraint scopes. Zero uses the default.
 	MaxIdentityScopes int

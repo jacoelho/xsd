@@ -27,7 +27,7 @@ func GlobalTypeByName(reads map[QName]TypeID, derivations TypeDerivationRead, na
 // GlobalAttributeByName returns a global attribute declaration ID from a frozen
 // global attribute read map. The final bool distinguishes missing declarations
 // from invalid frozen metadata.
-func GlobalAttributeByName(reads map[QName]AttributeID, decls []AttributeDeclRead, name QName) (AttributeID, bool, bool) {
+func GlobalAttributeByName(reads map[QName]AttributeID, decls []AttributeDeclRead, name QName) (id AttributeID, present, valid bool) {
 	id, ok := reads[name]
 	if !ok {
 		return 0, false, true

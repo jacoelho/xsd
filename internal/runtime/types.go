@@ -437,8 +437,8 @@ func (l *identityFieldLookup) add(fieldIndex int, field IdentityField) {
 	}
 }
 
-func partitionIdentityFieldPaths(paths []IdentityFieldPath) ([]IdentityFieldPath, []IdentityFieldPath, map[QName][]IdentityFieldPath) {
-	var elements, wildcards []IdentityFieldPath
+func partitionIdentityFieldPaths(paths []IdentityFieldPath) (elements, wildcardAttributes []IdentityFieldPath, exactAttributes map[QName][]IdentityFieldPath) {
+	var wildcards []IdentityFieldPath
 	var exact map[QName][]IdentityFieldPath
 	for _, path := range paths {
 		path = cloneIdentityFieldPath(path)

@@ -5,10 +5,17 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// NameReferenceSource keeps the name and reference attributes of a declaration
+// together for source admission.
+type NameReferenceSource struct {
+	Name      LexicalAttribute
+	Reference LexicalAttribute
+}
+
 // ValidateLocalElementSource validates that a local xs:element has a name or
 // reference source.
-func ValidateLocalElementSource(hasName, hasRef bool) error {
-	if !hasName && !hasRef {
+func ValidateLocalElementSource(source NameReferenceSource) error {
+	if !source.Name.Present && !source.Reference.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "local element missing name or ref")
 	}
 	return nil
@@ -16,8 +23,8 @@ func ValidateLocalElementSource(hasName, hasRef bool) error {
 
 // ValidateAttributeUseSource validates that an xs:attribute use has a name or
 // reference source.
-func ValidateAttributeUseSource(hasName, hasRef bool) error {
-	if !hasName && !hasRef {
+func ValidateAttributeUseSource(source NameReferenceSource) error {
+	if !source.Name.Present && !source.Reference.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "attribute missing name or ref")
 	}
 	return nil
@@ -25,16 +32,16 @@ func ValidateAttributeUseSource(hasName, hasRef bool) error {
 
 // ValidateAttributeGroupUseSource validates that an xs:attributeGroup use has
 // a ref source.
-func ValidateAttributeGroupUseSource(hasRef bool) error {
-	if !hasRef {
+func ValidateAttributeGroupUseSource(reference LexicalAttribute) error {
+	if !reference.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "attributeGroup use missing ref")
 	}
 	return nil
 }
 
 // ValidateGroupUseSource validates that an xs:group use has a ref source.
-func ValidateGroupUseSource(hasRef bool) error {
-	if !hasRef {
+func ValidateGroupUseSource(reference LexicalAttribute) error {
+	if !reference.Present {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "group use missing ref")
 	}
 	return nil

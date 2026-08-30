@@ -42,17 +42,17 @@ func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, b
 }
 
 // AttributeUseSetForType returns attribute-use reads for a runtime type.
-func (rt *Schema) AttributeUseSetForType(typ TypeID) (AttributeUseSetRead, bool, bool) {
+func (rt *Schema) AttributeUseSetForType(typ TypeID) (set AttributeUseSetRead, present, valid bool) {
 	id, ok := typ.Complex()
 	if !ok {
 		return AttributeUseSetRead{}, false, true
 	}
-	set, valid := rt.complexAttributeUses(id)
+	set, valid = rt.complexAttributeUses(id)
 	return set, true, valid
 }
 
 // SimpleContentType returns the simple-content type for a runtime type.
-func (rt *Schema) SimpleContentType(t TypeID) (SimpleTypeID, bool, bool) {
+func (rt *Schema) SimpleContentType(t TypeID) (simpleID SimpleTypeID, present, valid bool) {
 	if id, ok := t.Simple(); ok {
 		return id, true, ValidSimpleTypeID(id, len(rt.runtime.SimpleValueRoutes))
 	}
@@ -78,7 +78,7 @@ func (rt *Schema) SimpleIdentity(id SimpleTypeID) SimpleIdentityKind {
 }
 
 // ElementValueConstraints returns value constraints for an element declaration.
-func (rt *Schema) ElementValueConstraints(id ElementID) (ElementValueConstraints, bool, bool) {
+func (rt *Schema) ElementValueConstraints(id ElementID) (constraints ElementValueConstraints, present, valid bool) {
 	return rt.runtime.Elements.valueConstraints(id)
 }
 

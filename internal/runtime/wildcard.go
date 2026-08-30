@@ -357,7 +357,7 @@ func wildcardsAlwaysOverlap(a, b Wildcard) bool {
 		a.Mode == WildcardOther && b.Mode == WildcardOther
 }
 
-func localWildcardOverlap(a, b Wildcard) (bool, bool) {
+func localWildcardOverlap(a, b Wildcard) (overlap, handled bool) {
 	if a.Mode == WildcardLocal {
 		return WildcardAllowsNamespace(b, EmptyNamespaceID), true
 	}
@@ -477,9 +477,11 @@ func wildcardFiniteNamespaces(w Wildcard) []NamespaceID {
 		return []NamespaceID{EmptyNamespaceID}
 	case WildcardTargetNamespace, WildcardList:
 		return slices.Clone(w.Namespaces)
-	default:
+	case WildcardAny, WildcardOther:
 		return nil
+	default:
 	}
+	return nil
 }
 
 func wildcardHasNamespaceOtherThan(w Wildcard, excluded NamespaceID) bool {

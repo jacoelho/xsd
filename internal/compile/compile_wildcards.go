@@ -40,7 +40,7 @@ func (c *compiler) compileWildcard(n *rawNode, ctx *schemaContext) (runtime.Wild
 	if err != nil {
 		return runtime.NoWildcard, withSchemaCompileLocation(n, err)
 	}
-	return c.addWildcard(w)
+	return c.appendWildcard(w)
 }
 
 // Wildcard returns compiler-owned wildcard metadata for internal compile
@@ -51,5 +51,5 @@ func (c *compiler) Wildcard(id runtime.WildcardID) (runtime.Wildcard, bool) {
 
 // AddWildcard stores wildcard metadata produced by internal compile helpers.
 func (c *compiler) AddWildcard(w runtime.Wildcard) (runtime.WildcardID, error) {
-	return c.addWildcard(w)
+	return c.appendWildcard(w)
 }

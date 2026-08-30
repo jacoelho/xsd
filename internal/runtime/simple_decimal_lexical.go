@@ -2,12 +2,6 @@ package runtime
 
 import "errors"
 
-const (
-	fastDecimalErrInvalid      = "invalid decimal"
-	fastDecimalErrMinInclusive = "minInclusive facet failed"
-	fastDecimalErrMaxInclusive = "maxInclusive facet failed"
-)
-
 // RawDecimalBound is a schema-projected inclusive decimal bound for raw decimal
 // fast-path validation. Int is the trimmed non-negative integer part; Frac is
 // the trimmed fractional part.
@@ -35,7 +29,7 @@ func ValidateIntegerLexical[T byteText](raw T) error {
 		return err
 	}
 	if scan.dot {
-		return errors.New(fastIntErrInvalidInteger)
+		return errors.New(rawDecimalErrInvalidInteger)
 	}
 	return nil
 }
@@ -91,7 +85,7 @@ func scanDecimalText[T byteText](raw T) (decimalTextScan, error) {
 		return decimalTextScan{}, err
 	}
 	if digits == 0 {
-		return decimalTextScan{}, errors.New(fastDecimalErrInvalid)
+		return decimalTextScan{}, errors.New(rawDecimalErrInvalidDecimal)
 	}
 
 	intEnd := len(raw)
@@ -111,20 +105,19 @@ func scanDecimalText[T byteText](raw T) (decimalTextScan, error) {
 
 func scanDecimalSign[T byteText](raw T) (int, bool, error) {
 	if len(raw) == 0 {
-		return 0, false, errors.New(fastDecimalErrInvalid)
+		return 0, false, errors.New(rawDecimalErrInvalidDecimal)
 	}
 	if raw[0] != '+' && raw[0] != '-' {
 		return 0, false, nil
 	}
 	if len(raw) == 1 {
-		return 0, false, errors.New(fastDecimalErrInvalid)
+		return 0, false, errors.New(rawDecimalErrInvalidDecimal)
 	}
 	return 1, raw[0] == '-', nil
 }
 
-func scanDecimalBody[T byteText](raw T, start int) (int, int, error) {
-	dot := -1
-	digits := 0
+func scanDecimalBody[T byteText](raw T, start int) (dot, digits int, err error) {
+	dot = -1
 	for i := start; i < len(raw); i++ {
 		switch c := raw[i]; {
 		case c == '.' && dot < 0:
@@ -132,7 +125,7 @@ func scanDecimalBody[T byteText](raw T, start int) (int, int, error) {
 		case c >= '0' && c <= '9':
 			digits++
 		default:
-			return 0, 0, errors.New(fastDecimalErrInvalid)
+			return 0, 0, errors.New(rawDecimalErrInvalidDecimal)
 		}
 	}
 	return dot, digits, nil
@@ -148,15 +141,15 @@ func validateDecimalTextNonNegativeBounds[T byteText](raw T, minBound, maxBound 
 	nonZero := intTrimStart < scan.intEnd || fracTrimEnd > scan.fracStart
 	if scan.negative && nonZero {
 		if minBound.Present {
-			return errors.New(fastDecimalErrMinInclusive)
+			return errors.New(rawDecimalErrMinInclusive)
 		}
 		return nil
 	}
 	if minBound.Present && comparePositiveDecimalTextToBound(raw, intTrimStart, scan.intEnd, scan.fracStart, fracTrimEnd, minBound) < 0 {
-		return errors.New(fastDecimalErrMinInclusive)
+		return errors.New(rawDecimalErrMinInclusive)
 	}
 	if maxBound.Present && comparePositiveDecimalTextToBound(raw, intTrimStart, scan.intEnd, scan.fracStart, fracTrimEnd, maxBound) > 0 {
-		return errors.New(fastDecimalErrMaxInclusive)
+		return errors.New(rawDecimalErrMaxInclusive)
 	}
 	return nil
 }

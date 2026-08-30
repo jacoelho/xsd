@@ -9,16 +9,20 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func testRawNode(local string, xsd bool, attrs []xml.Attr, children ...*rawNode) *rawNode {
-	space := ""
-	if xsd {
-		space = vocab.XSDNamespaceURI
-	}
+func testRawNode(name xml.Name, attrs []xml.Attr, children ...*rawNode) *rawNode {
 	return &rawNode{
-		Name:     xml.Name{Space: space, Local: local},
+		Name:     name,
 		Attr:     attrs,
 		Children: children,
 	}
+}
+
+func testXSDRawNode(local string, attrs []xml.Attr, children ...*rawNode) *rawNode {
+	return testRawNode(xml.Name{Space: vocab.XSDNamespaceURI, Local: local}, attrs, children...)
+}
+
+func testForeignRawNode(local string, attrs []xml.Attr, children ...*rawNode) *rawNode {
+	return testRawNode(xml.Name{Local: local}, attrs, children...)
 }
 
 func testRawAttr(namespace, local, value string) xml.Attr {
@@ -119,22 +123,22 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 	}{
 		{
 			name: "appinfo under annotation skips subtree",
-			node: testRawNode(vocab.XSDElemAppinfo, true, []xml.Attr{
+			node: testXSDRawNode(vocab.XSDElemAppinfo, []xml.Attr{
 				testRawAttr("urn:foreign", "unknown", ""),
 			}),
-			parent:   testRawNode(annotationChild, true, nil),
+			parent:   testXSDRawNode(annotationChild, nil),
 			wantSkip: true,
 		},
 		{
 			name:     "non schema node",
-			node:     testRawNode("other", false, nil),
+			node:     testForeignRawNode("other", nil),
 			wantCat:  xsderrors.CategorySchemaCompile,
 			wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg:  "foreign element other is not allowed in schema grammar",
 		},
 		{
 			name: "schema namespace attribute",
-			node: testRawNode(vocab.XSDElemSchema, true, []xml.Attr{
+			node: testXSDRawNode(vocab.XSDElemSchema, []xml.Attr{
 				testRawAttr(vocab.XSDNamespaceURI, "foo", ""),
 			}),
 			wantCat:  xsderrors.CategorySchemaCompile,
@@ -143,35 +147,35 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 		},
 		{
 			name:     "redefine",
-			node:     testRawNode(redefineChild, true, nil),
-			parent:   testRawNode(vocab.XSDElemSchema, true, nil),
+			node:     testXSDRawNode(redefineChild, nil),
+			parent:   testXSDRawNode(vocab.XSDElemSchema, nil),
 			wantCat:  xsderrors.CategoryUnsupported,
 			wantCode: xsderrors.CodeUnsupportedRedefine,
 			wantMsg:  "xs:redefine is not supported",
 		},
 		{
 			name:   "top-level notation",
-			node:   testRawNode(notationChild, true, nil),
-			parent: testRawNode(vocab.XSDElemSchema, true, nil),
+			node:   testXSDRawNode(notationChild, nil),
+			parent: testXSDRawNode(vocab.XSDElemSchema, nil),
 		},
 		{
 			name:     "nested notation",
-			node:     testRawNode(notationChild, true, nil),
-			parent:   testRawNode(elementChild, true, nil),
+			node:     testXSDRawNode(notationChild, nil),
+			parent:   testXSDRawNode(elementChild, nil),
 			wantCat:  xsderrors.CategorySchemaCompile,
 			wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg:  "xs:notation must be a top-level schema child",
 		},
 		{
 			name:     "xsd 1.1 element",
-			node:     testRawNode("assert", true, nil),
+			node:     testXSDRawNode("assert", nil),
 			wantCat:  xsderrors.CategoryUnsupported,
 			wantCode: xsderrors.CodeUnsupportedXSD11,
 			wantMsg:  "XSD 1.1 feature assert is not supported",
 		},
 		{
 			name: "xsd 1.1 wildcard attribute",
-			node: testRawNode(anyAttribute, true, []xml.Attr{
+			node: testXSDRawNode(anyAttribute, []xml.Attr{
 				testRawAttr("", vocab.XSDAttrNotNamespace, ""),
 			}),
 			wantCat:  xsderrors.CategoryUnsupported,
@@ -180,7 +184,7 @@ func TestCheckUnsupportedSchemaNode(t *testing.T) {
 		},
 		{
 			name: "schema namespace wildcard attribute reports invalid attribute first",
-			node: testRawNode(anyChild, true, []xml.Attr{
+			node: testXSDRawNode(anyChild, []xml.Attr{
 				testRawAttr(vocab.XSDNamespaceURI, vocab.XSDAttrNotQName, ""),
 			}),
 			wantCat:  xsderrors.CategorySchemaCompile,
@@ -276,7 +280,7 @@ func TestValidateSchemaTargetNamespace(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSchemaTargetNamespace(tt.hasTarget, tt.target)
+			err := ValidateSchemaTargetNamespace(LexicalAttribute{Value: tt.target, Present: tt.hasTarget})
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateSchemaTargetNamespace() error = %v", err)
@@ -377,18 +381,18 @@ func TestValidateRawSchemaAnnotationNode(t *testing.T) {
 		wantCode  xsderrors.Code
 		wantMsg   string
 	}{
-		{name: "non schema node", node: testRawNode(elementChild, false, nil)},
-		{name: "appinfo skips subtree", node: testRawNode(vocab.XSDElemAppinfo, true, nil), wantSkip: true},
+		{name: "non schema node", node: testForeignRawNode(elementChild, nil)},
+		{name: "appinfo skips subtree", node: testXSDRawNode(vocab.XSDElemAppinfo, nil), wantSkip: true},
 		{
 			name: "documentation valid lang skips subtree",
-			node: testRawNode(vocab.XSDElemDocumentation, true, []xml.Attr{
+			node: testXSDRawNode(vocab.XSDElemDocumentation, []xml.Attr{
 				testRawAttr(vocab.XMLNamespaceURI, vocab.XMLAttrLang, "en-US"),
 			}),
 			wantSkip: true,
 		},
 		{
 			name: "documentation invalid lang",
-			node: testRawNode(vocab.XSDElemDocumentation, true, []xml.Attr{
+			node: testXSDRawNode(vocab.XSDElemDocumentation, []xml.Attr{
 				testRawAttr(vocab.XMLNamespaceURI, vocab.XMLAttrLang, " "),
 			}),
 			wantIndex: -1,
@@ -397,13 +401,13 @@ func TestValidateRawSchemaAnnotationNode(t *testing.T) {
 		},
 		{
 			name: "annotation allows id attr",
-			node: testRawNode(annotationChild, true, []xml.Attr{
+			node: testXSDRawNode(annotationChild, []xml.Attr{
 				testRawAttr("", vocab.XSDAttrID, ""),
 			}),
 		},
 		{
 			name: "annotation rejects local attr",
-			node: testRawNode(annotationChild, true, []xml.Attr{
+			node: testXSDRawNode(annotationChild, []xml.Attr{
 				testRawAttr("", "foo", ""),
 			}),
 			wantIndex: -1,
@@ -412,23 +416,23 @@ func TestValidateRawSchemaAnnotationNode(t *testing.T) {
 		},
 		{
 			name:      "annotation rejects nested annotation",
-			node:      testRawNode(annotationChild, true, nil, testRawNode(annotationChild, true, nil)),
+			node:      testXSDRawNode(annotationChild, nil, testXSDRawNode(annotationChild, nil)),
 			wantIndex: 0,
 			wantCode:  xsderrors.CodeSchemaContentModel,
 			wantMsg:   "xs:annotation cannot contain xs:annotation",
 		},
 		{
 			name: "schema allows multiple top-level annotations",
-			node: testRawNode(vocab.XSDElemSchema, true, nil,
-				testRawNode(annotationChild, true, nil),
-				testRawNode(annotationChild, true, nil),
+			node: testXSDRawNode(vocab.XSDElemSchema, nil,
+				testXSDRawNode(annotationChild, nil),
+				testXSDRawNode(annotationChild, nil),
 			),
 		},
 		{
 			name: "component rejects duplicate annotation",
-			node: testRawNode(elementChild, true, nil,
-				testRawNode(annotationChild, true, nil),
-				testRawNode(annotationChild, true, nil),
+			node: testXSDRawNode(elementChild, nil,
+				testXSDRawNode(annotationChild, nil),
+				testXSDRawNode(annotationChild, nil),
 			),
 			wantIndex: 1,
 			wantCode:  xsderrors.CodeSchemaContentModel,
@@ -436,9 +440,9 @@ func TestValidateRawSchemaAnnotationNode(t *testing.T) {
 		},
 		{
 			name: "component rejects late annotation",
-			node: testRawNode(complexTypeChild, true, nil,
-				testRawNode(attributeChild, true, nil),
-				testRawNode(annotationChild, true, nil),
+			node: testXSDRawNode(complexTypeChild, nil,
+				testXSDRawNode(attributeChild, nil),
+				testXSDRawNode(annotationChild, nil),
 			),
 			wantIndex: 1,
 			wantCode:  xsderrors.CodeSchemaContentModel,
@@ -446,9 +450,9 @@ func TestValidateRawSchemaAnnotationNode(t *testing.T) {
 		},
 		{
 			name: "non xsd child ignored for placement",
-			node: testRawNode(complexTypeChild, true, nil,
-				testRawNode("foreign", false, nil),
-				testRawNode(annotationChild, true, nil),
+			node: testXSDRawNode(complexTypeChild, nil,
+				testForeignRawNode("foreign", nil),
+				testXSDRawNode(annotationChild, nil),
 			),
 		},
 	}
@@ -540,7 +544,13 @@ func TestValidateNotationDeclaration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateNotationDeclaration(tt.text, tt.children, tt.hasName, tt.hasPublic, tt.hasSystem)
+			err := ValidateNotationDeclaration(NotationDeclaration{
+				Text:     tt.text,
+				Children: tt.children,
+				Name:     LexicalAttribute{Present: tt.hasName},
+				Public:   LexicalAttribute{Present: tt.hasPublic},
+				System:   LexicalAttribute{Present: tt.hasSystem},
+			})
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateNotationDeclaration() error = %v", err)

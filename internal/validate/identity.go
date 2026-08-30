@@ -28,25 +28,17 @@ const (
 	endIdentityCaptureComplexElement
 )
 
-func endIdentityCapture(hasSimpleContent bool, in endIdentityInput) endIdentityCaptureAction {
+func endIdentityCapture(element identityElementState, in identityElementEnd) endIdentityCaptureAction {
 	if in.ContentCaptured {
 		return endIdentityCaptureNone
 	}
-	if !hasSimpleContent {
+	if !element.simpleContent {
 		return endIdentityCaptureComplexElement
 	}
-	if in.Nilled && in.Element != runtime.NoElement {
+	if element.nilled && element.element != runtime.NoElement {
 		return endIdentityCaptureNilledElement
 	}
 	return endIdentityCaptureNone
-}
-
-// endIdentityInput is the validation state needed to finish element identity
-// field capture after content validation.
-type endIdentityInput struct {
-	Element         runtime.ElementID
-	ContentCaptured bool
-	Nilled          bool
 }
 
 // simpleValueIdentityKey returns the comparable identity field key for a
@@ -377,42 +369,59 @@ func (s *identityState) appendAttributeFieldMatches(rt *runtime.Schema, namePath
 	if !ok {
 		return xsderrors.InternalInvariant("identity attribute field metadata is invalid")
 	}
+	matcher := identityAttributeFieldMatcher{
+		state:          s,
+		rt:             rt,
+		namePath:       namePath,
+		name:           name,
+		depth:          depth,
+		selectionIndex: selectionIndex,
+	}
 	start := len(s.matches)
-	if err := s.appendNamedAttributeFieldMatches(rt, constraint, namePath, name, depth, selectionIndex); err != nil {
+	if err := matcher.appendNamed(constraint); err != nil {
 		return err
 	}
-	return s.appendWildcardAttributeFieldMatches(rt, constraint, namePath, name, depth, selectionIndex, start)
+	return matcher.appendWildcard(constraint, start)
 }
 
-func (s *identityState) appendNamedAttributeFieldMatches(rt *runtime.Schema, constraint runtime.IdentityConstraintRead, namePath []runtime.RuntimeName, name runtime.RuntimeName, depth, selectionIndex int) error {
-	if !name.Known {
+type identityAttributeFieldMatcher struct {
+	state          *identityState
+	rt             *runtime.Schema
+	namePath       []runtime.RuntimeName
+	name           runtime.RuntimeName
+	depth          int
+	selectionIndex int
+}
+
+func (m identityAttributeFieldMatcher) appendNamed(constraint runtime.IdentityConstraintRead) error {
+	if !m.name.Known {
 		return nil
 	}
-	fields := constraint.AttributeFields(name.Name)
+	fields := constraint.AttributeFields(m.name.Name)
 	for fieldIndex := range fields.Len() {
 		field, ok := fields.At(fieldIndex)
 		if !ok {
 			return xsderrors.InternalInvariant("identity attribute field metadata is invalid")
 		}
-		if identityCompiledFieldPathsMatch(rt, namePath, s.selections[selectionIndex].depth, depth, field) {
-			s.matches = append(s.matches, identityFieldMatch{Selection: selectionIndex, Field: field.Field()})
+		if identityCompiledFieldPathsMatch(m.rt, m.namePath, m.state.selections[m.selectionIndex].depth, m.depth, field) {
+			m.state.matches = append(m.state.matches, identityFieldMatch{Selection: m.selectionIndex, Field: field.Field()})
 		}
 	}
 	return nil
 }
 
-func (s *identityState) appendWildcardAttributeFieldMatches(rt *runtime.Schema, constraint runtime.IdentityConstraintRead, namePath []runtime.RuntimeName, name runtime.RuntimeName, depth, selectionIndex, start int) error {
+func (m identityAttributeFieldMatcher) appendWildcard(constraint runtime.IdentityConstraintRead, start int) error {
 	fields := constraint.AttributeWildcardFields()
 	for fieldIndex := range fields.Len() {
 		field, ok := fields.At(fieldIndex)
 		if !ok {
 			return xsderrors.InternalInvariant("identity attribute field metadata is invalid")
 		}
-		if identityMatchExists(s.matches[start:], selectionIndex, field.Field()) {
+		if identityMatchExists(m.state.matches[start:], m.selectionIndex, field.Field()) {
 			continue
 		}
-		if identityCompiledAttributeFieldPathsMatch(rt, namePath, s.selections[selectionIndex].depth, depth, name, field) {
-			s.matches = append(s.matches, identityFieldMatch{Selection: selectionIndex, Field: field.Field()})
+		if identityCompiledAttributeFieldPathsMatch(m.rt, m.namePath, m.state.selections[m.selectionIndex].depth, m.depth, m.name, field) {
+			m.state.matches = append(m.state.matches, identityFieldMatch{Selection: m.selectionIndex, Field: field.Field()})
 		}
 	}
 	return nil
@@ -423,45 +432,61 @@ func (s *identityState) matchSelectors(rt *runtime.Schema, namePath []runtime.Ru
 	if len(s.scopes) == 0 {
 		return nil
 	}
-	depth := len(namePath)
+	matcher := identitySelectorMatcher{
+		state:      s,
+		rt:         rt,
+		namePath:   namePath,
+		ctx:        ctx,
+		depth:      len(namePath),
+		maxPending: maxPending,
+	}
 	for scopeIndex := range s.scopes {
-		if err := s.matchScopeSelectors(rt, namePath, scopeIndex, depth, maxPending, ctx); err != nil {
+		if err := matcher.matchScope(scopeIndex); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *identityState) matchScopeSelectors(rt *runtime.Schema, namePath []runtime.RuntimeName, scopeIndex, depth, maxPending int, ctx StartContext) error {
-	scope := &s.scopes[scopeIndex]
+type identitySelectorMatcher struct {
+	state      *identityState
+	rt         *runtime.Schema
+	namePath   []runtime.RuntimeName
+	ctx        StartContext
+	depth      int
+	maxPending int
+}
+
+func (m identitySelectorMatcher) matchScope(scopeIndex int) error {
+	scope := &m.state.scopes[scopeIndex]
 	for constraintIndex := range scope.constraints.Len() {
 		id, ok := scope.constraints.At(constraintIndex)
 		if !ok {
 			return xsderrors.InternalInvariant("identity scope metadata is invalid")
 		}
-		if err := s.matchSelector(rt, namePath, scopeIndex, depth, maxPending, id, ctx); err != nil {
+		if err := m.match(scopeIndex, id); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *identityState) matchSelector(rt *runtime.Schema, namePath []runtime.RuntimeName, scopeIndex, depth, maxPending int, id runtime.IdentityConstraintID, ctx StartContext) error {
-	matched, ok := identitySelectorMatches(rt, id, namePath, s.scopes[scopeIndex].depth, depth)
+func (m identitySelectorMatcher) match(scopeIndex int, id runtime.IdentityConstraintID) error {
+	matched, ok := identitySelectorMatches(m.rt, id, m.namePath, m.state.scopes[scopeIndex].depth, m.depth)
 	if !ok {
 		return xsderrors.InternalInvariant("identity selector metadata is invalid")
 	}
 	if !matched {
 		return nil
 	}
-	constraint, ok := rt.IdentityConstraint(id)
+	constraint, ok := m.rt.IdentityConstraint(id)
 	if !ok {
 		return xsderrors.InternalInvariant("identity field count metadata is invalid")
 	}
-	return s.startSelection(scopeIndex, depth, id, constraint.FieldCount(), maxPending, ctx)
+	return m.state.startSelection(scopeIndex, m.depth, id, constraint.FieldCount(), m.maxPending, m.ctx)
 }
 
-func identitySelectorMatches(rt *runtime.Schema, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (bool, bool) {
+func identitySelectorMatches(rt *runtime.Schema, id runtime.IdentityConstraintID, namePath []runtime.RuntimeName, scopeDepth, currentDepth int) (matched, valid bool) {
 	constraint, ok := rt.IdentityConstraint(id)
 	if !ok {
 		return false, false
@@ -650,7 +675,13 @@ func (s *identityState) finishSelectionWithConstraint(
 	if err != nil {
 		return err
 	}
-	return s.publishIdentityTuple(scope, kind, refer, sel, key, limits, ctx)
+	return s.publishIdentityTuple(identityTuplePublication{
+		scope:     scope,
+		selection: sel,
+		key:       key,
+		kind:      kind,
+		refer:     refer,
+	}, limits, ctx)
 }
 
 type identityFieldsDisposition uint8
@@ -698,12 +729,20 @@ func (s *identityState) selectionScope(sel identitySelection) (*identityScope, e
 	return &s.scopes[sel.scope], nil
 }
 
-func (s *identityState) publishIdentityTuple(scope *identityScope, kind runtime.IdentityKind, refer runtime.IdentityConstraintID, sel identitySelection, key string, limits identityLimits, ctx StartContext) error {
-	switch kind {
+type identityTuplePublication struct {
+	scope     *identityScope
+	key       string
+	selection identitySelection
+	kind      runtime.IdentityKind
+	refer     runtime.IdentityConstraintID
+}
+
+func (s *identityState) publishIdentityTuple(publication identityTuplePublication, limits identityLimits, ctx StartContext) error {
+	switch publication.kind {
 	case runtime.IdentityUnique, runtime.IdentityKey:
-		return s.publishIdentityKey(scope, sel, key, limits, ctx)
+		return s.publishIdentityKey(publication.scope, publication.selection, publication.key, limits, ctx)
 	case runtime.IdentityKeyRef:
-		return s.publishIdentityKeyRef(scope, refer, sel, key, limits, ctx)
+		return s.publishIdentityKeyRef(publication.scope, publication.refer, publication.selection, publication.key, limits, ctx)
 	default:
 		return nil
 	}

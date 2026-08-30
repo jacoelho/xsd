@@ -106,7 +106,7 @@ var requiredRuntimeNames = []ExpandedName{
 // NewRuntimeNameTable returns a runtime name table seeded with required XML
 // Schema namespaces and XSI attribute names.
 func NewRuntimeNameTable(maxNames int) (NameTable, error) {
-	return newNameTable(
+	return newBoundedNameTable(
 		maxNames,
 		requiredRuntimeNamespaces,
 		requiredRuntimeNames,
@@ -117,10 +117,10 @@ func NewRuntimeNameTable(maxNames int) (NameTable, error) {
 
 // NewNameTable returns a name table seeded with required runtime names.
 func NewNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName) (NameTable, error) {
-	return newNameTable(maxNames, requiredNamespaces, requiredNames, len(requiredNamespaces), len(requiredNames))
+	return newBoundedNameTable(maxNames, requiredNamespaces, requiredNames, len(requiredNamespaces), len(requiredNames))
 }
 
-func newNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName, namespaceCap, localCap int) (NameTable, error) {
+func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName, namespaceCap, localCap int) (NameTable, error) {
 	namespaceCap = max(namespaceCap, len(requiredNamespaces))
 	localCap = max(localCap, len(requiredNames))
 	n := NameTable{
@@ -372,17 +372,21 @@ func (n NameInterner) InternQName(ns, local string) (QName, error) {
 	if err := table.checkLimit(need); err != nil {
 		return QName{}, err
 	}
-	nextNS, nextLocal, err := nextQNameIDs(len(table.namespaces), len(table.locals), !nsOK, !localOK)
-	if err != nil {
-		return QName{}, err
-	}
 	if !nsOK {
-		nsID = nextNS
+		next, err := nextNamespaceID(len(table.namespaces))
+		if err != nil {
+			return QName{}, err
+		}
+		nsID = next
 		table.namespaces = append(table.namespaces, ns)
 		table.nsIndex[ns] = nsID
 	}
 	if !localOK {
-		localID = nextLocal
+		next, err := nextLocalNameID(len(table.locals))
+		if err != nil {
+			return QName{}, err
+		}
+		localID = next
 		table.locals = append(table.locals, local)
 		table.localIndex[local] = localID
 	}
@@ -411,23 +415,4 @@ func nextLocalNameID(n int) (LocalNameID, error) {
 		return 0, ErrLocalNameLimit
 	}
 	return LocalNameID(n), nil
-}
-
-func nextQNameIDs(namespaceCount, localCount int, needNamespace, needLocal bool) (NamespaceID, LocalNameID, error) {
-	var namespace NamespaceID
-	var local LocalNameID
-	var err error
-	if needNamespace {
-		namespace, err = nextNamespaceID(namespaceCount)
-		if err != nil {
-			return 0, 0, err
-		}
-	}
-	if needLocal {
-		local, err = nextLocalNameID(localCount)
-		if err != nil {
-			return 0, 0, err
-		}
-	}
-	return namespace, local, nil
 }

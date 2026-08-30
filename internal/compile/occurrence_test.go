@@ -109,6 +109,58 @@ func TestParseOccurrence(t *testing.T) {
 	}
 }
 
+func TestMaxOccurrenceKindInvariant(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		maximum  maxOccurrence
+		want     runtime.Occurrence
+		wantText string
+	}{
+		{
+			name:    "finite",
+			maximum: maxOccurrence{digits: "3", value: 3, kind: maxOccurrenceFinite},
+			want:    runtime.Occurrence{Min: 2, Max: 3},
+		},
+		{
+			name:    "unbounded",
+			maximum: maxOccurrence{kind: maxOccurrenceUnbounded},
+			want:    runtime.Occurrence{Min: 2, Unbounded: true},
+		},
+		{
+			name:     "invalid",
+			maximum:  maxOccurrence{kind: maxOccurrenceInvalid},
+			wantText: "maxOccurs parser returned an invalid kind",
+		},
+		{
+			name:     "unknown",
+			maximum:  maxOccurrence{kind: maxOccurrenceKind(99)},
+			wantText: "maxOccurs parser returned an unknown kind",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := tt.maximum.withMinimum(2, "2")
+			if tt.wantText != "" {
+				expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+				if !strings.Contains(err.Error(), tt.wantText) {
+					t.Fatalf("maxOccurrence.withMinimum() error = %v, want text %q", err, tt.wantText)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("maxOccurrence.withMinimum() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("maxOccurrence.withMinimum() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateAllModelOccurrence(t *testing.T) {
 	t.Parallel()
 

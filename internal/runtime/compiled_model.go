@@ -249,42 +249,57 @@ func ValidateCompiledModelsRuntime(
 	work ContentModelWork,
 	analysis *ContentModelAnalysis,
 ) error {
-	return validateCompiledModelsRuntime(names, rt, sources, models, true, work, analysis)
-}
-
-func validateCompiledModelsRuntime(
-	names *NameTable,
-	rt CompiledModelRuntime,
-	sources []ContentModel,
-	models []CompiledModel,
-	validateUPA bool,
-	work ContentModelWork,
-	analysis *ContentModelAnalysis,
-) error {
-	if err := requireContentModelWork(work); err != nil {
+	validator, err := newCompiledModelValidator(names, rt, work, analysis)
+	if err != nil {
 		return err
 	}
+	return validator.validateSet(sources, models)
+}
+
+type compiledModelValidator struct {
+	names   *NameTable
+	rt      CompiledModelRuntime
+	work    ContentModelWork
+	overlap *ContentModelAnalysis
+	indexes *dfaRowIndexAnalysis
+}
+
+func newCompiledModelValidator(
+	names *NameTable,
+	rt CompiledModelRuntime,
+	work ContentModelWork,
+	overlap *ContentModelAnalysis,
+) (compiledModelValidator, error) {
+	if err := requireContentModelWork(work); err != nil {
+		return compiledModelValidator{}, err
+	}
+	if overlap == nil {
+		return compiledModelValidator{}, errors.New("compiled content model validation requires content model analysis")
+	}
+	return compiledModelValidator{
+		names:   names,
+		rt:      rt,
+		work:    work,
+		overlap: overlap,
+		indexes: newDFARowIndexAnalysis(rt, work),
+	}, nil
+}
+
+func (v *compiledModelValidator) validateSet(
+	sources []ContentModel,
+	models []CompiledModel,
+) error {
 	if len(models) != len(sources) {
 		return errors.New("compiled content model count does not match model count")
 	}
-	if analysis == nil {
-		return errors.New("compiled content model validation requires content model analysis")
-	}
-	indexes := newDFARowIndexAnalysis(rt, work)
 	for i, model := range models {
-		if err := spendContentModelWork(work); err != nil {
+		if err := spendContentModelWork(v.work); err != nil {
 			return err
 		}
-		if err := validateCompiledModelRuntime(
-			names,
-			rt,
+		if err := v.validateSlot(
 			ContentModelID(i),
 			sources[i],
 			model,
-			validateUPA,
-			work,
-			analysis,
-			indexes,
 		); err != nil {
 			return err
 		}
@@ -292,45 +307,34 @@ func validateCompiledModelsRuntime(
 	return nil
 }
 
+// CompiledModelRuntimeValidation is the complete input for validating one
+// compiled content-model slot.
+type CompiledModelRuntimeValidation struct {
+	Runtime  CompiledModelRuntime
+	Work     ContentModelWork
+	Names    *NameTable
+	Analysis *ContentModelAnalysis
+	Source   ContentModel
+	Model    CompiledModel
+	ID       ContentModelID
+}
+
 // ValidateCompiledModelRuntime validates runtime invariants for a compiled
 // content model against the source content-model slot. It does not recompile
 // the source model; callers that own compilation can perform that stronger
 // derivation check separately.
-func ValidateCompiledModelRuntime(
-	names *NameTable,
-	rt CompiledModelRuntime,
-	id ContentModelID,
-	source ContentModel,
-	model CompiledModel,
-	work ContentModelWork,
-	analysis *ContentModelAnalysis,
-) error {
-	if err := requireContentModelWork(work); err != nil {
+func ValidateCompiledModelRuntime(input CompiledModelRuntimeValidation) error {
+	validator, err := newCompiledModelValidator(input.Names, input.Runtime, input.Work, input.Analysis)
+	if err != nil {
 		return err
 	}
-	return validateCompiledModelRuntime(
-		names,
-		rt,
-		id,
-		source,
-		model,
-		true,
-		work,
-		analysis,
-		newDFARowIndexAnalysis(rt, work),
-	)
+	return validator.validateSlot(input.ID, input.Source, input.Model)
 }
 
-func validateCompiledModelRuntime(
-	names *NameTable,
-	rt CompiledModelRuntime,
+func (v *compiledModelValidator) validateSlot(
 	id ContentModelID,
 	source ContentModel,
 	model CompiledModel,
-	validateUPA bool,
-	work ContentModelWork,
-	overlap *ContentModelAnalysis,
-	indexes *dfaRowIndexAnalysis,
 ) error {
 	if err := validateCompiledModelIdentity(id, source, model); err != nil {
 		return err
@@ -339,9 +343,9 @@ func validateCompiledModelRuntime(
 	case CompiledModelEmpty, CompiledModelAny:
 		return validateCompiledEmptyOrAnyRuntime(source, model)
 	case CompiledModelAll:
-		return validateCompiledAllModelRuntime(rt, source, model, work)
+		return v.validateAllModel(source, model)
 	case CompiledModelDFA:
-		return validateCompiledDFAModelRuntime(names, rt, source, model, validateUPA, work, overlap, indexes)
+		return v.validateDFAModel(source, model)
 	}
 	return nil
 }
@@ -370,11 +374,9 @@ func validateCompiledEmptyOrAnyRuntime(source ContentModel, model CompiledModel)
 	return nil
 }
 
-func validateCompiledAllModelRuntime(
-	rt CompiledModelRuntime,
+func (v *compiledModelValidator) validateAllModel(
 	source ContentModel,
 	model CompiledModel,
-	work ContentModelWork,
 ) error {
 	if source.Kind != ModelAll {
 		return errors.New("compiled all content model kind does not match source model")
@@ -382,29 +384,23 @@ func validateCompiledAllModelRuntime(
 	if len(model.Rows) != 0 || model.Start != 0 {
 		return errors.New("compiled all content model stores inactive DFA fields")
 	}
-	if err := validateCompiledAllRuntime(source, model, work); err != nil {
+	if err := validateCompiledAllRuntime(source, model, v.work); err != nil {
 		return err
 	}
 	for _, term := range model.All {
-		if err := spendContentModelWork(work); err != nil {
+		if err := spendContentModelWork(v.work); err != nil {
 			return err
 		}
-		if err := validateCompiledParticle(rt, term.Particle); err != nil {
+		if err := validateCompiledParticle(v.rt, term.Particle); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateCompiledDFAModelRuntime(
-	names *NameTable,
-	rt CompiledModelRuntime,
+func (v *compiledModelValidator) validateDFAModel(
 	source ContentModel,
 	model CompiledModel,
-	validateUPA bool,
-	work ContentModelWork,
-	overlap *ContentModelAnalysis,
-	indexes *dfaRowIndexAnalysis,
 ) error {
 	if source.Kind == ModelEmpty || source.Kind == ModelAny || source.Kind == ModelAll {
 		return errors.New("compiled DFA content model kind does not match source model")
@@ -412,7 +408,7 @@ func validateCompiledDFAModelRuntime(
 	if len(model.All) != 0 || model.AllBitLen != 0 {
 		return errors.New("compiled DFA content model stores inactive all fields")
 	}
-	return validateCompiledDFARuntime(names, rt, model, validateUPA, work, overlap, indexes)
+	return v.validateDFA(model)
 }
 
 func validateCompiledAllRuntime(source ContentModel, model CompiledModel, work ContentModelWork) error {
@@ -470,15 +466,7 @@ func validateCompiledAllTerm(source Particle, term CompiledAllTerm) (bool, error
 	return term.Required, nil
 }
 
-func validateCompiledDFARuntime(
-	names *NameTable,
-	rt CompiledModelRuntime,
-	model CompiledModel,
-	validateUPA bool,
-	work ContentModelWork,
-	overlap *ContentModelAnalysis,
-	indexes *dfaRowIndexAnalysis,
-) error {
+func (v *compiledModelValidator) validateDFA(model CompiledModel) error {
 	if !ValidUint32Index(model.Start, len(model.Rows)) {
 		return errors.New("compiled content model start state is invalid")
 	}
@@ -486,47 +474,39 @@ func validateCompiledDFARuntime(
 		return errors.New("compiled content model empty flag does not match start row")
 	}
 	for i, row := range model.Rows {
-		if err := spendContentModelWork(work); err != nil {
+		if err := spendContentModelWork(v.work); err != nil {
 			return err
 		}
 		if uint64(i) > uint64(^uint32(0)) {
 			return errors.New("compiled content model row index is invalid")
 		}
-		if err := validateCompiledDFARow(names, rt, model, row, uint32(i), validateUPA, work, overlap, indexes); err != nil {
+		if err := v.validateDFARow(model, row, uint32(i)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateCompiledDFARow(
-	names *NameTable,
-	rt CompiledModelRuntime,
+func (v *compiledModelValidator) validateDFARow(
 	model CompiledModel,
 	row CompiledModelRow,
 	index uint32,
-	validateUPA bool,
-	work ContentModelWork,
-	overlap *ContentModelAnalysis,
-	indexes *dfaRowIndexAnalysis,
 ) error {
-	if err := validateCompiledCountedRow(rt, row); err != nil {
+	if err := validateCompiledCountedRow(v.rt, row); err != nil {
 		return err
 	}
-	countedLoops, err := validateCompiledDFAEdges(rt, model, row, index, work)
+	countedLoops, err := validateCompiledDFAEdges(v.rt, model, row, index, v.work)
 	if err != nil {
 		return err
 	}
 	if row.Counted && countedLoops != 1 {
 		return errors.New("compiled content model counted state must have one counted self loop")
 	}
-	if validateUPA {
-		if err := validateCompiledDFARowUPA(row, index, work, overlap); err != nil {
-			return err
-		}
+	if err := validateCompiledDFARowUPA(row, index, v.work, v.overlap); err != nil {
+		return err
 	}
 	if row.index.enabled() {
-		return indexes.validateRow(names, row)
+		return v.indexes.validateRow(v.names, row)
 	}
 	return nil
 }
@@ -645,8 +625,11 @@ func validateCompiledParticle(rt CompiledModelRuntime, p Particle) error {
 		if _, ok := rt.Wildcard(p.Wildcard); !ok {
 			return errors.New("compiled particle references invalid wildcard")
 		}
-	default:
+	case ParticleModel:
 		return errors.New("compiled particle has invalid kind")
+	default:
+		err := errors.New("compiled particle has invalid kind")
+		return err
 	}
 	return ValidateParticleShape(p)
 }
@@ -740,8 +723,11 @@ func (a *dfaRowIndexAnalysis) validateIndexedEdge(
 		}
 		*wildcardIndex++
 		return nil
-	default:
+	case ParticleModel:
 		return errors.New("compiled content model indexed row has model edge")
+	default:
+		err := errors.New("compiled content model indexed row has model edge")
+		return err
 	}
 }
 

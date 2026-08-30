@@ -38,6 +38,15 @@ type NotationChild struct {
 	XSD   bool
 }
 
+// NotationDeclaration is the normalized syntax input for xs:notation.
+type NotationDeclaration struct {
+	Text     string
+	Children []NotationChild
+	Name     LexicalAttribute
+	Public   LexicalAttribute
+	System   LexicalAttribute
+}
+
 // NotationSyntaxError identifies the notation node or child that failed
 // declaration syntax validation. Index is -1 for the notation node itself.
 type NotationSyntaxError struct {
@@ -122,8 +131,8 @@ func schemaIDError(index int, code xsderrors.Code, msg string) error {
 
 // ValidateSchemaTargetNamespace validates the raw xs:schema targetNamespace
 // attribute value.
-func ValidateSchemaTargetNamespace(hasTarget bool, target string) error {
-	if hasTarget && target == "" {
+func ValidateSchemaTargetNamespace(target LexicalAttribute) error {
+	if target.Present && target.Value == "" {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema targetNamespace cannot be empty")
 	}
 	return nil
@@ -152,19 +161,19 @@ func schemaAnnotationSyntaxError(index int, code xsderrors.Code, msg string) err
 }
 
 // ValidateNotationDeclaration validates xs:notation declaration syntax.
-func ValidateNotationDeclaration(text string, children []NotationChild, hasName, hasPublic, hasSystem bool) error {
-	if lex.TrimXMLWhitespaceString(text) != "" {
+func ValidateNotationDeclaration(declaration NotationDeclaration) error {
+	if lex.TrimXMLWhitespaceString(declaration.Text) != "" {
 		return notationSyntaxError(-1, xsderrors.CodeSchemaContentModel, "notation can contain only annotation")
 	}
-	for i, child := range children {
+	for i, child := range declaration.Children {
 		if !child.XSD || child.Local != annotationChild {
 			return notationSyntaxError(i, xsderrors.CodeSchemaContentModel, "notation can contain only annotation")
 		}
 	}
-	if !hasName {
+	if !declaration.Name.Present {
 		return notationSyntaxError(-1, xsderrors.CodeSchemaInvalidAttribute, "notation missing name")
 	}
-	if !hasPublic && !hasSystem {
+	if !declaration.Public.Present && !declaration.System.Present {
 		return notationSyntaxError(-1, xsderrors.CodeSchemaInvalidAttribute, "notation requires public or system")
 	}
 	return nil

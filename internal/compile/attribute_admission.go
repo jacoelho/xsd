@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // AttributeUseMode identifies the lexical xs:attribute use mode.
@@ -121,18 +122,26 @@ func ValidateAttributeUseFixedValueAdmission(admission AttributeUseFixedValueAdm
 
 // ValidateElementDeclValueConstraintAdmission validates compile-time
 // default/fixed placement for one element declaration.
-func ValidateElementDeclValueConstraintAdmission(hasDefault, hasFixed bool) error {
-	if hasDefault && hasFixed {
+func ValidateElementDeclValueConstraintAdmission(constraint runtime.DeclarationValueConstraint) error {
+	switch constraint {
+	case runtime.DeclarationValueConstraintNone, runtime.DeclarationValueConstraintDefault, runtime.DeclarationValueConstraintFixed:
+		return nil
+	case runtime.DeclarationValueConstraintConflict:
 		return errors.New("element cannot have both default and fixed")
+	default:
+		return xsderrors.InternalInvariant("element declaration has unknown value constraint")
 	}
-	return nil
 }
 
 // ValidateAttributeDeclValueConstraintAdmission validates compile-time
 // default/fixed placement for one attribute declaration.
-func ValidateAttributeDeclValueConstraintAdmission(hasDefault, hasFixed bool) error {
-	if hasDefault && hasFixed {
+func ValidateAttributeDeclValueConstraintAdmission(constraint runtime.DeclarationValueConstraint) error {
+	switch constraint {
+	case runtime.DeclarationValueConstraintNone, runtime.DeclarationValueConstraintDefault, runtime.DeclarationValueConstraintFixed:
+		return nil
+	case runtime.DeclarationValueConstraintConflict:
 		return errors.New("attribute cannot have both default and fixed")
+	default:
+		return xsderrors.InternalInvariant("attribute declaration has unknown value constraint")
 	}
-	return nil
 }

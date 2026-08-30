@@ -152,22 +152,30 @@ func nextXMLField(s string) (field, rest string, ok bool) {
 	return s[start:end], s[end:], true
 }
 
+// QNameParts is the validated split of one lexical XML QName.
+type QNameParts struct {
+	Prefix   string
+	Local    string
+	Prefixed bool
+	Valid    bool
+}
+
 // SplitQName splits and validates an XML QName into prefix and local parts.
-func SplitQName(s string) (prefix, local string, prefixed, ok bool) {
+func SplitQName(s string) QNameParts {
 	if s == "" {
-		return "", "", false, false
+		return QNameParts{}
 	}
-	prefix, local, prefixed = strings.Cut(s, ":")
+	prefix, local, prefixed := strings.Cut(s, ":")
 	if !prefixed {
 		if !IsNCName(s) {
-			return "", "", false, false
+			return QNameParts{}
 		}
-		return "", s, false, true
+		return QNameParts{Local: s, Valid: true}
 	}
 	if prefix == "" || local == "" || strings.Contains(local, ":") || !IsNCName(prefix) || !IsNCName(local) {
-		return "", "", false, false
+		return QNameParts{}
 	}
-	return prefix, local, true, true
+	return QNameParts{Prefix: prefix, Local: local, Prefixed: true, Valid: true}
 }
 
 func firstXMLWhitespaceCollapseChange(s string) int {
@@ -271,21 +279,28 @@ func isName(s string, kind nameKind) bool {
 	if s == "" || !utf8.ValidString(s) {
 		return false
 	}
-	first := true
+	position := nameFirstPosition
 	for _, r := range s {
-		if !kind.acceptsRune(r, first) {
+		if !kind.acceptsRune(r, position) {
 			return false
 		}
-		first = false
+		position = nameSubsequentPosition
 	}
 	return true
 }
 
-func (k nameKind) acceptsRune(r rune, first bool) bool {
+type namePosition uint8
+
+const (
+	nameFirstPosition namePosition = iota
+	nameSubsequentPosition
+)
+
+func (k nameKind) acceptsRune(r rune, position namePosition) bool {
 	if k == ncName && r == ':' {
 		return false
 	}
-	if first {
+	if position == nameFirstPosition {
 		return IsXMLNameStartChar(r)
 	}
 	return IsXMLNameChar(r)
@@ -354,45 +369,45 @@ func isNameBytes(b []byte, kind nameKind) bool {
 		return false
 	}
 	if b[0] >= utf8.RuneSelf {
-		return isNameBytesUnicode(b, kind, true)
+		return isNameBytesUnicode(b, kind, nameFirstPosition)
 	}
-	if !kind.acceptsASCII(b[0], true) {
+	if !kind.acceptsASCII(b[0], nameFirstPosition) {
 		return false
 	}
 	for i := 1; i < len(b); i++ {
 		if b[i] >= utf8.RuneSelf {
-			return isNameBytesUnicode(b[i:], kind, false)
+			return isNameBytesUnicode(b[i:], kind, nameSubsequentPosition)
 		}
-		if !kind.acceptsASCII(b[i], false) {
+		if !kind.acceptsASCII(b[i], nameSubsequentPosition) {
 			return false
 		}
 	}
 	return true
 }
 
-func isNameBytesUnicode(b []byte, kind nameKind, first bool) bool {
+func isNameBytesUnicode(b []byte, kind nameKind, position namePosition) bool {
 	for len(b) > 0 {
 		r, size := utf8.DecodeRune(b)
 		if r == utf8.RuneError && size == 1 {
 			return false
 		}
-		if !kind.acceptsRune(r, first) {
+		if !kind.acceptsRune(r, position) {
 			return false
 		}
-		first = false
+		position = nameSubsequentPosition
 		b = b[size:]
 	}
 	return true
 }
 
-func (k nameKind) acceptsASCII(c byte, first bool) bool {
+func (k nameKind) acceptsASCII(c byte, position namePosition) bool {
 	if k == ncName {
-		if first {
+		if position == nameFirstPosition {
 			return IsASCIINCNameStart(c)
 		}
 		return IsASCIINCNameChar(c)
 	}
-	if first {
+	if position == nameFirstPosition {
 		return IsASCIIXMLNameStart(c)
 	}
 	return IsASCIIXMLNameChar(c)
@@ -428,26 +443,66 @@ func isNMTOKENBytesUnicode(b []byte) bool {
 	return true
 }
 
+type asciiQNameKind uint8
+
+const (
+	asciiQNameNonASCII asciiQNameKind = iota
+	asciiQNameInvalid
+	asciiQNameUnprefixed
+	asciiQNamePrefixed
+)
+
+// ASCIIQNameParts is the validated split of an ASCII XML QName. It retains
+// only the split index so callers keep ownership of the source bytes.
+type ASCIIQNameParts struct {
+	prefixEnd int
+	kind      asciiQNameKind
+}
+
+// ASCII reports whether the input was entirely ASCII.
+func (p ASCIIQNameParts) ASCII() bool {
+	return p.kind != asciiQNameNonASCII
+}
+
+// Valid reports whether the input was a valid ASCII QName.
+func (p ASCIIQNameParts) Valid() bool {
+	return p.kind == asciiQNameUnprefixed || p.kind == asciiQNamePrefixed
+}
+
+// Bytes projects the validated parts from the original input.
+func (p ASCIIQNameParts) Bytes(input []byte) (prefix, local []byte) {
+	switch p.kind {
+	case asciiQNameUnprefixed:
+		return nil, input
+	case asciiQNamePrefixed:
+		return input[:p.prefixEnd], input[p.prefixEnd+1:]
+	case asciiQNameNonASCII, asciiQNameInvalid:
+		return nil, nil
+	default:
+	}
+	return nil, nil
+}
+
 // SplitASCIIQNameBytes splits an ASCII QName into prefix and local parts.
-func SplitASCIIQNameBytes(b []byte) (prefix, local []byte, ascii, ok bool) {
+func SplitASCIIQNameBytes(b []byte) ASCIIQNameParts {
 	colon, ascii, ok := scanASCIIQNamePart(b)
 	if !ascii {
-		return nil, nil, false, false
+		return ASCIIQNameParts{}
 	}
 	if !ok {
-		return nil, nil, true, false
+		return ASCIIQNameParts{kind: asciiQNameInvalid}
 	}
 	if colon == len(b) {
-		return nil, b, true, true
+		return ASCIIQNameParts{prefixEnd: colon, kind: asciiQNameUnprefixed}
 	}
 	localEnd, ascii, ok := scanASCIIQNamePart(b[colon+1:])
 	if !ascii {
-		return nil, nil, false, false
+		return ASCIIQNameParts{}
 	}
 	if !ok || localEnd != len(b)-colon-1 {
-		return nil, nil, true, false
+		return ASCIIQNameParts{kind: asciiQNameInvalid}
 	}
-	return b[:colon], b[colon+1:], true, true
+	return ASCIIQNameParts{prefixEnd: colon, kind: asciiQNamePrefixed}
 }
 
 func scanASCIIQNamePart(b []byte) (end int, ascii, ok bool) {

@@ -22,12 +22,17 @@ type rawDoc struct {
 	nodes      int
 }
 
+type rawText []byte
+
+func (t rawText) String() string {
+	return string(t)
+}
+
 type rawNode struct {
 	doc      *rawDoc
 	NS       xmlns.Context
 	Name     xml.Name
-	Text     string
-	text     []byte
+	Text     rawText
 	Attr     []xml.Attr
 	Children []*rawNode
 	Line     int
@@ -42,7 +47,7 @@ func parseSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc,
 	if admitErr := admitSchemaDocument(doc); admitErr != nil {
 		return nil, xsderrors.WithLocation(name, 0, 0, admitErr)
 	}
-	defaults, err := parseSchemaDefaults(doc.root)
+	defaults, err := parseDocumentDefaults(doc.root)
 	if err != nil {
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
@@ -50,7 +55,7 @@ func parseSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc,
 	return doc, nil
 }
 
-func parseSchemaDefaults(root *rawNode) (SchemaDefaults, error) {
+func parseDocumentDefaults(root *rawNode) (SchemaDefaults, error) {
 	target, hasTarget := root.attr(vocab.XSDAttrTargetNamespace)
 	elementForm, hasElementForm := root.attr(vocab.XSDAttrElementFormDefault)
 	attributeForm, hasAttributeForm := root.attr(vocab.XSDAttrAttributeFormDefault)
@@ -141,8 +146,7 @@ func schemaStreamError(line, col int, err error) error {
 	if errors.Is(err, stream.ErrUnsupportedNonUTF8) {
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "schema documents must be UTF-8", err)
 	}
-	var versionErr stream.UnsupportedXMLVersionError
-	if errors.As(err, &versionErr) {
+	if versionErr, ok := errors.AsType[stream.UnsupportedXMLVersionError](err); ok {
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
 	}
 	if stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {
@@ -250,11 +254,6 @@ func (s *schemaParseState) handleEndElement(end stream.EndElement, line, col int
 	if err := s.ns.End(frame.namespace, xmlns.Lexical(end.Name)); err != nil {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
 	}
-	n := frame.node
-	if n != nil && n.text != nil {
-		n.Text = string(n.text)
-		n.text = nil
-	}
 	s.stack = s.stack[:len(s.stack)-1]
 	return nil
 }
@@ -278,15 +277,7 @@ func (s *schemaParseState) chars(t []byte, line, col int) error {
 		return nil
 	}
 	n := s.stack[last].node
-	if n.Text == "" && n.text == nil {
-		n.Text = string(t)
-		return nil
-	}
-	if n.text == nil {
-		n.text = append(n.text, n.Text...)
-		n.Text = ""
-	}
-	n.text = append(n.text, t...)
+	n.Text = append(n.Text, t...)
 	return nil
 }
 
@@ -364,7 +355,7 @@ func rejectInvalidSchemaText(n *rawNode) error {
 	if n.Name.Space != vocab.XSDNamespaceURI || n.Name.Local == vocab.XSDElemAppinfo || n.Name.Local == vocab.XSDElemDocumentation {
 		return nil
 	}
-	if lex.TrimXMLWhitespaceString(n.Text) != "" {
+	if len(lex.TrimXMLWhitespaceBytes(n.Text)) != 0 {
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+n.Name.Local+" cannot contain text")
 	}
 	return nil
@@ -391,9 +382,11 @@ func (s *schemaParseState) ValidateDirective(kind stream.TokenKind, first, secon
 		return checkSchemaTokenLimit(int64(len(first)+len(second)), s.limits, line, col, "schema XML processing instruction exceeds configured limit")
 	case stream.KindComment:
 		return checkSchemaTokenLimit(int64(len(first)), s.limits, line, col, "schema XML comment exceeds configured limit")
-	default:
+	case stream.KindStart, stream.KindEnd, stream.KindCharData:
 		return xsderrors.InternalInvariant("unexpected schema directive token")
+	default:
 	}
+	return xsderrors.InternalInvariant("unexpected schema directive token")
 }
 
 func validateSchemaRoot(root *rawNode) error {
@@ -565,18 +558,18 @@ func (n *rawNode) firstXS(local string) *rawNode {
 	return nil
 }
 
-func (n *rawNode) resolveQName(lexical string) (string, string, error) {
-	prefix, local, prefixed, err := checkSchemaQNameParts(n, lexical)
+func (n *rawNode) resolveQName(lexical string) (xml.Name, error) {
+	parts, err := checkSchemaQNameParts(n, lexical)
 	if err != nil {
-		return "", "", err
+		return xml.Name{}, err
 	}
-	if !prefixed {
+	if !parts.Prefixed {
 		ns, _ := n.NS.Lookup("")
-		return ns, local, nil
+		return xml.Name{Space: ns, Local: parts.Local}, nil
 	}
-	ns, ok := n.NS.Lookup(prefix)
+	ns, ok := n.NS.Lookup(parts.Prefix)
 	if !ok {
-		return "", "", schemaCompileAt(n, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+		return xml.Name{}, schemaCompileAt(n, xsderrors.CodeSchemaReference, "unbound QName prefix "+parts.Prefix)
 	}
-	return ns, local, nil
+	return xml.Name{Space: ns, Local: parts.Local}, nil
 }

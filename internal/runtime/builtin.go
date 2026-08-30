@@ -68,6 +68,8 @@ func BuiltinAttributeSimpleSeedAt(i int) (BuiltinAttributeSimpleSeed, bool) {
 }
 
 // BaseID returns the base simple type assigned to this internal built-in type.
+//
+//nolint:revive // The receiver is required by the built-in seed projection contract.
 func (s BuiltinAttributeSimpleSeed) BaseID(ids BuiltinIDs) (SimpleTypeID, bool) {
 	return ids.String, ids.String != NoSimpleType
 }
@@ -382,6 +384,8 @@ func NewBuiltinSimpleFacetStorage() BuiltinSimpleFacetStorage {
 
 // SimpleType returns the runtime declaration represented by seed using
 // resolved base and list-item IDs.
+//
+//nolint:revive // The receiver preserves the facet-storage construction contract.
 func (s *BuiltinSimpleFacetStorage) SimpleType(seed *BuiltinSimpleSeed, name QName, base, listItem SimpleTypeID) SimpleType {
 	st := SimpleType{
 		Name:       name,
@@ -390,7 +394,7 @@ func (s *BuiltinSimpleFacetStorage) SimpleType(seed *BuiltinSimpleSeed, name QNa
 		Base:       base,
 		ListItem:   listItem,
 		Whitespace: seed.Whitespace,
-		Facets:     s.facetSet(seed),
+		Facets:     builtinFacetSet(seed),
 		Builtin:    seed.Builtin,
 		Identity:   seed.Identity,
 		Fast:       seed.Fast,
@@ -445,7 +449,7 @@ func (s *BuiltinSimpleSeed) RecordID(ids *BuiltinIDs, id SimpleTypeID) {
 	}
 }
 
-func (s *BuiltinSimpleFacetStorage) facetSet(seed *BuiltinSimpleSeed) FacetSet {
+func builtinFacetSet(seed *BuiltinSimpleSeed) FacetSet {
 	var f FacetSet
 	if seed.HasFractionDigits {
 		f.FractionDigits = 0
@@ -456,10 +460,10 @@ func (s *BuiltinSimpleFacetStorage) facetSet(seed *BuiltinSimpleSeed) FacetSet {
 		SetFacetPresent(&f, FacetMinLength)
 	}
 	if seed.hasMinInclusive {
-		SetBoundFacet(&f, FacetMinInclusive, seed.minInclusive, false)
+		SetBoundFacet(&f, FacetMinInclusive, seed.minInclusive)
 	}
 	if seed.hasMaxInclusive {
-		SetBoundFacet(&f, FacetMaxInclusive, seed.maxInclusive, false)
+		SetBoundFacet(&f, FacetMaxInclusive, seed.maxInclusive)
 	}
 	return f
 }
@@ -580,10 +584,10 @@ func NewBuiltinSimpleFacetValidation(f FacetSet, exp BuiltinSimpleFacetExpectati
 	minInclusive, hasMinInclusive := BoundFacet(f, FacetMinInclusive)
 	maxInclusive, hasMaxInclusive := BoundFacet(f, FacetMaxInclusive)
 	return BuiltinSimpleFacetValidation{
-		MinInclusive:    newBuiltinDecimalFacet(minInclusive, hasMinInclusive, exp.MinInclusive),
-		MaxInclusive:    newBuiltinDecimalFacet(maxInclusive, hasMaxInclusive, exp.MaxInclusive),
-		FractionDigits:  newBuiltinUnsignedFacet(f.FractionDigits, f.Present&FacetFractionDigits != 0),
-		MinLength:       newBuiltinUnsignedFacet(f.MinLength, f.Present&FacetMinLength != 0),
+		MinInclusive:    newBuiltinDecimalFacet(optionalCompiledLiteral{value: minInclusive, present: hasMinInclusive}, exp.MinInclusive),
+		MaxInclusive:    newBuiltinDecimalFacet(optionalCompiledLiteral{value: maxInclusive, present: hasMaxInclusive}, exp.MaxInclusive),
+		FractionDigits:  newBuiltinUnsignedFacet(FacetCardinalityValue{Value: f.FractionDigits, Present: f.Present&FacetFractionDigits != 0}),
+		MinLength:       newBuiltinUnsignedFacet(FacetCardinalityValue{Value: f.MinLength, Present: f.Present&FacetMinLength != 0}),
 		EnumerationSize: len(f.Enumeration),
 		PatternSize:     int(f.patterns.count()),
 		Present:         f.Present,
@@ -596,20 +600,21 @@ func NewBuiltinSimpleFacetValidation(f FacetSet, exp BuiltinSimpleFacetExpectati
 	}
 }
 
-func newBuiltinUnsignedFacet(got uint32, present bool) BuiltinUnsignedFacet {
-	if !present {
+func newBuiltinUnsignedFacet(facet FacetCardinalityValue) BuiltinUnsignedFacet {
+	if !facet.Present {
 		return BuiltinUnsignedFacet{}
 	}
 	return BuiltinUnsignedFacet{
-		Value:   got,
+		Value:   facet.Value,
 		Present: true,
 	}
 }
 
-func newBuiltinDecimalFacet(got CompiledLiteral, present bool, want string) BuiltinDecimalFacet {
-	if !present {
+func newBuiltinDecimalFacet(facet optionalCompiledLiteral, want string) BuiltinDecimalFacet {
+	if !facet.present {
 		return BuiltinDecimalFacet{}
 	}
+	got := facet.value
 	proof := false
 	expected, err := ParseDecimalValue(want)
 	if err == nil && got.Actual.Valid && got.Actual.Kind == PrimitiveDecimal {

@@ -46,39 +46,46 @@ func scanToken[T byteText](text T, i int) (scannedToken, bool) {
 }
 
 func validReference[T byteText](text T) bool {
-	mainEnd, query, fragment, ok := validReferenceSuffixes(text)
+	suffixes := validReferenceSuffixes(text)
+	if !suffixes.valid {
+		return false
+	}
+	start, hasScheme, ok := validReferenceScheme(text, suffixes.mainEnd)
 	if !ok {
 		return false
 	}
-	start, hasScheme, ok := validReferenceScheme(text, mainEnd)
-	if !ok {
-		return false
-	}
-	if start+2 <= mainEnd && text[start] == '/' && text[start+1] == '/' {
-		return validAuthorityReference(text, start+2, mainEnd, query, fragment)
+	if start+2 <= suffixes.mainEnd && text[start] == '/' && text[start+1] == '/' {
+		return validAuthorityReference(text, start+2, suffixes.mainEnd, suffixes.query, suffixes.fragment)
 	}
 	if hasScheme {
-		return validSchemeReference(text, start, mainEnd, query, fragment)
+		return validSchemeReference(text, start, suffixes.mainEnd, suffixes.query, suffixes.fragment)
 	}
-	return validRelativeReference(text, start, mainEnd)
+	return validRelativeReference(text, start, suffixes.mainEnd)
 }
 
-func validReferenceSuffixes[T byteText](text T) (mainEnd, query, fragment int, ok bool) {
-	fragment = len(text)
+type referenceSuffixes struct {
+	mainEnd  int
+	query    int
+	fragment int
+	valid    bool
+}
+
+func validReferenceSuffixes[T byteText](text T) referenceSuffixes {
+	fragment := len(text)
 	if i := indexByte(text, '#'); i >= 0 {
 		fragment = i
 		if !validURIC(text, i+1, len(text)) {
-			return 0, 0, 0, false
+			return referenceSuffixes{}
 		}
 	}
-	query = fragment
+	query := fragment
 	if i := indexByteRange(text, '?', 0, fragment); i >= 0 {
 		query = i
 		if !validURIC(text, i+1, fragment) {
-			return 0, 0, 0, false
+			return referenceSuffixes{}
 		}
 	}
-	return query, query, fragment, true
+	return referenceSuffixes{mainEnd: query, query: query, fragment: fragment, valid: true}
 }
 
 func validReferenceScheme[T byteText](text T, mainEnd int) (start int, hasScheme, ok bool) {

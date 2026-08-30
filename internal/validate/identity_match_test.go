@@ -103,21 +103,21 @@ func TestIdentitySelectorWildcardNamespaceMatchesKnownAndUnknownRuntimeNames(t *
 func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.T) {
 	t.Parallel()
 
-	rt, elemID, _, elemName, attrName := compiledIdentityRuntimeForTest(t)
-	namePath := []runtime.RuntimeName{{Known: true, Name: elemName}}
+	fixture := compiledIdentityRuntimeForTest(t)
+	namePath := []runtime.RuntimeName{{Known: true, Name: fixture.elemName}}
 
 	var state identityState
-	if err := state.startElementScope(rt, elemID, len(namePath), 0, StartContext{Path: "/root"}); err != nil {
+	if err := state.startElementScope(fixture.rt, fixture.elemID, len(namePath), 0, StartContext{Path: "/root"}); err != nil {
 		t.Fatalf("startElementScope() error = %v", err)
 	}
-	if err := state.matchSelectors(rt, namePath, 0, StartContext{Path: "/root", Line: 2, Column: 3}); err != nil {
+	if err := state.matchSelectors(fixture.rt, namePath, 0, StartContext{Path: "/root", Line: 2, Column: 3}); err != nil {
 		t.Fatalf("matchSelectors() error = %v", err)
 	}
 	if len(state.selections) != 1 {
 		t.Fatalf("selections = %d, want 1", len(state.selections))
 	}
 
-	elementMatches, err := state.elementFieldMatches(rt, namePath)
+	elementMatches, err := state.elementFieldMatches(fixture.rt, namePath)
 	if err != nil {
 		t.Fatalf("elementFieldMatches() error = %v", err)
 	}
@@ -125,21 +125,21 @@ func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.
 		t.Fatalf("elementFieldMatches() = %+v, want selection 0 field 0", elementMatches)
 	}
 
-	attrMatches, err := state.attributeFieldMatches(rt, namePath, runtime.RuntimeName{Name: attrName, Known: true})
+	attrMatches, err := state.attributeFieldMatches(fixture.rt, namePath, runtime.RuntimeName{Name: fixture.attrName, Known: true})
 	if err != nil {
 		t.Fatalf("attributeFieldMatches() error = %v", err)
 	}
 	if len(attrMatches) != 1 || attrMatches[0] != (identityFieldMatch{Selection: 0, Field: 0}) {
 		t.Fatalf("attributeFieldMatches() = %+v, want one deduplicated field match", attrMatches)
 	}
-	unknownMatches, err := state.attributeFieldMatches(rt, namePath, runtime.RuntimeName{NS: "urn:a", Local: "unknown"})
+	unknownMatches, err := state.attributeFieldMatches(fixture.rt, namePath, runtime.RuntimeName{NS: "urn:a", Local: "unknown"})
 	if err != nil {
 		t.Fatalf("attributeFieldMatches(unknown) error = %v", err)
 	}
 	if len(unknownMatches) != 1 || unknownMatches[0] != (identityFieldMatch{Selection: 0, Field: 0}) {
 		t.Fatalf("attributeFieldMatches(unknown) = %+v, want namespace-wildcard match", unknownMatches)
 	}
-	wrongNamespace, err := state.attributeFieldMatches(rt, namePath, runtime.RuntimeName{NS: "urn:other", Local: "unknown"})
+	wrongNamespace, err := state.attributeFieldMatches(fixture.rt, namePath, runtime.RuntimeName{NS: "urn:other", Local: "unknown"})
 	if err != nil {
 		t.Fatalf("attributeFieldMatches(wrong namespace) error = %v", err)
 	}
@@ -151,11 +151,11 @@ func TestIdentityStateUsesRuntimeMetadataForSelectorAndFieldMatching(t *testing.
 func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T) {
 	t.Parallel()
 
-	rt, _, constraintID, elem, attr := compiledIdentityRuntimeForTest(t)
-	otherAttr := runtime.QName{Namespace: 999, Local: attr.Local}
-	namePath := []runtime.RuntimeName{{Known: true, Name: elem}}
+	fixture := compiledIdentityRuntimeForTest(t)
+	otherAttr := runtime.QName{Namespace: 999, Local: fixture.attrName.Local}
+	namePath := []runtime.RuntimeName{{Known: true, Name: fixture.elemName}}
 
-	constraint, ok := rt.IdentityConstraint(constraintID)
+	constraint, ok := fixture.rt.IdentityConstraint(fixture.constraintID)
 	if !ok {
 		t.Fatal("IdentityConstraint() rejected runtime metadata")
 	}
@@ -164,16 +164,16 @@ func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T
 	if !ok {
 		t.Fatal("IdentityConstraint().ElementFields() returned no field")
 	}
-	if !identityCompiledFieldPathsMatch(rt, namePath, 1, 1, elementField) {
+	if !identityCompiledFieldPathsMatch(fixture.rt, namePath, 1, 1, elementField) {
 		t.Fatal("element field path did not match")
 	}
 
-	attributeFields := constraint.AttributeFields(attr)
+	attributeFields := constraint.AttributeFields(fixture.attrName)
 	exactAttributeField, ok := attributeFields.At(0)
 	if !ok {
 		t.Fatal("IdentityConstraint().AttributeFields() returned no exact field")
 	}
-	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, runtime.RuntimeName{Name: attr, Known: true}, exactAttributeField) {
+	if !identityCompiledAttributeFieldPathsMatch(fixture.rt, namePath, 1, 1, runtime.RuntimeName{Name: fixture.attrName, Known: true}, exactAttributeField) {
 		t.Fatal("exact attribute field path did not match")
 	}
 	attributeFields = constraint.AttributeWildcardFields()
@@ -181,15 +181,23 @@ func TestCompiledIdentityFieldPathsMatchElementAndAttributeBranches(t *testing.T
 	if !ok {
 		t.Fatal("IdentityConstraint().AttributeWildcardFields() returned no wildcard field")
 	}
-	if !identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, runtime.RuntimeName{Name: attr, Known: true}, wildcardAttributeField) {
+	if !identityCompiledAttributeFieldPathsMatch(fixture.rt, namePath, 1, 1, runtime.RuntimeName{Name: fixture.attrName, Known: true}, wildcardAttributeField) {
 		t.Fatal("attribute namespace wildcard did not match")
 	}
-	if identityCompiledAttributeFieldPathsMatch(rt, namePath, 1, 1, runtime.RuntimeName{Name: otherAttr, Known: true}, wildcardAttributeField) {
+	if identityCompiledAttributeFieldPathsMatch(fixture.rt, namePath, 1, 1, runtime.RuntimeName{Name: otherAttr, Known: true}, wildcardAttributeField) {
 		t.Fatal("attribute namespace wildcard matched wrong namespace")
 	}
 }
 
-func compiledIdentityRuntimeForTest(t *testing.T) (*runtime.Schema, runtime.ElementID, runtime.IdentityConstraintID, runtime.QName, runtime.QName) {
+type compiledIdentityFixture struct {
+	rt           *runtime.Schema
+	elemID       runtime.ElementID
+	constraintID runtime.IdentityConstraintID
+	elemName     runtime.QName
+	attrName     runtime.QName
+}
+
+func compiledIdentityRuntimeForTest(t *testing.T) compiledIdentityFixture {
 	t.Helper()
 
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:a" targetNamespace="urn:a" elementFormDefault="qualified">
@@ -226,5 +234,11 @@ func compiledIdentityRuntimeForTest(t *testing.T) (*runtime.Schema, runtime.Elem
 	if !ok {
 		t.Fatal("root has no identity constraint")
 	}
-	return rt, elemID, constraintID, elemName, attrName
+	return compiledIdentityFixture{
+		rt:           rt,
+		elemID:       elemID,
+		constraintID: constraintID,
+		elemName:     elemName,
+		attrName:     attrName,
+	}
 }

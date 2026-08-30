@@ -22,5 +22,5 @@ func (rt *Schema) ValidateSimpleValue(id SimpleTypeID, lexical string, resolve R
 // ValidateSimpleValueWithScratch validates a lexical simple value while reusing
 // caller-owned string-pattern buffers.
 func (rt *Schema) ValidateSimpleValueWithScratch(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs SimpleValueNeed, scratch *StringPatternScratch) (SimpleValue, error) {
-	return validateSimpleValue(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs, scratch)
+	return validateSimpleValueWithReader(publishedSimpleValueMetadataReader{runtime: &rt.runtime}, id, lexical, resolve, needs, scratch)
 }

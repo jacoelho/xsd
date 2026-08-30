@@ -23,7 +23,10 @@ type byteStream struct {
 	afterCR   bool
 }
 
-const xmlInputBufferSize = 64 * 1024
+const (
+	xmlInputBufferSize          = 64 * 1024
+	maxConsecutiveEmptyXMLReads = 100
+)
 
 func (b *byteStream) reset(r io.Reader, maxBytes int64) {
 	b.r = r
@@ -66,7 +69,7 @@ func (b *byteStream) read(p []byte) (int, error) {
 			p = p[:remaining+1]
 		}
 	}
-	n, err := b.r.Read(p)
+	n, err := b.readUnderlying(p)
 	if n <= 0 || b.maxBytes <= 0 {
 		return n, err
 	}
@@ -81,6 +84,16 @@ func (b *byteStream) read(p []byte) (int, error) {
 		limitErr = errors.Join(limitErr, err)
 	}
 	return admitted, limitErr
+}
+
+func (b *byteStream) readUnderlying(p []byte) (int, error) {
+	for range maxConsecutiveEmptyXMLReads {
+		n, err := b.r.Read(p)
+		if n != 0 || err != nil {
+			return n, err
+		}
+	}
+	return 0, io.ErrNoProgress
 }
 
 // ensure returns the non-consuming input window after reading until at least n
@@ -223,7 +236,7 @@ func (b *byteStream) advance(c byte) {
 	b.col++
 }
 
-func (b *byteStream) pos() (int, int) {
+func (b *byteStream) pos() (line, column int) {
 	return b.line, b.col
 }
 
@@ -234,8 +247,14 @@ type Cache struct {
 	state *cacheState
 }
 
+// The recent ring uses masking and must remain a power of two.
+const (
+	recentCacheEntries = 8
+	recentCacheMask    = recentCacheEntries - 1
+)
+
 type cacheState struct {
-	recent  [8]string
+	recent  [recentCacheEntries]string
 	buckets map[uint64][]int
 	entries []byteStringEntry
 	next    uint8
@@ -289,7 +308,9 @@ func (c *Cache) cacheState() *cacheState {
 }
 
 func (c *cacheState) recentString(b []byte) (string, bool) {
-	for _, s := range c.recent {
+	for offset := range recentCacheEntries {
+		index := (int(c.next) + recentCacheEntries - 1 - offset) & recentCacheMask
+		s := c.recent[index]
 		if stringBytesEqual(s, b) {
 			return s, true
 		}
@@ -298,7 +319,7 @@ func (c *cacheState) recentString(b []byte) (string, bool) {
 }
 
 func (c *cacheState) remember(s string) {
-	c.recent[c.next%uint8(len(c.recent))] = s
+	c.recent[c.next&recentCacheMask] = s
 	c.next++
 }
 

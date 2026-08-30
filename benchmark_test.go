@@ -133,10 +133,10 @@ func BenchmarkSessionValidateNamespaceAdmissionChurn(b *testing.B) {
 		b.Fatal(err)
 	}
 	for _, depth := range []int{16, 64, 256} {
-		for _, churn := range []bool{false, true} {
-			name := fmt.Sprintf("depth_%d/churn_%t", depth, churn)
+		for _, mode := range []namespaceAdmissionBenchmarkMode{namespaceAdmissionStable, namespaceAdmissionChurn} {
+			name := fmt.Sprintf("depth_%d/%s", depth, mode)
 			b.Run(name, func(b *testing.B) {
-				doc := namespaceAdmissionBenchmarkDocument(depth, churn)
+				doc := namespaceAdmissionBenchmarkDocument(depth, mode)
 				session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth})
 				if err != nil {
 					b.Fatal(err)
@@ -157,11 +157,25 @@ func BenchmarkSessionValidateNamespaceAdmissionChurn(b *testing.B) {
 	}
 }
 
-func namespaceAdmissionBenchmarkDocument(depth int, churn bool) string {
+type namespaceAdmissionBenchmarkMode uint8
+
+const (
+	namespaceAdmissionStable namespaceAdmissionBenchmarkMode = iota
+	namespaceAdmissionChurn
+)
+
+func (m namespaceAdmissionBenchmarkMode) String() string {
+	if m == namespaceAdmissionChurn {
+		return "churn_true"
+	}
+	return "churn_false"
+}
+
+func namespaceAdmissionBenchmarkDocument(depth int, mode namespaceAdmissionBenchmarkMode) string {
 	var doc strings.Builder
 	for i := range depth {
 		doc.WriteString("<e")
-		if churn {
+		if mode == namespaceAdmissionChurn {
 			doc.WriteString(` xmlns:p`)
 			doc.WriteString(strconv.Itoa(i))
 			doc.WriteString(`="urn:`)
@@ -204,6 +218,59 @@ func BenchmarkSessionValidateRepeatedXSIType(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		if err := session.Validate(strings.NewReader(instance)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateIDAttributeStart(b *testing.B) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="item" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" type="xs:ID" use="required"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+	var doc strings.Builder
+	doc.WriteString(`<root>`)
+	for i := range 100 {
+		fmt.Fprintf(&doc, `<item id="id%d"/>`, i)
+	}
+	doc.WriteString(`</root>`)
+	benchmarkSessionDocument(b, schema, doc.String())
+}
+
+func BenchmarkSessionValidateSimpleIDEnd(b *testing.B) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="id" type="xs:ID" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+	var doc strings.Builder
+	doc.WriteString(`<root>`)
+	for i := range 100 {
+		fmt.Fprintf(&doc, `<id>id%d</id>`, i)
+	}
+	doc.WriteString(`</root>`)
+	benchmarkSessionDocument(b, schema, doc.String())
+}
+
+func benchmarkSessionDocument(b *testing.B, schema, doc string) {
+	b.Helper()
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader(doc)); err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
 			b.Fatal(err)
 		}
 	}

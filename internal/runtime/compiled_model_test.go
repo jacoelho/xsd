@@ -422,7 +422,14 @@ func TestValidateCompiledModelRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateCompiledModelRuntime(nil, rt, sourceID, tt.source, tt.model, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt))
+			err := ValidateCompiledModelRuntime(CompiledModelRuntimeValidation{
+				Runtime:  rt,
+				Analysis: unlimitedContentModelAnalysis(rt),
+				Source:   tt.source,
+				Model:    tt.model,
+				Work:     unlimitedContentModelWork,
+				ID:       sourceID,
+			})
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateCompiledModelRuntime() error = %v", err)
@@ -535,9 +542,13 @@ func TestCompiledModelUPABoundsSubstitutionExpansion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = validateCompiledModelsRuntime(nil, rt, sources, models, true, work, analysis)
+	validator, err := newCompiledModelValidator(nil, rt, work, analysis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = validator.validateSet(sources, models)
 	if !errors.Is(err, budgetExceeded) {
-		t.Fatalf("validateCompiledModelsRuntime() error = %v, want budget error", err)
+		t.Fatalf("validateCompiledModelSet() error = %v, want budget error", err)
 	}
 }
 

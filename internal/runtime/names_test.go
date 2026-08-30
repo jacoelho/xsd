@@ -36,8 +36,8 @@ func TestNameIDAllocatorsReserveAbsentSentinel(t *testing.T) {
 	if _, err := nextLocalNameID(int(sentinel)); !errors.Is(err, ErrLocalNameLimit) {
 		t.Fatalf("nextLocalNameID(invalidID) error = %v, want ErrLocalNameLimit", err)
 	}
-	if _, _, err := nextQNameIDs(0, int(sentinel), true, true); !errors.Is(err, ErrLocalNameLimit) {
-		t.Fatalf("nextQNameIDs(local exhausted) error = %v, want ErrLocalNameLimit", err)
+	if _, err := nextLocalNameID(int(sentinel)); !errors.Is(err, ErrLocalNameLimit) {
+		t.Fatalf("nextLocalNameID(local exhausted) error = %v, want ErrLocalNameLimit", err)
 	}
 }
 

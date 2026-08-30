@@ -10,9 +10,9 @@ import (
 
 func BenchmarkNamespaceAdmissionChurn(b *testing.B) {
 	for _, depth := range []int{16, 64, 256} {
-		for _, declarations := range []bool{false, true} {
+		for _, declarations := range []namespaceBenchmarkDeclarationMode{namespaceBenchmarkNoDeclarations, namespaceBenchmarkDeclarations} {
 			for _, persistent := range []bool{false, true} {
-				name := fmt.Sprintf("depth_%d/churn_%t/persistent_%t", depth, declarations, persistent)
+				name := fmt.Sprintf("depth_%d/%s/persistent_%t", depth, declarations, persistent)
 				b.Run(name, func(b *testing.B) {
 					starts := namespaceBenchmarkStarts(depth, declarations)
 					frames := make([]Frame, depth)
@@ -43,11 +43,25 @@ func BenchmarkNamespaceAdmissionChurn(b *testing.B) {
 	}
 }
 
-func namespaceBenchmarkStarts(depth int, declarations bool) []xml.StartElement {
+type namespaceBenchmarkDeclarationMode uint8
+
+const (
+	namespaceBenchmarkNoDeclarations namespaceBenchmarkDeclarationMode = iota
+	namespaceBenchmarkDeclarations
+)
+
+func (m namespaceBenchmarkDeclarationMode) String() string {
+	if m == namespaceBenchmarkDeclarations {
+		return "churn_true"
+	}
+	return "churn_false"
+}
+
+func namespaceBenchmarkStarts(depth int, declarations namespaceBenchmarkDeclarationMode) []xml.StartElement {
 	starts := make([]xml.StartElement, depth)
 	for i := range starts {
 		starts[i].Name.Local = "e"
-		if declarations {
+		if declarations == namespaceBenchmarkDeclarations {
 			starts[i].Attr = []xml.Attr{{
 				Name:  xml.Name{Space: "xmlns", Local: "p" + strconv.Itoa(i)},
 				Value: "urn:" + strconv.Itoa(i),

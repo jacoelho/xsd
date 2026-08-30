@@ -47,6 +47,14 @@ type ModelChildAdmission struct {
 // mutable runtime model table.
 type AddContentModelFunc func(runtime.ContentModel) (runtime.ContentModelID, error)
 
+type modelTextKind uint8
+
+const (
+	modelTextInvalid modelTextKind = iota
+	modelTextElementOnly
+	modelTextMixed
+)
+
 // ModelKindForLocal classifies an XSD model-group element local name.
 func ModelKindForLocal(local string) (runtime.ModelKind, error) {
 	switch local {
@@ -120,9 +128,11 @@ func modelParticleChildKind(p runtime.Particle) ModelChildKind {
 		return ModelChildElement
 	case runtime.ParticleWildcard:
 		return ModelChildWildcard
-	default:
+	case runtime.ParticleModel:
 		return ModelChildModel
+	default:
 	}
+	return ModelChildModel
 }
 
 // ValidateComplexExtensionModelAdmission validates compile-time complex-content
@@ -174,14 +184,17 @@ func ExtendSequenceModel(rt runtime.ContentModelRuntime, add AddContentModelFunc
 	if !ok {
 		return runtime.NoContentModel, xsderrors.InternalInvariant("sequence extension references missing extension content model")
 	}
-	mixed := base.Mixed || ext.Mixed
+	textKind := modelTextElementOnly
+	if base.Mixed || ext.Mixed {
+		textKind = modelTextMixed
+	}
 	if runtime.ModelHasNoParticles(rt, baseID) {
-		return ModelWithMixed(rt, add, extID, mixed)
+		return modelWithTextKind(rt, add, extID, textKind)
 	}
 	if runtime.ModelHasNoParticles(rt, extID) {
-		return ModelWithMixed(rt, add, baseID, mixed)
+		return modelWithTextKind(rt, add, baseID, textKind)
 	}
-	m := runtime.ContentModel{Kind: runtime.ModelSequence, Occurs: runtime.Occurrence{Min: 1, Max: 1}, Mixed: mixed}
+	m := runtime.ContentModel{Kind: runtime.ModelSequence, Occurs: runtime.Occurrence{Min: 1, Max: 1}, Mixed: textKind == modelTextMixed}
 	if err := appendSequenceExtensionOperand(rt, add, &m, baseID, base); err != nil {
 		return runtime.NoContentModel, err
 	}
@@ -199,9 +212,17 @@ func appendSequenceExtensionOperand(rt runtime.ContentModelRuntime, add AddConte
 	return AppendModelParticle(rt, add, target, id)
 }
 
-// ModelWithMixed returns id when its mixed flag already matches, or appends a
-// copy with the requested mixed flag.
-func ModelWithMixed(rt runtime.ContentModelRuntime, add AddContentModelFunc, id runtime.ContentModelID, mixed bool) (runtime.ContentModelID, error) {
+func modelWithTextKind(rt runtime.ContentModelRuntime, add AddContentModelFunc, id runtime.ContentModelID, textKind modelTextKind) (runtime.ContentModelID, error) {
+	var mixed bool
+	switch textKind {
+	case modelTextElementOnly:
+	case modelTextMixed:
+		mixed = true
+	case modelTextInvalid:
+		return runtime.NoContentModel, xsderrors.InternalInvariant("invalid model text kind")
+	default:
+		return runtime.NoContentModel, xsderrors.InternalInvariant("unknown model text kind")
+	}
 	if id == runtime.NoContentModel {
 		return id, nil
 	}

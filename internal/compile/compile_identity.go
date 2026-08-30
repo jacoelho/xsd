@@ -65,11 +65,11 @@ func (c *compiler) declareIdentityConstraints(nodes []*rawNode, ctx *schemaConte
 }
 
 func (c *compiler) declareIdentityConstraint(node *rawNode, ctx *schemaContext) (runtime.IdentityConstraintID, error) {
-	name, hasName := node.attr(vocab.XSDAttrName)
-	if err := ValidateIdentityConstraintNameSource(hasName && name != ""); err != nil {
+	name := rawLexicalAttribute(node, vocab.XSDAttrName)
+	if err := ValidateIdentityConstraintNameSource(name); err != nil {
 		return runtime.NoIdentityConstraint, withSchemaCompileLocation(node, err)
 	}
-	q, err := c.rt.internQName(ctx.targetNS, name)
+	q, err := c.rt.internQName(ctx.targetNS, name.Value)
 	if err != nil {
 		return runtime.NoIdentityConstraint, err
 	}
@@ -131,11 +131,11 @@ func (c *compiler) compileIdentityRefer(n *rawNode, ctx *schemaContext) (runtime
 	if n.Name.Local != vocab.XSDElemKeyref {
 		return runtime.NoIdentityConstraint, nil
 	}
-	referLexical, hasRefer := n.attr(vocab.XSDAttrRefer)
-	if err := ValidateIdentityConstraintReferSource(n.Name.Local, hasRefer); err != nil {
+	source := IdentityConstraintReferSource{Local: n.Name.Local, Refer: rawLexicalAttribute(n, vocab.XSDAttrRefer)}
+	if err := ValidateIdentityConstraintReferSource(source); err != nil {
 		return runtime.NoIdentityConstraint, withSchemaCompileLocation(n, err)
 	}
-	q, err := c.resolveQNameChecked(n, ctx, referLexical)
+	q, err := c.resolveQNameChecked(n, ctx, source.Refer.Value)
 	if err != nil {
 		return runtime.NoIdentityConstraint, err
 	}
@@ -185,16 +185,16 @@ type identityXPathResolver struct {
 	node     *rawNode
 }
 
-func (r identityXPathResolver) ResolveIdentityQName(prefix, local string, prefixed bool) (runtime.QName, error) {
+func (r identityXPathResolver) ResolveIdentityQName(parts QNameParts) (runtime.QName, error) {
 	ns := ""
-	if prefixed {
+	if parts.Prefixed {
 		var ok bool
-		ns, ok = r.node.NS.Lookup(prefix)
+		ns, ok = r.node.NS.Lookup(parts.Prefix)
 		if !ok {
-			return runtime.QName{}, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+			return runtime.QName{}, schemaCompileAt(r.node, xsderrors.CodeSchemaReference, "unbound QName prefix "+parts.Prefix)
 		}
 	}
-	return r.compiler.rt.internQName(ns, local)
+	return r.compiler.rt.internQName(ns, parts.Local)
 }
 
 func (r identityXPathResolver) ResolveIdentityWildcardNamespace(prefix string) (runtime.NamespaceID, error) {

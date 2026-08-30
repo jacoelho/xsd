@@ -5,6 +5,7 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+//nolint:gocognit // Keeping the raw fast-path gate here avoids copying full constraints into a helper.
 func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	if f.Nilled {
 		return false, nil
@@ -27,8 +28,11 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		return false, identityErr
 	}
 	ctx := s.startContext(line, col)
-	if handled, captured, err := s.validateRawElementSimpleContent(typeID, rawText, identityTarget, f.TextContent.HasValueConstraint(), ctx); handled {
-		return captured, err
+	if !identityTarget.needsIdentity() && !constraints.HasAny() {
+		rawResult, err := s.validateRawUnconstrainedElementSimpleContent(typeID, rawText, ctx)
+		if rawResult.handled {
+			return rawResult.captured, err
+		}
 	}
 	input := s.simpleContentValueInput(f.Type, rawText, constraints)
 	if input.prevalidated {
@@ -48,32 +52,34 @@ func (s *session) frameElementValueConstraints(f *frame) (runtime.ElementValueCo
 	return constraints, nil
 }
 
-func (s *session) validateRawElementSimpleContent(typeID runtime.SimpleTypeID, rawText []byte, target identityValueTarget, hasConstraint bool, ctx StartContext) (bool, bool, error) {
-	if target.needsIdentity() || hasConstraint {
-		return false, false, nil
-	}
-	handled, err := s.validateRawSimpleValue(typeID, rawText)
-	if err != nil {
-		return true, false, rawElementSimpleContentError(handled, err, ctx)
-	}
-	if handled {
-		return true, true, nil
-	}
-	return false, false, nil
+type rawElementSimpleContentValidation struct {
+	handled  bool
+	captured bool
 }
 
-func rawElementSimpleContentError(handled bool, err error, ctx StartContext) error {
-	if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
+func (s *session) validateRawUnconstrainedElementSimpleContent(typeID runtime.SimpleTypeID, rawText []byte, ctx StartContext) (rawElementSimpleContentValidation, error) {
+	result := s.validateRawSimpleValue(typeID, rawText)
+	if result.err != nil {
+		return rawElementSimpleContentValidation{handled: true}, rawElementSimpleContentError(result, ctx)
+	}
+	if result.handled {
+		return rawElementSimpleContentValidation{handled: true, captured: true}, nil
+	}
+	return rawElementSimpleContentValidation{}, nil
+}
+
+func rawElementSimpleContentError(result rawSimpleValueValidation, ctx StartContext) error {
+	if invariantErr := simpleValueMetadataInvariant(result.err); invariantErr != nil {
 		return invariantErr
 	}
-	if handled {
-		return validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+err.Error())
+	if result.handled {
+		return validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+result.err.Error())
 	}
-	return err
+	return result.err
 }
 
 func (s *session) validateElementSimpleContentValue(typeID runtime.SimpleTypeID, text string, constraints runtime.ElementValueConstraints, target identityValueTarget, ctx StartContext) (bool, error) {
-	value, err := s.validateSimpleValue(typeID, text, s.simpleValueQNameResolver(typeID), s.simpleContentNeeds(typeID, constraints, target.needsIdentity()))
+	value, err := s.validateSimpleValue(typeID, text, s.simpleValueQNameResolver(typeID), s.simpleContentNeeds(typeID, constraints, target))
 	if err != nil {
 		return false, s.elementSimpleContentValueError(target, err, ctx)
 	}
@@ -144,13 +150,13 @@ func (s *session) simpleContentValueInput(
 func (s *session) simpleContentNeeds(
 	typeID runtime.SimpleTypeID,
 	constraints runtime.ElementValueConstraints,
-	needIdentity bool,
+	target identityValueTarget,
 ) runtime.SimpleValueNeed {
 	var needs runtime.SimpleValueNeed
-	if needIdentity {
+	if target.needsIdentity() {
 		needs |= runtime.SimpleNeedIdentity
 	}
-	if needIdentity || s.simpleIdentity(typeID) != runtime.SimpleIdentityNone {
+	if target.needsIdentity() || s.simpleIdentity(typeID) != runtime.SimpleIdentityNone {
 		needs |= runtime.SimpleNeedCanonical
 		return needs
 	}

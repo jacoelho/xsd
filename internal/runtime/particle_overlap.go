@@ -41,7 +41,7 @@ func NewContentModelAnalysis(rt ParticleRuntime, work ContentModelWork) (*Conten
 // ParticleEmptiable reports whether p accepts an empty sequence, charging and
 // memoizing every nested-model derivation.
 func (a *ContentModelAnalysis) ParticleEmptiable(p Particle) (bool, error) {
-	return a.particleEmptiable(p)
+	return a.cachedParticleEmptiable(p)
 }
 
 // ModelEmptiable reports whether a model accepts an empty sequence, charging
@@ -50,7 +50,7 @@ func (a *ContentModelAnalysis) ModelEmptiable(id ContentModelID) (bool, error) {
 	if id == NoContentModel {
 		return true, nil
 	}
-	return a.modelEmptiable(id)
+	return a.cachedModelEmptiable(id)
 }
 
 // ModelCountRange derives the number of elements a model can consume,
@@ -59,7 +59,7 @@ func (a *ContentModelAnalysis) ModelCountRange(id ContentModelID) (Occurrence, e
 	if id == NoContentModel {
 		return Occurrence{}, nil
 	}
-	return a.modelCountRange(id)
+	return a.cachedModelCountRange(id)
 }
 
 // ParticleCountRange derives the number of elements p can consume, charging
@@ -82,7 +82,7 @@ func (a *ContentModelAnalysis) ParticleCountRange(p Particle) (Occurrence, error
 	return MultiplyOccurrence(term, p.Occurs), nil
 }
 
-func (a *ContentModelAnalysis) modelCountRange(id ContentModelID) (Occurrence, error) {
+func (a *ContentModelAnalysis) cachedModelCountRange(id ContentModelID) (Occurrence, error) {
 	if result, ok := a.ranges[id]; ok {
 		return result, nil
 	}
@@ -191,34 +191,43 @@ func (a *ContentModelAnalysis) modelStartOverlap(id ContentModelID, particle Par
 	}
 	switch model.Kind {
 	case ModelAll, ModelChoice, ModelSequence:
-	default:
+	case ModelEmpty, ModelAny:
 		return QName{}, false, nil
+	default:
+		overlaps := false
+		return QName{}, overlaps, nil
 	}
 	for _, child := range model.Particles {
-		name, overlap, stop, err := a.modelStartParticleOverlap(model.Kind, child, particle)
-		if overlap || err != nil {
-			return name, overlap, err
+		match, err := a.modelStartParticleOverlap(model.Kind, child, particle)
+		if match.overlap || err != nil {
+			return match.name, match.overlap, err
 		}
-		if stop {
+		if match.stop {
 			break
 		}
 	}
 	return QName{}, false, nil
 }
 
+type modelStartParticleMatch struct {
+	name    QName
+	overlap bool
+	stop    bool
+}
+
 func (a *ContentModelAnalysis) modelStartParticleOverlap(
 	kind ModelKind,
 	child, particle Particle,
-) (QName, bool, bool, error) {
+) (modelStartParticleMatch, error) {
 	if err := spendContentModelWork(a.work); err != nil {
-		return QName{}, false, false, err
+		return modelStartParticleMatch{}, err
 	}
 	name, overlap, err := a.Overlap(child, particle)
 	if overlap || err != nil || kind != ModelSequence {
-		return name, overlap, false, err
+		return modelStartParticleMatch{name: name, overlap: overlap}, err
 	}
-	emptiable, err := a.particleEmptiable(child)
-	return QName{}, false, !emptiable, err
+	emptiable, err := a.cachedParticleEmptiable(child)
+	return modelStartParticleMatch{stop: !emptiable}, err
 }
 
 func (a *ContentModelAnalysis) elementOverlap(id ElementID, particle Particle) (QName, bool, error) {
@@ -319,7 +328,7 @@ func (c *particleAcceptedNameCollector) collect(member ElementID) bool {
 	return true
 }
 
-func (a *ContentModelAnalysis) particleEmptiable(particle Particle) (bool, error) {
+func (a *ContentModelAnalysis) cachedParticleEmptiable(particle Particle) (bool, error) {
 	if err := spendContentModelWork(a.work); err != nil {
 		return false, err
 	}
@@ -332,7 +341,7 @@ func (a *ContentModelAnalysis) particleEmptiable(particle Particle) (bool, error
 	return a.ModelEmptiable(particle.Model)
 }
 
-func (a *ContentModelAnalysis) modelEmptiable(id ContentModelID) (bool, error) {
+func (a *ContentModelAnalysis) cachedModelEmptiable(id ContentModelID) (bool, error) {
 	if result, ok := a.emptiable[id]; ok {
 		return result, nil
 	}
@@ -365,14 +374,16 @@ func (a *ContentModelAnalysis) modelEmptiableValue(model ContentModel) (bool, er
 		return a.allParticlesEmptiable(model.Particles)
 	case ModelChoice:
 		return a.anyParticleEmptiable(model.Particles)
-	default:
+	case ModelEmpty, ModelAny:
 		return false, nil
+	default:
 	}
+	return false, nil
 }
 
 func (a *ContentModelAnalysis) allParticlesEmptiable(particles []Particle) (bool, error) {
 	for _, particle := range particles {
-		emptiable, err := a.particleEmptiable(particle)
+		emptiable, err := a.cachedParticleEmptiable(particle)
 		if err != nil {
 			return false, err
 		}
@@ -385,7 +396,7 @@ func (a *ContentModelAnalysis) allParticlesEmptiable(particles []Particle) (bool
 
 func (a *ContentModelAnalysis) anyParticleEmptiable(particles []Particle) (bool, error) {
 	for _, particle := range particles {
-		emptiable, err := a.particleEmptiable(particle)
+		emptiable, err := a.cachedParticleEmptiable(particle)
 		if err != nil {
 			return false, err
 		}
