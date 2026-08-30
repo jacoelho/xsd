@@ -222,37 +222,46 @@ func TestValidateDeclValueConstraintAdmission(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		fn         func(bool, bool) error
+		fn         func(runtime.DeclarationValueConstraint) error
 		wantErr    string
-		hasDefault bool
-		hasFixed   bool
+		constraint runtime.DeclarationValueConstraint
 	}{
 		{name: "element absent", fn: ValidateElementDeclValueConstraintAdmission},
-		{name: "element default", fn: ValidateElementDeclValueConstraintAdmission, hasDefault: true},
-		{name: "element fixed", fn: ValidateElementDeclValueConstraintAdmission, hasFixed: true},
+		{name: "element default", fn: ValidateElementDeclValueConstraintAdmission, constraint: runtime.DeclarationValueConstraintDefault},
+		{name: "element fixed", fn: ValidateElementDeclValueConstraintAdmission, constraint: runtime.DeclarationValueConstraintFixed},
 		{
 			name:       "element both",
 			fn:         ValidateElementDeclValueConstraintAdmission,
-			hasDefault: true,
-			hasFixed:   true,
+			constraint: runtime.DeclarationValueConstraintConflict,
 			wantErr:    "element cannot have both default and fixed",
 		},
+		{
+			name:       "element unknown",
+			fn:         ValidateElementDeclValueConstraintAdmission,
+			constraint: runtime.DeclarationValueConstraint(99),
+			wantErr:    "element declaration has unknown value constraint",
+		},
 		{name: "attribute absent", fn: ValidateAttributeDeclValueConstraintAdmission},
-		{name: "attribute default", fn: ValidateAttributeDeclValueConstraintAdmission, hasDefault: true},
-		{name: "attribute fixed", fn: ValidateAttributeDeclValueConstraintAdmission, hasFixed: true},
+		{name: "attribute default", fn: ValidateAttributeDeclValueConstraintAdmission, constraint: runtime.DeclarationValueConstraintDefault},
+		{name: "attribute fixed", fn: ValidateAttributeDeclValueConstraintAdmission, constraint: runtime.DeclarationValueConstraintFixed},
 		{
 			name:       "attribute both",
 			fn:         ValidateAttributeDeclValueConstraintAdmission,
-			hasDefault: true,
-			hasFixed:   true,
+			constraint: runtime.DeclarationValueConstraintConflict,
 			wantErr:    "attribute cannot have both default and fixed",
+		},
+		{
+			name:       "attribute unknown",
+			fn:         ValidateAttributeDeclValueConstraintAdmission,
+			constraint: runtime.DeclarationValueConstraint(99),
+			wantErr:    "attribute declaration has unknown value constraint",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tt.fn(tt.hasDefault, tt.hasFixed)
+			err := tt.fn(tt.constraint)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("admission validator error = %v", err)

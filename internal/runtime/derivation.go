@@ -112,23 +112,24 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []SimpleType, 
 	if err != nil {
 		return err
 	}
-	var simpleOK bool
-	r.simpleIn, r.simpleOut, _, simpleOK = buildDerivationForest(simpleParents)
+	simpleForest, simpleOK := buildDerivationForest(simpleParents)
 	if !simpleOK {
 		return errors.New("simple type derivation graph contains a cycle")
 	}
+	r.simpleIn = simpleForest.in
+	r.simpleOut = simpleForest.out
 	complexParents, err := complexDerivationParents(simpleTypes, complexTypes)
 	if err != nil {
 		return err
 	}
-	var order []int
-	var complexOK bool
-	r.complexIn, r.complexOut, order, complexOK = buildDerivationForest(complexParents)
+	complexForest, complexOK := buildDerivationForest(complexParents)
 	if !complexOK {
 		return errors.New("complex type derivation graph contains a cycle")
 	}
+	r.complexIn = complexForest.in
+	r.complexOut = complexForest.out
 	initializeComplexDerivationIndex(r, len(complexTypes))
-	return populateComplexDerivationIndex(r, complexTypes, complexParents, order)
+	return populateComplexDerivationIndex(r, complexTypes, complexParents, complexForest.order)
 }
 
 func simpleDerivationParents(types []SimpleType) ([]int, error) {
@@ -218,10 +219,16 @@ type derivationForestFrame struct {
 	child int
 }
 
-func buildDerivationForest(parents []int) (in, out []uint32, order []int, ok bool) {
+type derivationForest struct {
+	in    []uint32
+	out   []uint32
+	order []int
+}
+
+func buildDerivationForest(parents []int) (derivationForest, bool) {
 	firstChild, nextSibling, ok := derivationForestChildren(parents)
 	if !ok {
-		return nil, nil, nil, false
+		return derivationForest{}, false
 	}
 	audit := derivationForestAudit{
 		firstChild:  firstChild,
@@ -234,18 +241,18 @@ func buildDerivationForest(parents []int) (in, out []uint32, order []int, ok boo
 	}
 	for i, parent := range parents {
 		if parent < 0 && audit.state[i] == 0 && !audit.visit(i) {
-			return nil, nil, nil, false
+			return derivationForest{}, false
 		}
 	}
 	if slices.Contains(audit.state, uint8(0)) {
-		return nil, nil, nil, false
+		return derivationForest{}, false
 	}
-	return audit.in, audit.out, audit.order, true
+	return derivationForest{in: audit.in, out: audit.out, order: audit.order}, true
 }
 
-func derivationForestChildren(parents []int) ([]int, []int, bool) {
-	firstChild := make([]int, len(parents))
-	nextSibling := make([]int, len(parents))
+func derivationForestChildren(parents []int) (firstChild, nextSibling []int, valid bool) {
+	firstChild = make([]int, len(parents))
+	nextSibling = make([]int, len(parents))
 	for i := range firstChild {
 		firstChild[i] = -1
 		nextSibling[i] = -1
@@ -379,7 +386,7 @@ type TypeDerivationRuntime interface {
 
 // TypeDerivationMask reports the derivation steps used by derived to derive from base.
 func TypeDerivationMask[T TypeDerivationRuntime](rt T, derived, base TypeID) (DerivationMask, bool) {
-	mask, ok, err := typeDerivationMask(rt, derived, base, unboundedTypeDerivationWork)
+	mask, ok, err := deriveTypeMask(rt, derived, base, unboundedTypeDerivationWork)
 	if err != nil {
 		return 0, false
 	}
@@ -388,7 +395,7 @@ func TypeDerivationMask[T TypeDerivationRuntime](rt T, derived, base TypeID) (De
 
 func unboundedTypeDerivationWork(int) error { return nil }
 
-func typeDerivationMask[T TypeDerivationRuntime](
+func deriveTypeMask[T TypeDerivationRuntime](
 	rt T,
 	derived, base TypeID,
 	work func(int) error,
@@ -659,7 +666,7 @@ func (r TypeDerivationRead) simpleUnionCandidate(
 	derived, candidate SimpleTypeID,
 	generation uint32,
 	scratch *TypeDerivationScratch,
-) ([]SimpleTypeID, bool, bool) {
+) (stack []SimpleTypeID, found, valid bool) {
 	index := r.index
 	if !ValidSimpleTypeID(candidate, len(index.simpleIn)) {
 		return nil, false, false
@@ -778,9 +785,11 @@ func derivationKindMask(kind DerivationKind) DerivationMask {
 		return DerivationExtension
 	case DerivationKindRestriction:
 		return DerivationRestriction
-	default:
+	case DerivationKindNone:
 		return 0
+	default:
 	}
+	return 0
 }
 
 func complexSimpleTypeDerivationMask[T TypeDerivationRuntime](
@@ -937,16 +946,23 @@ func simpleTypeBaseChainDerivationMask[T TypeDerivationRuntime](
 ) (DerivationMask, bool, error) {
 	cycle := simpleTypeBaseChainCycle{anchor: derived, power: 1}
 	for {
-		nextID, next, found, valid, err := nextSimpleBaseDerivation(rt, derived, base, st, work, &cycle)
-		if err != nil || !valid {
+		step, err := nextSimpleBaseDerivation(rt, derived, base, st, work, &cycle)
+		if err != nil || !step.valid {
 			return 0, false, err
 		}
-		if found {
+		if step.found {
 			return DerivationRestriction, true, nil
 		}
-		derived = nextID
-		st = next
+		derived = step.id
+		st = step.typ
 	}
+}
+
+type simpleBaseDerivationStep struct {
+	typ   SimpleTypeDerivation
+	id    SimpleTypeID
+	found bool
+	valid bool
 }
 
 func nextSimpleBaseDerivation[T TypeDerivationRuntime](
@@ -955,25 +971,25 @@ func nextSimpleBaseDerivation[T TypeDerivationRuntime](
 	typ SimpleTypeDerivation,
 	work func(int) error,
 	cycle *simpleTypeBaseChainCycle,
-) (SimpleTypeID, SimpleTypeDerivation, bool, bool, error) {
+) (simpleBaseDerivationStep, error) {
 	if typ.Base == NoSimpleType || typ.Base == derived {
-		return NoSimpleType, SimpleTypeDerivation{}, false, false, nil
+		return simpleBaseDerivationStep{}, nil
 	}
 	next := typ.Base
 	if next == base {
-		return next, SimpleTypeDerivation{}, true, true, nil
+		return simpleBaseDerivationStep{id: next, found: true, valid: true}, nil
 	}
 	if cycle.repeats(next) {
-		return NoSimpleType, SimpleTypeDerivation{}, false, false, nil
+		return simpleBaseDerivationStep{}, nil
 	}
 	if err := work(1); err != nil {
-		return NoSimpleType, SimpleTypeDerivation{}, false, false, err
+		return simpleBaseDerivationStep{}, err
 	}
 	nextType, ok := rt.SimpleTypeDerivation(next)
 	if !ok {
-		return NoSimpleType, SimpleTypeDerivation{}, false, false, nil
+		return simpleBaseDerivationStep{}, nil
 	}
-	return next, nextType, false, true, nil
+	return simpleBaseDerivationStep{id: next, typ: nextType, valid: true}, nil
 }
 
 type simpleTypeBaseChainCycle struct {
@@ -1073,13 +1089,13 @@ func (s *simpleTypeUnionDerivationSearch[T]) advance() (bool, error) {
 func (s *simpleTypeUnionDerivationSearch[T]) frameTypes(
 	last int,
 	frame *simpleTypeDerivationFrame,
-) (SimpleTypeDerivation, SimpleTypeDerivation, bool) {
+) (derived, base SimpleTypeDerivation, valid bool) {
 	derived, ok := s.rt.SimpleTypeDerivation(frame.derived)
 	if !ok {
 		s.pop(last)
 		return SimpleTypeDerivation{}, SimpleTypeDerivation{}, false
 	}
-	base, ok := s.rt.SimpleTypeDerivation(frame.base)
+	base, ok = s.rt.SimpleTypeDerivation(frame.base)
 	if !ok {
 		s.pop(last)
 		return SimpleTypeDerivation{}, SimpleTypeDerivation{}, false
@@ -1135,7 +1151,7 @@ func (s *simpleTypeUnionDerivationSearch[T]) visitMember(
 func (s *simpleTypeUnionDerivationSearch[T]) visitBase(
 	frame *simpleTypeDerivationFrame,
 	derived SimpleTypeDerivation,
-) (bool, bool) {
+) (found, handled bool) {
 	if derived.Base == NoSimpleType || derived.Base == frame.derived {
 		return false, false
 	}
@@ -1175,37 +1191,42 @@ func complexTypeDerivationMask[T TypeDerivationRuntime](
 ) (DerivationMask, bool, error) {
 	var mask DerivationMask
 	for range rt.ComplexTypeCount() {
-		parent, stepMask, ok, err := complexParentDerivation(rt, derived, work)
+		step, ok, err := complexParentDerivation(rt, derived, work)
 		if err != nil {
 			return 0, false, err
 		}
 		if !ok {
 			return 0, false, nil
 		}
-		mask |= stepMask
-		if parent == base {
+		mask |= step.mask
+		if step.parent == base {
 			return mask, true, nil
 		}
-		derived = parent
+		derived = step.parent
 	}
 	return 0, false, nil
+}
+
+type complexParentDerivationStep struct {
+	parent ComplexTypeID
+	mask   DerivationMask
 }
 
 func complexParentDerivation[T TypeDerivationRuntime](
 	rt T,
 	derived ComplexTypeID,
 	work func(int) error,
-) (ComplexTypeID, DerivationMask, bool, error) {
+) (complexParentDerivationStep, bool, error) {
 	if err := work(1); err != nil {
-		return 0, 0, false, err
+		return complexParentDerivationStep{}, false, err
 	}
 	typ, ok := rt.ComplexTypeDerivation(derived)
 	if !ok {
-		return 0, 0, false, nil
+		return complexParentDerivationStep{}, false, nil
 	}
 	parent, ok := typ.Base.Complex()
 	if !ok {
-		return 0, 0, false, nil
+		return complexParentDerivationStep{}, false, nil
 	}
-	return parent, derivationKindMask(typ.Kind), true, nil
+	return complexParentDerivationStep{parent: parent, mask: derivationKindMask(typ.Kind)}, true, nil
 }

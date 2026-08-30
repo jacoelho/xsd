@@ -104,9 +104,9 @@ func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var source bytes.Buffer
-	source.WriteString("<root/>")
-	callerReader := bufio.NewReaderSize(&source, 128*1024)
+	var input bytes.Buffer
+	input.WriteString("<root/>")
+	callerReader := bufio.NewReaderSize(&input, 128*1024)
 	if err = session.Validate(callerReader); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	source.WriteString("sentinel")
+	input.WriteString("sentinel")
 	got, err := callerReader.ReadString('l')
 	if err != nil {
 		t.Fatalf("caller reader was reset by session reuse: %v", err)
@@ -229,6 +229,7 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.doc.errors = make([]error, 1, maxRetainedSliceCap+1)
 	s.doc.ns = xmlns.NewStackWithCapacity(maxRetainedSliceCap+1, maxRetainedSliceCap+1)
 	s.doc.elements = make([]xmlDocumentElement[frame], 1, maxRetainedSliceCap+1)
+	s.doc.elements[0].pathMode = xmlPathLexical
 	s.doc.text = make([]byte, 1, maxRetainedBufferCap+1)
 	s.doc.identity.path = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
@@ -264,7 +265,7 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	var s session
 	s.doc.elements = make([]xmlDocumentElement[frame], 0, maxRetainedSliceCap)
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "stale"}}, false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "stale"}}, frame{})
 	s.doc.pathText = "stale"
 	s.doc.pathTextDepth = 1
 
@@ -290,8 +291,8 @@ func staleSchemaLocationHintName() xml.Name {
 
 func TestSessionPathStringMaterializesLazily(t *testing.T) {
 	var s session
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, false, frame{})
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "row"}}, false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "row"}}, frame{})
 
 	if s.doc.pathText != "" {
 		t.Fatal("pushPath materialized path text")
@@ -306,11 +307,11 @@ func TestSessionPathStringMaterializesLazily(t *testing.T) {
 
 func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 	var s session
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, frame{})
 	if got := s.doc.PathString(); got != "/root" {
 		t.Fatalf("pathString() = %q, want /root", got)
 	}
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "child"}}, false, frame{})
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "child"}}, frame{})
 	if got := s.doc.PathString(); got != "/root/child" {
 		t.Fatalf("pathString() = %q, want /root/child", got)
 	}
@@ -339,7 +340,7 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	const depth = 128
-	doc := nestedIdentityDocument(depth, true)
+	doc := nestedIdentityDocument(depth, nestedIdentityDocumentComplete)
 
 	t.Run("completed document", func(t *testing.T) {
 		session, err := newSessionForTest(rt, Options{})
@@ -357,7 +358,7 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := session.Validate(strings.NewReader(nestedIdentityDocument(depth, false))); err == nil {
+		if err := session.Validate(strings.NewReader(nestedIdentityDocument(depth, nestedIdentityDocumentUnclosed))); err == nil {
 			t.Fatal("Validate() succeeded for unclosed document")
 		}
 		assertReusableSessionReset(t, session)
@@ -368,13 +369,20 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 	})
 }
 
-func nestedIdentityDocument(depth int, closeElements bool) string {
+type nestedIdentityDocumentState uint8
+
+const (
+	nestedIdentityDocumentUnclosed nestedIdentityDocumentState = iota
+	nestedIdentityDocumentComplete
+)
+
+func nestedIdentityDocument(depth int, state nestedIdentityDocumentState) string {
 	var b strings.Builder
 	b.WriteString("<root>")
 	for i := range depth {
 		fmt.Fprintf(&b, `<a id="%d">`, i)
 	}
-	if closeElements {
+	if state == nestedIdentityDocumentComplete {
 		for range depth {
 			b.WriteString("</a>")
 		}

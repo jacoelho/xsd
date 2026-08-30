@@ -133,10 +133,10 @@ func BenchmarkSessionValidateNamespaceAdmissionChurn(b *testing.B) {
 		b.Fatal(err)
 	}
 	for _, depth := range []int{16, 64, 256} {
-		for _, churn := range []bool{false, true} {
-			name := fmt.Sprintf("depth_%d/churn_%t", depth, churn)
+		for _, mode := range []namespaceAdmissionBenchmarkMode{namespaceAdmissionStable, namespaceAdmissionChurn} {
+			name := fmt.Sprintf("depth_%d/%s", depth, mode)
 			b.Run(name, func(b *testing.B) {
-				doc := namespaceAdmissionBenchmarkDocument(depth, churn)
+				doc := namespaceAdmissionBenchmarkDocument(depth, mode)
 				session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth})
 				if err != nil {
 					b.Fatal(err)
@@ -157,11 +157,25 @@ func BenchmarkSessionValidateNamespaceAdmissionChurn(b *testing.B) {
 	}
 }
 
-func namespaceAdmissionBenchmarkDocument(depth int, churn bool) string {
+type namespaceAdmissionBenchmarkMode uint8
+
+const (
+	namespaceAdmissionStable namespaceAdmissionBenchmarkMode = iota
+	namespaceAdmissionChurn
+)
+
+func (m namespaceAdmissionBenchmarkMode) String() string {
+	if m == namespaceAdmissionChurn {
+		return "churn_true"
+	}
+	return "churn_false"
+}
+
+func namespaceAdmissionBenchmarkDocument(depth int, mode namespaceAdmissionBenchmarkMode) string {
 	var doc strings.Builder
 	for i := range depth {
 		doc.WriteString("<e")
-		if churn {
+		if mode == namespaceAdmissionChurn {
 			doc.WriteString(` xmlns:p`)
 			doc.WriteString(strconv.Itoa(i))
 			doc.WriteString(`="urn:`)

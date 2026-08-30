@@ -12,10 +12,10 @@ import (
 func TestValidateIdentityConstraintNameSource(t *testing.T) {
 	t.Parallel()
 
-	if err := ValidateIdentityConstraintNameSource(true); err != nil {
-		t.Fatalf("ValidateIdentityConstraintNameSource(true) error = %v", err)
+	if err := ValidateIdentityConstraintNameSource(LexicalAttribute{Value: "name", Present: true}); err != nil {
+		t.Fatalf("ValidateIdentityConstraintNameSource(present) error = %v", err)
 	}
-	err := ValidateIdentityConstraintNameSource(false)
+	err := ValidateIdentityConstraintNameSource(LexicalAttribute{})
 	expectSchemaIdentityMessage(t, err, "identity constraint missing name")
 }
 
@@ -37,7 +37,10 @@ func TestValidateIdentityConstraintReferSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateIdentityConstraintReferSource(tt.local, tt.hasRefer)
+			err := ValidateIdentityConstraintReferSource(IdentityConstraintReferSource{
+				Local: tt.local,
+				Refer: LexicalAttribute{Present: tt.hasRefer},
+			})
 			if tt.wantMessage == "" {
 				if err != nil {
 					t.Fatalf("ValidateIdentityConstraintReferSource() error = %v", err)

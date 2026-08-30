@@ -51,7 +51,7 @@ func (c *compiler) simpleValueFacets(id runtime.SimpleTypeID) (runtime.SimpleVal
 	return c.readSimpleFacets(id)
 }
 
-func (c *compiler) stringEnumerationContains(id runtime.SimpleTypeID, canonical string) (bool, bool) {
+func (c *compiler) stringEnumerationContains(id runtime.SimpleTypeID, canonical string) (contains, valid bool) {
 	return c.rt.StringEnumerationContains(id, canonical)
 }
 

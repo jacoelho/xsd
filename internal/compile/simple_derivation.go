@@ -35,12 +35,8 @@ func CheckSimpleTypeFinalAllows(final, derivation runtime.DerivationMask, role S
 	return nil
 }
 
-// checkSimpleListItemType rejects list item types whose graph reaches a list.
-func checkSimpleListItemType(reachesList bool) error {
-	if reachesList {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "list item type cannot be a list type")
-	}
-	return nil
+func simpleListItemListReachError() error {
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "list item type cannot be a list type")
 }
 
 type simpleTypeListReachState uint8
@@ -116,20 +112,21 @@ func (a *simpleTypeListReachAudit) advance() bool {
 		return true
 	}
 	if typ.Variety != runtime.SimpleVarietyUnion || frame.next == len(typ.Union) {
-		a.complete(last, frame.id, frame.unstable)
+		a.complete(last)
 		return false
 	}
 	return a.visitMember(frame, typ.Union[frame.next])
 }
 
-func (a *simpleTypeListReachAudit) complete(last int, id runtime.SimpleTypeID, unstable bool) {
-	if unstable {
-		a.owner.state[id] = simpleTypeListReachUnchecked
+func (a *simpleTypeListReachAudit) complete(last int) {
+	frame := a.stack[last]
+	if frame.unstable {
+		a.owner.state[frame.id] = simpleTypeListReachUnchecked
 	} else {
-		a.owner.state[id] = simpleTypeListReachChecked
+		a.owner.state[frame.id] = simpleTypeListReachChecked
 	}
 	a.stack = a.stack[:last]
-	if unstable && len(a.stack) != 0 {
+	if frame.unstable && len(a.stack) != 0 {
 		a.stack[len(a.stack)-1].unstable = true
 	}
 }

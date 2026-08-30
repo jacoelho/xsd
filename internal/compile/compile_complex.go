@@ -8,6 +8,25 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+type complexTypeScope uint8
+
+const (
+	complexTypeScopeInvalid complexTypeScope = iota
+	complexTypeScopeGlobal
+	complexTypeScopeAnonymous
+)
+
+func validateComplexTypeScope(scope complexTypeScope) error {
+	switch scope {
+	case complexTypeScopeGlobal, complexTypeScopeAnonymous:
+		return nil
+	case complexTypeScopeInvalid:
+		return xsderrors.InternalInvariant("invalid complex type compilation scope")
+	default:
+		return xsderrors.InternalInvariant("unknown complex type compilation scope")
+	}
+}
+
 func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID, error) {
 	label := c.rt.formatName(q)
 	if err := c.rejectComplexTypeCycle(q, label); err != nil {
@@ -24,8 +43,8 @@ func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID
 	if id, ok := c.complexDone[q]; ok {
 		return id, nil
 	}
-	if err := CheckSchemaComponentExists(SchemaComponentComplexType, exists, label); err != nil {
-		return runtime.NoComplexType, err
+	if !exists {
+		return runtime.NoComplexType, SchemaComponentMissingError(SchemaComponentComplexType, label)
 	}
 	leave, err := c.enterComponent(raw.node)
 	if err != nil {
@@ -39,7 +58,7 @@ func (c *compiler) compileComplexByQName(q runtime.QName) (runtime.ComplexTypeID
 		return runtime.NoComplexType, err
 	}
 	c.complexDone[q] = id
-	ct, err := c.compileComplexType(raw.node, raw.ctx, q, false)
+	ct, err := c.compileComplexType(raw.node, raw.ctx, q, complexTypeScopeGlobal)
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
@@ -53,7 +72,7 @@ func (c *compiler) rejectComplexTypeCycle(q runtime.QName, label string) error {
 	if !c.compilingComplex[q] {
 		return nil
 	}
-	err := CheckSchemaComponentCycle(SchemaComponentComplexType, true, label)
+	err := SchemaComponentCycleError(SchemaComponentComplexType, label)
 	if raw, ok := c.complexRaw[q]; ok {
 		return withSchemaCompileLocation(raw.node, err)
 	}
@@ -113,7 +132,7 @@ func (c *compiler) completeAnonymousComplex(id runtime.ComplexTypeID, q runtime.
 		return runtime.NoComplexType, err
 	}
 	defer leave()
-	ct, err := c.compileComplexType(n, ctx, q, true)
+	ct, err := c.compileComplexType(n, ctx, q, complexTypeScopeAnonymous)
 	if err != nil {
 		return runtime.NoComplexType, err
 	}
@@ -195,63 +214,87 @@ func schemaBoolAttrDefault(n *rawNode, name string, def bool) (bool, error) {
 	return parsed, nil
 }
 
-func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name runtime.QName, anonymous bool) (runtime.ComplexType, error) {
+func schemaComplexContentKind(n *rawNode, defaultKind runtime.ContentKind) (runtime.ContentKind, error) {
+	var defaultMixed bool
+	switch defaultKind {
+	case runtime.ContentElementOnly:
+	case runtime.ContentMixed:
+		defaultMixed = true
+	case runtime.ContentSimple, runtime.ContentSimpleMixed:
+		return runtime.ContentElementOnly, xsderrors.InternalInvariant("complex content inherited a simple content kind")
+	default:
+		return runtime.ContentElementOnly, xsderrors.InternalInvariant("complex content inherited an unknown content kind")
+	}
+	mixed, err := schemaBoolAttrDefault(n, vocab.XSDAttrMixed, defaultMixed)
+	if err != nil {
+		return runtime.ContentElementOnly, err
+	}
+	if mixed {
+		return runtime.ContentMixed, nil
+	}
+	return runtime.ContentElementOnly, nil
+}
+
+func (c *compiler) compileComplexType(n *rawNode, ctx *schemaContext, name runtime.QName, scope complexTypeScope) (runtime.ComplexType, error) {
+	if err := validateComplexTypeScope(scope); err != nil {
+		return runtime.ComplexType{}, err
+	}
 	if err := checkComplexTypeChildren(n); err != nil {
 		return runtime.ComplexType{}, err
 	}
-	ct, mixed, err := c.newComplexType(n, ctx, name)
+	ct, err := c.newComplexType(n, ctx, name)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
 	if complexContent := n.firstXS(vocab.XSDElemComplexContent); complexContent != nil {
-		return c.compileComplexContent(complexContent, ctx, ct, anonymous)
+		return c.compileComplexContent(complexContent, ctx, ct, scope)
 	}
 	if simpleContent := n.firstXS(vocab.XSDElemSimpleContent); simpleContent != nil {
-		return c.compileSimpleContent(simpleContent, ctx, ct, anonymous)
+		return c.compileSimpleContent(simpleContent, ctx, ct, scope)
 	}
-	return c.compileDirectComplexType(n, ctx, ct, mixed)
+	return c.compileDirectComplexType(n, ctx, ct)
 }
 
-func (c *compiler) newComplexType(n *rawNode, ctx *schemaContext, name runtime.QName) (runtime.ComplexType, bool, error) {
-	mixed, err := schemaBoolAttr(n, vocab.XSDAttrMixed)
+func (c *compiler) newComplexType(n *rawNode, ctx *schemaContext, name runtime.QName) (runtime.ComplexType, error) {
+	contentKind, err := schemaComplexContentKind(n, runtime.ContentElementOnly)
 	if err != nil {
-		return runtime.ComplexType{}, false, err
+		return runtime.ComplexType{}, err
 	}
 	abstract, err := schemaBoolAttr(n, vocab.XSDAttrAbstract)
 	if err != nil {
-		return runtime.ComplexType{}, false, err
+		return runtime.ComplexType{}, err
 	}
 	block, err := complexBlockMaskWithDefault(n, ctx.blockDefault)
 	if err != nil {
-		return runtime.ComplexType{}, false, err
+		return runtime.ComplexType{}, err
 	}
 	ct := runtime.ComplexType{
 		Name:        name,
 		Content:     runtime.NoContentModel,
 		Attrs:       runtime.NoAttributeUseSet,
 		TextType:    runtime.NoSimpleType,
-		ContentKind: runtime.ElementContentKind(mixed),
+		ContentKind: contentKind,
 		Abstract:    abstract,
 		Base:        runtime.ComplexRef(c.rt.builtinIDs().AnyType),
 		Derivation:  runtime.DerivationKindRestriction,
 		Block:       block,
 	}
-	return ct, mixed, nil
+	return ct, nil
 }
 
-func (c *compiler) compileDirectComplexType(n *rawNode, ctx *schemaContext, ct runtime.ComplexType, mixed bool) (runtime.ComplexType, error) {
+func (c *compiler) compileDirectComplexType(n *rawNode, ctx *schemaContext, ct runtime.ComplexType) (runtime.ComplexType, error) {
 	content, err := c.compileDirectComplexModel(n, ctx)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
 	ct.Content = content
 	if ct.Content == runtime.NoContentModel {
-		ct.Content, err = c.addModel(runtime.ContentModel{Kind: runtime.ModelEmpty, Mixed: mixed})
+		ct.Content, err = c.addModel(runtime.ContentModel{Kind: runtime.ModelEmpty, Mixed: ct.Mixed()})
 		if err != nil {
 			return runtime.ComplexType{}, err
 		}
 	}
-	attrs, err := c.compileAttributeUses(n, ctx, nil, runtime.NoWildcard, AttributeMergeNormal)
+	attrs, err := c.compileAttributeUses(n, ctx, nil, runtime.NoWildcard, AttributeMergeDirect)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
@@ -289,25 +332,25 @@ func (c *compiler) compileDirectComplexModelChild(child *rawNode, ctx *schemaCon
 	}
 }
 
-func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct runtime.ComplexType, anonymous bool) (runtime.ComplexType, error) {
+func (c *compiler) compileComplexContent(n *rawNode, ctx *schemaContext, ct runtime.ComplexType, scope complexTypeScope) (runtime.ComplexType, error) {
 	source, err := checkComplexContentSyntax(n)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
-	mixed, err := schemaBoolAttrDefault(n, vocab.XSDAttrMixed, ct.Mixed())
+	contentKind, err := schemaComplexContentKind(n, ct.ContentKind)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
-	return c.compileComplexContentDerivation(source.node, source.kind, ctx, ct, mixed, anonymous)
+	return c.compileComplexContentDerivation(source.node, source.kind, ctx, ct, contentKind, scope)
 }
 
-func (c *compiler) compileComplexContentDerivation(child *rawNode, kind ContentDerivationKind, ctx *schemaContext, ct runtime.ComplexType, mixed, anonymous bool) (runtime.ComplexType, error) {
-	baseID, base, err := c.complexContentBase(child, kind, ctx, anonymous)
+func (c *compiler) compileComplexContentDerivation(child *rawNode, kind ContentDerivationKind, ctx *schemaContext, ct runtime.ComplexType, contentKind runtime.ContentKind, scope complexTypeScope) (runtime.ComplexType, error) {
+	baseID, base, err := c.complexContentBase(child, kind, ctx, scope)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
 	extension := kind == ContentDerivationExtension
-	if err := c.validateComplexContentMixedDerivationBase(child, base, extension, mixed); err != nil {
+	if err := c.validateComplexContentMixedDerivationBase(child, base, kind, contentKind); err != nil {
 		return runtime.ComplexType{}, err
 	}
 	ct.Base = runtime.ComplexRef(baseID)
@@ -315,21 +358,21 @@ func (c *compiler) compileComplexContentDerivation(child *rawNode, kind ContentD
 		if err := checkComplexContentExtensionChildren(child); err != nil {
 			return runtime.ComplexType{}, err
 		}
-		return c.compileComplexContentExtension(child, ctx, ct, baseID, base, mixed)
+		return c.compileComplexContentExtension(child, ctx, ct, baseID, base, contentKind)
 	}
 	if err := checkComplexContentRestrictionChildren(child); err != nil {
 		return runtime.ComplexType{}, err
 	}
-	return c.compileComplexContentRestriction(child, ctx, ct, base, mixed)
+	return c.compileComplexContentRestriction(child, ctx, ct, base, contentKind)
 }
 
-func (c *compiler) complexContentBase(child *rawNode, kind ContentDerivationKind, ctx *schemaContext, anonymous bool) (runtime.ComplexTypeID, runtime.ComplexType, error) {
+func (c *compiler) complexContentBase(child *rawNode, kind ContentDerivationKind, ctx *schemaContext, scope complexTypeScope) (runtime.ComplexTypeID, runtime.ComplexType, error) {
 	baseQName, err := c.contentDerivationBaseQName(vocab.XSDElemComplexContent, kind, child, ctx)
 	if err != nil {
 		return runtime.NoComplexType, runtime.ComplexType{}, err
 	}
-	if c.compilingComplex[baseQName] && !anonymous {
-		cycleErr := CheckSchemaComponentCycle(SchemaComponentComplexType, true, c.rt.formatName(baseQName))
+	if c.compilingComplex[baseQName] && scope == complexTypeScopeGlobal {
+		cycleErr := SchemaComponentCycleError(SchemaComponentComplexType, c.rt.formatName(baseQName))
 		return runtime.NoComplexType, runtime.ComplexType{}, withSchemaCompileLocation(child, cycleErr)
 	}
 	baseID, err := c.compileComplexByQName(baseQName)
@@ -341,41 +384,45 @@ func (c *compiler) complexContentBase(child *rawNode, kind ContentDerivationKind
 
 func (c *compiler) contentDerivationBaseQName(container string, kind ContentDerivationKind, child *rawNode, ctx *schemaContext) (runtime.QName, error) {
 	baseLex, ok := child.attr(vocab.XSDAttrBase)
-	if err := checkContentDerivationBase(container, kind, child, ok); err != nil {
+	base := ContentDerivationBase{Container: container, Derivation: kind.String(), Lexical: baseLex, Present: ok}
+	if err := checkContentDerivationBase(child, base); err != nil {
 		return runtime.QName{}, err
 	}
-	return c.resolveQNameChecked(child, ctx, baseLex)
+	return c.resolveQNameChecked(child, ctx, base.Lexical)
 }
 
-func (c *compiler) compileComplexContentExtension(child *rawNode, ctx *schemaContext, ct runtime.ComplexType, baseID runtime.ComplexTypeID, base runtime.ComplexType, mixed bool) (runtime.ComplexType, error) {
+func (c *compiler) compileComplexContentExtension(child *rawNode, ctx *schemaContext, ct runtime.ComplexType, baseID runtime.ComplexTypeID, base runtime.ComplexType, contentKind runtime.ContentKind) (runtime.ComplexType, error) {
 	if err := CheckComplexTypeFinalAllows(base.Final, runtime.DerivationExtension, ComplexTypeFinalBaseExtension); err != nil {
 		return runtime.ComplexType{}, withSchemaCompileLocation(child, err)
 	}
 	if base.SimpleContent() {
-		return c.compileSimpleValueComplexExtension(child, ctx, ct, base, mixed)
+		return c.compileSimpleValueComplexExtension(child, ctx, ct, base, contentKind)
 	}
 	ct.Derivation = runtime.DerivationKindExtension
 	ct.ExplicitDerivation = true
 	ct.Content = base.Content
 	ct.Attrs = base.Attrs
 	if modelNode := firstModelChild(child); modelNode != nil {
-		content, err := c.compileComplexExtensionModel(modelNode, ctx, baseID, base, mixed)
+		content, err := c.compileComplexExtensionModel(modelNode, ctx, baseID, base, contentKind)
 		if err != nil {
 			return runtime.ComplexType{}, err
 		}
 		ct.Content = content
 	}
 	baseUses, baseWildcard := c.rt.attributeUsesAndWildcard(base.Attrs)
-	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, AttributeMergeNormal)
+	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, AttributeMergeExtension)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
 	ct.Attrs = attrs
-	ct.ContentKind = runtime.ElementContentKind(base.Mixed() || mixed)
+	ct.ContentKind = contentKind
+	if base.Mixed() {
+		ct.ContentKind = runtime.ContentMixed
+	}
 	return ct, nil
 }
 
-func (c *compiler) compileSimpleValueComplexExtension(child *rawNode, ctx *schemaContext, ct, base runtime.ComplexType, mixed bool) (runtime.ComplexType, error) {
+func (c *compiler) compileSimpleValueComplexExtension(child *rawNode, ctx *schemaContext, ct, base runtime.ComplexType, contentKind runtime.ContentKind) (runtime.ComplexType, error) {
 	if err := ValidateComplexExtensionContentAdmission(ComplexExtensionContentAdmission{
 		BaseSimpleContent: true,
 		HasModelChild:     firstModelChild(child) != nil,
@@ -383,7 +430,7 @@ func (c *compiler) compileSimpleValueComplexExtension(child *rawNode, ctx *schem
 		return runtime.ComplexType{}, withSchemaCompileLocation(child, err)
 	}
 	baseUses, baseWildcard := c.rt.attributeUsesAndWildcard(base.Attrs)
-	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, AttributeMergeNormal)
+	attrs, err := c.compileAttributeUses(child, ctx, baseUses, baseWildcard, AttributeMergeExtension)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
@@ -394,12 +441,15 @@ func (c *compiler) compileSimpleValueComplexExtension(child *rawNode, ctx *schem
 	}
 	ct.Attrs = attrs
 	ct.TextType = base.TextType
-	ct.ContentKind = runtime.SimpleContentKind(mixed)
+	ct.ContentKind = runtime.ContentSimple
+	if contentKind == runtime.ContentMixed {
+		ct.ContentKind = runtime.ContentSimpleMixed
+	}
 	ct.ExplicitDerivation = true
 	return ct, nil
 }
 
-func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaContext, baseID runtime.ComplexTypeID, base runtime.ComplexType, mixed bool) (runtime.ContentModelID, error) {
+func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaContext, baseID runtime.ComplexTypeID, base runtime.ComplexType, contentKind runtime.ContentKind) (runtime.ContentModelID, error) {
 	if err := validateModelOccurrence(modelNode, c.limits); err != nil {
 		return runtime.NoContentModel, err
 	}
@@ -407,7 +457,7 @@ func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaC
 	if err != nil {
 		return runtime.NoContentModel, err
 	}
-	if err := c.validateComplexExtensionModelAdmission(baseID, base, ext, mixed); err != nil {
+	if err := c.validateComplexExtensionModelAdmission(baseID, base, ext, contentKind); err != nil {
 		return runtime.NoContentModel, withSchemaCompileLocation(modelNode, err)
 	}
 	addAtModelNode := func(model runtime.ContentModel) (runtime.ContentModelID, error) {
@@ -416,14 +466,14 @@ func (c *compiler) compileComplexExtensionModel(modelNode *rawNode, ctx *schemaC
 	return ExtendSequenceModel(&c.rt, addAtModelNode, base.Content, ext)
 }
 
-func (c *compiler) validateComplexContentMixedDerivationBase(child *rawNode, base runtime.ComplexType, extension, mixed bool) error {
-	if err := CheckComplexContentMixedDerivationBase(&c.rt, base, extension, mixed); err != nil {
+func (c *compiler) validateComplexContentMixedDerivationBase(child *rawNode, base runtime.ComplexType, derivation ContentDerivationKind, content runtime.ContentKind) error {
+	if err := CheckComplexContentMixedDerivationBase(&c.rt, base, derivation, content); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
 	return nil
 }
 
-func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaContext, ct, base runtime.ComplexType, mixed bool) (runtime.ComplexType, error) {
+func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaContext, ct, base runtime.ComplexType, contentKind runtime.ContentKind) (runtime.ComplexType, error) {
 	if err := CheckComplexTypeFinalAllows(base.Final, runtime.DerivationRestriction, ComplexTypeFinalBaseRestriction); err != nil {
 		return runtime.ComplexType{}, withSchemaCompileLocation(child, err)
 	}
@@ -443,7 +493,7 @@ func (c *compiler) compileComplexContentRestriction(child *rawNode, ctx *schemaC
 		return runtime.ComplexType{}, err
 	}
 	ct.Attrs = attrs
-	ct.ContentKind = runtime.ElementContentKind(mixed)
+	ct.ContentKind = contentKind
 	return ct, nil
 }
 
@@ -458,7 +508,7 @@ func (c *compiler) compileComplexRestrictionModel(child *rawNode, ctx *schemaCon
 	return c.compileModel(modelNode, ctx)
 }
 
-func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct runtime.ComplexType, anonymous bool) (runtime.ComplexType, error) {
+func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct runtime.ComplexType, scope complexTypeScope) (runtime.ComplexType, error) {
 	source, err := c.resolveSimpleContentSource(n, ctx)
 	if err != nil {
 		return runtime.ComplexType{}, err
@@ -467,17 +517,18 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct runti
 	if c.simpleTypeQNameKnown(source.base) {
 		ct, textType, err = c.compileSimpleContentSimpleBase(source.child, source.kind, source.base, ct)
 	} else {
-		ct, textType, err = c.compileSimpleContentComplexBase(source.child, source.kind, source.base, ct, anonymous)
+		ct, textType, err = c.compileSimpleContentComplexBase(source.child, source.kind, source.base, ct, scope)
 	}
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
-	textType, mergeMode, derivation, err := c.compileSimpleContentDerivation(source, ctx, textType)
+	derivation, err := c.compileSimpleContentDerivation(source, ctx, textType)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
+	textType = derivation.textType
 	inheritedUses, inheritedWildcard := c.rt.attributeUsesAndWildcard(ct.Attrs)
-	attrs, err := c.compileAttributeUses(source.child, ctx, inheritedUses, inheritedWildcard, mergeMode)
+	attrs, err := c.compileAttributeUses(source.child, ctx, inheritedUses, inheritedWildcard, derivation.mergeMode)
 	if err != nil {
 		return runtime.ComplexType{}, err
 	}
@@ -490,8 +541,12 @@ func (c *compiler) compileSimpleContent(n *rawNode, ctx *schemaContext, ct runti
 	// xs:simpleContent has no mixed attribute; ct.Mixed() carries mixed="true"
 	// from the enclosing complexType element, which downstream complexContent
 	// mixed-derivation checks read.
-	ct.ContentKind = runtime.SimpleContentKind(ct.Mixed())
-	ct.Derivation = derivation
+	if ct.Mixed() {
+		ct.ContentKind = runtime.ContentSimpleMixed
+	} else {
+		ct.ContentKind = runtime.ContentSimple
+	}
+	ct.Derivation = derivation.kind
 	ct.ExplicitDerivation = true
 	return ct, nil
 }
@@ -502,34 +557,54 @@ type simpleContentSource struct {
 	kind  ContentDerivationKind
 }
 
+type simpleContentDerivation struct {
+	textType  runtime.SimpleTypeID
+	mergeMode AttributeMergeMode
+	kind      runtime.DerivationKind
+}
+
 func (c *compiler) resolveSimpleContentSource(n *rawNode, ctx *schemaContext) (simpleContentSource, error) {
 	syntax, err := checkSimpleContentSyntax(n)
 	if err != nil {
 		return simpleContentSource{}, err
 	}
 	baseLexical, ok := syntax.node.attr(vocab.XSDAttrBase)
-	if baseErr := checkContentDerivationBase(vocab.XSDElemSimpleContent, syntax.kind, syntax.node, ok); baseErr != nil {
+	baseAttribute := ContentDerivationBase{
+		Container:  vocab.XSDElemSimpleContent,
+		Derivation: syntax.kind.String(),
+		Lexical:    baseLexical,
+		Present:    ok,
+	}
+	if baseErr := checkContentDerivationBase(syntax.node, baseAttribute); baseErr != nil {
 		return simpleContentSource{}, baseErr
 	}
-	base, err := c.resolveQNameChecked(syntax.node, ctx, baseLexical)
+	base, err := c.resolveQNameChecked(syntax.node, ctx, baseAttribute.Lexical)
 	if err != nil {
 		return simpleContentSource{}, err
 	}
 	return simpleContentSource{child: syntax.node, base: base, kind: syntax.kind}, nil
 }
 
-func (c *compiler) compileSimpleContentDerivation(source simpleContentSource, ctx *schemaContext, textType runtime.SimpleTypeID) (runtime.SimpleTypeID, AttributeMergeMode, runtime.DerivationKind, error) {
+func (c *compiler) compileSimpleContentDerivation(source simpleContentSource, ctx *schemaContext, textType runtime.SimpleTypeID) (simpleContentDerivation, error) {
 	if source.kind != ContentDerivationRestriction {
 		if err := checkSimpleContentExtensionChildren(source.child); err != nil {
-			return runtime.NoSimpleType, AttributeMergeNormal, runtime.DerivationKindExtension, err
+			return simpleContentDerivation{}, err
 		}
-		return textType, AttributeMergeNormal, runtime.DerivationKindExtension, nil
+		return simpleContentDerivation{
+			textType:  textType,
+			mergeMode: AttributeMergeExtension,
+			kind:      runtime.DerivationKindExtension,
+		}, nil
 	}
 	if err := checkSimpleContentRestrictionChildren(source.child); err != nil {
-		return runtime.NoSimpleType, AttributeMergeRestriction, runtime.DerivationKindRestriction, err
+		return simpleContentDerivation{}, err
 	}
 	restricted, err := c.compileSimpleContentRestrictionType(source.child, ctx, textType)
-	return restricted, AttributeMergeRestriction, runtime.DerivationKindRestriction, err
+	return simpleContentDerivation{
+		textType:  restricted,
+		mergeMode: AttributeMergeRestriction,
+		kind:      runtime.DerivationKindRestriction,
+	}, err
 }
 
 func (c *compiler) compileSimpleContentSimpleBase(child *rawNode, kind ContentDerivationKind, baseQName runtime.QName, ct runtime.ComplexType) (runtime.ComplexType, runtime.SimpleTypeID, error) {
@@ -540,27 +615,27 @@ func (c *compiler) compileSimpleContentSimpleBase(child *rawNode, kind ContentDe
 	if err != nil {
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
-	if err := CheckSimpleBaseComplexExtensionFinalAllows(c.rt.simpleTypeFinal(simpleID)); err != nil {
+	if err := CheckSimpleBaseComplexExtensionFinalAllows(c.rt.simpleTypeFinalMask(simpleID)); err != nil {
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
 	ct.Base = runtime.SimpleRef(simpleID)
 	return ct, simpleID, nil
 }
 
-func (c *compiler) compileSimpleContentComplexBase(child *rawNode, kind ContentDerivationKind, baseQName runtime.QName, ct runtime.ComplexType, anonymous bool) (runtime.ComplexType, runtime.SimpleTypeID, error) {
-	if c.compilingComplex[baseQName] && !anonymous {
-		err := CheckSchemaComponentCycle(SchemaComponentComplexType, true, c.rt.formatName(baseQName))
+func (c *compiler) compileSimpleContentComplexBase(child *rawNode, kind ContentDerivationKind, baseQName runtime.QName, ct runtime.ComplexType, scope complexTypeScope) (runtime.ComplexType, runtime.SimpleTypeID, error) {
+	if c.compilingComplex[baseQName] && scope == complexTypeScopeGlobal {
+		err := SchemaComponentCycleError(SchemaComponentComplexType, c.rt.formatName(baseQName))
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
-	if err := CheckSimpleContentComplexBaseExists(c.complexTypeQNameKnown(baseQName)); err != nil {
-		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
+	if !c.complexTypeQNameKnown(baseQName) {
+		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, SimpleContentComplexBaseMissingError())
 	}
 	baseComplex, err := c.compileComplexByQName(baseQName)
 	if err != nil {
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
 	base := c.rt.complexType(baseComplex)
-	if err := CheckSimpleContentDerivationBase(c.contentAnalysis, base, kind == ContentDerivationRestriction); err != nil {
+	if err := CheckSimpleContentDerivationBase(c.contentAnalysis, base, kind); err != nil {
 		return runtime.ComplexType{}, runtime.NoSimpleType, withSchemaCompileLocation(child, err)
 	}
 	switch kind {
@@ -610,7 +685,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*rawNode
 	if err := CheckSimpleRestrictionBase(baseID, c.rt.builtinIDs().AnySimpleType); err != nil {
 		return runtime.NoSimpleType, withSchemaCompileLocation(facetChildren[0], err)
 	}
-	if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinal(baseID), runtime.DerivationRestriction, SimpleTypeFinalBaseRestriction); err != nil {
+	if err := CheckSimpleTypeFinalAllows(c.rt.simpleTypeFinalMask(baseID), runtime.DerivationRestriction, SimpleTypeFinalBaseRestriction); err != nil {
 		return runtime.NoSimpleType, withSchemaCompileLocation(facetChildren[0], err)
 	}
 	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", c.rt.SimpleTypeCount()))
@@ -619,7 +694,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*rawNode
 	}
 	st := c.rt.derivedSimpleType(baseID, q)
 	if c.simpleTypeUnavailable[baseID] {
-		err = c.validateUnavailableFacetChildren(facetChildren, &st, baseID, false)
+		err = c.validateUnavailableFacetChildren(facetChildren, &st, baseID, facetChildModeExplicitList)
 	} else {
 		err = c.compileFacetList(facetChildren, &st, baseID, baseID)
 	}

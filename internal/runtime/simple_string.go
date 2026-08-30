@@ -19,8 +19,14 @@ func ParseTextValue(kind PrimitiveKind, normalized string, needs PrimitiveValueN
 	case PrimitiveString:
 	case PrimitiveAnyURI:
 		return parseAnyURITextValue(normalized, needs)
-	default:
+	case PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveQName, PrimitiveNotation:
 		return TextValue{}, ErrSimpleValueMetadata
+	default:
+		err := ErrSimpleValueMetadata
+		return TextValue{}, err
 	}
 	value := TextValue{Canonical: normalized}
 	if needs.Has(PrimitiveNeedLength) {
@@ -60,8 +66,14 @@ func PrimitiveLength(kind PrimitiveKind, normalized string) (uint32, error) {
 		return anyURILength(normalized)
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
 		return BinaryLength(kind, normalized)
-	default:
+	case PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveQName, PrimitiveNotation:
 		return 0, ErrSimpleValueMetadata
+	default:
+		err := ErrSimpleValueMetadata
+		return 0, err
 	}
 }
 

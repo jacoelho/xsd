@@ -82,22 +82,6 @@ func TestValueConstraintRead(t *testing.T) {
 	}
 }
 
-func TestAbsentValueConstraint(t *testing.T) {
-	t.Parallel()
-
-	fixed := NewValueConstraintRead("fixed", "fixed", SimpleValue{Canonical: "fixed", Type: 1})
-	def := NewValueConstraintRead("default", "default", SimpleValue{Canonical: "default", Type: 1})
-	if got, ok := AbsentValueConstraint(fixed, true, def, true); !ok || got.CanonicalText() != "fixed" {
-		t.Fatalf("AbsentValueConstraint(fixed/default) = %q, %v; want fixed, true", got.CanonicalText(), ok)
-	}
-	if got, ok := AbsentValueConstraint(ValueConstraintRead{}, false, def, true); !ok || got.CanonicalText() != "default" {
-		t.Fatalf("AbsentValueConstraint(default) = %q, %v; want default, true", got.CanonicalText(), ok)
-	}
-	if got, ok := AbsentValueConstraint(ValueConstraintRead{}, false, ValueConstraintRead{}, false); ok || got != (ValueConstraintRead{}) {
-		t.Fatalf("AbsentValueConstraint(absent) = %+v, %v; want zero, false", got, ok)
-	}
-}
-
 func TestElementValueConstraintsRead(t *testing.T) {
 	t.Parallel()
 
@@ -431,15 +415,18 @@ func TestFixedAttributeValueEqualDistinguishesConstraintOwner(t *testing.T) {
 		SimpleValue{Canonical: "P1Y", Identity: "duration:12-months", Type: 1},
 	)
 	actual := SimpleValue{Canonical: "P12M", Identity: "duration:12-months", Type: 1}
-	if equal, valid := FixedAttributeValueEqual(actual, fixed, false); equal || !valid {
+	if equal, valid := FixedAttributeValueEqual(actual, fixed, FixedAttributeComparisonLexical); equal || !valid {
 		t.Fatalf("use-owned equality = %v, %v, want false, true", equal, valid)
 	}
-	if equal, valid := FixedAttributeValueEqual(actual, fixed, true); !equal || !valid {
+	if equal, valid := FixedAttributeValueEqual(actual, fixed, FixedAttributeComparisonValueSpace); !equal || !valid {
 		t.Fatalf("declaration-owned equality = %v, %v, want true, true", equal, valid)
 	}
 	actual.Identity = ""
-	if equal, valid := FixedAttributeValueEqual(actual, fixed, true); equal || valid {
+	if equal, valid := FixedAttributeValueEqual(actual, fixed, FixedAttributeComparisonValueSpace); equal || valid {
 		t.Fatalf("missing identity equality = %v, %v, want false, false", equal, valid)
+	}
+	if equal, valid := FixedAttributeValueEqual(actual, fixed, FixedAttributeComparisonInvalid); equal || valid {
+		t.Fatalf("invalid comparison equality = %v, %v, want false, false", equal, valid)
 	}
 }
 
@@ -798,8 +785,9 @@ func TestValidateValueConstraintReplayResult(t *testing.T) {
 }
 
 type elementValueConstraintRuntimeStub struct {
-	complex map[ComplexTypeID]ValueConstraintComplexType
 	testParticleRuntime
+
+	complex map[ComplexTypeID]ValueConstraintComplexType
 }
 
 func (s elementValueConstraintRuntimeStub) ValueConstraintComplexType(id ComplexTypeID) (ValueConstraintComplexType, bool) {

@@ -35,6 +35,28 @@ func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 	}
 }
 
+func TestXMLDocumentPathRejectsInvalidMode(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []xmlPathMode{xmlPathInvalid, xmlPathMode(99)} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Fatalf("PathString() accepted mode %d", mode)
+				}
+			}()
+			doc := emptyXMLDocument{
+				elements: []xmlDocumentElement[struct{}]{{
+					name:       xml.Name{Local: "root"},
+					pathLength: len("/root"),
+					pathMode:   mode,
+				}},
+			}
+			doc.PathString()
+		}()
+	}
+}
+
 func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 	var doc emptyXMLDocument
 	values := stream.NewCache()
@@ -61,7 +83,7 @@ func TestXMLDocumentStateEnforcesDepthLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareStart() error = %v", err)
 	}
-	doc.CommitStart(start, false, struct{}{})
+	doc.CommitStart(start, struct{}{})
 
 	_, err = prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "child"}), &values, 1, 4, 5)
 	requireCode(t, err, xsderrors.CodeValidationLimit)
@@ -77,7 +99,7 @@ func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start, false, struct{}{})
+	doc.CommitStart(start, struct{}{})
 	if endErr := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "a"}}, 1, 4); endErr != nil {
 		t.Fatal(endErr)
 	}
@@ -110,7 +132,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start, false, struct{}{})
+	doc.CommitStart(start, struct{}{})
 	err = doc.ValidateEnd(stream.EndElement{Name: xml.Name{Space: "q", Local: "root"}}, 4, 5)
 	if !strings.Contains(err.Error(), "end element </q:root> does not match start element <p:root>") {
 		t.Fatalf("ValidateEnd() error = %v", err)
@@ -129,7 +151,7 @@ func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start, false, struct{}{})
+	doc.CommitStart(start, struct{}{})
 	err = doc.Complete()
 	requireCode(t, err, xsderrors.CodeValidationXML)
 	if !strings.Contains(err.Error(), "unclosed element") {
@@ -231,7 +253,7 @@ func commitDocumentStart(t *testing.T, doc *emptyXMLDocument, values *stream.Cac
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.CommitStart(start, false, struct{}{})
+	doc.CommitStart(start, struct{}{})
 }
 
 func prepareXMLStartForTest(

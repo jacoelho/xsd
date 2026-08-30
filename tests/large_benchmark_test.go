@@ -717,7 +717,7 @@ func isCommandOutputSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\r' || b == '\n'
 }
 
-func logCommandMetrics(t *testing.T, label string, metrics commandMetrics, bytes int64) {
+func logCommandMetrics(t *testing.T, label string, metrics commandMetrics, inputBytes int64) {
 	t.Helper()
 	statistic := metrics.statistic
 	if statistic == "" {
@@ -729,7 +729,7 @@ func logCommandMetrics(t *testing.T, label string, metrics commandMetrics, bytes
 		statistic,
 		metrics.elapsed,
 		statistic,
-		throughputMiB(bytes, metrics.elapsed),
+		throughputMiB(inputBytes, metrics.elapsed),
 		statistic,
 		metrics.maxRSSBytes,
 	)
@@ -761,7 +761,7 @@ func maxCommandMetrics(samples []commandMetrics) commandMetrics {
 	return commandMetrics{statistic: "max", elapsed: summaryElapsed(samples, idx), maxRSSBytes: summaryRSS(samples, idx)}
 }
 
-func logLibraryCommandSamples(t *testing.T, samples []commandMetrics, bytes int64) {
+func logLibraryCommandSamples(t *testing.T, samples []commandMetrics, inputBytes int64) {
 	t.Helper()
 	for i, metrics := range samples {
 		t.Logf(
@@ -769,7 +769,7 @@ func logLibraryCommandSamples(t *testing.T, samples []commandMetrics, bytes int6
 			i+1,
 			formatBenchDuration(metrics.elapsed),
 			formatBenchBytes(metrics.maxRSSBytes),
-			throughputMiB(bytes, metrics.elapsed),
+			throughputMiB(inputBytes, metrics.elapsed),
 		)
 	}
 }
@@ -838,11 +838,11 @@ func largeBenchmarkStatistic(results []largeBenchmarkResult) string {
 	return "p95"
 }
 
-func throughputMiB(bytes int64, elapsed time.Duration) float64 {
+func throughputMiB(inputBytes int64, elapsed time.Duration) float64 {
 	if elapsed <= 0 {
 		return 0
 	}
-	return float64(bytes) / 1024 / 1024 / elapsed.Seconds()
+	return float64(inputBytes) / 1024 / 1024 / elapsed.Seconds()
 }
 
 func geomean(values []float64) float64 {
@@ -876,26 +876,26 @@ func formatBenchSeconds(seconds float64) string {
 	}
 }
 
-func formatBenchBytes(bytes uint64) string {
+func formatBenchBytes(inputBytes uint64) string {
 	switch {
-	case bytes >= 1<<30:
-		return fmt.Sprintf("%.2fGiB", float64(bytes)/(1<<30))
-	case bytes >= 1<<20:
-		return fmt.Sprintf("%.2fMiB", float64(bytes)/(1<<20))
-	case bytes >= 1<<10:
-		return fmt.Sprintf("%.2fKiB", float64(bytes)/(1<<10))
+	case inputBytes >= 1<<30:
+		return fmt.Sprintf("%.2fGiB", float64(inputBytes)/(1<<30))
+	case inputBytes >= 1<<20:
+		return fmt.Sprintf("%.2fMiB", float64(inputBytes)/(1<<20))
+	case inputBytes >= 1<<10:
+		return fmt.Sprintf("%.2fKiB", float64(inputBytes)/(1<<10))
 	default:
-		return fmt.Sprintf("%dB", bytes)
+		return fmt.Sprintf("%dB", inputBytes)
 	}
 }
 
-func sizeLabel(bytes int64) string {
+func sizeLabel(inputBytes int64) string {
 	switch {
-	case bytes%(1<<30) == 0:
-		return fmt.Sprintf("%dGB", bytes/(1<<30))
-	case bytes%(1024*1024) == 0:
-		return fmt.Sprintf("%dMB", bytes/(1024*1024))
+	case inputBytes%(1<<30) == 0:
+		return fmt.Sprintf("%dGB", inputBytes/(1<<30))
+	case inputBytes%(1024*1024) == 0:
+		return fmt.Sprintf("%dMB", inputBytes/(1024*1024))
 	default:
-		return fmt.Sprintf("%dB", bytes)
+		return fmt.Sprintf("%dB", inputBytes)
 	}
 }

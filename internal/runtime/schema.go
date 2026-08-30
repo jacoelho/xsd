@@ -230,7 +230,7 @@ func (rt *SchemaBuild) TypeLabel(t TypeID) string {
 }
 
 // StringEnumerationContains reports whether canonical is in a simple type's string enumeration.
-func (rt *SchemaBuild) StringEnumerationContains(id SimpleTypeID, canonical string) (bool, bool) {
+func (rt *SchemaBuild) StringEnumerationContains(id SimpleTypeID, canonical string) (contains, valid bool) {
 	st, ok := UsableSimpleType(rt.SimpleTypes, id)
 	if !ok {
 		return false, false

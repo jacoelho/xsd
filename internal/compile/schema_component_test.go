@@ -37,17 +37,13 @@ func TestAddSchemaComponentRejectsDuplicate(t *testing.T) {
 	}
 }
 
-func TestCheckSchemaTypeNameAvailableRejectsDuplicate(t *testing.T) {
+func TestSchemaTypeNameConflictError(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckSchemaTypeNameAvailable(false, "p:Thing"); err != nil {
-		t.Fatalf("CheckSchemaTypeNameAvailable(false) error = %v", err)
-	}
-
-	err := CheckSchemaTypeNameAvailable(true, "p:Thing")
+	err := SchemaTypeNameConflictError("p:Thing")
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("CheckSchemaTypeNameAvailable(true) error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("SchemaTypeNameConflictError() error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaDuplicate {
 		t.Fatalf("diagnostic = %s/%s, want schema compile duplicate", xerr.Category(), xerr.Code())
@@ -94,12 +90,9 @@ func TestAddGlobalAttributeComponentRejectsSchemaDuplicate(t *testing.T) {
 	}
 }
 
-func TestCheckSchemaComponentCycle(t *testing.T) {
+func TestSchemaComponentCycleError(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckSchemaComponentCycle(SchemaComponentSimpleType, false, "p:T"); err != nil {
-		t.Fatalf("CheckSchemaComponentCycle(false) error = %v", err)
-	}
 	tests := []struct {
 		name string
 		kind SchemaComponentKind
@@ -116,10 +109,10 @@ func TestCheckSchemaComponentCycle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := CheckSchemaComponentCycle(tt.kind, true, "p:T")
+			err := SchemaComponentCycleError(tt.kind, "p:T")
 			xerr, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok {
-				t.Fatalf("CheckSchemaComponentCycle(true) error = %T %v, want *xsderrors.Error", err, err)
+				t.Fatalf("SchemaComponentCycleError() error = %T %v, want *xsderrors.Error", err, err)
 			}
 			if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaReference {
 				t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category(), xerr.Code())
@@ -131,17 +124,13 @@ func TestCheckSchemaComponentCycle(t *testing.T) {
 	}
 }
 
-func TestCheckSchemaComponentRecursion(t *testing.T) {
+func TestSchemaComponentRecursionError(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckSchemaComponentRecursion(SchemaComponentModelGroup, false, "p:g"); err != nil {
-		t.Fatalf("CheckSchemaComponentRecursion(false) error = %v", err)
-	}
-
-	err := CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, "p:g")
+	err := SchemaComponentRecursionError(SchemaComponentModelGroup, "p:g")
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("CheckSchemaComponentRecursion(true) error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("SchemaComponentRecursionError() error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaReference {
 		t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category(), xerr.Code())
@@ -150,27 +139,23 @@ func TestCheckSchemaComponentRecursion(t *testing.T) {
 		t.Fatalf("message = %q, want recursive model group label", xerr.Message())
 	}
 
-	err = CheckSchemaComponentRecursion(SchemaComponentModelGroup, true, "")
+	err = SchemaComponentRecursionError(SchemaComponentModelGroup, "")
 	xerr, ok = errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("CheckSchemaComponentRecursion(unlabeled) error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("SchemaComponentRecursionError(unlabeled) error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if xerr.Message() != "recursive model group" {
 		t.Fatalf("message = %q, want unlabeled recursive model group", xerr.Message())
 	}
 }
 
-func TestCheckSchemaComponentExists(t *testing.T) {
+func TestSchemaComponentMissingError(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckSchemaComponentExists(SchemaComponentElement, true, "p:e"); err != nil {
-		t.Fatalf("CheckSchemaComponentExists(true) error = %v", err)
-	}
-
-	err := CheckSchemaComponentExists(SchemaComponentElement, false, "p:missing")
+	err := SchemaComponentMissingError(SchemaComponentElement, "p:missing")
 	xerr, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("CheckSchemaComponentExists(false) error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("SchemaComponentMissingError() error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaReference {
 		t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category(), xerr.Code())
@@ -179,19 +164,19 @@ func TestCheckSchemaComponentExists(t *testing.T) {
 		t.Fatalf("message = %q, want unknown element label", xerr.Message())
 	}
 
-	err = CheckSchemaComponentExists(SchemaComponentAttributeGroup, false, "p:attrs")
+	err = SchemaComponentMissingError(SchemaComponentAttributeGroup, "p:attrs")
 	xerr, ok = errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("CheckSchemaComponentExists(attribute group) error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("SchemaComponentMissingError(attribute group) error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if xerr.Message() != "unknown attribute group p:attrs" {
 		t.Fatalf("message = %q, want unknown attribute group label", xerr.Message())
 	}
 
-	err = CheckSchemaComponentExists(SchemaComponentType, false, "p:T")
+	err = SchemaComponentMissingError(SchemaComponentType, "p:T")
 	xerr, ok = errors.AsType[*xsderrors.Error](err)
 	if !ok {
-		t.Fatalf("CheckSchemaComponentExists(type) error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("SchemaComponentMissingError(type) error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if xerr.Message() != "unknown type p:T" {
 		t.Fatalf("message = %q, want unknown type label", xerr.Message())

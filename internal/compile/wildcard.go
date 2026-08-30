@@ -112,7 +112,9 @@ func wildcardNamespaceURI(part, targetNS string) (string, error) {
 }
 
 func parseWildcardProcessContents(attrs WildcardAttrs) (runtime.ProcessContents, error) {
-	process := "strict"
+	const processContentsStrict = "strict"
+
+	process := processContentsStrict
 	if attrs.HasProcessContents {
 		process = attrs.ProcessContents
 	}
@@ -121,7 +123,7 @@ func parseWildcardProcessContents(attrs WildcardAttrs) (runtime.ProcessContents,
 		return runtime.ProcessSkip, nil
 	case "lax":
 		return runtime.ProcessLax, nil
-	case "strict":
+	case processContentsStrict:
 		return runtime.ProcessStrict, nil
 	default:
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid processContents")

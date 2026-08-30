@@ -35,7 +35,7 @@ func NewContentScratch(bits []uint64, base, length int) ContentScratch {
 }
 
 // AllSeen reports whether all-group particle i has already matched.
-func (s *ContentScratch) AllSeen(i int) (bool, bool) {
+func (s *ContentScratch) AllSeen(i int) (seen, valid bool) {
 	idx, bit, ok := s.allBit(i)
 	if !ok {
 		return false, false
@@ -482,18 +482,22 @@ func (rt *Schema) NextContent(st ContentState, in ContentInput, scratch *Content
 		return rt.nextPublishedAllContent(st, model, in, scratch)
 	case CompiledModelDFA:
 		return rt.nextPublishedDFAContent(st, model, in)
-	default:
+	case CompiledModelEmpty:
 		return ContentTransition{}, ContentTransitionInvalid
+	default:
 	}
+	return ContentTransition{}, ContentTransitionInvalid
 }
 
 func newContentTransition(from, next ContentState, match contentMatch) ContentTransition {
 	switch match.kind {
 	case ContentMatchDeclared, ContentMatchAssessUndeclared, ContentMatchSkip, ContentMatchStrictMissing:
 		return ContentTransition{match: match, from: from, next: next, valid: true}
-	default:
+	case ContentMatchInvalid:
 		return ContentTransition{}
+	default:
 	}
+	return ContentTransition{}
 }
 
 // CompleteContent reports whether a freeze-validated content state may end.
@@ -564,9 +568,9 @@ func completePublishedAllContent(model *compiledModelRead, scratch *ContentScrat
 	return ContentCompletionComplete
 }
 
-func inspectPublishedAllContent(model *compiledModelRead, scratch *ContentScratch) (bool, bool, bool) {
-	empty := true
-	missingRequired := false
+func inspectPublishedAllContent(model *compiledModelRead, scratch *ContentScratch) (empty, missingRequired, valid bool) {
+	empty = true
+	missingRequired = false
 	for i, term := range model.All {
 		seen, valid := scratch.AllSeen(i)
 		if !valid {
@@ -682,9 +686,11 @@ func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in Conten
 			return contentMatch{}, false
 		}
 		return rt.matchPublishedWildcardParticle(rt.runtime.Wildcards[p.Wildcard], in), true
-	default:
+	case ParticleModel:
 		return contentMatch{}, false
+	default:
 	}
+	return contentMatch{}, false
 }
 
 func (rt *Schema) matchPublishedElementParticle(element ElementID, in ContentInput) (contentMatch, bool) {

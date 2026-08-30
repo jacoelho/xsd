@@ -74,6 +74,7 @@ type substitutionMembershipRuntime struct {
 	complex map[runtime.ComplexTypeID]runtime.ComplexTypeDerivation
 }
 
+//nolint:revive // The receiver is required to satisfy TypeDerivationRuntime.
 func (s substitutionMembershipRuntime) AnyTypeID() runtime.ComplexTypeID {
 	return 0
 }

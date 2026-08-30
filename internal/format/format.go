@@ -104,8 +104,7 @@ func formatReaderErr(err error) error {
 	case stream.IsInputLimit(err):
 		return formatLimitErr(0, 0, err)
 	default:
-		var versionErr stream.UnsupportedXMLVersionError
-		if errors.As(err, &versionErr) {
+		if versionErr, ok := errors.AsType[stream.UnsupportedXMLVersionError](err); ok {
 			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
 		}
 		return formatXMLErr(0, 0, err)
@@ -259,13 +258,13 @@ const (
 )
 
 type formatItem struct {
-	elem  *formatElement
-	data  []byte
-	pi    []byte
-	line  int
-	col   int
-	kind  formatItemKind
-	cdata bool
+	elem     *formatElement
+	data     []byte
+	pi       []byte
+	line     int
+	col      int
+	kind     formatItemKind
+	textMode xmlTextMode
 }
 
 type formatElement struct {
@@ -386,7 +385,11 @@ func (f *xmlFormatter) collectChars(tok stream.Token) error {
 		}
 		return xmlFormatErr(tok.Line, tok.Column, errors.New("text outside root element"))
 	}
-	return f.appendItem(formatItem{kind: formatItemText, data: tok.AppendData(nil), cdata: tok.CDATA, line: tok.Line, col: tok.Column})
+	textMode := xmlTextEscaped
+	if tok.CDATA {
+		textMode = xmlTextCDATA
+	}
+	return f.appendItem(formatItem{kind: formatItemText, data: tok.AppendData(nil), textMode: textMode, line: tok.Line, col: tok.Column})
 }
 
 func (f *xmlFormatter) appendItem(item formatItem) error {
@@ -429,7 +432,7 @@ func (f *xmlFormatter) writeItem(item formatItem, depth int, mode formatWriteMod
 	case formatItemElement:
 		return f.writeElement(item.elem, depth, mode)
 	case formatItemText:
-		if err := writeXMLText(f.w, item.data, item.cdata); err != nil {
+		if err := writeXMLText(f.w, item.data, item.textMode); err != nil {
 			return xmlFormatErr(item.line, item.col, err)
 		}
 		return nil
@@ -490,7 +493,7 @@ func (f *xmlFormatter) writeBlockElement(elem *formatElement, depth int) error {
 }
 
 func (item formatItem) ignorableBlockWhitespace() bool {
-	return item.kind == formatItemText && !item.cdata && lex.IsXMLWhitespaceBytes(item.data)
+	return item.kind == formatItemText && item.textMode == xmlTextEscaped && lex.IsXMLWhitespaceBytes(item.data)
 }
 
 func (e *formatElement) inline() bool {
@@ -529,7 +532,7 @@ func (item formatItem) inlineDisposition() inlineItemDisposition {
 	case formatItemComment, formatItemPI:
 		return inlineLayout
 	case formatItemText:
-		if item.cdata || !lex.IsXMLWhitespaceBytes(item.data) || !hasXMLLineBreak(item.data) {
+		if item.textMode == xmlTextCDATA || !lex.IsXMLWhitespaceBytes(item.data) || !hasXMLLineBreak(item.data) {
 			return inlineContent
 		}
 		return inlineLayout
@@ -575,8 +578,15 @@ func writeXMLPI(w io.Writer, target, data []byte) error {
 	return err
 }
 
-func writeXMLText(w io.Writer, data []byte, cdata bool) error {
-	if cdata {
+type xmlTextMode uint8
+
+const (
+	xmlTextEscaped xmlTextMode = iota
+	xmlTextCDATA
+)
+
+func writeXMLText(w io.Writer, data []byte, mode xmlTextMode) error {
+	if mode == xmlTextCDATA {
 		return writeXMLCDATA(w, data)
 	}
 	return xml.EscapeText(w, data)

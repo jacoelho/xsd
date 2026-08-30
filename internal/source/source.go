@@ -58,9 +58,13 @@ const (
 type resolverBase struct {
 	value     string
 	localPath string
-	query     string
+	query     resolverQuery
 	kind      resolverBaseKind
-	hasQuery  bool
+}
+
+type resolverQuery struct {
+	value   string
+	present bool
 }
 
 func (b resolverBase) available() bool {
@@ -82,7 +86,7 @@ func newResolverBase(value string) resolverBase {
 		return resolverBase{}
 	}
 	if isLocalName(value) {
-		return localResolverBase(value, "", false)
+		return localResolverBase(value, resolverQuery{})
 	}
 	return resolverBase{value: value, kind: resolverBaseURI}
 }
@@ -391,11 +395,16 @@ func (s Source) Acquire(maxBytes int64) ReadResult {
 			}
 		}
 		return s.acquireOpenedSource(maxBytes)
-	default:
+	case sourceInvalid:
 		return ReadResult{
 			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
 			Stage: ReadStageOpen,
 		}
+	default:
+	}
+	return ReadResult{
+		Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
+		Stage: ReadStageOpen,
 	}
 }
 
@@ -447,9 +456,15 @@ func isNilReadCloser(r io.ReadCloser) bool {
 	switch v.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
 		return v.IsNil()
-	default:
+	case reflect.Invalid, reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.Array, reflect.Interface, reflect.String, reflect.Struct, reflect.UnsafePointer:
 		return false
+	default:
 	}
+	return false
 }
 
 func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, bool, error) {
@@ -513,16 +528,15 @@ func Key(name string) string {
 	if isLocalName(name) {
 		return canonicalLocalPath(name)
 	}
-	fragmentPresent := strings.IndexByte(name, '#') >= 0
 	u, err := url.Parse(name)
 	if err != nil {
 		return name
 	}
-	authorityPresent := uriHasAuthoritySyntax(name, u.Scheme)
-	if file, ok := localFileURIPath(u, fragmentPresent); ok {
+	syntax := uriReferenceSyntaxFor(name, u)
+	if file, ok := localFileURIPath(u, syntax.fragment); ok {
 		return file
 	}
-	if canonical, ok := canonicalURL(u, fragmentPresent, authorityPresent); ok {
+	if canonical, ok := canonicalURL(u, syntax); ok {
 		return canonical
 	}
 	return name
@@ -585,35 +599,35 @@ func resolveLocalResolverBase(base resolverBase, reference uriref.Reference) res
 	}
 	path := parts.Path
 	if path == "" {
-		query, hasQuery := base.query, base.hasQuery
+		query := base.query
 		if parts.HasQuery {
-			query, hasQuery = parts.Query, true
+			query = resolverQuery{value: parts.Query, present: true}
 		}
-		return localResolverBase(base.localPath, query, hasQuery)
+		return localResolverBase(base.localPath, query)
 	}
 	if filepath.IsAbs(filepath.FromSlash(path)) || os.IsPathSeparator(path[0]) {
 		path = filepath.FromSlash(path)
 	} else {
 		dir := filepath.Dir(base.localPath)
-		if localDirectoryForm(base.localPath) {
+		if localPathFormOf(base.localPath) == localPathDirectory {
 			dir = base.localPath
 		}
 		path = filepath.Join(dir, filepath.FromSlash(path))
 	}
-	path = canonicalLocalReference(path, localDirectoryForm(parts.Path))
-	return localResolverBase(path, parts.Query, parts.HasQuery)
+	path = canonicalLocalReference(path, localPathFormOf(parts.Path))
+	return localResolverBase(path, resolverQuery{value: parts.Query, present: parts.HasQuery})
 }
 
-func localResolverBase(path, query string, hasQuery bool) resolverBase {
+func localResolverBase(path string, query resolverQuery) resolverBase {
 	value := path
-	if hasQuery {
-		value += "?" + query
+	if query.present {
+		value += "?" + query.value
 	}
 	if value == "" {
 		return resolverBase{}
 	}
 	return resolverBase{
-		value: value, localPath: path, query: query, kind: resolverBaseLocal, hasQuery: hasQuery,
+		value: value, localPath: path, query: query, kind: resolverBaseLocal,
 	}
 }
 
@@ -622,67 +636,77 @@ func localResolverBase(path, query string, hasQuery bool) resolverBase {
 func ResolveReference(base, reference string) (string, error) {
 	baseLocal := isLocalName(base)
 	if reference == "" {
-		return resolveEmptyReference(base, baseLocal)
+		if baseLocal {
+			return canonicalLocalReference(base, localPathFormOf(base)), nil
+		}
+		return resolveEmptyURIReference(base)
 	}
 	if strings.IndexByte(reference, '#') >= 0 {
 		return "", errors.New("schema reference fragments are not supported")
 	}
 	if baseLocal && filepath.VolumeName(reference) != "" && filepath.IsAbs(reference) {
-		return canonicalLocalReference(reference, localDirectoryForm(reference)), nil
+		return canonicalLocalReference(reference, localPathFormOf(reference)), nil
 	}
 	ref, err := url.Parse(reference)
 	if err != nil {
 		return "", err
 	}
-	refAuthority, emptyRefAuthority, emptyAuthorityPath := uriAuthoritySyntax(reference, ref.Scheme)
+	refAuthority := parseURIAuthoritySyntax(reference, ref.Scheme)
 	if ref.Scheme != "" {
 		return resolveAbsoluteReference(ref, refAuthority)
 	}
 	if baseLocal {
-		return resolveLocalReference(base, ref, refAuthority, emptyRefAuthority, emptyAuthorityPath)
+		return resolveLocalReference(base, ref, refAuthority)
 	}
-	return resolveURIReference(base, ref, refAuthority, emptyRefAuthority, emptyAuthorityPath)
+	return resolveURIReference(base, ref, refAuthority)
 }
 
-func resolveEmptyReference(base string, local bool) (string, error) {
-	if local {
-		return canonicalLocalReference(base, localDirectoryForm(base)), nil
-	}
+func resolveEmptyURIReference(base string) (string, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
 		return "", err
 	}
-	fragmentPresent := strings.IndexByte(base, '#') >= 0
-	authorityPresent := uriHasAuthoritySyntax(base, baseURL.Scheme)
-	if file, ok := localFileURIPath(baseURL, fragmentPresent); ok {
+	syntax := uriReferenceSyntaxFor(base, baseURL)
+	if file, ok := localFileURIPath(baseURL, syntax.fragment); ok {
 		return file, nil
 	}
-	canonical, ok := canonicalURL(baseURL, fragmentPresent, authorityPresent)
+	canonical, ok := canonicalURL(baseURL, syntax)
 	if !ok {
 		return "", errors.New("schema base has an invalid URI path")
 	}
 	return canonical, nil
 }
 
-func resolveAbsoluteReference(ref *url.URL, authorityPresent bool) (string, error) {
+func resolveAbsoluteReference(ref *url.URL, authority uriAuthoritySyntax) (string, error) {
 	if strings.EqualFold(ref.Scheme, "file") {
 		ref.Scheme = "file"
 		if !hasEncodedPathSeparator(ref.EscapedPath()) {
-			if file, ok := localFileURIPath(ref, false); ok {
-				return canonicalLocalReference(file, localDirectoryForm(ref.Path)), nil
+			if file, ok := localFileURIPath(ref, uriFragmentAbsent); ok {
+				return canonicalLocalReference(file, localPathFormOf(ref.Path)), nil
 			}
 		}
 	}
-	canonical, ok := canonicalURL(ref, false, authorityPresent)
+	canonical, ok := canonicalURL(ref, uriReferenceSyntax{authority: authority, fragment: uriFragmentAbsent})
 	if !ok {
 		return "", errors.New("schema reference has an invalid URI path")
 	}
 	return canonical, nil
 }
 
-func resolveLocalReference(base string, ref *url.URL, authority, emptyAuthority bool, authorityPath string) (string, error) {
-	if authority && (!emptyAuthority || authorityPath == "") {
+func resolveLocalReference(base string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
+	switch authority.kind {
+	case uriAuthorityAbsent:
+	case uriAuthorityNonEmpty:
 		return "", errReferenceUnavailable
+	case uriAuthorityEmpty:
+		if authority.escapedPath == "" {
+			return "", errReferenceUnavailable
+		}
+	case uriAuthorityInvalid:
+		return "", errors.New("schema reference has invalid authority syntax")
+	default:
+		err := errors.New("schema reference has invalid authority syntax")
+		return "", err
 	}
 	if hasEncodedPathSeparator(ref.EscapedPath()) {
 		return "", errReferenceUnavailable
@@ -709,29 +733,79 @@ func resolveLocalReferencePath(base, refPath string) string {
 	default:
 		resolved = filepath.Join(filepath.Dir(base), resolved)
 	}
-	return canonicalLocalReference(resolved, localDirectoryForm(refPath))
+	return canonicalLocalReference(resolved, localPathFormOf(refPath))
 }
 
-func resolveURIReference(base string, ref *url.URL, authority, emptyAuthority bool, authorityPath string) (string, error) {
+func resolveURIReference(base string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
 		return "", err
 	}
-	if authority {
-		return resolveAuthorityReference(baseURL.Scheme, ref, emptyAuthority, authorityPath)
+	if authority.kind != uriAuthorityAbsent {
+		return resolveAuthorityReference(baseURL.Scheme, ref, authority)
 	}
 	if baseURL.Opaque != "" || ref.Opaque != "" {
 		return "", errReferenceUnavailable
 	}
 	resolved := baseURL.ResolveReference(ref)
-	canonical, ok := canonicalURL(resolved, false, uriHasAuthoritySyntax(base, baseURL.Scheme))
+	baseAuthority := parseURIAuthoritySyntax(base, baseURL.Scheme)
+	canonical, ok := canonicalURL(resolved, uriReferenceSyntax{authority: baseAuthority, fragment: uriFragmentAbsent})
 	if !ok {
 		return "", errors.New("schema reference has an invalid URI path")
 	}
 	return canonical, nil
 }
 
-func canonicalURL(parsed *url.URL, fragmentPresent, authorityPresent bool) (string, bool) {
+type uriAuthorityKind uint8
+
+const (
+	uriAuthorityInvalid uriAuthorityKind = iota
+	uriAuthorityAbsent
+	uriAuthorityNonEmpty
+	uriAuthorityEmpty
+)
+
+type uriAuthoritySyntax struct {
+	escapedPath string
+	kind        uriAuthorityKind
+}
+
+func (a uriAuthoritySyntax) valid() bool {
+	return a.kind == uriAuthorityAbsent || a.kind == uriAuthorityNonEmpty || a.kind == uriAuthorityEmpty
+}
+
+func (a uriAuthoritySyntax) present() bool {
+	return a.kind == uriAuthorityNonEmpty || a.kind == uriAuthorityEmpty
+}
+
+type uriFragmentSyntax uint8
+
+const (
+	uriFragmentInvalid uriFragmentSyntax = iota
+	uriFragmentAbsent
+	uriFragmentPresent
+)
+
+type uriReferenceSyntax struct {
+	authority uriAuthoritySyntax
+	fragment  uriFragmentSyntax
+}
+
+func uriReferenceSyntaxFor(raw string, parsed *url.URL) uriReferenceSyntax {
+	fragment := uriFragmentAbsent
+	if strings.IndexByte(raw, '#') >= 0 {
+		fragment = uriFragmentPresent
+	}
+	return uriReferenceSyntax{
+		authority: parseURIAuthoritySyntax(raw, parsed.Scheme),
+		fragment:  fragment,
+	}
+}
+
+func canonicalURL(parsed *url.URL, syntax uriReferenceSyntax) (string, bool) {
+	if !syntax.authority.valid() || syntax.fragment != uriFragmentAbsent && syntax.fragment != uriFragmentPresent {
+		return "", false
+	}
 	u := *parsed
 	u.Scheme = strings.ToLower(u.Scheme)
 	u.Host = canonicalURIHost(u.Host)
@@ -746,8 +820,8 @@ func canonicalURL(parsed *url.URL, fragmentPresent, authorityPresent bool) (stri
 	if !canonicalizeURLFragment(&u) {
 		return "", false
 	}
-	canonical := preserveAuthoritySyntax(u.String(), &u, authorityPresent)
-	if fragmentPresent && u.Fragment == "" {
+	canonical := preserveAuthoritySyntax(u.String(), &u, syntax.authority)
+	if syntax.fragment == uriFragmentPresent && u.Fragment == "" {
 		canonical += "#"
 	}
 	return canonical, true
@@ -796,8 +870,8 @@ func canonicalizeURLFragment(u *url.URL) bool {
 	return true
 }
 
-func preserveAuthoritySyntax(canonical string, u *url.URL, authorityPresent bool) string {
-	if !authorityPresent || u.Opaque != "" || u.Host != "" || u.User != nil {
+func preserveAuthoritySyntax(canonical string, u *url.URL, authority uriAuthoritySyntax) string {
+	if !authority.present() || u.Opaque != "" || u.Host != "" || u.User != nil {
 		return canonical
 	}
 	start := 0
@@ -826,51 +900,53 @@ func canonicalURIHost(host string) string {
 	return "[" + strings.ToLower(literal[:zone]) + literal[zone:] + host[closingBracket:]
 }
 
-func uriAuthoritySyntax(raw, scheme string) (present, empty bool, escapedPath string) {
+func parseURIAuthoritySyntax(raw, scheme string) uriAuthoritySyntax {
 	rest := raw
 	if scheme != "" {
 		_, after, ok := strings.Cut(raw, ":")
 		if !ok {
-			return false, false, ""
+			return uriAuthoritySyntax{kind: uriAuthorityInvalid}
 		}
 		rest = after
 	}
 	if !strings.HasPrefix(rest, "//") {
-		return false, false, ""
+		return uriAuthoritySyntax{kind: uriAuthorityAbsent}
 	}
 	hierarchy := rest[2:]
 	if end := strings.IndexAny(hierarchy, "?#"); end >= 0 {
 		hierarchy = hierarchy[:end]
 	}
 	if hierarchy == "" {
-		return true, true, ""
+		return uriAuthoritySyntax{kind: uriAuthorityEmpty}
 	}
 	if hierarchy[0] == '/' {
-		return true, true, hierarchy
+		return uriAuthoritySyntax{kind: uriAuthorityEmpty, escapedPath: hierarchy}
 	}
-	return true, false, ""
+	return uriAuthoritySyntax{kind: uriAuthorityNonEmpty}
 }
 
-func uriHasAuthoritySyntax(raw, scheme string) bool {
-	present, _, _ := uriAuthoritySyntax(raw, scheme) //nolint:dogsled // Only delimiter presence is needed here.
-	return present
-}
-
-func resolveAuthorityReference(scheme string, ref *url.URL, empty bool, escapedPath string) (string, error) {
-	if empty {
-		decodedPath, err := url.PathUnescape(escapedPath)
+func resolveAuthorityReference(scheme string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
+	switch authority.kind {
+	case uriAuthorityEmpty:
+		decodedPath, err := url.PathUnescape(authority.escapedPath)
 		if err != nil || strings.IndexByte(decodedPath, 0) >= 0 {
 			return "", errors.New("schema reference has an invalid escaped path")
 		}
 		ref.Path = decodedPath
-		ref.RawPath = escapedPath
+		ref.RawPath = authority.escapedPath
 		plain := &url.URL{Path: decodedPath}
-		if plain.EscapedPath() == escapedPath {
+		if plain.EscapedPath() == authority.escapedPath {
 			ref.RawPath = ""
 		}
+	case uriAuthorityNonEmpty:
+	case uriAuthorityInvalid, uriAuthorityAbsent:
+		return "", errors.New("schema reference has invalid authority syntax")
+	default:
+		err := errors.New("schema reference has invalid authority syntax")
+		return "", err
 	}
 	ref.Scheme = scheme
-	canonical, ok := canonicalURL(ref, false, true)
+	canonical, ok := canonicalURL(ref, uriReferenceSyntax{authority: authority, fragment: uriFragmentAbsent})
 	if !ok {
 		return "", errors.New("schema reference has an invalid URI path")
 	}
@@ -993,27 +1069,46 @@ func canonicalLocalPath(name string) string {
 	return cleaned
 }
 
-func canonicalLocalReference(name string, directory bool) string {
+type localPathForm uint8
+
+const (
+	localPathInvalid localPathForm = iota
+	localPathFile
+	localPathDirectory
+)
+
+func canonicalLocalReference(name string, form localPathForm) string {
 	cleaned := canonicalLocalPath(name)
-	if directory && !os.IsPathSeparator(cleaned[len(cleaned)-1]) {
-		cleaned += string(filepath.Separator)
+	switch form {
+	case localPathFile:
+	case localPathDirectory:
+		if !os.IsPathSeparator(cleaned[len(cleaned)-1]) {
+			cleaned += string(filepath.Separator)
+		}
+	case localPathInvalid:
+		panic("local path form is invalid")
+	default:
+		panic("local path form is unknown")
 	}
 	return cleaned
 }
 
-func localDirectoryForm(name string) bool {
+func localPathFormOf(name string) localPathForm {
 	if name == "" {
-		return false
+		return localPathFile
 	}
 	if os.IsPathSeparator(name[len(name)-1]) {
-		return true
+		return localPathDirectory
 	}
 	start := len(name)
 	for start > 0 && !os.IsPathSeparator(name[start-1]) {
 		start--
 	}
 	last := name[start:]
-	return last == "." || last == ".."
+	if last == "." || last == ".." {
+		return localPathDirectory
+	}
+	return localPathFile
 }
 
 func isLocalName(name string) bool {
@@ -1070,7 +1165,7 @@ func errorsAreOnly(causes []error, target error) bool {
 func localSchemaFile(resolved string) (string, bool) {
 	u, err := url.Parse(resolved)
 	if err == nil && u.Scheme != "" {
-		return localFileURIPath(u, strings.IndexByte(resolved, '#') >= 0)
+		return localFileURIPath(u, uriReferenceSyntaxFor(resolved, u).fragment)
 	}
 	if !isLocalName(resolved) {
 		return "", false
@@ -1079,9 +1174,9 @@ func localSchemaFile(resolved string) (string, bool) {
 }
 
 // localFileURIPath returns the local filesystem path represented by u.
-// fragmentPresent carries syntax that net/url does not retain for a trailing '#'.
-func localFileURIPath(u *url.URL, fragmentPresent bool) (string, bool) {
-	if !strings.EqualFold(u.Scheme, "file") || u.User != nil || u.RawQuery != "" || u.ForceQuery || fragmentPresent || u.Fragment != "" {
+// fragment carries syntax that net/url does not retain for a trailing '#'.
+func localFileURIPath(u *url.URL, fragment uriFragmentSyntax) (string, bool) {
+	if !strings.EqualFold(u.Scheme, "file") || u.User != nil || u.RawQuery != "" || u.ForceQuery || fragment != uriFragmentAbsent || u.Fragment != "" {
 		return "", false
 	}
 	if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {

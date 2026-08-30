@@ -75,23 +75,20 @@ func TestCheckSimpleContentSimpleBase(t *testing.T) {
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "simpleContent restriction base must be complex type")
 }
 
-func TestCheckSimpleContentComplexBaseExists(t *testing.T) {
+func TestSimpleContentComplexBaseMissingError(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckSimpleContentComplexBaseExists(true); err != nil {
-		t.Fatalf("CheckSimpleContentComplexBaseExists(true) error = %v", err)
-	}
-	err := CheckSimpleContentComplexBaseExists(false)
+	err := SimpleContentComplexBaseMissingError()
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaReference, "simpleContent base must be simple or simple-content complex type")
 }
 
 func TestCheckSimpleContentDerivationBase(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckSimpleContentDerivationBase(nil, runtime.ComplexType{ContentKind: runtime.ContentSimple}, false); err != nil {
+	if err := CheckSimpleContentDerivationBase(nil, runtime.ComplexType{ContentKind: runtime.ContentSimple}, ContentDerivationExtension); err != nil {
 		t.Fatalf("CheckSimpleContentDerivationBase(simple content) error = %v", err)
 	}
-	err := CheckSimpleContentDerivationBase(nil, runtime.ComplexType{ContentKind: runtime.ContentElementOnly}, false)
+	err := CheckSimpleContentDerivationBase(nil, runtime.ComplexType{ContentKind: runtime.ContentElementOnly}, ContentDerivationExtension)
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "simpleContent base must have simple content")
 }
 
@@ -119,10 +116,10 @@ func TestCheckSimpleContentRestrictionTextType(t *testing.T) {
 func TestCheckComplexContentMixedDerivationBase(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckComplexContentMixedDerivationBase(nil, runtime.ComplexType{ContentKind: runtime.ContentMixed}, true, true); err != nil {
+	if err := CheckComplexContentMixedDerivationBase(nil, runtime.ComplexType{ContentKind: runtime.ContentMixed}, ContentDerivationExtension, runtime.ContentMixed); err != nil {
 		t.Fatalf("CheckComplexContentMixedDerivationBase(mixed base) error = %v", err)
 	}
-	err := CheckComplexContentMixedDerivationBase(nil, runtime.ComplexType{ContentKind: runtime.ContentElementOnly}, false, true)
+	err := CheckComplexContentMixedDerivationBase(nil, runtime.ComplexType{ContentKind: runtime.ContentElementOnly}, ContentDerivationRestriction, runtime.ContentMixed)
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "complexContent mixed derivation requires mixed base")
 }
 

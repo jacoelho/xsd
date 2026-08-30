@@ -3,7 +3,7 @@ MAKEFLAGS+=-r -R
 
 BIN := $(CURDIR)/bin
 STATICCHECK_VERSION := v0.8.1
-GOLANGCI_LINT_VERSION := v2.12.2
+GOLANGCI_LINT_VERSION := v2.13.2
 BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
 export GOBIN := $(BIN)
 
@@ -68,8 +68,13 @@ staticcheck: $(BIN)/staticcheck
 $(BIN)/staticcheck: go.mod Makefile | $(BIN)
 	go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 
+
+.PHONY: lint-config
+lint-config: $(BIN)/golangci-lint
+	$(BIN)/golangci-lint config verify
+
 .PHONY: lint
-lint: $(BIN)/golangci-lint
+lint: lint-config
 	$(BIN)/golangci-lint run
 
 $(BIN)/golangci-lint: go.mod .golangci.yml Makefile | $(BIN)

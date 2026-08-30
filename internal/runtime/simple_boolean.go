@@ -30,7 +30,7 @@ func ParseBooleanValue[T byteText](raw T) (bool, error) {
 	return value, nil
 }
 
-func parseBooleanLexical[T byteText](v T) (bool, bool) {
+func parseBooleanLexical[T byteText](v T) (value, valid bool) {
 	switch len(v) {
 	case 1:
 		switch v[0] {

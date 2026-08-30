@@ -83,8 +83,7 @@ func ElementValueConstraintTypeError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var diagnostic *xsderrors.Error
-	if errors.As(err, &diagnostic) {
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 		return err
 	}
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())

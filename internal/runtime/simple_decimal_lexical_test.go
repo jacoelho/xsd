@@ -25,7 +25,7 @@ func TestValidateFastDecimalLexical(t *testing.T) {
 			name:        "invalid lexical",
 			input:       ".",
 			wantHandled: true,
-			wantErr:     fastDecimalErrInvalid,
+			wantErr:     rawDecimalErrInvalidDecimal,
 		},
 		{
 			name: "inclusive bounds accept equal normalized value",
@@ -45,7 +45,7 @@ func TestValidateFastDecimalLexical(t *testing.T) {
 			},
 			input:       "0.009",
 			wantHandled: true,
-			wantErr:     fastDecimalErrMinInclusive,
+			wantErr:     rawDecimalErrMinInclusive,
 		},
 		{
 			name: "maxInclusive failure",
@@ -55,7 +55,7 @@ func TestValidateFastDecimalLexical(t *testing.T) {
 			},
 			input:       "10.51",
 			wantHandled: true,
-			wantErr:     fastDecimalErrMaxInclusive,
+			wantErr:     rawDecimalErrMaxInclusive,
 		},
 		{
 			name: "negative non-zero with non-negative minInclusive fails",
@@ -65,7 +65,7 @@ func TestValidateFastDecimalLexical(t *testing.T) {
 			},
 			input:       "-0.1",
 			wantHandled: true,
-			wantErr:     fastDecimalErrMinInclusive,
+			wantErr:     rawDecimalErrMinInclusive,
 		},
 		{
 			name: "negative zero is non-negative",
@@ -138,5 +138,13 @@ func TestValidateFastDecimalLexical(t *testing.T) {
 				t.Fatalf("ValidateFastDecimalLexical() error = %v, want %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestParseDecimalRejectsUnknownMode(t *testing.T) {
+	t.Parallel()
+
+	if _, err := parseDecimal("1", decimalParseMode(255)); err == nil {
+		t.Fatal("parseDecimal accepted an unknown mode")
 	}
 }

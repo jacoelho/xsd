@@ -38,22 +38,6 @@ const (
 	ContentSimpleMixed
 )
 
-// ElementContentKind returns the element-content kind for mixed.
-func ElementContentKind(mixed bool) ContentKind {
-	if mixed {
-		return ContentMixed
-	}
-	return ContentElementOnly
-}
-
-// SimpleContentKind returns the simple-content kind for mixed.
-func SimpleContentKind(mixed bool) ContentKind {
-	if mixed {
-		return ContentSimpleMixed
-	}
-	return ContentSimple
-}
-
 // Mixed reports whether content permits character text mixed with elements.
 func (k ContentKind) Mixed() bool {
 	return k == ContentMixed || k == ContentSimpleMixed
@@ -306,6 +290,8 @@ func ValidateComplexTypeFinalAllows(final, derivation DerivationMask) error {
 	if !ValidComplexFinalMask(final) {
 		return errors.New("complex type final mask contains invalid derivation")
 	}
+	// DerivationMask is a bitmask; only single complex-derivation bits are valid here.
+	//exhaustive:ignore
 	switch derivation {
 	case DerivationExtension:
 		if final&DerivationExtension != 0 {
@@ -386,7 +372,7 @@ func ValidateComplexTypeRestrictionRuntime(
 		return err
 	}
 	if derived.SimpleContent() {
-		allowed, err := SimpleContentDerivationBaseAllowed(analysis, base, true)
+		allowed, err := SimpleContentDerivationBaseAllowed(analysis, base, DerivationKindRestriction)
 		if err != nil {
 			return err
 		}
@@ -425,11 +411,11 @@ func ValidateSimpleBaseComplexExtensionFinalAllows(final DerivationMask) error {
 // SimpleContentDerivationBaseAllowed reports whether a simpleContent derivation
 // may use base. Restrictions may derive simple content from an emptiable mixed
 // complex base; extensions require an existing simple-content base.
-func SimpleContentDerivationBaseAllowed(analysis *ContentModelAnalysis, base ComplexType, restriction bool) (bool, error) {
+func SimpleContentDerivationBaseAllowed(analysis *ContentModelAnalysis, base ComplexType, derivation DerivationKind) (bool, error) {
 	if base.SimpleContent() {
 		return true, nil
 	}
-	if !restriction || !base.Mixed() {
+	if derivation != DerivationKindRestriction || !base.Mixed() {
 		return false, nil
 	}
 	if analysis == nil {
@@ -440,17 +426,17 @@ func SimpleContentDerivationBaseAllowed(analysis *ContentModelAnalysis, base Com
 
 // ComplexContentMixedDerivationBaseAllowed reports whether a complexContent
 // derivation with mixed=true may derive from base.
-func ComplexContentMixedDerivationBaseAllowed(rt ContentModelRuntime, base ComplexType, extension bool) bool {
+func ComplexContentMixedDerivationBaseAllowed(rt ContentModelRuntime, base ComplexType, derivation DerivationKind) bool {
 	if base.Mixed() {
 		return true
 	}
-	return extension && base.ContentKind == ContentElementOnly && ModelHasNoParticles(rt, base.Content)
+	return derivation == DerivationKindExtension && base.ContentKind == ContentElementOnly && ModelHasNoParticles(rt, base.Content)
 }
 
 // ValidateComplexContentMixedDerivationBase validates complexContent mixed
 // derivation admission against the compiled base type.
-func ValidateComplexContentMixedDerivationBase(rt ContentModelRuntime, base ComplexType, extension, mixed bool) error {
-	if mixed && !ComplexContentMixedDerivationBaseAllowed(rt, base, extension) {
+func ValidateComplexContentMixedDerivationBase(rt ContentModelRuntime, base ComplexType, derivation DerivationKind, content ContentKind) error {
+	if content.Mixed() && !ComplexContentMixedDerivationBaseAllowed(rt, base, derivation) {
 		return errors.New("complexContent mixed derivation requires mixed base")
 	}
 	return nil

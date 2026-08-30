@@ -15,11 +15,11 @@ type acceptedChild struct {
 	invalidatesParent bool
 }
 
-func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType bool, line, col int) (acceptedChild, error) {
+func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, flags xsiStartAttributeFlags, line, col int) (acceptedChild, error) {
 	if parent.Mode != elementAssessed {
 		return acceptedChild{start: schemaStart{element: runtime.NoElement, mode: parent.Mode}}, nil
 	}
-	policy := childFramePolicy(parent.Nilled)
+	policy := childFramePolicy(parent)
 	if policy.issue.valid() {
 		return s.recoverableChildIssue(line, col, policy.issue)
 	}
@@ -29,7 +29,7 @@ func (s *session) acceptChild(parent *frame, rn runtime.RuntimeName, hasXSIType 
 	scratch := s.contentScratch(parent)
 	transition, status := s.rt.NextContent(parent.Content, runtime.ContentInput{
 		Name:       rn,
-		HasXSIType: hasXSIType,
+		HasXSIType: flags.Type,
 	}, &scratch)
 	if status == runtime.ContentTransitionInvalid {
 		return acceptedChild{}, xsderrors.InternalInvariant("content model state is invalid")
@@ -55,9 +55,11 @@ func (s *session) acceptMatchedChild(transition runtime.ContentTransition, rn ru
 			return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
 		}
 		return acceptedChild{start: assessedSchemaStart(element, decl.Type), transition: transition}, nil
-	default:
+	case runtime.ContentMatchInvalid:
 		return acceptedChild{}, xsderrors.InternalInvariant("planned content transition has invalid match kind")
+	default:
 	}
+	return acceptedChild{}, xsderrors.InternalInvariant("planned content transition has invalid match kind")
 }
 
 func (s *session) acceptStrictMissingChild(transition runtime.ContentTransition, rn runtime.RuntimeName, line, col int) (acceptedChild, error) {

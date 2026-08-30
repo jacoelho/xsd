@@ -987,13 +987,16 @@ func (rt choiceLimitRestrictionRuntime) ElementName(id ElementID) (QName, bool) 
 	return rt.elements[id], true
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (rt choiceLimitRestrictionRuntime) Wildcard(WildcardID) (Wildcard, bool) {
 	return Wildcard{}, false
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (rt choiceLimitRestrictionRuntime) ForEachSubstitutionMember(ElementID, func(ElementID) bool) {
 }
 
+//nolint:revive // The receiver is required to satisfy ParticleRestrictionRuntime.
 func (rt choiceLimitRestrictionRuntime) SubstitutionMemberByName(ElementID, QName) (ElementID, bool) {
 	return NoElement, false
 }

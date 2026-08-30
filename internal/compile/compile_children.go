@@ -112,11 +112,11 @@ func checkRawSchemaAttribute(n *rawNode, attr xml.Attr) error {
 }
 
 func checkUnsupportedSchemaNode(n, parent *rawNode) (bool, error) {
-	parentLocal, parentXSD := rawSchemaParent(parent)
+	parentName := rawSchemaParent(parent)
 	if err := rejectSchemaNamespaceAttributes(n); err != nil {
 		return false, err
 	}
-	if parentXSD && parentLocal == annotationChild &&
+	if parentName == (xml.Name{Space: vocab.XSDNamespaceURI, Local: annotationChild}) &&
 		n.Name.Space == vocab.XSDNamespaceURI &&
 		(n.Name.Local == vocab.XSDElemAppinfo || n.Name.Local == vocab.XSDElemDocumentation) {
 		return true, nil
@@ -124,14 +124,14 @@ func checkUnsupportedSchemaNode(n, parent *rawNode) (bool, error) {
 	if n.Name.Space != vocab.XSDNamespaceURI {
 		return false, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "foreign element "+n.Name.Local+" is not allowed in schema grammar")
 	}
-	return checkUnsupportedXSDNode(n, parentLocal, parentXSD)
+	return checkUnsupportedXSDNode(n, parentName)
 }
 
-func rawSchemaParent(parent *rawNode) (string, bool) {
+func rawSchemaParent(parent *rawNode) xml.Name {
 	if parent == nil {
-		return "", false
+		return xml.Name{}
 	}
-	return parent.Name.Local, parent.Name.Space == vocab.XSDNamespaceURI
+	return parent.Name
 }
 
 func rejectSchemaNamespaceAttributes(n *rawNode) error {
@@ -143,12 +143,12 @@ func rejectSchemaNamespaceAttributes(n *rawNode) error {
 	return nil
 }
 
-func checkUnsupportedXSDNode(n *rawNode, parentLocal string, parentXSD bool) (bool, error) {
+func checkUnsupportedXSDNode(n *rawNode, parentName xml.Name) (bool, error) {
 	switch n.Name.Local {
 	case redefineChild:
 		return false, unsupportedAtSchemaNode(n, xsderrors.CodeUnsupportedRedefine, "xs:redefine is not supported")
 	case notationChild:
-		if !parentXSD || parentLocal != vocab.XSDElemSchema {
+		if parentName != (xml.Name{Space: vocab.XSDNamespaceURI, Local: vocab.XSDElemSchema}) {
 			return false, schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:notation must be a top-level schema child")
 		}
 	case assertChild, "alternative", "override", "openContent", "defaultOpenContent":
@@ -232,12 +232,12 @@ func checkSchemaAnnotationNode(n *rawNode) (bool, error) {
 	return action.SkipChildren, nil
 }
 
-func checkSchemaQNameParts(n *rawNode, lexical string) (string, string, bool, error) {
+func checkSchemaQNameParts(n *rawNode, lexical string) (QNameParts, error) {
 	parts, err := ParseQNameParts(lexical)
 	if err != nil {
-		return "", "", false, withSchemaCompileLocation(n, err)
+		return QNameParts{}, withSchemaCompileLocation(n, err)
 	}
-	return parts.Prefix, parts.Local, parts.Prefixed, nil
+	return parts, nil
 }
 
 type contentDerivationSource struct {
@@ -245,8 +245,8 @@ type contentDerivationSource struct {
 	kind ContentDerivationKind
 }
 
-func checkContentDerivationBase(container string, derivation ContentDerivationKind, n *rawNode, hasBase bool) error {
-	if err := ValidateContentDerivationBase(container, derivation.String(), hasBase); err != nil {
+func checkContentDerivationBase(n *rawNode, base ContentDerivationBase) error {
+	if err := ValidateContentDerivationBase(base); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	return nil
@@ -266,8 +266,11 @@ func checkContentDerivationSyntaxRules(n *rawNode, container string, order Child
 	}
 	switch syntax.Kind {
 	case ContentDerivationExtension, ContentDerivationRestriction:
-	default:
+	case ContentDerivationNone:
 		return contentDerivationSource{}, xsderrors.InternalInvariant("content derivation validator returned missing kind")
+	default:
+		err := xsderrors.InternalInvariant("content derivation validator returned missing kind")
+		return contentDerivationSource{}, err
 	}
 	return contentDerivationSource{node: child, kind: syntax.Kind}, nil
 }
@@ -290,8 +293,8 @@ func validateDerivationContainerChildrenRaw(n *rawNode, label string, order Chil
 	return syntax, childOrderError(-1, label+" missing extension or restriction")
 }
 
-func parseUnionMemberTypes(n *rawNode, memberTypes string, hasMemberTypes, hasSimpleTypeChild bool) ([]string, error) {
-	members, err := ParseUnionMemberTypes(memberTypes, hasMemberTypes, hasSimpleTypeChild)
+func parseUnionMemberTypesAtNode(n *rawNode, source UnionMemberTypeSource) ([]string, error) {
+	members, err := ParseUnionMemberTypes(source)
 	if err != nil {
 		return nil, withSchemaCompileLocation(n, err)
 	}
@@ -391,9 +394,11 @@ func checkLocalElementAttributes(n *rawNode) error {
 }
 
 func checkLocalElementSource(n *rawNode) error {
-	_, hasName := n.attr(vocab.XSDAttrName)
-	_, hasRef := n.attr(vocab.XSDAttrRef)
-	if err := ValidateLocalElementSource(hasName, hasRef); err != nil {
+	source := NameReferenceSource{
+		Name:      rawLexicalAttribute(n, vocab.XSDAttrName),
+		Reference: rawLexicalAttribute(n, vocab.XSDAttrRef),
+	}
+	if err := ValidateLocalElementSource(source); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	return nil
@@ -465,10 +470,14 @@ func checkNotationDeclaration(n *rawNode) error {
 			XSD:   child.Name.Space == vocab.XSDNamespaceURI,
 		}
 	}
-	_, hasName := n.attr(vocab.XSDAttrName)
-	_, hasPublic := n.attr(vocab.XSDAttrPublic)
-	_, hasSystem := n.attr(vocab.XSDAttrSystem)
-	if err := ValidateNotationDeclaration(n.Text, children, hasName, hasPublic, hasSystem); err != nil {
+	declaration := NotationDeclaration{
+		Text:     n.Text.String(),
+		Children: children,
+		Name:     rawLexicalAttribute(n, vocab.XSDAttrName),
+		Public:   rawLexicalAttribute(n, vocab.XSDAttrPublic),
+		System:   rawLexicalAttribute(n, vocab.XSDAttrSystem),
+	}
+	if err := ValidateNotationDeclaration(declaration); err != nil {
 		if issue, ok := errors.AsType[*NotationSyntaxError](err); ok {
 			return notationSyntaxIssueAt(n, issue)
 		}
@@ -524,17 +533,18 @@ func checkAttributeDeclarationChildren(n *rawNode) error {
 }
 
 func checkAttributeUseSource(n *rawNode) error {
-	_, hasName := n.attr(vocab.XSDAttrName)
-	_, hasRef := n.attr(vocab.XSDAttrRef)
-	if err := ValidateAttributeUseSource(hasName, hasRef); err != nil {
+	source := NameReferenceSource{
+		Name:      rawLexicalAttribute(n, vocab.XSDAttrName),
+		Reference: rawLexicalAttribute(n, vocab.XSDAttrRef),
+	}
+	if err := ValidateAttributeUseSource(source); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	return nil
 }
 
 func checkAttributeGroupUseSource(n *rawNode) error {
-	_, hasRef := n.attr(vocab.XSDAttrRef)
-	if err := ValidateAttributeGroupUseSource(hasRef); err != nil {
+	if err := ValidateAttributeGroupUseSource(rawLexicalAttribute(n, vocab.XSDAttrRef)); err != nil {
 		return withSchemaCompileLocation(n, err)
 	}
 	return nil

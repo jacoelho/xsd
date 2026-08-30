@@ -321,41 +321,46 @@ func isUnsupportedWrapper(err error) bool {
 func ValidCategoryCode(category Category, code Code) bool {
 	switch category {
 	case CategorySchemaParse:
-		return code == CodeSchemaRead || code == CodeSchemaXML || code == CodeSchemaRoot || code == CodeSchemaLimit
+		return validSchemaParseCode(code)
 	case CategorySchemaCompile:
-		switch code {
-		case CodeSchemaRead, CodeSchemaRoot, CodeSchemaDuplicate, CodeSchemaReference,
-			CodeSchemaFacet, CodeSchemaOccurrence, CodeSchemaContentModel, CodeSchemaNoSources,
-			CodeSchemaInvalidAttribute, CodeSchemaIdentity, CodeSchemaLimit:
-			return true
-		default:
-			return false
-		}
+		return validSchemaCompileCode(code)
 	case CategoryUnsupported:
-		switch code {
-		case CodeUnsupportedDTD, CodeUnsupportedExternal, CodeUnsupportedEntity,
-			CodeUnsupportedNonUTF8, CodeUnsupportedRedefine, CodeUnsupportedRegex,
-			CodeUnsupportedSchemaHint, CodeUnsupportedXML11, CodeUnsupportedXSD11:
-			return true
-		default:
-			return false
-		}
+		return validUnsupportedCode(code)
 	case CategoryValidation:
-		switch code {
-		case CodeValidationXML, CodeValidationRoot, CodeValidationElement, CodeValidationAttribute,
-			CodeValidationText, CodeValidationType, CodeValidationFacet, CodeValidationContent,
-			CodeValidationNil, CodeValidationIdentity, CodeValidationOption, CodeValidationSession,
-			CodeValidationLimit:
-			return true
-		default:
-			return false
-		}
+		return validValidationCode(code)
 	case CategoryFormat:
-		return code == CodeFormatXML || code == CodeFormatOption || code == CodeFormatLimit
+		return validFormatCode(code)
 	case CategoryInternal:
 		return code == CodeInternalInvariant
 	}
 	return false
+}
+
+func validSchemaParseCode(code Code) bool {
+	return code == CodeSchemaRead || code == CodeSchemaXML || code == CodeSchemaRoot || code == CodeSchemaLimit
+}
+
+func validSchemaCompileCode(code Code) bool {
+	return code == CodeSchemaRead || code == CodeSchemaRoot || code == CodeSchemaDuplicate || code == CodeSchemaReference ||
+		code == CodeSchemaFacet || code == CodeSchemaOccurrence || code == CodeSchemaContentModel || code == CodeSchemaNoSources ||
+		code == CodeSchemaInvalidAttribute || code == CodeSchemaIdentity || code == CodeSchemaLimit
+}
+
+func validUnsupportedCode(code Code) bool {
+	return code == CodeUnsupportedDTD || code == CodeUnsupportedExternal || code == CodeUnsupportedEntity ||
+		code == CodeUnsupportedNonUTF8 || code == CodeUnsupportedRedefine || code == CodeUnsupportedRegex ||
+		code == CodeUnsupportedSchemaHint || code == CodeUnsupportedXML11 || code == CodeUnsupportedXSD11
+}
+
+func validValidationCode(code Code) bool {
+	return code == CodeValidationXML || code == CodeValidationRoot || code == CodeValidationElement || code == CodeValidationAttribute ||
+		code == CodeValidationText || code == CodeValidationType || code == CodeValidationFacet || code == CodeValidationContent ||
+		code == CodeValidationNil || code == CodeValidationIdentity || code == CodeValidationOption || code == CodeValidationSession ||
+		code == CodeValidationLimit
+}
+
+func validFormatCode(code Code) bool {
+	return code == CodeFormatXML || code == CodeFormatOption || code == CodeFormatLimit
 }
 
 func newDiagnostic(category Category, code Code, msg string, cause error) error {

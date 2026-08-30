@@ -231,7 +231,7 @@ func TestSimpleTypeColdReadExcludesCompilerSources(t *testing.T) {
 	SetBoundFacet(&facets, FacetMinInclusive, CompiledLiteral{
 		Lexical:   "compiler-bound-source",
 		Canonical: "bound",
-	}, false)
+	})
 	types := []SimpleType{{Facets: facets}}
 	reads := newSimpleTypeColdReadTable(types)
 
@@ -325,7 +325,7 @@ func TestSimpleTypeColdReadAuditRejectsMissingBoundActual(t *testing.T) {
 		Lexical:   "1",
 		Canonical: parsed.Canonical,
 		Actual:    parsed.Actual,
-	}, false)
+	})
 	types := []SimpleType{{Facets: facets}}
 	reads := newSimpleTypeColdReadTable(types)
 	reads.values[0].facets.bounds[minInclusiveBoundIndex].actual.Valid = false
@@ -339,7 +339,7 @@ func TestSimpleTypeColdReadInternsInheritedBounds(t *testing.T) {
 	t.Parallel()
 
 	facets := FacetSet{}
-	SetBoundFacet(&facets, FacetMinInclusive, CompiledLiteral{Canonical: "1"}, false)
+	SetBoundFacet(&facets, FacetMinInclusive, CompiledLiteral{Canonical: "1"})
 	types := []SimpleType{{Facets: facets}, {Facets: facets}}
 	reads := newSimpleTypeColdReadTable(types)
 

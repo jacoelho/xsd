@@ -236,7 +236,7 @@ func (b *byteStream) advance(c byte) {
 	b.col++
 }
 
-func (b *byteStream) pos() (int, int) {
+func (b *byteStream) pos() (line, column int) {
 	return b.line, b.col
 }
 

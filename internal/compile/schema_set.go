@@ -61,14 +61,21 @@ type loadedSchemaSource struct {
 	data []byte
 }
 
+type schemaSourceRequirement uint8
+
+const (
+	schemaSourceRequired schemaSourceRequirement = iota
+	schemaSourceOptional
+)
+
 //nolint:govet // Field order keeps the source and its reference adjacent at queue call sites.
 type schemaLoadRequest struct {
-	source   source.Source
-	ref      *schemaReference
-	base     source.ReferenceBase
-	referrer string
-	optional bool
-	resolve  bool
+	source      source.Source
+	ref         *schemaReference
+	base        source.ReferenceBase
+	referrer    string
+	requirement schemaSourceRequirement
+	resolve     bool
 }
 
 type schemaReferenceKind uint8
@@ -140,27 +147,27 @@ func newSchemaTargetContexts(documents []schemaSetDocument, limit, nodeLimit int
 	}
 }
 
-func (c *schemaTargetContexts) checkAddLimits(source int) error {
+func (c *schemaTargetContexts) checkAddLimits(sourceIndex int) error {
 	if len(c.queue) >= c.limit {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts")
 	}
-	nodes := c.nodeCounts[source]
+	nodes := c.nodeCounts[sourceIndex]
 	if nodes > c.nodeLimit-c.nodes {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema context nodes exceed MaxSchemaInstantiatedNodes")
 	}
 	return nil
 }
 
-func (c *schemaTargetContexts) add(source int, target string) error {
-	context := schemaTargetContext{source: source, target: target}
-	document := &c.documents[source]
+func (c *schemaTargetContexts) add(sourceIndex int, target string) error {
+	context := schemaTargetContext{source: sourceIndex, target: target}
+	document := &c.documents[sourceIndex]
 	if document.hasPrimary && document.primary == target {
 		return nil
 	}
 	if c.hasAdditional(context) {
 		return nil
 	}
-	if err := c.checkAddLimits(source); err != nil {
+	if err := c.checkAddLimits(sourceIndex); err != nil {
 		return err
 	}
 	c.promoteAdditionalSet()
@@ -174,7 +181,7 @@ func (c *schemaTargetContexts) add(source int, target string) error {
 		}
 	}
 	c.queue = append(c.queue, context)
-	c.nodes += c.nodeCounts[source]
+	c.nodes += c.nodeCounts[sourceIndex]
 	return nil
 }
 
@@ -364,19 +371,25 @@ func (l *schemaSetLoader) acquireNewSource(item schemaLoadRequest) ([]byte, bool
 		return nil, false, schemaTotalBytesLimitError(result.Err)
 	}
 	l.totalBytes += dataBytes
-	missing, err := classifySchemaAcquireResult(name, result, readLimit, remaining, item.optional)
+	missing, err := classifySchemaAcquireResult(name, result, readLimit, remaining, item.requirement)
 	if err != nil || missing {
 		return nil, false, err
 	}
 	return data, true, nil
 }
 
-func classifySchemaAcquireResult(name string, result source.ReadResult, readLimit, remaining int64, allowMissing bool) (bool, error) {
+func classifySchemaAcquireResult(name string, result source.ReadResult, readLimit, remaining int64, requirement schemaSourceRequirement) (bool, error) {
 	if result.Err == nil {
 		return false, nil
 	}
-	if allowMissing && result.OpenNotFound {
-		return true, nil
+	switch requirement {
+	case schemaSourceRequired:
+	case schemaSourceOptional:
+		if result.OpenNotFound {
+			return true, nil
+		}
+	default:
+		return false, xsderrors.InternalInvariant("unknown schema source requirement")
 	}
 	if result.LimitExceeded && readLimit == remaining {
 		return false, schemaTotalBytesLimitError(result.Err)
@@ -475,7 +488,7 @@ func (l *schemaSetLoader) validateLoadedSourceBytes(item schemaLoadRequest, key 
 	// A resolved identity may reuse cached bytes when this optional context
 	// cannot open its own representation. The context still owns descendant
 	// resolution and must be registered below.
-	useCached, err := classifySchemaAcquireResult(src.Name(), result, readLimit, remaining, item.optional)
+	useCached, err := classifySchemaAcquireResult(src.Name(), result, readLimit, remaining, item.requirement)
 	if err != nil {
 		return err
 	}
@@ -539,7 +552,7 @@ func (l *schemaSetLoader) enqueueReferences(src source.Source, refs []schemaRefe
 			return schemaReferenceCompileAt(src, baseNode, "invalid xml:base: "+err.Error())
 		}
 		*queue = append(*queue, schemaLoadRequest{
-			source: src, ref: ref, base: base, referrer: src.Name(), optional: true, resolve: true,
+			source: src, ref: ref, base: base, referrer: src.Name(), requirement: schemaSourceOptional, resolve: true,
 		})
 	}
 	return nil
@@ -565,7 +578,7 @@ func (l *schemaSetLoader) resolveReference(request schemaLoadRequest) (schemaLoa
 		return schemaLoadRequest{}, false, withSchemaReferenceLocation(request, err)
 	}
 	request.ref.target = target
-	return schemaLoadRequest{source: next, ref: request.ref, referrer: request.referrer, optional: true}, true, nil
+	return schemaLoadRequest{source: next, ref: request.ref, referrer: request.referrer, requirement: schemaSourceOptional}, true, nil
 }
 
 func schemaResolutionError(request schemaLoadRequest, err error) error {
@@ -1093,7 +1106,7 @@ func (g *loadedSchemaGraph) selectDeclarationDocuments() {
 	}
 }
 
-func (c *compiler) checkReferenceNamespace(n *rawNode, ctx *schemaContext, namespace string) (string, error) {
+func checkReferenceNamespace(n *rawNode, ctx *schemaContext, namespace string) (string, error) {
 	if ctx == nil {
 		return namespace, nil
 	}

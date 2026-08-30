@@ -58,14 +58,14 @@ func DeclaredXMLAttr(buf []byte, want string) (string, bool) {
 	content := buf[len("<?xml"):]
 	pos := XMLDeclFirstAttr
 	for {
-		name, value, rest, ok := ScanXMLDeclAttr(content, pos)
-		if !ok {
+		attr := ScanXMLDeclAttr(content, pos)
+		if !attr.Valid {
 			return "", false
 		}
-		if name == want {
-			return value, true
+		if attr.Name == want {
+			return attr.Value, true
 		}
-		content = rest
+		content = attr.Rest
 		pos = XMLDeclNextAttr
 	}
 }

@@ -16,8 +16,7 @@ func instanceReaderError(err error) error {
 	case stream.IsInputLimit(err) || stream.IsTokenLimit(err) || stream.IsAttributeLimit(err):
 		return validationReaderCause(xsderrors.CodeValidationLimit, 0, 0, "", err)
 	default:
-		var versionErr stream.UnsupportedXMLVersionError
-		if errors.As(err, &versionErr) {
+		if versionErr, ok := errors.AsType[stream.UnsupportedXMLVersionError](err); ok {
 			return xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil)
 		}
 		return validationReaderCause(xsderrors.CodeValidationXML, 0, 0, "", err)
@@ -29,8 +28,7 @@ func StreamError(line, col int, path string, err error) error {
 	if errors.Is(err, stream.ErrUnsupportedNonUTF8) {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedNonUTF8, "instance documents must be UTF-8", err))
 	}
-	var versionErr stream.UnsupportedXMLVersionError
-	if errors.As(err, &versionErr) {
+	if versionErr, ok := errors.AsType[stream.UnsupportedXMLVersionError](err); ok {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedXML11, versionErr.Error(), nil))
 	}
 	if stream.IsInputLimit(err) || stream.IsTokenLimit(err) || stream.IsAttributeLimit(err) {

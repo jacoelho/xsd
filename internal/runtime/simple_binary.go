@@ -21,9 +21,14 @@ func ParseBinaryValue(kind PrimitiveKind, normalized string, needs PrimitiveValu
 		return parseHexBinaryValue(normalized, needs)
 	case PrimitiveBase64Binary:
 		return parseBase64BinaryValue(normalized, needs)
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return BinaryValue{}, errors.New("invalid binary primitive")
+	default:
 	}
+	return BinaryValue{}, errors.New("invalid binary primitive")
 }
 
 // BinaryLength returns the octet length of a normalized binary primitive value.
@@ -33,9 +38,14 @@ func BinaryLength(kind PrimitiveKind, normalized string) (uint32, error) {
 		return hexBinaryLength(normalized)
 	case PrimitiveBase64Binary:
 		return base64BinaryLength(normalized)
-	default:
+	case PrimitiveString, PrimitiveBoolean, PrimitiveDecimal, PrimitiveFloat, PrimitiveDouble,
+		PrimitiveDuration, PrimitiveDateTime, PrimitiveTime, PrimitiveDate,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth,
+		PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return 0, errors.New("invalid binary primitive")
+	default:
 	}
+	return 0, errors.New("invalid binary primitive")
 }
 
 // ValidateHexBinaryLexical validates raw as an XML Schema hexBinary lexical

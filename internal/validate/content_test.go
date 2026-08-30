@@ -13,19 +13,20 @@ func TestValidateDocumentCharacterData(t *testing.T) {
 	ctx := StartContext{Path: "/", Line: 2, Column: 3}
 	tests := []struct {
 		name    string
-		data    string
-		cdata   bool
+		input   DocumentCharacterData
 		wantErr xsderrors.Code
 	}{
-		{name: "CDATA", data: "x", cdata: true, wantErr: xsderrors.CodeValidationXML},
-		{name: "text", data: "x", wantErr: xsderrors.CodeValidationText},
-		{name: "whitespace", data: " \n\t"},
+		{name: "CDATA", input: DocumentCharacterData{Kind: CharacterDataCDATA}, wantErr: xsderrors.CodeValidationXML},
+		{name: "text", input: DocumentCharacterData{Kind: CharacterDataText}, wantErr: xsderrors.CodeValidationText},
+		{name: "whitespace", input: DocumentCharacterData{Kind: CharacterDataText, Whitespace: true}},
+		{name: "invalid kind", input: DocumentCharacterData{Kind: CharacterDataInvalid}, wantErr: xsderrors.CodeInternalInvariant},
+		{name: "unknown kind", input: DocumentCharacterData{Kind: CharacterDataKind(99)}, wantErr: xsderrors.CodeInternalInvariant},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateDocumentCharacterData([]byte(tc.data), tc.cdata, ctx)
+			err := ValidateDocumentCharacterData(tc.input, ctx)
 			if tc.wantErr != "" {
 				expectXSDCode(t, err, tc.wantErr)
 				return
@@ -37,10 +38,19 @@ func TestValidateDocumentCharacterData(t *testing.T) {
 	}
 }
 
+func TestValidateTokenRejectsInvalidMode(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []tokenValidationMode{tokenValidationInvalid, tokenValidationMode(99)} {
+		err := validateTokenMode(mode)
+		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
+	}
+}
+
 func TestChildPolicies(t *testing.T) {
 	t.Parallel()
 
-	if got := childFramePolicy(true); got.issue.code != xsderrors.CodeValidationNil {
+	if got := childFramePolicy(&frame{Nilled: true}); got.issue.code != xsderrors.CodeValidationNil {
 		t.Fatalf("childFramePolicy(nilled) = %+v", got)
 	}
 

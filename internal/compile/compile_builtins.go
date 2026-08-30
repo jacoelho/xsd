@@ -92,7 +92,7 @@ func (c *compiler) addBuiltinAttributeSimpleSeed(seed runtime.BuiltinAttributeSi
 }
 
 func (c *compiler) addBuiltinAnyType() error {
-	anyWildcard, err := c.addWildcard(runtime.BuiltinAnyTypeWildcard())
+	anyWildcard, err := c.appendWildcard(runtime.BuiltinAnyTypeWildcard())
 	if err != nil {
 		return err
 	}

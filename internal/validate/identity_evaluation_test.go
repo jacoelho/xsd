@@ -37,6 +37,16 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	}
 }
 
+func TestIdentityEvaluationRejectsUnfinishedAssessment(t *testing.T) {
+	t.Parallel()
+
+	var evaluation identityEvaluation
+	for _, assessment := range []identityElementAssessment{identityElementAssessmentUnknown, identityElementAssessment(99)} {
+		_, err := evaluation.finishAncestorIdentitySelections(ancestorIdentityFinish{assessment: assessment}, failIdentityReport(t))
+		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
+	}
+}
+
 func TestIdentityEvaluationCommitsValueAndClosesElement(t *testing.T) {
 	t.Parallel()
 
@@ -297,20 +307,20 @@ type startedIdentityEvaluationFixture struct {
 func startedIdentityEvaluationForTest(t *testing.T) startedIdentityEvaluationFixture {
 	t.Helper()
 
-	rt, elemID, _, elemName, attrName := compiledIdentityRuntimeForTest(t)
-	evaluation := newIdentityEvaluation(rt, identityLimits{}, 0)
+	fixture := compiledIdentityRuntimeForTest(t)
+	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
 	if err := evaluation.startElement(identityElementStart{
 		Context: StartContext{Path: "/root", Line: 1, Column: 1},
-		Name:    runtime.RuntimeName{Known: true, Name: elemName},
-		Element: elemID,
+		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
+		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	}); err != nil {
 		t.Fatalf("startElement() error = %v", err)
 	}
 	return startedIdentityEvaluationFixture{
 		evaluation: &evaluation,
-		elemID:     elemID,
-		elemName:   elemName,
-		attrName:   attrName,
+		elemID:     fixture.elemID,
+		elemName:   fixture.elemName,
+		attrName:   fixture.attrName,
 	}
 }

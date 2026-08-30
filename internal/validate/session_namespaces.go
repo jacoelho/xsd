@@ -10,8 +10,8 @@ func (s *session) runtimeName(n xml.Name) runtime.RuntimeName {
 	return ResolveRuntimeName(s.rt, n)
 }
 
-func (s *session) qnameResolverForAttrs(hasXSIType bool) runtime.ResolveQNameParts {
-	if !hasXSIType {
+func (s *session) qnameResolverForAttrs(flags xsiStartAttributeFlags) runtime.ResolveQNameParts {
+	if !flags.Type {
 		return nil
 	}
 	return s.qnameResolver()
@@ -31,6 +31,6 @@ func (s *session) qnameResolver() runtime.ResolveQNameParts {
 	return s.resolveLexicalQNamePartsFunc
 }
 
-func (s *session) resolveLexicalQNameParts(v string) (string, string, bool) {
+func (s *session) resolveLexicalQNameParts(v string) (namespace, local string, ok bool) {
 	return ResolveLexicalQNameParts(v, s.doc.LookupNamespace)
 }

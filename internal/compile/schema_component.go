@@ -12,8 +12,8 @@ type SchemaComponentKind uint8
 const (
 	schemaComponentSimpleTypeLabel     = "simple type"
 	schemaComponentComplexTypeLabel    = "complex type"
-	schemaComponentAttributeLabel      = "attribute"
-	schemaComponentElementLabel        = "element"
+	schemaComponentAttributeLabel      = "attribute" //nolint:goconst // Diagnostic labels remain separate from XML child vocabulary.
+	schemaComponentElementLabel        = "element"   //nolint:goconst // Diagnostic labels remain separate from XML child vocabulary.
 	schemaComponentAttributeGroupLabel = "attribute group"
 	schemaComponentModelGroupLabel     = "model group"
 	schemaComponentTypeLabel           = "type"
@@ -64,9 +64,11 @@ func (k SchemaComponentKind) cycleLabel() string {
 		return "attribute declaration"
 	case SchemaComponentElement:
 		return "element declaration"
-	default:
+	case SchemaComponentSimpleType, SchemaComponentComplexType, SchemaComponentAttributeGroup, SchemaComponentModelGroup, SchemaComponentType:
 		return k.missingLabel()
+	default:
 	}
+	return k.missingLabel()
 }
 
 // AddSchemaComponent inserts one named schema component and rejects duplicates.
@@ -94,44 +96,31 @@ func AddGlobalAttributeComponent[T any](
 	return AddSchemaComponent(components, name, component, label)
 }
 
-// CheckSchemaComponentCycle rejects recursive compilation of one named schema
+// SchemaComponentCycleError reports recursive compilation of one named schema
 // component.
-func CheckSchemaComponentCycle(kind SchemaComponentKind, compiling bool, label string) error {
-	if compiling {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+kind.cycleLabel()+" "+label)
-	}
-	return nil
+func SchemaComponentCycleError(kind SchemaComponentKind, label string) error {
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+kind.cycleLabel()+" "+label)
 }
 
-// CheckSchemaComponentRecursion rejects recursive references to one named
+// SchemaComponentRecursionError reports a recursive reference to one named
 // schema component.
-func CheckSchemaComponentRecursion(kind SchemaComponentKind, recursive bool, label string) error {
-	if recursive {
-		msg := "recursive " + kind.missingLabel()
-		if label != "" {
-			msg += " " + label
-		}
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg)
+func SchemaComponentRecursionError(kind SchemaComponentKind, label string) error {
+	msg := "recursive " + kind.missingLabel()
+	if label != "" {
+		msg += " " + label
 	}
-	return nil
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg)
 }
 
-// CheckSchemaComponentExists rejects references to unknown named schema
-// components.
-func CheckSchemaComponentExists(kind SchemaComponentKind, exists bool, label string) error {
-	if !exists {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown "+kind.missingLabel()+" "+label)
-	}
-	return nil
+// SchemaComponentMissingError reports an unknown named schema component.
+func SchemaComponentMissingError(kind SchemaComponentKind, label string) error {
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown "+kind.missingLabel()+" "+label)
 }
 
-// CheckSchemaTypeNameAvailable rejects a type name that is already used by the
-// opposite simple/complex type table.
-func CheckSchemaTypeNameAvailable(exists bool, label string) error {
-	if exists {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate type "+label)
-	}
-	return nil
+// SchemaTypeNameConflictError reports a type name already used by the opposite
+// simple/complex type table.
+func SchemaTypeNameConflictError(label string) error {
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate type "+label)
 }
 
 // AddNotation inserts one top-level notation declaration and rejects

@@ -50,15 +50,14 @@ func newElementReadTable(decls []ElementDecl, complexTypes []ComplexType) elemen
 	return table
 }
 
-func elementReadStorageCounts(decls []ElementDecl) (int, int) {
-	identities, constraints := 0, 0
+func elementReadStorageCounts(decls []ElementDecl) (identityCount, constraintCount int) {
 	for i := range decls {
-		identities += len(decls[i].Identity)
+		identityCount += len(decls[i].Identity)
 		if decls[i].Fixed != nil || decls[i].Default != nil {
-			constraints++
+			constraintCount++
 		}
 	}
-	return identities, constraints
+	return identityCount, constraintCount
 }
 
 func (t *elementReadTable) addDeclaration(index int, decl ElementDecl, complexTypes []ComplexType) {
@@ -143,7 +142,7 @@ func (t *elementReadTable) identityConstraints(id ElementID) (IdentityConstraint
 	return borrowedIdentityConstraintIDs(t.identities[meta.identityStart:end]), true
 }
 
-func (t *elementReadTable) valueConstraints(id ElementID) (ElementValueConstraints, bool, bool) {
+func (t *elementReadTable) valueConstraints(id ElementID) (constraints ElementValueConstraints, present, valid bool) {
 	if id == NoElement {
 		return ElementValueConstraints{}, false, true
 	}

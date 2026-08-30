@@ -19,7 +19,7 @@ func (c *compiler) index() error {
 
 func (c *compiler) indexSchemaDocument(document schemaSetDocument) error {
 	doc := document.doc
-	ctx := c.schemaContext(document)
+	ctx := newSchemaContext(document)
 	c.contexts[doc] = ctx
 	for child := range doc.root.xsdChildren() {
 		if err := c.indexTopLevelSchemaChild(child, ctx); err != nil {
@@ -29,7 +29,7 @@ func (c *compiler) indexSchemaDocument(document schemaSetDocument) error {
 	return nil
 }
 
-func (c *compiler) schemaContext(document schemaSetDocument) *schemaContext {
+func newSchemaContext(document schemaSetDocument) *schemaContext {
 	doc := document.doc
 	defaults := doc.defaults
 	ctx := &schemaContext{
@@ -86,16 +86,16 @@ func (c *compiler) indexNamedTopLevelSchemaChild(child *rawNode, q runtime.QName
 
 func (c *compiler) indexSimpleType(child *rawNode, q runtime.QName, label string, component rawComponent) error {
 	_, exists := c.complexRaw[q]
-	if err := CheckSchemaTypeNameAvailable(exists, label); err != nil {
-		return withSchemaCompileLocation(child, err)
+	if exists {
+		return withSchemaCompileLocation(child, SchemaTypeNameConflictError(label))
 	}
 	return withSchemaCompileLocation(child, AddSchemaComponent(c.simpleRaw, q, component, label))
 }
 
 func (c *compiler) indexComplexType(child *rawNode, q runtime.QName, label string, component rawComponent) error {
 	_, exists := c.simpleRaw[q]
-	if err := CheckSchemaTypeNameAvailable(exists, label); err != nil {
-		return withSchemaCompileLocation(child, err)
+	if exists {
+		return withSchemaCompileLocation(child, SchemaTypeNameConflictError(label))
 	}
 	return withSchemaCompileLocation(child, AddSchemaComponent(c.complexRaw, q, component, label))
 }
@@ -179,8 +179,7 @@ func validateRawModelGroupReference(child *rawNode) error {
 	if err := checkGroupOccurrenceAttributes(child); err != nil {
 		return err
 	}
-	_, hasRef := child.attr(vocab.XSDAttrRef)
-	if err := ValidateGroupUseSource(hasRef); err != nil {
+	if err := ValidateGroupUseSource(rawLexicalAttribute(child, vocab.XSDAttrRef)); err != nil {
 		return withSchemaCompileLocation(child, err)
 	}
 	return checkChildOrderRules(child, groupUseChildOrder)

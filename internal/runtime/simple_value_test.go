@@ -192,7 +192,7 @@ func (s *simpleValueCallbackStub) typ(id SimpleTypeID) (SimpleValueType, bool) {
 	return typ, ok
 }
 
-func (s *simpleValueCallbackStub) stringEnumerationContains(id SimpleTypeID, canonical string) (bool, bool) {
+func (s *simpleValueCallbackStub) stringEnumerationContains(id SimpleTypeID, canonical string) (contains, valid bool) {
 	return slices.Contains(s.enums[id], canonical), true
 }
 
@@ -213,7 +213,7 @@ func (s *simpleValueCallbackStub) simpleValueFacets(id SimpleTypeID) (SimpleValu
 	}, true
 }
 
-func (s *simpleValueCallbackStub) resolveQName(lexical string) (string, string, bool) {
+func (s *simpleValueCallbackStub) resolveQName(lexical string) (namespace, local string, ok bool) {
 	s.calls = append(s.calls, "qname:"+lexical)
 	got, ok := s.qnames[lexical]
 	if !ok {
@@ -646,8 +646,8 @@ func TestValidateSimpleValueAtomicDecimalBypassUsesRuntimeWhenHandled(t *testing
 		lexical string
 		wantErr string
 	}{
-		{lexical: "0.99", wantErr: fastDecimalErrMinInclusive},
-		{lexical: "10.51", wantErr: fastDecimalErrMaxInclusive},
+		{lexical: "0.99", wantErr: rawDecimalErrMinInclusive},
+		{lexical: "10.51", wantErr: rawDecimalErrMaxInclusive},
 	} {
 		_, err := ValidateSimpleValue(stub.callbacks(), 1, tt.lexical, 0)
 		if err == nil || err.Error() != tt.wantErr {

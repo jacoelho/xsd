@@ -14,10 +14,11 @@ import (
 // runtime only while publication invariants are checked. Schema never retains
 // this source after publication.
 type schemaAudit struct {
+	Schema
+
 	contentModelWork ContentModelWork
 	contentAnalysis  *ContentModelAnalysis
-	Schema
-	build SchemaBuild
+	build            SchemaBuild
 }
 
 func validateSchema(rt *schemaAudit) error {
@@ -93,8 +94,11 @@ func validateElementBuildOwnership(build *SchemaBuild) error {
 			if exact {
 				return xsderrors.InternalInvariant("non-global element declaration has a global name binding")
 			}
-		default:
+		case DeclarationScopeInvalid:
 			return xsderrors.InternalInvariant("element declaration scope is invalid")
+		default:
+			err := xsderrors.InternalInvariant("element declaration scope is invalid")
+			return err
 		}
 	}
 	return nil
@@ -113,8 +117,11 @@ func validateSimpleTypeBuildOwnership(build *SchemaBuild) error {
 			if exact {
 				return xsderrors.InternalInvariant("non-global simple type has a global name binding")
 			}
-		default:
+		case DeclarationScopeInvalid:
 			return xsderrors.InternalInvariant("simple type declaration scope is invalid")
+		default:
+			err := xsderrors.InternalInvariant("simple type declaration scope is invalid")
+			return err
 		}
 	}
 	return nil
@@ -133,8 +140,11 @@ func validateComplexTypeBuildOwnership(build *SchemaBuild) error {
 			if exact {
 				return xsderrors.InternalInvariant("non-global complex type has a global name binding")
 			}
-		default:
+		case DeclarationScopeInvalid:
 			return xsderrors.InternalInvariant("complex type declaration scope is invalid")
+		default:
+			err := xsderrors.InternalInvariant("complex type declaration scope is invalid")
+			return err
 		}
 	}
 	return nil
@@ -613,15 +623,16 @@ func validateTypeDerivations(rt *schemaAudit) error {
 }
 
 func validateRuntimeCompiledModels(rt *schemaAudit) error {
-	if err := validateCompiledModelsRuntime(
+	validator, err := newCompiledModelValidator(
 		&rt.build.Names,
 		&rt.build,
-		rt.build.Models,
-		rt.build.CompiledModels,
-		true,
 		rt.contentModelWork,
 		rt.contentAnalysis,
-	); err != nil {
+	)
+	if err != nil {
+		return contentModelAuditError(err)
+	}
+	if err := validator.validateSet(rt.build.Models, rt.build.CompiledModels); err != nil {
 		return contentModelAuditError(err)
 	}
 	return nil
@@ -662,7 +673,7 @@ func validateBuiltinSimpleID(ctx *schemaValidationContext, base builtinSimpleExp
 		return err
 	}
 	typ := rt.build.SimpleTypes[id]
-	if err := validateBuiltinSimpleFacets(typ, expectation.facetExpectation(typ.Base)); err != nil {
+	if err := auditBuiltinSimpleFacets(typ, expectation.facetExpectation(typ.Base)); err != nil {
 		return err
 	}
 	for _, literal := range typ.Facets.bounds {
@@ -809,7 +820,7 @@ func builtinSimpleBaseMatchesSchema(rt *schemaAudit, id SimpleTypeID, local stri
 	return simple && id == expected
 }
 
-func validateBuiltinSimpleFacets(st SimpleType, exp BuiltinSimpleFacetExpectation) error {
+func auditBuiltinSimpleFacets(st SimpleType, exp BuiltinSimpleFacetExpectation) error {
 	if err := ValidateBuiltinSimpleFacets(NewBuiltinSimpleFacetValidation(st.Facets, exp), exp); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -865,14 +876,14 @@ func validateElementDeclShape(rt *schemaAudit, decl ElementDecl) error {
 
 func validateElementDeclValueConstraints(ctx *schemaValidationContext, decl ElementDecl) error {
 	rt := ctx.rt
-	defaultType, err := elementValueConstraintType(rt, decl)
+	defaultType, err := auditElementValueConstraintType(rt, decl)
 	if err != nil {
 		return err
 	}
 	if err := validateValueConstraintRuntime(ctx, decl.Default, defaultType, "element declaration default"); err != nil {
 		return err
 	}
-	if err := ValidateElementDeclValueConstraintRuntime(&rt.build, defaultType, decl.Default != nil, decl.Fixed != nil); err != nil {
+	if err := ValidateElementDeclValueConstraintRuntime(&rt.build, defaultType, DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return validateValueConstraintRuntime(ctx, decl.Fixed, defaultType, "element declaration fixed")
@@ -885,7 +896,7 @@ func validateAttributeDecl(ctx *schemaValidationContext, decl AttributeDecl) err
 	}); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	if err := ValidateAttributeDeclValueConstraintRuntime(&rt.build, decl.Type, decl.Default != nil, decl.Fixed != nil); err != nil {
+	if err := ValidateAttributeDeclValueConstraintRuntime(&rt.build, decl.Type, DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	if err := validateValueConstraintRuntime(ctx, decl.Default, decl.Type, "attribute declaration default"); err != nil {
@@ -1226,9 +1237,9 @@ func newSimpleTypeBaseAncestry(types []SimpleType) simpleTypeBaseAncestry {
 	return audit.ancestry
 }
 
-func simpleTypeAncestryChildren(types []SimpleType) ([]SimpleTypeID, []SimpleTypeID) {
-	firstChild := make([]SimpleTypeID, len(types))
-	nextSibling := make([]SimpleTypeID, len(types))
+func simpleTypeAncestryChildren(types []SimpleType) (firstChild, nextSibling []SimpleTypeID) {
+	firstChild = make([]SimpleTypeID, len(types))
+	nextSibling = make([]SimpleTypeID, len(types))
 	for i := range types {
 		firstChild[i] = NoSimpleType
 		nextSibling[i] = NoSimpleType
@@ -1433,12 +1444,15 @@ func validateComplexRestrictionRuntime(rt *schemaAudit, ct ComplexType) error {
 	); err != nil {
 		return contentModelAuditError(err)
 	}
-	return validateAttributeUsesRestrict(rt, base.Attrs, ct.Attrs, ct.ExplicitDerivation)
+	binding := AttributeWildcardUnbound
+	if ct.ExplicitDerivation {
+		binding = AttributeWildcardBound
+	}
+	return validateAttributeUsesRestrict(rt, base.Attrs, ct.Attrs, binding)
 }
 
 func contentModelAuditError(err error) error {
-	var diagnostic *xsderrors.Error
-	if errors.As(err, &diagnostic) {
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 		return err
 	}
 	return xsderrors.InternalInvariant(err.Error())
@@ -1461,7 +1475,7 @@ func validateAttributeUsesExtend(rt *schemaAudit, baseID, derivedID AttributeUse
 	return checkDerivedAttributeWildcard(rt, NewAttributeWildcardStateForUseSet(base), NewAttributeWildcardStateForUseSet(derived), AttributeWildcardExtension)
 }
 
-func validateAttributeUsesRestrict(rt *schemaAudit, baseID, derivedID AttributeUseSetID, bindWildcard bool) error {
+func validateAttributeUsesRestrict(rt *schemaAudit, baseID, derivedID AttributeUseSetID, binding AttributeWildcardBinding) error {
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
 	if err := ValidateAttributeUseSetRestriction(
@@ -1470,7 +1484,7 @@ func validateAttributeUsesRestrict(rt *schemaAudit, baseID, derivedID AttributeU
 		NewAttributeUseRestrictionValidationsForUses(derived.Uses),
 		NewAttributeWildcardStateForUseSet(base),
 		NewAttributeWildcardStateForUseSet(derived),
-		bindWildcard,
+		binding,
 	); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -1500,7 +1514,7 @@ func checkDerivedAttributeWildcard(rt *schemaAudit, base, derived AttributeWildc
 	return nil
 }
 
-func elementValueConstraintType(rt *schemaAudit, decl ElementDecl) (SimpleTypeID, error) {
+func auditElementValueConstraintType(rt *schemaAudit, decl ElementDecl) (SimpleTypeID, error) {
 	if decl.Default == nil && decl.Fixed == nil {
 		return NoSimpleType, nil
 	}

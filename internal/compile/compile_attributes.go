@@ -19,8 +19,8 @@ func (c *compiler) compileAttributeByQName(q runtime.QName) (runtime.AttributeID
 		return id, nil
 	}
 	label := c.rt.formatName(q)
-	if err := CheckSchemaComponentExists(SchemaComponentAttribute, exists, label); err != nil {
-		return 0, err
+	if !exists {
+		return 0, SchemaComponentMissingError(SchemaComponentAttribute, label)
 	}
 	leave, err := c.enterComponent(raw.node)
 	if err != nil {
@@ -52,7 +52,7 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q runtim
 	}
 	decl := runtime.AttributeDecl{Name: q, Type: typ}
 	readAttributeDeclValueConstraints(n, &decl)
-	if err := validateAttributeDeclValueConstraintAdmission(n, decl.Default != nil, decl.Fixed != nil); err != nil {
+	if err := validateAttributeDeclValueConstraintAtNode(n, runtime.DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
 		return runtime.AttributeDecl{}, err
 	}
 	if err := c.validateAttributeValueConstraints(&decl, n); err != nil {
@@ -63,7 +63,11 @@ func (c *compiler) compileAttributeDecl(n *rawNode, ctx *schemaContext, q runtim
 
 func (c *compiler) compileAttributeDeclType(n *rawNode, ctx *schemaContext) (runtime.SimpleTypeID, error) {
 	if typeLex, ok := n.attr(vocab.XSDAttrType); ok {
-		if err := ValidateAttributeTypeSource(true, n.firstXS(vocab.XSDElemSimpleType) != nil); err != nil {
+		source := AttributeTypeSource{
+			Type:               LexicalAttribute{Value: typeLex, Present: true},
+			HasSimpleTypeChild: n.firstXS(vocab.XSDElemSimpleType) != nil,
+		}
+		if err := ValidateAttributeTypeSource(source); err != nil {
 			return runtime.NoSimpleType, withSchemaCompileLocation(n, err)
 		}
 		q, err := c.resolveQNameChecked(n, ctx, typeLex)
@@ -102,7 +106,7 @@ func (c *compiler) validateAttributeValueConstraints(decl *runtime.AttributeDecl
 	if decl.Default == nil && decl.Fixed == nil {
 		return nil
 	}
-	resolve := c.schemaQNameResolver(n)
+	resolve := schemaQNameResolver(n)
 	if err := c.validateAttributeConstraint(&decl.Default, decl, resolve, "attribute default"); err != nil {
 		return err
 	}
@@ -144,7 +148,7 @@ type valueConstraintResolver struct {
 	names   []runtime.ResolvedValueName
 }
 
-func (r *valueConstraintResolver) resolveQName(lexical string) (string, string, bool) {
+func (r *valueConstraintResolver) resolveQName(lexical string) (namespace, local string, ok bool) {
 	ns, local, ok := r.resolve(lexical)
 	if ok {
 		r.names = append(r.names, runtime.ResolvedValueName{Lexical: lexical, NS: ns, Local: local})
@@ -152,13 +156,13 @@ func (r *valueConstraintResolver) resolveQName(lexical string) (string, string, 
 	return ns, local, ok
 }
 
-func (c *compiler) schemaQNameResolver(n *rawNode) runtime.ResolveQNameParts {
+func schemaQNameResolver(n *rawNode) runtime.ResolveQNameParts {
 	return func(lexical string) (string, string, bool) {
-		ns, local, err := n.resolveQName(lexical)
+		name, err := n.resolveQName(lexical)
 		if err != nil {
 			return "", "", false
 		}
-		return ns, local, true
+		return name.Space, name.Local, true
 	}
 }
 
@@ -202,9 +206,11 @@ func (b *attributeUseCompilation) add(child *rawNode) error {
 		return b.addGroup(child)
 	case AttributeUseChildWildcard:
 		return b.addWildcard(child)
-	default:
+	case AttributeUseChildIgnored:
 		return nil
+	default:
 	}
+	return nil
 }
 
 func (b *attributeUseCompilation) addAttribute(child *rawNode) error {
@@ -246,7 +252,11 @@ func (b *attributeUseCompilation) addWildcard(child *rawNode) error {
 
 func (b *attributeUseCompilation) finish(parent *rawNode, inheritedWildcard runtime.WildcardID, mode AttributeMergeMode) (runtime.AttributeUseSetID, error) {
 	declaredWildcard := b.wildcards.Declared()
-	wildcard, err := b.wildcards.Finish(b.compiler, parent.Name.Local == vocab.XSDElemExtension)
+	wildcard, err := b.wildcards.Finish(b.compiler)
+	if err != nil {
+		return runtime.NoAttributeUseSet, withSchemaCompileLocation(parent, err)
+	}
+	derivation, err := AttributeWildcardDerivation(mode)
 	if err != nil {
 		return runtime.NoAttributeUseSet, withSchemaCompileLocation(parent, err)
 	}
@@ -254,7 +264,7 @@ func (b *attributeUseCompilation) finish(parent *rawNode, inheritedWildcard runt
 	set, err := newAttributeUseSet(finalUses, wildcard, attributeWildcardProvenance{
 		base:     inheritedWildcard,
 		declared: declaredWildcard,
-		derive:   AttributeWildcardDerivation(parent.Name.Local == vocab.XSDElemExtension, mode),
+		derive:   derivation,
 	})
 	if err != nil {
 		return runtime.NoAttributeUseSet, err
@@ -328,7 +338,7 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (runtime.
 	if err != nil {
 		return runtime.AttributeUse{}, err
 	}
-	modeState, err := applyAttributeUseMode(n, mode, overrides.hasFixed)
+	modeState, err := applyAttributeUseModeAtNode(n, mode, overrides.hasFixed)
 	if err != nil {
 		return runtime.AttributeUse{}, err
 	}
@@ -338,7 +348,7 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (runtime.
 	if err := c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
 		return runtime.AttributeUse{}, err
 	}
-	if err := validateAttributeUseFixedValueAdmission(n, runtime.NewValueConstraintIdentity(use.Fixed), runtime.NewValueConstraintIdentity(base.refFixed)); err != nil {
+	if err := validateAttributeUseFixedValueAtNode(n, runtime.NewValueConstraintIdentity(use.Fixed), runtime.NewValueConstraintIdentity(base.refFixed)); err != nil {
 		return runtime.AttributeUse{}, err
 	}
 	return use, nil
@@ -347,19 +357,17 @@ func (c *compiler) compileAttributeUse(n *rawNode, ctx *schemaContext) (runtime.
 type attributeUseOverrides struct {
 	defaultValue string
 	fixedValue   string
-	modeLexical  string
+	mode         LexicalAttribute
 	hasDefault   bool
 	hasFixed     bool
-	hasMode      bool
 }
 
 func readAttributeUseOverrides(n *rawNode) attributeUseOverrides {
 	defaultValue, hasDefault := n.attr(vocab.XSDAttrDefault)
 	fixedValue, hasFixed := n.attr(vocab.XSDAttrFixed)
-	modeLexical, hasMode := n.attr(vocab.XSDAttrUse)
 	return attributeUseOverrides{
-		defaultValue: defaultValue, fixedValue: fixedValue, modeLexical: modeLexical,
-		hasDefault: hasDefault, hasFixed: hasFixed, hasMode: hasMode,
+		defaultValue: defaultValue, fixedValue: fixedValue, mode: rawLexicalAttribute(n, vocab.XSDAttrUse),
+		hasDefault: hasDefault, hasFixed: hasFixed,
 	}
 }
 
@@ -371,11 +379,11 @@ func applyAttributeUseFixedOverride(use *runtime.AttributeUse, base attributeUse
 }
 
 func validateAttributeUseMode(n *rawNode, overrides attributeUseOverrides, inheritedFixed bool) (AttributeUseMode, error) {
-	mode, err := parseAttributeUseModeChecked(n, overrides.modeLexical, overrides.hasMode)
+	mode, err := parseAttributeUseModeChecked(n, overrides.mode)
 	if err != nil {
 		return AttributeUseOptional, err
 	}
-	if err := validateAttributeUseValueConstraintAdmission(n, mode, overrides.hasDefault, overrides.hasFixed, inheritedFixed); err != nil {
+	if err := validateAttributeUseValueConstraintAtNode(n, mode, overrides.hasDefault, overrides.hasFixed, inheritedFixed); err != nil {
 		return AttributeUseOptional, err
 	}
 	return mode, nil
@@ -512,7 +520,7 @@ func (c *compiler) compileAttributeGroupByQName(q runtime.QName) ([]runtime.Attr
 	label := c.rt.formatName(q)
 	raw, exists := c.attrGroupRaw[q]
 	if c.compilingAttrGrp[q] {
-		err := CheckSchemaComponentRecursion(SchemaComponentAttributeGroup, true, label)
+		err := SchemaComponentRecursionError(SchemaComponentAttributeGroup, label)
 		return nil, runtime.NoWildcard, withSchemaCompileLocation(raw.node, err)
 	}
 	var source *rawNode
@@ -526,8 +534,8 @@ func (c *compiler) compileAttributeGroupByQName(q runtime.QName) ([]runtime.Attr
 		uses, wildcard := c.rt.attributeUsesAndWildcard(id)
 		return uses, wildcard, nil
 	}
-	if err := CheckSchemaComponentExists(SchemaComponentAttributeGroup, exists, label); err != nil {
-		return nil, runtime.NoWildcard, err
+	if !exists {
+		return nil, runtime.NoWildcard, SchemaComponentMissingError(SchemaComponentAttributeGroup, label)
 	}
 	leave, err := c.enterComponent(raw.node)
 	if err != nil {
@@ -536,7 +544,7 @@ func (c *compiler) compileAttributeGroupByQName(q runtime.QName) ([]runtime.Attr
 	defer leave()
 	c.compilingAttrGrp[q] = true
 	defer delete(c.compilingAttrGrp, q)
-	id, err := c.compileAttributeUses(raw.node, raw.ctx, nil, runtime.NoWildcard, AttributeMergeNormal)
+	id, err := c.compileAttributeUses(raw.node, raw.ctx, nil, runtime.NoWildcard, AttributeMergeDirect)
 	if err != nil {
 		return nil, runtime.NoWildcard, err
 	}

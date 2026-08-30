@@ -26,7 +26,10 @@ func TestValidateAttributeTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateAttributeTypeSource(tt.hasAttr, tt.hasChild)
+			err := ValidateAttributeTypeSource(AttributeTypeSource{
+				Type:               LexicalAttribute{Present: tt.hasAttr},
+				HasSimpleTypeChild: tt.hasChild,
+			})
 			if tt.wantMessage != "" {
 				expectInvalidAttributeMessage(t, err, tt.wantMessage)
 				return
@@ -57,7 +60,10 @@ func TestValidateSimpleRestrictionTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleRestrictionTypeSource(tt.hasAttr, tt.hasChild)
+			err := ValidateSimpleRestrictionTypeSource(SimpleRestrictionTypeSource{
+				Base:               LexicalAttribute{Present: tt.hasAttr},
+				HasSimpleTypeChild: tt.hasChild,
+			})
 			if tt.wantMessage != "" {
 				expectXSDMessage(t, err, tt.wantCode, tt.wantMessage)
 				return
@@ -88,7 +94,10 @@ func TestValidateSimpleListItemTypeSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateSimpleListItemTypeSource(tt.hasAttr, tt.hasChild)
+			err := ValidateSimpleListItemTypeSource(SimpleListItemTypeSource{
+				ItemType:           LexicalAttribute{Present: tt.hasAttr},
+				HasSimpleTypeChild: tt.hasChild,
+			})
 			if tt.wantMessage != "" {
 				expectXSDMessage(t, err, tt.wantCode, tt.wantMessage)
 				return
@@ -136,7 +145,10 @@ func TestParseUnionMemberTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ParseUnionMemberTypes(tt.memberTypes, tt.hasMemberTypes, tt.hasSimpleTypeChild)
+			got, err := ParseUnionMemberTypes(UnionMemberTypeSource{
+				MemberTypes:        LexicalAttribute{Value: tt.memberTypes, Present: tt.hasMemberTypes},
+				HasSimpleTypeChild: tt.hasSimpleTypeChild,
+			})
 			if tt.wantMessage != "" {
 				diag, ok := errors.AsType[*xsderrors.Error](err)
 				if !ok {

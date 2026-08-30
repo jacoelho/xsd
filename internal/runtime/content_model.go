@@ -491,13 +491,21 @@ func RestrictionChoiceLimitUpdates(
 	if err := validateChoiceLimitUpdateInputs(rt, work); err != nil {
 		return nil, err
 	}
+	builder := restrictionChoiceLimitBuilder{
+		rt:           rt,
+		complexTypes: complexTypes,
+		models:       models,
+		anyType:      anyType,
+		work:         work,
+		analysis:     analysis,
+	}
 	var updates []RestrictionChoiceLimitUpdate
 	for i, ct := range complexTypes {
 		id, err := spendChoiceLimitComplexType(work, i)
 		if err != nil {
 			return nil, err
 		}
-		update, ok, err := restrictionChoiceLimitUpdate(rt, complexTypes, models, anyType, work, analysis, id, ct)
+		update, ok, err := builder.update(id, ct)
 		if err != nil {
 			return nil, err
 		}
@@ -526,28 +534,31 @@ func spendChoiceLimitComplexType(work ContentModelWork, index int) (ComplexTypeI
 	return ComplexTypeID(raw), nil
 }
 
-func restrictionChoiceLimitUpdate(
-	rt ParticleRestrictionRuntime,
-	complexTypes []ComplexType,
-	models []ContentModel,
-	anyType ComplexTypeID,
-	work ContentModelWork,
-	analysis *ContentModelAnalysis,
+type restrictionChoiceLimitBuilder struct {
+	rt           ParticleRestrictionRuntime
+	work         ContentModelWork
+	analysis     *ContentModelAnalysis
+	complexTypes []ComplexType
+	models       []ContentModel
+	anyType      ComplexTypeID
+}
+
+func (b *restrictionChoiceLimitBuilder) update(
 	index ComplexTypeID,
 	ct ComplexType,
 ) (RestrictionChoiceLimitUpdate, bool, error) {
-	baseContent, derivedContent, eligible, err := restrictionChoiceLimitContentIDs(complexTypes, models, anyType, ct)
-	if err != nil || !eligible {
+	content, err := restrictionChoiceLimitContentIDs(b.complexTypes, b.models, b.anyType, ct)
+	if err != nil || !content.eligible {
 		return RestrictionChoiceLimitUpdate{}, false, err
 	}
-	repeated, err := RestrictionRepeatedChoiceParticles(models, baseContent, derivedContent, rt, work, analysis)
+	repeated, err := RestrictionRepeatedChoiceParticles(b.models, content.base, content.derived, b.rt, b.work, b.analysis)
 	if err != nil {
 		return RestrictionChoiceLimitUpdate{}, false, err
 	}
 	if len(repeated) == 0 {
 		return RestrictionChoiceLimitUpdate{}, false, nil
 	}
-	model := CloneContentModel(models[derivedContent])
+	model := CloneContentModel(b.models[content.derived])
 	if len(model.ChoiceLimits) != 0 && !slices.Equal(model.ChoiceLimits, repeated) {
 		return RestrictionChoiceLimitUpdate{}, false, errors.New("choice-limit restriction source model already has different choice limits")
 	}
@@ -555,30 +566,36 @@ func restrictionChoiceLimitUpdate(
 	return RestrictionChoiceLimitUpdate{Model: model, ComplexType: index}, true, nil
 }
 
+type restrictionChoiceLimitContent struct {
+	base     ContentModelID
+	derived  ContentModelID
+	eligible bool
+}
+
 func restrictionChoiceLimitContentIDs(
 	complexTypes []ComplexType,
 	models []ContentModel,
 	anyType ComplexTypeID,
 	ct ComplexType,
-) (ContentModelID, ContentModelID, bool, error) {
+) (restrictionChoiceLimitContent, error) {
 	if ct.Derivation != DerivationKindRestriction {
-		return NoContentModel, NoContentModel, false, nil
+		return restrictionChoiceLimitContent{}, nil
 	}
 	baseID, ok := ct.Base.Complex()
 	if !ok || baseID == anyType {
-		return NoContentModel, NoContentModel, false, nil
+		return restrictionChoiceLimitContent{}, nil
 	}
 	if !ValidComplexTypeID(baseID, len(complexTypes)) {
-		return NoContentModel, NoContentModel, false, errors.New("choice-limit restriction references invalid base complex type")
+		return restrictionChoiceLimitContent{}, errors.New("choice-limit restriction references invalid base complex type")
 	}
 	if !ValidContentModelID(ct.Content, len(models)) {
-		return NoContentModel, NoContentModel, false, errors.New("choice-limit restriction references invalid derived content model")
+		return restrictionChoiceLimitContent{}, errors.New("choice-limit restriction references invalid derived content model")
 	}
 	baseContent := complexTypes[baseID].Content
 	if !ValidContentModelID(baseContent, len(models)) {
-		return NoContentModel, NoContentModel, false, errors.New("choice-limit restriction references invalid base content model")
+		return restrictionChoiceLimitContent{}, errors.New("choice-limit restriction references invalid base content model")
 	}
-	return baseContent, ct.Content, true, nil
+	return restrictionChoiceLimitContent{base: baseContent, derived: ct.Content, eligible: true}, nil
 }
 
 // ValidateChoiceLimitDerivations validates that every ContentModel.ChoiceLimits

@@ -468,7 +468,7 @@ func mutateBuildBoundFacet(t *testing.T, facets *runtime.FacetSet, flag runtime.
 		t.Fatalf("bound facet %d is missing", flag)
 	}
 	mutate(&lit)
-	runtime.SetBoundFacet(facets, flag, lit, false)
+	runtime.SetBoundFacet(facets, flag, lit)
 }
 
 func TestFreezeRejectsSubstitutionStateDrift(t *testing.T) {
@@ -2117,7 +2117,7 @@ func TestFreezeRejectsFixedFacetMutation(t *testing.T) {
 				if !ok {
 					t.Fatal("Other minInclusive facet is missing")
 				}
-				runtime.SetBoundFacet(&st.Facets, runtime.FacetMinInclusive, lit, false)
+				runtime.SetBoundFacet(&st.Facets, runtime.FacetMinInclusive, lit)
 			},
 		},
 	}
@@ -2278,7 +2278,7 @@ func TestFreezeRejectsOrderedFacetLoosening(t *testing.T) {
 	if !ok {
 		t.Fatal("Earlier minInclusive facet is missing")
 	}
-	runtime.SetBoundFacet(&rt.SimpleTypes[derivedID].Facets, runtime.FacetMinInclusive, lit, false)
+	runtime.SetBoundFacet(&rt.SimpleTypes[derivedID].Facets, runtime.FacetMinInclusive, lit)
 	err := validateSchemaBuild(rt)
 	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 }

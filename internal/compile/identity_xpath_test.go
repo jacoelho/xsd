@@ -173,14 +173,14 @@ type identityNameResolverStub struct {
 	qnames     map[string]runtime.QName
 }
 
-func (s identityNameResolverStub) ResolveIdentityQName(prefix, local string, prefixed bool) (runtime.QName, error) {
-	key := ":" + local
-	if prefixed {
-		key = prefix + ":" + local
+func (s identityNameResolverStub) ResolveIdentityQName(parts QNameParts) (runtime.QName, error) {
+	key := ":" + parts.Local
+	if parts.Prefixed {
+		key = parts.Prefix + ":" + parts.Local
 	}
 	q, ok := s.qnames[key]
 	if !ok {
-		return runtime.QName{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+prefix)
+		return runtime.QName{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+parts.Prefix)
 	}
 	return q, nil
 }

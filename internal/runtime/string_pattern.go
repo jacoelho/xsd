@@ -463,22 +463,29 @@ func CompileSimpleStringPattern(source string) *SimplePattern {
 		if !ok {
 			return nil
 		}
-		repeatMin, repeatMax, after, ok := parseSimplePatternQuantifier(source, next)
-		if !ok {
+		repeat := parseSimplePatternQuantifier(source, next)
+		if !repeat.valid {
 			return nil
 		}
-		if repeatMin != repeatMax {
+		if repeat.min != repeat.max {
 			out.variable = true
 		}
-		out.atoms = append(out.atoms, simplePatternAtom{class: class, min: repeatMin, max: repeatMax})
-		i = after
+		out.atoms = append(out.atoms, simplePatternAtom{class: class, min: repeat.min, max: repeat.max})
+		i = repeat.next
 	}
 	return &out
 }
 
-func parseSimplePatternQuantifier(source string, position int) (int, int, int, bool) {
+type simplePatternRepeat struct {
+	min   int
+	max   int
+	next  int
+	valid bool
+}
+
+func parseSimplePatternQuantifier(source string, position int) simplePatternRepeat {
 	if position >= len(source) || source[position] != '{' {
-		return 1, 1, position, true
+		return simplePatternRepeat{min: 1, max: 1, next: position, valid: true}
 	}
 	return parseSimplePatternRepeat(source, position)
 }
@@ -587,35 +594,35 @@ func parseSimplePatternClassRune(source string, i int) (rune, int, bool) {
 	return r, i + size, true
 }
 
-func parseSimplePatternRepeat(source string, i int) (int, int, int, bool) {
+func parseSimplePatternRepeat(source string, i int) simplePatternRepeat {
 	end := strings.IndexByte(source[i:], '}')
 	if end < 0 {
-		return 0, 0, 0, false
+		return simplePatternRepeat{}
 	}
 	end += i
 	body := source[i+1 : end]
 	if body == "" {
-		return 0, 0, 0, false
+		return simplePatternRepeat{}
 	}
 	lower, upper, found := strings.Cut(body, ",")
 	if lower == "" {
-		return 0, 0, 0, false
+		return simplePatternRepeat{}
 	}
 	repeatMin, err := strconv.Atoi(lower)
 	if err != nil || repeatMin < 0 {
-		return 0, 0, 0, false
+		return simplePatternRepeat{}
 	}
 	if !found {
-		return repeatMin, repeatMin, end + 1, true
+		return simplePatternRepeat{min: repeatMin, max: repeatMin, next: end + 1, valid: true}
 	}
 	if upper == "" {
-		return repeatMin, simplePatternUnbounded, end + 1, true
+		return simplePatternRepeat{min: repeatMin, max: simplePatternUnbounded, next: end + 1, valid: true}
 	}
 	repeatMax, err := strconv.Atoi(upper)
 	if err != nil || repeatMax < repeatMin {
-		return 0, 0, 0, false
+		return simplePatternRepeat{}
 	}
-	return repeatMin, repeatMax, end + 1, true
+	return simplePatternRepeat{min: repeatMin, max: repeatMax, next: end + 1, valid: true}
 }
 
 // MatchString reports whether s matches p.

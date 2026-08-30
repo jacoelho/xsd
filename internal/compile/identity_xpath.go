@@ -11,7 +11,7 @@ import (
 // IdentityNameResolver maps parsed identity XPath QName tokens through the
 // schema namespace context and runtime name table.
 type IdentityNameResolver interface {
-	ResolveIdentityQName(prefix, local string, prefixed bool) (runtime.QName, error)
+	ResolveIdentityQName(parts QNameParts) (runtime.QName, error)
 	ResolveIdentityWildcardNamespace(prefix string) (runtime.NamespaceID, error)
 }
 
@@ -70,10 +70,11 @@ func parseIdentityFieldPathBranch(part string, resolver IdentityNameResolver) (r
 	if part == "." && !desc {
 		return runtime.IdentityFieldPath{Self: true, Attribute: runtime.NoQName()}, nil
 	}
-	part, attrName, attr, err := parseIdentityFieldAttribute(part, resolver)
+	attribute, err := parseIdentityFieldAttribute(part, resolver)
 	if err != nil {
 		return runtime.IdentityFieldPath{}, err
 	}
+	part = attribute.elementPath
 	var steps []runtime.IdentityStep
 	if part != "" {
 		steps, err = parseIdentitySteps(part, resolver)
@@ -83,39 +84,45 @@ func parseIdentityFieldPathBranch(part string, resolver IdentityNameResolver) (r
 	}
 	return runtime.IdentityFieldPath{
 		Descendant:       desc,
-		Attr:             attr,
-		AttrWildcard:     attrName.wildcard,
-		AttrNamespaceSet: attrName.namespaceSet,
-		AttrNamespace:    attrName.namespace,
+		Attr:             attribute.present,
+		AttrWildcard:     attribute.name.wildcard,
+		AttrNamespaceSet: attribute.name.namespaceSet,
+		AttrNamespace:    attribute.name.namespace,
 		Steps:            steps,
-		Attribute:        attrName.name,
+		Attribute:        attribute.name.name,
 	}, nil
 }
 
-func parseIdentityFieldAttribute(part string, resolver IdentityNameResolver) (string, identityNameTest, bool, error) {
+type identityFieldAttribute struct {
+	elementPath string
+	name        identityNameTest
+	present     bool
+}
+
+func parseIdentityFieldAttribute(part string, resolver IdentityNameResolver) (identityFieldAttribute, error) {
 	if strings.HasPrefix(part, "/") {
-		return "", identityNameTest{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+part)
+		return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+part)
 	}
 	elementPath, step := splitIdentityLastStep(part)
 	if name, ok := strings.CutPrefix(step, "@"); ok {
 		if name == "" {
-			return "", identityNameTest{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+part)
+			return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+part)
 		}
 		attrName, err := parseIdentityNameTestParts(name, resolver)
-		return elementPath, attrName, true, err
+		return identityFieldAttribute{elementPath: elementPath, name: attrName, present: true}, err
 	}
 	name, ok := parseIdentityAxisStep(step, "attribute")
 	if ok && name == "" {
-		return "", identityNameTest{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+part)
+		return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+part)
 	}
 	if !ok {
-		return part, identityNameTest{name: runtime.NoQName()}, false, nil
+		return identityFieldAttribute{elementPath: part, name: identityNameTest{name: runtime.NoQName()}}, nil
 	}
 	attrName, err := parseIdentityNameTestParts(name, resolver)
-	return elementPath, attrName, true, err
+	return identityFieldAttribute{elementPath: elementPath, name: attrName, present: true}, err
 }
 
-func splitIdentityLastStep(path string) (string, string) {
+func splitIdentityLastStep(path string) (elementPath, lastStep string) {
 	idx := strings.LastIndex(path, "/")
 	if idx < 0 {
 		return "", path
@@ -259,7 +266,7 @@ func parseIdentityQName(lexical string, resolver IdentityNameResolver) (runtime.
 	if resolver == nil {
 		return runtime.QName{}, xsderrors.InternalInvariant("identity XPath parser requires name resolver")
 	}
-	return resolver.ResolveIdentityQName(parts.Prefix, parts.Local, parts.Prefixed)
+	return resolver.ResolveIdentityQName(parts)
 }
 
 func parseIdentityQNamePrefixWildcard(lexical string) (string, bool, error) {

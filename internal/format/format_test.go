@@ -642,8 +642,7 @@ func TestFormatXMLWithOptionsLimitsNodes(t *testing.T) {
 	if err == nil {
 		t.Fatal("XMLWithOptions() succeeded")
 	}
-	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic == nil {
 		t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 	}
 	if !strings.Contains(err.Error(), "XML node limit exceeded") {
@@ -680,8 +679,7 @@ func TestFormatXMLWithOptionsRejectsOutputBytesAfterPartialWrite(t *testing.T) {
 	if err == nil {
 		t.Fatal("XMLWithOptions() succeeded")
 	}
-	var xerr *xsderrors.Error
-	if !errors.As(err, &xerr) {
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic == nil {
 		t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 	}
 	if !errors.Is(err, errFormatOutputLimit) {
@@ -775,8 +773,7 @@ func TestFormatXMLWithOptionsRejectsNegativeLimits(t *testing.T) {
 			if err == nil {
 				t.Fatal("XMLWithOptions() succeeded")
 			}
-			var xerr *xsderrors.Error
-			if !errors.As(err, &xerr) {
+			if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic == nil {
 				t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 			}
 		})

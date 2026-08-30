@@ -230,11 +230,13 @@ func TestRunReportsValidationFailureBeforeCloseFailure(t *testing.T) {
 
 type closeErrorReader struct {
 	io.Reader
+
 	err error
 }
 
 type countingReadCloser struct {
 	io.Reader
+
 	closes int
 }
 

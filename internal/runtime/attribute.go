@@ -412,7 +412,13 @@ func (u AttributeUseRead) FixedUsesValueSpace() bool {
 // AbsentValueConstraint returns the fixed/default value applied when the
 // attribute is absent.
 func (u AttributeUseRead) AbsentValueConstraint() (ValueConstraintRead, bool) {
-	return AbsentValueConstraint(u.fixed, u.hasFixed, u.defaultValue, u.hasDefault)
+	if u.hasFixed {
+		return u.fixed, true
+	}
+	if u.hasDefault {
+		return u.defaultValue, true
+	}
+	return ValueConstraintRead{}, false
 }
 
 // CanValidateFixedStringFast reports whether validation may compare the raw
@@ -742,7 +748,7 @@ func ValidateAttributeUseSetRestriction(
 	},
 	base, derived []AttributeUseRestrictionValidation,
 	baseWildcard, derivedWildcard AttributeWildcardState,
-	bindWildcard bool,
+	binding AttributeWildcardBinding,
 ) error {
 	if err := validateBaseAttributeUseRestrictions(rt, base, derived); err != nil {
 		return err
@@ -750,8 +756,19 @@ func ValidateAttributeUseSetRestriction(
 	if err := validateNewRestrictedAttributeUses(rt, base, derived, baseWildcard); err != nil {
 		return err
 	}
-	return validateRestrictedAttributeWildcard(rt, baseWildcard, derivedWildcard, bindWildcard)
+	return validateRestrictedAttributeWildcard(rt, baseWildcard, derivedWildcard, binding)
 }
+
+// AttributeWildcardBinding identifies whether restriction wildcard provenance
+// is required for an explicit derivation.
+type AttributeWildcardBinding uint8
+
+const (
+	// AttributeWildcardUnbound omits explicit wildcard provenance binding.
+	AttributeWildcardUnbound AttributeWildcardBinding = iota
+	// AttributeWildcardBound requires explicit wildcard provenance binding.
+	AttributeWildcardBound
+)
 
 func validateBaseAttributeUseRestrictions(
 	rt TypeDerivationRuntime,
@@ -794,15 +811,19 @@ func validateNewRestrictedAttributeUses(
 func validateRestrictedAttributeWildcard(
 	rt AttributeWildcardRuntime,
 	base, derived AttributeWildcardState,
-	bind bool,
+	binding AttributeWildcardBinding,
 ) error {
-	if !bind {
+	switch binding {
+	case AttributeWildcardUnbound:
 		if derived.Derivation != AttributeWildcardNone {
 			return errors.New("implicit complex type stores derived attribute wildcard provenance")
 		}
 		return nil
+	case AttributeWildcardBound:
+		return ValidateAttributeWildcardDerivation(rt, base, derived, AttributeWildcardRestriction)
+	default:
+		return errors.New("attribute wildcard binding is invalid")
 	}
-	return ValidateAttributeWildcardDerivation(rt, base, derived, AttributeWildcardRestriction)
 }
 
 func attributeUseRestrictionByName(uses []AttributeUseRestrictionValidation, name QName) (AttributeUseRestrictionValidation, bool) {

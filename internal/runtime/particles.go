@@ -29,9 +29,11 @@ func ModelHasNoParticles(rt ContentModelRuntime, modelID ContentModelID) bool {
 		return true
 	case ModelSequence, ModelChoice, ModelAll:
 		return len(model.Particles) == 0
-	default:
+	case ModelAny:
 		return false
+	default:
 	}
+	return false
 }
 
 // SequenceChoiceRange reports the range for a sequence that restricts a choice.

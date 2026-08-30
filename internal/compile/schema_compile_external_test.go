@@ -3005,7 +3005,7 @@ func TestSchemaParserDoesNotRetainOpaqueAnnotationPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	appinfo := root.Children[0].Children[0]
-	if appinfo.Text != "" || len(appinfo.Children) != 0 {
+	if len(appinfo.Text) != 0 || len(appinfo.Children) != 0 {
 		t.Fatalf("retained opaque payload: text=%q children=%d", appinfo.Text, len(appinfo.Children))
 	}
 }
@@ -3408,6 +3408,7 @@ type qnameLookup interface {
 
 type compileCloseErrorReader struct {
 	io.Reader
+
 	err error
 }
 

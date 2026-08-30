@@ -1255,6 +1255,7 @@ type emptySchemaReadCloser struct {
 
 type trackingSchemaReadCloser struct {
 	io.Reader
+
 	closeErr error
 	closed   bool
 }

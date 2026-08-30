@@ -46,16 +46,23 @@ type DecimalFacetValues struct {
 // ParseDecimalValue parses an xs:decimal lexical value without precomputing
 // canonical strings.
 func ParseDecimalValue(s string) (DecimalValue, error) {
-	return parseDecimal(s, false)
+	return parseDecimal(s, decimalValueOnly)
 }
 
 // ParseDecimalCanonical parses an xs:decimal lexical value and precomputes both
 // decimal and integer canonical strings.
 func ParseDecimalCanonical(s string) (DecimalValue, error) {
-	return parseDecimal(s, true)
+	return parseDecimal(s, decimalCanonical)
 }
 
-func parseDecimal(s string, withCanonical bool) (DecimalValue, error) {
+type decimalParseMode uint8
+
+const (
+	decimalValueOnly decimalParseMode = iota
+	decimalCanonical
+)
+
+func parseDecimal(s string, mode decimalParseMode) (DecimalValue, error) {
 	scan, err := scanDecimalText(s)
 	if err != nil {
 		return DecimalValue{}, err
@@ -97,9 +104,13 @@ func parseDecimal(s string, withCanonical bool) (DecimalValue, error) {
 		TotalDigits:    totalDigits32,
 		FractionDigits: fracDigits32,
 	}
-	if withCanonical {
+	switch mode {
+	case decimalValueOnly:
+	case decimalCanonical:
 		out.Canonical = out.CanonicalText()
 		out.IntegerCanonical = out.IntegerCanonicalText()
+	default:
+		return DecimalValue{}, errors.New("decimal parse mode is invalid")
 	}
 	return out, nil
 }
@@ -243,45 +254,75 @@ func CompareDecimalValues(a, b DecimalValue) int {
 
 // ValidateDecimalFacets validates xs:decimal value-space facets.
 func ValidateDecimalFacets(f DecimalFacetValues, value DecimalValue) error {
-	if err := validateDecimalCardinalityFacet(f.Facets&FacetTotalDigits != 0, f.TotalDigits, value.TotalDigits, "totalDigits facet failed"); err != nil {
+	if err := validateDecimalCardinalityFacet(f.Facets, FacetTotalDigits, f.TotalDigits, value.TotalDigits); err != nil {
 		return err
 	}
-	if err := validateDecimalCardinalityFacet(f.Facets&FacetFractionDigits != 0, f.FractionDigits, value.FractionDigits, "fractionDigits facet failed"); err != nil {
+	if err := validateDecimalCardinalityFacet(f.Facets, FacetFractionDigits, f.FractionDigits, value.FractionDigits); err != nil {
 		return err
 	}
-	if err := validateDecimalBoundFacet(f.Facets&FacetMinInclusive != 0, f.MinInclusive, CompareDecimalValues(value, f.MinInclusive.Value) >= 0, "minInclusive facet failed"); err != nil {
+	if err := validateDecimalBoundFacet(f.Facets, FacetMinInclusive, f.MinInclusive, value); err != nil {
 		return err
 	}
-	if err := validateDecimalBoundFacet(f.Facets&FacetMaxInclusive != 0, f.MaxInclusive, CompareDecimalValues(value, f.MaxInclusive.Value) <= 0, "maxInclusive facet failed"); err != nil {
+	if err := validateDecimalBoundFacet(f.Facets, FacetMaxInclusive, f.MaxInclusive, value); err != nil {
 		return err
 	}
-	if err := validateDecimalBoundFacet(f.Facets&FacetMinExclusive != 0, f.MinExclusive, CompareDecimalValues(value, f.MinExclusive.Value) > 0, "minExclusive facet failed"); err != nil {
+	if err := validateDecimalBoundFacet(f.Facets, FacetMinExclusive, f.MinExclusive, value); err != nil {
 		return err
 	}
-	return validateDecimalBoundFacet(f.Facets&FacetMaxExclusive != 0, f.MaxExclusive, CompareDecimalValues(value, f.MaxExclusive.Value) < 0, "maxExclusive facet failed")
+	return validateDecimalBoundFacet(f.Facets, FacetMaxExclusive, f.MaxExclusive, value)
 }
 
-func validateDecimalCardinalityFacet(enabled bool, facet FacetCardinalityValue, value uint32, message string) error {
-	if !enabled {
+func validateDecimalCardinalityFacet(facets, flag FacetMask, facet FacetCardinalityValue, actual uint32) error {
+	if facets&flag == 0 {
 		return nil
 	}
 	if !facet.Present {
 		return ErrSimpleValueMetadata
 	}
-	if value > facet.Value {
+	if actual <= facet.Value {
+		return nil
+	}
+	if flag == FacetTotalDigits {
+		return errors.New("totalDigits facet failed")
+	}
+	if flag == FacetFractionDigits {
+		return errors.New("fractionDigits facet failed")
+	}
+	return ErrSimpleValueMetadata
+}
+
+func validateDecimalBoundFacet(facets, flag FacetMask, facet DecimalFacetValue, value DecimalValue) error {
+	if facets&flag == 0 {
+		return nil
+	}
+	if !facet.Present {
+		return ErrSimpleValueMetadata
+	}
+	relation := CompareDecimalValues(value, facet.Value)
+	if flag == FacetMinInclusive {
+		return validateLowerFacetRelation(OrderedFacetBoundInclusive, orderedFacetRelationFromInt(relation), rawDecimalErrMinInclusive)
+	}
+	if flag == FacetMaxInclusive {
+		return validateUpperFacetRelation(OrderedFacetBoundInclusive, orderedFacetRelationFromInt(relation), rawDecimalErrMaxInclusive)
+	}
+	if flag == FacetMinExclusive {
+		return validateLowerFacetRelation(OrderedFacetBoundExclusive, orderedFacetRelationFromInt(relation), "minExclusive facet failed")
+	}
+	if flag == FacetMaxExclusive {
+		return validateUpperFacetRelation(OrderedFacetBoundExclusive, orderedFacetRelationFromInt(relation), "maxExclusive facet failed")
+	}
+	return ErrSimpleValueMetadata
+}
+
+func validateLowerFacetRelation(kind OrderedFacetBoundKind, relation OrderedFacetRelation, message string) error {
+	if !OrderedFacetLowerBoundAccepts(OrderedFacetBound{Kind: kind}, relation) {
 		return errors.New(message)
 	}
 	return nil
 }
 
-func validateDecimalBoundFacet(enabled bool, facet DecimalFacetValue, accepted bool, message string) error {
-	if !enabled {
-		return nil
-	}
-	if !facet.Present {
-		return ErrSimpleValueMetadata
-	}
-	if !accepted {
+func validateUpperFacetRelation(kind OrderedFacetBoundKind, relation OrderedFacetRelation, message string) error {
+	if !OrderedFacetUpperBoundAccepts(OrderedFacetBound{Kind: kind}, relation) {
 		return errors.New(message)
 	}
 	return nil

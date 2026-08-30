@@ -61,6 +61,14 @@ type identityElementResult struct {
 	AssessmentInvalid bool
 }
 
+type identityElementAssessment uint8
+
+const (
+	identityElementAssessmentUnknown identityElementAssessment = iota
+	identityElementAssessmentValid
+	identityElementAssessmentInvalid
+)
+
 type identityElementState struct {
 	element       runtime.ElementID
 	mode          elementMode
@@ -71,11 +79,12 @@ type identityElementState struct {
 
 // identityEvaluation owns all document-local XML and XSD identity state.
 type identityEvaluation struct {
-	rt        *runtime.Schema
-	path      []runtime.RuntimeName
-	elements  []identityElementState
-	targetKey string
 	identityState
+
+	rt                 *runtime.Schema
+	targetKey          string
+	path               []runtime.RuntimeName
+	elements           []identityElementState
 	limits             identityLimits
 	maxScopes          int
 	generation         uint64
@@ -366,7 +375,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 		return xsderrors.InternalInvariant("xsi identity value target is not ready for capture")
 	}
 	defer e.releaseTarget()
-	_, key, ok, err := xsiAttributeIdentityKey(e.rt, name, lexical, resolve, ctx)
+	identity, err := xsiAttributeIdentityKey(e.rt, name, lexical, resolve, ctx)
 	if err != nil {
 		if invalidateErr := e.invalidateFields(e.matches); invalidateErr != nil {
 			return invalidateErr
@@ -375,10 +384,10 @@ func (e *identityEvaluation) captureXSIAttribute(
 		// the identity-field key.
 		return nil
 	}
-	if !ok {
+	if !identity.present {
 		return nil
 	}
-	return e.captureFields(e.matches, key, ctx)
+	return e.captureFields(e.matches, identity.key, ctx)
 }
 
 func (e *identityEvaluation) validateTarget(target identityValueTarget) error {
@@ -519,30 +528,55 @@ func (e *identityEvaluation) endElement(in identityElementEnd, report func(error
 	if err != nil {
 		return result, err
 	}
-	return e.finishAncestorIdentitySelections(result, element, in, depth, invalid, report)
+	assessment := identityElementAssessmentValid
+	if invalid {
+		assessment = identityElementAssessmentInvalid
+	}
+	return e.finishAncestorIdentitySelections(ancestorIdentityFinish{
+		result: result, element: element, end: in, depth: depth, assessment: assessment,
+	}, report)
 }
 
 func (e *identityEvaluation) finishCurrentIdentityScope(element identityElementState, in identityElementEnd, depth int, report func(error) error) error {
 	if err := e.finishElementValue(element, in, report); err != nil {
 		return err
 	}
-	if err := e.finishNillableKeyFields(element, in.AssessmentInvalid); err != nil {
+	assessment := identityElementAssessmentValid
+	if in.AssessmentInvalid {
+		assessment = identityElementAssessmentInvalid
+	}
+	if err := e.finishNillableKeyFields(element, assessment); err != nil {
 		return err
 	}
 	return e.finishSelections(depth, in.Context, identitySelectionsOwnedByCurrentScope, report)
 }
 
-func (e *identityEvaluation) finishAncestorIdentitySelections(result identityElementResult, element identityElementState, in identityElementEnd, depth int, invalid bool, report func(error) error) (identityElementResult, error) {
-	if invalid {
-		result.AssessmentInvalid = true
-		if err := e.finishNillableKeyFields(element, true); err != nil {
-			return result, err
+type ancestorIdentityFinish struct {
+	end        identityElementEnd
+	depth      int
+	element    identityElementState
+	result     identityElementResult
+	assessment identityElementAssessment
+}
+
+func (e *identityEvaluation) finishAncestorIdentitySelections(in ancestorIdentityFinish, report func(error) error) (identityElementResult, error) {
+	switch in.assessment {
+	case identityElementAssessmentValid:
+	case identityElementAssessmentInvalid:
+		in.result.AssessmentInvalid = true
+		if err := e.finishNillableKeyFields(in.element, identityElementAssessmentInvalid); err != nil {
+			return in.result, err
 		}
+	case identityElementAssessmentUnknown:
+		return in.result, xsderrors.InternalInvariant("identity element assessment is invalid")
+	default:
+		err := xsderrors.InternalInvariant("identity element assessment is invalid")
+		return in.result, err
 	}
-	if err := e.finishSelections(depth, in.Context, identitySelectionsOwnedByAncestorScope, report); err != nil {
-		return result, err
+	if err := e.finishSelections(in.depth, in.end.Context, identitySelectionsOwnedByAncestorScope, report); err != nil {
+		return in.result, err
 	}
-	return result, nil
+	return in.result, nil
 }
 
 func (e *identityEvaluation) finishElementValue(
@@ -559,11 +593,7 @@ func (e *identityEvaluation) finishElementValue(
 	default:
 		return xsderrors.InternalInvariant("element assessment mode is invalid")
 	}
-	action := endIdentityCapture(element.simpleContent, endIdentityInput{
-		Element:         element.element,
-		ContentCaptured: in.ContentCaptured,
-		Nilled:          element.nilled,
-	})
+	action := endIdentityCapture(element, in)
 	switch action {
 	case endIdentityCaptureNone:
 		return nil
@@ -591,7 +621,7 @@ func (e *identityEvaluation) rejectCurrentElement(reason identityRejection, ctx 
 	return reportIdentityError(e.rejectFieldsWithoutSimpleValue(matches, ctx), report)
 }
 
-func (e *identityEvaluation) finishNillableKeyFields(element identityElementState, invalid bool) error {
+func (e *identityEvaluation) finishNillableKeyFields(element identityElementState, assessment identityElementAssessment) error {
 	if element.element == runtime.NoElement {
 		return nil
 	}
@@ -606,10 +636,16 @@ func (e *identityEvaluation) finishNillableKeyFields(element identityElementStat
 	if err != nil {
 		return err
 	}
-	if invalid {
+	switch assessment {
+	case identityElementAssessmentValid:
+		return e.markNillableKeyFields(e.rt, matches)
+	case identityElementAssessmentInvalid:
 		return e.invalidateFields(matches)
+	case identityElementAssessmentUnknown:
+		return xsderrors.InternalInvariant("identity element assessment is invalid")
+	default:
 	}
-	return e.markNillableKeyFields(e.rt, matches)
+	return xsderrors.InternalInvariant("identity element assessment is invalid")
 }
 
 type identitySelectionOwnership uint8

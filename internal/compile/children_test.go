@@ -333,36 +333,41 @@ func TestValidateContentDerivationBase(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		container  string
-		derivation string
-		hasBase    bool
-		wantMsg    string
+		name    string
+		base    ContentDerivationBase
+		wantMsg string
 	}{
 		{
-			name:       "complex extension has base",
-			container:  complexContent,
-			derivation: extensionChild,
-			hasBase:    true,
+			name: "complex extension has base",
+			base: ContentDerivationBase{
+				Container:  complexContent,
+				Derivation: extensionChild,
+				Lexical:    "tns:base",
+				Present:    true,
+			},
 		},
 		{
-			name:       "complex restriction missing base",
-			container:  complexContent,
-			derivation: restrictionChild,
-			wantMsg:    "complexContent restriction missing base",
+			name: "complex restriction missing base",
+			base: ContentDerivationBase{
+				Container:  complexContent,
+				Derivation: restrictionChild,
+			},
+			wantMsg: "complexContent restriction missing base",
 		},
 		{
-			name:       "simple extension missing base",
-			container:  simpleContent,
-			derivation: extensionChild,
-			wantMsg:    "simpleContent extension missing base",
+			name: "simple extension missing base",
+			base: ContentDerivationBase{
+				Container:  simpleContent,
+				Derivation: extensionChild,
+			},
+			wantMsg: "simpleContent extension missing base",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateContentDerivationBase(tt.container, tt.derivation, tt.hasBase)
+			err := ValidateContentDerivationBase(tt.base)
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateContentDerivationBase() error = %v", err)
@@ -749,7 +754,12 @@ func TestValidateElementDeclarationChildren(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateElementDeclarationChildrenForTest(tt.children, tt.hasTypeAttr)
+			err := CheckOrderedChildren(tt.children, elementDeclarationChildOrder)
+			if err == nil && tt.hasTypeAttr && slices.ContainsFunc(tt.children, func(child string) bool {
+				return child == simpleTypeChild || child == complexTypeChild
+			}) {
+				err = childOrderError(-1, "element cannot have both type and anonymous type")
+			}
 			if tt.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("ValidateElementDeclarationChildren() error = %v", err)
@@ -793,18 +803,6 @@ func validateComplexContentChildrenForTest(children []string) error {
 func validateSimpleContentChildrenForTest(children []string) error {
 	_, err := ValidateSimpleContentChildrenSyntax(children)
 	return err
-}
-
-func validateElementDeclarationChildrenForTest(children []string, hasTypeAttr bool) error {
-	if err := CheckOrderedChildren(children, elementDeclarationChildOrder); err != nil {
-		return err
-	}
-	if hasTypeAttr && slices.ContainsFunc(children, func(child string) bool {
-		return child == simpleTypeChild || child == complexTypeChild
-	}) {
-		return childOrderError(-1, "element cannot have both type and anonymous type")
-	}
-	return nil
 }
 
 func matchTestChildren(want ...string) func(string) bool {

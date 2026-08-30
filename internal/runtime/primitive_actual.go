@@ -46,9 +46,11 @@ func ParsePrimitiveActual(kind PrimitiveKind, normalized string, needs Primitive
 		return parseGPrimitiveActual(kind, normalized, needs)
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
 		return parseBinaryPrimitiveActual(kind, normalized, needs)
-	default:
+	case PrimitiveQName, PrimitiveNotation:
 		return PrimitiveActualResult{}, ErrSimpleValueMetadata
+	default:
 	}
+	return PrimitiveActualResult{}, ErrSimpleValueMetadata
 }
 
 func newPrimitiveActual(kind PrimitiveKind) PrimitiveActualValue {
@@ -190,7 +192,9 @@ func EqualPrimitiveActualValues(actual PrimitiveActualValue, canonical string, l
 		return EqualTimeValues(actual.Time, literal.Time)
 	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
 		return EqualGValues(actual.G, literal.G)
-	default:
+	case PrimitiveString, PrimitiveHexBinary, PrimitiveBase64Binary, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
 		return literalCanonical == canonical
+	default:
 	}
+	return literalCanonical == canonical
 }

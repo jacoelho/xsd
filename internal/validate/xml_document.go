@@ -19,13 +19,21 @@ type xmlDocument[P any] struct {
 }
 
 type xmlDocumentElement[P any] struct {
-	payload      P
-	name         xml.Name
-	namespace    xmlns.Frame
-	prefix       string
-	pathLength   int
-	expandedPath bool
+	payload    P
+	name       xml.Name
+	namespace  xmlns.Frame
+	prefix     string
+	pathLength int
+	pathMode   xmlPathMode
 }
+
+type xmlPathMode uint8
+
+const (
+	xmlPathInvalid xmlPathMode = iota
+	xmlPathLexical
+	xmlPathExpanded
+)
 
 type preparedXMLStart struct {
 	name      xml.Name
@@ -93,21 +101,25 @@ func (d *xmlDocument[P]) PrepareStart(
 	return preparedXMLStart{name: element.Name, namespace: namespace, prefix: element.Lexical.Prefix}, nil
 }
 
-func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, expandedPath bool, payload P) {
-	pathLength := 1 + len(start.name.Local)
-	if expandedPath {
-		pathLength += len(start.name.Space) + 2
-	}
+func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, payload P) {
+	d.appendStart(start, xmlPathLexical, 1+len(start.name.Local), payload)
+}
+
+func (d *xmlDocument[P]) CommitExpandedStart(start preparedXMLStart, payload P) {
+	d.appendStart(start, xmlPathExpanded, 3+len(start.name.Space)+len(start.name.Local), payload)
+}
+
+func (d *xmlDocument[P]) appendStart(start preparedXMLStart, pathMode xmlPathMode, pathLength int, payload P) {
 	if len(d.elements) != 0 {
 		pathLength += d.elements[len(d.elements)-1].pathLength
 	}
 	d.elements = append(d.elements, xmlDocumentElement[P]{
-		payload:      payload,
-		name:         start.name,
-		namespace:    start.namespace,
-		prefix:       start.prefix,
-		pathLength:   pathLength,
-		expandedPath: expandedPath,
+		payload:    payload,
+		name:       start.name,
+		namespace:  start.namespace,
+		prefix:     start.prefix,
+		pathLength: pathLength,
+		pathMode:   pathMode,
 	})
 	d.seenRoot = true
 }
@@ -222,10 +234,17 @@ func (d *xmlDocument[P]) PathString() string {
 	for i := start; i < depth; i++ {
 		path.WriteByte('/')
 		element := d.elements[i]
-		if element.expandedPath {
+		switch element.pathMode {
+		case xmlPathExpanded:
 			path.WriteByte('{')
 			path.WriteString(element.name.Space)
 			path.WriteByte('}')
+		case xmlPathLexical:
+		case xmlPathInvalid:
+			panic("XML path mode is invalid")
+		default:
+			message := "XML path mode is invalid"
+			panic(message)
 		}
 		path.WriteString(element.name.Local)
 	}

@@ -60,6 +60,12 @@ func NewAttributeUseMerger(
 
 // Add merges use and returns the concrete storage operation callers must apply.
 func (m *AttributeUseMerger) Add(rt AttributeUseMergeRuntime, uses []runtime.AttributeUse, use runtime.AttributeUse) (AttributeUseMergeResult, error) {
+	if m.mode == AttributeMergeInvalid {
+		return AttributeUseMergeResult{}, xsderrors.InternalInvariant("invalid attribute merge mode")
+	}
+	if m.mode > AttributeMergeRestriction {
+		return AttributeUseMergeResult{}, xsderrors.InternalInvariant("unknown attribute merge mode")
+	}
 	if i, ok := m.seen[use.Name]; ok {
 		return m.replace(rt, uses, use, i)
 	}
