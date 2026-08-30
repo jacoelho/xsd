@@ -187,7 +187,7 @@ Available validation options:
 | --- | ---: | --- |
 | `MaxErrors` | `100` | Max collected recoverable validation errors. `0` selects this default. |
 | `MaxIdentityScopes` | `10_000` | Max active identity-constraint scopes. `0` selects this default. |
-| `MaxIdentityEntries` | `100_000` | Max stored ID, IDREF, key, unique, and keyref entries and simultaneously pending identity-selector matches. `0` selects this default. |
+| `MaxIdentityEntries` | `100_000` | Independent max for stored ID, IDREF, key, unique, and keyref entries, pending identity-selector matches, and pending identity-field values. `0` selects this default. |
 | `MaxIdentityTupleBytes` | `4 KiB` | Max byte length of one stored identity key. `0` selects this default. |
 | `MaxSchemaLocationNamespaces` | `256` | Max distinct schema-location namespace names retained per document. `0` selects this finite default. |
 | `MaxSchemaLocationNamespaceBytes` | `64 KiB` | Max aggregate bytes in distinct retained schema-location namespace names. `0` selects this finite default; `MaxInstanceTokenBytes` separately bounds each complete hint attribute. |
@@ -318,7 +318,7 @@ Available flags:
 | --- | --- | --- |
 | `--schema path` | yes | Schema file path. |
 | `--max-errors n` | no | Maximum validation errors to collect. `0` selects the default of 100. |
-| `--max-identity-entries n` | no | Maximum retained identity entries. `0` selects the default of 100,000. |
+| `--max-identity-entries n` | no | Independent maximum for stored identity entries, pending selector matches, and pending field values. `0` selects the default of 100,000. |
 | `--max-instance-bytes n` | no | Maximum raw XML bytes to read. `0` selects the default of 64 MiB. |
 
 ## Large XML benchmark

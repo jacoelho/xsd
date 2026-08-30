@@ -1556,6 +1556,177 @@ func TestMaxIdentityEntriesRejectsPendingSelectionBeforeItsEnd(t *testing.T) {
 	}
 }
 
+func TestMaxIdentityEntriesBoundsPendingFieldValues(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A"><xs:sequence><xs:element ref="a" minOccurs="0"/></xs:sequence></xs:complexType>
+  <xs:element name="a" type="A"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element ref="a" minOccurs="0"/></xs:sequence></xs:complexType>
+    <xs:unique name="values"><xs:selector xpath=".//a"/><xs:field xpath="@left"/><xs:field xpath="@right"/></xs:unique>
+  </xs:element>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := `<root><a><a/></a></root>`
+	err = engine.ValidateWithOptions(strings.NewReader(doc), xsd.ValidateOptions{MaxIdentityEntries: 4})
+	if err != nil {
+		t.Fatalf("exact pending field-value limit: %v", err)
+	}
+
+	session, err := engine.NewSession(xsd.ValidateOptions{MaxIdentityEntries: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := &oneByteCountingReader{data: doc}
+	err = session.Validate(reader)
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
+	if firstClose := strings.Index(doc, `</a>`); reader.off > firstClose {
+		t.Fatalf("validation consumed %d bytes, want at most %d before the first selected element end", reader.off, firstClose)
+	}
+	if err := session.Validate(strings.NewReader(`<root><a/></root>`)); err != nil {
+		t.Fatalf("session reuse after pending field-value limit: %v", err)
+	}
+}
+
+func TestIdentityDiagnosticsUseSelectedElementPaths(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element name="item"><xs:complexType><xs:sequence>
+      <xs:element name="value" type="xs:string" maxOccurs="2"/>
+    </xs:sequence></xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:unique name="values"><xs:selector xpath="item"/><xs:field xpath="value"/></xs:unique>
+  </xs:element>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = engine.Validate(strings.NewReader(`<root><item><value>a</value><value>b</value></item></root>`))
+	xerr, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || xerr.Code() != xsderrors.CodeValidationIdentity {
+		t.Fatalf("Validate() error = %v, want identity diagnostic", err)
+	}
+	if xerr.Path() != "/root/item" {
+		t.Fatalf("identity diagnostic path = %q, want /root/item", xerr.Path())
+	}
+
+	const duplicateSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence>
+      <xs:element name="a"><xs:complexType><xs:attribute name="id" type="xs:string" use="required"/></xs:complexType></xs:element>
+      <xs:element name="b"><xs:complexType><xs:attribute name="id" type="xs:string" use="required"/></xs:complexType></xs:element>
+    </xs:sequence></xs:complexType>
+    <xs:key name="ids"><xs:selector xpath="a|b"/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>`
+	engine, err = xsd.Compile(xsd.Bytes("duplicate-schema.xsd", []byte(duplicateSchema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = engine.Validate(strings.NewReader(`<root><a id="same"/><b id="same"/></root>`))
+	xerr, ok = errors.AsType[*xsderrors.Error](err)
+	if !ok || xerr.Code() != xsderrors.CodeValidationIdentity {
+		t.Fatalf("Validate(duplicate) error = %v, want identity diagnostic", err)
+	}
+	if xerr.Path() != "/root/b" || !strings.Contains(xerr.Message(), "first seen at /root/a") {
+		t.Fatalf("duplicate diagnostic = path %q message %q", xerr.Path(), xerr.Message())
+	}
+}
+
+func TestIdentityDiagnosticsRetainDocumentPaths(t *testing.T) {
+	t.Run("duplicate ID", func(t *testing.T) {
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="a"><xs:complexType><xs:attribute name="id" type="xs:ID" use="required"/></xs:complexType></xs:element>
+    <xs:element name="b"><xs:complexType><xs:attribute name="id" type="xs:ID" use="required"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		session, err := engine.NewSession(xsd.ValidateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = session.Validate(strings.NewReader(`<root><a id="same"/><b id="same"/></root>`))
+		xerr, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || xerr.Path() != "/root/b" || !strings.Contains(xerr.Message(), "first seen at /root/a") {
+			t.Fatalf("duplicate ID diagnostic = %v", err)
+		}
+		message := err.Error()
+		reuseErr := session.Validate(strings.NewReader(`<root><a id="one"/><b id="two"/></root>`))
+		if reuseErr != nil {
+			t.Fatalf("session reuse after duplicate ID: %v", reuseErr)
+		}
+		if err.Error() != message {
+			t.Fatal("returned duplicate ID diagnostic changed after session reset")
+		}
+	})
+
+	t.Run("unresolved IDREF", func(t *testing.T) {
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="ref"><xs:complexType><xs:attribute name="id" type="xs:IDREF" use="required"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = engine.Validate(strings.NewReader(`<root><ref id="missing"/></root>`))
+		xerr, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || xerr.Path() != "/root/ref" || !strings.Contains(xerr.Message(), "IDREF does not resolve") {
+			t.Fatalf("IDREF diagnostic = %v", err)
+		}
+	})
+
+	t.Run("unresolved keyref", func(t *testing.T) {
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence>
+      <xs:element name="key" minOccurs="0"><xs:complexType><xs:attribute name="id" type="xs:string" use="required"/></xs:complexType></xs:element>
+      <xs:element name="ref"><xs:complexType><xs:attribute name="id" type="xs:string" use="required"/></xs:complexType></xs:element>
+    </xs:sequence></xs:complexType>
+    <xs:key name="ids"><xs:selector xpath="key"/><xs:field xpath="@id"/></xs:key>
+    <xs:keyref name="refs" refer="ids"><xs:selector xpath="ref"/><xs:field xpath="@id"/></xs:keyref>
+  </xs:element>
+</xs:schema>`)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = engine.Validate(strings.NewReader(`<root><ref id="missing"/></root>`))
+		xerr, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || xerr.Path() != "/root/ref" || !strings.Contains(xerr.Message(), "keyref does not resolve") {
+			t.Fatalf("keyref diagnostic = %v", err)
+		}
+	})
+
+	t.Run("expanded unknown names", func(t *testing.T) {
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+    <xs:unique name="values"><xs:selector xpath="*"/><xs:field xpath="."/></xs:unique>
+  </xs:element>
+</xs:schema>`)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		namespace := "urn:" + strings.Repeat("u", 512)
+		doc := fmt.Sprintf(
+			`<root xmlns:p="%s" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema"><p:a xsi:type="xs:string">same</p:a><p:b xsi:type="xs:string">same</p:b></root>`,
+			namespace,
+		)
+		err = engine.Validate(strings.NewReader(doc))
+		xerr, ok := errors.AsType[*xsderrors.Error](err)
+		wantPath := "/root/{" + namespace + "}b"
+		wantFirst := "first seen at /root/{" + namespace + "}a"
+		if !ok || xerr.Path() != wantPath || !strings.Contains(xerr.Message(), wantFirst) {
+			t.Fatalf("expanded-name duplicate diagnostic = %v", err)
+		}
+	})
+}
+
 func TestCompileOptionsAggregateSchemaSetLimits(t *testing.T) {
 	t.Parallel()
 

@@ -433,8 +433,7 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx StartC
 	staging.reset(maxRetainedMapLen, maxRetainedSliceCap)
 	defer staging.reset(maxRetainedMapLen, maxRetainedSliceCap)
 
-	path := ctx.PathString()
-	pendingIDCount, err := e.stageIdentityIDs(ids, path, ctx)
+	pendingIDCount, err := e.stageIdentityIDs(ids, ctx)
 	if err != nil {
 		return err
 	}
@@ -443,17 +442,21 @@ func (e *identityEvaluation) recordIdentityFields(ids, idrefs string, ctx StartC
 	}
 	pendingIDs := staging.values[:pendingIDCount]
 	pendingRefs := staging.values[pendingIDCount:]
+	if len(pendingIDs) == 0 && len(pendingRefs) == 0 {
+		return nil
+	}
+	path := ctx.retainPathAtDepth(len(e.elements))
 	e.commitIdentityFields(pendingIDs, pendingRefs, path, ctx)
 	return nil
 }
 
-func (e *identityEvaluation) stageIdentityIDs(ids, path string, ctx StartContext) (int, error) {
+func (e *identityEvaluation) stageIdentityIDs(ids string, ctx StartContext) (int, error) {
 	for canonical := range lex.XMLFieldsSeq(ids) {
 		if prev, exists := e.ids[canonical]; exists {
-			return 0, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev)
+			return 0, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+prev.String())
 		}
 		if _, exists := e.fieldStaging.ids[canonical]; exists {
-			return 0, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+path)
+			return 0, validation(ctx, xsderrors.CodeValidationType, "duplicate ID "+canonical+" first seen at "+ctx.PathString())
 		}
 		if err := e.stageIdentityField(canonical, ctx); err != nil {
 			return 0, err
@@ -487,10 +490,10 @@ func (e *identityEvaluation) stageIdentityField(value string, ctx StartContext) 
 	return nil
 }
 
-func (e *identityEvaluation) commitIdentityFields(pendingIDs, pendingRefs []string, path string, ctx StartContext) {
+func (e *identityEvaluation) commitIdentityFields(pendingIDs, pendingRefs []string, path retainedPath, ctx StartContext) {
 	entryCount := len(pendingIDs) + len(pendingRefs)
 	if len(pendingIDs) != 0 && e.ids == nil {
-		e.ids = make(map[string]string, len(pendingIDs))
+		e.ids = make(map[string]retainedPath, len(pendingIDs))
 	}
 	for _, canonical := range pendingIDs {
 		e.rememberAddedID(canonical)
@@ -661,12 +664,13 @@ func (e *identityEvaluation) finishSelections(
 	ownership identitySelectionOwnership,
 	report func(error) error,
 ) error {
-	if len(e.selections) == 0 {
+	start, ok := e.selectionStartAtDepth(depth)
+	if !ok {
 		return nil
 	}
 	orig := e.selections
-	dst := e.selections[:0]
-	for i := range e.selections {
+	dst := e.selections[:start]
+	for i := start; i < len(e.selections); i++ {
 		sel := e.selections[i]
 		result, err := e.finishSelectionCandidate(sel, depth, ctx, ownership, report)
 		if result.keep {

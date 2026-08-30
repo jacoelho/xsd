@@ -230,12 +230,13 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.doc.ns = xmlns.NewStackWithCapacity(maxRetainedSliceCap+1, maxRetainedSliceCap+1)
 	s.doc.elements = make([]xmlDocumentElement[frame], 1, maxRetainedSliceCap+1)
 	s.doc.elements[0].pathMode = xmlPathLexical
+	s.doc.retainedPaths.nodes = make([]documentPathNode, 1, maxRetainedSliceCap+1)
+	s.doc.retainedPaths.namespaces = make([]string, 1, maxRetainedSliceCap+1)
 	s.doc.text = make([]byte, 1, maxRetainedBufferCap+1)
 	s.doc.identity.path = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
-	if err := s.doc.identity.recordIdentityFields("stale", "", s.startContext(1, 1)); err != nil {
-		t.Fatalf("record identity state: %v", err)
-	}
+	s.doc.identity.ids = map[string]retainedPath{"stale": explicitRetainedPath("/stale")}
+	s.doc.identity.entries = 1
 	if err := s.doc.schemaLocationHints.RecordAttribute(staleSchemaLocationHintName(), "urn:stale stale.xsd", testSchemaLocationHintLimits, s.startContext(1, 1)); err != nil {
 		t.Fatalf("record schema-location hint: %v", err)
 	}
@@ -246,6 +247,8 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 		s.doc.ns.FrameCapacity() != 0 ||
 		s.doc.ns.BindingCapacity() != 0 ||
 		cap(s.doc.elements) != 0 ||
+		cap(s.doc.retainedPaths.nodes) != 0 ||
+		cap(s.doc.retainedPaths.namespaces) != 0 ||
 		cap(s.doc.text) != 0 ||
 		cap(s.doc.identity.path) != 0 ||
 		cap(s.doc.allBits) != 0 {
@@ -265,7 +268,8 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	var s session
 	s.doc.elements = make([]xmlDocumentElement[frame], 0, maxRetainedSliceCap)
-	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "stale"}}, frame{})
+	s.doc.CommitExpandedStart(preparedXMLStart{name: xml.Name{Space: "urn:stale", Local: "stale"}}, frame{})
+	_ = s.doc.retainPathAtDepth(1)
 	s.doc.pathText = "stale"
 	s.doc.pathTextDepth = 1
 
@@ -276,6 +280,12 @@ func TestSessionResetClearsActiveDocumentReferences(t *testing.T) {
 	}
 	if s.doc.pathTextDepth != 0 {
 		t.Fatal("reset retained stale path text depth")
+	}
+	if len(s.doc.retainedPaths.nodes) != 0 {
+		t.Fatal("reset retained document path nodes")
+	}
+	if len(s.doc.retainedPaths.namespaces) != 0 {
+		t.Fatal("reset retained document path namespaces")
 	}
 	if cap(s.doc.elements) == 0 {
 		t.Fatal("path capacity was not retained")
@@ -369,6 +379,30 @@ func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
 	})
 }
 
+func TestSessionResetClearsRetainedIdentityPaths(t *testing.T) {
+	root := strings.Repeat("r", 255)
+	rt := compileRuntimeForTest(t, fmt.Sprintf(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="%s"><xs:complexType><xs:sequence>
+    <xs:element name="row" maxOccurs="unbounded"><xs:complexType><xs:attribute name="id" type="xs:ID" use="required"/></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType></xs:element>
+</xs:schema>`, root))
+	session, err := newSessionForTest(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader(fmt.Sprintf(`<%s><row id="a"/><row id="b"/></%s>`, root, root))); err != nil {
+		t.Fatal(err)
+	}
+	if cap(session.session.doc.retainedPaths.nodes) == 0 {
+		t.Fatal("validation did not exercise retained identity paths")
+	}
+	assertReusableSessionReset(t, session)
+	if err := session.Validate(strings.NewReader(fmt.Sprintf(`<%s><row id="c"/></%s>`, root, root))); err != nil {
+		t.Fatalf("session reuse: %v", err)
+	}
+	assertReusableSessionReset(t, session)
+}
+
 type nestedIdentityDocumentState uint8
 
 const (
@@ -403,6 +437,22 @@ func assertSessionDocumentStateReset(t *testing.T, s *session) {
 	t.Helper()
 	if s.doc.seenRoot || s.doc.pathText != "" || s.doc.pathTextDepth != 0 || s.doc.syntaxOnly {
 		t.Fatalf("document scalars remain after reset: %+v", s.doc)
+	}
+	if len(s.doc.retainedPaths.nodes) != 0 {
+		t.Fatalf("document retained-path nodes remain: %d", len(s.doc.retainedPaths.nodes))
+	}
+	if len(s.doc.retainedPaths.namespaces) != 0 {
+		t.Fatalf("document retained-path namespaces remain: %d", len(s.doc.retainedPaths.namespaces))
+	}
+	for i, node := range s.doc.retainedPaths.nodes[:cap(s.doc.retainedPaths.nodes)] {
+		if node != (documentPathNode{}) {
+			t.Fatalf("retained-path node tail %d retains references: %+v", i, node)
+		}
+	}
+	for i, namespace := range s.doc.retainedPaths.namespaces[:cap(s.doc.retainedPaths.namespaces)] {
+		if namespace != "" {
+			t.Fatalf("retained-path namespace tail %d retains %q", i, namespace)
+		}
 	}
 	if len(s.doc.elements) != 0 || len(s.doc.identity.path) != 0 || len(s.doc.identity.elements) != 0 {
 		t.Fatalf(

@@ -783,6 +783,210 @@ func BenchmarkValidateIdentityConstraintsFields(b *testing.B) {
 	}
 }
 
+func BenchmarkSessionValidateNestedIdentitySelections(b *testing.B) {
+	for _, depth := range []int{16, 64, 256} {
+		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(nestedIdentitySelectionsBenchmarkSchema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth + 1})
+			if err != nil {
+				b.Fatal(err)
+			}
+			doc := nestedIdentitySelectionsBenchmarkDoc(depth)
+			b.SetBytes(int64(len(doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := session.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSessionValidateNestedIdentitySelectionPaths(b *testing.B) {
+	const (
+		rootNameBytes = 64 << 10
+		depth         = 64
+	)
+	root := "r" + strings.Repeat("x", rootNameBytes-1)
+	schema := fmt.Sprintf(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="%s">
+    <xs:complexType><xs:sequence><xs:any processContents="skip"/></xs:sequence></xs:complexType>
+    <xs:unique name="ids"><xs:selector xpath=".//*"/><xs:field xpath="@id"/></xs:unique>
+  </xs:element>
+</xs:schema>`, root)
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth + 1})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := nestedIdentitySelectionPathBenchmarkDoc(root, depth)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateRetainedIdentityPaths(b *testing.B) {
+	const (
+		rootNameBytes = 64 << 10
+		rows          = 1000
+	)
+	root := "r" + strings.Repeat("x", rootNameBytes-1)
+	schema := fmt.Sprintf(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="%s">
+    <xs:complexType><xs:sequence><xs:element name="row" maxOccurs="unbounded"><xs:complexType>
+      <xs:attribute name="id" type="xs:ID" use="required"/>
+      <xs:attribute name="ref" type="xs:IDREF" use="optional"/>
+    </xs:complexType></xs:element></xs:sequence></xs:complexType>
+    <xs:key name="rowID"><xs:selector xpath="row"/><xs:field xpath="@id"/></xs:key>
+    <xs:keyref name="rowRef" refer="rowID"><xs:selector xpath="row"/><xs:field xpath="@ref"/></xs:keyref>
+  </xs:element>
+</xs:schema>`, root)
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := retainedIdentityPathsBenchmarkDoc(root, rows)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateDisjointIdentityPaths(b *testing.B) {
+	const (
+		branches = 256
+		depth    = 128
+	)
+	tests := []struct {
+		name   string
+		schema string
+		doc    string
+	}{
+		{
+			name:   "lexical",
+			schema: disjointIdentityPathsBenchmarkSchema,
+			doc:    disjointIdentityPathsBenchmarkDoc(branches, depth),
+		},
+		{
+			name:   "expanded",
+			schema: disjointExpandedIdentityPathsBenchmarkSchema,
+			doc: disjointExpandedIdentityPathsBenchmarkDoc(
+				"urn:"+strings.Repeat("u", 200),
+				branches,
+				depth,
+			),
+		},
+		{
+			name:   "expanded_distinct_namespaces",
+			schema: disjointExpandedIdentityPathsBenchmarkSchema,
+			doc:    disjointDistinctExpandedIdentityPathsBenchmarkDoc(branches, depth),
+		},
+		{
+			name:   "expanded_distinct_control",
+			schema: strings.Replace(disjointExpandedIdentityPathsBenchmarkSchema, `type="xs:ID"`, `type="xs:string"`, 1),
+			doc:    disjointDistinctExpandedIdentityPathsBenchmarkDoc(branches, depth),
+		},
+	}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(tt.schema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: depth + 1})
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.SetBytes(int64(len(tt.doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := session.Validate(strings.NewReader(tt.doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSessionValidateExpandedIdentityPaths(b *testing.B) {
+	const (
+		namespaceBytes = 64 << 10
+		rows           = 1000
+	)
+	namespace := "urn:" + strings.Repeat("u", namespaceBytes-4)
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(expandedIdentityPathsBenchmarkSchema)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc := expandedIdentityPathsBenchmarkDoc(namespace, rows)
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSessionValidateSharedExpandedIdentityPrefix(b *testing.B) {
+	const (
+		commonDepth = 62
+		rows        = 10_000
+	)
+	doc := sharedExpandedIdentityPrefixBenchmarkDoc(commonDepth, rows)
+	tests := []struct {
+		name   string
+		schema string
+	}{
+		{name: "identity", schema: sharedExpandedIdentityPrefixBenchmarkSchema},
+		{
+			name:   "control",
+			schema: strings.Replace(sharedExpandedIdentityPrefixBenchmarkSchema, `type="xs:ID"`, `type="xs:string"`, 1),
+		},
+	}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(tt.schema)))
+			if err != nil {
+				b.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceDepth: commonDepth + 2})
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.SetBytes(int64(len(doc)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := session.Validate(strings.NewReader(doc)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkCompileCountedChoiceDFA(b *testing.B) {
 	tests := []struct {
 		name      string
@@ -991,6 +1195,57 @@ const identityBenchmarkSchema = `
   </xs:element>
 </xs:schema>`
 
+const nestedIdentitySelectionsBenchmarkSchema = `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="node">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="node" minOccurs="0"/>
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="node"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="nodeID">
+      <xs:selector xpath=".//node"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+const disjointIdentityPathsBenchmarkSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="node"><xs:complexType><xs:sequence><xs:element ref="node" minOccurs="0"/></xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType></xs:element>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="node" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+
+const disjointExpandedIdentityPathsBenchmarkSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="T"><xs:sequence><xs:any processContents="lax" minOccurs="0"/></xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+
+const expandedIdentityPathsBenchmarkSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+    <xs:unique name="values"><xs:selector xpath="*"/><xs:field xpath="."/></xs:unique>
+  </xs:element>
+</xs:schema>`
+
+const sharedExpandedIdentityPrefixBenchmarkSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="T"><xs:sequence><xs:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/></xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType>
+  <xs:element name="root"><xs:complexType><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+
 func identityBenchmarkDoc(rows int) string {
 	var b strings.Builder
 	b.WriteString("<rows>")
@@ -1002,6 +1257,156 @@ func identityBenchmarkDoc(rows int) string {
 		b.WriteString(`/>`)
 	}
 	b.WriteString("</rows>")
+	return b.String()
+}
+
+func nestedIdentitySelectionsBenchmarkDoc(depth int) string {
+	var b strings.Builder
+	b.WriteString("<root>")
+	for i := range depth {
+		fmt.Fprintf(&b, `<node id="id%d">`, i)
+	}
+	for range depth {
+		b.WriteString("</node>")
+	}
+	b.WriteString("</root>")
+	return b.String()
+}
+
+func nestedIdentitySelectionPathBenchmarkDoc(root string, depth int) string {
+	var b strings.Builder
+	b.Grow(2*len(root) + depth*7 + 5)
+	b.WriteByte('<')
+	b.WriteString(root)
+	b.WriteByte('>')
+	for range depth {
+		b.WriteString("<n>")
+	}
+	for range depth {
+		b.WriteString("</n>")
+	}
+	b.WriteString("</")
+	b.WriteString(root)
+	b.WriteByte('>')
+	return b.String()
+}
+
+func retainedIdentityPathsBenchmarkDoc(root string, rows int) string {
+	var b strings.Builder
+	b.Grow(2*len(root) + rows*32 + 5)
+	b.WriteByte('<')
+	b.WriteString(root)
+	b.WriteByte('>')
+	for i := range rows {
+		fmt.Fprintf(&b, `<row id="id%d"`, i)
+		if i > 0 {
+			fmt.Fprintf(&b, ` ref="id%d"`, i-1)
+		}
+		b.WriteString(`/>`)
+	}
+	b.WriteString("</")
+	b.WriteString(root)
+	b.WriteByte('>')
+	return b.String()
+}
+
+func disjointIdentityPathsBenchmarkDoc(branches, depth int) string {
+	var b strings.Builder
+	b.Grow(branches*depth*13 + 13)
+	b.WriteString("<root>")
+	for branch := range branches {
+		for level := range depth {
+			if level == depth-1 {
+				fmt.Fprintf(&b, `<node id="id%d">`, branch)
+			} else {
+				b.WriteString("<node>")
+			}
+		}
+		for range depth {
+			b.WriteString("</node>")
+		}
+	}
+	b.WriteString("</root>")
+	return b.String()
+}
+
+func disjointExpandedIdentityPathsBenchmarkDoc(namespace string, branches, depth int) string {
+	var b strings.Builder
+	b.Grow(len(namespace) + branches*depth*40 + 96)
+	fmt.Fprintf(
+		&b,
+		`<root xmlns:p="%s" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`,
+		namespace,
+	)
+	for branch := range branches {
+		for level := range depth {
+			if level == depth-1 {
+				fmt.Fprintf(&b, `<p:n xsi:type="T" id="id%d">`, branch)
+			} else {
+				b.WriteString(`<p:n xsi:type="T">`)
+			}
+		}
+		for range depth {
+			b.WriteString("</p:n>")
+		}
+	}
+	b.WriteString("</root>")
+	return b.String()
+}
+
+func disjointDistinctExpandedIdentityPathsBenchmarkDoc(branches, depth int) string {
+	var b strings.Builder
+	b.Grow(branches*depth*52 + 80)
+	b.WriteString(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`)
+	for branch := range branches {
+		for level := range depth {
+			fmt.Fprintf(&b, `<p:n xmlns:p="urn:b%d:l%d" xsi:type="T"`, branch, level)
+			if level == depth-1 {
+				fmt.Fprintf(&b, ` id="id%d"`, branch)
+			}
+			b.WriteByte('>')
+		}
+		for range depth {
+			b.WriteString("</p:n>")
+		}
+	}
+	b.WriteString("</root>")
+	return b.String()
+}
+
+func sharedExpandedIdentityPrefixBenchmarkDoc(commonDepth, rows int) string {
+	var b strings.Builder
+	b.Grow(rows*48 + commonDepth*64 + 96)
+	b.WriteString(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:l="urn:leaf"`)
+	for level := range commonDepth {
+		fmt.Fprintf(&b, ` xmlns:p%d="urn:%02d"`, level, level)
+	}
+	b.WriteByte('>')
+	for level := range commonDepth {
+		fmt.Fprintf(&b, `<p%d:n xsi:type="T">`, level)
+	}
+	for row := range rows {
+		fmt.Fprintf(&b, `<l:n xsi:type="T" id="id%d"/>`, row)
+	}
+	for level := commonDepth - 1; level >= 0; level-- {
+		fmt.Fprintf(&b, `</p%d:n>`, level)
+	}
+	b.WriteString(`</root>`)
+	return b.String()
+}
+
+func expandedIdentityPathsBenchmarkDoc(namespace string, rows int) string {
+	var b strings.Builder
+	b.Grow(len(namespace) + rows*64 + 160)
+	fmt.Fprintf(
+		&b,
+		`<root xmlns:p="%s" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema">`,
+		namespace,
+	)
+	for row := range rows {
+		fmt.Fprintf(&b, `<p:a xsi:type="xs:string">value%d</p:a>`, row)
+	}
+	b.WriteString("</root>")
 	return b.String()
 }
 

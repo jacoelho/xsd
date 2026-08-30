@@ -24,7 +24,7 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	} else {
 		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 	}
-	err = evaluation.rejectValue(target, identityInvalidValue, StartContext{Path: "/root"})
+	err = evaluation.rejectValue(target, identityInvalidValue, identityTestContext("/root", 0, 0))
 	if err != nil {
 		t.Fatalf("rejectValue() error = %v", err)
 	}
@@ -32,7 +32,7 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareAttributeValue() after release error = %v", err)
 	}
-	if err = evaluation.rejectValue(target, identityInvalidValue, StartContext{Path: "/root"}); err != nil {
+	if err = evaluation.rejectValue(target, identityInvalidValue, identityTestContext("/root", 0, 0)); err != nil {
 		t.Fatalf("rejectValue(attribute) error = %v", err)
 	}
 }
@@ -56,7 +56,7 @@ func TestIdentityEvaluationCommitsValueAndClosesElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareElementValue() error = %v", err)
 	}
-	ctx := StartContext{Path: "/root", Line: 2, Column: 3}
+	ctx := identityTestContext("/root", 2, 3)
 	err = evaluation.recordValue(target, runtime.SimpleValue{Identity: "root-key"}, ctx)
 	if err != nil {
 		t.Fatalf("recordValue() error = %v", err)
@@ -98,7 +98,7 @@ func TestIdentityEvaluationResetInvalidatesBorrowedTarget(t *testing.T) {
 		t.Fatalf("prepareElementValue() error = %v", err)
 	}
 	evaluation.reset(1, 1)
-	err = evaluation.rejectValue(target, identityInvalidValue, StartContext{Path: "/root"})
+	err = evaluation.rejectValue(target, identityInvalidValue, identityTestContext("/root", 0, 0))
 	if err == nil {
 		t.Fatal("rejectValue() accepted a target borrowed before reset")
 	} else {
@@ -108,7 +108,7 @@ func TestIdentityEvaluationResetInvalidatesBorrowedTarget(t *testing.T) {
 		t.Fatal("reset() retained active evaluator lifecycle state")
 	}
 	err = evaluation.startElement(identityElementStart{
-		Context: StartContext{Path: "/root"},
+		Context: identityTestContext("/root", 0, 0),
 		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
@@ -123,7 +123,7 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 
 	fixture := startedIdentityEvaluationForTest(t)
 	evaluation := fixture.evaluation
-	ctx := StartContext{Path: "/root", Line: 2, Column: 3}
+	ctx := identityTestContext("/root", 2, 3)
 	target, err := evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(first) error = %v", err)
@@ -162,7 +162,7 @@ func TestIdentityEvaluationRejectsSecondIDAfterFirstIDRecordFails(t *testing.T) 
 	fixture := startedIdentityEvaluationForTest(t)
 	evaluation := fixture.evaluation
 	evaluation.limits.TupleBytes = 1
-	ctx := StartContext{Path: "/root", Line: 2, Column: 3}
+	ctx := identityTestContext("/root", 2, 3)
 	target, err := evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(first) error = %v", err)
@@ -191,7 +191,7 @@ func TestIdentityEvaluationCanRejectRecordedOrCapturedValue(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fixture := startedIdentityEvaluationForTest(t)
 			evaluation := fixture.evaluation
-			ctx := StartContext{Path: "/root", Line: 2, Column: 3}
+			ctx := identityTestContext("/root", 2, 3)
 			target, err := evaluation.prepareElementValue()
 			if err != nil {
 				t.Fatalf("prepareElementValue() error = %v", err)
@@ -235,7 +235,7 @@ func TestIdentityEvaluationStartTransactionRollsBackState(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := evaluation.startElement(identityElementStart{
-		Context: StartContext{Path: "/root/child", Line: 2, Column: 3},
+		Context: identityTestContext("/root/child", 2, 3),
 		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
@@ -262,7 +262,7 @@ func TestIdentityEvaluationStartTransactionRestoresPreexistingMutations(t *testi
 	err := evaluation.captureFields(
 		[]identityFieldMatch{{Selection: 0, Field: 0}},
 		"duplicate",
-		StartContext{Path: "/root/child", Line: 2, Column: 3},
+		identityTestContext("/root/child", 2, 3),
 	)
 	expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
 	if !evaluation.scopes[0].invalid || evaluation.fieldValues[0].state != identityFieldInvalid {
@@ -287,13 +287,45 @@ func TestIdentityEvaluationRecordsIDBatchAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "one two", Identity: "value"}, StartContext{Path: "/root"})
+	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "one two", Identity: "value"}, identityTestContext("/root", 0, 0))
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if len(evaluation.ids) != 0 || evaluation.entries != 0 {
 		t.Fatalf("failed ID batch changed identity state: ids=%v entries=%d", evaluation.ids, evaluation.entries)
 	}
 	if len(evaluation.fieldStaging.ids) != 0 || len(evaluation.fieldStaging.values) != 0 {
 		t.Fatalf("failed ID batch retained staging: %+v", evaluation.fieldStaging)
+	}
+}
+
+func TestIdentityEvaluationFinishesOnlySelectionsAtCurrentDepth(t *testing.T) {
+	t.Parallel()
+
+	fixture := startedIdentityEvaluationForTest(t)
+	evaluation := fixture.evaluation
+	if len(evaluation.selections) != 1 {
+		t.Fatalf("started selections = %d, want 1", len(evaluation.selections))
+	}
+	shallower := evaluation.selections[0]
+	if err := evaluation.startSelection(
+		shallower.scope,
+		shallower.depth+1,
+		shallower.constraint,
+		shallower.fieldLen,
+		0,
+		identityTestContext("/root/child", 2, 1),
+	); err != nil {
+		t.Fatalf("startSelection() error = %v", err)
+	}
+	if err := evaluation.finishSelections(
+		shallower.depth+1,
+		identityTestContext("/root/child", 2, 1),
+		identitySelectionsOwnedByAncestorScope,
+		func(error) error { return nil },
+	); err != nil {
+		t.Fatalf("finishSelections() error = %v", err)
+	}
+	if len(evaluation.selections) != 1 || evaluation.selections[0] != shallower {
+		t.Fatalf("remaining selections = %+v, want shallower selection %+v", evaluation.selections, shallower)
 	}
 }
 
@@ -310,7 +342,7 @@ func startedIdentityEvaluationForTest(t *testing.T) startedIdentityEvaluationFix
 	fixture := compiledIdentityRuntimeForTest(t)
 	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
 	if err := evaluation.startElement(identityElementStart{
-		Context: StartContext{Path: "/root", Line: 1, Column: 1},
+		Context: identityTestContext("/root", 1, 1),
 		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
 		Element: fixture.elemID,
 		Mode:    elementAssessed,

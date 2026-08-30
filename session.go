@@ -16,9 +16,9 @@ type ValidateOptions struct {
 	MaxErrors int
 	// MaxIdentityScopes limits active identity-constraint scopes. Zero uses the default.
 	MaxIdentityScopes int
-	// MaxIdentityEntries limits stored ID, IDREF, key, unique, and keyref
-	// entries and simultaneously pending identity-selector matches. Zero means
-	// the default.
+	// MaxIdentityEntries independently limits stored ID, IDREF, key, unique,
+	// and keyref entries, pending identity-selector matches, and pending
+	// identity-field values. Zero means the default.
 	MaxIdentityEntries int
 	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero uses the default.
 	MaxIdentityTupleBytes int64

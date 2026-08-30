@@ -42,6 +42,8 @@ type HasSchemaLocation func(string) bool
 
 type pathSource interface {
 	PathString() string
+	PathStringAtDepth(depth int) string
+	retainPathAtDepth(depth int) retainedPath
 }
 
 // StartContext identifies a validation location.
@@ -59,6 +61,22 @@ func (ctx StartContext) PathString() string {
 		return ctx.Path
 	}
 	return ctx.document.PathString()
+}
+
+// PathStringAtDepth returns the validation path at depth. Explicit contexts
+// already represent their requested location.
+func (ctx StartContext) PathStringAtDepth(depth int) string {
+	if ctx.Path != "" || ctx.document == nil {
+		return ctx.Path
+	}
+	return ctx.document.PathStringAtDepth(depth)
+}
+
+func (ctx StartContext) retainPathAtDepth(depth int) retainedPath {
+	if ctx.document == nil {
+		panic("retained XML path requires a document context")
+	}
+	return ctx.document.retainPathAtDepth(depth)
 }
 
 // RootInput is the root element start-assessment input.

@@ -114,7 +114,7 @@ func parseArgs(args []string) (config, error) {
 	fs := flag.NewFlagSet("xmllint", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.IntVar(&cfg.maxErrors, "max-errors", 0, "maximum validation errors to collect")
-	fs.IntVar(&cfg.maxIdentityEntries, "max-identity-entries", 0, "maximum retained identity entries")
+	fs.IntVar(&cfg.maxIdentityEntries, "max-identity-entries", 0, "maximum for stored identity entries, pending selector matches, and pending field values")
 	fs.Int64Var(&cfg.maxBytes, "max-instance-bytes", 0, "maximum raw XML bytes to read")
 	fs.StringVar(&cfg.schema, "schema", "", "schema path")
 	if err := fs.Parse(args); err != nil {

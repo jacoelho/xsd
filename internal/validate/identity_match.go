@@ -116,6 +116,9 @@ func identityMatchExists(matches []identityFieldMatch, selection, field int) boo
 }
 
 func identityFieldPathMatches[Names identityNames](names Names, namePath []runtime.RuntimeName, selectedDepth, currentDepth int, path runtime.IdentityFieldPathRead) bool {
+	if path.StepCount() == 0 && !path.Descendant() {
+		return currentDepth == selectedDepth
+	}
 	return identityPathMatches(names, namePath, selectedDepth, currentDepth, path)
 }
 

@@ -193,14 +193,35 @@ Validation flow:
    declarations or types, while recovery invalidates affected ancestor fields
    without creating secondary identity diagnostics. A nillable element-field
    marker is enforced only when selection finalization has established a
-   complete qualified key sequence. At element end, selections owned by that
-   element's identity scope receive current nillable-field markers and finish
-   before the scope closes. Scope-local failure is then folded into the element
-   assessment and invalidates still-pending ancestor-owned fields before those
-   selections finish. Element-start assessment extracts `xsi:nil` and `xsi:type`
-   before assessing either attribute, preserves each successful result when the
-   other fails, and owns their diagnostics. Identity capture only records a
-   matched value or invalidates the matched field, so it cannot duplicate those
+   complete qualified key sequence. A pending selection retains its selected
+   depth, not an eager copy of the document path. Immediate diagnostics project
+   that depth from the active document path. IDs, IDREFs, and published tuples
+   that need a path after an element pops retain references into document-owned
+   parent-linked encoded suffix nodes, and the exact string is materialized only
+   when a diagnostic is emitted. A node extends the nearest referenced active
+   ancestor. Every newly encoded active element receives a reference to its
+   complete segment boundary inside that node, so later descendants and siblings
+   share a live prefix even when it ends inside the encoded text. These
+   annotations are depth-bounded active state; they disappear when elements pop
+   and are never overwritten while live. Each live element is therefore encoded
+   and annotated at most once between rollback or pop boundaries, without one
+   retained node per path element. Lexical path bytes are stored directly.
+   Expanded-name records retain local-name bytes plus a suffix-local compact
+   reference into one string header per distinct namespace in that suffix; they
+   do not copy namespace URI bytes into every path occurrence. A transient
+   namespace index is reused across suffixes, cleared after encoding, and dropped
+   with oversized namespace storage at session reset. Retained paths cannot
+   escape a validation call: fatal start rollback clears references into new
+   nodes and truncates nodes and namespace headers, semantic discard releases
+   them, and session reset clears references and drops oversized capacity. At
+   element end, selections owned by that element's
+   identity scope receive current nillable-field markers and finish before the
+   scope closes. Scope-local failure is then folded into the element assessment
+   and invalidates still-pending ancestor-owned fields before those selections
+   finish. Element-start assessment extracts `xsi:nil` and `xsi:type` before
+   assessing either attribute, preserves each successful result when the other
+   fails, and owns their diagnostics. Identity capture only records a matched
+   value or invalidates the matched field, so it cannot duplicate those
    diagnostics.
    Every element start is a transaction across XML/namespace stacks,
    schema-location hints, parent-content state, content-model bits, and identity
@@ -209,9 +230,15 @@ Validation flow:
    semantic state. Identity field batches admit each value against the remaining
    document budget before growing one evaluator-owned staging workspace. They
    commit only complete batches, clear source references on every exit, and retain
-   capacity only below the validation high-water bound. Hint batches stage only
-   new namespaces and copy the bounded retained map only when committing an actual
-   change; no-op or duplicate hints do not snapshot accumulated state.
+   capacity only below the validation high-water bound. `MaxIdentityEntries`
+   independently bounds stored identity entries, pending selector matches, and
+   pending field-value slots; selection admission checks both pending dimensions
+   before allocation or mutation. Retained diagnostic nodes are bounded by path
+   publication extensions; encoded segments and suffix-local namespace headers
+   are bounded by retained path occurrences, admitted document structure and
+   bytes, identity limits, and the session high-water policy. Hint batches stage
+   only new namespaces and copy the bounded retained map only when committing an
+   actual change; no-op or duplicate hints do not snapshot accumulated state.
    Generic event-sink or matcher interfaces are intentionally absent: there is
    one evaluator implementation and one validation caller, while an interface
    would hide the required transaction and element-lifecycle sequencing without
@@ -360,6 +387,26 @@ Build and smoke targets must name the packages that own the code they exercise:
   every value and could exceed the configured identity budget before failing. One
   bounded evaluator-owned workspace admits each field before growth, preserves
   all-or-nothing commits, and is cleared after success and failure.
+- A separate `MaxIdentityFieldSlots` option was rejected because it would add a
+  public tuning dimension while still requiring a finite default that rejects
+  the same amplified inputs. `MaxIdentityEntries` owns retained identity
+  cardinality through three independent ceilings; callers can raise that one
+  budget deliberately when schemas require greater field fanout.
+- Eager full-path strings were rejected because a long prefix was copied for
+  every retained fact. One parent node per element and one expanded-name node per
+  element were rejected because disjoint deep paths multiplied retained structs
+  by depth and fact count. Rendered-text chunks were rejected because expanded
+  paths copied a namespace URI at every occurrence. Fixed-size encoded chunks
+  were rejected because a common prefix below the threshold still repeated its
+  encoded bytes and suffix-local namespace headers per fact. Global full-name and
+  namespace interners were rejected because unique local names or namespace URIs
+  created another document-wide retained projection with rollback-sensitive
+  state. The document instead owns encoded suffix nodes plus active element-
+  boundary references, which share any live common prefix without retained per-
+  element nodes. An identity-owned path arena and a separate retained-path limit
+  were rejected because they would add a competing writer or public policy
+  dimension; document structure, bytes, identity-entry limits, and session high-
+  water retention already bound the chosen representation.
 - Parser-mode-specific line counters were rejected because CR/CRLF behavior and
   diagnostics then diverge. The byte stream owns logical line positions, while
   token modes own normalization of their emitted payloads.

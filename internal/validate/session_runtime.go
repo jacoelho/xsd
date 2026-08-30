@@ -281,12 +281,14 @@ func (s *session) reset() {
 	s.parser.Detach()
 	s.derivationScratch.Reset(maxRetainedMapLen)
 	s.stringPatternScratch.Reset(maxRetainedSliceCap)
+	// Identity values point into the document-owned retained-path store.
+	// Clear them before resetting that store.
+	identity := s.doc.identity
+	identity.reset(maxRetainedMapLen, maxRetainedSliceCap)
 	xmlDocument := s.doc.xmlDocument
 	xmlDocument.Reset(maxRetainedSliceCap)
 	schemaLocationHints := s.doc.schemaLocationHints
 	schemaLocationHints.Reset(maxRetainedMapLen)
-	identity := s.doc.identity
-	identity.reset(maxRetainedMapLen, maxRetainedSliceCap)
 	s.doc = documentState{
 		xmlDocument:         xmlDocument,
 		errors:              resetRetainedReferences(s.doc.errors, maxRetainedSliceCap),
@@ -367,6 +369,7 @@ func assessmentFailure(err error) bool {
 func (s *session) discardSemanticState() {
 	s.doc.clearPayloads()
 	s.doc.identity.discard()
+	s.doc.discardRetainedPaths()
 	s.doc.schemaLocationHints = SchemaLocationHints{}
 	s.doc.allBits = nil
 	s.doc.text = nil

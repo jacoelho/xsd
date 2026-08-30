@@ -273,6 +273,98 @@ func TestSessionStartRollsBackIdentityAfterXMLCommit(t *testing.T) {
 	if _, exists := identity.ids["one"]; exists {
 		t.Fatal("failed child start retained ID")
 	}
+	if len(s.doc.retainedPaths.nodes) != 0 || s.doc.elements[0].pathRef != (documentPathRef{}) {
+		t.Fatalf("failed child start retained diagnostic paths: nodes=%d root=%+v", len(s.doc.retainedPaths.nodes), s.doc.elements[0].pathRef)
+	}
+}
+
+func TestSessionStartRollsBackPendingIdentityFieldLimit(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A"><xs:sequence><xs:element ref="a" minOccurs="0"/></xs:sequence></xs:complexType>
+  <xs:element name="a" type="A"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element ref="a" minOccurs="0"/></xs:sequence></xs:complexType>
+    <xs:unique name="values"><xs:selector xpath=".//a"/><xs:field xpath="@left"/><xs:field xpath="@right"/></xs:unique>
+  </xs:element>
+</xs:schema>`)
+	var s session
+	if err := initializeSession(&s, rt, Options{MaxIdentityEntries: 3}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.start(2, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
+		t.Fatal(err)
+	}
+	parent, ok := s.doc.Current()
+	if !ok {
+		t.Fatal("selected parent start did not create a frame")
+	}
+	parentBefore := *parent
+	allBitsBefore := slices.Clone(s.doc.allBits)
+
+	err := s.start(3, 1, testXMLStart(xml.Name{Local: "a"}))
+	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
+	parent, ok = s.doc.Current()
+	if !ok || s.doc.Depth() != 2 || *parent != parentBefore {
+		t.Fatalf("failed nested start changed parent: depth=%d frame=%+v want=%+v", s.doc.Depth(), parent, parentBefore)
+	}
+	if !slices.Equal(s.doc.allBits, allBitsBefore) {
+		t.Fatalf("failed nested start changed content bits: got %v want %v", s.doc.allBits, allBitsBefore)
+	}
+	identity := &s.doc.identity
+	if len(identity.path) != 2 || len(identity.elements) != 2 || len(identity.scopes) != 1 ||
+		len(identity.selections) != 1 || len(identity.fieldValues) != 2 || identity.nextNodeID != 1 ||
+		identity.targetPhase != identityTargetInactive || identity.startJournal.active {
+		t.Fatalf("failed nested start retained identity state: %+v", identity.identityState)
+	}
+
+	identity.limits.Entries = 4
+	if err := s.start(3, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
+		t.Fatalf("retry nested start error = %v", err)
+	}
+}
+
+func TestSessionIdentitySelectionsKeepDocumentPathsLazy(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="A"><xs:sequence><xs:element ref="a" minOccurs="0"/></xs:sequence></xs:complexType>
+  <xs:element name="a" type="A"/>
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element ref="a" minOccurs="0"/></xs:sequence></xs:complexType>
+    <xs:unique name="values"><xs:selector xpath=".//a"/><xs:field xpath="@missing"/></xs:unique>
+  </xs:element>
+</xs:schema>`)
+	var s session
+	if err := initializeSession(&s, rt, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.start(2, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.start(3, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
+		t.Fatal(err)
+	}
+	if s.doc.pathText != "" {
+		t.Fatalf("selector starts materialized document path %q", s.doc.pathText)
+	}
+	if len(s.doc.retainedPaths.nodes) != 0 {
+		t.Fatalf("selector starts retained %d document path nodes", len(s.doc.retainedPaths.nodes))
+	}
+
+	if err := s.end(3, 1, stream.EndElement{Name: xml.Name{Local: "a"}}); err != nil {
+		t.Fatal(err)
+	}
+	if s.doc.pathText != "" {
+		t.Fatalf("absent unique field materialized document path %q", s.doc.pathText)
+	}
 }
 
 func TestSessionStartRollsBackCompositeStateAfterIdentityFailure(t *testing.T) {
@@ -401,6 +493,9 @@ func assertSemanticStopState(t *testing.T, s *session, local string) {
 	}
 	if len(s.doc.identity.path) != 0 || len(s.doc.identity.elements) != 0 || s.doc.identity.startJournal.active {
 		t.Fatal("semantic stop retained identity lifecycle state")
+	}
+	if len(s.doc.retainedPaths.nodes) != 0 || len(s.doc.retainedPaths.namespaces) != 0 {
+		t.Fatal("semantic stop retained identity diagnostic paths")
 	}
 	if err := s.end(2, 1, stream.EndElement{Name: xml.Name{Local: local}}); err != nil {
 		t.Fatalf("syntax-only end error = %v", err)

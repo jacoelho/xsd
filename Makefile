@@ -5,6 +5,7 @@ BIN := $(CURDIR)/bin
 STATICCHECK_VERSION := v0.8.1
 GOLANGCI_LINT_VERSION := v2.13.2
 BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
+BENCH_SMOKE_PATTERN := Benchmark(CheckXMLWellFormedNested|Compile(AttributeGroupFanout|CountedChoiceDFA|DeepSimpleTypeChain|RepeatedNestedUnionMembers|SmallSchema|SubstitutionGroups)|NamespaceAdmissionChurn|ParseXSDTime|ParserLazyWideAttributes|SessionValidate(DisjointIdentityPaths|ExpandedIdentityPaths|NamespaceAdmissionChurn|NestedIdentitySelectionPaths|NestedIdentitySelections|RepeatedSmallDocument|RetainedIdentityPaths|SharedExpandedIdentityPrefix|WideChoice)|SimplePatternVariableSmallBytes|Validate(Concurrent|DuplicateAttributes|IdentityConstraintsFields|IdentityConstraintsRows|ManyRecoverablePathErrors|SubstitutionGroup)|XML(DuplicateAttributes|MixedEscapedAttributeWriterOnly))
 export GOBIN := $(BIN)
 
 .PHONY: test
@@ -32,7 +33,7 @@ bench:
 
 .PHONY: bench-smoke
 bench-smoke:
-	go test -run '^$$' -bench='Benchmark(ParseXSDTime|ParserLazyWideAttributes|SessionValidateRepeatedSmallDocument|SessionValidateNamespaceAdmissionChurn|SessionValidateWideChoice|ValidateIdentityConstraintsRows|ValidateIdentityConstraintsFields|CompileCountedChoiceDFA|CompileAttributeGroupFanout|CompileSmallSchema)$$' -benchtime=100ms -benchmem ./...
+	go test -run '^$$' -bench='$(BENCH_SMOKE_PATTERN)$$' -benchtime=100ms -benchmem ./...
 
 .PHONY: benchstat
 benchstat: $(BIN)/benchstat
