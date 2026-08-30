@@ -321,26 +321,29 @@ Available flags:
 | `--max-identity-entries n` | no | Maximum retained identity entries. `0` selects the default of 100,000. |
 | `--max-instance-bytes n` | no | Maximum raw XML bytes to read. `0` selects the default of 64 MiB. |
 
-## Benchmark Against libxml2
+## Large XML benchmark
 
-Build the Go `xmllint` binary into `bin`, and make sure libxml2 `xmllint` resolves from `PATH`:
+Build the repository's Go `xmllint` binary into `bin`:
 
 ```sh
 make xmllint
-command -v xmllint
 ```
 
-`command -v xmllint` must not point at `./bin/xmllint`; the benchmark compares `bin/xmllint` with the libxml2 binary from `PATH`.
+The benchmark executes only `bin/xmllint`. It does not inspect `PATH`, require libxml2, or run another validator.
 
-Run full comparison:
+Run the full library-only benchmark with five measured samples per profile:
 
 ```sh
-XSD_LARGE_COMPARE=1 XSD_LARGE_RUNS=20 go test ./tests -run TestLargeXMLLintComparison -timeout=0 -v
+XSD_LARGE_BENCHMARK=1 XSD_LARGE_RUNS=5 go test ./tests -run TestLargeXMLLintBenchmark -timeout=0 -v
 ```
 
-By default this generates streaming XML documents at `20MB`, `100MB`, `500MB`, `1GB`, and `2GB`, plus an identity-constraint document. The harness passes each generated file size through `--max-instance-bytes`, overriding the CLI's finite default. Each command runs 20 times per profile and the tables report nearest-rank p95. Generated files use `t.TempDir()` and are removed after each subtest. Set `XSD_LARGE_DIR=/path/to/dir` to keep generated files. Set `XSD_LARGE_SIZE_BYTES=1048576 XSD_LARGE_RUNS=1` for a quick single-size smoke run.
+By default this generates streaming XML documents at `20MB`, `100MB`, `500MB`, `1GB`, and `2GB`, plus an identity-constraint document. The harness passes each generated file size through `--max-instance-bytes`, overriding the CLI's finite default. `XSD_LARGE_RUNS` controls measured samples per profile; results use the median below 20 samples and nearest-rank p95 at 20 or more. Generated files use `t.TempDir()` and are removed after each subtest. Set `XSD_LARGE_DIR=/path/to/dir` to keep generated files. Set `XSD_LARGE_SIZE_BYTES=1048576 XSD_LARGE_RUNS=1` for a quick single-size smoke run.
 
-The command comparison reports p95 elapsed time and p95 max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
+The benchmark reports elapsed time and max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
+
+### Historical libxml2 comparison
+
+The following local run is retained as historical context only. The current benchmark does not rerun or require libxml2.
 
 Historical local run (2026-06-17, macOS 26.5, Go 1.26.4, libxml2 2.9.13, `main`, p95 over 20 runs):
 

@@ -154,6 +154,13 @@ func (s *session) validate(r io.Reader) error {
 	if s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
+	if err := s.resetParser(r); err != nil {
+		return err
+	}
+	return s.validateTokens()
+}
+
+func (s *session) resetParser(r io.Reader) error {
 	if err := s.parser.ResetWithConfig(r, &s.nameStrings, &s.valueStrings, stream.Config{
 		Limits: stream.Limits{
 			MaxInputBytes: s.limits.InstanceBytes,
@@ -164,45 +171,58 @@ func (s *session) validate(r io.Reader) error {
 	}); err != nil {
 		return instanceReaderError(err)
 	}
+	return nil
+}
+
+func (s *session) validateTokens() error {
 	for {
 		tok, err := s.parser.Next()
 		if err != nil {
-			if stream.IsOnlyEOF(err) {
-				break
-			}
-			return s.parseError(err)
+			return s.finishTokenStream(err)
 		}
 		syntaxOnly := s.doc.syntaxOnly
-		switch tok.Kind {
-		case stream.KindStart:
-			if err := s.start(tok.Line, tok.Column, tok.Start); err != nil {
-				return err
-			}
-		case stream.KindEnd:
-			if err := s.end(tok.Line, tok.Column, tok.End); err != nil {
-				return err
-			}
-		case stream.KindCharData:
-			if err := s.chars(tok.Line, tok.Column, tok.Data, tok.CDATA); err != nil {
-				if syntaxOnly {
-					return err
-				}
-				if recoverErr := s.recoverAssessment(err); recoverErr != nil {
-					if errors.Is(recoverErr, errSemanticStop) {
-						break
-					}
-					return recoverErr
-				}
-			}
-		case stream.KindDirective:
-			return ValidateDirective(s.startContext(tok.Line, tok.Column), tok.Directive)
-		case stream.KindComment, stream.KindPI:
+		if err := s.validateToken(tok, syntaxOnly); err != nil {
+			return err
 		}
 		if !syntaxOnly && s.doc.syntaxOnly {
 			s.discardSemanticState()
 		}
 	}
-	return s.finishValidation()
+}
+
+func (s *session) finishTokenStream(err error) error {
+	if stream.IsOnlyEOF(err) {
+		return s.finishValidation()
+	}
+	return s.parseError(err)
+}
+
+func (s *session) validateToken(tok stream.Token, syntaxOnly bool) error {
+	switch tok.Kind {
+	case stream.KindStart:
+		return s.start(tok.Line, tok.Column, tok.Start)
+	case stream.KindEnd:
+		return s.end(tok.Line, tok.Column, tok.End)
+	case stream.KindCharData:
+		return s.validateCharacterToken(tok, syntaxOnly)
+	case stream.KindDirective:
+		return ValidateDirective(s.startContext(tok.Line, tok.Column), tok.Directive)
+	case stream.KindComment, stream.KindPI:
+		return nil
+	}
+	return nil
+}
+
+func (s *session) validateCharacterToken(tok stream.Token, syntaxOnly bool) error {
+	err := s.chars(tok.Line, tok.Column, tok.Data, tok.CDATA)
+	if err == nil || syntaxOnly {
+		return err
+	}
+	err = s.recoverAssessment(err)
+	if errors.Is(err, errSemanticStop) {
+		return nil
+	}
+	return err
 }
 
 func (s *session) parseError(err error) error {
@@ -854,6 +874,10 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 	if f.Nilled {
 		return validation(s.startContext(line, col), xsderrors.CodeValidationNil, "nilled element must be empty")
 	}
+	return s.validateAssessedCharacterData(f, data, line, col)
+}
+
+func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col int) error {
 	if f.SimpleContent != runtime.NoSimpleType {
 		return s.appendText(data, line, col)
 	}
@@ -863,14 +887,18 @@ func (s *session) chars(line, col int, data []byte, cdata bool) error {
 		f.HasText = true
 	}
 	if content.AllowsMixedContent() {
-		if content.HasFixedElementValue() {
-			return s.appendText(data, line, col)
-		}
-		return nil
+		return s.captureMixedCharacterData(content, data, line, col)
 	}
 	if !whitespace {
 		ctx := s.startContext(line, col)
 		return validation(ctx, xsderrors.CodeValidationText, "character data is not allowed")
+	}
+	return nil
+}
+
+func (s *session) captureMixedCharacterData(content runtime.ElementTextContent, data []byte, line, col int) error {
+	if content.HasFixedElementValue() {
+		return s.appendText(data, line, col)
 	}
 	return nil
 }

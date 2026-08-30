@@ -1384,23 +1384,40 @@ func validateUnionSimpleValue[R simpleValueMetadataReader](reader R, id SimpleTy
 		Identity: typ.Identity,
 		Needs:    needs,
 	})
+	matchedValue, matched, unsupportedErr, err := matchUnionSimpleValue(reader, id, typ, normalized, resolve, memberNeeds, scratch)
+	if err != nil {
+		return SimpleValue{}, err
+	}
+	if matched {
+		return matchedValue, nil
+	}
+	if unsupportedErr != nil {
+		return SimpleValue{}, unsupportedErr
+	}
+	return SimpleValue{}, errors.New("value does not match any union member")
+}
+
+func matchUnionSimpleValue[R simpleValueMetadataReader](
+	reader R,
+	id SimpleTypeID,
+	typ SimpleValueType,
+	normalized string,
+	resolve ResolveQNameParts,
+	memberNeeds SimpleValueNeed,
+	scratch *StringPatternScratch,
+) (SimpleValue, bool, error, error) {
 	var unsupported error
 	for _, member := range typ.UnionMembers {
 		value, err := validateSimpleValue(reader, member, normalized, resolve, memberNeeds, scratch)
 		if err == nil {
-			if facetErr := validateUnionSimpleValueFacets(reader, id, typ, normalized, value.Canonical, scratch); facetErr != nil {
-				return SimpleValue{}, facetErr
-			}
-			return value, nil
+			facetErr := validateUnionSimpleValueFacets(reader, id, typ, normalized, value.Canonical, scratch)
+			return value, true, unsupported, facetErr
 		}
 		if unsupported == nil && reader.simpleValueUnsupported(err) {
 			unsupported = err
 		}
 	}
-	if unsupported != nil {
-		return SimpleValue{}, unsupported
-	}
-	return SimpleValue{}, errors.New("value does not match any union member")
+	return SimpleValue{}, false, unsupported, nil
 }
 
 func validateUnionSimpleValueFacets[R simpleValueMetadataReader](
