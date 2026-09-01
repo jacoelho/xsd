@@ -7,6 +7,115 @@ The public import path is `github.com/jacoelho/xsd`. Root package files should
 stay small and should not accumulate compiler, runtime, source-resolution, XML
 streaming, formatting, or diagnostics implementation.
 
+## System Model
+
+The system has two execution planes joined by one immutable semantic kernel:
+
+```text
+explicit schema sources
+        |
+        v
+source acquisition -> schema compilation -> audited publication
+                                              |
+                                              v
+                                    immutable runtime.Schema
+                                              |
+        +-------------------------------------+
+        |
+        v
+instance XML -> document-local validation -> structured diagnostics
+```
+
+The schema plane performs I/O, closes the source graph, compiles XSD semantics,
+and commits exactly once by publishing a `runtime.Schema`. The document plane
+streams one XML document, reads that schema, owns all mutable assessment state,
+and discards document state before returning. Neither plane reaches through the
+other: compilation never depends on validation, and validation never mutates or
+reconstructs schema semantics.
+
+The published schema is the system's narrow waist. The schema-producing side
+turns external syntax into validated canonical facts; the document-consuming
+side applies those facts without knowing how they were derived. This shape
+permits one expensive compile followed by many isolated validations and makes
+concurrency a property of immutable sharing rather than coordination.
+
+The module tower, from dependency leaves to delivery adapters, is:
+
+| Level | Modules | Owned result | Interface to the next level |
+| --- | --- | --- | --- |
+| 0. Vocabulary | `internal/vocab`, `internal/lex`, `internal/uriref`, `xsderrors` | XML/XSD names, lexical predicates, valid URI references, structured failures | Immutable values and pure operations |
+| 1. Input mechanics | `internal/source`, `internal/stream`, `internal/xmlns` | Bounded schema bytes, borrowed XML tokens, namespace-valid expanded names | Explicit acquisition, token, frame, and retained-context capabilities |
+| 2. Semantic kernel | `internal/runtime` | Mutable `SchemaBuild`, atomic publication, sealed schema facts, reusable schema algorithms | `PublishSchema` and immutable schema reads |
+| 3. Capabilities | `internal/compile`, `internal/validate`, `internal/format` | Published schemas, document diagnostics, formatted XML | One synchronous operation or one explicitly owned reusable session |
+| 4. Public facade | root `xsd` | Public sources, options, `Engine`, and `Session` | Small stable Go interface that adapts directly to one capability |
+| 5. Delivery adapters | `cmd/xmllint`, `cmd/wasmxsd`, `docs/js`, `cmd/xsdweb` | CLI, WASM, browser, and local-web behavior | Wire translation, product-level composition, and lifecycle; schema and instance-validation rules remain delegated |
+
+Each module must be deep: callers learn one small interface while the module
+owns the correlated state, sequencing, limits, and failure behavior behind it.
+A new seam is justified only by a present variation or ownership break. A
+pass-through seam that merely renames data or forwards calls must be deleted.
+
+## Control Surfaces And State Machines
+
+The system has no hidden operational control plane. Callers control admitted
+work through explicit sources and finite options; modules expose results and
+structured errors rather than mutable internal state or log-dependent outcomes.
+
+| Control surface | Controls | Does not control |
+| --- | --- | --- |
+| `SchemaSource` and `Resolver` | Exact schema bytes, repeatability, identity, and explicit resolution | Network discovery or instance-directed loading |
+| `CompileOptions` | Source, graph, name, dependency, content-model, substitution, and union work | Cancellation of caller-owned blocking I/O |
+| `ValidateOptions` | Errors, identity state, hints, depth, attributes, text, tokens, and input bytes | Schema mutation or dynamic schema loading |
+| Immutable `Engine` | Safe concurrent reuse of one published schema | Document-local state |
+| Reusable `Session` | One owner's bounded scratch reuse | Overlapping calls or cross-session coordination |
+| `xsderrors` | Stable category, code, cause, and source/document location | Policy inferred from message strings or logs |
+| Browser worker generation | Cancellation, timeout, latest-request ownership, and stale-result suppression | Library-level asynchronous execution |
+
+The principal state machines are deliberately linear or owner-local:
+
+| Owner | States and only legal progress | Failure/cleanup invariant |
+| --- | --- | --- |
+| Compiler | normalize -> load closed graph -> plan/index -> compile/finalize -> audit/publish | No engine before publication; failed audit does not consume the retryable build |
+| Validation session | idle -> guarded document -> semantic or syntax-only processing -> reset -> idle | Overlap fails before input; every exit clears document references before releasing the guard |
+| Element start | prepared -> XML/namespace committed -> semantic commit | Fatal failure rolls back every staged owner; semantic stop retains only syntax state needed to finish parsing |
+| XML stream | reset -> borrowed token -> advance/invalidate -> EOF/error -> detach | Borrowed bytes never survive advance; only token-boundary EOF is success |
+| Namespace frame | prepare -> commit -> end or abort | The opaque top-frame capability is the sole pop authority |
+| Runtime publication | mutable build -> audit -> consume/seal | Audit observes without mutation; successful consumption is the only commit |
+| Browser client | loading -> ready -> running -> ready/failed/disposed | Only the owning generation publishes; termination owns cancellation and timer cleanup |
+
+## Authority And Navigation
+
+Use the narrowest authoritative source that answers the question:
+
+1. Explicit requirements, XSD 1.0, XML 1.0, and exported behavior are binding.
+2. This file owns internal architecture, including module ownership, data flow,
+   state transitions, lifecycle, resource policy, and rejected alternatives.
+3. Code and tests prove the current implementation. A conflict with this file
+   is architecture drift to resolve, not a second design.
+4. `README.md` owns public usage. `docs/spec` is searchable local standards
+   reference. `tests/README.md` owns corpus and test-harness operation.
+5. Plans describe proposed work. Ledgers record revision-scoped evidence and
+   decisions. Neither may silently redefine current architecture.
+
+For a change, start at the public or package interface named in the routing
+table below, trace the single execution path to its state owner, then inspect
+all readers, writers, failure exits, limits, tests, and relevant history. Read
+only the detailed module and flow sections reached by that route.
+
+| Change concerns | Start at | Authoritative owner | Required adjacent inspection |
+| --- | --- | --- | --- |
+| Public compile, validation, source, option, or session behavior | root `compile.go`, `session.go`, `source.go` | root `xsd` interface; delegated policy remains internal | Public examples/tests, `xsderrors`, option normalization, affected capability |
+| Diagnostic category, code, aggregation, location, or presentation | `xsderrors/errors.go` | `xsderrors` | Every constructor caller and public diagnostic tests |
+| Source opening, closing, resolution, identity, URI composition, or byte accounting | `internal/source`, `internal/uriref` | `internal/source` for acquisition; `internal/uriref` for valid references | Compiler graph loading, source tests, import-graph enforcement |
+| XML syntax, positions, buffering, borrowed data, or declaration policy | `internal/stream`, `internal/lex` | `internal/stream` | Compile, validate, format consumers; stream boundary tests; parser fuzz/benchmarks |
+| Namespace admission, lookup, rollback, or retained contexts | `internal/xmlns` | `internal/xmlns` | Stream lifetimes, compile/validate/format callers, namespace churn benchmarks |
+| Schema syntax, graph planning, component semantics, or compilation budgets | `internal/compile` | `internal/compile` | `runtime.SchemaBuild`, conformance corpus, publication, focused compile benchmarks |
+| Published representation, derivation, datatype, wildcard, substitution, or content algorithms | `internal/runtime` | `internal/runtime` | Both compile and validate callers, publication corruption/alias tests, runtime benchmarks |
+| Element/attribute/content/XSI/identity behavior, recovery, or reusable-session state | `internal/validate` | `internal/validate` | Runtime reads, public validation tests, corpus, race tests, affected allocation benchmarks |
+| Formatting | `internal/format` | `internal/format` | Shared stream/namespace contracts, WASM adapter, writer failure tests |
+| WASM, worker, page, or local-server lifecycle | `cmd/wasmxsd`, `docs/js`, `cmd/xsdweb` | The narrowest listed adapter | Tagged response tests, worker generation/timeout tests, browser integration |
+| A finite limit or retained allocation | Declaring option/constant, then allocating symbol | The module that first admits or retains the work | Below/at/above-limit tests, rollback/reset, opposing-shape allocation and retention evidence |
+
 ## Public Packages
 
 - `github.com/jacoelho/xsd` is the facade package. It owns exported public API
@@ -288,65 +397,82 @@ Browser flow:
    directory listings and writes, disables caching, and bounds HTTP lifecycle
    time and headers. It does not compile or validate schemas.
 
+## Change Protocol
+
+Every architectural or behavioral change is one dependency-complete packet:
+
+- **Contract:** the observable requirement and its oracle.
+- **Owner:** the one module and state owner responsible for the decision.
+- **Invariant:** what must always hold before and after the change.
+- **Path:** entrypoint, canonical representation, commit or acknowledgement
+  point, failure exits, and cleanup.
+- **Bounds:** time, temporary memory, retained memory, recursion, I/O, and
+  concurrency implications at the admitting owner.
+- **Proof:** focused behavior tests, affected seam tests, and measurements for a
+  changed hot path or retention shape.
+- **Writeback:** the authoritative document, executable invariant, or local
+  intent comment that prevents rediscovery.
+
+Keep facts, inferences, and proposals distinct. Inspectable repository facts
+need no prose cache. Expensive derived evidence may be recorded only with the
+exact revision, command, environment, and status. A proposal remains in a plan
+until implemented; once accepted, update this file and its enforcement in the
+same change, then delete or mark the superseded plan text.
+
+Test through the changed module's interface. Internal white-box tests are
+appropriate for representations whose lifetime or corruption states cannot be
+reached through a wider interface, but they supplement rather than replace
+seam-level behavior. When a defect exposes split ownership, an invalid state,
+or duplicated policy, repair that model and delete the obsolete path.
+
+An agent should be able to finish a packet without loading the repository-wide
+history. The packet is complete only when a future agent can recover the current
+contract from this file, find the owner through the routing table, reproduce the
+proof from tests or commands, and see no competing current representation.
+
 ## Tests And Enforcement
 
-The boundary is enforced by tests, not only by convention:
+Architecture is enforced by behavior rather than convention:
 
-- `tests/phase_import_graph_test.go`
-  - `TestInternalCapabilityImportAllowlist`
-  - `TestLibraryPackagesAreContextFree`
-  - `TestSchemaSourceIOOwnership`
-  - `TestInternalPhasePackageImportGraph`
-  - `TestValidationInputPackageImportGraph`
-  - `TestFormatPackageImportGraph`
-  - `TestXMLNamespacePackageImportGraph`
-  - `TestRuntimeVocabularyPackageImportGraph`
-  - `TestSourcePackageImportGraph`
-- `tests/phase_boundary_test.go`
-  - `TestInternalImplementationPackagesExist`
-  - `TestRootCompileHasSingleInternalExecutionEdge`
-  - `TestRootRuntimeImportIsConfinedToEngineAndSession`
-  - `TestRootDoesNotExposeOldPublicAPIs`
-- `tests/root_public_shape_test.go`
-  - `TestRootTestsUsePublicPackage`
-- `tests/stream_boundary_test.go`
-  - `TestStreamBorrowedAttributeFieldsStayBehindAccessors`
-  - `TestStreamBoundaryCallIdentityRejectsNameCollisions`
-- `tests/schema_build_boundary_test.go`
-  - `TestCompilerSchemaBuildTopologyHasOneOwner`
-- `tests/external_api_smoke_test.go`
-  - `TestExternalModuleUsesPublicSchemaAPI`
-- `docs/js/validation-worker.test.js` enforces worker queue, cancellation,
-  timeout, and state ownership.
-- `docs/js/browser/validator.spec.js` runs the built WASM application in
-  Chromium and checks both response branches and main-thread isolation.
+| Enforcement owner | Contract enforced |
+| --- | --- |
+| `tests/phase_import_graph_test.go` | Package allowlists, dependency direction, context-free library code, source I/O ownership, and capability isolation |
+| `tests/phase_boundary_test.go` | Required modules, single facade execution edges, session construction ownership, and retired public paths |
+| `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
+| `tests/stream_boundary_test.go` | Borrowed token data is consumed only in its valid lifetime and cannot escape through aliases or type erasure |
+| `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
+| `cmd/wasmxsd/api_test.go`, `cmd/wasmxsd/main_js_test.go`, `cmd/wasmxsd/build_test.go`, and `cmd/xsdweb/main_test.go` | Go adapter response/build contracts, input bounds, asset catalog, and server shutdown lifecycle |
+| `docs/js/validation-worker.test.js` | Worker queue, cancellation, timeout, generation, and state ownership |
+| `docs/js/browser/validator.spec.js` | Built WASM behavior, response branches, stale-input protection, and main-thread bounds |
+
+The files own their exact test inventory. This contract records why each
+enforcement family exists; it does not cache function names.
 
 Root tests and benchmarks MUST use `package xsd_test`. Root tests MUST NOT
 import `internal` packages. Implementation fuzz tests MUST live with the package
 that owns the implementation being fuzzed.
 
-Current fuzz ownership:
-
-- `internal/stream`: `FuzzXMLStreamParser`
-- `internal/compile`: `FuzzSchemaParserLimits`, `FuzzXSDRegexSyntax`
-- `internal/validate`: `FuzzValidateNeverPanics`
+Fuzz targets live with their implementation owner: stream parsing in
+`internal/stream`, schema parsing and regex syntax in `internal/compile`, and
+document validation in `internal/validate`. The `Makefile` owns the executable
+smoke inventory.
 
 ## Build Targets
 
-Build and smoke targets must name the packages that own the code they exercise:
+The `Makefile` is the executable source of target names and commands. Its target
+graph preserves these ownership rules:
 
-- `make test` runs `go test ./...`.
-- `make wasm` builds the worker-owned WASM module and copies the matching Go
-  runtime support file.
-- `make web` builds those assets before starting the bounded loopback server.
-- `make web-test` runs deterministic JavaScript boundary and lifecycle tests.
-- `make browser-test` runs the browser-level WASM integration test.
-- `make fuzz-smoke` runs fuzzers in their internal owning packages.
-- `make bench-smoke` runs the benchmark smoke selection over `./...`, because
-  the selected benchmarks span root and `internal/runtime`.
-- `make xmllint` directly runs `go build -o bin/xmllint ./cmd/xmllint`; the Go
-  build cache, not Makefile file prerequisites, decides whether internal
-  package changes require rebuild work.
+- Library, race, lint, static-analysis, fuzz, and benchmark gates address the
+  owning Go packages directly.
+- WASM build/test targets own the Go/JavaScript bridge and matching Go runtime
+  support file.
+- Deterministic worker tests remain separate from the browser-level built-WASM
+  integration target.
+- The web target builds assets before starting the bounded loopback server.
+- The CLI target builds `cmd/xmllint` directly; the Go build cache, not copied
+  source prerequisites, decides when internal changes require rebuilding.
+- The benchmark smoke target spans every owning package selected by its bounded
+  pattern; the exhaustive benchmark target remains separate.
 
 ## Rejected Alternatives
 
@@ -422,7 +548,20 @@ Build and smoke targets must name the packages that own the code they exercise:
 
 ## Documentation Ownership
 
+- `AGENTS.md` is the low-context execution router. It points to this contract and
+  defines discovery, implementation, evidence, and writeback discipline without
+  copying the package graph.
 - README documents public usage and command workflows.
-- `docs/spec` contains local specification/reference material.
+- `docs/spec` contains searchable local specification material and an index; it
+  does not define repository behavior.
+- `tests/README.md` documents corpus and harness operation. Counts and other
+  cheap derived facts come from the manifest or test commands rather than
+  manually maintained prose.
+- `.codex` plans and ledgers are ignored working memory. Plans own future work;
+  ledgers own revision-scoped evidence. Closed history may be retained for
+  provenance but is loaded only when its finding, revision, or rejected approach
+  is relevant.
+- Code comments own only non-obvious local intent, invariants, and consequences
+  needed to change the adjacent implementation safely.
 - This file is the sole architecture source of truth. Other documentation may
   link here but must not restate a competing package graph or lifecycle model.

@@ -1,18 +1,22 @@
-# XSD 1.0 Harness
+# Test And Conformance Harness
 
 Standalone XSD 1.0 validation corpus plus a Go test runner. This directory contains data, expected results, and `harness_test.go`; it does not require Xerces-J source code or the original source checkouts.
 
-## Contents
+Use the smallest evidence surface that proves the changed contract:
 
-- Cases: 14548
-- W3C cases: 14414
-- Xerces-J cases: 13
-- Project cases: 121
-- Schema checks: 14498
-- Schema-backed instance validations: 25128
-- Expected-invalid schema instance skips: 21
-- Explicit schema-less instance skips: 50
-- Unique manifest file references: 39754
+| Question | Primary evidence | Wider guard |
+| --- | --- | --- |
+| One package-owned rule or representation | Co-located package test, fuzz target, or benchmark | Callers of that package interface |
+| Public compile, validation, source, session, or diagnostic behavior | Root external-package tests and `external_api_smoke_test.go` | Full corpus and API-shape tests |
+| XSD/XML conformance | A minimal project-owned corpus regression | Full `TestHarness` and unsupported allowlist checks |
+| Package direction, public/internal seam, state ownership, or borrowed lifetime | `phase_*`, `root_public_shape_test.go`, `schema_build_boundary_test.go`, or `stream_boundary_test.go` | `go test ./...` |
+| Large streaming time or peak memory | Focused package benchmark first | Opt-in `TestLargeXMLLintBenchmark` with frozen inputs |
+| WASM, worker, page, or local-server lifecycle | Owning `cmd/wasmxsd`, `docs/js`, or `cmd/xsdweb` tests | Browser integration for browser routes |
+
+Behavior tests belong at the owning module's interface. Add a white-box test
+only when a private corruption or lifetime state cannot be exercised through
+that interface. A regression fixture should isolate one semantic rule and name
+the violated contract, not preserve incidental control flow.
 
 ## Files
 
@@ -23,6 +27,10 @@ Standalone XSD 1.0 validation corpus plus a Go test runner. This directory conta
 - `corpus/w3c`: copied W3C files with original relative layout preserved.
 - `corpus/xerces-j`: selected Xerces-J XSD/XML validation fixtures.
 - `corpus/project`: project-owned regression fixtures.
+
+The manifest and allowlist own inventory. Do not copy their changing counts into
+documentation or plans; derive them when a revision-scoped measurement needs
+them.
 
 ## Corpus Contract
 
@@ -73,4 +81,4 @@ The file MUST stay sorted and unique. New unsupported skips fail until added del
 
 ## Export Evidence
 
-- Manifest closure check: 39754 unique referenced files, all present under `corpus/`.
+- Manifest closure is derived from `manifest.json` and verified by `harness_manifest_test.go`.
