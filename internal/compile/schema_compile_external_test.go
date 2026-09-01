@@ -2157,6 +2157,48 @@ func TestSimpleAndComplexTypesShareNames(t *testing.T) {
 	expectCode(t, err, xsderrors.CodeSchemaDuplicate)
 }
 
+func TestCompileRejectsBuiltinTypeRedeclarations(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		declaration string
+	}{
+		{
+			name:        "simple as simple",
+			declaration: `<xs:simpleType name="string"><xs:restriction base="xs:string"/></xs:simpleType>`,
+		},
+		{
+			name:        "complex as complex",
+			declaration: `<xs:complexType name="anyType"/>`,
+		},
+		{
+			name:        "complex as simple",
+			declaration: `<xs:complexType name="string"/>`,
+		},
+		{
+			name:        "simple as complex",
+			declaration: `<xs:simpleType name="anyType"><xs:restriction base="xs:string"/></xs:simpleType>`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.w3.org/2001/XMLSchema">` +
+				tt.declaration + `</xs:schema>`
+			_, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+			expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaDuplicate)
+			if !strings.Contains(err.Error(), "duplicate type") {
+				t.Fatalf("Compile() error = %v, want duplicate type diagnostic", err)
+			}
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Line() <= 0 || diagnostic.Column() <= 0 {
+				t.Fatalf("Compile() error = %v, want declaration location", err)
+			}
+		})
+	}
+}
+
 func TestAnonymousComplexDerivationWaitsForCompilingBase(t *testing.T) {
 	engine := mustCompileRuntime(t, `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

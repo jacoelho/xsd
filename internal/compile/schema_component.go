@@ -117,8 +117,8 @@ func SchemaComponentMissingError(kind SchemaComponentKind, label string) error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown "+kind.missingLabel()+" "+label)
 }
 
-// SchemaTypeNameConflictError reports a type name already used by the opposite
-// simple/complex type table.
+// SchemaTypeNameConflictError reports a name already present in the shared
+// simple/complex type symbol space.
 func SchemaTypeNameConflictError(label string) error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate type "+label)
 }

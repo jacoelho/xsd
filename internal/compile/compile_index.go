@@ -68,9 +68,9 @@ func (c *compiler) indexTopLevelSchemaChild(child *rawNode, ctx *schemaContext) 
 func (c *compiler) indexNamedTopLevelSchemaChild(child *rawNode, q runtime.QName, label string, component rawComponent) error {
 	switch child.Name.Local {
 	case vocab.XSDElemSimpleType:
-		return c.indexSimpleType(child, q, label, component)
+		return c.indexType(child, q, label, component, c.simpleRaw)
 	case vocab.XSDElemComplexType:
-		return c.indexComplexType(child, q, label, component)
+		return c.indexType(child, q, label, component, c.complexRaw)
 	case vocab.XSDElemElement:
 		return withSchemaCompileLocation(child, AddSchemaComponent(c.elementRaw, q, component, label))
 	case vocab.XSDElemAttribute:
@@ -84,20 +84,14 @@ func (c *compiler) indexNamedTopLevelSchemaChild(child *rawNode, q runtime.QName
 	}
 }
 
-func (c *compiler) indexSimpleType(child *rawNode, q runtime.QName, label string, component rawComponent) error {
-	_, exists := c.complexRaw[q]
-	if exists {
+func (c *compiler) indexType(child *rawNode, q runtime.QName, label string, component rawComponent, dst map[runtime.QName]rawComponent) error {
+	if _, exists := dst[q]; exists {
+		return withSchemaCompileLocation(child, AddSchemaComponent(dst, q, component, label))
+	}
+	if c.typeQNameKnown(q) {
 		return withSchemaCompileLocation(child, SchemaTypeNameConflictError(label))
 	}
-	return withSchemaCompileLocation(child, AddSchemaComponent(c.simpleRaw, q, component, label))
-}
-
-func (c *compiler) indexComplexType(child *rawNode, q runtime.QName, label string, component rawComponent) error {
-	_, exists := c.simpleRaw[q]
-	if exists {
-		return withSchemaCompileLocation(child, SchemaTypeNameConflictError(label))
-	}
-	return withSchemaCompileLocation(child, AddSchemaComponent(c.complexRaw, q, component, label))
+	return withSchemaCompileLocation(child, AddSchemaComponent(dst, q, component, label))
 }
 
 func (c *compiler) indexModelGroup(child *rawNode, q runtime.QName, label string, component rawComponent) error {

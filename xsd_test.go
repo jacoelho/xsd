@@ -38,6 +38,21 @@ func TestCompileRequiresExplicitSchemaSource(t *testing.T) {
 	}
 }
 
+func TestCompileFacadeRejectsBuiltinTypeRedeclarations(t *testing.T) {
+	for _, declaration := range []string{
+		`<xs:simpleType name="string"><xs:restriction base="xs:string"/></xs:simpleType>`,
+		`<xs:complexType name="anyType"/>`,
+	} {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.w3.org/2001/XMLSchema">` +
+			declaration + `</xs:schema>`
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		if engine != nil {
+			t.Fatal("Compile() returned an engine for a built-in type redeclaration")
+		}
+		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaDuplicate)
+	}
+}
+
 func TestCompileOptionsFacadeForwardsEveryField(t *testing.T) {
 	t.Parallel()
 
