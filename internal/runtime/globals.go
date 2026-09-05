@@ -15,8 +15,8 @@ func TypeNameByID(simpleTypes []SimpleType, complexTypes []ComplexType, typ Type
 	return complexTypes[id].Name, true
 }
 
-// GlobalTypeByName returns a global type ID from a frozen global type read map.
-func GlobalTypeByName(reads map[QName]TypeID, derivations TypeDerivationRead, name QName) (TypeID, bool) {
+// globalTypeByName returns a global type ID from a frozen global type read map.
+func globalTypeByName(reads map[QName]TypeID, derivations typeDerivationRead, name QName) (TypeID, bool) {
 	typ, ok := reads[name]
 	if !ok || !validTypeID(typ, derivations.SimpleTypeCount(), derivations.ComplexTypeCount()) {
 		return TypeID{}, false
@@ -38,9 +38,9 @@ func GlobalAttributeByName(reads map[QName]AttributeID, decls []AttributeDeclRea
 	return id, true, true
 }
 
-// NewNotationReadMap returns the expanded-name read projection for notation
+// newNotationReadMap returns the expanded-name read projection for notation
 // declarations.
-func NewNotationReadMap(names *NameTable, notations map[QName]bool) map[ExpandedName]bool {
+func newNotationReadMap(names *NameTable, notations map[QName]bool) map[ExpandedName]bool {
 	count := notationReadCount(notations)
 	if count == 0 || names == nil {
 		return nil
@@ -55,9 +55,9 @@ func NewNotationReadMap(names *NameTable, notations map[QName]bool) map[Expanded
 	return out
 }
 
-// EqualNotationReadMap reports whether read exposes the same expanded-name
+// equalNotationReadMap reports whether read exposes the same expanded-name
 // notation projection as notations.
-func EqualNotationReadMap(read map[ExpandedName]bool, names *NameTable, notations map[QName]bool) bool {
+func equalNotationReadMap(read map[ExpandedName]bool, names *NameTable, notations map[QName]bool) bool {
 	count := notationReadCount(notations)
 	if len(read) != count {
 		return false
@@ -80,10 +80,10 @@ func EqualNotationReadMap(read map[ExpandedName]bool, names *NameTable, notation
 	return true
 }
 
-// ValidateNotationReadMap validates notation read projections against frozen
+// validateNotationReadMap validates notation read projections against frozen
 // notation declarations.
-func ValidateNotationReadMap(read map[ExpandedName]bool, names *NameTable, notations map[QName]bool) error {
-	if !EqualNotationReadMap(read, names, notations) {
+func validateNotationReadMap(read map[ExpandedName]bool, names *NameTable, notations map[QName]bool) error {
+	if !equalNotationReadMap(read, names, notations) {
 		return errors.New("notation read map does not match notations")
 	}
 	return nil

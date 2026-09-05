@@ -527,21 +527,21 @@ func validateGlobalReadProjections(rt *schemaAudit) error {
 }
 
 func validateAttributeDeclReads(rt *schemaAudit) error {
-	if err := ValidateAttributeDeclReadProjectionForDecls(rt.runtime.Attributes, rt.build.Attributes); err != nil {
+	if err := validateAttributeDeclReadProjectionForDecls(rt.runtime.Attributes, rt.build.Attributes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
 func validateNameReads(rt *schemaAudit) error {
-	if err := ValidateNameReadProjection(rt.runtime.Names, &rt.build.Names); err != nil {
+	if err := validateNameReadProjection(rt.runtime.Names, &rt.build.Names); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
 func validateNotationReads(rt *schemaAudit) error {
-	if err := ValidateNotationReadMap(rt.runtime.Notations, &rt.build.Names, rt.build.Notations); err != nil {
+	if err := validateNotationReadMap(rt.runtime.Notations, &rt.build.Names, rt.build.Notations); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
@@ -568,14 +568,14 @@ func validateSimpleValueReads(rt *schemaAudit) error {
 }
 
 func validateAttributeUseSetReads(rt *schemaAudit) error {
-	if err := ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes(rt.runtime.AttributeUseSets, &rt.build.Names, rt.build.AttributeUseSets, rt.build.SimpleTypes); err != nil {
+	if err := validateAttributeUseSetReadProjectionForSetsWithSimpleTypes(rt.runtime.AttributeUseSets, &rt.build.Names, rt.build.AttributeUseSets, rt.build.SimpleTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }
 
 func validateIdentityConstraintReads(rt *schemaAudit) error {
-	if err := ValidateIdentityConstraintReadProjection(rt.runtime.Identities, rt.build.Identities); err != nil {
+	if err := validateIdentityConstraintReadProjection(rt.runtime.Identities, rt.build.Identities); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
@@ -595,7 +595,7 @@ func validateComplexTypeReads(rt *schemaAudit) error {
 }
 
 func validateWildcardReads(rt *schemaAudit) error {
-	if err := ValidateWildcardViewProjectionTable(rt.runtime.Wildcards, &rt.build.Names, rt.build.Wildcards); err != nil {
+	if err := validateWildcardViewProjectionTable(rt.runtime.Wildcards, &rt.build.Names, rt.build.Wildcards); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
@@ -616,7 +616,7 @@ func validateTypeDerivations(rt *schemaAudit) error {
 	if rt.runtime.TypeDerivations.simpleTypeTable() != rt.runtime.SimpleTypeCold {
 		return xsderrors.InternalInvariant("type derivation and simple value reads do not share the simple type table")
 	}
-	if err := ValidateTypeDerivationReadProjection(rt.runtime.TypeDerivations, rt.build.Builtin.AnyType, rt.build.SimpleTypes, rt.build.ComplexTypes); err != nil {
+	if err := validateTypeDerivationReadProjection(rt.runtime.TypeDerivations, rt.build.Builtin.AnyType, rt.build.SimpleTypes, rt.build.ComplexTypes); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil

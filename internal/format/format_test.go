@@ -902,3 +902,23 @@ func TestFormatXMLKeepsCommentOnlyContentInline(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatXMLRejectsReferencesOutsideRoot(t *testing.T) {
+	for _, input := range []string{`&#32;<root/>`, `<root/>&#x20;`, " \t&#9;\n<root/>"} {
+		var out strings.Builder
+		err := XML(&out, strings.NewReader(input))
+		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || diagnostic.Code() != xsderrors.CodeFormatXML || out.Len() != 0 {
+			t.Fatalf("XML(%q) = %v, output %q; want format.xml and no output", input, err, out.String())
+		}
+	}
+}
+
+func TestFormatXMLPreservesInnerReferences(t *testing.T) {
+	var out strings.Builder
+	err := XML(&out, strings.NewReader(" \r\n<root>&#32;x&amp;y<![CDATA[&#32;]]></root>\t"))
+	const want = `<root> x&amp;y<![CDATA[&#32;]]></root>`
+	if err != nil || out.String() != want {
+		t.Fatalf("XML() = %v, output %q; want %q", err, out.String(), want)
+	}
+}

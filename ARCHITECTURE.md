@@ -80,7 +80,7 @@ The principal state machines are deliberately linear or owner-local:
 | Element start | prepared -> XML/namespace committed -> semantic commit | Fatal failure rolls back every staged owner; semantic stop retains only syntax state needed to finish parsing |
 | XML stream | reset -> borrowed token -> advance/invalidate -> EOF/error -> detach | Borrowed bytes never survive advance; only token-boundary EOF is success |
 | Namespace frame | prepare -> commit -> end or abort | The opaque top-frame capability is the sole pop authority |
-| Runtime publication | mutable build -> audit -> consume/seal | Audit observes without mutation; successful consumption is the only commit |
+| Runtime publication | mutable build -> audit -> consume/seal | Audit preserves build data; work stays charged; successful consumption is the only commit |
 | Browser client | loading -> ready -> running -> ready/failed/disposed | Only the owning generation publishes; termination owns cancellation and timer cleanup |
 
 ## Authority And Navigation
@@ -177,7 +177,15 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   and the canonical content-model restriction relation shared by compilation
   and publication audit, validation reads, content-model execution, and
   publication-owned clones. Publication audits without consuming compiler state,
-  then consumes the build only after the audit succeeds.
+  then consumes the build only after the audit succeeds. Failed attempts leave
+  build data repairable, but work already performed remains charged to the
+  caller-owned finite budget; retries require sufficient remaining work.
+  Projection construction, declaration shapes, comparison and audit helpers are
+  runtime-private. Cross-package consumers use semantic read values and Schema
+  methods; the compiler retains its mutable-build semantic algorithms. Element
+  fixed/default values have one packed element-read representation, including
+  declaration presence and owner type; no parallel slice lookup is retained.
+  The packed audit independently derives expected scalar facts from build records.
   Cross-table `TypeID` values expose only typed constructors, classification,
   and projections; their tag and payload remain runtime-owned. Identity-path
   QName absence is returned by value and has no mutable package-global state.
@@ -196,6 +204,11 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   preflight, the sole input buffer, XML 1.0 line-ending normalization and byte
   positions, and reader detachment for each stream. Literal CR and CRLF each
   advance one logical line in every parser mode; emitted payloads contain LF.
+  Character-data tokens retain one stream-owned lexical origin: literal text,
+  text containing references, or CDATA. Coalescing never erases reference origin.
+  Compile, validate, and format use that origin at their existing document-depth
+  boundary: only literal whitespace is admitted outside the root. The tokenizer
+  does not duplicate document topology.
   Only EOF at a token boundary completes a stream; EOF after consumed markup is
   an XML syntax error, while simultaneous non-EOF reader causes remain observable.
 - `internal/lex` owns low-level XML lexical helpers used by source and stream
@@ -245,6 +258,11 @@ Compilation flow:
    candidate remains pending until a document with that identity is actually
    loaded, when the loader binds and target-checks every pending edge before
    activating the document.
+   The canonical identity map owns one parsed document and byte representation
+   per source key; resolution-context aliases remain attached to that entry.
+   Content identification traverses its sorted keys, without a mirrored source
+   list. Component and identity-declaration contexts derive from the same immutable
+   plan document, without a separate context registry.
    The completed loader state becomes a closed loaded graph: planning may consume
    and update graph-owned state but performs no further I/O. Planning validates
    target namespaces and expands effective chameleon contexts without reopening
@@ -263,7 +281,8 @@ Compilation flow:
    retained substitution lookup.
 4. `internal/runtime.PublishSchema` audits exact global registries and component
    ownership before constructing validation reads and auditing those projections.
-   An audit failure leaves compiler state retryable. A successful audit and build
+   An audit failure leaves build data retryable within the remaining work budget.
+   A successful audit and build
    consumption form one publication commit.
 5. Root `xsd.Engine` stores that sealed validation schema.
 
@@ -327,11 +346,19 @@ Validation flow:
    identity scope receive current nillable-field markers and finish before the
    scope closes. Scope-local failure is then folded into the element assessment
    and invalidates still-pending ancestor-owned fields before those selections
-   finish. Element-start assessment extracts `xsi:nil` and `xsi:type` before
-   assessing either attribute, preserves each successful result when the other
-   fails, and owns their diagnostics. Identity capture only records a matched
-   value or invalidates the matched field, so it cannot duplicate those
-   diagnostics.
+   finish. Root and child selection return one validation-owned `schemaStart`.
+   Root selection first uses a global declaration, then a present `xsi:type`,
+   then a matching schema hint, otherwise recoverable missing-root handling.
+   Hint syntax is diagnosed before selection; recovery may continue when the
+   error budget permits. An undeclared root resolves its type during selection;
+   an operation-local type origin lets common assessment consume that same TypeID
+   without resolving it again. No origin or second cached type reaches a frame.
+   Ordinary declared starts extract `xsi:nil` and `xsi:type` before assessing nil
+   then type, preserve successful results when the other fails, and own their
+   diagnostics. Identity capture separately validates the lexical QName: a bound
+   QName naming an unknown or non-derived type can still be an identity value,
+   while malformed or unbound QNames invalidate the matched field. Identity
+   capture cannot duplicate semantic XSI diagnostics.
    Every element start is a transaction across XML/namespace stacks,
    schema-location hints, parent-content state, content-model bits, and identity
    state. A fatal start rolls all of them back. A semantic-stop transition keeps
@@ -395,7 +422,11 @@ Browser flow:
    gutter construction.
 4. `cmd/xsdweb` serves only built assets, binds to loopback by default, prevents
    directory listings and writes, disables caching, and bounds HTTP lifecycle
-   time and headers. It does not compile or validate schemas.
+   time and headers. One run-owned `os.Root` contains both startup asset checks
+   and request-time opens; replacing a file or parent directory cannot redirect
+   reads outside that root. Each request serves only an opened regular file and
+   closes it on return. The run closes the root after serving stops, including
+   startup and shutdown failures. It does not compile or validate schemas.
 
 ## Change Protocol
 
@@ -475,6 +506,27 @@ graph preserves these ownership rules:
   pattern; the exhaustive benchmark target remains separate.
 
 ## Rejected Alternatives
+
+- A separate root-start flag result was rejected because its sole consumer
+  immediately translated it into the session's selected state. Resolving all XSI
+  types eagerly was also rejected: undeclared-root selection and declared-start
+  nil/type assessment have different diagnostic precedence. A transient origin
+  on the canonical selected state removes repeated resolution without moving
+  recovery or introducing another assessment owner.
+- Adding document depth to the tokenizer was rejected for outside-root text
+  validation: existing consumers already own topology. Preserving lexical text
+  origin fixes the lost fact without a second document state machine.
+- Refunding work after a failed publication audit was rejected because the
+  computation has already occurred; repeated failures would evade the aggregate
+  work bound. Retryability preserves build data, not spent resources.
+- An additional element-value slice projection was rejected because publication
+  and validation already use the canonical packed element table. Tests observe
+  published reads and independently corrupt packed projections instead of
+  preserving a second representation. Hiding construction helpers does not remove
+  the independent publication audit or move compiler mutation policy into runtime.
+- Path-based asset checks followed by unrestricted serving were rejected because
+  symlinked ancestors and replacements could escape the configured directory.
+  One standard-library root handle contains both operations.
 
 - Raising the DFA state cap to admit avoidable expansion was rejected. Safe
   single-particle occurrence normalization prevents that expansion; the

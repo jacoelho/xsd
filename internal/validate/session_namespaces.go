@@ -10,13 +10,6 @@ func (s *session) runtimeName(n xml.Name) runtime.RuntimeName {
 	return ResolveRuntimeName(s.rt, n)
 }
 
-func (s *session) qnameResolverForAttrs(flags xsiStartAttributeFlags) runtime.ResolveQNameParts {
-	if !flags.Type {
-		return nil
-	}
-	return s.qnameResolver()
-}
-
 func (s *session) simpleValueQNameResolver(id runtime.SimpleTypeID) runtime.ResolveQNameParts {
 	if !s.rt.SimpleValueNeedsQNameResolver(id) {
 		return nil

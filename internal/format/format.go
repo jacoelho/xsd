@@ -377,8 +377,11 @@ func (f *xmlFormatter) collectEnd(tok stream.Token) error {
 
 func (f *xmlFormatter) collectChars(tok stream.Token) error {
 	if len(f.stack) == 0 {
-		if tok.CDATA {
+		if tok.TextKind == stream.CharacterDataCDATA {
 			return xmlFormatErr(tok.Line, tok.Column, errors.New("CDATA section outside root element"))
+		}
+		if tok.TextKind == stream.CharacterDataReference {
+			return xmlFormatErr(tok.Line, tok.Column, errors.New("reference outside root element"))
 		}
 		if lex.IsXMLWhitespaceBytes(tok.Data) {
 			return nil
@@ -386,7 +389,7 @@ func (f *xmlFormatter) collectChars(tok stream.Token) error {
 		return xmlFormatErr(tok.Line, tok.Column, errors.New("text outside root element"))
 	}
 	textMode := xmlTextEscaped
-	if tok.CDATA {
+	if tok.TextKind == stream.CharacterDataCDATA {
 		textMode = xmlTextCDATA
 	}
 	return f.appendItem(formatItem{kind: formatItemText, data: tok.AppendData(nil), textMode: textMode, line: tok.Line, col: tok.Column})

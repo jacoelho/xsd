@@ -28,9 +28,9 @@ func TestAttributeUseRead(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
-	fixed := NewValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 7})
-	def := NewValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 7})
-	use := newTestAttributeUseRead(AttributeUseReadShape{
+	fixed := newValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 7})
+	def := newValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 7})
+	use := newTestAttributeUseRead(attributeUseReadShape{
 		Name:                 name,
 		Type:                 7,
 		Label:                "a",
@@ -59,7 +59,7 @@ func TestAttributeUseRead(t *testing.T) {
 	if !use.CanValidateFixedStringFast() {
 		t.Fatal("CanValidateFixedStringFast() = false, want true")
 	}
-	if NewAttributeUseReadForSimpleTypes(AttributeUseReadShape{Type: 7, HasFixed: true}, nil).CanValidateFixedStringFast() {
+	if newAttributeUseReadForSimpleTypes(attributeUseReadShape{Type: 7, HasFixed: true}, nil).CanValidateFixedStringFast() {
 		t.Fatal("CanValidateFixedStringFast() = true without simple-value read, want false")
 	}
 	if got, ok := use.FixedValue(); !ok || got != fixed {
@@ -69,7 +69,7 @@ func TestAttributeUseRead(t *testing.T) {
 		t.Fatalf("AbsentValueConstraint() = %+v, %v; want fixed, true", got, ok)
 	}
 
-	defaulted := newTestAttributeUseRead(AttributeUseReadShape{Default: def, HasDefault: true})
+	defaulted := newTestAttributeUseRead(attributeUseReadShape{Default: def, HasDefault: true})
 	if got, ok := defaulted.AbsentValueConstraint(); !ok || got != def {
 		t.Fatalf("AbsentValueConstraint(defaulted) = %+v, %v; want default, true", got, ok)
 	}
@@ -113,7 +113,7 @@ func TestAttributeUseReadProjectionPreservesFixedProvenance(t *testing.T) {
 		t.Fatal("published attribute use lost fixed declaration provenance")
 	}
 	reads[0].uses[0].fixedFromDeclaration = false
-	if EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads, &names, sets, testAttributeSimpleTypes()) {
+	if equalAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads, &names, sets, testAttributeSimpleTypes()) {
 		t.Fatal("attribute use projection audit accepted mismatched fixed declaration provenance")
 	}
 }
@@ -122,8 +122,8 @@ func TestAttributeDeclRead(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
-	fixed := NewValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 7})
-	decl := NewAttributeDeclRead(AttributeDeclReadShape{
+	fixed := newValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 7})
+	decl := newAttributeDeclRead(attributeDeclReadShape{
 		Name:     name,
 		Type:     7,
 		Fixed:    fixed,
@@ -149,8 +149,8 @@ func TestEqualAttributeDeclReads(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
-	fixed := NewValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 7})
-	base := NewAttributeDeclRead(AttributeDeclReadShape{
+	fixed := newValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 7})
+	base := newAttributeDeclRead(attributeDeclReadShape{
 		Name:     name,
 		Type:     7,
 		Fixed:    fixed,
@@ -165,7 +165,7 @@ func TestEqualAttributeDeclReads(t *testing.T) {
 		{
 			name: "equal",
 			a:    base,
-			b: NewAttributeDeclRead(AttributeDeclReadShape{
+			b: newAttributeDeclRead(attributeDeclReadShape{
 				Name:     name,
 				Type:     7,
 				Fixed:    fixed,
@@ -176,7 +176,7 @@ func TestEqualAttributeDeclReads(t *testing.T) {
 		{
 			name: "name mismatch",
 			a:    base,
-			b: NewAttributeDeclRead(AttributeDeclReadShape{
+			b: newAttributeDeclRead(attributeDeclReadShape{
 				Name:     QName{Local: 2},
 				Type:     7,
 				Fixed:    fixed,
@@ -186,7 +186,7 @@ func TestEqualAttributeDeclReads(t *testing.T) {
 		{
 			name: "type mismatch",
 			a:    base,
-			b: NewAttributeDeclRead(AttributeDeclReadShape{
+			b: newAttributeDeclRead(attributeDeclReadShape{
 				Name:     name,
 				Type:     8,
 				Fixed:    fixed,
@@ -196,7 +196,7 @@ func TestEqualAttributeDeclReads(t *testing.T) {
 		{
 			name: "fixed presence mismatch",
 			a:    base,
-			b: NewAttributeDeclRead(AttributeDeclReadShape{
+			b: newAttributeDeclRead(attributeDeclReadShape{
 				Name:  name,
 				Type:  7,
 				Fixed: fixed,
@@ -205,10 +205,10 @@ func TestEqualAttributeDeclReads(t *testing.T) {
 		{
 			name: "fixed value mismatch",
 			a:    base,
-			b: NewAttributeDeclRead(AttributeDeclReadShape{
+			b: newAttributeDeclRead(attributeDeclReadShape{
 				Name:     name,
 				Type:     7,
-				Fixed:    NewValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 7}),
+				Fixed:    newValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 7}),
 				HasFixed: true,
 			}),
 		},
@@ -217,7 +217,7 @@ func TestEqualAttributeDeclReads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := EqualAttributeDeclReads(tt.a, tt.b); got != tt.want {
+			if got := equalAttributeDeclReads(tt.a, tt.b); got != tt.want {
 				t.Fatalf("EqualAttributeDeclReads() = %v, want %v", got, tt.want)
 			}
 		})
@@ -232,33 +232,33 @@ func TestAttributeDeclReadProjectionHelpers(t *testing.T) {
 		{Name: name, Type: 7, Fixed: &ValueConstraint{Lexical: "01", Canonical: "1", Value: SimpleValue{Canonical: "1", Type: 7}}},
 		{Name: QName{Local: 2}, Type: 8},
 	}
-	reads := NewAttributeDeclReadsForDecls(decls)
-	if !EqualAttributeDeclReadProjectionForDecls(reads, decls) {
+	reads := newAttributeDeclReadsForDecls(decls)
+	if !equalAttributeDeclReadProjectionForDecls(reads, decls) {
 		t.Fatalf("NewAttributeDeclReadsForDecls() = %#v, want projection for %#v", reads, decls)
 	}
-	if got, ok := AttributeDeclReadByID(reads, 0); !ok || got.Name() != decls[0].Name || got.TypeID() != decls[0].Type {
+	if got, ok := attributeDeclReadByID(reads, 0); !ok || got.Name() != decls[0].Name || got.TypeID() != decls[0].Type {
 		t.Fatalf("AttributeDeclReadByID() = %+v, %v; want first read, true", got, ok)
 	}
-	if got, ok := AttributeDeclReadByID(reads, AttributeID(99)); ok || got != (AttributeDeclRead{}) {
+	if got, ok := attributeDeclReadByID(reads, AttributeID(99)); ok || got != (AttributeDeclRead{}) {
 		t.Fatalf("AttributeDeclReadByID(invalid) = %+v, %v; want zero, false", got, ok)
 	}
 	if got, ok := reads[0].FixedValue(); !ok || got.LexicalText() != "01" || got.CanonicalText() != "1" {
 		t.Fatalf("FixedValue() = %+v, %v; want fixed value from declaration", got, ok)
 	}
-	if EqualAttributeDeclReadProjectionForDecls(reads[:1], decls) {
+	if equalAttributeDeclReadProjectionForDecls(reads[:1], decls) {
 		t.Fatal("EqualAttributeDeclReadProjectionForDecls() accepted mismatched table length")
 	}
 	reads[0].typ = 9
-	if EqualAttributeDeclReadProjectionForDecls(reads, decls) {
+	if equalAttributeDeclReadProjectionForDecls(reads, decls) {
 		t.Fatal("EqualAttributeDeclReadProjectionForDecls() accepted mismatched projection")
 	}
-	if err := ValidateAttributeDeclReadProjectionForDecls(NewAttributeDeclReadsForDecls(decls), decls); err != nil {
+	if err := validateAttributeDeclReadProjectionForDecls(newAttributeDeclReadsForDecls(decls), decls); err != nil {
 		t.Fatalf("ValidateAttributeDeclReadProjectionForDecls() error = %v", err)
 	}
-	if err := ValidateAttributeDeclReadProjectionForDecls(reads[:1], decls); err == nil || err.Error() != "attribute declaration read projection count does not match declarations" {
+	if err := validateAttributeDeclReadProjectionForDecls(reads[:1], decls); err == nil || err.Error() != "attribute declaration read projection count does not match declarations" {
 		t.Fatalf("ValidateAttributeDeclReadProjectionForDecls(short) error = %v, want count invariant", err)
 	}
-	if err := ValidateAttributeDeclReadProjectionForDecls(reads, decls); err == nil || err.Error() != "attribute declaration read projection does not match declaration" {
+	if err := validateAttributeDeclReadProjectionForDecls(reads, decls); err == nil || err.Error() != "attribute declaration read projection does not match declaration" {
 		t.Fatalf("ValidateAttributeDeclReadProjectionForDecls(changed) error = %v, want mismatch invariant", err)
 	}
 
@@ -270,16 +270,16 @@ func TestAttributeDeclReadProjectionHelpers(t *testing.T) {
 		{"type mismatch", func(reads []AttributeDeclRead) { reads[0].typ = 9 }},
 		{"fixed presence mismatch", func(reads []AttributeDeclRead) { reads[0].hasFixed = false }},
 		{"fixed value mismatch", func(reads []AttributeDeclRead) {
-			reads[0].fixed = NewValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 7})
+			reads[0].fixed = newValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 7})
 		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := NewAttributeDeclReadsForDecls(decls)
+			got := newAttributeDeclReadsForDecls(decls)
 			tt.mutate(got)
-			if EqualAttributeDeclReadProjectionForDecls(got, decls) {
+			if equalAttributeDeclReadProjectionForDecls(got, decls) {
 				t.Fatal("EqualAttributeDeclReadProjectionForDecls() accepted mismatched projection")
 			}
 		})
@@ -305,7 +305,7 @@ func TestAttributeUseSetReadProjectionHelpers(t *testing.T) {
 		{Uses: []AttributeUse{{Name: secondName, Type: 7}}, Wildcard: 8},
 	}
 	reads := newAttributeUseSetReads(&names, sets, testAttributeSimpleTypes())
-	if err := ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads, &names, sets, testAttributeSimpleTypes()); err != nil {
+	if err := validateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads, &names, sets, testAttributeSimpleTypes()); err != nil {
 		t.Fatal(err)
 	}
 	use, _, ok := reads[0].DeclaredUse(firstName)
@@ -314,21 +314,21 @@ func TestAttributeUseSetReadProjectionHelpers(t *testing.T) {
 	}
 	mismatched := slices.Clone(reads)
 	mismatched[0].wildcard = 99
-	if EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(mismatched, &names, sets, testAttributeSimpleTypes()) {
+	if equalAttributeUseSetReadProjectionForSetsWithSimpleTypes(mismatched, &names, sets, testAttributeSimpleTypes()) {
 		t.Fatal("mismatched projection was accepted")
 	}
-	if err := ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads[:1], &names, sets, testAttributeSimpleTypes()); err == nil || err.Error() != "attribute use set read projection count does not match use sets" {
+	if err := validateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads[:1], &names, sets, testAttributeSimpleTypes()); err == nil || err.Error() != "attribute use set read projection count does not match use sets" {
 		t.Fatalf("short projection error = %v", err)
 	}
 }
 
-func newTestAttributeUseRead(shape AttributeUseReadShape) AttributeUseRead {
-	return NewAttributeUseReadForSimpleTypes(shape, testAttributeSimpleTypes())
+func newTestAttributeUseRead(shape attributeUseReadShape) AttributeUseRead {
+	return newAttributeUseReadForSimpleTypes(shape, testAttributeSimpleTypes())
 }
 
 type testAttributeUseSetReadShape struct {
 	Index            map[QName]uint32
-	Uses             []AttributeUseReadShape
+	Uses             []attributeUseReadShape
 	Required         []uint32
 	ValueConstraints []uint32
 	Wildcard         WildcardID
@@ -365,13 +365,13 @@ func TestAttributeUseSetRead(t *testing.T) {
 
 	firstName := QName{Local: 1}
 	secondName := QName{Local: 2}
-	firstUse := AttributeUseReadShape{Name: firstName, Label: "first", Required: true}
-	secondUse := AttributeUseReadShape{Name: secondName, Label: "second"}
+	firstUse := attributeUseReadShape{Name: firstName, Label: "first", Required: true}
+	secondUse := attributeUseReadShape{Name: secondName, Label: "second"}
 	index := map[QName]uint32{
 		firstName:  0,
 		secondName: 1,
 	}
-	uses := []AttributeUseReadShape{firstUse, secondUse}
+	uses := []attributeUseReadShape{firstUse, secondUse}
 	required := []uint32{0}
 	valueConstraints := []uint32{1}
 
@@ -384,7 +384,7 @@ func TestAttributeUseSetRead(t *testing.T) {
 	})
 
 	index[firstName] = 99
-	uses[0] = AttributeUseReadShape{}
+	uses[0] = attributeUseReadShape{}
 	required[0] = 99
 	valueConstraints[0] = 99
 
@@ -427,21 +427,21 @@ func TestAttributeUseSetReadRejectsInvalidDeclaredUseLookup(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Local: 1}
-	use := AttributeUseReadShape{Name: name}
+	use := attributeUseReadShape{Name: name}
 	if _, _, ok := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
-		Uses: []AttributeUseReadShape{use},
+		Uses: []attributeUseReadShape{use},
 	}).DeclaredUse(name); ok {
 		t.Fatal("DeclaredUse() succeeded without index entry")
 	}
 	if _, _, ok := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
 		Index: map[QName]uint32{name: 99},
-		Uses:  []AttributeUseReadShape{use},
+		Uses:  []attributeUseReadShape{use},
 	}).DeclaredUse(name); ok {
 		t.Fatal("DeclaredUse() succeeded with invalid index slot")
 	}
 	if _, _, ok := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
 		Index: map[QName]uint32{name: 0},
-		Uses:  []AttributeUseReadShape{{Name: NoQName()}},
+		Uses:  []attributeUseReadShape{{Name: NoQName()}},
 	}).DeclaredUse(name); ok {
 		t.Fatal("DeclaredUse() succeeded with stale index name")
 	}
@@ -453,7 +453,7 @@ func TestAttributeUseSetReadReturnsUsesByValue(t *testing.T) {
 	name := QName{Local: 1}
 	set := newTestAttributeUseSetRead(testAttributeUseSetReadShape{
 		Index: map[QName]uint32{name: 0},
-		Uses:  []AttributeUseReadShape{{Name: name}},
+		Uses:  []attributeUseReadShape{{Name: name}},
 	})
 
 	declared, _, ok := set.DeclaredUse(name)

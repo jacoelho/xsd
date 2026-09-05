@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -16,11 +17,12 @@ func TestValidateDocumentCharacterData(t *testing.T) {
 		input   DocumentCharacterData
 		wantErr xsderrors.Code
 	}{
-		{name: "CDATA", input: DocumentCharacterData{Kind: CharacterDataCDATA}, wantErr: xsderrors.CodeValidationXML},
-		{name: "text", input: DocumentCharacterData{Kind: CharacterDataText}, wantErr: xsderrors.CodeValidationText},
-		{name: "whitespace", input: DocumentCharacterData{Kind: CharacterDataText, Whitespace: true}},
-		{name: "invalid kind", input: DocumentCharacterData{Kind: CharacterDataInvalid}, wantErr: xsderrors.CodeInternalInvariant},
-		{name: "unknown kind", input: DocumentCharacterData{Kind: CharacterDataKind(99)}, wantErr: xsderrors.CodeInternalInvariant},
+		{name: "CDATA", input: DocumentCharacterData{Kind: stream.CharacterDataCDATA}, wantErr: xsderrors.CodeValidationXML},
+		{name: "reference whitespace", input: DocumentCharacterData{Kind: stream.CharacterDataReference, Whitespace: true}, wantErr: xsderrors.CodeValidationXML},
+		{name: "text", input: DocumentCharacterData{Kind: stream.CharacterDataText}, wantErr: xsderrors.CodeValidationText},
+		{name: "whitespace", input: DocumentCharacterData{Kind: stream.CharacterDataText, Whitespace: true}},
+		{name: "invalid kind", input: DocumentCharacterData{Kind: stream.CharacterDataInvalid}, wantErr: xsderrors.CodeInternalInvariant},
+		{name: "unknown kind", input: DocumentCharacterData{Kind: stream.CharacterDataKind(99)}, wantErr: xsderrors.CodeInternalInvariant},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -35,15 +37,6 @@ func TestValidateDocumentCharacterData(t *testing.T) {
 				t.Fatalf("ValidateDocumentCharacterData() error = %v", err)
 			}
 		})
-	}
-}
-
-func TestValidateTokenRejectsInvalidMode(t *testing.T) {
-	t.Parallel()
-
-	for _, mode := range []tokenValidationMode{tokenValidationInvalid, tokenValidationMode(99)} {
-		err := validateTokenMode(mode)
-		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 	}
 }
 

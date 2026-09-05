@@ -118,43 +118,6 @@ func TestXSIStartAttributeFlagsType(t *testing.T) {
 	}
 }
 
-func TestRootStartMissingDeclarationIsRecoverable(t *testing.T) {
-	t.Parallel()
-
-	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	got, err := RootStart(rt, nil, RootInput{
-		Name:        xml.Name{Local: "root"},
-		RuntimeName: runtime.RuntimeName{Local: "root"},
-		Context:     StartContext{Line: 2, Column: 3, Path: "/"},
-	})
-	if err == nil {
-		t.Fatal("RootStart() error is nil")
-	}
-	if !got.Skip || !got.Recover || got.Type != rt.AnyType() {
-		t.Fatalf("RootStart() = %+v, want recoverable skip with anyType", got)
-	}
-	expectXSDCode(t, err, xsderrors.CodeValidationRoot)
-}
-
-func TestRootStartSchemaLocationHintIsUnsupported(t *testing.T) {
-	t.Parallel()
-
-	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	got, err := RootStart(rt, nil, RootInput{
-		Name:              xml.Name{Space: "urn:missing", Local: "root"},
-		RuntimeName:       runtime.RuntimeName{NS: "urn:missing", Local: "root"},
-		HasSchemaLocation: func(ns string) bool { return ns == "urn:missing" },
-		Context:           StartContext{Line: 2, Column: 3, Path: "/"},
-	})
-	if err == nil {
-		t.Fatal("RootStart() error is nil")
-	}
-	if got.Recover {
-		t.Fatalf("RootStart() recover = true, want false")
-	}
-	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
-}
-
 func TestResolveXSITypeSchemaHintUsesResolvedLocalName(t *testing.T) {
 	t.Parallel()
 

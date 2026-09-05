@@ -74,7 +74,6 @@ func (c *compiler) compileMappedSources(owned []source.Source) (*runtime.Schema,
 }
 
 type schemaContext struct {
-	doc              *rawDoc
 	imports          map[string]bool
 	targetNS         string
 	adoptedTarget    bool
@@ -96,7 +95,6 @@ type compilerIndexState struct {
 	attributeRaw map[runtime.QName]rawComponent
 	groupRaw     map[runtime.QName]rawComponent
 	attrGroupRaw map[runtime.QName]rawComponent
-	contexts     map[*rawDoc]*schemaContext
 }
 
 type compilerBuildState struct {
@@ -197,7 +195,6 @@ func newCompiler(limits Limits) (*compiler, error) {
 			attributeRaw: make(map[runtime.QName]rawComponent),
 			groupRaw:     make(map[runtime.QName]rawComponent),
 			attrGroupRaw: make(map[runtime.QName]rawComponent),
-			contexts:     make(map[*rawDoc]*schemaContext),
 		},
 		compilerBuildState: compilerBuildState{
 			simpleDone:       make(map[runtime.QName]runtime.SimpleTypeID, builtinSimpleTypeCount),

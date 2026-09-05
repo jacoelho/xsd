@@ -58,8 +58,8 @@ type WildcardView struct {
 	valid      bool
 }
 
-// NewWildcardView returns a read-only validation view over wildcard.
-func NewWildcardView(names *NameTable, wildcard *Wildcard) WildcardView {
+// newWildcardView returns a read-only validation view over wildcard.
+func newWildcardView(names *NameTable, wildcard *Wildcard) WildcardView {
 	if wildcard == nil {
 		return WildcardView{}
 	}
@@ -106,11 +106,11 @@ func newFiniteWildcardView(view WildcardView, names *NameTable, namespaces []Nam
 	return view
 }
 
-// NewWildcardViews returns read-only validation views over wildcards.
-func NewWildcardViews(names *NameTable, wildcards []Wildcard) []WildcardView {
+// newWildcardViews returns read-only validation views over wildcards.
+func newWildcardViews(names *NameTable, wildcards []Wildcard) []WildcardView {
 	out := make([]WildcardView, len(wildcards))
 	for i := range wildcards {
-		out[i] = NewWildcardView(names, &wildcards[i])
+		out[i] = newWildcardView(names, &wildcards[i])
 	}
 	return out
 }
@@ -144,9 +144,9 @@ func (v WildcardView) AllowsURI(uri string) bool {
 	}
 }
 
-// EqualWildcardViews reports whether two validation wildcard views expose the
+// equalWildcardViews reports whether two validation wildcard views expose the
 // same wildcard process and namespace set.
-func EqualWildcardViews(a, b WildcardView) bool {
+func equalWildcardViews(a, b WildcardView) bool {
 	return a.otherThan == b.otherThan &&
 		a.mode == b.mode &&
 		a.process == b.process &&
@@ -154,41 +154,41 @@ func EqualWildcardViews(a, b WildcardView) bool {
 		slices.Equal(a.namespaces, b.namespaces)
 }
 
-// EqualWildcardViewProjection reports whether view matches the validation view
+// equalWildcardViewProjection reports whether view matches the validation view
 // derived from wildcard.
-func EqualWildcardViewProjection(view WildcardView, names *NameTable, wildcard *Wildcard) bool {
-	return EqualWildcardViews(view, NewWildcardView(names, wildcard))
+func equalWildcardViewProjection(view WildcardView, names *NameTable, wildcard *Wildcard) bool {
+	return equalWildcardViews(view, newWildcardView(names, wildcard))
 }
 
-// EqualWildcardViewProjectionTable reports whether views match validation views
+// equalWildcardViewProjectionTable reports whether views match validation views
 // derived from wildcards.
-func EqualWildcardViewProjectionTable(views []WildcardView, names *NameTable, wildcards []Wildcard) bool {
+func equalWildcardViewProjectionTable(views []WildcardView, names *NameTable, wildcards []Wildcard) bool {
 	if len(views) != len(wildcards) {
 		return false
 	}
 	for i := range views {
-		if !EqualWildcardViewProjection(views[i], names, &wildcards[i]) {
+		if !equalWildcardViewProjection(views[i], names, &wildcards[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-// ValidateWildcardViewProjectionTable validates wildcard read projections
+// validateWildcardViewProjectionTable validates wildcard read projections
 // against frozen wildcard records.
-func ValidateWildcardViewProjectionTable(views []WildcardView, names *NameTable, wildcards []Wildcard) error {
+func validateWildcardViewProjectionTable(views []WildcardView, names *NameTable, wildcards []Wildcard) error {
 	if len(views) != len(wildcards) {
 		return errors.New("wildcard read projection count does not match wildcards")
 	}
-	if !EqualWildcardViewProjectionTable(views, names, wildcards) {
+	if !equalWildcardViewProjectionTable(views, names, wildcards) {
 		return errors.New("wildcard read projection does not match wildcard")
 	}
 	return nil
 }
 
-// WildcardViewByID returns a validation wildcard view from the frozen wildcard
+// wildcardViewByID returns a validation wildcard view from the frozen wildcard
 // read projection table.
-func WildcardViewByID(views []WildcardView, id WildcardID) (WildcardView, bool) {
+func wildcardViewByID(views []WildcardView, id WildcardID) (WildcardView, bool) {
 	if !ValidWildcardID(id, len(views)) {
 		return WildcardView{}, false
 	}

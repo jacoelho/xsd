@@ -34,9 +34,9 @@ type ValueConstraintRead struct {
 	value     SimpleValue
 }
 
-// NewValueConstraintRead returns the immutable validation read projection for
+// newValueConstraintRead returns the immutable validation read projection for
 // one prevalidated value constraint.
-func NewValueConstraintRead(lexical, canonical string, value SimpleValue) ValueConstraintRead {
+func newValueConstraintRead(lexical, canonical string, value SimpleValue) ValueConstraintRead {
 	return ValueConstraintRead{
 		lexical:   lexical,
 		canonical: canonical,
@@ -44,18 +44,18 @@ func NewValueConstraintRead(lexical, canonical string, value SimpleValue) ValueC
 	}
 }
 
-// NewValueConstraintReadFromConstraint returns the immutable validation read
+// newValueConstraintReadFromConstraint returns the immutable validation read
 // projection for one prevalidated value constraint.
-func NewValueConstraintReadFromConstraint(vc *ValueConstraint) (ValueConstraintRead, bool) {
+func newValueConstraintReadFromConstraint(vc *ValueConstraint) (ValueConstraintRead, bool) {
 	if vc == nil {
 		return ValueConstraintRead{}, false
 	}
-	return NewValueConstraintRead(vc.Lexical, vc.Canonical, vc.Value), true
+	return newValueConstraintRead(vc.Lexical, vc.Canonical, vc.Value), true
 }
 
-// EqualValueConstraintReads reports whether two value-constraint read
+// equalValueConstraintReads reports whether two value-constraint read
 // projections expose the same validation-facing value.
-func EqualValueConstraintReads(a, b ValueConstraintRead) bool {
+func equalValueConstraintReads(a, b ValueConstraintRead) bool {
 	return a.lexical == b.lexical &&
 		a.canonical == b.canonical &&
 		a.value == b.value
@@ -119,9 +119,9 @@ type ElementValueConstraints struct {
 	hasDefault   bool
 }
 
-// ElementValueConstraintReadShape is the runtime-read projection source for
+// elementValueConstraintShape is the runtime-read projection source for
 // one element declaration's value constraints.
-type ElementValueConstraintReadShape struct {
+type elementValueConstraintShape struct {
 	Fixed      ValueConstraintRead
 	Default    ValueConstraintRead
 	Owner      TypeID
@@ -129,9 +129,9 @@ type ElementValueConstraintReadShape struct {
 	HasDefault bool
 }
 
-// NewElementValueConstraints returns the immutable validation read projection
+// newElementValueConstraints returns the immutable validation read projection
 // for an element declaration's value constraints.
-func NewElementValueConstraints(owner TypeID, fixed ValueConstraintRead, hasFixed bool, def ValueConstraintRead, hasDefault bool) ElementValueConstraints {
+func newElementValueConstraints(owner TypeID, fixed ValueConstraintRead, hasFixed bool, def ValueConstraintRead, hasDefault bool) ElementValueConstraints {
 	return ElementValueConstraints{
 		owner:        owner,
 		fixed:        fixed,
@@ -141,105 +141,16 @@ func NewElementValueConstraints(owner TypeID, fixed ValueConstraintRead, hasFixe
 	}
 }
 
-// NewElementValueConstraintReads returns immutable validation read projections
-// for element declaration value constraints.
-func NewElementValueConstraintReads(shapes []ElementValueConstraintReadShape) []ElementValueConstraints {
-	out := make([]ElementValueConstraints, len(shapes))
-	for i := range shapes {
-		out[i] = NewElementValueConstraints(
-			shapes[i].Owner,
-			shapes[i].Fixed,
-			shapes[i].HasFixed,
-			shapes[i].Default,
-			shapes[i].HasDefault,
-		)
-	}
-	return out
-}
-
-// NewElementValueConstraintReadsForDecls returns immutable validation read
-// projections for element declarations.
-func NewElementValueConstraintReadsForDecls(decls []ElementDecl) []ElementValueConstraints {
-	out := make([]ElementValueConstraints, len(decls))
-	for i := range decls {
-		shape := elementValueConstraintReadShape(decls[i])
-		out[i] = NewElementValueConstraints(shape.Owner, shape.Fixed, shape.HasFixed, shape.Default, shape.HasDefault)
-	}
-	return out
-}
-
-// EqualElementValueConstraints reports whether two element value-constraint
+// equalElementValueConstraints reports whether two element value-constraint
 // projections expose the same validation-facing constraints.
-func EqualElementValueConstraints(a, b ElementValueConstraints) bool {
+func equalElementValueConstraints(a, b ElementValueConstraints) bool {
 	if a.owner != b.owner || a.hasFixed != b.hasFixed || a.hasDefault != b.hasDefault {
 		return false
 	}
-	if a.hasFixed && !EqualValueConstraintReads(a.fixed, b.fixed) {
+	if a.hasFixed && !equalValueConstraintReads(a.fixed, b.fixed) {
 		return false
 	}
-	return !a.hasDefault || EqualValueConstraintReads(a.defaultValue, b.defaultValue)
-}
-
-// EqualElementValueConstraintReadProjection reports whether reads expose the
-// same validation-facing element value constraints as shapes.
-func EqualElementValueConstraintReadProjection(reads []ElementValueConstraints, shapes []ElementValueConstraintReadShape) bool {
-	if len(reads) != len(shapes) {
-		return false
-	}
-	for i := range reads {
-		want := NewElementValueConstraints(
-			shapes[i].Owner,
-			shapes[i].Fixed,
-			shapes[i].HasFixed,
-			shapes[i].Default,
-			shapes[i].HasDefault,
-		)
-		if !EqualElementValueConstraints(reads[i], want) {
-			return false
-		}
-	}
-	return true
-}
-
-// EqualElementValueConstraintReadProjectionForDecls reports whether reads
-// expose the same validation-facing value constraints as element declarations.
-func EqualElementValueConstraintReadProjectionForDecls(reads []ElementValueConstraints, decls []ElementDecl) bool {
-	if len(reads) != len(decls) {
-		return false
-	}
-	for i := range reads {
-		shape := elementValueConstraintReadShape(decls[i])
-		want := NewElementValueConstraints(shape.Owner, shape.Fixed, shape.HasFixed, shape.Default, shape.HasDefault)
-		if !EqualElementValueConstraints(reads[i], want) {
-			return false
-		}
-	}
-	return true
-}
-
-// ValidateElementValueConstraintReadProjectionForDecls validates element
-// value-constraint read projections against frozen element declarations.
-func ValidateElementValueConstraintReadProjectionForDecls(reads []ElementValueConstraints, decls []ElementDecl) error {
-	if len(reads) != len(decls) {
-		return errors.New("element value read projection count does not match declarations")
-	}
-	if !EqualElementValueConstraintReadProjectionForDecls(reads, decls) {
-		return errors.New("element value read projection does not match declaration")
-	}
-	return nil
-}
-
-// ElementValueConstraintsByID returns the value-constraint read projection for
-// id. The booleans report declaration presence and metadata validity,
-// respectively.
-func ElementValueConstraintsByID(reads []ElementValueConstraints, id ElementID) (constraints ElementValueConstraints, present, valid bool) {
-	if id == NoElement {
-		return ElementValueConstraints{}, false, true
-	}
-	if !ValidElementID(id, len(reads)) {
-		return ElementValueConstraints{}, false, false
-	}
-	return reads[id], true, true
+	return !a.hasDefault || equalValueConstraintReads(a.defaultValue, b.defaultValue)
 }
 
 // OwnerType returns the declaration type that validated the cached value.
@@ -262,10 +173,10 @@ func (c ElementValueConstraints) DefaultValueConstraint() (ValueConstraintRead, 
 	return c.defaultValue, c.hasDefault
 }
 
-func elementValueConstraintReadShape(decl ElementDecl) ElementValueConstraintReadShape {
-	fixed, hasFixed := NewValueConstraintReadFromConstraint(decl.Fixed)
-	def, hasDefault := NewValueConstraintReadFromConstraint(decl.Default)
-	return ElementValueConstraintReadShape{
+func elementValueConstraintReadShape(decl ElementDecl) elementValueConstraintShape {
+	fixed, hasFixed := newValueConstraintReadFromConstraint(decl.Fixed)
+	def, hasDefault := newValueConstraintReadFromConstraint(decl.Default)
+	return elementValueConstraintShape{
 		Owner:      decl.Type,
 		Fixed:      fixed,
 		Default:    def,

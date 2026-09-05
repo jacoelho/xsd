@@ -174,14 +174,14 @@ func TestEqualWildcardViewProjection(t *testing.T) {
 		Namespaces: []NamespaceID{names["urn:a"], names["urn:b"]},
 		Process:    ProcessLax,
 	}
-	view := NewWildcardView(&table, &wildcard)
-	if !EqualWildcardViewProjection(view, &table, &wildcard) {
+	view := newWildcardView(&table, &wildcard)
+	if !equalWildcardViewProjection(view, &table, &wildcard) {
 		t.Fatal("EqualWildcardViewProjection() = false, want true")
 	}
 
 	changed := wildcard
 	changed.Process = ProcessSkip
-	if EqualWildcardViewProjection(view, &table, &changed) {
+	if equalWildcardViewProjection(view, &table, &changed) {
 		t.Fatal("EqualWildcardViewProjection() = true for different process")
 	}
 }
@@ -194,32 +194,32 @@ func TestWildcardViewProjectionTable(t *testing.T) {
 		{Mode: WildcardAny, Process: ProcessStrict},
 		{Mode: WildcardList, Namespaces: []NamespaceID{names["urn:a"], names["urn:b"]}, Process: ProcessLax},
 	}
-	views := NewWildcardViews(&table, wildcards)
-	if !EqualWildcardViewProjectionTable(views, &table, wildcards) {
+	views := newWildcardViews(&table, wildcards)
+	if !equalWildcardViewProjectionTable(views, &table, wildcards) {
 		t.Fatalf("NewWildcardViews() = %#v, want projection for %#v", views, wildcards)
 	}
-	if got, ok := WildcardViewByID(views, 1); !ok || !EqualWildcardViews(got, views[1]) {
+	if got, ok := wildcardViewByID(views, 1); !ok || !equalWildcardViews(got, views[1]) {
 		t.Fatalf("WildcardViewByID() = %#v, %v; want view 1, true", got, ok)
 	}
-	if got, ok := WildcardViewByID(views, WildcardID(99)); ok || !EqualWildcardViews(got, WildcardView{}) {
+	if got, ok := wildcardViewByID(views, WildcardID(99)); ok || !equalWildcardViews(got, WildcardView{}) {
 		t.Fatalf("WildcardViewByID(invalid) = %#v, %v; want zero, false", got, ok)
 	}
-	if EqualWildcardViewProjectionTable(views[:1], &table, wildcards) {
+	if equalWildcardViewProjectionTable(views[:1], &table, wildcards) {
 		t.Fatal("EqualWildcardViewProjectionTable() accepted mismatched table length")
 	}
 
 	changed := slices.Clone(wildcards)
 	changed[1].Process = ProcessSkip
-	if EqualWildcardViewProjectionTable(views, &table, changed) {
+	if equalWildcardViewProjectionTable(views, &table, changed) {
 		t.Fatal("EqualWildcardViewProjectionTable() accepted mismatched wildcard")
 	}
-	if err := ValidateWildcardViewProjectionTable(NewWildcardViews(&table, wildcards), &table, wildcards); err != nil {
+	if err := validateWildcardViewProjectionTable(newWildcardViews(&table, wildcards), &table, wildcards); err != nil {
 		t.Fatalf("ValidateWildcardViewProjectionTable() error = %v", err)
 	}
-	if err := ValidateWildcardViewProjectionTable(views[:1], &table, wildcards); err == nil || err.Error() != "wildcard read projection count does not match wildcards" {
+	if err := validateWildcardViewProjectionTable(views[:1], &table, wildcards); err == nil || err.Error() != "wildcard read projection count does not match wildcards" {
 		t.Fatalf("ValidateWildcardViewProjectionTable(short) error = %v, want count invariant", err)
 	}
-	if err := ValidateWildcardViewProjectionTable(views, &table, changed); err == nil || err.Error() != "wildcard read projection does not match wildcard" {
+	if err := validateWildcardViewProjectionTable(views, &table, changed); err == nil || err.Error() != "wildcard read projection does not match wildcard" {
 		t.Fatalf("ValidateWildcardViewProjectionTable(changed) error = %v, want mismatch invariant", err)
 	}
 }

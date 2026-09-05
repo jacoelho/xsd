@@ -1,6 +1,8 @@
 package compile
 
 import (
+	"slices"
+
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
 )
@@ -17,7 +19,7 @@ func NewCompilerForTest(limits Limits) (*Compiler, error) {
 
 // LoadForTest loads schema sources into the compiler for white-box tests.
 func (c *compiler) LoadForTest(sources []source.Source) error {
-	return c.load(sources)
+	return c.loadOwned(slices.Clone(sources))
 }
 
 // IndexForTest indexes loaded schema documents for white-box tests.

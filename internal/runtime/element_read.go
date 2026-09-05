@@ -88,12 +88,12 @@ func elementFlags(decl ElementDecl) elementReadFlags {
 
 func (t *elementReadTable) addValueConstraint(decl ElementDecl) int {
 	if decl.Fixed != nil {
-		value, _ := NewValueConstraintReadFromConstraint(decl.Fixed)
+		value, _ := newValueConstraintReadFromConstraint(decl.Fixed)
 		t.constraints = append(t.constraints, elementConstraintRead{value: value, fixed: true})
 		return len(t.constraints) - 1
 	}
 	if decl.Default != nil {
-		value, _ := NewValueConstraintReadFromConstraint(decl.Default)
+		value, _ := newValueConstraintReadFromConstraint(decl.Default)
 		t.constraints = append(t.constraints, elementConstraintRead{value: value})
 		return len(t.constraints) - 1
 	}
@@ -151,16 +151,16 @@ func (t *elementReadTable) valueConstraints(id ElementID) (constraints ElementVa
 	}
 	meta := t.meta[id]
 	if meta.constraint < 0 {
-		return NewElementValueConstraints(meta.typ, ValueConstraintRead{}, false, ValueConstraintRead{}, false), true, true
+		return newElementValueConstraints(meta.typ, ValueConstraintRead{}, false, ValueConstraintRead{}, false), true, true
 	}
 	if meta.constraint >= len(t.constraints) {
 		return ElementValueConstraints{}, false, false
 	}
 	constraint := t.constraints[meta.constraint]
 	if constraint.fixed {
-		return NewElementValueConstraints(meta.typ, constraint.value, true, ValueConstraintRead{}, false), true, true
+		return newElementValueConstraints(meta.typ, constraint.value, true, ValueConstraintRead{}, false), true, true
 	}
-	return NewElementValueConstraints(meta.typ, ValueConstraintRead{}, false, constraint.value, true), true, true
+	return newElementValueConstraints(meta.typ, ValueConstraintRead{}, false, constraint.value, true), true, true
 }
 
 func effectiveElementBlock(decl ElementDecl, complexTypes []ComplexType) DerivationMask {
@@ -251,8 +251,8 @@ func validateElementReadValueConstraint(table elementReadTable, index int, decl 
 		return errors.New("element read table value constraint is invalid")
 	}
 	shape := elementValueConstraintReadShape(decl)
-	want := NewElementValueConstraints(shape.Owner, shape.Fixed, shape.HasFixed, shape.Default, shape.HasDefault)
-	if !EqualElementValueConstraints(got, want) {
+	want := newElementValueConstraints(shape.Owner, shape.Fixed, shape.HasFixed, shape.Default, shape.HasDefault)
+	if !equalElementValueConstraints(got, want) {
 		return errors.New("element read table value constraint does not match declaration")
 	}
 	return nil

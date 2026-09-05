@@ -12,9 +12,9 @@ type SimpleTypeDerivation struct {
 	Variety SimpleVariety
 }
 
-// NewSimpleTypeDerivationForSimpleType returns the runtime derivation
+// newSimpleTypeDerivationForSimpleType returns the runtime derivation
 // projection for one simple type.
-func NewSimpleTypeDerivationForSimpleType(st SimpleType) SimpleTypeDerivation {
+func newSimpleTypeDerivationForSimpleType(st SimpleType) SimpleTypeDerivation {
 	return CloneSimpleTypeDerivation(SimpleTypeDerivation{
 		Union:   st.Union,
 		Base:    st.Base,
@@ -22,9 +22,9 @@ func NewSimpleTypeDerivationForSimpleType(st SimpleType) SimpleTypeDerivation {
 	})
 }
 
-// EqualSimpleTypeDerivationForSimpleType reports whether projection exposes
+// equalSimpleTypeDerivationForSimpleType reports whether projection exposes
 // the runtime derivation facts for st.
-func EqualSimpleTypeDerivationForSimpleType(projection SimpleTypeDerivation, st SimpleType) bool {
+func equalSimpleTypeDerivationForSimpleType(projection SimpleTypeDerivation, st SimpleType) bool {
 	return projection.Base == st.Base &&
 		projection.Variety == st.Variety &&
 		slices.Equal(projection.Union, st.Union)
@@ -37,9 +37,9 @@ type ComplexTypeDerivation struct {
 	Block DerivationMask
 }
 
-// NewComplexTypeDerivationForComplexType returns the runtime derivation
+// newComplexTypeDerivationForComplexType returns the runtime derivation
 // projection for one complex type.
-func NewComplexTypeDerivationForComplexType(ct ComplexType) ComplexTypeDerivation {
+func newComplexTypeDerivationForComplexType(ct ComplexType) ComplexTypeDerivation {
 	return ComplexTypeDerivation{
 		Base:  ct.Base,
 		Kind:  ct.Derivation,
@@ -47,22 +47,22 @@ func NewComplexTypeDerivationForComplexType(ct ComplexType) ComplexTypeDerivatio
 	}
 }
 
-// EqualComplexTypeDerivations reports whether two complex-type derivation
+// equalComplexTypeDerivations reports whether two complex-type derivation
 // projections expose the same runtime derivation graph node.
-func EqualComplexTypeDerivations(a, b ComplexTypeDerivation) bool {
+func equalComplexTypeDerivations(a, b ComplexTypeDerivation) bool {
 	return a == b
 }
 
-// EqualComplexTypeDerivationForComplexType reports whether projection exposes
+// equalComplexTypeDerivationForComplexType reports whether projection exposes
 // the runtime derivation facts for ct.
-func EqualComplexTypeDerivationForComplexType(projection ComplexTypeDerivation, ct ComplexType) bool {
-	return EqualComplexTypeDerivations(projection, NewComplexTypeDerivationForComplexType(ct))
+func equalComplexTypeDerivationForComplexType(projection ComplexTypeDerivation, ct ComplexType) bool {
+	return equalComplexTypeDerivations(projection, newComplexTypeDerivationForComplexType(ct))
 }
 
-// TypeDerivationRead is the freeze-published type-derivation index used by
+// typeDerivationRead is the freeze-published type-derivation index used by
 // validation-time derivation traversal. Simple union edges are owned once by
 // simpleTypes and shared with published simple-value validation.
-type TypeDerivationRead struct {
+type typeDerivationRead struct {
 	index *typeDerivationIndex
 }
 
@@ -84,17 +84,17 @@ func newTypeDerivationReadForTypes(
 	simpleTypes []SimpleType,
 	complexTypes []ComplexType,
 	reads *simpleTypeColdReadTable,
-) (TypeDerivationRead, error) {
+) (typeDerivationRead, error) {
 	if !ValidComplexTypeID(anyType, len(complexTypes)) {
-		return TypeDerivationRead{}, errors.New("type derivation projection stores invalid anyType")
+		return typeDerivationRead{}, errors.New("type derivation projection stores invalid anyType")
 	}
 	if reads == nil || len(reads.index) != len(simpleTypes) {
-		return TypeDerivationRead{}, errors.New("type derivation simple type reads do not match types")
+		return typeDerivationRead{}, errors.New("type derivation simple type reads do not match types")
 	}
 	for i := range simpleTypes {
 		members, ok := reads.unionMembers(SimpleTypeID(i))
 		if !ok || !slices.Equal(members, simpleTypes[i].Union) {
-			return TypeDerivationRead{}, errors.New("type derivation union reads do not match types")
+			return typeDerivationRead{}, errors.New("type derivation union reads do not match types")
 		}
 	}
 	index := &typeDerivationIndex{
@@ -102,9 +102,9 @@ func newTypeDerivationReadForTypes(
 		anyType:     anyType,
 	}
 	if err := buildTypeDerivationIndex(index, simpleTypes, complexTypes); err != nil {
-		return TypeDerivationRead{}, err
+		return typeDerivationRead{}, err
 	}
-	return TypeDerivationRead{index: index}, nil
+	return typeDerivationRead{index: index}, nil
 }
 
 func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []SimpleType, complexTypes []ComplexType) error {
@@ -315,7 +315,7 @@ func (a *derivationForestAudit) complete(last, node int) {
 }
 
 // AnyTypeID returns the complex type ID of xs:anyType.
-func (r TypeDerivationRead) AnyTypeID() ComplexTypeID {
+func (r typeDerivationRead) AnyTypeID() ComplexTypeID {
 	if r.index == nil {
 		return 0
 	}
@@ -323,7 +323,7 @@ func (r TypeDerivationRead) AnyTypeID() ComplexTypeID {
 }
 
 // SimpleTypeCount returns the number of simple-type derivation nodes.
-func (r TypeDerivationRead) SimpleTypeCount() int {
+func (r typeDerivationRead) SimpleTypeCount() int {
 	if r.index == nil {
 		return 0
 	}
@@ -331,23 +331,23 @@ func (r TypeDerivationRead) SimpleTypeCount() int {
 }
 
 // ComplexTypeCount returns the number of complex-type derivation nodes.
-func (r TypeDerivationRead) ComplexTypeCount() int {
+func (r typeDerivationRead) ComplexTypeCount() int {
 	if r.index == nil {
 		return 0
 	}
 	return len(r.index.complexIn)
 }
 
-func (r TypeDerivationRead) simpleTypeTable() *simpleTypeColdReadTable {
+func (r typeDerivationRead) simpleTypeTable() *simpleTypeColdReadTable {
 	if r.index == nil {
 		return nil
 	}
 	return r.index.simpleTypes
 }
 
-// ValidateTypeDerivationReadProjection validates type-derivation read metadata
+// validateTypeDerivationReadProjection validates type-derivation read metadata
 // against frozen simple and complex type records.
-func ValidateTypeDerivationReadProjection(read TypeDerivationRead, anyType ComplexTypeID, simpleTypes []SimpleType, complexTypes []ComplexType) error {
+func validateTypeDerivationReadProjection(read typeDerivationRead, anyType ComplexTypeID, simpleTypes []SimpleType, complexTypes []ComplexType) error {
 	if read.AnyTypeID() != anyType {
 		return errors.New("type derivation projection stores invalid anyType")
 	}
@@ -501,7 +501,7 @@ func (s *TypeDerivationScratch) bind(owner *typeDerivationIndex) {
 	s.unionGeneration = 0
 }
 
-func (r TypeDerivationRead) derivation(derived, base TypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
+func (r typeDerivationRead) derivation(derived, base TypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
 	if scratch != nil {
 		scratch.bind(r.index)
 	}
@@ -529,7 +529,7 @@ func lookupTypeDerivationMemo(scratch *TypeDerivationScratch, pair typeDerivatio
 	return result, ok
 }
 
-func (r TypeDerivationRead) deriveUncached(
+func (r typeDerivationRead) deriveUncached(
 	derived, base TypeID,
 	scratch *TypeDerivationScratch,
 ) (DerivationMask, bool) {
@@ -557,7 +557,7 @@ func (r TypeDerivationRead) deriveUncached(
 	return mask, found
 }
 
-func (r TypeDerivationRead) complexSimpleDerivation(
+func (r typeDerivationRead) complexSimpleDerivation(
 	derived ComplexTypeID,
 	base SimpleTypeID,
 	scratch *TypeDerivationScratch,
@@ -594,7 +594,7 @@ func storeTypeDerivationMemo(
 	}
 }
 
-func (r TypeDerivationRead) simpleDerivation(derived, base SimpleTypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
+func (r typeDerivationRead) simpleDerivation(derived, base SimpleTypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
 	index := r.index
 	if index == nil {
 		return 0, false
@@ -619,7 +619,7 @@ func (r TypeDerivationRead) simpleDerivation(derived, base SimpleTypeID, scratch
 	return r.simpleUnionDerivation(derived, base, scratch)
 }
 
-func (r TypeDerivationRead) simpleUnionDerivation(derived, base SimpleTypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
+func (r typeDerivationRead) simpleUnionDerivation(derived, base SimpleTypeID, scratch *TypeDerivationScratch) (DerivationMask, bool) {
 	index := r.index
 	if index == nil {
 		return 0, false
@@ -662,7 +662,7 @@ func prepareSimpleUnionDerivationScratch(
 	return generation, stack
 }
 
-func (r TypeDerivationRead) simpleUnionCandidate(
+func (r typeDerivationRead) simpleUnionCandidate(
 	derived, candidate SimpleTypeID,
 	generation uint32,
 	scratch *TypeDerivationScratch,
@@ -682,7 +682,7 @@ func (r TypeDerivationRead) simpleUnionCandidate(
 	return members, false, ok
 }
 
-func (r TypeDerivationRead) complexDerivation(derived, base ComplexTypeID) (DerivationMask, bool) {
+func (r typeDerivationRead) complexDerivation(derived, base ComplexTypeID) (DerivationMask, bool) {
 	index := r.index
 	if index == nil || !ValidComplexTypeID(derived, len(index.complexIn)) || !ValidComplexTypeID(base, len(index.complexIn)) ||
 		index.complexIn[base] > index.complexIn[derived] || index.complexIn[derived] >= index.complexOut[base] {
@@ -698,7 +698,7 @@ func (r TypeDerivationRead) complexDerivation(derived, base ComplexTypeID) (Deri
 	return mask, true
 }
 
-func (r TypeDerivationRead) complexAnyTypeDerivation(derived ComplexTypeID) (DerivationMask, bool) {
+func (r typeDerivationRead) complexAnyTypeDerivation(derived ComplexTypeID) (DerivationMask, bool) {
 	index := r.index
 	if index == nil || !ValidComplexTypeID(derived, len(index.complexIn)) || !ValidComplexTypeID(index.anyType, len(index.complexIn)) {
 		return 0, false

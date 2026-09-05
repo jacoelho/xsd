@@ -74,11 +74,7 @@ func (c *xmlWellFormedChecker) checkToken(tok stream.Token, values *stream.Cache
 	case stream.KindEnd:
 		return c.end(tok.Line, tok.Column, tok.End)
 	case stream.KindCharData:
-		kind := CharacterDataText
-		if tok.CDATA {
-			kind = CharacterDataCDATA
-		}
-		return c.chars(tok.Line, tok.Column, tok.Data, kind)
+		return c.chars(tok.Line, tok.Column, tok.Data, tok.TextKind)
 	case stream.KindDirective:
 		return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
 	case stream.KindComment, stream.KindPI:
@@ -104,7 +100,7 @@ func (c *xmlWellFormedChecker) end(line, col int, ee stream.EndElement) error {
 	return c.doc.CommitEnd()
 }
 
-func (c *xmlWellFormedChecker) chars(line, col int, data []byte, kind CharacterDataKind) error {
+func (c *xmlWellFormedChecker) chars(line, col int, data []byte, kind stream.CharacterDataKind) error {
 	if c.doc.Depth() != 0 {
 		return nil
 	}

@@ -2,7 +2,7 @@ package runtime
 
 // AttributeDecl returns the validation read projection for an attribute.
 func (rt *Schema) AttributeDecl(id AttributeID) (AttributeDeclRead, bool) {
-	return AttributeDeclReadByID(rt.runtime.Attributes, id)
+	return attributeDeclReadByID(rt.runtime.Attributes, id)
 }
 
 // SimpleTypePrimitive returns the primitive kind for a simple type.
@@ -27,7 +27,7 @@ func (rt *Schema) HasIdentityConstraints() bool {
 
 // IdentityConstraint returns the aggregate validation read for an identity constraint.
 func (rt *Schema) IdentityConstraint(id IdentityConstraintID) (IdentityConstraintRead, bool) {
-	return IdentityConstraintReadByID(rt.runtime.Identities, id)
+	return identityConstraintReadByID(rt.runtime.Identities, id)
 }
 
 func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, bool) {

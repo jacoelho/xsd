@@ -162,7 +162,7 @@ func (s *schemaParseState) handleToken(tok stream.Token) error {
 	case stream.KindEnd:
 		return s.handleEndElement(tok.End, tok.Line, tok.Column)
 	case stream.KindCharData:
-		return s.chars(tok.Data, tok.Line, tok.Column)
+		return s.chars(tok.Data, tok.TextKind, tok.Line, tok.Column)
 	case stream.KindDirective, stream.KindComment:
 		return s.ValidateDirective(tok.Kind, tok.Directive, nil, tok.Line, tok.Column)
 	case stream.KindPI:
@@ -258,11 +258,20 @@ func (s *schemaParseState) handleEndElement(end stream.EndElement, line, col int
 	return nil
 }
 
-func (s *schemaParseState) chars(t []byte, line, col int) error {
+func (s *schemaParseState) chars(t []byte, kind stream.CharacterDataKind, line, col int) error {
 	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
 	if len(s.stack) == 0 {
+		switch kind {
+		case stream.CharacterDataText:
+		case stream.CharacterDataInvalid:
+			return xsderrors.InternalInvariant("character data kind is invalid")
+		case stream.CharacterDataCDATA:
+			return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "CDATA section outside root element", nil)
+		case stream.CharacterDataReference:
+			return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "reference outside root element", nil)
+		}
 		if !lex.IsXMLWhitespaceBytes(t) {
 			return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "schema XML text outside root element", nil)
 		}

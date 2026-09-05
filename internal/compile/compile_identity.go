@@ -23,7 +23,7 @@ func (c *compiler) declareAllIdentityConstraints() error {
 			continue
 		}
 		doc := document.doc
-		ctx := c.contexts[doc]
+		ctx := newSchemaContext(document)
 		if err := c.declareIdentityConstraintsInTree(doc.root, ctx); err != nil {
 			return err
 		}

@@ -850,7 +850,6 @@ var allowedStartAttrCalls = map[streamBoundaryCall]bool{
 	{pkgPath: "github.com/jacoelho/xsd/internal/validate", receiver: "session", name: "assessElementStart"}:        true,
 	{pkgPath: "github.com/jacoelho/xsd/internal/validate", receiver: "session", name: "recordSchemaLocationHints"}: true,
 	{pkgPath: "github.com/jacoelho/xsd/internal/validate", receiver: "session", name: "validateStartAttributes"}:   true,
-	{pkgPath: "github.com/jacoelho/xsd/internal/validate", name: "RootStart"}:                                      true,
 	{pkgPath: "github.com/jacoelho/xsd/internal/validate", name: "xsiStartAttributeFlagsFor"}:                      true,
 }
 

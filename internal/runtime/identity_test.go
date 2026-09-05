@@ -296,10 +296,10 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 	refreshIdentityLookup(&identities[0])
 	want := cloneIdentityConstraintsForTest(identities)
 	reads := newIdentityConstraintReads(identities)
-	if !EqualIdentityConstraintReadProjection(reads, identities) {
+	if !equalIdentityConstraintReadProjection(reads, identities) {
 		t.Fatal("EqualIdentityConstraintReadProjection() rejected matching projection")
 	}
-	if EqualIdentityConstraintReadProjection(reads[:1], identities) {
+	if equalIdentityConstraintReadProjection(reads[:1], identities) {
 		t.Fatal("EqualIdentityConstraintReadProjection() accepted mismatched table length")
 	}
 
@@ -315,20 +315,20 @@ func TestIdentityConstraintReadProjectionHelpers(t *testing.T) {
 	changed[0].Kind = IdentityKeyRef
 	changed[0].Refer = 1
 
-	if EqualIdentityConstraintReadProjection(reads, changed) {
+	if equalIdentityConstraintReadProjection(reads, changed) {
 		t.Fatal("EqualIdentityConstraintReadProjection() accepted mismatched projection")
 	}
-	if err := ValidateIdentityConstraintReadProjection(newIdentityConstraintReads(want), want); err != nil {
+	if err := validateIdentityConstraintReadProjection(newIdentityConstraintReads(want), want); err != nil {
 		t.Fatalf("ValidateIdentityConstraintReadProjection() error = %v", err)
 	}
-	if err := ValidateIdentityConstraintReadProjection(reads[:1], want); err == nil || err.Error() != "identity constraint read projection count does not match constraints" {
+	if err := validateIdentityConstraintReadProjection(reads[:1], want); err == nil || err.Error() != "identity constraint read projection count does not match constraints" {
 		t.Fatalf("ValidateIdentityConstraintReadProjection(short) error = %v, want count invariant", err)
 	}
-	if err := ValidateIdentityConstraintReadProjection(reads, changed); err == nil || err.Error() != "identity constraint read projection does not match constraints" {
+	if err := validateIdentityConstraintReadProjection(reads, changed); err == nil || err.Error() != "identity constraint read projection does not match constraints" {
 		t.Fatalf("ValidateIdentityConstraintReadProjection(changed) error = %v, want mismatch invariant", err)
 	}
 
-	read, ok := IdentityConstraintReadByID(reads, 0)
+	read, ok := identityConstraintReadByID(reads, 0)
 	if !ok {
 		t.Fatal("IdentityConstraintReadByID() rejected valid constraint")
 	}
@@ -383,11 +383,11 @@ func TestIdentityReadAccessors(t *testing.T) {
 	refreshIdentityLookup(&identities[0])
 	reads := newIdentityConstraintReads(identities)
 	invalid := IdentityConstraintID(99)
-	read, readOK := IdentityConstraintReadByID(reads, 0)
+	read, readOK := identityConstraintReadByID(reads, 0)
 	if !readOK {
 		t.Fatal("IdentityConstraintReadByID() rejected valid constraint")
 	}
-	if _, ok := IdentityConstraintReadByID(reads, invalid); ok {
+	if _, ok := identityConstraintReadByID(reads, invalid); ok {
 		t.Fatal("IdentityConstraintReadByID() accepted invalid constraint")
 	}
 

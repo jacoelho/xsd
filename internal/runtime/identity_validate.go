@@ -46,13 +46,13 @@ func markOwnedIdentityConstraints(owned []bool, identities []IdentityConstraintI
 	return nil
 }
 
-// ValidateIdentityConstraintReadProjection validates identity-constraint read
+// validateIdentityConstraintReadProjection validates identity-constraint read
 // projections against frozen identity metadata.
-func ValidateIdentityConstraintReadProjection(reads []IdentityConstraintRead, identities []IdentityConstraint) error {
+func validateIdentityConstraintReadProjection(reads []IdentityConstraintRead, identities []IdentityConstraint) error {
 	if len(reads) != len(identities) {
 		return errors.New("identity constraint read projection count does not match constraints")
 	}
-	if !EqualIdentityConstraintReadProjection(reads, identities) {
+	if !equalIdentityConstraintReadProjection(reads, identities) {
 		return errors.New("identity constraint read projection does not match constraints")
 	}
 	return nil

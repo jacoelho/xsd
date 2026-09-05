@@ -1523,3 +1523,22 @@ func BenchmarkCompileOpaqueAnnotationPayload(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkSessionValidateUndeclaredRootXSIType(b *testing.B) {
+	engine, err := xsd.Compile(xsd.Bytes("root-xsi.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	const doc = `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xsi:type="xs:string">value</root>`
+	b.SetBytes(int64(len(doc)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

@@ -28,9 +28,9 @@ type schemaRuntime struct {
 	GlobalTypes           map[QName]TypeID
 	Substitutions         SubstitutionTable
 	Notations             map[ExpandedName]bool
-	Names                 NameReadView
+	Names                 nameReadView
 	Identities            []IdentityConstraintRead
-	TypeDerivations       TypeDerivationRead
+	TypeDerivations       typeDerivationRead
 	SimpleValueRoutes     []simpleValueRouteRead
 	SimpleTypeCold        *simpleTypeColdReadTable
 	SimpleValueQNameNeeds []bool
@@ -87,14 +87,14 @@ func newComplexTypeRead(ct ComplexType) complexTypeRead {
 }
 
 func (r complexTypeRead) typeInfo() TypeInfo {
-	return NewTypeInfo(TypeInfoShape{
+	return newTypeInfo(typeInfoShape{
 		Block:    r.block,
 		Abstract: r.flags&complexTypeReadAbstract != 0,
 	})
 }
 
-func (r complexTypeRead) simpleContent() SimpleContentTypeRead {
-	return NewSimpleContentTypeRead(SimpleContentTypeReadShape{
+func (r complexTypeRead) simpleContent() simpleContentTypeRead {
+	return newSimpleContentTypeRead(simpleContentTypeReadShape{
 		Type:    r.textType,
 		Present: r.flags&complexTypeReadSimple != 0,
 	})
@@ -152,7 +152,7 @@ func (rt *SchemaBuild) SimpleTypeDerivation(id SimpleTypeID) (SimpleTypeDerivati
 	if !ok {
 		return SimpleTypeDerivation{}, false
 	}
-	return NewSimpleTypeDerivationForSimpleType(*st), true
+	return newSimpleTypeDerivationForSimpleType(*st), true
 }
 
 // ComplexTypeDerivation returns compiler-owned complex-type derivation metadata.
@@ -161,7 +161,7 @@ func (rt *SchemaBuild) ComplexTypeDerivation(id ComplexTypeID) (ComplexTypeDeriv
 	if !ok {
 		return ComplexTypeDerivation{}, false
 	}
-	return NewComplexTypeDerivationForComplexType(*ct), true
+	return newComplexTypeDerivationForComplexType(*ct), true
 }
 
 // ContentModel returns a compiler-owned content model by ID.

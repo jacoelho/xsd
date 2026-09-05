@@ -37,11 +37,11 @@ func TestValueConstraintRecordProjections(t *testing.T) {
 		Value:         value,
 	}
 
-	read, ok := NewValueConstraintReadFromConstraint(vc)
+	read, ok := newValueConstraintReadFromConstraint(vc)
 	if !ok || read.LexicalText() != "p:item" || read.CanonicalText() != "p:item" || read.SimpleValue() != value {
 		t.Fatalf("NewValueConstraintReadFromConstraint() = %+v, %v; want projected value", read, ok)
 	}
-	if read, ok := NewValueConstraintReadFromConstraint(nil); ok || read != (ValueConstraintRead{}) {
+	if read, ok := newValueConstraintReadFromConstraint(nil); ok || read != (ValueConstraintRead{}) {
 		t.Fatalf("NewValueConstraintReadFromConstraint(nil) = %+v, %v; want zero, false", read, ok)
 	}
 
@@ -70,7 +70,7 @@ func TestValueConstraintRead(t *testing.T) {
 	t.Parallel()
 
 	value := SimpleValue{Canonical: "1", Type: 7, Identity: "decimal:1"}
-	vc := NewValueConstraintRead("01", "1", value)
+	vc := newValueConstraintRead("01", "1", value)
 	if vc.LexicalText() != "01" {
 		t.Fatalf("LexicalText() = %q, want 01", vc.LexicalText())
 	}
@@ -86,8 +86,8 @@ func TestElementValueConstraintsRead(t *testing.T) {
 	t.Parallel()
 
 	owner := SimpleRef(5)
-	fixed := NewValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 5})
-	constraints := NewElementValueConstraints(owner, fixed, true, ValueConstraintRead{}, false)
+	fixed := newValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 5})
+	constraints := newElementValueConstraints(owner, fixed, true, ValueConstraintRead{}, false)
 	if constraints.OwnerType() != owner {
 		t.Fatalf("OwnerType() = %v, want %v", constraints.OwnerType(), owner)
 	}
@@ -100,45 +100,14 @@ func TestElementValueConstraintsRead(t *testing.T) {
 	if got, ok := constraints.DefaultValueConstraint(); ok || got != (ValueConstraintRead{}) {
 		t.Fatalf("DefaultValueConstraint() = %+v, %v; want zero, false", got, ok)
 	}
-
-	def := &ValueConstraint{
-		Lexical:   "abc",
-		Canonical: "abc",
-		Value:     SimpleValue{Canonical: "abc", Type: 6},
-	}
-	decls := []ElementDecl{
-		{Type: owner, Fixed: &ValueConstraint{
-			Lexical:   "01",
-			Canonical: "1",
-			Value:     SimpleValue{Canonical: "1", Type: 5},
-		}},
-		{Type: SimpleRef(6), Default: def},
-	}
-	reads := NewElementValueConstraintReadsForDecls(decls)
-	if !EqualElementValueConstraintReadProjectionForDecls(reads, decls) {
-		t.Fatalf("NewElementValueConstraintReadsForDecls() = %+v, want projection for declarations", reads)
-	}
-	if err := ValidateElementValueConstraintReadProjectionForDecls(reads, decls); err != nil {
-		t.Fatalf("ValidateElementValueConstraintReadProjectionForDecls() error = %v", err)
-	}
-	if err := ValidateElementValueConstraintReadProjectionForDecls(reads[:1], decls); err == nil || err.Error() != "element value read projection count does not match declarations" {
-		t.Fatalf("ValidateElementValueConstraintReadProjectionForDecls(short) error = %v, want count invariant", err)
-	}
-	decls[0].Fixed.Canonical = "2"
-	if EqualElementValueConstraintReadProjectionForDecls(reads, decls) {
-		t.Fatal("EqualElementValueConstraintReadProjectionForDecls() accepted fixed-value drift")
-	}
-	if err := ValidateElementValueConstraintReadProjectionForDecls(reads, decls); err == nil || err.Error() != "element value read projection does not match declaration" {
-		t.Fatalf("ValidateElementValueConstraintReadProjectionForDecls(changed) error = %v, want mismatch invariant", err)
-	}
 }
 
 func TestEqualElementValueConstraints(t *testing.T) {
 	t.Parallel()
 
-	fixed := NewValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 5})
-	def := NewValueConstraintRead("abc", "abc", SimpleValue{Canonical: "abc", Type: 6})
-	base := NewElementValueConstraints(SimpleRef(5), fixed, true, def, true)
+	fixed := newValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 5})
+	def := newValueConstraintRead("abc", "abc", SimpleValue{Canonical: "abc", Type: 6})
+	base := newElementValueConstraints(SimpleRef(5), fixed, true, def, true)
 	tests := []struct {
 		name string
 		a    ElementValueConstraints
@@ -148,95 +117,41 @@ func TestEqualElementValueConstraints(t *testing.T) {
 		{
 			name: "equal",
 			a:    base,
-			b:    NewElementValueConstraints(SimpleRef(5), fixed, true, def, true),
+			b:    newElementValueConstraints(SimpleRef(5), fixed, true, def, true),
 			want: true,
 		},
 		{
 			name: "owner mismatch",
 			a:    base,
-			b:    NewElementValueConstraints(SimpleRef(6), fixed, true, def, true),
+			b:    newElementValueConstraints(SimpleRef(6), fixed, true, def, true),
 		},
 		{
 			name: "fixed presence mismatch",
 			a:    base,
-			b:    NewElementValueConstraints(SimpleRef(5), fixed, false, def, true),
+			b:    newElementValueConstraints(SimpleRef(5), fixed, false, def, true),
 		},
 		{
 			name: "fixed value mismatch",
 			a:    base,
-			b:    NewElementValueConstraints(SimpleRef(5), NewValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 5}), true, def, true),
+			b:    newElementValueConstraints(SimpleRef(5), newValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 5}), true, def, true),
 		},
 		{
 			name: "default presence mismatch",
 			a:    base,
-			b:    NewElementValueConstraints(SimpleRef(5), fixed, true, def, false),
+			b:    newElementValueConstraints(SimpleRef(5), fixed, true, def, false),
 		},
 		{
 			name: "default value mismatch",
 			a:    base,
-			b:    NewElementValueConstraints(SimpleRef(5), fixed, true, NewValueConstraintRead("def", "def", SimpleValue{Canonical: "def", Type: 6}), true),
+			b:    newElementValueConstraints(SimpleRef(5), fixed, true, newValueConstraintRead("def", "def", SimpleValue{Canonical: "def", Type: 6}), true),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := EqualElementValueConstraints(tt.a, tt.b); got != tt.want {
+			if got := equalElementValueConstraints(tt.a, tt.b); got != tt.want {
 				t.Fatalf("EqualElementValueConstraints() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestElementValueConstraintReadProjectionHelpers(t *testing.T) {
-	t.Parallel()
-
-	fixed := NewValueConstraintRead("01", "1", SimpleValue{Canonical: "1", Type: 5})
-	def := NewValueConstraintRead("abc", "abc", SimpleValue{Canonical: "abc", Type: 6})
-	shapes := []ElementValueConstraintReadShape{
-		{Owner: SimpleRef(5), Fixed: fixed, HasFixed: true, Default: def, HasDefault: true},
-		{Owner: ComplexRef(2)},
-	}
-
-	reads := NewElementValueConstraintReads(shapes)
-	if !EqualElementValueConstraintReadProjection(reads, shapes) {
-		t.Fatalf("NewElementValueConstraintReads() = %#v, want projection for %#v", reads, shapes)
-	}
-	if got, declared, ok := ElementValueConstraintsByID(reads, 0); !ok || !declared || got.OwnerType() != SimpleRef(5) {
-		t.Fatalf("ElementValueConstraintsByID() = %+v, %v, %v; want first read, true, true", got, declared, ok)
-	}
-	if got, declared, ok := ElementValueConstraintsByID(reads, NoElement); !ok || declared || got != (ElementValueConstraints{}) {
-		t.Fatalf("ElementValueConstraintsByID(no element) = %+v, %v, %v; want zero, false, true", got, declared, ok)
-	}
-	if got, declared, ok := ElementValueConstraintsByID(reads, ElementID(99)); ok || declared || got != (ElementValueConstraints{}) {
-		t.Fatalf("ElementValueConstraintsByID(invalid) = %+v, %v, %v; want zero, false, false", got, declared, ok)
-	}
-	if EqualElementValueConstraintReadProjection(reads[:1], shapes) {
-		t.Fatal("EqualElementValueConstraintReadProjection() accepted mismatched table length")
-	}
-
-	tests := []struct {
-		name   string
-		mutate func([]ElementValueConstraints)
-	}{
-		{"owner mismatch", func(reads []ElementValueConstraints) { reads[0].owner = SimpleRef(9) }},
-		{"fixed presence mismatch", func(reads []ElementValueConstraints) { reads[0].hasFixed = false }},
-		{"fixed value mismatch", func(reads []ElementValueConstraints) {
-			reads[0].fixed = NewValueConstraintRead("02", "2", SimpleValue{Canonical: "2", Type: 5})
-		}},
-		{"default presence mismatch", func(reads []ElementValueConstraints) { reads[0].hasDefault = false }},
-		{"default value mismatch", func(reads []ElementValueConstraints) {
-			reads[0].defaultValue = NewValueConstraintRead("def", "def", SimpleValue{Canonical: "def", Type: 6})
-		}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := NewElementValueConstraintReads(shapes)
-			tt.mutate(got)
-			if EqualElementValueConstraintReadProjection(got, shapes) {
-				t.Fatal("EqualElementValueConstraintReadProjection() accepted mismatched projection")
 			}
 		})
 	}
@@ -409,7 +324,7 @@ func TestFixedValueConstraintEqual(t *testing.T) {
 func TestFixedAttributeValueEqualDistinguishesConstraintOwner(t *testing.T) {
 	t.Parallel()
 
-	fixed := NewValueConstraintRead(
+	fixed := newValueConstraintRead(
 		"P1Y",
 		"P1Y",
 		SimpleValue{Canonical: "P1Y", Identity: "duration:12-months", Type: 1},

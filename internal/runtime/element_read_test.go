@@ -87,6 +87,7 @@ func TestElementReadTableAuditRejectsCorruption(t *testing.T) {
 		{"identity value", func(table *elementReadTable) { table.identities[0] = 4 }},
 		{"constraint index", func(table *elementReadTable) { table.meta[0].constraint = 1 }},
 		{"constraint value", func(table *elementReadTable) { table.constraints[0].value.canonical = "y" }},
+		{"fixed/default discriminant", func(table *elementReadTable) { table.constraints[0].fixed = false }},
 		{"extra identity", func(table *elementReadTable) { table.identities = append(table.identities, 4) }},
 		{"extra constraint", func(table *elementReadTable) { table.constraints = append(table.constraints, elementConstraintRead{}) }},
 	}

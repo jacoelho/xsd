@@ -2,36 +2,14 @@ package runtime
 
 import "testing"
 
-func TestElementStartInfoProjection(t *testing.T) {
-	t.Parallel()
-
-	info := NewElementStartInfo(ElementStartInfoShape{
-		Type:     SimpleRef(1),
-		Block:    DerivationExtension,
-		Abstract: true,
-		Nillable: true,
-		Fixed:    true,
-	})
-	if info.Type != SimpleRef(1) || info.Block != DerivationExtension ||
-		!info.Abstract || !info.Nillable || !info.Fixed {
-		t.Fatalf("NewElementStartInfo() = %+v, want projected facts", info)
-	}
-	same := NewElementStartInfo(ElementStartInfoShape{
-		Type: SimpleRef(1), Block: DerivationExtension, Abstract: true, Nillable: true, Fixed: true,
-	})
-	if !EqualElementStartInfo(info, same) {
-		t.Fatal("EqualElementStartInfo() = false, want true")
-	}
-}
-
 func TestTypeInfoProjection(t *testing.T) {
 	t.Parallel()
 
-	info := NewTypeInfo(TypeInfoShape{Block: DerivationRestriction, Abstract: true})
+	info := newTypeInfo(typeInfoShape{Block: DerivationRestriction, Abstract: true})
 	if info.Block != DerivationRestriction || !info.Abstract {
 		t.Fatalf("NewTypeInfo() = %+v, want projected facts", info)
 	}
-	if info == NewTypeInfo(TypeInfoShape{Block: DerivationRestriction}) {
+	if info == newTypeInfo(typeInfoShape{Block: DerivationRestriction}) {
 		t.Fatal("type info values match despite different abstract flag")
 	}
 }

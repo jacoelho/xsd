@@ -13,6 +13,8 @@ The public API is intentionally small:
 - reuse document-local state with `Engine.NewSession` when useful
 - inspect failures with `errors.AsType[*xsderrors.Error]`
 
+XML documents require one root element. Outside it, only literal XML whitespace, comments, and processing instructions are accepted; CDATA sections and character references are rejected even when they decode to whitespace.
+
 Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document.
 
 `File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file, including inherited `xml:base`. XSD 1.0 extended URI references are validated after XLink escaping: a custom resolver receives the whitespace-normalized, unescaped location and composed base, while built-in generic and file fallback uses the escaped URI projection. A resolver success is authoritative. Fragment-bearing locations are offered to a custom resolver; built-in file and generic identity resolution cannot interpret fragments and treat those optional hints as unresolved. Arbitrary source names remain identities rather than being reinterpreted as URI references, including Unix paths containing `#` or `?`. `Bytes` copies caller-owned schema bytes into a reusable source. `Open` calls a repeatable opener during compilation, so schema byte limits govern the first read. `Bytes` and `Open` use only sources passed to `Compile` unless paired with a `Resolver`; a resolver-returned source must have a non-empty name, which becomes that document's identity. HTTP and network schema loading are not performed by default.

@@ -142,7 +142,7 @@ func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTyp
 		set := &sets[i]
 		uses := make([]AttributeUseRead, len(set.Uses))
 		for j := range set.Uses {
-			uses[j] = NewAttributeUseReadForSimpleTypes(attributeUseReadShapeForUse(names, set.Uses[j]), simpleTypes)
+			uses[j] = newAttributeUseReadForSimpleTypes(attributeUseReadShapeForUse(names, set.Uses[j]), simpleTypes)
 		}
 		out[i] = AttributeUseSetRead{
 			index:            maps.Clone(set.Index),
@@ -156,10 +156,10 @@ func newAttributeUseSetReads(names *NameTable, sets []AttributeUseSet, simpleTyp
 	return out
 }
 
-func attributeUseReadShapeForUse(names *NameTable, use AttributeUse) AttributeUseReadShape {
-	fixed, hasFixed := NewValueConstraintReadFromConstraint(use.Fixed)
-	def, hasDefault := NewValueConstraintReadFromConstraint(use.Default)
-	return AttributeUseReadShape{
+func attributeUseReadShapeForUse(names *NameTable, use AttributeUse) attributeUseReadShape {
+	fixed, hasFixed := newValueConstraintReadFromConstraint(use.Fixed)
+	def, hasDefault := newValueConstraintReadFromConstraint(use.Default)
+	return attributeUseReadShape{
 		Name:                 use.Name,
 		Type:                 use.Type,
 		Label:                names.Format(use.Name),
@@ -216,10 +216,10 @@ func (s AttributeUseSetRead) ValueConstraintSlots() AttributeUseSlots {
 	return AttributeUseSlots{values: s.valueConstraints}
 }
 
-// EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes reports whether reads
+// equalAttributeUseSetReadProjectionForSetsWithSimpleTypes reports whether reads
 // expose the same validation-facing attribute-use sets as frozen runtime records
 // using published simple types.
-func EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) bool {
+func equalAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) bool {
 	return slices.EqualFunc(reads, sets, func(read AttributeUseSetRead, set AttributeUseSet) bool {
 		return equalAttributeUseSetReadForSet(read, names, set, simpleTypes)
 	})
@@ -269,18 +269,18 @@ func equalAttributeUseReadForUse(
 		return false
 	}
 	if hasFixed {
-		fixed, _ := NewValueConstraintReadFromConstraint(use.Fixed)
-		if !EqualValueConstraintReads(read.fixed, fixed) {
+		fixed, _ := newValueConstraintReadFromConstraint(use.Fixed)
+		if !equalValueConstraintReads(read.fixed, fixed) {
 			return false
 		}
 	}
 	if hasDefault {
-		def, _ := NewValueConstraintReadFromConstraint(use.Default)
-		if !EqualValueConstraintReads(read.defaultValue, def) {
+		def, _ := newValueConstraintReadFromConstraint(use.Default)
+		if !equalValueConstraintReads(read.defaultValue, def) {
 			return false
 		}
 	}
-	shape := AttributeUseReadShape{Type: use.Type, HasFixed: hasFixed}
+	shape := attributeUseReadShape{Type: use.Type, HasFixed: hasFixed}
 	fixedFast := attributeUseFixedStringFastForSimpleTypes(shape, simpleTypes)
 	return read.canValidateFixedStringFast == fixedFast
 }
@@ -298,21 +298,21 @@ func formattedQNameEqual(names *NameTable, name QName, formatted string) bool {
 		formatted[len(ns)+2:] == local
 }
 
-// ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes validates
+// validateAttributeUseSetReadProjectionForSetsWithSimpleTypes validates
 // attribute-use-set reads against frozen runtime records using published simple
 // types.
-func ValidateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) error {
+func validateAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads []AttributeUseSetRead, names *NameTable, sets []AttributeUseSet, simpleTypes []SimpleType) error {
 	if len(reads) != len(sets) {
 		return errors.New("attribute use set read projection count does not match use sets")
 	}
-	if !EqualAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads, names, sets, simpleTypes) {
+	if !equalAttributeUseSetReadProjectionForSetsWithSimpleTypes(reads, names, sets, simpleTypes) {
 		return errors.New("attribute use read projection does not match use set")
 	}
 	return nil
 }
 
-// AttributeUseReadShape is the runtime-read projection for one attribute use.
-type AttributeUseReadShape struct {
+// attributeUseReadShape is the runtime-read projection for one attribute use.
+type attributeUseReadShape struct {
 	Label                string
 	Fixed                ValueConstraintRead
 	Default              ValueConstraintRead
@@ -339,9 +339,9 @@ type AttributeUseRead struct {
 	canValidateFixedStringFast bool
 }
 
-// NewAttributeUseReadForSimpleTypes returns an immutable validation read
+// newAttributeUseReadForSimpleTypes returns an immutable validation read
 // projection for one attribute use using published simple types.
-func NewAttributeUseReadForSimpleTypes(shape AttributeUseReadShape, simpleTypes []SimpleType) AttributeUseRead {
+func newAttributeUseReadForSimpleTypes(shape attributeUseReadShape, simpleTypes []SimpleType) AttributeUseRead {
 	return AttributeUseRead{
 		name:                       shape.Name,
 		typ:                        shape.Type,
@@ -356,7 +356,7 @@ func NewAttributeUseReadForSimpleTypes(shape AttributeUseReadShape, simpleTypes 
 	}
 }
 
-func attributeUseFixedStringFastForSimpleTypes(shape AttributeUseReadShape, simpleTypes []SimpleType) bool {
+func attributeUseFixedStringFastForSimpleTypes(shape attributeUseReadShape, simpleTypes []SimpleType) bool {
 	if !shape.HasFixed {
 		return false
 	}
@@ -427,9 +427,9 @@ func (u AttributeUseRead) CanValidateFixedStringFast() bool {
 	return u.canValidateFixedStringFast
 }
 
-// AttributeDeclReadShape is the runtime-read projection for one global
+// attributeDeclReadShape is the runtime-read projection for one global
 // attribute declaration.
-type AttributeDeclReadShape struct {
+type attributeDeclReadShape struct {
 	Fixed    ValueConstraintRead
 	Name     QName
 	Type     SimpleTypeID
@@ -445,9 +445,9 @@ type AttributeDeclRead struct {
 	hasFixed bool
 }
 
-// NewAttributeDeclRead returns an immutable validation read projection for one
+// newAttributeDeclRead returns an immutable validation read projection for one
 // global attribute declaration.
-func NewAttributeDeclRead(shape AttributeDeclReadShape) AttributeDeclRead {
+func newAttributeDeclRead(shape attributeDeclReadShape) AttributeDeclRead {
 	return AttributeDeclRead{
 		name:     shape.Name,
 		typ:      shape.Type,
@@ -456,33 +456,33 @@ func NewAttributeDeclRead(shape AttributeDeclReadShape) AttributeDeclRead {
 	}
 }
 
-// NewAttributeDeclReadForDecl returns an immutable validation read projection
+// newAttributeDeclReadForDecl returns an immutable validation read projection
 // for one frozen global attribute declaration.
-func NewAttributeDeclReadForDecl(decl AttributeDecl) AttributeDeclRead {
-	return NewAttributeDeclRead(attributeDeclReadShapeForDecl(decl))
+func newAttributeDeclReadForDecl(decl AttributeDecl) AttributeDeclRead {
+	return newAttributeDeclRead(attributeDeclReadShapeForDecl(decl))
 }
 
-// NewAttributeDeclReadsForDecls returns immutable validation read projections
+// newAttributeDeclReadsForDecls returns immutable validation read projections
 // for frozen global attribute declarations.
-func NewAttributeDeclReadsForDecls(decls []AttributeDecl) []AttributeDeclRead {
+func newAttributeDeclReadsForDecls(decls []AttributeDecl) []AttributeDeclRead {
 	out := make([]AttributeDeclRead, len(decls))
 	for i := range decls {
-		out[i] = NewAttributeDeclReadForDecl(decls[i])
+		out[i] = newAttributeDeclReadForDecl(decls[i])
 	}
 	return out
 }
 
-// AttributeDeclReadByID returns the validation read projection for id.
-func AttributeDeclReadByID(reads []AttributeDeclRead, id AttributeID) (AttributeDeclRead, bool) {
+// attributeDeclReadByID returns the validation read projection for id.
+func attributeDeclReadByID(reads []AttributeDeclRead, id AttributeID) (AttributeDeclRead, bool) {
 	if !ValidAttributeID(id, len(reads)) {
 		return AttributeDeclRead{}, false
 	}
 	return reads[id], true
 }
 
-func attributeDeclReadShapeForDecl(decl AttributeDecl) AttributeDeclReadShape {
-	fixed, hasFixed := NewValueConstraintReadFromConstraint(decl.Fixed)
-	return AttributeDeclReadShape{
+func attributeDeclReadShapeForDecl(decl AttributeDecl) attributeDeclReadShape {
+	fixed, hasFixed := newValueConstraintReadFromConstraint(decl.Fixed)
+	return attributeDeclReadShape{
 		Name:     decl.Name,
 		Type:     decl.Type,
 		Fixed:    fixed,
@@ -490,36 +490,36 @@ func attributeDeclReadShapeForDecl(decl AttributeDecl) AttributeDeclReadShape {
 	}
 }
 
-// EqualAttributeDeclReads reports whether two attribute declaration read
+// equalAttributeDeclReads reports whether two attribute declaration read
 // projections expose the same validation-facing declaration.
-func EqualAttributeDeclReads(a, b AttributeDeclRead) bool {
+func equalAttributeDeclReads(a, b AttributeDeclRead) bool {
 	if a.name != b.name || a.typ != b.typ || a.hasFixed != b.hasFixed {
 		return false
 	}
-	return !a.hasFixed || EqualValueConstraintReads(a.fixed, b.fixed)
+	return !a.hasFixed || equalValueConstraintReads(a.fixed, b.fixed)
 }
 
-// EqualAttributeDeclReadProjectionForDecls reports whether reads expose the
+// equalAttributeDeclReadProjectionForDecls reports whether reads expose the
 // same validation-facing declarations as frozen global attribute declarations.
-func EqualAttributeDeclReadProjectionForDecls(reads []AttributeDeclRead, decls []AttributeDecl) bool {
+func equalAttributeDeclReadProjectionForDecls(reads []AttributeDeclRead, decls []AttributeDecl) bool {
 	if len(reads) != len(decls) {
 		return false
 	}
 	for i := range reads {
-		if !EqualAttributeDeclReads(reads[i], NewAttributeDeclReadForDecl(decls[i])) {
+		if !equalAttributeDeclReads(reads[i], newAttributeDeclReadForDecl(decls[i])) {
 			return false
 		}
 	}
 	return true
 }
 
-// ValidateAttributeDeclReadProjectionForDecls validates global attribute
+// validateAttributeDeclReadProjectionForDecls validates global attribute
 // declaration read projections against frozen declarations.
-func ValidateAttributeDeclReadProjectionForDecls(reads []AttributeDeclRead, decls []AttributeDecl) error {
+func validateAttributeDeclReadProjectionForDecls(reads []AttributeDeclRead, decls []AttributeDecl) error {
 	if len(reads) != len(decls) {
 		return errors.New("attribute declaration read projection count does not match declarations")
 	}
-	if !EqualAttributeDeclReadProjectionForDecls(reads, decls) {
+	if !equalAttributeDeclReadProjectionForDecls(reads, decls) {
 		return errors.New("attribute declaration read projection does not match declaration")
 	}
 	return nil

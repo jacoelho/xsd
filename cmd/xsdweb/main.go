@@ -74,12 +74,17 @@ func command(options commandOptions) error {
 	return run(ctx, options.address, options.dir)
 }
 
-func run(ctx context.Context, addr, dir string) error {
-	if err := validateAssets(dir); err != nil {
-		return err
+func run(ctx context.Context, addr, dir string) (runErr error) {
+	assets, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("open web asset directory %s: %w", dir, err)
+	}
+	defer func() { runErr = errors.Join(runErr, assets.Close()) }()
+	if assetErr := validateAssets(assets); assetErr != nil {
+		return assetErr
 	}
 
-	srv := newServer(addr, dir)
+	srv := newServer(addr, assets)
 	var listen net.ListenConfig
 	listener, err := listen.Listen(ctx, "tcp", addr)
 	if err != nil {
@@ -115,10 +120,10 @@ func serve(ctx context.Context, srv *http.Server, listener net.Listener) error {
 	}
 }
 
-func newServer(addr, dir string) *http.Server {
+func newServer(addr string, assets *os.Root) *http.Server {
 	return &http.Server{
 		Addr:              addr,
-		Handler:           assetHandler(dir),
+		Handler:           assetHandler{assets: assets},
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -127,10 +132,10 @@ func newServer(addr, dir string) *http.Server {
 	}
 }
 
-func validateAssets(dir string) error {
+func validateAssets(assets *os.Root) error {
 	for _, asset := range webAssets {
-		path := filepath.Join(dir, filepath.FromSlash(asset.name))
-		info, err := os.Lstat(path)
+		path := filepath.Join(assets.Name(), filepath.FromSlash(asset.name))
+		info, err := assets.Lstat(filepath.FromSlash(asset.name))
 		if err != nil {
 			return fmt.Errorf("web asset %s is unavailable; run `make wasm`: %w", path, err)
 		}
@@ -141,24 +146,41 @@ func validateAssets(dir string) error {
 	return nil
 }
 
-func assetHandler(dir string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Allow", "GET, HEAD")
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
+type assetHandler struct {
+	assets *os.Root
+}
 
-		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		asset, ok := assetForRoute(r.URL.Path)
-		if !ok {
-			http.NotFound(w, r)
-			return
+func (h assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	asset, ok := assetForRoute(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	file, err := h.assets.Open(filepath.FromSlash(asset.name))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("close web asset %s: %v", asset.name, closeErr)
 		}
-		w.Header().Set("Content-Type", asset.contentType)
-		http.ServeFile(w, r, filepath.Join(dir, filepath.FromSlash(asset.name)))
-	})
+	}()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", asset.contentType)
+	http.ServeContent(w, r, asset.name, info.ModTime(), file)
 }
 
 func assetForRoute(route string) (webAsset, bool) {

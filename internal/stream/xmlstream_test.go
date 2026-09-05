@@ -147,7 +147,7 @@ func zeroToken(token Token) bool {
 	return token.End == (EndElement{}) &&
 		token.Start.Name == (xml.Name{}) && token.Start.Attr == nil &&
 		token.Data == nil && token.Directive == nil &&
-		token.Line == 0 && token.Column == 0 && token.Kind == KindStart && !token.CDATA
+		token.Line == 0 && token.Column == 0 && token.Kind == KindStart && token.TextKind == CharacterDataInvalid
 }
 
 func TestParserResetRejectsNilCaches(t *testing.T) {
@@ -416,7 +416,7 @@ func TestXMLStreamParserNormalizesCDATALineEndings(t *testing.T) {
 			if err != nil {
 				t.Fatalf("next CDATA error = %v", err)
 			}
-			if tok.Kind != KindCharData || !tok.CDATA || string(tok.Data) != "a\nb" {
+			if tok.Kind != KindCharData || tok.TextKind != CharacterDataCDATA || string(tok.Data) != "a\nb" {
 				t.Fatalf("CDATA token = %+v", tok)
 			}
 		})
@@ -585,7 +585,7 @@ func TestXMLStreamParserChunksLargeCDATA(t *testing.T) {
 		if tok.Kind == KindEnd {
 			break
 		}
-		if tok.Kind != KindCharData || !tok.CDATA {
+		if tok.Kind != KindCharData || tok.TextKind != CharacterDataCDATA {
 			t.Fatalf("token = %+v, want CDATA char data", tok)
 		}
 		if len(tok.Data) > len(p.br.buf) {
@@ -978,7 +978,7 @@ func newParserBenchmarkOracle(tokens, payload int, hash uint64) parserBenchmarkO
 func (d *parserBenchmarkDigest) addToken(token Token, values *Cache, attributeMode parserBenchmarkAttributeMode) {
 	d.tokens++
 	d.addUint64(uint64(token.Kind))
-	d.addBool(token.CDATA)
+	d.addBool(token.TextKind == CharacterDataCDATA)
 	d.addName(token.Start.Name)
 	d.addUint64(uint64(len(token.Start.Attr)))
 	for i := range token.Start.Attr {
@@ -1181,5 +1181,54 @@ func TestStreamTokenAppendDataCopiesBorrowedBytes(t *testing.T) {
 	}
 	if got := string(retained); got != "alpha" {
 		t.Fatalf("retained first text = %q, want alpha", got)
+	}
+}
+
+func TestCharacterDataPreservesLexicalOrigin(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name  string
+		input string
+		want  string
+		kind  CharacterDataKind
+	}{
+		{name: "literal", input: " \t\r\n", want: " \t\n", kind: CharacterDataText},
+		{name: "reference first", input: "&#32;x", want: " x", kind: CharacterDataReference},
+		{name: "reference interior", input: "x&amp;y", want: "x&y", kind: CharacterDataReference},
+		{name: "reference whitespace", input: " \t&#x20;\n", want: " \t \n", kind: CharacterDataReference},
+		{name: "empty CDATA", input: "<![CDATA[]]>", want: "", kind: CharacterDataCDATA},
+		{name: "CDATA spelling", input: "<![CDATA[&#32;]]>", want: "&#32;", kind: CharacterDataCDATA},
+	}
+	for _, chunk := range []int{1, 4096} {
+		t.Run(fmt.Sprintf("chunk_%d", chunk), func(t *testing.T) {
+			t.Parallel()
+			names, values := NewCache(), NewCache()
+			var parser Parser
+			for _, test := range cases {
+				for _, suffix := range []string{"", "<r/>"} {
+					if err := parser.Reset(chunkReader{r: strings.NewReader(test.input + suffix), n: chunk}, &names, &values); err != nil {
+						t.Fatal(err)
+					}
+					token, err := parser.Next()
+					if err != nil || token.Kind != KindCharData || token.TextKind != test.kind || string(token.Data) != test.want {
+						t.Fatalf("%s suffix %q: Next() = %+v, %v; want text %q kind %d", test.name, suffix, token, err, test.want, test.kind)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestCharacterDataOriginDoesNotLeakBetweenTokens(t *testing.T) {
+	names, values := NewCache(), NewCache()
+	var parser Parser
+	if err := parser.Reset(strings.NewReader("&#32;<![CDATA[]]> "), &names, &values); err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []CharacterDataKind{CharacterDataReference, CharacterDataCDATA, CharacterDataText} {
+		token, err := parser.Next()
+		if err != nil || token.Kind != KindCharData || token.TextKind != want {
+			t.Fatalf("token %d = %+v, %v; want kind %d", i, token, err, want)
+		}
 	}
 }

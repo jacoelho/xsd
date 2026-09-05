@@ -38,6 +38,26 @@ func TestProjectionAuditRejectsCorruption(t *testing.T) {
 	}
 }
 
+func TestProjectionAuditRejectsElementConstraintCorruption(t *testing.T) {
+	build := SchemaBuild{
+		SimpleTypes:  []SimpleType{{Base: NoSimpleType, ListItem: NoSimpleType, Variety: SimpleVarietyAtomic}},
+		ComplexTypes: []ComplexType{{Derivation: DerivationKindNone}},
+		Elements:     []ElementDecl{{Type: SimpleRef(0), Fixed: &ValueConstraint{Canonical: "fixed"}}},
+	}
+	reads, err := newSchemaRuntime(&build, unlimitedContentModelWork)
+	if err != nil {
+		t.Fatal(err)
+	}
+	audit := schemaAudit{Schema: Schema{runtime: reads}, build: build, contentModelWork: unlimitedContentModelWork}
+	if err := validateRuntimeReadProjections(&audit); err != nil {
+		t.Fatalf("valid projection audit: %v", err)
+	}
+	audit.runtime.Elements.constraints[0].fixed = false
+	if err := validateRuntimeReadProjections(&audit); err == nil {
+		t.Fatal("projection audit accepted fixed/default corruption")
+	}
+}
+
 func TestProjectionAuditRejectsGlobalMapCorruption(t *testing.T) {
 	tests := []struct {
 		name string
@@ -203,11 +223,11 @@ func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 	if read.contentModel != ct.Content || read.attributeUseSet != ct.Attrs {
 		t.Fatalf("complex type IDs = content %d attrs %d", read.contentModel, read.attributeUseSet)
 	}
-	wantInfo := NewTypeInfo(TypeInfoShape{Block: ct.Block, Abstract: ct.Abstract})
+	wantInfo := newTypeInfo(typeInfoShape{Block: ct.Block, Abstract: ct.Abstract})
 	if got := read.typeInfo(); got != wantInfo {
 		t.Fatalf("typeInfo() = %+v, want %+v", got, wantInfo)
 	}
-	wantSimple := NewSimpleContentTypeRead(SimpleContentTypeReadShape{Type: ct.TextType, Present: ct.SimpleContent()})
+	wantSimple := newSimpleContentTypeRead(simpleContentTypeReadShape{Type: ct.TextType, Present: ct.SimpleContent()})
 	if got := read.simpleContent(); got != wantSimple {
 		t.Fatalf("simpleContent() = %+v, want %+v", got, wantSimple)
 	}
@@ -285,7 +305,7 @@ func TestNewSchemaRuntimeSharesSimpleTypeTableWithDerivationIndex(t *testing.T) 
 	if mask, ok := reads.TypeDerivations.derivation(SimpleRef(0), SimpleRef(1), nil); !ok || mask != DerivationRestriction {
 		t.Fatalf("union derivation = %08b, %v; want restriction, true", mask, ok)
 	}
-	audit := schemaAudit{Schema: Schema{runtime: reads}, build: build}
+	audit := schemaAudit{Schema: Schema{runtime: reads}, build: build, contentModelWork: unlimitedContentModelWork}
 	audit.runtime.SimpleTypeCold = newSimpleTypeColdReadTable(build.SimpleTypes)
 	if err := validateTypeDerivations(&audit); err == nil || !strings.Contains(err.Error(), "do not share the simple type table") {
 		t.Fatalf("validateTypeDerivations(distinct table) error = %v, want shared-owner invariant", err)

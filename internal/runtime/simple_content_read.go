@@ -1,38 +1,38 @@
 package runtime
 
-// SimpleContentTypeReadShape is the runtime-read projection needed to choose
+// simpleContentTypeReadShape is the runtime-read projection needed to choose
 // the simple type used for element text validation.
-type SimpleContentTypeReadShape struct {
+type simpleContentTypeReadShape struct {
 	Type    SimpleTypeID
 	Present bool
 }
 
-// SimpleContentTypeRead exposes simple-content type facts without exposing the
+// simpleContentTypeRead exposes simple-content type facts without exposing the
 // raw complex-type table.
-type SimpleContentTypeRead struct {
+type simpleContentTypeRead struct {
 	typ     SimpleTypeID
 	present bool
 }
 
-// NewSimpleContentTypeRead returns the immutable simple-content type
+// newSimpleContentTypeRead returns the immutable simple-content type
 // projection for one complex type.
-func NewSimpleContentTypeRead(shape SimpleContentTypeReadShape) SimpleContentTypeRead {
+func newSimpleContentTypeRead(shape simpleContentTypeReadShape) simpleContentTypeRead {
 	typ := shape.Type
 	if !shape.Present {
 		typ = NoSimpleType
 	}
-	return SimpleContentTypeRead{
+	return simpleContentTypeRead{
 		typ:     typ,
 		present: shape.Present,
 	}
 }
 
 // TypeID returns the text type used for simple-content validation.
-func (r SimpleContentTypeRead) TypeID() SimpleTypeID {
+func (r simpleContentTypeRead) TypeID() SimpleTypeID {
 	return r.typ
 }
 
 // HasSimpleContent reports whether the complex type has simple content.
-func (r SimpleContentTypeRead) HasSimpleContent() bool {
+func (r simpleContentTypeRead) HasSimpleContent() bool {
 	return r.present
 }

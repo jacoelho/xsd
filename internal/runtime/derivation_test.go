@@ -42,7 +42,7 @@ func newTypeDerivationReadForTest(
 	t *testing.T,
 	simpleTypes []SimpleType,
 	complexTypes []ComplexType,
-) TypeDerivationRead {
+) typeDerivationRead {
 	t.Helper()
 	if len(complexTypes) == 0 {
 		complexTypes = []ComplexType{{Derivation: DerivationKindNone}}
@@ -61,10 +61,10 @@ func newDerivationRuntimeStub(simpleTypes []SimpleType, complexTypes []ComplexTy
 		complex: make([]ComplexTypeDerivation, len(complexTypes)),
 	}
 	for i := range simpleTypes {
-		stub.simple[i] = NewSimpleTypeDerivationForSimpleType(simpleTypes[i])
+		stub.simple[i] = newSimpleTypeDerivationForSimpleType(simpleTypes[i])
 	}
 	for i := range complexTypes {
-		stub.complex[i] = NewComplexTypeDerivationForComplexType(complexTypes[i])
+		stub.complex[i] = newComplexTypeDerivationForComplexType(complexTypes[i])
 	}
 	return stub
 }
@@ -123,7 +123,7 @@ func TestEqualComplexTypeDerivations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := EqualComplexTypeDerivations(tt.a, tt.b); got != tt.want {
+			if got := equalComplexTypeDerivations(tt.a, tt.b); got != tt.want {
 				t.Fatalf("EqualComplexTypeDerivations() = %v, want %v", got, tt.want)
 			}
 		})
@@ -138,7 +138,7 @@ func TestComplexTypeDerivationForComplexType(t *testing.T) {
 		Derivation: DerivationKindExtension,
 		Block:      DerivationRestriction,
 	}
-	projection := NewComplexTypeDerivationForComplexType(ct)
+	projection := newComplexTypeDerivationForComplexType(ct)
 	if projection != (ComplexTypeDerivation{
 		Base:  ComplexRef(1),
 		Kind:  DerivationKindExtension,
@@ -146,24 +146,24 @@ func TestComplexTypeDerivationForComplexType(t *testing.T) {
 	}) {
 		t.Fatalf("NewComplexTypeDerivationForComplexType() = %+v, want projected complex type facts", projection)
 	}
-	if !EqualComplexTypeDerivationForComplexType(projection, ct) {
+	if !equalComplexTypeDerivationForComplexType(projection, ct) {
 		t.Fatal("EqualComplexTypeDerivationForComplexType() = false, want true")
 	}
-	if EqualComplexTypeDerivationForComplexType(projection, ComplexType{
+	if equalComplexTypeDerivationForComplexType(projection, ComplexType{
 		Base:       ComplexRef(2),
 		Derivation: DerivationKindExtension,
 		Block:      DerivationRestriction,
 	}) {
 		t.Fatal("EqualComplexTypeDerivationForComplexType() accepted wrong base")
 	}
-	if EqualComplexTypeDerivationForComplexType(projection, ComplexType{
+	if equalComplexTypeDerivationForComplexType(projection, ComplexType{
 		Base:       ComplexRef(1),
 		Derivation: DerivationKindRestriction,
 		Block:      DerivationRestriction,
 	}) {
 		t.Fatal("EqualComplexTypeDerivationForComplexType() accepted wrong derivation kind")
 	}
-	if EqualComplexTypeDerivationForComplexType(projection, ComplexType{
+	if equalComplexTypeDerivationForComplexType(projection, ComplexType{
 		Base:       ComplexRef(1),
 		Derivation: DerivationKindExtension,
 	}) {
@@ -179,7 +179,7 @@ func TestSimpleTypeDerivationForSimpleType(t *testing.T) {
 		Base:    NoSimpleType,
 		Variety: SimpleVarietyUnion,
 	}
-	projection := NewSimpleTypeDerivationForSimpleType(st)
+	projection := newSimpleTypeDerivationForSimpleType(st)
 	if projection.Base != NoSimpleType ||
 		projection.Variety != SimpleVarietyUnion ||
 		!slices.Equal(projection.Union, []SimpleTypeID{1, 2}) {
@@ -189,14 +189,14 @@ func TestSimpleTypeDerivationForSimpleType(t *testing.T) {
 	if projection.Union[0] != 1 {
 		t.Fatalf("NewSimpleTypeDerivationForSimpleType() aliased union slice: %+v", projection)
 	}
-	if !EqualSimpleTypeDerivationForSimpleType(projection, SimpleType{
+	if !equalSimpleTypeDerivationForSimpleType(projection, SimpleType{
 		Union:   []SimpleTypeID{1, 2},
 		Base:    NoSimpleType,
 		Variety: SimpleVarietyUnion,
 	}) {
 		t.Fatal("EqualSimpleTypeDerivationForSimpleType() = false, want true")
 	}
-	if EqualSimpleTypeDerivationForSimpleType(projection, SimpleType{
+	if equalSimpleTypeDerivationForSimpleType(projection, SimpleType{
 		Union:   []SimpleTypeID{1, 2},
 		Base:    3,
 		Variety: SimpleVarietyUnion,
@@ -242,30 +242,30 @@ func TestTypeDerivationRead(t *testing.T) {
 		Block:      DerivationRestriction,
 	}}
 
-	if err := ValidateTypeDerivationReadProjection(read, 0, simpleTypes, complexTypes); err != nil {
+	if err := validateTypeDerivationReadProjection(read, 0, simpleTypes, complexTypes); err != nil {
 		t.Fatalf("ValidateTypeDerivationReadProjection() error = %v", err)
 	}
-	if err := ValidateTypeDerivationReadProjection(read, 1, simpleTypes, complexTypes); err == nil || err.Error() != "type derivation projection stores invalid anyType" {
+	if err := validateTypeDerivationReadProjection(read, 1, simpleTypes, complexTypes); err == nil || err.Error() != "type derivation projection stores invalid anyType" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(anyType) error = %v, want anyType invariant", err)
 	}
 	wrongSimpleCount := read
 	wrongSimpleIndex := *read.index
 	wrongSimpleIndex.simpleIn = nil
 	wrongSimpleCount.index = &wrongSimpleIndex
-	if err := ValidateTypeDerivationReadProjection(wrongSimpleCount, 0, simpleTypes, complexTypes); err == nil || err.Error() != "simple type derivation projection count does not match types" {
+	if err := validateTypeDerivationReadProjection(wrongSimpleCount, 0, simpleTypes, complexTypes); err == nil || err.Error() != "simple type derivation projection count does not match types" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(simple count) error = %v, want simple count invariant", err)
 	}
 	wrongComplexCount := read
 	wrongComplexIndex := *read.index
 	wrongComplexIndex.complexIn = nil
 	wrongComplexCount.index = &wrongComplexIndex
-	if err := ValidateTypeDerivationReadProjection(wrongComplexCount, 0, simpleTypes, complexTypes); err == nil || err.Error() != "complex type derivation projection count does not match types" {
+	if err := validateTypeDerivationReadProjection(wrongComplexCount, 0, simpleTypes, complexTypes); err == nil || err.Error() != "complex type derivation projection count does not match types" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(complex count) error = %v, want complex count invariant", err)
 	}
-	if err := ValidateTypeDerivationReadProjection(read, 0, changedSimpleTypes, complexTypes); err == nil || err.Error() != "type derivation union reads do not match types" {
+	if err := validateTypeDerivationReadProjection(read, 0, changedSimpleTypes, complexTypes); err == nil || err.Error() != "type derivation union reads do not match types" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(simple mismatch) error = %v, want simple mismatch invariant", err)
 	}
-	if err := ValidateTypeDerivationReadProjection(read, 0, simpleTypes, changedComplexTypes); err == nil || err.Error() != "type derivation index does not match type graph" {
+	if err := validateTypeDerivationReadProjection(read, 0, simpleTypes, changedComplexTypes); err == nil || err.Error() != "type derivation index does not match type graph" {
 		t.Fatalf("ValidateTypeDerivationReadProjection(complex mismatch) error = %v, want complex mismatch invariant", err)
 	}
 }
@@ -511,20 +511,20 @@ func TestTypeDerivationProjectionAuditRejectsIndexCorruption(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		mutate func(*TypeDerivationRead)
+		mutate func(*typeDerivationRead)
 	}{
-		{"missing index", func(read *TypeDerivationRead) { read.index = nil }},
-		{"simple type table", func(read *TypeDerivationRead) { read.index.simpleTypes = nil }},
-		{"simple interval", func(read *TypeDerivationRead) { read.index.simpleOut[0]++ }},
-		{"complex interval", func(read *TypeDerivationRead) { read.index.complexIn[1] = 0 }},
-		{"extension prefix", func(read *TypeDerivationRead) { read.index.complexExtensions[1] = 0 }},
-		{"simple anchor", func(read *TypeDerivationRead) { read.index.complexSimpleBase[1] = 0 }},
+		{"missing index", func(read *typeDerivationRead) { read.index = nil }},
+		{"simple type table", func(read *typeDerivationRead) { read.index.simpleTypes = nil }},
+		{"simple interval", func(read *typeDerivationRead) { read.index.simpleOut[0]++ }},
+		{"complex interval", func(read *typeDerivationRead) { read.index.complexIn[1] = 0 }},
+		{"extension prefix", func(read *typeDerivationRead) { read.index.complexExtensions[1] = 0 }},
+		{"simple anchor", func(read *typeDerivationRead) { read.index.complexSimpleBase[1] = 0 }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			read := newTypeDerivationReadForTest(t, simple, complexTypes)
 			test.mutate(&read)
-			if err := ValidateTypeDerivationReadProjection(read, 0, simple, complexTypes); err == nil {
+			if err := validateTypeDerivationReadProjection(read, 0, simple, complexTypes); err == nil {
 				t.Fatal("ValidateTypeDerivationReadProjection() accepted index corruption")
 			}
 		})

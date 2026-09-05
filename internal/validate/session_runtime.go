@@ -204,8 +204,7 @@ func (s *session) finishTokenStream(err error) error {
 type tokenValidationMode uint8
 
 const (
-	tokenValidationInvalid tokenValidationMode = iota
-	tokenValidationSemantic
+	tokenValidationSemantic tokenValidationMode = iota
 	tokenValidationSyntaxOnly
 )
 
@@ -225,23 +224,8 @@ func (s *session) validateToken(tok stream.Token, mode tokenValidationMode) erro
 	return nil
 }
 
-func validateTokenMode(mode tokenValidationMode) error {
-	switch mode {
-	case tokenValidationSemantic, tokenValidationSyntaxOnly:
-		return nil
-	case tokenValidationInvalid:
-		return xsderrors.InternalInvariant("token validation mode is invalid")
-	default:
-		return xsderrors.InternalInvariant("token validation mode is unknown")
-	}
-}
-
 func (s *session) validateCharacterToken(tok stream.Token, mode tokenValidationMode) error {
-	kind := CharacterDataText
-	if tok.CDATA {
-		kind = CharacterDataCDATA
-	}
-	err := s.chars(tok.Line, tok.Column, tok.Data, kind)
+	err := s.chars(tok.Line, tok.Column, tok.Data, tok.TextKind)
 	if err == nil || mode == tokenValidationSyntaxOnly {
 		return err
 	}
@@ -807,9 +791,15 @@ func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment
 	if !assessment.attribute.present {
 		return assessment.typeInfo, false, nil
 	}
-	override, err := resolveXSIType(s.rt, assessment.attribute.value, s.qnameResolver(), s.schemaLocationHintLookup(), assessment.ctx)
-	if err != nil {
-		return s.recoverXSITypeError(start, assessment.typeInfo, err)
+	override := start.typ
+	if start.typeOrigin == selectedTypeRootXSI {
+		start.typeOrigin = selectedTypeDefault
+	} else {
+		var err error
+		override, err = resolveXSIType(s.rt, assessment.attribute.value, s.qnameResolver(), s.schemaLocationHintLookup(), assessment.ctx)
+		if err != nil {
+			return s.recoverXSITypeError(start, assessment.typeInfo, err)
+		}
 	}
 	overrideInfo, known := s.rt.TypeInfo(override)
 	if !known {
@@ -844,15 +834,29 @@ func (s *session) recoverElementStartAssessment(start *schemaStart, err error) e
 	return s.recover(err)
 }
 
+type selectedTypeOrigin uint8
+
+const (
+	selectedTypeDefault selectedTypeOrigin = iota
+	selectedTypeRootXSI
+)
+
 type schemaStart struct {
-	element runtime.ElementID
-	typ     runtime.TypeID
-	mode    elementMode
-	invalid bool
+	element    runtime.ElementID
+	typ        runtime.TypeID
+	mode       elementMode
+	typeOrigin selectedTypeOrigin
+	invalid    bool
 }
 
 func assessedSchemaStart(element runtime.ElementID, typ runtime.TypeID) schemaStart {
 	return schemaStart{element: element, typ: typ, mode: elementAssessed}
+}
+
+// Root selection must resolve xsi:type before common nil/type assessment.
+// Its origin is consumed during that start and never retained in a frame.
+func rootXSITypeStart(typ runtime.TypeID) schemaStart {
+	return schemaStart{element: runtime.NoElement, typ: typ, mode: elementAssessed, typeOrigin: selectedTypeRootXSI}
 }
 
 func wildcardSkippedSchemaStart() schemaStart {
@@ -865,7 +869,7 @@ func recoverySchemaStart() schemaStart {
 
 func (s *session) startType(rn runtime.RuntimeName, se preparedXMLStart, token stream.StartElement, flags xsiStartAttributeFlags, line, col int) (acceptedChild, error) {
 	if s.doc.Depth() == 0 {
-		start, err := s.rootStartType(rn, se, token, flags, line, col)
+		start, err := s.rootStartType(rn, se, token, line, col)
 		return acceptedChild{start: start}, err
 	}
 	parent, ok := s.doc.Current()
@@ -884,32 +888,31 @@ func (s *session) startType(rn runtime.RuntimeName, se preparedXMLStart, token s
 	return accepted, nil
 }
 
-func (s *session) rootStartType(rn runtime.RuntimeName, se preparedXMLStart, token stream.StartElement, flags xsiStartAttributeFlags, line, col int) (schemaStart, error) {
-	input := RootInput{
-		Name:              se.name,
-		RuntimeName:       rn,
-		Values:            &s.valueStrings,
-		ResolveQNameParts: s.qnameResolverForAttrs(flags),
-		HasSchemaLocation: s.schemaLocationHintLookup(),
-		Context:           s.startContext(line, col),
+func (s *session) rootStartType(rn runtime.RuntimeName, se preparedXMLStart, token stream.StartElement, line, col int) (schemaStart, error) {
+	if id, decl, ok := s.rt.RootElement(rn); ok {
+		return assessedSchemaStart(id, decl.Type), nil
 	}
-	start, err := RootStart(s.rt, token.Attr, input)
-	invalid := false
-	if err != nil {
-		if !start.Recover {
+	ctx := s.startContext(line, col)
+	hasSchemaLocation := s.schemaLocationHintLookup()
+	for i := range token.Attr {
+		a := &token.Attr[i]
+		if !IsXSITypeName(a.Name) {
+			continue
+		}
+		typ, err := resolveXSIType(s.rt, a.StringValue(&s.valueStrings), s.qnameResolver(), hasSchemaLocation, ctx)
+		if err != nil {
 			return schemaStart{}, err
 		}
-		if recoverErr := s.recover(err); recoverErr != nil {
-			return schemaStart{}, recoverErr
-		}
-		invalid = true
+		return rootXSITypeStart(typ), nil
 	}
-	if start.Skip {
-		return recoverySchemaStart(), nil
+	if hasSchemaLocation != nil && hasSchemaLocation(rn.NS) {
+		return schemaStart{}, unsupportedSchemaLocation(ctx, vocab.XSDElemElement, rn)
 	}
-	out := assessedSchemaStart(start.Element, start.Type)
-	out.invalid = invalid
-	return out, nil
+	err := validation(ctx, xsderrors.CodeValidationRoot, "root element is not declared: "+formatXMLName(se.name))
+	if recoverErr := s.recover(err); recoverErr != nil {
+		return schemaStart{}, recoverErr
+	}
+	return recoverySchemaStart(), nil
 }
 
 func (s *session) startContext(line, col int) StartContext {
@@ -965,7 +968,7 @@ func (s *session) newSchemaFrame(
 	}, nil
 }
 
-func (s *session) chars(line, col int, data []byte, kind CharacterDataKind) error {
+func (s *session) chars(line, col int, data []byte, kind stream.CharacterDataKind) error {
 	if s.doc.syntaxOnly && s.doc.Depth() != 0 {
 		return nil
 	}

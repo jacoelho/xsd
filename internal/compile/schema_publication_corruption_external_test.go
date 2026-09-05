@@ -2925,3 +2925,113 @@ func TestFreezeRejectsInconsistentComplexContent(t *testing.T) {
 		})
 	}
 }
+
+func TestPublishedElementValueConstraints(t *testing.T) {
+	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="SimpleContent"><xs:simpleContent><xs:extension base="xs:string"/></xs:simpleContent></xs:complexType>
+  <xs:complexType name="Mixed" mixed="true"/>
+  <xs:element name="plain0" type="xs:string"/>
+  <xs:element name="fixed" type="xs:decimal" fixed="5" abstract="true" nillable="true" block="restriction"/>
+  <xs:element name="gap1" type="xs:string"/>
+  <xs:element name="default" type="xs:string" default="shared"/>
+  <xs:element name="gap2" type="xs:string"/>
+  <xs:element name="fixedSharedA" type="xs:decimal" fixed="5"/>
+  <xs:element name="gap3" type="xs:string"/>
+  <xs:element name="fixedSharedB" type="xs:decimal" fixed="5"/>
+  <xs:element name="simpleContent" type="SimpleContent" default="sc"/>
+  <xs:element name="gap4" type="xs:string"/>
+  <xs:element name="defaultShared" type="xs:string" default="shared"/>
+  <xs:element name="emptyDefault" type="xs:string" default=""/>
+  <xs:element name="mixed" type="Mixed" default="mixed"/>
+</xs:schema>`)
+	stringID, decimalID := build.Builtin.String, build.Builtin.Decimal
+	simpleContent := runtime.ComplexRef(complexBuildTypeIDByName(t, build, "SimpleContent"))
+	mixed := runtime.ComplexRef(complexBuildTypeIDByName(t, build, "Mixed"))
+	tests := []struct {
+		name, lexical, canonical       string
+		owner                          runtime.TypeID
+		valueType                      runtime.SimpleTypeID
+		fixed, def, abstract, nillable bool
+		block                          runtime.DerivationMask
+	}{
+		{name: "plain0", owner: runtime.SimpleRef(stringID)},
+		{name: "fixed", owner: runtime.SimpleRef(decimalID), valueType: decimalID, lexical: "5", canonical: "5.0", fixed: true, abstract: true, nillable: true, block: runtime.DerivationRestriction},
+		{name: "gap1", owner: runtime.SimpleRef(stringID)},
+		{name: "default", owner: runtime.SimpleRef(stringID), valueType: stringID, lexical: "shared", canonical: "shared", def: true},
+		{name: "gap2", owner: runtime.SimpleRef(stringID)},
+		{name: "fixedSharedA", owner: runtime.SimpleRef(decimalID), valueType: decimalID, lexical: "5", canonical: "5.0", fixed: true},
+		{name: "gap3", owner: runtime.SimpleRef(stringID)},
+		{name: "fixedSharedB", owner: runtime.SimpleRef(decimalID), valueType: decimalID, lexical: "5", canonical: "5.0", fixed: true},
+		{name: "simpleContent", owner: simpleContent, valueType: stringID, lexical: "sc", canonical: "sc", def: true},
+		{name: "gap4", owner: runtime.SimpleRef(stringID)},
+		{name: "defaultShared", owner: runtime.SimpleRef(stringID), valueType: stringID, lexical: "shared", canonical: "shared", def: true},
+		{name: "emptyDefault", owner: runtime.SimpleRef(stringID), valueType: stringID, def: true},
+		{name: "mixed", owner: mixed, valueType: runtime.NoSimpleType, lexical: "mixed", canonical: "mixed", def: true},
+	}
+	ids := make(map[string]runtime.ElementID, len(tests))
+	names := make(map[string]runtime.QName, len(tests))
+	for _, test := range tests {
+		q := mustQName(t, &build.Names, test.name)
+		id, ok := build.GlobalElements[q]
+		if !ok {
+			t.Fatalf("element %q is missing from compiled fixture", test.name)
+		}
+		ids[test.name], names[test.name] = id, q
+	}
+	count := runtime.ElementID(len(build.Elements)) //nolint:gosec // The fixed fixture contains thirteen element declarations.
+	fixedAlias := build.Elements[ids["fixed"]].Fixed
+	defaultAlias := build.Elements[ids["default"]].Default
+	build.Elements[ids["fixedSharedA"]].Fixed = fixedAlias
+	build.Elements[ids["fixedSharedB"]].Fixed = fixedAlias
+	build.Elements[ids["defaultShared"]].Default = defaultAlias
+	published, err := publishSchema(build)
+	if err != nil {
+		t.Fatalf("PublishSchema() error = %v", err)
+	}
+	for phase, label := range []string{"published", "after source alias mutation"} {
+		if phase == 1 {
+			fixedAlias.Lexical, fixedAlias.Canonical, fixedAlias.Value = "poison", "poison", runtime.SimpleValue{}
+			defaultAlias.Lexical, defaultAlias.Canonical, defaultAlias.Value = "poison", "poison", runtime.SimpleValue{}
+		}
+		for _, test := range tests {
+			t.Run(label+"/"+test.name, func(t *testing.T) {
+				id := ids[test.name]
+				constraints, present, valid := published.ElementValueConstraints(id)
+				if !present || !valid || constraints.OwnerType() != test.owner || constraints.HasAny() != (test.fixed || test.def) {
+					t.Fatalf("ElementValueConstraints(%d) = %+v, %v, %v; want owner %v, any %v, present/valid", id, constraints, present, valid, test.owner, test.fixed || test.def)
+				}
+				fixed, hasFixed := constraints.FixedValue()
+				def, hasDefault := constraints.DefaultValueConstraint()
+				if hasFixed != test.fixed || hasDefault != test.def {
+					t.Fatalf("fixed/default presence = %v/%v, want %v/%v", hasFixed, hasDefault, test.fixed, test.def)
+				}
+				value := def
+				if test.fixed {
+					value = fixed
+				}
+				if test.fixed || test.def {
+					if value.LexicalText() != test.lexical || value.CanonicalText() != test.canonical || value.SimpleValue().Canonical != test.canonical || value.SimpleValue().Type != test.valueType {
+						t.Fatalf("constraint = lexical %q, canonical %q, value %+v; want %q, %q, type %d", value.LexicalText(), value.CanonicalText(), value.SimpleValue(), test.lexical, test.canonical, test.valueType)
+					}
+				}
+				if (!test.fixed && fixed != (runtime.ValueConstraintRead{})) || (!test.def && def != (runtime.ValueConstraintRead{})) {
+					t.Fatalf("absent constraint retained value: fixed %+v, default %+v", fixed, def)
+				}
+				wantStart := runtime.ElementStartInfo{Type: test.owner, Block: test.block, Abstract: test.abstract, Nillable: test.nillable, Fixed: test.fixed, Default: test.def}
+				if start, ok := published.Element(id); !ok || start != wantStart {
+					t.Fatalf("Element(%d) = %+v, %v; want %+v", id, start, ok, wantStart)
+				}
+				rootID, start, ok := published.RootElement(runtime.RuntimeName{Name: names[test.name], Known: true})
+				if !ok || rootID != id || start != wantStart {
+					t.Fatalf("RootElement(%q) = %d, %+v, %v; want %d, %+v", test.name, rootID, start, ok, id, wantStart)
+				}
+			})
+		}
+	}
+	for _, id := range []runtime.ElementID{runtime.NoElement, count, count + 1} {
+		constraints, present, valid := published.ElementValueConstraints(id)
+		if constraints != (runtime.ElementValueConstraints{}) || present || valid != (id == runtime.NoElement) {
+			t.Fatalf("ElementValueConstraints(%d) = %+v, %v, %v; want zero, absent, validity %v", id, constraints, present, valid, id == runtime.NoElement)
+		}
+	}
+}

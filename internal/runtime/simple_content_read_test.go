@@ -3,7 +3,7 @@ package runtime
 import "testing"
 
 func TestSimpleContentTypeRead(t *testing.T) {
-	read := NewSimpleContentTypeRead(SimpleContentTypeReadShape{
+	read := newSimpleContentTypeRead(simpleContentTypeReadShape{
 		Type:    7,
 		Present: true,
 	})
@@ -11,7 +11,7 @@ func TestSimpleContentTypeRead(t *testing.T) {
 		t.Fatalf("SimpleContentTypeRead = type %d present %v, want 7 true", read.TypeID(), read.HasSimpleContent())
 	}
 
-	absent := NewSimpleContentTypeRead(SimpleContentTypeReadShape{
+	absent := newSimpleContentTypeRead(simpleContentTypeReadShape{
 		Type:    7,
 		Present: false,
 	})
@@ -68,7 +68,7 @@ func TestSimpleContentTypeReadForComplexType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			read := NewSimpleContentTypeRead(SimpleContentTypeReadShape{
+			read := newSimpleContentTypeRead(simpleContentTypeReadShape{
 				Type: tt.ct.TextType, Present: tt.ct.SimpleContent(),
 			})
 			if read.TypeID() != tt.want || read.HasSimpleContent() != tt.present {

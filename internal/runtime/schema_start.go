@@ -30,7 +30,7 @@ func (rt *Schema) Type(name QName) (TypeID, bool) {
 
 // GlobalType returns the global type declaration for name.
 func (rt *Schema) GlobalType(name QName) (TypeID, bool) {
-	return GlobalTypeByName(rt.runtime.GlobalTypes, rt.runtime.TypeDerivations, name)
+	return globalTypeByName(rt.runtime.GlobalTypes, rt.runtime.TypeDerivations, name)
 }
 
 // LookupQName returns the runtime QName for a namespace URI and local name.
@@ -50,7 +50,7 @@ func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 		if !ok {
 			return TypeInfo{}, false
 		}
-		return NewTypeInfo(TypeInfoShape{Unavailable: availability == simpleTypeAvailabilityUnavailable}), true
+		return newTypeInfo(typeInfoShape{Unavailable: availability == simpleTypeAvailabilityUnavailable}), true
 	}
 	complexID, ok := id.Complex()
 	if !ok || !ValidComplexTypeID(complexID, len(rt.runtime.ComplexTypes)) {
@@ -110,5 +110,5 @@ func (rt *Schema) GlobalAttribute(name QName) (id AttributeID, present, valid bo
 
 // WildcardView returns a validation-facing wildcard view.
 func (rt *Schema) WildcardView(id WildcardID) (WildcardView, bool) {
-	return WildcardViewByID(rt.runtime.Wildcards, id)
+	return wildcardViewByID(rt.runtime.Wildcards, id)
 }

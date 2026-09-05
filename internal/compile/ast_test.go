@@ -4,6 +4,8 @@ import (
 	"encoding/xml"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/stream"
 )
 
 func TestSchemaParseStateAccumulatesOneTextRepresentation(t *testing.T) {
@@ -12,7 +14,7 @@ func TestSchemaParseStateAccumulatesOneTextRepresentation(t *testing.T) {
 	node := &rawNode{}
 	state := schemaParseState{stack: []schemaParseFrame{{node: node}}}
 	for _, chunk := range [][]byte{[]byte("first"), []byte(" "), []byte("second")} {
-		if err := state.chars(chunk, 1, 1); err != nil {
+		if err := state.chars(chunk, stream.CharacterDataText, 1, 1); err != nil {
 			t.Fatalf("chars() error = %v", err)
 		}
 	}

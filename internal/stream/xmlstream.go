@@ -37,6 +37,21 @@ const (
 	maxByteStringCacheLen     = 256
 )
 
+// CharacterDataKind preserves the lexical origin needed to distinguish legal
+// document whitespace from decoded references and CDATA sections.
+type CharacterDataKind uint8
+
+const (
+	// CharacterDataInvalid is not a character-data source.
+	CharacterDataInvalid CharacterDataKind = iota
+	// CharacterDataText contains only literal XML character data.
+	CharacterDataText
+	// CharacterDataReference contains at least one decoded entity or character reference.
+	CharacterDataReference
+	// CharacterDataCDATA comes from a CDATA section.
+	CharacterDataCDATA
+)
+
 // Token is one borrowed parser token. Byte slices in token fields are valid
 // only until the next parser call.
 type Token struct {
@@ -47,7 +62,7 @@ type Token struct {
 	Line      int
 	Column    int
 	Kind      TokenKind
-	CDATA     bool
+	TextKind  CharacterDataKind
 }
 
 var (
@@ -343,8 +358,10 @@ func (p *Parser) readCharData(first byte) (Token, error) {
 	line, col := p.br.pos()
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
+	kind := CharacterDataText
 	switch first {
 	case '&':
+		kind = CharacterDataReference
 		if err := p.readEntity(&p.textBuf); err != nil {
 			return Token{}, err
 		}
@@ -367,7 +384,7 @@ func (p *Parser) readCharData(first byte) (Token, error) {
 	for {
 		chunk, err := p.br.buffered()
 		if IsOnlyEOF(err) {
-			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
+			return Token{Kind: KindCharData, TextKind: kind, Data: p.textBuf, Line: line, Column: col}, nil
 		}
 		if err != nil {
 			return Token{}, err
@@ -387,7 +404,7 @@ func (p *Parser) readCharData(first byte) (Token, error) {
 		}
 		if b == '<' {
 			p.br.unreadByte()
-			return Token{Kind: KindCharData, Data: p.textBuf, Line: line, Column: col}, nil
+			return Token{Kind: KindCharData, TextKind: kind, Data: p.textBuf, Line: line, Column: col}, nil
 		}
 		if b == '\r' {
 			if err := p.consumeLineFeed(); err != nil {
@@ -400,6 +417,7 @@ func (p *Parser) readCharData(first byte) (Token, error) {
 			continue
 		}
 		if b == '&' {
+			kind = CharacterDataReference
 			if err := p.readEntity(&p.textBuf); err != nil {
 				return Token{}, err
 			}
@@ -618,7 +636,7 @@ func (p *Parser) readCDATAChunk(line, col int) (Token, error) {
 }
 
 func (p *Parser) cdataToken(line, col int) Token {
-	return Token{Kind: KindCharData, Data: p.textBuf, CDATA: true, Line: line, Column: col}
+	return Token{Kind: KindCharData, Data: p.textBuf, TextKind: CharacterDataCDATA, Line: line, Column: col}
 }
 
 func (p *Parser) readCDATAByte(matched *int) (bool, error) {

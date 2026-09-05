@@ -13,10 +13,10 @@ func TestGlobalLookupHelpers(t *testing.T) {
 		[]SimpleType{{Base: NoSimpleType}},
 		[]ComplexType{{Derivation: DerivationKindNone}},
 	)
-	if typ, ok := GlobalTypeByName(types, derivations, qnames["simple"]); !ok || typ != SimpleRef(0) {
+	if typ, ok := globalTypeByName(types, derivations, qnames["simple"]); !ok || typ != SimpleRef(0) {
 		t.Fatalf("GlobalTypeByName() = %v, %v; want simple 0, true", typ, ok)
 	}
-	if typ, ok := GlobalTypeByName(map[QName]TypeID{qnames["simple"]: ComplexRef(99)}, derivations, qnames["simple"]); ok || typ != (TypeID{}) {
+	if typ, ok := globalTypeByName(map[QName]TypeID{qnames["simple"]: ComplexRef(99)}, derivations, qnames["simple"]); ok || typ != (TypeID{}) {
 		t.Fatalf("GlobalTypeByName(invalid) = %v, %v; want zero, false", typ, ok)
 	}
 	attributeDecls := []AttributeDeclRead{{}}
@@ -42,39 +42,39 @@ func TestNotationReadMap(t *testing.T) {
 
 	names, qnames := runtimeGlobalsFixture(t)
 	notations := map[QName]bool{qnames["notation"]: true, qnames["other"]: false}
-	read := NewNotationReadMap(&names, notations)
+	read := newNotationReadMap(&names, notations)
 	want := ExpandedName{Namespace: EmptyNamespaceURI, Local: "notation"}
 	if len(read) != 1 || !read[want] {
 		t.Fatalf("NewNotationReadMap() = %#v, want only %v", read, want)
 	}
-	if !EqualNotationReadMap(read, &names, notations) {
+	if !equalNotationReadMap(read, &names, notations) {
 		t.Fatal("EqualNotationReadMap() = false, want true")
 	}
 	read[want] = false
-	if EqualNotationReadMap(read, &names, notations) {
+	if equalNotationReadMap(read, &names, notations) {
 		t.Fatal("EqualNotationReadMap() accepted false projected notation")
 	}
 	read[want] = true
 	read[ExpandedName{Namespace: EmptyNamespaceURI, Local: "other"}] = false
-	if EqualNotationReadMap(read, &names, notations) {
+	if equalNotationReadMap(read, &names, notations) {
 		t.Fatal("EqualNotationReadMap() accepted extra projected notation")
 	}
-	if EqualNotationReadMap(nil, &names, notations) {
+	if equalNotationReadMap(nil, &names, notations) {
 		t.Fatal("EqualNotationReadMap() accepted missing projected notation")
 	}
-	if EqualNotationReadMap(map[ExpandedName]bool{want: true}, nil, notations) {
+	if equalNotationReadMap(map[ExpandedName]bool{want: true}, nil, notations) {
 		t.Fatal("EqualNotationReadMap() accepted nil name table")
 	}
-	if got := NewNotationReadMap(&names, map[QName]bool{qnames["other"]: false}); got != nil {
+	if got := newNotationReadMap(&names, map[QName]bool{qnames["other"]: false}); got != nil {
 		t.Fatalf("NewNotationReadMap(false-only) = %#v, want nil", got)
 	}
-	if !EqualNotationReadMap(nil, &names, map[QName]bool{qnames["other"]: false}) {
+	if !equalNotationReadMap(nil, &names, map[QName]bool{qnames["other"]: false}) {
 		t.Fatal("EqualNotationReadMap(false-only) = false, want true")
 	}
-	if err := ValidateNotationReadMap(NewNotationReadMap(&names, notations), &names, notations); err != nil {
+	if err := validateNotationReadMap(newNotationReadMap(&names, notations), &names, notations); err != nil {
 		t.Fatalf("ValidateNotationReadMap() error = %v", err)
 	}
-	if err := ValidateNotationReadMap(nil, &names, notations); err == nil || err.Error() != "notation read map does not match notations" {
+	if err := validateNotationReadMap(nil, &names, notations); err == nil || err.Error() != "notation read map does not match notations" {
 		t.Fatalf("ValidateNotationReadMap(missing) error = %v, want notation invariant", err)
 	}
 }

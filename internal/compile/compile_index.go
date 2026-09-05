@@ -20,7 +20,6 @@ func (c *compiler) index() error {
 func (c *compiler) indexSchemaDocument(document schemaSetDocument) error {
 	doc := document.doc
 	ctx := newSchemaContext(document)
-	c.contexts[doc] = ctx
 	for child := range doc.root.xsdChildren() {
 		if err := c.indexTopLevelSchemaChild(child, ctx); err != nil {
 			return err
@@ -33,7 +32,6 @@ func newSchemaContext(document schemaSetDocument) *schemaContext {
 	doc := document.doc
 	defaults := doc.defaults
 	ctx := &schemaContext{
-		doc:              doc,
 		targetNS:         defaults.TargetNamespace,
 		elementQualified: defaults.ElementQualified,
 		attrQualified:    defaults.AttributeQualified,

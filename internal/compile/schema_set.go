@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"errors"
 	"hash/maphash"
+	"maps"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/source"
@@ -40,7 +41,6 @@ type schemaSetLoader struct {
 	pendingReferences map[string][]*schemaReference
 	dependencyWork    *workBudget
 	documents         []schemaSetDocument
-	loadedSource      []loadedSchemaSource
 	totalBytes        int64
 	references        int
 	resolvedLimit     int
@@ -54,11 +54,6 @@ type loadedSchemaDocument struct {
 	data         []byte
 	index        int
 	explicitRoot bool
-}
-
-type loadedSchemaSource struct {
-	doc  *rawDoc
-	data []byte
 }
 
 type schemaSourceRequirement uint8
@@ -257,10 +252,6 @@ func loadSchemaPlanOwned(sources []source.Source, limits Limits, dependencyWork 
 	return graph.plan()
 }
 
-func (c *compiler) load(sources []source.Source) error {
-	return c.loadOwned(slices.Clone(sources))
-}
-
 func (c *compiler) loadOwned(sources []source.Source) error {
 	plan, err := loadSchemaPlanOwned(sources, c.limits, &c.dependencyWork)
 	if err != nil {
@@ -308,23 +299,16 @@ func (l *schemaSetLoader) processLoadRequest(item schemaLoadRequest, queue *[]sc
 		}
 		item = resolved
 	}
-	loadedSource, ok, err := l.read(item, queue)
-	if err != nil {
-		return err
-	}
-	if ok {
-		l.loadedSource = append(l.loadedSource, loadedSource)
-	}
-	return nil
+	return l.read(item, queue)
 }
 
 func (l *schemaSetLoader) appendIdentifiedDocuments() {
 	identifiedSources := l.identifySchemaDocumentContents()
 	for _, identified := range identifiedSources {
-		loaded := l.byKey[identified.source.doc.key]
+		loaded := l.byKey[identified.doc.key]
 		l.documents = append(l.documents, schemaSetDocument{
-			doc:             identified.source.doc,
-			imports:         schemaDocumentImports(identified.source.doc.references),
+			doc:             identified.doc,
+			imports:         schemaDocumentImports(identified.doc.references),
 			explicitRoot:    loaded.explicitRoot,
 			contentIdentity: identified.identity,
 		})
@@ -342,11 +326,11 @@ func (l *schemaSetLoader) admitResolvedSource(key string) error {
 	return nil
 }
 
-func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadRequest) (loadedSchemaSource, bool, error) {
+func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadRequest) error {
 	src := item.source
 	name := src.Name()
 	if name == "" {
-		return loadedSchemaSource{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required")
 	}
 	key := source.Key(name)
 	if loaded, ok := l.byKey[key]; ok {
@@ -354,7 +338,7 @@ func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadReques
 	}
 	data, acquired, err := l.acquireNewSource(item)
 	if err != nil || !acquired {
-		return loadedSchemaSource{}, false, err
+		return err
 	}
 	return l.parseNewSource(item, key, data, queue)
 }
@@ -401,27 +385,27 @@ func classifySchemaAcquireResult(name string, result source.ReadResult, readLimi
 	return false, xsderrors.WithLocation(name, 0, 0, readErr)
 }
 
-func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string, data []byte, queue *[]schemaLoadRequest) (loadedSchemaSource, bool, error) {
+func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string, data []byte, queue *[]schemaLoadRequest) error {
 	src := item.source
 	name := src.Name()
 	parseLimits := l.limits
 	parseLimits.MaxSchemaInstantiatedNodes -= l.parsedNodes
 	doc, err := parseSchemaDocument(name, key, data, parseLimits)
 	if err != nil {
-		return loadedSchemaSource{}, false, err
+		return err
 	}
 	l.parsedNodes += doc.nodes
 	if item.ref != nil {
 		if targetErr := validateSchemaReferenceTarget(item.ref, doc); targetErr != nil {
-			return loadedSchemaSource{}, false, targetErr
+			return targetErr
 		}
 	}
 	doc.references, err = schemaDocumentReferences(doc)
 	if err != nil {
-		return loadedSchemaSource{}, false, err
+		return err
 	}
 	if err := l.bindPendingReferences(key, doc); err != nil {
-		return loadedSchemaSource{}, false, err
+		return err
 	}
 	l.byKey[key] = loadedSchemaDocument{
 		doc:          doc,
@@ -429,10 +413,7 @@ func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string, dat
 		data:         data,
 		explicitRoot: item.ref == nil,
 	}
-	if err := l.enqueueReferences(src, doc.references, queue); err != nil {
-		return loadedSchemaSource{}, false, err
-	}
-	return loadedSchemaSource{doc: doc, data: data}, true, nil
+	return l.enqueueReferences(src, doc.references, queue)
 }
 
 func (l *schemaSetLoader) readLoaded(
@@ -440,15 +421,15 @@ func (l *schemaSetLoader) readLoaded(
 	key string,
 	loaded loadedSchemaDocument,
 	queue *[]schemaLoadRequest,
-) (loadedSchemaSource, bool, error) {
+) error {
 	src := item.source
 	sameSource := loadedSchemaContainsSource(loaded, src)
 	if err := l.validateLoadedSourceBytes(item, key, loaded); err != nil {
-		return loadedSchemaSource{}, false, err
+		return err
 	}
 	if item.ref != nil {
 		if err := validateSchemaReferenceTarget(item.ref, loaded.doc); err != nil {
-			return loadedSchemaSource{}, false, err
+			return err
 		}
 	}
 	if item.ref == nil && !loaded.explicitRoot {
@@ -456,14 +437,11 @@ func (l *schemaSetLoader) readLoaded(
 		l.byKey[key] = loaded
 	}
 	if sameSource {
-		return loadedSchemaSource{}, false, nil
+		return nil
 	}
 	loaded.sources = append(loaded.sources, src)
 	l.byKey[key] = loaded
-	if err := l.enqueueReferences(src, loaded.doc.references, queue); err != nil {
-		return loadedSchemaSource{}, false, err
-	}
-	return loadedSchemaSource{}, false, nil
+	return l.enqueueReferences(src, loaded.doc.references, queue)
 }
 
 func loadedSchemaContainsSource(loaded loadedSchemaDocument, src source.Source) bool {
@@ -1053,13 +1031,12 @@ func cloneRawTree(n *rawNode, nodes map[*rawNode]*rawNode, doc *rawDoc) *rawNode
 }
 
 type identifiedSchemaDocument struct {
-	source   loadedSchemaSource
+	doc      *rawDoc
 	identity int
 }
 
 func (l *schemaSetLoader) identifySchemaDocumentContents() []identifiedSchemaDocument {
-	ordered := slices.Clone(l.loadedSource)
-	slices.SortFunc(ordered, func(a, b loadedSchemaSource) int { return cmp.Compare(a.doc.key, b.doc.key) })
+	ordered := slices.Sorted(maps.Keys(l.byKey))
 	seed := maphash.MakeSeed()
 	type contentKey struct {
 		size int
@@ -1072,7 +1049,8 @@ func (l *schemaSetLoader) identifySchemaDocumentContents() []identifiedSchemaDoc
 	seen := make(map[contentKey][]contentEntry)
 	identified := make([]identifiedSchemaDocument, 0, len(ordered))
 	nextIdentity := 1
-	for _, src := range ordered {
+	for _, sourceKey := range ordered {
+		src := l.byKey[sourceKey]
 		key := contentKey{size: len(src.data), hash: maphash.Bytes(seed, src.data)}
 		identity := 0
 		for _, entry := range seen[key] {
@@ -1086,7 +1064,7 @@ func (l *schemaSetLoader) identifySchemaDocumentContents() []identifiedSchemaDoc
 			nextIdentity++
 			seen[key] = append(seen[key], contentEntry{data: src.data, identity: identity})
 		}
-		identified = append(identified, identifiedSchemaDocument{source: src, identity: identity})
+		identified = append(identified, identifiedSchemaDocument{doc: src.doc, identity: identity})
 	}
 	return identified
 }

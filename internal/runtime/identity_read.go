@@ -259,8 +259,8 @@ func identityConstraintReadByIDPtr(reads []IdentityConstraintRead, id IdentityCo
 	return &reads[id], true
 }
 
-// IdentityConstraintReadByID returns the aggregate validation read for id.
-func IdentityConstraintReadByID(reads []IdentityConstraintRead, id IdentityConstraintID) (IdentityConstraintRead, bool) {
+// identityConstraintReadByID returns the aggregate validation read for id.
+func identityConstraintReadByID(reads []IdentityConstraintRead, id IdentityConstraintID) (IdentityConstraintRead, bool) {
 	ic, ok := identityConstraintReadByIDPtr(reads, id)
 	if !ok {
 		return IdentityConstraintRead{}, false
@@ -268,23 +268,23 @@ func IdentityConstraintReadByID(reads []IdentityConstraintRead, id IdentityConst
 	return *ic, true
 }
 
-// EqualIdentityConstraintReadProjection reports whether reads expose the same
+// equalIdentityConstraintReadProjection reports whether reads expose the same
 // validation-facing identity metadata as identities.
-func EqualIdentityConstraintReadProjection(reads []IdentityConstraintRead, identities []IdentityConstraint) bool {
+func equalIdentityConstraintReadProjection(reads []IdentityConstraintRead, identities []IdentityConstraint) bool {
 	if len(reads) != len(identities) {
 		return false
 	}
 	for i, read := range reads {
-		if !EqualIdentityConstraintRead(read, identities[i]) {
+		if !equalIdentityConstraintRead(read, identities[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-// EqualIdentityConstraintRead reports whether read exposes the validation
+// equalIdentityConstraintRead reports whether read exposes the validation
 // projection for identity.
-func EqualIdentityConstraintRead(read IdentityConstraintRead, identity IdentityConstraint) bool {
+func equalIdentityConstraintRead(read IdentityConstraintRead, identity IdentityConstraint) bool {
 	return read.refer == identity.Refer &&
 		read.kind == identity.Kind &&
 		read.fieldCount == len(identity.Fields) &&

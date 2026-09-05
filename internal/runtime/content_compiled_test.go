@@ -657,7 +657,7 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 	}
 	wildcards := make([]WildcardView, maxWildcard+1)
 	for id, wildcard := range s.wildcards {
-		wildcards[id] = NewWildcardView(nil, &wildcard)
+		wildcards[id] = newWildcardView(nil, &wildcard)
 	}
 
 	return &Schema{runtime: schemaRuntime{

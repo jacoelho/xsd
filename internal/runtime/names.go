@@ -32,19 +32,19 @@ type NameTable struct {
 	maxNames   int
 }
 
-// NameReadView is a validation view over frozen runtime names.
-type NameReadView struct {
+// nameReadView is a validation view over frozen runtime names.
+type nameReadView struct {
 	nsIndex    map[string]NamespaceID
 	localIndex map[string]LocalNameID
 	namespaces []string
 }
 
-// NewNameReadView returns an owned immutable read view of names.
-func NewNameReadView(names *NameTable) NameReadView {
+// newNameReadView returns an owned immutable read view of names.
+func newNameReadView(names *NameTable) nameReadView {
 	if names == nil {
-		return NameReadView{}
+		return nameReadView{}
 	}
-	return NameReadView{
+	return nameReadView{
 		nsIndex:    maps.Clone(names.nsIndex),
 		localIndex: maps.Clone(names.localIndex),
 		namespaces: slices.Clone(names.namespaces),
@@ -52,7 +52,7 @@ func NewNameReadView(names *NameTable) NameReadView {
 }
 
 // LookupQName returns the interned QName for ns and local.
-func (v NameReadView) LookupQName(ns, local string) (QName, bool) {
+func (v nameReadView) LookupQName(ns, local string) (QName, bool) {
 	localID, ok := v.localIndex[local]
 	if !ok {
 		return QName{}, false
@@ -68,16 +68,16 @@ func (v NameReadView) LookupQName(ns, local string) (QName, bool) {
 }
 
 // Namespace returns the URI for id, or "" when id is not valid.
-func (v NameReadView) Namespace(id NamespaceID) string {
+func (v nameReadView) Namespace(id NamespaceID) string {
 	if !validRuntimeID(uint32(id), len(v.namespaces)) {
 		return ""
 	}
 	return v.namespaces[id]
 }
 
-// ValidateNameReadProjection validates a name read view against a frozen name
+// validateNameReadProjection validates a name read view against a frozen name
 // table.
-func ValidateNameReadProjection(read NameReadView, names *NameTable) error {
+func validateNameReadProjection(read nameReadView, names *NameTable) error {
 	if names == nil ||
 		!maps.Equal(read.nsIndex, names.nsIndex) ||
 		!maps.Equal(read.localIndex, names.localIndex) ||

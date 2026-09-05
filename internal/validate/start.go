@@ -79,59 +79,6 @@ func (ctx StartContext) retainPathAtDepth(depth int) retainedPath {
 	return ctx.document.retainPathAtDepth(depth)
 }
 
-// RootInput is the root element start-assessment input.
-type RootInput struct {
-	Name              xml.Name
-	RuntimeName       runtime.RuntimeName
-	Values            *stream.Cache
-	ResolveQNameParts runtime.ResolveQNameParts
-	HasSchemaLocation HasSchemaLocation
-	Context           StartContext
-}
-
-// StartResult is the validated start-element state to push onto the session stack.
-type StartResult struct {
-	Element runtime.ElementID
-	Type    runtime.TypeID
-	Skip    bool
-	Recover bool
-}
-
-// RootStart assesses a document element before element-specific checks.
-func RootStart(rt *runtime.Schema, attrs []stream.Attr, in RootInput) (StartResult, error) {
-	if id, decl, ok := rt.RootElement(in.RuntimeName); ok {
-		return StartResult{Element: id, Type: decl.Type}, nil
-	}
-	rootType, ok, err := rootTypeFromXSIType(rt, attrs, in)
-	if err != nil {
-		return StartResult{Element: runtime.NoElement, Type: rt.AnyType(), Skip: true}, err
-	}
-	if ok {
-		return StartResult{Element: runtime.NoElement, Type: rootType}, nil
-	}
-	if in.HasSchemaLocation != nil && in.HasSchemaLocation(in.RuntimeName.NS) {
-		return StartResult{Element: runtime.NoElement, Type: rt.AnyType(), Skip: true},
-			unsupportedSchemaLocation(in.Context, vocab.XSDElemElement, in.RuntimeName)
-	}
-	return StartResult{Element: runtime.NoElement, Type: rt.AnyType(), Skip: true, Recover: true},
-		validation(in.Context, xsderrors.CodeValidationRoot, "root element is not declared: "+formatXMLName(in.Name))
-}
-
-func rootTypeFromXSIType(rt *runtime.Schema, attrs []stream.Attr, in RootInput) (runtime.TypeID, bool, error) {
-	for i := range attrs {
-		a := &attrs[i]
-		if !IsXSITypeName(a.Name) {
-			continue
-		}
-		typ, err := resolveXSIType(rt, a.StringValue(in.Values), in.ResolveQNameParts, in.HasSchemaLocation, in.Context)
-		if err != nil {
-			return runtime.TypeID{}, false, err
-		}
-		return typ, true, nil
-	}
-	return runtime.TypeID{}, false, nil
-}
-
 type startDeclaration struct {
 	block    runtime.DerivationMask
 	present  bool

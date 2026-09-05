@@ -2,24 +2,13 @@ package validate
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/xsderrors"
-)
-
-// CharacterDataKind identifies the lexical source of XML character data.
-type CharacterDataKind uint8
-
-const (
-	// CharacterDataInvalid is not a valid character-data source.
-	CharacterDataInvalid CharacterDataKind = iota
-	// CharacterDataText is ordinary XML character data.
-	CharacterDataText
-	// CharacterDataCDATA is character data from a CDATA section.
-	CharacterDataCDATA
 )
 
 // DocumentCharacterData is character data encountered outside the root.
 type DocumentCharacterData struct {
-	Kind       CharacterDataKind
+	Kind       stream.CharacterDataKind
 	Whitespace bool
 }
 
@@ -27,10 +16,12 @@ type DocumentCharacterData struct {
 // element. Element-owned content is validated directly by session.chars.
 func ValidateDocumentCharacterData(input DocumentCharacterData, ctx StartContext) error {
 	switch input.Kind {
-	case CharacterDataCDATA:
+	case stream.CharacterDataCDATA:
 		return validation(ctx, xsderrors.CodeValidationXML, "CDATA section outside root element")
-	case CharacterDataText:
-	case CharacterDataInvalid:
+	case stream.CharacterDataReference:
+		return validation(ctx, xsderrors.CodeValidationXML, "reference outside root element")
+	case stream.CharacterDataText:
+	case stream.CharacterDataInvalid:
 		return xsderrors.InternalInvariant("character data kind is invalid")
 	default:
 		err := xsderrors.InternalInvariant("character data kind is invalid")
