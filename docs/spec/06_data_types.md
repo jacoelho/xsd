@@ -331,7 +331,9 @@ Regular expression constraint on lexical form:
 
 - Uses XML Schema regex syntax (see differences from Perl below)
 - Pattern is anchored to entire value (no need for `^...$`)
-- Multiple patterns are ANDed (value must match all)
+- Patterns declared in one derivation step are ORed; pattern groups inherited
+  across derivation steps are ANDed. See
+  [Multiple patterns](xml/datatypes.xml#src-multiple-patterns).
 - For list types, pattern applies to the **entire string** (use pattern on item type for per-item constraints)
 
 **XML Schema Regex vs Perl/PCRE:**
