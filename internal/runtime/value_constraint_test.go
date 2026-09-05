@@ -719,14 +719,12 @@ func TestElementValueConstraintType(t *testing.T) {
 	)
 	one := Occurrence{Min: 1, Max: 1}
 	rt := elementValueConstraintRuntimeStub{
-		testParticleRuntime: testParticleRuntime{
-			models: []ContentModel{
-				{Kind: ModelEmpty},
-				{
-					Kind:      ModelSequence,
-					Occurs:    one,
-					Particles: []Particle{ElementParticle(0, one)},
-				},
+		models: []ContentModel{
+			{Kind: ModelEmpty},
+			{
+				Kind:      ModelSequence,
+				Occurs:    one,
+				Particles: []Particle{ElementParticle(0, one)},
 			},
 		},
 		complex: map[ComplexTypeID]ValueConstraintComplexType{

@@ -48,7 +48,7 @@ func TestProjectionAuditRejectsElementConstraintCorruption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	audit := schemaAudit{Schema: Schema{runtime: reads}, build: build, contentModelWork: unlimitedContentModelWork}
+	audit := schemaAudit{runtime: reads, build: build, contentModelWork: unlimitedContentModelWork}
 	if err := validateRuntimeReadProjections(&audit); err != nil {
 		t.Fatalf("valid projection audit: %v", err)
 	}
@@ -83,11 +83,11 @@ func TestProjectionAuditRejectsGlobalMapCorruption(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			audit := schemaAudit{
-				Schema: Schema{runtime: schemaRuntime{
+				runtime: schemaRuntime{
 					GlobalAttributes: map[QName]AttributeID{},
 					GlobalElements:   map[QName]ElementID{},
 					GlobalTypes:      map[QName]TypeID{},
-				}},
+				},
 				build: SchemaBuild{
 					GlobalAttributes: map[QName]AttributeID{},
 					GlobalElements:   map[QName]ElementID{},
@@ -179,8 +179,8 @@ func TestCompiledBoundLiteralReplayDeduplicatesSharedStorage(t *testing.T) {
 		t.Fatalf("newSchemaRuntime() error = %v", err)
 	}
 	audit := schemaAudit{
-		Schema: Schema{runtime: reads},
-		build:  build,
+		runtime: reads,
+		build:   build,
 	}
 	ctx := schemaValidationContext{rt: &audit}
 	literal := NewCompiledLiteralForSimpleType(
@@ -305,7 +305,7 @@ func TestNewSchemaRuntimeSharesSimpleTypeTableWithDerivationIndex(t *testing.T) 
 	if mask, ok := reads.TypeDerivations.derivation(SimpleRef(0), SimpleRef(1), nil); !ok || mask != DerivationRestriction {
 		t.Fatalf("union derivation = %08b, %v; want restriction, true", mask, ok)
 	}
-	audit := schemaAudit{Schema: Schema{runtime: reads}, build: build, contentModelWork: unlimitedContentModelWork}
+	audit := schemaAudit{runtime: reads, build: build, contentModelWork: unlimitedContentModelWork}
 	audit.runtime.SimpleTypeCold = newSimpleTypeColdReadTable(build.SimpleTypes)
 	if err := validateTypeDerivations(&audit); err == nil || !strings.Contains(err.Error(), "do not share the simple type table") {
 		t.Fatalf("validateTypeDerivations(distinct table) error = %v, want shared-owner invariant", err)

@@ -816,14 +816,12 @@ func TestValidateComplexTypeSimpleBaseExtensionRuntime(t *testing.T) {
 	)
 	one := Occurrence{Min: 1, Max: 1}
 	rt := complexTypeValidationRuntime{
-		testParticleRuntime: testParticleRuntime{
-			models: []ContentModel{
-				{Kind: ModelEmpty},
-				{
-					Kind:      ModelSequence,
-					Occurs:    one,
-					Particles: []Particle{ElementParticle(0, one)},
-				},
+		models: []ContentModel{
+			{Kind: ModelEmpty},
+			{
+				Kind:      ModelSequence,
+				Occurs:    one,
+				Particles: []Particle{ElementParticle(0, one)},
 			},
 		},
 		simpleFinal: []DerivationMask{0, DerivationExtension},
@@ -942,26 +940,22 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 	)
 	one := Occurrence{Min: 1, Max: 1}
 	rt := complexTypeValidationRuntime{
-		testParticleRuntime: testParticleRuntime{
-			models: []ContentModel{
-				{Kind: ModelEmpty},
-				{
-					Kind:      ModelSequence,
-					Occurs:    one,
-					Particles: []Particle{ElementParticle(0, one)},
-				},
-				{
-					Kind:      ModelSequence,
-					Occurs:    one,
-					Particles: []Particle{ElementParticle(1, one)},
-				},
+		models: []ContentModel{
+			{Kind: ModelEmpty},
+			{
+				Kind:      ModelSequence,
+				Occurs:    one,
+				Particles: []Particle{ElementParticle(0, one)},
+			},
+			{
+				Kind:      ModelSequence,
+				Occurs:    one,
+				Particles: []Particle{ElementParticle(1, one)},
 			},
 		},
-		derivationRuntimeStub: derivationRuntimeStub{
-			simple: []SimpleTypeDerivation{
-				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-				{Base: 0, Variety: SimpleVarietyAtomic},
-			},
+		simple: []SimpleTypeDerivation{
+			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+			{Base: 0, Variety: SimpleVarietyAtomic},
 		},
 	}
 	base := ComplexType{

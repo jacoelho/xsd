@@ -877,14 +877,12 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 	second := QName{Namespace: 1, Local: 2}
 	third := QName{Namespace: 2, Local: 3}
 	rt := attributeUseRestrictionRuntimeStub{
-		derivationRuntimeStub: derivationRuntimeStub{
-			simple: []SimpleTypeDerivation{
-				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-				{Base: 0, Variety: SimpleVarietyAtomic},
-				{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
-			},
-			complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}},
+		simple: []SimpleTypeDerivation{
+			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
+			{Base: 0, Variety: SimpleVarietyAtomic},
+			{Base: NoSimpleType, Variety: SimpleVarietyAtomic},
 		},
+		complex: []ComplexTypeDerivation{{Kind: DerivationKindNone}},
 		attributeWildcardRuntimeStub: attributeWildcardRuntimeStub{
 			baseWildcard:    {Mode: WildcardAny, Process: ProcessStrict},
 			derivedWildcard: {Mode: WildcardList, Namespaces: []NamespaceID{third.Namespace}, Process: ProcessStrict},

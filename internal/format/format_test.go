@@ -102,7 +102,7 @@ func TestMaxBytesWriterWriteAndWriteStringShareSemantics(t *testing.T) {
 						}
 					} else {
 						w := &maxBytesStringWriter{
-							maxBytesWriter: maxBytesWriter{w: underlying, max: tt.max, err: limitErr},
+							w: underlying, max: tt.max, err: limitErr,
 						}
 						bounded = &w.maxBytesWriter
 						n, err = w.WriteString(tt.input)
@@ -138,7 +138,7 @@ func TestMaxBytesWriterExhaustionAndEmptyWrites(t *testing.T) {
 	limitErr := errors.New("limit")
 	var out strings.Builder
 	w := &maxBytesStringWriter{
-		maxBytesWriter: maxBytesWriter{w: &out, max: 1, err: limitErr},
+		w: &out, max: 1, err: limitErr,
 	}
 	if n, err := w.WriteString("a"); n != 1 || err != nil {
 		t.Fatalf("first WriteString() = %d, %v", n, err)

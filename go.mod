@@ -1,3 +1,3 @@
 module github.com/jacoelho/xsd
 
-go 1.26.2
+go 1.27.0
