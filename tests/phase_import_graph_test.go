@@ -168,13 +168,15 @@ func sourceMethodAllowed(path, root, compileDir string, fn *types.Func) bool {
 		return false
 	}
 	switch receiver {
+	case "Input":
+		return fn.Name() == "Finish"
 	case "ReferenceBase":
 		return fn.Name() == "WithXMLBase"
 	case "Resolution":
 		return fn.Name() == "Source" || fn.Name() == "Target"
 	case "Source":
 		switch fn.Name() {
-		case "Acquire", "Name", "ResolveFrom", "SameResolutionContext":
+		case "OpenInput", "Name", "ResolveFrom", "SameResolutionContext":
 			return true
 		default:
 			return false

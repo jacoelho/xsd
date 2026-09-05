@@ -1,9 +1,9 @@
 package compile
 
 import (
-	"bytes"
 	"encoding/xml"
 	"errors"
+	"io"
 	"iter"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -39,8 +39,8 @@ type rawNode struct {
 	Column   int
 }
 
-func parseSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc, error) {
-	doc, err := parseRawSchemaDocument(name, key, data, limits)
+func parseSchemaDocument(name, key string, input io.Reader, limits Limits) (*rawDoc, error) {
+	doc, err := parseRawSchemaDocument(name, key, input, limits)
 	if err != nil {
 		return nil, err
 	}
@@ -72,12 +72,12 @@ func parseDocumentDefaults(root *rawNode) (SchemaDefaults, error) {
 	return defaults, withSchemaCompileLocation(root, err)
 }
 
-func parseRawSchemaDocument(name, key string, data []byte, limits Limits) (*rawDoc, error) {
+func parseRawSchemaDocument(name, key string, input io.Reader, limits Limits) (*rawDoc, error) {
 	doc := &rawDoc{name: name, key: key}
 	names := stream.NewCache()
 	values := stream.NewCache()
 	parser := new(stream.Parser)
-	if err := parser.ResetWithConfig(bytes.NewReader(data), &names, &values, stream.Config{
+	if err := parser.ResetWithConfig(input, &names, &values, stream.Config{
 		Limits: stream.Limits{
 			MaxTokenBytes: limits.MaxSchemaTokenBytes,
 			MaxAttrs:      limits.MaxSchemaAttributes,

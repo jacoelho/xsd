@@ -17,7 +17,7 @@ func TestCloneRawDocumentRetainsValidatedSchemaDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc, err := parseSchemaDocument("common.xsd", "common.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" blockDefault="#all" finalDefault="#all" elementFormDefault="qualified" attributeFormDefault="qualified"/>`), limits)
+	doc, err := parseSchemaDocument("common.xsd", "common.xsd", strings.NewReader(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" blockDefault="#all" finalDefault="#all" elementFormDefault="qualified" attributeFormDefault="qualified"/>`), limits)
 	if err != nil {
 		t.Fatal(err)
 	}

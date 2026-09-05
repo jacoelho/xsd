@@ -44,7 +44,7 @@ The module tower, from dependency leaves to delivery adapters, is:
 | Level | Modules | Owned result | Interface to the next level |
 | --- | --- | --- | --- |
 | 0. Vocabulary | `internal/vocab`, `internal/lex`, `internal/uriref`, `xsderrors` | XML/XSD names, lexical predicates, valid URI references, structured failures | Immutable values and pure operations |
-| 1. Input mechanics | `internal/source`, `internal/stream`, `internal/xmlns` | Bounded schema bytes, borrowed XML tokens, namespace-valid expanded names | Explicit acquisition, token, frame, and retained-context capabilities |
+| 1. Input mechanics | `internal/source`, `internal/stream`, `internal/xmlns` | Bounded schema streams, borrowed XML tokens, namespace-valid expanded names | Explicit acquisition, token, frame, and retained-context capabilities |
 | 2. Semantic kernel | `internal/runtime` | Mutable `SchemaBuild`, atomic publication, sealed schema facts, reusable schema algorithms | `PublishSchema` and immutable schema reads |
 | 3. Capabilities | `internal/compile`, `internal/validate`, `internal/format` | Published schemas, document diagnostics, formatted XML | One synchronous operation or one explicitly owned reusable session |
 | 4. Public facade | root `xsd` | Public sources, options, `Engine`, and `Session` | Small stable Go interface that adapts directly to one capability |
@@ -136,7 +136,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
 - `internal/source` owns immutable/repeatable schema source primitives,
   explicit source kinds, repeatable callbacks, staged bounded acquisition,
   resolver adaptation, local and generic backend policy, resolution context,
-  and source identity. `Source.Acquire` is the only source-read path and
+  and source identity. `Source.OpenInput` is the only source-opening path; its
+  `Input` owns bounded reads and `Finish` drains unread bytes, closes once, and
+  returns raw byte count, SHA-256 fingerprint, and stage-aware failures.
   `Source.ResolveFrom` is the only reference-resolution path. The package does
   not own XSD vocabulary or schema-graph policy. The compiler has one canonical
   source-loading path and may delegate within that path, but it must not replace,
@@ -258,8 +260,18 @@ Compilation flow:
    candidate remains pending until a document with that identity is actually
    loaded, when the loader binds and target-checks every pending edge before
    activating the document.
-   The canonical identity map owns one parsed document and byte representation
-   per source key; resolution-context aliases remain attached to that entry.
+   The canonical identity map owns one parsed document and a raw-content
+   fingerprint (byte count plus SHA-256) per source key; resolution-context
+   aliases remain attached to that entry. Opened source bytes are streamed into
+   parsing and are never retained as a complete buffer. Explicit `Bytes` sources
+   still own their caller-supplied immutable content. The source is finished
+   before a parse result is accepted: unread bytes are drained within the same
+   limit and close/read/byte-limit failures take precedence over early XML
+   syntax errors, preserving acquisition diagnostics. Repeated identities are
+   reopened and charged as before; only their fingerprint is compared. Identity
+   relies on SHA-256 collision resistance, not mathematically exact byte
+   equality. The retained generic schema tree is temporary rewrite state; its
+   replacement is tracked in `rewrite-plan.md`.
    Content identification traverses its sorted keys, without a mirrored source
    list. Component and identity-declaration contexts derive from the same immutable
    plan document, without a separate context registry.
@@ -272,7 +284,7 @@ Compilation flow:
    dependency-work budget. Component references also enter a bounded active
    expansion stack; cache hits remain charged, while cycles retain their specific
    schema diagnostics. Once every effective target namespace is known, the compiler indexes one
-   declaration representative for each exact document content and effective
+   declaration representative for each content fingerprint and effective
    namespace while retaining every source occurrence for resolver traversal and
    graph validation. It compiles schema components and populates a compiler-owned
    mutable `runtime.SchemaBuild`. After all types and substitution affiliations are
@@ -506,6 +518,15 @@ graph preserves these ownership rules:
   pattern; the exhaustive benchmark target remains separate.
 
 ## Rejected Alternatives
+
+- Keeping source buffers for exact byte equality was rejected because it retains
+  complete input streams. Reopening the earlier source cannot recover its exact
+  prior contents, adds observable I/O, and can fail or return changed bytes.
+  The rewrite explicitly uses raw byte length plus SHA-256 content identity.
+  This is a collision-resistance assumption, not an exact-equality guarantee.
+- Returning immediately on schema parse failure was rejected for streamed
+  acquisition: it would hide later read, close, and source-limit failures that
+  previously took precedence. `Input.Finish` owns bounded draining and cleanup.
 
 - A separate root-start flag result was rejected because its sole consumer
   immediately translated it into the session's selected state. Resolving all XSI

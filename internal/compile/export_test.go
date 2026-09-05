@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"bytes"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -53,7 +54,7 @@ func (c *compiler) DocumentNamesForTest() []string {
 
 // ParseSchemaRootForTest parses a schema document and returns its root node.
 func ParseSchemaRootForTest(data []byte, limits Limits) (*RawNode, error) {
-	doc, err := parseRawSchemaDocument("test.xsd", "test.xsd", data, limits)
+	doc, err := parseRawSchemaDocument("test.xsd", "test.xsd", bytes.NewReader(data), limits)
 	if err != nil {
 		return nil, err
 	}

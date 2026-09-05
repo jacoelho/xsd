@@ -1,10 +1,8 @@
 package compile
 
 import (
-	"bytes"
 	"cmp"
 	"errors"
-	"hash/maphash"
 	"maps"
 	"slices"
 
@@ -51,9 +49,15 @@ type schemaSetLoader struct {
 type loadedSchemaDocument struct {
 	doc          *rawDoc
 	sources      []source.Source
-	data         []byte
+	content      schemaContent
 	index        int
 	explicitRoot bool
+}
+
+// schemaContent identifies raw source bytes without retaining the source stream.
+type schemaContent struct {
+	bytes  int64
+	digest [32]byte
 }
 
 type schemaSourceRequirement uint8
@@ -336,30 +340,42 @@ func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadReques
 	if loaded, ok := l.byKey[key]; ok {
 		return l.readLoaded(item, key, loaded, queue)
 	}
-	data, acquired, err := l.acquireNewSource(item)
-	if err != nil || !acquired {
+	doc, content, err := l.parseNewSource(item, key)
+	if err != nil || doc == nil {
 		return err
 	}
-	return l.parseNewSource(item, key, data, queue)
+	return l.registerDocument(item, key, doc, content, queue)
 }
 
-func (l *schemaSetLoader) acquireNewSource(item schemaLoadRequest) ([]byte, bool, error) {
+func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string) (*rawDoc, schemaContent, error) {
 	src := item.source
-	name := src.Name()
 	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
 	readLimit := min(l.limits.MaxSchemaSourceBytes, remaining)
-	result := src.Acquire(readLimit)
-	data := result.Data
-	dataBytes := int64(len(data))
-	if dataBytes > remaining {
-		return nil, false, schemaTotalBytesLimitError(result.Err)
+	input, result := src.OpenInput(readLimit)
+	var doc *rawDoc
+	var parseErr error
+	if input != nil {
+		parseLimits := l.limits
+		parseLimits.MaxSchemaInstantiatedNodes -= l.parsedNodes
+		doc, parseErr = parseSchemaDocument(src.Name(), key, input, parseLimits)
+		result = input.Finish()
 	}
-	l.totalBytes += dataBytes
-	missing, err := classifySchemaAcquireResult(name, result, readLimit, remaining, item.requirement)
+	missing, err := l.admitSourceResult(src.Name(), result, readLimit, remaining, item.requirement)
 	if err != nil || missing {
-		return nil, false, err
+		return nil, schemaContent{}, err
 	}
-	return data, true, nil
+	if parseErr != nil {
+		return nil, schemaContent{}, parseErr
+	}
+	return doc, schemaContent{bytes: result.Bytes, digest: result.Digest}, nil
+}
+
+func (l *schemaSetLoader) admitSourceResult(name string, result source.ReadResult, readLimit, remaining int64, requirement schemaSourceRequirement) (bool, error) {
+	if result.Bytes > remaining {
+		return false, schemaTotalBytesLimitError(result.Err)
+	}
+	l.totalBytes += result.Bytes
+	return classifySchemaAcquireResult(name, result, readLimit, remaining, requirement)
 }
 
 func classifySchemaAcquireResult(name string, result source.ReadResult, readLimit, remaining int64, requirement schemaSourceRequirement) (bool, error) {
@@ -385,15 +401,9 @@ func classifySchemaAcquireResult(name string, result source.ReadResult, readLimi
 	return false, xsderrors.WithLocation(name, 0, 0, readErr)
 }
 
-func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string, data []byte, queue *[]schemaLoadRequest) error {
+func (l *schemaSetLoader) registerDocument(item schemaLoadRequest, key string, doc *rawDoc, content schemaContent, queue *[]schemaLoadRequest) error {
 	src := item.source
-	name := src.Name()
-	parseLimits := l.limits
-	parseLimits.MaxSchemaInstantiatedNodes -= l.parsedNodes
-	doc, err := parseSchemaDocument(name, key, data, parseLimits)
-	if err != nil {
-		return err
-	}
+	var err error
 	l.parsedNodes += doc.nodes
 	if item.ref != nil {
 		if targetErr := validateSchemaReferenceTarget(item.ref, doc); targetErr != nil {
@@ -410,7 +420,7 @@ func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string, dat
 	l.byKey[key] = loadedSchemaDocument{
 		doc:          doc,
 		sources:      []source.Source{src},
-		data:         data,
+		content:      content,
 		explicitRoot: item.ref == nil,
 	}
 	return l.enqueueReferences(src, doc.references, queue)
@@ -457,20 +467,17 @@ func (l *schemaSetLoader) validateLoadedSourceBytes(item schemaLoadRequest, key 
 	src := item.source
 	remaining := l.limits.MaxSchemaTotalBytes - l.totalBytes
 	readLimit := min(l.limits.MaxSchemaSourceBytes, remaining)
-	result := src.Acquire(readLimit)
-	dataBytes := int64(len(result.Data))
-	if dataBytes > remaining {
-		return schemaTotalBytesLimitError(result.Err)
+	input, result := src.OpenInput(readLimit)
+	if input != nil {
+		result = input.Finish()
 	}
-	l.totalBytes += dataBytes
-	// A resolved identity may reuse cached bytes when this optional context
-	// cannot open its own representation. The context still owns descendant
-	// resolution and must be registered below.
-	useCached, err := classifySchemaAcquireResult(src.Name(), result, readLimit, remaining, item.requirement)
+	// A missing optional representation can use the already compiled document.
+	// Its resolver context still participates in descendant resolution.
+	useCached, err := l.admitSourceResult(src.Name(), result, readLimit, remaining, item.requirement)
 	if err != nil {
 		return err
 	}
-	if !useCached && !bytes.Equal(result.Data, loaded.data) {
+	if !useCached && (schemaContent{bytes: result.Bytes, digest: result.Digest}) != loaded.content {
 		identityErr := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "schema source identity resolves to different document content: "+key)
 		if item.ref != nil {
 			identityErr = withSchemaReferenceLocation(item, identityErr)
@@ -1037,32 +1044,16 @@ type identifiedSchemaDocument struct {
 
 func (l *schemaSetLoader) identifySchemaDocumentContents() []identifiedSchemaDocument {
 	ordered := slices.Sorted(maps.Keys(l.byKey))
-	seed := maphash.MakeSeed()
-	type contentKey struct {
-		size int
-		hash uint64
-	}
-	type contentEntry struct {
-		data     []byte
-		identity int
-	}
-	seen := make(map[contentKey][]contentEntry)
+	seen := make(map[schemaContent]int, len(ordered))
 	identified := make([]identifiedSchemaDocument, 0, len(ordered))
 	nextIdentity := 1
 	for _, sourceKey := range ordered {
 		src := l.byKey[sourceKey]
-		key := contentKey{size: len(src.data), hash: maphash.Bytes(seed, src.data)}
-		identity := 0
-		for _, entry := range seen[key] {
-			if bytes.Equal(entry.data, src.data) {
-				identity = entry.identity
-				break
-			}
-		}
+		identity := seen[src.content]
 		if identity == 0 {
 			identity = nextIdentity
 			nextIdentity++
-			seen[key] = append(seen[key], contentEntry{data: src.data, identity: identity})
+			seen[src.content] = identity
 		}
 		identified = append(identified, identifiedSchemaDocument{doc: src.doc, identity: identity})
 	}

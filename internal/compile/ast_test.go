@@ -31,7 +31,7 @@ func TestRawNodeResolveQNameReturnsXMLName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", []byte(schema), limits)
+	doc, err := parseSchemaDocument("schema.xsd", "schema.xsd", strings.NewReader(schema), limits)
 	if err != nil {
 		t.Fatalf("parseSchemaDocument() error = %v", err)
 	}
