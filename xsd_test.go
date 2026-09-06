@@ -353,6 +353,37 @@ func TestResolverBoundaryProtocol(t *testing.T) {
 		}
 	})
 
+	for _, test := range []struct {
+		name string
+		miss error
+	}{
+		{name: "direct", miss: xsderrors.ErrSchemaNotFound},
+		{name: "wrapped", miss: fmt.Errorf("unavailable: %w", xsderrors.ErrSchemaNotFound)},
+		{name: "joined", miss: errors.Join(xsderrors.ErrSchemaNotFound, xsderrors.ErrSchemaNotFound)},
+		{name: "nested", miss: fmt.Errorf("resolution: %w", errors.Join(
+			fmt.Errorf("first: %w", xsderrors.ErrSchemaNotFound),
+			xsderrors.ErrSchemaNotFound,
+		))},
+	} {
+		t.Run(test.name+" miss uses file fallback", func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			rootPath := filepath.Join(dir, "root.xsd")
+			writeTestFile(t, rootPath, rootSchema)
+			writeTestFile(t, filepath.Join(dir, "child.xsd"),
+				`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="child" type="xs:int"/></xs:schema>`)
+			engine, err := xsd.Compile(xsd.File(rootPath).WithResolver(xsd.ResolverFunc(func(_, _ string) (xsd.SchemaSource, error) {
+				return xsd.SchemaSource{}, test.miss
+			})))
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+			if err := engine.Validate(strings.NewReader(`<child>42</child>`)); err != nil {
+				t.Fatalf("Validate() with included declaration: %v", err)
+			}
+		})
+	}
+
 	t.Run("fatal error", func(t *testing.T) {
 		t.Parallel()
 		fatal := errors.New("resolver failed")
@@ -366,10 +397,15 @@ func TestResolverBoundaryProtocol(t *testing.T) {
 
 	t.Run("miss joined with fatal error", func(t *testing.T) {
 		t.Parallel()
+		dir := t.TempDir()
+		rootPath := filepath.Join(dir, "root.xsd")
+		writeTestFile(t, rootPath, rootSchema)
+		writeTestFile(t, filepath.Join(dir, "child.xsd"),
+			`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="child"/></xs:schema>`)
 		fatal := errors.New("resolver failed")
-		_, err := xsd.Compile(rootWith(func(_, _ string) (xsd.SchemaSource, error) {
+		_, err := xsd.Compile(xsd.File(rootPath).WithResolver(xsd.ResolverFunc(func(_, _ string) (xsd.SchemaSource, error) {
 			return xsd.SchemaSource{}, errors.Join(xsderrors.ErrSchemaNotFound, fatal)
-		}))
+		})))
 		if !errors.Is(err, fatal) {
 			t.Fatalf("Compile() error = %v, want joined resolver cause", err)
 		}

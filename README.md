@@ -137,10 +137,11 @@ func compileIncludes() (*xsd.Engine, error) {
 The resulting engine accepts `<root/>`. This flat map uses only `location`;
 a resolver for nested paths should also use the supplied `base`.
 
-Return exactly `xsderrors.ErrSchemaNotFound` for an unavailable location, allowing
-normal fallback resolution. Any other error, including a wrapped or joined
-sentinel, stops compilation. A successful result is authoritative. The resolver
-applies to all descendants; a returned source's own resolver is ignored.
+Return `xsderrors.ErrSchemaNotFound` for an unavailable location, allowing normal
+fallback resolution. Wrapping a miss or joining only misses also permits fallback.
+Any other failure, including one joined with a miss, stops compilation. A
+successful result is authoritative. The resolver applies to all descendants;
+a returned source's own resolver is ignored.
 
 ## Validation and reuse
 
