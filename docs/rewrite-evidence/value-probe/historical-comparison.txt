@@ -1,8 +1,0 @@
-baseline keys: 16830
-rewrite keys: 16830
-jointly accepted: 3103
-acceptance deltas: 1
-  duration:'P999999999999999999999999999Y'
-unsupported deltas: 0
-identity text changes among jointly accepted: 339
-identity partitions: equal

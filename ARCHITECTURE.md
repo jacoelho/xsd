@@ -762,6 +762,9 @@ graph preserves these ownership rules:
   defines discovery, implementation, evidence, and writeback discipline without
   copying the package graph.
 - README documents public usage and command workflows.
+- `docs` contains XSD 1.0 reference documentation and the browser validator's
+  deployable assets. Review reports, comparison reports, completed plans,
+  benchmark evidence, and verification logs do not belong there.
 - `docs/spec` contains searchable local specification material and an index; it
   does not define repository behavior.
 - `tests/README.md` documents corpus and harness operation. Counts and other

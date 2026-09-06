@@ -1,9 +1,8 @@
 # Architecture improvement plan
 
 > Historical record imported with baseline commit `2764e554`. Its completion
-> statements concern the earlier architecture task. The active rewrite is tracked
-> in [rewrite-plan.md](rewrite-plan.md); [ARCHITECTURE.md](ARCHITECTURE.md) owns
-> the current architecture.
+> statements concern the earlier architecture task.
+> [ARCHITECTURE.md](ARCHITECTURE.md) owns the current architecture.
 
 Status: P0–P3 implemented and verified, 2026-09-05. Three implementation adversaries
 reviewed the result and re-reviewed both repairs; no material finding remains.

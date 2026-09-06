@@ -356,12 +356,7 @@ preserve typed equality. These are cumulative
 Go allocations per operation, not peak memory or RSS. Schema-text compilation
 has a 5.22% slower median, but the timing difference is within noise.
 
-[Full results, methodology, trade-offs, and raw samples](docs/performance-vs-main.md).
-
 ## Large XML benchmark
-
-The earlier [rewrite performance report](docs/rewrite-performance.md) includes
-formatting and retention measurements against the captured rewrite baseline.
 
 Build the repository's Go `xmllint` binary into `bin`:
 

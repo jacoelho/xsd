@@ -1,9 +1,8 @@
 # Plan implementation evidence
 
 > Historical record imported with baseline commit `2764e554`. Its completion
-> statements concern the earlier architecture task. The active rewrite is tracked
-> in [rewrite-plan.md](rewrite-plan.md); [ARCHITECTURE.md](ARCHITECTURE.md) owns
-> the current architecture.
+> statements concern the earlier architecture task.
+> [ARCHITECTURE.md](ARCHITECTURE.md) owns the current architecture.
 
 Status: complete, 2026-09-05. Earlier checkpoint statuses are historical; the
 release closure below supersedes their pending gate/review notes.
