@@ -8,10 +8,19 @@ alternatives. [`reference-comparison.md`](reference-comparison.md) records the
 reference implementations and the design consequences taken from them.
 
 “Implemented” below means that the current tree has one owning path and focused
-or seam-level evidence for the stated behavior. It does not mean that the final
-corpus, differential-conformance, bounded-retention, or performance gate is
-closed. No performance result is asserted here; the paired comparison remains
-open for the final report.
+or seam-level evidence for the stated behavior. It does not mean that complete
+XSD 1.0 coverage or the final paired-performance gate is closed.
+
+Current evidence state: the full R4 verification gates and current corpus
+expectations pass. The baseline unsupported inventory was 799 entries; the
+current allowlist has 174, with 625 removed and 0 added. A targeted differential
+probe compared 16,830 builtin-type/lexical pairs; acceptance and unsupported
+classification differ only at one intended huge-duration acceptance delta, and
+identity equivalence partitions match for all 3,103 jointly accepted values. A
+warmed flat-stream retention probe measured approximately 188,288 live bytes at
+1 MiB, 16 MiB, and 128 MiB, plateauing across sizes, versus 238,944 baseline
+bytes; total allocations after warm-up were 800 B. The final paired-performance
+matrix remains open pending R5.
 
 ## 1. Builtin and named simple types — implemented
 
@@ -447,8 +456,9 @@ and complete differential corpus remain final-gate evidence.
 
 These decisions align the implementation with the ownership and data-flow
 contract in `ARCHITECTURE.md` and the reference consequences recorded in
-`reference-comparison.md`. They do not close the unchecked rewrite-plan item:
-full feature parity, differential conformance, bounded-memory proof, and
-same-or-better performance still require the final evidence packet. The
-`xs:redefine` decision remains an explicit unsupported-scope boundary until a
-bounded complete implementation and its corpus proof are available.
+`reference-comparison.md`. The targeted differential and flat-stream retention
+probes are recorded above, but complete feature parity, broader retained-state
+evidence, and the final paired-performance matrix still require the evidence
+packet tracked by the unchecked rewrite-plan item. The `xs:redefine` decision
+remains an explicit unsupported-scope boundary until a bounded complete
+implementation and its corpus proof are available.

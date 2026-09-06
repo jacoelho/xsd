@@ -1,12 +1,13 @@
 # Fresh streaming rewrite
 
-Status: replacement paths are integrated; the repository verification contract,
-current corpus expectations, and targeted differential probes pass. Bounded-
-memory evidence and final paired performance remain open; complete XSD 1.0
-coverage remains scoped by the explicit unsupported allowlist. Baseline:
-`2764e554`. Branch:
-`codex/fresh-rewrite`. This plan supersedes neither the historical completed
-`plan.md` nor the current contracts in `ARCHITECTURE.md`.
+Status: replacement paths are integrated. The full R5 verification gates,
+current corpus expectations, targeted differential probes, and bounded
+flat-stream retention probe pass. The final paired performance matrix remains
+open pending R5; complete XSD 1.0 coverage remains scoped by the explicit
+unsupported allowlist. Baseline: `2764e554`. Branch:
+`codex/fresh-rewrite`. `ARCHITECTURE.md` is the sole authority for current
+ownership, data flow, lifecycle, limits, and rejected alternatives; this plan
+records scope, evidence, and remaining work.
 
 ## Required result
 
@@ -30,65 +31,12 @@ values and identity constraints also require explicitly bounded retained state.
 No complete input document or generic XML tree belongs in the final execution
 path. `Bytes` may own the explicit immutable bytes supplied by its caller.
 
-## Selected destination
+## Current architecture pointer
 
-The reference investigation and independent design review support this target,
-which is now the package shape in the working tree:
-
-```text
-explicit sources -> XML stream -> typed schema documents -> graph/context plan
-                 -> private compiler -> immutable schema program
-instance stream  -> bounded document/session assessment -> diagnostics
-```
-
-`internal/schema` owns typed schema-source admission, semantic document
-storage, graph planning, component compilation, and the immutable program in
-one package. Construction is private. Typed IDs and flat tables replace
-exported mutable build records plus duplicated published projections. The
-production parser consumes the XML 1.0 token stream from `internal/xmlstream`;
-its transient syntax records admit the active element, while retained
-`schemaNode` records contain semantic fields, source positions, IDs, and
-references. Content-model algorithms remain with schema because their name,
-wildcard, substitution, and occurrence knowledge is schema-owned.
-
-`internal/value` owns XSD lexical/value spaces, normalization, comparison, and
-facet execution. Schema declarations retain only metadata and references to a
-`value.TypeSpec`; they do not provide a second parser, facet evaluator, or
-equality model. `internal/xmlstream` owns XML 1.0 tokenization, namespace
-admission, positions, borrowed-data lifetime, and duplicate expanded-attribute
-checks. `internal/source` owns explicit acquisition and resolution.
-`internal/validate` owns every document assessment transition, active identity
-scope, recovery decision, and reusable-session resource. Schema compilation
-publishes one sealed immutable program and consumes its private mutable build
-only after successful validation. Identity declarations compile in schema into
-immutable selector/field path programs with exact-name, namespace, and wildcard
-dispatch indexes; validation owns only document-local matching state and
-scratch. `internal/xsdregex` owns bounded XSD 1.0 pattern parsing, compilation,
-and matching. `xsderrors` remains the diagnostic contract.
-
-The implementation split and current consumer paths are integrated. Focused
-`internal/value`, `internal/xmlstream`, and `internal/xsdregex` tests pass, as
-does the full repository verification contract. The current corpus run and
-targeted differential probes pass. Complete bounded-memory and paired
-performance evidence remain open, and the explicit unsupported allowlist still
-defines the selected feature boundary.
-
-The schema parser resolves schema QName references while their namespace frame
-is live and retains semantic records with source locations. Literal values and
-XPath expressions whose interpretation is intentionally deferred retain only
-the bounded namespace context needed by their owning compiler. Chameleon
-includes use document/effective-namespace views, with explicit adoption
-semantics for otherwise unqualified references. Forward component references
-use typed slots and explicit compilation states. No clone of a generic XML
-tree is needed for each target namespace.
-
-Rejected alternatives: retaining the current exported mutable build protocol
-would preserve the boundary being replaced; a universal schema VM would add
-dispatch to simple declaration lookups; a goroutine pipeline would add queues
-and cancellation obligations to synchronous I/O; generated validators would
-create another execution path. DFA specialization is useful, but unbounded
-determinization is not acceptable. State/work limits remain explicit even if a
-bounded fallback is later justified by measured schema shapes.
+The current execution paths, package ownership, state transitions, resource
+limits, and rejected alternatives are defined only in
+[`ARCHITECTURE.md`](ARCHITECTURE.md). The replacement packets and evidence
+below refer to that contract without restating it.
 
 ## Parity evidence inventory
 
@@ -109,10 +57,11 @@ cover regex forms, redefine, instance schema loading, XSD/XML 1.1, and non-UTF-8
 These counts describe `2764e554`; derive current inventory from the manifest
 and allowlist instead of maintaining a second test catalog. Schema-less cases
 remain outside the explicit precompiled-schema contract. The current
-`tests/unsupported.txt` has 174 entries, including 138 `xs:redefine` cases;
-the 625 baseline regex rows were individually adjudicated (624 valid cases and
-one intentional `schema.facet` failure) and removed from that allowlist. The
-adjudication also covered 937 regex-driven instance runs with no mismatches.
+`tests/unsupported.txt` has 174 entries, including 138 `xs:redefine` cases.
+Compared with the baseline, 625 entries were removed and none were added. The removed regex set was
+individually adjudicated (624 valid cases and one intentional `schema.facet`
+failure), and the adjudication also covered 937 regex-driven instance runs with
+no mismatches.
 
 ## XSD improvement agenda
 
@@ -146,14 +95,11 @@ when the existing rule is already correct.
 | Annotations, notations, and schema syntax | Consume annotation payload without retention while preserving namespace/XML checks; retain only semantically relevant declarations and source locations | Annotation envelope/order rules, foreign markup, schema ID constraints, notation uniqueness, XML namespace behavior, streaming retention |
 | Assessment and diagnostics | Precompute schema-only facts; keep XSI selection, nil/type checks, value assessment, recovery, and error ordering in one document transition owner | `xsi:type` derivation, `xsi:nil`, hints without loading, defaults/fixed, semantic-stop recovery, path/line/column/cause preservation, error budgets |
 
-The baseline architecture opportunities are now represented in the current
-implementation: source buffering was removed; chameleon sources retain typed
-semantic records instead of cloned generic trees; schema publication uses a
-private build and one immutable program; and identity matching uses
-schema-owned path programs and exact/namespace/wildcard dispatch indexes while
-validation retains only active document state. These changes still require
-consumer-path correctness and paired performance evidence; they are not claims
-that the corresponding XSD semantics are complete.
+The current ownership and data-flow decisions for these improvements are
+recorded in `ARCHITECTURE.md`; the evidence index in
+[`docs/rewrite-assessment.md`](docs/rewrite-assessment.md) records the focused
+proof for each agenda row. Neither document closes the remaining performance
+gate.
 
 The remaining explicit coverage candidate is the 138-entry `xs:redefine`
 allowlist. The regex rows have been removed only after individual
@@ -190,11 +136,12 @@ Temporary use of unreplaced capabilities is migration state, not completion.
 Concrete package boundaries for later packets remain subject to implementation
 evidence and the independent design review.
 
-The checkmarks below mean that the replacement path and its ownership boundary
-are present in the current tree. The repository verification gates, current
-corpus expectations, and targeted differential probes pass. Bounded-memory and
-final paired-performance gates remain open; the explicit unsupported allowlist
-continues to define the selected feature boundary.
+The checkmarks below mean that the replacement path is integrated and has the
+focused evidence named in the item. Full R4 verification gates, current corpus
+expectations, targeted differential probes, and bounded flat-stream retention
+evidence pass. The final paired-performance gate remains open pending R5; the
+explicit unsupported allowlist continues to define the selected feature
+boundary.
 
 - [x] Import the actual current library, commit its complete state, and create a
   separate rewrite branch and immutable baseline worktree.
@@ -205,64 +152,71 @@ continues to define the selected feature boundary.
   and preserve I/O failure, cleanup, and byte-limit behavior.
 - [x] Replace generic schema XML trees with typed semantic declarations and
   references, including source positions, annotation consumption, QName
-  resolution, include/import closure, and chameleon contexts. The parser and
-  semantic-source records are in `internal/schema`; repository consumer-path
-  tests and the current corpus expectations pass; complete XSD 1.0 coverage
-  remains scoped by the explicit unsupported allowlist.
+  resolution, include/import closure, and chameleon contexts. Repository
+  consumer-path tests and current corpus expectations pass; complete XSD 1.0
+  coverage remains scoped by the explicit unsupported allowlist.
 - [x] Replace cross-package mutable schema building and projection publication
   with private construction and one immutable compiled representation. Avoid
-  rebuilding an entire builtin graph for each compilation. `schemaBuild` is
-  private and sealing consumes it only after validation succeeds.
+  rebuilding an entire builtin graph for each compilation; sealing consumes
+  construction state only after validation succeeds.
 - [x] Reimplement simple-type compilation and execution around one typed-value
   contract: all supported primitives, whitespace, list/union, restrictions,
   facets, regex semantics, fixed/default values, and identity equality. The
-  value program is owned by `internal/value`; repository integration and the
-  targeted datatype differential probe pass, while complete datatype/facet
-  coverage remains subject to final evidence.
+  repository integration and targeted datatype differential probe pass, while
+  complete datatype/facet coverage remains subject to final evidence.
 - [x] Reimplement bounded content-model compilation/execution, including
   sequence/choice/all, counted occurrences, wildcard overlap, substitution
-  groups, UPA, and restriction rules. The implementation is schema-owned;
-  repository integration and current corpus expectations pass; complete
-  adversarial conformance and performance evidence remain open.
+  groups, UPA, and restriction rules. Repository integration and current
+  corpus expectations pass; complete adversarial conformance and performance
+  evidence remain open.
 - [x] Reimplement the XML/namespace input boundary with one authoritative owner
   for XML 1.0 well-formedness, expanded names, borrowed data lifetime, positions,
-  token/input limits, and cleanup. `internal/xmlstream` is used by schema,
-  validation, and formatting; focused package gates pass.
+  token/input limits, and cleanup. Focused package gates pass.
 - [x] Reimplement document validation and identity assessment with explicit
   element transitions, syntax-only recovery, diagnostic ordering, bounded
-  retention, and reusable-session failure isolation. Validation owns active
-  document state while schema owns immutable identity programs and dispatch
-  indexes; repository consumer gates, current corpus expectations, and
-  targeted differential probes pass, while complete adversarial conformance
-  and bounded-retention evidence remain open.
+  retention, and reusable-session failure isolation. Repository consumer gates,
+  current corpus expectations, and targeted differential probes pass, while
+  complete adversarial conformance and bounded-retention evidence remain open.
 - [x] Migrate public entrypoints and CLI/WASM/browser consumers, replace any
   remaining tree-based formatting path, delete superseded production paths,
   and update canonical architecture and public documentation. Repository-wide
   verification, current corpus expectations, and targeted differential probes
-  pass; bounded-memory and final paired-performance evidence remain open.
-- [ ] Complete bounded-retention proof and the final paired performance matrix;
-  close any remaining adversarial review findings.
+  pass; final paired-performance evidence remains open.
+- [ ] Complete the final paired performance matrix pending R5, then close any
+  remaining adversarial review findings and update the evidence packet.
 
 ## Verification gates
 
-### Source replacement checkpoint
+### R4 verification state
 
-Implemented in `992659fc`, after Go 1.27 adoption in `1f846078`. The current
-tree passes `make test`, `make race`, `make wasm-test`, `make web-test`,
-`make browser-test`, `make fuzz-smoke`, `make bench-smoke`, `make staticcheck`,
-and a fresh whole-repository lint run. The web suite covered 17 tests, the
-browser suite covered 5, and fuzz smoke ran four fuzz targets. `gofmt` and
-`git diff --check` are clean. A CRLF source regression and focused race checks
-also pass; the full source suite was rerun after the final source refactoring.
+The full R4 verification contract passes: `make test`, `make race`,
+`make wasm-test`, `make web-test`, `make browser-test`, `make fuzz-smoke`,
+`make bench-smoke`, `make staticcheck`, `make lint`, formatting, and
+`git diff --check`. The current corpus expectations also pass. Raw gate output
+and supporting measurements are retained under `.lab/rewrite`.
 
-Six-sample measurements on Go 1.27.0, darwin/arm64, Apple M2 Max showed that
-the synthetic comment-heavy 16 MiB streamed source allocates about 153 KiB
-instead of 35 MiB. This measures source-buffer removal, not arbitrary semantic
-schema retention. The semantic-document, value, and identity repairs are now
-integrated; their targeted measurements are evidence for those paths, not a
-repository-wide performance or peak-retention proof. The final paired matrix
-and explicit peak/live-retention evidence remain required. Raw logs are under
-`.lab/rewrite`.
+The baseline manifest had 799 unsupported entries. The current
+`tests/unsupported.txt` has 174: 625 baseline entries were removed and 0 were
+added. The removed regex set was individually adjudicated, including 937
+dependent instance runs with no mismatches.
+
+A targeted differential probe compared 16,830 builtin-type/lexical pairs with
+the baseline. Acceptance and unsupported classification differ only at one
+intended huge-duration acceptance delta, caused by arbitrary-precision duration
+coordinates. Identity equivalence partitions match for all 3,103 jointly
+accepted values. This probe is evidence for those inputs, not the complete
+datatype or facet contract.
+
+A warmed flat-stream retention probe at 1 MiB, 16 MiB, and 128 MiB measured
+approximately 188,288 live bytes for the current tree, with a plateau across
+input sizes, versus 238,944 bytes for the baseline. Total allocations after
+warm-up were 800 B. This bounds the tested flat-stream shape; it does not close
+the complete retained-state or performance gate.
+
+The final paired performance matrix remains open pending R5. Do not mark the
+rewrite complete until it reports matching workloads against baseline
+`2764e554`, with throughput/time, B/op, allocs/op, and peak/live-retention
+evidence where required.
 
 The baseline at `/Users/jacoelho/Documents/ChatGPT/xsd-baseline` is a detached
 worktree of `2764e554`. Compare equivalent tests and benchmarks against that
@@ -292,56 +246,3 @@ Completion also requires an inventory showing every old production capability
 has been replaced or explicitly removed within scope, no parallel legacy
 implementation remains, all required behavior has authoritative evidence, and
 no performance claim depends on omitted validation work.
-
-
-## Integration checkpoint — 2026-09-06
-
-The source-stream packet is committed. Subsequent integration changes remain in
-the working tree. The repository verification contract, current corpus
-expectations, and targeted differential probes pass; bounded-memory evidence and
-final paired performance remain open. The explicit unsupported allowlist still
-defines the selected feature boundary.
-
-- Compiler and published schema now share `internal/schema`; the mutable builder
-  is private. The cross-package builder wrapper and redundant read-projection
-  equality audits have been removed.
-- `internal/xmlstream` owns the replacement XML/namespace reader, and schema,
-  validation, and formatting use it. Its focused tests, race checks, and a short
-  reader fuzz run pass.
-- `internal/schema` admits XML 1.0 through `internal/xmlstream` into typed
-  semantic source records; transient syntax records are limited to admission.
-  The superseded `internal/compile`, `internal/runtime`, `internal/stream`, and
-  `internal/xmlns` production packages are gone. Its repository consumer-path
-  tests and the current corpus expectations pass; remaining XSD 1.0 coverage is
-  bounded by the explicit unsupported allowlist.
-- `internal/value` owns the value program and is the only parser/facet/equality
-  owner. Its focused and repository integration tests plus the targeted
-  datatype differential probe pass; complete datatype/facet coverage remains
-  outside that probe.
-- `internal/xsdregex` replaces the old schema regex implementation. Focused
-  tests, race checks, vet, and a short fuzz run pass. The 625 baseline regex rows
-  and 937 dependent instance runs were individually adjudicated with no
-  mismatches; the current regex corpus evidence passes, while paired
-  performance and peak-retention evidence remain required.
-- Identity declarations compile to immutable schema-owned selector/field path
-  programs with exact-name, namespace, and wildcard dispatch indexes; validation
-  owns active scopes and matching scratch. The allocation and throughput repairs
-  are integrated; final paired measurements remain pending.
-- A differential probe compared 16,830 builtin-type/lexical pairs against the
-  preserved baseline using matching namespace/notation resolution and canonical
-  plus identity projections. Acceptance and unsupported classification differ
-  only for a huge duration now admitted through arbitrary-precision duration
-  coordinates.
-  Identity equivalence partitions match for all 3,103 jointly accepted values.
-  This probe covers those inputs, not the complete datatype or facet contract.
-- Initial value microbenchmarks found unnecessary raw-input scans and additional
-  allocations in canonical duration/list results. Identity benchmarks also found
-  per-session path/index allocations. The value and identity repairs are
-  integrated, while final paired performance and peak-retention measurements are
-  pending; no global performance parity claim is made.
-
-Probe inputs, commands, and raw results are retained locally under
-`.lab/rewrite/value-probe`. Final evidence must identify the committed revision,
-include the full repository gates, compare matching workloads against baseline
-`2764e554`, and include peak/live-retention evidence before this rewrite is
-marked complete.
