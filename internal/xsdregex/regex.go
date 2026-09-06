@@ -840,7 +840,7 @@ func (p *parser) parseClassRangeEnd() (classTerm, error) {
 		return term, nil
 	}
 	r := p.source[p.pos]
-	if r == '[' || r == ']' || r == '-' || r == '^' {
+	if r == '[' || r == ']' || r == '-' {
 		return classTerm{}, p.syntax("invalid character-class range endpoint")
 	}
 	p.pos++

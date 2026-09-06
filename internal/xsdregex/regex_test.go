@@ -286,6 +286,61 @@ func TestCharacterClassLiteralCaretAndDashSubtraction(t *testing.T) {
 	}
 }
 
+func TestCharacterClassCaretRangeEndpoints(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		pattern string
+		input   string
+		want    bool
+	}{
+		{`[A-^]`, "A", true},
+		{`[A-^]`, "^", true},
+		{`[A-^]`, "@", false},
+		{`[A-^]`, "_", false},
+		{`[A-\^]`, "A", true},
+		{`[A-\^]`, "^", true},
+		{`[A-\^]`, "@", false},
+		{`[A-\^]`, "_", false},
+		{`[^A-^]`, "@", true},
+		{`[^A-^]`, "A", false},
+		{`[^A-^]`, "^", false},
+		{`[A-^-[M]]`, "A", true},
+		{`[A-^-[M]]`, "M", false},
+		{`[A-^-[M]]`, "^", true},
+	}
+	for _, test := range tests {
+		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
+			t.Parallel()
+			got, err := mustCompile(t, test.pattern).MatchString(test.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != test.want {
+				t.Fatalf("MatchString(%q) = %v, want %v", test.input, got, test.want)
+			}
+		})
+	}
+}
+
+func TestSurrogateBlockEscapesAreExcluded(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"HighSurrogates", "LowSurrogates", "HighPrivateUseSurrogates"} {
+		for _, polarity := range []string{"p", "P"} {
+			for _, pattern := range []string{
+				"\\" + polarity + "{Is" + name + "}",
+				"[\\" + polarity + "{Is" + name + "}]",
+			} {
+				t.Run(pattern, func(t *testing.T) {
+					t.Parallel()
+					if _, err := Compile(pattern, CompileOptions{}); !IsSyntax(err) {
+						t.Fatalf("Compile(%q) error = %v, want syntax error", pattern, err)
+					}
+				})
+			}
+		}
+	}
+}
+
 func TestMatchLimits(t *testing.T) {
 	t.Parallel()
 	linear := mustCompile(t, `a*`)

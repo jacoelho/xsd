@@ -266,6 +266,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   A parser-local cache reuses admitted named categories and their complements;
   its keys are bounded by both polarities of the closed category/block catalogs,
   and it is released after compilation. No process-wide cache retains patterns.
+  The recognized block catalog excludes the XSD 1.0 surrogate block names,
+  including complemented escapes. Corpus expectations follow that contract;
+  upstream disagreements remain provenance in the authoritative test manifest.
 - `internal/validate` owns instance validation: finite default limits, option
   normalization, XML reader preflight, parser error classification, validation
   recovery, document structure, start/end element decisions, attributes,

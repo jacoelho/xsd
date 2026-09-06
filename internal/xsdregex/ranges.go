@@ -472,17 +472,15 @@ var xsdBlocks = func() map[string]rangeSet {
 		{"SmallFormVariants", 0xFE50, 0xFE6F}, {"ArabicPresentationForms-B", 0xFE70, 0xFEFE},
 		{specialsBlockName, 0xFEFF, 0xFEFF}, {"HalfwidthandFullwidthForms", 0xFF00, 0xFFEF},
 		{specialsBlockName, 0xFFF0, 0xFFFD},
-		// Blocks used by the W3C compatibility corpus that were added after
-		// the 2004 block table. Their names remain valid XSD block escapes;
-		// surrogate ranges are retained as empty-at-XML-input sets by the
-		// matcher because XML character data cannot contain surrogates.
+		// Keep supplementary-plane blocks used by the W3C compatibility corpus.
+		// Surrogate block names are deliberately absent:
+		// XSD 1.0 does not recognize them as block escapes.
 		{"OldItalic", 0x10300, 0x1032F}, {"Gothic", 0x10330, 0x1034F},
 		{"Deseret", 0x10400, 0x1044F}, {"ByzantineMusicalSymbols", 0x1D000, 0x1D0FF},
 		{"MusicalSymbols", 0x1D100, 0x1D1FF}, {"MathematicalAlphanumericSymbols", 0x1D400, 0x1D7FF},
 		{"CJKUnifiedIdeographsExtensionB", 0x20000, 0x2A6DF},
 		{"CJKCompatibilityIdeographsSupplement", 0x2F800, 0x2FA1F},
-		{"Tags", 0xE0000, 0xE007F}, {"HighSurrogates", 0xD800, 0xDB7F},
-		{"LowSurrogates", 0xDC00, 0xDFFF},
+		{"Tags", 0xE0000, 0xE007F},
 	}
 	result := make(map[string]rangeSet, len(blocks))
 	for _, block := range blocks {

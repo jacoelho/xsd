@@ -38,6 +38,12 @@ them.
 - Every referenced schema, instance, and auxiliary file resolves under `corpus/`.
 - `source.w3cSuitePath` and `source.xercesJPath` are provenance only. Consumers MUST NOT need those paths to run the corpus.
 - Per-case `oracle.xerces` entries document expected Xerces-J deviations from the spec expectation.
+- `schema.expected` is the effective project expectation. The `source` metadata
+  and per-fixture `status` preserve upstream provenance without overriding it.
+  When a project expectation corrects an upstream W3C result,
+  `schema.oracle.w3c` records the original expectation, reason, and
+  specification reference. Oracle metadata is explanatory; consumers do not
+  merge it into the effective expectation or infer a Xerces-J result.
 - This artifact MUST NOT contain Java classes, jars, shell scripts, or Go exclusion manifests.
 
 ## Go Test Runner
@@ -64,6 +70,11 @@ Every entry in `schema.documents` is a compilation root, in manifest order.
 Entries listed only in `files` with role `dependency` are copied dependencies
 used through relative schema locations and are never promoted to roots.
 Instance file paths are independent validation inputs.
+
+The checked-in `manifest.json` is the authoritative expectation source. The
+extractor named in its metadata is not part of this repository; any future
+generator must preserve explicit project corrections such as `oracle.w3c`
+entries.
 
 Cases without a `schema` member require schema-less or instance-directed schema
 assessment, which the precompiled `Engine` contract deliberately does not
