@@ -97,7 +97,7 @@ func (p *parser) validateEntityReference() error {
 }
 
 func predefinedEntityLength(entity []byte) int {
-	if _, ok := predefinedEntityValue(entity); ok {
+	if _, ok := predefinedEntityBytes(entity); ok {
 		return 1
 	}
 	return 0
@@ -118,8 +118,8 @@ func validateCharacterEntity(entity []byte) (int, error) {
 }
 
 func (p *parser) appendEntityReference(dst *[]byte) error {
-	if value, ok := predefinedEntityValue(p.entityBuf); ok {
-		return p.appendEntityBytes(dst, []byte{value})
+	if value, ok := predefinedEntityBytes(p.entityBuf); ok {
+		return p.appendEntityByte(dst, value)
 	}
 	return p.appendOtherEntityReference(dst)
 }
@@ -128,7 +128,7 @@ func (p *parser) appendEntityReference(dst *[]byte) error {
 // state. The input excludes the leading ampersand and trailing semicolon.
 // Callers use this at an already validated lexical boundary.
 func AppendEntityReference(dst []byte, entity []byte) ([]byte, error) {
-	if value, ok := predefinedEntityValue(entity); ok {
+	if value, ok := predefinedEntityBytes(entity); ok {
 		return append(dst, value), nil
 	}
 	if len(entity) == 0 || entity[0] != '#' {
@@ -148,7 +148,7 @@ func AppendEntityReference(dst []byte, entity []byte) ([]byte, error) {
 
 // DecodeEntityReferenceString validates and decodes one XML entity body.
 func DecodeEntityReferenceString(entity string) (rune, error) {
-	if value, ok := predefinedEntityValue(entity); ok {
+	if value, ok := predefinedEntityString(entity); ok {
 		return rune(value), nil
 	}
 	if entity == "" || entity[0] != '#' {
@@ -172,10 +172,10 @@ const (
 	predefinedQUOT uint32 = 'q'<<24 | 'u'<<16 | 'o'<<8 | 't'
 )
 
-// Keep the five XML predefined names in one length-guarded mapping. This
-// generic form lets string and byte callers share it without converting
-// either representation or indexing a short malformed name.
-func predefinedEntityValue[T ~string | ~[]byte](entity T) (byte, bool) {
+// Keep one mapping for the five XML predefined names. The byte and string
+// callers build a fixed-width key without converting their input, so the
+// mapping remains authoritative without adding a parser-hot generic loop.
+func predefinedEntityBytes(entity []byte) (byte, bool) {
 	n := len(entity)
 	if n < 2 || n > 4 {
 		return 0, false
@@ -184,6 +184,22 @@ func predefinedEntityValue[T ~string | ~[]byte](entity T) (byte, bool) {
 	for i := range n {
 		key = key<<8 | uint32(entity[i])
 	}
+	return predefinedEntityKey(key)
+}
+
+func predefinedEntityString(entity string) (byte, bool) {
+	n := len(entity)
+	if n < 2 || n > 4 {
+		return 0, false
+	}
+	var key uint32
+	for i := range n {
+		key = key<<8 | uint32(entity[i])
+	}
+	return predefinedEntityKey(key)
+}
+
+func predefinedEntityKey(key uint32) (byte, bool) {
 	switch key {
 	case predefinedLT:
 		return '<', true
@@ -195,8 +211,9 @@ func predefinedEntityValue[T ~string | ~[]byte](entity T) (byte, bool) {
 		return '\'', true
 	case predefinedQUOT:
 		return '"', true
+	default:
+		return 0, false
 	}
-	return 0, false
 }
 
 func (p *parser) appendOtherEntityReference(dst *[]byte) error {
@@ -216,16 +233,39 @@ func (p *parser) appendOtherEntityReference(dst *[]byte) error {
 }
 
 func (p *parser) appendEntityBytes(dst *[]byte, data []byte) error {
+	if p.maxTokenBytes <= 0 {
+		if dst != nil {
+			*dst = append(*dst, data...)
+		}
+		return nil
+	}
 	if err := p.checkRetainedPeak(len(p.entityBuf) + len(data)); err != nil {
 		return err
 	}
-	if p.maxTokenBytes > 0 {
-		if err := p.reserveRetainedBytes(len(data)); err != nil {
-			return err
-		}
+	if err := p.reserveRetainedBytes(len(data)); err != nil {
+		return err
 	}
 	if dst != nil {
 		*dst = append(*dst, data...)
+	}
+	return nil
+}
+
+func (p *parser) appendEntityByte(dst *[]byte, value byte) error {
+	if p.maxTokenBytes <= 0 {
+		if dst != nil {
+			*dst = append(*dst, value)
+		}
+		return nil
+	}
+	if err := p.checkRetainedPeak(len(p.entityBuf) + 1); err != nil {
+		return err
+	}
+	if err := p.reserveRetainedBytes(1); err != nil {
+		return err
+	}
+	if dst != nil {
+		*dst = append(*dst, value)
 	}
 	return nil
 }
