@@ -343,3 +343,35 @@ func TestLinearMatchStateLimitCountsRunes(t *testing.T) {
 		t.Fatalf("bytes match over rune state limit error = %v, want limit", err)
 	}
 }
+
+func TestShortLinearMatchesDoNotAllocate(t *testing.T) {
+	pattern := mustCompile(t, `[A-Z]{2}\d{4}`)
+	for _, input := range []string{"AB1234", "AB12345"} {
+		t.Run(input, func(t *testing.T) {
+			raw := []byte(input)
+			want := input == "AB1234"
+			var matched bool
+			var err error
+			allocations := testing.AllocsPerRun(100, func() {
+				var scratch Scratch
+				matched, err = pattern.MatchStringWithScratch(input, MatchOptions{}, &scratch)
+			})
+			if err != nil || matched != want {
+				t.Fatalf("string match = %t, %v; want %t, nil", matched, err, want)
+			}
+			if allocations != 0 {
+				t.Fatalf("short string match allocated %v times, want 0", allocations)
+			}
+			allocations = testing.AllocsPerRun(100, func() {
+				var scratch Scratch
+				matched, err = pattern.MatchBytesWithScratch(raw, MatchOptions{}, &scratch)
+			})
+			if err != nil || matched != want {
+				t.Fatalf("byte match = %t, %v; want %t, nil", matched, err, want)
+			}
+			if allocations != 0 {
+				t.Fatalf("short byte match allocated %v times, want 0", allocations)
+			}
+		})
+	}
+}

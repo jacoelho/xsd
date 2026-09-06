@@ -129,7 +129,7 @@ func (p *linearPattern) matchString(input string, options MatchOptions, scratch 
 		}
 		return input == p.literalText, nil
 	}
-	if scratch == nil {
+	if len(input) <= linearStackRunes || scratch == nil {
 		return p.matchLinearNoScratch(linearInput{stringInput: input}, options)
 	}
 	runes, err := decodeLinearString(input, options.MaxStates, &scratch.linearRunes)
@@ -153,7 +153,7 @@ func (p *linearPattern) matchBytes(input []byte, options MatchOptions, scratch *
 		}
 		return bytes.Equal(input, p.literalBytes), nil
 	}
-	if scratch == nil {
+	if len(input) <= linearStackRunes || scratch == nil {
 		return p.matchLinearNoScratch(linearInput{bytesInput: input, isBytes: true}, options)
 	}
 	runes, err := decodeLinearBytes(input, options.MaxStates, &scratch.linearRunes)
