@@ -59,7 +59,7 @@ func (s *substitutionCompilation) linkHeads() error {
 
 func (s *substitutionCompilation) linkHead(memberQName QName) error {
 	raw := s.compiler.elementComponents[memberQName]
-	source := raw.sourceNode().semantic.Element
+	source := raw.sourceNode().semantic.element()
 	if source == nil {
 		return xsderrors.InternalInvariant("element substitution source is not typed")
 	}
@@ -213,7 +213,7 @@ func substitutionCycleElement(start ElementID, elements []ElementDecl) (ElementI
 }
 
 func elementUsesSubstitutionType(n *schemaNode) bool {
-	source := n.semantic.Element
+	source := n.semantic.element()
 	if source == nil {
 		return false
 	}

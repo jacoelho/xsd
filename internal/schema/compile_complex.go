@@ -255,7 +255,7 @@ func (c *compiler) newComplexType(n *schemaNode, ctx *schemaContext, name QName)
 	if err != nil {
 		return ComplexType{}, err
 	}
-	source := n.semantic.ComplexType
+	source := n.semantic.complexType()
 	if source == nil {
 		return ComplexType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("complexType node has no typed complexType source"))
 	}
@@ -382,7 +382,7 @@ func (c *compiler) complexContentBase(child *schemaNode, kind ContentDerivationK
 }
 
 func (c *compiler) contentDerivationBaseQName(container string, kind ContentDerivationKind, child *schemaNode, ctx *schemaContext) (QName, error) {
-	source := child.semantic.Derivation
+	source := child.semantic.derivation()
 	if source == nil {
 		return QName{}, withSchemaCompileLocation(child, xsderrors.InternalInvariant("derivation node has no typed derivation source"))
 	}
@@ -571,7 +571,7 @@ func (c *compiler) resolveSimpleContentSource(n *schemaNode, ctx *schemaContext)
 	if err != nil {
 		return simpleContentSource{}, err
 	}
-	derivation := syntax.node.semantic.Derivation
+	derivation := syntax.node.semantic.derivation()
 	if derivation == nil {
 		return simpleContentSource{}, withSchemaCompileLocation(syntax.node, xsderrors.InternalInvariant("derivation node has no typed derivation source"))
 	}

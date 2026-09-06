@@ -169,21 +169,21 @@ func TestSchemaSemanticSourceResolvesQNameAttributes(t *testing.T) {
 	if head == nil || member == nil || container == nil {
 		t.Fatal("expected named declarations")
 	}
-	if got := head.semantic.Element.Type.Name; got.Space != "urn:test" || got.Local != "value" || !head.semantic.Element.Type.Resolved {
+	if got := head.semantic.element().Type.Name; got.Space != "urn:test" || got.Local != "value" || !head.semantic.element().Type.Resolved {
 		t.Fatalf("head type = %#v, want urn:test:value", got)
 	}
-	if got := member.semantic.Element.SubstitutionGroup.Name; got.Space != "urn:test" || got.Local != "head" || !member.semantic.Element.SubstitutionGroup.Resolved {
+	if got := member.semantic.element().SubstitutionGroup.Name; got.Space != "urn:test" || got.Local != "head" || !member.semantic.element().SubstitutionGroup.Resolved {
 		t.Fatalf("member substitution group = %#v, want urn:test:head", got)
 	}
 	sequence := container.firstXS(vocab.XSDElemSequence)
 	sequenceChildren := schemaModelChildren(sequence)
-	if sequence == nil || sequence.semantic.Particle == nil || len(sequenceChildren) != 2 {
+	if sequence == nil || sequence.semantic.particle() == nil || len(sequenceChildren) != 2 {
 		t.Fatal("expected typed sequence particle")
 	}
-	if got := sequenceChildren[0].semantic.Element.Ref.Name; got.Space != "urn:test" || got.Local != "member" {
+	if got := sequenceChildren[0].semantic.element().Ref.Name; got.Space != "urn:test" || got.Local != "member" {
 		t.Fatalf("particle ref = %#v, want urn:test:member", got)
 	}
-	if got := sequenceChildren[1].semantic.Wildcard.ProcessContents.Value; got != "lax" {
+	if got := sequenceChildren[1].semantic.wildcard().ProcessContents.Value; got != "lax" {
 		t.Fatalf("wildcard processContents = %q, want lax", got)
 	}
 }
@@ -216,8 +216,8 @@ func TestSchemaSemanticSourceTypesAllModelDispatch(t *testing.T) {
 	if !ok || model != ModelAll {
 		t.Fatalf("all model kind = %v, %v; want ModelAll, true", model, ok)
 	}
-	if all.semantic.Model == nil || len(all.semantic.Model.ChildIDs) != 2 {
-		t.Fatalf("all model children = %#v; want two typed child IDs", all.semantic.Model)
+	if all.semantic.model() == nil || len(all.semantic.model().ChildIDs) != 2 {
+		t.Fatalf("all model children = %#v; want two typed child IDs", all.semantic.model())
 	}
 	children := schemaModelChildren(all)
 	if len(children) != 2 || children[0].kind != schemaKindElement || children[1].kind != schemaKindElement {

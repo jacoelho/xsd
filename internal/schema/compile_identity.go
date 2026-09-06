@@ -64,7 +64,7 @@ func (c *compiler) declareIdentityConstraints(nodes []*schemaNode, ctx *schemaCo
 }
 
 func (c *compiler) declareIdentityConstraint(node *schemaNode, ctx *schemaContext) (IdentityConstraintID, error) {
-	source := node.semantic.Identity
+	source := node.semantic.identity()
 	if source == nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source"))
 	}
@@ -114,7 +114,7 @@ func (c *compiler) compileIdentityConstraint(n *schemaNode, ctx *schemaContext, 
 		return empty, err
 	}
 	selector := syntax.selector
-	selectorSource := selector.semantic.IdentityXPath
+	selectorSource := selector.semantic.identityXPath()
 	if selectorSource == nil {
 		return empty, withSchemaCompileLocation(selector, xsderrors.InternalInvariant("identity selector has no typed XPath source"))
 	}
@@ -138,7 +138,7 @@ func (c *compiler) compileIdentityRefer(n *schemaNode, ctx *schemaContext) (Iden
 	if n.local != vocab.XSDElemKeyref {
 		return NoIdentityConstraint, nil
 	}
-	typed := n.semantic.Identity
+	typed := n.semantic.identity()
 	if typed == nil {
 		return NoIdentityConstraint, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity node has no typed identity source"))
 	}
@@ -160,7 +160,7 @@ func (c *compiler) compileIdentityRefer(n *schemaNode, ctx *schemaContext) (Iden
 func (c *compiler) compileIdentityFields(nodes []*schemaNode) ([]IdentityField, error) {
 	fields := make([]IdentityField, 0, len(nodes))
 	for _, field := range nodes {
-		source := field.semantic.IdentityXPath
+		source := field.semantic.identityXPath()
 		if source == nil {
 			return nil, withSchemaCompileLocation(field, xsderrors.InternalInvariant("identity field has no typed XPath source"))
 		}

@@ -696,7 +696,7 @@ func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaContext) (Si
 	if len(children) > 1 {
 		return NoSimpleType, xsderrors.InternalInvariant("restriction child validator admitted multiple simpleType children")
 	}
-	typed := n.semantic.Derivation
+	typed := n.semantic.derivation()
 	if typed == nil {
 		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction node has no typed derivation source"))
 	}
@@ -813,7 +813,7 @@ func (c *compiler) compileUnion(n *schemaNode, ctx *schemaContext, name QName) (
 		seen: make(map[SimpleTypeID]struct{}),
 	}
 	simpleTypeChildren := schemaSimpleTypeChildren(n)
-	derivation := n.semantic.Derivation
+	derivation := n.semantic.derivation()
 	if derivation == nil {
 		return SimpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("union node has no typed derivation source"))
 	}

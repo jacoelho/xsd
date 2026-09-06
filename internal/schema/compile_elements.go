@@ -177,7 +177,7 @@ type compiledElementProperties struct {
 }
 
 func (c *compiler) compileElementProperties(n *schemaNode, ctx *schemaContext) (compiledElementProperties, error) {
-	source := n.semantic.Element
+	source := n.semantic.element()
 	if source == nil {
 		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
 	}
@@ -223,7 +223,7 @@ func applyElementDerivationMasks(n *schemaNode, ctx *schemaContext, decl *Elemen
 }
 
 func compileElementConstraintDraft(n *schemaNode) (elementConstraintDraft, error) {
-	source := n.semantic.Element
+	source := n.semantic.element()
 	if source == nil {
 		return elementConstraintDraft{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
 	}

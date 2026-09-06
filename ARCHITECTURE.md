@@ -161,9 +161,13 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   component dependencies, names and declarations, complex derivation, identity
   declarations, content models, substitution groups, and immutable publication.
   Production schema input is read through `internal/xmlstream`; the parser
-  retains compact `schemaNode` records with typed semantic source fields,
-  document-local IDs, and source positions. Its syntax admission facts are
-  transient and are never used as a generic XML tree by compilation. Schema
+  retains compact `schemaNode` records with one closed typed semantic-source
+  variant when a node owns compiler capability, one node-owned ID and
+  `xml:base` projection, document-local IDs, and source positions. Syntax-only
+  grammar nodes may carry only those common facts. Each variant owns its complete capability facts;
+  particle data is embedded in the element, model, group, or wildcard variant
+  that admits it. Its syntax admission facts are transient and are never used
+  as a generic XML tree by compilation. Schema
   QName references resolve while their namespace frame is live; literal values
   and XPath expressions that are intentionally deferred retain only the bounded
   namespace context needed by their owning compiler. Annotation payload is
@@ -661,6 +665,12 @@ graph preserves these ownership rules:
 - Compatibility fields, aliases, and parallel constructors for diagnostics were
   rejected because they would preserve two representations and two location
   paths for the same fact.
+- A semantic source struct with one nullable pointer per capability was rejected
+  because it permitted contradictory records and forced every consumer through
+  a nil chain. One closed variant owns at most one capability record; common ID
+  and `xml:base` facts stay on the node source, and particle facts stay with the
+  variant that admits them. Syntax-only grammar nodes intentionally retain no
+  capability variant.
 
 ## Documentation Ownership
 

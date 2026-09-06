@@ -78,407 +78,193 @@ func (n *schemaNode) attrNS(namespace, local string) (string, bool) {
 	return n.semantic.XMLBase.Value, n.semantic.XMLBase.Present
 }
 
-type semanticAttributeLookup struct {
-	value   LexicalAttribute
-	matched bool
-}
-
+//nolint:cyclop,funlen,gocognit,maintidx // One type switch owns the complete closed-variant attribute vocabulary.
 func semanticCommonAttribute(source *schemaSemanticSource, local string) (LexicalAttribute, bool) {
+	if source == nil {
+		return LexicalAttribute{}, false
+	}
 	if local == vocab.XSDAttrID {
 		return source.ID, true
 	}
-	var lookup semanticAttributeLookup
-	switch local {
-	case vocab.XSDAttrTargetNamespace, vocab.XSDAttrVersion, vocab.XSDAttrFinalDefault,
-		vocab.XSDAttrBlockDefault, vocab.XSDAttrElementFormDefault, vocab.XSDAttrAttributeFormDefault:
-		lookup = semanticDocumentAttribute(source.Document, local)
-	case vocab.XSDAttrNamespace, vocab.XSDAttrSchemaLocation:
-		lookup = semanticReferenceOrWildcardAttribute(source, local)
-	case vocab.XSDAttrName:
-		lookup = semanticNameAttribute(source, local)
-	case vocab.XSDAttrFinal:
-		lookup = semanticFinalAttribute(source, local)
-	case vocab.XSDAttrBase, vocab.XSDAttrItemType, vocab.XSDAttrMemberTypes:
-		lookup = semanticSimpleOrDerivationAttribute(source, local)
-	case vocab.XSDAttrDefault, vocab.XSDAttrForm, vocab.XSDAttrType:
-		lookup = semanticElementOrAttributeAttribute(source, local)
-	case vocab.XSDAttrFixed:
-		lookup = semanticElementOrAttributeOrFacetAttribute(source, local)
-	case vocab.XSDAttrNillable, vocab.XSDAttrSubstitutionGroup:
-		lookup = semanticElementAttribute(source.Element, local)
-	case vocab.XSDAttrAbstract, vocab.XSDAttrBlock:
-		lookup = semanticElementOrComplexTypeAttribute(source, local)
-	case vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
-		lookup = semanticElementOrParticleAttribute(source, local)
-	case vocab.XSDAttrRef:
-		lookup = semanticRefAttribute(source, local)
-	case vocab.XSDAttrUse:
-		lookup = semanticAttributeSourceAttribute(source.Attribute, local)
-	case vocab.XSDAttrMixed:
-		lookup = semanticComplexOrDerivationAttribute(source, local)
-	case vocab.XSDAttrRefer:
-		lookup = semanticIdentityAttribute(source.Identity, local)
-	case vocab.XSDAttrXPath:
-		lookup = semanticIdentityXPathAttribute(source.IdentityXPath, local)
-	case vocab.XSDAttrValue:
-		lookup = semanticFacetAttribute(source.Facet, local)
-	case vocab.XSDAttrNotNamespace, vocab.XSDAttrNotQName, vocab.XSDAttrProcessContents:
-		lookup = semanticWildcardAttribute(source.Wildcard, local)
-	case vocab.XSDAttrPublic, vocab.XSDAttrSystem:
-		lookup = semanticNotationAttribute(source.Notation, local)
+	switch kind := source.kind.(type) {
+	case *schemaDocumentSource:
+		switch local {
+		case vocab.XSDAttrTargetNamespace:
+			return kind.TargetNamespace, true
+		case vocab.XSDAttrVersion:
+			return kind.Version, true
+		case vocab.XSDAttrFinalDefault:
+			return kind.FinalDefault, true
+		case vocab.XSDAttrBlockDefault:
+			return kind.BlockDefault, true
+		case vocab.XSDAttrElementFormDefault:
+			return kind.ElementFormDefault, true
+		case vocab.XSDAttrAttributeFormDefault:
+			return kind.AttributeFormDefault, true
+		}
+	case *schemaReferenceSource:
+		switch local {
+		case vocab.XSDAttrNamespace:
+			return kind.Namespace, true
+		case vocab.XSDAttrSchemaLocation:
+			return kind.SchemaLocation, true
+		}
+	case *schemaSimpleTypeSource:
+		switch local {
+		case vocab.XSDAttrName:
+			return kind.Global.Name, true
+		case vocab.XSDAttrFinal:
+			return kind.Final, true
+		case vocab.XSDAttrBase:
+			return kind.Base.Lexical, true
+		case vocab.XSDAttrItemType:
+			return kind.ItemType.Lexical, true
+		case vocab.XSDAttrMemberTypes:
+			return kind.MemberTypes.Lexical, true
+		}
+	case *schemaElementSource:
+		switch local {
+		case vocab.XSDAttrName:
+			return kind.Global.Name, true
+		case vocab.XSDAttrDefault:
+			return kind.Default, true
+		case vocab.XSDAttrFixed:
+			return kind.Fixed, true
+		case vocab.XSDAttrForm:
+			return kind.Form, true
+		case vocab.XSDAttrNillable:
+			return kind.Nillable, true
+		case vocab.XSDAttrAbstract:
+			return kind.Abstract, true
+		case vocab.XSDAttrBlock:
+			return kind.Block, true
+		case vocab.XSDAttrFinal:
+			return kind.Final, true
+		case vocab.XSDAttrMinOccurs:
+			return kind.MinOccurs, true
+		case vocab.XSDAttrMaxOccurs:
+			return kind.MaxOccurs, true
+		case vocab.XSDAttrRef:
+			return kind.Ref.Lexical, true
+		case vocab.XSDAttrType:
+			return kind.Type.Lexical, true
+		case vocab.XSDAttrSubstitutionGroup:
+			return kind.SubstitutionGroup.Lexical, true
+		}
+	case *schemaAttributeSource:
+		switch local {
+		case vocab.XSDAttrName:
+			return kind.Global.Name, true
+		case vocab.XSDAttrDefault:
+			return kind.Default, true
+		case vocab.XSDAttrFixed:
+			return kind.Fixed, true
+		case vocab.XSDAttrForm:
+			return kind.Form, true
+		case vocab.XSDAttrUse:
+			return kind.Use, true
+		case vocab.XSDAttrRef:
+			return kind.Ref.Lexical, true
+		case vocab.XSDAttrType:
+			return kind.Type.Lexical, true
+		}
+	case *schemaComplexTypeSource:
+		switch local {
+		case vocab.XSDAttrName:
+			return kind.Global.Name, true
+		case vocab.XSDAttrMixed:
+			return kind.Mixed, true
+		case vocab.XSDAttrAbstract:
+			return kind.Abstract, true
+		case vocab.XSDAttrBlock:
+			return kind.Block, true
+		case vocab.XSDAttrFinal:
+			return kind.Final, true
+		}
+	case *schemaDerivationSource:
+		switch local {
+		case vocab.XSDAttrBase:
+			return kind.Base.Lexical, true
+		case vocab.XSDAttrItemType:
+			return kind.ItemType.Lexical, true
+		case vocab.XSDAttrMemberTypes:
+			return kind.MemberTypes.Lexical, true
+		case vocab.XSDAttrMixed:
+			return kind.Mixed, true
+		}
+	case *schemaModelSource:
+		switch local {
+		case vocab.XSDAttrMinOccurs:
+			return kind.MinOccurs, true
+		case vocab.XSDAttrMaxOccurs:
+			return kind.MaxOccurs, true
+		case vocab.XSDAttrRef:
+			return kind.Ref.Lexical, true
+		}
+	case *schemaIdentitySource:
+		switch local {
+		case vocab.XSDAttrName:
+			return kind.Name, true
+		case vocab.XSDAttrRefer:
+			return kind.Refer.Lexical, true
+		}
+	case *schemaIdentityXPathSource:
+		if local == vocab.XSDAttrXPath {
+			return kind.XPath, true
+		}
+	case *schemaWildcardSource:
+		switch local {
+		case vocab.XSDAttrNamespace:
+			return kind.Namespace, true
+		case vocab.XSDAttrRef:
+			return kind.Ref.Lexical, true
+		case vocab.XSDAttrMinOccurs:
+			return kind.MinOccurs, true
+		case vocab.XSDAttrMaxOccurs:
+			return kind.MaxOccurs, true
+		case vocab.XSDAttrNotNamespace:
+			return kind.NotNamespace, true
+		case vocab.XSDAttrNotQName:
+			return kind.NotQName, true
+		case vocab.XSDAttrProcessContents:
+			return kind.ProcessContents, true
+		}
+	case *schemaGroupSource:
+		switch local {
+		case vocab.XSDAttrName:
+			return kind.Global.Name, true
+		case vocab.XSDAttrMinOccurs:
+			return kind.MinOccurs, true
+		case vocab.XSDAttrMaxOccurs:
+			return kind.MaxOccurs, true
+		case vocab.XSDAttrRef:
+			return kind.Ref.Lexical, true
+		}
+	case *schemaAttributeGroupSource:
+		switch local {
+		case vocab.XSDAttrName:
+			return kind.Global.Name, true
+		case vocab.XSDAttrRef:
+			return kind.Ref.Lexical, true
+		}
+	case *schemaNotationSource:
+		switch local {
+		case vocab.XSDAttrName:
+			return kind.Global.Name, true
+		case vocab.XSDAttrPublic:
+			return kind.Public, true
+		case vocab.XSDAttrSystem:
+			return kind.System, true
+		}
+	case *schemaFacetSource:
+		switch local {
+		case vocab.XSDAttrValue:
+			return kind.Value, true
+		case vocab.XSDAttrFixed:
+			return kind.Fixed, true
+		}
 	}
-	return lookup.value, lookup.matched
-}
-
-func semanticReferenceOrWildcardAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	if source.Reference != nil {
-		return semanticReferenceAttribute(source.Reference, local)
-	}
-	return semanticWildcardAttribute(source.Wildcard, local)
-}
-
-func semanticFinalAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	switch {
-	case source.SimpleType != nil:
-		return semanticSimpleTypeAttribute(source.SimpleType, local)
-	case source.Element != nil:
-		return semanticElementAttribute(source.Element, local)
-	case source.ComplexType != nil:
-		return semanticComplexTypeAttribute(source.ComplexType, local)
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticSimpleOrDerivationAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	if source.SimpleType != nil {
-		return semanticSimpleTypeAttribute(source.SimpleType, local)
-	}
-	return semanticDerivationAttribute(source.Derivation, local)
-}
-
-func semanticElementOrAttributeAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	if source.Element != nil {
-		return semanticElementAttribute(source.Element, local)
-	}
-	return semanticAttributeSourceAttribute(source.Attribute, local)
-}
-
-func semanticElementOrAttributeOrFacetAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	if source.Element != nil {
-		return semanticElementAttribute(source.Element, local)
-	}
-	if source.Attribute != nil {
-		return semanticAttributeSourceAttribute(source.Attribute, local)
-	}
-	return semanticFacetAttribute(source.Facet, local)
-}
-
-func semanticElementOrComplexTypeAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	if source.Element != nil {
-		return semanticElementAttribute(source.Element, local)
-	}
-	return semanticComplexTypeAttribute(source.ComplexType, local)
-}
-
-func semanticElementOrParticleAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	if source.Element != nil {
-		return semanticElementAttribute(source.Element, local)
-	}
-	return semanticParticleAttribute(source.Particle, local)
-}
-
-func semanticRefAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	switch {
-	case source.Element != nil:
-		return semanticElementAttribute(source.Element, local)
-	case source.Attribute != nil:
-		return semanticAttributeSourceAttribute(source.Attribute, local)
-	case source.Particle != nil:
-		return semanticParticleAttribute(source.Particle, local)
-	case source.Group != nil:
-		return semanticGroupAttribute(source.Group, local)
-	case source.AttributeGroup != nil:
-		return semanticAttributeGroupAttribute(source.AttributeGroup, local)
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticComplexOrDerivationAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	if source.ComplexType != nil {
-		return semanticComplexTypeAttribute(source.ComplexType, local)
-	}
-	return semanticDerivationAttribute(source.Derivation, local)
-}
-
-func semanticDocumentAttribute(source *schemaDocumentSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrTargetNamespace:
-		return semanticAttributeLookup{source.TargetNamespace, true}
-	case vocab.XSDAttrVersion:
-		return semanticAttributeLookup{source.Version, true}
-	case vocab.XSDAttrFinalDefault:
-		return semanticAttributeLookup{source.FinalDefault, true}
-	case vocab.XSDAttrBlockDefault:
-		return semanticAttributeLookup{source.BlockDefault, true}
-	case vocab.XSDAttrElementFormDefault:
-		return semanticAttributeLookup{source.ElementFormDefault, true}
-	case vocab.XSDAttrAttributeFormDefault:
-		return semanticAttributeLookup{source.AttributeFormDefault, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticReferenceAttribute(source *schemaReferenceSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrNamespace:
-		return semanticAttributeLookup{source.Namespace, true}
-	case vocab.XSDAttrSchemaLocation:
-		return semanticAttributeLookup{source.SchemaLocation, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticNameAttribute(source *schemaSemanticSource, local string) semanticAttributeLookup {
-	if local != vocab.XSDAttrName {
-		return semanticAttributeLookup{}
-	}
-	switch {
-	case source.SimpleType != nil:
-		return semanticAttributeLookup{source.SimpleType.Global.Name, true}
-	case source.Element != nil:
-		return semanticAttributeLookup{source.Element.Global.Name, true}
-	case source.Attribute != nil:
-		return semanticAttributeLookup{source.Attribute.Global.Name, true}
-	case source.ComplexType != nil:
-		return semanticAttributeLookup{source.ComplexType.Global.Name, true}
-	case source.Group != nil:
-		return semanticAttributeLookup{source.Group.Global.Name, true}
-	case source.AttributeGroup != nil:
-		return semanticAttributeLookup{source.AttributeGroup.Global.Name, true}
-	case source.Notation != nil:
-		return semanticAttributeLookup{source.Notation.Global.Name, true}
-	case source.Identity != nil:
-		return semanticAttributeLookup{source.Identity.Name, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticSimpleTypeAttribute(source *schemaSimpleTypeSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrFinal:
-		return semanticAttributeLookup{source.Final, true}
-	case vocab.XSDAttrBase:
-		return semanticAttributeLookup{source.Base.Lexical, true}
-	case vocab.XSDAttrItemType:
-		return semanticAttributeLookup{source.ItemType.Lexical, true}
-	case vocab.XSDAttrMemberTypes:
-		return semanticAttributeLookup{source.MemberTypes.Lexical, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticElementAttribute(source *schemaElementSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrDefault:
-		return semanticAttributeLookup{source.Default, true}
-	case vocab.XSDAttrFixed:
-		return semanticAttributeLookup{source.Fixed, true}
-	case vocab.XSDAttrForm:
-		return semanticAttributeLookup{source.Form, true}
-	case vocab.XSDAttrNillable:
-		return semanticAttributeLookup{source.Nillable, true}
-	case vocab.XSDAttrAbstract:
-		return semanticAttributeLookup{source.Abstract, true}
-	case vocab.XSDAttrBlock:
-		return semanticAttributeLookup{source.Block, true}
-	case vocab.XSDAttrFinal:
-		return semanticAttributeLookup{source.Final, true}
-	case vocab.XSDAttrMinOccurs:
-		return semanticAttributeLookup{source.MinOccurs, true}
-	case vocab.XSDAttrMaxOccurs:
-		return semanticAttributeLookup{source.MaxOccurs, true}
-	case vocab.XSDAttrRef:
-		return semanticAttributeLookup{source.Ref.Lexical, true}
-	case vocab.XSDAttrType:
-		return semanticAttributeLookup{source.Type.Lexical, true}
-	case vocab.XSDAttrSubstitutionGroup:
-		return semanticAttributeLookup{source.SubstitutionGroup.Lexical, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticAttributeSourceAttribute(source *schemaAttributeSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrDefault:
-		return semanticAttributeLookup{source.Default, true}
-	case vocab.XSDAttrFixed:
-		return semanticAttributeLookup{source.Fixed, true}
-	case vocab.XSDAttrForm:
-		return semanticAttributeLookup{source.Form, true}
-	case vocab.XSDAttrUse:
-		return semanticAttributeLookup{source.Use, true}
-	case vocab.XSDAttrRef:
-		return semanticAttributeLookup{source.Ref.Lexical, true}
-	case vocab.XSDAttrType:
-		return semanticAttributeLookup{source.Type.Lexical, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticComplexTypeAttribute(source *schemaComplexTypeSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrMixed:
-		return semanticAttributeLookup{source.Mixed, true}
-	case vocab.XSDAttrAbstract:
-		return semanticAttributeLookup{source.Abstract, true}
-	case vocab.XSDAttrBlock:
-		return semanticAttributeLookup{source.Block, true}
-	case vocab.XSDAttrFinal:
-		return semanticAttributeLookup{source.Final, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticDerivationAttribute(source *schemaDerivationSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrBase:
-		return semanticAttributeLookup{source.Base.Lexical, true}
-	case vocab.XSDAttrItemType:
-		return semanticAttributeLookup{source.ItemType.Lexical, true}
-	case vocab.XSDAttrMemberTypes:
-		return semanticAttributeLookup{source.MemberTypes.Lexical, true}
-	case vocab.XSDAttrMixed:
-		return semanticAttributeLookup{source.Mixed, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticParticleAttribute(source *schemaParticleSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrMinOccurs:
-		return semanticAttributeLookup{source.MinOccurs, true}
-	case vocab.XSDAttrMaxOccurs:
-		return semanticAttributeLookup{source.MaxOccurs, true}
-	case vocab.XSDAttrRef:
-		return semanticAttributeLookup{source.Ref.Lexical, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticIdentityAttribute(source *schemaIdentitySource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrName:
-		return semanticAttributeLookup{source.Name, true}
-	case vocab.XSDAttrRefer:
-		return semanticAttributeLookup{source.Refer.Lexical, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticIdentityXPathAttribute(source *schemaIdentityXPathSource, local string) semanticAttributeLookup {
-	if source != nil && local == vocab.XSDAttrXPath {
-		return semanticAttributeLookup{source.XPath, true}
-	}
-	return semanticAttributeLookup{}
-}
-
-func semanticFacetAttribute(source *schemaFacetSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrValue:
-		return semanticAttributeLookup{source.Value, true}
-	case vocab.XSDAttrFixed:
-		return semanticAttributeLookup{source.Fixed, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticWildcardAttribute(source *schemaWildcardSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrNamespace:
-		return semanticAttributeLookup{source.Namespace, true}
-	case vocab.XSDAttrNotNamespace:
-		return semanticAttributeLookup{source.NotNamespace, true}
-	case vocab.XSDAttrNotQName:
-		return semanticAttributeLookup{source.NotQName, true}
-	case vocab.XSDAttrProcessContents:
-		return semanticAttributeLookup{source.ProcessContents, true}
-	default:
-		return semanticAttributeLookup{}
-	}
-}
-
-func semanticGroupAttribute(source *schemaGroupSource, local string) semanticAttributeLookup {
-	if source != nil && local == vocab.XSDAttrRef {
-		return semanticAttributeLookup{source.Ref.Lexical, true}
-	}
-	return semanticAttributeLookup{}
-}
-
-func semanticAttributeGroupAttribute(source *schemaAttributeGroupSource, local string) semanticAttributeLookup {
-	if source != nil && local == vocab.XSDAttrRef {
-		return semanticAttributeLookup{source.Ref.Lexical, true}
-	}
-	return semanticAttributeLookup{}
-}
-
-func semanticNotationAttribute(source *schemaNotationSource, local string) semanticAttributeLookup {
-	if source == nil {
-		return semanticAttributeLookup{}
-	}
-	switch local {
-	case vocab.XSDAttrPublic:
-		return semanticAttributeLookup{source.Public, true}
-	case vocab.XSDAttrSystem:
-		return semanticAttributeLookup{source.System, true}
-	default:
-		return semanticAttributeLookup{}
-	}
+	return LexicalAttribute{}, false
 }
 
 func (n *schemaNode) xsdChildren() iter.Seq[*schemaNode] {
@@ -562,7 +348,6 @@ type semanticQNameProjection struct {
 // declarations. It is deliberately separate from schemaNode so capability
 // compilers consume typed fields rather than interpreting an XML tree.
 type schemaGlobalSource struct {
-	ID   LexicalAttribute
 	Name LexicalAttribute
 }
 
@@ -580,6 +365,8 @@ type schemaFacetSource struct {
 }
 
 type schemaElementSource struct {
+	schemaParticleSource
+
 	Global            schemaGlobalSource
 	Default           LexicalAttribute
 	Fixed             LexicalAttribute
@@ -588,9 +375,6 @@ type schemaElementSource struct {
 	Abstract          LexicalAttribute
 	Block             LexicalAttribute
 	Final             LexicalAttribute
-	MinOccurs         LexicalAttribute
-	MaxOccurs         LexicalAttribute
-	Ref               schemaQNameAttribute
 	Type              schemaQNameAttribute
 	SubstitutionGroup schemaQNameAttribute
 }
@@ -615,7 +399,6 @@ type schemaComplexTypeSource struct {
 
 type schemaDerivationSource struct {
 	MemberTypes schemaQNameListAttribute
-	ID          LexicalAttribute
 	// Mixed belongs to xs:complexContent. Keeping it with the derivation
 	// container preserves that attribute without a generic source map.
 	Mixed    LexicalAttribute
@@ -635,7 +418,11 @@ type schemaParticleSource struct {
 // schemaModelSource is the typed source record for sequence, choice, and all
 // model groups. Child IDs preserve document order without making the model
 // compiler inspect a generic XML child tree.
+//
+//nolint:govet // Keep the embedded particle capability adjacent to its model-specific fields.
 type schemaModelSource struct {
+	schemaParticleSource
+
 	ChildIDs []schemaNodeID
 	Kind     ModelKind
 }
@@ -651,16 +438,21 @@ type schemaIdentityXPathSource struct {
 	XPath LexicalAttribute
 }
 
+//nolint:govet // Keep particle bounds adjacent to wildcard policy fields.
 type schemaWildcardSource struct {
+	schemaParticleSource
+
 	Namespace       LexicalAttribute
 	NotNamespace    LexicalAttribute
 	NotQName        LexicalAttribute
 	ProcessContents LexicalAttribute
 }
 
+//nolint:govet // Keep the embedded particle capability adjacent to group identity fields.
 type schemaGroupSource struct {
+	schemaParticleSource
+
 	Global schemaGlobalSource
-	Ref    schemaQNameAttribute
 }
 
 type schemaAttributeGroupSource struct {
@@ -669,7 +461,6 @@ type schemaAttributeGroupSource struct {
 }
 
 type schemaDocumentSource struct {
-	ID                   LexicalAttribute
 	TargetNamespace      LexicalAttribute
 	Version              LexicalAttribute
 	FinalDefault         LexicalAttribute
@@ -679,7 +470,6 @@ type schemaDocumentSource struct {
 }
 
 type schemaReferenceSource struct {
-	ID             LexicalAttribute
 	Namespace      LexicalAttribute
 	SchemaLocation LexicalAttribute
 }
@@ -690,28 +480,177 @@ type schemaNotationSource struct {
 	System LexicalAttribute
 }
 
-// schemaSemanticSource is the typed source view for one schema node. At most
-// one capability record is populated for a node, while common particle and
-// derivation records may accompany a declaration record.
+// schemaSemanticSource is the typed source view for one schema node. Its
+// closed kind owns the node's complete capability record when the node has a
+// compiler capability; syntax-only nodes may leave kind nil. IDs and xml:base
+// are the only facts shared by every admitted node.
 type schemaSemanticSource struct {
-	ComplexType    *schemaComplexTypeSource
-	Particle       *schemaParticleSource
-	Reference      *schemaReferenceSource
-	Notation       *schemaNotationSource
-	SimpleType     *schemaSimpleTypeSource
-	Facet          *schemaFacetSource
-	Element        *schemaElementSource
-	Attribute      *schemaAttributeSource
-	Document       *schemaDocumentSource
-	AttributeGroup *schemaAttributeGroupSource
-	Derivation     *schemaDerivationSource
-	Model          *schemaModelSource
-	Identity       *schemaIdentitySource
-	IdentityXPath  *schemaIdentityXPathSource
-	Wildcard       *schemaWildcardSource
-	Group          *schemaGroupSource
-	ID             LexicalAttribute
-	XMLBase        LexicalAttribute
+	kind    schemaSemanticKind
+	ID      LexicalAttribute
+	XMLBase LexicalAttribute
+}
+
+// schemaSemanticKind is a closed tagged source variant. A node with compiler
+// capability owns one record; particle-bearing variants embed the particle
+// record they need instead of being paired with a second source.
+//
+//nolint:iface // The unexported marker closes this source variant set.
+type schemaSemanticKind interface {
+	semanticKind()
+}
+
+func (*schemaComplexTypeSource) semanticKind()    {}
+func (*schemaReferenceSource) semanticKind()      {}
+func (*schemaNotationSource) semanticKind()       {}
+func (*schemaSimpleTypeSource) semanticKind()     {}
+func (*schemaFacetSource) semanticKind()          {}
+func (*schemaElementSource) semanticKind()        {}
+func (*schemaAttributeSource) semanticKind()      {}
+func (*schemaDocumentSource) semanticKind()       {}
+func (*schemaAttributeGroupSource) semanticKind() {}
+func (*schemaDerivationSource) semanticKind()     {}
+func (*schemaModelSource) semanticKind()          {}
+func (*schemaIdentitySource) semanticKind()       {}
+func (*schemaIdentityXPathSource) semanticKind()  {}
+func (*schemaWildcardSource) semanticKind()       {}
+func (*schemaGroupSource) semanticKind()          {}
+
+func (s *schemaSemanticSource) complexType() *schemaComplexTypeSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaComplexTypeSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) simpleType() *schemaSimpleTypeSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaSimpleTypeSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) facet() *schemaFacetSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaFacetSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) element() *schemaElementSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaElementSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) attribute() *schemaAttributeSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaAttributeSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) attributeGroup() *schemaAttributeGroupSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaAttributeGroupSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) derivation() *schemaDerivationSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaDerivationSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) model() *schemaModelSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaModelSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) identity() *schemaIdentitySource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaIdentitySource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) identityXPath() *schemaIdentityXPathSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaIdentityXPathSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) wildcard() *schemaWildcardSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaWildcardSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) group() *schemaGroupSource {
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.kind.(*schemaGroupSource); ok {
+		return v
+	}
+	return nil
+}
+
+func (s *schemaSemanticSource) particle() *schemaParticleSource {
+	if s == nil {
+		return nil
+	}
+	switch v := s.kind.(type) {
+	case *schemaElementSource:
+		return &v.schemaParticleSource
+	case *schemaModelSource:
+		return &v.schemaParticleSource
+	case *schemaGroupSource:
+		return &v.schemaParticleSource
+	case *schemaWildcardSource:
+		return &v.schemaParticleSource
+	default:
+		return nil
+	}
 }
 
 // typedAttributeNames is the admitted XSD attribute vocabulary. The parser
@@ -757,11 +696,15 @@ var typedAttributeNames = [...]string{
 }
 
 func schemaModelChildren(n *schemaNode) []*schemaNode {
-	if n == nil || n.semantic.Model == nil || n.doc == nil {
+	if n == nil {
 		return nil
 	}
-	children := make([]*schemaNode, 0, len(n.semantic.Model.ChildIDs))
-	for _, id := range n.semantic.Model.ChildIDs {
+	model := n.semantic.model()
+	if model == nil || n.doc == nil {
+		return nil
+	}
+	children := make([]*schemaNode, 0, len(model.ChildIDs))
+	for _, id := range model.ChildIDs {
 		if child := n.doc.node(id); child != nil {
 			children = append(children, child)
 		}
@@ -770,10 +713,14 @@ func schemaModelChildren(n *schemaNode) []*schemaNode {
 }
 
 func schemaModelKind(n *schemaNode) (ModelKind, bool) {
-	if n == nil || n.semantic.Model == nil {
+	if n == nil {
 		return 0, false
 	}
-	return n.semantic.Model.Kind, true
+	model := n.semantic.model()
+	if model == nil {
+		return 0, false
+	}
+	return model.Kind, true
 }
 
 func schemaSimpleTypeChildren(n *schemaNode) []*schemaNode {
@@ -790,42 +737,42 @@ func schemaSimpleTypeChildren(n *schemaNode) []*schemaNode {
 }
 
 func schemaElementRef(n *schemaNode) (string, bool) {
-	if source := n.semantic.Element; source != nil {
+	if source := n.semantic.element(); source != nil {
 		return source.Ref.Lexical.Value, source.Ref.Lexical.Present
 	}
 	return "", false
 }
 
 func schemaElementName(n *schemaNode) string {
-	if source := n.semantic.Element; source != nil {
+	if source := n.semantic.element(); source != nil {
 		return source.Global.Name.Value
 	}
 	return ""
 }
 
 func schemaElementForm(n *schemaNode) (string, bool) {
-	if source := n.semantic.Element; source != nil {
+	if source := n.semantic.element(); source != nil {
 		return source.Form.Value, source.Form.Present
 	}
 	return "", false
 }
 
 func schemaElementType(n *schemaNode) (string, bool) {
-	if source := n.semantic.Element; source != nil {
+	if source := n.semantic.element(); source != nil {
 		return source.Type.Lexical.Value, source.Type.Lexical.Present
 	}
 	return "", false
 }
 
 func schemaGroupRef(n *schemaNode) (string, bool) {
-	if source := n.semantic.Group; source != nil {
+	if source := n.semantic.group(); source != nil {
 		return source.Ref.Lexical.Value, source.Ref.Lexical.Present
 	}
 	return "", false
 }
 
 func schemaListItemType(n *schemaNode) (string, bool) {
-	if source := n.semantic.Derivation; source != nil {
+	if source := n.semantic.derivation(); source != nil {
 		return source.ItemType.Lexical.Value, source.ItemType.Lexical.Present
 	}
 	return "", false
@@ -835,28 +782,28 @@ func (n *schemaNode) resolvedQName(lexical string) (xml.Name, bool) {
 	if n == nil {
 		return xml.Name{}, false
 	}
-	if name, ok := resolvedQNameSimpleType(n.semantic.SimpleType, lexical); ok {
+	if name, ok := resolvedQNameSimpleType(n.semantic.simpleType(), lexical); ok {
 		return name, true
 	}
-	if name, ok := resolvedQNameElement(n.semantic.Element, lexical); ok {
+	if name, ok := resolvedQNameElement(n.semantic.element(), lexical); ok {
 		return name, true
 	}
-	if name, ok := resolvedQNameAttribute(n.semantic.Attribute, lexical); ok {
+	if name, ok := resolvedQNameAttribute(n.semantic.attribute(), lexical); ok {
 		return name, true
 	}
-	if name, ok := resolvedQNameDerivation(n.semantic.Derivation, lexical); ok {
+	if name, ok := resolvedQNameDerivation(n.semantic.derivation(), lexical); ok {
 		return name, true
 	}
-	if name, ok := resolvedQNameParticle(n.semantic.Particle, lexical); ok {
+	if name, ok := resolvedQNameParticle(n.semantic.particle(), lexical); ok {
 		return name, true
 	}
-	if name, ok := resolvedQNameIdentity(n.semantic.Identity, lexical); ok {
+	if name, ok := resolvedQNameIdentity(n.semantic.identity(), lexical); ok {
 		return name, true
 	}
-	if name, ok := resolvedQNameGroup(n.semantic.Group, lexical); ok {
+	if name, ok := resolvedQNameGroup(n.semantic.group(), lexical); ok {
 		return name, true
 	}
-	if name, ok := resolvedQNameAttributeGroup(n.semantic.AttributeGroup, lexical); ok {
+	if name, ok := resolvedQNameAttributeGroup(n.semantic.attributeGroup(), lexical); ok {
 		return name, true
 	}
 	return xml.Name{}, false
@@ -962,7 +909,6 @@ func resolvedQNameList(value schemaQNameListAttribute, lexical string) (xml.Name
 
 func schemaGlobalSourceFor(n *schemaSyntaxNode) schemaGlobalSource {
 	return schemaGlobalSource{
-		ID:   schemaLexicalAttributeSyntax(n, vocab.XSDAttrID),
 		Name: schemaLexicalAttributeSyntax(n, vocab.XSDAttrName),
 	}
 }
@@ -1043,7 +989,7 @@ func (syntax *schemaSyntaxNode) buildSemanticSource(n *schemaNode) error {
 	if err != nil {
 		return err
 	}
-	buildSemanticKind(syntax, &s, &projection)
+	s.kind = buildSemanticKind(syntax, &projection)
 	n.semantic = s
 	return nil
 }
@@ -1107,11 +1053,11 @@ func setSemanticQNameAttribute(projection *semanticQNameProjection, local string
 	}
 }
 
-func buildSemanticKind(n *schemaSyntaxNode, s *schemaSemanticSource, qnames *semanticQNameProjection) {
+//nolint:ireturn // The closed variant is the canonical construction boundary.
+func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) schemaSemanticKind {
 	switch n.Name.Local {
 	case vocab.XSDElemSchema:
-		s.Document = &schemaDocumentSource{
-			ID:                   schemaLexicalAttributeSyntax(n, vocab.XSDAttrID),
+		return &schemaDocumentSource{
 			TargetNamespace:      schemaLexicalAttributeSyntax(n, vocab.XSDAttrTargetNamespace),
 			Version:              schemaLexicalAttributeSyntax(n, vocab.XSDAttrVersion),
 			FinalDefault:         schemaLexicalAttributeSyntax(n, vocab.XSDAttrFinalDefault),
@@ -1120,13 +1066,12 @@ func buildSemanticKind(n *schemaSyntaxNode, s *schemaSemanticSource, qnames *sem
 			AttributeFormDefault: schemaLexicalAttributeSyntax(n, vocab.XSDAttrAttributeFormDefault),
 		}
 	case vocab.XSDElemInclude, vocab.XSDElemImport:
-		s.Reference = &schemaReferenceSource{
-			ID:             schemaLexicalAttributeSyntax(n, vocab.XSDAttrID),
+		return &schemaReferenceSource{
 			Namespace:      schemaLexicalAttributeSyntax(n, vocab.XSDAttrNamespace),
 			SchemaLocation: schemaLexicalAttributeSyntax(n, vocab.XSDAttrSchemaLocation),
 		}
 	case vocab.XSDElemSimpleType:
-		s.SimpleType = &schemaSimpleTypeSource{
+		return &schemaSimpleTypeSource{
 			Global:      schemaGlobalSourceFor(n),
 			Final:       schemaLexicalAttributeSyntax(n, vocab.XSDAttrFinal),
 			Base:        qnames.base,
@@ -1134,9 +1079,14 @@ func buildSemanticKind(n *schemaSyntaxNode, s *schemaSemanticSource, qnames *sem
 			MemberTypes: qnames.memberTypes,
 		}
 	case vocab.XSDElemElement:
-		s.Element = &schemaElementSource{
+		//nolint:modernize // Keep the embedded particle owner explicit at construction.
+		return &schemaElementSource{
+			schemaParticleSource: schemaParticleSource{
+				MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
+				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
+				Ref:       qnames.ref,
+			},
 			Global:            schemaGlobalSourceFor(n),
-			Ref:               qnames.ref,
 			Type:              qnames.typeName,
 			SubstitutionGroup: qnames.substitutionGroup,
 			Default:           schemaLexicalAttributeSyntax(n, vocab.XSDAttrDefault),
@@ -1146,19 +1096,9 @@ func buildSemanticKind(n *schemaSyntaxNode, s *schemaSemanticSource, qnames *sem
 			Abstract:          schemaLexicalAttributeSyntax(n, vocab.XSDAttrAbstract),
 			Block:             schemaLexicalAttributeSyntax(n, vocab.XSDAttrBlock),
 			Final:             schemaLexicalAttributeSyntax(n, vocab.XSDAttrFinal),
-			MinOccurs:         schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
-			MaxOccurs:         schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
-		}
-		// Element declarations are also particles when they occur inside a
-		// model group. Keep occurrence facts in the particle capability so the
-		// content-model compiler has one typed source for every particle kind.
-		s.Particle = &schemaParticleSource{
-			MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
-			MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
-			Ref:       qnames.ref,
 		}
 	case vocab.XSDElemAttribute:
-		s.Attribute = &schemaAttributeSource{
+		return &schemaAttributeSource{
 			Global:  schemaGlobalSourceFor(n),
 			Ref:     qnames.ref,
 			Type:    qnames.typeName,
@@ -1168,7 +1108,7 @@ func buildSemanticKind(n *schemaSyntaxNode, s *schemaSemanticSource, qnames *sem
 			Use:     schemaLexicalAttributeSyntax(n, vocab.XSDAttrUse),
 		}
 	case vocab.XSDElemComplexType:
-		s.ComplexType = &schemaComplexTypeSource{
+		return &schemaComplexTypeSource{
 			Global:   schemaGlobalSourceFor(n),
 			Mixed:    schemaLexicalAttributeSyntax(n, vocab.XSDAttrMixed),
 			Abstract: schemaLexicalAttributeSyntax(n, vocab.XSDAttrAbstract),
@@ -1176,48 +1116,67 @@ func buildSemanticKind(n *schemaSyntaxNode, s *schemaSemanticSource, qnames *sem
 			Final:    schemaLexicalAttributeSyntax(n, vocab.XSDAttrFinal),
 		}
 	case vocab.XSDElemRestriction, vocab.XSDElemExtension:
-		s.Derivation = &schemaDerivationSource{ID: schemaLexicalAttributeSyntax(n, vocab.XSDAttrID), Base: qnames.base}
+		return &schemaDerivationSource{Base: qnames.base}
 	case vocab.XSDElemComplexContent:
-		s.Derivation = &schemaDerivationSource{ID: schemaLexicalAttributeSyntax(n, vocab.XSDAttrID), Mixed: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMixed)}
+		return &schemaDerivationSource{Mixed: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMixed)}
 	case vocab.XSDElemList:
-		s.Derivation = &schemaDerivationSource{ID: schemaLexicalAttributeSyntax(n, vocab.XSDAttrID), ItemType: qnames.itemType}
+		return &schemaDerivationSource{ItemType: qnames.itemType}
 	case vocab.XSDElemUnion:
-		s.Derivation = &schemaDerivationSource{ID: schemaLexicalAttributeSyntax(n, vocab.XSDAttrID), MemberTypes: qnames.memberTypes}
+		return &schemaDerivationSource{MemberTypes: qnames.memberTypes}
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
-		s.Particle = &schemaParticleSource{MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs), MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs), Ref: qnames.ref}
 		if n.Name.Local != vocab.XSDElemGroup {
 			kind := mustModelKindForLocal(n.Name.Local)
-			s.Model = &schemaModelSource{Kind: kind, ChildIDs: schemaXSDChildIDs(n)}
+			//nolint:modernize // Keep the embedded particle owner explicit at construction.
+			return &schemaModelSource{
+				schemaParticleSource: schemaParticleSource{
+					MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
+					MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
+					Ref:       qnames.ref,
+				},
+				Kind:     kind,
+				ChildIDs: schemaXSDChildIDs(n),
+			}
 		}
-		if n.Name.Local == vocab.XSDElemGroup {
-			s.Group = &schemaGroupSource{Global: schemaGlobalSourceFor(n), Ref: qnames.ref}
+		//nolint:modernize // Keep the embedded particle owner explicit at construction.
+		return &schemaGroupSource{
+			schemaParticleSource: schemaParticleSource{
+				MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
+				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
+				Ref:       qnames.ref,
+			},
+			Global: schemaGlobalSourceFor(n),
 		}
 	case vocab.XSDElemAny, vocab.XSDElemAnyAttribute:
-		s.Particle = &schemaParticleSource{MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs), MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs)}
-		s.Wildcard = &schemaWildcardSource{
+		//nolint:modernize // Keep the embedded particle owner explicit at construction.
+		return &schemaWildcardSource{
+			schemaParticleSource: schemaParticleSource{
+				MinOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMinOccurs),
+				MaxOccurs: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMaxOccurs),
+			},
 			Namespace:       schemaLexicalAttributeSyntax(n, vocab.XSDAttrNamespace),
 			NotNamespace:    schemaLexicalAttributeSyntax(n, vocab.XSDAttrNotNamespace),
 			NotQName:        schemaLexicalAttributeSyntax(n, vocab.XSDAttrNotQName),
 			ProcessContents: schemaLexicalAttributeSyntax(n, vocab.XSDAttrProcessContents),
 		}
 	case vocab.XSDElemKey, vocab.XSDElemKeyref, vocab.XSDElemUnique:
-		s.Identity = &schemaIdentitySource{
+		return &schemaIdentitySource{
 			Name:     schemaLexicalAttributeSyntax(n, vocab.XSDAttrName),
 			Refer:    qnames.refer,
 			Fields:   schemaChildIDs(n, vocab.XSDElemField),
 			Selector: schemaLexicalAttributeSyntax(n, vocab.XSDAttrXPath),
 		}
 	case vocab.XSDElemSelector, vocab.XSDElemField:
-		s.IdentityXPath = &schemaIdentityXPathSource{XPath: schemaLexicalAttributeSyntax(n, vocab.XSDAttrXPath)}
+		return &schemaIdentityXPathSource{XPath: schemaLexicalAttributeSyntax(n, vocab.XSDAttrXPath)}
 	case vocab.XSDElemAttributeGroup:
-		s.AttributeGroup = &schemaAttributeGroupSource{Global: schemaGlobalSourceFor(n), Ref: qnames.ref}
+		return &schemaAttributeGroupSource{Global: schemaGlobalSourceFor(n), Ref: qnames.ref}
 	case vocab.XSDElemNotation:
-		s.Notation = &schemaNotationSource{Global: schemaGlobalSourceFor(n), Public: schemaLexicalAttributeSyntax(n, vocab.XSDAttrPublic), System: schemaLexicalAttributeSyntax(n, vocab.XSDAttrSystem)}
+		return &schemaNotationSource{Global: schemaGlobalSourceFor(n), Public: schemaLexicalAttributeSyntax(n, vocab.XSDAttrPublic), System: schemaLexicalAttributeSyntax(n, vocab.XSDAttrSystem)}
 	default:
 		if _, ok := facetMaskForLocal(n.Name.Local); ok {
-			s.Facet = &schemaFacetSource{Value: schemaLexicalAttributeSyntax(n, vocab.XSDAttrValue), Fixed: schemaLexicalAttributeSyntax(n, vocab.XSDAttrFixed)}
+			return &schemaFacetSource{Value: schemaLexicalAttributeSyntax(n, vocab.XSDAttrValue), Fixed: schemaLexicalAttributeSyntax(n, vocab.XSDAttrFixed)}
 		}
 	}
+	return nil
 }
 
 func mustModelKindForLocal(local string) ModelKind {

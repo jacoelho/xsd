@@ -319,7 +319,7 @@ func parseOccurs(n *schemaNode, limits Limits) (Occurrence, error) {
 }
 
 func occurrenceAttrs(n *schemaNode) (OccurrenceAttrs, error) {
-	source := n.semantic.Particle
+	source := n.semantic.particle()
 	if source == nil {
 		return OccurrenceAttrs{}, xsderrors.InternalInvariant("particle node has no typed particle source")
 	}

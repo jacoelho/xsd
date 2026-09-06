@@ -25,7 +25,7 @@ func (c *compiler) compileAttributeWildcard(n *schemaNode, ctx *schemaContext) (
 }
 
 func (c *compiler) compileWildcard(n *schemaNode, ctx *schemaContext) (WildcardID, error) {
-	source := n.semantic.Wildcard
+	source := n.semantic.wildcard()
 	if source == nil {
 		return NoWildcard, withSchemaCompileLocation(n, xsderrors.InternalInvariant("wildcard node has no typed wildcard source"))
 	}

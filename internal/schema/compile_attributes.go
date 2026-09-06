@@ -62,7 +62,7 @@ func (c *compiler) compileAttributeDecl(n *schemaNode, ctx *schemaContext, q QNa
 }
 
 func (c *compiler) compileAttributeDeclType(n *schemaNode, ctx *schemaContext) (SimpleTypeID, error) {
-	source := n.semantic.Attribute
+	source := n.semantic.attribute()
 	if source == nil {
 		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute node has no typed attribute source"))
 	}
@@ -87,7 +87,7 @@ func (c *compiler) compileAttributeDeclType(n *schemaNode, ctx *schemaContext) (
 }
 
 func readAttributeDeclValueConstraints(n *schemaNode, decl *AttributeDecl) {
-	source := n.semantic.Attribute
+	source := n.semantic.attribute()
 	if source == nil {
 		return
 	}
@@ -405,7 +405,7 @@ type attributeUseOverrides struct {
 }
 
 func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
-	source := n.semantic.Attribute
+	source := n.semantic.attribute()
 	if source == nil {
 		return attributeUseOverrides{}
 	}
@@ -468,7 +468,7 @@ func applyValidatedAttributeUseOverrides(use *AttributeUse, decl AttributeDecl, 
 }
 
 func (c *compiler) compileAttributeUseBase(n *schemaNode, ctx *schemaContext) (attributeUseBase, error) {
-	source := n.semantic.Attribute
+	source := n.semantic.attribute()
 	if source == nil {
 		return attributeUseBase{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source"))
 	}
@@ -514,7 +514,7 @@ func (c *compiler) compileLocalAttributeUse(n *schemaNode, ctx *schemaContext) (
 	if err = checkAttributeUseSource(n); err != nil {
 		return AttributeUse{}, err
 	}
-	source := n.semantic.Attribute
+	source := n.semantic.attribute()
 	if source == nil {
 		return AttributeUse{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source"))
 	}
@@ -568,7 +568,7 @@ func (c *compiler) compileAttributeGroupUseID(n *schemaNode, ctx *schemaContext)
 	if err := checkAttributeGroupUseSource(n); err != nil {
 		return NoAttributeUseSet, err
 	}
-	source := n.semantic.AttributeGroup
+	source := n.semantic.attributeGroup()
 	if source == nil {
 		return NoAttributeUseSet, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attributeGroup use has no typed attributeGroup source"))
 	}

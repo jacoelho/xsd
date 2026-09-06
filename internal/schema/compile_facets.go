@@ -171,7 +171,7 @@ func (c *compiler) compileFacetChild(child *schemaNode, st *SimpleType, base, li
 }
 
 func validateFacetChildSource(child *schemaNode, st *SimpleType, single *FacetMask) (bool, error) {
-	source := child.semantic.Facet
+	source := child.semantic.facet()
 	if source == nil {
 		return false, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
@@ -255,7 +255,7 @@ func validateFacetFixedness(fixedness facetFixedness) error {
 }
 
 func facetAttrs(n *schemaNode) (facetInput, error) {
-	source := n.semantic.Facet
+	source := n.semantic.facet()
 	if source == nil {
 		return facetInput{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("facet node has no typed facet source"))
 	}
