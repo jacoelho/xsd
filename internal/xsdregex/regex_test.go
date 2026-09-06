@@ -1,6 +1,7 @@
 package xsdregex
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -298,6 +299,90 @@ func TestMatchLimits(t *testing.T) {
 	if _, err := p.MatchStringWithOptions(strings.Repeat("a", 2_000)+"b", MatchOptions{MaxWork: 10, MaxStates: 10}); !IsLimit(err) {
 		t.Fatalf("bounded match error = %v, want limit", err)
 	}
+}
+
+func TestCompileRangeLimitAppliesToEveryCharacterSet(t *testing.T) {
+	t.Parallel()
+	if _, err := Compile("a", CompileOptions{MaxRanges: 1}); err != nil {
+		t.Fatalf("single-range literal rejected at limit: %v", err)
+	}
+	if _, err := Compile("[a-z]", CompileOptions{MaxRanges: 1}); err != nil {
+		t.Fatalf("single-range class rejected at limit: %v", err)
+	}
+	for _, source := range []string{"\\d", `\p{L}`, ".", "[a-zA-Z]"} {
+		if _, err := Compile(source, CompileOptions{MaxRanges: 1}); !IsLimit(err) {
+			t.Fatalf("Compile(%q) error = %v, want range limit", source, err)
+		}
+	}
+}
+
+func TestParserCachesRepeatedSetEscapes(t *testing.T) {
+	t.Parallel()
+	p := parser{source: []rune(`\p{L}\p{L}\w\w`), limits: normalizeCompileOptions(CompileOptions{})}
+	root, err := p.parse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root.kind != nodeConcat || len(root.children) != 4 {
+		t.Fatalf("parsed root = kind %d with %d children, want four concatenated sets", root.kind, len(root.children))
+	}
+	if !sharesRangeStorage(root.children[0].set, root.children[1].set) {
+		t.Fatal("repeated category escapes did not share immutable ranges")
+	}
+	if !sharesRangeStorage(root.children[2].set, root.children[3].set) {
+		t.Fatal("repeated shorthand escapes did not share immutable ranges")
+	}
+	if len(p.categorySets.values) != 1 || len(p.simpleSets) != 1 {
+		t.Fatalf("cache entries = categories %d, shorthands %d; want one each", len(p.categorySets.values), len(p.simpleSets))
+	}
+}
+
+func TestParserCategoryCacheCoversClosedVocabulary(t *testing.T) {
+	t.Parallel()
+	names := make([]string, 0, len(xsdCategoryNames)+len(xsdBlocks))
+	for name := range xsdCategoryNames {
+		names = append(names, name)
+	}
+	for name := range xsdBlocks {
+		names = append(names, "Is"+name)
+	}
+	slices.Sort(names)
+	var source strings.Builder
+	source.WriteString(`\P{L}`)
+	firstPositiveL := -1
+	for i, name := range names {
+		if name == "L" {
+			firstPositiveL = i + 1
+		}
+		source.WriteString(`\p{`)
+		source.WriteString(name)
+		source.WriteByte('}')
+	}
+	source.WriteString(`\P{L}\p{L}`)
+	p := parser{source: []rune(source.String()), limits: normalizeCompileOptions(CompileOptions{})}
+	root, err := p.parse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root.kind != nodeConcat || len(root.children) != len(names)+3 {
+		t.Fatalf("parsed root = kind %d with %d children, want %d concatenated sets", root.kind, len(root.children), len(names)+3)
+	}
+	if firstPositiveL < 0 {
+		t.Fatal("category catalog does not contain L")
+	}
+	if !sharesRangeStorage(root.children[0].set, root.children[len(names)+1].set) {
+		t.Fatal("negative category cache evicted a valid key")
+	}
+	if !sharesRangeStorage(root.children[firstPositiveL].set, root.children[len(names)+2].set) {
+		t.Fatal("positive category cache evicted a valid key")
+	}
+	if len(p.categorySets.values) != len(names)+1 {
+		t.Fatalf("category cache entries = %d, want %d", len(p.categorySets.values), len(names)+1)
+	}
+}
+
+func sharesRangeStorage(a, b rangeSet) bool {
+	return len(a.ranges) != 0 && len(a.ranges) == len(b.ranges) && &a.ranges[0] == &b.ranges[0]
 }
 
 func TestMatchLimitsBoundScratchAndAdversarialClosure(t *testing.T) {

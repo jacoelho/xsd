@@ -66,11 +66,105 @@ func unionSets(a, b rangeSet) rangeSet {
 }
 
 func unionMany(sets ...rangeSet) rangeSet {
-	var out rangeSet
+	nonEmpty := 0
+	var single rangeSet
 	for _, set := range sets {
-		out = unionSets(out, set)
+		if len(set.ranges) == 0 {
+			continue
+		}
+		nonEmpty++
+		single = set
+	}
+	if nonEmpty == 0 {
+		return rangeSet{}
+	}
+	if nonEmpty == 1 {
+		return single
+	}
+	return rangeSet{ranges: mergeRangeSets(sets, nonEmpty)}
+}
+
+func mergeRangeSets(sets []rangeSet, nonEmpty int) []runeRange {
+	// Each input is already sorted and disjoint. Merge their heads instead of
+	// flattening all ranges: repeated category terms can have a large total
+	// input while producing a small final set.
+	heap := makeRangeHeap(sets, nonEmpty)
+	var out []runeRange
+	for len(heap) != 0 {
+		current, next := popRangeHeap(heap, sets)
+		out = appendMergedRange(out, current)
+		heap = next
 	}
 	return out
+}
+
+func makeRangeHeap(sets []rangeSet, nonEmpty int) []rangeCursor {
+	heap := make([]rangeCursor, 0, nonEmpty)
+	for setIndex, set := range sets {
+		if len(set.ranges) != 0 {
+			heap = append(heap, rangeCursor{set: setIndex})
+		}
+	}
+	for i := len(heap) / 2; i > 0; {
+		i--
+		siftDownRangeHeap(heap, i, sets)
+	}
+	return heap
+}
+
+func popRangeHeap(heap []rangeCursor, sets []rangeSet) (runeRange, []rangeCursor) {
+	cursor := heap[0]
+	current := sets[cursor.set].ranges[cursor.index]
+	cursor.index++
+	if cursor.index < len(sets[cursor.set].ranges) {
+		heap[0] = cursor
+		siftDownRangeHeap(heap, 0, sets)
+		return current, heap
+	}
+	last := len(heap) - 1
+	if last == 0 {
+		return current, nil
+	}
+	heap[0] = heap[last]
+	heap = heap[:last]
+	siftDownRangeHeap(heap, 0, sets)
+	return current, heap
+}
+
+type rangeCursor struct {
+	set   int
+	index int
+}
+
+func lessRangeCursor(a, b rangeCursor, sets []rangeSet) bool {
+	ar := sets[a.set].ranges[a.index]
+	br := sets[b.set].ranges[b.index]
+	if ar.lo != br.lo {
+		return ar.lo < br.lo
+	}
+	if ar.hi != br.hi {
+		return ar.hi < br.hi
+	}
+	return a.set < b.set
+}
+
+func siftDownRangeHeap(heap []rangeCursor, root int, sets []rangeSet) {
+	for {
+		left := root*2 + 1
+		if left >= len(heap) {
+			return
+		}
+		smaller := left
+		right := left + 1
+		if right < len(heap) && lessRangeCursor(heap[right], heap[left], sets) {
+			smaller = right
+		}
+		if !lessRangeCursor(heap[smaller], heap[root], sets) {
+			return
+		}
+		heap[root], heap[smaller] = heap[smaller], heap[root]
+		root = smaller
+	}
 }
 
 func intersectSets(a, b rangeSet) rangeSet {
@@ -198,8 +292,10 @@ func appendRange16(ranges []runeRange, current unicode.Range16) []runeRange {
 		return ranges
 	}
 	stride := current.Stride
-	if stride == 0 {
-		stride = 1
+	// A unit-stride row is already one contiguous range; expanding it into
+	// one singleton per code point needlessly multiplies compile-time storage.
+	if stride <= 1 {
+		return append(ranges, runeRange{lo: rune(current.Lo), hi: rune(current.Hi)})
 	}
 	for lo := current.Lo; ; {
 		ranges = append(ranges, runeRange{lo: rune(lo), hi: rune(lo)})
@@ -216,8 +312,12 @@ func appendRange32(ranges []runeRange, current unicode.Range32) []runeRange {
 		return ranges
 	}
 	stride := current.Stride
-	if stride == 0 {
-		stride = 1
+	if stride <= 1 {
+		if current.Lo > uint32(utf8.MaxRune) {
+			return ranges
+		}
+		hi := min(current.Hi, uint32(utf8.MaxRune))
+		return append(ranges, runeRange{lo: unicodeRune(current.Lo), hi: unicodeRune(hi)})
 	}
 	for lo := current.Lo; ; {
 		if lo <= uint32(utf8.MaxRune) {

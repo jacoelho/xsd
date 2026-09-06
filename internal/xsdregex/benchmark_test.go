@@ -20,6 +20,21 @@ func BenchmarkSimplePatternVariableNoMatchString(b *testing.B) {
 	}
 }
 
+func BenchmarkUnionManyRepeatedRanges(b *testing.B) {
+	base := makeRangeSetForTest(128)
+	sets := make([]rangeSet, 512)
+	for i := range sets {
+		sets[i] = base
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		got := unionMany(sets...)
+		if len(got.ranges) != len(base.ranges) {
+			b.Fatalf("unionMany() = %d ranges, want %d", len(got.ranges), len(base.ranges))
+		}
+	}
+}
+
 func BenchmarkSimplePatternVariableNoMatchBytes(b *testing.B) {
 	pattern := benchmarkPattern(b, `[a-z]{0,}[a-z]{0,}x`)
 	input := []byte(strings.Repeat("a", 4096))

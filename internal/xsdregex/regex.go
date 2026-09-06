@@ -93,7 +93,8 @@ func DefaultCompileOptions() CompileOptions {
 
 // MatchOptions bounds one match operation. MaxWork counts decoding,
 // transitions, and epsilon-closure work. MaxStates bounds one reachable NFA
-// state set.
+// state set and, for linear patterns, the number of input rune positions plus
+// one used by each dynamic-programming row.
 type MatchOptions struct {
 	MaxWork   uint64
 	MaxStates uint64
@@ -271,11 +272,45 @@ type node struct {
 const maxRepeat = math.MaxUint64
 
 type parser struct {
-	source []rune
-	pos    int
-	depth  uint64
-	nodes  uint64
-	limits CompileOptions
+	simpleSets   map[rune]rangeSet
+	categorySets categorySetCache
+	source       []rune
+	limits       CompileOptions
+	pos          int
+	depth        uint64
+	nodes        uint64
+}
+
+const simpleSetCacheCapacity = 10 // d, D, s, S, w, W, i, I, c, and C.
+
+// namedCategorySet accepts the closed category and block catalogs. Both p/P
+// polarities are cached, so this is the exact maximum number of valid keys.
+func categorySetCacheCapacity() int {
+	return 2 * (len(xsdCategoryNames) + len(xsdBlocks))
+}
+
+type categoryCacheKey struct {
+	name string
+	kind rune
+}
+
+type categorySetCache struct {
+	values map[categoryCacheKey]rangeSet
+}
+
+func (c *categorySetCache) lookup(kind rune, name string) (rangeSet, bool) {
+	if c.values == nil {
+		return rangeSet{}, false
+	}
+	set, ok := c.values[categoryCacheKey{kind: kind, name: name}]
+	return set, ok
+}
+
+func (c *categorySetCache) store(kind rune, name string, set rangeSet) {
+	if c.values == nil {
+		c.values = make(map[categoryCacheKey]rangeSet, categorySetCacheCapacity())
+	}
+	c.values[categoryCacheKey{kind: kind, name: name}] = set
 }
 
 func (p *parser) parse() (*node, error) {
@@ -456,12 +491,12 @@ func (p *parser) parseClassAtom() (*node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return p.setNode(set), nil
+	return p.setNode(set)
 }
 
 func (p *parser) parseDotAtom() (*node, error) {
 	p.pos++
-	return p.setNode(subtractSets(xmlCharacters, setFromRanges([]runeRange{{lo: '\n', hi: '\n'}, {lo: '\r', hi: '\r'}}))), nil
+	return p.setNode(subtractSets(xmlCharacters, setFromRanges([]runeRange{{lo: '\n', hi: '\n'}, {lo: '\r', hi: '\r'}})))
 }
 
 func (p *parser) parseEscapeAtom() (*node, error) {
@@ -470,9 +505,9 @@ func (p *parser) parseEscapeAtom() (*node, error) {
 		return nil, err
 	}
 	if literal {
-		return p.setNode(singletonSet(set.ranges[0].lo)), nil
+		return p.setNode(singletonSet(set.ranges[0].lo))
 	}
-	return p.setNode(set), nil
+	return p.setNode(set)
 }
 
 func (p *parser) parseLiteralAtom() (*node, error) {
@@ -481,7 +516,7 @@ func (p *parser) parseLiteralAtom() (*node, error) {
 	if !isXMLChar(r) {
 		return nil, p.syntax("pattern contains a non-XML character")
 	}
-	return p.setNode(singletonSet(r)), nil
+	return p.setNode(singletonSet(r))
 }
 
 func (p *parser) parseEscape() (rangeSet, bool, error) {
@@ -494,9 +529,18 @@ func (p *parser) parseEscape() (rangeSet, bool, error) {
 	if r == 'p' || r == 'P' {
 		return p.parseCategoryEscape(r)
 	}
+	if set, ok := p.simpleSets[r]; ok {
+		return set, false, nil
+	}
 	escape := parseSimpleEscape(r)
 	if !escape.ok {
 		return rangeSet{}, false, p.syntax("invalid escape")
+	}
+	if !escape.literal {
+		if p.simpleSets == nil {
+			p.simpleSets = make(map[rune]rangeSet, simpleSetCacheCapacity)
+		}
+		p.simpleSets[r] = escape.set
 	}
 	return escape.set, escape.literal, nil
 }
@@ -555,6 +599,9 @@ func (p *parser) parseCategoryEscape(kind rune) (rangeSet, bool, error) {
 	}
 	name := string(p.source[start:p.pos])
 	p.pos++
+	if set, ok := p.categorySets.lookup(kind, name); ok {
+		return set, false, nil
+	}
 	set, ok := namedCategorySet(name)
 	if !ok {
 		return rangeSet{}, false, p.syntax("unknown category or block " + name)
@@ -562,7 +609,9 @@ func (p *parser) parseCategoryEscape(kind rune) (rangeSet, bool, error) {
 	if kind == 'P' {
 		set = complementXML(set)
 	}
-	return intersectSets(set, xmlCharacters), false, nil
+	set = intersectSets(set, xmlCharacters)
+	p.categorySets.store(kind, name, set)
+	return set, false, nil
 }
 
 func namedCategorySet(name string) (rangeSet, bool) {
@@ -813,8 +862,11 @@ func rangeCountExceeds(set rangeSet, limit uint64) bool {
 	return uint64(len(set.ranges)) > limit
 }
 
-func (p *parser) setNode(set rangeSet) *node {
-	return p.newNode(nodeSet, set, nil, 0, 0)
+func (p *parser) setNode(set rangeSet) (*node, error) {
+	if rangeCountExceeds(set, p.limits.MaxRanges) {
+		return nil, p.limit("pattern range count exceeds limit")
+	}
+	return p.newNode(nodeSet, set, nil, 0, 0), nil
 }
 
 func (p *parser) concat(children ...*node) *node {
