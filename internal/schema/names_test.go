@@ -52,6 +52,49 @@ var testRequiredNames = []ExpandedName{
 	{Namespace: XSINamespaceURI, Local: "nil"},
 }
 
+func TestNameTableOwnsEmptyNamespaceIdentity(t *testing.T) {
+	for _, namespaces := range [][]string{nil, {"urn:other"}, {"urn:other", ""}, {"", "urn:other", ""}} {
+		names, err := NewNameTable(0, namespaces, []ExpandedName{{Local: "item"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		name, ok := names.LookupQName("", "item")
+		if !ok || names.Namespace(name.Namespace) != "" {
+			t.Fatalf("unqualified name with seeds %q resolves to %q, found %v", namespaces, names.Namespace(name.Namespace), ok)
+		}
+		if name.Namespace != EmptyNamespaceID {
+			t.Fatalf("empty namespace ID = %d, want %d", name.Namespace, EmptyNamespaceID)
+		}
+		view := newNameReadView(&names)
+		frozen, ok := view.LookupQName("", "item")
+		if !ok || view.Namespace(frozen.Namespace) != "" {
+			t.Fatal("published name view changed the unqualified name's namespace")
+		}
+		if err := names.Validate(namespaces, []ExpandedName{{Local: "item"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestNameTableChargesRequiredEmptyNamespace(t *testing.T) {
+	if _, err := NewNameTable(1, []string{"urn:other"}, nil); !errors.Is(err, ErrNameLimit) {
+		t.Fatalf("one-slot table = %v, want name limit for two namespaces", err)
+	}
+	if _, err := NewNameTable(2, []string{"urn:other"}, nil); err != nil {
+		t.Fatalf("two-slot table = %v, want success", err)
+	}
+}
+
+func TestNameTableValidationRejectsMisplacedEmptyNamespace(t *testing.T) {
+	names := NameTable{
+		namespaces: []string{"urn:other", ""},
+		nsIndex:    map[string]NamespaceID{"urn:other": 0, "": 1},
+	}
+	if err := names.Validate(nil, nil); err == nil {
+		t.Fatal("Validate accepted an empty namespace with a nonzero ID")
+	}
+}
+
 func TestNameTableLimitStopsGrowthAfterFailure(t *testing.T) {
 	t.Parallel()
 

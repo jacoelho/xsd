@@ -105,12 +105,14 @@ func NewRuntimeNameTable(maxNames int) (NameTable, error) {
 }
 
 // NewNameTable returns a name table seeded with required runtime names.
+// Every table reserves EmptyNamespaceID for the empty namespace independently
+// of the caller's seed order.
 func NewNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName) (NameTable, error) {
 	return newBoundedNameTable(maxNames, requiredNamespaces, requiredNames, len(requiredNamespaces), len(requiredNames))
 }
 
 func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName, namespaceCap, localCap int) (NameTable, error) {
-	namespaceCap = max(namespaceCap, len(requiredNamespaces))
+	namespaceCap = max(1, namespaceCap, len(requiredNamespaces))
 	localCap = max(localCap, len(requiredNames))
 	n := NameTable{
 		nsIndex:    make(map[string]NamespaceID, namespaceCap),
@@ -120,7 +122,13 @@ func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredName
 		maxNames:   maxNames,
 	}
 	interner := NewNameInterner(&n)
+	if _, err := interner.InternNamespace(vocab.EmptyNamespaceURI); err != nil {
+		return NameTable{}, err
+	}
 	for _, uri := range requiredNamespaces {
+		if uri == vocab.EmptyNamespaceURI {
+			continue
+		}
 		if _, err := interner.InternNamespace(uri); err != nil {
 			return NameTable{}, err
 		}
@@ -167,6 +175,9 @@ func ValidateRuntimeNameTable(n *NameTable) error {
 
 // Validate reports whether n is internally consistent and contains required names.
 func (n *NameTable) Validate(requiredNamespaces []string, requiredNames []ExpandedName) error {
+	if n == nil || len(n.namespaces) == 0 || n.namespaces[EmptyNamespaceID] != vocab.EmptyNamespaceURI {
+		return errors.New("name table must reserve namespace zero for the empty namespace")
+	}
 	if len(n.nsIndex) != len(n.namespaces) {
 		return errors.New("name table namespace index size does not match namespace slice")
 	}
