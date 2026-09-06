@@ -329,11 +329,39 @@ Available flags:
 | `--max-identity-entries n` | no | Independent maximum for stored identity entries, pending selector matches, and pending field values. `0` selects the default of 100,000. |
 | `--max-instance-bytes n` | no | Maximum raw XML bytes to read. `0` selects the default of 64 MiB. |
 
+## Library benchmarks
+
+Measured 2026-09-06: rewrite `bb9045cd` versus `main` at `cc94656a`, using
+Go 1.27.0 on macOS/arm64 (Apple M2 Max), one CPU, and six alternating 200 ms
+samples per workload. Across **82 matching public workloads**, the geometric
+mean of workload median times is **27.74% lower**. Workloads are equally
+weighted; this is not an assumed production traffic mix.
+
+| Workload | Main | Rewrite | Time change |
+| --- | ---: | ---: | ---: |
+| Small-schema compilation | 200.3 µs | 105.9 µs | -47.14% |
+| Deep type-chain compilation | 8.57 ms | 4.28 ms | -50.04% |
+| Repeated QName validation | 169.9 µs | 76.7 µs | -54.86% |
+| Regex-category compilation | 2.95 ms | 1.87 ms | -36.63% |
+| 16 MiB streamed schema compilation | 229.1 ms | 95.1 ms | -58.49% |
+| Identity validation, 1,000 rows | 2.84 ms | 2.62 ms | -7.59% |
+| Fixed gDay validation, 128 values | 261.9 µs | 185.1 µs | -29.33% |
+| Repeated small-document session | 280.0 µs | 278.6 µs | Within noise |
+| Substitution-group compilation | 692.2 µs | 699.9 µs | +1.12% |
+
+Memory results vary by workload. A 16 MiB streamed schema allocates
+**34.7 MiB → 122.8 KiB**. The 1,000-row and depth-256 identity cases allocate
+8.3% and 17.2% more bytes, respectively. Fixed-value checks allocate more to
+preserve typed equality. These are cumulative
+Go allocations per operation, not peak memory or RSS. Schema-text compilation
+has a 5.22% slower median, but the timing difference is within noise.
+
+[Full results, methodology, trade-offs, and raw samples](docs/performance-vs-main.md).
+
 ## Large XML benchmark
 
-The [rewrite performance report](docs/rewrite-performance.md) compares the
-current streaming design with the pinned baseline across compilation, validation,
-formatting, and supporting workloads, including allocation and retention trade-offs.
+The earlier [rewrite performance report](docs/rewrite-performance.md) includes
+formatting and retention measurements against the captured rewrite baseline.
 
 Build the repository's Go `xmllint` binary into `bin`:
 

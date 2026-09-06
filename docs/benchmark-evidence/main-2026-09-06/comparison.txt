@@ -1,0 +1,338 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+                                                                  │    main.txt     │             current.txt             │
+                                                                  │     sec/op      │    sec/op     vs base               │
+SessionValidateAllContent/4                                          2.813µ ±    3%   2.640µ ±  3%   -6.13% (p=0.009 n=6)
+SessionValidateAllContent/16                                        10.442µ ±    4%   8.998µ ±  4%  -13.82% (p=0.002 n=6)
+SessionValidateAllContent/64                                         52.36µ ±    5%   35.01µ ± 15%  -33.13% (p=0.002 n=6)
+SessionValidateAllContent/256                                        388.4µ ±    5%   136.6µ ±  3%  -64.83% (p=0.002 n=6)
+SessionValidateAllContent/1024                                      4525.3µ ±    3%   554.0µ ±  3%  -87.76% (p=0.002 n=6)
+CompileSmallSchema                                                   200.3µ ±    5%   105.9µ ±  8%  -47.14% (p=0.002 n=6)
+CompileAndFirstSession                                               209.7µ ±    6%   110.8µ ± 24%  -47.14% (p=0.002 n=6)
+ValidateRepeatedSmallDocument                                        314.3µ ±    5%   318.8µ ±  7%        ~ (p=0.310 n=6)
+SessionValidateRepeatedSmallDocument                                 280.0µ ±    5%   278.6µ ± 15%        ~ (p=0.699 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_16/churn_false          7.863µ ±    5%   7.146µ ± 45%        ~ (p=0.065 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_16/churn_true           13.17µ ±    5%   12.91µ ± 33%        ~ (p=0.853 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_64/churn_false          30.49µ ±    4%   27.87µ ±  2%   -8.60% (p=0.002 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_64/churn_true           51.52µ ±    3%   49.13µ ±  6%   -4.63% (p=0.026 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_256/churn_false         124.0µ ±    8%   109.0µ ±  5%  -12.14% (p=0.002 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_256/churn_true          211.6µ ±    9%   191.9µ ±  6%   -9.30% (p=0.004 n=6)
+SessionValidateRepeatedXSIType                                       90.56µ ±    2%   87.11µ ± 11%        ~ (p=0.065 n=6)
+SessionValidateIDAttributeStart                                      122.5µ ±    5%   103.0µ ±  9%  -15.96% (p=0.002 n=6)
+SessionValidateSimpleIDEnd                                          109.08µ ±    4%   87.37µ ±  4%  -19.90% (p=0.002 n=6)
+SessionValidateRepeatedQNameValues                                  169.94µ ±    3%   76.71µ ±  1%  -54.86% (p=0.002 n=6)
+SessionValidateRepeatedLaxWildcard                                   1.447µ ±    7%   1.415µ ±  6%        ~ (p=0.288 n=6)
+SessionValidateStringLengthFacet                                    10.250µ ±    5%   6.100µ ±  8%  -40.49% (p=0.002 n=6)
+SessionValidateWideChoice                                            2.683m ±    4%   2.427m ±  6%   -9.56% (p=0.002 n=6)
+ValidateSubstitutionGroup                                            731.3µ ±   33%   680.6µ ± 16%   -6.94% (p=0.041 n=6)
+SessionValidateDateDecimalRows                                       189.9µ ±  589%   171.1µ ±  4%   -9.93% (p=0.002 n=6)
+ValidateSmallInvalidDocument                                         14.46µ ± 1032%   11.13µ ±  7%  -23.02% (p=0.002 n=6)
+ValidateManyRecoverablePathErrors                                   100.77µ ±  702%   95.63µ ±  3%   -5.10% (p=0.026 n=6)
+ValidateDeeplyNestedDocument                                         122.3µ ±  108%   107.1µ ±  8%  -12.44% (p=0.004 n=6)
+SessionValidateDeepThenShallow                                       755.6n ±   38%   705.6n ±  3%   -6.61% (p=0.004 n=6)
+ValidateDuplicateAttributes                                          363.4µ ±   44%   356.2µ ±  6%        ~ (p=0.310 n=6)
+CompileDuplicateSchemaSources                                        497.0µ ±  110%   249.7µ ± 19%  -49.77% (p=0.002 n=6)
+CompileIncludeGraph                                                 1543.1µ ±  103%   877.2µ ± 17%  -43.15% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_1                              161.83µ ±   86%   62.87µ ± 25%  -61.15% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_8                               294.5µ ±  237%   136.9µ ± 14%  -53.50% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_32                              740.4µ ±   42%   396.6µ ± 19%  -46.44% (p=0.002 n=6)
+CompileSchemaText                                                    333.4µ ±   16%   350.8µ ±  8%        ~ (p=0.699 n=6)
+ValidateIdentityConstraints                                          302.6µ ±   42%   281.1µ ±  4%   -7.09% (p=0.004 n=6)
+ValidateIdentityConstraintsRows/rows_10                              40.37µ ±   94%   35.60µ ±  3%  -11.81% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_100                             306.2µ ±   35%   285.0µ ±  5%   -6.94% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_1000                            3.101m ±   80%   2.901m ±  6%   -6.45% (p=0.009 n=6)
+SessionValidateIdentityConstraintsRows/rows_10                       27.72µ ±  140%   25.87µ ±  5%   -6.65% (p=0.002 n=6)
+SessionValidateIdentityConstraintsRows/rows_100                      272.1µ ±   93%   250.8µ ±  3%   -7.85% (p=0.002 n=6)
+SessionValidateIdentityConstraintsRows/rows_1000                     2.837m ±  191%   2.621m ±  8%   -7.59% (p=0.015 n=6)
+ValidateIdentityConstraintsFields/fields_1                           183.7µ ±  130%   160.2µ ± 30%  -12.80% (p=0.041 n=6)
+ValidateIdentityConstraintsFields/fields_3                           329.6µ ±  110%   279.0µ ± 17%  -15.34% (p=0.015 n=6)
+ValidateIdentityConstraintsFields/fields_8                           718.5µ ±   86%   582.7µ ±  2%  -18.91% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_16                     33.03µ ±   33%   29.35µ ±  3%  -11.15% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_64                     186.0µ ±   14%   170.0µ ±  4%   -8.63% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_256                    1.789m ±   25%   1.569m ±  4%  -12.30% (p=0.002 n=6)
+SessionValidateNestedIdentitySelectionPaths                          310.0µ ±    5%   299.7µ ±  5%        ~ (p=0.310 n=6)
+SessionValidateRetainedIdentityPaths                                 3.079m ±   16%   2.860m ±  4%   -7.13% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/lexical                         17.73m ±   14%   15.55m ±  5%  -12.25% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/expanded                        28.70m ±    4%   28.34m ±  5%        ~ (p=0.589 n=6)
+SessionValidateDisjointIdentityPaths/expanded_distinct_namespaces    39.39m ±    6%   38.84m ±  6%        ~ (p=0.485 n=6)
+SessionValidateDisjointIdentityPaths/expanded_distinct_control       34.23m ±   11%   33.36m ±  4%   -2.55% (p=0.026 n=6)
+SessionValidateExpandedIdentityPaths                                 2.033m ±   10%   1.930m ±  2%   -5.03% (p=0.004 n=6)
+SessionValidateSharedExpandedIdentityPrefix/identity                 20.92m ±    4%   19.09m ±  5%   -8.71% (p=0.002 n=6)
+SessionValidateSharedExpandedIdentityPrefix/control                  11.40m ±    4%   11.40m ±  2%        ~ (p=0.937 n=6)
+CompileCountedChoiceDFA/small                                       173.20µ ±    4%   88.25µ ±  6%  -49.05% (p=0.002 n=6)
+CompileCountedChoiceDFA/medium                                       242.7µ ±    6%   139.6µ ±  4%  -42.46% (p=0.002 n=6)
+CompileCountedChoiceDFA/large                                        374.4µ ±    5%   234.8µ ±  5%  -37.29% (p=0.002 n=6)
+CompileSubstitutionGroups                                            692.2µ ±    4%   699.9µ ±  4%   +1.12% (p=0.041 n=6)
+CompileAttributeGroupFanout/refs_1                                  147.91µ ±    4%   59.43µ ±  7%  -59.82% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_10                                  211.9µ ±   23%   120.7µ ±  2%  -43.05% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_100                                 822.3µ ±   16%   711.5µ ±  5%  -13.47% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_1000                                7.050m ±    9%   6.776m ±  6%        ~ (p=0.180 n=6)
+CompileRegexCategoryEscapes                                          2.945m ±    9%   1.866m ±  9%  -36.63% (p=0.002 n=6)
+CompileDeepSimpleTypeChain                                           8.571m ±    9%   4.282m ±  7%  -50.04% (p=0.002 n=6)
+CompileRepeatedNestedUnionMembers                                    1.156m ±    5%   1.185m ±  9%        ~ (p=0.310 n=6)
+CompileOpaqueAnnotationPayload                                      1129.4µ ±   11%   913.1µ ±  5%  -19.15% (p=0.002 n=6)
+SessionValidateUndeclaredRootXSIType                                 1.708µ ±    6%   1.599µ ±  3%   -6.38% (p=0.024 n=6)
+SessionValidateFixedSimpleValues/string                             122.00µ ±    6%   90.89µ ± 10%  -25.50% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/integer                             314.4µ ±    6%   113.4µ ±  3%  -63.94% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/decimal                             219.8µ ±    5%   106.1µ ±  4%  -51.74% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/duration                            222.5µ ±    5%   117.6µ ±  5%  -47.15% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/date                                256.7µ ±    4%   149.4µ ±  2%  -41.81% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/gDay                                261.9µ ±    4%   185.1µ ±  4%  -29.33% (p=0.002 n=6)
+SessionValidateQualifiedSimpleValues/QName                          210.58µ ±    5%   91.81µ ±  3%  -56.40% (p=0.002 n=6)
+SessionValidateQualifiedSimpleValues/NOTATION                       311.62µ ±    3%   94.78µ ±  2%  -69.58% (p=0.002 n=6)
+CompileStreamingSource/4096B                                        194.87µ ±   41%   73.57µ ± 12%  -62.25% (p=0.002 n=6)
+CompileStreamingSource/1048576B                                     14.989m ±   13%   6.001m ±  5%  -59.96% (p=0.002 n=6)
+CompileStreamingSource/16777216B                                    229.07m ±   14%   95.09m ±  5%  -58.49% (p=0.002 n=6)
+SessionValidateUnionLateMember                                       169.4µ ±   12%   160.8µ ±  3%   -5.07% (p=0.004 n=6)
+geomean                                                              324.6µ           234.5µ        -27.74%
+
+                                                                  │    main.txt    │              current.txt               │
+                                                                  │      B/s       │      B/s        vs base                │
+SessionValidateAllContent/4                                          11.19Mi ±  3%    11.92Mi ±  3%    +6.52% (p=0.006 n=6)
+SessionValidateAllContent/16                                         9.041Mi ±  4%   10.495Mi ±  4%   +16.09% (p=0.002 n=6)
+SessionValidateAllContent/64                                         7.048Mi ±  5%   10.538Mi ± 13%   +49.53% (p=0.002 n=6)
+SessionValidateAllContent/256                                        4.163Mi ±  5%   11.835Mi ±  3%  +184.31% (p=0.002 n=6)
+SessionValidateAllContent/1024                                       1.497Mi ±  3%   12.212Mi ±  3%  +715.61% (p=0.002 n=6)
+ValidateRepeatedSmallDocument                                        22.79Mi ±  5%    22.48Mi ±  7%         ~ (p=0.310 n=6)
+SessionValidateRepeatedSmallDocument                                 25.59Mi ±  5%    25.72Mi ± 13%         ~ (p=0.699 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_16/churn_false          13.59Mi ±  5%    14.94Mi ± 31%         ~ (p=0.065 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_16/churn_true           28.69Mi ±  5%    29.26Mi ± 25%         ~ (p=0.853 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_64/churn_false          14.01Mi ±  4%    15.33Mi ±  2%    +9.39% (p=0.002 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_64/churn_true           30.44Mi ±  3%    31.91Mi ±  6%    +4.86% (p=0.026 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_256/churn_false         13.78Mi ±  7%    15.68Mi ±  5%   +13.81% (p=0.002 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_256/churn_true          31.31Mi ±  8%    34.53Mi ±  6%   +10.26% (p=0.004 n=6)
+SessionValidateRepeatedXSIType                                       29.35Mi ±  2%    30.51Mi ± 10%         ~ (p=0.061 n=6)
+SessionValidateIDAttributeStart                                      13.26Mi ±  6%    15.78Mi ±  8%   +19.03% (p=0.002 n=6)
+SessionValidateSimpleIDEnd                                           11.39Mi ±  4%    14.22Mi ±  4%   +24.86% (p=0.002 n=6)
+SessionValidateRepeatedQNameValues                                   11.97Mi ±  3%    26.52Mi ±  1%  +121.55% (p=0.002 n=6)
+SessionValidateRepeatedLaxWildcard                                   29.67Mi ±  6%    30.34Mi ±  6%         ~ (p=0.288 n=6)
+SessionValidateStringLengthFacet                                     191.8Mi ±  5%    322.3Mi ±  8%   +68.06% (p=0.002 n=6)
+SessionValidateWideChoice                                            18.34Mi ±  4%    20.28Mi ±  5%   +10.58% (p=0.002 n=6)
+ValidateSubstitutionGroup                                            14.03Mi ± 25%    15.08Mi ± 14%    +7.48% (p=0.041 n=6)
+SessionValidateDateDecimalRows                                       45.71Mi ± 85%    50.75Mi ±  4%   +11.03% (p=0.002 n=6)
+ValidateSmallInvalidDocument                                         5.417Mi ± 91%    7.029Mi ±  8%   +29.75% (p=0.002 n=6)
+ValidateManyRecoverablePathErrors                                    11.48Mi ± 88%    12.10Mi ±  3%    +5.36% (p=0.026 n=6)
+ValidateDeeplyNestedDocument                                         11.37Mi ± 52%    12.98Mi ±  8%   +14.22% (p=0.004 n=6)
+SessionValidateDeepThenShallow                                       8.836Mi ± 27%    9.460Mi ±  3%    +7.07% (p=0.004 n=6)
+ValidateDuplicateAttributes                                          28.34Mi ± 31%    28.91Mi ±  6%         ~ (p=0.310 n=6)
+CompileDuplicateSchemaSources                                       1009.2Mi ± 52%   2009.0Mi ± 16%   +99.07% (p=0.002 n=6)
+CompileIncludeGraph                                                  9.704Mi ± 51%   17.071Mi ± 14%   +75.92% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_1                               2.346Mi ± 46%    6.037Mi ± 20%  +157.32% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_8                               4.439Mi ± 70%    9.551Mi ± 12%  +115.15% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_32                              6.094Mi ± 29%   11.387Mi ± 16%   +86.85% (p=0.002 n=6)
+CompileSchemaText                                                    750.9Mi ± 14%    714.5Mi ±  8%         ~ (p=0.699 n=6)
+ValidateIdentityConstraints                                          8.454Mi ± 29%    9.103Mi ±  4%    +7.67% (p=0.004 n=6)
+ValidateIdentityConstraintsRows/rows_10                              5.975Mi ± 48%    6.781Mi ±  3%   +13.49% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_100                             8.349Mi ± 26%    8.974Mi ±  5%    +7.48% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_1000                            8.850Mi ± 44%    9.460Mi ±  6%    +6.90% (p=0.009 n=6)
+SessionValidateIdentityConstraintsRows/rows_10                       8.702Mi ± 58%    9.327Mi ±  5%    +7.18% (p=0.002 n=6)
+SessionValidateIdentityConstraintsRows/rows_100                      9.398Mi ± 48%   10.200Mi ±  2%    +8.52% (p=0.002 n=6)
+SessionValidateIdentityConstraintsRows/rows_1000                     9.680Mi ± 66%   10.471Mi ±  8%    +8.18% (p=0.015 n=6)
+ValidateIdentityConstraintsFields/fields_1                           8.845Mi ± 57%   10.142Mi ± 23%   +14.66% (p=0.035 n=6)
+ValidateIdentityConstraintsFields/fields_3                           11.23Mi ± 52%    13.28Mi ± 15%   +18.17% (p=0.015 n=6)
+ValidateIdentityConstraintsFields/fields_8                           12.39Mi ± 46%    15.27Mi ±  2%   +23.29% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_16                     10.71Mi ± 25%    12.05Mi ±  3%   +12.56% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_64                     7.563Mi ± 13%    8.273Mi ±  4%    +9.39% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_256                    3.223Mi ± 20%    3.676Mi ±  4%   +14.05% (p=0.002 n=6)
+SessionValidateNestedIdentitySelectionPaths                          404.7Mi ±  5%    418.5Mi ±  5%         ~ (p=0.310 n=6)
+SessionValidateRetainedIdentityPaths                                 49.50Mi ± 13%    53.30Mi ±  4%    +7.68% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/lexical                         23.06Mi ± 12%    26.28Mi ±  5%   +13.95% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/expanded                        26.24Mi ±  4%    26.57Mi ±  5%         ~ (p=0.589 n=6)
+SessionValidateDisjointIdentityPaths/expanded_distinct_namespaces    37.13Mi ±  6%    37.65Mi ±  7%         ~ (p=0.485 n=6)
+SessionValidateDisjointIdentityPaths/expanded_distinct_control       42.72Mi ± 10%    43.83Mi ±  4%    +2.61% (p=0.022 n=6)
+SessionValidateExpandedIdentityPaths                                 49.52Mi ±  9%    52.15Mi ±  2%    +5.30% (p=0.004 n=6)
+SessionValidateSharedExpandedIdentityPrefix/identity                 14.22Mi ±  4%    15.58Mi ±  5%    +9.56% (p=0.002 n=6)
+SessionValidateSharedExpandedIdentityPrefix/control                  26.09Mi ±  4%    26.09Mi ±  2%         ~ (p=0.937 n=6)
+SessionValidateUndeclaredRootXSIType                                 76.51Mi ±  7%    81.73Mi ±  3%    +6.82% (p=0.026 n=6)
+SessionValidateFixedSimpleValues/string                              18.12Mi ±  6%    24.31Mi ±  9%   +34.22% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/integer                             5.865Mi ±  6%   16.255Mi ±  3%  +177.15% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/decimal                             9.499Mi ±  5%   19.684Mi ±  4%  +107.23% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/duration                            8.836Mi ±  6%   16.713Mi ±  5%   +89.15% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/date                                11.46Mi ±  3%    19.69Mi ±  2%   +71.83% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/gDay                                11.23Mi ±  4%    15.89Mi ±  4%   +41.47% (p=0.002 n=6)
+SessionValidateQualifiedSimpleValues/QName                           10.50Mi ±  5%    24.07Mi ±  3%  +129.35% (p=0.002 n=6)
+SessionValidateQualifiedSimpleValues/NOTATION                        7.091Mi ±  3%   23.313Mi ±  2%  +228.78% (p=0.002 n=6)
+CompileStreamingSource/4096B                                         20.05Mi ± 29%    53.10Mi ± 11%  +164.87% (p=0.002 n=6)
+CompileStreamingSource/1048576B                                      66.71Mi ± 15%   166.64Mi ±  5%  +149.78% (p=0.002 n=6)
+CompileStreamingSource/16777216B                                     69.85Mi ± 16%   168.27Mi ±  5%  +140.89% (p=0.002 n=6)
+SessionValidateUnionLateMember                                       26.02Mi ± 10%    27.40Mi ±  3%    +5.32% (p=0.004 n=6)
+geomean                                                              16.88Mi          22.88Mi         +35.55%
+
+                                                                  │      main.txt      │                  current.txt                  │
+                                                                  │        B/op        │      B/op       vs base                       │
+SessionValidateAllContent/4                                             0.000 ±   0%        0.000 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateAllContent/16                                            0.000 ±   0%        0.000 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateAllContent/64                                            0.000 ±   0%        0.000 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateAllContent/256                                           0.000 ±   0%        0.000 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateAllContent/1024                                        1.914Ki ±   0%      1.914Ki ±  0%            ~ (p=1.000 n=6) ¹
+CompileSmallSchema                                                    201.5Ki ±   0%      194.8Ki ±  0%       -3.32% (p=0.002 n=6)
+CompileAndFirstSession                                                273.5Ki ±   0%      266.8Ki ±  0%       -2.45% (p=0.002 n=6)
+ValidateRepeatedSmallDocument                                         75.01Ki ±   0%      74.30Ki ±  0%       -0.95% (p=0.002 n=6)
+SessionValidateRepeatedSmallDocument                                    35.00 ±   0%        34.00 ±  3%       -2.86% (p=0.015 n=6)
+SessionValidateNamespaceAdmissionChurn/depth_16/churn_false             32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_16/churn_true              32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_64/churn_false             32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_64/churn_true              32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_256/churn_false            32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_256/churn_true             32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateRepeatedXSIType                                          33.00 ±   0%        32.00 ±  3%       -3.03% (p=0.015 n=6)
+SessionValidateIDAttributeStart                                         840.0 ±   0%        840.0 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateSimpleIDEnd                                              832.0 ±   0%        832.0 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateRepeatedQNameValues                                      33.00 ±   0%        32.00 ±  0%       -3.03% (p=0.002 n=6)
+SessionValidateRepeatedLaxWildcard                                      32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateStringLengthFacet                                        32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateWideChoice                                               401.0 ±   3%        247.0 ± 11%      -38.40% (p=0.002 n=6)
+ValidateSubstitutionGroup                                             76.44Ki ±   0%      75.04Ki ±  0%       -1.83% (p=0.002 n=6)
+SessionValidateDateDecimalRows                                          34.00 ±   0%        33.00 ±  0%       -2.94% (p=0.002 n=6)
+ValidateSmallInvalidDocument                                          76.02Ki ±   0%      75.29Ki ±  0%       -0.96% (p=0.002 n=6)
+ValidateManyRecoverablePathErrors                                     107.8Ki ±   0%      107.5Ki ±  0%       -0.25% (p=0.002 n=6)
+ValidateDeeplyNestedDocument                                          180.0Ki ±   0%      155.7Ki ±  0%      -13.47% (p=0.002 n=6)
+SessionValidateDeepThenShallow                                          32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+ValidateDuplicateAttributes                                           597.7Ki ±   0%      573.2Ki ±  0%       -4.09% (p=0.002 n=6)
+CompileDuplicateSchemaSources                                        1208.8Ki ±   0%      216.6Ki ±  0%      -82.08% (p=0.002 n=6)
+CompileIncludeGraph                                                  6887.7Ki ±   0%      749.4Ki ±  0%      -89.12% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_1                                306.0Ki ±   0%      129.5Ki ±  0%      -57.70% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_8                                884.8Ki ±   0%      193.2Ki ±  0%      -78.16% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_32                              2862.8Ki ±   0%      417.2Ki ±  0%      -85.43% (p=0.002 n=6)
+CompileSchemaText                                                     1.088Mi ±   0%      1.316Mi ±  0%      +20.96% (p=0.002 n=6)
+ValidateIdentityConstraints                                           168.3Ki ±   0%      165.7Ki ±  0%       -1.56% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_10                               85.01Ki ±   0%      84.70Ki ±  0%       -0.36% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_100                              168.3Ki ±   0%      165.7Ki ±  0%       -1.56% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_1000                             1.009Mi ±   0%      1.023Mi ±  0%       +1.37% (p=0.002 n=6)
+SessionValidateIdentityConstraintsRows/rows_10                        4.070Ki ±   0%      4.289Ki ±  0%       +5.37% (p=0.002 n=6)
+SessionValidateIdentityConstraintsRows/rows_100                       36.84Ki ±   0%      39.30Ki ±  0%       +6.67% (p=0.002 n=6)
+SessionValidateIdentityConstraintsRows/rows_1000                      435.2Ki ±   1%      471.2Ki ±  0%       +8.28% (p=0.002 n=6)
+ValidateIdentityConstraintsFields/fields_1                            122.0Ki ±   0%      119.3Ki ±  0%       -2.20% (p=0.002 n=6)
+ValidateIdentityConstraintsFields/fields_3                            161.9Ki ±   0%      152.8Ki ±  0%       -5.65% (p=0.002 n=6)
+ValidateIdentityConstraintsFields/fields_8                            226.6Ki ±   0%      206.3Ki ±  0%       -8.99% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_16                      4.025Ki ±   0%      4.493Ki ±  0%      +11.62% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_64                      16.77Ki ±   0%      19.22Ki ±  0%      +14.64% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_256                     69.52Ki ±   1%      81.46Ki ±  0%      +17.16% (p=0.002 n=6)
+SessionValidateNestedIdentitySelectionPaths                           128.2Ki ±   0%      128.2Ki ±  0%       -0.01% (p=0.002 n=6)
+SessionValidateRetainedIdentityPaths                                  636.4Ki ±   0%      672.0Ki ±  0%       +5.58% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/lexical                          176.1Ki ±   3%      172.3Ki ±  0%       -2.12% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/expanded                         155.4Ki ±   3%      151.6Ki ±  0%       -2.46% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/expanded_distinct_namespaces     3.193Mi ±   0%      3.187Mi ±  0%       -0.21% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/expanded_distinct_control        538.0Ki ±   1%      527.3Ki ±  1%       -1.99% (p=0.002 n=6)
+SessionValidateExpandedIdentityPaths                                  351.4Ki ±   0%      386.9Ki ±  0%      +10.10% (p=0.002 n=6)
+SessionValidateSharedExpandedIdentityPrefix/identity                  4.524Mi ±   0%      4.518Mi ±  0%       -0.13% (p=0.002 n=6)
+SessionValidateSharedExpandedIdentityPrefix/control                   5.126Ki ±   5%      4.393Ki ±  5%      -14.31% (p=0.002 n=6)
+CompileCountedChoiceDFA/small                                         189.0Ki ±   0%      161.3Ki ±  0%      -14.68% (p=0.002 n=6)
+CompileCountedChoiceDFA/medium                                        253.6Ki ±   0%      226.3Ki ±  0%      -10.77% (p=0.002 n=6)
+CompileCountedChoiceDFA/large                                         351.8Ki ±   0%      324.0Ki ±  0%       -7.91% (p=0.002 n=6)
+CompileSubstitutionGroups                                             449.5Ki ±   0%      534.3Ki ±  0%      +18.87% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_1                                    161.2Ki ±   0%      130.4Ki ±  0%      -19.10% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_10                                   199.9Ki ±   0%      168.2Ki ±  0%      -15.86% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_100                                  639.9Ki ±   0%      596.8Ki ±  0%       -6.74% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_1000                                 4.841Mi ±   0%      4.888Mi ±  0%       +0.97% (p=0.002 n=6)
+CompileRegexCategoryEscapes                                           6.384Mi ±   0%      6.453Mi ±  0%       +1.09% (p=0.002 n=6)
+CompileDeepSimpleTypeChain                                            2.163Mi ±   0%      2.260Mi ±  0%       +4.46% (p=0.002 n=6)
+CompileRepeatedNestedUnionMembers                                     811.2Ki ±   0%      791.9Ki ±  0%       -2.37% (p=0.002 n=6)
+CompileOpaqueAnnotationPayload                                        353.1Ki ±   0%      252.1Ki ±  0%      -28.60% (p=0.002 n=6)
+SessionValidateUndeclaredRootXSIType                                    32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+SessionValidateFixedSimpleValues/string                                 1.000 ±    ?     1024.000 ±  0%  +102300.00% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/integer                              1.002Ki ±   0%      3.000Ki ±  0%     +199.42% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/decimal                                1.000 ± 100%     2048.000 ±  0%  +204700.00% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/duration                               1.000 ± 100%     4779.000 ±  0%  +477800.00% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/date                                 6.002Ki ±   0%     10.001Ki ±  0%      +66.63% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/gDay                                 5.002Ki ±   0%     15.001Ki ±  0%     +199.90% (p=0.002 n=6)
+SessionValidateQualifiedSimpleValues/QName                              1.000 ± 100%        0.000 ±  0%     -100.00% (p=0.002 n=6)
+SessionValidateQualifiedSimpleValues/NOTATION                           2.000 ±  50%        0.000 ±  0%     -100.00% (p=0.002 n=6)
+CompileStreamingSource/4096B                                          163.1Ki ±   0%      122.8Ki ±  0%      -24.72% (p=0.002 n=6)
+CompileStreamingSource/1048576B                                      2328.8Ki ±   0%      122.8Ki ±  0%      -94.73% (p=0.002 n=6)
+CompileStreamingSource/16777216B                                    35528.8Ki ±   0%      122.8Ki ±  0%      -99.65% (p=0.002 n=6)
+SessionValidateUnionLateMember                                          32.00 ±   0%        32.00 ±  0%            ~ (p=1.000 n=6) ¹
+geomean                                                                              ²                   ?                         ² ³
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+³ ratios must be >0 to compute geomean
+
+                                                                  │    main.txt    │              current.txt               │
+                                                                  │   allocs/op    │  allocs/op    vs base                  │
+SessionValidateAllContent/4                                          0.000 ±  0%       0.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateAllContent/16                                         0.000 ±  0%       0.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateAllContent/64                                         0.000 ±  0%       0.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateAllContent/256                                        0.000 ±  0%       0.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateAllContent/1024                                       513.0 ±  0%       513.0 ± 0%         ~ (p=1.000 n=6) ¹
+CompileSmallSchema                                                   625.0 ±  0%       573.0 ± 0%    -8.32% (p=0.002 n=6)
+CompileAndFirstSession                                               627.0 ±  0%       575.0 ± 0%    -8.29% (p=0.002 n=6)
+ValidateRepeatedSmallDocument                                        38.00 ±  0%       28.00 ± 0%   -26.32% (p=0.002 n=6)
+SessionValidateRepeatedSmallDocument                                 1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_16/churn_false          1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_16/churn_true           1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_64/churn_false          1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_64/churn_true           1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_256/churn_false         1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateNamespaceAdmissionChurn/depth_256/churn_true          1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateRepeatedXSIType                                       1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateIDAttributeStart                                      101.0 ±  0%       101.0 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateSimpleIDEnd                                           101.0 ±  0%       101.0 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateRepeatedQNameValues                                   1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateRepeatedLaxWildcard                                   1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateStringLengthFacet                                     1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateWideChoice                                            5.000 ± 20%       3.000 ± 0%   -40.00% (p=0.002 n=6)
+ValidateSubstitutionGroup                                            60.00 ±  0%       37.00 ± 0%   -38.33% (p=0.002 n=6)
+SessionValidateDateDecimalRows                                       1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+ValidateSmallInvalidDocument                                         59.00 ±  0%       48.00 ± 0%   -18.64% (p=0.002 n=6)
+ValidateManyRecoverablePathErrors                                    631.0 ±  0%       627.0 ± 0%    -0.63% (p=0.002 n=6)
+ValidateDeeplyNestedDocument                                         311.0 ±  0%       174.0 ± 0%   -44.05% (p=0.002 n=6)
+SessionValidateDeepThenShallow                                       1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+ValidateDuplicateAttributes                                         1.604k ±  0%      1.083k ± 0%   -32.48% (p=0.002 n=6)
+CompileDuplicateSchemaSources                                        894.0 ±  0%       444.0 ± 0%   -50.34% (p=0.002 n=6)
+CompileIncludeGraph                                                 6.821k ±  0%      3.623k ± 0%   -46.88% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_1                               489.0 ±  0%       340.0 ± 0%   -30.47% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_8                              1148.0 ±  0%       696.0 ± 0%   -39.37% (p=0.002 n=6)
+CompileChameleonTargetFanout/targets_32                             3.189k ±  0%      1.703k ± 0%   -46.60% (p=0.002 n=6)
+CompileSchemaText                                                    360.0 ±  0%       282.0 ± 0%   -21.67% (p=0.002 n=6)
+ValidateIdentityConstraints                                          610.0 ±  0%       501.0 ± 0%   -17.87% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_10                              130.0 ±  0%       114.0 ± 0%   -12.31% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_100                             610.0 ±  0%       501.0 ± 0%   -17.87% (p=0.002 n=6)
+ValidateIdentityConstraintsRows/rows_1000                           5.149k ±  0%      4.626k ± 0%   -10.16% (p=0.002 n=6)
+SessionValidateIdentityConstraintsRows/rows_10                       42.00 ±  0%       42.00 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateIdentityConstraintsRows/rows_100                      321.0 ±  0%       321.0 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateIdentityConstraintsRows/rows_1000                    4.021k ±  0%      4.016k ± 0%    -0.12% (p=0.002 n=6)
+ValidateIdentityConstraintsFields/fields_1                           473.0 ±  0%       363.0 ± 0%   -23.26% (p=0.002 n=6)
+ValidateIdentityConstraintsFields/fields_3                          1190.0 ±  0%       876.0 ± 0%   -26.39% (p=0.002 n=6)
+ValidateIdentityConstraintsFields/fields_8                          2.424k ±  0%      1.891k ± 0%   -21.99% (p=0.002 n=6)
+SessionValidateNestedIdentitySelections/depth_16                     27.00 ±  0%       27.00 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateNestedIdentitySelections/depth_64                     79.00 ±  0%       79.00 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateNestedIdentitySelections/depth_256                    279.0 ±  1%       277.0 ± 0%    -0.72% (p=0.002 n=6)
+SessionValidateNestedIdentitySelectionPaths                          3.000 ±  0%       3.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateRetainedIdentityPaths                                4.024k ±  0%      4.018k ± 0%    -0.16% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/lexical                         303.0 ±  5%       280.0 ± 0%    -7.59% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/expanded                        337.0 ±  3%       302.0 ± 0%   -10.39% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/expanded_distinct_namespaces   33.00k ±  0%      32.91k ± 0%    -0.27% (p=0.002 n=6)
+SessionValidateDisjointIdentityPaths/expanded_distinct_control      32.45k ±  0%      32.34k ± 0%    -0.31% (p=0.002 n=6)
+SessionValidateExpandedIdentityPaths                                2.528k ±  0%      2.521k ± 0%    -0.28% (p=0.002 n=6)
+SessionValidateSharedExpandedIdentityPrefix/identity                19.81k ±  0%      19.74k ± 0%    -0.36% (p=0.002 n=6)
+SessionValidateSharedExpandedIdentityPrefix/control                  19.00 ±  5%       12.00 ± 8%   -36.84% (p=0.002 n=6)
+CompileCountedChoiceDFA/small                                        752.0 ±  0%       661.0 ± 0%   -12.10% (p=0.002 n=6)
+CompileCountedChoiceDFA/medium                                      1.402k ±  0%      1.263k ± 0%    -9.91% (p=0.002 n=6)
+CompileCountedChoiceDFA/large                                       2.331k ±  0%      2.149k ± 0%    -7.81% (p=0.002 n=6)
+CompileSubstitutionGroups                                           1.621k ±  0%      1.547k ± 0%    -4.57% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_1                                   416.0 ±  0%       338.0 ± 0%   -18.75% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_10                                  756.0 ±  0%       644.0 ± 0%   -14.81% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_100                                3.564k ±  0%      3.092k ± 0%   -13.24% (p=0.002 n=6)
+CompileAttributeGroupFanout/refs_1000                               30.00k ±  0%      27.43k ± 0%    -8.59% (p=0.002 n=6)
+CompileRegexCategoryEscapes                                         9.768k ±  0%      5.715k ± 0%   -41.49% (p=0.002 n=6)
+CompileDeepSimpleTypeChain                                          8.478k ±  0%     12.899k ± 0%   +52.15% (p=0.002 n=6)
+CompileRepeatedNestedUnionMembers                                   4.784k ±  0%      5.228k ± 0%    +9.28% (p=0.002 n=6)
+CompileOpaqueAnnotationPayload                                      2.874k ±  0%      1.279k ± 0%   -55.50% (p=0.002 n=6)
+SessionValidateUndeclaredRootXSIType                                 1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateFixedSimpleValues/string                                0.0 ±  0%       128.0 ± 0%         ? (p=0.002 n=6)
+SessionValidateFixedSimpleValues/integer                             128.0 ±  0%       384.0 ± 0%  +200.00% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/decimal                               0.0 ±  0%       256.0 ± 0%         ? (p=0.002 n=6)
+SessionValidateFixedSimpleValues/duration                              0.0 ±  0%       512.0 ± 0%         ? (p=0.002 n=6)
+SessionValidateFixedSimpleValues/date                                384.0 ±  0%       640.0 ± 0%   +66.67% (p=0.002 n=6)
+SessionValidateFixedSimpleValues/gDay                                384.0 ±  0%       896.0 ± 0%  +133.33% (p=0.002 n=6)
+SessionValidateQualifiedSimpleValues/QName                           0.000 ±  0%       0.000 ± 0%         ~ (p=1.000 n=6) ¹
+SessionValidateQualifiedSimpleValues/NOTATION                        0.000 ±  0%       0.000 ± 0%         ~ (p=1.000 n=6) ¹
+CompileStreamingSource/4096B                                         361.0 ±  0%       275.0 ± 0%   -23.82% (p=0.002 n=6)
+CompileStreamingSource/1048576B                                      376.0 ±  0%       275.0 ± 0%   -26.86% (p=0.002 n=6)
+CompileStreamingSource/16777216B                                     383.0 ±  0%       275.0 ± 0%   -28.20% (p=0.002 n=6)
+SessionValidateUnionLateMember                                       1.000 ±  0%       1.000 ± 0%         ~ (p=1.000 n=6) ¹
+geomean                                                                          ²                 ?                      ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
