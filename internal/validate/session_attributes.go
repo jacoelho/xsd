@@ -40,10 +40,6 @@ func (s *session) attributeValue(attr *xmlstream.Attr) string {
 	return value
 }
 
-func (s *session) validateRawSimpleValue(id xsdSchema.SimpleTypeID, raw []byte) (xsdValue.Value, error) {
-	return s.rt.ValueProgram().ValidateBytes(id, raw, s.simpleValueQNameResolver(id), 0, &s.valueScratch)
-}
-
 func (s *session) validateSimpleValue(
 	id xsdSchema.SimpleTypeID,
 	lexical string,
@@ -60,10 +56,9 @@ func (s *session) validateSimpleValueBytes(
 	needs xsdValue.Needs,
 ) (xsdValue.Value, error) {
 	program := s.rt.ValueProgram()
-	// QName/NOTATION resolution and document identity projections retain string
-	// data beyond the borrowed token. Admit both through the reader-owned
-	// bounded cache before entering the value program so the retained lexical
-	// representation has one owner.
+	// QName/NOTATION resolution and document identity projections consume
+	// lexical strings. Reuse the reader's bounded owned spellings; resolve them
+	// again against the current namespace bindings on every evaluation.
 	needsOwnedLexical := false
 	if needsQName, ok := program.NeedsQNameResolver(id); ok && needsQName {
 		needsOwnedLexical = true
@@ -229,7 +224,8 @@ func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr
 		return false, nil
 	}
 	if raw, ok := attr.RawValue(); ok {
-		value, err := s.validateRawSimpleValue(plan.use.TypeID(), raw)
+		typeID := plan.use.TypeID()
+		value, err := s.validateSimpleValueBytes(typeID, raw, s.simpleValueQNameResolver(typeID), 0)
 		if err != nil {
 			return true, simpleValueFacetError(ctx, "invalid attribute "+rn.Label(), err)
 		}

@@ -89,14 +89,14 @@ func (s *Session) Validate(r io.Reader) error {
 // Per-document state lives in doc; everything else is retained across
 // documents: options, the reader buffer and parser.
 type session struct {
-	rt                           *xsdSchema.Schema
-	resolveLexicalQNamePartsFunc xsdSchema.ResolveQNameParts
-	doc                          documentState
-	derivationScratch            xsdSchema.TypeDerivationScratch
-	valueScratch                 xsdValue.Scratch
-	attributeSeen                []bool
-	reader                       xmlstream.Reader
-	limits                       Limits
+	rt                *xsdSchema.Schema
+	valueResolver     xsdValue.Resolver
+	doc               documentState
+	derivationScratch xsdSchema.TypeDerivationScratch
+	valueScratch      xsdValue.Scratch
+	attributeSeen     []bool
+	reader            xmlstream.Reader
+	limits            Limits
 }
 
 // documentState is the mutable state of one document validation. XML syntax

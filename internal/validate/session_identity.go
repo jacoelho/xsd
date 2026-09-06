@@ -41,7 +41,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	needsIdentity := identityTarget.needsIdentity()
 	typeIdentity := s.valueTypeIdentity(typeID)
 	if !needsIdentity && !hasValueConstraint && typeIdentity == xsdValue.IdentityNone {
-		value, err := s.validateRawSimpleValue(typeID, rawText)
+		value, err := s.validateSimpleValueBytes(typeID, rawText, s.simpleValueQNameResolver(typeID), 0)
 		if err != nil {
 			return false, simpleValueFacetError(ctx, "invalid simple content", err)
 		}

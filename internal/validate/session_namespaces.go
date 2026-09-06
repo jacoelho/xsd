@@ -17,17 +17,18 @@ func (s *session) simpleValueQNameResolver(id xsdSchema.SimpleTypeID) value.Reso
 	if !ok || !needs {
 		return value.Resolver{}
 	}
-	return value.Resolver{
-		QName:    s.qnameResolver(),
-		Notation: s.rt.NotationDeclared,
+	if s.valueResolver.Notation == nil {
+		s.valueResolver.QName = s.qnameResolver()
+		s.valueResolver.Notation = s.rt.NotationDeclared
 	}
+	return s.valueResolver
 }
 
 func (s *session) qnameResolver() xsdSchema.ResolveQNameParts {
-	if s.resolveLexicalQNamePartsFunc == nil {
-		s.resolveLexicalQNamePartsFunc = s.resolveLexicalQNameParts
+	if s.valueResolver.QName == nil {
+		s.valueResolver.QName = s.resolveLexicalQNameParts
 	}
-	return s.resolveLexicalQNamePartsFunc
+	return s.valueResolver.QName
 }
 
 func (s *session) resolveLexicalQNameParts(v string) (namespace, local string, ok bool) {

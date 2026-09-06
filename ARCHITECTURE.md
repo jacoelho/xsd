@@ -225,6 +225,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   The document runner detaches its XML reader on every exit. Reusable sessions
   clear remaining document state before releasing the overlap guard; that
   cleanup does not repeat reader detachment.
+  All borrowed simple-value inputs share one admission path. QName/NOTATION
+  spellings use the reader's bounded string cache, while resolution runs against
+  the current namespace frame each time. Resolver callbacks belong to the
+  reusable session; cached spellings never cache resolved QName values.
 - `internal/format` owns repository-internal XML formatting and finite default
   input, token, processed-node, depth, and output bounds. Its output boundary
   rejects every incomplete `io.Writer` write, so success means the complete
