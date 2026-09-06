@@ -12,12 +12,13 @@ func CheckXMLWellFormed(r io.Reader, opts Options) error {
 	if err != nil {
 		return err
 	}
-	c := xmlWellFormedChecker{
-		maxDepth:      limits.InstanceDepth,
-		maxAttributes: limits.InstanceAttributes,
-		maxTokenBytes: limits.InstanceTokenBytes,
-		maxInputBytes: limits.InstanceBytes,
-	}
+	// Separate field initialization avoids clearing the embedded input buffer
+	// again after the compiler allocates the zeroed checker.
+	var c xmlWellFormedChecker
+	c.maxDepth = limits.InstanceDepth
+	c.maxAttributes = limits.InstanceAttributes
+	c.maxTokenBytes = limits.InstanceTokenBytes
+	c.maxInputBytes = limits.InstanceBytes
 	return c.check(r)
 }
 

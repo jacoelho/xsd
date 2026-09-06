@@ -41,6 +41,8 @@ func NewSession(rt *xsdSchema.Schema, opts Options) (*Session, error) {
 	return result, nil
 }
 
+// initializeSession populates a newly allocated zero session. Assigning only
+// admitted configuration avoids clearing the embedded input buffer a second time.
 func initializeSession(s *session, rt *xsdSchema.Schema, opts Options) error {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
@@ -49,10 +51,8 @@ func initializeSession(s *session, rt *xsdSchema.Schema, opts Options) error {
 	if rt == nil {
 		return xsderrors.InternalInvariant("nil validation schema")
 	}
-	*s = session{
-		rt:     rt,
-		limits: limits,
-	}
+	s.rt = rt
+	s.limits = limits
 	s.doc.identity = newIdentityEvaluation(rt, identityLimits{
 		Entries:    limits.IdentityEntries,
 		TupleBytes: limits.IdentityTupleBytes,
