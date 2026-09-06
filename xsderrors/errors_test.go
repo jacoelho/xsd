@@ -85,6 +85,85 @@ func TestNewErrorsCollapsesEmptyAndSingletonInputs(t *testing.T) {
 	}
 }
 
+func TestTypedNilErrorsAreAbsent(t *testing.T) {
+	t.Parallel()
+
+	var typedNil *Errors
+	var err error = typedNil
+	if got := NewErrors(err); got != nil {
+		t.Fatalf("NewErrors(typed nil *Errors) = %T, want nil", got)
+	}
+	if got := Flatten(err); got != nil {
+		t.Fatalf("Flatten(typed nil *Errors) = %#v, want nil", got)
+	}
+	if IsUnsupported(err) {
+		t.Fatal("IsUnsupported(typed nil *Errors) = true")
+	}
+	if got := WithLocation("schema.xsd", 1, 1, err); got != nil {
+		t.Fatalf("WithLocation(typed nil *Errors) = %T, want nil", got)
+	}
+
+	diagnostic := Validation(CodeValidationType, "bad type", typedNil)
+	if got := diagnostic.Error(); got != "validation.type: bad type" {
+		t.Fatalf("diagnostic with typed nil cause = %q, want cause omitted", got)
+	}
+}
+
+func TestTypedNilErrorsAreSkippedThroughWrappersAndJoins(t *testing.T) {
+	t.Parallel()
+
+	var typedNil *Errors
+	var typedNilError error = typedNil
+	unsupported := Unsupported(CodeUnsupportedRegex, "unsupported regex", nil)
+	wrappedNil := fmt.Errorf("wrapped: %w", typedNilError)
+	if IsUnsupported(wrappedNil) {
+		t.Fatal("IsUnsupported(wrapper around typed nil *Errors) = true")
+	}
+	if flat := Flatten(wrappedNil); len(flat) != 1 || flat[0] != wrappedNil { //nolint:errorlint // A non-diagnostic wrapper remains a leaf.
+		t.Fatalf("Flatten(wrapper around typed nil *Errors) = %#v, want the wrapper leaf", flat)
+	}
+
+	for i, err := range []error{
+		errors.Join(typedNilError, unsupported),
+		fmt.Errorf("outer: %w", errors.Join(typedNilError, unsupported)),
+	} {
+		if !IsUnsupported(err) {
+			t.Errorf("IsUnsupported(case %d) = false, want true", i)
+		}
+		flat := Flatten(err)
+		if len(flat) != 1 || flat[0] != unsupported { //nolint:errorlint // Projection preserves the non-empty public diagnostic.
+			t.Errorf("Flatten(case %d) = %#v, want the unsupported diagnostic only", i, flat)
+		}
+	}
+}
+
+type customDiagnosticError struct {
+	diagnostic *Error
+}
+
+func (customDiagnosticError) Error() string { return "custom diagnostic wrapper" }
+
+func (e customDiagnosticError) As(target any) bool {
+	diagnostic, ok := target.(**Error)
+	if !ok {
+		return false
+	}
+	*diagnostic = e.diagnostic
+	return true
+}
+
+func TestIsUnsupportedPreservesCustomAs(t *testing.T) {
+	t.Parallel()
+
+	diagnostic, ok := errors.AsType[*Error](Unsupported(CodeUnsupportedRegex, "unsupported regex", nil))
+	if !ok {
+		t.Fatal("Unsupported() did not return a diagnostic")
+	}
+	if !IsUnsupported(customDiagnosticError{diagnostic: diagnostic}) {
+		t.Fatal("IsUnsupported(custom As wrapper) = false, want true")
+	}
+}
+
 func TestFlattenUsesCanonicalAggregateProjection(t *testing.T) {
 	t.Parallel()
 

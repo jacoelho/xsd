@@ -657,6 +657,15 @@ func TestSourceResolve(t *testing.T) {
 	})
 }
 
+func TestFileNilResolverPreservesBuiltInResolutionContext(t *testing.T) {
+	t.Parallel()
+
+	file := File("schema.xsd")
+	if got := file.WithResolver(nil); !file.SameResolutionContext(got) {
+		t.Fatal("File.WithResolver(nil) split the built-in file resolution context")
+	}
+}
+
 func TestSourceReadLimit(t *testing.T) {
 	t.Parallel()
 	_, result := Bytes("schema.xsd", []byte("1234")).OpenInput(3)
@@ -664,9 +673,54 @@ func TestSourceReadLimit(t *testing.T) {
 	if !IsSchemaLimitError(err) {
 		t.Fatalf("Read() error = %v, want schema limit", err)
 	}
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Path() != "schema.xsd" {
+		t.Fatalf("Read() diagnostic = %v, want source path schema.xsd", err)
+	}
 	if !IsSchemaLimitError(fmt.Errorf("wrapped: %w", err)) {
 		t.Fatal("IsSchemaLimitError rejected wrapped error")
 	}
+}
+
+func TestSourceLimitDiagnosticsKeepSourceLocationWhenJoined(t *testing.T) {
+	t.Parallel()
+
+	check := func(t *testing.T, result ReadResult, cause error) {
+		t.Helper()
+		if !result.LimitExceeded || !errors.Is(result.Err, cause) {
+			t.Fatalf("Finish() = %+v, want source limit and cause %v", result, cause)
+		}
+		diagnostic, ok := errors.AsType[*xsderrors.Error](result.Err)
+		if !ok || diagnostic.Path() != "schema.xsd" || !strings.Contains(diagnostic.Message(), "schema.xsd") {
+			t.Fatalf("Finish() diagnostic = %v, want source path and message", result.Err)
+		}
+		flat := xsderrors.Flatten(result.Err)
+		if len(flat) < 2 {
+			t.Fatalf("Flatten(Finish()) = %v, want limit plus acquisition cause", flat)
+		}
+		limit, ok := flat[0].(*xsderrors.Error) //nolint:errorlint // Flatten must expose the direct located diagnostic.
+		if !ok || limit.Path() != "schema.xsd" {
+			t.Fatalf("Flatten(Finish())[0] = %T %v, want located schema limit", flat[0], flat[0])
+		}
+	}
+
+	t.Run("read error", func(t *testing.T) {
+		t.Parallel()
+		readErr := errors.New("read failed at limit")
+		result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
+			return &dataErrorReader{data: []byte("ab"), err: readErr}, nil
+		}), 1)
+		check(t, result, readErr)
+	})
+
+	t.Run("close error", func(t *testing.T) {
+		t.Parallel()
+		closeErr := errors.New("close failed at limit")
+		result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
+			return &trackingReadCloser{Reader: strings.NewReader("ab"), closeErr: closeErr}, nil
+		}), 1)
+		check(t, result, closeErr)
+	})
 }
 
 func TestSourceReadWithZeroLimitDistinguishesEmptyAndOversize(t *testing.T) {

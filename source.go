@@ -67,6 +67,16 @@ func adaptPublicResolver(r Resolver) source.Resolver {
 	if r == nil {
 		return nil
 	}
+	switch resolver := r.(type) {
+	case ResolverFunc:
+		if resolver == nil {
+			return nil
+		}
+	case *ResolverFunc:
+		if resolver == nil || *resolver == nil {
+			return nil
+		}
+	}
 	return func(base, location string) (source.Source, error) {
 		src, err := r.ResolveSchema(base, location)
 		return src.src, err

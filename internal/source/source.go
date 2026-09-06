@@ -246,7 +246,14 @@ func Opener(name string, open func() (io.ReadCloser, error)) Source {
 // WithResolver returns s with r used for schema include/import resolution.
 func (s Source) WithResolver(r Resolver) Source {
 	if r == nil {
-		s.context.resolver = nil
+		if s.context.localFileFallback {
+			// A nil custom resolver removes only the custom callback. Keep the
+			// built-in file backend represented by the same owner as File so
+			// equivalent source graphs share one resolution context.
+			s.context.resolver = fileResolverOwner
+		} else {
+			s.context.resolver = nil
+		}
 	} else {
 		s.context.resolver = &resolverOwner{resolve: r}
 	}
@@ -469,7 +476,7 @@ func schemaSourceLimitError(name string) error {
 	if name != "" {
 		msg = "schema source " + name + " exceeds MaxSchemaSourceBytes"
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg)
+	return xsderrors.WithLocation(name, 0, 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg))
 }
 
 // IsSchemaLimitError reports whether err is a schema source byte-limit diagnostic.
