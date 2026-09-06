@@ -205,6 +205,25 @@ func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 	}
 }
 
+func TestValidateBytesFallbackRetainsRawWork(t *testing.T) {
+	b := NewBuilder(BuilderOptions{MaxEvalWork: 6})
+	id, err := b.Add(TypeSpec{
+		Variety: Union, Union: []TypeID{builtinBoolean, builtinQName},
+		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: NoType, ListItem: NoType,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := b.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.ValidateBytes(id, []byte("x"), Resolver{}, 0, nil); !errors.Is(err, ErrLimit) {
+		t.Fatalf("fallback work was not retained: %v", err)
+	}
+}
+
 func TestValidateBytesTextFacetsCountNormalizedCharacters(t *testing.T) {
 	pattern, err := xsdregex.Compile("é.", xsdregex.CompileOptions{})
 	if err != nil {

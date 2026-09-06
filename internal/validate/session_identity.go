@@ -94,7 +94,7 @@ func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constra
 	if err := s.doc.identity.recordValue(target, result, ctx); err != nil {
 		return false, err
 	}
-	if fixed, ok := constraints.FixedValue(); ok && result.CanonicalText() != fixed.CanonicalText() {
+	if fixed, ok := constraints.FixedValue(); ok && !result.Equal(fixed.Value()) {
 		if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 			return false, rejectErr
 		}
@@ -146,15 +146,15 @@ func (*session) simpleContentNeeds(
 	typeIdentity xsdValue.IdentityKind,
 ) xsdValue.Needs {
 	var needs xsdValue.Needs
+	if _, fixed := constraints.FixedValue(); fixed {
+		needs |= xsdValue.NeedCanonical | xsdValue.NeedIdentity
+	}
 	if target.needsIdentity() {
 		needs |= xsdValue.NeedIdentity
 	}
 	if target.needsIdentity() || typeIdentity != xsdValue.IdentityNone {
 		needs |= xsdValue.NeedCanonical
 		return needs
-	}
-	if _, fixed := constraints.FixedValue(); fixed {
-		needs |= xsdValue.NeedCanonical
 	}
 	return needs
 }

@@ -249,33 +249,3 @@ func (rt *schemaBuild) ForEachSubstitutionEntry(id ElementID, fn func(QName, Ele
 func (rt *schemaBuild) TypeLabel(t TypeID) string {
 	return rt.Names.Format(rt.TypeName(t))
 }
-
-// StringEnumerationContains reports whether canonical is in a simple type's string enumeration.
-func (rt *schemaBuild) StringEnumerationContains(id SimpleTypeID, canonical string) (contains, valid bool) {
-	st, ok := UsableSimpleType(rt.SimpleTypes, id)
-	if !ok {
-		return false, false
-	}
-	if rt.valueBuilder != nil {
-		if view, ok := rt.valueBuilder.TypeView(id); ok {
-			return valueEnumerationContains(view.Facets.Enumeration, canonical), true
-		}
-	}
-	for _, literal := range st.ValueSpec.Facets.Enumeration {
-		if literal.Lexical == canonical {
-			return true, true
-		}
-	}
-	return false, true
-}
-
-func valueEnumerationContains(groups [][]value.LiteralView, canonical string) bool {
-	for _, group := range groups {
-		for _, literal := range group {
-			if literal.Canonical == canonical {
-				return true
-			}
-		}
-	}
-	return false
-}

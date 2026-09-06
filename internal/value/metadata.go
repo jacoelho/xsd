@@ -85,6 +85,25 @@ func (p *Program) IdentityKind(id TypeID) (kind IdentityKind, valid bool) {
 	return t.identity, true
 }
 
+// IsUnconstrainedString reports whether id has the exact shape that can retain
+// its borrowed lexical bytes through string validation: atomic xs:string
+// semantics, preserve whitespace, no identity projection, and no effective
+// facets. It returns false for an invalid program or type ID.
+func (p *Program) IsUnconstrainedString(id TypeID) (unconstrained, valid bool) {
+	if p == nil || !p.sealed {
+		return false, false
+	}
+	t, ok := p.typeDef(id)
+	if !ok {
+		return false, false
+	}
+	return t.variety == Atomic &&
+		t.primitive == PrimitiveString &&
+		t.whitespace == WhitespacePreserve &&
+		t.identity == IdentityNone &&
+		t.facets.present == 0, true
+}
+
 // TypeView returns effective metadata for a completed incremental type.
 func (b *Builder) TypeView(id TypeID) (TypeView, bool) {
 	if b == nil || b.sealed || b.program == nil {
@@ -92,7 +111,7 @@ func (b *Builder) TypeView(id TypeID) (TypeView, bool) {
 	}
 	if id >= BuiltinTypeCount {
 		i := id - BuiltinTypeCount
-		if uint64(i) >= uint64(len(b.complete)) || !b.complete[i] {
+		if uint64(i) >= uint64(len(b.program.complete)) || !b.program.complete[i] {
 			return TypeView{}, false
 		}
 	}
@@ -107,7 +126,7 @@ func (b *Builder) NeedsQNameResolver(id TypeID) (needs, valid bool) {
 	}
 	if id >= BuiltinTypeCount {
 		i := id - BuiltinTypeCount
-		if uint64(i) >= uint64(len(b.complete)) || !b.complete[i] {
+		if uint64(i) >= uint64(len(b.program.complete)) || !b.program.complete[i] {
 			return false, false
 		}
 	}

@@ -394,7 +394,11 @@ func validateFixedBound(fixed FacetMask, flag FacetMask, own, base []boundValue)
 }
 
 func findBound(bounds []boundValue, kind OrderedFacetBoundKind) (boundValue, bool) {
-	for _, bound := range bounds {
+	// The effective program retains every inherited bound so partial-order
+	// restrictions can be checked against the complete ancestry. A fixed facet
+	// names the effective value from the nearest declaration, which is the last
+	// bound of that kind in declaration order.
+	for _, bound := range slices.Backward(bounds) {
 		if boundKind(bound).Kind == kind {
 			return bound, true
 		}

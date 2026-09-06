@@ -139,17 +139,7 @@ func (p *Program) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, ne
 	if p == nil || !p.sealed {
 		return Value{}, ErrMetadata
 	}
-	// Unprojected string builtins need no datatype work after XML admission.
-	if needs == 0 && (id == builtinAnySimpleType || id == builtinString) {
-		if p.maxEvalWork != 0 && uint64(len(lexical))+1 > p.maxEvalWork {
-			return Value{}, ErrLimit
-		}
-		return Value{typeID: id, selected: NoType}, nil
-	}
-	if value, handled, err := p.validateBytesFast(id, lexical, needs, scratch); handled || err != nil {
-		return value, err
-	}
-	return p.validateValue(id, string(lexical), resolver, needs, scratch)
+	return p.validateBorrowedBytes(id, lexical, resolver, needs, scratch)
 }
 
 // Validate parses one value against the completed portion of an incremental
@@ -159,40 +149,46 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 	if b == nil || b.sealed || b.program == nil {
 		return Value{}, ErrMetadata
 	}
-	if id >= BuiltinTypeCount {
-		i := id - BuiltinTypeCount
-		if uint64(i) >= uint64(len(b.complete)) || !b.complete[i] {
-			return Value{}, ErrMetadata
-		}
-	}
 	return b.program.validateValue(id, lexical, resolver, needs, scratch)
 }
 
 // ValidateBytes validates stream-admitted UTF-8 XML 1.0 character data against
 // a completed incremental type. The bytes are not retained after return.
 func (b *Builder) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
-	if b != nil && !b.sealed && b.program != nil {
-		if value, handled, err := b.program.validateBytesFast(id, lexical, needs, scratch); handled || err != nil {
-			return value, err
-		}
+	if b == nil || b.sealed || b.program == nil {
+		return Value{}, ErrMetadata
 	}
-	return b.Validate(id, string(lexical), resolver, needs, scratch)
+	return b.program.validateBorrowedBytes(id, lexical, resolver, needs, scratch)
 }
 
-// validateBytesFast admits borrowed raw bytes only when the complete value
-// can be checked without constructing a normalized lexical string or a value
-// projection. The fallback retains the same semantics for projections,
-// QName resolution, lists, and facet shapes that need typed values.
-func (p *Program) validateBytesFast(id TypeID, lexical []byte, needs Needs, scratch *Scratch) (Value, bool, error) {
-	if p == nil || id == NoType || needs != 0 {
-		return Value{}, false, nil
+// validateBorrowedBytes admits raw bytes and retains the accumulated work when
+// an unsupported raw shape falls through to normalized evaluation.
+func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
+	if value, handled, err := p.validateUnprojectedBytes(id, lexical, needs); handled {
+		return value, err
 	}
 	var work uint64
+	if id == NoType || needs != 0 {
+		return p.validateValueWithWork(id, string(lexical), resolver, needs, scratch, &work)
+	}
 	selected, handled, err := p.evalBytes(id, lexical, scratch, &work, 0)
 	if err != nil {
-		return Value{}, handled, err
+		return Value{}, err
 	}
-	return Value{typeID: id, selected: selected}, handled, nil
+	if handled {
+		return Value{typeID: id, selected: selected}, nil
+	}
+	return p.validateValueWithWork(id, string(lexical), resolver, needs, scratch, &work)
+}
+
+func (p *Program) validateUnprojectedBytes(id TypeID, lexical []byte, needs Needs) (Value, bool, error) {
+	if needs != 0 || (id != builtinAnySimpleType && id != builtinString) {
+		return Value{}, false, nil
+	}
+	if p.maxEvalWork != 0 && uint64(len(lexical))+1 > p.maxEvalWork {
+		return Value{}, true, ErrLimit
+	}
+	return Value{typeID: id, selected: NoType}, true, nil
 }
 
 func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, work *uint64, depth int) (TypeID, bool, error) {
@@ -445,6 +441,11 @@ func hasXMLWhitespaceBytes(raw []byte) bool {
 }
 
 func (p *Program) validateValue(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
+	var work uint64
+	return p.validateValueWithWork(id, lexical, resolver, needs, scratch, &work)
+}
+
+func (p *Program) validateValueWithWork(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch, work *uint64) (Value, error) {
 	if p == nil || id == NoType || id >= BuiltinTypeCount && uint64(id-BuiltinTypeCount) >= uint64(len(p.types)) {
 		return Value{}, ErrMetadata
 	}
@@ -461,14 +462,13 @@ func (p *Program) validateValue(id TypeID, lexical string, resolver Resolver, ne
 	if t.identity != IdentityNone {
 		evalNeeds |= NeedCanonical
 	}
-	var work uint64
 	var v parsedValue
 	err := p.eval(id, lexical, evalOptions{
 		resolver:      resolver,
 		needs:         evalNeeds,
 		enforceFacets: true,
 		scratch:       scratch,
-		work:          &work,
+		work:          work,
 	}, &v)
 	if err != nil {
 		return Value{}, err
@@ -685,6 +685,10 @@ func (p *Program) evalListField(value *parsedValue, t *typeDef, field string, op
 		itemNeeds |= NeedCanonical | NeedIdentity
 	}
 	options.needs = itemNeeds
+	// Literal construction may skip the containing list's own facets, but an
+	// item is a value of its declared item type and must always satisfy that
+	// type's facets.
+	options.enforceFacets = true
 	var item parsedValue
 	err := p.eval(t.listItem, field, options, &item)
 	return item, err
@@ -745,10 +749,20 @@ func (b *listValueBuilder) finish(identity IdentityKind) parsedValue {
 }
 
 func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) error {
+	if len(t.facets.enumGroups) != 0 {
+		// Union enumeration compares the selected member's typed value. Keep
+		// list items while evaluating every member so nested unions and derived
+		// restrictions cannot discard the structure needed by that comparison.
+		options.needs |= retainListItems
+	}
 	var last error
 	var unsupported error
+	childOptions := options
+	// Literal construction may skip the containing union's own facets, but
+	// member selection always evaluates each member's complete value space.
+	childOptions.enforceFacets = true
 	for _, member := range t.union {
-		err := p.eval(member, normalized, options, out)
+		err := p.eval(member, normalized, childOptions, out)
 		if err == nil {
 			out.typeID = id
 			out.selected = member
@@ -926,31 +940,21 @@ func parseBinaryAtomic(out *atomicValue, kind PrimitiveKind, normalized string, 
 }
 
 func parseNameAtomic(out *atomicValue, kind PrimitiveKind, normalized string, resolver Resolver) error {
-	if kind == PrimitiveNotation && resolver.Notation == nil {
-		return errors.New("undeclared notation")
-	}
+	var name expandedName
 	if resolver.QName == nil {
-		return parseUnresolvedName(out, normalized)
+		if !lex.IsNCName(normalized) {
+			return errors.New("invalid QName")
+		}
+		name = expandedName{local: normalized}
+	} else {
+		ns, local, ok := resolver.QName(normalized)
+		if !ok || !utf8.ValidString(ns) || !utf8.ValidString(local) || !lex.IsNCName(local) {
+			return errors.New("unresolved QName")
+		}
+		name = expandedName{ns: ns, local: local}
 	}
-	return parseResolvedName(out, kind, normalized, resolver)
-}
-
-func parseUnresolvedName(out *atomicValue, normalized string) error {
-	if !lex.IsNCName(normalized) {
-		return errors.New("invalid QName")
-	}
-	out.qname = expandedName{local: normalized}
-	return nil
-}
-
-func parseResolvedName(out *atomicValue, kind PrimitiveKind, normalized string, resolver Resolver) error {
-	ns, local, ok := resolver.QName(normalized)
-	if !ok || !utf8.ValidString(ns) || !utf8.ValidString(local) || !lex.IsNCName(local) {
-		return errors.New("unresolved QName")
-	}
-	name := expandedName{ns: ns, local: local}
 	if kind == PrimitiveNotation {
-		if resolver.Notation == nil || !resolver.Notation(ns, local) {
+		if resolver.Notation == nil || !resolver.Notation(name.ns, name.local) {
 			return errors.New("undeclared notation")
 		}
 		out.notation = name
@@ -1077,6 +1081,11 @@ func valueIdentity(v *parsedValue) string {
 		// Integer-derived builtins share the decimal value space; their
 		// integer presentation must not change equality with xs:decimal.
 		return identityKey(v.atom.kind, v.atom.decimal.CanonicalText())
+	}
+	//nolint:exhaustive // Only g* values need a separate value-space identity projection.
+	switch v.atom.kind {
+	case PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay, PrimitiveGDay, PrimitiveGMonth:
+		return identityKey(v.atom.kind, v.atom.g.identityCanonical())
 	}
 	return identityKey(v.atom.kind, v.canonical)
 }

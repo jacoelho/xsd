@@ -71,9 +71,7 @@ func (s *session) validateSimpleValueBytes(
 		return program.Validate(id, lexicalString, resolve, needs, &s.valueScratch)
 	}
 	if needs != 0 {
-		if view, ok := program.TypeView(id); ok && view.Variety == xsdValue.Atomic &&
-			view.Primitive == xsdValue.PrimitiveString && view.Whitespace == xsdValue.WhitespacePreserve &&
-			view.Identity == xsdValue.IdentityNone && view.Facets.Present == 0 {
+		if unconstrained, valid := program.IsUnconstrainedString(id); valid && unconstrained {
 			// The returned canonical or identity projection retains this string.
 			// Reuse the reader-owned bounded cache for repeated short values while
 			// keeping all other types on the borrowed-byte path.

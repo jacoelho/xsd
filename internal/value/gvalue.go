@@ -61,6 +61,20 @@ func (v GValue) CanonicalText() string {
 	return ""
 }
 
+// identityCanonical returns the value-space identity projection for v. The
+// lexical calendar fields are not sufficient here: a timezone can move a
+// gMonthDay or gDay value across a calendar boundary while preserving the
+// same normalized instant. Keep timezone presence separate because XML Schema
+// treats a value with no timezone as unequal to one with a timezone, even when
+// their normalized coordinates happen to match.
+func (v GValue) identityCanonical() string {
+	canonical := formatXSDDateTimePoint(v.instant)
+	if v.tz.present {
+		return canonical + "Z"
+	}
+	return canonical
+}
+
 // CompareGValues compares g* values using the XML Schema partial order.
 func CompareGValues(a, b GValue) OrderedFacetRelation {
 	return CompareTemporalValues(

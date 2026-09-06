@@ -112,6 +112,33 @@ func TestCompileMatchesZeroOptionCompileWithOptions(t *testing.T) {
 	}
 }
 
+func TestQNameUnionEnumerationUsesFallbackMember(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:test">
+  <xs:simpleType name="QNameWithNopePattern">
+    <xs:restriction base="xs:QName"><xs:pattern value="nope"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="UnionValue">
+    <xs:union memberTypes="QNameWithNopePattern xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="EnumeratedUnion">
+    <xs:restriction base="UnionValue"><xs:enumeration value="p:item"/></xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="EnumeratedUnion"/>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if err := engine.Validate(strings.NewReader(`<root>p:item</root>`)); err != nil {
+		t.Fatalf("fallback member satisfied enumeration but validation failed: %v", err)
+	}
+	if err := engine.Validate(strings.NewReader(`<root>p:other</root>`)); err == nil {
+		t.Fatal("non-enumerated fallback member was accepted")
+	}
+}
+
 func TestCompileRejectsUnsupportedSchemaXML(t *testing.T) {
 	tests := []struct {
 		name   string

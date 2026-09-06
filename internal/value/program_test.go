@@ -626,6 +626,63 @@ func TestProgramQNameAndNotationResolver(t *testing.T) {
 	}
 }
 
+func TestProgramNotationOnlyResolverValidatesAndStoresExpandedName(t *testing.T) {
+	b := NewBuilder(BuilderOptions{})
+	notation, err := b.Add(TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveNotation,
+		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+		Base: NoType, ListItem: NoType,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := b.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var resolved []string
+	resolve := Resolver{
+		Notation: func(namespace, local string) bool {
+			resolved = append(resolved, namespace+"/"+local)
+			return namespace == "" && (local == "item" || local == "other")
+		},
+	}
+	item, err := p.Validate(notation, "item", resolve, NeedCanonical|NeedIdentity, nil)
+	if err != nil {
+		t.Fatalf("declared unqualified NOTATION = %v", err)
+	}
+	if item.CanonicalText() != "item" || item.IdentityKey() == "" {
+		t.Fatalf("declared NOTATION projections = canonical %q, identity %q", item.CanonicalText(), item.IdentityKey())
+	}
+	if len(resolved) != 1 || resolved[0] != "/item" {
+		t.Fatalf("NOTATION resolver calls = %q, want [/item]", resolved)
+	}
+
+	same, err := p.Validate(notation, "item", resolve, NeedCanonical|NeedIdentity, nil)
+	if err != nil {
+		t.Fatalf("same unqualified NOTATION = %v", err)
+	}
+	other, err := p.Validate(notation, "other", resolve, NeedCanonical|NeedIdentity, nil)
+	if err != nil {
+		t.Fatalf("different declared unqualified NOTATION = %v", err)
+	}
+	if !item.Equal(same) || item.IdentityKey() != same.IdentityKey() {
+		t.Fatalf("same NOTATION values differ: %q vs %q", item.IdentityKey(), same.IdentityKey())
+	}
+	if item.Equal(other) || item.IdentityKey() == other.IdentityKey() {
+		t.Fatalf("different NOTATION values share identity: %q", item.IdentityKey())
+	}
+
+	undeclared := Resolver{Notation: func(string, string) bool { return false }}
+	if _, err := p.Validate(notation, "item", undeclared, 0, nil); err == nil {
+		t.Fatal("undeclared unqualified NOTATION was accepted")
+	}
+	if _, err := p.Validate(notation, "p:item", resolve, 0, nil); err == nil {
+		t.Fatal("prefixed NOTATION was accepted without a QName resolver")
+	}
+}
+
 func TestIncrementalBuilderValidatesCompletedTypesBeforeSeal(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
 	base, err := b.Reserve()

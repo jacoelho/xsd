@@ -86,16 +86,15 @@ const (
 // Builder accumulates source metadata. It is single-owner and is discarded
 // after Seal; no source specs or resolver closures enter Program.
 type Builder struct {
-	program     *Program
-	complete    []bool
-	pending     []TypeSpec
-	pendingSet  []bool
-	maxStorage  uint64
-	maxEvalWork uint64
-	storageUsed uint64
-	maxTypes    uint32
-	maxDepth    uint16
-	sealed      bool
+	program      *Program
+	pending      []TypeSpec
+	pendingSet   []bool
+	maxStorage   uint64
+	storageUsed  uint64
+	prepaidSlots int
+	maxTypes     uint32
+	maxDepth     uint16
+	sealed       bool
 }
 
 // NewBuilder creates a value-program builder. All XSD simple builtins occupy
@@ -118,11 +117,10 @@ func NewBuilder(options BuilderOptions) *Builder {
 		work = defaultValueEvalWork
 	}
 	return &Builder{
-		program:     &Program{maxDepth: depth, maxEvalWork: work},
-		maxDepth:    depth,
-		maxTypes:    types,
-		maxStorage:  storage,
-		maxEvalWork: work,
+		program:    &Program{maxDepth: depth, maxEvalWork: work},
+		maxDepth:   depth,
+		maxTypes:   types,
+		maxStorage: storage,
 	}
 }
 
@@ -135,20 +133,24 @@ func (b *Builder) Reserve() (TypeID, error) {
 	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) || len(b.program.types) > maxUserTypeIndex {
 		return NoType, ErrLimit
 	}
-	if b.maxStorage < typeStorageBase || b.storageUsed > b.maxStorage-typeStorageBase {
-		return NoType, ErrLimit
+	if b.prepaidSlots == 0 {
+		if b.maxStorage < typeStorageBase || b.storageUsed > b.maxStorage-typeStorageBase {
+			return NoType, ErrLimit
+		}
+		b.storageUsed += typeStorageBase
+	} else {
+		b.prepaidSlots--
 	}
 	id := userTypeID(len(b.program.types))
 	b.program.types = append(b.program.types, typeDef{})
-	b.complete = append(b.complete, false)
-	b.program.complete = b.complete
-	b.storageUsed += typeStorageBase
+	b.program.complete = append(b.program.complete, false)
 	return id, nil
 }
 
-// ReserveCapacity grows the user-type construction slices without admitting
-// records. Callers that have already indexed a bounded source graph can use
-// this to avoid repeated backing-array growth while reserving stable IDs.
+// ReserveCapacity admits storage for user-type slots and grows the construction
+// slices before records are reserved. The charge is a bounded accounting unit
+// for each slot, not an exact Go allocator byte measurement; slices.Grow may
+// retain implementation-defined capacity slack.
 func (b *Builder) ReserveCapacity(userTypes int) error {
 	if b == nil || b.sealed || b.program == nil || userTypes < 0 {
 		return ErrMetadata
@@ -159,9 +161,19 @@ func (b *Builder) ReserveCapacity(userTypes int) error {
 	if userTypes <= len(b.program.types) {
 		return nil
 	}
-	additional := userTypes - len(b.program.types)
-	b.program.types = slices.Grow(b.program.types, additional)
-	b.complete = slices.Grow(b.complete, additional)
+	remaining := userTypes - len(b.program.types)
+	if remaining <= b.prepaidSlots {
+		return nil
+	}
+	additional := remaining - b.prepaidSlots
+	charge, ok := typeSlotStorage(additional)
+	if !ok || charge > b.maxStorage || b.storageUsed > b.maxStorage-charge {
+		return ErrLimit
+	}
+	b.program.types = slices.Grow(b.program.types, remaining)
+	b.program.complete = slices.Grow(b.program.complete, remaining)
+	b.storageUsed += charge
+	b.prepaidSlots += additional
 	return nil
 }
 
@@ -169,14 +181,18 @@ func (b *Builder) ReserveCapacity(userTypes int) error {
 // must already be complete; this matches the compiler's dependency-first
 // component resolution and lets literals be validated during compilation.
 func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
-	return b.completeType(id, spec, storageAlreadyCharged)
+	return b.completeType(id, spec, storageSlotCharged)
 }
 
 type storageChargeMode uint8
 
 const (
-	storageChargeOn storageChargeMode = iota
-	storageAlreadyCharged
+	// storageSlotCharged is used after Reserve. The fixed slot estimate is
+	// already admitted; completion admits the remaining metadata estimate.
+	storageSlotCharged storageChargeMode = iota
+	// storageFullyCharged is used for Add entries. Add admits the complete
+	// estimate before queueing, so completion must not charge it again.
+	storageFullyCharged
 )
 
 func (b *Builder) completeType(id TypeID, spec TypeSpec, storageMode storageChargeMode) error {
@@ -193,10 +209,10 @@ func (b *Builder) completeType(id TypeID, spec TypeSpec, storageMode storageChar
 	b.program.types[i] = d
 	// Make the current record visible while compiling self-typed facet
 	// literals. Facets are not installed until compileFacets returns.
-	b.complete[i] = true
+	b.program.complete[i] = true
 	if err := b.program.compileFacets(id, spec.Facets); err != nil {
 		b.program.types[i] = typeDef{}
-		b.complete[i] = false
+		b.program.complete[i] = false
 		return err
 	}
 	b.program.types[i].needsQName = b.program.typeNeedsQName(id, nil, 0)
@@ -233,7 +249,7 @@ func (b *Builder) reservedTypeIndex(id TypeID) (TypeID, error) {
 		return 0, ErrMetadata
 	}
 	i := id - BuiltinTypeCount
-	if uint64(i) >= uint64(len(b.program.types)) || b.complete[i] {
+	if uint64(i) >= uint64(len(b.program.types)) || b.program.complete[i] {
 		return 0, ErrMetadata
 	}
 	if uint64(i) < uint64(len(b.pendingSet)) && b.pendingSet[i] {
@@ -277,7 +293,7 @@ func (b *Builder) typeComplete(id TypeID) bool {
 		return true
 	}
 	i := id - BuiltinTypeCount
-	return uint64(i) < uint64(len(b.complete)) && b.complete[i]
+	return uint64(i) < uint64(len(b.program.complete)) && b.program.complete[i]
 }
 
 func (b *Builder) completeStorage(spec TypeSpec, mode storageChargeMode) (uint64, error) {
@@ -285,11 +301,16 @@ func (b *Builder) completeStorage(spec TypeSpec, mode storageChargeMode) (uint64
 	if !ok || storage > b.maxStorage {
 		return 0, ErrLimit
 	}
-	if mode == storageAlreadyCharged {
+	switch mode {
+	case storageSlotCharged:
 		if storage < typeStorageBase {
 			return 0, ErrMetadata
 		}
 		storage -= typeStorageBase
+	case storageFullyCharged:
+		return 0, nil
+	default:
+		return 0, ErrMetadata
 	}
 	if b.storageUsed > b.maxStorage-storage {
 		return 0, ErrLimit
@@ -309,7 +330,16 @@ func (b *Builder) Add(spec TypeSpec) (TypeID, error) {
 		return NoType, ErrLimit
 	}
 	storage, ok := typeSpecStorage(spec)
-	if !ok || storage > b.maxStorage || b.storageUsed > b.maxStorage-storage {
+	if !ok {
+		return NoType, ErrLimit
+	}
+	// ReserveCapacity has already admitted the fixed slot portion for a
+	// future Reserve. Only the remaining source/facet estimate is new here.
+	admission := storage
+	if b.prepaidSlots > 0 {
+		admission -= typeStorageBase
+	}
+	if admission > b.maxStorage || b.storageUsed > b.maxStorage-admission {
 		return NoType, ErrLimit
 	}
 	id, err := b.Reserve()
@@ -375,7 +405,7 @@ func (b *Builder) completeReadyPending() (bool, error) {
 }
 
 func (b *Builder) verifyComplete() error {
-	for i, complete := range b.complete {
+	for i, complete := range b.program.complete {
 		if !complete {
 			return fmt.Errorf("type %d: %w", userTypeID(i), ErrMetadata)
 		}
@@ -386,7 +416,7 @@ func (b *Builder) verifyComplete() error {
 func (b *Builder) completePending(id TypeID, spec TypeSpec) error {
 	i := id - BuiltinTypeCount
 	b.pendingSet[i] = false
-	if err := b.completeType(id, spec, storageAlreadyCharged); err != nil {
+	if err := b.completeType(id, spec, storageFullyCharged); err != nil {
 		b.pendingSet[i] = true
 		return err
 	}
@@ -524,6 +554,17 @@ func typeSpecStorage(spec TypeSpec) (uint64, bool) {
 		return 0, false
 	}
 	return estimate.total, true
+}
+
+func typeSlotStorage(slots int) (uint64, bool) {
+	if slots < 0 {
+		return 0, false
+	}
+	count := uint64(slots)
+	if count != 0 && typeStorageBase > ^uint64(0)/count {
+		return 0, false
+	}
+	return count * typeStorageBase, true
 }
 
 type storageEstimate struct {
@@ -807,7 +848,9 @@ func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProg
 		}
 		// Enumeration literals retain typed list items for value-space
 		// comparison. Their canonical/identity projections are compile-time
-		// construction data and are not retained by validation results.
+		// construction data and are not retained by validation results. The
+		// containing type's facets are skipped until its effective program is
+		// installed; evalUnion and evalListField still enforce child facets.
 		var v parsedValue
 		err := p.eval(literalType, entry.Lexical, evalOptions{
 			resolver:      entry.Resolver,
