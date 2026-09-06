@@ -270,15 +270,12 @@ const (
 	recentCacheMask    = recentCacheEntries - 1
 )
 
+// Each map key and value share one owned spelling. The value lets a lookup
+// using borrowed bytes return the owned string without allocating a copy.
 type cacheState struct {
-	recent  [recentCacheEntries]string
-	buckets map[uint64][]int
-	entries []byteStringEntry
-	next    uint8
-}
-
-type byteStringEntry struct {
-	text string
+	interned map[string]string
+	recent   [recentCacheEntries]string
+	next     uint8
 }
 
 // Intern returns a cached string copy of b when b is small enough to cache.
@@ -293,28 +290,22 @@ func (c *cache) Intern(b []byte) string {
 	if len(b) > maxByteStringCacheLen {
 		return string(b)
 	}
-	h := hashBytes(b)
-	for _, idx := range state.buckets[h] {
-		if stringBytesEqual(state.entries[idx].text, b) {
-			s := state.entries[idx].text
-			state.remember(s)
-			return s
-		}
-	}
-	s := string(b)
-	if len(state.entries) >= maxByteStringCacheEntries {
+	if s, ok := state.interned[string(b)]; ok {
+		state.remember(s)
 		return s
 	}
-	idx := len(state.entries)
-	state.entries = append(state.entries, byteStringEntry{text: s})
-	state.buckets[h] = append(state.buckets[h], idx)
+	s := string(b)
+	if len(state.interned) >= maxByteStringCacheEntries {
+		return s
+	}
+	state.interned[s] = s
 	state.remember(s)
 	return s
 }
 
 func (c *cache) cacheState() *cacheState {
 	if c.state == nil {
-		c.state = &cacheState{buckets: make(map[uint64][]int)}
+		c.state = &cacheState{interned: make(map[string]string)}
 	}
 	return c.state
 }
@@ -333,15 +324,4 @@ func (c *cacheState) recentString(b []byte) (string, bool) {
 func (c *cacheState) remember(s string) {
 	c.recent[c.next&recentCacheMask] = s
 	c.next++
-}
-
-func hashBytes(b []byte) uint64 {
-	const offset = 14695981039346656037
-	const prime = 1099511628211
-	h := uint64(offset)
-	for _, c := range b {
-		h ^= uint64(c)
-		h *= prime
-	}
-	return h
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -555,6 +556,70 @@ func TestReaderInternBytesReusesShortValues(t *testing.T) {
 	}
 	if got := reader.InternBytes(raw); got != "value" {
 		t.Fatalf("InternBytes() after Reset = %q, want value", got)
+	}
+}
+
+func TestReaderInternBytesOwnsInput(t *testing.T) {
+	var reader Reader
+	raw := []byte("owned")
+	retained := reader.InternBytes(raw)
+	raw[0] = 'x'
+	if retained != "owned" {
+		t.Fatalf("retained spelling after input mutation = %q, want owned", retained)
+	}
+	if got := reader.InternBytes([]byte("owned")); got != "owned" {
+		t.Fatalf("InternBytes() after input mutation = %q, want owned", got)
+	}
+}
+
+func TestReaderInternBytesMapLookupAfterRecentEviction(t *testing.T) {
+	var reader Reader
+	spellings := make([][]byte, recentCacheEntries+2)
+	for i := range spellings {
+		spellings[i] = []byte("spelling-" + strconv.Itoa(i))
+		if got := reader.InternBytes(spellings[i]); got != string(spellings[i]) {
+			t.Fatalf("InternBytes(%q) = %q", spellings[i], got)
+		}
+	}
+
+	var got string
+	allocs := testing.AllocsPerRun(100, func() {
+		// Eight intervening values evict spelling-0 from the recent ring, so
+		// every measured lookup must use the bounded map.
+		got = reader.InternBytes(spellings[0])
+		for i := 1; i <= recentCacheEntries; i++ {
+			reader.InternBytes(spellings[i])
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("warmed map lookup allocations = %v, want 0", allocs)
+	}
+	if got != "spelling-0" {
+		t.Fatalf("warmed map lookup = %q, want spelling-0", got)
+	}
+}
+
+func TestReaderInternBytesOwnershipSurvivesResetAndDetach(t *testing.T) {
+	var reader Reader
+	if err := reader.Reset(strings.NewReader(`<r/>`), Config{}); err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte("stable")
+	retained := reader.InternBytes(raw)
+	raw[0] = 'x'
+	if err := reader.Reset(strings.NewReader(`<r/>`), Config{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := reader.InternBytes([]byte("stable")); got != "stable" {
+		t.Fatalf("InternBytes() after Reset = %q, want stable", got)
+	}
+
+	reader.Detach()
+	if retained != "stable" {
+		t.Fatalf("retained spelling after Reset and Detach = %q, want stable", retained)
+	}
+	if got := reader.InternBytes([]byte("stable")); got != "stable" {
+		t.Fatalf("InternBytes() after Detach = %q, want stable", got)
 	}
 }
 

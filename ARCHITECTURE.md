@@ -261,7 +261,12 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   handle store ownership remains validated against the owning stack before the
   serial is checked. Admission, rollback, end, and reset update these together.
   Oversized maps and buffers are dropped at reset; bounded caches may remain for
-  session reuse. Comment mode
+  session reuse. Each name/value cache admits at most 512 owned spellings of at
+  most 256 bytes. A string map owns those spellings, and an eight-entry recent
+  ring projects its values. Map keys and values share the same string storage;
+  borrowed-byte lookups return that owned value without copying. Spellings
+  beyond either bound are returned as owned strings without entering the cache.
+  Comment mode
   selects syntax-only discard for instances, bounded discard for schemas, or
   emission for formatting. Bounded discard charges normalized payload bytes
   through the same token-limit owner without retaining or dispatching comments;
