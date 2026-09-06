@@ -103,19 +103,17 @@ func (s *typedSchemaParseState) parse() error {
 }
 
 func (s *typedSchemaParseState) handleToken(tok *xmlstream.Token) error {
-	switch tok.Kind {
+	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
 	case xmlstream.KindStart:
 		return s.start(tok.Start, tok.Line, tok.Column)
 	case xmlstream.KindEnd:
 		return s.end(tok.Line, tok.Column)
 	case xmlstream.KindCharData:
-		return s.chars(tok.Data, tok.TextKind, tok.Line, tok.Column)
-	case xmlstream.KindDirective:
-		return s.validateDirective(tok.Kind, tok.Directive, nil, tok.Line, tok.Column)
+		return s.chars(tok.Data, tok.Line, tok.Column)
 	case xmlstream.KindComment:
 		return xsderrors.InternalInvariant("schema parser received a comment token despite comment discard mode")
 	case xmlstream.KindPI:
-		return s.validateDirective(tok.Kind, tok.Data, tok.Directive, tok.Line, tok.Column)
+		return s.validateProcessingInstruction(tok.Data, tok.Directive, tok.Line, tok.Column)
 	default:
 		return nil
 	}
@@ -548,23 +546,11 @@ func rejectInvalidReferenceDirectivesTyped(n *schemaSyntaxNode) error {
 	return checkChildOrderRulesSyntax(n, annotationOnlyChildOrder(n.Name.Local))
 }
 
-func (s *typedSchemaParseState) chars(t []byte, kind xmlstream.CharacterDataKind, line, col int) error {
+func (s *typedSchemaParseState) chars(t []byte, line, col int) error {
 	if err := checkSchemaTokenLimit(int64(len(t)), s.limits, line, col, "schema XML text exceeds configured limit"); err != nil {
 		return err
 	}
 	if len(s.stack) == 0 {
-		switch kind {
-		case xmlstream.CharacterDataText:
-		case xmlstream.CharacterDataInvalid:
-			return xsderrors.InternalInvariant("character data kind is invalid")
-		case xmlstream.CharacterDataCDATA:
-			return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "CDATA section outside root element", nil)
-		case xmlstream.CharacterDataReference:
-			return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "reference outside root element", nil)
-		}
-		if !lex.IsXMLWhitespaceBytes(t) {
-			return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "schema XML text outside root element", nil)
-		}
 		return nil
 	}
 	last := len(s.stack) - 1
@@ -581,24 +567,8 @@ func (s *typedSchemaParseState) chars(t []byte, kind xmlstream.CharacterDataKind
 	return nil
 }
 
-func (s *typedSchemaParseState) validateDirective(kind xmlstream.TokenKind, first, second []byte, line, col int) error {
-	switch kind {
-	case xmlstream.KindStart, xmlstream.KindEnd, xmlstream.KindCharData:
-		return xsderrors.InternalInvariant("unexpected schema directive token")
-	case xmlstream.KindDirective:
-		if err := checkSchemaTokenLimit(int64(len(first)), s.limits, line, col, "schema XML directive exceeds configured limit"); err != nil {
-			return err
-		}
-		if xmlstream.IsDOCTYPEDeclaration(first) {
-			return xsderrors.WithLocation("", line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "DTD declarations are not supported", nil))
-		}
-		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", nil)
-	case xmlstream.KindPI:
-		return checkSchemaTokenLimit(int64(len(first)+len(second)), s.limits, line, col, "schema XML processing instruction exceeds configured limit")
-	case xmlstream.KindComment:
-		return xsderrors.InternalInvariant("schema parser received a comment token despite comment discard mode")
-	}
-	return xsderrors.InternalInvariant("unknown schema directive token")
+func (s *typedSchemaParseState) validateProcessingInstruction(target, content []byte, line, col int) error {
+	return checkSchemaTokenLimit(int64(len(target)+len(content)), s.limits, line, col, "schema XML processing instruction exceeds configured limit")
 }
 
 func (s *typedSchemaParseState) abortStart(frame xmlstream.Handle, cause error) error {

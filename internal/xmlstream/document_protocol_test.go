@@ -50,3 +50,40 @@ func TestReaderEndOwnershipErrorsRemainStateErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestReaderRejectsForeignHandlesWithoutConsumingTransitions(t *testing.T) {
+	var reader, other Reader
+	for _, current := range []*Reader{&reader, &other} {
+		if err := current.Reset(strings.NewReader(`<r/>`), Config{}); err != nil {
+			t.Fatal(err)
+		}
+		_ = mustNextToken(t, current)
+	}
+	own, _, err := reader.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, _, err := other.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.AbortStart(foreign); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("AbortStart with foreign handle = %v, want %v", err, ErrInvalidFrame)
+	}
+	_ = mustNextToken(t, &reader)
+	if err := reader.MatchEnd(foreign); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("MatchEnd with foreign handle = %v, want %v", err, ErrInvalidFrame)
+	}
+	if err := reader.MatchEnd(own); err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.CommitEnd(foreign); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("CommitEnd with foreign handle = %v, want %v", err, ErrInvalidFrame)
+	}
+	if err := reader.CommitEnd(own); err != nil {
+		t.Fatal(err)
+	}
+	if reader.Depth() != 0 || other.Depth() != 1 {
+		t.Fatalf("depths after commit = %d, %d, want 0, 1", reader.Depth(), other.Depth())
+	}
+}

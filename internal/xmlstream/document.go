@@ -97,10 +97,11 @@ const (
 	pendingEnd
 )
 
+// Namespace serials are nonzero. The reader owns the context store, so
+// checkpoints retain only serials and validate handles against that store.
 type pendingEvent struct {
-	frame   frame
-	kind    pendingKind
-	matched bool
+	matchedSerial uint64
+	kind          pendingKind
 }
 
 // Reader owns one XML tokenizer, namespace stack, document topology, and the
@@ -111,19 +112,18 @@ type pendingEvent struct {
 // Detach invalidates them. Start and end operations use the current token
 // owned by the Reader rather than caller-supplied token copies.
 type Reader struct {
-	names        cache
-	values       cache
-	token        Token
-	lastStart    frame
-	pending      pendingEvent
-	ns           stack
-	parser       parser
-	limits       Limits
-	lastLine     int
-	lastColumn   int
-	hasLastStart bool
-	root         rootPhase
-	active       bool
+	names           cache
+	values          cache
+	token           Token
+	ns              stack
+	parser          parser
+	lastStartSerial uint64
+	pending         pendingEvent
+	limits          Limits
+	lastLine        int
+	lastColumn      int
+	root            rootPhase
+	active          bool
 }
 
 // Reset starts a new XML input with the supplied configuration. It invalidates
@@ -175,8 +175,7 @@ func (r *Reader) resetDocument(maxRetained int) {
 	r.ns.Reset(maxRetained)
 	r.token = Token{}
 	r.pending = pendingEvent{}
-	r.lastStart = frame{}
-	r.hasLastStart = false
+	r.lastStartSerial = 0
 	r.root = rootNotSeen
 	r.lastLine = 0
 	r.lastColumn = 0
@@ -211,7 +210,7 @@ func (r *Reader) Next() (*Token, error) {
 	// A start transaction is abortable only until the parser advances. Once
 	// the next token is requested the syntax frame remains authoritative for
 	// recovery, even if semantic state is discarded by the caller.
-	r.hasLastStart = false
+	r.lastStartSerial = 0
 	err := r.parser.next(&r.token)
 	if err != nil {
 		// EOF and parser errors leave no borrowed token or parser-owned slices
@@ -311,8 +310,7 @@ func (r *Reader) Start() (Handle, Element, error) {
 		return Handle{}, Element{}, &Error{Kind: ErrorNamespace, Line: r.lastLine, Column: r.lastColumn, Cause: err}
 	}
 	r.pending = pendingEvent{}
-	r.lastStart = namespace
-	r.hasLastStart = true
+	r.lastStartSerial = namespace.serial
 	if r.root == rootNotSeen {
 		r.root = rootOpen
 	}
@@ -338,8 +336,7 @@ func (r *Reader) MatchEnd(opaque Handle) error {
 	if err := r.ns.matchClosingName(current, Lexical(r.token.End.Name)); err != nil {
 		return &Error{Kind: ErrorSyntax, Line: r.lastLine, Column: r.lastColumn, Cause: err}
 	}
-	r.pending.frame = f
-	r.pending.matched = true
+	r.pending.matchedSerial = f.serial
 	return nil
 }
 
@@ -351,7 +348,8 @@ func (r *Reader) CommitEnd(opaque Handle) error {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
 	}
 	f := opaque.frame
-	if r.pending.kind == pendingEnd && r.pending.matched && r.pending.frame == f {
+	if r.pending.kind == pendingEnd && r.pending.matchedSerial != 0 &&
+		r.pending.matchedSerial == f.serial && r.ns.store == f.store {
 		// MatchEnd proved this exact top frame. Next, Start, and AbortStart
 		// cannot mutate it while an end is pending; Reset and Detach clear the
 		// pending capability. Matching it therefore proves this pop is valid.
@@ -372,13 +370,13 @@ func (r *Reader) CommitEnd(opaque Handle) error {
 // bindings. It is valid only before the parser advances to the next token.
 func (r *Reader) AbortStart(opaque Handle) error {
 	f := opaque.frame
-	if !r.active || !r.hasLastStart || r.lastStart != f {
+	if !r.active || r.lastStartSerial == 0 || r.lastStartSerial != f.serial || r.ns.store != f.store {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrInvalidFrame}
 	}
 	if err := r.ns.Abort(f); err != nil {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: err}
 	}
-	r.hasLastStart = false
+	r.lastStartSerial = 0
 	if r.ns.depth() == 0 {
 		r.root = rootNotSeen
 	}
@@ -418,7 +416,7 @@ func (r *Reader) Complete() error {
 	if !r.active {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
 	}
-	if r.pending.kind != pendingNone || r.hasLastStart {
+	if r.pending.kind != pendingNone || r.lastStartSerial != 0 {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingEnd}
 	}
 	line, column := r.Pos()

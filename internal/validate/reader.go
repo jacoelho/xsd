@@ -62,10 +62,3 @@ func streamErrorPosition(reader *xmlstream.Reader, err error) (line, column int)
 func validationReaderCause(code xsderrors.Code, line, col int, path string, err error) error {
 	return xsderrors.WithLocation(path, line, col, xsderrors.Validation(code, "", err))
 }
-
-// ValidateDirective rejects instance markup declarations. The stream parser
-// only returns KindDirective for DOCTYPE declarations.
-func ValidateDirective(ctx StartContext, _ []byte) error {
-	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column,
-		xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "DTD declarations are not supported", nil))
-}

@@ -241,9 +241,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   advance one logical line in every parser mode; emitted payloads contain LF.
   Character-data tokens retain one stream-owned lexical origin: literal text,
   text containing references, or CDATA. Coalescing never erases reference origin.
-  Compile, validate, and format use that origin at their existing document-depth
-  boundary: only literal whitespace is admitted outside the root. The tokenizer
-  does not duplicate document topology.
+  Compile, validate, and format use that origin for admitted character content;
+  `Reader.Next` owns rejection of unsupported declarations and forbidden
+  outside-root data, while consumers translate those neutral boundary failures.
+  The tokenizer does not duplicate document topology.
   Only EOF at a token boundary completes a stream; EOF after consumed markup is
   an XML syntax error, while simultaneous non-EOF reader causes remain observable.
   The same XML stream owner admits namespaces and detects duplicate expanded

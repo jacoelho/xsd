@@ -3,7 +3,6 @@ package validate
 import (
 	"io"
 
-	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 )
 
@@ -67,16 +66,12 @@ func (c *xmlWellFormedChecker) finishTokenStream(err error) error {
 }
 
 func (c *xmlWellFormedChecker) checkToken(tok *xmlstream.Token) error {
-	switch tok.Kind {
+	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
 	case xmlstream.KindStart:
 		return c.start(tok.Line, tok.Column)
 	case xmlstream.KindEnd:
 		return c.end(tok.Line, tok.Column)
-	case xmlstream.KindCharData:
-		return c.chars(tok.Line, tok.Column, tok.Data, tok.TextKind)
-	case xmlstream.KindDirective:
-		return ValidateDirective(c.doc.context(tok.Line, tok.Column), tok.Directive)
-	case xmlstream.KindComment, xmlstream.KindPI:
+	case xmlstream.KindCharData, xmlstream.KindComment, xmlstream.KindPI:
 		return nil
 	default:
 	}
@@ -97,16 +92,6 @@ func (c *xmlWellFormedChecker) end(line, col int) error {
 		return err
 	}
 	return c.doc.CommitEnd(&c.reader)
-}
-
-func (c *xmlWellFormedChecker) chars(line, col int, data []byte, kind xmlstream.CharacterDataKind) error {
-	if c.doc.Depth() != 0 {
-		return nil
-	}
-	return ValidateDocumentCharacterData(DocumentCharacterData{
-		Kind:       kind,
-		Whitespace: lex.IsXMLWhitespaceBytes(data),
-	}, c.doc.context(line, col))
 }
 
 func (c *xmlWellFormedChecker) streamError(err error) error {

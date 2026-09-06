@@ -87,16 +87,6 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 	}
 }
 
-func TestValidateDirectiveRejectsDTD(t *testing.T) {
-	t.Parallel()
-
-	err := ValidateDirective(StartContext{Path: "/", Line: 2, Column: 3}, []byte("DOCTYPE r"))
-	requireCode(t, err, xsderrors.CodeUnsupportedDTD)
-	if !strings.Contains(err.Error(), "DTD declarations are not supported") {
-		t.Fatalf("ValidateDirective() error = %v", err)
-	}
-}
-
 func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) error {
 	t.Helper()
 	var reader xmlstream.Reader

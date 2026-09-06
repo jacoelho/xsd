@@ -209,15 +209,13 @@ const (
 )
 
 func (s *session) validateToken(tok *xmlstream.Token, mode tokenValidationMode) error {
-	switch tok.Kind {
+	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
 	case xmlstream.KindStart:
 		return s.start(tok.Line, tok.Column, tok.Start)
 	case xmlstream.KindEnd:
 		return s.end(tok.Line, tok.Column)
 	case xmlstream.KindCharData:
 		return s.validateCharacterToken(tok, mode)
-	case xmlstream.KindDirective:
-		return ValidateDirective(s.startContext(tok.Line, tok.Column), tok.Directive)
 	case xmlstream.KindComment, xmlstream.KindPI:
 		return nil
 	}
@@ -225,7 +223,7 @@ func (s *session) validateToken(tok *xmlstream.Token, mode tokenValidationMode) 
 }
 
 func (s *session) validateCharacterToken(tok *xmlstream.Token, mode tokenValidationMode) error {
-	err := s.chars(tok.Line, tok.Column, tok.Data, tok.TextKind)
+	err := s.chars(tok.Line, tok.Column, tok.Data)
 	if err == nil || mode == tokenValidationSyntaxOnly {
 		return err
 	}
@@ -972,16 +970,16 @@ func (s *session) newSchemaFrame(
 	}, nil
 }
 
-func (s *session) chars(line, col int, data []byte, kind xmlstream.CharacterDataKind) error {
+func (s *session) chars(line, col int, data []byte) error {
 	if s.doc.syntaxOnly && s.doc.Depth() != 0 {
 		return nil
 	}
 	f, ok := s.doc.Current()
 	if !ok {
-		return ValidateDocumentCharacterData(DocumentCharacterData{
-			Kind:       kind,
-			Whitespace: lex.IsXMLWhitespaceBytes(data),
-		}, s.startContext(line, col))
+		// Reader.Next admits only literal whitespace outside the document
+		// element; all other outside-root data is returned as a translated
+		// stream boundary error before this consumer sees a token.
+		return nil
 	}
 	if len(data) == 0 || f.Mode != elementAssessed {
 		return nil

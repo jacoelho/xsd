@@ -381,7 +381,7 @@ func (a *formatAnalysis) finishEOF() error {
 
 //nolint:gocognit // This dispatch owns one state transition per validated XML token.
 func (a *formatAnalysis) collectToken(tok *xmlstream.Token) error {
-	switch tok.Kind {
+	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
 	case xmlstream.KindStart:
 		if err := a.collectStart(tok); err != nil {
 			return err
@@ -394,8 +394,6 @@ func (a *formatAnalysis) collectToken(tok *xmlstream.Token) error {
 		if err := a.collectChars(tok); err != nil {
 			return err
 		}
-	case xmlstream.KindDirective:
-		return xmlFormatErr(tok.Line, tok.Column, errors.New("DTD declarations are not supported"))
 	case xmlstream.KindComment, xmlstream.KindPI:
 		if err := a.appendNode(tok.Line, tok.Column); err != nil {
 			return err
@@ -463,16 +461,10 @@ func (a *formatAnalysis) collectEnd(tok *xmlstream.Token) error {
 
 func (a *formatAnalysis) collectChars(tok *xmlstream.Token) error {
 	if len(a.stack) == 0 {
-		if tok.TextKind == xmlstream.CharacterDataCDATA {
-			return xmlFormatErr(tok.Line, tok.Column, errors.New("CDATA section outside root element"))
-		}
-		if tok.TextKind == xmlstream.CharacterDataReference {
-			return xmlFormatErr(tok.Line, tok.Column, errors.New("reference outside root element"))
-		}
-		if lex.IsXMLWhitespaceBytes(tok.Data) {
-			return nil
-		}
-		return xmlFormatErr(tok.Line, tok.Column, errors.New("text outside root element"))
+		// Reader.Next rejects non-whitespace text, references, and CDATA
+		// outside the document element; literal whitespace is the only token
+		// admitted here.
+		return nil
 	}
 	if err := a.appendNode(tok.Line, tok.Column); err != nil {
 		return err
@@ -523,15 +515,13 @@ func (f *xmlFormatter) finishEOF() error {
 }
 
 func (f *xmlFormatter) renderEvent(event formatEvent) error {
-	switch event.kind {
+	switch event.kind { //nolint:exhaustive // The analysis tape cannot contain rejected directives.
 	case xmlstream.KindStart:
 		return f.renderStart(event)
 	case xmlstream.KindEnd:
 		return f.renderEnd(event)
 	case xmlstream.KindCharData:
 		return f.renderChars(event)
-	case xmlstream.KindDirective:
-		return xmlFormatErr(event.line, event.column, errors.New("DTD declarations are not supported"))
 	case xmlstream.KindComment, xmlstream.KindPI:
 		return f.renderMisc(event)
 	default:

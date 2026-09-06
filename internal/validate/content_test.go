@@ -4,41 +4,8 @@ import (
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
-
-func TestValidateDocumentCharacterData(t *testing.T) {
-	t.Parallel()
-
-	ctx := StartContext{Path: "/", Line: 2, Column: 3}
-	tests := []struct {
-		name    string
-		input   DocumentCharacterData
-		wantErr xsderrors.Code
-	}{
-		{name: "CDATA", input: DocumentCharacterData{Kind: xmlstream.CharacterDataCDATA}, wantErr: xsderrors.CodeValidationXML},
-		{name: "reference whitespace", input: DocumentCharacterData{Kind: xmlstream.CharacterDataReference, Whitespace: true}, wantErr: xsderrors.CodeValidationXML},
-		{name: "text", input: DocumentCharacterData{Kind: xmlstream.CharacterDataText}, wantErr: xsderrors.CodeValidationText},
-		{name: "whitespace", input: DocumentCharacterData{Kind: xmlstream.CharacterDataText, Whitespace: true}},
-		{name: "invalid kind", input: DocumentCharacterData{Kind: xmlstream.CharacterDataInvalid}, wantErr: xsderrors.CodeInternalInvariant},
-		{name: "unknown kind", input: DocumentCharacterData{Kind: xmlstream.CharacterDataKind(99)}, wantErr: xsderrors.CodeInternalInvariant},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := ValidateDocumentCharacterData(tc.input, ctx)
-			if tc.wantErr != "" {
-				expectXSDCode(t, err, tc.wantErr)
-				return
-			}
-			if err != nil {
-				t.Fatalf("ValidateDocumentCharacterData() error = %v", err)
-			}
-		})
-	}
-}
 
 func TestChildPolicies(t *testing.T) {
 	t.Parallel()

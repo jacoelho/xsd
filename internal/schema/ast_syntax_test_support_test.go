@@ -3,7 +3,6 @@ package schema
 import (
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/xmlstream"
-	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // schemaParseState is retained only for the parser-admission unit test that
@@ -24,9 +23,6 @@ func (s *schemaParseState) chars(t []byte, _ xmlstream.CharacterDataKind, line, 
 		return err
 	}
 	if len(s.stack) == 0 {
-		if !lex.IsXMLWhitespaceBytes(t) {
-			return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "schema XML text outside root element", nil)
-		}
 		return nil
 	}
 	last := len(s.stack) - 1

@@ -2,36 +2,8 @@ package validate
 
 import (
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
-
-// DocumentCharacterData is character data encountered outside the root.
-type DocumentCharacterData struct {
-	Kind       xmlstream.CharacterDataKind
-	Whitespace bool
-}
-
-// ValidateDocumentCharacterData validates character data outside the root
-// element. Element-owned content is validated directly by session.chars.
-func ValidateDocumentCharacterData(input DocumentCharacterData, ctx StartContext) error {
-	switch input.Kind {
-	case xmlstream.CharacterDataCDATA:
-		return validation(ctx, xsderrors.CodeValidationXML, "CDATA section outside root element")
-	case xmlstream.CharacterDataReference:
-		return validation(ctx, xsderrors.CodeValidationXML, "reference outside root element")
-	case xmlstream.CharacterDataText:
-	case xmlstream.CharacterDataInvalid:
-		return xsderrors.InternalInvariant("character data kind is invalid")
-	default:
-		err := xsderrors.InternalInvariant("character data kind is invalid")
-		return err
-	}
-	if input.Whitespace {
-		return nil
-	}
-	return validation(ctx, xsderrors.CodeValidationText, "text outside root element")
-}
 
 type validationIssue struct {
 	code    xsderrors.Code
