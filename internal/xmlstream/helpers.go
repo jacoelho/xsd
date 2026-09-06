@@ -13,10 +13,12 @@ const (
 	xmlPrefix      = vocab.XMLPrefix
 	xsdAttrVersion = vocab.XSDAttrVersion
 	xmlVersion10   = vocab.XMLVersion10
+
+	maxRetainedSliceCap  = 4096
+	maxRetainedBufferCap = 1 << 20
 )
 
 func resetRetainedSlice[T any](s []T) []T {
-	const maxRetainedSliceCap = 4096
 	if cap(s) > maxRetainedSliceCap {
 		return nil
 	}
@@ -25,7 +27,6 @@ func resetRetainedSlice[T any](s []T) []T {
 }
 
 func resetRetainedBytes(s []byte) []byte {
-	const maxRetainedBufferCap = 1 << 20
 	if cap(s) > maxRetainedBufferCap {
 		return nil
 	}

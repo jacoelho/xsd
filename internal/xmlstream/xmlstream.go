@@ -179,14 +179,7 @@ func (p *parser) reset(r io.Reader, names, values *cache, config Config) error {
 	p.values = values
 	p.pendingEnd = EndElement{}
 	p.pendingEndOffset = 0
-	p.nameBuf = resetRetainedBytes(p.nameBuf)
-	p.attrValueBuf = resetRetainedBytes(p.attrValueBuf)
-	p.attrValueEnds = resetRetainedSlice(p.attrValueEnds)
-	p.attrValueRetained = resetRetainedSlice(p.attrValueRetained)
-	p.entityBuf = resetRetainedBytes(p.entityBuf)
-	p.textBuf = resetRetainedBytes(p.textBuf)
-	p.directive = resetRetainedBytes(p.directive)
-	p.attrs = resetRetainedSlice(p.attrs)
+	p.resetBuffers()
 	p.br.reset(r, limits.MaxInputBytes)
 	p.maxAttrs = limits.MaxAttrs
 	p.maxTokenBytes = limits.MaxTokenBytes
@@ -205,6 +198,21 @@ func (p *parser) reset(r io.Reader, names, values *cache, config Config) error {
 		return err
 	}
 	return nil
+}
+
+// resetBuffers clears parser scratch and drops capacities above the bounded
+// reuse thresholds. Reset and detach share this owner so an idle reader does
+// not retain a large token indefinitely while ordinary small tokens remain
+// reusable across inputs.
+func (p *parser) resetBuffers() {
+	p.nameBuf = resetRetainedBytes(p.nameBuf)
+	p.attrValueBuf = resetRetainedBytes(p.attrValueBuf)
+	p.attrValueEnds = resetRetainedSlice(p.attrValueEnds)
+	p.attrValueRetained = resetRetainedSlice(p.attrValueRetained)
+	p.entityBuf = resetRetainedBytes(p.entityBuf)
+	p.textBuf = resetRetainedBytes(p.textBuf)
+	p.directive = resetRetainedBytes(p.directive)
+	p.attrs = resetRetainedSlice(p.attrs)
 }
 
 func isNilReader(r io.Reader) bool {
@@ -230,6 +238,7 @@ func isNilReader(r io.Reader) bool {
 // buffers for reuse.
 func (p *parser) detach() {
 	p.br.detach()
+	p.resetBuffers()
 	p.names = nil
 	p.values = nil
 	p.pendingEnd = EndElement{}
@@ -246,8 +255,6 @@ func (p *parser) detach() {
 	p.emitPI = false
 	p.lazyAttrValue = false
 	p.skipOrdinaryAttrValues = false
-	clear(p.attrs)
-	p.attrs = p.attrs[:0]
 }
 
 // next fills dst with the next token. Returned token byte slices are valid

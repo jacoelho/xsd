@@ -8,19 +8,21 @@ import (
 // byteStream tracks line and column positions in bytes, not runes; columns
 // inside multibyte UTF-8 sequences report byte offsets.
 type byteStream struct {
-	r         io.Reader
-	err       error
-	lastPos   bytePosition
-	off       int
-	end       int
-	line      int
-	col       int
-	maxBytes  int64
-	readBytes int64
-	buf       [xmlInputBufferSize]byte
-	unread    bool
-	last      byte
-	afterCR   bool
+	r        io.Reader
+	err      error
+	lastPos  bytePosition
+	off      int
+	end      int
+	line     int
+	col      int
+	maxBytes int64
+	// admittedBytes excludes the single overflow probe so offsets refer only
+	// to bytes exposed to tokenization.
+	admittedBytes int64
+	buf           [xmlInputBufferSize]byte
+	unread        bool
+	last          byte
+	afterCR       bool
 }
 
 const (
@@ -37,7 +39,7 @@ func (b *byteStream) reset(r io.Reader, maxBytes int64) {
 	b.line = 1
 	b.col = 0
 	b.maxBytes = maxBytes
-	b.readBytes = 0
+	b.admittedBytes = 0
 	b.unread = false
 	b.last = 0
 	b.afterCR = false
@@ -52,7 +54,7 @@ func (b *byteStream) detach() {
 	b.last = 0
 	b.afterCR = false
 	b.maxBytes = 0
-	b.readBytes = 0
+	b.admittedBytes = 0
 }
 
 // read admits at most maxBytes raw input bytes to the parser. It may consume
@@ -61,7 +63,7 @@ func (b *byteStream) detach() {
 // read also fails, both causes are retained.
 func (b *byteStream) read(p []byte) (int, error) {
 	if b.maxBytes > 0 {
-		remaining := b.maxBytes - b.readBytes
+		remaining := b.maxBytes - b.admittedBytes
 		if remaining < 0 {
 			return 0, errXMLInputLimit
 		}
@@ -74,15 +76,16 @@ func (b *byteStream) read(p []byte) (int, error) {
 		return n, err
 	}
 	if b.maxBytes <= 0 {
-		b.readBytes += int64(n)
+		b.admittedBytes += int64(n)
 		return n, err
 	}
-	remaining := b.maxBytes - b.readBytes
-	b.readBytes += int64(n)
+	remaining := b.maxBytes - b.admittedBytes
 	if int64(n) <= remaining {
+		b.admittedBytes += int64(n)
 		return n, err
 	}
 	admitted := int(remaining)
+	b.admittedBytes += remaining
 	limitErr := errXMLInputLimit
 	if err != nil {
 		limitErr = errors.Join(limitErr, err)
@@ -172,9 +175,9 @@ func (b *byteStream) fill() error {
 		return nil
 	}
 	if b.err != nil {
-		err := b.err
-		b.err = nil
-		return err
+		// Keep the stored error terminal. In particular, a limit probe leaves
+		// admittedBytes at maxBytes, so retrying here would issue another read.
+		return b.err
 	}
 	if b.r == nil {
 		return ErrXMLInputNilReader
@@ -187,9 +190,11 @@ func (b *byteStream) fill() error {
 		return nil
 	}
 	if err != nil {
+		b.err = err
 		return err
 	}
-	return io.ErrNoProgress
+	b.err = io.ErrNoProgress
+	return b.err
 }
 
 // consumeBuffered advances past n bytes previously returned by buffered.
@@ -247,7 +252,7 @@ func (b *byteStream) pos() (line, column int) {
 // offset reports the logical source position of the next byte. A byte that
 // was unread belongs to the next token rather than the current one.
 func (b *byteStream) offset() int {
-	offset := b.readBytes - int64(b.end-b.off)
+	offset := b.admittedBytes - int64(b.end-b.off)
 	if b.unread {
 		offset--
 	}
