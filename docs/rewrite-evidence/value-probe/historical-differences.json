@@ -1,0 +1,16 @@
+[
+  [
+    {
+      "Type": "duration",
+      "Text": "P999999999999999999999999999Y",
+      "Valid": false,
+      "Unsupported": false
+    },
+    {
+      "Type": "duration",
+      "Text": "P999999999999999999999999999Y",
+      "Valid": true,
+      "Unsupported": false
+    }
+  ]
+]

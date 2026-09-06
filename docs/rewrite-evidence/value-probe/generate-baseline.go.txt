@@ -1,0 +1,61 @@
+// Historical baseline generator; copy to an ignored .go path before running.
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"github.com/jacoelho/xsd/internal/compile"
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/xsderrors"
+)
+
+type result struct {
+	Type        string
+	Text        string
+	Valid       bool
+	Unsupported bool
+	Identity    string
+}
+
+func main() {
+	var cases []string
+	f, e := os.Open(os.Args[1])
+	if e != nil {
+		panic(e)
+	}
+	if e = json.NewDecoder(f).Decode(&cases); e != nil {
+		panic(e)
+	}
+	if e = f.Close(); e != nil {
+		panic(e)
+	}
+	p, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("probe.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test"><xs:notation name="item" public="item"/></xs:schema>`))})
+	if err != nil {
+		panic(err)
+	}
+	out := json.NewEncoder(os.Stdout)
+	for _, name := range []string{"anySimpleType", "string", "normalizedString", "token", "language", "Name", "NCName", "boolean", "decimal", "integer", "nonPositiveInteger", "negativeInteger", "nonNegativeInteger", "positiveInteger", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "float", "double", "duration", "date", "dateTime", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth", "anyURI", "hexBinary", "base64Binary", "QName", "NOTATION", "ID", "IDREF", "IDREFS", "NMTOKEN", "NMTOKENS", "ENTITY", "ENTITIES"} {
+		q, ok := p.LookupQName("http://www.w3.org/2001/XMLSchema", name)
+		if !ok {
+			panic(name)
+		}
+		typ, ok := p.Type(q)
+		if !ok {
+			panic(name)
+		}
+		id, ok := typ.Simple()
+		if !ok {
+			panic(name)
+		}
+		for _, text := range cases {
+			v, err := p.ValidateSimpleValue(id, text, func(s string) (string, string, bool) { return "urn:test", "item", s == "item" || s == "p:item" }, runtime.SimpleNeedCanonical|runtime.SimpleNeedIdentity)
+			if e := out.Encode(result{name, text, err == nil, xsderrors.IsUnsupported(err), v.Identity}); e != nil {
+				panic(e)
+			}
+		}
+	}
+	fmt.Fprint(os.Stderr, "done\n")
+}

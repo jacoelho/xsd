@@ -1,0 +1,29 @@
+{
+  "revision": "0b5ea81af97973f6a05db363a51e18919d02f7c7",
+  "production_revision": "544432c6",
+  "command": "make test race wasm-test web-test browser-test fuzz-smoke bench-smoke staticcheck lint",
+  "exit_code": 0,
+  "log_sha256": "02ec8990c2b1a0fb32fe66c02bc6958259675506b66d5818f763cb4bbd28beca",
+  "go_version": "go version go1.27.0 darwin/arm64",
+  "environment": {
+    "GOEXPERIMENT": "default",
+    "GOGC": "default",
+    "GOMEMLIMIT": "default",
+    "GODEBUG": "default"
+  },
+  "corpus": {
+    "manifest_cases": 14548,
+    "schema_cases": 14498,
+    "instance_runs": 25199,
+    "baseline_unsupported": 799,
+    "current_unsupported": 174,
+    "removed_unsupported": 625,
+    "added_unsupported": 0
+  },
+  "value_probe": {
+    "pairs": 16830,
+    "jointly_accepted": 3103,
+    "equivalence_partitions_match": true,
+    "intended_acceptance_difference": "P999999999999999999999999999Y now uses arbitrary-precision duration coordinates"
+  }
+}

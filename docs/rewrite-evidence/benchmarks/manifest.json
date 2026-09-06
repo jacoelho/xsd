@@ -1,0 +1,113 @@
+[
+  {
+    "group": "public",
+    "benchmark": "^(BenchmarkSessionValidateAllContent|BenchmarkCompileSmallSchema|BenchmarkCompileAndFirstSession|BenchmarkValidateRepeatedSmallDocument|BenchmarkSessionValidateRepeatedSmallDocument|BenchmarkSessionValidateNamespaceAdmissionChurn|BenchmarkSessionValidateRepeatedXSIType|BenchmarkSessionValidateIDAttributeStart|BenchmarkSessionValidateSimpleIDEnd|BenchmarkSessionValidateRepeatedQNameValues|BenchmarkSessionValidateRepeatedLaxWildcard|BenchmarkSessionValidateStringLengthFacet|BenchmarkSessionValidateWideChoice|BenchmarkValidateSubstitutionGroup|BenchmarkSessionValidateDateDecimalRows|BenchmarkValidateSmallInvalidDocument|BenchmarkValidateManyRecoverablePathErrors|BenchmarkValidateDeeplyNestedDocument|BenchmarkSessionValidateDeepThenShallow|BenchmarkValidateDuplicateAttributes|BenchmarkCompileDuplicateSchemaSources|BenchmarkCompileIncludeGraph|BenchmarkCompileChameleonTargetFanout|BenchmarkCompileSchemaText|BenchmarkValidateIdentityConstraints|BenchmarkValidateIdentityConstraintsRows|BenchmarkSessionValidateIdentityConstraintsRows|BenchmarkValidateIdentityConstraintsFields|BenchmarkSessionValidateNestedIdentitySelections|BenchmarkSessionValidateNestedIdentitySelectionPaths|BenchmarkSessionValidateRetainedIdentityPaths|BenchmarkSessionValidateDisjointIdentityPaths|BenchmarkSessionValidateExpandedIdentityPaths|BenchmarkSessionValidateSharedExpandedIdentityPrefix|BenchmarkCompileCountedChoiceDFA|BenchmarkCompileSubstitutionGroups|BenchmarkCompileAttributeGroupFanout|BenchmarkCompileRegexCategoryEscapes|BenchmarkCompileDeepSimpleTypeChain|BenchmarkCompileRepeatedNestedUnionMembers|BenchmarkCompileOpaqueAnnotationPayload|BenchmarkSessionValidateUndeclaredRootXSIType|BenchmarkCompileSourceDocuments|BenchmarkCompileStreamingSource|BenchmarkSessionValidateUnionLateMember)$",
+    "baseline_package": ".",
+    "current_package": ".",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": false
+  },
+  {
+    "group": "format",
+    "benchmark": "^BenchmarkXML",
+    "baseline_package": "./internal/format",
+    "current_package": "./internal/format",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": false
+  },
+  {
+    "group": "regex",
+    "benchmark": "^BenchmarkSimplePattern(VariableNoMatch(String|Bytes|StringScratch|BytesScratch|MultibyteString|MultibyteBytes|MultibyteStringScratch|MultibyteBytesScratch)|VariableSmall(String|Bytes))$",
+    "baseline_package": "./internal/runtime",
+    "current_package": "./internal/xsdregex",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": true
+  },
+  {
+    "group": "value",
+    "benchmark": "^Benchmark(Parse.*|PublishedRawUnionLateMember|SimplePatternVariableNoMatchGroupScratch)$",
+    "baseline_package": "./internal/runtime",
+    "current_package": "./internal/valuebench",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": true
+  },
+  {
+    "group": "stream",
+    "benchmark": "^BenchmarkParser",
+    "baseline_package": "./internal/stream",
+    "current_package": "./internal/xmlstream",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": true
+  },
+  {
+    "group": "namespace",
+    "benchmark": "^BenchmarkNamespaceAdmissionChurn$",
+    "baseline_package": "./internal/xmlns",
+    "current_package": "./internal/xmlstream",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": true
+  },
+  {
+    "group": "duration",
+    "benchmark": "^BenchmarkDurationParse/(P1Y2M3DT4H5M6[.]7S|PT0[.]5S)$",
+    "baseline_package": "./internal/runtime",
+    "current_package": "./internal/value",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": true
+  },
+  {
+    "group": "validate",
+    "benchmark": "^Benchmark(RecordIdentityValueIDREFS|CheckXMLWellFormedNested|NestedIdentityTablePropagation|SchemaLocationHintsRecordDuplicateAttributes|IdentityDirectFieldPath)$",
+    "baseline_package": "./internal/validate",
+    "current_package": "./internal/validate",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": false
+  },
+  {
+    "group": "lex",
+    "benchmark": "^BenchmarkXMLWhitespace",
+    "baseline_package": "./internal/lex",
+    "current_package": "./internal/lex",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": false
+  },
+  {
+    "group": "uri",
+    "benchmark": "^BenchmarkReference$",
+    "baseline_package": "./internal/uriref",
+    "current_package": "./internal/uriref",
+    "cpu": [
+      "1"
+    ],
+    "ignore_package": false
+  },
+  {
+    "group": "concurrent",
+    "benchmark": "^BenchmarkValidateConcurrent$",
+    "baseline_package": ".",
+    "current_package": ".",
+    "cpu": [
+      "1",
+      "8"
+    ],
+    "ignore_package": false
+  }
+]

@@ -1,0 +1,331 @@
+// retention-probe validates large generated XML documents through the public
+// API and reports heap retention without retaining the generated document.
+// Keep this source as .go.txt: the evidence directory must not become a Go
+// package. Copy it into an ignored work directory before running it from each
+// worktree:
+//
+//	cp docs/rewrite-evidence/retention/probe.go.txt .lab/rewrite/retention-probe-main.go
+//	go run .lab/rewrite/retention-probe-main.go -label=current
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"runtime"
+	"strconv"
+	"strings"
+
+	xsd "github.com/jacoelho/xsd"
+)
+
+const (
+	defaultSizes  = "1,16,128"
+	defaultChunk  = 4 << 10
+	defaultSample = 256
+	rootPrefix    = "<root>"
+	itemLexical   = "<item/>"
+	rootSuffix    = "</root>"
+	tinySchema    = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+)
+
+type config struct {
+	label       string
+	sizes       string
+	chunkBytes  int
+	sampleEvery uint64
+	output      string
+}
+
+type memoryPoint struct {
+	HeapAlloc  uint64
+	HeapInuse  uint64
+	TotalAlloc uint64
+	Mallocs    uint64
+	NumGC      uint32
+}
+
+type memorySampler struct {
+	every uint64
+	reads uint64
+	peak  memoryPoint
+	have  bool
+}
+
+func (s *memorySampler) observe(force bool) {
+	if !force && (s.every == 0 || s.reads%s.every != 0) {
+		return
+	}
+	point := readMemory()
+	if !s.have {
+		s.peak = point
+		s.have = true
+		return
+	}
+	if point.HeapAlloc > s.peak.HeapAlloc {
+		s.peak.HeapAlloc = point.HeapAlloc
+	}
+	if point.HeapInuse > s.peak.HeapInuse {
+		s.peak.HeapInuse = point.HeapInuse
+	}
+}
+
+func readMemory() memoryPoint {
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return memoryPoint{
+		HeapAlloc:  stats.HeapAlloc,
+		HeapInuse:  stats.HeapInuse,
+		TotalAlloc: stats.TotalAlloc,
+		Mallocs:    stats.Mallocs,
+		NumGC:      stats.NumGC,
+	}
+}
+
+type flatXMLReader struct {
+	prefix, item, suffix string
+	phase                uint8
+	offset               int
+	itemsLeft            int64
+	chunkBytes           int
+	reads                uint64
+	bytes                int64
+	sampler              *memorySampler
+}
+
+func newFlatXMLReader(targetBytes int64, chunkBytes int, sampler *memorySampler) (*flatXMLReader, int64, int64, error) {
+	fixed := int64(len(rootPrefix) + len(rootSuffix))
+	itemBytes := int64(len(itemLexical))
+	items := (targetBytes - fixed) / itemBytes
+	if items < 0 {
+		return nil, 0, 0, fmt.Errorf("target size %d is smaller than XML framing", targetBytes)
+	}
+	actual := fixed + items*itemBytes
+	return &flatXMLReader{
+		prefix:     rootPrefix,
+		item:       itemLexical,
+		suffix:     rootSuffix,
+		itemsLeft:  items,
+		chunkBytes: chunkBytes,
+		sampler:    sampler,
+	}, actual, items, nil
+}
+
+func (r *flatXMLReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	limit := len(p)
+	if r.chunkBytes > 0 && limit > r.chunkBytes {
+		limit = r.chunkBytes
+	}
+	written := 0
+	for written < limit {
+		var source string
+		switch r.phase {
+		case 0:
+			source = r.prefix
+		case 1:
+			if r.itemsLeft == 0 {
+				r.phase = 2
+				r.offset = 0
+				continue
+			}
+			source = r.item
+		case 2:
+			source = r.suffix
+		default:
+			break
+		}
+		if r.phase > 2 {
+			break
+		}
+		if r.offset == len(source) {
+			r.offset = 0
+			switch r.phase {
+			case 0:
+				r.phase = 1
+			case 1:
+				r.itemsLeft--
+			case 2:
+				r.phase = 3
+			}
+			continue
+		}
+		available := limit - written
+		if remaining := len(source) - r.offset; available > remaining {
+			available = remaining
+		}
+		copy(p[written:written+available], source[r.offset:r.offset+available])
+		written += available
+		r.offset += available
+	}
+	if written == 0 {
+		return 0, io.EOF
+	}
+	r.reads++
+	r.bytes += int64(written)
+	if r.sampler != nil {
+		r.sampler.reads = r.reads
+		r.sampler.observe(false)
+	}
+	return written, nil
+}
+
+type result struct {
+	Label          string `json:"label"`
+	TargetBytes    int64  `json:"target_bytes"`
+	ActualBytes    int64  `json:"actual_bytes"`
+	Items          int64  `json:"items"`
+	ChunkBytes     int    `json:"chunk_bytes"`
+	SampleEvery    uint64 `json:"sample_every_reads"`
+	Reads          uint64 `json:"reads"`
+	BaseHeapAlloc  uint64 `json:"base_heap_alloc"`
+	PeakHeapAlloc  uint64 `json:"peak_heap_alloc"`
+	AfterHeapAlloc uint64 `json:"after_heap_alloc"`
+	AfterGCHeap    uint64 `json:"after_gc_heap_alloc"`
+	PeakHeapInuse  uint64 `json:"peak_heap_inuse"`
+	AfterGCInuse   uint64 `json:"after_gc_heap_inuse"`
+	TotalAlloc     uint64 `json:"total_alloc"`
+	GCCountBefore  uint32 `json:"gc_count_before"`
+	GCCountAfter   uint32 `json:"gc_count_after"`
+}
+
+func runCase(engine *xsd.Engine, label string, targetBytes int64, chunkBytes int, sampleEvery uint64) (result, error) {
+	runtime.GC()
+	_, actualBytes, _, err := newFlatXMLReader(targetBytes, chunkBytes, nil)
+	if err != nil {
+		return result{}, err
+	}
+	session, err := engine.NewSession(xsd.ValidateOptions{
+		MaxInstanceBytes: actualBytes + 1,
+		MaxInstanceDepth: 4,
+	})
+	if err != nil {
+		return result{}, fmt.Errorf("new session for %d bytes: %w", actualBytes, err)
+	}
+	// Prime session-owned scratch once, then establish the retained-session
+	// baseline before measuring the generated document.
+	if err := session.Validate(strings.NewReader("<root/>")); err != nil {
+		return result{}, fmt.Errorf("session warmup: %w", err)
+	}
+	runtime.KeepAlive(session)
+	runtime.GC()
+	runtime.KeepAlive(session)
+	base := readMemory()
+
+	sampler := &memorySampler{every: sampleEvery}
+	reader, actualBytes, items, err := newFlatXMLReader(targetBytes, chunkBytes, sampler)
+	if err != nil {
+		return result{}, err
+	}
+	if err := session.Validate(reader); err != nil {
+		return result{}, fmt.Errorf("validate %d bytes: %w", actualBytes, err)
+	}
+	sampler.observe(true)
+	after := readMemory()
+	reads := reader.reads
+	bytesRead := reader.bytes
+	reader = nil
+	runtime.KeepAlive(session)
+	runtime.GC()
+	runtime.KeepAlive(session)
+	afterGC := readMemory()
+	runtime.KeepAlive(session)
+
+	return result{
+		Label:          label,
+		TargetBytes:    targetBytes,
+		ActualBytes:    bytesRead,
+		Items:          items,
+		ChunkBytes:     chunkBytes,
+		SampleEvery:    sampleEvery,
+		Reads:          reads,
+		BaseHeapAlloc:  base.HeapAlloc,
+		PeakHeapAlloc:  sampler.peak.HeapAlloc,
+		AfterHeapAlloc: after.HeapAlloc,
+		AfterGCHeap:    afterGC.HeapAlloc,
+		PeakHeapInuse:  sampler.peak.HeapInuse,
+		AfterGCInuse:   afterGC.HeapInuse,
+		TotalAlloc:     after.TotalAlloc - base.TotalAlloc,
+		GCCountBefore:  base.NumGC,
+		GCCountAfter:   afterGC.NumGC,
+	}, nil
+}
+
+func parseSizes(raw string) ([]int64, error) {
+	var sizes []int64
+	for _, field := range strings.Split(raw, ",") {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		value, err := strconv.ParseInt(field, 10, 64)
+		if err != nil || value <= 0 {
+			return nil, fmt.Errorf("invalid size %q: use positive MiB values", field)
+		}
+		sizes = append(sizes, value<<20)
+	}
+	if len(sizes) == 0 {
+		return nil, fmt.Errorf("no sizes supplied")
+	}
+	return sizes, nil
+}
+
+func main() {
+	cfg := config{}
+	flag.StringVar(&cfg.label, "label", "current", "label emitted in each JSON result")
+	flag.StringVar(&cfg.sizes, "sizes", defaultSizes, "comma-separated document sizes in MiB")
+	flag.IntVar(&cfg.chunkBytes, "chunk", defaultChunk, "maximum bytes returned by one generated Reader.Read")
+	flag.Uint64Var(&cfg.sampleEvery, "sample-every", defaultSample, "sample heap stats every N Reader.Read calls")
+	flag.StringVar(&cfg.output, "out", "", "optional JSON-lines output path; default is stdout")
+	flag.Parse()
+	if cfg.chunkBytes <= 0 || cfg.sampleEvery == 0 {
+		fmt.Fprintln(os.Stderr, "chunk and sample-every must be positive")
+		os.Exit(2)
+	}
+	sizes, err := parseSizes(cfg.sizes)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	engine, err := xsd.Compile(xsd.Bytes("retention-probe.xsd", []byte(tinySchema)))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "compile tiny schema: %v\n", err)
+		os.Exit(1)
+	}
+
+	var output io.Writer = os.Stdout
+	var file *os.File
+	if cfg.output != "" {
+		file, err = os.Create(cfg.output)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "create output: %v\n", err)
+			os.Exit(1)
+		}
+		defer file.Close()
+		output = file
+	}
+	encoder := json.NewEncoder(output)
+	for _, targetBytes := range sizes {
+		row, err := runCase(engine, cfg.label, targetBytes, cfg.chunkBytes, cfg.sampleEvery)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", cfg.label, err)
+			os.Exit(1)
+		}
+		if err := encoder.Encode(row); err != nil {
+			fmt.Fprintf(os.Stderr, "write result: %v\n", err)
+			os.Exit(1)
+		}
+	}
+}

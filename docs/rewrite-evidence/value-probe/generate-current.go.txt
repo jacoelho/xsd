@@ -1,0 +1,89 @@
+// value-probe is copied into an ignored directory in a worktree before it is
+// run. Keeping this source as .go.txt prevents it from becoming a repository
+// package while preserving the exact probe program.
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/xsderrors"
+)
+
+type result struct {
+	Type        string
+	Text        string
+	Valid       bool
+	Unsupported bool
+	Identity    string
+}
+
+var builtinTypes = []string{
+	"anySimpleType", "string", "normalizedString", "token", "language", "Name", "NCName",
+	"boolean", "decimal", "integer", "nonPositiveInteger", "negativeInteger",
+	"nonNegativeInteger", "positiveInteger", "long", "int", "short", "byte",
+	"unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "float", "double",
+	"duration", "date", "dateTime", "time", "gYearMonth", "gYear", "gMonthDay", "gDay",
+	"gMonth", "anyURI", "hexBinary", "base64Binary", "QName", "NOTATION", "ID", "IDREF",
+	"IDREFS", "NMTOKEN", "NMTOKENS", "ENTITY", "ENTITIES",
+}
+
+func main() {
+	flag.Usage = func() {
+		fmt.Fprintln(flag.CommandLine.Output(), "Usage: value-probe cases.json")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+	if flag.NArg() != 1 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	file, err := os.Open(flag.Arg(0))
+	if err != nil {
+		panic(err)
+	}
+	var cases []string
+	if err := json.NewDecoder(file).Decode(&cases); err != nil {
+		_ = file.Close()
+		panic(err)
+	}
+	if err := file.Close(); err != nil {
+		panic(err)
+	}
+
+	program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+	if err != nil {
+		panic(err)
+	}
+	resolver := value.Resolver{
+		QName: func(lexical string) (string, string, bool) {
+			return "urn:test", "item", lexical == "item" || lexical == "p:item"
+		},
+		Notation: func(namespace, local string) bool {
+			return namespace == "urn:test" && local == "item"
+		},
+	}
+	encoder := json.NewEncoder(os.Stdout)
+	for _, name := range builtinTypes {
+		id, ok := value.BuiltinTypeID(name)
+		if !ok {
+			panic(name)
+		}
+		for _, text := range cases {
+			validated, err := program.Validate(id, text, resolver, value.NeedCanonical|value.NeedIdentity, nil)
+			if err := encoder.Encode(result{
+				Type:        name,
+				Text:        text,
+				Valid:       err == nil,
+				Unsupported: xsderrors.IsUnsupported(err),
+				Identity:    validated.IdentityKey(),
+			}); err != nil {
+				panic(err)
+			}
+		}
+	}
+}

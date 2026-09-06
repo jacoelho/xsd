@@ -1,0 +1,99 @@
+{
+  "status": "historical",
+  "captured_at": "2026-09-06",
+  "baseline_revision": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+  "historical_current_revision": "0b5ea81af97973f6a05db363a51e18919d02f7c7",
+  "historical_production_revision": "544432c65a634198c4d551f2775970cef49d5406",
+  "toolchain": "go version go1.27.0 darwin/arm64",
+  "cpu": "Apple M2 Max",
+  "r4_verification": {
+    "command": "make test race wasm-test web-test browser-test fuzz-smoke bench-smoke staticcheck lint",
+    "exit_code": 0,
+    "log_sha256": "02ec8990c2b1a0fb32fe66c02bc6958259675506b66d5818f763cb4bbd28beca",
+    "corpus": {
+      "manifest_cases": 14548,
+      "schema_cases": 14498,
+      "instance_runs": 25199,
+      "baseline_unsupported": 799,
+      "current_unsupported": 174,
+      "removed_unsupported": 625,
+      "added_unsupported": 0
+    }
+  },
+  "value_probe": {
+    "case_count": 374,
+    "type_count": 45,
+    "row_count": 16830,
+    "jointly_accepted": 3103,
+    "acceptance_deltas": 1,
+    "expected_acceptance_delta": [
+      [
+        "duration",
+        "P999999999999999999999999999Y"
+      ]
+    ],
+    "unsupported_deltas": 0,
+    "identity_text_changes_among_jointly_accepted": 339,
+    "identity_partitions_equal": true,
+    "raw_inputs": {
+      "baseline_identity.jsonl": {
+        "sha256": "08a2dd1ed8bc855a8dcd682358cf7f56367da6b83018d9419c469ad6d03189a1",
+        "lines": 16830
+      },
+      "rewrite_identity.jsonl": {
+        "sha256": "ae691a2f6a319dd6b6c40db3aa54190126d51a917d33f009c3e9b0a802282e84",
+        "lines": 16830
+      }
+    }
+  },
+  "flat_stream_retention": {
+    "sizes_mib": [
+      1,
+      16,
+      128
+    ],
+    "historical_current_after_gc_heap_alloc_bytes": [
+      181560,
+      188288,
+      188288
+    ],
+    "historical_baseline_after_gc_heap_alloc_bytes": [
+      232056,
+      238944,
+      238944
+    ],
+    "historical_current_total_alloc_bytes": [
+      816,
+      800,
+      800
+    ],
+    "historical_baseline_total_alloc_bytes": [
+      816,
+      800,
+      800
+    ],
+    "raw_inputs": {
+      "historical-baseline.jsonl": {
+        "sha256": "bddad5ca1b3830ca881eca32c082bdcc07bf9cd10a71076400949ac98ab21133",
+        "lines": 3
+      },
+      "historical-current.jsonl": {
+        "sha256": "fd9df707b5067747d1a55cbf41d9ec160204eb330b56b1bd638f29ef82d5b9ac",
+        "lines": 3
+      }
+    }
+  },
+  "ignored_source_hashes": {
+    ".lab/rewrite/evidence-prepare/benchmark.py": "b4da8fd947e10d58a726e9a39946db0cbd6ea2eeaa12b3bfb45317551b110bff",
+    ".lab/rewrite/evidence-prepare/benchmark-manifest.json": "ccf9b75e8caae468bb8895b08f35c6f77ec166a7c4b99fd21c801e994270bf66",
+    ".lab/rewrite/evidence-prepare/baseline-benchmarks.patch": "25667185fdf2fe4e9bffb73d3a449d24eb242a4583c1ce7b7eae94b136d0037a",
+    ".lab/rewrite/evidence-prepare/retention.go.txt": "b03c9b90985f9af7e95c1d21e62f7fda2e3c35288f4d8832b3bdaef898a00db3",
+    ".lab/rewrite/evidence-prepare/verification.json": "846cfb406cead9219d851e4bd5abac970b0e42ef6ac4a0840a718ff4978683fc",
+    ".lab/rewrite/value-probe/main.go (historical current)": "bb91fc597bfa40c5610cc1f66464fadf74ebcd56b7f99b3103fb25f33f32ddf0",
+    ".lab/rewrite/value-probe/main.go (historical baseline)": "64c59808913783737918e7436feb96901e257a0e558b25c78dd9f5b318e5300f"
+  },
+  "baseline_patch_packaging": {
+    "format": "zero-context tracked hunks; apply with --unidiff-zero",
+    "sha256": "e9299d71dad7d945d77563c6dd9a608464ea8b1af54232c8071b8859d1ee5416"
+  }
+}
