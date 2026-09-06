@@ -328,84 +328,71 @@ npm exec --prefix docs/js -- playwright install chromium
 make browser-test
 ```
 
-## Library benchmarks
+## Benchmarks
 
-Measured 2026-09-06: rewrite `bb9045cd` versus `main` at `cc94656a`, using
-Go 1.27.0 on macOS/arm64 (Apple M2 Max), one CPU, and six alternating 200 ms
-samples per workload. Across **82 matching public workloads**, the geometric
-mean of workload median times is **27.74% lower**. Workloads are equally
-weighted; this is not an assumed production traffic mix.
+Comparison of `main` at `175722ab` with libxml2 2.9.13, measured on
+2026-09-06 using Go 1.27.0, macOS 26.6.2, and an Apple M2 Max with 32 GiB RAM.
+Each result is the upper median (sixth sorted value) of 10 runs after one
+warm-up per workload and validator. Time and peak RSS are summarized
+independently. The validators ran sequentially on the same generated files.
 
-| Workload | Main | Rewrite | Time change |
-| --- | ---: | ---: | ---: |
-| Small-schema compilation | 200.3 µs | 105.9 µs | -47.14% |
-| Deep type-chain compilation | 8.57 ms | 4.28 ms | -50.04% |
-| Repeated QName validation | 169.9 µs | 76.7 µs | -54.86% |
-| Regex-category compilation | 2.95 ms | 1.87 ms | -36.63% |
-| 16 MiB streamed schema compilation | 229.1 ms | 95.1 ms | -58.49% |
-| Identity validation, 1,000 rows | 2.84 ms | 2.62 ms | -7.59% |
-| Fixed gDay validation, 128 values | 261.9 µs | 185.1 µs | -29.33% |
-| Repeated small-document session | 280.0 µs | 278.6 µs | Within noise |
-| Substitution-group compilation | 692.2 µs | 699.9 µs | +1.12% |
+| Workload | `main` time | libxml2 time | `main` peak RSS | libxml2 peak RSS |
+| --- | ---: | ---: | ---: | ---: |
+| Streaming, 20 MiB | 686.685 ms | 377.093 ms | 8.11 MiB | 243.08 MiB |
+| Streaming, 100 MiB | 3.336 s | 1.789 s | 11.94 MiB | 1.17 GiB |
+| Streaming, 500 MiB | 16.453 s | 8.859 s | 13.38 MiB | 5.81 GiB |
+| Streaming, 1 GiB | 33.486 s | 21.209 s | 13.72 MiB | 10.29 GiB |
+| Streaming, 2 GiB | 67.063 s | 51.485 s | 14.30 MiB | 13.33 GiB |
+| Identity constraints, 100,000 rows | 348.766 ms | 605.858 ms | 88.31 MiB | 186.66 MiB |
 
-Memory results vary by workload. A 16 MiB streamed schema allocates
-**34.7 MiB → 122.8 KiB**. The 1,000-row and depth-256 identity cases allocate
-8.3% and 17.2% more bytes, respectively. Fixed-value checks allocate more to
-preserve typed equality. These are cumulative
-Go allocations per operation, not peak memory or RSS. Schema-text compilation
-has a 5.22% slower median, but the timing difference is within noise.
+Libxml2 timings varied on the larger files: 20.86–37.68 s for 1 GiB and
+51.08–52.20 s for 2 GiB across the 10 samples.
 
-## Large XML benchmark
+Timings include process startup, schema compilation, and validation. Go streams
+input; libxml2 runs in tree mode with `--huge --noout --schema`. Peak RSS is
+process memory reported by `/usr/bin/time`, not cumulative Go allocations.
+These synthetic workloads are not a production traffic mix or a comparison of
+libxml2's streaming mode.
 
-Build the repository's Go `xmllint` binary into `bin`:
+The [benchmark harness](tests/large_benchmark_test.go) generates documents from
+20 MiB through 2 GiB, plus 100,000 rows with ID/IDREF, key, unique, and keyref
+constraints. It runs the repository's `bin/xmllint` and sets input-byte and
+identity-entry limits to admit each generated document.
+
+To reproduce the Go measurements and retain the inputs for libxml2:
 
 ```sh
 make xmllint
+benchmark_dir=$(mktemp -d)
+XSD_LARGE_BENCHMARK=1 XSD_LARGE_RUNS=10 XSD_LARGE_DIR="$benchmark_dir" \
+  go test ./tests -run '^TestLargeXMLLintBenchmark$' -timeout=45m -count=1 -v
 ```
 
-The benchmark executes only `bin/xmllint`. It does not inspect `PATH`, require libxml2, or run another validator.
-
-Run the full library-only benchmark with five measured samples per profile:
+Then run libxml2 on those same inputs. Select its executable explicitly so it
+cannot be confused with the repository's Go binary. This command uses macOS
+`/usr/bin/time -l`; use `-v` on Linux. Discard the warm-up, then sort
+the 10 elapsed times and 10 peak-RSS measurements separately and take the sixth
+value from each to match the Go harness.
 
 ```sh
-XSD_LARGE_BENCHMARK=1 XSD_LARGE_RUNS=5 go test ./tests -run TestLargeXMLLintBenchmark -timeout=0 -v
+libxml2=/usr/bin/xmllint
+"$libxml2" --version
+for xml in "$benchmark_dir"/streaming/*/document.xml "$benchmark_dir"/identity/document.xml; do
+  case "$xml" in
+    */streaming/*) schema="$benchmark_dir/streaming/schema.xsd" ;;
+    *) schema="$benchmark_dir/identity/schema.xsd" ;;
+  esac
+  "$libxml2" --huge --noout --schema "$schema" "$xml" # warm-up
+  for sample in 1 2 3 4 5 6 7 8 9 10; do
+    /usr/bin/time -l "$libxml2" --huge --noout --schema "$schema" "$xml"
+  done
+done
 ```
 
-By default this generates streaming XML documents at `20MB`, `100MB`, `500MB`, `1GB`, and `2GB`, plus an identity-constraint document. The harness passes each generated file size through `--max-instance-bytes`, overriding the CLI's finite default. `XSD_LARGE_RUNS` controls measured samples per profile; results use the median below 20 samples and nearest-rank p95 at 20 or more. Generated files use `t.TempDir()` and are removed after each subtest. Set `XSD_LARGE_DIR=/path/to/dir` to keep generated files. Set `XSD_LARGE_SIZE_BYTES=1048576 XSD_LARGE_RUNS=1` for a quick single-size smoke run.
-
-The benchmark reports elapsed time and max RSS from `/usr/bin/time` (`-l` on Darwin, `-v` on Linux). Max RSS is process memory, not Go `allocs/op`.
-
-### Historical libxml2 comparison
-
-The following local run is retained as historical context only. The current benchmark does not rerun or require libxml2.
-
-Historical local run (2026-06-17, macOS 26.5, Go 1.26.4, libxml2 2.9.13, `main`, p95 over 20 runs):
-
-```text
-goos: darwin
-goarch: arm64
-pkg: github.com/jacoelho/xsd
-
-                         | libxml2 xmllint |             go xmllint             |
-                         | p95 sec/op      | p95 sec/op      vs base           |
-streaming/20MB                 400.405ms       348.812ms      -12.89%
-streaming/100MB                   1.792s          1.685s       -5.98%
-streaming/500MB                  13.447s          8.336s      -38.01%
-streaming/1GB                    26.104s         16.685s      -36.08%
-streaming/2GB                    52.113s         33.715s      -35.30%
-identity                       619.045ms       212.698ms      -65.64%
-geomean                           4.484s          2.893s      -35.48%
-
-                         | libxml2 xmllint |             go xmllint             |
-                         | p95 rss/op      | p95 rss/op      vs base           |
-streaming/20MB                 243.19MiB         6.97MiB      -97.13%
-streaming/100MB                  1.17GiB         7.03MiB      -99.41%
-streaming/500MB                  5.63GiB         7.34MiB      -99.87%
-streaming/1GB                    8.45GiB         7.33MiB      -99.92%
-streaming/2GB                   12.32GiB         7.53MiB      -99.94%
-identity                       188.55MiB        69.73MiB      -63.01%
-geomean                          1.76GiB        10.56MiB      -99.42%
-```
+For a smoke run, add
+`XSD_LARGE_SIZE_BYTES=1048576 XSD_LARGE_IDENTITY_ROWS=1000 XSD_LARGE_RUNS=1`
+to the Go command. Without `XSD_LARGE_DIR`, the harness removes generated
+files; with it, remove the retained directory when finished.
 
 ## Contributing
 
