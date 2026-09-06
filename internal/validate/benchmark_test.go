@@ -21,7 +21,7 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 			if !ok {
 				b.Fatal("BuiltinTypeID(IDREFS) failed")
 			}
-			validated, err := program.Validate(id, benchmarkIDREFS(refs), value.Resolver{}, value.NeedIdentity, nil)
+			validated, err := program.Validate(id, benchmarkIDREFS(refs), value.Resolver{}, value.NeedIdentity, defaultMaxInstanceValueWork, nil)
 			if err != nil {
 				b.Fatal(err)
 			}

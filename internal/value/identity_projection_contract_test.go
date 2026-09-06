@@ -27,7 +27,7 @@ func TestCompositeValueIdentityProjections(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, needs := range []value.Needs{0, value.NeedCanonical | value.NeedIdentity} {
-				got, err := program.Validate(union, "item", value.Resolver{}, needs, nil)
+				got, err := program.Validate(union, "item", value.Resolver{}, needs, 16<<20, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -49,7 +49,7 @@ func TestListIdentityUsesSharedFraming(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := program.Validate(id, "urn:first urn:second", value.Resolver{}, value.NeedIdentity, nil)
+	got, err := program.Validate(id, "urn:first urn:second", value.Resolver{}, value.NeedIdentity, 16<<20, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestListOfUnionCarriesSelectedIDREFs(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, needs := range []value.Needs{0, value.NeedCanonical | value.NeedIdentity} {
-		got, err := program.Validate(list, "one 2 three", value.Resolver{}, needs, nil)
+		got, err := program.Validate(list, "one 2 three", value.Resolver{}, needs, 16<<20, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

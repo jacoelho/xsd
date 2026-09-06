@@ -54,6 +54,7 @@ func TestNormalizeOptionsCopiesLimits(t *testing.T) {
 		MaxInstanceTextBytes:            9,
 		MaxInstanceTokenBytes:           10,
 		MaxInstanceBytes:                11,
+		MaxInstanceValueWork:            12,
 	})
 	if err != nil {
 		t.Fatalf("NormalizeOptions() error = %v", err)
@@ -70,6 +71,7 @@ func TestNormalizeOptionsCopiesLimits(t *testing.T) {
 		InstanceTextBytes:            9,
 		InstanceTokenBytes:           10,
 		InstanceBytes:                11,
+		InstanceValueWork:            12,
 	}
 	if limits != want {
 		t.Fatalf("limits = %+v, want %+v", limits, want)
@@ -93,8 +95,20 @@ func TestNormalizeOptionsUsesFiniteDefaults(t *testing.T) {
 		InstanceTextBytes:            defaultMaxInstanceTextBytes,
 		InstanceTokenBytes:           defaultMaxInstanceTokenBytes,
 		InstanceBytes:                defaultMaxInstanceBytes,
+		InstanceValueWork:            defaultMaxInstanceValueWork,
 	}
 	if limits != want {
 		t.Fatalf("limits = %+v, want %+v", limits, want)
+	}
+}
+
+func TestNormalizeOptionsAcceptsUnsignedValueWorkAboveMaxInt64(t *testing.T) {
+	const configured = ^uint64(0)>>1 + 1
+	limits, err := NormalizeOptions(Options{MaxInstanceValueWork: configured})
+	if err != nil {
+		t.Fatalf("NormalizeOptions() error = %v", err)
+	}
+	if limits.InstanceValueWork != configured {
+		t.Fatalf("InstanceValueWork = %d, want %d", limits.InstanceValueWork, configured)
 	}
 }

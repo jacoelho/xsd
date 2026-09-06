@@ -127,7 +127,7 @@ func TestTimeFacetRuntimeComparisonUsesRecurringTimeOfDay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(typeID, "00:30:00+14:00", value.Resolver{}, 0, nil); err != nil {
+	if _, err := program.Validate(typeID, "00:30:00+14:00", value.Resolver{}, 0, 16<<20, nil); err != nil {
 		t.Fatalf("timezone-adjusted recurring time violated equal bounds: %v", err)
 	}
 }

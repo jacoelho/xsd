@@ -37,13 +37,13 @@ func BenchmarkSimplePatternVariableNoMatchGroupScratch(b *testing.B) {
 	}
 	input := strings.Repeat("a", 4096)
 	var scratch valuepkg.Scratch
-	if _, err := program.Validate(id, input, valuepkg.Resolver{}, 0, &scratch); !errors.Is(err, valuepkg.ErrFacet) {
+	if _, err := program.Validate(id, input, valuepkg.Resolver{}, 0, 16<<20, &scratch); !errors.Is(err, valuepkg.ErrFacet) {
 		b.Fatalf("pattern validation = %v; want %v", err, valuepkg.ErrFacet)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if _, err := program.Validate(id, input, valuepkg.Resolver{}, 0, &scratch); !errors.Is(err, valuepkg.ErrFacet) {
+		if _, err := program.Validate(id, input, valuepkg.Resolver{}, 0, 16<<20, &scratch); !errors.Is(err, valuepkg.ErrFacet) {
 			b.Fatalf("pattern validation = %v; want %v", err, valuepkg.ErrFacet)
 		}
 	}

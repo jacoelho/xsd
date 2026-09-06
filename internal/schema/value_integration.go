@@ -27,10 +27,10 @@ func newSchemaValueBuilder(limits Limits) *value.Builder {
 	maxStorage := valueStorageBound(limits)
 	maxWork := valueEvalWorkBound(limits)
 	return value.NewBuilder(value.BuilderOptions{
-		MaxDepth:        uint16(maxDepth),
-		MaxTypes:        uint32(maxTypes),
-		MaxStorageBytes: maxStorage,
-		MaxEvalWork:     maxWork,
+		MaxDepth:            uint16(maxDepth),
+		MaxTypes:            uint32(maxTypes),
+		MaxStorageBytes:     maxStorage,
+		MaxConstructionWork: maxWork,
 	})
 }
 

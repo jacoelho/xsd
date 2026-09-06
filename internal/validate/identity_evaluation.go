@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/xml"
+	"errors"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -714,6 +715,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 	name xml.Name,
 	lexical string,
 	resolve xsdSchema.ResolveQNameParts,
+	workLimit uint64,
 	ctx StartContext,
 ) error {
 	if err := e.validateTarget(target); err != nil {
@@ -726,10 +728,14 @@ func (e *identityEvaluation) captureXSIAttribute(
 		return xsderrors.InternalInvariant("xsi identity value target is not ready for capture")
 	}
 	defer e.releaseTarget()
-	identity, err := xsiAttributeIdentityKey(e.rt, name, lexical, resolve, ctx)
+	identity, err := xsiAttributeIdentityKey(e.rt, name, lexical, resolve, workLimit, ctx)
 	if err != nil {
 		if invalidateErr := e.invalidateFields(e.matches); invalidateErr != nil {
 			return invalidateErr
+		}
+		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok &&
+			diagnostic != nil && diagnostic.Code() == xsderrors.CodeValidationLimit {
+			return err
 		}
 		// Start assessment owns XSI diagnostics; this conversion only derives
 		// the identity-field key.

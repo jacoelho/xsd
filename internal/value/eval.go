@@ -124,22 +124,31 @@ func (v Value) Equal(other Value) bool {
 }
 
 // Validate parses, normalizes, and validates one lexical value against an
-// immutable type program.
-func (p *Program) Validate(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
+// immutable type program. workLimit bounds this value evaluation and must be
+// positive.
+func (p *Program) Validate(id TypeID, lexical string, resolver Resolver, needs Needs, workLimit uint64, scratch *Scratch) (Value, error) {
 	if p == nil || !p.sealed {
 		return Value{}, ErrMetadata
 	}
-	return p.validateValue(id, lexical, resolver, needs, scratch)
+	budget, err := newEvaluationBudget(workLimit)
+	if err != nil {
+		return Value{}, err
+	}
+	return p.validateValueWithBudget(id, lexical, resolver, needs, scratch, &budget)
 }
 
 // ValidateBytes validates UTF-8 XML 1.0 character data already admitted by
 // the stream boundary. It does not repeat XML character validation. The input
 // is borrowed for the call and is never retained by the result or program.
-func (p *Program) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
+func (p *Program) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, workLimit uint64, scratch *Scratch) (Value, error) {
 	if p == nil || !p.sealed {
 		return Value{}, ErrMetadata
 	}
-	return p.validateBorrowedBytes(id, lexical, resolver, needs, scratch)
+	budget, err := newEvaluationBudget(workLimit)
+	if err != nil {
+		return Value{}, err
+	}
+	return p.validateBorrowedBytes(id, lexical, resolver, needs, scratch, &budget)
 }
 
 // Validate parses one value against the completed portion of an incremental
@@ -149,7 +158,11 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 	if b == nil || b.sealed || b.program == nil {
 		return Value{}, ErrMetadata
 	}
-	return b.program.validateValue(id, lexical, resolver, needs, scratch)
+	budget, err := newEvaluationBudget(b.maxConstructionWork)
+	if err != nil {
+		return Value{}, err
+	}
+	return b.program.validateValueWithBudget(id, lexical, resolver, needs, scratch, &budget)
 }
 
 // ValidateBytes validates stream-admitted UTF-8 XML 1.0 character data against
@@ -158,41 +171,44 @@ func (b *Builder) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, ne
 	if b == nil || b.sealed || b.program == nil {
 		return Value{}, ErrMetadata
 	}
-	return b.program.validateBorrowedBytes(id, lexical, resolver, needs, scratch)
+	budget, err := newEvaluationBudget(b.maxConstructionWork)
+	if err != nil {
+		return Value{}, err
+	}
+	return b.program.validateBorrowedBytes(id, lexical, resolver, needs, scratch, &budget)
 }
 
 // validateBorrowedBytes admits raw bytes and retains the accumulated work when
 // an unsupported raw shape falls through to normalized evaluation.
-func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
-	if value, handled, err := p.validateUnprojectedBytes(id, lexical, needs); handled {
+func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch, budget *evaluationBudget) (Value, error) {
+	if value, handled, err := validateUnprojectedBytes(id, lexical, needs, budget); handled {
 		return value, err
 	}
-	var work uint64
 	if id == NoType || needs != 0 {
-		return p.validateValueWithWork(id, string(lexical), resolver, needs, scratch, &work)
+		return p.validateValueWithBudget(id, string(lexical), resolver, needs, scratch, budget)
 	}
-	selected, handled, err := p.evalBytes(id, lexical, scratch, &work, 0)
+	selected, handled, err := p.evalBytes(id, lexical, scratch, budget, 0)
 	if err != nil {
 		return Value{}, err
 	}
 	if handled {
 		return Value{typeID: id, selected: selected}, nil
 	}
-	return p.validateValueWithWork(id, string(lexical), resolver, needs, scratch, &work)
+	return p.validateValueWithBudget(id, string(lexical), resolver, needs, scratch, budget)
 }
 
-func (p *Program) validateUnprojectedBytes(id TypeID, lexical []byte, needs Needs) (Value, bool, error) {
+func validateUnprojectedBytes(id TypeID, lexical []byte, needs Needs, budget *evaluationBudget) (Value, bool, error) {
 	if needs != 0 || (id != builtinAnySimpleType && id != builtinString) {
 		return Value{}, false, nil
 	}
-	if p.maxEvalWork != 0 && uint64(len(lexical))+1 > p.maxEvalWork {
-		return Value{}, true, ErrLimit
+	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
+		return Value{}, true, err
 	}
 	return Value{typeID: id, selected: NoType}, true, nil
 }
 
-func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, work *uint64, depth int) (TypeID, bool, error) {
-	if err := chargeEvalWork(p.maxEvalWork, work, len(lexical)); err != nil {
+func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
+	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
 		return NoType, true, err
 	}
 	if p.maxDepth != 0 && depth >= int(p.maxDepth) {
@@ -209,7 +225,7 @@ func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, work *u
 	case Atomic:
 		return validateAtomicBytesFast(id, t, lexical, scratch)
 	case Union:
-		return p.evalUnionBytes(t, lexical, scratch, work, depth)
+		return p.evalUnionBytes(t, lexical, scratch, budget, depth)
 	case List:
 		return NoType, false, nil
 	default:
@@ -217,13 +233,13 @@ func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, work *u
 	}
 }
 
-func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, work *uint64, depth int) (TypeID, bool, error) {
+func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
 	if t.identity != IdentityNone || t.facets.present != 0 || hasXMLWhitespaceBytes(lexical) {
 		return NoType, false, nil
 	}
 	var last, unsupported error
 	for _, member := range t.union {
-		_, handled, err := p.evalBytes(member, lexical, scratch, work, depth+1)
+		_, handled, err := p.evalBytes(member, lexical, scratch, budget, depth+1)
 		if !handled {
 			return NoType, false, nil
 		}
@@ -238,22 +254,40 @@ func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, w
 	return NoType, true, unionFailure(last, unsupported)
 }
 
-func chargeEvalWork(limit uint64, work *uint64, length int) error {
-	//nolint:gosec // len is non-negative and fits uint64.
-	units := uint64(length) + 1
-	if limit != 0 && (units > limit || *work > limit-units) {
+// evaluationBudget is private to one top-level value evaluation. Its limit is
+// selected by the caller, while every nested visit shares the same usage.
+type evaluationBudget struct {
+	limit uint64
+	used  uint64
+}
+
+func newEvaluationBudget(limit uint64) (evaluationBudget, error) {
+	if limit == 0 {
+		return evaluationBudget{}, ErrMetadata
+	}
+	return evaluationBudget{limit: limit}, nil
+}
+
+func (b *evaluationBudget) charge(length uint64) error {
+	if b == nil || b.limit == 0 {
+		return ErrMetadata
+	}
+	// Checking the remaining capacity before adding prevents usage arithmetic
+	// from wrapping, including a synthetic MaxUint64 lexical length.
+	if length == ^uint64(0) {
 		return ErrLimit
 	}
-	*work += units
+	units := length + 1
+	if b.used > b.limit || units > b.limit-b.used {
+		return ErrLimit
+	}
+	b.used += units
 	return nil
 }
 
-func validateRawWork(limit uint64, length int) error {
-	//nolint:gosec // len returns a non-negative int representable by uint64.
-	if limit != 0 && uint64(length)+1 > limit {
-		return ErrLimit
-	}
-	return nil
+func lexicalLength(length int) uint64 {
+	//nolint:gosec // all callers pass len(...), which is non-negative.
+	return uint64(length)
 }
 
 func validateBuiltinBytesFast(id TypeID, lexical []byte) (bool, error) {
@@ -440,12 +474,7 @@ func hasXMLWhitespaceBytes(raw []byte) bool {
 	return false
 }
 
-func (p *Program) validateValue(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch) (Value, error) {
-	var work uint64
-	return p.validateValueWithWork(id, lexical, resolver, needs, scratch, &work)
-}
-
-func (p *Program) validateValueWithWork(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch, work *uint64) (Value, error) {
+func (p *Program) validateValueWithBudget(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch, budget *evaluationBudget) (Value, error) {
 	if p == nil || id == NoType || id >= BuiltinTypeCount && uint64(id-BuiltinTypeCount) >= uint64(len(p.types)) {
 		return Value{}, ErrMetadata
 	}
@@ -453,7 +482,7 @@ func (p *Program) validateValueWithWork(id TypeID, lexical string, resolver Reso
 	if !ok {
 		return Value{}, ErrMetadata
 	}
-	if out, handled, err := p.validatePlainString(id, t, lexical, needs); handled {
+	if out, handled, err := validatePlainString(id, t, lexical, needs, budget); handled {
 		return out, err
 	}
 	evalNeeds := needs
@@ -468,7 +497,7 @@ func (p *Program) validateValueWithWork(id TypeID, lexical string, resolver Reso
 		needs:         evalNeeds,
 		enforceFacets: true,
 		scratch:       scratch,
-		work:          work,
+		work:          budget,
 	}, &v)
 	if err != nil {
 		return Value{}, err
@@ -497,12 +526,12 @@ func projectDocumentIdentity(out *Value, value *parsedValue, identity IdentityKi
 	}
 }
 
-func (p *Program) validatePlainString(id TypeID, t *typeDef, lexical string, needs Needs) (Value, bool, error) {
+func validatePlainString(id TypeID, t *typeDef, lexical string, needs Needs, budget *evaluationBudget) (Value, bool, error) {
 	if t.variety != Atomic || t.primitive != PrimitiveString || t.builtin != BuiltinNone ||
 		t.whitespace != WhitespacePreserve || t.identity != IdentityNone || t.facets.present != 0 {
 		return Value{}, false, nil
 	}
-	if err := validateRawWork(p.maxEvalWork, len(lexical)); err != nil {
+	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
 		return Value{}, true, err
 	}
 	if err := validateXMLString(lexical); err != nil {
@@ -543,7 +572,7 @@ func projectValue(v *parsedValue, needs Needs) Value {
 type evalOptions struct {
 	resolver      Resolver
 	scratch       *Scratch
-	work          *uint64
+	work          *evaluationBudget
 	depth         int
 	needs         Needs
 	enforceFacets bool
@@ -571,7 +600,7 @@ func (p *Program) prepareEval(id TypeID, lexical string, options evalOptions) (e
 		return evalOptions{}, ErrMetadata
 	}
 	if options.work != nil {
-		if err := chargeEvalWork(p.maxEvalWork, options.work, len(lexical)); err != nil {
+		if err := options.work.charge(lexicalLength(len(lexical))); err != nil {
 			return evalOptions{}, err
 		}
 	} // Normalization and list tokenization preserve admitted XML characters.

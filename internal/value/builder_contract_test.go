@@ -11,8 +11,8 @@ func TestBuilderSealChargesFacetLiteralEvaluationWork(t *testing.T) {
 	t.Parallel()
 
 	builder := value.NewBuilder(value.BuilderOptions{
-		MaxEvalWork:     1,
-		MaxStorageBytes: 1024,
+		MaxConstructionWork: 1,
+		MaxStorageBytes:     1024,
 	})
 	if _, err := builder.Add(value.TypeSpec{
 		Variety:           value.Atomic,

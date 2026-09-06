@@ -15,6 +15,10 @@ const (
 	defaultMaxInstanceTextBytes            = 4 << 20
 	defaultMaxInstanceTokenBytes           = 4 << 20
 	defaultMaxInstanceBytes                = 64 << 20
+	// defaultMaxInstanceValueWork is the finite per-value evaluation ceiling.
+	// Keep this literal in the validation owner so it does not depend on schema
+	// construction limits or the builtin type count.
+	defaultMaxInstanceValueWork uint64 = 4_194_502_132_335
 )
 
 // Options controls instance validation limits.
@@ -30,6 +34,7 @@ type Options struct {
 	MaxInstanceTextBytes            int64
 	MaxInstanceTokenBytes           int64
 	MaxInstanceBytes                int64
+	MaxInstanceValueWork            uint64
 }
 
 // Limits is the normalized internal form of Options.
@@ -45,6 +50,7 @@ type Limits struct {
 	InstanceTextBytes            int64
 	InstanceTokenBytes           int64
 	InstanceBytes                int64
+	InstanceValueWork            uint64
 }
 
 // NormalizeOptions validates options and returns runtime limits.
@@ -64,6 +70,7 @@ func NormalizeOptions(opts Options) (Limits, error) {
 		InstanceTextBytes:            byteLimitOrDefault(opts.MaxInstanceTextBytes, defaultMaxInstanceTextBytes),
 		InstanceTokenBytes:           byteLimitOrDefault(opts.MaxInstanceTokenBytes, defaultMaxInstanceTokenBytes),
 		InstanceBytes:                byteLimitOrDefault(opts.MaxInstanceBytes, defaultMaxInstanceBytes),
+		InstanceValueWork:            uintLimitOrDefault(opts.MaxInstanceValueWork, defaultMaxInstanceValueWork),
 	}, nil
 }
 
@@ -100,6 +107,13 @@ func intLimitOrDefault(value, def int) int {
 }
 
 func byteLimitOrDefault(value, def int64) int64 {
+	if value == 0 {
+		return def
+	}
+	return value
+}
+
+func uintLimitOrDefault(value, def uint64) uint64 {
 	if value == 0 {
 		return def
 	}

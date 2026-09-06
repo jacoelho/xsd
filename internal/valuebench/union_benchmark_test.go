@@ -48,7 +48,7 @@ func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
 	raw := []byte("value")
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := program.ValidateBytes(unionID, raw, valuepkg.Resolver{}, 0, nil); err != nil {
+		if _, err := program.ValidateBytes(unionID, raw, valuepkg.Resolver{}, 0, 16<<20, nil); err != nil {
 			b.Fatal(err)
 		}
 	}

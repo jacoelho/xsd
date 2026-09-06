@@ -46,7 +46,7 @@ func (s *session) validateSimpleValue(
 	resolve xsdValue.Resolver,
 	needs xsdValue.Needs,
 ) (xsdValue.Value, error) {
-	return s.rt.ValueProgram().Validate(id, lexical, resolve, needs, &s.valueScratch)
+	return s.rt.ValueProgram().Validate(id, lexical, resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
 }
 
 func (s *session) validateSimpleValueBytes(
@@ -68,17 +68,17 @@ func (s *session) validateSimpleValueBytes(
 	}
 	if needsOwnedLexical {
 		lexicalString := s.reader.InternBytes(lexical)
-		return program.Validate(id, lexicalString, resolve, needs, &s.valueScratch)
+		return program.Validate(id, lexicalString, resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
 	}
 	if needs != 0 {
 		if unconstrained, valid := program.IsUnconstrainedString(id); valid && unconstrained {
 			// The returned canonical or identity projection retains this string.
 			// Reuse the reader-owned bounded cache for repeated short values while
 			// keeping all other types on the borrowed-byte path.
-			return program.Validate(id, s.reader.InternBytes(lexical), resolve, needs, &s.valueScratch)
+			return program.Validate(id, s.reader.InternBytes(lexical), resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
 		}
 	}
-	return program.ValidateBytes(id, lexical, resolve, needs, &s.valueScratch)
+	return program.ValidateBytes(id, lexical, resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
 }
 
 func (s *session) validateAttributeSet(set xsdSchema.AttributeUseSetRead, attrs []xmlstream.Attr, line, col int) error {
@@ -535,6 +535,7 @@ func (s *session) validateXSIAttribute(name xml.Name, value string, line, col in
 		name,
 		value,
 		s.qnameResolver(),
+		s.limits.InstanceValueWork,
 		s.startContext(line, col),
 	); err != nil {
 		return s.recover(err)

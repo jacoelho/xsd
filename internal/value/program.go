@@ -66,35 +66,36 @@ type TypeSpec struct {
 	Identity          IdentityKind
 }
 
-// BuilderOptions bounds construction and evaluation. Zero fields use package
-// defaults. MaxTypes includes the fixed builtin records.
+// BuilderOptions bounds construction. Zero fields use package defaults.
+// MaxTypes includes the fixed builtin records.
 type BuilderOptions struct {
-	MaxDepth        uint16
-	MaxTypes        uint32
-	MaxStorageBytes uint64
-	MaxEvalWork     uint64
+	MaxDepth            uint16
+	MaxTypes            uint32
+	MaxStorageBytes     uint64
+	MaxConstructionWork uint64
 }
 
 const (
-	defaultValueDepth    = 1024
-	defaultValueTypes    = 65536
-	defaultValueStorage  = 64 << 20
-	defaultValueEvalWork = 16 << 20
-	typeStorageBase      = uint64(512)
+	defaultValueDepth       = 1024
+	defaultValueTypes       = 65536
+	defaultValueStorage     = 64 << 20
+	defaultConstructionWork = 16 << 20
+	typeStorageBase         = uint64(512)
 )
 
 // Builder accumulates source metadata. It is single-owner and is discarded
 // after Seal; no source specs or resolver closures enter Program.
 type Builder struct {
-	program      *Program
-	pending      []TypeSpec
-	pendingSet   []bool
-	maxStorage   uint64
-	storageUsed  uint64
-	prepaidSlots int
-	maxTypes     uint32
-	maxDepth     uint16
-	sealed       bool
+	program             *Program
+	pending             []TypeSpec
+	pendingSet          []bool
+	maxStorage          uint64
+	storageUsed         uint64
+	maxConstructionWork uint64
+	prepaidSlots        int
+	maxTypes            uint32
+	maxDepth            uint16
+	sealed              bool
 }
 
 // NewBuilder creates a value-program builder. All XSD simple builtins occupy
@@ -112,15 +113,16 @@ func NewBuilder(options BuilderOptions) *Builder {
 	if storage == 0 {
 		storage = defaultValueStorage
 	}
-	work := options.MaxEvalWork
+	work := options.MaxConstructionWork
 	if work == 0 {
-		work = defaultValueEvalWork
+		work = defaultConstructionWork
 	}
 	return &Builder{
-		program:    &Program{maxDepth: depth, maxEvalWork: work},
-		maxDepth:   depth,
-		maxTypes:   types,
-		maxStorage: storage,
+		program:             &Program{maxDepth: depth},
+		maxDepth:            depth,
+		maxTypes:            types,
+		maxStorage:          storage,
+		maxConstructionWork: work,
 	}
 }
 
@@ -210,7 +212,7 @@ func (b *Builder) completeType(id TypeID, spec TypeSpec, storageMode storageChar
 	// Make the current record visible while compiling self-typed facet
 	// literals. Facets are not installed until compileFacets returns.
 	b.program.complete[i] = true
-	if err := b.program.compileFacets(id, spec.Facets); err != nil {
+	if err := b.program.compileFacets(id, spec.Facets, b.maxConstructionWork); err != nil {
 		b.program.types[i] = typeDef{}
 		b.program.complete[i] = false
 		return err
@@ -513,11 +515,10 @@ func cloneTypeSpec(in TypeSpec) TypeSpec {
 // Program is immutable after construction. It stores normalized user records;
 // builtin records are returned by pure builtinTypeDef lookups.
 type Program struct {
-	types       []typeDef
-	complete    []bool
-	maxEvalWork uint64
-	maxDepth    uint16
-	sealed      bool
+	types    []typeDef
+	complete []bool
+	maxDepth uint16
+	sealed   bool
 }
 
 const maxUserTypeIndex = int(^TypeID(0) - BuiltinTypeCount)
@@ -706,7 +707,11 @@ func (p *Program) inheritedIdentity(spec TypeSpec, fallback IdentityKind) Identi
 	return fallback
 }
 
-func (p *Program) compileFacets(id TypeID, source FacetSpec) error {
+func (p *Program) compileFacets(id TypeID, source FacetSpec, workLimit uint64) error {
+	budget, err := newEvaluationBudget(workLimit)
+	if err != nil {
+		return err
+	}
 	t := &p.types[id-BuiltinTypeCount]
 	mask := facetMask(source)
 	own := newFacetProgram(source, mask)
@@ -716,11 +721,7 @@ func (p *Program) compileFacets(id TypeID, source FacetSpec) error {
 	if err := validateFacetSource(*t, source, own); err != nil {
 		return err
 	}
-	var work uint64
-	if err := p.compileBounds(id, t, source, &own, &work); err != nil {
-		return err
-	}
-	if err := p.compileEnumeration(id, source, &own, &work); err != nil {
+	if err := p.compileFacetBatch(id, t, source, &own, &budget); err != nil {
 		return err
 	}
 	if err := p.validateFacetDerivation(id, own); err != nil {
@@ -742,6 +743,13 @@ func (p *Program) compileFacets(id TypeID, source FacetSpec) error {
 	return nil
 }
 
+func (p *Program) compileFacetBatch(id TypeID, t *typeDef, source FacetSpec, own *facetProgram, budget *evaluationBudget) error {
+	if err := p.compileBounds(id, t, source, own, budget); err != nil {
+		return err
+	}
+	return p.compileEnumeration(id, source, own, budget)
+}
+
 func newFacetProgram(source FacetSpec, mask FacetMask) facetProgram {
 	return facetProgram{
 		present:        mask,
@@ -755,7 +763,7 @@ func newFacetProgram(source FacetSpec, mask FacetMask) facetProgram {
 	}
 }
 
-func (p *Program) compileBounds(id TypeID, t *typeDef, source FacetSpec, own *facetProgram, work *uint64) error {
+func (p *Program) compileBounds(id TypeID, t *typeDef, source FacetSpec, own *facetProgram, budget *evaluationBudget) error {
 	entries := []struct {
 		src       BoundFacet
 		lower     bool
@@ -770,11 +778,10 @@ func (p *Program) compileBounds(id TypeID, t *typeDef, source FacetSpec, own *fa
 		if !entry.src.Present {
 			continue
 		}
-		v, err := p.compileBound(id, t, entry.src, *work)
+		v, err := p.compileBound(id, t, entry.src, budget)
 		if err != nil {
 			return err
 		}
-		*work = v.work
 		bound := boundValue{exclusive: entry.exclusive, timeDayOffset: v.timeDayOffset, value: v.value}
 		if entry.lower {
 			own.lower = append(own.lower, bound)
@@ -787,11 +794,10 @@ func (p *Program) compileBounds(id TypeID, t *typeDef, source FacetSpec, own *fa
 
 type compiledBound struct {
 	value         parsedValue
-	work          uint64
 	timeDayOffset int8
 }
 
-func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, work uint64) (compiledBound, error) {
+func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget *evaluationBudget) (compiledBound, error) {
 	literalType := source.Type
 	if literalType == NoType {
 		literalType = id
@@ -801,7 +807,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, work ui
 		resolver:      source.Resolver,
 		needs:         NeedCanonical | NeedIdentity,
 		enforceFacets: false,
-		work:          &work,
+		work:          budget,
 	}, &v)
 	if err != nil {
 		return compiledBound{}, fmt.Errorf("bound %q: %w", source.Lexical, err)
@@ -813,7 +819,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, work ui
 	if err != nil {
 		return compiledBound{}, err
 	}
-	return compiledBound{value: v, timeDayOffset: offset, work: work}, nil
+	return compiledBound{value: v, timeDayOffset: offset}, nil
 }
 
 func (p *Program) timeBoundDayOffset(spec *typeDef, literalType TypeID, lexical string, value parsedValue) (int8, error) {
@@ -836,7 +842,7 @@ func (p *Program) timeBoundDayOffset(spec *typeDef, literalType TypeID, lexical 
 	return int8(offset), nil
 }
 
-func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProgram, work *uint64) error {
+func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProgram, budget *evaluationBudget) error {
 	if len(source.Enumeration) == 0 {
 		return nil
 	}
@@ -856,7 +862,7 @@ func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProg
 			resolver:      entry.Resolver,
 			needs:         NeedIdentity | retainListItems,
 			enforceFacets: false,
-			work:          work,
+			work:          budget,
 		}, &v)
 		if err != nil {
 			return fmt.Errorf("enumeration %q: %w", entry.Lexical, err)

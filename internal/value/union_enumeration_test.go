@@ -61,7 +61,7 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(restricted, "p:item", resolver, 0, nil)
+	v, err := p.Validate(restricted, "p:item", resolver, 0, 16<<20, nil)
 	if err != nil {
 		t.Fatalf("QName member facet forced wrong enum value: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(restricted, "x", Resolver{}, 0, nil)
+	v, err := p.Validate(restricted, "x", Resolver{}, 0, 16<<20, nil)
 	if err != nil {
 		t.Fatalf("list item facet forced wrong enum value: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Validate(restricted, "p:item", resolver, 0, nil); err != nil {
+	if _, err := p.Validate(restricted, "p:item", resolver, 0, 16<<20, nil); err != nil {
 		t.Fatalf("nested member facet forced wrong enum value: %v", err)
 	}
 }
@@ -234,9 +234,9 @@ func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 			var err error
 			var v Value
 			if tc.bytes {
-				v, err = p.ValidateBytes(union, []byte(tc.input), Resolver{}, tc.needs, nil)
+				v, err = p.ValidateBytes(union, []byte(tc.input), Resolver{}, tc.needs, 16<<20, nil)
 			} else {
-				v, err = p.Validate(union, tc.input, Resolver{}, tc.needs, nil)
+				v, err = p.Validate(union, tc.input, Resolver{}, tc.needs, 16<<20, nil)
 			}
 			if (err == nil) != tc.accept {
 				t.Fatalf("validation error = %v, want accepted=%t", err, tc.accept)
@@ -333,7 +333,7 @@ func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 		{input: "1 3", valid: false},
 	} {
 		t.Run(tc.input, func(t *testing.T) {
-			_, err := p.Validate(derived, tc.input, Resolver{}, 0, nil)
+			_, err := p.Validate(derived, tc.input, Resolver{}, 0, 16<<20, nil)
 			if (err == nil) != tc.valid {
 				t.Fatalf("Validate(%q) error = %v, want valid=%t", tc.input, err, tc.valid)
 			}

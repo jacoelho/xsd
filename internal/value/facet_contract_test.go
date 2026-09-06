@@ -262,7 +262,7 @@ func TestFacetContractSupportsListAndUnionFacets(t *testing.T) {
 		{id: unionID, lexical: "yes", valid: true},
 		{id: unionID, lexical: "2", valid: false},
 	} {
-		_, err := program.Validate(test.id, test.lexical, value.Resolver{}, 0, nil)
+		_, err := program.Validate(test.id, test.lexical, value.Resolver{}, 0, 16<<20, nil)
 		if (err == nil) != test.valid {
 			t.Errorf("Validate(%d, %q) error = %v, valid = %v", test.id, test.lexical, err, test.valid)
 		}
@@ -384,7 +384,7 @@ func TestFacetContractUsesORWithinStepAndANDAcrossAncestors(t *testing.T) {
 		{lexical: "AB", valid: false},
 		{lexical: "ax", valid: false},
 	} {
-		_, err := program.Validate(derived, test.lexical, value.Resolver{}, 0, nil)
+		_, err := program.Validate(derived, test.lexical, value.Resolver{}, 0, 16<<20, nil)
 		if (err == nil) != test.valid {
 			t.Errorf("Validate(%q) error = %v, valid = %v", test.lexical, err, test.valid)
 		}
@@ -430,10 +430,10 @@ func TestFacetContractAllowsExplicitSelfTypedBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(id, "1", value.Resolver{}, 0, nil); err != nil {
+	if _, err := program.Validate(id, "1", value.Resolver{}, 0, 16<<20, nil); err != nil {
 		t.Fatalf("self-typed bound rejected its boundary value: %v", err)
 	}
-	if _, err := program.Validate(id, "0", value.Resolver{}, 0, nil); err == nil {
+	if _, err := program.Validate(id, "0", value.Resolver{}, 0, 16<<20, nil); err == nil {
 		t.Fatal("self-typed bound accepted a value below its boundary")
 	}
 }
@@ -476,10 +476,10 @@ func TestFacetContractAllowsDirectAnySimpleTypeVarietyDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(list, "a b", value.Resolver{}, 0, nil); err != nil {
+	if _, err := program.Validate(list, "a b", value.Resolver{}, 0, 16<<20, nil); err != nil {
 		t.Fatalf("list derived from anySimpleType rejected: %v", err)
 	}
-	if _, err := program.Validate(union, "1", value.Resolver{}, 0, nil); err != nil {
+	if _, err := program.Validate(union, "1", value.Resolver{}, 0, 16<<20, nil); err != nil {
 		t.Fatalf("union derived from anySimpleType rejected: %v", err)
 	}
 }

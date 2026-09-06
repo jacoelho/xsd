@@ -57,11 +57,11 @@ func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := tc.p.ValidateBytes(tc.id, tc.raw, Resolver{}, 0, tc.s); err != nil {
+			if _, err := tc.p.ValidateBytes(tc.id, tc.raw, Resolver{}, 0, 16<<20, tc.s); err != nil {
 				t.Fatal(err)
 			}
 			allocs := testing.AllocsPerRun(100, func() {
-				if _, err := tc.p.ValidateBytes(tc.id, tc.raw, Resolver{}, 0, tc.s); err != nil {
+				if _, err := tc.p.ValidateBytes(tc.id, tc.raw, Resolver{}, 0, 16<<20, tc.s); err != nil {
 					t.Fatal(err)
 				}
 			})
@@ -77,7 +77,7 @@ func TestValidateBytesFallsBackForProjectionAndList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = p.ValidateBytes(builtinString, []byte("value"), Resolver{}, NeedCanonical, nil); err != nil {
+	if _, err = p.ValidateBytes(builtinString, []byte("value"), Resolver{}, NeedCanonical, 16<<20, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -94,7 +94,7 @@ func TestValidateBytesFallsBackForProjectionAndList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.ValidateBytes(list, []byte("one two"), Resolver{}, NeedCanonical, nil)
+	v, err := p.ValidateBytes(list, []byte("one two"), Resolver{}, NeedCanonical, 16<<20, nil)
 	if err != nil || v.CanonicalText() != "one two" {
 		t.Fatalf("list raw validation = %q, %v", v.CanonicalText(), err)
 	}
@@ -128,15 +128,15 @@ func TestValidateBytesDecimalInclusiveBoundsAvoidStringMaterialization(t *testin
 		t.Fatal(err)
 	}
 	for _, lexical := range []string{"42.50", "0", "999999", "-0.0", " 42.50 ", "\t0\n", " -0.0 "} {
-		if _, err := p.ValidateBytes(id, []byte(lexical), Resolver{}, 0, nil); err != nil {
+		if _, err := p.ValidateBytes(id, []byte(lexical), Resolver{}, 0, 16<<20, nil); err != nil {
 			t.Fatalf("ValidateBytes(%q) error = %v", lexical, err)
 		}
 	}
-	if _, err := p.ValidateBytes(id, []byte("1000000"), Resolver{}, 0, nil); err == nil {
+	if _, err := p.ValidateBytes(id, []byte("1000000"), Resolver{}, 0, 16<<20, nil); err == nil {
 		t.Fatal("ValidateBytes accepted a value above maxInclusive")
 	}
 	allocs := testing.AllocsPerRun(100, func() {
-		if _, err := p.ValidateBytes(id, []byte("42.50"), Resolver{}, 0, nil); err != nil {
+		if _, err := p.ValidateBytes(id, []byte("42.50"), Resolver{}, 0, 16<<20, nil); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -171,7 +171,7 @@ func TestValidateBytesUnionPreservesSelectionAndProjections(t *testing.T) {
 	} {
 		t.Run(tc.lexical, func(t *testing.T) {
 			raw := []byte(tc.lexical)
-			v, err := p.ValidateBytes(id, raw, Resolver{}, 0, nil)
+			v, err := p.ValidateBytes(id, raw, Resolver{}, 0, 16<<20, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -185,7 +185,7 @@ func TestValidateBytesUnionPreservesSelectionAndProjections(t *testing.T) {
 
 func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 	for _, budget := range []uint64{4, 6} {
-		b := NewBuilder(BuilderOptions{MaxEvalWork: budget})
+		b := NewBuilder(BuilderOptions{})
 		id, err := b.Add(TypeSpec{
 			Variety: Union, Union: []TypeID{builtinBoolean, builtinString},
 			Whitespace: WhitespaceCollapse, WhitespacePresent: true,
@@ -198,7 +198,7 @@ func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = p.ValidateBytes(id, []byte("x"), Resolver{}, 0, nil)
+		_, err = p.ValidateBytes(id, []byte("x"), Resolver{}, 0, budget, nil)
 		if budget == 4 && !errors.Is(err, ErrLimit) || budget == 6 && err != nil {
 			t.Fatalf("work budget %d: %v", budget, err)
 		}
@@ -206,7 +206,7 @@ func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 }
 
 func TestValidateBytesFallbackRetainsRawWork(t *testing.T) {
-	b := NewBuilder(BuilderOptions{MaxEvalWork: 6})
+	b := NewBuilder(BuilderOptions{})
 	id, err := b.Add(TypeSpec{
 		Variety: Union, Union: []TypeID{builtinBoolean, builtinQName},
 		Whitespace: WhitespaceCollapse, WhitespacePresent: true,
@@ -219,7 +219,7 @@ func TestValidateBytesFallbackRetainsRawWork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.ValidateBytes(id, []byte("x"), Resolver{}, 0, nil); !errors.Is(err, ErrLimit) {
+	if _, err := p.ValidateBytes(id, []byte("x"), Resolver{}, 0, 6, nil); !errors.Is(err, ErrLimit) {
 		t.Fatalf("fallback work was not retained: %v", err)
 	}
 }
@@ -257,7 +257,7 @@ func TestValidateBytesTextFacetsCountNormalizedCharacters(t *testing.T) {
 			{lexical: "xx", valid: false},
 			{lexical: "  éx ", valid: whitespace == WhitespaceCollapse},
 		} {
-			_, err := p.ValidateBytes(id, []byte(tc.lexical), Resolver{}, 0, nil)
+			_, err := p.ValidateBytes(id, []byte(tc.lexical), Resolver{}, 0, 16<<20, nil)
 			if (err == nil) != tc.valid {
 				t.Fatalf("whitespace %d, value %q: %v, want valid %v", whitespace, tc.lexical, err, tc.valid)
 			}
@@ -280,11 +280,11 @@ func TestValidateBytesChecksCustomIntegerLexicalSpace(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, lexical := range []string{"1.0", "1.5", ".0"} {
-		if _, err := p.ValidateBytes(id, []byte(lexical), Resolver{}, 0, nil); err == nil {
+		if _, err := p.ValidateBytes(id, []byte(lexical), Resolver{}, 0, 16<<20, nil); err == nil {
 			t.Fatalf("integer accepted %q", lexical)
 		}
 	}
-	if _, err := p.ValidateBytes(id, []byte("123"), Resolver{}, 0, nil); err != nil {
+	if _, err := p.ValidateBytes(id, []byte("123"), Resolver{}, 0, 16<<20, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -303,7 +303,7 @@ func TestValidateBytesUnionRetainsExplicitIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.ValidateBytes(id, []byte("item"), Resolver{}, 0, nil)
+	v, err := p.ValidateBytes(id, []byte("item"), Resolver{}, 0, 16<<20, nil)
 	if err != nil || v.IDs() != "item" {
 		t.Fatalf("union identity = %q, %v", v.IDs(), err)
 	}

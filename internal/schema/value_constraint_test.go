@@ -15,7 +15,7 @@ func testValue(t *testing.T, id valuepkg.TypeID, lexical string, resolver valuep
 	if err != nil {
 		t.Fatalf("Seal() error = %v", err)
 	}
-	v, err := p.Validate(id, lexical, resolver, needs, nil)
+	v, err := p.Validate(id, lexical, resolver, needs, 16<<20, nil)
 	if err != nil {
 		t.Fatalf("Validate(%d, %q) error = %v", id, lexical, err)
 	}
@@ -33,7 +33,7 @@ func valueIdentityKey(kind valuepkg.PrimitiveKind, lexical string) string {
 	if err != nil {
 		panic(err)
 	}
-	v, err := p.Validate(valuepkg.BuiltinType(kind), lexical, valuepkg.Resolver{}, valuepkg.NeedIdentity, nil)
+	v, err := p.Validate(valuepkg.BuiltinType(kind), lexical, valuepkg.Resolver{}, valuepkg.NeedIdentity, 16<<20, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +71,7 @@ func testIdentityValue(t *testing.T, kind valuepkg.IdentityKind, lexical string)
 	if err != nil {
 		t.Fatalf("Seal(identity type) error = %v", err)
 	}
-	v, err := p.Validate(id, lexical, valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity, nil)
+	v, err := p.Validate(id, lexical, valuepkg.Resolver{}, valuepkg.NeedCanonical|valuepkg.NeedIdentity, 16<<20, nil)
 	if err != nil {
 		t.Fatalf("Validate(identity type) error = %v", err)
 	}
@@ -112,7 +112,7 @@ func testConstraintValue(lexical, canonical string, typ SimpleTypeID, identity s
 	if err != nil {
 		panic(err)
 	}
-	v, err := p.Validate(valuepkg.BuiltinType(kind), lexical, resolver, needs, nil)
+	v, err := p.Validate(valuepkg.BuiltinType(kind), lexical, resolver, needs, 16<<20, nil)
 	if err != nil {
 		panic(err)
 	}

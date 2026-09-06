@@ -269,6 +269,15 @@ func validateWithLimits(engine *xsd.Engine, doc io.Reader) error {
 | `MaxInstanceTextBytes` | `4 MiB` | Max retained character data bytes. |
 | `MaxInstanceTokenBytes` | `4 MiB` | Max parser-owned bytes for one XML token, including retained payload and active construction scratch. |
 | `MaxInstanceBytes` | `64 MiB` | Max aggregate raw XML bytes read, including a UTF-8 BOM and XML declaration. |
+| `MaxInstanceValueWork` | `4_194_502_132_335` | Max cumulative lexical work per simple-value evaluation. Independent of schema compilation limits. |
+
+Each value-evaluation visit charges its lexical byte length plus one. List items,
+union attempts, and a raw-byte attempt followed by typed fallback share the
+containing value's budget. Each new value starts a fresh budget. URI items in
+`xsi:schemaLocation` hints are separate typed evaluations. The work limit also
+applies to schema defaults or fixed values that require revalidation; already
+validated defaults keep their existing path. Regex and byte limits apply
+separately. Zero selects the default; positive values set a finite work ceiling.
 
 Reaching `MaxErrors` stops semantic assessment, but XML is still read until the
 end or a fatal error. A later fatal error takes precedence.

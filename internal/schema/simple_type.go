@@ -208,35 +208,6 @@ func OrderedFacetStepHasBounds(step OrderedFacetStep) bool {
 	return step.MinInclusive || step.MinExclusive || step.MaxInclusive || step.MaxExclusive
 }
 
-// SimpleValue is the schema adapter retained by compiler-only APIs. New
-// validation code consumes value.Value directly.
-type SimpleValue struct {
-	Canonical string
-	IDs       string
-	IDRefs    string
-	Identity  string
-	Type      SimpleTypeID
-}
-
-// CanonicalText returns the canonical lexical projection.
-func (v SimpleValue) CanonicalText() string { return v.Canonical }
-
-// SimpleValueNeed selects optional projections in a compiler simple value.
-type SimpleValueNeed uint8
-
-const (
-	// SimpleNeedCanonical requests canonical lexical text.
-	SimpleNeedCanonical SimpleValueNeed = 1 << iota
-	// SimpleNeedIdentity requests the identity projection.
-	SimpleNeedIdentity
-)
-
-// Has reports whether n includes need.
-func (n SimpleValueNeed) Has(need SimpleValueNeed) bool { return n&need != 0 }
-
-// ErrSimpleValueMetadata reports malformed compiler simple-value metadata.
-var ErrSimpleValueMetadata = errors.New("simple value metadata is invalid")
-
 // BuiltinValidationKind is the value package's canonical lexical-rule kind,
 // retained under the schema vocabulary for declaration projections.
 type BuiltinValidationKind = value.BuiltinKind

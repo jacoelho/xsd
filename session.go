@@ -40,6 +40,10 @@ type ValidateOptions struct {
 	MaxInstanceTokenBytes int64
 	// MaxInstanceBytes limits aggregate raw XML bytes read. Zero uses the default.
 	MaxInstanceBytes int64
+	// MaxInstanceValueWork limits cumulative lexical and evaluation work for one
+	// simple value. Each visited lexical byte and evaluation visit consumes one
+	// work unit. Zero uses the finite default.
+	MaxInstanceValueWork uint64
 }
 
 // Session validates XML instance documents against one Engine.
@@ -103,5 +107,6 @@ func internalValidateOptions(opts ValidateOptions) validate.Options {
 		MaxInstanceTextBytes:            opts.MaxInstanceTextBytes,
 		MaxInstanceTokenBytes:           opts.MaxInstanceTokenBytes,
 		MaxInstanceBytes:                opts.MaxInstanceBytes,
+		MaxInstanceValueWork:            opts.MaxInstanceValueWork,
 	}
 }

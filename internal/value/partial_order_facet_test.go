@@ -39,10 +39,10 @@ func TestOrderedFacetsRejectIncomparableValues(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := program.Validate(id, test.lexical, value.Resolver{}, 0, nil); !errors.Is(err, value.ErrFacet) {
+				if _, err := program.Validate(id, test.lexical, value.Resolver{}, 0, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
 					t.Fatalf("incomparable value accepted by %s: %v", facet, err)
 				}
-				if _, err := program.ValidateBytes(id, []byte(test.lexical), value.Resolver{}, 0, nil); !errors.Is(err, value.ErrFacet) {
+				if _, err := program.ValidateBytes(id, []byte(test.lexical), value.Resolver{}, 0, 16<<20, nil); !errors.Is(err, value.ErrFacet) {
 					t.Fatalf("incomparable raw value accepted by %s: %v", facet, err)
 				}
 			})

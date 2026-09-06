@@ -22,7 +22,7 @@ func identityValueForTest(tb testing.TB, typeName, lexical string, needs value.N
 	if err != nil {
 		tb.Fatalf("value program construction failed: %v", err)
 	}
-	result, err := program.Validate(id, lexical, value.Resolver{}, needs, nil)
+	result, err := program.Validate(id, lexical, value.Resolver{}, needs, defaultMaxInstanceValueWork, nil)
 	if err != nil {
 		tb.Fatalf("Validate(%s, %q) failed: %v", typeName, lexical, err)
 	}

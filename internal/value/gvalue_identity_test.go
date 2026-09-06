@@ -39,11 +39,11 @@ func TestGValueIdentityMatchesValueSpaceEquality(t *testing.T) {
 			if !ok {
 				t.Fatalf("missing builtin %q", test.typ)
 			}
-			left, err := program.Validate(id, test.left, value.Resolver{}, value.NeedIdentity, nil)
+			left, err := program.Validate(id, test.left, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
 			if err != nil {
 				t.Fatalf("validate left %q: %v", test.left, err)
 			}
-			right, err := program.Validate(id, test.right, value.Resolver{}, value.NeedIdentity, nil)
+			right, err := program.Validate(id, test.right, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
 			if err != nil {
 				t.Fatalf("validate right %q: %v", test.right, err)
 			}
@@ -79,11 +79,11 @@ func TestGValueIdentityDistinguishesTimezonePresence(t *testing.T) {
 			if !ok {
 				t.Fatalf("missing builtin %q", test.typ)
 			}
-			without, err := program.Validate(id, test.without, value.Resolver{}, value.NeedIdentity, nil)
+			without, err := program.Validate(id, test.without, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
 			if err != nil {
 				t.Fatalf("validate no-timezone value %q: %v", test.without, err)
 			}
-			with, err := program.Validate(id, test.with, value.Resolver{}, value.NeedIdentity, nil)
+			with, err := program.Validate(id, test.with, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
 			if err != nil {
 				t.Fatalf("validate timezone value %q: %v", test.with, err)
 			}

@@ -74,7 +74,7 @@ structured errors rather than mutable internal state or log-dependent outcomes.
 | --- | --- | --- |
 | `SchemaSource` and `Resolver` | Exact schema bytes, repeatability, identity, and explicit resolution | Network discovery or instance-directed loading |
 | `CompileOptions` | Source, graph, name, dependency, content-model, substitution, and union work | Cancellation of caller-owned blocking I/O |
-| `ValidateOptions` | Errors, identity state, hints, depth, attributes, text, tokens, and input bytes | Schema mutation or dynamic schema loading |
+| `ValidateOptions` | Errors, identity state, hints, depth, attributes, text, tokens, input bytes, and per-value work | Schema mutation or dynamic schema loading |
 | Immutable `Engine` | Safe concurrent reuse of one published schema | Document-local state |
 | Reusable `Session` | One owner's bounded scratch reuse | Overlapping calls or cross-session coordination |
 | `xsderrors` | Stable category, code, cause, and source/document location | Policy inferred from message strings or logs |
@@ -213,9 +213,19 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   sealing removes it. Type construction validates dependencies and facets before
   publication; caller-owned scratch bounds
   reusable validation storage. Completed type dependencies are acyclic; runtime
-  evaluation tracks only depth and cumulative lexical work. Raw-byte attempts
-  and typed fallback share one work counter; a failed fast attempt does not
-  replenish the budget. Borrowed-byte validation consumes UTF-8 XML 1.0 character
+  evaluation tracks only depth and cumulative lexical work. The schema compiler
+  supplies the builder's construction limit; each completed type's bounds and
+  enumeration share one fresh facet-batch budget. Builder validation starts a
+  fresh construction budget per value. Instance validation supplies its own
+  normalized `MaxInstanceValueWork`, whose fixed default is 4,194,502,132,335
+  work units and does not depend on compilation options. Each evaluation visit
+  charges its lexical byte length plus one. Raw-byte attempts, shortcuts,
+  list items, union attempts, and typed fallback share one per-value counter;
+  a failed fast attempt does not replenish the budget. The published program
+  retains neither caller limits nor work counters; session settings are
+  immutable and scratch retains no cumulative work. Limit failures keep their
+  schema or instance diagnostic category at the owning boundary.
+  Borrowed-byte validation consumes UTF-8 XML 1.0 character
   data already admitted by the stream boundary. A type retains its owning type
   through list and union evaluation. Equality uses the admitted value space,
   including duration
@@ -261,6 +271,11 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   recovery, document structure, start/end element decisions, attributes,
   content, simple-content assessment, the concrete document-local identity
   evaluator and its lifecycle, XSI handling, and schemaLocation hint handling.
+  XSI identity conversion propagates value-work limit diagnostics after
+  invalidating its fields and releasing the pending target; ordinary lexical
+  conversion errors remain owned by start assessment. Each URI item in an XSI
+  location hint is a separate typed evaluation under the same per-value limit;
+  existing token and hint limits bound aggregate processing.
   The document runner detaches its XML reader on every exit. Reusable sessions
   clear remaining document state before releasing the overlap guard; that
   cleanup does not repeat reader detachment.

@@ -111,7 +111,7 @@ func TestBuiltinValueContracts(t *testing.T) {
 				t.Fatalf("missing builtin %q", tc.typ)
 			}
 			for _, needs := range []value.Needs{0, value.NeedCanonical | value.NeedIdentity} {
-				_, err := program.Validate(id, tc.lexical, resolver, needs, nil)
+				_, err := program.Validate(id, tc.lexical, resolver, needs, 16<<20, nil)
 				if (err == nil) != tc.valid {
 					t.Errorf("Validate(%q, needs=%d) = %v, valid = %v", tc.lexical, needs, err, tc.valid)
 				}
@@ -144,10 +144,10 @@ func TestForwardBaseRetainsFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := program.Validate(derived, "9", value.Resolver{}, 0, nil); err == nil {
+	if _, err := program.Validate(derived, "9", value.Resolver{}, 0, 16<<20, nil); err == nil {
 		t.Fatal("derived type accepted a value below its forward-referenced base bound")
 	}
-	if _, err := program.Validate(derived, "10", value.Resolver{}, 0, nil); err != nil {
+	if _, err := program.Validate(derived, "10", value.Resolver{}, 0, 16<<20, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -174,11 +174,11 @@ func TestValueEqualityUsesValueSpace(t *testing.T) {
 			t.Parallel()
 			leftID, _ := value.BuiltinTypeID(tc.leftType)
 			rightID, _ := value.BuiltinTypeID(tc.rightType)
-			left, err := program.Validate(leftID, tc.left, value.Resolver{}, value.NeedIdentity, nil)
+			left, err := program.Validate(leftID, tc.left, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			right, err := program.Validate(rightID, tc.right, value.Resolver{}, value.NeedIdentity, nil)
+			right, err := program.Validate(rightID, tc.right, value.Resolver{}, value.NeedIdentity, 16<<20, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -131,7 +131,7 @@ func benchmarkProgramValidate(b *testing.B, p *valuepkg.Program, id valuepkg.Typ
 	b.Helper()
 	b.ReportAllocs()
 	for range b.N {
-		if _, err := p.Validate(id, lexical, valuepkg.Resolver{}, needs, nil); err != nil {
+		if _, err := p.Validate(id, lexical, valuepkg.Resolver{}, needs, 16<<20, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
