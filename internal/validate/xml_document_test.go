@@ -18,10 +18,12 @@ import (
 type emptyXMLDocument struct {
 	xmlDocument[struct{}]
 
-	reader   xmlstream.Reader
-	input    testXMLInput
-	ready    bool
-	endReady bool
+	reader         xmlstream.Reader
+	input          testXMLInput
+	lexicalEnds    []xmlstream.LexicalName
+	pendingLexical xmlstream.LexicalName
+	ready          bool
+	endReady       bool
 }
 
 // commitEndState advances only the semantic test document. Production end
@@ -90,7 +92,41 @@ func (d *emptyXMLDocument) PrepareStart(start xmlstream.StartElement, _ *struct{
 	if err != nil {
 		return preparedXMLStart{}, err
 	}
-	return d.xmlDocument.PrepareStart(&d.reader, line, col)
+	prepared, err := d.xmlDocument.PrepareStart(&d.reader, line, col)
+	if err == nil {
+		d.pendingLexical = xmlstream.Lexical(start.Name)
+	}
+	return prepared, err
+}
+
+// CommitStart records lexical names only for the synthetic reader used by
+// these tests; production document frames retain expanded names and handles.
+func (d *emptyXMLDocument) CommitStart(start preparedXMLStart, payload struct{}) {
+	d.xmlDocument.CommitStart(start, payload)
+	d.rememberLexicalStart(start)
+}
+
+func (d *emptyXMLDocument) CommitExpandedStart(start preparedXMLStart, payload struct{}) {
+	d.xmlDocument.CommitExpandedStart(start, payload)
+	d.rememberLexicalStart(start)
+}
+
+func (d *emptyXMLDocument) rememberLexicalStart(start preparedXMLStart) {
+	lexical := d.pendingLexical
+	if lexical.Local == "" {
+		lexical = xmlstream.Lexical(start.name)
+	}
+	d.lexicalEnds = append(d.lexicalEnds, lexical)
+	d.pendingLexical = xmlstream.LexicalName{}
+}
+
+func (d *emptyXMLDocument) rollbackStart(checkpoint xmlDocumentCheckpoint) {
+	d.xmlDocument.rollbackStart(checkpoint)
+	if checkpoint.depth < len(d.lexicalEnds) {
+		clear(d.lexicalEnds[checkpoint.depth:])
+		d.lexicalEnds = d.lexicalEnds[:checkpoint.depth]
+	}
+	d.pendingLexical = xmlstream.LexicalName{}
 }
 
 func (d *emptyXMLDocument) ValidateEnd(end xmlstream.EndElement, line, col int) error {
@@ -120,12 +156,20 @@ func (d *emptyXMLDocument) LookupNamespace(prefix string) (string, bool) {
 func (d *emptyXMLDocument) CommitEnd() error {
 	if !d.ready || d.reader.Depth() == 0 {
 		d.endReady = false
-		return d.commitEndState()
+		err := d.commitEndState()
+		if err == nil {
+			d.popLexicalEnd()
+		}
+		return err
 	}
 	if !d.endReady {
 		current := d.elements[len(d.elements)-1]
+		lexical := xmlstream.Lexical(current.name)
+		if len(d.lexicalEnds) != 0 {
+			lexical = d.lexicalEnds[len(d.lexicalEnds)-1]
+		}
 		d.input.offset = 0
-		d.input.data = appendTestXMLEndBytes(d.input.data[:0], xmlstream.EndElement{Name: xml.Name{Space: current.prefix, Local: current.name.Local}})
+		d.input.data = appendTestXMLEndBytes(d.input.data[:0], xmlstream.EndElement{Name: xml.Name{Space: lexical.Prefix, Local: lexical.Local}})
 		tok, err := d.reader.Next()
 		if err != nil {
 			return err
@@ -140,8 +184,18 @@ func (d *emptyXMLDocument) CommitEnd() error {
 	err := d.xmlDocument.CommitEnd(&d.reader)
 	if err == nil {
 		d.endReady = false
+		d.popLexicalEnd()
 	}
 	return err
+}
+
+func (d *emptyXMLDocument) popLexicalEnd() {
+	if len(d.lexicalEnds) == 0 {
+		return
+	}
+	i := len(d.lexicalEnds) - 1
+	d.lexicalEnds[i] = xmlstream.LexicalName{}
+	d.lexicalEnds = d.lexicalEnds[:i]
 }
 
 func (d *emptyXMLDocument) Complete() error {
@@ -158,6 +212,9 @@ func (d *emptyXMLDocument) Reset(maxRetainedCap int) {
 	d.xmlDocument.Reset(maxRetainedCap)
 	d.reader.Detach()
 	d.input = testXMLInput{}
+	clear(d.lexicalEnds)
+	d.lexicalEnds = d.lexicalEnds[:0]
+	d.pendingLexical = xmlstream.LexicalName{}
 	d.ready = false
 	d.endReady = false
 }

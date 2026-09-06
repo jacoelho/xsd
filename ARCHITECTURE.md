@@ -225,6 +225,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   The document runner detaches its XML reader on every exit. Reusable sessions
   clear remaining document state before releasing the overlap guard; that
   cleanup does not repeat reader detachment.
+  Retained document element frames keep payload, expanded name, handle, and
+  path metadata; lexical prefixes remain owned by the XML stream while start
+  admission is live and are not copied into document state.
   All borrowed simple-value inputs share one admission path. QName/NOTATION
   spellings use the reader's bounded string cache, while resolution runs against
   the current namespace frame each time. Resolver callbacks belong to the
@@ -253,9 +256,12 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   an XML syntax error, while simultaneous non-EOF reader causes remain observable.
   The same XML stream owner admits namespaces and detects duplicate expanded
   attributes. Its append-only binding chain owns retained immutable contexts;
-  an active-prefix index is a reproducible frame-local projection. Admission,
-  rollback, end, and reset update these together. Oversized maps and buffers are
-  dropped at reset; bounded caches may remain for session reuse. Comment mode
+  an active-prefix index is a reproducible frame-local projection. Retained
+  namespace frames keep only the lexical closing name and a nonzero serial;
+  handle store ownership remains validated against the owning stack before the
+  serial is checked. Admission, rollback, end, and reset update these together.
+  Oversized maps and buffers are dropped at reset; bounded caches may remain for
+  session reuse. Comment mode
   selects syntax-only discard for instances, bounded discard for schemas, or
   emission for formatting. Bounded discard charges normalized payload bytes
   through the same token-limit owner without retaining or dispatching comments;

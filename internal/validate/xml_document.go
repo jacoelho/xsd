@@ -22,7 +22,6 @@ type xmlDocumentElement[P any] struct {
 	payload    P
 	name       xml.Name
 	handle     xmlstream.Handle
-	prefix     string
 	pathLength int
 	pathRef    documentPathRef
 	pathMode   xmlPathMode
@@ -91,7 +90,6 @@ const (
 type preparedXMLStart struct {
 	name   xml.Name
 	handle xmlstream.Handle
-	prefix string
 }
 
 type xmlDocumentCheckpoint struct {
@@ -148,7 +146,7 @@ func (d *xmlDocument[P]) PrepareStart(
 		}
 		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
-	return preparedXMLStart{name: element.Name, handle: handle, prefix: element.Lexical.Prefix}, nil
+	return preparedXMLStart{name: element.Name, handle: handle}, nil
 }
 
 func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, payload P) {
@@ -167,7 +165,6 @@ func (d *xmlDocument[P]) appendStart(start preparedXMLStart, pathMode xmlPathMod
 		payload:    payload,
 		name:       start.name,
 		handle:     start.handle,
-		prefix:     start.prefix,
 		pathLength: pathLength,
 		pathMode:   pathMode,
 	})

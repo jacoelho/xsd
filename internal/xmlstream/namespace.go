@@ -22,11 +22,11 @@ type contextStore struct {
 }
 
 type stackFrame struct {
-	token       frame
-	element     Element
+	lexical     LexicalName
 	previous    uint32
 	bindingMark int
 	bindingEnd  int
+	serial      uint64
 }
 
 // stack owns nested XML namespace frames. Every admitted start returns the
@@ -99,7 +99,7 @@ func (s *stack) StartXML(start xml.StartElement) (frame, Element, error) {
 	if err := s.resolveXMLAttributes(start.Attr); err != nil {
 		return s.abortAdmission(mark, previous, err)
 	}
-	return s.commitAdmission(mark, previous, element), element, nil
+	return s.commitAdmission(mark, previous, element.Lexical), element, nil
 }
 
 // StartStream atomically admits a borrowed stream start element. On success it
@@ -132,7 +132,7 @@ func (s *stack) StartStream(start *StartElement, values *cache) (frame, Element,
 		}
 		resolved[i] = name
 	}
-	admitted := s.commitAdmission(mark, previous, element)
+	admitted := s.commitAdmission(mark, previous, element.Lexical)
 	replaceStreamAttributeNames(start, resolved)
 	s.clearAttributeAdmission()
 	return admitted, element, nil
@@ -225,13 +225,13 @@ func (s *stack) MatchEnd(frame frame, end LexicalName) error {
 // preserves its invalid-frame error classification without checking ownership
 // twice.
 func (s *stack) matchClosingName(current *stackFrame, end LexicalName) error {
-	if end == current.element.Lexical {
+	if end == current.lexical {
 		return nil
 	}
 	if _, ok := s.resolveName(xml.Name{Space: end.Prefix, Local: end.Local}, elementName); !ok {
 		return fmt.Errorf("unbound namespace prefix %s", end.Prefix)
 	}
-	return fmt.Errorf("end element </%s> does not match start element <%s>", formatLexical(end), formatLexical(current.element.Lexical))
+	return fmt.Errorf("end element </%s> does not match start element <%s>", formatLexical(end), formatLexical(current.lexical))
 }
 
 // Abort releases the identified top frame without validating a closing name.
@@ -251,7 +251,7 @@ func (s *stack) ownedTop(frame frame) (*stackFrame, error) {
 		return nil, errors.New("namespace frame is not owned by this stack")
 	}
 	current := &s.frames[len(s.frames)-1]
-	if current.token != frame {
+	if current.serial != frame.serial {
 		return nil, errors.New("namespace frame is not the current frame")
 	}
 	return current, nil
@@ -266,15 +266,15 @@ func (s *stack) beginAdmission() (int, uint32) {
 	return len(s.store.bindings), s.head
 }
 
-func (s *stack) commitAdmission(mark int, previous uint32, element Element) frame {
+func (s *stack) commitAdmission(mark int, previous uint32, lexical LexicalName) frame {
 	s.serial++
 	if s.serial == 0 {
 		s.serial++
 	}
 	admitted := frame{store: s.store, serial: s.serial}
 	s.frames = append(s.frames, stackFrame{
-		token:       admitted,
-		element:     element,
+		serial:      admitted.serial,
+		lexical:     lexical,
 		previous:    previous,
 		bindingMark: mark,
 		bindingEnd:  len(s.store.bindings),
