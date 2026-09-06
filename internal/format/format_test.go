@@ -354,6 +354,48 @@ func TestFormatXMLEscapesAttributePredefinedEntities(t *testing.T) {
 	}
 }
 
+func TestFormatXMLNormalizesAttributeSourceSpans(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "literal quote in single-quoted attribute",
+			input: `<root a='before " after'/>`,
+			want:  `<root a="before &quot; after"></root>`,
+		},
+		{
+			name:  "canonical escapes",
+			input: `<root a="left&amp;&#10;&quot;right"/>`,
+			want:  `<root a="left&amp;&#10;&quot;right"></root>`,
+		},
+		{
+			name:  "rewrites between canonical spans",
+			input: `<root a='a&amp;&#x22;b&quot;&#x9;c&#9;&lt;&#x3C;&gt;&apos;&#x1F642;'/>`,
+			want:  `<root a="a&amp;&quot;b&quot;&#9;c&#9;&lt;&lt;>'🙂"></root>`,
+		},
+		{
+			name:  "literal and referenced whitespace",
+			input: "<root a='a\r\nb\nc\td&#10;&#13;&#9;e'/>",
+			want:  `<root a="a b c d&#10;&#13;&#9;e"></root>`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var out strings.Builder
+			if err := XML(&out, tt.input); err != nil {
+				t.Fatalf("XML() error = %v", err)
+			}
+			if out.String() != tt.want {
+				t.Fatalf("XML() = %q, want %q", out.String(), tt.want)
+			}
+		})
+	}
+}
+
 func TestFormatXMLPreservesNamespaceDeclarations(t *testing.T) {
 	var out strings.Builder
 	err := XML(&out, `<?xml version="1.0"?>

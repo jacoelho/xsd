@@ -123,68 +123,57 @@ func writeSourceEnd(w io.Writer, input string, start, end int) error {
 	return err
 }
 
-//nolint:gocognit // Entity and XML-whitespace decoding share this one source scan.
+// Already-canonical references stay in their source span. Only normalization
+// boundaries flush the span, so escaped input does not require a write per rune.
+//
+//nolint:gocognit // Entity, quote, and XML-whitespace normalization share one scan.
 func writeSourceAttributeValue(w io.Writer, value string) error {
-	for value != "" {
-		i := strings.IndexAny(value, "&\r\n\t")
+	start := 0
+	for scan := 0; scan < len(value); {
+		i := strings.IndexAny(value[scan:], "&\r\n\t\"")
 		if i < 0 {
-			return writeString(w, value)
+			break
 		}
-		if i > 0 {
-			if err := writeString(w, value[:i]); err != nil {
-				return err
-			}
-		}
+		i += scan
+		end := i + 1
+		var decoded rune
 		switch value[i] {
 		case '&':
-			semi := strings.IndexByte(value[i+1:], ';')
+			semi := strings.IndexByte(value[end:], ';')
 			if semi < 0 {
 				return errors.New("invalid entity source span")
 			}
-			semi += i + 1
-			if err := writeSourceAttributeEntity(w, value[i+1:semi]); err != nil {
+			end += semi + 1
+			var err error
+			decoded, err = xmlstream.DecodeEntityReferenceString(value[i+1 : end-1])
+			if err != nil {
 				return err
 			}
-			value = value[semi+1:]
+			if decoded < utf8.RuneSelf {
+				escape := xmlAttributeEscape(byte(decoded)) //nolint:gosec // decoded is below utf8.RuneSelf.
+				if escape != "" && value[i:end] == escape {
+					scan = end
+					continue
+				}
+			}
+		case '"':
+			decoded = '"'
 		default:
-			if err := writeByte(w, ' '); err != nil {
-				return err
+			decoded = ' '
+			if value[i] == '\r' && end < len(value) && value[end] == '\n' {
+				end++
 			}
-			if value[i] == '\r' && i+1 < len(value) && value[i+1] == '\n' {
-				i++
-			}
-			value = value[i+1:]
 		}
+		if err := writeString(w, value[start:i]); err != nil {
+			return err
+		}
+		if err := writeXMLAttributeRune(w, decoded); err != nil {
+			return err
+		}
+		start = end
+		scan = end
 	}
-	return nil
-}
-
-// Keep frequent source spellings on the formatter's canonical output path.
-// The fallback retains full validation for less common numeric references.
-func writeSourceAttributeEntity(w io.Writer, entity string) error {
-	switch entity {
-	case "amp":
-		return writeString(w, xmlEscapeAmp)
-	case "lt":
-		return writeString(w, xmlEscapeLT)
-	case "quot":
-		return writeString(w, "&quot;")
-	case "gt":
-		return writeByte(w, '>')
-	case "apos":
-		return writeByte(w, '\'')
-	case "#9":
-		return writeString(w, "&#9;")
-	case "#10":
-		return writeString(w, "&#10;")
-	case "#13":
-		return writeString(w, "&#13;")
-	}
-	decoded, err := xmlstream.DecodeEntityReferenceString(entity)
-	if err != nil {
-		return err
-	}
-	return writeXMLAttributeRune(w, decoded)
+	return writeString(w, value[start:])
 }
 
 //nolint:gocognit // CDATA and reference origins require distinct source spans.
