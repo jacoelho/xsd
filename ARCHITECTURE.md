@@ -153,6 +153,11 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   not own XSD vocabulary or schema-graph policy. The compiler has one canonical
   source-loading path and may delegate within that path, but it must not replace,
   bypass, or duplicate either source boundary capability.
+  Removing a custom resolver preserves the built-in file resolver's canonical
+  context identity. The public adapter normalizes its known nil resolver forms
+  before they enter source resolution.
+  Per-source limit diagnostics acquire their source path before joining read or
+  close failures, so wrapper-preserving presentation cannot lose that location.
 - `internal/uriref` owns XSD 1.0 URI-reference validity after XLink escaping,
   raw and escaped projections, fragment syntax, and raw-preserving RFC 2396
   composition. Arbitrary source names and Unix paths do not enter this type.
@@ -188,6 +193,8 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   table back to a duplicate runtime projection is not a second publication step.
   Names, typed references, element constraints, derivation indexes, wildcard
   policies, substitution membership, and content execution remain schema-owned.
+  Every constructed name table reserves namespace ID zero for the empty
+  namespace independently of seed order; publication validates that invariant.
   Identity declarations compile into immutable selector/field path programs and
   exact-name, namespace, and wildcard dispatch indexes; validation owns only
   active document scopes and matching scratch.
@@ -197,26 +204,58 @@ types/functions; those belong to `xsderrors` and `internal/format`.
 - `internal/value` owns simple-type validation and its immutable program:
   lexical normalization, primitive values, lists, unions, facets, canonical
   text, typed equality, and ID/IDREF projections. Compile-time literals and
-  instance values use the same value semantics. Type construction validates
-  dependencies and facets before publication; caller-owned scratch bounds
+  instance values use the same value semantics. Construction capacity is admitted
+  against the same conservative storage budget as type records; reserved slots
+  consume that admission without a second fixed charge. Queued `Add` records
+  prepay their complete metadata estimate; sealing cannot charge it again.
+  Explicit `Reserve`/`Complete` admits the remaining metadata at completion.
+  One program-owned completion table serves construction and evaluation until
+  sealing removes it. Type construction validates dependencies and facets before
+  publication; caller-owned scratch bounds
   reusable validation storage. Completed type dependencies are acyclic; runtime
-  evaluation tracks only depth and cumulative lexical work. Borrowed-byte
-  validation consumes UTF-8 XML 1.0 character data already admitted by the stream
-  boundary. A type retains its owning type through list and union evaluation. Equality uses the admitted value space, including duration
+  evaluation tracks only depth and cumulative lexical work. Raw-byte attempts
+  and typed fallback share one work counter; a failed fast attempt does not
+  replenish the budget. Borrowed-byte validation consumes UTF-8 XML 1.0 character
+  data already admitted by the stream boundary. A type retains its owning type
+  through list and union evaluation. Equality uses the admitted value space,
+  including duration
   month/second coordinates and resolved QName names. Text projections do not
   define equality: duration has no XSD 1.0 canonical representation and retains
   its whitespace-normalized lexical spelling. Patterns in one restriction step
-  are alternatives; inherited restriction steps all apply. Schema declarations
-  retain only component metadata and value-program references; they do not
+  are alternatives; inherited restriction steps all apply. Enumeration on a
+  union propagates structural list demand into member evaluation, including
+  nested unions, before comparing typed values. Literal construction can omit
+  its containing type's facets while they are being installed; member and item
+  types always enforce their own facets, preserving normal value selection.
+  Fixed ordered facets use the nearest declaration of the same bound kind;
+  the complete inherited bound sequence remains available for partial orders.
+  Schema declarations retain only component metadata and value-program
+  references; they do not
   implement a second simple-value parser, facet evaluator, or equality model.
   Document identity is carried by each validated value: a union preserves the
   selected member's ID/IDREF projections, and a list collects its selected items'
   IDREFs. Static type identity metadata cannot replace these dynamic projections.
   Validation records them even when no key/unique/keyref field requested a value.
+  Fixed simple element values compare typed identity projections, including
+  durations with equivalent lexical spellings. Untyped mixed-content constraints retain
+  their distinct lexical comparison contract.
+  The g* identity projection uses the normalized instant and timezone presence,
+  matching typed equality independently of lexical calendar fields. QName
+  resolution produces one expanded name before NOTATION declaration checking
+  and typed assignment; absent namespace context cannot bypass that check.
+  Validation's string-interning gate uses a scalar value-owned query and does
+  not clone diagnostic type views or facet metadata.
 - `internal/xsdregex` owns XSD 1.0 whole-input pattern semantics. One parsed
   expression selects literal, linear, or NFA execution based on its structure.
   Compilation and matching have explicit work/state limits. XML input admission
   belongs to `internal/xmlstream`; match callers provide valid UTF-8 XML text.
+  Character classes merge sorted inputs through a heap of current ranges:
+  total input ranges R across K nonempty sets require O(R log K) work and
+  O(K + U) temporary storage for U output ranges, without retaining every
+  repeated input range. Unit-stride Unicode rows remain contiguous ranges.
+  A parser-local cache reuses admitted named categories and their complements;
+  its keys are bounded by both polarities of the closed category/block catalogs,
+  and it is released after compilation. No process-wide cache retains patterns.
 - `internal/validate` owns instance validation: finite default limits, option
   normalization, XML reader preflight, parser error classification, validation
   recovery, document structure, start/end element decisions, attributes,
@@ -254,14 +293,17 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   The tokenizer does not duplicate document topology.
   Only EOF at a token boundary completes a stream; EOF after consumed markup is
   an XML syntax error, while simultaneous non-EOF reader causes remain observable.
+  Source offsets count admitted bytes; an overflow probe belongs to the terminal
+  input-limit result and cannot shift spans of the admitted prefix. Terminal
+  input errors remain latched so later advances cannot read beyond that result.
   The same XML stream owner admits namespaces and detects duplicate expanded
   attributes. Its append-only binding chain owns retained immutable contexts;
   an active-prefix index is a reproducible frame-local projection. Retained
   namespace frames keep only the lexical closing name and a nonzero serial;
   handle store ownership remains validated against the owning stack before the
   serial is checked. Admission, rollback, end, and reset update these together.
-  Oversized maps and buffers are dropped at reset; bounded caches may remain for
-  session reuse. Each name/value cache admits at most 512 owned spellings of at
+  Oversized maps and buffers are dropped at reset and detach; bounded caches may
+  remain for session reuse. Each name/value cache admits at most 512 owned spellings of at
   most 256 bytes. A string map owns those spellings, and an eight-entry recent
   ring projects its values. Map keys and values share the same string storage;
   borrowed-byte lookups return that owned value without copying. Spellings
@@ -375,6 +417,11 @@ Validation flow:
    finalization is also evaluator-owned, including recoverable diagnostic
    reporting and the ordering of field completion, scope closure, ancestor
    invalidation, and path/stack release.
+   Published key tuples retain their originating scope depth through ancestor
+   propagation. A scope's local entry takes precedence over descendant entries;
+   conflicting descendant nodes remain ambiguous, and duplicate local entries
+   remain errors. Propagation merges smaller tables into larger ones without
+   changing that provenance or charging already admitted entries again.
    Element frames distinguish assessed nodes, nodes admitted by a
    `processContents="skip"` wildcard, and validation-recovery containment.
    Identity fields distinguish an absent field from a validated value and a
@@ -478,6 +525,10 @@ Diagnostics flow:
    category/code combinations. Aggregate construction owns its input, accessors
    do not expose mutable storage, and `xsderrors.Flatten` is the sole top-level
    presentation projection.
+   At diagnostic admission, known nil pointers and empty aggregate values or
+   pointers represent absence. Construction normalizes direct absent causes;
+   `xsderrors` traversal checks these shapes before invoking wrapper methods.
+   External wrappers retain their identity and cause chain.
 3. `xsderrors.WithLocation` is the only path/line/column decorator. Root `xsd`
    and formatter packages do not duplicate diagnostic types or codes.
 
@@ -627,6 +678,16 @@ graph preserves these ownership rules:
 - A generic matcher/evaluator interface was rejected because there is
   one implementation and one caller; it obscured the required transactional
   sequencing without creating a substitution boundary.
+- Canonical-text comparison for typed fixed values was rejected because
+  equivalent duration and timezone-normalized g* values can have different
+  lexical projections. Validation requests the value owner's identity
+  projection despite its allocation cost; it does not add datatype-specific
+  comparison rules or another parser.
+- Flattening repeated character-class ranges before merging was rejected
+  because temporary storage scales with repeated inputs rather than their
+  union. A range-head heap bounds that storage, accepting extra heap work.
+  A global named-category cache was rejected because compilation already owns
+  the required bounded lifetime; parser-local catalog caching suffices.
 - Linear live namespace lookup was rejected because repeated resolution through
   a deep binding chain amplifies declaration churn. A second authoritative map
   was also rejected because retained contexts require immutable binding history;
