@@ -852,18 +852,83 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	expectXSDLocation(t, got, "/root/ref", 12, 13)
 }
 
+func TestIdentityTableLocalEntryWinsPropagatedChildInEitherCompletionOrder(t *testing.T) {
+	t.Parallel()
+
+	const keyID xsdSchema.IdentityConstraintID = 1
+
+	t.Run("local before child", func(t *testing.T) {
+		t.Parallel()
+
+		var state identityState
+		startIdentityScope(t, &state, []xsdSchema.IdentityConstraintID{keyID}, 1, "/root")
+		startIdentityScope(t, &state, []xsdSchema.IdentityConstraintID{keyID}, 2, "/root/root")
+		parentDepth := state.scopes[0].depth
+		childDepth := state.scopes[1].depth
+		state.scopes[0].tables = map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry{
+			keyID: {"x": {path: explicitRetainedPath("/root"), node: 1, originDepth: parentDepth}},
+		}
+		state.scopes[1].tables = map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry{
+			keyID: {"x": {path: explicitRetainedPath("/root/root"), node: 2, originDepth: childDepth}},
+		}
+
+		state.mergeClosedIdentityScope(&state.scopes[1])
+		got := state.scopes[0].tables[keyID]["x"]
+		if got.originDepth != parentDepth || got.node != 1 || got.conflict {
+			t.Fatalf("merged local entry = %+v, want parent origin depth/node and no conflict", got)
+		}
+	})
+
+	t.Run("child before local", func(t *testing.T) {
+		t.Parallel()
+
+		var state identityState
+		startIdentityScope(t, &state, []xsdSchema.IdentityConstraintID{keyID}, 1, "/root")
+		startIdentityScope(t, &state, []xsdSchema.IdentityConstraintID{keyID}, 2, "/root/root")
+		parentDepth := state.scopes[0].depth
+		childDepth := state.scopes[1].depth
+		state.scopes[1].tables = map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry{
+			keyID: {"x": {path: explicitRetainedPath("/root/root"), node: 2, originDepth: childDepth}},
+		}
+		state.entries = 1
+		state.mergeClosedIdentityScope(&state.scopes[1])
+
+		err := state.publishIdentityKey(
+			&state.scopes[0],
+			identitySelection{constraint: keyID, depth: 1, node: 1},
+			"x",
+			identityLimits{},
+			identityTestContext("/root", 2, 3),
+		)
+		if err != nil {
+			t.Fatalf("publishIdentityKey() error = %v", err)
+		}
+		got := state.scopes[0].tables[keyID]["x"]
+		if got.originDepth != parentDepth || got.node != 1 || got.conflict {
+			t.Fatalf("published local entry = %+v, want parent origin depth/node and no conflict", got)
+		}
+		if state.entries != 2 {
+			t.Fatalf("entries = %d, want child and local tuples counted separately", state.entries)
+		}
+	})
+}
+
 func TestMergeIdentityTableUsesLargerMapWithoutChangingParentPrecedence(t *testing.T) {
 	t.Parallel()
-	parentEntry := identityTableEntry{path: explicitRetainedPath("/parent"), node: 1}
+	const (
+		parentDepth = 1
+		childDepth  = 2
+	)
+	parentEntry := identityTableEntry{path: explicitRetainedPath("/parent"), node: 1, originDepth: parentDepth}
 	parent := map[string]identityTableEntry{
 		"same": parentEntry,
 	}
 	child := map[string]identityTableEntry{
-		"same":   {path: explicitRetainedPath("/child"), node: 1},
-		"other1": {path: explicitRetainedPath("/child/1"), node: 2},
-		"other2": {path: explicitRetainedPath("/child/2"), node: 3},
+		"same":   {path: explicitRetainedPath("/child"), node: 1, originDepth: childDepth},
+		"other1": {path: explicitRetainedPath("/child/1"), node: 2, originDepth: childDepth},
+		"other2": {path: explicitRetainedPath("/child/2"), node: 3, originDepth: childDepth},
 	}
-	merged := mergeIdentityTable(parent, child)
+	merged := mergeIdentityTable(parent, child, parentDepth)
 	if got := merged["same"]; got != parentEntry {
 		t.Fatalf("same-node entry = %+v, want parent entry", got)
 	}
@@ -871,14 +936,15 @@ func TestMergeIdentityTableUsesLargerMapWithoutChangingParentPrecedence(t *testi
 		t.Fatalf("merged table len = %d, want 3", len(merged))
 	}
 
-	parentEntry = identityTableEntry{path: explicitRetainedPath("/parent"), node: 1}
+	parentEntry = identityTableEntry{path: explicitRetainedPath("/parent"), node: 1, originDepth: childDepth}
 	conflict := mergeIdentityTable(
 		map[string]identityTableEntry{"same": parentEntry},
 		map[string]identityTableEntry{
-			"same":   {path: explicitRetainedPath("/child"), node: 2},
-			"other1": {node: 3},
-			"other2": {node: 4},
+			"same":   {path: explicitRetainedPath("/child"), node: 2, originDepth: childDepth},
+			"other1": {node: 3, originDepth: childDepth},
+			"other2": {node: 4, originDepth: childDepth},
 		},
+		parentDepth,
 	)
 	parentEntry.conflict = true
 	if got := conflict["same"]; got != parentEntry {

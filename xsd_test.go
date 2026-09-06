@@ -1010,6 +1010,36 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 	}
 }
 
+func TestRecursiveIdentityLocalKeyShadowsPropagatedChildEntries(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence><xs:element ref="root" minOccurs="0" maxOccurs="unbounded"/></xs:sequence>
+      <xs:attribute name="id" type="xs:string" use="required"/>
+      <xs:attribute name="ref" type="xs:string"/>
+    </xs:complexType>
+    <xs:key name="ids"><xs:selector xpath="."/><xs:field xpath="@id"/></xs:key>
+    <xs:keyref name="refs" refer="ids"><xs:selector xpath="."/><xs:field xpath="@ref"/></xs:keyref>
+  </xs:element>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("recursive-identity.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	valid := `<root id="x" ref="x"><root id="x"/><root id="x"/></root>`
+	if err = engine.Validate(strings.NewReader(valid)); err != nil {
+		t.Fatalf("Validate(recursive local key) error = %v", err)
+	}
+
+	invalid := `<root id="x" ref="missing"><root id="x"/><root id="x"/></root>`
+	err = engine.Validate(strings.NewReader(invalid))
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
+	if !errorTreeContains(err, "keyref does not resolve") {
+		t.Fatalf("Validate(recursive unresolved keyref) error = %v, want keyref diagnostic", err)
+	}
+}
+
 func TestFixedAttributeConstraintComparisonUsesItsSchemaOwner(t *testing.T) {
 	const schemaPrefix = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:test" targetNamespace="urn:test" elementFormDefault="qualified">
   <xs:attribute name="v" type="xs:duration" fixed="P1Y"/>`

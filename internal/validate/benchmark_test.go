@@ -70,8 +70,10 @@ func BenchmarkNestedIdentityTablePropagation(b *testing.B) {
 			for b.Loop() {
 				scopes := make([]identityScope, depth)
 				for i := range scopes {
+					scopeDepth := i + 1
+					scopes[i].depth = scopeDepth
 					scopes[i].tables = map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry{
-						constraint: {keys[i]: {node: uint64(i + 1)}},
+						constraint: {keys[i]: {node: uint64(scopeDepth), originDepth: scopeDepth}},
 					}
 				}
 				state := identityState{scopes: scopes}

@@ -138,12 +138,16 @@ type identityScope struct {
 	invalid     bool
 }
 
-// identityTableEntry records where a key tuple was first seen. Conflict marks
-// tuples propagated from child scopes with differing selected nodes.
+// identityTableEntry records where a key tuple was first seen. originDepth is
+// the immutable depth of the scope that published the tuple; it remains
+// unchanged when the entry is propagated to an ancestor. Conflict marks tuples
+// for which all retained candidates came from descendant scopes with differing
+// nodes.
 type identityTableEntry struct {
-	path     retainedPath
-	node     uint64
-	conflict bool
+	path        retainedPath
+	node        uint64
+	originDepth int
+	conflict    bool
 }
 
 type identityTupleRef struct {
@@ -581,12 +585,23 @@ func (s *identityState) publishIdentityKey(scope *identityScope, sel identitySel
 		scope.tables[sel.constraint] = table
 	}
 	if prev, exists := table[key]; exists {
-		return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "duplicate identity value first seen at "+prev.path.String())
+		if prev.originDepth == scope.depth {
+			return validation(StartContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, "duplicate identity value first seen at "+prev.path.String())
+		}
+		// A local entry takes precedence over an entry propagated from a
+		// descendant. The descendant entry has already consumed its own
+		// identity-entry budget; this publication is a distinct identity fact
+		// and must consume another entry before replacing the table slot.
+		if err := s.reserveEntry(key, limits, ctx); err != nil {
+			return err
+		}
+		table[key] = identityTableEntry{path: sel.retainedPath(ctx), node: sel.node, originDepth: scope.depth}
+		return nil
 	}
 	if err := s.reserveEntry(key, limits, ctx); err != nil {
 		return err
 	}
-	table[key] = identityTableEntry{path: sel.retainedPath(ctx), node: sel.node}
+	table[key] = identityTableEntry{path: sel.retainedPath(ctx), node: sel.node, originDepth: scope.depth}
 	return nil
 }
 
@@ -699,11 +714,11 @@ func mergeIdentityTables(dst, src *identityScope) {
 			dst.tables[id] = srcTable
 			continue
 		}
-		dst.tables[id] = mergeIdentityTable(dstTable, srcTable)
+		dst.tables[id] = mergeIdentityTable(dstTable, srcTable, dst.depth)
 	}
 }
 
-func mergeIdentityTable(parent, child map[string]identityTableEntry) map[string]identityTableEntry {
+func mergeIdentityTable(parent, child map[string]identityTableEntry, parentDepth int) map[string]identityTableEntry {
 	if len(parent) >= len(child) {
 		for key, childEntry := range child {
 			parentEntry, exists := parent[key]
@@ -711,7 +726,7 @@ func mergeIdentityTable(parent, child map[string]identityTableEntry) map[string]
 				parent[key] = childEntry
 				continue
 			}
-			parent[key] = mergeIdentityTableEntry(parentEntry, childEntry)
+			parent[key] = mergeIdentityTableEntry(parentEntry, childEntry, parentDepth)
 		}
 		return parent
 	}
@@ -721,13 +736,16 @@ func mergeIdentityTable(parent, child map[string]identityTableEntry) map[string]
 			child[key] = parentEntry
 			continue
 		}
-		child[key] = mergeIdentityTableEntry(parentEntry, childEntry)
+		child[key] = mergeIdentityTableEntry(parentEntry, childEntry, parentDepth)
 	}
 	return child
 }
 
-func mergeIdentityTableEntry(parent, child identityTableEntry) identityTableEntry {
-	if !parent.conflict && (child.conflict || parent.node != child.node) {
+func mergeIdentityTableEntry(parent, child identityTableEntry, parentDepth int) identityTableEntry {
+	if parent.originDepth == parentDepth {
+		return parent
+	}
+	if parent.conflict || child.conflict || parent.node != child.node {
 		parent.conflict = true
 	}
 	return parent
