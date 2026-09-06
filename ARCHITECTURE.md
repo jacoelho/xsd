@@ -166,7 +166,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   `xml:base` projection, document-local IDs, and source positions. Syntax-only
   grammar nodes may carry only those common facts. Each variant owns its complete capability facts;
   particle data is embedded in the element, model, group, or wildcard variant
-  that admits it. Its syntax admission facts are transient and are never used
+  that admits it. Simple-type declarations retain name and final constraints;
+  their base, list-item, union-member, and complex-content facts belong to
+  distinct child variants. Its syntax admission facts are transient and are never used
   as a generic XML tree by compilation. Schema
   QName references resolve while their namespace frame is live; literal values
   and XPath expressions that are intentionally deferred retain only the bounded
@@ -220,6 +222,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   recovery, document structure, start/end element decisions, attributes,
   content, simple-content assessment, the concrete document-local identity
   evaluator and its lifecycle, XSI handling, and schemaLocation hint handling.
+  The document runner detaches its XML reader on every exit. Reusable sessions
+  clear remaining document state before releasing the overlap guard; that
+  cleanup does not repeat reader detachment.
 - `internal/format` owns repository-internal XML formatting and finite default
   input, token, processed-node, depth, and output bounds. Its output boundary
   rejects every incomplete `io.Writer` write, so success means the complete
@@ -229,8 +234,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   schema parsing, instance validation, and formatting. Its parser owns prolog
   preflight, the sole input buffer, XML 1.0 line-ending normalization and byte
   positions, and reader detachment for each stream. `Reader.Next` returns one
-  reader-owned token pointer, invalidated by the next `Next`, `Reset`, or
-  `Detach`; admission and completion consume that same borrowed token. Literal CR and CRLF each
+  reader-owned, read-only token pointer. Advancing, `Reset`, and `Detach`
+  invalidate it; a rejected advance while admission is pending preserves it for
+  retry. Start and end admission consume that current token without accepting
+  caller-supplied copies. Literal CR and CRLF each
   advance one logical line in every parser mode; emitted payloads contain LF.
   Character-data tokens retain one stream-owned lexical origin: literal text,
   text containing references, or CDATA. Coalescing never erases reference origin.

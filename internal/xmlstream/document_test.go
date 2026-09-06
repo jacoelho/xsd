@@ -16,7 +16,7 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	}
 
 	rootToken := mustNextToken(t, &reader)
-	rootFrame, root, err := reader.Start(&rootToken.Start)
+	rootFrame, root, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	context := reader.Context()
 
 	childToken := mustNextToken(t, &reader)
-	childFrame, child, err := reader.Start(&childToken.Start)
+	childFrame, child, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,8 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	if got, ok := context.Lookup("p"); !ok || got != "urn:test" {
 		t.Fatalf("captured context Lookup(p) = %q, %v", got, ok)
 	}
-	if err := reader.MatchEnd(childFrame, mustNextToken(t, &reader).End); err != nil {
+	_ = mustNextToken(t, &reader)
+	if err := reader.MatchEnd(childFrame); err != nil {
 		t.Fatal(err)
 	}
 	if err := reader.CommitEnd(childFrame); err != nil {
@@ -54,7 +55,8 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	if reader.Depth() != 1 {
 		t.Fatalf("Depth after child = %d, want 1", reader.Depth())
 	}
-	if err := reader.MatchEnd(rootFrame, mustNextToken(t, &reader).End); err != nil {
+	_ = mustNextToken(t, &reader)
+	if err := reader.MatchEnd(rootFrame); err != nil {
 		t.Fatal(err)
 	}
 	if err := reader.CommitEnd(rootFrame); err != nil {
@@ -78,7 +80,7 @@ func TestReaderOwnsAndInvalidatesBorrowedToken(t *testing.T) {
 	}
 
 	start := mustNextToken(t, &reader)
-	frame, _, err := reader.Start(&start.Start)
+	frame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +91,7 @@ func TestReaderOwnsAndInvalidatesBorrowedToken(t *testing.T) {
 	if end.Kind != KindEnd {
 		t.Fatalf("current token kind = %v, want end", end.Kind)
 	}
-	if err := reader.End(frame, end.End); err != nil {
+	if err := reader.End(frame); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
@@ -143,19 +145,20 @@ func TestReaderRejectsDocumentTopologyAndOutsideRootData(t *testing.T) {
 	if err := reader.Reset(strings.NewReader(`<r/><s/>`), Config{}); err != nil {
 		t.Fatal(err)
 	}
-	root := mustNextToken(t, &reader)
-	frame, _, err := reader.Start(&root.Start)
+	_ = mustNextToken(t, &reader)
+	frame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.MatchEnd(frame, mustNextToken(t, &reader).End); err != nil {
+	_ = mustNextToken(t, &reader)
+	if err := reader.MatchEnd(frame); err != nil {
 		t.Fatal(err)
 	}
 	if err := reader.CommitEnd(frame); err != nil {
 		t.Fatal(err)
 	}
-	second := mustNextToken(t, &reader)
-	if _, _, err := reader.Start(&second.Start); !errors.Is(err, ErrMultipleRoots) {
+	_ = mustNextToken(t, &reader)
+	if _, _, err := reader.Start(); !errors.Is(err, ErrMultipleRoots) {
 		t.Fatalf("second root Start() = %v, want %v", err, ErrMultipleRoots)
 	}
 
@@ -211,8 +214,8 @@ func TestReaderBoundedDiscardChargesCommentPayloadWithoutRetainingIt(t *testing.
 			}); err != nil {
 				t.Fatal(err)
 			}
-			root := mustNextToken(t, &reader)
-			if _, _, err := reader.Start(&root.Start); err != nil {
+			_ = mustNextToken(t, &reader)
+			if _, _, err := reader.Start(); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := reader.Next(); err == nil || !IsTokenLimit(err) {
@@ -230,8 +233,8 @@ func TestReaderDiscardCommentModeDoesNotRetainOrChargePayload(t *testing.T) {
 	if err := reader.Reset(strings.NewReader(`<r><!--12345--></r>`), Config{Limits: Limits{MaxTokenBytes: 4}}); err != nil {
 		t.Fatal(err)
 	}
-	root := mustNextToken(t, &reader)
-	frame, _, err := reader.Start(&root.Start)
+	_ = mustNextToken(t, &reader)
+	frame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +242,7 @@ func TestReaderDiscardCommentModeDoesNotRetainOrChargePayload(t *testing.T) {
 	if end.Kind != KindEnd {
 		t.Fatalf("token kind = %v, want end after discarded comment", end.Kind)
 	}
-	if err := reader.End(frame, end.End); err != nil {
+	if err := reader.End(frame); err != nil {
 		t.Fatal(err)
 	}
 	if cap(reader.parser.directive) != 0 {
@@ -260,8 +263,8 @@ func TestReaderNamespaceAdmissionRollsBackAndRejectsDuplicateExpandedAttributes(
 	if err := reader.Reset(strings.NewReader(`<r xmlns:a="urn" xmlns:b="urn" a:x="1" b:x="2"/>`), Config{}); err != nil {
 		t.Fatal(err)
 	}
-	tok := mustNextToken(t, &reader)
-	if _, _, err := reader.Start(&tok.Start); err == nil {
+	_ = mustNextToken(t, &reader)
+	if _, _, err := reader.Start(); err == nil {
 		t.Fatal("Start() accepted duplicate expanded attributes")
 	} else {
 		var boundaryErr *Error
@@ -282,8 +285,8 @@ func TestReaderAbortStartAndResetInvalidateFrames(t *testing.T) {
 	if err := reader.Reset(strings.NewReader(`<r xmlns:p="urn"><p:c/></r>`), Config{}); err != nil {
 		t.Fatal(err)
 	}
-	root := mustNextToken(t, &reader)
-	frame, _, err := reader.Start(&root.Start)
+	_ = mustNextToken(t, &reader)
+	frame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,16 +312,16 @@ func TestReaderDepthAndParserLimitsAreTyped(t *testing.T) {
 	if err := reader.Reset(strings.NewReader(`<r><c/></r>`), Config{Limits: Limits{MaxDepth: 1}}); err != nil {
 		t.Fatal(err)
 	}
-	root := mustNextToken(t, &reader)
-	_, element, err := reader.Start(&root.Start)
+	_ = mustNextToken(t, &reader)
+	_, element, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if element.Name.Local != "r" {
 		t.Fatalf("root expanded name = %+v", element.Name)
 	}
-	child := mustNextToken(t, &reader)
-	if _, _, err := reader.Start(&child.Start); err == nil {
+	_ = mustNextToken(t, &reader)
+	if _, _, err := reader.Start(); err == nil {
 		t.Fatal("Start() accepted depth beyond limit")
 	} else {
 		boundaryErr, ok := errors.AsType[*Error](err)
@@ -359,7 +362,7 @@ func TestReaderMaterializesBorrowedAttributeBeforeAdvance(t *testing.T) {
 	if !ok || value != "value" {
 		t.Fatalf("MaterializeValue() = %q, %v", value, ok)
 	}
-	if _, _, err := reader.Start(&tok.Start); err != nil {
+	if _, _, err := reader.Start(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -384,7 +387,7 @@ func TestReaderSkipsOrdinaryAttributeValuesWhileRetainingNamespaceValues(t *test
 			t.Fatalf("retained attribute %d RawValue() = %q, %v; want retained value", index, raw, ok)
 		}
 	}
-	if _, _, err := reader.Start(&tok.Start); err != nil {
+	if _, _, err := reader.Start(); err != nil {
 		t.Fatalf("Start() = %v", err)
 	}
 }
@@ -449,12 +452,12 @@ func TestReaderSkipOrdinaryAttrValuesValidatesReferencesAndUTF8(t *testing.T) {
 			if raw, ok := tok.Start.Attr[0].RawValue(); ok || raw != nil {
 				t.Fatalf("ordinary attribute RawValue() = %q, %v; want no retained value", raw, ok)
 			}
-			handle, _, err := reader.Start(&tok.Start)
+			handle, _, err := reader.Start()
 			if err != nil {
 				t.Fatal(err)
 			}
-			end := mustNextToken(t, &reader)
-			if err := reader.End(handle, end.End); err != nil {
+			_ = mustNextToken(t, &reader)
+			if err := reader.End(handle); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := reader.Next(); !errors.Is(err, io.EOF) {
@@ -482,27 +485,27 @@ func TestReaderSkipOrdinaryAttrValuesRetainsNamespaceInputs(t *testing.T) {
 	if raw, ok := root.Start.Attr[1].RawValue(); !ok || string(raw) != "preserve" {
 		t.Fatalf("xml:space RawValue() = %q, %v; want preserve", raw, ok)
 	}
-	rootHandle, _, err := reader.Start(&root.Start)
+	rootHandle, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if uri, ok := reader.Lookup("p"); !ok || uri != "urn:&test" {
 		t.Fatalf("Lookup(p) = %q, %v; want decoded namespace URI", uri, ok)
 	}
-	child := mustNextToken(t, &reader)
-	childHandle, childElement, err := reader.Start(&child.Start)
+	_ = mustNextToken(t, &reader)
+	childHandle, childElement, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if childElement.Name != (xml.Name{Space: "urn:&test", Local: "c"}) {
 		t.Fatalf("child expanded name = %+v", childElement.Name)
 	}
-	childEnd := mustNextToken(t, &reader)
-	if err := reader.End(childHandle, childEnd.End); err != nil {
+	_ = mustNextToken(t, &reader)
+	if err := reader.End(childHandle); err != nil {
 		t.Fatal(err)
 	}
-	rootEnd := mustNextToken(t, &reader)
-	if err := reader.End(rootHandle, rootEnd.End); err != nil {
+	_ = mustNextToken(t, &reader)
+	if err := reader.End(rootHandle); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
@@ -521,8 +524,8 @@ func TestReaderSkipOrdinaryAttrValuesStillChecksExpandedDuplicates(t *testing.T)
 	}); err != nil {
 		t.Fatal(err)
 	}
-	tok := mustNextToken(t, &reader)
-	if _, _, err := reader.Start(&tok.Start); err == nil {
+	_ = mustNextToken(t, &reader)
+	if _, _, err := reader.Start(); err == nil {
 		t.Fatal("Start() accepted duplicate expanded attributes")
 	} else {
 		var boundaryErr *Error
@@ -560,46 +563,40 @@ func TestReaderRequiresExplicitTokenTransitions(t *testing.T) {
 	if err := reader.Reset(strings.NewReader(`<r><c/></r>`), Config{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := reader.Start(&StartElement{}); !errors.Is(err, ErrPendingStart) {
+	if _, _, err := reader.Start(); !errors.Is(err, ErrPendingStart) {
 		t.Fatalf("Start without token = %v, want %v", err, ErrPendingStart)
 	}
-	root := mustNextToken(t, &reader)
-	rootStart := root.Start
+	_ = mustNextToken(t, &reader)
 	if _, err := reader.Next(); !errors.Is(err, ErrPendingStart) {
 		t.Fatalf("Next before Start = %v, want %v", err, ErrPendingStart)
 	}
-	rootFrame, _, err := reader.Start(&rootStart)
+	rootFrame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, startErr := reader.Start(&rootStart); !errors.Is(startErr, ErrPendingStart) {
+	if _, _, startErr := reader.Start(); !errors.Is(startErr, ErrPendingStart) {
 		t.Fatalf("repeated Start = %v, want %v", startErr, ErrPendingStart)
 	}
-	child := mustNextToken(t, &reader)
-	childFrame, _, err := reader.Start(&child.Start)
+	_ = mustNextToken(t, &reader)
+	childFrame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	childEnd := mustNextToken(t, &reader)
-	childEndValue := childEnd.End
+	_ = mustNextToken(t, &reader)
 	if _, err := reader.Next(); !errors.Is(err, ErrPendingEnd) {
 		t.Fatalf("Next before MatchEnd = %v, want %v", err, ErrPendingEnd)
 	}
 	if err := reader.CommitEnd(childFrame); !errors.Is(err, ErrPendingEnd) {
 		t.Fatalf("CommitEnd before MatchEnd = %v, want %v", err, ErrPendingEnd)
 	}
-	wrong := EndElement{Name: xml.Name{Local: "wrong"}}
-	if err := reader.MatchEnd(childFrame, wrong); !errors.Is(err, ErrEndTokenChanged) {
-		t.Fatalf("MatchEnd with changed token = %v, want %v", err, ErrEndTokenChanged)
-	}
-	if err := reader.MatchEnd(childFrame, childEndValue); err != nil {
+	if err := reader.MatchEnd(childFrame); err != nil {
 		t.Fatal(err)
 	}
 	if err := reader.CommitEnd(childFrame); err != nil {
 		t.Fatal(err)
 	}
-	rootEnd := mustNextToken(t, &reader)
-	if err := reader.MatchEnd(rootFrame, rootEnd.End); err != nil {
+	_ = mustNextToken(t, &reader)
+	if err := reader.MatchEnd(rootFrame); err != nil {
 		t.Fatal(err)
 	}
 	if err := reader.CommitEnd(rootFrame); err != nil {
@@ -612,8 +609,8 @@ func TestReaderKeepsSyntaxFrameAfterAdvanceForRecovery(t *testing.T) {
 	if err := reader.Reset(strings.NewReader(`<r><child/></r>`), Config{}); err != nil {
 		t.Fatal(err)
 	}
-	root := mustNextToken(t, &reader)
-	rootFrame, _, err := reader.Start(&root.Start)
+	_ = mustNextToken(t, &reader)
+	rootFrame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -627,8 +624,8 @@ func TestReaderKeepsSyntaxFrameAfterAdvanceForRecovery(t *testing.T) {
 	if resetErr := reader.Reset(strings.NewReader(`<r><child/></r>`), Config{}); resetErr != nil {
 		t.Fatal(resetErr)
 	}
-	root = mustNextToken(t, &reader)
-	rootFrame, _, err = reader.Start(&root.Start)
+	_ = mustNextToken(t, &reader)
+	rootFrame, _, err = reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -136,10 +136,9 @@ func (d *xmlDocument[P]) clearCurrentPayload() {
 
 func (d *xmlDocument[P]) PrepareStart(
 	reader *xmlstream.Reader,
-	start xmlstream.StartElement,
 	line, col int,
 ) (preparedXMLStart, error) {
-	handle, element, err := reader.Start(&start)
+	handle, element, err := reader.Start()
 	if err != nil {
 		if errors.Is(err, xmlstream.ErrMultipleRoots) {
 			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, "multiple root elements")
@@ -178,12 +177,12 @@ func (*xmlDocument[P]) AbortStart(reader *xmlstream.Reader, start preparedXMLSta
 	return reader.AbortStart(start.handle)
 }
 
-func (d *xmlDocument[P]) ValidateEnd(reader *xmlstream.Reader, end xmlstream.EndElement, line, col int) error {
+func (d *xmlDocument[P]) ValidateEnd(reader *xmlstream.Reader, line, col int) error {
 	if d.Depth() == 0 {
 		return validation(d.context(line, col), xsderrors.CodeValidationXML, "unexpected end element")
 	}
 
-	if err := reader.MatchEnd(d.elements[len(d.elements)-1].handle, end); err != nil {
+	if err := reader.MatchEnd(d.elements[len(d.elements)-1].handle); err != nil {
 		return validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
 	return nil

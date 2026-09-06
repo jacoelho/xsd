@@ -149,6 +149,7 @@ func (s *session) validate(r io.Reader) error {
 	if s == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
+	// The reader owns borrowed token lifetimes; detach before any caller guard is released.
 	defer s.reader.Detach()
 	if s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
@@ -212,7 +213,7 @@ func (s *session) validateToken(tok *xmlstream.Token, mode tokenValidationMode) 
 	case xmlstream.KindStart:
 		return s.start(tok.Line, tok.Column, tok.Start)
 	case xmlstream.KindEnd:
-		return s.end(tok.Line, tok.Column, tok.End)
+		return s.end(tok.Line, tok.Column)
 	case xmlstream.KindCharData:
 		return s.validateCharacterToken(tok, mode)
 	case xmlstream.KindDirective:
@@ -256,12 +257,11 @@ func (s *session) finishValidation() error {
 	return s.result()
 }
 
-// reset rebuilds the per-document state. Fields named in the literal recycle
-// bounded capacity from the previous document; every other documentState
+// reset rebuilds document state after validate detaches the XML reader.
+// Fields named in the literal recycle bounded capacity; every other documentState
 // field is zeroed by the literal itself, so omitting a field can never leak
 // state across documents.
 func (s *session) reset() {
-	s.reader.Detach()
 	s.derivationScratch.Reset(maxRetainedMapLen)
 	s.valueScratch.Reset(maxRetainedSliceCap)
 	// Identity values point into the document-owned retained-path store.
@@ -539,10 +539,10 @@ func (t *sessionStartTransaction) restoreRecoveryState() {
 
 func (s *session) start(line, col int, token xmlstream.StartElement) error {
 	if s.doc.syntaxOnly {
-		return s.syntaxStart(line, col, token)
+		return s.syntaxStart(line, col)
 	}
 	xmlCheckpoint := s.doc.startCheckpoint()
-	se, err := s.doc.PrepareStart(&s.reader, token, line, col)
+	se, err := s.doc.PrepareStart(&s.reader, line, col)
 	if err != nil {
 		return err
 	}
@@ -717,8 +717,8 @@ func (s *session) validateStartAttributes(start schemaStart, attrs []xmlstream.A
 	}
 }
 
-func (s *session) syntaxStart(line, col int, token xmlstream.StartElement) error {
-	start, err := s.doc.PrepareStart(&s.reader, token, line, col)
+func (s *session) syntaxStart(line, col int) error {
+	start, err := s.doc.PrepareStart(&s.reader, line, col)
 	if err != nil {
 		return err
 	}

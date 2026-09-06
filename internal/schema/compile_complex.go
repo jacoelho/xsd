@@ -382,12 +382,12 @@ func (c *compiler) complexContentBase(child *schemaNode, kind ContentDerivationK
 }
 
 func (c *compiler) contentDerivationBaseQName(container string, kind ContentDerivationKind, child *schemaNode, ctx *schemaContext) (QName, error) {
-	source := child.semantic.derivation()
-	if source == nil {
+	baseSource, ok := child.semantic.derivationBase()
+	if !ok {
 		return QName{}, withSchemaCompileLocation(child, xsderrors.InternalInvariant("derivation node has no typed derivation source"))
 	}
-	baseLex, ok := source.Base.Lexical.Value, source.Base.Lexical.Present
-	base := ContentDerivationBase{Container: container, Derivation: kind.String(), Lexical: baseLex, Present: ok}
+	baseLex, present := baseSource.Lexical.Value, baseSource.Lexical.Present
+	base := ContentDerivationBase{Container: container, Derivation: kind.String(), Lexical: baseLex, Present: present}
 	if err := checkContentDerivationBase(child, base); err != nil {
 		return QName{}, err
 	}
@@ -571,16 +571,16 @@ func (c *compiler) resolveSimpleContentSource(n *schemaNode, ctx *schemaContext)
 	if err != nil {
 		return simpleContentSource{}, err
 	}
-	derivation := syntax.node.semantic.derivation()
-	if derivation == nil {
+	baseSource, ok := syntax.node.semantic.derivationBase()
+	if !ok {
 		return simpleContentSource{}, withSchemaCompileLocation(syntax.node, xsderrors.InternalInvariant("derivation node has no typed derivation source"))
 	}
-	baseLexical, ok := derivation.Base.Lexical.Value, derivation.Base.Lexical.Present
+	baseLexical, present := baseSource.Lexical.Value, baseSource.Lexical.Present
 	baseAttribute := ContentDerivationBase{
 		Container:  vocab.XSDElemSimpleContent,
 		Derivation: syntax.kind.String(),
 		Lexical:    baseLexical,
-		Present:    ok,
+		Present:    present,
 	}
 	if baseErr := checkContentDerivationBase(syntax.node, baseAttribute); baseErr != nil {
 		return simpleContentSource{}, baseErr

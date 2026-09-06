@@ -114,7 +114,7 @@ func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) erro
 		}
 		switch tok.Kind {
 		case xmlstream.KindStart:
-			handle, _, startErr := reader.Start(&tok.Start)
+			handle, _, startErr := reader.Start()
 			if startErr != nil {
 				return startErr
 			}
@@ -124,7 +124,7 @@ func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) erro
 				return errors.New("unexpected end element")
 			}
 			handle := frames[len(frames)-1]
-			if matchErr := reader.MatchEnd(handle, tok.End); matchErr != nil {
+			if matchErr := reader.MatchEnd(handle); matchErr != nil {
 				return matchErr
 			}
 			if commitErr := reader.CommitEnd(handle); commitErr != nil {

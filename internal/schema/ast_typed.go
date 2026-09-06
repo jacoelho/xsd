@@ -107,7 +107,7 @@ func (s *typedSchemaParseState) handleToken(tok *xmlstream.Token) error {
 	case xmlstream.KindStart:
 		return s.start(tok.Start, tok.Line, tok.Column)
 	case xmlstream.KindEnd:
-		return s.end(tok.End, tok.Line, tok.Column)
+		return s.end(tok.Line, tok.Column)
 	case xmlstream.KindCharData:
 		return s.chars(tok.Data, tok.TextKind, tok.Line, tok.Column)
 	case xmlstream.KindDirective:
@@ -125,7 +125,7 @@ func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col in
 	if err := s.validateStartLimits(start, line, col); err != nil {
 		return err
 	}
-	namespaceFrame, element, err := s.parser.Start(&start)
+	namespaceFrame, element, err := s.parser.Start()
 	if err != nil {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
 	}
@@ -193,6 +193,9 @@ func (s *typedSchemaParseState) admitTypedFrame(initial typedSchemaParseFrame, l
 }
 
 func prepareTypedStart(start *xmlstream.StartElement, element xmlstream.Element, limits Limits, line, col int) error {
+	// start is a by-value semantic view of the current token. Reader.Start has
+	// already expanded the shared attribute slice in place; only the copied
+	// element name is normalized here, and no borrowed token data is retained.
 	start.Name = element.Name
 	return checkSchemaStartElementLimitStream(*start, limits, line, col)
 }
@@ -421,13 +424,13 @@ func checkAnnotationEnvelopeStart(n *schemaSyntaxNode) error {
 	return nil
 }
 
-func (s *typedSchemaParseState) end(end xmlstream.EndElement, line, col int) error {
+func (s *typedSchemaParseState) end(line, col int) error {
 	if len(s.stack) == 0 {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "unexpected end element", nil)
 	}
 	index := len(s.stack) - 1
 	frame := &s.stack[index]
-	if err := s.parser.MatchEnd(frame.namespace, end); err != nil {
+	if err := s.parser.MatchEnd(frame.namespace); err != nil {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
 	}
 	if err := s.parser.CommitEnd(frame.namespace); err != nil {

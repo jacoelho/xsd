@@ -45,7 +45,7 @@ func FuzzReader(f *testing.F) {
 			}
 			switch tok.Kind {
 			case KindStart:
-				frame, _, err := reader.Start(&tok.Start)
+				frame, _, err := reader.Start()
 				if err != nil {
 					return
 				}
@@ -55,7 +55,7 @@ func FuzzReader(f *testing.F) {
 					return
 				}
 				frame := frames[len(frames)-1]
-				if err := reader.End(frame, tok.End); err != nil {
+				if err := reader.End(frame); err != nil {
 					return
 				}
 				frames = frames[:len(frames)-1]

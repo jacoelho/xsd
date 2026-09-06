@@ -172,11 +172,11 @@ func TestSessionStartStagesParentInvalidationUntilCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkpoint := s.doc.startCheckpoint()
-	tok, err := nextStartForTest(t, &s, testXMLStart(xml.Name{Local: "unexpected"}))
+	_, err := nextStartForTest(t, &s, testXMLStart(xml.Name{Local: "unexpected"}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, err := s.doc.PrepareStart(&s.reader, tok.Start, 2, 1)
+	prepared, err := s.doc.PrepareStart(&s.reader, 2, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

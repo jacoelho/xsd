@@ -461,7 +461,10 @@ func (e *identityEvaluation) beginStart() error {
 	clear(j.addedIDs)
 	clear(j.fieldUndos)
 	clear(j.scopeUndos)
-	*j = identityStartJournal{
+	j.addedIDs = j.addedIDs[:0]
+	j.fieldUndos = j.fieldUndos[:0]
+	j.scopeUndos = j.scopeUndos[:0]
+	j.identityStartCheckpoint = identityStartCheckpoint{
 		active:         true,
 		pathLen:        len(e.path),
 		elementsLen:    len(e.elements),
@@ -471,9 +474,6 @@ func (e *identityEvaluation) beginStart() error {
 		fieldValuesLen: len(e.fieldValues),
 		entries:        e.entries,
 		nextNodeID:     e.nextNodeID,
-		addedIDs:       j.addedIDs[:0],
-		fieldUndos:     j.fieldUndos[:0],
-		scopeUndos:     j.scopeUndos[:0],
 	}
 	return nil
 }
@@ -531,11 +531,10 @@ func (e *identityEvaluation) clearStartJournal() {
 	clear(j.addedIDs)
 	clear(j.fieldUndos)
 	clear(j.scopeUndos)
-	*j = identityStartJournal{
-		addedIDs:   j.addedIDs[:0],
-		fieldUndos: j.fieldUndos[:0],
-		scopeUndos: j.scopeUndos[:0],
-	}
+	j.addedIDs = j.addedIDs[:0]
+	j.fieldUndos = j.fieldUndos[:0]
+	j.scopeUndos = j.scopeUndos[:0]
+	j.identityStartCheckpoint = identityStartCheckpoint{}
 }
 
 func (e *identityEvaluation) startElement(in identityElementStart) error {

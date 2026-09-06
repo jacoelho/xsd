@@ -53,8 +53,9 @@ const (
 	CharacterDataCDATA
 )
 
-// Token is one borrowed parser token. Byte slices in token fields are valid
-// only until the next parser call.
+// Token is one borrowed parser token. Consumers must treat the token and its
+// fields as read-only. Byte slices in token fields are valid only until the
+// next parser call.
 type Token struct {
 	End       EndElement
 	Start     StartElement

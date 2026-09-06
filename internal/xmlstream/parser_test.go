@@ -102,8 +102,7 @@ func drainReader(reader *Reader) error {
 		}
 		switch tok.Kind {
 		case KindStart:
-			admit := tok.Start
-			handle, _, err := reader.Start(&admit)
+			handle, _, err := reader.Start()
 			if err != nil {
 				return err
 			}
@@ -113,7 +112,7 @@ func drainReader(reader *Reader) error {
 				return errors.New("unexpected end in test helper")
 			}
 			handle := handles[len(handles)-1]
-			if err := reader.MatchEnd(handle, tok.End); err != nil {
+			if err := reader.MatchEnd(handle); err != nil {
 				return err
 			}
 			if err := reader.CommitEnd(handle); err != nil {

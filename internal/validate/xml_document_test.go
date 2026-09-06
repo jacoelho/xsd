@@ -86,24 +86,24 @@ func (d *emptyXMLDocument) PrepareStart(start xmlstream.StartElement, _ *struct{
 	if err := d.ensureReader(start); err != nil {
 		return preparedXMLStart{}, err
 	}
-	tok, err := d.reader.Next()
+	_, err := d.reader.Next()
 	if err != nil {
 		return preparedXMLStart{}, err
 	}
-	return d.xmlDocument.PrepareStart(&d.reader, tok.Start, line, col)
+	return d.xmlDocument.PrepareStart(&d.reader, line, col)
 }
 
 func (d *emptyXMLDocument) ValidateEnd(end xmlstream.EndElement, line, col int) error {
 	if !d.ready {
-		return d.xmlDocument.ValidateEnd(&d.reader, end, line, col)
+		return d.xmlDocument.ValidateEnd(&d.reader, line, col)
 	}
 	d.input.offset = 0
 	d.input.data = appendTestXMLEndBytes(d.input.data[:0], end)
-	tok, err := d.reader.Next()
+	_, err := d.reader.Next()
 	if err != nil {
 		return err
 	}
-	if err := d.xmlDocument.ValidateEnd(&d.reader, tok.End, line, col); err != nil {
+	if err := d.xmlDocument.ValidateEnd(&d.reader, line, col); err != nil {
 		return err
 	}
 	d.endReady = true
@@ -133,7 +133,7 @@ func (d *emptyXMLDocument) CommitEnd() error {
 		if tok.Kind != xmlstream.KindEnd {
 			return errors.New("test XML input did not produce an end token")
 		}
-		if err := d.xmlDocument.ValidateEnd(&d.reader, tok.End, 0, 0); err != nil {
+		if err := d.xmlDocument.ValidateEnd(&d.reader, 0, 0); err != nil {
 			return err
 		}
 	}

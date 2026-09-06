@@ -424,8 +424,7 @@ func (a *formatAnalysis) collectStart(tok *xmlstream.Token) error {
 		inherited = a.stack[len(a.stack)-1].preserve
 	}
 	preserve := xmlSpacePreserve(tok.Start.Attr, inherited)
-	admit := tok.Start
-	handle, _, err := a.reader.Start(&admit)
+	handle, _, err := a.reader.Start()
 	if err != nil {
 		return readerBoundaryError(a.reader, err)
 	}
@@ -451,7 +450,7 @@ func (a *formatAnalysis) collectEnd(tok *xmlstream.Token) error {
 		return xmlFormatErr(tok.Line, tok.Column, errors.New("unexpected end element"))
 	}
 	frame := &a.stack[len(a.stack)-1]
-	if err := a.reader.MatchEnd(frame.handle, tok.End); err != nil {
+	if err := a.reader.MatchEnd(frame.handle); err != nil {
 		return readerBoundaryError(a.reader, err)
 	}
 	if err := a.reader.CommitEnd(frame.handle); err != nil {

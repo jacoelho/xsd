@@ -69,9 +69,9 @@ func (c *xmlWellFormedChecker) finishTokenStream(err error) error {
 func (c *xmlWellFormedChecker) checkToken(tok *xmlstream.Token) error {
 	switch tok.Kind {
 	case xmlstream.KindStart:
-		return c.start(tok.Line, tok.Column, tok.Start)
+		return c.start(tok.Line, tok.Column)
 	case xmlstream.KindEnd:
-		return c.end(tok.Line, tok.Column, tok.End)
+		return c.end(tok.Line, tok.Column)
 	case xmlstream.KindCharData:
 		return c.chars(tok.Line, tok.Column, tok.Data, tok.TextKind)
 	case xmlstream.KindDirective:
@@ -83,8 +83,8 @@ func (c *xmlWellFormedChecker) checkToken(tok *xmlstream.Token) error {
 	return nil
 }
 
-func (c *xmlWellFormedChecker) start(line, col int, se xmlstream.StartElement) error {
-	translated, err := c.doc.PrepareStart(&c.reader, se, line, col)
+func (c *xmlWellFormedChecker) start(line, col int) error {
+	translated, err := c.doc.PrepareStart(&c.reader, line, col)
 	if err != nil {
 		return err
 	}
@@ -92,8 +92,8 @@ func (c *xmlWellFormedChecker) start(line, col int, se xmlstream.StartElement) e
 	return nil
 }
 
-func (c *xmlWellFormedChecker) end(line, col int, ee xmlstream.EndElement) error {
-	if err := c.doc.ValidateEnd(&c.reader, ee, line, col); err != nil {
+func (c *xmlWellFormedChecker) end(line, col int) error {
+	if err := c.doc.ValidateEnd(&c.reader, line, col); err != nil {
 		return err
 	}
 	return c.doc.CommitEnd(&c.reader)

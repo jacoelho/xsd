@@ -12,19 +12,19 @@ func TestReaderEndOwnershipErrorsRemainStateErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rootToken := mustNextToken(t, &reader)
-	rootFrame, _, err := reader.Start(&rootToken.Start)
+	_ = mustNextToken(t, &reader)
+	rootFrame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	childToken := mustNextToken(t, &reader)
-	childFrame, _, err := reader.Start(&childToken.Start)
+	_ = mustNextToken(t, &reader)
+	childFrame, _, err := reader.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	childEnd := mustNextToken(t, &reader)
+	_ = mustNextToken(t, &reader)
 
-	matchErr := reader.MatchEnd(rootFrame, childEnd.End)
+	matchErr := reader.MatchEnd(rootFrame)
 	if !errors.Is(matchErr, ErrInvalidFrame) {
 		t.Fatalf("MatchEnd with non-top frame = %v, want %v", matchErr, ErrInvalidFrame)
 	}
@@ -32,7 +32,7 @@ func TestReaderEndOwnershipErrorsRemainStateErrors(t *testing.T) {
 	if !ok || boundary.Kind != ErrorState {
 		t.Fatalf("MatchEnd error = %#v, want ErrorState", matchErr)
 	}
-	if err := reader.MatchEnd(childFrame, childEnd.End); err != nil {
+	if err := reader.MatchEnd(childFrame); err != nil {
 		t.Fatal(err)
 	}
 	commitErr := reader.CommitEnd(rootFrame)

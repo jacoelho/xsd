@@ -77,7 +77,6 @@ var (
 	ErrReaderState          = errors.New("XML reader is not active")
 	ErrPendingStart         = errors.New("XML start token must be admitted before advancing")
 	ErrPendingEnd           = errors.New("XML end token must be matched and committed before advancing")
-	ErrEndTokenChanged      = errors.New("XML end token changed before matching")
 )
 
 const defaultMaxRetained = 4096
@@ -99,7 +98,6 @@ const (
 )
 
 type pendingEvent struct {
-	end     EndElement
 	frame   frame
 	kind    pendingKind
 	matched bool
@@ -107,9 +105,11 @@ type pendingEvent struct {
 
 // Reader owns one XML tokenizer, namespace stack, document topology, and the
 // current borrowed token. It is reusable only through Reset after the previous
-// input has reached EOF or has been detached. A token pointer and its byte
-// fields remain valid through Start, MatchEnd, CommitEnd, and AbortStart; the
-// next Next, Reset, or Detach invalidates them.
+// input has reached EOF or has been detached. The pointer returned by Next and
+// its fields are borrowed and must be treated as read-only. They remain valid
+// through Start, MatchEnd, CommitEnd, and AbortStart; the next Next, Reset, or
+// Detach invalidates them. Start and end operations use the current token
+// owned by the Reader rather than caller-supplied token copies.
 type Reader struct {
 	names        cache
 	values       cache
@@ -126,9 +126,10 @@ type Reader struct {
 	active       bool
 }
 
-// Reset starts a new XML input with the supplied configuration. Invalid input
-// and configuration leave the reader detached but retain bounded scratch
-// storage for a later Reset.
+// Reset starts a new XML input with the supplied configuration. It invalidates
+// the current borrowed token and all namespace handles. Invalid input and
+// configuration leave the reader detached but retain bounded scratch storage
+// for a later Reset.
 func (r *Reader) Reset(input io.Reader, config Config) error {
 	return r.resetInput(input, config)
 }
@@ -190,21 +191,21 @@ func validateReaderLimits(limits Limits) error {
 
 // Next returns the reader-owned borrowed token. The pointer and all byte
 // fields remain valid until the next Next, Reset, or Detach. A start token must
-// be passed to Start, and an end token must pass MatchEnd followed by
+// be admitted with Start, and an end token must pass MatchEnd followed by
 // CommitEnd, before the next token can be acquired. On error or EOF, Next
-// returns a nil token. EOF is returned only at a token boundary; call Complete
-// after EOF to validate root state.
+// returns a nil token. A rejected Next while a start or end admission is
+// pending leaves the current token available for the required retry. EOF is
+// returned only at a token boundary; call Complete after EOF to validate root
+// state.
 func (r *Reader) Next() (*Token, error) {
 	if !r.active {
 		r.token = Token{}
 		return nil, &Error{Kind: ErrorState, Cause: ErrReaderState}
 	}
 	if r.pending.kind == pendingStart {
-		r.token = Token{}
 		return nil, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingStart}
 	}
 	if r.pending.kind == pendingEnd {
-		r.token = Token{}
 		return nil, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingEnd}
 	}
 	// A start transaction is abortable only until the parser advances. Once
@@ -235,7 +236,7 @@ func (r *Reader) acceptToken(tok *Token) error {
 	case KindStart:
 		r.pending = pendingEvent{kind: pendingStart}
 	case KindEnd:
-		r.pending = pendingEvent{kind: pendingEnd, end: tok.End}
+		r.pending = pendingEvent{kind: pendingEnd}
 		if r.ns.depth() == 0 {
 			return &Error{Kind: ErrorSyntax, Line: tok.Line, Column: tok.Column, Cause: ErrUnexpectedEnd}
 		}
@@ -289,15 +290,12 @@ func positionedParserError(err error, line, column int) error {
 // and adds one frame to the namespace stack. The returned frame can be
 // aborted immediately if a consumer's semantic admission fails. After the
 // next call to Next the syntax frame remains committed for recovery.
-func (r *Reader) Start(start *StartElement) (Handle, Element, error) {
+func (r *Reader) Start() (Handle, Element, error) {
 	if !r.active {
 		return Handle{}, Element{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
 	}
 	if r.pending.kind != pendingStart {
 		return Handle{}, Element{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingStart}
-	}
-	if start == nil {
-		return Handle{}, Element{}, &Error{Kind: ErrorSyntax, Line: r.lastLine, Column: r.lastColumn, Cause: errors.New("nil XML start element")}
 	}
 	if r.root == rootClosed && r.ns.depth() == 0 {
 		r.pending = pendingEvent{}
@@ -307,7 +305,7 @@ func (r *Reader) Start(start *StartElement) (Handle, Element, error) {
 		r.pending = pendingEvent{}
 		return Handle{}, Element{}, &Error{Kind: ErrorDepth, Line: r.lastLine, Column: r.lastColumn, Cause: fmt.Errorf("XML nesting exceeds %d element limit", r.limits.MaxDepth)}
 	}
-	namespace, element, err := r.ns.StartStream(start, &r.values)
+	namespace, element, err := r.ns.StartStream(&r.token.Start, &r.values)
 	if err != nil {
 		r.pending = pendingEvent{}
 		return Handle{}, Element{}, &Error{Kind: ErrorNamespace, Line: r.lastLine, Column: r.lastColumn, Cause: err}
@@ -322,23 +320,22 @@ func (r *Reader) Start(start *StartElement) (Handle, Element, error) {
 }
 
 // MatchEnd validates the current borrowed end token without changing document
-// state. CommitEnd must be called after this succeeds.
-func (r *Reader) MatchEnd(opaque Handle, end EndElement) error {
+// state. CommitEnd must be called after this succeeds. The current token is
+// owned by the Reader; callers must not replace or mutate it between Next and
+// this call.
+func (r *Reader) MatchEnd(opaque Handle) error {
 	if !r.active {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
 	}
 	if r.pending.kind != pendingEnd {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingEnd}
 	}
-	if r.pending.end.Name != end.Name {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrEndTokenChanged}
-	}
 	f := opaque.frame
 	current, err := r.ns.ownedTop(f)
 	if err != nil {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrInvalidFrame}
 	}
-	if err := r.ns.matchClosingName(current, Lexical(end.Name)); err != nil {
+	if err := r.ns.matchClosingName(current, Lexical(r.token.End.Name)); err != nil {
 		return &Error{Kind: ErrorSyntax, Line: r.lastLine, Column: r.lastColumn, Cause: err}
 	}
 	r.pending.frame = f
@@ -390,8 +387,8 @@ func (r *Reader) AbortStart(opaque Handle) error {
 
 // End combines MatchEnd and CommitEnd for consumers that do not need a
 // recovery checkpoint between the two transitions.
-func (r *Reader) End(opaque Handle, end EndElement) error {
-	if err := r.MatchEnd(opaque, end); err != nil {
+func (r *Reader) End(opaque Handle) error {
+	if err := r.MatchEnd(opaque); err != nil {
 		return err
 	}
 	return r.CommitEnd(opaque)

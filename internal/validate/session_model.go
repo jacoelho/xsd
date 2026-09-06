@@ -5,7 +5,6 @@ import (
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -75,8 +74,8 @@ func (s *session) recoverableChildIssue(line, col int, issue validationIssue) (a
 	return acceptedChild{start: recoverySchemaStart()}, validationFromIssue(s.startContext(line, col), issue)
 }
 
-func (s *session) end(line, col int, ee xmlstream.EndElement) error {
-	if err := s.doc.ValidateEnd(&s.reader, ee, line, col); err != nil {
+func (s *session) end(line, col int) error {
+	if err := s.doc.ValidateEnd(&s.reader, line, col); err != nil {
 		return err
 	}
 	if s.doc.syntaxOnly {

@@ -87,7 +87,7 @@ func endForTest(t *testing.T, s *session, line, col int, end xmlstream.EndElemen
 	if tok.Kind != xmlstream.KindEnd {
 		return errors.New("test XML input did not produce an end token")
 	}
-	return s.end(line, col, tok.End)
+	return s.end(line, col)
 }
 
 func resetSessionXMLReader(s *session, state *sessionXMLTestState) error {

@@ -100,8 +100,18 @@ type identityScopeUndo struct {
 // identityStartJournal records only mutations to state that predates the
 // current element. Appended state is restored from the captured lengths.
 //
-//nolint:govet // Slices are retained together across transactions.
+//nolint:govet // The embedded pointer-free checkpoint is reset independently of retained buffers.
 type identityStartJournal struct {
+	identityStartCheckpoint
+
+	addedIDs   []string
+	fieldUndos []identityFieldUndo
+	scopeUndos []identityScopeUndo
+}
+
+// Keep the checkpoint pointer-free: element transitions must not rewrite the
+// unchanged undo-buffer pointers while concurrent GC marking is active.
+type identityStartCheckpoint struct {
 	active         bool
 	pathLen        int
 	elementsLen    int
@@ -111,9 +121,6 @@ type identityStartJournal struct {
 	fieldValuesLen int
 	entries        int
 	nextNodeID     uint64
-	addedIDs       []string
-	fieldUndos     []identityFieldUndo
-	scopeUndos     []identityScopeUndo
 }
 
 type identityRef struct {

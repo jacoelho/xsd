@@ -115,12 +115,6 @@ func semanticCommonAttribute(source *schemaSemanticSource, local string) (Lexica
 			return kind.Global.Name, true
 		case vocab.XSDAttrFinal:
 			return kind.Final, true
-		case vocab.XSDAttrBase:
-			return kind.Base.Lexical, true
-		case vocab.XSDAttrItemType:
-			return kind.ItemType.Lexical, true
-		case vocab.XSDAttrMemberTypes:
-			return kind.MemberTypes.Lexical, true
 		}
 	case *schemaElementSource:
 		switch local {
@@ -181,15 +175,20 @@ func semanticCommonAttribute(source *schemaSemanticSource, local string) (Lexica
 		case vocab.XSDAttrFinal:
 			return kind.Final, true
 		}
-	case *schemaDerivationSource:
-		switch local {
-		case vocab.XSDAttrBase:
+	case *schemaBaseDerivationSource:
+		if local == vocab.XSDAttrBase {
 			return kind.Base.Lexical, true
-		case vocab.XSDAttrItemType:
+		}
+	case *schemaListDerivationSource:
+		if local == vocab.XSDAttrItemType {
 			return kind.ItemType.Lexical, true
-		case vocab.XSDAttrMemberTypes:
+		}
+	case *schemaUnionDerivationSource:
+		if local == vocab.XSDAttrMemberTypes {
 			return kind.MemberTypes.Lexical, true
-		case vocab.XSDAttrMixed:
+		}
+	case *schemaComplexContentSource:
+		if local == vocab.XSDAttrMixed {
 			return kind.Mixed, true
 		}
 	case *schemaModelSource:
@@ -352,11 +351,8 @@ type schemaGlobalSource struct {
 }
 
 type schemaSimpleTypeSource struct {
-	Global      schemaGlobalSource
-	MemberTypes schemaQNameListAttribute
-	Final       LexicalAttribute
-	Base        schemaQNameAttribute
-	ItemType    schemaQNameAttribute
+	Global schemaGlobalSource
+	Final  LexicalAttribute
 }
 
 type schemaFacetSource struct {
@@ -397,13 +393,20 @@ type schemaComplexTypeSource struct {
 	Final    LexicalAttribute
 }
 
-type schemaDerivationSource struct {
-	MemberTypes schemaQNameListAttribute
-	// Mixed belongs to xs:complexContent. Keeping it with the derivation
-	// container preserves that attribute without a generic source map.
-	Mixed    LexicalAttribute
-	Base     schemaQNameAttribute
+type schemaBaseDerivationSource struct {
+	Base schemaQNameAttribute
+}
+
+type schemaComplexContentSource struct {
+	Mixed LexicalAttribute
+}
+
+type schemaListDerivationSource struct {
 	ItemType schemaQNameAttribute
+}
+
+type schemaUnionDerivationSource struct {
+	MemberTypes schemaQNameListAttribute
 }
 
 // schemaParticleSource is shared by element/group/any and model-group
@@ -499,37 +502,30 @@ type schemaSemanticKind interface {
 	semanticKind()
 }
 
-func (*schemaComplexTypeSource) semanticKind()    {}
-func (*schemaReferenceSource) semanticKind()      {}
-func (*schemaNotationSource) semanticKind()       {}
-func (*schemaSimpleTypeSource) semanticKind()     {}
-func (*schemaFacetSource) semanticKind()          {}
-func (*schemaElementSource) semanticKind()        {}
-func (*schemaAttributeSource) semanticKind()      {}
-func (*schemaDocumentSource) semanticKind()       {}
-func (*schemaAttributeGroupSource) semanticKind() {}
-func (*schemaDerivationSource) semanticKind()     {}
-func (*schemaModelSource) semanticKind()          {}
-func (*schemaIdentitySource) semanticKind()       {}
-func (*schemaIdentityXPathSource) semanticKind()  {}
-func (*schemaWildcardSource) semanticKind()       {}
-func (*schemaGroupSource) semanticKind()          {}
+func (*schemaComplexTypeSource) semanticKind()     {}
+func (*schemaReferenceSource) semanticKind()       {}
+func (*schemaNotationSource) semanticKind()        {}
+func (*schemaSimpleTypeSource) semanticKind()      {}
+func (*schemaFacetSource) semanticKind()           {}
+func (*schemaElementSource) semanticKind()         {}
+func (*schemaAttributeSource) semanticKind()       {}
+func (*schemaDocumentSource) semanticKind()        {}
+func (*schemaAttributeGroupSource) semanticKind()  {}
+func (*schemaBaseDerivationSource) semanticKind()  {}
+func (*schemaComplexContentSource) semanticKind()  {}
+func (*schemaListDerivationSource) semanticKind()  {}
+func (*schemaUnionDerivationSource) semanticKind() {}
+func (*schemaModelSource) semanticKind()           {}
+func (*schemaIdentitySource) semanticKind()        {}
+func (*schemaIdentityXPathSource) semanticKind()   {}
+func (*schemaWildcardSource) semanticKind()        {}
+func (*schemaGroupSource) semanticKind()           {}
 
 func (s *schemaSemanticSource) complexType() *schemaComplexTypeSource {
 	if s == nil {
 		return nil
 	}
 	if v, ok := s.kind.(*schemaComplexTypeSource); ok {
-		return v
-	}
-	return nil
-}
-
-func (s *schemaSemanticSource) simpleType() *schemaSimpleTypeSource {
-	if s == nil {
-		return nil
-	}
-	if v, ok := s.kind.(*schemaSimpleTypeSource); ok {
 		return v
 	}
 	return nil
@@ -575,14 +571,34 @@ func (s *schemaSemanticSource) attributeGroup() *schemaAttributeGroupSource {
 	return nil
 }
 
-func (s *schemaSemanticSource) derivation() *schemaDerivationSource {
+func (s *schemaSemanticSource) derivationBase() (schemaQNameAttribute, bool) {
 	if s == nil {
-		return nil
+		return schemaQNameAttribute{}, false
 	}
-	if v, ok := s.kind.(*schemaDerivationSource); ok {
-		return v
+	if v, ok := s.kind.(*schemaBaseDerivationSource); ok {
+		return v.Base, true
 	}
-	return nil
+	return schemaQNameAttribute{}, false
+}
+
+func (s *schemaSemanticSource) derivationItemType() (schemaQNameAttribute, bool) {
+	if s == nil {
+		return schemaQNameAttribute{}, false
+	}
+	if v, ok := s.kind.(*schemaListDerivationSource); ok {
+		return v.ItemType, true
+	}
+	return schemaQNameAttribute{}, false
+}
+
+func (s *schemaSemanticSource) derivationMemberTypes() (schemaQNameListAttribute, bool) {
+	if s == nil {
+		return schemaQNameListAttribute{}, false
+	}
+	if v, ok := s.kind.(*schemaUnionDerivationSource); ok {
+		return v.MemberTypes, true
+	}
+	return schemaQNameListAttribute{}, false
 }
 
 func (s *schemaSemanticSource) model() *schemaModelSource {
@@ -772,8 +788,8 @@ func schemaGroupRef(n *schemaNode) (string, bool) {
 }
 
 func schemaListItemType(n *schemaNode) (string, bool) {
-	if source := n.semantic.derivation(); source != nil {
-		return source.ItemType.Lexical.Value, source.ItemType.Lexical.Present
+	if source, ok := n.semantic.derivationItemType(); ok {
+		return source.Lexical.Value, source.Lexical.Present
 	}
 	return "", false
 }
@@ -782,16 +798,13 @@ func (n *schemaNode) resolvedQName(lexical string) (xml.Name, bool) {
 	if n == nil {
 		return xml.Name{}, false
 	}
-	if name, ok := resolvedQNameSimpleType(n.semantic.simpleType(), lexical); ok {
-		return name, true
-	}
 	if name, ok := resolvedQNameElement(n.semantic.element(), lexical); ok {
 		return name, true
 	}
 	if name, ok := resolvedQNameAttribute(n.semantic.attribute(), lexical); ok {
 		return name, true
 	}
-	if name, ok := resolvedQNameDerivation(n.semantic.derivation(), lexical); ok {
+	if name, ok := resolvedQNameDerivation(&n.semantic, lexical); ok {
 		return name, true
 	}
 	if name, ok := resolvedQNameParticle(n.semantic.particle(), lexical); ok {
@@ -814,19 +827,6 @@ func resolvedQNameValue(value schemaQNameAttribute, lexical string) (xml.Name, b
 		return value.Name, true
 	}
 	return xml.Name{}, false
-}
-
-func resolvedQNameSimpleType(source *schemaSimpleTypeSource, lexical string) (xml.Name, bool) {
-	if source == nil {
-		return xml.Name{}, false
-	}
-	if name, ok := resolvedQNameValue(source.Base, lexical); ok {
-		return name, true
-	}
-	if name, ok := resolvedQNameValue(source.ItemType, lexical); ok {
-		return name, true
-	}
-	return resolvedQNameList(source.MemberTypes, lexical)
 }
 
 func resolvedQNameElement(source *schemaElementSource, lexical string) (xml.Name, bool) {
@@ -852,17 +852,20 @@ func resolvedQNameAttribute(source *schemaAttributeSource, lexical string) (xml.
 	return resolvedQNameValue(source.Type, lexical)
 }
 
-func resolvedQNameDerivation(source *schemaDerivationSource, lexical string) (xml.Name, bool) {
+func resolvedQNameDerivation(source *schemaSemanticSource, lexical string) (xml.Name, bool) {
 	if source == nil {
 		return xml.Name{}, false
 	}
-	if name, ok := resolvedQNameValue(source.Base, lexical); ok {
-		return name, true
+	switch source := source.kind.(type) {
+	case *schemaBaseDerivationSource:
+		return resolvedQNameValue(source.Base, lexical)
+	case *schemaListDerivationSource:
+		return resolvedQNameValue(source.ItemType, lexical)
+	case *schemaUnionDerivationSource:
+		return resolvedQNameList(source.MemberTypes, lexical)
+	default:
+		return xml.Name{}, false
 	}
-	if name, ok := resolvedQNameValue(source.ItemType, lexical); ok {
-		return name, true
-	}
-	return resolvedQNameList(source.MemberTypes, lexical)
 }
 
 func resolvedQNameParticle(source *schemaParticleSource, lexical string) (xml.Name, bool) {
@@ -1072,11 +1075,8 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 		}
 	case vocab.XSDElemSimpleType:
 		return &schemaSimpleTypeSource{
-			Global:      schemaGlobalSourceFor(n),
-			Final:       schemaLexicalAttributeSyntax(n, vocab.XSDAttrFinal),
-			Base:        qnames.base,
-			ItemType:    qnames.itemType,
-			MemberTypes: qnames.memberTypes,
+			Global: schemaGlobalSourceFor(n),
+			Final:  schemaLexicalAttributeSyntax(n, vocab.XSDAttrFinal),
 		}
 	case vocab.XSDElemElement:
 		//nolint:modernize // Keep the embedded particle owner explicit at construction.
@@ -1116,13 +1116,13 @@ func buildSemanticKind(n *schemaSyntaxNode, qnames *semanticQNameProjection) sch
 			Final:    schemaLexicalAttributeSyntax(n, vocab.XSDAttrFinal),
 		}
 	case vocab.XSDElemRestriction, vocab.XSDElemExtension:
-		return &schemaDerivationSource{Base: qnames.base}
+		return &schemaBaseDerivationSource{Base: qnames.base}
 	case vocab.XSDElemComplexContent:
-		return &schemaDerivationSource{Mixed: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMixed)}
+		return &schemaComplexContentSource{Mixed: schemaLexicalAttributeSyntax(n, vocab.XSDAttrMixed)}
 	case vocab.XSDElemList:
-		return &schemaDerivationSource{ItemType: qnames.itemType}
+		return &schemaListDerivationSource{ItemType: qnames.itemType}
 	case vocab.XSDElemUnion:
-		return &schemaDerivationSource{MemberTypes: qnames.memberTypes}
+		return &schemaUnionDerivationSource{MemberTypes: qnames.memberTypes}
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 		if n.Name.Local != vocab.XSDElemGroup {
 			kind := mustModelKindForLocal(n.Name.Local)
