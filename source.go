@@ -13,8 +13,9 @@ type SchemaSource struct {
 }
 
 // Resolver resolves schema include/import locations during compilation.
-// Returning only [xsderrors.ErrSchemaNotFound] reports an unavailable location;
-// any other error, including one joined with ErrSchemaNotFound, stops compilation.
+// Returning [xsderrors.ErrSchemaNotFound], wrapped or joined only with other
+// misses, reports an unavailable location and permits normal fallback resolution.
+// Any other failure, including one joined with a miss, stops compilation.
 // A successful result must have a non-empty source name.
 type Resolver interface {
 	ResolveSchema(base, location string) (SchemaSource, error)
@@ -66,6 +67,16 @@ func internalSchemaSource(src SchemaSource) source.Source { return src.src }
 func adaptPublicResolver(r Resolver) source.Resolver {
 	if r == nil {
 		return nil
+	}
+	switch resolver := r.(type) {
+	case ResolverFunc:
+		if resolver == nil {
+			return nil
+		}
+	case *ResolverFunc:
+		if resolver == nil || *resolver == nil {
+			return nil
+		}
 	}
 	return func(base, location string) (source.Source, error) {
 		src, err := r.ResolveSchema(base, location)

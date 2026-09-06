@@ -1,142 +1,236 @@
 # xsd
 
-Pure Go XML Schema 1.0 validator.
+Pure Go XML Schema 1.0 validator. Compile a schema once, then validate XML from
+an `io.Reader` without building a DOM or storing the full document.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for package ownership, lifecycle, data
-flow, failure behavior, resource bounds, and enforced dependency rules.
-
-The public API is intentionally small:
-
-- compile schemas once with `xsd.Compile`
-- pass reusable schema sources with `xsd.File`, `xsd.Bytes`, or `xsd.Open`
-- validate each XML document with `Engine.Validate`
-- reuse document-local state with `Engine.NewSession` when useful
-- inspect failures with `errors.AsType[*xsderrors.Error]`
-
-Validation is streaming. `Engine.Validate` consumes an `io.Reader`; it does not build a DOM or store the full instance document.
-
-`File` resolves local `xs:include` and `xs:import` `schemaLocation` values relative to each schema file, including inherited `xml:base`. XSD 1.0 extended URI references are validated after XLink escaping: a custom resolver receives the whitespace-normalized, unescaped location and composed base, while built-in generic and file fallback uses the escaped URI projection. A resolver success is authoritative. Fragment-bearing locations are offered to a custom resolver; built-in file and generic identity resolution cannot interpret fragments and treat those optional hints as unresolved. Arbitrary source names remain identities rather than being reinterpreted as URI references, including Unix paths containing `#` or `?`. `Bytes` copies caller-owned schema bytes into a reusable source. `Open` calls a repeatable opener during compilation, so schema byte limits govern the first read. `Bytes` and `Open` use only sources passed to `Compile` unless paired with a `Resolver`; a resolver-returned source must have a non-empty name, which becomes that document's identity. HTTP and network schema loading are not performed by default.
+Requires Go 1.27 or newer.
 
 ## Install
+
+In your Go module:
 
 ```sh
 go get github.com/jacoelho/xsd
 ```
 
-Import the package with the `xsd` alias:
+## Quickstart
+
+Save this as `main.go` and run `go run .`:
 
 ```go
-import xsd "github.com/jacoelho/xsd"
-```
+package main
 
-Diagnostics live in the `xsderrors` package:
+import (
+	"fmt"
+	"log"
+	"strings"
 
-```go
-import "github.com/jacoelho/xsd/xsderrors"
-```
-
-## Compile From Open
-
-```go
-schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:int"/>
-</xs:schema>`
-
-engine, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
-    return io.NopCloser(strings.NewReader(schema)), nil
-}))
-if err != nil {
-    return err
-}
-
-err = engine.Validate(strings.NewReader(`<root>7</root>`))
-if err != nil {
-    return err
-}
-```
-
-## Compile From Bytes
-
-```go
-schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:int"/>
-</xs:schema>`)
-
-engine, err := xsd.Compile(xsd.Bytes("schema.xsd", schema))
-if err != nil {
-    return err
-}
-```
-
-## Compile From File
-
-```go
-engine, err := xsd.Compile(xsd.File("schema.xsd"))
-if err != nil {
-    return err
-}
-
-f, err := os.Open("document.xml")
-if err != nil {
-    return err
-}
-defer f.Close()
-
-err = engine.Validate(f)
-if err != nil {
-    return err
-}
-```
-
-## Compile Options
-
-Use `CompileWithOptions` to override schema compile limits:
-
-```go
-schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:int"/>
-</xs:schema>`)
-
-engine, err := xsd.CompileWithOptions(
-    xsd.CompileOptions{
-        MaxSchemaDepth:                  256,
-        MaxSchemaAttributes:             256,
-        MaxSchemaTokenBytes:             4 << 20,
-        MaxSchemaSourceBytes:            64 << 20,
-        MaxSchemaSources:                1024,
-        MaxSchemaTotalBytes:             256 << 20,
-        MaxSchemaReferences:             16_384,
-        MaxSchemaDependencySteps:        1_000_000,
-        MaxSchemaTargetContexts:         4096,
-        MaxSchemaInstantiatedNodes:      1_000_000,
-        MaxSchemaNames:                  0,
-        MaxFiniteOccurs:                 1_000_000,
-        MaxContentModelStates:           16_384,
-        MaxContentModelAnalysisSteps:    16_777_216,
-        MaxSubstitutionClosureEntries:   1_000_000,
-        MaxSimpleUnionMemberEntries:     1_000_000,
-    },
-    xsd.Bytes("schema.xsd", schema),
+	"github.com/jacoelho/xsd"
 )
-if err != nil {
-    return err
+
+func main() {
+	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:int"/>
+</xs:schema>`)
+
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", schema))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := engine.Validate(strings.NewReader(`<root>7</root>`)); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("valid")
 }
 ```
 
-Available options:
+The remaining Go examples are functions you can add below `main`. Each section
+notes any additional imports; function arguments supply the input data.
+
+## Supported inputs
+
+- XSD 1.0 and XML 1.0, encoded as UTF-8. XML 1.1 is rejected.
+- DTDs, external entities, and `xs:redefine` are unsupported.
+- XSD regular expressions include class subtraction, `\i`/`\c`, and Unicode
+  category and block escapes. Pattern compilation and matching have work limits.
+- Schema sources are explicit. The library does not fetch schemas over the
+  network, and instance `xsi:schemaLocation` hints never trigger loading.
+
+XML documents require one root element. Apart from an optional XML declaration
+at the start, only literal XML whitespace, comments, and processing instructions
+may appear outside that element.
+
+## Schema sources
+
+Pass one or more sources to `xsd.Compile`:
+
+| Source | Use |
+| --- | --- |
+| `xsd.Bytes(name, data)` | In-memory schema bytes; copies the supplied data. |
+| `xsd.File(path)` | Local schema files; resolves local include/import locations relative to each file, including `xml:base` and local `file:` URIs. |
+| `xsd.Open(name, opener)` | Repeatable streams; compilation applies byte limits from the first read. |
+
+`Bytes` and `Open` resolve references only from explicitly supplied sources
+unless you attach a resolver. Source names identify documents; resolver-returned
+sources must have non-empty names.
+
+### Validate a file
+
+Add `os` to the imports. Call this with your schema and XML file paths:
+
+```go
+func validateFile(schemaPath, documentPath string) error {
+	engine, err := xsd.Compile(xsd.File(schemaPath))
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(documentPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return engine.Validate(f)
+}
+```
+
+### Compile a stream
+
+Add `io` to the imports. The opener must return a new independent reader on
+every call. Compilation owns and closes every non-nil reader it returns, even
+when the opener also returns an error; close errors are reported.
+
+```go
+func compileStream(schema string) (*xsd.Engine, error) {
+	return xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
+		return io.NopCloser(strings.NewReader(schema)), nil
+	}))
+}
+```
+
+### Resolve includes and imports
+
+Add `"github.com/jacoelho/xsd/xsderrors"` to the imports. This example resolves an
+include from an in-memory map:
+
+```go
+func compileIncludes() (*xsd.Engine, error) {
+	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="types.xsd"/>
+  <xs:element name="root" type="Root"/>
+</xs:schema>`)
+	sources := map[string]string{
+		"types.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Root"><xs:sequence/></xs:complexType>
+</xs:schema>`,
+	}
+	resolver := xsd.ResolverFunc(func(base, location string) (xsd.SchemaSource, error) {
+		data, ok := sources[location]
+		if !ok {
+			return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
+		}
+		return xsd.Bytes(location, []byte(data)), nil
+	})
+	return xsd.Compile(xsd.Bytes("schema.xsd", schema).WithResolver(resolver))
+}
+```
+
+The resulting engine accepts `<root/>`. This flat map uses only `location`;
+a resolver for nested paths should also use the supplied `base`.
+
+Return `xsderrors.ErrSchemaNotFound` for an unavailable location, allowing normal
+fallback resolution. Wrapping a miss or joining only misses also permits fallback.
+Any other failure, including one joined with a miss, stops compilation. A
+successful result is authoritative. The resolver applies to all descendants;
+a returned source's own resolver is ignored.
+
+## Validation and reuse
+
+`Engine.Validate` accepts an `io.Reader` and returns `nil` for valid XML.
+An engine is immutable and safe to share across goroutines; each call owns
+isolated document state.
+
+For repeated sequential validation, a session reuses bounded buffers and caches:
+
+```go
+func validateDocuments(engine *xsd.Engine, docs []string) error {
+	session, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		return err
+	}
+	for _, doc := range docs {
+		if err := session.Validate(strings.NewReader(doc)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+```
+
+A session clears document state after each call. Discard it to release retained
+buffers and caches. Copies share the same state: overlapping calls fail with
+`xsderrors.CodeValidationSession` before consuming the second input. Use
+`Engine.Validate` or separately constructed sessions for concurrent work.
+
+### Inspect errors
+
+Add `errors` and `"github.com/jacoelho/xsd/xsderrors"` to the imports. Pass the
+error returned by compilation or validation to this function:
+
+```go
+func printDiagnostics(err error) {
+	if group, ok := errors.AsType[xsderrors.Errors](err); ok {
+		for i := range group.Len() {
+			fmt.Println(group.At(i))
+		}
+		return
+	}
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok {
+		fmt.Printf("%s [%s] %s:%d:%d: %s\n",
+			diagnostic.Category(), diagnostic.Code(), diagnostic.Path(),
+			diagnostic.Line(), diagnostic.Column(), diagnostic.Message())
+	} else if err != nil {
+		fmt.Println(err)
+	}
+}
+```
+
+`xsderrors.Error` exposes category, code, message, path, line, and column.
+Multiple recoverable errors are returned as `xsderrors.Errors`; use `Len` and
+`At` to inspect them all. Categories are `schema_parse`, `schema_compile`,
+`unsupported`, `validation`, `format`, and `internal`.
+Use `xsderrors.IsUnsupported(err)` to detect unsupported features.
+
+## Resource limits
+
+Defaults bound schema compilation and document validation. Set only the limits
+you need to change. Zero selects the default except where stated below;
+negative signed limits are errors.
+
+### Compilation
+
+Use `CompileWithOptions` instead of `Compile`:
+
+```go
+func compileWithLimits(schema []byte) (*xsd.Engine, error) {
+	return xsd.CompileWithOptions(
+		xsd.CompileOptions{MaxSchemaSourceBytes: 8 << 20, MaxSchemaSources: 32},
+		xsd.Bytes("schema.xsd", schema),
+	)
+}
+```
 
 | Option | Default | Meaning |
 | --- | ---: | --- |
 | `MaxSchemaDepth` | `256` | Max nested schema XML elements. |
 | `MaxSchemaAttributes` | `256` | Max attributes on one schema XML element. |
-| `MaxSchemaTokenBytes` | `4 << 20` | Max retained schema XML token payload. |
-| `MaxSchemaSourceBytes` | `64 << 20` | Max bytes read from each schema source. |
+| `MaxSchemaTokenBytes` | `4 MiB` | Max retained schema XML token payload. |
+| `MaxSchemaSourceBytes` | `64 MiB` | Max bytes read from each schema source. |
 | `MaxSchemaSources` | `1024` | Max explicit source descriptors and distinct resolver-loaded source identities admitted to one compilation. |
-| `MaxSchemaTotalBytes` | `256 << 20` | Max aggregate bytes read across all schema sources. |
+| `MaxSchemaTotalBytes` | `256 MiB` | Max aggregate bytes read across all schema sources. |
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
 | `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. |
 | `MaxSchemaTargetContexts` | `4096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
-| `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate raw schema nodes across all target contexts. |
+| `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
 | `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. |
@@ -144,134 +238,89 @@ Available options:
 | `MaxSubstitutionClosureEntries` | `1_000_000` | Max aggregate transitive substitution-group relationships. |
 | `MaxSimpleUnionMemberEntries` | `1_000_000` | Max aggregate flattened simple-union members. |
 
-Negative integer limits are schema compile errors.
+These limits apply to explicit sources and resolver-loaded includes/imports.
+Finite `minOccurs` and `maxOccurs` values cannot exceed `4294967295`.
+`MaxFiniteOccurs` can lower the finite `maxOccurs` cap;
+`maxOccurs="unbounded"` is unaffected.
 
-`MaxSchemaSourceBytes` applies to each source. `MaxSchemaSources` bounds both the explicit source-descriptor count before conversion and the distinct identities admitted from the resolver-expanded graph; repeated resolver references remain bounded by `MaxSchemaReferences`, `MaxSchemaDependencySteps`, and `MaxSchemaTotalBytes`. One `MaxSchemaDependencySteps` budget is shared by source-graph expansion, target-context planning, and component-dependency resolution. Active component expansion is also capped at 1024 to protect the compiler stack. `MaxSchemaTargetContexts` and `MaxSchemaInstantiatedNodes` bound derived target-namespace variants. `MaxContentModelAnalysisSteps`, `MaxSubstitutionClosureEntries`, and `MaxSimpleUnionMemberEntries` bound derived compilation work before immutable runtime lookups are published. These limits cover files, resolver-loaded includes/imports, `Bytes` data, and streams acquired by `Open`. `Open` must return a new independent reader on every call so the source remains retryable and safe for concurrent compilation:
+### Validation
 
-```go
-engine, err := xsd.Compile(xsd.Open("schema.xsd", func() (io.ReadCloser, error) {
-    return openSchema()
-}))
-if err != nil {
-    return err
-}
-```
-
-Finite `minOccurs` and `maxOccurs` values above `4294967295` are schema compile errors. `MaxFiniteOccurs` can lower the finite `maxOccurs` limit, but it cannot raise it above the runtime `uint32` representation. `maxOccurs="unbounded"` is not affected by this cap.
-
-## Validation Options
-
-Use `ValidateWithOptions` for one validation call, or `NewSession` to reuse document-local buffers and bounded string caches across calls:
+Use `ValidateWithOptions` for one call, or pass the same options to `NewSession`.
+Add `io` to the imports for this example:
 
 ```go
-session, err := engine.NewSession(xsd.ValidateOptions{
-    MaxErrors:             1,
-    MaxIdentityScopes:     10_000,
-    MaxIdentityEntries:    100_000,
-    MaxIdentityTupleBytes: 4 << 10,
-})
-if err != nil {
-    return err
-}
-
-for _, doc := range docs {
-    if err := session.Validate(strings.NewReader(doc)); err != nil {
-        return err
-    }
+func validateWithLimits(engine *xsd.Engine, doc io.Reader) error {
+	return engine.ValidateWithOptions(doc, xsd.ValidateOptions{
+		MaxErrors:        1,
+		MaxInstanceBytes: 8 << 20,
+	})
 }
 ```
-
-Available validation options:
 
 | Option | Default | Meaning |
 | --- | ---: | --- |
-| `MaxErrors` | `100` | Max collected recoverable validation errors. `0` selects this default. |
-| `MaxIdentityScopes` | `10_000` | Max active identity-constraint scopes. `0` selects this default. |
-| `MaxIdentityEntries` | `100_000` | Independent max for stored ID, IDREF, key, unique, and keyref entries, pending identity-selector matches, and pending identity-field values. `0` selects this default. |
-| `MaxIdentityTupleBytes` | `4 KiB` | Max byte length of one stored identity key. `0` selects this default. |
-| `MaxSchemaLocationNamespaces` | `256` | Max distinct schema-location namespace names retained per document. `0` selects this finite default. |
-| `MaxSchemaLocationNamespaceBytes` | `64 KiB` | Max aggregate bytes in distinct retained schema-location namespace names. `0` selects this finite default; `MaxInstanceTokenBytes` separately bounds each complete hint attribute. |
-| `MaxInstanceDepth` | `256` | Max nested XML elements. `0` selects this default. |
-| `MaxInstanceAttributes` | `4,096` | Max attributes on one XML element. `0` selects this default. |
-| `MaxInstanceTextBytes` | `4 MiB` | Max retained character data bytes. `0` selects this default. |
-| `MaxInstanceTokenBytes` | `4 MiB` | Max parser-owned bytes for one XML token, including retained payload and active construction scratch. `0` selects this default. |
-| `MaxInstanceBytes` | `64 MiB` | Max aggregate raw XML bytes read, including a UTF-8 BOM and XML declaration. `0` selects this default. |
+| `MaxErrors` | `100` | Max collected recoverable validation errors. |
+| `MaxIdentityScopes` | `10_000` | Max active identity-constraint scopes. |
+| `MaxIdentityEntries` | `100_000` | Independent max for stored ID, IDREF, key, unique, and keyref entries, pending identity-selector matches, and pending identity-field values. |
+| `MaxIdentityTupleBytes` | `4 KiB` | Max byte length of one stored identity key. |
+| `MaxSchemaLocationNamespaces` | `256` | Max distinct schema-location namespace names retained per document. |
+| `MaxSchemaLocationNamespaceBytes` | `64 KiB` | Max aggregate bytes in distinct retained schema-location namespace names. `MaxInstanceTokenBytes` also bounds each complete hint attribute. |
+| `MaxInstanceDepth` | `256` | Max nested XML elements. |
+| `MaxInstanceAttributes` | `4,096` | Max attributes on one XML element. |
+| `MaxInstanceTextBytes` | `4 MiB` | Max retained character data bytes. |
+| `MaxInstanceTokenBytes` | `4 MiB` | Max parser-owned bytes for one XML token, including retained payload and active construction scratch. |
+| `MaxInstanceBytes` | `64 MiB` | Max aggregate raw XML bytes read, including a UTF-8 BOM and XML declaration. |
+| `MaxInstanceValueWork` | `4_194_502_132_335` | Max cumulative lexical work per simple-value evaluation. Independent of schema compilation limits. |
 
-Negative integer limits are validation errors.
+Each value-evaluation visit charges its lexical byte length plus one. List items,
+union attempts, and a raw-byte attempt followed by typed fallback share the
+containing value's budget. Each new value starts a fresh budget. URI items in
+`xsi:schemaLocation` hints are separate typed evaluations. The work limit also
+applies to schema defaults or fixed values that require revalidation; already
+validated defaults keep their existing path. Regex and byte limits apply
+separately. Zero selects the default; positive values set a finite work ceiling.
 
-`Engine` is goroutine-safe. Copies of a `Session` refer to the same reusable state, and overlapping calls fail with `xsderrors.CodeValidationSession` before consuming the second input. Use separately constructed sessions for concurrent validation. `Session.Validate` clears document state before returning from each call but may retain bounded scratch buffers and small string caches; discard the session to release retained cache contents.
+Reaching `MaxErrors` stops semantic assessment, but XML is still read until the
+end or a fatal error. A later fatal error takes precedence.
 
-## I/O Interruption
+### I/O interruption
 
-Compilation and validation are synchronous. Configured limits bound admitted input and retained work, but the library cannot interrupt a blocked opener, resolver, file operation, or `io.Reader`. Callers that require interruption must provide I/O that they can close or otherwise unblock.
+Compilation and validation are synchronous. Limits bound admitted input and
+work; they cannot interrupt a blocked opener, resolver, file operation, or
+reader. Callers that need interruption must provide I/O they can close or
+otherwise unblock.
 
-## Resolve Includes From Bytes
+## CLI
 
-```go
-type mapResolver map[string]string
+From a repository checkout, validate local files with:
 
-func (r mapResolver) ResolveSchema(base, location string) (xsd.SchemaSource, error) {
-    data, ok := r[location]
-    if !ok {
-        return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
-    }
-    return xsd.Bytes(location, []byte(data)), nil
-}
-
-schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:include schemaLocation="types.xsd"/>
-  <xs:element name="root" type="Root"/>
-</xs:schema>`)
-
-engine, err := xsd.Compile(xsd.Bytes("schema.xsd", schema).WithResolver(mapResolver{
-    "types.xsd": `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:complexType name="Root"><xs:sequence/></xs:complexType>
-</xs:schema>`,
-}))
-if err != nil {
-    return err
-}
-
-err = engine.Validate(strings.NewReader(`<root/>`))
-if err != nil {
-    return err
-}
+```sh
+go run ./cmd/xmllint --schema schema.xsd document.xml
 ```
 
-## Inspect Errors
+| Flag | Required | Meaning |
+| --- | --- | --- |
+| `--schema path` | yes | Schema file path. |
+| `--max-errors n` | no | Maximum collected validation errors; `0` selects 100. |
+| `--max-identity-entries n` | no | Independent maximum for stored identity entries, pending selector matches, and pending field values; `0` selects 100,000. |
+| `--max-instance-bytes n` | no | Maximum raw XML bytes read; `0` selects 64 MiB. |
 
-```go
-err := engine.Validate(strings.NewReader(`<root>x</root>`))
+Run `make xmllint` to build `bin/xmllint`.
 
-if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
-    fmt.Println(xerr.Category())
-    fmt.Println(xerr.Code())
-    fmt.Println(xerr.Line(), xerr.Column())
-    fmt.Println(xerr.Path())
-}
+## Browser validator
+
+From a repository checkout:
+
+```sh
+make web
 ```
 
-Error categories:
+Open [the local validator](http://127.0.0.1:8765). This command builds the Go WASM
+module and serves the page. Validation runs in a Web Worker; clearing input
+cancels active work.
 
-- `schema_parse`
-- `schema_compile`
-- `unsupported`
-- `validation`
-- `format`
-- `internal`
-
-Use `xsderrors.IsUnsupported(err)` when only unsupported-feature detection matters.
-
-## Browser Validator
-
-`make web` builds the Go WASM module and serves the browser validator at
-`http://127.0.0.1:8765`. Validation runs in a Web Worker. The page rejects
-oversized UTF-8 input before highlighting or line rendering, bounds rendered
-line structure, and prevents stale file reads from replacing newer editor
-content. Clearing input cancels active work by replacing the worker.
-
-Run deterministic JavaScript tests with `make web-test`. Install the pinned
-browser dependency and Chromium once, then run the full WASM integration test:
+Run JavaScript tests with `make web-test`. To run browser integration tests,
+install the pinned dependency and Chromium once:
 
 ```sh
 npm ci --prefix docs/js
@@ -279,47 +328,32 @@ npm exec --prefix docs/js -- playwright install chromium
 make browser-test
 ```
 
-## Reuse Engine Concurrently
+## Library benchmarks
 
-`Engine` is immutable after compile. Share it across goroutines. `Validate` creates isolated per-document state for each call.
+Measured 2026-09-06: rewrite `bb9045cd` versus `main` at `cc94656a`, using
+Go 1.27.0 on macOS/arm64 (Apple M2 Max), one CPU, and six alternating 200 ms
+samples per workload. Across **82 matching public workloads**, the geometric
+mean of workload median times is **27.74% lower**. Workloads are equally
+weighted; this is not an assumed production traffic mix.
 
-```go
-docs := []string{`<root>1</root>`, `<root>2</root>`, `<root>3</root>`}
+| Workload | Main | Rewrite | Time change |
+| --- | ---: | ---: | ---: |
+| Small-schema compilation | 200.3 µs | 105.9 µs | -47.14% |
+| Deep type-chain compilation | 8.57 ms | 4.28 ms | -50.04% |
+| Repeated QName validation | 169.9 µs | 76.7 µs | -54.86% |
+| Regex-category compilation | 2.95 ms | 1.87 ms | -36.63% |
+| 16 MiB streamed schema compilation | 229.1 ms | 95.1 ms | -58.49% |
+| Identity validation, 1,000 rows | 2.84 ms | 2.62 ms | -7.59% |
+| Fixed gDay validation, 128 values | 261.9 µs | 185.1 µs | -29.33% |
+| Repeated small-document session | 280.0 µs | 278.6 µs | Within noise |
+| Substitution-group compilation | 692.2 µs | 699.9 µs | +1.12% |
 
-var wg sync.WaitGroup
-errs := make(chan error, len(docs))
-for _, doc := range docs {
-    wg.Go(func() {
-        errs <- engine.Validate(strings.NewReader(doc))
-    })
-}
-wg.Wait()
-close(errs)
-
-for err := range errs {
-    if err != nil {
-        return err
-    }
-}
-```
-
-## xmllint-style CLI
-
-The repository includes a small CLI for xmllint-style validation:
-
-```sh
-go run ./cmd/xmllint --schema schema.xsd \
-  document.xml
-```
-
-Available flags:
-
-| Flag | Required | Meaning |
-| --- | --- | --- |
-| `--schema path` | yes | Schema file path. |
-| `--max-errors n` | no | Maximum validation errors to collect. `0` selects the default of 100. |
-| `--max-identity-entries n` | no | Independent maximum for stored identity entries, pending selector matches, and pending field values. `0` selects the default of 100,000. |
-| `--max-instance-bytes n` | no | Maximum raw XML bytes to read. `0` selects the default of 64 MiB. |
+Memory results vary by workload. A 16 MiB streamed schema allocates
+**34.7 MiB → 122.8 KiB**. The 1,000-row and depth-256 identity cases allocate
+8.3% and 17.2% more bytes, respectively. Fixed-value checks allocate more to
+preserve typed equality. These are cumulative
+Go allocations per operation, not peak memory or RSS. Schema-text compilation
+has a 5.22% slower median, but the timing difference is within noise.
 
 ## Large XML benchmark
 
@@ -373,14 +407,8 @@ identity                       188.55MiB        69.73MiB      -63.01%
 geomean                          1.76GiB        10.56MiB      -99.42%
 ```
 
-## Constraints
+## Contributing
 
-- XSD 1.0 only.
-- Schema sources are explicit. No HTTP or network fetching.
-- `File` resolves local relative refs, inherited `xml:base`, and absolute local `file:` URIs. Use `Open` for repeatable reader-backed schemas whose first read must be compiler-bounded.
-- Instance documents must be UTF-8.
-- DTDs and external entities are rejected.
-- `xsi:schemaLocation` never triggers dynamic loading.
-- The repository XML formatter builds an in-memory formatting tree; validation is the streaming path.
-- Regex support uses Go `regexp` plus a simple literal/class fast path for exact, bounded, and open repeats. Unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
-- `xs:redefine` is unsupported.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for design and ownership,
+[tests/README.md](tests/README.md) for test and corpus workflows, and
+[docs/spec](docs/spec/README.md) for the XSD 1.0 reference.

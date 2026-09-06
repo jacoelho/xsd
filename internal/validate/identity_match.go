@@ -1,109 +1,23 @@
 package validate
 
-import "github.com/jacoelho/xsd/internal/runtime"
+import (
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/xsderrors"
+)
 
-type identityNames interface {
-	Namespace(id runtime.NamespaceID) string
+// Identity path programs and immutable dispatch programs are schema-owned.
+// Validation retains only document-local active scope membership and scratch.
+type identityPathProgram = xsdSchema.IdentityPathProgramRead
+type identityConstraintProgram = xsdSchema.IdentityConstraintProgramRead
+
+func identityFieldPathProgram(path xsdSchema.IdentityFieldPathRead) identityPathProgram {
+	return xsdSchema.NewIdentityFieldPathProgramRead(path)
 }
 
-func identityCompiledFieldPathsMatch[Names identityNames](
-	names Names,
-	namePath []runtime.RuntimeName,
-	selectedDepth, currentDepth int,
-	field runtime.CompiledIdentityFieldRead,
-) bool {
-	for i := range field.PathCount() {
-		path, ok := field.Path(i)
-		if ok && identityFieldPathMatches(names, namePath, selectedDepth, currentDepth, path) {
-			return true
-		}
-	}
-	return false
-}
-
-func identityCompiledAttributeFieldPathsMatch[Names identityNames](
-	names Names,
-	namePath []runtime.RuntimeName,
-	selectedDepth, currentDepth int,
-	name runtime.RuntimeName,
-	field runtime.CompiledIdentityFieldRead,
-) bool {
-	for i := range field.PathCount() {
-		path, ok := field.Path(i)
-		if ok && identityFieldAttributeMatches(names, path, name) &&
-			identityFieldPathMatches(names, namePath, selectedDepth, currentDepth, path) {
-			return true
-		}
-	}
-	return false
-}
-
-type identityStepPath interface {
-	StepCount() int
-	Step(index int) (runtime.IdentityStep, bool)
-	Descendant() bool
-	Self() bool
-}
-
-func identityPathMatches[Names identityNames, Path identityStepPath](names Names, namePath []runtime.RuntimeName, baseDepth, currentDepth int, path Path) bool {
-	if path.Self() {
-		return currentDepth == baseDepth
-	}
-	rel, ok := relativeIdentityPath(namePath, baseDepth, currentDepth, path)
-	if !ok {
-		return false
-	}
-	for i := range path.StepCount() {
-		step, ok := path.Step(i)
-		if !ok || !identityStepMatches(names, rel[i], step) {
-			return false
-		}
-	}
-	return true
-}
-
-func relativeIdentityPath[Path identityStepPath](namePath []runtime.RuntimeName, baseDepth, currentDepth int, path Path) ([]runtime.RuntimeName, bool) {
-	if currentDepth < baseDepth || baseDepth < 0 || currentDepth > len(namePath) {
-		return nil, false
-	}
-	rel := namePath[baseDepth:currentDepth]
-	stepCount := path.StepCount()
-	if path.Descendant() {
-		if len(rel) < stepCount {
-			return nil, false
-		}
-		return rel[len(rel)-stepCount:], true
-	}
-	return rel, len(rel) == stepCount
-}
-
-func identityStepMatches[Names identityNames](names Names, rn runtime.RuntimeName, step runtime.IdentityStep) bool {
-	if !step.Wildcard {
-		return rn.Known && rn.Name == step.Name
-	}
-	if !step.NamespaceSet {
-		return true
-	}
-	if rn.Known {
-		return rn.Name.Namespace == step.Namespace
-	}
-	return rn.NS == identityNamespace(names, step.Namespace)
-}
-
-func identityFieldAttributeMatches[Names identityNames](names Names, path runtime.IdentityFieldPathRead, name runtime.RuntimeName) bool {
-	if !path.IsAttribute() {
-		return false
-	}
-	if !path.AttributeWildcard() {
-		return name.Known && path.Attribute() == name.Name
-	}
-	if !path.AttributeNamespaceSet() {
-		return true
-	}
-	if name.Known {
-		return path.AttributeNamespace() == name.Name.Namespace
-	}
-	return identityNamespace(names, path.AttributeNamespace()) == name.NS
+// internalIdentityMetadataError keeps malformed published metadata in the
+// internal-invariant error category.
+func internalIdentityMetadataError(message string) error {
+	return xsderrors.InternalInvariant(message)
 }
 
 func identityMatchExists(matches []identityFieldMatch, selection, field int) bool {
@@ -113,15 +27,4 @@ func identityMatchExists(matches []identityFieldMatch, selection, field int) boo
 		}
 	}
 	return false
-}
-
-func identityFieldPathMatches[Names identityNames](names Names, namePath []runtime.RuntimeName, selectedDepth, currentDepth int, path runtime.IdentityFieldPathRead) bool {
-	if path.StepCount() == 0 && !path.Descendant() {
-		return currentDepth == selectedDepth
-	}
-	return identityPathMatches(names, namePath, selectedDepth, currentDepth, path)
-}
-
-func identityNamespace[Names identityNames](names Names, id runtime.NamespaceID) string {
-	return names.Namespace(id)
 }

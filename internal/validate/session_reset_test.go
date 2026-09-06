@@ -9,16 +9,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/compile"
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlns"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
-	valueSchema, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	valueSchema, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:IDREFS"/>
 </xs:schema>`))})
@@ -56,7 +55,7 @@ func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
 		})
 	}
 
-	scopeSchema, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	scopeSchema, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
@@ -91,7 +90,7 @@ func assertSingleIdentityLimit(t *testing.T, err error, message string) {
 }
 
 func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
-	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`))})
@@ -125,7 +124,7 @@ func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
 }
 
 func TestSessionDetachesReaderAfterPreflightFailure(t *testing.T) {
-	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`))})
@@ -227,13 +226,12 @@ func TestReusableSessionCleanupPreservesReturnedAggregateErrors(t *testing.T) {
 func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	var s session
 	s.doc.errors = make([]error, 1, maxRetainedSliceCap+1)
-	s.doc.ns = xmlns.NewStackWithCapacity(maxRetainedSliceCap+1, maxRetainedSliceCap+1)
 	s.doc.elements = make([]xmlDocumentElement[frame], 1, maxRetainedSliceCap+1)
 	s.doc.elements[0].pathMode = xmlPathLexical
 	s.doc.retainedPaths.nodes = make([]documentPathNode, 1, maxRetainedSliceCap+1)
 	s.doc.retainedPaths.namespaces = make([]string, 1, maxRetainedSliceCap+1)
 	s.doc.text = make([]byte, 1, maxRetainedBufferCap+1)
-	s.doc.identity.path = make([]runtime.RuntimeName, 1, maxRetainedSliceCap+1)
+	s.doc.identity.path = make([]xsdSchema.RuntimeName, 1, maxRetainedSliceCap+1)
 	s.doc.allBits = make([]uint64, 1, maxRetainedSliceCap+1)
 	s.doc.identity.ids = map[string]retainedPath{"stale": explicitRetainedPath("/stale")}
 	s.doc.identity.entries = 1
@@ -244,8 +242,6 @@ func TestSessionResetDropsOversizedDocumentState(t *testing.T) {
 	s.reset()
 
 	if cap(s.doc.errors) != 0 ||
-		s.doc.ns.FrameCapacity() != 0 ||
-		s.doc.ns.BindingCapacity() != 0 ||
 		cap(s.doc.elements) != 0 ||
 		cap(s.doc.retainedPaths.nodes) != 0 ||
 		cap(s.doc.retainedPaths.namespaces) != 0 ||
@@ -326,7 +322,7 @@ func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 		t.Fatalf("pathString() = %q, want /root/child", got)
 	}
 
-	if err := s.doc.CommitEnd(); err != nil {
+	if err := s.doc.commitEndState(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -339,7 +335,7 @@ func TestSessionPopPathReturnsCachedParentPath(t *testing.T) {
 }
 
 func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
-	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType">
     <xs:key name="ids"><xs:selector xpath=".//never"/><xs:field xpath="@id"/></xs:key>
@@ -435,7 +431,7 @@ func assertReusableSessionReset(t *testing.T, reusable *Session) {
 
 func assertSessionDocumentStateReset(t *testing.T, s *session) {
 	t.Helper()
-	if s.doc.seenRoot || s.doc.pathText != "" || s.doc.pathTextDepth != 0 || s.doc.syntaxOnly {
+	if s.doc.pathText != "" || s.doc.pathTextDepth != 0 || s.doc.syntaxOnly {
 		t.Fatalf("document scalars remain after reset: %+v", s.doc)
 	}
 	if len(s.doc.retainedPaths.nodes) != 0 {
@@ -465,7 +461,7 @@ func assertSessionDocumentStateReset(t *testing.T, s *session) {
 	if len(s.doc.errors) != 0 || len(s.doc.text) != 0 || len(s.doc.allBits) != 0 {
 		t.Fatalf("document buffers remain: errors=%d text=%d allBits=%d", len(s.doc.errors), len(s.doc.text), len(s.doc.allBits))
 	}
-	if _, ok := s.doc.LookupNamespace("xsi"); ok {
+	if _, ok := s.reader.Lookup("xsi"); ok {
 		t.Fatal("namespace bindings remain after reset")
 	}
 	for i, err := range s.doc.errors[:cap(s.doc.errors)] {
@@ -479,7 +475,7 @@ func assertSessionDocumentStateReset(t *testing.T, s *session) {
 		}
 	}
 	for i, name := range s.doc.identity.path[:cap(s.doc.identity.path)] {
-		if name != (runtime.RuntimeName{}) {
+		if name != (xsdSchema.RuntimeName{}) {
 			t.Fatalf("name path tail %d retains references: %+v", i, name)
 		}
 	}

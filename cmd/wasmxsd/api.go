@@ -61,7 +61,7 @@ func formatXMLData(input string) formatResponse {
 	}
 
 	var out strings.Builder
-	err := format.XMLWithOptions(&out, strings.NewReader(input), format.Options{MaxOutputBytes: maxFormattedXMLBytes})
+	err := format.XMLWithOptions(&out, input, format.Options{MaxOutputBytes: maxFormattedXMLBytes})
 	if err != nil {
 		resp := formatFailure(errorMessage(err), 0, 0)
 		if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {

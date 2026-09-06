@@ -1,6 +1,7 @@
 package source
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,15 @@ import (
 	"github.com/jacoelho/xsd/internal/uriref"
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func finishSource(t *testing.T, s Source, maxBytes int64) ReadResult {
+	t.Helper()
+	input, result := s.OpenInput(maxBytes)
+	if input != nil {
+		result = input.Finish()
+	}
+	return result
+}
 
 func TestKeyCanonicalizesLoadedSourceNames(t *testing.T) {
 	t.Parallel()
@@ -344,12 +354,16 @@ func TestKeyPreservesLocalMarkerForSchemeShapedInvalidURI(t *testing.T) {
 
 func TestBytesNilIsEmptySource(t *testing.T) {
 	t.Parallel()
-	result := Bytes("empty.xsd", nil).Acquire(1)
-	if result.Err != nil {
-		t.Fatalf("Bytes(nil).Acquire() error = %v", result.Err)
+	input, opened := Bytes("empty.xsd", nil).OpenInput(1)
+	if input == nil {
+		t.Fatalf("Bytes(nil).OpenInput() = nil, %+v", opened)
 	}
-	if result.Data == nil || len(result.Data) != 0 {
-		t.Fatalf("Bytes(nil).Acquire() = %#v, want non-nil empty slice", result.Data)
+	result := input.Finish()
+	if result.Err != nil {
+		t.Fatalf("Bytes(nil).Finish() error = %v", result.Err)
+	}
+	if result.Bytes != 0 || result.Digest != sha256.Sum256(nil) {
+		t.Fatalf("Bytes(nil).Finish() = %+v, want empty digest", result)
 	}
 }
 
@@ -358,12 +372,29 @@ func TestBytesCopiesInput(t *testing.T) {
 	input := []byte("schema")
 	s := Bytes("schema.xsd", input)
 	input[0] = 'X'
-	result := s.Acquire(100)
+	result := finishSource(t, s, 100)
 	if result.Err != nil {
 		t.Fatal(result.Err)
 	}
-	if got := string(result.Data); got != "schema" {
-		t.Fatalf("acquired data = %q, want schema", got)
+	if result.Bytes != 6 || result.Digest != sha256.Sum256([]byte("schema")) {
+		t.Fatalf("source result = %+v, want immutable six-byte digest", result)
+	}
+}
+
+func TestBytesInputFinishCompletesIdentityAfterPartialRead(t *testing.T) {
+	t.Parallel()
+
+	input, opened := Bytes("schema.xsd", []byte("schema")).OpenInput(100)
+	if input == nil || opened.Err != nil {
+		t.Fatalf("OpenInput() = input %v, result %+v", input != nil, opened)
+	}
+	buf := make([]byte, 2)
+	if n, err := input.Read(buf); n != 2 || err != nil {
+		t.Fatalf("Input.Read() = %d, %v; want 2, nil", n, err)
+	}
+	result := input.Finish()
+	if result.Err != nil || result.Bytes != 6 || result.Digest != sha256.Sum256([]byte("schema")) {
+		t.Fatalf("Finish() = %+v, want complete immutable source identity", result)
 	}
 }
 
@@ -626,15 +657,70 @@ func TestSourceResolve(t *testing.T) {
 	})
 }
 
+func TestFileNilResolverPreservesBuiltInResolutionContext(t *testing.T) {
+	t.Parallel()
+
+	file := File("schema.xsd")
+	if got := file.WithResolver(nil); !file.SameResolutionContext(got) {
+		t.Fatal("File.WithResolver(nil) split the built-in file resolution context")
+	}
+}
+
 func TestSourceReadLimit(t *testing.T) {
 	t.Parallel()
-	err := Bytes("schema.xsd", []byte("1234")).Acquire(3).Err
+	_, result := Bytes("schema.xsd", []byte("1234")).OpenInput(3)
+	err := result.Err
 	if !IsSchemaLimitError(err) {
 		t.Fatalf("Read() error = %v, want schema limit", err)
+	}
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Path() != "schema.xsd" {
+		t.Fatalf("Read() diagnostic = %v, want source path schema.xsd", err)
 	}
 	if !IsSchemaLimitError(fmt.Errorf("wrapped: %w", err)) {
 		t.Fatal("IsSchemaLimitError rejected wrapped error")
 	}
+}
+
+func TestSourceLimitDiagnosticsKeepSourceLocationWhenJoined(t *testing.T) {
+	t.Parallel()
+
+	check := func(t *testing.T, result ReadResult, cause error) {
+		t.Helper()
+		if !result.LimitExceeded || !errors.Is(result.Err, cause) {
+			t.Fatalf("Finish() = %+v, want source limit and cause %v", result, cause)
+		}
+		diagnostic, ok := errors.AsType[*xsderrors.Error](result.Err)
+		if !ok || diagnostic.Path() != "schema.xsd" || !strings.Contains(diagnostic.Message(), "schema.xsd") {
+			t.Fatalf("Finish() diagnostic = %v, want source path and message", result.Err)
+		}
+		flat := xsderrors.Flatten(result.Err)
+		if len(flat) < 2 {
+			t.Fatalf("Flatten(Finish()) = %v, want limit plus acquisition cause", flat)
+		}
+		limit, ok := flat[0].(*xsderrors.Error) //nolint:errorlint // Flatten must expose the direct located diagnostic.
+		if !ok || limit.Path() != "schema.xsd" {
+			t.Fatalf("Flatten(Finish())[0] = %T %v, want located schema limit", flat[0], flat[0])
+		}
+	}
+
+	t.Run("read error", func(t *testing.T) {
+		t.Parallel()
+		readErr := errors.New("read failed at limit")
+		result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
+			return &dataErrorReader{data: []byte("ab"), err: readErr}, nil
+		}), 1)
+		check(t, result, readErr)
+	})
+
+	t.Run("close error", func(t *testing.T) {
+		t.Parallel()
+		closeErr := errors.New("close failed at limit")
+		result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
+			return &trackingReadCloser{Reader: strings.NewReader("ab"), closeErr: closeErr}, nil
+		}), 1)
+		check(t, result, closeErr)
+	})
 }
 
 func TestSourceReadWithZeroLimitDistinguishesEmptyAndOversize(t *testing.T) {
@@ -658,145 +744,138 @@ func TestSourceReadWithZeroLimitDistinguishesEmptyAndOversize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := tt.source.Acquire(0)
+			result := finishSource(t, tt.source, 0)
 			if result.LimitExceeded != tt.wantOver {
-				t.Fatalf("Acquire() exceeded = %v, want %v", result.LimitExceeded, tt.wantOver)
+				t.Fatalf("OpenInput().Finish() exceeded = %v, want %v", result.LimitExceeded, tt.wantOver)
 			}
 			if tt.wantOver {
 				if !IsSchemaLimitError(result.Err) {
-					t.Fatalf("Acquire() error = %v, want schema limit", result.Err)
+					t.Fatalf("OpenInput().Finish() error = %v, want schema limit", result.Err)
 				}
 				return
 			}
-			if result.Err != nil || string(result.Data) != tt.wantData {
-				t.Fatalf("Acquire() = %q, %v; want %q, nil", result.Data, result.Err, tt.wantData)
+			if result.Err != nil || result.Bytes != int64(len(tt.wantData)) {
+				t.Fatalf("OpenInput().Finish() = %+v; want %q, nil", result, tt.wantData)
 			}
 		})
 	}
 }
 
-func TestSourceAcquirePreservesBytesAndStageBeforeReadError(t *testing.T) {
+func TestSourceInputPreservesBytesAndStageBeforeReadError(t *testing.T) {
 	t.Parallel()
 
 	want := errors.New("read failed")
 	s := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return &dataErrorReader{data: []byte("schema"), err: want}, nil
 	})
-	result := s.Acquire(100)
-	if result.LimitExceeded || result.Stage != ReadStageRead || !errors.Is(result.Err, want) || string(result.Data) != "schema" {
-		t.Fatalf("Acquire() = %+v", result)
+	result := finishSource(t, s, 100)
+	if result.LimitExceeded || result.Stage != ReadStageRead || !errors.Is(result.Err, want) || result.Bytes != int64(len("schema")) || result.Digest != sha256.Sum256([]byte("schema")) {
+		t.Fatalf("OpenInput().Finish() = %+v", result)
 	}
 }
 
-func TestSourceAcquirePreservesReadErrorAtByteLimit(t *testing.T) {
+func TestSourceInputPreservesReadErrorAtByteLimit(t *testing.T) {
 	t.Parallel()
 
 	readErr := errors.New("read failed at limit")
-	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
+	result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return &dataErrorReader{data: []byte("ab"), err: readErr}, nil
-	}).Acquire(
-		1)
+	}), 1)
 
 	if !result.LimitExceeded || result.Stage != ReadStageRead || !errors.Is(result.Err, readErr) {
-		t.Fatalf("Acquire() = %+v, want byte limit joined with read error", result)
+		t.Fatalf("OpenInput().Finish() = %+v, want byte limit joined with read error", result)
 	}
 }
 
-func TestSourceAcquireRejectsRepeatedEmptyReadsAndCloses(t *testing.T) {
+func TestSourceInputRejectsRepeatedEmptyReadsAndCloses(t *testing.T) {
 	t.Parallel()
 
 	reader := &emptyReadCloser{terminal: errors.New("unbounded empty reads")}
-	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
+	result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return reader, nil
-	}).Acquire(
-		1)
+	}), 1)
 
 	if result.Stage != ReadStageRead || !errors.Is(result.Err, io.ErrNoProgress) {
-		t.Fatalf("Acquire() = %+v, want read-stage io.ErrNoProgress", result)
+		t.Fatalf("OpenInput().Finish() = %+v, want read-stage io.ErrNoProgress", result)
 	}
 	if reader.reads != maxConsecutiveEmptySchemaReads || !reader.closed {
 		t.Fatalf("reader = %d reads, closed %v; want %d, true", reader.reads, reader.closed, maxConsecutiveEmptySchemaReads)
 	}
 }
 
-func TestSourceAcquireClosesReaderReturnedWithOpenError(t *testing.T) {
+func TestSourceInputClosesReaderReturnedWithOpenError(t *testing.T) {
 	t.Parallel()
 	openErr := errors.New("open failed")
 	closeErr := errors.New("close failed")
 	reader := &trackingReadCloser{Reader: strings.NewReader("schema"), closeErr: closeErr}
-	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
+	_, result := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return reader, openErr //nolint:nilnil // Exercise cleanup when an opener returns both values.
-	}).Acquire(
-		100)
+	}).OpenInput(100)
 
 	if result.Stage != ReadStageOpen || !errors.Is(result.Err, openErr) || !errors.Is(result.Err, closeErr) {
-		t.Fatalf("Acquire() = %+v, want joined open and close errors", result)
+		t.Fatalf("OpenInput() = %+v, want joined open and close errors", result)
 	}
 	if !reader.closed {
-		t.Fatal("Acquire() did not close reader returned with open error")
+		t.Fatal("OpenInput() did not close reader returned with open error")
 	}
 }
 
-func TestSourceAcquireClassifiesOnlyPureOpenAbsence(t *testing.T) {
+func TestSourceInputClassifiesOnlyPureOpenAbsence(t *testing.T) {
 	t.Parallel()
 
-	pure := Opener("missing.xsd", func() (io.ReadCloser, error) {
+	_, pure := Opener("missing.xsd", func() (io.ReadCloser, error) {
 		return nil, fmt.Errorf("open missing schema: %w", os.ErrNotExist)
-	}).Acquire(
-		100)
+	}).OpenInput(100)
 
 	if !pure.OpenNotFound {
-		t.Fatalf("Acquire(pure absence) = %+v, want OpenNotFound", pure)
+		t.Fatalf("OpenInput(pure absence) = %+v, want OpenNotFound", pure)
 	}
 
 	closeErr := errors.New("close failed")
 	reader := &trackingReadCloser{Reader: strings.NewReader("schema"), closeErr: closeErr}
-	mixed := Opener("missing.xsd", func() (io.ReadCloser, error) {
+	_, mixed := Opener("missing.xsd", func() (io.ReadCloser, error) {
 		return reader, os.ErrNotExist //nolint:nilnil // Exercise cleanup when an opener returns both values.
-	}).Acquire(
-		100)
+	}).OpenInput(100)
 
 	if mixed.OpenNotFound || !errors.Is(mixed.Err, os.ErrNotExist) || !errors.Is(mixed.Err, closeErr) {
-		t.Fatalf("Acquire(mixed absence) = %+v, want unsuppressible joined error", mixed)
+		t.Fatalf("OpenInput(mixed absence) = %+v, want unsuppressible joined error", mixed)
 	}
 }
 
 func TestMissingFileSourceReturnsPureOpenAbsence(t *testing.T) {
 	t.Parallel()
-	result := File(filepath.Join(t.TempDir(), "missing.xsd")).Acquire(100)
+	_, result := File(filepath.Join(t.TempDir(), "missing.xsd")).OpenInput(100)
 	if !result.OpenNotFound || result.Stage != ReadStageOpen || !errors.Is(result.Err, os.ErrNotExist) {
-		t.Fatalf("Acquire(missing file) = %+v, want pure open absence", result)
+		t.Fatalf("OpenInput(missing file) = %+v, want pure open absence", result)
 	}
 	if errors.Is(result.Err, os.ErrInvalid) {
-		t.Fatalf("Acquire(missing file) error = %v, contains typed-nil cleanup error", result.Err)
+		t.Fatalf("OpenInput(missing file) error = %v, contains typed-nil cleanup error", result.Err)
 	}
 }
 
 func TestOpenerNormalizesTypedNilReaderOnOpenFailure(t *testing.T) {
 	t.Parallel()
 	missing := filepath.Join(t.TempDir(), "missing.xsd")
-	result := Opener(missing, func() (io.ReadCloser, error) {
+	_, result := Opener(missing, func() (io.ReadCloser, error) {
 		return os.Open(missing) //nolint:gosec // Test path is contained by t.TempDir.
-	}).Acquire(
-		100)
+	}).OpenInput(100)
 
 	if !result.OpenNotFound || result.Stage != ReadStageOpen || !errors.Is(result.Err, os.ErrNotExist) {
-		t.Fatalf("Acquire(typed nil reader) = %+v, want pure open absence", result)
+		t.Fatalf("OpenInput(typed nil reader) = %+v, want pure open absence", result)
 	}
 	if errors.Is(result.Err, os.ErrInvalid) {
-		t.Fatalf("Acquire(typed nil reader) error = %v, contains cleanup error", result.Err)
+		t.Fatalf("OpenInput(typed nil reader) error = %v, contains cleanup error", result.Err)
 	}
 }
 
-func TestSourceAcquireRejectsNilOpener(t *testing.T) {
+func TestSourceInputRejectsNilOpener(t *testing.T) {
 	t.Parallel()
-	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
+	_, result := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return nil, errors.New("open returned nil reader")
-	}).Acquire(
-		10)
+	}).OpenInput(10)
 
 	if result.Stage != ReadStageOpen || result.Err == nil {
-		t.Fatalf("Acquire() = %+v, want open-stage error", result)
+		t.Fatalf("OpenInput() = %+v, want open-stage error", result)
 	}
 }
 
@@ -813,10 +892,12 @@ type trackingReadCloser struct {
 
 	closeErr error
 	closed   bool
+	closes   int
 }
 
 func (r *trackingReadCloser) Close() error {
 	r.closed = true
+	r.closes++
 	return r.closeErr
 }
 
@@ -861,27 +942,109 @@ func TestOpenerReturnsCloseErrorAfterSuccessfulRead(t *testing.T) {
 	s := Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return closeErrorReader{Reader: strings.NewReader("schema"), err: want}, nil
 	})
-	if err := s.Acquire(100).Err; !errors.Is(err, want) {
+	if err := finishSource(t, s, 100).Err; !errors.Is(err, want) {
 		t.Fatalf("Read() error = %v, want %v", err, want)
 	}
 }
 
-func TestOpenerPreservesReadAndCloseErrors(t *testing.T) {
+func TestSourceInputPreservesReadAndCloseErrors(t *testing.T) {
 	t.Parallel()
 	readErr := errors.New("read failed")
 	closeErr := errors.New("close failed")
 	reader := &trackingReadCloser{Reader: &dataErrorReader{data: []byte("schema"), err: readErr}, closeErr: closeErr}
-	result := Opener("schema.xsd", func() (io.ReadCloser, error) {
+	result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
 		return reader, nil
-	}).Acquire(
-		100)
+	}), 100)
 
 	if result.Stage != ReadStageRead || !errors.Is(result.Err, readErr) || !errors.Is(result.Err, closeErr) {
-		t.Fatalf("Acquire() = %+v, want joined read and close errors", result)
+		t.Fatalf("OpenInput().Finish() = %+v, want joined read and close errors", result)
 	}
 	if !reader.closed {
-		t.Fatal("Acquire() did not close reader after read error")
+		t.Fatal("OpenInput().Finish() did not close reader after read error")
 	}
+}
+
+func TestInputFinishDrainsDetachesAndIsStable(t *testing.T) {
+	t.Parallel()
+
+	reader := &trackingReadCloser{Reader: strings.NewReader("schema")}
+	input, opened := Opener("schema.xsd", func() (io.ReadCloser, error) {
+		return reader, nil
+	}).OpenInput(100)
+	if input == nil || opened.Err != nil {
+		t.Fatalf("OpenInput() = input %v, result %+v", input != nil, opened)
+	}
+
+	buf := make([]byte, 2)
+	n, err := input.Read(buf)
+	if n != 2 || err != nil || string(buf) != "sc" {
+		t.Fatalf("Input.Read() = %d, %v, %q; want 2, nil, sc", n, err, buf)
+	}
+	first := input.Finish()
+	second := input.Finish()
+	if first != second {
+		t.Fatalf("Finish() changed on repeat: first %+v, second %+v", first, second)
+	}
+	if first.Bytes != int64(len("schema")) || first.Digest != sha256.Sum256([]byte("schema")) || first.Err != nil {
+		t.Fatalf("Finish() = %+v, want complete schema", first)
+	}
+	if reader.closes != 1 {
+		t.Fatalf("reader closes = %d, want 1", reader.closes)
+	}
+	if n, err := input.Read(buf); n != 0 || !errors.Is(err, io.EOF) {
+		t.Fatalf("Read() after Finish() = %d, %v; want EOF", n, err)
+	}
+}
+
+func TestZeroInputReturnsActionableStableError(t *testing.T) {
+	t.Parallel()
+
+	var input Input
+	first := input.Finish()
+	second := input.Finish()
+	if first.Err == nil || first.Stage != ReadStageRead {
+		t.Fatalf("zero Input Finish() = %+v, want read-stage error", first)
+	}
+	if first.Err != second.Err || //nolint:errorlint // The repeated result must retain the exact stable error.
+		first.Stage != second.Stage || first.Bytes != second.Bytes || first.Digest != second.Digest {
+		t.Fatalf("zero Input Finish() changed: first %+v, second %+v", first, second)
+	}
+	if n, err := input.Read(make([]byte, 1)); n != 0 || !errors.Is(err, io.EOF) {
+		t.Fatalf("zero Input Read() after Finish() = %d, %v; want EOF", n, err)
+	}
+}
+
+func TestInputFinishProbesOnlyOneByteBeyondLimit(t *testing.T) {
+	t.Parallel()
+
+	reader := &countingReadCloser{Reader: strings.NewReader("abcdef")}
+	result := finishSource(t, Opener("schema.xsd", func() (io.ReadCloser, error) {
+		return reader, nil
+	}), 3)
+	if !result.LimitExceeded || result.Bytes != 4 || !IsSchemaLimitError(result.Err) {
+		t.Fatalf("Finish() = %+v, want four bytes and schema limit", result)
+	}
+	if reader.bytes != 4 {
+		t.Fatalf("underlying bytes read = %d, want max+1 = 4", reader.bytes)
+	}
+}
+
+type countingReadCloser struct {
+	io.Reader
+
+	bytes  int
+	closed bool
+}
+
+func (r *countingReadCloser) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	r.bytes += n
+	return n, err
+}
+
+func (r *countingReadCloser) Close() error {
+	r.closed = true
+	return nil
 }
 
 func TestResolveReference(t *testing.T) {

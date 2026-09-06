@@ -31,6 +31,11 @@ func TestCheckXMLWellFormed(t *testing.T) {
 		xml  string
 		code xsderrors.Code
 	}{
+		{name: "literal outer whitespace", xml: " \t<root>&#32;<![CDATA[ ]]></root>\r\n"},
+		{name: "reference before root", xml: `&#32;<root/>`, code: xsderrors.CodeValidationXML},
+		{name: "reference after root", xml: `<root/> &#x20;`, code: xsderrors.CodeValidationXML},
+		{name: "empty CDATA before root", xml: `<![CDATA[]]><root/>`, code: xsderrors.CodeValidationXML},
+		{name: "CDATA after root", xml: `<root/><![CDATA[ ]]>`, code: xsderrors.CodeValidationXML},
 		{name: "valid compact document", xml: `<root><v>1</v></root>`},
 		{name: "mismatched end tag", xml: `<root><v>1</root>`, code: xsderrors.CodeValidationXML},
 		{name: "multiple roots", xml: `<a/><b/>`, code: xsderrors.CodeValidationXML},

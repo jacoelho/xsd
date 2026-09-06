@@ -3,9 +3,9 @@ package source
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"io"
-	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -22,6 +22,7 @@ type Source struct {
 	context resolutionContext
 	name    string
 	data    []byte
+	digest  [sha256.Size]byte
 	kind    sourceKind
 }
 
@@ -233,7 +234,8 @@ func Bytes(name string, data []byte) Source {
 	if data == nil {
 		data = []byte{}
 	}
-	return Source{name: name, data: bytes.Clone(data), kind: sourceBytes}
+	data = bytes.Clone(data)
+	return Source{name: name, data: data, digest: sha256.Sum256(data), kind: sourceBytes}
 }
 
 // Opener returns a schema source backed by an opener.
@@ -244,7 +246,14 @@ func Opener(name string, open func() (io.ReadCloser, error)) Source {
 // WithResolver returns s with r used for schema include/import resolution.
 func (s Source) WithResolver(r Resolver) Source {
 	if r == nil {
-		s.context.resolver = nil
+		if s.context.localFileFallback {
+			// A nil custom resolver removes only the custom callback. Keep the
+			// built-in file backend represented by the same owner as File so
+			// equivalent source graphs share one resolution context.
+			s.context.resolver = fileResolverOwner
+		} else {
+			s.context.resolver = nil
+		}
 	} else {
 		s.context.resolver = &resolverOwner{resolve: r}
 	}
@@ -366,60 +375,68 @@ const (
 	ReadStageClose
 )
 
-// ReadResult reports a bounded source acquisition. Data aliases immutable
-// Source storage for byte-backed sources and is loader-owned for opener-backed
-// sources.
+// ReadResult reports a bounded source acquisition. Bytes and Digest describe
+// the raw source bytes consumed, including a first byte beyond maxBytes when
+// the limit is exceeded.
 type ReadResult struct {
 	Err           error
-	Data          []byte
+	Bytes         int64
+	Digest        [32]byte
 	Stage         ReadStage
 	LimitExceeded bool
 	// OpenNotFound reports an exclusively not-found opener error after successful cleanup.
 	OpenNotFound bool
 }
 
-// Acquire reads at most maxBytes from s and preserves the failure stage and
-// bytes consumed before an error.
-func (s Source) Acquire(maxBytes int64) ReadResult {
+// OpenInput opens s for bounded streaming. A non-nil Input owns the opened
+// source until Finish is called. The returned result is non-zero only when
+// opening or source admission fails before an Input can be returned.
+func (s Source) OpenInput(maxBytes int64) (*Input, ReadResult) {
+	if maxBytes < 0 {
+		return nil, ReadResult{
+			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative"),
+			Stage: ReadStageOpen,
+		}
+	}
 	switch s.kind {
 	case sourceBytes:
 		if int64(len(s.data)) > maxBytes {
-			return ReadResult{Err: schemaSourceLimitError(s.name), LimitExceeded: true}
+			return nil, ReadResult{Err: schemaSourceLimitError(s.name), LimitExceeded: true}
 		}
-		return ReadResult{Data: s.data}
+		return newBytesInput(s.name, s.data, s.digest, maxBytes), ReadResult{}
 	case sourceOpener:
 		if s.open == nil {
-			return ReadResult{
+			return nil, ReadResult{
 				Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source opener is nil"),
 				Stage: ReadStageOpen,
 			}
 		}
-		return s.acquireOpenedSource(maxBytes)
+		return s.openSourceInput(maxBytes)
 	case sourceInvalid:
-		return ReadResult{
+		return nil, ReadResult{
 			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
 			Stage: ReadStageOpen,
 		}
 	default:
 	}
-	return ReadResult{
+	return nil, ReadResult{
 		Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
 		Stage: ReadStageOpen,
 	}
 }
 
-func (s Source) acquireOpenedSource(maxBytes int64) ReadResult {
+func (s Source) openSourceInput(maxBytes int64) (*Input, ReadResult) {
 	r, err := s.open()
 	if err != nil {
-		return openSourceFailure(r, err)
+		return nil, openSourceFailure(r, err)
 	}
 	if isNilReadCloser(r) {
-		return ReadResult{
+		return nil, ReadResult{
 			Err:   xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema opener returned a nil reader"),
 			Stage: ReadStageOpen,
 		}
 	}
-	return readAndCloseSource(s.name, r, maxBytes)
+	return newInput(s.name, r, maxBytes), ReadResult{}
 }
 
 func openSourceFailure(r io.ReadCloser, err error) ReadResult {
@@ -431,21 +448,6 @@ func openSourceFailure(r io.ReadCloser, err error) ReadResult {
 		}
 	}
 	return ReadResult{Err: err, Stage: ReadStageOpen, OpenNotFound: openNotFound}
-}
-
-func readAndCloseSource(name string, r io.ReadCloser, maxBytes int64) ReadResult {
-	data, limitExceeded, readErr := readLimitedSchemaSource(name, r, maxBytes)
-	closeErr := r.Close()
-	if readErr != nil {
-		if closeErr != nil {
-			readErr = errors.Join(readErr, closeErr)
-		}
-		return ReadResult{Data: data, LimitExceeded: limitExceeded, Err: readErr, Stage: ReadStageRead}
-	}
-	if closeErr != nil {
-		return ReadResult{Data: data, Err: closeErr, Stage: ReadStageClose}
-	}
-	return ReadResult{Data: data}
 }
 
 func isNilReadCloser(r io.ReadCloser) bool {
@@ -467,54 +469,14 @@ func isNilReadCloser(r io.ReadCloser) bool {
 	return false
 }
 
-func readLimitedSchemaSource(name string, r io.Reader, maxBytes int64) ([]byte, bool, error) {
-	if maxBytes < 0 {
-		return nil, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative")
-	}
-	reader := r
-	if maxBytes < math.MaxInt64 {
-		reader = io.LimitReader(r, maxBytes+1)
-	}
-	data, err := io.ReadAll(&schemaProgressReader{reader: reader})
-	if int64(len(data)) > maxBytes {
-		limitErr := schemaSourceLimitError(name)
-		if err != nil {
-			limitErr = errors.Join(limitErr, err)
-		}
-		return data, true, limitErr
-	}
-	if err != nil {
-		return data, false, err
-	}
-	return data, false, nil
-}
-
 const maxConsecutiveEmptySchemaReads = 100
-
-type schemaProgressReader struct {
-	reader     io.Reader
-	emptyReads int
-}
-
-func (r *schemaProgressReader) Read(p []byte) (int, error) {
-	n, err := r.reader.Read(p)
-	if n != 0 || err != nil {
-		r.emptyReads = 0
-		return n, err
-	}
-	r.emptyReads++
-	if r.emptyReads >= maxConsecutiveEmptySchemaReads {
-		return 0, io.ErrNoProgress
-	}
-	return 0, nil
-}
 
 func schemaSourceLimitError(name string) error {
 	msg := "schema source exceeds MaxSchemaSourceBytes"
 	if name != "" {
 		msg = "schema source " + name + " exceeds MaxSchemaSourceBytes"
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg)
+	return xsderrors.WithLocation(name, 0, 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg))
 }
 
 // IsSchemaLimitError reports whether err is a schema source byte-limit diagnostic.

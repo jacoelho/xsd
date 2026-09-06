@@ -5,7 +5,7 @@ BIN := $(CURDIR)/bin
 STATICCHECK_VERSION := v0.8.1
 GOLANGCI_LINT_VERSION := v2.13.2
 BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
-BENCH_SMOKE_PATTERN := Benchmark(CheckXMLWellFormedNested|Compile(AttributeGroupFanout|CountedChoiceDFA|DeepSimpleTypeChain|RepeatedNestedUnionMembers|SmallSchema|SubstitutionGroups)|NamespaceAdmissionChurn|ParseXSDTime|ParserLazyWideAttributes|SessionValidate(DisjointIdentityPaths|ExpandedIdentityPaths|NamespaceAdmissionChurn|NestedIdentitySelectionPaths|NestedIdentitySelections|RepeatedSmallDocument|RetainedIdentityPaths|SharedExpandedIdentityPrefix|WideChoice)|SimplePatternVariableSmallBytes|Validate(Concurrent|DuplicateAttributes|IdentityConstraintsFields|IdentityConstraintsRows|ManyRecoverablePathErrors|SubstitutionGroup)|XML(DuplicateAttributes|MixedEscapedAttributeWriterOnly))
+BENCH_SMOKE_PATTERN := Benchmark(CheckXMLWellFormedNested|Compile(AttributeGroupFanout|CountedChoiceDFA|DeepSimpleTypeChain|RepeatedNestedUnionMembers|SmallSchema|StreamingSource|SubstitutionGroups)|NamespaceAdmissionChurn|ParseXSDTime|ParserLazyWideAttributes|SessionValidate(DisjointIdentityPaths|ExpandedIdentityPaths|NamespaceAdmissionChurn|NestedIdentitySelectionPaths|NestedIdentitySelections|RepeatedSmallDocument|RetainedIdentityPaths|SharedExpandedIdentityPrefix|WideChoice)|SimplePatternVariableSmallBytes|Validate(Concurrent|DuplicateAttributes|IdentityConstraintsFields|IdentityConstraintsRows|ManyRecoverablePathErrors|SubstitutionGroup)|XML(DuplicateAttributes|MixedEscapedAttributeWriterOnly))
 export GOBIN := $(BIN)
 
 .PHONY: test
@@ -22,10 +22,10 @@ wasm-test:
 
 .PHONY: fuzz-smoke
 fuzz-smoke:
-	go test -run '^$$' -fuzz=FuzzXMLStreamParser -fuzztime=10s ./internal/stream
-	go test -run '^$$' -fuzz=FuzzSchemaParserLimits -fuzztime=10s ./internal/compile
+	go test -run '^$$' -fuzz=FuzzReader -fuzztime=10s ./internal/xmlstream
+	go test -run '^$$' -fuzz=FuzzSchemaParserLimits -fuzztime=10s ./internal/schema
 	go test -run '^$$' -fuzz=FuzzValidateNeverPanics -fuzztime=10s ./internal/validate
-	go test -run '^$$' -fuzz=FuzzXSDRegexSyntax -fuzztime=10s ./internal/compile
+	go test -run '^$$' -fuzz=FuzzXSDRegexSyntax -fuzztime=10s ./internal/xsdregex
 
 .PHONY: bench
 bench:

@@ -13,7 +13,7 @@ func TestExternalModuleUsesPublicSchemaAPI(t *testing.T) {
 	dir := t.TempDir()
 	writeExternalSmokeFile(t, filepath.Join(dir, "go.mod"), `module external-api-smoke
 
-go 1.26.2
+go 1.27.0
 
 require github.com/jacoelho/xsd v0.0.0
 

@@ -2,10 +2,12 @@ package validate
 
 import (
 	"encoding/xml"
+	"errors"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/lex"
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	xsdValue "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -44,8 +46,8 @@ func (t identityValueTarget) needsIdentity() bool {
 
 type identityElementStart struct {
 	Context       StartContext
-	Name          runtime.RuntimeName
-	Element       runtime.ElementID
+	Name          xsdSchema.RuntimeName
+	Element       xsdSchema.ElementID
 	Mode          elementMode
 	Nilled        bool
 	SimpleContent bool
@@ -70,21 +72,40 @@ const (
 )
 
 type identityElementState struct {
-	element       runtime.ElementID
+	element       xsdSchema.ElementID
 	mode          elementMode
 	nilled        bool
 	simpleContent bool
 	seenID        bool
 }
 
+type identityActiveScope struct {
+	index int
+	order int
+}
+
+type identityDispatchState struct {
+	index              xsdSchema.IdentityDispatchRead
+	activeByConstraint map[xsdSchema.IdentityConstraintID][]identityActiveScope
+	selectorHits       []identitySelectorHit
+}
+
+func newIdentityDispatchState(index xsdSchema.IdentityDispatchRead) identityDispatchState {
+	return identityDispatchState{
+		index: index,
+	}
+}
+
 // identityEvaluation owns all document-local XML and XSD identity state.
 type identityEvaluation struct {
 	identityState
 
-	rt                 *runtime.Schema
+	rt                 *xsdSchema.Schema
+	dispatch           identityDispatchState
 	targetKey          string
-	path               []runtime.RuntimeName
+	path               []xsdSchema.RuntimeName
 	elements           []identityElementState
+	attributeScratch   []identityFieldMatch
 	limits             identityLimits
 	maxScopes          int
 	generation         uint64
@@ -93,13 +114,337 @@ type identityEvaluation struct {
 	constraintsEnabled bool
 }
 
-func newIdentityEvaluation(rt *runtime.Schema, limits identityLimits, maxScopes int) identityEvaluation {
+func newIdentityEvaluation(rt *xsdSchema.Schema, limits identityLimits, maxScopes int) identityEvaluation {
+	dispatch := xsdSchema.IdentityDispatchRead{}
+	if rt != nil {
+		dispatch = rt.IdentityDispatch()
+	}
 	return identityEvaluation{
 		rt:                 rt,
+		dispatch:           newIdentityDispatchState(dispatch),
 		limits:             limits,
 		maxScopes:          maxScopes,
 		constraintsEnabled: rt.HasIdentityConstraints(),
 	}
+}
+
+func (e *identityEvaluation) ensureIdentityProgram(id xsdSchema.IdentityConstraintID) (identityConstraintProgram, error) {
+	program, ok := e.dispatch.index.Program(id)
+	if !ok {
+		return identityConstraintProgram{}, internalIdentityMetadataError("identity constraint metadata is invalid")
+	}
+	if err := validateIdentitySelectorProgram(program); err != nil {
+		return identityConstraintProgram{}, err
+	}
+	return program, nil
+}
+
+func validateIdentitySelectorProgram(program identityConstraintProgram) error {
+	paths := program.Selectors()
+	for index := range paths.Len() {
+		path, ok := paths.At(index)
+		if !ok {
+			return internalIdentityMetadataError("identity selector metadata is invalid")
+		}
+		if !path.Self() && !path.Descendant() {
+			if _, ok := path.FinalStep(); !ok {
+				return xsderrors.InternalInvariant("identity selector path has no terminal step")
+			}
+		}
+	}
+	return nil
+}
+
+func (e *identityEvaluation) registerIdentityScope(scopeIndex int) error {
+	if scopeIndex < 0 || scopeIndex >= len(e.scopes) {
+		return xsderrors.InternalInvariant("identity scope index is invalid")
+	}
+	scope := e.scopes[scopeIndex]
+	for order := range scope.constraints.Len() {
+		id, ok := scope.constraints.At(order)
+		if !ok {
+			return xsderrors.InternalInvariant("identity scope metadata is invalid")
+		}
+		if _, err := e.ensureIdentityProgram(id); err != nil {
+			return err
+		}
+		if e.dispatch.activeByConstraint == nil {
+			e.dispatch.activeByConstraint = make(map[xsdSchema.IdentityConstraintID][]identityActiveScope)
+		}
+		e.dispatch.activeByConstraint[id] = append(e.dispatch.activeByConstraint[id], identityActiveScope{index: scopeIndex, order: order})
+	}
+	return nil
+}
+
+// discardClosedIdentityScopes removes entries whose scope stack index was
+// popped. The retained slices are compacted in place so closing an element
+// does not rebuild or allocate the dispatch index.
+func (e *identityEvaluation) discardClosedIdentityScopes(scopeLimit int) {
+	for id, active := range e.dispatch.activeByConstraint {
+		keep := 0
+		for _, entry := range active {
+			if entry.index >= scopeLimit {
+				continue
+			}
+			active[keep] = entry
+			keep++
+		}
+		clear(active[keep:])
+		e.dispatch.activeByConstraint[id] = active[:keep]
+	}
+}
+
+type identitySelectorHit struct {
+	scope      int
+	order      int
+	constraint xsdSchema.IdentityConstraintID
+}
+
+func (e *identityEvaluation) advanceIdentitySelectors(ctx StartContext) error {
+	if len(e.scopes) == 0 || len(e.path) == 0 {
+		return nil
+	}
+	depth := len(e.path)
+	hits := e.dispatch.selectorHits[:0]
+	name := e.path[len(e.path)-1]
+	if name.Known {
+		hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorExact(name.Name), depth)
+	}
+	namespace := name.NS
+	if name.Known {
+		namespace = e.rt.Namespace(name.Name.Namespace)
+	}
+	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorNamespace(namespace), depth)
+	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorAny(), depth)
+	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelfSelectors(), depth)
+	if err := e.startSelectorHits(hits, depth, ctx); err != nil {
+		e.dispatch.selectorHits = hits[:0]
+		return err
+	}
+	e.dispatch.selectorHits = hits[:0]
+	return nil
+}
+
+func (e *identityEvaluation) startSelectorHits(hits []identitySelectorHit, depth int, ctx StartContext) error {
+	if len(hits) > 1 {
+		sortIdentitySelectorHits(hits)
+	}
+	for index, hit := range hits {
+		if index != 0 && hits[index-1].scope == hit.scope && hits[index-1].constraint == hit.constraint {
+			continue
+		}
+		if err := e.startIdentitySelectorHit(hit, depth, ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sortIdentitySelectorHits(hits []identitySelectorHit) {
+	slices.SortStableFunc(hits, func(a, b identitySelectorHit) int {
+		if a.scope < b.scope {
+			return -1
+		}
+		if a.scope > b.scope {
+			return 1
+		}
+		if a.order < b.order {
+			return -1
+		}
+		if a.order > b.order {
+			return 1
+		}
+		return 0
+	})
+}
+
+func (e *identityEvaluation) startIdentitySelectorHit(hit identitySelectorHit, depth int, ctx StartContext) error {
+	program, ok := e.dispatch.index.Program(hit.constraint)
+	if !ok {
+		return xsderrors.InternalInvariant("identity field count metadata is invalid")
+	}
+	return e.startIdentitySelection(hit.scope, depth, hit.constraint, program.FieldCount(), e.limits.Entries, ctx)
+}
+
+func (e *identityEvaluation) appendIdentitySelectorHits(
+	hits []identitySelectorHit,
+	branches xsdSchema.IdentitySelectorDispatchReads,
+	depth int,
+) []identitySelectorHit {
+	for index := range branches.Len() {
+		branch, ok := branches.At(index)
+		if !ok {
+			continue
+		}
+		hits = e.appendSelectorBranchHits(hits, branch, depth)
+	}
+	return hits
+}
+
+func (e *identityEvaluation) appendSelectorBranchHits(
+	hits []identitySelectorHit,
+	branch xsdSchema.IdentitySelectorDispatchRead,
+	depth int,
+) []identitySelectorHit {
+	constraint := branch.Constraint()
+	path := branch.Path()
+	for _, active := range e.dispatch.activeByConstraint[constraint] {
+		if active.index < 0 || active.index >= len(e.scopes) {
+			continue
+		}
+		scope := e.scopes[active.index]
+		if !path.Matches(e.rt, e.path, scope.depth, depth) {
+			continue
+		}
+		hits = append(hits, identitySelectorHit{scope: active.index, order: active.order, constraint: constraint})
+	}
+	return hits
+}
+
+func (e *identityEvaluation) startIdentitySelection(scope, depth int, constraint xsdSchema.IdentityConstraintID, fieldCount, maxEntries int, ctx StartContext) error {
+	return e.startSelection(scope, depth, constraint, fieldCount, maxEntries, ctx)
+}
+
+func appendIdentityMatchUnique(matches []identityFieldMatch, match identityFieldMatch) []identityFieldMatch {
+	if identityMatchExists(matches, match.Selection, match.Field) {
+		return matches
+	}
+	return append(matches, match)
+}
+
+func sortIdentityFieldMatches(matches []identityFieldMatch) {
+	slices.SortStableFunc(matches, func(a, b identityFieldMatch) int {
+		if a.Selection < b.Selection {
+			return -1
+		}
+		if a.Selection > b.Selection {
+			return 1
+		}
+		if a.Field < b.Field {
+			return -1
+		}
+		if a.Field > b.Field {
+			return 1
+		}
+		return 0
+	})
+}
+
+func (e *identityEvaluation) dispatchElementFieldMatches() []identityFieldMatch {
+	if len(e.path) == 0 {
+		return nil
+	}
+	depth := len(e.path)
+	name := e.path[depth-1]
+	// The returned slice is consumed before the next identity value is
+	// prepared. Reusing the evaluator scratch avoids one allocation per
+	// element while keeping selections as the sole source of active state.
+	matches := e.matches[:0]
+	matches = e.appendElementDispatchMatches(matches, e.dispatch.index.ElementSelf(), depth)
+	if name.Known {
+		matches = e.appendElementDispatchMatches(matches, e.dispatch.index.ElementExact(name.Name), depth)
+	}
+	namespace := name.NS
+	if name.Known {
+		namespace = e.rt.Namespace(name.Name.Namespace)
+	}
+	matches = e.appendElementDispatchMatches(matches, e.dispatch.index.ElementNamespace(namespace), depth)
+	matches = e.appendElementDispatchMatches(matches, e.dispatch.index.ElementAny(), depth)
+	sortIdentityFieldMatches(matches)
+	e.matches = matches
+	return matches
+}
+
+func (e *identityEvaluation) appendElementDispatchMatches(
+	matches []identityFieldMatch,
+	entries xsdSchema.IdentityFieldDispatchReads,
+	depth int,
+) []identityFieldMatch {
+	for index := range entries.Len() {
+		entry, ok := entries.At(index)
+		if !ok {
+			continue
+		}
+		matches = e.appendElementDispatchEntry(matches, entry, depth)
+	}
+	return matches
+}
+
+func (e *identityEvaluation) appendElementDispatchEntry(
+	matches []identityFieldMatch,
+	entry xsdSchema.IdentityFieldDispatchRead,
+	depth int,
+) []identityFieldMatch {
+	constraint := entry.Constraint()
+	path := entry.Path()
+	for index := range e.selections {
+		sel := e.selections[index]
+		if sel.constraint != constraint || !path.Matches(e.rt, e.path, sel.depth, depth) {
+			continue
+		}
+		matches = appendIdentityMatchUnique(matches, identityFieldMatch{Selection: index, Field: entry.Field()})
+	}
+	return matches
+}
+
+func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.RuntimeName) ([]identityFieldMatch, error) {
+	if len(e.path) == 0 {
+		return nil, nil
+	}
+	matches := e.attributeScratch[:0]
+	for index := range e.selections {
+		sel := e.selections[index]
+		program, ok := e.dispatch.index.Program(sel.constraint)
+		if !ok {
+			return nil, internalIdentityMetadataError("identity attribute dispatch metadata is invalid")
+		}
+		var exact xsdSchema.IdentityCompiledFieldProgramReads
+		if name.Known {
+			exact, ok = e.dispatch.index.AttributeFields(sel.constraint, name.Name)
+			if !ok {
+				return nil, internalIdentityMetadataError("identity attribute dispatch metadata is invalid")
+			}
+		}
+		matches = e.appendAttributeProgramFieldMatches(matches, index, sel.depth, name, exact)
+		matches = e.appendAttributeProgramFieldMatches(matches, index, sel.depth, name, program.AttributeWildcardFields())
+	}
+	sortIdentityFieldMatches(matches)
+	e.attributeScratch = matches
+	return matches, nil
+}
+
+func (e *identityEvaluation) appendAttributeProgramFieldMatches(
+	matches []identityFieldMatch,
+	selection, depth int,
+	name xsdSchema.RuntimeName,
+	fields xsdSchema.IdentityCompiledFieldProgramReads,
+) []identityFieldMatch {
+	for fieldIndex := range fields.Len() {
+		field, ok := fields.At(fieldIndex)
+		if !ok {
+			continue
+		}
+		for pathIndex := range field.PathCount() {
+			path, ok := field.Path(pathIndex)
+			if !ok || !path.AttributeMatches(e.rt, name) || !path.Matches(e.rt, e.path, depth, len(e.path)) {
+				continue
+			}
+			matches = appendIdentityMatchUnique(matches, identityFieldMatch{Selection: selection, Field: field.Field()})
+			break
+		}
+	}
+	return matches
+}
+
+func (e *identityEvaluation) resetIdentityDispatch() {
+	// Programs and candidate indexes remain reusable across documents. Only
+	// active scope membership is document-local; clear its retained slices so
+	// session reuse does not allocate on every reset.
+	for id, active := range e.dispatch.activeByConstraint {
+		clear(active)
+		e.dispatch.activeByConstraint[id] = active[:0]
+	}
+	e.dispatch.selectorHits = e.dispatch.selectorHits[:0]
 }
 
 func (e *identityEvaluation) hasConstraints() bool {
@@ -117,7 +462,10 @@ func (e *identityEvaluation) beginStart() error {
 	clear(j.addedIDs)
 	clear(j.fieldUndos)
 	clear(j.scopeUndos)
-	*j = identityStartJournal{
+	j.addedIDs = j.addedIDs[:0]
+	j.fieldUndos = j.fieldUndos[:0]
+	j.scopeUndos = j.scopeUndos[:0]
+	j.identityStartCheckpoint = identityStartCheckpoint{
 		active:         true,
 		pathLen:        len(e.path),
 		elementsLen:    len(e.elements),
@@ -127,9 +475,6 @@ func (e *identityEvaluation) beginStart() error {
 		fieldValuesLen: len(e.fieldValues),
 		entries:        e.entries,
 		nextNodeID:     e.nextNodeID,
-		addedIDs:       j.addedIDs[:0],
-		fieldUndos:     j.fieldUndos[:0],
-		scopeUndos:     j.scopeUndos[:0],
 	}
 	return nil
 }
@@ -177,6 +522,7 @@ func (e *identityEvaluation) abortStart() {
 	e.entries = j.entries
 	e.nextNodeID = j.nextNodeID
 	e.releaseTarget()
+	e.discardClosedIdentityScopes(len(e.scopes))
 	e.generation++
 	e.clearStartJournal()
 }
@@ -186,11 +532,10 @@ func (e *identityEvaluation) clearStartJournal() {
 	clear(j.addedIDs)
 	clear(j.fieldUndos)
 	clear(j.scopeUndos)
-	*j = identityStartJournal{
-		addedIDs:   j.addedIDs[:0],
-		fieldUndos: j.fieldUndos[:0],
-		scopeUndos: j.scopeUndos[:0],
-	}
+	j.addedIDs = j.addedIDs[:0]
+	j.fieldUndos = j.fieldUndos[:0]
+	j.scopeUndos = j.scopeUndos[:0]
+	j.identityStartCheckpoint = identityStartCheckpoint{}
 }
 
 func (e *identityEvaluation) startElement(in identityElementStart) error {
@@ -216,21 +561,27 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 		return nil
 	}
 	depth := len(e.path)
+	scopesBefore := len(e.scopes)
 	if err := e.startElementScope(e.rt, in.Element, depth, e.maxScopes, in.Context); err != nil {
 		return err
 	}
-	return e.matchSelectors(e.rt, e.path, e.limits.Entries, in.Context)
+	if len(e.scopes) != scopesBefore {
+		if err := e.registerIdentityScope(len(e.scopes) - 1); err != nil {
+			return err
+		}
+	}
+	return e.advanceIdentitySelectors(in.Context)
 }
 
 func (e *identityEvaluation) prepareElementValue() (identityValueTarget, error) {
-	return e.prepareValue(identityElementValue, runtime.RuntimeName{})
+	return e.prepareValue(identityElementValue, xsdSchema.RuntimeName{})
 }
 
-func (e *identityEvaluation) prepareAttributeValue(name runtime.RuntimeName) (identityValueTarget, error) {
+func (e *identityEvaluation) prepareAttributeValue(name xsdSchema.RuntimeName) (identityValueTarget, error) {
 	return e.prepareValue(identityAttributeValue, name)
 }
 
-func (e *identityEvaluation) prepareValue(kind identityValueKind, name runtime.RuntimeName) (identityValueTarget, error) {
+func (e *identityEvaluation) prepareValue(kind identityValueKind, name xsdSchema.RuntimeName) (identityValueTarget, error) {
 	if e.targetPhase != identityTargetInactive {
 		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target already active")
 	}
@@ -247,9 +598,9 @@ func (e *identityEvaluation) prepareValue(kind identityValueKind, name runtime.R
 	)
 	switch kind {
 	case identityElementValue:
-		matches, err = e.elementFieldMatches(e.rt, e.path)
+		matches = e.dispatchElementFieldMatches()
 	case identityAttributeValue:
-		matches, err = e.attributeFieldMatches(e.rt, e.path, name)
+		matches, err = e.dispatchAttributeFieldMatches(name)
 	default:
 		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target kind is invalid")
 	}
@@ -259,6 +610,7 @@ func (e *identityEvaluation) prepareValue(kind identityValueKind, name runtime.R
 	if len(matches) == 0 {
 		return target, nil
 	}
+	e.matches = matches
 	e.generation++
 	if e.generation == 0 {
 		e.generation++
@@ -271,14 +623,14 @@ func (e *identityEvaluation) prepareValue(kind identityValueKind, name runtime.R
 	return target, nil
 }
 
-func (e *identityEvaluation) recordValue(target identityValueTarget, value runtime.SimpleValue, ctx StartContext) error {
+func (e *identityEvaluation) recordValue(target identityValueTarget, value xsdValue.Value, ctx StartContext) error {
 	if err := e.validateTarget(target); err != nil {
 		return err
 	}
 	if target.matched && e.targetPhase != identityTargetPrepared {
 		return xsderrors.InternalInvariant("identity value target recorded more than once")
 	}
-	if target.kind == identityAttributeValue && value.IDs != "" {
+	if target.kind == identityAttributeValue && value.IDs() != "" {
 		current := &e.elements[len(e.elements)-1]
 		if current.seenID {
 			err := validation(ctx, xsderrors.CodeValidationType, "multiple ID attributes")
@@ -286,13 +638,13 @@ func (e *identityEvaluation) recordValue(target identityValueTarget, value runti
 		}
 		current.seenID = true
 	}
-	if err := e.recordIdentityFields(value.IDs, value.IDRefs, ctx); err != nil {
+	if err := e.recordIdentityFields(value.IDs(), value.IDRefs(), ctx); err != nil {
 		return e.rejectAfterRecordFailure(target, err)
 	}
 	if !target.matched {
 		return nil
 	}
-	key, ok := simpleValueIdentityKey(e.rt, value)
+	key, ok := simpleValueIdentityKey(value)
 	if !ok {
 		e.releaseTarget()
 		return xsderrors.InternalInvariant("identity field value references invalid simple type")
@@ -362,7 +714,8 @@ func (e *identityEvaluation) captureXSIAttribute(
 	target identityValueTarget,
 	name xml.Name,
 	lexical string,
-	resolve runtime.ResolveQNameParts,
+	resolve xsdSchema.ResolveQNameParts,
+	workLimit uint64,
 	ctx StartContext,
 ) error {
 	if err := e.validateTarget(target); err != nil {
@@ -375,10 +728,14 @@ func (e *identityEvaluation) captureXSIAttribute(
 		return xsderrors.InternalInvariant("xsi identity value target is not ready for capture")
 	}
 	defer e.releaseTarget()
-	identity, err := xsiAttributeIdentityKey(e.rt, name, lexical, resolve, ctx)
+	identity, err := xsiAttributeIdentityKey(e.rt, name, lexical, resolve, workLimit, ctx)
 	if err != nil {
 		if invalidateErr := e.invalidateFields(e.matches); invalidateErr != nil {
 			return invalidateErr
+		}
+		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok &&
+			diagnostic != nil && diagnostic.Code() == xsderrors.CodeValidationLimit {
+			return err
 		}
 		// Start assessment owns XSI diagnostics; this conversion only derives
 		// the identity-field key.
@@ -531,6 +888,7 @@ func (e *identityEvaluation) endElement(in identityElementEnd, report func(error
 	if err != nil {
 		return result, err
 	}
+	e.discardClosedIdentityScopes(len(e.scopes))
 	assessment := identityElementAssessmentValid
 	if invalid {
 		assessment = identityElementAssessmentInvalid
@@ -601,11 +959,7 @@ func (e *identityEvaluation) finishElementValue(
 	case endIdentityCaptureNone:
 		return nil
 	case endIdentityCaptureNilledElement:
-		matches, err := e.elementFieldMatches(e.rt, e.path)
-		if err != nil {
-			return err
-		}
-		return reportIdentityError(e.captureFields(matches, nilledElementIdentityKey, in.Context), report)
+		return reportIdentityError(e.captureFields(e.dispatchElementFieldMatches(), nilledElementIdentityKey, in.Context), report)
 	case endIdentityCaptureComplexElement:
 		return e.rejectCurrentElement(identityMissingSimpleValue, in.Context, report)
 	default:
@@ -614,10 +968,7 @@ func (e *identityEvaluation) finishElementValue(
 }
 
 func (e *identityEvaluation) rejectCurrentElement(reason identityRejection, ctx StartContext, report func(error) error) error {
-	matches, err := e.elementFieldMatches(e.rt, e.path)
-	if err != nil {
-		return err
-	}
+	matches := e.dispatchElementFieldMatches()
 	if reason == identityInvalidValue {
 		return e.invalidateFields(matches)
 	}
@@ -625,7 +976,7 @@ func (e *identityEvaluation) rejectCurrentElement(reason identityRejection, ctx 
 }
 
 func (e *identityEvaluation) finishNillableKeyFields(element identityElementState, assessment identityElementAssessment) error {
-	if element.element == runtime.NoElement {
+	if element.element == xsdSchema.NoElement {
 		return nil
 	}
 	decl, ok := e.rt.Element(element.element)
@@ -635,10 +986,7 @@ func (e *identityEvaluation) finishNillableKeyFields(element identityElementStat
 	if !decl.Nillable {
 		return nil
 	}
-	matches, err := e.elementFieldMatches(e.rt, e.path)
-	if err != nil {
-		return err
-	}
+	matches := e.dispatchElementFieldMatches()
 	switch assessment {
 	case identityElementAssessmentValid:
 		return e.markNillableKeyFields(e.rt, matches)
@@ -707,7 +1055,11 @@ func (e *identityEvaluation) finishSelectionCandidate(sel identitySelection, dep
 	if ownedHere != (ownership == identitySelectionsOwnedByCurrentScope) {
 		return identitySelectionFinishResult{keep: true, consumed: true}, nil
 	}
-	if err := e.finishSelection(e.rt, sel, e.limits, ctx); err != nil {
+	program, ok := e.dispatch.index.Program(sel.constraint)
+	if !ok {
+		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, xsderrors.InternalInvariant("identity constraint metadata is invalid"), report)
+	}
+	if err := e.finishSelectionWithConstraint(program.Kind(), program.Refer(), sel, e.limits, ctx); err != nil {
 		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, err, report)
 	}
 	clear(e.selectionFields(sel))
@@ -753,7 +1105,7 @@ func (e *identityEvaluation) popElement() {
 		return
 	}
 	pathIndex := len(e.path) - 1
-	e.path[pathIndex] = runtime.RuntimeName{}
+	e.path[pathIndex] = xsdSchema.RuntimeName{}
 	e.path = e.path[:pathIndex]
 }
 
@@ -761,7 +1113,9 @@ func (e *identityEvaluation) reset(maxRetainedIDs, maxRetainedSlices int) {
 	e.identityState.reset(maxRetainedIDs, maxRetainedSlices)
 	e.path = resetRetainedReferences(e.path, maxRetainedSlices)
 	e.elements = resetRetainedValues(e.elements, maxRetainedSlices)
+	e.attributeScratch = resetRetainedValues(e.attributeScratch, maxRetainedSlices)
 	e.releaseTarget()
+	e.resetIdentityDispatch()
 	e.generation++
 }
 
@@ -769,6 +1123,8 @@ func (e *identityEvaluation) discard() {
 	e.identityState = identityState{}
 	e.path = nil
 	e.elements = nil
+	e.attributeScratch = nil
 	e.releaseTarget()
+	e.resetIdentityDispatch()
 	e.generation++
 }

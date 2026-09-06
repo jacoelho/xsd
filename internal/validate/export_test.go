@@ -3,10 +3,11 @@ package validate
 import (
 	"encoding/xml"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-func newSessionForTest(rt *runtime.Schema, opts Options) (*Session, error) {
+func newSessionForTest(rt *xsdSchema.Schema, opts Options) (*Session, error) {
 	s, err := NewSession(rt, opts)
 	if err != nil {
 		return nil, err
@@ -52,9 +53,18 @@ func NewIdentityRecorderForTest() *IdentityRecorderForTest {
 	return recorder
 }
 
-// PushPath appends a path segment.
+// PushPath appends a path segment and its active identity frame.
 func (r *IdentityRecorderForTest) PushPath(local string) {
-	r.session.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: local}}, frame{})
+	start := preparedXMLStart{name: xml.Name{Local: local}}
+	r.session.doc.CommitStart(start, frame{})
+	if err := r.session.doc.identity.startElement(identityElementStart{
+		Context: r.session.startContext(1, 1),
+		Name:    xsdSchema.RuntimeName{Local: local},
+		Element: xsdSchema.NoElement,
+		Mode:    elementAssessed,
+	}); err != nil {
+		panic(err)
+	}
 }
 
 // PathString returns the current validation path.
@@ -64,10 +74,12 @@ func (r *IdentityRecorderForTest) PathString() string {
 
 // ResetIdentity resets retained identity state.
 func (r *IdentityRecorderForTest) ResetIdentity() {
-	r.session.doc.identity.reset(maxRetainedMapLen, maxRetainedSliceCap)
+	// Keep the active document fixture in place while resetting only the
+	// retained identity values measured by the benchmark.
+	r.session.doc.identity.identityState.reset(maxRetainedMapLen, maxRetainedSliceCap)
 }
 
 // RecordIdentityValue records one simple value identity payload.
-func (r *IdentityRecorderForTest) RecordIdentityValue(value runtime.SimpleValue, line, col int) error {
-	return r.session.doc.identity.recordIdentityFields(value.IDs, value.IDRefs, r.session.startContext(line, col))
+func (r *IdentityRecorderForTest) RecordIdentityValue(v value.Value, line, col int) error {
+	return r.session.doc.identity.recordIdentityFields(v.IDs(), v.IDRefs(), r.session.startContext(line, col))
 }

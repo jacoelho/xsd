@@ -1,9 +1,11 @@
 package validate
 
 import (
+	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -19,7 +21,7 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	if !target.needsIdentity() {
 		t.Fatal("prepareElementValue() returned an inactive target")
 	}
-	if _, err = evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName}); err == nil {
+	if _, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}); err == nil {
 		t.Fatal("prepareAttributeValue() accepted an overlapping target")
 	} else {
 		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
@@ -28,12 +30,48 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rejectValue() error = %v", err)
 	}
-	target, err = evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	target, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName})
 	if err != nil {
 		t.Fatalf("prepareAttributeValue() after release error = %v", err)
 	}
 	if err = evaluation.rejectValue(target, identityInvalidValue, identityTestContext("/root", 0, 0)); err != nil {
 		t.Fatalf("rejectValue(attribute) error = %v", err)
+	}
+}
+
+func TestIdentitySelectorUnionOverlappingBranchesSelectsNodeOnce(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType>
+    <xs:key name="ids"><xs:selector xpath=". | ."/><xs:field xpath="@id | @*"/></xs:key>
+  </xs:element>
+</xs:schema>`)
+	session, err := newSessionForTest(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader(`<root id="same"/>`)); err != nil {
+		t.Fatalf("Validate() error = %v, want one identity selection", err)
+	}
+}
+
+func TestIdentitySelectorDescendantSelfBranchUsesBroadDispatch(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:attribute name="id" type="xs:string"/></xs:complexType>
+    <xs:key name="ids"><xs:selector xpath=".//."/><xs:field xpath="@id"/></xs:key>
+  </xs:element>
+</xs:schema>`)
+	session, err := newSessionForTest(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Validate(strings.NewReader(`<root id="same"/>`)); err != nil {
+		t.Fatalf("Validate() error = %v, want descendant-self selection", err)
 	}
 }
 
@@ -57,7 +95,7 @@ func TestIdentityEvaluationCommitsValueAndClosesElement(t *testing.T) {
 		t.Fatalf("prepareElementValue() error = %v", err)
 	}
 	ctx := identityTestContext("/root", 2, 3)
-	err = evaluation.recordValue(target, runtime.SimpleValue{Identity: "root-key"}, ctx)
+	err = evaluation.recordValue(target, identityValueForTest(t, "string", "root-key", value.NeedIdentity), ctx)
 	if err != nil {
 		t.Fatalf("recordValue() error = %v", err)
 	}
@@ -109,7 +147,7 @@ func TestIdentityEvaluationResetInvalidatesBorrowedTarget(t *testing.T) {
 	}
 	err = evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 0, 0),
-		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
+		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	})
@@ -124,11 +162,11 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 	fixture := startedIdentityEvaluationForTest(t)
 	evaluation := fixture.evaluation
 	ctx := identityTestContext("/root", 2, 3)
-	target, err := evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName})
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(first) error = %v", err)
 	}
-	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "first", Identity: "first"}, ctx)
+	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "first", value.NeedIdentity), ctx)
 	if err != nil {
 		t.Fatalf("recordValue(first) error = %v", err)
 	}
@@ -141,11 +179,11 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 		t.Fatalf("commitValue(first) error = %v", err)
 	}
 
-	target, err = evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	target, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName})
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(second) error = %v", err)
 	}
-	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "second", Identity: "second"}, ctx)
+	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "second", value.NeedIdentity), ctx)
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
 	expectXSDMessage(t, err, "multiple ID attributes")
 	if evaluation.targetPhase != identityTargetInactive {
@@ -163,18 +201,18 @@ func TestIdentityEvaluationRejectsSecondIDAfterFirstIDRecordFails(t *testing.T) 
 	evaluation := fixture.evaluation
 	evaluation.limits.TupleBytes = 1
 	ctx := identityTestContext("/root", 2, 3)
-	target, err := evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName})
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(first) error = %v", err)
 	}
-	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "too-long", Identity: "too-long"}, ctx)
+	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "too-long", value.NeedIdentity), ctx)
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 
-	target, err = evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	target, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName})
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(second) error = %v", err)
 	}
-	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "x", Identity: "x"}, ctx)
+	err = evaluation.recordValue(target, identityValueForTest(t, "ID", "x", value.NeedIdentity), ctx)
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
 	expectXSDMessage(t, err, "multiple ID attributes")
 	if _, ok := evaluation.ids["x"]; ok {
@@ -196,7 +234,7 @@ func TestIdentityEvaluationCanRejectRecordedOrCapturedValue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("prepareElementValue() error = %v", err)
 			}
-			err = evaluation.recordValue(target, runtime.SimpleValue{Identity: "root-key"}, ctx)
+			err = evaluation.recordValue(target, identityValueForTest(t, "string", "root-key", value.NeedIdentity), ctx)
 			if err != nil {
 				t.Fatalf("recordValue() error = %v", err)
 			}
@@ -236,7 +274,7 @@ func TestIdentityEvaluationStartTransactionRollsBackState(t *testing.T) {
 	}
 	err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root/child", 2, 3),
-		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
+		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	})
@@ -283,11 +321,11 @@ func TestIdentityEvaluationRecordsIDBatchAtomically(t *testing.T) {
 	fixture := startedIdentityEvaluationForTest(t)
 	evaluation := fixture.evaluation
 	evaluation.limits.Entries = 1
-	target, err := evaluation.prepareAttributeValue(runtime.RuntimeName{Known: true, Name: fixture.attrName})
+	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = evaluation.recordValue(target, runtime.SimpleValue{IDs: "one two", Identity: "value"}, identityTestContext("/root", 0, 0))
+	err = evaluation.recordValue(target, identityValueForTest(t, "IDREFS", "one two", value.NeedIdentity), identityTestContext("/root", 0, 0))
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	if len(evaluation.ids) != 0 || evaluation.entries != 0 {
 		t.Fatalf("failed ID batch changed identity state: ids=%v entries=%d", evaluation.ids, evaluation.entries)
@@ -331,9 +369,9 @@ func TestIdentityEvaluationFinishesOnlySelectionsAtCurrentDepth(t *testing.T) {
 
 type startedIdentityEvaluationFixture struct {
 	evaluation *identityEvaluation
-	elemID     runtime.ElementID
-	elemName   runtime.QName
-	attrName   runtime.QName
+	elemID     xsdSchema.ElementID
+	elemName   xsdSchema.QName
+	attrName   xsdSchema.QName
 }
 
 func startedIdentityEvaluationForTest(t *testing.T) startedIdentityEvaluationFixture {
@@ -343,7 +381,7 @@ func startedIdentityEvaluationForTest(t *testing.T) startedIdentityEvaluationFix
 	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{}, 0)
 	if err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 1, 1),
-		Name:    runtime.RuntimeName{Known: true, Name: fixture.elemName},
+		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	}); err != nil {

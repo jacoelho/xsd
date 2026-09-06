@@ -1,7 +1,8 @@
 package validate
 
 import (
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	xsdValue "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -12,98 +13,88 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	}
 	typeID := f.SimpleContent
 	rawText := s.doc.text[f.TextStart:]
-	constraints, err := s.frameElementValueConstraints(f)
-	if err != nil {
-		return false, err
-	}
-	if typeID == runtime.NoSimpleType {
-		if !f.TextContent.HasValueConstraint() {
+	hasValueConstraint := f.TextContent.HasValueConstraint()
+	if typeID == xsdSchema.NoSimpleType {
+		if !hasValueConstraint {
 			return false, nil
+		}
+		constraints, err := s.frameElementValueConstraints(f)
+		if err != nil {
+			return false, err
 		}
 		ctx := s.startContext(line, col)
 		return false, s.validateNonSimpleFixedContent(f, constraints, rawText, ctx)
+	}
+	var constraints xsdSchema.ElementValueConstraints
+	if hasValueConstraint {
+		var err error
+		constraints, err = s.frameElementValueConstraints(f)
+		if err != nil {
+			return false, err
+		}
 	}
 	identityTarget, identityErr := s.doc.identity.prepareElementValue()
 	if identityErr != nil {
 		return false, identityErr
 	}
 	ctx := s.startContext(line, col)
-	if !identityTarget.needsIdentity() && !constraints.HasAny() {
-		rawResult, err := s.validateRawUnconstrainedElementSimpleContent(typeID, rawText, ctx)
-		if rawResult.handled {
-			return rawResult.captured, err
+	needsIdentity := identityTarget.needsIdentity()
+	typeIdentity := s.valueTypeIdentity(typeID)
+	if !needsIdentity && !hasValueConstraint && typeIdentity == xsdValue.IdentityNone {
+		value, err := s.validateSimpleValueBytes(typeID, rawText, s.simpleValueQNameResolver(typeID), 0)
+		if err != nil {
+			return false, simpleValueFacetError(ctx, "invalid simple content", err)
 		}
+		return true, s.doc.identity.recordValue(identityTarget, value, ctx)
 	}
 	input := s.simpleContentValueInput(f.Type, rawText, constraints)
 	if input.prevalidated {
 		return s.recordElementSimpleContent(input.value, identityTarget, ctx)
 	}
-	return s.validateElementSimpleContentValue(typeID, input.text, constraints, identityTarget, ctx)
+	return s.validateElementSimpleContentValue(typeID, input, constraints, identityTarget, typeIdentity, ctx)
 }
 
-func (s *session) frameElementValueConstraints(f *frame) (runtime.ElementValueConstraints, error) {
+func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValueConstraints, error) {
 	if !f.TextContent.HasValueConstraint() {
-		return runtime.ElementValueConstraints{}, nil
+		return xsdSchema.ElementValueConstraints{}, nil
 	}
 	constraints, _, ok := s.rt.ElementValueConstraints(f.Element)
 	if !ok {
-		return runtime.ElementValueConstraints{}, xsderrors.InternalInvariant("element value constraint metadata is invalid")
+		return xsdSchema.ElementValueConstraints{}, xsderrors.InternalInvariant("element value constraint metadata is invalid")
 	}
 	return constraints, nil
 }
 
-type rawElementSimpleContentValidation struct {
-	handled  bool
-	captured bool
-}
-
-func (s *session) validateRawUnconstrainedElementSimpleContent(typeID runtime.SimpleTypeID, rawText []byte, ctx StartContext) (rawElementSimpleContentValidation, error) {
-	result := s.validateRawSimpleValue(typeID, rawText)
-	if result.err != nil {
-		return rawElementSimpleContentValidation{handled: true}, rawElementSimpleContentError(result, ctx)
+func (s *session) validateElementSimpleContentValue(typeID xsdSchema.SimpleTypeID, input sessionSimpleContentInput, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, typeIdentity xsdValue.IdentityKind, ctx StartContext) (bool, error) {
+	resolver := s.simpleValueQNameResolver(typeID)
+	needs := s.simpleContentNeeds(constraints, target, typeIdentity)
+	var (
+		result xsdValue.Value
+		err    error
+	)
+	if input.rawInput {
+		result, err = s.validateSimpleValueBytes(typeID, input.raw, resolver, needs)
+	} else {
+		result, err = s.validateSimpleValue(typeID, input.text, resolver, needs)
 	}
-	if result.handled {
-		return rawElementSimpleContentValidation{handled: true, captured: true}, nil
-	}
-	return rawElementSimpleContentValidation{}, nil
-}
-
-func rawElementSimpleContentError(result rawSimpleValueValidation, ctx StartContext) error {
-	if invariantErr := simpleValueMetadataInvariant(result.err); invariantErr != nil {
-		return invariantErr
-	}
-	if result.handled {
-		return validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+result.err.Error())
-	}
-	return result.err
-}
-
-func (s *session) validateElementSimpleContentValue(typeID runtime.SimpleTypeID, text string, constraints runtime.ElementValueConstraints, target identityValueTarget, ctx StartContext) (bool, error) {
-	value, err := s.validateSimpleValue(typeID, text, s.simpleValueQNameResolver(typeID), s.simpleContentNeeds(typeID, constraints, target))
 	if err != nil {
 		return false, s.elementSimpleContentValueError(target, err, ctx)
 	}
-	return s.commitElementSimpleContentValue(value, constraints, target, ctx)
+	return s.commitElementSimpleContentValue(result, constraints, target, ctx)
 }
 
 func (s *session) elementSimpleContentValueError(target identityValueTarget, err error, ctx StartContext) error {
 	if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 		return rejectErr
 	}
-	if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
-		return invariantErr
-	}
-	if xsderrors.IsUnsupported(err) {
-		return err
-	}
-	return validation(ctx, xsderrors.CodeValidationFacet, "invalid simple content: "+err.Error())
+	return simpleValueFacetError(ctx, "invalid simple content", err)
 }
 
-func (s *session) commitElementSimpleContentValue(value runtime.SimpleValue, constraints runtime.ElementValueConstraints, target identityValueTarget, ctx StartContext) (bool, error) {
-	if err := s.doc.identity.recordValue(target, value, ctx); err != nil {
+func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, ctx StartContext) (bool, error) {
+	if err := s.doc.identity.recordValue(target, result, ctx); err != nil {
 		return false, err
 	}
-	if fixed, ok := constraints.FixedValue(); ok && value.CanonicalText() != fixed.CanonicalText() {
+	if fixed, ok := constraints.FixedValue(); ok && !result.Equal(fixed.Value()) {
 		if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 			return false, rejectErr
 		}
@@ -119,60 +110,66 @@ func (s *session) commitElementSimpleContentValue(value runtime.SimpleValue, con
 }
 
 type sessionSimpleContentInput struct {
+	raw          []byte
 	text         string
-	value        runtime.SimpleValue
+	value        xsdValue.Value
+	rawInput     bool
 	prevalidated bool
 }
 
-func (s *session) simpleContentValueInput(
-	typ runtime.TypeID,
+func (*session) simpleContentValueInput(
+	typ xsdSchema.TypeID,
 	rawText []byte,
-	constraints runtime.ElementValueConstraints,
+	constraints xsdSchema.ElementValueConstraints,
 ) sessionSimpleContentInput {
 	if len(rawText) != 0 {
-		return sessionSimpleContentInput{text: s.valueStrings.Intern(rawText)}
+		return sessionSimpleContentInput{raw: rawText, rawInput: true}
 	}
 	if fixed, ok := constraints.FixedValue(); ok {
 		if constraints.OwnerType() == typ {
-			return sessionSimpleContentInput{value: fixed.SimpleValue(), prevalidated: true}
+			return sessionSimpleContentInput{value: fixed.Value(), prevalidated: true}
 		}
 		return sessionSimpleContentInput{text: fixed.LexicalText()}
 	}
 	if def, ok := constraints.DefaultValueConstraint(); ok {
 		if constraints.OwnerType() == typ {
-			return sessionSimpleContentInput{value: def.SimpleValue(), prevalidated: true}
+			return sessionSimpleContentInput{value: def.Value(), prevalidated: true}
 		}
 		return sessionSimpleContentInput{text: def.LexicalText()}
 	}
-	return sessionSimpleContentInput{text: s.valueStrings.Intern(rawText)}
+	return sessionSimpleContentInput{raw: rawText, rawInput: true}
 }
 
-func (s *session) simpleContentNeeds(
-	typeID runtime.SimpleTypeID,
-	constraints runtime.ElementValueConstraints,
+func (*session) simpleContentNeeds(
+	constraints xsdSchema.ElementValueConstraints,
 	target identityValueTarget,
-) runtime.SimpleValueNeed {
-	var needs runtime.SimpleValueNeed
-	if target.needsIdentity() {
-		needs |= runtime.SimpleNeedIdentity
-	}
-	if target.needsIdentity() || s.simpleIdentity(typeID) != runtime.SimpleIdentityNone {
-		needs |= runtime.SimpleNeedCanonical
-		return needs
-	}
+	typeIdentity xsdValue.IdentityKind,
+) xsdValue.Needs {
+	var needs xsdValue.Needs
 	if _, fixed := constraints.FixedValue(); fixed {
-		needs |= runtime.SimpleNeedCanonical
+		needs |= xsdValue.NeedCanonical | xsdValue.NeedIdentity
+	}
+	if target.needsIdentity() {
+		needs |= xsdValue.NeedIdentity
+	}
+	if target.needsIdentity() || typeIdentity != xsdValue.IdentityNone {
+		needs |= xsdValue.NeedCanonical
+		return needs
 	}
 	return needs
 }
 
-func (s *session) simpleIdentity(id runtime.SimpleTypeID) runtime.SimpleIdentityKind {
-	return s.rt.SimpleIdentity(id)
+func (s *session) valueTypeIdentity(id xsdSchema.SimpleTypeID) xsdValue.IdentityKind {
+	kind, ok := s.rt.ValueProgram().IdentityKind(id)
+	if !ok {
+		return xsdValue.IdentityNone
+	}
+	return kind
 }
 
-func (s *session) validateNonSimpleFixedContent(
+func (*session) validateNonSimpleFixedContent(
 	f *frame,
-	constraints runtime.ElementValueConstraints,
+	constraints xsdSchema.ElementValueConstraints,
 	rawText []byte,
 	ctx StartContext,
 ) error {
@@ -183,19 +180,30 @@ func (s *session) validateNonSimpleFixedContent(
 	if f.HasChild {
 		return validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
 	}
-	text := s.valueStrings.Intern(rawText)
-	if text != "" && text != fixed.LexicalText() {
+	if len(rawText) != 0 && !bytesEqualString(rawText, fixed.LexicalText()) {
 		return validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
 	}
 	return nil
 }
 
+func bytesEqualString(raw []byte, text string) bool {
+	if len(raw) != len(text) {
+		return false
+	}
+	for i, b := range raw {
+		if b != text[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *session) recordElementSimpleContent(
-	value runtime.SimpleValue,
+	result xsdValue.Value,
 	identityTarget identityValueTarget,
 	ctx StartContext,
 ) (bool, error) {
-	if err := s.doc.identity.recordValue(identityTarget, value, ctx); err != nil {
+	if err := s.doc.identity.recordValue(identityTarget, result, ctx); err != nil {
 		return false, err
 	}
 	if err := s.doc.identity.captureValue(identityTarget, ctx); err != nil {
@@ -207,8 +215,8 @@ func (s *session) recordElementSimpleContent(
 	return true, nil
 }
 
-func knownIdentityAttributeName(name runtime.QName) runtime.RuntimeName {
-	return runtime.RuntimeName{Name: name, Known: true}
+func knownIdentityAttributeName(name xsdSchema.QName) xsdSchema.RuntimeName {
+	return xsdSchema.RuntimeName{Name: name, Known: true}
 }
 
 func (s *session) checkIDRefs() error {

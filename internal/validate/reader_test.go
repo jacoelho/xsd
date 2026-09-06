@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/stream"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -39,9 +39,8 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var p stream.Parser
-			names, values := stream.NewCache(), stream.NewCache()
-			diagnostic := requireDiagnostic(t, instanceReaderError(p.Reset(strings.NewReader(tt.in), &names, &values)), tt.code)
+			var reader xmlstream.Reader
+			diagnostic := requireDiagnostic(t, instanceReaderError(reader.Reset(strings.NewReader(tt.in), xmlstream.Config{})), tt.code)
 			if tt.code == xsderrors.CodeUnsupportedXML11 && diagnostic.Cause() != nil {
 				t.Fatalf("XML 1.1 cause = %T, want nil", diagnostic.Cause())
 			}
@@ -50,20 +49,18 @@ func TestParserPreflightRejectsInvalidInputs(t *testing.T) {
 }
 
 func TestParserPreflightRejectsNilReader(t *testing.T) {
-	var p stream.Parser
-	names, values := stream.NewCache(), stream.NewCache()
-	requireCode(t, instanceReaderError(p.Reset(nil, &names, &values)), xsderrors.CodeValidationXML)
+	var reader xmlstream.Reader
+	requireCode(t, instanceReaderError(reader.Reset(nil, xmlstream.Config{})), xsderrors.CodeValidationXML)
 }
 
 func TestParserPreflightDoesNotReadWholeDocumentWithoutDeclaration(t *testing.T) {
 	r := &oneByteReader{s: `<root>` + strings.Repeat("x", 1024)}
-	var p stream.Parser
-	names, values := stream.NewCache(), stream.NewCache()
-	if err := p.Reset(r, &names, &values); err != nil {
-		t.Fatalf("Parser.Reset() error = %v", err)
+	var reader xmlstream.Reader
+	if err := reader.Reset(r, xmlstream.Config{}); err != nil {
+		t.Fatalf("Reader.Reset() error = %v", err)
 	}
-	if r.reads > stream.XMLDeclarationPrefixLen {
-		t.Fatalf("Parser.Reset() reads = %d, want at most %d", r.reads, stream.XMLDeclarationPrefixLen)
+	if r.reads > xmlstream.XMLDeclarationPrefixLen {
+		t.Fatalf("Reader.Reset() reads = %d, want at most %d", r.reads, xmlstream.XMLDeclarationPrefixLen)
 	}
 }
 
@@ -75,8 +72,8 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 	}{
 		{name: "token limit", err: parserErr(t, `<root>text</root>`, 1, 0), code: xsderrors.CodeValidationLimit},
 		{name: "attribute limit", err: parserErr(t, `<root a="1" b="2"/>`, 0, 1), code: xsderrors.CodeValidationLimit},
-		{name: "non utf8", err: stream.ErrUnsupportedNonUTF8, code: xsderrors.CodeUnsupportedNonUTF8},
-		{name: "xml 11", err: stream.UnsupportedXMLVersionError{Version: "1.1"}, code: xsderrors.CodeUnsupportedXML11},
+		{name: "non utf8", err: xmlstream.ErrUnsupportedNonUTF8, code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "xml 11", err: xmlstream.UnsupportedXMLVersionError{Version: "1.1"}, code: xsderrors.CodeUnsupportedXML11},
 		{name: "entity", err: parserErr(t, `<root>&missing;</root>`, 0, 0), code: xsderrors.CodeUnsupportedExternal},
 		{name: "syntax", err: errors.New("bad xml"), code: xsderrors.CodeValidationXML},
 	}
@@ -90,31 +87,42 @@ func TestStreamErrorClassifiesParserErrors(t *testing.T) {
 	}
 }
 
-func TestValidateDirectiveRejectsDTD(t *testing.T) {
-	t.Parallel()
-
-	err := ValidateDirective(StartContext{Path: "/", Line: 2, Column: 3}, []byte("DOCTYPE r"))
-	requireCode(t, err, xsderrors.CodeUnsupportedDTD)
-	if !strings.Contains(err.Error(), "DTD declarations are not supported") {
-		t.Fatalf("ValidateDirective() error = %v", err)
-	}
-}
-
 func parserErr(t *testing.T, doc string, maxTokenBytes int64, maxAttrs int) error {
 	t.Helper()
-	names := stream.NewCache()
-	values := stream.NewCache()
-	var p stream.Parser
-	if err := p.ResetWithConfig(strings.NewReader(doc), &names, &values, stream.Config{Limits: stream.Limits{
+	var reader xmlstream.Reader
+	if err := reader.Reset(strings.NewReader(doc), xmlstream.Config{Limits: xmlstream.Limits{
 		MaxTokenBytes: maxTokenBytes,
 		MaxAttrs:      maxAttrs,
 	}}); err != nil {
 		return err
 	}
+	var frames []xmlstream.Handle
 	for {
-		_, err := p.Next()
+		tok, err := reader.Next()
 		if err != nil {
 			return err
+		}
+		switch tok.Kind {
+		case xmlstream.KindStart:
+			handle, _, startErr := reader.Start()
+			if startErr != nil {
+				return startErr
+			}
+			frames = append(frames, handle)
+		case xmlstream.KindEnd:
+			if len(frames) == 0 {
+				return errors.New("unexpected end element")
+			}
+			handle := frames[len(frames)-1]
+			if matchErr := reader.MatchEnd(handle); matchErr != nil {
+				return matchErr
+			}
+			if commitErr := reader.CommitEnd(handle); commitErr != nil {
+				return commitErr
+			}
+			frames = frames[:len(frames)-1]
+		case xmlstream.KindCharData, xmlstream.KindDirective, xmlstream.KindComment, xmlstream.KindPI:
+			continue
 		}
 	}
 }

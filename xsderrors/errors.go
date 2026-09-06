@@ -248,6 +248,8 @@ func appendFlattened(dst []error, err error) ([]error, bool) {
 		return append(dst, direct), false
 	case Errors:
 		return appendFlattenedChildren(dst, direct.children), true
+	case *Errors:
+		return appendFlattenedChildren(dst, direct.children), true
 	case interface{ Unwrap() []error }:
 		return appendFlattenedChildren(dst, direct.Unwrap()), true
 	case interface{ Unwrap() error }:
@@ -283,23 +285,42 @@ func isNilDiagnostic(err error) bool {
 	if aggregate, ok := err.(Errors); ok { //nolint:errorlint // The zero aggregate represents no errors.
 		return len(aggregate.children) == 0
 	}
+	if aggregate, ok := err.(*Errors); ok { //nolint:errorlint // Typed nil and zero aggregates are absent diagnostics.
+		return aggregate == nil || len(aggregate.children) == 0
+	}
 	return false
 }
 
 // IsUnsupported reports whether err represents an unsupported feature.
 func IsUnsupported(err error) bool {
-	switch x := any(err).(type) {
-	case nil:
+	if isNilDiagnostic(err) {
 		return false
+	}
+	switch x := any(err).(type) {
 	case *Error:
 		return isUnsupportedDiagnostic(x)
 	case Errors:
 		return slices.ContainsFunc(x.children, IsUnsupported)
+	case *Errors:
+		return slices.ContainsFunc(x.children, IsUnsupported)
 	}
-	if x, ok := errors.AsType[*Error](err); ok && isUnsupportedDiagnostic(x) {
+	if x, ok := asDiagnostic(err); ok && isUnsupportedDiagnostic(x) {
 		return true
 	}
 	return isUnsupportedWrapper(err)
+}
+
+func asDiagnostic(err error) (*Error, bool) {
+	if isNilDiagnostic(err) {
+		return nil, false
+	}
+	if as, ok := err.(interface{ As(target any) bool }); ok {
+		var diagnostic *Error
+		if as.As(&diagnostic) {
+			return diagnostic, true
+		}
+	}
+	return nil, false
 }
 
 func isUnsupportedDiagnostic(err *Error) bool {
@@ -370,6 +391,9 @@ func newDiagnostic(category Category, code Code, msg string, cause error) error 
 			code:     CodeInternalInvariant,
 			message:  fmt.Sprintf("diagnostic code %q does not belong to category %q", code, category),
 		}
+	}
+	if isNilDiagnostic(cause) {
+		cause = nil
 	}
 	return &Error{cause: cause, category: category, code: code, message: msg}
 }

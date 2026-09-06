@@ -1,13 +1,12 @@
 package xsd
 
 import (
-	"github.com/jacoelho/xsd/internal/compile"
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 )
 
 // Engine is an immutable compiled schema validator.
 type Engine struct {
-	rt *runtime.Schema
+	rt *xsdSchema.Schema
 }
 
 // CompileOptions controls schema compilation resource limits.
@@ -33,7 +32,7 @@ type CompileOptions struct {
 	// MaxSchemaTargetContexts caps distinct source/effective-target-namespace contexts,
 	// including primary and chameleon-derived contexts. Zero uses the default.
 	MaxSchemaTargetContexts int
-	// MaxSchemaInstantiatedNodes caps aggregate raw schema nodes across all target contexts. Zero uses the default.
+	// MaxSchemaInstantiatedNodes caps aggregate schema node occurrences across effective target contexts. Zero uses the default.
 	MaxSchemaInstantiatedNodes int
 	// MaxSchemaNames caps interned schema names, including built-ins. Zero means no explicit limit.
 	MaxSchemaNames int
@@ -56,15 +55,15 @@ func Compile(sources ...SchemaSource) (*Engine, error) {
 
 // CompileWithOptions compiles schema sources with explicit resource limits.
 func CompileWithOptions(opts CompileOptions, sources ...SchemaSource) (*Engine, error) {
-	rt, err := compile.CompileMappedSources(internalCompileOptions(opts), sources, internalSchemaSource)
+	rt, err := xsdSchema.CompileMappedSources(internalCompileOptions(opts), sources, internalSchemaSource)
 	if err != nil {
 		return nil, err
 	}
 	return &Engine{rt: rt}, nil
 }
 
-func internalCompileOptions(opts CompileOptions) compile.Options {
-	return compile.Options{
+func internalCompileOptions(opts CompileOptions) xsdSchema.Options {
+	return xsdSchema.Options{
 		MaxSchemaDepth:                opts.MaxSchemaDepth,
 		MaxSchemaAttributes:           opts.MaxSchemaAttributes,
 		MaxSchemaTokenBytes:           opts.MaxSchemaTokenBytes,

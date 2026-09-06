@@ -38,6 +38,21 @@ func TestCompileRequiresExplicitSchemaSource(t *testing.T) {
 	}
 }
 
+func TestCompileFacadeRejectsBuiltinTypeRedeclarations(t *testing.T) {
+	for _, declaration := range []string{
+		`<xs:simpleType name="string"><xs:restriction base="xs:string"/></xs:simpleType>`,
+		`<xs:complexType name="anyType"/>`,
+	} {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.w3.org/2001/XMLSchema">` +
+			declaration + `</xs:schema>`
+		engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+		if engine != nil {
+			t.Fatal("Compile() returned an engine for a built-in type redeclaration")
+		}
+		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaDuplicate)
+	}
+}
+
 func TestCompileOptionsFacadeForwardsEveryField(t *testing.T) {
 	t.Parallel()
 
@@ -94,6 +109,33 @@ func TestCompileMatchesZeroOptionCompileWithOptions(t *testing.T) {
 		if fmt.Sprint(plainErr) != fmt.Sprint(explicitErr) {
 			t.Fatalf("validation errors for %q = %v / %v", document, plainErr, explicitErr)
 		}
+	}
+}
+
+func TestQNameUnionEnumerationUsesFallbackMember(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:test">
+  <xs:simpleType name="QNameWithNopePattern">
+    <xs:restriction base="xs:QName"><xs:pattern value="nope"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="UnionValue">
+    <xs:union memberTypes="QNameWithNopePattern xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="EnumeratedUnion">
+    <xs:restriction base="UnionValue"><xs:enumeration value="p:item"/></xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="EnumeratedUnion"/>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if err := engine.Validate(strings.NewReader(`<root>p:item</root>`)); err != nil {
+		t.Fatalf("fallback member satisfied enumeration but validation failed: %v", err)
+	}
+	if err := engine.Validate(strings.NewReader(`<root>p:other</root>`)); err == nil {
+		t.Fatal("non-enumerated fallback member was accepted")
 	}
 }
 
@@ -311,6 +353,37 @@ func TestResolverBoundaryProtocol(t *testing.T) {
 		}
 	})
 
+	for _, test := range []struct {
+		name string
+		miss error
+	}{
+		{name: "direct", miss: xsderrors.ErrSchemaNotFound},
+		{name: "wrapped", miss: fmt.Errorf("unavailable: %w", xsderrors.ErrSchemaNotFound)},
+		{name: "joined", miss: errors.Join(xsderrors.ErrSchemaNotFound, xsderrors.ErrSchemaNotFound)},
+		{name: "nested", miss: fmt.Errorf("resolution: %w", errors.Join(
+			fmt.Errorf("first: %w", xsderrors.ErrSchemaNotFound),
+			xsderrors.ErrSchemaNotFound,
+		))},
+	} {
+		t.Run(test.name+" miss uses file fallback", func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			rootPath := filepath.Join(dir, "root.xsd")
+			writeTestFile(t, rootPath, rootSchema)
+			writeTestFile(t, filepath.Join(dir, "child.xsd"),
+				`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="child" type="xs:int"/></xs:schema>`)
+			engine, err := xsd.Compile(xsd.File(rootPath).WithResolver(xsd.ResolverFunc(func(_, _ string) (xsd.SchemaSource, error) {
+				return xsd.SchemaSource{}, test.miss
+			})))
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+			if err := engine.Validate(strings.NewReader(`<child>42</child>`)); err != nil {
+				t.Fatalf("Validate() with included declaration: %v", err)
+			}
+		})
+	}
+
 	t.Run("fatal error", func(t *testing.T) {
 		t.Parallel()
 		fatal := errors.New("resolver failed")
@@ -324,10 +397,15 @@ func TestResolverBoundaryProtocol(t *testing.T) {
 
 	t.Run("miss joined with fatal error", func(t *testing.T) {
 		t.Parallel()
+		dir := t.TempDir()
+		rootPath := filepath.Join(dir, "root.xsd")
+		writeTestFile(t, rootPath, rootSchema)
+		writeTestFile(t, filepath.Join(dir, "child.xsd"),
+			`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="child"/></xs:schema>`)
 		fatal := errors.New("resolver failed")
-		_, err := xsd.Compile(rootWith(func(_, _ string) (xsd.SchemaSource, error) {
+		_, err := xsd.Compile(xsd.File(rootPath).WithResolver(xsd.ResolverFunc(func(_, _ string) (xsd.SchemaSource, error) {
 			return xsd.SchemaSource{}, errors.Join(xsderrors.ErrSchemaNotFound, fatal)
-		}))
+		})))
 		if !errors.Is(err, fatal) {
 			t.Fatalf("Compile() error = %v, want joined resolver cause", err)
 		}
@@ -992,6 +1070,36 @@ func TestOwnedIdentityFailureSuppressesOuterNillableKeyError(t *testing.T) {
 	}
 	if errorTreeContains(validationErr, "key field selects nillable element declaration") {
 		t.Fatalf("Validate(unresolved inner keyref) error = %v, want no secondary nillable-key error", validationErr)
+	}
+}
+
+func TestRecursiveIdentityLocalKeyShadowsPropagatedChildEntries(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence><xs:element ref="root" minOccurs="0" maxOccurs="unbounded"/></xs:sequence>
+      <xs:attribute name="id" type="xs:string" use="required"/>
+      <xs:attribute name="ref" type="xs:string"/>
+    </xs:complexType>
+    <xs:key name="ids"><xs:selector xpath="."/><xs:field xpath="@id"/></xs:key>
+    <xs:keyref name="refs" refer="ids"><xs:selector xpath="."/><xs:field xpath="@ref"/></xs:keyref>
+  </xs:element>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("recursive-identity.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	valid := `<root id="x" ref="x"><root id="x"/><root id="x"/></root>`
+	if err = engine.Validate(strings.NewReader(valid)); err != nil {
+		t.Fatalf("Validate(recursive local key) error = %v", err)
+	}
+
+	invalid := `<root id="x" ref="missing"><root id="x"/><root id="x"/></root>`
+	err = engine.Validate(strings.NewReader(invalid))
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
+	if !errorTreeContains(err, "keyref does not resolve") {
+		t.Fatalf("Validate(recursive unresolved keyref) error = %v, want keyref diagnostic", err)
 	}
 }
 
@@ -2075,5 +2183,138 @@ func expectCategoryCode(t *testing.T, err error, category xsderrors.Category, co
 	}
 	if x.Category() != category || x.Code() != code {
 		t.Fatalf("error = %s/%s, want %s/%s; err=%v", x.Category(), x.Code(), category, code, err)
+	}
+}
+
+func TestInvalidSemanticXSITypeIdentityPreservesLexicalQName(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <xs:element name="root">
+    <xs:complexType><xs:sequence><xs:element name="row" type="xs:string" maxOccurs="unbounded"/></xs:sequence></xs:complexType>
+    <xs:unique name="typeValue"><xs:selector xpath="row"/><xs:field xpath="@xsi:type"/></xs:unique>
+  </xs:element>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("identity-xsi.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name, value string
+		duplicate   bool
+	}{
+		{"bound unknown type", "p:Missing", true},
+		{"bound non-derived type", "xs:int", true},
+		{"malformed QName", "p::Missing", false},
+		{"unbound QName", "u:Missing", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			doc := fmt.Sprintf(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:missing">
+  <row xsi:type="%s">
+  </row>
+  <row xsi:type="%s">
+  </row>
+</root>`, test.value, test.value)
+			want := []startDiagnostic{
+				{xsderrors.CodeValidationType, "/root", 2, 3},
+				{xsderrors.CodeValidationType, "/root", 4, 3},
+			}
+			if test.duplicate {
+				want = append(want, startDiagnostic{xsderrors.CodeValidationIdentity, "/root/row", 5, 3})
+			}
+			opts := xsd.ValidateOptions{MaxErrors: 10}
+			assertStartDiagnostics(t, engine.ValidateWithOptions(strings.NewReader(doc), opts), want)
+			session, err := engine.NewSession(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for range 2 {
+				assertStartDiagnostics(t, session.Validate(strings.NewReader(doc)), want)
+				if reuseErr := session.Validate(strings.NewReader(`<root><row/></root>`)); reuseErr != nil {
+					t.Fatalf("valid document after XSI failure: %v", reuseErr)
+				}
+			}
+			limited, err := engine.NewSession(xsd.ValidateOptions{MaxErrors: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertStartDiagnostics(t, limited.Validate(strings.NewReader(doc)), want[:1])
+			malformed := strings.TrimSuffix(doc, "</root>") + "</wrong>"
+			assertStartDiagnostics(t, limited.Validate(strings.NewReader(malformed)), []startDiagnostic{{xsderrors.CodeValidationXML, "/root", 6, 1}})
+			if err := limited.Validate(strings.NewReader(`<root><row/></root>`)); err != nil {
+				t.Fatalf("valid document after semantic stop: %v", err)
+			}
+		})
+	}
+}
+
+func TestUndeclaredRootXSISelectionOrder(t *testing.T) {
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="declared" type="xs:string"/></xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("root-xsi.xsd", []byte(schema)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const namespaces = ` xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:missing" `
+	for _, test := range []struct {
+		name, element, attrs string
+		code                 xsderrors.Code
+	}{
+		{name: "missing declaration", element: "root", code: xsderrors.CodeValidationRoot},
+		{name: "matching root hint", element: "p:root", attrs: `xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeUnsupportedSchemaHint},
+		{name: "selected type before root hint", element: "p:root", attrs: `xsi:type="xs:string" xsi:schemaLocation="urn:missing ignored.xsd"`},
+		{name: "unknown type before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad"`, code: xsderrors.CodeValidationType},
+		{name: "unknown type after malformed nil spelling", element: "root", attrs: `xsi:nil="bad" xsi:type="p:Missing"`, code: xsderrors.CodeValidationType},
+		{name: "type hint before malformed nil", element: "root", attrs: `xsi:type="p:Missing" xsi:nil="bad" xsi:schemaLocation="urn:missing ignored.xsd"`, code: xsderrors.CodeUnsupportedSchemaHint},
+		{name: "selected type and absent nil", element: "root", attrs: `xsi:type="xs:string"`},
+		{name: "selected type and false nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="false"`},
+		{name: "selected type and zero nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="0"`},
+		{name: "selected type and true nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="true"`, code: xsderrors.CodeValidationNil},
+		{name: "selected type and malformed nil", element: "root", attrs: `xsi:type="xs:string" xsi:nil="bad"`, code: xsderrors.CodeValidationNil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			doc := "<" + test.element + namespaces + test.attrs + "/>"
+			var want []startDiagnostic
+			if test.code != "" {
+				want = []startDiagnostic{{test.code, "/", 1, 1}}
+			}
+			opts := xsd.ValidateOptions{MaxErrors: 10}
+			assertStartDiagnostics(t, engine.ValidateWithOptions(strings.NewReader(doc), opts), want)
+			session, err := engine.NewSession(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for range 2 {
+				assertStartDiagnostics(t, session.Validate(strings.NewReader(doc)), want)
+				if err := session.Validate(strings.NewReader(`<declared>valid</declared>`)); err != nil {
+					t.Fatalf("valid document after root assessment: %v", err)
+				}
+			}
+		})
+	}
+}
+
+type startDiagnostic struct {
+	code         xsderrors.Code
+	path         string
+	line, column int
+}
+
+func assertStartDiagnostics(t *testing.T, err error, want []startDiagnostic) {
+	t.Helper()
+	var got []startDiagnostic
+	for i, leaf := range xsderrors.Flatten(err) {
+		diagnostic, ok := errors.AsType[*xsderrors.Error](leaf)
+		if !ok {
+			t.Fatalf("diagnostic %d = %T %v, want structured diagnostic", i, leaf, leaf)
+		}
+		got = append(got, startDiagnostic{diagnostic.Code(), diagnostic.Path(), diagnostic.Line(), diagnostic.Column()})
+		category := xsderrors.CategoryValidation
+		if diagnostic.Code() == xsderrors.CodeUnsupportedSchemaHint {
+			category = xsderrors.CategoryUnsupported
+		}
+		if diagnostic.Category() != category || diagnostic.Cause() != nil {
+			t.Fatalf("diagnostic %d category/cause = %s/%v, want %s/no cause", i, diagnostic.Category(), diagnostic.Cause(), category)
+		}
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("diagnostics = %+v, want %+v", got, want)
 	}
 }

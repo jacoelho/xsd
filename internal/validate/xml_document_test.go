@@ -2,23 +2,274 @@ package validate
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/compile"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlns"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-type emptyXMLDocument = xmlDocument[struct{}]
+type emptyXMLDocument struct {
+	xmlDocument[struct{}]
+
+	reader         xmlstream.Reader
+	input          testXMLInput
+	lexicalEnds    []xmlstream.LexicalName
+	pendingLexical xmlstream.LexicalName
+	ready          bool
+	endReady       bool
+}
+
+// commitEndState advances only the semantic test document. Production end
+// commits perform this transition together with the Reader commit.
+func (d *xmlDocument[P]) commitEndState() error {
+	if d.Depth() == 0 {
+		return xsderrors.InternalInvariant("cannot commit XML end element with no open element")
+	}
+
+	i := len(d.elements) - 1
+	d.elements[i] = xmlDocumentElement[P]{}
+	d.elements = d.elements[:i]
+	if d.pathTextDepth <= i {
+		return nil
+	}
+	if i == 0 {
+		d.pathText = ""
+		d.pathTextDepth = 0
+		return nil
+	}
+	d.pathText = d.pathText[:d.elements[i-1].pathLength]
+	d.pathTextDepth = i
+	return nil
+}
+
+type testXMLInput struct {
+	data   []byte
+	offset int
+}
+
+func (r *testXMLInput) Read(dst []byte) (int, error) {
+	if r.offset >= len(r.data) {
+		return 0, io.EOF
+	}
+	n := copy(dst, r.data[r.offset:])
+	r.offset += n
+	return n, nil
+}
+
+func (d *emptyXMLDocument) ensureReader(start xmlstream.StartElement) error {
+	d.input.offset = 0
+	d.input.data = appendTestXMLStartBytes(d.input.data[:0], start)
+	if d.ready {
+		return nil
+	}
+	if len(d.input.data) < xmlstream.XMLDeclarationPrefixLen {
+		// Reader.Reset peeks six bytes to classify the XML prolog. Keep the
+		// synthetic input long enough without introducing a visible token.
+		d.input.data = append(d.input.data, []byte("<!--x-->")...)
+	}
+	if err := d.reader.Reset(&d.input, xmlstream.Config{}); err != nil {
+		return err
+	}
+	d.ready = true
+	return nil
+}
+
+func (d *emptyXMLDocument) PrepareStart(start xmlstream.StartElement, _ *struct{}, maxDepth, line, col int) (preparedXMLStart, error) {
+	if maxDepth > 0 && d.Depth()+1 > maxDepth {
+		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
+	}
+	if err := d.ensureReader(start); err != nil {
+		return preparedXMLStart{}, err
+	}
+	_, err := d.reader.Next()
+	if err != nil {
+		return preparedXMLStart{}, err
+	}
+	prepared, err := d.xmlDocument.PrepareStart(&d.reader, line, col)
+	if err == nil {
+		d.pendingLexical = xmlstream.Lexical(start.Name)
+	}
+	return prepared, err
+}
+
+// CommitStart records lexical names only for the synthetic reader used by
+// these tests; production document frames retain expanded names and handles.
+func (d *emptyXMLDocument) CommitStart(start preparedXMLStart, payload struct{}) {
+	d.xmlDocument.CommitStart(start, payload)
+	d.rememberLexicalStart(start)
+}
+
+func (d *emptyXMLDocument) CommitExpandedStart(start preparedXMLStart, payload struct{}) {
+	d.xmlDocument.CommitExpandedStart(start, payload)
+	d.rememberLexicalStart(start)
+}
+
+func (d *emptyXMLDocument) rememberLexicalStart(start preparedXMLStart) {
+	lexical := d.pendingLexical
+	if lexical.Local == "" {
+		lexical = xmlstream.Lexical(start.name)
+	}
+	d.lexicalEnds = append(d.lexicalEnds, lexical)
+	d.pendingLexical = xmlstream.LexicalName{}
+}
+
+func (d *emptyXMLDocument) rollbackStart(checkpoint xmlDocumentCheckpoint) {
+	d.xmlDocument.rollbackStart(checkpoint)
+	if checkpoint.depth < len(d.lexicalEnds) {
+		clear(d.lexicalEnds[checkpoint.depth:])
+		d.lexicalEnds = d.lexicalEnds[:checkpoint.depth]
+	}
+	d.pendingLexical = xmlstream.LexicalName{}
+}
+
+func (d *emptyXMLDocument) ValidateEnd(end xmlstream.EndElement, line, col int) error {
+	if !d.ready {
+		return d.xmlDocument.ValidateEnd(&d.reader, line, col)
+	}
+	d.input.offset = 0
+	d.input.data = appendTestXMLEndBytes(d.input.data[:0], end)
+	_, err := d.reader.Next()
+	if err != nil {
+		return err
+	}
+	if err := d.xmlDocument.ValidateEnd(&d.reader, line, col); err != nil {
+		return err
+	}
+	d.endReady = true
+	return nil
+}
+
+func (d *emptyXMLDocument) LookupNamespace(prefix string) (string, bool) {
+	if !d.ready {
+		return "", false
+	}
+	return d.reader.Lookup(prefix)
+}
+
+func (d *emptyXMLDocument) CommitEnd() error {
+	if !d.ready || d.reader.Depth() == 0 {
+		d.endReady = false
+		err := d.commitEndState()
+		if err == nil {
+			d.popLexicalEnd()
+		}
+		return err
+	}
+	if !d.endReady {
+		current := d.elements[len(d.elements)-1]
+		lexical := xmlstream.Lexical(current.name)
+		if len(d.lexicalEnds) != 0 {
+			lexical = d.lexicalEnds[len(d.lexicalEnds)-1]
+		}
+		d.input.offset = 0
+		d.input.data = appendTestXMLEndBytes(d.input.data[:0], xmlstream.EndElement{Name: xml.Name{Space: lexical.Prefix, Local: lexical.Local}})
+		tok, err := d.reader.Next()
+		if err != nil {
+			return err
+		}
+		if tok.Kind != xmlstream.KindEnd {
+			return errors.New("test XML input did not produce an end token")
+		}
+		if err := d.xmlDocument.ValidateEnd(&d.reader, 0, 0); err != nil {
+			return err
+		}
+	}
+	err := d.xmlDocument.CommitEnd(&d.reader)
+	if err == nil {
+		d.endReady = false
+		d.popLexicalEnd()
+	}
+	return err
+}
+
+func (d *emptyXMLDocument) popLexicalEnd() {
+	if len(d.lexicalEnds) == 0 {
+		return
+	}
+	i := len(d.lexicalEnds) - 1
+	d.lexicalEnds[i] = xmlstream.LexicalName{}
+	d.lexicalEnds = d.lexicalEnds[:i]
+}
+
+func (d *emptyXMLDocument) Complete() error {
+	if !d.ready {
+		if d.Depth() == 0 {
+			return validation(StartContext{}, xsderrors.CodeValidationRoot, "instance document has no root element")
+		}
+		return validation(d.context(0, 0), xsderrors.CodeValidationXML, "unclosed element")
+	}
+	return d.xmlDocument.Complete(&d.reader)
+}
+
+func (d *emptyXMLDocument) Reset(maxRetainedCap int) {
+	d.xmlDocument.Reset(maxRetainedCap)
+	d.reader.Detach()
+	d.input = testXMLInput{}
+	clear(d.lexicalEnds)
+	d.lexicalEnds = d.lexicalEnds[:0]
+	d.pendingLexical = xmlstream.LexicalName{}
+	d.ready = false
+	d.endReady = false
+}
+
+func testXMLStartBytes(start xmlstream.StartElement) []byte {
+	var b strings.Builder
+	b.WriteByte('<')
+	testXMLName(&b, start.Name)
+	for _, attr := range start.Attr {
+		b.WriteByte(' ')
+		testXMLName(&b, attr.Name)
+		b.WriteString("=\"")
+		if err := xml.EscapeText(&b, []byte(attr.Value)); err != nil {
+			panic(err)
+		}
+		b.WriteString("\"")
+	}
+	b.WriteByte('>')
+	return []byte(b.String())
+}
+
+func appendTestXMLStartBytes(dst []byte, start xmlstream.StartElement) []byte {
+	if len(start.Attr) != 0 {
+		return append(dst, testXMLStartBytes(start)...)
+	}
+	dst = append(dst, '<')
+	dst = appendTestXMLNameBytes(dst, start.Name)
+	return append(dst, '>')
+}
+
+func appendTestXMLEndBytes(dst []byte, end xmlstream.EndElement) []byte {
+	dst = append(dst, '<', '/')
+	dst = appendTestXMLNameBytes(dst, end.Name)
+	return append(dst, '>')
+}
+
+func appendTestXMLNameBytes(dst []byte, name xml.Name) []byte {
+	if name.Space != "" {
+		dst = append(dst, name.Space...)
+		dst = append(dst, ':')
+	}
+	return append(dst, name.Local...)
+}
+
+func testXMLName(b *strings.Builder, name xml.Name) {
+	if name.Space != "" {
+		b.WriteString(name.Space)
+		b.WriteByte(':')
+	}
+	b.WriteString(name.Local)
+}
 
 func TestXMLDocumentStatePrepareStartRollsBackNamespaces(t *testing.T) {
 	var doc emptyXMLDocument
-	values := stream.NewCache()
+	var values struct{}
 	_, err := prepareXMLStartForTest(&doc, testXMLStart(
 		xml.Name{Space: "missing", Local: "root"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
@@ -61,7 +312,7 @@ func TestXMLDocumentPathRejectsInvalidMode(t *testing.T) {
 
 func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 	var doc emptyXMLDocument
-	values := stream.NewCache()
+	var values struct{}
 	_, err := prepareXMLStartForTest(&doc, testXMLStart(
 		xml.Name{Local: "root"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
@@ -79,7 +330,7 @@ func TestXMLDocumentStateRejectsDuplicateExpandedAttributes(t *testing.T) {
 }
 
 func TestXMLDocumentStateEnforcesDepthLimit(t *testing.T) {
-	values := stream.NewCache()
+	var values struct{}
 	var doc emptyXMLDocument
 	start, err := prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "root"}), &values, 0, 2, 3)
 	if err != nil {
@@ -94,15 +345,15 @@ func TestXMLDocumentStateEnforcesDepthLimit(t *testing.T) {
 	}
 }
 
-func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
+func TestXMLDocumentStateReportsMultipleRootsBeforeNamespaceErrors(t *testing.T) {
 	var doc emptyXMLDocument
-	values := stream.NewCache()
+	var values struct{}
 	start, err := prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "a"}), &values, 0, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	doc.CommitStart(start, struct{}{})
-	if endErr := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "a"}}, 1, 4); endErr != nil {
+	if endErr := doc.ValidateEnd(xmlstream.EndElement{Name: xml.Name{Local: "a"}}, 1, 4); endErr != nil {
 		t.Fatal(endErr)
 	}
 	if commitErr := doc.CommitEnd(); commitErr != nil {
@@ -110,8 +361,8 @@ func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 	}
 
 	_, err = prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Space: "p", Local: "b"}), &values, 0, 1, 5)
-	if !strings.Contains(err.Error(), "unbound namespace prefix p") {
-		t.Fatalf("PrepareStart() error = %v, want namespace error before multiple roots", err)
+	if !strings.Contains(err.Error(), "multiple root elements") {
+		t.Fatalf("PrepareStart() error = %v, want multiple-root error before namespace admission", err)
 	}
 
 	_, err = prepareXMLStartForTest(&doc, testXMLStart(
@@ -125,7 +376,7 @@ func TestXMLDocumentStateStartErrorPrecedenceAndMultipleRoots(t *testing.T) {
 
 func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 	var doc emptyXMLDocument
-	values := stream.NewCache()
+	var values struct{}
 	start, err := prepareXMLStartForTest(&doc, testXMLStart(
 		xml.Name{Space: "p", Local: "root"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:test"),
@@ -135,7 +386,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	doc.CommitStart(start, struct{}{})
-	err = doc.ValidateEnd(stream.EndElement{Name: xml.Name{Space: "q", Local: "root"}}, 4, 5)
+	err = doc.ValidateEnd(xmlstream.EndElement{Name: xml.Name{Space: "q", Local: "root"}}, 4, 5)
 	if !strings.Contains(err.Error(), "end element </q:root> does not match start element <p:root>") {
 		t.Fatalf("ValidateEnd() error = %v", err)
 	}
@@ -144,11 +395,11 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 	}
 }
 
-func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
+func TestXMLDocumentStateCompleteRejectsMissingAndPendingUnclosedRoot(t *testing.T) {
 	var doc emptyXMLDocument
 	requireCode(t, doc.Complete(), xsderrors.CodeValidationRoot)
 
-	values := stream.NewCache()
+	var values struct{}
 	start, err := prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "root"}), &values, 0, 2, 3)
 	if err != nil {
 		t.Fatal(err)
@@ -156,20 +407,20 @@ func TestXMLDocumentStateCompleteRejectsMissingAndUnclosedRoot(t *testing.T) {
 	doc.CommitStart(start, struct{}{})
 	err = doc.Complete()
 	requireCode(t, err, xsderrors.CodeValidationXML)
-	if !strings.Contains(err.Error(), "unclosed element") {
-		t.Fatalf("Complete() error = %v", err)
+	if !strings.Contains(err.Error(), "end token must be matched and committed before advancing") {
+		t.Fatalf("Complete() error = %v, want pending end-token error", err)
 	}
 }
 
 func TestXMLDocumentStatePathsStayLazyAndRecoverAcrossTransitions(t *testing.T) {
 	var doc emptyXMLDocument
-	values := stream.NewCache()
+	var values struct{}
 	commitDocumentStart(t, &doc, &values, "root")
 	commitDocumentStart(t, &doc, &values, "child")
 	if doc.pathText != "" {
 		t.Fatalf("successful starts materialized path %q", doc.pathText)
 	}
-	if err := doc.ValidateEnd(stream.EndElement{Name: xml.Name{Local: "child"}}, 2, 1); err != nil {
+	if err := doc.ValidateEnd(xmlstream.EndElement{Name: xml.Name{Local: "child"}}, 2, 1); err != nil {
 		t.Fatal(err)
 	}
 	if err := doc.CommitEnd(); err != nil {
@@ -219,7 +470,7 @@ func TestXMLDocumentPathAtDepthUsesCanonicalCache(t *testing.T) {
 	t.Parallel()
 
 	var doc emptyXMLDocument
-	values := stream.NewCache()
+	var values struct{}
 	commitDocumentStart(t, &doc, &values, "root")
 	commitDocumentStart(t, &doc, &values, "child")
 	commitDocumentStart(t, &doc, &values, "grandchild")
@@ -256,7 +507,7 @@ func TestXMLDocumentRetainedPathsSharePrefixesAndSurvivePop(t *testing.T) {
 	t.Parallel()
 
 	var doc emptyXMLDocument
-	values := stream.NewCache()
+	var values struct{}
 	root := strings.Repeat("r", 255)
 	commitDocumentStart(t, &doc, &values, root)
 	commitDocumentStart(t, &doc, &values, "first")
@@ -514,9 +765,7 @@ func TestXMLDocumentStartRollbackRemovesRetainedPathNodes(t *testing.T) {
 	if len(doc.retainedPaths.nodes) != 1 || len(doc.retainedPaths.namespaces) != 1 || doc.elements[0].pathRef.node == 0 {
 		t.Fatal("test setup did not retain child path")
 	}
-	if err := doc.rollbackStart(checkpoint, xmlns.Frame{}); err != nil {
-		t.Fatal(err)
-	}
+	doc.rollbackStart(checkpoint)
 	if len(doc.retainedPaths.nodes) != 0 || len(doc.retainedPaths.namespaces) != 0 || doc.elements[0].pathRef != (documentPathRef{}) {
 		t.Fatalf(
 			"rollback retained path state: nodes=%d names=%d root=%+v",
@@ -554,7 +803,7 @@ func TestXMLDocumentResetDropsOversizedPathNamespaceState(t *testing.T) {
 }
 
 func TestXMLSyntaxDiagnosticParity(t *testing.T) {
-	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="a" type="xs:anyType"/>
 </xs:schema>`))})
@@ -587,7 +836,7 @@ func TestXMLSyntaxDiagnosticParity(t *testing.T) {
 	}
 }
 
-func commitDocumentStart(t *testing.T, doc *emptyXMLDocument, values *stream.Cache, local string) {
+func commitDocumentStart(t *testing.T, doc *emptyXMLDocument, values *struct{}, local string) {
 	t.Helper()
 	start, err := prepareXMLStartForTest(doc, testXMLStart(xml.Name{Local: local}), values, 0, 1, 1)
 	if err != nil {
@@ -598,17 +847,17 @@ func commitDocumentStart(t *testing.T, doc *emptyXMLDocument, values *stream.Cac
 
 func prepareXMLStartForTest(
 	doc *emptyXMLDocument,
-	start stream.StartElement,
-	values *stream.Cache,
+	start xmlstream.StartElement,
+	values *struct{},
 	maxDepth, line, col int,
 ) (preparedXMLStart, error) {
 	return doc.PrepareStart(start, values, maxDepth, line, col)
 }
 
-func testXMLStart(name xml.Name, attrs ...stream.Attr) stream.StartElement {
-	return stream.OwnedStartElement(name, attrs...)
+func testXMLStart(name xml.Name, attrs ...xmlstream.Attr) xmlstream.StartElement {
+	return xmlstream.OwnedStartElement(name, attrs...)
 }
 
-func testXMLAttr(name xml.Name, value string) stream.Attr {
-	return stream.OwnedAttr(name, value)
+func testXMLAttr(name xml.Name, value string) xmlstream.Attr {
+	return xmlstream.OwnedAttr(name, value)
 }

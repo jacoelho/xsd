@@ -58,7 +58,7 @@ func TestNewServerServesIndex(t *testing.T) {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
-	srv := httptest.NewServer(newServer(":0", dir).Handler)
+	srv := httptest.NewServer(newServer(":0", openAssetRoot(t, dir)).Handler)
 	defer srv.Close()
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL+"/", http.NoBody)
@@ -87,7 +87,7 @@ func TestNewServerServesIndex(t *testing.T) {
 }
 
 func TestNewServerBoundsConnections(t *testing.T) {
-	srv := newServer(defaultAddress, t.TempDir())
+	srv := newServer(defaultAddress, openAssetRoot(t, t.TempDir()))
 	if srv.Addr != defaultAddress {
 		t.Fatalf("Addr = %q, want %q", srv.Addr, defaultAddress)
 	}
@@ -114,7 +114,7 @@ func TestServeStopsCleanlyOnCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
-		done <- serve(ctx, newServer(listener.Addr().String(), dir), listener)
+		done <- serve(ctx, newServer(listener.Addr().String(), openAssetRoot(t, dir)), listener)
 	}()
 
 	client := &http.Client{Timeout: time.Second}
@@ -141,13 +141,13 @@ func TestServeStopsCleanlyOnCancellation(t *testing.T) {
 
 func TestValidateAssetsRequiresCompleteBuild(t *testing.T) {
 	dir := t.TempDir()
-	err := validateAssets(dir)
+	err := validateAssets(openAssetRoot(t, dir))
 	if err == nil || !strings.Contains(err.Error(), "make wasm") {
 		t.Fatalf("validateAssets() error = %v, want build instruction", err)
 	}
 
 	writeRequiredAssets(t, dir)
-	if err := validateAssets(dir); err != nil {
+	if err := validateAssets(openAssetRoot(t, dir)); err != nil {
 		t.Fatalf("validateAssets() error = %v", err)
 	}
 
@@ -158,7 +158,7 @@ func TestValidateAssetsRequiresCompleteBuild(t *testing.T) {
 	if err := os.Symlink(filepath.Join(dir, "index.html"), wasm); err != nil {
 		t.Fatalf("Symlink() error = %v", err)
 	}
-	if err := validateAssets(dir); err == nil || !strings.Contains(err.Error(), "regular file") {
+	if err := validateAssets(openAssetRoot(t, dir)); err == nil || !strings.Contains(err.Error(), "regular file") {
 		t.Fatalf("validateAssets(symlink) error = %v, want regular-file error", err)
 	}
 }
@@ -166,7 +166,7 @@ func TestValidateAssetsRequiresCompleteBuild(t *testing.T) {
 func TestAssetHandlerSetsHeadersRejectsWritesAndHidesDirectoryListings(t *testing.T) {
 	dir := t.TempDir()
 	writeRequiredAssets(t, dir)
-	srv := httptest.NewServer(assetHandler(dir))
+	srv := httptest.NewServer(assetHandler{assets: openAssetRoot(t, dir)})
 	defer srv.Close()
 
 	resp := request(t, srv, http.MethodGet, "/xsd.wasm")
@@ -213,7 +213,7 @@ func TestAssetHandlerServesOnlyCatalog(t *testing.T) {
 		t.Fatalf("Symlink() error = %v", err)
 	}
 
-	srv := httptest.NewServer(assetHandler(dir))
+	srv := httptest.NewServer(assetHandler{assets: openAssetRoot(t, dir)})
 	defer srv.Close()
 	for _, path := range []string{
 		"/index.html",
@@ -264,4 +264,78 @@ func closeResponse(t *testing.T, resp *http.Response) {
 	if err := resp.Body.Close(); err != nil {
 		t.Fatalf("Body.Close() error = %v", err)
 	}
+}
+
+func TestValidateAssetsRejectsEscapingParentSymlink(t *testing.T) {
+	dir := t.TempDir()
+	writeRequiredAssets(t, dir)
+	external := t.TempDir()
+	for _, name := range []string{"validation-flow.js", "validation-worker.js", "xsd-worker.js"} {
+		if err := os.WriteFile(filepath.Join(external, name), []byte("external"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	js := filepath.Join(dir, "js")
+	if err := os.Rename(js, filepath.Join(dir, "original-js")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(external, js); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateAssets(openAssetRoot(t, dir)); err == nil {
+		t.Fatal("validateAssets() accepted an asset outside the configured directory")
+	}
+}
+
+func TestAssetHandlerRejectsReplacedAssets(t *testing.T) {
+	for _, replacement := range []string{"parent symlink", "file symlink", "directory"} {
+		t.Run(replacement, func(t *testing.T) {
+			dir := t.TempDir()
+			writeRequiredAssets(t, dir)
+			handler := assetHandler{assets: openAssetRoot(t, dir)}
+			external := t.TempDir()
+			const name = "validation-flow.js"
+			if err := os.WriteFile(filepath.Join(external, name), []byte("external secret"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(dir, "js", name)
+			if replacement == "parent symlink" {
+				path = filepath.Join(dir, "js")
+			}
+			if err := os.Rename(path, path+"-original"); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			switch replacement {
+			case "parent symlink":
+				err = os.Symlink(external, path)
+			case "file symlink":
+				err = os.Symlink(filepath.Join(external, name), path)
+			case "directory":
+				err = os.Mkdir(path, 0o700)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/js/"+name, http.NoBody))
+			if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "external secret") {
+				t.Fatalf("GET replaced asset = %d %q, want 404 without external content", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func openAssetRoot(t *testing.T, dir string) *os.Root {
+	t.Helper()
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := root.Close(); err != nil {
+			t.Errorf("Root.Close() = %v", err)
+		}
+	})
+	return root
 }

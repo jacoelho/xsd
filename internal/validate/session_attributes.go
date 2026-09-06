@@ -3,14 +3,14 @@ package validate
 import (
 	"encoding/xml"
 
-	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/stream"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	xsdValue "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlns"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func (s *session) validateAttributes(typ runtime.TypeID, attrs []stream.Attr, line, col int) error {
+func (s *session) validateAttributes(typ xsdSchema.TypeID, attrs []xmlstream.Attr, line, col int) error {
 	if len(attrs) == 0 && typ.IsSimple() {
 		return nil
 	}
@@ -21,40 +21,67 @@ func (s *session) validateAttributes(typ runtime.TypeID, attrs []stream.Attr, li
 	if !ok {
 		return xsderrors.InternalInvariant("complex attribute use set is invalid")
 	}
-	if len(attrs) == 0 && set.UseCount() == 0 && set.Wildcard() == runtime.NoWildcard {
+	if len(attrs) == 0 && set.UseCount() == 0 && set.Wildcard() == xsdSchema.NoWildcard {
 		return nil
 	}
 	return s.validateAttributeSet(set, attrs, line, col)
 }
 
-func (s *session) attributeUseSetForType(typ runtime.TypeID) (set runtime.AttributeUseSetRead, present, valid bool) {
+func (s *session) attributeUseSetForType(typ xsdSchema.TypeID) (set xsdSchema.AttributeUseSetRead, present, valid bool) {
 	return s.rt.AttributeUseSetForType(typ)
 }
 
-func (s *session) attributeDecl(id runtime.AttributeID) (runtime.AttributeDeclRead, bool) {
+func (s *session) attributeDecl(id xsdSchema.AttributeID) (xsdSchema.AttributeDeclRead, bool) {
 	return s.rt.AttributeDecl(id)
 }
 
-type rawSimpleValueValidation struct {
-	err     error
-	handled bool
-}
-
-func (s *session) validateRawSimpleValue(id runtime.SimpleTypeID, raw []byte) rawSimpleValueValidation {
-	handled, err := s.rt.ValidateRawSimpleValueWithScratch(id, raw, &s.stringPatternScratch)
-	return rawSimpleValueValidation{handled: handled, err: err}
+func (s *session) attributeValue(attr *xmlstream.Attr) string {
+	value, _ := s.reader.MaterializeValue(attr)
+	return value
 }
 
 func (s *session) validateSimpleValue(
-	id runtime.SimpleTypeID,
+	id xsdSchema.SimpleTypeID,
 	lexical string,
-	resolve runtime.ResolveQNameParts,
-	needs runtime.SimpleValueNeed,
-) (runtime.SimpleValue, error) {
-	return s.rt.ValidateSimpleValueWithScratch(id, lexical, resolve, needs, &s.stringPatternScratch)
+	resolve xsdValue.Resolver,
+	needs xsdValue.Needs,
+) (xsdValue.Value, error) {
+	return s.rt.ValueProgram().Validate(id, lexical, resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
 }
 
-func (s *session) validateAttributeSet(set runtime.AttributeUseSetRead, attrs []stream.Attr, line, col int) error {
+func (s *session) validateSimpleValueBytes(
+	id xsdSchema.SimpleTypeID,
+	lexical []byte,
+	resolve xsdValue.Resolver,
+	needs xsdValue.Needs,
+) (xsdValue.Value, error) {
+	program := s.rt.ValueProgram()
+	// QName/NOTATION resolution and document identity projections consume
+	// lexical strings. Reuse the reader's bounded owned spellings; resolve them
+	// again against the current namespace bindings on every evaluation.
+	needsOwnedLexical := false
+	if needsQName, ok := program.NeedsQNameResolver(id); ok && needsQName {
+		needsOwnedLexical = true
+	}
+	if identity, ok := program.IdentityKind(id); ok && identity != xsdValue.IdentityNone {
+		needsOwnedLexical = true
+	}
+	if needsOwnedLexical {
+		lexicalString := s.reader.InternBytes(lexical)
+		return program.Validate(id, lexicalString, resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
+	}
+	if needs != 0 {
+		if unconstrained, valid := program.IsUnconstrainedString(id); valid && unconstrained {
+			// The returned canonical or identity projection retains this string.
+			// Reuse the reader-owned bounded cache for repeated short values while
+			// keeping all other types on the borrowed-byte path.
+			return program.Validate(id, s.reader.InternBytes(lexical), resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
+		}
+	}
+	return program.ValidateBytes(id, lexical, resolve, needs, s.limits.InstanceValueWork, &s.valueScratch)
+}
+
+func (s *session) validateAttributeSet(set xsdSchema.AttributeUseSetRead, attrs []xmlstream.Attr, line, col int) error {
 	seen := newAttributeSeenWithScratch(set.UseCount(), &s.attributeSeen)
 	ctx := s.startContext(line, col)
 	for i := range attrs {
@@ -65,7 +92,7 @@ func (s *session) validateAttributeSet(set runtime.AttributeUseSetRead, attrs []
 	return s.validateRequiredAndDefaultAttributes(set, seen, ctx)
 }
 
-func (s *session) validateAttribute(set runtime.AttributeUseSetRead, seen *AttributeSeen, attr *stream.Attr, line, col int, ctx StartContext) error {
+func (s *session) validateAttribute(set xsdSchema.AttributeUseSetRead, seen *AttributeSeen, attr *xmlstream.Attr, line, col int, ctx StartContext) error {
 	handled, err := s.validateReservedAttribute(attr, line, col)
 	if err != nil || handled {
 		return err
@@ -78,7 +105,7 @@ func (s *session) validateAttribute(set runtime.AttributeUseSetRead, seen *Attri
 	return s.validateUndeclaredAttribute(set, rn, attr, ctx)
 }
 
-func (s *session) validateDeclaredAttribute(set runtime.AttributeUseSetRead, seen *AttributeSeen, rn runtime.RuntimeName, attr *stream.Attr, ctx StartContext) (bool, error) {
+func (s *session) validateDeclaredAttribute(set xsdSchema.AttributeUseSetRead, seen *AttributeSeen, rn xsdSchema.RuntimeName, attr *xmlstream.Attr, ctx StartContext) (bool, error) {
 	if !rn.Known {
 		return false, nil
 	}
@@ -92,7 +119,7 @@ func (s *session) validateDeclaredAttribute(set runtime.AttributeUseSetRead, see
 	return true, s.recoverAssessment(s.validateDeclaredAttributeUse(use, rn, attr, ctx))
 }
 
-func (s *session) validateUndeclaredAttribute(set runtime.AttributeUseSetRead, rn runtime.RuntimeName, attr *stream.Attr, ctx StartContext) error {
+func (s *session) validateUndeclaredAttribute(set xsdSchema.AttributeUseSetRead, rn xsdSchema.RuntimeName, attr *xmlstream.Attr, ctx StartContext) error {
 	handled, err := s.validateWildcardAttribute(set, rn, attr, ctx)
 	if err != nil {
 		return s.recoverUnassessedIdentityAttribute(rn, ctx, err)
@@ -103,7 +130,7 @@ func (s *session) validateUndeclaredAttribute(set runtime.AttributeUseSetRead, r
 	return s.recoverUnassessedIdentityAttribute(rn, ctx, attributeValidation(ctx, "attribute is not declared: "+rn.Label()))
 }
 
-func (s *session) validateSimpleTypeAttributes(attrs []stream.Attr, line, col int) error {
+func (s *session) validateSimpleTypeAttributes(attrs []xmlstream.Attr, line, col int) error {
 	if len(attrs) == 0 {
 		return nil
 	}
@@ -123,24 +150,24 @@ func (s *session) validateSimpleTypeAttributes(attrs []stream.Attr, line, col in
 	return nil
 }
 
-func (s *session) validateReservedAttribute(attr *stream.Attr, line, col int) (bool, error) {
+func (s *session) validateReservedAttribute(attr *xmlstream.Attr, line, col int) (bool, error) {
 	name := attr.Name
 	if name.Space == "" && name.Local != vocab.XMLNSPrefix {
 		return false, nil
 	}
-	if xmlns.IsNamespaceName(name) {
+	if xmlstream.IsNamespaceName(name) {
 		return true, nil
 	}
 	if !isXSIAttributeName(name) {
 		return false, nil
 	}
-	return true, s.validateXSIAttribute(name, attr.StringValue(&s.valueStrings), line, col)
+	return true, s.validateXSIAttribute(name, s.attributeValue(attr), line, col)
 }
 
 func (s *session) validateDeclaredAttributeUse(
-	use runtime.AttributeUseRead,
-	rn runtime.RuntimeName,
-	attr *stream.Attr,
+	use xsdSchema.AttributeUseRead,
+	rn xsdSchema.RuntimeName,
+	attr *xmlstream.Attr,
 	ctx StartContext,
 ) error {
 	identityTarget, targetErr := s.doc.identity.prepareAttributeValue(rn)
@@ -154,25 +181,25 @@ func (s *session) validateDeclaredAttributeUse(
 	if handled, err := s.validateDeclaredAttributeFast(plan, attr, rn, ctx); handled {
 		return err
 	}
-	return s.validateDeclaredAttributeValue(plan, attr.StringValue(&s.valueStrings), rn, ctx)
+	return s.validateDeclaredAttributeValue(plan, s.attributeValue(attr), rn, ctx)
 }
 
 type declaredAttributePlan struct {
-	fixed    runtime.ValueConstraintRead
-	use      runtime.AttributeUseRead
+	fixed    xsdSchema.ValueConstraintRead
+	use      xsdSchema.AttributeUseRead
 	target   identityValueTarget
-	needs    runtime.SimpleValueNeed
+	needs    xsdValue.Needs
 	hasFixed bool
 }
 
-func newDeclaredAttributePlan(use runtime.AttributeUseRead, target identityValueTarget) declaredAttributePlan {
+func newDeclaredAttributePlan(use xsdSchema.AttributeUseRead, target identityValueTarget) declaredAttributePlan {
 	fixed, hasFixed := use.FixedValue()
-	var needs runtime.SimpleValueNeed
+	var needs xsdValue.Needs
 	if hasFixed {
-		needs |= runtime.SimpleNeedCanonical
+		needs |= xsdValue.NeedCanonical
 	}
 	if target.needsIdentity() || hasFixed && use.FixedUsesValueSpace() {
-		needs |= runtime.SimpleNeedIdentity
+		needs |= xsdValue.NeedIdentity
 	}
 	return declaredAttributePlan{use: use, target: target, fixed: fixed, needs: needs, hasFixed: hasFixed}
 }
@@ -185,41 +212,34 @@ func (p declaredAttributePlan) canValidateRaw() bool {
 	return !p.target.needsIdentity() && !p.hasFixed
 }
 
-func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr *stream.Attr, rn runtime.RuntimeName, ctx StartContext) (bool, error) {
+func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr *xmlstream.Attr, rn xsdSchema.RuntimeName, ctx StartContext) (bool, error) {
 	if plan.canValidateFixedString() {
-		return true, validateFixedAttributeString(attr.StringValue(&s.valueStrings), plan.fixed, rn, ctx)
+		return true, validateFixedAttributeString(s.attributeValue(attr), plan.fixed, rn, ctx)
 	}
-	if !plan.canValidateRaw() {
+	// Statically known ID/IDREF types use the owned lexical path below.
+	// Union members can still produce document-identity projections here.
+	if !plan.canValidateRaw() || s.valueTypeIdentity(plan.use.TypeID()) != xsdValue.IdentityNone {
 		return false, nil
 	}
 	if raw, ok := attr.RawValue(); ok {
-		result := s.validateRawSimpleValue(plan.use.TypeID(), raw)
-		return result.handled || result.err != nil, declaredRawAttributeResult(result, rn, ctx)
+		typeID := plan.use.TypeID()
+		value, err := s.validateSimpleValueBytes(typeID, raw, s.simpleValueQNameResolver(typeID), 0)
+		if err != nil {
+			return true, simpleValueFacetError(ctx, "invalid attribute "+rn.Label(), err)
+		}
+		return true, s.doc.identity.recordValue(plan.target, value, ctx)
 	}
 	return false, nil
 }
 
-func validateFixedAttributeString(value string, fixed runtime.ValueConstraintRead, rn runtime.RuntimeName, ctx StartContext) error {
+func validateFixedAttributeString(value string, fixed xsdSchema.ValueConstraintRead, rn xsdSchema.RuntimeName, ctx StartContext) error {
 	if value != fixed.CanonicalText() {
 		return attributeValidation(ctx, "fixed attribute mismatch "+rn.Label())
 	}
 	return nil
 }
 
-func declaredRawAttributeResult(result rawSimpleValueValidation, rn runtime.RuntimeName, ctx StartContext) error {
-	if result.err == nil {
-		return nil
-	}
-	if invariantErr := simpleValueMetadataInvariant(result.err); invariantErr != nil {
-		return invariantErr
-	}
-	if result.handled {
-		return validation(ctx, xsderrors.CodeValidationFacet, "invalid attribute "+rn.Label()+": "+result.err.Error())
-	}
-	return result.err
-}
-
-func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lexical string, rn runtime.RuntimeName, ctx StartContext) error {
+func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lexical string, rn xsdSchema.RuntimeName, ctx StartContext) error {
 	typeID := plan.use.TypeID()
 	value, err := s.validateSimpleValue(typeID, lexical, s.simpleValueQNameResolver(typeID), plan.needs)
 	if err != nil {
@@ -232,9 +252,9 @@ func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lex
 		return err
 	}
 	if plan.hasFixed {
-		comparison := runtime.FixedAttributeComparisonLexical
+		comparison := xsdSchema.FixedAttributeComparisonLexical
 		if plan.use.FixedUsesValueSpace() {
-			comparison = runtime.FixedAttributeComparisonValueSpace
+			comparison = xsdSchema.FixedAttributeComparisonValueSpace
 		}
 		if err := s.validateFixedAttributeValue(value, plan.fixed, comparison, plan.target, ctx, rn.Label()); err != nil {
 			return err
@@ -243,17 +263,11 @@ func (s *session) validateDeclaredAttributeValue(plan declaredAttributePlan, lex
 	return s.doc.identity.commitValue(plan.target)
 }
 
-func (s *session) declaredAttributeValueError(target identityValueTarget, rn runtime.RuntimeName, ctx StartContext, err error) error {
+func (s *session) declaredAttributeValueError(target identityValueTarget, rn xsdSchema.RuntimeName, ctx StartContext, err error) error {
 	if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 		return rejectErr
 	}
-	if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
-		return invariantErr
-	}
-	if xsderrors.IsUnsupported(err) {
-		return err
-	}
-	return validation(ctx, xsderrors.CodeValidationFacet, "invalid attribute "+rn.Label()+": "+err.Error())
+	return simpleValueFacetError(ctx, "invalid attribute "+rn.Label(), err)
 }
 
 func (s *session) rejectAttributeIdentityValue(target identityValueTarget, ctx StartContext, reason error) error {
@@ -264,9 +278,9 @@ func (s *session) rejectAttributeIdentityValue(target identityValueTarget, ctx S
 }
 
 func (s *session) validateWildcardAttribute(
-	set runtime.AttributeUseSetRead,
-	rn runtime.RuntimeName,
-	attr *stream.Attr,
+	set xsdSchema.AttributeUseSetRead,
+	rn xsdSchema.RuntimeName,
+	attr *xmlstream.Attr,
 	ctx StartContext,
 ) (bool, error) {
 	match, valid := matchAttributeWildcard(s.rt, set.Wildcard(), rn)
@@ -283,7 +297,7 @@ func (s *session) validateWildcardAttribute(
 		if !ok {
 			return true, xsderrors.InternalInvariant("attribute wildcard matched invalid declaration")
 		}
-		return true, s.validateKnownWildcardAttribute(decl, rn, attr.StringValue(&s.valueStrings), ctx)
+		return true, s.validateKnownWildcardAttribute(decl, rn, s.attributeValue(attr), ctx)
 	case attributeWildcardStrictMissing:
 		if s.hasSchemaLocationHint(rn.NS) {
 			return true, unsupportedSchemaLocation(ctx, vocab.XSDElemAttribute, rn)
@@ -293,13 +307,13 @@ func (s *session) validateWildcardAttribute(
 	return true, xsderrors.InternalInvariant("attribute wildcard match disposition is invalid")
 }
 
-func (s *session) rejectUnassessedIdentityAttributes(attrs []stream.Attr, line, col int, reason identityRejection) error {
+func (s *session) rejectUnassessedIdentityAttributes(attrs []xmlstream.Attr, line, col int, reason identityRejection) error {
 	if reason != identityMissingSimpleValue && reason != identityInvalidValue {
 		return xsderrors.InternalInvariant("unassessed attribute identity rejection is invalid")
 	}
 	ctx := s.startContext(line, col)
 	for i := range attrs {
-		if xmlns.IsNamespaceName(attrs[i].Name) {
+		if xmlstream.IsNamespaceName(attrs[i].Name) {
 			continue
 		}
 		rn := s.runtimeName(attrs[i].Name)
@@ -319,7 +333,7 @@ func (s *session) handleUnassessedIdentityRejection(err error, reason identityRe
 	return s.recoverAssessment(err)
 }
 
-func (s *session) rejectUnassessedIdentityAttribute(rn runtime.RuntimeName, ctx StartContext, reason identityRejection) error {
+func (s *session) rejectUnassessedIdentityAttribute(rn xsdSchema.RuntimeName, ctx StartContext, reason identityRejection) error {
 	target, err := s.doc.identity.prepareAttributeValue(rn)
 	if err != nil {
 		return err
@@ -332,7 +346,7 @@ func (s *session) rejectUnassessedIdentityAttribute(rn runtime.RuntimeName, ctx 
 	}
 }
 
-func (s *session) recoverUnassessedIdentityAttribute(rn runtime.RuntimeName, ctx StartContext, err error) error {
+func (s *session) recoverUnassessedIdentityAttribute(rn xsdSchema.RuntimeName, ctx StartContext, err error) error {
 	if invalidateErr := s.rejectUnassessedIdentityAttribute(rn, ctx, identityInvalidValue); invalidateErr != nil {
 		return invalidateErr
 	}
@@ -340,8 +354,8 @@ func (s *session) recoverUnassessedIdentityAttribute(rn runtime.RuntimeName, ctx
 }
 
 func (s *session) validateKnownWildcardAttribute(
-	decl runtime.AttributeDeclRead,
-	rn runtime.RuntimeName,
+	decl xsdSchema.AttributeDeclRead,
+	rn xsdSchema.RuntimeName,
 	lexical string,
 	ctx StartContext,
 ) error {
@@ -353,9 +367,9 @@ func (s *session) validateKnownWildcardAttribute(
 		return s.rejectAttributeIdentityValue(identityTarget, ctx, err)
 	}
 	fixed, hasFixed := decl.FixedValue()
-	needs := runtime.SimpleNeedCanonical
+	needs := xsdValue.NeedCanonical
 	if identityTarget.needsIdentity() || hasFixed {
-		needs |= runtime.SimpleNeedIdentity
+		needs |= xsdValue.NeedIdentity
 	}
 	typeID := decl.TypeID()
 	value, err := s.validateSimpleValue(typeID, lexical, s.simpleValueQNameResolver(typeID), needs)
@@ -365,30 +379,24 @@ func (s *session) validateKnownWildcardAttribute(
 	return s.commitKnownWildcardAttributeValue(identityTarget, value, optionalFixedAttribute{value: fixed, present: hasFixed}, rn, ctx)
 }
 
-func (s *session) wildcardAttributeValueError(target identityValueTarget, rn runtime.RuntimeName, ctx StartContext, err error) error {
+func (s *session) wildcardAttributeValueError(target identityValueTarget, rn xsdSchema.RuntimeName, ctx StartContext, err error) error {
 	if rejectErr := s.doc.identity.rejectValue(target, identityInvalidValue, ctx); rejectErr != nil {
 		return rejectErr
 	}
-	if invariantErr := simpleValueMetadataInvariant(err); invariantErr != nil {
-		return invariantErr
-	}
-	if xsderrors.IsUnsupported(err) {
-		return err
-	}
-	return validation(ctx, xsderrors.CodeValidationFacet, "invalid wildcard attribute "+rn.Label())
+	return simpleValueFacetError(ctx, "invalid wildcard attribute "+rn.Label(), err)
 }
 
 type optionalFixedAttribute struct {
-	value   runtime.ValueConstraintRead
+	value   xsdSchema.ValueConstraintRead
 	present bool
 }
 
-func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValueTarget, value runtime.SimpleValue, fixed optionalFixedAttribute, rn runtime.RuntimeName, ctx StartContext) error {
+func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValueTarget, value xsdValue.Value, fixed optionalFixedAttribute, rn xsdSchema.RuntimeName, ctx StartContext) error {
 	if err := s.doc.identity.recordValue(identityTarget, value, ctx); err != nil {
 		return err
 	}
 	if fixed.present {
-		if err := s.validateFixedAttributeValue(value, fixed.value, runtime.FixedAttributeComparisonValueSpace, identityTarget, ctx, rn.Label()); err != nil {
+		if err := s.validateFixedAttributeValue(value, fixed.value, xsdSchema.FixedAttributeComparisonValueSpace, identityTarget, ctx, rn.Label()); err != nil {
 			return err
 		}
 	}
@@ -399,14 +407,14 @@ func (s *session) commitKnownWildcardAttributeValue(identityTarget identityValue
 }
 
 func (s *session) validateFixedAttributeValue(
-	value runtime.SimpleValue,
-	fixed runtime.ValueConstraintRead,
-	comparison runtime.FixedAttributeComparison,
+	actual xsdValue.Value,
+	fixed xsdSchema.ValueConstraintRead,
+	comparison xsdSchema.FixedAttributeComparison,
 	identityTarget identityValueTarget,
 	ctx StartContext,
 	label string,
 ) error {
-	equal, valid := runtime.FixedAttributeValueEqual(value, fixed, comparison)
+	equal, valid := fixedAttributeValueEqual(actual, fixed, comparison)
 	if equal {
 		return nil
 	}
@@ -419,7 +427,11 @@ func (s *session) validateFixedAttributeValue(
 	return attributeValidation(ctx, "fixed attribute mismatch "+label)
 }
 
-func (s *session) validateAttributeTypeAvailable(id runtime.SimpleTypeID, label string, ctx StartContext) error {
+func fixedAttributeValueEqual(actual xsdValue.Value, fixed xsdSchema.ValueConstraintRead, comparison xsdSchema.FixedAttributeComparison) (equal, valid bool) {
+	return xsdSchema.FixedAttributeValueEqual(actual, fixed, comparison)
+}
+
+func (s *session) validateAttributeTypeAvailable(id xsdSchema.SimpleTypeID, label string, ctx StartContext) error {
 	unavailable, ok := s.rt.SimpleTypeUnavailable(id)
 	if !ok {
 		return xsderrors.InternalInvariant("attribute type metadata is invalid")
@@ -431,7 +443,7 @@ func (s *session) validateAttributeTypeAvailable(id runtime.SimpleTypeID, label 
 }
 
 func (s *session) validateRequiredAndDefaultAttributes(
-	set runtime.AttributeUseSetRead,
+	set xsdSchema.AttributeUseSetRead,
 	seen AttributeSeen,
 	ctx StartContext,
 ) error {
@@ -441,7 +453,7 @@ func (s *session) validateRequiredAndDefaultAttributes(
 	return s.validateDefaultAttributes(set, seen, ctx)
 }
 
-func (s *session) validateRequiredAttributes(set runtime.AttributeUseSetRead, seen AttributeSeen, ctx StartContext) error {
+func (s *session) validateRequiredAttributes(set xsdSchema.AttributeUseSetRead, seen AttributeSeen, ctx StartContext) error {
 	required := set.RequiredSlots()
 	for slotIndex := range required.Len() {
 		if err := s.recoverAssessment(requiredAttributeError(set, seen, required, slotIndex, ctx)); err != nil {
@@ -451,7 +463,7 @@ func (s *session) validateRequiredAttributes(set runtime.AttributeUseSetRead, se
 	return nil
 }
 
-func requiredAttributeError(set runtime.AttributeUseSetRead, seen AttributeSeen, required runtime.AttributeUseSlots, slotIndex int, ctx StartContext) error {
+func requiredAttributeError(set xsdSchema.AttributeUseSetRead, seen AttributeSeen, required xsdSchema.AttributeUseSlots, slotIndex int, ctx StartContext) error {
 	slot, ok := required.At(slotIndex)
 	if !ok {
 		return xsderrors.InternalInvariant("required attribute slot is invalid")
@@ -466,7 +478,7 @@ func requiredAttributeError(set runtime.AttributeUseSetRead, seen AttributeSeen,
 	return attributeValidation(ctx, "missing required attribute "+use.Label())
 }
 
-func (s *session) validateDefaultAttributes(set runtime.AttributeUseSetRead, seen AttributeSeen, ctx StartContext) error {
+func (s *session) validateDefaultAttributes(set xsdSchema.AttributeUseSetRead, seen AttributeSeen, ctx StartContext) error {
 	valueConstraints := set.ValueConstraintSlots()
 	for slotIndex := range valueConstraints.Len() {
 		if err := s.recoverAssessment(s.validateDefaultAttribute(set, seen, valueConstraints, slotIndex, ctx)); err != nil {
@@ -476,7 +488,7 @@ func (s *session) validateDefaultAttributes(set runtime.AttributeUseSetRead, see
 	return nil
 }
 
-func (s *session) validateDefaultAttribute(set runtime.AttributeUseSetRead, seen AttributeSeen, valueConstraints runtime.AttributeUseSlots, slotIndex int, ctx StartContext) error {
+func (s *session) validateDefaultAttribute(set xsdSchema.AttributeUseSetRead, seen AttributeSeen, valueConstraints xsdSchema.AttributeUseSlots, slotIndex int, ctx StartContext) error {
 	slot, ok := valueConstraints.At(slotIndex)
 	if !ok {
 		return xsderrors.InternalInvariant("value constraint attribute slot is invalid")
@@ -495,10 +507,10 @@ func (s *session) validateDefaultAttribute(set runtime.AttributeUseSetRead, seen
 	if !ok {
 		return nil
 	}
-	return s.applyDefaultAttributeValue(use, vc.SimpleValue(), ctx)
+	return s.applyDefaultAttributeValue(use, vc.Value(), ctx)
 }
 
-func (s *session) applyDefaultAttributeValue(use runtime.AttributeUseRead, value runtime.SimpleValue, ctx StartContext) error {
+func (s *session) applyDefaultAttributeValue(use xsdSchema.AttributeUseRead, value xsdValue.Value, ctx StartContext) error {
 	target, err := s.doc.identity.prepareAttributeValue(knownIdentityAttributeName(use.Name()))
 	if err != nil {
 		return err
@@ -523,6 +535,7 @@ func (s *session) validateXSIAttribute(name xml.Name, value string, line, col in
 		name,
 		value,
 		s.qnameResolver(),
+		s.limits.InstanceValueWork,
 		s.startContext(line, col),
 	); err != nil {
 		return s.recover(err)
@@ -530,10 +543,10 @@ func (s *session) validateXSIAttribute(name xml.Name, value string, line, col in
 	return nil
 }
 
-func (s *session) recordSchemaLocationHints(attrs []stream.Attr, line, col int) error {
+func (s *session) recordSchemaLocationHints(attrs []xmlstream.Attr, line, col int) error {
 	return s.doc.schemaLocationHints.RecordAttributes(
 		attrs,
-		&s.valueStrings,
+		&s.reader,
 		schemaLocationHintLimits{
 			Namespaces:     s.limits.SchemaLocationNamespaces,
 			NamespaceBytes: s.limits.SchemaLocationNamespaceBytes,

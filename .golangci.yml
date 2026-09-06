@@ -151,109 +151,119 @@ linters:
             - pkg: "github.com/jacoelho/xsd$"
               desc: internal packages must not import the public facade
 
-        compile-phase:
+        schema-boundary:
           list-mode: lax
           files:
-            - "**/internal/compile/**/*.go"
+            - "**/internal/schema/**/*.go"
           deny:
             - pkg: "github.com/jacoelho/xsd/internal/validate$"
-              desc: compilation must not depend on instance validation
+              desc: schema must not depend on validate
             - pkg: github.com/jacoelho/xsd/internal/validate/
-              desc: compilation must not depend on instance validation subpackages
+              desc: schema must not depend on validate subpackages
 
-        validate-phase:
+        value-boundary:
           list-mode: lax
           files:
-            - "**/internal/validate/**/*.go"
+            - "**/internal/value/**/*.go"
           deny:
-            - pkg: "github.com/jacoelho/xsd/internal/compile$"
-              desc: instance validation must not depend on compilation
-            - pkg: github.com/jacoelho/xsd/internal/compile/
-              desc: instance validation must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/schema$"
+              desc: value must not depend on schema
+            - pkg: github.com/jacoelho/xsd/internal/schema/
+              desc: value must not depend on schema subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/validate$"
+              desc: value must not depend on validate
+            - pkg: github.com/jacoelho/xsd/internal/validate/
+              desc: value must not depend on validate subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/xmlstream$"
+              desc: value must not depend on xmlstream
+            - pkg: github.com/jacoelho/xsd/internal/xmlstream/
+              desc: value must not depend on xmlstream subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/source$"
+              desc: value must not depend on source
+            - pkg: github.com/jacoelho/xsd/internal/source/
+              desc: value must not depend on source subpackages
 
         format-boundary:
           list-mode: lax
           files:
             - "**/internal/format/**/*.go"
           deny:
-            - pkg: "github.com/jacoelho/xsd/internal/compile$"
-              desc: formatting must not depend on compilation
-            - pkg: github.com/jacoelho/xsd/internal/compile/
-              desc: formatting must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/schema$"
+              desc: format must not depend on schema
+            - pkg: github.com/jacoelho/xsd/internal/schema/
+              desc: format must not depend on schema subpackages
             - pkg: "github.com/jacoelho/xsd/internal/validate$"
-              desc: formatting must not depend on validation
+              desc: format must not depend on validate
             - pkg: github.com/jacoelho/xsd/internal/validate/
-              desc: formatting must not depend on validation subpackages
+              desc: format must not depend on validate subpackages
 
         stream-boundary:
           list-mode: lax
           files:
-            - "**/internal/stream/**/*.go"
+            - "**/internal/xmlstream/**/*.go"
           deny:
+            - pkg: "github.com/jacoelho/xsd/internal/schema$"
+              desc: xmlstream must not depend on schema
+            - pkg: github.com/jacoelho/xsd/internal/schema/
+              desc: xmlstream must not depend on schema subpackages
             - pkg: "github.com/jacoelho/xsd/internal/validate$"
-              desc: XML streaming must remain below instance validation
+              desc: xmlstream must not depend on validate
             - pkg: github.com/jacoelho/xsd/internal/validate/
-              desc: XML streaming must remain below validation subpackages
+              desc: xmlstream must not depend on validate subpackages
 
-        xmlns-boundary:
+        regex-boundary:
           list-mode: lax
           files:
-            - "**/internal/xmlns/**/*.go"
+            - "**/internal/xsdregex/**/*.go"
           deny:
-            - pkg: "github.com/jacoelho/xsd/internal/compile$"
-              desc: XML namespace handling must remain below compilation
-            - pkg: github.com/jacoelho/xsd/internal/compile/
-              desc: XML namespace handling must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/schema$"
+              desc: xsdregex must not depend on schema
+            - pkg: github.com/jacoelho/xsd/internal/schema/
+              desc: xsdregex must not depend on schema subpackages
             - pkg: "github.com/jacoelho/xsd/internal/validate$"
-              desc: XML namespace handling must remain below validation
+              desc: xsdregex must not depend on validate
             - pkg: github.com/jacoelho/xsd/internal/validate/
-              desc: XML namespace handling must not depend on validation subpackages
-
-        runtime-boundary:
-          list-mode: lax
-          files:
-            - "**/internal/runtime/**/*.go"
-          deny:
-            - pkg: "github.com/jacoelho/xsd/internal/compile$"
-              desc: runtime model must not depend on compilation
-            - pkg: github.com/jacoelho/xsd/internal/compile/
-              desc: runtime model must not depend on compilation subpackages
-            - pkg: "github.com/jacoelho/xsd/internal/validate$"
-              desc: runtime model must not depend on validation
-            - pkg: github.com/jacoelho/xsd/internal/validate/
-              desc: runtime model must not depend on validation subpackages
+              desc: xsdregex must not depend on validate subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/xmlstream$"
+              desc: xsdregex must not depend on xmlstream
+            - pkg: github.com/jacoelho/xsd/internal/xmlstream/
+              desc: xsdregex must not depend on xmlstream subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/source$"
+              desc: xsdregex must not depend on source
+            - pkg: github.com/jacoelho/xsd/internal/source/
+              desc: xsdregex must not depend on source subpackages
 
         source-boundary:
           list-mode: lax
           files:
             - "**/internal/source/**/*.go"
           deny:
-            - pkg: "github.com/jacoelho/xsd/internal/compile$"
-              desc: source handling must remain below compilation
-            - pkg: github.com/jacoelho/xsd/internal/compile/
-              desc: source handling must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/schema$"
+              desc: source must not depend on schema
+            - pkg: github.com/jacoelho/xsd/internal/schema/
+              desc: source must not depend on schema subpackages
             - pkg: "github.com/jacoelho/xsd/internal/validate$"
-              desc: source handling must remain below validation
+              desc: source must not depend on validate
             - pkg: github.com/jacoelho/xsd/internal/validate/
-              desc: source handling must not depend on validation subpackages
+              desc: source must not depend on validate subpackages
             - pkg: "github.com/jacoelho/xsd/internal/vocab$"
-              desc: source handling must not depend on XSD vocabulary
+              desc: source must not depend on vocab
             - pkg: github.com/jacoelho/xsd/internal/vocab/
-              desc: source handling must not depend on XSD vocabulary subpackages
+              desc: source must not depend on vocab subpackages
 
         vocab-boundary:
           list-mode: lax
           files:
             - "**/internal/vocab/**/*.go"
           deny:
-            - pkg: "github.com/jacoelho/xsd/internal/compile$"
-              desc: vocabulary must remain below compilation
-            - pkg: github.com/jacoelho/xsd/internal/compile/
-              desc: vocabulary must not depend on compilation subpackages
+            - pkg: "github.com/jacoelho/xsd/internal/schema$"
+              desc: vocab must not depend on schema
+            - pkg: github.com/jacoelho/xsd/internal/schema/
+              desc: vocab must not depend on schema subpackages
             - pkg: "github.com/jacoelho/xsd/internal/validate$"
-              desc: vocabulary must remain below validation
+              desc: vocab must not depend on validate
             - pkg: github.com/jacoelho/xsd/internal/validate/
-              desc: vocabulary must not depend on validation subpackages
+              desc: vocab must not depend on validate subpackages
 
     gomoddirectives:
       exclude-forbidden: true

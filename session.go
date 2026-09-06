@@ -3,7 +3,7 @@ package xsd
 import (
 	"io"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/validate"
 )
 
@@ -40,6 +40,10 @@ type ValidateOptions struct {
 	MaxInstanceTokenBytes int64
 	// MaxInstanceBytes limits aggregate raw XML bytes read. Zero uses the default.
 	MaxInstanceBytes int64
+	// MaxInstanceValueWork limits cumulative lexical and evaluation work for one
+	// simple value. Each visited lexical byte and evaluation visit consumes one
+	// work unit. Zero uses the finite default.
+	MaxInstanceValueWork uint64
 }
 
 // Session validates XML instance documents against one Engine.
@@ -58,7 +62,7 @@ func (e *Engine) Validate(r io.Reader) error {
 
 // ValidateWithOptions validates one XML instance document with options.
 func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
-	var rt *runtime.Schema
+	var rt *xsdSchema.Schema
 	if e != nil {
 		rt = e.rt
 	}
@@ -69,7 +73,7 @@ func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 // bounded scratch buffers and string caches; create a new session to release
 // retained cache contents.
 func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
-	var rt *runtime.Schema
+	var rt *xsdSchema.Schema
 	if e != nil {
 		rt = e.rt
 	}
@@ -103,5 +107,6 @@ func internalValidateOptions(opts ValidateOptions) validate.Options {
 		MaxInstanceTextBytes:            opts.MaxInstanceTextBytes,
 		MaxInstanceTokenBytes:           opts.MaxInstanceTokenBytes,
 		MaxInstanceBytes:                opts.MaxInstanceBytes,
+		MaxInstanceValueWork:            opts.MaxInstanceValueWork,
 	}
 }

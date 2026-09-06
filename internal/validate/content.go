@@ -1,46 +1,9 @@
 package validate
 
 import (
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/xsderrors"
 )
-
-// CharacterDataKind identifies the lexical source of XML character data.
-type CharacterDataKind uint8
-
-const (
-	// CharacterDataInvalid is not a valid character-data source.
-	CharacterDataInvalid CharacterDataKind = iota
-	// CharacterDataText is ordinary XML character data.
-	CharacterDataText
-	// CharacterDataCDATA is character data from a CDATA section.
-	CharacterDataCDATA
-)
-
-// DocumentCharacterData is character data encountered outside the root.
-type DocumentCharacterData struct {
-	Kind       CharacterDataKind
-	Whitespace bool
-}
-
-// ValidateDocumentCharacterData validates character data outside the root
-// element. Element-owned content is validated directly by session.chars.
-func ValidateDocumentCharacterData(input DocumentCharacterData, ctx StartContext) error {
-	switch input.Kind {
-	case CharacterDataCDATA:
-		return validation(ctx, xsderrors.CodeValidationXML, "CDATA section outside root element")
-	case CharacterDataText:
-	case CharacterDataInvalid:
-		return xsderrors.InternalInvariant("character data kind is invalid")
-	default:
-		err := xsderrors.InternalInvariant("character data kind is invalid")
-		return err
-	}
-	if input.Whitespace {
-		return nil
-	}
-	return validation(ctx, xsderrors.CodeValidationText, "text outside root element")
-}
 
 type validationIssue struct {
 	code    xsderrors.Code
@@ -62,11 +25,11 @@ func childFramePolicy(parent *frame) childStartPolicy {
 	return childStartPolicy{}
 }
 
-func childContentPolicy(typ runtime.TypeID, simpleContent runtime.SimpleTypeID, state runtime.ContentState, name runtime.RuntimeName) validationIssue {
+func childContentPolicy(typ xsdSchema.TypeID, simpleContent xsdSchema.SimpleTypeID, state xsdSchema.ContentState, name xsdSchema.RuntimeName) validationIssue {
 	if !typ.IsComplex() {
 		return validationIssue{code: xsderrors.CodeValidationContent, message: "simple type cannot contain child elements"}
 	}
-	if simpleContent != runtime.NoSimpleType {
+	if simpleContent != xsdSchema.NoSimpleType {
 		return validationIssue{code: xsderrors.CodeValidationContent, message: "simple content cannot contain child elements"}
 	}
 	if !state.HasModel() {
@@ -75,11 +38,11 @@ func childContentPolicy(typ runtime.TypeID, simpleContent runtime.SimpleTypeID, 
 	return validationIssue{}
 }
 
-func unexpectedChildIssue(name runtime.RuntimeName) validationIssue {
+func unexpectedChildIssue(name xsdSchema.RuntimeName) validationIssue {
 	return validationIssue{code: xsderrors.CodeValidationElement, message: "unexpected child element " + name.Label()}
 }
 
-func strictMissingChildIssue(name runtime.RuntimeName) validationIssue {
+func strictMissingChildIssue(name xsdSchema.RuntimeName) validationIssue {
 	return validationIssue{code: xsderrors.CodeValidationElement, message: "wildcard requires declared element " + name.Label()}
 }
 
@@ -91,7 +54,7 @@ func missingRequiredChildIssue() validationIssue {
 	return validationIssue{code: xsderrors.CodeValidationContent, message: "missing required child element"}
 }
 
-func contentCompletionRequired(nilled bool, typ runtime.TypeID, content runtime.ContentState) bool {
+func contentCompletionRequired(nilled bool, typ xsdSchema.TypeID, content xsdSchema.ContentState) bool {
 	return !nilled && typ.IsComplex() && content.HasModel()
 }
 
