@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/compile"
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -163,7 +163,7 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
   <xs:element name="blocked" type="t:Base" block="extension"/>
   <xs:element name="typeBlocked" type="t:TypeBlockedBase"/>
 </xs:schema>`
-	rt, err := compile.Compile(compile.Options{}, []source.Source{
+	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(schema)),
 	})
 
@@ -185,16 +185,16 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
 }
 
-func xsiAttr(local, value string) stream.Attr {
-	return stream.OwnedAttr(xml.Name{Space: vocab.XSINamespaceURI, Local: local}, value)
+func xsiAttr(local, value string) xmlstream.Attr {
+	return xmlstream.OwnedAttr(xml.Name{Space: vocab.XSINamespaceURI, Local: local}, value)
 }
 
-func startAttr(ns, local, value string) stream.Attr {
-	return stream.OwnedAttr(xml.Name{Space: ns, Local: local}, value)
+func startAttr(ns, local, value string) xmlstream.Attr {
+	return xmlstream.OwnedAttr(xml.Name{Space: ns, Local: local}, value)
 }
 
-func startAttrs(attrs ...stream.Attr) []stream.Attr {
-	return stream.OwnedAttrs(attrs...)
+func startAttrs(attrs ...xmlstream.Attr) []xmlstream.Attr {
+	return xmlstream.OwnedAttrs(attrs...)
 }
 
 func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {
@@ -208,9 +208,9 @@ func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {
 	}
 }
 
-func compileRuntimeForTest(t *testing.T, schema string) *runtime.Schema {
+func compileRuntimeForTest(t *testing.T, schema string) *xsdSchema.Schema {
 	t.Helper()
-	rt, err := compile.Compile(compile.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatal(err)
 	}

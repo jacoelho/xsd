@@ -17,12 +17,13 @@ import (
 func TestInternalImplementationPackagesExist(t *testing.T) {
 	root := repoRoot(t)
 	for _, dir := range []string{
-		"internal/compile",
+		"internal/schema",
 		"internal/format",
-		"internal/runtime",
+		"internal/value",
 		"internal/source",
-		"internal/stream",
+		"internal/xmlstream",
 		"internal/validate",
+		"internal/xsdregex",
 		"xsderrors",
 	} {
 		info, err := os.Stat(filepath.Join(root, dir))
@@ -39,19 +40,12 @@ func TestRootCompileHasSingleInternalExecutionEdge(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
 	var rootFiles []*ast.File
-	compileImporters := 0
 	for _, path := range productionRootFiles(t, root) {
 		parsed, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
 			t.Fatalf("parse %s: %v", path, err)
 		}
 		rootFiles = append(rootFiles, parsed)
-		if importsPath(parsed, "github.com/jacoelho/xsd/internal/compile") {
-			compileImporters++
-		}
-	}
-	if compileImporters != 1 {
-		t.Fatalf("root files importing internal/compile = %d, want 1", compileImporters)
 	}
 	info := &types.Info{
 		Uses: make(map[*ast.Ident]types.Object),
@@ -61,9 +55,9 @@ func TestRootCompileHasSingleInternalExecutionEdge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("type-check root compile facade: %v", err)
 	}
-	compilePkg := importedPackage(pkg, "github.com/jacoelho/xsd/internal/compile")
+	compilePkg := importedPackage(pkg, "github.com/jacoelho/xsd/internal/schema")
 	if compilePkg == nil {
-		t.Fatal("root facade does not import internal/compile")
+		t.Fatal("root facade does not import internal/schema")
 	}
 	expected := compilePkg.Scope().Lookup("CompileMappedSources")
 	var compileCallables []types.Object
@@ -75,10 +69,10 @@ func TestRootCompileHasSingleInternalExecutionEdge(t *testing.T) {
 		}
 	}
 	if len(compileCallables) != 1 {
-		t.Fatalf("root facade uses internal/compile callables %d times, want exactly one", len(compileCallables))
+		t.Fatalf("root facade uses internal/schema callables %d times, want exactly one", len(compileCallables))
 	}
 	if compileCallables[0] != expected {
-		t.Fatalf("sole internal/compile callable targets %s, want CompileMappedSources", compileCallables[0].Name())
+		t.Fatalf("sole internal/schema callable targets %s, want CompileMappedSources", compileCallables[0].Name())
 	}
 	directCalls := 0
 	for _, file := range rootFiles {
@@ -91,7 +85,7 @@ func TestRootCompileHasSingleInternalExecutionEdge(t *testing.T) {
 		})
 	}
 	if directCalls != 1 {
-		t.Fatalf("root facade directly calls compile.CompileMappedSources %d times, want exactly one", directCalls)
+		t.Fatalf("root facade directly calls schema.CompileMappedSources %d times, want exactly one", directCalls)
 	}
 }
 
@@ -223,8 +217,8 @@ func TestRootRuntimeImportIsConfinedToEngineAndSession(t *testing.T) {
 			t.Fatalf("parse %s: %v", file, err)
 		}
 		base := filepath.Base(file)
-		if importsPath(parsed, "github.com/jacoelho/xsd/internal/runtime") && base != "compile.go" && base != "session.go" {
-			t.Fatalf("%s imports internal/runtime implementation", file)
+		if importsPath(parsed, "github.com/jacoelho/xsd/internal/schema") && base != "compile.go" && base != "session.go" {
+			t.Fatalf("%s imports internal/schema implementation", file)
 		}
 	}
 }
@@ -281,6 +275,18 @@ func TestRemovedPublicPackagesAbsent(t *testing.T) {
 			t.Fatalf("removed public package directory %s exists", dir)
 		}
 		if err != nil && !os.IsNotExist(err) {
+			t.Fatalf("stat %s: %v", dir, err)
+		}
+	}
+}
+
+func TestRetiredImplementationPackagesAbsent(t *testing.T) {
+	root := repoRoot(t)
+	for _, dir := range []string{"internal/compile", "internal/runtime", "internal/stream", "internal/xmlns"} {
+		path := filepath.Join(root, dir)
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			t.Fatalf("retired implementation package %s exists", dir)
+		} else if err != nil && !os.IsNotExist(err) {
 			t.Fatalf("stat %s: %v", dir, err)
 		}
 	}

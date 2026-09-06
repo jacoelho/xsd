@@ -3,7 +3,7 @@ package xsd
 import (
 	"io"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/validate"
 )
 
@@ -58,7 +58,7 @@ func (e *Engine) Validate(r io.Reader) error {
 
 // ValidateWithOptions validates one XML instance document with options.
 func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
-	var rt *runtime.Schema
+	var rt *xsdSchema.Schema
 	if e != nil {
 		rt = e.rt
 	}
@@ -69,7 +69,7 @@ func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 // bounded scratch buffers and string caches; create a new session to release
 // retained cache contents.
 func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
-	var rt *runtime.Schema
+	var rt *xsdSchema.Schema
 	if e != nil {
 		rt = e.rt
 	}

@@ -7,8 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/stream"
-	"github.com/jacoelho/xsd/internal/xmlns"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -16,15 +15,13 @@ type xmlDocument[P any] struct {
 	pathText      string
 	elements      []xmlDocumentElement[P]
 	retainedPaths documentPathStore
-	ns            xmlns.Stack
 	pathTextDepth int
-	seenRoot      bool
 }
 
 type xmlDocumentElement[P any] struct {
 	payload    P
 	name       xml.Name
-	namespace  xmlns.Frame
+	handle     xmlstream.Handle
 	prefix     string
 	pathLength int
 	pathRef    documentPathRef
@@ -92,9 +89,9 @@ const (
 )
 
 type preparedXMLStart struct {
-	name      xml.Name
-	namespace xmlns.Frame
-	prefix    string
+	name   xml.Name
+	handle xmlstream.Handle
+	prefix string
 }
 
 type xmlDocumentCheckpoint struct {
@@ -103,7 +100,6 @@ type xmlDocumentCheckpoint struct {
 	pathNamespaces int
 	pathNodes      int
 	pathTextDepth  int
-	seenRoot       bool
 }
 
 func (d *xmlDocument[P]) startCheckpoint() xmlDocumentCheckpoint {
@@ -113,11 +109,10 @@ func (d *xmlDocument[P]) startCheckpoint() xmlDocumentCheckpoint {
 		pathNamespaces: len(d.retainedPaths.namespaces),
 		pathNodes:      len(d.retainedPaths.nodes),
 		pathTextDepth:  d.pathTextDepth,
-		seenRoot:       d.seenRoot,
 	}
 }
 
-func (d *xmlDocument[P]) rollbackStart(checkpoint xmlDocumentCheckpoint, namespace xmlns.Frame) error {
+func (d *xmlDocument[P]) rollbackStart(checkpoint xmlDocumentCheckpoint) {
 	for i := range checkpoint.depth {
 		if d.elements[i].pathRef.node > checkpoint.pathNodes {
 			d.elements[i].pathRef = documentPathRef{}
@@ -129,11 +124,6 @@ func (d *xmlDocument[P]) rollbackStart(checkpoint xmlDocumentCheckpoint, namespa
 	d.retainedPaths.truncateNamespaces(checkpoint.pathNamespaces)
 	d.pathText = checkpoint.pathText
 	d.pathTextDepth = checkpoint.pathTextDepth
-	d.seenRoot = checkpoint.seenRoot
-	if namespace.IsZero() {
-		return nil
-	}
-	return d.ns.Abort(namespace)
 }
 
 func (d *xmlDocument[P]) clearCurrentPayload() {
@@ -145,27 +135,21 @@ func (d *xmlDocument[P]) clearCurrentPayload() {
 }
 
 func (d *xmlDocument[P]) PrepareStart(
-	start stream.StartElement,
-	values *stream.Cache,
-	maxDepth int,
+	reader *xmlstream.Reader,
+	start xmlstream.StartElement,
 	line, col int,
 ) (preparedXMLStart, error) {
-	if maxDepth > 0 && d.Depth()+1 > maxDepth {
-		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
-	}
-	namespace, element, err := d.ns.StartStream(&start, values)
+	handle, element, err := reader.Start(&start)
 	if err != nil {
+		if errors.Is(err, xmlstream.ErrMultipleRoots) {
+			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, "multiple root elements")
+		}
+		if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Kind == xmlstream.ErrorDepth {
+			return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
+		}
 		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
-	if d.seenRoot && d.Depth() == 0 {
-		primary := validation(d.context(line, col), xsderrors.CodeValidationXML, "multiple root elements")
-		if abortErr := d.ns.Abort(namespace); abortErr != nil {
-			return preparedXMLStart{}, errors.Join(primary, abortErr)
-		}
-		return preparedXMLStart{}, primary
-	}
-
-	return preparedXMLStart{name: element.Name, namespace: namespace, prefix: element.Lexical.Prefix}, nil
+	return preparedXMLStart{name: element.Name, handle: handle, prefix: element.Lexical.Prefix}, nil
 }
 
 func (d *xmlDocument[P]) CommitStart(start preparedXMLStart, payload P) {
@@ -183,47 +167,40 @@ func (d *xmlDocument[P]) appendStart(start preparedXMLStart, pathMode xmlPathMod
 	d.elements = append(d.elements, xmlDocumentElement[P]{
 		payload:    payload,
 		name:       start.name,
-		namespace:  start.namespace,
+		handle:     start.handle,
 		prefix:     start.prefix,
 		pathLength: pathLength,
 		pathMode:   pathMode,
 	})
-	d.seenRoot = true
 }
 
-func (d *xmlDocument[P]) AbortStart(start preparedXMLStart) error {
-	if start.namespace.IsZero() {
-		return nil
-	}
-	return d.ns.Abort(start.namespace)
+func (*xmlDocument[P]) AbortStart(reader *xmlstream.Reader, start preparedXMLStart) error {
+	return reader.AbortStart(start.handle)
 }
 
-func (d *xmlDocument[P]) ValidateEnd(end stream.EndElement, line, col int) error {
+func (d *xmlDocument[P]) ValidateEnd(reader *xmlstream.Reader, end xmlstream.EndElement, line, col int) error {
 	if d.Depth() == 0 {
 		return validation(d.context(line, col), xsderrors.CodeValidationXML, "unexpected end element")
 	}
 
-	expected := d.elements[len(d.elements)-1]
-	if err := d.ns.MatchEnd(expected.namespace, xmlns.Lexical(end.Name)); err != nil {
+	if err := reader.MatchEnd(d.elements[len(d.elements)-1].handle, end); err != nil {
 		return validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 	}
 	return nil
 }
 
-func (d *xmlDocument[P]) CommitEnd() error {
+func (d *xmlDocument[P]) CommitEnd(reader *xmlstream.Reader) error {
 	if d.Depth() == 0 {
 		return xsderrors.InternalInvariant("cannot commit XML end element with no open element")
 	}
 
+	if err := reader.CommitEnd(d.elements[len(d.elements)-1].handle); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+
 	i := len(d.elements) - 1
-	namespace := d.elements[i].namespace
 	d.elements[i] = xmlDocumentElement[P]{}
 	d.elements = d.elements[:i]
-	if !namespace.IsZero() {
-		if err := d.ns.Abort(namespace); err != nil {
-			return xsderrors.InternalInvariant(err.Error())
-		}
-	}
 	if d.pathTextDepth <= i {
 		return nil
 	}
@@ -237,18 +214,20 @@ func (d *xmlDocument[P]) CommitEnd() error {
 	return nil
 }
 
-func (d *xmlDocument[P]) Complete() error {
-	if !d.seenRoot {
-		return validation(StartContext{}, xsderrors.CodeValidationRoot, "instance document has no root element")
-	}
-	if d.Depth() != 0 {
-		return validation(d.context(0, 0), xsderrors.CodeValidationXML, "unclosed element")
+func (d *xmlDocument[P]) Complete(reader *xmlstream.Reader) error {
+	if err := reader.Complete(); err != nil {
+		if errors.Is(err, xmlstream.ErrNoRoot) {
+			return validation(StartContext{}, xsderrors.CodeValidationRoot, "instance document has no root element")
+		}
+		if errors.Is(err, xmlstream.ErrUnclosedElements) {
+			return validation(d.context(0, 0), xsderrors.CodeValidationXML, "unclosed element")
+		}
+		return validation(d.context(0, 0), xsderrors.CodeValidationXML, err.Error())
 	}
 	return nil
 }
 
 func (d *xmlDocument[P]) Reset(maxRetainedCap int) {
-	d.ns.Reset(maxRetainedCap)
 	if cap(d.elements) > maxRetainedCap {
 		d.elements = nil
 	} else {
@@ -258,7 +237,6 @@ func (d *xmlDocument[P]) Reset(maxRetainedCap int) {
 	d.retainedPaths.reset(maxRetainedCap)
 	d.pathText = ""
 	d.pathTextDepth = 0
-	d.seenRoot = false
 }
 
 func (d *xmlDocument[P]) Depth() int {
@@ -277,10 +255,6 @@ func (d *xmlDocument[P]) clearPayloads() {
 	for i := range d.elements {
 		d.elements[i].payload = zero
 	}
-}
-
-func (d *xmlDocument[P]) LookupNamespace(prefix string) (string, bool) {
-	return d.ns.Lookup(prefix)
 }
 
 func (d *xmlDocument[P]) PathString() string {

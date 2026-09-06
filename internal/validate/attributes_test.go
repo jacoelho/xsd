@@ -3,7 +3,7 @@ package validate
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 )
 
 func TestAttributeSeenTracksBitsetAndSliceSlots(t *testing.T) {
@@ -73,12 +73,12 @@ func TestMatchAttributeWildcard(t *testing.T) {
   <xs:element name="skip"><xs:complexType><xs:anyAttribute processContents="skip"/></xs:complexType></xs:element>
   <xs:element name="local"><xs:complexType><xs:anyAttribute namespace="##local" processContents="strict"/></xs:complexType></xs:element>
 </xs:schema>`)
-	wildcard := func(local string) runtime.WildcardID {
+	wildcard := func(local string) xsdSchema.WildcardID {
 		q, ok := rt.LookupQName("urn:test", local)
 		if !ok {
 			t.Fatalf("missing element name %s", local)
 		}
-		_, info, ok := rt.RootElement(runtime.RuntimeName{Known: true, Name: q, NS: "urn:test", Local: local})
+		_, info, ok := rt.RootElement(xsdSchema.RuntimeName{Known: true, Name: q, NS: "urn:test", Local: local})
 		if !ok {
 			t.Fatalf("missing element %s", local)
 		}
@@ -102,58 +102,58 @@ func TestMatchAttributeWildcard(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		wildcard runtime.WildcardID
-		rn       runtime.RuntimeName
+		wildcard xsdSchema.WildcardID
+		rn       xsdSchema.RuntimeName
 		want     attributeWildcardMatch
 		valid    bool
 	}{
 		{
 			name:     "no wildcard",
-			wildcard: runtime.NoWildcard,
+			wildcard: xsdSchema.NoWildcard,
 			valid:    true,
 		},
 		{
 			name:     "invalid wildcard",
-			wildcard: runtime.WildcardID(999),
+			wildcard: xsdSchema.WildcardID(999),
 		},
 		{
 			name:     "namespace not allowed",
 			wildcard: wildcard("local"),
-			rn:       runtime.RuntimeName{NS: "urn:not-local", Local: "x"},
+			rn:       xsdSchema.RuntimeName{NS: "urn:not-local", Local: "x"},
 			valid:    true,
 		},
 		{
 			name:     "skip",
 			wildcard: wildcard("skip"),
-			rn:       runtime.RuntimeName{NS: "urn:any", Local: "x"},
+			rn:       xsdSchema.RuntimeName{NS: "urn:any", Local: "x"},
 			want:     attributeWildcardMatch{disposition: attributeWildcardSkip},
 			valid:    true,
 		},
 		{
 			name:     "lax missing",
 			wildcard: wildcard("lax"),
-			rn:       runtime.RuntimeName{NS: "urn:any", Local: "x"},
+			rn:       xsdSchema.RuntimeName{NS: "urn:any", Local: "x"},
 			want:     attributeWildcardMatch{disposition: attributeWildcardLaxMissing},
 			valid:    true,
 		},
 		{
 			name:     "lax known missing global",
 			wildcard: wildcard("lax"),
-			rn:       runtime.RuntimeName{Known: true, Name: missingName, NS: "urn:test", Local: "strict"},
+			rn:       xsdSchema.RuntimeName{Known: true, Name: missingName, NS: "urn:test", Local: "strict"},
 			want:     attributeWildcardMatch{disposition: attributeWildcardLaxMissing},
 			valid:    true,
 		},
 		{
 			name:     "strict missing",
 			wildcard: wildcard("strict"),
-			rn:       runtime.RuntimeName{NS: "urn:any", Local: "x"},
+			rn:       xsdSchema.RuntimeName{NS: "urn:any", Local: "x"},
 			want:     attributeWildcardMatch{disposition: attributeWildcardStrictMissing},
 			valid:    true,
 		},
 		{
 			name:     "known global",
 			wildcard: wildcard("strict"),
-			rn:       runtime.RuntimeName{Known: true, Name: knownName, NS: "urn:test", Local: "known"},
+			rn:       xsdSchema.RuntimeName{Known: true, Name: knownName, NS: "urn:test", Local: "known"},
 			want:     attributeWildcardMatch{attribute: knownID, disposition: attributeWildcardDeclared},
 			valid:    true,
 		},

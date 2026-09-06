@@ -4,7 +4,8 @@ import (
 	"encoding/xml"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -25,13 +26,13 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(nil) error = %v", err)
 	}
-	if !identity.present || identity.name != nilName || identity.key != runtime.SimpleIdentityKey(runtime.PrimitiveBoolean, "true") {
+	if !identity.present || identity.name != nilName || identity.key != value.PrimitiveIdentityKey(value.PrimitiveBoolean, "true") {
 		t.Fatalf("xsiAttributeIdentityKey(nil) = %+v, want nil boolean true", identity)
 	}
 
 	const typeCanonical = "{urn:test}T"
-	resolveType := func(value string) (string, string, bool) {
-		if value != "p:T" {
+	resolveType := func(lexical string) (string, string, bool) {
+		if lexical != "p:T" {
 			return "", "", false
 		}
 		return "urn:test", "T", true
@@ -40,45 +41,45 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(type) error = %v", err)
 	}
-	if !identity.present || identity.name != typeName || identity.key != runtime.SimpleIdentityKey(runtime.PrimitiveQName, typeCanonical) {
+	if !identity.present || identity.name != typeName || identity.key != value.PrimitiveIdentityKey(value.PrimitiveQName, typeCanonical) {
 		t.Fatalf("xsiAttributeIdentityKey(type) = %+v, want type key", identity)
 	}
 
 	anyURI := simpleTypeIDByNameForTest(t, rt, vocab.XSDNamespaceURI, vocab.XSDValueAnyURI)
-	ordinaryAnyURI, err := rt.ValidateSimpleValue(anyURI, "one.xsd", nil, runtime.SimpleNeedIdentity)
+	ordinaryAnyURI, err := rt.ValueProgram().Validate(anyURI, "one.xsd", value.Resolver{}, value.NeedIdentity, nil)
 	if err != nil {
-		t.Fatalf("ValidateSimpleValue(anyURI) error = %v", err)
+		t.Fatalf("ValueProgram.Validate(anyURI) error = %v", err)
 	}
 	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, "  one.xsd\t", nil, ctx)
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(noNamespaceSchemaLocation) error = %v", err)
 	}
-	if !identity.present || identity.name != noNamespaceSchemaLocationName || identity.key != ordinaryAnyURI.Identity {
-		t.Fatalf("xsiAttributeIdentityKey(noNamespaceSchemaLocation) = %+v, want ordinary anyURI key %q", identity, ordinaryAnyURI.Identity)
+	if !identity.present || identity.name != noNamespaceSchemaLocationName || identity.key != ordinaryAnyURI.IdentityKey() {
+		t.Fatalf("xsiAttributeIdentityKey(noNamespaceSchemaLocation) = %+v, want ordinary anyURI key %q", identity, ordinaryAnyURI.IdentityKey())
 	}
-	emptyAnyURI, err := rt.ValidateSimpleValue(anyURI, "", nil, runtime.SimpleNeedIdentity)
+	emptyAnyURI, err := rt.ValueProgram().Validate(anyURI, "", value.Resolver{}, value.NeedIdentity, nil)
 	if err != nil {
-		t.Fatalf("ValidateSimpleValue(empty anyURI) error = %v", err)
+		t.Fatalf("ValueProgram.Validate(empty anyURI) error = %v", err)
 	}
 	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNoNamespaceSchemaLocation}, " \t", nil, ctx)
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(empty noNamespaceSchemaLocation) error = %v", err)
 	}
-	if !identity.present || identity.name != noNamespaceSchemaLocationName || identity.key != emptyAnyURI.Identity {
-		t.Fatalf("xsiAttributeIdentityKey(empty noNamespaceSchemaLocation) = %+v, want ordinary empty anyURI key %q", identity, emptyAnyURI.Identity)
+	if !identity.present || identity.name != noNamespaceSchemaLocationName || identity.key != emptyAnyURI.IdentityKey() {
+		t.Fatalf("xsiAttributeIdentityKey(empty noNamespaceSchemaLocation) = %+v, want ordinary empty anyURI key %q", identity, emptyAnyURI.IdentityKey())
 	}
 
 	uriList := simpleTypeIDByNameForTest(t, rt, "", "URIs")
-	ordinaryList, err := rt.ValidateSimpleValue(uriList, "urn:a a.xsd urn:b b.xsd", nil, runtime.SimpleNeedIdentity)
+	ordinaryList, err := rt.ValueProgram().Validate(uriList, "urn:a a.xsd urn:b b.xsd", value.Resolver{}, value.NeedIdentity, nil)
 	if err != nil {
-		t.Fatalf("ValidateSimpleValue(list<anyURI>) error = %v", err)
+		t.Fatalf("ValueProgram.Validate(list<anyURI>) error = %v", err)
 	}
 	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrSchemaLocation}, " urn:a\ta.xsd\nurn:b  b.xsd ", nil, ctx)
 	if err != nil {
 		t.Fatalf("xsiAttributeIdentityKey(schemaLocation) error = %v", err)
 	}
-	if !identity.present || identity.name != schemaLocationName || identity.key != ordinaryList.Identity {
-		t.Fatalf("xsiAttributeIdentityKey(schemaLocation) = %+v, want ordinary list<anyURI> key %q", identity, ordinaryList.Identity)
+	if !identity.present || identity.name != schemaLocationName || identity.key != ordinaryList.IdentityKey() {
+		t.Fatalf("xsiAttributeIdentityKey(schemaLocation) = %+v, want ordinary list<anyURI> key %q", identity, ordinaryList.IdentityKey())
 	}
 
 	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: "other"}, " a\tb ", nil, ctx)
@@ -132,7 +133,7 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 	}
 }
 
-func simpleTypeIDByNameForTest(t *testing.T, rt *runtime.Schema, ns, local string) runtime.SimpleTypeID {
+func simpleTypeIDByNameForTest(t *testing.T, rt *xsdSchema.Schema, ns, local string) xsdSchema.SimpleTypeID {
 	t.Helper()
 
 	name, ok := rt.LookupQName(ns, local)

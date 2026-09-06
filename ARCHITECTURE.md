@@ -15,10 +15,10 @@ The system has two execution planes joined by one immutable semantic kernel:
 explicit schema sources
         |
         v
-source acquisition -> schema compilation -> audited publication
+source acquisition -> schema compilation -> sealed schema
                                               |
                                               v
-                                    immutable runtime.Schema
+                                    immutable schema.Schema
                                               |
         +-------------------------------------+
         |
@@ -27,7 +27,7 @@ instance XML -> document-local validation -> structured diagnostics
 ```
 
 The schema plane performs I/O, closes the source graph, compiles XSD semantics,
-and commits exactly once by publishing a `runtime.Schema`. The document plane
+and commits exactly once by publishing a `schema.Schema`. The document plane
 streams one XML document, reads that schema, owns all mutable assessment state,
 and discards document state before returning. Neither plane reaches through the
 other: compilation never depends on validation, and validation never mutates or
@@ -39,16 +39,25 @@ side applies those facts without knowing how they were derived. This shape
 permits one expensive compile followed by many isolated validations and makes
 concurrency a property of immutable sharing rather than coordination.
 
-The module tower, from dependency leaves to delivery adapters, is:
+The package graph follows capability ownership:
 
-| Level | Modules | Owned result | Interface to the next level |
-| --- | --- | --- | --- |
-| 0. Vocabulary | `internal/vocab`, `internal/lex`, `internal/uriref`, `xsderrors` | XML/XSD names, lexical predicates, valid URI references, structured failures | Immutable values and pure operations |
-| 1. Input mechanics | `internal/source`, `internal/stream`, `internal/xmlns` | Bounded schema streams, borrowed XML tokens, namespace-valid expanded names | Explicit acquisition, token, frame, and retained-context capabilities |
-| 2. Semantic kernel | `internal/runtime` | Mutable `SchemaBuild`, atomic publication, sealed schema facts, reusable schema algorithms | `PublishSchema` and immutable schema reads |
-| 3. Capabilities | `internal/compile`, `internal/validate`, `internal/format` | Published schemas, document diagnostics, formatted XML | One synchronous operation or one explicitly owned reusable session |
-| 4. Public facade | root `xsd` | Public sources, options, `Engine`, and `Session` | Small stable Go interface that adapts directly to one capability |
-| 5. Delivery adapters | `cmd/xmllint`, `cmd/wasmxsd`, `docs/js`, `cmd/xsdweb` | CLI, WASM, browser, and local-web behavior | Wire translation, product-level composition, and lifecycle; schema and instance-validation rules remain delegated |
+| Module | Authoritative responsibility |
+| --- | --- |
+| `internal/source` | Bounded acquisition, source identity, explicit reference resolution, and cleanup |
+| `internal/xmlstream` | XML 1.0 tokenization, namespace admission, borrowed data, and retained namespace contexts |
+| `internal/schema` | Typed schema sources, closed source graph, component compilation, private construction state, and immutable schema reads |
+| `internal/value` | XSD lexical admission, values, type derivation, facets, typed equality, and value scratch |
+| `internal/xsdregex` | XSD regular-expression syntax, bounded compilation, and matching |
+| `internal/validate` | Document assessment, recovery, identity state, and reusable sessions |
+| `internal/format` | Repository-internal formatting and its input/output limits |
+| `internal/lex`, `internal/vocab`, `internal/uriref`, `xsderrors` | Shared lexical facts, vocabulary, URI-reference semantics, and structured errors |
+| Root `xsd` | Sources, options, engines, and sessions delegated to their owners |
+| CLI, WASM, browser, and local web adapters | Wire translation, product composition, and process lifecycle |
+
+Schema compilation never depends on document validation. Validation reads the
+published schema and value program. Value semantics do not depend on schema
+source syntax, XML streams, or document assessment. The source package performs
+library file I/O; the library does not perform network I/O.
 
 Each module must be deep: callers learn one small interface while the module
 owns the correlated state, sequencing, limits, and failure behavior behind it.
@@ -75,12 +84,12 @@ The principal state machines are deliberately linear or owner-local:
 
 | Owner | States and only legal progress | Failure/cleanup invariant |
 | --- | --- | --- |
-| Compiler | normalize -> load closed graph -> plan/index -> compile/finalize -> audit/publish | No engine before publication; failed audit does not consume the retryable build |
+| Compiler | normalize -> load closed graph -> plan/index -> compile/finalize -> seal | No engine before publication; failed sealing does not consume the retryable build |
 | Validation session | idle -> guarded document -> semantic or syntax-only processing -> reset -> idle | Overlap fails before input; every exit clears document references before releasing the guard |
 | Element start | prepared -> XML/namespace committed -> semantic commit | Fatal failure rolls back every staged owner; semantic stop retains only syntax state needed to finish parsing |
 | XML stream | reset -> borrowed token -> advance/invalidate -> EOF/error -> detach | Borrowed bytes never survive advance; only token-boundary EOF is success |
 | Namespace frame | prepare -> commit -> end or abort | The opaque top-frame capability is the sole pop authority |
-| Runtime publication | mutable build -> audit -> consume/seal | Audit preserves build data; work stays charged; successful consumption is the only commit |
+| Schema publication | mutable build -> validate -> consume/seal | Validation preserves build data; work stays charged; successful consumption is the only commit |
 | Browser client | loading -> ready -> running -> ready/failed/disposed | Only the owning generation publishes; termination owns cancellation and timer cleanup |
 
 ## Authority And Navigation
@@ -107,11 +116,12 @@ only the detailed module and flow sections reached by that route.
 | Public compile, validation, source, option, or session behavior | root `compile.go`, `session.go`, `source.go` | root `xsd` interface; delegated policy remains internal | Public examples/tests, `xsderrors`, option normalization, affected capability |
 | Diagnostic category, code, aggregation, location, or presentation | `xsderrors/errors.go` | `xsderrors` | Every constructor caller and public diagnostic tests |
 | Source opening, closing, resolution, identity, URI composition, or byte accounting | `internal/source`, `internal/uriref` | `internal/source` for acquisition; `internal/uriref` for valid references | Compiler graph loading, source tests, import-graph enforcement |
-| XML syntax, positions, buffering, borrowed data, or declaration policy | `internal/stream`, `internal/lex` | `internal/stream` | Compile, validate, format consumers; stream boundary tests; parser fuzz/benchmarks |
-| Namespace admission, lookup, rollback, or retained contexts | `internal/xmlns` | `internal/xmlns` | Stream lifetimes, compile/validate/format callers, namespace churn benchmarks |
-| Schema syntax, graph planning, component semantics, or compilation budgets | `internal/compile` | `internal/compile` | `runtime.SchemaBuild`, conformance corpus, publication, focused compile benchmarks |
-| Published representation, derivation, datatype, wildcard, substitution, or content algorithms | `internal/runtime` | `internal/runtime` | Both compile and validate callers, publication corruption/alias tests, runtime benchmarks |
-| Element/attribute/content/XSI/identity behavior, recovery, or reusable-session state | `internal/validate` | `internal/validate` | Runtime reads, public validation tests, corpus, race tests, affected allocation benchmarks |
+| XML syntax, positions, buffering, borrowed data, or declaration policy | `internal/xmlstream`, `internal/lex` | `internal/xmlstream` | Compile, validate, format consumers; stream boundary tests; parser fuzz/benchmarks |
+| Namespace admission, lookup, rollback, or retained contexts | `internal/xmlstream` | `internal/xmlstream` | Stream lifetimes, compile/validate/format callers, namespace churn benchmarks |
+| Schema syntax, graph planning, component semantics, or compilation budgets | `internal/schema` | `internal/schema` | `schemaBuild`, conformance corpus, publication, focused compile benchmarks |
+| Published components, complex derivation, wildcards, substitution, or content algorithms | `internal/schema` | `internal/schema` | Both compile and validate callers, publication corruption/alias tests, schema/validation benchmarks |
+| Simple-type derivation, lexical admission, facets, or value equality | `internal/value` | `internal/value` | Schema literal admission, instance validation, datatype corpus, value and public validation benchmarks |
+| Element/attribute/content/XSI/identity behavior, recovery, or reusable-session state | `internal/validate` | `internal/validate` | Schema reads, public validation tests, corpus, race tests, affected allocation benchmarks |
 | Formatting | `internal/format` | `internal/format` | Shared stream/namespace contracts, WASM adapter, writer failure tests |
 | WASM, worker, page, or local-server lifecycle | `cmd/wasmxsd`, `docs/js`, `cmd/xsdweb` | The narrowest listed adapter | Tagged response tests, worker generation/timeout tests, browser integration |
 | A finite limit or retained allocation | Declaring option/constant, then allocating symbol | The module that first admits or retains the work | Below/at/above-limit tests, rollback/reset, opposing-shape allocation and retention evidence |
@@ -146,65 +156,77 @@ types/functions; those belong to `xsderrors` and `internal/format`.
 - `internal/uriref` owns XSD 1.0 URI-reference validity after XLink escaping,
   raw and escaped projections, fragment syntax, and raw-preserving RFC 2396
   composition. Arbitrary source names and Unix paths do not enter this type.
-- `internal/compile` owns schema parsing and compilation: schema XML limits,
-  source-aware diagnostics, component syntax, child-order and admission rules,
-  opaque annotation-payload consumption, name/index allocation,
-  built-in declarations, facets, derivation checks, identity-constraint
-  compilation, content-model compilation, transitive source loading,
-  include/import and chameleon graph semantics, and construction of
-  compiler-owned mutable `runtime.SchemaBuild` state. Loading produces a
-  `loadedSchemaGraph`; graph validation and chameleon expansion produce a
-  `schemaPlan`; indexing and component compilation consume only that plan.
-  Schema graph expansion, target-context planning, and component-dependency
-  resolution share one finite dependency-work budget; active component
-  expansion also has a fixed stack-safety depth cap of 1024. Content-model
-  analysis uses a separate finite work budget shared by consistency and
-  restriction graph traversal, ambiguity checks, compilation, and publication
-  audit; reusable graph summaries are memoized. Correlated topology mutations are confined to
-  `internal/compile/schema_build.go`; compiler
-  algorithms may mutate nested records but must use that owner for declaration
-  registration, placeholder completion, ID allocation, atomic element-constraint
-  and substitution finalization, compiled-model alignment, builtin handles,
-  notations, and publication.
-- `internal/runtime` owns the schema runtime model and publication boundary:
-  typed IDs, names, declarations, simple and complex type metadata, facets,
-  value constraints, identity metadata, wildcards, substitution groups,
-  `SchemaBuild` invariant validation, `PublishSchema`, sealed `Schema` state,
-  the bounded immutable substitution table, canonical element read table,
-  precomputed type-derivation indexes, the single published simple-type cold
-  table that owns union-member storage for both derivation and value validation,
-  one aggregate immutable identity-constraint read per constraint,
-  `ContentModelAnalysis`, the sole bounded and memoized owner of content-model
-  emptiability, count-range, substitution-aware matching, and overlap facts,
-  and the canonical content-model restriction relation shared by compilation
-  and publication audit, validation reads, content-model execution, and
-  publication-owned clones. Publication audits without consuming compiler state,
-  then consumes the build only after the audit succeeds. Failed attempts leave
-  build data repairable, but work already performed remains charged to the
-  caller-owned finite budget; retries require sufficient remaining work.
-  Projection construction, declaration shapes, comparison and audit helpers are
-  runtime-private. Cross-package consumers use semantic read values and Schema
-  methods; the compiler retains its mutable-build semantic algorithms. Element
-  fixed/default values have one packed element-read representation, including
-  declaration presence and owner type; no parallel slice lookup is retained.
-  The packed audit independently derives expected scalar facts from build records.
-  Cross-table `TypeID` values expose only typed constructors, classification,
-  and projections; their tag and payload remain runtime-owned. Identity-path
-  QName absence is returned by value and has no mutable package-global state.
+- `internal/schema` owns schema syntax, source-aware diagnostics, opaque
+  annotation consumption, graph loading and planning, chameleon contexts,
+  component dependencies, names and declarations, complex derivation, identity
+  declarations, content models, substitution groups, and immutable publication.
+  Production schema input is read through `internal/xmlstream`; the parser
+  retains compact `schemaNode` records with typed semantic source fields,
+  document-local IDs, and source positions. Its syntax admission facts are
+  transient and are never used as a generic XML tree by compilation. Schema
+  QName references resolve while their namespace frame is live; literal values
+  and XPath expressions that are intentionally deferred retain only the bounded
+  namespace context needed by their owning compiler. Annotation payload is
+  consumed without entering the retained semantic graph.
+  The loader produces a closed graph before component compilation begins.
+  Source loading, effective-context planning, and component resolution share a
+  finite dependency-work budget; active expansion has a depth cap of 1024.
+  Content analysis has a separate finite work budget shared by consistency,
+  restriction, ambiguity checks, compilation, and sealing.
+  The compiler owns one private `schemaBuild`. Registration and completion
+  update correlated tables together. There is no exported mutable builder or
+  forwarding layer between compiler and build state. Publication validates
+  semantic source invariants, constructs immutable execution tables once, and
+  consumes the build only on success. Failure preserves build data, while
+  completed work remains charged. Read tables are derived state; comparing each
+  table back to a duplicate runtime projection is not a second publication step.
+  Names, typed references, element constraints, derivation indexes, wildcard
+  policies, substitution membership, and content execution remain schema-owned.
+  Identity declarations compile into immutable selector/field path programs and
+  exact-name, namespace, and wildcard dispatch indexes; validation owns only
+  active document scopes and matching scratch.
+  Large `xs:all` models use a bounded QName-to-term index; small models scan
+  directly. Both preserve occurrence bits, substitution matching, and atomic
+  transition failure. The index is derived once during sealing.
+- `internal/value` owns simple-type validation and its immutable program:
+  lexical normalization, primitive values, lists, unions, facets, canonical
+  text, typed equality, and ID/IDREF projections. Compile-time literals and
+  instance values use the same value semantics. Type construction validates
+  dependencies and facets before publication; caller-owned scratch bounds
+  reusable validation storage. Completed type dependencies are acyclic; runtime
+  evaluation tracks only depth and cumulative lexical work. Borrowed-byte
+  validation consumes UTF-8 XML 1.0 character data already admitted by the stream
+  boundary. A type retains its owning type through list and union evaluation. Equality uses the admitted value space, including duration
+  month/second coordinates and resolved QName names. Text projections do not
+  define equality: duration has no XSD 1.0 canonical representation and retains
+  its whitespace-normalized lexical spelling. Patterns in one restriction step
+  are alternatives; inherited restriction steps all apply. Schema declarations
+  retain only component metadata and value-program references; they do not
+  implement a second simple-value parser, facet evaluator, or equality model.
+  Document identity is carried by each validated value: a union preserves the
+  selected member's ID/IDREF projections, and a list collects its selected items'
+  IDREFs. Static type identity metadata cannot replace these dynamic projections.
+  Validation records them even when no key/unique/keyref field requested a value.
+- `internal/xsdregex` owns XSD 1.0 whole-input pattern semantics. One parsed
+  expression selects literal, linear, or NFA execution based on its structure.
+  Compilation and matching have explicit work/state limits. XML input admission
+  belongs to `internal/xmlstream`; match callers provide valid UTF-8 XML text.
 - `internal/validate` owns instance validation: finite default limits, option
   normalization, XML reader preflight, parser error classification, validation
   recovery, document structure, start/end element decisions, attributes,
   content, simple-content assessment, the concrete document-local identity
   evaluator and its lifecycle, XSI handling, and schemaLocation hint handling.
 - `internal/format` owns repository-internal XML formatting and finite default
-  input, token, retained-node, depth, and output bounds. Its output boundary
+  input, token, processed-node, depth, and output bounds. Its output boundary
   rejects every incomplete `io.Writer` write, so success means the complete
   formatted document was written. It consumes the shared stream and namespace
   boundaries and exposes no root-package API.
-- `internal/stream` owns XML token streaming and declaration scanning shared by
+- `internal/xmlstream` owns XML token streaming and declaration scanning shared by
   schema parsing, instance validation, and formatting. Its parser owns prolog
   preflight, the sole input buffer, XML 1.0 line-ending normalization and byte
-  positions, and reader detachment for each stream. Literal CR and CRLF each
+  positions, and reader detachment for each stream. `Reader.Next` returns one
+  reader-owned token pointer, invalidated by the next `Next`, `Reset`, or
+  `Detach`; admission and completion consume that same borrowed token. Literal CR and CRLF each
   advance one logical line in every parser mode; emitted payloads contain LF.
   Character-data tokens retain one stream-owned lexical origin: literal text,
   text containing references, or CDATA. Coalescing never erases reference origin.
@@ -213,21 +235,21 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   does not duplicate document topology.
   Only EOF at a token boundary completes a stream; EOF after consumed markup is
   an XML syntax error, while simultaneous non-EOF reader causes remain observable.
-- `internal/lex` owns low-level XML lexical helpers used by source and stream
-  code.
-- `internal/xmlns` owns namespace binding validity, lexical-name resolution,
-  and duplicate expanded-attribute detection for both schema and instance XML.
-  Its append-only binding chain is authoritative for retained immutable
-  contexts. A stack-local active-prefix index is a reproducible projection of
-  that chain; admission, rollback, and pop update it atomically, and reset drops
-  it when its observed active-prefix bound exceeds retained-session capacity.
-  The duplicate-attribute set likewise owns its document high-water mark and
-  drops an oversized map at reset even when a later element was small.
+  The same XML stream owner admits namespaces and detects duplicate expanded
+  attributes. Its append-only binding chain owns retained immutable contexts;
+  an active-prefix index is a reproducible frame-local projection. Admission,
+  rollback, end, and reset update these together. Oversized maps and buffers are
+  dropped at reset; bounded caches may remain for session reuse. Comment mode
+  selects syntax-only discard for instances, bounded discard for schemas, or
+  emission for formatting. Bounded discard charges normalized payload bytes
+  through the same token-limit owner without retaining or dispatching comments;
+  schema comment limits remain unchanged.
+- `internal/lex` owns low-level XML lexical helpers used by source and
+  `internal/xmlstream` code.
 - `internal/vocab` owns XML/XSD namespace and vocabulary constants.
 
 Internal packages MUST NOT import root `xsd`. Compile-time packages MUST NOT
-depend on validation packages. Runtime vocabulary packages MUST remain below
-compile and validate packages.
+depend on validation packages. Value and lexical packages MUST remain below schema and validation packages.
 
 ## Data Flow
 
@@ -236,7 +258,7 @@ Compilation flow:
 1. Public callers provide `xsd.SchemaSource` values.
 2. Root `xsd` converts them to immutable or repeatable `internal/source.Source`
    values.
-3. `internal/compile` applies document-local XSD admission before resolving a
+3. `internal/schema` applies document-local XSD admission before resolving a
    document's references. Each resolved include/import edge is target-namespace
    checked before its resolver context or descendants are activated. Explicit
    source descriptors are bounded before facade conversion; the loader charges
@@ -270,8 +292,11 @@ Compilation flow:
    syntax errors, preserving acquisition diagnostics. Repeated identities are
    reopened and charged as before; only their fingerprint is compared. Identity
    relies on SHA-256 collision resistance, not mathematically exact byte
-   equality. The retained generic schema tree is temporary rewrite state; its
-   replacement is tracked in `rewrite-plan.md`.
+   equality. Streaming admission constructs typed source records; the source
+   graph retains semantic declarations and references, not a generic XML tree.
+   The loader owns one reader reused sequentially across sources. Each parse
+   detaches it before returning; source records own retained names, values, and
+   namespace contexts, so resetting the reader cannot change earlier documents.
    Content identification traverses its sorted keys, without a mirrored source
    list. Component and identity-declaration contexts derive from the same immutable
    plan document, without a separate context registry.
@@ -279,7 +304,7 @@ Compilation flow:
    and update graph-owned state but performs no further I/O. Planning validates
    target namespaces and expands effective chameleon contexts without reopening
    or resolving sources. Annotation payload is consumed as
-   namespace-well-formed opaque XML without entering the retained schema tree.
+   namespace-well-formed opaque XML without entering retained source records.
    Source loading, graph planning, and component resolution consume one aggregate
    dependency-work budget. Component references also enter a bounded active
    expansion stack; cache hits remain charged, while cycles retain their specific
@@ -287,15 +312,13 @@ Compilation flow:
    declaration representative for each content fingerprint and effective
    namespace while retaining every source occurrence for resolver traversal and
    graph validation. It compiles schema components and populates a compiler-owned
-   mutable `runtime.SchemaBuild`. After all types and substitution affiliations are
+   mutable `schemaBuild`. After all types and substitution affiliations are
    complete, element value constraints and effective substitution types are
    finalized atomically; the bounded transitive substitution table is the only
    retained substitution lookup.
-4. `internal/runtime.PublishSchema` audits exact global registries and component
-   ownership before constructing validation reads and auditing those projections.
-   An audit failure leaves build data retryable within the remaining work budget.
-   A successful audit and build
-   consumption form one publication commit.
+4. Private schema publication checks source invariants before constructing the
+   execution tables. Failure leaves the build retryable within its remaining
+   work budget. Success seals and consumes that one build.
 5. Root `xsd.Engine` stores that sealed validation schema.
 
 Validation flow:
@@ -315,9 +338,9 @@ Validation flow:
    guard is acquired before reading input, and cleanup completes before that guard
    is released.
 4. `internal/validate` reads immutable schema facts through methods on the
-   sealed `*runtime.Schema`, then applies validation policy to those facts.
-   Identity evaluation reads each constraint through one aggregate runtime
-   projection. One concrete evaluator owns the element identity stack, matching
+   sealed `*schema.Schema`, then applies validation policy to those facts.
+   Identity evaluation reads immutable schema-owned selector/field programs and
+   their precomputed dispatch indexes. One concrete evaluator owns the element identity stack, matching
    path, per-element ID state, document IDs and IDREFs, key/unique/keyref scopes,
    pending selections, resource accounting, and reset/discard behavior. Value
    capture uses one borrowed prepared target at a time: callers prepare, record,
@@ -391,7 +414,7 @@ Validation flow:
    one evaluator implementation and one validation caller, while an interface
    would hide the required transaction and element-lifecycle sequencing without
    providing a real substitution boundary.
-5. Runtime table execution and metadata checks stay in `internal/runtime`;
+5. Schema table execution and metadata checks stay in `internal/schema`;
    instance-validation policy stays in `internal/validate`.
 
 Compilation and validation are synchronous. Resource limits bound admitted input
@@ -401,9 +424,22 @@ or arbitrary `io.Reader` MUST provide I/O that they can close or otherwise unblo
 
 Formatting flow:
 
-1. Repository-owned tools call `internal/format`.
-2. Formatting uses internal XML lexical/streaming helpers as needed.
-3. Formatting does not belong in the root public `xsd` package.
+1. The WASM adapter passes its existing bounded XML string to `internal/format`.
+   The formatter accepts this immutable supplied input directly; it does not
+   acquire or buffer a reader's complete contents.
+2. One `internal/xmlstream` reader validates the document and records bounded
+   source spans and per-element layout decisions. The flat span sequence contains
+   offsets, positions, token kinds, and layout flags; it owns no decoded text,
+   attribute values, or child tree. Input, token, node, and depth limits bound
+   admission and retained metadata.
+3. Rendering walks those spans in order with a depth-bounded layout stack and
+   writes directly from the immutable caller-owned string. Shared XML lexical
+   predicates decode admitted references; the renderer preserves normalized
+   text and attribute values while escaping output. Validation completes before
+   output begins, preserving empty output on malformed XML. Writer failures may
+   leave partial output; success requires every write to complete. The WASM
+   adapter discards its output builder on any error.
+4. Formatting does not belong in the root public `xsd` package.
 
 Diagnostics flow:
 
@@ -496,9 +532,9 @@ import `internal` packages. Implementation fuzz tests MUST live with the package
 that owns the implementation being fuzzed.
 
 Fuzz targets live with their implementation owner: stream parsing in
-`internal/stream`, schema parsing and regex syntax in `internal/compile`, and
-document validation in `internal/validate`. The `Makefile` owns the executable
-smoke inventory.
+`internal/xmlstream`, schema parsing in `internal/schema`, regex syntax in
+`internal/xsdregex`, and document validation in `internal/validate`. The
+`Makefile` owns the executable smoke inventory.
 
 ## Build Targets
 
@@ -537,14 +573,15 @@ graph preserves these ownership rules:
 - Adding document depth to the tokenizer was rejected for outside-root text
   validation: existing consumers already own topology. Preserving lexical text
   origin fixes the lost fact without a second document state machine.
-- Refunding work after a failed publication audit was rejected because the
+- Refunding work after failed publication validation was rejected because the
   computation has already occurred; repeated failures would evade the aggregate
   work bound. Retryability preserves build data, not spent resources.
 - An additional element-value slice projection was rejected because publication
   and validation already use the canonical packed element table. Tests observe
   published reads and independently corrupt packed projections instead of
-  preserving a second representation. Hiding construction helpers does not remove
-  the independent publication audit or move compiler mutation policy into runtime.
+  preserving a second representation. Private construction and semantic
+  admission own correctness before the read tables are built; duplicate
+  projection equality checks add no boundary.
 - Path-based asset checks followed by unrestricted serving were rejected because
   symlinked ancestors and replacements could escape the configured directory.
   One standard-library root handle contains both operations.
@@ -560,7 +597,7 @@ graph preserves these ownership rules:
   library cannot interrupt arbitrary resolvers, openers, files, or readers.
   Callers own unblocking those operations; compatibility overloads would create
   parallel public APIs and execution paths without providing cancellation.
-- A generic runtime matcher/evaluator interface was rejected because there is
+- A generic matcher/evaluator interface was rejected because there is
   one implementation and one caller; it obscured the required transactional
   sequencing without creating a substitution boundary.
 - Linear live namespace lookup was rejected because repeated resolution through
@@ -571,9 +608,15 @@ graph preserves these ownership rules:
   cohesive parsers, state machines, and invariant audits. The configured limit
   identifies exceptional review targets; ownership and invariants determine
   semantic boundaries.
-- Unlimited zero-value formatter limits were rejected because formatting retains
-  a complete tree before writing output. Finite defaults bound every retained
-  dimension, while positive options allow explicit smaller or larger budgets.
+- A one-pass pretty printer was rejected because later mixed content can change
+  indentation decisions for earlier children, and malformed trailing input must
+  produce no output. Validated source spans preserve these contracts without a
+  tree, copied payloads, reader buffering, or temporary files. Repeating full XML
+  tokenization was rejected after measurements showed avoidable parsing work;
+  retained offsets refer only to the caller's existing immutable string.
+- Unlimited zero-value formatter limits were rejected because formatting still
+  retains source spans, per-element decisions, and nested frames. Finite defaults bound these
+  dimensions, while positive options allow explicit smaller or larger budgets.
 - Trusting a writer's nil error after an incomplete write was rejected because
   formatter success must imply complete XML output; the bounded writer checks
   every delegated write in one place.

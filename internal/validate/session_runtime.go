@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 
 	"github.com/jacoelho/xsd/internal/lex"
-	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/stream"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	xsdValue "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlns"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -33,7 +33,7 @@ type Session struct {
 }
 
 // NewSession creates a reusable validation session.
-func NewSession(rt *runtime.Schema, opts Options) (*Session, error) {
+func NewSession(rt *xsdSchema.Schema, opts Options) (*Session, error) {
 	result := new(Session)
 	if err := initializeSession(&result.session, rt, opts); err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func NewSession(rt *runtime.Schema, opts Options) (*Session, error) {
 	return result, nil
 }
 
-func initializeSession(s *session, rt *runtime.Schema, opts Options) error {
+func initializeSession(s *session, rt *xsdSchema.Schema, opts Options) error {
 	limits, err := NormalizeOptions(opts)
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func initializeSession(s *session, rt *runtime.Schema, opts Options) error {
 }
 
 // Validate validates one XML instance document with isolated per-call state.
-func Validate(rt *runtime.Schema, r io.Reader, opts Options) error {
+func Validate(rt *xsdSchema.Schema, r io.Reader, opts Options) error {
 	var s session
 	if err := initializeSession(&s, rt, opts); err != nil {
 		return err
@@ -87,17 +87,15 @@ func (s *Session) Validate(r io.Reader) error {
 
 // session holds the state for validating documents against one Engine.
 // Per-document state lives in doc; everything else is retained across
-// documents: options, the reader buffer and parser, and the string caches.
+// documents: options, the reader buffer and parser.
 type session struct {
-	rt                           *runtime.Schema
-	resolveLexicalQNamePartsFunc runtime.ResolveQNameParts
+	rt                           *xsdSchema.Schema
+	resolveLexicalQNamePartsFunc xsdSchema.ResolveQNameParts
 	doc                          documentState
-	nameStrings                  stream.Cache
-	valueStrings                 stream.Cache
-	derivationScratch            runtime.TypeDerivationScratch
-	stringPatternScratch         runtime.StringPatternScratch
+	derivationScratch            xsdSchema.TypeDerivationScratch
+	valueScratch                 xsdValue.Scratch
 	attributeSeen                []bool
-	parser                       stream.Parser
+	reader                       xmlstream.Reader
 	limits                       Limits
 }
 
@@ -127,11 +125,11 @@ type frame struct {
 	BitBase           int
 	BitLen            int
 	TextStart         int
-	Content           runtime.ContentState
-	Type              runtime.TypeID
-	SimpleContent     runtime.SimpleTypeID
-	Element           runtime.ElementID
-	TextContent       runtime.ElementTextContent
+	Content           xsdSchema.ContentState
+	Type              xsdSchema.TypeID
+	SimpleContent     xsdSchema.SimpleTypeID
+	Element           xsdSchema.ElementID
+	TextContent       xsdSchema.ElementTextContent
 	Nilled            bool
 	Mode              elementMode
 	HasChild          bool
@@ -151,7 +149,7 @@ func (s *session) validate(r io.Reader) error {
 	if s == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
-	defer s.parser.Detach()
+	defer s.reader.Detach()
 	if s.rt == nil {
 		return xsderrors.InternalInvariant("nil validation session")
 	}
@@ -162,11 +160,12 @@ func (s *session) validate(r io.Reader) error {
 }
 
 func (s *session) resetParser(r io.Reader) error {
-	if err := s.parser.ResetWithConfig(r, &s.nameStrings, &s.valueStrings, stream.Config{
-		Limits: stream.Limits{
+	if err := s.reader.Reset(r, xmlstream.Config{
+		Limits: xmlstream.Limits{
 			MaxInputBytes: s.limits.InstanceBytes,
 			MaxTokenBytes: s.limits.InstanceTokenBytes,
 			MaxAttrs:      s.limits.InstanceAttributes,
+			MaxDepth:      s.limits.InstanceDepth,
 		},
 		LazyAttrValues: true,
 	}); err != nil {
@@ -177,7 +176,7 @@ func (s *session) resetParser(r io.Reader) error {
 
 func (s *session) validateTokens() error {
 	for {
-		tok, err := s.parser.Next()
+		tok, err := s.reader.Next()
 		if err != nil {
 			return s.finishTokenStream(err)
 		}
@@ -195,7 +194,7 @@ func (s *session) validateTokens() error {
 }
 
 func (s *session) finishTokenStream(err error) error {
-	if stream.IsOnlyEOF(err) {
+	if xmlstream.IsOnlyEOF(err) {
 		return s.finishValidation()
 	}
 	return s.parseError(err)
@@ -208,23 +207,23 @@ const (
 	tokenValidationSyntaxOnly
 )
 
-func (s *session) validateToken(tok stream.Token, mode tokenValidationMode) error {
+func (s *session) validateToken(tok *xmlstream.Token, mode tokenValidationMode) error {
 	switch tok.Kind {
-	case stream.KindStart:
+	case xmlstream.KindStart:
 		return s.start(tok.Line, tok.Column, tok.Start)
-	case stream.KindEnd:
+	case xmlstream.KindEnd:
 		return s.end(tok.Line, tok.Column, tok.End)
-	case stream.KindCharData:
+	case xmlstream.KindCharData:
 		return s.validateCharacterToken(tok, mode)
-	case stream.KindDirective:
+	case xmlstream.KindDirective:
 		return ValidateDirective(s.startContext(tok.Line, tok.Column), tok.Directive)
-	case stream.KindComment, stream.KindPI:
+	case xmlstream.KindComment, xmlstream.KindPI:
 		return nil
 	}
 	return nil
 }
 
-func (s *session) validateCharacterToken(tok stream.Token, mode tokenValidationMode) error {
+func (s *session) validateCharacterToken(tok *xmlstream.Token, mode tokenValidationMode) error {
 	err := s.chars(tok.Line, tok.Column, tok.Data, tok.TextKind)
 	if err == nil || mode == tokenValidationSyntaxOnly {
 		return err
@@ -237,12 +236,12 @@ func (s *session) validateCharacterToken(tok stream.Token, mode tokenValidationM
 }
 
 func (s *session) parseError(err error) error {
-	line, col := s.parser.Pos()
+	line, col := streamErrorPosition(&s.reader, err)
 	return StreamError(line, col, s.doc.PathString(), err)
 }
 
 func (s *session) finishValidation() error {
-	if err := s.doc.Complete(); err != nil {
+	if err := s.doc.Complete(&s.reader); err != nil {
 		return err
 	}
 	if !s.doc.syntaxOnly {
@@ -262,9 +261,9 @@ func (s *session) finishValidation() error {
 // field is zeroed by the literal itself, so omitting a field can never leak
 // state across documents.
 func (s *session) reset() {
-	s.parser.Detach()
+	s.reader.Detach()
 	s.derivationScratch.Reset(maxRetainedMapLen)
-	s.stringPatternScratch.Reset(maxRetainedSliceCap)
+	s.valueScratch.Reset(maxRetainedSliceCap)
 	// Identity values point into the document-owned retained-path store.
 	// Clear them before resetting that store.
 	identity := s.doc.identity
@@ -373,8 +372,8 @@ type sessionStartTransaction struct {
 	s                 *session
 	xml               xmlDocumentCheckpoint
 	hints             SchemaLocationHints
-	transition        runtime.ContentTransition
-	namespace         xmlns.Frame
+	transition        xsdSchema.ContentTransition
+	handle            xmlstream.Handle
 	allBitsLen        int
 	errorsLen         int
 	parentIndex       int
@@ -383,7 +382,7 @@ type sessionStartTransaction struct {
 	phase             startTransactionPhase
 }
 
-func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, namespace xmlns.Frame) (sessionStartTransaction, error) {
+func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, handle xmlstream.Handle) (sessionStartTransaction, error) {
 	transaction := sessionStartTransaction{
 		s:           s,
 		xml:         xmlCheckpoint,
@@ -391,7 +390,7 @@ func (s *session) beginStartTransaction(xmlCheckpoint xmlDocumentCheckpoint, nam
 		allBitsLen:  len(s.doc.allBits),
 		errorsLen:   len(s.doc.errors),
 		parentIndex: xmlCheckpoint.depth - 1,
-		namespace:   namespace,
+		handle:      handle,
 		syntaxOnly:  s.doc.syntaxOnly,
 	}
 	if err := s.doc.identity.beginStart(); err != nil {
@@ -516,7 +515,11 @@ func (t *sessionStartTransaction) abort() error {
 	}
 	t.restoreStartState()
 	t.restoreRecoveryState()
-	err := t.s.doc.rollbackStart(t.xml, t.namespace)
+	t.s.doc.rollbackStart(t.xml)
+	var err error
+	if abortErr := t.s.reader.AbortStart(t.handle); abortErr != nil {
+		err = errors.Join(err, abortErr)
+	}
 	t.phase = startTransactionDone
 	return err
 }
@@ -534,18 +537,18 @@ func (t *sessionStartTransaction) restoreRecoveryState() {
 	t.s.doc.syntaxOnly = t.syntaxOnly
 }
 
-func (s *session) start(line, col int, token stream.StartElement) error {
+func (s *session) start(line, col int, token xmlstream.StartElement) error {
 	if s.doc.syntaxOnly {
 		return s.syntaxStart(line, col, token)
 	}
 	xmlCheckpoint := s.doc.startCheckpoint()
-	se, err := s.doc.PrepareStart(token, &s.valueStrings, s.limits.InstanceDepth, line, col)
+	se, err := s.doc.PrepareStart(&s.reader, token, line, col)
 	if err != nil {
 		return err
 	}
-	transaction, err := s.beginStartTransaction(xmlCheckpoint, se.namespace)
+	transaction, err := s.beginStartTransaction(xmlCheckpoint, se.handle)
 	if err != nil {
-		if abortErr := s.doc.AbortStart(se); abortErr != nil {
+		if abortErr := s.doc.AbortStart(&s.reader, se); abortErr != nil {
 			return errors.Join(err, abortErr)
 		}
 		return err
@@ -560,7 +563,7 @@ func (s *session) start(line, col int, token stream.StartElement) error {
 func (s *session) runStartTransaction(
 	transaction *sessionStartTransaction,
 	se preparedXMLStart,
-	token stream.StartElement,
+	token xmlstream.StartElement,
 	line, col int,
 ) error {
 	xsiFlags := xsiStartAttributeFlagsFor(token.Attr)
@@ -605,7 +608,7 @@ func handleStartTransactionError(transaction *sessionStartTransaction, start pre
 
 func (s *session) assessElementStart(
 	start *schemaStart,
-	attrs []stream.Attr,
+	attrs []xmlstream.Attr,
 	flags xsiStartAttributeFlags,
 	ctx StartContext,
 ) (bool, error) {
@@ -635,7 +638,7 @@ func (s *session) assessElementStart(
 
 func (s *session) assessXSIElementStart(
 	start *schemaStart,
-	attrs []stream.Attr,
+	attrs []xmlstream.Attr,
 	flags xsiStartAttributeFlags,
 	state elementEffectiveState,
 	ctx StartContext,
@@ -645,9 +648,9 @@ func (s *session) assessXSIElementStart(
 		a := &attrs[i]
 		switch xsiStartValueFor(a.Name) {
 		case xsiStartNilValue:
-			nilValue = a.StringValue(&s.valueStrings)
+			nilValue, _ = s.reader.MaterializeValue(a)
 		case xsiStartTypeValue:
-			typeValue = a.StringValue(&s.valueStrings)
+			typeValue, _ = s.reader.MaterializeValue(a)
 		case xsiStartNoValue:
 		}
 	}
@@ -683,25 +686,25 @@ func (s *session) completeElementStartAssessment(start *schemaStart, state eleme
 	return state.nil.value, s.recoverElementStartAssessment(start, err)
 }
 
-func expandedInstancePath(start schemaStart, rn runtime.RuntimeName) xmlPathMode {
+func expandedInstancePath(start schemaStart, rn xsdSchema.RuntimeName) xmlPathMode {
 	if start.mode == elementAssessed && !rn.Known && rn.NS != "" {
 		return xmlPathExpanded
 	}
 	return xmlPathLexical
 }
 
-func (s *session) startFrameIdentity(start schemaStart, rn runtime.RuntimeName, f frame, line, col int) error {
+func (s *session) startFrameIdentity(start schemaStart, rn xsdSchema.RuntimeName, f frame, line, col int) error {
 	return s.doc.identity.startElement(identityElementStart{
 		Name:          rn,
 		Element:       f.Element,
 		Mode:          start.mode,
 		Context:       s.startContext(line, col),
 		Nilled:        f.Nilled,
-		SimpleContent: f.SimpleContent != runtime.NoSimpleType,
+		SimpleContent: f.SimpleContent != xsdSchema.NoSimpleType,
 	})
 }
 
-func (s *session) validateStartAttributes(start schemaStart, attrs []stream.Attr, line, col int) error {
+func (s *session) validateStartAttributes(start schemaStart, attrs []xmlstream.Attr, line, col int) error {
 	switch start.mode {
 	case elementAssessed:
 		return s.validateAttributes(start.typ, attrs, line, col)
@@ -714,8 +717,8 @@ func (s *session) validateStartAttributes(start schemaStart, attrs []stream.Attr
 	}
 }
 
-func (s *session) syntaxStart(line, col int, token stream.StartElement) error {
-	start, err := s.doc.PrepareStart(token, &s.valueStrings, s.limits.InstanceDepth, line, col)
+func (s *session) syntaxStart(line, col int, token xmlstream.StartElement) error {
+	start, err := s.doc.PrepareStart(&s.reader, token, line, col)
 	if err != nil {
 		return err
 	}
@@ -723,20 +726,20 @@ func (s *session) syntaxStart(line, col int, token stream.StartElement) error {
 	return nil
 }
 
-func (s *session) initialElementAssessment(start *schemaStart, declaration startDeclaration, ctx StartContext) (runtime.TypeInfo, bool, error) {
+func (s *session) initialElementAssessment(start *schemaStart, declaration startDeclaration, ctx StartContext) (xsdSchema.TypeInfo, bool, error) {
 	if declaration.present && declaration.abstract {
 		*start = recoverySchemaStart()
 		err := validation(ctx, xsderrors.CodeValidationElement, "abstract element cannot appear directly")
-		return runtime.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
+		return xsdSchema.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
 	}
 	info, known := s.rt.TypeInfo(start.typ)
 	if !known {
-		return runtime.TypeInfo{}, true, xsderrors.InternalInvariant("start type metadata is invalid")
+		return xsdSchema.TypeInfo{}, true, xsderrors.InternalInvariant("start type metadata is invalid")
 	}
 	if info.Unavailable {
 		*start = recoverySchemaStart()
 		err := validation(ctx, xsderrors.CodeValidationElement, "element type is unavailable")
-		return runtime.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
+		return xsdSchema.TypeInfo{}, true, s.recoverElementStartAssessment(start, err)
 	}
 	return info, false, nil
 }
@@ -784,10 +787,10 @@ type xsiTypeAssessment struct {
 	attribute   optionalStartValue
 	ctx         StartContext
 	declaration startDeclaration
-	typeInfo    runtime.TypeInfo
+	typeInfo    xsdSchema.TypeInfo
 }
 
-func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment) (runtime.TypeInfo, bool, error) {
+func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment) (xsdSchema.TypeInfo, bool, error) {
 	if !assessment.attribute.present {
 		return assessment.typeInfo, false, nil
 	}
@@ -822,7 +825,7 @@ func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment
 	return overrideInfo, false, nil
 }
 
-func (s *session) recoverXSITypeError(start *schemaStart, info runtime.TypeInfo, err error) (runtime.TypeInfo, bool, error) {
+func (s *session) recoverXSITypeError(start *schemaStart, info xsdSchema.TypeInfo, err error) (xsdSchema.TypeInfo, bool, error) {
 	err = s.recoverElementStartAssessment(start, err)
 	return info, err != nil, err
 }
@@ -842,32 +845,32 @@ const (
 )
 
 type schemaStart struct {
-	element    runtime.ElementID
-	typ        runtime.TypeID
+	element    xsdSchema.ElementID
+	typ        xsdSchema.TypeID
 	mode       elementMode
 	typeOrigin selectedTypeOrigin
 	invalid    bool
 }
 
-func assessedSchemaStart(element runtime.ElementID, typ runtime.TypeID) schemaStart {
+func assessedSchemaStart(element xsdSchema.ElementID, typ xsdSchema.TypeID) schemaStart {
 	return schemaStart{element: element, typ: typ, mode: elementAssessed}
 }
 
 // Root selection must resolve xsi:type before common nil/type assessment.
 // Its origin is consumed during that start and never retained in a frame.
-func rootXSITypeStart(typ runtime.TypeID) schemaStart {
-	return schemaStart{element: runtime.NoElement, typ: typ, mode: elementAssessed, typeOrigin: selectedTypeRootXSI}
+func rootXSITypeStart(typ xsdSchema.TypeID) schemaStart {
+	return schemaStart{element: xsdSchema.NoElement, typ: typ, mode: elementAssessed, typeOrigin: selectedTypeRootXSI}
 }
 
 func wildcardSkippedSchemaStart() schemaStart {
-	return schemaStart{element: runtime.NoElement, mode: elementWildcardSkipped}
+	return schemaStart{element: xsdSchema.NoElement, mode: elementWildcardSkipped}
 }
 
 func recoverySchemaStart() schemaStart {
-	return schemaStart{element: runtime.NoElement, mode: elementRecovery}
+	return schemaStart{element: xsdSchema.NoElement, mode: elementRecovery}
 }
 
-func (s *session) startType(rn runtime.RuntimeName, se preparedXMLStart, token stream.StartElement, flags xsiStartAttributeFlags, line, col int) (acceptedChild, error) {
+func (s *session) startType(rn xsdSchema.RuntimeName, se preparedXMLStart, token xmlstream.StartElement, flags xsiStartAttributeFlags, line, col int) (acceptedChild, error) {
 	if s.doc.Depth() == 0 {
 		start, err := s.rootStartType(rn, se, token, line, col)
 		return acceptedChild{start: start}, err
@@ -888,7 +891,7 @@ func (s *session) startType(rn runtime.RuntimeName, se preparedXMLStart, token s
 	return accepted, nil
 }
 
-func (s *session) rootStartType(rn runtime.RuntimeName, se preparedXMLStart, token stream.StartElement, line, col int) (schemaStart, error) {
+func (s *session) rootStartType(rn xsdSchema.RuntimeName, se preparedXMLStart, token xmlstream.StartElement, line, col int) (schemaStart, error) {
 	if id, decl, ok := s.rt.RootElement(rn); ok {
 		return assessedSchemaStart(id, decl.Type), nil
 	}
@@ -899,7 +902,8 @@ func (s *session) rootStartType(rn runtime.RuntimeName, se preparedXMLStart, tok
 		if !IsXSITypeName(a.Name) {
 			continue
 		}
-		typ, err := resolveXSIType(s.rt, a.StringValue(&s.valueStrings), s.qnameResolver(), hasSchemaLocation, ctx)
+		value, _ := s.reader.MaterializeValue(a)
+		typ, err := resolveXSIType(s.rt, value, s.qnameResolver(), hasSchemaLocation, ctx)
 		if err != nil {
 			return schemaStart{}, err
 		}
@@ -925,8 +929,8 @@ func (s *session) newSchemaFrame(
 ) (frame, error) {
 	if start.mode != elementAssessed {
 		return frame{
-			Element:       runtime.NoElement,
-			SimpleContent: runtime.NoSimpleType,
+			Element:       xsdSchema.NoElement,
+			SimpleContent: xsdSchema.NoSimpleType,
 			BitBase:       len(s.doc.allBits),
 			TextStart:     len(s.doc.text),
 			Mode:          start.mode,
@@ -939,7 +943,7 @@ func (s *session) newSchemaFrame(
 		return frame{}, xsderrors.InternalInvariant("simple content type metadata is invalid")
 	}
 	if !hasSimpleContent {
-		simpleContent = runtime.NoSimpleType
+		simpleContent = xsdSchema.NoSimpleType
 	}
 	textContent, ok := s.rt.ElementTextContent(typ, elem)
 	if !ok {
@@ -968,7 +972,7 @@ func (s *session) newSchemaFrame(
 	}, nil
 }
 
-func (s *session) chars(line, col int, data []byte, kind stream.CharacterDataKind) error {
+func (s *session) chars(line, col int, data []byte, kind xmlstream.CharacterDataKind) error {
 	if s.doc.syntaxOnly && s.doc.Depth() != 0 {
 		return nil
 	}
@@ -989,7 +993,7 @@ func (s *session) chars(line, col int, data []byte, kind stream.CharacterDataKin
 }
 
 func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col int) error {
-	if f.SimpleContent != runtime.NoSimpleType {
+	if f.SimpleContent != xsdSchema.NoSimpleType {
 		return s.appendText(data, line, col)
 	}
 	content := f.TextContent
@@ -1007,7 +1011,7 @@ func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col
 	return nil
 }
 
-func (s *session) captureMixedCharacterData(content runtime.ElementTextContent, data []byte, line, col int) error {
+func (s *session) captureMixedCharacterData(content xsdSchema.ElementTextContent, data []byte, line, col int) error {
 	if content.HasFixedElementValue() {
 		return s.appendText(data, line, col)
 	}

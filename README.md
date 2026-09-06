@@ -144,7 +144,7 @@ Available options:
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
 | `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. |
 | `MaxSchemaTargetContexts` | `4096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
-| `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate raw schema nodes across all target contexts. |
+| `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
 | `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. |
@@ -389,6 +389,6 @@ geomean                          1.76GiB        10.56MiB      -99.42%
 - Instance documents must be UTF-8.
 - DTDs and external entities are rejected.
 - `xsi:schemaLocation` never triggers dynamic loading.
-- The repository XML formatter builds an in-memory formatting tree; validation is the streaming path.
+- The repository XML formatter scans its caller-supplied string twice, retaining bounded per-element formatting decisions instead of an XML tree.
 - Regex support uses Go `regexp` plus a simple literal/class fast path for exact, bounded, and open repeats. Unsupported XSD constructs such as class subtraction, `\i`/`\c`, and Unicode block escapes fail closed with `unsupported.regex`.
 - `xs:redefine` is unsupported.

@@ -6,13 +6,25 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 	for _, refs := range []int{1, 10, 100, 1000} {
 		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
-			value := runtime.SimpleValue{IDRefs: benchmarkIDREFS(refs)}
+			program, err := value.NewBuilder(value.BuilderOptions{}).Seal()
+			if err != nil {
+				b.Fatal(err)
+			}
+			id, ok := value.BuiltinTypeID("IDREFS")
+			if !ok {
+				b.Fatal("BuiltinTypeID(IDREFS) failed")
+			}
+			validated, err := program.Validate(id, benchmarkIDREFS(refs), value.Resolver{}, value.NeedIdentity, nil)
+			if err != nil {
+				b.Fatal(err)
+			}
 			recorder := NewIdentityRecorderForTest()
 			recorder.PushPath("root")
 			recorder.PushPath("refs")
@@ -22,7 +34,7 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				recorder.ResetIdentity()
-				if err := recorder.RecordIdentityValue(value, 1, 1); err != nil {
+				if err := recorder.RecordIdentityValue(validated, 1, 1); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -47,7 +59,7 @@ func BenchmarkCheckXMLWellFormedNested(b *testing.B) {
 }
 
 func BenchmarkNestedIdentityTablePropagation(b *testing.B) {
-	const constraint runtime.IdentityConstraintID = 1
+	const constraint xsdSchema.IdentityConstraintID = 1
 	for _, depth := range []int{16, 64, 256} {
 		b.Run(fmt.Sprintf("depth_%d", depth), func(b *testing.B) {
 			keys := make([]string, depth)
@@ -58,7 +70,7 @@ func BenchmarkNestedIdentityTablePropagation(b *testing.B) {
 			for b.Loop() {
 				scopes := make([]identityScope, depth)
 				for i := range scopes {
-					scopes[i].tables = map[runtime.IdentityConstraintID]map[string]identityTableEntry{
+					scopes[i].tables = map[xsdSchema.IdentityConstraintID]map[string]identityTableEntry{
 						constraint: {keys[i]: {node: uint64(i + 1)}},
 					}
 				}

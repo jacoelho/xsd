@@ -25,22 +25,22 @@ type listedPackage struct {
 func TestInternalCapabilityImportAllowlist(t *testing.T) {
 	const module = "github.com/jacoelho/xsd"
 	allowed := map[string]map[string]bool{
-		module + "/internal/compile": allowProjectImports(
-			"internal/lex", "internal/runtime", "internal/source", "internal/stream",
-			"internal/uriref", "internal/vocab", "internal/xmlns", "xsderrors"),
+		module + "/internal/schema": allowProjectImports(
+			"internal/lex", "internal/source", "internal/uriref", "internal/vocab",
+			"internal/value", "internal/xmlstream", "internal/xsdregex", "xsderrors"),
 		module + "/internal/format": allowProjectImports(
-			"internal/lex", "internal/stream", "internal/vocab", "internal/xmlns", "xsderrors"),
-		module + "/internal/lex": {},
-		module + "/internal/runtime": allowProjectImports(
-			"internal/lex", "internal/uriref", "internal/vocab", "xsderrors"),
-		module + "/internal/source": allowProjectImports("internal/uriref", "xsderrors"),
-		module + "/internal/stream": allowProjectImports("internal/lex", "internal/vocab"),
-		module + "/internal/uriref": {},
+			"internal/lex", "internal/vocab", "internal/xmlstream", "xsderrors"),
+		module + "/internal/lex":        {},
+		module + "/internal/source":     allowProjectImports("internal/uriref", "xsderrors"),
+		module + "/internal/value":      allowProjectImports("internal/lex", "internal/uriref", "internal/vocab", "internal/xsdregex", "xsderrors"),
+		module + "/internal/valuebench": allowProjectImports("internal/value"),
+		module + "/internal/uriref":     {},
 		module + "/internal/validate": allowProjectImports(
-			"internal/lex", "internal/runtime", "internal/stream", "internal/uriref",
-			"internal/vocab", "internal/xmlns", "xsderrors"),
-		module + "/internal/vocab": {},
-		module + "/internal/xmlns": allowProjectImports("internal/stream", "internal/vocab"),
+			"internal/lex", "internal/schema", "internal/uriref",
+			"internal/value", "internal/vocab", "internal/xmlstream", "xsderrors"),
+		module + "/internal/vocab":     {},
+		module + "/internal/xmlstream": allowProjectImports("internal/lex", "internal/vocab"),
+		module + "/internal/xsdregex":  allowProjectImports("internal/lex"),
 	}
 
 	packages := listPackages(t, "./internal/...")
@@ -74,7 +74,7 @@ func TestSchemaSourceIOOwnership(t *testing.T) {
 	const sourceImport = "github.com/jacoelho/xsd/internal/source"
 	root := repoRoot(t)
 	sourceDir := filepath.Join(root, "internal", "source") + string(filepath.Separator)
-	compileDir := filepath.Join(root, "internal", "compile") + string(filepath.Separator)
+	schemaDir := filepath.Join(root, "internal", "schema") + string(filepath.Separator)
 	fset := token.NewFileSet()
 	goImporter := importer.ForCompiler(fset, "source", nil)
 	for _, path := range productionLibraryGoFiles(t) {
@@ -117,7 +117,7 @@ func TestSchemaSourceIOOwnership(t *testing.T) {
 		_, _ = conf.Check(packagePath, fset, []*ast.File{parsed}, info) //nolint:errcheck // Expected cross-file-name errors do not prevent imported object resolution.
 		for _, obj := range info.Uses {
 			fn, ok := sourcePackageFunction(obj)
-			if !ok || sourceFunctionAllowed(path, root, compileDir, fn.Name()) {
+			if !ok || sourceFunctionAllowed(path, root, schemaDir, fn.Name()) {
 				continue
 			}
 			t.Fatalf("library file %s references internal/source.%s outside its owner", path, fn.Name())
@@ -128,7 +128,7 @@ func TestSchemaSourceIOOwnership(t *testing.T) {
 			if !ok || fn.Pkg() == nil || fn.Pkg().Path() != sourceImport {
 				continue
 			}
-			if !sourceMethodAllowed(path, root, compileDir, fn) {
+			if !sourceMethodAllowed(path, root, schemaDir, fn) {
 				t.Fatalf("library file %s references unapproved internal/source method %s.%s", path, methodReceiverName(fn), fn.Name())
 			}
 		}
@@ -144,11 +144,11 @@ func sourcePackageFunction(obj types.Object) (*types.Func, bool) {
 	return fn, ok && signature.Recv() == nil
 }
 
-func sourceFunctionAllowed(path, root, compileDir, name string) bool {
+func sourceFunctionAllowed(path, root, schemaDir, name string) bool {
 	if filepath.Dir(path) == root {
 		return name == "Bytes" || name == "File" || name == "Opener"
 	}
-	if !strings.HasPrefix(path, compileDir) {
+	if !strings.HasPrefix(path, schemaDir) {
 		return false
 	}
 	switch name {
@@ -159,12 +159,12 @@ func sourceFunctionAllowed(path, root, compileDir, name string) bool {
 	}
 }
 
-func sourceMethodAllowed(path, root, compileDir string, fn *types.Func) bool {
+func sourceMethodAllowed(path, root, schemaDir string, fn *types.Func) bool {
 	receiver := methodReceiverName(fn)
 	if filepath.Dir(path) == root {
 		return receiver == "Source" && fn.Name() == "WithResolver"
 	}
-	if !strings.HasPrefix(path, compileDir) {
+	if !strings.HasPrefix(path, schemaDir) {
 		return false
 	}
 	switch receiver {
@@ -249,7 +249,7 @@ func TestInternalPhasePackageImportGraph(t *testing.T) {
 	packages := listPackages(t, "./internal/...")
 
 	for _, path := range []string{
-		"github.com/jacoelho/xsd/internal/compile",
+		"github.com/jacoelho/xsd/internal/schema",
 		"github.com/jacoelho/xsd/internal/validate",
 	} {
 		if _, ok := packages[path]; !ok {
@@ -257,22 +257,21 @@ func TestInternalPhasePackageImportGraph(t *testing.T) {
 		}
 	}
 
-	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/compile"],
+	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/schema"],
 		"github.com/jacoelho/xsd",
 		"github.com/jacoelho/xsd/internal/validate",
 	)
 	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/validate"],
 		"github.com/jacoelho/xsd",
-		"github.com/jacoelho/xsd/internal/compile",
 	)
 }
 
 func TestValidationInputPackageImportGraph(t *testing.T) {
-	packages := listPackages(t, "./internal/validate", "./internal/stream")
+	packages := listPackages(t, "./internal/validate", "./internal/xmlstream")
 	assertImports(t, packages["github.com/jacoelho/xsd/internal/validate"],
-		"github.com/jacoelho/xsd/internal/stream",
+		"github.com/jacoelho/xsd/internal/xmlstream",
 	)
-	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/stream"],
+	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/xmlstream"],
 		"github.com/jacoelho/xsd/internal/validate",
 		"github.com/jacoelho/xsd",
 	)
@@ -280,9 +279,12 @@ func TestValidationInputPackageImportGraph(t *testing.T) {
 
 func TestFormatPackageImportGraph(t *testing.T) {
 	packages := listPackages(t, "./internal/format")
+	assertImports(t, packages["github.com/jacoelho/xsd/internal/format"],
+		"github.com/jacoelho/xsd/internal/xmlstream",
+	)
 	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/format"],
 		"github.com/jacoelho/xsd",
-		"github.com/jacoelho/xsd/internal/compile",
+		"github.com/jacoelho/xsd/internal/schema",
 		"github.com/jacoelho/xsd/internal/validate",
 	)
 }
@@ -310,19 +312,18 @@ func TestPublicLibraryPackageSurface(t *testing.T) {
 }
 
 func TestXMLNamespacePackageImportGraph(t *testing.T) {
-	packages := listPackages(t, ".", "./internal/xmlns")
-	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/xmlns"],
+	packages := listPackages(t, ".", "./internal/xmlstream")
+	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/xmlstream"],
 		"github.com/jacoelho/xsd",
-		"github.com/jacoelho/xsd/internal/compile",
+		"github.com/jacoelho/xsd/internal/schema",
 		"github.com/jacoelho/xsd/internal/validate",
 	)
 }
 
 func TestRuntimeVocabularyPackageImportGraph(t *testing.T) {
-	packages := listPackages(t, ".", "./internal/runtime")
-	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/runtime"],
+	packages := listPackages(t, ".", "./internal/schema")
+	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/schema"],
 		"github.com/jacoelho/xsd",
-		"github.com/jacoelho/xsd/internal/compile",
 		"github.com/jacoelho/xsd/internal/validate",
 	)
 }
@@ -334,7 +335,7 @@ func TestSourcePackageImportGraph(t *testing.T) {
 	)
 	assertNoDeps(t, packages["github.com/jacoelho/xsd/internal/source"],
 		"github.com/jacoelho/xsd",
-		"github.com/jacoelho/xsd/internal/compile",
+		"github.com/jacoelho/xsd/internal/schema",
 		"github.com/jacoelho/xsd/internal/validate",
 		"github.com/jacoelho/xsd/internal/vocab",
 	)

@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -18,19 +18,19 @@ func TestSessionStartRollsBackRootOnFatalAssessment(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	err := s.start(1, 1, testXMLStart(
+	err := startForTest(t, &s, 1, 1, testXMLStart(
 		xml.Name{Local: "missing"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
 		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrNoNamespaceSchemaLocation}, "missing.xsd"),
 	))
 	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
-	if s.doc.Depth() != 0 || s.doc.seenRoot || s.doc.schemaLocationHints.Has("") {
-		t.Fatalf("failed root start changed document state: depth=%d seenRoot=%v hints=%+v", s.doc.Depth(), s.doc.seenRoot, s.doc.schemaLocationHints)
+	if s.doc.Depth() != 0 || s.doc.schemaLocationHints.Has("") {
+		t.Fatalf("failed root start changed document state: depth=%d hints=%+v", s.doc.Depth(), s.doc.schemaLocationHints)
 	}
 	if len(s.doc.identity.path) != 0 || len(s.doc.identity.elements) != 0 {
 		t.Fatal("failed root start changed identity state")
 	}
-	if _, ok := s.doc.LookupNamespace("xsi"); ok {
+	if _, ok := s.reader.Lookup("xsi"); ok {
 		t.Fatal("failed root start retained namespace bindings")
 	}
 }
@@ -45,7 +45,7 @@ func TestSessionStartRollsBackParentContentOnFatalChildAssessment(t *testing.T) 
 	if err := initializeSession(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 		t.Fatal(err)
 	}
 	parent, ok := s.doc.Current()
@@ -53,12 +53,12 @@ func TestSessionStartRollsBackParentContentOnFatalChildAssessment(t *testing.T) 
 		t.Fatal("root start did not create a frame")
 	}
 	parentBefore := *parent
-	err := s.start(2, 1, stream.OwnedStartElement(
+	err := startForTest(t, &s, 2, 1, xmlstream.OwnedStartElement(
 		xml.Name{Local: "child"},
-		stream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
-		stream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
-		stream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
-		stream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
+		xmlstream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
+		xmlstream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
+		xmlstream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
+		xmlstream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
 	))
 	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
 	parent, ok = s.doc.Current()
@@ -68,7 +68,7 @@ func TestSessionStartRollsBackParentContentOnFatalChildAssessment(t *testing.T) 
 	if s.doc.schemaLocationHints.Has("urn:missing") {
 		t.Fatal("failed child start retained schema-location hint")
 	}
-	if _, ok := s.doc.LookupNamespace("p"); ok {
+	if _, ok := s.reader.Lookup("p"); ok {
 		t.Fatal("failed child start retained namespace bindings")
 	}
 }
@@ -83,22 +83,22 @@ func TestSessionStartRollsBackAllModelBitsOnFatalChildAssessment(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 		t.Fatal(err)
 	}
 	allBitsBefore := slices.Clone(s.doc.allBits)
-	err := s.start(2, 1, stream.OwnedStartElement(
+	err := startForTest(t, &s, 2, 1, xmlstream.OwnedStartElement(
 		xml.Name{Local: "child"},
-		stream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
-		stream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
-		stream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
-		stream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
+		xmlstream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
+		xmlstream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
+		xmlstream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
+		xmlstream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
 	))
 	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
 	if !slices.Equal(s.doc.allBits, allBitsBefore) {
 		t.Fatalf("failed child start changed xs:all bits: got %v want %v", s.doc.allBits, allBitsBefore)
 	}
-	if err := s.start(2, 1, testXMLStart(xml.Name{Local: "child"})); err != nil {
+	if err := startForTest(t, &s, 2, 1, testXMLStart(xml.Name{Local: "child"})); err != nil {
 		t.Fatalf("retry child start error = %v", err)
 	}
 	child, ok := s.doc.Current()
@@ -119,7 +119,7 @@ func TestSessionStartRollsBackStagedContentAfterFatalTypeAssessment(t *testing.T
 	if err := initializeSession(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(1, 1, testXMLStart(
+	if err := startForTest(t, &s, 1, 1, testXMLStart(
 		xml.Name{Local: "root"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
 		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
@@ -134,7 +134,7 @@ func TestSessionStartRollsBackStagedContentAfterFatalTypeAssessment(t *testing.T
 	identityPathLen := len(s.doc.identity.path)
 	identityElementLen := len(s.doc.identity.elements)
 
-	err := s.start(2, 1, testXMLStart(
+	err := startForTest(t, &s, 2, 1, testXMLStart(
 		xml.Name{Local: "child"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
 		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
@@ -147,7 +147,7 @@ func TestSessionStartRollsBackStagedContentAfterFatalTypeAssessment(t *testing.T
 	if !s.doc.schemaLocationHints.Has("urn:missing") {
 		t.Fatal("failed child removed an inherited schema-location hint")
 	}
-	if _, ok := s.doc.LookupNamespace("p"); ok {
+	if _, ok := s.reader.Lookup("p"); ok {
 		t.Fatal("failed child retained namespace bindings")
 	}
 	if len(s.doc.identity.path) != identityPathLen || len(s.doc.identity.elements) != identityElementLen ||
@@ -168,15 +168,19 @@ func TestSessionStartStagesParentInvalidationUntilCommit(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 		t.Fatal(err)
 	}
 	checkpoint := s.doc.startCheckpoint()
-	prepared, err := s.doc.PrepareStart(testXMLStart(xml.Name{Local: "unexpected"}), &s.valueStrings, s.limits.InstanceDepth, 2, 1)
+	tok, err := nextStartForTest(t, &s, testXMLStart(xml.Name{Local: "unexpected"}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	transaction, err := s.beginStartTransaction(checkpoint, prepared.namespace)
+	prepared, err := s.doc.PrepareStart(&s.reader, tok.Start, 2, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := s.beginStartTransaction(checkpoint, prepared.handle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +193,7 @@ func TestSessionStartStagesParentInvalidationUntilCommit(t *testing.T) {
 		t.Fatalf("aborted child invalidated parent: %+v", parent)
 	}
 
-	if err := s.start(2, 1, testXMLStart(xml.Name{Local: "unexpected"})); err != nil {
+	if err := startForTest(t, &s, 2, 1, testXMLStart(xml.Name{Local: "unexpected"})); err != nil {
 		t.Fatal(err)
 	}
 	if parent := &s.doc.elements[0].payload; !parent.AssessmentInvalid {
@@ -203,15 +207,16 @@ func TestSessionStartTransactionReusesStorage(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	end := stream.EndElement{Name: xml.Name{Local: "root"}}
+	end := xmlstream.EndElement{Name: xml.Name{Local: "root"}}
 	run := func() {
-		if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+		if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 			panic(err)
 		}
-		if err := s.end(1, 8, end); err != nil {
+		if err := endForTest(t, &s, 1, 8, end); err != nil {
 			panic(err)
 		}
 		s.reset()
+		sessionXMLState(&s).ready = false
 	}
 	run()
 	if allocs := testing.AllocsPerRun(100, run); allocs != 0 {
@@ -239,7 +244,7 @@ func TestSessionStartRollsBackIdentityAfterXMLCommit(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{MaxIdentityEntries: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 		t.Fatal(err)
 	}
 	parent, ok := s.doc.Current()
@@ -249,7 +254,7 @@ func TestSessionStartRollsBackIdentityAfterXMLCommit(t *testing.T) {
 	parentBefore := *parent
 	allBitsBefore := slices.Clone(s.doc.allBits)
 
-	err := s.start(2, 1, testXMLStart(
+	err := startForTest(t, &s, 2, 1, testXMLStart(
 		xml.Name{Local: "child"},
 		testXMLAttr(xml.Name{Local: "a"}, "one"),
 		testXMLAttr(xml.Name{Local: "b"}, "two"),
@@ -293,10 +298,10 @@ func TestSessionStartRollsBackPendingIdentityFieldLimit(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{MaxIdentityEntries: 3}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(2, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
+	if err := startForTest(t, &s, 2, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
 		t.Fatal(err)
 	}
 	parent, ok := s.doc.Current()
@@ -306,7 +311,7 @@ func TestSessionStartRollsBackPendingIdentityFieldLimit(t *testing.T) {
 	parentBefore := *parent
 	allBitsBefore := slices.Clone(s.doc.allBits)
 
-	err := s.start(3, 1, testXMLStart(xml.Name{Local: "a"}))
+	err := startForTest(t, &s, 3, 1, testXMLStart(xml.Name{Local: "a"}))
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 	parent, ok = s.doc.Current()
 	if !ok || s.doc.Depth() != 2 || *parent != parentBefore {
@@ -323,7 +328,7 @@ func TestSessionStartRollsBackPendingIdentityFieldLimit(t *testing.T) {
 	}
 
 	identity.limits.Entries = 4
-	if err := s.start(3, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
+	if err := startForTest(t, &s, 3, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
 		t.Fatalf("retry nested start error = %v", err)
 	}
 }
@@ -343,13 +348,13 @@ func TestSessionIdentitySelectionsKeepDocumentPathsLazy(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(2, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
+	if err := startForTest(t, &s, 2, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(3, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
+	if err := startForTest(t, &s, 3, 1, testXMLStart(xml.Name{Local: "a"})); err != nil {
 		t.Fatal(err)
 	}
 	if s.doc.pathText != "" {
@@ -359,7 +364,7 @@ func TestSessionIdentitySelectionsKeepDocumentPathsLazy(t *testing.T) {
 		t.Fatalf("selector starts retained %d document path nodes", len(s.doc.retainedPaths.nodes))
 	}
 
-	if err := s.end(3, 1, stream.EndElement{Name: xml.Name{Local: "a"}}); err != nil {
+	if err := endForTest(t, &s, 3, 1, xmlstream.EndElement{Name: xml.Name{Local: "a"}}); err != nil {
 		t.Fatal(err)
 	}
 	if s.doc.pathText != "" {
@@ -387,7 +392,7 @@ func TestSessionStartRollsBackCompositeStateAfterIdentityFailure(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{MaxIdentityEntries: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 		t.Fatal(err)
 	}
 	parent, ok := s.doc.Current()
@@ -398,7 +403,7 @@ func TestSessionStartRollsBackCompositeStateAfterIdentityFailure(t *testing.T) {
 	bitsBefore := slices.Clone(s.doc.allBits)
 	errorsBefore := len(s.doc.errors)
 
-	err := s.start(2, 1, testXMLStart(
+	err := startForTest(t, &s, 2, 1, testXMLStart(
 		xml.Name{Local: "child"},
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
 		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:admitted"),
@@ -422,7 +427,7 @@ func TestSessionStartRollsBackCompositeStateAfterIdentityFailure(t *testing.T) {
 	if s.doc.schemaLocationHints.Has("urn:hint") {
 		t.Fatal("failed child retained schema-location hint")
 	}
-	if _, ok := s.doc.LookupNamespace("p"); ok {
+	if _, ok := s.reader.Lookup("p"); ok {
 		t.Fatal("failed child retained namespace admission")
 	}
 	identity := &s.doc.identity
@@ -437,7 +442,7 @@ func TestSessionStartRollsBackCompositeStateAfterIdentityFailure(t *testing.T) {
 	}
 
 	identity.limits.Entries = 4
-	if err := s.start(3, 1, testXMLStart(
+	if err := startForTest(t, &s, 3, 1, testXMLStart(
 		xml.Name{Local: "child"},
 		testXMLAttr(xml.Name{Local: "a"}, "one"),
 		testXMLAttr(xml.Name{Local: "b"}, "one"),
@@ -457,7 +462,7 @@ func TestSessionSemanticStopPreservesOnlyXMLLifecycle(t *testing.T) {
 		if err := initializeSession(&s, rt, Options{MaxErrors: 1}); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.start(1, 1, testXMLStart(xml.Name{Local: "missing"})); err != nil {
+		if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "missing"})); err != nil {
 			t.Fatalf("semantic stop start error = %v", err)
 		}
 		assertSemanticStopState(t, &s, "missing")
@@ -476,7 +481,7 @@ func TestSessionSemanticStopPreservesOnlyXMLLifecycle(t *testing.T) {
 		if err := initializeSession(&s, rt, Options{MaxErrors: 1}); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.start(1, 1, testXMLStart(
+		if err := startForTest(t, &s, 1, 1, testXMLStart(
 			xml.Name{Local: "root"},
 			testXMLAttr(xml.Name{Local: "unexpected"}, "value"),
 		)); err != nil {
@@ -497,7 +502,7 @@ func assertSemanticStopState(t *testing.T, s *session, local string) {
 	if len(s.doc.retainedPaths.nodes) != 0 || len(s.doc.retainedPaths.namespaces) != 0 {
 		t.Fatal("semantic stop retained identity diagnostic paths")
 	}
-	if err := s.end(2, 1, stream.EndElement{Name: xml.Name{Local: local}}); err != nil {
+	if err := endForTest(t, s, 2, 1, xmlstream.EndElement{Name: xml.Name{Local: local}}); err != nil {
 		t.Fatalf("syntax-only end error = %v", err)
 	}
 }
@@ -512,22 +517,23 @@ func TestSessionStartTransactionReusesParentTransitionStorage(t *testing.T) {
 	if err := initializeSession(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
-	childEnd := stream.EndElement{Name: xml.Name{Local: "child"}}
-	rootEnd := stream.EndElement{Name: xml.Name{Local: "root"}}
+	childEnd := xmlstream.EndElement{Name: xml.Name{Local: "child"}}
+	rootEnd := xmlstream.EndElement{Name: xml.Name{Local: "root"}}
 	run := func() {
-		if err := s.start(1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
+		if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 			panic(err)
 		}
-		if err := s.start(1, 7, testXMLStart(xml.Name{Local: "child"})); err != nil {
+		if err := startForTest(t, &s, 1, 7, testXMLStart(xml.Name{Local: "child"})); err != nil {
 			panic(err)
 		}
-		if err := s.end(1, 14, childEnd); err != nil {
+		if err := endForTest(t, &s, 1, 14, childEnd); err != nil {
 			panic(err)
 		}
-		if err := s.end(1, 22, rootEnd); err != nil {
+		if err := endForTest(t, &s, 1, 22, rootEnd); err != nil {
 			panic(err)
 		}
 		s.reset()
+		sessionXMLState(&s).ready = false
 	}
 	run()
 	if allocs := testing.AllocsPerRun(100, run); allocs != 0 {

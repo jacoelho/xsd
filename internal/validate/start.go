@@ -4,19 +4,19 @@ import (
 	"encoding/xml"
 
 	"github.com/jacoelho/xsd/internal/lex"
-	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/stream"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // ResolveRuntimeName returns name with its runtime QName when the schema knows it.
-func ResolveRuntimeName(rt *runtime.Schema, name xml.Name) runtime.RuntimeName {
+func ResolveRuntimeName(rt *xsdSchema.Schema, name xml.Name) xsdSchema.RuntimeName {
 	q, ok := rt.LookupQName(name.Space, name.Local)
 	if ok {
-		return runtime.RuntimeName{Name: q, Known: true, NS: name.Space, Local: name.Local}
+		return xsdSchema.RuntimeName{Name: q, Known: true, NS: name.Space, Local: name.Local}
 	}
-	return runtime.RuntimeName{Known: false, NS: name.Space, Local: name.Local}
+	return xsdSchema.RuntimeName{Known: false, NS: name.Space, Local: name.Local}
 }
 
 // NamespaceLookup resolves an XML namespace prefix to its URI.
@@ -80,7 +80,7 @@ func (ctx StartContext) retainPathAtDepth(depth int) retainedPath {
 }
 
 type startDeclaration struct {
-	block    runtime.DerivationMask
+	block    xsdSchema.DerivationMask
 	present  bool
 	abstract bool
 	nillable bool
@@ -95,8 +95,8 @@ type assessedNilValue struct {
 type elementEffectiveState struct {
 	declaration startDeclaration
 	nil         assessedNilValue
-	typeID      runtime.TypeID
-	typeInfo    runtime.TypeInfo
+	typeID      xsdSchema.TypeID
+	typeInfo    xsdSchema.TypeInfo
 }
 
 const elementNotNillableMessage = "element is not nillable"
@@ -119,7 +119,7 @@ func (state elementEffectiveState) issue() validationIssue {
 	return validationIssue{}
 }
 
-func elementEffectiveTypeIssue(typeID runtime.TypeID, info runtime.TypeInfo) validationIssue {
+func elementEffectiveTypeIssue(typeID xsdSchema.TypeID, info xsdSchema.TypeInfo) validationIssue {
 	if typeID.IsComplex() && info.Abstract {
 		return validationIssue{code: xsderrors.CodeValidationType, message: "complex type is abstract"}
 	}
@@ -129,13 +129,13 @@ func elementEffectiveTypeIssue(typeID runtime.TypeID, info runtime.TypeInfo) val
 type xsiTypeOverrideInput struct {
 	ctx         StartContext
 	declaration startDeclaration
-	declared    runtime.TypeID
-	override    runtime.TypeID
+	declared    xsdSchema.TypeID
+	override    xsdSchema.TypeID
 }
 
 func validateXSITypeOverride(
-	rt *runtime.Schema,
-	scratch *runtime.TypeDerivationScratch,
+	rt *xsdSchema.Schema,
+	scratch *xsdSchema.TypeDerivationScratch,
 	input xsiTypeOverrideInput,
 ) error {
 	derivation, derived := rt.TypeDerivationWithScratch(input.override, input.declared, scratch)
@@ -145,25 +145,25 @@ func validateXSITypeOverride(
 	if !input.declaration.present || input.override == input.declared {
 		return nil
 	}
-	if input.declaration.block&runtime.DerivationExtension != 0 && derivation&runtime.DerivationExtension != 0 {
+	if input.declaration.block&xsdSchema.DerivationExtension != 0 && derivation&xsdSchema.DerivationExtension != 0 {
 		return validation(input.ctx, xsderrors.CodeValidationType, "xsi:type extension is blocked")
 	}
-	if input.declaration.block&runtime.DerivationRestriction != 0 && derivation&runtime.DerivationRestriction != 0 {
+	if input.declaration.block&xsdSchema.DerivationRestriction != 0 && derivation&xsdSchema.DerivationRestriction != 0 {
 		return validation(input.ctx, xsderrors.CodeValidationType, "xsi:type restriction is blocked")
 	}
 	return nil
 }
 
 func resolveXSIType(
-	rt *runtime.Schema,
+	rt *xsdSchema.Schema,
 	value string,
-	resolve runtime.ResolveQNameParts,
+	resolve xsdSchema.ResolveQNameParts,
 	hasSchemaLocation HasSchemaLocation,
 	ctx StartContext,
-) (runtime.TypeID, error) {
+) (xsdSchema.TypeID, error) {
 	ns, local, ok := resolve(value)
 	if !ok {
-		return runtime.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
+		return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
 	}
 	q, knownName := rt.LookupQName(ns, local)
 	if knownName {
@@ -173,21 +173,21 @@ func resolveXSIType(
 		ns = rt.Namespace(q.Namespace)
 	}
 	if hasSchemaLocation != nil && hasSchemaLocation(ns) {
-		return runtime.TypeID{}, unsupportedSchemaLocation(ctx, vocab.XSIAttrType, runtime.RuntimeName{
+		return xsdSchema.TypeID{}, unsupportedSchemaLocation(ctx, vocab.XSIAttrType, xsdSchema.RuntimeName{
 			Name:  q,
 			Known: knownName,
 			NS:    ns,
 			Local: local,
 		})
 	}
-	return runtime.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
+	return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
 }
 
 func validation(ctx StartContext, code xsderrors.Code, msg string) error {
 	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column, xsderrors.Validation(code, msg, nil))
 }
 
-func unsupportedSchemaLocation(ctx StartContext, component string, rn runtime.RuntimeName) error {
+func unsupportedSchemaLocation(ctx StartContext, component string, rn xsdSchema.RuntimeName) error {
 	return xsderrors.WithLocation(ctx.PathString(), ctx.Line, ctx.Column,
 		xsderrors.Unsupported(
 			xsderrors.CodeUnsupportedSchemaHint,
@@ -207,7 +207,7 @@ type xsiStartAttributeFlags struct {
 	SchemaLocation bool
 }
 
-func xsiStartAttributeFlagsFor(attrs []stream.Attr) xsiStartAttributeFlags {
+func xsiStartAttributeFlagsFor(attrs []xmlstream.Attr) xsiStartAttributeFlags {
 	var flags xsiStartAttributeFlags
 	for i := range attrs {
 		if attrs[i].Name.Space != vocab.XSINamespaceURI {
@@ -226,7 +226,7 @@ func xsiStartAttributeFlagsFor(attrs []stream.Attr) xsiStartAttributeFlags {
 }
 
 func formatXMLName(n xml.Name) string {
-	return runtime.FormatExpandedName(n.Space, n.Local)
+	return xsdSchema.FormatExpandedName(n.Space, n.Local)
 }
 
 // ParseXSINil parses an xsi:nil attribute value after XML whitespace collapse.

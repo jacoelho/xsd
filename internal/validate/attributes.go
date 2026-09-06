@@ -3,7 +3,7 @@ package validate
 import (
 	"encoding/xml"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -76,12 +76,12 @@ const (
 )
 
 type attributeWildcardMatch struct {
-	attribute   runtime.AttributeID
+	attribute   xsdSchema.AttributeID
 	disposition attributeWildcardDisposition
 }
 
-func matchAttributeWildcard(rt *runtime.Schema, wildcard runtime.WildcardID, name runtime.RuntimeName) (attributeWildcardMatch, bool) {
-	if wildcard == runtime.NoWildcard {
+func matchAttributeWildcard(rt *xsdSchema.Schema, wildcard xsdSchema.WildcardID, name xsdSchema.RuntimeName) (attributeWildcardMatch, bool) {
+	if wildcard == xsdSchema.NoWildcard {
 		return attributeWildcardMatch{}, true
 	}
 	w, ok := rt.WildcardView(wildcard)
@@ -91,7 +91,7 @@ func matchAttributeWildcard(rt *runtime.Schema, wildcard runtime.WildcardID, nam
 	if !w.AllowsURI(name.NS) {
 		return attributeWildcardMatch{}, true
 	}
-	if w.Process() == runtime.ProcessSkip {
+	if w.Process() == xsdSchema.ProcessSkip {
 		return attributeWildcardMatch{disposition: attributeWildcardSkip}, true
 	}
 	if name.Known {
@@ -106,7 +106,7 @@ func matchAttributeWildcard(rt *runtime.Schema, wildcard runtime.WildcardID, nam
 			}, true
 		}
 	}
-	if w.Process() == runtime.ProcessLax {
+	if w.Process() == xsdSchema.ProcessLax {
 		return attributeWildcardMatch{disposition: attributeWildcardLaxMissing}, true
 	}
 	return attributeWildcardMatch{disposition: attributeWildcardStrictMissing}, true

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/stream"
 	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -317,12 +317,12 @@ func xsiHintName(local string) xml.Name {
 	return xml.Name{Space: vocab.XSINamespaceURI, Local: local}
 }
 
-func hintStreamAttr(ns, local, value string) stream.Attr {
-	return stream.OwnedAttr(xml.Name{Space: ns, Local: local}, value)
+func hintStreamAttr(ns, local, value string) xmlstream.Attr {
+	return xmlstream.OwnedAttr(xml.Name{Space: ns, Local: local}, value)
 }
 
-func hintAttrs(attrs ...stream.Attr) []stream.Attr {
-	return stream.OwnedAttrs(attrs...)
+func hintAttrs(attrs ...xmlstream.Attr) []xmlstream.Attr {
+	return xmlstream.OwnedAttrs(attrs...)
 }
 
 func expectXSDMessage(t *testing.T, err error, message string) {

@@ -3,21 +3,27 @@ package validate
 import (
 	"encoding/xml"
 
-	"github.com/jacoelho/xsd/internal/runtime"
+	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *session) runtimeName(n xml.Name) runtime.RuntimeName {
+func (s *session) runtimeName(n xml.Name) xsdSchema.RuntimeName {
 	return ResolveRuntimeName(s.rt, n)
 }
 
-func (s *session) simpleValueQNameResolver(id runtime.SimpleTypeID) runtime.ResolveQNameParts {
-	if !s.rt.SimpleValueNeedsQNameResolver(id) {
-		return nil
+func (s *session) simpleValueQNameResolver(id xsdSchema.SimpleTypeID) value.Resolver {
+	program := s.rt.ValueProgram()
+	needs, ok := program.NeedsQNameResolver(id)
+	if !ok || !needs {
+		return value.Resolver{}
 	}
-	return s.qnameResolver()
+	return value.Resolver{
+		QName:    s.qnameResolver(),
+		Notation: s.rt.NotationDeclared,
+	}
 }
 
-func (s *session) qnameResolver() runtime.ResolveQNameParts {
+func (s *session) qnameResolver() xsdSchema.ResolveQNameParts {
 	if s.resolveLexicalQNamePartsFunc == nil {
 		s.resolveLexicalQNamePartsFunc = s.resolveLexicalQNameParts
 	}
@@ -25,5 +31,5 @@ func (s *session) qnameResolver() runtime.ResolveQNameParts {
 }
 
 func (s *session) resolveLexicalQNameParts(v string) (namespace, local string, ok bool) {
-	return ResolveLexicalQNameParts(v, s.doc.LookupNamespace)
+	return ResolveLexicalQNameParts(v, s.reader.Lookup)
 }
