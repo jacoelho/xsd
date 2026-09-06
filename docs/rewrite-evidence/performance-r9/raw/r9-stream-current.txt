@@ -1,0 +1,72 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/xmlstream
+cpu: Apple M2 Max
+BenchmarkParserReferences/first               	    1662	    152754 ns/op	 160.93 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserReferences/interior            	    1405	    165706 ns/op	 173.07 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributes             	     258	    925254 ns/op	 158.71 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributesMaterialized 	     188	   1255254 ns/op	 116.99 MB/s	  122912 B/op	    7681 allocs/op
+BenchmarkParserCharacterData                  	   14478	     16506 ns/op	3971.18 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserMixedSmallTokens               	     295	    802860 ns/op	  69.77 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserCDATABufferBoundary            	     398	    603077 ns/op	 108.71 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/xmlstream
+cpu: Apple M2 Max
+BenchmarkParserReferences/first               	    1528	    154353 ns/op	 159.26 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserReferences/interior            	    1417	    162042 ns/op	 176.98 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributes             	     253	    933832 ns/op	 157.25 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributesMaterialized 	     190	   1265777 ns/op	 116.01 MB/s	  122912 B/op	    7681 allocs/op
+BenchmarkParserCharacterData                  	   13939	     16992 ns/op	3857.73 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserMixedSmallTokens               	     297	    805509 ns/op	  69.54 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserCDATABufferBoundary            	     405	    589753 ns/op	 111.17 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/xmlstream
+cpu: Apple M2 Max
+BenchmarkParserReferences/first               	    1646	    150380 ns/op	 163.47 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserReferences/interior            	    1615	    159044 ns/op	 180.32 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributes             	     260	    916223 ns/op	 160.27 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributesMaterialized 	     195	   1265435 ns/op	 116.04 MB/s	  122912 B/op	    7681 allocs/op
+BenchmarkParserCharacterData                  	   13038	     18256 ns/op	3590.54 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserMixedSmallTokens               	     291	    807738 ns/op	  69.35 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserCDATABufferBoundary            	     406	    592437 ns/op	 110.66 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/xmlstream
+cpu: Apple M2 Max
+BenchmarkParserReferences/first               	    1650	    149466 ns/op	 164.47 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserReferences/interior            	    1533	    156222 ns/op	 183.58 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributes             	     266	    916490 ns/op	 160.23 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributesMaterialized 	     192	   1255096 ns/op	 117.00 MB/s	  122912 B/op	    7681 allocs/op
+BenchmarkParserCharacterData                  	   13690	     17527 ns/op	3739.99 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserMixedSmallTokens               	     279	    820160 ns/op	  68.30 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserCDATABufferBoundary            	     402	    591789 ns/op	 110.78 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/xmlstream
+cpu: Apple M2 Max
+BenchmarkParserReferences/first               	    1664	    146642 ns/op	 167.64 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserReferences/interior            	    1604	    158770 ns/op	 180.63 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributes             	     249	    915083 ns/op	 160.47 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributesMaterialized 	     196	   1213668 ns/op	 120.99 MB/s	  122912 B/op	    7681 allocs/op
+BenchmarkParserCharacterData                  	   13717	     17313 ns/op	3786.19 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserMixedSmallTokens               	     278	    840977 ns/op	  66.60 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserCDATABufferBoundary            	     396	    595811 ns/op	 110.04 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/xmlstream
+cpu: Apple M2 Max
+BenchmarkParserReferences/first               	    1650	    145902 ns/op	 168.49 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserReferences/interior            	    1604	    155340 ns/op	 184.62 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributes             	     262	    917788 ns/op	 160.00 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserLazyWideAttributesMaterialized 	     193	   1254310 ns/op	 117.07 MB/s	  122912 B/op	    7681 allocs/op
+BenchmarkParserCharacterData                  	   13778	     17323 ns/op	3783.88 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserMixedSmallTokens               	     283	    838562 ns/op	  66.80 MB/s	      32 B/op	       1 allocs/op
+BenchmarkParserCDATABufferBoundary            	     372	    611065 ns/op	 107.29 MB/s	      32 B/op	       1 allocs/op
+PASS

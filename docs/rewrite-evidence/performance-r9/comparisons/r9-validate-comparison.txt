@@ -1,0 +1,83 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/validate
+cpu: Apple M2 Max
+                                                            │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-validate-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-validate-current.txt │
+                                                            │                                         sec/op                                         │                            sec/op                             vs base                 │
+RecordIdentityValueIDREFS/refs_1                                                                                                        51.45n ±  2%                                                   48.25n ±  6%   -6.22% (p=0.015 n=6)
+RecordIdentityValueIDREFS/refs_10                                                                                                       164.8n ±  3%                                                   166.6n ±  4%        ~ (p=0.394 n=6)
+RecordIdentityValueIDREFS/refs_100                                                                                                      1.296µ ± 16%                                                   1.299µ ±  3%        ~ (p=0.699 n=6)
+RecordIdentityValueIDREFS/refs_1000                                                                                                     13.14µ ±  4%                                                   13.32µ ±  1%        ~ (p=0.143 n=6)
+CheckXMLWellFormedNested/depth_10                                                                                                       7.790µ ±  4%                                                   7.385µ ± 15%        ~ (p=0.065 n=6)
+CheckXMLWellFormedNested/depth_100                                                                                                      33.44µ ± 16%                                                   29.13µ ±  4%  -12.91% (p=0.002 n=6)
+CheckXMLWellFormedNested/depth_1000                                                                                                     250.3µ ±  3%                                                   226.6µ ± 15%        ~ (p=0.065 n=6)
+NestedIdentityTablePropagation/depth_16                                                                                                 6.249µ ±  7%                                                   6.159µ ± 27%        ~ (p=1.000 n=6)
+NestedIdentityTablePropagation/depth_64                                                                                                 24.53µ ±  8%                                                   25.93µ ± 11%        ~ (p=0.180 n=6)
+NestedIdentityTablePropagation/depth_256                                                                                                106.5µ ±  6%                                                   107.1µ ± 11%        ~ (p=0.699 n=6)
+SchemaLocationHintsRecordDuplicateAttributes/namespaces=1                                                                               266.6n ±  4%                                                   282.5n ±  1%   +5.93% (p=0.002 n=6)
+SchemaLocationHintsRecordDuplicateAttributes/namespaces=256                                                                             269.9n ±  3%                                                   281.7n ±  3%   +4.33% (p=0.004 n=6)
+IdentityDirectFieldPath/generic_match                                                                                                   12.28n ±  6%
+IdentityDirectFieldPath/direct_match                                                                                                    2.360n ± 15%
+IdentityDirectFieldPath/generic_miss                                                                                                    9.941n ±  7%
+IdentityDirectFieldPath/direct_miss                                                                                                     2.240n ±  4%
+IdentityDirectFieldPath/compiled_match                                                                                                                                                                 2.268n ±  5%
+IdentityDirectFieldPath/compiled_miss                                                                                                                                                                  2.182n ±  7%
+geomean                                                                                                                                 734.2n                                                         1.314µ         -1.51%               ¹
+¹ benchmark set differs from baseline; geomeans may not be comparable
+
+                                                            │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-validate-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-validate-current.txt │
+                                                            │                                          B/op                                          │                            B/op                             vs base                   │
+RecordIdentityValueIDREFS/refs_1                                                                                                        0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+RecordIdentityValueIDREFS/refs_10                                                                                                       0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+RecordIdentityValueIDREFS/refs_100                                                                                                      0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+RecordIdentityValueIDREFS/refs_1000                                                                                                     8.000 ± 0%                                                     8.000 ± 0%        ~ (p=1.000 n=6) ¹
+CheckXMLWellFormedNested/depth_10                                                                                                     80.32Ki ± 0%                                                   77.20Ki ± 0%   -3.88% (p=0.002 n=6)
+CheckXMLWellFormedNested/depth_100                                                                                                    136.3Ki ± 0%                                                   114.7Ki ± 0%  -15.86% (p=0.002 n=6)
+CheckXMLWellFormedNested/depth_1000                                                                                                   536.3Ki ± 0%                                                   390.7Ki ± 0%  -27.15% (p=0.002 n=6)
+NestedIdentityTablePropagation/depth_16                                                                                               15.57Ki ± 0%                                                   15.57Ki ± 0%        ~ (p=1.000 n=6) ¹
+NestedIdentityTablePropagation/depth_64                                                                                               64.88Ki ± 0%                                                   64.88Ki ± 0%        ~ (p=1.000 n=6) ¹
+NestedIdentityTablePropagation/depth_256                                                                                              261.8Ki ± 0%                                                   261.8Ki ± 0%        ~ (p=1.000 n=6) ¹
+SchemaLocationHintsRecordDuplicateAttributes/namespaces=1                                                                               0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+SchemaLocationHintsRecordDuplicateAttributes/namespaces=256                                                                             0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+IdentityDirectFieldPath/generic_match                                                                                                   0.000 ± 0%
+IdentityDirectFieldPath/direct_match                                                                                                    0.000 ± 0%
+IdentityDirectFieldPath/generic_miss                                                                                                    0.000 ± 0%
+IdentityDirectFieldPath/direct_miss                                                                                                     0.000 ± 0%
+IdentityDirectFieldPath/compiled_match                                                                                                                                                                 0.000 ± 0%
+IdentityDirectFieldPath/compiled_miss                                                                                                                                                                  0.000 ± 0%
+geomean                                                                                                                                            ²                                                                -4.31%               ³ ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+³ benchmark set differs from baseline; geomeans may not be comparable
+
+                                                            │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-validate-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-validate-current.txt │
+                                                            │                                       allocs/op                                        │                         allocs/op                           vs base                   │
+RecordIdentityValueIDREFS/refs_1                                                                                                        0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+RecordIdentityValueIDREFS/refs_10                                                                                                       0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+RecordIdentityValueIDREFS/refs_100                                                                                                      0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+RecordIdentityValueIDREFS/refs_1000                                                                                                     0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+CheckXMLWellFormedNested/depth_10                                                                                                       24.00 ± 0%                                                     17.00 ± 0%  -29.17% (p=0.002 n=6)
+CheckXMLWellFormedNested/depth_100                                                                                                      30.00 ± 0%                                                     23.00 ± 0%  -23.33% (p=0.002 n=6)
+CheckXMLWellFormedNested/depth_1000                                                                                                     36.00 ± 0%                                                     29.00 ± 0%  -19.44% (p=0.002 n=6)
+NestedIdentityTablePropagation/depth_16                                                                                                 70.00 ± 0%                                                     70.00 ± 0%        ~ (p=1.000 n=6) ¹
+NestedIdentityTablePropagation/depth_64                                                                                                 266.0 ± 0%                                                     266.0 ± 0%        ~ (p=1.000 n=6) ¹
+NestedIdentityTablePropagation/depth_256                                                                                               1.038k ± 0%                                                    1.038k ± 0%        ~ (p=1.000 n=6) ¹
+SchemaLocationHintsRecordDuplicateAttributes/namespaces=1                                                                               0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+SchemaLocationHintsRecordDuplicateAttributes/namespaces=256                                                                             0.000 ± 0%                                                     0.000 ± 0%        ~ (p=1.000 n=6) ¹
+IdentityDirectFieldPath/generic_match                                                                                                   0.000 ± 0%
+IdentityDirectFieldPath/direct_match                                                                                                    0.000 ± 0%
+IdentityDirectFieldPath/generic_miss                                                                                                    0.000 ± 0%
+IdentityDirectFieldPath/direct_miss                                                                                                     0.000 ± 0%
+IdentityDirectFieldPath/compiled_match                                                                                                                                                                 0.000 ± 0%
+IdentityDirectFieldPath/compiled_miss                                                                                                                                                                  0.000 ± 0%
+geomean                                                                                                                                            ²                                                                -6.66%               ³ ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+³ benchmark set differs from baseline; geomeans may not be comparable
+
+                                    │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-validate-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-validate-current.txt │
+                                    │                                          B/s                                           │                              B/s                                vs base               │
+CheckXMLWellFormedNested/depth_10                                                                              8.569Mi ±  4%                                                    9.041Mi ± 13%        ~ (p=0.065 n=6)
+CheckXMLWellFormedNested/depth_100                                                                             19.97Mi ± 14%                                                    22.92Mi ±  5%  +14.81% (p=0.002 n=6)
+CheckXMLWellFormedNested/depth_1000                                                                            26.67Mi ±  3%                                                    29.47Mi ± 13%        ~ (p=0.065 n=6)
+geomean                                                                                                        16.59Mi                                                          18.28Mi        +10.21%

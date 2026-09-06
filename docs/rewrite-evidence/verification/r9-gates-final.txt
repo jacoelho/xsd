@@ -1,0 +1,246 @@
+go test ./...
+ok  	github.com/jacoelho/xsd	(cached)
+ok  	github.com/jacoelho/xsd/cmd/wasmxsd	(cached)
+ok  	github.com/jacoelho/xsd/cmd/xmllint	(cached)
+ok  	github.com/jacoelho/xsd/cmd/xsdweb	(cached)
+ok  	github.com/jacoelho/xsd/internal/format	(cached)
+ok  	github.com/jacoelho/xsd/internal/lex	(cached)
+ok  	github.com/jacoelho/xsd/internal/schema	(cached)
+ok  	github.com/jacoelho/xsd/internal/source	(cached)
+ok  	github.com/jacoelho/xsd/internal/uriref	(cached)
+ok  	github.com/jacoelho/xsd/internal/validate	(cached)
+ok  	github.com/jacoelho/xsd/internal/value	(cached)
+ok  	github.com/jacoelho/xsd/internal/valuebench	(cached) [no tests to run]
+?   	github.com/jacoelho/xsd/internal/vocab	[no test files]
+ok  	github.com/jacoelho/xsd/internal/xmlstream	(cached)
+ok  	github.com/jacoelho/xsd/internal/xsdregex	(cached)
+ok  	github.com/jacoelho/xsd/tests	13.884s
+ok  	github.com/jacoelho/xsd/xsderrors	(cached)
+go test -race ./...
+ok  	github.com/jacoelho/xsd	2.385s
+ok  	github.com/jacoelho/xsd/cmd/wasmxsd	2.381s
+ok  	github.com/jacoelho/xsd/cmd/xmllint	2.358s
+ok  	github.com/jacoelho/xsd/cmd/xsdweb	(cached)
+ok  	github.com/jacoelho/xsd/internal/format	2.043s
+ok  	github.com/jacoelho/xsd/internal/lex	(cached)
+ok  	github.com/jacoelho/xsd/internal/schema	1.957s
+ok  	github.com/jacoelho/xsd/internal/source	(cached)
+ok  	github.com/jacoelho/xsd/internal/uriref	(cached)
+ok  	github.com/jacoelho/xsd/internal/validate	2.464s
+ok  	github.com/jacoelho/xsd/internal/value	(cached)
+ok  	github.com/jacoelho/xsd/internal/valuebench	(cached) [no tests to run]
+?   	github.com/jacoelho/xsd/internal/vocab	[no test files]
+ok  	github.com/jacoelho/xsd/internal/xmlstream	1.675s
+ok  	github.com/jacoelho/xsd/internal/xsdregex	(cached)
+ok  	github.com/jacoelho/xsd/tests	92.568s
+ok  	github.com/jacoelho/xsd/xsderrors	(cached)
+GOOS=js GOARCH=wasm go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/wasmxsd
+ok  	github.com/jacoelho/xsd/cmd/wasmxsd	0.365s
+node --test docs/js/*.test.js
+✔ validates the exact raw XML once before formatting (0.853083ms)
+✔ does not format invalid XML (0.093792ms)
+✔ reports an invalid validation response (0.126542ms)
+✔ rejects contradictory and malformed validation result states (0.175667ms)
+✔ uses successful formatted output (0.105292ms)
+✔ preserves valid input when formatting fails (0.140125ms)
+✔ starts from the worker-owned immutable limit catalog (1.68225ms)
+✔ rejects oversized UTF-8 input before posting it to a ready worker (0.495666ms)
+✔ rejects oversized queued input after limits arrive without cloning it (0.181625ms)
+✔ runs one request and retains only the latest pending request (0.313875ms)
+✔ cancel terminates active work, rejects queued work, and starts a fresh worker (0.191833ms)
+✔ cancel rejects an in-flight startup without leaving an orphaned promise (0.14925ms)
+✔ startup timeout rejects queued work and permits a fresh worker (5.030917ms)
+✔ timeout terminates a stuck worker and preserves the latest pending request (6.033125ms)
+✔ rejects a result that does not belong to the active request (0.182ms)
+✔ rejects readiness when queued dispatch fails (0.214167ms)
+✔ observer failures cannot unwind worker lifecycle methods (0.575958ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 66.740333
+npm --prefix docs/js run test:browser
+
+> test:browser
+> playwright test
+
+[WebServer] 2026/09/06 09:42:42 serving docs on 127.0.0.1:8765
+
+
+Running 5 tests using 1 worker
+
+(node:37504) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/5] browser/validator.spec.js:13:1 › validates in a worker and renders valid and invalid outcomes
+[2/5] browser/validator.spec.js:43:1 › a completed file read invalidates validation of the previous input
+[3/5] browser/validator.spec.js:84:1 › manual edits and Clear supersede pending file reads
+[4/5] browser/validator.spec.js:117:1 › oversized pasted input skips syntax and line rendering
+[5/5] browser/validator.spec.js:136:1 › exact-size newline input has bounded line rendering
+  5 passed (15.8s)
+go test -run '^$' -fuzz=FuzzReader -fuzztime=10s ./internal/xmlstream
+fuzz: elapsed: 0s, gathering baseline coverage: 0/440 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 440/440 completed, now fuzzing with 12 workers
+fuzz: elapsed: 3s, execs: 303802 (101232/sec), new interesting: 4 (total: 444)
+fuzz: elapsed: 6s, execs: 303802 (0/sec), new interesting: 4 (total: 444)
+fuzz: elapsed: 9s, execs: 303802 (0/sec), new interesting: 4 (total: 444)
+fuzz: elapsed: 11s, execs: 303802 (0/sec), new interesting: 4 (total: 444)
+PASS
+ok  	github.com/jacoelho/xsd/internal/xmlstream	11.460s
+go test -run '^$' -fuzz=FuzzSchemaParserLimits -fuzztime=10s ./internal/schema
+fuzz: elapsed: 0s, gathering baseline coverage: 0/362 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 362/362 completed, now fuzzing with 12 workers
+fuzz: elapsed: 3s, execs: 178140 (59340/sec), new interesting: 3 (total: 365)
+fuzz: elapsed: 6s, execs: 237386 (19749/sec), new interesting: 4 (total: 366)
+fuzz: elapsed: 9s, execs: 261503 (8039/sec), new interesting: 5 (total: 367)
+fuzz: elapsed: 11s, execs: 267624 (3046/sec), new interesting: 5 (total: 367)
+PASS
+ok  	github.com/jacoelho/xsd/internal/schema	11.583s
+go test -run '^$' -fuzz=FuzzValidateNeverPanics -fuzztime=10s ./internal/validate
+fuzz: elapsed: 0s, gathering baseline coverage: 0/405 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 405/405 completed, now fuzzing with 12 workers
+fuzz: elapsed: 3s, execs: 217156 (72337/sec), new interesting: 3 (total: 408)
+fuzz: elapsed: 6s, execs: 299392 (27414/sec), new interesting: 5 (total: 410)
+fuzz: elapsed: 9s, execs: 299392 (0/sec), new interesting: 5 (total: 410)
+fuzz: elapsed: 11s, execs: 299392 (0/sec), new interesting: 5 (total: 410)
+PASS
+ok  	github.com/jacoelho/xsd/internal/validate	11.506s
+go test -run '^$' -fuzz=FuzzXSDRegexSyntax -fuzztime=10s ./internal/xsdregex
+fuzz: elapsed: 0s, gathering baseline coverage: 0/413 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 413/413 completed, now fuzzing with 12 workers
+fuzz: elapsed: 3s, execs: 664034 (221298/sec), new interesting: 5 (total: 418)
+fuzz: elapsed: 6s, execs: 1413077 (249625/sec), new interesting: 7 (total: 420)
+fuzz: elapsed: 9s, execs: 2157084 (247942/sec), new interesting: 10 (total: 423)
+fuzz: elapsed: 10s, execs: 2415006 (234364/sec), new interesting: 10 (total: 423)
+PASS
+ok  	github.com/jacoelho/xsd/internal/xsdregex	10.575s
+go test -run '^$' -bench='Benchmark(CheckXMLWellFormedNested|Compile(AttributeGroupFanout|CountedChoiceDFA|DeepSimpleTypeChain|RepeatedNestedUnionMembers|SmallSchema|StreamingSource|SubstitutionGroups)|NamespaceAdmissionChurn|ParseXSDTime|ParserLazyWideAttributes|SessionValidate(DisjointIdentityPaths|ExpandedIdentityPaths|NamespaceAdmissionChurn|NestedIdentitySelectionPaths|NestedIdentitySelections|RepeatedSmallDocument|RetainedIdentityPaths|SharedExpandedIdentityPrefix|WideChoice)|SimplePatternVariableSmallBytes|Validate(Concurrent|DuplicateAttributes|IdentityConstraintsFields|IdentityConstraintsRows|ManyRecoverablePathErrors|SubstitutionGroup)|XML(DuplicateAttributes|MixedEscapedAttributeWriterOnly))$' -benchtime=100ms -benchmem ./...
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkCompileSmallSchema-12                             	    1219	     82659 ns/op	  198939 B/op	     569 allocs/op
+BenchmarkSessionValidateRepeatedSmallDocument-12           	     470	    254685 ns/op	  29.50 MB/s	      36 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_false-12         	   17258	      6803 ns/op	  16.46 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_true-12          	   10000	     11779 ns/op	  33.62 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_false-12         	    4527	     26255 ns/op	  17.06 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_true-12          	    2550	     46522 ns/op	  35.34 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_false-12        	    1153	    103215 ns/op	  17.36 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_true-12         	     646	    191172 ns/op	  36.34 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateWideChoice-12                                           	      43	   2539314 ns/op	  20.32 MB/s	     508 B/op	       6 allocs/op
+BenchmarkValidateSubstitutionGroup-12                                           	     183	    650060 ns/op	  16.55 MB/s	   76840 B/op	      37 allocs/op
+BenchmarkValidateManyRecoverablePathErrors-12                                   	    1317	     88139 ns/op	  13.76 MB/s	  110080 B/op	     627 allocs/op
+BenchmarkValidateDuplicateAttributes-12                                         	     392	    305843 ns/op	  35.31 MB/s	  586991 B/op	    1083 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_10-12                             	    3460	     34122 ns/op	   7.41 MB/s	   86512 B/op	     114 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_100-12                            	     474	    259754 ns/op	  10.33 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_1000-12                           	      45	   2463300 ns/op	  11.68 MB/s	 1034973 B/op	    4626 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_1-12                          	     739	    157216 ns/op	  10.83 MB/s	  119648 B/op	     363 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_3-12                          	     440	    244151 ns/op	  15.90 MB/s	  153921 B/op	     876 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_8-12                          	     256	    465957 ns/op	  20.03 MB/s	  208698 B/op	    1891 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_16-12                    	    4796	     24839 ns/op	  14.94 MB/s	    4123 B/op	      27 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_64-12                    	     812	    147836 ns/op	   9.98 MB/s	   17189 B/op	      79 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_256-12                   	      84	   1417384 ns/op	   4.27 MB/s	   72028 B/op	     279 allocs/op
+BenchmarkSessionValidateNestedIdentitySelectionPaths-12                         	     434	    274777 ns/op	 478.66 MB/s	  131376 B/op	       3 allocs/op
+BenchmarkSessionValidateRetainedIdentityPaths-12                                	      50	   2349461 ns/op	  68.03 MB/s	  656492 B/op	    4024 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/lexical-12                        	       7	  15365113 ns/op	  27.90 MB/s	  189843 B/op	     305 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded-12                       	       4	  27908938 ns/op	  28.29 MB/s	  179266 B/op	     347 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_namespaces-12   	       3	  37246722 ns/op	  41.17 MB/s	 3381898 B/op	   33012 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_control-12      	       3	  34904819 ns/op	  43.93 MB/s	  571717 B/op	   32455 allocs/op
+BenchmarkSessionValidateExpandedIdentityPaths-12                                	      61	   1836969 ns/op	  57.46 MB/s	  362120 B/op	    2526 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/identity-12                	       7	  16637393 ns/op	  18.74 MB/s	 4747048 B/op	   19781 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/control-12                 	       9	  12091315 ns/op	  25.79 MB/s	    9958 B/op	      26 allocs/op
+BenchmarkCompileCountedChoiceDFA/small-12                                       	    1400	     80181 ns/op	  165245 B/op	     661 allocs/op
+BenchmarkCompileCountedChoiceDFA/medium-12                                      	     933	    130872 ns/op	  231877 B/op	    1263 allocs/op
+BenchmarkCompileCountedChoiceDFA/large-12                                       	     546	    215596 ns/op	  331979 B/op	    2149 allocs/op
+BenchmarkCompileSubstitutionGroups-12                                           	     190	    593811 ns/op	  547113 B/op	    1547 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1-12                                  	    2334	     49113 ns/op	  133537 B/op	     338 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_10-12                                 	    1273	     96924 ns/op	  172217 B/op	     644 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_100-12                                	     208	    567504 ns/op	  611152 B/op	    3092 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1000-12                               	      20	   5762704 ns/op	 5125052 B/op	   27428 allocs/op
+BenchmarkValidateConcurrent-12                                                  	    2043	     79530 ns/op	  94.47 MB/s	   76095 B/op	      28 allocs/op
+BenchmarkCompileDeepSimpleTypeChain-12                                          	      33	   3381768 ns/op	 2369625 B/op	   12899 allocs/op
+BenchmarkCompileRepeatedNestedUnionMembers-12                                   	     121	    979945 ns/op	  810962 B/op	    5228 allocs/op
+BenchmarkCompileStreamingSource/4096B-12                                        	    1773	     68383 ns/op	  59.90 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/1048576B-12                                     	      16	   6660185 ns/op	 157.44 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/16777216B-12                                    	       1	 103119000 ns/op	 162.70 MB/s	  125776 B/op	     275 allocs/op
+PASS
+ok  	github.com/jacoelho/xsd	5.552s
+PASS
+ok  	github.com/jacoelho/xsd/cmd/wasmxsd	0.369s
+PASS
+ok  	github.com/jacoelho/xsd/cmd/xmllint	0.345s
+PASS
+ok  	github.com/jacoelho/xsd/cmd/xsdweb	0.326s
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/format
+cpu: Apple M2 Max
+BenchmarkXMLDuplicateAttributes-12                	    2406	     46358 ns/op	 210.00 MB/s	  135149 B/op	      74 allocs/op
+BenchmarkXMLMixedEscapedAttributeWriterOnly-12    	     147	    798957 ns/op	  97.42 MB/s	  238778 B/op	      37 allocs/op
+PASS
+ok  	github.com/jacoelho/xsd/internal/format	0.526s
+PASS
+ok  	github.com/jacoelho/xsd/internal/lex	0.328s
+PASS
+ok  	github.com/jacoelho/xsd/internal/schema	0.361s
+PASS
+ok  	github.com/jacoelho/xsd/internal/source	0.315s
+PASS
+ok  	github.com/jacoelho/xsd/internal/uriref	0.290s
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/validate
+cpu: Apple M2 Max
+BenchmarkCheckXMLWellFormedNested/depth_10-12         	   15789	      7656 ns/op	   9.14 MB/s	   79057 B/op	      17 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_100-12        	    4932	     23744 ns/op	  29.48 MB/s	  117456 B/op	      23 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_1000-12       	     699	    169849 ns/op	  41.21 MB/s	  400081 B/op	      29 allocs/op
+PASS
+ok  	github.com/jacoelho/xsd/internal/validate	0.693s
+PASS
+ok  	github.com/jacoelho/xsd/internal/value	0.339s
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/valuebench
+cpu: Apple M2 Max
+BenchmarkParseXSDTime-12    	 3965581	        29.36 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/jacoelho/xsd/internal/valuebench	0.438s
+?   	github.com/jacoelho/xsd/internal/vocab	[no test files]
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/xmlstream
+cpu: Apple M2 Max
+BenchmarkParserLazyWideAttributes-12    	     139	    860218 ns/op	 170.71 MB/s	      32 B/op	       1 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_16/churn_false/persistent_false-12         	  209752	       592.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_16/churn_false/persistent_true-12          	  193986	       608.8 ns/op	      24 B/op	       1 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_16/churn_true/persistent_false-12          	   72318	      1658 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_16/churn_true/persistent_true-12           	   63336	      1964 ns/op	    1336 B/op	       6 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_64/churn_false/persistent_false-12         	   51319	      2393 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_64/churn_false/persistent_true-12          	   50910	      2400 ns/op	      24 B/op	       1 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_64/churn_true/persistent_false-12          	   18144	      6933 ns/op	       1 B/op	       0 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_64/churn_true/persistent_true-12           	   14744	      8056 ns/op	    5817 B/op	       8 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_256/churn_false/persistent_false-12        	   10000	     10635 ns/op	       3 B/op	       0 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_256/churn_false/persistent_true-12         	   10000	     10490 ns/op	      27 B/op	       1 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_256/churn_true/persistent_false-12         	    3915	     27440 ns/op	      23 B/op	       0 allocs/op
+BenchmarkNamespaceAdmissionChurn/depth_256/churn_true/persistent_true-12          	    3650	     31779 ns/op	   24266 B/op	      10 allocs/op
+PASS
+ok  	github.com/jacoelho/xsd/internal/xmlstream	1.870s
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/xsdregex
+cpu: Apple M2 Max
+BenchmarkSimplePatternVariableSmallBytes-12    	  588776	       200.5 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/jacoelho/xsd/internal/xsdregex	0.472s
+PASS
+ok  	github.com/jacoelho/xsd/tests	0.363s
+PASS
+ok  	github.com/jacoelho/xsd/xsderrors	0.295s
+/Users/jacoelho/Documents/ChatGPT/xsd/bin/staticcheck ./...
+/Users/jacoelho/Documents/ChatGPT/xsd/bin/golangci-lint config verify
+/Users/jacoelho/Documents/ChatGPT/xsd/bin/golangci-lint run
+0 issues.

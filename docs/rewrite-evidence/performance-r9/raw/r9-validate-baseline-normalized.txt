@@ -1,0 +1,114 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/validate
+cpu: Apple M2 Max
+BenchmarkRecordIdentityValueIDREFS/refs_1             	 4659808	        52.71 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_10            	 1408779	       169.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_100           	  191857	      1242 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_1000          	   19051	     12560 ns/op	       8 B/op	       0 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_10            	   31687	      7611 ns/op	   9.20 MB/s	   82248 B/op	      24 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_100           	    7231	     33039 ns/op	  21.19 MB/s	  139592 B/op	      30 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_1000          	     934	    250732 ns/op	  27.92 MB/s	  549192 B/op	      36 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_16      	   37976	      6439 ns/op	   15944 B/op	      70 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_64      	    9726	     25686 ns/op	   66440 B/op	     266 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_256     	    2005	    104776 ns/op	  268104 B/op	    1038 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=1         	  930998	       256.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=256       	  931119	       261.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_match                              	97325258	         2.363 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_miss                               	87372013	         2.328 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/validate
+cpu: Apple M2 Max
+BenchmarkRecordIdentityValueIDREFS/refs_1             	 4353658	        52.64 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_10            	 1476754	       162.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_100           	  191680	      1235 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_1000          	   18026	     13213 ns/op	       8 B/op	       0 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_10            	   31166	      7759 ns/op	   9.02 MB/s	   82248 B/op	      24 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_100           	    7864	     33054 ns/op	  21.18 MB/s	  139592 B/op	      30 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_1000          	     949	    253437 ns/op	  27.62 MB/s	  549192 B/op	      36 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_16      	   36285	      6707 ns/op	   15944 B/op	      70 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_64      	   10000	     24138 ns/op	   66440 B/op	     266 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_256     	    2293	    100350 ns/op	  268104 B/op	    1038 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=1         	  940023	       265.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=256       	  926774	       270.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_match                              	100000000	         2.357 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_miss                               	100000000	         2.244 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/validate
+cpu: Apple M2 Max
+BenchmarkRecordIdentityValueIDREFS/refs_1             	 4695052	        50.76 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_10            	 1473682	       165.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_100           	  189511	      1305 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_1000          	   17875	     13537 ns/op	       8 B/op	       0 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_10            	   28033	      8128 ns/op	   8.61 MB/s	   82248 B/op	      24 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_100           	    7914	     33833 ns/op	  20.69 MB/s	  139592 B/op	      30 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_1000          	     970	    253078 ns/op	  27.66 MB/s	  549192 B/op	      36 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_16      	   40381	      6007 ns/op	   15944 B/op	      70 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_64      	   10000	     24109 ns/op	   66440 B/op	     266 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_256     	    2308	    106452 ns/op	  268104 B/op	    1038 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=1         	  904606	       270.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=256       	  796888	       272.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_match                              	100000000	         2.344 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_miss                               	100000000	         2.230 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/validate
+cpu: Apple M2 Max
+BenchmarkRecordIdentityValueIDREFS/refs_1             	 4744212	        50.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_10            	 1490223	       164.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_100           	  173106	      1500 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_1000          	   18574	     13107 ns/op	       8 B/op	       0 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_10            	   30372	      7801 ns/op	   8.97 MB/s	   82248 B/op	      24 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_100           	    7743	     32976 ns/op	  21.23 MB/s	  139592 B/op	      30 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_1000          	     950	    248136 ns/op	  28.21 MB/s	  549192 B/op	      36 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_16      	   38502	      6210 ns/op	   15944 B/op	      70 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_64      	    9207	     24537 ns/op	   66440 B/op	     266 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_256     	    2238	    109683 ns/op	  268104 B/op	    1038 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=1         	  925747	       268.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=256       	  902467	       269.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_match                              	100000000	         2.352 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_miss                               	100000000	         2.227 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/validate
+cpu: Apple M2 Max
+BenchmarkRecordIdentityValueIDREFS/refs_1             	 4751832	        52.03 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_10            	 1445839	       164.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_100           	  189127	      1289 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_1000          	   18564	     12984 ns/op	       8 B/op	       0 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_10            	   30098	      8008 ns/op	   8.74 MB/s	   82248 B/op	      24 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_100           	    6004	     35527 ns/op	  19.70 MB/s	  139592 B/op	      30 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_1000          	     968	    243582 ns/op	  28.74 MB/s	  549192 B/op	      36 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_16      	   39703	      6288 ns/op	   15944 B/op	      70 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_64      	    9232	     26497 ns/op	   66440 B/op	     266 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_256     	    2151	    111562 ns/op	  268104 B/op	    1038 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=1         	  898413	       261.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=256       	  925582	       269.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_match                              	100000000	         2.635 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_miss                               	100000000	         2.283 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/validate
+cpu: Apple M2 Max
+BenchmarkRecordIdentityValueIDREFS/refs_1             	 4751737	        50.87 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_10            	 1453382	       165.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_100           	  187203	      1302 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordIdentityValueIDREFS/refs_1000          	   18338	     13174 ns/op	       8 B/op	       0 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_10            	   30834	      7778 ns/op	   9.00 MB/s	   82248 B/op	      24 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_100           	    7072	     38771 ns/op	  18.05 MB/s	  139592 B/op	      30 allocs/op
+BenchmarkCheckXMLWellFormedNested/depth_1000          	     898	    249902 ns/op	  28.01 MB/s	  549192 B/op	      36 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_16      	   38120	      6122 ns/op	   15944 B/op	      70 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_64      	    9884	     24530 ns/op	   66440 B/op	     266 allocs/op
+BenchmarkNestedIdentityTablePropagation/depth_256     	    2385	    106463 ns/op	  268104 B/op	    1038 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=1         	  931089	       271.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchemaLocationHintsRecordDuplicateAttributes/namespaces=256       	  893784	       275.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_match                              	96422678	         2.722 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIdentityDirectFieldPath/compiled_miss                               	100000000	         2.235 ns/op	       0 B/op	       0 allocs/op
+PASS

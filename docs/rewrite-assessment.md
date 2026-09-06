@@ -8,19 +8,18 @@ alternatives. [`reference-comparison.md`](reference-comparison.md) records the
 reference implementations and the design consequences taken from them.
 
 “Implemented” below means that the current tree has one owning path and focused
-or seam-level evidence for the stated behavior. It does not mean that complete
-XSD 1.0 coverage or the final paired-performance gate is closed.
+or seam-level evidence for the stated behavior. The supported feature scope,
+final verification, and performance assessment are complete at production
+revision `34142ca1`; this does not claim complete XSD 1.0 coverage.
 
-Current evidence state: the full R4 verification gates and current corpus
-expectations pass. The baseline unsupported inventory was 799 entries; the
-current allowlist has 174, with 625 removed and 0 added. A targeted differential
-probe compared 16,830 builtin-type/lexical pairs; acceptance and unsupported
-classification differ only at one intended huge-duration acceptance delta, and
-identity equivalence partitions match for all 3,103 jointly accepted values. A
-warmed flat-stream retention probe measured approximately 188,288 live bytes at
-1 MiB, 16 MiB, and 128 MiB, plateauing across sizes, versus 238,944 baseline
-bytes; total allocations after warm-up were 800 B. The final paired-performance
-matrix remains open pending R5.
+The baseline unsupported inventory was 799 entries; the current allowlist has
+174, with 625 removed and none added. The targeted 16,830-pair datatype probe
+recorded one intended huge-duration acceptance improvement, no unsupported
+classification changes, and matching identity equivalence partitions for 3,103
+jointly accepted values. [rewrite-performance.md](rewrite-performance.md)
+records the final paired matrix, memory observations, allocation trade-offs,
+and measurement limits; [rewrite-evidence](rewrite-evidence/README.md) preserves
+the samples and passing verification log.
 
 ## 1. Builtin and named simple types — implemented
 
@@ -223,8 +222,8 @@ is an alias to this matcher; value owns only facet grouping and inheritance.
 
 The baseline 625 regex rows were individually adjudicated and the dependent
 937 instance runs had no mismatches, as recorded in `rewrite-plan.md`; this is
-corpus evidence for those rows, not a general performance claim. Final
-conformance and paired performance evidence remain open.
+corpus evidence for those rows. The final paired regex and public compilation
+results are recorded in [rewrite-performance.md](rewrite-performance.md).
 
 ## 11. Element and attribute declarations — implemented
 
@@ -357,7 +356,8 @@ path parsing, dispatch, atomic value batches, rollback, reset, and limits. The
 project cases [`runtime-identity-selector-descendant-mid-path-duplicate-key`](../tests/corpus/project/runtime-identity-selector-descendant-mid-path-duplicate-key)
 and [`runtime-keyref-missing-field-excluded`](../tests/corpus/project/runtime-keyref-missing-field-excluded)
 anchor descendant matching and missing-field handling. Identity-heavy paired
-allocation and throughput evidence remains part of the open performance gate.
+allocation and throughput results are included in the final public and validation
+benchmark groups in [rewrite-performance.md](rewrite-performance.md).
 
 ## 17. Schema composition and reuse — implemented
 
@@ -449,16 +449,15 @@ The strongest seam evidence is
 [`namespace-undeclared-root-can-be-assessed-by-xsi-type`](../tests/corpus/project/namespace-undeclared-root-can-be-assessed-by-xsi-type),
 [`namespace-xsi-type-validates-derived-content`](../tests/corpus/project/namespace-xsi-type-validates-derived-content),
 and [`runtime-qname-namespace-ordering-xsi-type`](../tests/corpus/project/runtime-qname-namespace-ordering-xsi-type)
-anchor XSI selection, derivation, and namespace ordering. The public behavior
-and complete differential corpus remain final-gate evidence.
+anchor XSI selection, derivation, and namespace ordering. The full public test
+suite and current corpus expectations pass at the final production revision.
 
 ## Completion boundary
 
-These decisions align the implementation with the ownership and data-flow
-contract in `ARCHITECTURE.md` and the reference consequences recorded in
-`reference-comparison.md`. The targeted differential and flat-stream retention
-probes are recorded above, but complete feature parity, broader retained-state
-evidence, and the final paired-performance matrix still require the evidence
-packet tracked by the unchecked rewrite-plan item. The `xs:redefine` decision
-remains an explicit unsupported-scope boundary until a bounded complete
-implementation and its corpus proof are available.
+The completed replacements align with `ARCHITECTURE.md` and the reference
+consequences in `reference-comparison.md`. All 20 agenda rows have an
+implementation or explicit scope decision. The final verification and performance
+assessment is recorded in [rewrite-performance.md](rewrite-performance.md),
+including measured trade-offs and the limits of the retention and differential
+probes. The `xs:redefine` decision remains an explicit unsupported-scope boundary;
+adding it requires a bounded complete implementation and its corpus proof.

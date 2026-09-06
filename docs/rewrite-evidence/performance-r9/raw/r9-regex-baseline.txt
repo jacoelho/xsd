@@ -1,0 +1,90 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/runtime
+cpu: Apple M2 Max
+BenchmarkSimplePatternVariableNoMatchString                 	    5416	     44928 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytes                  	    5097	     49281 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchStringScratch          	    5300	     45813 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytesScratch           	    5222	     45491 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallString                   	  752754	       336.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallBytes                    	  685696	       370.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteString        	    4281	     57439 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytes         	    3794	     67482 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteStringScratch 	    3778	     59472 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytesScratch  	    4011	     60074 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/runtime
+cpu: Apple M2 Max
+BenchmarkSimplePatternVariableNoMatchString                 	    5430	     43457 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytes                  	    5172	     47955 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchStringScratch          	    5373	     47415 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytesScratch           	    4446	     47494 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallString                   	  721107	       342.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallBytes                    	  636991	       375.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteString        	    4208	     57435 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytes         	    3764	     64330 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteStringScratch 	    4147	     57167 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytesScratch  	    3896	     61704 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/runtime
+cpu: Apple M2 Max
+BenchmarkSimplePatternVariableNoMatchString                 	    4574	     46384 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytes                  	    5095	     49171 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchStringScratch          	    5042	     48267 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytesScratch           	    5193	     48846 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallString                   	  729381	       331.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallBytes                    	  665972	       361.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteString        	    4412	     55836 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytes         	    3889	     64849 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteStringScratch 	    4204	     64225 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytesScratch  	    3871	     73397 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/runtime
+cpu: Apple M2 Max
+BenchmarkSimplePatternVariableNoMatchString                 	    5464	     43041 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytes                  	    5104	     48031 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchStringScratch          	    5121	     45861 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytesScratch           	    5084	     46046 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallString                   	  738954	       324.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallBytes                    	  672362	       353.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteString        	    4461	     54295 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytes         	    3936	     63211 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteStringScratch 	    4352	     56093 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytesScratch  	    3999	     59423 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/runtime
+cpu: Apple M2 Max
+BenchmarkSimplePatternVariableNoMatchString                 	    5535	     42755 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytes                  	    5257	     47826 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchStringScratch          	    5180	     44890 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytesScratch           	    5226	     44856 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallString                   	  724500	       341.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallBytes                    	  651745	       352.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteString        	    4329	     54952 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytes         	    3922	     63644 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteStringScratch 	    4178	     56679 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytesScratch  	    4069	     59382 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/runtime
+cpu: Apple M2 Max
+BenchmarkSimplePatternVariableNoMatchString                 	    5504	     43098 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytes                  	    5170	     47779 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchStringScratch          	    5227	     45159 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchBytesScratch           	    5278	     45081 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallString                   	  749346	       319.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableSmallBytes                    	  676778	       352.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteString        	    4449	     55093 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytes         	    3816	     63515 ns/op	   25856 B/op	       2 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteStringScratch 	    4214	     56438 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchMultibyteBytesScratch  	    4207	     58840 ns/op	       0 B/op	       0 allocs/op
+PASS

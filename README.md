@@ -331,6 +331,10 @@ Available flags:
 
 ## Large XML benchmark
 
+The [rewrite performance report](docs/rewrite-performance.md) compares the
+current streaming design with the pinned baseline across compilation, validation,
+formatting, and supporting workloads, including allocation and retention trade-offs.
+
 Build the repository's Go `xmllint` binary into `bin`:
 
 ```sh

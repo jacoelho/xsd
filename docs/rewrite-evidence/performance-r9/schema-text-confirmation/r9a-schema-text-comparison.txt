@@ -1,0 +1,28 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+                               │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9a-schema-text-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9a-schema-text-current.txt │
+                               │                                           sec/op                                           │                               sec/op                                vs base               │
+CompileSmallSchema                                                                                             194.42µ ± 3%                                                          98.46µ ± 3%  -49.36% (p=0.002 n=6)
+CompileSchemaText                                                                                               319.4µ ± 7%                                                          325.8µ ± 5%        ~ (p=0.132 n=6)
+CompileOpaqueAnnotationPayload                                                                                 1076.3µ ± 6%                                                          860.8µ ± 2%  -20.02% (p=0.002 n=6)
+geomean                                                                                                         405.8µ                                                               302.3µ       -25.52%
+
+                               │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9a-schema-text-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9a-schema-text-current.txt │
+                               │                                            B/op                                            │                                B/op                                 vs base               │
+CompileSmallSchema                                                                                             201.2Ki ± 0%                                                         194.1Ki ± 0%   -3.53% (p=0.002 n=6)
+CompileSchemaText                                                                                              1.088Mi ± 0%                                                         1.316Mi ± 0%  +20.98% (p=0.002 n=6)
+CompileOpaqueAnnotationPayload                                                                                 352.9Ki ± 0%                                                         252.1Ki ± 0%  -28.55% (p=0.002 n=6)
+geomean                                                                                                        429.2Ki                                                              404.0Ki        -5.88%
+
+                               │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9a-schema-text-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9a-schema-text-current.txt │
+                               │                                         allocs/op                                          │                             allocs/op                               vs base               │
+CompileSmallSchema                                                                                               625.0 ± 0%                                                           569.0 ± 0%   -8.96% (p=0.002 n=6)
+CompileSchemaText                                                                                                360.0 ± 0%                                                           282.0 ± 0%  -21.67% (p=0.002 n=6)
+CompileOpaqueAnnotationPayload                                                                                  2.874k ± 0%                                                          1.279k ± 0%  -55.50% (p=0.002 n=6)
+geomean                                                                                                          864.7                                                                589.9       -31.79%
+
+                  │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9a-schema-text-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9a-schema-text-current.txt │
+                  │                                            B/s                                             │                                   B/s                                     vs base         │
+CompileSchemaText                                                                                 783.4Mi ± 7%                                                               768.0Mi ± 5%  ~ (p=0.132 n=6)

@@ -1,13 +1,13 @@
 # Fresh streaming rewrite
 
-Status: replacement paths are integrated. The full R5 verification gates,
-current corpus expectations, targeted differential probes, and bounded
-flat-stream retention probe pass. The final paired performance matrix remains
-open pending R5; complete XSD 1.0 coverage remains scoped by the explicit
-unsupported allowlist. Baseline: `2764e554`. Branch:
+Status: complete for the supported feature scope. Replacement paths are
+integrated, the full verification contract passes, and the final R9 performance
+assessment is recorded in [docs/rewrite-performance.md](docs/rewrite-performance.md).
+The explicit unsupported allowlist continues to bound XSD 1.0 coverage.
+Baseline: `2764e554`. Production revision: `34142ca1`. Branch:
 `codex/fresh-rewrite`. `ARCHITECTURE.md` is the sole authority for current
 ownership, data flow, lifecycle, limits, and rejected alternatives; this plan
-records scope, evidence, and remaining work.
+records the completed scope and its evidence.
 
 ## Required result
 
@@ -98,8 +98,8 @@ when the existing rule is already correct.
 The current ownership and data-flow decisions for these improvements are
 recorded in `ARCHITECTURE.md`; the evidence index in
 [`docs/rewrite-assessment.md`](docs/rewrite-assessment.md) records the focused
-proof for each agenda row. Neither document closes the remaining performance
-gate.
+proof for each agenda row. The final measurements and trade-offs are recorded
+in [docs/rewrite-performance.md](docs/rewrite-performance.md).
 
 The remaining explicit coverage candidate is the 138-entry `xs:redefine`
 allowlist. The regex rows have been removed only after individual
@@ -136,11 +136,10 @@ Temporary use of unreplaced capabilities is migration state, not completion.
 Concrete package boundaries for later packets remain subject to implementation
 evidence and the independent design review.
 
-The checkmarks below mean that the replacement path is integrated and has the
-focused evidence named in the item. Full R4 verification gates, current corpus
-expectations, targeted differential probes, and bounded flat-stream retention
-evidence pass. The final paired-performance gate remains open pending R5; the
-explicit unsupported allowlist continues to define the selected feature
+The checkmarks below record completed replacements and their owning evidence.
+The full verification contract, corpus expectations, targeted differential
+probes, adversarial contract tests, and final performance assessment pass within
+the selected scope. The explicit unsupported allowlist defines the feature
 boundary.
 
 - [x] Import the actual current library, commit its complete state, and create a
@@ -162,38 +161,39 @@ boundary.
 - [x] Reimplement simple-type compilation and execution around one typed-value
   contract: all supported primitives, whitespace, list/union, restrictions,
   facets, regex semantics, fixed/default values, and identity equality. The
-  repository integration and targeted datatype differential probe pass, while
-  complete datatype/facet coverage remains subject to final evidence.
+  repository integration, current corpus, and targeted datatype differential
+  probe pass within the supported datatype/facet scope.
 - [x] Reimplement bounded content-model compilation/execution, including
   sequence/choice/all, counted occurrences, wildcard overlap, substitution
   groups, UPA, and restriction rules. Repository integration and current
-  corpus expectations pass; complete adversarial conformance and performance
-  evidence remain open.
+  corpus expectations pass, with adversarial contract tests and paired
+  performance evidence recorded in the final assessment.
 - [x] Reimplement the XML/namespace input boundary with one authoritative owner
   for XML 1.0 well-formedness, expanded names, borrowed data lifetime, positions,
   token/input limits, and cleanup. Focused package gates pass.
 - [x] Reimplement document validation and identity assessment with explicit
   element transitions, syntax-only recovery, diagnostic ordering, bounded
   retention, and reusable-session failure isolation. Repository consumer gates,
-  current corpus expectations, and targeted differential probes pass, while
-  complete adversarial conformance and bounded-retention evidence remain open.
+  current corpus expectations, targeted differential probes, adversarial limit
+  tests, and bounded flat-stream retention measurements pass.
 - [x] Migrate public entrypoints and CLI/WASM/browser consumers, replace any
   remaining tree-based formatting path, delete superseded production paths,
   and update canonical architecture and public documentation. Repository-wide
   verification, current corpus expectations, and targeted differential probes
-  pass; final paired-performance evidence remains open.
-- [ ] Complete the final paired performance matrix pending R5, then close any
-  remaining adversarial review findings and update the evidence packet.
+  pass, and the final paired performance assessment is recorded.
+- [x] Complete the final R9 paired performance matrix, resolve material
+  adversarial review findings, and publish the evidence packet and trade-offs.
 
 ## Verification gates
 
-### R4 verification state
+### Final verification state
 
-The full R4 verification contract passes: `make test`, `make race`,
-`make wasm-test`, `make web-test`, `make browser-test`, `make fuzz-smoke`,
+The full verification contract passes at production revision `34142ca1`:
+`make test`, `make race`, `make wasm-test`, `make web-test`, `make browser-test`, `make fuzz-smoke`,
 `make bench-smoke`, `make staticcheck`, `make lint`, formatting, and
-`git diff --check`. The current corpus expectations also pass. Raw gate output
-and supporting measurements are retained under `.lab/rewrite`.
+`git diff --check`. The current corpus expectations also pass. The gate log,
+paired samples, provenance, and retention observations are recorded in
+[docs/rewrite-evidence](docs/rewrite-evidence/README.md).
 
 The baseline manifest had 799 unsupported entries. The current
 `tests/unsupported.txt` has 174: 625 baseline entries were removed and 0 were
@@ -207,16 +207,18 @@ coordinates. Identity equivalence partitions match for all 3,103 jointly
 accepted values. This probe is evidence for those inputs, not the complete
 datatype or facet contract.
 
-A warmed flat-stream retention probe at 1 MiB, 16 MiB, and 128 MiB measured
-approximately 188,288 live bytes for the current tree, with a plateau across
-input sizes, versus 238,944 bytes for the baseline. Total allocations after
-warm-up were 800 B. This bounds the tested flat-stream shape; it does not close
-the complete retained-state or performance gate.
+The final warmed flat-stream retention probe measured 188,104 post-GC heap
+bytes at both 16 MiB and 128 MiB, versus 238,872 for the baseline; total
+allocation after warm-up was 656 B. Sampled peak heap and whole-process RSS are
+recorded alongside those results. These observations cover the tested flat
+stream; depth, scalar, namespace, source, and identity bounds are additionally
+exercised by their owning adversarial tests.
 
-The final paired performance matrix remains open pending R5. Do not mark the
-rewrite complete until it reports matching workloads against baseline
-`2764e554`, with throughput/time, B/op, allocs/op, and peak/live-retention
-evidence where required.
+The final matrix compares matching workloads against baseline `2764e554`, with
+six alternating samples per revision and workload. The final assessment reports
+time, throughput, B/op, allocs/op, retained heap, measurement limits, and the
+remaining small microbenchmark and compile-allocation trade-offs. It does not
+claim that every individual metric improved.
 
 The baseline at `/Users/jacoelho/Documents/ChatGPT/xsd-baseline` is a detached
 worktree of `2764e554`. Compare equivalent tests and benchmarks against that

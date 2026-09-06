@@ -1,0 +1,66 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/valuebench
+cpu: Apple M2 Max
+BenchmarkParseDecimal                             	 6189787	        39.05 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDate                             	 5628868	        42.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDateTime                         	 5402119	        44.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDTime                             	 9455410	        25.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchGroupScratch 	    1743	    140550 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedRawUnionLateMember              	 3720930	        64.02 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/valuebench
+cpu: Apple M2 Max
+BenchmarkParseDecimal                             	 6154732	        39.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDate                             	 5563803	        43.10 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDateTime                         	 5352298	        45.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDTime                             	 9376540	        25.39 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchGroupScratch 	    1593	    149603 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedRawUnionLateMember              	 3580342	        67.41 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/valuebench
+cpu: Apple M2 Max
+BenchmarkParseDecimal                             	 5954644	        41.90 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDate                             	 5129725	        45.80 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDateTime                         	 4968511	        49.39 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDTime                             	 9207837	        27.31 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchGroupScratch 	    1540	    152376 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedRawUnionLateMember              	 3608392	        65.27 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/valuebench
+cpu: Apple M2 Max
+BenchmarkParseDecimal                             	 6194686	        39.48 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDate                             	 5534044	        44.47 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDateTime                         	 5114071	        47.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDTime                             	 9194154	        26.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchGroupScratch 	    1600	    146637 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedRawUnionLateMember              	 3511105	        69.05 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/valuebench
+cpu: Apple M2 Max
+BenchmarkParseDecimal                             	 5740104	        41.27 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDate                             	 5210938	        46.01 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDateTime                         	 5000347	        47.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDTime                             	 9518316	        25.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchGroupScratch 	    1699	    141934 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedRawUnionLateMember              	 3756430	        67.21 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/valuebench
+cpu: Apple M2 Max
+BenchmarkParseDecimal                             	 5863932	        40.83 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDate                             	 5229360	        45.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDDateTime                         	 5202852	        47.13 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseXSDTime                             	 9085186	        26.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSimplePatternVariableNoMatchGroupScratch 	    1662	    141328 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPublishedRawUnionLateMember              	 3750560	        63.97 ns/op	       0 B/op	       0 allocs/op
+PASS

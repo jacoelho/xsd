@@ -1,0 +1,222 @@
+{
+  "concurrent": {
+    "paired_rows": 2,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -1.463252748763011,
+        "nonzero_pairs": 2,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": -0.9344838734990923,
+        "nonzero_pairs": 2,
+        "zero_pairs_excluded": 0
+      },
+      "allocs_op": {
+        "geomean_change_percent": -26.67227057059729,
+        "nonzero_pairs": 2,
+        "zero_pairs_excluded": 0
+      }
+    }
+  },
+  "duration": {
+    "paired_rows": 2,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -28.80234453033309,
+        "nonzero_pairs": 2,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": null,
+        "nonzero_pairs": 0,
+        "zero_pairs_excluded": 2
+      },
+      "allocs_op": {
+        "geomean_change_percent": null,
+        "nonzero_pairs": 0,
+        "zero_pairs_excluded": 2
+      }
+    }
+  },
+  "format": {
+    "paired_rows": 4,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -26.052652761134333,
+        "nonzero_pairs": 4,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": -54.661527686240994,
+        "nonzero_pairs": 4,
+        "zero_pairs_excluded": 0
+      },
+      "allocs_op": {
+        "geomean_change_percent": -85.37533759073398,
+        "nonzero_pairs": 4,
+        "zero_pairs_excluded": 0
+      }
+    }
+  },
+  "lex": {
+    "paired_rows": 6,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": 1.0060358968333682,
+        "nonzero_pairs": 6,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 4,
+        "zero_pairs_excluded": 2
+      },
+      "allocs_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 4,
+        "zero_pairs_excluded": 2
+      }
+    }
+  },
+  "namespace": {
+    "paired_rows": 12,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -17.747273248686334,
+        "nonzero_pairs": 12,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": -19.009795565857456,
+        "nonzero_pairs": 8,
+        "zero_pairs_excluded": 4
+      },
+      "allocs_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 6,
+        "zero_pairs_excluded": 6
+      }
+    }
+  },
+  "public": {
+    "paired_rows": 76,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -25.82294401468488,
+        "nonzero_pairs": 76,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": -28.377094414534497,
+        "nonzero_pairs": 72,
+        "zero_pairs_excluded": 4
+      },
+      "allocs_op": {
+        "geomean_change_percent": -15.962022235695894,
+        "nonzero_pairs": 72,
+        "zero_pairs_excluded": 4
+      }
+    }
+  },
+  "regex": {
+    "paired_rows": 10,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -42.27037127678223,
+        "nonzero_pairs": 10,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 4,
+        "zero_pairs_excluded": 6
+      },
+      "allocs_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 4,
+        "zero_pairs_excluded": 6
+      }
+    }
+  },
+  "stream": {
+    "paired_rows": 7,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -2.1682867596150457,
+        "nonzero_pairs": 7,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 7,
+        "zero_pairs_excluded": 0
+      },
+      "allocs_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 7,
+        "zero_pairs_excluded": 0
+      }
+    }
+  },
+  "uri": {
+    "paired_rows": 12,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -0.15698219272769487,
+        "nonzero_pairs": 12,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 1,
+        "zero_pairs_excluded": 11
+      },
+      "allocs_op": {
+        "geomean_change_percent": 0.0,
+        "nonzero_pairs": 1,
+        "zero_pairs_excluded": 11
+      }
+    }
+  },
+  "validate": {
+    "paired_rows": 14,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -1.7622571352862604,
+        "nonzero_pairs": 14,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": -7.278965102674051,
+        "nonzero_pairs": 7,
+        "zero_pairs_excluded": 7
+      },
+      "allocs_op": {
+        "geomean_change_percent": -12.872224429910972,
+        "nonzero_pairs": 6,
+        "zero_pairs_excluded": 8
+      }
+    }
+  },
+  "value": {
+    "paired_rows": 5,
+    "metrics": {
+      "ns_op": {
+        "geomean_change_percent": -14.922578968331223,
+        "nonzero_pairs": 5,
+        "zero_pairs_excluded": 0
+      },
+      "bytes_op": {
+        "geomean_change_percent": null,
+        "nonzero_pairs": 0,
+        "zero_pairs_excluded": 5
+      },
+      "allocs_op": {
+        "geomean_change_percent": null,
+        "nonzero_pairs": 0,
+        "zero_pairs_excluded": 5
+      }
+    }
+  }
+}

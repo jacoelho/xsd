@@ -1,0 +1,34 @@
+{
+  "group": "r9a-schema-text",
+  "benchmark": "^Benchmark(CompileSchemaText|CompileOpaqueAnnotationPayload|CompileSmallSchema)$",
+  "baseline_binary": ".lab/rewrite/baseline-public-r4.test",
+  "current_binary": ".lab/rewrite/current-public-r9.test",
+  "baseline_cwd": "/Users/jacoelho/Documents/ChatGPT/xsd-baseline",
+  "current_cwd": "/Users/jacoelho/Documents/ChatGPT/xsd",
+  "rounds": 6,
+  "benchtime": "1s",
+  "cpu": "1",
+  "ignore_package": false,
+  "timestamp": "2026-09-06T08:52:46Z",
+  "binary_sha256": {
+    "baseline": "05902e67c8277c8c284d4111d649d94a478a4f1a5a5192dc213994e0def49a24",
+    "current": "11265cea24d7b333cb70e5ed6c5f10d0bdaaa8a3618f38eaa10594c408dfe817"
+  },
+  "go_version": "go version go1.27.0 darwin/arm64",
+  "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+  "source_commits": {
+    "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+    "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+  },
+  "source_status": {
+    "baseline": [
+      " M internal/validate/export_test.go",
+      "?? all_content_test.go",
+      "?? internal/runtime/rewrite_duration_bench_test.go",
+      "?? streaming_source_test.go",
+      "?? union_benchmark_test.go"
+    ],
+    "current": []
+  },
+  "observed_test_processes": []
+}

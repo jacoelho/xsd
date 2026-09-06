@@ -1,0 +1,102 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/uriref
+cpu: Apple M2 Max
+BenchmarkReference/Check/schema.xsd         	 1549368	       154.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/schema.xsd         	 1388782	       172.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/https://example.com/schema.xsd         	  641360	       396.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/https://example.com/schema.xsd         	  579400	       414.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/path/schema%20name.xsd                 	  716016	       298.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/path/schema%20name.xsd                 	  729177	       322.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a^b                                    	 3839103	        64.36 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a^b                                    	 2995348	        79.51 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a/☃                                    	 4348389	        55.64 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a/☃                                    	 3428337	        71.12 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/ASCII                                	73342168	         3.422 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/extended                             	 7976822	        30.57 ns/op	       8 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/uriref
+cpu: Apple M2 Max
+BenchmarkReference/Check/schema.xsd         	 1488969	       161.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/schema.xsd         	 1356253	       176.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/https://example.com/schema.xsd         	  612406	       393.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/https://example.com/schema.xsd         	  599842	       393.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/path/schema%20name.xsd                 	  852714	       277.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/path/schema%20name.xsd                 	  804142	       303.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a^b                                    	 3855841	        61.84 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a^b                                    	 3017257	        79.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a/☃                                    	 4063692	        60.54 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a/☃                                    	 3206229	        76.01 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/ASCII                                	66696772	         3.333 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/extended                             	 8136696	        29.54 ns/op	       8 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/uriref
+cpu: Apple M2 Max
+BenchmarkReference/Check/schema.xsd         	 1472138	       162.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/schema.xsd         	 1308584	       182.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/https://example.com/schema.xsd         	  593991	       401.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/https://example.com/schema.xsd         	  512901	       409.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/path/schema%20name.xsd                 	  860792	       280.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/path/schema%20name.xsd                 	  828859	       300.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a^b                                    	 3806733	        61.85 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a^b                                    	 2992627	        79.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a/☃                                    	 4053844	        60.20 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a/☃                                    	 3186528	        76.52 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/ASCII                                	67352653	         3.417 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/extended                             	 8084198	        29.40 ns/op	       8 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/uriref
+cpu: Apple M2 Max
+BenchmarkReference/Check/schema.xsd         	 1549708	       155.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/schema.xsd         	 1343715	       179.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/https://example.com/schema.xsd         	  633418	       393.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/https://example.com/schema.xsd         	  535882	       417.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/path/schema%20name.xsd                 	  848281	       296.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/path/schema%20name.xsd                 	  785307	       310.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a^b                                    	 4082858	        59.02 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a^b                                    	 3138411	        76.58 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a/☃                                    	 4256780	        58.44 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a/☃                                    	 3174697	        76.07 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/ASCII                                	72267388	         3.423 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/extended                             	 7793704	        31.26 ns/op	       8 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/uriref
+cpu: Apple M2 Max
+BenchmarkReference/Check/schema.xsd         	 1555270	       154.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/schema.xsd         	 1368907	       177.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/https://example.com/schema.xsd         	  632757	       394.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/https://example.com/schema.xsd         	  550158	       425.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/path/schema%20name.xsd                 	  712491	       302.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/path/schema%20name.xsd                 	  676596	       331.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a^b                                    	 3692032	        64.14 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a^b                                    	 2996224	        76.24 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a/☃                                    	 4327364	        55.44 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a/☃                                    	 3380186	        71.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/ASCII                                	72337264	         3.421 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/extended                             	 7941934	        31.93 ns/op	       8 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/uriref
+cpu: Apple M2 Max
+BenchmarkReference/Check/schema.xsd         	 1453780	       167.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/schema.xsd         	 1301054	       186.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/https://example.com/schema.xsd         	  608769	       413.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/https://example.com/schema.xsd         	  525120	       425.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/path/schema%20name.xsd                 	  824883	       280.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/path/schema%20name.xsd                 	  806191	       300.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a^b                                    	 4046127	        60.26 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a^b                                    	 3025630	        79.02 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Check/a/☃                                    	 4089752	        60.12 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Parse/a/☃                                    	 3083600	        76.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/ASCII                                	71865237	         3.488 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReference/Escaped/extended                             	 7558012	        31.04 ns/op	       8 B/op	       1 allocs/op
+PASS

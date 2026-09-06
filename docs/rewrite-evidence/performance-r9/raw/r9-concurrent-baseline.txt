@@ -1,0 +1,72 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent 	     896	    282733 ns/op	  26.57 MB/s	   76377 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent-8   	    3922	     63930 ns/op	 117.52 MB/s	   76820 B/op	      38 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent 	     892	    291644 ns/op	  25.76 MB/s	   76206 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent-8   	    3639	     69587 ns/op	 107.97 MB/s	   76820 B/op	      38 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent 	     925	    279436 ns/op	  26.89 MB/s	   76227 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent-8   	    4044	     61987 ns/op	 121.20 MB/s	   76818 B/op	      38 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent 	     834	    295465 ns/op	  25.43 MB/s	   76164 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent-8   	    3519	     73187 ns/op	 102.65 MB/s	   76820 B/op	      38 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent 	     866	    292394 ns/op	  25.69 MB/s	   76188 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent-8   	    3475	     76619 ns/op	  98.06 MB/s	   76820 B/op	      38 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent 	     895	    290984 ns/op	  25.82 MB/s	   76122 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkValidateConcurrent-8   	    3504	     72229 ns/op	 104.02 MB/s	   76820 B/op	      38 allocs/op
+PASS

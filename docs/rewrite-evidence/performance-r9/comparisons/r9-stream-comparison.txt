@@ -1,0 +1,48 @@
+goos: darwin
+goarch: arm64
+cpu: Apple M2 Max
+                                     │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-stream-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-stream-current.txt │
+                                     │                                        sec/op                                        │                            sec/op                              vs base              │
+ParserReferences/first                                                                                          152.4µ ± 3%                                                     149.9µ ± 3%       ~ (p=0.310 n=6)
+ParserReferences/interior                                                                                       163.3µ ± 6%                                                     158.9µ ± 4%       ~ (p=0.394 n=6)
+ParserLazyWideAttributes                                                                                        941.6µ ± 1%                                                     917.1µ ± 2%  -2.60% (p=0.004 n=6)
+ParserLazyWideAttributesMaterialized                                                                            1.301m ± 4%                                                     1.255m ± 3%  -3.56% (p=0.041 n=6)
+ParserCharacterData                                                                                             16.97µ ± 2%                                                     17.32µ ± 5%       ~ (p=0.310 n=6)
+ParserMixedSmallTokens                                                                                          904.2µ ± 5%                                                     813.9µ ± 3%  -9.98% (p=0.002 n=6)
+ParserCDATABufferBoundary                                                                                       572.4µ ± 3%                                                     594.1µ ± 3%  +3.80% (p=0.002 n=6)
+geomean                                                                                                         308.8µ                                                          302.1µ       -2.17%
+
+                                     │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-stream-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-stream-current.txt │
+                                     │                                         B/s                                          │                             B/s                               vs base               │
+ParserReferences/first                                                                                         153.9Mi ± 3%                                                   156.4Mi ± 3%        ~ (p=0.310 n=6)
+ParserReferences/interior                                                                                      167.5Mi ± 6%                                                   172.1Mi ± 4%        ~ (p=0.394 n=6)
+ParserLazyWideAttributes                                                                                       148.7Mi ± 1%                                                   152.7Mi ± 2%   +2.66% (p=0.004 n=6)
+ParserLazyWideAttributesMaterialized                                                                           107.6Mi ± 4%                                                   111.6Mi ± 3%   +3.69% (p=0.041 n=6)
+ParserCharacterData                                                                                            3.597Gi ± 2%                                                   3.525Gi ± 5%        ~ (p=0.310 n=6)
+ParserMixedSmallTokens                                                                                         59.10Mi ± 5%                                                   65.64Mi ± 3%  +11.05% (p=0.002 n=6)
+ParserCDATABufferBoundary                                                                                      109.2Mi ± 3%                                                   105.2Mi ± 3%   -3.66% (p=0.002 n=6)
+geomean                                                                                                        192.5Mi                                                        196.8Mi        +2.21%
+
+                                     │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-stream-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-stream-current.txt │
+                                     │                                         B/op                                         │                            B/op                              vs base                │
+ParserReferences/first                                                                                           32.00 ± 0%                                                    32.00 ± 0%       ~ (p=1.000 n=6) ¹
+ParserReferences/interior                                                                                        32.00 ± 0%                                                    32.00 ± 0%       ~ (p=1.000 n=6) ¹
+ParserLazyWideAttributes                                                                                         32.00 ± 0%                                                    32.00 ± 0%       ~ (p=1.000 n=6) ¹
+ParserLazyWideAttributesMaterialized                                                                           120.0Ki ± 0%                                                  120.0Ki ± 0%       ~ (p=1.000 n=6) ¹
+ParserCharacterData                                                                                              32.00 ± 0%                                                    32.00 ± 0%       ~ (p=1.000 n=6) ¹
+ParserMixedSmallTokens                                                                                           32.00 ± 0%                                                    32.00 ± 0%       ~ (p=1.000 n=6) ¹
+ParserCDATABufferBoundary                                                                                        32.00 ± 0%                                                    32.00 ± 0%       ~ (p=1.000 n=6) ¹
+geomean                                                                                                          104.0                                                         104.0       +0.00%
+¹ all samples are equal
+
+                                     │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-stream-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-stream-current.txt │
+                                     │                                      allocs/op                                       │                          allocs/op                           vs base                │
+ParserReferences/first                                                                                           1.000 ± 0%                                                    1.000 ± 0%       ~ (p=1.000 n=6) ¹
+ParserReferences/interior                                                                                        1.000 ± 0%                                                    1.000 ± 0%       ~ (p=1.000 n=6) ¹
+ParserLazyWideAttributes                                                                                         1.000 ± 0%                                                    1.000 ± 0%       ~ (p=1.000 n=6) ¹
+ParserLazyWideAttributesMaterialized                                                                            7.681k ± 0%                                                   7.681k ± 0%       ~ (p=1.000 n=6) ¹
+ParserCharacterData                                                                                              1.000 ± 0%                                                    1.000 ± 0%       ~ (p=1.000 n=6) ¹
+ParserMixedSmallTokens                                                                                           1.000 ± 0%                                                    1.000 ± 0%       ~ (p=1.000 n=6) ¹
+ParserCDATABufferBoundary                                                                                        1.000 ± 0%                                                    1.000 ± 0%       ~ (p=1.000 n=6) ¹
+geomean                                                                                                          3.590                                                         3.590       +0.00%
+¹ all samples are equal

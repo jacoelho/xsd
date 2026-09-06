@@ -1,0 +1,38 @@
+goos: darwin
+goarch: arm64
+cpu: Apple M2 Max
+                                         │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-value-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-value-current.txt │
+                                         │                                       sec/op                                        │                           sec/op                             vs base               │
+SimplePatternVariableNoMatchGroupScratch                                                                          320.9µ ±  5%                                                   144.3µ ± 6%  -55.04% (p=0.002 n=6)
+ParseDecimal                                                                                                      40.30n ±  4%                                                   40.16n ± 4%        ~ (p=0.818 n=6)
+ParseXSDDate                                                                                                      44.58n ±  3%                                                   44.95n ± 5%        ~ (p=1.000 n=6)
+ParseXSDDateTime                                                                                                  46.18n ± 24%                                                   47.16n ± 5%        ~ (p=0.818 n=6)
+ParseXSDTime                                                                                                      26.93n ±  9%                                                   26.03n ± 5%        ~ (p=0.699 n=6)
+PublishedRawUnionLateMember                                                                                       40.52n ±  3%                                                   66.24n ± 4%  +63.50% (p=0.002 n=6)
+geomean                                                                                                           175.3n                                                         166.3n        -5.14%
+
+                                         │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-value-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-value-current.txt │
+                                         │                                        B/op                                         │                          B/op                           vs base                    │
+SimplePatternVariableNoMatchGroupScratch                                                                          16.00 ± 0%                                                  0.00 ± 0%  -100.00% (p=0.002 n=6)
+ParseDecimal                                                                                                      0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+ParseXSDDate                                                                                                      0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+ParseXSDDateTime                                                                                                  0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+ParseXSDTime                                                                                                      0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+PublishedRawUnionLateMember                                                                                       0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+geomean                                                                                                                      ²                                                           ?                      ² ³
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+³ ratios must be >0 to compute geomean
+
+                                         │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-value-baseline.txt │ /Users/jacoelho/Documents/ChatGPT/xsd/.lab/rewrite/final-perf/r9-value-current.txt │
+                                         │                                      allocs/op                                      │                       allocs/op                         vs base                    │
+SimplePatternVariableNoMatchGroupScratch                                                                          1.000 ± 0%                                                 0.000 ± 0%  -100.00% (p=0.002 n=6)
+ParseDecimal                                                                                                      0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+ParseXSDDate                                                                                                      0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+ParseXSDDateTime                                                                                                  0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+ParseXSDTime                                                                                                      0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+PublishedRawUnionLateMember                                                                                       0.000 ± 0%                                                 0.000 ± 0%         ~ (p=1.000 n=6) ¹
+geomean                                                                                                                      ²                                                           ?                      ² ³
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+³ ratios must be >0 to compute geomean

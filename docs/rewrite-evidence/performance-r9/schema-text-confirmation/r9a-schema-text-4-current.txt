@@ -1,0 +1,8 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkCompileSmallSchema             	   12260	     98364 ns/op	  198809 B/op	     569 allocs/op
+BenchmarkCompileSchemaText              	    3655	    324977 ns/op	 807.28 MB/s	 1379592 B/op	     282 allocs/op
+BenchmarkCompileOpaqueAnnotationPayload 	    1376	    868835 ns/op	  258192 B/op	    1279 allocs/op
+PASS

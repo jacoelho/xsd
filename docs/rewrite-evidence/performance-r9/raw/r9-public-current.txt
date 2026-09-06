@@ -1,0 +1,486 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkSessionValidateAllContent/4                 	   93980	      2615 ns/op	  12.62 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/16                	   26529	      9096 ns/op	  10.88 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/64                	    6970	     34160 ns/op	  11.33 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/256               	    1844	    128338 ns/op	  13.21 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/1024              	     433	    525266 ns/op	  13.51 MB/s	    1960 B/op	     513 allocs/op
+BenchmarkCompileSmallSchema                          	    2313	    100209 ns/op	  198809 B/op	     569 allocs/op
+BenchmarkCompileAndFirstSession                      	    2263	    110427 ns/op	  272549 B/op	     571 allocs/op
+BenchmarkValidateRepeatedSmallDocument               	     757	    317308 ns/op	  23.68 MB/s	   76080 B/op	      28 allocs/op
+BenchmarkSessionValidateRepeatedSmallDocument        	     906	    273679 ns/op	  27.45 MB/s	      34 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_false         	   34149	      7103 ns/op	  15.77 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_true          	   18614	     12526 ns/op	  31.61 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_false         	    8805	     26556 ns/op	  16.87 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_true          	    5037	     47219 ns/op	  34.82 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_false        	    2338	    107052 ns/op	  16.74 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_true         	    1270	    195686 ns/op	  35.51 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedXSIType                                      	    2818	     86703 ns/op	  32.14 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateIDAttributeStart                                     	    2394	    105124 ns/op	  16.20 MB/s	     840 B/op	     101 allocs/op
+BenchmarkSessionValidateSimpleIDEnd                                          	    2984	     85241 ns/op	  15.29 MB/s	     832 B/op	     101 allocs/op
+BenchmarkSessionValidateRepeatedQNameValues                                  	    3300	     72873 ns/op	  29.27 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedLaxWildcard                                  	  187540	      1320 ns/op	  34.09 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateStringLengthFacet                                    	   38119	      6314 ns/op	 326.43 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateWideChoice                                           	     100	   2397007 ns/op	  21.53 MB/s	     236 B/op	       3 allocs/op
+BenchmarkValidateSubstitutionGroup                                           	     355	    784129 ns/op	  13.72 MB/s	   76840 B/op	      37 allocs/op
+BenchmarkSessionValidateDateDecimalRows                                      	    1317	    173802 ns/op	  52.38 MB/s	      33 B/op	       1 allocs/op
+BenchmarkValidateSmallInvalidDocument                                        	   21748	     11014 ns/op	   7.44 MB/s	   77096 B/op	      48 allocs/op
+BenchmarkValidateManyRecoverablePathErrors                                   	    2773	     90734 ns/op	  13.37 MB/s	  110080 B/op	     627 allocs/op
+BenchmarkValidateDeeplyNestedDocument                                        	    2355	    102031 ns/op	  14.29 MB/s	  159456 B/op	     174 allocs/op
+BenchmarkSessionValidateDeepThenShallow                                      	  337868	       707.0 ns/op	   9.90 MB/s	      32 B/op	       1 allocs/op
+BenchmarkValidateDuplicateAttributes                                         	     681	    358853 ns/op	  30.09 MB/s	  586985 B/op	    1083 allocs/op
+BenchmarkCompileDuplicateSchemaSources                                       	     915	    248760 ns/op	2114.16 MB/s	  221832 B/op	     444 allocs/op
+BenchmarkCompileIncludeGraph                                                 	     244	    921026 ns/op	  17.05 MB/s	  767408 B/op	    3623 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_1                              	    3288	     65185 ns/op	   6.11 MB/s	  132584 B/op	     340 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_8                              	    1840	    130826 ns/op	  10.48 MB/s	  197880 B/op	     696 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_32                             	     676	    362682 ns/op	  13.04 MB/s	  427257 B/op	    1703 allocs/op
+BenchmarkCompileSchemaText                                                   	     644	    323898 ns/op	 809.97 MB/s	 1379592 B/op	     282 allocs/op
+BenchmarkValidateIdentityConstraints                                         	     849	    298056 ns/op	   9.00 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_10                             	    6067	     38752 ns/op	   6.53 MB/s	   86512 B/op	     114 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_100                            	     872	    287252 ns/op	   9.34 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_1000                           	     100	   2909665 ns/op	   9.89 MB/s	 1034969 B/op	    4626 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_10                      	   10000	     25261 ns/op	  10.02 MB/s	    4168 B/op	      42 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_100                     	     997	    243614 ns/op	  11.01 MB/s	   37711 B/op	     321 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_1000                    	     100	   2531524 ns/op	  11.37 MB/s	  445182 B/op	    4016 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_1                          	    1416	    166858 ns/op	  10.21 MB/s	  119648 B/op	     363 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_3                          	     823	    291539 ns/op	  13.32 MB/s	  153920 B/op	     876 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_8                          	     403	    598334 ns/op	  15.60 MB/s	  208696 B/op	    1891 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_16                    	    8122	     29924 ns/op	  12.40 MB/s	    4121 B/op	      27 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_64                    	    1486	    173690 ns/op	   8.49 MB/s	   17154 B/op	      79 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_256                   	     159	   1489570 ns/op	   4.06 MB/s	   70562 B/op	     277 allocs/op
+BenchmarkSessionValidateNestedIdentitySelectionPaths                         	     843	    288459 ns/op	 455.96 MB/s	  131244 B/op	       3 allocs/op
+BenchmarkSessionValidateRetainedIdentityPaths                                	     100	   2918518 ns/op	  54.77 MB/s	  650621 B/op	    4018 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/lexical                        	      14	  16100637 ns/op	  26.63 MB/s	  176889 B/op	     281 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded                       	       8	  28181245 ns/op	  28.01 MB/s	  155217 B/op	     302 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_namespaces   	       6	  37891820 ns/op	  40.47 MB/s	 3341497 B/op	   32909 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_control      	       6	  34425431 ns/op	  44.54 MB/s	  543938 B/op	   32357 allocs/op
+BenchmarkSessionValidateExpandedIdentityPaths                                	     130	   1837282 ns/op	  57.45 MB/s	  358645 B/op	    2521 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/identity                	      13	  18714176 ns/op	  16.66 MB/s	 4736334 B/op	   19735 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/control                 	      21	  11244562 ns/op	  27.73 MB/s	    4286 B/op	      11 allocs/op
+BenchmarkCompileCountedChoiceDFA/small                                       	    2534	     88354 ns/op	  165144 B/op	     661 allocs/op
+BenchmarkCompileCountedChoiceDFA/medium                                      	    1752	    144500 ns/op	  231732 B/op	    1263 allocs/op
+BenchmarkCompileCountedChoiceDFA/large                                       	    1006	    236514 ns/op	  331769 B/op	    2149 allocs/op
+BenchmarkCompileSubstitutionGroups                                           	     327	    725052 ns/op	  547112 B/op	    1547 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1                                  	    3336	     62195 ns/op	  133536 B/op	     338 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_10                                 	    2140	    115644 ns/op	  172216 B/op	     644 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_100                                	     351	    685417 ns/op	  611144 B/op	    3092 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1000                               	      34	   7089939 ns/op	 5125013 B/op	   27428 allocs/op
+BenchmarkCompileRegexCategoryEscapes                                         	      96	   2736214 ns/op	 8319184 B/op	    5415 allocs/op
+BenchmarkCompileDeepSimpleTypeChain                                          	      63	   4401634 ns/op	 2369619 B/op	   12899 allocs/op
+BenchmarkCompileRepeatedNestedUnionMembers                                   	     194	   1225958 ns/op	  810960 B/op	    5228 allocs/op
+BenchmarkCompileOpaqueAnnotationPayload                                      	     255	    913754 ns/op	  258192 B/op	    1279 allocs/op
+BenchmarkSessionValidateUndeclaredRootXSIType                                	  165651	      1432 ns/op	  95.65 MB/s	      32 B/op	       1 allocs/op
+BenchmarkCompileSourceDocuments/distinct                                     	     349	    686624 ns/op	  690856 B/op	    3029 allocs/op
+BenchmarkCompileSourceDocuments/duplicate_identity                           	     169	   1430421 ns/op	 1232711 B/op	    5887 allocs/op
+BenchmarkCompileStreamingSource/4096B                                        	    2986	     74837 ns/op	  54.73 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/1048576B                                     	      38	   6036001 ns/op	 173.72 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/16777216B                                    	       3	  95826555 ns/op	 175.08 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkSessionValidateUnionLateMember                                      	    1573	    160295 ns/op	  28.83 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkSessionValidateAllContent/4                 	   94560	      2488 ns/op	  13.27 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/16                	   28255	      8568 ns/op	  11.55 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/64                	    7384	     33237 ns/op	  11.64 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/256               	    1782	    132094 ns/op	  12.83 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/1024              	     417	    555478 ns/op	  12.77 MB/s	    1960 B/op	     513 allocs/op
+BenchmarkCompileSmallSchema                          	    2257	    110544 ns/op	  198809 B/op	     569 allocs/op
+BenchmarkCompileAndFirstSession                      	    2256	    121005 ns/op	  272549 B/op	     571 allocs/op
+BenchmarkValidateRepeatedSmallDocument               	     602	    372432 ns/op	  20.17 MB/s	   76080 B/op	      28 allocs/op
+BenchmarkSessionValidateRepeatedSmallDocument        	     918	    263637 ns/op	  28.50 MB/s	      34 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_false         	   35293	      6862 ns/op	  16.32 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_true          	   19052	     12576 ns/op	  31.49 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_false         	    8540	     28924 ns/op	  15.49 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_true          	    4674	     49474 ns/op	  33.23 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_false        	    2130	    109320 ns/op	  16.39 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_true         	    1192	    195151 ns/op	  35.60 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedXSIType                                      	    2964	     82128 ns/op	  33.93 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateIDAttributeStart                                     	    2494	     98418 ns/op	  17.30 MB/s	     840 B/op	     101 allocs/op
+BenchmarkSessionValidateSimpleIDEnd                                          	    2895	     86916 ns/op	  14.99 MB/s	     832 B/op	     101 allocs/op
+BenchmarkSessionValidateRepeatedQNameValues                                  	    3232	     76665 ns/op	  27.82 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedLaxWildcard                                  	  174950	      1355 ns/op	  33.21 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateStringLengthFacet                                    	   38031	      6297 ns/op	 327.32 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateWideChoice                                           	     100	   2412633 ns/op	  21.39 MB/s	     236 B/op	       3 allocs/op
+BenchmarkValidateSubstitutionGroup                                           	     355	    661263 ns/op	  16.27 MB/s	   76840 B/op	      37 allocs/op
+BenchmarkSessionValidateDateDecimalRows                                      	    1458	    166505 ns/op	  54.67 MB/s	      33 B/op	       1 allocs/op
+BenchmarkValidateSmallInvalidDocument                                        	   22792	     10718 ns/op	   7.65 MB/s	   77096 B/op	      48 allocs/op
+BenchmarkValidateManyRecoverablePathErrors                                   	    2662	     95839 ns/op	  12.66 MB/s	  110080 B/op	     627 allocs/op
+BenchmarkValidateDeeplyNestedDocument                                        	    2217	    107351 ns/op	  13.58 MB/s	  159456 B/op	     174 allocs/op
+BenchmarkSessionValidateDeepThenShallow                                      	  337900	       706.1 ns/op	   9.91 MB/s	      32 B/op	       1 allocs/op
+BenchmarkValidateDuplicateAttributes                                         	     670	    369612 ns/op	  29.21 MB/s	  586985 B/op	    1083 allocs/op
+BenchmarkCompileDuplicateSchemaSources                                       	     901	    244455 ns/op	2151.39 MB/s	  221832 B/op	     444 allocs/op
+BenchmarkCompileIncludeGraph                                                 	     288	    829586 ns/op	  18.92 MB/s	  767409 B/op	    3623 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_1                              	    3488	     63062 ns/op	   6.31 MB/s	  132584 B/op	     340 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_8                              	    1966	    133971 ns/op	  10.23 MB/s	  197880 B/op	     696 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_32                             	     627	    374415 ns/op	  12.63 MB/s	  427257 B/op	    1703 allocs/op
+BenchmarkCompileSchemaText                                                   	     698	    336646 ns/op	 779.30 MB/s	 1379592 B/op	     282 allocs/op
+BenchmarkValidateIdentityConstraints                                         	     835	    282285 ns/op	   9.50 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_10                             	    6843	     35778 ns/op	   7.07 MB/s	   86512 B/op	     114 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_100                            	     873	    274541 ns/op	   9.77 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_1000                           	     100	   2771958 ns/op	  10.38 MB/s	 1034969 B/op	    4626 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_10                      	   10000	     25798 ns/op	   9.81 MB/s	    4168 B/op	      42 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_100                     	    1005	    251949 ns/op	  10.65 MB/s	   37711 B/op	     321 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_1000                    	     100	   2646857 ns/op	  10.87 MB/s	  445181 B/op	    4016 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_1                          	    1449	    166778 ns/op	  10.21 MB/s	  119648 B/op	     363 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_3                          	     859	    281368 ns/op	  13.80 MB/s	  153920 B/op	     876 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_8                          	     435	    559703 ns/op	  16.67 MB/s	  208696 B/op	    1891 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_16                    	    9576	     28336 ns/op	  13.09 MB/s	    4121 B/op	      27 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_64                    	    1479	    172824 ns/op	   8.53 MB/s	   17154 B/op	      79 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_256                   	     153	   1561093 ns/op	   3.87 MB/s	   70626 B/op	     277 allocs/op
+BenchmarkSessionValidateNestedIdentitySelectionPaths                         	     828	    299377 ns/op	 439.33 MB/s	  131246 B/op	       3 allocs/op
+BenchmarkSessionValidateRetainedIdentityPaths                                	      97	   2947008 ns/op	  54.24 MB/s	  650802 B/op	    4018 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/lexical                        	      14	  15689190 ns/op	  27.32 MB/s	  176889 B/op	     281 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded                       	       8	  26676385 ns/op	  29.59 MB/s	  155217 B/op	     302 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_namespaces   	       6	  36274048 ns/op	  42.27 MB/s	 3341497 B/op	   32909 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_control      	       6	  33858688 ns/op	  45.29 MB/s	  543938 B/op	   32357 allocs/op
+BenchmarkSessionValidateExpandedIdentityPaths                                	     122	   1948986 ns/op	  54.16 MB/s	  358847 B/op	    2521 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/identity                	      12	  19450510 ns/op	  16.03 MB/s	 4737374 B/op	   19740 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/control                 	      20	  11452442 ns/op	  27.23 MB/s	    4498 B/op	      12 allocs/op
+BenchmarkCompileCountedChoiceDFA/small                                       	    2775	     88614 ns/op	  165144 B/op	     661 allocs/op
+BenchmarkCompileCountedChoiceDFA/medium                                      	    1695	    136006 ns/op	  231732 B/op	    1263 allocs/op
+BenchmarkCompileCountedChoiceDFA/large                                       	    1102	    220178 ns/op	  331769 B/op	    2149 allocs/op
+BenchmarkCompileSubstitutionGroups                                           	     358	    679901 ns/op	  547113 B/op	    1547 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1                                  	    3992	     59444 ns/op	  133536 B/op	     338 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_10                                 	    2055	    119827 ns/op	  172216 B/op	     644 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_100                                	     331	    716991 ns/op	  611144 B/op	    3092 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1000                               	      33	   7088340 ns/op	 5125014 B/op	   27428 allocs/op
+BenchmarkCompileRegexCategoryEscapes                                         	      81	   2755306 ns/op	 8319184 B/op	    5415 allocs/op
+BenchmarkCompileDeepSimpleTypeChain                                          	      63	   4172244 ns/op	 2369618 B/op	   12899 allocs/op
+BenchmarkCompileRepeatedNestedUnionMembers                                   	     206	   1144803 ns/op	  810960 B/op	    5228 allocs/op
+BenchmarkCompileOpaqueAnnotationPayload                                      	     255	    911705 ns/op	  258192 B/op	    1279 allocs/op
+BenchmarkSessionValidateUndeclaredRootXSIType                                	  151538	      1532 ns/op	  89.44 MB/s	      32 B/op	       1 allocs/op
+BenchmarkCompileSourceDocuments/distinct                                     	     338	    712024 ns/op	  690856 B/op	    3029 allocs/op
+BenchmarkCompileSourceDocuments/duplicate_identity                           	     169	   1432406 ns/op	 1232712 B/op	    5887 allocs/op
+BenchmarkCompileStreamingSource/4096B                                        	    3175	     73254 ns/op	  55.92 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/1048576B                                     	      40	   5732859 ns/op	 182.91 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/16777216B                                    	       3	  90579361 ns/op	 185.22 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkSessionValidateUnionLateMember                                      	    1550	    160906 ns/op	  28.72 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkSessionValidateAllContent/4                 	   92230	      2651 ns/op	  12.45 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/16                	   26686	      9025 ns/op	  10.97 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/64                	    7480	     34392 ns/op	  11.25 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/256               	    1790	    126400 ns/op	  13.41 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/1024              	     456	    521609 ns/op	  13.60 MB/s	    1960 B/op	     513 allocs/op
+BenchmarkCompileSmallSchema                          	    2392	    101702 ns/op	  198809 B/op	     569 allocs/op
+BenchmarkCompileAndFirstSession                      	    2199	    108632 ns/op	  272549 B/op	     571 allocs/op
+BenchmarkValidateRepeatedSmallDocument               	     801	    332625 ns/op	  22.59 MB/s	   76080 B/op	      28 allocs/op
+BenchmarkSessionValidateRepeatedSmallDocument        	     866	    281762 ns/op	  26.66 MB/s	      34 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_false         	   32695	      7291 ns/op	  15.36 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_true          	   18835	     13254 ns/op	  29.88 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_false         	    8425	     27995 ns/op	  16.00 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_true          	    4820	     47557 ns/op	  34.57 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_false        	    2287	    104315 ns/op	  17.18 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_true         	    1310	    189591 ns/op	  36.65 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedXSIType                                      	    2977	     83315 ns/op	  33.45 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateIDAttributeStart                                     	    2467	     98304 ns/op	  17.32 MB/s	     840 B/op	     101 allocs/op
+BenchmarkSessionValidateSimpleIDEnd                                          	    2860	     84437 ns/op	  15.43 MB/s	     832 B/op	     101 allocs/op
+BenchmarkSessionValidateRepeatedQNameValues                                  	    3102	     76009 ns/op	  28.06 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedLaxWildcard                                  	  178374	      1360 ns/op	  33.08 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateStringLengthFacet                                    	   40333	      5984 ns/op	 344.42 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateWideChoice                                           	      87	   2543325 ns/op	  20.29 MB/s	     267 B/op	       3 allocs/op
+BenchmarkValidateSubstitutionGroup                                           	     348	    689245 ns/op	  15.61 MB/s	   76840 B/op	      37 allocs/op
+BenchmarkSessionValidateDateDecimalRows                                      	    1365	    172533 ns/op	  52.76 MB/s	      33 B/op	       1 allocs/op
+BenchmarkValidateSmallInvalidDocument                                        	   19158	     12334 ns/op	   6.65 MB/s	   77096 B/op	      48 allocs/op
+BenchmarkValidateManyRecoverablePathErrors                                   	    2322	    100656 ns/op	  12.05 MB/s	  110080 B/op	     627 allocs/op
+BenchmarkValidateDeeplyNestedDocument                                        	    1860	    121205 ns/op	  12.03 MB/s	  159456 B/op	     174 allocs/op
+BenchmarkSessionValidateDeepThenShallow                                      	  331770	       696.0 ns/op	  10.06 MB/s	      32 B/op	       1 allocs/op
+BenchmarkValidateDuplicateAttributes                                         	     625	    367754 ns/op	  29.36 MB/s	  586986 B/op	    1083 allocs/op
+BenchmarkCompileDuplicateSchemaSources                                       	     904	    258231 ns/op	2036.63 MB/s	  221832 B/op	     444 allocs/op
+BenchmarkCompileIncludeGraph                                                 	     250	    940164 ns/op	  16.70 MB/s	  767408 B/op	    3623 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_1                              	    2972	     71641 ns/op	   5.56 MB/s	  132584 B/op	     340 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_8                              	    1579	    138054 ns/op	   9.93 MB/s	  197880 B/op	     696 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_32                             	     632	    379895 ns/op	  12.45 MB/s	  427257 B/op	    1703 allocs/op
+BenchmarkCompileSchemaText                                                   	     727	    335978 ns/op	 780.85 MB/s	 1379592 B/op	     282 allocs/op
+BenchmarkValidateIdentityConstraints                                         	     837	    275343 ns/op	   9.74 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_10                             	    6831	     34246 ns/op	   7.39 MB/s	   86512 B/op	     114 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_100                            	     885	    277938 ns/op	   9.65 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_1000                           	     100	   2871907 ns/op	  10.02 MB/s	 1034969 B/op	    4626 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_10                      	   10000	     26171 ns/op	   9.67 MB/s	    4168 B/op	      42 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_100                     	    1017	    255231 ns/op	  10.51 MB/s	   37710 B/op	     321 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_1000                    	      98	   2651775 ns/op	  10.85 MB/s	  445288 B/op	    4016 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_1                          	    1504	    160888 ns/op	  10.59 MB/s	  119648 B/op	     363 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_3                          	     877	    277700 ns/op	  13.98 MB/s	  153920 B/op	     876 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_8                          	     429	    581639 ns/op	  16.05 MB/s	  208696 B/op	    1891 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_16                    	    9274	     29454 ns/op	  12.60 MB/s	    4121 B/op	      27 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_64                    	    1531	    170543 ns/op	   8.65 MB/s	   17153 B/op	      79 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_256                   	     148	   1584817 ns/op	   3.82 MB/s	   70684 B/op	     277 allocs/op
+BenchmarkSessionValidateNestedIdentitySelectionPaths                         	     784	    302187 ns/op	 435.24 MB/s	  131254 B/op	       3 allocs/op
+BenchmarkSessionValidateRetainedIdentityPaths                                	      98	   2820197 ns/op	  56.68 MB/s	  650740 B/op	    4018 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/lexical                        	      15	  15447486 ns/op	  27.75 MB/s	  176026 B/op	     279 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded                       	       8	  27692167 ns/op	  28.51 MB/s	  155217 B/op	     302 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_namespaces   	       6	  37815014 ns/op	  40.55 MB/s	 3341497 B/op	   32909 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_control      	       7	  33673429 ns/op	  45.54 MB/s	  539970 B/op	   32343 allocs/op
+BenchmarkSessionValidateExpandedIdentityPaths                                	     121	   1974112 ns/op	  53.47 MB/s	  358874 B/op	    2521 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/identity                	      12	  19425156 ns/op	  16.05 MB/s	 4737372 B/op	   19740 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/control                 	      21	  11088560 ns/op	  28.12 MB/s	    4286 B/op	      11 allocs/op
+BenchmarkCompileCountedChoiceDFA/small                                       	    2782	     82227 ns/op	  165144 B/op	     661 allocs/op
+BenchmarkCompileCountedChoiceDFA/medium                                      	    1846	    137535 ns/op	  231732 B/op	    1263 allocs/op
+BenchmarkCompileCountedChoiceDFA/large                                       	    1059	    230155 ns/op	  331769 B/op	    2149 allocs/op
+BenchmarkCompileSubstitutionGroups                                           	     340	    696732 ns/op	  547112 B/op	    1547 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1                                  	    4153	     59648 ns/op	  133536 B/op	     338 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_10                                 	    1978	    119514 ns/op	  172216 B/op	     644 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_100                                	     334	    705486 ns/op	  611144 B/op	    3092 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1000                               	      34	   6922173 ns/op	 5125014 B/op	   27428 allocs/op
+BenchmarkCompileRegexCategoryEscapes                                         	      99	   2550895 ns/op	 8319184 B/op	    5415 allocs/op
+BenchmarkCompileDeepSimpleTypeChain                                          	      57	   4299573 ns/op	 2369618 B/op	   12899 allocs/op
+BenchmarkCompileRepeatedNestedUnionMembers                                   	     206	   1164073 ns/op	  810960 B/op	    5228 allocs/op
+BenchmarkCompileOpaqueAnnotationPayload                                      	     259	    931402 ns/op	  258192 B/op	    1279 allocs/op
+BenchmarkSessionValidateUndeclaredRootXSIType                                	  162981	      1574 ns/op	  87.06 MB/s	      32 B/op	       1 allocs/op
+BenchmarkCompileSourceDocuments/distinct                                     	     331	    720530 ns/op	  690856 B/op	    3029 allocs/op
+BenchmarkCompileSourceDocuments/duplicate_identity                           	     176	   1365223 ns/op	 1232710 B/op	    5887 allocs/op
+BenchmarkCompileStreamingSource/4096B                                        	    3295	     70074 ns/op	  58.45 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/1048576B                                     	      42	   5891632 ns/op	 177.98 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/16777216B                                    	       3	  93028361 ns/op	 180.35 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkSessionValidateUnionLateMember                                      	    1483	    160028 ns/op	  28.88 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkSessionValidateAllContent/4                 	   93183	      2626 ns/op	  12.57 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/16                	   26443	      8928 ns/op	  11.09 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/64                	    7191	     32577 ns/op	  11.88 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/256               	    1882	    127526 ns/op	  13.29 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/1024              	     440	    544492 ns/op	  13.03 MB/s	    1960 B/op	     513 allocs/op
+BenchmarkCompileSmallSchema                          	    2330	    103602 ns/op	  198809 B/op	     569 allocs/op
+BenchmarkCompileAndFirstSession                      	    2192	    108236 ns/op	  272549 B/op	     571 allocs/op
+BenchmarkValidateRepeatedSmallDocument               	     799	    314301 ns/op	  23.90 MB/s	   76080 B/op	      28 allocs/op
+BenchmarkSessionValidateRepeatedSmallDocument        	     901	    277490 ns/op	  27.07 MB/s	      34 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_false         	   34147	      6898 ns/op	  16.24 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_true          	   19682	     12132 ns/op	  32.64 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_false         	    9086	     26618 ns/op	  16.83 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_true          	    4978	     50131 ns/op	  32.79 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_false        	    2262	    107874 ns/op	  16.61 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_true         	    1286	    194934 ns/op	  35.64 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedXSIType                                      	    2830	     86089 ns/op	  32.37 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateIDAttributeStart                                     	    2407	     99864 ns/op	  17.05 MB/s	     840 B/op	     101 allocs/op
+BenchmarkSessionValidateSimpleIDEnd                                          	    2902	     83316 ns/op	  15.64 MB/s	     832 B/op	     101 allocs/op
+BenchmarkSessionValidateRepeatedQNameValues                                  	    3220	     72493 ns/op	  29.42 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedLaxWildcard                                  	  187350	      1420 ns/op	  31.69 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateStringLengthFacet                                    	   39810	      6228 ns/op	 330.93 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateWideChoice                                           	      97	   2442258 ns/op	  21.13 MB/s	     243 B/op	       3 allocs/op
+BenchmarkValidateSubstitutionGroup                                           	     363	    679265 ns/op	  15.84 MB/s	   76840 B/op	      37 allocs/op
+BenchmarkSessionValidateDateDecimalRows                                      	    1413	    167100 ns/op	  54.48 MB/s	      33 B/op	       1 allocs/op
+BenchmarkValidateSmallInvalidDocument                                        	   23368	     10222 ns/op	   8.02 MB/s	   77096 B/op	      48 allocs/op
+BenchmarkValidateManyRecoverablePathErrors                                   	    2704	     92444 ns/op	  13.12 MB/s	  110080 B/op	     627 allocs/op
+BenchmarkValidateDeeplyNestedDocument                                        	    2115	    106530 ns/op	  13.69 MB/s	  159456 B/op	     174 allocs/op
+BenchmarkSessionValidateDeepThenShallow                                      	  341904	       703.6 ns/op	   9.95 MB/s	      32 B/op	       1 allocs/op
+BenchmarkValidateDuplicateAttributes                                         	     682	    351556 ns/op	  30.71 MB/s	  586985 B/op	    1083 allocs/op
+BenchmarkCompileDuplicateSchemaSources                                       	     960	    247804 ns/op	2122.32 MB/s	  221832 B/op	     444 allocs/op
+BenchmarkCompileIncludeGraph                                                 	     277	    858915 ns/op	  18.28 MB/s	  767408 B/op	    3623 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_1                              	    4180	     59349 ns/op	   6.71 MB/s	  132584 B/op	     340 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_8                              	    1978	    125374 ns/op	  10.94 MB/s	  197880 B/op	     696 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_32                             	     642	    373816 ns/op	  12.65 MB/s	  427258 B/op	    1703 allocs/op
+BenchmarkCompileSchemaText                                                   	     714	    337035 ns/op	 778.40 MB/s	 1379592 B/op	     282 allocs/op
+BenchmarkValidateIdentityConstraints                                         	     837	    288365 ns/op	   9.30 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_10                             	    6676	     36535 ns/op	   6.92 MB/s	   86512 B/op	     114 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_100                            	     830	    284325 ns/op	   9.43 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_1000                           	     100	   2771799 ns/op	  10.38 MB/s	 1034969 B/op	    4626 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_10                      	   10000	     24595 ns/op	  10.29 MB/s	    4168 B/op	      42 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_100                     	     916	    251305 ns/op	  10.67 MB/s	   37716 B/op	     321 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_1000                    	     100	   2577167 ns/op	  11.17 MB/s	  445181 B/op	    4016 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_1                          	    1515	    168458 ns/op	  10.11 MB/s	  119648 B/op	     363 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_3                          	     864	    286612 ns/op	  13.55 MB/s	  153920 B/op	     876 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_8                          	     411	    582886 ns/op	  16.01 MB/s	  208696 B/op	    1891 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_16                    	    9447	     28715 ns/op	  12.92 MB/s	    4121 B/op	      27 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_64                    	    1575	    165139 ns/op	   8.93 MB/s	   17151 B/op	      79 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_256                   	     151	   1585539 ns/op	   3.81 MB/s	   70649 B/op	     277 allocs/op
+BenchmarkSessionValidateNestedIdentitySelectionPaths                         	     793	    302721 ns/op	 434.48 MB/s	  131253 B/op	       3 allocs/op
+BenchmarkSessionValidateRetainedIdentityPaths                                	      98	   2943930 ns/op	  54.30 MB/s	  650741 B/op	    4018 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/lexical                        	      14	  16153045 ns/op	  26.54 MB/s	  176889 B/op	     281 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded                       	       8	  27954406 ns/op	  28.24 MB/s	  155217 B/op	     302 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_namespaces   	       6	  36820632 ns/op	  41.65 MB/s	 3341497 B/op	   32909 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_control      	       7	  32101732 ns/op	  47.77 MB/s	  539970 B/op	   32343 allocs/op
+BenchmarkSessionValidateExpandedIdentityPaths                                	     123	   1943176 ns/op	  54.32 MB/s	  358820 B/op	    2521 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/identity                	      12	  19782576 ns/op	  15.76 MB/s	 4737374 B/op	   19740 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/control                 	      21	  11455097 ns/op	  27.22 MB/s	    4286 B/op	      11 allocs/op
+BenchmarkCompileCountedChoiceDFA/small                                       	    2743	     88217 ns/op	  165144 B/op	     661 allocs/op
+BenchmarkCompileCountedChoiceDFA/medium                                      	    1606	    144560 ns/op	  231732 B/op	    1263 allocs/op
+BenchmarkCompileCountedChoiceDFA/large                                       	    1041	    227449 ns/op	  331770 B/op	    2149 allocs/op
+BenchmarkCompileSubstitutionGroups                                           	     358	    666925 ns/op	  547113 B/op	    1547 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1                                  	    4288	     57178 ns/op	  133536 B/op	     338 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_10                                 	    1986	    116115 ns/op	  172216 B/op	     644 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_100                                	     345	    714418 ns/op	  611144 B/op	    3092 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1000                               	      36	   6911659 ns/op	 5125013 B/op	   27428 allocs/op
+BenchmarkCompileRegexCategoryEscapes                                         	      88	   2687755 ns/op	 8319184 B/op	    5415 allocs/op
+BenchmarkCompileDeepSimpleTypeChain                                          	      64	   4216654 ns/op	 2369619 B/op	   12899 allocs/op
+BenchmarkCompileRepeatedNestedUnionMembers                                   	     210	   1132114 ns/op	  810960 B/op	    5228 allocs/op
+BenchmarkCompileOpaqueAnnotationPayload                                      	     272	    886929 ns/op	  258192 B/op	    1279 allocs/op
+BenchmarkSessionValidateUndeclaredRootXSIType                                	  155790	      1543 ns/op	  88.81 MB/s	      32 B/op	       1 allocs/op
+BenchmarkCompileSourceDocuments/distinct                                     	     327	    719068 ns/op	  690856 B/op	    3029 allocs/op
+BenchmarkCompileSourceDocuments/duplicate_identity                           	     166	   1423395 ns/op	 1232712 B/op	    5887 allocs/op
+BenchmarkCompileStreamingSource/4096B                                        	    3399	     74271 ns/op	  55.15 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/1048576B                                     	      39	   5945378 ns/op	 176.37 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/16777216B                                    	       3	  90799236 ns/op	 184.77 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkSessionValidateUnionLateMember                                      	    1544	    153236 ns/op	  30.16 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkSessionValidateAllContent/4                 	   96758	      2645 ns/op	  12.48 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/16                	   26764	      8922 ns/op	  11.10 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/64                	    7291	     34479 ns/op	  11.22 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/256               	    1872	    133056 ns/op	  12.74 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/1024              	     429	    541365 ns/op	  13.11 MB/s	    1960 B/op	     513 allocs/op
+BenchmarkCompileSmallSchema                          	    2187	     98222 ns/op	  198809 B/op	     569 allocs/op
+BenchmarkCompileAndFirstSession                      	    2418	    103038 ns/op	  272549 B/op	     571 allocs/op
+BenchmarkValidateRepeatedSmallDocument               	     808	    310617 ns/op	  24.19 MB/s	   76080 B/op	      28 allocs/op
+BenchmarkSessionValidateRepeatedSmallDocument        	     871	    316786 ns/op	  23.72 MB/s	      34 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_false         	   33062	      7201 ns/op	  15.55 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_true          	   19056	     12671 ns/op	  31.25 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_false         	    8544	     27283 ns/op	  16.42 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_true          	    4878	     48037 ns/op	  34.22 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_false        	    2310	    103964 ns/op	  17.24 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_true         	    1290	    188688 ns/op	  36.82 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedXSIType                                      	    2907	     85576 ns/op	  32.57 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateIDAttributeStart                                     	    2416	    102881 ns/op	  16.55 MB/s	     840 B/op	     101 allocs/op
+BenchmarkSessionValidateSimpleIDEnd                                          	    2624	     88744 ns/op	  14.68 MB/s	     832 B/op	     101 allocs/op
+BenchmarkSessionValidateRepeatedQNameValues                                  	    3140	     75402 ns/op	  28.29 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedLaxWildcard                                  	  184448	      1391 ns/op	  32.35 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateStringLengthFacet                                    	   39962	      6012 ns/op	 342.81 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateWideChoice                                           	     100	   2305910 ns/op	  22.38 MB/s	     236 B/op	       3 allocs/op
+BenchmarkValidateSubstitutionGroup                                           	     362	    677705 ns/op	  15.87 MB/s	   76840 B/op	      37 allocs/op
+BenchmarkSessionValidateDateDecimalRows                                      	    1345	    173404 ns/op	  52.50 MB/s	      33 B/op	       1 allocs/op
+BenchmarkValidateSmallInvalidDocument                                        	   21889	     10889 ns/op	   7.53 MB/s	   77096 B/op	      48 allocs/op
+BenchmarkValidateManyRecoverablePathErrors                                   	    2661	     94796 ns/op	  12.80 MB/s	  110080 B/op	     627 allocs/op
+BenchmarkValidateDeeplyNestedDocument                                        	    2203	    105422 ns/op	  13.83 MB/s	  159456 B/op	     174 allocs/op
+BenchmarkSessionValidateDeepThenShallow                                      	  365205	       652.0 ns/op	  10.74 MB/s	      32 B/op	       1 allocs/op
+BenchmarkValidateDuplicateAttributes                                         	     710	    341254 ns/op	  31.64 MB/s	  586985 B/op	    1083 allocs/op
+BenchmarkCompileDuplicateSchemaSources                                       	    1010	    242960 ns/op	2164.63 MB/s	  221832 B/op	     444 allocs/op
+BenchmarkCompileIncludeGraph                                                 	     273	    862089 ns/op	  18.21 MB/s	  767408 B/op	    3623 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_1                              	    3553	     62470 ns/op	   6.37 MB/s	  132584 B/op	     340 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_8                              	    1857	    132187 ns/op	  10.37 MB/s	  197880 B/op	     696 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_32                             	     644	    377388 ns/op	  12.53 MB/s	  427257 B/op	    1703 allocs/op
+BenchmarkCompileSchemaText                                                   	     690	    328929 ns/op	 797.58 MB/s	 1379592 B/op	     282 allocs/op
+BenchmarkValidateIdentityConstraints                                         	     878	    274562 ns/op	   9.77 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_10                             	    6882	     37022 ns/op	   6.83 MB/s	   86512 B/op	     114 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_100                            	     855	    282973 ns/op	   9.48 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_1000                           	     100	   2821089 ns/op	  10.20 MB/s	 1034969 B/op	    4626 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_10                      	   10000	     25362 ns/op	   9.98 MB/s	    4168 B/op	      42 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_100                     	     957	    262018 ns/op	  10.24 MB/s	   37714 B/op	     321 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_1000                    	      99	   2534382 ns/op	  11.36 MB/s	  445234 B/op	    4016 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_1                          	    1564	    159460 ns/op	  10.68 MB/s	  119648 B/op	     363 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_3                          	     878	    276151 ns/op	  14.06 MB/s	  153920 B/op	     876 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_8                          	     408	    618648 ns/op	  15.09 MB/s	  208696 B/op	    1891 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_16                    	    9294	     29754 ns/op	  12.47 MB/s	    4121 B/op	      27 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_64                    	    1550	    172111 ns/op	   8.57 MB/s	   17152 B/op	      79 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_256                   	     153	   1554401 ns/op	   3.89 MB/s	   70626 B/op	     277 allocs/op
+BenchmarkSessionValidateNestedIdentitySelectionPaths                         	     774	    308485 ns/op	 426.36 MB/s	  131256 B/op	       3 allocs/op
+BenchmarkSessionValidateRetainedIdentityPaths                                	     100	   2798968 ns/op	  57.11 MB/s	  650621 B/op	    4018 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/lexical                        	      15	  15282078 ns/op	  28.05 MB/s	  176026 B/op	     279 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded                       	       8	  27746614 ns/op	  28.45 MB/s	  155217 B/op	     302 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_namespaces   	       6	  40367444 ns/op	  37.99 MB/s	 3341497 B/op	   32909 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_control      	       7	  33721762 ns/op	  45.47 MB/s	  539970 B/op	   32343 allocs/op
+BenchmarkSessionValidateExpandedIdentityPaths                                	     121	   1979114 ns/op	  53.33 MB/s	  358874 B/op	    2521 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/identity                	      12	  19959271 ns/op	  15.62 MB/s	 4737371 B/op	   19740 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/control                 	      20	  10999744 ns/op	  28.35 MB/s	    4498 B/op	      12 allocs/op
+BenchmarkCompileCountedChoiceDFA/small                                       	    2630	     82269 ns/op	  165144 B/op	     661 allocs/op
+BenchmarkCompileCountedChoiceDFA/medium                                      	    1831	    136774 ns/op	  231732 B/op	    1263 allocs/op
+BenchmarkCompileCountedChoiceDFA/large                                       	    1032	    235130 ns/op	  331769 B/op	    2149 allocs/op
+BenchmarkCompileSubstitutionGroups                                           	     343	    708522 ns/op	  547112 B/op	    1547 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1                                  	    3853	     58875 ns/op	  133536 B/op	     338 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_10                                 	    2102	    119647 ns/op	  172216 B/op	     644 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_100                                	     342	    693243 ns/op	  611144 B/op	    3092 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1000                               	      34	   6633154 ns/op	 5125014 B/op	   27428 allocs/op
+BenchmarkCompileRegexCategoryEscapes                                         	     100	   2570395 ns/op	 8319184 B/op	    5415 allocs/op
+BenchmarkCompileDeepSimpleTypeChain                                          	      62	   4353513 ns/op	 2369618 B/op	   12899 allocs/op
+BenchmarkCompileRepeatedNestedUnionMembers                                   	     200	   1207352 ns/op	  810960 B/op	    5228 allocs/op
+BenchmarkCompileOpaqueAnnotationPayload                                      	     255	    930131 ns/op	  258192 B/op	    1279 allocs/op
+BenchmarkSessionValidateUndeclaredRootXSIType                                	  151209	      1567 ns/op	  87.46 MB/s	      32 B/op	       1 allocs/op
+BenchmarkCompileSourceDocuments/distinct                                     	     330	    718571 ns/op	  690856 B/op	    3029 allocs/op
+BenchmarkCompileSourceDocuments/duplicate_identity                           	     175	   1377037 ns/op	 1232712 B/op	    5887 allocs/op
+BenchmarkCompileStreamingSource/4096B                                        	    3338	     70235 ns/op	  58.32 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/1048576B                                     	      42	   5977111 ns/op	 175.43 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/16777216B                                    	       3	  95901319 ns/op	 174.94 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkSessionValidateUnionLateMember                                      	    1464	    161685 ns/op	  28.58 MB/s	      32 B/op	       1 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd
+cpu: Apple M2 Max
+BenchmarkSessionValidateAllContent/4                 	   94534	      2604 ns/op	  12.67 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/16                	   26733	      8929 ns/op	  11.09 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/64                	    6796	     32712 ns/op	  11.83 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/256               	    1878	    126403 ns/op	  13.41 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSessionValidateAllContent/1024              	     460	    538235 ns/op	  13.18 MB/s	    1960 B/op	     513 allocs/op
+BenchmarkCompileSmallSchema                          	    2037	    115217 ns/op	  198809 B/op	     569 allocs/op
+BenchmarkCompileAndFirstSession                      	    2182	    108082 ns/op	  272549 B/op	     571 allocs/op
+BenchmarkValidateRepeatedSmallDocument               	     771	    321299 ns/op	  23.38 MB/s	   76080 B/op	      28 allocs/op
+BenchmarkSessionValidateRepeatedSmallDocument        	     855	    276768 ns/op	  27.15 MB/s	      34 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_false         	   33908	      6918 ns/op	  16.19 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_16/churn_true          	   19682	     12180 ns/op	  32.51 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_false         	    9164	     26780 ns/op	  16.73 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_64/churn_true          	    4923	     49141 ns/op	  33.45 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_false        	    2163	    109256 ns/op	  16.40 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateNamespaceAdmissionChurn/depth_256/churn_true         	    1244	    198244 ns/op	  35.05 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedXSIType                                      	    2673	     85742 ns/op	  32.50 MB/s	      33 B/op	       1 allocs/op
+BenchmarkSessionValidateIDAttributeStart                                     	    2239	    100811 ns/op	  16.89 MB/s	     840 B/op	     101 allocs/op
+BenchmarkSessionValidateSimpleIDEnd                                          	    2919	     83525 ns/op	  15.60 MB/s	     832 B/op	     101 allocs/op
+BenchmarkSessionValidateRepeatedQNameValues                                  	    3339	     72858 ns/op	  29.28 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateRepeatedLaxWildcard                                  	  188587	      1395 ns/op	  32.27 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateStringLengthFacet                                    	   38401	      6298 ns/op	 327.26 MB/s	      32 B/op	       1 allocs/op
+BenchmarkSessionValidateWideChoice                                           	      90	   2422062 ns/op	  21.31 MB/s	     259 B/op	       3 allocs/op
+BenchmarkValidateSubstitutionGroup                                           	     368	    669434 ns/op	  16.07 MB/s	   76840 B/op	      37 allocs/op
+BenchmarkSessionValidateDateDecimalRows                                      	    1405	    172316 ns/op	  52.83 MB/s	      33 B/op	       1 allocs/op
+BenchmarkValidateSmallInvalidDocument                                        	   23324	     10257 ns/op	   7.99 MB/s	   77096 B/op	      48 allocs/op
+BenchmarkValidateManyRecoverablePathErrors                                   	    2805	     90908 ns/op	  13.34 MB/s	  110080 B/op	     627 allocs/op
+BenchmarkValidateDeeplyNestedDocument                                        	    2196	    105259 ns/op	  13.85 MB/s	  159456 B/op	     174 allocs/op
+BenchmarkSessionValidateDeepThenShallow                                      	  333687	       706.0 ns/op	   9.92 MB/s	      32 B/op	       1 allocs/op
+BenchmarkValidateDuplicateAttributes                                         	     675	    352906 ns/op	  30.60 MB/s	  586985 B/op	    1083 allocs/op
+BenchmarkCompileDuplicateSchemaSources                                       	     954	    249990 ns/op	2103.77 MB/s	  221832 B/op	     444 allocs/op
+BenchmarkCompileIncludeGraph                                                 	     276	    863542 ns/op	  18.18 MB/s	  767408 B/op	    3623 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_1                              	    3955	     59240 ns/op	   6.72 MB/s	  132584 B/op	     340 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_8                              	    1882	    124037 ns/op	  11.05 MB/s	  197880 B/op	     696 allocs/op
+BenchmarkCompileChameleonTargetFanout/targets_32                             	     680	    363331 ns/op	  13.02 MB/s	  427258 B/op	    1703 allocs/op
+BenchmarkCompileSchemaText                                                   	     708	    332309 ns/op	 789.47 MB/s	 1379592 B/op	     282 allocs/op
+BenchmarkValidateIdentityConstraints                                         	     824	    289378 ns/op	   9.27 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_10                             	    6777	     36961 ns/op	   6.85 MB/s	   86512 B/op	     114 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_100                            	     864	    289197 ns/op	   9.27 MB/s	  167120 B/op	     501 allocs/op
+BenchmarkValidateIdentityConstraintsRows/rows_1000                           	     100	   2767626 ns/op	  10.40 MB/s	 1034969 B/op	    4626 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_10                      	   10000	     24593 ns/op	  10.29 MB/s	    4168 B/op	      42 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_100                     	     988	    247121 ns/op	  10.85 MB/s	   37712 B/op	     321 allocs/op
+BenchmarkSessionValidateIdentityConstraintsRows/rows_1000                    	     100	   2545754 ns/op	  11.31 MB/s	  445181 B/op	    4016 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_1                          	    1430	    167594 ns/op	  10.16 MB/s	  119648 B/op	     363 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_3                          	     855	    285967 ns/op	  13.58 MB/s	  153920 B/op	     876 allocs/op
+BenchmarkValidateIdentityConstraintsFields/fields_8                          	     412	    590912 ns/op	  15.79 MB/s	  208696 B/op	    1891 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_16                    	    9270	     29055 ns/op	  12.77 MB/s	    4121 B/op	      27 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_64                    	    1555	    166024 ns/op	   8.88 MB/s	   17152 B/op	      79 allocs/op
+BenchmarkSessionValidateNestedIdentitySelections/depth_256                   	     156	   1563335 ns/op	   3.87 MB/s	   70594 B/op	     277 allocs/op
+BenchmarkSessionValidateNestedIdentitySelectionPaths                         	     789	    301387 ns/op	 436.40 MB/s	  131253 B/op	       3 allocs/op
+BenchmarkSessionValidateRetainedIdentityPaths                                	      97	   2917468 ns/op	  54.79 MB/s	  650802 B/op	    4018 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/lexical                        	      15	  16039697 ns/op	  26.73 MB/s	  176026 B/op	     279 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded                       	       8	  27919536 ns/op	  28.27 MB/s	  155217 B/op	     302 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_namespaces   	       6	  38061264 ns/op	  40.29 MB/s	 3341497 B/op	   32909 allocs/op
+BenchmarkSessionValidateDisjointIdentityPaths/expanded_distinct_control      	       7	  32079458 ns/op	  47.80 MB/s	  539970 B/op	   32343 allocs/op
+BenchmarkSessionValidateExpandedIdentityPaths                                	     127	   1890100 ns/op	  55.84 MB/s	  358718 B/op	    2521 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/identity                	      12	  19250510 ns/op	  16.20 MB/s	 4737375 B/op	   19740 allocs/op
+BenchmarkSessionValidateSharedExpandedIdentityPrefix/control                 	      20	  11493152 ns/op	  27.13 MB/s	    4498 B/op	      12 allocs/op
+BenchmarkCompileCountedChoiceDFA/small                                       	    2524	     88886 ns/op	  165144 B/op	     661 allocs/op
+BenchmarkCompileCountedChoiceDFA/medium                                      	    1690	    149183 ns/op	  231732 B/op	    1263 allocs/op
+BenchmarkCompileCountedChoiceDFA/large                                       	     985	    243808 ns/op	  331769 B/op	    2149 allocs/op
+BenchmarkCompileSubstitutionGroups                                           	     358	    669294 ns/op	  547112 B/op	    1547 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1                                  	    4245	     54836 ns/op	  133536 B/op	     338 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_10                                 	    2140	    119946 ns/op	  172216 B/op	     644 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_100                                	     346	    709061 ns/op	  611144 B/op	    3092 allocs/op
+BenchmarkCompileAttributeGroupFanout/refs_1000                               	      30	   7018644 ns/op	 5125013 B/op	   27428 allocs/op
+BenchmarkCompileRegexCategoryEscapes                                         	      81	   2660504 ns/op	 8319184 B/op	    5415 allocs/op
+BenchmarkCompileDeepSimpleTypeChain                                          	      64	   4287309 ns/op	 2369619 B/op	   12899 allocs/op
+BenchmarkCompileRepeatedNestedUnionMembers                                   	     208	   1148719 ns/op	  810960 B/op	    5228 allocs/op
+BenchmarkCompileOpaqueAnnotationPayload                                      	     271	    889091 ns/op	  258192 B/op	    1279 allocs/op
+BenchmarkSessionValidateUndeclaredRootXSIType                                	  169394	      1556 ns/op	  88.03 MB/s	      32 B/op	       1 allocs/op
+BenchmarkCompileSourceDocuments/distinct                                     	     328	    717504 ns/op	  690856 B/op	    3029 allocs/op
+BenchmarkCompileSourceDocuments/duplicate_identity                           	     164	   1457621 ns/op	 1232710 B/op	    5887 allocs/op
+BenchmarkCompileStreamingSource/4096B                                        	    3411	     73294 ns/op	  55.88 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/1048576B                                     	      40	   6025220 ns/op	 174.03 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkCompileStreamingSource/16777216B                                    	       3	  91720681 ns/op	 182.92 MB/s	  125776 B/op	     275 allocs/op
+BenchmarkSessionValidateUnionLateMember                                      	    1564	    154055 ns/op	  30.00 MB/s	      32 B/op	       1 allocs/op
+PASS

@@ -1,0 +1,54 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/format
+cpu: Apple M2 Max
+BenchmarkXMLDuplicateAttributes             	    4387	     57853 ns/op	 168.27 MB/s	  135144 B/op	      74 allocs/op
+BenchmarkXMLLargeAttribute                  	    2598	     94279 ns/op	 695.26 MB/s	  148608 B/op	      25 allocs/op
+BenchmarkXMLMixedEscapedAttribute           	     304	    788159 ns/op	  98.76 MB/s	  156808 B/op	      26 allocs/op
+BenchmarkXMLMixedEscapedAttributeWriterOnly 	     280	    813307 ns/op	  95.70 MB/s	  238776 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/format
+cpu: Apple M2 Max
+BenchmarkXMLDuplicateAttributes             	    4392	     55167 ns/op	 176.46 MB/s	  135144 B/op	      74 allocs/op
+BenchmarkXMLLargeAttribute                  	    2626	     90604 ns/op	 723.46 MB/s	  148608 B/op	      25 allocs/op
+BenchmarkXMLMixedEscapedAttribute           	     297	    797072 ns/op	  97.65 MB/s	  156808 B/op	      26 allocs/op
+BenchmarkXMLMixedEscapedAttributeWriterOnly 	     303	    792499 ns/op	  98.22 MB/s	  238776 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/format
+cpu: Apple M2 Max
+BenchmarkXMLDuplicateAttributes             	    4678	     53976 ns/op	 180.36 MB/s	  135144 B/op	      74 allocs/op
+BenchmarkXMLLargeAttribute                  	    2778	     86965 ns/op	 753.73 MB/s	  148608 B/op	      25 allocs/op
+BenchmarkXMLMixedEscapedAttribute           	     315	    760659 ns/op	 102.33 MB/s	  156808 B/op	      26 allocs/op
+BenchmarkXMLMixedEscapedAttributeWriterOnly 	     312	    768443 ns/op	 101.29 MB/s	  238776 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/format
+cpu: Apple M2 Max
+BenchmarkXMLDuplicateAttributes             	    4790	     52999 ns/op	 183.68 MB/s	  135144 B/op	      74 allocs/op
+BenchmarkXMLLargeAttribute                  	    2904	     85662 ns/op	 765.19 MB/s	  148608 B/op	      25 allocs/op
+BenchmarkXMLMixedEscapedAttribute           	     304	    789251 ns/op	  98.62 MB/s	  156808 B/op	      26 allocs/op
+BenchmarkXMLMixedEscapedAttributeWriterOnly 	     298	    794859 ns/op	  97.92 MB/s	  238776 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/format
+cpu: Apple M2 Max
+BenchmarkXMLDuplicateAttributes             	    4786	     52603 ns/op	 185.07 MB/s	  135144 B/op	      74 allocs/op
+BenchmarkXMLLargeAttribute                  	    2905	     83688 ns/op	 783.25 MB/s	  148608 B/op	      25 allocs/op
+BenchmarkXMLMixedEscapedAttribute           	     316	    757041 ns/op	 102.82 MB/s	  156808 B/op	      26 allocs/op
+BenchmarkXMLMixedEscapedAttributeWriterOnly 	     308	    792110 ns/op	  98.26 MB/s	  238776 B/op	      37 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/jacoelho/xsd/internal/format
+cpu: Apple M2 Max
+BenchmarkXMLDuplicateAttributes             	    4575	     55141 ns/op	 176.55 MB/s	  135144 B/op	      74 allocs/op
+BenchmarkXMLLargeAttribute                  	    2683	    104270 ns/op	 628.64 MB/s	  148608 B/op	      25 allocs/op
+BenchmarkXMLMixedEscapedAttribute           	     309	    787740 ns/op	  98.81 MB/s	  156808 B/op	      26 allocs/op
+BenchmarkXMLMixedEscapedAttributeWriterOnly 	     296	    797022 ns/op	  97.66 MB/s	  238776 B/op	      37 allocs/op
+PASS

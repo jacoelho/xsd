@@ -1,0 +1,594 @@
+{
+  "assessment": "Final R9 samples assessed in ../../rewrite-performance.md; public timing improves overall, with disclosed small microbenchmark and allocation trade-offs. Schema-text timing was checked in an additional six alternating 1 s rounds.",
+  "baseline_revision": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+  "confirmation": {
+    "benchtime": "1s",
+    "current_revision": "34142ca15e319c9f3e206b947789dcd890c8bb80",
+    "directory": "schema-text-confirmation",
+    "raw_sha256": {
+      "r9a-schema-text-1-baseline.txt": "e1dc4a41d43717ea37c7725b5fc3b276402f2559cbbe7a4e03300f1f77570a6c",
+      "r9a-schema-text-1-current.txt": "365bfbcf564cf684a495a3377bf52e820e171adcfa4ae9b3da584bfc2eb5a6ce",
+      "r9a-schema-text-2-baseline.txt": "59f82c749ea90cb764d31cf1c362907da80a7e48ec5a6b51e61f1dbbe023043a",
+      "r9a-schema-text-2-current.txt": "d4d20dc485890c1393a65a3823464136092d80ed9ad90505f8a4008fc10945f1",
+      "r9a-schema-text-3-baseline.txt": "4d35c7b11a2eecfc039691a50ece4113a95aa98d8ce65b9a4a01c543e9e8558c",
+      "r9a-schema-text-3-current.txt": "a37f80fe3cbe7181378a370eec5f50c740c7f929de15464114f2a686097c8578",
+      "r9a-schema-text-4-baseline.txt": "aff2d8f82ec1bc058fc5cbedd694ef69bd7aa1b5df64c8d0ce39bfd6137d1e16",
+      "r9a-schema-text-4-current.txt": "c85e96cfa9a6504f19eb29debc219c8bf86a2c673fec9fd9cdf656edd8e7cf24",
+      "r9a-schema-text-5-baseline.txt": "e9ed8c82ff4659452bc6af61164611d24d17f6098491c9f3b76b3ef8e6362238",
+      "r9a-schema-text-5-current.txt": "a4784285071d46add40499cafeb2fd4ab1355e706fc9a916fc21f71dbef8e452",
+      "r9a-schema-text-6-baseline.txt": "b16d836ec97028112a316462ac992b6ffbb99afa1900bbda580e7cabd5177e04",
+      "r9a-schema-text-6-current.txt": "52a1fa4df6338a0c2c32791f584b2ac227f2e4d5ec8926cf19dade02bbfa43e2",
+      "r9a-schema-text-baseline.txt": "514039c819c4db89169387e3647ce8a8dee35072c8426e6dda2e127e8709aac5",
+      "r9a-schema-text-comparison.txt": "2b958f503cf33bf2b2c85a33c746ad84c1ccb3d47045722f422a8e67e90acc0b",
+      "r9a-schema-text-current.txt": "11656b5def9a2283b4fa0957f677728bec8b47fcb029f0081f36503d65274c43",
+      "r9a-schema-text-metadata.json": "91b72cd1f6466ca86bf4ece14ac39176f5f2d47fcdad0c89695bc47aa357d09c",
+      "r9a-schema-text.log": "bb9ae6a4b568d585fef859bc026620e8c1f7857fb7ed8d0d2ebdbcd9864d3ce9"
+    },
+    "rounds": 6
+  },
+  "current_revision": "34142ca15e319c9f3e206b947789dcd890c8bb80",
+  "dropped_rows": [
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_match",
+      "file": "r9-validate-1-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "1",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_miss",
+      "file": "r9-validate-1-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "1",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_match",
+      "file": "r9-validate-2-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "2",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_miss",
+      "file": "r9-validate-2-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "2",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_match",
+      "file": "r9-validate-3-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "3",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_miss",
+      "file": "r9-validate-3-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "3",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_match",
+      "file": "r9-validate-4-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "4",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_miss",
+      "file": "r9-validate-4-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "4",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_match",
+      "file": "r9-validate-5-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "5",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_miss",
+      "file": "r9-validate-5-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "5",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_match",
+      "file": "r9-validate-6-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "6",
+      "source": "baseline"
+    },
+    {
+      "benchmark": "BenchmarkIdentityDirectFieldPath/generic_miss",
+      "file": "r9-validate-6-baseline.txt",
+      "group": "validate",
+      "reason": "retired baseline generic identity adapter",
+      "round": "6",
+      "source": "baseline"
+    }
+  ],
+  "generated_at": "2026-09-06T08:52:47Z",
+  "groups": {
+    "r9-concurrent": {
+      "binary_sha256": {
+        "baseline": "05902e67c8277c8c284d4111d649d94a478a4f1a5a5192dc213994e0def49a24",
+        "current": "11265cea24d7b333cb70e5ed6c5f10d0bdaaa8a3618f38eaa10594c408dfe817"
+      },
+      "cpu": "1,8",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "09ca0330591bac580ea676a1afcb386d92237c5561e99b97507159f9a3cdcbaf",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-duration": {
+      "binary_sha256": {
+        "baseline": "8635905ddc1ca9fe304346785f85979f80eb8b139e6c34357d6cbe65d1e36b71",
+        "current": "bae92fb79524af20c92f816fb4cf88261df7146d0c33bc37b7a5ddba50cf58ba"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "0fda6de1f4e16a7e6c360c78c2329d2afafa92101fd65b4f3c93eb6142060924",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-format": {
+      "binary_sha256": {
+        "baseline": "5ec3da203e9892b5f0477fcd353a9918429f38f0104e67868a97ae5919052094",
+        "current": "3e12d27d6124a792d07160d8d7919600bd621c70e9a51e21ff454730ceef6991"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "fc7a024440ce926b484638bebf9c5f774e63b51a6d88ca31509afd6a5cce35af",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-lex": {
+      "binary_sha256": {
+        "baseline": "9d8290c90fc6a92287bb1e2541bf00a69b5c1a38a3fd9d30b931da7a1f88f8c4",
+        "current": "e5c5fccb4483ae384e4d8f246ab9f625370cf3ee706f78b2297f77c24d64ae1a"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "ccb531f3e493cb54dc6ba0396984ae635e2253db064e095820f1a7e88c67dbe5",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-namespace": {
+      "binary_sha256": {
+        "baseline": "bde6d149164bd886d49aa65896cc7b5d8aeeb07b70d2e286fc5cceadea2499c5",
+        "current": "2b686c41adec21914e83d168b390ff0b8151c7510c5298ffbac86d3bbad387bb"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "83e43e23d928b0d778f509103d001978e773b64c689059ce7c02e06d6532fab6",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-public": {
+      "binary_sha256": {
+        "baseline": "05902e67c8277c8c284d4111d649d94a478a4f1a5a5192dc213994e0def49a24",
+        "current": "11265cea24d7b333cb70e5ed6c5f10d0bdaaa8a3618f38eaa10594c408dfe817"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "da8e97b40572df7996d34ab8c99fec7963bf22f92c9316d82d298780fa8a4c68",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-regex": {
+      "binary_sha256": {
+        "baseline": "8635905ddc1ca9fe304346785f85979f80eb8b139e6c34357d6cbe65d1e36b71",
+        "current": "e4bd1104bca9f894d1d2207d15b7339267a87ae50315782707894b1e26ef00e8"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "52ca6e77be7d5e06961889ad6dbc6929403788a97a623e213d1ade312698464d",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-stream": {
+      "binary_sha256": {
+        "baseline": "f946ff53cb26b2c83ac18f1ad3fedc2edf9f90832ead7b14602bde384d41ec50",
+        "current": "2b686c41adec21914e83d168b390ff0b8151c7510c5298ffbac86d3bbad387bb"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "b83bfe1ae29d6a06763327d3168e0df955606979d79b9fd6386e08e3d2c10904",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-uri": {
+      "binary_sha256": {
+        "baseline": "b2af88c03704905c6f777e60a25cdaefc931bb03ed3e99f100a98264f0557569",
+        "current": "05b9ef63c9dc33d93b249d7f2451f9be500597f3a4021f89fd7795be0ca920fa"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "24501d120a8859fc533d440ceb856492495e807d2be2e60b7af8487a4df84801",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-validate": {
+      "binary_sha256": {
+        "baseline": "ed6750351d8d649ca17301ecbfc11765e76568c2b284cbad76f50db7b268a23c",
+        "current": "c9b11f7ea6751398c36b8a349fde72d867f64ad063903eab3117d18172da5154"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "bf3e6106c2a281be42870853066478a769e84e89c11ed26f6e62a4b1b383b000",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    },
+    "r9-value": {
+      "binary_sha256": {
+        "baseline": "8635905ddc1ca9fe304346785f85979f80eb8b139e6c34357d6cbe65d1e36b71",
+        "current": "9f9a7520fa317167d212d58928b2b573e0b5f02c61378ad7ce141ca881a9627e"
+      },
+      "cpu": "1",
+      "cpu_execution": "separate process per CPU setting; GOMAXPROCS matches -test.cpu",
+      "go_version": "go version go1.27.0 darwin/arm64",
+      "metadata_sha256": "519b481b282b27eb054892b8c6b7d90568e4d616cd05478bc6fa2ddff469ddf4",
+      "observed_test_processes": [],
+      "source_commits": {
+        "baseline": "2764e554dc67e3632e1bf3880e1dc2bfd0ef4cb3",
+        "current": "34142ca15e319c9f3e206b947789dcd890c8bb80"
+      },
+      "source_status": {
+        "baseline": [
+          " M internal/validate/export_test.go",
+          "?? all_content_test.go",
+          "?? internal/runtime/rewrite_duration_bench_test.go",
+          "?? streaming_source_test.go",
+          "?? union_benchmark_test.go"
+        ],
+        "current": []
+      }
+    }
+  },
+  "input_sha256": {
+    "r9-concurrent-1-baseline.txt": "39d33f3fac8c461ab6d465f30cf7990af4a3205e996b80a24b40dcbd2eacfdd4",
+    "r9-concurrent-1-current.txt": "1b3cfd06aa279ec24e29795e19b719a2355fff7244d90c89c5d3a34a28c12ea1",
+    "r9-concurrent-2-baseline.txt": "c2199f5caaba8a324e6fdeb00d4581d6a7407e6449731c242f89c0ff70ba4270",
+    "r9-concurrent-2-current.txt": "dab50d667d6e0487e1471ae98180cf91fa162fe8642cf8726261d1270dde5b41",
+    "r9-concurrent-3-baseline.txt": "39a219de9fb2799bade75adedf666d6a9be5ad0cdd7f64fd8ee9e7c77e6fc373",
+    "r9-concurrent-3-current.txt": "cef591cb6a8984cae768b8a910f510b0c2e4afcbd63d5d15ac65ac03c81ac0d7",
+    "r9-concurrent-4-baseline.txt": "af0842bccf9114a8ff99ddccf9a51ae80dcbeb94ad28be7e147301e466fac4f4",
+    "r9-concurrent-4-current.txt": "20bb7dbb05000a26fe2b3c6b467503ff172acf44c2f0b70dc5bf4ae9854968da",
+    "r9-concurrent-5-baseline.txt": "cd2620da34648ae48539a6e6f543085e46b77be5d25b65416f69538e48f304b0",
+    "r9-concurrent-5-current.txt": "7bedfd29d6d7d81d118caf621ac78e5cf56751b85d47b560bac8ecd958fdd9c2",
+    "r9-concurrent-6-baseline.txt": "74dae129e2208035611c0bb2269adc10e12e18c7a4b2b312fbd906703e32d2e4",
+    "r9-concurrent-6-current.txt": "1c333440c7924234d162b80ab3535355462d3de8d55badae07944133d42b5352",
+    "r9-concurrent-metadata.json": "09ca0330591bac580ea676a1afcb386d92237c5561e99b97507159f9a3cdcbaf",
+    "r9-duration-1-baseline.txt": "ed1554bcfa2666d88850c97508ecbe0f07ce2520e1864faf7e3acc7131d3d598",
+    "r9-duration-1-current.txt": "b3ae3f7be973ba1103d06a8a1dcb8bd6a5cdd7171153a40cadd01cd0ea14c245",
+    "r9-duration-2-baseline.txt": "206b5919e800f1360f445b04bd78d52e03922fdfdbb3895053a4c49aed298dff",
+    "r9-duration-2-current.txt": "4703c1b59144cb906f063cb19cf1bced0d87b979efcd032a7558aeef4dc20127",
+    "r9-duration-3-baseline.txt": "5de38cd3a073b7bb71898d6af8829b4354d65f33c1d9bf785df3ed54773f40c7",
+    "r9-duration-3-current.txt": "4f9fd542637de2f38cad2ce1ccebfbb08b2c355d176b7c44edb5633071d604f6",
+    "r9-duration-4-baseline.txt": "7c1dcffe9b4562c00b53ed2656c4b0fc6e35559fcfa81455e2429296a711bd62",
+    "r9-duration-4-current.txt": "d90f2cede6f3f823d8da3a0cceae37bd661bccc08c75e71e68886b96fb7de68b",
+    "r9-duration-5-baseline.txt": "d522cca846f57f195389aaec04e89be08bf22c0d3cb9ceb20c7759b25ac479db",
+    "r9-duration-5-current.txt": "566c1bba8580f4148a389a2fc1d175b348d1598e1dcc6abb62f709b8bd173695",
+    "r9-duration-6-baseline.txt": "5c6b0cb2608bc788f15cbe27117897f635b64113f8008e7241c79cd2613531f0",
+    "r9-duration-6-current.txt": "36fea07d3c6a07ee156ea29725f336ba1104558be7638148ff0589d63a492670",
+    "r9-duration-metadata.json": "0fda6de1f4e16a7e6c360c78c2329d2afafa92101fd65b4f3c93eb6142060924",
+    "r9-format-1-baseline.txt": "06b76bc1ffa8c04d170c6b198801a753ff16f21945ed2340b34263e9d1b4708e",
+    "r9-format-1-current.txt": "a856ecb6844c23e6bee5307fafc4d98b8ed84fa34d3355c00a73dd4df44390e0",
+    "r9-format-2-baseline.txt": "0565f83106c71b55334b7745037098bb98e97bd5d4e29e996134b351ca21ef7d",
+    "r9-format-2-current.txt": "af944965f2bbbae65ced05dee8980d19c74b3ee22e3fea2d4a0297c50ad3603c",
+    "r9-format-3-baseline.txt": "a3c501a1d73853626d85b0cae090172796417d277513629e410d8afbca34c082",
+    "r9-format-3-current.txt": "56c7210965954f0248c102a6c7cd7574622f009a939e27c1ff05e6ae434c01e4",
+    "r9-format-4-baseline.txt": "9b9a7be970a6ea40464bfe541698da0b76e2e0e8370f8514fb6ddb3487659640",
+    "r9-format-4-current.txt": "9d39e6d4fa358359a14de15040e3c45d15a2795d559e55ce75dde0c2ad4b0496",
+    "r9-format-5-baseline.txt": "e000763223d835e16964a2fd1c47da8db090349810bca6fbefe3303acad5359f",
+    "r9-format-5-current.txt": "e1ad18cfac6216d3230be7a49502119cd6cdf107a55f91d147f283cea54ac962",
+    "r9-format-6-baseline.txt": "7199878b1ca95df959d42fc2400b9e11605740995cad3358b4be10262df6d896",
+    "r9-format-6-current.txt": "632a2cab821be9406b9347b71f7dd379611b694856fbdc570b7aaf777e66e23c",
+    "r9-format-metadata.json": "fc7a024440ce926b484638bebf9c5f774e63b51a6d88ca31509afd6a5cce35af",
+    "r9-lex-1-baseline.txt": "2c1187ee51d6d9ebda394de9165b7c27d0d3f9cd028d1d5a946db1d326a8cfbc",
+    "r9-lex-1-current.txt": "f0c19ab72cf855f079f318d10d001cb34259f764d8e6347b089bce36bdc394f7",
+    "r9-lex-2-baseline.txt": "8dc52e48bb19a91260a06302bf6e7df5f561c4e4213226cbbaa03eda3b60e5a5",
+    "r9-lex-2-current.txt": "a7780ff324dde056145bfe07fd10632cfc488bee69d0f1fa910ef98766c6ccbb",
+    "r9-lex-3-baseline.txt": "e2c75414aaa90a75b3efc5889bcc17e86ab6bf71a938b99b45738aeb416108d3",
+    "r9-lex-3-current.txt": "43081699c819c7f146bf069f6864d7e5066938259132450c2c122e0dbf5b0140",
+    "r9-lex-4-baseline.txt": "5f65dc9c644dc835e357cfb62adc86035313cb9101cbeefa7c578eae7b4f8d67",
+    "r9-lex-4-current.txt": "9a76675c28fe3e9c5b93d8c0cc97b03b599af766789b5eb66d6e0eed68bf2566",
+    "r9-lex-5-baseline.txt": "9473144626d76e886271512a980f17d54b9afecc0dcce67d3dee0415c1d0a4d1",
+    "r9-lex-5-current.txt": "c2d6cc5def932ec621ea3f58dba38a81acd1dd3d5fc07a044e0ceb68cf226b18",
+    "r9-lex-6-baseline.txt": "1ca773a84cc9e082c27e334f6c2aecdb22804b5d1b945a5d74f8b46c5126dddb",
+    "r9-lex-6-current.txt": "6d4b9836e9bda161d44e82efc6de0a05389d0e71ddd68bc450ca249de19f0b0c",
+    "r9-lex-metadata.json": "ccb531f3e493cb54dc6ba0396984ae635e2253db064e095820f1a7e88c67dbe5",
+    "r9-namespace-1-baseline.txt": "97621d94b9b26c1adf8241a11c6f05ca5cb732a5caa1b4dae5e2f7de9b4c8853",
+    "r9-namespace-1-current.txt": "2b58aa226cd0d4141c89b09b74f7c202042f2506a3f8ccf73340a3b2844e421e",
+    "r9-namespace-2-baseline.txt": "051b4b2b9c84f19e7d8c27ce26140196adcbc9d4f55bf256249c498b50dfb1a4",
+    "r9-namespace-2-current.txt": "facb3811f8e88d0312455a5431c46fbe4126ad2489b824ea8862daa9e4c646aa",
+    "r9-namespace-3-baseline.txt": "0f8c7e683daaa2b73a1287fc2d2e077a75450b9b00e261d28520f25b5dcce63b",
+    "r9-namespace-3-current.txt": "12d446b85ad6af7a2a3e933d8353e8ba57526f654a20f7e287703c2a361a655e",
+    "r9-namespace-4-baseline.txt": "e781d657aaef20142f40717aa80e1325c997996ad9d4b9f72634477ff478e885",
+    "r9-namespace-4-current.txt": "98f5712f5d55ba2a5b47699956154cb37020abf25cb8507c6196fa9b7eab3515",
+    "r9-namespace-5-baseline.txt": "a410a533f1ace4dcdc52b28377a8a7dc7b9df1fcdd9e167df8f1351fc85dc0fd",
+    "r9-namespace-5-current.txt": "e02fc52413ce2e89e3f5fc27a5ce2cb4025011a61b9527b62461835e3ca8b205",
+    "r9-namespace-6-baseline.txt": "3d10711e9c8b4b093c3e0924ab24df7fc79e758c8ec511b77252bd4c7a265a1f",
+    "r9-namespace-6-current.txt": "9f4f4ac6426802fb2e846c1cd50d5608ebfe3ba34c9a2b07c5e21f8aef1d37aa",
+    "r9-namespace-metadata.json": "83e43e23d928b0d778f509103d001978e773b64c689059ce7c02e06d6532fab6",
+    "r9-public-1-baseline.txt": "8e8a5cdc39bab28d467b15e4651fc0d669211a3a1736d3baea01758c440bc7e6",
+    "r9-public-1-current.txt": "02a28ccc569a3c6ed2b75e156ee4754ad140b6c3d6c6d39f2c5a2d43403aeaa3",
+    "r9-public-2-baseline.txt": "1f45ef1e1edc5f65c7fc0fd6eb1f12acbec405b3319c3d8e4bf004de8e1f3d2d",
+    "r9-public-2-current.txt": "d2beade6d640ef0b1952208cc183d8b546fc1ee0a5a05203720a8df6eeb5a0f9",
+    "r9-public-3-baseline.txt": "243d7962601fbf5c4d95eee4c5c0f635ccd3c45a964eee4a28e1be8bd7b0b9c9",
+    "r9-public-3-current.txt": "87f3f029d29cbf800b9c4cb1ebe602d75178065cb0e4db32e5b805b69d4815ae",
+    "r9-public-4-baseline.txt": "8b26ffffe9edec6f2ce735832bf6f5c054c8671d54ec2c25212f91cddb0542e6",
+    "r9-public-4-current.txt": "21dcf6e65b72386f651ccbd6cbf571c633d8e949e57f8c281bfbdd4b758a721e",
+    "r9-public-5-baseline.txt": "b7a1913d9fd5c993ed815f2026e7faad75ac94af1a5b14601135a7dcea8ece44",
+    "r9-public-5-current.txt": "8e5ac598a0e4dd80e3d2c8ce53e6c5f1f7a9c626fa5c0511714a28dfde558995",
+    "r9-public-6-baseline.txt": "30ef088f65ff0bca9beba36f996325ddfef365cbe62ebc9d45be66451535d2ef",
+    "r9-public-6-current.txt": "951063685d526cdaf9345fd4b90a2c1835d04a8ee9ea0c2c3100305f9b064176",
+    "r9-public-metadata.json": "da8e97b40572df7996d34ab8c99fec7963bf22f92c9316d82d298780fa8a4c68",
+    "r9-regex-1-baseline.txt": "68c7c8bff39bd58efa2207793b00436eab413c960291922ba1767ec591cc5705",
+    "r9-regex-1-current.txt": "b9927158c43ddf69191465787cc181ef625e5686df3f0e3237891a57d40f39d3",
+    "r9-regex-2-baseline.txt": "a7dee994762f374c3e5581e45edaa318ecc3bfe7b1539d1e5c4f1f4643d11361",
+    "r9-regex-2-current.txt": "d084a7ab69e9f251a3e623338d2e12a7dd3059437d0ca49b9eff0901596c8d2e",
+    "r9-regex-3-baseline.txt": "0aacc9eb1a21d11711801e418f513309e1b119651dc82a6e9a4cb96b4215f45f",
+    "r9-regex-3-current.txt": "a4835c2945134726f358cd844e80887cc13c6e8d91da23a5939c6b1564bb601d",
+    "r9-regex-4-baseline.txt": "eee98c4813186b26bd4a5d5c2aec455fe97cf859164d8142e5e776169fbec19b",
+    "r9-regex-4-current.txt": "239af31496e8d24ed3d3cfd5b08f612606fa7f0700955a375b70846cfafb3777",
+    "r9-regex-5-baseline.txt": "0bf71c1eae7653fbb63e3575c7db57faf0f8c7f7a8637334cf7474c8da9a64bb",
+    "r9-regex-5-current.txt": "e382778b86e917715deb4ca0ca864648fc83edf083e924e6a486915e6ef1be62",
+    "r9-regex-6-baseline.txt": "524ad763b09a9f0b0b3cbec5c2878d6a4f726249020575680c8b87195bc5af19",
+    "r9-regex-6-current.txt": "5a469364119d9aca85b4446bbb80d8856809ef688c749537c0f0ab27d847d444",
+    "r9-regex-metadata.json": "52ca6e77be7d5e06961889ad6dbc6929403788a97a623e213d1ade312698464d",
+    "r9-stream-1-baseline.txt": "ebae0624883cd82d9c4d0f0a654b3f3ee5e8956dc138ffcdb4d8bedd43f585e4",
+    "r9-stream-1-current.txt": "398fc44785a3438056eb2004244152d4733dd2cf3a4cf728a28cc0e2bb1f67c3",
+    "r9-stream-2-baseline.txt": "baa6a636251366a764e341c38a2947d019a90191d88440341d8a26441ded5c62",
+    "r9-stream-2-current.txt": "7dfa28f5f973a63f89cf68d7896e0ba99774f8f51bf60c20473cb36fb8b4477a",
+    "r9-stream-3-baseline.txt": "3cc90d07ccf4541993823b5adcb15af60f565ddf7085ad539ce1656f1be55735",
+    "r9-stream-3-current.txt": "054546aa2375382b23ba6f1f72cc13b523c352a121b6c615ef17e85c57f6b19c",
+    "r9-stream-4-baseline.txt": "6613c57d1f585c5097523a4d0ccc34c49896bed232d61d6f1e91f3413a998069",
+    "r9-stream-4-current.txt": "fb2828037798766d166a8272ba1373d174847c7abc621bf28d92b60c0ffca22b",
+    "r9-stream-5-baseline.txt": "6fcf8ab14aad10d990431cbbbe700c0d7d49a68411fb5488f3e9328a53eb0421",
+    "r9-stream-5-current.txt": "2f6f8e0bd388a248fbd5335a9630f6bd3cd4451a55b3e9cddbc1a4765704973f",
+    "r9-stream-6-baseline.txt": "ee9848518b8ade590068a37af00de3e89b289c9d3e048bb232aad52d68109752",
+    "r9-stream-6-current.txt": "1c0a8e96e9a189521d76c8322b8faa21662f04ae4d334678d6988c1994cf0e71",
+    "r9-stream-metadata.json": "b83bfe1ae29d6a06763327d3168e0df955606979d79b9fd6386e08e3d2c10904",
+    "r9-uri-1-baseline.txt": "2bc2b6b40090930c0306e5d9c85a983703193806a6c5cadb86830693c3040a1a",
+    "r9-uri-1-current.txt": "88b361029cb6b1169b842b127e4d339b76eb6e02ed0ee9d125935c060190520f",
+    "r9-uri-2-baseline.txt": "cc617d146d9a16d3872e54c38cb1473d359563bfd8ab5bea985e851ef65c31f2",
+    "r9-uri-2-current.txt": "17e7358d365023984a727e6842fac7c24e752c575ff0368e798928d3a02cc1c6",
+    "r9-uri-3-baseline.txt": "c9d97e868e8e41a3122d2a4194b84a65c2a94d1da73b89b66bcc2d5338947940",
+    "r9-uri-3-current.txt": "5eaa5732015f39a66aa76d257ca9292b31631fcc63930f69637df76c3ba498cc",
+    "r9-uri-4-baseline.txt": "b4e3534377bbefcf686c1ebd60232a2d60d55222440819ce88758c21c2d993ed",
+    "r9-uri-4-current.txt": "8c1f89cca045aca077e8032c37b720766fa623c4eca47c5ce68759cfc6d6a718",
+    "r9-uri-5-baseline.txt": "b40d77a84af9a544902c633e931844f9d94cdbdd281e2ac102359e1f838d0ddd",
+    "r9-uri-5-current.txt": "ac3575007ee1d9da9afd8bb64eb51f47d5091e0d2edb3e96c8ae2efe4450ada0",
+    "r9-uri-6-baseline.txt": "70f4364cf2c883ea77fa586295ce5e5b09facc59d524ae25a99143fd8265e2f8",
+    "r9-uri-6-current.txt": "41f5640407849b75b20c32209fbceb66e8da109dadb4be7b94c67051de291a99",
+    "r9-uri-metadata.json": "24501d120a8859fc533d440ceb856492495e807d2be2e60b7af8487a4df84801",
+    "r9-validate-1-baseline.txt": "21699092cdd4921d7ae388d19ec719c2ef838ac909143fbf822b9cbd299b2a6e",
+    "r9-validate-1-current.txt": "02e865e8b62ad2f2c96400e698f41eb261b137319d48fbf41c05fc1f4ff6c2d0",
+    "r9-validate-2-baseline.txt": "45336d56a0114e6fa868c499247012f6f6274af0132b0271795f2e735217826a",
+    "r9-validate-2-current.txt": "150b70bab3be1b21e131d8314cc9f0d4cbc8de7a711b7ac23e56cdb7e9b18a8a",
+    "r9-validate-3-baseline.txt": "fe0324cbeaf63b2b9bfe89ad3cd9557c6fee4cbdcbb30d2a6fa00fa874d7772f",
+    "r9-validate-3-current.txt": "705a171b7a4581610195921d1dc03ea84c03e0d5ffc37e4708db4122bced50d3",
+    "r9-validate-4-baseline.txt": "a3adf18b1a9e4112eb2b71a1fc37302ca02d062f666adff35a16ceb0b2944e77",
+    "r9-validate-4-current.txt": "e4d3895334321434e4728221b71e6b252d617d7e94c68bb9cd4e1ebeb918df99",
+    "r9-validate-5-baseline.txt": "5eb6857df0edc6e24e4836ea649384f8e196f875522e5775285c77883132acff",
+    "r9-validate-5-current.txt": "630de359985b48cf732de73d4e862873bf45d5fd527559cce6426031cade2e95",
+    "r9-validate-6-baseline.txt": "35c413a1b6dbb80eb5a048d3bcf4f91fc5ece4d5b6deac9886970c33ee907cd7",
+    "r9-validate-6-current.txt": "16b38652e9cc0a8c7456d59b73f0506e874bb7350e688eb59e041381fe0bca81",
+    "r9-validate-metadata.json": "bf3e6106c2a281be42870853066478a769e84e89c11ed26f6e62a4b1b383b000",
+    "r9-value-1-baseline.txt": "7730497fc2a4567470c2606f0a81f98bb1a47b761082e6e2530d439327c9b535",
+    "r9-value-1-current.txt": "54fb804f34db068ddc421a434ca7ab8078b036e093d2d03bddc888e2eb476200",
+    "r9-value-2-baseline.txt": "0fee7998a3f3fdbf2742400a922074620c762d80e66d8bb795f8a91b050ba97f",
+    "r9-value-2-current.txt": "16c2f4e1e1396a07d0bafc22466d3eb8cf65d65b41d5bcd5f792ba966c91f5f2",
+    "r9-value-3-baseline.txt": "25dad672814295f1325fe6da6da79c783c0038ce1e90b59aaea941043c2114bd",
+    "r9-value-3-current.txt": "8b58e22f9b75e36bee68151fa3287024845080f4dd93dea596f46a4ac43495de",
+    "r9-value-4-baseline.txt": "21e2bd93c2271527f15069e5e92bb469464fb757f2221fd9bf2f34f6b206abad",
+    "r9-value-4-current.txt": "9203567d91c64fc65a0d6cbd3e2eb2ff3a305176aecf4a12ffd395266716ab51",
+    "r9-value-5-baseline.txt": "45a3048ea507df3ebeeb8a6e9243726fee239df0d460d56c1becb4ccb17eb032",
+    "r9-value-5-current.txt": "49c06d4eee38a93aac238f8f709bad8446d0e2c5026b59baf7f1024ebaee8ba6",
+    "r9-value-6-baseline.txt": "0d0ae197676be46856d215b0fb6c77e9172e8ef6c78ae2a3ed208b6b8d1fc880",
+    "r9-value-6-current.txt": "c0a079b87121d604d82e5d5b87b996b5f9577f5003783ed8826e71e0e7f65356",
+    "r9-value-metadata.json": "519b481b282b27eb054892b8c6b7d90568e4d616cd05478bc6fa2ddff469ddf4"
+  },
+  "normalizations": {
+    "diagnostic": {
+      "r9-public/BenchmarkSessionValidateUnionLateMember": "matching public API workload",
+      "r9-value/BenchmarkPublishedRawUnionLateMember": "old bool+error API versus current typed Value+error API"
+    },
+    "validate": {
+      "baseline": {
+        "/direct_match": "/compiled_match",
+        "/direct_miss": "/compiled_miss"
+      },
+      "drop": [
+        "/generic_match",
+        "/generic_miss"
+      ]
+    }
+  },
+  "platform": {
+    "cpu": "Apple M2 Max",
+    "goarch": "arm64",
+    "goos": "darwin"
+  },
+  "row_count": 1812,
+  "sampling": {
+    "benchtime": "200ms",
+    "cpu_execution": "separate process per CPU setting",
+    "groups": [
+      "r9-public",
+      "r9-format",
+      "r9-regex",
+      "r9-value",
+      "r9-stream",
+      "r9-duration",
+      "r9-validate",
+      "r9-concurrent",
+      "r9-namespace",
+      "r9-lex",
+      "r9-uri"
+    ],
+    "order": "alternating baseline/current per group; source cycle is preserved",
+    "rounds": 6
+  },
+  "status": "assessed",
+  "toolchain": "go version go1.27.0 darwin/arm64"
+}

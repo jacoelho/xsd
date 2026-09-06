@@ -441,7 +441,7 @@ def write_outputs(
                 "note",
                 "raw_file",
             ]
-            writer = csv.DictWriter(stream, fieldnames=fields)
+            writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
             writer.writeheader()
             for sample in samples:
                 writer.writerow({field: getattr(sample, field) for field in fields})
