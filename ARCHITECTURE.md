@@ -507,7 +507,10 @@ Validation flow:
    semantic state. Identity field batches admit each value against the remaining
    document budget before growing one evaluator-owned staging workspace. They
    commit only complete batches, clear source references on every exit, and retain
-   capacity only below the validation high-water bound. `MaxIdentityEntries`
+   capacity only within the validation high-water bound. Identity dispatch resets
+   and semantic discard apply that same bound to active-scope slices, selector
+   hits, and the active-constraint map; the immutable schema dispatch index remains
+   reusable. `MaxIdentityEntries`
    independently bounds stored identity entries, pending selector matches, and
    pending field-value slots; selection admission checks both pending dimensions
    before allocation or mutation. Retained diagnostic nodes are bounded by path
