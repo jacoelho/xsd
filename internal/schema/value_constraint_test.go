@@ -43,11 +43,11 @@ func valueIdentityKey(kind valuepkg.PrimitiveKind, lexical string) string {
 func testQNameValue(t *testing.T, lexical, namespace, local string, needs valuepkg.Needs) valuepkg.Value {
 	t.Helper()
 	return testValue(t, valuepkg.BuiltinType(valuepkg.PrimitiveQName), lexical, valuepkg.Resolver{
-		QName: func(got string) (string, string, bool) {
+		QName: func(got string) (valuepkg.ExpandedName, bool) {
 			if got != lexical {
-				return "", "", false
+				return valuepkg.ExpandedName{}, false
 			}
-			return namespace, local, true
+			return valuepkg.ExpandedName{Namespace: namespace, Local: local}, true
 		},
 	}, needs)
 }
@@ -105,7 +105,9 @@ func testConstraintValue(lexical, canonical string, typ SimpleTypeID, identity s
 	}
 	var resolver valuepkg.Resolver
 	if kind == valuepkg.PrimitiveQName || kind == valuepkg.PrimitiveNotation {
-		resolver = valuepkg.Resolver{QName: func(string) (string, string, bool) { return "urn:test", "item", true }}
+		resolver = valuepkg.Resolver{QName: func(string) (valuepkg.ExpandedName, bool) {
+			return valuepkg.ExpandedName{Namespace: "urn:test", Local: "item"}, true
+		}}
 	}
 	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{})
 	p, err := b.Seal()
@@ -131,7 +133,7 @@ func TestValueConstraintRecordProjections(t *testing.T) {
 	}
 
 	read, ok := newValueConstraintReadFromConstraint(vc)
-	if !ok || read.LexicalText() != "p:item" || read.CanonicalText() != "p:item" || !read.Value().Equal(value) {
+	if !ok || read.ApplicationText() != "p:item" || read.CanonicalText() != "p:item" || !read.Value().Equal(value) {
 		t.Fatalf("NewValueConstraintReadFromConstraint() = %+v, %v; want projected value", read, ok)
 	}
 	if read, ok := newValueConstraintReadFromConstraint(nil); ok || read != (ValueConstraintRead{}) {
@@ -163,9 +165,9 @@ func TestValueConstraintRead(t *testing.T) {
 	t.Parallel()
 
 	value := testBuiltinValue(t, valuepkg.PrimitiveDecimal, "1", valuepkg.NeedCanonical|valuepkg.NeedIdentity)
-	vc := newValueConstraintRead("01", "1", value)
-	if vc.LexicalText() != "01" {
-		t.Fatalf("LexicalText() = %q, want 01", vc.LexicalText())
+	vc, ok := newValueConstraintReadFromConstraint(&ValueConstraint{Lexical: "01", Canonical: "1", Value: value})
+	if !ok || vc.ApplicationText() != "1" {
+		t.Fatalf("ApplicationText() = %q, present %v; want 1, true", vc.ApplicationText(), ok)
 	}
 	if vc.CanonicalText() != "1" {
 		t.Fatalf("CanonicalText() = %q, want 1", vc.CanonicalText())
@@ -328,11 +330,11 @@ func TestValueConstraintNameReplay(t *testing.T) {
 				t.Fatalf("NewValueConstraintNameReplay() error = %v", err)
 			}
 			for i, lexical := range tt.resolve {
-				ns, local, ok := replay.ResolveQName(lexical)
+				name, ok := replay.ResolveQName(lexical)
 				want := tt.wantResolve[i]
 				wantOK := want.NS != "" || want.Local != ""
-				if ns != want.NS || local != want.Local || ok != wantOK {
-					t.Fatalf("ResolveQName(%q) = %q, %q, %v; want %q, %q, %v", lexical, ns, local, ok, want.NS, want.Local, wantOK)
+				if name.Namespace != want.NS || name.Local != want.Local || ok != wantOK {
+					t.Fatalf("ResolveQName(%q) = %q, %q, %v; want %q, %q, %v", lexical, name.Namespace, name.Local, ok, want.NS, want.Local, wantOK)
 				}
 			}
 			err = replay.ValidateConsumed()
@@ -637,12 +639,12 @@ func TestValidateValueConstraintReplay(t *testing.T) {
 		Value:     testQNameValue(t, "p:item", "urn:test", "item", valuepkg.NeedCanonical|valuepkg.NeedIdentity),
 	}
 	names := []ResolvedValueName{{Lexical: "p:item", NS: "urn:test", Local: "item"}}
-	validating := func(id SimpleTypeID, lexical string, resolve ValueConstraintQNameResolver, needs valuepkg.Needs) (valuepkg.Value, error) {
+	validating := func(id SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, needs valuepkg.Needs) (valuepkg.Value, error) {
 		if id != qnameType || lexical != "p:item" || needs != valuepkg.NeedCanonical|valuepkg.NeedIdentity {
 			return valuepkg.Value{}, errors.New("unexpected validator args")
 		}
-		ns, local, ok := resolve(lexical)
-		if !ok || ns != "urn:test" || local != "item" {
+		name, ok := resolve(lexical)
+		if !ok || name.Namespace != "urn:test" || name.Local != "item" {
 			return valuepkg.Value{}, errors.New("unexpected resolved QName")
 		}
 		return cached.Value, nil
@@ -677,7 +679,7 @@ func TestValidateValueConstraintReplay(t *testing.T) {
 			name:   "lexical no longer validates",
 			cached: cached,
 			names:  names,
-			validate: func(SimpleTypeID, string, ValueConstraintQNameResolver, valuepkg.Needs) (valuepkg.Value, error) {
+			validate: func(SimpleTypeID, string, valuepkg.QNameResolver, valuepkg.Needs) (valuepkg.Value, error) {
 				return valuepkg.Value{}, errors.New("invalid")
 			},
 			wantErr: "lexical value no longer validates against owner type",
@@ -686,7 +688,7 @@ func TestValidateValueConstraintReplay(t *testing.T) {
 			name:   "unused proof",
 			cached: cached,
 			names:  append(append([]ResolvedValueName(nil), names...), ResolvedValueName{Lexical: "p:other", NS: "urn:test", Local: "other"}),
-			validate: func(SimpleTypeID, string, ValueConstraintQNameResolver, valuepkg.Needs) (valuepkg.Value, error) {
+			validate: func(SimpleTypeID, string, valuepkg.QNameResolver, valuepkg.Needs) (valuepkg.Value, error) {
 				return cached.Value, nil
 			},
 			wantErr: "resolved name proof was not fully consumed",
@@ -695,7 +697,7 @@ func TestValidateValueConstraintReplay(t *testing.T) {
 			name:   "cached value mismatch",
 			cached: cached,
 			names:  names,
-			validate: func(_ SimpleTypeID, lexical string, resolve ValueConstraintQNameResolver, _ valuepkg.Needs) (valuepkg.Value, error) {
+			validate: func(_ SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, _ valuepkg.Needs) (valuepkg.Value, error) {
 				resolve(lexical)
 				return testBuiltinValue(t, valuepkg.PrimitiveString, "other", valuepkg.NeedCanonical|valuepkg.NeedIdentity), nil
 			},

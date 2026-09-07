@@ -232,8 +232,11 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   month/second coordinates and resolved QName names. Text projections do not
   define equality: duration has no XSD 1.0 canonical representation and retains
   its whitespace-normalized lexical spelling. Patterns in one restriction step
-  are alternatives; inherited restriction steps all apply. Enumeration on a
-  union propagates structural list demand into member evaluation, including
+  are alternatives; inherited restriction steps all apply. Union patterns inspect
+  the selected member's normalized lexical output after ordered member assessment;
+  member evaluation shares that output with the facet check, and a failed pattern
+  does not try a later member. Union enumeration compares the selected member's
+  value and propagates structural list demand into member evaluation, including
   nested unions, before comparing typed values. Literal construction can omit
   its containing type's facets while they are being installed; member and item
   types always enforce their own facets, preserving normal value selection.
@@ -249,10 +252,21 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   Fixed simple element values compare typed identity projections, including
   durations with equivalent lexical spellings. Untyped mixed-content constraints retain
   their distinct lexical comparison contract.
+  Published value constraints retain application text for an empty element whose
+  actual type differs from its declaration. Context-free constraints use their
+  canonical spelling; QName/NOTATION-dependent constraints retain source spelling
+  because their expanded-name text projection is not a lexical XML value. The
+  accepted value owns this name-dependency fact, including list items; namespace
+  lookups from rejected union members do not determine application spelling. The
+  same-owner path reuses the prevalidated value. Source spelling remains owned by
+  compilation for admission and publication audits.
   The g* identity projection uses the normalized instant and timezone presence,
   matching typed equality independently of lexical calendar fields. QName
   resolution produces one expanded name before NOTATION declaration checking
   and typed assignment; absent namespace context cannot bypass that check.
+  The value-owned `ExpandedName` is both the `QNameResolver` result and the
+  retained QName/NOTATION payload. Compilation, proof replay, and document
+  assessment share that resolver contract; value admission validates its result.
   Validation's string-interning gate uses a scalar value-owned query and does
   not clone diagnostic type views or facet metadata.
 - `internal/xsdregex` owns XSD 1.0 whole-input pattern semantics. One parsed

@@ -190,16 +190,25 @@ const (
 // Has reports whether n includes every primitive projection in want.
 func (n PrimitiveValueNeed) Has(want PrimitiveValueNeed) bool { return n&want != 0 }
 
+// ExpandedName is the namespace URI and local-name pair returned by QName
+// resolution. It is also the value-space payload retained for QName and
+// NOTATION atoms.
+type ExpandedName struct {
+	Namespace string
+	Local     string
+}
+
+// QNameResolver resolves one lexical QName into an expanded name. The boolean
+// reports whether the lexical value was resolved in the active namespace
+// context.
+type QNameResolver func(string) (ExpandedName, bool)
+
 // Resolver supplies the context-sensitive QName and NOTATION decisions that
 // value validation cannot own. A nil function means no namespace context.
 type Resolver struct {
-	QName    func(lexical string) (namespace, local string, ok bool)
+	QName    QNameResolver
 	Notation func(namespace, local string) bool
 }
-
-// ResolveQNameParts is the compact QName callback form used by schema and
-// document callers.
-type ResolveQNameParts func(string) (string, string, bool)
 
 // Scratch is caller-owned reusable matcher state. It may be reused
 // sequentially, but not concurrently, across Validate calls.

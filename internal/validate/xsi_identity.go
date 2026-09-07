@@ -17,7 +17,7 @@ type xsiIdentityKey struct {
 	present bool
 }
 
-func xsiAttributeIdentityKey(rt *xsdSchema.Schema, name xml.Name, lexical string, resolve xsdSchema.ResolveQNameParts, workLimit uint64, ctx StartContext) (xsiIdentityKey, error) {
+func xsiAttributeIdentityKey(rt *xsdSchema.Schema, name xml.Name, lexical string, resolve xsdValue.QNameResolver, workLimit uint64, ctx StartContext) (xsiIdentityKey, error) {
 	rn := ResolveRuntimeName(rt, name)
 	if !rn.Known {
 		return xsiIdentityKey{}, nil
@@ -29,7 +29,7 @@ func xsiAttributeIdentityKey(rt *xsdSchema.Schema, name xml.Name, lexical string
 	return xsiIdentityKey{name: rn.Name, key: key, present: true}, nil
 }
 
-func xsiAttributeIdentity(rt *xsdSchema.Schema, local, lexical string, resolve xsdSchema.ResolveQNameParts, workLimit uint64, ctx StartContext) (string, error) {
+func xsiAttributeIdentity(rt *xsdSchema.Schema, local, lexical string, resolve xsdValue.QNameResolver, workLimit uint64, ctx StartContext) (string, error) {
 	switch local {
 	case vocab.XSIAttrNil:
 		return xsiNilIdentity(rt, lexical, workLimit, ctx)
@@ -52,7 +52,7 @@ func xsiNilIdentity(rt *xsdSchema.Schema, lexical string, workLimit uint64, ctx 
 	return v.IdentityKey(), nil
 }
 
-func xsiTypeIdentity(rt *xsdSchema.Schema, lexical string, resolve xsdSchema.ResolveQNameParts, workLimit uint64, ctx StartContext) (string, error) {
+func xsiTypeIdentity(rt *xsdSchema.Schema, lexical string, resolve xsdValue.QNameResolver, workLimit uint64, ctx StartContext) (string, error) {
 	resolver := xsdValue.Resolver{}
 	if resolve != nil {
 		resolver.QName = resolve

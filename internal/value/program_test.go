@@ -539,7 +539,9 @@ func TestProgramQNameLengthFacetIsAlwaysSatisfied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolve := Resolver{QName: func(string) (string, string, bool) { return "urn:test", "long-local", true }}
+	resolve := Resolver{QName: func(string) (ExpandedName, bool) {
+		return ExpandedName{Namespace: "urn:test", Local: "long-local"}, true
+	}}
 	if _, err := p.Validate(id, "p:long-local", resolve, 0, 16<<20, nil); err != nil {
 		t.Fatalf("QName length facet rejected valid QName: %v", err)
 	}
@@ -595,11 +597,11 @@ func TestProgramAcceptsCompiledXSDRegexPattern(t *testing.T) {
 
 func TestProgramQNameAndNotationResolver(t *testing.T) {
 	resolve := Resolver{
-		QName: func(s string) (string, string, bool) {
+		QName: func(s string) (ExpandedName, bool) {
 			if s == "p:item" {
-				return "urn:test", "item", true
+				return ExpandedName{Namespace: "urn:test", Local: "item"}, true
 			}
-			return "", "", false
+			return ExpandedName{}, false
 		},
 		Notation: func(ns, local string) bool { return ns == "urn:test" && local == "item" },
 	}

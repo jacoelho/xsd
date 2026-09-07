@@ -714,7 +714,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 	target identityValueTarget,
 	name xml.Name,
 	lexical string,
-	resolve xsdSchema.ResolveQNameParts,
+	resolve xsdValue.QNameResolver,
 	workLimit uint64,
 	ctx StartContext,
 ) error {

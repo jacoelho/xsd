@@ -799,12 +799,12 @@ func (rt *schemaValidation) validateValueConstraintReplay(vc *ValueConstraint, e
 	return nil
 }
 
-func (rt *schemaValidation) replayValueConstraintValue(id SimpleTypeID, lexical string, resolve ValueConstraintQNameResolver, needs value.Needs) (value.Value, error) {
+func (rt *schemaValidation) replayValueConstraintValue(id SimpleTypeID, lexical string, resolve value.QNameResolver, needs value.Needs) (value.Value, error) {
 	if rt == nil || rt.build == nil || rt.build.valueBuilder == nil {
 		return value.Value{}, value.ErrMetadata
 	}
 	resolver := value.Resolver{
-		QName: ResolveQNameParts(resolve),
+		QName: resolve,
 		Notation: func(namespace, local string) bool {
 			q, ok := rt.build.lookupQName(namespace, local)
 			return ok && rt.build.notationDeclared(q)
