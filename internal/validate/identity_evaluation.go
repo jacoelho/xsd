@@ -436,15 +436,19 @@ func (e *identityEvaluation) appendAttributeProgramFieldMatches(
 	return matches
 }
 
-func (e *identityEvaluation) resetIdentityDispatch() {
+func (e *identityEvaluation) resetIdentityDispatch(maxRetainedMapLen, maxRetainedSliceCap int) {
 	// Programs and candidate indexes remain reusable across documents. Only
-	// active scope membership is document-local; clear its retained slices so
+	// active scope membership is document-local; retain its bounded slices so
 	// session reuse does not allocate on every reset.
-	for id, active := range e.dispatch.activeByConstraint {
-		clear(active)
-		e.dispatch.activeByConstraint[id] = active[:0]
+	if len(e.dispatch.activeByConstraint) > maxRetainedMapLen {
+		// A wide schema must not pin its one-off dispatch map across documents.
+		e.dispatch.activeByConstraint = nil
+	} else {
+		for id, active := range e.dispatch.activeByConstraint {
+			e.dispatch.activeByConstraint[id] = resetRetainedValues(active, maxRetainedSliceCap)
+		}
 	}
-	e.dispatch.selectorHits = e.dispatch.selectorHits[:0]
+	e.dispatch.selectorHits = resetRetainedValues(e.dispatch.selectorHits, maxRetainedSliceCap)
 }
 
 func (e *identityEvaluation) hasConstraints() bool {
@@ -714,7 +718,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 	target identityValueTarget,
 	name xml.Name,
 	lexical string,
-	resolve xsdSchema.ResolveQNameParts,
+	resolve xsdValue.QNameResolver,
 	workLimit uint64,
 	ctx StartContext,
 ) error {
@@ -1115,7 +1119,7 @@ func (e *identityEvaluation) reset(maxRetainedIDs, maxRetainedSlices int) {
 	e.elements = resetRetainedValues(e.elements, maxRetainedSlices)
 	e.attributeScratch = resetRetainedValues(e.attributeScratch, maxRetainedSlices)
 	e.releaseTarget()
-	e.resetIdentityDispatch()
+	e.resetIdentityDispatch(maxRetainedIDs, maxRetainedSlices)
 	e.generation++
 }
 
@@ -1125,6 +1129,6 @@ func (e *identityEvaluation) discard() {
 	e.elements = nil
 	e.attributeScratch = nil
 	e.releaseTarget()
-	e.resetIdentityDispatch()
+	e.resetIdentityDispatch(maxRetainedMapLen, maxRetainedSliceCap)
 	e.generation++
 }

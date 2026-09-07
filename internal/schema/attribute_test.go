@@ -799,7 +799,9 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 
 	qname, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{}).Validate(
 		valuepkg.BuiltinType(valuepkg.PrimitiveQName), "p:item",
-		valuepkg.Resolver{QName: func(string) (string, string, bool) { return "urn:test", "item", true }},
+		valuepkg.Resolver{QName: func(string) (valuepkg.ExpandedName, bool) {
+			return valuepkg.ExpandedName{Namespace: "urn:test", Local: "item"}, true
+		}},
 		valuepkg.NeedCanonical|valuepkg.NeedIdentity, nil,
 	)
 	if err != nil {

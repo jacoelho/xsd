@@ -121,7 +121,7 @@ func (c *compiler) validateAttributeValueConstraints(decl *AttributeDecl, n *sch
 	return c.validateAttributeConstraint(&decl.Fixed, decl, resolve, "attribute fixed")
 }
 
-func (c *compiler) validateAttributeConstraint(constraint **ValueConstraint, decl *AttributeDecl, resolve ResolveQNameParts, label string) error {
+func (c *compiler) validateAttributeConstraint(constraint **ValueConstraint, decl *AttributeDecl, resolve valuepkg.QNameResolver, label string) error {
 	if *constraint == nil {
 		return nil
 	}
@@ -133,7 +133,7 @@ func (c *compiler) validateAttributeConstraint(constraint **ValueConstraint, dec
 	return nil
 }
 
-func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, resolve ResolveQNameParts, owner QName, label string) (*ValueConstraint, error) {
+func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, owner QName, label string) (*ValueConstraint, error) {
 	validated, resolvedNames, err := c.validateValue(id, lexical, resolve, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	if err != nil {
 		return nil, DeclarationValueConstraintError(label, c.rt.formatName(owner), err)
@@ -147,25 +147,25 @@ func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, reso
 }
 
 type valueConstraintResolver struct {
-	resolve ResolveQNameParts
+	resolve valuepkg.QNameResolver
 	names   []ResolvedValueName
 }
 
-func (r *valueConstraintResolver) resolveQName(lexical string) (namespace, local string, ok bool) {
-	ns, local, ok := r.resolve(lexical)
+func (r *valueConstraintResolver) resolveQName(lexical string) (valuepkg.ExpandedName, bool) {
+	name, ok := r.resolve(lexical)
 	if ok {
-		r.names = append(r.names, ResolvedValueName{Lexical: lexical, NS: ns, Local: local})
+		r.names = append(r.names, ResolvedValueName{Lexical: lexical, NS: name.Namespace, Local: name.Local})
 	}
-	return ns, local, ok
+	return name, ok
 }
 
-func schemaQNameResolver(n *schemaNode) ResolveQNameParts {
-	return func(lexical string) (string, string, bool) {
+func schemaQNameResolver(n *schemaNode) valuepkg.QNameResolver {
+	return func(lexical string) (valuepkg.ExpandedName, bool) {
 		name, err := n.resolveQName(lexical)
 		if err != nil {
-			return "", "", false
+			return valuepkg.ExpandedName{}, false
 		}
-		return name.Space, name.Local, true
+		return valuepkg.ExpandedName{Namespace: name.Space, Local: name.Local}, true
 	}
 }
 

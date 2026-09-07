@@ -378,7 +378,7 @@ func setValueBoundFacet(f *valuepkg.FacetSpec, flag FacetMask, literal valuepkg.
 	}
 }
 
-func (c *compiler) compileLiteral(base SimpleTypeID, lexical string, resolve ResolveQNameParts) (valuepkg.LiteralSpec, error) {
+func (c *compiler) compileLiteral(base SimpleTypeID, lexical string, resolve valuepkg.QNameResolver) (valuepkg.LiteralSpec, error) {
 	_, names, err := c.validateValueLiteral(base, lexical, resolve)
 	if err != nil {
 		return valuepkg.LiteralSpec{}, FacetValueError(lexical, err)

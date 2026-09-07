@@ -37,6 +37,7 @@ const (
 	valueIDs valueFlags = 1 << iota
 	valueIDRefs
 	valueList
+	valueQualifiedNames
 )
 
 // retainListItems is an internal construction need used for compiled list
@@ -48,21 +49,22 @@ const retainListItems Needs = 1 << 7
 // retaining the complete tagged payload in every published result made scalar
 // and list values unnecessarily large.
 type parsedValue struct {
-	canonical string
-	identity  string
-	ids       string
-	idrefs    string
-	items     []parsedValue
-	atom      atomicValue
-	typeID    TypeID
-	selected  TypeID
-	count     uint32
-	isList    bool
+	canonical          string
+	identity           string
+	ids                string
+	idrefs             string
+	items              []parsedValue
+	atom               atomicValue
+	typeID             TypeID
+	selected           TypeID
+	count              uint32
+	isList             bool
+	listQualifiedNames bool
 }
 
 type atomicValue struct {
-	notation  expandedName
-	qname     expandedName
+	notation  ExpandedName
+	qname     ExpandedName
 	canonical string
 	binary    BinaryValue
 	text      TextValue
@@ -77,11 +79,6 @@ type atomicValue struct {
 	boolean   bool
 }
 
-type expandedName struct {
-	ns    string
-	local string
-}
-
 // Type returns the type program ID that accepted the value.
 func (v Value) Type() TypeID { return v.typeID }
 
@@ -91,6 +88,9 @@ func (v Value) SelectedType() TypeID { return v.selected }
 
 // CanonicalText returns the canonical lexical projection when requested.
 func (v Value) CanonicalText() string { return v.canonical }
+
+// HasQualifiedNames reports whether the accepted value contains QName or NOTATION values.
+func (v Value) HasQualifiedNames() bool { return v.flags&valueQualifiedNames != 0 }
 
 // IdentityKey returns the value-space equality projection when requested.
 func (v Value) IdentityKey() string { return v.identity }
@@ -558,6 +558,9 @@ func projectValue(v *parsedValue, needs Needs) Value {
 	if v.isList {
 		out.flags |= valueList
 	}
+	if v.hasQualifiedNames() {
+		out.flags |= valueQualifiedNames
+	}
 	if v.ids != "" {
 		out.flags |= valueIDs
 		out.projection = v.ids
@@ -569,52 +572,65 @@ func projectValue(v *parsedValue, needs Needs) Value {
 	return out
 }
 
+func (v *parsedValue) hasQualifiedNames() bool {
+	return v.listQualifiedNames || v.atom.kind == PrimitiveQName || v.atom.kind == PrimitiveNotation
+}
+
 type evalOptions struct {
 	resolver      Resolver
 	scratch       *Scratch
 	work          *evaluationBudget
+	unionLexical  *string
 	depth         int
 	needs         Needs
 	enforceFacets bool
 }
 
 func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *parsedValue) error {
-	var err error
-	options, err = p.prepareEval(id, lexical, options)
-	if err != nil {
+	if err := p.admitEvaluation(id, lexical, options); err != nil {
 		return err
 	}
+	options.depth++
 	t, ok := p.typeDef(id)
 	if !ok {
 		return ErrMetadata
 	}
-	normalized := normalize(lexical, t.whitespace)
+	normalized := lexical
+	if t.variety != Union {
+		normalized = normalize(lexical, t.whitespace)
+	} else if options.enforceFacets && len(t.facets.patterns) != 0 && options.unionLexical == nil {
+		// Nested unions share the selected member's normalized spelling;
+		// patterns cannot use canonical text or normalize the source again.
+		options.unionLexical = &normalized
+	}
 	if err := p.evalVariety(id, t, normalized, options, out); err != nil {
 		return err
+	}
+	if t.variety == Union && options.unionLexical != nil {
+		normalized = *options.unionLexical
 	}
 	return finishEvaluation(t, out, normalized, options)
 }
 
-func (p *Program) prepareEval(id TypeID, lexical string, options evalOptions) (evalOptions, error) {
+func (p *Program) admitEvaluation(id TypeID, lexical string, options evalOptions) error {
 	if id == NoType {
-		return evalOptions{}, ErrMetadata
+		return ErrMetadata
 	}
 	if options.work != nil {
 		if err := options.work.charge(lexicalLength(len(lexical))); err != nil {
-			return evalOptions{}, err
+			return err
 		}
 	} // Normalization and list tokenization preserve admitted XML characters.
 	if options.depth == 0 {
 		if err := validateXMLString(lexical); err != nil {
-			return evalOptions{}, err
+			return err
 		}
 	}
 
 	if p.maxDepth != 0 && options.depth >= int(p.maxDepth) {
-		return evalOptions{}, ErrLimit
+		return ErrLimit
 	}
-	options.depth++
-	return options, nil
+	return nil
 }
 
 func (p *Program) evalVariety(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) error {
@@ -637,6 +653,9 @@ func finishEvaluation(t *typeDef, value *parsedValue, normalized string, options
 		if err := applyFacets(t, value, normalized, options.scratch); err != nil {
 			return err
 		}
+	}
+	if t.variety != Union && options.unionLexical != nil {
+		*options.unionLexical = normalized
 	}
 	finalizeParsedValue(t, value, normalized, options.needs)
 	return nil
@@ -724,6 +743,7 @@ func (p *Program) evalListField(value *parsedValue, t *typeDef, field string, op
 }
 
 func (b *listValueBuilder) append(item parsedValue) {
+	b.value.listQualifiedNames = b.value.listQualifiedNames || item.hasQualifiedNames()
 	if b.keepItems {
 		b.value.items = append(b.value.items, item)
 	}
@@ -969,21 +989,21 @@ func parseBinaryAtomic(out *atomicValue, kind PrimitiveKind, normalized string, 
 }
 
 func parseNameAtomic(out *atomicValue, kind PrimitiveKind, normalized string, resolver Resolver) error {
-	var name expandedName
+	var name ExpandedName
 	if resolver.QName == nil {
 		if !lex.IsNCName(normalized) {
 			return errors.New("invalid QName")
 		}
-		name = expandedName{local: normalized}
+		name = ExpandedName{Local: normalized}
 	} else {
-		ns, local, ok := resolver.QName(normalized)
-		if !ok || !utf8.ValidString(ns) || !utf8.ValidString(local) || !lex.IsNCName(local) {
+		resolved, ok := resolver.QName(normalized)
+		if !ok || !utf8.ValidString(resolved.Namespace) || !utf8.ValidString(resolved.Local) || !lex.IsNCName(resolved.Local) {
 			return errors.New("unresolved QName")
 		}
-		name = expandedName{ns: ns, local: local}
+		name = resolved
 	}
 	if kind == PrimitiveNotation {
-		if resolver.Notation == nil || !resolver.Notation(name.ns, name.local) {
+		if resolver.Notation == nil || !resolver.Notation(name.Namespace, name.Local) {
 			return errors.New("undeclared notation")
 		}
 		out.notation = name
@@ -1026,9 +1046,9 @@ func atomicCanonical(builtin BuiltinKind, atom *atomicValue, source string) stri
 	case PrimitiveHexBinary, PrimitiveBase64Binary:
 		return atom.binary.Canonical
 	case PrimitiveQName:
-		return formatExpandedName(atom.qname.ns, atom.qname.local)
+		return formatExpandedName(atom.qname.Namespace, atom.qname.Local)
 	case PrimitiveNotation:
-		return formatExpandedName(atom.notation.ns, atom.notation.local)
+		return formatExpandedName(atom.notation.Namespace, atom.notation.Local)
 	default:
 		return ""
 	}

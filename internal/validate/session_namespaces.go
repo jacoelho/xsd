@@ -24,13 +24,13 @@ func (s *session) simpleValueQNameResolver(id xsdSchema.SimpleTypeID) value.Reso
 	return s.valueResolver
 }
 
-func (s *session) qnameResolver() xsdSchema.ResolveQNameParts {
+func (s *session) qnameResolver() value.QNameResolver {
 	if s.valueResolver.QName == nil {
-		s.valueResolver.QName = s.resolveLexicalQNameParts
+		s.valueResolver.QName = s.resolveLexicalQName
 	}
 	return s.valueResolver.QName
 }
 
-func (s *session) resolveLexicalQNameParts(v string) (namespace, local string, ok bool) {
-	return ResolveLexicalQNameParts(v, s.reader.Lookup)
+func (s *session) resolveLexicalQName(v string) (value.ExpandedName, bool) {
+	return ResolveLexicalQName(v, s.reader.Lookup)
 }

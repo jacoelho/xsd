@@ -31,11 +31,11 @@ func TestXSIAttributeIdentityKey(t *testing.T) {
 	}
 
 	const typeCanonical = "{urn:test}T"
-	resolveType := func(lexical string) (string, string, bool) {
+	resolveType := func(lexical string) (value.ExpandedName, bool) {
 		if lexical != "p:T" {
-			return "", "", false
+			return value.ExpandedName{}, false
 		}
-		return "urn:test", "T", true
+		return value.ExpandedName{Namespace: "urn:test", Local: "T"}, true
 	}
 	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, " p:T ", resolveType, defaultMaxInstanceValueWork, ctx)
 	if err != nil {
@@ -105,8 +105,8 @@ func TestXSIAttributeIdentityKeyErrors(t *testing.T) {
 	}
 	expectXSDCode(t, err, xsderrors.CodeValidationAttribute)
 
-	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, "bad", func(string) (string, string, bool) {
-		return "", "", false
+	identity, err = xsiAttributeIdentityKey(rt, xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrType}, "bad", func(string) (value.ExpandedName, bool) {
+		return value.ExpandedName{}, false
 	}, defaultMaxInstanceValueWork, ctx)
 	if identity != (xsiIdentityKey{}) {
 		t.Fatalf("xsiAttributeIdentityKey(invalid type) = %+v, want empty error result", identity)

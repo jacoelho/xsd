@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
-
 	"github.com/jacoelho/xsd/internal/source"
+	xsdValue "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -32,7 +32,7 @@ func TestResolveRuntimeName(t *testing.T) {
 	}
 }
 
-func TestResolveLexicalQNameParts(t *testing.T) {
+func TestResolveLexicalQName(t *testing.T) {
 	t.Parallel()
 
 	lookup := func(prefix string) (string, bool) {
@@ -66,10 +66,10 @@ func TestResolveLexicalQNameParts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotNS, gotLocal, gotOK := ResolveLexicalQNameParts(tt.lexical, lookup)
-			if gotNS != tt.wantNS || gotLocal != tt.wantLocal || gotOK != tt.wantOK {
-				t.Fatalf("ResolveLexicalQNameParts() = (%q, %q, %v), want (%q, %q, %v)",
-					gotNS, gotLocal, gotOK, tt.wantNS, tt.wantLocal, tt.wantOK)
+			got, gotOK := ResolveLexicalQName(tt.lexical, lookup)
+			if got.Namespace != tt.wantNS || got.Local != tt.wantLocal || gotOK != tt.wantOK {
+				t.Fatalf("ResolveLexicalQName() = (%q, %q, %v), want (%q, %q, %v)",
+					got.Namespace, got.Local, gotOK, tt.wantNS, tt.wantLocal, tt.wantOK)
 			}
 		})
 	}
@@ -131,11 +131,11 @@ func TestResolveXSITypeSchemaHintUsesResolvedLocalName(t *testing.T) {
 			_, err := resolveXSIType(
 				rt,
 				lexical,
-				func(value string) (string, string, bool) {
+				func(value string) (xsdValue.ExpandedName, bool) {
 					if value != lexical {
-						return "", "", false
+						return xsdValue.ExpandedName{}, false
 					}
-					return "urn:missing", "Missing", true
+					return xsdValue.ExpandedName{Namespace: "urn:missing", Local: "Missing"}, true
 				},
 				func(ns string) bool { return ns == "urn:missing" },
 				ctx,

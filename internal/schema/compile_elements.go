@@ -322,7 +322,7 @@ func prepareElementConstraintType(decl *ElementDecl, simpleID SimpleTypeID, unav
 	return true, nil
 }
 
-func (c *compiler) validateElementConstraint(constraint **ValueConstraint, simpleID SimpleTypeID, decl *ElementDecl, resolve ResolveQNameParts, label string) error {
+func (c *compiler) validateElementConstraint(constraint **ValueConstraint, simpleID SimpleTypeID, decl *ElementDecl, resolve valuepkg.QNameResolver, label string) error {
 	if *constraint == nil {
 		return nil
 	}

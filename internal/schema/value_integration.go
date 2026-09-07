@@ -132,7 +132,7 @@ func (c *compiler) completeValueType(id SimpleTypeID, st SimpleType) error {
 	return valueBuilderError(builder.Complete(id, spec))
 }
 
-func (c *compiler) validateValue(id SimpleTypeID, lexical string, resolve ResolveQNameParts, needs value.Needs) (value.Value, []ResolvedValueName, error) {
+func (c *compiler) validateValue(id SimpleTypeID, lexical string, resolve value.QNameResolver, needs value.Needs) (value.Value, []ResolvedValueName, error) {
 	recorder := valueConstraintResolver{resolve: resolve}
 	resolver := value.Resolver{Notation: func(namespace, local string) bool {
 		q, ok := c.rt.lookupQName(namespace, local)
@@ -145,7 +145,7 @@ func (c *compiler) validateValue(id SimpleTypeID, lexical string, resolve Resolv
 	return validated, recorder.names, err
 }
 
-func (c *compiler) validateValueLiteral(id SimpleTypeID, lexical string, resolve ResolveQNameParts) (value.Value, []ResolvedValueName, error) {
+func (c *compiler) validateValueLiteral(id SimpleTypeID, lexical string, resolve value.QNameResolver) (value.Value, []ResolvedValueName, error) {
 	return c.validateValue(id, lexical, resolve, value.NeedCanonical|value.NeedIdentity)
 }
 

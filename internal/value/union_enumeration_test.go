@@ -7,11 +7,11 @@ import (
 )
 
 func enumerationQNameResolver() Resolver {
-	return Resolver{QName: func(lexical string) (string, string, bool) {
+	return Resolver{QName: func(lexical string) (ExpandedName, bool) {
 		if lexical == "p:item" {
-			return "urn:test", "item", true
+			return ExpandedName{Namespace: "urn:test", Local: "item"}, true
 		}
-		return "", "", false
+		return ExpandedName{}, false
 	}}
 }
 

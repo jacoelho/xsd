@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/lex"
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	xsdValue "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -22,19 +23,18 @@ func ResolveRuntimeName(rt *xsdSchema.Schema, name xml.Name) xsdSchema.RuntimeNa
 // NamespaceLookup resolves an XML namespace prefix to its URI.
 type NamespaceLookup func(string) (string, bool)
 
-// ResolveLexicalQNameParts resolves a lexical QName after XML whitespace
-// collapse.
-func ResolveLexicalQNameParts(lexical string, lookup NamespaceLookup) (namespace, local string, ok bool) {
+// ResolveLexicalQName resolves a lexical QName after XML whitespace collapse.
+func ResolveLexicalQName(lexical string, lookup NamespaceLookup) (xsdValue.ExpandedName, bool) {
 	v := lex.CollapseXMLWhitespace(lexical)
 	parts := lex.SplitQName(v)
 	if !parts.Valid {
-		return "", "", false
+		return xsdValue.ExpandedName{}, false
 	}
 	uri, ok := lookup(parts.Prefix)
 	if !ok {
-		return "", "", false
+		return xsdValue.ExpandedName{}, false
 	}
-	return uri, parts.Local, true
+	return xsdValue.ExpandedName{Namespace: uri, Local: parts.Local}, true
 }
 
 // HasSchemaLocation reports whether an xsi:schemaLocation hint was seen for a namespace.
@@ -157,14 +157,15 @@ func validateXSITypeOverride(
 func resolveXSIType(
 	rt *xsdSchema.Schema,
 	value string,
-	resolve xsdSchema.ResolveQNameParts,
+	resolve xsdValue.QNameResolver,
 	hasSchemaLocation HasSchemaLocation,
 	ctx StartContext,
 ) (xsdSchema.TypeID, error) {
-	ns, local, ok := resolve(value)
+	name, ok := resolve(value)
 	if !ok {
 		return xsdSchema.TypeID{}, validation(ctx, xsderrors.CodeValidationType, "unknown xsi:type "+value)
 	}
+	ns, local := name.Namespace, name.Local
 	q, knownName := rt.LookupQName(ns, local)
 	if knownName {
 		if typ, ok := rt.Type(q); ok {

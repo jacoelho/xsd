@@ -129,13 +129,13 @@ func (*session) simpleContentValueInput(
 		if constraints.OwnerType() == typ {
 			return sessionSimpleContentInput{value: fixed.Value(), prevalidated: true}
 		}
-		return sessionSimpleContentInput{text: fixed.LexicalText()}
+		return sessionSimpleContentInput{text: fixed.ApplicationText()}
 	}
 	if def, ok := constraints.DefaultValueConstraint(); ok {
 		if constraints.OwnerType() == typ {
 			return sessionSimpleContentInput{value: def.Value(), prevalidated: true}
 		}
-		return sessionSimpleContentInput{text: def.LexicalText()}
+		return sessionSimpleContentInput{text: def.ApplicationText()}
 	}
 	return sessionSimpleContentInput{raw: rawText, rawInput: true}
 }
@@ -180,7 +180,7 @@ func (*session) validateNonSimpleFixedContent(
 	if f.HasChild {
 		return validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
 	}
-	if len(rawText) != 0 && !bytesEqualString(rawText, fixed.LexicalText()) {
+	if len(rawText) != 0 && !bytesEqualString(rawText, fixed.ApplicationText()) {
 		return validation(ctx, xsderrors.CodeValidationElement, "fixed element value mismatch")
 	}
 	return nil

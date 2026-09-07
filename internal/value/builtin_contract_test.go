@@ -13,8 +13,8 @@ func TestBuiltinValueContracts(t *testing.T) {
 		t.Fatal(err)
 	}
 	resolver := value.Resolver{
-		QName: func(s string) (string, string, bool) {
-			return "urn:test", "item", s == "p:item"
+		QName: func(s string) (value.ExpandedName, bool) {
+			return value.ExpandedName{Namespace: "urn:test", Local: "item"}, s == "p:item"
 		},
 		Notation: func(ns, local string) bool { return ns == "urn:test" && local == "item" },
 	}

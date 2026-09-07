@@ -30,18 +30,18 @@ type ValueConstraintValidation struct {
 // ValueConstraintRead exposes prevalidated default/fixed value data to
 // validation without exposing compiler-owned pointer storage.
 type ValueConstraintRead struct {
-	lexical   string
-	canonical string
-	value     valuepkg.Value
+	application string
+	canonical   string
+	value       valuepkg.Value
 }
 
 // newValueConstraintRead returns the immutable validation read projection for
 // one prevalidated value constraint.
-func newValueConstraintRead(lexical, canonical string, value valuepkg.Value) ValueConstraintRead {
+func newValueConstraintRead(application, canonical string, value valuepkg.Value) ValueConstraintRead {
 	return ValueConstraintRead{
-		lexical:   lexical,
-		canonical: canonical,
-		value:     value,
+		application: application,
+		canonical:   canonical,
+		value:       value,
 	}
 }
 
@@ -51,20 +51,26 @@ func newValueConstraintReadFromConstraint(vc *ValueConstraint) (ValueConstraintR
 	if vc == nil {
 		return ValueConstraintRead{}, false
 	}
-	return newValueConstraintRead(vc.Lexical, vc.Canonical, vc.Value), true
+	application := vc.Canonical
+	if vc.Value.HasQualifiedNames() {
+		// Expanded QName/NOTATION projections are not lexical XML values.
+		application = vc.Lexical
+	}
+	return newValueConstraintRead(application, vc.Canonical, vc.Value), true
 }
 
 // equalValueConstraintReads reports whether two value-constraint read
 // projections expose the same validation-facing value.
 func equalValueConstraintReads(a, b ValueConstraintRead) bool {
-	return a.lexical == b.lexical &&
+	return a.application == b.application &&
 		a.canonical == b.canonical &&
 		a.value == b.value
 }
 
-// LexicalText returns the source lexical value.
-func (v ValueConstraintRead) LexicalText() string {
-	return v.lexical
+// ApplicationText returns the lexical spelling for applying the constraint.
+// Context-free values use canonical text; resolved names retain source spelling.
+func (v ValueConstraintRead) ApplicationText() string {
+	return v.application
 }
 
 // CanonicalText returns the canonical text used for fixed-value comparison.
@@ -179,13 +185,9 @@ type ValueConstraintNameReplay struct {
 	used    []bool
 }
 
-// ValueConstraintQNameResolver resolves one lexical QName while replaying a
-// value-constraint validation proof.
-type ValueConstraintQNameResolver func(string) (ns, local string, ok bool)
-
 // ValueConstraintSimpleValidator revalidates value-constraint lexical text
 // against an owner simple type.
-type ValueConstraintSimpleValidator func(SimpleTypeID, string, ValueConstraintQNameResolver, valuepkg.Needs) (valuepkg.Value, error)
+type ValueConstraintSimpleValidator func(SimpleTypeID, string, valuepkg.QNameResolver, valuepkg.Needs) (valuepkg.Value, error)
 
 // NewValueConstraintNameReplay validates resolved QName proof entries and
 // returns replay state for datatype validation.
@@ -212,22 +214,22 @@ func NewValueConstraintNameReplay(entries []ResolvedValueName) (ValueConstraintN
 }
 
 // ResolveQName replays one captured QName resolution.
-func (r *ValueConstraintNameReplay) ResolveQName(lexical string) (namespace, local string, ok bool) {
+func (r *ValueConstraintNameReplay) ResolveQName(lexical string) (valuepkg.ExpandedName, bool) {
 	parts := resolvedValueNameLexicalParts(lexical)
 	if !parts.Valid || parts.Prefixed && parts.Prefix == "" {
-		return "", "", false
+		return valuepkg.ExpandedName{}, false
 	}
 	for i, resolved := range r.entries {
 		if r.used[i] || resolved.Lexical != lexical {
 			continue
 		}
 		if resolved.Local != parts.Local || !lex.IsNCName(resolved.Local) {
-			return "", "", false
+			return valuepkg.ExpandedName{}, false
 		}
 		r.used[i] = true
-		return resolved.NS, resolved.Local, true
+		return valuepkg.ExpandedName{Namespace: resolved.NS, Local: resolved.Local}, true
 	}
-	return "", "", false
+	return valuepkg.ExpandedName{}, false
 }
 
 // ValidateConsumed validates that datatype replay consumed every captured name

@@ -418,7 +418,9 @@ func simpleBuildTypeIDByName(t *testing.T, build *xsdSchema.SchemaBuild, local s
 func buildValueConstraint(t *testing.T, build *xsdSchema.SchemaBuild, id xsdSchema.SimpleTypeID, lexical string) *xsdSchema.ValueConstraint {
 	t.Helper()
 	resolver := valuepkg.Resolver{
-		QName: func(lexical string) (string, string, bool) { return "", lexical, true },
+		QName: func(lexical string) (valuepkg.ExpandedName, bool) {
+			return valuepkg.ExpandedName{Local: lexical}, true
+		},
 		Notation: func(namespace, local string) bool {
 			q, ok := build.Names.LookupQName(namespace, local)
 			return ok && build.Notations[q]
@@ -1861,13 +1863,13 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 		block                          xsdSchema.DerivationMask
 	}{
 		{name: "plain0", owner: xsdSchema.SimpleRef(stringID)},
-		{name: "fixed", owner: xsdSchema.SimpleRef(decimalID), valueType: decimalID, lexical: "5", canonical: "5.0", fixed: true, abstract: true, nillable: true, block: xsdSchema.DerivationRestriction},
+		{name: "fixed", owner: xsdSchema.SimpleRef(decimalID), valueType: decimalID, lexical: "5.0", canonical: "5.0", fixed: true, abstract: true, nillable: true, block: xsdSchema.DerivationRestriction},
 		{name: "gap1", owner: xsdSchema.SimpleRef(stringID)},
 		{name: "default", owner: xsdSchema.SimpleRef(stringID), valueType: stringID, lexical: "shared", canonical: "shared", def: true},
 		{name: "gap2", owner: xsdSchema.SimpleRef(stringID)},
-		{name: "fixedSharedA", owner: xsdSchema.SimpleRef(decimalID), valueType: decimalID, lexical: "5", canonical: "5.0", fixed: true},
+		{name: "fixedSharedA", owner: xsdSchema.SimpleRef(decimalID), valueType: decimalID, lexical: "5.0", canonical: "5.0", fixed: true},
 		{name: "gap3", owner: xsdSchema.SimpleRef(stringID)},
-		{name: "fixedSharedB", owner: xsdSchema.SimpleRef(decimalID), valueType: decimalID, lexical: "5", canonical: "5.0", fixed: true},
+		{name: "fixedSharedB", owner: xsdSchema.SimpleRef(decimalID), valueType: decimalID, lexical: "5.0", canonical: "5.0", fixed: true},
 		{name: "simpleContent", owner: simpleContent, valueType: stringID, lexical: "sc", canonical: "sc", def: true},
 		{name: "gap4", owner: xsdSchema.SimpleRef(stringID)},
 		{name: "defaultShared", owner: xsdSchema.SimpleRef(stringID), valueType: stringID, lexical: "shared", canonical: "shared", def: true},
@@ -1916,8 +1918,8 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 					value = fixed
 				}
 				if test.fixed || test.def {
-					if value.LexicalText() != test.lexical || value.CanonicalText() != test.canonical || value.Value().CanonicalText() != test.canonical || value.Value().Type() != test.valueType {
-						t.Fatalf("constraint = lexical %q, canonical %q, value %+v; want %q, %q, type %d", value.LexicalText(), value.CanonicalText(), value.Value(), test.lexical, test.canonical, test.valueType)
+					if value.ApplicationText() != test.lexical || value.CanonicalText() != test.canonical || value.Value().CanonicalText() != test.canonical || value.Value().Type() != test.valueType {
+						t.Fatalf("constraint = lexical %q, canonical %q, value %+v; want %q, %q, type %d", value.ApplicationText(), value.CanonicalText(), value.Value(), test.lexical, test.canonical, test.valueType)
 					}
 				}
 				if (!test.fixed && fixed != (xsdSchema.ValueConstraintRead{})) || (!test.def && def != (xsdSchema.ValueConstraintRead{})) {
