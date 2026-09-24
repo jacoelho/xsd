@@ -115,17 +115,17 @@ func (c *compiler) validateAttributeValueConstraints(decl *AttributeDecl, n *sch
 		return nil
 	}
 	resolve := schemaQNameResolver(n)
-	if err := c.validateAttributeConstraint(&decl.Default, decl, resolve, "attribute default"); err != nil {
+	if err := c.validateAttributeConstraint(&decl.Default, decl, resolve, n.namespace.Lookup, "attribute default"); err != nil {
 		return err
 	}
-	return c.validateAttributeConstraint(&decl.Fixed, decl, resolve, "attribute fixed")
+	return c.validateAttributeConstraint(&decl.Fixed, decl, resolve, n.namespace.Lookup, "attribute fixed")
 }
 
-func (c *compiler) validateAttributeConstraint(constraint **ValueConstraint, decl *AttributeDecl, resolve valuepkg.QNameResolver, label string) error {
+func (c *compiler) validateAttributeConstraint(constraint **ValueConstraint, decl *AttributeDecl, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), label string) error {
 	if *constraint == nil {
 		return nil
 	}
-	validated, err := c.validateValueConstraint(decl.Type, (*constraint).Lexical, resolve, decl.Name, label)
+	validated, err := c.validateValueConstraint(decl.Type, (*constraint).Lexical, resolve, lookup, decl.Name, label)
 	if err != nil {
 		return err
 	}
@@ -133,16 +133,18 @@ func (c *compiler) validateAttributeConstraint(constraint **ValueConstraint, dec
 	return nil
 }
 
-func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, owner QName, label string) (*ValueConstraint, error) {
+func (c *compiler) validateValueConstraint(id SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), owner QName, label string) (*ValueConstraint, error) {
 	validated, resolvedNames, err := c.validateValue(id, lexical, resolve, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	if err != nil {
 		return nil, DeclarationValueConstraintError(label, c.rt.formatName(owner), err)
 	}
+	canonical := validated.CanonicalText()
 	return &ValueConstraint{
 		ResolvedNames: resolvedNames,
 		Lexical:       lexical,
-		Canonical:     validated.CanonicalText(),
+		Canonical:     canonical,
 		Value:         validated,
+		qnameContext:  newValueConstraintQNameContext(valueConstraintApplication(lexical, canonical, validated), lookup),
 	}, nil
 }
 

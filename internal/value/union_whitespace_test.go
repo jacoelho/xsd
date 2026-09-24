@@ -51,6 +51,41 @@ func TestUnionUsesSelectedMemberWhitespace(t *testing.T) {
 	}
 }
 
+func TestUnionPatternUsesSelectedMemberWhitespaceWithoutProjection(t *testing.T) {
+	pattern, err := xsdregex.Compile(`\S+ \S+`, xsdregex.CompileOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := NewBuilder(BuilderOptions{})
+	union, err := b.Add(TypeSpec{
+		Variety:           Union,
+		Primitive:         PrimitiveString,
+		Union:             []TypeID{builtinToken, builtinString},
+		Whitespace:        WhitespaceCollapse,
+		WhitespacePresent: true,
+		Base:              NoType,
+		ListItem:          NoType,
+		Facets:            FacetSpec{Patterns: [][]*Pattern{{pattern}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := b.Seal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := p.Validate(union, "a   b", Resolver{}, 0, 16<<20, nil)
+	if err != nil {
+		t.Fatalf("Validate without projection: %v", err)
+	}
+	if value.SelectedType() != builtinToken {
+		t.Fatalf("SelectedType() = %d, want token %d", value.SelectedType(), builtinToken)
+	}
+	if value.CanonicalText() != "" {
+		t.Fatalf("CanonicalText() = %q, want empty without projection", value.CanonicalText())
+	}
+}
+
 func TestUnionEnumerationUsesSelectedMemberValue(t *testing.T) {
 	b := NewBuilder(BuilderOptions{})
 	union, err := b.Add(TypeSpec{

@@ -40,16 +40,17 @@ func valueIdentityKey(kind valuepkg.PrimitiveKind, lexical string) string {
 	return v.IdentityKey()
 }
 
-func testQNameValue(t *testing.T, lexical, namespace, local string, needs valuepkg.Needs) valuepkg.Value {
+func testQNameValue(t *testing.T, namespace string) valuepkg.Value {
 	t.Helper()
+	const lexical = "p:item"
 	return testValue(t, valuepkg.BuiltinType(valuepkg.PrimitiveQName), lexical, valuepkg.Resolver{
 		QName: func(got string) (valuepkg.ExpandedName, bool) {
 			if got != lexical {
 				return valuepkg.ExpandedName{}, false
 			}
-			return valuepkg.ExpandedName{Namespace: namespace, Local: local}, true
+			return valuepkg.ExpandedName{Namespace: namespace, Local: "item"}, true
 		},
-	}, needs)
+	}, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 }
 
 func testIdentityValue(t *testing.T, kind valuepkg.IdentityKind, lexical string) valuepkg.Value {
@@ -124,7 +125,7 @@ func testConstraintValue(lexical, canonical string, typ SimpleTypeID, identity s
 func TestValueConstraintRecordProjections(t *testing.T) {
 	t.Parallel()
 
-	value := testQNameValue(t, "p:item", "urn:test", "item", valuepkg.NeedCanonical|valuepkg.NeedIdentity)
+	value := testQNameValue(t, "urn:test")
 	vc := &ValueConstraint{
 		ResolvedNames: []ResolvedValueName{{Lexical: "p:item", NS: "urn:test", Local: "item"}},
 		Lexical:       "p:item",
@@ -636,7 +637,7 @@ func TestValidateValueConstraintReplay(t *testing.T) {
 	cached := ValueConstraintValidation{
 		Lexical:   "p:item",
 		Canonical: FormatExpandedName("urn:test", "item"),
-		Value:     testQNameValue(t, "p:item", "urn:test", "item", valuepkg.NeedCanonical|valuepkg.NeedIdentity),
+		Value:     testQNameValue(t, "urn:test"),
 	}
 	names := []ResolvedValueName{{Lexical: "p:item", NS: "urn:test", Local: "item"}}
 	validating := func(id SimpleTypeID, lexical string, resolve valuepkg.QNameResolver, needs valuepkg.Needs) (valuepkg.Value, error) {

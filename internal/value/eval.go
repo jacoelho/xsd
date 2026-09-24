@@ -40,10 +40,6 @@ const (
 	valueQualifiedNames
 )
 
-// retainListItems is an internal construction need used for compiled list
-// enumeration literals. It never escapes through the public Needs mask.
-const retainListItems Needs = 1 << 7
-
 // parsedValue is transient validation state. It is deliberately separate from
 // Value: primitive payloads are needed while parsing and checking facets, but
 // retaining the complete tagged payload in every published result made scalar
@@ -492,7 +488,7 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, resolver Re
 		evalNeeds |= NeedCanonical
 	}
 	var v parsedValue
-	err := p.eval(id, lexical, evalOptions{
+	_, err := p.eval(id, lexical, evalOptions{
 		resolver:      resolver,
 		needs:         evalNeeds,
 		enforceFacets: true,
@@ -577,39 +573,47 @@ func (v *parsedValue) hasQualifiedNames() bool {
 }
 
 type evalOptions struct {
-	resolver      Resolver
-	scratch       *Scratch
-	work          *evaluationBudget
-	unionLexical  *string
-	depth         int
-	needs         Needs
-	enforceFacets bool
+	resolver           Resolver
+	scratch            *Scratch
+	work               *evaluationBudget
+	depth              int
+	listItemLimit      uint32
+	needs              Needs
+	retainAllListItems bool
+	enforceFacets      bool
 }
 
-func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *parsedValue) error {
+func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *parsedValue) (string, error) {
 	if err := p.admitEvaluation(id, lexical, options); err != nil {
-		return err
+		return "", err
 	}
 	options.depth++
 	t, ok := p.typeDef(id)
 	if !ok {
-		return ErrMetadata
+		return "", ErrMetadata
 	}
 	normalized := lexical
 	if t.variety != Union {
 		normalized = normalize(lexical, t.whitespace)
-	} else if options.enforceFacets && len(t.facets.patterns) != 0 && options.unionLexical == nil {
-		// Nested unions share the selected member's normalized spelling;
-		// patterns cannot use canonical text or normalize the source again.
-		options.unionLexical = &normalized
 	}
-	if err := p.evalVariety(id, t, normalized, options, out); err != nil {
-		return err
+	var err error
+	switch t.variety {
+	case Atomic:
+		err = evalAtomic(id, t, normalized, options, out)
+	case List:
+		*out, err = p.evalList(id, t, normalized, options)
+	case Union:
+		normalized, err = p.evalUnion(id, t, normalized, options, out)
+	default:
+		return "", ErrMetadata
 	}
-	if t.variety == Union && options.unionLexical != nil {
-		normalized = *options.unionLexical
+	if err != nil {
+		return "", err
 	}
-	return finishEvaluation(t, out, normalized, options)
+	if err := finishEvaluation(t, out, normalized, options); err != nil {
+		return "", err
+	}
+	return normalized, nil
 }
 
 func (p *Program) admitEvaluation(id TypeID, lexical string, options evalOptions) error {
@@ -633,29 +637,11 @@ func (p *Program) admitEvaluation(id TypeID, lexical string, options evalOptions
 	return nil
 }
 
-func (p *Program) evalVariety(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) error {
-	switch t.variety {
-	case Atomic:
-		return evalAtomic(id, t, normalized, options, out)
-	case List:
-		value, err := p.evalList(id, t, normalized, options)
-		*out = value
-		return err
-	case Union:
-		return p.evalUnion(id, t, normalized, options, out)
-	default:
-		return ErrMetadata
-	}
-}
-
 func finishEvaluation(t *typeDef, value *parsedValue, normalized string, options evalOptions) error {
 	if options.enforceFacets && t.facets.present != 0 {
 		if err := applyFacets(t, value, normalized, options.scratch); err != nil {
 			return err
 		}
-	}
-	if t.variety != Union && options.unionLexical != nil {
-		*options.unionLexical = normalized
 	}
 	finalizeParsedValue(t, value, normalized, options.needs)
 	return nil
@@ -674,7 +660,7 @@ func evalAtomic(id TypeID, t *typeDef, normalized string, options evalOptions, v
 }
 
 func (p *Program) evalList(id TypeID, t *typeDef, normalized string, options evalOptions) (parsedValue, error) {
-	builder, err := newListValueBuilder(id, t, normalized, options.needs)
+	builder, err := newListValueBuilder(id, t, normalized, options)
 	if err != nil {
 		return parsedValue{}, err
 	}
@@ -705,20 +691,28 @@ type listValueBuilder struct {
 	collectIDRefs  bool
 }
 
-func newListValueBuilder(id TypeID, t *typeDef, normalized string, needs Needs) (listValueBuilder, error) {
+func newListValueBuilder(id TypeID, t *typeDef, normalized string, options evalOptions) (listValueBuilder, error) {
+	itemLimit := max(options.listItemLimit, t.facets.enumItemLimit)
 	b := listValueBuilder{
 		value:          parsedValue{typeID: id, selected: NoType, isList: true},
-		needs:          needs,
-		keepItems:      len(t.facets.enumGroups) != 0 || needs&retainListItems != 0,
+		needs:          options.needs,
 		forceCanonical: t.identity == IdentityIDREFList,
 		collectIDRefs:  t.listItem != builtinIDREF,
 	}
-	if b.keepItems {
-		count := listFieldCount(normalized)
-		if count > uint64(^uint32(0)) {
-			return listValueBuilder{}, ErrLimit
-		}
-		b.value.items = make([]parsedValue, 0, int(count))
+	if !options.retainAllListItems && itemLimit == 0 {
+		return b, nil
+	}
+	count := listFieldCount(normalized)
+	if count > uint64(^uint32(0)) {
+		return listValueBuilder{}, ErrLimit
+	}
+	retained := count
+	if !options.retainAllListItems && count > uint64(itemLimit) {
+		retained = 0
+	}
+	if retained != 0 {
+		b.keepItems = true
+		b.value.items = make([]parsedValue, 0, int(retained))
 	}
 	return b, nil
 }
@@ -738,7 +732,7 @@ func (p *Program) evalListField(value *parsedValue, t *typeDef, field string, op
 	// type's facets.
 	options.enforceFacets = true
 	var item parsedValue
-	err := p.eval(t.listItem, field, options, &item)
+	_, err := p.eval(t.listItem, field, options, &item)
 	return item, err
 }
 
@@ -797,12 +791,12 @@ func (b *listValueBuilder) finish(identity IdentityKind) parsedValue {
 	return b.value
 }
 
-func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) error {
-	if len(t.facets.enumGroups) != 0 {
-		// Union enumeration compares the selected member's typed value. Keep
-		// list items while evaluating every member so nested unions and derived
-		// restrictions cannot discard the structure needed by that comparison.
-		options.needs |= retainListItems
+func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) (string, error) {
+	if t.facets.enumItemLimit > options.listItemLimit {
+		// Union enumeration compares the selected member's typed value. Carry
+		// only the largest list cardinality any effective literal can require;
+		// nested unions inherit this demand through the copied options.
+		options.listItemLimit = t.facets.enumItemLimit
 	}
 	var last error
 	var unsupported error
@@ -811,18 +805,18 @@ func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options ev
 	// member selection always evaluates each member's complete value space.
 	childOptions.enforceFacets = true
 	for _, member := range t.union {
-		err := p.eval(member, normalized, childOptions, out)
+		memberNormalized, err := p.eval(member, normalized, childOptions, out)
 		if err == nil {
 			out.typeID = id
 			out.selected = member
-			return nil
+			return memberNormalized, nil
 		}
 		if unionTerminalError(err) {
-			return err
+			return "", err
 		}
 		last, unsupported = rememberUnionError(err, last, unsupported)
 	}
-	return unionFailure(last, unsupported)
+	return "", unionFailure(last, unsupported)
 }
 
 func unionTerminalError(err error) bool {
@@ -1361,7 +1355,8 @@ func equalParsed(a, b *parsedValue) bool {
 }
 
 func equalParsedList(a, b *parsedValue) bool {
-	if !a.isList || !b.isList || len(a.items) != len(b.items) {
+	if !a.isList || !b.isList || a.count != b.count ||
+		uint64(len(a.items)) != uint64(a.count) || uint64(len(b.items)) != uint64(b.count) {
 		return false
 	}
 	for i := range a.items {

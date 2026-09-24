@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:simpleType><xs:restriction base="xs:decimal">
+    <xs:totalDigits value="1"/>
+  </xs:restriction></xs:simpleType></xs:element>
+</xs:schema>

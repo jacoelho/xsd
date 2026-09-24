@@ -47,11 +47,19 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		}
 		return true, s.doc.identity.recordValue(identityTarget, value, ctx)
 	}
-	input := s.simpleContentValueInput(f.Type, rawText, constraints)
-	if input.prevalidated {
-		return s.recordElementSimpleContent(input.value, identityTarget, ctx)
+	if len(rawText) == 0 && hasValueConstraint {
+		constraint, present := constraints.FixedValue()
+		if !present {
+			constraint, present = constraints.DefaultValueConstraint()
+		}
+		if present {
+			if constraints.OwnerType() == f.Type {
+				return s.recordElementSimpleContent(constraint.Value(), identityTarget, ctx)
+			}
+			return s.applyElementValueConstraint(typeID, constraint, identityTarget, typeIdentity, ctx)
+		}
 	}
-	return s.validateElementSimpleContentValue(typeID, input, constraints, identityTarget, typeIdentity, ctx)
+	return s.validateElementSimpleContentValue(typeID, rawText, constraints, identityTarget, typeIdentity, ctx)
 }
 
 func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValueConstraints, error) {
@@ -65,18 +73,27 @@ func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValue
 	return constraints, nil
 }
 
-func (s *session) validateElementSimpleContentValue(typeID xsdSchema.SimpleTypeID, input sessionSimpleContentInput, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, typeIdentity xsdValue.IdentityKind, ctx StartContext) (bool, error) {
-	resolver := s.simpleValueQNameResolver(typeID)
-	needs := s.simpleContentNeeds(constraints, target, typeIdentity)
-	var (
-		result xsdValue.Value
-		err    error
-	)
-	if input.rawInput {
-		result, err = s.validateSimpleValueBytes(typeID, input.raw, resolver, needs)
-	} else {
-		result, err = s.validateSimpleValue(typeID, input.text, resolver, needs)
+func (s *session) applyElementValueConstraint(typeID xsdSchema.SimpleTypeID, constraint xsdSchema.ValueConstraintRead, target identityValueTarget, typeIdentity xsdValue.IdentityKind, ctx StartContext) (bool, error) {
+	var resolver xsdValue.Resolver
+	if needsQName, ok := s.rt.ValueProgram().NeedsQNameResolver(typeID); ok && needsQName {
+		resolver.QName = constraint.ResolveQName
+		resolver.Notation = s.rt.NotationDeclared
 	}
+	result, err := s.validateSimpleValue(typeID, constraint.ApplicationText(), resolver, simpleContentNeeds(target, typeIdentity))
+	if err != nil {
+		return false, s.elementSimpleContentValueError(target, err, ctx)
+	}
+	// The constraint supplies this value. Its actual type must accept it, but
+	// stronger normalization cannot make it disagree with its own source.
+	return s.recordElementSimpleContent(result, target, ctx)
+}
+
+func (s *session) validateElementSimpleContentValue(typeID xsdSchema.SimpleTypeID, rawText []byte, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, typeIdentity xsdValue.IdentityKind, ctx StartContext) (bool, error) {
+	needs := simpleContentNeeds(target, typeIdentity)
+	if _, fixed := constraints.FixedValue(); fixed {
+		needs |= xsdValue.NeedCanonical | xsdValue.NeedIdentity
+	}
+	result, err := s.validateSimpleValueBytes(typeID, rawText, s.simpleValueQNameResolver(typeID), needs)
 	if err != nil {
 		return false, s.elementSimpleContentValueError(target, err, ctx)
 	}
@@ -109,46 +126,11 @@ func (s *session) commitElementSimpleContentValue(result xsdValue.Value, constra
 	return true, nil
 }
 
-type sessionSimpleContentInput struct {
-	raw          []byte
-	text         string
-	value        xsdValue.Value
-	rawInput     bool
-	prevalidated bool
-}
-
-func (*session) simpleContentValueInput(
-	typ xsdSchema.TypeID,
-	rawText []byte,
-	constraints xsdSchema.ElementValueConstraints,
-) sessionSimpleContentInput {
-	if len(rawText) != 0 {
-		return sessionSimpleContentInput{raw: rawText, rawInput: true}
-	}
-	if fixed, ok := constraints.FixedValue(); ok {
-		if constraints.OwnerType() == typ {
-			return sessionSimpleContentInput{value: fixed.Value(), prevalidated: true}
-		}
-		return sessionSimpleContentInput{text: fixed.ApplicationText()}
-	}
-	if def, ok := constraints.DefaultValueConstraint(); ok {
-		if constraints.OwnerType() == typ {
-			return sessionSimpleContentInput{value: def.Value(), prevalidated: true}
-		}
-		return sessionSimpleContentInput{text: def.ApplicationText()}
-	}
-	return sessionSimpleContentInput{raw: rawText, rawInput: true}
-}
-
-func (*session) simpleContentNeeds(
-	constraints xsdSchema.ElementValueConstraints,
+func simpleContentNeeds(
 	target identityValueTarget,
 	typeIdentity xsdValue.IdentityKind,
 ) xsdValue.Needs {
 	var needs xsdValue.Needs
-	if _, fixed := constraints.FixedValue(); fixed {
-		needs |= xsdValue.NeedCanonical | xsdValue.NeedIdentity
-	}
 	if target.needsIdentity() {
 		needs |= xsdValue.NeedIdentity
 	}

@@ -284,7 +284,7 @@ func (c *compiler) validateElementValueConstraints(decl *ElementDecl, n *schemaN
 		return ElementValueConstraintTypeError(err)
 	}
 	if simpleID == NoSimpleType {
-		applyMixedElementConstraints(decl)
+		applyMixedElementConstraints(decl, n.namespace.Lookup)
 		return nil
 	}
 	unavailableType, err := prepareElementConstraintType(decl, simpleID, unavailable)
@@ -295,18 +295,18 @@ func (c *compiler) validateElementValueConstraints(decl *ElementDecl, n *schemaN
 		return ElementValueConstraintRuntimeError(err)
 	}
 	resolve := schemaQNameResolver(n)
-	if err := c.validateElementConstraint(&decl.Default, simpleID, decl, resolve, "element default"); err != nil {
+	if err := c.validateElementConstraint(&decl.Default, simpleID, decl, resolve, n.namespace.Lookup, "element default"); err != nil {
 		return err
 	}
-	return c.validateElementConstraint(&decl.Fixed, simpleID, decl, resolve, "element fixed")
+	return c.validateElementConstraint(&decl.Fixed, simpleID, decl, resolve, n.namespace.Lookup, "element fixed")
 }
 
-func applyMixedElementConstraints(decl *ElementDecl) {
+func applyMixedElementConstraints(decl *ElementDecl, lookup func(string) (string, bool)) {
 	if decl.Default != nil {
-		decl.Default = mixedContentConstraint(decl.Default.Lexical)
+		decl.Default = mixedContentConstraint(decl.Default.Lexical, lookup)
 	}
 	if decl.Fixed != nil {
-		decl.Fixed = mixedContentConstraint(decl.Fixed.Lexical)
+		decl.Fixed = mixedContentConstraint(decl.Fixed.Lexical, lookup)
 	}
 }
 
@@ -322,11 +322,11 @@ func prepareElementConstraintType(decl *ElementDecl, simpleID SimpleTypeID, unav
 	return true, nil
 }
 
-func (c *compiler) validateElementConstraint(constraint **ValueConstraint, simpleID SimpleTypeID, decl *ElementDecl, resolve valuepkg.QNameResolver, label string) error {
+func (c *compiler) validateElementConstraint(constraint **ValueConstraint, simpleID SimpleTypeID, decl *ElementDecl, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), label string) error {
 	if *constraint == nil {
 		return nil
 	}
-	validated, err := c.validateValueConstraint(simpleID, (*constraint).Lexical, resolve, decl.Name, label)
+	validated, err := c.validateValueConstraint(simpleID, (*constraint).Lexical, resolve, lookup, decl.Name, label)
 	if err != nil {
 		return err
 	}
@@ -337,10 +337,11 @@ func (c *compiler) validateElementConstraint(constraint **ValueConstraint, simpl
 // mixedContentConstraint builds the constraint for an emptiable mixed-content
 // element, whose default or fixed text is used verbatim: the lexical form is
 // its own canonical form and the value is untyped.
-func mixedContentConstraint(lexical string) *ValueConstraint {
+func mixedContentConstraint(lexical string, lookup func(string) (string, bool)) *ValueConstraint {
 	return &ValueConstraint{
-		Lexical:   lexical,
-		Canonical: lexical,
-		Value:     valuepkg.NewUntypedValue(lexical),
+		Lexical:      lexical,
+		Canonical:    lexical,
+		Value:        valuepkg.NewUntypedValue(lexical),
+		qnameContext: newValueConstraintQNameContext(lexical, lookup),
 	}
 }

@@ -83,6 +83,49 @@ func TestChangedComplexSimpleContentValueConstraint(t *testing.T) {
 	}
 }
 
+func TestChangedTypeSchemaSuppliedStringConstraintUsesActualFacets(t *testing.T) {
+	const source = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Accept"><xs:restriction base="xs:token"><xs:pattern value="a b"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Reject"><xs:restriction base="xs:token"><xs:pattern value="a c"/></xs:restriction></xs:simpleType>
+  <xs:element name="root" type="xs:string" fixed="a  b"/>
+</xs:schema>`
+	engine, err := xsd.Compile(xsd.Bytes("constraint.xsd", []byte(source)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	for _, test := range []struct {
+		name string
+		doc  string
+		want bool
+	}{
+		{
+			name: "schema supplied value is validated as the actual type",
+			doc:  `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Accept"/>`,
+			want: true,
+		},
+		{
+			name: "explicit content still compares against fixed value",
+			doc:  `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Accept">a b</root>`,
+		},
+		{
+			name: "actual type facets reject schema supplied value",
+			doc:  `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Reject"/>`,
+		},
+		{
+			name: "whitespace only content is not an absent value",
+			doc:  `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Accept">   </root>`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := engine.Validate(strings.NewReader(test.doc))
+			if (err == nil) != test.want {
+				t.Fatalf("Validate() error = %v, want valid %v", err, test.want)
+			}
+		})
+	}
+}
+
 func TestChangedTypeConstraintUsesTheAcceptedUnionMember(t *testing.T) {
 	t.Parallel()
 

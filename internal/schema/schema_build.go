@@ -115,6 +115,7 @@ func cloneValueConstraint(vc *ValueConstraint) *ValueConstraint {
 	}
 	cloned := *vc
 	cloned.ResolvedNames = slices.Clone(vc.ResolvedNames)
+	cloned.qnameContext = cloneValueConstraintQNameContext(vc.qnameContext)
 	return &cloned
 }
 

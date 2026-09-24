@@ -2,6 +2,7 @@ package xsd_test
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -264,6 +265,39 @@ func TestInstanceValueWorkRevalidatesElementConstraintForXSIType(t *testing.T) {
 		MaxInstanceValueWork: 9,
 	}); err != nil {
 		t.Fatalf("XSI type element constraint validation error = %v", err)
+	}
+}
+
+func TestInstanceValueWorkConstraintFailureReleasesIdentityTarget(t *testing.T) {
+	for _, constraint := range []string{"default", "fixed"} {
+		t.Run(constraint, func(t *testing.T) {
+			source := fmt.Sprintf(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:value">
+  <xs:simpleType name="Actual"><xs:restriction base="xs:QName"/></xs:simpleType>
+  <xs:element name="root"><xs:complexType><xs:sequence>
+    <xs:element name="s" type="xs:QName" %s="p:value"/>
+  </xs:sequence></xs:complexType>
+    <xs:key name="value"><xs:selector xpath="s"/><xs:field xpath="."/></xs:key>
+  </xs:element>
+</xs:schema>`, constraint)
+			engine, err := xsd.Compile(xsd.Bytes("constraint-work.xsd", []byte(source)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceValueWork: 7})
+			if err != nil {
+				t.Fatal(err)
+			}
+			const changed = `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><s xsi:type="Actual"/></root>`
+			for range 2 {
+				expectCategoryCode(t, session.Validate(strings.NewReader(changed)), xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
+				if err := session.Validate(strings.NewReader(`<root><s/></root>`)); err != nil {
+					t.Fatalf("cached constraint after failed changed-type evaluation: %v", err)
+				}
+			}
+			if err := engine.ValidateWithOptions(strings.NewReader(changed), xsd.ValidateOptions{MaxInstanceValueWork: 8}); err != nil {
+				t.Fatalf("changed-type constraint at work boundary: %v", err)
+			}
+		})
 	}
 }
 
