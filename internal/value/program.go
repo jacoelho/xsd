@@ -803,7 +803,7 @@ func (p *Program) compileBound(id TypeID, t *typeDef, source BoundFacet, budget 
 		literalType = id
 	}
 	var v parsedValue
-	err := p.eval(literalType, source.Lexical, evalOptions{
+	_, err := p.eval(literalType, source.Lexical, evalOptions{
 		resolver:      source.Resolver,
 		needs:         NeedCanonical | NeedIdentity,
 		enforceFacets: false,
@@ -858,7 +858,7 @@ func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProg
 		// containing type's facets are skipped until its effective program is
 		// installed; evalUnion and evalListField still enforce child facets.
 		var v parsedValue
-		err := p.eval(literalType, entry.Lexical, evalOptions{
+		_, err := p.eval(literalType, entry.Lexical, evalOptions{
 			resolver:      entry.Resolver,
 			needs:         NeedIdentity | retainListItems,
 			enforceFacets: false,

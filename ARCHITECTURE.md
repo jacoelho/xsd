@@ -247,8 +247,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   its whitespace-normalized lexical spelling. Patterns in one restriction step
   are alternatives; inherited restriction steps all apply. Union patterns inspect
   the selected member's normalized lexical output after ordered member assessment;
-  member evaluation shares that output with the facet check, and a failed pattern
-  does not try a later member. Union enumeration compares the selected member's
+  evaluation returns that spelling explicitly to its caller, without mutable
+  output pointers in options or enlarging each retained list item. A failed
+  union pattern does not try a later member. Union enumeration compares the selected member's
   value and propagates structural list demand into member evaluation, including
   nested unions, before comparing typed values. Literal construction can omit
   its containing type's facets while they are being installed; member and item
@@ -735,6 +736,9 @@ graph preserves these ownership rules:
   compiler's complete namespace history was rejected in favor of the bounded
   application-prefix projection. Capturing only names resolved by the declared
   type is insufficient when a string-first union or anyType later selects QName.
+- Adding normalized spelling to every parsed value was rejected because it
+  enlarges every retained list item. Returning it from evaluation keeps lexical
+  output separate from value-space payloads and removes mutable result options.
 - Flattening repeated character-class ranges before merging was rejected
   because temporary storage scales with repeated inputs rather than their
   union. A range-head heap bounds that storage, accepting extra heap work.

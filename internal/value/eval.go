@@ -492,7 +492,7 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, resolver Re
 		evalNeeds |= NeedCanonical
 	}
 	var v parsedValue
-	err := p.eval(id, lexical, evalOptions{
+	_, err := p.eval(id, lexical, evalOptions{
 		resolver:      resolver,
 		needs:         evalNeeds,
 		enforceFacets: true,
@@ -580,36 +580,42 @@ type evalOptions struct {
 	resolver      Resolver
 	scratch       *Scratch
 	work          *evaluationBudget
-	unionLexical  *string
 	depth         int
 	needs         Needs
 	enforceFacets bool
 }
 
-func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *parsedValue) error {
+func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *parsedValue) (string, error) {
 	if err := p.admitEvaluation(id, lexical, options); err != nil {
-		return err
+		return "", err
 	}
 	options.depth++
 	t, ok := p.typeDef(id)
 	if !ok {
-		return ErrMetadata
+		return "", ErrMetadata
 	}
 	normalized := lexical
 	if t.variety != Union {
 		normalized = normalize(lexical, t.whitespace)
-	} else if options.enforceFacets && len(t.facets.patterns) != 0 && options.unionLexical == nil {
-		// Nested unions share the selected member's normalized spelling;
-		// patterns cannot use canonical text or normalize the source again.
-		options.unionLexical = &normalized
 	}
-	if err := p.evalVariety(id, t, normalized, options, out); err != nil {
-		return err
+	var err error
+	switch t.variety {
+	case Atomic:
+		err = evalAtomic(id, t, normalized, options, out)
+	case List:
+		*out, err = p.evalList(id, t, normalized, options)
+	case Union:
+		normalized, err = p.evalUnion(id, t, normalized, options, out)
+	default:
+		return "", ErrMetadata
 	}
-	if t.variety == Union && options.unionLexical != nil {
-		normalized = *options.unionLexical
+	if err != nil {
+		return "", err
 	}
-	return finishEvaluation(t, out, normalized, options)
+	if err := finishEvaluation(t, out, normalized, options); err != nil {
+		return "", err
+	}
+	return normalized, nil
 }
 
 func (p *Program) admitEvaluation(id TypeID, lexical string, options evalOptions) error {
@@ -633,29 +639,11 @@ func (p *Program) admitEvaluation(id TypeID, lexical string, options evalOptions
 	return nil
 }
 
-func (p *Program) evalVariety(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) error {
-	switch t.variety {
-	case Atomic:
-		return evalAtomic(id, t, normalized, options, out)
-	case List:
-		value, err := p.evalList(id, t, normalized, options)
-		*out = value
-		return err
-	case Union:
-		return p.evalUnion(id, t, normalized, options, out)
-	default:
-		return ErrMetadata
-	}
-}
-
 func finishEvaluation(t *typeDef, value *parsedValue, normalized string, options evalOptions) error {
 	if options.enforceFacets && t.facets.present != 0 {
 		if err := applyFacets(t, value, normalized, options.scratch); err != nil {
 			return err
 		}
-	}
-	if t.variety != Union && options.unionLexical != nil {
-		*options.unionLexical = normalized
 	}
 	finalizeParsedValue(t, value, normalized, options.needs)
 	return nil
@@ -738,7 +726,7 @@ func (p *Program) evalListField(value *parsedValue, t *typeDef, field string, op
 	// type's facets.
 	options.enforceFacets = true
 	var item parsedValue
-	err := p.eval(t.listItem, field, options, &item)
+	_, err := p.eval(t.listItem, field, options, &item)
 	return item, err
 }
 
@@ -797,7 +785,7 @@ func (b *listValueBuilder) finish(identity IdentityKind) parsedValue {
 	return b.value
 }
 
-func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) error {
+func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) (string, error) {
 	if len(t.facets.enumGroups) != 0 {
 		// Union enumeration compares the selected member's typed value. Keep
 		// list items while evaluating every member so nested unions and derived
@@ -811,18 +799,18 @@ func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options ev
 	// member selection always evaluates each member's complete value space.
 	childOptions.enforceFacets = true
 	for _, member := range t.union {
-		err := p.eval(member, normalized, childOptions, out)
+		memberNormalized, err := p.eval(member, normalized, childOptions, out)
 		if err == nil {
 			out.typeID = id
 			out.selected = member
-			return nil
+			return memberNormalized, nil
 		}
 		if unionTerminalError(err) {
-			return err
+			return "", err
 		}
 		last, unsupported = rememberUnionError(err, last, unsupported)
 	}
-	return unionFailure(last, unsupported)
+	return "", unionFailure(last, unsupported)
 }
 
 func unionTerminalError(err error) bool {
