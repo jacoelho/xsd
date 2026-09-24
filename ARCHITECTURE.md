@@ -193,6 +193,19 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   table back to a duplicate runtime projection is not a second publication step.
   Names, typed references, element constraints, derivation indexes, wildcard
   policies, substitution membership, and content execution remain schema-owned.
+  Published value constraints own application text and an immutable namespace
+  projection for revalidation under a different actual type. Context-free
+  constraints use canonical spelling; accepted QName/NOTATION values, including
+  list items, retain source spelling because expanded-name text is not lexical
+  XML. Rejected union members do not determine that choice. The projection
+  captures each distinct prefix in QName-shaped application fields, including
+  the default namespace and unresolved prefixes even when the declared type
+  selected a string member. It retains only sorted bindings and shared immutable
+  strings, never a source node, namespace history, or compiler closure. Source
+  token/byte and instantiated-node limits bound this metadata. Publication
+  validates coverage and consistency with captured resolution proofs; cloning
+  owns the binding slice. Repeatable application lookup is distinct from the
+  consuming proof replay used to audit original literal admission.
   Every constructed name table reserves namespace ID zero for the empty
   namespace independently of seed order; publication validates that invariant.
   Identity declarations compile into immutable selector/field path programs and
@@ -249,17 +262,6 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   selected member's ID/IDREF projections, and a list collects its selected items'
   IDREFs. Static type identity metadata cannot replace these dynamic projections.
   Validation records them even when no key/unique/keyref field requested a value.
-  Fixed simple element values compare typed identity projections, including
-  durations with equivalent lexical spellings. Untyped mixed-content constraints retain
-  their distinct lexical comparison contract.
-  Published value constraints retain application text for an empty element whose
-  actual type differs from its declaration. Context-free constraints use their
-  canonical spelling; QName/NOTATION-dependent constraints retain source spelling
-  because their expanded-name text projection is not a lexical XML value. The
-  accepted value owns this name-dependency fact, including list items; namespace
-  lookups from rejected union members do not determine application spelling. The
-  same-owner path reuses the prevalidated value. Source spelling remains owned by
-  compilation for admission and publication audits.
   The g* identity projection uses the normalized instant and timezone presence,
   matching typed equality independently of lexical calendar fields. QName
   resolution produces one expanded name before NOTATION declaration checking
@@ -303,6 +305,16 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   spellings use the reader's bounded string cache, while resolution runs against
   the current namespace frame each time. Resolver callbacks belong to the
   reusable session; cached spellings never cache resolved QName values.
+  Empty simple-content elements may instead obtain their value from a schema
+  constraint. The same-owner path reuses the prevalidated value. A changed actual
+  type validates the constraint's application text against its facets and the
+  instance value-work limit, using the constraint's schema namespace projection
+  and the sealed schema's NOTATION declarations. This supplied value records
+  document identity without a second fixed-value comparison. Instance text,
+  including whitespace-only text, uses instance namespaces and retains typed
+  fixed-value equality. Untyped mixed-content constraints retain lexical equality.
+  Both origins share identity record/capture/commit and failure rejection; nil,
+  content recovery, and session cleanup keep their existing owners.
 - `internal/format` owns repository-internal XML formatting and finite default
   input, token, processed-node, depth, and output bounds. Its output boundary
   rejects every incomplete `io.Writer` write, so success means the complete
@@ -718,6 +730,11 @@ graph preserves these ownership rules:
   lexical projections. Validation requests the value owner's identity
   projection despite its allocation cost; it does not add datatype-specific
   comparison rules or another parser.
+- Re-resolving schema-supplied QNames in instance namespaces was rejected because
+  missing or rebound prefixes change the constraint's value. Retaining the
+  compiler's complete namespace history was rejected in favor of the bounded
+  application-prefix projection. Capturing only names resolved by the declared
+  type is insufficient when a string-first union or anyType later selects QName.
 - Flattening repeated character-class ranges before merging was rejected
   because temporary storage scales with repeated inputs rather than their
   union. A range-head heap bounds that storage, accepting extra heap work.

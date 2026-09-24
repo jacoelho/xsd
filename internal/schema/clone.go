@@ -33,5 +33,6 @@ func CloneValueConstraintSimpleType(in ValueConstraintSimpleType) ValueConstrain
 // projection metadata.
 func CloneValueConstraintIdentity(in ValueConstraintIdentity) ValueConstraintIdentity {
 	in.ResolvedNames = slices.Clone(in.ResolvedNames)
+	in.qnameContext = cloneValueConstraintQNameContext(in.qnameContext)
 	return in
 }

@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:value">
+  <xs:simpleType name="Actual"><xs:restriction base="xs:QName"><xs:enumeration value="p:x"/></xs:restriction></xs:simpleType>
+  <xs:element name="default" type="xs:QName" default="p:x"/>
+  <xs:element name="fixed" type="xs:QName" fixed="p:x"/>
+</xs:schema>

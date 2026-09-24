@@ -12,9 +12,10 @@ import (
 // A nil *ValueConstraint means absent. Once attached to a runtime component,
 // the value is immutable; declarations and uses may share the same pointer.
 type ValueConstraint struct {
-	ResolvedNames []ResolvedValueName
+	qnameContext  *valueConstraintQNameContext
 	Lexical       string
 	Canonical     string
+	ResolvedNames []ResolvedValueName
 	Value         valuepkg.Value
 }
 
@@ -30,9 +31,10 @@ type ValueConstraintValidation struct {
 // ValueConstraintRead exposes prevalidated default/fixed value data to
 // validation without exposing compiler-owned pointer storage.
 type ValueConstraintRead struct {
-	application string
-	canonical   string
-	value       valuepkg.Value
+	qnameContext *valueConstraintQNameContext
+	application  string
+	canonical    string
+	value        valuepkg.Value
 }
 
 // newValueConstraintRead returns the immutable validation read projection for
@@ -51,12 +53,18 @@ func newValueConstraintReadFromConstraint(vc *ValueConstraint) (ValueConstraintR
 	if vc == nil {
 		return ValueConstraintRead{}, false
 	}
-	application := vc.Canonical
-	if vc.Value.HasQualifiedNames() {
+	application := valueConstraintApplication(vc.Lexical, vc.Canonical, vc.Value)
+	read := newValueConstraintRead(application, vc.Canonical, vc.Value)
+	read.qnameContext = cloneValueConstraintQNameContext(vc.qnameContext)
+	return read, true
+}
+
+func valueConstraintApplication(lexical, canonical string, value valuepkg.Value) string {
+	if value.HasQualifiedNames() {
 		// Expanded QName/NOTATION projections are not lexical XML values.
-		application = vc.Lexical
+		return lexical
 	}
-	return newValueConstraintRead(application, vc.Canonical, vc.Value), true
+	return canonical
 }
 
 // equalValueConstraintReads reports whether two value-constraint read
@@ -64,7 +72,8 @@ func newValueConstraintReadFromConstraint(vc *ValueConstraint) (ValueConstraintR
 func equalValueConstraintReads(a, b ValueConstraintRead) bool {
 	return a.application == b.application &&
 		a.canonical == b.canonical &&
-		a.value == b.value
+		a.value == b.value &&
+		equalValueConstraintQNameContexts(a.qnameContext, b.qnameContext)
 }
 
 // ApplicationText returns the lexical spelling for applying the constraint.
@@ -81,6 +90,12 @@ func (v ValueConstraintRead) CanonicalText() string {
 // Value returns the cached canonical value.
 func (v ValueConstraintRead) Value() valuepkg.Value {
 	return v.value
+}
+
+// ResolveQName resolves a QName in the schema namespace context captured for
+// this constraint. It is repeatable and does not consume proof entries.
+func (v ValueConstraintRead) ResolveQName(lexical string) (valuepkg.ExpandedName, bool) {
+	return v.qnameContext.ResolveQName(lexical)
 }
 
 // FixedAttributeComparison identifies the equality relation for a fixed
@@ -254,9 +269,10 @@ func resolvedValueNameLexicalParts(lexical string) lex.QNameParts {
 // ValueConstraintIdentity is the equality projection used when runtime rules
 // must prove that an inherited value constraint was preserved unchanged.
 type ValueConstraintIdentity struct {
-	ResolvedNames []ResolvedValueName
+	qnameContext  *valueConstraintQNameContext
 	Lexical       string
 	Canonical     string
+	ResolvedNames []ResolvedValueName
 	Value         valuepkg.Value
 	Present       bool
 }
@@ -272,6 +288,7 @@ func NewValueConstraintIdentity(vc *ValueConstraint) ValueConstraintIdentity {
 		Lexical:       vc.Lexical,
 		Canonical:     vc.Canonical,
 		Value:         vc.Value,
+		qnameContext:  vc.qnameContext,
 		Present:       true,
 	})
 }
@@ -286,6 +303,9 @@ func ValueConstraintIdentityEqual(a, b ValueConstraintIdentity) bool {
 		return true
 	}
 	if a.Lexical != b.Lexical || a.Canonical != b.Canonical || !slices.Equal(a.ResolvedNames, b.ResolvedNames) {
+		return false
+	}
+	if !equalValueConstraintQNameContexts(a.qnameContext, b.qnameContext) {
 		return false
 	}
 	return a.Value.Equal(b.Value) ||

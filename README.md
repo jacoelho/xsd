@@ -60,6 +60,13 @@ XML documents require one root element. Apart from an optional XML declaration
 at the start, only literal XML whitespace, comments, and processing instructions
 may appear outside that element.
 
+An empty element with a default or fixed value uses the schema's value. When
+`xsi:type` changes its type, that value must satisfy the actual type's facets.
+Application uses canonical spelling, except QName/NOTATION values retain their
+source spelling and schema namespace bindings. Instance prefix declarations
+cannot change a schema-supplied QName. Explicit element text uses the instance's
+namespaces and remains subject to fixed-value equality.
+
 ## Schema sources
 
 Pass one or more sources to `xsd.Compile`:

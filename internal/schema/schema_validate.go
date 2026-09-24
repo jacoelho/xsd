@@ -760,6 +760,10 @@ func validateValueConstraintRuntime(rt *schemaValidation, vc *ValueConstraint, e
 	if err := ValidateValueConstraintShape(rt.build, cached, expected); err != nil {
 		return xsderrors.InternalInvariant(label + " " + err.Error())
 	}
+	application := valueConstraintApplication(vc.Lexical, vc.Canonical, vc.Value)
+	if err := validateValueConstraintQNameContext(application, vc.qnameContext, vc.ResolvedNames); err != nil {
+		return xsderrors.InternalInvariant(label + " " + err.Error())
+	}
 	if expected == NoSimpleType {
 		return nil
 	}
