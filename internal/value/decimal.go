@@ -73,13 +73,6 @@ func parseDecimal(s string, mode decimalParseMode) (DecimalValue, error) {
 	intDigits := scan.intEnd - intTrimStart
 	fracDigits := fracTrimEnd - scan.fracStart
 	totalDigits := intDigits + fracDigits
-	if intDigits == 0 {
-		firstFracDigit := scan.fracStart
-		for firstFracDigit < fracTrimEnd && s[firstFracDigit] == '0' {
-			firstFracDigit++
-		}
-		totalDigits = fracTrimEnd - firstFracDigit
-	}
 	if totalDigits == 0 {
 		totalDigits = 1
 	}
