@@ -643,6 +643,7 @@ type facetProgram struct {
 	totalDigits    CardinalityFacet
 	maxLength      CardinalityFacet
 	length         CardinalityFacet
+	enumItemLimit  uint32
 	present        FacetMask
 	fixed          FacetMask
 	rawDecimalFast bool
@@ -859,15 +860,19 @@ func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProg
 		// installed; evalUnion and evalListField still enforce child facets.
 		var v parsedValue
 		_, err := p.eval(literalType, entry.Lexical, evalOptions{
-			resolver:      entry.Resolver,
-			needs:         NeedIdentity | retainListItems,
-			enforceFacets: false,
-			work:          budget,
+			resolver:           entry.Resolver,
+			needs:              NeedIdentity,
+			retainAllListItems: true,
+			enforceFacets:      false,
+			work:               budget,
 		}, &v)
 		if err != nil {
 			return fmt.Errorf("enumeration %q: %w", entry.Lexical, err)
 		}
 		group = append(group, v)
+		if v.isList && v.count > own.enumItemLimit {
+			own.enumItemLimit = v.count
+		}
 	}
 	own.enumGroups = append(own.enumGroups, group)
 	return nil
@@ -888,6 +893,7 @@ func mergeFacetPrograms(base, own facetProgram) facetProgram {
 	out.lower = append(append([]boundValue(nil), base.lower...), own.lower...)
 	out.upper = append(append([]boundValue(nil), base.upper...), own.upper...)
 	out.enumGroups = append(append([][]parsedValue(nil), base.enumGroups...), own.enumGroups...)
+	out.enumItemLimit = max(base.enumItemLimit, own.enumItemLimit)
 	out.patterns = append(clonePatterns(base.patterns), own.patterns...)
 	return out
 }

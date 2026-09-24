@@ -40,10 +40,6 @@ const (
 	valueQualifiedNames
 )
 
-// retainListItems is an internal construction need used for compiled list
-// enumeration literals. It never escapes through the public Needs mask.
-const retainListItems Needs = 1 << 7
-
 // parsedValue is transient validation state. It is deliberately separate from
 // Value: primitive payloads are needed while parsing and checking facets, but
 // retaining the complete tagged payload in every published result made scalar
@@ -577,12 +573,14 @@ func (v *parsedValue) hasQualifiedNames() bool {
 }
 
 type evalOptions struct {
-	resolver      Resolver
-	scratch       *Scratch
-	work          *evaluationBudget
-	depth         int
-	needs         Needs
-	enforceFacets bool
+	resolver           Resolver
+	scratch            *Scratch
+	work               *evaluationBudget
+	depth              int
+	listItemLimit      uint32
+	needs              Needs
+	retainAllListItems bool
+	enforceFacets      bool
 }
 
 func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *parsedValue) (string, error) {
@@ -662,7 +660,7 @@ func evalAtomic(id TypeID, t *typeDef, normalized string, options evalOptions, v
 }
 
 func (p *Program) evalList(id TypeID, t *typeDef, normalized string, options evalOptions) (parsedValue, error) {
-	builder, err := newListValueBuilder(id, t, normalized, options.needs)
+	builder, err := newListValueBuilder(id, t, normalized, options)
 	if err != nil {
 		return parsedValue{}, err
 	}
@@ -693,20 +691,28 @@ type listValueBuilder struct {
 	collectIDRefs  bool
 }
 
-func newListValueBuilder(id TypeID, t *typeDef, normalized string, needs Needs) (listValueBuilder, error) {
+func newListValueBuilder(id TypeID, t *typeDef, normalized string, options evalOptions) (listValueBuilder, error) {
+	itemLimit := max(options.listItemLimit, t.facets.enumItemLimit)
 	b := listValueBuilder{
 		value:          parsedValue{typeID: id, selected: NoType, isList: true},
-		needs:          needs,
-		keepItems:      len(t.facets.enumGroups) != 0 || needs&retainListItems != 0,
+		needs:          options.needs,
 		forceCanonical: t.identity == IdentityIDREFList,
 		collectIDRefs:  t.listItem != builtinIDREF,
 	}
-	if b.keepItems {
-		count := listFieldCount(normalized)
-		if count > uint64(^uint32(0)) {
-			return listValueBuilder{}, ErrLimit
-		}
-		b.value.items = make([]parsedValue, 0, int(count))
+	if !options.retainAllListItems && itemLimit == 0 {
+		return b, nil
+	}
+	count := listFieldCount(normalized)
+	if count > uint64(^uint32(0)) {
+		return listValueBuilder{}, ErrLimit
+	}
+	retained := count
+	if !options.retainAllListItems && count > uint64(itemLimit) {
+		retained = 0
+	}
+	if retained != 0 {
+		b.keepItems = true
+		b.value.items = make([]parsedValue, 0, int(retained))
 	}
 	return b, nil
 }
@@ -786,11 +792,11 @@ func (b *listValueBuilder) finish(identity IdentityKind) parsedValue {
 }
 
 func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options evalOptions, out *parsedValue) (string, error) {
-	if len(t.facets.enumGroups) != 0 {
-		// Union enumeration compares the selected member's typed value. Keep
-		// list items while evaluating every member so nested unions and derived
-		// restrictions cannot discard the structure needed by that comparison.
-		options.needs |= retainListItems
+	if t.facets.enumItemLimit > options.listItemLimit {
+		// Union enumeration compares the selected member's typed value. Carry
+		// only the largest list cardinality any effective literal can require;
+		// nested unions inherit this demand through the copied options.
+		options.listItemLimit = t.facets.enumItemLimit
 	}
 	var last error
 	var unsupported error
@@ -1349,7 +1355,8 @@ func equalParsed(a, b *parsedValue) bool {
 }
 
 func equalParsedList(a, b *parsedValue) bool {
-	if !a.isList || !b.isList || len(a.items) != len(b.items) {
+	if !a.isList || !b.isList || a.count != b.count ||
+		uint64(len(a.items)) != uint64(a.count) || uint64(len(b.items)) != uint64(b.count) {
 		return false
 	}
 	for i := range a.items {

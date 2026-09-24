@@ -249,9 +249,16 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   the selected member's normalized lexical output after ordered member assessment;
   evaluation returns that spelling explicitly to its caller, without mutable
   output pointers in options or enlarging each retained list item. A failed
-  union pattern does not try a later member. Union enumeration compares the selected member's
-  value and propagates structural list demand into member evaluation, including
-  nested unions, before comparing typed values. Literal construction can omit
+  union pattern does not try a later member. Union enumeration compares the
+  selected member's value. Compiled enumeration groups retain their maximum
+  list-literal item count. Evaluation propagates the maximum applicable count
+  through nested unions and combines it with each list's own groups. An input
+  with N items retains all items only when N is within that bound K; otherwise
+  it retains none. Temporary item storage is therefore at most K parsed values.
+  Every item still validates and consumes work; omitting storage cannot change
+  first-success member selection or bypass local facets. List equality requires
+  equal counts and complete retained items. Enumeration-literal construction
+  retains all items under its construction limits. Literal construction can omit
   its containing type's facets while they are being installed; member and item
   types always enforce their own facets, preserving normal value selection.
   Fixed ordered facets use the nearest declaration of the same bound kind;
@@ -739,6 +746,11 @@ graph preserves these ownership rules:
 - Adding normalized spelling to every parsed value was rejected because it
   enlarges every retained list item. Returning it from evaluation keeps lexical
   output separate from value-space payloads and removes mutable result options.
+- Lazy list growth or a cap on initial capacity alone was rejected because
+  eventual storage still scales with input length. Rejecting a list immediately
+  when it exceeds an enclosing enumeration's item bound was rejected because it
+  can select a later union member and change acceptance. Complete-or-omitted
+  retention bounds storage while preserving normal item and member assessment.
 - Flattening repeated character-class ranges before merging was rejected
   because temporary storage scales with repeated inputs rather than their
   union. A range-head heap bounds that storage, accepting extra heap work.
