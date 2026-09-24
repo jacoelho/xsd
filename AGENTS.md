@@ -59,6 +59,8 @@ unowned follow-up remains.
 - Choose the smallest design satisfying current constraints. An abstraction
   must delete more complexity than it adds. Prefer small syntax duplication to
   false coupling; centralize duplicated policy and invariants.
+- Prefer returning replacement pointers over taking double-pointer output
+  parameters; explain exceptions at the declaration.
 - Use one term per concept. Name modules for owned capabilities, not vague roles
   such as `manager`, `core`, `common`, `engine`, or `utils`.
 - Bound work, retained memory, queues, batches, recursion, retries, concurrency,

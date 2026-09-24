@@ -6,6 +6,11 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+const (
+	attributeDefaultConstraintLabel = "attribute default"
+	attributeFixedConstraintLabel   = "attribute fixed"
+)
+
 func (c *compiler) compileAttributeByQName(q QName) (AttributeID, error) {
 	raw, exists := c.attributeComponents[q]
 	var source *schemaNode
@@ -114,22 +119,22 @@ func (c *compiler) validateAttributeValueConstraints(decl *AttributeDecl, n *sch
 	if decl.Default == nil && decl.Fixed == nil {
 		return nil
 	}
+	constraint := decl.Default
+	label := attributeDefaultConstraintLabel
+	if constraint == nil {
+		constraint = decl.Fixed
+		label = attributeFixedConstraintLabel
+	}
 	resolve := schemaQNameResolver(n)
-	if err := c.validateAttributeConstraint(&decl.Default, decl, resolve, n.namespace.Lookup, "attribute default"); err != nil {
-		return err
-	}
-	return c.validateAttributeConstraint(&decl.Fixed, decl, resolve, n.namespace.Lookup, "attribute fixed")
-}
-
-func (c *compiler) validateAttributeConstraint(constraint **ValueConstraint, decl *AttributeDecl, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), label string) error {
-	if *constraint == nil {
-		return nil
-	}
-	validated, err := c.validateValueConstraint(decl.Type, (*constraint).Lexical, resolve, lookup, decl.Name, label)
+	validated, err := c.validateValueConstraint(decl.Type, constraint.Lexical, resolve, n.namespace.Lookup, decl.Name, label)
 	if err != nil {
 		return err
 	}
-	*constraint = validated
+	if decl.Default != nil {
+		decl.Default = validated
+		return nil
+	}
+	decl.Fixed = validated
 	return nil
 }
 

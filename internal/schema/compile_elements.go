@@ -6,6 +6,11 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+const (
+	elementDefaultConstraintLabel = "element default"
+	elementFixedConstraintLabel   = "element fixed"
+)
+
 func (c *compiler) compileElementParticle(n *schemaNode, ctx *schemaContext) (Particle, error) {
 	id, err := c.compileElementParticleDeclaration(n, ctx)
 	if err != nil {
@@ -291,14 +296,26 @@ func (c *compiler) validateElementValueConstraints(decl *ElementDecl, n *schemaN
 	if err != nil || unavailableType {
 		return err
 	}
-	if err := ValidateElementDeclValueConstraintRuntime(&c.rt, simpleID, DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
+	if err = ValidateElementDeclValueConstraintRuntime(&c.rt, simpleID, DeclarationValueConstraintOf(decl.Default, decl.Fixed)); err != nil {
 		return ElementValueConstraintRuntimeError(err)
 	}
+	constraint := decl.Default
+	label := elementDefaultConstraintLabel
+	if constraint == nil {
+		constraint = decl.Fixed
+		label = elementFixedConstraintLabel
+	}
 	resolve := schemaQNameResolver(n)
-	if err := c.validateElementConstraint(&decl.Default, simpleID, decl, resolve, n.namespace.Lookup, "element default"); err != nil {
+	validated, err := c.validateValueConstraint(simpleID, constraint.Lexical, resolve, n.namespace.Lookup, decl.Name, label)
+	if err != nil {
 		return err
 	}
-	return c.validateElementConstraint(&decl.Fixed, simpleID, decl, resolve, n.namespace.Lookup, "element fixed")
+	if decl.Default != nil {
+		decl.Default = validated
+		return nil
+	}
+	decl.Fixed = validated
+	return nil
 }
 
 func applyMixedElementConstraints(decl *ElementDecl, lookup func(string) (string, bool)) {
@@ -320,18 +337,6 @@ func prepareElementConstraintType(decl *ElementDecl, simpleID SimpleTypeID, unav
 	decl.Default = nil
 	decl.Fixed = nil
 	return true, nil
-}
-
-func (c *compiler) validateElementConstraint(constraint **ValueConstraint, simpleID SimpleTypeID, decl *ElementDecl, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), label string) error {
-	if *constraint == nil {
-		return nil
-	}
-	validated, err := c.validateValueConstraint(simpleID, (*constraint).Lexical, resolve, lookup, decl.Name, label)
-	if err != nil {
-		return err
-	}
-	*constraint = validated
-	return nil
 }
 
 // mixedContentConstraint builds the constraint for an emptiable mixed-content
