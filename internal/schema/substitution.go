@@ -146,7 +146,7 @@ func sortSubstitutionTable(table SubstitutionTable) {
 // false. Abstract and blocked members remain visible to compilation checks.
 func (t SubstitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool) {
 	span, ok := t.span(head)
-	if !ok {
+	if !ok || span.count == 0 {
 		return
 	}
 	for _, entry := range t.entries[span.start : span.start+span.count] {
@@ -160,7 +160,7 @@ func (t SubstitutionTable) ForEachMember(head ElementID, fn func(ElementID) bool
 // false.
 func (t SubstitutionTable) ForEachEntry(head ElementID, fn func(QName, ElementID) bool) {
 	span, ok := t.span(head)
-	if !ok {
+	if !ok || span.count == 0 {
 		return
 	}
 	for _, entry := range t.entries[span.start : span.start+span.count] {
@@ -173,7 +173,7 @@ func (t SubstitutionTable) ForEachEntry(head ElementID, fn func(QName, ElementID
 // MemberByName returns the effective substitution member registered under head.
 func (t SubstitutionTable) MemberByName(head ElementID, name QName) (ElementID, bool) {
 	span, ok := t.span(head)
-	if !ok {
+	if !ok || span.count == 0 {
 		return NoElement, false
 	}
 	entries := t.entries[span.start : span.start+span.count]

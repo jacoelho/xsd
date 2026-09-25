@@ -57,6 +57,28 @@ func BenchmarkParserCharacterData(b *testing.B) {
 	benchmarkParserDocument(b, text, newParserBenchmarkOracle(3, 65_540, 0x069139cfad00a11b), Config{}, parserBenchmarkRawAttributes)
 }
 
+func BenchmarkParserSmallLiteral(b *testing.B) {
+	benchmarkParserDerivedDocument(b, "<root>literal text</root>")
+}
+
+func BenchmarkParserNewlineRuns(b *testing.B) {
+	benchmarkParserDerivedDocument(b, "<root>line\n\nline\n\nline</root>")
+}
+
+func benchmarkParserDerivedDocument(b *testing.B, text string) {
+	b.Helper()
+	var parser parserTestHarness
+	digest, err := digestParserBenchmarkDocument(&parser, text, Config{}, parserBenchmarkRawAttributes)
+	if err != nil {
+		b.Fatal(err)
+	}
+	sample, err := consumeParserBenchmarkDocument(&parser, text, Config{}, parserBenchmarkRawAttributes)
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchmarkParserDocument(b, text, parserBenchmarkOracle{digest: digest, sample: sample}, Config{}, parserBenchmarkRawAttributes)
+}
+
 func BenchmarkParserMixedSmallTokens(b *testing.B) {
 	text := `<root>` + strings.Repeat(`<e a="v">x</e>`, 4_000) + `</root>`
 	benchmarkParserDocument(b, text, newParserBenchmarkOracle(12_002, 12_004, 0xf020b93837f5e1c), Config{LazyAttrValues: true}, parserBenchmarkRawAttributes)

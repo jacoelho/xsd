@@ -141,7 +141,10 @@ func buildBuiltinDefinitions() [BuiltinTypeCount]typeDef {
 		if m.variety == List {
 			definitions[id].listItem = m.listItem
 		}
+		prepareRawDecimalFastPath(&definitions[id])
+		prepareRawIntegerFastPath(&definitions[id])
 	}
+	prepareRawBuiltinValuePlans(&definitions)
 	return definitions
 }
 

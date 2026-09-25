@@ -43,15 +43,16 @@ func validXMLRunePrefix(data []byte) (int, error) {
 }
 
 func (p *parser) consumeLineFeed() error {
-	b, err := p.br.readByte()
+	b, err := p.br.peekByte()
 	if err != nil {
 		if IsOnlyEOF(err) {
 			return nil
 		}
 		return err
 	}
-	if b != '\n' {
-		p.br.unreadByte()
+	if b == '\n' {
+		_, err = p.br.readByte()
+		return err
 	}
 	return nil
 }

@@ -33,15 +33,18 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 			return false, err
 		}
 	}
-	identityTarget, identityErr := s.doc.identity.prepareElementValue()
+	identityTarget, identityErr := s.doc.identity.prepareElementValue(s.doc.Depth())
 	if identityErr != nil {
 		return false, identityErr
 	}
 	ctx := s.startContext(line, col)
 	needsIdentity := identityTarget.needsIdentity()
-	typeIdentity := s.valueTypeIdentity(typeID)
-	if !needsIdentity && !hasValueConstraint && typeIdentity == xsdValue.IdentityNone {
-		value, err := s.validateSimpleValueBytes(typeID, rawText, s.simpleValueQNameResolver(typeID), 0)
+	input, ok := s.rt.ValueProgram().InputRequirements(typeID)
+	if !ok {
+		return false, xsderrors.InternalInvariant("simple content input metadata is invalid")
+	}
+	if !needsIdentity && !hasValueConstraint && input.Identity == xsdValue.IdentityNone {
+		value, err := s.validateSimpleValueBytes(typeID, rawText, input, 0)
 		if err != nil {
 			return false, simpleValueFacetError(ctx, "invalid simple content", err)
 		}
@@ -56,10 +59,10 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 			if constraints.OwnerType() == f.Type {
 				return s.recordElementSimpleContent(constraint.Value(), identityTarget, ctx)
 			}
-			return s.applyElementValueConstraint(typeID, constraint, identityTarget, typeIdentity, ctx)
+			return s.applyElementValueConstraint(typeID, constraint, identityTarget, input, ctx)
 		}
 	}
-	return s.validateElementSimpleContentValue(typeID, rawText, constraints, identityTarget, typeIdentity, ctx)
+	return s.validateElementSimpleContentValue(typeID, rawText, constraints, identityTarget, input, ctx)
 }
 
 func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValueConstraints, error) {
@@ -73,13 +76,13 @@ func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValue
 	return constraints, nil
 }
 
-func (s *session) applyElementValueConstraint(typeID xsdSchema.SimpleTypeID, constraint xsdSchema.ValueConstraintRead, target identityValueTarget, typeIdentity xsdValue.IdentityKind, ctx StartContext) (bool, error) {
+func (s *session) applyElementValueConstraint(typeID xsdSchema.SimpleTypeID, constraint xsdSchema.ValueConstraintRead, target identityValueTarget, input xsdValue.InputRequirements, ctx StartContext) (bool, error) {
 	var resolver xsdValue.Resolver
-	if needsQName, ok := s.rt.ValueProgram().NeedsQNameResolver(typeID); ok && needsQName {
+	if input.NeedsQName {
 		resolver.QName = constraint.ResolveQName
 		resolver.Notation = s.rt.NotationDeclared
 	}
-	result, err := s.validateSimpleValue(typeID, constraint.ApplicationText(), resolver, simpleContentNeeds(target, typeIdentity))
+	result, err := s.validateSimpleValue(typeID, constraint.ApplicationText(), resolver, simpleContentNeeds(target, input.Identity))
 	if err != nil {
 		return false, s.elementSimpleContentValueError(target, err, ctx)
 	}
@@ -88,12 +91,12 @@ func (s *session) applyElementValueConstraint(typeID xsdSchema.SimpleTypeID, con
 	return s.recordElementSimpleContent(result, target, ctx)
 }
 
-func (s *session) validateElementSimpleContentValue(typeID xsdSchema.SimpleTypeID, rawText []byte, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, typeIdentity xsdValue.IdentityKind, ctx StartContext) (bool, error) {
-	needs := simpleContentNeeds(target, typeIdentity)
+func (s *session) validateElementSimpleContentValue(typeID xsdSchema.SimpleTypeID, rawText []byte, constraints xsdSchema.ElementValueConstraints, target identityValueTarget, input xsdValue.InputRequirements, ctx StartContext) (bool, error) {
+	needs := simpleContentNeeds(target, input.Identity)
 	if _, fixed := constraints.FixedValue(); fixed {
 		needs |= xsdValue.NeedCanonical | xsdValue.NeedIdentity
 	}
-	result, err := s.validateSimpleValueBytes(typeID, rawText, s.simpleValueQNameResolver(typeID), needs)
+	result, err := s.validateSimpleValueBytes(typeID, rawText, input, needs)
 	if err != nil {
 		return false, s.elementSimpleContentValueError(target, err, ctx)
 	}
@@ -139,14 +142,6 @@ func simpleContentNeeds(
 		return needs
 	}
 	return needs
-}
-
-func (s *session) valueTypeIdentity(id xsdSchema.SimpleTypeID) xsdValue.IdentityKind {
-	kind, ok := s.rt.ValueProgram().IdentityKind(id)
-	if !ok {
-		return xsdValue.IdentityNone
-	}
-	return kind
 }
 
 func (*session) validateNonSimpleFixedContent(

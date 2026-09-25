@@ -15,7 +15,7 @@ func TestSessionStartRollsBackRootOnFatalAssessment(t *testing.T) {
 
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	err := startForTest(t, &s, 1, 1, testXMLStart(
@@ -42,7 +42,7 @@ func TestSessionStartRollsBackParentContentOnFatalChildAssessment(t *testing.T) 
 		<xs:element name="root"><xs:complexType><xs:sequence><xs:element name="child" type="xs:string"/></xs:sequence></xs:complexType></xs:element>
 	</xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
@@ -53,12 +53,12 @@ func TestSessionStartRollsBackParentContentOnFatalChildAssessment(t *testing.T) 
 		t.Fatal("root start did not create a frame")
 	}
 	parentBefore := *parent
-	err := startForTest(t, &s, 2, 1, xmlstream.OwnedStartElement(
+	err := startForTest(t, &s, 2, 1, testXMLStart(
 		xml.Name{Local: "child"},
-		xmlstream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
-		xmlstream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
-		xmlstream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
-		xmlstream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
+		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
+		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
+		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
+		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
 	))
 	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
 	parent, ok = s.doc.Current()
@@ -80,19 +80,19 @@ func TestSessionStartRollsBackAllModelBitsOnFatalChildAssessment(t *testing.T) {
 		<xs:element name="root"><xs:complexType><xs:all><xs:element name="child" type="xs:string"/></xs:all></xs:complexType></xs:element>
 	</xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
 		t.Fatal(err)
 	}
 	allBitsBefore := slices.Clone(s.doc.allBits)
-	err := startForTest(t, &s, 2, 1, xmlstream.OwnedStartElement(
+	err := startForTest(t, &s, 2, 1, testXMLStart(
 		xml.Name{Local: "child"},
-		xmlstream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
-		xmlstream.OwnedAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
-		xmlstream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
-		xmlstream.OwnedAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
+		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "xsi"}, vocab.XSINamespaceURI),
+		testXMLAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}, "urn:missing"),
+		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrSchemaLocation}, "urn:missing missing.xsd"),
+		testXMLAttr(xml.Name{Space: "xsi", Local: vocab.XSIAttrType}, "p:Missing"),
 	))
 	expectXSDCode(t, err, xsderrors.CodeUnsupportedSchemaHint)
 	if !slices.Equal(s.doc.allBits, allBitsBefore) {
@@ -116,7 +116,7 @@ func TestSessionStartRollsBackStagedContentAfterFatalTypeAssessment(t *testing.T
   </xs:sequence></xs:complexType></xs:element>
 </xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(
@@ -165,7 +165,7 @@ func TestSessionStartStagesParentInvalidationUntilCommit(t *testing.T) {
   </xs:sequence></xs:complexType></xs:element>
 </xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
@@ -204,7 +204,7 @@ func TestSessionStartStagesParentInvalidationUntilCommit(t *testing.T) {
 func TestSessionStartTransactionReusesStorage(t *testing.T) {
 	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	end := xmlstream.EndElement{Name: xml.Name{Local: "root"}}
@@ -241,7 +241,7 @@ func TestSessionStartRollsBackIdentityAfterXMLCommit(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{MaxIdentityEntries: 1}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{MaxIdentityEntries: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
@@ -295,7 +295,7 @@ func TestSessionStartRollsBackPendingIdentityFieldLimit(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{MaxIdentityEntries: 3}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{MaxIdentityEntries: 3}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
@@ -345,7 +345,7 @@ func TestSessionIdentitySelectionsKeepDocumentPathsLazy(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
@@ -389,7 +389,7 @@ func TestSessionStartRollsBackCompositeStateAfterIdentityFailure(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{MaxIdentityEntries: 1}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{MaxIdentityEntries: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "root"})); err != nil {
@@ -459,7 +459,7 @@ func TestSessionSemanticStopPreservesOnlyXMLLifecycle(t *testing.T) {
 
 		rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`)
 		var s session
-		if err := initializeSession(&s, rt, Options{MaxErrors: 1}); err != nil {
+		if err := initializeSessionForTest(&s, rt, Options{MaxErrors: 1}); err != nil {
 			t.Fatal(err)
 		}
 		if err := startForTest(t, &s, 1, 1, testXMLStart(xml.Name{Local: "missing"})); err != nil {
@@ -478,7 +478,7 @@ func TestSessionSemanticStopPreservesOnlyXMLLifecycle(t *testing.T) {
   </xs:element>
 </xs:schema>`)
 		var s session
-		if err := initializeSession(&s, rt, Options{MaxErrors: 1}); err != nil {
+		if err := initializeSessionForTest(&s, rt, Options{MaxErrors: 1}); err != nil {
 			t.Fatal(err)
 		}
 		if err := startForTest(t, &s, 1, 1, testXMLStart(
@@ -514,7 +514,7 @@ func TestSessionStartTransactionReusesParentTransitionStorage(t *testing.T) {
   </xs:sequence></xs:complexType></xs:element>
 </xs:schema>`)
 	var s session
-	if err := initializeSession(&s, rt, Options{}); err != nil {
+	if err := initializeSessionForTest(&s, rt, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	childEnd := xmlstream.EndElement{Name: xml.Name{Local: "child"}}

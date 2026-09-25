@@ -855,9 +855,9 @@ func prepareXMLStartForTest(
 }
 
 func testXMLStart(name xml.Name, attrs ...xmlstream.Attr) xmlstream.StartElement {
-	return xmlstream.OwnedStartElement(name, attrs...)
+	return xmlstream.StartElement{Name: name, Attr: attrs}
 }
 
 func testXMLAttr(name xml.Name, value string) xmlstream.Attr {
-	return xmlstream.OwnedAttr(name, value)
+	return xmlstream.Attr{Name: name, Value: value}
 }

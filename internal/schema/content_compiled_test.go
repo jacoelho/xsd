@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-func TestContentFrameForTypeUsesCompiledModelInitialState(t *testing.T) {
+func TestElementFrameUsesCompiledModelInitialState(t *testing.T) {
 	t.Parallel()
 
 	typ := ComplexRef(1)
@@ -21,17 +21,23 @@ func TestContentFrameForTypeUsesCompiledModelInitialState(t *testing.T) {
 			modelID: {Start: 7, AllBitLen: 130},
 		},
 	})
-	got := rt.ContentFrame(typ)
-	state := got.ContentState()
-	if state.model != modelID || state.state != 7 || got.AllBitLen() != 130 {
-		t.Fatalf("ContentFrame() = %+v, want model %v state 7 bitLen 130", got, modelID)
+	read, ok := rt.ElementFrame(typ, NoElement)
+	if !ok {
+		t.Fatal("ElementFrame() failed for valid complex type")
+	}
+	state := read.Content.ContentState()
+	if state.model != modelID || state.state != 7 || read.Content.AllBitLen() != 130 {
+		t.Fatalf("ElementFrame().Content = %+v, want model %v state 7 bitLen 130", read.Content, modelID)
 	}
 
-	got = publishedContentSchema(contentSchemaFixture{
+	read, ok = publishedContentSchema(contentSchemaFixture{
 		contentModels: map[TypeID]ContentModelID{typ: NoContentModel},
-	}).ContentFrame(typ)
-	if got.ContentState().HasModel() {
-		t.Fatalf("ContentFrame(no model) = %+v, want no model", got)
+	}).ElementFrame(typ, NoElement)
+	if !ok {
+		t.Fatal("ElementFrame() failed for valid complex type without content model")
+	}
+	if read.Content.ContentState().HasModel() {
+		t.Fatalf("ElementFrame(no model) = %+v, want no model", read.Content)
 	}
 }
 

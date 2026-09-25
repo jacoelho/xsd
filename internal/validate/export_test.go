@@ -8,11 +8,16 @@ import (
 )
 
 func newSessionForTest(rt *xsdSchema.Schema, opts Options) (*Session, error) {
-	s, err := NewSession(rt, opts)
+	return NewSessionPool(rt).NewSession(opts)
+}
+
+func initializeSessionForTest(s *session, rt *xsdSchema.Schema, opts Options) error {
+	limits, err := NormalizeOptions(opts)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return s, nil
+	initializeSession(s, rt, limits)
+	return nil
 }
 
 // MaxRetainedBufferCapForTest exposes the retained byte-buffer cap to tests.

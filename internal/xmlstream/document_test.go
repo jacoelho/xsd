@@ -74,6 +74,67 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	}
 }
 
+func TestReaderDefaultNamespaceShadowRestoresAfterChild(t *testing.T) {
+	var reader Reader
+	if err := reader.Reset(strings.NewReader(`<root xmlns="urn:root"><child xmlns="urn:child"/><sibling/></root>`), Config{}); err != nil {
+		t.Fatal(err)
+	}
+
+	rootToken := mustNextToken(t, &reader)
+	if rootToken.Start.Name.Local != "root" {
+		t.Fatalf("root lexical name = %+v", rootToken.Start.Name)
+	}
+	rootFrame, root, err := reader.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root.Name != (xml.Name{Space: "urn:root", Local: "root"}) {
+		t.Fatalf("root expanded name = %+v", root.Name)
+	}
+
+	childToken := mustNextToken(t, &reader)
+	if childToken.Start.Name.Local != "child" {
+		t.Fatalf("child lexical name = %+v", childToken.Start.Name)
+	}
+	childFrame, child, err := reader.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if child.Name != (xml.Name{Space: "urn:child", Local: "child"}) {
+		t.Fatalf("child expanded name = %+v", child.Name)
+	}
+	_ = mustNextToken(t, &reader)
+	err = reader.End(childFrame)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	siblingToken := mustNextToken(t, &reader)
+	if siblingToken.Start.Name.Local != "sibling" {
+		t.Fatalf("sibling lexical name = %+v", siblingToken.Start.Name)
+	}
+	siblingFrame, sibling, err := reader.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sibling.Name != (xml.Name{Space: "urn:root", Local: "sibling"}) {
+		t.Fatalf("sibling expanded name = %+v", sibling.Name)
+	}
+	_ = mustNextToken(t, &reader)
+	err = reader.End(siblingFrame)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = mustNextToken(t, &reader)
+	if err := reader.End(rootFrame); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
+		t.Fatalf("Next() after root = %v, want EOF", err)
+	}
+}
+
 func TestReaderOwnsAndInvalidatesBorrowedToken(t *testing.T) {
 	var reader Reader
 	if err := reader.Reset(strings.NewReader(`<r/>`), Config{}); err != nil {

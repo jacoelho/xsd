@@ -35,6 +35,57 @@ func TestProgramIsUnconstrainedString(t *testing.T) {
 	}
 }
 
+func TestProgramInputRequirementsOwnsScalarAdmissionPolicy(t *testing.T) {
+	program, types := unconstrainedStringQueryProgram(t)
+	for _, test := range []struct {
+		name                string
+		id                  TypeID
+		needsQName          bool
+		identity            IdentityKind
+		unconstrainedString bool
+	}{
+		{name: "string", id: builtinString, unconstrainedString: true},
+		{name: "identity", id: types["identity"], identity: IdentityID},
+		{name: "list", id: types["list"]},
+		{name: "qname", id: builtinQName, needsQName: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, valid := program.InputRequirements(test.id)
+			if !valid {
+				t.Fatal("InputRequirements reported an invalid type")
+			}
+			if got.NeedsQName != test.needsQName || got.Identity != test.identity || got.UnconstrainedString != test.unconstrainedString {
+				t.Fatalf("InputRequirements() = %#v, want NeedsQName=%v Identity=%d UnconstrainedString=%v", got, test.needsQName, test.identity, test.unconstrainedString)
+			}
+		})
+	}
+	if got, valid := program.InputRequirements(NoType); valid || got != (InputRequirements{}) {
+		t.Fatalf("InputRequirements(NoType) = %#v, %v, want zero,false", got, valid)
+	}
+}
+
+func TestBuilderInputRequirementsAvailableAfterCompletionBeforeSeal(t *testing.T) {
+	builder := NewBuilder(BuilderOptions{})
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Complete(id, TypeSpec{
+		Variety: Atomic, Primitive: PrimitiveString,
+		Whitespace: WhitespacePreserve, WhitespacePresent: true,
+		Base: NoType, ListItem: NoType,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	requirements, valid := builder.InputRequirements(id)
+	if !valid || !requirements.UnconstrainedString {
+		t.Fatalf("builder InputRequirements() = %#v, %v; want unconstrained string,true", requirements, valid)
+	}
+	if _, err := builder.Validate(id, "value", Resolver{}, 0, nil); err != nil {
+		t.Fatalf("builder Validate() = %v", err)
+	}
+}
+
 func TestProgramIsUnconstrainedStringDoesNotProjectMetadata(t *testing.T) {
 	program, types := unconstrainedStringQueryProgram(t)
 	for _, test := range []struct {

@@ -186,15 +186,15 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
 }
 
 func xsiAttr(local, value string) xmlstream.Attr {
-	return xmlstream.OwnedAttr(xml.Name{Space: vocab.XSINamespaceURI, Local: local}, value)
+	return xmlstream.Attr{Name: xml.Name{Space: vocab.XSINamespaceURI, Local: local}, Value: value}
 }
 
 func startAttr(ns, local, value string) xmlstream.Attr {
-	return xmlstream.OwnedAttr(xml.Name{Space: ns, Local: local}, value)
+	return xmlstream.Attr{Name: xml.Name{Space: ns, Local: local}, Value: value}
 }
 
 func startAttrs(attrs ...xmlstream.Attr) []xmlstream.Attr {
-	return xmlstream.OwnedAttrs(attrs...)
+	return attrs
 }
 
 func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {

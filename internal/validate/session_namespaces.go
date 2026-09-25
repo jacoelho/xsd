@@ -11,10 +11,8 @@ func (s *session) runtimeName(n xml.Name) xsdSchema.RuntimeName {
 	return ResolveRuntimeName(s.rt, n)
 }
 
-func (s *session) simpleValueQNameResolver(id xsdSchema.SimpleTypeID) value.Resolver {
-	program := s.rt.ValueProgram()
-	needs, ok := program.NeedsQNameResolver(id)
-	if !ok || !needs {
+func (s *session) simpleValueQNameResolver(input value.InputRequirements) value.Resolver {
+	if !input.NeedsQName {
 		return value.Resolver{}
 	}
 	if s.valueResolver.Notation == nil {

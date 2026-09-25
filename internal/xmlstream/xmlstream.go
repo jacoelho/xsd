@@ -417,19 +417,22 @@ func joinedErrorsAreOnlyEOF(causes []error) bool {
 	return true
 }
 
-//nolint:gocognit // One loop owns byte consumption, delimiter state, and token position.
+//nolint:funlen,gocognit // One loop owns byte consumption, delimiter state, and token position.
 func (p *parser) readCharData(dst *Token, first byte) error {
 	line, col := p.br.pos()
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
 	kind := CharacterDataText
+	borrowFirst := isBorrowedASCIITextByte(first)
 	switch first {
 	case '&':
+		borrowFirst = false
 		kind = CharacterDataReference
 		if err := p.readEntity(&p.textBuf); err != nil {
 			return err
 		}
 	case '\r':
+		borrowFirst = false
 		if err := p.consumeLineFeed(); err != nil {
 			return err
 		}
@@ -441,13 +444,21 @@ func (p *parser) readCharData(dst *Token, first byte) error {
 		if cdataEnd == len(cdataEndTerm) {
 			return fmt.Errorf("]]> cannot appear in character data")
 		}
-		if err := p.appendXMLRune(&p.textBuf, first); err != nil {
-			return err
+		if !borrowFirst {
+			if err := p.appendXMLRune(&p.textBuf, first); err != nil {
+				return err
+			}
 		}
 	}
 	for {
 		chunk, err := p.br.buffered()
 		if IsOnlyEOF(err) {
+			if borrowFirst {
+				handled, borrowErr := p.borrowCharData(dst, chunk, 0, line, col)
+				if handled {
+					return borrowErr
+				}
+			}
 			*dst = Token{Kind: KindCharData, TextKind: kind, Data: p.textBuf, Line: line, Column: col}
 			return nil
 		}
@@ -455,6 +466,16 @@ func (p *parser) readCharData(dst *Token, first byte) error {
 			return err
 		}
 		n, nextCDataEnd := scanCharDataChunk(chunk, cdataEnd)
+		if borrowFirst {
+			handled, borrowErr := p.borrowCharData(dst, chunk, n, line, col)
+			if handled {
+				return borrowErr
+			}
+			if appendErr := p.appendXMLRune(&p.textBuf, first); appendErr != nil {
+				return appendErr
+			}
+			borrowFirst = false
+		}
 		if n > 0 {
 			if appendErr := p.appendTokenBytes(&p.textBuf, chunk[:n]); appendErr != nil {
 				return appendErr
@@ -463,14 +484,29 @@ func (p *parser) readCharData(dst *Token, first byte) error {
 			cdataEnd = nextCDataEnd
 			continue
 		}
-		b, err := p.br.readByte()
+		if len(chunk) > 0 && chunk[0] == '\n' {
+			n := 1
+			for n < len(chunk) && chunk[n] == '\n' {
+				n++
+			}
+			if appendErr := p.appendTokenBytes(&p.textBuf, chunk[:n]); appendErr != nil {
+				return appendErr
+			}
+			p.br.consumeBufferedLF(n)
+			cdataEnd = 0
+			continue
+		}
+		b, err := p.br.peekByte()
 		if err != nil {
 			return err
 		}
 		if b == '<' {
-			p.br.unreadByte()
 			*dst = Token{Kind: KindCharData, TextKind: kind, Data: p.textBuf, Line: line, Column: col}
 			return nil
+		}
+		b, err = p.br.readByte()
+		if err != nil {
+			return err
 		}
 		if b == '\r' {
 			if err := p.consumeLineFeed(); err != nil {
@@ -498,6 +534,35 @@ func (p *parser) readCharData(dst *Token, first byte) error {
 			return err
 		}
 	}
+}
+
+func isBorrowedASCIITextByte(b byte) bool {
+	return (b >= 0x20 && b < utf8.RuneSelf && b != '<' && b != '&' && b != ']') || b == '\t'
+}
+
+// borrowCharData returns a direct view into the input buffer when the complete
+// text token is already contiguous. It only returns at an XML markup boundary
+// or when the reader has reported terminal EOF; every other shape falls back to
+// the normalized token buffer before the next refill can overwrite the bytes.
+func (p *parser) borrowCharData(dst *Token, chunk []byte, n, line, col int) (bool, error) {
+	if n > len(chunk) || n < len(chunk) && chunk[n] != '<' {
+		return false, nil
+	}
+	if n == len(chunk) && !IsOnlyEOF(p.br.err) {
+		return false, nil
+	}
+	start := p.br.off - 1
+	length := n + 1
+	if start < 0 || start+length > p.br.end {
+		return false, nil
+	}
+	if err := p.reserveRetainedBytes(length); err != nil {
+		return true, err
+	}
+	data := p.br.buf[start : start+length]
+	p.br.consumeBuffered(n)
+	*dst = Token{Kind: KindCharData, TextKind: CharacterDataText, Data: data, Line: line, Column: col}
+	return true, nil
 }
 
 func (p *parser) appendNormalizedLineFeed(dst *[]byte) error {

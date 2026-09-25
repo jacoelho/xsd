@@ -452,6 +452,27 @@ func TestMatchLimitsBoundScratchAndAdversarialClosure(t *testing.T) {
 	}
 }
 
+func TestScratchResetClearsNFAGenerationMarkers(t *testing.T) {
+	p := mustCompile(t, `\d{1,5}\s([A-Z][a-z]{1,20}\s){4}Street\n([A-Z][a-z]{1,20}\s){2},\s[A-Z]{2}\s12848`)
+	inputs := []string{
+		"27951 Frameworks Library Them Objects Street\nRegard As , DC 12848",
+		"7 Of Typical To Original Street\nIn Prominent , AK 12848",
+		"5367 Bandwidth To Oasis Based Street\nCommunication Popular , NM 12848",
+		"4 Many Different Means Of Street\nFiles In , OR 12848",
+		"64 Those Soc Full Software Street\nChain Is , MT 12848",
+	}
+	var scratch Scratch
+	for i, input := range inputs {
+		if i != 0 {
+			scratch.Reset(4096)
+		}
+		matched, err := p.MatchStringWithScratch(input, MatchOptions{}, &scratch)
+		if err != nil || !matched {
+			t.Fatalf("input %d match = %t, %v; want true, nil", i+1, matched, err)
+		}
+	}
+}
+
 func TestMatchBytes(t *testing.T) {
 	t.Parallel()
 	p := mustCompile(t, `\p{L}+`)

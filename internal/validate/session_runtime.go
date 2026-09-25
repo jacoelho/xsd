@@ -32,41 +32,15 @@ type Session struct {
 	inUse   atomic.Bool
 }
 
-// NewSession creates a reusable validation session.
-func NewSession(rt *xsdSchema.Schema, opts Options) (*Session, error) {
-	result := new(Session)
-	if err := initializeSession(&result.session, rt, opts); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 // initializeSession populates a newly allocated zero session. Assigning only
 // admitted configuration avoids clearing the embedded input buffer a second time.
-func initializeSession(s *session, rt *xsdSchema.Schema, opts Options) error {
-	limits, err := NormalizeOptions(opts)
-	if err != nil {
-		return err
-	}
-	if rt == nil {
-		return xsderrors.InternalInvariant("nil validation schema")
-	}
+func initializeSession(s *session, rt *xsdSchema.Schema, limits Limits) {
 	s.rt = rt
 	s.limits = limits
 	s.doc.identity = newIdentityEvaluation(rt, identityLimits{
 		Entries:    limits.IdentityEntries,
 		TupleBytes: limits.IdentityTupleBytes,
 	}, limits.IdentityScopes)
-	return nil
-}
-
-// Validate validates one XML instance document with isolated per-call state.
-func Validate(rt *xsdSchema.Schema, r io.Reader, opts Options) error {
-	var s session
-	if err := initializeSession(&s, rt, opts); err != nil {
-		return err
-	}
-	return s.validate(r)
 }
 
 // Validate validates one XML instance document. It clears document-local state
@@ -429,8 +403,8 @@ func (t *sessionStartTransaction) commit() error {
 	if err != nil {
 		return err
 	}
-	if err := t.validateContentTransition(parent); err != nil {
-		return err
+	if t.transition.IsPlanned() && parent == nil {
+		return xsderrors.InternalInvariant("root start has a parent content transition")
 	}
 	if err := t.s.doc.identity.validateStartCommit(); err != nil {
 		return err
@@ -452,20 +426,6 @@ func (t *sessionStartTransaction) parentFrame() (*frame, bool, error) {
 		return nil, false, xsderrors.InternalInvariant("start transaction parent frame is invalid")
 	}
 	return &t.s.doc.elements[t.parentIndex].payload, true, nil
-}
-
-func (t *sessionStartTransaction) validateContentTransition(parent *frame) error {
-	if !t.transition.IsPlanned() {
-		return nil
-	}
-	if parent == nil {
-		return xsderrors.InternalInvariant("root start has a parent content transition")
-	}
-	scratch := t.s.contentScratch(parent)
-	if !t.transition.CanCommit(parent.Content, &scratch) {
-		return xsderrors.InternalInvariant("parent content transition is stale")
-	}
-	return nil
 }
 
 func (t *sessionStartTransaction) commitContentTransition(parent *frame) error {
@@ -613,8 +573,7 @@ func (s *session) assessElementStart(
 	if start.mode != elementAssessed {
 		return false, nil
 	}
-	decl, declared := s.rt.Element(start.element)
-	declaration := startDeclaration{present: declared, abstract: decl.Abstract}
+	declaration := start.declaration
 	info, complete, err := s.initialElementAssessment(start, declaration, ctx)
 	if complete {
 		return false, err
@@ -627,9 +586,6 @@ func (s *session) assessElementStart(
 		err := validationFromIssue(ctx, issue)
 		return false, s.recoverElementStartAssessment(start, err)
 	}
-	declaration.block = decl.Block
-	declaration.nillable = decl.Nillable
-	declaration.fixed = decl.Fixed
 	state := elementEffectiveState{declaration: declaration, typeID: start.typ, typeInfo: info}
 	return s.assessXSIElementStart(start, attrs, flags, state, ctx)
 }
@@ -692,6 +648,9 @@ func expandedInstancePath(start schemaStart, rn xsdSchema.RuntimeName) xmlPathMo
 }
 
 func (s *session) startFrameIdentity(start schemaStart, rn xsdSchema.RuntimeName, f frame, line, col int) error {
+	if !s.doc.identity.active() {
+		return nil
+	}
 	return s.doc.identity.startElement(identityElementStart{
 		Name:          rn,
 		Element:       f.Element,
@@ -843,15 +802,31 @@ const (
 )
 
 type schemaStart struct {
-	element    xsdSchema.ElementID
-	typ        xsdSchema.TypeID
-	mode       elementMode
-	typeOrigin selectedTypeOrigin
-	invalid    bool
+	typ         xsdSchema.TypeID
+	element     xsdSchema.ElementID
+	declaration startDeclaration
+	mode        elementMode
+	typeOrigin  selectedTypeOrigin
+	invalid     bool
 }
 
-func assessedSchemaStart(element xsdSchema.ElementID, typ xsdSchema.TypeID) schemaStart {
-	return schemaStart{element: element, typ: typ, mode: elementAssessed}
+func undeclaredSchemaStart(typ xsdSchema.TypeID) schemaStart {
+	return schemaStart{element: xsdSchema.NoElement, typ: typ, mode: elementAssessed}
+}
+
+func declaredSchemaStart(element xsdSchema.ElementID, declaration xsdSchema.ElementStartInfo) schemaStart {
+	return schemaStart{
+		element: element,
+		typ:     declaration.Type,
+		mode:    elementAssessed,
+		declaration: startDeclaration{
+			present:  true,
+			block:    declaration.Block,
+			abstract: declaration.Abstract,
+			nillable: declaration.Nillable,
+			fixed:    declaration.Fixed,
+		},
+	}
 }
 
 // Root selection must resolve xsi:type before common nil/type assessment.
@@ -891,7 +866,7 @@ func (s *session) startType(rn xsdSchema.RuntimeName, se preparedXMLStart, token
 
 func (s *session) rootStartType(rn xsdSchema.RuntimeName, se preparedXMLStart, token xmlstream.StartElement, line, col int) (schemaStart, error) {
 	if id, decl, ok := s.rt.RootElement(rn); ok {
-		return assessedSchemaStart(id, decl.Type), nil
+		return declaredSchemaStart(id, decl), nil
 	}
 	ctx := s.startContext(line, col)
 	hasSchemaLocation := s.schemaLocationHintLookup()
@@ -936,18 +911,11 @@ func (s *session) newSchemaFrame(
 	}
 	elem := start.element
 	typ := start.typ
-	simpleContent, hasSimpleContent, ok := s.rt.SimpleContentType(typ)
+	read, ok := s.rt.ElementFrame(typ, elem)
 	if !ok {
-		return frame{}, xsderrors.InternalInvariant("simple content type metadata is invalid")
+		return frame{}, xsderrors.InternalInvariant("element frame metadata is invalid")
 	}
-	if !hasSimpleContent {
-		simpleContent = xsdSchema.NoSimpleType
-	}
-	textContent, ok := s.rt.ElementTextContent(typ, elem)
-	if !ok {
-		return frame{}, xsderrors.InternalInvariant("character data content info is invalid")
-	}
-	contentFrame := s.rt.ContentFrame(typ)
+	contentFrame := read.Content
 	bitLen := contentFrame.AllBitLen()
 	bitBase := len(s.doc.allBits)
 	if bitLen > 0 {
@@ -961,8 +929,8 @@ func (s *session) newSchemaFrame(
 		BitBase:           bitBase,
 		BitLen:            bitLen,
 		Content:           contentFrame.ContentState(),
-		TextContent:       textContent,
-		SimpleContent:     simpleContent,
+		TextContent:       read.TextContent,
+		SimpleContent:     read.SimpleContent,
 		TextStart:         len(s.doc.text),
 		Nilled:            nilled,
 		Mode:              elementAssessed,

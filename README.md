@@ -153,10 +153,12 @@ a returned source's own resolver is ignored.
 ## Validation and reuse
 
 `Engine.Validate` accepts an `io.Reader` and returns `nil` for valid XML.
-An engine is immutable and safe to share across goroutines; each call owns
-isolated document state.
+An engine is safe to share across goroutines; each call owns isolated document
+state. It retains at most one idle validation session for reuse. Concurrent calls
+acquire separate state without waiting, and engine copies share the same cache.
 
-For repeated sequential validation, a session reuses bounded buffers and caches:
+For explicit ownership of reusable buffers, caches, and fixed validation options,
+create a session:
 
 ```go
 func validateDocuments(engine *xsd.Engine, docs []string) error {
@@ -337,20 +339,23 @@ make browser-test
 
 ## Benchmarks
 
-Comparison of `main` at `175722ab` with libxml2 2.9.13, measured on
-2026-09-06 using Go 1.27.0, macOS 26.6.2, and an Apple M2 Max with 32 GiB RAM.
+Go results were measured on 2026-09-25 from the working tree based on
+`dee074f9`, using Go 1.27.0 on an Apple M2 Max with 32 GiB RAM. Libxml2 2.9.13
+results are unchanged from the 2026-09-06 run on the same machine; libxml2 was
+not rerun.
+
 Each result is the upper median (sixth sorted value) of 10 runs after one
 warm-up per workload and validator. Time and peak RSS are summarized
-independently. The validators ran sequentially on the same generated files.
+independently.
 
-| Workload | `main` time | libxml2 time | `main` peak RSS | libxml2 peak RSS |
+| Workload | Go time | libxml2 time | Go peak RSS | libxml2 peak RSS |
 | --- | ---: | ---: | ---: | ---: |
-| Streaming, 20 MiB | 686.685 ms | 377.093 ms | 8.11 MiB | 243.08 MiB |
-| Streaming, 100 MiB | 3.336 s | 1.789 s | 11.94 MiB | 1.17 GiB |
-| Streaming, 500 MiB | 16.453 s | 8.859 s | 13.38 MiB | 5.81 GiB |
-| Streaming, 1 GiB | 33.486 s | 21.209 s | 13.72 MiB | 10.29 GiB |
-| Streaming, 2 GiB | 67.063 s | 51.485 s | 14.30 MiB | 13.33 GiB |
-| Identity constraints, 100,000 rows | 348.766 ms | 605.858 ms | 88.31 MiB | 186.66 MiB |
+| Streaming, 20 MiB | 548.991 ms | 377.093 ms | 6.75 MiB | 243.08 MiB |
+| Streaming, 100 MiB | 2.849 s | 1.789 s | 6.78 MiB | 1.17 GiB |
+| Streaming, 500 MiB | 14.308 s | 8.859 s | 6.98 MiB | 5.81 GiB |
+| Streaming, 1 GiB | 28.810 s | 21.209 s | 6.95 MiB | 10.29 GiB |
+| Streaming, 2 GiB | 58.134 s | 51.485 s | 7.05 MiB | 13.33 GiB |
+| Identity constraints, 100,000 rows | 345.502 ms | 605.858 ms | 88.62 MiB | 186.66 MiB |
 
 Libxml2 timings varied on the larger files: 20.86–37.68 s for 1 GiB and
 51.08–52.20 s for 2 GiB across the 10 samples.

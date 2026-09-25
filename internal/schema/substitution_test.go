@@ -270,6 +270,37 @@ func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 	}
 }
 
+func TestSubstitutionTableSkipsValidatedEmptySpan(t *testing.T) {
+	t.Parallel()
+
+	table := SubstitutionTable{
+		spans:   []substitutionSpan{{start: 0, count: 0}},
+		entries: []substitutionEntry{{member: 1}},
+	}
+	called := false
+	table.ForEachMember(0, func(ElementID) bool {
+		called = true
+		return true
+	})
+	if called {
+		t.Fatal("ForEachMember() called callback for an empty span")
+	}
+	called = false
+	table.ForEachEntry(0, func(QName, ElementID) bool {
+		called = true
+		return true
+	})
+	if called {
+		t.Fatal("ForEachEntry() called callback for an empty span")
+	}
+	if got, ok := table.MemberByName(0, QName{Local: 1}); ok || got != NoElement {
+		t.Fatalf("MemberByName() = %d, %v for empty span, want %d, false", got, ok, NoElement)
+	}
+	if table.HasMembers(0) {
+		t.Fatal("HasMembers() = true for an empty span")
+	}
+}
+
 func TestValidateSubstitutionMembership(t *testing.T) {
 	t.Parallel()
 
