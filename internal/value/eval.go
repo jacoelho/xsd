@@ -130,7 +130,9 @@ func (p *Program) Validate(id TypeID, lexical string, resolver Resolver, needs N
 	if err != nil {
 		return Value{}, err
 	}
-	return p.validateValueWithBudget(id, lexical, resolver, needs, scratch, &budget)
+	return p.validateValueWithBudget(id, lexical, &evaluationRequest{
+		resolver: resolver, needs: needs, scratch: scratch, budget: &budget,
+	})
 }
 
 // ValidateBytes validates UTF-8 XML 1.0 character data already admitted by
@@ -147,6 +149,23 @@ func (p *Program) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, ne
 	return p.validateBorrowedBytes(id, lexical, resolver, needs, scratch, &budget)
 }
 
+// ValidateAdmitted validates UTF-8 XML 1.0 character data that the caller has
+// already admitted at its input boundary. It does not repeat XML admission;
+// returned canonical or identity projections may retain the immutable input
+// string.
+func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver, needs Needs, workLimit uint64, scratch *Scratch) (Value, error) {
+	if p == nil || !p.sealed {
+		return Value{}, ErrMetadata
+	}
+	budget, err := newEvaluationBudget(workLimit)
+	if err != nil {
+		return Value{}, err
+	}
+	return p.validateValueWithBudget(id, lexical, &evaluationRequest{
+		resolver: resolver, needs: needs, scratch: scratch, budget: &budget, admitted: true,
+	})
+}
+
 // Validate parses one value against the completed portion of an incremental
 // builder. It is intended for compiler literals and constraints before Seal;
 // published callers use Program.Validate.
@@ -158,7 +177,9 @@ func (b *Builder) Validate(id TypeID, lexical string, resolver Resolver, needs N
 	if err != nil {
 		return Value{}, err
 	}
-	return b.program.validateValueWithBudget(id, lexical, resolver, needs, scratch, &budget)
+	return b.program.validateValueWithBudget(id, lexical, &evaluationRequest{
+		resolver: resolver, needs: needs, scratch: scratch, budget: &budget,
+	})
 }
 
 // ValidateBytes validates stream-admitted UTF-8 XML 1.0 character data against
@@ -177,11 +198,13 @@ func (b *Builder) ValidateBytes(id TypeID, lexical []byte, resolver Resolver, ne
 // validateBorrowedBytes admits raw bytes and retains the accumulated work when
 // an unsupported raw shape falls through to normalized evaluation.
 func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Resolver, needs Needs, scratch *Scratch, budget *evaluationBudget) (Value, error) {
-	if value, handled, err := validateUnprojectedBytes(id, lexical, needs, budget); handled {
+	if value, handled, err := p.validateUnprojectedBytes(id, lexical, needs, budget); handled {
 		return value, err
 	}
 	if id == NoType || needs != 0 {
-		return p.validateValueWithBudget(id, string(lexical), resolver, needs, scratch, budget)
+		return p.validateValueWithBudget(id, string(lexical), &evaluationRequest{
+			resolver: resolver, needs: needs, scratch: scratch, budget: budget, admitted: true,
+		})
 	}
 	selected, handled, err := p.evalBytes(id, lexical, scratch, budget, 0)
 	if err != nil {
@@ -190,17 +213,63 @@ func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Reso
 	if handled {
 		return Value{typeID: id, selected: selected}, nil
 	}
-	return p.validateValueWithBudget(id, string(lexical), resolver, needs, scratch, budget)
+	return p.validateValueWithBudget(id, string(lexical), &evaluationRequest{
+		resolver: resolver, needs: needs, scratch: scratch, budget: budget, admitted: true,
+	})
 }
 
-func validateUnprojectedBytes(id TypeID, lexical []byte, needs Needs, budget *evaluationBudget) (Value, bool, error) {
+func (p *Program) validateUnprojectedBytes(id TypeID, lexical []byte, needs Needs, budget *evaluationBudget) (Value, bool, error) {
 	if needs != 0 || (id != builtinAnySimpleType && id != builtinString) {
-		return Value{}, false, nil
+		return p.validateRawBytes(id, lexical, needs, budget)
 	}
 	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
 		return Value{}, true, err
 	}
 	return Value{typeID: id, selected: NoType}, true, nil
+}
+
+func (p *Program) validateRawBytes(id TypeID, lexical []byte, needs Needs, budget *evaluationBudget) (Value, bool, error) {
+	if needs != 0 {
+		return Value{}, false, nil
+	}
+	t, ok := p.typeDef(id)
+	if !ok {
+		return Value{}, false, nil
+	}
+	switch t.variety {
+	case Atomic:
+		return validateRawAtomicBytes(id, t, lexical, budget)
+	case List:
+		return p.validateRawListBytes(id, t, lexical, budget)
+	case Union:
+		// Raw union selection is handled by evalBytes after admission.
+	}
+	return Value{}, false, nil
+}
+
+func validateRawAtomicBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
+	if t.facets.raw.kind != rawPlanStringEnumeration {
+		return Value{}, false, nil
+	}
+	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
+		return Value{}, true, err
+	}
+	if err := validateStringEnumBytes(&t.facets, lexical); err != nil {
+		return Value{}, true, err
+	}
+	return Value{typeID: id, selected: NoType}, true, nil
+}
+
+func (p *Program) validateRawListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
+	if t.facets.raw.kind != rawPlanNMTokens {
+		return Value{}, false, nil
+	}
+	// The specialized scanner validates the item lexical form in place, so
+	// account for the list-item evaluation depth it replaces.
+	if p.maxDepth != 0 && 1 >= int(p.maxDepth) {
+		return Value{}, true, ErrLimit
+	}
+	return validateNMTokensListBytes(id, t, lexical, budget)
 }
 
 func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
@@ -210,23 +279,32 @@ func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget 
 	if p.maxDepth != 0 && depth >= int(p.maxDepth) {
 		return NoType, true, ErrLimit
 	}
-	if handled, err := validateBuiltinBytesFast(id, lexical); handled || err != nil {
-		return NoType, handled, err
-	}
 	t, ok := p.typeDef(id)
 	if !ok {
 		return NoType, true, ErrMetadata
 	}
 	switch t.variety {
 	case Atomic:
-		return validateAtomicBytesFast(id, t, lexical, scratch)
+		return validateAtomicBytesFast(t, lexical, scratch)
 	case Union:
 		return p.evalUnionBytes(t, lexical, scratch, budget, depth)
 	case List:
-		return NoType, false, nil
+		return p.evalListBytes(id, t, lexical, budget, depth)
 	default:
 		return NoType, true, ErrMetadata
 	}
+}
+
+func (p *Program) evalListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget, depth int) (TypeID, bool, error) {
+	if t.facets.raw.kind != rawPlanNMTokens {
+		return NoType, false, nil
+	}
+	// The specialized scanner replaces one recursive item visit.
+	if p.maxDepth != 0 && depth+1 >= int(p.maxDepth) {
+		return NoType, true, ErrLimit
+	}
+	_, handled, err := validateNMTokensListBytesNested(id, t, lexical, budget)
+	return NoType, handled, err
 }
 
 func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
@@ -286,36 +364,7 @@ func lexicalLength(length int) uint64 {
 	return uint64(length)
 }
 
-func validateBuiltinBytesFast(id TypeID, lexical []byte) (bool, error) {
-	// These builtins have no facets or context-sensitive projections. Their
-	// metadata is fixed, so avoid copying a typeDef on the borrowed hot path.
-	// XML UTF-8/character admission is owned by internal/xmlstream.
-	//nolint:exhaustive // Fast validation handles a small builtin subset; other IDs use the normalized evaluator below.
-	switch id {
-	case builtinAnySimpleType, builtinString:
-		return true, nil
-	case builtinBoolean:
-		if hasXMLWhitespaceBytes(lexical) {
-			return false, nil
-		}
-		if err := ValidateBooleanLexical(lexical); err != nil {
-			return true, err
-		}
-		return true, nil
-	case builtinInt:
-		if hasXMLWhitespaceBytes(lexical) {
-			return false, nil
-		}
-		if err := ValidateFastIntLexical(lexical); err != nil {
-			return true, err
-		}
-		return true, nil
-	default:
-		return false, nil
-	}
-}
-
-func validateAtomicBytesFast(id TypeID, t *typeDef, lexical []byte, scratch *Scratch) (TypeID, bool, error) {
+func validateAtomicBytesFast(t *typeDef, lexical []byte, scratch *Scratch) (TypeID, bool, error) {
 	// Raw validation is entered after internal/xmlstream has admitted the
 	// document's UTF-8 and XML 1.0 character set. Rechecking every byte here
 	// would turn the borrowed fast path into a second XML scanner, especially
@@ -323,46 +372,59 @@ func validateAtomicBytesFast(id TypeID, t *typeDef, lexical []byte, scratch *Scr
 	if t.identity != IdentityNone {
 		return NoType, false, nil
 	}
+	switch t.facets.raw.kind {
+	case rawPlanString:
+		return NoType, true, nil
+	case rawPlanBoolean, rawPlanPrimitive:
+		return validatePrimitiveBytesFastPath(t, lexical)
+	case rawPlanInteger:
+		return NoType, true, validateRawIntegerBytes(&t.facets, t.whitespace, lexical)
+	case rawPlanStringEnumeration:
+		return NoType, true, validateStringEnumBytes(&t.facets, lexical)
+	case rawPlanTextFacets:
+		return validateTextFacetsBytesPath(t, lexical, scratch)
+	case rawPlanNone, rawPlanDecimal, rawPlanNMTokens:
+		// These plans either need the fallback below or belong to another
+		// value shape; the exhaustive cases make that ownership explicit.
+	}
+	return validateDecimalBytesFallback(t, lexical)
+}
+
+func validatePrimitiveBytesFastPath(t *typeDef, lexical []byte) (TypeID, bool, error) {
 	if t.whitespace != WhitespacePreserve && hasXMLWhitespaceBytes(lexical) {
 		return NoType, false, nil
 	}
-	textFacets := t.primitive == PrimitiveString && t.builtin == BuiltinNone &&
-		t.facets.present&^(FacetWhiteSpace|FacetPattern|FacetLength|FacetMinLength|FacetMaxLength) == 0
-	if textFacets {
-		return NoType, true, validateTextFacetsBytes(&t.facets, lexical, scratch)
-	}
-	if handled, err := tryRawDecimalBytes(t, lexical); handled || err != nil {
-		return NoType, true, err
-	}
-	if rawFacetFallbackRequired(id, t) {
+	handled, err := validatePrimitiveBytesFast(t, lexical)
+	return NoType, handled, err
+}
+
+func validateTextFacetsBytesPath(t *typeDef, lexical []byte, scratch *Scratch) (TypeID, bool, error) {
+	if t.whitespace != WhitespacePreserve && hasXMLWhitespaceBytes(lexical) {
 		return NoType, false, nil
 	}
-	handled, err := validatePrimitiveBytesFast(t, id, lexical)
-	if !handled {
+	return NoType, true, validateTextFacetsBytes(&t.facets, lexical, scratch)
+}
+
+func validateDecimalBytesFallback(t *typeDef, lexical []byte) (TypeID, bool, error) {
+	if t.whitespace != WhitespacePreserve && hasXMLWhitespaceBytes(lexical) {
 		return NoType, false, nil
 	}
-	if err != nil {
+	handled, err := tryRawDecimalBytes(t, lexical)
+	if handled || err != nil {
 		return NoType, true, err
 	}
-	return NoType, true, nil
+	return NoType, false, nil
 }
 
 func tryRawDecimalBytes(t *typeDef, lexical []byte) (bool, error) {
-	if !t.facets.rawDecimalFast {
+	if t.facets.raw.kind != rawPlanDecimal {
 		return false, nil
 	}
-	handled, err := ValidateFastDecimalLexical(t.facets.rawDecimal, lexical)
+	handled, err := ValidateFastDecimalLexical(t.facets.raw.decimal, lexical)
 	if !handled && err == nil {
 		return false, nil
 	}
 	return true, err
-}
-
-func rawFacetFallbackRequired(id TypeID, t *typeDef) bool {
-	// xs:int has a fixed raw lexical-and-bound path used by the common
-	// attribute case. Other effective facets need the typed evaluator.
-	return t.facets.present != 0 &&
-		(id != builtinInt || t.primitive != PrimitiveDecimal || t.builtin != BuiltinInteger)
 }
 
 func validateTextFacetsBytes(f *facetProgram, lexical []byte, scratch *Scratch) error {
@@ -424,7 +486,7 @@ func matchPatternGroupBytes(group []*Pattern, lexical []byte, scratch *Scratch) 
 	return false, nil
 }
 
-func validatePrimitiveBytesFast(t *typeDef, id TypeID, lexical []byte) (bool, error) {
+func validatePrimitiveBytesFast(t *typeDef, lexical []byte) (bool, error) {
 	var err error
 	switch t.primitive {
 	case PrimitiveString:
@@ -434,12 +496,9 @@ func validatePrimitiveBytesFast(t *typeDef, id TypeID, lexical []byte) (bool, er
 	case PrimitiveBoolean:
 		err = ValidateBooleanLexical(lexical)
 	case PrimitiveDecimal:
-		switch {
-		case id == builtinInt:
-			err = ValidateFastIntLexical(lexical)
-		case t.builtin == BuiltinInteger:
+		if t.builtin == BuiltinInteger {
 			err = ValidateIntegerLexical(lexical)
-		default:
+		} else {
 			_, err = scanDecimalText(lexical)
 		}
 	case PrimitiveFloat:
@@ -470,7 +529,223 @@ func hasXMLWhitespaceBytes(raw []byte) bool {
 	return false
 }
 
-func (p *Program) validateValueWithBudget(id TypeID, lexical string, resolver Resolver, needs Needs, scratch *Scratch, budget *evaluationBudget) (Value, error) {
+func prepareRawValuePlans(p *Program, t *typeDef) {
+	var item *typeDef
+	if p != nil && t != nil && t.listItem != NoType {
+		item, _ = p.typeDef(t.listItem)
+	}
+	prepareRawValuePlan(t, item)
+}
+
+func prepareRawBuiltinValuePlans(definitions *[BuiltinTypeCount]typeDef) {
+	for id := range definitions {
+		t := &definitions[id]
+		var item *typeDef
+		if t.listItem != NoType && t.listItem < BuiltinTypeCount {
+			item = &definitions[t.listItem]
+		}
+		prepareRawValuePlan(t, item)
+	}
+}
+
+func prepareRawValuePlan(t, item *typeDef) {
+	if t == nil || t.facets.raw.kind != rawPlanNone {
+		return
+	}
+	if rawTextFacetsPlan(t) || rawStringEnumerationPlan(t) || rawNMTokensPlan(t, item) {
+		return
+	}
+	if kind := rawFacetlessAtomicPlan(t); kind != rawPlanNone {
+		t.facets.raw.kind = kind
+	}
+}
+
+func rawTextFacetsPlan(t *typeDef) bool {
+	if t.variety != Atomic || t.primitive != PrimitiveString || t.builtin != BuiltinNone || t.identity != IdentityNone {
+		return false
+	}
+	allowed := FacetWhiteSpace | FacetPattern | FacetLength | FacetMinLength | FacetMaxLength
+	if t.facets.present&^allowed != 0 || t.facets.present == 0 {
+		return false
+	}
+	t.facets.raw.kind = rawPlanTextFacets
+	return true
+}
+
+func rawStringEnumerationPlan(t *typeDef) bool {
+	if t.variety != Atomic || t.primitive != PrimitiveString || t.builtin != BuiltinNone ||
+		t.identity != IdentityNone || t.whitespace != WhitespacePreserve ||
+		t.facets.present != FacetEnumeration || len(t.facets.enumGroups) == 0 {
+		return false
+	}
+	if !stringEnumerationBytesSupported(t.facets.enumGroups) {
+		return false
+	}
+	t.facets.raw.kind = rawPlanStringEnumeration
+	return true
+}
+
+func rawNMTokensPlan(t, item *typeDef) bool {
+	if t.variety != List || t.identity != IdentityNone || t.whitespace != WhitespaceCollapse ||
+		t.facets.present&^FacetMinLength != 0 || item == nil {
+		return false
+	}
+	if item.variety != Atomic || item.primitive != PrimitiveString || item.builtin != BuiltinNMTOKEN ||
+		item.identity != IdentityNone || item.whitespace != WhitespaceCollapse || item.facets.present != 0 {
+		return false
+	}
+	t.facets.raw.kind = rawPlanNMTokens
+	return true
+}
+
+func rawFacetlessAtomicPlan(t *typeDef) rawEvaluationKind {
+	if t.variety != Atomic || t.identity != IdentityNone || t.facets.present != 0 {
+		return rawPlanNone
+	}
+	switch t.primitive {
+	case PrimitiveString:
+		if t.builtin != BuiltinNone {
+			return rawPlanNone
+		}
+		if t.whitespace == WhitespacePreserve {
+			return rawPlanString
+		}
+		return rawPlanPrimitive
+	case PrimitiveBoolean:
+		return rawPlanBoolean
+	case PrimitiveFloat, PrimitiveDouble, PrimitiveDuration,
+		PrimitiveDate, PrimitiveDateTime, PrimitiveTime,
+		PrimitiveGYearMonth, PrimitiveGYear, PrimitiveGMonthDay,
+		PrimitiveGDay, PrimitiveGMonth, PrimitiveHexBinary, PrimitiveBase64Binary:
+		return rawPlanPrimitive
+	case PrimitiveDecimal, PrimitiveAnyURI, PrimitiveQName, PrimitiveNotation:
+		return rawPlanNone
+	}
+	return rawPlanNone
+}
+
+func stringEnumerationBytesSupported(groups [][]parsedValue) bool {
+	for _, group := range groups {
+		if len(group) == 0 {
+			return false
+		}
+		for i := range group {
+			literal := &group[i]
+			if !stringEnumerationLiteralSupported(literal) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func stringEnumerationLiteralSupported(literal *parsedValue) bool {
+	if literal.isList || literal.atom.kind != PrimitiveString {
+		return false
+	}
+	return literal.atom.text.Canonical != "" || literal.canonical == ""
+}
+
+func validateStringEnumBytes(f *facetProgram, lexical []byte) error {
+	for _, group := range f.enumGroups {
+		if !stringEnumGroupMatches(group, lexical) {
+			return facetFailure("enumeration facet failed")
+		}
+	}
+	return nil
+}
+
+func stringEnumGroupMatches(group []parsedValue, lexical []byte) bool {
+	for i := range group {
+		literal := &group[i]
+		canonical := literal.atom.text.Canonical
+		if canonical == "" && literal.canonical != "" {
+			canonical = literal.canonical
+		}
+		if bytesEqualString(lexical, canonical) {
+			return true
+		}
+	}
+	return false
+}
+
+func bytesEqualString(raw []byte, text string) bool {
+	if len(raw) != len(text) {
+		return false
+	}
+	for i := range raw {
+		if raw[i] != text[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func validateNMTokensListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
+	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
+		return Value{}, true, err
+	}
+	return scanNMTokensListBytes(id, t, lexical, budget)
+}
+
+func validateNMTokensListBytesNested(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
+	return scanNMTokensListBytes(id, t, lexical, budget)
+}
+
+func scanNMTokensListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
+	var count uint32
+	start := 0
+	for start < len(lexical) {
+		field, next, ok := nextNMTokensField(lexical, start)
+		if !ok {
+			break
+		}
+		if count == ^uint32(0) {
+			return Value{}, true, ErrLimit
+		}
+		count++
+		if err := budget.charge(lexicalLength(len(field))); err != nil {
+			return Value{}, true, err
+		}
+		if !lex.IsNMTOKENBytes(field) {
+			return Value{}, true, errors.New("invalid NMTOKEN")
+		}
+		start = next
+	}
+	if !nmtokensLengthAllowed(t, count) {
+		return Value{}, true, facetFailure("length facet failed")
+	}
+	return Value{typeID: id, selected: NoType, flags: valueList}, true, nil
+}
+
+func nextNMTokensField(lexical []byte, start int) ([]byte, int, bool) {
+	for start < len(lexical) && isListWhitespace(lexical[start]) {
+		start++
+	}
+	if start == len(lexical) {
+		return nil, start, false
+	}
+	end := start
+	for end < len(lexical) && !isListWhitespace(lexical[end]) {
+		end++
+	}
+	return lexical[start:end], end, true
+}
+
+func nmtokensLengthAllowed(t *typeDef, count uint32) bool {
+	return !t.facets.minLength.Present || count >= t.facets.minLength.Value
+}
+
+// Evaluation helpers borrow one request to avoid copying resolver and scratch fields.
+type evaluationRequest struct {
+	resolver Resolver
+	scratch  *Scratch
+	budget   *evaluationBudget
+	needs    Needs
+	admitted bool
+}
+
+func (p *Program) validateValueWithBudget(id TypeID, lexical string, request *evaluationRequest) (Value, error) {
 	if p == nil || id == NoType || id >= BuiltinTypeCount && uint64(id-BuiltinTypeCount) >= uint64(len(p.types)) {
 		return Value{}, ErrMetadata
 	}
@@ -478,10 +753,10 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, resolver Re
 	if !ok {
 		return Value{}, ErrMetadata
 	}
-	if out, handled, err := validatePlainString(id, t, lexical, needs, budget); handled {
+	if out, handled, err := validatePlainString(id, t, lexical, request); handled {
 		return out, err
 	}
-	evalNeeds := needs
+	evalNeeds := request.needs
 	// ID/IDREF projections are required by the type contract even when the
 	// caller does not request canonical or identity text explicitly.
 	if t.identity != IdentityNone {
@@ -489,16 +764,17 @@ func (p *Program) validateValueWithBudget(id TypeID, lexical string, resolver Re
 	}
 	var v parsedValue
 	_, err := p.eval(id, lexical, evalOptions{
-		resolver:      resolver,
+		resolver:      request.resolver,
 		needs:         evalNeeds,
 		enforceFacets: true,
-		scratch:       scratch,
-		work:          budget,
+		scratch:       request.scratch,
+		work:          request.budget,
+		admitted:      request.admitted,
 	}, &v)
 	if err != nil {
 		return Value{}, err
 	}
-	out := projectValue(&v, needs)
+	out := projectValue(&v, request.needs)
 	projectDocumentIdentity(&out, &v, t.identity)
 	return out, nil
 }
@@ -522,22 +798,24 @@ func projectDocumentIdentity(out *Value, value *parsedValue, identity IdentityKi
 	}
 }
 
-func validatePlainString(id TypeID, t *typeDef, lexical string, needs Needs, budget *evaluationBudget) (Value, bool, error) {
+func validatePlainString(id TypeID, t *typeDef, lexical string, request *evaluationRequest) (Value, bool, error) {
 	if t.variety != Atomic || t.primitive != PrimitiveString || t.builtin != BuiltinNone ||
 		t.whitespace != WhitespacePreserve || t.identity != IdentityNone || t.facets.present != 0 {
 		return Value{}, false, nil
 	}
-	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
+	if err := request.budget.charge(lexicalLength(len(lexical))); err != nil {
 		return Value{}, true, err
 	}
-	if err := validateXMLString(lexical); err != nil {
-		return Value{}, true, err
+	if !request.admitted {
+		if err := validateXMLString(lexical); err != nil {
+			return Value{}, true, err
+		}
 	}
 	out := Value{typeID: id, selected: NoType}
-	if needs.Has(NeedCanonical) {
+	if request.needs.Has(NeedCanonical) {
 		out.canonical = lexical
 	}
-	if needs.Has(NeedIdentity) {
+	if request.needs.Has(NeedIdentity) {
 		out.identity = PrimitiveIdentityKey(PrimitiveString, lexical)
 	}
 	return out, true, nil
@@ -581,6 +859,7 @@ type evalOptions struct {
 	needs              Needs
 	retainAllListItems bool
 	enforceFacets      bool
+	admitted           bool
 }
 
 func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *parsedValue) (string, error) {
@@ -625,7 +904,7 @@ func (p *Program) admitEvaluation(id TypeID, lexical string, options evalOptions
 			return err
 		}
 	} // Normalization and list tokenization preserve admitted XML characters.
-	if options.depth == 0 {
+	if options.depth == 0 && !options.admitted {
 		if err := validateXMLString(lexical); err != nil {
 			return err
 		}

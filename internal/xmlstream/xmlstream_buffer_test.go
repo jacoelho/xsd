@@ -90,6 +90,29 @@ func TestByteStreamShortReadsAtExactLimit(t *testing.T) {
 	}
 }
 
+func TestByteStreamBulkLFClosesPendingCRLF(t *testing.T) {
+	var stream byteStream
+	stream.reset(strings.NewReader("\r\n\nx"), 0)
+	if b, err := stream.readByte(); err != nil || b != '\r' {
+		t.Fatalf("first read = %q, %v; want CR", b, err)
+	}
+	window, err := stream.buffered()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(window) < 2 || string(window[:2]) != "\n\n" {
+		t.Fatalf("buffered LF run = %q, want two LFs", window)
+	}
+	stream.consumeBufferedLF(2)
+	line, column := stream.pos()
+	if line != 3 || column != 0 {
+		t.Fatalf("position after CRLF plus LF = (%d,%d), want (3,0)", line, column)
+	}
+	if got := stream.offset(); got != 3 {
+		t.Fatalf("offset after bulk LF = %d, want 3", got)
+	}
+}
+
 func TestParserOffsetsAfterLimitCrossingFirstRead(t *testing.T) {
 	var parser parserTestHarness
 	if err := parser.reset(strings.NewReader("<r/>XYZ"), Config{Limits: Limits{MaxInputBytes: 6}}); err != nil {

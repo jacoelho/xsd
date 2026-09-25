@@ -100,9 +100,14 @@ func TestValidationFacadeOwnsSessionConstruction(t *testing.T) {
 		}
 		internal = append(internal, parsed)
 	}
+	if !slices.ContainsFunc(internal, func(file *ast.File) bool { return declaresFunction(file, "NewSessionPool") }) {
+		t.Fatal("internal validation facade does not declare NewSessionPool")
+	}
 	for _, name := range []string{"NewSession", "Validate"} {
-		if !slices.ContainsFunc(internal, func(file *ast.File) bool { return declaresFunction(file, name) }) {
-			t.Fatalf("internal validation facade does not declare %s", name)
+		if !slices.ContainsFunc(internal, func(file *ast.File) bool {
+			return declaresMethod(file, "SessionPool", name)
+		}) {
+			t.Fatalf("internal validation facade does not declare SessionPool.%s", name)
 		}
 	}
 	for _, file := range internal {
@@ -141,18 +146,23 @@ func TestValidationFacadeOwnsSessionConstruction(t *testing.T) {
 	if validatePkg == nil {
 		t.Fatal("public validation facade does not import internal/validate")
 	}
-	validateCall := validatePkg.Scope().Lookup("Validate")
-	newSessionCall := validatePkg.Scope().Lookup("NewSession")
+	sessionPoolType := validatePkg.Scope().Lookup("SessionPool")
+	if sessionPoolType == nil {
+		t.Fatal("validation facade does not expose SessionPool")
+	}
+	poolMethods := types.NewMethodSet(types.NewPointer(sessionPoolType.Type()))
+	validateCall := poolMethods.Lookup(validatePkg, "Validate")
+	newSessionCall := poolMethods.Lookup(validatePkg, "NewSession")
 	if validateCall == nil || newSessionCall == nil {
-		t.Fatal("validation facade types are incomplete")
+		t.Fatal("SessionPool validation methods are incomplete")
 	}
 	validateWithOptions := engineMethodDeclaration(public, "ValidateWithOptions")
-	if validateWithOptions == nil || !callsObject(info, validateWithOptions.Body, validateCall) {
-		t.Fatal("Engine.ValidateWithOptions does not call internal/validate.Validate")
+	if validateWithOptions == nil || !callsObject(info, validateWithOptions.Body, validateCall.Obj()) {
+		t.Fatal("Engine.ValidateWithOptions does not call internal/validate.SessionPool.Validate")
 	}
 	newSession := engineMethodDeclaration(public, "NewSession")
-	if newSession == nil || !callsObject(info, newSession.Body, newSessionCall) {
-		t.Fatal("Engine.NewSession does not call internal/validate.NewSession")
+	if newSession == nil || !callsObject(info, newSession.Body, newSessionCall.Obj()) {
+		t.Fatal("Engine.NewSession does not call internal/validate.SessionPool.NewSession")
 	}
 }
 
@@ -367,6 +377,16 @@ func declaresFunction(file *ast.File, name string) bool {
 	for _, decl := range file.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if ok && fn.Recv == nil && fn.Name.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func declaresMethod(file *ast.File, receiver, name string) bool {
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Name.Name == name && receiverTypeName(fn) == receiver {
 			return true
 		}
 	}

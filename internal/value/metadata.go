@@ -17,6 +17,60 @@ type TypeView struct {
 	NeedsQNameResolver bool
 }
 
+// InputRequirements is the immutable admission and evaluation metadata for a
+// type. It is deliberately scalar: validation can query the completed plan
+// without copying facet, union, or dependency records.
+type InputRequirements struct {
+	NeedsQName          bool
+	Identity            IdentityKind
+	UnconstrainedString bool
+}
+
+// InputRequirements returns the scalar value-admission requirements for a
+// sealed program type. The returned value contains no program-owned storage.
+func (p *Program) InputRequirements(id TypeID) (InputRequirements, bool) {
+	if p == nil || !p.sealed {
+		return InputRequirements{}, false
+	}
+	t, ok := p.typeDef(id)
+	if !ok {
+		return InputRequirements{}, false
+	}
+	return inputRequirements(t), true
+}
+
+// InputRequirements returns the scalar requirements for a completed builder
+// type. It is available during construction so compiler literals can use the
+// same admission plan before sealing.
+func (b *Builder) InputRequirements(id TypeID) (InputRequirements, bool) {
+	if b == nil || b.sealed || b.program == nil {
+		return InputRequirements{}, false
+	}
+	if id >= BuiltinTypeCount {
+		i := id - BuiltinTypeCount
+		if uint64(i) >= uint64(len(b.program.complete)) || !b.program.complete[i] {
+			return InputRequirements{}, false
+		}
+	}
+	t, ok := b.program.typeDef(id)
+	if !ok {
+		return InputRequirements{}, false
+	}
+	return inputRequirements(t), true
+}
+
+func inputRequirements(t *typeDef) InputRequirements {
+	return InputRequirements{
+		NeedsQName: t.needsQName,
+		Identity:   t.identity,
+		UnconstrainedString: t.variety == Atomic &&
+			t.primitive == PrimitiveString &&
+			t.whitespace == WhitespacePreserve &&
+			t.identity == IdentityNone &&
+			t.facets.present == 0,
+	}
+}
+
 // FacetView is the effective facet program for one type.
 type FacetView struct {
 	Lower          []BoundView
@@ -90,18 +144,11 @@ func (p *Program) IdentityKind(id TypeID) (kind IdentityKind, valid bool) {
 // semantics, preserve whitespace, no identity projection, and no effective
 // facets. It returns false for an invalid program or type ID.
 func (p *Program) IsUnconstrainedString(id TypeID) (unconstrained, valid bool) {
-	if p == nil || !p.sealed {
+	requirements, valid := p.InputRequirements(id)
+	if !valid {
 		return false, false
 	}
-	t, ok := p.typeDef(id)
-	if !ok {
-		return false, false
-	}
-	return t.variety == Atomic &&
-		t.primitive == PrimitiveString &&
-		t.whitespace == WhitespacePreserve &&
-		t.identity == IdentityNone &&
-		t.facets.present == 0, true
+	return requirements.UnconstrainedString, true
 }
 
 // TypeView returns effective metadata for a completed incremental type.

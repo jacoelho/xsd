@@ -2,11 +2,12 @@ package xsd
 
 import (
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/validate"
 )
 
-// Engine is an immutable compiled schema validator.
+// Engine validates against one immutable compiled schema and is safe for concurrent use.
 type Engine struct {
-	rt *xsdSchema.Schema
+	pool *validate.SessionPool
 }
 
 // CompileOptions controls schema compilation resource limits.
@@ -48,7 +49,7 @@ type CompileOptions struct {
 	MaxSimpleUnionMemberEntries int
 }
 
-// Compile compiles schema sources into an immutable validation engine.
+// Compile compiles schema sources into a concurrently reusable validation engine.
 func Compile(sources ...SchemaSource) (*Engine, error) {
 	return CompileWithOptions(CompileOptions{}, sources...)
 }
@@ -59,7 +60,7 @@ func CompileWithOptions(opts CompileOptions, sources ...SchemaSource) (*Engine, 
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{rt: rt}, nil
+	return &Engine{pool: validate.NewSessionPool(rt)}, nil
 }
 
 func internalCompileOptions(opts CompileOptions) xsdSchema.Options {

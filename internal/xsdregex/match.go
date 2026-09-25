@@ -42,7 +42,16 @@ func (s *Scratch) Reset(maxRetainedRunes int) {
 	s.current = resetRetained(s.current, maxRetainedRunes)
 	s.next = resetRetained(s.next, maxRetainedRunes)
 	s.stack = resetRetained(s.stack, maxRetainedRunes)
-	s.seen = resetRetained(s.seen, maxRetainedRunes)
+	// seen stores generation markers rather than transient slice contents. Reset
+	// restarts mark at one, so retained slots must be zeroed before reuse or a
+	// state visited in the previous generation can be mistaken for a current
+	// visit.
+	if cap(s.seen) > maxRetainedRunes {
+		s.seen = nil
+	} else {
+		clear(s.seen[:cap(s.seen)])
+		s.seen = s.seen[:0]
+	}
 	s.linearRunes = resetRetained(s.linearRunes, maxRetainedRunes)
 	s.linearStates = resetRetained(s.linearStates, retainedStateLimit(maxRetainedRunes))
 	s.mark = 0

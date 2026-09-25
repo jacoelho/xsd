@@ -25,29 +25,6 @@ type Attr struct {
 	raw   []byte
 }
 
-// OwnedAttr returns an attribute whose value does not borrow parser storage.
-func OwnedAttr(name xml.Name, value string) Attr {
-	return Attr{Name: name, Value: value}
-}
-
-// OwnedAttrs returns an owned copy of attrs, materializing borrowed values.
-func OwnedAttrs(attrs ...Attr) []Attr {
-	owned := make([]Attr, len(attrs))
-	for i, attr := range attrs {
-		value := attr.Value
-		if value == "" && len(attr.raw) != 0 {
-			value = string(attr.raw)
-		}
-		owned[i] = Attr{Name: attr.Name, Value: value}
-	}
-	return owned
-}
-
-// OwnedStartElement returns a start element that does not borrow parser storage.
-func OwnedStartElement(name xml.Name, attrs ...Attr) StartElement {
-	return StartElement{Name: name, Attr: OwnedAttrs(attrs...)}
-}
-
 // StringValue returns the attribute value as an owned string. It must be called
 // while the token that produced a raw-backed attribute is still current.
 func (a *Attr) stringValue(cache *cache) string {
@@ -99,17 +76,4 @@ func (t Token) AppendData(dst []byte) []byte {
 // AppendDirective appends token directive/comment/PI content bytes to dst.
 func (t Token) AppendDirective(dst []byte) []byte {
 	return append(dst, t.Directive...)
-}
-
-// XMLStartElement converts s to encoding/xml's StartElement.
-func (s StartElement) XMLStartElement() xml.StartElement {
-	attrs := make([]xml.Attr, len(s.Attr))
-	for i, attr := range s.Attr {
-		value := attr.Value
-		if value == "" && len(attr.raw) != 0 {
-			value = string(attr.raw)
-		}
-		attrs[i] = xml.Attr{Name: attr.Name, Value: value}
-	}
-	return xml.StartElement{Name: s.Name, Attr: attrs}
 }

@@ -80,7 +80,9 @@ const (
 	defaultValueTypes       = 65536
 	defaultValueStorage     = 64 << 20
 	defaultConstructionWork = 16 << 20
-	typeStorageBase         = uint64(512)
+	// typeStorageBase includes one completed type record and its scalar raw
+	// evaluation plan; no per-plan heap allocation is admitted at runtime.
+	typeStorageBase = uint64(512)
 )
 
 // Builder accumulates source metadata. It is single-owner and is discarded
@@ -637,7 +639,7 @@ type facetProgram struct {
 	patterns       [][]*Pattern
 	enumGroups     [][]parsedValue
 	upper          []boundValue
-	rawDecimal     RawDecimalFastPathShape
+	raw            rawEvaluationPlan
 	minLength      CardinalityFacet
 	fractionDigits CardinalityFacet
 	totalDigits    CardinalityFacet
@@ -646,7 +648,6 @@ type facetProgram struct {
 	enumItemLimit  uint32
 	present        FacetMask
 	fixed          FacetMask
-	rawDecimalFast bool
 }
 
 type boundValue struct {
@@ -740,7 +741,10 @@ func (p *Program) compileFacets(id TypeID, source FacetSpec, workLimit uint64) e
 	if err := validateEffectiveFacetShape(t.primitive, t.facets); err != nil {
 		return facetFailure(err.Error())
 	}
+	t.facets.raw = rawEvaluationPlan{}
 	prepareRawDecimalFastPath(t)
+	prepareRawIntegerFastPath(t)
+	prepareRawValuePlans(p, t)
 	return nil
 }
 

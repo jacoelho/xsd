@@ -2543,7 +2543,7 @@ func TestUnavailableElementRecoverySkipsBrokenValuePath(t *testing.T) {
     </xs:sequence></xs:complexType>
   </xs:element>
 </xs:schema>`)
-	session, err := validate.NewSession(engine, validate.Options{MaxErrors: 10})
+	session, err := validate.NewSessionPool(engine).NewSession(validate.Options{MaxErrors: 10})
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
@@ -2574,7 +2574,7 @@ func TestUnavailableElementTypePrecedesXSIProcessingAndContainsRecovery(t *testi
 		`<bad xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="unknown"><ignored/></bad>`,
 		`<bad xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xsi:type="xs:string"><ignored/></bad>`,
 	} {
-		session, err := validate.NewSession(engine, validate.Options{MaxErrors: 10})
+		session, err := validate.NewSessionPool(engine).NewSession(validate.Options{MaxErrors: 10})
 		if err != nil {
 			t.Fatalf("NewSession() error = %v", err)
 		}

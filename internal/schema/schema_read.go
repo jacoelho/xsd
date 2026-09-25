@@ -48,48 +48,67 @@ func (rt *Schema) AttributeUseSetForType(typ TypeID) (set AttributeUseSetRead, p
 	return set, true, valid
 }
 
-// SimpleContentType returns the simple-content type for a runtime type.
-func (rt *Schema) SimpleContentType(t TypeID) (simpleID SimpleTypeID, present, valid bool) {
-	if id, ok := t.Simple(); ok {
-		_, present, valid = rt.simpleTypeAvailability(id)
-		return id, present, valid
+// ElementFrame returns the immutable schema projection needed to initialize
+// one validation element frame. actualType is the effective type after any
+// xsi:type selection; elem remains the declaration that owns value
+// constraints and text-content policy.
+func (rt *Schema) ElementFrame(actualType TypeID, elem ElementID) (ElementFrameRead, bool) {
+	fixed, constrained, valid := rt.program.Elements.constraintFlags(elem)
+	if !valid {
+		return ElementFrameRead{}, false
 	}
-	id, ok := t.Complex()
-	if !ok || !ValidComplexTypeID(id, len(rt.program.ComplexTypes)) {
-		return NoSimpleType, false, false
+
+	frame := ElementFrameRead{
+		SimpleContent: NoSimpleType,
+		TextContent:   ElementTextContent{fixed: fixed, constrained: constrained},
 	}
-	read := rt.program.ComplexTypes[id].simpleContent()
-	if !read.HasSimpleContent() {
-		return NoSimpleType, false, true
+	if id, ok := actualType.Simple(); ok {
+		return rt.simpleElementFrame(frame, id)
 	}
-	textType := read.TypeID()
-	_, present, valid = rt.simpleTypeAvailability(textType)
-	return textType, present, valid
+	id, ok := actualType.Complex()
+	if !ok {
+		return ElementFrameRead{}, false
+	}
+	return rt.complexElementFrame(frame, id)
+}
+
+func (rt *Schema) simpleElementFrame(frame ElementFrameRead, id SimpleTypeID) (ElementFrameRead, bool) {
+	if _, _, valid := rt.simpleTypeAvailability(id); !valid {
+		return ElementFrameRead{}, false
+	}
+	content, valid := rt.contentFrameForModel(NoContentModel)
+	if !valid {
+		return ElementFrameRead{}, false
+	}
+	frame.Content = content
+	frame.SimpleContent = id
+	return frame, true
+}
+
+func (rt *Schema) complexElementFrame(frame ElementFrameRead, id ComplexTypeID) (ElementFrameRead, bool) {
+	if !ValidComplexTypeID(id, len(rt.program.ComplexTypes)) {
+		return ElementFrameRead{}, false
+	}
+	read := rt.program.ComplexTypes[id]
+	content, valid := rt.contentFrameForModel(read.contentModel)
+	if !valid {
+		return ElementFrameRead{}, false
+	}
+	frame.Content = content
+	simple := read.simpleContent()
+	if simple.HasSimpleContent() {
+		textType := simple.TypeID()
+		_, _, valid := rt.simpleTypeAvailability(textType)
+		if !valid {
+			return ElementFrameRead{}, false
+		}
+		frame.SimpleContent = textType
+	}
+	frame.TextContent = read.textContent(frame.TextContent.fixed, frame.TextContent.constrained)
+	return frame, true
 }
 
 // ElementValueConstraints returns value constraints for an element declaration.
 func (rt *Schema) ElementValueConstraints(id ElementID) (constraints ElementValueConstraints, present, valid bool) {
 	return rt.program.Elements.valueConstraints(id)
-}
-
-// ElementTextContent returns text-content metadata for a runtime type and element.
-func (rt *Schema) ElementTextContent(t TypeID, elem ElementID) (ElementTextContent, bool) {
-	fixed, constrained, valid := rt.program.Elements.constraintFlags(elem)
-	if !valid {
-		return ElementTextContent{}, false
-	}
-	if id, ok := t.Complex(); ok {
-		if !ValidComplexTypeID(id, len(rt.program.ComplexTypes)) {
-			return ElementTextContent{}, false
-		}
-		return rt.program.ComplexTypes[id].textContent(fixed, constrained), true
-	}
-	id, ok := t.Simple()
-	if !ok {
-		return ElementTextContent{}, false
-	}
-	if _, _, valid := rt.simpleTypeAvailability(id); !valid {
-		return ElementTextContent{}, false
-	}
-	return ElementTextContent{constrained: constrained}, true
 }

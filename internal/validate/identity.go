@@ -112,15 +112,16 @@ type identityStartJournal struct {
 // Keep the checkpoint pointer-free: element transitions must not rewrite the
 // unchanged undo-buffer pointers while concurrent GC marking is active.
 type identityStartCheckpoint struct {
-	active         bool
-	pathLen        int
-	elementsLen    int
-	idrefsLen      int
-	scopesLen      int
-	selectionsLen  int
-	fieldValuesLen int
-	entries        int
-	nextNodeID     uint64
+	active                 bool
+	documentIdentityActive bool
+	pathLen                int
+	elementsLen            int
+	idrefsLen              int
+	scopesLen              int
+	selectionsLen          int
+	fieldValuesLen         int
+	entries                int
+	nextNodeID             uint64
 }
 
 type identityRef struct {

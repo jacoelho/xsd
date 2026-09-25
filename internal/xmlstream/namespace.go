@@ -40,6 +40,7 @@ type stack struct {
 	serial        uint64
 	activePeak    int
 	head          uint32
+	defaultHead   uint32
 	persistent    bool
 }
 
@@ -76,30 +77,14 @@ type Element struct {
 
 // Context is an immutable namespace projection retained beyond stack mutation.
 type Context struct {
-	store *contextStore
-	head  uint32
+	store       *contextStore
+	head        uint32
+	defaultHead uint32
 }
 
 // Lexical converts the repository's lexical xml.Name spelling to an explicit name.
 func Lexical(name xml.Name) LexicalName {
 	return LexicalName{Prefix: name.Space, Local: name.Local}
-}
-
-// StartXML atomically admits an encoding/xml start element.
-func (s *stack) StartXML(start xml.StartElement) (frame, Element, error) {
-	lexical := Lexical(start.Name)
-	mark, previous := s.beginAdmission()
-	if err := s.appendXMLBindings(start.Attr); err != nil {
-		return s.abortAdmission(mark, previous, err)
-	}
-	element, err := s.resolveElement(lexical)
-	if err != nil {
-		return s.abortAdmission(mark, previous, err)
-	}
-	if err := s.resolveXMLAttributes(start.Attr); err != nil {
-		return s.abortAdmission(mark, previous, err)
-	}
-	return s.commitAdmission(mark, previous, element.Lexical), element, nil
 }
 
 // StartStream atomically admits a borrowed stream start element. On success it
@@ -155,33 +140,6 @@ func replaceStreamAttributeNames(start *StartElement, resolved []xml.Name) {
 	for i := range start.Attr {
 		start.Attr[i].Name = resolved[i]
 	}
-}
-
-func (s *stack) appendXMLBindings(attrs []xml.Attr) error {
-	for _, attr := range attrs {
-		if !IsNamespaceName(attr.Name) {
-			continue
-		}
-		if err := s.appendBinding(attr.Name, attr.Value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *stack) resolveXMLAttributes(attrs []xml.Attr) error {
-	resolved := s.prepareAttributeAdmission(len(attrs))
-	for i, attr := range attrs {
-		name, err := s.resolveAttribute(attr.Name)
-		if err != nil {
-			return err
-		}
-		if err := s.seen.add(name); err != nil {
-			return err
-		}
-		resolved[i] = name
-	}
-	return nil
 }
 
 func (s *stack) resolveStreamAttribute(lexical xml.Name) (xml.Name, error) {
@@ -312,6 +270,10 @@ func (s *stack) ensureStore() {
 func (s *stack) restoreActiveBindings(start, end int) {
 	for i := end - 1; i >= start; i-- {
 		current := s.store.bindings[i]
+		if current.Prefix == "" {
+			s.defaultHead = current.PreviousSame
+			continue
+		}
 		if current.PreviousSame == 0 {
 			delete(s.active, current.Prefix)
 			continue
@@ -367,12 +329,12 @@ func (s *stack) Context() Context {
 		return Context{}
 	}
 	s.persistent = true
-	return Context{store: s.store, head: s.head}
+	return Context{store: s.store, head: s.head, defaultHead: s.defaultHead}
 }
 
 // Lookup resolves a prefix in an immutable context.
 func (c Context) Lookup(prefix string) (string, bool) {
-	return lookup(c.store, c.head, prefix)
+	return lookup(c.store, c.head, c.defaultHead, prefix)
 }
 
 const nameSetLinearLimit = 16
@@ -458,6 +420,7 @@ func (s *stack) Reset(maxRetainedCap int) {
 		clear(s.active)
 	}
 	s.head = 0
+	s.defaultHead = 0
 	s.activePeak = 0
 	s.persistent = false
 }
@@ -485,10 +448,15 @@ func (s *stack) appendBinding(name xml.Name, uri string) error {
 	if uint64(len(s.store.bindings)) >= uint64(math.MaxUint32) {
 		return errors.New("namespace binding limit exceeded")
 	}
-	if s.active == nil {
-		s.active = make(map[string]uint32)
+	var previousSame uint32
+	if prefix == "" {
+		previousSame = s.defaultHead
+	} else {
+		if s.active == nil {
+			s.active = make(map[string]uint32)
+		}
+		previousSame = s.active[prefix]
 	}
-	previousSame := s.active[prefix]
 	s.store.bindings = append(s.store.bindings, binding{
 		Prefix:       prefix,
 		URI:          uri,
@@ -496,8 +464,12 @@ func (s *stack) appendBinding(name xml.Name, uri string) error {
 		PreviousSame: previousSame,
 	})
 	s.head = uint32(len(s.store.bindings)) //nolint:gosec // The MaxUint32 guard above proves the conversion safe.
-	s.active[prefix] = s.head
-	s.activePeak = max(s.activePeak, len(s.active))
+	if prefix == "" {
+		s.defaultHead = s.head
+	} else {
+		s.active[prefix] = s.head
+		s.activePeak = max(s.activePeak, len(s.active))
+	}
 	return nil
 }
 
@@ -528,18 +500,27 @@ func (s *stack) Lookup(prefix string) (string, bool) {
 	if prefix == vocab.XMLPrefix {
 		return vocab.XMLNamespaceURI, true
 	}
+	if prefix == "" {
+		if s.defaultHead != 0 {
+			return s.store.bindings[s.defaultHead-1].URI, true
+		}
+		return "", true
+	}
 	if head, ok := s.active[prefix]; ok {
 		return s.store.bindings[head-1].URI, true
-	}
-	if prefix == "" {
-		return "", true
 	}
 	return "", false
 }
 
-func lookup(store *contextStore, head uint32, prefix string) (string, bool) {
+func lookup(store *contextStore, head, defaultHead uint32, prefix string) (string, bool) {
 	if prefix == vocab.XMLPrefix {
 		return vocab.XMLNamespaceURI, true
+	}
+	if prefix == "" {
+		if defaultHead != 0 {
+			return store.bindings[defaultHead-1].URI, true
+		}
+		return "", true
 	}
 	for head != 0 {
 		current := store.bindings[head-1]
@@ -547,9 +528,6 @@ func lookup(store *contextStore, head uint32, prefix string) (string, bool) {
 			return current.URI, true
 		}
 		head = current.Parent
-	}
-	if prefix == "" {
-		return "", true
 	}
 	return "", false
 }

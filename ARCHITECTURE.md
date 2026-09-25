@@ -75,7 +75,7 @@ structured errors rather than mutable internal state or log-dependent outcomes.
 | `SchemaSource` and `Resolver` | Exact schema bytes, repeatability, identity, and explicit resolution | Network discovery or instance-directed loading |
 | `CompileOptions` | Source, graph, name, dependency, content-model, substitution, and union work | Cancellation of caller-owned blocking I/O |
 | `ValidateOptions` | Errors, identity state, hints, depth, attributes, text, tokens, input bytes, and per-value work | Schema mutation or dynamic schema loading |
-| Immutable `Engine` | Safe concurrent reuse of one published schema | Document-local state |
+| `Engine` | Safe concurrent schema reuse and one bounded idle session | Shared active document state |
 | Reusable `Session` | One owner's bounded scratch reuse | Overlapping calls or cross-session coordination |
 | `xsderrors` | Stable category, code, cause, and source/document location | Policy inferred from message strings or logs |
 | Browser worker generation | Cancellation, timeout, latest-request ownership, and stale-result suppression | Library-level asynchronous execution |
@@ -85,6 +85,7 @@ The principal state machines are deliberately linear or owner-local:
 | Owner | States and only legal progress | Failure/cleanup invariant |
 | --- | --- | --- |
 | Compiler | normalize -> load closed graph -> plan/index -> compile/finalize -> seal | No engine before publication; failed sealing does not consume the retryable build |
+| Engine session pool | normalize -> checkout or allocate -> validate -> reset -> retain or drop | At most one idle session; concurrent calls never wait; a panic drops the checked-out session |
 | Validation session | idle -> guarded document -> semantic or syntax-only processing -> reset -> idle | Overlap fails before input; every exit clears document references before releasing the guard |
 | Element start | prepared -> XML/namespace committed -> semantic commit | Fatal failure rolls back every staged owner; semantic stop retains only syntax state needed to finish parsing |
 | XML stream | reset -> borrowed token -> advance/invalidate -> EOF/error -> detach | Borrowed bytes never survive advance; only token-boundary EOF is success |
@@ -214,6 +215,13 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   Large `xs:all` models use a bounded QName-to-term index; small models scan
   directly. Both preserve occurrence bits, substitution matching, and atomic
   transition failure. The index is derived once during sealing.
+  One `ElementFrame` read combines effective-type simple content, text policy,
+  and initial child content state. The original element declaration remains the
+  owner of default/fixed constraints after `xsi:type` changes the actual type.
+  Validation carries selected declaration metadata through start assessment
+  instead of resolving the same declaration again. `ContentTransition.Commit`
+  owns the stale-state check and applies the content transition once, after
+  identity commit readiness has been checked.
 - `internal/value` owns simple-type validation and its immutable program:
   lexical normalization, primitive values, lists, unions, facets, canonical
   text, typed equality, and ID/IDREF projections. Compile-time literals and
@@ -224,7 +232,12 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   Explicit `Reserve`/`Complete` admits the remaining metadata at completion.
   One program-owned completion table serves construction and evaluation until
   sealing removes it. Type construction validates dependencies and facets before
-  publication; caller-owned scratch bounds
+  publication. Completion derives one raw evaluation plan from the effective
+  lexical rule and facets, including string enumeration, NMTOKEN lists, and
+  integer sign/magnitude bounds. Builder literals can use completed plans before
+  sealing. Integer eligibility follows the integer lexical rule; decimal types
+  restricted to zero fractional digits still accept decimal spellings.
+  Caller-owned scratch bounds
   reusable validation storage. Completed type dependencies are acyclic; runtime
   evaluation tracks only depth and cumulative lexical work. The schema compiler
   supplies the builder's construction limit; each completed type's bounds and
@@ -235,11 +248,13 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   charges its lexical byte length plus one. Raw-byte attempts, shortcuts,
   list items, union attempts, and typed fallback share one per-value counter;
   a failed fast attempt does not replenish the budget. The published program
-  retains neither caller limits nor work counters; session settings are
-  immutable and scratch retains no cumulative work. Limit failures keep their
+  retains neither caller limits nor work counters; session limits remain fixed
+  for each validation and scratch retains no cumulative work. Limit failures keep their
   schema or instance diagnostic category at the owning boundary.
-  Borrowed-byte validation consumes UTF-8 XML 1.0 character
-  data already admitted by the stream boundary. A type retains its owning type
+  Borrowed-byte and admitted-string validation consume UTF-8 XML 1.0 character
+  data already checked by the stream boundary, including through typed fallback.
+  Ordinary string validation admits external lexical input. All paths share
+  value semantics and work accounting. A type retains its owning type
   through list and union evaluation. Equality uses the admitted value space,
   including duration
   month/second coordinates and resolved QName names. Text projections do not
@@ -277,8 +292,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   The value-owned `ExpandedName` is both the `QNameResolver` result and the
   retained QName/NOTATION payload. Compilation, proof replay, and document
   assessment share that resolver contract; value admission validates its result.
-  Validation's string-interning gate uses a scalar value-owned query and does
-  not clone diagnostic type views or facet metadata.
+  Validation reads one scalar `InputRequirements` projection for QName context,
+  document identity, and safe string interning. It does not clone diagnostic
+  type views or interpret facet metadata.
 - `internal/xsdregex` owns XSD 1.0 whole-input pattern semantics. One parsed
   expression selects literal, linear, or NFA execution based on its structure.
   Compilation and matching have explicit work/state limits. XML input admission
@@ -305,7 +321,14 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   existing token and hint limits bound aggregate processing.
   The document runner detaches its XML reader on every exit. Reusable sessions
   clear remaining document state before releasing the overlap guard; that
-  cleanup does not repeat reader detachment.
+  cleanup does not repeat reader detachment. `SessionPool` owns a sealed schema
+  and one atomic idle slot of raw validation scratch. It normalizes options
+  before checking schema availability, and reapplies all limits on each checkout.
+  A cache miss allocates isolated scratch without waiting. Normal returns reset
+  state before attempting publication into the idle slot; a full slot drops the
+  returning scratch. Panics skip publication after reader detachment. Existing
+  buffer, map, and slice retention bounds apply to the single cached session.
+  Explicit sessions are separately allocated guarded owners.
   Retained document element frames keep payload, expanded name, handle, and
   path metadata; lexical prefixes remain owned by the XML stream while start
   admission is live and are not copied into document state.
@@ -339,6 +362,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   advance one logical line in every parser mode; emitted payloads contain LF.
   Character-data tokens retain one stream-owned lexical origin: literal text,
   text containing references, or CDATA. Coalescing never erases reference origin.
+  Contiguous ASCII text can borrow the input buffer until the next advance;
+  references, normalization, Unicode, and refill use the existing token buffer.
+  Both paths charge token limits before publishing data. Byte lookahead leaves
+  positions unchanged, and bulk LF consumption preserves CRLF normalization.
   Compile, validate, and format use that origin for admitted character content;
   `Reader.Next` owns rejection of unsupported declarations and forbidden
   outside-root data, while consumers translate those neutral boundary failures.
@@ -350,7 +377,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   input errors remain latched so later advances cannot read beyond that result.
   The same XML stream owner admits namespaces and detects duplicate expanded
   attributes. Its append-only binding chain owns retained immutable contexts;
-  an active-prefix index is a reproducible frame-local projection. Retained
+  an active-prefix index and scalar default-namespace head are reproducible
+  frame-local projections. Retained contexts capture the default head alongside
+  the binding-chain head, so later shadowing cannot change their resolution. Retained
   namespace frames keep only the lexical closing name and a nonzero serial;
   handle store ownership remains validated against the owning stack before the
   serial is checked. Admission, rollback, end, and reset update these together.
@@ -440,16 +469,16 @@ Compilation flow:
 4. Private schema publication checks source invariants before constructing the
    execution tables. Failure leaves the build retryable within its remaining
    work budget. Success seals and consumes that one build.
-5. Root `xsd.Engine` stores that sealed validation schema.
+5. Root `xsd.Engine` stores a shared `validate.SessionPool` owning that sealed
+   validation schema.
 
 Validation flow:
 
 1. Public callers validate through `Engine.Validate`, `ValidateWithOptions`, or
    a reusable `Session`.
 2. Root `xsd` adapts public validation options.
-3. Root `xsd` delegates construction and one-shot validation to
-   `validate.NewSession` and `validate.Validate`; there is no separately
-   initializable internal session state.
+3. Root `xsd` delegates construction and validation to `SessionPool.NewSession`
+   and `SessionPool.Validate`; the pool owns schema and scratch lifecycle.
    A reusable public session is a handle to one guarded internal owner: copies
    alias that owner, and overlapping calls fail before reading the second input.
    That owner also holds bounded scalar scratch for type derivation and compiled
@@ -464,6 +493,14 @@ Validation flow:
    their precomputed dispatch indexes. One concrete evaluator owns the element identity stack, matching
    path, per-element ID state, document IDs and IDREFs, key/unique/keyref scopes,
    pending selections, resource accounting, and reset/discard behavior. Value
+   targets carry depth from the authoritative XML document stack. Without
+   key/unique/keyref constraints, identity stays dormant until a validated value
+   produces an ID or IDREF, including a selected union member or dynamic type.
+   Activation extends the same identity element stack to that depth. Dormant
+   starts retain only the minimal activation checkpoint; first activation and
+   recorded identities roll back on fatal start failure. The XML transaction
+   alone rolls back retained diagnostic paths. Document ID/IDREF checks remain
+   independent of schema key constraints. Value
    capture uses one borrowed prepared target at a time: callers prepare, record,
    capture, then commit, or reject the target on validation failure. Element-end
    finalization is also evaluator-owned, including recoverable diagnostic
@@ -687,6 +724,15 @@ graph preserves these ownership rules:
   pattern; the exhaustive benchmark target remains separate.
 
 ## Rejected Alternatives
+
+- A global or unbounded session pool was rejected because schema ownership and
+  retained memory would become implicit. One idle slot per shared engine owner
+  reuses the common sequential path without blocking concurrent validations or
+  introducing a new memory budget. Splitting the parser's inline buffer alone
+  would leave per-call allocation of the remaining reusable session state.
+- A validator name cache and larger spelling caches were deferred because the
+  profile did not isolate schema QName lookup from parser interning. They would
+  add retained strings and invalidation policy without demonstrated benefit.
 
 - Keeping source buffers for exact byte equality was rejected because it retains
   complete input streams. Reopening the earlier source cannot recover its exact

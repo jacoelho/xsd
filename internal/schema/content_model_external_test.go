@@ -376,7 +376,7 @@ func TestStrictWildcardRecoveryConsumesOccurrenceBeforeRequiredSibling(t *testin
     </xs:complexType>
   </xs:element>
 </xs:schema>`)
-	session, err := validate.NewSession(engine, validate.Options{MaxErrors: 10})
+	session, err := validate.NewSessionPool(engine).NewSession(validate.Options{MaxErrors: 10})
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}

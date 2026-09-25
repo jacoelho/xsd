@@ -3,7 +3,6 @@ package xsd
 import (
 	"io"
 
-	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/validate"
 )
 
@@ -62,22 +61,22 @@ func (e *Engine) Validate(r io.Reader) error {
 
 // ValidateWithOptions validates one XML instance document with options.
 func (e *Engine) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
-	var rt *xsdSchema.Schema
+	var pool *validate.SessionPool
 	if e != nil {
-		rt = e.rt
+		pool = e.pool
 	}
-	return validate.Validate(rt, r, internalValidateOptions(opts))
+	return pool.Validate(r, internalValidateOptions(opts))
 }
 
 // NewSession creates a reusable validation session. Reused sessions retain
 // bounded scratch buffers and string caches; create a new session to release
 // retained cache contents.
 func (e *Engine) NewSession(opts ValidateOptions) (*Session, error) {
-	var rt *xsdSchema.Schema
+	var pool *validate.SessionPool
 	if e != nil {
-		rt = e.rt
+		pool = e.pool
 	}
-	inner, err := validate.NewSession(rt, internalValidateOptions(opts))
+	inner, err := pool.NewSession(internalValidateOptions(opts))
 	if err != nil {
 		return nil, err
 	}

@@ -9,8 +9,8 @@ import (
 )
 
 type acceptedChild struct {
-	start             schemaStart
 	transition        xsdSchema.ContentTransition
+	start             schemaStart
 	invalidatesParent bool
 }
 
@@ -47,13 +47,13 @@ func (s *session) acceptMatchedChild(transition xsdSchema.ContentTransition, rn 
 	case xsdSchema.ContentMatchSkip:
 		return acceptedChild{start: wildcardSkippedSchemaStart(), transition: transition}, nil
 	case xsdSchema.ContentMatchAssessUndeclared:
-		return acceptedChild{start: assessedSchemaStart(xsdSchema.NoElement, s.rt.AnyType()), transition: transition}, nil
+		return acceptedChild{start: undeclaredSchemaStart(s.rt.AnyType()), transition: transition}, nil
 	case xsdSchema.ContentMatchDeclared:
 		decl, declared := s.rt.Element(element)
 		if !declared {
 			return acceptedChild{}, xsderrors.InternalInvariant("content model matched invalid element declaration")
 		}
-		return acceptedChild{start: assessedSchemaStart(element, decl.Type), transition: transition}, nil
+		return acceptedChild{start: declaredSchemaStart(element, decl), transition: transition}, nil
 	case xsdSchema.ContentMatchInvalid:
 		return acceptedChild{}, xsderrors.InternalInvariant("planned content transition has invalid match kind")
 	default:
@@ -88,7 +88,7 @@ func (s *session) end(line, col int) error {
 	contentCaptured, stop := s.validateFrameEnd(f, line, col)
 	if errors.Is(stop, errSemanticStop) {
 		stop = nil
-	} else if stop == nil {
+	} else if stop == nil && s.doc.identity.active() {
 		result, identityErr := s.doc.identity.endElement(identityElementEnd{
 			Context:           s.startContext(line, col),
 			ContentCaptured:   contentCaptured,

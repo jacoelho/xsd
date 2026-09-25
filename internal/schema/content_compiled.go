@@ -429,18 +429,18 @@ func (f ContentFrame) AllBitLen() int {
 	return f.allLen
 }
 
-// ContentFrame derives the initial content state directly from a published
-// schema. Publication guarantees referenced model IDs are valid.
-func (rt *Schema) ContentFrame(typ TypeID) ContentFrame {
-	modelID := rt.ContentModelForType(typ)
+func (rt *Schema) contentFrameForModel(modelID ContentModelID) (ContentFrame, bool) {
 	frame := ContentFrame{state: ContentState{model: modelID, present: true}}
 	if modelID == NoContentModel {
-		return frame
+		return frame, true
+	}
+	if !ValidContentModelID(modelID, len(rt.program.CompiledModels)) {
+		return ContentFrame{}, false
 	}
 	model := rt.program.CompiledModels[modelID]
 	frame.state.state = model.Start
 	frame.allLen = int(model.AllBitLen)
-	return frame
+	return frame, true
 }
 
 // NextContent derives one transition from published schema slices without

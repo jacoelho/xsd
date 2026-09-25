@@ -50,7 +50,7 @@ func mustNotValidate(t *testing.T, rt *xsdSchema.Schema, doc string, code xsderr
 }
 
 func validateWithRuntime(rt *xsdSchema.Schema, doc string) error {
-	session, err := validate.NewSession(rt, validate.Options{})
+	session, err := validate.NewSessionPool(rt).NewSession(validate.Options{})
 	if err != nil {
 		return err
 	}

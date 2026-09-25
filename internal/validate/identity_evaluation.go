@@ -36,6 +36,7 @@ const (
 
 type identityValueTarget struct {
 	generation uint64
+	depth      int
 	kind       identityValueKind
 	matched    bool
 }
@@ -112,6 +113,10 @@ type identityEvaluation struct {
 	targetKind         identityValueKind
 	targetPhase        identityValuePhase
 	constraintsEnabled bool
+	// documentIdentityActive is independent of schema identity constraints.
+	// A document without key/unique/keyref declarations only needs this state
+	// after a validated ID or IDREF value is observed.
+	documentIdentityActive bool
 }
 
 func newIdentityEvaluation(rt *xsdSchema.Schema, limits identityLimits, maxScopes int) identityEvaluation {
@@ -455,6 +460,13 @@ func (e *identityEvaluation) hasConstraints() bool {
 	return e != nil && e.constraintsEnabled
 }
 
+// active reports whether document-local identity state must participate in
+// element transitions. Constraint-free documents remain dormant until a
+// validated ID or IDREF projection activates them.
+func (e *identityEvaluation) active() bool {
+	return e != nil && (e.constraintsEnabled || e.documentIdentityActive)
+}
+
 func (e *identityEvaluation) beginStart() error {
 	if e.startJournal.active {
 		return xsderrors.InternalInvariant("identity start transaction already active")
@@ -463,6 +475,14 @@ func (e *identityEvaluation) beginStart() error {
 		return xsderrors.InternalInvariant("identity value target remains active at element start")
 	}
 	j := &e.startJournal
+	if !e.constraintsEnabled && !e.documentIdentityActive {
+		// A dormant document has no identity stack or mutable identity state.
+		// Keep only the activation bit so a first ID/IDREF record can still be
+		// rolled back if the enclosing XML start fails fatally. The previous
+		// transaction already cleared the retained undo buffers.
+		j.identityStartCheckpoint = identityStartCheckpoint{active: true}
+		return nil
+	}
 	clear(j.addedIDs)
 	clear(j.fieldUndos)
 	clear(j.scopeUndos)
@@ -470,15 +490,16 @@ func (e *identityEvaluation) beginStart() error {
 	j.fieldUndos = j.fieldUndos[:0]
 	j.scopeUndos = j.scopeUndos[:0]
 	j.identityStartCheckpoint = identityStartCheckpoint{
-		active:         true,
-		pathLen:        len(e.path),
-		elementsLen:    len(e.elements),
-		idrefsLen:      len(e.idrefs),
-		scopesLen:      len(e.scopes),
-		selectionsLen:  len(e.selections),
-		fieldValuesLen: len(e.fieldValues),
-		entries:        e.entries,
-		nextNodeID:     e.nextNodeID,
+		active:                 true,
+		documentIdentityActive: e.documentIdentityActive,
+		pathLen:                len(e.path),
+		elementsLen:            len(e.elements),
+		idrefsLen:              len(e.idrefs),
+		scopesLen:              len(e.scopes),
+		selectionsLen:          len(e.selections),
+		fieldValuesLen:         len(e.fieldValues),
+		entries:                e.entries,
+		nextNodeID:             e.nextNodeID,
 	}
 	return nil
 }
@@ -525,6 +546,7 @@ func (e *identityEvaluation) abortStart() {
 	e.elements = e.elements[:j.elementsLen]
 	e.entries = j.entries
 	e.nextNodeID = j.nextNodeID
+	e.documentIdentityActive = j.documentIdentityActive
 	e.releaseTarget()
 	e.discardClosedIdentityScopes(len(e.scopes))
 	e.generation++
@@ -550,6 +572,11 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 	case elementAssessed, elementWildcardSkipped, elementRecovery:
 	default:
 		return xsderrors.InternalInvariant("element assessment mode is invalid")
+	}
+	if !e.constraintsEnabled && !e.documentIdentityActive {
+		// Document ID/IDREF state is dormant until a validated value requires
+		// it. The XML document owner remains authoritative for depth and path.
+		return nil
 	}
 	e.elements = append(e.elements, identityElementState{
 		element:       in.Element,
@@ -577,22 +604,25 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 	return e.advanceIdentitySelectors(in.Context)
 }
 
-func (e *identityEvaluation) prepareElementValue() (identityValueTarget, error) {
-	return e.prepareValue(identityElementValue, xsdSchema.RuntimeName{})
+func (e *identityEvaluation) prepareElementValue(depth int) (identityValueTarget, error) {
+	return e.prepareValue(identityElementValue, xsdSchema.RuntimeName{}, depth)
 }
 
-func (e *identityEvaluation) prepareAttributeValue(name xsdSchema.RuntimeName) (identityValueTarget, error) {
-	return e.prepareValue(identityAttributeValue, name)
+func (e *identityEvaluation) prepareAttributeValue(name xsdSchema.RuntimeName, depth int) (identityValueTarget, error) {
+	return e.prepareValue(identityAttributeValue, name, depth)
 }
 
-func (e *identityEvaluation) prepareValue(kind identityValueKind, name xsdSchema.RuntimeName) (identityValueTarget, error) {
+func (e *identityEvaluation) prepareValue(kind identityValueKind, name xsdSchema.RuntimeName, depth int) (identityValueTarget, error) {
 	if e.targetPhase != identityTargetInactive {
 		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target already active")
 	}
-	if len(e.elements) == 0 {
+	if depth <= 0 {
+		return identityValueTarget{}, xsderrors.InternalInvariant("identity value depth is invalid")
+	}
+	if e.constraintsEnabled && len(e.elements) == 0 {
 		return identityValueTarget{}, xsderrors.InternalInvariant("identity value has no active element")
 	}
-	target := identityValueTarget{kind: kind}
+	target := identityValueTarget{depth: depth, kind: kind}
 	if !e.constraintsEnabled {
 		return target, nil
 	}
@@ -634,16 +664,9 @@ func (e *identityEvaluation) recordValue(target identityValueTarget, value xsdVa
 	if target.matched && e.targetPhase != identityTargetPrepared {
 		return xsderrors.InternalInvariant("identity value target recorded more than once")
 	}
-	if target.kind == identityAttributeValue && value.IDs() != "" {
-		current := &e.elements[len(e.elements)-1]
-		if current.seenID {
-			err := validation(ctx, xsderrors.CodeValidationType, "multiple ID attributes")
-			return e.rejectAfterRecordFailure(target, err)
-		}
-		current.seenID = true
-	}
-	if err := e.recordIdentityFields(value.IDs(), value.IDRefs(), ctx); err != nil {
-		return e.rejectAfterRecordFailure(target, err)
+	ids, idrefs := value.IDs(), value.IDRefs()
+	if err := e.recordDocumentIdentityValue(target, ids, idrefs, ctx); err != nil {
+		return err
 	}
 	if !target.matched {
 		return nil
@@ -655,6 +678,54 @@ func (e *identityEvaluation) recordValue(target identityValueTarget, value xsdVa
 	}
 	e.targetKey = key
 	e.targetPhase = identityTargetRecorded
+	return nil
+}
+
+func (e *identityEvaluation) recordDocumentIdentityValue(target identityValueTarget, ids, idrefs string, ctx StartContext) error {
+	if !e.constraintsEnabled && (ids != "" || idrefs != "") {
+		if err := e.activateDocumentIdentity(target.depth); err != nil {
+			return err
+		}
+	}
+	if target.kind == identityAttributeValue && ids != "" {
+		current := &e.elements[len(e.elements)-1]
+		if current.seenID {
+			err := validation(ctx, xsderrors.CodeValidationType, "multiple ID attributes")
+			return e.rejectAfterRecordFailure(target, err)
+		}
+		current.seenID = true
+	}
+	if err := e.recordIdentityFields(ids, idrefs, ctx); err != nil {
+		return e.rejectAfterRecordFailure(target, err)
+	}
+	return nil
+}
+
+// activateDocumentIdentity initializes the same element stack used by
+// constraint identity evaluation. The XML document owns the authoritative
+// depth because constraint-free validation does not retain an identity path
+// while it is dormant.
+func (e *identityEvaluation) activateDocumentIdentity(depth int) error {
+	if depth <= 0 {
+		return xsderrors.InternalInvariant("identity activation depth is invalid")
+	}
+	if e.documentIdentityActive {
+		if len(e.elements) != depth {
+			return xsderrors.InternalInvariant("identity activation depth does not match element stack")
+		}
+		return nil
+	}
+	if len(e.elements) != 0 {
+		return xsderrors.InternalInvariant("identity activation found a non-empty dormant stack")
+	}
+	if e.startJournal.active {
+		// The checkpoint stores the prior activation state. Keep activation
+		// itself free of the large identity journal so the dormant fast path
+		// pays only this one bit of transactional state.
+		e.startJournal.documentIdentityActive = e.documentIdentityActive
+	}
+	e.elements = append(e.elements, make([]identityElementState, depth)...)
+	e.documentIdentityActive = true
 	return nil
 }
 
@@ -875,6 +946,9 @@ func (e *identityEvaluation) endElement(in identityElementEnd, report func(error
 	result := identityElementResult{AssessmentInvalid: in.AssessmentInvalid}
 	if e.targetPhase != identityTargetInactive {
 		return result, xsderrors.InternalInvariant("identity value target remains active at element end")
+	}
+	if !e.constraintsEnabled && !e.documentIdentityActive {
+		return result, nil
 	}
 	if len(e.elements) == 0 {
 		return result, xsderrors.InternalInvariant("identity element stack is empty")
@@ -1119,6 +1193,7 @@ func (e *identityEvaluation) reset(maxRetainedIDs, maxRetainedSlices int) {
 	e.elements = resetRetainedValues(e.elements, maxRetainedSlices)
 	e.attributeScratch = resetRetainedValues(e.attributeScratch, maxRetainedSlices)
 	e.releaseTarget()
+	e.documentIdentityActive = false
 	e.resetIdentityDispatch(maxRetainedIDs, maxRetainedSlices)
 	e.generation++
 }
@@ -1129,6 +1204,7 @@ func (e *identityEvaluation) discard() {
 	e.elements = nil
 	e.attributeScratch = nil
 	e.releaseTarget()
+	e.documentIdentityActive = false
 	e.resetIdentityDispatch(maxRetainedMapLen, maxRetainedSliceCap)
 	e.generation++
 }

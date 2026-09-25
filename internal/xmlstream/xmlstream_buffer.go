@@ -10,7 +10,6 @@ import (
 type byteStream struct {
 	r        io.Reader
 	err      error
-	lastPos  bytePosition
 	off      int
 	end      int
 	line     int
@@ -20,8 +19,6 @@ type byteStream struct {
 	// to bytes exposed to tokenization.
 	admittedBytes int64
 	buf           [xmlInputBufferSize]byte
-	unread        bool
-	last          byte
 	afterCR       bool
 }
 
@@ -33,15 +30,12 @@ const (
 func (b *byteStream) reset(r io.Reader, maxBytes int64) {
 	b.r = r
 	b.err = nil
-	b.lastPos = bytePosition{}
 	b.off = 0
 	b.end = 0
 	b.line = 1
 	b.col = 0
 	b.maxBytes = maxBytes
 	b.admittedBytes = 0
-	b.unread = false
-	b.last = 0
 	b.afterCR = false
 }
 
@@ -50,8 +44,6 @@ func (b *byteStream) detach() {
 	b.err = nil
 	b.off = 0
 	b.end = 0
-	b.unread = false
-	b.last = 0
 	b.afterCR = false
 	b.maxBytes = 0
 	b.admittedBytes = 0
@@ -135,18 +127,7 @@ func (b *byteStream) discardUTF8BOM() {
 	b.off = 0
 }
 
-type bytePosition struct {
-	line    int
-	col     int
-	afterCR bool
-}
-
 func (b *byteStream) readByte() (byte, error) {
-	if b.unread {
-		b.unread = false
-		b.advance(b.last)
-		return b.last, nil
-	}
 	if b.off == b.end {
 		if err := b.fill(); err != nil {
 			return 0, err
@@ -154,16 +135,23 @@ func (b *byteStream) readByte() (byte, error) {
 	}
 	c := b.buf[b.off]
 	b.off++
-	b.last = c
-	b.lastPos = bytePosition{line: b.line, col: b.col, afterCR: b.afterCR}
 	b.advance(c)
 	return c, nil
 }
 
-func (b *byteStream) buffered() ([]byte, error) {
-	if b.unread {
-		return []byte{b.last}, nil
+// peekByte returns the next byte without consuming it or changing the
+// logical source position. Keeping lookahead in the input window avoids
+// restoring a byte's line/column snapshot after a speculative read.
+func (b *byteStream) peekByte() (byte, error) {
+	if b.off == b.end {
+		if err := b.fill(); err != nil {
+			return 0, err
+		}
 	}
+	return b.buf[b.off], nil
+}
+
+func (b *byteStream) buffered() ([]byte, error) {
 	if err := b.fill(); err != nil {
 		return nil, err
 	}
@@ -200,24 +188,26 @@ func (b *byteStream) fill() error {
 // consumeBuffered advances past n bytes previously returned by buffered.
 // Callers pass n > 0 after proving the bytes contain neither CR nor LF.
 func (b *byteStream) consumeBuffered(n int) {
-	if b.unread {
-		b.unread = false
-		b.advance(b.last)
-		return
-	}
 	b.off += n
 	b.col += n
 	b.afterCR = false
 }
 
-func (b *byteStream) unreadByte() {
-	if b.unread {
-		panic("double unread")
+// consumeBufferedLF advances over a run of literal LF bytes. XML line
+// normalization makes each LF a logical line boundary, so the run can update
+// positions in one operation while retaining the same source offsets.
+func (b *byteStream) consumeBufferedLF(n int) {
+	consumed := n
+	if b.afterCR && n > 0 {
+		// The first LF completes a preceding CRLF pair and therefore does not
+		// start another logical line. The remaining literal LF bytes do.
+		b.afterCR = false
+		n--
 	}
-	b.unread = true
-	b.line = b.lastPos.line
-	b.col = b.lastPos.col
-	b.afterCR = b.lastPos.afterCR
+	b.off += consumed
+	b.line += n
+	b.col = 0
+	b.afterCR = false
 }
 
 func (b *byteStream) advance(c byte) {
@@ -249,13 +239,9 @@ func (b *byteStream) pos() (line, column int) {
 	return b.line, b.col
 }
 
-// offset reports the logical source position of the next byte. A byte that
-// was unread belongs to the next token rather than the current one.
+// offset reports the logical source position of the next byte.
 func (b *byteStream) offset() int {
 	offset := b.admittedBytes - int64(b.end-b.off)
-	if b.unread {
-		offset--
-	}
 	if offset < 0 {
 		return 0
 	}
