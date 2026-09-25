@@ -239,7 +239,8 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   restricted to zero fractional digits still accept decimal spellings.
   Caller-owned scratch bounds
   reusable validation storage. Completed type dependencies are acyclic; runtime
-  evaluation tracks only depth and cumulative lexical work. The schema compiler
+  evaluation tracks only depth and cumulative lexical work; empty lists never
+  visit an item type. The schema compiler
   supplies the builder's construction limit; each completed type's bounds and
   enumeration share one fresh facet-batch budget. Builder validation starts a
   fresh construction budget per value. Instance validation supplies its own

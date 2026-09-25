@@ -185,30 +185,125 @@ func TestValidateBytesNMTokensListChargesEveryItem(t *testing.T) {
 	}
 }
 
-func TestValidateBytesNMTokensHonorsItemDepth(t *testing.T) {
-	id, ok := BuiltinTypeID("NMTOKENS")
-	if !ok {
-		t.Fatal("missing NMTOKENS builtin")
-	}
+func TestValidateNMTokensListItemDepth(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
+		input    string
 		maxDepth uint16
-		valid    bool
+		builtin  error
+		custom   error
 	}{
-		{name: "item depth excluded", maxDepth: 1, valid: false},
-		{name: "item depth admitted", maxDepth: 2, valid: true},
+		{name: "empty", maxDepth: 1, builtin: ErrFacet},
+		{name: "XML whitespace", input: " \t\r\n", maxDepth: 1, builtin: ErrFacet},
+		{name: "item depth excluded", input: "one two", maxDepth: 1, builtin: ErrLimit, custom: ErrLimit},
+		{name: "depth precedes item lexical validation", input: "@", maxDepth: 1, builtin: ErrLimit, custom: ErrLimit},
+		{name: "item depth admitted", input: "one two", maxDepth: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := NewBuilder(BuilderOptions{MaxDepth: tc.maxDepth}).Seal()
+			b := NewBuilder(BuilderOptions{MaxDepth: tc.maxDepth})
+			custom, err := b.Add(TypeSpec{
+				Variety: List, ListItem: builtinNMTOKEN, Base: NoType,
+				Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = p.ValidateBytes(id, []byte("one two"), Resolver{}, 0, 16<<20, nil)
-			if (err == nil) != tc.valid {
-				t.Fatalf("ValidateBytes depth %d error = %v, valid = %v", tc.maxDepth, err, tc.valid)
+			p, err := b.Seal()
+			if err != nil {
+				t.Fatal(err)
 			}
-			if !tc.valid && !errors.Is(err, ErrLimit) {
-				t.Fatalf("ValidateBytes depth %d error = %v, want ErrLimit", tc.maxDepth, err)
+			for _, list := range []struct {
+				name string
+				id   TypeID
+				want error
+			}{
+				{name: "builtin", id: builtinNMTOKENS, want: tc.builtin},
+				{name: "custom", id: custom, want: tc.custom},
+			} {
+				t.Run(list.name, func(t *testing.T) {
+					assertListDepthValidation(t, p, list.id, tc.input, 16<<20, listDepthResult{selected: NoType, err: list.want})
+				})
+			}
+		})
+	}
+}
+
+func TestValidateNMTokensUnionItemDepth(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		input      string
+		maxDepth   uint16
+		work       uint64
+		customList bool
+		wantList   bool
+		want       error
+	}{
+		{name: "empty builtin falls through", maxDepth: 2, work: 3},
+		{name: "empty custom list selected", maxDepth: 2, work: 2, customList: true, wantList: true},
+		{name: "empty member depth excluded", maxDepth: 1, work: 3, want: ErrLimit},
+		{name: "empty fallback budget exhausted", maxDepth: 2, work: 2, want: ErrLimit},
+		{name: "item depth blocks fallback", input: "one", maxDepth: 2, work: 16 << 20, want: ErrLimit},
+		{name: "item depth admitted", input: "one", maxDepth: 3, work: 16 << 20, wantList: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := NewBuilder(BuilderOptions{MaxDepth: tc.maxDepth})
+			list := builtinNMTOKENS
+			if tc.customList {
+				var err error
+				list, err = b.Add(TypeSpec{
+					Variety: List, ListItem: builtinNMTOKEN, Base: NoType,
+					Whitespace: WhitespaceCollapse, WhitespacePresent: true,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			id, err := b.Add(TypeSpec{
+				Variety: Union, Union: []TypeID{list, builtinString},
+				Base: NoType, ListItem: NoType,
+				Whitespace: WhitespacePreserve, WhitespacePresent: true,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := b.Seal()
+			if err != nil {
+				t.Fatal(err)
+			}
+			selected := builtinString
+			if tc.wantList {
+				selected = list
+			}
+			assertListDepthValidation(t, p, id, tc.input, tc.work, listDepthResult{selected: selected, err: tc.want})
+		})
+	}
+}
+
+type listDepthResult struct {
+	selected TypeID
+	err      error
+}
+
+func assertListDepthValidation(t *testing.T, p *Program, id TypeID, input string, work uint64, want listDepthResult) {
+	t.Helper()
+	for _, entry := range []struct {
+		name     string
+		validate func() (Value, error)
+	}{
+		{name: "string", validate: func() (Value, error) { return p.Validate(id, input, Resolver{}, 0, work, nil) }},
+		{name: "admitted", validate: func() (Value, error) { return p.ValidateAdmitted(id, input, Resolver{}, 0, work, nil) }},
+		{name: "bytes", validate: func() (Value, error) { return p.ValidateBytes(id, []byte(input), Resolver{}, 0, work, nil) }},
+		{name: "projected bytes", validate: func() (Value, error) {
+			return p.ValidateBytes(id, []byte(input), Resolver{}, NeedCanonical, work, nil)
+		}},
+	} {
+		t.Run(entry.name, func(t *testing.T) {
+			got, err := entry.validate()
+			if !errors.Is(err, want.err) {
+				t.Fatalf("validation of %q error = %v, want %v", input, err, want.err)
+			}
+			if err == nil && (got.Type() != id || got.SelectedType() != want.selected) {
+				t.Fatalf("result type = %d, selected = %d; want type %d, selected %d", got.Type(), got.SelectedType(), id, want.selected)
 			}
 		})
 	}

@@ -264,12 +264,10 @@ func (p *Program) validateRawListBytes(id TypeID, t *typeDef, lexical []byte, bu
 	if t.facets.raw.kind != rawPlanNMTokens {
 		return Value{}, false, nil
 	}
-	// The specialized scanner validates the item lexical form in place, so
-	// account for the list-item evaluation depth it replaces.
-	if p.maxDepth != 0 && 1 >= int(p.maxDepth) {
-		return Value{}, true, ErrLimit
+	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
+		return Value{}, true, err
 	}
-	return validateNMTokensListBytes(id, t, lexical, budget)
+	return p.scanNMTokensListBytes(id, t, lexical, budget, 0)
 }
 
 func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
@@ -299,11 +297,7 @@ func (p *Program) evalListBytes(id TypeID, t *typeDef, lexical []byte, budget *e
 	if t.facets.raw.kind != rawPlanNMTokens {
 		return NoType, false, nil
 	}
-	// The specialized scanner replaces one recursive item visit.
-	if p.maxDepth != 0 && depth+1 >= int(p.maxDepth) {
-		return NoType, true, ErrLimit
-	}
-	_, handled, err := validateNMTokensListBytesNested(id, t, lexical, budget)
+	_, handled, err := p.scanNMTokensListBytes(id, t, lexical, budget, depth)
 	return NoType, handled, err
 }
 
@@ -681,18 +675,8 @@ func bytesEqualString(raw []byte, text string) bool {
 	return true
 }
 
-func validateNMTokensListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
-	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
-		return Value{}, true, err
-	}
-	return scanNMTokensListBytes(id, t, lexical, budget)
-}
-
-func validateNMTokensListBytesNested(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
-	return scanNMTokensListBytes(id, t, lexical, budget)
-}
-
-func scanNMTokensListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget) (Value, bool, error) {
+//nolint:gocognit // One scanner keeps item discovery, work and depth admission, and lexical validation in evaluation order.
+func (p *Program) scanNMTokensListBytes(id TypeID, t *typeDef, lexical []byte, budget *evaluationBudget, depth int) (Value, bool, error) {
 	var count uint32
 	start := 0
 	for start < len(lexical) {
@@ -706,6 +690,11 @@ func scanNMTokensListBytes(id TypeID, t *typeDef, lexical []byte, budget *evalua
 		count++
 		if err := budget.charge(lexicalLength(len(field))); err != nil {
 			return Value{}, true, err
+		}
+		// Only an actual item enters the next evaluation depth; empty lists
+		// must still reach their facets and any enclosing union fallback.
+		if p.maxDepth != 0 && depth+1 >= int(p.maxDepth) {
+			return Value{}, true, ErrLimit
 		}
 		if !lex.IsNMTOKENBytes(field) {
 			return Value{}, true, errors.New("invalid NMTOKEN")
