@@ -327,6 +327,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   expression selects literal, linear, or NFA execution based on its structure.
   Compilation and matching have explicit work/state limits. XML input admission
   belongs to `internal/xmlstream`; match callers provide valid UTF-8 XML text.
+  The parser admits each AST constructor before allocating its node, including
+  constructors later removed by normalization. A failed admission stops parsing
+  at the current rune offset. Pattern byte admission and UTF-8 validation precede
+  parsing; rune conversion remains proportional to the admitted input bytes.
   Character classes merge sorted inputs through a heap of current ranges:
   total input ranges R across K nonempty sets require O(R log K) work and
   O(K + U) temporary storage for U output ranges, without retaining every
