@@ -661,26 +661,6 @@ func identityTupleKey(fields []identityFieldValue, limits identityLimits, ctx St
 	return b.String(), nil
 }
 
-// closeScopes closes identity scopes at depth, resolves keyrefs, and reports
-// whether constraints owned by the closed scopes failed.
-func (s *identityState) closeScopes(depth int, report func(error) error) (bool, error) {
-	if s == nil {
-		return false, nil
-	}
-	invalid := false
-	for len(s.scopes) > 0 && s.scopes[len(s.scopes)-1].depth == depth {
-		scope := &s.scopes[len(s.scopes)-1]
-		if err := validateIdentityScopeRefs(scope, report); err != nil {
-			return true, err
-		}
-		invalid = invalid || scope.invalid
-		s.mergeClosedIdentityScope(scope)
-		*scope = identityScope{}
-		s.scopes = s.scopes[:len(s.scopes)-1]
-	}
-	return invalid, nil
-}
-
 func validateIdentityScopeRefs(scope *identityScope, report func(error) error) error {
 	for _, ref := range scope.refs {
 		entry, ok := scope.tables[ref.refer][ref.key]

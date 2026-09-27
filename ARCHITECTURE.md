@@ -545,10 +545,13 @@ Validation flow:
    Identity evaluation reads immutable schema-owned selector/field programs and
    their precomputed dispatch indexes. One concrete evaluator owns the element identity stack, matching
    path, per-element ID state, document IDs and IDREFs, key/unique/keyref scopes,
-   pending selections, resource accounting, and reset/discard behavior. Value
-   targets carry depth from the authoritative XML document stack. Without
-   key/unique/keyref constraints, identity stays dormant until a validated value
-   produces an ID or IDREF, including a selected union member or dynamic type.
+   pending selections, resource accounting, and reset/discard behavior.
+   Scope closure unregisters only the closing scope's declarations
+   before popping it; reverse tail removal also unwinds partial registration.
+   A failed close leaves the unpopped scope registered. Value targets carry depth
+   from the authoritative XML document stack. Without key/unique/keyref constraints,
+   identity stays dormant until a validated value produces an ID or IDREF,
+   including a selected union member or dynamic type.
    Activation extends the same identity element stack to that depth. Dormant
    starts retain only the minimal activation checkpoint; first activation and
    recorded identities roll back on fatal start failure. The XML transaction
@@ -620,11 +623,14 @@ Validation flow:
    capacity only within the validation high-water bound. Identity dispatch resets
    and semantic discard apply that same bound to active-scope slices, selector
    hits, and the active-constraint map; the immutable schema dispatch index remains
-   reusable. `MaxIdentityEntries`
-   independently bounds stored identity entries, pending selector matches, and
-   pending field-value slots; selection admission checks both pending dimensions
-   before allocation or mutation. Retained diagnostic nodes are bounded by path
-   publication extensions; encoded segments and suffix-local namespace headers
+   reusable. Empty scope-dispatch buckets remain reusable and preserve the map's
+   high-water signal without requiring a scan on element close. Their keys are
+   bounded by schema constraint IDs.
+   `MaxIdentityEntries` independently bounds stored identity entries, pending
+   selector matches, and pending field-value slots; selection admission checks
+   both pending dimensions before allocation or mutation. Retained diagnostic
+   nodes are bounded by path publication extensions; encoded segments and
+   suffix-local namespace headers
    are bounded by retained path occurrences, admitted document structure and
    bytes, identity limits, and the session high-water policy. Hint batches stage
    only new namespaces and copy the bounded retained map only when committing an
@@ -836,6 +842,10 @@ graph preserves these ownership rules:
   work accounting. Root-local tags remove full-table clearing without changing
   those traversals. Eager DFA follow interning was rejected because it changes
   state discovery and limit-failure order; lazy position caching preserves both.
+- Scanning all identity scope indexes on every close was rejected because
+  unrelated constraints multiply lifecycle work. Closure callbacks and a second
+  registration journal were rejected because the concrete evaluator can unwind its existing
+  scope declarations directly.
 - An additional element-value slice projection was rejected because publication
   and validation already use the canonical packed element table. Tests observe
   published reads and independently corrupt packed projections instead of
