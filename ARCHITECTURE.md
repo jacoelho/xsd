@@ -218,6 +218,23 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   One `ElementFrame` read combines effective-type simple content, text policy,
   and initial child content state. The original element declaration remains the
   owner of default/fixed constraints after `xsi:type` changes the actual type.
+  Complex content retains its semantic kind before particle normalization,
+  ignoring annotations when identifying semantic model children:
+  empty, element-only, mixed, or simple (including mixed simple-derivation
+  provenance). Empty content has neither a particle nor a simple text type;
+  the converse does not hold. An optional element or a present outer particle
+  whose children normalize away remains element-only. A nonzero reference to
+  an empty named group also remains element-only. Actual type selection supplies
+  the text policy independently of declaration-owned value constraints.
+  An extension with empty effective content inherits all base content fields
+  after local model syntax and references have been checked. Canonical empty
+  models reuse their existing rows; normalization does not duplicate them.
+  Publication requires empty content to reference a non-mixed `ModelEmpty`;
+  model-shape validation separately rejects inactive occurrence or slice data.
+  A noncanonical source row remains available for reference, consistency, and
+  graph checks when lowering adds a distinct executable empty model.
+  Published empty models reject child admission with a semantic no-match;
+  invalid model IDs and kinds remain invariant failures.
   Validation carries selected declaration metadata through start assessment
   instead of resolving the same declaration again. `ContentTransition.Commit`
   owns the stale-state check and applies the content transition once, after
@@ -260,7 +277,17 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   including duration
   month/second coordinates and resolved QName names. Text projections do not
   define equality: duration has no XSD 1.0 canonical representation and retains
-  its whitespace-normalized lexical spelling. Patterns in one restriction step
+  its whitespace-normalized lexical spelling. Base64 values carry an explicit
+  readiness bit distinguishing admitted lexical text from compact canonical
+  text; the field name alone cannot prove canonical form. Strict lexical
+  admission validates padding bits before whitespace removal. Published
+  enumeration literals are canonical, and each compiled facet program derives
+  whether any inherited or local literal contains base64. Enumeration evaluation
+  prepares only the selected document value's retained base64 leaves once.
+  Equality never mutates either operand; direct string equality requires both
+  operands to be ready, otherwise it compares decoded values. This adds no
+  decoded sidecar or additional retained list items, and does not change work
+  charging or union selection. Patterns in one restriction step
   are alternatives; inherited restriction steps all apply. Union patterns inspect
   the selected member's normalized lexical output after ordered member assessment;
   evaluation returns that spelling explicitly to its caller, without mutable
@@ -347,6 +374,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   fixed-value equality. Untyped mixed-content constraints retain lexical equality.
   Both origins share identity record/capture/commit and failure rejection; nil,
   content recovery, and session cleanup keep their existing owners.
+  Empty complex content rejects every nonempty character-data event, including
+  XML whitespace. Element-only content permits XML whitespace. Comments,
+  processing instructions, and zero-length CDATA add no character content;
+  nil handling and syntax-only recovery retain their own policies.
 - `internal/format` owns repository-internal XML formatting and finite default
   input, token, processed-node, depth, and output bounds. Its output boundary
   rejects every incomplete `io.Writer` write, so success means the complete
@@ -378,6 +409,14 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   input errors remain latched so later advances cannot read beyond that result.
   The same XML stream owner admits namespaces and detects duplicate expanded
   attributes. Its append-only binding chain owns retained immutable contexts;
+  before successful start admission, attribute names are lexical: `xmlns` in
+  the prefix slot identifies declaration syntax. Successful admission expands
+  declarations into the reserved XMLNS namespace URI and ordinary attributes
+  into their bound namespace URI. Phase-specific predicates never confuse those
+  representations. Failed admission preserves the lexical token and rolls back
+  bindings and document depth. Relative namespace names remain an admitted
+  extension and retain their exact spelling; an ordinary attribute bound to
+  the relative name `xmlns` remains an ordinary attribute.
   an active-prefix index and scalar default-namespace head are reproducible
   frame-local projections. Retained contexts capture the default head alongside
   the binding-chain head, so later shadowing cannot change their resolution. Retained
@@ -624,14 +663,38 @@ Diagnostics flow:
    External wrappers retain their identity and cause chain.
 3. `xsderrors.WithLocation` is the only path/line/column decorator. Root `xsd`
    and formatter packages do not duplicate diagnostic types or codes.
+4. Missing document roots and forbidden outside-root character data use
+   `CodeValidationXML`. `CodeValidationRoot` and `CodeValidationText` describe
+   schema assessment failures. Fatal XML, limit, or operational errors take
+   precedence over earlier recoverable diagnostics; adapters preserve the
+   diagnostics returned by the core without reconstructing discarded history.
 
 Browser flow:
 
 1. `cmd/wasmxsd` owns the JavaScript-facing tagged response contract and the
    generated limit catalog. Validation responses are exactly one of `valid`,
    `invalid`, or `error`; formatting responses are `ok` or `error`.
+   `valid` has neither error field. `invalid` carries a nonempty `errors` array
+   and means conclusive schema violations after successful compilation and XML
+   admission. `error` requires a nonempty summary and may carry a nonempty
+   diagnostic array: compilation, malformed XML, unsupported features, resource
+   limits, invalid options, session failures, and unknown failures prevent
+   assessment. Fatal failures dominate mixed aggregates. Reaching `MaxErrors`
+   alone remains invalid; a later fatal parser failure is an error. Compilation
+   failures retain the bounded well-formedness check and XML-first diagnostic
+   ordering. The page displays structured diagnostics for either unsuccessful
+   branch and formats only valid documents.
 2. `docs/js/xsd-worker.js` owns the Go WASM runtime. WASM functions and limits
    never enter the window global scope.
+   One runtime-owned Go `validationAdapter`, captured by its JavaScript
+   callback, retains one successfully compiled engine and its exact XSD text.
+   Compilation uses the fixed `schema.xsd` source identity, default compile
+   options, and no resolver; those fixed inputs plus exact text define the key.
+   Type and byte admission precede cache access. A changed admitted key evicts
+   before compilation, which publishes only on success; failed compilation
+   leaves the cache empty. Instance failures preserve the cached engine.
+   Worker termination releases the runtime and cache together. There is no
+   process-wide cache, negative caching, synchronization, or retained key history.
 3. `ValidationWorkerClient` owns worker lifecycle, a single active request, one
    latest pending request, cancellation, initialization and execution timeout
    termination, restart, and immutable state snapshots. The page ignores
@@ -861,6 +924,14 @@ graph preserves these ownership rules:
 - Boolean-only WASM results and object-valued window globals were rejected. A
   tagged response distinguishes invalid documents from operational failures,
   while worker-owned limits keep the browser boundary explicit and isolated.
+- Inferring empty complex content from an empty normalized child model was
+  rejected because element-only particles can accept no children while still
+  permitting whitespace. The compiler preserves the semantic kind before
+  lowering the particle.
+- Rejecting relative namespace names was rejected for the admitted extension.
+  Keeping lexical declaration sentinels after expansion was also rejected:
+  canonical expanded declarations use the reserved XMLNS URI, which ordinary
+  namespace bindings cannot legally claim.
 - Compatibility fields, aliases, and parallel constructors for diagnostics were
   rejected because they would preserve two representations and two location
   paths for the same fact.
