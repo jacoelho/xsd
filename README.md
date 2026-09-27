@@ -60,6 +60,14 @@ XML documents require one root element. Apart from an optional XML declaration
 at the start, only literal XML whitespace, comments, and processing instructions
 may appear outside that element.
 
+Empty complex content rejects character data, including whitespace. Element-only
+content permits XML whitespace around its children, even when all children are
+optional. Comments, processing instructions, and empty CDATA contain no
+characters and do not violate empty content.
+
+Relative namespace names are accepted as an extension and compared exactly.
+They do not change whether an attribute is a namespace declaration.
+
 An empty element with a default or fixed value uses the schema's value. When
 `xsi:type` changes its type, that value must satisfy the actual type's facets.
 Application uses canonical spelling, except QName/NOTATION values retain their
@@ -180,6 +188,13 @@ buffers and caches. Copies share the same state: overlapping calls fail with
 `xsderrors.CodeValidationSession` before consuming the second input. Use
 `Engine.Validate` or separately constructed sessions for concurrent work.
 
+For persistent workers with allocation-heavy overlapping bursts, measure one
+session per worker, reused sequentially. It avoids repeatedly discarding scratch
+when calls compete for the engine's single idle slot. Each session retains its
+own bounded scratch; bound the worker count and compare retained heap, throughput,
+and allocations under both steady traffic and overlapping bursts. The
+`BenchmarkSessionOwnership` benchmarks cover these workloads.
+
 ### Inspect errors
 
 Add `errors` and `"github.com/jacoelho/xsd/xsderrors"` to the imports. Pass the
@@ -208,6 +223,11 @@ Multiple recoverable errors are returned as `xsderrors.Errors`; use `Len` and
 `At` to inspect them all. Categories are `schema_parse`, `schema_compile`,
 `unsupported`, `validation`, `format`, and `internal`.
 Use `xsderrors.IsUnsupported(err)` to detect unsupported features.
+
+Missing roots and forbidden character data outside the root use
+`CodeValidationXML`. This replaces the previous `CodeValidationRoot` and
+`CodeValidationText` mappings for those XML failures; those two codes now
+identify schema assessment failures only.
 
 ## Resource limits
 
@@ -328,6 +348,16 @@ Open [the local validator](http://127.0.0.1:8765). This command builds the Go WA
 module and serves the page. Validation runs in a Web Worker; clearing input
 cancels active work.
 
+Validation returns `valid`, `invalid`, or `error`. `invalid` means the document
+violates the compiled schema. `error` means assessment could not complete,
+including schema compilation, malformed XML, unsupported features, and resource
+limits. Both unsuccessful responses can include structured diagnostics; the
+page formats XML only after a valid result.
+
+Each worker reuses one compiled schema while the exact XSD text is unchanged.
+Changing XSD replaces that entry; compilation failures leave it empty. Instance
+errors retain the schema, and worker termination releases it.
+
 Run JavaScript tests with `make web-test`. To run browser integration tests,
 install the pinned dependency and Chromium once:
 
@@ -339,8 +369,8 @@ make browser-test
 
 ## Benchmarks
 
-Go results were measured on 2026-09-25 from the working tree based on
-`dee074f9`, using Go 1.27.0 on an Apple M2 Max with 32 GiB RAM. Libxml2 2.9.13
+Go results were measured on 2026-09-27 from the working tree based on
+`97ba5e3e`, using Go 1.27.0 on an Apple M2 Max with 32 GiB RAM. Libxml2 2.9.13
 results are unchanged from the 2026-09-06 run on the same machine; libxml2 was
 not rerun.
 
@@ -350,12 +380,12 @@ independently.
 
 | Workload | Go time | libxml2 time | Go peak RSS | libxml2 peak RSS |
 | --- | ---: | ---: | ---: | ---: |
-| Streaming, 20 MiB | 548.991 ms | 377.093 ms | 6.75 MiB | 243.08 MiB |
-| Streaming, 100 MiB | 2.849 s | 1.789 s | 6.78 MiB | 1.17 GiB |
-| Streaming, 500 MiB | 14.308 s | 8.859 s | 6.98 MiB | 5.81 GiB |
-| Streaming, 1 GiB | 28.810 s | 21.209 s | 6.95 MiB | 10.29 GiB |
-| Streaming, 2 GiB | 58.134 s | 51.485 s | 7.05 MiB | 13.33 GiB |
-| Identity constraints, 100,000 rows | 345.502 ms | 605.858 ms | 88.62 MiB | 186.66 MiB |
+| Streaming, 20 MiB | 518.804 ms | 377.093 ms | 6.83 MiB | 243.08 MiB |
+| Streaming, 100 MiB | 2.528 s | 1.789 s | 6.83 MiB | 1.17 GiB |
+| Streaming, 500 MiB | 12.418 s | 8.859 s | 6.92 MiB | 5.81 GiB |
+| Streaming, 1 GiB | 25.425 s | 21.209 s | 7.00 MiB | 10.29 GiB |
+| Streaming, 2 GiB | 50.636 s | 51.485 s | 7.09 MiB | 13.33 GiB |
+| Identity constraints, 100,000 rows | 337.891 ms | 605.858 ms | 89.05 MiB | 186.66 MiB |
 
 Libxml2 timings varied on the larger files: 20.86–37.68 s for 1 GiB and
 51.08–52.20 s for 2 GiB across the 10 samples.

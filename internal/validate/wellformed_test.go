@@ -39,7 +39,7 @@ func TestCheckXMLWellFormed(t *testing.T) {
 		{name: "valid compact document", xml: `<root><v>1</v></root>`},
 		{name: "mismatched end tag", xml: `<root><v>1</root>`, code: xsderrors.CodeValidationXML},
 		{name: "multiple roots", xml: `<a/><b/>`, code: xsderrors.CodeValidationXML},
-		{name: "text outside root", xml: `text<root/>`, code: xsderrors.CodeValidationText},
+		{name: "text outside root", xml: `text<root/>`, code: xsderrors.CodeValidationXML},
 		{name: "unbound namespace prefix", xml: `<p:root/>`, code: xsderrors.CodeValidationXML},
 		{name: "directive", xml: `<!DOCTYPE root><root/>`, code: xsderrors.CodeUnsupportedDTD},
 	}

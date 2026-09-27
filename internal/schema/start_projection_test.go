@@ -46,8 +46,8 @@ func TestSchemaTypeInfoClassifiesUnavailableSimpleDependencies(t *testing.T) {
 		Value:                 program,
 		SimpleTypeUnavailable: unavailable,
 		ComplexTypes: []complexTypeRead{
-			{textType: unavailableList, flags: complexTypeReadSimple},
-			{textType: missing, flags: complexTypeReadSimple},
+			{textType: unavailableList, contentKind: ContentSimple},
+			{textType: missing, contentKind: ContentSimple},
 		},
 	}}
 

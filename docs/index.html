@@ -723,7 +723,15 @@
 
       const result = flow.result;
       if (result.status === "error") {
-        showStatusError("Validation failed", result.error);
+        const errors = result.errors || [];
+        if (errors.length !== 0) {
+          xmlErrors = errors.filter((err) => err.line && errorSource(err) === "xml");
+          xsdErrors = errors.filter((err) => err.line && errorSource(err) === "xsd");
+          renderAllEditors();
+          showErrorTable(errors, result.error);
+        } else {
+          showStatusError("Validation failed", result.error);
+        }
         return;
       }
 
@@ -850,9 +858,9 @@
       copyErrorsButton.disabled = true;
     }
 
-    function showErrorTable(errors) {
+    function showErrorTable(errors, summary = "") {
       resultTitle.className = "result-title err";
-      resultTitle.textContent = `${errors.length} validation error${errors.length === 1 ? "" : "s"}`;
+      resultTitle.textContent = summary ? "Validation failed" : `${errors.length} validation error${errors.length === 1 ? "" : "s"}`;
 
       const table = document.createElement("table");
       const thead = document.createElement("thead");
@@ -881,8 +889,12 @@
         tbody.append(row);
       }
       table.append(tbody);
-      resultBody.replaceChildren(table);
-      lastCopyText = errors.map(errorSummary).join("\n") + "\n";
+      if (summary) {
+        resultBody.replaceChildren(textBlock(summary), table);
+      } else {
+        resultBody.replaceChildren(table);
+      }
+      lastCopyText = [summary, ...errors.map(errorSummary)].filter(Boolean).join("\n") + "\n";
       copyErrorsButton.disabled = false;
     }
 

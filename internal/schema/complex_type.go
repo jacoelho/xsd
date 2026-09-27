@@ -36,6 +36,10 @@ const (
 	ContentSimple
 	// ContentSimpleMixed is simple content that recorded mixed="true".
 	ContentSimpleMixed
+	// ContentEmpty is empty complex content. It permits neither character nor
+	// element information items. The zero value remains ContentElementOnly so
+	// compiler and test fixtures that use an omitted kind retain their meaning.
+	ContentEmpty
 )
 
 // Mixed reports whether content permits character text mixed with elements.
@@ -51,7 +55,7 @@ func (k ContentKind) Simple() bool {
 // ValidContentKind reports whether kind is a known complex-type content kind.
 func ValidContentKind(kind ContentKind) bool {
 	switch kind {
-	case ContentElementOnly, ContentMixed, ContentSimple, ContentSimpleMixed:
+	case ContentElementOnly, ContentMixed, ContentSimple, ContentSimpleMixed, ContentEmpty:
 		return true
 	default:
 		return false
@@ -162,12 +166,22 @@ func validateComplexTypeReferences(id ComplexTypeID, ct ComplexType, models []Co
 }
 
 func validateComplexTypeContent(ct ComplexType, models []ContentModel, simpleTypeCount int) error {
-	if !ct.SimpleContent() {
-		if ct.TextType != NoSimpleType {
-			return errors.New("complex type stores text type without simple content")
-		}
-		return nil
+	if ct.SimpleContent() {
+		return validateSimpleComplexTypeContent(ct, models, simpleTypeCount)
 	}
+	if ct.TextType != NoSimpleType {
+		return errors.New("complex type stores text type without simple content")
+	}
+	if ct.ContentKind == ContentEmpty {
+		model := models[ct.Content]
+		if model.Kind != ModelEmpty || model.Mixed {
+			return errors.New("empty complex type must reference a non-mixed empty content model")
+		}
+	}
+	return nil
+}
+
+func validateSimpleComplexTypeContent(ct ComplexType, models []ContentModel, simpleTypeCount int) error {
 	if !ValidSimpleTypeID(ct.TextType, simpleTypeCount) {
 		return errors.New("complex type references invalid text type")
 	}
@@ -435,17 +449,17 @@ func SimpleContentDerivationBaseAllowed(analysis *ContentModelAnalysis, base Com
 
 // ComplexContentMixedDerivationBaseAllowed reports whether a complexContent
 // derivation with mixed=true may derive from base.
-func ComplexContentMixedDerivationBaseAllowed(rt ContentModelRuntime, base ComplexType, derivation DerivationKind) bool {
+func ComplexContentMixedDerivationBaseAllowed(base ComplexType, derivation DerivationKind) bool {
 	if base.Mixed() {
 		return true
 	}
-	return derivation == DerivationKindExtension && base.ContentKind == ContentElementOnly && ModelHasNoParticles(rt, base.Content)
+	return derivation == DerivationKindExtension && base.ContentKind == ContentEmpty
 }
 
 // ValidateComplexContentMixedDerivationBase validates complexContent mixed
 // derivation admission against the compiled base type.
-func ValidateComplexContentMixedDerivationBase(rt ContentModelRuntime, base ComplexType, derivation DerivationKind, content ContentKind) error {
-	if content.Mixed() && !ComplexContentMixedDerivationBaseAllowed(rt, base, derivation) {
+func ValidateComplexContentMixedDerivationBase(base ComplexType, derivation DerivationKind, content ContentKind) error {
+	if content.Mixed() && !ComplexContentMixedDerivationBaseAllowed(base, derivation) {
 		return errors.New("complexContent mixed derivation requires mixed base")
 	}
 	return nil

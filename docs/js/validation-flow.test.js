@@ -75,6 +75,21 @@ test("rejects contradictory and malformed validation result states", () => {
   }
 });
 
+test("accepts operational errors with structured diagnostics", () => {
+  const diagnostics = [{ source: "xml", code: "validation.xml", message: "malformed XML" }];
+  const flow = runValidationFlow("<root>", "schema", {
+    validateXML: () => ({ status: "error", error: "validation.xml: malformed XML", errors: diagnostics }),
+    formatXML: () => {
+      throw new Error("must not format");
+    },
+  });
+
+  assert.deepEqual(flow, {
+    result: { status: "error", error: "validation.xml: malformed XML", errors: diagnostics },
+    xml: "<root>",
+  });
+});
+
 test("uses successful formatted output", () => {
   const flow = runValidationFlow("<root/>", "schema", {
     validateXML: () => ({ status: "valid" }),

@@ -906,7 +906,7 @@ func (p *parser) readStartAttribute(first byte) error {
 	if err != nil {
 		return err
 	}
-	if p.skipOrdinaryAttrValues && !IsNamespaceName(name) && !isXMLSpaceName(name) {
+	if p.skipOrdinaryAttrValues && !IsLexicalNamespaceName(name) && !isXMLSpaceName(name) {
 		if skipErr := p.skipAttributeValue(quote); skipErr != nil {
 			return skipErr
 		}

@@ -41,7 +41,7 @@ func checkXMLBaseAttributeSyntax(n *schemaSyntaxNode) error {
 
 func checkSchemaAttributesSyntax(n *schemaSyntaxNode) error {
 	for _, attr := range n.Attrs {
-		if xmlstream.IsNamespaceName(attr.Name) || attr.Name.Space != "" {
+		if xmlstream.IsExpandedNamespaceName(attr.Name) || attr.Name.Space != "" {
 			continue
 		}
 		if err := checkSchemaAttributeSyntax(n, attr); err != nil {
@@ -342,7 +342,7 @@ func xsdChildAtSyntax(n *schemaSyntaxNode, index int) (*schemaSyntaxNode, bool) 
 
 func checkAllowedSchemaAttributesSyntax(n *schemaSyntaxNode, label string, allowed func(string) bool) error {
 	for _, attr := range n.Attrs {
-		if xmlstream.IsNamespaceName(attr.Name) || attr.Name.Space != "" {
+		if xmlstream.IsExpandedNamespaceName(attr.Name) || attr.Name.Space != "" {
 			continue
 		}
 		if !allowed(attr.Name.Local) {

@@ -88,7 +88,10 @@ func Lexical(name xml.Name) LexicalName {
 }
 
 // StartStream atomically admits a borrowed stream start element. On success it
-// replaces every lexical attribute name with its expanded name.
+// replaces every lexical attribute name with its expanded name. Namespace
+// declaration attributes use the reserved XMLNS namespace URI in that
+// expanded representation; their lexical xmlns sentinel is used only during
+// admission.
 func (s *stack) StartStream(start *StartElement, values *cache) (frame, Element, error) {
 	if start == nil {
 		return frame{}, Element{}, errors.New("nil XML start element")
@@ -97,7 +100,7 @@ func (s *stack) StartStream(start *StartElement, values *cache) (frame, Element,
 	mark, previous := s.beginAdmission()
 	for i := range start.Attr {
 		attr := &start.Attr[i]
-		if !IsNamespaceName(attr.Name) {
+		if !IsLexicalNamespaceName(attr.Name) {
 			continue
 		}
 		value, available := attr.materializeValue(values)
@@ -306,8 +309,8 @@ func (s *stack) resolveElement(lexical LexicalName) (Element, error) {
 }
 
 func (s *stack) resolveAttribute(name xml.Name) (xml.Name, error) {
-	if IsNamespaceName(name) {
-		return name, nil
+	if IsLexicalNamespaceName(name) {
+		return expandedNamespaceName(name), nil
 	}
 	resolved, ok := s.resolveName(name, attributeName)
 	if !ok {
@@ -532,9 +535,24 @@ func lookup(store *contextStore, head, defaultHead uint32, prefix string) (strin
 	return "", false
 }
 
-// IsNamespaceName reports whether name is an xmlns declaration name.
-func IsNamespaceName(name xml.Name) bool {
+// IsLexicalNamespaceName reports whether name uses the parser's lexical
+// sentinel for an xmlns declaration. It is valid before namespace expansion.
+func IsLexicalNamespaceName(name xml.Name) bool {
 	return name.Space == vocab.XMLNSPrefix || (name.Space == "" && name.Local == vocab.XMLNSPrefix)
+}
+
+// IsExpandedNamespaceName reports whether name is an expanded xmlns
+// declaration name. It is valid after successful namespace admission.
+func IsExpandedNamespaceName(name xml.Name) bool {
+	return name.Space == vocab.XMLNSNamespaceURI
+}
+
+func expandedNamespaceName(name xml.Name) xml.Name {
+	local := vocab.XMLNSPrefix
+	if name.Space == vocab.XMLNSPrefix {
+		local = name.Local
+	}
+	return xml.Name{Space: vocab.XMLNSNamespaceURI, Local: local}
 }
 
 func validateNamespaceBinding(prefix, uri string) error {

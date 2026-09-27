@@ -8,6 +8,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/source"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestPublishSchemaRejectsRawCorruptionWithoutMutation(t *testing.T) {
@@ -28,6 +29,107 @@ func TestPublishSchemaRejectsRawCorruptionWithoutMutation(t *testing.T) {
 	if !reflect.DeepEqual(build, want) {
 		t.Fatalf("PublishSchema() mutated failed build: got %#v want %#v", build, want)
 	}
+}
+
+func TestPublishSchemaRejectsEmptyComplexTypeModelMismatchWithoutConsumingBuild(t *testing.T) {
+	t.Parallel()
+
+	const document = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType/></xs:element>
+</xs:schema>`
+	tests := []struct {
+		name   string
+		mutate func(*ContentModel)
+	}{
+		{
+			name: "required choice without particles",
+			mutate: func(model *ContentModel) {
+				model.Kind = ModelChoice
+				model.Occurs = Occurrence{Min: 1, Max: 1}
+			},
+		},
+		{
+			name: "mixed empty model",
+			mutate: func(model *ContentModel) {
+				model.Mixed = true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			c, modelID := newEmptyComplexTypePublicationCompiler(t, document)
+			validModel := c.rt.Models[modelID]
+			if validModel.Kind != ModelEmpty || validModel.Mixed {
+				t.Fatalf("compiled source model = %#v, want non-mixed ModelEmpty", validModel)
+			}
+			tt.mutate(&c.rt.Models[modelID])
+			if err := c.compileContentModels(); err != nil {
+				t.Fatalf("compileContentModels(corrupt) error = %v", err)
+			}
+
+			expected, expectedModelID := newEmptyComplexTypePublicationCompiler(t, document)
+			tt.mutate(&expected.rt.Models[expectedModelID])
+			if err := expected.compileContentModels(); err != nil {
+				t.Fatalf("compileContentModels(expected) error = %v", err)
+			}
+
+			published, err := c.publishSchema()
+			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil {
+				t.Fatal("publishSchema() returned a schema for an empty content model mismatch")
+			}
+			if !reflect.DeepEqual(c.rt, expected.rt) {
+				t.Fatalf("publishSchema() changed failed build: got %#v want %#v", c.rt, expected.rt)
+			}
+
+			c.rt.Models[modelID] = validModel
+			if err := c.compileContentModels(); err != nil {
+				t.Fatalf("compileContentModels(restored) error = %v", err)
+			}
+			if published, err := c.publishSchema(); err != nil || published == nil {
+				t.Fatalf("publishSchema() retry = %v/%v, want success", published, err)
+			}
+		})
+	}
+}
+
+func newEmptyComplexTypePublicationCompiler(t *testing.T, document string) (*compiler, ContentModelID) {
+	t.Helper()
+	limits, err := NormalizeOptions(Options{})
+	if err != nil {
+		t.Fatalf("NormalizeOptions() error = %v", err)
+	}
+	c, err := newCompiler(limits)
+	if err != nil {
+		t.Fatalf("newCompiler() error = %v", err)
+	}
+	if err := c.loadOwned([]source.Source{source.Bytes("schema.xsd", []byte(document))}); err != nil {
+		t.Fatalf("loadOwned() error = %v", err)
+	}
+	if err := c.index(); err != nil {
+		t.Fatalf("index() error = %v", err)
+	}
+	if err := c.reserveIndexedComponentStorage(); err != nil {
+		t.Fatalf("reserveIndexedComponentStorage() error = %v", err)
+	}
+	if err := c.compileGlobals(); err != nil {
+		t.Fatalf("compileGlobals() error = %v", err)
+	}
+	rootName, ok := c.rt.Names.LookupQName("", "root")
+	if !ok {
+		t.Fatal("root QName not interned")
+	}
+	rootID, ok := c.rt.GlobalElements[rootName]
+	if !ok {
+		t.Fatal("root element not registered")
+	}
+	typ, ok := c.rt.Elements[rootID].Type.Complex()
+	if !ok {
+		t.Fatal("root element does not use a complex type")
+	}
+	return c, c.rt.ComplexTypes[typ].Content
 }
 
 func TestPublishedSchemaExcludesCompilerSources(t *testing.T) {
@@ -200,7 +302,7 @@ func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 		t.Fatalf("simpleContent() = %+v, want %+v", got, wantSimple)
 	}
 	for _, fixed := range []bool{false, true} {
-		wantText := ElementTextContent{mixed: ct.Mixed(), fixed: fixed, constrained: fixed}
+		wantText := ElementTextContent{kind: ct.ContentKind, fixed: fixed, constrained: fixed}
 		if got := read.textContent(fixed, fixed); got != wantText {
 			t.Fatalf("textContent(%v) = %+v, want %+v", fixed, got, wantText)
 		}

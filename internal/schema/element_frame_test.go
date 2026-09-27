@@ -27,7 +27,7 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 			{
 				contentModel: modelID,
 				textType:     stringID,
-				flags:        complexTypeReadSimple | complexTypeReadMixed,
+				contentKind:  ContentSimpleMixed,
 			},
 		},
 		CompiledModels: testCompiledModelReads([]CompiledModel{

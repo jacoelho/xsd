@@ -20,12 +20,7 @@ type Scratch struct {
 }
 
 func bitCount(value uint64) uint64 {
-	var count uint64
-	for value != 0 {
-		value &= value - 1
-		count++
-	}
-	return count
+	return uint64(bits.OnesCount64(value)) //nolint:gosec // Population counts are in [0, 64].
 }
 
 // Reset clears matcher state and retains only bounded scratch capacity. The

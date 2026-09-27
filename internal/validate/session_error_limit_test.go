@@ -49,7 +49,7 @@ func TestMaxErrorsCapsCollectionWithoutSkippingXMLSyntax(t *testing.T) {
 		t.Parallel()
 
 		err := NewSessionPool(rt).Validate(strings.NewReader(`<root><v>x</v></root>tail`), Options{MaxErrors: 1})
-		requireCode(t, err, xsderrors.CodeValidationText)
+		requireCode(t, err, xsderrors.CodeValidationXML)
 	})
 }
 

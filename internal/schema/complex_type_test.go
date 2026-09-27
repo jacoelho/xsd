@@ -35,6 +35,7 @@ func TestContentKind(t *testing.T) {
 		{name: "mixed", kind: ContentMixed, mixed: true},
 		{name: "simple", kind: ContentSimple, simple: true},
 		{name: "simple mixed", kind: ContentSimpleMixed, mixed: true, simple: true},
+		{name: "empty", kind: ContentEmpty},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,6 +70,7 @@ func TestComplexTypeContentHelpers(t *testing.T) {
 		{name: "mixed", ct: ComplexType{ContentKind: ContentMixed}, mixed: true},
 		{name: "simple", ct: ComplexType{ContentKind: ContentSimple}, simpleContent: true},
 		{name: "simple mixed", ct: ComplexType{ContentKind: ContentSimpleMixed}, mixed: true, simpleContent: true},
+		{name: "empty", ct: ComplexType{ContentKind: ContentEmpty}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -117,6 +119,10 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 	models := []ContentModel{
 		{Kind: ModelEmpty},
 		{Kind: ModelSequence, Occurs: Occurrence{Min: 1, Max: 1}},
+		{Kind: ModelSequence, Occurs: Occurrence{Min: 1, Max: 1}, Particles: []Particle{ElementParticle(0, Occurrence{Min: 1, Max: 1})}},
+		{Kind: ModelEmpty, Mixed: true},
+		{Kind: ModelChoice, Occurs: Occurrence{Min: 1, Max: 1}},
+		{Kind: ModelAll, Occurs: Occurrence{Min: 0, Max: 1}},
 	}
 	limits := ComplexTypeRefLimits{
 		SimpleTypeCount:      1,
@@ -240,7 +246,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 			id:   1,
 			ct: func() ComplexType {
 				ct := valid
-				ct.Content = 2
+				ct.Content = 6
 				return ct
 			}(),
 			wantErr: "complex type references invalid content model",
@@ -264,6 +270,71 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 				return ct
 			}(),
 			wantErr: "complex type stores text type without simple content",
+		},
+		{
+			name: "empty content uses empty model",
+			id:   1,
+			ct: func() ComplexType {
+				ct := valid
+				ct.ContentKind = ContentEmpty
+				ct.Content = 0
+				return ct
+			}(),
+		},
+		{
+			name: "empty content rejects element-only sequence",
+			id:   1,
+			ct: func() ComplexType {
+				ct := valid
+				ct.ContentKind = ContentEmpty
+				ct.Content = 1
+				return ct
+			}(),
+			wantErr: "empty complex type must reference a non-mixed empty content model",
+		},
+		{
+			name: "empty content rejects sequence with particles",
+			id:   1,
+			ct: func() ComplexType {
+				ct := valid
+				ct.ContentKind = ContentEmpty
+				ct.Content = 2
+				return ct
+			}(),
+			wantErr: "empty complex type must reference a non-mixed empty content model",
+		},
+		{
+			name: "empty content rejects mixed empty model",
+			id:   1,
+			ct: func() ComplexType {
+				ct := valid
+				ct.ContentKind = ContentEmpty
+				ct.Content = 3
+				return ct
+			}(),
+			wantErr: "empty complex type must reference a non-mixed empty content model",
+		},
+		{
+			name: "empty content rejects choice model",
+			id:   1,
+			ct: func() ComplexType {
+				ct := valid
+				ct.ContentKind = ContentEmpty
+				ct.Content = 4
+				return ct
+			}(),
+			wantErr: "empty complex type must reference a non-mixed empty content model",
+		},
+		{
+			name: "empty content rejects all model",
+			id:   1,
+			ct: func() ComplexType {
+				ct := valid
+				ct.ContentKind = ContentEmpty
+				ct.Content = 5
+				return ct
+			}(),
+			wantErr: "empty complex type must reference a non-mixed empty content model",
 		},
 		{
 			name: "simple content invalid text type",
@@ -1206,16 +1277,6 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 		emptyID ContentModelID = iota
 		seqID
 	)
-	rt := testParticleRuntime{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
-			{
-				Kind:      ModelSequence,
-				Occurs:    Occurrence{Min: 1, Max: 1},
-				Particles: []Particle{ElementParticle(0, Occurrence{Min: 1, Max: 1})},
-			},
-		},
-	}
 	tests := []struct {
 		name       string
 		base       ComplexType
@@ -1242,13 +1303,21 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 			want:       true,
 		},
 		{
-			name: "empty element-only extension",
+			name: "true empty extension",
+			base: ComplexType{
+				Content:     emptyID,
+				ContentKind: ContentEmpty,
+			},
+			derivation: DerivationKindExtension,
+			want:       true,
+		},
+		{
+			name: "normalized element-only extension",
 			base: ComplexType{
 				Content:     emptyID,
 				ContentKind: ContentElementOnly,
 			},
 			derivation: DerivationKindExtension,
-			want:       true,
 		},
 		{
 			name: "empty element-only restriction",
@@ -1279,7 +1348,7 @@ func TestComplexContentMixedDerivationBaseAllowed(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := ComplexContentMixedDerivationBaseAllowed(rt, tt.base, tt.derivation); got != tt.want {
+			if got := ComplexContentMixedDerivationBaseAllowed(tt.base, tt.derivation); got != tt.want {
 				t.Fatalf("ComplexContentMixedDerivationBaseAllowed() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1293,16 +1362,6 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 		emptyID ContentModelID = iota
 		seqID
 	)
-	rt := testParticleRuntime{
-		models: []ContentModel{
-			{Kind: ModelEmpty},
-			{
-				Kind:      ModelSequence,
-				Occurs:    Occurrence{Min: 1, Max: 1},
-				Particles: []Particle{ElementParticle(0, Occurrence{Min: 1, Max: 1})},
-			},
-		},
-	}
 	tests := []struct {
 		name       string
 		wantErr    string
@@ -1329,10 +1388,10 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 			content:    ContentMixed,
 		},
 		{
-			name: "empty element-only extension",
+			name: "true empty extension",
 			base: ComplexType{
 				Content:     emptyID,
-				ContentKind: ContentElementOnly,
+				ContentKind: ContentEmpty,
 			},
 			derivation: DerivationKindExtension,
 			content:    ContentMixed,
@@ -1362,7 +1421,7 @@ func TestValidateComplexContentMixedDerivationBase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateComplexContentMixedDerivationBase(rt, tt.base, tt.derivation, tt.content)
+			err := ValidateComplexContentMixedDerivationBase(tt.base, tt.derivation, tt.content)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexContentMixedDerivationBase() error = %v", err)

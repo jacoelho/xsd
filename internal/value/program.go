@@ -646,6 +646,7 @@ type facetProgram struct {
 	maxLength      CardinalityFacet
 	length         CardinalityFacet
 	enumItemLimit  uint32
+	enumBase64     bool
 	present        FacetMask
 	fixed          FacetMask
 }
@@ -877,6 +878,7 @@ func (p *Program) compileEnumeration(id TypeID, source FacetSpec, own *facetProg
 		if v.isList && v.count > own.enumItemLimit {
 			own.enumItemLimit = v.count
 		}
+		own.enumBase64 = own.enumBase64 || parsedValueContainsBase64(&v)
 	}
 	own.enumGroups = append(own.enumGroups, group)
 	return nil
@@ -898,6 +900,7 @@ func mergeFacetPrograms(base, own facetProgram) facetProgram {
 	out.upper = append(append([]boundValue(nil), base.upper...), own.upper...)
 	out.enumGroups = append(append([][]parsedValue(nil), base.enumGroups...), own.enumGroups...)
 	out.enumItemLimit = max(base.enumItemLimit, own.enumItemLimit)
+	out.enumBase64 = base.enumBase64 || own.enumBase64
 	out.patterns = append(clonePatterns(base.patterns), own.patterns...)
 	return out
 }

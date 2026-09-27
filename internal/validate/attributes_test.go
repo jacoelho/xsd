@@ -1,9 +1,14 @@
 package validate
 
 import (
+	"encoding/xml"
+	"strings"
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/vocab"
+	"github.com/jacoelho/xsd/internal/xmlstream"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestAttributeSeenTracksBitsetAndSliceSlots(t *testing.T) {
@@ -167,5 +172,66 @@ func TestMatchAttributeWildcard(t *testing.T) {
 				t.Fatalf("matchAttributeWildcard() = %+v/%v, want %+v/%v", got, valid, tc.want, tc.valid)
 			}
 		})
+	}
+}
+
+func TestRelativeNamespaceAttributeIsNotReservedOrDropped(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType><xs:anyAttribute processContents="skip"/></xs:complexType>
+    <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@*"/></xs:key>
+  </xs:element>
+</xs:schema>`
+	rt := compileRuntimeForTest(t, schema)
+	session, err := newSessionForTest(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &session.session
+	rootName, ok := rt.LookupQName("", "root")
+	if !ok {
+		t.Fatal("compiled runtime is missing root")
+	}
+	rootID, _, ok := rt.RootElement(xsdSchema.RuntimeName{Known: true, Name: rootName, Local: "root"})
+	if !ok {
+		t.Fatal("compiled runtime is missing root element metadata")
+	}
+	rootRuntimeName := xsdSchema.RuntimeName{Known: true, Name: rootName, Local: "root"}
+	s.doc.CommitStart(preparedXMLStart{name: xml.Name{Local: "root"}}, frame{})
+	if startErr := s.doc.identity.startElement(identityElementStart{
+		Context: s.startContext(1, 1),
+		Name:    rootRuntimeName,
+		Element: rootID,
+		Mode:    elementAssessed,
+	}); startErr != nil {
+		t.Fatal(startErr)
+	}
+
+	declaration := xmlstream.Attr{Name: xml.Name{Space: vocab.XMLNSNamespaceURI, Local: "p"}, Value: "xmlns"}
+	ordinary := xmlstream.Attr{Name: xml.Name{Space: vocab.XMLNSPrefix, Local: "value"}, Value: "v"}
+	if handled, reservedErr := s.validateReservedAttribute(&declaration, 1, 1); reservedErr != nil || !handled {
+		t.Fatalf("expanded namespace declaration = handled %v, error %v; want handled without error", handled, reservedErr)
+	}
+	if handled, reservedErr := s.validateReservedAttribute(&ordinary, 1, 1); reservedErr != nil || handled {
+		t.Fatalf("ordinary relative-namespace attribute = handled %v, error %v; want ordinary without error", handled, reservedErr)
+	}
+	if identityErr := s.rejectUnassessedIdentityAttributes([]xmlstream.Attr{declaration, ordinary}, 1, 1, identityMissingSimpleValue); identityErr != nil {
+		t.Fatalf("rejectUnassessedIdentityAttributes() error = %v", identityErr)
+	}
+	if got := s.doc.identity.fieldValues[0].state; got != identityFieldInvalid {
+		t.Fatalf("ordinary relative-namespace identity field state = %v, want invalid", got)
+	}
+
+	// The same boundary must be visible through ordinary document validation.
+	integrationSession, err := newSessionForTest(rt, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := integrationSession.Validate(strings.NewReader(`<root xmlns:p="xmlns" p:value="v"/>`)); err == nil {
+		t.Fatal("Validate() accepted an undeclared ordinary relative-namespace attribute")
+	} else {
+		expectXSDCode(t, err, xsderrors.CodeValidationIdentity)
 	}
 }

@@ -1443,6 +1443,9 @@ func equalAtomic(a, b *atomicValue) bool {
 		if a.kind == PrimitiveHexBinary {
 			return strings.EqualFold(a.binary.Canonical, b.binary.Canonical)
 		}
+		if a.binary.canonicalReady && b.binary.canonicalReady {
+			return a.binary.Canonical == b.binary.Canonical
+		}
 		left, leftErr := decodeBase64Binary(a.binary.Canonical)
 		right, rightErr := decodeBase64Binary(b.binary.Canonical)
 		return leftErr == nil && rightErr == nil && bytes.Equal(left, right)
@@ -1453,6 +1456,17 @@ func equalAtomic(a, b *atomicValue) bool {
 	default:
 		return false
 	}
+}
+
+// prepareBase64Canonical compacts one document-local value when an
+// enumeration comparison needs its value-space spelling. Schema literals are
+// parsed with PrimitiveNeedCanonical and are ready before publication.
+func prepareBase64Canonical(binary *BinaryValue) {
+	if binary.canonicalReady {
+		return
+	}
+	binary.Canonical = removeXMLWhitespace(binary.Canonical)
+	binary.canonicalReady = true
 }
 
 func applyFacets(t *typeDef, value *parsedValue, normalized string, scratch *Scratch) error {
@@ -1469,7 +1483,19 @@ func applyFacets(t *typeDef, value *parsedValue, normalized string, scratch *Scr
 	if err := applyPatternFacets(f.patterns, normalized, scratch); err != nil {
 		return err
 	}
-	return applyEnumerationFacets(f.enumGroups, value)
+	return applyEnumerationFacets(f, value)
+}
+
+func parsedValueContainsBase64(value *parsedValue) bool {
+	if value.isList {
+		for i := range value.items {
+			if parsedValueContainsBase64(&value.items[i]) {
+				return true
+			}
+		}
+		return false
+	}
+	return value.atom.kind == PrimitiveBase64Binary
 }
 
 func applyLengthFacet(f *facetProgram, value *parsedValue) error {
@@ -1551,8 +1577,11 @@ func normalizePatternError(err error) error {
 	return err
 }
 
-func applyEnumerationFacets(groups [][]parsedValue, value *parsedValue) error {
-	for _, group := range groups {
+func applyEnumerationFacets(f *facetProgram, value *parsedValue) error {
+	if f.enumBase64 {
+		prepareBase64EnumerationValue(value)
+	}
+	for _, group := range f.enumGroups {
 		matched := false
 		for i := range group {
 			if equalParsed(value, &group[i]) {
@@ -1565,6 +1594,18 @@ func applyEnumerationFacets(groups [][]parsedValue, value *parsedValue) error {
 		}
 	}
 	return nil
+}
+
+func prepareBase64EnumerationValue(value *parsedValue) {
+	if value.isList {
+		for i := range value.items {
+			prepareBase64EnumerationValue(&value.items[i])
+		}
+		return
+	}
+	if value.atom.kind == PrimitiveBase64Binary {
+		prepareBase64Canonical(&value.atom.binary)
+	}
 }
 
 func patternMatchOptions(scratch *Scratch) (options xsdregex.MatchOptions) {

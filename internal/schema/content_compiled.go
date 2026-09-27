@@ -461,7 +461,7 @@ func (rt *Schema) NextContent(st ContentState, in ContentInput, scratch *Content
 	case CompiledModelDFA:
 		return rt.nextPublishedDFAContent(st, model, in)
 	case CompiledModelEmpty:
-		return ContentTransition{}, ContentTransitionInvalid
+		return ContentTransition{}, ContentTransitionNoMatch
 	default:
 	}
 	return ContentTransition{}, ContentTransitionInvalid

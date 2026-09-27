@@ -41,7 +41,7 @@ func StreamError(line, col int, path string, err error) error {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "DTD declarations are not supported", err))
 	}
 	if errors.Is(err, xmlstream.ErrTextOutsideRoot) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationText, "text outside root element", err))
+		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, "text outside root element", err))
 	}
 	if errors.Is(err, xmlstream.ErrCDATOutsideRoot) {
 		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, "CDATA section outside root element", err))

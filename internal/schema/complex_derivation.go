@@ -109,12 +109,12 @@ func CheckSimpleContentRestrictionTextType(
 
 // CheckComplexContentMixedDerivationBase maps runtime mixed-base admission into
 // the schema diagnostic for xs:complexContent derivation.
-func CheckComplexContentMixedDerivationBase(rt ContentModelRuntime, base ComplexType, derivation ContentDerivationKind, content ContentKind) error {
+func CheckComplexContentMixedDerivationBase(base ComplexType, derivation ContentDerivationKind, content ContentKind) error {
 	runtimeDerivation := DerivationKindRestriction
 	if derivation == ContentDerivationExtension {
 		runtimeDerivation = DerivationKindExtension
 	}
-	if err := ValidateComplexContentMixedDerivationBase(rt, base, runtimeDerivation, content); err != nil {
+	if err := ValidateComplexContentMixedDerivationBase(base, runtimeDerivation, content); err != nil {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
 	}
 	return nil

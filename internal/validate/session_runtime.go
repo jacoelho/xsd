@@ -963,6 +963,9 @@ func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col
 		return s.appendText(data, line, col)
 	}
 	content := f.TextContent
+	if content.IsEmptyContent() {
+		return validation(s.startContext(line, col), xsderrors.CodeValidationText, "character data is not allowed")
+	}
 	whitespace := lex.IsXMLWhitespaceBytes(data)
 	if !whitespace {
 		f.HasText = true
