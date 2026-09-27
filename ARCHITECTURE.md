@@ -185,6 +185,13 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   finite dependency-work budget; active expansion has a depth cap of 1024.
   Content analysis has a separate finite work budget shared by consistency,
   restriction, ambiguity checks, compilation, and sealing.
+  UPA traversal uses one machine-word visitation tag per admitted model; each
+  root starts a distinct traversal without clearing the full table. Traversal
+  results and work charges are not shared across roots. DFA follows become
+  immutable after normalization. A compiler-local position-to-state cache
+  reuses normalized follows, while every lookup retains the same sequential
+  work charges. Only successful state lookup populates the cache; start
+  state normalization, discovery order, and state limits remain unchanged.
   The compiler owns one private `schemaBuild`. Registration and completion
   update correlated tables together. There is no exported mutable builder or
   forwarding layer between compiler and build state. Publication validates
@@ -823,6 +830,10 @@ graph preserves these ownership rules:
 - Refunding work after failed publication validation was rejected because the
   computation has already occurred; repeated failures would evade the aggregate
   work bound. Retryability preserves build data, not spent resources.
+- Sharing UPA results across roots was rejected because it changes traversal
+  work accounting. Root-local tags remove full-table clearing without changing
+  those traversals. Eager DFA follow interning was rejected because it changes
+  state discovery and limit-failure order; lazy position caching preserves both.
 - An additional element-value slice projection was rejected because publication
   and validation already use the canonical packed element table. Tests observe
   published reads and independently corrupt packed projections instead of

@@ -64,6 +64,7 @@ type dfaNode struct {
 type dfaBuilder struct {
 	c         *contentModelCompiler
 	follow    map[int][]dfaEntry
+	followIDs []dfaStateID
 	states    map[string]uint32
 	positions []Particle
 	rows      []dfaSourceRow
@@ -71,6 +72,14 @@ type dfaBuilder struct {
 	limits    []uint32
 	limit     int
 	counters  uint32
+}
+
+// dfaStateID caches the canonical state assigned to one normalized follow
+// position. known distinguishes the valid state ID zero from an unpopulated
+// entry.
+type dfaStateID struct {
+	id    uint32
+	known bool
 }
 
 // ContentModelCompileRuntime supplies compiler-only substitution facts in addition to runtime model metadata.
@@ -168,16 +177,16 @@ func CheckContentModelsUPA(
 	analysis *ContentModelAnalysis,
 ) error {
 	cc := newContentModelCompiler(names, rt, 0, work, analysis)
-	seen := make([]bool, count)
+	seen := make([]int, count)
 	for id := range count {
-		if err := cc.checkContentModelUPA(ContentModelID(id), seen); err != nil {
+		if err := cc.checkContentModelUPA(ContentModelID(id), seen, id+1); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *contentModelCompiler) checkContentModelUPA(id ContentModelID, seen []bool) error {
+func (c *contentModelCompiler) checkContentModelUPA(id ContentModelID, seen []int, tag int) error {
 	if err := c.work.spend(1); err != nil {
 		return err
 	}
@@ -185,8 +194,7 @@ func (c *contentModelCompiler) checkContentModelUPA(id ContentModelID, seen []bo
 	if !ok {
 		return xsderrors.InternalInvariant("UPA check references missing content model")
 	}
-	clear(seen)
-	needsSplit, err := c.modelNeedsRuntimeSplitSeen(id, model, seen)
+	needsSplit, err := c.modelNeedsRuntimeSplitSeen(id, model, seen, tag)
 	if err != nil {
 		return err
 	}
@@ -330,21 +338,21 @@ func addElementDeclarationType(
 	return nil
 }
 
-func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id ContentModelID, model ContentModel, seen []bool) (bool, error) {
+func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id ContentModelID, model ContentModel, seen []int, tag int) (bool, error) {
 	if err := c.work.spend(1); err != nil {
 		return false, err
 	}
 	if ValidUint32Index(uint32(id), len(seen)) {
-		if seen[id] {
+		if seen[id] == tag {
 			return false, nil
 		}
-		seen[id] = true
+		seen[id] = tag
 	}
 	if choiceNeedsRuntimeSplit(model, model.Occurs) {
 		return true, nil
 	}
 	for _, p := range model.Particles {
-		needsSplit, err := c.particleNeedsRuntimeSplit(p, seen)
+		needsSplit, err := c.particleNeedsRuntimeSplit(p, seen, tag)
 		if err != nil {
 			return false, err
 		}
@@ -355,7 +363,7 @@ func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id ContentModelID, mod
 	return false, nil
 }
 
-func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle Particle, seen []bool) (bool, error) {
+func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle Particle, seen []int, tag int) (bool, error) {
 	if err := c.work.spend(1); err != nil {
 		return false, err
 	}
@@ -369,7 +377,7 @@ func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle Particle, seen
 	if choiceNeedsRuntimeSplit(model, particle.Occurs) {
 		return true, nil
 	}
-	return c.modelNeedsRuntimeSplitSeen(particle.Model, model, seen)
+	return c.modelNeedsRuntimeSplitSeen(particle.Model, model, seen, tag)
 }
 
 func choiceNeedsRuntimeSplit(model ContentModel, occurs Occurrence) bool {
@@ -1169,7 +1177,7 @@ func (b *dfaBuilder) row(entries []dfaEntry) (dfaSourceRow, error) {
 		if e.Pos < 0 || e.Pos >= len(b.positions) {
 			return dfaSourceRow{}, xsderrors.InternalInvariant("content model DFA references invalid position")
 		}
-		to, err := b.stateID(b.follow[e.Pos])
+		to, err := b.followStateID(e.Pos)
 		if err != nil {
 			return dfaSourceRow{}, err
 		}
@@ -1188,7 +1196,27 @@ func (b *dfaBuilder) stateID(entries []dfaEntry) (uint32, error) {
 	if err := b.spendDFAEntries(entries); err != nil {
 		return 0, err
 	}
-	entries = normalizeDFAEntries(entries)
+	return b.internState(normalizeDFAEntries(entries))
+}
+
+func (b *dfaBuilder) followStateID(pos int) (uint32, error) {
+	if err := b.spendDFAEntries(b.follow[pos]); err != nil {
+		return 0, err
+	}
+	cache := &b.followIDs[pos]
+	if cache.known {
+		return cache.id, nil
+	}
+	id, err := b.internState(b.follow[pos])
+	if err != nil {
+		return 0, err
+	}
+	cache.id = id
+	cache.known = true
+	return id, nil
+}
+
+func (b *dfaBuilder) internState(entries []dfaEntry) (uint32, error) {
 	key := dfaStateKey(entries)
 	if id, ok := b.states[key]; ok {
 		return id, nil
@@ -1575,6 +1603,7 @@ func (b *dfaBuilder) normalizeFollows() error {
 		}
 		b.follow[pos] = normalizeDFAEntries(entries)
 	}
+	b.followIDs = make([]dfaStateID, len(b.positions))
 	return nil
 }
 
