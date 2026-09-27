@@ -160,7 +160,7 @@ func (s *substitutionCompilation) finalizeElementConstraint(pending pendingEleme
 		err := xsderrors.InternalInvariant("pending element constraint has invalid kind")
 		return err
 	}
-	if err := s.compiler.validateElementValueConstraints(&decl, pending.node, s.compiler.simpleTypeUnavailable); err != nil {
+	if err := s.compiler.validateElementValueConstraints(&decl, pending.node, s.compiler.rt.simpleTypeUnavailable); err != nil {
 		return withSchemaCompileLocation(pending.node, err)
 	}
 	s.elements[pending.element] = decl

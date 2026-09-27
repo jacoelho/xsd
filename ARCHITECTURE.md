@@ -193,12 +193,14 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   work charges. Only successful state lookup populates the cache; start
   state normalization, discovery order, and state limits remain unchanged.
   The compiler owns one private `schemaBuild`. Registration and completion
-  update correlated tables together. There is no exported mutable builder or
-  forwarding layer between compiler and build state. Publication validates
-  semantic source invariants, constructs immutable execution tables once, and
-  consumes the build only on success. Failure preserves build data, while
-  completed work remains charged. Read tables are derived state; comparing each
-  table back to a duplicate runtime projection is not a second publication step.
+  update correlated tables together. Simple-type unavailability has one mutable
+  bitmap in that build; publication owns its immutable snapshot. There is no
+  exported mutable builder or forwarding layer between compiler and build state.
+  Publication validates semantic source invariants, constructs immutable
+  execution tables once, and consumes the build only on success. Failure preserves
+  build data, while completed work remains charged. Read tables are derived state;
+  comparing each table back to a duplicate runtime projection is not a second
+  publication step.
   Names, typed references, element constraints, derivation indexes, wildcard
   policies, substitution membership, and content execution remain schema-owned.
   Published value constraints own application text and an immutable namespace
