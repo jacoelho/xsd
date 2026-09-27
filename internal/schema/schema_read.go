@@ -82,6 +82,7 @@ func (rt *Schema) simpleElementFrame(frame ElementFrameRead, id SimpleTypeID) (E
 	}
 	frame.Content = content
 	frame.SimpleContent = id
+	frame.TextContent.kind = ContentSimple
 	return frame, true
 }
 

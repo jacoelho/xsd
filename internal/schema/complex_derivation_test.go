@@ -115,10 +115,10 @@ func TestCheckSimpleContentRestrictionTextType(t *testing.T) {
 func TestCheckComplexContentMixedDerivationBase(t *testing.T) {
 	t.Parallel()
 
-	if err := CheckComplexContentMixedDerivationBase(nil, ComplexType{ContentKind: ContentMixed}, ContentDerivationExtension, ContentMixed); err != nil {
+	if err := CheckComplexContentMixedDerivationBase(ComplexType{ContentKind: ContentMixed}, ContentDerivationExtension, ContentMixed); err != nil {
 		t.Fatalf("CheckComplexContentMixedDerivationBase(mixed base) error = %v", err)
 	}
-	err := CheckComplexContentMixedDerivationBase(nil, ComplexType{ContentKind: ContentElementOnly}, ContentDerivationRestriction, ContentMixed)
+	err := CheckComplexContentMixedDerivationBase(ComplexType{ContentKind: ContentElementOnly}, ContentDerivationRestriction, ContentMixed)
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "complexContent mixed derivation requires mixed base")
 }
 

@@ -156,6 +156,56 @@ func TestNextContentAnyReturnsGlobalElement(t *testing.T) {
 	}
 }
 
+func TestNextContentEmptyReturnsNoMatchWithoutMutation(t *testing.T) {
+	t.Parallel()
+
+	rt := publishedContentSchema(contentSchemaFixture{
+		models: map[ContentModelID]CompiledModel{0: {Kind: CompiledModelEmpty}},
+	})
+	state := ContentState{model: 0, present: true}
+	bits := []uint64{0x5a}
+	scratch := NewContentScratch(bits, 0, 1)
+	wantBits := slices.Clone(bits)
+	transition, status := rt.NextContent(state, ContentInput{
+		Name: RuntimeName{Known: true, Name: QName{Local: 1}, Local: "child"},
+	}, &scratch)
+	if status != ContentTransitionNoMatch {
+		t.Fatalf("NextContent(empty) status = %v, want no match", status)
+	}
+	if transition != (ContentTransition{}) {
+		t.Fatalf("NextContent(empty) transition = %+v, want zero transition", transition)
+	}
+	if !slices.Equal(bits, wantBits) {
+		t.Fatalf("NextContent(empty) mutated scratch = %v, want %v", bits, wantBits)
+	}
+}
+
+func TestNextContentRejectsInvalidModelState(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		state ContentState
+		model CompiledModel
+	}{
+		{name: "missing state", state: ContentState{present: false}, model: CompiledModel{Kind: CompiledModelEmpty}},
+		{name: "out of range model", state: ContentState{model: 1, present: true}, model: CompiledModel{Kind: CompiledModelEmpty}},
+		{name: "unknown model kind", state: ContentState{model: 0, present: true}, model: CompiledModel{Kind: CompiledModelKind(99)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			rt := publishedContentSchema(contentSchemaFixture{
+				models: map[ContentModelID]CompiledModel{0: tt.model},
+			})
+			_, status := rt.NextContent(tt.state, ContentInput{}, &ContentScratch{})
+			if status != ContentTransitionInvalid {
+				t.Fatalf("NextContent(%s) status = %v, want invalid", tt.name, status)
+			}
+		})
+	}
+}
+
 func TestNextContentAllDefersScratchUntilCommit(t *testing.T) {
 	t.Parallel()
 

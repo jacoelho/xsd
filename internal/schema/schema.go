@@ -61,15 +61,14 @@ type complexTypeRead struct {
 	contentModel    ContentModelID
 	textType        SimpleTypeID
 	block           DerivationMask
+	contentKind     ContentKind
 	flags           complexTypeReadFlags
 }
 
 type complexTypeReadFlags uint8
 
 const (
-	complexTypeReadSimple complexTypeReadFlags = 1 << iota
-	complexTypeReadMixed
-	complexTypeReadAbstract
+	complexTypeReadAbstract complexTypeReadFlags = 1 << iota
 )
 
 func newComplexTypeReads(types []ComplexType) []complexTypeRead {
@@ -82,12 +81,6 @@ func newComplexTypeReads(types []ComplexType) []complexTypeRead {
 
 func newComplexTypeRead(ct ComplexType) complexTypeRead {
 	var flags complexTypeReadFlags
-	if ct.SimpleContent() {
-		flags |= complexTypeReadSimple
-	}
-	if ct.Mixed() {
-		flags |= complexTypeReadMixed
-	}
 	if ct.Abstract {
 		flags |= complexTypeReadAbstract
 	}
@@ -96,6 +89,7 @@ func newComplexTypeRead(ct ComplexType) complexTypeRead {
 		contentModel:    ct.Content,
 		textType:        ct.TextType,
 		block:           ct.Block,
+		contentKind:     ct.ContentKind,
 		flags:           flags,
 	}
 }
@@ -110,13 +104,13 @@ func (r complexTypeRead) typeInfo() TypeInfo {
 func (r complexTypeRead) simpleContent() simpleContentTypeRead {
 	return newSimpleContentTypeRead(simpleContentTypeReadShape{
 		Type:    r.textType,
-		Present: r.flags&complexTypeReadSimple != 0,
+		Present: r.contentKind.Simple(),
 	})
 }
 
 func (r complexTypeRead) textContent(fixed, constrained bool) ElementTextContent {
 	return ElementTextContent{
-		mixed:       r.flags&complexTypeReadMixed != 0,
+		kind:        r.contentKind,
 		fixed:       fixed,
 		constrained: constrained,
 	}
