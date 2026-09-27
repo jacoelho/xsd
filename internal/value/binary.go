@@ -12,6 +12,8 @@ import (
 type BinaryValue struct {
 	Canonical string
 	Length    uint32
+	// canonicalReady distinguishes compact base64 value text from deferred lexical text.
+	canonicalReady bool
 }
 
 // ParseBinaryValue parses normalized as an XML Schema binary primitive value.
@@ -89,20 +91,20 @@ func ValidateBase64BinaryLexical[T byteText](raw T) error {
 }
 
 func parseBase64BinaryValue(normalized string, needs PrimitiveValueNeed) (BinaryValue, error) {
-	if needs.Has(PrimitiveNeedCanonical) {
-		decoded, err := decodeBase64Binary(normalized)
-		if err != nil {
-			return BinaryValue{}, err
-		}
-		length, err := checkedUint32(len(decoded), "base64Binary length exceeds uint32 limit")
-		if err != nil {
-			return BinaryValue{}, err
-		}
-		return BinaryValue{Canonical: base64.StdEncoding.EncodeToString(decoded), Length: length}, nil
-	}
-	length, err := base64BinaryLength(normalized)
+	scan, err := scanBase64BinaryLexical(normalized)
 	if err != nil {
 		return BinaryValue{}, err
+	}
+	length, err := checkedUint32(scan.cleanLen/4*3-scan.pads, "base64Binary length exceeds uint32 limit")
+	if err != nil {
+		return BinaryValue{}, err
+	}
+	if needs.Has(PrimitiveNeedCanonical) {
+		return BinaryValue{
+			Canonical:      removeXMLWhitespace(normalized),
+			Length:         length,
+			canonicalReady: true,
+		}, nil
 	}
 	return BinaryValue{Canonical: normalized, Length: length}, nil
 }
