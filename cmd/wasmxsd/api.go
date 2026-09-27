@@ -52,6 +52,13 @@ type errorOutput struct {
 	Column   int    `json:"column,omitempty"`
 }
 
+// validationAdapter owns the worker-local schema cache. A cached engine is
+// valid only for the exact admitted XSD spelling used to compile it.
+type validationAdapter struct {
+	engine  *xsd.Engine
+	xsdText string
+}
+
 func formatXMLData(input string) formatResponse {
 	if input == "" {
 		return formatFailure("XML cannot be empty", 1, 1)
@@ -73,7 +80,7 @@ func formatXMLData(input string) formatResponse {
 	return formatResponse{Status: statusOK, XML: out.String()}
 }
 
-func validateXMLData(xmlText, xsdText string) validateResponse {
+func (a *validationAdapter) validateXMLData(xmlText, xsdText string) validateResponse {
 	if xmlText == "" {
 		return validationFailure("XML cannot be empty")
 	}
@@ -83,20 +90,41 @@ func validateXMLData(xmlText, xsdText string) validateResponse {
 	if int64(len(xsdText)) > maxXSDBytes {
 		return validationFailure(fmt.Sprintf("XSD exceeds %s limit", byteLimit(maxXSDBytes)))
 	}
-	engine, compileErr := xsd.Compile(xsd.Bytes("schema.xsd", []byte(xsdText)))
+	engine, compileErr := a.compile(xsdText)
 	if compileErr != nil {
 		schemaErrors := collectErrors(compileErr, "xsd")
 		if xmlErr := validate.CheckXMLWellFormed(strings.NewReader(xmlText), validate.Options{}); xmlErr != nil {
 			xmlErrors := collectErrors(xmlErr, "xml")
-			return validationInvalid(append(xmlErrors, schemaErrors...))
+			return validationError(errors.Join(xmlErr, compileErr), append(xmlErrors, schemaErrors...))
 		}
-		return validationInvalid(schemaErrors)
+		return validationError(compileErr, schemaErrors)
 	}
 	err := engine.ValidateWithOptions(strings.NewReader(xmlText), xsd.ValidateOptions{MaxErrors: maxValidationErrors})
 	if err != nil {
-		return validationInvalid(collectErrors(err, "xml"))
+		diagnostics := collectErrors(err, "xml")
+		if isConclusiveValidation(err) {
+			return validationInvalid(diagnostics)
+		}
+		return validationError(err, diagnostics)
 	}
 	return validateResponse{Status: statusValid}
+}
+
+func (a *validationAdapter) compile(xsdText string) (*xsd.Engine, error) {
+	if a.engine != nil && a.xsdText == xsdText {
+		return a.engine, nil
+	}
+	// Evict before compiling a changed source. Failed compilations are not
+	// negative-cache entries and must leave the adapter empty.
+	a.engine = nil
+	a.xsdText = ""
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(xsdText)))
+	if err != nil {
+		return nil, err
+	}
+	a.engine = engine
+	a.xsdText = xsdText
+	return engine, nil
 }
 
 func formatFailure(message string, line, column int) formatResponse {
@@ -105,6 +133,18 @@ func formatFailure(message string, line, column int) formatResponse {
 
 func validationFailure(message string) validateResponse {
 	return validateResponse{Status: statusError, Error: message}
+}
+
+func validationError(err error, diagnostics []errorOutput) validateResponse {
+	message := "validation failed without diagnostics"
+	if err != nil && err.Error() != "" {
+		message = err.Error()
+	}
+	response := validateResponse{Status: statusError, Error: message}
+	if len(diagnostics) != 0 {
+		response.Errors = diagnostics
+	}
+	return response
 }
 
 func validationInvalid(diagnostics []errorOutput) validateResponse {
@@ -124,6 +164,34 @@ func collectErrors(err error, source string) []errorOutput {
 		out = append(out, errorToOutput(item, source))
 	}
 	return out
+}
+
+func isConclusiveValidation(err error) bool {
+	items := xsderrors.Flatten(err)
+	if len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		xerr, ok := errors.AsType[*xsderrors.Error](item)
+		if !ok || xerr == nil || xerr.Category() != xsderrors.CategoryValidation || xsderrors.IsUnsupported(item) {
+			return false
+		}
+		//nolint:exhaustive // Only conclusive assessment codes qualify; unknown codes fail closed.
+		switch xerr.Code() {
+		case xsderrors.CodeValidationRoot,
+			xsderrors.CodeValidationElement,
+			xsderrors.CodeValidationAttribute,
+			xsderrors.CodeValidationText,
+			xsderrors.CodeValidationType,
+			xsderrors.CodeValidationFacet,
+			xsderrors.CodeValidationContent,
+			xsderrors.CodeValidationNil,
+			xsderrors.CodeValidationIdentity:
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func errorToOutput(err error, source string) errorOutput {

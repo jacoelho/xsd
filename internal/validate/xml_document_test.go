@@ -201,7 +201,7 @@ func (d *emptyXMLDocument) popLexicalEnd() {
 func (d *emptyXMLDocument) Complete() error {
 	if !d.ready {
 		if d.Depth() == 0 {
-			return validation(StartContext{}, xsderrors.CodeValidationRoot, "instance document has no root element")
+			return validation(StartContext{}, xsderrors.CodeValidationXML, "instance document has no root element")
 		}
 		return validation(d.context(0, 0), xsderrors.CodeValidationXML, "unclosed element")
 	}
@@ -397,7 +397,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 
 func TestXMLDocumentStateCompleteRejectsMissingAndPendingUnclosedRoot(t *testing.T) {
 	var doc emptyXMLDocument
-	requireCode(t, doc.Complete(), xsderrors.CodeValidationRoot)
+	requireCode(t, doc.Complete(), xsderrors.CodeValidationXML)
 
 	var values struct{}
 	start, err := prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "root"}), &values, 0, 2, 3)

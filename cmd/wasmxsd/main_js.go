@@ -17,8 +17,9 @@ type limitCatalog struct {
 }
 
 func main() {
+	adapter := &validationAdapter{}
 	holdJSFunc("formatXML", formatXMLJS)
-	holdJSFunc("validateXML", validateXMLJS)
+	holdJSFunc("validateXML", adapter.validateXMLJS)
 	limitsJSON, err := json.Marshal(limitCatalog{
 		MaxXMLBytes:          maxXMLBytes,
 		MaxFormattedXMLBytes: maxFormattedXMLBytes,
@@ -49,7 +50,7 @@ func formatXMLJS(this js.Value, args []js.Value) any {
 	return marshalResponse(formatXMLData(input))
 }
 
-func validateXMLJS(this js.Value, args []js.Value) any {
+func (a *validationAdapter) validateXMLJS(this js.Value, args []js.Value) any {
 	if len(args) != 2 {
 		return marshalResponse(validationFailure("invalid number of arguments"))
 	}
@@ -61,7 +62,7 @@ func validateXMLJS(this js.Value, args []js.Value) any {
 	if xsdErr != "" {
 		return marshalResponse(validationFailure(xsdErr))
 	}
-	return marshalResponse(validateXMLData(xmlText, xsdText))
+	return marshalResponse(a.validateXMLData(xmlText, xsdText))
 }
 
 func jsStringArgument(value js.Value, label string, maxBytes int64) (string, string) {

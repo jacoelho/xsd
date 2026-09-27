@@ -45,7 +45,8 @@ function isValidationResponse(result) {
         result.errors.length > 0 && result.errors.every(isDiagnostic);
     case "error":
       return typeof result.error === "string" && result.error !== "" &&
-        !Object.hasOwn(result, "errors");
+        (!Object.hasOwn(result, "errors") ||
+          Array.isArray(result.errors) && result.errors.length > 0 && result.errors.every(isDiagnostic));
     default:
       return false;
   }

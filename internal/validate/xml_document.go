@@ -213,7 +213,7 @@ func (d *xmlDocument[P]) CommitEnd(reader *xmlstream.Reader) error {
 func (d *xmlDocument[P]) Complete(reader *xmlstream.Reader) error {
 	if err := reader.Complete(); err != nil {
 		if errors.Is(err, xmlstream.ErrNoRoot) {
-			return validation(StartContext{}, xsderrors.CodeValidationRoot, "instance document has no root element")
+			return validation(StartContext{}, xsderrors.CodeValidationXML, "instance document has no root element")
 		}
 		if errors.Is(err, xmlstream.ErrUnclosedElements) {
 			return validation(d.context(0, 0), xsderrors.CodeValidationXML, "unclosed element")

@@ -40,6 +40,86 @@ test("validates in a worker and renders valid and invalid outcomes", async ({ pa
   expect(pageErrors).toEqual([]);
 });
 
+test("changed XSD replaces the worker's previously compiled schema", async ({ page }) => {
+  await page.goto("/");
+  const validate = page.locator("#validate-button");
+  await expect(validate).toBeEnabled({ timeout: 30_000 });
+  await page.locator("#xsd-editor").fill(schema);
+  await page.locator("#xml-editor").fill("<root><v>2</v></root>");
+  await validate.click();
+  await expect(page.locator("#result-title")).toHaveText("Valid XML");
+
+  await page.locator("#xsd-editor").fill(schema.replace("xs:int", "xs:boolean"));
+  await validate.click();
+  await expect(page.locator("#result-title")).toHaveText("1 validation error");
+  await expect(page.locator("#result-body")).toContainText("validation.facet");
+  await page.locator("#xml-editor").fill("<root><v>true</v></root>");
+  await validate.click();
+  await expect(page.locator("#result-title")).toHaveText("Valid XML");
+});
+
+test("malformed XML renders assessment diagnostics without formatting", async ({ page }) => {
+  await page.goto("/");
+  const validate = page.locator("#validate-button");
+  await expect(validate).toBeEnabled({ timeout: 30_000 });
+  await page.locator("#xsd-editor").fill(schema);
+  const malformed = "<root><v>1</root>";
+  await page.locator("#xml-editor").fill(malformed);
+  await validate.click();
+  await expect(page.locator("#result-title")).toHaveText("Validation failed");
+  await expect(page.locator("#result-body tbody tr")).toHaveCount(1);
+  await expect(page.locator("#result-body")).toContainText("validation.xml");
+  await expect(page.locator("#xml-editor")).toHaveValue(malformed);
+});
+
+test("timeout replaces a warmed WASM worker and the next schema is assessed", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#validate-button")).toBeEnabled({ timeout: 30_000 });
+  await page.clock.install();
+  const initial = await page.evaluate(async (xsd) => {
+    const { ValidationWorkerClient } = await import("/js/validation-worker.js");
+    window.dropValidation = false;
+    window.workerGenerations = 0;
+    window.timeoutClient = new ValidationWorkerClient("/js/xsd-worker.js", {
+      workerFactory(url) {
+        window.workerGenerations++;
+        const worker = new Worker(url, { type: "module" });
+        const post = worker.postMessage.bind(worker);
+        worker.postMessage = (message, ...transfer) => {
+          // Lose one request deterministically; timing must not depend on
+          // how quickly this machine compiles or executes WASM.
+          if (window.dropValidation && message.type === "validate") {
+            window.dropValidation = false;
+            return;
+          }
+          post(message, ...transfer);
+        };
+        return worker;
+      },
+    });
+    await window.timeoutClient.start();
+    return (await window.timeoutClient.validate("<root><v>2</v></root>", xsd)).result.status;
+  }, schema);
+  expect(initial).toBe("valid");
+
+  await page.evaluate((xsd) => {
+    window.dropValidation = true;
+    window.timeoutResult = window.timeoutClient.validate("<root><v>2</v></root>", xsd)
+      .then(() => "unexpected success", (err) => err.name);
+  }, schema);
+  await page.clock.fastForward(30_001);
+  const resumed = await page.evaluate(async (xsd) => {
+    try {
+      const timedOut = await window.timeoutResult;
+      const flow = await window.timeoutClient.validate("<root><v>2</v></root>", xsd);
+      return { timedOut, status: flow.result.status, generations: window.workerGenerations };
+    } finally {
+      window.timeoutClient.dispose();
+    }
+  }, schema.replace("xs:int", "xs:boolean"));
+  expect(resumed).toEqual({ timedOut: "ValidationTimeoutError", status: "invalid", generations: 2 });
+});
+
 test("a completed file read invalidates validation of the previous input", async ({ page }) => {
   await page.addInitScript(() => {
     const read = File.prototype.arrayBuffer;
