@@ -24,6 +24,31 @@ func TestSchemaParseStateDiscardsSchemaTextAfterAdmission(t *testing.T) {
 	}
 }
 
+func TestNormalizeSchemaAttributeUsesExpandedNamespaceDeclarationIdentity(t *testing.T) {
+	t.Parallel()
+
+	declaration, ok := normalizeSchemaAttribute(
+		xml.Name{Space: vocab.XSDNamespaceURI, Local: vocab.XSDElemSchema},
+		xml.Name{Space: vocab.XMLNSNamespaceURI, Local: "p"},
+		"xmlns",
+	)
+	if ok || declaration != (schemaAttribute{}) {
+		t.Fatalf("expanded namespace declaration = (%+v, %v), want omitted", declaration, ok)
+	}
+
+	ordinary, ok := normalizeSchemaAttribute(
+		xml.Name{Space: vocab.XSDNamespaceURI, Local: vocab.XSDElemSchema},
+		xml.Name{Space: vocab.XMLNSPrefix, Local: "p"},
+		"relative-value",
+	)
+	if !ok {
+		t.Fatal("ordinary attribute in relative namespace was treated as a declaration")
+	}
+	if ordinary.Name != (xml.Name{Space: vocab.XMLNSPrefix, Local: "p"}) || ordinary.Value != "relative-value" {
+		t.Fatalf("ordinary relative-namespace attribute = %+v, want preserved expanded name/value", ordinary)
+	}
+}
+
 func TestSchemaNodeResolveQNameReturnsXMLName(t *testing.T) {
 	t.Parallel()
 

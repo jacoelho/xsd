@@ -145,7 +145,7 @@ func (s *session) validateReservedAttribute(attr *xmlstream.Attr, line, col int)
 	if name.Space == "" && name.Local != vocab.XMLNSPrefix {
 		return false, nil
 	}
-	if xmlstream.IsNamespaceName(name) {
+	if xmlstream.IsExpandedNamespaceName(name) {
 		return true, nil
 	}
 	if !isXSIAttributeName(name) {
@@ -308,7 +308,7 @@ func (s *session) rejectUnassessedIdentityAttributes(attrs []xmlstream.Attr, lin
 	}
 	ctx := s.startContext(line, col)
 	for i := range attrs {
-		if xmlstream.IsNamespaceName(attrs[i].Name) {
+		if xmlstream.IsExpandedNamespaceName(attrs[i].Name) {
 			continue
 		}
 		rn := s.runtimeName(attrs[i].Name)

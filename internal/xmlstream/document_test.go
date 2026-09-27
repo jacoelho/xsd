@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/vocab"
 )
 
 func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
@@ -27,7 +29,7 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	if uri, ok := reader.Lookup("p"); !ok || uri != "urn:test" {
 		t.Fatalf("Lookup(p) = %q, %v", uri, ok)
 	}
-	if got := rootToken.Start.Attr[0].Name; got != (xml.Name{Space: "xmlns", Local: "p"}) {
+	if got := rootToken.Start.Attr[0].Name; got != (xml.Name{Space: vocab.XMLNSNamespaceURI, Local: "p"}) {
 		t.Fatalf("namespace attribute = %+v", got)
 	}
 	context := reader.Context()
@@ -339,6 +341,141 @@ func TestReaderNamespaceAdmissionRollsBackAndRejectsDuplicateExpandedAttributes(
 	}
 	if _, ok := reader.Lookup("a"); ok {
 		t.Fatal("failed start retained namespace binding")
+	}
+}
+
+func TestReaderNamespaceDeclarationIdentityDoesNotCollideWithRelativeAttribute(t *testing.T) {
+	var reader Reader
+	if err := reader.Reset(strings.NewReader(`<r xmlns="xmlns" xmlns:p="xmlns" p:value="v"/>`), Config{}); err != nil {
+		t.Fatal(err)
+	}
+	tok := mustNextToken(t, &reader)
+	frame, element, err := reader.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if element.Name != (xml.Name{Space: "xmlns", Local: "r"}) {
+		t.Fatalf("relative default element namespace = %+v", element.Name)
+	}
+	want := []xml.Name{
+		{Space: vocab.XMLNSNamespaceURI, Local: vocab.XMLNSPrefix},
+		{Space: vocab.XMLNSNamespaceURI, Local: "p"},
+		{Space: "xmlns", Local: "value"},
+	}
+	if len(tok.Start.Attr) != len(want) {
+		t.Fatalf("expanded attribute count = %d, want %d", len(tok.Start.Attr), len(want))
+	}
+	for i, attr := range tok.Start.Attr {
+		if attr.Name != want[i] {
+			t.Fatalf("expanded attribute %d = %+v, want %+v", i, attr.Name, want[i])
+		}
+	}
+	_ = mustNextToken(t, &reader)
+	if err := reader.End(frame); err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Complete(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReaderNamespaceAdmissionRollbackKeepsLexicalAttributes(t *testing.T) {
+	var reader Reader
+	if err := reader.Reset(strings.NewReader(`<r xmlns:p="xmlns" p:value="v" q:later="x"/>`), Config{}); err != nil {
+		t.Fatal(err)
+	}
+	tok := mustNextToken(t, &reader)
+	if _, _, err := reader.Start(); err == nil {
+		t.Fatal("Start() accepted an unbound later attribute")
+	} else {
+		var boundaryErr *Error
+		if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorNamespace {
+			t.Fatalf("Start() error = %T %v, want namespace boundary error", err, err)
+		}
+	}
+	if reader.Depth() != 0 {
+		t.Fatalf("Depth after failed start = %d, want 0", reader.Depth())
+	}
+	if _, ok := reader.Lookup("p"); ok {
+		t.Fatal("failed start retained namespace binding")
+	}
+	wantLexical := []xml.Name{
+		{Space: vocab.XMLNSPrefix, Local: "p"},
+		{Space: "p", Local: "value"},
+		{Space: "q", Local: "later"},
+	}
+	for i, attr := range tok.Start.Attr {
+		if attr.Name != wantLexical[i] {
+			t.Fatalf("failed-start attribute %d = %+v, want lexical %+v", i, attr.Name, wantLexical[i])
+		}
+	}
+
+	if err := reader.Reset(strings.NewReader(`<fresh/>`), Config{}); err != nil {
+		t.Fatal(err)
+	}
+	_ = mustNextToken(t, &reader)
+	frame, _, err := reader.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = mustNextToken(t, &reader)
+	if err := reader.End(frame); err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Complete(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReaderRejectsReservedXMLNSNamespaceBindings(t *testing.T) {
+	for _, input := range []string{
+		`<r xmlns:p="` + vocab.XMLNSNamespaceURI + `"/>`,
+		`<r xmlns="` + vocab.XMLNSNamespaceURI + `"/>`,
+	} {
+		t.Run(input, func(t *testing.T) {
+			var reader Reader
+			if err := reader.Reset(strings.NewReader(input), Config{}); err != nil {
+				t.Fatal(err)
+			}
+			_ = mustNextToken(t, &reader)
+			if _, _, err := reader.Start(); err == nil {
+				t.Fatal("Start() accepted the reserved XMLNS namespace URI")
+			} else {
+				var boundaryErr *Error
+				if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorNamespace {
+					t.Fatalf("Start() error = %T %v, want namespace boundary error", err, err)
+				}
+			}
+			if reader.Depth() != 0 {
+				t.Fatalf("Depth after rejected binding = %d, want 0", reader.Depth())
+			}
+		})
+	}
+}
+
+func TestReaderRejectsDuplicateNamespaceDeclarationAndExpandedAlias(t *testing.T) {
+	for _, input := range []string{
+		`<r xmlns:p="urn:one" xmlns:p="urn:two"/>`,
+		`<r xmlns:p="xmlns" xmlns:q="xmlns" p:value="one" q:value="two"/>`,
+	} {
+		t.Run(input, func(t *testing.T) {
+			var reader Reader
+			if err := reader.Reset(strings.NewReader(input), Config{}); err != nil {
+				t.Fatal(err)
+			}
+			_ = mustNextToken(t, &reader)
+			if _, _, err := reader.Start(); err == nil {
+				t.Fatal("Start() accepted duplicate expanded names")
+			} else {
+				var boundaryErr *Error
+				if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorNamespace {
+					t.Fatalf("Start() error = %T %v, want namespace boundary error", err, err)
+				}
+			}
+			if reader.Depth() != 0 {
+				t.Fatalf("Depth after duplicate = %d, want 0", reader.Depth())
+			}
+		})
 	}
 }
 

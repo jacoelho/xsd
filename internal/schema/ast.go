@@ -212,7 +212,7 @@ func schemaAttributesStream(element xml.Name, attrs []xmlstream.Attr) []schemaAt
 func normalizeSchemaAttribute(element, name xml.Name, value string) (schemaAttribute, bool) {
 	// Namespace declarations are consumed by xmlstream.Reader.Start and belong
 	// to the namespace frame, not the schema component's attribute vocabulary.
-	if xmlstream.IsNamespaceName(name) {
+	if xmlstream.IsExpandedNamespaceName(name) {
 		return schemaAttribute{}, false
 	}
 	if (name.Space == vocab.XMLNamespaceURI && name.Local == vocab.XMLAttrBase) ||

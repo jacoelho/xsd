@@ -20,6 +20,9 @@ type EndElement struct {
 // Reader.AppendValue before
 // advancing the parser, then retain only the returned string or byte copy.
 type Attr struct {
+	// Name is lexical before Reader.Start and expanded after successful
+	// namespace admission. Namespace declarations use the XMLNS namespace URI
+	// in the expanded form.
 	Name  xml.Name
 	Value string
 	raw   []byte

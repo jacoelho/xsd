@@ -580,6 +580,18 @@ func TestFormatXMLRejectsExpandedDuplicateAttributes(t *testing.T) {
 	}
 }
 
+func TestFormatXMLKeepsRelativeNamespaceAttributeDistinctFromDeclaration(t *testing.T) {
+	var out strings.Builder
+	err := XML(&out, `<root xmlns:p="xmlns" p:value="v"/>`)
+	if err != nil {
+		t.Fatalf("XML() error = %v", err)
+	}
+	const want = `<root xmlns:p="xmlns" p:value="v"></root>`
+	if out.String() != want {
+		t.Fatalf("XML() = %q, want %q", out.String(), want)
+	}
+}
+
 func TestFormatXMLRejectsDuplicateNamespaceDeclarations(t *testing.T) {
 	var out strings.Builder
 	err := XML(&out, `<root xmlns:a="urn:x" xmlns:a="urn:y"/>`)

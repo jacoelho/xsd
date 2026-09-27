@@ -15,12 +15,14 @@ func BenchmarkNamespaceAdmissionChurn(b *testing.B) {
 				name := fmt.Sprintf("depth_%d/%s/persistent_%t", depth, declarations, persistent)
 				b.Run(name, func(b *testing.B) {
 					starts := namespaceBenchmarkStarts(depth, declarations)
+					lexicalAttrs := namespaceBenchmarkLexicalAttrs(starts)
 					frames := make([]frame, depth)
 					contexts := make([]Context, depth)
 					var namespaceStack stack
 					var values cache
 					b.ReportAllocs()
 					for b.Loop() {
+						restoreNamespaceBenchmarkLexicalAttrs(starts, lexicalAttrs)
 						namespaceStack.Reset(depth * 2)
 						for i := range starts {
 							admitted, _, err := namespaceStack.StartStream(&starts[i], &values)
@@ -50,11 +52,13 @@ func BenchmarkNamespaceDefaultResolveChurn(b *testing.B) {
 			name := fmt.Sprintf("depth_%d/%s", depth, shadow)
 			b.Run(name, func(b *testing.B) {
 				starts := namespaceBenchmarkDefaultStarts(depth, shadow)
+				lexicalAttrs := namespaceBenchmarkLexicalAttrs(starts)
 				frames := make([]frame, depth)
 				var namespaceStack stack
 				var values cache
 				b.ReportAllocs()
 				for b.Loop() {
+					restoreNamespaceBenchmarkLexicalAttrs(starts, lexicalAttrs)
 					namespaceStack.Reset(depth * 2)
 					for i := range starts {
 						admitted, _, err := namespaceStack.StartStream(&starts[i], &values)
@@ -128,4 +132,31 @@ func namespaceBenchmarkDefaultStarts(depth int, shadow namespaceBenchmarkShadowM
 		}
 	}
 	return starts
+}
+
+// StartStream expands attribute names in place. Benchmarks reuse the same
+// starts to avoid measuring setup allocations, so keep the lexical spellings
+// in a flat snapshot and restore only names between iterations.
+func namespaceBenchmarkLexicalAttrs(starts []StartElement) []xml.Name {
+	var count int
+	for i := range starts {
+		count += len(starts[i].Attr)
+	}
+	names := make([]xml.Name, 0, count)
+	for i := range starts {
+		for j := range starts[i].Attr {
+			names = append(names, starts[i].Attr[j].Name)
+		}
+	}
+	return names
+}
+
+func restoreNamespaceBenchmarkLexicalAttrs(starts []StartElement, names []xml.Name) {
+	index := 0
+	for i := range starts {
+		for j := range starts[i].Attr {
+			starts[i].Attr[j].Name = names[index]
+			index++
+		}
+	}
 }
