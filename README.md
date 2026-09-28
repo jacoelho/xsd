@@ -369,8 +369,8 @@ make browser-test
 
 ## Benchmarks
 
-Go results were measured on 2026-09-27 from the working tree based on
-`97ba5e3e`, using Go 1.27.0 on an Apple M2 Max with 32 GiB RAM. Libxml2 2.9.13
+Go results were measured on 2026-09-28 from commit `0a6364c5`, using Go 1.27.0
+on an Apple M2 Max with 32 GiB RAM. Libxml2 2.9.13
 results are unchanged from the 2026-09-06 run on the same machine; libxml2 was
 not rerun.
 
@@ -380,12 +380,12 @@ independently.
 
 | Workload | Go time | libxml2 time | Go peak RSS | libxml2 peak RSS |
 | --- | ---: | ---: | ---: | ---: |
-| Streaming, 20 MiB | 518.804 ms | 377.093 ms | 6.83 MiB | 243.08 MiB |
-| Streaming, 100 MiB | 2.528 s | 1.789 s | 6.83 MiB | 1.17 GiB |
-| Streaming, 500 MiB | 12.418 s | 8.859 s | 6.92 MiB | 5.81 GiB |
-| Streaming, 1 GiB | 25.425 s | 21.209 s | 7.00 MiB | 10.29 GiB |
-| Streaming, 2 GiB | 50.636 s | 51.485 s | 7.09 MiB | 13.33 GiB |
-| Identity constraints, 100,000 rows | 337.891 ms | 605.858 ms | 89.05 MiB | 186.66 MiB |
+| Streaming, 20 MiB | 529.025 ms | 377.093 ms | 6.81 MiB | 243.08 MiB |
+| Streaming, 100 MiB | 2.579 s | 1.789 s | 6.92 MiB | 1.17 GiB |
+| Streaming, 500 MiB | 12.814 s | 8.859 s | 7.02 MiB | 5.81 GiB |
+| Streaming, 1 GiB | 26.148 s | 21.209 s | 7.05 MiB | 10.29 GiB |
+| Streaming, 2 GiB | 51.550 s | 51.485 s | 6.91 MiB | 13.33 GiB |
+| Identity constraints, 100,000 rows | 334.451 ms | 605.858 ms | 88.17 MiB | 186.66 MiB |
 
 Libxml2 timings varied on the larger files: 20.86–37.68 s for 1 GiB and
 51.08–52.20 s for 2 GiB across the 10 samples.
