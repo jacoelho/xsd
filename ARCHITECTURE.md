@@ -185,13 +185,22 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   finite dependency-work budget; active expansion has a depth cap of 1024.
   Content analysis has a separate finite work budget shared by consistency,
   restriction, ambiguity checks, compilation, and sealing.
+  UPA traversal uses one machine-word visitation tag per admitted model; each
+  root starts a distinct traversal without clearing the full table. Traversal
+  results and work charges are not shared across roots. DFA follows become
+  immutable after normalization. A compiler-local position-to-state cache
+  reuses normalized follows, while every lookup retains the same sequential
+  work charges. Only successful state lookup populates the cache; start
+  state normalization, discovery order, and state limits remain unchanged.
   The compiler owns one private `schemaBuild`. Registration and completion
-  update correlated tables together. There is no exported mutable builder or
-  forwarding layer between compiler and build state. Publication validates
-  semantic source invariants, constructs immutable execution tables once, and
-  consumes the build only on success. Failure preserves build data, while
-  completed work remains charged. Read tables are derived state; comparing each
-  table back to a duplicate runtime projection is not a second publication step.
+  update correlated tables together. Simple-type unavailability has one mutable
+  bitmap in that build; publication owns its immutable snapshot. There is no
+  exported mutable builder or forwarding layer between compiler and build state.
+  Publication validates semantic source invariants, constructs immutable
+  execution tables once, and consumes the build only on success. Failure preserves
+  build data, while completed work remains charged. Read tables are derived state;
+  comparing each table back to a duplicate runtime projection is not a second
+  publication step.
   Names, typed references, element constraints, derivation indexes, wildcard
   policies, substitution membership, and content execution remain schema-owned.
   Published value constraints own application text and an immutable namespace
@@ -327,6 +336,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   expression selects literal, linear, or NFA execution based on its structure.
   Compilation and matching have explicit work/state limits. XML input admission
   belongs to `internal/xmlstream`; match callers provide valid UTF-8 XML text.
+  The parser admits each AST constructor before allocating its node, including
+  constructors later removed by normalization. A failed admission stops parsing
+  at the current rune offset. Pattern byte admission and UTF-8 validation precede
+  parsing; rune conversion remains proportional to the admitted input bytes.
   Character classes merge sorted inputs through a heap of current ranges:
   total input ranges R across K nonempty sets require O(R log K) work and
   O(K + U) temporary storage for U output ranges, without retaining every
@@ -532,10 +545,13 @@ Validation flow:
    Identity evaluation reads immutable schema-owned selector/field programs and
    their precomputed dispatch indexes. One concrete evaluator owns the element identity stack, matching
    path, per-element ID state, document IDs and IDREFs, key/unique/keyref scopes,
-   pending selections, resource accounting, and reset/discard behavior. Value
-   targets carry depth from the authoritative XML document stack. Without
-   key/unique/keyref constraints, identity stays dormant until a validated value
-   produces an ID or IDREF, including a selected union member or dynamic type.
+   pending selections, resource accounting, and reset/discard behavior.
+   Scope closure unregisters only the closing scope's declarations
+   before popping it; reverse tail removal also unwinds partial registration.
+   A failed close leaves the unpopped scope registered. Value targets carry depth
+   from the authoritative XML document stack. Without key/unique/keyref constraints,
+   identity stays dormant until a validated value produces an ID or IDREF,
+   including a selected union member or dynamic type.
    Activation extends the same identity element stack to that depth. Dormant
    starts retain only the minimal activation checkpoint; first activation and
    recorded identities roll back on fatal start failure. The XML transaction
@@ -607,11 +623,14 @@ Validation flow:
    capacity only within the validation high-water bound. Identity dispatch resets
    and semantic discard apply that same bound to active-scope slices, selector
    hits, and the active-constraint map; the immutable schema dispatch index remains
-   reusable. `MaxIdentityEntries`
-   independently bounds stored identity entries, pending selector matches, and
-   pending field-value slots; selection admission checks both pending dimensions
-   before allocation or mutation. Retained diagnostic nodes are bounded by path
-   publication extensions; encoded segments and suffix-local namespace headers
+   reusable. Empty scope-dispatch buckets remain reusable and preserve the map's
+   high-water signal without requiring a scan on element close. Their keys are
+   bounded by schema constraint IDs.
+   `MaxIdentityEntries` independently bounds stored identity entries, pending
+   selector matches, and pending field-value slots; selection admission checks
+   both pending dimensions before allocation or mutation. Retained diagnostic
+   nodes are bounded by path publication extensions; encoded segments and
+   suffix-local namespace headers
    are bounded by retained path occurrences, admitted document structure and
    bytes, identity limits, and the session high-water policy. Hint batches stage
    only new namespaces and copy the bounded retained map only when committing an
@@ -819,6 +838,14 @@ graph preserves these ownership rules:
 - Refunding work after failed publication validation was rejected because the
   computation has already occurred; repeated failures would evade the aggregate
   work bound. Retryability preserves build data, not spent resources.
+- Sharing UPA results across roots was rejected because it changes traversal
+  work accounting. Root-local tags remove full-table clearing without changing
+  those traversals. Eager DFA follow interning was rejected because it changes
+  state discovery and limit-failure order; lazy position caching preserves both.
+- Scanning all identity scope indexes on every close was rejected because
+  unrelated constraints multiply lifecycle work. Closure callbacks and a second
+  registration journal were rejected because the concrete evaluator can unwind its existing
+  scope declarations directly.
 - An additional element-value slice projection was rejected because publication
   and validation already use the canonical packed element table. Tests observe
   published reads and independently corrupt packed projections instead of

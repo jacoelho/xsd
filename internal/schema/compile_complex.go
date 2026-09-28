@@ -818,7 +818,7 @@ func (c *compiler) compileSimpleContentFacetRestriction(facetChildren []*schemaN
 }
 
 func (c *compiler) compileSimpleContentFacetStep(facetChildren []*schemaNode, baseID SimpleTypeID, st *SimpleType) error {
-	if c.simpleTypeUnavailable[baseID] {
+	if c.rt.simpleTypeUnavailable[baseID] {
 		return c.validateUnavailableFacetChildren(facetChildren, st, baseID, facetChildModeExplicitList)
 	}
 	return c.compileFacetList(facetChildren, st, baseID, baseID)

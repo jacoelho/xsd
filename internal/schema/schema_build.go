@@ -345,7 +345,6 @@ func (c *compiler) addSimpleType(typ SimpleType) (SimpleTypeID, error) {
 	typ.Scope = DeclarationScopeNonGlobal
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, typ)
 	unavailable := c.simpleTypeHasMissingDependency(typ)
-	c.simpleTypeUnavailable = append(c.simpleTypeUnavailable, unavailable)
 	c.rt.simpleTypeUnavailable = append(c.rt.simpleTypeUnavailable, unavailable)
 	return id, nil
 }
@@ -354,7 +353,6 @@ func (c *compiler) completeSimpleType(id SimpleTypeID, typ SimpleType) error {
 	typ.Scope = c.rt.SimpleTypes[id].Scope
 	c.rt.SimpleTypes[id] = typ
 	unavailable := c.simpleTypeHasMissingDependency(typ)
-	c.simpleTypeUnavailable[id] = unavailable
 	c.rt.simpleTypeUnavailable[id] = unavailable
 	return c.completeValueType(id, typ)
 }
@@ -364,14 +362,14 @@ func (c *compiler) simpleTypeHasMissingDependency(typ SimpleType) bool {
 		return true
 	}
 	base := typ.ValueSpec.Base
-	if base != NoSimpleType && ValidSimpleTypeID(base, len(c.simpleTypeUnavailable)) && c.simpleTypeUnavailable[base] {
+	if base != NoSimpleType && ValidSimpleTypeID(base, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[base] {
 		return true
 	}
-	if typ.ValueSpec.Variety == SimpleVarietyList && ValidSimpleTypeID(typ.ValueSpec.ListItem, len(c.simpleTypeUnavailable)) && c.simpleTypeUnavailable[typ.ValueSpec.ListItem] {
+	if typ.ValueSpec.Variety == SimpleVarietyList && ValidSimpleTypeID(typ.ValueSpec.ListItem, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[typ.ValueSpec.ListItem] {
 		return true
 	}
 	for _, member := range typ.ValueSpec.Union {
-		if ValidSimpleTypeID(member, len(c.simpleTypeUnavailable)) && c.simpleTypeUnavailable[member] {
+		if ValidSimpleTypeID(member, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[member] {
 			return true
 		}
 	}

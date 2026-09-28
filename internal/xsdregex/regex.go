@@ -321,9 +321,6 @@ func (p *parser) parse() (*node, error) {
 	if p.pos != len(p.source) {
 		return nil, p.syntax("unexpected character")
 	}
-	if p.nodes > p.limits.MaxNodes {
-		return nil, p.limit("compiled node count exceeds limit")
-	}
 	return root, nil
 }
 
@@ -339,7 +336,7 @@ func (p *parser) parseRegexp(end rune) (*node, error) {
 			break
 		}
 	}
-	return p.alt(branches...), nil
+	return p.alt(branches...)
 }
 
 func (p *parser) parseBranch(end rune) (*node, error) {
@@ -355,7 +352,7 @@ func (p *parser) parseBranch(end rune) (*node, error) {
 		}
 		pieces = append(pieces, piece)
 	}
-	return p.concat(pieces...), nil
+	return p.concat(pieces...)
 }
 
 func (p *parser) parsePiece() (*node, error) {
@@ -369,19 +366,19 @@ func (p *parser) parsePiece() (*node, error) {
 	switch p.source[p.pos] {
 	case '?':
 		p.pos++
-		return p.repeat(atom, 0, 1, false), nil
+		return p.repeat(atom, 0, 1, false)
 	case '*':
 		p.pos++
-		return p.repeat(atom, 0, maxRepeat, true), nil
+		return p.repeat(atom, 0, maxRepeat, true)
 	case '+':
 		p.pos++
-		return p.repeat(atom, 1, maxRepeat, true), nil
+		return p.repeat(atom, 1, maxRepeat, true)
 	case '{':
 		quantifier, err := p.parseCountedQuantifier()
 		if err != nil {
 			return nil, err
 		}
-		return p.repeat(atom, quantifier.min, quantifier.max, quantifier.unbounded), nil
+		return p.repeat(atom, quantifier.min, quantifier.max, quantifier.unbounded)
 	default:
 		return atom, nil
 	}
@@ -866,10 +863,10 @@ func (p *parser) setNode(set rangeSet) (*node, error) {
 	if rangeCountExceeds(set, p.limits.MaxRanges) {
 		return nil, p.limit("pattern range count exceeds limit")
 	}
-	return p.newNode(nodeSet, set, nil, 0, 0), nil
+	return p.newNode(nodeSet, set, nil, 0, 0)
 }
 
-func (p *parser) concat(children ...*node) *node {
+func (p *parser) concat(children ...*node) (*node, error) {
 	flat := make([]*node, 0, len(children))
 	for _, child := range children {
 		if child == nil || child.kind == nodeEmpty {
@@ -885,12 +882,12 @@ func (p *parser) concat(children ...*node) *node {
 		return p.newNode(nodeEmpty, rangeSet{}, nil, 0, 0)
 	}
 	if len(flat) == 1 {
-		return flat[0]
+		return flat[0], nil
 	}
 	return p.newNode(nodeConcat, rangeSet{}, flat, 0, 0)
 }
 
-func (p *parser) alt(children ...*node) *node {
+func (p *parser) alt(children ...*node) (*node, error) {
 	flat := make([]*node, 0, len(children))
 	for _, child := range children {
 		if child == nil {
@@ -906,32 +903,33 @@ func (p *parser) alt(children ...*node) *node {
 		return p.newNode(nodeEmpty, rangeSet{}, nil, 0, 0)
 	}
 	if len(flat) == 1 {
-		return flat[0]
+		return flat[0], nil
 	}
 	return p.newNode(nodeAlt, rangeSet{}, flat, 0, 0)
 }
 
-func (p *parser) repeat(child *node, minRepeat, maxRepeat uint64, unbounded bool) *node {
+func (p *parser) repeat(child *node, minRepeat, maxRepeat uint64, unbounded bool) (*node, error) {
 	if maxRepeat == 0 || child.kind == nodeEmpty {
 		return p.newNode(nodeEmpty, rangeSet{}, nil, 0, 0)
 	}
 	if minRepeat == 1 && maxRepeat == 1 {
-		return child
+		return child, nil
 	}
-	repeat := p.newNode(nodeRepeat, rangeSet{}, []*node{child}, minRepeat, maxRepeat)
+	repeat, err := p.newNode(nodeRepeat, rangeSet{}, nil, minRepeat, maxRepeat)
+	if err != nil {
+		return nil, err
+	}
+	repeat.children = []*node{child}
 	repeat.unbounded = unbounded
-	return repeat
+	return repeat, nil
 }
 
-func (p *parser) newNode(kind nodeKind, set rangeSet, children []*node, minRepeat, maxRepeat uint64) *node {
-	p.nodes++
-	if p.nodes > p.limits.MaxNodes {
-		// The parser's callers return this through parse methods. A panic here
-		// would make malformed schema input process-fatal, so retain a compact
-		// empty marker; parse() performs the authoritative limit check below.
-		p.nodes = p.limits.MaxNodes + 1
+func (p *parser) newNode(kind nodeKind, set rangeSet, children []*node, minRepeat, maxRepeat uint64) (*node, error) {
+	if p.nodes >= p.limits.MaxNodes {
+		return nil, p.limit("compiled node count exceeds limit")
 	}
-	return &node{kind: kind, set: set, children: children, min: minRepeat, max: maxRepeat}
+	p.nodes++
+	return &node{kind: kind, set: set, children: children, min: minRepeat, max: maxRepeat}, nil
 }
 
 func (p *parser) take(want rune) bool {

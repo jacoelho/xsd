@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jacoelho/xsd"
 )
 
 const (
@@ -116,6 +118,42 @@ func TestLargeXMLLintBenchmark(t *testing.T) {
 		return
 	}
 	logLargeBenchmarkSummary(t, results)
+}
+
+// BenchmarkLargeIdentityValidation uses the README fixture and limits while
+// excluding CLI startup and schema compilation from the measured operation.
+func BenchmarkLargeIdentityValidation(b *testing.B) {
+	profile := generateIdentityProfile(b, b.TempDir(), defaultLargeBenchmarkIdentityRows)
+	engine, err := xsd.Compile(xsd.File(profile.schema))
+	if err != nil {
+		b.Fatal(err)
+	}
+	f, err := os.Open(profile.xml)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			b.Fatal(err)
+		}
+	})
+	opts := xsd.ValidateOptions{
+		MaxInstanceBytes:   profile.bytes,
+		MaxIdentityEntries: profile.maxIdentityEntries,
+	}
+	if err := engine.ValidateWithOptions(f, opts); err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(profile.bytes)
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			b.Fatal(err)
+		}
+		if err := engine.ValidateWithOptions(f, opts); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func largeBenchmarkConfigFromEnv(t *testing.T) largeBenchmarkConfig {
@@ -294,13 +332,13 @@ func generateStreamingProfile(t *testing.T, schema, dir string, size largeBenchm
 	return profile
 }
 
-func generateIdentityProfile(t *testing.T, dir string, rows int) largeBenchmarkProfile {
-	t.Helper()
+func generateIdentityProfile(tb testing.TB, dir string, rows int) largeBenchmarkProfile {
+	tb.Helper()
 	if rows > math.MaxInt/5 {
-		t.Fatal("identity row count is too large to derive a validation-entry budget")
+		tb.Fatal("identity row count is too large to derive a validation-entry budget")
 	}
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		t.Fatalf("MkdirAll(%s) error = %v", dir, err)
+		tb.Fatalf("MkdirAll(%s) error = %v", dir, err)
 	}
 	profile := largeBenchmarkProfile{
 		name:               "identity",
@@ -308,8 +346,8 @@ func generateIdentityProfile(t *testing.T, dir string, rows int) largeBenchmarkP
 		xml:                filepath.Join(dir, "document.xml"),
 		maxIdentityEntries: rows * 5,
 	}
-	writeFileString(t, profile.schema, largeIdentitySchema)
-	profile.bytes = writeLargeIdentityXML(t, profile.xml, rows)
+	writeFileString(tb, profile.schema, largeIdentitySchema)
+	profile.bytes = writeLargeIdentityXML(tb, profile.xml, rows)
 	return profile
 }
 
@@ -337,13 +375,13 @@ func removeAll(t *testing.T, dir string) {
 	}
 }
 
-func writeFileString(t *testing.T, path, data string) {
-	t.Helper()
+func writeFileString(tb testing.TB, path, data string) {
+	tb.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		t.Fatalf("MkdirAll(%s) error = %v", filepath.Dir(path), err)
+		tb.Fatalf("MkdirAll(%s) error = %v", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
-		t.Fatalf("WriteFile(%s) error = %v", path, err)
+		tb.Fatalf("WriteFile(%s) error = %v", path, err)
 	}
 }
 
@@ -501,49 +539,49 @@ const largeIdentitySchema = `<?xml version="1.0" encoding="UTF-8"?>
 </xs:schema>
 `
 
-func writeLargeIdentityXML(t *testing.T, path string, rows int) int64 {
-	t.Helper()
+func writeLargeIdentityXML(tb testing.TB, path string, rows int) int64 {
+	tb.Helper()
 	f, err := os.Create(path) //nolint:gosec // Large benchmark writes generated XML to configured output path.
 	if err != nil {
-		t.Fatalf("Create(%s) error = %v", path, err)
+		tb.Fatalf("Create(%s) error = %v", path, err)
 	}
 	defer func() {
 		if closeErr := f.Close(); closeErr != nil {
-			t.Fatalf("Close(%s) error = %v", path, closeErr)
+			tb.Fatalf("Close(%s) error = %v", path, closeErr)
 		}
 	}()
 	bw := bufio.NewWriterSize(f, 1<<20)
 	cw := &countingWriter{w: bw}
-	writeString(t, cw, `<?xml version="1.0" encoding="UTF-8"?><rows>`)
+	writeString(tb, cw, `<?xml version="1.0" encoding="UTF-8"?><rows>`)
 	for i := range rows {
 		if i == 0 {
-			writeFormatf(t, cw, `<row id="id%d" group="g%d"/>`, i, i)
+			writeFormatf(tb, cw, `<row id="id%d" group="g%d"/>`, i, i)
 			continue
 		}
-		writeFormatf(t, cw, `<row id="id%d" group="g%d" ref="id%d"/>`, i, i, i-1)
+		writeFormatf(tb, cw, `<row id="id%d" group="g%d" ref="id%d"/>`, i, i, i-1)
 	}
-	writeString(t, cw, `</rows>`)
+	writeString(tb, cw, `</rows>`)
 	if flushErr := bw.Flush(); flushErr != nil {
-		t.Fatalf("Flush(%s) error = %v", path, flushErr)
+		tb.Fatalf("Flush(%s) error = %v", path, flushErr)
 	}
 	info, err := f.Stat()
 	if err != nil {
-		t.Fatalf("Stat(%s) error = %v", path, err)
+		tb.Fatalf("Stat(%s) error = %v", path, err)
 	}
 	return info.Size()
 }
 
-func writeString(t *testing.T, w io.Writer, s string) {
-	t.Helper()
+func writeString(tb testing.TB, w io.Writer, s string) {
+	tb.Helper()
 	if _, err := io.WriteString(w, s); err != nil {
-		t.Fatalf("WriteString() error = %v", err)
+		tb.Fatalf("WriteString() error = %v", err)
 	}
 }
 
-func writeFormatf(t *testing.T, w io.Writer, format string, args ...any) {
-	t.Helper()
+func writeFormatf(tb testing.TB, w io.Writer, format string, args ...any) {
+	tb.Helper()
 	if _, err := fmt.Fprintf(w, format, args...); err != nil {
-		t.Fatalf("Fprintf() error = %v", err)
+		tb.Fatalf("Fprintf() error = %v", err)
 	}
 }
 

@@ -83,7 +83,6 @@ func (c *compiler) compileMappedSources(owned []source.Source) (*Schema, error) 
 // components may still extend these slices during compilation.
 func (c *compiler) reserveIndexedComponentStorage() error {
 	c.rt.SimpleTypes = slices.Grow(c.rt.SimpleTypes, len(c.simpleComponents))
-	c.simpleTypeUnavailable = slices.Grow(c.simpleTypeUnavailable, len(c.simpleComponents))
 	c.rt.simpleTypeUnavailable = slices.Grow(c.rt.simpleTypeUnavailable, len(c.simpleComponents))
 	if err := c.ensureValueBuilder().ReserveCapacity(len(c.simpleComponents)); err != nil {
 		return valueBuilderError(err)
@@ -133,7 +132,6 @@ type compilerBuildState struct {
 	localDone                 map[schemaNodeKey]ElementID
 	identityDeclared          map[schemaNodeKey]IdentityConstraintID
 	simpleListReach           simpleTypeListReachability
-	simpleTypeUnavailable     []bool
 	deferredAnonymousComplex  []deferredAnonymousComplex
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int
@@ -719,7 +717,7 @@ func (c *compiler) compileRestrictionBase(n *schemaNode, ctx *schemaContext) (Si
 }
 
 func (c *compiler) compileRestrictionFacets(n *schemaNode, st *SimpleType, base SimpleTypeID) error {
-	if c.simpleTypeUnavailable[base] {
+	if c.rt.simpleTypeUnavailable[base] {
 		return withSchemaCompileLocation(n, c.validateUnavailableFacetChildren(typedXSDChildren(n), st, base, facetChildModeDerivation))
 	}
 	return withSchemaCompileLocation(n, c.compileFacets(n, st, base, base))

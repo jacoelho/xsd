@@ -181,22 +181,47 @@ func (e *identityEvaluation) registerIdentityScope(scopeIndex int) error {
 	return nil
 }
 
-// discardClosedIdentityScopes removes entries whose scope stack index was
-// popped. The retained slices are compacted in place so closing an element
-// does not rebuild or allocate the dispatch index.
-func (e *identityEvaluation) discardClosedIdentityScopes(scopeLimit int) {
-	for id, active := range e.dispatch.activeByConstraint {
-		keep := 0
-		for _, entry := range active {
-			if entry.index >= scopeLimit {
-				continue
-			}
-			active[keep] = entry
-			keep++
+func (e *identityEvaluation) unregisterIdentityScope(scopeIndex int, constraints xsdSchema.IdentityConstraintIDs) {
+	for order := constraints.Len() - 1; order >= 0; order-- {
+		id, ok := constraints.At(order)
+		if !ok {
+			continue
 		}
-		clear(active[keep:])
-		e.dispatch.activeByConstraint[id] = active[:keep]
+		active := e.dispatch.activeByConstraint[id]
+		if len(active) == 0 {
+			continue
+		}
+		last := len(active) - 1
+		entry := active[last]
+		if entry.index != scopeIndex || entry.order != order {
+			continue
+		}
+		active[last] = identityActiveScope{}
+		e.dispatch.activeByConstraint[id] = active[:last]
 	}
+}
+
+// closeScopes owns scope membership cleanup because activeByConstraint is an
+// evaluator dispatch projection rather than canonical identity state. A scope
+// is removed from that projection before it is merged, cleared, and popped.
+func (e *identityEvaluation) closeScopes(depth int, report func(error) error) (bool, error) {
+	if e == nil {
+		return false, nil
+	}
+	invalid := false
+	for len(e.scopes) > 0 && e.scopes[len(e.scopes)-1].depth == depth {
+		index := len(e.scopes) - 1
+		scope := &e.scopes[index]
+		if err := validateIdentityScopeRefs(scope, report); err != nil {
+			return true, err
+		}
+		invalid = invalid || scope.invalid
+		e.unregisterIdentityScope(index, scope.constraints)
+		e.mergeClosedIdentityScope(scope)
+		*scope = identityScope{}
+		e.scopes = e.scopes[:index]
+	}
+	return invalid, nil
 }
 
 type identitySelectorHit struct {
@@ -534,6 +559,9 @@ func (e *identityEvaluation) abortStart() {
 	}
 	clear(e.idrefs[j.idrefsLen:])
 	e.idrefs = e.idrefs[:j.idrefsLen]
+	for index := len(e.scopes) - 1; index >= j.scopesLen; index-- {
+		e.unregisterIdentityScope(index, e.scopes[index].constraints)
+	}
 	clear(e.scopes[j.scopesLen:])
 	e.scopes = e.scopes[:j.scopesLen]
 	clear(e.selections[j.selectionsLen:])
@@ -548,7 +576,6 @@ func (e *identityEvaluation) abortStart() {
 	e.nextNodeID = j.nextNodeID
 	e.documentIdentityActive = j.documentIdentityActive
 	e.releaseTarget()
-	e.discardClosedIdentityScopes(len(e.scopes))
 	e.generation++
 	e.clearStartJournal()
 }
@@ -966,7 +993,6 @@ func (e *identityEvaluation) endElement(in identityElementEnd, report func(error
 	if err != nil {
 		return result, err
 	}
-	e.discardClosedIdentityScopes(len(e.scopes))
 	assessment := identityElementAssessmentValid
 	if invalid {
 		assessment = identityElementAssessmentInvalid

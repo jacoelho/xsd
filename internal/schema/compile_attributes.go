@@ -105,10 +105,10 @@ func readAttributeDeclValueConstraints(n *schemaNode, decl *AttributeDecl) {
 }
 
 func (c *compiler) validateAttributeValueConstraints(decl *AttributeDecl, n *schemaNode) error {
-	if !ValidSimpleTypeID(decl.Type, len(c.simpleTypeUnavailable)) {
+	if !ValidSimpleTypeID(decl.Type, len(c.rt.simpleTypeUnavailable)) {
 		return xsderrors.InternalInvariant("attribute value constraint references invalid simple type")
 	}
-	if c.simpleTypeUnavailable[decl.Type] {
+	if c.rt.simpleTypeUnavailable[decl.Type] {
 		decl.Default = nil
 		decl.Fixed = nil
 		return nil

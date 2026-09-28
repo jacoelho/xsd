@@ -758,7 +758,7 @@ func TestIdentityStateCloseScopesResolvesKeyRefWithinScope(t *testing.T) {
 	if err := finishSelectionsForTest(&state, info, 2, identityTestContext("/root", 8, 9), failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections() error = %v", err)
 	}
-	invalid, err := state.closeScopes(1, failIdentityReport(t))
+	invalid, err := closeIdentityScopesForTest(&state, 1, failIdentityReport(t))
 	if err != nil {
 		t.Fatalf("closeScopes() error = %v", err)
 	}
@@ -785,7 +785,7 @@ func TestIdentityStateCloseScopesReportsUnresolvedKeyRef(t *testing.T) {
 	}
 
 	var got error
-	invalid, err := state.closeScopes(1, func(err error) error {
+	invalid, err := closeIdentityScopesForTest(&state, 1, func(err error) error {
 		got = err
 		return nil
 	})
@@ -820,7 +820,7 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	if err := finishSelectionsForTest(&state, info, 3, identityTestContext("/root/a", 6, 7), failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(first child) error = %v", err)
 	}
-	if _, err := state.closeScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := closeIdentityScopesForTest(&state, 2, failIdentityReport(t)); err != nil {
 		t.Fatalf("closeScopes(first child) error = %v", err)
 	}
 
@@ -830,7 +830,7 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	if err := finishSelectionsForTest(&state, info, 3, identityTestContext("/root/b", 10, 11), failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(second child) error = %v", err)
 	}
-	if _, err := state.closeScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := closeIdentityScopesForTest(&state, 2, failIdentityReport(t)); err != nil {
 		t.Fatalf("closeScopes(second child) error = %v", err)
 	}
 
@@ -841,7 +841,7 @@ func TestIdentityStateMergedChildKeyConflictKeepsParentKeyRefUnresolved(t *testi
 	}
 
 	var got error
-	if _, err := state.closeScopes(1, func(err error) error {
+	if _, err := closeIdentityScopesForTest(&state, 1, func(err error) error {
 		got = err
 		return nil
 	}); err != nil {
@@ -972,7 +972,7 @@ func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T
 	if err := finishSelectionsForTest(&state, info, 3, identityTestContext("/root/group", 6, 7), failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(first child) error = %v", err)
 	}
-	if _, err := state.closeScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := closeIdentityScopesForTest(&state, 2, failIdentityReport(t)); err != nil {
 		t.Fatalf("closeScopes(first child) error = %v", err)
 	}
 
@@ -982,7 +982,7 @@ func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T
 	if err := finishSelectionsForTest(&state, info, 3, identityTestContext("/root/group", 10, 11), failIdentityReport(t)); err != nil {
 		t.Fatalf("FinishSelections(second child) error = %v", err)
 	}
-	if _, err := state.closeScopes(2, failIdentityReport(t)); err != nil {
+	if _, err := closeIdentityScopesForTest(&state, 2, failIdentityReport(t)); err != nil {
 		t.Fatalf("closeScopes(second child) error = %v", err)
 	}
 
@@ -993,7 +993,7 @@ func TestIdentityStateMergedChildKeyConflictUsesSelectedNodeNotPath(t *testing.T
 	}
 
 	var got error
-	if _, err := state.closeScopes(1, func(err error) error {
+	if _, err := closeIdentityScopesForTest(&state, 1, func(err error) error {
 		got = err
 		return nil
 	}); err != nil {
@@ -1054,6 +1054,13 @@ func finishSelectionsForTest(
 	s.selections = dst
 	s.truncateFieldValues()
 	return nil
+}
+
+func closeIdentityScopesForTest(s *identityState, depth int, report func(error) error) (bool, error) {
+	evaluation := identityEvaluation{identityState: *s}
+	invalid, err := evaluation.closeScopes(depth, report)
+	*s = evaluation.identityState
+	return invalid, err
 }
 
 func startIdentityScope(t *testing.T, state *identityState, constraints []xsdSchema.IdentityConstraintID, depth int, path string) {
