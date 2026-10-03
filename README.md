@@ -197,23 +197,13 @@ and allocations under both steady traffic and overlapping bursts. The
 
 ### Inspect errors
 
-Add `errors` and `"github.com/jacoelho/xsd/xsderrors"` to the imports. Pass the
-error returned by compilation or validation to this function:
+Add `"github.com/jacoelho/xsd/xsderrors"` to the imports. Pass the error returned
+by compilation or validation to this function:
 
 ```go
 func printDiagnostics(err error) {
-	if group, ok := errors.AsType[xsderrors.Errors](err); ok {
-		for i := range group.Len() {
-			fmt.Println(group.At(i))
-		}
-		return
-	}
-	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok {
-		fmt.Printf("%s [%s] %s:%d:%d: %s\n",
-			diagnostic.Category(), diagnostic.Code(), diagnostic.Path(),
-			diagnostic.Line(), diagnostic.Column(), diagnostic.Message())
-	} else if err != nil {
-		fmt.Println(err)
+	for _, diagnostic := range xsderrors.Flatten(err) {
+		fmt.Println(diagnostic)
 	}
 }
 ```
@@ -223,6 +213,14 @@ Multiple recoverable errors are returned as `xsderrors.Errors`; use `Len` and
 `At` to inspect them all. Categories are `schema_parse`, `schema_compile`,
 `unsupported`, `validation`, `format`, and `internal`.
 Use `xsderrors.IsUnsupported(err)` to detect unsupported features.
+`Error.Message()` contains the diagnostic message without its cause;
+`Error.Error()` renders the complete diagnostic and cause chain.
+Use `xsderrors.IsConclusiveValidation(err)` when an adapter must distinguish
+conclusive schema violations from malformed XML, resource failures, and other
+errors that prevent assessment. It returns true only when every independent
+diagnostic branch is a semantic validation failure. False also includes
+insufficient classification evidence; it does not establish that the document
+is valid.
 
 Missing roots and forbidden character data outside the root use
 `CodeValidationXML`. This replaces the previous `CodeValidationRoot` and

@@ -102,7 +102,7 @@ func (a *validationAdapter) validateXMLData(xmlText, xsdText string) validateRes
 	err := engine.ValidateWithOptions(strings.NewReader(xmlText), xsd.ValidateOptions{MaxErrors: maxValidationErrors})
 	if err != nil {
 		diagnostics := collectErrors(err, "xml")
-		if isConclusiveValidation(err) {
+		if xsderrors.IsConclusiveValidation(err) {
 			return validationInvalid(diagnostics)
 		}
 		return validationError(err, diagnostics)
@@ -164,34 +164,6 @@ func collectErrors(err error, source string) []errorOutput {
 		out = append(out, errorToOutput(item, source))
 	}
 	return out
-}
-
-func isConclusiveValidation(err error) bool {
-	items := xsderrors.Flatten(err)
-	if len(items) == 0 {
-		return false
-	}
-	for _, item := range items {
-		xerr, ok := errors.AsType[*xsderrors.Error](item)
-		if !ok || xerr == nil || xerr.Category() != xsderrors.CategoryValidation || xsderrors.IsUnsupported(item) {
-			return false
-		}
-		//nolint:exhaustive // Only conclusive assessment codes qualify; unknown codes fail closed.
-		switch xerr.Code() {
-		case xsderrors.CodeValidationRoot,
-			xsderrors.CodeValidationElement,
-			xsderrors.CodeValidationAttribute,
-			xsderrors.CodeValidationText,
-			xsderrors.CodeValidationType,
-			xsderrors.CodeValidationFacet,
-			xsderrors.CodeValidationContent,
-			xsderrors.CodeValidationNil,
-			xsderrors.CodeValidationIdentity:
-		default:
-			return false
-		}
-	}
-	return true
 }
 
 func errorToOutput(err error, source string) errorOutput {

@@ -39,6 +39,7 @@ var (
 	_ func(*xsd.Session, io.Reader) error                                   = (*xsd.Session).Validate
 	_ func(string, func() (io.ReadCloser, error)) xsd.SchemaSource          = xsd.Open
 	_ xsd.Resolver                                                          = xsd.ResolverFunc(func(string, string) (xsd.SchemaSource, error) { return xsd.SchemaSource{}, nil })
+	_ func(error) bool                                                       = xsderrors.IsConclusiveValidation
 )
 
 func TestExternalAPI(t *testing.T) {
@@ -53,6 +54,9 @@ func TestExternalAPI(t *testing.T) {
 	var xerr *xsderrors.Error
 	if !errors.As(err, &xerr) {
 		t.Fatalf("error type = %T", err)
+	}
+	if !xsderrors.IsConclusiveValidation(err) {
+		t.Fatalf("IsConclusiveValidation(%v) = false, want true", err)
 	}
 }
 `)

@@ -137,6 +137,12 @@ only the detailed module and flow sections reached by that route.
   immutable errors, owning error aggregates, the category/code catalog, one
   location decorator, one presentation projection, and unsupported-error
   inspection.
+  `IsConclusiveValidation` owns conservative semantic-failure classification.
+  It requires semantic evidence in every independent nonempty aggregate branch;
+  a nested nonsemantic structured diagnostic vetoes the result. Plain causes
+  can explain a semantic diagnostic only along a single-cause chain. Unknown
+  results remain inconclusive. This traversal is separate from `Flatten`, which
+  keeps structured diagnostics intact for presentation.
 
 Root `xsd` MAY adapt public options, source wrappers, and sessions to internal
 types. Root `xsd` MUST NOT expose old root-level diagnostics or formatting
