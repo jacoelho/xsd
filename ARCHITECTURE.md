@@ -278,6 +278,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   retains neither caller limits nor work counters; session limits remain fixed
   for each validation and scratch retains no cumulative work. Limit failures keep their
   schema or instance diagnostic category at the owning boundary.
+  Explicit fixed-string attributes enter admitted value validation before
+  their fixed comparison, without requesting unused projections. Already
+  validated constraints on omitted attributes retain their compiled-value path.
   Borrowed-byte and admitted-string validation consume UTF-8 XML 1.0 character
   data already checked by the stream boundary, including through typed fallback.
   Ordinary string validation admits external lexical input. All paths share

@@ -209,7 +209,11 @@ func (p declaredAttributePlan) canValidateRaw() bool {
 
 func (s *session) validateDeclaredAttributeFast(plan declaredAttributePlan, attr *xmlstream.Attr, rn xsdSchema.RuntimeName, ctx StartContext) (bool, error) {
 	if plan.canValidateFixedString() {
-		return true, validateFixedAttributeString(s.attributeValue(attr), plan.fixed, rn, ctx)
+		lexical := s.attributeValue(attr)
+		if _, err := s.validateAdmittedSimpleValue(plan.use.TypeID(), lexical, plan.input, 0); err != nil {
+			return true, simpleValueFacetError(ctx, "invalid attribute "+rn.Label(), err)
+		}
+		return true, validateFixedAttributeString(lexical, plan.fixed, rn, ctx)
 	}
 	// Statically known ID/IDREF types use the owned lexical path below.
 	// Union members can still produce document-identity projections here.
