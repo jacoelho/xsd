@@ -21,7 +21,7 @@ func (s *session) validateAttributes(typ xsdSchema.TypeID, attrs []xmlstream.Att
 	if !ok {
 		return xsderrors.InternalInvariant("complex attribute use set is invalid")
 	}
-	if len(attrs) == 0 && set.UseCount() == 0 && set.Wildcard() == xsdSchema.NoWildcard {
+	if len(attrs) == 0 && set.RequiredSlots().Len() == 0 && set.ValueConstraintSlots().Len() == 0 {
 		return nil
 	}
 	return s.validateAttributeSet(set, attrs, line, col)

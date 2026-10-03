@@ -358,6 +358,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   recovery, document structure, start/end element decisions, attributes,
   content, simple-content assessment, the concrete document-local identity
   evaluator and its lifecycle, XSI handling, and schemaLocation hint handling.
+  Attribute tracking is skipped only when no attributes are supplied and the
+  schema has neither required slots nor value-constraint slots. An unused
+  wildcard adds no work; explicit, required, default, and fixed assessment
+  otherwise follows the existing schema-owned slots.
   XSI identity conversion propagates value-work limit diagnostics after
   invalidating its fields and releasing the pending target; ordinary lexical
   conversion errors remain owned by start assessment. Each URI item in an XSI
