@@ -223,6 +223,69 @@ func TestInstanceValueWorkCoversProjectedAttributeValues(t *testing.T) {
 	}), xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
 }
 
+const valueWorkFixedAttributeSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType>
+    <xs:attribute name="ordinary" type="xs:string"/>
+    <xs:attribute name="fixed" type="xs:string" fixed="fixed"/>
+    <xs:attribute name="unicode" type="xs:string" fixed="é"/>
+    <xs:attribute name="identity" type="xs:string" fixed="x"/>
+  </xs:complexType>
+    <xs:unique name="identityKey"><xs:selector xpath="."/><xs:field xpath="@identity"/></xs:unique>
+  </xs:element>
+</xs:schema>`
+
+func TestInstanceValueWorkChargesFixedAttributeBeforeComparison(t *testing.T) {
+	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(valueWorkFixedAttributeSchema)))
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	for _, test := range []struct {
+		name  string
+		doc   string
+		limit uint64
+		want  xsderrors.Code
+	}{
+		{name: "ordinary below charge", doc: `<root ordinary="x"/>`, limit: 1, want: xsderrors.CodeValidationLimit},
+		{name: "ordinary at charge", doc: `<root ordinary="x"/>`, limit: 2},
+		{name: "fixed literal below charge", doc: `<root fixed="fixed"/>`, limit: 5, want: xsderrors.CodeValidationLimit},
+		{name: "fixed literal at charge", doc: `<root fixed="fixed"/>`, limit: 6},
+		{name: "fixed literal above charge", doc: `<root fixed="fixed"/>`, limit: 7},
+		{name: "fixed character references below decoded charge", doc: `<root fixed="&#x66;&#x69;&#x78;&#x65;&#x64;"/>`, limit: 5, want: xsderrors.CodeValidationLimit},
+		{name: "fixed character references at decoded charge", doc: `<root fixed="&#x66;&#x69;&#x78;&#x65;&#x64;"/>`, limit: 6},
+		{name: "fixed character references above decoded charge", doc: `<root fixed="&#x66;&#x69;&#x78;&#x65;&#x64;"/>`, limit: 7},
+		{name: "fixed nonASCII character reference below decoded byte charge", doc: `<root unicode="&#xE9;"/>`, limit: 2, want: xsderrors.CodeValidationLimit},
+		{name: "fixed nonASCII character reference at decoded byte charge", doc: `<root unicode="&#xE9;"/>`, limit: 3},
+		{name: "fixed nonASCII character reference above decoded byte charge", doc: `<root unicode="&#xE9;"/>`, limit: 4},
+		{name: "fixed mismatch below charge", doc: `<root fixed="fix&#x65;d!"/>`, limit: 6, want: xsderrors.CodeValidationLimit},
+		{name: "fixed mismatch after admission", doc: `<root fixed="fix&#x65;d!"/>`, limit: 7, want: xsderrors.CodeValidationAttribute},
+		{name: "identity selected below charge", doc: `<root identity="x"/>`, limit: 1, want: xsderrors.CodeValidationLimit},
+		{name: "identity selected at charge", doc: `<root identity="x"/>`, limit: 2},
+		{name: "omitted fixed reuses prevalidated value", doc: `<root/>`, limit: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			validationErr := engine.ValidateWithOptions(strings.NewReader(test.doc), xsd.ValidateOptions{
+				MaxInstanceValueWork: test.limit,
+			})
+			if test.want == "" {
+				if validationErr != nil {
+					t.Fatalf("ValidateWithOptions() error = %v", validationErr)
+				}
+				return
+			}
+			expectCategoryCode(t, validationErr, xsderrors.CategoryValidation, test.want)
+		})
+	}
+
+	session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceValueWork: 5})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+	expectCategoryCode(t, session.Validate(strings.NewReader(`<root fixed="fix&#x65;d"/>`)), xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
+	if err := session.Validate(strings.NewReader(`<root/>`)); err != nil {
+		t.Fatalf("Validate() after fixed attribute limit failure = %v", err)
+	}
+}
+
 const valueWorkDefaultFixedSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="long"><xs:restriction base="xs:string"><xs:minLength value="8"/></xs:restriction></xs:simpleType>
   <xs:element name="defaulted" type="long" default="longtext"/>

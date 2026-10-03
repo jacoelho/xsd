@@ -216,6 +216,72 @@ func TestFlattenKeepsPublicDiagnosticAsLeaf(t *testing.T) {
 	}
 }
 
+func TestIsConclusiveValidationTruthTable(t *testing.T) {
+	t.Parallel()
+
+	semantic := Validation(CodeValidationFacet, "invalid value", nil)
+	semanticWithPlainCause := Validation(CodeValidationFacet, "invalid value", errors.New("lexical failure"))
+	limit := Validation(CodeValidationLimit, "validation limit", nil)
+	unsupported := Unsupported(CodeUnsupportedDTD, "DTD", nil)
+	custom := customDiagnosticError{diagnostic: requireDiagnostic(t, semantic)}
+	var typedNil *Errors
+	var typedNilError error = typedNil
+	empty := Errors{}
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil},
+		{name: "empty aggregate", err: empty},
+		{name: "semantic", err: semantic, want: true},
+		{name: "semantic with plain cause", err: semanticWithPlainCause, want: true},
+		{name: "wrapped semantic", err: fmt.Errorf("document: %w", semantic), want: true},
+		{name: "wrapped empty aggregate", err: fmt.Errorf("empty: %w", empty)},
+		{name: "semantic and wrapped empty aggregate", err: errors.Join(semantic, fmt.Errorf("empty: %w", empty)), want: true},
+		{name: "semantic with structured limit cause", err: Validation(CodeValidationFacet, "invalid value", limit)},
+		{name: "semantic with joined plain causes", err: Validation(CodeValidationFacet, "invalid value", errors.Join(errors.New("first"), errors.New("second")))},
+		{name: "semantic with joined semantic causes", err: Validation(CodeValidationFacet, "invalid value", errors.Join(semantic, semanticWithPlainCause)), want: true},
+		{name: "semantic with wrapped empty aggregate cause", err: Validation(CodeValidationFacet, "invalid value", fmt.Errorf("empty: %w", empty)), want: true},
+		{name: "semantic with empty and semantic aggregate cause", err: Validation(CodeValidationFacet, "invalid value", errors.Join(fmt.Errorf("empty: %w", empty), semantic)), want: true},
+		{name: "two semantic branches", err: errors.Join(semantic, semanticWithPlainCause), want: true},
+		{name: "semantic and plain branch", err: errors.Join(semantic, errors.New("resource failure"))},
+		{name: "semantic and unsupported branch", err: errors.Join(semantic, unsupported)},
+		{name: "wrapped joined semantic branches", err: fmt.Errorf("assessment: %w", errors.Join(semantic, semanticWithPlainCause)), want: true},
+		{name: "custom As only", err: custom},
+		{name: "custom As only beneath semantic", err: Validation(CodeValidationFacet, "invalid value", custom)},
+		{name: "typed nil aggregate", err: typedNilError},
+		{name: "semantic with typed nil aggregate", err: Validation(CodeValidationFacet, "invalid value", typedNilError), want: true},
+		{name: "semantic element", err: Validation(CodeValidationElement, "invalid", nil), want: true},
+		{name: "semantic attribute", err: Validation(CodeValidationAttribute, "invalid", nil), want: true},
+		{name: "semantic text", err: Validation(CodeValidationText, "invalid", nil), want: true},
+		{name: "semantic type", err: Validation(CodeValidationType, "invalid", nil), want: true},
+		{name: "semantic content", err: Validation(CodeValidationContent, "invalid", nil), want: true},
+		{name: "semantic nil", err: Validation(CodeValidationNil, "invalid", nil), want: true},
+		{name: "semantic identity", err: Validation(CodeValidationIdentity, "invalid", nil), want: true},
+		{name: "unknown", err: errors.New("unknown failure")},
+		{name: "semantic collection", err: NewErrors(semantic, semanticWithPlainCause), want: true},
+		{name: "semantic and limit collection", err: NewErrors(semantic, limit)},
+		{name: "semantic root with nil cause", err: Validation(CodeValidationRoot, "missing root", nil), want: true},
+		{name: "XML diagnostic", err: Validation(CodeValidationXML, "malformed XML", nil)},
+		{name: "option diagnostic", err: Validation(CodeValidationOption, "invalid option", nil)},
+		{name: "session diagnostic", err: Validation(CodeValidationSession, "session busy", nil)},
+		{name: "limit diagnostic", err: limit},
+		{name: "unsupported diagnostic", err: unsupported},
+		{name: "internal diagnostic", err: InternalInvariant("broken invariant")},
+		{name: "schema diagnostic", err: SchemaCompile(CodeSchemaReference, "missing type")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := IsConclusiveValidation(test.err); got != test.want {
+				t.Fatalf("IsConclusiveValidation(%v) = %v, want %v", test.err, got, test.want)
+			}
+		})
+	}
+}
+
 func TestDiagnosticCatalogRejectsMismatchedCategoryAndCode(t *testing.T) {
 	t.Parallel()
 

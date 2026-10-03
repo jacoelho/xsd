@@ -11,8 +11,8 @@ import (
 const nilErrorString = "<nil>"
 
 // ErrSchemaNotFound reports that a resolver could not resolve a schema. A
-// resolver miss must return this error without joining another cause; a joined
-// error is a fatal resolver failure.
+// resolver miss may wrap or join this error with other resolver misses; a
+// joined error containing any other cause is a fatal resolver failure.
 var ErrSchemaNotFound = errors.New("schema not found")
 
 // Category identifies the operation class that produced an error.
@@ -235,6 +235,141 @@ func NewErrors(children ...error) error {
 func Flatten(err error) []error {
 	flat, _ := appendFlattened(nil, err)
 	return flat
+}
+
+// IsConclusiveValidation reports whether err contains only conclusive schema
+// validation failures. A conclusive result has at least one semantic
+// validation diagnostic and no independent branch or nested structured
+// diagnostic that prevents assessment. False includes insufficient evidence
+// and does not imply that the document is valid.
+//
+// Plain causes may explain a semantic diagnostic along a single cause chain.
+// Aggregate causes are assessed branch by branch, so every non-empty branch
+// must independently contain a semantic validation diagnostic. Presentation
+// projection is intentionally separate; use Flatten when diagnostics need to
+// be rendered.
+func IsConclusiveValidation(err error) bool {
+	return assessConclusiveValidation(err) == validationConclusive
+}
+
+type validationAssessment uint8
+
+const (
+	validationAbsent validationAssessment = iota
+	validationInconclusive
+	validationConclusive
+)
+
+func assessConclusiveValidation(err error) validationAssessment {
+	if isNilDiagnostic(err) {
+		return validationAbsent
+	}
+	switch direct := err.(type) { //nolint:errorlint // Classification depends on canonical public shapes.
+	case *Error:
+		if direct == nil {
+			return validationAbsent
+		}
+		if !isConclusiveValidationDiagnostic(direct) || !conclusiveDiagnosticCause(direct.cause) {
+			return validationInconclusive
+		}
+		return validationConclusive
+	case Errors:
+		return assessConclusiveValidationAggregate(direct.children)
+	case *Errors:
+		if direct == nil {
+			return validationAbsent
+		}
+		return assessConclusiveValidationAggregate(direct.children)
+	case interface{ Unwrap() []error }:
+		return assessConclusiveValidationAggregate(direct.Unwrap())
+	case interface{ Unwrap() error }:
+		return assessConclusiveValidation(direct.Unwrap())
+	default:
+		return validationInconclusive
+	}
+}
+
+func assessConclusiveValidationAggregate(children []error) validationAssessment {
+	result := validationAbsent
+	for _, child := range children {
+		if isNilDiagnostic(child) {
+			continue
+		}
+		branch := assessConclusiveValidation(child)
+		if branch == validationAbsent {
+			continue
+		}
+		if branch != validationConclusive {
+			return validationInconclusive
+		}
+		result = validationConclusive
+	}
+	return result
+}
+
+func conclusiveDiagnosticCause(cause error) bool {
+	if isNilDiagnostic(cause) {
+		return true
+	}
+	switch direct := cause.(type) { //nolint:errorlint // Cause policy distinguishes aggregate and canonical diagnostics.
+	case *Error:
+		return assessConclusiveValidation(direct) == validationConclusive
+	case Errors:
+		return conclusiveDiagnosticAggregateCause(direct.children)
+	case *Errors:
+		if direct == nil {
+			return true
+		}
+		return conclusiveDiagnosticAggregateCause(direct.children)
+	case interface{ Unwrap() []error }:
+		return conclusiveDiagnosticAggregateCause(direct.Unwrap())
+	case interface{ Unwrap() error }:
+		return conclusiveDiagnosticCause(direct.Unwrap())
+	default:
+		// An opaque As-only wrapper cannot establish semantic evidence or
+		// safely explain a structured diagnostic hidden behind it.
+		if _, ok := cause.(interface{ As(target any) bool }); ok {
+			return false
+		}
+		return true
+	}
+}
+
+func conclusiveDiagnosticAggregateCause(children []error) bool {
+	for _, child := range children {
+		if isNilDiagnostic(child) {
+			continue
+		}
+		assessment := assessConclusiveValidation(child)
+		if assessment == validationAbsent {
+			continue
+		}
+		if assessment != validationConclusive {
+			return false
+		}
+	}
+	return true
+}
+
+func isConclusiveValidationDiagnostic(err *Error) bool {
+	if err == nil || err.category != CategoryValidation {
+		return false
+	}
+	//nolint:exhaustive // Semantic allowlist deliberately rejects every other diagnostic.
+	switch err.code {
+	case CodeValidationRoot,
+		CodeValidationElement,
+		CodeValidationAttribute,
+		CodeValidationText,
+		CodeValidationType,
+		CodeValidationFacet,
+		CodeValidationContent,
+		CodeValidationNil,
+		CodeValidationIdentity:
+		return true
+	default:
+		return false
+	}
 }
 
 // appendFlattened reports whether err contains an aggregate that replaced its

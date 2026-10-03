@@ -137,6 +137,12 @@ only the detailed module and flow sections reached by that route.
   immutable errors, owning error aggregates, the category/code catalog, one
   location decorator, one presentation projection, and unsupported-error
   inspection.
+  `IsConclusiveValidation` owns conservative semantic-failure classification.
+  It requires semantic evidence in every independent nonempty aggregate branch;
+  a nested nonsemantic structured diagnostic vetoes the result. Plain causes
+  can explain a semantic diagnostic only along a single-cause chain. Unknown
+  results remain inconclusive. This traversal is separate from `Flatten`, which
+  keeps structured diagnostics intact for presentation.
 
 Root `xsd` MAY adapt public options, source wrappers, and sessions to internal
 types. Root `xsd` MUST NOT expose old root-level diagnostics or formatting
@@ -278,6 +284,9 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   retains neither caller limits nor work counters; session limits remain fixed
   for each validation and scratch retains no cumulative work. Limit failures keep their
   schema or instance diagnostic category at the owning boundary.
+  Explicit fixed-string attributes enter admitted value validation before
+  their fixed comparison, without requesting unused projections. Already
+  validated constraints on omitted attributes retain their compiled-value path.
   Borrowed-byte and admitted-string validation consume UTF-8 XML 1.0 character
   data already checked by the stream boundary, including through typed fallback.
   Ordinary string validation admits external lexical input. All paths share
@@ -355,6 +364,10 @@ types/functions; those belong to `xsderrors` and `internal/format`.
   recovery, document structure, start/end element decisions, attributes,
   content, simple-content assessment, the concrete document-local identity
   evaluator and its lifecycle, XSI handling, and schemaLocation hint handling.
+  Attribute tracking is skipped only when no attributes are supplied and the
+  schema has neither required slots nor value-constraint slots. An unused
+  wildcard adds no work; explicit, required, default, and fixed assessment
+  otherwise follows the existing schema-owned slots.
   XSI identity conversion propagates value-work limit diagnostics after
   invalidating its fields and releasing the pending target; ordinary lexical
   conversion errors remain owned by start assessment. Each URI item in an XSI
