@@ -241,7 +241,7 @@ func (c *compiler) resolveTypeQName(q QName) (TypeID, error) {
 		return SimpleRef(id), nil
 	}
 	if _, ok := c.complexComponents[q]; ok {
-		id, err := c.compileComplexByQName(q)
+		id, err := c.compileComplexReference(q)
 		if err != nil {
 			return TypeID{}, err
 		}

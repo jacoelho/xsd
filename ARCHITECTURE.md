@@ -524,7 +524,9 @@ Compilation flow:
    Source loading, graph planning, and component resolution consume one aggregate
    dependency-work budget. Component references also enter a bounded active
    expansion stack; cache hits remain charged, while cycles retain their specific
-   schema diagnostics. Once every effective target namespace is known, the compiler indexes one
+   schema diagnostics. Only derivation forms a complex-type cycle: a complex
+   type reached through an element declaration while its base compiles,
+   named or anonymous, is registered and completed as soon as that base is. Once every effective target namespace is known, the compiler indexes one
    declaration representative for each content fingerprint and effective
    namespace while retaining every source occurrence for resolver traversal and
    graph validation. It compiles schema components and populates a compiler-owned
