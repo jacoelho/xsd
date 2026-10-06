@@ -132,16 +132,25 @@ type compilerBuildState struct {
 	localDone                 map[schemaNodeKey]ElementID
 	identityDeclared          map[schemaNodeKey]IdentityConstraintID
 	simpleListReach           simpleTypeListReachability
-	deferredAnonymousComplex  []deferredAnonymousComplex
+	deferredComplex           []deferredComplex
 	pendingElementConstraints []pendingElementConstraint
 	unionMemberEntries        int
 }
 
-type deferredAnonymousComplex struct {
-	node *schemaNode
-	ctx  *schemaContext
-	name QName
-	id   ComplexTypeID
+// deferredComplex is a complex type reached through an element declaration
+// while the base it derives from is still compiling. Its ID is registered so
+// the declaration can refer to it; its definition is compiled as soon as the
+// base is complete. Recursion through element declarations is legal XSD; only
+// recursion through derivation is a cycle.
+type deferredComplex struct {
+	// node and ctx define an anonymous type; raw is a global component.
+	node  *schemaNode
+	ctx   *schemaContext
+	raw   schemaComponent
+	name  QName
+	base  QName
+	id    ComplexTypeID
+	scope complexTypeScope
 }
 
 type compilerCycleState struct {
@@ -301,8 +310,11 @@ func (c *compiler) compileGlobalElements() error {
 }
 
 func (c *compiler) finalizeCompiledGlobals() error {
-	if err := c.drainDeferredAnonymousComplex(); err != nil {
+	if err := c.drainDeferredComplex(); err != nil {
 		return err
+	}
+	if len(c.deferredComplex) != 0 {
+		return xsderrors.InternalInvariant("deferred complex type left incomplete")
 	}
 	if err := c.compileSubstitutions(); err != nil {
 		return err
